@@ -34,6 +34,6 @@ export class ComerciosRepository {
   }
 
   async listar(filtros: { estado?: EstadoComercio } = {}): Promise<ComercioDocument[]> {
-    return this.comercioModel.find(filtros).lean().exec();
+    return this.comercioModel.find(filtros).lean().exec() as Promise<ComercioDocument[]>;
   }
 }

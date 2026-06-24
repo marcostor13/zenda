@@ -3,6 +3,7 @@ export * from './enums/vertical.enum';
 export * from './enums/rol.enum';
 export * from './enums/reserva-estado.enum';
 export * from './enums/pago-estado.enum';
+export * from './enums/pago-pasarela.enum';
 
 // Constants
 export * from './constants';
@@ -11,3 +12,11 @@ export * from './constants';
 export * from './dtos/auth/login.dto';
 export * from './dtos/auth/registro.dto';
 export * from './dtos/auth/auth-response.dto';
+
+// DTOs — Payments
+export * from './dtos/payments/crear-payment-intent.dto';
+export * from './dtos/payments/payment-intent-response.dto';
+
+// DTOs — Admin
+export * from './dtos/admin/comision-config.dto';
+export * from './dtos/admin/reporte-financiero.dto';

@@ -111,6 +111,10 @@ export class BookingsService {
     return reserva.save();
   }
 
+  async obtenerPorId(id: string): Promise<ReservaDocument | null> {
+    return this.reservaModel.findById(id).exec();
+  }
+
   async listarPorUsuario(usuarioId: string): Promise<ReservaDocument[]> {
     return this.reservaModel
       .find({ usuarioId })

@@ -444,7 +444,92 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 
 ---
 
-## 11. Monorepo — única fuente de código (front + back)
+## 11. Pagos — Stripe (único método de pago)
+
+> **Decisión:** La única pasarela de pago es **Stripe**. No se integran Culqi, Izipay ni Yape en esta versión. Toda la lógica de pago se encapsula detrás de la interfaz `PaymentGateway` para poder añadir pasarelas en el futuro sin tocar el core.
+
+### 11.1 Costos Stripe (a reflejar siempre en los reportes del admin)
+
+| Tipo de transacción | Tarifa Stripe |
+|---|---|
+| Tarjeta nacional (Visa/MC Perú) | **2.9% + $0.30 USD** por transacción exitosa |
+| Tarjeta internacional | **3.9% + $0.30 USD** |
+| Conversión de moneda (USD→PEN) | +1.5% adicional si la tarjeta es en USD |
+
+> **Convención del sistema:** El `stripeFee` se calcula sobre el `montoTotal` en PEN al tipo de cambio del momento. Para el MVP usar **2.9% + S/1.10** (equivalente aproximado de $0.30 USD a ~S/3.7; ajustar con tipo de cambio real). Esto se configura en `ComisionConfig` en la BD.
+
+### 11.2 Modelo de comisiones por vertical
+
+**Jerarquía de comisiones (de mayor a menor prioridad):**
+1. `comisionPctOverride` del comercio (si está seteado, gana sobre todo)
+2. `comisionPct` de la configuración del vertical (seteada por el admin)
+3. `COMISION_PCT_DEFAULT` = 15% (fallback global en `constants.ts`)
+
+```
+comisionPlataforma = montoSubtotal × comisionPct (15% default)
+stripeFee          = montoTotal × 0.029 + 1.10    (S/)
+liquidacionComercio = montoTotal - comisionPlataforma - stripeFee
+igv                = montoSubtotal × 0.18
+montoTotal         = montoSubtotal + igv
+```
+
+**Comisiones iniciales por vertical (configurables desde el admin):**
+
+| Vertical | Comisión plataforma (default) | Justificación |
+|---|---|---|
+| Hoteles | **15%** | Estándar mercado peruano |
+| Vuelos | **8%** | Margen bajo por competencia |
+| Taxis | **20%** | Operación on-demand de alto volumen |
+| Transporte | **12%** | B2B, tickets altos |
+| Guardería | **10%** | Servicio social, sensible al precio |
+
+Estos valores se almacenan en la colección `comision_configs` y son editables desde el panel admin sin redeploy.
+
+### 11.3 Esquema `comision_configs` (nueva colección)
+
+```
+_id
+vertical: VerticalKey | 'global'   // 'global' = fallback para todos
+comisionPct: number                 // 0.15 = 15%
+stripePct: number                   // 0.029
+stripeFijoSoles: number             // 1.10
+activo: boolean
+actualizadoPor: ObjectId (admin)
+createdAt, updatedAt
+```
+
+### 11.4 Flujo de pago con Stripe (webhook-driven)
+
+```
+1. Cliente inicia reserva → BookingsService.crear() → SlotHold temporal
+2. Frontend llama POST /payments/intent → PaymentsService crea PaymentIntent en Stripe
+   - Devuelve clientSecret al frontend
+3. Frontend confirma con Stripe.js (sin que el card data toque nuestro servidor)
+4. Stripe llama al webhook POST /payments/webhook
+   - payment_intent.succeeded → confirmar reserva + calcular liquidación
+   - payment_intent.payment_failed → liberar SlotHold
+5. Liquidación al comercio: monto - comisión plataforma - Stripe fee
+```
+
+> **Idempotencia:** el webhook handler verifica `pago.estado` antes de procesar; si ya es `aprobado`, ignora el evento duplicado.
+
+### 11.5 Reportes financieros del admin
+
+El panel admin debe mostrar **siempre** los tres niveles de la ganancia:
+
+| Columna en reporte | Fórmula |
+|---|---|
+| GMV (valor bruto reservas) | Suma de `montoTotal` de reservas confirmadas |
+| Ingresos plataforma | Suma de `comisionMonto` |
+| Costos Stripe | Suma de `stripeFee` de cada pago |
+| **Margen neto plataforma** | Ingresos plataforma − Costos Stripe |
+| Liquidaciones a comercios | Suma de `montoLiquidacion` |
+
+**Filtros de reporte:** rango de fechas, vertical, comercio específico, estado de reserva.
+
+---
+
+## 16. Monorepo — única fuente de código (front + back)
 
 > **Regla absoluta:** frontend Angular y backend NestJS viven en el **mismo repositorio Git**. No hay repos separados. El monorepo usa **npm workspaces** para que ambas apps compartan el paquete `libs/shared` sin publicar a npm.
 
@@ -469,7 +554,7 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 
 ---
 
-## 12. Skills y convenciones por tecnología
+## 17. Skills y convenciones por tecnología
 
 ### 12.1 TypeScript (todos los workspaces)
 - `strict: true` en todos los `tsconfig.json`. Sin `any` explícito; usar `unknown` + type-guard si aplica.
@@ -515,7 +600,7 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 
 ---
 
-## 13. Principios SOLID aplicados al proyecto
+## 18. Principios SOLID aplicados al proyecto
 
 ### S — Single Responsibility
 - Cada clase/servicio hace **una sola cosa**: `ReservasService` gestiona reservas, no calcula precios.
@@ -540,7 +625,7 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 
 ---
 
-## 14. Clean Code — reglas obligatorias
+## 19. Clean Code — reglas obligatorias
 
 ### Nombres
 - Variables, funciones y parámetros: **verbos para funciones** (`confirmarReserva`, `calcularComision`), **sustantivos para datos** (`reserva`, `comercioId`).
@@ -564,7 +649,7 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 
 ---
 
-## 15. Convenciones de testing — regla de oro
+## 20. Convenciones de testing — regla de oro
 
 > **Cada archivo de producción tiene su archivo `.spec.ts` correspondiente, creado en el mismo momento que el archivo de producción.** No hay PRs sin tests.
 

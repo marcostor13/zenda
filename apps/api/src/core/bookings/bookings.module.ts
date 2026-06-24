@@ -10,6 +10,6 @@ import { AvailabilityModule } from '../availability/availability.module';
     AvailabilityModule,
   ],
   providers: [BookingsService],
-  exports: [BookingsService],
+  exports: [BookingsService, MongooseModule],
 })
 export class BookingsModule {}

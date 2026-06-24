@@ -11,6 +11,7 @@ import { PaymentsModule } from './core/payments/payments.module';
 import { ReviewsModule } from './core/reviews/reviews.module';
 import { NotificationsModule } from './core/notifications/notifications.module';
 import { AdminModule } from './core/admin/admin.module';
+import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
 import { HotelesModule } from './verticals/hoteles/hoteles.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { HotelesModule } from './verticals/hoteles/hoteles.module';
     ReviewsModule,
     NotificationsModule,
     AdminModule,
+    ComisionConfigsModule,
     HotelesModule,
   ],
 })
