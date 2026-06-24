@@ -115,8 +115,7 @@ export class BookingsService {
     return this.reservaModel
       .find({ usuarioId })
       .sort({ createdAt: -1 })
-      .lean()
-      .exec();
+      .exec() as Promise<ReservaDocument[]>;
   }
 
   private generarCodigo(): string {

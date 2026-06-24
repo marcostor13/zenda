@@ -5,8 +5,11 @@ const config: Config = {
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.spec.json' }],
+    '^.+\\.mjs$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.spec.json' }],
   },
+  transformIgnorePatterns: ['node_modules/(?!(nanoid)/)'],
+  extensionsToTreatAsEsm: [],
   collectCoverageFrom: ['**/*.(t|j)s', '!**/*.module.ts', '!**/main.ts'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',

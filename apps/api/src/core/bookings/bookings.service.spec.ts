@@ -41,7 +41,7 @@ describe('BookingsService', () => {
       releaseSlot: jest.fn().mockResolvedValue(undefined),
     };
 
-    const mockConstructor = jest.fn().mockImplementation(() => ({
+    const mockConstructor: any = jest.fn().mockImplementation(() => ({
       ...reservaMock,
       save: jest.fn().mockResolvedValue(reservaMock),
     }));
