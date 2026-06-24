@@ -1,0 +1,65 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api:
+    name: API (NestJS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint API
+        run: npm run lint --workspace=api
+
+      - name: Tests API (con cobertura)
+        run: npm run test --workspace=api
+
+      - name: Build API
+        run: npm run build --workspace=api
+
+      - name: Deploy API (Coolify webhook)
+        if: github.ref == 'refs/heads/main'
+        run: curl -fsSL -X POST "${{ secrets.COOLIFY_WEBHOOK_URL }}"
+
+  web:
+    name: Web (Angular)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint Web
+        run: npm run lint --workspace=web
+
+      - name: Tests Web (con cobertura)
+        run: npm run test --workspace=web
+
+      - name: Build Web
+        run: npm run build --workspace=web
+
+      - name: Deploy Web (Netlify)
+        if: github.ref == 'refs/heads/main'
+        run: npx netlify deploy --prod --dir=apps/web/dist/web/browser
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

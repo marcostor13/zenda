@@ -1,0 +1,22 @@
+{
+  "name": "reservalo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=api",
+    "dev:web": "npm run dev --workspace=web",
+    "build:api": "npm run build --workspace=api",
+    "build:web": "npm run build --workspace=web",
+    "test": "npm run test --workspaces --if-present",
+    "test:api": "npm run test --workspace=api",
+    "test:web": "npm run test --workspace=web",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
