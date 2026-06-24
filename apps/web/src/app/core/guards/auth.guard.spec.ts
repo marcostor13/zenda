@@ -4,11 +4,11 @@ import { authGuard } from './auth.guard';
 import { AuthService } from '../auth/auth.service';
 
 describe('authGuard', () => {
-  let authService: jest.Mocked<AuthService>;
+  let authService: { estaAutenticado: () => boolean };
   let router: jest.Mocked<Router>;
 
   beforeEach(() => {
-    authService = { estaAutenticado: jest.fn() } as any;
+    authService = { estaAutenticado: jest.fn().mockReturnValue(false) };
     router = { createUrlTree: jest.fn().mockReturnValue('/auth/login') } as any;
 
     TestBed.configureTestingModule({
