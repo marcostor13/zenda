@@ -52,7 +52,7 @@ export class AdminService {
       {
         comisionPct: dto.comisionPct,
         stripePct: dto.stripePct,
-        stripeFijoSoles: dto.stripeFijoSoles,
+        stripeFijoEur: dto.stripeFijoEur,
         activo: dto.activo,
       },
       adminId,

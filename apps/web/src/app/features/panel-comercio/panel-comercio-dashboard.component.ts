@@ -19,7 +19,7 @@ import { hotelImage } from '../../shared/media/images';
       <div class="sidebar-brand">
         <div class="sidebar-brand__logo">🏨</div>
         <div>
-          <div class="sidebar-brand__name">Casa Andina</div>
+          <div class="sidebar-brand__name">Gran Hotel Madrid</div>
           <div class="sidebar-brand__plan rs-badge rs-badge--accent">Pro</div>
         </div>
       </div>
@@ -99,7 +99,7 @@ import { hotelImage } from '../../shared/media/images';
                   <td><code>{{ r.codigo }}</code></td>
                   <td>{{ r.huesped }}</td>
                   <td>{{ r.fechas }}</td>
-                  <td>S/ {{ r.total }}</td>
+                  <td>€{{ r.total }}</td>
                   <td><span class="rs-badge" [class]="r.badgeClass">{{ r.estado }}</span></td>
                   <td><a [routerLink]="['/comercio/reservas', r.codigo]" class="rs-btn rs-btn--ghost rs-btn--xs">Ver</a></td>
                 </tr>
@@ -128,7 +128,7 @@ import { hotelImage } from '../../shared/media/images';
             <div style="font-size:var(--f-sm);color:var(--t-400)">Comisión plataforma: 15%</div>
             <div class="fin-row" style="font-size:var(--f-md)">
               <strong style="color:var(--t-100)">Liquidación estimada</strong>
-              <strong style="color:var(--c-teal)">S/ 3,422</strong>
+              <strong style="color:var(--c-teal)">€3,422</strong>
             </div>
           </div>
         </div>
@@ -251,7 +251,7 @@ import { hotelImage } from '../../shared/media/images';
 })
 export class PanelComercioDashboardComponent {
   readonly kpis = [
-    { icon: '💰', label: 'GMV del mes',   value: 'S/ 4,032', trend: '+18%', trendUp: true },
+    { icon: '💰', label: 'GMV del mes',   value: '€4,032', trend: '+18%', trendUp: true },
     { icon: '📅', label: 'Reservas',       value: '23',       trend: '+5',   trendUp: true },
     { icon: '🏨', label: 'Ocupación',      value: '78%',      trend: '+3%',  trendUp: true },
     { icon: '⭐', label: 'Rating promedio',value: '4.8',      trend: '+0.1', trendUp: true },
@@ -265,9 +265,9 @@ export class PanelComercioDashboardComponent {
   ];
 
   readonly financiero = [
-    { label: 'Ingresos brutos',      value: 'S/ 4,032' },
-    { label: 'Comisión plataforma',  value: '− S/ 605',  color: '#F87171' },
-    { label: 'Fee Stripe',            value: '− S/ 5',    color: '#F87171' },
+    { label: 'Ingresos brutos',      value: '€4,032' },
+    { label: 'Comisión plataforma',  value: '− €605',  color: '#F87171' },
+    { label: 'Fee Stripe',            value: '− €5',    color: '#F87171' },
   ];
 
   readonly listados = signal([

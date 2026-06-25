@@ -40,7 +40,7 @@ export class Servicio {
   @Prop({ required: true, type: Number })
   precioBase!: number;
 
-  @Prop({ default: 'PEN' })
+  @Prop({ default: 'EUR' })
   moneda!: string;
 
   @Prop({ default: false })

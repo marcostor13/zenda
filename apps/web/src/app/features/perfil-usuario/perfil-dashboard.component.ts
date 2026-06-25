@@ -217,7 +217,7 @@ export class PerfilDashboardComponent {
   readonly reservasRecientes = [
     {
       codigo: 'RES-A1B2C3',
-      titulo: 'Casa Andina Premium',
+      titulo: 'Gran Hotel Madrid',
       fecha: '15 Jul 2026',
       imagen: hotelImage(0, 200),
       estado: '✓ Confirmada',

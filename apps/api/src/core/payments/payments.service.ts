@@ -6,12 +6,12 @@ import { PaymentGateway, PAYMENT_GATEWAY } from './payment-gateway.interface';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { BookingsService } from '../bookings/bookings.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { PagoEstado, PaymentIntentResponseDto, IGV_RATE } from 'shared';
+import { PagoEstado, PaymentIntentResponseDto, IVA_RATE } from 'shared';
 import { ReservaDocument } from '../bookings/reserva.schema';
 
 export interface DesglosePago {
   montoSubtotal: number;
-  igvMonto: number;
+  ivaMonto: number;
   montoTotal: number;
   comisionPlataforma: number;
   stripeFee: number;
@@ -70,7 +70,7 @@ export class PaymentsService {
       montoTotal: desglose.montoTotal,
       moneda: reserva.moneda,
       montoSubtotal: desglose.montoSubtotal,
-      igvMonto: desglose.igvMonto,
+      ivaMonto: desglose.ivaMonto,
       comisionPlataforma: desglose.comisionPlataforma,
       stripeFee: desglose.stripeFee,
       montoLiquidacion: desglose.montoLiquidacion,
@@ -133,12 +133,12 @@ export class PaymentsService {
     const config = await this.comisionConfigRepo.obtenerComisionEfectiva(reserva.vertical);
 
     const montoSubtotal = reserva.montoSubtotal;
-    const igvMonto = Math.round(montoSubtotal * IGV_RATE * 100) / 100;
-    const montoTotal = Math.round((montoSubtotal + igvMonto) * 100) / 100;
+    const ivaMonto = Math.round(montoSubtotal * IVA_RATE * 100) / 100;
+    const montoTotal = Math.round((montoSubtotal + ivaMonto) * 100) / 100;
     const comisionPlataforma = Math.round(montoSubtotal * config.comisionPct * 100) / 100;
-    const stripeFee = Math.round((montoTotal * config.stripePct + config.stripeFijoSoles) * 100) / 100;
+    const stripeFee = Math.round((montoTotal * config.stripePct + config.stripeFijoEur) * 100) / 100;
     const montoLiquidacion = Math.round((montoTotal - comisionPlataforma - stripeFee) * 100) / 100;
 
-    return { montoSubtotal, igvMonto, montoTotal, comisionPlataforma, stripeFee, montoLiquidacion };
+    return { montoSubtotal, ivaMonto, montoTotal, comisionPlataforma, stripeFee, montoLiquidacion };
   }
 }

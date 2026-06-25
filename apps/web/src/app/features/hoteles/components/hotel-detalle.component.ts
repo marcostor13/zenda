@@ -143,9 +143,9 @@ import { HotelesService, HotelDetalle, Habitacion } from '../services/hoteles.se
                 </div>
                 <div class="room-card__price">
                   @if (hab.precioAnterior) {
-                    <div class="rs-price__old">S/ {{ hab.precioAnterior }}</div>
+                    <div class="rs-price__old">€{{ hab.precioAnterior }}</div>
                   }
-                  <div class="room-price-amount">S/ {{ hab.precio }}</div>
+                  <div class="room-price-amount">€{{ hab.precio }}</div>
                   <div style="font-size:var(--f-xs);color:var(--t-400)">por noche</div>
                   @if (hab.disponible) {
                     <button class="rs-btn rs-btn--primary rs-btn--block"
@@ -233,12 +233,12 @@ import { HotelesService, HotelDetalle, Habitacion } from '../services/hoteles.se
 
           <div class="booking-panel__price">
             <div class="bp-desde">Desde</div>
-            <div class="bp-amount">S/ {{ habitacionSelec()?.precio ?? hotel()!.precioPorNoche }}</div>
+            <div class="bp-amount">€{{ habitacionSelec()?.precio ?? hotel()!.precioPorNoche }}</div>
             <div class="bp-per">por noche</div>
           </div>
 
           <div style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-bottom:var(--sp-5)">
-            Impuestos e IGV incluidos
+            Impuestos e IVA incluidos
           </div>
 
           <button class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
@@ -467,8 +467,8 @@ export class HotelDetalleComponent implements OnInit {
 
   private mockDetalle(id: string): HotelDetalle {
     return {
-      id, nombre: 'Casa Andina Premium Miraflores', ciudad: 'Lima', barrio: 'Miraflores',
-      direccion: 'Av. La Paz 463', estrellas: 5, score: 9.2, scoreLabel: 'Excepcional',
+      id, nombre: 'Gran Hotel Madrid Salamanca', ciudad: 'Madrid', barrio: 'Salamanca',
+      direccion: 'Calle de Serrano 463', estrellas: 5, score: 9.2, scoreLabel: 'Excepcional',
       numResenas: 2840, precioPorNoche: 320, precioAnterior: 420, descuentoPct: 24,
       imagenes: [
         hotelImage(0, 900),
@@ -479,17 +479,17 @@ export class HotelDetalleComponent implements OnInit {
       ],
       amenities: ['🌊 Piscina', '🅿️ Parking', '🍳 Desayuno', '💆 Spa', '🏋️ Gimnasio', '🍸 Bar', '🛎️ Concierge 24h', '♿ Accesible', '🐾 Mascotas', '🏊 Jacuzzi', '🌿 Jardín', '📶 WiFi gratis'],
       cancelacionGratis: true, desayunoIncluido: true, habitacionesDisponibles: 4, destacado: true,
-      descripcion: 'Ubicado en el corazón de Miraflores, a pasos del malecón y los mejores restaurantes de Lima, Casa Andina Premium ofrece una experiencia de lujo con el carácter único de la hotelería peruana. Disfruta de vistas panorámicas al Pacífico, gastronomía de nivel mundial y un spa de clase internacional.',
+      descripcion: 'Ubicado en el corazón de Salamanca, a pasos del paseo y los mejores restaurantes de Madrid, Gran Hotel Madrid ofrece una experiencia de lujo con el carácter único de la hotelería europea. Disfruta de vistas panorámicas al Mediterráneo, gastronomía de nivel mundial y un spa de clase internacional.',
       politicaCancelacion: 'Cancelación gratuita hasta 24 horas antes del check-in.',
       checkIn: 'A partir de las 3:00 PM', checkOut: 'Hasta las 12:00 PM (mediodía)',
       habitaciones: [
         { id: 'h1-r1', tipo: 'Habitación Superior', descripcion: 'Cómoda habitación con vista a la piscina y amenities de lujo.', capacidad: 2, camas: '1 cama matrimonial', tamano: 32, precio: 320, precioAnterior: 420, amenities: ['📶 WiFi', '❄️ A/C', '📺 Smart TV', '☕ Máquina de café'], imagenes: [hotelImage(1, 600)], disponible: true, cancelacionGratis: true },
-        { id: 'h1-r2', tipo: 'Suite Junior Vista al Mar', descripcion: 'Suite con sala de estar y vistas panorámicas al océano Pacífico.', capacidad: 2, camas: '1 king bed', tamano: 52, precio: 580, amenities: ['📶 WiFi', '❄️ A/C', '📺 Smart TV', '♨️ Jacuzzi', '🛁 Bañera'], imagenes: [hotelImage(3, 600)], disponible: true, cancelacionGratis: true },
+        { id: 'h1-r2', tipo: 'Suite Junior Vista al Mar', descripcion: 'Suite con sala de estar y vistas panorámicas al mar Mediterráneo.', capacidad: 2, camas: '1 king bed', tamano: 52, precio: 580, amenities: ['📶 WiFi', '❄️ A/C', '📺 Smart TV', '♨️ Jacuzzi', '🛁 Bañera'], imagenes: [hotelImage(3, 600)], disponible: true, cancelacionGratis: true },
         { id: 'h1-r3', tipo: 'Suite Presidential', descripcion: 'Nuestra suite más exclusiva con comedor privado y terraza panorámica.', capacidad: 4, camas: '2 king beds', tamano: 120, precio: 1200, precioAnterior: 1500, amenities: ['📶 WiFi', '❄️ A/C', '📺 4K TV', '♨️ Jacuzzi privado', '🍷 Botella bienvenida', '🛁 Bañera doble'], imagenes: [hotelImage(8, 600)], disponible: false, cancelacionGratis: false },
       ],
       resenas: [
-        { id: 'r1', autorNombre: 'María García', autorAvatar: '👩‍💼', fecha: 'Junio 2026', score: 9.8, titulo: 'Una experiencia increíble', texto: 'Todo fue perfecto desde el momento en que llegamos. El personal es exceptcionalmente amable, la habitación tenía unas vistas al mar impresionantes. El desayuno buffet es uno de los mejores que he probado en Lima.', pais: 'Perú', tipoViaje: 'Pareja', desglose: { limpieza: 10, ubicacion: 10, servicios: 9.5, valorPrecio: 9, confort: 10, personal: 10 }, respuestaComercio: '¡Muchas gracias, María! Fue un placer tenerte con nosotros. Esperamos verte pronto.' },
-        { id: 'r2', autorNombre: 'James Wilson', autorAvatar: '👨‍💻', fecha: 'Mayo 2026', score: 9.0, titulo: 'Excellent location and service', texto: 'Perfect for business travel. The location in Miraflores is ideal, walking distance to great restaurants. Fast WiFi and comfortable workspace in the room.', pais: 'Estados Unidos', tipoViaje: 'Negocios', desglose: { limpieza: 9, ubicacion: 10, servicios: 9, valorPrecio: 8.5, confort: 9, personal: 9 } },
+        { id: 'r1', autorNombre: 'María García', autorAvatar: '👩‍💼', fecha: 'Junio 2026', score: 9.8, titulo: 'Una experiencia increíble', texto: 'Todo fue perfecto desde el momento en que llegamos. El personal es exceptcionalmente amable, la habitación tenía unas vistas al mar impresionantes. El desayuno buffet es uno de los mejores que he probado en Madrid.', pais: 'España', tipoViaje: 'Pareja', desglose: { limpieza: 10, ubicacion: 10, servicios: 9.5, valorPrecio: 9, confort: 10, personal: 10 }, respuestaComercio: '¡Muchas gracias, María! Fue un placer tenerte con nosotros. Esperamos verte pronto.' },
+        { id: 'r2', autorNombre: 'James Wilson', autorAvatar: '👨‍💻', fecha: 'Mayo 2026', score: 9.0, titulo: 'Excellent location and service', texto: 'Perfect for business travel. The location in Salamanca is ideal, walking distance to great restaurants. Fast WiFi and comfortable workspace in the room.', pais: 'Reino Unido', tipoViaje: 'Negocios', desglose: { limpieza: 9, ubicacion: 10, servicios: 9, valorPrecio: 8.5, confort: 9, personal: 9 } },
       ],
       scoreDesglose: { limpieza: 9.5, ubicacion: 9.8, servicios: 9.2, valorPrecio: 8.9, confort: 9.4, personal: 9.6 },
       reglas: ['No fumar en habitaciones', 'Check-in mínimo 18 años', 'Mascotas permitidas (cargo adicional)', 'Sin fiestas ni eventos'],

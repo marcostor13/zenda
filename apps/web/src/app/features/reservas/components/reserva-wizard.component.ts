@@ -53,8 +53,8 @@ type Paso = 1 | 2 | 3 | 4;
               <div class="reserva-summary__hotel">
                 <img src="https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=200" alt="Hotel" rsImg />
                 <div>
-                  <h3>Casa Andina Premium Miraflores</h3>
-                  <p>📍 Miraflores, Lima · ★★★★★</p>
+                  <h3>Gran Hotel Madrid Salamanca</h3>
+                  <p>📍 Salamanca, Madrid · ★★★★★</p>
                   <span class="rs-badge rs-badge--success">✓ Cancelación gratis</span>
                 </div>
               </div>
@@ -95,8 +95,8 @@ type Paso = 1 | 2 | 3 | 4;
               <div class="rs-field">
                 <label class="rs-lbl">Tipo de habitación</label>
                 <select formControlName="habitacionId" class="rs-inp rs-inp--lg">
-                  <option value="h1-r1">Habitación Superior — S/ 320/noche</option>
-                  <option value="h1-r2">Suite Junior Vista al Mar — S/ 580/noche</option>
+                  <option value="h1-r1">Habitación Superior — €320/noche</option>
+                  <option value="h1-r2">Suite Junior Vista al Mar — €580/noche</option>
                 </select>
               </div>
 
@@ -110,7 +110,7 @@ type Paso = 1 | 2 | 3 | 4;
                       <div class="extra-item__icon">{{ extra.icon }}</div>
                       <div class="extra-item__info">
                         <div class="extra-item__name">{{ extra.nombre }}</div>
-                        <div class="extra-item__price">S/ {{ extra.precio }}</div>
+                        <div class="extra-item__price">€{{ extra.precio }}</div>
                       </div>
                     </label>
                   }
@@ -151,18 +151,17 @@ type Paso = 1 | 2 | 3 | 4;
 
               <div class="rs-field">
                 <label class="rs-lbl">Teléfono</label>
-                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+51 999 999 999" />
+                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+34 600 000 000" />
               </div>
 
               <div class="rs-field">
                 <label class="rs-lbl">País de residencia</label>
                 <select formControlName="pais" class="rs-inp rs-inp--lg">
-                  <option value="PE">Perú</option>
-                  <option value="CO">Colombia</option>
-                  <option value="AR">Argentina</option>
-                  <option value="CL">Chile</option>
-                  <option value="US">Estados Unidos</option>
                   <option value="ES">España</option>
+                  <option value="FR">Francia</option>
+                  <option value="IT">Italia</option>
+                  <option value="DE">Alemania</option>
+                  <option value="PT">Portugal</option>
                   <option value="other">Otro</option>
                 </select>
               </div>
@@ -213,7 +212,7 @@ type Paso = 1 | 2 | 3 | 4;
                        (change)="metodoPago.set('yape')" />
                 <div class="payment-option__icon">📱</div>
                 <div>
-                  <div class="payment-option__name">Yape</div>
+                  <div class="payment-option__name">Bizum</div>
                   <div class="payment-option__brands">Pago móvil instantáneo</div>
                 </div>
               </label>
@@ -250,7 +249,7 @@ type Paso = 1 | 2 | 3 | 4;
             @if (metodoPago() === 'yape') {
               <div class="yape-placeholder">
                 <div style="font-size:3rem;text-align:center;margin-bottom:var(--sp-4)">📱</div>
-                <p style="text-align:center;color:var(--t-300)">Escanea el QR con tu app Yape para pagar S/ {{ total() }}</p>
+                <p style="text-align:center;color:var(--t-300)">Escanea el QR con tu app Bizum para pagar €{{ total() }}</p>
                 <div class="qr-mock">QR aquí</div>
               </div>
             }
@@ -265,7 +264,7 @@ type Paso = 1 | 2 | 3 | 4;
                 @if (procesando()) {
                   <span class="rs-spin"></span> Procesando…
                 } @else {
-                  🔒 Pagar S/ {{ total() }}
+                  🔒 Pagar €{{ total() }}
                 }
               </button>
             </div>
@@ -287,7 +286,7 @@ type Paso = 1 | 2 | 3 | 4;
             <div class="confirmation__details rs-card">
               <div class="cd-row">
                 <span>🏨 Hotel</span>
-                <strong>Casa Andina Premium Miraflores</strong>
+                <strong>Gran Hotel Madrid Salamanca</strong>
               </div>
               <div class="cd-row">
                 <span>📅 Fechas</span>
@@ -299,7 +298,7 @@ type Paso = 1 | 2 | 3 | 4;
               </div>
               <div class="cd-row">
                 <span>💰 Total pagado</span>
-                <strong class="rs-gradient-text">S/ {{ total() }}</strong>
+                <strong class="rs-gradient-text">€{{ total() }}</strong>
               </div>
             </div>
 
@@ -323,29 +322,29 @@ type Paso = 1 | 2 | 3 | 4;
 
             <div class="price-row">
               <span>Habitación Superior × 2 noches</span>
-              <span>S/ 640</span>
+              <span>€640</span>
             </div>
             @for (extra of extrasSelec(); track extra) {
               <div class="price-row">
                 <span>{{ extraNombre(extra) }}</span>
-                <span>S/ {{ extraPrecio(extra) }}</span>
+                <span>€{{ extraPrecio(extra) }}</span>
               </div>
             }
             <hr class="rs-hr" style="margin-block:var(--sp-4)">
             <div class="price-row price-row--sub">
               <span>Subtotal</span>
-              <span>S/ {{ subtotal() }}</span>
+              <span>€{{ subtotal() }}</span>
             </div>
             <div class="price-row price-row--sub">
-              <span>IGV (18%)</span>
-              <span>S/ {{ igv() }}</span>
+              <span>IVA (21%)</span>
+              <span>€{{ igv() }}</span>
             </div>
             <div class="price-row price-row--total">
               <span>Total</span>
-              <span>S/ {{ total() }}</span>
+              <span>€{{ total() }}</span>
             </div>
             <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-4)">
-              Precio final en soles peruanos. El cargo se hará en el momento de confirmar.
+              Precio final en euros. El cargo se hará en el momento de confirmar.
             </p>
 
             <hr class="rs-hr" style="margin-block:var(--sp-5)">
@@ -520,7 +519,7 @@ export class ReservaWizardComponent implements OnInit {
     apellidos:      ['', Validators.required],
     email:          ['', [Validators.required, Validators.email]],
     telefono:       ['', Validators.required],
-    pais:           ['PE'],
+    pais:           ['ES'],
     peticiones:     [''],
     aceptaTerminos: [false, Validators.requiredTrue],
   });
@@ -540,7 +539,7 @@ export class ReservaWizardComponent implements OnInit {
     return base + extTotal;
   });
 
-  readonly igv   = computed(() => Math.round(this.subtotal() * 0.18));
+  readonly igv   = computed(() => Math.round(this.subtotal() * 0.21));
   readonly total = computed(() => this.subtotal() + this.igv());
 
   ngOnInit(): void {

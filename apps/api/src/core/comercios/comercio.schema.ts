@@ -14,7 +14,7 @@ export class Comercio {
   razonSocial!: string;
 
   @Prop({ required: true, unique: true })
-  ruc!: string;
+  vatNumber!: string;
 
   @Prop({ required: true })
   nombreComercial!: string;
@@ -43,4 +43,4 @@ export class Comercio {
 
 export const ComercioSchema = SchemaFactory.createForClass(Comercio);
 
-ComercioSchema.index({ ruc: 1 }, { unique: true });
+ComercioSchema.index({ vatNumber: 1 }, { unique: true });

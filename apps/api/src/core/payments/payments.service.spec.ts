@@ -6,7 +6,7 @@ import { PAYMENT_GATEWAY, PaymentGateway } from './payment-gateway.interface';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { BookingsService } from '../bookings/bookings.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { PagoEstado, VerticalKey, IGV_RATE } from 'shared';
+import { PagoEstado, VerticalKey, IVA_RATE } from 'shared';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -21,7 +21,7 @@ describe('PaymentsService', () => {
     comercioId: { toString: () => 'comercio-1' },
     vertical: VerticalKey.HOTELES,
     montoSubtotal: 500,
-    moneda: 'PEN',
+    moneda: 'EUR',
     reservaId: 'reserva-1',
   };
 
@@ -29,7 +29,7 @@ describe('PaymentsService', () => {
     vertical: VerticalKey.HOTELES,
     comisionPct: 0.15,
     stripePct: 0.029,
-    stripeFijoSoles: 1.1,
+    stripeFijoEur: 1.1,
   };
 
   const pagoMock = {
@@ -37,7 +37,7 @@ describe('PaymentsService', () => {
     reservaId: 'reserva-1',
     usuarioId: 'user-1',
     montoTotal: 590,
-    moneda: 'PEN',
+    moneda: 'EUR',
     estado: PagoEstado.INICIADO,
     stripePaymentIntentId: 'pi_test',
     stripeMetadata: { clientSecret: 'pi_test_secret' },
@@ -116,14 +116,14 @@ describe('PaymentsService', () => {
       const desglose = await service.calcularDesglose(reservaMock);
 
       const subtotal = 500;
-      const igv = Math.round(subtotal * IGV_RATE * 100) / 100; // 90
+      const igv = Math.round(subtotal * IVA_RATE * 100) / 100; // 90
       const total = subtotal + igv; // 590
       const comision = Math.round(subtotal * 0.15 * 100) / 100; // 75
       const stripeFee = Math.round((total * 0.029 + 1.1) * 100) / 100;
       const liquidacion = Math.round((total - comision - stripeFee) * 100) / 100;
 
       expect(desglose.montoSubtotal).toBe(subtotal);
-      expect(desglose.igvMonto).toBe(igv);
+      expect(desglose.ivaMonto).toBe(igv);
       expect(desglose.montoTotal).toBe(total);
       expect(desglose.comisionPlataforma).toBe(comision);
       expect(desglose.stripeFee).toBe(stripeFee);

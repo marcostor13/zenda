@@ -26,7 +26,7 @@ export class Pago {
   montoSubtotal!: number;
 
   @Prop({ required: true, type: Number })
-  igvMonto!: number;
+  ivaMonto!: number;
 
   @Prop({ required: true, type: Number })
   comisionPlataforma!: number;

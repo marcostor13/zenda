@@ -5,7 +5,7 @@ import { ComisionConfigRepository } from '../comision-configs/comision-config.re
 import { ComerciosRepository } from '../comercios/comercios.repository';
 import { Pago } from '../payments/pago.schema';
 import { Reserva } from '../bookings/reserva.schema';
-import { VerticalKey, PagoEstado, IGV_RATE } from 'shared';
+import { VerticalKey, PagoEstado, IVA_RATE } from 'shared';
 
 describe('AdminService', () => {
   let service: AdminService;
@@ -18,7 +18,7 @@ describe('AdminService', () => {
       reservaId: { toString: () => 'res-1' },
       montoTotal: 590,
       montoSubtotal: 500,
-      igvMonto: 90,
+      ivaMonto: 90,
       comisionPlataforma: 75,   // 500 × 15%
       stripeFee: 18.21,          // 590 × 2.9% + 1.1
       montoLiquidacion: 496.79,
@@ -28,7 +28,7 @@ describe('AdminService', () => {
       reservaId: { toString: () => 'res-2' },
       montoTotal: 295,
       montoSubtotal: 250,
-      igvMonto: 45,
+      ivaMonto: 45,
       comisionPlataforma: 37.5,
       stripeFee: 9.66,
       montoLiquidacion: 247.84,
@@ -111,7 +111,7 @@ describe('AdminService', () => {
         vertical: VerticalKey.HOTELES as any,
         comisionPct: 0.18,
         stripePct: 0.029,
-        stripeFijoSoles: 1.1,
+        stripeFijoEur: 1.1,
         activo: true,
       };
 

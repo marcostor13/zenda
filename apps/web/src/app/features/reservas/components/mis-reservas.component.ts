@@ -69,7 +69,7 @@ interface ReservaCard {
 
           <div class="reserva-row__aside">
             <div class="reserva-row__codigo">{{ r.codigo }}</div>
-            <div class="reserva-row__precio">S/ {{ r.total }}</div>
+            <div class="reserva-row__precio">€{{ r.total }}</div>
             <div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-4)">
               <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--outline rs-btn--sm">Ver detalle</a>
               @if (r.estado === 'confirmada') {
@@ -178,7 +178,7 @@ export class MisReservasComponent {
       codigo: 'RES-A1B2C3',
       vertical: 'Hotel',
       emoji: '🏨',
-      titulo: 'Casa Andina Premium Miraflores',
+      titulo: 'Gran Hotel Madrid Salamanca',
       subtitulo: 'Habitación Superior · 2 noches',
       imagen: hotelImage(0, 400),
       fechaInicio: '15 Jul 2026',
@@ -190,8 +190,8 @@ export class MisReservasComponent {
       codigo: 'RES-D4E5F6',
       vertical: 'Taxi',
       emoji: '🚗',
-      titulo: 'Traslado Aeropuerto Jorge Chávez',
-      subtitulo: 'Lima → Miraflores · Sedán',
+      titulo: 'Traslado Aeropuerto Adolfo Suárez',
+      subtitulo: 'Madrid → Salamanca · Sedán',
       imagen: hotelImage(7, 400),
       fechaInicio: '14 Jul 2026',
       fechaFin: '14 Jul 2026',
@@ -202,7 +202,7 @@ export class MisReservasComponent {
       codigo: 'RES-G7H8I9',
       vertical: 'Hotel',
       emoji: '🏨',
-      titulo: 'Belmond Miraflores Park',
+      titulo: 'Belmond Madrid',
       subtitulo: 'Suite Deluxe Vista al Mar · 3 noches',
       imagen: hotelImage(8, 400),
       fechaInicio: '20 Ago 2026',

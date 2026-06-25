@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { Reserva, ReservaDocument } from './reserva.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { VerticalKey, ReservaEstado, IGV_RATE, COMISION_PCT_DEFAULT } from 'shared';
+import { VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT } from 'shared';
 import { nanoid } from 'nanoid';
 
 export interface CrearReservaParams {
@@ -50,8 +50,8 @@ export class BookingsService {
     const montoSubtotal = precioBase;
     const comisionPct = params.comisionPct ?? COMISION_PCT_DEFAULT;
     const comisionMonto = montoSubtotal * comisionPct;
-    const igv = montoSubtotal * IGV_RATE;
-    const montoTotal = montoSubtotal + igv;
+    const iva = montoSubtotal * IVA_RATE;
+    const montoTotal = montoSubtotal + iva;
 
     const reserva = new this.reservaModel({
       codigo: this.generarCodigo(),

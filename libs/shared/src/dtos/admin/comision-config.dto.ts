@@ -18,7 +18,7 @@ export class ActualizarComisionDto {
 
   @IsNumber()
   @Min(0)
-  stripeFijoSoles!: number;
+  stripeFijoEur!: number;
 
   @IsBoolean()
   activo!: boolean;

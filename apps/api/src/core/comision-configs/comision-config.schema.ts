@@ -12,11 +12,11 @@ export class ComisionConfig {
   @Prop({ required: true, type: Number })
   comisionPct!: number; // ej. 0.15 = 15%
 
-  @Prop({ required: true, type: Number, default: 0.029 })
-  stripePct!: number; // 2.9%
+  @Prop({ required: true, type: Number, default: 0.015 })
+  stripePct!: number; // 1.5% (tarjetas EEE)
 
-  @Prop({ required: true, type: Number, default: 1.1 })
-  stripeFijoSoles!: number; // ~$0.30 USD en soles
+  @Prop({ required: true, type: Number, default: 0.25 })
+  stripeFijoEur!: number; // €0.25 por transacción
 
   @Prop({ default: true })
   activo!: boolean;

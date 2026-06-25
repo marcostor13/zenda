@@ -5,7 +5,7 @@ import { Comercio, ComercioDocument, EstadoComercio } from './comercio.schema';
 
 export interface CrearComercioParams {
   razonSocial: string;
-  ruc: string;
+  vatNumber: string;
   nombreComercial: string;
   logoUrl?: string;
 }
@@ -20,8 +20,8 @@ export class ComerciosRepository {
     return this.comercioModel.findById(id).exec();
   }
 
-  async findByRuc(ruc: string): Promise<ComercioDocument | null> {
-    return this.comercioModel.findOne({ ruc }).exec();
+  async findByVatNumber(vatNumber: string): Promise<ComercioDocument | null> {
+    return this.comercioModel.findOne({ vatNumber }).exec();
   }
 
   async crear(params: CrearComercioParams): Promise<ComercioDocument> {

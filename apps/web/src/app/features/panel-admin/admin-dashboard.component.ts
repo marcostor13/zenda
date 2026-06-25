@@ -109,7 +109,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
                   <strong>{{ c.nombre }}</strong>
                   <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-1);flex-wrap:wrap">
                     <span class="rs-badge rs-badge--purple">{{ c.vertical }}</span>
-                    <span style="font-size:var(--f-xs);color:var(--t-400)">RUC {{ c.ruc }}</span>
+                    <span style="font-size:var(--f-xs);color:var(--t-400)">NIF {{ c.nif }}</span>
                   </div>
                 </div>
                 <div style="display:flex;gap:var(--sp-2)">
@@ -142,7 +142,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
                 <span class="ultima-reserva__emoji">{{ r.emoji }}</span>
                 <div class="ultima-reserva__info">
                   <div>{{ r.huesped }} · <strong>{{ r.servicio }}</strong></div>
-                  <div>S/ {{ r.total }} · {{ r.hora }}</div>
+                  <div>€{{ r.total }} · {{ r.hora }}</div>
                 </div>
                 <span class="{{ 'rs-badge ' + r.badgeClass }}">{{ r.estado }}</span>
               </div>
@@ -176,7 +176,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
                        [value]="c.pct" (input)="c.pct = +$any($event).target.value" />
                 <span style="color:var(--t-400)">%</span>
               </div>
-              <span style="color:var(--t-400);font-size:var(--f-sm)">2.9% + S/1.10</span>
+              <span style="color:var(--t-400);font-size:var(--f-sm)">1.5% + €0.25</span>
               <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
                 <input type="checkbox" [checked]="c.activo" (change)="c.activo = !c.activo"
                        style="accent-color:var(--c-accent)" />
@@ -280,32 +280,32 @@ export class AdminDashboardComponent {
   readonly guardadoMsg = signal(false);
 
   readonly globalKpis = [
-    { icon: '💰', label: 'GMV total',       value: 'S/ 84,320', trend: '+22%', trendUp: true,  color: 'rgba(84,114,248,.2)' },
-    { icon: '🏆', label: 'Ingresos netos',  value: 'S/ 11,240', trend: '+18%', trendUp: true,  color: 'rgba(0,201,177,.2)' },
+    { icon: '💰', label: 'GMV total',       value: '€84,320', trend: '+22%', trendUp: true,  color: 'rgba(84,114,248,.2)' },
+    { icon: '🏆', label: 'Ingresos netos',  value: '€11,240', trend: '+18%', trendUp: true,  color: 'rgba(0,201,177,.2)' },
     { icon: '📅', label: 'Reservas totales',value: '412',        trend: '+34',  trendUp: true,  color: 'rgba(155,92,246,.2)' },
     { icon: '🏪', label: 'Comercios activos',value: '38',        trend: '+5',   trendUp: true,  color: 'rgba(250,204,21,.2)' },
     { icon: '👥', label: 'Usuarios nuevos', value: '1,204',      trend: '+14%', trendUp: true,  color: 'rgba(248,113,113,.2)' },
   ];
 
   readonly financieroReport = [
-    { label: 'GMV',                  value: 'S/ 84,320', sub: 'Valor bruto reservas',    color: '' },
-    { label: 'Ingresos plataforma',  value: 'S/ 12,648', sub: 'Comisiones cobradas',     color: 'var(--c-accent)' },
-    { label: 'Costos Stripe',        value: 'S/ 1,408',  sub: '2.9% + S/1.10 c/trx',    color: '#F87171' },
-    { label: 'Margen neto',          value: 'S/ 11,240', sub: 'Ingresos − Stripe',       color: 'var(--c-teal)' },
-    { label: 'Liquidaciones',        value: 'S/ 71,672', sub: 'Pagado a comercios',      color: '' },
+    { label: 'GMV',                  value: '€84,320', sub: 'Valor bruto reservas',    color: '' },
+    { label: 'Ingresos plataforma',  value: '€12,648', sub: 'Comisiones cobradas',     color: 'var(--c-accent)' },
+    { label: 'Costos Stripe',        value: '€1,408',  sub: '1.5% + €0.25 c/trx',    color: '#F87171' },
+    { label: 'Margen neto',          value: '€11,240', sub: 'Ingresos − Stripe',       color: 'var(--c-teal)' },
+    { label: 'Liquidaciones',        value: '€71,672', sub: 'Pagado a comercios',      color: '' },
   ];
 
   readonly comerciosPendientes = signal([
-    { id: 'c1', nombre: 'Hotel El Sol Arequipa',   ruc: '20432178345', vertical: 'Hoteles', inicial: 'H' },
-    { id: 'c2', nombre: 'TaxiRapid Lima',           ruc: '10234567891', vertical: 'Taxis',   inicial: 'T' },
-    { id: 'c3', nombre: 'Guardería Estrellitas',    ruc: '20567234891', vertical: 'Guardería', inicial: 'G' },
+    { id: 'c1', nombre: 'Hotel Barceló Valencia',   nif: 'B-12345678', vertical: 'Hoteles', inicial: 'H' },
+    { id: 'c2', nombre: 'TaxiRapid Madrid',          nif: 'B-23456789', vertical: 'Taxis',   inicial: 'T' },
+    { id: 'c3', nombre: 'Guardería Estrellitas',    nif: 'B-34567890', vertical: 'Guardería', inicial: 'G' },
   ]);
 
   readonly ultimasReservas = [
-    { emoji: '🏨', huesped: 'Carlos R.',  servicio: 'Casa Andina',    total: '756',   hora: 'hace 5 min',  estado: 'Confirmada', badgeClass: 'rs-badge--success' },
+    { emoji: '🏨', huesped: 'Carlos R.',  servicio: 'Gran Hotel Madrid', total: '756',   hora: 'hace 5 min',  estado: 'Confirmada', badgeClass: 'rs-badge--success' },
     { emoji: '🚗', huesped: 'Ana M.',     servicio: 'TaxiRapid',       total: '95',    hora: 'hace 12 min', estado: 'Confirmada', badgeClass: 'rs-badge--success' },
-    { emoji: '🏨', huesped: 'Luis T.',    servicio: 'Belmond Lima',    total: '2,124', hora: 'hace 28 min', estado: 'Pendiente',  badgeClass: 'rs-badge--warning' },
-    { emoji: '✈️', huesped: 'Rosa C.',   servicio: 'Lima → Cusco',    total: '320',   hora: 'hace 45 min', estado: 'Confirmada', badgeClass: 'rs-badge--success' },
+    { emoji: '🏨', huesped: 'Luis T.',    servicio: 'Belmond Madrid',  total: '2,124', hora: 'hace 28 min', estado: 'Pendiente',  badgeClass: 'rs-badge--warning' },
+    { emoji: '✈️', huesped: 'Rosa C.',   servicio: 'Madrid → Barcelona', total: '320',   hora: 'hace 45 min', estado: 'Confirmada', badgeClass: 'rs-badge--success' },
   ];
 
   comisiones = [

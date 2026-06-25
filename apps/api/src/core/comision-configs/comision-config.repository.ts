@@ -4,8 +4,9 @@ import { Model } from 'mongoose';
 import { ComisionConfig, ComisionConfigDocument } from './comision-config.schema';
 import { VerticalKey, COMISION_PCT_DEFAULT } from 'shared';
 
-const STRIPE_PCT_DEFAULT = 0.029;
-const STRIPE_FIJO_SOLES_DEFAULT = 1.1;
+// Tarifa Stripe para tarjetas del EEE: 1.5% + €0.25 por transacción.
+const STRIPE_PCT_DEFAULT = 0.015;
+const STRIPE_FIJO_EUR_DEFAULT = 0.25;
 
 @Injectable()
 export class ComisionConfigRepository {
@@ -29,7 +30,7 @@ export class ComisionConfigRepository {
       vertical: 'global',
       comisionPct: COMISION_PCT_DEFAULT,
       stripePct: STRIPE_PCT_DEFAULT,
-      stripeFijoSoles: STRIPE_FIJO_SOLES_DEFAULT,
+      stripeFijoEur: STRIPE_FIJO_EUR_DEFAULT,
       activo: true,
     } as ComisionConfigDocument;
   }

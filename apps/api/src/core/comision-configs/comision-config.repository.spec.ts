@@ -12,7 +12,7 @@ describe('ComisionConfigRepository', () => {
     vertical: VerticalKey.HOTELES,
     comisionPct: 0.15,
     stripePct: 0.029,
-    stripeFijoSoles: 1.1,
+    stripeFijoEur: 1.1,
     activo: true,
   };
 

@@ -53,7 +53,7 @@ describe('AdminController', () => {
         vertical: VerticalKey.HOTELES as any,
         comisionPct: 0.18,
         stripePct: 0.029,
-        stripeFijoSoles: 1.1,
+        stripeFijoEur: 1.1,
         activo: true,
       };
 

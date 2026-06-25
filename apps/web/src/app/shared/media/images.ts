@@ -36,7 +36,7 @@ export const HOTEL_IMAGES: readonly string[] = [
   pexels(279746), // interior boutique
 ];
 
-/** Imágenes de fondo escénicas (viajes / Perú / paisajes). */
+/** Imágenes de fondo escénicas (viajes / Europa / paisajes). */
 export const BG_IMAGES = {
   hero: pexels(338504, 1600), // paisaje de montañas
   city: pexels(466685, 1600), // ciudad al atardecer

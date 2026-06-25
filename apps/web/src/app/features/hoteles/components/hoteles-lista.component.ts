@@ -56,11 +56,11 @@ import { HotelesService, HotelCard, FiltrosHotel } from '../services/hoteles.ser
         <div class="price-range">
           <div class="rs-field">
             <label class="rs-lbl">Mínimo</label>
-            <input type="number" [(ngModel)]="precioMin" class="rs-inp" placeholder="S/ 0" />
+            <input type="number" [(ngModel)]="precioMin" class="rs-inp" placeholder="€0" />
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Máximo</label>
-            <input type="number" [(ngModel)]="precioMax" class="rs-inp" placeholder="S/ 2000" />
+            <input type="number" [(ngModel)]="precioMax" class="rs-inp" placeholder="€2000" />
           </div>
         </div>
       </div>
@@ -130,7 +130,7 @@ import { HotelesService, HotelCard, FiltrosHotel } from '../services/hoteles.ser
           <h1 class="results-header__title">
             {{ cargando() ? 'Buscando…' : totalLabel() }}
           </h1>
-          <p class="results-header__sub">Precios en soles peruanos (S/) · Incluye IGV</p>
+          <p class="results-header__sub">Precios en euros (€) · IVA incluido</p>
         </div>
         <div class="results-header__sort">
           <select [(ngModel)]="ordenamiento" class="rs-inp" style="width:auto"
@@ -218,9 +218,9 @@ import { HotelesService, HotelCard, FiltrosHotel } from '../services/hoteles.ser
                 </div>
                 <div class="hotel-row-card__price-box">
                   @if (h.precioAnterior) {
-                    <div class="rs-price__old">S/ {{ h.precioAnterior }}</div>
+                    <div class="rs-price__old">€{{ h.precioAnterior }}</div>
                   }
-                  <div class="hotel-row-card__amount">S/ {{ h.precioPorNoche }}</div>
+                  <div class="hotel-row-card__amount">€{{ h.precioPorNoche }}</div>
                   <div class="hotel-row-card__period">por noche</div>
                   <div class="hotel-row-card__taxes">Impuestos incluidos</div>
                 </div>
@@ -534,10 +534,10 @@ export class HotelesListaComponent implements OnInit {
 
   private mockHoteles(): HotelCard[] {
     return [
-      { id: 'h1', nombre: 'Casa Andina Premium Miraflores', ciudad: 'Lima', barrio: 'Miraflores', direccion: 'Av. La Paz 463', estrellas: 5, score: 9.2, scoreLabel: 'Excepcional', numResenas: 2840, precioPorNoche: 320, precioAnterior: 420, descuentoPct: 24, imagenes: [hotelImage(0, 600)], amenities: ['🌊 Piscina', '🅿️ Parking', '🍳 Desayuno'], cancelacionGratis: true, desayunoIncluido: true, habitacionesDisponibles: 4, destacado: true },
-      { id: 'h2', nombre: 'Hotel El Comercio Cusco', ciudad: 'Cusco', barrio: 'Centro Histórico', direccion: 'Plaza de Armas 130', estrellas: 4, score: 8.9, scoreLabel: 'Muy bueno', numResenas: 1240, precioPorNoche: 185, imagenes: [hotelImage(5, 600)], amenities: ['♨️ Jacuzzi', '🍽️ Restaurante', '🛎️ Concierge'], cancelacionGratis: true, desayunoIncluido: false, habitacionesDisponibles: 8, destacado: false },
-      { id: 'h3', nombre: 'Libertador Lago Titicaca', ciudad: 'Puno', barrio: 'Orilla del Lago', direccion: 'Esteves Island', estrellas: 5, score: 9.4, scoreLabel: 'Excepcional', numResenas: 890, precioPorNoche: 450, imagenes: [hotelImage(2, 600)], amenities: ['🌊 Vista lago', '🛶 Kayak', '🍽️ Restaurante'], cancelacionGratis: false, desayunoIncluido: true, habitacionesDisponibles: 2, destacado: true },
-      { id: 'h4', nombre: 'JW Marriott Lima', ciudad: 'Lima', barrio: 'Miraflores', direccion: 'Malecón de la Reserva 615', estrellas: 5, score: 9.1, scoreLabel: 'Excepcional', numResenas: 3210, precioPorNoche: 480, imagenes: [hotelImage(6, 600)], amenities: ['🏊 Piscina infinity', '💆 Spa', '🌊 Vista al mar'], cancelacionGratis: true, desayunoIncluido: false, habitacionesDisponibles: 12, destacado: false },
+      { id: 'h1', nombre: 'Gran Hotel Madrid Salamanca', ciudad: 'Madrid', barrio: 'Salamanca', direccion: 'Calle de Serrano 463', estrellas: 5, score: 9.2, scoreLabel: 'Excepcional', numResenas: 2840, precioPorNoche: 320, precioAnterior: 420, descuentoPct: 24, imagenes: [hotelImage(0, 600)], amenities: ['🌊 Piscina', '🅿️ Parking', '🍳 Desayuno'], cancelacionGratis: true, desayunoIncluido: true, habitacionesDisponibles: 4, destacado: true },
+      { id: 'h2', nombre: 'Hotel Catalonia Barcelona', ciudad: 'Barcelona', barrio: 'Centro Histórico', direccion: 'Plaza Mayor 130', estrellas: 4, score: 8.9, scoreLabel: 'Muy bueno', numResenas: 1240, precioPorNoche: 185, imagenes: [hotelImage(5, 600)], amenities: ['♨️ Jacuzzi', '🍽️ Restaurante', '🛎️ Concierge'], cancelacionGratis: true, desayunoIncluido: false, habitacionesDisponibles: 8, destacado: false },
+      { id: 'h3', nombre: 'Grand Hotel Villa d\'Este Como', ciudad: 'Bilbao', barrio: 'Orilla del Lago', direccion: 'Isla Bella', estrellas: 5, score: 9.4, scoreLabel: 'Excepcional', numResenas: 890, precioPorNoche: 450, imagenes: [hotelImage(2, 600)], amenities: ['🌊 Vista lago', '🛶 Kayak', '🍽️ Restaurante'], cancelacionGratis: false, desayunoIncluido: true, habitacionesDisponibles: 2, destacado: true },
+      { id: 'h4', nombre: 'JW Marriott Madrid', ciudad: 'Madrid', barrio: 'Salamanca', direccion: 'Paseo de la Castellana 615', estrellas: 5, score: 9.1, scoreLabel: 'Excepcional', numResenas: 3210, precioPorNoche: 480, imagenes: [hotelImage(6, 600)], amenities: ['🏊 Piscina infinity', '💆 Spa', '🌊 Vista al mar'], cancelacionGratis: true, desayunoIncluido: false, habitacionesDisponibles: 12, destacado: false },
     ];
   }
 }

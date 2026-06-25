@@ -21,7 +21,7 @@ interface Vertical {
       <div class="rs-buscador-hero__content">
 
         <div class="rs-buscador-hero__eyebrow">
-          ✦ Marketplace multi-vertical · Perú
+          ✦ Marketplace multi-vertical · Europa
         </div>
 
         <h1 class="rs-buscador-hero__heading">
@@ -54,7 +54,7 @@ interface Vertical {
                 <input
                   formControlName="ciudad"
                   class="rs-input"
-                  placeholder="Lima, Cusco, Arequipa…" />
+                  placeholder="Madrid, Barcelona, Valencia…" />
               </div>
 
               <div class="rs-form-group">

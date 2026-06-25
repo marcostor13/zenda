@@ -79,7 +79,7 @@ interface Testimonio {
       </h1>
 
       <p class="hero__sub">
-        Hoteles, vuelos, taxis, transporte y guarderías para el Perú.
+        Hoteles, vuelos, taxis, transporte y guarderías para toda Europa.
         Compara precios, lee reseñas reales y reserva en segundos.
       </p>
 
@@ -102,7 +102,7 @@ interface Testimonio {
             <div class="rs-field">
               <label class="rs-lbl">🏙️ Ciudad o zona</label>
               <input formControlName="ciudad" class="rs-inp rs-inp--lg"
-                     placeholder="Lima, Cusco, Arequipa…" />
+                     placeholder="Madrid, Barcelona, Valencia…" />
             </div>
             <div class="rs-field">
               <label class="rs-lbl">📅 Desde</label>
@@ -217,10 +217,10 @@ interface Testimonio {
                 </div>
                 <div style="text-align:right">
                   @if (h.precioAnterior) {
-                    <div class="rs-price__old">S/ {{ h.precioAnterior }}</div>
+                    <div class="rs-price__old">€{{ h.precioAnterior }}</div>
                   }
                   <div class="rs-price__amount" style="font-size:var(--f-xl);font-weight:var(--w-8);color:var(--t-100)">
-                    S/ {{ h.precioPorNoche }}
+                    €{{ h.precioPorNoche }}
                   </div>
                   <div class="rs-price__period" style="font-size:var(--f-xs);color:var(--t-400)">/noche</div>
                   @if (h.cancelacionGratis) {
@@ -296,13 +296,13 @@ interface Testimonio {
           </div>
           <div class="bv-card bv-card--sec">
             <div style="font-size:1.25rem">✈️</div>
-            <div style="font-size:var(--f-sm);font-weight:var(--w-6);color:var(--t-100);margin-top:var(--sp-2)">Lima → Cusco</div>
-            <div style="font-size:var(--f-xs);color:var(--t-400)">Vuelo directo · S/ 189</div>
+            <div style="font-size:var(--f-sm);font-weight:var(--w-6);color:var(--t-100);margin-top:var(--sp-2)">Madrid → Barcelona</div>
+            <div style="font-size:var(--f-xs);color:var(--t-400)">Vuelo directo · €189</div>
           </div>
           <div class="bv-card bv-card--tert">
             <div style="font-size:1.25rem">🚕</div>
             <div style="font-size:var(--f-sm);font-weight:var(--w-6);color:var(--t-100);margin-top:var(--sp-2)">Taxi en camino</div>
-            <div style="font-size:var(--f-xs);color:var(--t-400)">Estimado 4 min · S/ 12</div>
+            <div style="font-size:var(--f-xs);color:var(--t-400)">Estimado 4 min · €12</div>
             <div style="margin-top:var(--sp-3)"><span class="rs-badge rs-badge--success">En ruta</span></div>
           </div>
         </div>
@@ -346,7 +346,7 @@ interface Testimonio {
         <div class="cta-box__bg"></div>
         <div class="cta-box__content">
           <h2 class="rs-h2">¿Listo para tu próxima <span class="rs-gradient-text">aventura</span>?</h2>
-          <p>Únete a +120,000 peruanos que ya reservan con Zenda.</p>
+          <p>Únete a +120,000 europeos que ya reservan con Zenda.</p>
           <div class="rs-flex rs-gap-4" style="margin-top:var(--sp-8);justify-content:center;flex-wrap:wrap">
             <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--xl">
               Crear cuenta gratis
@@ -367,10 +367,10 @@ interface Testimonio {
         <div style="font-size:var(--f-xl);font-weight:var(--w-8);letter-spacing:-.03em;color:var(--t-100)">
           Zen<span class="rs-gradient-text">da</span>
         </div>
-        <p>El marketplace de reservas #1 del Perú. Hoteles, vuelos, taxis, transporte y guarderías.</p>
+        <p>El marketplace de reservas #1 de Europa. Hoteles, vuelos, taxis, transporte y guarderías.</p>
         <div style="margin-top:var(--sp-4);display:flex;gap:var(--sp-3)">
-          <span class="rs-badge rs-badge--neutral">🇵🇪 Hecho en Perú</span>
-          <span class="rs-badge rs-badge--success">PEN · S/</span>
+          <span class="rs-badge rs-badge--neutral">🇪🇺 Hecho en Europa</span>
+          <span class="rs-badge rs-badge--success">EUR · €</span>
         </div>
       </div>
       <div class="rs-footer__col">
@@ -414,7 +414,7 @@ interface Testimonio {
     <div class="rs-footer__bottom">
       <p>© 2026 Zenda · Todos los derechos reservados</p>
       <div class="rs-flex rs-gap-4" style="flex-wrap:wrap">
-        <span class="rs-badge rs-badge--neutral">IGV 18% incluido</span>
+        <span class="rs-badge rs-badge--neutral">IVA 21% incluido</span>
         <span class="rs-badge rs-badge--accent">Pagos seguros Stripe</span>
       </div>
     </div>
@@ -878,8 +878,8 @@ export class HomeComponent {
   readonly hotelesDestacados: HotelDestacado[] = [
     {
       id: 'hotel-1',
-      nombre: 'Casa Andina Premium Miraflores',
-      ciudad: 'Lima', barrio: 'Miraflores',
+      nombre: 'Gran Hotel Madrid Salamanca',
+      ciudad: 'Madrid', barrio: 'Salamanca',
       estrellas: 5, score: 9.2, scoreLabel: 'Excepcional', numResenas: 2840,
       precioPorNoche: 320, precioAnterior: 420,
       imagen: hotelImage(0, 600),
@@ -889,8 +889,8 @@ export class HomeComponent {
     },
     {
       id: 'hotel-2',
-      nombre: 'Inkaterra Machu Picchu',
-      ciudad: 'Cusco', barrio: 'Aguas Calientes',
+      nombre: 'Belmond Hotel Caruso Amalfi',
+      ciudad: 'Barcelona', barrio: 'Cascais',
       estrellas: 5, score: 9.6, scoreLabel: 'Excepcional', numResenas: 1520,
       precioPorNoche: 890,
       imagen: hotelImage(4, 600),
@@ -900,8 +900,8 @@ export class HomeComponent {
     },
     {
       id: 'hotel-3',
-      nombre: 'Hotel Libertador Lago Titicaca',
-      ciudad: 'Puno', barrio: 'Centro',
+      nombre: 'Grand Hotel Villa d\'Este Como',
+      ciudad: 'Bilbao', barrio: 'Centro',
       estrellas: 4, score: 8.8, scoreLabel: 'Muy bueno', numResenas: 980,
       precioPorNoche: 240, precioAnterior: 290,
       imagen: hotelImage(2, 600),
@@ -911,8 +911,8 @@ export class HomeComponent {
     },
     {
       id: 'hotel-4',
-      nombre: 'JW Marriott Lima',
-      ciudad: 'Lima', barrio: 'Miraflores',
+      nombre: 'JW Marriott Madrid',
+      ciudad: 'Madrid', barrio: 'Salamanca',
       estrellas: 5, score: 9.0, scoreLabel: 'Excepcional', numResenas: 3210,
       precioPorNoche: 480,
       imagen: hotelImage(6, 600),
@@ -938,17 +938,17 @@ export class HomeComponent {
 
   readonly testimonios: Testimonio[] = [
     {
-      nombre: 'María García', ciudad: 'Lima', avatar: '👩‍💼',
+      nombre: 'María García', ciudad: 'Madrid', avatar: '👩‍💼',
       rating: 5, vertical: 'Hoteles',
-      texto: 'Encontré el hotel de mis sueños en Cusco con 30% de descuento. El proceso fue facilísimo y el soporte respondió mis dudas en minutos.',
+      texto: 'Encontré el hotel de mis sueños en Barcelona con 30% de descuento. El proceso fue facilísimo y el soporte respondió mis dudas en minutos.',
     },
     {
-      nombre: 'Carlos Mendoza', ciudad: 'Arequipa', avatar: '👨‍💻',
+      nombre: 'Carlos Mendoza', ciudad: 'Valencia', avatar: '👨‍💻',
       rating: 5, vertical: 'Taxis',
       texto: 'Uso Zenda para mis traslados desde el aeropuerto. Siempre puntual, precio justo y el conductor ya conoce mi ruta favorita.',
     },
     {
-      nombre: 'Sofía Torres', ciudad: 'Trujillo', avatar: '👩‍🏫',
+      nombre: 'Sofía Torres', ciudad: 'Sevilla', avatar: '👩‍🏫',
       rating: 5, vertical: 'Guarderías',
       texto: 'Encontré la guardería perfecta para mi hija en 10 minutos. Ver los cupos disponibles en tiempo real es increíble.',
     },
