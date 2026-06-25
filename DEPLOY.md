@@ -74,9 +74,9 @@ NODE_ENV=production
 
 En la pestaña **Domains**:
 
-1. Agrega `api.zenda.pe` (o el dominio que uses).
+1. Agrega `apizenda.marcostorresalarcon.com`.
 2. Habilita **Generate SSL Certificate** (Let's Encrypt automático).
-3. En tu proveedor DNS, crea un registro **A** apuntando `api.zenda.pe` → IP de tu servidor Coolify.
+3. En tu proveedor DNS, crea un registro **A** o **CNAME** apuntando `apizenda.marcostorresalarcon.com` → IP de tu servidor Coolify.
 
 ### 2.5 Obtener el Webhook URL de Coolify
 
@@ -245,10 +245,10 @@ Repite con un cambio en `apps/web/` para verificar el deploy de Amplify.
 
 ```bash
 # Backend
-curl https://api.zenda.pe/api/v1/health
+curl https://apizenda.marcostorresalarcon.com/api/v1/health
 
 # Frontend
-open https://zenda.pe
+open https://zenda.pe  # (el dominio que configures en Amplify)
 ```
 
 ---
@@ -310,7 +310,7 @@ El archivo `apps/web/src/environments/environment.prod.ts` contiene la URL de la
 ```typescript
 export const environment = {
   production: true,
-  apiUrl: 'https://api.zenda.pe/api/v1',
+  apiUrl: 'https://apizenda.marcostorresalarcon.com/api/v1',
 };
 ```
 
