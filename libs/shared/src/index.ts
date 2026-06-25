@@ -20,3 +20,10 @@ export * from './dtos/payments/payment-intent-response.dto';
 // DTOs — Admin
 export * from './dtos/admin/comision-config.dto';
 export * from './dtos/admin/reporte-financiero.dto';
+
+// DTOs — Bookings
+export * from './dtos/bookings/crear-reserva.dto';
+
+// DTOs — Comercios
+export * from './dtos/comercios/registrar-comercio.dto';
+export * from './dtos/comercios/cambiar-estado-comercio.dto';

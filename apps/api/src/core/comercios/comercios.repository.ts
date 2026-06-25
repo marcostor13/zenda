@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { VerticalKey } from 'shared';
 import { Comercio, ComercioDocument, EstadoComercio } from './comercio.schema';
 
 export interface CrearComercioParams {
@@ -8,6 +9,7 @@ export interface CrearComercioParams {
   vatNumber: string;
   nombreComercial: string;
   logoUrl?: string;
+  verticales?: VerticalKey[];
 }
 
 @Injectable()
