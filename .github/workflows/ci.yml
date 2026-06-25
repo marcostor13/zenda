@@ -1,14 +1,40 @@
-name: CI/CD
+name: CI/CD — Reservalo
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
+  changes:
+    name: Detectar cambios
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'libs/shared/**'
+              - 'package.json'
+              - 'package-lock.json'
+            web:
+              - 'apps/web/**'
+              - 'libs/shared/**'
+              - 'package.json'
+              - 'package-lock.json'
+
   api:
-    name: API (NestJS)
+    name: API — CI + Deploy
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,21 +47,20 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Lint API
-        run: npm run lint --workspace=api
-
       - name: Tests API (con cobertura)
-        run: npm run test --workspace=api
+        run: npm run test:api
 
       - name: Build API
-        run: npm run build --workspace=api
+        run: npm run build:api
 
       - name: Deploy API (Coolify webhook)
         if: github.ref == 'refs/heads/main'
         run: curl -fsSL -X POST "${{ secrets.COOLIFY_WEBHOOK_URL }}"
 
   web:
-    name: Web (Angular)
+    name: Web — CI + Deploy
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,18 +73,20 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Lint Web
-        run: npm run lint --workspace=web
-
       - name: Tests Web (con cobertura)
-        run: npm run test --workspace=web
+        run: npm run test:web
 
       - name: Build Web
-        run: npm run build --workspace=web
+        run: npm run build:web
 
-      - name: Deploy Web (Netlify)
+      - name: Deploy Web (AWS Amplify)
         if: github.ref == 'refs/heads/main'
-        run: npx netlify deploy --prod --dir=apps/web/dist/web/browser
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws amplify start-job \
+            --app-id ${{ secrets.AMPLIFY_APP_ID }} \
+            --branch-name main \
+            --job-type RELEASE

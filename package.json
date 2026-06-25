@@ -1,5 +1,5 @@
 {
-  "name": "reservalo",
+  "name": "zenda",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
@@ -7,9 +7,11 @@
     "libs/*"
   ],
   "scripts": {
-    "dev:api": "npm run dev --workspace=api",
+    "build:shared": "npm run build --workspace=shared",
+    "dev:shared": "npm run dev --workspace=shared",
+    "dev:api": "npm run build --workspace=shared && npm run dev --workspace=api",
     "dev:web": "npm run dev --workspace=web",
-    "build:api": "npm run build --workspace=api",
+    "build:api": "npm run build --workspace=shared && npm run build --workspace=api",
     "build:web": "npm run build --workspace=web",
     "test": "npm run test --workspaces --if-present",
     "test:api": "npm run test --workspace=api",

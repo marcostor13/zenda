@@ -1,5 +1,4 @@
 import { Component, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -7,35 +6,66 @@ import { AuthService } from '../../../core/auth/auth.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink],
   template: `
-    <div class="login-container">
-      <h1>Iniciar sesión</h1>
+    <div class="rs-auth-layout">
+      <div class="rs-auth-card">
 
-      <form [formGroup]="formulario" (ngSubmit)="onSubmit()">
-        <div>
-          <label for="email">Email</label>
-          <input id="email" type="email" formControlName="email" />
-          @if (formulario.get('email')?.invalid && formulario.get('email')?.touched) {
-            <span class="error">Email inválido</span>
+        <div class="rs-auth-card__brand">
+          <h1>Zenda</h1>
+          <p>Bienvenido de vuelta</p>
+        </div>
+
+        <form [formGroup]="formulario" (ngSubmit)="onSubmit()">
+          <div class="rs-form-group">
+            <label for="email" class="rs-label">Correo electrónico</label>
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              class="rs-input"
+              [class.rs-input--error]="formulario.get('email')?.invalid && formulario.get('email')?.touched"
+              placeholder="tu@email.com" />
+            @if (formulario.get('email')?.invalid && formulario.get('email')?.touched) {
+              <span class="rs-field-error">Ingresa un email válido</span>
+            }
+          </div>
+
+          <div class="rs-form-group">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <label for="password" class="rs-label">Contraseña</label>
+              <a routerLink="/auth/recuperar" style="font-size:var(--text-xs);color:var(--accent-light)">¿Olvidaste tu contraseña?</a>
+            </div>
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              class="rs-input"
+              placeholder="••••••••" />
+          </div>
+
+          @if (error()) {
+            <div class="rs-alert rs-alert--error">{{ error() }}</div>
           }
+
+          <button
+            type="submit"
+            class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
+            style="margin-top:var(--s-2)"
+            [disabled]="formulario.invalid || cargando()">
+            @if (cargando()) {
+              <span class="rs-spinner"></span>
+            }
+            {{ cargando() ? 'Ingresando…' : 'Ingresar' }}
+          </button>
+        </form>
+
+        <div class="rs-divider rs-divider--text" style="margin-block:var(--s-6)">o</div>
+
+        <div class="rs-auth-card__footer">
+          ¿No tienes cuenta? <a routerLink="/auth/registro">Regístrate gratis</a>
         </div>
-
-        <div>
-          <label for="password">Contraseña</label>
-          <input id="password" type="password" formControlName="password" />
-        </div>
-
-        @if (error()) {
-          <p class="error">{{ error() }}</p>
-        }
-
-        <button type="submit" [disabled]="formulario.invalid || cargando()">
-          {{ cargando() ? 'Ingresando...' : 'Ingresar' }}
-        </button>
-      </form>
-
-      <p>¿No tienes cuenta? <a routerLink="/auth/registro">Regístrate</a></p>
+      </div>
     </div>
   `,
 })

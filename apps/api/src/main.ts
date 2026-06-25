@@ -1,3 +1,11 @@
+import * as dns from 'dns';
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+if (process.env.NODE_DNS_SERVERS) {
+  dns.setServers(process.env.NODE_DNS_SERVERS.split(','));
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -20,7 +28,7 @@ async function bootstrap(): Promise<void> {
   app.enableCors();
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Reservalo API')
+    .setTitle('Zenda API')
     .setDescription('API del marketplace multi-vertical de reservas')
     .setVersion('1.0')
     .addBearerAuth()

@@ -55,7 +55,7 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('debería limpiar el estado y navegar a /auth/login', () => {
-      localStorage.setItem('reservalo_token', 'jwt-token');
+      localStorage.setItem('zenda_token', 'jwt-token');
       service.logout();
 
       expect(service.estaAutenticado()).toBe(false);

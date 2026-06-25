@@ -1,0 +1,12 @@
+node_modules/
+apps/web/
+.angular/
+coverage/
+.env
+.env.local
+.github/
+.claude/
+.specify/
+*.log
+**/*.spec.ts
+**/*.spec.js

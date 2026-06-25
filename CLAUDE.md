@@ -733,3 +733,128 @@ coverageThreshold: {
   global: { statements: 80, branches: 80, functions: 80, lines: 80 }
 }
 ```
+
+---
+
+## 21. UI Kit — Design System (OBLIGATORIO para toda UI)
+
+> **Regla absoluta:** Todo componente Angular del proyecto debe usar los tokens CSS y las clases `rs-*` definidos en `apps/web/src/styles.scss`. **Nunca hardcodear colores, tipografías ni espaciados.**
+
+### 21.1 Filosofía de diseño
+
+Inspirado en helm.yt: **premium dark, whitespace generoso, tipografía clara, accent vibrante**.
+
+| Atributo | Decisión |
+|---|---|
+| Tema base | **Dark navy** — `--bg-base: #080D1A` |
+| Accent | Gradiente azul-índigo `#4F72F8 → #8B5CF6` |
+| Fuente | **Inter** (Google Fonts, cargada en `index.html`) |
+| Escala de espaciado | Base 4px — tokens `--s-1` a `--s-24` |
+| Border radius estándar | `--r-lg` (12px) para inputs/cards, `--r-xl` (16px) para modales |
+
+### 21.2 Tokens CSS (`:root` en `styles.scss`)
+
+```scss
+/* Fondos */
+--bg-base, --bg-elevated, --bg-card, --bg-surface, --bg-subtle
+--bg-light, --bg-light-2
+
+/* Accent */
+--accent, --accent-hover, --accent-light, --accent-subtle, --accent-gradient
+
+/* Texto */
+--text-primary, --text-secondary, --text-muted
+--text-dark, --text-dark-secondary
+
+/* Tipografía */
+--font-sans, --font-display
+--text-xs (12) a --text-6xl (60)
+--fw-normal (400) a --fw-extrabold (800)
+
+/* Espaciado */
+--s-1 (4px) a --s-24 (96px)
+
+/* Otros */
+--r-sm a --r-full    (border radius)
+--shadow-sm a --shadow-accent
+--t-fast, --t-base, --t-slow  (transiciones)
+```
+
+### 21.3 Clases globales `rs-*`
+
+```
+Botones:  .rs-btn .rs-btn--{primary|secondary|outline|ghost|danger}
+          .rs-btn--{sm|lg|xl|block}
+
+Formularios:
+          .rs-form-group > .rs-label + .rs-input [.rs-input--error] + .rs-field-error
+          
+Cards:    .rs-card [.rs-card--glass]
+Badges:   .rs-badge .rs-badge--{accent|success|warning|error|neutral}
+Alertas:  .rs-alert .rs-alert--{error|success|warning|info}
+Layout:   .rs-container [.rs-container--sm|md|lg|2xl]  .rs-section
+Navbar:   .rs-navbar  (con __brand, __nav, __link, __actions)
+Tabs:     .rs-vertical-tabs  .rs-vertical-tab  [.activo]
+Auth:     .rs-auth-layout  .rs-auth-card  (con __brand, __footer)
+Hero:     .rs-buscador-hero (con __content, __eyebrow, __heading, __subheading)
+Utils:    .rs-gradient-text  .rs-spinner  .rs-divider [.rs-divider--text]
+```
+
+### 21.4 Componentes Angular del UI Kit (`apps/web/src/app/shared/`)
+
+```
+RsButtonComponent   → <rs-button variant="primary|secondary|outline|ghost|danger"
+                                  size="sm|md|lg|xl" [block]="true" [loading]="true">
+RsInputComponent    → <rs-input label="..." type="..." placeholder="..." [error]="...">
+                       (ControlValueAccessor — compatible con formControlName)
+RsCardComponent     → <rs-card title="..." subtitle="..." [glass]="true">
+RsBadgeComponent    → <rs-badge variant="accent|success|warning|error|neutral">
+RsNavbarComponent   → <rs-navbar /> (incluye auth state automático)
+```
+
+Importar: `import { RsButtonComponent } from '../../shared';`
+
+### 21.5 Reglas de uso obligatorias
+
+1. **Sin hardcoded colors.** Siempre `var(--xxx)`. Si un color nuevo es necesario, añadir el token a `:root` en `styles.scss` primero.
+2. **Sin hardcoded spacing.** Siempre `var(--s-N)`. Nunca `margin: 16px` o `padding: 8px`.
+3. **Botones:** siempre `<button class="rs-btn rs-btn--[variante]">` o `<rs-button>`. Nunca `<button style="background:blue">`.
+4. **Inputs:** siempre `<input class="rs-input">` o `<rs-input>`. Incluir `.rs-input--error` cuando hay error de validación.
+5. **Formularios:** siempre dentro de `.rs-form-group` con `.rs-label` y `.rs-field-error`.
+6. **Componentes de layout compartidos** → usar la clase global. Si necesitas estilo específico de un componente, defínelo en el `styles: [...]` del componente usando `var(--xxx)`.
+
+### 21.6 Skills Claude Code disponibles
+
+| Skill | Qué hace |
+|---|---|
+| `/ui-kit` | Audita, mantiene y extiende el design system |
+| `/ui-kit audit` | Busca violaciones del design system en el código |
+| `/ui-kit nuevo [nombre]` | Crea un nuevo componente shared siguiendo el UI Kit |
+| `/design-tokens` | Referencia rápida de todos los tokens y clases |
+| `/nuevo-componente [nombre]` | Scaffolding de componente Angular con UI Kit integrado |
+| `/speckit` | Spec-Driven Development: spec → plan → tasks → implement |
+
+### 21.7 spec-kit — Spec-Driven Development
+
+El directorio `.specify/` contiene:
+```
+.specify/
+├── CONSTITUTION.md          ← principios del proyecto (leer al inicio de sesión)
+└── templates/
+    ├── spec.md              ← template de especificación funcional
+    ├── plan.md              ← template de plan técnico
+    └── tasks.md             ← template de task breakdown
+```
+
+Flujo: `spec` → `plan` → `tasks` → `implement` → `converge`. Usar `/speckit [paso]`.
+
+### 21.8 Añadir un nuevo elemento al design system
+
+Si necesitas un color, componente o patrón nuevo:
+
+1. Añade el token a `:root` en `apps/web/src/styles.scss` con nombre `--rs-nuevo-token`.
+2. Si es una clase global, añade la clase `.rs-nuevo-elemento` en la sección correcta de `styles.scss`.
+3. Si es un componente Angular reutilizable, créalo en `shared/components/[nombre]/rs-[nombre].component.ts`.
+4. Añádelo al barrel `shared/index.ts`.
+5. Documenta el nuevo token/clase en `.claude/commands/design-tokens.md`.
+6. Nunca eliminar tokens existentes sin revisar qué los usa (`grep -r "var(--token)"`).

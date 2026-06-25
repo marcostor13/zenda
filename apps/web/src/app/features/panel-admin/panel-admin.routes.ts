@@ -1,5 +1,9 @@
 import { Routes } from '@angular/router';
 
 export const panelAdminRoutes: Routes = [
-  // TODO: gestión de comercios, verticales, comisiones, reportes
+  {
+    path: '',
+    loadComponent: () =>
+      import('./admin-dashboard.component').then(m => m.AdminDashboardComponent),
+  },
 ];

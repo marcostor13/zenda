@@ -12,7 +12,7 @@ interface UsuarioAutenticado {
   rol: Rol;
 }
 
-const TOKEN_KEY = 'reservalo_token';
+const TOKEN_KEY = 'zenda_token';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -49,7 +49,7 @@ export class AuthService {
 
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem('reservalo_usuario');
+    localStorage.removeItem('zenda_usuario');
     this._usuario.set(null);
     this._token.set(null);
     void this.router.navigate(['/auth/login']);
@@ -57,13 +57,13 @@ export class AuthService {
 
   private guardarSesion(respuesta: AuthResponseDto): void {
     localStorage.setItem(TOKEN_KEY, respuesta.accessToken);
-    localStorage.setItem('reservalo_usuario', JSON.stringify(respuesta.usuario));
+    localStorage.setItem('zenda_usuario', JSON.stringify(respuesta.usuario));
     this._token.set(respuesta.accessToken);
     this._usuario.set(respuesta.usuario);
   }
 
   private cargarUsuarioDelStorage(): UsuarioAutenticado | null {
-    const datos = localStorage.getItem('reservalo_usuario');
+    const datos = localStorage.getItem('zenda_usuario');
     return datos ? (JSON.parse(datos) as UsuarioAutenticado) : null;
   }
 }
