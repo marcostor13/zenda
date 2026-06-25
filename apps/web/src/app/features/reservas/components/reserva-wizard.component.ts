@@ -2,13 +2,14 @@ import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
+import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 
 type Paso = 1 | 2 | 3 | 4;
 
 @Component({
   selector: 'app-reserva-wizard',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent],
+  imports: [RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, ImgFallbackDirective],
   template: `
 <div class="wizard-page">
   <rs-navbar />
@@ -50,7 +51,7 @@ type Paso = 1 | 2 | 3 | 4;
 
             <div class="reserva-summary">
               <div class="reserva-summary__hotel">
-                <img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200" alt="Hotel" />
+                <img src="https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=200" alt="Hotel" rsImg />
                 <div>
                   <h3>Casa Andina Premium Miraflores</h3>
                   <p>📍 Miraflores, Lima · ★★★★★</p>

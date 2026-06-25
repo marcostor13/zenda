@@ -10,7 +10,7 @@ import { AuthService } from '../../../core/auth/auth.service';
   template: `
     <nav class="rs-navbar">
       <a routerLink="/buscador" class="rs-navbar__brand">
-        Reserva<span>lo</span>
+        Zen<span>da</span>
       </a>
 
       <div class="rs-navbar__nav">

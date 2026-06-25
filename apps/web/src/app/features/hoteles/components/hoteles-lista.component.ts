@@ -3,12 +3,14 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
+import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { hotelImage } from '../../../shared/media/images';
 import { HotelesService, HotelCard, FiltrosHotel } from '../services/hoteles.service';
 
 @Component({
   selector: 'app-hoteles-lista',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, AnimateOnScrollDirective],
+  imports: [RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, AnimateOnScrollDirective, ImgFallbackDirective],
   template: `
 <div class="hoteles-page">
   <rs-navbar />
@@ -166,7 +168,7 @@ import { HotelesService, HotelCard, FiltrosHotel } from '../services/hoteles.ser
             <a [routerLink]="['/hoteles', h.id]" class="hotel-row-card" rsAnim>
               <!-- Imagen -->
               <div class="hotel-row-card__imgs">
-                <img [src]="h.imagenes[0]" [alt]="h.nombre" loading="lazy" />
+                <img [src]="h.imagenes[0]" [alt]="h.nombre" loading="lazy" rsImg />
                 @if (h.destacado) {
                   <span class="rs-badge rs-badge--warning" style="position:absolute;top:var(--sp-3);left:var(--sp-3)">
                     ⭐ Destacado
@@ -532,10 +534,10 @@ export class HotelesListaComponent implements OnInit {
 
   private mockHoteles(): HotelCard[] {
     return [
-      { id: 'h1', nombre: 'Casa Andina Premium Miraflores', ciudad: 'Lima', barrio: 'Miraflores', direccion: 'Av. La Paz 463', estrellas: 5, score: 9.2, scoreLabel: 'Excepcional', numResenas: 2840, precioPorNoche: 320, precioAnterior: 420, descuentoPct: 24, imagenes: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600'], amenities: ['🌊 Piscina', '🅿️ Parking', '🍳 Desayuno'], cancelacionGratis: true, desayunoIncluido: true, habitacionesDisponibles: 4, destacado: true },
-      { id: 'h2', nombre: 'Hotel El Comercio Cusco', ciudad: 'Cusco', barrio: 'Centro Histórico', direccion: 'Plaza de Armas 130', estrellas: 4, score: 8.9, scoreLabel: 'Muy bueno', numResenas: 1240, precioPorNoche: 185, imagenes: ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600'], amenities: ['♨️ Jacuzzi', '🍽️ Restaurante', '🛎️ Concierge'], cancelacionGratis: true, desayunoIncluido: false, habitacionesDisponibles: 8, destacado: false },
-      { id: 'h3', nombre: 'Libertador Lago Titicaca', ciudad: 'Puno', barrio: 'Orilla del Lago', direccion: 'Esteves Island', estrellas: 5, score: 9.4, scoreLabel: 'Excepcional', numResenas: 890, precioPorNoche: 450, imagenes: ['https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600'], amenities: ['🌊 Vista lago', '🛶 Kayak', '🍽️ Restaurante'], cancelacionGratis: false, desayunoIncluido: true, habitacionesDisponibles: 2, destacado: true },
-      { id: 'h4', nombre: 'JW Marriott Lima', ciudad: 'Lima', barrio: 'Miraflores', direccion: 'Malecón de la Reserva 615', estrellas: 5, score: 9.1, scoreLabel: 'Excepcional', numResenas: 3210, precioPorNoche: 480, imagenes: ['https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600'], amenities: ['🏊 Piscina infinity', '💆 Spa', '🌊 Vista al mar'], cancelacionGratis: true, desayunoIncluido: false, habitacionesDisponibles: 12, destacado: false },
+      { id: 'h1', nombre: 'Casa Andina Premium Miraflores', ciudad: 'Lima', barrio: 'Miraflores', direccion: 'Av. La Paz 463', estrellas: 5, score: 9.2, scoreLabel: 'Excepcional', numResenas: 2840, precioPorNoche: 320, precioAnterior: 420, descuentoPct: 24, imagenes: [hotelImage(0, 600)], amenities: ['🌊 Piscina', '🅿️ Parking', '🍳 Desayuno'], cancelacionGratis: true, desayunoIncluido: true, habitacionesDisponibles: 4, destacado: true },
+      { id: 'h2', nombre: 'Hotel El Comercio Cusco', ciudad: 'Cusco', barrio: 'Centro Histórico', direccion: 'Plaza de Armas 130', estrellas: 4, score: 8.9, scoreLabel: 'Muy bueno', numResenas: 1240, precioPorNoche: 185, imagenes: [hotelImage(5, 600)], amenities: ['♨️ Jacuzzi', '🍽️ Restaurante', '🛎️ Concierge'], cancelacionGratis: true, desayunoIncluido: false, habitacionesDisponibles: 8, destacado: false },
+      { id: 'h3', nombre: 'Libertador Lago Titicaca', ciudad: 'Puno', barrio: 'Orilla del Lago', direccion: 'Esteves Island', estrellas: 5, score: 9.4, scoreLabel: 'Excepcional', numResenas: 890, precioPorNoche: 450, imagenes: [hotelImage(2, 600)], amenities: ['🌊 Vista lago', '🛶 Kayak', '🍽️ Restaurante'], cancelacionGratis: false, desayunoIncluido: true, habitacionesDisponibles: 2, destacado: true },
+      { id: 'h4', nombre: 'JW Marriott Lima', ciudad: 'Lima', barrio: 'Miraflores', direccion: 'Malecón de la Reserva 615', estrellas: 5, score: 9.1, scoreLabel: 'Excepcional', numResenas: 3210, precioPorNoche: 480, imagenes: [hotelImage(6, 600)], amenities: ['🏊 Piscina infinity', '💆 Spa', '🌊 Vista al mar'], cancelacionGratis: true, desayunoIncluido: false, habitacionesDisponibles: 12, destacado: false },
     ];
   }
 }

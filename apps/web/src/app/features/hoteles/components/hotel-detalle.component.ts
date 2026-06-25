@@ -3,12 +3,14 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
+import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { hotelImage } from '../../../shared/media/images';
 import { HotelesService, HotelDetalle, Habitacion } from '../services/hoteles.service';
 
 @Component({
   selector: 'app-hotel-detalle',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, AnimateOnScrollDirective],
+  imports: [RouterLink, DecimalPipe, RsNavbarComponent, AnimateOnScrollDirective, ImgFallbackDirective],
   template: `
 <div class="detalle-page">
   <rs-navbar />
@@ -33,13 +35,13 @@ import { HotelesService, HotelDetalle, Habitacion } from '../services/hoteles.se
     <!-- GALERÍA -->
     <div class="gallery rs-wrap">
       <div class="gallery__main">
-        <img [src]="imagenActiva()" [alt]="hotel()!.nombre" />
+        <img [src]="imagenActiva()" [alt]="hotel()!.nombre" rsImg />
       </div>
       <div class="gallery__thumbs">
         @for (img of hotel()!.imagenes.slice(0,4); track img) {
           <div class="gallery__thumb" [class.active]="imagenActiva() === img"
                (click)="imagenActiva.set(img)">
-            <img [src]="img" [alt]="hotel()!.nombre" />
+            <img [src]="img" [alt]="hotel()!.nombre" rsImg />
           </div>
         }
         @if (hotel()!.imagenes.length > 4) {
@@ -119,7 +121,7 @@ import { HotelesService, HotelDetalle, Habitacion } from '../services/hoteles.se
               <div class="room-card rs-card" [class.rs-card--glow]="habitacionSelec()?.id === hab.id">
                 <div class="room-card__img">
                   @if (hab.imagenes[0]) {
-                    <img [src]="hab.imagenes[0]" [alt]="hab.tipo" />
+                    <img [src]="hab.imagenes[0]" [alt]="hab.tipo" rsImg />
                   }
                 </div>
                 <div class="room-card__body">
@@ -469,11 +471,11 @@ export class HotelDetalleComponent implements OnInit {
       direccion: 'Av. La Paz 463', estrellas: 5, score: 9.2, scoreLabel: 'Excepcional',
       numResenas: 2840, precioPorNoche: 320, precioAnterior: 420, descuentoPct: 24,
       imagenes: [
-        'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900',
-        'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600',
-        'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600',
-        'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600',
-        'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600',
+        hotelImage(0, 900),
+        hotelImage(1, 600),
+        hotelImage(6, 600),
+        hotelImage(4, 600),
+        hotelImage(5, 600),
       ],
       amenities: ['🌊 Piscina', '🅿️ Parking', '🍳 Desayuno', '💆 Spa', '🏋️ Gimnasio', '🍸 Bar', '🛎️ Concierge 24h', '♿ Accesible', '🐾 Mascotas', '🏊 Jacuzzi', '🌿 Jardín', '📶 WiFi gratis'],
       cancelacionGratis: true, desayunoIncluido: true, habitacionesDisponibles: 4, destacado: true,
@@ -481,9 +483,9 @@ export class HotelDetalleComponent implements OnInit {
       politicaCancelacion: 'Cancelación gratuita hasta 24 horas antes del check-in.',
       checkIn: 'A partir de las 3:00 PM', checkOut: 'Hasta las 12:00 PM (mediodía)',
       habitaciones: [
-        { id: 'h1-r1', tipo: 'Habitación Superior', descripcion: 'Cómoda habitación con vista a la piscina y amenities de lujo.', capacidad: 2, camas: '1 cama matrimonial', tamano: 32, precio: 320, precioAnterior: 420, amenities: ['📶 WiFi', '❄️ A/C', '📺 Smart TV', '☕ Máquina de café'], imagenes: ['https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600'], disponible: true, cancelacionGratis: true },
-        { id: 'h1-r2', tipo: 'Suite Junior Vista al Mar', descripcion: 'Suite con sala de estar y vistas panorámicas al océano Pacífico.', capacidad: 2, camas: '1 king bed', tamano: 52, precio: 580, amenities: ['📶 WiFi', '❄️ A/C', '📺 Smart TV', '♨️ Jacuzzi', '🛁 Bañera'], imagenes: ['https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=600'], disponible: true, cancelacionGratis: true },
-        { id: 'h1-r3', tipo: 'Suite Presidential', descripcion: 'Nuestra suite más exclusiva con comedor privado y terraza panorámica.', capacidad: 4, camas: '2 king beds', tamano: 120, precio: 1200, precioAnterior: 1500, amenities: ['📶 WiFi', '❄️ A/C', '📺 4K TV', '♨️ Jacuzzi privado', '🍷 Botella bienvenida', '🛁 Bañera doble'], imagenes: ['https://images.unsplash.com/photo-1602002418082-a4443e081dd1?w=600'], disponible: false, cancelacionGratis: false },
+        { id: 'h1-r1', tipo: 'Habitación Superior', descripcion: 'Cómoda habitación con vista a la piscina y amenities de lujo.', capacidad: 2, camas: '1 cama matrimonial', tamano: 32, precio: 320, precioAnterior: 420, amenities: ['📶 WiFi', '❄️ A/C', '📺 Smart TV', '☕ Máquina de café'], imagenes: [hotelImage(1, 600)], disponible: true, cancelacionGratis: true },
+        { id: 'h1-r2', tipo: 'Suite Junior Vista al Mar', descripcion: 'Suite con sala de estar y vistas panorámicas al océano Pacífico.', capacidad: 2, camas: '1 king bed', tamano: 52, precio: 580, amenities: ['📶 WiFi', '❄️ A/C', '📺 Smart TV', '♨️ Jacuzzi', '🛁 Bañera'], imagenes: [hotelImage(3, 600)], disponible: true, cancelacionGratis: true },
+        { id: 'h1-r3', tipo: 'Suite Presidential', descripcion: 'Nuestra suite más exclusiva con comedor privado y terraza panorámica.', capacidad: 4, camas: '2 king beds', tamano: 120, precio: 1200, precioAnterior: 1500, amenities: ['📶 WiFi', '❄️ A/C', '📺 4K TV', '♨️ Jacuzzi privado', '🍷 Botella bienvenida', '🛁 Bañera doble'], imagenes: [hotelImage(8, 600)], disponible: false, cancelacionGratis: false },
       ],
       resenas: [
         { id: 'r1', autorNombre: 'María García', autorAvatar: '👩‍💼', fecha: 'Junio 2026', score: 9.8, titulo: 'Una experiencia increíble', texto: 'Todo fue perfecto desde el momento en que llegamos. El personal es exceptcionalmente amable, la habitación tenía unas vistas al mar impresionantes. El desayuno buffet es uno de los mejores que he probado en Lima.', pais: 'Perú', tipoViaje: 'Pareja', desglose: { limpieza: 10, ubicacion: 10, servicios: 9.5, valorPrecio: 9, confort: 10, personal: 10 }, respuestaComercio: '¡Muchas gracias, María! Fue un placer tenerte con nosotros. Esperamos verte pronto.' },

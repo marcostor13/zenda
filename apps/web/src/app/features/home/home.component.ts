@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
+import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { hotelImage } from '../../shared/media/images';
 
 interface HotelDestacado {
   id: string;
@@ -44,7 +46,7 @@ interface Testimonio {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, DecimalPipe, AnimateOnScrollDirective, RsNavbarComponent],
+  imports: [RouterLink, ReactiveFormsModule, DecimalPipe, AnimateOnScrollDirective, RsNavbarComponent, ImgFallbackDirective],
   template: `
 <div class="home">
   <rs-navbar />
@@ -52,6 +54,7 @@ interface Testimonio {
   <!-- ═══ HERO ════════════════════════════════════════════════════ -->
   <section class="hero">
     <div class="rs-hero-bg">
+      <div class="hero__photo" aria-hidden="true"></div>
       <div class="rs-hero-bg__grid"></div>
       <div class="rs-hero-bg__orb rs-hero-bg__orb--1"></div>
       <div class="rs-hero-bg__orb rs-hero-bg__orb--2"></div>
@@ -184,7 +187,7 @@ interface Testimonio {
              [rsAnim]="''" [rsAnimDelay]="$index * 60">
 
             <div class="rs-hotel-card__img">
-              <img [src]="h.imagen" [alt]="h.nombre" loading="lazy" />
+              <img [src]="h.imagen" [alt]="h.nombre" loading="lazy" rsImg />
               <div class="rs-hotel-card__img-badges">
                 @for (b of h.badges; track b) {
                   <span class="rs-badge rs-badge--accent">{{ b }}</span>
@@ -362,7 +365,7 @@ interface Testimonio {
     <div class="rs-footer__grid">
       <div class="rs-footer__brand">
         <div style="font-size:var(--f-xl);font-weight:var(--w-8);letter-spacing:-.03em;color:var(--t-100)">
-          Reserva<span class="rs-gradient-text">lo</span>
+          Zen<span class="rs-gradient-text">da</span>
         </div>
         <p>El marketplace de reservas #1 del Perú. Hoteles, vuelos, taxis, transporte y guarderías.</p>
         <div style="margin-top:var(--sp-4);display:flex;gap:var(--sp-3)">
@@ -429,6 +432,17 @@ interface Testimonio {
       align-items: center;
       overflow: hidden;
       padding-block: var(--sp-16);
+    }
+
+    .hero__photo {
+      position: absolute;
+      inset: 0;
+      background-image: url('https://images.pexels.com/photos/338504/pexels-photo-338504.jpeg?auto=compress&cs=tinysrgb&w=1600');
+      background-size: cover;
+      background-position: center;
+      opacity: .14;
+      mask-image: radial-gradient(ellipse 90% 80% at 50% 30%, #000 0%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 30%, #000 0%, transparent 75%);
     }
 
     .hero__inner {
@@ -526,7 +540,6 @@ interface Testimonio {
     .stats__grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      divide-x: 1px solid var(--b-1);
       gap: var(--sp-8);
 
       @media (max-width: 640px) { grid-template-columns: repeat(2, 1fr); }
@@ -869,7 +882,7 @@ export class HomeComponent {
       ciudad: 'Lima', barrio: 'Miraflores',
       estrellas: 5, score: 9.2, scoreLabel: 'Excepcional', numResenas: 2840,
       precioPorNoche: 320, precioAnterior: 420,
-      imagen: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600',
+      imagen: hotelImage(0, 600),
       amenities: ['🌊 Vista al mar', '🍳 Desayuno', '🅿️ Parking'],
       cancelacionGratis: true,
       badges: ['Mejor precio', '-24%'],
@@ -880,7 +893,7 @@ export class HomeComponent {
       ciudad: 'Cusco', barrio: 'Aguas Calientes',
       estrellas: 5, score: 9.6, scoreLabel: 'Excepcional', numResenas: 1520,
       precioPorNoche: 890,
-      imagen: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600',
+      imagen: hotelImage(4, 600),
       amenities: ['🦋 Ecológico', '♨️ Jacuzzi', '🍽️ Restaurante'],
       cancelacionGratis: true,
       badges: ['Top rated', 'Eco'],
@@ -891,7 +904,7 @@ export class HomeComponent {
       ciudad: 'Puno', barrio: 'Centro',
       estrellas: 4, score: 8.8, scoreLabel: 'Muy bueno', numResenas: 980,
       precioPorNoche: 240, precioAnterior: 290,
-      imagen: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600',
+      imagen: hotelImage(2, 600),
       amenities: ['🌊 Lago', '🌅 Vista puesta de sol', '🚣 Kayak'],
       cancelacionGratis: false,
       badges: ['Vista lago'],
@@ -902,7 +915,7 @@ export class HomeComponent {
       ciudad: 'Lima', barrio: 'Miraflores',
       estrellas: 5, score: 9.0, scoreLabel: 'Excepcional', numResenas: 3210,
       precioPorNoche: 480,
-      imagen: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600',
+      imagen: hotelImage(6, 600),
       amenities: ['🏊 Piscina', '💆 Spa', '🍸 Bar'],
       cancelacionGratis: true,
       badges: ['Elegido del mes'],

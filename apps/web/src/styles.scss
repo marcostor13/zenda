@@ -1113,3 +1113,370 @@ h1, h2, h3, h4, h5, h6 {
 .rs-visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0);
 }
+
+/* ================================================================
+   30. CAPA DE COMPATIBILIDAD — API pública documentada (CLAUDE.md §21)
+   ----------------------------------------------------------------
+   El stylesheet "v2" renombró tokens y clases (--sp-*, --f-*, .rs-nav,
+   .rs-inp, .rs-vtab…), pero varios componentes y el design system
+   documentado usan la nomenclatura original (--s-*, --text-*, .rs-navbar,
+   .rs-input, .rs-vertical-tab…). Esta capa mapea esa API a los valores v2
+   para que TODOS los componentes queden correctamente estilizados sin
+   reescribirlos. No elimina nada de v2.
+   ================================================================ */
+
+:root {
+  /* Espaciado (base 4px) */
+  --s-1: .25rem;  --s-2: .5rem;   --s-3: .75rem;  --s-4: 1rem;
+  --s-5: 1.25rem; --s-6: 1.5rem;  --s-8: 2rem;    --s-10: 2.5rem;
+  --s-12: 3rem;   --s-16: 4rem;   --s-20: 5rem;   --s-24: 6rem;  --s-32: 8rem;
+
+  /* Tipografía — escala */
+  --text-xs: .75rem;  --text-sm: .875rem; --text-base: 1rem;  --text-lg: 1.125rem;
+  --text-xl: 1.25rem; --text-2xl: 1.5rem; --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem; --text-5xl: 3rem;  --text-6xl: 3.75rem;
+
+  /* Pesos */
+  --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700; --fw-extrabold: 800;
+
+  /* Fondos */
+  --bg-base: var(--c-base);     --bg-elevated: var(--c-raised); --bg-card: var(--c-card);
+  --bg-surface: var(--c-surface); --bg-subtle: var(--c-overlay);
+  --bg-light: var(--c-light);   --bg-light-2: var(--c-light-2);
+
+  /* Accent */
+  --accent: var(--c-accent);    --accent-hover: var(--c-accent-h);
+  --accent-light: #7AA3FF;      --accent-subtle: var(--c-accent-lo);
+  --accent-gradient: var(--g-accent);
+
+  /* Texto */
+  --text-primary: var(--t-100); --text-secondary: var(--t-200); --text-muted: var(--t-400);
+  --text-dark: #0B1220;         --text-dark-secondary: #3E5070;
+
+  /* Fuentes */
+  --font-sans: var(--font);     --font-display: var(--font);
+
+  /* Sombras */
+  --shadow-sm: var(--sh-sm); --shadow-md: var(--sh-md); --shadow-lg: var(--sh-lg);
+  --shadow-xl: var(--sh-xl); --shadow-accent: var(--sh-glow);
+
+  /* Transiciones */
+  --t-fast: var(--d-1); --t-base: var(--d-2); --t-slow: var(--d-3);
+}
+
+/* ── NAVBAR (.rs-navbar) ───────────────────────────────────────── */
+.rs-navbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-3);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding-inline: var(--sp-6);
+  background: rgba(6,13,27,.8);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--b-1);
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-size: var(--f-xl);
+    font-weight: var(--w-8);
+    letter-spacing: -.03em;
+    color: var(--t-100);
+    flex-shrink: 0;
+
+    span { background: var(--g-accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  }
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    flex: 1;
+
+    @media (max-width: 640px) { display: none; }
+  }
+
+  &__link {
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--f-sm);
+    font-weight: var(--w-5);
+    color: var(--t-300);
+    border-radius: var(--r-md);
+    transition: color var(--d-1), background var(--d-1);
+
+    &:hover { color: var(--t-100); background: rgba(255,255,255,.05); }
+    &--active { color: var(--t-100); background: var(--c-accent-lo); }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-left: auto;
+  }
+}
+
+/* ── FORMULARIOS (.rs-form-group / .rs-label / .rs-input) ──────── */
+.rs-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.rs-label {
+  font-size: var(--f-sm);
+  font-weight: var(--w-5);
+  color: var(--t-300);
+}
+
+.rs-input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-raised);
+  border: 1px solid var(--b-2);
+  border-radius: var(--r-lg);
+  color: var(--t-100);
+  font-size: var(--f-base);
+  transition: border-color var(--d-2), background var(--d-2), box-shadow var(--d-2);
+
+  &::placeholder { color: var(--t-500); }
+
+  &:focus {
+    outline: none;
+    border-color: var(--c-accent);
+    background: var(--c-card);
+    box-shadow: 0 0 0 3px rgba(84,114,248,.18);
+  }
+
+  &--error {
+    border-color: #EF4444;
+    &:focus { box-shadow: 0 0 0 3px rgba(239,68,68,.15); }
+  }
+
+  &--lg { padding: var(--sp-4) var(--sp-5); font-size: var(--f-md); border-radius: var(--r-xl); }
+}
+
+.rs-field-error { font-size: var(--f-xs); color: #FCA5A5; }
+
+/* ── DIVIDER (.rs-divider) ─────────────────────────────────────── */
+.rs-divider {
+  height: 1px;
+  background: var(--b-1);
+  border: none;
+
+  &--text {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    height: auto;
+    background: none;
+    color: var(--t-400);
+    font-size: var(--f-sm);
+
+    &::before, &::after { content: ''; flex: 1; height: 1px; background: var(--b-2); }
+  }
+}
+
+/* ── SPINNER (.rs-spinner) ─────────────────────────────────────── */
+.rs-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255,255,255,.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .65s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── TABS DE VERTICAL (.rs-vertical-tabs / .rs-vertical-tab) ────── */
+.rs-vertical-tabs {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.rs-vertical-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--f-sm);
+  font-weight: var(--w-5);
+  color: var(--t-400);
+  background: var(--c-raised);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r-full);
+  cursor: pointer;
+  transition: all var(--d-2);
+
+  &:hover { color: var(--t-200); border-color: var(--b-2); background: var(--c-card); }
+
+  &.activo {
+    color: var(--t-100);
+    background: var(--c-accent-lo);
+    border-color: var(--b-a);
+    font-weight: var(--w-6);
+  }
+}
+
+/* ── SEARCH BOX (.rs-search-box) ───────────────────────────────── */
+.rs-search-box {
+  background: var(--c-card);
+  border: 1px solid var(--b-2);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6);
+  box-shadow: var(--sh-xl);
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: var(--sp-3);
+    align-items: end;
+
+    @media (max-width: 768px) { grid-template-columns: 1fr; }
+  }
+
+  .rs-form-group { margin-bottom: 0; }
+}
+
+/* ── HERO DEL BUSCADOR (.rs-buscador-hero) ─────────────────────── */
+.rs-buscador-hero {
+  position: relative;
+  min-height: 100vh;
+  background: var(--g-hero);
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('https://images.pexels.com/photos/338504/pexels-photo-338504.jpeg?auto=compress&cs=tinysrgb&w=1600');
+    background-size: cover;
+    background-position: center;
+    opacity: .1;
+    pointer-events: none;
+  }
+
+  &__content {
+    position: relative;
+    z-index: 1;
+    max-width: var(--w-xl);
+    margin-inline: auto;
+    padding: var(--sp-20) var(--sp-6) var(--sp-24);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  &__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    background: rgba(84,114,248,.12);
+    border: 1px solid rgba(84,114,248,.25);
+    border-radius: var(--r-full);
+    font-size: var(--f-xs);
+    font-weight: var(--w-6);
+    color: #7AA3FF;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    margin-bottom: var(--sp-6);
+  }
+
+  &__heading {
+    font-size: var(--f-hero);
+    font-weight: var(--w-9);
+    letter-spacing: -.04em;
+    line-height: 1.05;
+    color: var(--t-100);
+    margin-bottom: var(--sp-5);
+
+    span { background: var(--g-accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  }
+
+  &__subheading {
+    font-size: var(--f-lg);
+    color: var(--t-300);
+    max-width: 56ch;
+    margin: 0 auto var(--sp-8);
+    line-height: 1.7;
+  }
+
+  .rs-vertical-tabs { justify-content: center; }
+  .rs-search-box { width: min(920px, 100%); margin-inline: auto; }
+}
+
+/* ── AUTH LAYOUT (.rs-auth-layout / .rs-auth-card) ─────────────── */
+.rs-auth-layout {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-6);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(84,114,248,.22) 0%, transparent 60%),
+    var(--c-base);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('https://images.pexels.com/photos/258154/pexels-photo-258154.jpeg?auto=compress&cs=tinysrgb&w=1200');
+    background-size: cover;
+    background-position: center;
+    opacity: .08;
+    pointer-events: none;
+  }
+}
+
+.rs-auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  background: var(--c-card);
+  border: 1px solid var(--b-2);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-10) var(--sp-8);
+  box-shadow: var(--sh-xl);
+  animation: scaleIn var(--d-4) ease;
+
+  &__brand {
+    text-align: center;
+    margin-bottom: var(--sp-8);
+
+    h1 {
+      font-size: var(--f-3xl);
+      font-weight: var(--w-9);
+      background: var(--g-accent);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -.04em;
+    }
+
+    p { font-size: var(--f-sm); color: var(--t-400); margin-top: var(--sp-1); }
+  }
+
+  &__footer {
+    text-align: center;
+    margin-top: var(--sp-6);
+    font-size: var(--f-sm);
+    color: var(--t-400);
+
+    a { color: #7AA3FF; font-weight: var(--w-5); transition: color var(--d-1); &:hover { color: #fff; } }
+  }
+}

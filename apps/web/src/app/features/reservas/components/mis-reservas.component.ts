@@ -1,6 +1,8 @@
 import { Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
+import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { hotelImage } from '../../../shared/media/images';
 
 type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'cancelada' | 'completada';
 
@@ -20,7 +22,7 @@ interface ReservaCard {
 @Component({
   selector: 'app-mis-reservas',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent],
+  imports: [RouterLink, RsNavbarComponent, ImgFallbackDirective],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -48,7 +50,7 @@ interface ReservaCard {
     <div class="reservas-list">
       @for (r of reservasFiltradas(); track r.codigo) {
         <div class="reserva-row rs-card rs-card--hover">
-          <img [src]="r.imagen" [alt]="r.titulo" class="reserva-row__img" />
+          <img [src]="r.imagen" [alt]="r.titulo" class="reserva-row__img" rsImg />
 
           <div class="reserva-row__info">
             <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-2)">
@@ -178,7 +180,7 @@ export class MisReservasComponent {
       emoji: '🏨',
       titulo: 'Casa Andina Premium Miraflores',
       subtitulo: 'Habitación Superior · 2 noches',
-      imagen: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400',
+      imagen: hotelImage(0, 400),
       fechaInicio: '15 Jul 2026',
       fechaFin: '17 Jul 2026',
       total: 756,
@@ -190,7 +192,7 @@ export class MisReservasComponent {
       emoji: '🚗',
       titulo: 'Traslado Aeropuerto Jorge Chávez',
       subtitulo: 'Lima → Miraflores · Sedán',
-      imagen: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=400',
+      imagen: hotelImage(7, 400),
       fechaInicio: '14 Jul 2026',
       fechaFin: '14 Jul 2026',
       total: 95,
@@ -202,7 +204,7 @@ export class MisReservasComponent {
       emoji: '🏨',
       titulo: 'Belmond Miraflores Park',
       subtitulo: 'Suite Deluxe Vista al Mar · 3 noches',
-      imagen: 'https://images.unsplash.com/photo-1615460549969-36fa19521a4f?w=400',
+      imagen: hotelImage(8, 400),
       fechaInicio: '20 Ago 2026',
       fechaFin: '23 Ago 2026',
       total: 2124,

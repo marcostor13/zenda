@@ -1,11 +1,13 @@
 import { Component, signal, computed } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
+import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { hotelImage } from '../../shared/media/images';
 
 @Component({
   selector: 'app-panel-comercio-dashboard',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent],
+  imports: [RouterLink, RsNavbarComponent, ImgFallbackDirective],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -142,7 +144,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
         <div class="listados-grid">
           @for (l of listados(); track l.id) {
             <div class="listado-item">
-              <img [src]="l.imagen" [alt]="l.titulo" />
+              <img [src]="l.imagen" [alt]="l.titulo" rsImg />
               <div class="listado-item__info">
                 <strong>{{ l.titulo }}</strong>
                 <p>{{ l.tipo }}</p>
@@ -269,9 +271,9 @@ export class PanelComercioDashboardComponent {
   ];
 
   readonly listados = signal([
-    { id: 'l1', titulo: 'Suite Premium Vista al Mar', tipo: '2 hab disponibles', imagen: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200', estado: 'Publicado', estadoClass: 'rs-badge--success', rating: '4.9', activo: true },
-    { id: 'l2', titulo: 'Habitación Superior',       tipo: '3 hab disponibles', imagen: 'https://images.unsplash.com/photo-1585503418537-88331351ad99?w=200', estado: 'Publicado', estadoClass: 'rs-badge--success', rating: '4.7', activo: true },
-    { id: 'l3', titulo: 'Habitación Económica',      tipo: '0 hab disponibles', imagen: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=200', estado: 'Pausado',   estadoClass: 'rs-badge--warning',  rating: '4.5', activo: false },
+    { id: 'l1', titulo: 'Suite Premium Vista al Mar', tipo: '2 hab disponibles', imagen: hotelImage(0, 200), estado: 'Publicado', estadoClass: 'rs-badge--success', rating: '4.9', activo: true },
+    { id: 'l2', titulo: 'Habitación Superior',       tipo: '3 hab disponibles', imagen: hotelImage(2, 200), estado: 'Publicado', estadoClass: 'rs-badge--success', rating: '4.7', activo: true },
+    { id: 'l3', titulo: 'Habitación Económica',      tipo: '0 hab disponibles', imagen: hotelImage(1, 200), estado: 'Pausado',   estadoClass: 'rs-badge--warning',  rating: '4.5', activo: false },
   ]);
 
   readonly navItems = [

@@ -2,11 +2,13 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
+import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { hotelImage } from '../../shared/media/images';
 
 @Component({
   selector: 'app-perfil-dashboard',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent],
+  imports: [RouterLink, RsNavbarComponent, ImgFallbackDirective],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -56,7 +58,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
         <div style="display:flex;flex-direction:column;gap:var(--sp-3)">
           @for (r of reservasRecientes; track r.codigo) {
             <div class="mini-reserva rs-card">
-              <img [src]="r.imagen" [alt]="r.titulo" />
+              <img [src]="r.imagen" [alt]="r.titulo" rsImg />
               <div class="mini-reserva__info">
                 <strong>{{ r.titulo }}</strong>
                 <span>{{ r.fecha }}</span>
@@ -217,7 +219,7 @@ export class PerfilDashboardComponent {
       codigo: 'RES-A1B2C3',
       titulo: 'Casa Andina Premium',
       fecha: '15 Jul 2026',
-      imagen: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200',
+      imagen: hotelImage(0, 200),
       estado: '✓ Confirmada',
       badgeClass: 'rs-badge--success',
     },
@@ -225,7 +227,7 @@ export class PerfilDashboardComponent {
       codigo: 'RES-D4E5F6',
       titulo: 'Traslado Aeropuerto',
       fecha: '14 Jul 2026',
-      imagen: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=200',
+      imagen: hotelImage(7, 200),
       estado: '★ Completada',
       badgeClass: 'rs-badge--accent',
     },
