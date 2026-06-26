@@ -11,6 +11,7 @@ export interface CrearReservaPayload {
   fechaFin?: string;
   cantidad?: number;
   detalle?: Record<string, unknown>;
+  cuponCodigo?: string;
 }
 
 /** Reserva tal como la devuelve el API (documento crudo). */

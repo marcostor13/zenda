@@ -6,6 +6,7 @@ import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.di
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
+import { CuponesService } from '../services/cupones.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 type Paso = 1 | 2 | 3 | 4;
@@ -334,6 +335,12 @@ type Paso = 1 | 2 | 3 | 4;
               <span>Subtotal</span>
               <span>€{{ subtotal() }}</span>
             </div>
+            @if (descuento() > 0) {
+              <div class="price-row price-row--sub" style="color:#16A34A">
+                <span>Descuento ({{ cuponCodigo() }})</span>
+                <span>−€{{ descuento() }}</span>
+              </div>
+            }
             <div class="price-row price-row--sub">
               <span>IVA (21%)</span>
               <span>€{{ igv() }}</span>
@@ -341,6 +348,27 @@ type Paso = 1 | 2 | 3 | 4;
             <div class="price-row price-row--total">
               <span>Total</span>
               <span>€{{ total() }}</span>
+            </div>
+
+            <!-- Cupón de descuento -->
+            <div class="cupon-box">
+              @if (descuento() > 0) {
+                <div class="rs-alert rs-alert--success" style="font-size:var(--f-xs)">
+                  ✓ Cupón {{ cuponCodigo() }} aplicado
+                  <button class="cupon-box__quitar" (click)="quitarCupon()">Quitar</button>
+                </div>
+              } @else {
+                <div class="cupon-box__row">
+                  <input [(ngModel)]="cuponInput" name="cupon" class="rs-inp" placeholder="Código de descuento"
+                         style="text-transform:uppercase" />
+                  <button class="rs-btn rs-btn--secondary" [disabled]="aplicandoCupon()" (click)="aplicarCupon()">
+                    {{ aplicandoCupon() ? '…' : 'Aplicar' }}
+                  </button>
+                </div>
+                @if (cuponError()) {
+                  <p style="font-size:var(--f-xs);color:#DC2626;margin-top:var(--sp-2)">{{ cuponError() }}</p>
+                }
+              }
             </div>
             <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-4)">
               Precio final en euros. El cargo se hará en el momento de confirmar.
@@ -488,6 +516,9 @@ type Paso = 1 | 2 | 3 | 4;
     .price-row--sub { color: var(--t-400); }
     .price-row--total { color: var(--t-100); font-weight: var(--w-8); font-size: var(--f-md); }
     .price-trust { display: flex; flex-direction: column; gap: var(--sp-2); p { font-size: var(--f-xs); color: var(--t-400); } }
+    .cupon-box { margin-top: var(--sp-4); }
+    .cupon-box__row { display: flex; gap: var(--sp-2); .rs-inp { flex: 1; } }
+    .cupon-box__quitar { margin-left: var(--sp-3); text-decoration: underline; color: inherit; font-size: var(--f-xs); }
 
     .filter-check { display: flex; align-items: flex-start; gap: var(--sp-3); cursor: pointer; }
   `],
@@ -499,6 +530,7 @@ export class ReservaWizardComponent implements OnInit {
   private readonly stripeService   = inject(StripeService);
   private readonly reservasService = inject(ReservasService);
   private readonly paymentsService = inject(PaymentsService);
+  private readonly cuponesService  = inject(CuponesService);
 
   readonly paso      = signal<Paso>(1);
   readonly procesando = signal(false);
@@ -555,8 +587,38 @@ export class ReservaWizardComponent implements OnInit {
     return base + extTotal;
   });
 
-  readonly igv   = computed(() => Math.round(this.subtotal() * 0.21));
-  readonly total = computed(() => this.subtotal() + this.igv());
+  // Cupón de descuento
+  readonly descuento = signal(0);
+  readonly cuponCodigo = signal<string | null>(null);
+  readonly cuponError = signal<string | null>(null);
+  readonly aplicandoCupon = signal(false);
+  cuponInput = '';
+
+  readonly subtotalNeto = computed(() => Math.max(0, this.subtotal() - this.descuento()));
+  readonly igv   = computed(() => Math.round(this.subtotalNeto() * 0.21));
+  readonly total = computed(() => this.subtotalNeto() + this.igv());
+
+  async aplicarCupon(): Promise<void> {
+    const codigo = this.cuponInput.trim().toUpperCase();
+    if (!codigo) return;
+    this.aplicandoCupon.set(true);
+    this.cuponError.set(null);
+    try {
+      const res = await this.cuponesService.validar(codigo, this.vertical ?? 'hoteles', this.subtotal());
+      this.descuento.set(res.descuento);
+      this.cuponCodigo.set(res.codigo);
+    } catch {
+      this.cuponError.set('Cupón no válido o no aplicable a esta reserva.');
+    } finally {
+      this.aplicandoCupon.set(false);
+    }
+  }
+
+  quitarCupon(): void {
+    this.descuento.set(0);
+    this.cuponCodigo.set(null);
+    this.cuponInput = '';
+  }
 
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
@@ -587,6 +649,7 @@ export class ReservaWizardComponent implements OnInit {
         fechaFin: this.paso1Form.value.checkOut ?? undefined,
         cantidad: 1,
         detalle: { habitacionId: this.paso1Form.value.habitacionId },
+        cuponCodigo: this.cuponCodigo() ?? undefined,
       });
       this.reservaIdReal = reserva._id ?? reserva.id ?? null;
       this.codigoReserva.set(reserva.codigo);

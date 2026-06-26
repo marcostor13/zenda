@@ -337,6 +337,7 @@ export class AdminDashboardComponent {
       title: 'Plataforma',
       items: [
         { icon: '🏷️', label: 'Comisiones',   ruta: '/admin/comisiones',  active: false },
+        { icon: '🎟️', label: 'Cupones',      ruta: '/admin/cupones',     active: false },
         { icon: '🌐', label: 'Verticales',    ruta: '/admin/verticales',  active: false },
         { icon: '⭐', label: 'Reseñas',       ruta: '/admin/resenas',     active: false },
         { icon: '⚙️', label: 'Configuración', ruta: '/admin/config',      active: false },

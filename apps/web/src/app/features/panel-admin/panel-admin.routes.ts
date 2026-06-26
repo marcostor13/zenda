@@ -6,4 +6,9 @@ export const panelAdminRoutes: Routes = [
     loadComponent: () =>
       import('./admin-dashboard.component').then(m => m.AdminDashboardComponent),
   },
+  {
+    path: 'cupones',
+    loadComponent: () =>
+      import('./cupones-admin.component').then(m => m.CuponesAdminComponent),
+  },
 ];
