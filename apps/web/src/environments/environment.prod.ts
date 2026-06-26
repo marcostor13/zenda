@@ -1,4 +1,6 @@
 export const environment = {
   production: true,
   apiUrl: 'https://apizenda.marcostorresalarcon.com/api/v1',
+  // TODO: sustituir por la clave publicable LIVE (pk_live_…) antes de producción real.
+  stripePublicKey: 'pk_test_51TmN6IA68yWZtvLm0XfmtZLLxqSmfTUshpLVz1mEyFcLAhv64LFPgn6d3jxKufHjFClHyCqcMU4lWZrQCVxKTjFM00x6Uf0Pnm',
 };

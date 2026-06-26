@@ -1,8 +1,10 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { hotelImage } from '../../../shared/media/images';
+import { ReservasService, ReservaApi } from '../services/reservas.service';
+import { HotelesService } from '../../hoteles/services/hoteles.service';
 
 type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'cancelada' | 'completada';
 
@@ -162,7 +164,10 @@ interface ReservaCard {
     .empty-state { text-align: center; padding: var(--sp-20) var(--sp-8); h3 { font-size: var(--f-xl); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-3); } p { color: var(--t-400); } }
   `],
 })
-export class MisReservasComponent {
+export class MisReservasComponent implements OnInit {
+  private readonly reservasService = inject(ReservasService);
+  private readonly hotelesService = inject(HotelesService);
+
   readonly filtroActivo = signal<EstadoFiltro>('todas');
 
   readonly filtros: { valor: EstadoFiltro; label: string }[] = [
@@ -241,6 +246,67 @@ export class MisReservasComponent {
       completada: '★ Completada',
     };
     return map[estado] ?? estado;
+  }
+
+  async ngOnInit(): Promise<void> {
+    try {
+      const apiReservas = await this.reservasService.misReservas();
+      if (!apiReservas.length) return; // sin datos: se mantiene el ejemplo
+      const cards = await Promise.all(apiReservas.map((r) => this.aCard(r)));
+      this.reservas.set(cards);
+    } catch {
+      // Sin sesión o API caída: se mantienen los datos de ejemplo.
+    }
+  }
+
+  /** Hidrata una reserva del API con el nombre/imagen del servicio (opción b). */
+  private async aCard(r: ReservaApi): Promise<ReservaCard> {
+    const meta = this.verticalMeta(r.vertical);
+    let titulo = (r.detalle?.['titulo'] as string) ?? meta.label;
+    let imagen = (r.detalle?.['imagen'] as string) ?? hotelImage(0, 400);
+
+    try {
+      const servicio = await this.hotelesService.obtener(r.servicioId);
+      titulo = servicio.nombre;
+      imagen = servicio.imagenes?.[0] ?? imagen;
+    } catch {
+      // Si no se puede hidratar, se usa el título/imagen de respaldo.
+    }
+
+    return {
+      codigo: r.codigo,
+      vertical: meta.label,
+      emoji: meta.emoji,
+      titulo,
+      subtitulo: `${r.cantidad} ${r.cantidad === 1 ? 'unidad' : 'unidades'}`,
+      imagen,
+      fechaInicio: this.formatearFecha(r.fechaInicio),
+      fechaFin: this.formatearFecha(r.fechaFin ?? r.fechaInicio),
+      total: r.montoTotal,
+      estado: this.normalizarEstado(r.estado),
+    };
+  }
+
+  private verticalMeta(vertical: string): { label: string; emoji: string } {
+    const map: Record<string, { label: string; emoji: string }> = {
+      hoteles:    { label: 'Hotel',      emoji: '🏨' },
+      vuelos:     { label: 'Vuelo',      emoji: '✈️' },
+      taxis:      { label: 'Taxi',       emoji: '🚗' },
+      transporte: { label: 'Transporte', emoji: '🚛' },
+      guarderia:  { label: 'Guardería',  emoji: '👶' },
+    };
+    return map[vertical] ?? { label: vertical, emoji: '📦' };
+  }
+
+  private normalizarEstado(estado: string): ReservaCard['estado'] {
+    const validos: ReservaCard['estado'][] = ['confirmada', 'pendiente', 'cancelada', 'completada'];
+    return (validos as string[]).includes(estado) ? (estado as ReservaCard['estado']) : 'pendiente';
+  }
+
+  private formatearFecha(iso: string): string {
+    const fecha = new Date(iso);
+    if (Number.isNaN(fecha.getTime())) return iso;
+    return fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
 }
