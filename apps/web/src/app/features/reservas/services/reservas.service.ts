@@ -24,12 +24,18 @@ export interface ReservaApi {
   comercioId: string;
   detalle?: Record<string, unknown>;
   montoSubtotal: number;
+  comisionMonto: number;
+  descuentoMonto: number;
   montoTotal: number;
   moneda: string;
+  cuponCodigo?: string;
   fechaInicio: string;
   fechaFin?: string;
   cantidad: number;
   estado: 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'no_show';
+  pagoId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -47,6 +53,10 @@ export class ReservasService {
 
   obtener(id: string): Promise<ReservaApi> {
     return firstValueFrom(this.http.get<ReservaApi>(`${this.base}/${id}`));
+  }
+
+  obtenerPorCodigo(codigo: string): Promise<ReservaApi> {
+    return firstValueFrom(this.http.get<ReservaApi>(`${this.base}/codigo/${codigo}`));
   }
 
   cancelar(id: string): Promise<ReservaApi> {

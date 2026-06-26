@@ -134,6 +134,20 @@ export class BookingsService {
     return this.reservaModel.findById(id).exec();
   }
 
+  async obtenerPorCodigo(codigo: string, usuarioId: string): Promise<ReservaDocument> {
+    const reserva = await this.reservaModel.findOne({ codigo }).exec();
+
+    if (!reserva) {
+      throw new DomainException('Reserva no encontrada', 404);
+    }
+
+    if (reserva.usuarioId.toString() !== usuarioId) {
+      throw new DomainException('No tienes permiso para ver esta reserva', 403);
+    }
+
+    return reserva;
+  }
+
   async obtenerDeUsuario(id: string, usuarioId: string): Promise<ReservaDocument> {
     const reserva = await this.reservaModel.findById(id).exec();
 

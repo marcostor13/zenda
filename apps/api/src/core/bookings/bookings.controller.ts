@@ -49,6 +49,15 @@ export class BookingsController {
     return this.bookingsService.listarPorUsuario(req.user.sub);
   }
 
+  @Get('codigo/:codigo')
+  @ApiOperation({ summary: 'Obtener una reserva propia por código (ej: RES-XXXXXXXX)' })
+  obtenerPorCodigo(
+    @Param('codigo') codigo: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<ReservaDocument> {
+    return this.bookingsService.obtenerPorCodigo(codigo, req.user.sub);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obtener una reserva propia por id' })
   obtener(@Param('id') id: string, @Req() req: RequestConUsuario): Promise<ReservaDocument> {
