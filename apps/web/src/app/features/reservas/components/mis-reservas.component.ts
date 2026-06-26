@@ -168,17 +168,10 @@ export class MisReservasComponent implements OnInit {
   private readonly reservasService = inject(ReservasService);
   private readonly hotelesService = inject(HotelesService);
 
-  readonly filtroActivo = signal<EstadoFiltro>('todas');
+  // ── Cambiar a true para usar datos de ejemplo en lugar del API ──
+  private readonly useMock = false;
 
-  readonly filtros: { valor: EstadoFiltro; label: string }[] = [
-    { valor: 'todas',      label: 'Todas' },
-    { valor: 'confirmada', label: 'Confirmadas' },
-    { valor: 'pendiente',  label: 'Pendientes' },
-    { valor: 'completada', label: 'Completadas' },
-    { valor: 'cancelada',  label: 'Canceladas' },
-  ];
-
-  readonly reservas = signal<ReservaCard[]>([
+  private readonly MOCK_RESERVAS: ReservaCard[] = [
     {
       codigo: 'RES-A1B2C3',
       vertical: 'Hotel',
@@ -215,7 +208,19 @@ export class MisReservasComponent implements OnInit {
       total: 2124,
       estado: 'pendiente',
     },
-  ]);
+  ];
+
+  readonly filtroActivo = signal<EstadoFiltro>('todas');
+
+  readonly filtros: { valor: EstadoFiltro; label: string }[] = [
+    { valor: 'todas',      label: 'Todas' },
+    { valor: 'confirmada', label: 'Confirmadas' },
+    { valor: 'pendiente',  label: 'Pendientes' },
+    { valor: 'completada', label: 'Completadas' },
+    { valor: 'cancelada',  label: 'Canceladas' },
+  ];
+
+  readonly reservas = signal<ReservaCard[]>(this.useMock ? this.MOCK_RESERVAS : []);
 
   readonly reservasFiltradas = () => {
     const f = this.filtroActivo();
@@ -249,13 +254,13 @@ export class MisReservasComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    if (this.useMock) return;
     try {
       const apiReservas = await this.reservasService.misReservas();
-      if (!apiReservas.length) return; // sin datos: se mantiene el ejemplo
       const cards = await Promise.all(apiReservas.map((r) => this.aCard(r)));
       this.reservas.set(cards);
     } catch {
-      // Sin sesión o API caída: se mantienen los datos de ejemplo.
+      // API no disponible — estado vacío.
     }
   }
 

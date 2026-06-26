@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CatalogRepository, BuscarServiciosParams } from './catalog.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { CrearServicioDto } from 'shared';
 
 /** Vista de tarjeta de hotel que consume el frontend. */
 export interface HotelCardDto {
@@ -119,6 +120,19 @@ export class CatalogService {
       page: params.page,
       totalPages: Math.max(1, Math.ceil(total / params.limit)),
     };
+  }
+
+  async crearServicio(dto: CrearServicioDto, comercioId: string): Promise<HotelCardDto> {
+    const doc = await this.repo.crear({
+      vertical: dto.vertical,
+      titulo: dto.titulo,
+      descripcion: dto.descripcion,
+      ciudad: dto.ciudad,
+      precioBase: dto.precioBase,
+      imagenes: dto.imagenes ?? [],
+      comercioId,
+    });
+    return this.toCard(doc as unknown as HotelLean);
   }
 
   async obtenerHotel(id: string): Promise<HotelDetalleDto> {

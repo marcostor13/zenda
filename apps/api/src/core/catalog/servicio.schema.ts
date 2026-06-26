@@ -29,8 +29,8 @@ export class Servicio {
     type: {
       ciudad: { type: String, required: true },
       geo: {
-        type: { type: String, enum: ['Point'], default: 'Point' },
-        coordinates: { type: [Number] },
+        type: { type: String, enum: ['Point'] },
+        coordinates: { type: [Number], default: undefined },
       },
     },
   })
@@ -64,4 +64,4 @@ export class Servicio {
 export const ServicioSchema = SchemaFactory.createForClass(Servicio);
 
 ServicioSchema.index({ vertical: 1, 'ubicacion.ciudad': 1, prioridadRanking: -1, precioBase: 1 });
-ServicioSchema.index({ 'ubicacion.geo': '2dsphere' });
+ServicioSchema.index({ 'ubicacion.geo': '2dsphere' }, { sparse: true });

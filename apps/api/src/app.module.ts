@@ -18,6 +18,8 @@ import { TaxisModule } from './verticals/taxis/taxis.module';
 import { VuelosModule } from './verticals/vuelos/vuelos.module';
 import { TransporteModule } from './verticals/transporte/transporte.module';
 import { GuarderiaModule } from './verticals/guarderia/guarderia.module';
+import { UploadModule } from './core/upload/upload.module';
+import { AiSearchModule } from './core/ai-search/ai-search.module';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { GuarderiaModule } from './verticals/guarderia/guarderia.module';
     VuelosModule,
     TransporteModule,
     GuarderiaModule,
+    UploadModule,
+    AiSearchModule,
   ],
 })
 export class AppModule {}

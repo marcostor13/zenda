@@ -36,6 +36,7 @@ export class BookingsService {
       fechaInicio: params.fechaInicio,
       fechaFin: params.fechaFin,
       cantidad: params.cantidad ?? 1,
+      parametrosExtra: params.detalle,
     });
 
     if (!disponibilidad.disponible) {

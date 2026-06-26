@@ -38,8 +38,29 @@ export class UsersRepository {
 
   async actualizarPorId(
     id: string,
-    datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado'>>,
+    datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado' | 'avatarUrl'>>,
   ): Promise<UsuarioDocument | null> {
     return this.usuarioModel.findByIdAndUpdate(id, datos, { new: true }).exec();
+  }
+
+  async actualizarPassword(id: string, passwordHash: string): Promise<void> {
+    await this.usuarioModel.findByIdAndUpdate(id, { passwordHash }).exec();
+  }
+
+  async actualizarAdmin(
+    id: string,
+    datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado' | 'rol'>> & { email?: string },
+  ): Promise<UsuarioDocument | null> {
+    const update: Record<string, unknown> = { ...datos };
+    if (datos.email) update['email'] = datos.email.toLowerCase();
+    return this.usuarioModel.findByIdAndUpdate(id, update, { new: true }).exec();
+  }
+
+  async eliminar(id: string): Promise<void> {
+    await this.usuarioModel.findByIdAndDelete(id).exec();
+  }
+
+  async contarTodos(): Promise<number> {
+    return this.usuarioModel.countDocuments().exec();
   }
 }

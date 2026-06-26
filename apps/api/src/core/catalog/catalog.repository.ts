@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model } from 'mongoose';
+import { FilterQuery, Model, Types } from 'mongoose';
 import { Servicio, ServicioDocument } from './servicio.schema';
 
 export interface BuscarServiciosParams {
@@ -47,6 +47,29 @@ export class CatalogRepository {
 
   async contarTotal(): Promise<number> {
     return this.servicioModel.estimatedDocumentCount().exec();
+  }
+
+  async crear(data: {
+    vertical: string;
+    titulo: string;
+    descripcion: string;
+    ciudad: string;
+    precioBase: number;
+    imagenes: string[];
+    comercioId: string;
+  }): Promise<ServicioDocument> {
+    const doc = new this.servicioModel({
+      vertical: data.vertical,
+      titulo: data.titulo,
+      descripcion: data.descripcion,
+      ubicacion: { ciudad: data.ciudad },
+      precioBase: data.precioBase,
+      imagenes: data.imagenes,
+      comercioId: new Types.ObjectId(data.comercioId),
+      estado: 'borrador',
+      moneda: 'PEN',
+    });
+    return doc.save() as unknown as Promise<ServicioDocument>;
   }
 
   private construirFiltro(params: BuscarServiciosParams): FilterQuery<ServicioDocument> {

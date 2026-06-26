@@ -7,7 +7,8 @@ export interface ServicioCard {
   id: string;
   nombre: string;
   ciudad: string;
-  precioPorNoche: number; // precioBase del servicio (tarifa base para taxis)
+  comercioId?: string;
+  precioPorNoche: number;
   score: number;
   scoreLabel: string;
   numResenas: number;
@@ -60,7 +61,7 @@ export class TaxisService {
       nombre: s.nombre,
       ciudad: s.ciudad,
       imagen: s.imagenes?.[0] ?? '',
-      comercioId: '',
+      comercioId: s.comercioId ?? '',
       tipoVehiculo: (e['tipoVehiculo'] as string) ?? 'sedan',
       capacidad: (e['capacidad'] as number) ?? 4,
       tarifaBase: (e['tarifaBase'] as number) ?? s.precioPorNoche,

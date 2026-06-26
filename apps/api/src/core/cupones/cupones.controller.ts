@@ -1,8 +1,8 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CuponesService, DescuentoAplicado } from './cupones.service';
 import { CuponesRepository } from './cupones.repository';
-import { CuponDocument } from './cupon.schema';
+import { Cupon, CuponDocument } from './cupon.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { ValidarCuponDto, CrearCuponDto, Rol } from 'shared';
@@ -44,5 +44,27 @@ export class CuponesController {
   @ApiOperation({ summary: 'Listar cupones (admin)' })
   listar(): Promise<CuponDocument[]> {
     return this.cuponesRepo.listar();
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualizar un cupón (admin)' })
+  actualizar(
+    @Param('id') id: string,
+    @Body() datos: Partial<Cupon>,
+  ): Promise<CuponDocument | null> {
+    return this.cuponesRepo.actualizar(id, datos);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Eliminar un cupón (admin)' })
+  async eliminar(@Param('id') id: string): Promise<void> {
+    await this.cuponesRepo.eliminar(id);
   }
 }

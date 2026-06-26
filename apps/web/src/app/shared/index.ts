@@ -4,6 +4,7 @@ export { RsCardComponent } from './components/card/rs-card.component';
 export { RsBadgeComponent } from './components/badge/rs-badge.component';
 export { RsNavbarComponent } from './components/navbar/rs-navbar.component';
 export { RsIconComponent } from './components/icon/rs-icon.component';
+export { RsImageUploadComponent } from './components/image-upload/rs-image-upload.component';
 export { AnimateOnScrollDirective } from './directives/animate-on-scroll.directive';
 export { ImgFallbackDirective } from './directives/img-fallback.directive';
 export * from './media/images';

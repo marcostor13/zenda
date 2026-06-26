@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
@@ -26,6 +26,7 @@ interface VerticalConfig {
 
 const card = (over: Partial<ServicioCard> & { extra: Record<string, unknown> }): ServicioCard => ({
   id: over.id ?? 'x', nombre: over.nombre ?? '', ciudad: over.ciudad ?? '',
+  comercioId: over.comercioId ?? 'demo-comercio',
   precioPorNoche: over.precioPorNoche ?? 0, score: over.score ?? 4.6,
   scoreLabel: over.scoreLabel ?? 'Muy bueno', numResenas: over.numResenas ?? 200,
   imagenes: over.imagenes ?? [], destacado: false, extra: over.extra,
@@ -114,7 +115,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
           @for (c of items(); track c.id) {
             <article class="vb-card" rsAnim>
               <div class="vb-card__img">
-                <img [src]="c.imagenes[0] ?? ''" [alt]="c.nombre" loading="lazy" rsImg />
+                <img [src]="c.imagenes[0]" [alt]="c.nombre" loading="lazy" rsImg />
                 <span class="rs-badge rs-badge--accent vb-card__badge">{{ cfg().badge(c) }}</span>
               </div>
               <div class="vb-card__body">
@@ -166,7 +167,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
     .vb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .vb-card { background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--sh-card); transition: all var(--d-3); &:hover { box-shadow: var(--sh-lg); transform: translateY(-4px); .vb-card__img img { transform: scale(1.06); } } }
     .vb-card__img { position: relative; aspect-ratio: 16/10; overflow: hidden; background: linear-gradient(135deg, #143C7A, #1668E3); img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); } }
-    .vb-card__badge { position: absolute; top: var(--sp-3); left: var(--sp-3); }
+    .vb-card__badge { position: absolute; top: var(--sp-3); left: var(--sp-3); background: rgba(255,255,255,.92); color: var(--t-100); border-color: rgba(255,255,255,.6); backdrop-filter: blur(6px); }
     .vb-card__body { padding: var(--sp-5); }
     .vb-card__name { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); line-height: 1.3; }
     .vb-card__loc { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-3); }
@@ -180,8 +181,11 @@ const CONFIGS: Record<string, VerticalConfig> = {
 })
 export class VerticalBrowseComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly browseService = inject(CatalogBrowseService);
+
+  private readonly useMock = true;
 
   readonly cfg = signal<VerticalConfig>(CONFIGS['vuelos']);
   readonly cargando = signal(true);
@@ -205,15 +209,25 @@ export class VerticalBrowseComponent implements OnInit {
     this.solicitadoId.set(null);
     try {
       const resultados = await this.browseService.buscar(this.cfg().vertical, ciudad);
-      this.items.set(resultados.length ? resultados : this.cfg().mock);
+      this.items.set(resultados.length ? resultados : (this.useMock ? this.cfg().mock : []));
     } catch {
-      this.items.set(this.cfg().mock);
+      this.items.set(this.useMock ? this.cfg().mock : []);
     } finally {
       this.cargando.set(false);
     }
   }
 
   solicitar(c: ServicioCard): void {
-    this.solicitadoId.set(c.id);
+    void this.router.navigate(
+      ['/reservas', this.cfg().vertical, c.id],
+      {
+        queryParams: {
+          comercioId: c.comercioId ?? '',
+          nombre:     c.nombre,
+          precioBase: this.cfg().price(c),
+          imagen:     c.imagenes?.[0] ?? '',
+        },
+      },
+    );
   }
 }

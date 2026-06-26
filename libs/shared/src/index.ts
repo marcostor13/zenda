@@ -30,3 +30,6 @@ export * from './dtos/comercios/cambiar-estado-comercio.dto';
 
 // DTOs — Cupones
 export * from './dtos/cupones/cupon.dto';
+
+// DTOs — Catalog
+export * from './dtos/catalog/crear-servicio.dto';

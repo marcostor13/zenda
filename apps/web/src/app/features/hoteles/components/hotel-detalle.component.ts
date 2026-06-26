@@ -448,12 +448,13 @@ export class HotelDetalleComponent implements OnInit {
   irAReserva(): void {
     if (!this.habitacionSelec()) return;
     const hotel = this.hotel()!;
-    void this.router.navigate(['/reservas/hotel', hotel.id], {
+    void this.router.navigate(['/reservas', 'hoteles', hotel.id], {
       queryParams: {
         habitacionId: this.habitacionSelec()!.id,
-        servicioId: hotel.id,
-        comercioId: hotel.comercioId,
-        vertical: 'hoteles',
+        comercioId:   hotel.comercioId,
+        nombre:       hotel.nombre,
+        precioBase:   this.habitacionSelec()!.precio,
+        imagen:       hotel.imagenes?.[0] ?? '',
       },
     });
   }

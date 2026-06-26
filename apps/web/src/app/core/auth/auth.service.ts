@@ -5,11 +5,12 @@ import { firstValueFrom } from 'rxjs';
 import { LoginDto, RegistroDto, AuthResponseDto, Rol } from 'shared';
 import { environment } from '../../../environments/environment';
 
-interface UsuarioAutenticado {
+export interface UsuarioAutenticado {
   id: string;
   nombre: string;
   email: string;
   rol: Rol;
+  comercioId?: string;
 }
 
 const TOKEN_KEY = 'zenda_token';
@@ -36,7 +37,7 @@ export class AuthService {
       this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/login`, dto),
     );
     this.guardarSesion(respuesta);
-    await this.router.navigate(['/buscador']);
+    await this.redirigirPorRol(respuesta.usuario.rol);
   }
 
   async registro(dto: RegistroDto): Promise<void> {
@@ -44,7 +45,7 @@ export class AuthService {
       this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/registro`, dto),
     );
     this.guardarSesion(respuesta);
-    await this.router.navigate(['/buscador']);
+    await this.redirigirPorRol(respuesta.usuario.rol);
   }
 
   logout(): void {
@@ -55,11 +56,29 @@ export class AuthService {
     void this.router.navigate(['/auth/login']);
   }
 
+  actualizarDatosLocales(datos: Partial<UsuarioAutenticado>): void {
+    const actual = this._usuario();
+    if (!actual) return;
+    const actualizado = { ...actual, ...datos };
+    localStorage.setItem('zenda_usuario', JSON.stringify(actualizado));
+    this._usuario.set(actualizado);
+  }
+
+  private async redirigirPorRol(rol: Rol): Promise<void> {
+    if (rol === Rol.ADMIN) {
+      await this.router.navigate(['/admin']);
+    } else if (rol === Rol.COMERCIO_ADMIN || rol === Rol.COMERCIO_STAFF) {
+      await this.router.navigate(['/comercio']);
+    } else {
+      await this.router.navigate(['/']);
+    }
+  }
+
   private guardarSesion(respuesta: AuthResponseDto): void {
     localStorage.setItem(TOKEN_KEY, respuesta.accessToken);
     localStorage.setItem('zenda_usuario', JSON.stringify(respuesta.usuario));
     this._token.set(respuesta.accessToken);
-    this._usuario.set(respuesta.usuario);
+    this._usuario.set(respuesta.usuario as UsuarioAutenticado);
   }
 
   private cargarUsuarioDelStorage(): UsuarioAutenticado | null {

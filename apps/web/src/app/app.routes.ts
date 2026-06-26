@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard, comercioGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   {
@@ -53,13 +54,13 @@ export const routes: Routes = [
   },
   {
     path: 'comercio',
-    canActivate: [authGuard],
+    canActivate: [comercioGuard],
     loadChildren: () =>
       import('./features/panel-comercio/panel-comercio.routes').then((m) => m.panelComercioRoutes),
   },
   {
     path: 'admin',
-    canActivate: [authGuard],
+    canActivate: [adminGuard],
     loadChildren: () =>
       import('./features/panel-admin/panel-admin.routes').then((m) => m.panelAdminRoutes),
   },

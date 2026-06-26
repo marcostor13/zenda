@@ -1,11 +1,32 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { HotelesService, HotelCard } from '../hoteles/services/hoteles.service';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
+import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { environment } from '../../../environments/environment';
+
+interface AiSearchParams {
+  vertical: string | null;
+  ciudad: string | null;
+  desde: string | null;
+  hasta: string | null;
+  presupuestoMax: number | null;
+  pasajeros: number | null;
+  extras: Record<string, string>;
+  explicacion: string;
+}
+
+const VERTICAL_ROUTES: Record<string, string> = {
+  hoteles: '/hoteles', vuelos: '/vuelos', taxis: '/taxis',
+  transporte: '/transporte', guarderia: '/guarderia',
+};
 
 interface HotelDestacado {
   id: string;
@@ -53,7 +74,7 @@ interface Testimonio {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, DecimalPipe, AnimateOnScrollDirective, RsNavbarComponent, RsIconComponent],
+  imports: [RouterLink, ReactiveFormsModule, DecimalPipe, AnimateOnScrollDirective, ImgFallbackDirective, RsNavbarComponent, RsIconComponent],
   template: `
 <div class="home">
   <rs-navbar />
@@ -61,11 +82,11 @@ interface Testimonio {
   <!-- ═══ HERO ════════════════════════════════════════════════════ -->
   <section class="hero">
 
-    <!-- Foto de fondo (Budapest desde Pexels) -->
+    <!-- Foto de fondo -->
     <div class="hero__photo-bg">
       <img
-        src="https://images.pexels.com/photos/7513451/pexels-photo-7513451.jpeg?auto=compress&cs=tinysrgb&w=1920"
-        alt="Budapest, Europa"
+        src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1920&q=80"
+        alt="París, Europa"
         loading="eager"
         fetchpriority="high"
       />
@@ -92,11 +113,6 @@ interface Testimonio {
     </div>
 
     <div class="hero__inner rs-wrap">
-      <div class="hero__badge">
-        <span class="rs-live"></span>
-        <span>+48,000 reservas este mes en Europa</span>
-      </div>
-
       <h1 class="hero__title">
         Todo lo que necesitas,<br>
         <span class="rs-gradient-text">en un solo lugar</span>
@@ -106,6 +122,54 @@ interface Testimonio {
         Hoteles, vuelos, taxis, transporte y guarderías en toda Europa.
         Compara precios, lee reseñas reales y reserva en segundos.
       </p>
+
+      <!-- AI Search Bar -->
+      <div class="hero__ai-wrap" style="max-width:680px;margin-inline:auto;margin-bottom:var(--sp-6)">
+        <div class="hero__ai-bar" [class.hero__ai-bar--focused]="aiBarFocused()" [class.hero__ai-bar--loading]="aiLoading()">
+          <rs-icon name="sparkles" [size]="17" [stroke]="1.75" style="color:#7AA3FF;flex-shrink:0"></rs-icon>
+          <input
+            class="hero__ai-input"
+            placeholder="Busca con IA… «Hotel en París para 2 noches bajo €200»"
+            [formControl]="aiQueryControl"
+            (focus)="aiBarFocused.set(true)"
+            (blur)="aiBarFocused.set(false)"
+            (keydown.enter)="buscarConIA()" />
+          @if (aiQueryControl.value) {
+            <button type="button" class="hero__ai-clear" (click)="limpiarAI()">
+              <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon>
+            </button>
+          }
+          <button
+            type="button"
+            class="hero__ai-btn"
+            [disabled]="aiLoading() || !aiQueryControl.value.trim()"
+            (click)="buscarConIA()">
+            @if (aiLoading()) {
+              <div class="hero__ai-spinner"></div>
+            } @else {
+              <rs-icon name="arrow-right" [size]="15" [stroke]="2.5"></rs-icon>
+            }
+          </button>
+        </div>
+
+        <!-- Resultado IA -->
+        @if (aiRespuesta()) {
+          <div class="hero__ai-result">
+            <rs-icon name="sparkles" [size]="13" [stroke]="2" style="color:#7AA3FF;flex-shrink:0"></rs-icon>
+            <span style="flex:1;text-align:left">{{ aiRespuesta()!.explicacion }}</span>
+            @if (aiRespuesta()!.vertical) {
+              <button type="button" class="hero__ai-result-cta" (click)="navigarDesdeIA()">
+                Ir a {{ aiRespuesta()!.vertical }} →
+              </button>
+            }
+          </div>
+        }
+        @if (aiError()) {
+          <div style="font-size:var(--f-xs);color:rgba(255,255,255,.5);margin-top:var(--sp-2);text-align:center">
+            {{ aiError() }}
+          </div>
+        }
+      </div>
 
       <!-- Selector de vertical -->
       <div class="rs-vtabs hero__vtabs">
@@ -250,12 +314,12 @@ interface Testimonio {
       </div>
 
       <div class="hotels-grid">
-        @for (h of hotelesDestacados; track h.id) {
+        @for (h of hotelesDestacados(); track h.id) {
           <a [routerLink]="['/hoteles', h.id]" class="rs-hotel-card"
              [rsAnim]="''" [rsAnimDelay]="$index * 60">
 
             <div class="rs-hotel-card__img">
-              <img [src]="h.imagen" [alt]="h.nombre" loading="lazy" />
+              <img [src]="h.imagen" [alt]="h.nombre" loading="lazy" rsImg />
               <div class="rs-hotel-card__img-badges">
                 @for (b of h.badges; track b) {
                   <span class="rs-badge rs-badge--accent">{{ b }}</span>
@@ -421,8 +485,8 @@ interface Testimonio {
       <div class="cta-box">
         <div class="cta-box__photo-bg">
           <img
-            src="https://images.pexels.com/photos/29731407/pexels-photo-29731407.jpeg?auto=compress&cs=tinysrgb&w=1200"
-            alt="París de noche"
+            src="https://images.unsplash.com/photo-1471874276752-65e2d717604a?auto=format&fit=crop&w=1200&q=80"
+            alt="Europa de noche"
             loading="lazy"
           />
           <div class="cta-box__photo-overlay"></div>
@@ -642,6 +706,26 @@ interface Testimonio {
       justify-content: center;
       margin-bottom: var(--sp-5);
       animation: fadeUp .7s .3s ease both;
+
+      .rs-vtab {
+        color: rgba(255,255,255,.80);
+        background: rgba(255,255,255,.12);
+        border-color: rgba(255,255,255,.20);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+
+        &:hover {
+          color: #fff;
+          background: rgba(255,255,255,.20);
+          border-color: rgba(255,255,255,.35);
+        }
+
+        &.active {
+          color: #fff;
+          background: rgba(22,104,227,.75);
+          border-color: rgba(22,104,227,.90);
+        }
+      }
     }
 
     .hero__search {
@@ -676,6 +760,64 @@ interface Testimonio {
       font-size: var(--f-xs);
       color: rgba(216,225,247,.7);
       letter-spacing: .02em;
+    }
+
+    /* ── AI bar ───────────────────────────────────────────────────── */
+    .hero__ai-bar {
+      display: flex; align-items: center; gap: var(--sp-3);
+      background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.20);
+      border-radius: 999px; padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      transition: border-color .2s, background .2s;
+    }
+    .hero__ai-bar--focused {
+      border-color: rgba(122,163,255,.6);
+      background: rgba(255,255,255,.18);
+    }
+    .hero__ai-bar--loading { opacity: .75; pointer-events: none; }
+
+    .hero__ai-input {
+      flex: 1; border: none; outline: none; background: transparent;
+      font-size: var(--f-sm); color: rgba(255,255,255,.9); min-width: 0;
+      font-family: var(--font-sans);
+      &::placeholder { color: rgba(255,255,255,.45); }
+    }
+    .hero__ai-clear {
+      background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,.45); display: flex; padding: 2px;
+      &:hover { color: rgba(255,255,255,.8); }
+    }
+    .hero__ai-btn {
+      width: 36px; height: 36px; border-radius: 999px; border: none;
+      background: var(--g-accent); color: #fff; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity .2s, transform .15s;
+      &:disabled { opacity: .4; cursor: not-allowed; }
+      &:not(:disabled):hover { transform: scale(1.07); }
+    }
+    .hero__ai-spinner {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+      animation: spinAI .75s linear infinite;
+    }
+    @keyframes spinAI { to { transform: rotate(360deg); } }
+
+    .hero__ai-result {
+      margin-top: var(--sp-2); background: rgba(255,255,255,.90);
+      border-radius: var(--r-xl); padding: var(--sp-2) var(--sp-4);
+      display: flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-xs); color: #0B1B33;
+      animation: aiResultIn .2s ease;
+    }
+    .hero__ai-result-cta {
+      background: none; border: none; color: var(--c-accent);
+      font-size: var(--f-xs); font-weight: var(--w-6); cursor: pointer;
+      white-space: nowrap;
+      &:hover { text-decoration: underline; }
+    }
+    @keyframes aiResultIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: none; }
     }
 
     /* Scroll hint */
@@ -763,17 +905,7 @@ interface Testimonio {
       transition: transform var(--d-3);
       background: linear-gradient(135deg, #143C7A 0%, #1668E3 100%);
 
-      &--featured {
-        grid-column: span 2;
-        grid-row: span 2;
-
-        @media (max-width: 1024px) {
-          grid-column: span 2;
-          grid-row: span 1;
-        }
-      }
-
-      &:not(&--featured) {
+      &:not(.dest-card--featured) {
         grid-column: span 2;
 
         @media (max-width: 1024px) {
@@ -793,6 +925,16 @@ interface Testimonio {
 
       &:hover img { transform: scale(1.06); }
       &:hover { transform: none; }
+    }
+
+    .dest-card--featured {
+      grid-column: span 2;
+      grid-row: span 2;
+
+      @media (max-width: 1024px) {
+        grid-column: span 2;
+        grid-row: span 1;
+      }
     }
 
     .dest-card__overlay {
@@ -1163,8 +1305,8 @@ interface Testimonio {
       position: relative;
       z-index: 1;
 
-      h2 { margin-bottom: var(--sp-4); }
-      p  { color: var(--t-300); }
+      h2 { margin-bottom: var(--sp-4); color: #fff; }
+      p  { color: rgba(255,255,255,.85); font-size: var(--f-lg); }
     }
 
     .cta-box__actions {
@@ -1176,9 +1318,14 @@ interface Testimonio {
     }
   `],
 })
-export class HomeComponent {
+export class HomeComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly hotelesService = inject(HotelesService);
+  private readonly http = inject(HttpClient);
+
+  // ── Cambiar a true para usar datos de ejemplo en lugar del API ──
+  private readonly useMock = false;
 
   readonly verticalActivo = signal('hoteles');
 
@@ -1203,44 +1350,44 @@ export class HomeComponent {
     {
       ciudad: 'París',
       pais: 'Francia',
-      imagen: 'https://images.pexels.com/photos/29395092/pexels-photo-29395092.jpeg?auto=compress&cs=tinysrgb&w=800',
+      imagen: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80',
       hoteles: '+650 alojamientos',
       destacado: true,
     },
     {
       ciudad: 'Barcelona',
       pais: 'España',
-      imagen: 'https://images.pexels.com/photos/5005639/pexels-photo-5005639.jpeg?auto=compress&cs=tinysrgb&w=600',
+      imagen: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=600&q=80',
       hoteles: '+480 alojamientos',
     },
     {
       ciudad: 'Roma',
       pais: 'Italia',
-      imagen: 'https://images.pexels.com/photos/15562413/pexels-photo-15562413.jpeg?auto=compress&cs=tinysrgb&w=600',
+      imagen: 'https://images.unsplash.com/photo-1515542622106-078bda69a4e4?auto=format&fit=crop&w=600&q=80',
       hoteles: '+390 alojamientos',
     },
     {
       ciudad: 'Ámsterdam',
       pais: 'Países Bajos',
-      imagen: 'https://images.pexels.com/photos/12705128/pexels-photo-12705128.jpeg?auto=compress&cs=tinysrgb&w=600',
+      imagen: 'https://images.unsplash.com/photo-1512470876302-972faa2aa9a4?auto=format&fit=crop&w=600&q=80',
       hoteles: '+280 alojamientos',
     },
     {
       ciudad: 'Londres',
       pais: 'Reino Unido',
-      imagen: 'https://images.pexels.com/photos/11567961/pexels-photo-11567961.jpeg?auto=compress&cs=tinysrgb&w=600',
+      imagen: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=600&q=80',
       hoteles: '+720 alojamientos',
     },
   ];
 
-  readonly hotelesDestacados: HotelDestacado[] = [
+  private readonly MOCK_HOTELES_DESTACADOS: HotelDestacado[] = [
     {
       id: 'hotel-1',
       nombre: 'The Hoxton, Le Marais',
       ciudad: 'París', barrio: 'Le Marais',
       estrellas: 5, score: 9.3, scoreLabel: 'Excepcional', numResenas: 3120,
       precioPorNoche: 189, precioAnterior: 250,
-      imagen: 'https://images.pexels.com/photos/30898458/pexels-photo-30898458.jpeg?auto=compress&cs=tinysrgb&w=800',
+      imagen: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
       amenities: ['Centro histórico', 'Desayuno incluido', 'Wi-Fi Premium'],
       cancelacionGratis: true,
       badges: ['Mejor precio', '-24%'],
@@ -1251,18 +1398,18 @@ export class HomeComponent {
       ciudad: 'Venecia', barrio: 'San Marco',
       estrellas: 5, score: 9.6, scoreLabel: 'Excepcional', numResenas: 1520,
       precioPorNoche: 320,
-      imagen: 'https://images.pexels.com/photos/19689227/pexels-photo-19689227.jpeg?auto=compress&cs=tinysrgb&w=800',
+      imagen: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80',
       amenities: ['Vista al Canal', 'Restaurante', 'Spa'],
       cancelacionGratis: true,
       badges: ['Top rated', 'Luxury'],
     },
     {
       id: 'hotel-3',
-      nombre: 'Grand Hotel Bucharest',
-      ciudad: 'Bucarest', barrio: 'Centro histórico',
+      nombre: 'NH Collection Barcelona',
+      ciudad: 'Barcelona', barrio: 'Eixample',
       estrellas: 4, score: 8.8, scoreLabel: 'Muy bueno', numResenas: 980,
-      precioPorNoche: 95, precioAnterior: 130,
-      imagen: 'https://images.pexels.com/photos/16563487/pexels-photo-16563487.jpeg?auto=compress&cs=tinysrgb&w=800',
+      precioPorNoche: 145, precioAnterior: 195,
+      imagen: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=800&q=80',
       amenities: ['Centro ciudad', 'Piscina', 'Parking gratuito'],
       cancelacionGratis: false,
       badges: ['Gran valor'],
@@ -1273,12 +1420,14 @@ export class HomeComponent {
       ciudad: 'Praga', barrio: 'Malá Strana',
       estrellas: 5, score: 9.0, scoreLabel: 'Excepcional', numResenas: 2180,
       precioPorNoche: 210,
-      imagen: 'https://images.pexels.com/photos/20604661/pexels-photo-20604661.jpeg?auto=compress&cs=tinysrgb&w=800',
+      imagen: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=800&q=80',
       amenities: ['Vistas al castillo', 'Piscina', 'Bar & Lounge'],
       cancelacionGratis: true,
       badges: ['Elegido del mes'],
     },
   ];
+
+  readonly hotelesDestacados = signal<HotelDestacado[]>(this.useMock ? this.MOCK_HOTELES_DESTACADOS : []);
 
   readonly pasos = [
     { num: '01', icon: 'search',    title: 'Busca y compara',       desc: 'Explora cientos de opciones filtradas por precio, rating y ubicación.' },
@@ -1312,12 +1461,92 @@ export class HomeComponent {
     },
   ];
 
+  async ngOnInit(): Promise<void> {
+    if (this.useMock) return;
+    try {
+      const result = await this.hotelesService.buscar({ limit: 4 });
+      this.hotelesDestacados.set(result.items.map(h => this.mapHotelCard(h)));
+    } catch {
+      this.hotelesDestacados.set(this.MOCK_HOTELES_DESTACADOS);
+    }
+  }
+
+  private mapHotelCard(h: HotelCard): HotelDestacado {
+    const badges: string[] = [];
+    if (h.destacado) badges.push('Destacado');
+    if (h.descuentoPct) badges.push(`-${h.descuentoPct}%`);
+    if (h.cancelacionGratis) badges.push('Cancelación gratis');
+    return {
+      id: h.id,
+      nombre: h.nombre,
+      ciudad: h.ciudad,
+      barrio: h.barrio,
+      estrellas: h.estrellas,
+      score: h.score,
+      scoreLabel: h.scoreLabel,
+      numResenas: h.numResenas,
+      precioPorNoche: h.precioPorNoche,
+      precioAnterior: h.precioAnterior,
+      imagen: h.imagenes?.[0] ?? '',
+      amenities: h.amenities ?? [],
+      cancelacionGratis: h.cancelacionGratis,
+      badges,
+    };
+  }
+
   estrellas(n: number): string { return '★'.repeat(n) + '☆'.repeat(5 - n); }
 
   onBuscar(): void {
     const { ciudad, fechaInicio, fechaFin } = this.searchForm.value;
-    void this.router.navigate(['/buscar'], {
-      queryParams: { vertical: this.verticalActivo(), ciudad, desde: fechaInicio, hasta: fechaFin }
+    const ruta = VERTICAL_ROUTES[this.verticalActivo()] ?? '/hoteles';
+    void this.router.navigate([ruta], {
+      queryParams: { ciudad: ciudad || null, desde: fechaInicio || null, hasta: fechaFin || null },
+    });
+  }
+
+  // ── AI search ────────────────────────────────────────────────────
+  readonly aiBarFocused = signal(false);
+  readonly aiLoading = signal(false);
+  readonly aiRespuesta = signal<AiSearchParams | null>(null);
+  readonly aiError = signal('');
+  readonly aiQueryControl = new FormControl('', { nonNullable: true });
+
+  limpiarAI(): void {
+    this.aiQueryControl.setValue('');
+    this.aiRespuesta.set(null);
+    this.aiError.set('');
+  }
+
+  async buscarConIA(): Promise<void> {
+    const query = this.aiQueryControl.value.trim();
+    if (!query) return;
+    this.aiLoading.set(true);
+    this.aiError.set('');
+    this.aiRespuesta.set(null);
+    try {
+      const resultado = await firstValueFrom(
+        this.http.post<AiSearchParams>(`${environment.apiUrl}/ai-search`, { query }),
+      );
+      this.aiRespuesta.set(resultado);
+      if (resultado.vertical && VERTICAL_ROUTES[resultado.vertical]) {
+        this.verticalActivo.set(resultado.vertical);
+      }
+      if (resultado.ciudad) this.searchForm.patchValue({ ciudad: resultado.ciudad });
+      if (resultado.desde)  this.searchForm.patchValue({ fechaInicio: resultado.desde });
+      if (resultado.hasta)  this.searchForm.patchValue({ fechaFin: resultado.hasta });
+    } catch {
+      this.aiError.set('Asistente no disponible. Usa el formulario de búsqueda.');
+    } finally {
+      this.aiLoading.set(false);
+    }
+  }
+
+  navigarDesdeIA(): void {
+    const params = this.aiRespuesta();
+    if (!params) return;
+    const ruta = VERTICAL_ROUTES[params.vertical ?? ''] ?? '/hoteles';
+    void this.router.navigate([ruta], {
+      queryParams: { ciudad: params.ciudad ?? null, desde: params.desde ?? null, hasta: params.hasta ?? null },
     });
   }
 }

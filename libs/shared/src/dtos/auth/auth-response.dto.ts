@@ -7,5 +7,6 @@ export class AuthResponseDto {
     nombre: string;
     email: string;
     rol: Rol;
+    comercioId?: string;
   };
 }

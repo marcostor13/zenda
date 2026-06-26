@@ -25,7 +25,7 @@ type Paso = 1 | 2 | 3 | 4;
     <div class="rs-steps wizard-steps">
       <div class="rs-steps__item" [class.active]="paso() >= 1" [class.done]="paso() > 1">
         <div class="rs-steps__num">{{ paso() > 1 ? '✓' : '1' }}</div>
-        <span>Tu estancia</span>
+        <span>{{ paso1Label() }}</span>
       </div>
       <div class="rs-steps__line"></div>
       <div class="rs-steps__item" [class.active]="paso() >= 2" [class.done]="paso() > 2">
@@ -49,92 +49,227 @@ type Paso = 1 | 2 | 3 | 4;
       <!-- COLUMNA PRINCIPAL -->
       <div class="wizard-main">
 
-        <!-- PASO 1: Resumen de la reserva -->
+        <!-- ═══════════ PASO 1 ═══════════ -->
         @if (paso() === 1) {
           <div class="wizard-card">
-            <h2 class="wizard-card__title">Resumen de tu reserva</h2>
+            <h2 class="wizard-card__title">{{ paso1Titulo() }}</h2>
 
+            <!-- Resumen del servicio -->
             <div class="reserva-summary">
-              <div class="reserva-summary__hotel">
-                <img src="https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=200" alt="Hotel" rsImg />
+              <div class="reserva-summary__service">
+                <img [src]="imagenServicio()" alt="Servicio" rsImg />
                 <div>
-                  <h3>Gran Hotel Madrid Salamanca</h3>
-                  <p>📍 Salamanca, Madrid · ★★★★★</p>
-                  <span class="rs-badge rs-badge--success">✓ Cancelación gratis</span>
+                  <h3>{{ nombreServicio() || 'Servicio seleccionado' }}</h3>
+                  <p>S/ {{ precioBase() }} / {{ precioPorLabel() }}</p>
+                  <span class="rs-badge rs-badge--accent">{{ emojiVertical() }} {{ verticaLabel() }}</span>
                 </div>
               </div>
             </div>
 
-            <form [formGroup]="paso1Form">
-              <div class="form-row">
-                <div class="rs-field">
-                  <label class="rs-lbl">Check-in</label>
-                  <input formControlName="checkIn" type="date" class="rs-inp rs-inp--lg" />
+            <!-- ── HOTELES ── -->
+            @if (vertical() === 'hoteles') {
+              <form [formGroup]="paso1HotelForm">
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Check-in</label>
+                    <input formControlName="checkIn" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Check-out</label>
+                    <input formControlName="checkOut" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
                 </div>
-                <div class="rs-field">
-                  <label class="rs-lbl">Check-out</label>
-                  <input formControlName="checkOut" type="date" class="rs-inp rs-inp--lg" />
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Adultos</label>
+                    <select formControlName="adultos" class="rs-inp rs-inp--lg">
+                      <option value="1">1 adulto</option>
+                      <option value="2">2 adultos</option>
+                      <option value="3">3 adultos</option>
+                      <option value="4">4 adultos</option>
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Niños</label>
+                    <select formControlName="ninos" class="rs-inp rs-inp--lg">
+                      <option value="0">Sin niños</option>
+                      <option value="1">1 niño</option>
+                      <option value="2">2 niños</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+                <div class="extras-section">
+                  <h3>Servicios adicionales</h3>
+                  <div class="extras-grid">
+                    @for (extra of extras; track extra.id) {
+                      <label class="extra-item" [class.selected]="extrasSelec().includes(extra.id)">
+                        <input type="checkbox" [value]="extra.id" (change)="toggleExtra(extra.id)" />
+                        <div class="extra-item__icon">{{ extra.icon }}</div>
+                        <div class="extra-item__info">
+                          <div class="extra-item__name">{{ extra.nombre }}</div>
+                          <div class="extra-item__price">S/ {{ extra.precio }}</div>
+                        </div>
+                      </label>
+                    }
+                  </div>
+                </div>
+              </form>
+            }
 
-              <div class="form-row">
-                <div class="rs-field">
-                  <label class="rs-lbl">Adultos</label>
-                  <select formControlName="adultos" class="rs-inp rs-inp--lg">
-                    <option value="1">1 adulto</option>
-                    <option value="2">2 adultos</option>
-                    <option value="3">3 adultos</option>
-                    <option value="4">4 adultos</option>
-                  </select>
+            <!-- ── VUELOS ── -->
+            @if (vertical() === 'vuelos') {
+              <form [formGroup]="paso1VueloForm">
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Número de asientos</label>
+                    <select formControlName="asientos" class="rs-inp rs-inp--lg">
+                      @for (n of asientoOpts; track n) {
+                        <option [value]="n">{{ n }} {{ n === 1 ? 'asiento' : 'asientos' }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Clase</label>
+                    <select formControlName="clase" class="rs-inp rs-inp--lg">
+                      <option value="economy">Economy</option>
+                      <option value="premium">Premium Economy</option>
+                      <option value="business">Business</option>
+                      <option value="primera">Primera clase</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="rs-field">
-                  <label class="rs-lbl">Niños</label>
-                  <select formControlName="ninos" class="rs-inp rs-inp--lg">
-                    <option value="0">Sin niños</option>
-                    <option value="1">1 niño</option>
-                    <option value="2">2 niños</option>
-                  </select>
-                </div>
-              </div>
+              </form>
+            }
 
-              <div class="rs-field">
-                <label class="rs-lbl">Tipo de habitación</label>
-                <select formControlName="habitacionId" class="rs-inp rs-inp--lg">
-                  <option value="h1-r1">Habitación Superior — €320/noche</option>
-                  <option value="h1-r2">Suite Junior Vista al Mar — €580/noche</option>
-                </select>
-              </div>
-
-              <div class="extras-section">
-                <h3>Servicios adicionales</h3>
-                <div class="extras-grid">
-                  @for (extra of extras; track extra.id) {
-                    <label class="extra-item" [class.selected]="extrasSelec().includes(extra.id)">
-                      <input type="checkbox" [value]="extra.id"
-                             (change)="toggleExtra(extra.id)" />
-                      <div class="extra-item__icon">{{ extra.icon }}</div>
-                      <div class="extra-item__info">
-                        <div class="extra-item__name">{{ extra.nombre }}</div>
-                        <div class="extra-item__price">€{{ extra.precio }}</div>
-                      </div>
-                    </label>
-                  }
+            <!-- ── TAXIS ── -->
+            @if (vertical() === 'taxis') {
+              <form [formGroup]="paso1TaxiForm">
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Fecha del traslado</label>
+                    <input formControlName="fechaTraslado" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Hora de recogida</label>
+                    <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
+                  </div>
                 </div>
-              </div>
-            </form>
+                <div class="rs-field">
+                  <label class="rs-lbl">Dirección de recogida</label>
+                  <input formControlName="origen" class="rs-inp rs-inp--lg"
+                         placeholder="Ej. Aeropuerto Jorge Chávez, Lima" />
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Destino</label>
+                  <input formControlName="destino" class="rs-inp rs-inp--lg"
+                         placeholder="Ej. Miraflores, Lima" />
+                </div>
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Distancia estimada (km)</label>
+                    <input formControlName="distanciaKm" type="number" class="rs-inp rs-inp--lg" min="1" />
+                    <span class="rs-field-hint">Para estimar la tarifa</span>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Pasajeros</label>
+                    <select formControlName="pasajeros" class="rs-inp rs-inp--lg">
+                      <option value="1">1 pasajero</option>
+                      <option value="2">2 pasajeros</option>
+                      <option value="3">3 pasajeros</option>
+                      <option value="4">4 pasajeros</option>
+                    </select>
+                  </div>
+                </div>
+              </form>
+            }
+
+            <!-- ── TRANSPORTE ── -->
+            @if (vertical() === 'transporte') {
+              <form [formGroup]="paso1TransporteForm">
+                <div class="rs-field">
+                  <label class="rs-lbl">Fecha de recogida</label>
+                  <input formControlName="fechaRecogida" type="date" class="rs-inp rs-inp--lg" />
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Dirección de recogida (origen)</label>
+                  <input formControlName="origen" class="rs-inp rs-inp--lg"
+                         placeholder="Ej. Almacén Lima Norte" />
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Dirección de entrega (destino)</label>
+                  <input formControlName="destino" class="rs-inp rs-inp--lg"
+                         placeholder="Ej. Depósito Callao" />
+                </div>
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Tipo de carga</label>
+                    <select formControlName="tipoCarga" class="rs-inp rs-inp--lg">
+                      <option value="general">Carga general</option>
+                      <option value="refrigerado">Refrigerado</option>
+                      <option value="fragil">Frágil</option>
+                      <option value="mudanza">Mudanza</option>
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Peso aproximado (kg)</label>
+                    <input formControlName="pesoKg" type="number" class="rs-inp rs-inp--lg" min="1" />
+                  </div>
+                </div>
+              </form>
+            }
+
+            <!-- ── GUARDERÍA ── -->
+            @if (vertical() === 'guarderia') {
+              <form [formGroup]="paso1GuarderiaForm">
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Fecha de inicio</label>
+                    <input formControlName="fechaInicio" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Fecha de fin (opcional)</label>
+                    <input formControlName="fechaFin" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Modalidad</label>
+                    <select formControlName="modalidad" class="rs-inp rs-inp--lg">
+                      <option value="hora">Por hora</option>
+                      <option value="dia">Por día</option>
+                      <option value="mes">Mensual</option>
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Número de niños</label>
+                    <select formControlName="ninos" class="rs-inp rs-inp--lg">
+                      <option value="1">1 niño</option>
+                      <option value="2">2 niños</option>
+                      <option value="3">3 niños</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Edad del niño (años)</label>
+                  <input formControlName="edadNino" type="number" class="rs-inp rs-inp--lg" min="0" max="12" />
+                  <span class="rs-field-hint">Para verificar compatibilidad con el rango de edad del centro</span>
+                </div>
+              </form>
+            }
 
             <button class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
-                    [disabled]="paso1Form.invalid"
+                    style="margin-top:var(--sp-6)"
+                    [disabled]="!paso1Valido()"
                     (click)="irPaso(2)">
               Continuar → Tus datos
             </button>
           </div>
         }
 
-        <!-- PASO 2: Datos del huésped -->
+        <!-- ═══════════ PASO 2 ═══════════ -->
         @if (paso() === 2) {
           <div class="wizard-card">
-            <h2 class="wizard-card__title">Datos del huésped principal</h2>
+            <h2 class="wizard-card__title">Datos del contacto principal</h2>
 
             <form [formGroup]="paso2Form">
               <div class="form-row">
@@ -156,17 +291,18 @@ type Paso = 1 | 2 | 3 | 4;
 
               <div class="rs-field">
                 <label class="rs-lbl">Teléfono</label>
-                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+34 600 000 000" />
+                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+51 999 999 999" />
               </div>
 
               <div class="rs-field">
                 <label class="rs-lbl">País de residencia</label>
                 <select formControlName="pais" class="rs-inp rs-inp--lg">
+                  <option value="PE">Perú</option>
+                  <option value="CO">Colombia</option>
+                  <option value="MX">México</option>
+                  <option value="AR">Argentina</option>
+                  <option value="CL">Chile</option>
                   <option value="ES">España</option>
-                  <option value="FR">Francia</option>
-                  <option value="IT">Italia</option>
-                  <option value="DE">Alemania</option>
-                  <option value="PT">Portugal</option>
                   <option value="other">Otro</option>
                 </select>
               </div>
@@ -174,13 +310,13 @@ type Paso = 1 | 2 | 3 | 4;
               <div class="rs-field">
                 <label class="rs-lbl">Peticiones especiales (opcional)</label>
                 <textarea formControlName="peticiones" class="rs-inp" rows="3"
-                          placeholder="Cama extra, planta alta, llegada tarde…"></textarea>
+                          placeholder="{{ peticionesPlaceholder() }}"></textarea>
               </div>
 
               <div class="consent-box">
                 <label class="filter-check">
                   <input type="checkbox" formControlName="aceptaTerminos" />
-                  <span>Acepto los <a routerLink="/terminos" style="color:#7AA3FF">Términos y condiciones</a> y la <a routerLink="/privacidad" style="color:#7AA3FF">Política de privacidad</a></span>
+                  <span>Acepto los <a routerLink="/terminos" style="color:var(--c-accent)">Términos y condiciones</a> y la <a routerLink="/privacidad" style="color:var(--c-accent)">Política de privacidad</a></span>
                 </label>
               </div>
             </form>
@@ -196,7 +332,7 @@ type Paso = 1 | 2 | 3 | 4;
           </div>
         }
 
-        <!-- PASO 3: Pago -->
+        <!-- ═══════════ PASO 3 ═══════════ -->
         @if (paso() === 3) {
           <div class="wizard-card">
             <h2 class="wizard-card__title">Método de pago</h2>
@@ -217,7 +353,7 @@ type Paso = 1 | 2 | 3 | 4;
                        (change)="metodoPago.set('yape')" />
                 <div class="payment-option__icon">📱</div>
                 <div>
-                  <div class="payment-option__name">Bizum</div>
+                  <div class="payment-option__name">Yape</div>
                   <div class="payment-option__brands">Pago móvil instantáneo</div>
                 </div>
               </label>
@@ -230,13 +366,12 @@ type Paso = 1 | 2 | 3 | 4;
                   <span class="rs-badge rs-badge--accent">🔒 Stripe · Cifrado SSL</span>
                 </div>
 
-                <!-- Stripe Payment Element (real) -->
                 <div id="stripe-payment-element"></div>
 
                 @if (!stripeListo()) {
                   <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-3)">
                     Modo demostración: el pago se simulará. El formulario seguro de Stripe
-                    aparece al reservar desde un hotel real con la sesión iniciada.
+                    aparece al reservar desde un servicio real con la sesión iniciada.
                   </p>
                 }
 
@@ -249,7 +384,7 @@ type Paso = 1 | 2 | 3 | 4;
             @if (metodoPago() === 'yape') {
               <div class="yape-placeholder">
                 <div style="font-size:3rem;text-align:center;margin-bottom:var(--sp-4)">📱</div>
-                <p style="text-align:center;color:var(--t-300)">Escanea el QR con tu app Bizum para pagar €{{ total() }}</p>
+                <p style="text-align:center;color:var(--t-300)">Escanea el QR con tu app Yape para pagar S/ {{ total() }}</p>
                 <div class="qr-mock">QR aquí</div>
               </div>
             }
@@ -264,14 +399,14 @@ type Paso = 1 | 2 | 3 | 4;
                 @if (procesando()) {
                   <span class="rs-spin"></span> Procesando…
                 } @else {
-                  🔒 Pagar €{{ total() }}
+                  🔒 Pagar S/ {{ total() }}
                 }
               </button>
             </div>
           </div>
         }
 
-        <!-- PASO 4: Confirmación -->
+        <!-- ═══════════ PASO 4 ═══════════ -->
         @if (paso() === 4) {
           <div class="wizard-card confirmation">
             <div class="confirmation__icon">🎉</div>
@@ -285,25 +420,21 @@ type Paso = 1 | 2 | 3 | 4;
 
             <div class="confirmation__details rs-card">
               <div class="cd-row">
-                <span>🏨 Hotel</span>
-                <strong>Gran Hotel Madrid Salamanca</strong>
+                <span>{{ emojiVertical() }} Servicio</span>
+                <strong>{{ nombreServicio() || verticaLabel() }}</strong>
               </div>
               <div class="cd-row">
-                <span>📅 Fechas</span>
-                <strong>{{ paso1Form.value.checkIn }} → {{ paso1Form.value.checkOut }}</strong>
-              </div>
-              <div class="cd-row">
-                <span>👥 Huéspedes</span>
-                <strong>{{ paso1Form.value.adultos }} adultos</strong>
+                <span>📋 Detalle</span>
+                <strong>{{ lineaResumen() }}</strong>
               </div>
               <div class="cd-row">
                 <span>💰 Total pagado</span>
-                <strong class="rs-gradient-text">€{{ total() }}</strong>
+                <strong class="rs-gradient-text">S/ {{ total() }}</strong>
               </div>
             </div>
 
             <div class="confirmation__actions">
-              <a routerLink="/mis-reservas" class="rs-btn rs-btn--primary rs-btn--lg">
+              <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary rs-btn--lg">
                 Ver mis reservas
               </a>
               <a routerLink="/" class="rs-btn rs-btn--secondary">
@@ -321,33 +452,35 @@ type Paso = 1 | 2 | 3 | 4;
             <h3>Resumen de precio</h3>
 
             <div class="price-row">
-              <span>Habitación Superior × 2 noches</span>
-              <span>€640</span>
+              <span>{{ lineaResumen() }}</span>
+              <span>S/ {{ subtotal() }}</span>
             </div>
-            @for (extra of extrasSelec(); track extra) {
-              <div class="price-row">
-                <span>{{ extraNombre(extra) }}</span>
-                <span>€{{ extraPrecio(extra) }}</span>
-              </div>
+            @if (vertical() === 'hoteles') {
+              @for (extra of extrasSelec(); track extra) {
+                <div class="price-row">
+                  <span>{{ extraNombre(extra) }}</span>
+                  <span>S/ {{ extraPrecio(extra) }}</span>
+                </div>
+              }
             }
             <hr class="rs-hr" style="margin-block:var(--sp-4)">
             <div class="price-row price-row--sub">
               <span>Subtotal</span>
-              <span>€{{ subtotal() }}</span>
+              <span>S/ {{ subtotal() }}</span>
             </div>
             @if (descuento() > 0) {
               <div class="price-row price-row--sub" style="color:#16A34A">
                 <span>Descuento ({{ cuponCodigo() }})</span>
-                <span>−€{{ descuento() }}</span>
+                <span>−S/ {{ descuento() }}</span>
               </div>
             }
             <div class="price-row price-row--sub">
-              <span>IVA (21%)</span>
-              <span>€{{ igv() }}</span>
+              <span>IGV (18%)</span>
+              <span>S/ {{ igv() }}</span>
             </div>
             <div class="price-row price-row--total">
               <span>Total</span>
-              <span>€{{ total() }}</span>
+              <span>S/ {{ total() }}</span>
             </div>
 
             <!-- Cupón de descuento -->
@@ -371,15 +504,15 @@ type Paso = 1 | 2 | 3 | 4;
               }
             </div>
             <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-4)">
-              Precio final en euros. El cargo se hará en el momento de confirmar.
+              Precio en soles peruanos (PEN). El cargo se realiza al confirmar.
             </p>
 
             <hr class="rs-hr" style="margin-block:var(--sp-5)">
 
             <div class="price-trust">
-              <p>✓ Precio más bajo garantizado</p>
               <p>✓ Sin cargos ocultos</p>
-              <p>✓ Cancelación gratis hasta 24h antes</p>
+              <p>✓ Pago 100% seguro vía Stripe</p>
+              <p>✓ Confirmación inmediata por correo</p>
             </div>
           </div>
         </div>
@@ -419,7 +552,7 @@ type Paso = 1 | 2 | 3 | 4;
       letter-spacing: -.02em;
     }
 
-    .reserva-summary__hotel {
+    .reserva-summary__service {
       display: flex;
       gap: var(--sp-4);
       padding: var(--sp-4);
@@ -427,7 +560,7 @@ type Paso = 1 | 2 | 3 | 4;
       border-radius: var(--r-lg);
       margin-bottom: var(--sp-6);
 
-      img { width: 100px; height: 80px; object-fit: cover; border-radius: var(--r-md); }
+      img { width: 100px; height: 80px; object-fit: cover; border-radius: var(--r-md); flex-shrink: 0; }
       h3  { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }
       p   { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-3); }
     }
@@ -441,27 +574,18 @@ type Paso = 1 | 2 | 3 | 4;
     }
 
     .rs-field { margin-bottom: var(--sp-5); }
+    .rs-field-hint { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); display: block; }
 
     .extras-section { margin-block: var(--sp-6); h3 { font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); margin-bottom: var(--sp-4); } }
-
     .extras-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
-
     .extra-item {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-3);
-      padding: var(--sp-4);
-      background: var(--c-raised);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-lg);
-      cursor: pointer;
-      transition: all var(--d-2);
-
+      display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4);
+      background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      cursor: pointer; transition: all var(--d-2);
       input { display: none; }
       &.selected { border-color: var(--c-accent); background: var(--c-accent-lo); }
       &:hover:not(.selected) { border-color: var(--b-2); }
     }
-
     .extra-item__icon { font-size: 1.5rem; }
     .extra-item__name { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
     .extra-item__price { font-size: var(--f-xs); color: var(--t-400); }
@@ -471,23 +595,13 @@ type Paso = 1 | 2 | 3 | 4;
     .consent-box { margin-block: var(--sp-5); font-size: var(--f-sm); color: var(--t-300); label { display: flex; align-items: flex-start; gap: var(--sp-3); input { margin-top: 2px; accent-color: var(--c-accent); } } }
 
     .payment-options { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-6); }
-
     .payment-option {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-4);
-      padding: var(--sp-4) var(--sp-5);
-      background: var(--c-raised);
-      border: 1px solid var(--b-2);
-      border-radius: var(--r-lg);
-      cursor: pointer;
-      transition: all var(--d-2);
-
+      display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5);
+      background: var(--c-raised); border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      cursor: pointer; transition: all var(--d-2);
       input { accent-color: var(--c-accent); }
       &.selected { border-color: var(--c-accent); background: var(--c-accent-lo); }
-      &:hover:not(.selected) { border-color: var(--b-2); background: var(--c-card); }
     }
-
     .payment-option__icon { font-size: 1.5rem; }
     .payment-option__name { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
     .payment-option__brands { font-size: var(--f-xs); color: var(--t-400); }
@@ -509,7 +623,6 @@ type Paso = 1 | 2 | 3 | 4;
     .cd-row { display: flex; justify-content: space-between; padding: var(--sp-3) 0; border-bottom: 1px solid var(--b-1); font-size: var(--f-sm); color: var(--t-300); strong { color: var(--t-100); } &:last-child { border: none; } }
     .confirmation__actions { display: flex; gap: var(--sp-4); justify-content: center; flex-wrap: wrap; }
 
-    /* PRICE SUMMARY */
     .price-summary { position: sticky; top: 84px; }
     .price-summary__card { background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-2xl); padding: var(--sp-6); box-shadow: var(--sh-xl); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-6); } }
     .price-row { display: flex; justify-content: space-between; font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-3); }
@@ -524,79 +637,338 @@ type Paso = 1 | 2 | 3 | 4;
   `],
 })
 export class ReservaWizardComponent implements OnInit {
-  private readonly route  = inject(ActivatedRoute);
-  private readonly router = inject(Router);
-  private readonly fb     = inject(FormBuilder);
-  private readonly stripeService   = inject(StripeService);
+  private readonly route          = inject(ActivatedRoute);
+  private readonly router         = inject(Router);
+  private readonly fb             = inject(FormBuilder);
+  private readonly stripeService  = inject(StripeService);
   private readonly reservasService = inject(ReservasService);
   private readonly paymentsService = inject(PaymentsService);
   private readonly cuponesService  = inject(CuponesService);
 
-  readonly paso      = signal<Paso>(1);
+  // Navigation
+  readonly paso       = signal<Paso>(1);
   readonly procesando = signal(false);
   readonly metodoPago = signal<'card' | 'yape'>('card');
-  readonly extrasSelec = signal<string[]>([]);
-  readonly codigoReserva = signal('RES-' + Math.random().toString(36).substr(2,8).toUpperCase());
+  readonly codigoReserva = signal('');
 
-  /** Estado del pago real con Stripe (activo solo con datos de reserva reales). */
+  // Vertical context (populated from route/query params)
+  readonly vertical       = signal<string>('hoteles');
+  readonly nombreServicio = signal<string>('');
+  readonly imagenServicio = signal<string>('');
+  readonly precioBase     = signal<number>(0);
+
+  // Stripe
   readonly stripeListo = signal(false);
-  readonly errorPago = signal<string | null>(null);
-
+  readonly errorPago   = signal<string | null>(null);
   private stripe: Stripe | null = null;
   private elements: StripeElements | null = null;
   private clientSecret: string | null = null;
-
-  // Datos reales de la reserva (vía query params desde el detalle del hotel).
   private servicioId?: string;
   private comercioId?: string;
-  private vertical?: string;
   private reservaIdReal: string | null = null;
+  readonly totalFromApi = signal<number | null>(null);
 
   metodoPagoVal = 'card';
 
-  readonly paso1Form = this.fb.group({
+  // ─── Step 1 forms (one per vertical) ───
+  readonly paso1HotelForm = this.fb.group({
     checkIn:      ['', Validators.required],
     checkOut:     ['', Validators.required],
     adultos:      [2],
     ninos:        [0],
-    habitacionId: ['h1-r1', Validators.required],
+    habitacionId: ['', Validators.required],
   });
 
+  readonly paso1VueloForm = this.fb.group({
+    asientos: [1, [Validators.required, Validators.min(1), Validators.max(9)]],
+    clase:    ['economy', Validators.required],
+  });
+
+  readonly paso1TaxiForm = this.fb.group({
+    fechaTraslado: ['', Validators.required],
+    hora:          ['', Validators.required],
+    origen:        ['', Validators.required],
+    destino:       ['', Validators.required],
+    distanciaKm:   [10, [Validators.required, Validators.min(1)]],
+    pasajeros:     [1],
+  });
+
+  readonly paso1TransporteForm = this.fb.group({
+    fechaRecogida: ['', Validators.required],
+    origen:        ['', Validators.required],
+    destino:       ['', Validators.required],
+    tipoCarga:     ['general'],
+    pesoKg:        [100, [Validators.required, Validators.min(1)]],
+  });
+
+  readonly paso1GuarderiaForm = this.fb.group({
+    fechaInicio: ['', Validators.required],
+    fechaFin:    [''],
+    modalidad:   ['dia', Validators.required],
+    ninos:       [1, [Validators.required, Validators.min(1), Validators.max(10)]],
+    edadNino:    [2, [Validators.required, Validators.min(0), Validators.max(12)]],
+  });
+
+  // ─── Step 2 (shared) ───
   readonly paso2Form = this.fb.group({
     nombre:         ['', Validators.required],
     apellidos:      ['', Validators.required],
     email:          ['', [Validators.required, Validators.email]],
     telefono:       ['', Validators.required],
-    pais:           ['ES'],
+    pais:           ['PE'],
     peticiones:     [''],
     aceptaTerminos: [false, Validators.requiredTrue],
   });
 
+  // ─── Extras (hoteles only) ───
+  readonly extrasSelec = signal<string[]>([]);
   readonly extras = [
-    { id: 'desayuno',  icon: '🍳', nombre: 'Desayuno buffet',  precio: 45 },
+    { id: 'desayuno',  icon: '🍳', nombre: 'Desayuno buffet',     precio: 45 },
     { id: 'transfer',  icon: '🚗', nombre: 'Transfer aeropuerto', precio: 80 },
-    { id: 'spa',       icon: '💆', nombre: 'Sesión de spa',     precio: 120 },
-    { id: 'late',      icon: '🌙', nombre: 'Late check-out',    precio: 50 },
+    { id: 'spa',       icon: '💆', nombre: 'Sesión de spa',        precio: 120 },
+    { id: 'late',      icon: '🌙', nombre: 'Late check-out',       precio: 50 },
   ];
 
-  readonly subtotal = computed(() => {
-    const base = 640;
-    const extTotal = this.extrasSelec().reduce((s, id) => {
-      return s + (this.extras.find(e => e.id === id)?.precio ?? 0);
-    }, 0);
-    return base + extTotal;
-  });
-
-  // Cupón de descuento
-  readonly descuento = signal(0);
-  readonly cuponCodigo = signal<string | null>(null);
-  readonly cuponError = signal<string | null>(null);
+  // ─── Coupon ───
+  readonly descuento      = signal(0);
+  readonly cuponCodigo    = signal<string | null>(null);
+  readonly cuponError     = signal<string | null>(null);
   readonly aplicandoCupon = signal(false);
   cuponInput = '';
 
+  // ─── Misc ───
+  readonly asientoOpts = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+  // ─── Computed ───
+  readonly paso1Valido = computed(() => {
+    switch (this.vertical()) {
+      case 'hoteles':    return this.paso1HotelForm.valid;
+      case 'vuelos':     return this.paso1VueloForm.valid;
+      case 'taxis':      return this.paso1TaxiForm.valid;
+      case 'transporte': return this.paso1TransporteForm.valid;
+      case 'guarderia':  return this.paso1GuarderiaForm.valid;
+      default:           return false;
+    }
+  });
+
+  readonly subtotal = computed(() => {
+    const base = this.precioBase();
+    switch (this.vertical()) {
+      case 'hoteles': {
+        const { checkIn, checkOut } = this.paso1HotelForm.value;
+        const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
+        const extras = this.extrasSelec().reduce(
+          (s, id) => s + (this.extras.find(e => e.id === id)?.precio ?? 0), 0,
+        );
+        return base * noches + extras;
+      }
+      case 'vuelos':
+        return base * Number(this.paso1VueloForm.value.asientos ?? 1);
+      case 'guarderia':
+        return base * Number(this.paso1GuarderiaForm.value.ninos ?? 1);
+      default:
+        return base;
+    }
+  });
+
   readonly subtotalNeto = computed(() => Math.max(0, this.subtotal() - this.descuento()));
-  readonly igv   = computed(() => Math.round(this.subtotalNeto() * 0.21));
-  readonly total = computed(() => this.subtotalNeto() + this.igv());
+  readonly igv          = computed(() => Math.round(this.subtotalNeto() * 0.18));
+  readonly total        = computed(() => {
+    const real = this.totalFromApi();
+    return real !== null ? real : this.subtotalNeto() + this.igv();
+  });
+
+  readonly paso1Label = computed(() => {
+    const m: Record<string, string> = {
+      hoteles: 'Tu estancia', vuelos: 'Tu vuelo',
+      taxis: 'Tu traslado', transporte: 'Tu envío', guarderia: 'Tu plaza',
+    };
+    return m[this.vertical()] ?? 'Selección';
+  });
+
+  readonly paso1Titulo = computed(() => {
+    const m: Record<string, string> = {
+      hoteles: 'Detalles de tu estancia', vuelos: 'Selecciona tus asientos',
+      taxis: 'Detalles del traslado', transporte: 'Detalles del envío', guarderia: 'Plaza en guardería',
+    };
+    return m[this.vertical()] ?? 'Resumen de tu reserva';
+  });
+
+  readonly emojiVertical = computed(() => {
+    const m: Record<string, string> = {
+      hoteles: '🏨', vuelos: '✈️', taxis: '🚗', transporte: '🚛', guarderia: '👶',
+    };
+    return m[this.vertical()] ?? '📦';
+  });
+
+  readonly verticaLabel = computed(() => {
+    const m: Record<string, string> = {
+      hoteles: 'Hotel', vuelos: 'Vuelo', taxis: 'Taxi', transporte: 'Transporte', guarderia: 'Guardería',
+    };
+    return m[this.vertical()] ?? this.vertical();
+  });
+
+  readonly precioPorLabel = computed(() => {
+    const m: Record<string, string> = {
+      hoteles: 'noche', vuelos: 'asiento', taxis: 'traslado', transporte: 'carga', guarderia: 'niño',
+    };
+    return m[this.vertical()] ?? '';
+  });
+
+  readonly lineaResumen = computed(() => {
+    const base = this.precioBase();
+    switch (this.vertical()) {
+      case 'hoteles': {
+        const { checkIn, checkOut } = this.paso1HotelForm.value;
+        const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
+        return `S/ ${base} × ${n} noche${n !== 1 ? 's' : ''}`;
+      }
+      case 'vuelos':
+        return `S/ ${base} × ${this.paso1VueloForm.value.asientos ?? 1} asiento(s)`;
+      case 'taxis':
+        return `Tarifa base S/ ${base} + km`;
+      case 'transporte':
+        return `S/ ${base} · ${this.paso1TransporteForm.value.pesoKg ?? 0} kg`;
+      case 'guarderia':
+        return `S/ ${base} × ${this.paso1GuarderiaForm.value.ninos ?? 1} niño(s)`;
+      default:
+        return `S/ ${base}`;
+    }
+  });
+
+  readonly peticionesPlaceholder = computed(() => {
+    const m: Record<string, string> = {
+      hoteles: 'Cama extra, planta alta, llegada tarde…',
+      vuelos: 'Asiento ventana, comida especial, asistencia…',
+      taxis: 'Necesito ayuda con el equipaje, silla para bebé…',
+      transporte: 'Carga frágil, requiere embalaje especial…',
+      guarderia: 'Alergias del niño, horario especial…',
+    };
+    return m[this.vertical()] ?? 'Peticiones especiales…';
+  });
+
+  ngOnInit(): void {
+    const routeParams = this.route.snapshot.paramMap;
+    const queryParams = this.route.snapshot.queryParamMap;
+
+    this.vertical.set(routeParams.get('vertical') ?? 'hoteles');
+    this.servicioId = routeParams.get('servicioId') ?? undefined;
+    this.comercioId = queryParams.get('comercioId') ?? undefined;
+    this.nombreServicio.set(queryParams.get('nombre') ?? '');
+    this.imagenServicio.set(queryParams.get('imagen') ?? '');
+    this.precioBase.set(Number(queryParams.get('precioBase') ?? 0));
+
+    const habitacionId = queryParams.get('habitacionId');
+    if (habitacionId) this.paso1HotelForm.patchValue({ habitacionId });
+  }
+
+  irPaso(p: number): void {
+    this.paso.set(p as Paso);
+    if (p === 3 && this.metodoPago() === 'card' && !this.stripeListo()) {
+      void this.prepararStripe();
+    }
+  }
+
+  private buildPayload(): import('../services/reservas.service').CrearReservaPayload {
+    const v = this.vertical();
+    switch (v) {
+      case 'hoteles': {
+        const f = this.paso1HotelForm.value;
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          fechaInicio: f.checkIn!, fechaFin: f.checkOut ?? undefined,
+          cantidad: 1, detalle: { habitacionId: f.habitacionId },
+          cuponCodigo: this.cuponCodigo() ?? undefined,
+        };
+      }
+      case 'vuelos': {
+        const f = this.paso1VueloForm.value;
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          fechaInicio: new Date().toISOString(),
+          cantidad: Number(f.asientos ?? 1), detalle: { clase: f.clase },
+          cuponCodigo: this.cuponCodigo() ?? undefined,
+        };
+      }
+      case 'taxis': {
+        const f = this.paso1TaxiForm.value;
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          fechaInicio: `${f.fechaTraslado}T${f.hora}:00`,
+          cantidad: 1,
+          detalle: {
+            origen: f.origen, destino: f.destino,
+            distanciaKm: Number(f.distanciaKm ?? 10),
+            pasajeros: Number(f.pasajeros ?? 1),
+          },
+          cuponCodigo: this.cuponCodigo() ?? undefined,
+        };
+      }
+      case 'transporte': {
+        const f = this.paso1TransporteForm.value;
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          fechaInicio: f.fechaRecogida!,
+          cantidad: 1,
+          detalle: {
+            origen: f.origen, destino: f.destino,
+            tipoCarga: f.tipoCarga, pesoKg: Number(f.pesoKg ?? 100),
+          },
+          cuponCodigo: this.cuponCodigo() ?? undefined,
+        };
+      }
+      case 'guarderia': {
+        const f = this.paso1GuarderiaForm.value;
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          fechaInicio: f.fechaInicio!, fechaFin: f.fechaFin ?? undefined,
+          cantidad: Number(f.ninos ?? 1),
+          detalle: { modalidad: f.modalidad, edadNino: Number(f.edadNino ?? 0) },
+          cuponCodigo: this.cuponCodigo() ?? undefined,
+        };
+      }
+      default:
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          fechaInicio: new Date().toISOString(), cantidad: 1,
+        };
+    }
+  }
+
+  private async prepararStripe(): Promise<void> {
+    if (!this.servicioId || !this.comercioId) return;
+    this.errorPago.set(null);
+    try {
+      const payload = this.buildPayload();
+      const reserva = await this.reservasService.crear(payload);
+      this.reservaIdReal = reserva._id ?? reserva.id ?? null;
+      this.codigoReserva.set(reserva.codigo);
+      if (!this.reservaIdReal) return;
+
+      const intent = await this.paymentsService.crearIntent(this.reservaIdReal);
+      this.clientSecret = intent.clientSecret;
+      this.totalFromApi.set(intent.montoTotal);
+
+      this.stripe = await this.stripeService.getStripe();
+      if (!this.stripe || !this.clientSecret) return;
+
+      this.elements = this.stripe.elements({ clientSecret: this.clientSecret });
+      const paymentElement = this.elements.create('payment');
+      setTimeout(() => paymentElement.mount('#stripe-payment-element'), 0);
+      this.stripeListo.set(true);
+    } catch {
+      this.stripeListo.set(false);
+    }
+  }
+
+  toggleExtra(id: string): void {
+    this.extrasSelec.update(list =>
+      list.includes(id) ? list.filter(x => x !== id) : [...list, id]
+    );
+  }
+
+  extraNombre(id: string): string { return this.extras.find(e => e.id === id)?.nombre ?? ''; }
+  extraPrecio(id: string): number  { return this.extras.find(e => e.id === id)?.precio ?? 0; }
 
   async aplicarCupon(): Promise<void> {
     const codigo = this.cuponInput.trim().toUpperCase();
@@ -604,7 +976,7 @@ export class ReservaWizardComponent implements OnInit {
     this.aplicandoCupon.set(true);
     this.cuponError.set(null);
     try {
-      const res = await this.cuponesService.validar(codigo, this.vertical ?? 'hoteles', this.subtotal());
+      const res = await this.cuponesService.validar(codigo, this.vertical(), this.subtotal());
       this.descuento.set(res.descuento);
       this.cuponCodigo.set(res.codigo);
     } catch {
@@ -620,76 +992,10 @@ export class ReservaWizardComponent implements OnInit {
     this.cuponInput = '';
   }
 
-  ngOnInit(): void {
-    const params = this.route.snapshot.queryParamMap;
-    const habitacionId = params.get('habitacionId');
-    if (habitacionId) this.paso1Form.patchValue({ habitacionId });
-    this.servicioId = params.get('servicioId') ?? undefined;
-    this.comercioId = params.get('comercioId') ?? undefined;
-    this.vertical   = params.get('vertical') ?? undefined;
-  }
-
-  irPaso(p: number): void {
-    this.paso.set(p as Paso);
-    if (p === 3 && this.metodoPago() === 'card' && !this.stripeListo()) {
-      void this.prepararStripe();
-    }
-  }
-
-  /** Crea la reserva real, pide el PaymentIntent y monta el Stripe Element. */
-  private async prepararStripe(): Promise<void> {
-    if (!this.servicioId || !this.comercioId || !this.vertical) return; // modo demo
-    this.errorPago.set(null);
-    try {
-      const reserva = await this.reservasService.crear({
-        servicioId: this.servicioId,
-        comercioId: this.comercioId,
-        vertical: this.vertical,
-        fechaInicio: this.paso1Form.value.checkIn ?? new Date().toISOString(),
-        fechaFin: this.paso1Form.value.checkOut ?? undefined,
-        cantidad: 1,
-        detalle: { habitacionId: this.paso1Form.value.habitacionId },
-        cuponCodigo: this.cuponCodigo() ?? undefined,
-      });
-      this.reservaIdReal = reserva._id ?? reserva.id ?? null;
-      this.codigoReserva.set(reserva.codigo);
-      if (!this.reservaIdReal) return;
-
-      const intent = await this.paymentsService.crearIntent(this.reservaIdReal);
-      this.clientSecret = intent.clientSecret;
-
-      this.stripe = await this.stripeService.getStripe();
-      if (!this.stripe || !this.clientSecret) return;
-
-      this.elements = this.stripe.elements({ clientSecret: this.clientSecret });
-      const paymentElement = this.elements.create('payment');
-      setTimeout(() => paymentElement.mount('#stripe-payment-element'), 0);
-      this.stripeListo.set(true);
-    } catch {
-      // Sin sesión, sin datos reales o API caído: se conserva el modo simulado.
-      this.stripeListo.set(false);
-    }
-  }
-
-  toggleExtra(id: string): void {
-    this.extrasSelec.update(list =>
-      list.includes(id) ? list.filter(x => x !== id) : [...list, id]
-    );
-  }
-
-  extraNombre(id: string): string {
-    return this.extras.find(e => e.id === id)?.nombre ?? '';
-  }
-
-  extraPrecio(id: string): number {
-    return this.extras.find(e => e.id === id)?.precio ?? 0;
-  }
-
   async procesarPago(): Promise<void> {
     this.procesando.set(true);
     this.errorPago.set(null);
 
-    // Pago real con Stripe cuando hay un PaymentIntent montado.
     if (this.stripe && this.elements && this.clientSecret) {
       const { error } = await this.stripe.confirmPayment({
         elements: this.elements,
@@ -704,9 +1010,20 @@ export class ReservaWizardComponent implements OnInit {
       return;
     }
 
-    // Modo demostración (sin datos de reserva reales).
+    // Modo demostración
     await new Promise(r => setTimeout(r, 1500));
+    if (!this.codigoReserva()) {
+      this.codigoReserva.set('RES-' + Math.random().toString(36).substr(2, 8).toUpperCase());
+    }
     this.procesando.set(false);
     this.irPaso(4);
+  }
+
+  private calcularNoches(checkIn: string, checkOut: string): number {
+    if (!checkIn || !checkOut) return 1;
+    const a = new Date(checkIn);
+    const b = new Date(checkOut);
+    const diff = Math.ceil((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 1;
   }
 }

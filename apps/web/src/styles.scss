@@ -364,6 +364,10 @@ h1, h2, h3, h4, h5, h6 {
     height: 20px;
     background: var(--b-2);
   }
+
+  @media (max-width: 768px) {
+    &__nav, &__actions { display: none; }
+  }
 }
 
 
@@ -577,13 +581,13 @@ h1, h2, h3, h4, h5, h6 {
   text-transform: uppercase;
   border-radius: var(--r-full);
 
-  &--accent  { background: var(--c-accent-lo); color: var(--c-accent); border: 1px solid rgba(84,114,248,.25); }
-  &--success { background: rgba(16,185,129,.12); color: #34D399; border: 1px solid rgba(16,185,129,.25); }
-  &--warning { background: rgba(245,158,11,.12); color: #FCD34D; border: 1px solid rgba(245,158,11,.25); }
-  &--error   { background: rgba(239,68,68,.12);  color: #FCA5A5; border: 1px solid rgba(239,68,68,.25); }
-  &--neutral { background: rgba(148,163,184,.1);  color: var(--t-300); border: 1px solid var(--b-1); }
-  &--purple  { background: rgba(155,92,246,.12);  color: #C084FC; border: 1px solid rgba(155,92,246,.25); }
-  &--teal    { background: rgba(0,201,177,.12);   color: #2DD4BF; border: 1px solid rgba(0,201,177,.25); }
+  &--accent  { background: rgba(22,104,227,.10);  color: #1255C0; border: 1px solid rgba(22,104,227,.25); }
+  &--success { background: rgba(16,185,129,.12);  color: #047857; border: 1px solid rgba(16,185,129,.30); }
+  &--warning { background: rgba(245,158,11,.12);  color: #B45309; border: 1px solid rgba(245,158,11,.30); }
+  &--error   { background: rgba(239,68,68,.12);   color: #B91C1C; border: 1px solid rgba(239,68,68,.30); }
+  &--neutral { background: rgba(148,163,184,.12); color: var(--t-300); border: 1px solid var(--b-2); }
+  &--purple  { background: rgba(109,92,246,.10);  color: #5B21B6; border: 1px solid rgba(109,92,246,.25); }
+  &--teal    { background: rgba(0,161,224,.10);   color: #0369A1; border: 1px solid rgba(0,161,224,.25); }
 }
 
 /* ── 11. ALERTAS ───────────────────────────────────────────────── */
@@ -597,10 +601,10 @@ h1, h2, h3, h4, h5, h6 {
   font-size: var(--f-sm);
   line-height: 1.5;
 
-  &--error   { background: rgba(239,68,68,.1);   border-color: rgba(239,68,68,.3);   color: #FCA5A5; }
-  &--success { background: rgba(16,185,129,.1);  border-color: rgba(16,185,129,.3);  color: #34D399; }
-  &--warning { background: rgba(245,158,11,.1);  border-color: rgba(245,158,11,.3);  color: #FCD34D; }
-  &--info    { background: var(--c-accent-lo);   border-color: rgba(84,114,248,.3);  color: var(--c-accent); }
+  &--error   { background: rgba(239,68,68,.08);  border-color: rgba(239,68,68,.30);  color: #B91C1C; }
+  &--success { background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.30); color: #047857; }
+  &--warning { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.30); color: #B45309; }
+  &--info    { background: var(--c-accent-lo);   border-color: rgba(22,104,227,.30); color: #1255C0; }
 }
 
 /* ── 12. RATING STARS ──────────────────────────────────────────── */
@@ -770,6 +774,14 @@ h1, h2, h3, h4, h5, h6 {
       display: flex;
       gap: var(--sp-2);
       flex-wrap: wrap;
+
+      .rs-badge {
+        background: rgba(255,255,255,.92);
+        color: var(--t-100);
+        border-color: rgba(255,255,255,.6);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+      }
     }
   }
 

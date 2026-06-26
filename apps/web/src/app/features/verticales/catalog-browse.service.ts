@@ -8,6 +8,7 @@ export interface ServicioCard {
   id: string;
   nombre: string;
   ciudad: string;
+  comercioId?: string;
   precioPorNoche: number;
   score: number;
   scoreLabel: string;

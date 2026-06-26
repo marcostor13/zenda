@@ -1,0 +1,87 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+export interface SearchParams {
+  vertical: 'hoteles' | 'vuelos' | 'taxis' | 'transporte' | 'guarderia' | null;
+  ciudad: string | null;
+  desde: string | null;
+  hasta: string | null;
+  presupuestoMax: number | null;
+  pasajeros: number | null;
+  extras: Record<string, string>;
+  explicacion: string;
+}
+
+const SYSTEM_PROMPT = `Eres el asistente de búsqueda de Zenda, un marketplace europeo de reservas.
+Tu tarea es interpretar consultas en lenguaje natural y extraer parámetros de búsqueda estructurados.
+
+Verticales disponibles: hoteles, vuelos, taxis, transporte, guarderia
+
+Responde SIEMPRE con un objeto JSON válido con esta estructura exacta (sin markdown, sin explicaciones fuera del JSON):
+{
+  "vertical": "hoteles" | "vuelos" | "taxis" | "transporte" | "guarderia" | null,
+  "ciudad": "nombre de ciudad" | null,
+  "desde": "YYYY-MM-DD" | null,
+  "hasta": "YYYY-MM-DD" | null,
+  "presupuestoMax": número_en_euros | null,
+  "pasajeros": número | null,
+  "extras": { "clave": "valor" },
+  "explicacion": "Resumen de lo que el usuario busca, en español, máx 1 frase"
+}
+
+Reglas:
+- Si el usuario dice "este fin de semana", "próximo mes", etc., calcula fechas relativas al ${new Date().toISOString().split('T')[0]}.
+- Para vuelos, extrae origen y destino en extras: { "origen": "...", "destino": "..." }.
+- Para guarderías, extrae edad del niño: { "edadMeses": "..." }.
+- Si la ciudad no es clara, pon null.
+- Si el vertical no es claro, pon null.
+- La explicacion debe estar en español.`;
+
+@Injectable()
+export class AiSearchService {
+  private readonly logger = new Logger(AiSearchService.name);
+  private readonly apiKey: string;
+  private readonly apiUrl = 'https://api.deepseek.com/chat/completions';
+
+  constructor(config: ConfigService) {
+    this.apiKey = config.getOrThrow<string>('DEEPSEEK_API_KEY');
+  }
+
+  async interpretSearch(query: string): Promise<SearchParams> {
+    try {
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: query },
+          ],
+          temperature: 0.1,
+          max_tokens: 512,
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`DeepSeek API error: ${response.status}`);
+      }
+
+      const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+      const content = data.choices[0]?.message?.content ?? '{}';
+      return JSON.parse(content) as SearchParams;
+    } catch (error) {
+      this.logger.error('Error al interpretar búsqueda con IA', error);
+      // Fallback: return empty params so the frontend can still show the search
+      return {
+        vertical: null, ciudad: null, desde: null, hasta: null,
+        presupuestoMax: null, pasajeros: null, extras: {},
+        explicacion: 'No se pudo interpretar la búsqueda. Usa el formulario manualmente.',
+      };
+    }
+  }
+}

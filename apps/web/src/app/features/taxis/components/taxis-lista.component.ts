@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
@@ -63,14 +64,8 @@ import { TaxisService, TaxiCard } from '../services/taxis.service';
                     <div class="taxi-card__period">tarifa base</div>
                   </div>
                 </div>
-                @if (solicitadoId() === t.id) {
-                  <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">
-                    ✓ Te contactaremos para confirmar tu traslado.
-                  </div>
-                } @else {
-                  <button class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-4)"
-                          (click)="solicitar(t)">Reservar traslado</button>
-                }
+                <button class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-4)"
+                        (click)="solicitar(t)">Reservar traslado</button>
               </div>
             </article>
           }
@@ -100,7 +95,7 @@ import { TaxisService, TaxiCard } from '../services/taxis.service';
     .taxis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .taxi-card { background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--sh-card); transition: all var(--d-3); &:hover { box-shadow: var(--sh-lg); transform: translateY(-4px); .taxi-card__img img { transform: scale(1.06); } } }
     .taxi-card__img { position: relative; aspect-ratio: 16/10; overflow: hidden; background: linear-gradient(135deg, #143C7A, #1668E3); img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); } }
-    .taxi-card__type { position: absolute; top: var(--sp-3); left: var(--sp-3); }
+    .taxi-card__type { position: absolute; top: var(--sp-3); left: var(--sp-3); background: rgba(255,255,255,.92); color: var(--t-100); border-color: rgba(255,255,255,.6); backdrop-filter: blur(6px); }
     .taxi-card__body { padding: var(--sp-5); }
     .taxi-card__name { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
     .taxi-card__loc { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-3); }
@@ -115,10 +110,10 @@ import { TaxisService, TaxiCard } from '../services/taxis.service';
 export class TaxisListaComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly taxisService = inject(TaxisService);
+  private readonly router = inject(Router);
 
   readonly cargando = signal(true);
   readonly taxis = signal<TaxiCard[]>([]);
-  readonly solicitadoId = signal<string | null>(null);
 
   readonly searchForm = this.fb.group({ ciudad: [''] });
 
@@ -132,7 +127,6 @@ export class TaxisListaComponent implements OnInit {
 
   private async cargar(ciudad?: string): Promise<void> {
     this.cargando.set(true);
-    this.solicitadoId.set(null);
     try {
       const resultados = await this.taxisService.buscar(ciudad);
       this.taxis.set(resultados.length ? resultados : this.mock());
@@ -144,7 +138,14 @@ export class TaxisListaComponent implements OnInit {
   }
 
   solicitar(t: TaxiCard): void {
-    this.solicitadoId.set(t.id);
+    void this.router.navigate(['/reservas', 'taxis', t.id], {
+      queryParams: {
+        comercioId:  t.comercioId,
+        nombre:      t.nombre,
+        precioBase:  t.tarifaBase,
+        imagen:      t.imagen,
+      },
+    });
   }
 
   tipoLabel(tipo: string): string {

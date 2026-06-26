@@ -1,296 +1,275 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
-import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
-import { hotelImage } from '../../shared/media/images';
+import { DecimalPipe, DatePipe } from '@angular/common';
+import { firstValueFrom } from 'rxjs';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { AuthService } from '../../core/auth/auth.service';
+import { ComercioApiService, MiReserva, MiServicio } from './comercio-api.service';
+
+const ESTADO_BADGE: Record<string, string> = {
+  confirmada: 'rs-badge--success', pendiente: 'rs-badge--warning',
+  cancelada: 'rs-badge--error', completada: 'rs-badge--accent', no_show: 'rs-badge--neutral',
+};
+
+const VERTICAL_ICON: Record<string, string> = {
+  hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
+};
 
 @Component({
   selector: 'app-panel-comercio-dashboard',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, ImgFallbackDirective],
+  imports: [RouterLink, DecimalPipe, DatePipe, RsIconComponent],
   template: `
-<div style="min-height:100vh;background:var(--c-base)">
-  <rs-navbar />
-
-  <div class="comercio-layout">
-
-    <!-- SIDEBAR -->
-    <aside class="comercio-sidebar">
-      <div class="sidebar-brand">
-        <div class="sidebar-brand__logo">🏨</div>
-        <div>
-          <div class="sidebar-brand__name">Gran Hotel Madrid</div>
-          <div class="sidebar-brand__plan rs-badge rs-badge--accent">Pro</div>
-        </div>
+    <!-- HEADER -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-sub">Bienvenido, {{ nombreComercio() }}</p>
       </div>
+      <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">
+        <rs-icon name="plus" [size]="15" [stroke]="2"></rs-icon>
+        Nuevo listado
+      </a>
+    </div>
 
-      <nav class="sidebar-nav">
-        @for (item of navItems; track item.ruta) {
-          <a [routerLink]="item.ruta"
-             class="sidebar-nav__item"
-             [class.active]="item.active">
-            <span>{{ item.icon }}</span>
-            <span>{{ item.label }}</span>
-            @if (item.badge) {
-              <span class="rs-badge rs-badge--danger" style="margin-left:auto;min-width:20px;text-align:center">
-                {{ item.badge }}
-              </span>
-            }
-          </a>
-        }
-      </nav>
-    </aside>
-
-    <!-- MAIN -->
-    <main class="comercio-main">
-
-      <!-- HEADER -->
-      <div class="comercio-header">
-        <div>
-          <h1>Dashboard</h1>
-          <p>Bienvenido de vuelta · Junio 2026</p>
-        </div>
-        <div style="display:flex;gap:var(--sp-3)">
-          <button class="rs-btn rs-btn--secondary rs-btn--sm">📊 Exportar</button>
-          <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">+ Nuevo listado</a>
-        </div>
-      </div>
-
-      <!-- KPI STATS -->
-      <div class="kpi-grid">
-        @for (kpi of kpis; track kpi.label) {
-          <div class="kpi-card rs-card">
-            <div class="kpi-card__header">
-              <span class="kpi-card__label">{{ kpi.label }}</span>
-              <span class="kpi-card__icon">{{ kpi.icon }}</span>
-            </div>
-            <div class="kpi-card__value">{{ kpi.value }}</div>
-            <div class="kpi-card__trend" [class.up]="kpi.trendUp" [class.down]="!kpi.trendUp">
-              {{ kpi.trendUp ? '↑' : '↓' }} {{ kpi.trend }} vs mes anterior
-            </div>
+    <!-- KPI GRID -->
+    <div class="kpi-grid">
+      <div class="kpi-card rs-card">
+        <div class="kpi-card__header">
+          <span class="kpi-card__label">Ingresos brutos</span>
+          <div class="kpi-card__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
+            <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
           </div>
-        }
+        </div>
+        <div class="kpi-card__value">S/ {{ totalIngresos() | number:'1.0-0' }}</div>
+        <div class="kpi-card__trend up">del total de reservas</div>
       </div>
-
-      <!-- FILA: reservas + ingresos -->
-      <div class="dashboard-row">
-
-        <!-- RESERVAS RECIENTES -->
-        <div class="rs-card dashboard-panel">
-          <div class="panel-header">
-            <h3>Reservas recientes</h3>
-            <a routerLink="/comercio/reservas" class="rs-link">Ver todas →</a>
+      <div class="kpi-card rs-card">
+        <div class="kpi-card__header">
+          <span class="kpi-card__label">Reservas</span>
+          <div class="kpi-card__icon" style="background:rgba(22,104,227,.12);color:var(--c-accent)">
+            <rs-icon name="calendar" [size]="17" [stroke]="2"></rs-icon>
           </div>
+        </div>
+        <div class="kpi-card__value">{{ reservas().length }}</div>
+        <div class="kpi-card__trend up">{{ reservasConfirmadas() }} confirmadas</div>
+      </div>
+      <div class="kpi-card rs-card">
+        <div class="kpi-card__header">
+          <span class="kpi-card__label">Listados activos</span>
+          <div class="kpi-card__icon" style="background:rgba(109,92,246,.12);color:var(--c-purple)">
+            <rs-icon name="tag" [size]="17" [stroke]="2"></rs-icon>
+          </div>
+        </div>
+        <div class="kpi-card__value">{{ serviciosActivos() }}</div>
+        <div class="kpi-card__trend">de {{ servicios().length }} totales</div>
+      </div>
+      <div class="kpi-card rs-card">
+        <div class="kpi-card__header">
+          <span class="kpi-card__label">Rating promedio</span>
+          <div class="kpi-card__icon" style="background:rgba(245,158,11,.12);color:var(--c-amber)">
+            <rs-icon name="star" [size]="17" [stroke]="2"></rs-icon>
+          </div>
+        </div>
+        <div class="kpi-card__value">{{ ratingPromedio() || '—' }}</div>
+        <div class="kpi-card__trend">entre tus servicios</div>
+      </div>
+    </div>
 
+    <!-- ROW: reservas + finanzas -->
+    <div class="dashboard-row">
+
+      <div class="rs-card dashboard-panel">
+        <div class="panel-header">
+          <h3>Reservas recientes</h3>
+          <a routerLink="/comercio/reservas" class="rs-btn rs-btn--ghost rs-btn--xs">Ver todas</a>
+        </div>
+        @if (reservas().length === 0) {
+          <p style="text-align:center;padding:var(--sp-10);color:var(--t-400)">Sin reservas aún</p>
+        } @else {
           <table class="rs-table">
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Huésped</th>
-                <th>Fechas</th>
-                <th>Total</th>
-                <th>Estado</th>
-                <th></th>
+                <th>Código</th><th>Vertical</th><th>Fecha</th><th>Total</th><th>Estado</th>
               </tr>
             </thead>
             <tbody>
-              @for (r of reservasRecientes; track r.codigo) {
+              @for (r of reservasRecientes(); track r._id) {
                 <tr>
                   <td><code>{{ r.codigo }}</code></td>
-                  <td>{{ r.huesped }}</td>
-                  <td>{{ r.fechas }}</td>
-                  <td>€{{ r.total }}</td>
-                  <td><span class="rs-badge" [class]="r.badgeClass">{{ r.estado }}</span></td>
-                  <td><a [routerLink]="['/comercio/reservas', r.codigo]" class="rs-btn rs-btn--ghost rs-btn--xs">Ver</a></td>
+                  <td class="vertical-cell">
+                    <rs-icon [name]="iconVertical(r.vertical)" [size]="14" [stroke]="2"></rs-icon>
+                    {{ r.vertical }}
+                  </td>
+                  <td>{{ r.fechaInicio | date:'d MMM yy' }}</td>
+                  <td>S/ {{ r.montoTotal | number:'1.0-0' }}</td>
+                  <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
                 </tr>
               }
             </tbody>
           </table>
+        }
+      </div>
+
+      <div class="rs-card dashboard-panel">
+        <div class="panel-header"><h3>Resumen financiero</h3></div>
+        <div class="fin-row">
+          <span>Ingresos brutos</span><strong>S/ {{ totalIngresos() | number:'1.0-0' }}</strong>
         </div>
-
-        <!-- INGRESOS / COMISIONES -->
-        <div class="rs-card dashboard-panel">
-          <div class="panel-header">
-            <h3>Resumen financiero</h3>
-            <span class="rs-badge">Junio 2026</span>
-          </div>
-
-          @for (fin of financiero; track fin.label) {
-            <div class="fin-row">
-              <span>{{ fin.label }}</span>
-              <strong [style]="fin.color ? 'color:' + fin.color : ''">{{ fin.value }}</strong>
-            </div>
-          }
-
-          <hr class="rs-hr" style="margin-block:var(--sp-4)">
-
-          <div style="display:flex;flex-direction:column;gap:var(--sp-3)">
-            <div style="font-size:var(--f-sm);color:var(--t-400)">Comisión plataforma: 15%</div>
-            <div class="fin-row" style="font-size:var(--f-md)">
-              <strong style="color:var(--t-100)">Liquidación estimada</strong>
-              <strong style="color:var(--c-teal)">€3,422</strong>
-            </div>
-          </div>
+        <div class="fin-row">
+          <span>Comisión plataforma</span>
+          <strong style="color:#B91C1C">− S/ {{ comisionEstimada() | number:'1.0-0' }}</strong>
+        </div>
+        <div class="fin-row">
+          <span>Fee Stripe (est.)</span>
+          <strong style="color:#B91C1C">− S/ {{ feeStripe() | number:'1.0-2' }}</strong>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--b-1);margin-block:var(--sp-4)">
+        <div class="fin-row">
+          <strong style="color:var(--t-100)">Liquidación estimada</strong>
+          <strong style="color:var(--c-teal)">S/ {{ liquidacion() | number:'1.0-0' }}</strong>
         </div>
       </div>
 
-      <!-- LISTADOS -->
-      <div class="rs-card">
-        <div class="panel-header" style="margin-bottom:var(--sp-5)">
-          <h3>Mis listados</h3>
-          <a routerLink="/comercio/listados" class="rs-link">Gestionar →</a>
-        </div>
+    </div>
 
+    <!-- LISTADOS -->
+    <div class="rs-card">
+      <div class="panel-header" style="margin-bottom:var(--sp-5)">
+        <h3>Mis listados</h3>
+        <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost rs-btn--xs">Ver todos</a>
+      </div>
+      @if (servicios().length === 0) {
+        <div style="text-align:center;padding:var(--sp-10);color:var(--t-400)">
+          No tienes listados publicados.<br>
+          <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary rs-btn--sm" style="margin-top:var(--sp-4)">
+            <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon>
+            Crear primer listado
+          </a>
+        </div>
+      } @else {
         <div class="listados-grid">
-          @for (l of listados(); track l.id) {
+          @for (l of servicios(); track l._id) {
             <div class="listado-item">
-              <img [src]="l.imagen" [alt]="l.titulo" rsImg />
+              <div class="listado-img">
+                <rs-icon [name]="iconVertical(l.vertical)" [size]="22" [stroke]="1.75"></rs-icon>
+              </div>
               <div class="listado-item__info">
                 <strong>{{ l.titulo }}</strong>
-                <p>{{ l.tipo }}</p>
-                <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2);flex-wrap:wrap">
-                  <span class="{{ 'rs-badge ' + l.estadoClass }}">{{ l.estado }}</span>
-                  <span class="rs-badge rs-badge--purple">★ {{ l.rating }}</span>
+                <p>S/ {{ l.precioBase | number:'1.0-0' }} · {{ l.vertical }}</p>
+                <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
+                  <span class="rs-badge {{ estadoServicioBadge(l.estado) }}">{{ l.estado }}</span>
+                  @if (l.ratingPromedio) {
+                    <span class="rs-badge rs-badge--accent">
+                      <rs-icon name="star" [size]="10" [stroke]="2"></rs-icon>
+                      {{ l.ratingPromedio | number:'1.1-1' }}
+                    </span>
+                  }
                 </div>
               </div>
               <div class="listado-item__actions">
-                <a [routerLink]="['/comercio/listados', l.id, 'editar']" class="rs-btn rs-btn--outline rs-btn--xs">Editar</a>
-                <button class="rs-btn rs-btn--ghost rs-btn--xs"
-                        (click)="togglePausar(l.id)">
-                  {{ l.estado === 'Publicado' ? '⏸ Pausar' : '▶ Publicar' }}
+                <button class="rs-btn rs-btn--ghost rs-btn--xs" (click)="toggleServicio(l)">
+                  @if (l.estado === 'publicado') {
+                    <rs-icon name="pause" [size]="13" [stroke]="2"></rs-icon> Pausar
+                  } @else {
+                    <rs-icon name="play" [size]="13" [stroke]="2"></rs-icon> Publicar
+                  }
                 </button>
               </div>
             </div>
           }
         </div>
-      </div>
+      }
+    </div>
 
-    </main>
-  </div>
-</div>
+    @if (errorMsg()) {
+      <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
+    }
   `,
   styles: [`
-    :host { display: block; }
+    :host { display: contents; }
 
-    .comercio-layout { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 64px); @media (max-width: 1024px) { grid-template-columns: 1fr; } }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
+    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
+    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
 
-    .comercio-sidebar {
-      background: var(--c-card);
-      border-right: 1px solid var(--b-1);
-      padding: var(--sp-6);
-      position: sticky;
-      top: 64px;
-      height: calc(100vh - 64px);
-      overflow-y: auto;
-
-      @media (max-width: 1024px) { display: none; }
-    }
-
-    .sidebar-brand { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-8); padding-bottom: var(--sp-6); border-bottom: 1px solid var(--b-1); }
-    .sidebar-brand__logo { width: 40px; height: 40px; border-radius: var(--r-lg); background: var(--g-accent); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
-    .sidebar-brand__name { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
-
-    .sidebar-nav { display: flex; flex-direction: column; gap: var(--sp-1); }
-
-    .sidebar-nav__item {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-3);
-      padding: var(--sp-3) var(--sp-4);
-      border-radius: var(--r-lg);
-      color: var(--t-300);
-      font-size: var(--f-sm);
-      text-decoration: none;
-      transition: all var(--d-2);
-
-      &:hover { background: var(--c-raised); color: var(--t-100); }
-      &.active { background: var(--c-accent-lo); color: var(--c-accent); }
-    }
-
-    .comercio-main { padding: var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-6); }
-
-    .comercio-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); h1 { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); } p { color: var(--t-400); } }
-
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } }
-
+    .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--sp-4); @media (max-width:1024px) { grid-template-columns: repeat(2,1fr); } }
     .kpi-card { padding: var(--sp-5); }
     .kpi-card__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-3); }
     .kpi-card__label { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
-    .kpi-card__icon { font-size: 1.2rem; }
+    .kpi-card__icon { width: 36px; height: 36px; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: center; }
     .kpi-card__value { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-2); }
-    .kpi-card__trend { font-size: var(--f-xs); color: var(--t-400); &.up { color: var(--c-teal); } &.down { color: #F87171; } }
+    .kpi-card__trend { font-size: var(--f-xs); color: var(--t-400); &.up { color: var(--c-teal); } }
 
-    .dashboard-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: 1fr; } }
-
+    .dashboard-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--sp-5); @media (max-width:1024px) { grid-template-columns: 1fr; } }
     .dashboard-panel { padding: var(--sp-5); }
     .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-4); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
-    .rs-link { color: var(--c-accent); font-size: var(--f-sm); text-decoration: none; }
 
-    .rs-table { width: 100%; border-collapse: collapse; font-size: var(--f-sm); th { color: var(--t-400); text-align: left; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--b-1); font-size: var(--f-xs); text-transform: uppercase; letter-spacing: .06em; } td { padding: var(--sp-3); border-bottom: 1px solid var(--b-1); color: var(--t-200); } code { font-family: monospace; color: var(--c-accent); } }
+    .rs-table { width:100%; border-collapse:collapse; font-size:var(--f-sm); th { color:var(--t-400); text-align:left; padding:var(--sp-2) var(--sp-3); border-bottom:1px solid var(--b-1); font-size:var(--f-xs); text-transform:uppercase; letter-spacing:.06em; } td { padding:var(--sp-3); border-bottom:1px solid var(--b-1); color:var(--t-200); } &:last-child td { border:none; } code { font-family:monospace; color:var(--c-accent); } }
+    .vertical-cell { display:flex; align-items:center; gap:var(--sp-2); text-transform:capitalize; }
 
-    .fin-row { display: flex; justify-content: space-between; font-size: var(--f-sm); padding: var(--sp-2) 0; color: var(--t-300); border-bottom: 1px solid var(--b-1); strong { color: var(--t-100); } &:last-child { border: none; } }
+    .fin-row { display:flex; justify-content:space-between; font-size:var(--f-sm); padding:var(--sp-2) 0; color:var(--t-300); border-bottom:1px solid var(--b-1); strong { color:var(--t-100); } &:last-child { border:none; } }
 
-    .listados-grid { display: flex; flex-direction: column; gap: var(--sp-3); }
-
-    .listado-item {
-      display: grid;
-      grid-template-columns: 80px 1fr auto;
-      gap: var(--sp-4);
-      align-items: center;
-      padding: var(--sp-3);
-      background: var(--c-raised);
-      border-radius: var(--r-lg);
-
-      img { width: 80px; height: 60px; object-fit: cover; border-radius: var(--r-md); }
-      strong { font-size: var(--f-sm); color: var(--t-100); }
-      p { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); }
-    }
-
-    .listado-item__actions { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .listados-grid { display:flex; flex-direction:column; gap:var(--sp-3); }
+    .listado-item { display:grid; grid-template-columns:56px 1fr auto; gap:var(--sp-4); align-items:center; padding:var(--sp-3); background:var(--c-raised); border-radius:var(--r-lg); strong { font-size:var(--f-sm); color:var(--t-100); } p { font-size:var(--f-xs); color:var(--t-400); margin-top:var(--sp-1); } }
+    .listado-img { width:56px; height:48px; border-radius:var(--r-md); background:var(--c-accent-lo); color:var(--c-accent); display:flex; align-items:center; justify-content:center; }
+    .listado-item__actions { display:flex; gap:var(--sp-2); }
   `],
 })
-export class PanelComercioDashboardComponent {
-  readonly kpis = [
-    { icon: '💰', label: 'GMV del mes',   value: '€4,032', trend: '+18%', trendUp: true },
-    { icon: '📅', label: 'Reservas',       value: '23',       trend: '+5',   trendUp: true },
-    { icon: '🏨', label: 'Ocupación',      value: '78%',      trend: '+3%',  trendUp: true },
-    { icon: '⭐', label: 'Rating promedio',value: '4.8',      trend: '+0.1', trendUp: true },
-  ];
+export class PanelComercioDashboardComponent implements OnInit {
+  private readonly comercioApi = inject(ComercioApiService);
+  private readonly authService = inject(AuthService);
 
-  readonly reservasRecientes = [
-    { codigo: 'A1B2',    huesped: 'Carlos R.',   fechas: '15–17 Jul', total: '756',  estado: 'Confirmada', badgeClass: 'rs-badge--success' },
-    { codigo: 'C3D4',    huesped: 'María L.',     fechas: '18–20 Jul', total: '1,180', estado: 'Pendiente',  badgeClass: 'rs-badge--warning' },
-    { codigo: 'E5F6',    huesped: 'Luis T.',      fechas: '22 Jul',    total: '320',  estado: 'Confirmada', badgeClass: 'rs-badge--success' },
-    { codigo: 'G7H8',    huesped: 'Ana G.',       fechas: '25–28 Jul', total: '2,124', estado: 'Confirmada', badgeClass: 'rs-badge--success' },
-  ];
+  readonly cargando = signal(true);
+  readonly errorMsg = signal('');
+  readonly reservas = signal<MiReserva[]>([]);
+  readonly servicios = signal<MiServicio[]>([]);
 
-  readonly financiero = [
-    { label: 'Ingresos brutos',      value: '€4,032' },
-    { label: 'Comisión plataforma',  value: '− €605',  color: '#F87171' },
-    { label: 'Fee Stripe',            value: '− €5',    color: '#F87171' },
-  ];
+  readonly nombreComercio = computed(() => this.authService.usuario()?.nombre ?? 'tu comercio');
+  readonly reservasRecientes = computed(() => this.reservas().slice(0, 5));
+  readonly reservasConfirmadas = computed(() => this.reservas().filter(r => r.estado === 'confirmada').length);
+  readonly totalIngresos = computed(() => this.reservas().reduce((s, r) => s + r.montoTotal, 0));
+  readonly serviciosActivos = computed(() => this.servicios().filter(s => s.estado === 'publicado').length);
+  readonly ratingPromedio = computed(() => {
+    const con = this.servicios().filter(s => s.ratingPromedio);
+    if (!con.length) return null;
+    return (con.reduce((s, srv) => s + (srv.ratingPromedio ?? 0), 0) / con.length).toFixed(1);
+  });
+  readonly comisionEstimada = computed(() => this.totalIngresos() * 0.15);
+  readonly feeStripe = computed(() => this.totalIngresos() * 0.029 + 1.1);
+  readonly liquidacion = computed(() => this.totalIngresos() - this.comisionEstimada() - this.feeStripe());
 
-  readonly listados = signal([
-    { id: 'l1', titulo: 'Suite Premium Vista al Mar', tipo: '2 hab disponibles', imagen: hotelImage(0, 200), estado: 'Publicado', estadoClass: 'rs-badge--success', rating: '4.9', activo: true },
-    { id: 'l2', titulo: 'Habitación Superior',       tipo: '3 hab disponibles', imagen: hotelImage(2, 200), estado: 'Publicado', estadoClass: 'rs-badge--success', rating: '4.7', activo: true },
-    { id: 'l3', titulo: 'Habitación Económica',      tipo: '0 hab disponibles', imagen: hotelImage(1, 200), estado: 'Pausado',   estadoClass: 'rs-badge--warning',  rating: '4.5', activo: false },
-  ]);
+  async ngOnInit(): Promise<void> {
+    try {
+      const [reservas, servicios] = await Promise.all([
+        firstValueFrom(this.comercioApi.getMisReservas()),
+        firstValueFrom(this.comercioApi.getMisServicios()),
+      ]);
+      this.reservas.set(reservas);
+      this.servicios.set(servicios);
+    } catch {
+      this.errorMsg.set('Error al cargar los datos. Verifica que el API esté activo.');
+    } finally {
+      this.cargando.set(false);
+    }
+  }
 
-  readonly navItems = [
-    { icon: '📊', label: 'Dashboard',   ruta: '/comercio', active: true },
-    { icon: '📅', label: 'Reservas',    ruta: '/comercio/reservas', active: false, badge: '3' },
-    { icon: '🏨', label: 'Listados',    ruta: '/comercio/listados', active: false },
-    { icon: '💰', label: 'Ingresos',    ruta: '/comercio/ingresos', active: false },
-    { icon: '⭐', label: 'Reseñas',     ruta: '/comercio/resenas', active: false },
-    { icon: '⚙️', label: 'Configuración', ruta: '/comercio/config', active: false },
-  ];
+  iconVertical(v: string): string { return VERTICAL_ICON[v] ?? 'building'; }
+  badgeEstado(e: string): string { return ESTADO_BADGE[e] ?? 'rs-badge--neutral'; }
+  estadoServicioBadge(e: string): string {
+    if (e === 'publicado') return 'rs-badge--success';
+    if (e === 'pausado') return 'rs-badge--warning';
+    return 'rs-badge--neutral';
+  }
 
-  togglePausar(id: string): void {
-    this.listados.update(list =>
-      list.map(l => l.id === id
-        ? { ...l, activo: !l.activo, estado: l.activo ? 'Pausado' : 'Publicado', estadoClass: l.activo ? 'rs-badge--warning' : 'rs-badge--success' }
-        : l
-      )
-    );
+  async toggleServicio(servicio: MiServicio): Promise<void> {
+    const nuevoEstado = servicio.estado === 'publicado' ? 'pausado' : 'publicado';
+    try {
+      const actualizado = await firstValueFrom(this.comercioApi.cambiarEstadoServicio(servicio._id, nuevoEstado));
+      this.servicios.update(list => list.map(s => s._id === servicio._id ? { ...s, estado: actualizado.estado } : s));
+    } catch {
+      this.errorMsg.set('Error al cambiar el estado del servicio.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    }
   }
 }

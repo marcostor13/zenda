@@ -11,9 +11,8 @@ export class StripeService {
   private stripePromise?: Promise<Stripe | null>;
 
   getStripe(): Promise<Stripe | null> {
-    if (!this.stripePromise) {
-      this.stripePromise = loadStripe(environment.stripePublicKey);
-    }
-    return this.stripePromise;
+    const promise = this.stripePromise ?? loadStripe(environment.stripePublicKey);
+    this.stripePromise = promise;
+    return promise;
   }
 }

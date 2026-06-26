@@ -26,6 +26,9 @@ export class Usuario {
 
   @Prop({ default: false })
   verificado!: boolean;
+
+  @Prop()
+  avatarUrl?: string;
 }
 
 export const UsuarioSchema = SchemaFactory.createForClass(Usuario);

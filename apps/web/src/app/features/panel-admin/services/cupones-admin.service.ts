@@ -10,6 +10,7 @@ export interface Cupon {
   valor: number;
   vertical: string;
   montoMinimo?: number;
+  topeDescuento?: number;
   usoMaximo?: number;
   usados?: number;
   activo?: boolean;
