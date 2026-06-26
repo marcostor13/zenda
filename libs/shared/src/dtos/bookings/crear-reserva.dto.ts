@@ -26,4 +26,8 @@ export class CrearReservaDto {
   @IsOptional()
   @IsObject()
   detalle?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  cuponCodigo?: string;
 }
