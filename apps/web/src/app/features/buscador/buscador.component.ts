@@ -49,7 +49,7 @@ interface Vertical {
         </div>
 
         <!-- Search box -->
-        <div class="rs-search" style="max-width:860px;margin-inline:auto;background:rgba(15,30,56,.75);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-color:rgba(255,255,255,.12)">
+        <div class="rs-search" style="max-width:860px;margin-inline:auto;background:rgba(255,255,255,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-color:rgba(11,27,51,.10);box-shadow:var(--sh-xl)">
           <form [formGroup]="formulario" (ngSubmit)="onBuscar()">
             <div class="rs-search__row">
               <div class="rs-field">

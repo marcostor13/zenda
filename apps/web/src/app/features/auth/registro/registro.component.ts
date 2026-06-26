@@ -13,7 +13,7 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
       <div class="rs-auth__card">
 
         <div class="rs-auth__brand">
-          <img src="/githubspec-kit.png" alt="Zenda" style="height:52px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3);filter:brightness(0) invert(1)" />
+          <img src="/githubspec-kit.png" alt="Zenda" style="height:52px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
           <p>Crea tu cuenta gratis</p>
         </div>
 
