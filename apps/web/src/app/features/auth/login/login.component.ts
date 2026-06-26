@@ -2,46 +2,57 @@ import { Component, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
+import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, RsIconComponent],
   template: `
-    <div class="rs-auth-layout">
-      <div class="rs-auth-card">
+    <div class="rs-auth">
+      <div class="rs-auth__card">
 
-        <div class="rs-auth-card__brand">
-          <h1>Zenda</h1>
+        <div class="rs-auth__brand">
+          <img src="/githubspec-kit.png" alt="Zenda" style="height:52px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3);filter:brightness(0) invert(1)" />
           <p>Bienvenido de vuelta</p>
         </div>
 
-        <form [formGroup]="formulario" (ngSubmit)="onSubmit()">
-          <div class="rs-form-group">
-            <label for="email" class="rs-label">Correo electrónico</label>
+        <form [formGroup]="formulario" (ngSubmit)="onSubmit()" class="rs-auth__form">
+          <div class="rs-field">
+            <label for="email" class="rs-lbl">Correo electrónico</label>
             <input
               id="email"
               type="email"
               formControlName="email"
-              class="rs-input"
-              [class.rs-input--error]="formulario.get('email')?.invalid && formulario.get('email')?.touched"
+              class="rs-inp"
+              [class.rs-inp--error]="formulario.get('email')?.invalid && formulario.get('email')?.touched"
               placeholder="tu@email.com" />
             @if (formulario.get('email')?.invalid && formulario.get('email')?.touched) {
-              <span class="rs-field-error">Ingresa un email válido</span>
+              <span class="rs-field-err">Ingresa un email válido</span>
             }
           </div>
 
-          <div class="rs-form-group">
+          <div class="rs-field">
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <label for="password" class="rs-label">Contraseña</label>
-              <a routerLink="/auth/recuperar" style="font-size:var(--text-xs);color:var(--accent-light)">¿Olvidaste tu contraseña?</a>
+              <label for="password" class="rs-lbl">Contraseña</label>
+              <a routerLink="/auth/recuperar" style="font-size:var(--f-xs);color:#7AA3FF">¿Olvidaste tu contraseña?</a>
             </div>
-            <input
-              id="password"
-              type="password"
-              formControlName="password"
-              class="rs-input"
-              placeholder="••••••••" />
+            <div style="position:relative">
+              <input
+                id="password"
+                [type]="mostrarPassword() ? 'text' : 'password'"
+                formControlName="password"
+                class="rs-inp"
+                style="padding-right:var(--sp-10)"
+                placeholder="••••••••" />
+              <button
+                type="button"
+                (click)="mostrarPassword.set(!mostrarPassword())"
+                style="position:absolute;right:var(--sp-3);top:50%;transform:translateY(-50%);color:var(--t-400);display:flex;align-items:center;transition:color var(--d-1)"
+                [style.color]="mostrarPassword() ? 'var(--c-accent)' : 'var(--t-400)'">
+                <rs-icon [name]="mostrarPassword() ? 'eye-off' : 'eye'" [size]="16" [stroke]="2"></rs-icon>
+              </button>
+            </div>
           </div>
 
           @if (error()) {
@@ -51,18 +62,17 @@ import { AuthService } from '../../../core/auth/auth.service';
           <button
             type="submit"
             class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
-            style="margin-top:var(--s-2)"
             [disabled]="formulario.invalid || cargando()">
             @if (cargando()) {
-              <span class="rs-spinner"></span>
+              <span class="rs-spin"></span>
             }
             {{ cargando() ? 'Ingresando…' : 'Ingresar' }}
           </button>
         </form>
 
-        <div class="rs-divider rs-divider--text" style="margin-block:var(--s-6)">o</div>
+        <div class="rs-auth__divider">o</div>
 
-        <div class="rs-auth-card__footer">
+        <div class="rs-auth__footer">
           ¿No tienes cuenta? <a routerLink="/auth/registro">Regístrate gratis</a>
         </div>
       </div>
@@ -75,6 +85,7 @@ export class LoginComponent {
 
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
+  readonly mostrarPassword = signal(false);
 
   readonly formulario = this.fb.group({
     email: ['', [Validators.required, Validators.email]],

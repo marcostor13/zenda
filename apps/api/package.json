@@ -7,7 +7,8 @@
     "start": "node dist/main",
     "lint": "eslint src --ext .ts",
     "test": "jest --coverage",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "seed:admin": "ts-node -P tsconfig.json src/scripts/seed-admin.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
