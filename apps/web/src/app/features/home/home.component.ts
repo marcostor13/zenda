@@ -526,6 +526,8 @@ interface Testimonio {
       position: absolute;
       inset: 0;
       z-index: 0;
+      /* Respaldo si la foto no carga: degradado azul oscuro para el texto blanco. */
+      background: linear-gradient(135deg, #0B1B33 0%, #143C7A 55%, #1668E3 100%);
 
       img {
         width: 100%;
@@ -584,7 +586,7 @@ interface Testimonio {
       pointer-events: none;
       filter: blur(1px);
       z-index: 2;
-      color: var(--t-100);
+      color: #fff;
     }
     .hero__float--1 { top: 15%; left: 6%;  animation: float 8s ease-in-out infinite; }
     .hero__float--2 { top: 20%; right: 8%; animation: float 10s ease-in-out infinite 2s; }
@@ -620,7 +622,7 @@ interface Testimonio {
       font-weight: var(--w-9);
       letter-spacing: -.04em;
       line-height: 1.05;
-      color: var(--t-100);
+      color: #fff;
       margin-bottom: var(--sp-5);
       animation: fadeUp .7s .1s ease both;
       text-shadow: 0 2px 24px rgba(0,0,0,.4);
@@ -646,10 +648,11 @@ interface Testimonio {
       max-width: 860px;
       margin-inline: auto;
       animation: fadeUp .7s .4s ease both;
-      background: rgba(15,30,56,.75);
+      background: rgba(255,255,255,.97);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border-color: rgba(255,255,255,.12);
+      border-color: rgba(11,27,51,.10);
+      box-shadow: var(--sh-xl);
     }
 
     .hero__cta {
@@ -758,6 +761,7 @@ interface Testimonio {
       cursor: pointer;
       display: block;
       transition: transform var(--d-3);
+      background: linear-gradient(135deg, #143C7A 0%, #1668E3 100%);
 
       &--featured {
         grid-column: span 2;
@@ -807,7 +811,7 @@ interface Testimonio {
     .dest-card__city {
       font-size: var(--f-xl);
       font-weight: var(--w-8);
-      color: var(--t-100);
+      color: #fff;
       letter-spacing: -.02em;
       line-height: 1.2;
 

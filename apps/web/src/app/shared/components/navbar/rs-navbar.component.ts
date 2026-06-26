@@ -10,7 +10,7 @@ import { AuthService } from '../../../core/auth/auth.service';
   template: `
     <nav class="rs-navbar">
       <a routerLink="/buscador" class="rs-navbar__brand">
-        <img src="/githubspec-kit.png" alt="Zenda" style="height:36px;width:auto;display:block;filter:brightness(0) invert(1)" />
+        <img src="/githubspec-kit.png" alt="Zenda" style="height:36px;width:auto;display:block" />
       </a>
 
       <div class="rs-navbar__nav">
