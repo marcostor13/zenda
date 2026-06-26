@@ -22,6 +22,10 @@ export interface HotelCardDto {
   desayunoIncluido: boolean;
   habitacionesDisponibles: number;
   destacado: boolean;
+  /** Clave del vertical del servicio. */
+  vertical?: string;
+  /** Campos propios del vertical (taxi, vuelo, etc.) para cualquier UI. */
+  extra?: Record<string, unknown>;
 }
 
 export interface HabitacionDto {
@@ -146,7 +150,28 @@ export class CatalogService {
       desayunoIncluido: h.desayunoIncluido ?? false,
       habitacionesDisponibles: h.habitacionesDisponibles ?? 0,
       destacado: h.destacado ?? false,
+      vertical: (h as unknown as Record<string, unknown>)['vertical'] as string | undefined,
+      extra: this.pickExtra(h as unknown as Record<string, unknown>),
     };
+  }
+
+  /** Extrae los campos propios de cada vertical (los que no son del Servicio base). */
+  private pickExtra(h: Record<string, unknown>): Record<string, unknown> {
+    const claves = [
+      // taxis
+      'tipoVehiculo', 'capacidad', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'unidadesDisponibles',
+      // vuelos
+      'origen', 'destino', 'aerolinea', 'fechaSalida', 'fechaLlegada', 'asientosDisponibles', 'precioAsiento',
+      // transporte
+      'tipoCarga', 'capacidadKg', 'capacidadM3', 'rutasCubiertas',
+      // guardería
+      'rangoEdadMin', 'rangoEdadMax', 'cuposDisponibles', 'modalidad', 'precioHora', 'precioDia', 'precioMes', 'horario',
+    ];
+    const extra: Record<string, unknown> = {};
+    for (const k of claves) {
+      if (h[k] !== undefined) extra[k] = h[k];
+    }
+    return extra;
   }
 
   private toDetalle(h: HotelLean): HotelDetalleDto {

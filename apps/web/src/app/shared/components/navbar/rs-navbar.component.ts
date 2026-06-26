@@ -16,6 +16,7 @@ import { AuthService } from '../../../core/auth/auth.service';
       <div class="rs-navbar__nav">
         <a routerLink="/buscador" routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Buscar</a>
         <a routerLink="/hoteles"  routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Hoteles</a>
+        <a routerLink="/taxis"    routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Taxis</a>
       </div>
 
       <div class="rs-navbar__actions">
