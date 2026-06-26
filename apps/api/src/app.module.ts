@@ -13,6 +13,7 @@ import { NotificationsModule } from './core/notifications/notifications.module';
 import { AdminModule } from './core/admin/admin.module';
 import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
 import { HotelesModule } from './verticals/hoteles/hoteles.module';
+import { TaxisModule } from './verticals/taxis/taxis.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { HotelesModule } from './verticals/hoteles/hoteles.module';
     AdminModule,
     ComisionConfigsModule,
     HotelesModule,
+    TaxisModule,
   ],
 })
 export class AppModule {}
