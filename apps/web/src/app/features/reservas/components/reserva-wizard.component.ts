@@ -3,6 +3,10 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { StripeService } from '../../../core/stripe/stripe.service';
+import { ReservasService } from '../services/reservas.service';
+import { PaymentsService } from '../services/payments.service';
+import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 type Paso = 1 | 2 | 3 | 4;
 
@@ -222,27 +226,22 @@ type Paso = 1 | 2 | 3 | 4;
               <div class="stripe-placeholder">
                 <div class="stripe-placeholder__header">
                   <span>Datos de tarjeta</span>
-                  <span class="rs-badge rs-badge--accent">🔒 Cifrado SSL</span>
+                  <span class="rs-badge rs-badge--accent">🔒 Stripe · Cifrado SSL</span>
                 </div>
-                <!-- Aquí va Stripe Elements en producción -->
-                <div class="rs-field">
-                  <label class="rs-lbl">Número de tarjeta</label>
-                  <input class="rs-inp rs-inp--lg" placeholder="1234 5678 9012 3456" maxlength="19" />
-                </div>
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Vencimiento</label>
-                    <input class="rs-inp rs-inp--lg" placeholder="MM/AA" maxlength="5" />
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">CVV</label>
-                    <input class="rs-inp rs-inp--lg" placeholder="123" maxlength="4" />
-                  </div>
-                </div>
-                <div class="rs-field">
-                  <label class="rs-lbl">Nombre en la tarjeta</label>
-                  <input class="rs-inp rs-inp--lg" placeholder="Igual que aparece en la tarjeta" />
-                </div>
+
+                <!-- Stripe Payment Element (real) -->
+                <div id="stripe-payment-element"></div>
+
+                @if (!stripeListo()) {
+                  <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-3)">
+                    Modo demostración: el pago se simulará. El formulario seguro de Stripe
+                    aparece al reservar desde un hotel real con la sesión iniciada.
+                  </p>
+                }
+
+                @if (errorPago()) {
+                  <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-4)">{{ errorPago() }}</div>
+                }
               </div>
             }
 
@@ -497,12 +496,29 @@ export class ReservaWizardComponent implements OnInit {
   private readonly route  = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb     = inject(FormBuilder);
+  private readonly stripeService   = inject(StripeService);
+  private readonly reservasService = inject(ReservasService);
+  private readonly paymentsService = inject(PaymentsService);
 
   readonly paso      = signal<Paso>(1);
   readonly procesando = signal(false);
   readonly metodoPago = signal<'card' | 'yape'>('card');
   readonly extrasSelec = signal<string[]>([]);
   readonly codigoReserva = signal('RES-' + Math.random().toString(36).substr(2,8).toUpperCase());
+
+  /** Estado del pago real con Stripe (activo solo con datos de reserva reales). */
+  readonly stripeListo = signal(false);
+  readonly errorPago = signal<string | null>(null);
+
+  private stripe: Stripe | null = null;
+  private elements: StripeElements | null = null;
+  private clientSecret: string | null = null;
+
+  // Datos reales de la reserva (vía query params desde el detalle del hotel).
+  private servicioId?: string;
+  private comercioId?: string;
+  private vertical?: string;
+  private reservaIdReal: string | null = null;
 
   metodoPagoVal = 'card';
 
@@ -543,11 +559,54 @@ export class ReservaWizardComponent implements OnInit {
   readonly total = computed(() => this.subtotal() + this.igv());
 
   ngOnInit(): void {
-    const habitacionId = this.route.snapshot.queryParamMap.get('habitacionId');
+    const params = this.route.snapshot.queryParamMap;
+    const habitacionId = params.get('habitacionId');
     if (habitacionId) this.paso1Form.patchValue({ habitacionId });
+    this.servicioId = params.get('servicioId') ?? undefined;
+    this.comercioId = params.get('comercioId') ?? undefined;
+    this.vertical   = params.get('vertical') ?? undefined;
   }
 
-  irPaso(p: number): void { this.paso.set(p as Paso); }
+  irPaso(p: number): void {
+    this.paso.set(p as Paso);
+    if (p === 3 && this.metodoPago() === 'card' && !this.stripeListo()) {
+      void this.prepararStripe();
+    }
+  }
+
+  /** Crea la reserva real, pide el PaymentIntent y monta el Stripe Element. */
+  private async prepararStripe(): Promise<void> {
+    if (!this.servicioId || !this.comercioId || !this.vertical) return; // modo demo
+    this.errorPago.set(null);
+    try {
+      const reserva = await this.reservasService.crear({
+        servicioId: this.servicioId,
+        comercioId: this.comercioId,
+        vertical: this.vertical,
+        fechaInicio: this.paso1Form.value.checkIn ?? new Date().toISOString(),
+        fechaFin: this.paso1Form.value.checkOut ?? undefined,
+        cantidad: 1,
+        detalle: { habitacionId: this.paso1Form.value.habitacionId },
+      });
+      this.reservaIdReal = reserva._id ?? reserva.id ?? null;
+      this.codigoReserva.set(reserva.codigo);
+      if (!this.reservaIdReal) return;
+
+      const intent = await this.paymentsService.crearIntent(this.reservaIdReal);
+      this.clientSecret = intent.clientSecret;
+
+      this.stripe = await this.stripeService.getStripe();
+      if (!this.stripe || !this.clientSecret) return;
+
+      this.elements = this.stripe.elements({ clientSecret: this.clientSecret });
+      const paymentElement = this.elements.create('payment');
+      setTimeout(() => paymentElement.mount('#stripe-payment-element'), 0);
+      this.stripeListo.set(true);
+    } catch {
+      // Sin sesión, sin datos reales o API caído: se conserva el modo simulado.
+      this.stripeListo.set(false);
+    }
+  }
 
   toggleExtra(id: string): void {
     this.extrasSelec.update(list =>
@@ -565,7 +624,25 @@ export class ReservaWizardComponent implements OnInit {
 
   async procesarPago(): Promise<void> {
     this.procesando.set(true);
-    await new Promise(r => setTimeout(r, 2000));
+    this.errorPago.set(null);
+
+    // Pago real con Stripe cuando hay un PaymentIntent montado.
+    if (this.stripe && this.elements && this.clientSecret) {
+      const { error } = await this.stripe.confirmPayment({
+        elements: this.elements,
+        redirect: 'if_required',
+      });
+      this.procesando.set(false);
+      if (error) {
+        this.errorPago.set(error.message ?? 'No se pudo procesar el pago. Revisa los datos de la tarjeta.');
+        return;
+      }
+      this.irPaso(4);
+      return;
+    }
+
+    // Modo demostración (sin datos de reserva reales).
+    await new Promise(r => setTimeout(r, 1500));
     this.procesando.set(false);
     this.irPaso(4);
   }
