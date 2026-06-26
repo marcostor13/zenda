@@ -14,6 +14,9 @@ import { AdminModule } from './core/admin/admin.module';
 import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
 import { HotelesModule } from './verticals/hoteles/hoteles.module';
 import { TaxisModule } from './verticals/taxis/taxis.module';
+import { VuelosModule } from './verticals/vuelos/vuelos.module';
+import { TransporteModule } from './verticals/transporte/transporte.module';
+import { GuarderiaModule } from './verticals/guarderia/guarderia.module';
 
 @Module({
   imports: [
@@ -37,6 +40,9 @@ import { TaxisModule } from './verticals/taxis/taxis.module';
     ComisionConfigsModule,
     HotelesModule,
     TaxisModule,
+    VuelosModule,
+    TransporteModule,
+    GuarderiaModule,
   ],
 })
 export class AppModule {}
