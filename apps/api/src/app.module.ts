@@ -12,6 +12,7 @@ import { ReviewsModule } from './core/reviews/reviews.module';
 import { NotificationsModule } from './core/notifications/notifications.module';
 import { AdminModule } from './core/admin/admin.module';
 import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
+import { CuponesModule } from './core/cupones/cupones.module';
 import { HotelesModule } from './verticals/hoteles/hoteles.module';
 import { TaxisModule } from './verticals/taxis/taxis.module';
 import { VuelosModule } from './verticals/vuelos/vuelos.module';
@@ -38,6 +39,7 @@ import { GuarderiaModule } from './verticals/guarderia/guarderia.module';
     NotificationsModule,
     AdminModule,
     ComisionConfigsModule,
+    CuponesModule,
     HotelesModule,
     TaxisModule,
     VuelosModule,

@@ -39,6 +39,7 @@ export class BookingsController {
       fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
       cantidad: dto.cantidad,
       detalle: dto.detalle,
+      cuponCodigo: dto.cuponCodigo,
     });
   }
 

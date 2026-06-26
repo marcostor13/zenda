@@ -4,6 +4,7 @@ import { BookingsService } from './bookings.service';
 import { Reserva, ReservaDocument } from './reserva.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
 import { AvailabilityStrategy } from '../availability/availability.strategy';
+import { CuponesService } from '../cupones/cupones.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { VerticalKey, ReservaEstado } from 'shared';
 
@@ -12,6 +13,7 @@ describe('BookingsService', () => {
   let reservaModel: jest.Mocked<any>;
   let availabilityRegistry: jest.Mocked<AvailabilityRegistry>;
   let estrategiaMock: jest.Mocked<AvailabilityStrategy>;
+  let cuponesService: jest.Mocked<CuponesService>;
 
   const parametrosBase = {
     usuarioId: 'user-1',
@@ -61,12 +63,17 @@ describe('BookingsService', () => {
           provide: AvailabilityRegistry,
           useValue: { obtener: jest.fn().mockReturnValue(estrategiaMock) },
         },
+        {
+          provide: CuponesService,
+          useValue: { validar: jest.fn(), aplicar: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
     service = module.get<BookingsService>(BookingsService);
     reservaModel = module.get(getModelToken(Reserva.name));
     availabilityRegistry = module.get(AvailabilityRegistry);
+    cuponesService = module.get(CuponesService);
   });
 
   describe('crear', () => {
@@ -75,6 +82,17 @@ describe('BookingsService', () => {
       expect(estrategiaMock.checkAvailability).toHaveBeenCalledWith('servicio-1', expect.any(Object));
       expect(estrategiaMock.reserveSlot).toHaveBeenCalled();
       expect(resultado).toBeTruthy();
+    });
+
+    it('debería validar el cupón con el subtotal cuando se indica cuponCodigo', async () => {
+      cuponesService.validar.mockResolvedValue({ codigo: 'VERANO', tipo: 'porcentaje', descuento: 50 });
+      await service.crear({ ...parametrosBase, cuponCodigo: 'VERANO' });
+      expect(cuponesService.validar).toHaveBeenCalledWith('VERANO', VerticalKey.HOTELES, 500);
+    });
+
+    it('no debería validar cupón si no se indica código', async () => {
+      await service.crear(parametrosBase);
+      expect(cuponesService.validar).not.toHaveBeenCalled();
     });
 
     it('debería lanzar DomainException 409 si el servicio no está disponible', async () => {

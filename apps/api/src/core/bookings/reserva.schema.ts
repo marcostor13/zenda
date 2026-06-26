@@ -42,6 +42,12 @@ export class Reserva {
   @Prop({ required: true, type: Number })
   montoTotal!: number;
 
+  @Prop({ type: Number, default: 0 })
+  descuentoMonto!: number;
+
+  @Prop()
+  cuponCodigo?: string;
+
   @Prop({ default: MONEDA_DEFAULT })
   moneda!: string;
 
