@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
@@ -95,6 +96,7 @@ interface Vertical {
 })
 export class BuscadorComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
 
   readonly verticalSeleccionado = signal<VerticalKey>(VerticalKey.HOTELES);
 
@@ -124,6 +126,9 @@ export class BuscadorComponent {
   }
 
   onBuscar(): void {
-    // TODO: routing a resultados por vertical con los parámetros del formulario
+    const { ciudad, fechaInicio, fechaFin } = this.formulario.value;
+    const queryParams = { ciudad: ciudad || null, desde: fechaInicio || null, hasta: fechaFin || null };
+    // Hoteles es el único vertical operativo; el resto se enruta aquí por ahora.
+    void this.router.navigate(['/hoteles'], { queryParams });
   }
 }
