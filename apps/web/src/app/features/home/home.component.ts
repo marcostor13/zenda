@@ -1,10 +1,11 @@
-import { Component, signal, OnInit, inject } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 interface HotelDestacado {
   id: string;
@@ -25,17 +26,25 @@ interface HotelDestacado {
 
 interface Vertical {
   key: string;
-  emoji: string;
+  icon: string;
   label: string;
   desc: string;
   color: string;
   count: string;
 }
 
+interface Destino {
+  ciudad: string;
+  pais: string;
+  imagen: string;
+  hoteles: string;
+  destacado?: boolean;
+}
+
 interface Testimonio {
   nombre: string;
   ciudad: string;
-  avatar: string;
+  initials: string;
   rating: number;
   texto: string;
   vertical: string;
@@ -44,30 +53,48 @@ interface Testimonio {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, DecimalPipe, AnimateOnScrollDirective, RsNavbarComponent],
+  imports: [RouterLink, ReactiveFormsModule, DecimalPipe, AnimateOnScrollDirective, RsNavbarComponent, RsIconComponent],
   template: `
 <div class="home">
   <rs-navbar />
 
   <!-- ═══ HERO ════════════════════════════════════════════════════ -->
   <section class="hero">
-    <div class="rs-hero-bg">
-      <div class="rs-hero-bg__grid"></div>
-      <div class="rs-hero-bg__orb rs-hero-bg__orb--1"></div>
-      <div class="rs-hero-bg__orb rs-hero-bg__orb--2"></div>
-      <div class="rs-hero-bg__orb rs-hero-bg__orb--3"></div>
+
+    <!-- Foto de fondo (Budapest desde Pexels) -->
+    <div class="hero__photo-bg">
+      <img
+        src="https://images.pexels.com/photos/7513451/pexels-photo-7513451.jpeg?auto=compress&cs=tinysrgb&w=1920"
+        alt="Budapest, Europa"
+        loading="eager"
+        fetchpriority="high"
+      />
+      <div class="hero__photo-overlay"></div>
+      <div class="hero__grid-lines"></div>
     </div>
 
-    <!-- Floating elements -->
-    <div class="hero__float hero__float--1" aria-hidden="true">🏨</div>
-    <div class="hero__float hero__float--2" aria-hidden="true">✈️</div>
-    <div class="hero__float hero__float--3" aria-hidden="true">⭐</div>
-    <div class="hero__float hero__float--4" aria-hidden="true">🗺️</div>
+    <!-- Orbs de acento (encima del overlay) -->
+    <div class="hero__orb hero__orb--1"></div>
+    <div class="hero__orb hero__orb--2"></div>
+
+    <!-- Floats decorativos -->
+    <div class="hero__float hero__float--1" aria-hidden="true">
+      <rs-icon name="hotel" [size]="40" [stroke]="1.2"></rs-icon>
+    </div>
+    <div class="hero__float hero__float--2" aria-hidden="true">
+      <rs-icon name="plane" [size]="40" [stroke]="1.2"></rs-icon>
+    </div>
+    <div class="hero__float hero__float--3" aria-hidden="true">
+      <rs-icon name="star" [size]="40" [stroke]="1.2"></rs-icon>
+    </div>
+    <div class="hero__float hero__float--4" aria-hidden="true">
+      <rs-icon name="globe" [size]="40" [stroke]="1.2"></rs-icon>
+    </div>
 
     <div class="hero__inner rs-wrap">
       <div class="hero__badge">
         <span class="rs-live"></span>
-        <span>+48,000 reservas este mes</span>
+        <span>+48,000 reservas este mes en Europa</span>
       </div>
 
       <h1 class="hero__title">
@@ -76,18 +103,19 @@ interface Testimonio {
       </h1>
 
       <p class="hero__sub">
-        Hoteles, vuelos, taxis, transporte y guarderías para el Perú.
+        Hoteles, vuelos, taxis, transporte y guarderías en toda Europa.
         Compara precios, lee reseñas reales y reserva en segundos.
       </p>
 
-      <!-- Vertical selector -->
+      <!-- Selector de vertical -->
       <div class="rs-vtabs hero__vtabs">
         @for (v of verticales; track v.key) {
           <button
             class="rs-vtab"
             [class.active]="verticalActivo() === v.key"
             (click)="verticalActivo.set(v.key)">
-            {{ v.emoji }} {{ v.label }}
+            <rs-icon [name]="v.icon" [size]="15" [stroke]="2"></rs-icon>
+            {{ v.label }}
           </button>
         }
       </div>
@@ -97,19 +125,29 @@ interface Testimonio {
         <form [formGroup]="searchForm" (ngSubmit)="onBuscar()">
           <div class="rs-search__row">
             <div class="rs-field">
-              <label class="rs-lbl">🏙️ Ciudad o zona</label>
+              <label class="rs-lbl">
+                <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon>
+                Ciudad o zona
+              </label>
               <input formControlName="ciudad" class="rs-inp rs-inp--lg"
-                     placeholder="Lima, Cusco, Arequipa…" />
+                     placeholder="París, Barcelona, Roma…" />
             </div>
             <div class="rs-field">
-              <label class="rs-lbl">📅 Desde</label>
+              <label class="rs-lbl">
+                <rs-icon name="calendar" [size]="13" [stroke]="2"></rs-icon>
+                Desde
+              </label>
               <input formControlName="fechaInicio" type="date" class="rs-inp rs-inp--lg" />
             </div>
             <div class="rs-field">
-              <label class="rs-lbl">📅 Hasta</label>
+              <label class="rs-lbl">
+                <rs-icon name="calendar" [size]="13" [stroke]="2"></rs-icon>
+                Hasta
+              </label>
               <input formControlName="fechaFin" type="date" class="rs-inp rs-inp--lg" />
             </div>
             <button type="submit" class="rs-btn rs-btn--primary rs-btn--lg hero__cta">
+              <rs-icon name="search" [size]="18" [stroke]="2"></rs-icon>
               Buscar
             </button>
           </div>
@@ -124,6 +162,11 @@ interface Testimonio {
         <span class="hero__trust-chip">✓ Atención 24/7</span>
       </div>
     </div>
+
+    <!-- Chevron scroll hint -->
+    <div class="hero__scroll-hint" aria-hidden="true">
+      <rs-icon name="chevron-down" [size]="24" [stroke]="2"></rs-icon>
+    </div>
   </section>
 
   <!-- ═══ STATS ════════════════════════════════════════════════════ -->
@@ -135,6 +178,32 @@ interface Testimonio {
             <div class="stats__value">{{ s.valor }}</div>
             <div class="stats__label">{{ s.label }}</div>
           </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ DESTINOS POPULARES ══════════════════════════════════════ -->
+  <section class="rs-section destinations-section">
+    <div class="rs-wrap">
+      <div class="section-header" rsAnim>
+        <span class="rs-label-caps">Explora</span>
+        <h2 class="rs-h2">Destinos <span class="rs-gradient-text">europeos</span></h2>
+        <p>Los destinos más reservados por viajeros este mes.</p>
+      </div>
+
+      <div class="destinations-grid">
+        @for (d of destinos; track d.ciudad) {
+          <a class="dest-card" [class.dest-card--featured]="d.destacado"
+             [routerLink]="['/buscar']" [queryParams]="{vertical: 'hoteles', ciudad: d.ciudad}"
+             [rsAnim]="''" [rsAnimDelay]="$index * 70">
+            <img [src]="d.imagen" [alt]="d.ciudad + ', ' + d.pais" loading="lazy" />
+            <div class="dest-card__overlay"></div>
+            <div class="dest-card__info">
+              <div class="dest-card__city">{{ d.ciudad }}</div>
+              <div class="dest-card__meta">{{ d.pais }} · {{ d.hoteles }}</div>
+            </div>
+          </a>
         }
       </div>
     </div>
@@ -155,14 +224,16 @@ interface Testimonio {
              class="vertical-card rs-card rs-card--hover"
              [rsAnim]="''" [rsAnimDelay]="$index * 80">
             <div class="vertical-card__icon" [style]="'background:' + v.color">
-              {{ v.emoji }}
+              <rs-icon [name]="v.icon" [size]="28" [stroke]="1.5"></rs-icon>
             </div>
             <div class="vertical-card__body">
               <h3 class="vertical-card__name">{{ v.label }}</h3>
               <p class="vertical-card__desc">{{ v.desc }}</p>
               <div class="vertical-card__count">{{ v.count }}</div>
             </div>
-            <div class="vertical-card__arrow">→</div>
+            <div class="vertical-card__arrow">
+              <rs-icon name="arrow-right" [size]="18" [stroke]="2"></rs-icon>
+            </div>
           </a>
         }
       </div>
@@ -190,13 +261,18 @@ interface Testimonio {
                   <span class="rs-badge rs-badge--accent">{{ b }}</span>
                 }
               </div>
-              <button class="rs-hotel-card__wishlist" (click)="$event.preventDefault()">♡</button>
+              <button class="rs-hotel-card__wishlist" (click)="$event.preventDefault()">
+                <rs-icon name="heart" [size]="16" [stroke]="2"></rs-icon>
+              </button>
             </div>
 
             <div class="rs-hotel-card__body">
               <div class="rs-hotel-card__stars">{{ estrellas(h.estrellas) }}</div>
               <div class="rs-hotel-card__name">{{ h.nombre }}</div>
-              <div class="rs-hotel-card__loc">📍 {{ h.barrio }}, {{ h.ciudad }}</div>
+              <div class="rs-hotel-card__loc">
+                <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon>
+                {{ h.barrio }}, {{ h.ciudad }}
+              </div>
 
               <div class="rs-hotel-card__amenities">
                 @for (a of h.amenities.slice(0,3); track a) {
@@ -214,12 +290,10 @@ interface Testimonio {
                 </div>
                 <div style="text-align:right">
                   @if (h.precioAnterior) {
-                    <div class="rs-price__old">S/ {{ h.precioAnterior }}</div>
+                    <div class="rs-price__old">€ {{ h.precioAnterior }}</div>
                   }
-                  <div class="rs-price__amount" style="font-size:var(--f-xl);font-weight:var(--w-8);color:var(--t-100)">
-                    S/ {{ h.precioPorNoche }}
-                  </div>
-                  <div class="rs-price__period" style="font-size:var(--f-xs);color:var(--t-400)">/noche</div>
+                  <div class="rs-price__amount">€ {{ h.precioPorNoche }}</div>
+                  <div class="rs-price__period">/noche</div>
                   @if (h.cancelacionGratis) {
                     <div class="rs-hotel-card__cancel">✓ Cancelación gratis</div>
                   }
@@ -232,7 +306,8 @@ interface Testimonio {
 
       <div class="section-cta" rsAnim>
         <a routerLink="/buscar" [queryParams]="{vertical:'hoteles'}" class="rs-btn rs-btn--secondary rs-btn--lg">
-          Ver todos los hoteles →
+          Ver todos los hoteles
+          <rs-icon name="arrow-right" [size]="16" [stroke]="2"></rs-icon>
         </a>
       </div>
     </div>
@@ -250,7 +325,9 @@ interface Testimonio {
         @for (step of pasos; track step.num) {
           <div class="how-step" [rsAnim]="''" [rsAnimDelay]="$index * 100">
             <div class="how-step__num">{{ step.num }}</div>
-            <div class="how-step__icon">{{ step.icon }}</div>
+            <div class="how-step__icon">
+              <rs-icon [name]="step.icon" [size]="36" [stroke]="1.5"></rs-icon>
+            </div>
             <h3 class="how-step__title">{{ step.title }}</h3>
             <p class="how-step__desc">{{ step.desc }}</p>
           </div>
@@ -267,14 +344,16 @@ interface Testimonio {
           <span class="rs-label-caps">¿Por qué Zenda?</span>
           <h2 class="rs-h2" style="margin-top:var(--sp-4)">La plataforma que trabaja <span class="rs-gradient-text">para ti</span></h2>
           <p style="margin-top:var(--sp-4);color:var(--t-300);line-height:1.8">
-            Compara precios reales de cientos de proveedores verificados.
+            Compara precios reales de cientos de proveedores verificados en Europa.
             Sin comisiones ocultas, sin sorpresas al momento de pagar.
             Tu dinero y tu tiempo valen.
           </p>
           <div class="benefits-features">
             @for (f of beneficios; track f.title) {
               <div class="benefit-item">
-                <div class="benefit-item__icon">{{ f.icon }}</div>
+                <div class="benefit-item__icon">
+                  <rs-icon [name]="f.icon" [size]="20" [stroke]="2"></rs-icon>
+                </div>
                 <div>
                   <div class="benefit-item__title">{{ f.title }}</div>
                   <div class="benefit-item__desc">{{ f.desc }}</div>
@@ -286,20 +365,20 @@ interface Testimonio {
 
         <div class="benefits-visual" rsAnim="from-right">
           <div class="bv-card bv-card--main">
-            <div style="font-size:2rem;margin-bottom:var(--sp-3)">🏆</div>
-            <div style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100);letter-spacing:-.04em">4.8</div>
+            <rs-icon name="star" [size]="32" [stroke]="1.5" style="color:var(--c-amber)"></rs-icon>
+            <div style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100);letter-spacing:-.04em;margin-top:var(--sp-3)">4.8</div>
             <div style="font-size:var(--f-sm);color:var(--t-300)">Calificación promedio</div>
             <div style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-2)">Basado en +32,000 reseñas</div>
           </div>
           <div class="bv-card bv-card--sec">
-            <div style="font-size:1.25rem">✈️</div>
-            <div style="font-size:var(--f-sm);font-weight:var(--w-6);color:var(--t-100);margin-top:var(--sp-2)">Lima → Cusco</div>
-            <div style="font-size:var(--f-xs);color:var(--t-400)">Vuelo directo · S/ 189</div>
+            <rs-icon name="plane" [size]="20" [stroke]="1.75"></rs-icon>
+            <div style="font-size:var(--f-sm);font-weight:var(--w-6);color:var(--t-100);margin-top:var(--sp-2)">Madrid → París</div>
+            <div style="font-size:var(--f-xs);color:var(--t-400)">Vuelo directo · € 89</div>
           </div>
           <div class="bv-card bv-card--tert">
-            <div style="font-size:1.25rem">🚕</div>
+            <rs-icon name="car" [size]="20" [stroke]="1.75"></rs-icon>
             <div style="font-size:var(--f-sm);font-weight:var(--w-6);color:var(--t-100);margin-top:var(--sp-2)">Taxi en camino</div>
-            <div style="font-size:var(--f-xs);color:var(--t-400)">Estimado 4 min · S/ 12</div>
+            <div style="font-size:var(--f-xs);color:var(--t-400)">Estimado 4 min · € 12</div>
             <div style="margin-top:var(--sp-3)"><span class="rs-badge rs-badge--success">En ruta</span></div>
           </div>
         </div>
@@ -319,7 +398,7 @@ interface Testimonio {
         @for (t of testimonios; track t.nombre) {
           <div class="testimonial-card rs-card" [rsAnim]="''" [rsAnimDelay]="$index * 80">
             <div class="testimonial-card__header">
-              <div class="testimonial-card__avatar">{{ t.avatar }}</div>
+              <div class="testimonial-card__avatar">{{ t.initials }}</div>
               <div>
                 <div class="testimonial-card__name">{{ t.nombre }}</div>
                 <div class="testimonial-card__city">{{ t.ciudad }}</div>
@@ -340,11 +419,18 @@ interface Testimonio {
   <section class="cta-section" rsAnim>
     <div class="rs-wrap">
       <div class="cta-box">
-        <div class="cta-box__bg"></div>
+        <div class="cta-box__photo-bg">
+          <img
+            src="https://images.pexels.com/photos/29731407/pexels-photo-29731407.jpeg?auto=compress&cs=tinysrgb&w=1200"
+            alt="París de noche"
+            loading="lazy"
+          />
+          <div class="cta-box__photo-overlay"></div>
+        </div>
         <div class="cta-box__content">
-          <h2 class="rs-h2">¿Listo para tu próxima <span class="rs-gradient-text">aventura</span>?</h2>
-          <p>Únete a +120,000 peruanos que ya reservan con Zenda.</p>
-          <div class="rs-flex rs-gap-4" style="margin-top:var(--sp-8);justify-content:center;flex-wrap:wrap">
+          <h2 class="rs-h2">¿Listo para tu próxima <span class="rs-gradient-text">aventura europea</span>?</h2>
+          <p>Únete a +120,000 viajeros que ya reservan con Zenda en toda Europa.</p>
+          <div class="cta-box__actions">
             <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--xl">
               Crear cuenta gratis
             </a>
@@ -361,13 +447,17 @@ interface Testimonio {
   <footer class="rs-footer">
     <div class="rs-footer__grid">
       <div class="rs-footer__brand">
-        <div style="font-size:var(--f-xl);font-weight:var(--w-8);letter-spacing:-.03em;color:var(--t-100)">
-          Reserva<span class="rs-gradient-text">lo</span>
-        </div>
-        <p>El marketplace de reservas #1 del Perú. Hoteles, vuelos, taxis, transporte y guarderías.</p>
+        <img src="/githubspec-kit.png" alt="Zenda" style="height:44px;width:auto;display:block;margin-bottom:var(--sp-4);filter:brightness(0) invert(1)" />
+        <p>El marketplace de reservas líder en Europa. Hoteles, vuelos, taxis, transporte y guarderías.</p>
         <div style="margin-top:var(--sp-4);display:flex;gap:var(--sp-3)">
-          <span class="rs-badge rs-badge--neutral">🇵🇪 Hecho en Perú</span>
-          <span class="rs-badge rs-badge--success">PEN · S/</span>
+          <span class="rs-badge rs-badge--neutral">
+            <rs-icon name="globe" [size]="12" [stroke]="2"></rs-icon>
+            Europa
+          </span>
+          <span class="rs-badge rs-badge--success">
+            <rs-icon name="euro" [size]="12" [stroke]="2"></rs-icon>
+            EUR
+          </span>
         </div>
       </div>
       <div class="rs-footer__col">
@@ -411,7 +501,7 @@ interface Testimonio {
     <div class="rs-footer__bottom">
       <p>© 2026 Zenda · Todos los derechos reservados</p>
       <div class="rs-flex rs-gap-4" style="flex-wrap:wrap">
-        <span class="rs-badge rs-badge--neutral">IGV 18% incluido</span>
+        <span class="rs-badge rs-badge--neutral">IVA 21% incluido</span>
         <span class="rs-badge rs-badge--accent">Pagos seguros Stripe</span>
       </div>
     </div>
@@ -421,19 +511,89 @@ interface Testimonio {
   styles: [`
     :host { display: block; }
 
-    /* HERO */
+    /* ── HERO ──────────────────────────────────────────────────────── */
     .hero {
       position: relative;
       min-height: 92vh;
       display: flex;
       align-items: center;
       overflow: hidden;
-      padding-block: var(--sp-16);
+      padding-block: var(--sp-24) var(--sp-20);
     }
+
+    /* Foto de fondo */
+    .hero__photo-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 40%;
+      }
+    }
+
+    .hero__photo-overlay {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to bottom,
+          rgba(6,13,27,.55) 0%,
+          rgba(6,13,27,.70) 50%,
+          rgba(6,13,27,.92) 100%);
+    }
+
+    /* Grid sutil encima del overlay */
+    .hero__grid-lines {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(84,114,248,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(84,114,248,.05) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 0%, transparent 100%);
+    }
+
+    /* Orbs de acento */
+    .hero__orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .hero__orb--1 {
+      width: 500px; height: 500px;
+      top: -150px; left: -80px;
+      background: rgba(84,114,248,.18);
+      animation: floatSlow 14s ease-in-out infinite;
+    }
+    .hero__orb--2 {
+      width: 400px; height: 400px;
+      top: -80px; right: -120px;
+      background: rgba(155,92,246,.12);
+      animation: floatSlow 18s ease-in-out infinite reverse;
+    }
+
+    /* Floats decorativos */
+    .hero__float {
+      position: absolute;
+      opacity: .14;
+      pointer-events: none;
+      filter: blur(1px);
+      z-index: 2;
+      color: var(--t-100);
+    }
+    .hero__float--1 { top: 15%; left: 6%;  animation: float 8s ease-in-out infinite; }
+    .hero__float--2 { top: 20%; right: 8%; animation: float 10s ease-in-out infinite 2s; }
+    .hero__float--3 { bottom: 30%; left: 10%; animation: float 9s ease-in-out infinite 4s; }
+    .hero__float--4 { bottom: 25%; right: 6%; animation: float 11s ease-in-out infinite 1s; }
 
     .hero__inner {
       position: relative;
-      z-index: 1;
+      z-index: 3;
       text-align: center;
       animation: fadeUp .7s ease both;
     }
@@ -443,8 +603,8 @@ interface Testimonio {
       align-items: center;
       gap: var(--sp-2);
       padding: var(--sp-2) var(--sp-4);
-      background: rgba(84,114,248,.12);
-      border: 1px solid rgba(84,114,248,.25);
+      background: rgba(84,114,248,.15);
+      border: 1px solid rgba(84,114,248,.30);
       border-radius: var(--r-full);
       font-size: var(--f-xs);
       font-weight: var(--w-6);
@@ -452,6 +612,7 @@ interface Testimonio {
       letter-spacing: .04em;
       text-transform: uppercase;
       margin-bottom: var(--sp-6);
+      backdrop-filter: blur(8px);
     }
 
     .hero__title {
@@ -462,11 +623,12 @@ interface Testimonio {
       color: var(--t-100);
       margin-bottom: var(--sp-5);
       animation: fadeUp .7s .1s ease both;
+      text-shadow: 0 2px 24px rgba(0,0,0,.4);
     }
 
     .hero__sub {
       font-size: var(--f-lg);
-      color: var(--t-300);
+      color: rgba(216,225,247,.85);
       max-width: 56ch;
       margin-inline: auto;
       line-height: 1.7;
@@ -476,7 +638,7 @@ interface Testimonio {
 
     .hero__vtabs {
       justify-content: center;
-      margin-bottom: var(--sp-6);
+      margin-bottom: var(--sp-5);
       animation: fadeUp .7s .3s ease both;
     }
 
@@ -484,15 +646,24 @@ interface Testimonio {
       max-width: 860px;
       margin-inline: auto;
       animation: fadeUp .7s .4s ease both;
+      background: rgba(15,30,56,.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-color: rgba(255,255,255,.12);
     }
 
-    .hero__cta { align-self: flex-end; }
+    .hero__cta {
+      align-self: flex-end;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
 
     .hero__trust {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: var(--sp-4);
+      gap: var(--sp-5);
       flex-wrap: wrap;
       margin-top: var(--sp-6);
       animation: fadeUp .7s .5s ease both;
@@ -500,22 +671,22 @@ interface Testimonio {
 
     .hero__trust-chip {
       font-size: var(--f-xs);
-      color: var(--t-400);
+      color: rgba(216,225,247,.7);
+      letter-spacing: .02em;
     }
 
-    .hero__float {
+    /* Scroll hint */
+    .hero__scroll-hint {
       position: absolute;
-      font-size: 2.5rem;
-      opacity: .18;
-      pointer-events: none;
-      filter: blur(1px);
+      bottom: var(--sp-6);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+      color: rgba(255,255,255,.35);
+      animation: float 3s ease-in-out infinite;
     }
-    .hero__float--1 { top: 15%; left: 6%;  animation: float 8s ease-in-out infinite; }
-    .hero__float--2 { top: 20%; right: 8%; animation: float 10s ease-in-out infinite 2s; }
-    .hero__float--3 { bottom: 25%; left: 10%; animation: float 9s ease-in-out infinite 4s; }
-    .hero__float--4 { bottom: 20%; right: 6%; animation: float 11s ease-in-out infinite 1s; }
 
-    /* STATS */
+    /* ── STATS ──────────────────────────────────────────────────────── */
     .stats {
       border-top: 1px solid var(--b-1);
       border-bottom: 1px solid var(--b-1);
@@ -526,7 +697,6 @@ interface Testimonio {
     .stats__grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      divide-x: 1px solid var(--b-1);
       gap: var(--sp-8);
 
       @media (max-width: 640px) { grid-template-columns: repeat(2, 1fr); }
@@ -538,6 +708,10 @@ interface Testimonio {
       border-left: 1px solid var(--b-1);
 
       &:first-child { border-left: none; }
+
+      @media (max-width: 640px) {
+        &:nth-child(odd) { border-left: none; }
+      }
     }
 
     .stats__value {
@@ -557,7 +731,96 @@ interface Testimonio {
       color: var(--t-400);
     }
 
-    /* SECTION COMMON */
+    /* ── DESTINOS ───────────────────────────────────────────────────── */
+    .destinations-section {
+      background: var(--c-raised);
+    }
+
+    .destinations-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: 240px 180px;
+      gap: var(--sp-3);
+
+      @media (max-width: 1024px) {
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: auto;
+      }
+      @media (max-width: 640px) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .dest-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--r-xl);
+      cursor: pointer;
+      display: block;
+      transition: transform var(--d-3);
+
+      &--featured {
+        grid-column: span 2;
+        grid-row: span 2;
+
+        @media (max-width: 1024px) {
+          grid-column: span 2;
+          grid-row: span 1;
+        }
+      }
+
+      &:not(&--featured) {
+        grid-column: span 2;
+
+        @media (max-width: 1024px) {
+          grid-column: span 1;
+        }
+        @media (max-width: 640px) {
+          grid-column: span 1;
+        }
+      }
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform var(--d-4);
+      }
+
+      &:hover img { transform: scale(1.06); }
+      &:hover { transform: none; }
+    }
+
+    .dest-card__overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(6,13,27,.85) 0%, rgba(6,13,27,.1) 60%);
+    }
+
+    .dest-card__info {
+      position: absolute;
+      bottom: var(--sp-4);
+      left: var(--sp-4);
+      right: var(--sp-4);
+    }
+
+    .dest-card__city {
+      font-size: var(--f-xl);
+      font-weight: var(--w-8);
+      color: var(--t-100);
+      letter-spacing: -.02em;
+      line-height: 1.2;
+
+      .dest-card--featured & { font-size: var(--f-3xl); }
+    }
+
+    .dest-card__meta {
+      font-size: var(--f-xs);
+      color: rgba(216,225,247,.7);
+      margin-top: var(--sp-1);
+    }
+
+    /* ── SECTION COMMON ─────────────────────────────────────────────── */
     .section-header {
       text-align: center;
       margin-bottom: var(--sp-12);
@@ -570,9 +833,19 @@ interface Testimonio {
     .section-cta {
       text-align: center;
       margin-top: var(--sp-10);
+
+      a {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--sp-2);
+      }
     }
 
-    /* VERTICALS */
+    /* ── VERTICALS ──────────────────────────────────────────────────── */
+    .verticals-section {
+      background: linear-gradient(180deg, var(--c-base) 0%, var(--c-raised) 100%);
+    }
+
     .verticals__grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -605,7 +878,7 @@ interface Testimonio {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.75rem;
+      color: var(--t-100);
     }
 
     .vertical-card__name {
@@ -632,14 +905,19 @@ interface Testimonio {
 
     .vertical-card__arrow {
       color: var(--t-500);
-      font-size: var(--f-lg);
+      display: flex;
+      align-items: center;
       transition: transform var(--d-2), color var(--d-2);
       align-self: flex-end;
     }
 
     .vertical-card:hover .vertical-card__arrow { transform: translateX(4px); color: var(--t-200); }
 
-    /* HOTELS GRID */
+    /* ── HOTELS ─────────────────────────────────────────────────────── */
+    .featured-section {
+      background: var(--c-base);
+    }
+
     .hotels-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -649,14 +927,36 @@ interface Testimonio {
       @media (max-width: 640px)  { grid-template-columns: 1fr; }
     }
 
-    /* HOW IT WORKS */
+    .rs-hotel-card__loc {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .rs-price__amount {
+      font-size: var(--f-xl);
+      font-weight: var(--w-8);
+      color: var(--t-100);
+    }
+
+    .rs-price__old {
+      font-size: var(--f-sm);
+      color: var(--t-400);
+      text-decoration: line-through;
+    }
+
+    .rs-price__period {
+      font-size: var(--f-xs);
+      color: var(--t-400);
+    }
+
+    /* ── HOW IT WORKS ───────────────────────────────────────────────── */
     .how-section { background: var(--c-raised); }
 
     .how-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: var(--sp-6);
-      position: relative;
 
       @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); }
     }
@@ -680,7 +980,13 @@ interface Testimonio {
       margin-bottom: var(--sp-4);
     }
 
-    .how-step__icon { font-size: 2.5rem; margin-bottom: var(--sp-4); }
+    .how-step__icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--sp-4);
+      color: var(--c-accent);
+    }
 
     .how-step__title {
       font-size: var(--f-md);
@@ -691,7 +997,7 @@ interface Testimonio {
 
     .how-step__desc { font-size: var(--f-sm); color: var(--t-400); line-height: 1.6; }
 
-    /* BENEFITS */
+    /* ── BENEFITS ───────────────────────────────────────────────────── */
     .benefits-section { background: linear-gradient(180deg, var(--c-base) 0%, var(--c-raised) 100%); }
 
     .benefits-grid {
@@ -725,7 +1031,7 @@ interface Testimonio {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.1rem;
+      color: var(--c-accent);
       flex-shrink: 0;
     }
 
@@ -746,6 +1052,7 @@ interface Testimonio {
       border-radius: var(--r-xl);
       padding: var(--sp-6);
       box-shadow: var(--sh-lg);
+      color: var(--t-300);
     }
     .bv-card--main {
       width: 220px;
@@ -768,7 +1075,7 @@ interface Testimonio {
       z-index: 1;
     }
 
-    /* TESTIMONIALS */
+    /* ── TESTIMONIALS ───────────────────────────────────────────────── */
     .testimonials-section { background: var(--c-raised); }
 
     .testimonials-grid {
@@ -800,8 +1107,11 @@ interface Testimonio {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.25rem;
+      font-size: var(--f-sm);
+      font-weight: var(--w-7);
+      color: white;
       flex-shrink: 0;
+      letter-spacing: .02em;
     }
 
     .testimonial-card__name { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
@@ -810,24 +1120,39 @@ interface Testimonio {
     .testimonial-card__stars { font-size: var(--f-sm); color: var(--c-amber); margin-bottom: var(--sp-3); }
     .testimonial-card__text { font-size: var(--f-sm); color: var(--t-300); line-height: 1.7; }
 
-    /* CTA BOX */
+    /* ── CTA ────────────────────────────────────────────────────────── */
     .cta-section { padding-block: var(--sp-24); }
 
     .cta-box {
       position: relative;
-      border: 1px solid rgba(84,114,248,.25);
+      border: 1px solid rgba(84,114,248,.2);
       border-radius: var(--r-2xl);
       overflow: hidden;
       padding: var(--sp-16) var(--sp-8);
       text-align: center;
+      min-height: 360px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .cta-box__bg {
+    .cta-box__photo-bg {
       position: absolute;
       inset: 0;
-      background:
-        radial-gradient(ellipse 70% 80% at 50% 50%, rgba(84,114,248,.12) 0%, transparent 70%),
-        var(--c-card);
+      z-index: 0;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+      }
+    }
+
+    .cta-box__photo-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(6,13,27,.85) 0%, rgba(84,114,248,.25) 100%);
     }
 
     .cta-box__content {
@@ -836,6 +1161,14 @@ interface Testimonio {
 
       h2 { margin-bottom: var(--sp-4); }
       p  { color: var(--t-300); }
+    }
+
+    .cta-box__actions {
+      display: flex;
+      justify-content: center;
+      gap: var(--sp-4);
+      flex-wrap: wrap;
+      margin-top: var(--sp-8);
     }
   `],
 })
@@ -848,11 +1181,11 @@ export class HomeComponent {
   readonly searchForm = this.fb.group({ ciudad: [''], fechaInicio: [''], fechaFin: [''] });
 
   readonly verticales: Vertical[] = [
-    { key: 'hoteles',    emoji: '🏨', label: 'Hoteles',    desc: 'Habitaciones y alojamiento por noches', color: 'rgba(84,114,248,.15)',  count: '+1,200 propiedades' },
-    { key: 'vuelos',     emoji: '✈️', label: 'Vuelos',     desc: 'Vuelos nacionales e internacionales',   color: 'rgba(0,201,177,.15)',   count: '+380 rutas activas' },
-    { key: 'taxis',      emoji: '🚕', label: 'Taxis',      desc: 'Traslados on-demand y programados',     color: 'rgba(245,158,11,.15)',  count: '+4,500 conductores' },
-    { key: 'transporte', emoji: '🚛', label: 'Transporte', desc: 'Carga, mudanzas y logística',           color: 'rgba(155,92,246,.15)',  count: '+320 empresas' },
-    { key: 'guarderia',  emoji: '👶', label: 'Guarderías', desc: 'Cuidado infantil con cupos por edad',   color: 'rgba(236,72,153,.15)',  count: '+180 centros' },
+    { key: 'hoteles',    icon: 'hotel',  label: 'Hoteles',    desc: 'Habitaciones y alojamiento por noches', color: 'rgba(84,114,248,.15)',  count: '+1,200 propiedades' },
+    { key: 'vuelos',     icon: 'plane',  label: 'Vuelos',     desc: 'Vuelos nacionales e internacionales',   color: 'rgba(0,201,177,.15)',   count: '+380 rutas activas' },
+    { key: 'taxis',      icon: 'car',    label: 'Taxis',      desc: 'Traslados on-demand y programados',     color: 'rgba(245,158,11,.15)',  count: '+4,500 conductores' },
+    { key: 'transporte', icon: 'truck',  label: 'Transporte', desc: 'Carga, mudanzas y logística',           color: 'rgba(155,92,246,.15)',  count: '+320 empresas' },
+    { key: 'guarderia',  icon: 'users',  label: 'Guarderías', desc: 'Cuidado infantil con cupos por edad',   color: 'rgba(236,72,153,.15)',  count: '+180 centros' },
   ];
 
   readonly stats = [
@@ -862,80 +1195,114 @@ export class HomeComponent {
     { valor: '+120K', label: 'Usuarios registrados',   delay: 240 },
   ];
 
+  readonly destinos: Destino[] = [
+    {
+      ciudad: 'París',
+      pais: 'Francia',
+      imagen: 'https://images.pexels.com/photos/29395092/pexels-photo-29395092.jpeg?auto=compress&cs=tinysrgb&w=800',
+      hoteles: '+650 alojamientos',
+      destacado: true,
+    },
+    {
+      ciudad: 'Barcelona',
+      pais: 'España',
+      imagen: 'https://images.pexels.com/photos/5005639/pexels-photo-5005639.jpeg?auto=compress&cs=tinysrgb&w=600',
+      hoteles: '+480 alojamientos',
+    },
+    {
+      ciudad: 'Roma',
+      pais: 'Italia',
+      imagen: 'https://images.pexels.com/photos/15562413/pexels-photo-15562413.jpeg?auto=compress&cs=tinysrgb&w=600',
+      hoteles: '+390 alojamientos',
+    },
+    {
+      ciudad: 'Ámsterdam',
+      pais: 'Países Bajos',
+      imagen: 'https://images.pexels.com/photos/12705128/pexels-photo-12705128.jpeg?auto=compress&cs=tinysrgb&w=600',
+      hoteles: '+280 alojamientos',
+    },
+    {
+      ciudad: 'Londres',
+      pais: 'Reino Unido',
+      imagen: 'https://images.pexels.com/photos/11567961/pexels-photo-11567961.jpeg?auto=compress&cs=tinysrgb&w=600',
+      hoteles: '+720 alojamientos',
+    },
+  ];
+
   readonly hotelesDestacados: HotelDestacado[] = [
     {
       id: 'hotel-1',
-      nombre: 'Casa Andina Premium Miraflores',
-      ciudad: 'Lima', barrio: 'Miraflores',
-      estrellas: 5, score: 9.2, scoreLabel: 'Excepcional', numResenas: 2840,
-      precioPorNoche: 320, precioAnterior: 420,
-      imagen: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600',
-      amenities: ['🌊 Vista al mar', '🍳 Desayuno', '🅿️ Parking'],
+      nombre: 'The Hoxton, Le Marais',
+      ciudad: 'París', barrio: 'Le Marais',
+      estrellas: 5, score: 9.3, scoreLabel: 'Excepcional', numResenas: 3120,
+      precioPorNoche: 189, precioAnterior: 250,
+      imagen: 'https://images.pexels.com/photos/30898458/pexels-photo-30898458.jpeg?auto=compress&cs=tinysrgb&w=800',
+      amenities: ['Centro histórico', 'Desayuno incluido', 'Wi-Fi Premium'],
       cancelacionGratis: true,
       badges: ['Mejor precio', '-24%'],
     },
     {
       id: 'hotel-2',
-      nombre: 'Inkaterra Machu Picchu',
-      ciudad: 'Cusco', barrio: 'Aguas Calientes',
+      nombre: 'Palazzo Venezia Boutique',
+      ciudad: 'Venecia', barrio: 'San Marco',
       estrellas: 5, score: 9.6, scoreLabel: 'Excepcional', numResenas: 1520,
-      precioPorNoche: 890,
-      imagen: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600',
-      amenities: ['🦋 Ecológico', '♨️ Jacuzzi', '🍽️ Restaurante'],
+      precioPorNoche: 320,
+      imagen: 'https://images.pexels.com/photos/19689227/pexels-photo-19689227.jpeg?auto=compress&cs=tinysrgb&w=800',
+      amenities: ['Vista al Canal', 'Restaurante', 'Spa'],
       cancelacionGratis: true,
-      badges: ['Top rated', 'Eco'],
+      badges: ['Top rated', 'Luxury'],
     },
     {
       id: 'hotel-3',
-      nombre: 'Hotel Libertador Lago Titicaca',
-      ciudad: 'Puno', barrio: 'Centro',
+      nombre: 'Grand Hotel Bucharest',
+      ciudad: 'Bucarest', barrio: 'Centro histórico',
       estrellas: 4, score: 8.8, scoreLabel: 'Muy bueno', numResenas: 980,
-      precioPorNoche: 240, precioAnterior: 290,
-      imagen: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600',
-      amenities: ['🌊 Lago', '🌅 Vista puesta de sol', '🚣 Kayak'],
+      precioPorNoche: 95, precioAnterior: 130,
+      imagen: 'https://images.pexels.com/photos/16563487/pexels-photo-16563487.jpeg?auto=compress&cs=tinysrgb&w=800',
+      amenities: ['Centro ciudad', 'Piscina', 'Parking gratuito'],
       cancelacionGratis: false,
-      badges: ['Vista lago'],
+      badges: ['Gran valor'],
     },
     {
       id: 'hotel-4',
-      nombre: 'JW Marriott Lima',
-      ciudad: 'Lima', barrio: 'Miraflores',
-      estrellas: 5, score: 9.0, scoreLabel: 'Excepcional', numResenas: 3210,
-      precioPorNoche: 480,
-      imagen: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600',
-      amenities: ['🏊 Piscina', '💆 Spa', '🍸 Bar'],
+      nombre: 'Prague Palace Hotel',
+      ciudad: 'Praga', barrio: 'Malá Strana',
+      estrellas: 5, score: 9.0, scoreLabel: 'Excepcional', numResenas: 2180,
+      precioPorNoche: 210,
+      imagen: 'https://images.pexels.com/photos/20604661/pexels-photo-20604661.jpeg?auto=compress&cs=tinysrgb&w=800',
+      amenities: ['Vistas al castillo', 'Piscina', 'Bar & Lounge'],
       cancelacionGratis: true,
       badges: ['Elegido del mes'],
     },
   ];
 
   readonly pasos = [
-    { num: '01', icon: '🔍', title: 'Busca y compara', desc: 'Explora cientos de opciones filtradas por precio, rating y ubicación.' },
-    { num: '02', icon: '❤️', title: 'Elige lo mejor', desc: 'Lee reseñas reales, ve fotos y compara precios con total transparencia.' },
-    { num: '03', icon: '📝', title: 'Reserva en segundos', desc: 'Confirma tu reserva en menos de 2 minutos con datos seguros.' },
-    { num: '04', icon: '🎉', title: 'Disfruta tu experiencia', desc: 'Recibe confirmación instantánea y soporte 24/7 durante tu viaje.' },
+    { num: '01', icon: 'search',    title: 'Busca y compara',       desc: 'Explora cientos de opciones filtradas por precio, rating y ubicación.' },
+    { num: '02', icon: 'heart',     title: 'Elige lo mejor',        desc: 'Lee reseñas reales, ve fotos y compara precios con total transparencia.' },
+    { num: '03', icon: 'calendar',  title: 'Reserva en segundos',   desc: 'Confirma tu reserva en menos de 2 minutos con datos seguros.' },
+    { num: '04', icon: 'sparkles',  title: 'Disfruta tu viaje',     desc: 'Recibe confirmación instantánea y soporte 24/7 durante tu estancia.' },
   ];
 
   readonly beneficios = [
-    { icon: '🔒', title: 'Pagos 100% seguros',        desc: 'Cifrado SSL + Stripe certificado PCI DSS nivel 1.' },
-    { icon: '✅', title: 'Proveedores verificados',    desc: 'Todos los comercios pasan por revisión antes de publicar.' },
-    { icon: '💰', title: 'Mejor precio garantizado',  desc: 'Encontramos un precio menor y te devolvemos la diferencia.' },
-    { icon: '🔄', title: 'Cancelación flexible',      desc: 'La mayoría de reservas con cancelación gratis hasta 24h antes.' },
+    { icon: 'shield-check',  title: 'Pagos 100% seguros',        desc: 'Cifrado SSL + Stripe certificado PCI DSS nivel 1.' },
+    { icon: 'badge-check',   title: 'Proveedores verificados',   desc: 'Todos los comercios pasan por revisión antes de publicar.' },
+    { icon: 'tag',           title: 'Mejor precio garantizado',  desc: 'Encontramos un precio menor y te devolvemos la diferencia.' },
+    { icon: 'rotate-ccw',   title: 'Cancelación flexible',      desc: 'La mayoría de reservas con cancelación gratis hasta 24h antes.' },
   ];
 
   readonly testimonios: Testimonio[] = [
     {
-      nombre: 'María García', ciudad: 'Lima', avatar: '👩‍💼',
+      nombre: 'Ana Martínez', ciudad: 'Madrid', initials: 'AM',
       rating: 5, vertical: 'Hoteles',
-      texto: 'Encontré el hotel de mis sueños en Cusco con 30% de descuento. El proceso fue facilísimo y el soporte respondió mis dudas en minutos.',
+      texto: 'Encontré el hotel perfecto en París con 30% de descuento. El proceso fue facilísimo y el soporte respondió mis dudas en minutos.',
     },
     {
-      nombre: 'Carlos Mendoza', ciudad: 'Arequipa', avatar: '👨‍💻',
+      nombre: 'Luca Bianchi', ciudad: 'Roma', initials: 'LB',
       rating: 5, vertical: 'Taxis',
-      texto: 'Uso Zenda para mis traslados desde el aeropuerto. Siempre puntual, precio justo y el conductor ya conoce mi ruta favorita.',
+      texto: 'Uso Zenda para mis traslados desde el aeropuerto en cada viaje. Siempre puntual, precio justo y el conductor conoce mi ruta.',
     },
     {
-      nombre: 'Sofía Torres', ciudad: 'Trujillo', avatar: '👩‍🏫',
+      nombre: 'Sophie Martin', ciudad: 'París', initials: 'SM',
       rating: 5, vertical: 'Guarderías',
       texto: 'Encontré la guardería perfecta para mi hija en 10 minutos. Ver los cupos disponibles en tiempo real es increíble.',
     },

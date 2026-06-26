@@ -290,19 +290,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── 6. NAVBAR ─────────────────────────────────────────────────── */
-.rs-nav {
+.rs-navbar {
   position: sticky;
   top: 0;
   z-index: var(--z-3);
   height: 64px;
   display: flex;
   align-items: center;
-  padding-inline: var(--sp-6);
-  background: rgba(6,13,27,.8);
+  padding-inline: var(--sp-8);
+  background: rgba(6,13,27,.82);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--b-1);
   gap: var(--sp-8);
+  max-width: 100%;
 
   &__brand {
     display: flex;
@@ -313,10 +314,24 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: -.03em;
     color: var(--t-100);
     flex-shrink: 0;
+    text-decoration: none;
 
-    &-accent { background: var(--g-accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    span {
+      background: var(--g-accent);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
   }
 
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    flex: 1;
+  }
+
+  /* Alias __links → kept for backward compat */
   &__links {
     display: flex;
     align-items: center;
@@ -331,9 +346,10 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--t-300);
     border-radius: var(--r-md);
     transition: color var(--d-1), background var(--d-1);
+    text-decoration: none;
 
     &:hover { color: var(--t-100); background: rgba(255,255,255,.05); }
-    &.active { color: var(--t-100); }
+    &.active, &--active { color: var(--t-100); font-weight: var(--w-6); }
   }
 
   &__actions {
@@ -349,6 +365,7 @@ h1, h2, h3, h4, h5, h6 {
     background: var(--b-2);
   }
 }
+
 
 /* ── 7. BOTONES ────────────────────────────────────────────────── */
 .rs-btn {
