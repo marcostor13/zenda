@@ -11,7 +11,9 @@ export class Servicio {
   @Prop({ type: Types.ObjectId, ref: 'Comercio', required: true })
   comercioId!: Types.ObjectId;
 
-  @Prop({ type: String, enum: VerticalKey, required: true })
+  // `vertical` es el discriminatorKey: Mongoose lo gestiona automáticamente.
+  // No debe declararse como @Prop, o los discriminadores (Hotel, Taxi, …)
+  // fallan al registrarse con "cannot have field with name vertical".
   vertical!: VerticalKey;
 
   @Prop({ required: true })
