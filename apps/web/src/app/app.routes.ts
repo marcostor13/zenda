@@ -23,6 +23,24 @@ export const routes: Routes = [
     loadChildren: () => import('./features/taxis/taxis.routes').then((m) => m.taxisRoutes),
   },
   {
+    path: 'vuelos',
+    data: { vertical: 'vuelos' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+  },
+  {
+    path: 'transporte',
+    data: { vertical: 'transporte' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+  },
+  {
+    path: 'guarderia',
+    data: { vertical: 'guarderia' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+  },
+  {
     path: 'reservas',
     canActivate: [authGuard],
     loadChildren: () => import('./features/reservas/reservas.routes').then((m) => m.reservasRoutes),
