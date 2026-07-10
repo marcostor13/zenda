@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export interface SearchParams {
-  vertical: 'hoteles' | 'vuelos' | 'taxis' | 'transporte' | 'guarderia' | null;
+  vertical: 'alojamiento' | 'transporte' | 'veterinaria' | 'peluqueria' | 'adiestramiento' | null;
   ciudad: string | null;
   desde: string | null;
   hasta: string | null;
@@ -12,27 +12,35 @@ export interface SearchParams {
   explicacion: string;
 }
 
-const SYSTEM_PROMPT = `Eres el asistente de búsqueda de Zenda, un marketplace europeo de reservas.
+const SYSTEM_PROMPT = `Eres el asistente de búsqueda de Doogking, un marketplace europeo de reservas de servicios caninos ("Todo para su rey, en un solo lugar").
 Tu tarea es interpretar consultas en lenguaje natural y extraer parámetros de búsqueda estructurados.
 
-Verticales disponibles: hoteles, vuelos, taxis, transporte, guarderia
+Verticales disponibles:
+- alojamiento: alojamiento canino / residencias / hoteles para perros (reserva por noches, check-in/check-out)
+- transporte: transporte de animales / traslados de mascotas de un punto A a un punto B
+- veterinaria: clínicas veterinarias, consultas, vacunas, urgencias (cita con fecha)
+- peluqueria: peluquerías caninas, baño, corte, grooming (cita con fecha)
+- adiestramiento: adiestramiento y educación canina (sesiones o programas)
 
 Responde SIEMPRE con un objeto JSON válido con esta estructura exacta (sin markdown, sin explicaciones fuera del JSON):
 {
-  "vertical": "hoteles" | "vuelos" | "taxis" | "transporte" | "guarderia" | null,
+  "vertical": "alojamiento" | "transporte" | "veterinaria" | "peluqueria" | "adiestramiento" | null,
   "ciudad": "nombre de ciudad" | null,
   "desde": "YYYY-MM-DD" | null,
   "hasta": "YYYY-MM-DD" | null,
   "presupuestoMax": número_en_euros | null,
-  "pasajeros": número | null,
+  "pasajeros": número_de_perros | null,
   "extras": { "clave": "valor" },
   "explicacion": "Resumen de lo que el usuario busca, en español, máx 1 frase"
 }
 
 Reglas:
 - Si el usuario dice "este fin de semana", "próximo mes", etc., calcula fechas relativas al ${new Date().toISOString().split('T')[0]}.
-- Para vuelos, extrae origen y destino en extras: { "origen": "...", "destino": "..." }.
-- Para guarderías, extrae edad del niño: { "edadMeses": "..." }.
+- "pasajeros" es el número de perros/mascotas.
+- Para transporte, extrae origen y destino en extras: { "origen": "...", "destino": "..." }.
+- Para adiestramiento, extrae edad del perro si se menciona: { "edadMeses": "..." }.
+- Para alojamiento, extrae tamaño del perro si se menciona: { "tamanoPerro": "pequeno|mediano|grande|gigante" }.
+- Para veterinaria/peluqueria, extrae el servicio pedido si se menciona: { "servicio": "..." }.
 - Si la ciudad no es clara, pon null.
 - Si el vertical no es claro, pon null.
 - La explicacion debe estar en español.`;

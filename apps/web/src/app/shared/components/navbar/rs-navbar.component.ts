@@ -10,17 +10,17 @@ import { RsIconComponent } from '../icon/rs-icon.component';
   template: `
     <nav class="rs-navbar">
       <a routerLink="/" class="rs-navbar__brand">
-        <img src="/githubspec-kit.png" alt="Zenda" style="height:36px;width:auto;display:block" />
+        <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:44px;width:auto;display:block" />
       </a>
 
       <!-- Desktop nav -->
       <div class="rs-navbar__nav">
-        <a routerLink="/buscador"   routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Buscar</a>
-        <a routerLink="/hoteles"    routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Hoteles</a>
-        <a routerLink="/taxis"      routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Taxis</a>
-        <a routerLink="/vuelos"     routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Vuelos</a>
-        <a routerLink="/transporte" routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Transporte</a>
-        <a routerLink="/guarderia"  routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Guardería</a>
+        <a routerLink="/buscador"       routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Buscar</a>
+        <a routerLink="/alojamiento"    routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Alojamiento</a>
+        <a routerLink="/transporte"     routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Transporte</a>
+        <a routerLink="/veterinaria"    routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Veterinarios</a>
+        <a routerLink="/peluqueria"     routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Peluquerías</a>
+        <a routerLink="/adiestramiento" routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Adiestramiento</a>
       </div>
 
       <!-- Desktop actions -->
@@ -60,23 +60,23 @@ import { RsIconComponent } from '../icon/rs-icon.component';
     @if (menuAbierto()) {
       <div class="rs-mobile-menu">
         <nav class="rs-mobile-menu__nav">
-          <a routerLink="/buscador"   routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+          <a routerLink="/buscador"       routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
             <rs-icon name="search" [size]="17" [stroke]="2"></rs-icon> Buscar
           </a>
-          <a routerLink="/hoteles"    routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="hotel" [size]="17" [stroke]="2"></rs-icon> Hoteles
+          <a routerLink="/alojamiento"    routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+            <rs-icon name="hotel" [size]="17" [stroke]="2"></rs-icon> Alojamiento canino
           </a>
-          <a routerLink="/taxis"      routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="car" [size]="17" [stroke]="2"></rs-icon> Taxis
+          <a routerLink="/transporte"     routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+            <rs-icon name="truck" [size]="17" [stroke]="2"></rs-icon> Transporte de animales
           </a>
-          <a routerLink="/vuelos"     routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="plane" [size]="17" [stroke]="2"></rs-icon> Vuelos
+          <a routerLink="/veterinaria"    routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+            <rs-icon name="stethoscope" [size]="17" [stroke]="2"></rs-icon> Veterinarios
           </a>
-          <a routerLink="/transporte" routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="truck" [size]="17" [stroke]="2"></rs-icon> Transporte
+          <a routerLink="/peluqueria"     routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+            <rs-icon name="scissors" [size]="17" [stroke]="2"></rs-icon> Peluquerías caninas
           </a>
-          <a routerLink="/guarderia"  routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="users" [size]="17" [stroke]="2"></rs-icon> Guardería
+          <a routerLink="/adiestramiento" routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+            <rs-icon name="graduation-cap" [size]="17" [stroke]="2"></rs-icon> Adiestramiento
           </a>
         </nav>
 

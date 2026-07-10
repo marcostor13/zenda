@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Doogking: huella blanca + corona dorada sobre azul real -->
+  <circle cx="32" cy="32" r="32" fill="#08258B"/>
+  <!-- corona -->
+  <path d="M18 20 L23 13 L28 18 L32 10 L36 18 L41 13 L46 20 L44 24 L20 24 Z" fill="#FBAE17"/>
+  <circle cx="23" cy="12.2" r="1.8" fill="#FBAE17"/>
+  <circle cx="32" cy="9.2" r="1.8" fill="#FBAE17"/>
+  <circle cx="41" cy="12.2" r="1.8" fill="#FBAE17"/>
+  <!-- huella -->
+  <ellipse cx="32" cy="44" rx="8.5" ry="7" fill="#FFFFFF"/>
+  <ellipse cx="21.5" cy="35" rx="3.6" ry="4.6" fill="#FFFFFF" transform="rotate(-18 21.5 35)"/>
+  <ellipse cx="28.5" cy="31.5" rx="3.6" ry="4.8" fill="#FFFFFF"/>
+  <ellipse cx="35.5" cy="31.5" rx="3.6" ry="4.8" fill="#FFFFFF"/>
+  <ellipse cx="42.5" cy="35" rx="3.6" ry="4.6" fill="#FFFFFF" transform="rotate(18 42.5 35)"/>
+</svg>

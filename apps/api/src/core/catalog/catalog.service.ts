@@ -104,7 +104,7 @@ export class CatalogService {
     limit?: number;
   }): Promise<PaginatedResult<HotelCardDto>> {
     const params: BuscarServiciosParams = {
-      vertical: filtros.vertical ?? 'hoteles',
+      vertical: filtros.vertical ?? 'alojamiento',
       ciudad: filtros.ciudad,
       precioMin: filtros.precioMin,
       precioMax: filtros.precioMax,
@@ -138,7 +138,7 @@ export class CatalogService {
   async obtenerHotel(id: string): Promise<HotelDetalleDto> {
     const doc = await this.repo.obtenerPorId(id);
     if (!doc) {
-      throw new DomainException('Hotel no encontrado', 404);
+      throw new DomainException('Servicio no encontrado', 404);
     }
     return this.toDetalle(doc as unknown as HotelLean);
   }
@@ -169,17 +169,21 @@ export class CatalogService {
     };
   }
 
-  /** Extrae los campos propios de cada vertical (los que no son del Servicio base). */
+  /** Extrae los campos propios de cada vertical canina (los que no son del Servicio base). */
   private pickExtra(h: Record<string, unknown>): Record<string, unknown> {
     const claves = [
-      // taxis
-      'tipoVehiculo', 'capacidad', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'unidadesDisponibles',
-      // vuelos
-      'origen', 'destino', 'aerolinea', 'fechaSalida', 'fechaLlegada', 'asientosDisponibles', 'precioAsiento',
-      // transporte
-      'tipoCarga', 'capacidadKg', 'capacidadM3', 'rutasCubiertas',
-      // guardería
-      'rangoEdadMin', 'rangoEdadMax', 'cuposDisponibles', 'modalidad', 'precioHora', 'precioDia', 'precioMes', 'horario',
+      // alojamiento canino
+      'espacios', 'espaciosDisponibles', 'checkIn', 'checkOut', 'requisitoVacunas', 'paseosIncluidos', 'camaras24h',
+      // transporte de animales
+      'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
+      // veterinaria
+      'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia', 'citasDisponibles', 'atiendeUrgencias', 'precioConsulta',
+      // peluquería canina
+      'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea', 'aDomicilio',
+      // adiestramiento canino
+      'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma', 'sesionesPorPrograma', 'edadMinimaMeses', 'capacidadPorSesion',
+      // comunes a citas/cupos
+      'cuposDisponibles', 'horario',
     ];
     const extra: Record<string, unknown> = {};
     for (const k of claves) {
@@ -193,12 +197,38 @@ export class CatalogService {
       ...this.toCard(h),
       descripcion: h.descripcion ?? '',
       politicaCancelacion: h.politicaCancelacion ?? 'Consulta las condiciones de cancelación.',
-      checkIn: h.checkIn ?? '15:00',
-      checkOut: h.checkOut ?? '12:00',
-      habitaciones: (h.habitaciones ?? []).map((hab, i) => this.toHabitacion(hab, i)),
+      checkIn: h.checkIn ?? '12:00',
+      checkOut: h.checkOut ?? '11:00',
+      habitaciones: this.espaciosComoHabitaciones(h).map((hab, i) => this.toHabitacion(hab, i)),
       resenas: [],
       comercioId: h.comercioId ? String(h.comercioId) : '',
     };
+  }
+
+  /**
+   * Los alojamientos caninos guardan sus unidades reservables en `espacios`
+   * (con `precioNoche`); se proyectan sobre el shape legacy `habitaciones`
+   * para no romper a los consumidores existentes del detalle.
+   */
+  private espaciosComoHabitaciones(h: HotelLean): HabitacionDto[] {
+    if (h.habitaciones?.length) return h.habitaciones;
+    const espacios = (h as unknown as Record<string, unknown>)['espacios'] as
+      | Array<Record<string, unknown>>
+      | undefined;
+    return (espacios ?? []).map((e) => ({
+      id: (e['id'] as string) ?? '',
+      tipo: (e['tipo'] as string) ?? 'estandar',
+      descripcion: (e['descripcion'] as string) ?? '',
+      capacidad: (e['cantidad'] as number) ?? 1,
+      camas: (e['tamanoMaxPerro'] as string) ?? '',
+      tamano: 0,
+      precio: (e['precioNoche'] as number) ?? 0,
+      precioAnterior: e['precioAnterior'] as number | undefined,
+      amenities: (e['amenities'] as string[]) ?? [],
+      imagenes: (e['imagenes'] as string[]) ?? [],
+      disponible: (e['disponible'] as boolean) ?? true,
+      cancelacionGratis: (e['cancelacionGratis'] as boolean) ?? true,
+    }));
   }
 
   private toHabitacion(hab: HabitacionDto, index: number): HabitacionDto {

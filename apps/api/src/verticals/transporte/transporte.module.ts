@@ -5,7 +5,11 @@ import { AvailabilityRegistry } from '../../core/availability/availability.regis
 import { AvailabilityModule } from '../../core/availability/availability.module';
 import { CatalogModule } from '../../core/catalog/catalog.module';
 
-/** Vertical Transporte autocontenido; se auto-registra en el AvailabilityRegistry. */
+/**
+ * Vertical Transporte de animales (Doogking). Autocontenido: aporta su
+ * estrategia de disponibilidad/precio y su seed, y se auto-registra en el
+ * AvailabilityRegistry al iniciar. El core no se modifica.
+ */
 @Module({
   imports: [AvailabilityModule, CatalogModule],
   providers: [TransporteAvailabilityStrategy, TransporteSeeder],

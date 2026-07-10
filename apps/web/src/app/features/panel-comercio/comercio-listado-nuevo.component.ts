@@ -2,17 +2,22 @@ import { Component, signal, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { ComercioApiService } from './comercio-api.service';
 
-const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = [
-  { valor: 'hoteles',    label: 'Hoteles / Alojamiento' },
-  { valor: 'vuelos',     label: 'Vuelos' },
-  { valor: 'taxis',      label: 'Taxis / Traslados' },
-  { valor: 'transporte', label: 'Transporte de carga' },
-  { valor: 'guarderia',  label: 'Guardería / Cuidado infantil' },
-];
+const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = Object.values(VerticalKey)
+  .map(valor => ({ valor, label: VERTICAL_LABELS[valor] }));
+
+/** Placeholder del nombre según la categoría elegida. */
+const PLACEHOLDER_TITULO: Record<string, string> = {
+  [VerticalKey.ALOJAMIENTO]:    'Ej. Residencia Canina Villa Perruna',
+  [VerticalKey.TRANSPORTE]:     'Ej. DogVan Traslados Madrid',
+  [VerticalKey.VETERINARIA]:    'Ej. Clínica Veterinaria San Bernardo',
+  [VerticalKey.PELUQUERIA]:     'Ej. Peluquería Canina Real Grooming',
+  [VerticalKey.ADIESTRAMIENTO]: 'Ej. Escuela Canina Rey Adiestradores',
+};
 
 @Component({
   selector: 'app-comercio-listado-nuevo',
@@ -32,18 +37,18 @@ const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = [
       <div class="form-card rs-card">
         <form [formGroup]="form" (ngSubmit)="submit()">
 
-          <!-- VERTICAL -->
+          <!-- CATEGORÍA -->
           <div class="rs-field">
-            <label class="rs-lbl" for="vertical">Vertical *</label>
+            <label class="rs-lbl" for="vertical">Categoría *</label>
             <select id="vertical" class="rs-inp" formControlName="vertical"
                     [class.rs-inp--error]="hasError('vertical')">
-              <option value="">— Selecciona un vertical —</option>
+              <option value="">— Selecciona una categoría —</option>
               @for (v of verticales; track v.valor) {
                 <option [value]="v.valor">{{ v.label }}</option>
               }
             </select>
             @if (hasError('vertical')) {
-              <span class="rs-field-err">Selecciona un vertical.</span>
+              <span class="rs-field-err">Selecciona una categoría.</span>
             }
           </div>
 
@@ -51,7 +56,7 @@ const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = [
           <div class="rs-field">
             <label class="rs-lbl" for="titulo">Nombre del servicio *</label>
             <input id="titulo" class="rs-inp" formControlName="titulo"
-                   placeholder="Ej. Hotel Miraflores Plaza"
+                   [placeholder]="placeholderTitulo()"
                    [class.rs-inp--error]="hasError('titulo')">
             @if (hasError('titulo')) {
               <span class="rs-field-err">El nombre es obligatorio.</span>
@@ -75,7 +80,7 @@ const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = [
             <div class="rs-field">
               <label class="rs-lbl" for="ciudad">Ciudad *</label>
               <input id="ciudad" class="rs-inp" formControlName="ciudad"
-                     placeholder="Ej. Lima"
+                     placeholder="Ej. Madrid"
                      [class.rs-inp--error]="hasError('ciudad')">
               @if (hasError('ciudad')) {
                 <span class="rs-field-err">La ciudad es obligatoria.</span>
@@ -83,7 +88,7 @@ const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = [
             </div>
 
             <div class="rs-field">
-              <label class="rs-lbl" for="precioBase">Precio base (S/) *</label>
+              <label class="rs-lbl" for="precioBase">Precio base (€) *</label>
               <input id="precioBase" class="rs-inp" type="number" formControlName="precioBase"
                      placeholder="0.00" min="0" step="0.01"
                      [class.rs-inp--error]="hasError('precioBase')">
@@ -191,6 +196,11 @@ export class ComercioListadoNuevoComponent {
   readonly exitoMsg = signal('');
 
   readonly verticales = VERTICALES;
+
+  placeholderTitulo(): string {
+    const vertical = this.form.controls.vertical.value;
+    return PLACEHOLDER_TITULO[vertical] ?? 'Ej. Residencia Canina Villa Perruna';
+  }
 
   readonly form = this.fb.group({
     vertical:    ['', Validators.required],

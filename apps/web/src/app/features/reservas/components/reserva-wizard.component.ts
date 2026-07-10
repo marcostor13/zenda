@@ -1,6 +1,7 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { VerticalKey, VERTICAL_LABELS, IVA_RATE } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { StripeService } from '../../../core/stripe/stripe.service';
@@ -60,15 +61,15 @@ type Paso = 1 | 2 | 3 | 4;
                 <img [src]="imagenServicio()" alt="Servicio" rsImg />
                 <div>
                   <h3>{{ nombreServicio() || 'Servicio seleccionado' }}</h3>
-                  <p>S/ {{ precioBase() }} / {{ precioPorLabel() }}</p>
+                  <p>€{{ precioBase() }} / {{ precioPorLabel() }}</p>
                   <span class="rs-badge rs-badge--accent">{{ emojiVertical() }} {{ verticaLabel() }}</span>
                 </div>
               </div>
             </div>
 
-            <!-- ── HOTELES ── -->
-            @if (vertical() === 'hoteles') {
-              <form [formGroup]="paso1HotelForm">
+            <!-- ── ALOJAMIENTO CANINO ── -->
+            @if (vertical() === 'alojamiento') {
+              <form [formGroup]="paso1AlojamientoForm">
                 <div class="form-row">
                   <div class="rs-field">
                     <label class="rs-lbl">Check-in</label>
@@ -81,20 +82,20 @@ type Paso = 1 | 2 | 3 | 4;
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Adultos</label>
-                    <select formControlName="adultos" class="rs-inp rs-inp--lg">
-                      <option value="1">1 adulto</option>
-                      <option value="2">2 adultos</option>
-                      <option value="3">3 adultos</option>
-                      <option value="4">4 adultos</option>
+                    <label class="rs-lbl">Número de perros</label>
+                    <select formControlName="perros" class="rs-inp rs-inp--lg">
+                      <option value="1">1 perro</option>
+                      <option value="2">2 perros</option>
+                      <option value="3">3 perros</option>
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Niños</label>
-                    <select formControlName="ninos" class="rs-inp rs-inp--lg">
-                      <option value="0">Sin niños</option>
-                      <option value="1">1 niño</option>
-                      <option value="2">2 niños</option>
+                    <label class="rs-lbl">Tamaño del perro</label>
+                    <select formControlName="tamanoPerro" class="rs-inp rs-inp--lg">
+                      <option value="pequeno">Pequeño (hasta 10 kg)</option>
+                      <option value="mediano">Mediano (10–25 kg)</option>
+                      <option value="grande">Grande (25–45 kg)</option>
+                      <option value="gigante">Gigante (más de 45 kg)</option>
                     </select>
                   </div>
                 </div>
@@ -107,7 +108,7 @@ type Paso = 1 | 2 | 3 | 4;
                         <div class="extra-item__icon">{{ extra.icon }}</div>
                         <div class="extra-item__info">
                           <div class="extra-item__name">{{ extra.nombre }}</div>
-                          <div class="extra-item__price">S/ {{ extra.precio }}</div>
+                          <div class="extra-item__price">€{{ extra.precio }}</div>
                         </div>
                       </label>
                     }
@@ -116,38 +117,13 @@ type Paso = 1 | 2 | 3 | 4;
               </form>
             }
 
-            <!-- ── VUELOS ── -->
-            @if (vertical() === 'vuelos') {
-              <form [formGroup]="paso1VueloForm">
+            <!-- ── TRANSPORTE DE ANIMALES ── -->
+            @if (vertical() === 'transporte') {
+              <form [formGroup]="paso1TransporteForm">
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Número de asientos</label>
-                    <select formControlName="asientos" class="rs-inp rs-inp--lg">
-                      @for (n of asientoOpts; track n) {
-                        <option [value]="n">{{ n }} {{ n === 1 ? 'asiento' : 'asientos' }}</option>
-                      }
-                    </select>
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Clase</label>
-                    <select formControlName="clase" class="rs-inp rs-inp--lg">
-                      <option value="economy">Economy</option>
-                      <option value="premium">Premium Economy</option>
-                      <option value="business">Business</option>
-                      <option value="primera">Primera clase</option>
-                    </select>
-                  </div>
-                </div>
-              </form>
-            }
-
-            <!-- ── TAXIS ── -->
-            @if (vertical() === 'taxis') {
-              <form [formGroup]="paso1TaxiForm">
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Fecha del traslado</label>
-                    <input formControlName="fechaTraslado" type="date" class="rs-inp rs-inp--lg" />
+                    <label class="rs-lbl">Fecha del trayecto</label>
+                    <input formControlName="fechaRecogida" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">Hora de recogida</label>
@@ -155,109 +131,112 @@ type Paso = 1 | 2 | 3 | 4;
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Dirección de recogida</label>
+                  <label class="rs-lbl">Dirección de recogida (origen)</label>
                   <input formControlName="origen" class="rs-inp rs-inp--lg"
-                         placeholder="Ej. Aeropuerto Jorge Chávez, Lima" />
+                         placeholder="Ej. Calle Mayor 12, Madrid" />
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">Destino</label>
                   <input formControlName="destino" class="rs-inp rs-inp--lg"
-                         placeholder="Ej. Miraflores, Lima" />
+                         placeholder="Ej. Clínica veterinaria, Toledo" />
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
                     <label class="rs-lbl">Distancia estimada (km)</label>
                     <input formControlName="distanciaKm" type="number" class="rs-inp rs-inp--lg" min="1" />
-                    <span class="rs-field-hint">Para estimar la tarifa</span>
+                    <span class="rs-field-hint">Para estimar la tarifa (tarifa base + km)</span>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Pasajeros</label>
-                    <select formControlName="pasajeros" class="rs-inp rs-inp--lg">
-                      <option value="1">1 pasajero</option>
-                      <option value="2">2 pasajeros</option>
-                      <option value="3">3 pasajeros</option>
-                      <option value="4">4 pasajeros</option>
+                    <label class="rs-lbl">Número de perros</label>
+                    <select formControlName="perros" class="rs-inp rs-inp--lg">
+                      <option value="1">1 perro</option>
+                      <option value="2">2 perros</option>
+                      <option value="3">3 perros</option>
+                      <option value="4">4 perros</option>
                     </select>
                   </div>
                 </div>
               </form>
             }
 
-            <!-- ── TRANSPORTE ── -->
-            @if (vertical() === 'transporte') {
-              <form [formGroup]="paso1TransporteForm">
-                <div class="rs-field">
-                  <label class="rs-lbl">Fecha de recogida</label>
-                  <input formControlName="fechaRecogida" type="date" class="rs-inp rs-inp--lg" />
-                </div>
-                <div class="rs-field">
-                  <label class="rs-lbl">Dirección de recogida (origen)</label>
-                  <input formControlName="origen" class="rs-inp rs-inp--lg"
-                         placeholder="Ej. Almacén Lima Norte" />
-                </div>
-                <div class="rs-field">
-                  <label class="rs-lbl">Dirección de entrega (destino)</label>
-                  <input formControlName="destino" class="rs-inp rs-inp--lg"
-                         placeholder="Ej. Depósito Callao" />
-                </div>
+            <!-- ── VETERINARIA ── -->
+            @if (vertical() === 'veterinaria') {
+              <form [formGroup]="paso1VeterinariaForm">
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Tipo de carga</label>
-                    <select formControlName="tipoCarga" class="rs-inp rs-inp--lg">
-                      <option value="general">Carga general</option>
-                      <option value="refrigerado">Refrigerado</option>
-                      <option value="fragil">Frágil</option>
-                      <option value="mudanza">Mudanza</option>
-                    </select>
+                    <label class="rs-lbl">Fecha de la cita</label>
+                    <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Peso aproximado (kg)</label>
-                    <input formControlName="pesoKg" type="number" class="rs-inp rs-inp--lg" min="1" />
+                    <label class="rs-lbl">Hora de la cita</label>
+                    <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
                   </div>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Servicio (opcional)</label>
+                  <select formControlName="servicio" class="rs-inp rs-inp--lg">
+                    <option value="consulta">Consulta general</option>
+                    <option value="vacunacion">Vacunación</option>
+                    <option value="revision">Revisión / chequeo</option>
+                    <option value="dermatologia">Dermatología</option>
+                    <option value="urgencia">Urgencia</option>
+                  </select>
+                  <span class="rs-field-hint">El precio final puede variar según el servicio clínico</span>
                 </div>
               </form>
             }
 
-            <!-- ── GUARDERÍA ── -->
-            @if (vertical() === 'guarderia') {
-              <form [formGroup]="paso1GuarderiaForm">
+            <!-- ── PELUQUERÍA CANINA ── -->
+            @if (vertical() === 'peluqueria') {
+              <form [formGroup]="paso1PeluqueriaForm">
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Fecha de la cita</label>
+                    <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Hora de la cita</label>
+                    <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
+                  </div>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Servicio de grooming</label>
+                  <select formControlName="servicio" class="rs-inp rs-inp--lg">
+                    <option value="bano">Baño y secado</option>
+                    <option value="corte">Corte de pelo</option>
+                    <option value="deslanado">Deslanado</option>
+                    <option value="spa">Spa canino</option>
+                    <option value="unas">Corte de uñas</option>
+                  </select>
+                </div>
+              </form>
+            }
+
+            <!-- ── ADIESTRAMIENTO ── -->
+            @if (vertical() === 'adiestramiento') {
+              <form [formGroup]="paso1AdiestramientoForm">
                 <div class="form-row">
                   <div class="rs-field">
                     <label class="rs-lbl">Fecha de inicio</label>
                     <input formControlName="fechaInicio" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Fecha de fin (opcional)</label>
-                    <input formControlName="fechaFin" type="date" class="rs-inp rs-inp--lg" />
-                  </div>
-                </div>
-                <div class="form-row">
-                  <div class="rs-field">
                     <label class="rs-lbl">Modalidad</label>
                     <select formControlName="modalidad" class="rs-inp rs-inp--lg">
-                      <option value="hora">Por hora</option>
-                      <option value="dia">Por día</option>
-                      <option value="mes">Mensual</option>
-                    </select>
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Número de niños</label>
-                    <select formControlName="ninos" class="rs-inp rs-inp--lg">
-                      <option value="1">1 niño</option>
-                      <option value="2">2 niños</option>
-                      <option value="3">3 niños</option>
+                      <option value="sesion">Sesión suelta</option>
+                      <option value="programa">Programa completo</option>
                     </select>
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Edad del niño (años)</label>
-                  <input formControlName="edadNino" type="number" class="rs-inp rs-inp--lg" min="0" max="12" />
-                  <span class="rs-field-hint">Para verificar compatibilidad con el rango de edad del centro</span>
+                  <label class="rs-lbl">Edad del perro (meses)</label>
+                  <input formControlName="edadMeses" type="number" class="rs-inp rs-inp--lg" min="0" max="240" />
+                  <span class="rs-field-hint">Para verificar la edad mínima requerida por el adiestrador</span>
                 </div>
               </form>
             }
 
-            <button class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
+            <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
                     style="margin-top:var(--sp-6)"
                     [disabled]="!paso1Valido()"
                     (click)="irPaso(2)">
@@ -291,18 +270,17 @@ type Paso = 1 | 2 | 3 | 4;
 
               <div class="rs-field">
                 <label class="rs-lbl">Teléfono</label>
-                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+51 999 999 999" />
+                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+34 600 000 000" />
               </div>
 
               <div class="rs-field">
                 <label class="rs-lbl">País de residencia</label>
                 <select formControlName="pais" class="rs-inp rs-inp--lg">
-                  <option value="PE">Perú</option>
-                  <option value="CO">Colombia</option>
-                  <option value="MX">México</option>
-                  <option value="AR">Argentina</option>
-                  <option value="CL">Chile</option>
                   <option value="ES">España</option>
+                  <option value="PT">Portugal</option>
+                  <option value="FR">Francia</option>
+                  <option value="IT">Italia</option>
+                  <option value="DE">Alemania</option>
                   <option value="other">Otro</option>
                 </select>
               </div>
@@ -323,7 +301,7 @@ type Paso = 1 | 2 | 3 | 4;
 
             <div class="wizard-nav">
               <button class="rs-btn rs-btn--secondary" (click)="irPaso(1)">← Atrás</button>
-              <button class="rs-btn rs-btn--primary rs-btn--lg"
+              <button class="rs-btn rs-btn--gold rs-btn--lg"
                       [disabled]="paso2Form.invalid"
                       (click)="irPaso(3)">
                 Continuar → Pago
@@ -353,12 +331,12 @@ type Paso = 1 | 2 | 3 | 4;
                   </svg>
                 </div>
               </label>
-              <label class="payment-option" [class.selected]="metodoPago() === 'yape'">
-                <input type="radio" name="metodo" value="yape" [(ngModel)]="metodoPagoVal"
-                       (change)="metodoPago.set('yape')" />
+              <label class="payment-option" [class.selected]="metodoPago() === 'bizum'">
+                <input type="radio" name="metodo" value="bizum" [(ngModel)]="metodoPagoVal"
+                       (change)="metodoPago.set('bizum')" />
                 <div class="payment-option__icon">📱</div>
                 <div>
-                  <div class="payment-option__name">Yape</div>
+                  <div class="payment-option__name">Bizum</div>
                   <div class="payment-option__brands">Pago móvil instantáneo</div>
                 </div>
               </label>
@@ -386,10 +364,10 @@ type Paso = 1 | 2 | 3 | 4;
               </div>
             }
 
-            @if (metodoPago() === 'yape') {
-              <div class="yape-placeholder">
+            @if (metodoPago() === 'bizum') {
+              <div class="bizum-placeholder">
                 <div style="font-size:3rem;text-align:center;margin-bottom:var(--sp-4)">📱</div>
-                <p style="text-align:center;color:var(--t-300)">Escanea el QR con tu app Yape para pagar S/ {{ total() }}</p>
+                <p style="text-align:center;color:var(--t-300)">Confirma el pago de €{{ total() }} desde tu app bancaria con Bizum</p>
                 <div class="qr-mock">QR aquí</div>
               </div>
             }
@@ -405,11 +383,11 @@ type Paso = 1 | 2 | 3 | 4;
 
             <div class="wizard-nav">
               <button class="rs-btn rs-btn--secondary" (click)="irPaso(2)">← Atrás</button>
-              <button class="rs-btn rs-btn--primary rs-btn--lg" (click)="procesarPago()">
+              <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="procesarPago()">
                 @if (procesando()) {
                   <span class="rs-spin"></span> Procesando…
                 } @else {
-                  🔒 Pagar S/ {{ total() }}
+                  🔒 Pagar €{{ total() }}
                 }
               </button>
             </div>
@@ -439,7 +417,7 @@ type Paso = 1 | 2 | 3 | 4;
               </div>
               <div class="cd-row">
                 <span>💰 Total pagado</span>
-                <strong class="rs-gradient-text">S/ {{ total() }}</strong>
+                <strong class="rs-gradient-text">€{{ total() }}</strong>
               </div>
             </div>
 
@@ -463,34 +441,34 @@ type Paso = 1 | 2 | 3 | 4;
 
             <div class="price-row">
               <span>{{ lineaResumen() }}</span>
-              <span>S/ {{ subtotal() }}</span>
+              <span>€{{ subtotal() }}</span>
             </div>
-            @if (vertical() === 'hoteles') {
+            @if (vertical() === 'alojamiento') {
               @for (extra of extrasSelec(); track extra) {
                 <div class="price-row">
                   <span>{{ extraNombre(extra) }}</span>
-                  <span>S/ {{ extraPrecio(extra) }}</span>
+                  <span>€{{ extraPrecio(extra) }}</span>
                 </div>
               }
             }
             <hr class="rs-hr" style="margin-block:var(--sp-4)">
             <div class="price-row price-row--sub">
               <span>Subtotal</span>
-              <span>S/ {{ subtotal() }}</span>
+              <span>€{{ subtotal() }}</span>
             </div>
             @if (descuento() > 0) {
               <div class="price-row price-row--sub" style="color:#16A34A">
                 <span>Descuento ({{ cuponCodigo() }})</span>
-                <span>−S/ {{ descuento() }}</span>
+                <span>−€{{ descuento() }}</span>
               </div>
             }
             <div class="price-row price-row--sub">
-              <span>IGV (18%)</span>
-              <span>S/ {{ igv() }}</span>
+              <span>IVA (21%)</span>
+              <span>€{{ iva() }}</span>
             </div>
             <div class="price-row price-row--total">
               <span>Total</span>
-              <span>S/ {{ total() }}</span>
+              <span>€{{ total() }}</span>
             </div>
 
             <!-- Cupón de descuento -->
@@ -514,7 +492,7 @@ type Paso = 1 | 2 | 3 | 4;
               }
             </div>
             <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-4)">
-              Precio en soles peruanos (PEN). El cargo se realiza al confirmar.
+              Precio en euros (EUR). El cargo se realiza al confirmar.
             </p>
 
             <hr class="rs-hr" style="margin-block:var(--sp-5)">
@@ -621,7 +599,7 @@ type Paso = 1 | 2 | 3 | 4;
     .stripe-placeholder__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-5); font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
 
     .qr-mock { width: 160px; height: 160px; background: var(--c-surface); border-radius: var(--r-xl); margin: var(--sp-6) auto 0; display: flex; align-items: center; justify-content: center; color: var(--t-400); font-size: var(--f-sm); }
-    .yape-placeholder { text-align: center; }
+    .bizum-placeholder { text-align: center; }
 
     .confirmation { text-align: center; padding: var(--sp-16) var(--sp-8); }
     .confirmation__icon { font-size: 4rem; margin-bottom: var(--sp-4); animation: float 3s ease-in-out infinite; }
@@ -658,11 +636,11 @@ export class ReservaWizardComponent implements OnInit {
   // Navigation
   readonly paso       = signal<Paso>(1);
   readonly procesando = signal(false);
-  readonly metodoPago = signal<'card' | 'yape'>('card');
+  readonly metodoPago = signal<'card' | 'bizum'>('card');
   readonly codigoReserva = signal('');
 
   // Vertical context (populated from route/query params)
-  readonly vertical       = signal<string>('hoteles');
+  readonly vertical       = signal<string>(VerticalKey.ALOJAMIENTO);
   readonly nombreServicio = signal<string>('');
   readonly imagenServicio = signal<string>('');
   readonly precioBase     = signal<number>(0);
@@ -675,48 +653,45 @@ export class ReservaWizardComponent implements OnInit {
   private clientSecret: string | null = null;
   private servicioId?: string;
   private comercioId?: string;
+  private espacioId: string | null = null;
   private reservaIdReal: string | null = null;
   readonly totalFromApi = signal<number | null>(null);
 
   metodoPagoVal = 'card';
 
   // ─── Step 1 forms (one per vertical) ───
-  readonly paso1HotelForm = this.fb.group({
-    checkIn:      ['', Validators.required],
-    checkOut:     ['', Validators.required],
-    adultos:      [2],
-    ninos:        [0],
-    habitacionId: ['', Validators.required],
-  });
-
-  readonly paso1VueloForm = this.fb.group({
-    asientos: [1, [Validators.required, Validators.min(1), Validators.max(9)]],
-    clase:    ['economy', Validators.required],
-  });
-
-  readonly paso1TaxiForm = this.fb.group({
-    fechaTraslado: ['', Validators.required],
-    hora:          ['', Validators.required],
-    origen:        ['', Validators.required],
-    destino:       ['', Validators.required],
-    distanciaKm:   [10, [Validators.required, Validators.min(1)]],
-    pasajeros:     [1],
+  readonly paso1AlojamientoForm = this.fb.group({
+    checkIn:     ['', Validators.required],
+    checkOut:    ['', Validators.required],
+    perros:      [1, [Validators.required, Validators.min(1), Validators.max(3)]],
+    tamanoPerro: ['mediano', Validators.required],
   });
 
   readonly paso1TransporteForm = this.fb.group({
     fechaRecogida: ['', Validators.required],
+    hora:          ['', Validators.required],
     origen:        ['', Validators.required],
     destino:       ['', Validators.required],
-    tipoCarga:     ['general'],
-    pesoKg:        [100, [Validators.required, Validators.min(1)]],
+    distanciaKm:   [10, [Validators.required, Validators.min(1)]],
+    perros:        [1],
   });
 
-  readonly paso1GuarderiaForm = this.fb.group({
+  readonly paso1VeterinariaForm = this.fb.group({
+    fecha:    ['', Validators.required],
+    hora:     ['', Validators.required],
+    servicio: ['consulta'],
+  });
+
+  readonly paso1PeluqueriaForm = this.fb.group({
+    fecha:    ['', Validators.required],
+    hora:     ['', Validators.required],
+    servicio: ['bano', Validators.required],
+  });
+
+  readonly paso1AdiestramientoForm = this.fb.group({
     fechaInicio: ['', Validators.required],
-    fechaFin:    [''],
-    modalidad:   ['dia', Validators.required],
-    ninos:       [1, [Validators.required, Validators.min(1), Validators.max(10)]],
-    edadNino:    [2, [Validators.required, Validators.min(0), Validators.max(12)]],
+    modalidad:   ['sesion', Validators.required],
+    edadMeses:   [12, [Validators.min(0), Validators.max(240)]],
   });
 
   // ─── Step 2 (shared) ───
@@ -725,18 +700,18 @@ export class ReservaWizardComponent implements OnInit {
     apellidos:      ['', Validators.required],
     email:          ['', [Validators.required, Validators.email]],
     telefono:       ['', Validators.required],
-    pais:           ['PE'],
+    pais:           ['ES'],
     peticiones:     [''],
     aceptaTerminos: [false, Validators.requiredTrue],
   });
 
-  // ─── Extras (hoteles only) ───
+  // ─── Extras (alojamiento only) ───
   readonly extrasSelec = signal<string[]>([]);
   readonly extras = [
-    { id: 'desayuno',  icon: '🍳', nombre: 'Desayuno buffet',     precio: 45 },
-    { id: 'transfer',  icon: '🚗', nombre: 'Transfer aeropuerto', precio: 80 },
-    { id: 'spa',       icon: '💆', nombre: 'Sesión de spa',        precio: 120 },
-    { id: 'late',      icon: '🌙', nombre: 'Late check-out',       precio: 50 },
+    { id: 'paseo',    icon: '🐕', nombre: 'Paseo extra diario',     precio: 10 },
+    { id: 'bano',     icon: '🛁', nombre: 'Baño y cepillado',       precio: 25 },
+    { id: 'recogida', icon: '🚐', nombre: 'Recogida a domicilio',   precio: 15 },
+    { id: 'camara',   icon: '📷', nombre: 'Acceso cámara 24/7',     precio: 5 },
   ];
 
   // ─── Coupon ───
@@ -746,81 +721,85 @@ export class ReservaWizardComponent implements OnInit {
   readonly aplicandoCupon = signal(false);
   cuponInput = '';
 
-  // ─── Misc ───
-  readonly asientoOpts = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-
   // ─── Computed ───
   readonly paso1Valido = computed(() => {
     switch (this.vertical()) {
-      case 'hoteles':    return this.paso1HotelForm.valid;
-      case 'vuelos':     return this.paso1VueloForm.valid;
-      case 'taxis':      return this.paso1TaxiForm.valid;
-      case 'transporte': return this.paso1TransporteForm.valid;
-      case 'guarderia':  return this.paso1GuarderiaForm.valid;
-      default:           return false;
+      case VerticalKey.ALOJAMIENTO:    return this.paso1AlojamientoForm.valid;
+      case VerticalKey.TRANSPORTE:     return this.paso1TransporteForm.valid;
+      case VerticalKey.VETERINARIA:    return this.paso1VeterinariaForm.valid;
+      case VerticalKey.PELUQUERIA:     return this.paso1PeluqueriaForm.valid;
+      case VerticalKey.ADIESTRAMIENTO: return this.paso1AdiestramientoForm.valid;
+      default:                         return false;
     }
   });
 
   readonly subtotal = computed(() => {
     const base = this.precioBase();
     switch (this.vertical()) {
-      case 'hoteles': {
-        const { checkIn, checkOut } = this.paso1HotelForm.value;
+      case VerticalKey.ALOJAMIENTO: {
+        const { checkIn, checkOut } = this.paso1AlojamientoForm.value;
         const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         const extras = this.extrasSelec().reduce(
           (s, id) => s + (this.extras.find(e => e.id === id)?.precio ?? 0), 0,
         );
         return base * noches + extras;
       }
-      case 'vuelos':
-        return base * Number(this.paso1VueloForm.value.asientos ?? 1);
-      case 'guarderia':
-        return base * Number(this.paso1GuarderiaForm.value.ninos ?? 1);
       default:
         return base;
     }
   });
 
   readonly subtotalNeto = computed(() => Math.max(0, this.subtotal() - this.descuento()));
-  readonly igv          = computed(() => Math.round(this.subtotalNeto() * 0.18));
+  readonly iva          = computed(() => Math.round(this.subtotalNeto() * IVA_RATE * 100) / 100);
   readonly total        = computed(() => {
     const real = this.totalFromApi();
-    return real !== null ? real : this.subtotalNeto() + this.igv();
+    return real !== null ? real : Math.round((this.subtotalNeto() + this.iva()) * 100) / 100;
   });
 
   readonly paso1Label = computed(() => {
     const m: Record<string, string> = {
-      hoteles: 'Tu estancia', vuelos: 'Tu vuelo',
-      taxis: 'Tu traslado', transporte: 'Tu envío', guarderia: 'Tu plaza',
+      [VerticalKey.ALOJAMIENTO]: 'Tu estancia',
+      [VerticalKey.TRANSPORTE]: 'Tu trayecto',
+      [VerticalKey.VETERINARIA]: 'Tu cita',
+      [VerticalKey.PELUQUERIA]: 'Tu cita',
+      [VerticalKey.ADIESTRAMIENTO]: 'Tu sesión',
     };
     return m[this.vertical()] ?? 'Selección';
   });
 
   readonly paso1Titulo = computed(() => {
     const m: Record<string, string> = {
-      hoteles: 'Detalles de tu estancia', vuelos: 'Selecciona tus asientos',
-      taxis: 'Detalles del traslado', transporte: 'Detalles del envío', guarderia: 'Plaza en guardería',
+      [VerticalKey.ALOJAMIENTO]: 'Detalles de la estancia de tu perro',
+      [VerticalKey.TRANSPORTE]: 'Detalles del trayecto',
+      [VerticalKey.VETERINARIA]: 'Detalles de la cita veterinaria',
+      [VerticalKey.PELUQUERIA]: 'Detalles de la cita de peluquería',
+      [VerticalKey.ADIESTRAMIENTO]: 'Detalles del adiestramiento',
     };
     return m[this.vertical()] ?? 'Resumen de tu reserva';
   });
 
   readonly emojiVertical = computed(() => {
     const m: Record<string, string> = {
-      hoteles: '🏨', vuelos: '✈️', taxis: '🚗', transporte: '🚛', guarderia: '👶',
+      [VerticalKey.ALOJAMIENTO]: '🏠',
+      [VerticalKey.TRANSPORTE]: '🚐',
+      [VerticalKey.VETERINARIA]: '🩺',
+      [VerticalKey.PELUQUERIA]: '✂️',
+      [VerticalKey.ADIESTRAMIENTO]: '🎓',
     };
-    return m[this.vertical()] ?? '📦';
+    return m[this.vertical()] ?? '🐾';
   });
 
-  readonly verticaLabel = computed(() => {
-    const m: Record<string, string> = {
-      hoteles: 'Hotel', vuelos: 'Vuelo', taxis: 'Taxi', transporte: 'Transporte', guarderia: 'Guardería',
-    };
-    return m[this.vertical()] ?? this.vertical();
-  });
+  readonly verticaLabel = computed(() =>
+    VERTICAL_LABELS[this.vertical() as VerticalKey] ?? this.vertical(),
+  );
 
   readonly precioPorLabel = computed(() => {
     const m: Record<string, string> = {
-      hoteles: 'noche', vuelos: 'asiento', taxis: 'traslado', transporte: 'carga', guarderia: 'niño',
+      [VerticalKey.ALOJAMIENTO]: 'noche',
+      [VerticalKey.TRANSPORTE]: 'trayecto',
+      [VerticalKey.VETERINARIA]: 'cita',
+      [VerticalKey.PELUQUERIA]: 'servicio',
+      [VerticalKey.ADIESTRAMIENTO]: 'sesión',
     };
     return m[this.vertical()] ?? '';
   });
@@ -828,31 +807,34 @@ export class ReservaWizardComponent implements OnInit {
   readonly lineaResumen = computed(() => {
     const base = this.precioBase();
     switch (this.vertical()) {
-      case 'hoteles': {
-        const { checkIn, checkOut } = this.paso1HotelForm.value;
+      case VerticalKey.ALOJAMIENTO: {
+        const { checkIn, checkOut, perros } = this.paso1AlojamientoForm.value;
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
-        return `S/ ${base} × ${n} noche${n !== 1 ? 's' : ''}`;
+        const p = Number(perros ?? 1);
+        return `€${base} × ${n} noche${n !== 1 ? 's' : ''} · ${p} perro${p !== 1 ? 's' : ''}`;
       }
-      case 'vuelos':
-        return `S/ ${base} × ${this.paso1VueloForm.value.asientos ?? 1} asiento(s)`;
-      case 'taxis':
-        return `Tarifa base S/ ${base} + km`;
-      case 'transporte':
-        return `S/ ${base} · ${this.paso1TransporteForm.value.pesoKg ?? 0} kg`;
-      case 'guarderia':
-        return `S/ ${base} × ${this.paso1GuarderiaForm.value.ninos ?? 1} niño(s)`;
+      case VerticalKey.TRANSPORTE:
+        return `Tarifa base €${base} + km`;
+      case VerticalKey.VETERINARIA:
+        return `Cita veterinaria · €${base}`;
+      case VerticalKey.PELUQUERIA:
+        return `Cita de peluquería · €${base}`;
+      case VerticalKey.ADIESTRAMIENTO:
+        return this.paso1AdiestramientoForm.value.modalidad === 'programa'
+          ? `Programa de adiestramiento · €${base}`
+          : `Sesión de adiestramiento · €${base}`;
       default:
-        return `S/ ${base}`;
+        return `€${base}`;
     }
   });
 
   readonly peticionesPlaceholder = computed(() => {
     const m: Record<string, string> = {
-      hoteles: 'Cama extra, planta alta, llegada tarde…',
-      vuelos: 'Asiento ventana, comida especial, asistencia…',
-      taxis: 'Necesito ayuda con el equipaje, silla para bebé…',
-      transporte: 'Carga frágil, requiere embalaje especial…',
-      guarderia: 'Alergias del niño, horario especial…',
+      [VerticalKey.ALOJAMIENTO]: 'Alergias, medicación, hábitos de tu perro…',
+      [VerticalKey.TRANSPORTE]: 'Mi perro viaja mejor con su manta, jaula propia…',
+      [VerticalKey.VETERINARIA]: 'Síntomas, historial médico, cartilla de vacunas…',
+      [VerticalKey.PELUQUERIA]: 'Piel sensible, nudos, corte preferido…',
+      [VerticalKey.ADIESTRAMIENTO]: 'Conducta a trabajar, nivel de socialización…',
     };
     return m[this.vertical()] ?? 'Peticiones especiales…';
   });
@@ -861,15 +843,13 @@ export class ReservaWizardComponent implements OnInit {
     const routeParams = this.route.snapshot.paramMap;
     const queryParams = this.route.snapshot.queryParamMap;
 
-    this.vertical.set(routeParams.get('vertical') ?? 'hoteles');
+    this.vertical.set(routeParams.get('vertical') ?? VerticalKey.ALOJAMIENTO);
     this.servicioId = routeParams.get('servicioId') ?? undefined;
     this.comercioId = queryParams.get('comercioId') ?? undefined;
     this.nombreServicio.set(queryParams.get('nombre') ?? '');
     this.imagenServicio.set(queryParams.get('imagen') ?? '');
     this.precioBase.set(Number(queryParams.get('precioBase') ?? 0));
-
-    const habitacionId = queryParams.get('habitacionId');
-    if (habitacionId) this.paso1HotelForm.patchValue({ habitacionId });
+    this.espacioId = queryParams.get('espacioId');
   }
 
   irPaso(p: number): void {
@@ -882,58 +862,60 @@ export class ReservaWizardComponent implements OnInit {
   private buildPayload(): import('../services/reservas.service').CrearReservaPayload {
     const v = this.vertical();
     switch (v) {
-      case 'hoteles': {
-        const f = this.paso1HotelForm.value;
+      case VerticalKey.ALOJAMIENTO: {
+        const f = this.paso1AlojamientoForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
           fechaInicio: f.checkIn!, fechaFin: f.checkOut ?? undefined,
-          cantidad: 1, detalle: { habitacionId: f.habitacionId },
+          cantidad: Number(f.perros ?? 1),
+          detalle: {
+            tamanoPerro: f.tamanoPerro,
+            ...(this.espacioId ? { espacioId: this.espacioId } : {}),
+          },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }
-      case 'vuelos': {
-        const f = this.paso1VueloForm.value;
+      case VerticalKey.TRANSPORTE: {
+        const f = this.paso1TransporteForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
-          fechaInicio: new Date().toISOString(),
-          cantidad: Number(f.asientos ?? 1), detalle: { clase: f.clase },
-          cuponCodigo: this.cuponCodigo() ?? undefined,
-        };
-      }
-      case 'taxis': {
-        const f = this.paso1TaxiForm.value;
-        return {
-          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
-          fechaInicio: `${f.fechaTraslado}T${f.hora}:00`,
+          fechaInicio: `${f.fechaRecogida}T${f.hora}:00`,
           cantidad: 1,
           detalle: {
             origen: f.origen, destino: f.destino,
             distanciaKm: Number(f.distanciaKm ?? 10),
-            pasajeros: Number(f.pasajeros ?? 1),
+            perros: Number(f.perros ?? 1),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }
-      case 'transporte': {
-        const f = this.paso1TransporteForm.value;
+      case VerticalKey.VETERINARIA: {
+        const f = this.paso1VeterinariaForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
-          fechaInicio: f.fechaRecogida!,
+          fechaInicio: f.fecha!,
           cantidad: 1,
-          detalle: {
-            origen: f.origen, destino: f.destino,
-            tipoCarga: f.tipoCarga, pesoKg: Number(f.pesoKg ?? 100),
-          },
+          detalle: { hora: f.hora, servicio: f.servicio },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }
-      case 'guarderia': {
-        const f = this.paso1GuarderiaForm.value;
+      case VerticalKey.PELUQUERIA: {
+        const f = this.paso1PeluqueriaForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
-          fechaInicio: f.fechaInicio!, fechaFin: f.fechaFin ?? undefined,
-          cantidad: Number(f.ninos ?? 1),
-          detalle: { modalidad: f.modalidad, edadNino: Number(f.edadNino ?? 0) },
+          fechaInicio: f.fecha!,
+          cantidad: 1,
+          detalle: { hora: f.hora, servicio: f.servicio },
+          cuponCodigo: this.cuponCodigo() ?? undefined,
+        };
+      }
+      case VerticalKey.ADIESTRAMIENTO: {
+        const f = this.paso1AdiestramientoForm.value;
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          fechaInicio: f.fechaInicio!,
+          cantidad: 1,
+          detalle: { modalidad: f.modalidad, edadMeses: Number(f.edadMeses ?? 0) },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }

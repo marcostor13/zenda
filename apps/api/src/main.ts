@@ -28,8 +28,8 @@ async function bootstrap(): Promise<void> {
   app.enableCors();
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Zenda API')
-    .setDescription('API del marketplace multi-vertical de reservas')
+    .setTitle('Doogking API')
+    .setDescription('API del marketplace de servicios caninos — alojamiento, transporte, veterinaria, peluquería y adiestramiento')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

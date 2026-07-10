@@ -1,5 +1,5 @@
 /**
- * seed-europe.ts — Datos de prueba para la plataforma Zenda (mercado europeo)
+ * seed-europe.ts — Datos de prueba para la plataforma Doogking (mercado europeo)
  *
  * Uso: npm run seed:europe --workspace=api
  *
@@ -26,52 +26,52 @@ const MONGO_URI = process.env['MONGODB_URI'] ?? 'mongodb://localhost:27017/zenda
 // ─── Fixed IDs ────────────────────────────────────────────────────────────────
 const ids = {
   // Users
-  adminId:     new Types.ObjectId('e00000000000000000000001'),
-  clienteAna:  new Types.ObjectId('e00000000000000000000002'),
+  adminId: new Types.ObjectId('e00000000000000000000001'),
+  clienteAna: new Types.ObjectId('e00000000000000000000002'),
   clienteLuca: new Types.ObjectId('e00000000000000000000003'),
   clienteSoph: new Types.ObjectId('e00000000000000000000004'),
   clienteJavi: new Types.ObjectId('e00000000000000000000005'),
   // Comercio admins
-  comAdmH:     new Types.ObjectId('e00000000000000000000006'), // hoteles
-  comAdmT:     new Types.ObjectId('e00000000000000000000007'), // taxis
-  comAdmV:     new Types.ObjectId('e00000000000000000000008'), // vuelos
-  comAdmTr:    new Types.ObjectId('e00000000000000000000009'), // transporte
-  comAdmG:     new Types.ObjectId('e00000000000000000000010'), // guarderia
+  comAdmH: new Types.ObjectId('e00000000000000000000006'), // hoteles
+  comAdmT: new Types.ObjectId('e00000000000000000000007'), // taxis
+  comAdmV: new Types.ObjectId('e00000000000000000000008'), // vuelos
+  comAdmTr: new Types.ObjectId('e00000000000000000000009'), // transporte
+  comAdmG: new Types.ObjectId('e00000000000000000000010'), // guarderia
   // Comercios
-  comHoteles:  new Types.ObjectId('e00000000000000000000020'),
-  comTaxis:    new Types.ObjectId('e00000000000000000000021'),
-  comVuelos:   new Types.ObjectId('e00000000000000000000022'),
-  comTransp:   new Types.ObjectId('e00000000000000000000023'),
-  comGuard:    new Types.ObjectId('e00000000000000000000024'),
+  comHoteles: new Types.ObjectId('e00000000000000000000020'),
+  comTaxis: new Types.ObjectId('e00000000000000000000021'),
+  comVuelos: new Types.ObjectId('e00000000000000000000022'),
+  comTransp: new Types.ObjectId('e00000000000000000000023'),
+  comGuard: new Types.ObjectId('e00000000000000000000024'),
   comHoteles2: new Types.ObjectId('e00000000000000000000025'),
   // Servicios
-  svcH1:  new Types.ObjectId('e00000000000000000000030'), // Hotel Paris
-  svcH2:  new Types.ObjectId('e00000000000000000000031'), // Hotel Barcelona
-  svcH3:  new Types.ObjectId('e00000000000000000000032'), // Hotel Roma
-  svcV1:  new Types.ObjectId('e00000000000000000000033'), // Vuelo MAD-CDG
-  svcV2:  new Types.ObjectId('e00000000000000000000034'), // Vuelo BCN-FCO
-  svcT1:  new Types.ObjectId('e00000000000000000000035'), // Taxi Paris
-  svcT2:  new Types.ObjectId('e00000000000000000000036'), // Taxi Madrid
+  svcH1: new Types.ObjectId('e00000000000000000000030'), // Hotel Paris
+  svcH2: new Types.ObjectId('e00000000000000000000031'), // Hotel Barcelona
+  svcH3: new Types.ObjectId('e00000000000000000000032'), // Hotel Roma
+  svcV1: new Types.ObjectId('e00000000000000000000033'), // Vuelo MAD-CDG
+  svcV2: new Types.ObjectId('e00000000000000000000034'), // Vuelo BCN-FCO
+  svcT1: new Types.ObjectId('e00000000000000000000035'), // Taxi Paris
+  svcT2: new Types.ObjectId('e00000000000000000000036'), // Taxi Madrid
   svcTr1: new Types.ObjectId('e00000000000000000000037'), // Transporte Madrid
   svcTr2: new Types.ObjectId('e00000000000000000000038'), // Transporte Barcelona
-  svcG1:  new Types.ObjectId('e00000000000000000000039'), // Guardería Madrid
-  svcG2:  new Types.ObjectId('e00000000000000000000040'), // Guardería París
-  svcG3:  new Types.ObjectId('e00000000000000000000041'), // Guardería Roma
+  svcG1: new Types.ObjectId('e00000000000000000000039'), // Guardería Madrid
+  svcG2: new Types.ObjectId('e00000000000000000000040'), // Guardería París
+  svcG3: new Types.ObjectId('e00000000000000000000041'), // Guardería Roma
 };
 
 // ─── Images (Unsplash CDN) ────────────────────────────────────────────────────
 const img = {
   hotels: {
-    paris:  ['https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80',
-             'https://images.unsplash.com/photo-1520209759809-a9bcb6cb3241?auto=format&fit=crop&w=800&q=80'],
-    bcn:    ['https://images.unsplash.com/photo-1583422409516-2895a77efded?auto=format&fit=crop&w=800&q=80',
-             'https://images.unsplash.com/photo-1523531294919-4bcd7c65e216?auto=format&fit=crop&w=800&q=80'],
-    rome:   ['https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=800&q=80',
-             'https://images.unsplash.com/photo-1525874684015-58379d421a52?auto=format&fit=crop&w=800&q=80'],
+    paris: ['https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1520209759809-a9bcb6cb3241?auto=format&fit=crop&w=800&q=80'],
+    bcn: ['https://images.unsplash.com/photo-1583422409516-2895a77efded?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1523531294919-4bcd7c65e216?auto=format&fit=crop&w=800&q=80'],
+    rome: ['https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1525874684015-58379d421a52?auto=format&fit=crop&w=800&q=80'],
   },
-  taxi:    'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80',
-  flight:  'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=800&q=80',
-  truck:   'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=800&q=80',
+  taxi: 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80',
+  flight: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=800&q=80',
+  truck: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=800&q=80',
   daycare: 'https://images.unsplash.com/photo-1587616211892-e93df0b3b1e9?auto=format&fit=crop&w=800&q=80',
 };
 
@@ -94,21 +94,21 @@ async function seed(): Promise<void> {
   console.log('🧹 Previous Europe seed cleared');
 
   const SALT = 10;
-  const PASS = await bcrypt.hash('Zenda2026!', SALT);
+  const PASS = await bcrypt.hash('Doogking2026!', SALT);
   const now = new Date();
 
   // ── 1. USUARIOS ────────────────────────────────────────────────────────────
   await db.collection('usuarios').insertMany([
-    { _id: ids.adminId,     nombre: 'Admin Zenda',     email: 'admin@zenda.eu',     passwordHash: PASS, rol: 'admin',          verificado: true,  createdAt: now, updatedAt: now },
-    { _id: ids.clienteAna,  nombre: 'Ana Martínez',    email: 'ana@example.com',    passwordHash: PASS, rol: 'cliente',         verificado: true,  createdAt: now, updatedAt: now },
-    { _id: ids.clienteLuca, nombre: 'Luca Bianchi',    email: 'luca@example.com',   passwordHash: PASS, rol: 'cliente',         verificado: true,  createdAt: now, updatedAt: now },
-    { _id: ids.clienteSoph, nombre: 'Sophie Martin',   email: 'sophie@example.com', passwordHash: PASS, rol: 'cliente',         verificado: false, createdAt: now, updatedAt: now },
-    { _id: ids.clienteJavi, nombre: 'Javier García',   email: 'javier@example.com', passwordHash: PASS, rol: 'cliente',         verificado: true,  createdAt: now, updatedAt: now },
-    { _id: ids.comAdmH,     nombre: 'María Hoteles',   email: 'maria@luxhotel.eu',  passwordHash: PASS, rol: 'comercio_admin',  verificado: true,  comercioId: ids.comHoteles, createdAt: now, updatedAt: now },
-    { _id: ids.comAdmT,     nombre: 'Pedro Taxis',     email: 'pedro@eurotaxi.eu',  passwordHash: PASS, rol: 'comercio_admin',  verificado: true,  comercioId: ids.comTaxis,   createdAt: now, updatedAt: now },
-    { _id: ids.comAdmV,     nombre: 'Laura Vuelos',    email: 'laura@skyeurope.eu', passwordHash: PASS, rol: 'comercio_admin',  verificado: true,  comercioId: ids.comVuelos,  createdAt: now, updatedAt: now },
-    { _id: ids.comAdmTr,    nombre: 'Carlos Cargo',    email: 'carlos@eurocargo.eu',passwordHash: PASS, rol: 'comercio_admin',  verificado: true,  comercioId: ids.comTransp,  createdAt: now, updatedAt: now },
-    { _id: ids.comAdmG,     nombre: 'Elena Kids',      email: 'elena@petits.eu',    passwordHash: PASS, rol: 'comercio_admin',  verificado: true,  comercioId: ids.comGuard,   createdAt: now, updatedAt: now },
+    { _id: ids.adminId, nombre: 'Admin Doogking', email: 'admin@zenda.eu', passwordHash: PASS, rol: 'admin', verificado: true, createdAt: now, updatedAt: now },
+    { _id: ids.clienteAna, nombre: 'Ana Martínez', email: 'ana@example.com', passwordHash: PASS, rol: 'cliente', verificado: true, createdAt: now, updatedAt: now },
+    { _id: ids.clienteLuca, nombre: 'Luca Bianchi', email: 'luca@example.com', passwordHash: PASS, rol: 'cliente', verificado: true, createdAt: now, updatedAt: now },
+    { _id: ids.clienteSoph, nombre: 'Sophie Martin', email: 'sophie@example.com', passwordHash: PASS, rol: 'cliente', verificado: false, createdAt: now, updatedAt: now },
+    { _id: ids.clienteJavi, nombre: 'Javier García', email: 'javier@example.com', passwordHash: PASS, rol: 'cliente', verificado: true, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmH, nombre: 'María Hoteles', email: 'maria@luxhotel.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comHoteles, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmT, nombre: 'Pedro Taxis', email: 'pedro@eurotaxi.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comTaxis, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmV, nombre: 'Laura Vuelos', email: 'laura@skyeurope.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comVuelos, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmTr, nombre: 'Carlos Cargo', email: 'carlos@eurocargo.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comTransp, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmG, nombre: 'Elena Kids', email: 'elena@petits.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comGuard, createdAt: now, updatedAt: now },
   ]);
   console.log('👥 Usuarios insertados');
 
@@ -383,21 +383,21 @@ async function seed(): Promise<void> {
 
   // ── 5. CUPONES ─────────────────────────────────────────────────────────────
   await db.collection('cupones').insertMany([
-    { _id: new Types.ObjectId('e00000000000000000000060'), codigo: 'EUROPA10',    tipo: 'porcentaje', valor: 0.10, vertical: 'global',  montoMinimo: 50,  topeDescuento: 30, usoMaximo: 200, usados: 47, activo: true, descripcion: '10% de descuento en toda Europa', createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000061'), codigo: 'PARIS20',     tipo: 'porcentaje', valor: 0.20, vertical: 'hoteles', montoMinimo: 150, topeDescuento: 60, usoMaximo: 50,  usados: 12, activo: true, descripcion: '20% en hoteles de París',         createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000062'), codigo: 'VUELO15',     tipo: 'fijo',       valor: 15,   vertical: 'vuelos',  montoMinimo: 80,  topeDescuento: 0,  usoMaximo: 100, usados: 8,  activo: true, descripcion: '€15 de descuento en vuelos',     createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000063'), codigo: 'BIENVENIDOEU',tipo: 'porcentaje', valor: 0.15, vertical: 'global',  montoMinimo: 0,   topeDescuento: 25, usoMaximo: 500, usados: 0,  activo: true, descripcion: 'Cupón de bienvenida 15%',       createdAt: now, updatedAt: now, validoHasta: new Date('2026-12-31') },
+    { _id: new Types.ObjectId('e00000000000000000000060'), codigo: 'EUROPA10', tipo: 'porcentaje', valor: 0.10, vertical: 'global', montoMinimo: 50, topeDescuento: 30, usoMaximo: 200, usados: 47, activo: true, descripcion: '10% de descuento en toda Europa', createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000061'), codigo: 'PARIS20', tipo: 'porcentaje', valor: 0.20, vertical: 'hoteles', montoMinimo: 150, topeDescuento: 60, usoMaximo: 50, usados: 12, activo: true, descripcion: '20% en hoteles de París', createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000062'), codigo: 'VUELO15', tipo: 'fijo', valor: 15, vertical: 'vuelos', montoMinimo: 80, topeDescuento: 0, usoMaximo: 100, usados: 8, activo: true, descripcion: '€15 de descuento en vuelos', createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000063'), codigo: 'BIENVENIDOEU', tipo: 'porcentaje', valor: 0.15, vertical: 'global', montoMinimo: 0, topeDescuento: 25, usoMaximo: 500, usados: 0, activo: true, descripcion: 'Cupón de bienvenida 15%', createdAt: now, updatedAt: now, validoHasta: new Date('2026-12-31') },
   ]);
   console.log('🎫 Cupones insertados');
 
   // ── 6. COMISIONES POR VERTICAL ─────────────────────────────────────────────
   await db.collection('comision_configs').insertMany([
-    { _id: new Types.ObjectId('e00000000000000000000070'), vertical: 'global',     comisionPct: 0.15, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000071'), vertical: 'hoteles',    comisionPct: 0.15, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000072'), vertical: 'vuelos',     comisionPct: 0.08, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000073'), vertical: 'taxis',      comisionPct: 0.20, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000070'), vertical: 'global', comisionPct: 0.15, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000071'), vertical: 'hoteles', comisionPct: 0.15, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000072'), vertical: 'vuelos', comisionPct: 0.08, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000073'), vertical: 'taxis', comisionPct: 0.20, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
     { _id: new Types.ObjectId('e00000000000000000000074'), vertical: 'transporte', comisionPct: 0.12, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000075'), vertical: 'guarderia',  comisionPct: 0.10, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000075'), vertical: 'guarderia', comisionPct: 0.10, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
   ]);
   console.log('💰 Comisiones insertadas');
 
@@ -410,8 +410,8 @@ async function seed(): Promise<void> {
   console.log('   · 4 reservas de ejemplo');
   console.log('   · 4 cupones de descuento');
   console.log('   · 6 configuraciones de comisión');
-  console.log('\n   Credenciales: cualquier usuario → contraseña "Zenda2026!"');
-  console.log('   Admin: admin@zenda.eu | Zenda2026!');
+  console.log('\n   Credenciales: cualquier usuario → contraseña "Doogking2026!"');
+  console.log('   Admin: admin@zenda.eu | Doogking2026!');
 }
 
 seed().catch(err => {

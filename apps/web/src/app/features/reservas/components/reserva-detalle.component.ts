@@ -1,6 +1,7 @@
 import { Component, signal, inject, OnInit, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
+import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
@@ -9,11 +10,11 @@ import { PaymentsService } from '../services/payments.service';
 type EstadoColor = 'success' | 'warning' | 'danger' | 'accent' | 'neutral';
 
 const VERTICAL_META: Record<string, { label: string; icon: string; color: string }> = {
-  hoteles:    { label: 'Hotel',       icon: 'hotel', color: '#4F72F8' },
-  vuelos:     { label: 'Vuelo',       icon: 'plane', color: '#00C9B1' },
-  taxis:      { label: 'Taxi',        icon: 'car',   color: '#F59E0B' },
-  transporte: { label: 'Transporte',  icon: 'truck', color: '#9B5CF6' },
-  guarderia:  { label: 'Guardería',   icon: 'users', color: '#EC4899' },
+  [VerticalKey.ALOJAMIENTO]:    { label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    icon: 'hotel',          color: '#08258B' },
+  [VerticalKey.TRANSPORTE]:     { label: VERTICAL_LABELS[VerticalKey.TRANSPORTE],     icon: 'truck',          color: '#FBAE17' },
+  [VerticalKey.VETERINARIA]:    { label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    icon: 'stethoscope',    color: '#16A34A' },
+  [VerticalKey.PELUQUERIA]:     { label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     icon: 'scissors',       color: '#EC4899' },
+  [VerticalKey.ADIESTRAMIENTO]: { label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], icon: 'graduation-cap', color: '#9B5CF6' },
 };
 
 const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: string; bg: string }> = {
@@ -443,7 +444,7 @@ export class ReservaDetalleComponent implements OnInit {
 
   readonly verticalMeta = computed(() => {
     const v = this.reserva()?.vertical ?? '';
-    return VERTICAL_META[v] ?? { label: v, icon: 'box', color: '#6B7280' };
+    return VERTICAL_META[v] ?? { label: v, icon: 'paw', color: '#6B7280' };
   });
 
   readonly servicioTitulo = computed(() => {
@@ -481,9 +482,10 @@ export class ReservaDetalleComponent implements OnInit {
     const detalle = this.reserva()?.detalle ?? {};
     const ignorar = new Set(['titulo', 'nombre', 'imagen', 'imagenes']);
     const LABELS: Record<string, string> = {
-      habitacion: 'Habitación', numeroPersonas: 'Personas', origen: 'Origen',
-      destino: 'Destino', tipoVehiculo: 'Tipo de vehículo', pesoKg: 'Peso (kg)',
-      modalidad: 'Modalidad', edadNino: 'Edad del niño', tipoCarga: 'Tipo de carga',
+      espacioId: 'Espacio', tamanoPerro: 'Tamaño del perro', perros: 'Perros',
+      origen: 'Origen', destino: 'Destino', distanciaKm: 'Distancia (km)',
+      tipoVehiculo: 'Tipo de vehículo', hora: 'Hora', servicio: 'Servicio',
+      modalidad: 'Modalidad', edadMeses: 'Edad (meses)',
     };
     return Object.entries(detalle)
       .filter(([k, v]) => !ignorar.has(k) && v != null && v !== '')

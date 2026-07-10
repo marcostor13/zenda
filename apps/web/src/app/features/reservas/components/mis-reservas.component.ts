@@ -1,5 +1,6 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { hotelImage } from '../../../shared/media/images';
@@ -87,7 +88,7 @@ interface ReservaCard {
           <div style="font-size:3rem;margin-bottom:var(--sp-4)">🔍</div>
           <h3>No hay reservas {{ filtroActivo() !== 'todas' ? 'con este estado' : '' }}</h3>
           <p>Cuando hagas tu primera reserva aparecerá aquí.</p>
-          <a routerLink="/hoteles" class="rs-btn rs-btn--primary" style="margin-top:var(--sp-5)">Explorar hoteles</a>
+          <a routerLink="/alojamiento" class="rs-btn rs-btn--gold" style="margin-top:var(--sp-5)">Explorar alojamientos</a>
         </div>
       }
     </div>
@@ -174,38 +175,38 @@ export class MisReservasComponent implements OnInit {
   private readonly MOCK_RESERVAS: ReservaCard[] = [
     {
       codigo: 'RES-A1B2C3',
-      vertical: 'Hotel',
-      emoji: '🏨',
-      titulo: 'Gran Hotel Madrid Salamanca',
-      subtitulo: 'Habitación Superior · 2 noches',
+      vertical: 'Alojamiento canino',
+      emoji: '🏠',
+      titulo: 'Residencia Canina Villa Perruna',
+      subtitulo: 'Suite estándar · 2 noches · 1 perro',
       imagen: hotelImage(0, 400),
       fechaInicio: '15 Jul 2026',
       fechaFin: '17 Jul 2026',
-      total: 756,
+      total: 76,
       estado: 'confirmada',
     },
     {
       codigo: 'RES-D4E5F6',
-      vertical: 'Taxi',
-      emoji: '🚗',
-      titulo: 'Traslado Aeropuerto Adolfo Suárez',
-      subtitulo: 'Madrid → Salamanca · Sedán',
+      vertical: 'Transporte de animales',
+      emoji: '🚐',
+      titulo: 'Traslado canino Madrid Centro',
+      subtitulo: 'Madrid → Toledo · Van acondicionada',
       imagen: hotelImage(7, 400),
       fechaInicio: '14 Jul 2026',
       fechaFin: '14 Jul 2026',
-      total: 95,
+      total: 45,
       estado: 'completada',
     },
     {
       codigo: 'RES-G7H8I9',
-      vertical: 'Hotel',
-      emoji: '🏨',
-      titulo: 'Belmond Madrid',
-      subtitulo: 'Suite Deluxe Vista al Mar · 3 noches',
+      vertical: 'Peluquerías caninas',
+      emoji: '✂️',
+      titulo: 'Peluquería Canina Real Grooming',
+      subtitulo: 'Baño y corte · Perro mediano',
       imagen: hotelImage(8, 400),
       fechaInicio: '20 Ago 2026',
-      fechaFin: '23 Ago 2026',
-      total: 2124,
+      fechaFin: '20 Ago 2026',
+      total: 38,
       estado: 'pendiente',
     },
   ];
@@ -283,7 +284,7 @@ export class MisReservasComponent implements OnInit {
       vertical: meta.label,
       emoji: meta.emoji,
       titulo,
-      subtitulo: `${r.cantidad} ${r.cantidad === 1 ? 'unidad' : 'unidades'}`,
+      subtitulo: this.subtituloReserva(r),
       imagen,
       fechaInicio: this.formatearFecha(r.fechaInicio),
       fechaFin: this.formatearFecha(r.fechaFin ?? r.fechaInicio),
@@ -294,13 +295,35 @@ export class MisReservasComponent implements OnInit {
 
   private verticalMeta(vertical: string): { label: string; emoji: string } {
     const map: Record<string, { label: string; emoji: string }> = {
-      hoteles:    { label: 'Hotel',      emoji: '🏨' },
-      vuelos:     { label: 'Vuelo',      emoji: '✈️' },
-      taxis:      { label: 'Taxi',       emoji: '🚗' },
-      transporte: { label: 'Transporte', emoji: '🚛' },
-      guarderia:  { label: 'Guardería',  emoji: '👶' },
+      [VerticalKey.ALOJAMIENTO]:    { label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    emoji: '🏠' },
+      [VerticalKey.TRANSPORTE]:     { label: VERTICAL_LABELS[VerticalKey.TRANSPORTE],     emoji: '🚐' },
+      [VerticalKey.VETERINARIA]:    { label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    emoji: '🩺' },
+      [VerticalKey.PELUQUERIA]:     { label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     emoji: '✂️' },
+      [VerticalKey.ADIESTRAMIENTO]: { label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], emoji: '🎓' },
     };
-    return map[vertical] ?? { label: vertical, emoji: '📦' };
+    return map[vertical] ?? { label: vertical, emoji: '🐾' };
+  }
+
+  /** Línea secundaria de la tarjeta según la lógica de reserva de cada categoría. */
+  private subtituloReserva(r: ReservaApi): string {
+    switch (r.vertical) {
+      case VerticalKey.ALOJAMIENTO:
+        return `${r.cantidad} ${r.cantidad === 1 ? 'perro' : 'perros'}`;
+      case VerticalKey.TRANSPORTE: {
+        const origen = r.detalle?.['origen'];
+        const destino = r.detalle?.['destino'];
+        return origen && destino ? `${origen} → ${destino}` : 'Trayecto';
+      }
+      case VerticalKey.VETERINARIA:
+      case VerticalKey.PELUQUERIA: {
+        const hora = r.detalle?.['hora'];
+        return hora ? `Cita · ${hora}` : 'Cita';
+      }
+      case VerticalKey.ADIESTRAMIENTO:
+        return r.detalle?.['modalidad'] === 'programa' ? 'Programa completo' : 'Sesión';
+      default:
+        return `${r.cantidad} ${r.cantidad === 1 ? 'unidad' : 'unidades'}`;
+    }
   }
 
   private normalizarEstado(estado: string): ReservaCard['estado'] {

@@ -14,14 +14,19 @@ import { DomainException } from '../../shared/exceptions/domain.exception';
 import { Transporte } from './transporte.schema';
 
 const MINUTOS_TTL = 15;
-const PESO_DEFAULT_KG = 100;
+const DISTANCIA_DEFAULT_KM = 10;
 
-interface HoldEntry { holdId: string; servicioId: string; expiraEn: Date; }
+interface HoldEntry {
+  holdId: string;
+  servicioId: string;
+  expiraEn: Date;
+}
 
 /**
- * Vertical Transporte de carga: disponible si el peso solicitado cabe en la
- * capacidad; precio = tarifaBase + tarifaKg × peso. El peso llega en
- * parametrosExtra.pesoKg.
+ * Estrategia de disponibilidad/precio del vertical Transporte de animales.
+ * Servicio por trayecto A→B: disponible si hay unidades libres y los perros
+ * solicitados caben en el vehículo. El precio es por trayecto (no por perro):
+ * tarifaBase + tarifaKm × distancia.
  */
 @Injectable()
 export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
@@ -40,17 +45,35 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
       throw new DomainException('Servicio de transporte no encontrado', 404);
     }
 
-    const pesoKg = this.pesoSolicitado(params);
-
-    if ((transporte.capacidadKg ?? 0) < pesoKg) {
-      return { disponible: false, capacidadRestante: transporte.capacidadKg ?? 0 };
+    if ((transporte.unidadesDisponibles ?? 0) <= 0) {
+      return { disponible: false };
     }
+
+    const perros = Math.max(1, params.cantidad ?? 1);
+    if (perros > transporte.capacidadPerros) {
+      return {
+        disponible: false,
+        metadata: { motivo: 'capacidad_insuficiente', capacidadPerros: transporte.capacidadPerros, perros },
+      };
+    }
+
+    const distanciaKm = this.distanciaSolicitada(params);
+    if (distanciaKm <= 0) {
+      throw new DomainException('La distancia del trayecto debe ser mayor que 0', 400);
+    }
+
+    const precioCalculado = Math.round((transporte.tarifaBase + transporte.tarifaKm * distanciaKm) * 100) / 100;
 
     return {
       disponible: true,
-      capacidadRestante: transporte.capacidadKg,
-      precioCalculado: Math.round((transporte.tarifaBase + transporte.tarifaKg * pesoKg) * 100) / 100,
-      metadata: { pesoKg, tipoCarga: transporte.tipoCarga },
+      capacidadRestante: transporte.unidadesDisponibles,
+      precioCalculado,
+      metadata: {
+        distanciaKm,
+        tipoVehiculo: transporte.tipoVehiculo,
+        capacidadPerros: transporte.capacidadPerros,
+        perros,
+      },
     };
   }
 
@@ -65,8 +88,10 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
     this.holds.delete(holdId);
   }
 
-  private pesoSolicitado(params: AvailabilityQuery): number {
-    const peso = Number(params.parametrosExtra?.['pesoKg']);
-    return Number.isFinite(peso) && peso > 0 ? peso : PESO_DEFAULT_KG;
+  private distanciaSolicitada(params: AvailabilityQuery): number {
+    const raw = params.parametrosExtra?.['distanciaKm'];
+    if (raw === undefined || raw === null) return DISTANCIA_DEFAULT_KM;
+    const distancia = Number(raw);
+    return Number.isFinite(distancia) ? distancia : DISTANCIA_DEFAULT_KM;
   }
 }

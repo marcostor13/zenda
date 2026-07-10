@@ -1,5 +1,5 @@
-import { Component, inject, signal, computed } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormControl } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -30,8 +30,9 @@ interface SearchParams {
 }
 
 const VERTICAL_ROUTES: Record<string, string> = {
-  hoteles: '/hoteles', vuelos: '/vuelos', taxis: '/taxis',
-  transporte: '/transporte', guarderia: '/guarderia',
+  alojamiento: '/alojamiento', transporte: '/transporte',
+  veterinaria: '/veterinaria', peluqueria: '/peluqueria',
+  adiestramiento: '/adiestramiento',
 };
 
 @Component({
@@ -45,17 +46,17 @@ const VERTICAL_ROUTES: Record<string, string> = {
   <div class="rs-wrap" style="padding-block:var(--sp-24) var(--sp-16);text-align:center">
 
     <p class="rs-label-caps" style="display:inline-flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-5)">
-      <rs-icon name="globe" [size]="14" [stroke]="2"></rs-icon>
-      Marketplace multi-vertical · Europa
+      <rs-icon name="paw" [size]="14" [stroke]="2"></rs-icon>
+      Servicios caninos · España
     </p>
 
     <h1 style="font-size:var(--f-hero);font-weight:var(--w-9);letter-spacing:-.04em;line-height:1.05;color:var(--t-100);margin-bottom:var(--sp-4)">
-      Reserva todo lo que<br><span class="rs-gradient-text">necesitas</span>
+      Todo para tu perro,<br><span class="rs-gradient-text">en un solo lugar</span>
     </h1>
 
     <p style="font-size:var(--f-lg);color:var(--t-300);max-width:56ch;margin-inline:auto;line-height:1.7;margin-bottom:var(--sp-10)">
-      Hoteles, vuelos, taxis, transporte y guarderías en toda Europa.
-      Encuentra el mejor precio y reserva en segundos.
+      Alojamiento, transporte, veterinarios, peluquerías y adiestramiento canino
+      en toda España. Encuentra el mejor cuidado y reserva en segundos.
     </p>
 
     <!-- ── AI SEARCH BAR ────────────────────────────────────────────── -->
@@ -67,7 +68,7 @@ const VERTICAL_ROUTES: Record<string, string> = {
         </div>
         <input
           class="ai-bar__input"
-          placeholder="Describe lo que buscas… «Hotel en París para el finde de €150»"
+          placeholder="Describe lo que buscas… «Alojamiento en Madrid para mi perro este finde»"
           [formControl]="aiQueryControl"
           (focus)="aiBarFocused.set(true)"
           (blur)="aiBarFocused.set(false)"
@@ -139,21 +140,10 @@ const VERTICAL_ROUTES: Record<string, string> = {
       <form [formGroup]="formulario" (ngSubmit)="onBuscar()">
         <div class="rs-search__row">
 
-          @if (verticalActual().key === 'vuelos') {
-            <div class="rs-field">
-              <label class="rs-lbl">Origen</label>
-              <input formControlName="ciudad" class="rs-inp" [placeholder]="verticalActual().placeholder" />
-            </div>
-            <div class="rs-field">
-              <label class="rs-lbl">Destino</label>
-              <input formControlName="destino" class="rs-inp" placeholder="Roma, Londres, CDG…" />
-            </div>
-          } @else {
-            <div class="rs-field rs-field--grow">
-              <label class="rs-lbl">{{ verticalActual().key === 'taxis' ? 'Punto de recogida' : 'Ciudad o zona' }}</label>
-              <input formControlName="ciudad" class="rs-inp" [placeholder]="verticalActual().placeholder" />
-            </div>
-          }
+          <div class="rs-field rs-field--grow">
+            <label class="rs-lbl">{{ verticalActual().key === 'transporte' ? 'Ciudad de recogida' : 'Ciudad o zona' }}</label>
+            <input formControlName="ciudad" class="rs-inp" [placeholder]="verticalActual().placeholder" />
+          </div>
 
           @if (verticalActual().mostrarFechas) {
             <div class="rs-field">
@@ -164,7 +154,7 @@ const VERTICAL_ROUTES: Record<string, string> = {
 
           @if (verticalActual().mostrarFechaFin) {
             <div class="rs-field">
-              <label class="rs-lbl">Hasta</label>
+              <label class="rs-lbl">Check-out</label>
               <input formControlName="fechaFin" type="date" class="rs-inp" />
             </div>
           }
@@ -313,12 +303,13 @@ const VERTICAL_ROUTES: Record<string, string> = {
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   `],
 })
-export class BuscadorComponent {
+export class BuscadorComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly http = inject(HttpClient);
 
-  readonly verticalSeleccionado = signal<VerticalKey>(VerticalKey.HOTELES);
+  readonly verticalSeleccionado = signal<VerticalKey>(VerticalKey.ALOJAMIENTO);
   readonly aiBarFocused = signal(false);
   readonly aiLoading = signal(false);
   readonly aiRespuesta = signal<SearchParams | null>(null);
@@ -327,25 +318,25 @@ export class BuscadorComponent {
   readonly aiQueryControl = new FormControl('', { nonNullable: true });
 
   readonly verticales: Vertical[] = [
-    { key: VerticalKey.HOTELES,    label: 'Hoteles',    icon: 'hotel', placeholder: 'París, Madrid, Roma…',        mostrarFechas: true,  mostrarFechaFin: true,  labelFechaInicio: 'Entrada' },
-    { key: VerticalKey.VUELOS,     label: 'Vuelos',     icon: 'plane', placeholder: 'Madrid, Barcelona, CDG…',     mostrarFechas: true,  mostrarFechaFin: false, labelFechaInicio: 'Fecha de salida' },
-    { key: VerticalKey.TAXIS,      label: 'Taxis',      icon: 'car',   placeholder: 'Ciudad o aeropuerto…',        mostrarFechas: true,  mostrarFechaFin: false, labelFechaInicio: 'Fecha y hora' },
-    { key: VerticalKey.TRANSPORTE, label: 'Transporte', icon: 'truck', placeholder: 'Ciudad de origen…',           mostrarFechas: false, mostrarFechaFin: false, labelFechaInicio: 'Fecha' },
-    { key: VerticalKey.GUARDERIA,  label: 'Guarderías', icon: 'users', placeholder: 'Ciudad o barrio…',            mostrarFechas: false, mostrarFechaFin: false, labelFechaInicio: 'Fecha' },
+    { key: VerticalKey.ALOJAMIENTO,    label: 'Alojamiento canino',     icon: 'hotel',          placeholder: '¿En qué ciudad buscas alojamiento para tu perro?', mostrarFechas: true, mostrarFechaFin: true,  labelFechaInicio: 'Check-in' },
+    { key: VerticalKey.TRANSPORTE,     label: 'Transporte de animales', icon: 'truck',          placeholder: 'Ciudad de recogida',                               mostrarFechas: true, mostrarFechaFin: false, labelFechaInicio: 'Fecha' },
+    { key: VerticalKey.VETERINARIA,    label: 'Veterinarios',           icon: 'stethoscope',    placeholder: 'Ciudad de la clínica',                             mostrarFechas: true, mostrarFechaFin: false, labelFechaInicio: 'Fecha de la cita' },
+    { key: VerticalKey.PELUQUERIA,     label: 'Peluquerías caninas',    icon: 'scissors',       placeholder: 'Ciudad',                                           mostrarFechas: true, mostrarFechaFin: false, labelFechaInicio: 'Fecha de la cita' },
+    { key: VerticalKey.ADIESTRAMIENTO, label: 'Adiestramiento canino',  icon: 'graduation-cap', placeholder: 'Ciudad',                                           mostrarFechas: true, mostrarFechaFin: false, labelFechaInicio: 'Fecha de la sesión' },
   ];
 
   readonly sugerencias = [
-    'Hotel en París bajo €150 este fin de semana',
-    'Vuelo Madrid → Roma en agosto para 2 personas',
-    'Taxi del aeropuerto CDG al centro de París',
-    'Guardería en Barcelona para bebé de 18 meses',
+    'Alojamiento en Madrid para mi golden este fin de semana',
+    'Transporte para mi perro de Madrid a Valencia',
+    'Veterinario en Barcelona para vacunación',
+    'Peluquería canina en Sevilla para caniche',
   ];
 
   readonly stats = [
-    { valor: '+2,400', label: 'Proveedores' },
+    { valor: '+2,400', label: 'Comercios caninos' },
     { valor: '+48K',   label: 'Reservas' },
     { valor: '4.8★',   label: 'Calificación' },
-    { valor: '5',      label: 'Verticales' },
+    { valor: '5',      label: 'Categorías' },
   ];
 
   readonly formulario = this.fb.group({
@@ -358,6 +349,19 @@ export class BuscadorComponent {
   readonly verticalActual = computed(() =>
     this.verticales.find(v => v.key === this.verticalSeleccionado()) ?? this.verticales[0]
   );
+
+  ngOnInit(): void {
+    const qp = this.route.snapshot.queryParamMap;
+    const vertical = qp.get('vertical');
+    if (vertical && Object.values(VerticalKey).includes(vertical as VerticalKey)) {
+      this.verticalSeleccionado.set(vertical as VerticalKey);
+    }
+    this.formulario.patchValue({
+      ciudad: qp.get('ciudad') ?? '',
+      fechaInicio: qp.get('desde') ?? '',
+      fechaFin: qp.get('hasta') ?? '',
+    });
+  }
 
   seleccionarVertical(vertical: VerticalKey): void {
     this.verticalSeleccionado.set(vertical);
@@ -407,7 +411,7 @@ export class BuscadorComponent {
   navigarDesdeIA(): void {
     const params = this.aiRespuesta();
     if (!params) return;
-    const ruta = VERTICAL_ROUTES[params.vertical ?? ''] ?? '/hoteles';
+    const ruta = VERTICAL_ROUTES[params.vertical ?? ''] ?? '/alojamiento';
     void this.router.navigate([ruta], {
       queryParams: {
         ciudad: params.ciudad ?? null,
@@ -421,7 +425,7 @@ export class BuscadorComponent {
   onBuscar(): void {
     const { ciudad, destino, fechaInicio, fechaFin } = this.formulario.value;
     const vertical = this.verticalSeleccionado();
-    const ruta = VERTICAL_ROUTES[vertical] ?? '/hoteles';
+    const ruta = VERTICAL_ROUTES[vertical] ?? '/alojamiento';
     void this.router.navigate([ruta], {
       queryParams: {
         ciudad: ciudad || null,

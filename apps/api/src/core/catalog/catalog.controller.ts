@@ -33,8 +33,8 @@ export class CatalogController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Buscar servicios publicados (por defecto, hoteles)' })
-  @ApiQuery({ name: 'vertical', required: false, example: 'hoteles' })
+  @ApiOperation({ summary: 'Buscar servicios publicados (por defecto, alojamiento canino)' })
+  @ApiQuery({ name: 'vertical', required: false, example: 'alojamiento' })
   @ApiQuery({ name: 'ciudad', required: false })
   @ApiQuery({ name: 'precioMin', required: false, type: Number })
   @ApiQuery({ name: 'precioMax', required: false, type: Number })

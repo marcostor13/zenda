@@ -2,15 +2,14 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { VerticalKey } from 'shared';
 import { Servicio, ServicioSchema } from './servicio.schema';
-import { Hotel, HotelSchema } from '../../verticals/hoteles/hotel.schema';
-import { Taxi, TaxiSchema } from '../../verticals/taxis/taxi.schema';
-import { Vuelo, VueloSchema } from '../../verticals/vuelos/vuelo.schema';
+import { Alojamiento, AlojamientoSchema } from '../../verticals/alojamiento/alojamiento.schema';
 import { Transporte, TransporteSchema } from '../../verticals/transporte/transporte.schema';
-import { Guarderia, GuarderiaSchema } from '../../verticals/guarderia/guarderia.schema';
+import { Veterinaria, VeterinariaSchema } from '../../verticals/veterinaria/veterinaria.schema';
+import { Peluqueria, PeluqueriaSchema } from '../../verticals/peluqueria/peluqueria.schema';
+import { Adiestramiento, AdiestramientoSchema } from '../../verticals/adiestramiento/adiestramiento.schema';
 import { CatalogRepository } from './catalog.repository';
 import { CatalogService } from './catalog.service';
 import { CatalogController } from './catalog.controller';
-import { CatalogSeeder } from './catalog.seeder';
 
 @Module({
   imports: [
@@ -19,17 +18,17 @@ import { CatalogSeeder } from './catalog.seeder';
         name: Servicio.name,
         schema: ServicioSchema,
         discriminators: [
-          { name: Hotel.name, schema: HotelSchema, value: VerticalKey.HOTELES },
-          { name: Taxi.name, schema: TaxiSchema, value: VerticalKey.TAXIS },
-          { name: Vuelo.name, schema: VueloSchema, value: VerticalKey.VUELOS },
+          { name: Alojamiento.name, schema: AlojamientoSchema, value: VerticalKey.ALOJAMIENTO },
           { name: Transporte.name, schema: TransporteSchema, value: VerticalKey.TRANSPORTE },
-          { name: Guarderia.name, schema: GuarderiaSchema, value: VerticalKey.GUARDERIA },
+          { name: Veterinaria.name, schema: VeterinariaSchema, value: VerticalKey.VETERINARIA },
+          { name: Peluqueria.name, schema: PeluqueriaSchema, value: VerticalKey.PELUQUERIA },
+          { name: Adiestramiento.name, schema: AdiestramientoSchema, value: VerticalKey.ADIESTRAMIENTO },
         ],
       },
     ]),
   ],
   controllers: [CatalogController],
-  providers: [CatalogRepository, CatalogService, CatalogSeeder],
+  providers: [CatalogRepository, CatalogService],
   exports: [MongooseModule, CatalogService, CatalogRepository],
 })
 export class CatalogModule {}

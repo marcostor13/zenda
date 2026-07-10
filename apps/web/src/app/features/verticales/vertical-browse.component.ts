@@ -5,6 +5,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
+import { pexels } from '../../shared/media/images';
 
 interface VerticalConfig {
   vertical: string;
@@ -33,50 +34,53 @@ const card = (over: Partial<ServicioCard> & { extra: Record<string, unknown> }):
 });
 
 const CONFIGS: Record<string, VerticalConfig> = {
-  vuelos: {
-    vertical: 'vuelos', eyebrow: 'Vuelos', titulo: 'Vuelos por toda', tituloHighlight: 'Europa',
-    sub: 'Compara rutas y aerolíneas. Reserva tu asiento al mejor precio.',
-    placeholder: 'Origen o destino (Madrid, París…)', cta: 'Reservar vuelo', priceLabel: 'por asiento',
-    confirmMsg: '✓ Asiento bloqueado. Continúa al pago para confirmar.',
-    badge: (c) => `✈️ ${(c.extra['aerolinea'] as string) ?? 'Vuelo'}`,
-    titulo3: (c) => c.nombre,
-    loc: (c) => `🛫 ${(c.extra['origen'] as string) ?? c.ciudad}`,
-    meta: (c) => [`💺 ${(c.extra['asientosDisponibles'] as number) ?? 0} asientos`, `🛬 ${(c.extra['destino'] as string) ?? ''}`],
-    price: (c) => (c.extra['precioAsiento'] as number) ?? c.precioPorNoche,
-    mock: [
-      card({ id: 'v1', nombre: 'Madrid (MAD) → Barcelona (BCN)', ciudad: 'Madrid', precioPorNoche: 79, score: 4.4, extra: { aerolinea: 'Iberia', origen: 'Madrid (MAD)', destino: 'Barcelona (BCN)', asientosDisponibles: 48, precioAsiento: 79 } }),
-      card({ id: 'v2', nombre: 'Barcelona (BCN) → París (CDG)', ciudad: 'Barcelona', precioPorNoche: 119, score: 4.5, extra: { aerolinea: 'Vueling', origen: 'Barcelona (BCN)', destino: 'París (CDG)', asientosDisponibles: 22, precioAsiento: 119 } }),
-      card({ id: 'v3', nombre: 'Madrid (MAD) → Roma (FCO)', ciudad: 'Madrid', precioPorNoche: 99, score: 4.6, extra: { aerolinea: 'Air Europa', origen: 'Madrid (MAD)', destino: 'Roma (FCO)', asientosDisponibles: 60, precioAsiento: 99 } }),
-    ],
-  },
-  transporte: {
-    vertical: 'transporte', eyebrow: 'Transporte de carga', titulo: 'Logística y', tituloHighlight: 'mudanzas',
-    sub: 'Transporte de mercancías por peso y ruta, con seguimiento y seguro.',
-    placeholder: '¿En qué ciudad? (Madrid, Barcelona…)', cta: 'Solicitar transporte', priceLabel: 'tarifa base',
-    confirmMsg: '✓ Te enviaremos un presupuesto según peso y ruta.',
-    badge: (c) => `📦 ${(c.extra['tipoCarga'] as string) ?? 'Carga'}`,
+  veterinaria: {
+    vertical: 'veterinaria', eyebrow: 'VETERINARIOS', titulo: 'Cuidado veterinario', tituloHighlight: 'de confianza',
+    sub: 'Clínicas verificadas para tu perro: vacunación, cirugía, dermatología y urgencias 24h.',
+    placeholder: 'Ciudad de la clínica (Madrid, Barcelona…)', cta: 'Pedir cita', priceLabel: 'consulta desde',
+    confirmMsg: '✓ Cita solicitada. Continúa al pago para confirmarla.',
+    badge: (c) => `🩺 ${(c.extra['especialidad'] as string) ?? 'Medicina general'}`,
     titulo3: (c) => c.nombre,
     loc: (c) => `📍 ${c.ciudad}`,
-    meta: (c) => [`⚖️ Hasta ${(c.extra['capacidadKg'] as number) ?? 0} kg`, `📐 ${(c.extra['capacidadM3'] as number) ?? 0} m³`],
-    price: (c) => (c.extra['tarifaBase'] as number) ?? c.precioPorNoche,
+    meta: (c) => [`💉 ${(c.extra['servicios'] as string) ?? 'Vacunación'}`, `🦴 ${(c.extra['horario'] as string) ?? ''}`],
+    price: (c) => (c.extra['precioConsulta'] as number) ?? c.precioPorNoche,
     mock: [
-      card({ id: 'tr1', nombre: 'Mudanzas Express Madrid', ciudad: 'Madrid', precioPorNoche: 150, score: 4.6, extra: { tipoCarga: 'Mudanzas', capacidadKg: 1500, capacidadM3: 20, tarifaBase: 150 } }),
-      card({ id: 'tr2', nombre: 'Carga Refrigerada Barcelona', ciudad: 'Barcelona', precioPorNoche: 220, score: 4.7, extra: { tipoCarga: 'Refrigerado', capacidadKg: 3000, capacidadM3: 30, tarifaBase: 220 } }),
+      card({ id: 'vet1', nombre: 'Clínica Veterinaria El Retiro', ciudad: 'Madrid', precioPorNoche: 35, score: 4.8, scoreLabel: 'Excepcional', numResenas: 412, imagenes: [pexels(6235233)], extra: { especialidad: 'Medicina general', servicios: 'Vacunación · Cirugía', horario: 'L-S 09:00–20:00', precioConsulta: 35 } }),
+      card({ id: 'vet2', nombre: 'Hospital Veterinario Chamberí 24h', ciudad: 'Madrid', precioPorNoche: 45, score: 4.9, scoreLabel: 'Excepcional', numResenas: 863, imagenes: [pexels(6235241)], extra: { especialidad: 'Urgencias 24h', servicios: 'Radiografía · Ecografía', horario: 'Abierto 24 horas', precioConsulta: 45 } }),
+      card({ id: 'vet3', nombre: 'Centro Veterinario La Latina', ciudad: 'Madrid', precioPorNoche: 30, score: 4.6, extra: { especialidad: 'Dermatología', servicios: 'Alergias · Piel y pelo', horario: 'L-V 10:00–19:00', precioConsulta: 30 } }),
+      card({ id: 'vet4', nombre: 'Clínica Canina Salamanca', ciudad: 'Madrid', precioPorNoche: 40, score: 4.7, numResenas: 289, extra: { especialidad: 'Traumatología', servicios: 'Cirugía ósea · Rehabilitación', horario: 'L-S 09:30–20:30', precioConsulta: 40 } }),
     ],
   },
-  guarderia: {
-    vertical: 'guarderia', eyebrow: 'Guarderías', titulo: 'Cuidado infantil', tituloHighlight: 'de confianza',
-    sub: 'Plazas por edad y modalidad (hora, día o mes), con personal titulado.',
-    placeholder: '¿En qué ciudad? (Madrid, Barcelona…)', cta: 'Reservar plaza', priceLabel: 'según modalidad',
-    confirmMsg: '✓ Plaza solicitada. Te contactaremos para formalizar la matrícula.',
-    badge: (c) => `👶 ${(c.extra['rangoEdadMin'] as number) ?? 0}-${(c.extra['rangoEdadMax'] as number) ?? 3} años`,
+  peluqueria: {
+    vertical: 'peluqueria', eyebrow: 'PELUQUERÍAS CANINAS', titulo: 'Peluquería y spa', tituloHighlight: 'para tu perro',
+    sub: 'Baño, corte, deslanado y spa con groomers profesionales, en salón o a domicilio.',
+    placeholder: 'Ciudad (Madrid, Barcelona…)', cta: 'Reservar cita', priceLabel: 'servicio desde',
+    confirmMsg: '✓ Cita de peluquería solicitada. Continúa al pago para confirmarla.',
+    badge: (c) => `✂️ ${(c.extra['servicioEstrella'] as string) ?? 'Corte y baño'}`,
     titulo3: (c) => c.nombre,
     loc: (c) => `📍 ${c.ciudad}`,
-    meta: (c) => [`🕐 ${(c.extra['horario'] as string) ?? ''}`, `🎟️ ${(c.extra['cuposDisponibles'] as number) ?? 0} cupos`],
-    price: (c) => (c.extra['precioMes'] as number) || (c.extra['precioDia'] as number) || c.precioPorNoche,
+    meta: (c) => [`🛁 ${(c.extra['servicios'] as string) ?? 'Baño completo'}`, `🐩 ${(c.extra['tamanos'] as string) ?? 'Todos los tamaños'}`],
+    price: (c) => (c.extra['precioDesde'] as number) ?? c.precioPorNoche,
     mock: [
-      card({ id: 'g1', nombre: 'Escuela Infantil Sol y Luna', ciudad: 'Madrid', precioPorNoche: 520, score: 4.9, scoreLabel: 'Excepcional', extra: { rangoEdadMin: 0, rangoEdadMax: 3, cuposDisponibles: 24, modalidad: 'mes', precioMes: 520, precioDia: 45, horario: 'L-V 07:30–18:00' } }),
-      card({ id: 'g2', nombre: 'Petits Barcelona', ciudad: 'Barcelona', precioPorNoche: 560, score: 4.8, scoreLabel: 'Excepcional', extra: { rangoEdadMin: 1, rangoEdadMax: 4, cuposDisponibles: 16, modalidad: 'dia', precioMes: 560, precioDia: 50, horario: 'L-V 08:00–17:00' } }),
+      card({ id: 'pel1', nombre: 'Doog Style Grooming', ciudad: 'Madrid', precioPorNoche: 25, score: 4.8, scoreLabel: 'Excepcional', numResenas: 356, imagenes: [pexels(6816860)], extra: { servicioEstrella: 'Corte de raza', servicios: 'Baño · Corte · Uñas', tamanos: 'Todos los tamaños', precioDesde: 25 } }),
+      card({ id: 'pel2', nombre: 'The Royal Groomer', ciudad: 'Madrid', precioPorNoche: 45, score: 4.9, scoreLabel: 'Excepcional', numResenas: 214, extra: { servicioEstrella: 'Spa premium', servicios: 'Deslanado · Spa · Perfume', tamanos: 'Medianos y grandes', precioDesde: 45 } }),
+      card({ id: 'pel3', nombre: 'Bigotes Peluquería Canina', ciudad: 'Barcelona', precioPorNoche: 30, score: 4.7, numResenas: 428, extra: { servicioEstrella: 'Baño y deslanado', servicios: 'Baño · Deslanado · Oídos', tamanos: 'Todos los tamaños', precioDesde: 30 } }),
+    ],
+  },
+  adiestramiento: {
+    vertical: 'adiestramiento', eyebrow: 'ADIESTRAMIENTO CANINO', titulo: 'Educadores caninos', tituloHighlight: 'certificados',
+    sub: 'Obediencia, modificación de conducta y educación de cachorros, por sesión o programa.',
+    placeholder: 'Ciudad (Madrid, Barcelona…)', cta: 'Reservar sesión', priceLabel: 'sesión desde',
+    confirmMsg: '✓ Sesión solicitada. Continúa al pago para confirmarla.',
+    badge: (c) => `🎓 ${(c.extra['tipoAdiestramiento'] as string) ?? 'Obediencia básica'}`,
+    titulo3: (c) => c.nombre,
+    loc: (c) => `📍 ${c.ciudad}`,
+    meta: (c) => [`🐕 ${(c.extra['modalidad'] as string) ?? 'Sesión individual'}`, `🦮 ${(c.extra['edadMinima'] as string) ?? 'Desde 3 meses'}`],
+    price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
+    mock: [
+      card({ id: 'adi1', nombre: 'Escuela Canina AlphaDog', ciudad: 'Madrid', precioPorNoche: 40, score: 4.8, scoreLabel: 'Excepcional', numResenas: 267, imagenes: [pexels(7516509)], extra: { tipoAdiestramiento: 'Obediencia básica', modalidad: 'Sesión o programa de 8', edadMinima: 'Desde 3 meses', precioSesion: 40 } }),
+      card({ id: 'adi2', nombre: 'K9 Educadores Barcelona', ciudad: 'Barcelona', precioPorNoche: 55, score: 4.9, scoreLabel: 'Excepcional', numResenas: 198, extra: { tipoAdiestramiento: 'Modificación de conducta', modalidad: 'Sesión a domicilio', edadMinima: 'Desde 6 meses', precioSesion: 55 } }),
+      card({ id: 'adi3', nombre: 'Cachorros Felices Valencia', ciudad: 'Valencia', precioPorNoche: 35, score: 4.7, numResenas: 312, extra: { tipoAdiestramiento: 'Educación de cachorros', modalidad: 'Grupos reducidos', edadMinima: 'De 2 a 6 meses', precioSesion: 35 } }),
     ],
   },
 };
@@ -187,7 +191,7 @@ export class VerticalBrowseComponent implements OnInit {
 
   private readonly useMock = true;
 
-  readonly cfg = signal<VerticalConfig>(CONFIGS['vuelos']);
+  readonly cfg = signal<VerticalConfig>(CONFIGS['veterinaria']);
   readonly cargando = signal(true);
   readonly items = signal<ServicioCard[]>([]);
   readonly solicitadoId = signal<string | null>(null);
@@ -195,8 +199,8 @@ export class VerticalBrowseComponent implements OnInit {
   readonly searchForm = this.fb.group({ ciudad: [''] });
 
   ngOnInit(): void {
-    const vertical = (this.route.snapshot.data['vertical'] as string) ?? 'vuelos';
-    this.cfg.set(CONFIGS[vertical] ?? CONFIGS['vuelos']);
+    const vertical = (this.route.snapshot.data['vertical'] as string) ?? 'veterinaria';
+    this.cfg.set(CONFIGS[vertical] ?? CONFIGS['veterinaria']);
     void this.cargar();
   }
 

@@ -3,7 +3,8 @@
 > Este documento es la guía constitucional del proyecto. Toda especificación, plan e implementación debe respetarla.
 
 ## Misión del producto
-Marketplace de reservas multi-vertical para el mercado peruano. Un solo producto que unifica 5 verticales de reserva bajo un mismo buscador, perfil de usuario, pasarela de pago y panel administrativo.
+
+Marketplace de reservas multi-vertical para el mercado europeo. Un solo producto que unifica 5 verticales de reserva bajo un mismo buscador, perfil de usuario, pasarela de pago y panel administrativo.
 
 ## Principios de arquitectura
 
@@ -31,15 +32,15 @@ Marketplace de reservas multi-vertical para el mercado peruano. Un solo producto
 
 ## Decisiones técnicas clave
 
-| Decisión | Elección | Razón |
-|---|---|---|
-| Frontend | Angular 20+ standalone | Señalado en el brief |
-| Backend | NestJS modular monolith | Modular, escalable |
-| BD | MongoDB Atlas / Mongoose | Flexibilidad de esquema para verticales |
-| Pagos | Stripe únicamente | Decisión del cliente |
-| Moneda | PEN (soles) | Mercado peruano |
-| Hosting FE | Netlify | CI/CD automático |
-| Hosting BE | Coolify (EC2) | Self-hosted, control total |
+| Decisión   | Elección                 | Razón                                   |
+| ---------- | ------------------------ | --------------------------------------- |
+| Frontend   | Angular 20+ standalone   | Señalado en el brief                    |
+| Backend    | NestJS modular monolith  | Modular, escalable                      |
+| BD         | MongoDB Atlas / Mongoose | Flexibilidad de esquema para verticales |
+| Pagos      | Stripe únicamente        | Decisión del cliente                    |
+| Moneda     | PEN (soles)              | Mercado peruano                         |
+| Hosting FE | Netlify                  | CI/CD automático                        |
+| Hosting BE | Coolify (EC2)            | Self-hosted, control total              |
 
 ## Fuera del alcance MVP
 

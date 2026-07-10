@@ -1,0 +1,371 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Doogking - Veterinarian Service Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Montserrat:wght@700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#4156b9",
+                        "inverse-on-surface": "#f0f1f2",
+                        "primary-fixed": "#dee1ff",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#454652",
+                        "on-secondary-fixed": "#281800",
+                        "surface-container-high": "#e7e8e9",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-surface": "#191c1d",
+                        "primary": "#00135d",
+                        "tertiary-fixed": "#dee1ff",
+                        "secondary-fixed-dim": "#ffba45",
+                        "surface": "#f8f9fa",
+                        "inverse-primary": "#b9c3ff",
+                        "on-background": "#191c1d",
+                        "outline-variant": "#c5c5d4",
+                        "secondary-fixed": "#ffddb0",
+                        "text-main": "#051A66",
+                        "inverse-surface": "#2e3132",
+                        "on-secondary": "#ffffff",
+                        "background": "#f8f9fa",
+                        "on-error": "#ffffff",
+                        "on-tertiary-container": "#8796e5",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "secondary-container": "#fcaf19",
+                        "tertiary-container": "#1a2b75",
+                        "tertiary": "#00135c",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#31418a",
+                        "surface-variant": "#e1e3e4",
+                        "surface-container-low": "#f3f4f5",
+                        "surface-dim": "#d9dadb",
+                        "crown-gold-light": "#FFC533",
+                        "outline": "#757684",
+                        "primary-container": "#08258b",
+                        "on-primary-fixed": "#001158",
+                        "on-primary-fixed-variant": "#273d9f",
+                        "tertiary-fixed-dim": "#b9c3ff",
+                        "surface-container": "#edeeef",
+                        "on-secondary-fixed-variant": "#614000",
+                        "on-primary-container": "#8094fa",
+                        "on-tertiary-fixed": "#001258",
+                        "secondary": "#805600",
+                        "surface-bright": "#f8f9fa",
+                        "on-secondary-container": "#694600",
+                        "divider-muted": "#8B9BBC",
+                        "surface-white": "#FFFFFF",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#b9c3ff",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-sm": "8px",
+                        "margin-mobile": "16px",
+                        "stack-lg": "32px",
+                        "container-max": "1280px",
+                        "base": "8px",
+                        "margin-desktop": "40px",
+                        "gutter": "24px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "label-caps": ["Montserrat"],
+                        "display-lg-mobile": ["Plus Jakarta Sans"],
+                        "headline-sm": ["Plus Jakarta Sans"],
+                        "button-text": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "700" }],
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "button-text": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 19, 93, 0.05);
+        }
+        
+        .premium-shadow {
+            box-shadow: 0px 4px 20px rgba(8, 37, 139, 0.05);
+        }
+        
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0px 8px 30px rgba(8, 37, 139, 0.12);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased">
+<!-- TopNav - Generated from JSON -->
+<nav class="bg-surface-white border-b border-divider-muted shadow-sm sticky top-0 z-50">
+<div class="flex justify-between items-center w-full px-margin-desktop py-4 max-w-container-max mx-auto">
+<!-- Left side: Logo -->
+<div class="flex items-center gap-gutter">
+<a href="#" class="block h-8"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAr0wL6J2VdDdIVDzs-q_F9qAcvW6uWksPKeH_I00sI6ZgrwPxHW-NRaLQVm_UazCQrOEARV31-48p5bNNgWzoCET-oLzxrdCp45dNB3jdb7F1XwPKkDmY605ekQxC2AQEy59CjklXXLumg15KDR6vQOOj6kdfDsei49g3XtgwCyqYdHG4iqk9y7I0PX2yMOHPD3zb0GsKQM4Cb_9xEsSgrgspXfW7RmFqpWqxofhjLqWOANWk7x5omuPMXhncpEpftHQ" alt="Doogking Logo" class="h-full w-auto object-contain"></a>
+<!-- Search bar on left -->
+<div class="hidden md:flex relative w-64 ml-4">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" style="font-variation-settings: 'FILL' 0;">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-white border border-divider-muted rounded-full focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-body-sm font-body-sm transition-all duration-200" placeholder="Search services..." type="text">
+</div>
+</div>
+<!-- Center/Right: Navigation -->
+<div class="hidden md:flex items-center gap-8">
+<div class="flex gap-6">
+<a class="text-on-surface-variant text-body-md font-body-md hover:text-primary transition-colors hover:bg-surface-container-low px-3 py-2 rounded-md" href="#">List your pet service</a>
+<a class="text-on-surface-variant text-body-md font-body-md hover:text-primary transition-colors hover:bg-surface-container-low px-3 py-2 rounded-md" href="#">Support</a>
+</div>
+</div>
+<!-- Right side: Actions -->
+<div class="flex items-center gap-4">
+<a class="hidden lg:flex px-6 py-2 bg-primary text-on-primary text-button-text font-button-text rounded-full hover:opacity-90 active:scale-95 transition-all" href="#">Become a partner</a>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_circle</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="w-full pb-stack-lg">
+<!-- Hero Header Image & Clinic Info -->
+<div class="relative w-full h-[400px] md:h-[500px]">
+<div class="w-full h-full bg-cover bg-center absolute inset-0" data-alt="A brightly lit, modern veterinary clinic exterior on a sunny day. The clinic features clean white architectural lines with large glass windows and tasteful Royal Blue signage. The mood is professional, welcoming, and high-end, fitting a premium pet care brand. Small manicured garden areas frame the entrance." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAvcRccCytx8AhdSvdhq_eJJWMNWAwYVJ6Obm9bjQcT2GBUUOxPdxC-02VSq1NAHqcaaxNFU_W5zd3g6UU-BnmmpiwyxE6sjIWgYWAX8ygxF8AiSHvkECjURQBIZz6Bwi_al6VRQZ4rxW3MvsuwQQb5RUP_DcDmDw5JmiahrBV5Bnws-bbfvdZ4hD-tV2BYy9Z6gWtWTRHJBwENLJh1zK9ev8WwYIV6yTmziOoSkMa9F7eyvdfcgDhW')"></div>
+<!-- Gradient Overlay for legibility -->
+<div class="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent"></div>
+<!-- Floating Content Container -->
+<div class="absolute bottom-0 w-full">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop pb-8 flex flex-col md:flex-row justify-between items-end gap-6">
+<div class="text-on-primary w-full md:w-2/3">
+<div class="flex items-center gap-2 mb-2">
+<span class="bg-crown-gold-light text-primary text-label-caps font-label-caps px-3 py-1 rounded-full">Top Rated Vet</span>
+<span class="flex items-center gap-1 text-sm"><span class="material-symbols-outlined text-crown-gold-light text-sm" style="font-variation-settings: 'FILL' 1;">star</span> 4.9 (128 Reviews)</span>
+</div>
+<h1 class="text-display-lg-mobile md:text-display-lg font-display-lg-mobile md:font-display-lg text-on-primary mb-2">Royal Paws Veterinary Center</h1>
+<p class="text-body-lg font-body-lg text-on-primary/90 flex items-center gap-2">
+<span class="material-symbols-outlined text-base">location_on</span> 124 King Street, Downtown Paws District
+                        </p>
+</div>
+<div class="w-full md:w-auto flex gap-3">
+<button class="w-full md:w-auto px-6 py-3 bg-surface-white text-primary text-button-text font-button-text rounded-full hover:bg-surface-container-low transition-colors flex items-center justify-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-primary">share</span> Share
+                        </button>
+<button class="w-full md:w-auto px-6 py-3 bg-surface-white text-primary text-button-text font-button-text rounded-full hover:bg-surface-container-low transition-colors flex items-center justify-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 0;">favorite</span> Save
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Two Column Layout: Main Content (Left) & Booking Sidebar (Right) -->
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Left Column: Details -->
+<div class="lg:col-span-8 space-y-8">
+<!-- Navigation Tabs (Sticky) -->
+<div class="sticky top-20 z-40 bg-background/95 backdrop-blur pt-4 pb-0 border-b border-divider-muted/30">
+<div class="flex gap-8 overflow-x-auto no-scrollbar">
+<a class="text-primary font-bold border-b-2 border-primary pb-3 px-1 text-button-text whitespace-nowrap" href="#overview">Overview</a>
+<a class="text-on-surface-variant font-medium hover:text-primary pb-3 px-1 text-button-text whitespace-nowrap transition-colors" href="#services">Services</a>
+<a class="text-on-surface-variant font-medium hover:text-primary pb-3 px-1 text-button-text whitespace-nowrap transition-colors" href="#reviews">Reviews</a>
+<a class="text-on-surface-variant font-medium hover:text-primary pb-3 px-1 text-button-text whitespace-nowrap transition-colors" href="#location">Location</a>
+</div>
+</div>
+<!-- Overview Section -->
+<section class="pt-4 scroll-mt-24" id="overview">
+<h2 class="text-headline-md font-headline-md text-primary mb-4">About Royal Paws</h2>
+<p class="text-body-md font-body-md text-on-surface-variant leading-relaxed mb-6">
+                        Providing the royal treatment for every dog (and cat!). Royal Paws Veterinary Center is a state-of-the-art facility dedicated to comprehensive pet health. From routine wellness exams to advanced surgical procedures, our team of specialized veterinarians ensures your furry family members receive the highest standard of care in a calm, modern environment.
+                    </p>
+<!-- Feature Grid Bento Style -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="bg-surface-white premium-shadow rounded-lg p-4 flex flex-col items-center text-center">
+<div class="w-12 h-12 bg-primary-fixed rounded-full flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-primary">local_hospital</span>
+</div>
+<span class="text-body-sm font-bold text-primary">Emergency Care</span>
+</div>
+<div class="bg-surface-white premium-shadow rounded-lg p-4 flex flex-col items-center text-center">
+<div class="w-12 h-12 bg-secondary-fixed rounded-full flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-secondary">vaccines</span>
+</div>
+<span class="text-body-sm font-bold text-secondary">Vaccinations</span>
+</div>
+<div class="bg-surface-white premium-shadow rounded-lg p-4 flex flex-col items-center text-center">
+<div class="w-12 h-12 bg-primary-fixed rounded-full flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-primary">radiology</span>
+</div>
+<span class="text-body-sm font-bold text-primary">X-Ray &amp; Lab</span>
+</div>
+<div class="bg-surface-white premium-shadow rounded-lg p-4 flex flex-col items-center text-center">
+<div class="w-12 h-12 bg-secondary-fixed rounded-full flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-secondary">healing</span>
+</div>
+<span class="text-body-sm font-bold text-secondary">Surgery</span>
+</div>
+</div>
+</section>
+<hr class="border-divider-muted/30">
+<!-- Services List Section -->
+<section class="scroll-mt-24" id="services">
+<div class="flex justify-between items-end mb-6">
+<h2 class="text-headline-md font-headline-md text-primary">Veterinary Services</h2>
+<a class="text-body-sm font-bold text-primary hover:underline" href="#">View all</a>
+</div>
+<div class="space-y-4">
+<!-- Service Item 1 -->
+<div class="bg-surface-white premium-shadow rounded-lg p-4 flex justify-between items-center hover-lift cursor-pointer border-l-4 border-crown-gold-light">
+<div class="flex items-center gap-4">
+<!-- Medical Cross Icon on Blue Circle as requested -->
+<div class="w-[80px] h-[80px] rounded-full bg-primary flex items-center justify-center flex-shrink-0"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHUyZDjkmiTLZOT0Un93iS_mK_cnXHconkA98Zl43JkgryzZmmH-YMjki4LAdTLGVDq2rjXPpCNB03JXI3xpnQAOxQPnzw5ABhqixv7VHJyICxuAoBe91gelLkJiEZozvwX3Keaj_2cnzG37f6FCreBrRuTnjzbsaw_AAu9u8thO-W630NYtTAcVcOrYQqiG9wIpoZI4rHj_-nAVRPA86ZtgxwX1AZkaBPHSG4p66O2r265qgZk-X4RXjwjyaQmeNaWw" alt="Veterinarios" class="w-full h-full rounded-full"></div>
+<div>
+<h3 class="text-headline-sm font-headline-sm text-primary mb-1">Wellness Exam</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Comprehensive head-to-tail checkup.</p>
+</div>
+</div>
+<div class="text-right">
+<div class="text-headline-sm font-headline-sm text-primary mb-1">From $65</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">30 Mins</span>
+</div>
+</div>
+<!-- Service Item 2 -->
+<div class="bg-surface-white premium-shadow rounded-lg p-4 flex justify-between items-center hover-lift cursor-pointer border-l-4 border-transparent">
+<div class="flex items-center gap-4">
+<div class="w-[80px] h-[80px] rounded-full bg-crown-gold-light flex items-center justify-center flex-shrink-0"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUI70GuZeeVi6jpdErFbtzYOn3U2fY_U7P-9jXs7Yf4vIPUBNM1Kw-Op2zEzjlaL_7kUUAbYX4qt9g3g0-j3kT6YDCc6Wc6NDvhIJghjFX0v6d11KHhA9qy0NcDQFowE10GU4aJ7D8EquF-bcn5GjV2TjxBFho6WLNJqRHzbVG1OEDR7LmjDu5LmTHM4EFHp91e_Gs1leHf2SrBpff-LPZeXHohKZ6fJuRJGJD-EjtqyIkUOFC95ogjvDTRz3tx2lELg" alt="Peluquerías" class="w-full h-full rounded-full"></div>
+<div>
+<h3 class="text-headline-sm font-headline-sm text-primary mb-1">Dental Cleaning</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Full scaling and polishing under anesthesia.</p>
+</div>
+</div>
+<div class="text-right">
+<div class="text-headline-sm font-headline-sm text-primary mb-1">From $250</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">1 Hour</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Booking Sidebar Sticky -->
+<div class="lg:col-span-4">
+<div class="sticky top-24">
+<div class="bg-surface-white rounded-xl premium-shadow border border-divider-muted/20 overflow-hidden">
+<!-- Top Accent Bar -->
+<div class="h-1 w-full bg-crown-gold-light"></div>
+<div class="p-6">
+<h3 class="text-headline-sm font-headline-sm text-primary mb-1">Book an Appointment</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mb-6">Select a date and time for your visit.</p>
+<!-- Calendar Placeholder UI -->
+<div class="mb-6">
+<div class="flex justify-between items-center mb-4">
+<span class="text-body-md font-bold text-primary">October 2024</span>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface hover:bg-primary-fixed hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface hover:bg-primary-fixed hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-1 text-center mb-2">
+<span class="text-label-caps font-label-caps text-outline">S</span>
+<span class="text-label-caps font-label-caps text-outline">M</span>
+<span class="text-label-caps font-label-caps text-outline">T</span>
+<span class="text-label-caps font-label-caps text-outline">W</span>
+<span class="text-label-caps font-label-caps text-outline">T</span>
+<span class="text-label-caps font-label-caps text-outline">F</span>
+<span class="text-label-caps font-label-caps text-outline">S</span>
+</div>
+<div class="grid grid-cols-7 gap-1 text-center">
+<!-- Decorative calendar grid -->
+<div class="py-2 text-body-sm text-outline opacity-50">29</div>
+<div class="py-2 text-body-sm text-outline opacity-50">30</div>
+<div class="py-2 text-body-sm text-on-surface hover:bg-primary-fixed rounded-md cursor-pointer transition-colors">1</div>
+<div class="py-2 text-body-sm text-on-surface hover:bg-primary-fixed rounded-md cursor-pointer transition-colors">2</div>
+<div class="py-2 text-body-sm bg-primary text-on-primary font-bold rounded-md cursor-pointer shadow-sm">3</div>
+<div class="py-2 text-body-sm text-on-surface hover:bg-primary-fixed rounded-md cursor-pointer transition-colors">4</div>
+<div class="py-2 text-body-sm text-on-surface hover:bg-primary-fixed rounded-md cursor-pointer transition-colors">5</div>
+</div>
+</div>
+<hr class="border-divider-muted/30 mb-6">
+<!-- Time Slots -->
+<div class="mb-6">
+<span class="text-body-sm font-bold text-primary block mb-3">Available Times</span>
+<div class="grid grid-cols-3 gap-2">
+<button class="py-2 border border-divider-muted rounded-md text-body-sm text-on-surface hover:border-primary hover:text-primary transition-colors">09:00 AM</button>
+<button class="py-2 border-2 border-primary bg-primary-fixed rounded-md text-body-sm font-bold text-primary transition-colors">10:30 AM</button>
+<button class="py-2 border border-divider-muted rounded-md text-body-sm text-on-surface hover:border-primary hover:text-primary transition-colors">01:00 PM</button>
+</div>
+</div>
+<!-- CTA -->
+<button class="w-full py-3 bg-crown-gold-light text-primary text-button-text font-bold rounded-lg hover:brightness-105 active:scale-95 transition-all shadow-sm">
+                                Continue Booking
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer - Generated from JSON -->
+<footer class="bg-tertiary text-on-tertiary w-full">
+<div class="w-full py-stack-lg px-margin-desktop grid grid-cols-1 md:grid-cols-4 gap-gutter max-w-container-max mx-auto">
+<!-- Brand Column -->
+<div class="flex flex-col gap-4">
+<div class="h-8 mb-2"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAh_4d1RLLzyBQ6yMAIImWzZUh-N1vXTTx2jk5cR-oyZQC5_odTIpNwMO00_pTUfJNR1FRI1ecrmlOQjreSiuusDbydJ39FHbo88fI0EMn72R_0kEhypjXDrmaOAy0CHGK7O7krEjw4dCw4-QzNbqNRNH5s-I_cd-lF9rl6aIhY7G6WqcqKY5-8dwn68BKLbkp0lPAwhHra3aBuU6-KTRkB23QnCFd75ZR5CZ4Zh0BIy33PAvTrnlvsUWd__ENs7LoTqg" alt="Doogking Logo" class="h-full w-auto object-contain"></div>
+<p class="text-body-sm font-body-sm text-on-tertiary/80">© 2024 Doogking. The Royal Treatment for Every Dog.</p>
+</div>
+<!-- Links Column 1 -->
+<div class="flex flex-col gap-3">
+<a class="text-body-sm font-body-sm text-on-tertiary/80 hover:text-crown-gold-light transition-colors" href="#">Daycare</a>
+<a class="text-body-sm font-body-sm text-on-tertiary/80 hover:text-crown-gold-light transition-colors" href="#">Transport</a>
+<a class="text-body-sm font-body-sm text-on-tertiary/80 hover:text-crown-gold-light transition-colors" href="#">Vet Services</a>
+<a class="text-body-sm font-body-sm text-on-tertiary/80 hover:text-crown-gold-light transition-colors" href="#">Grooming</a>
+</div>
+<!-- Links Column 2 -->
+<div class="flex flex-col gap-3">
+<a class="text-body-sm font-body-sm text-on-tertiary/80 hover:text-crown-gold-light transition-colors" href="#">Training</a>
+<a class="text-body-sm font-body-sm text-on-tertiary/80 hover:text-crown-gold-light transition-colors" href="#">Help Center</a>
+</div>
+<!-- Links Column 3 -->
+<div class="flex flex-col gap-3">
+<a class="text-body-sm font-body-sm text-on-tertiary/80 hover:text-crown-gold-light transition-colors" href="#">Terms of Service</a>
+<a class="text-body-sm font-body-sm text-on-tertiary/80 hover:text-crown-gold-light transition-colors" href="#">Privacy Policy</a>
+</div>
+</div>
+</footer>
+
+
+</body></html>

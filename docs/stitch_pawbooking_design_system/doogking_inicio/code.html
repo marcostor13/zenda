@@ -1,0 +1,375 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Doogking - The Royal Treatment for Every Dog</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@400;600&amp;family=Montserrat:wght@700&amp;family=Poppins:wght@700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#4156b9",
+                        "inverse-on-surface": "#f0f1f2",
+                        "primary-fixed": "#dee1ff",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#454652",
+                        "on-secondary-fixed": "#281800",
+                        "surface-container-high": "#e7e8e9",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-surface": "#191c1d",
+                        "primary": "#00135d",
+                        "tertiary-fixed": "#dee1ff",
+                        "secondary-fixed-dim": "#ffba45",
+                        "surface": "#f8f9fa",
+                        "inverse-primary": "#b9c3ff",
+                        "on-background": "#191c1d",
+                        "outline-variant": "#c5c5d4",
+                        "secondary-fixed": "#ffddb0",
+                        "text-main": "#051A66",
+                        "inverse-surface": "#2e3132",
+                        "on-secondary": "#ffffff",
+                        "background": "#f8f9fa",
+                        "on-error": "#ffffff",
+                        "on-tertiary-container": "#8796e5",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "secondary-container": "#fcaf19",
+                        "tertiary-container": "#1a2b75",
+                        "tertiary": "#00135c",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#31418a",
+                        "surface-variant": "#e1e3e4",
+                        "surface-container-low": "#f3f4f5",
+                        "surface-dim": "#d9dadb",
+                        "crown-gold-light": "#FFC533",
+                        "outline": "#757684",
+                        "primary-container": "#08258b",
+                        "on-primary-fixed": "#001158",
+                        "on-primary-fixed-variant": "#273d9f",
+                        "tertiary-fixed-dim": "#b9c3ff",
+                        "surface-container": "#edeeef",
+                        "on-secondary-fixed-variant": "#614000",
+                        "on-primary-container": "#8094fa",
+                        "on-tertiary-fixed": "#001258",
+                        "secondary": "#805600",
+                        "surface-bright": "#f8f9fa",
+                        "on-secondary-container": "#694600",
+                        "divider-muted": "#8B9BBC",
+                        "surface-white": "#FFFFFF",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#b9c3ff",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-sm": "8px",
+                        "margin-mobile": "16px",
+                        "stack-lg": "32px",
+                        "container-max": "1280px",
+                        "base": "8px",
+                        "margin-desktop": "40px",
+                        "gutter": "24px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "label-caps": ["Montserrat"],
+                        "display-lg-mobile": ["Plus Jakarta Sans"],
+                        "headline-sm": ["Plus Jakarta Sans"],
+                        "button-text": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "poppins": ["Poppins"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "700" }],
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "button-text": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface-white dark:bg-surface-container-low text-primary dark:text-inverse-primary border-b border-divider-muted dark:border-outline-variant shadow-sm w-full sticky top-0 z-50">
+<div class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 max-w-container-max mx-auto">
+<!-- Brand Logo -->
+<a class="font-headline-lg text-headline-lg font-extrabold text-primary dark:text-inverse-primary tracking-tight" href="#"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKZu75x64ZWpbX_BCr0k9b313YaodaBMANKxZZtgt-j-W4RMXScpmXelodBR3S03GFQBmxY_N0zx7LNP2FaANUYEOQwkaYHmjdRmWOThZCsHGyIzf95JZ7QapdsQcnLoUvufg2DfOeiCobQsZZWuixIYrkxo4UT4j44va2f9CoPT1Pkes05qoXOOGfpXldLpqyYhcHSX7VqpFHnSkoOOM5nmsO6xzyLnUh6S_C-7HTpx9pBkgqAGDzbnN_riBvi6oGSA" alt="Doogking Logo" class="h-8 w-auto object-contain"></a>
+<!-- Search Bar (Desktop) -->
+<div class="hidden md:flex flex-1 max-w-md mx-gutter items-center bg-surface-container-low rounded-full px-4 py-2 border border-divider-muted focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-outline mr-2" style="font-variation-settings: 'FILL' 0;">search</span>
+<input class="bg-transparent border-none focus:ring-0 w-full text-body-md text-on-surface placeholder:text-outline outline-none" placeholder="Search services..." type="text">
+</div>
+<!-- Navigation & Actions -->
+<div class="flex items-center gap-gutter">
+<div class="hidden md:flex gap-stack-md">
+<a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-inverse-surface transition-colors px-3 py-2 rounded-md font-button-text text-button-text" href="#">List your pet service</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-inverse-surface transition-colors px-3 py-2 rounded-md font-button-text text-button-text" href="#">Support</a>
+</div>
+<a class="hidden lg:flex bg-primary text-on-primary hover:opacity-90 active:scale-95 transition-all px-6 py-2 rounded-full font-button-text text-button-text" href="#">Become a partner</a>
+<div class="flex items-center gap-stack-sm">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_circle</span>
+</button>
+</div>
+</div>
+</div>
+</nav>
+<main class="flex-grow">
+<!-- Hero Section with Search Engine -->
+<section class="relative min-h-[80vh] flex items-center justify-center px-margin-mobile md:px-margin-desktop py-12 md:py-24 overflow-hidden">
+<!-- Background Image -->
+<div class="absolute inset-0 z-0">
+<div class="bg-cover bg-center w-full h-full absolute inset-0" data-alt="A professional, high-end photography shot of a joyful golden retriever running in a lush, green, sunlit park. The lighting is bright and warm, conveying a sense of energy, premium care, and happiness. The scene is shot from a slightly low angle to give the dog a majestic appearance, fitting the 'royal treatment' brand identity. The background is softly blurred to keep focus on the dog." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCF2akf3iNx-McqxZIwNnNKKNQlka_Uqwo1MfaFtm-DcARF33BMLyd_Cy1cvTz-O07oXXeRIpyJoZ6JBHPlRG9jgDZQ3TB1CHXEfNa1SEx8RpiNEtoEkj6K9ykbRRJPdfvQg8ECuI9Xhmxz2VRtu9na3p9bYF4qgpkwA_7HDLKy20gC3cxb7Ox8apCwFAxcPvKUukmFIaztw_Qw_9Gc142P2kKhYRddIKgt8LBD7u27rxlrwyWKvo1n')"></div>
+<!-- Gradient Overlay for readability -->
+<div class="absolute inset-0 bg-gradient-to-r from-surface-white/90 via-surface-white/70 to-transparent"></div>
+</div>
+<div class="relative z-10 w-full max-w-container-max mx-auto grid grid-cols-1 lg:grid-cols-2 gap-gutter items-center">
+<div class="flex flex-col gap-stack-lg max-w-2xl">
+<h1 class="font-poppins text-display-lg-mobile md:text-display-lg font-extrabold text-primary leading-tight tracking-tight">
+                        TODO PARA SU REY, <br><span class="text-crown-gold-light">EN UN SOLO LUGAR</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-lg">
+                        Book premium daycares, trusted vets, and royal grooming services for your dog. The easiest way to ensure they get the treatment they deserve.
+                    </p>
+<!-- Search Engine Bento Box -->
+<div class="bg-surface-white rounded-xl shadow-[0px_8px_30px_rgba(8,37,139,0.12)] p-stack-md md:p-stack-lg border border-divider-muted/20">
+<form class="flex flex-col gap-stack-md">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-md">
+<!-- Service Type -->
+<div class="flex flex-col gap-1">
+<label class="font-label-caps text-label-caps text-on-surface-variant uppercase">Service</label>
+<div class="relative flex items-center border border-divider-muted rounded-md focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors bg-surface">
+<span class="material-symbols-outlined text-outline ml-3" style="font-variation-settings: 'FILL' 0;">pets</span>
+<select class="w-full bg-transparent border-none focus:ring-0 text-body-md text-on-surface py-3 pl-2 pr-10 appearance-none outline-none">
+<option>Dog Daycare</option>
+<option>Grooming</option>
+<option>Veterinary</option>
+<option>Training</option>
+<option>Transport</option>
+</select>
+</div>
+</div>
+<!-- Location -->
+<div class="flex flex-col gap-1">
+<label class="font-label-caps text-label-caps text-on-surface-variant uppercase">Location</label>
+<div class="relative flex items-center border border-divider-muted rounded-md focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors bg-surface">
+<span class="material-symbols-outlined text-outline ml-3" style="font-variation-settings: 'FILL' 0;">location_on</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-body-md text-on-surface py-3 px-2 outline-none" placeholder="City or zip code" type="text">
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-stack-md">
+<!-- Dates -->
+<div class="md:col-span-2 flex flex-col gap-1">
+<label class="font-label-caps text-label-caps text-on-surface-variant uppercase">Dates</label>
+<div class="relative flex items-center border border-divider-muted rounded-md focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors bg-surface">
+<span class="material-symbols-outlined text-outline ml-3" style="font-variation-settings: 'FILL' 0;">calendar_today</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-body-md text-on-surface py-3 px-2 outline-none" placeholder="Check in - Check out" type="text">
+</div>
+</div>
+<!-- Dogs -->
+<div class="flex flex-col gap-1">
+<label class="font-label-caps text-label-caps text-on-surface-variant uppercase">Dogs</label>
+<div class="relative flex items-center border border-divider-muted rounded-md focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors bg-surface">
+<span class="material-symbols-outlined text-outline ml-3" style="font-variation-settings: 'FILL' 0;">group</span>
+<select class="w-full bg-transparent border-none focus:ring-0 text-body-md text-on-surface py-3 pl-2 pr-10 appearance-none outline-none">
+<option>1 Dog</option>
+<option>2 Dogs</option>
+<option>3+ Dogs</option>
+</select>
+</div>
+</div>
+</div>
+<button class="w-full bg-crown-gold-light text-primary hover:bg-crown-gold-light/90 active:scale-[0.98] transition-all py-4 rounded-md font-button-text text-button-text shadow-sm mt-2 flex items-center justify-center gap-2" type="button">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">search</span>
+                                Search Royal Services
+                            </button>
+</form>
+</div>
+</div>
+</div>
+</section>
+<!-- Service Badges Section -->
+<section class="py-16 md:py-24 px-margin-mobile md:px-margin-desktop bg-surface-bright">
+<div class="max-w-container-max mx-auto">
+<div class="text-center mb-12">
+<h2 class="font-poppins text-headline-lg font-bold text-primary mb-4">Our Royal Services</h2>
+<p class="font-body-md text-on-surface-variant max-w-2xl mx-auto">Everything you need to give your dog the ultimate care, categorized for your convenience.</p>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-stack-lg max-w-4xl mx-auto justify-items-center">
+<!-- Guardería (Blue) -->
+<a class="flex flex-col items-center gap-stack-sm group" href="#">
+<div class="w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-sm group-hover:-translate-y-1 transition-transform duration-300 relative"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcHli6bPyTRUYBTwpqkWzGfrju_iwGFwowqmXgsifEsPy916OWvan1buZGK7Q9ZQyITpgJq-GDe2K4IQ7exuo4mmgPlZlkhbUHe0lwvTYGpi4l4rQOY9B51KxEx3V1-T8F0bfZsHl0AQcWGz2b8c2WB1mbjiw3NfaoHIetpgH1qti-4QoiZOvsDHkLBVpi2YH-6m5-rG8qhnMcCI-KyxPEK_kgdoeYi0H8wOS7xBD70lPEBrK9rHDZONQWIy3mlElEyw" alt="Icon Guardería Canina" class="w-full h-full object-cover rounded-full"></div>
+<span class="font-button-text text-body-md text-on-surface group-hover:text-primary transition-colors">Guardería</span>
+</a>
+<!-- Adiestradores (Gold) -->
+<a class="flex flex-col items-center gap-stack-sm group" href="#">
+<div class="w-20 h-20 rounded-full bg-crown-gold-light flex items-center justify-center shadow-sm group-hover:-translate-y-1 transition-transform duration-300 relative"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkuWAZYi79rcvW93kKAfJCOMVUrzauy34Ixrod_kGQFGf5uWbETyMKlRNL-VcoSBnPt39w6WNIDmFF8SGQxHdmHHb4LbnYmqrXgsKiYdTxHF2mFEMlVZiFh1ycXoFj9eYtj8JNj8YwOa1G4Vbgyg6WRYwHZ29EQxqrjkvqYrrXn5AAuusLrx7f3MNHa-JdCjySEZk-X-QqpF4p0dbL7ER1EyhA0VrbV9ParOx7ASogI4o6UtKGh2EJEVPc7qnjP52Q8w" alt="Icon Adiestradores" class="w-full h-full object-cover rounded-full"></div>
+<span class="font-button-text text-body-md text-on-surface group-hover:text-primary transition-colors">Adiestradores</span>
+</a>
+<!-- Veterinarios (Blue) -->
+<a class="flex flex-col items-center gap-stack-sm group" href="#">
+<div class="w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-sm group-hover:-translate-y-1 transition-transform duration-300 relative"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtzn9dodGTuyGRnwNRX_Mu1wyiA0gden3JyguzTwug5IaA_IUUCt02Tqv3XVU4m3qvjncza9Rxjr1WgKMF5UnchMYjTqwBiCE2fyFnOOThxip_OLPaMUqkyVvT5aPS7VZdvyU5B-mCZMAxEW2QcHhw9hOGqneqo8FBhbz8UDMsHT9UKWcKgVnfDwr-4X-u7PKtSCEfhECB0BbPtV6NGqgJU9Sd-Bjvx9xtFGvnzfTIiDmyPLL5UmNMJpTSn9oI5zHh-g" alt="Icon Veterinarios" class="w-full h-full object-cover rounded-full"></div>
+<span class="font-button-text text-body-md text-on-surface group-hover:text-primary transition-colors">Veterinarios</span>
+</a>
+<!-- Peluquerías (Gold) -->
+<a class="flex flex-col items-center gap-stack-sm group" href="#">
+<div class="w-20 h-20 rounded-full bg-crown-gold-light flex items-center justify-center shadow-sm group-hover:-translate-y-1 transition-transform duration-300 relative"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAP79CaWAV8nduP-ulS9B4v3XsbOX3BdIJYnb7asNcJRJz0M-9av6uy6AnQ7TpwMrg4B6xDhs-wZuaqgXG__e26473Xsd7cIg4T2hxnMmojA5wwlWn8Xs6DyVPUFd5MGbBCFpkl6ohUyG742cSSiL5vl6KhCf8N2_Y98ixUov1vmIRtKJ1D5BwSamuqgWlDOszvfq2ovTC83D02SyY02Qt4OYKBy7yNhtunoJ7qyD-7UqmF1LwKbpRW-DoBOvQ5-xYcFA" alt="Icon Peluquerías" class="w-full h-full object-cover rounded-full"></div>
+<span class="font-button-text text-body-md text-on-surface group-hover:text-primary transition-colors">Peluquerías</span>
+</a>
+<!-- Transporte (Blue) -->
+<a class="flex flex-col items-center gap-stack-sm group col-span-2 md:col-span-1" href="#">
+<div class="w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-sm group-hover:-translate-y-1 transition-transform duration-300 relative"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOR9Z_8rF0vuCykTUrQSsrxLvsHVrZPK1j_WmCilamDcW6ewPd9ITcDfmIEnXcHUk3qNTiSiOCd3_ggcOhk_Pbez3hpXyHlQxnvQoWPU7toDRbilpTV3GSVGCXXeUYNdZL_fEMNTRvGZWcCMwV6WCCVYkx8swtLoeU32bBTKS1g6zLInnuHZ1vSQTI-dC-u5W50EbN5ank5nIw-f4Jm7VVswnTupUag9MKcTh9tzoNLOp1M-U1Q6rlGxhv9h8N9Cgp-Q" alt="Icon Transporte" class="w-full h-full object-cover rounded-full"></div>
+<span class="font-button-text text-body-md text-on-surface group-hover:text-primary transition-colors">Transporte</span>
+</a>
+</div>
+</div>
+</section>
+<!-- Recommended Stays Section -->
+<section class="py-16 md:py-24 px-margin-mobile md:px-margin-desktop bg-surface">
+<div class="max-w-container-max mx-auto">
+<div class="flex justify-between items-end mb-12">
+<div>
+<h2 class="font-poppins text-headline-lg font-bold text-primary mb-2">Recommended Stays</h2>
+<p class="font-body-md text-on-surface-variant">Top-rated dog daycares for your furry king or queen.</p>
+</div>
+<a class="hidden md:flex items-center gap-2 text-primary font-button-text hover:underline" href="#">
+                        See all <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Card 1 -->
+<div class="bg-surface-white rounded-lg shadow-[0px_4px_20px_rgba(8,37,139,0.05)] overflow-hidden border border-divider-muted/10 group cursor-pointer hover:shadow-[0px_8px_30px_rgba(8,37,139,0.12)] transition-shadow relative">
+<div class="absolute top-0 left-0 right-0 h-1 bg-crown-gold-light z-10"></div>
+<div class="h-48 w-full relative overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A clean, modern indoor dog daycare facility with colorful play equipment. Several happy dogs of various breeds are playing together under bright, even lighting. The environment looks premium, hygienic, and fun." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoICuTk2e4Uce0IgMfeeJ6EQMTM89-gY7qx_iZoRki9b3T--jGF_N1zAIlxIXdJ3qp1y-dI5ZMe-ZVFPWRIhrNYe70iDSOQsvCekPnNljtenP0_8Ci-urQDef8vtNpvpG4E5BODYGQargdCmgELcdQreZCaG70MuYQHe2AApEW6N7LNn3UDY8sov_FMKMYnrPSn7b-sFX5Ku8M9jWB51KnUk8TrDKbUGmYoHle8nx8SoTJSm2J4GDe">
+<div class="absolute top-3 right-3 bg-surface-white/90 backdrop-blur-sm px-2 py-1 rounded text-sm font-bold text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-crown-gold-light" style="font-variation-settings: 'FILL' 1;">star</span> 4.9
+                            </div>
+</div>
+<div class="p-stack-md flex flex-col gap-2">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">The Royal Paws Resort</h3>
+<span class="text-primary font-bold">€35<span class="text-sm font-normal text-on-surface-variant">/day</span></span>
+</div>
+<p class="text-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-outline">location_on</span> Madrid City Center
+                            </p>
+<div class="mt-4 flex gap-2">
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">Indoor Play</span>
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">Pool</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-white rounded-lg shadow-[0px_4px_20px_rgba(8,37,139,0.05)] overflow-hidden border border-divider-muted/10 group cursor-pointer hover:shadow-[0px_8px_30px_rgba(8,37,139,0.12)] transition-shadow relative">
+<div class="absolute top-0 left-0 right-0 h-1 bg-crown-gold-light z-10"></div>
+<div class="h-48 w-full relative overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A spacious outdoor dog park area belonging to a premium daycare. Green grass, shady trees, and agility equipment are visible. A large, fluffy dog is running happily towards the camera in warm afternoon sunlight." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYHVb7BRVZUln8CFocF24lSodHx3B48Tqxm488JEqjrb22-Bf7--gW-YrhoCOX8RbJxvX_Dk7FWL7ZvqXV0VAKTyofFCvLsvcadE7rjfdcAibcTU17tQHrwJKTzJcyQV_5IaWHKPHrM0aPBH1U2vgjoQdWsqL9Y79WS4m_4XcbMluN9a4Y_eSOp3kF2E02P8f_BBSxnN7skIjWWa_xsQglyMNPql-kz1YpTttufO9r9onMqam63DJ7">
+<div class="absolute top-3 right-3 bg-surface-white/90 backdrop-blur-sm px-2 py-1 rounded text-sm font-bold text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-crown-gold-light" style="font-variation-settings: 'FILL' 1;">star</span> 4.8
+                            </div>
+</div>
+<div class="p-stack-md flex flex-col gap-2">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">Canine Country Club</h3>
+<span class="text-primary font-bold">€40<span class="text-sm font-normal text-on-surface-variant">/day</span></span>
+</div>
+<p class="text-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-outline">location_on</span> Barcelona Outskirts
+                            </p>
+<div class="mt-4 flex gap-2">
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">Huge Yard</span>
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">Agility</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-white rounded-lg shadow-[0px_4px_20px_rgba(8,37,139,0.05)] overflow-hidden border border-divider-muted/10 group cursor-pointer hover:shadow-[0px_8px_30px_rgba(8,37,139,0.12)] transition-shadow relative">
+<div class="absolute top-0 left-0 right-0 h-1 bg-crown-gold-light z-10"></div>
+<div class="h-48 w-full relative overflow-hidden bg-surface-container-low">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A cozy, boutique-style indoor dog sitting space with plush dog beds and soft lighting. A small terrier is resting comfortably. The interior design is modern, clean, and welcoming, reflecting a high-end service." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD88e9pTENtfjngLawi6KvCuxzV0kuPbN51gALLFKlVhc19F9PB7nCcMY2g_3i1MO3d36UErAAZWtv1sPyveRdm1c8H8qkhXkt1PjVYi0v20acPVPOcGKVTEnkQmRLjR-kiPHyIx2Pm8bj_95JuxzZxWoBA7vkwcZePQYL1ZXkFY1rF-jL02FNXkvMFHByVOyecAHO-0UmlE0J9Z0cOaSU35CuV5dFmVlqOBBz_otSpmpq29engFbxR">
+<div class="absolute top-3 right-3 bg-surface-white/90 backdrop-blur-sm px-2 py-1 rounded text-sm font-bold text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-crown-gold-light" style="font-variation-settings: 'FILL' 1;">star</span> 5.0
+                            </div>
+</div>
+<div class="p-stack-md flex flex-col gap-2">
+<div class="flex justify-between items-start">
+<h3 class="font-headline-sm text-headline-sm font-semibold text-on-surface">Boutique Barkery &amp; Stay</h3>
+<span class="text-primary font-bold">€50<span class="text-sm font-normal text-on-surface-variant">/day</span></span>
+</div>
+<p class="text-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-outline">location_on</span> Valencia Central
+                            </p>
+<div class="mt-4 flex gap-2">
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">Spa Included</span>
+<span class="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">Small Dogs</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-8 text-center md:hidden">
+<a class="inline-flex items-center gap-2 text-primary font-button-text font-semibold hover:underline" href="#">
+                        See all stays <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-tertiary dark:bg-tertiary-container text-on-tertiary dark:text-on-tertiary-container w-full mt-auto">
+<div class="w-full py-stack-lg px-margin-mobile md:px-margin-desktop grid grid-cols-1 md:grid-cols-4 gap-gutter max-w-container-max mx-auto font-body-sm text-body-sm">
+<div class="flex flex-col gap-4 col-span-1 md:col-span-1">
+<img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAF-YmRcjo1QeUj5O2vCU7_GPuh8cMRTFGCdsT2xUIvVssmh79Xi75MJYYUW8lYAjPyfNkv_CIzaVWGbUA4IO8xehJeZXzXWac98NoS2F6pQNTJGCHskvrlWVkixXzLrVqsGNuRK8l02fVvGXMkICmhF-NsHqAUeO2_SSFZSjCiGLQZ9BiBhet0eC-E3mXciHu3U-0QbK-TPbGjwiu7Imd0mAMDT9jTw8iP3b6ST_P4EqZaElCN7WvIvhbtk1Bx0SGoFg" alt="Doogking Logo" class="h-8 w-auto object-contain brightness-0 invert">
+<p class="text-on-tertiary/80 dark:text-on-tertiary-container/80 mt-2">The Royal Treatment for Every Dog.</p>
+</div>
+<div class="flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-tertiary/60 mb-2">Services</span>
+<a class="text-on-tertiary/80 dark:text-on-tertiary-container/80 hover:text-crown-gold-light transition-colors py-1" href="#">Daycare</a>
+<a class="text-on-tertiary/80 dark:text-on-tertiary-container/80 hover:text-crown-gold-light transition-colors py-1" href="#">Transport</a>
+<a class="text-on-tertiary/80 dark:text-on-tertiary-container/80 hover:text-crown-gold-light transition-colors py-1" href="#">Vet Services</a>
+</div>
+<div class="flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-tertiary/60 mb-2">More</span>
+<a class="text-on-tertiary/80 dark:text-on-tertiary-container/80 hover:text-crown-gold-light transition-colors py-1" href="#">Grooming</a>
+<a class="text-on-tertiary/80 dark:text-on-tertiary-container/80 hover:text-crown-gold-light transition-colors py-1" href="#">Training</a>
+</div>
+<div class="flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-on-tertiary/60 mb-2">Support</span>
+<a class="text-on-tertiary/80 dark:text-on-tertiary-container/80 hover:text-crown-gold-light transition-colors py-1" href="#">Help Center</a>
+<a class="text-on-tertiary/80 dark:text-on-tertiary-container/80 hover:text-crown-gold-light transition-colors py-1" href="#">Terms of Service</a>
+<a class="text-on-tertiary/80 dark:text-on-tertiary-container/80 hover:text-crown-gold-light transition-colors py-1" href="#">Privacy Policy</a>
+</div>
+<div class="col-span-1 md:col-span-4 mt-8 pt-8 border-t border-on-tertiary/10 text-center md:text-left text-on-tertiary/60 text-xs">
+                © 2024 Doogking. The Royal Treatment for Every Dog.
+            </div>
+</div>
+</footer>
+
+
+</body></html>

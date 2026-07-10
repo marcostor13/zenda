@@ -13,11 +13,11 @@ import { NotificationsModule } from './core/notifications/notifications.module';
 import { AdminModule } from './core/admin/admin.module';
 import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
 import { CuponesModule } from './core/cupones/cupones.module';
-import { HotelesModule } from './verticals/hoteles/hoteles.module';
-import { TaxisModule } from './verticals/taxis/taxis.module';
-import { VuelosModule } from './verticals/vuelos/vuelos.module';
+import { AlojamientoModule } from './verticals/alojamiento/alojamiento.module';
 import { TransporteModule } from './verticals/transporte/transporte.module';
-import { GuarderiaModule } from './verticals/guarderia/guarderia.module';
+import { VeterinariaModule } from './verticals/veterinaria/veterinaria.module';
+import { PeluqueriaModule } from './verticals/peluqueria/peluqueria.module';
+import { AdiestramientoModule } from './verticals/adiestramiento/adiestramiento.module';
 import { UploadModule } from './core/upload/upload.module';
 import { AiSearchModule } from './core/ai-search/ai-search.module';
 
@@ -42,11 +42,11 @@ import { AiSearchModule } from './core/ai-search/ai-search.module';
     AdminModule,
     ComisionConfigsModule,
     CuponesModule,
-    HotelesModule,
-    TaxisModule,
-    VuelosModule,
+    AlojamientoModule,
     TransporteModule,
-    GuarderiaModule,
+    VeterinariaModule,
+    PeluqueriaModule,
+    AdiestramientoModule,
     UploadModule,
     AiSearchModule,
   ],

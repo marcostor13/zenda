@@ -30,7 +30,7 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="admin-header">
         <div>
           <h1>Panel Administrativo</h1>
-          <p>Zenda · Panel de Control</p>
+          <p>Doogking · Panel de Control</p>
         </div>
         <div style="display:flex;gap:var(--sp-3)">
           <a routerLink="/admin/cupones" class="rs-btn rs-btn--secondary rs-btn--sm">🎟️ Cupones</a>

@@ -1,6 +1,8 @@
-# /design-tokens — Referencia rápida del design system de Reservalo
+# /design-tokens — Referencia rápida del design system de Doogking
 
 Muestra la referencia completa de tokens y clases disponibles, o busca un token específico.
+
+> Fuente de verdad: `apps/web/src/styles.scss` (v3 "Royal Canine"). Especificación de diseño: `docs/kitui.md` + `docs/stitch_pawbooking_design_system/`.
 
 ## Uso
 
@@ -15,123 +17,109 @@ Muestra la referencia completa de tokens y clases disponibles, o busca un token 
 
 ## Referencia completa
 
-### Colores — fondos
+### Marca Doogking
 | Token | Valor | Uso |
 |---|---|---|
-| `--bg-base` | `#080D1A` | Fondo principal de la app |
-| `--bg-elevated` | `#0F1629` | Fondo de secciones elevadas |
-| `--bg-card` | `#141E35` | Cards y paneles |
-| `--bg-surface` | `#1C2B47` | Superficies interactivas |
-| `--bg-subtle` | `#243357` | Hover states |
-| `--bg-light` | `#F8FAFC` | Modo claro / secciones blancas |
+| `--dk-blue` | `#08258B` | Royal King Blue — primario (botones, headings, links) |
+| `--dk-blue-deep` | `#00135D` | Deep — footer navy, hover del primario |
+| `--dk-blue-text` | `#051A66` | Deep Shadow Blue — texto fuerte |
+| `--dk-gold` | `#FBAE17` | Crown Gold — CTA destacado (Reservar/Buscar), acentos, estrellas |
+| `--dk-gold-light` | `#FFC533` | Extremo claro del gradiente dorado |
+| `--dk-divider` | `#8B9BBC` | Divisores verticales entre módulos de servicio |
+
+### Colores — fondos (tema claro)
+| Token | Valor | Uso |
+|---|---|---|
+| `--c-base` | `#F8F9FA` | Fondo principal de la app |
+| `--c-raised` | `#F3F4F5` | Superficies ligeramente elevadas |
+| `--c-card` | `#FFFFFF` | Cards y paneles (blanco puro) |
+| `--c-surface` | `#EDEEEF` | Superficies interactivas |
+| `--c-overlay` | `#E1E3E4` | Overlays claros |
+| `--c-light` | `#00135D` | Secciones navy (footer) |
+| `--c-light-2` | `#08258B` | Secciones azul real |
 
 ### Colores — accent
 | Token | Uso |
 |---|---|
-| `--accent` | `#4F72F8` — color principal del botón primary |
-| `--accent-hover` | `#3B5BDB` — hover de accent |
-| `--accent-light` | `#6B8AFA` — texto sobre fondo oscuro, links |
-| `--accent-subtle` | `rgba(79,114,248,0.12)` — fondos suaves |
-| `--accent-gradient` | `linear-gradient(135deg, #4F72F8, #8B5CF6)` — gradiente principal |
+| `--c-accent` | `#08258B` — igual a --dk-blue |
+| `--c-accent-h` | `#00135D` — hover |
+| `--c-accent-lo` | `rgba(8,37,139,.08)` — fondos suaves azules |
+| `--c-amber` | `#FBAE17` — igual a --dk-gold |
+| `--c-pink` | `#FFC533` — gold light (legacy alias) |
+| `--c-purple` / `--c-teal` | `#4156B9` — azul secundario (legacy alias) |
+
+### Gradientes
+| Token | Valor |
+|---|---|
+| `--g-accent` | azul real → azul secundario (135deg) |
+| `--g-warm` | `#FBAE17 → #FFC533` — gradiente dorado (CTA, corona) |
+| `--g-hero` | radiales azul/dorado suaves sobre --c-base |
 
 ### Colores — texto
 | Token | Uso |
 |---|---|
-| `--text-primary` | `#F0F4FF` — textos principales |
-| `--text-secondary` | `#94A3B8` — textos secundarios |
-| `--text-muted` | `#64748B` — placeholders, hints |
-| `--text-dark` | `#0F172A` — texto en fondos claros |
+| `--t-100` | `#051A66` — headings, texto principal |
+| `--t-200` | `#1E2A4A` — texto de cuerpo |
+| `--t-300` | `#454652` — secundario |
+| `--t-400` | `#6E7387` — muted, labels |
+| `--t-500` | `#9AA1B5` — placeholders |
 
 ### Tipografía
 | Token | Valor |
 |---|---|
-| `--font-sans` | Inter, -apple-system, … |
-| `--text-xs` | 12px |
-| `--text-sm` | 14px |
-| `--text-base` | 16px |
-| `--text-lg` | 18px |
-| `--text-xl` | 20px |
-| `--text-2xl` | 24px |
-| `--text-3xl` | 30px |
-| `--text-4xl` | 36px |
-| `--text-5xl` | 48px |
-| `--text-6xl` | 60px |
-| `--fw-normal` | 400 |
-| `--fw-medium` | 500 |
-| `--fw-semibold` | 600 |
-| `--fw-bold` | 700 |
-| `--fw-extrabold` | 800 |
+| `--font` | Inter (cuerpo, botones) |
+| `--font-display` | Plus Jakarta Sans (headings h1–h6, .rs-display) |
+| `--font-accent` | Montserrat 700 (slogan, .rs-label-caps) |
+| `--f-xs`…`--f-6xl` | 11 → 72px |
+| `--f-hero` | clamp responsive para heros |
+| `--w-3`…`--w-9` | pesos 300 → 900 |
 
 ### Espaciado (base 4px)
-| Token | px | Token | px |
-|---|---|---|---|
-| `--s-1` | 4 | `--s-8` | 32 |
-| `--s-2` | 8 | `--s-10` | 40 |
-| `--s-3` | 12 | `--s-12` | 48 |
-| `--s-4` | 16 | `--s-16` | 64 |
-| `--s-5` | 20 | `--s-20` | 80 |
-| `--s-6` | 24 | `--s-24` | 96 |
+`--sp-1` (4) `--sp-2` (8) `--sp-3` (12) `--sp-4` (16) `--sp-5` (20) `--sp-6` (24) `--sp-8` (32) `--sp-10` (40) `--sp-12` (48) `--sp-16` (64) `--sp-20` (80) `--sp-24` (96) `--sp-32` (128)
 
 ### Border radius
-| Token | px |
-|---|---|
-| `--r-sm` | 6 |
-| `--r-md` | 8 |
-| `--r-lg` | 12 |
-| `--r-xl` | 16 |
-| `--r-2xl` | 24 |
-| `--r-full` | 9999 |
+`--r-xs` (4) `--r-sm` (8 — inputs/botones estándar) `--r-md` (12) `--r-lg` (16 — cards/contenedores grandes) `--r-xl` (20) `--r-2xl` (28) `--r-3xl` (40) `--r-full` (pill/círculos)
 
-### Sombras
+### Sombras (tinte azul real, nunca negras duras)
 | Token | Uso |
 |---|---|
-| `--shadow-sm` | Elementos pequeños |
-| `--shadow-md` | Cards normales |
-| `--shadow-lg` | Modales, dropdowns |
-| `--shadow-xl` | Auth cards, overlays |
-| `--shadow-accent` | Botón primary hover |
-| `--shadow-card` | Cards con borde sutil |
+| `--sh-sm` | elementos pequeños |
+| `--sh-md` / `--sh-card` | cards en reposo `0 4px 20px rgba(8,37,139,.05)` |
+| `--sh-lg` | popovers/hover `0 8px 30px rgba(8,37,139,.12)` |
+| `--sh-xl` | modales |
+| `--sh-glow` | glow dorado `rgba(251,174,23,.28)` |
 
 ### Transiciones
-| Token | Valor |
-|---|---|
-| `--t-fast` | 150ms ease |
-| `--t-base` | 250ms ease |
-| `--t-slow` | 350ms ease |
+`--d-1` (100ms) `--d-2` (200ms) `--d-3` (300ms) `--d-4` (450ms)
 
 ---
 
 ## Clases globales `rs-*`
 
 ```
-BUTTONS:   .rs-btn .rs-btn--primary|secondary|outline|ghost|danger
-           .rs-btn--sm|lg|xl|block
-
-FORMS:     .rs-form-group > .rs-label + .rs-input + .rs-field-error
-           .rs-input--error (en el input cuando hay error)
-
-CARDS:     .rs-card   .rs-card--glass
-
-BADGES:    .rs-badge .rs-badge--accent|success|warning|error|neutral
-
-ALERTS:    .rs-alert .rs-alert--error|success|warning|info
-
-LAYOUT:    .rs-container  .rs-container--sm|md|lg|2xl  .rs-section
-
-NAVBAR:    .rs-navbar  __brand __nav __link __link--active __actions
-
-TABS:      .rs-vertical-tabs  .rs-vertical-tab  .activo
-
-AUTH:      .rs-auth-layout  .rs-auth-card  __brand  __footer
-
-HERO:      .rs-buscador-hero  __content  __eyebrow  __heading  __subheading
-
-SEARCH:    .rs-search-box  .rs-search-box__row
-
-UTILS:     .rs-gradient-text  .rs-spinner  .rs-divider  .rs-divider--text
-           .rs-flex .rs-grid .rs-items-center .rs-justify-between
-           .rs-gap-{2|3|4|6|8}  .rs-w-full  .rs-text-center
+TIPOGRAFÍA: .rs-display .rs-h1 .rs-h2 .rs-h3 .rs-h4 .rs-gradient-text .rs-label-caps
+LAYOUT:    .rs-wrap [--lg|--2xl|--3xl]  .rs-section [--sm|--lg]
+NAVBAR:    .rs-navbar (__brand __nav __link __link--active __actions __hamburger)
+BUTTONS:   .rs-btn .rs-btn--{primary|gold|secondary|outline|ghost|teal|danger}
+           tamaños: .rs-btn--{xs|sm|lg|xl|block}
+           → primary = azul real sólido · gold = CTA Crown Gold (texto navy)
+FORMS:     .rs-field > .rs-lbl + .rs-inp (+ .rs-field-err / .rs-field-hint)
+           legacy: .rs-form-group .rs-label .rs-input .rs-field-error
+CARDS:     .rs-card  .rs-hotel-card (card de listado)
+BADGES:    .rs-badge --{accent|success|warning|error|neutral|purple|teal}
+ALERTS:    .rs-alert --{error|success|warning}
+RATING:    .rs-rating (estrellas doradas)   PRECIO: .rs-price
+TABS:      .rs-vtabs .rs-vtab (legacy .rs-vertical-tabs)
+SEARCH:    .rs-search  (legacy .rs-search-box, .rs-buscador-hero)
+AUTH:      .rs-auth (legacy .rs-auth-layout .rs-auth-card)
+FOOTER:    .rs-footer (navy --dk-blue-deep)
+UTILS:     .rs-spinner .rs-skeleton .rs-hr .rs-flex .rs-col .rs-center
+           .rs-between .rs-gap-{2|3|4|6|8} .rs-text-center .rs-truncate
 ```
+
+## Assets de marca (`apps/web/public/`)
+
+`favicon.svg` (huella + corona) · `images/logo-doogking.jpg` · `images/hero-home.jpg` · `images/categoria-{alojamiento|transporte|veterinaria|peluqueria|adiestramiento}.jpg` (badges circulares) · `images/mascota-doogking.jpg` · helpers en `shared/media/images.ts` (BRAND, CATEGORIA_BADGES, HOTEL_IMAGES).
 
 ## $ARGUMENTS
 

@@ -1,13 +1,30 @@
 /**
- * Catálogo central de imágenes (Pexels).
+ * Catálogo central de imágenes de Doogking.
  *
- * Todas las imágenes de la plataforma se sirven desde el CDN público de Pexels
- * (images.pexels.com), que permite hotlinking sin API key. Centralizar las URLs
- * aquí permite cambiarlas en un solo lugar y aplicar fallbacks consistentes.
- *
- * Si en el futuro se integra la API de Pexels (PEXELS_API_KEY), este archivo es
- * el único punto que habría que reemplazar por un servicio dinámico.
+ * Los assets de marca (logo, hero, badges de categoría) viven en
+ * `apps/web/public/images/` y se sirven localmente. Las fotos de contenido
+ * demo se sirven desde el CDN público de Pexels (hotlinking sin API key).
+ * Centralizar las URLs aquí permite cambiarlas en un solo lugar.
  */
+
+/** Assets de marca Doogking (public/images). */
+export const BRAND = {
+  logo: '/images/logo-doogking.jpg',
+  logoFooter: '/images/logo-doogking-footer.jpg',
+  mascota: '/images/mascota-doogking.jpg',
+  heroHome: '/images/hero-home.jpg',
+  heroDetalle: '/images/hero-detalle.jpg',
+  avatarPlaceholder: '/images/avatar-placeholder.jpg',
+} as const;
+
+/** Badges circulares de las 5 categorías caninas (public/images). */
+export const CATEGORIA_BADGES: Record<string, string> = {
+  alojamiento: '/images/categoria-alojamiento.jpg',
+  transporte: '/images/categoria-transporte.jpg',
+  veterinaria: '/images/categoria-veterinaria.jpg',
+  peluqueria: '/images/categoria-peluqueria.jpg',
+  adiestramiento: '/images/categoria-adiestramiento.jpg',
+};
 
 /** Construye una URL del CDN de Pexels para un id de foto y un ancho dado. */
 export function pexels(id: number, width = 800): string {
@@ -15,41 +32,58 @@ export function pexels(id: number, width = 800): string {
 }
 
 /**
- * Imagen de respaldo garantizada (Unsplash, verificada). El directivo
- * `rsImg` la usa si una imagen de Pexels no carga, de modo que nunca se
- * muestra el ícono de imagen rota.
+ * Imagen de respaldo garantizada (Unsplash, golden retriever). La directiva
+ * `rsImg` la usa si una imagen no carga, de modo que nunca se muestra el
+ * ícono de imagen rota.
  */
 export const IMG_FALLBACK =
-  'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
+  'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=80';
 
-/** Hoteles / habitaciones — pool reutilizable. */
-export const HOTEL_IMAGES: readonly string[] = [
-  pexels(271624), // fachada hotel moderno
-  pexels(261102), // habitación luminosa
-  pexels(1134176), // dormitorio de lujo
-  pexels(258154), // cama king
-  pexels(164595), // resort con piscina
-  pexels(271643), // suite elegante
-  pexels(1457842), // lobby contemporáneo
-  pexels(1571460), // habitación con vista
-  pexels(1660995), // dormitorio cálido
-  pexels(279746), // interior boutique
+/** Ids Pexels de fotos caninas (alojamientos, perros felices, cuidado). */
+const DOG_IMG_IDS = [
+  1108099, // dos cachorros golden
+  58997,   // perro corriendo en el campo
+  1254140, // golden retriever sonriente
+  1490908, // perro en manta
+  1851164, // border collie
+  2607544, // perro en cama
+  1938126, // cachorro jugando
+  1174081, // perro paseando
+  1390361, // perro feliz hierba
+  2253275, // perro con correa
 ];
 
-/** Imágenes de fondo escénicas (viajes / Europa / paisajes). */
+/** Alojamientos caninos / espacios — pool reutilizable (assets locales primero). */
+export const HOTEL_IMAGES: readonly string[] = [
+  '/images/alojamiento-interior.jpg',
+  '/images/alojamiento-exterior.jpg',
+  '/images/alojamiento-boutique.jpg',
+  '/images/ejemplo-alojamiento-1.jpg',
+  '/images/ejemplo-alojamiento-2.jpg',
+  pexels(1108099),
+  pexels(1254140),
+  pexels(2607544),
+  pexels(1490908),
+  pexels(1938126),
+];
+
+/** Alias semántico nuevo — mismo pool que HOTEL_IMAGES. */
+export const ALOJAMIENTO_IMAGES = HOTEL_IMAGES;
+
+/** Imágenes de fondo escénicas (perros / naturaleza). */
 export const BG_IMAGES = {
-  hero: pexels(338504, 1600), // paisaje de montañas
-  city: pexels(466685, 1600), // ciudad al atardecer
-  coast: pexels(1320684, 1600), // costa
-  auth: pexels(258154, 1200), // interior acogedor
+  hero: '/images/hero-home.jpg',
+  city: pexels(1174081, 1600),
+  coast: pexels(58997, 1600),
+  auth: '/images/mascota-doogking.jpg',
 } as const;
 
-/** Devuelve una imagen de hotel del pool por índice (cíclico). */
+/** Devuelve una imagen del pool canino por índice (cíclico). */
 export function hotelImage(index: number, width = 800): string {
-  const id = HOTEL_IMG_IDS[index % HOTEL_IMG_IDS.length];
-  return pexels(id, width);
+  const local = HOTEL_IMAGES[index % HOTEL_IMAGES.length];
+  if (local.startsWith('/')) return local;
+  return pexels(DOG_IMG_IDS[index % DOG_IMG_IDS.length], width);
 }
 
-const HOTEL_IMG_IDS = [
-  271624, 261102, 1134176, 258154, 164595, 271643, 1457842, 1571460, 1660995, 279746,
-];
+/** Alias semántico nuevo de hotelImage. */
+export const alojamientoImage = hotelImage;
