@@ -3,9 +3,9 @@ import { RouterLink } from '@angular/router';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
-import { hotelImage } from '../../../shared/media/images';
+import { alojamientoImage } from '../../../shared/media/images';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
-import { HotelesService } from '../../hoteles/services/hoteles.service';
+import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 
 type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'cancelada' | 'completada';
 
@@ -167,7 +167,7 @@ interface ReservaCard {
 })
 export class MisReservasComponent implements OnInit {
   private readonly reservasService = inject(ReservasService);
-  private readonly hotelesService = inject(HotelesService);
+  private readonly alojamientoService = inject(AlojamientoService);
 
   // ── Cambiar a true para usar datos de ejemplo en lugar del API ──
   private readonly useMock = false;
@@ -179,7 +179,7 @@ export class MisReservasComponent implements OnInit {
       emoji: '🏠',
       titulo: 'Residencia Canina Villa Perruna',
       subtitulo: 'Suite estándar · 2 noches · 1 perro',
-      imagen: hotelImage(0, 400),
+      imagen: alojamientoImage(0, 400),
       fechaInicio: '15 Jul 2026',
       fechaFin: '17 Jul 2026',
       total: 76,
@@ -191,7 +191,7 @@ export class MisReservasComponent implements OnInit {
       emoji: '🚐',
       titulo: 'Traslado canino Madrid Centro',
       subtitulo: 'Madrid → Toledo · Van acondicionada',
-      imagen: hotelImage(7, 400),
+      imagen: alojamientoImage(7, 400),
       fechaInicio: '14 Jul 2026',
       fechaFin: '14 Jul 2026',
       total: 45,
@@ -203,7 +203,7 @@ export class MisReservasComponent implements OnInit {
       emoji: '✂️',
       titulo: 'Peluquería Canina Real Grooming',
       subtitulo: 'Baño y corte · Perro mediano',
-      imagen: hotelImage(8, 400),
+      imagen: alojamientoImage(8, 400),
       fechaInicio: '20 Ago 2026',
       fechaFin: '20 Ago 2026',
       total: 38,
@@ -269,10 +269,10 @@ export class MisReservasComponent implements OnInit {
   private async aCard(r: ReservaApi): Promise<ReservaCard> {
     const meta = this.verticalMeta(r.vertical);
     let titulo = (r.detalle?.['titulo'] as string) ?? meta.label;
-    let imagen = (r.detalle?.['imagen'] as string) ?? hotelImage(0, 400);
+    let imagen = (r.detalle?.['imagen'] as string) ?? alojamientoImage(0, 400);
 
     try {
-      const servicio = await this.hotelesService.obtener(r.servicioId);
+      const servicio = await this.alojamientoService.obtener(r.servicioId);
       titulo = servicio.nombre;
       imagen = servicio.imagenes?.[0] ?? imagen;
     } catch {

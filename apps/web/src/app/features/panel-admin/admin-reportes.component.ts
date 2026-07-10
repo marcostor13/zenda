@@ -10,12 +10,12 @@ const VERTICAL_EMOJI: Record<string, string> = {
 };
 
 const VERTICALES_OPCIONES = [
-  { label: 'Todos los verticales', valor: '' },
-  { label: '🏨 Hoteles', valor: 'hoteles' },
-  { label: '✈️ Vuelos', valor: 'vuelos' },
-  { label: '🚗 Taxis', valor: 'taxis' },
-  { label: '🚛 Transporte', valor: 'transporte' },
-  { label: '👶 Guardería', valor: 'guarderia' },
+  { label: 'Todas las categorías', valor: '' },
+  { label: '🏠 Alojamiento canino', valor: 'alojamiento' },
+  { label: '🚐 Transporte de animales', valor: 'transporte' },
+  { label: '🩺 Veterinarios', valor: 'veterinaria' },
+  { label: '✂️ Peluquerías caninas', valor: 'peluqueria' },
+  { label: '🎓 Adiestramiento canino', valor: 'adiestramiento' },
 ] as const;
 
 @Component({

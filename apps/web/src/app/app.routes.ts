@@ -16,28 +16,30 @@ export const routes: Routes = [
     loadChildren: () => import('./features/buscador/buscador.routes').then((m) => m.buscadorRoutes),
   },
   {
-    path: 'hoteles',
-    loadChildren: () => import('./features/hoteles/hoteles.routes').then((m) => m.hotelesRoutes),
-  },
-  {
-    path: 'taxis',
-    loadChildren: () => import('./features/taxis/taxis.routes').then((m) => m.taxisRoutes),
-  },
-  {
-    path: 'vuelos',
-    data: { vertical: 'vuelos' },
-    loadComponent: () =>
-      import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+    path: 'alojamiento',
+    loadChildren: () =>
+      import('./features/alojamiento/alojamiento.routes').then((m) => m.alojamientoRoutes),
   },
   {
     path: 'transporte',
-    data: { vertical: 'transporte' },
+    loadChildren: () =>
+      import('./features/transporte/transporte.routes').then((m) => m.transporteRoutes),
+  },
+  {
+    path: 'veterinaria',
+    data: { vertical: 'veterinaria' },
     loadComponent: () =>
       import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
   },
   {
-    path: 'guarderia',
-    data: { vertical: 'guarderia' },
+    path: 'peluqueria',
+    data: { vertical: 'peluqueria' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+  },
+  {
+    path: 'adiestramiento',
+    data: { vertical: 'adiestramiento' },
     loadComponent: () =>
       import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
   },

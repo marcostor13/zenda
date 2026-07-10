@@ -2,7 +2,9 @@
 
 > **Documento de contexto persistente.** Si la sesión se cae, retomar leyendo este archivo: contiene el estudio, todas las decisiones y el checklist de progreso (marcar `[x]` al completar cada paso).
 >
-> Última actualización: 2026-07-06 · Estado: **EN PROGRESO**
+> Última actualización: 2026-07-10 · Estado: **EN PROGRESO**
+>
+> **Log de sesión 2026-07-10** — Frontend: rutas migradas a las 5 categorías caninas (`/alojamiento /transporte /veterinaria /peluqueria /adiestramiento`); eliminadas features viejas `hoteles/` y `taxis/`; `mis-reservas` re-cableado a `AlojamientoService`; paneles admin (reportes, cupones, comercios) y reseñas de comercio migrados a verticales caninos. Web compila (`ng build` OK). **Pendiente:** backend seeds caninos (`seed-europe`, `clear-seed-data`), naming DTOs catalog, tests api/web, barrido final de textos y panel-comercio.
 
 ---
 
@@ -96,25 +98,27 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 - [x] favicon.svg de marca
 - [x] Este plan guardado
 
-### Fase 1 — libs/shared
+### Fase 1 — libs/shared ✅
 
-- [ ] `enums/vertical.enum.ts`: VerticalKey = ALOJAMIENTO|TRANSPORTE|VETERINARIA|PELUQUERIA|ADIESTRAMIENTO
-- [ ] Rebuild shared (`npm run build --workspace=shared`)
+- [x] `enums/vertical.enum.ts`: VerticalKey = ALOJAMIENTO|TRANSPORTE|VETERINARIA|PELUQUERIA|ADIESTRAMIENTO
+- [x] Rebuild shared (`npm run build --workspace=shared`)
 
 ### Fase 2 — API verticales nuevas (apps/api/src/verticals/)
 
-- [ ] `alojamiento/` (schema espacios[], strategy noches, module, seeder, specs) — desde hoteles
-- [ ] `transporte/` (reescrito: transporte de animales, strategy km, seeder, specs) — desde taxis
-- [ ] `veterinaria/` (schema citas, strategy cupos+hora, seeder, specs)
-- [ ] `peluqueria/` (schema grooming, strategy cupos+hora, seeder, specs)
-- [ ] `adiestramiento/` (schema sesiones, strategy cupos, seeder, specs)
-- [ ] Eliminar `hoteles/ vuelos/ taxis/ guarderia/` viejos
-- [ ] `core/catalog/catalog.module.ts`: discriminators nuevos
-- [ ] `app.module.ts`: imports nuevos
-- [ ] `core/ai-search/ai-search.service.ts`: prompt con categorías caninas
-- [ ] `core/catalog/catalog.service.ts`: pickExtra() con campos nuevos; default 'alojamiento'
+- [x] `alojamiento/` (schema espacios[], strategy noches, module, seeder, specs) — desde hoteles
+- [x] `transporte/` (reescrito: transporte de animales, strategy km, seeder, specs) — desde taxis
+- [x] `veterinaria/` (schema citas, strategy cupos+hora, seeder, specs)
+- [x] `peluqueria/` (schema grooming, strategy cupos+hora, seeder, specs)
+- [x] `adiestramiento/` (schema sesiones, strategy cupos, seeder, specs)
+- [x] Eliminar `hoteles/ vuelos/ taxis/ guarderia/` viejos
+- [x] `core/catalog/catalog.module.ts`: discriminators nuevos
+- [x] `app.module.ts`: imports nuevos
+- [ ] `core/ai-search/ai-search.service.ts`: prompt con categorías caninas (falta pulir wording)
+- [ ] `core/catalog/catalog.service.ts`: renombrar DTOs Hotel→Alojamiento (funciona, naming heredado)
 - [ ] `core/catalog/catalog.seeder.ts`: demo de alojamientos caninos
-- [ ] `scripts/seed-all.ts` + `scripts/seed-europe.ts`: comercios caninos + comision_configs nuevas
+- [ ] `scripts/seed-europe.ts`: comercios/servicios caninos + comision_configs nuevas (aún datos hoteles/vuelos/taxis)
+- [ ] `scripts/seed-all.ts` (Perú/PEN — obsoleto tras migración a EUR; decidir borrar o migrar)
+- [ ] `scripts/clear-seed-data.ts`: nombres de colección caninos
 - [ ] Specs del core que referencian verticales viejas actualizados
 - [ ] `nest build` OK + tests api OK
 
@@ -127,17 +131,17 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 
 ### Fase 4 — Web: features caninas
 
-- [ ] `features/home`: hero Doogking (slogan, hero-home.jpg, buscador card blanca, 5 badges circulares de categorías, sección recomendados)
-- [ ] `features/buscador`: array verticales nuevo (labels/iconos/placeholders/fechas por categoría)
-- [ ] `features/hoteles` → `features/alojamiento` (lista + detalle adaptados)
-- [ ] `features/taxis` → `features/transporte` (traslado de mascotas)
-- [ ] `features/verticales` CONFIGS: veterinaria, peluqueria, adiestramiento
-- [ ] `app.routes.ts`: rutas /alojamiento /transporte /veterinaria /peluqueria /adiestramiento
-- [ ] `features/reservas` (wizard): lógica por vertical nueva (fechas noche, trayecto km, cita hora, sesión)
-- [ ] `panel-comercio` (listado-nuevo): formularios por categoría según schemas nuevos
-- [ ] `panel-admin`: labels/reportes por categoría
-- [ ] Textos Doogking/Reservalo → Doogking en toda la app
-- [ ] `ng build` OK + tests web OK
+- [x] `features/home`: hero Doogking (slogan, hero-home.jpg, buscador card blanca, 5 badges circulares de categorías, sección recomendados)
+- [x] `features/buscador`: array verticales nuevo (labels/iconos/placeholders/fechas por categoría)
+- [x] `features/hoteles` → `features/alojamiento` (lista + detalle adaptados); feature vieja eliminada
+- [x] `features/taxis` → `features/transporte` (traslado de mascotas); feature vieja eliminada
+- [x] `features/verticales` CONFIGS: veterinaria, peluqueria, adiestramiento
+- [x] `app.routes.ts`: rutas /alojamiento /transporte /veterinaria /peluqueria /adiestramiento
+- [x] `features/reservas` (wizard + mis-reservas): lógica por vertical nueva; mis-reservas re-cableado a AlojamientoService
+- [x] `panel-admin`: labels/reportes por categoría (admin-reportes, cupones-admin, admin-comercios, comercio-resenas)
+- [ ] `panel-comercio` (listado-nuevo): formularios por categoría según schemas nuevos (pendiente revisar)
+- [ ] Textos Doogking/Reservalo → Doogking en toda la app (pendiente barrido final)
+- [x] `ng build` OK (web compila) — tests web pendientes
 
 ### Fase 5 — Skills, memoria, reglas
 

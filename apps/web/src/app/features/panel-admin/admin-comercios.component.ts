@@ -17,7 +17,7 @@ const FILTROS = [
   { label: 'Suspendidos', valor: 'suspendido' },
 ] as const;
 
-const VERTICALES_OPCIONES = ['hoteles', 'vuelos', 'taxis', 'transporte', 'guarderia'];
+const VERTICALES_OPCIONES = ['alojamiento', 'transporte', 'veterinaria', 'peluqueria', 'adiestramiento'];
 const LIMITE = 20;
 
 @Component({
