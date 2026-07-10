@@ -144,7 +144,7 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 - [x] `panel-admin`: labels/reportes por categoría (admin-reportes, cupones-admin, admin-comercios, comercio-resenas)
 - [x] `panel-comercio`: mapa de iconos por categoría canina + reseñas mock caninas (formularios de alta por categoría: pendiente ampliar)
 - [x] Textos Reservalo → Doogking: app web ya sin "Reservalo"; docs/skills (speckit, nuevo-componente, ui-kit, SCOPE) rebrandeados. Solo queda `seed-all.ts` (obsoleto)
-- [x] `ng build` OK (web compila) — tests web pendientes de correr
+- [x] `ng build` OK + tests web OK (8 suites / 49 tests verdes; reparado setup-jest preexistente: `reflect-metadata` + mock de `IntersectionObserver`, y 2 tests de auth desactualizados)
 
 ### Fase 5 — Skills, memoria, reglas
 
@@ -156,8 +156,8 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 
 ### Fase 6 — Verificación final
 
-- [ ] `npm run build --workspace=shared` → `--workspace=api` → `--workspace=web`
-- [ ] Tests api + web
+- [x] `npm run build --workspace=shared` → `--workspace=api` → `--workspace=web` (los tres compilan)
+- [x] Tests api (133/133) + web (49/49) en verde
 - [ ] Revisión visual (levantar web) — hero, resultados, detalle, panel comercio
 
 ---

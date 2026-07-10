@@ -40,7 +40,7 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('debería guardar el token y navegar a /buscador', async () => {
+    it('debería guardar el token y navegar al inicio si el rol es cliente', async () => {
       const loginPromise = service.login({ email: 'juan@test.com', password: 'password123' });
 
       const req = httpMock.expectOne((r) => r.url.includes('/auth/login'));
@@ -49,7 +49,7 @@ describe('AuthService', () => {
 
       expect(service.estaAutenticado()).toBe(true);
       expect(service.token()).toBe('jwt-token');
-      expect(routerMock.navigate).toHaveBeenCalledWith(['/buscador']);
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/']);
     });
   });
 
