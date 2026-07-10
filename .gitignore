@@ -6,3 +6,5 @@ coverage/
 *.log
 .angular/
 .cache/
+# Added by code-review-graph
+.code-review-graph/
