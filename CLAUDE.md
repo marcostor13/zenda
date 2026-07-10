@@ -1,25 +1,26 @@
-# CLAUDE.md — Plataforma Multi-Reserva (estilo Booking, multi-vertical)
+# CLAUDE.md — Doogking · Plataforma Multi-Reserva de servicios caninos (estilo Booking, multi-categoría)
 
-> **Nombre de trabajo del proyecto:** `Reservalo` (placeholder — reemplazar por el nombre comercial definitivo).
+> **Nombre del proyecto:** **Doogking** — "Booking para servicios caninos" en Europa.
+> **Slogan:** "TODO PARA SU REY, EN UN SOLO LUGAR" / "The Royal Treatment for Every Dog".
 > Este documento es la **fuente de verdad** para Claude Code. Léelo completo antes de generar cualquier scaffold, módulo o esquema. Si una decisión no está aquí, sigue las *Convenciones* de la sección final y deja un `// TODO:` documentado.
 
 ---
 
 ## 0. Resumen ejecutivo
 
-Marketplace de reservas multi-vertical para el mercado peruano. Un solo producto (web + móvil) que unifica **5 verticales de reserva** bajo un mismo buscador, perfil de usuario, pasarela de pago y panel administrativo, con una **arquitectura modular pensada para añadir más verticales sin reescribir el núcleo**.
+Marketplace de reservas de **servicios caninos** para el mercado europeo (EUR, IVA 21%). Un solo producto (web + móvil) que unifica **5 categorías de servicios para perros** bajo un mismo buscador, perfil de usuario, pasarela de pago y panel administrativo, con una **arquitectura modular pensada para añadir más categorías sin reescribir el núcleo**. Doogking es "Booking para servicios caninos": dueños de perros (demanda) ↔ comercios de servicios caninos (oferta).
 
-**Verticales iniciales:**
+**Categorías iniciales:**
 
-| Vertical | Unidad reservable | Lógica de reserva | Sub-servicios |
+| Categoría (`VerticalKey`) | Unidad reservable | Lógica de reserva | Sub-servicios |
 |---|---|---|---|
-| **Hoteles** | Habitación / alojamiento | Por noche (check-in/check-out), disponibilidad por fechas | Hospedaje, paquetes |
-| **Vuelos** | Asiento en ruta/horario | Por trayecto + fecha/hora, inventario de asientos | Vuelos comerciales |
-| **Taxis** | Traslado punto A→B | On-demand o programado, por trayecto/tarifa | Traslados, transfers aeropuerto |
-| **Transporte** | Servicio de carga | Por ruta + peso/volumen, programado | Transporte de mercancías |
-| **Guardería** | Cupo de cuidado infantil | Por día/hora/mensualidad, cupos por edad | Cuidado infantil |
+| **Alojamiento canino** (`alojamiento`) | Espacio / suite para el perro | Por noche (check-in/check-out), disponibilidad por fechas | Hospedaje, estancia nocturna, suites premium |
+| **Transporte de animales** (`transporte`) | Traslado del perro punto A→B | Por trayecto, tarifa base + km | Transfers, traslados veterinarios, mudanzas con mascota |
+| **Veterinarios** (`veterinaria`) | Cita clínica | Por fecha + hora (slots) | Consulta, vacunación, cirugía, urgencias |
+| **Peluquerías caninas** (`peluqueria`) | Cita de grooming | Por fecha + hora (slots) | Baño, corte, deslanado, spa, uñas |
+| **Adiestramiento canino** (`adiestramiento`) | Sesión o programa | Por sesión / programa (slots/cupos) | Obediencia, modificación de conducta, cachorros, guardia |
 
-> **Principio rector de diseño:** los 5 verticales NO se modelan como 5 sistemas separados. Se modelan como **instancias de un mismo motor de catálogo + disponibilidad + reserva + pago**, donde cada vertical aporta sólo su *esquema específico* y su *estrategia de disponibilidad/precio*. "Más servicios (que se pueda ampliar)" = añadir un módulo de vertical, no tocar el core.
+> **Principio rector de diseño:** las 5 categorías NO se modelan como 5 sistemas separados. Se modelan como **instancias de un mismo motor de catálogo + disponibilidad + reserva + pago**, donde cada vertical aporta sólo su *esquema específico* y su *estrategia de disponibilidad/precio*. "Más servicios (que se pueda ampliar)" = añadir un módulo de vertical, no tocar el core.
 
 ---
 
@@ -27,7 +28,7 @@ Marketplace de reservas multi-vertical para el mercado peruano. Un solo producto
 
 ### 1.1 Cómo gana dinero Booking (referencia)
 
-Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda = viajeros). Sus fuentes de ingreso:
+Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda = viajeros); Doogking replica el modelo con oferta = comercios caninos / demanda = dueños de perros. Fuentes de ingreso de Booking:
 
 1. **Comisión por transacción** — el proveedor paga ~15–25% del valor de cada reserva concretada.
 2. **Modelo agencia vs. merchant:**
@@ -47,7 +48,7 @@ Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda =
 | Listados destacados | Flag `destacado` + `prioridadRanking` en el listado; monetizable como add-on. |
 | Fidelización | Fase posterior: `programaPuntos` por usuario. Dejar el gancho en el modelo, no implementar en MVP. |
 | Reseñas + ranking | Módulo `reviews` transversal a todos los verticales. |
-| Gestión de disponibilidad | Módulo `availability` con **estrategia por vertical** (calendario de noches, asientos, slots horarios, cupos). |
+| Gestión de disponibilidad | Módulo `availability` con **estrategia por categoría** (calendario de noches, trayectos, slots de cita horarios, cupos de sesión). |
 
 **Fuentes de ingreso del producto:**
 1. Comisión por reserva (principal).
@@ -60,9 +61,9 @@ Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda =
 
 ## 2. Perfiles de usuario (actores)
 
-1. **Usuario / Cliente** — busca, compara, reserva y paga servicios en cualquier vertical. Un mismo usuario puede reservar hotel, taxi y guardería con un solo perfil.
-2. **Comercio / Proveedor** — publica y gestiona sus listados, disponibilidad, precios, reservas recibidas y liquidaciones. Un comercio puede operar en uno o varios verticales.
-3. **Administrador (plataforma)** — gestiona comercios, verticales, comisiones, disputas, contenido, reportes y configuración global.
+1. **Usuario / Cliente (dueño de perro)** — busca, compara, reserva y paga servicios en cualquier categoría. Un mismo usuario puede reservar alojamiento, transporte y una cita veterinaria para su perro con un solo perfil.
+2. **Comercio / Proveedor** — publica y gestiona sus listados, disponibilidad, precios, reservas recibidas y liquidaciones. Un comercio puede operar en una o varias categorías.
+3. **Administrador (plataforma)** — gestiona comercios, categorías, comisiones, disputas, contenido, reportes y configuración global.
 
 ---
 
@@ -98,16 +99,16 @@ Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda =
 │              │ availability · bookings · payments ·       │   │
 │              │ reviews · notifications · admin            │   │
 │              └───────────────────────────────────────────┘   │
-│  VERTICALES  ┌──────────┬─────────┬────────┬───────────┐     │
-│  ─────────   │ hoteles  │ vuelos  │ taxis  │ transporte│ ... │
-│              │          │         │        │ guarderia │     │
-│              └──────────┴─────────┴────────┴───────────┘     │
+│  CATEGORÍAS  ┌────────────┬───────────┬─────────────┐        │
+│  ─────────   │ alojamiento│ transporte│ veterinaria │  ...   │
+│              │ peluqueria │           │adiestramiento│       │
+│              └────────────┴───────────┴─────────────┘        │
 └───────────────┬──────────────────────┬───────────────────────┘
                 │                       │
                 ▼                       ▼
         ┌──────────────┐        ┌────────────────────┐
         │ MongoDB Atlas│        │ Pasarela de pago   │
-        │              │        │ (Culqi / Izipay)   │
+        │              │        │ (Stripe)           │
         └──────────────┘        └────────────────────┘
 ```
 
@@ -115,9 +116,9 @@ Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda =
 
 El núcleo (catálogo, disponibilidad, reserva, pago) es **agnóstico al vertical**. Cada vertical se conecta mediante tres puntos de extensión:
 
-1. **Discriminador de esquema** (Mongoose `discriminator`): el documento base `Servicio` se extiende con campos propios (`HotelServicio`, `VueloServicio`, etc.).
-2. **Estrategia de disponibilidad** (`AvailabilityStrategy`): interfaz que cada vertical implementa (calendario de noches vs. asientos vs. slots horarios vs. cupos).
-3. **Estrategia de precio/reserva** (`PricingStrategy` / `BookingStrategy`): cómo se calcula el total y qué validaciones aplican (ej.: noches × tarifa, asiento único, trayecto fijo, cupo por edad).
+1. **Discriminador de esquema** (Mongoose `discriminator`): el documento base `Servicio` se extiende con campos propios (`AlojamientoServicio`, `TransporteServicio`, `VeterinariaServicio`, etc.).
+2. **Estrategia de disponibilidad** (`AvailabilityStrategy`): interfaz que cada categoría implementa (calendario de noches vs. trayectos vs. slots de cita horarios vs. cupos de sesión).
+3. **Estrategia de precio/reserva** (`PricingStrategy` / `BookingStrategy`): cómo se calcula el total y qué validaciones aplican (ej.: noches × precio, tarifa base + km, cita en slot libre, cupo por sesión).
 
 ```ts
 // libs/core/availability/availability.strategy.ts
@@ -163,8 +164,8 @@ verificado: bool, createdAt, updatedAt
 
 **`comercios`**
 ```
-_id, razonSocial, ruc, nombreComercial, logoUrl,
-verticales: VerticalKey[],         // en qué verticales opera
+_id, razonSocial, vatNumber, nombreComercial, logoUrl,
+verticales: VerticalKey[],         // en qué categorías opera
 modoLiquidacion: 'merchant' | 'agencia',
 comisionPctOverride?: number,      // si difiere del default del vertical
 plan: 'basico' | 'pro' | 'premium',
@@ -176,16 +177,17 @@ datosBancarios, createdAt, updatedAt
 ```
 _id, comercioId, vertical: VerticalKey,
 titulo, descripcion, imagenes[], ubicacion { ciudad, geo },
-precioBase, moneda: 'PEN',
+precioBase, moneda: 'EUR',
 destacado: bool, prioridadRanking: number,
 estado: 'borrador' | 'publicado' | 'pausado',
 ratingPromedio, totalReseñas, createdAt, updatedAt
-// --- discriminadores ---
-// HotelServicio:     habitaciones[], amenities[], politicaCancelacion, checkIn, checkOut
-// VueloServicio:     origen, destino, fechaSalida, fechaLlegada, asientosTotales, aerolinea
-// TaxiServicio:      tipoVehiculo, capacidad, zonaCobertura, tarifaBase, tarifaKm
-// TransporteServicio:tipoCarga, capacidadKg, capacidadM3, rutasCubiertas[]
-// GuarderiaServicio: rangoEdad, cuposTotales, horario, modalidad: 'hora'|'dia'|'mes'
+// --- discriminadores (categorías caninas) ---
+// AlojamientoServicio:   espacios[] { tipo:'suite'|'estandar'|'compartido', tamanoMaxPerro, precioNoche, cantidad, disponible, amenities[], cancelacionGratis },
+//                        amenities[], checkIn, checkOut, politicaCancelacion, requisitoVacunas, paseosIncluidos, camaras24h, espaciosDisponibles
+// TransporteServicio:    tipoVehiculo:'van_acondicionada'|'coche'|'furgon_climatizado', capacidadPerros, zonaCobertura[], tarifaBase, tarifaKm, jaulasIncluidas, acompananteHumano, soloPerros, unidadesDisponibles
+// VeterinariaServicio:   especialidades[], serviciosClinicos[] { nombre, precio, duracionMin }, duracionCitaMin, citasPorDia, citasDisponibles, atiendeUrgencias, horario, precioConsulta
+// PeluqueriaServicio:    serviciosGrooming[] { nombre, precio, duracionMin, tamanoPerro }, duracionSlotMin, capacidadSimultanea, cuposDisponibles, aDomicilio, horario
+// AdiestramientoServicio:tiposAdiestramiento[], modalidad:'sesion'|'programa', precioSesion, precioPrograma?, sesionesPorPrograma?, edadMinimaMeses, aDomicilio, capacidadPorSesion, cuposDisponibles, horario
 ```
 
 **`reservas`**
@@ -194,15 +196,15 @@ _id, codigo (legible),
 usuarioId, comercioId, servicioId, vertical: VerticalKey,
 detalle: object,                 // payload específico del vertical
 fechaInicio, fechaFin,           // o slot/trayecto según vertical
-cantidad, montoSubtotal, comisionMonto, montoTotal, moneda: 'PEN',
+cantidad, montoSubtotal, comisionMonto, montoTotal, moneda: 'EUR',
 estado: 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'no_show',
 pagoId?, createdAt, updatedAt
 ```
 
 **`pagos`**
 ```
-_id, reservaId, usuarioId, pasarela: 'culqi'|'izipay'|'yape',
-montoTotal, moneda: 'PEN',
+_id, reservaId, usuarioId, pasarela: 'stripe',
+montoTotal, moneda: 'EUR',
 estado: 'iniciado'|'aprobado'|'rechazado'|'reembolsado',
 referenciaPasarela, createdAt
 ```
@@ -216,7 +218,7 @@ disponibilidad:{ servicioId:1, fecha:1 }
 reservas:     { usuarioId:1, estado:1, createdAt:-1 }
 reservas:     { comercioId:1, estado:1, fechaInicio:1 }
 usuarios:     { email:1 } (unique)
-comercios:    { ruc:1 } (unique)
+comercios:    { vatNumber:1 } (unique)
 ```
 
 ---
@@ -231,12 +233,12 @@ comercios:    { ruc:1 } (unique)
 │   │   │   ├── core/         # auth, interceptors, guards
 │   │   │   ├── shared/       # componentes UI reutilizables
 │   │   │   ├── features/
-│   │   │   │   ├── buscador/ # buscador unificado multi-vertical
-│   │   │   │   ├── hoteles/
-│   │   │   │   ├── vuelos/
-│   │   │   │   ├── taxis/
+│   │   │   │   ├── buscador/ # buscador unificado multi-categoría
+│   │   │   │   ├── alojamiento/
 │   │   │   │   ├── transporte/
-│   │   │   │   ├── guarderia/
+│   │   │   │   ├── veterinaria/
+│   │   │   │   ├── peluqueria/
+│   │   │   │   ├── adiestramiento/
 │   │   │   │   ├── reservas/
 │   │   │   │   ├── perfil-usuario/
 │   │   │   │   ├── panel-comercio/
@@ -249,11 +251,11 @@ comercios:    { ruc:1 } (unique)
 │           │                 # availability, bookings, payments,
 │           │                 # reviews, notifications, admin
 │           └── verticals/
-│               ├── hoteles/
-│               ├── vuelos/
-│               ├── taxis/
+│               ├── alojamiento/
 │               ├── transporte/
-│               └── guarderia/
+│               ├── veterinaria/
+│               ├── peluqueria/
+│               └── adiestramiento/
 ├── libs/                     # tipos y contratos compartidos (DTOs, enums)
 ├── .github/workflows/        # CI/CD
 └── CLAUDE.md
@@ -320,17 +322,17 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 ### Épica A — Cuentas y autenticación
 - **A1 (P0)** Como **usuario**, quiero registrarme con email/teléfono, para crear mi cuenta única.
 - **A2 (P0)** Como **usuario**, quiero iniciar sesión con JWT, para acceder a mis reservas.
-- **A3 (P0)** Como **comercio**, quiero registrar mi negocio (RUC, razón social, verticales), para empezar a publicar.
+- **A3 (P0)** Como **comercio**, quiero registrar mi negocio (número de IVA/vatNumber, razón social, categorías), para empezar a publicar.
 - **A4 (P1)** Como **usuario**, quiero recuperar mi contraseña, para no perder el acceso.
 - **A5 (P1)** Como **comercio**, quiero invitar staff con roles, para delegar la operación.
 - **A6 (P2)** Como **usuario**, quiero login social (Google), para registrarme más rápido.
 
 ### Épica B — Buscador unificado
-- **B1 (P0)** Como **usuario**, quiero un buscador único donde elijo el vertical (hotel/vuelo/taxi/transporte/guardería), para encontrar lo que necesito desde un solo lugar.
+- **B1 (P0)** Como **usuario**, quiero un buscador único donde elijo la categoría (alojamiento/transporte/veterinaria/peluquería/adiestramiento), para encontrar lo que necesita mi perro desde un solo lugar.
 - **B2 (P0)** Como **usuario**, quiero filtrar por ciudad/zona, fechas y precio, para acotar resultados.
 - **B3 (P0)** Como **usuario**, quiero ver resultados ordenados por relevancia/rating/precio, para comparar.
 - **B4 (P1)** Como **usuario**, quiero buscar por geolocalización ("cerca de mí"), para encontrar servicios próximos.
-- **B5 (P1)** Como **usuario**, quiero filtros específicos por vertical (amenities en hotel, tipo de vehículo en taxi, edad en guardería), para precisión.
+- **B5 (P1)** Como **usuario**, quiero filtros específicos por categoría (amenities en alojamiento, tipo de vehículo en transporte de animales, especialidad en veterinaria, servicio en peluquería, edad/tamaño del perro en adiestramiento), para precisión.
 
 ### Épica C — Catálogo y listados (comercio)
 - **C1 (P0)** Como **comercio**, quiero crear un listado en mi vertical (con fotos, precio, ubicación), para ofrecerlo.
@@ -348,11 +350,11 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 - **E1 (P0)** Como **usuario**, quiero reservar un servicio y recibir un código de reserva, para confirmar mi compra.
 - **E2 (P0)** Como **usuario**, quiero ver el detalle y total (subtotal + impuestos) antes de pagar, para transparencia.
 - **E3 (P0)** Como **usuario**, quiero cancelar según la política del comercio, para flexibilidad.
-- **E4 (P1)** Como **comercio**, quiero aceptar/rechazar reservas que requieran aprobación, para controlar el on-demand (ej. taxi, transporte).
+- **E4 (P1)** Como **comercio**, quiero aceptar/rechazar reservas que requieran aprobación, para controlar el on-demand (ej. transporte de animales, urgencias veterinarias).
 - **E5 (P1)** Como **usuario**, quiero ver el historial y estado de mis reservas, para seguimiento.
 
 ### Épica F — Pagos online
-- **F1 (P0)** Como **usuario**, quiero pagar online con tarjeta (Culqi/Izipay) o Yape, para completar la reserva.
+- **F1 (P0)** Como **usuario**, quiero pagar online con tarjeta (Stripe), para completar la reserva.
 - **F2 (P0)** Como **sistema**, quiero confirmar la reserva sólo cuando el pago es aprobado, para consistencia.
 - **F3 (P1)** Como **usuario**, quiero recibir reembolso al cancelar dentro de la política, para confianza.
 - **F4 (P1)** Como **comercio**, quiero ver mis liquidaciones (total − comisión), para mi contabilidad.
@@ -396,24 +398,24 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 
 ## 8. Roadmap por fases
 
-| Fase | Alcance | Verticales |
+| Fase | Alcance | Categorías |
 |---|---|---|
-| **F1 — Núcleo + 1 vertical** | Auth, perfiles, buscador, catálogo, disponibilidad, reserva, pago online, panel comercio/admin básico. | **Hoteles** (mejor para validar el motor por noche/disponibilidad) |
-| **F2 — Segundo vertical** | Validar el patrón de extensibilidad con una lógica distinta (slots/trayecto). | **Taxis** (traslados) |
-| **F3 — Verticales restantes** | Añadir como módulos aislados. | **Vuelos, Transporte, Guardería** |
-| **F4 — Monetización avanzada** | Suscripciones de comercio, destacados, fidelización, métricas. | Todos |
-| **F5 — Móvil pulido** | Push, optimizaciones Capacitor, stores. | Todos |
+| **F1 — Núcleo + 1 categoría** | Auth, perfiles, buscador, catálogo, disponibilidad, reserva, pago online, panel comercio/admin básico. | **Alojamiento canino** (mejor para validar el motor por noche/disponibilidad) |
+| **F2 — Segunda categoría** | Validar el patrón de extensibilidad con una lógica de cita distinta (slots horarios). | **Veterinaria** (citas por fecha + hora) |
+| **F3 — Categorías restantes** | Añadir como módulos aislados. | **Transporte, Peluquería, Adiestramiento** |
+| **F4 — Monetización avanzada** | Suscripciones de comercio, destacados, fidelización, métricas. | Todas |
+| **F5 — Móvil pulido** | Push, optimizaciones Capacitor, stores. | Todas |
 
-> Construir primero **Hoteles** valida el motor de disponibilidad por fechas; luego **Taxis** prueba que el patrón de extensibilidad funciona con una lógica completamente distinta. Si esos dos encajan, los otros tres son repetición del patrón.
+> Construir primero **Alojamiento** valida el motor de disponibilidad por fechas (noches); luego **Veterinaria** prueba que el patrón de extensibilidad funciona con una lógica completamente distinta (cita en slot horario). Si esas dos encajan, las otras tres (transporte por trayecto, peluquería por slot, adiestramiento por cupo de sesión) son repetición del patrón.
 
 ---
 
-## 9. Consideraciones del mercado peruano
+## 9. Consideraciones del mercado europeo
 
-- **Moneda:** PEN (soles) en todo el sistema.
-- **Impuestos:** IGV 18% — separar `subtotal`, `igv`, `total` en reservas y comprobantes; preparar para integración SUNAT (facturación electrónica) en fase posterior.
-- **Pasarelas:** **Culqi** e **Izipay** para tarjeta; **Yape** para pago móvil. Diseñar `payments` con interfaz `PaymentGateway` para soportar varias.
-- **Comprobantes:** dejar gancho para boleta/factura electrónica (no en MVP, pero el modelo de datos lo contempla).
+- **Moneda:** EUR (euros) en todo el sistema.
+- **Impuestos:** IVA 21% — separar `subtotal`, `iva`, `total` en reservas y comprobantes; preparar para facturación electrónica europea (con soporte de número de IVA del comercio) en fase posterior.
+- **Pasarela:** **Stripe** como única pasarela (tarjeta europea/internacional). Diseñar `payments` con interfaz `PaymentGateway` para poder añadir otras en el futuro.
+- **Comprobantes:** dejar gancho para factura electrónica europea (no en MVP, pero el modelo de datos lo contempla).
 
 ---
 
@@ -436,27 +438,27 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 ### Orden sugerido de construcción para Claude Code
 1. Scaffold monorepo (`apps/web`, `apps/api`, `libs`, workflows).
 2. Core backend: `auth`, `users`, `comercios`, `catalog` (servicios base), `availability` (interfaces + registry), `bookings`, `payments`.
-3. Vertical **Hoteles** (discriminator + estrategias).
-4. Frontend: auth, buscador unificado, flujo de reserva de hoteles, perfil usuario, panel comercio, panel admin.
-5. Pagos (Culqi/Izipay/Yape) + confirmación por webhook.
+3. Categoría **Alojamiento canino** (discriminator + estrategias).
+4. Frontend: auth, buscador unificado, flujo de reserva de alojamiento, perfil usuario, panel comercio, panel admin.
+5. Pagos (Stripe) + confirmación por webhook.
 6. CI/CD (Netlify + Coolify).
-7. Vertical **Taxis** para validar extensibilidad → luego Vuelos, Transporte, Guardería.
+7. Categoría **Veterinaria** para validar extensibilidad → luego Transporte, Peluquería, Adiestramiento.
 
 ---
 
 ## 11. Pagos — Stripe (único método de pago)
 
-> **Decisión:** La única pasarela de pago es **Stripe**. No se integran Culqi, Izipay ni Yape en esta versión. Toda la lógica de pago se encapsula detrás de la interfaz `PaymentGateway` para poder añadir pasarelas en el futuro sin tocar el core.
+> **Decisión:** La única pasarela de pago es **Stripe** (mercado europeo). No se integra ninguna otra pasarela en esta versión. Toda la lógica de pago se encapsula detrás de la interfaz `PaymentGateway` para poder añadir pasarelas en el futuro sin tocar el core.
 
 ### 11.1 Costos Stripe (a reflejar siempre en los reportes del admin)
 
 | Tipo de transacción | Tarifa Stripe |
 |---|---|
-| Tarjeta nacional (Visa/MC Perú) | **2.9% + $0.30 USD** por transacción exitosa |
-| Tarjeta internacional | **3.9% + $0.30 USD** |
-| Conversión de moneda (USD→PEN) | +1.5% adicional si la tarjeta es en USD |
+| Tarjeta europea (EEE, Visa/MC) | **1.5% + €0.25** por transacción exitosa |
+| Tarjeta internacional (fuera EEE) | **2.5% + €0.25** |
+| Conversión de moneda | +2% adicional si la tarjeta no es en EUR |
 
-> **Convención del sistema:** El `stripeFee` se calcula sobre el `montoTotal` en PEN al tipo de cambio del momento. Para el MVP usar **2.9% + S/1.10** (equivalente aproximado de $0.30 USD a ~S/3.7; ajustar con tipo de cambio real). Esto se configura en `ComisionConfig` en la BD.
+> **Convención del sistema:** El `stripeFee` se calcula sobre el `montoTotal` en EUR. Para el MVP usar **2.9% + €0.25** (aproximación conservadora; ajustar a la tarifa real del país del comercio). Esto se configura en `ComisionConfig` en la BD.
 
 ### 11.2 Modelo de comisiones por vertical
 
@@ -467,21 +469,21 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 
 ```
 comisionPlataforma = montoSubtotal × comisionPct (15% default)
-stripeFee          = montoTotal × 0.029 + 1.10    (S/)
+stripeFee          = montoTotal × 0.029 + 0.25    (€)
 liquidacionComercio = montoTotal - comisionPlataforma - stripeFee
-igv                = montoSubtotal × 0.18
-montoTotal         = montoSubtotal + igv
+iva                = montoSubtotal × 0.21
+montoTotal         = montoSubtotal + iva
 ```
 
 **Comisiones iniciales por vertical (configurables desde el admin):**
 
-| Vertical | Comisión plataforma (default) | Justificación |
+| Categoría | Comisión plataforma (default) | Justificación |
 |---|---|---|
-| Hoteles | **15%** | Estándar mercado peruano |
-| Vuelos | **8%** | Margen bajo por competencia |
-| Taxis | **20%** | Operación on-demand de alto volumen |
-| Transporte | **12%** | B2B, tickets altos |
-| Guardería | **10%** | Servicio social, sensible al precio |
+| Alojamiento canino | **15%** | Estándar de marketplace de reservas |
+| Transporte de animales | **18%** | Operación on-demand, coordinación logística |
+| Veterinaria | **10%** | Servicio de salud, sensible al precio |
+| Peluquería canina | **15%** | Alta frecuencia, ticket medio |
+| Adiestramiento canino | **12%** | Programas de valor alto y recurrencia |
 
 Estos valores se almacenan en la colección `comision_configs` y son editables desde el panel admin sin redeploy.
 
@@ -492,7 +494,7 @@ _id
 vertical: VerticalKey | 'global'   // 'global' = fallback para todos
 comisionPct: number                 // 0.15 = 15%
 stripePct: number                   // 0.029
-stripeFijoSoles: number             // 1.10
+stripeFijoEur: number               // 0.25
 activo: boolean
 actualizadoPor: ObjectId (admin)
 createdAt, updatedAt
@@ -608,11 +610,11 @@ El panel admin debe mostrar **siempre** los tres niveles de la ganancia:
 - Cada componente Angular = una pantalla o un widget, no ambos.
 
 ### O — Open/Closed
-- El **core** (bookings, availability, catalog) está **cerrado a modificación**: no añadir `if vertical === 'hotel'` en el core.
+- El **core** (bookings, availability, catalog) está **cerrado a modificación**: no añadir `if vertical === 'alojamiento'` en el core.
 - El sistema está **abierto a extensión**: añadir un vertical = crear un módulo nuevo que implementa las interfaces del core.
 
 ### L — Liskov Substitution
-- `HotelAvailabilityStrategy`, `TaxiAvailabilityStrategy`, etc. son sustituibles en cualquier lugar que espere `AvailabilityStrategy`.
+- `AlojamientoAvailabilityStrategy`, `VeterinariaAvailabilityStrategy`, etc. son sustituibles en cualquier lugar que espere `AvailabilityStrategy`.
 - Los discriminadores Mongoose extienden `Servicio`; cualquier código que reciba un `Servicio` funciona con cualquier subtipo.
 
 ### I — Interface Segregation
@@ -621,7 +623,7 @@ El panel admin debe mostrar **siempre** los tres niveles de la ganancia:
 
 ### D — Dependency Inversion
 - Los services dependen de interfaces/tokens (`AVAILABILITY_REGISTRY`, `PAYMENT_GATEWAY`), no de implementaciones concretas.
-- NestJS DI resuelve las implementaciones; el service nunca hace `new HotelAvailabilityStrategy()`.
+- NestJS DI resuelve las implementaciones; el service nunca hace `new AlojamientoAvailabilityStrategy()`.
 
 ---
 
@@ -638,9 +640,9 @@ El panel admin debe mostrar **siempre** los tres niveles de la ganancia:
 - Máximo **3 parámetros**; si se necesitan más, usar un objeto (DTO o options object).
 
 ### Estructura
-- No comentarios que explican el QUÉ (el código lo dice); sólo comentarios que explican el POR QUÉ (restricciones no obvias, reglas de negocio peruanas, workarounds).
+- No comentarios que explican el QUÉ (el código lo dice); sólo comentarios que explican el POR QUÉ (restricciones no obvias, reglas de negocio europeas, workarounds).
 - Sin código muerto (`// console.log`, funciones nunca llamadas).
-- Sin magic numbers: `const IGV_RATE = 0.18` en `libs/shared/constants.ts`.
+- Sin magic numbers: `const IVA_RATE = 0.21` en `libs/shared/constants.ts`.
 - Early return para casos de error/borde; no anidar `if` más de 2 niveles.
 
 ### Módulos
