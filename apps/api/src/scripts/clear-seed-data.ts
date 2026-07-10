@@ -1,7 +1,7 @@
 /**
  * Limpia todos los datos de seed (usuarios, comercios, servicios, reservas, cupones).
  * Después de ejecutar este script, reinicia la API para que los seeders vuelvan
- * a insertar datos demo automáticamente, o corre seed:all para un seed completo.
+ * a insertar datos demo automáticamente, o corre seed:europe para un seed completo.
  *
  * Uso:
  *   npm run clear:seed --workspace=api
@@ -13,14 +13,14 @@ import mongoose, { Types } from 'mongoose';
 dotenv.config({ path: 'apps/api/.env' });
 dns.setDefaultResultOrder('ipv4first');
 
-// IDs usados por seed-all.ts
+// IDs de datos demo históricos (legacy) que este limpiador aún elimina si existen
 const SEED_USER_IDS = [
   'a00000000000000000000001', 'a00000000000000000000002', 'a00000000000000000000003',
   'a00000000000000000000004', 'a00000000000000000000005', 'a00000000000000000000006',
   'a00000000000000000000007', 'a00000000000000000000008', 'a00000000000000000000009',
 ].map((id) => new Types.ObjectId(id));
 
-// IDs usados por seed-all.ts Y por los seeders automáticos de verticales
+// IDs usados por los seeders automáticos de verticales (y datos demo históricos)
 const SEED_COMERCIO_IDS = [
   'b00000000000000000000001', 'b00000000000000000000002', 'b00000000000000000000003',
   'b00000000000000000000004', 'b00000000000000000000005', 'b00000000000000000000006',
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
   if (rCupones.deletedCount > 0) console.log(`  cupones:   eliminados ${rCupones.deletedCount}`);
 
   await mongoose.disconnect();
-  console.log('\n✅  Limpieza completada. Reinicia la API o corre "seed:all" para repoblar.');
+  console.log('\n✅  Limpieza completada. Reinicia la API o corre "seed:europe" para repoblar.');
 }
 
 main().catch((err: unknown) => {

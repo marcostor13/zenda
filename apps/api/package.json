@@ -10,7 +10,6 @@
     "test:watch": "jest --watch",
     "seed:admin": "ts-node -P tsconfig.json src/scripts/seed-admin.ts",
     "clear:seed": "ts-node -P tsconfig.json src/scripts/clear-seed-data.ts",
-    "seed:all": "ts-node -P tsconfig.json src/scripts/seed-all.ts",
     "seed:europe": "ts-node -P tsconfig.json src/scripts/seed-europe.ts"
   },
   "dependencies": {
