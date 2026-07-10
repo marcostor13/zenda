@@ -80,7 +80,7 @@ describe('BuscadorComponent', () => {
   });
 
   it('debería ignorar un vertical desconocido en los query params', async () => {
-    queryParams = { vertical: 'hoteles' };
+    queryParams = { vertical: 'categoria-inexistente' };
     await crearComponente();
     expect(component.verticalSeleccionado()).toBe(VerticalKey.ALOJAMIENTO);
   });

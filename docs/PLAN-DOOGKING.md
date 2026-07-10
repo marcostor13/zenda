@@ -148,11 +148,11 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 
 ### Fase 5 — Skills, memoria, reglas
 
-- [ ] `.claude/commands/design-tokens.md`: tokens Doogking
-- [ ] `.claude/commands/ui-kit.md` + `nuevo-componente.md`: reglas Doogking
-- [ ] CLAUDE.md: rebrand Doogking + categorías caninas + design system (secciones 0, 2, 4, 21)
-- [ ] Memoria Claude (`memory/`): project-reservalo.md → Doogking, design-system.md nuevo
-- [ ] SCOPE.md actualizado
+- [x] `.claude/commands/design-tokens.md`: tokens Doogking (ya migrado — `--dk-blue`, Plus Jakarta Sans, footer navy)
+- [x] `.claude/commands/ui-kit.md` + `nuevo-componente.md`: reglas Doogking (rebrandeados)
+- [ ] CLAUDE.md: rebrand Doogking + categorías caninas + design system (secciones 0, 2, 4, 21) — EN PROGRESO
+- [x] Memoria Claude (`memory/`): N/A — el directorio `memory/` no existe en el repo
+- [x] SCOPE.md actualizado (rebrandeado a Doogking)
 
 ### Fase 6 — Verificación final
 
