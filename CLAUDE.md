@@ -744,42 +744,46 @@ coverageThreshold: {
 
 ### 21.1 Filosofía de diseño
 
-Inspirado en helm.yt: **premium dark, whitespace generoso, tipografía clara, accent vibrante**.
+Identidad **Doogking**: **tema claro premium, whitespace generoso, tipografía clara, azul real + dorado corona**. "The Royal Treatment for Every Dog".
 
 | Atributo | Decisión |
 |---|---|
-| Tema base | **Dark navy** — `--bg-base: #080D1A` |
-| Accent | Gradiente azul-índigo `#4F72F8 → #8B5CF6` |
-| Fuente | **Inter** (Google Fonts, cargada en `index.html`) |
+| Tema base | **Claro** — `--c-base: #F8F9FA`, cards blancas `#FFFFFF`, sombras azuladas suaves |
+| Color primario | **Royal King Blue** `--dk-blue: #08258B` (botones, headings, links); Deep `--dk-blue-deep: #00135D` (footer navy, hover) |
+| Accent / CTA | **Crown Gold** `--dk-gold: #FBAE17` (CTA "Reservar/Buscar", estrellas); Gold light `--dk-gold-light: #FFC533` (gradiente) |
+| Fuentes | **Plus Jakarta Sans** (headings, 700/800) · **Inter** (cuerpo/botones) · **Montserrat 700** (labels all-caps, slogan) — cargadas en `index.html` |
 | Escala de espaciado | Base 4px — tokens `--s-1` a `--s-24` |
-| Border radius estándar | `--r-lg` (12px) para inputs/cards, `--r-xl` (16px) para modales |
+| Border radius estándar | `--r-lg` para inputs/cards/botones; contenedores grandes 16px; badges circulares; pills para estados |
 
 ### 21.2 Tokens CSS (`:root` en `styles.scss`)
 
 ```scss
-/* Fondos */
---bg-base, --bg-elevated, --bg-card, --bg-surface, --bg-subtle
---bg-light, --bg-light-2
+/* Marca Doogking */
+--dk-blue (#08258B), --dk-blue-deep (#00135D), --dk-blue-text (#051A66)
+--dk-gold (#FBAE17), --dk-gold-light (#FFC533), --dk-divider (#8B9BBC)
 
-/* Accent */
---accent, --accent-hover, --accent-light, --accent-subtle, --accent-gradient
+/* Fondos y superficies (tema claro) */
+--c-base (#F8F9FA), --c-card (#FFFFFF), --c-surface, --c-raised
+--c-light (#00135D), --c-light-2 (#08258B)
+
+/* Accent (alias de marca, mantienen nombres para no romper 26+ componentes) */
+--c-accent (#08258B = --dk-blue), --c-accent-h, --c-accent-lo
+--c-amber (#FBAE17 = --dk-gold)
+
+/* Gradientes */
+--g-accent (azul), --g-warm (dorado)
 
 /* Texto */
 --text-primary, --text-secondary, --text-muted
 --text-dark, --text-dark-secondary
 
 /* Tipografía */
---font-sans, --font-display
---text-xs (12) a --text-6xl (60)
---fw-normal (400) a --fw-extrabold (800)
+--font (Inter), --font-display (Plus Jakarta Sans), --font-accent (Montserrat)
+--text-xs a --text-6xl (tamaños) · --fw-normal (400) a --fw-extrabold (800)
 
-/* Espaciado */
+/* Espaciado / otros */
 --s-1 (4px) a --s-24 (96px)
-
-/* Otros */
---r-sm a --r-full    (border radius)
---shadow-sm a --shadow-accent
---t-fast, --t-base, --t-slow  (transiciones)
+--r-sm a --r-full · --shadow-* · --t-fast/--t-base/--t-slow (transiciones)
 ```
 
 ### 21.3 Clases globales `rs-*`

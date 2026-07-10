@@ -9,11 +9,12 @@
 > - **Backend:** specs migrados a `VerticalKey` caninos + reparado wiring DI preexistente (comercios/admin) → **suite api 29 suites / 133 tests VERDE**; `seed-europe.ts` reescrito a datos caninos (6 comercios, 12 servicios, 3 reservas, 3 cupones, 6 comision_configs); `clear-seed-data.ts` a colecciones caninas; `ai-search` ya canino. `nest build` OK.
 > - **Docs/marca (Fase 5):** speckit, nuevo-componente, ui-kit, SCOPE rebrandeados; **CLAUDE.md rebrandeado por completo** a Doogking/canino/EUR (0 términos viejos); design-tokens.md ya estaba migrado; `memory/` no existe (N/A).
 > - **Verificación (Fase 6):** shared+api+web compilan; tests api 133/133 y web 49/49 en verde.
+> - **Resuelto en esta sesión (cont.):**
+>   1. ✅ **`seed-all.ts`** eliminado (Perú/PEN obsoleto) + quitado script `seed:all` + referencias en clear-seed-data actualizadas a seed:europe.
+>   2. ✅ **§21 de CLAUDE.md** alineado al tema claro real (azul rey + dorado, tokens reales).
 > - **Pendiente / decisiones abiertas:**
->   1. **`seed-all.ts`** (Perú/PEN obsoleto): decisión del cliente — borrar + quitar script npm, migrar a canino, o dejar. Único archivo con verticales viejos que queda.
->   2. **§21 de CLAUDE.md** (UI Kit): aún describe filosofía "premium dark" antigua; el design system real es tema claro (azul rey + dorado). Merece pasada aparte.
->   3. **catalog.service.ts**: DTOs `HotelCardDto`/`buscarHoteles` (naming heredado; funciona). Rename diferido a propósito — los campos son intrínsecamente de alojamiento y el rename sería churn cosmético.
->   4. **Revisión visual** de la web (levantar la app).
+>   1. **catalog.service.ts**: DTOs `HotelCardDto`/`buscarHoteles` (naming heredado; funciona). Rename diferido a propósito — los campos son intrínsecamente de alojamiento y el rename sería churn cosmético.
+>   2. **Revisión visual** de la web (levantar la app).
 
 ---
 
@@ -156,7 +157,7 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 - [x] `.claude/commands/design-tokens.md`: tokens Doogking (ya migrado — `--dk-blue`, Plus Jakarta Sans, footer navy)
 - [x] `.claude/commands/ui-kit.md` + `nuevo-componente.md`: reglas Doogking (rebrandeados)
 - [x] CLAUDE.md: rebrand completo a Doogking (secciones 0-11 de dominio: concepto, 5 categorías caninas, EUR/IVA 21%, Stripe, schemas, roadmap, mercado europeo; `ruc`→`vatNumber`). 0 términos viejos.
-  - ⚠️ **Follow-up:** §21 (UI Kit) aún describe la filosofía "premium dark" antigua; el design system real de Doogking es tema claro (azul rey + dorado). Merece una pasada aparte para alinear §21 con la paleta real (ver PLAN §2 y `design-tokens.md`, que ya están correctos).
+- [x] CLAUDE.md §21 (UI Kit): alineado al design system real de Doogking (tema claro, Royal King Blue #08258B + Crown Gold #FBAE17, fuentes Plus Jakarta Sans/Inter/Montserrat, nombres de token reales de styles.scss). Eliminada la filosofía "premium dark" antigua.
 - [x] Memoria Claude (`memory/`): N/A — el directorio `memory/` no existe en el repo
 - [x] SCOPE.md actualizado (rebrandeado a Doogking)
 
