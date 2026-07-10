@@ -6,7 +6,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ComercioApiService, MiServicio } from './comercio-api.service';
 
 const VERTICAL_ICON: Record<string, string> = {
-  hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
+  alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
 };
 
 @Component({

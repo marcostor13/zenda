@@ -4,7 +4,11 @@
 >
 > Última actualización: 2026-07-10 · Estado: **EN PROGRESO**
 >
-> **Log de sesión 2026-07-10** — Frontend: rutas migradas a las 5 categorías caninas (`/alojamiento /transporte /veterinaria /peluqueria /adiestramiento`); eliminadas features viejas `hoteles/` y `taxis/`; `mis-reservas` re-cableado a `AlojamientoService`; paneles admin (reportes, cupones, comercios) y reseñas de comercio migrados a verticales caninos. Web compila (`ng build` OK). **Pendiente:** backend seeds caninos (`seed-europe`, `clear-seed-data`), naming DTOs catalog, tests api/web, barrido final de textos y panel-comercio.
+> **Log de sesión 2026-07-10** — Migración avanzada de forma verificada:
+> - **Frontend:** rutas → 5 categorías caninas (`/alojamiento /transporte /veterinaria /peluqueria /adiestramiento`); eliminadas features viejas `hoteles/` y `taxis/`; `mis-reservas` re-cableado a `AlojamientoService`; paneles admin (reportes, cupones, comercios), reseñas de comercio y mapa de iconos de listados migrados. `ng build` OK.
+> - **Backend:** specs migrados a `VerticalKey` caninos + reparado wiring DI preexistente (comercios/admin) → **suite api 29 suites / 133 tests VERDE**; `seed-europe.ts` reescrito a datos caninos (6 comercios, 12 servicios, 3 reservas, 3 cupones, 6 comision_configs); `clear-seed-data.ts` a colecciones caninas; `ai-search` ya canino. `nest build` OK.
+> - **Docs/marca:** speckit, nuevo-componente, ui-kit, SCOPE rebrandeados a Doogking.
+> - **Pendiente:** (1) decisión sobre `seed-all.ts` (Perú/PEN obsoleto — borrar o migrar); (2) renombrar DTOs `HotelCardDto`→`Alojamiento*` en catalog.service (cosmético); (3) Fase 5 restante: `design-tokens.md`, CLAUDE.md rebrand, `memory/`; (4) correr tests web; (5) revisión visual.
 
 ---
 
@@ -113,12 +117,11 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 - [x] Eliminar `hoteles/ vuelos/ taxis/ guarderia/` viejos
 - [x] `core/catalog/catalog.module.ts`: discriminators nuevos
 - [x] `app.module.ts`: imports nuevos
-- [ ] `core/ai-search/ai-search.service.ts`: prompt con categorías caninas (falta pulir wording)
-- [ ] `core/catalog/catalog.service.ts`: renombrar DTOs Hotel→Alojamiento (funciona, naming heredado)
-- [ ] `core/catalog/catalog.seeder.ts`: demo de alojamientos caninos
-- [ ] `scripts/seed-europe.ts`: comercios/servicios caninos + comision_configs nuevas (aún datos hoteles/vuelos/taxis)
-- [ ] `scripts/seed-all.ts` (Perú/PEN — obsoleto tras migración a EUR; decidir borrar o migrar)
-- [ ] `scripts/clear-seed-data.ts`: nombres de colección caninos
+- [x] `core/ai-search/ai-search.service.ts`: prompt ya 100% canino (5 categorías)
+- [ ] `core/catalog/catalog.service.ts`: renombrar DTOs Hotel→Alojamiento (funciona, naming heredado — cosmético, pendiente)
+- [x] `scripts/seed-europe.ts`: reescrito a 6 comercios + 12 servicios + 3 reservas + 3 cupones + 6 comision_configs caninos (compila)
+- [ ] `scripts/seed-all.ts` (Perú/PEN — obsoleto tras migración a EUR; **DECISIÓN PENDIENTE del cliente: borrar o migrar**)
+- [x] `scripts/clear-seed-data.ts`: nombres de colección caninos
 - [x] Specs del core que referencian verticales viejas actualizados (VerticalKey.HOTELES→ALOJAMIENTO, etc.)
 - [x] `nest build` OK + tests api OK (29 suites / 133 tests verdes; también arreglado wiring DI preexistente de comercios/admin specs)
 
@@ -139,9 +142,9 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 - [x] `app.routes.ts`: rutas /alojamiento /transporte /veterinaria /peluqueria /adiestramiento
 - [x] `features/reservas` (wizard + mis-reservas): lógica por vertical nueva; mis-reservas re-cableado a AlojamientoService
 - [x] `panel-admin`: labels/reportes por categoría (admin-reportes, cupones-admin, admin-comercios, comercio-resenas)
-- [ ] `panel-comercio` (listado-nuevo): formularios por categoría según schemas nuevos (pendiente revisar)
-- [ ] Textos Doogking/Reservalo → Doogking en toda la app (pendiente barrido final)
-- [x] `ng build` OK (web compila) — tests web pendientes
+- [x] `panel-comercio`: mapa de iconos por categoría canina + reseñas mock caninas (formularios de alta por categoría: pendiente ampliar)
+- [x] Textos Reservalo → Doogking: app web ya sin "Reservalo"; docs/skills (speckit, nuevo-componente, ui-kit, SCOPE) rebrandeados. Solo queda `seed-all.ts` (obsoleto)
+- [x] `ng build` OK (web compila) — tests web pendientes de correr
 
 ### Fase 5 — Skills, memoria, reglas
 

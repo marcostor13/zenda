@@ -1,4 +1,4 @@
-# Reservalo — Scope de la Plataforma
+# Doogking — Scope de la Plataforma
 
 > Marketplace multi-vertical de reservas para el mercado peruano (stack actual: Angular 20 + NestJS + MongoDB Atlas + Stripe).
 

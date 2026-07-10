@@ -49,8 +49,8 @@ async function main(): Promise<void> {
   const rComercio = await db.collection('comercios').deleteMany({ _id: { $in: SEED_COMERCIO_IDS } });
   if (rComercio.deletedCount > 0) console.log(`  comercios: eliminados ${rComercio.deletedCount}`);
 
-  // Servicios de todos los verticales
-  for (const col of ['servicios', 'hoteles', 'taxis', 'vuelos', 'transportes', 'guarderias']) {
+  // Servicios de todas las categorías caninas (los discriminadores viven en 'servicios')
+  for (const col of ['servicios', 'alojamientos', 'transportes', 'veterinarias', 'peluquerias', 'adiestramientos']) {
     try {
       const r = await db.collection(col).deleteMany({ comercioId: { $in: SEED_COMERCIO_IDS } });
       if (r.deletedCount > 0) console.log(`  ${col}: eliminados ${r.deletedCount}`);

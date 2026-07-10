@@ -90,7 +90,7 @@ Si el usuario pide `/ui-kit audit` o `/ui-kit check`:
    - Restos del tema viejo (navy oscuro de fondo, azul Expedia `#1668E3`, morados `#5472F8`)
    - Clases CSS propias que dupliquen clases `rs-*`
    - `<button>` sin clase `rs-btn` · `<input>` sin clase `rs-inp`/`rs-input`
-   - Textos "Doogking" o "Reservalo" (la marca es Doogking)
+   - Restos de la marca vieja "Reservalo" (la marca es Doogking)
 3. Reporta violaciones con ruta:línea y corrección sugerida.
 4. Si el usuario confirma, aplica las correcciones.
 

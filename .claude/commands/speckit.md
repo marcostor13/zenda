@@ -1,6 +1,6 @@
-# /speckit — Spec-Driven Development para Reservalo
+# /speckit — Spec-Driven Development para Doogking
 
-Flujo estructurado de 7 pasos para implementar features en Reservalo de forma rigurosa.
+Flujo estructurado de 7 pasos para implementar features en Doogking de forma rigurosa.
 
 ## Cuándo usar este skill
 
@@ -8,7 +8,7 @@ Antes de implementar cualquier feature nueva de mediana o gran complejidad. El s
 - Los requisitos estén claros antes de escribir código
 - La arquitectura respete los principios del CLAUDE.md
 - Los tests estén planificados desde el inicio
-- El diseño use el UI Kit de Reservalo
+- El diseño use el UI Kit de Doogking
 
 ---
 
@@ -58,7 +58,7 @@ Valida la implementación contra el spec:
 
 ---
 
-## Reglas de spec-kit para Reservalo
+## Reglas de spec-kit para Doogking
 
 Al crear specs y planes, respetar siempre:
 
