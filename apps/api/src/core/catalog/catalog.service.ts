@@ -3,8 +3,8 @@ import { CatalogRepository, BuscarServiciosParams } from './catalog.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { CrearServicioDto } from 'shared';
 
-/** Vista de tarjeta de hotel que consume el frontend. */
-export interface HotelCardDto {
+/** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
+export interface ServicioCardDto {
   id: string;
   nombre: string;
   ciudad: string;
@@ -44,7 +44,7 @@ export interface HabitacionDto {
   cancelacionGratis: boolean;
 }
 
-export interface HotelDetalleDto extends HotelCardDto {
+export interface ServicioDetalleDto extends ServicioCardDto {
   descripcion: string;
   politicaCancelacion: string;
   checkIn: string;
@@ -61,8 +61,8 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
-/** Estructura mínima de un documento de hotel ya "leaneado". */
-interface HotelLean {
+/** Estructura mínima de un documento de servicio ya "leaneado". */
+interface ServicioLean {
   _id: unknown;
   comercioId?: unknown;
   titulo: string;
@@ -95,14 +95,14 @@ const MAX_LIMIT = 50;
 export class CatalogService {
   constructor(private readonly repo: CatalogRepository) {}
 
-  async buscarHoteles(filtros: {
+  async buscarServicios(filtros: {
     vertical?: string;
     ciudad?: string;
     precioMin?: number;
     precioMax?: number;
     page?: number;
     limit?: number;
-  }): Promise<PaginatedResult<HotelCardDto>> {
+  }): Promise<PaginatedResult<ServicioCardDto>> {
     const params: BuscarServiciosParams = {
       vertical: filtros.vertical ?? 'alojamiento',
       ciudad: filtros.ciudad,
@@ -115,14 +115,14 @@ export class CatalogService {
     const { items, total } = await this.repo.buscar(params);
 
     return {
-      items: items.map((doc) => this.toCard(doc as unknown as HotelLean)),
+      items: items.map((doc) => this.toCard(doc as unknown as ServicioLean)),
       total,
       page: params.page,
       totalPages: Math.max(1, Math.ceil(total / params.limit)),
     };
   }
 
-  async crearServicio(dto: CrearServicioDto, comercioId: string): Promise<HotelCardDto> {
+  async crearServicio(dto: CrearServicioDto, comercioId: string): Promise<ServicioCardDto> {
     const doc = await this.repo.crear({
       vertical: dto.vertical,
       titulo: dto.titulo,
@@ -132,18 +132,18 @@ export class CatalogService {
       imagenes: dto.imagenes ?? [],
       comercioId,
     });
-    return this.toCard(doc as unknown as HotelLean);
+    return this.toCard(doc as unknown as ServicioLean);
   }
 
-  async obtenerHotel(id: string): Promise<HotelDetalleDto> {
+  async obtenerServicio(id: string): Promise<ServicioDetalleDto> {
     const doc = await this.repo.obtenerPorId(id);
     if (!doc) {
       throw new DomainException('Servicio no encontrado', 404);
     }
-    return this.toDetalle(doc as unknown as HotelLean);
+    return this.toDetalle(doc as unknown as ServicioLean);
   }
 
-  private toCard(h: HotelLean): HotelCardDto {
+  private toCard(h: ServicioLean): ServicioCardDto {
     const score = Math.round((h.ratingPromedio ?? 0) * 10) / 10;
     return {
       id: String(h._id),
@@ -192,7 +192,7 @@ export class CatalogService {
     return extra;
   }
 
-  private toDetalle(h: HotelLean): HotelDetalleDto {
+  private toDetalle(h: ServicioLean): ServicioDetalleDto {
     return {
       ...this.toCard(h),
       descripcion: h.descripcion ?? '',
@@ -210,7 +210,7 @@ export class CatalogService {
    * (con `precioNoche`); se proyectan sobre el shape legacy `habitaciones`
    * para no romper a los consumidores existentes del detalle.
    */
-  private espaciosComoHabitaciones(h: HotelLean): HabitacionDto[] {
+  private espaciosComoHabitaciones(h: ServicioLean): HabitacionDto[] {
     if (h.habitaciones?.length) return h.habitaciones;
     const espacios = (h as unknown as Record<string, unknown>)['espacios'] as
       | Array<Record<string, unknown>>

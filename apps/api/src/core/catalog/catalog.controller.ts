@@ -3,8 +3,8 @@ import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import {
   CatalogService,
-  HotelCardDto,
-  HotelDetalleDto,
+  ServicioCardDto,
+  ServicioDetalleDto,
   PaginatedResult,
 } from './catalog.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -28,7 +28,7 @@ export class CatalogController {
   crear(
     @Body() dto: CrearServicioDto,
     @Req() req: RequestConUser,
-  ): Promise<HotelCardDto> {
+  ): Promise<ServicioCardDto> {
     return this.catalogService.crearServicio(dto, req.user.comercioId!);
   }
 
@@ -47,8 +47,8 @@ export class CatalogController {
     @Query('precioMax') precioMax?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-  ): Promise<PaginatedResult<HotelCardDto>> {
-    return this.catalogService.buscarHoteles({
+  ): Promise<PaginatedResult<ServicioCardDto>> {
+    return this.catalogService.buscarServicios({
       vertical,
       ciudad,
       precioMin: this.toNumber(precioMin),
@@ -60,8 +60,8 @@ export class CatalogController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener el detalle de un servicio por id' })
-  obtener(@Param('id') id: string): Promise<HotelDetalleDto> {
-    return this.catalogService.obtenerHotel(id);
+  obtener(@Param('id') id: string): Promise<ServicioDetalleDto> {
+    return this.catalogService.obtenerServicio(id);
   }
 
   private toNumber(value?: string): number | undefined {

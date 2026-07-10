@@ -12,7 +12,7 @@ describe('CatalogController', () => {
       providers: [
         {
           provide: CatalogService,
-          useValue: { buscarHoteles: jest.fn(), obtenerHotel: jest.fn() },
+          useValue: { buscarServicios: jest.fn(), obtenerServicio: jest.fn() },
         },
       ],
     }).compile();
@@ -23,11 +23,11 @@ describe('CatalogController', () => {
 
   describe('buscar', () => {
     it('debería convertir los query params numéricos y delegar en el service', async () => {
-      service.buscarHoteles.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
+      service.buscarServicios.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
 
       await controller.buscar('alojamiento', 'Madrid', '100', '500', '2', '20');
 
-      expect(service.buscarHoteles).toHaveBeenCalledWith({
+      expect(service.buscarServicios).toHaveBeenCalledWith({
         vertical: 'alojamiento',
         ciudad: 'Madrid',
         precioMin: 100,
@@ -38,11 +38,11 @@ describe('CatalogController', () => {
     });
 
     it('debería pasar undefined para los params numéricos vacíos o inválidos', async () => {
-      service.buscarHoteles.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
+      service.buscarServicios.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
 
       await controller.buscar(undefined, undefined, '', 'abc', undefined, undefined);
 
-      expect(service.buscarHoteles).toHaveBeenCalledWith({
+      expect(service.buscarServicios).toHaveBeenCalledWith({
         vertical: undefined,
         ciudad: undefined,
         precioMin: undefined,
@@ -56,11 +56,11 @@ describe('CatalogController', () => {
   describe('obtener', () => {
     it('debería delegar la obtención del detalle en el service', async () => {
       const detalle = { id: 'hotel-1' } as never;
-      service.obtenerHotel.mockResolvedValue(detalle);
+      service.obtenerServicio.mockResolvedValue(detalle);
 
       const result = await controller.obtener('hotel-1');
 
-      expect(service.obtenerHotel).toHaveBeenCalledWith('hotel-1');
+      expect(service.obtenerServicio).toHaveBeenCalledWith('hotel-1');
       expect(result).toBe(detalle);
     });
   });

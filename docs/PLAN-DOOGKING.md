@@ -12,9 +12,8 @@
 > - **Resuelto en esta sesión (cont.):**
 >   1. ✅ **`seed-all.ts`** eliminado (Perú/PEN obsoleto) + quitado script `seed:all` + referencias en clear-seed-data actualizadas a seed:europe.
 >   2. ✅ **§21 de CLAUDE.md** alineado al tema claro real (azul rey + dorado, tokens reales).
-> - **Pendiente / decisiones abiertas:**
->   1. **catalog.service.ts**: DTOs `HotelCardDto`/`buscarHoteles` (naming heredado; funciona). Rename diferido a propósito — los campos son intrínsecamente de alojamiento y el rename sería churn cosmético.
->   2. **Revisión visual** de la web (levantar la app).
+>   3. ✅ **catalog.service.ts**: DTOs/métodos `Hotel*`/`buscarHoteles` → genéricos `Servicio*`/`buscarServicios` (JSON sin cambios; 133/133 verde).
+> - **Único pendiente:** revisión visual de la web (requiere levantar la app).
 
 ---
 
@@ -124,7 +123,7 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 - [x] `core/catalog/catalog.module.ts`: discriminators nuevos
 - [x] `app.module.ts`: imports nuevos
 - [x] `core/ai-search/ai-search.service.ts`: prompt ya 100% canino (5 categorías)
-- [ ] `core/catalog/catalog.service.ts`: renombrar DTOs Hotel→Alojamiento (funciona, naming heredado — cosmético, pendiente)
+- [x] `core/catalog/catalog.service.ts`: DTOs/métodos `Hotel*`/`buscarHoteles` → genéricos `Servicio*`/`buscarServicios` (catálogo sirve a los 5 verticales; JSON sin cambios; api 133/133 verde)
 - [x] `scripts/seed-europe.ts`: reescrito a 6 comercios + 12 servicios + 3 reservas + 3 cupones + 6 comision_configs caninos (compila)
 - [ ] `scripts/seed-all.ts` (Perú/PEN — obsoleto tras migración a EUR; **DECISIÓN PENDIENTE del cliente: borrar o migrar**)
 - [x] `scripts/clear-seed-data.ts`: nombres de colección caninos

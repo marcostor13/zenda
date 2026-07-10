@@ -50,11 +50,11 @@ describe('CatalogService', () => {
     repo = module.get(CatalogRepository);
   });
 
-  describe('buscarHoteles', () => {
+  describe('buscarServicios', () => {
     it('debería mapear los documentos a tarjetas de hotel y calcular la paginación', async () => {
       repo.buscar.mockResolvedValue({ items: [hotelDoc] as never, total: 25 });
 
-      const result = await service.buscarHoteles({ page: 2, limit: 10 });
+      const result = await service.buscarServicios({ page: 2, limit: 10 });
 
       expect(result.total).toBe(25);
       expect(result.page).toBe(2);
@@ -76,7 +76,7 @@ describe('CatalogService', () => {
     it('debería usar el vertical hoteles por defecto y acotar el límite máximo', async () => {
       repo.buscar.mockResolvedValue({ items: [], total: 0 });
 
-      await service.buscarHoteles({ limit: 999 });
+      await service.buscarServicios({ limit: 999 });
 
       expect(repo.buscar).toHaveBeenCalledWith(
         expect.objectContaining({ vertical: 'alojamiento', limit: 50, page: 1 }),
@@ -86,18 +86,18 @@ describe('CatalogService', () => {
     it('debería devolver totalPages 1 cuando no hay resultados', async () => {
       repo.buscar.mockResolvedValue({ items: [], total: 0 });
 
-      const result = await service.buscarHoteles({});
+      const result = await service.buscarServicios({});
 
       expect(result.totalPages).toBe(1);
       expect(result.items).toEqual([]);
     });
   });
 
-  describe('obtenerHotel', () => {
+  describe('obtenerServicio', () => {
     it('debería devolver el detalle mapeado con sus habitaciones', async () => {
       repo.obtenerPorId.mockResolvedValue(hotelDoc as never);
 
-      const result = await service.obtenerHotel('hotel-1');
+      const result = await service.obtenerServicio('hotel-1');
 
       expect(result.descripcion).toBe('Un gran hotel');
       expect(result.habitaciones).toHaveLength(1);
@@ -108,7 +108,7 @@ describe('CatalogService', () => {
     it('debería lanzar DomainException 404 si el hotel no existe', async () => {
       repo.obtenerPorId.mockResolvedValue(null);
 
-      await expect(service.obtenerHotel('no-existe')).rejects.toThrow(DomainException);
+      await expect(service.obtenerServicio('no-existe')).rejects.toThrow(DomainException);
     });
   });
 });
