@@ -3,15 +3,98 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+export interface ContactoComercio {
+  nombreContacto?: string;
+  email?: string;
+  telefono?: string;
+  whatsapp?: string;
+}
+
+export interface DireccionComercio {
+  calle?: string;
+  numero?: string;
+  ciudad?: string;
+  provincia?: string;
+  codigoPostal?: string;
+  pais?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface RedesSociales {
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+}
+
+export interface HorarioDia {
+  dia: string;
+  abre?: string;
+  cierra?: string;
+  cerrado: boolean;
+}
+
+export interface DatosBancarios {
+  titular?: string;
+  iban?: string;
+  banco?: string;
+  swift?: string;
+}
+
+export interface VerificacionComercio {
+  estado: 'sin_verificar' | 'pendiente' | 'verificado' | 'rechazado';
+  documentoIdentidadUrl?: string;
+  licenciaNegocioUrl?: string;
+}
+
+export interface PreferenciasNotificacion {
+  nuevaReserva: boolean;
+  cancelacion: boolean;
+  resena: boolean;
+  pagos: boolean;
+}
+
 export interface MiComercio {
   _id: string;
   nombreComercial: string;
   razonSocial: string;
+  vatNumber: string;
+  descripcion?: string;
   logoUrl?: string;
+  coverUrl?: string;
+  galeria: string[];
+  sitioWeb?: string;
   verticales: string[];
   plan: string;
   estado: string;
+  contacto?: ContactoComercio;
+  direccion?: DireccionComercio;
+  redesSociales?: RedesSociales;
+  horario: HorarioDia[];
+  politicaCancelacion?: 'flexible' | 'moderada' | 'estricta';
+  datosBancarios?: DatosBancarios;
+  verificacion: VerificacionComercio;
+  preferenciasNotificacion: PreferenciasNotificacion;
 }
+
+export type ActualizarPerfilComercioPayload = Partial<
+  Pick<
+    MiComercio,
+    | 'nombreComercial'
+    | 'descripcion'
+    | 'logoUrl'
+    | 'coverUrl'
+    | 'galeria'
+    | 'sitioWeb'
+    | 'politicaCancelacion'
+    | 'contacto'
+    | 'direccion'
+    | 'redesSociales'
+    | 'datosBancarios'
+    | 'preferenciasNotificacion'
+    | 'horario'
+  >
+> & { documentoIdentidadUrl?: string; licenciaNegocioUrl?: string };
 
 export interface MiReserva {
   _id: string;
@@ -34,6 +117,30 @@ export interface MiServicio {
   imagenes?: string[];
 }
 
+/** Payload base común a crear/actualizar un listado; el bag específico del vertical
+ *  se envía bajo la clave con el mismo nombre que el vertical (p. ej. `alojamiento`). */
+export interface ServicioPayload {
+  vertical?: string;
+  titulo?: string;
+  descripcion?: string;
+  ciudad?: string;
+  precioBase?: number;
+  imagenes?: string[];
+  [detalleVertical: string]: unknown;
+}
+
+export interface ServicioGestion {
+  id: string;
+  vertical: string;
+  titulo: string;
+  descripcion: string;
+  ciudad: string;
+  precioBase: number;
+  imagenes: string[];
+  estado: string;
+  [detalleVertical: string]: unknown;
+}
+
 export interface MiResena {
   _id: string;
   servicioId: string;
@@ -50,6 +157,7 @@ export interface MiResena {
 export class ComercioApiService {
   private readonly http = inject(HttpClient);
   private readonly url = `${environment.apiUrl}/comercios`;
+  private readonly catalogUrl = `${environment.apiUrl}/catalog/servicios`;
 
   getMiComercio(): Observable<MiComercio> {
     return this.http.get<MiComercio>(`${this.url}/mi-comercio`);
@@ -67,15 +175,16 @@ export class ComercioApiService {
     return this.http.patch<MiServicio>(`${this.url}/mis-servicios/${id}/estado`, { estado });
   }
 
-  crearServicio(dto: {
-    vertical: string;
-    titulo: string;
-    descripcion: string;
-    ciudad: string;
-    precioBase: number;
-    imagenes?: string[];
-  }): Observable<MiServicio> {
-    return this.http.post<MiServicio>(`${environment.apiUrl}/catalog/servicios`, dto);
+  crearServicio(dto: ServicioPayload): Observable<MiServicio> {
+    return this.http.post<MiServicio>(this.catalogUrl, dto);
+  }
+
+  obtenerServicioGestion(id: string): Observable<ServicioGestion> {
+    return this.http.get<ServicioGestion>(`${this.catalogUrl}/${id}/gestion`);
+  }
+
+  actualizarServicio(id: string, dto: ServicioPayload): Observable<MiServicio> {
+    return this.http.patch<MiServicio>(`${this.catalogUrl}/${id}`, dto);
   }
 
   getMisResenas(): Observable<MiResena[]> {
@@ -86,7 +195,7 @@ export class ComercioApiService {
     return this.http.patch<MiResena>(`${this.url}/mis-resenas/${id}/respuesta`, { texto });
   }
 
-  actualizarComercio(dto: Partial<MiComercio & { descripcion?: string; email?: string; telefono?: string }>): Observable<MiComercio> {
+  actualizarComercio(dto: ActualizarPerfilComercioPayload): Observable<MiComercio> {
     return this.http.patch<MiComercio>(`${this.url}/mi-comercio`, dto);
   }
 }

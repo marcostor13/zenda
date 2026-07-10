@@ -5,14 +5,11 @@ import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { ComercioApiService, MiReserva, MiServicio } from './comercio-api.service';
+import { iconoVertical } from './vertical-icon';
 
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success', pendiente: 'rs-badge--warning',
   cancelada: 'rs-badge--error', completada: 'rs-badge--accent', no_show: 'rs-badge--neutral',
-};
-
-const VERTICAL_ICON: Record<string, string> = {
-  hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
 };
 
 @Component({
@@ -254,7 +251,7 @@ export class PanelComercioDashboardComponent implements OnInit {
     }
   }
 
-  iconVertical(v: string): string { return VERTICAL_ICON[v] ?? 'building'; }
+  iconVertical(v: string): string { return iconoVertical(v); }
   badgeEstado(e: string): string { return ESTADO_BADGE[e] ?? 'rs-badge--neutral'; }
   estadoServicioBadge(e: string): string {
     if (e === 'publicado') return 'rs-badge--success';

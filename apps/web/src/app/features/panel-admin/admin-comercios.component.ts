@@ -3,11 +3,17 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { AdminApiService, ComercioAdmin, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { iconoVertical } from '../panel-comercio/vertical-icon';
 
 const VERTICAL_EMOJI: Record<string, string> = {
-  hoteles: '🏨', vuelos: '✈️', taxis: '🚗', transporte: '🚛', guarderia: '👶',
+  [VerticalKey.ALOJAMIENTO]: '🏠',
+  [VerticalKey.TRANSPORTE]: '🚛',
+  [VerticalKey.VETERINARIA]: '🩺',
+  [VerticalKey.PELUQUERIA]: '✂️',
+  [VerticalKey.ADIESTRAMIENTO]: '🎓',
 };
 
 const FILTROS = [
@@ -17,7 +23,7 @@ const FILTROS = [
   { label: 'Suspendidos', valor: 'suspendido' },
 ] as const;
 
-const VERTICALES_OPCIONES = ['hoteles', 'vuelos', 'taxis', 'transporte', 'guarderia'];
+const VERTICALES_OPCIONES = Object.values(VerticalKey);
 const LIMITE = 20;
 
 @Component({
@@ -98,7 +104,7 @@ const LIMITE = 20;
                 <div class="verticales-pills">
                   @for (v of c.verticales; track v) {
                     <span class="rs-badge rs-badge--neutral" style="display:inline-flex;align-items:center;gap:4px">
-                    <rs-icon [name]="iconVertical(v)" [size]="11" [stroke]="2"></rs-icon>{{ v }}
+                    <rs-icon [name]="iconVertical(v)" [size]="11" [stroke]="2"></rs-icon>{{ labelVertical(v) }}
                   </span>
                   }
                 </div>
@@ -212,7 +218,7 @@ const LIMITE = 20;
                 <input type="checkbox"
                   [checked]="verticalesSeleccionadas().includes(v)"
                   (change)="toggleVertical(v)" />
-                <rs-icon [name]="iconVertical(v)" [size]="14" [stroke]="2"></rs-icon> {{ v }}
+                <rs-icon [name]="iconVertical(v)" [size]="14" [stroke]="2"></rs-icon> {{ labelVertical(v) }}
               </label>
             }
           </div>
@@ -528,10 +534,11 @@ export class AdminComerciosComponent implements OnInit {
   }
 
   iconVertical(vertical: string): string {
-    const MAP: Record<string, string> = {
-      hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
-    };
-    return MAP[vertical] ?? 'building';
+    return iconoVertical(vertical);
+  }
+
+  labelVertical(vertical: string): string {
+    return VERTICAL_LABELS[vertical as VerticalKey] ?? vertical;
   }
 
   badgeEstado(estado: string): string {

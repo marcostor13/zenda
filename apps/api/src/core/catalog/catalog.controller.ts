@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import {
@@ -6,10 +6,11 @@ import {
   HotelCardDto,
   HotelDetalleDto,
   PaginatedResult,
+  ServicioGestionDto,
 } from './catalog.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { CrearServicioDto, Rol } from 'shared';
+import { CrearServicioDto, ActualizarServicioDto, Rol } from 'shared';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -62,6 +63,31 @@ export class CatalogController {
   @ApiOperation({ summary: 'Obtener el detalle de un servicio por id' })
   obtener(@Param('id') id: string): Promise<HotelDetalleDto> {
     return this.catalogService.obtenerHotel(id);
+  }
+
+  @Get(':id/gestion')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Obtener un servicio propio con todos sus campos, para editarlo (comercio_admin)' })
+  obtenerParaGestion(
+    @Param('id') id: string,
+    @Req() req: RequestConUser,
+  ): Promise<ServicioGestionDto> {
+    return this.catalogService.obtenerServicioParaGestion(id, req.user.comercioId!);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualizar un servicio propio (comercio_admin)' })
+  actualizar(
+    @Param('id') id: string,
+    @Body() dto: ActualizarServicioDto,
+    @Req() req: RequestConUser,
+  ): Promise<HotelCardDto> {
+    return this.catalogService.actualizarServicio(id, req.user.comercioId!, dto);
   }
 
   private toNumber(value?: string): number | undefined {

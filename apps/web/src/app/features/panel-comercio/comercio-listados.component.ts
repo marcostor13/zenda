@@ -4,10 +4,7 @@ import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiServicio } from './comercio-api.service';
-
-const VERTICAL_ICON: Record<string, string> = {
-  hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
-};
+import { iconoVertical } from './vertical-icon';
 
 @Component({
   selector: 'app-comercio-listados',
@@ -68,6 +65,9 @@ const VERTICAL_ICON: Record<string, string> = {
             </div>
 
             <div class="listado-card__actions">
+              <a class="rs-btn rs-btn--ghost rs-btn--sm" [routerLink]="['/comercio/listados', s._id, 'editar']">
+                <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
+              </a>
               <button
                 class="rs-btn rs-btn--ghost rs-btn--sm"
                 [disabled]="toggling() === s._id"
@@ -160,7 +160,7 @@ export class ComercioListadosComponent implements OnInit {
     }
   }
 
-  iconVertical(v: string): string { return VERTICAL_ICON[v] ?? 'building'; }
+  iconVertical(v: string): string { return iconoVertical(v); }
 
   estadoBadge(estado: string): string {
     if (estado === 'publicado') return 'rs-badge--success';

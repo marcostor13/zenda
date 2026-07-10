@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ComerciosRepository } from './comercios.repository';
-import { ComercioDocument, EstadoComercio } from './comercio.schema';
+import { ComercioDocument, EstadoComercio, EstadoVerificacion } from './comercio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { RegistrarComercioDto } from 'shared';
+import { RegistrarComercioDto, ActualizarPerfilComercioDto } from 'shared';
 
 @Injectable()
 export class ComerciosService {
@@ -87,8 +87,23 @@ export class ComerciosService {
 
   async actualizarComercio(
     comercioId: string,
-    datos: Partial<{ nombreComercial: string; logoUrl: string }>,
+    dto: ActualizarPerfilComercioDto,
   ): Promise<ComercioDocument> {
+    const { documentoIdentidadUrl, licenciaNegocioUrl, ...resto } = dto;
+    const datos: Record<string, unknown> = { ...resto };
+
+    if (documentoIdentidadUrl !== undefined || licenciaNegocioUrl !== undefined) {
+      const actual = await this.repo.findById(comercioId);
+      const verificacionActual = actual?.verificacion ?? { estado: 'sin_verificar' as EstadoVerificacion };
+      const nuevoDocumentoIdentidad = documentoIdentidadUrl ?? verificacionActual.documentoIdentidadUrl;
+      const nuevaLicencia = licenciaNegocioUrl ?? verificacionActual.licenciaNegocioUrl;
+      datos.verificacion = {
+        estado: nuevoDocumentoIdentidad && nuevaLicencia ? 'pendiente' : verificacionActual.estado,
+        documentoIdentidadUrl: nuevoDocumentoIdentidad,
+        licenciaNegocioUrl: nuevaLicencia,
+      };
+    }
+
     const actualizado = await this.repo.actualizar(comercioId, datos);
     if (!actualizado) throw new DomainException('Comercio no encontrado', 404);
     return actualizado;

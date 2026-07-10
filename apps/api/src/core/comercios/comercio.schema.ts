@@ -7,6 +7,59 @@ export type ComercioDocument = HydratedDocument<Comercio>;
 export type PlanComercio = 'basico' | 'pro' | 'premium';
 export type EstadoComercio = 'pendiente' | 'activo' | 'suspendido';
 export type ModoLiquidacion = 'merchant' | 'agencia';
+export type EstadoVerificacion = 'sin_verificar' | 'pendiente' | 'verificado' | 'rechazado';
+export type PoliticaCancelacion = 'flexible' | 'moderada' | 'estricta';
+
+export interface ContactoComercio {
+  nombreContacto?: string;
+  email?: string;
+  telefono?: string;
+  whatsapp?: string;
+}
+
+export interface DireccionComercio {
+  calle?: string;
+  numero?: string;
+  ciudad?: string;
+  provincia?: string;
+  codigoPostal?: string;
+  pais?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface RedesSociales {
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+}
+
+export interface HorarioDia {
+  dia: string;
+  abre?: string;
+  cierra?: string;
+  cerrado: boolean;
+}
+
+export interface DatosBancarios {
+  titular?: string;
+  iban?: string;
+  banco?: string;
+  swift?: string;
+}
+
+export interface VerificacionComercio {
+  estado: EstadoVerificacion;
+  documentoIdentidadUrl?: string;
+  licenciaNegocioUrl?: string;
+}
+
+export interface PreferenciasNotificacion {
+  nuevaReserva: boolean;
+  cancelacion: boolean;
+  resena: boolean;
+  pagos: boolean;
+}
 
 @Schema({ timestamps: true, collection: 'comercios' })
 export class Comercio {
@@ -20,7 +73,19 @@ export class Comercio {
   nombreComercial!: string;
 
   @Prop()
+  descripcion?: string;
+
+  @Prop()
   logoUrl?: string;
+
+  @Prop()
+  coverUrl?: string;
+
+  @Prop({ type: [String], default: [] })
+  galeria!: string[];
+
+  @Prop()
+  sitioWeb?: string;
 
   @Prop({ type: [String], enum: VerticalKey, default: [] })
   verticales!: VerticalKey[];
@@ -38,7 +103,31 @@ export class Comercio {
   estado!: EstadoComercio;
 
   @Prop({ type: Object })
-  datosBancarios?: Record<string, string>;
+  contacto?: ContactoComercio;
+
+  @Prop({ type: Object })
+  direccion?: DireccionComercio;
+
+  @Prop({ type: Object })
+  redesSociales?: RedesSociales;
+
+  @Prop({ type: [Object], default: [] })
+  horario!: HorarioDia[];
+
+  @Prop({ type: String, enum: ['flexible', 'moderada', 'estricta'] })
+  politicaCancelacion?: PoliticaCancelacion;
+
+  @Prop({ type: Object })
+  datosBancarios?: DatosBancarios;
+
+  @Prop({ type: Object, default: () => ({ estado: 'sin_verificar' }) })
+  verificacion!: VerificacionComercio;
+
+  @Prop({
+    type: Object,
+    default: () => ({ nuevaReserva: true, cancelacion: true, resena: true, pagos: true }),
+  })
+  preferenciasNotificacion!: PreferenciasNotificacion;
 }
 
 export const ComercioSchema = SchemaFactory.createForClass(Comercio);

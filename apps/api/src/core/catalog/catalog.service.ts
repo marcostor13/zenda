@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CatalogRepository, BuscarServiciosParams } from './catalog.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { CrearServicioDto } from 'shared';
+import { CrearServicioDto, ActualizarServicioDto, VerticalKey } from 'shared';
 
 /** Vista de tarjeta de hotel que consume el frontend. */
 export interface HotelCardDto {
@@ -60,6 +60,43 @@ export interface PaginatedResult<T> {
   page: number;
   totalPages: number;
 }
+
+/** Vista completa (no normalizada) de un servicio propio, para precargar el formulario de edición. */
+export interface ServicioGestionDto {
+  id: string;
+  vertical: string;
+  titulo: string;
+  descripcion: string;
+  ciudad: string;
+  precioBase: number;
+  imagenes: string[];
+  estado: string;
+  [detalleKey: string]: unknown;
+}
+
+/** Campos propios de cada vertical que el comercio puede editar desde el formulario de listado
+ *  (excluye contadores de disponibilidad en vivo, que gestiona el motor de reservas). */
+const CAMPOS_VERTICAL: Record<string, string[]> = {
+  [VerticalKey.ALOJAMIENTO]: [
+    'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
+    'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis', 'barrio', 'direccion',
+  ],
+  [VerticalKey.TRANSPORTE]: [
+    'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm',
+    'jaulasIncluidas', 'acompananteHumano', 'soloPerros',
+  ],
+  [VerticalKey.VETERINARIA]: [
+    'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia',
+    'atiendeUrgencias', 'horario', 'precioConsulta',
+  ],
+  [VerticalKey.PELUQUERIA]: [
+    'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea', 'aDomicilio', 'horario',
+  ],
+  [VerticalKey.ADIESTRAMIENTO]: [
+    'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma',
+    'sesionesPorPrograma', 'edadMinimaMeses', 'aDomicilio', 'capacidadPorSesion', 'horario',
+  ],
+};
 
 /** Estructura mínima de un documento de hotel ya "leaneado". */
 interface HotelLean {
@@ -131,8 +168,70 @@ export class CatalogService {
       precioBase: dto.precioBase,
       imagenes: dto.imagenes ?? [],
       comercioId,
+      detalle: this.detalleDelDto(dto.vertical, dto as unknown as Record<string, unknown>),
     });
     return this.toCard(doc as unknown as HotelLean);
+  }
+
+  async actualizarServicio(
+    id: string,
+    comercioId: string,
+    dto: ActualizarServicioDto,
+  ): Promise<HotelCardDto> {
+    const existente = await this.repo.obtenerPorIdYComercio(id, comercioId);
+    if (!existente) {
+      throw new DomainException('Servicio no encontrado', 404);
+    }
+    const vertical = (existente as unknown as Record<string, unknown>)['vertical'] as string;
+
+    const actualizado = await this.repo.actualizar(id, comercioId, {
+      titulo: dto.titulo,
+      descripcion: dto.descripcion,
+      ciudad: dto.ciudad,
+      precioBase: dto.precioBase,
+      imagenes: dto.imagenes,
+      detalle: this.detalleDelDto(vertical, dto as unknown as Record<string, unknown>),
+    });
+    if (!actualizado) {
+      throw new DomainException('Servicio no encontrado', 404);
+    }
+    return this.toCard(actualizado as unknown as HotelLean);
+  }
+
+  async obtenerServicioParaGestion(id: string, comercioId: string): Promise<ServicioGestionDto> {
+    const doc = await this.repo.obtenerPorIdYComercio(id, comercioId);
+    if (!doc) {
+      throw new DomainException('Servicio no encontrado', 404);
+    }
+    const h = doc as unknown as HotelLean & Record<string, unknown>;
+    const vertical = h['vertical'] as string;
+
+    return {
+      id: String(h._id),
+      vertical,
+      titulo: h.titulo,
+      descripcion: h.descripcion ?? '',
+      ciudad: h.ubicacion?.ciudad ?? '',
+      precioBase: h.precioBase,
+      imagenes: h.imagenes ?? [],
+      estado: (h['estado'] as string) ?? 'borrador',
+      [vertical]: this.camposVertical(vertical, h),
+    };
+  }
+
+  /** Extrae del dto el sub-objeto de campos propios del vertical (misma clave que `vertical`). */
+  private detalleDelDto(vertical: string, dto: Record<string, unknown>): Record<string, unknown> {
+    return (dto[vertical] as Record<string, unknown>) ?? {};
+  }
+
+  /** Extrae del documento crudo únicamente los campos editables del vertical dado. */
+  private camposVertical(vertical: string, doc: Record<string, unknown>): Record<string, unknown> {
+    const claves = CAMPOS_VERTICAL[vertical] ?? [];
+    const detalle: Record<string, unknown> = {};
+    for (const k of claves) {
+      if (doc[k] !== undefined) detalle[k] = doc[k];
+    }
+    return detalle;
   }
 
   async obtenerHotel(id: string): Promise<HotelDetalleDto> {

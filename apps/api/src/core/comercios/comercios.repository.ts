@@ -22,6 +22,7 @@ export interface ActualizarComercioParams {
   plan?: PlanComercio;
   estado?: EstadoComercio;
   comisionPctOverride?: number;
+  [key: string]: unknown;
 }
 
 @Injectable()
@@ -44,7 +45,7 @@ export class ComerciosRepository {
   }
 
   async actualizar(id: string, datos: ActualizarComercioParams): Promise<ComercioDocument | null> {
-    return this.comercioModel.findByIdAndUpdate(id, datos, { new: true }).exec();
+    return this.comercioModel.findByIdAndUpdate(id, { $set: datos }, { new: true }).exec();
   }
 
   async eliminar(id: string): Promise<void> {

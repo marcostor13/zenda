@@ -17,7 +17,7 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, CambiarEstadoComercioDto, Rol } from 'shared';
+import { RegistrarComercioDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, Rol } from 'shared';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -109,10 +109,10 @@ export class ComerciosController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Actualizar datos del comercio autenticado' })
+  @ApiOperation({ summary: 'Actualizar el perfil del comercio autenticado (datos, ubicación, contacto, banco, etc.)' })
   actualizarMiComercio(
     @Req() req: RequestConUser,
-    @Body() dto: Partial<{ nombreComercial: string; logoUrl: string }>,
+    @Body() dto: ActualizarPerfilComercioDto,
   ) {
     return this.comerciosService.actualizarComercio(req.user.comercioId!, dto);
   }

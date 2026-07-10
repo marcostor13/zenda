@@ -54,15 +54,17 @@ interface AlojamientoRecomendado {
 
     <div class="hero__inner rs-wrap">
       <div class="hero__content">
-        <h1 class="hero__title">
-          <span class="hero__title-blue">Todo para su rey,</span><br>
-          <span class="hero__title-gold">en un solo lugar</span>
-        </h1>
+        <div class="hero__textwrap">
+          <h1 class="hero__title">
+            <span class="hero__title-blue">Todo para su rey,</span><br>
+            <span class="hero__title-gold">en un solo lugar</span>
+          </h1>
 
-        <p class="hero__sub">
-          Reserva alojamientos premium, veterinarios de confianza y peluquería
-          real para tu perro. La forma más fácil de darle el trato que merece.
-        </p>
+          <p class="hero__sub">
+            Reserva alojamientos premium, veterinarios de confianza y peluquería
+            real para tu perro. La forma más fácil de darle el trato que merece.
+          </p>
+        </div>
 
         <!-- Card de búsqueda -->
         <form class="hero__search" [formGroup]="searchForm" (ngSubmit)="onBuscar()">
@@ -272,18 +274,22 @@ interface AlojamientoRecomendado {
       }
     }
 
-    /* Overlay claro y suave: legible a la izquierda, foto visible a la derecha */
+    /* Overlay: opaco bajo el texto (izq.), foto visible a la derecha.
+       El vignette radial refuerza el contraste bajo el título/subtítulo
+       independientemente del ancho de viewport. */
     .hero__overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg,
-        rgba(248,249,250,.94) 0%,
-        rgba(248,249,250,.78) 34%,
-        rgba(248,249,250,.28) 62%,
-        rgba(248,249,250,.05) 100%);
+      background:
+        radial-gradient(ellipse 640px 460px at 16% 62%, rgba(5,26,102,.10), transparent 70%),
+        linear-gradient(100deg,
+          rgba(248,249,250,.97) 0%,
+          rgba(248,249,250,.93) 40%,
+          rgba(248,249,250,.62) 62%,
+          rgba(248,249,250,.15) 100%);
 
       @media (max-width: 768px) {
-        background: rgba(248,249,250,.86);
+        background: rgba(248,249,250,.92);
       }
     }
 
@@ -309,14 +315,31 @@ interface AlojamientoRecomendado {
     }
 
     .hero__title-blue { color: var(--dk-blue); }
-    .hero__title-gold { color: var(--dk-gold); }
+    .hero__title-gold { color: var(--dk-gold-text); }
 
     .hero__sub {
       font-size: var(--f-lg);
       color: var(--t-300);
       line-height: 1.7;
       max-width: 46ch;
-      margin-bottom: var(--sp-8);
+      margin-bottom: 0;
+    }
+
+    /* Panel translúcido con blur: garantiza contraste del título/subtítulo
+       sin importar cuán clara/brillante sea la zona de la foto detrás. */
+    .hero__textwrap {
+      background: rgba(255,255,255,.66);
+      backdrop-filter: blur(16px) saturate(1.15);
+      -webkit-backdrop-filter: blur(16px) saturate(1.15);
+      border: 1px solid rgba(255,255,255,.6);
+      border-radius: var(--r-lg);
+      padding: var(--sp-6) var(--sp-7);
+      margin-bottom: var(--sp-6);
+      box-shadow: 0 12px 32px rgba(8,37,139,.10);
+
+      @media (max-width: 480px) {
+        padding: var(--sp-5);
+      }
     }
 
     /* Card de búsqueda blanca */
@@ -413,7 +436,7 @@ interface AlojamientoRecomendado {
       p { margin-inline: 0; }
     }
 
-    .services-gold { color: var(--dk-gold); }
+    .services-gold { color: var(--dk-gold-text); }
 
     .section-cta {
       text-align: center;

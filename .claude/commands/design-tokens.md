@@ -23,8 +23,9 @@ Muestra la referencia completa de tokens y clases disponibles, o busca un token 
 | `--dk-blue` | `#08258B` | Royal King Blue — primario (botones, headings, links) |
 | `--dk-blue-deep` | `#00135D` | Deep — footer navy, hover del primario |
 | `--dk-blue-text` | `#051A66` | Deep Shadow Blue — texto fuerte |
-| `--dk-gold` | `#FBAE17` | Crown Gold — CTA destacado (Reservar/Buscar), acentos, estrellas |
+| `--dk-gold` | `#FBAE17` | Crown Gold — CTA destacado (Reservar/Buscar), acentos, estrellas. **No usar como color de texto sobre fondos claros/fotos** (contraste ~1.9:1, falla WCAG) |
 | `--dk-gold-light` | `#FFC533` | Extremo claro del gradiente dorado |
+| `--dk-gold-text` | `#A6720C` | Dorado oscurecido para **texto** sobre fondos claros/fotos (contraste ~4.2:1, pasa AA texto grande) |
 | `--dk-divider` | `#8B9BBC` | Divisores verticales entre módulos de servicio |
 
 ### Colores — fondos (tema claro)

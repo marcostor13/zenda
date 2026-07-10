@@ -1,36 +1,36 @@
-import { IsString, IsEnum, IsNumber, IsOptional, IsArray, ValidateNested, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, ValidateNested, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { VerticalKey } from '../../enums/vertical.enum';
 import { AlojamientoDetalleDto } from './alojamiento-detalle.dto';
 import { TransporteDetalleDto } from './transporte-detalle.dto';
 import { VeterinariaDetalleDto } from './veterinaria-detalle.dto';
 import { PeluqueriaDetalleDto } from './peluqueria-detalle.dto';
 import { AdiestramientoDetalleDto } from './adiestramiento-detalle.dto';
 
-export class CrearServicioDto {
-  @IsEnum(VerticalKey)
-  vertical!: VerticalKey;
-
+/** El vertical de un servicio no se puede cambiar tras su creación. */
+export class ActualizarServicioDto {
+  @IsOptional()
   @IsString()
-  titulo!: string;
+  titulo?: string;
 
+  @IsOptional()
   @IsString()
-  descripcion!: string;
+  descripcion?: string;
 
+  @IsOptional()
   @IsString()
-  ciudad!: string;
+  ciudad?: string;
 
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  precioBase!: number;
+  precioBase?: number;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   imagenes?: string[];
 
-  /** Campos propios del vertical; sólo se valida/persiste el que corresponde a `vertical`. */
   @IsOptional()
   @ValidateNested()
   @Type(() => AlojamientoDetalleDto)

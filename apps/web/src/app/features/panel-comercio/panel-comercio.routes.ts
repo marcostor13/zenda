@@ -16,11 +16,16 @@ export const panelComercioRoutes: Routes = [
         loadComponent: () =>
           import('./comercio-reservas.component').then(m => m.ComercioReservasComponent),
       },
-      // listados/nuevo must be declared before listados to avoid route conflicts
+      // listados/nuevo y listados/:id/editar deben declararse antes de listados
       {
         path: 'listados/nuevo',
         loadComponent: () =>
-          import('./comercio-listado-nuevo.component').then(m => m.ComercioListadoNuevoComponent),
+          import('./comercio-listado-form.component').then(m => m.ComercioListadoFormComponent),
+      },
+      {
+        path: 'listados/:id/editar',
+        loadComponent: () =>
+          import('./comercio-listado-form.component').then(m => m.ComercioListadoFormComponent),
       },
       {
         path: 'listados',

@@ -5,10 +5,7 @@ import { TitleCasePipe } from '@angular/common';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiComercio } from './comercio-api.service';
-
-const VERTICAL_ICON: Record<string, string> = {
-  hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
-};
+import { iconoVertical } from './vertical-icon';
 
 const PLAN_BADGE: Record<string, string> = {
   basico: 'rs-badge--neutral', pro: 'rs-badge--accent', premium: 'rs-badge--warning',
@@ -182,7 +179,7 @@ export class ComercioLayoutComponent implements OnInit {
   }
 
   iconVertical(v: string): string {
-    return VERTICAL_ICON[v] ?? 'building';
+    return iconoVertical(v);
   }
 
   planBadge(plan: string): string {
