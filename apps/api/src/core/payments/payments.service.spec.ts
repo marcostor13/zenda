@@ -19,14 +19,14 @@ describe('PaymentsService', () => {
     id: 'reserva-1',
     usuarioId: { toString: () => 'user-1' },
     comercioId: { toString: () => 'comercio-1' },
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     montoSubtotal: 500,
     moneda: 'EUR',
     reservaId: 'reserva-1',
   };
 
   const comisionConfigMock: any = {
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     comisionPct: 0.15,
     stripePct: 0.029,
     stripeFijoEur: 1.1,

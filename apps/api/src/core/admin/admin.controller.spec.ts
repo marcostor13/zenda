@@ -27,7 +27,7 @@ describe('AdminController', () => {
           provide: AdminService,
           useValue: {
             listarComisiones: jest.fn().mockResolvedValue([]),
-            actualizarComision: jest.fn().mockResolvedValue({ vertical: VerticalKey.HOTELES }),
+            actualizarComision: jest.fn().mockResolvedValue({ vertical: VerticalKey.ALOJAMIENTO }),
             generarReporteFinanciero: jest.fn().mockResolvedValue(reporteMock),
           },
         },
@@ -50,7 +50,7 @@ describe('AdminController', () => {
     it('debería actualizar la comisión y retornar la config actualizada', async () => {
       const req: any = { user: { sub: 'admin-1', rol: Rol.ADMIN } };
       const dto = {
-        vertical: VerticalKey.HOTELES as any,
+        vertical: VerticalKey.ALOJAMIENTO as any,
         comisionPct: 0.18,
         stripePct: 0.029,
         stripeFijoEur: 1.1,
@@ -77,10 +77,10 @@ describe('AdminController', () => {
     });
 
     it('debería pasar filtros opcionales de vertical y comercio', async () => {
-      await controller.reporteFinanciero('2025-01-01', '2025-01-31', 'hoteles', 'comercio-1');
+      await controller.reporteFinanciero('2025-01-01', '2025-01-31', 'alojamiento', 'comercio-1');
 
       expect(adminService.generarReporteFinanciero).toHaveBeenCalledWith(
-        expect.objectContaining({ vertical: 'hoteles', comercioId: 'comercio-1' }),
+        expect.objectContaining({ vertical: 'alojamiento', comercioId: 'comercio-1' }),
       );
     });
   });

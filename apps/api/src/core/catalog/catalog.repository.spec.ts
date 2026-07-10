@@ -30,11 +30,11 @@ describe('CatalogRepository', () => {
   });
 
   it('debería filtrar por estado publicado, vertical, ciudad (regex) y rango de precio', async () => {
-    await repository.buscar({ vertical: 'hoteles', ciudad: 'Madrid', precioMin: 100, precioMax: 500, page: 1, limit: 10 });
+    await repository.buscar({ vertical: 'alojamiento', ciudad: 'Madrid', precioMin: 100, precioMax: 500, page: 1, limit: 10 });
 
     const filtro = model.find.mock.calls[0][0];
     expect(filtro.estado).toBe('publicado');
-    expect(filtro.vertical).toBe('hoteles');
+    expect(filtro.vertical).toBe('alojamiento');
     expect(filtro['ubicacion.ciudad']).toBeInstanceOf(RegExp);
     expect(filtro.precioBase).toEqual({ $gte: 100, $lte: 500 });
   });
@@ -43,7 +43,7 @@ describe('CatalogRepository', () => {
     const chain = chainable([]);
     model.find.mockReturnValue(chain);
 
-    await repository.buscar({ page: 3, limit: 10, vertical: 'hoteles' });
+    await repository.buscar({ page: 3, limit: 10, vertical: 'alojamiento' });
 
     expect(chain['skip']).toHaveBeenCalledWith(20);
     expect(chain['limit']).toHaveBeenCalledWith(10);

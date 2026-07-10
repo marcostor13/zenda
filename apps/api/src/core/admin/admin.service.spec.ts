@@ -3,8 +3,10 @@ import { getModelToken } from '@nestjs/mongoose';
 import { AdminService } from './admin.service';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { ComerciosRepository } from '../comercios/comercios.repository';
+import { UsersRepository } from '../users/users.repository';
 import { Pago } from '../payments/pago.schema';
 import { Reserva } from '../bookings/reserva.schema';
+import { Usuario } from '../users/usuario.schema';
 import { VerticalKey, PagoEstado, IVA_RATE } from 'shared';
 
 describe('AdminService', () => {
@@ -37,8 +39,8 @@ describe('AdminService', () => {
   ];
 
   const reservasMock = [
-    { _id: { toString: () => 'res-1' }, vertical: VerticalKey.HOTELES },
-    { _id: { toString: () => 'res-2' }, vertical: VerticalKey.HOTELES },
+    { _id: { toString: () => 'res-1' }, vertical: VerticalKey.ALOJAMIENTO },
+    { _id: { toString: () => 'res-2' }, vertical: VerticalKey.ALOJAMIENTO },
   ];
 
   beforeEach(async () => {
@@ -64,15 +66,20 @@ describe('AdminService', () => {
           provide: ComisionConfigRepository,
           useValue: {
             listarTodas: jest.fn().mockResolvedValue([]),
-            upsert: jest.fn().mockResolvedValue({ vertical: VerticalKey.HOTELES, comisionPct: 0.18 }),
+            upsert: jest.fn().mockResolvedValue({ vertical: VerticalKey.ALOJAMIENTO, comisionPct: 0.18 }),
           },
         },
         {
           provide: ComerciosRepository,
           useValue: { listar: jest.fn().mockResolvedValue([]) },
         },
+        {
+          provide: UsersRepository,
+          useValue: { contarTodos: jest.fn().mockResolvedValue(0) },
+        },
         { provide: getModelToken(Pago.name), useValue: pagoModel },
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
+        { provide: getModelToken(Usuario.name), useValue: {} },
       ],
     }).compile();
 
@@ -98,7 +105,7 @@ describe('AdminService', () => {
 
     it('debería agrupar por vertical correctamente', async () => {
       const reporte = await service.generarReporteFinanciero(filtros);
-      const hoteles = reporte.porVertical.find((v) => v.vertical === VerticalKey.HOTELES);
+      const hoteles = reporte.porVertical.find((v) => v.vertical === VerticalKey.ALOJAMIENTO);
 
       expect(hoteles).toBeDefined();
       expect(hoteles!.totalReservas).toBe(2);
@@ -108,7 +115,7 @@ describe('AdminService', () => {
   describe('actualizarComision', () => {
     it('debería delegar al repositorio con los datos correctos', async () => {
       const dto = {
-        vertical: VerticalKey.HOTELES as any,
+        vertical: VerticalKey.ALOJAMIENTO as any,
         comisionPct: 0.18,
         stripePct: 0.029,
         stripeFijoEur: 1.1,
@@ -118,7 +125,7 @@ describe('AdminService', () => {
       await service.actualizarComision(dto, 'admin-1');
 
       expect(comisionConfigRepo.upsert).toHaveBeenCalledWith(
-        VerticalKey.HOTELES,
+        VerticalKey.ALOJAMIENTO,
         expect.objectContaining({ comisionPct: 0.18 }),
         'admin-1',
       );

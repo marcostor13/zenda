@@ -1,6 +1,9 @@
 import { Test } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
 import { ComerciosService } from './comercios.service';
 import { ComerciosRepository } from './comercios.repository';
+import { Reserva } from '../bookings/reserva.schema';
+import { Servicio } from '../catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
 describe('ComerciosService', () => {
@@ -27,6 +30,8 @@ describe('ComerciosService', () => {
             listar: jest.fn(),
           },
         },
+        { provide: getModelToken(Reserva.name), useValue: {} },
+        { provide: getModelToken(Servicio.name), useValue: {} },
       ],
     }).compile();
 

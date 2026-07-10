@@ -25,47 +25,47 @@ describe('CuponesService', () => {
 
   it('aplica un descuento porcentual', async () => {
     repo.findByCodigo.mockResolvedValue(base as never);
-    const r = await service.validar('VERANO', 'hoteles', 100);
+    const r = await service.validar('VERANO', 'alojamiento', 100);
     expect(r.descuento).toBe(20);
   });
 
   it('respeta el tope de descuento', async () => {
     repo.findByCodigo.mockResolvedValue({ ...base, topeDescuento: 15 } as never);
-    const r = await service.validar('VERANO', 'hoteles', 100);
+    const r = await service.validar('VERANO', 'alojamiento', 100);
     expect(r.descuento).toBe(15);
   });
 
   it('aplica un descuento fijo sin superar el subtotal', async () => {
     repo.findByCodigo.mockResolvedValue({ ...base, tipo: 'fijo', valor: 150 } as never);
-    const r = await service.validar('X', 'hoteles', 100);
+    const r = await service.validar('X', 'alojamiento', 100);
     expect(r.descuento).toBe(100);
   });
 
   it('lanza 404 si el cupón no existe o está inactivo', async () => {
     repo.findByCodigo.mockResolvedValue(null);
-    await expect(service.validar('NOPE', 'hoteles', 100)).rejects.toThrow(DomainException);
+    await expect(service.validar('NOPE', 'alojamiento', 100)).rejects.toThrow(DomainException);
     repo.findByCodigo.mockResolvedValue({ ...base, activo: false } as never);
-    await expect(service.validar('VERANO', 'hoteles', 100)).rejects.toThrow(DomainException);
+    await expect(service.validar('VERANO', 'alojamiento', 100)).rejects.toThrow(DomainException);
   });
 
   it('lanza si el cupón caducó', async () => {
     repo.findByCodigo.mockResolvedValue({ ...base, validoHasta: new Date('2000-01-01') } as never);
-    await expect(service.validar('VERANO', 'hoteles', 100)).rejects.toThrow(DomainException);
+    await expect(service.validar('VERANO', 'alojamiento', 100)).rejects.toThrow(DomainException);
   });
 
   it('lanza si se alcanzó el uso máximo', async () => {
     repo.findByCodigo.mockResolvedValue({ ...base, usoMaximo: 5, usados: 5 } as never);
-    await expect(service.validar('VERANO', 'hoteles', 100)).rejects.toThrow(DomainException);
+    await expect(service.validar('VERANO', 'alojamiento', 100)).rejects.toThrow(DomainException);
   });
 
   it('lanza si el vertical no coincide', async () => {
-    repo.findByCodigo.mockResolvedValue({ ...base, vertical: 'vuelos' } as never);
-    await expect(service.validar('VERANO', 'hoteles', 100)).rejects.toThrow(DomainException);
+    repo.findByCodigo.mockResolvedValue({ ...base, vertical: 'veterinaria' } as never);
+    await expect(service.validar('VERANO', 'alojamiento', 100)).rejects.toThrow(DomainException);
   });
 
   it('lanza si no se alcanza el monto mínimo', async () => {
     repo.findByCodigo.mockResolvedValue({ ...base, montoMinimo: 200 } as never);
-    await expect(service.validar('VERANO', 'hoteles', 100)).rejects.toThrow(DomainException);
+    await expect(service.validar('VERANO', 'alojamiento', 100)).rejects.toThrow(DomainException);
   });
 
   it('aplicar() incrementa el uso del cupón', async () => {

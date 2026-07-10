@@ -79,7 +79,7 @@ describe('CatalogService', () => {
       await service.buscarHoteles({ limit: 999 });
 
       expect(repo.buscar).toHaveBeenCalledWith(
-        expect.objectContaining({ vertical: 'hoteles', limit: 50, page: 1 }),
+        expect.objectContaining({ vertical: 'alojamiento', limit: 50, page: 1 }),
       );
     });
 

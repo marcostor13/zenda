@@ -25,10 +25,10 @@ describe('CatalogController', () => {
     it('debería convertir los query params numéricos y delegar en el service', async () => {
       service.buscarHoteles.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
 
-      await controller.buscar('hoteles', 'Madrid', '100', '500', '2', '20');
+      await controller.buscar('alojamiento', 'Madrid', '100', '500', '2', '20');
 
       expect(service.buscarHoteles).toHaveBeenCalledWith({
-        vertical: 'hoteles',
+        vertical: 'alojamiento',
         ciudad: 'Madrid',
         precioMin: 100,
         precioMax: 500,

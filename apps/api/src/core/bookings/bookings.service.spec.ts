@@ -19,7 +19,7 @@ describe('BookingsService', () => {
     usuarioId: 'user-1',
     comercioId: 'comercio-1',
     servicioId: 'servicio-1',
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     fechaInicio: new Date('2025-01-10'),
     fechaFin: new Date('2025-01-15'),
     cantidad: 1,
@@ -31,13 +31,13 @@ describe('BookingsService', () => {
     estado: ReservaEstado.PENDIENTE,
     usuarioId: { toString: () => 'user-1' },
     holdId: 'hold-1',
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     save: jest.fn(),
   };
 
   beforeEach(async () => {
     estrategiaMock = {
-      vertical: VerticalKey.HOTELES,
+      vertical: VerticalKey.ALOJAMIENTO,
       checkAvailability: jest.fn().mockResolvedValue({ disponible: true, precioCalculado: 500 }),
       reserveSlot: jest.fn().mockResolvedValue({ holdId: 'hold-1', servicioId: 'servicio-1', expiraEn: new Date() }),
       releaseSlot: jest.fn().mockResolvedValue(undefined),
@@ -87,7 +87,7 @@ describe('BookingsService', () => {
     it('debería validar el cupón con el subtotal cuando se indica cuponCodigo', async () => {
       cuponesService.validar.mockResolvedValue({ codigo: 'VERANO', tipo: 'porcentaje', descuento: 50 });
       await service.crear({ ...parametrosBase, cuponCodigo: 'VERANO' });
-      expect(cuponesService.validar).toHaveBeenCalledWith('VERANO', VerticalKey.HOTELES, 500);
+      expect(cuponesService.validar).toHaveBeenCalledWith('VERANO', VerticalKey.ALOJAMIENTO, 500);
     });
 
     it('no debería validar cupón si no se indica código', async () => {

@@ -119,8 +119,8 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 - [ ] `scripts/seed-europe.ts`: comercios/servicios caninos + comision_configs nuevas (aún datos hoteles/vuelos/taxis)
 - [ ] `scripts/seed-all.ts` (Perú/PEN — obsoleto tras migración a EUR; decidir borrar o migrar)
 - [ ] `scripts/clear-seed-data.ts`: nombres de colección caninos
-- [ ] Specs del core que referencian verticales viejas actualizados
-- [ ] `nest build` OK + tests api OK
+- [x] Specs del core que referencian verticales viejas actualizados (VerticalKey.HOTELES→ALOJAMIENTO, etc.)
+- [x] `nest build` OK + tests api OK (29 suites / 133 tests verdes; también arreglado wiring DI preexistente de comercios/admin specs)
 
 ### Fase 3 — Web: design system Doogking
 
