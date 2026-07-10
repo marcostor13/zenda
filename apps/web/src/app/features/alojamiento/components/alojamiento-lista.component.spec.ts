@@ -67,12 +67,13 @@ describe('AlojamientoListaComponent', () => {
     expect(component.totalLabel()).toBe('1 espacios encontrados');
   });
 
-  it('debería usar los mocks caninos si la API falla', async () => {
+  it('debería mostrar estado de error (sin listados falsos) si la API falla', async () => {
     alojamientoService.buscar.mockRejectedValue(new Error('offline'));
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(component.alojamientos().length).toBeGreaterThan(0);
+    expect(component.alojamientos().length).toBe(0);
+    expect(component.error()).toBe(true);
     expect(component.cargando()).toBe(false);
   });
 

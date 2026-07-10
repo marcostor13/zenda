@@ -150,8 +150,11 @@ const CONFIGS: Record<string, VerticalConfig> = {
               </div>
             </article>
           }
-          @if (items().length === 0) {
+          @if (items().length === 0 && !error()) {
             <div class="vb-empty"><div style="font-size:3rem">🔍</div><h3>Sin resultados</h3><p>Prueba con otra ciudad.</p></div>
+          }
+          @if (error()) {
+            <div class="vb-empty"><div style="font-size:3rem">⚠️</div><h3>No se pudo cargar el catálogo</h3><p>Inténtalo de nuevo en unos momentos.</p></div>
           }
         </div>
       }
@@ -189,11 +192,10 @@ export class VerticalBrowseComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly browseService = inject(CatalogBrowseService);
 
-  private readonly useMock = true;
-
   readonly cfg = signal<VerticalConfig>(CONFIGS['veterinaria']);
   readonly cargando = signal(true);
   readonly items = signal<ServicioCard[]>([]);
+  readonly error = signal(false);
   readonly solicitadoId = signal<string | null>(null);
 
   readonly searchForm = this.fb.group({ ciudad: [''] });
@@ -210,12 +212,15 @@ export class VerticalBrowseComponent implements OnInit {
 
   private async cargar(ciudad?: string): Promise<void> {
     this.cargando.set(true);
+    this.error.set(false);
     this.solicitadoId.set(null);
     try {
-      const resultados = await this.browseService.buscar(this.cfg().vertical, ciudad);
-      this.items.set(resultados.length ? resultados : (this.useMock ? this.cfg().mock : []));
+      // Datos reales del catálogo: nunca mocks, para no ofrecer servicios
+      // inexistentes que romperían la reserva.
+      this.items.set(await this.browseService.buscar(this.cfg().vertical, ciudad));
     } catch {
-      this.items.set(this.useMock ? this.cfg().mock : []);
+      this.items.set([]);
+      this.error.set(true);
     } finally {
       this.cargando.set(false);
     }
