@@ -49,6 +49,10 @@ export class CatalogRepository {
     return this.servicioModel.estimatedDocumentCount().exec();
   }
 
+  async actualizarCampos(id: string, campos: Record<string, unknown>): Promise<ServicioDocument | null> {
+    return this.servicioModel.findByIdAndUpdate(id, campos, { new: true }).lean().exec() as Promise<ServicioDocument | null>;
+  }
+
   async crear(data: {
     vertical: string;
     titulo: string;

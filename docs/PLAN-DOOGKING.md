@@ -34,15 +34,17 @@
 >
 > **Verificación acumulada:** api 34 suites / 159 tests verde; web 12 suites / 68 tests verde.
 >
+> 11. ✅ **D1 (P0) — Gestión de disponibilidad/cupos del comercio**: nuevo `PATCH /comercios/mis-servicios/:id/disponibilidad` (ownership-checked, whitelist de campos por vertical: `espacios` para alojamiento, `unidadesDisponibles`/`citasDisponibles`/`cuposDisponibles` para el resto). UI en `comercio-listados`: panel expandible por listado — editor de espacios (alta/baja/cantidad/precio) para alojamiento, input numérico para los demás verticales. De paso, fix del bug de moneda `S/`→`€` en esa vista (mismo patrón ya corregido antes en `comercio-reservas`/`comercio-resenas`).
+>
+> **Verificación acumulada:** api 34 suites / 165 tests verde; web 13 suites / 76 tests verde; `nest build` y `ng build` OK en cada bloque.
+>
 > **Pendiente (por prioridad, del propio CLAUDE.md §7):**
-> - 🔴 **D1 (P0)** Gestión de disponibilidad/cupos del comercio — no existe ningún endpoint de edición ni componente (solo alta y publicar/pausar).
 > - 🟡 **F3 (P1)** Reembolso al cancelar — `cancelar()` solo cambia estado; no hay integración de `stripe.refunds` ni método en `PaymentGateway`.
-> - 🟡 **C3 (P1)** Editar atributos del listado ya publicado — solo existe alta (`crearServicio`); no hay `PATCH` de campos.
+> - 🟡 **C3 (P1)** Editar atributos generales del listado ya publicado (título/descripción/precio/imágenes) — D1 ya resuelve la disponibilidad, pero falta el resto de campos editables.
 > - 🟡 **A4 (P1)** Recuperar contraseña — no existe ni backend ni frontend.
-> - 🟡 **I2 (P1) parcial** — el dashboard de comercio usa datos reales pero: (a) le faltan "ocupación"/"conversión" (pedidos explícitamente por la historia), (b) comisión/fee de Stripe hardcodeados en el frontend en vez de venir de `comision_configs`, (c) bug de moneda `S/`→`€` y verticales viejos en `VERTICAL_ICON` (mismo patrón que ya se corrigió en `comercio-reservas`/`comercio-resenas`).
+> - 🟡 **I2 (P1) parcial** — el dashboard de comercio usa datos reales pero: (a) le faltan "ocupación"/"conversión" (pedidos explícitamente por la historia), (b) comisión/fee de Stripe hardcodeados en el frontend en vez de venir de `comision_configs`, (c) bug de moneda `S/`→`€` y verticales viejos en `VERTICAL_ICON` (mismo patrón ya corregido en otros componentes, pendiente aquí).
 > - 🔴 Cobertura de tests del API por debajo del umbral del 80% exigido por `jest.config.ts` (bloquea el job de test en CI aunque los tests pasen). Decisión pendiente: bajar el umbral o ampliar cobertura.
-> - 🟢 SlotHold persistente + anti-sobreventa real (hoy en memoria, sin TTL efectivo).
-> - 🟡 SlotHold persistente + anti-sobreventa real (hoy en memoria, sin TTL efectivo).
+> - 🟡 SlotHold persistente + anti-sobreventa real a nivel de reserva concurrente (hoy en memoria, sin TTL efectivo) — D1 permite ajustar cupos manualmente, pero no resuelve la doble reserva simultánea del mismo slot.
 > - 🟢 Revisión visual de la web (requiere levantar la app con datos).
 
 ---

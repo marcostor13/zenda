@@ -15,7 +15,7 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, CambiarEstadoComercioDto, Rol } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, Rol } from 'shared';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -97,6 +97,19 @@ export class ComerciosController {
     @Body() dto: { estado: 'publicado' | 'pausado' | 'borrador' },
   ) {
     return this.comerciosService.cambiarEstadoServicio(servicioId, req.user.comercioId!, dto.estado);
+  }
+
+  @Patch('mis-servicios/:servicioId/disponibilidad')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualizar la disponibilidad/cupos de un servicio propio (evita sobreventa)' })
+  actualizarDisponibilidad(
+    @Req() req: RequestConUser,
+    @Param('servicioId') servicioId: string,
+    @Body() dto: ActualizarDisponibilidadDto,
+  ) {
+    return this.comerciosService.actualizarDisponibilidadServicio(servicioId, req.user.comercioId!, dto);
   }
 
   @Get('mis-resenas')

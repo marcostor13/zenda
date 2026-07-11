@@ -24,6 +24,15 @@ export interface MiReserva {
   createdAt: string;
 }
 
+export interface EspacioDisponibilidad {
+  id?: string;
+  tipo: 'suite' | 'estandar' | 'compartido';
+  tamanoMaxPerro: 'pequeno' | 'mediano' | 'grande' | 'gigante';
+  precioNoche: number;
+  cantidad: number;
+  disponible: boolean;
+}
+
 export interface MiServicio {
   _id: string;
   titulo: string;
@@ -32,6 +41,18 @@ export interface MiServicio {
   estado: string;
   ratingPromedio?: number;
   imagenes?: string[];
+  /** Disponibilidad por vertical (D1): solo viene poblado el campo propio del vertical. */
+  espacios?: EspacioDisponibilidad[];
+  unidadesDisponibles?: number;
+  citasDisponibles?: number;
+  cuposDisponibles?: number;
+}
+
+export interface DisponibilidadPayload {
+  espacios?: EspacioDisponibilidad[];
+  unidadesDisponibles?: number;
+  citasDisponibles?: number;
+  cuposDisponibles?: number;
 }
 
 export interface MiResena {
@@ -69,6 +90,10 @@ export class ComercioApiService {
 
   cambiarEstadoServicio(id: string, estado: 'publicado' | 'pausado' | 'borrador'): Observable<MiServicio> {
     return this.http.patch<MiServicio>(`${this.url}/mis-servicios/${id}/estado`, { estado });
+  }
+
+  actualizarDisponibilidad(id: string, cambios: DisponibilidadPayload): Observable<MiServicio> {
+    return this.http.patch<MiServicio>(`${this.url}/mis-servicios/${id}/disponibilidad`, cambios);
   }
 
   crearServicio(dto: {

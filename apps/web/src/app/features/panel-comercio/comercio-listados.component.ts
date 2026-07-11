@@ -1,9 +1,18 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
+import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { ComercioApiService, MiServicio } from './comercio-api.service';
+import { ComercioApiService, MiServicio, EspacioDisponibilidad } from './comercio-api.service';
+
+/** Campo de disponibilidad (número simple) que corresponde a cada vertical no-alojamiento. */
+const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponibles' | 'cuposDisponibles'> = {
+  transporte: 'unidadesDisponibles',
+  veterinaria: 'citasDisponibles',
+  peluqueria: 'cuposDisponibles',
+  adiestramiento: 'cuposDisponibles',
+};
 
 const VERTICAL_ICON: Record<string, string> = {
   alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
@@ -12,7 +21,7 @@ const VERTICAL_ICON: Record<string, string> = {
 @Component({
   selector: 'app-comercio-listados',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsIconComponent],
+  imports: [RouterLink, DecimalPipe, ReactiveFormsModule, RsIconComponent],
   template: `
     <!-- HEADER -->
     <div class="page-header">
@@ -53,7 +62,7 @@ const VERTICAL_ICON: Record<string, string> = {
               <div class="listado-card__titulo">{{ s.titulo }}</div>
               <div class="listado-card__meta">
                 <span class="rs-badge rs-badge--neutral">{{ s.vertical }}</span>
-                <span class="listado-card__precio">S/ {{ s.precioBase | number:'1.0-0' }}</span>
+                <span class="listado-card__precio">€{{ s.precioBase | number:'1.0-0' }}</span>
                 @if (s.ratingPromedio) {
                   <span class="rs-badge rs-badge--accent">
                     <rs-icon name="star" [size]="10" [stroke]="2"></rs-icon>
@@ -80,8 +89,47 @@ const VERTICAL_ICON: Record<string, string> = {
                   <rs-icon name="play" [size]="13" [stroke]="2"></rs-icon> Publicar
                 }
               </button>
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleDisponibilidad(s)">
+                <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> Disponibilidad
+              </button>
             </div>
           </div>
+
+          @if (disponibilidadAbiertaId() === s._id) {
+            <div class="rs-card disponibilidad-panel">
+              @if (s.vertical === 'alojamiento') {
+                <label class="rs-label">Espacios reservables</label>
+                @for (e of espaciosEdit(); track $index) {
+                  <div class="espacio-row">
+                    <input class="rs-input" type="number" min="0" [value]="e.cantidad"
+                           (input)="actualizarEspacio($index, 'cantidad', $any($event.target).value)"
+                           placeholder="Cantidad" />
+                    <input class="rs-input" type="number" min="0" step="0.01" [value]="e.precioNoche"
+                           (input)="actualizarEspacio($index, 'precioNoche', $any($event.target).value)"
+                           placeholder="Precio/noche" />
+                    <span class="rs-badge rs-badge--neutral">{{ e.tipo }}</span>
+                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarEspacio($index)">✕</button>
+                  </div>
+                }
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarEspacio()">
+                  + Añadir espacio
+                </button>
+              } @else {
+                <label class="rs-label">{{ labelDisponibilidad(s.vertical) }}</label>
+                <input class="rs-input" type="number" min="0" [formControl]="numeroCtrl" style="max-width:160px" />
+              }
+              @if (disponibilidadError()) {
+                <p class="rs-field-error">{{ disponibilidadError() }}</p>
+              }
+              <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-4)">
+                <button class="rs-btn rs-btn--primary rs-btn--sm" [disabled]="guardandoDisponibilidad()"
+                        (click)="guardarDisponibilidad(s)">
+                  {{ guardandoDisponibilidad() ? 'Guardando…' : 'Guardar disponibilidad' }}
+                </button>
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarDisponibilidad()">Cancelar</button>
+              </div>
+            </div>
+          }
         }
       </div>
     }
@@ -140,6 +188,10 @@ const VERTICAL_ICON: Record<string, string> = {
     .listado-card__precio { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--c-accent); }
     .listado-card__estado { @media (max-width: 640px) { display: none; } }
     .listado-card__actions { display: flex; flex-direction: column; gap: var(--sp-2); @media (max-width: 640px) { grid-column: 2; } }
+
+    .disponibilidad-panel { padding: var(--sp-5); margin-top: calc(-1 * var(--sp-2)); }
+    .espacio-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+    .espacio-row .rs-input { max-width: 140px; }
   `],
 })
 export class ComercioListadosComponent implements OnInit {
@@ -149,6 +201,12 @@ export class ComercioListadosComponent implements OnInit {
   readonly errorMsg = signal('');
   readonly toggling = signal<string | null>(null);
   readonly servicios = signal<MiServicio[]>([]);
+
+  readonly disponibilidadAbiertaId = signal<string | null>(null);
+  readonly guardandoDisponibilidad = signal(false);
+  readonly disponibilidadError = signal('');
+  readonly espaciosEdit = signal<EspacioDisponibilidad[]>([]);
+  readonly numeroCtrl = new FormControl(0, { nonNullable: true, validators: [Validators.min(0)] });
 
   async ngOnInit(): Promise<void> {
     try {
@@ -179,6 +237,71 @@ export class ComercioListadosComponent implements OnInit {
       setTimeout(() => this.errorMsg.set(''), 3000);
     } finally {
       this.toggling.set(null);
+    }
+  }
+
+  labelDisponibilidad(vertical: string): string {
+    const labels: Record<string, string> = {
+      transporte: 'Unidades (vehículos) disponibles',
+      veterinaria: 'Citas disponibles',
+      peluqueria: 'Cupos disponibles',
+      adiestramiento: 'Cupos disponibles',
+    };
+    return labels[vertical] ?? 'Disponibilidad';
+  }
+
+  toggleDisponibilidad(servicio: MiServicio): void {
+    if (this.disponibilidadAbiertaId() === servicio._id) {
+      this.cerrarDisponibilidad();
+      return;
+    }
+    this.disponibilidadAbiertaId.set(servicio._id);
+    this.disponibilidadError.set('');
+    this.espaciosEdit.set(servicio.espacios ? servicio.espacios.map((e) => ({ ...e })) : []);
+    const campo = CAMPO_DISPONIBILIDAD[servicio.vertical];
+    this.numeroCtrl.setValue(campo ? (servicio[campo] ?? 0) : 0);
+  }
+
+  cerrarDisponibilidad(): void {
+    this.disponibilidadAbiertaId.set(null);
+  }
+
+  agregarEspacio(): void {
+    this.espaciosEdit.update((lista) => [
+      ...lista,
+      { tipo: 'estandar', tamanoMaxPerro: 'mediano', precioNoche: 0, cantidad: 1, disponible: true },
+    ]);
+  }
+
+  quitarEspacio(index: number): void {
+    this.espaciosEdit.update((lista) => lista.filter((_, i) => i !== index));
+  }
+
+  actualizarEspacio(index: number, campo: 'cantidad' | 'precioNoche', valor: string): void {
+    const numero = Number(valor);
+    this.espaciosEdit.update((lista) =>
+      lista.map((e, i) => (i === index ? { ...e, [campo]: Number.isFinite(numero) ? numero : 0 } : e)),
+    );
+  }
+
+  async guardarDisponibilidad(servicio: MiServicio): Promise<void> {
+    this.disponibilidadError.set('');
+    const payload: Record<string, unknown> =
+      servicio.vertical === 'alojamiento'
+        ? { espacios: this.espaciosEdit() }
+        : { [CAMPO_DISPONIBILIDAD[servicio.vertical]]: this.numeroCtrl.value };
+
+    this.guardandoDisponibilidad.set(true);
+    try {
+      const actualizado = await firstValueFrom(this.comercioApi.actualizarDisponibilidad(servicio._id, payload));
+      this.servicios.update((lista) =>
+        lista.map((s) => (s._id === servicio._id ? { ...s, ...actualizado } : s)),
+      );
+      this.cerrarDisponibilidad();
+    } catch {
+      this.disponibilidadError.set('No se pudo guardar la disponibilidad. Inténtalo de nuevo.');
+    } finally {
+      this.guardandoDisponibilidad.set(false);
     }
   }
 }

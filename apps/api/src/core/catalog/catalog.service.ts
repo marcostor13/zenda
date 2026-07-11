@@ -3,7 +3,16 @@ import { CatalogRepository, BuscarServiciosParams } from './catalog.repository';
 import { ReviewsService } from '../reviews/reviews.service';
 import { ResenaDocument } from '../reviews/resena.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { CrearServicioDto } from 'shared';
+import { CrearServicioDto, ActualizarDisponibilidadDto } from 'shared';
+
+/** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
+const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarDisponibilidadDto>> = {
+  alojamiento: ['espacios'],
+  transporte: ['unidadesDisponibles'],
+  veterinaria: ['citasDisponibles'],
+  peluqueria: ['cuposDisponibles'],
+  adiestramiento: ['cuposDisponibles'],
+};
 
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
 export interface ServicioCardDto {
@@ -148,6 +157,46 @@ export class CatalogService {
       comercioId,
     });
     return this.toCard(doc as unknown as ServicioLean);
+  }
+
+  /**
+   * Permite al comercio editar la disponibilidad/cupos de un servicio ya
+   * publicado, evitando la sobreventa (D1). Solo se aceptan los campos que
+   * corresponden al vertical del servicio; el resto del payload se ignora.
+   */
+  async actualizarDisponibilidad(
+    servicioId: string,
+    comercioId: string,
+    dto: ActualizarDisponibilidadDto,
+  ): Promise<ServicioCardDto> {
+    const servicio = await this.repo.obtenerPorId(servicioId);
+    if (!servicio) {
+      throw new DomainException('Servicio no encontrado', 404);
+    }
+    if (String((servicio as unknown as ServicioLean).comercioId) !== comercioId) {
+      throw new DomainException('No tienes permiso sobre este servicio', 403);
+    }
+
+    const vertical = (servicio as unknown as { vertical: string }).vertical;
+    const clavesPermitidas = CAMPOS_DISPONIBILIDAD_POR_VERTICAL[vertical] ?? [];
+    const campos: Record<string, unknown> = {};
+    for (const clave of clavesPermitidas) {
+      const valor = dto[clave];
+      if (valor !== undefined) campos[clave] = valor;
+    }
+
+    if (Object.keys(campos).length === 0) {
+      throw new DomainException(
+        'No se proporcionó ningún campo de disponibilidad válido para este vertical',
+        400,
+      );
+    }
+
+    const actualizado = await this.repo.actualizarCampos(servicioId, campos);
+    if (!actualizado) {
+      throw new DomainException('Servicio no encontrado', 404);
+    }
+    return this.toCard(actualizado as unknown as ServicioLean);
   }
 
   async obtenerServicio(id: string): Promise<ServicioDetalleDto> {

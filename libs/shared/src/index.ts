@@ -34,3 +34,4 @@ export * from './dtos/cupones/cupon.dto';
 
 // DTOs — Catalog
 export * from './dtos/catalog/crear-servicio.dto';
+export * from './dtos/catalog/actualizar-disponibilidad.dto';

@@ -43,7 +43,9 @@ describe('CatalogService', () => {
         CatalogService,
         {
           provide: CatalogRepository,
-          useValue: { buscar: jest.fn(), obtenerPorId: jest.fn(), contarTotal: jest.fn() },
+          useValue: {
+            buscar: jest.fn(), obtenerPorId: jest.fn(), contarTotal: jest.fn(), actualizarCampos: jest.fn(),
+          },
         },
         {
           provide: ReviewsService,
@@ -144,6 +146,51 @@ describe('CatalogService', () => {
           respuesta: null,
         },
       ]);
+    });
+  });
+
+  describe('actualizarDisponibilidad', () => {
+    it('debería actualizar unidadesDisponibles para un servicio de transporte', async () => {
+      repo.obtenerPorId.mockResolvedValue({ ...hotelDoc, vertical: 'transporte', comercioId: 'comercio-1' } as never);
+      repo.actualizarCampos.mockResolvedValue({ ...hotelDoc, vertical: 'transporte' } as never);
+
+      await service.actualizarDisponibilidad('serv-1', 'comercio-1', { unidadesDisponibles: 3 });
+
+      expect(repo.actualizarCampos).toHaveBeenCalledWith('serv-1', { unidadesDisponibles: 3 });
+    });
+
+    it('debería ignorar campos que no corresponden al vertical del servicio', async () => {
+      repo.obtenerPorId.mockResolvedValue({ ...hotelDoc, vertical: 'veterinaria', comercioId: 'comercio-1' } as never);
+      repo.actualizarCampos.mockResolvedValue({ ...hotelDoc, vertical: 'veterinaria' } as never);
+
+      await service.actualizarDisponibilidad('serv-1', 'comercio-1', {
+        citasDisponibles: 8, unidadesDisponibles: 99,
+      } as never);
+
+      expect(repo.actualizarCampos).toHaveBeenCalledWith('serv-1', { citasDisponibles: 8 });
+    });
+
+    it('debería lanzar 403 si el servicio no pertenece al comercio', async () => {
+      repo.obtenerPorId.mockResolvedValue({ ...hotelDoc, vertical: 'transporte', comercioId: 'otro-comercio' } as never);
+      await expect(
+        service.actualizarDisponibilidad('serv-1', 'comercio-1', { unidadesDisponibles: 3 }),
+      ).rejects.toThrow(DomainException);
+      expect(repo.actualizarCampos).not.toHaveBeenCalled();
+    });
+
+    it('debería lanzar 404 si el servicio no existe', async () => {
+      repo.obtenerPorId.mockResolvedValue(null);
+      await expect(
+        service.actualizarDisponibilidad('no-existe', 'comercio-1', { unidadesDisponibles: 3 }),
+      ).rejects.toThrow(DomainException);
+    });
+
+    it('debería lanzar 400 si no se envía ningún campo válido para el vertical', async () => {
+      repo.obtenerPorId.mockResolvedValue({ ...hotelDoc, vertical: 'transporte', comercioId: 'comercio-1' } as never);
+      await expect(
+        service.actualizarDisponibilidad('serv-1', 'comercio-1', { citasDisponibles: 8 } as never),
+      ).rejects.toThrow(DomainException);
+      expect(repo.actualizarCampos).not.toHaveBeenCalled();
     });
   });
 });

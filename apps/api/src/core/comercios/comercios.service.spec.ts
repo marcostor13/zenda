@@ -4,6 +4,7 @@ import { ComerciosService } from './comercios.service';
 import { ComerciosRepository } from './comercios.repository';
 import { ReviewsService } from '../reviews/reviews.service';
 import { BookingsService } from '../bookings/bookings.service';
+import { CatalogService } from '../catalog/catalog.service';
 import { AuthService } from '../auth/auth.service';
 import { UsersRepository } from '../users/users.repository';
 import { Reserva } from '../bookings/reserva.schema';
@@ -15,6 +16,7 @@ describe('ComerciosService', () => {
   let service: ComerciosService;
   let repo: jest.Mocked<ComerciosRepository>;
   let bookingsService: jest.Mocked<BookingsService>;
+  let catalogService: jest.Mocked<CatalogService>;
   let usersRepo: jest.Mocked<UsersRepository>;
   let authService: jest.Mocked<AuthService>;
 
@@ -59,6 +61,10 @@ describe('ComerciosService', () => {
           useValue: { completar: jest.fn() },
         },
         {
+          provide: CatalogService,
+          useValue: { actualizarDisponibilidad: jest.fn() },
+        },
+        {
           provide: AuthService,
           useValue: { emitirTokenParaUsuario: jest.fn() },
         },
@@ -72,6 +78,7 @@ describe('ComerciosService', () => {
     service = moduleRef.get(ComerciosService);
     repo = moduleRef.get(ComerciosRepository);
     bookingsService = moduleRef.get(BookingsService);
+    catalogService = moduleRef.get(CatalogService);
     authService = moduleRef.get(AuthService);
     usersRepo = moduleRef.get(UsersRepository);
   });
@@ -165,6 +172,21 @@ describe('ComerciosService', () => {
 
       await expect(service.registrarConCuenta(dtoRegistroComercio)).rejects.toThrow('fallo inesperado');
       expect(repo.eliminar).toHaveBeenCalledWith('comercio-1');
+    });
+  });
+
+  describe('actualizarDisponibilidadServicio', () => {
+    it('debería delegar en CatalogService.actualizarDisponibilidad', async () => {
+      catalogService.actualizarDisponibilidad.mockResolvedValue({ id: 'servicio-1' } as never);
+
+      const resultado = await service.actualizarDisponibilidadServicio(
+        'servicio-1', 'comercio-1', { cuposDisponibles: 5 },
+      );
+
+      expect(catalogService.actualizarDisponibilidad).toHaveBeenCalledWith(
+        'servicio-1', 'comercio-1', { cuposDisponibles: 5 },
+      );
+      expect(resultado).toMatchObject({ id: 'servicio-1' });
     });
   });
 });
