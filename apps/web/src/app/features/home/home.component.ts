@@ -54,17 +54,15 @@ interface AlojamientoRecomendado {
 
     <div class="hero__inner rs-wrap">
       <div class="hero__content">
-        <div class="hero__textwrap">
-          <h1 class="hero__title">
-            <span class="hero__title-blue">Todo para su rey,</span><br>
-            <span class="hero__title-gold">en un solo lugar</span>
-          </h1>
+        <h1 class="hero__title">
+          <span class="hero__title-blue">Todo para su rey,</span><br>
+          <span class="hero__title-gold">en un solo lugar</span>
+        </h1>
 
-          <p class="hero__sub">
-            Reserva alojamientos premium, veterinarios de confianza y peluquería
-            real para tu perro. La forma más fácil de darle el trato que merece.
-          </p>
-        </div>
+        <p class="hero__sub">
+          Reserva alojamientos premium, veterinarios de confianza y peluquería
+          real para tu perro. La forma más fácil de darle el trato que merece.
+        </p>
 
         <!-- Card de búsqueda -->
         <form class="hero__search" [formGroup]="searchForm" (ngSubmit)="onBuscar()">
@@ -274,22 +272,22 @@ interface AlojamientoRecomendado {
       }
     }
 
-    /* Overlay: opaco bajo el texto (izq.), foto visible a la derecha.
-       El vignette radial refuerza el contraste bajo el título/subtítulo
-       independientemente del ancho de viewport. */
+    /* Scrim oscuro (azul real de marca): fuerte contraste a la izquierda para
+       el texto claro, foto siempre visible y cada vez más nítida a la derecha. */
     .hero__overlay {
       position: absolute;
       inset: 0;
-      background:
-        radial-gradient(ellipse 640px 460px at 16% 62%, rgba(5,26,102,.10), transparent 70%),
-        linear-gradient(100deg,
-          rgba(248,249,250,.97) 0%,
-          rgba(248,249,250,.93) 40%,
-          rgba(248,249,250,.62) 62%,
-          rgba(248,249,250,.15) 100%);
+      background: linear-gradient(90deg,
+        rgba(0,19,93,.90) 0%,
+        rgba(0,19,93,.74) 34%,
+        rgba(0,19,93,.42) 62%,
+        rgba(0,19,93,.14) 100%);
 
       @media (max-width: 768px) {
-        background: rgba(248,249,250,.92);
+        background: linear-gradient(180deg,
+          rgba(0,19,93,.78) 0%,
+          rgba(0,19,93,.88) 55%,
+          rgba(0,19,93,.92) 100%);
       }
     }
 
@@ -312,34 +310,20 @@ interface AlojamientoRecomendado {
       line-height: 1.12;
       font-size: clamp(2rem, 4.6vw, 3.125rem);
       margin-bottom: var(--sp-5);
+      text-shadow: 0 2px 16px rgba(0,8,40,.45);
     }
 
-    .hero__title-blue { color: var(--dk-blue); }
-    .hero__title-gold { color: var(--dk-gold-text); }
+    /* Texto claro sobre el scrim oscuro: máximo contraste + acento dorado de marca */
+    .hero__title-blue { color: #FFFFFF; }
+    .hero__title-gold { color: var(--dk-gold-light); }
 
     .hero__sub {
       font-size: var(--f-lg);
-      color: var(--t-300);
+      color: rgba(255,255,255,.92);
       line-height: 1.7;
       max-width: 46ch;
-      margin-bottom: 0;
-    }
-
-    /* Panel translúcido con blur: garantiza contraste del título/subtítulo
-       sin importar cuán clara/brillante sea la zona de la foto detrás. */
-    .hero__textwrap {
-      background: rgba(255,255,255,.66);
-      backdrop-filter: blur(16px) saturate(1.15);
-      -webkit-backdrop-filter: blur(16px) saturate(1.15);
-      border: 1px solid rgba(255,255,255,.6);
-      border-radius: var(--r-lg);
-      padding: var(--sp-6) var(--sp-7);
-      margin-bottom: var(--sp-6);
-      box-shadow: 0 12px 32px rgba(8,37,139,.10);
-
-      @media (max-width: 480px) {
-        padding: var(--sp-5);
-      }
+      margin-bottom: var(--sp-8);
+      text-shadow: 0 1px 10px rgba(0,8,40,.35);
     }
 
     /* Card de búsqueda blanca */

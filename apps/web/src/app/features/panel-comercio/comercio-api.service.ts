@@ -107,6 +107,15 @@ export interface MiReserva {
   createdAt: string;
 }
 
+export interface EspacioDisponibilidad {
+  id?: string;
+  tipo: 'suite' | 'estandar' | 'compartido';
+  tamanoMaxPerro: 'pequeno' | 'mediano' | 'grande' | 'gigante';
+  precioNoche: number;
+  cantidad: number;
+  disponible: boolean;
+}
+
 export interface MiServicio {
   _id: string;
   titulo: string;
@@ -115,10 +124,22 @@ export interface MiServicio {
   estado: string;
   ratingPromedio?: number;
   imagenes?: string[];
+  /** Disponibilidad por vertical (D1): solo viene poblado el campo propio del vertical. */
+  espacios?: EspacioDisponibilidad[];
+  unidadesDisponibles?: number;
+  citasDisponibles?: number;
+  cuposDisponibles?: number;
 }
 
-/** Payload base común a crear/actualizar un listado; el bag específico del vertical
- *  se envía bajo la clave con el mismo nombre que el vertical (p. ej. `alojamiento`). */
+export interface DisponibilidadPayload {
+  espacios?: EspacioDisponibilidad[];
+  unidadesDisponibles?: number;
+  citasDisponibles?: number;
+  cuposDisponibles?: number;
+}
+
+/** Payload base común a crear/actualizar un listado; los campos propios del vertical
+ *  (espacios, tarifas, servicios clínicos/grooming, cupos…) van en `extra`. */
 export interface ServicioPayload {
   vertical?: string;
   titulo?: string;
@@ -126,7 +147,7 @@ export interface ServicioPayload {
   ciudad?: string;
   precioBase?: number;
   imagenes?: string[];
-  [detalleVertical: string]: unknown;
+  extra?: Record<string, unknown>;
 }
 
 export interface ServicioGestion {
@@ -138,7 +159,7 @@ export interface ServicioGestion {
   precioBase: number;
   imagenes: string[];
   estado: string;
-  [detalleVertical: string]: unknown;
+  extra: Record<string, unknown>;
 }
 
 export interface MiResena {
@@ -167,12 +188,20 @@ export class ComercioApiService {
     return this.http.get<MiReserva[]>(`${this.url}/mis-reservas`);
   }
 
+  completarReserva(reservaId: string): Observable<MiReserva> {
+    return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/completar`, {});
+  }
+
   getMisServicios(): Observable<MiServicio[]> {
     return this.http.get<MiServicio[]>(`${this.url}/mis-servicios`);
   }
 
   cambiarEstadoServicio(id: string, estado: 'publicado' | 'pausado' | 'borrador'): Observable<MiServicio> {
     return this.http.patch<MiServicio>(`${this.url}/mis-servicios/${id}/estado`, { estado });
+  }
+
+  actualizarDisponibilidad(id: string, cambios: DisponibilidadPayload): Observable<MiServicio> {
+    return this.http.patch<MiServicio>(`${this.url}/mis-servicios/${id}/disponibilidad`, cambios);
   }
 
   crearServicio(dto: ServicioPayload): Observable<MiServicio> {

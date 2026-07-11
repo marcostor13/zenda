@@ -58,12 +58,12 @@ describe('LoginComponent', () => {
     expect(authService.login).not.toHaveBeenCalled();
   });
 
-  it('debería desactivar el botón mientras carga', async () => {
+  it('debería desactivar el botón mientras carga', () => {
+    // login queda pendiente a propósito para observar el estado de carga.
     authService.login.mockImplementation(() => new Promise(() => {}));
     component.formulario.setValue({ email: 'juan@test.com', password: 'password123' });
 
-    const submitPromise = component.onSubmit();
+    void component.onSubmit();
     expect(component.cargando()).toBe(true);
-    await submitPromise;
   });
 });

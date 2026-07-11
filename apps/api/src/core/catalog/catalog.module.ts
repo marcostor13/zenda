@@ -10,6 +10,7 @@ import { Adiestramiento, AdiestramientoSchema } from '../../verticals/adiestrami
 import { CatalogRepository } from './catalog.repository';
 import { CatalogService } from './catalog.service';
 import { CatalogController } from './catalog.controller';
+import { ReviewsModule } from '../reviews/reviews.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CatalogController } from './catalog.controller';
         ],
       },
     ]),
+    ReviewsModule,
   ],
   controllers: [CatalogController],
   providers: [CatalogRepository, CatalogService],

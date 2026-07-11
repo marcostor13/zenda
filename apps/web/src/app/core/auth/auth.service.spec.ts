@@ -40,7 +40,7 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('debería guardar el token y navegar a /buscador', async () => {
+    it('debería guardar el token y navegar al inicio si el rol es cliente', async () => {
       const loginPromise = service.login({ email: 'juan@test.com', password: 'password123' });
 
       const req = httpMock.expectOne((r) => r.url.includes('/auth/login'));
@@ -49,7 +49,33 @@ describe('AuthService', () => {
 
       expect(service.estaAutenticado()).toBe(true);
       expect(service.token()).toBe('jwt-token');
-      expect(routerMock.navigate).toHaveBeenCalledWith(['/buscador']);
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/']);
+    });
+  });
+
+  describe('registrarComercio', () => {
+    it('debería registrar el comercio y navegar al panel si el rol es comercio_admin', async () => {
+      const respuestaComercio: AuthResponseDto = {
+        accessToken: 'jwt-comercio',
+        usuario: {
+          id: 'user-2', nombre: 'Ana', email: 'ana@royaldog.eu',
+          rol: Rol.COMERCIO_ADMIN, comercioId: 'comercio-1',
+        },
+      };
+
+      const promesa = service.registrarComercio({
+        nombre: 'Ana', email: 'ana@royaldog.eu', password: 'password123',
+        razonSocial: 'Royal Dog S.L.', vatNumber: 'ES-B1', nombreComercial: 'Royal Dog',
+      });
+
+      const req = httpMock.expectOne((r) => r.url.includes('/comercios/registro'));
+      expect(req.request.method).toBe('POST');
+      req.flush(respuestaComercio);
+      await promesa;
+
+      expect(service.estaAutenticado()).toBe(true);
+      expect(service.token()).toBe('jwt-comercio');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/comercio']);
     });
   });
 

@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { MONEDA_DEFAULT } from 'shared';
 import { Servicio, ServicioDocument } from './servicio.schema';
+import { Alojamiento } from '../../verticals/alojamiento/alojamiento.schema';
+import { Transporte } from '../../verticals/transporte/transporte.schema';
+import { Veterinaria } from '../../verticals/veterinaria/veterinaria.schema';
+import { Peluqueria } from '../../verticals/peluqueria/peluqueria.schema';
+import { Adiestramiento } from '../../verticals/adiestramiento/adiestramiento.schema';
 
 export interface BuscarServiciosParams {
   vertical?: string;
@@ -26,7 +31,7 @@ export interface CrearServicioParams {
   precioBase: number;
   imagenes: string[];
   comercioId: string;
-  detalle: Record<string, unknown>;
+  extra?: Record<string, unknown>;
 }
 
 export interface ActualizarServicioParams {
@@ -35,22 +40,18 @@ export interface ActualizarServicioParams {
   ciudad?: string;
   precioBase?: number;
   imagenes?: string[];
-  detalle?: Record<string, unknown>;
+  extra?: Record<string, unknown>;
 }
-
-/** Nombre del discriminador Mongoose registrado en catalog.module.ts para cada vertical. */
-const DISCRIMINATOR_NAME: Record<string, string> = {
-  [VerticalKey.ALOJAMIENTO]: 'Alojamiento',
-  [VerticalKey.TRANSPORTE]: 'Transporte',
-  [VerticalKey.VETERINARIA]: 'Veterinaria',
-  [VerticalKey.PELUQUERIA]: 'Peluqueria',
-  [VerticalKey.ADIESTRAMIENTO]: 'Adiestramiento',
-};
 
 @Injectable()
 export class CatalogRepository {
   constructor(
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
+    @InjectModel(Alojamiento.name) private readonly alojamientoModel: Model<ServicioDocument>,
+    @InjectModel(Transporte.name) private readonly transporteModel: Model<ServicioDocument>,
+    @InjectModel(Veterinaria.name) private readonly veterinariaModel: Model<ServicioDocument>,
+    @InjectModel(Peluqueria.name) private readonly peluqueriaModel: Model<ServicioDocument>,
+    @InjectModel(Adiestramiento.name) private readonly adiestramientoModel: Model<ServicioDocument>,
   ) {}
 
   async buscar(params: BuscarServiciosParams): Promise<BuscarServiciosResult> {
@@ -86,8 +87,17 @@ export class CatalogRepository {
     return this.servicioModel.estimatedDocumentCount().exec();
   }
 
+  /** Actualiza sólo los campos de disponibilidad/cupos de un servicio (D1), sin tocar el resto. */
+  async actualizarCampos(id: string, campos: Record<string, unknown>): Promise<ServicioDocument | null> {
+    return this.servicioModel.findByIdAndUpdate(id, campos, { new: true }).lean().exec() as Promise<ServicioDocument | null>;
+  }
+
   async crear(data: CrearServicioParams): Promise<ServicioDocument> {
-    const Modelo = this.modeloDiscriminado(data.vertical);
+    // El documento debe crearse con el modelo del discriminador correspondiente
+    // para que Mongoose acepte y persista los campos propios del vertical
+    // (espacios, tarifas, servicios clínicos/grooming…); el modelo base
+    // `Servicio` desconoce esos campos y los descartaría silenciosamente.
+    const Modelo = this.modeloPorVertical(data.vertical);
     const doc = new Modelo({
       vertical: data.vertical,
       titulo: data.titulo,
@@ -97,18 +107,19 @@ export class CatalogRepository {
       imagenes: data.imagenes,
       comercioId: new Types.ObjectId(data.comercioId),
       estado: 'borrador',
-      moneda: 'EUR',
-      ...data.detalle,
+      moneda: MONEDA_DEFAULT,
+      ...data.extra,
     });
     return doc.save() as unknown as Promise<ServicioDocument>;
   }
 
+  /** Edita los datos base y los campos propios del vertical de un listado ya existente. */
   async actualizar(
     id: string,
     comercioId: string,
     data: ActualizarServicioParams,
   ): Promise<ServicioDocument | null> {
-    const set: Record<string, unknown> = { ...data.detalle };
+    const set: Record<string, unknown> = { ...data.extra };
     if (data.titulo !== undefined) set.titulo = data.titulo;
     if (data.descripcion !== undefined) set.descripcion = data.descripcion;
     if (data.ciudad !== undefined) set['ubicacion.ciudad'] = data.ciudad;
@@ -124,13 +135,15 @@ export class CatalogRepository {
       .exec();
   }
 
-  /** Selecciona el modelo discriminador correcto para que Mongoose persista los campos propios del vertical. */
-  private modeloDiscriminado(vertical: string): Model<ServicioDocument> {
-    const nombre = DISCRIMINATOR_NAME[vertical];
-    const discriminadores = this.servicioModel.discriminators as
-      | Record<string, Model<ServicioDocument>>
-      | undefined;
-    return (nombre && discriminadores?.[nombre]) || this.servicioModel;
+  private modeloPorVertical(vertical: string): Model<ServicioDocument> {
+    const mapa: Record<string, Model<ServicioDocument>> = {
+      alojamiento: this.alojamientoModel,
+      transporte: this.transporteModel,
+      veterinaria: this.veterinariaModel,
+      peluqueria: this.peluqueriaModel,
+      adiestramiento: this.adiestramientoModel,
+    };
+    return mapa[vertical] ?? this.servicioModel;
   }
 
   private construirFiltro(params: BuscarServiciosParams): FilterQuery<ServicioDocument> {

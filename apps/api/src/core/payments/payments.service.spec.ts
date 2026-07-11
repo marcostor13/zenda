@@ -5,6 +5,7 @@ import { Pago } from './pago.schema';
 import { PAYMENT_GATEWAY, PaymentGateway } from './payment-gateway.interface';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { BookingsService } from '../bookings/bookings.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { PagoEstado, VerticalKey, IVA_RATE } from 'shared';
 
@@ -19,14 +20,14 @@ describe('PaymentsService', () => {
     id: 'reserva-1',
     usuarioId: { toString: () => 'user-1' },
     comercioId: { toString: () => 'comercio-1' },
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     montoSubtotal: 500,
     moneda: 'EUR',
     reservaId: 'reserva-1',
   };
 
   const comisionConfigMock: any = {
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     comisionPct: 0.15,
     stripePct: 0.029,
     stripeFijoEur: 1.1,
@@ -72,6 +73,10 @@ describe('PaymentsService', () => {
             obtenerPorId: jest.fn().mockResolvedValue(reservaMock),
             confirmar: jest.fn().mockResolvedValue(undefined),
           },
+        },
+        {
+          provide: NotificationsService,
+          useValue: { notificarReservaConfirmada: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

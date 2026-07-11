@@ -8,6 +8,7 @@ import { PAYMENT_GATEWAY } from './payment-gateway.interface';
 import { ComisionConfigsModule } from '../comision-configs/comision-configs.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AuthModule } from '../auth/auth.module';
     ComisionConfigsModule,
     BookingsModule,
     AuthModule,
+    NotificationsModule,
   ],
   controllers: [PaymentsController],
   providers: [

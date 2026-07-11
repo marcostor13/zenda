@@ -8,8 +8,6 @@ import {
   Query,
   UseGuards,
   Req,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
@@ -17,7 +15,7 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, Rol } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, Rol } from 'shared';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -34,6 +32,12 @@ export class ComerciosController {
   @ApiOperation({ summary: 'Registrar un comercio (queda pendiente de aprobación)' })
   registrar(@Body() dto: RegistrarComercioDto): Promise<ComercioDocument> {
     return this.comerciosService.registrar(dto);
+  }
+
+  @Post('registro')
+  @ApiOperation({ summary: 'Alta de comercio en un solo paso (cuenta + negocio); devuelve sesión' })
+  registrarConCuenta(@Body() dto: RegistroComercioDto): Promise<AuthResponseDto> {
+    return this.comerciosService.registrarConCuenta(dto);
   }
 
   @Get()
@@ -64,6 +68,15 @@ export class ComerciosController {
     return this.comerciosService.obtenerReservasComercio(req.user.comercioId!, 50);
   }
 
+  @Patch('mis-reservas/:reservaId/completar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Marcar una reserva confirmada como completada (servicio ya prestado)' })
+  completarReserva(@Req() req: RequestConUser, @Param('reservaId') reservaId: string) {
+    return this.comerciosService.completarReserva(reservaId, req.user.comercioId!);
+  }
+
   @Get('mis-servicios')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
@@ -86,6 +99,19 @@ export class ComerciosController {
     return this.comerciosService.cambiarEstadoServicio(servicioId, req.user.comercioId!, dto.estado);
   }
 
+  @Patch('mis-servicios/:servicioId/disponibilidad')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualizar la disponibilidad/cupos de un servicio propio (evita sobreventa)' })
+  actualizarDisponibilidad(
+    @Req() req: RequestConUser,
+    @Param('servicioId') servicioId: string,
+    @Body() dto: ActualizarDisponibilidadDto,
+  ) {
+    return this.comerciosService.actualizarDisponibilidadServicio(servicioId, req.user.comercioId!, dto);
+  }
+
   @Get('mis-resenas')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
@@ -99,10 +125,13 @@ export class ComerciosController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Responder a una reseña (pendiente de implementación)' })
-  @HttpCode(HttpStatus.NOT_IMPLEMENTED)
-  responderResena() {
-    return { message: 'Reviews module coming soon' };
+  @ApiOperation({ summary: 'Responder a una reseña recibida' })
+  responderResena(
+    @Req() req: RequestConUser,
+    @Param('resenaId') resenaId: string,
+    @Body('respuesta') respuesta: string,
+  ) {
+    return this.comerciosService.responderResena(resenaId, req.user.comercioId!, respuesta);
   }
 
   @Patch('mi-comercio')

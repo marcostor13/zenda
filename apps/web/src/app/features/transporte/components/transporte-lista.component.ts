@@ -79,11 +79,18 @@ import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../se
             </article>
           }
 
-          @if (transportes().length === 0) {
+          @if (transportes().length === 0 && !error()) {
             <div class="transporte-empty">
               <rs-icon name="paw" size="48" />
               <h3>No hay transportes para esa búsqueda</h3>
               <p>Prueba con otra ciudad.</p>
+            </div>
+          }
+          @if (error()) {
+            <div class="transporte-empty">
+              <rs-icon name="paw" size="48" />
+              <h3>No se pudo cargar el catálogo</h3>
+              <p>Inténtalo de nuevo en unos momentos.</p>
             </div>
           }
         </div>
@@ -124,6 +131,7 @@ export class TransporteListaComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly cargando = signal(true);
+  readonly error = signal(false);
   readonly transportes = signal<TransporteCard[]>([]);
 
   readonly searchForm = this.fb.group({ ciudad: [''] });
@@ -138,11 +146,13 @@ export class TransporteListaComponent implements OnInit {
 
   private async cargar(ciudad?: string): Promise<void> {
     this.cargando.set(true);
+    this.error.set(false);
     try {
-      const resultados = await this.transporteService.buscar(ciudad);
-      this.transportes.set(resultados.length ? resultados : this.mock());
+      // Datos reales del catálogo; nunca mocks (evita ofrecer traslados inexistentes).
+      this.transportes.set(await this.transporteService.buscar(ciudad));
     } catch {
-      this.transportes.set(this.mock());
+      this.transportes.set([]);
+      this.error.set(true);
     } finally {
       this.cargando.set(false);
     }
@@ -168,11 +178,4 @@ export class TransporteListaComponent implements OnInit {
     return map[tipo] ?? tipo;
   }
 
-  private mock(): TransporteCard[] {
-    return [
-      { id: 'tr1', nombre: 'DogVan Madrid — Traslados con cuidador', ciudad: 'Madrid', imagen: '', comercioId: '', tipoVehiculo: 'van_acondicionada', capacidadPerros: 4, zonaCobertura: ['Madrid', 'Toledo', 'Guadalajara'], tarifaBase: 15, tarifaKm: 0.9, jaulasIncluidas: true, acompananteHumano: true, destacado: true, score: 4.8, scoreLabel: 'Excepcional', numResenas: 214 },
-      { id: 'tr2', nombre: 'PetMove Barcelona', ciudad: 'Barcelona', imagen: '', comercioId: '', tipoVehiculo: 'furgon_climatizado', capacidadPerros: 6, zonaCobertura: ['Barcelona', 'Girona', 'Tarragona'], tarifaBase: 20, tarifaKm: 1.1, jaulasIncluidas: true, acompananteHumano: false, destacado: false, score: 4.6, scoreLabel: 'Muy bueno', numResenas: 158 },
-      { id: 'tr3', nombre: 'Traslados caninos Valencia', ciudad: 'Valencia', imagen: '', comercioId: '', tipoVehiculo: 'coche', capacidadPerros: 2, zonaCobertura: ['Valencia', 'Castellón'], tarifaBase: 10, tarifaKm: 0.7, jaulasIncluidas: false, acompananteHumano: true, destacado: false, score: 4.5, scoreLabel: 'Muy bueno', numResenas: 92 },
-    ];
-  }
 }

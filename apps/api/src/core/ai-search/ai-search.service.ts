@@ -48,14 +48,19 @@ Reglas:
 @Injectable()
 export class AiSearchService {
   private readonly logger = new Logger(AiSearchService.name);
-  private readonly apiKey: string;
+  private readonly apiKey?: string;
   private readonly apiUrl = 'https://api.deepseek.com/chat/completions';
 
   constructor(config: ConfigService) {
-    this.apiKey = config.getOrThrow<string>('DEEPSEEK_API_KEY');
+    // Lectura no-eager: la búsqueda con IA es opcional; el API arranca sin la key
+    // y `interpretSearch` degrada al formulario manual si no está configurada.
+    this.apiKey = config.get<string>('DEEPSEEK_API_KEY');
   }
 
   async interpretSearch(query: string): Promise<SearchParams> {
+    if (!this.apiKey) {
+      return this.busquedaNoInterpretada('DEEPSEEK_API_KEY no configurada; usa el formulario.');
+    }
     try {
       const response = await fetch(this.apiUrl, {
         method: 'POST',
@@ -84,12 +89,18 @@ export class AiSearchService {
       return JSON.parse(content) as SearchParams;
     } catch (error) {
       this.logger.error('Error al interpretar búsqueda con IA', error);
-      // Fallback: return empty params so the frontend can still show the search
-      return {
-        vertical: null, ciudad: null, desde: null, hasta: null,
-        presupuestoMax: null, pasajeros: null, extras: {},
-        explicacion: 'No se pudo interpretar la búsqueda. Usa el formulario manualmente.',
-      };
+      return this.busquedaNoInterpretada(
+        'No se pudo interpretar la búsqueda. Usa el formulario manualmente.',
+      );
     }
+  }
+
+  /** Params vacíos para que el frontend siga mostrando el buscador manual. */
+  private busquedaNoInterpretada(explicacion: string): SearchParams {
+    return {
+      vertical: null, ciudad: null, desde: null, hasta: null,
+      presupuestoMax: null, pasajeros: null, extras: {},
+      explicacion,
+    };
   }
 }

@@ -5,6 +5,7 @@ import { Pago, PagoDocument } from './pago.schema';
 import { PaymentGateway, PAYMENT_GATEWAY } from './payment-gateway.interface';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { BookingsService } from '../bookings/bookings.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { PagoEstado, PaymentIntentResponseDto, IVA_RATE } from 'shared';
 import { ReservaDocument } from '../bookings/reserva.schema';
@@ -27,6 +28,7 @@ export class PaymentsService {
     @Inject(PAYMENT_GATEWAY) private readonly paymentGateway: PaymentGateway,
     private readonly comisionConfigRepo: ComisionConfigRepository,
     private readonly bookingsService: BookingsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async crearIntent(reservaId: string, usuarioId: string): Promise<PaymentIntentResponseDto> {
@@ -120,6 +122,8 @@ export class PaymentsService {
       await pago.save();
       await this.bookingsService.confirmar(pago.reservaId.toString());
       this.logger.log(`Reserva ${pago.reservaId} confirmada tras pago exitoso.`);
+      // No await: un fallo de email no debe demorar/afectar la respuesta al webhook de Stripe.
+      void this.notificationsService.notificarReservaConfirmada(pago.reservaId.toString());
     }
 
     if (resultado.estado === 'failed') {

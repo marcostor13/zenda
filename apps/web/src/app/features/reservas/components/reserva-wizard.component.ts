@@ -331,15 +331,6 @@ type Paso = 1 | 2 | 3 | 4;
                   </svg>
                 </div>
               </label>
-              <label class="payment-option" [class.selected]="metodoPago() === 'bizum'">
-                <input type="radio" name="metodo" value="bizum" [(ngModel)]="metodoPagoVal"
-                       (change)="metodoPago.set('bizum')" />
-                <div class="payment-option__icon">📱</div>
-                <div>
-                  <div class="payment-option__name">Bizum</div>
-                  <div class="payment-option__brands">Pago móvil instantáneo</div>
-                </div>
-              </label>
             </div>
 
             @if (metodoPago() === 'card') {
@@ -351,24 +342,15 @@ type Paso = 1 | 2 | 3 | 4;
 
                 <div id="stripe-payment-element"></div>
 
-                @if (!stripeListo()) {
+                @if (!stripeListo() && !errorPago()) {
                   <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-3)">
-                    Modo demostración: el pago se simulará. El formulario seguro de Stripe
-                    aparece al reservar desde un servicio real con la sesión iniciada.
+                    Cargando el formulario seguro de pago…
                   </p>
                 }
 
                 @if (errorPago()) {
                   <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-4)">{{ errorPago() }}</div>
                 }
-              </div>
-            }
-
-            @if (metodoPago() === 'bizum') {
-              <div class="bizum-placeholder">
-                <div style="font-size:3rem;text-align:center;margin-bottom:var(--sp-4)">📱</div>
-                <p style="text-align:center;color:var(--t-300)">Confirma el pago de €{{ total() }} desde tu app bancaria con Bizum</p>
-                <div class="qr-mock">QR aquí</div>
               </div>
             }
 
@@ -598,8 +580,6 @@ type Paso = 1 | 2 | 3 | 4;
     .stripe-placeholder { background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-xl); padding: var(--sp-6); margin-bottom: var(--sp-5); }
     .stripe-placeholder__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-5); font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
 
-    .qr-mock { width: 160px; height: 160px; background: var(--c-surface); border-radius: var(--r-xl); margin: var(--sp-6) auto 0; display: flex; align-items: center; justify-content: center; color: var(--t-400); font-size: var(--f-sm); }
-    .bizum-placeholder { text-align: center; }
 
     .confirmation { text-align: center; padding: var(--sp-16) var(--sp-8); }
     .confirmation__icon { font-size: 4rem; margin-bottom: var(--sp-4); animation: float 3s ease-in-out infinite; }
@@ -949,7 +929,11 @@ export class ReservaWizardComponent implements OnInit {
       setTimeout(() => paymentElement.mount('#stripe-payment-element'), 0);
       this.stripeListo.set(true);
     } catch {
+      // No enmascarar: informar que no se pudo preparar el pago.
       this.stripeListo.set(false);
+      this.errorPago.set(
+        'No se pudo preparar el pago de esta reserva. Vuelve a intentarlo o elige otro servicio.',
+      );
     }
   }
 
@@ -985,29 +969,27 @@ export class ReservaWizardComponent implements OnInit {
   }
 
   async procesarPago(): Promise<void> {
-    this.procesando.set(true);
-    this.errorPago.set(null);
-
-    if (this.stripe && this.elements && this.clientSecret) {
-      const { error } = await this.stripe.confirmPayment({
-        elements: this.elements,
-        redirect: 'if_required',
-      });
-      this.procesando.set(false);
-      if (error) {
-        this.errorPago.set(error.message ?? 'No se pudo procesar el pago. Revisa los datos de la tarjeta.');
-        return;
-      }
-      this.irPaso(4);
+    // Sin Stripe listo no hay pago real: no se simula éxito, se muestra el error.
+    if (!this.stripe || !this.elements || !this.clientSecret) {
+      this.errorPago.set(
+        'El pago no está disponible ahora mismo. Vuelve a intentarlo en unos segundos.',
+      );
       return;
     }
 
-    // Modo demostración
-    await new Promise(r => setTimeout(r, 1500));
-    if (!this.codigoReserva()) {
-      this.codigoReserva.set('RES-' + Math.random().toString(36).substr(2, 8).toUpperCase());
-    }
+    this.procesando.set(true);
+    this.errorPago.set(null);
+
+    const { error } = await this.stripe.confirmPayment({
+      elements: this.elements,
+      redirect: 'if_required',
+    });
     this.procesando.set(false);
+
+    if (error) {
+      this.errorPago.set(error.message ?? 'No se pudo procesar el pago. Revisa los datos de la tarjeta.');
+      return;
+    }
     this.irPaso(4);
   }
 

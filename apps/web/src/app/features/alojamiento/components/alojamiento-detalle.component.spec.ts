@@ -135,12 +135,12 @@ describe('AlojamientoDetalleComponent', () => {
     expect(component.tamanoLabel('gigante')).toBe('gigante');
   });
 
-  it('debería usar el mock canino si la API falla', async () => {
+  it('debería quedar sin detalle (no encontrado, sin mock) si la API falla', async () => {
     alojamientoService.obtener.mockRejectedValue(new Error('offline'));
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(component.alojamiento()).not.toBeNull();
-    expect(component.alojamiento()?.espacios.length).toBeGreaterThan(0);
+    expect(component.alojamiento()).toBeNull();
+    expect(component.cargando()).toBe(false);
   });
 });

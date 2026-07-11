@@ -7,7 +7,7 @@ describe('AvailabilityRegistry', () => {
   let registry: AvailabilityRegistry;
 
   const estrategiaMock: AvailabilityStrategy = {
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     checkAvailability: jest.fn(),
     reserveSlot: jest.fn(),
     releaseSlot: jest.fn(),
@@ -19,22 +19,22 @@ describe('AvailabilityRegistry', () => {
 
   it('debería registrar y recuperar una estrategia por vertical', () => {
     registry.registrar(estrategiaMock);
-    const resultado = registry.obtener(VerticalKey.HOTELES);
+    const resultado = registry.obtener(VerticalKey.ALOJAMIENTO);
     expect(resultado).toBe(estrategiaMock);
   });
 
   it('debería lanzar DomainException 501 si no hay estrategia para el vertical', () => {
-    expect(() => registry.obtener(VerticalKey.TAXIS)).toThrow(DomainException);
+    expect(() => registry.obtener(VerticalKey.TRANSPORTE)).toThrow(DomainException);
     try {
-      registry.obtener(VerticalKey.TAXIS);
+      registry.obtener(VerticalKey.TRANSPORTE);
     } catch (error) {
       expect((error as DomainException).statusCode).toBe(501);
     }
   });
 
   it('debería reportar correctamente si tiene o no una estrategia', () => {
-    expect(registry.tieneEstrategia(VerticalKey.HOTELES)).toBe(false);
+    expect(registry.tieneEstrategia(VerticalKey.ALOJAMIENTO)).toBe(false);
     registry.registrar(estrategiaMock);
-    expect(registry.tieneEstrategia(VerticalKey.HOTELES)).toBe(true);
+    expect(registry.tieneEstrategia(VerticalKey.ALOJAMIENTO)).toBe(true);
   });
 });

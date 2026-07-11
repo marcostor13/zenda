@@ -1,10 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsArray, ValidateNested, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsObject, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AlojamientoDetalleDto } from './alojamiento-detalle.dto';
-import { TransporteDetalleDto } from './transporte-detalle.dto';
-import { VeterinariaDetalleDto } from './veterinaria-detalle.dto';
-import { PeluqueriaDetalleDto } from './peluqueria-detalle.dto';
-import { AdiestramientoDetalleDto } from './adiestramiento-detalle.dto';
 
 /** El vertical de un servicio no se puede cambiar tras su creación. */
 export class ActualizarServicioDto {
@@ -31,28 +26,8 @@ export class ActualizarServicioDto {
   @IsString({ each: true })
   imagenes?: string[];
 
+  /** Campos propios del vertical (mismo formato que en CrearServicioDto.extra). */
   @IsOptional()
-  @ValidateNested()
-  @Type(() => AlojamientoDetalleDto)
-  alojamiento?: AlojamientoDetalleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => TransporteDetalleDto)
-  transporte?: TransporteDetalleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => VeterinariaDetalleDto)
-  veterinaria?: VeterinariaDetalleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PeluqueriaDetalleDto)
-  peluqueria?: PeluqueriaDetalleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => AdiestramientoDetalleDto)
-  adiestramiento?: AdiestramientoDetalleDto;
+  @IsObject()
+  extra?: Record<string, unknown>;
 }

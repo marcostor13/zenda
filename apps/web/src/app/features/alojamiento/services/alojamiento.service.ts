@@ -50,8 +50,10 @@ export interface AlojamientoDetalle extends AlojamientoCard {
   camaras24h: boolean;
   espacios: Espacio[];
   resenas: Resena[];
-  scoreDesglose: ScoreDesglose;
-  reglas: string[];
+  /** El API aún no calcula un desglose por categoría; puede no venir. */
+  scoreDesglose?: ScoreDesglose;
+  /** El API aún no modela reglas de la casa; puede no venir. */
+  reglas?: string[];
   comercioId: string;
 }
 
@@ -72,18 +74,14 @@ export interface Espacio {
   cancelacionGratis: boolean;
 }
 
+/** Reseña real de un servicio (los campos reflejan exactamente lo que guarda el módulo de reviews). */
 export interface Resena {
   id: string;
   autorNombre: string;
-  autorAvatar: string;
+  puntuacion: number;
+  comentario: string;
   fecha: string;
-  score: number;
-  titulo: string;
-  texto: string;
-  pais: string;
-  tamanoPerro: string;
-  desglose: ScoreDesglose;
-  respuestaComercio?: string;
+  respuesta?: string | null;
 }
 
 export interface ScoreDesglose {

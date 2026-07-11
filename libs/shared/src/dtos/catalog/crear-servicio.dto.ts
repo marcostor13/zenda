@@ -1,11 +1,6 @@
-import { IsString, IsEnum, IsNumber, IsOptional, IsArray, ValidateNested, Min } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsOptional, IsArray, IsObject, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
-import { AlojamientoDetalleDto } from './alojamiento-detalle.dto';
-import { TransporteDetalleDto } from './transporte-detalle.dto';
-import { VeterinariaDetalleDto } from './veterinaria-detalle.dto';
-import { PeluqueriaDetalleDto } from './peluqueria-detalle.dto';
-import { AdiestramientoDetalleDto } from './adiestramiento-detalle.dto';
 
 export class CrearServicioDto {
   @IsEnum(VerticalKey)
@@ -30,29 +25,12 @@ export class CrearServicioDto {
   @IsString({ each: true })
   imagenes?: string[];
 
-  /** Campos propios del vertical; sólo se valida/persiste el que corresponde a `vertical`. */
+  /**
+   * Campos propios del vertical elegido (espacios, tarifas, servicios
+   * clínicos/grooming, cupos…). CatalogService filtra por una whitelist
+   * según `vertical`; el resto se descarta.
+   */
   @IsOptional()
-  @ValidateNested()
-  @Type(() => AlojamientoDetalleDto)
-  alojamiento?: AlojamientoDetalleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => TransporteDetalleDto)
-  transporte?: TransporteDetalleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => VeterinariaDetalleDto)
-  veterinaria?: VeterinariaDetalleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PeluqueriaDetalleDto)
-  peluqueria?: PeluqueriaDetalleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => AdiestramientoDetalleDto)
-  adiestramiento?: AdiestramientoDetalleDto;
+  @IsObject()
+  extra?: Record<string, unknown>;
 }

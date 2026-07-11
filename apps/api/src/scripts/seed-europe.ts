@@ -3,13 +3,13 @@
  *
  * Uso: npm run seed:europe --workspace=api
  *
- * Inserta datos coherentes con imágenes reales de Unsplash:
- * - 1 admin + 8 usuarios clientes
- * - 6 comercios activos (hoteles, taxis, vuelos, transporte, guarderías)
- * - 12 servicios (3 hoteles, 2 vuelos, 2 taxis, 2 transportes, 3 guarderías)
- * - 4 reservas de ejemplo en distintos estados
- * - 4 cupones
- * - Comisiones por vertical
+ * Marketplace de servicios caninos en Europa (EUR). Inserta datos coherentes:
+ * - 1 admin + 4 usuarios clientes
+ * - 6 comercios activos en las 5 categorías caninas
+ * - 12 servicios (3 alojamiento, 2 transporte, 3 veterinaria, 2 peluquería, 2 adiestramiento)
+ * - 3 reservas de ejemplo en distintos estados
+ * - 3 cupones
+ * - Comisiones por categoría canina
  *
  * IDs fijos con prefijo e0* para poder ejecutar clear-seed-europe.ts
  */
@@ -32,47 +32,49 @@ const ids = {
   clienteSoph: new Types.ObjectId('e00000000000000000000004'),
   clienteJavi: new Types.ObjectId('e00000000000000000000005'),
   // Comercio admins
-  comAdmH: new Types.ObjectId('e00000000000000000000006'), // hoteles
-  comAdmT: new Types.ObjectId('e00000000000000000000007'), // taxis
-  comAdmV: new Types.ObjectId('e00000000000000000000008'), // vuelos
-  comAdmTr: new Types.ObjectId('e00000000000000000000009'), // transporte
-  comAdmG: new Types.ObjectId('e00000000000000000000010'), // guarderia
+  comAdmAloj: new Types.ObjectId('e00000000000000000000006'), // alojamiento (Madrid)
+  comAdmAloj2: new Types.ObjectId('e00000000000000000000007'), // alojamiento (Lisboa)
+  comAdmTr: new Types.ObjectId('e00000000000000000000008'), // transporte
+  comAdmVet: new Types.ObjectId('e00000000000000000000009'), // veterinaria
+  comAdmPel: new Types.ObjectId('e00000000000000000000010'), // peluquería
+  comAdmAdi: new Types.ObjectId('e00000000000000000000011'), // adiestramiento
   // Comercios
-  comHoteles: new Types.ObjectId('e00000000000000000000020'),
-  comTaxis: new Types.ObjectId('e00000000000000000000021'),
-  comVuelos: new Types.ObjectId('e00000000000000000000022'),
-  comTransp: new Types.ObjectId('e00000000000000000000023'),
-  comGuard: new Types.ObjectId('e00000000000000000000024'),
-  comHoteles2: new Types.ObjectId('e00000000000000000000025'),
-  // Servicios
-  svcH1: new Types.ObjectId('e00000000000000000000030'), // Hotel Paris
-  svcH2: new Types.ObjectId('e00000000000000000000031'), // Hotel Barcelona
-  svcH3: new Types.ObjectId('e00000000000000000000032'), // Hotel Roma
-  svcV1: new Types.ObjectId('e00000000000000000000033'), // Vuelo MAD-CDG
-  svcV2: new Types.ObjectId('e00000000000000000000034'), // Vuelo BCN-FCO
-  svcT1: new Types.ObjectId('e00000000000000000000035'), // Taxi Paris
-  svcT2: new Types.ObjectId('e00000000000000000000036'), // Taxi Madrid
-  svcTr1: new Types.ObjectId('e00000000000000000000037'), // Transporte Madrid
-  svcTr2: new Types.ObjectId('e00000000000000000000038'), // Transporte Barcelona
-  svcG1: new Types.ObjectId('e00000000000000000000039'), // Guardería Madrid
-  svcG2: new Types.ObjectId('e00000000000000000000040'), // Guardería París
-  svcG3: new Types.ObjectId('e00000000000000000000041'), // Guardería Roma
+  comAloj: new Types.ObjectId('e00000000000000000000020'),
+  comAloj2: new Types.ObjectId('e00000000000000000000021'),
+  comTransp: new Types.ObjectId('e00000000000000000000022'),
+  comVet: new Types.ObjectId('e00000000000000000000023'),
+  comPelu: new Types.ObjectId('e00000000000000000000024'),
+  comAdies: new Types.ObjectId('e00000000000000000000025'),
+  // Servicios — alojamiento
+  svcA1: new Types.ObjectId('e00000000000000000000030'), // Royal Dog Resort Madrid
+  svcA2: new Types.ObjectId('e00000000000000000000031'), // City Paws Barcelona
+  svcA3: new Types.ObjectId('e00000000000000000000032'), // Boutique Barks Lisboa
+  // Servicios — transporte
+  svcT1: new Types.ObjectId('e00000000000000000000033'), // PetTransfer Barcelona
+  svcT2: new Types.ObjectId('e00000000000000000000034'), // Transfer aeropuerto BCN
+  // Servicios — veterinaria
+  svcV1: new Types.ObjectId('e00000000000000000000035'), // Clínica Chamberí Madrid
+  svcV2: new Types.ObjectId('e00000000000000000000036'), // Hôpital Vétérinaire Paris
+  svcV3: new Types.ObjectId('e00000000000000000000037'), // Clínica Valencia
+  // Servicios — peluquería
+  svcP1: new Types.ObjectId('e00000000000000000000038'), // The Royal Groomer Madrid
+  svcP2: new Types.ObjectId('e00000000000000000000039'), // Dog Style Lisboa
+  // Servicios — adiestramiento
+  svcD1: new Types.ObjectId('e00000000000000000000040'), // Escuela Canina AlphaDog Madrid
+  svcD2: new Types.ObjectId('e00000000000000000000041'), // École Canine Paris
 };
 
-// ─── Images (Unsplash CDN) ────────────────────────────────────────────────────
+// ─── Images (Unsplash CDN — perros / servicios caninos) ───────────────────────
 const img = {
-  hotels: {
-    paris: ['https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1520209759809-a9bcb6cb3241?auto=format&fit=crop&w=800&q=80'],
-    bcn: ['https://images.unsplash.com/photo-1583422409516-2895a77efded?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1523531294919-4bcd7c65e216?auto=format&fit=crop&w=800&q=80'],
-    rome: ['https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1525874684015-58379d421a52?auto=format&fit=crop&w=800&q=80'],
-  },
-  taxi: 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=800&q=80',
-  flight: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=800&q=80',
-  truck: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=800&q=80',
-  daycare: 'https://images.unsplash.com/photo-1587616211892-e93df0b3b1e9?auto=format&fit=crop&w=800&q=80',
+  alojamiento: [
+    'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1568640347023-a616a30bc3bd?auto=format&fit=crop&w=800&q=80',
+  ],
+  transporte: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=800&q=80',
+  veterinaria: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=800&q=80',
+  peluqueria: 'https://images.unsplash.com/photo-1591946614720-90a587da4a36?auto=format&fit=crop&w=800&q=80',
+  adiestramiento: 'https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=800&q=80',
+  logo: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=200&q=80',
 };
 
 async function seed(): Promise<void> {
@@ -99,55 +101,56 @@ async function seed(): Promise<void> {
 
   // ── 1. USUARIOS ────────────────────────────────────────────────────────────
   await db.collection('usuarios').insertMany([
-    { _id: ids.adminId, nombre: 'Admin Doogking', email: 'admin@zenda.eu', passwordHash: PASS, rol: 'admin', verificado: true, createdAt: now, updatedAt: now },
+    { _id: ids.adminId, nombre: 'Admin Doogking', email: 'admin@doogking.eu', passwordHash: PASS, rol: 'admin', verificado: true, createdAt: now, updatedAt: now },
     { _id: ids.clienteAna, nombre: 'Ana Martínez', email: 'ana@example.com', passwordHash: PASS, rol: 'cliente', verificado: true, createdAt: now, updatedAt: now },
     { _id: ids.clienteLuca, nombre: 'Luca Bianchi', email: 'luca@example.com', passwordHash: PASS, rol: 'cliente', verificado: true, createdAt: now, updatedAt: now },
     { _id: ids.clienteSoph, nombre: 'Sophie Martin', email: 'sophie@example.com', passwordHash: PASS, rol: 'cliente', verificado: false, createdAt: now, updatedAt: now },
     { _id: ids.clienteJavi, nombre: 'Javier García', email: 'javier@example.com', passwordHash: PASS, rol: 'cliente', verificado: true, createdAt: now, updatedAt: now },
-    { _id: ids.comAdmH, nombre: 'María Hoteles', email: 'maria@luxhotel.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comHoteles, createdAt: now, updatedAt: now },
-    { _id: ids.comAdmT, nombre: 'Pedro Taxis', email: 'pedro@eurotaxi.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comTaxis, createdAt: now, updatedAt: now },
-    { _id: ids.comAdmV, nombre: 'Laura Vuelos', email: 'laura@skyeurope.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comVuelos, createdAt: now, updatedAt: now },
-    { _id: ids.comAdmTr, nombre: 'Carlos Cargo', email: 'carlos@eurocargo.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comTransp, createdAt: now, updatedAt: now },
-    { _id: ids.comAdmG, nombre: 'Elena Kids', email: 'elena@petits.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comGuard, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmAloj, nombre: 'María Alojamiento', email: 'maria@royaldogresort.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comAloj, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmAloj2, nombre: 'João Silva', email: 'joao@boutiquebarks.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comAloj2, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmTr, nombre: 'Pedro Transporte', email: 'pedro@pettransfer.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comTransp, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmVet, nombre: 'Laura Veterinaria', email: 'laura@vetchamberi.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comVet, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmPel, nombre: 'Elena Groomer', email: 'elena@royalgroomer.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comPelu, createdAt: now, updatedAt: now },
+    { _id: ids.comAdmAdi, nombre: 'Carlos Adiestrador', email: 'carlos@alphadog.eu', passwordHash: PASS, rol: 'comercio_admin', verificado: true, comercioId: ids.comAdies, createdAt: now, updatedAt: now },
   ]);
   console.log('👥 Usuarios insertados');
 
   // ── 2. COMERCIOS ───────────────────────────────────────────────────────────
   await db.collection('comercios').insertMany([
     {
-      _id: ids.comHoteles, razonSocial: 'Lux Hotel Group S.L.', vatNumber: 'ES-B12345678',
-      nombreComercial: 'Lux Hotels Europe', logoUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=200&q=80',
-      verticales: ['hoteles'], modoLiquidacion: 'merchant', plan: 'premium',
+      _id: ids.comAloj, razonSocial: 'Royal Dog Resort S.L.', vatNumber: 'ES-B12345678',
+      nombreComercial: 'Royal Dog Resort Madrid', logoUrl: img.logo,
+      verticales: ['alojamiento'], modoLiquidacion: 'merchant', plan: 'premium',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
     },
     {
-      _id: ids.comHoteles2, razonSocial: 'Boutique Stays S.R.L.', vatNumber: 'IT-12345678901',
-      nombreComercial: 'Boutique Stays Italia', logoUrl: null,
-      verticales: ['hoteles'], modoLiquidacion: 'merchant', plan: 'pro',
+      _id: ids.comAloj2, razonSocial: 'Boutique Barks Unipessoal Lda.', vatNumber: 'PT-501234567',
+      nombreComercial: 'Boutique Barks Lisboa', logoUrl: null,
+      verticales: ['alojamiento'], modoLiquidacion: 'merchant', plan: 'pro',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
     },
     {
-      _id: ids.comTaxis, razonSocial: 'EuroTaxi Network S.A.', vatNumber: 'FR-12345678901',
-      nombreComercial: 'EuroTaxi', logoUrl: null,
-      verticales: ['taxis'], modoLiquidacion: 'merchant', plan: 'pro',
+      _id: ids.comTransp, razonSocial: 'PetTransfer Mobility S.L.', vatNumber: 'ES-B87654321',
+      nombreComercial: 'PetTransfer Barcelona', logoUrl: null,
+      verticales: ['transporte'], modoLiquidacion: 'merchant', plan: 'pro',
       estado: 'activo', comisionPctOverride: 0.18, createdAt: now, updatedAt: now,
     },
     {
-      _id: ids.comVuelos, razonSocial: 'Sky Europe Airlines GmbH', vatNumber: 'DE-123456789',
-      nombreComercial: 'SkyEurope', logoUrl: null,
-      verticales: ['vuelos'], modoLiquidacion: 'merchant', plan: 'premium',
-      estado: 'activo', comisionPctOverride: 0.07, createdAt: now, updatedAt: now,
-    },
-    {
-      _id: ids.comTransp, razonSocial: 'EuroCargo Logistics S.L.', vatNumber: 'ES-B87654321',
-      nombreComercial: 'EuroCargo', logoUrl: null,
-      verticales: ['transporte'], modoLiquidacion: 'merchant', plan: 'basico',
+      _id: ids.comVet, razonSocial: 'Clínica Veterinaria Chamberí S.L.', vatNumber: 'ES-B11223344',
+      nombreComercial: 'Clínica Veterinaria Chamberí', logoUrl: null,
+      verticales: ['veterinaria'], modoLiquidacion: 'merchant', plan: 'premium',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
     },
     {
-      _id: ids.comGuard, razonSocial: 'Petits Europa S.L.', vatNumber: 'ES-B11223344',
-      nombreComercial: 'Petits Europa', logoUrl: null,
-      verticales: ['guarderia'], modoLiquidacion: 'merchant', plan: 'pro',
+      _id: ids.comPelu, razonSocial: 'The Royal Groomer S.L.', vatNumber: 'ES-B55667788',
+      nombreComercial: 'The Royal Groomer', logoUrl: null,
+      verticales: ['peluqueria'], modoLiquidacion: 'merchant', plan: 'basico',
+      estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
+    },
+    {
+      _id: ids.comAdies, razonSocial: 'Escuela Canina AlphaDog S.L.', vatNumber: 'ES-B99887766',
+      nombreComercial: 'Escuela Canina AlphaDog', logoUrl: null,
+      verticales: ['adiestramiento'], modoLiquidacion: 'merchant', plan: 'pro',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
     },
   ]);
@@ -161,257 +164,283 @@ async function seed(): Promise<void> {
     ...overrides,
   });
 
-  // HOTELES
+  // ALOJAMIENTO CANINO (reserva por noches)
   await db.collection('servicios').insertMany([
     baseServicio({
-      _id: ids.svcH1, vertical: 'hoteles', comercioId: ids.comHoteles,
-      titulo: 'Le Marais Boutique Hotel', precioBase: 189,
-      descripcion: 'Elegante hotel boutique en el histórico barrio de Le Marais, a 5 minutos del Centro Pompidou. Desayuno incluido y terraza con vista a los tejados de París.',
-      imagenes: img.hotels.paris,
-      ubicacion: { ciudad: 'París', geo: { type: 'Point', coordinates: [2.3522, 48.8566] } },
-      destacado: true, prioridadRanking: 10, ratingPromedio: 4.8, totalReseñas: 312,
-      // Hotel-specific fields
-      estrellas: 4, barrio: 'Le Marais', direccion: 'Rue de Bretagne 42, 75003 Paris',
-      checkIn: '15:00', checkOut: '12:00', desayunoIncluido: true,
-      cancelacionGratis: true, politicaCancelacion: 'Cancelación gratuita hasta 48h antes.',
-      habitacionesDisponibles: 8, amenities: ['WiFi gratis', 'Desayuno incluido', 'Terraza', 'Conserjería 24h', 'Caja fuerte'],
-      habitaciones: [
-        { id: 'h1r1', tipo: 'Habitación Clásica', descripcion: 'Doble con vistas al patio', capacidad: 2, camas: '1 cama doble', tamano: 20, precio: 189, amenities: ['WiFi', 'TV', 'Baño privado'], imagenes: img.hotels.paris, cantidad: 5, disponible: true, cancelacionGratis: true },
-        { id: 'h1r2', tipo: 'Suite Junior', descripcion: 'Suite con salón y vistas a la calle', capacidad: 2, camas: '1 cama king', tamano: 35, precio: 289, amenities: ['WiFi', 'TV 55"', 'Minibar', 'Bañera'], imagenes: img.hotels.paris, cantidad: 3, disponible: true, cancelacionGratis: true },
-      ],
-    }),
-    baseServicio({
-      _id: ids.svcH2, vertical: 'hoteles', comercioId: ids.comHoteles,
-      titulo: 'NH Collection Barcelona Gran Via', precioBase: 145,
-      descripcion: 'Hotel urbano en pleno centro de Barcelona, a 200m del Paseo de Gracia y la Pedrera. Rooftop con piscina y vistas a la ciudad.',
-      imagenes: img.hotels.bcn,
-      ubicacion: { ciudad: 'Barcelona', geo: { type: 'Point', coordinates: [2.1734, 41.3851] } },
-      destacado: true, prioridadRanking: 9, ratingPromedio: 4.6, totalReseñas: 487,
-      estrellas: 4, barrio: 'Eixample', direccion: 'Gran Via de les Corts Catalanes 647, 08010',
-      checkIn: '14:00', checkOut: '12:00', desayunoIncluido: false,
-      cancelacionGratis: true, politicaCancelacion: 'Cancelación gratuita hasta 24h antes.',
-      habitacionesDisponibles: 14, amenities: ['Piscina rooftop', 'WiFi gratis', 'Gimnasio', 'Bar', 'Parking'],
-      habitaciones: [
-        { id: 'h2r1', tipo: 'Superior Doble', descripcion: 'Vista ciudad', capacidad: 2, camas: '1 cama queen', tamano: 25, precio: 145, amenities: ['WiFi', 'TV', 'AC'], imagenes: img.hotels.bcn, cantidad: 10, disponible: true, cancelacionGratis: true },
-        { id: 'h2r2', tipo: 'Deluxe con terraza', descripcion: 'Terraza privada con vistas', capacidad: 2, camas: '1 cama king', tamano: 32, precio: 220, amenities: ['WiFi', 'TV 4K', 'Terraza privada', 'Minibar'], imagenes: img.hotels.bcn, cantidad: 4, disponible: true, cancelacionGratis: false },
-      ],
-    }),
-    baseServicio({
-      _id: ids.svcH3, vertical: 'hoteles', comercioId: ids.comHoteles2,
-      titulo: 'Palazzo Venezia Heritage', precioBase: 210,
-      descripcion: 'Palazzo del siglo XVI restaurado a orillas del Gran Canal. Cada habitación conserva frescos originales y mármoles venecianos.',
-      imagenes: img.hotels.rome,
-      ubicacion: { ciudad: 'Roma', geo: { type: 'Point', coordinates: [12.4964, 41.9028] } },
-      destacado: false, prioridadRanking: 7, ratingPromedio: 4.9, totalReseñas: 189,
-      estrellas: 5, barrio: 'Centro Storico', direccion: 'Via del Corso 303, 00186 Roma',
-      checkIn: '15:00', checkOut: '11:00', desayunoIncluido: true,
-      cancelacionGratis: false, politicaCancelacion: 'No reembolsable.',
-      habitacionesDisponibles: 3, amenities: ['Desayuno buffet', 'Spa', 'Concierge VIP', 'Transfer aeropuerto', 'Bicicletas gratis'],
-      habitaciones: [
-        { id: 'h3r1', tipo: 'Habitación Heritage', descripcion: 'Frescos originales del s.XVI', capacidad: 2, camas: '2 camas individuales', tamano: 28, precio: 210, amenities: ['WiFi', 'AC', 'Baño mármol'], imagenes: img.hotels.rome, cantidad: 3, disponible: true, cancelacionGratis: false },
-      ],
-    }),
-  ]);
-
-  // VUELOS
-  const fechaSalida1 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const fechaSalida2 = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-  await db.collection('servicios').insertMany([
-    baseServicio({
-      _id: ids.svcV1, vertical: 'vuelos', comercioId: ids.comVuelos,
-      titulo: 'Madrid (MAD) → París (CDG)',
-      descripcion: 'Vuelo directo Madrid-París con Iberia. Tarifa Flex con equipaje de mano y facturado incluidos.',
-      imagenes: [img.flight],
-      ubicacion: { ciudad: 'Madrid' },
-      precioBase: 89, prioridadRanking: 8, ratingPromedio: 4.3, totalReseñas: 892,
-      // Vuelo-specific
-      origen: 'Madrid (MAD)', destino: 'París (CDG)',
-      fechaSalida: fechaSalida1, fechaLlegada: new Date(fechaSalida1.getTime() + 2.5 * 60 * 60 * 1000),
-      aerolinea: 'Iberia', asientosTotales: 180, asientosDisponibles: 48, precioAsiento: 89,
-    }),
-    baseServicio({
-      _id: ids.svcV2, vertical: 'vuelos', comercioId: ids.comVuelos,
-      titulo: 'Barcelona (BCN) → Roma (FCO)',
-      descripcion: 'Vuelo low-cost Barcelona-Roma con Vueling. Solo carry-on. Puntualidad 96%.',
-      imagenes: [img.flight],
-      ubicacion: { ciudad: 'Barcelona' },
-      precioBase: 59, prioridadRanking: 7, ratingPromedio: 4.1, totalReseñas: 634,
-      origen: 'Barcelona (BCN)', destino: 'Roma (FCO)',
-      fechaSalida: fechaSalida2, fechaLlegada: new Date(fechaSalida2.getTime() + 2.1 * 60 * 60 * 1000),
-      aerolinea: 'Vueling', asientosTotales: 200, asientosDisponibles: 122, precioAsiento: 59,
-    }),
-  ]);
-
-  // TAXIS
-  await db.collection('servicios').insertMany([
-    baseServicio({
-      _id: ids.svcT1, vertical: 'taxis', comercioId: ids.comTaxis,
-      titulo: 'Transfer CDG → Centro París',
-      descripcion: 'Traslado privado del Aeropuerto Charles de Gaulle al centro de París en vehículo premium. Conductor con cartel de bienvenida.',
-      imagenes: [img.taxi],
-      ubicacion: { ciudad: 'París', geo: { type: 'Point', coordinates: [2.3488, 48.8534] } },
-      precioBase: 75, prioridadRanking: 6, ratingPromedio: 4.7, totalReseñas: 1204,
-      tipoVehiculo: 'premium', capacidad: 4, zonaCobertura: ['CDG', 'ORY', 'París centro'],
-      tarifaBase: 75, tarifaKm: 2.5, unidadesDisponibles: 12,
-    }),
-    baseServicio({
-      _id: ids.svcT2, vertical: 'taxis', comercioId: ids.comTaxis,
-      titulo: 'Taxi Madrid Barajas ↔ Centro',
-      descripcion: 'Taxi oficial certificado desde/hacia el Aeropuerto de Madrid-Barajas (T1-T4). Tarifa fija sin sorpresas.',
-      imagenes: [img.taxi],
+      _id: ids.svcA1, vertical: 'alojamiento', comercioId: ids.comAloj,
+      titulo: 'Royal Dog Resort Madrid', precioBase: 45,
+      descripcion: 'Royal Dog Resort: suites individuales con piscina canina, cámaras 24/7 y veterinario de guardia. Junto al parque de El Retiro, Madrid.',
+      imagenes: img.alojamiento,
       ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: [-3.7038, 40.4168] } },
-      precioBase: 30, prioridadRanking: 5, ratingPromedio: 4.5, totalReseñas: 2180,
-      tipoVehiculo: 'sedan', capacidad: 4, zonaCobertura: ['MAD T1', 'MAD T2', 'MAD T4', 'Madrid centro'],
-      tarifaBase: 30, tarifaKm: 1.2, unidadesDisponibles: 28,
+      destacado: true, prioridadRanking: 10, ratingPromedio: 4.9, totalReseñas: 214,
+      // Alojamiento-specific
+      barrio: 'Retiro', direccion: 'Calle de Alfonso XII 40, 28014 Madrid',
+      checkIn: '12:00', checkOut: '11:00',
+      politicaCancelacion: 'Cancelación gratuita hasta 48 horas antes del check-in.',
+      requisitoVacunas: true, paseosIncluidos: true, camaras24h: true,
+      cancelacionGratis: true, espaciosDisponibles: 10,
+      precioAnterior: 55, descuentoPct: 18,
+      amenities: ['piscina canina', 'cámaras 24/7', 'veterinario de guardia', 'paseos diarios', 'patio privado'],
+      espacios: [
+        { id: 'a1e1', tipo: 'suite', tamanoMaxPerro: 'grande', descripcion: 'Suite individual con cama ortopédica y salida a patio privado.', precioNoche: 45, precioAnterior: 55, amenities: ['cama ortopédica', 'climatización', 'webcam en directo'], imagenes: img.alojamiento, cantidad: 6, disponible: true, cancelacionGratis: true },
+        { id: 'a1e2', tipo: 'estandar', tamanoMaxPerro: 'mediano', descripcion: 'Espacio estándar con acceso a zona común de juegos.', precioNoche: 35, amenities: ['zona de juegos', 'climatización'], imagenes: img.alojamiento, cantidad: 4, disponible: true, cancelacionGratis: true },
+      ],
+    }),
+    baseServicio({
+      _id: ids.svcA2, vertical: 'alojamiento', comercioId: ids.comAloj,
+      titulo: 'City Paws Hotel Barcelona', precioBase: 38,
+      descripcion: 'City Paws Hotel: suites climatizadas en pleno Eixample, con paseos urbanos diarios y seguimiento por app para tu perro.',
+      imagenes: img.alojamiento,
+      ubicacion: { ciudad: 'Barcelona', geo: { type: 'Point', coordinates: [2.1734, 41.3851] } },
+      destacado: true, prioridadRanking: 9, ratingPromedio: 4.7, totalReseñas: 176,
+      barrio: 'Eixample', direccion: 'Carrer de Provença 210, 08036 Barcelona',
+      checkIn: '13:00', checkOut: '11:00',
+      politicaCancelacion: 'Cancelación gratuita hasta 24 horas antes del check-in.',
+      requisitoVacunas: true, paseosIncluidos: true, camaras24h: true,
+      cancelacionGratis: true, espaciosDisponibles: 8,
+      amenities: ['suites climatizadas', 'paseos diarios', 'cámaras 24/7', 'recogida a domicilio'],
+      espacios: [
+        { id: 'a2e1', tipo: 'suite', tamanoMaxPerro: 'mediano', descripcion: 'Suite climatizada con luz natural y música relajante.', precioNoche: 38, amenities: ['climatización', 'música relajante'], imagenes: img.alojamiento, cantidad: 8, disponible: true, cancelacionGratis: true },
+      ],
+    }),
+    baseServicio({
+      _id: ids.svcA3, vertical: 'alojamiento', comercioId: ids.comAloj2,
+      titulo: 'Boutique Barks Lisboa', precioBase: 32,
+      descripcion: 'Boutique Barks: residencia canina boutique en Lisboa con jardín exterior, socialización supervisada y cuidados personalizados.',
+      imagenes: img.alojamiento,
+      ubicacion: { ciudad: 'Lisboa', geo: { type: 'Point', coordinates: [-9.1393, 38.7223] } },
+      destacado: false, prioridadRanking: 7, ratingPromedio: 4.8, totalReseñas: 88,
+      barrio: 'Alvalade', direccion: 'Avenida de Roma 78, 1700-350 Lisboa',
+      checkIn: '12:00', checkOut: '11:00',
+      politicaCancelacion: 'Cancelación gratuita hasta 72 horas antes del check-in.',
+      requisitoVacunas: true, paseosIncluidos: true, camaras24h: false,
+      cancelacionGratis: true, espaciosDisponibles: 12,
+      amenities: ['jardín exterior', 'socialización supervisada', 'paseos diarios', 'cuidados personalizados'],
+      espacios: [
+        { id: 'a3e1', tipo: 'compartido', tamanoMaxPerro: 'gigante', descripcion: 'Espacio compartido con jardín de 400 m² y grupos por tamaño.', precioNoche: 32, amenities: ['jardín 400 m²', 'grupos por tamaño'], imagenes: img.alojamiento, cantidad: 12, disponible: true, cancelacionGratis: true },
+      ],
     }),
   ]);
 
-  // TRANSPORTE
+  // TRANSPORTE DE ANIMALES (tarifa base + km)
   await db.collection('servicios').insertMany([
     baseServicio({
-      _id: ids.svcTr1, vertical: 'transporte', comercioId: ids.comTransp,
-      titulo: 'Mudanzas Express Madrid–Barcelona',
-      descripcion: 'Transporte de mudanzas en camión cerrado con GPS y seguro a todo riesgo. Cuadrilla de carga y descarga incluida.',
-      imagenes: [img.truck],
-      ubicacion: { ciudad: 'Madrid' },
-      precioBase: 650, prioridadRanking: 5, ratingPromedio: 4.4, totalReseñas: 87,
-      tipoCarga: 'Mudanzas / Muebles', capacidadKg: 3000, capacidadM3: 30,
-      rutasCubiertas: ['Madrid', 'Barcelona', 'Valencia', 'Bilbao'],
-      tarifaBase: 650, tarifaKg: 0.15,
+      _id: ids.svcT1, vertical: 'transporte', comercioId: ids.comTransp,
+      titulo: 'PetTransfer Barcelona — Traslados acondicionados', precioBase: 14,
+      descripcion: 'Traslados de perros por Barcelona en van acondicionada con jaulas homologadas, climatización y conductor especializado en manejo canino.',
+      imagenes: [img.transporte],
+      ubicacion: { ciudad: 'Barcelona', geo: { type: 'Point', coordinates: [2.1734, 41.3851] } },
+      destacado: true, prioridadRanking: 8, ratingPromedio: 4.7, totalReseñas: 132,
+      tipoVehiculo: 'van_acondicionada', capacidadPerros: 4,
+      zonaCobertura: ['Barcelona Centro', 'Eixample', 'Gràcia', 'Sant Martí', 'Sarrià'],
+      tarifaBase: 14, tarifaKm: 1.2, jaulasIncluidas: true, acompananteHumano: false,
+      soloPerros: true, unidadesDisponibles: 6,
     }),
     baseServicio({
-      _id: ids.svcTr2, vertical: 'transporte', comercioId: ids.comTransp,
-      titulo: 'Carga Refrigerada Europa',
-      descripcion: 'Transporte de mercancías refrigeradas entre principales ciudades europeas. Certificación ATP y trazabilidad en tiempo real.',
-      imagenes: [img.truck],
-      ubicacion: { ciudad: 'Barcelona' },
-      precioBase: 900, prioridadRanking: 4, ratingPromedio: 4.6, totalReseñas: 43,
-      tipoCarga: 'Refrigerado / Alimentación', capacidadKg: 5000, capacidadM3: 45,
-      rutasCubiertas: ['Barcelona', 'Lyon', 'París', 'Bruselas', 'Ámsterdam'],
-      tarifaBase: 900, tarifaKg: 0.20,
+      _id: ids.svcT2, vertical: 'transporte', comercioId: ids.comTransp,
+      titulo: 'PetTransfer Aeropuerto El Prat', precioBase: 22,
+      descripcion: 'Transfer especializado de mascotas hacia y desde el Aeropuerto Josep Tarradellas Barcelona-El Prat. Furgón climatizado y acompañante humano durante todo el trayecto.',
+      imagenes: [img.transporte],
+      ubicacion: { ciudad: 'Barcelona', geo: { type: 'Point', coordinates: [2.0785, 41.2974] } },
+      destacado: false, prioridadRanking: 6, ratingPromedio: 4.8, totalReseñas: 74,
+      tipoVehiculo: 'furgon_climatizado', capacidadPerros: 4,
+      zonaCobertura: ['Aeropuerto El Prat', 'Barcelona Centro', 'L\'Hospitalet', 'Castelldefels'],
+      tarifaBase: 22, tarifaKm: 1.5, jaulasIncluidas: true, acompananteHumano: true,
+      soloPerros: true, unidadesDisponibles: 3,
     }),
   ]);
 
-  // GUARDERÍAS
+  // VETERINARIA (cita por fecha/hora)
   await db.collection('servicios').insertMany([
     baseServicio({
-      _id: ids.svcG1, vertical: 'guarderia', comercioId: ids.comGuard,
-      titulo: 'Escuela Infantil Sol y Luna Madrid',
-      descripcion: 'Escuela infantil bilingüe (español–inglés) con ratio 1:4. Jardín propio, comedor ecológico y actividades psicomotrices. Plazas limitadas.',
-      imagenes: [img.daycare],
-      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: [-3.6918, 40.4195] } },
-      precioBase: 520, prioridadRanking: 8, ratingPromedio: 4.9, totalReseñas: 94,
-      destacado: true,
-      rangoEdadMin: 0, rangoEdadMax: 3, cuposTotales: 30, cuposDisponibles: 5,
-      modalidad: 'mes', precioHora: 8, precioDia: 45, precioMes: 520,
-      horario: 'L–V 07:30–18:00',
+      _id: ids.svcV1, vertical: 'veterinaria', comercioId: ids.comVet,
+      titulo: 'Clínica Veterinaria Chamberí', precioBase: 35,
+      descripcion: 'Clínica Veterinaria Chamberí: atención para perros con equipo colegiado, diagnóstico por imagen, odontología y urgencias 24h. Madrid, España.',
+      imagenes: [img.veterinaria],
+      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: [-3.7038, 40.4300] } },
+      destacado: true, prioridadRanking: 8, ratingPromedio: 4.8, totalReseñas: 156,
+      especialidades: ['medicina general', 'vacunación', 'odontología', 'radiografía', 'urgencias'],
+      serviciosClinicos: [
+        { nombre: 'Consulta general', precio: 35, duracionMin: 30 },
+        { nombre: 'Vacunación', precio: 25, duracionMin: 15 },
+        { nombre: 'Limpieza dental', precio: 250, duracionMin: 60 },
+        { nombre: 'Radiografía', precio: 80, duracionMin: 30 },
+      ],
+      duracionCitaMin: 30, citasPorDia: 16, citasDisponibles: 8,
+      atiendeUrgencias: true, horario: 'L–D 24h (urgencias) · Consultas L–V 09:00–20:00',
+      precioConsulta: 35,
     }),
     baseServicio({
-      _id: ids.svcG2, vertical: 'guarderia', comercioId: ids.comGuard,
-      titulo: 'Petits Paris – Crèche Bilingüe',
-      descripcion: 'Crèche privada en el 16ème arrondissement. Equipo bilingüe francés–español, proyectos pedagógicos Montessori y cocina casera.',
-      imagenes: [img.daycare],
-      ubicacion: { ciudad: 'París', geo: { type: 'Point', coordinates: [2.2765, 48.8545] } },
-      precioBase: 980, prioridadRanking: 7, ratingPromedio: 4.8, totalReseñas: 67,
-      rangoEdadMin: 3, rangoEdadMax: 6, cuposTotales: 20, cuposDisponibles: 2,
-      modalidad: 'mes', precioHora: 12, precioDia: 80, precioMes: 980,
-      horario: 'L–V 08:00–18:30',
+      _id: ids.svcV2, vertical: 'veterinaria', comercioId: ids.comVet,
+      titulo: 'Hôpital Vétérinaire Paris 15', precioBase: 45,
+      descripcion: 'Hôpital Vétérinaire Paris 15: hospital canino con cirugía, dermatología y traumatología. Equipo colegiado y quirófano equipado. París, Francia.',
+      imagenes: [img.veterinaria],
+      ubicacion: { ciudad: 'París', geo: { type: 'Point', coordinates: [2.2950, 48.8420] } },
+      destacado: false, prioridadRanking: 6, ratingPromedio: 4.7, totalReseñas: 98,
+      especialidades: ['medicina general', 'cirugía', 'dermatología', 'traumatología'],
+      serviciosClinicos: [
+        { nombre: 'Consulta general', precio: 45, duracionMin: 30 },
+        { nombre: 'Consulta dermatología', precio: 60, duracionMin: 30 },
+        { nombre: 'Ecografía', precio: 75, duracionMin: 30 },
+        { nombre: 'Cirugía menor', precio: 340, duracionMin: 90 },
+      ],
+      duracionCitaMin: 30, citasPorDia: 24, citasDisponibles: 12,
+      atiendeUrgencias: false, horario: 'L–V 09:00–21:00 · S 10:00–14:00',
+      precioConsulta: 45,
     }),
     baseServicio({
-      _id: ids.svcG3, vertical: 'guarderia', comercioId: ids.comGuard,
-      titulo: 'Nido Romano – Asilo Nido Privato',
-      descripcion: 'Asilo nido en Parioli (Roma) con metodología Reggio Emilia. Personal educativo cualificado, actividades de arte y música desde los 3 meses.',
-      imagenes: [img.daycare],
-      ubicacion: { ciudad: 'Roma', geo: { type: 'Point', coordinates: [12.5148, 41.9175] } },
-      precioBase: 750, prioridadRanking: 6, ratingPromedio: 4.7, totalReseñas: 38,
-      rangoEdadMin: 0, rangoEdadMax: 3, cuposTotales: 15, cuposDisponibles: 1,
-      modalidad: 'mes', precioHora: 10, precioDia: 60, precioMes: 750,
-      horario: 'L–V 07:00–17:00',
+      _id: ids.svcV3, vertical: 'veterinaria', comercioId: ids.comVet,
+      titulo: 'Veterinaria Ruzafa Valencia', precioBase: 28,
+      descripcion: 'Veterinaria Ruzafa: atención canina de proximidad con precios asequibles, vacunación y desparasitación. Valencia, España.',
+      imagenes: [img.veterinaria],
+      ubicacion: { ciudad: 'Valencia', geo: { type: 'Point', coordinates: [-0.3763, 39.4699] } },
+      destacado: false, prioridadRanking: 5, ratingPromedio: 4.6, totalReseñas: 61,
+      especialidades: ['medicina general', 'vacunación'],
+      serviciosClinicos: [
+        { nombre: 'Consulta general', precio: 28, duracionMin: 20 },
+        { nombre: 'Vacunación', precio: 20, duracionMin: 15 },
+        { nombre: 'Desparasitación', precio: 16, duracionMin: 15 },
+      ],
+      duracionCitaMin: 20, citasPorDia: 20, citasDisponibles: 10,
+      atiendeUrgencias: false, horario: 'L–S 10:00–20:00',
+      precioConsulta: 28,
     }),
   ]);
-  console.log('🏨✈️🚗📦👶 Servicios insertados');
+
+  // PELUQUERÍA CANINA (cita por slots)
+  await db.collection('servicios').insertMany([
+    baseServicio({
+      _id: ids.svcP1, vertical: 'peluqueria', comercioId: ids.comPelu,
+      titulo: 'The Royal Groomer Madrid', precioBase: 25,
+      descripcion: 'The Royal Groomer: grooming profesional para perros con productos hipoalergénicos, corte de raza y spa premium. Salamanca, Madrid.',
+      imagenes: [img.peluqueria],
+      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: [-3.6795, 40.4270] } },
+      destacado: true, prioridadRanking: 7, ratingPromedio: 4.8, totalReseñas: 143,
+      serviciosGrooming: [
+        { nombre: 'Baño completo', precio: 25, duracionMin: 45 },
+        { nombre: 'Corte de raza', precio: 40, duracionMin: 60 },
+        { nombre: 'Deslanado', precio: 35, duracionMin: 60 },
+        { nombre: 'Spa premium', precio: 55, duracionMin: 90 },
+      ],
+      duracionSlotMin: 60, capacidadSimultanea: 3, cuposDisponibles: 12,
+      aDomicilio: false, horario: 'L–S 10:00–20:00',
+    }),
+    baseServicio({
+      _id: ids.svcP2, vertical: 'peluqueria', comercioId: ids.comPelu,
+      titulo: 'Dog Style Lisboa', precioBase: 22,
+      descripcion: 'Dog Style: peluquería canina con servicio a domicilio en Lisboa, corte de uñas, higiene dental y baños relajantes.',
+      imagenes: [img.peluqueria],
+      ubicacion: { ciudad: 'Lisboa', geo: { type: 'Point', coordinates: [-9.1493, 38.7169] } },
+      destacado: false, prioridadRanking: 5, ratingPromedio: 4.7, totalReseñas: 69,
+      serviciosGrooming: [
+        { nombre: 'Baño completo', precio: 22, duracionMin: 40 },
+        { nombre: 'Corte de raza', precio: 38, duracionMin: 60, tamanoPerro: 'mediano' },
+        { nombre: 'Corte de uñas', precio: 12, duracionMin: 15 },
+        { nombre: 'Higiene dental y oídos', precio: 18, duracionMin: 20 },
+      ],
+      duracionSlotMin: 60, capacidadSimultanea: 2, cuposDisponibles: 8,
+      aDomicilio: true, horario: 'L–V 09:30–19:30 · S 10:00–14:00',
+    }),
+  ]);
+
+  // ADIESTRAMIENTO CANINO (sesiones o programas)
+  await db.collection('servicios').insertMany([
+    baseServicio({
+      _id: ids.svcD1, vertical: 'adiestramiento', comercioId: ids.comAdies,
+      titulo: 'Escuela Canina AlphaDog Madrid', precioBase: 40,
+      descripcion: 'Escuela Canina AlphaDog: adiestramiento en positivo con educadores certificados, obediencia básica y modificación de conducta. Casa de Campo, Madrid.',
+      imagenes: [img.adiestramiento],
+      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: [-3.7492, 40.4192] } },
+      destacado: true, prioridadRanking: 8, ratingPromedio: 4.9, totalReseñas: 118,
+      tiposAdiestramiento: ['obediencia básica', 'modificación de conducta', 'socialización'],
+      modalidad: 'programa', precioSesion: 40, precioPrograma: 320, sesionesPorPrograma: 10,
+      edadMinimaMeses: 4, aDomicilio: false, capacidadPorSesion: 6, cuposDisponibles: 18,
+      horario: 'L–V 10:00–19:00 · S 10:00–14:00',
+    }),
+    baseServicio({
+      _id: ids.svcD2, vertical: 'adiestramiento', comercioId: ids.comAdies,
+      titulo: 'École Canine Positive Paris', precioBase: 45,
+      descripcion: 'École Canine Positive: adiestramiento a domicilio para cachorros y socialización con métodos positivos. París, Francia.',
+      imagenes: [img.adiestramiento],
+      ubicacion: { ciudad: 'París', geo: { type: 'Point', coordinates: [2.3600, 48.8700] } },
+      destacado: false, prioridadRanking: 6, ratingPromedio: 4.8, totalReseñas: 57,
+      tiposAdiestramiento: ['cachorros', 'socialización', 'obediencia básica'],
+      modalidad: 'sesion', precioSesion: 45, precioPrograma: 340, sesionesPorPrograma: 8,
+      edadMinimaMeses: 3, aDomicilio: true, capacidadPorSesion: 8, cuposDisponibles: 24,
+      horario: 'L–S 09:00–20:00',
+    }),
+  ]);
+  console.log('🏠🚐🩺✂️🎓 Servicios insertados');
 
   // ── 4. RESERVAS ────────────────────────────────────────────────────────────
   const resId1 = new Types.ObjectId('e00000000000000000000050');
   const resId2 = new Types.ObjectId('e00000000000000000000051');
   const resId3 = new Types.ObjectId('e00000000000000000000052');
-  const resId4 = new Types.ObjectId('e00000000000000000000053');
 
   await db.collection('reservas').insertMany([
     {
       _id: resId1, codigo: 'ZND-EU-0001',
-      usuarioId: ids.clienteAna, comercioId: ids.comHoteles, servicioId: ids.svcH1,
-      vertical: 'hoteles',
-      detalle: { titulo: 'Le Marais Boutique Hotel', habitacionTipo: 'Suite Junior', noches: 3, checkIn: '2026-07-15', checkOut: '2026-07-18' },
+      usuarioId: ids.clienteAna, comercioId: ids.comAloj, servicioId: ids.svcA1,
+      vertical: 'alojamiento',
+      detalle: { titulo: 'Royal Dog Resort Madrid', espacioTipo: 'suite', nombrePerro: 'Toby', noches: 3, checkIn: '2026-07-15', checkOut: '2026-07-18' },
       fechaInicio: new Date('2026-07-15'), fechaFin: new Date('2026-07-18'),
-      cantidad: 1, montoSubtotal: 867, comisionMonto: 130.05, montoTotal: 1021.06,
+      cantidad: 1, montoSubtotal: 135, comisionMonto: 20.25, montoTotal: 159.05,
       descuentoMonto: 0, cuponCodigo: null, moneda: 'EUR',
       estado: 'confirmada', createdAt: now, updatedAt: now,
     },
     {
       _id: resId2, codigo: 'ZND-EU-0002',
-      usuarioId: ids.clienteLuca, comercioId: ids.comVuelos, servicioId: ids.svcV1,
-      vertical: 'vuelos',
-      detalle: { titulo: 'Madrid → París (Iberia)', asientos: 2, clase: 'turista' },
-      fechaInicio: fechaSalida1, fechaFin: null,
-      cantidad: 2, montoSubtotal: 178, comisionMonto: 12.46, montoTotal: 209.54,
+      usuarioId: ids.clienteLuca, comercioId: ids.comVet, servicioId: ids.svcV1,
+      vertical: 'veterinaria',
+      detalle: { titulo: 'Clínica Veterinaria Chamberí', servicio: 'Consulta general', nombrePerro: 'Luna', fecha: '2026-07-12', hora: '10:30' },
+      fechaInicio: new Date('2026-07-12T10:30:00'), fechaFin: null,
+      cantidad: 1, montoSubtotal: 35, comisionMonto: 3.5, montoTotal: 41.30,
       descuentoMonto: 0, cuponCodigo: null, moneda: 'EUR',
       estado: 'pendiente', createdAt: now, updatedAt: now,
     },
     {
       _id: resId3, codigo: 'ZND-EU-0003',
-      usuarioId: ids.clienteSoph, comercioId: ids.comTaxis, servicioId: ids.svcT1,
-      vertical: 'taxis',
-      detalle: { titulo: 'Transfer CDG → París centro', vehiculo: 'premium' },
-      fechaInicio: new Date('2026-07-10T18:30:00'), fechaFin: null,
-      cantidad: 1, montoSubtotal: 75, comisionMonto: 13.5, montoTotal: 88.5,
-      descuentoMonto: 0, cuponCodigo: 'EUROPA10', moneda: 'EUR',
+      usuarioId: ids.clienteSoph, comercioId: ids.comPelu, servicioId: ids.svcP1,
+      vertical: 'peluqueria',
+      detalle: { titulo: 'The Royal Groomer Madrid', servicio: 'Corte de raza', nombrePerro: 'Max', fecha: '2026-07-10', hora: '17:00' },
+      fechaInicio: new Date('2026-07-10T17:00:00'), fechaFin: null,
+      cantidad: 1, montoSubtotal: 40, comisionMonto: 6, montoTotal: 47.20,
+      descuentoMonto: 4, cuponCodigo: 'DOGGY10', moneda: 'EUR',
       estado: 'completada', createdAt: now, updatedAt: now,
-    },
-    {
-      _id: resId4, codigo: 'ZND-EU-0004',
-      usuarioId: ids.clienteJavi, comercioId: ids.comGuard, servicioId: ids.svcG1,
-      vertical: 'guarderia',
-      detalle: { titulo: 'Escuela Infantil Sol y Luna', modalidad: 'mes', nombreNino: 'Carlos García', edadMeses: 18 },
-      fechaInicio: new Date('2026-09-01'), fechaFin: new Date('2026-09-30'),
-      cantidad: 1, montoSubtotal: 520, comisionMonto: 52, montoTotal: 623.6,
-      descuentoMonto: 0, cuponCodigo: null, moneda: 'EUR',
-      estado: 'confirmada', createdAt: now, updatedAt: now,
     },
   ]);
   console.log('📋 Reservas insertadas');
 
   // ── 5. CUPONES ─────────────────────────────────────────────────────────────
   await db.collection('cupones').insertMany([
-    { _id: new Types.ObjectId('e00000000000000000000060'), codigo: 'EUROPA10', tipo: 'porcentaje', valor: 0.10, vertical: 'global', montoMinimo: 50, topeDescuento: 30, usoMaximo: 200, usados: 47, activo: true, descripcion: '10% de descuento en toda Europa', createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000061'), codigo: 'PARIS20', tipo: 'porcentaje', valor: 0.20, vertical: 'hoteles', montoMinimo: 150, topeDescuento: 60, usoMaximo: 50, usados: 12, activo: true, descripcion: '20% en hoteles de París', createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000062'), codigo: 'VUELO15', tipo: 'fijo', valor: 15, vertical: 'vuelos', montoMinimo: 80, topeDescuento: 0, usoMaximo: 100, usados: 8, activo: true, descripcion: '€15 de descuento en vuelos', createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000063'), codigo: 'BIENVENIDOEU', tipo: 'porcentaje', valor: 0.15, vertical: 'global', montoMinimo: 0, topeDescuento: 25, usoMaximo: 500, usados: 0, activo: true, descripcion: 'Cupón de bienvenida 15%', createdAt: now, updatedAt: now, validoHasta: new Date('2026-12-31') },
+    { _id: new Types.ObjectId('e00000000000000000000060'), codigo: 'DOGGY10', tipo: 'porcentaje', valor: 0.10, vertical: 'global', montoMinimo: 30, topeDescuento: 25, usoMaximo: 300, usados: 42, activo: true, descripcion: '10% de descuento en toda Europa', createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000061'), codigo: 'HOTELCAN20', tipo: 'porcentaje', valor: 0.20, vertical: 'alojamiento', montoMinimo: 90, topeDescuento: 50, usoMaximo: 60, usados: 14, activo: true, descripcion: '20% en alojamiento canino', createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000062'), codigo: 'GROOM5', tipo: 'fijo', valor: 5, vertical: 'peluqueria', montoMinimo: 20, topeDescuento: 0, usoMaximo: 150, usados: 9, activo: true, descripcion: '€5 de descuento en peluquería canina', createdAt: now, updatedAt: now },
   ]);
   console.log('🎫 Cupones insertados');
 
-  // ── 6. COMISIONES POR VERTICAL ─────────────────────────────────────────────
+  // ── 6. COMISIONES POR CATEGORÍA CANINA ─────────────────────────────────────
   await db.collection('comision_configs').insertMany([
     { _id: new Types.ObjectId('e00000000000000000000070'), vertical: 'global', comisionPct: 0.15, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000071'), vertical: 'hoteles', comisionPct: 0.15, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000072'), vertical: 'vuelos', comisionPct: 0.08, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000073'), vertical: 'taxis', comisionPct: 0.20, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000074'), vertical: 'transporte', comisionPct: 0.12, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
-    { _id: new Types.ObjectId('e00000000000000000000075'), vertical: 'guarderia', comisionPct: 0.10, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000071'), vertical: 'alojamiento', comisionPct: 0.15, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000072'), vertical: 'transporte', comisionPct: 0.18, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000073'), vertical: 'veterinaria', comisionPct: 0.10, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000074'), vertical: 'peluqueria', comisionPct: 0.15, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
+    { _id: new Types.ObjectId('e00000000000000000000075'), vertical: 'adiestramiento', comisionPct: 0.12, stripePct: 0.029, stripeFijoEur: 0.25, activo: true, createdAt: now, updatedAt: now },
   ]);
   console.log('💰 Comisiones insertadas');
 
   await mongoose.disconnect();
 
-  console.log('\n✅ Seed Europe completado:');
-  console.log('   · 10 usuarios (1 admin, 4 clientes, 5 comercio_admin)');
-  console.log('   · 6 comercios activos');
-  console.log('   · 12 servicios en 5 verticales');
-  console.log('   · 4 reservas de ejemplo');
-  console.log('   · 4 cupones de descuento');
+  console.log('\n✅ Seed Europe (Doogking) completado:');
+  console.log('   · 11 usuarios (1 admin, 4 clientes, 6 comercio_admin)');
+  console.log('   · 6 comercios activos en 5 categorías caninas');
+  console.log('   · 12 servicios (3 alojamiento, 2 transporte, 3 veterinaria, 2 peluquería, 2 adiestramiento)');
+  console.log('   · 3 reservas de ejemplo');
+  console.log('   · 3 cupones de descuento');
   console.log('   · 6 configuraciones de comisión');
   console.log('\n   Credenciales: cualquier usuario → contraseña "Doogking2026!"');
-  console.log('   Admin: admin@zenda.eu | Doogking2026!');
+  console.log('   Admin: admin@doogking.eu | Doogking2026!');
 }
 
 seed().catch(err => {

@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { LoginDto, RegistroDto, AuthResponseDto } from 'shared';
 import { UsersRepository } from '../users/users.repository';
+import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
 export interface JwtPayload {
@@ -32,23 +33,7 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales incorrectas');
     }
 
-    const payload: JwtPayload = {
-      sub: usuario.id,
-      email: usuario.email,
-      rol: usuario.rol,
-      comercioId: usuario.comercioId?.toString(),
-    };
-
-    return {
-      accessToken: this.jwtService.sign(payload),
-      usuario: {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        email: usuario.email,
-        rol: usuario.rol,
-        comercioId: usuario.comercioId?.toString(),
-      },
-    };
+    return this.construirRespuesta(usuario);
   }
 
   async registro(dto: RegistroDto): Promise<AuthResponseDto> {
@@ -66,10 +51,20 @@ export class AuthService {
       telefono: dto.telefono,
     });
 
+    return this.construirRespuesta(usuario);
+  }
+
+  /** Emite un token fresco para un usuario ya existente (p. ej. tras vincularlo a un comercio). */
+  async emitirTokenParaUsuario(usuario: UsuarioDocument): Promise<AuthResponseDto> {
+    return this.construirRespuesta(usuario);
+  }
+
+  private construirRespuesta(usuario: UsuarioDocument): AuthResponseDto {
     const payload: JwtPayload = {
       sub: usuario.id,
       email: usuario.email,
       rol: usuario.rol,
+      comercioId: usuario.comercioId?.toString(),
     };
 
     return {
@@ -79,6 +74,7 @@ export class AuthService {
         nombre: usuario.nombre,
         email: usuario.email,
         rol: usuario.rol,
+        comercioId: usuario.comercioId?.toString(),
       },
     };
   }

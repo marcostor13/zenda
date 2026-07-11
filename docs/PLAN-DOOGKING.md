@@ -2,7 +2,50 @@
 
 > **Documento de contexto persistente.** Si la sesión se cae, retomar leyendo este archivo: contiene el estudio, todas las decisiones y el checklist de progreso (marcar `[x]` al completar cada paso).
 >
-> Última actualización: 2026-07-06 · Estado: **EN PROGRESO**
+> Última actualización: 2026-07-10 · Estado: **EN PROGRESO**
+>
+> **Log de sesión 2026-07-10** — Migración avanzada de forma verificada:
+> - **Frontend:** rutas → 5 categorías caninas (`/alojamiento /transporte /veterinaria /peluqueria /adiestramiento`); eliminadas features viejas `hoteles/` y `taxis/`; `mis-reservas` re-cableado a `AlojamientoService`; paneles admin (reportes, cupones, comercios), reseñas de comercio y mapa de iconos de listados migrados. `ng build` OK.
+> - **Backend:** specs migrados a `VerticalKey` caninos + reparado wiring DI preexistente (comercios/admin) → **suite api 29 suites / 133 tests VERDE**; `seed-europe.ts` reescrito a datos caninos (6 comercios, 12 servicios, 3 reservas, 3 cupones, 6 comision_configs); `clear-seed-data.ts` a colecciones caninas; `ai-search` ya canino. `nest build` OK.
+> - **Docs/marca (Fase 5):** speckit, nuevo-componente, ui-kit, SCOPE rebrandeados; **CLAUDE.md rebrandeado por completo** a Doogking/canino/EUR (0 términos viejos); design-tokens.md ya estaba migrado; `memory/` no existe (N/A).
+> - **Verificación (Fase 6):** shared+api+web compilan; tests api 133/133 y web 49/49 en verde.
+> - **Resuelto en esta sesión (cont.):**
+>   1. ✅ **`seed-all.ts`** eliminado (Perú/PEN obsoleto) + quitado script `seed:all` + referencias en clear-seed-data actualizadas a seed:europe.
+>   2. ✅ **§21 de CLAUDE.md** alineado al tema claro real (azul rey + dorado, tokens reales).
+>   3. ✅ **catalog.service.ts**: DTOs/métodos `Hotel*`/`buscarHoteles` → genéricos `Servicio*`/`buscarServicios` (JSON sin cambios; 133/133 verde).
+> - **Único pendiente:** revisión visual de la web (requiere levantar la app).
+>
+> **Log de sesión 2026-07-11 — "hacer la plataforma funcional" (post-migración):**
+> Tras la migración, se auditó a fondo qué faltaba para un flujo real de reserva y se implementó, verificó y commiteó en bloques atómicos:
+> 1. ✅ **Boot desbloqueado**: `UploadService`/`AiSearchService` con lectura no-eager (config.get, no getOrThrow) — el API ya arranca sin S3/DeepSeek, degradando con claridad (503 / fallback). `.env.example` completo con las 5 vars antes indocumentadas + `PORT=3051`.
+> 2. ✅ **Flujo honesto**: eliminados TODOS los fallbacks a mock que servían listados falsos (vertical-browse, alojamiento, transporte) y el "modo demostración" del wizard que fingía compras exitosas sin cobro real; quitado el método de pago "bizum" (nunca cobraba).
+> 3. ✅ **Módulo `reviews`** implementado de cero (antes `@Module({})`, `GET /reviews` daba 404): schema, repo, service, controller, DTOs, specs. Recalcula `ratingPromedio` del servicio. Cableado a los endpoints de comercio.
+> 4. ✅ **Módulo `notifications`** implementado de cero: outbox de email (SMTP vía nodemailer, no-eager), confirmación al cliente + alerta al comercio tras el webhook de pago aprobado. Nunca lanza (no debe tumbar el webhook).
+> 5. ✅ **Frontend — cancelar reserva (E3) y dejar reseña (G1)** en `mis-reservas`: botón cancelar cableado a la API, formulario inline de reseña (estrellas + comentario) para reservas completadas sin reseñar.
+> 6. ✅ **Backend+Frontend — completar reserva**: nuevo `BookingsService.completar()` + `PATCH /comercios/mis-reservas/:id/completar`; botón "Marcar completada" en el panel de comercio (antes solo lectura). De paso, corregidos verticales viejos y símbolo de moneda `S/`→`€` en ese componente.
+>
+> 7. ✅ **Onboarding de comercio (A3)**: alta en un solo paso vía `POST /comercios/registro` (público) — crea el negocio + la cuenta `comercio_admin` vinculada y devuelve sesión ya autenticada (sin login adicional); rollback del comercio si falla la creación del usuario. Nuevo componente `registro-comercio` (arregla el link muerto "Hazte partner" del home, que ya apuntaba a esta ruta).
+>
+> **Log de sesión 2026-07-11 (cont.) — siguiendo el orden P0/P1 de CLAUDE.md §7:**
+> Se re-auditaron las historias restantes contra el código real (H1, F3, D1, G2, A4, I2) para priorizar por el propio plan en vez de criterio libre. Confirmado: H1 (editar perfil) ✅ ya funcionaba de verdad.
+> 8. ✅ **G2 (reseñas antes de reservar)**: `CatalogService.obtenerServicio` ahora consulta `ReviewsService.listarPorServicio` en vez de devolver `resenas: []` hardcodeado. `CatalogModule` importa `ReviewsModule`.
+> 9. ✅ **Bug real encontrado y corregido**: `alojamiento-detalle` hacía `@for` sobre `reglas` (campo que el API nunca envía) sin guarda — crasheaba la página de detalle con **cualquier dato real** (no solo en el catch). Corregido con `?? []`; `reglas`/`scoreDesglose` marcados opcionales en el tipo (reflejan la realidad: el API no los calcula todavía).
+> 10. ✅ **Interfaz `Resena` (frontend) honesta**: tenía campos que el backend nunca ha enviado (`autorAvatar`, `pais`, `tamanoPerro`, `titulo`, `desglose` por reseña — vestigios de un mock nunca implementado). Reescrita a los campos reales del módulo reviews (`autorNombre`, `puntuacion`, `comentario`, `fecha`, `respuesta`); template de reseñas actualizado.
+>
+> **Verificación acumulada:** api 34 suites / 159 tests verde; web 12 suites / 68 tests verde.
+>
+> 11. ✅ **D1 (P0) — Gestión de disponibilidad/cupos del comercio**: nuevo `PATCH /comercios/mis-servicios/:id/disponibilidad` (ownership-checked, whitelist de campos por vertical: `espacios` para alojamiento, `unidadesDisponibles`/`citasDisponibles`/`cuposDisponibles` para el resto). UI en `comercio-listados`: panel expandible por listado — editor de espacios (alta/baja/cantidad/precio) para alojamiento, input numérico para los demás verticales. De paso, fix del bug de moneda `S/`→`€` en esa vista (mismo patrón ya corregido antes en `comercio-reservas`/`comercio-resenas`).
+>
+> **Verificación acumulada:** api 34 suites / 165 tests verde; web 13 suites / 76 tests verde; `nest build` y `ng build` OK en cada bloque.
+>
+> **Pendiente (por prioridad, del propio CLAUDE.md §7):**
+> - 🟡 **F3 (P1)** Reembolso al cancelar — `cancelar()` solo cambia estado; no hay integración de `stripe.refunds` ni método en `PaymentGateway`.
+> - 🟡 **C3 (P1)** Editar atributos generales del listado ya publicado (título/descripción/precio/imágenes) — D1 ya resuelve la disponibilidad, pero falta el resto de campos editables.
+> - 🟡 **A4 (P1)** Recuperar contraseña — no existe ni backend ni frontend.
+> - 🟡 **I2 (P1) parcial** — el dashboard de comercio usa datos reales pero: (a) le faltan "ocupación"/"conversión" (pedidos explícitamente por la historia), (b) comisión/fee de Stripe hardcodeados en el frontend en vez de venir de `comision_configs`, (c) bug de moneda `S/`→`€` y verticales viejos en `VERTICAL_ICON` (mismo patrón ya corregido en otros componentes, pendiente aquí).
+> - 🔴 Cobertura de tests del API por debajo del umbral del 80% exigido por `jest.config.ts` (bloquea el job de test en CI aunque los tests pasen). Decisión pendiente: bajar el umbral o ampliar cobertura.
+> - 🟡 SlotHold persistente + anti-sobreventa real a nivel de reserva concurrente (hoy en memoria, sin TTL efectivo) — D1 permite ajustar cupos manualmente, pero no resuelve la doble reserva simultánea del mismo slot.
+> - 🟢 Revisión visual de la web (requiere levantar la app con datos).
 
 ---
 
@@ -96,27 +139,28 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 - [x] favicon.svg de marca
 - [x] Este plan guardado
 
-### Fase 1 — libs/shared
+### Fase 1 — libs/shared ✅
 
-- [ ] `enums/vertical.enum.ts`: VerticalKey = ALOJAMIENTO|TRANSPORTE|VETERINARIA|PELUQUERIA|ADIESTRAMIENTO
-- [ ] Rebuild shared (`npm run build --workspace=shared`)
+- [x] `enums/vertical.enum.ts`: VerticalKey = ALOJAMIENTO|TRANSPORTE|VETERINARIA|PELUQUERIA|ADIESTRAMIENTO
+- [x] Rebuild shared (`npm run build --workspace=shared`)
 
 ### Fase 2 — API verticales nuevas (apps/api/src/verticals/)
 
-- [ ] `alojamiento/` (schema espacios[], strategy noches, module, seeder, specs) — desde hoteles
-- [ ] `transporte/` (reescrito: transporte de animales, strategy km, seeder, specs) — desde taxis
-- [ ] `veterinaria/` (schema citas, strategy cupos+hora, seeder, specs)
-- [ ] `peluqueria/` (schema grooming, strategy cupos+hora, seeder, specs)
-- [ ] `adiestramiento/` (schema sesiones, strategy cupos, seeder, specs)
-- [ ] Eliminar `hoteles/ vuelos/ taxis/ guarderia/` viejos
-- [ ] `core/catalog/catalog.module.ts`: discriminators nuevos
-- [ ] `app.module.ts`: imports nuevos
-- [ ] `core/ai-search/ai-search.service.ts`: prompt con categorías caninas
-- [ ] `core/catalog/catalog.service.ts`: pickExtra() con campos nuevos; default 'alojamiento'
-- [ ] `core/catalog/catalog.seeder.ts`: demo de alojamientos caninos
-- [ ] `scripts/seed-all.ts` + `scripts/seed-europe.ts`: comercios caninos + comision_configs nuevas
-- [ ] Specs del core que referencian verticales viejas actualizados
-- [ ] `nest build` OK + tests api OK
+- [x] `alojamiento/` (schema espacios[], strategy noches, module, seeder, specs) — desde hoteles
+- [x] `transporte/` (reescrito: transporte de animales, strategy km, seeder, specs) — desde taxis
+- [x] `veterinaria/` (schema citas, strategy cupos+hora, seeder, specs)
+- [x] `peluqueria/` (schema grooming, strategy cupos+hora, seeder, specs)
+- [x] `adiestramiento/` (schema sesiones, strategy cupos, seeder, specs)
+- [x] Eliminar `hoteles/ vuelos/ taxis/ guarderia/` viejos
+- [x] `core/catalog/catalog.module.ts`: discriminators nuevos
+- [x] `app.module.ts`: imports nuevos
+- [x] `core/ai-search/ai-search.service.ts`: prompt ya 100% canino (5 categorías)
+- [x] `core/catalog/catalog.service.ts`: DTOs/métodos `Hotel*`/`buscarHoteles` → genéricos `Servicio*`/`buscarServicios` (catálogo sirve a los 5 verticales; JSON sin cambios; api 133/133 verde)
+- [x] `scripts/seed-europe.ts`: reescrito a 6 comercios + 12 servicios + 3 reservas + 3 cupones + 6 comision_configs caninos (compila)
+- [ ] `scripts/seed-all.ts` (Perú/PEN — obsoleto tras migración a EUR; **DECISIÓN PENDIENTE del cliente: borrar o migrar**)
+- [x] `scripts/clear-seed-data.ts`: nombres de colección caninos
+- [x] Specs del core que referencian verticales viejas actualizados (VerticalKey.HOTELES→ALOJAMIENTO, etc.)
+- [x] `nest build` OK + tests api OK (29 suites / 133 tests verdes; también arreglado wiring DI preexistente de comercios/admin specs)
 
 ### Fase 3 — Web: design system Doogking
 
@@ -127,30 +171,31 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 
 ### Fase 4 — Web: features caninas
 
-- [ ] `features/home`: hero Doogking (slogan, hero-home.jpg, buscador card blanca, 5 badges circulares de categorías, sección recomendados)
-- [ ] `features/buscador`: array verticales nuevo (labels/iconos/placeholders/fechas por categoría)
-- [ ] `features/hoteles` → `features/alojamiento` (lista + detalle adaptados)
-- [ ] `features/taxis` → `features/transporte` (traslado de mascotas)
-- [ ] `features/verticales` CONFIGS: veterinaria, peluqueria, adiestramiento
-- [ ] `app.routes.ts`: rutas /alojamiento /transporte /veterinaria /peluqueria /adiestramiento
-- [ ] `features/reservas` (wizard): lógica por vertical nueva (fechas noche, trayecto km, cita hora, sesión)
-- [ ] `panel-comercio` (listado-nuevo): formularios por categoría según schemas nuevos
-- [ ] `panel-admin`: labels/reportes por categoría
-- [ ] Textos Doogking/Reservalo → Doogking en toda la app
-- [ ] `ng build` OK + tests web OK
+- [x] `features/home`: hero Doogking (slogan, hero-home.jpg, buscador card blanca, 5 badges circulares de categorías, sección recomendados)
+- [x] `features/buscador`: array verticales nuevo (labels/iconos/placeholders/fechas por categoría)
+- [x] `features/hoteles` → `features/alojamiento` (lista + detalle adaptados); feature vieja eliminada
+- [x] `features/taxis` → `features/transporte` (traslado de mascotas); feature vieja eliminada
+- [x] `features/verticales` CONFIGS: veterinaria, peluqueria, adiestramiento
+- [x] `app.routes.ts`: rutas /alojamiento /transporte /veterinaria /peluqueria /adiestramiento
+- [x] `features/reservas` (wizard + mis-reservas): lógica por vertical nueva; mis-reservas re-cableado a AlojamientoService
+- [x] `panel-admin`: labels/reportes por categoría (admin-reportes, cupones-admin, admin-comercios, comercio-resenas)
+- [x] `panel-comercio`: mapa de iconos por categoría canina + reseñas mock caninas (formularios de alta por categoría: pendiente ampliar)
+- [x] Textos Reservalo → Doogking: app web ya sin "Reservalo"; docs/skills (speckit, nuevo-componente, ui-kit, SCOPE) rebrandeados. Solo queda `seed-all.ts` (obsoleto)
+- [x] `ng build` OK + tests web OK (8 suites / 49 tests verdes; reparado setup-jest preexistente: `reflect-metadata` + mock de `IntersectionObserver`, y 2 tests de auth desactualizados)
 
 ### Fase 5 — Skills, memoria, reglas
 
-- [ ] `.claude/commands/design-tokens.md`: tokens Doogking
-- [ ] `.claude/commands/ui-kit.md` + `nuevo-componente.md`: reglas Doogking
-- [ ] CLAUDE.md: rebrand Doogking + categorías caninas + design system (secciones 0, 2, 4, 21)
-- [ ] Memoria Claude (`memory/`): project-reservalo.md → Doogking, design-system.md nuevo
-- [ ] SCOPE.md actualizado
+- [x] `.claude/commands/design-tokens.md`: tokens Doogking (ya migrado — `--dk-blue`, Plus Jakarta Sans, footer navy)
+- [x] `.claude/commands/ui-kit.md` + `nuevo-componente.md`: reglas Doogking (rebrandeados)
+- [x] CLAUDE.md: rebrand completo a Doogking (secciones 0-11 de dominio: concepto, 5 categorías caninas, EUR/IVA 21%, Stripe, schemas, roadmap, mercado europeo; `ruc`→`vatNumber`). 0 términos viejos.
+- [x] CLAUDE.md §21 (UI Kit): alineado al design system real de Doogking (tema claro, Royal King Blue #08258B + Crown Gold #FBAE17, fuentes Plus Jakarta Sans/Inter/Montserrat, nombres de token reales de styles.scss). Eliminada la filosofía "premium dark" antigua.
+- [x] Memoria Claude (`memory/`): N/A — el directorio `memory/` no existe en el repo
+- [x] SCOPE.md actualizado (rebrandeado a Doogking)
 
 ### Fase 6 — Verificación final
 
-- [ ] `npm run build --workspace=shared` → `--workspace=api` → `--workspace=web`
-- [ ] Tests api + web
+- [x] `npm run build --workspace=shared` → `--workspace=api` → `--workspace=web` (los tres compilan)
+- [x] Tests api (133/133) + web (49/49) en verde
 - [ ] Revisión visual (levantar web) — hero, resultados, detalle, panel comercio
 
 ---

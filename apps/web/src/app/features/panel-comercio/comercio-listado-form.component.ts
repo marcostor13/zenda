@@ -693,7 +693,7 @@ export class ComercioListadoFormComponent implements OnInit {
         imagenes: s.imagenes,
       });
       this.form.controls.vertical.disable();
-      this.precargarVertical(s.vertical, s[s.vertical] as Record<string, unknown> | undefined);
+      this.precargarVertical(s.vertical, s.extra);
     } catch {
       this.errorMsg.set('No se pudo cargar el listado.');
     } finally {
@@ -820,10 +820,10 @@ export class ComercioListadoFormComponent implements OnInit {
 
     const { titulo, descripcion, ciudad, precioBase, imagenes } = this.form.getRawValue();
     const detalle = this.construirDetalleVertical(vertical);
-    const payload = {
+    const payload: ServicioPayload = {
       ...(this.esEdicion() ? {} : { vertical }),
       titulo, descripcion, ciudad, precioBase, imagenes,
-      ...(detalle ? { [vertical]: detalle } : {}),
+      ...(detalle ? { extra: detalle } : {}),
     };
 
     try {
@@ -832,7 +832,7 @@ export class ComercioListadoFormComponent implements OnInit {
         await firstValueFrom(this.comercioApi.actualizarServicio(id, payload));
         this.exitoMsg.set('¡Cambios guardados!');
       } else {
-        await firstValueFrom(this.comercioApi.crearServicio(payload as ServicioPayload));
+        await firstValueFrom(this.comercioApi.crearServicio(payload));
         this.exitoMsg.set('¡Listado creado en borrador! Redirigiendo…');
       }
       setTimeout(() => void this.router.navigate(['/comercio/listados']), 1200);

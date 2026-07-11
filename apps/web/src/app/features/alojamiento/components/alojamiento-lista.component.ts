@@ -5,7 +5,6 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
-import { alojamientoImage } from '../../../shared/media/images';
 import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../services/alojamiento.service';
 
 @Component({
@@ -221,13 +220,22 @@ import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../serv
             </a>
           }
 
-          @if (!cargando() && alojamientos().length === 0) {
+          @if (!cargando() && alojamientos().length === 0 && !error()) {
             <div class="empty-state">
               <rs-icon name="paw" size="56" />
               <h3>No encontramos alojamientos caninos</h3>
               <p>Prueba cambiando los filtros o la ciudad.</p>
               <button class="rs-btn rs-btn--secondary" style="margin-top:var(--sp-6)"
                       (click)="limpiarFiltros()">Limpiar filtros</button>
+            </div>
+          }
+          @if (!cargando() && error()) {
+            <div class="empty-state">
+              <rs-icon name="paw" size="56" />
+              <h3>No se pudo cargar el catálogo</h3>
+              <p>Inténtalo de nuevo en unos momentos.</p>
+              <button class="rs-btn rs-btn--secondary" style="margin-top:var(--sp-6)"
+                      (click)="cargarAlojamientos()">Reintentar</button>
             </div>
           }
         </div>
@@ -465,6 +473,7 @@ export class AlojamientoListaComponent implements OnInit {
   private readonly alojamientoService = inject(AlojamientoService);
 
   readonly cargando = signal(true);
+  readonly error = signal(false);
   readonly alojamientos = signal<AlojamientoCard[]>([]);
   readonly paginaActual = signal(1);
   readonly totalPaginas = signal(1);
@@ -506,6 +515,7 @@ export class AlojamientoListaComponent implements OnInit {
 
   async cargarAlojamientos(): Promise<void> {
     this.cargando.set(true);
+    this.error.set(false);
     try {
       const form = this.searchForm.value;
       const filtros: FiltrosAlojamiento = {
@@ -525,9 +535,11 @@ export class AlojamientoListaComponent implements OnInit {
       this.totalItems.set(result.total);
       this.totalPaginas.set(result.totalPages);
     } catch {
-      this.alojamientos.set(this.mockAlojamientos());
-      this.totalItems.set(this.mockAlojamientos().length);
+      // Sin datos inventados: se muestra estado de error, no listados falsos.
+      this.alojamientos.set([]);
+      this.totalItems.set(0);
       this.totalPaginas.set(1);
+      this.error.set(true);
     } finally {
       this.cargando.set(false);
     }
@@ -559,12 +571,4 @@ export class AlojamientoListaComponent implements OnInit {
     return '★'.repeat(llenas) + '☆'.repeat(5 - llenas);
   }
 
-  private mockAlojamientos(): AlojamientoCard[] {
-    return [
-      { id: 'a1', nombre: 'Royal Paws Retreat', ciudad: 'Madrid', barrio: 'Pozuelo', direccion: 'Camino de la Dehesa 12', score: 5.0, scoreLabel: 'Excepcional', numResenas: 128, precioPorNoche: 45, precioAnterior: 60, descuentoPct: 25, imagenes: [alojamientoImage(0, 600)], amenities: ['Piscina', 'Jardín', 'Cuidado 24/7', 'Veterinario de guardia'], descripcion: 'La estancia de lujo definitiva para tu mejor amigo. Amplios jardines, piscina para perros y supervisión 24/7 por profesionales.', cancelacionGratis: true, paseosIncluidos: true, espaciosDisponibles: 4, destacado: true },
-      { id: 'a2', nombre: 'City Paws Hotel', ciudad: 'Barcelona', barrio: 'Eixample', direccion: 'Carrer de Mallorca 240', score: 4.6, scoreLabel: 'Muy bueno', numResenas: 84, precioPorNoche: 30, imagenes: [alojamientoImage(1, 600)], amenities: ['Suites climatizadas', 'Paseos diarios', 'Cámaras 24h'], descripcion: 'Alojamiento urbano con suites climatizadas. Perfecto para estancias cortas y escapadas de fin de semana. Incluye paseos por parques cercanos.', cancelacionGratis: true, paseosIncluidos: true, espaciosDisponibles: 8, destacado: false },
-      { id: 'a3', nombre: 'Finca Can Guau', ciudad: 'Valencia', barrio: 'La Eliana', direccion: 'Camí del Pou 3', score: 4.9, scoreLabel: 'Excepcional', numResenas: 96, precioPorNoche: 38, imagenes: [alojamientoImage(2, 600)], amenities: ['Jardín', 'Piscina', 'Adiestrador en plantilla'], descripcion: 'Finca rural con grandes zonas verdes donde los perros socializan en libertad bajo supervisión constante.', cancelacionGratis: false, paseosIncluidos: true, espaciosDisponibles: 2, destacado: true },
-      { id: 'a4', nombre: 'Guardería & Hotel Canino Bilbao', ciudad: 'Bilbao', barrio: 'Deusto', direccion: 'Avenida Lehendakari 15', score: 4.4, scoreLabel: 'Muy bueno', numResenas: 61, precioPorNoche: 25, imagenes: [alojamientoImage(3, 600)], amenities: ['Cuidado 24/7', 'Cámaras 24h', 'Recogida a domicilio'], descripcion: 'Hotel canino familiar con seguimiento por cámara para que veas a tu perro en cualquier momento.', cancelacionGratis: true, paseosIncluidos: false, espaciosDisponibles: 12, destacado: false },
-    ];
-  }
 }

@@ -9,7 +9,7 @@ describe('ComisionConfigRepository', () => {
   let mockModel: any;
 
   const configHotelesMock = {
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     comisionPct: 0.15,
     stripePct: 0.029,
     stripeFijoEur: 1.1,
@@ -40,9 +40,9 @@ describe('ComisionConfigRepository', () => {
         exec: jest.fn().mockResolvedValue(configHotelesMock),
       });
 
-      const resultado = await repository.obtenerComisionEfectiva(VerticalKey.HOTELES);
+      const resultado = await repository.obtenerComisionEfectiva(VerticalKey.ALOJAMIENTO);
       expect(resultado.comisionPct).toBe(0.15);
-      expect(resultado.vertical).toBe(VerticalKey.HOTELES);
+      expect(resultado.vertical).toBe(VerticalKey.ALOJAMIENTO);
     });
 
     it('debería usar la config global si no hay config del vertical', async () => {
@@ -51,7 +51,7 @@ describe('ComisionConfigRepository', () => {
         .mockReturnValueOnce({ lean: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue(null) })
         .mockReturnValueOnce({ lean: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue(configGlobal) });
 
-      const resultado = await repository.obtenerComisionEfectiva(VerticalKey.TAXIS);
+      const resultado = await repository.obtenerComisionEfectiva(VerticalKey.TRANSPORTE);
       expect(resultado.comisionPct).toBe(0.12);
     });
 
@@ -61,16 +61,16 @@ describe('ComisionConfigRepository', () => {
         exec: jest.fn().mockResolvedValue(null),
       });
 
-      const resultado = await repository.obtenerComisionEfectiva(VerticalKey.VUELOS);
+      const resultado = await repository.obtenerComisionEfectiva(VerticalKey.VETERINARIA);
       expect(resultado.comisionPct).toBe(COMISION_PCT_DEFAULT);
     });
   });
 
   describe('upsert', () => {
     it('debería crear o actualizar la config del vertical', async () => {
-      const resultado = await repository.upsert(VerticalKey.HOTELES, { comisionPct: 0.18 }, 'admin-1');
+      const resultado = await repository.upsert(VerticalKey.ALOJAMIENTO, { comisionPct: 0.18 }, 'admin-1');
       expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { vertical: VerticalKey.HOTELES },
+        { vertical: VerticalKey.ALOJAMIENTO },
         expect.objectContaining({ comisionPct: 0.18, actualizadoPor: 'admin-1' }),
         expect.any(Object),
       );

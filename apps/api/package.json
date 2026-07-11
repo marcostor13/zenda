@@ -10,7 +10,6 @@
     "test:watch": "jest --watch",
     "seed:admin": "ts-node -P tsconfig.json src/scripts/seed-admin.ts",
     "clear:seed": "ts-node -P tsconfig.json src/scripts/clear-seed-data.ts",
-    "seed:all": "ts-node -P tsconfig.json src/scripts/seed-all.ts",
     "seed:europe": "ts-node -P tsconfig.json src/scripts/seed-europe.ts"
   },
   "dependencies": {
@@ -23,11 +22,13 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.0",
     "@nestjs/swagger": "^7.4.2",
+    "@types/nodemailer": "^8.0.1",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "mongoose": "^8.7.0",
     "nanoid": "^5.0.7",
+    "nodemailer": "^9.0.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",

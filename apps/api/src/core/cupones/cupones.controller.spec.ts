@@ -23,8 +23,8 @@ describe('CuponesController', () => {
 
   it('valida delegando en el service', async () => {
     service.validar.mockResolvedValue({ codigo: 'X', tipo: 'fijo', descuento: 10 });
-    await controller.validar({ codigo: 'X', vertical: 'hoteles', montoSubtotal: 100 });
-    expect(service.validar).toHaveBeenCalledWith('X', 'hoteles', 100);
+    await controller.validar({ codigo: 'X', vertical: 'alojamiento', montoSubtotal: 100 });
+    expect(service.validar).toHaveBeenCalledWith('X', 'alojamiento', 100);
   });
 
   it('crea un cupón con vertical global por defecto y convierte la fecha', async () => {

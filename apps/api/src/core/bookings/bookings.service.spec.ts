@@ -19,7 +19,7 @@ describe('BookingsService', () => {
     usuarioId: 'user-1',
     comercioId: 'comercio-1',
     servicioId: 'servicio-1',
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     fechaInicio: new Date('2025-01-10'),
     fechaFin: new Date('2025-01-15'),
     cantidad: 1,
@@ -30,14 +30,15 @@ describe('BookingsService', () => {
     codigo: 'RES-ABCD1234',
     estado: ReservaEstado.PENDIENTE,
     usuarioId: { toString: () => 'user-1' },
+    comercioId: { toString: () => 'comercio-1' },
     holdId: 'hold-1',
-    vertical: VerticalKey.HOTELES,
+    vertical: VerticalKey.ALOJAMIENTO,
     save: jest.fn(),
   };
 
   beforeEach(async () => {
     estrategiaMock = {
-      vertical: VerticalKey.HOTELES,
+      vertical: VerticalKey.ALOJAMIENTO,
       checkAvailability: jest.fn().mockResolvedValue({ disponible: true, precioCalculado: 500 }),
       reserveSlot: jest.fn().mockResolvedValue({ holdId: 'hold-1', servicioId: 'servicio-1', expiraEn: new Date() }),
       releaseSlot: jest.fn().mockResolvedValue(undefined),
@@ -87,7 +88,7 @@ describe('BookingsService', () => {
     it('debería validar el cupón con el subtotal cuando se indica cuponCodigo', async () => {
       cuponesService.validar.mockResolvedValue({ codigo: 'VERANO', tipo: 'porcentaje', descuento: 50 });
       await service.crear({ ...parametrosBase, cuponCodigo: 'VERANO' });
-      expect(cuponesService.validar).toHaveBeenCalledWith('VERANO', VerticalKey.HOTELES, 500);
+      expect(cuponesService.validar).toHaveBeenCalledWith('VERANO', VerticalKey.ALOJAMIENTO, 500);
     });
 
     it('no debería validar cupón si no se indica código', async () => {
@@ -139,6 +140,39 @@ describe('BookingsService', () => {
         exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.CANCELADA }),
       });
       await expect(service.cancelar('reserva-1', 'user-1')).rejects.toThrow(DomainException);
+    });
+  });
+
+  describe('completar', () => {
+    it('debería marcar como completada una reserva confirmada del comercio', async () => {
+      reservaModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          ...reservaMock,
+          estado: ReservaEstado.CONFIRMADA,
+          save: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.COMPLETADA }),
+        }),
+      });
+      const resultado = await service.completar('reserva-1', 'comercio-1');
+      expect(resultado.estado).toBe(ReservaEstado.COMPLETADA);
+    });
+
+    it('debería lanzar DomainException 403 si la reserva no es del comercio', async () => {
+      reservaModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.CONFIRMADA }),
+      });
+      await expect(service.completar('reserva-1', 'otro-comercio')).rejects.toThrow(DomainException);
+    });
+
+    it('debería lanzar DomainException 400 si la reserva no está confirmada', async () => {
+      reservaModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.PENDIENTE }),
+      });
+      await expect(service.completar('reserva-1', 'comercio-1')).rejects.toThrow(DomainException);
+    });
+
+    it('debería lanzar DomainException 404 si la reserva no existe', async () => {
+      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      await expect(service.completar('no-existe', 'comercio-1')).rejects.toThrow(DomainException);
     });
   });
 });

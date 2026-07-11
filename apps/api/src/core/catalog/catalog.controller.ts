@@ -3,8 +3,8 @@ import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import {
   CatalogService,
-  HotelCardDto,
-  HotelDetalleDto,
+  ServicioCardDto,
+  ServicioDetalleDto,
   PaginatedResult,
   ServicioGestionDto,
 } from './catalog.service';
@@ -29,7 +29,7 @@ export class CatalogController {
   crear(
     @Body() dto: CrearServicioDto,
     @Req() req: RequestConUser,
-  ): Promise<HotelCardDto> {
+  ): Promise<ServicioCardDto> {
     return this.catalogService.crearServicio(dto, req.user.comercioId!);
   }
 
@@ -48,8 +48,8 @@ export class CatalogController {
     @Query('precioMax') precioMax?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-  ): Promise<PaginatedResult<HotelCardDto>> {
-    return this.catalogService.buscarHoteles({
+  ): Promise<PaginatedResult<ServicioCardDto>> {
+    return this.catalogService.buscarServicios({
       vertical,
       ciudad,
       precioMin: this.toNumber(precioMin),
@@ -61,8 +61,8 @@ export class CatalogController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener el detalle de un servicio por id' })
-  obtener(@Param('id') id: string): Promise<HotelDetalleDto> {
-    return this.catalogService.obtenerHotel(id);
+  obtener(@Param('id') id: string): Promise<ServicioDetalleDto> {
+    return this.catalogService.obtenerServicio(id);
   }
 
   @Get(':id/gestion')
@@ -86,7 +86,7 @@ export class CatalogController {
     @Param('id') id: string,
     @Body() dto: ActualizarServicioDto,
     @Req() req: RequestConUser,
-  ): Promise<HotelCardDto> {
+  ): Promise<ServicioCardDto> {
     return this.catalogService.actualizarServicio(id, req.user.comercioId!, dto);
   }
 

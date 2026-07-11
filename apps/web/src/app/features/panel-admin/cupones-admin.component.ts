@@ -54,12 +54,12 @@ import { AdminApiService } from './admin-api.service';
             <div class="rs-form-group">
               <label class="rs-label">Vertical</label>
               <select formControlName="vertical" class="rs-input">
-                <option value="global">Todos</option>
-                <option value="hoteles">Hoteles</option>
-                <option value="taxis">Taxis</option>
-                <option value="vuelos">Vuelos</option>
-                <option value="transporte">Transporte</option>
-                <option value="guarderia">Guardería</option>
+                <option value="global">Todas</option>
+                <option value="alojamiento">Alojamiento canino</option>
+                <option value="transporte">Transporte de animales</option>
+                <option value="veterinaria">Veterinarios</option>
+                <option value="peluqueria">Peluquerías caninas</option>
+                <option value="adiestramiento">Adiestramiento canino</option>
               </select>
             </div>
             <div class="rs-form-group">

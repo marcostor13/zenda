@@ -1,17 +1,16 @@
 import { Component, signal, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, DatePipe } from '@angular/common';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
-import { alojamientoImage } from '../../../shared/media/images';
 import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspacio } from '../services/alojamiento.service';
 
 @Component({
   selector: 'app-alojamiento-detalle',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective],
+  imports: [RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective],
   template: `
 <div class="detalle-page">
   <rs-navbar />
@@ -19,6 +18,15 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
   @if (cargando()) {
     <div style="display:flex;align-items:center;justify-content:center;min-height:60vh">
       <div class="rs-spin" style="width:40px;height:40px;border-width:3px"></div>
+    </div>
+  }
+
+  @if (!cargando() && !alojamiento()) {
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:var(--sp-4);text-align:center">
+      <div style="font-size:3rem">🐾</div>
+      <h3>No se pudo cargar este alojamiento</h3>
+      <p style="color:var(--t-300)">Puede que ya no esté disponible.</p>
+      <a routerLink="/alojamiento" class="rs-btn rs-btn--secondary">Volver al listado</a>
     </div>
   }
 
@@ -191,7 +199,7 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
             </div>
           </div>
           <div class="rules-list">
-            @for (r of alojamiento()!.reglas; track r) {
+            @for (r of (alojamiento()!.reglas ?? []); track r) {
               <div class="rule-item">• {{ r }}</div>
             }
           </div>
@@ -204,22 +212,24 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
             @for (r of alojamiento()!.resenas; track r.id) {
               <div class="resena-card rs-card" rsAnim>
                 <div class="resena-card__header">
-                  <div class="resena-card__avatar">{{ r.autorAvatar }}</div>
+                  <div class="resena-card__avatar">{{ r.autorNombre.charAt(0) }}</div>
                   <div>
                     <div class="resena-card__autor">{{ r.autorNombre }}</div>
-                    <div class="resena-card__meta">{{ r.pais }} · Perro {{ r.tamanoPerro }} · {{ r.fecha }}</div>
+                    <div class="resena-card__meta">{{ r.fecha | date:'d MMM yyyy' }}</div>
                   </div>
-                  <div class="resena-card__score rs-badge rs-badge--accent">{{ r.score }}</div>
+                  <div class="resena-card__score rs-badge rs-badge--accent">{{ r.puntuacion }}/5</div>
                 </div>
-                <h4 class="resena-card__titulo">{{ r.titulo }}</h4>
-                <p class="resena-card__texto">{{ r.texto }}</p>
-                @if (r.respuestaComercio) {
+                <p class="resena-card__texto">{{ r.comentario }}</p>
+                @if (r.respuesta) {
                   <div class="resena-respuesta">
                     <strong>Respuesta del alojamiento:</strong>
-                    <p>{{ r.respuestaComercio }}</p>
+                    <p>{{ r.respuesta }}</p>
                   </div>
                 }
               </div>
+            }
+            @if (alojamiento()!.resenas.length === 0) {
+              <p style="color:var(--t-400)">Todavía no hay reseñas para este alojamiento.</p>
             }
           </div>
         </div>
@@ -462,8 +472,9 @@ export class AlojamientoDetalleComponent implements OnInit {
       this.alojamiento.set(data);
       this.imagenActiva.set(data.imagenes[0]);
     } catch {
-      this.alojamiento.set(this.mockDetalle(id));
-      this.imagenActiva.set(this.mockDetalle(id).imagenes[0]);
+      // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado"
+      // en vez de un detalle falso que llevaría a una reserva imposible.
+      this.alojamiento.set(null);
     } finally {
       this.cargando.set(false);
     }
@@ -525,36 +536,4 @@ export class AlojamientoDetalleComponent implements OnInit {
     ];
   }
 
-  private mockDetalle(id: string): AlojamientoDetalle {
-    return {
-      id, nombre: 'Royal Paws Retreat', ciudad: 'Madrid', barrio: 'Pozuelo',
-      direccion: 'Camino de la Dehesa 12', score: 5.0, scoreLabel: 'Excepcional',
-      numResenas: 128, precioPorNoche: 45, precioAnterior: 60, descuentoPct: 25,
-      imagenes: [
-        alojamientoImage(0, 900),
-        alojamientoImage(1, 600),
-        alojamientoImage(2, 600),
-        alojamientoImage(3, 600),
-        alojamientoImage(4, 600),
-      ],
-      amenities: ['Piscina para perros', 'Jardín vallado', 'Cuidado 24/7', 'Veterinario de guardia', 'Paseos diarios', 'Cámaras en directo', 'Zona de agility', 'Climatización', 'Recogida a domicilio'],
-      cancelacionGratis: true, paseosIncluidos: true, espaciosDisponibles: 4, destacado: true,
-      requisitoVacunas: true, camaras24h: true,
-      descripcion: 'La estancia de lujo definitiva para tu mejor amigo. Royal Paws Retreat combina amplios jardines vallados, piscina propia para perros y supervisión 24/7 por cuidadores profesionales. Cada huésped disfruta de paseos diarios, socialización controlada y seguimiento por cámara en directo para que estés tranquilo estés donde estés.',
-      politicaCancelacion: 'Cancelación gratuita hasta 24 horas antes del check-in.',
-      checkIn: 'A partir de las 10:00', checkOut: 'Hasta las 19:00',
-      espacios: [
-        { id: 'a1-e1', tipo: 'suite', descripcion: 'Suite individual climatizada con cama ortopédica y salida directa al jardín.', tamanoMaxPerro: 'grande', precioNoche: 45, precioAnterior: 60, cantidad: 4, disponible: true, amenities: ['Cama ortopédica', 'Climatización', 'Cámara en directo', 'Patio privado'], imagenes: [alojamientoImage(1, 600)], cancelacionGratis: true },
-        { id: 'a1-e2', tipo: 'estandar', descripcion: 'Espacio individual cómodo con acceso a zonas comunes y paseos incluidos.', tamanoMaxPerro: 'mediano', precioNoche: 30, cantidad: 6, disponible: true, amenities: ['Cama elevada', 'Zona común', 'Paseos diarios'], imagenes: [alojamientoImage(3, 600)], cancelacionGratis: true },
-        { id: 'a1-e3', tipo: 'compartido', descripcion: 'Zona compartida supervisada, ideal para perros sociables que disfrutan de la compañía.', tamanoMaxPerro: 'gigante', precioNoche: 22, cantidad: 0, disponible: false, amenities: ['Socialización', 'Supervisión constante', 'Juegos en grupo'], imagenes: [alojamientoImage(4, 600)], cancelacionGratis: false },
-      ],
-      resenas: [
-        { id: 'r1', autorNombre: 'María García', autorAvatar: '👩', fecha: 'Junio 2026', score: 5.0, titulo: 'Mi golden volvió feliz', texto: 'Dejamos a Rocky una semana y no podíamos estar más tranquilos: las cámaras en directo son una maravilla y el equipo nos mandaba fotos cada día. Volvió cansado de jugar y feliz.', pais: 'España', tamanoPerro: 'grande', desglose: { limpieza: 5, ubicacion: 5, cuidado: 5, valorPrecio: 4.8, instalaciones: 5, personal: 5 }, respuestaComercio: '¡Gracias, María! Rocky es siempre bienvenido en Royal Paws.' },
-        { id: 'r2', autorNombre: 'James Wilson', autorAvatar: '👨', fecha: 'Mayo 2026', score: 4.7, titulo: 'Great care and facilities', texto: 'Our beagle stayed for a long weekend. The garden is huge, the staff clearly love dogs and the daily walk reports gave us total peace of mind.', pais: 'Reino Unido', tamanoPerro: 'mediano', desglose: { limpieza: 4.5, ubicacion: 4.8, cuidado: 5, valorPrecio: 4.5, instalaciones: 4.7, personal: 4.9 } },
-      ],
-      scoreDesglose: { limpieza: 4.9, ubicacion: 4.8, cuidado: 5, valorPrecio: 4.7, instalaciones: 4.9, personal: 5 },
-      reglas: ['Cartilla de vacunación al día obligatoria', 'Tratamiento antiparasitario reciente', 'Perros agresivos requieren evaluación previa', 'Trae su comida habitual para evitar cambios de dieta'],
-      comercioId: 'comercio-1',
-    };
-  }
 }

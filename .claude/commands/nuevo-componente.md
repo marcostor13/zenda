@@ -1,6 +1,6 @@
 # /nuevo-componente — Crear nuevo componente Angular siguiendo el design system
 
-Crea un componente Angular standalone que respeta el UI Kit de Reservalo.
+Crea un componente Angular standalone que respeta el UI Kit de Doogking.
 
 ## Uso
 

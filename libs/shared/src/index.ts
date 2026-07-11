@@ -26,6 +26,7 @@ export * from './dtos/bookings/crear-reserva.dto';
 
 // DTOs — Comercios
 export * from './dtos/comercios/registrar-comercio.dto';
+export * from './dtos/comercios/registro-comercio.dto';
 export * from './dtos/comercios/cambiar-estado-comercio.dto';
 export * from './dtos/comercios/actualizar-perfil-comercio.dto';
 
@@ -33,10 +34,6 @@ export * from './dtos/comercios/actualizar-perfil-comercio.dto';
 export * from './dtos/cupones/cupon.dto';
 
 // DTOs — Catalog
-export * from './dtos/catalog/alojamiento-detalle.dto';
-export * from './dtos/catalog/transporte-detalle.dto';
-export * from './dtos/catalog/veterinaria-detalle.dto';
-export * from './dtos/catalog/peluqueria-detalle.dto';
-export * from './dtos/catalog/adiestramiento-detalle.dto';
 export * from './dtos/catalog/crear-servicio.dto';
 export * from './dtos/catalog/actualizar-servicio.dto';
+export * from './dtos/catalog/actualizar-disponibilidad.dto';

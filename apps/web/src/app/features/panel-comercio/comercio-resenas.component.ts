@@ -5,66 +5,8 @@ import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiResena } from './comercio-api.service';
 
-const MOCK_RESENAS: MiResena[] = [
-  {
-    _id: 'res-1',
-    servicioId: 's1',
-    servicioTitulo: 'Suite Deluxe Lima Centro',
-    vertical: 'hoteles',
-    puntuacion: 5,
-    comentario: 'Excelente servicio desde el primer momento. La habitación era espaciosa y muy limpia. El personal siempre atento y dispuesto a ayudar. Definitivamente regresaré.',
-    usuarioNombre: 'María García',
-    createdAt: '2024-12-18T14:30:00Z',
-    respuesta: null,
-  },
-  {
-    _id: 'res-2',
-    servicioId: 's1',
-    servicioTitulo: 'Suite Deluxe Lima Centro',
-    vertical: 'hoteles',
-    puntuacion: 4,
-    comentario: 'Muy buen hotel, excelente ubicación en el centro. La habitación cómoda aunque el desayuno podría mejorar. La atención fue muy amable.',
-    usuarioNombre: 'Carlos Rodríguez',
-    createdAt: '2024-12-10T09:00:00Z',
-    respuesta: 'Gracias, Carlos. Tomamos nota sobre el desayuno y trabajamos en mejorarlo. ¡Esperamos verte pronto!',
-  },
-  {
-    _id: 'res-3',
-    servicioId: 's2',
-    servicioTitulo: 'Traslado Aeropuerto Jorge Chávez',
-    vertical: 'taxis',
-    puntuacion: 5,
-    comentario: 'El conductor llegó puntual y el vehículo estaba impecable. El trayecto fue muy cómodo. Precio justo para la calidad del servicio.',
-    usuarioNombre: 'Andrea Torres',
-    createdAt: '2024-12-05T16:45:00Z',
-    respuesta: null,
-  },
-  {
-    _id: 'res-4',
-    servicioId: 's2',
-    servicioTitulo: 'Traslado Aeropuerto Jorge Chávez',
-    vertical: 'taxis',
-    puntuacion: 3,
-    comentario: 'El servicio fue correcto pero el conductor tardó 15 minutos más de lo indicado. El auto estaba limpio. Mejorable en puntualidad.',
-    usuarioNombre: 'Luis Pérez',
-    createdAt: '2024-11-28T11:20:00Z',
-    respuesta: null,
-  },
-  {
-    _id: 'res-5',
-    servicioId: 's3',
-    servicioTitulo: 'Suite Deluxe Lima Centro',
-    vertical: 'hoteles',
-    puntuacion: 5,
-    comentario: 'Segunda vez que me alojo aquí y sigue siendo una experiencia increíble. Las vistas desde el piso 10 son espectaculares. ¡100% recomendado!',
-    usuarioNombre: 'Patricia Vega',
-    createdAt: '2024-11-20T08:00:00Z',
-    respuesta: 'Patricia, es un placer tenerte de vuelta. ¡Te esperamos siempre!',
-  },
-];
-
 const VERTICAL_ICON: Record<string, string> = {
-  hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
+  alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
 };
 
 @Component({
@@ -287,7 +229,8 @@ export class ComercioResenasComponent implements OnInit {
       const data = await firstValueFrom(this.comercioApi.getMisResenas());
       this.resenas.set(data);
     } catch {
-      this.resenas.set(MOCK_RESENAS);
+      // Sin reseñas falsas: si la API falla, se muestra el estado vacío real.
+      this.resenas.set([]);
     } finally {
       this.cargando.set(false);
     }

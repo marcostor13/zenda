@@ -36,7 +36,7 @@ describe('BookingsController', () => {
       {
         servicioId: 's1',
         comercioId: 'c1',
-        vertical: VerticalKey.HOTELES,
+        vertical: VerticalKey.ALOJAMIENTO,
         fechaInicio: '2026-07-15',
         fechaFin: '2026-07-17',
         cantidad: 2,

@@ -1,10 +1,56 @@
 import { Injectable } from '@nestjs/common';
 import { CatalogRepository, BuscarServiciosParams } from './catalog.repository';
+import { ReviewsService } from '../reviews/reviews.service';
+import { ResenaDocument } from '../reviews/resena.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { CrearServicioDto, ActualizarServicioDto, VerticalKey } from 'shared';
+import { CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto } from 'shared';
 
-/** Vista de tarjeta de hotel que consume el frontend. */
-export interface HotelCardDto {
+/** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
+const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarDisponibilidadDto>> = {
+  alojamiento: ['espacios'],
+  transporte: ['unidadesDisponibles'],
+  veterinaria: ['citasDisponibles'],
+  peluqueria: ['cuposDisponibles'],
+  adiestramiento: ['cuposDisponibles'],
+};
+
+/** Todos los campos propios de cada vertical (más allá de los del Servicio base), aceptados al crear/editar un listado. */
+const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
+  alojamiento: [
+    'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
+    'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis',
+    'barrio', 'direccion',
+  ],
+  transporte: [
+    'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm',
+    'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
+  ],
+  veterinaria: [
+    'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia',
+    'citasDisponibles', 'atiendeUrgencias', 'horario', 'precioConsulta',
+  ],
+  peluqueria: [
+    'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea',
+    'cuposDisponibles', 'aDomicilio', 'horario',
+  ],
+  adiestramiento: [
+    'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma',
+    'sesionesPorPrograma', 'edadMinimaMeses', 'aDomicilio', 'capacidadPorSesion',
+    'cuposDisponibles', 'horario',
+  ],
+};
+
+/** Campos que deben venir informados para que el listado sea reservable desde el día uno. */
+const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
+  alojamiento: ['espacios'],
+  transporte: ['tarifaBase', 'tarifaKm'],
+  veterinaria: ['precioConsulta'],
+  peluqueria: [],
+  adiestramiento: ['precioSesion'],
+};
+
+/** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
+export interface ServicioCardDto {
   id: string;
   nombre: string;
   ciudad: string;
@@ -21,7 +67,8 @@ export interface HotelCardDto {
   amenities: string[];
   cancelacionGratis: boolean;
   desayunoIncluido: boolean;
-  habitacionesDisponibles: number;
+  espaciosDisponibles: number;
+  paseosIncluidos: boolean;
   destacado: boolean;
   /** Clave del vertical del servicio. */
   vertical?: string;
@@ -44,13 +91,26 @@ export interface HabitacionDto {
   cancelacionGratis: boolean;
 }
 
-export interface HotelDetalleDto extends HotelCardDto {
+/** Reseña real (no fabricada) tal como la ve el usuario en el detalle del servicio. */
+export interface ResenaResumenDto {
+  id: string;
+  autorNombre: string;
+  puntuacion: number;
+  comentario: string;
+  fecha: string;
+  respuesta?: string | null;
+}
+
+export interface ServicioDetalleDto extends ServicioCardDto {
   descripcion: string;
   politicaCancelacion: string;
   checkIn: string;
   checkOut: string;
+  requisitoVacunas: boolean;
+  camaras24h: boolean;
+  espacios: unknown[];
   habitaciones: HabitacionDto[];
-  resenas: unknown[];
+  resenas: ResenaResumenDto[];
   comercioId: string;
 }
 
@@ -71,35 +131,11 @@ export interface ServicioGestionDto {
   precioBase: number;
   imagenes: string[];
   estado: string;
-  [detalleKey: string]: unknown;
+  extra: Record<string, unknown>;
 }
 
-/** Campos propios de cada vertical que el comercio puede editar desde el formulario de listado
- *  (excluye contadores de disponibilidad en vivo, que gestiona el motor de reservas). */
-const CAMPOS_VERTICAL: Record<string, string[]> = {
-  [VerticalKey.ALOJAMIENTO]: [
-    'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
-    'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis', 'barrio', 'direccion',
-  ],
-  [VerticalKey.TRANSPORTE]: [
-    'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm',
-    'jaulasIncluidas', 'acompananteHumano', 'soloPerros',
-  ],
-  [VerticalKey.VETERINARIA]: [
-    'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia',
-    'atiendeUrgencias', 'horario', 'precioConsulta',
-  ],
-  [VerticalKey.PELUQUERIA]: [
-    'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea', 'aDomicilio', 'horario',
-  ],
-  [VerticalKey.ADIESTRAMIENTO]: [
-    'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma',
-    'sesionesPorPrograma', 'edadMinimaMeses', 'aDomicilio', 'capacidadPorSesion', 'horario',
-  ],
-};
-
-/** Estructura mínima de un documento de hotel ya "leaneado". */
-interface HotelLean {
+/** Estructura mínima de un documento de servicio ya "leaneado". */
+interface ServicioLean {
   _id: unknown;
   comercioId?: unknown;
   titulo: string;
@@ -118,7 +154,11 @@ interface HotelLean {
   direccion?: string;
   desayunoIncluido?: boolean;
   cancelacionGratis?: boolean;
-  habitacionesDisponibles?: number;
+  espaciosDisponibles?: number;
+  paseosIncluidos?: boolean;
+  requisitoVacunas?: boolean;
+  camaras24h?: boolean;
+  espacios?: unknown[];
   habitaciones?: HabitacionDto[];
   politicaCancelacion?: string;
   checkIn?: string;
@@ -130,16 +170,19 @@ const MAX_LIMIT = 50;
 
 @Injectable()
 export class CatalogService {
-  constructor(private readonly repo: CatalogRepository) {}
+  constructor(
+    private readonly repo: CatalogRepository,
+    private readonly reviewsService: ReviewsService,
+  ) {}
 
-  async buscarHoteles(filtros: {
+  async buscarServicios(filtros: {
     vertical?: string;
     ciudad?: string;
     precioMin?: number;
     precioMax?: number;
     page?: number;
     limit?: number;
-  }): Promise<PaginatedResult<HotelCardDto>> {
+  }): Promise<PaginatedResult<ServicioCardDto>> {
     const params: BuscarServiciosParams = {
       vertical: filtros.vertical ?? 'alojamiento',
       ciudad: filtros.ciudad,
@@ -152,14 +195,17 @@ export class CatalogService {
     const { items, total } = await this.repo.buscar(params);
 
     return {
-      items: items.map((doc) => this.toCard(doc as unknown as HotelLean)),
+      items: items.map((doc) => this.toCard(doc as unknown as ServicioLean)),
       total,
       page: params.page,
       totalPages: Math.max(1, Math.ceil(total / params.limit)),
     };
   }
 
-  async crearServicio(dto: CrearServicioDto, comercioId: string): Promise<HotelCardDto> {
+  async crearServicio(dto: CrearServicioDto, comercioId: string): Promise<ServicioCardDto> {
+    const extra = this.filtrarExtraPorVertical(dto.vertical, dto.extra ?? {});
+    this.validarCamposRequeridos(dto.vertical, extra);
+
     const doc = await this.repo.crear({
       vertical: dto.vertical,
       titulo: dto.titulo,
@@ -168,21 +214,22 @@ export class CatalogService {
       precioBase: dto.precioBase,
       imagenes: dto.imagenes ?? [],
       comercioId,
-      detalle: this.detalleDelDto(dto.vertical, dto as unknown as Record<string, unknown>),
+      extra,
     });
-    return this.toCard(doc as unknown as HotelLean);
+    return this.toCard(doc as unknown as ServicioLean);
   }
 
   async actualizarServicio(
     id: string,
     comercioId: string,
     dto: ActualizarServicioDto,
-  ): Promise<HotelCardDto> {
+  ): Promise<ServicioCardDto> {
     const existente = await this.repo.obtenerPorIdYComercio(id, comercioId);
     if (!existente) {
       throw new DomainException('Servicio no encontrado', 404);
     }
     const vertical = (existente as unknown as Record<string, unknown>)['vertical'] as string;
+    const extra = dto.extra ? this.filtrarExtraPorVertical(vertical, dto.extra) : undefined;
 
     const actualizado = await this.repo.actualizar(id, comercioId, {
       titulo: dto.titulo,
@@ -190,12 +237,12 @@ export class CatalogService {
       ciudad: dto.ciudad,
       precioBase: dto.precioBase,
       imagenes: dto.imagenes,
-      detalle: this.detalleDelDto(vertical, dto as unknown as Record<string, unknown>),
+      extra,
     });
     if (!actualizado) {
       throw new DomainException('Servicio no encontrado', 404);
     }
-    return this.toCard(actualizado as unknown as HotelLean);
+    return this.toCard(actualizado as unknown as ServicioLean);
   }
 
   async obtenerServicioParaGestion(id: string, comercioId: string): Promise<ServicioGestionDto> {
@@ -203,8 +250,13 @@ export class CatalogService {
     if (!doc) {
       throw new DomainException('Servicio no encontrado', 404);
     }
-    const h = doc as unknown as HotelLean & Record<string, unknown>;
+    const h = doc as unknown as ServicioLean & Record<string, unknown>;
     const vertical = h['vertical'] as string;
+    const claves = CAMPOS_EXTRA_POR_VERTICAL[vertical] ?? [];
+    const extra: Record<string, unknown> = {};
+    for (const k of claves) {
+      if (h[k] !== undefined) extra[k] = h[k];
+    }
 
     return {
       id: String(h._id),
@@ -215,34 +267,100 @@ export class CatalogService {
       precioBase: h.precioBase,
       imagenes: h.imagenes ?? [],
       estado: (h['estado'] as string) ?? 'borrador',
-      [vertical]: this.camposVertical(vertical, h),
+      extra,
     };
   }
 
-  /** Extrae del dto el sub-objeto de campos propios del vertical (misma clave que `vertical`). */
-  private detalleDelDto(vertical: string, dto: Record<string, unknown>): Record<string, unknown> {
-    return (dto[vertical] as Record<string, unknown>) ?? {};
-  }
-
-  /** Extrae del documento crudo únicamente los campos editables del vertical dado. */
-  private camposVertical(vertical: string, doc: Record<string, unknown>): Record<string, unknown> {
-    const claves = CAMPOS_VERTICAL[vertical] ?? [];
-    const detalle: Record<string, unknown> = {};
-    for (const k of claves) {
-      if (doc[k] !== undefined) detalle[k] = doc[k];
+  /** Filtra los campos propios del vertical elegido; ignora cualquier otro campo enviado. */
+  private filtrarExtraPorVertical(vertical: string, extra: Record<string, unknown>): Record<string, unknown> {
+    const claves = CAMPOS_EXTRA_POR_VERTICAL[vertical] ?? [];
+    const filtrado: Record<string, unknown> = {};
+    for (const clave of claves) {
+      if (extra[clave] !== undefined) filtrado[clave] = extra[clave];
     }
-    return detalle;
+    return filtrado;
   }
 
-  async obtenerHotel(id: string): Promise<HotelDetalleDto> {
+  /** Evita crear listados que no se podrán reservar por falta de datos clave del vertical. */
+  private validarCamposRequeridos(vertical: string, campos: Record<string, unknown>): void {
+    const requeridos = CAMPOS_REQUERIDOS_POR_VERTICAL[vertical] ?? [];
+    const faltantes = requeridos.filter((clave) => {
+      const valor = campos[clave];
+      if (valor === undefined || valor === null) return true;
+      if (Array.isArray(valor)) return valor.length === 0;
+      return false;
+    });
+    if (faltantes.length > 0) {
+      throw new DomainException(
+        `Faltan campos obligatorios para este tipo de servicio: ${faltantes.join(', ')}`,
+        400,
+      );
+    }
+  }
+
+  /**
+   * Permite al comercio editar la disponibilidad/cupos de un servicio ya
+   * publicado, evitando la sobreventa (D1). Solo se aceptan los campos que
+   * corresponden al vertical del servicio; el resto del payload se ignora.
+   */
+  async actualizarDisponibilidad(
+    servicioId: string,
+    comercioId: string,
+    dto: ActualizarDisponibilidadDto,
+  ): Promise<ServicioCardDto> {
+    const servicio = await this.repo.obtenerPorId(servicioId);
+    if (!servicio) {
+      throw new DomainException('Servicio no encontrado', 404);
+    }
+    if (String((servicio as unknown as ServicioLean).comercioId) !== comercioId) {
+      throw new DomainException('No tienes permiso sobre este servicio', 403);
+    }
+
+    const vertical = (servicio as unknown as { vertical: string }).vertical;
+    const clavesPermitidas = CAMPOS_DISPONIBILIDAD_POR_VERTICAL[vertical] ?? [];
+    const campos: Record<string, unknown> = {};
+    for (const clave of clavesPermitidas) {
+      const valor = dto[clave];
+      if (valor !== undefined) campos[clave] = valor;
+    }
+
+    if (Object.keys(campos).length === 0) {
+      throw new DomainException(
+        'No se proporcionó ningún campo de disponibilidad válido para este vertical',
+        400,
+      );
+    }
+
+    const actualizado = await this.repo.actualizarCampos(servicioId, campos);
+    if (!actualizado) {
+      throw new DomainException('Servicio no encontrado', 404);
+    }
+    return this.toCard(actualizado as unknown as ServicioLean);
+  }
+
+  async obtenerServicio(id: string): Promise<ServicioDetalleDto> {
     const doc = await this.repo.obtenerPorId(id);
     if (!doc) {
       throw new DomainException('Servicio no encontrado', 404);
     }
-    return this.toDetalle(doc as unknown as HotelLean);
+    const resenas = await this.reviewsService.listarPorServicio(id);
+    return this.toDetalle(doc as unknown as ServicioLean, resenas.map((r) => this.aResenaResumen(r)));
   }
 
-  private toCard(h: HotelLean): HotelCardDto {
+  private aResenaResumen(r: ResenaDocument): ResenaResumenDto {
+    const conFecha = r as unknown as { createdAt?: Date | string };
+    const fecha = conFecha.createdAt instanceof Date ? conFecha.createdAt.toISOString() : (conFecha.createdAt ?? '');
+    return {
+      id: String(r._id),
+      autorNombre: r.usuarioNombre,
+      puntuacion: r.puntuacion,
+      comentario: r.comentario,
+      fecha,
+      respuesta: r.respuesta,
+    };
+  }
+
+  private toCard(h: ServicioLean): ServicioCardDto {
     const score = Math.round((h.ratingPromedio ?? 0) * 10) / 10;
     return {
       id: String(h._id),
@@ -261,7 +379,8 @@ export class CatalogService {
       amenities: h.amenities ?? [],
       cancelacionGratis: h.cancelacionGratis ?? true,
       desayunoIncluido: h.desayunoIncluido ?? false,
-      habitacionesDisponibles: h.habitacionesDisponibles ?? 0,
+      espaciosDisponibles: h.espaciosDisponibles ?? 0,
+      paseosIncluidos: h.paseosIncluidos ?? false,
       destacado: h.destacado ?? false,
       vertical: (h as unknown as Record<string, unknown>)['vertical'] as string | undefined,
       extra: this.pickExtra(h as unknown as Record<string, unknown>),
@@ -291,15 +410,18 @@ export class CatalogService {
     return extra;
   }
 
-  private toDetalle(h: HotelLean): HotelDetalleDto {
+  private toDetalle(h: ServicioLean, resenas: ResenaResumenDto[]): ServicioDetalleDto {
     return {
       ...this.toCard(h),
       descripcion: h.descripcion ?? '',
       politicaCancelacion: h.politicaCancelacion ?? 'Consulta las condiciones de cancelación.',
       checkIn: h.checkIn ?? '12:00',
       checkOut: h.checkOut ?? '11:00',
+      requisitoVacunas: h.requisitoVacunas ?? true,
+      camaras24h: h.camaras24h ?? false,
+      espacios: h.espacios ?? [],
       habitaciones: this.espaciosComoHabitaciones(h).map((hab, i) => this.toHabitacion(hab, i)),
-      resenas: [],
+      resenas,
       comercioId: h.comercioId ? String(h.comercioId) : '',
     };
   }
@@ -309,7 +431,7 @@ export class CatalogService {
    * (con `precioNoche`); se proyectan sobre el shape legacy `habitaciones`
    * para no romper a los consumidores existentes del detalle.
    */
-  private espaciosComoHabitaciones(h: HotelLean): HabitacionDto[] {
+  private espaciosComoHabitaciones(h: ServicioLean): HabitacionDto[] {
     if (h.habitaciones?.length) return h.habitaciones;
     const espacios = (h as unknown as Record<string, unknown>)['espacios'] as
       | Array<Record<string, unknown>>

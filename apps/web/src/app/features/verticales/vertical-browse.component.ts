@@ -5,7 +5,6 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
-import { pexels } from '../../shared/media/images';
 
 interface VerticalConfig {
   vertical: string;
@@ -22,16 +21,22 @@ interface VerticalConfig {
   meta: (c: ServicioCard) => string[];
   price: (c: ServicioCard) => number;
   confirmMsg: string;
-  mock: ServicioCard[];
 }
 
-const card = (over: Partial<ServicioCard> & { extra: Record<string, unknown> }): ServicioCard => ({
-  id: over.id ?? 'x', nombre: over.nombre ?? '', ciudad: over.ciudad ?? '',
-  comercioId: over.comercioId ?? 'demo-comercio',
-  precioPorNoche: over.precioPorNoche ?? 0, score: over.score ?? 4.6,
-  scoreLabel: over.scoreLabel ?? 'Muy bueno', numResenas: over.numResenas ?? 200,
-  imagenes: over.imagenes ?? [], destacado: false, extra: over.extra,
-});
+interface ItemConNombre {
+  nombre: string;
+  precio: number;
+}
+
+/** Nombres del primer/menor servicio y precio mínimo entre los servicios propios del vertical (o el precio base si no hay ninguno). */
+const resumenServicios = (items: ItemConNombre[] | undefined, c: ServicioCard): { primero: string | null; nombres: string; precioMin: number } => {
+  if (!items?.length) return { primero: null, nombres: '', precioMin: c.precioPorNoche };
+  return {
+    primero: items[0].nombre,
+    nombres: items.map((i) => i.nombre).join(' · '),
+    precioMin: Math.min(...items.map((i) => i.precio)),
+  };
+};
 
 const CONFIGS: Record<string, VerticalConfig> = {
   veterinaria: {
@@ -39,49 +44,42 @@ const CONFIGS: Record<string, VerticalConfig> = {
     sub: 'Clínicas verificadas para tu perro: vacunación, cirugía, dermatología y urgencias 24h.',
     placeholder: 'Ciudad de la clínica (Madrid, Barcelona…)', cta: 'Pedir cita', priceLabel: 'consulta desde',
     confirmMsg: '✓ Cita solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => `🩺 ${(c.extra['especialidad'] as string) ?? 'Medicina general'}`,
+    badge: (c) => `🩺 ${(c.extra['especialidades'] as string[] | undefined)?.[0] ?? 'Medicina general'}`,
     titulo3: (c) => c.nombre,
     loc: (c) => `📍 ${c.ciudad}`,
-    meta: (c) => [`💉 ${(c.extra['servicios'] as string) ?? 'Vacunación'}`, `🦴 ${(c.extra['horario'] as string) ?? ''}`],
-    price: (c) => (c.extra['precioConsulta'] as number) ?? c.precioPorNoche,
-    mock: [
-      card({ id: 'vet1', nombre: 'Clínica Veterinaria El Retiro', ciudad: 'Madrid', precioPorNoche: 35, score: 4.8, scoreLabel: 'Excepcional', numResenas: 412, imagenes: [pexels(6235233)], extra: { especialidad: 'Medicina general', servicios: 'Vacunación · Cirugía', horario: 'L-S 09:00–20:00', precioConsulta: 35 } }),
-      card({ id: 'vet2', nombre: 'Hospital Veterinario Chamberí 24h', ciudad: 'Madrid', precioPorNoche: 45, score: 4.9, scoreLabel: 'Excepcional', numResenas: 863, imagenes: [pexels(6235241)], extra: { especialidad: 'Urgencias 24h', servicios: 'Radiografía · Ecografía', horario: 'Abierto 24 horas', precioConsulta: 45 } }),
-      card({ id: 'vet3', nombre: 'Centro Veterinario La Latina', ciudad: 'Madrid', precioPorNoche: 30, score: 4.6, extra: { especialidad: 'Dermatología', servicios: 'Alergias · Piel y pelo', horario: 'L-V 10:00–19:00', precioConsulta: 30 } }),
-      card({ id: 'vet4', nombre: 'Clínica Canina Salamanca', ciudad: 'Madrid', precioPorNoche: 40, score: 4.7, numResenas: 289, extra: { especialidad: 'Traumatología', servicios: 'Cirugía ósea · Rehabilitación', horario: 'L-S 09:30–20:30', precioConsulta: 40 } }),
+    meta: (c) => [
+      `💉 ${resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).nombres || 'Consulta general'}`,
+      c.extra['atiendeUrgencias'] ? '🚑 Urgencias 24h' : `🕐 ${(c.extra['horario'] as string) ?? 'Consulta horario'}`,
     ],
+    price: (c) => (c.extra['precioConsulta'] as number) ?? c.precioPorNoche,
   },
   peluqueria: {
     vertical: 'peluqueria', eyebrow: 'PELUQUERÍAS CANINAS', titulo: 'Peluquería y spa', tituloHighlight: 'para tu perro',
     sub: 'Baño, corte, deslanado y spa con groomers profesionales, en salón o a domicilio.',
     placeholder: 'Ciudad (Madrid, Barcelona…)', cta: 'Reservar cita', priceLabel: 'servicio desde',
     confirmMsg: '✓ Cita de peluquería solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => `✂️ ${(c.extra['servicioEstrella'] as string) ?? 'Corte y baño'}`,
+    badge: (c) => `✂️ ${resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).primero ?? 'Corte y baño'}`,
     titulo3: (c) => c.nombre,
     loc: (c) => `📍 ${c.ciudad}`,
-    meta: (c) => [`🛁 ${(c.extra['servicios'] as string) ?? 'Baño completo'}`, `🐩 ${(c.extra['tamanos'] as string) ?? 'Todos los tamaños'}`],
-    price: (c) => (c.extra['precioDesde'] as number) ?? c.precioPorNoche,
-    mock: [
-      card({ id: 'pel1', nombre: 'Doog Style Grooming', ciudad: 'Madrid', precioPorNoche: 25, score: 4.8, scoreLabel: 'Excepcional', numResenas: 356, imagenes: [pexels(6816860)], extra: { servicioEstrella: 'Corte de raza', servicios: 'Baño · Corte · Uñas', tamanos: 'Todos los tamaños', precioDesde: 25 } }),
-      card({ id: 'pel2', nombre: 'The Royal Groomer', ciudad: 'Madrid', precioPorNoche: 45, score: 4.9, scoreLabel: 'Excepcional', numResenas: 214, extra: { servicioEstrella: 'Spa premium', servicios: 'Deslanado · Spa · Perfume', tamanos: 'Medianos y grandes', precioDesde: 45 } }),
-      card({ id: 'pel3', nombre: 'Bigotes Peluquería Canina', ciudad: 'Barcelona', precioPorNoche: 30, score: 4.7, numResenas: 428, extra: { servicioEstrella: 'Baño y deslanado', servicios: 'Baño · Deslanado · Oídos', tamanos: 'Todos los tamaños', precioDesde: 30 } }),
+    meta: (c) => [
+      `🛁 ${resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).nombres || 'Baño completo'}`,
+      c.extra['aDomicilio'] ? '🏠 A domicilio' : '🐩 En salón',
     ],
+    price: (c) => resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).precioMin,
   },
   adiestramiento: {
     vertical: 'adiestramiento', eyebrow: 'ADIESTRAMIENTO CANINO', titulo: 'Educadores caninos', tituloHighlight: 'certificados',
     sub: 'Obediencia, modificación de conducta y educación de cachorros, por sesión o programa.',
     placeholder: 'Ciudad (Madrid, Barcelona…)', cta: 'Reservar sesión', priceLabel: 'sesión desde',
     confirmMsg: '✓ Sesión solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => `🎓 ${(c.extra['tipoAdiestramiento'] as string) ?? 'Obediencia básica'}`,
+    badge: (c) => `🎓 ${(c.extra['tiposAdiestramiento'] as string[] | undefined)?.[0] ?? 'Obediencia básica'}`,
     titulo3: (c) => c.nombre,
     loc: (c) => `📍 ${c.ciudad}`,
-    meta: (c) => [`🐕 ${(c.extra['modalidad'] as string) ?? 'Sesión individual'}`, `🦮 ${(c.extra['edadMinima'] as string) ?? 'Desde 3 meses'}`],
-    price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
-    mock: [
-      card({ id: 'adi1', nombre: 'Escuela Canina AlphaDog', ciudad: 'Madrid', precioPorNoche: 40, score: 4.8, scoreLabel: 'Excepcional', numResenas: 267, imagenes: [pexels(7516509)], extra: { tipoAdiestramiento: 'Obediencia básica', modalidad: 'Sesión o programa de 8', edadMinima: 'Desde 3 meses', precioSesion: 40 } }),
-      card({ id: 'adi2', nombre: 'K9 Educadores Barcelona', ciudad: 'Barcelona', precioPorNoche: 55, score: 4.9, scoreLabel: 'Excepcional', numResenas: 198, extra: { tipoAdiestramiento: 'Modificación de conducta', modalidad: 'Sesión a domicilio', edadMinima: 'Desde 6 meses', precioSesion: 55 } }),
-      card({ id: 'adi3', nombre: 'Cachorros Felices Valencia', ciudad: 'Valencia', precioPorNoche: 35, score: 4.7, numResenas: 312, extra: { tipoAdiestramiento: 'Educación de cachorros', modalidad: 'Grupos reducidos', edadMinima: 'De 2 a 6 meses', precioSesion: 35 } }),
+    meta: (c) => [
+      `🐕 ${c.extra['modalidad'] === 'programa' ? 'Programa completo' : 'Por sesión'}`,
+      `🦮 Desde ${(c.extra['edadMinimaMeses'] as number) ?? 3} meses`,
     ],
+    price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
   },
 };
 
@@ -150,8 +148,11 @@ const CONFIGS: Record<string, VerticalConfig> = {
               </div>
             </article>
           }
-          @if (items().length === 0) {
+          @if (items().length === 0 && !error()) {
             <div class="vb-empty"><div style="font-size:3rem">🔍</div><h3>Sin resultados</h3><p>Prueba con otra ciudad.</p></div>
+          }
+          @if (error()) {
+            <div class="vb-empty"><div style="font-size:3rem">⚠️</div><h3>No se pudo cargar el catálogo</h3><p>Inténtalo de nuevo en unos momentos.</p></div>
           }
         </div>
       }
@@ -189,11 +190,10 @@ export class VerticalBrowseComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly browseService = inject(CatalogBrowseService);
 
-  private readonly useMock = true;
-
   readonly cfg = signal<VerticalConfig>(CONFIGS['veterinaria']);
   readonly cargando = signal(true);
   readonly items = signal<ServicioCard[]>([]);
+  readonly error = signal(false);
   readonly solicitadoId = signal<string | null>(null);
 
   readonly searchForm = this.fb.group({ ciudad: [''] });
@@ -210,12 +210,15 @@ export class VerticalBrowseComponent implements OnInit {
 
   private async cargar(ciudad?: string): Promise<void> {
     this.cargando.set(true);
+    this.error.set(false);
     this.solicitadoId.set(null);
     try {
-      const resultados = await this.browseService.buscar(this.cfg().vertical, ciudad);
-      this.items.set(resultados.length ? resultados : (this.useMock ? this.cfg().mock : []));
+      // Datos reales del catálogo: nunca mocks, para no ofrecer servicios
+      // inexistentes que romperían la reserva.
+      this.items.set(await this.browseService.buscar(this.cfg().vertical, ciudad));
     } catch {
-      this.items.set(this.useMock ? this.cfg().mock : []);
+      this.items.set([]);
+      this.error.set(true);
     } finally {
       this.cargando.set(false);
     }
