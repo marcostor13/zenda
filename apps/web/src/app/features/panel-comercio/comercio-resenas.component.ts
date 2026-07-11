@@ -5,66 +5,8 @@ import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiResena } from './comercio-api.service';
 
-const MOCK_RESENAS: MiResena[] = [
-  {
-    _id: 'res-1',
-    servicioId: 's1',
-    servicioTitulo: 'Suite Canina Madrid Centro',
-    vertical: 'alojamiento',
-    puntuacion: 5,
-    comentario: 'Dejamos a Rocky un fin de semana y volvió feliz. La suite estaba impecable y nos enviaron fotos de sus paseos cada día. El personal es un amor con los perros. Repetiremos seguro.',
-    usuarioNombre: 'María García',
-    createdAt: '2024-12-18T14:30:00Z',
-    respuesta: null,
-  },
-  {
-    _id: 'res-2',
-    servicioId: 's1',
-    servicioTitulo: 'Suite Canina Madrid Centro',
-    vertical: 'alojamiento',
-    puntuacion: 4,
-    comentario: 'Muy buena residencia, con patio amplio y cámaras 24h para ver a nuestra perra. El check-in podría ser más rápido, pero la atención fue excelente.',
-    usuarioNombre: 'Carlos Rodríguez',
-    createdAt: '2024-12-10T09:00:00Z',
-    respuesta: 'Gracias, Carlos. Tomamos nota sobre el check-in y trabajamos en agilizarlo. ¡Esperamos a Luna pronto!',
-  },
-  {
-    _id: 'res-3',
-    servicioId: 's2',
-    servicioTitulo: 'Peluquería Real Grooming',
-    vertical: 'peluqueria',
-    puntuacion: 5,
-    comentario: 'El corte de raza quedó perfecto y trataron a mi caniche con muchísima paciencia. Salió oliendo de maravilla. Precio justo para la calidad del servicio.',
-    usuarioNombre: 'Andrea Torres',
-    createdAt: '2024-12-05T16:45:00Z',
-    respuesta: null,
-  },
-  {
-    _id: 'res-4',
-    servicioId: 's2',
-    servicioTitulo: 'Peluquería Real Grooming',
-    vertical: 'peluqueria',
-    puntuacion: 3,
-    comentario: 'El baño y corte estuvieron correctos, pero la cita se retrasó 15 minutos sobre lo indicado. El salón estaba limpio. Mejorable en puntualidad.',
-    usuarioNombre: 'Luis Pérez',
-    createdAt: '2024-11-28T11:20:00Z',
-    respuesta: null,
-  },
-  {
-    _id: 'res-5',
-    servicioId: 's3',
-    servicioTitulo: 'Suite Canina Madrid Centro',
-    vertical: 'alojamiento',
-    puntuacion: 5,
-    comentario: 'Segunda vez que dejamos a Thor y sigue siendo una experiencia increíble. Vuelve cansado de tanto jugar y súper cuidado. ¡100% recomendado!',
-    usuarioNombre: 'Patricia Vega',
-    createdAt: '2024-11-20T08:00:00Z',
-    respuesta: 'Patricia, es un placer tener a Thor de vuelta. ¡Le esperamos siempre!',
-  },
-];
-
 const VERTICAL_ICON: Record<string, string> = {
-  hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
+  alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
 };
 
 @Component({
@@ -287,7 +229,8 @@ export class ComercioResenasComponent implements OnInit {
       const data = await firstValueFrom(this.comercioApi.getMisResenas());
       this.resenas.set(data);
     } catch {
-      this.resenas.set(MOCK_RESENAS);
+      // Sin reseñas falsas: si la API falla, se muestra el estado vacío real.
+      this.resenas.set([]);
     } finally {
       this.cargando.set(false);
     }

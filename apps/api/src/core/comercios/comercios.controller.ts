@@ -8,8 +8,6 @@ import {
   Query,
   UseGuards,
   Req,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
@@ -99,10 +97,13 @@ export class ComerciosController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Responder a una reseña (pendiente de implementación)' })
-  @HttpCode(HttpStatus.NOT_IMPLEMENTED)
-  responderResena() {
-    return { message: 'Reviews module coming soon' };
+  @ApiOperation({ summary: 'Responder a una reseña recibida' })
+  responderResena(
+    @Req() req: RequestConUser,
+    @Param('resenaId') resenaId: string,
+    @Body('respuesta') respuesta: string,
+  ) {
+    return this.comerciosService.responderResena(resenaId, req.user.comercioId!, respuesta);
   }
 
   @Patch('mi-comercio')

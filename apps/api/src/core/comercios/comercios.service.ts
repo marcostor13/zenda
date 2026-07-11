@@ -5,6 +5,7 @@ import { ComerciosRepository } from './comercios.repository';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
+import { ReviewsService } from '../reviews/reviews.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { RegistrarComercioDto } from 'shared';
 
@@ -14,6 +15,7 @@ export class ComerciosService {
     private readonly repo: ComerciosRepository,
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
+    private readonly reviewsService: ReviewsService,
   ) {}
 
   async registrar(dto: RegistrarComercioDto): Promise<ComercioDocument> {
@@ -94,8 +96,13 @@ export class ComerciosService {
     return actualizado;
   }
 
-  // Reviews are not yet implemented — returns empty array so the frontend mock fallback kicks in.
-  async obtenerResenasComercio(_comercioId: string): Promise<unknown[]> {
-    return [];
+  /** Reseñas recibidas por el comercio (delegado al módulo transversal de reviews). */
+  obtenerResenasComercio(comercioId: string): Promise<unknown[]> {
+    return this.reviewsService.listarPorComercio(comercioId);
+  }
+
+  /** Responde a una reseña recibida; valida que pertenezca al comercio. */
+  responderResena(resenaId: string, comercioId: string, respuesta: string): Promise<unknown> {
+    return this.reviewsService.responder(resenaId, comercioId, respuesta);
   }
 }
