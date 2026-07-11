@@ -20,10 +20,15 @@ const PLACEHOLDER_TITULO: Record<string, string> = {
 };
 
 interface EspacioForm {
+  id: string;
   tipo: string;
   tamanoMaxPerro: string;
   precioNoche: number;
   cantidad: number;
+  disponible: boolean;
+  cancelacionGratis: boolean;
+  amenities: string[];
+  imagenes: string[];
 }
 
 interface ServicioClinicoForm {
@@ -736,7 +741,12 @@ export class ComercioListadoNuevoComponent {
   }
 
   nuevoEspacio(): EspacioForm {
-    return { tipo: 'estandar', tamanoMaxPerro: 'mediano', precioNoche: 0, cantidad: 1 };
+    return {
+      id: `esp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      tipo: 'estandar', tamanoMaxPerro: 'mediano', precioNoche: 0, cantidad: 1,
+      disponible: true, cancelacionGratis: this.alojamientoForm.controls.cancelacionGratis.value,
+      amenities: [], imagenes: [],
+    };
   }
 
   nuevoServicioClinico(): ServicioClinicoForm {

@@ -28,7 +28,13 @@ describe('CatalogService', () => {
     direccion: 'Calle Serrano 1',
     desayunoIncluido: true,
     cancelacionGratis: true,
-    habitacionesDisponibles: 4,
+    espaciosDisponibles: 4,
+    paseosIncluidos: true,
+    requisitoVacunas: true,
+    camaras24h: true,
+    espacios: [
+      { tipo: 'suite', tamanoMaxPerro: 'grande', precioNoche: 45, cantidad: 3 },
+    ],
     habitaciones: [
       { id: 'r1', tipo: 'Superior', descripcion: 'desc', capacidad: 2, camas: '1 doble', tamano: 32, precio: 320, amenities: [], imagenes: [], cantidad: 4, disponible: true, cancelacionGratis: true },
     ],
@@ -80,6 +86,8 @@ describe('CatalogService', () => {
         numResenas: 2840,
         precioPorNoche: 320,
         descuentoPct: 24,
+        espaciosDisponibles: 4,
+        paseosIncluidos: true,
       });
     });
 
@@ -113,6 +121,9 @@ describe('CatalogService', () => {
       expect(result.habitaciones).toHaveLength(1);
       expect(result.habitaciones[0].tipo).toBe('Superior');
       expect(result.comercioId).toBe('comercio-1');
+      expect(result.requisitoVacunas).toBe(true);
+      expect(result.camaras24h).toBe(true);
+      expect(result.espacios).toEqual([{ tipo: 'suite', tamanoMaxPerro: 'grande', precioNoche: 45, cantidad: 3 }]);
     });
 
     it('debería lanzar DomainException 404 si el hotel no existe', async () => {

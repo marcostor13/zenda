@@ -67,7 +67,8 @@ export interface ServicioCardDto {
   amenities: string[];
   cancelacionGratis: boolean;
   desayunoIncluido: boolean;
-  habitacionesDisponibles: number;
+  espaciosDisponibles: number;
+  paseosIncluidos: boolean;
   destacado: boolean;
   /** Clave del vertical del servicio. */
   vertical?: string;
@@ -105,6 +106,9 @@ export interface ServicioDetalleDto extends ServicioCardDto {
   politicaCancelacion: string;
   checkIn: string;
   checkOut: string;
+  requisitoVacunas: boolean;
+  camaras24h: boolean;
+  espacios: unknown[];
   habitaciones: HabitacionDto[];
   resenas: ResenaResumenDto[];
   comercioId: string;
@@ -137,7 +141,11 @@ interface ServicioLean {
   direccion?: string;
   desayunoIncluido?: boolean;
   cancelacionGratis?: boolean;
-  habitacionesDisponibles?: number;
+  espaciosDisponibles?: number;
+  paseosIncluidos?: boolean;
+  requisitoVacunas?: boolean;
+  camaras24h?: boolean;
+  espacios?: unknown[];
   habitaciones?: HabitacionDto[];
   politicaCancelacion?: string;
   checkIn?: string;
@@ -306,7 +314,8 @@ export class CatalogService {
       amenities: h.amenities ?? [],
       cancelacionGratis: h.cancelacionGratis ?? true,
       desayunoIncluido: h.desayunoIncluido ?? false,
-      habitacionesDisponibles: h.habitacionesDisponibles ?? 0,
+      espaciosDisponibles: h.espaciosDisponibles ?? 0,
+      paseosIncluidos: h.paseosIncluidos ?? false,
       destacado: h.destacado ?? false,
       vertical: (h as unknown as Record<string, unknown>)['vertical'] as string | undefined,
       extra: this.pickExtra(h as unknown as Record<string, unknown>),
@@ -343,6 +352,9 @@ export class CatalogService {
       politicaCancelacion: h.politicaCancelacion ?? 'Consulta las condiciones de cancelación.',
       checkIn: h.checkIn ?? '12:00',
       checkOut: h.checkOut ?? '11:00',
+      requisitoVacunas: h.requisitoVacunas ?? true,
+      camaras24h: h.camaras24h ?? false,
+      espacios: h.espacios ?? [],
       habitaciones: this.espaciosComoHabitaciones(h).map((hab, i) => this.toHabitacion(hab, i)),
       resenas,
       comercioId: h.comercioId ? String(h.comercioId) : '',
