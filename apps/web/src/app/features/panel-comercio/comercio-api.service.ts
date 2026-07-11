@@ -103,6 +103,8 @@ export class ComercioApiService {
     ciudad: string;
     precioBase: number;
     imagenes?: string[];
+    /** Campos propios del vertical elegido (espacios, tarifas, servicios clínicos/grooming, cupos…). */
+    extra?: Record<string, unknown>;
   }): Observable<MiServicio> {
     return this.http.post<MiServicio>(`${environment.apiUrl}/catalog/servicios`, dto);
   }
