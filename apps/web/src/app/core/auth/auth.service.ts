@@ -2,7 +2,7 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { LoginDto, RegistroDto, AuthResponseDto, Rol } from 'shared';
+import { LoginDto, RegistroDto, RegistroComercioDto, AuthResponseDto, Rol } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface UsuarioAutenticado {
@@ -43,6 +43,15 @@ export class AuthService {
   async registro(dto: RegistroDto): Promise<void> {
     const respuesta = await firstValueFrom(
       this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/registro`, dto),
+    );
+    this.guardarSesion(respuesta);
+    await this.redirigirPorRol(respuesta.usuario.rol);
+  }
+
+  /** Alta de comercio en un solo paso (cuenta comercio_admin + negocio). */
+  async registrarComercio(dto: RegistroComercioDto): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.post<AuthResponseDto>(`${environment.apiUrl}/comercios/registro`, dto),
     );
     this.guardarSesion(respuesta);
     await this.redirigirPorRol(respuesta.usuario.rol);

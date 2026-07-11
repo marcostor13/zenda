@@ -26,6 +26,7 @@ export * from './dtos/bookings/crear-reserva.dto';
 
 // DTOs — Comercios
 export * from './dtos/comercios/registrar-comercio.dto';
+export * from './dtos/comercios/registro-comercio.dto';
 export * from './dtos/comercios/cambiar-estado-comercio.dto';
 
 // DTOs — Cupones

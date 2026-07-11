@@ -53,6 +53,32 @@ describe('AuthService', () => {
     });
   });
 
+  describe('registrarComercio', () => {
+    it('debería registrar el comercio y navegar al panel si el rol es comercio_admin', async () => {
+      const respuestaComercio: AuthResponseDto = {
+        accessToken: 'jwt-comercio',
+        usuario: {
+          id: 'user-2', nombre: 'Ana', email: 'ana@royaldog.eu',
+          rol: Rol.COMERCIO_ADMIN, comercioId: 'comercio-1',
+        },
+      };
+
+      const promesa = service.registrarComercio({
+        nombre: 'Ana', email: 'ana@royaldog.eu', password: 'password123',
+        razonSocial: 'Royal Dog S.L.', vatNumber: 'ES-B1', nombreComercial: 'Royal Dog',
+      });
+
+      const req = httpMock.expectOne((r) => r.url.includes('/comercios/registro'));
+      expect(req.request.method).toBe('POST');
+      req.flush(respuestaComercio);
+      await promesa;
+
+      expect(service.estaAutenticado()).toBe(true);
+      expect(service.token()).toBe('jwt-comercio');
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/comercio']);
+    });
+  });
+
   describe('logout', () => {
     it('debería limpiar el estado y navegar a /auth/login', () => {
       localStorage.setItem('zenda_token', 'jwt-token');

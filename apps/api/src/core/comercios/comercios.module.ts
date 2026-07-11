@@ -7,6 +7,8 @@ import { ComerciosController } from './comercios.controller';
 import { CatalogModule } from '../catalog/catalog.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { ReviewsModule } from '../reviews/reviews.module';
+import { AuthModule } from '../auth/auth.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { ReviewsModule } from '../reviews/reviews.module';
     CatalogModule,
     BookingsModule,
     ReviewsModule,
+    AuthModule,
+    UsersModule,
   ],
   controllers: [ComerciosController],
   providers: [ComerciosRepository, ComerciosService],

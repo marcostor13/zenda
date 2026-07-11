@@ -24,13 +24,14 @@
 > 5. ✅ **Frontend — cancelar reserva (E3) y dejar reseña (G1)** en `mis-reservas`: botón cancelar cableado a la API, formulario inline de reseña (estrellas + comentario) para reservas completadas sin reseñar.
 > 6. ✅ **Backend+Frontend — completar reserva**: nuevo `BookingsService.completar()` + `PATCH /comercios/mis-reservas/:id/completar`; botón "Marcar completada" en el panel de comercio (antes solo lectura). De paso, corregidos verticales viejos y símbolo de moneda `S/`→`€` en ese componente.
 >
-> **Verificación acumulada:** api 34 suites / 154 tests verde; web 11 suites / 59 tests verde; `nest build` y `ng build` OK en cada bloque. 6 commits atómicos pusheados.
+> 7. ✅ **Onboarding de comercio (A3)**: alta en un solo paso vía `POST /comercios/registro` (público) — crea el negocio + la cuenta `comercio_admin` vinculada y devuelve sesión ya autenticada (sin login adicional); rollback del comercio si falla la creación del usuario. Nuevo componente `registro-comercio` (arregla el link muerto "Hazte partner" del home, que ya apuntaba a esta ruta).
+>
+> **Verificación acumulada:** api 34 suites / 158 tests verde; web 12 suites / 68 tests verde; `nest build` y `ng build` OK en cada bloque. 7 commits atómicos pusheados.
 >
 > **Pendiente (por prioridad):**
 > - 🔴 Cobertura de tests del API por debajo del umbral del 80% exigido por `jest.config.ts` (bloquea el job de test en CI aunque los tests pasen). Decisión pendiente: bajar el umbral o ampliar cobertura.
 > - 🟡 Gestión de disponibilidad/calendario del comercio (D1) — no existe ningún componente.
 > - 🟡 Editar listado ya publicado (C3) — solo existe alta.
-> - 🟡 Onboarding de comercio (A3) — el registro público solo crea clientes.
 > - 🟡 SlotHold persistente + anti-sobreventa real (hoy en memoria, sin TTL efectivo).
 > - 🟢 Revisión visual de la web (requiere levantar la app con datos).
 
