@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { ComerciosService } from './comercios.service';
 import { ComerciosRepository } from './comercios.repository';
 import { ReviewsService } from '../reviews/reviews.service';
+import { BookingsService } from '../bookings/bookings.service';
 import { Reserva } from '../bookings/reserva.schema';
 import { Servicio } from '../catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
@@ -10,6 +11,7 @@ import { DomainException } from '../../shared/exceptions/domain.exception';
 describe('ComerciosService', () => {
   let service: ComerciosService;
   let repo: jest.Mocked<ComerciosRepository>;
+  let bookingsService: jest.Mocked<BookingsService>;
 
   const dto = {
     razonSocial: 'Hoteles Ibéricos S.L.',
@@ -37,11 +39,16 @@ describe('ComerciosService', () => {
           provide: ReviewsService,
           useValue: { listarPorComercio: jest.fn(), responder: jest.fn() },
         },
+        {
+          provide: BookingsService,
+          useValue: { completar: jest.fn() },
+        },
       ],
     }).compile();
 
     service = moduleRef.get(ComerciosService);
     repo = moduleRef.get(ComerciosRepository);
+    bookingsService = moduleRef.get(BookingsService);
   });
 
   describe('registrar', () => {
@@ -79,6 +86,17 @@ describe('ComerciosService', () => {
     it('debería lanzar 404 si el comercio no existe', async () => {
       repo.actualizarEstado.mockResolvedValue(null);
       await expect(service.cambiarEstado('x', 'suspendido')).rejects.toThrow(DomainException);
+    });
+  });
+
+  describe('completarReserva', () => {
+    it('debería delegar en BookingsService.completar con el comercioId', async () => {
+      bookingsService.completar.mockResolvedValue({ estado: 'completada' } as never);
+
+      const resultado = await service.completarReserva('reserva-1', 'comercio-1');
+
+      expect(bookingsService.completar).toHaveBeenCalledWith('reserva-1', 'comercio-1');
+      expect(resultado).toMatchObject({ estado: 'completada' });
     });
   });
 });

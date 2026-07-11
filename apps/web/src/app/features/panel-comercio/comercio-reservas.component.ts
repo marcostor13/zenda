@@ -6,7 +6,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ComercioApiService, MiReserva } from './comercio-api.service';
 
 const VERTICAL_ICON: Record<string, string> = {
-  hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
+  alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
 };
 
 const ESTADO_BADGE: Record<string, string> = {
@@ -76,6 +76,7 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
               <th>Fecha inicio</th>
               <th>Monto total</th>
               <th>Estado</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -87,8 +88,17 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
                   {{ r.vertical }}
                 </td>
                 <td>{{ r.fechaInicio | date:'d MMM yyyy' }}</td>
-                <td>S/ {{ r.montoTotal | number:'1.2-2' }}</td>
+                <td>€{{ r.montoTotal | number:'1.2-2' }}</td>
                 <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
+                <td>
+                  @if (r.estado === 'confirmada') {
+                    <button class="rs-btn rs-btn--outline rs-btn--sm"
+                            [disabled]="completandoId() === r._id"
+                            (click)="completar(r)">
+                      {{ completandoId() === r._id ? 'Guardando…' : 'Marcar completada' }}
+                    </button>
+                  }
+                </td>
               </tr>
             }
           </tbody>
@@ -155,6 +165,7 @@ export class ComercioReservasComponent implements OnInit {
   readonly errorMsg = signal('');
   readonly reservas = signal<MiReserva[]>([]);
   readonly filtroActivo = signal<FiltroEstado>('todas');
+  readonly completandoId = signal<string | null>(null);
 
   readonly reservasFiltradas = computed(() => {
     const filtro = this.filtroActivo();
@@ -179,5 +190,19 @@ export class ComercioReservasComponent implements OnInit {
   contarEstado(filtro: FiltroEstado): number {
     if (filtro === 'todas') return this.reservas().length;
     return this.reservas().filter(r => r.estado === filtro).length;
+  }
+
+  async completar(r: MiReserva): Promise<void> {
+    this.completandoId.set(r._id);
+    try {
+      await firstValueFrom(this.comercioApi.completarReserva(r._id));
+      this.reservas.update((lista) =>
+        lista.map((x) => (x._id === r._id ? { ...x, estado: 'completada' } : x)),
+      );
+    } catch {
+      this.errorMsg.set('No se pudo marcar la reserva como completada. Inténtalo de nuevo.');
+    } finally {
+      this.completandoId.set(null);
+    }
   }
 }

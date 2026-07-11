@@ -30,6 +30,7 @@ describe('BookingsService', () => {
     codigo: 'RES-ABCD1234',
     estado: ReservaEstado.PENDIENTE,
     usuarioId: { toString: () => 'user-1' },
+    comercioId: { toString: () => 'comercio-1' },
     holdId: 'hold-1',
     vertical: VerticalKey.ALOJAMIENTO,
     save: jest.fn(),
@@ -139,6 +140,39 @@ describe('BookingsService', () => {
         exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.CANCELADA }),
       });
       await expect(service.cancelar('reserva-1', 'user-1')).rejects.toThrow(DomainException);
+    });
+  });
+
+  describe('completar', () => {
+    it('debería marcar como completada una reserva confirmada del comercio', async () => {
+      reservaModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          ...reservaMock,
+          estado: ReservaEstado.CONFIRMADA,
+          save: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.COMPLETADA }),
+        }),
+      });
+      const resultado = await service.completar('reserva-1', 'comercio-1');
+      expect(resultado.estado).toBe(ReservaEstado.COMPLETADA);
+    });
+
+    it('debería lanzar DomainException 403 si la reserva no es del comercio', async () => {
+      reservaModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.CONFIRMADA }),
+      });
+      await expect(service.completar('reserva-1', 'otro-comercio')).rejects.toThrow(DomainException);
+    });
+
+    it('debería lanzar DomainException 400 si la reserva no está confirmada', async () => {
+      reservaModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.PENDIENTE }),
+      });
+      await expect(service.completar('reserva-1', 'comercio-1')).rejects.toThrow(DomainException);
+    });
+
+    it('debería lanzar DomainException 404 si la reserva no existe', async () => {
+      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      await expect(service.completar('no-existe', 'comercio-1')).rejects.toThrow(DomainException);
     });
   });
 });

@@ -59,6 +59,10 @@ export class ComercioApiService {
     return this.http.get<MiReserva[]>(`${this.url}/mis-reservas`);
   }
 
+  completarReserva(reservaId: string): Observable<MiReserva> {
+    return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/completar`, {});
+  }
+
   getMisServicios(): Observable<MiServicio[]> {
     return this.http.get<MiServicio[]>(`${this.url}/mis-servicios`);
   }

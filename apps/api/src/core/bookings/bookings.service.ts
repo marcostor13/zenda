@@ -130,6 +130,26 @@ export class BookingsService {
     return reserva.save();
   }
 
+  /** El comercio marca como prestado un servicio ya confirmado. */
+  async completar(reservaId: string, comercioId: string): Promise<ReservaDocument> {
+    const reserva = await this.reservaModel.findById(reservaId).exec();
+
+    if (!reserva) {
+      throw new DomainException('Reserva no encontrada', 404);
+    }
+
+    if (reserva.comercioId.toString() !== comercioId) {
+      throw new DomainException('No tienes permiso sobre esta reserva', 403);
+    }
+
+    if (reserva.estado !== ReservaEstado.CONFIRMADA) {
+      throw new DomainException('Solo se pueden completar reservas confirmadas', 400);
+    }
+
+    reserva.estado = ReservaEstado.COMPLETADA;
+    return reserva.save();
+  }
+
   async obtenerPorId(id: string): Promise<ReservaDocument | null> {
     return this.reservaModel.findById(id).exec();
   }

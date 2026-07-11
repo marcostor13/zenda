@@ -14,6 +14,25 @@
 >   2. ✅ **§21 de CLAUDE.md** alineado al tema claro real (azul rey + dorado, tokens reales).
 >   3. ✅ **catalog.service.ts**: DTOs/métodos `Hotel*`/`buscarHoteles` → genéricos `Servicio*`/`buscarServicios` (JSON sin cambios; 133/133 verde).
 > - **Único pendiente:** revisión visual de la web (requiere levantar la app).
+>
+> **Log de sesión 2026-07-11 — "hacer la plataforma funcional" (post-migración):**
+> Tras la migración, se auditó a fondo qué faltaba para un flujo real de reserva y se implementó, verificó y commiteó en bloques atómicos:
+> 1. ✅ **Boot desbloqueado**: `UploadService`/`AiSearchService` con lectura no-eager (config.get, no getOrThrow) — el API ya arranca sin S3/DeepSeek, degradando con claridad (503 / fallback). `.env.example` completo con las 5 vars antes indocumentadas + `PORT=3051`.
+> 2. ✅ **Flujo honesto**: eliminados TODOS los fallbacks a mock que servían listados falsos (vertical-browse, alojamiento, transporte) y el "modo demostración" del wizard que fingía compras exitosas sin cobro real; quitado el método de pago "bizum" (nunca cobraba).
+> 3. ✅ **Módulo `reviews`** implementado de cero (antes `@Module({})`, `GET /reviews` daba 404): schema, repo, service, controller, DTOs, specs. Recalcula `ratingPromedio` del servicio. Cableado a los endpoints de comercio.
+> 4. ✅ **Módulo `notifications`** implementado de cero: outbox de email (SMTP vía nodemailer, no-eager), confirmación al cliente + alerta al comercio tras el webhook de pago aprobado. Nunca lanza (no debe tumbar el webhook).
+> 5. ✅ **Frontend — cancelar reserva (E3) y dejar reseña (G1)** en `mis-reservas`: botón cancelar cableado a la API, formulario inline de reseña (estrellas + comentario) para reservas completadas sin reseñar.
+> 6. ✅ **Backend+Frontend — completar reserva**: nuevo `BookingsService.completar()` + `PATCH /comercios/mis-reservas/:id/completar`; botón "Marcar completada" en el panel de comercio (antes solo lectura). De paso, corregidos verticales viejos y símbolo de moneda `S/`→`€` en ese componente.
+>
+> **Verificación acumulada:** api 34 suites / 154 tests verde; web 11 suites / 59 tests verde; `nest build` y `ng build` OK en cada bloque. 6 commits atómicos pusheados.
+>
+> **Pendiente (por prioridad):**
+> - 🔴 Cobertura de tests del API por debajo del umbral del 80% exigido por `jest.config.ts` (bloquea el job de test en CI aunque los tests pasen). Decisión pendiente: bajar el umbral o ampliar cobertura.
+> - 🟡 Gestión de disponibilidad/calendario del comercio (D1) — no existe ningún componente.
+> - 🟡 Editar listado ya publicado (C3) — solo existe alta.
+> - 🟡 Onboarding de comercio (A3) — el registro público solo crea clientes.
+> - 🟡 SlotHold persistente + anti-sobreventa real (hoy en memoria, sin TTL efectivo).
+> - 🟢 Revisión visual de la web (requiere levantar la app con datos).
 
 ---
 

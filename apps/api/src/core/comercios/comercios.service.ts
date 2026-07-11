@@ -6,6 +6,7 @@ import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { ReviewsService } from '../reviews/reviews.service';
+import { BookingsService } from '../bookings/bookings.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { RegistrarComercioDto } from 'shared';
 
@@ -16,6 +17,7 @@ export class ComerciosService {
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
     private readonly reviewsService: ReviewsService,
+    private readonly bookingsService: BookingsService,
   ) {}
 
   async registrar(dto: RegistrarComercioDto): Promise<ComercioDocument> {
@@ -104,5 +106,10 @@ export class ComerciosService {
   /** Responde a una reseña recibida; valida que pertenezca al comercio. */
   responderResena(resenaId: string, comercioId: string, respuesta: string): Promise<unknown> {
     return this.reviewsService.responder(resenaId, comercioId, respuesta);
+  }
+
+  /** El comercio marca como completado un servicio ya prestado. */
+  completarReserva(reservaId: string, comercioId: string): Promise<ReservaDocument> {
+    return this.bookingsService.completar(reservaId, comercioId);
   }
 }

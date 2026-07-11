@@ -62,6 +62,15 @@ export class ComerciosController {
     return this.comerciosService.obtenerReservasComercio(req.user.comercioId!, 50);
   }
 
+  @Patch('mis-reservas/:reservaId/completar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Marcar una reserva confirmada como completada (servicio ya prestado)' })
+  completarReserva(@Req() req: RequestConUser, @Param('reservaId') reservaId: string) {
+    return this.comerciosService.completarReserva(reservaId, req.user.comercioId!);
+  }
+
   @Get('mis-servicios')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
