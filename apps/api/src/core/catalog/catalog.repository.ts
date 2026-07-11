@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
+import { MONEDA_DEFAULT } from 'shared';
 import { Servicio, ServicioDocument } from './servicio.schema';
+import { Alojamiento } from '../../verticals/alojamiento/alojamiento.schema';
+import { Transporte } from '../../verticals/transporte/transporte.schema';
+import { Veterinaria } from '../../verticals/veterinaria/veterinaria.schema';
+import { Peluqueria } from '../../verticals/peluqueria/peluqueria.schema';
+import { Adiestramiento } from '../../verticals/adiestramiento/adiestramiento.schema';
 
 export interface BuscarServiciosParams {
   vertical?: string;
@@ -21,6 +27,11 @@ export interface BuscarServiciosResult {
 export class CatalogRepository {
   constructor(
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
+    @InjectModel(Alojamiento.name) private readonly alojamientoModel: Model<ServicioDocument>,
+    @InjectModel(Transporte.name) private readonly transporteModel: Model<ServicioDocument>,
+    @InjectModel(Veterinaria.name) private readonly veterinariaModel: Model<ServicioDocument>,
+    @InjectModel(Peluqueria.name) private readonly peluqueriaModel: Model<ServicioDocument>,
+    @InjectModel(Adiestramiento.name) private readonly adiestramientoModel: Model<ServicioDocument>,
   ) {}
 
   async buscar(params: BuscarServiciosParams): Promise<BuscarServiciosResult> {
@@ -61,8 +72,14 @@ export class CatalogRepository {
     precioBase: number;
     imagenes: string[];
     comercioId: string;
+    extra?: Record<string, unknown>;
   }): Promise<ServicioDocument> {
-    const doc = new this.servicioModel({
+    // El documento debe crearse con el modelo del discriminador correspondiente
+    // para que Mongoose acepte y persista los campos propios del vertical
+    // (espacios, tarifas, servicios clínicos/grooming…); el modelo base
+    // `Servicio` desconoce esos campos y los descartaría silenciosamente.
+    const Modelo = this.modeloPorVertical(data.vertical);
+    const doc = new Modelo({
       vertical: data.vertical,
       titulo: data.titulo,
       descripcion: data.descripcion,
@@ -71,9 +88,21 @@ export class CatalogRepository {
       imagenes: data.imagenes,
       comercioId: new Types.ObjectId(data.comercioId),
       estado: 'borrador',
-      moneda: 'PEN',
+      moneda: MONEDA_DEFAULT,
+      ...data.extra,
     });
     return doc.save() as unknown as Promise<ServicioDocument>;
+  }
+
+  private modeloPorVertical(vertical: string): Model<ServicioDocument> {
+    const mapa: Record<string, Model<ServicioDocument>> = {
+      alojamiento: this.alojamientoModel,
+      transporte: this.transporteModel,
+      veterinaria: this.veterinariaModel,
+      peluqueria: this.peluqueriaModel,
+      adiestramiento: this.adiestramientoModel,
+    };
+    return mapa[vertical] ?? this.servicioModel;
   }
 
   private construirFiltro(params: BuscarServiciosParams): FilterQuery<ServicioDocument> {

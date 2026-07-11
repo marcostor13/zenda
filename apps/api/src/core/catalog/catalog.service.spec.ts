@@ -44,7 +44,8 @@ describe('CatalogService', () => {
         {
           provide: CatalogRepository,
           useValue: {
-            buscar: jest.fn(), obtenerPorId: jest.fn(), contarTotal: jest.fn(), actualizarCampos: jest.fn(),
+            buscar: jest.fn(), obtenerPorId: jest.fn(), contarTotal: jest.fn(),
+            actualizarCampos: jest.fn(), crear: jest.fn(),
           },
         },
         {
@@ -191,6 +192,53 @@ describe('CatalogService', () => {
         service.actualizarDisponibilidad('serv-1', 'comercio-1', { citasDisponibles: 8 } as never),
       ).rejects.toThrow(DomainException);
       expect(repo.actualizarCampos).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('crearServicio', () => {
+    const base = { titulo: 'Test', descripcion: 'desc', ciudad: 'Madrid', precioBase: 20 };
+
+    it('debería filtrar solo los campos del vertical elegido (ignora los ajenos)', async () => {
+      repo.crear.mockResolvedValue(hotelDoc as never);
+
+      await service.crearServicio(
+        {
+          ...base, vertical: 'transporte' as never,
+          extra: { tarifaBase: 15, tarifaKm: 0.9, precioConsulta: 999, cuposDisponibles: 5 },
+        },
+        'comercio-1',
+      );
+
+      expect(repo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({ extra: { tarifaBase: 15, tarifaKm: 0.9 } }),
+      );
+    });
+
+    it('debería lanzar 400 si faltan los campos obligatorios de transporte', async () => {
+      await expect(
+        service.crearServicio({ ...base, vertical: 'transporte' as never, extra: {} }, 'comercio-1'),
+      ).rejects.toThrow(DomainException);
+      expect(repo.crear).not.toHaveBeenCalled();
+    });
+
+    it('debería lanzar 400 si alojamiento no incluye ningún espacio', async () => {
+      await expect(
+        service.crearServicio({ ...base, vertical: 'alojamiento' as never, extra: { espacios: [] } }, 'comercio-1'),
+      ).rejects.toThrow(DomainException);
+      expect(repo.crear).not.toHaveBeenCalled();
+    });
+
+    it('debería crear correctamente un servicio de veterinaria con precioConsulta', async () => {
+      repo.crear.mockResolvedValue(hotelDoc as never);
+
+      await service.crearServicio(
+        { ...base, vertical: 'veterinaria' as never, extra: { precioConsulta: 35, especialidades: ['General'] } },
+        'comercio-1',
+      );
+
+      expect(repo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({ extra: { precioConsulta: 35, especialidades: ['General'] } }),
+      );
     });
   });
 });

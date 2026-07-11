@@ -14,6 +14,41 @@ const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarD
   adiestramiento: ['cuposDisponibles'],
 };
 
+/** Todos los campos propios de cada vertical (más allá de los del Servicio base), aceptados al crear un listado. */
+const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
+  alojamiento: [
+    'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
+    'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis',
+    'barrio', 'direccion',
+  ],
+  transporte: [
+    'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm',
+    'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
+  ],
+  veterinaria: [
+    'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia',
+    'citasDisponibles', 'atiendeUrgencias', 'horario', 'precioConsulta',
+  ],
+  peluqueria: [
+    'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea',
+    'cuposDisponibles', 'aDomicilio', 'horario',
+  ],
+  adiestramiento: [
+    'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma',
+    'sesionesPorPrograma', 'edadMinimaMeses', 'aDomicilio', 'capacidadPorSesion',
+    'cuposDisponibles', 'horario',
+  ],
+};
+
+/** Campos que deben venir informados para que el listado sea reservable desde el día uno. */
+const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
+  alojamiento: ['espacios'],
+  transporte: ['tarifaBase', 'tarifaKm'],
+  veterinaria: ['precioConsulta'],
+  peluqueria: [],
+  adiestramiento: ['precioSesion'],
+};
+
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
 export interface ServicioCardDto {
   id: string;
@@ -147,6 +182,9 @@ export class CatalogService {
   }
 
   async crearServicio(dto: CrearServicioDto, comercioId: string): Promise<ServicioCardDto> {
+    const extra = this.filtrarExtraPorVertical(dto.vertical, dto.extra ?? {});
+    this.validarCamposRequeridos(dto.vertical, extra);
+
     const doc = await this.repo.crear({
       vertical: dto.vertical,
       titulo: dto.titulo,
@@ -155,8 +193,36 @@ export class CatalogService {
       precioBase: dto.precioBase,
       imagenes: dto.imagenes ?? [],
       comercioId,
+      extra,
     });
     return this.toCard(doc as unknown as ServicioLean);
+  }
+
+  /** Filtra los campos propios del vertical elegido; ignora cualquier otro campo enviado. */
+  private filtrarExtraPorVertical(vertical: string, extra: Record<string, unknown>): Record<string, unknown> {
+    const claves = CAMPOS_EXTRA_POR_VERTICAL[vertical] ?? [];
+    const filtrado: Record<string, unknown> = {};
+    for (const clave of claves) {
+      if (extra[clave] !== undefined) filtrado[clave] = extra[clave];
+    }
+    return filtrado;
+  }
+
+  /** Evita crear listados que no se podrán reservar por falta de datos clave del vertical. */
+  private validarCamposRequeridos(vertical: string, campos: Record<string, unknown>): void {
+    const requeridos = CAMPOS_REQUERIDOS_POR_VERTICAL[vertical] ?? [];
+    const faltantes = requeridos.filter((clave) => {
+      const valor = campos[clave];
+      if (valor === undefined || valor === null) return true;
+      if (Array.isArray(valor)) return valor.length === 0;
+      return false;
+    });
+    if (faltantes.length > 0) {
+      throw new DomainException(
+        `Faltan campos obligatorios para este tipo de servicio: ${faltantes.join(', ')}`,
+        400,
+      );
+    }
   }
 
   /**

@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsNumber, IsOptional, IsArray, Min } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsOptional, IsArray, IsObject, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
 
@@ -24,4 +24,13 @@ export class CrearServicioDto {
   @IsArray()
   @IsString({ each: true })
   imagenes?: string[];
+
+  /**
+   * Campos propios del vertical elegido (espacios, tarifas, servicios
+   * clínicos/grooming, cupos…). CatalogService filtra por una whitelist
+   * según `vertical`; el resto se descarta.
+   */
+  @IsOptional()
+  @IsObject()
+  extra?: Record<string, unknown>;
 }
