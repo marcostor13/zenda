@@ -272,18 +272,22 @@ interface AlojamientoRecomendado {
       }
     }
 
-    /* Overlay claro y suave: legible a la izquierda, foto visible a la derecha */
+    /* Scrim oscuro (azul real de marca): fuerte contraste a la izquierda para
+       el texto claro, foto siempre visible y cada vez más nítida a la derecha. */
     .hero__overlay {
       position: absolute;
       inset: 0;
       background: linear-gradient(90deg,
-        rgba(248,249,250,.94) 0%,
-        rgba(248,249,250,.78) 34%,
-        rgba(248,249,250,.28) 62%,
-        rgba(248,249,250,.05) 100%);
+        rgba(0,19,93,.90) 0%,
+        rgba(0,19,93,.74) 34%,
+        rgba(0,19,93,.42) 62%,
+        rgba(0,19,93,.14) 100%);
 
       @media (max-width: 768px) {
-        background: rgba(248,249,250,.86);
+        background: linear-gradient(180deg,
+          rgba(0,19,93,.78) 0%,
+          rgba(0,19,93,.88) 55%,
+          rgba(0,19,93,.92) 100%);
       }
     }
 
@@ -306,17 +310,20 @@ interface AlojamientoRecomendado {
       line-height: 1.12;
       font-size: clamp(2rem, 4.6vw, 3.125rem);
       margin-bottom: var(--sp-5);
+      text-shadow: 0 2px 16px rgba(0,8,40,.45);
     }
 
-    .hero__title-blue { color: var(--dk-blue); }
-    .hero__title-gold { color: var(--dk-gold); }
+    /* Texto claro sobre el scrim oscuro: máximo contraste + acento dorado de marca */
+    .hero__title-blue { color: #FFFFFF; }
+    .hero__title-gold { color: var(--dk-gold-light); }
 
     .hero__sub {
       font-size: var(--f-lg);
-      color: var(--t-300);
+      color: rgba(255,255,255,.92);
       line-height: 1.7;
       max-width: 46ch;
       margin-bottom: var(--sp-8);
+      text-shadow: 0 1px 10px rgba(0,8,40,.35);
     }
 
     /* Card de búsqueda blanca */
