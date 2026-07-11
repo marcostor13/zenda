@@ -5,6 +5,7 @@ import { Pago } from './pago.schema';
 import { PAYMENT_GATEWAY, PaymentGateway } from './payment-gateway.interface';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { BookingsService } from '../bookings/bookings.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { PagoEstado, VerticalKey, IVA_RATE } from 'shared';
 
@@ -72,6 +73,10 @@ describe('PaymentsService', () => {
             obtenerPorId: jest.fn().mockResolvedValue(reservaMock),
             confirmar: jest.fn().mockResolvedValue(undefined),
           },
+        },
+        {
+          provide: NotificationsService,
+          useValue: { notificarReservaConfirmada: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();
