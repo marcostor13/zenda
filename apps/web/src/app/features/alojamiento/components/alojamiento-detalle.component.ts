@@ -1,6 +1,6 @@
 import { Component, signal, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, DatePipe } from '@angular/common';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
@@ -10,7 +10,7 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
 @Component({
   selector: 'app-alojamiento-detalle',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective],
+  imports: [RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective],
   template: `
 <div class="detalle-page">
   <rs-navbar />
@@ -199,7 +199,7 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
             </div>
           </div>
           <div class="rules-list">
-            @for (r of alojamiento()!.reglas; track r) {
+            @for (r of (alojamiento()!.reglas ?? []); track r) {
               <div class="rule-item">• {{ r }}</div>
             }
           </div>
@@ -212,22 +212,24 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
             @for (r of alojamiento()!.resenas; track r.id) {
               <div class="resena-card rs-card" rsAnim>
                 <div class="resena-card__header">
-                  <div class="resena-card__avatar">{{ r.autorAvatar }}</div>
+                  <div class="resena-card__avatar">{{ r.autorNombre.charAt(0) }}</div>
                   <div>
                     <div class="resena-card__autor">{{ r.autorNombre }}</div>
-                    <div class="resena-card__meta">{{ r.pais }} · Perro {{ r.tamanoPerro }} · {{ r.fecha }}</div>
+                    <div class="resena-card__meta">{{ r.fecha | date:'d MMM yyyy' }}</div>
                   </div>
-                  <div class="resena-card__score rs-badge rs-badge--accent">{{ r.score }}</div>
+                  <div class="resena-card__score rs-badge rs-badge--accent">{{ r.puntuacion }}/5</div>
                 </div>
-                <h4 class="resena-card__titulo">{{ r.titulo }}</h4>
-                <p class="resena-card__texto">{{ r.texto }}</p>
-                @if (r.respuestaComercio) {
+                <p class="resena-card__texto">{{ r.comentario }}</p>
+                @if (r.respuesta) {
                   <div class="resena-respuesta">
                     <strong>Respuesta del alojamiento:</strong>
-                    <p>{{ r.respuestaComercio }}</p>
+                    <p>{{ r.respuesta }}</p>
                   </div>
                 }
               </div>
+            }
+            @if (alojamiento()!.resenas.length === 0) {
+              <p style="color:var(--t-400)">Todavía no hay reseñas para este alojamiento.</p>
             }
           </div>
         </div>

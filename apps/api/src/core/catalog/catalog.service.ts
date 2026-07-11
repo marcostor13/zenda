@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CatalogRepository, BuscarServiciosParams } from './catalog.repository';
+import { ReviewsService } from '../reviews/reviews.service';
+import { ResenaDocument } from '../reviews/resena.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { CrearServicioDto } from 'shared';
 
@@ -44,13 +46,23 @@ export interface HabitacionDto {
   cancelacionGratis: boolean;
 }
 
+/** Reseña real (no fabricada) tal como la ve el usuario en el detalle del servicio. */
+export interface ResenaResumenDto {
+  id: string;
+  autorNombre: string;
+  puntuacion: number;
+  comentario: string;
+  fecha: string;
+  respuesta?: string | null;
+}
+
 export interface ServicioDetalleDto extends ServicioCardDto {
   descripcion: string;
   politicaCancelacion: string;
   checkIn: string;
   checkOut: string;
   habitaciones: HabitacionDto[];
-  resenas: unknown[];
+  resenas: ResenaResumenDto[];
   comercioId: string;
 }
 
@@ -93,7 +105,10 @@ const MAX_LIMIT = 50;
 
 @Injectable()
 export class CatalogService {
-  constructor(private readonly repo: CatalogRepository) {}
+  constructor(
+    private readonly repo: CatalogRepository,
+    private readonly reviewsService: ReviewsService,
+  ) {}
 
   async buscarServicios(filtros: {
     vertical?: string;
@@ -140,7 +155,21 @@ export class CatalogService {
     if (!doc) {
       throw new DomainException('Servicio no encontrado', 404);
     }
-    return this.toDetalle(doc as unknown as ServicioLean);
+    const resenas = await this.reviewsService.listarPorServicio(id);
+    return this.toDetalle(doc as unknown as ServicioLean, resenas.map((r) => this.aResenaResumen(r)));
+  }
+
+  private aResenaResumen(r: ResenaDocument): ResenaResumenDto {
+    const conFecha = r as unknown as { createdAt?: Date | string };
+    const fecha = conFecha.createdAt instanceof Date ? conFecha.createdAt.toISOString() : (conFecha.createdAt ?? '');
+    return {
+      id: String(r._id),
+      autorNombre: r.usuarioNombre,
+      puntuacion: r.puntuacion,
+      comentario: r.comentario,
+      fecha,
+      respuesta: r.respuesta,
+    };
   }
 
   private toCard(h: ServicioLean): ServicioCardDto {
@@ -192,7 +221,7 @@ export class CatalogService {
     return extra;
   }
 
-  private toDetalle(h: ServicioLean): ServicioDetalleDto {
+  private toDetalle(h: ServicioLean, resenas: ResenaResumenDto[]): ServicioDetalleDto {
     return {
       ...this.toCard(h),
       descripcion: h.descripcion ?? '',
@@ -200,7 +229,7 @@ export class CatalogService {
       checkIn: h.checkIn ?? '12:00',
       checkOut: h.checkOut ?? '11:00',
       habitaciones: this.espaciosComoHabitaciones(h).map((hab, i) => this.toHabitacion(hab, i)),
-      resenas: [],
+      resenas,
       comercioId: h.comercioId ? String(h.comercioId) : '',
     };
   }

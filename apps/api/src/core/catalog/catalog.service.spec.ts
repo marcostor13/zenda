@@ -1,11 +1,13 @@
 import { Test } from '@nestjs/testing';
 import { CatalogService } from './catalog.service';
 import { CatalogRepository } from './catalog.repository';
+import { ReviewsService } from '../reviews/reviews.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
 describe('CatalogService', () => {
   let service: CatalogService;
   let repo: jest.Mocked<CatalogRepository>;
+  let reviewsService: jest.Mocked<ReviewsService>;
 
   const hotelDoc = {
     _id: 'hotel-1',
@@ -43,11 +45,16 @@ describe('CatalogService', () => {
           provide: CatalogRepository,
           useValue: { buscar: jest.fn(), obtenerPorId: jest.fn(), contarTotal: jest.fn() },
         },
+        {
+          provide: ReviewsService,
+          useValue: { listarPorServicio: jest.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 
     service = module.get(CatalogService);
     repo = module.get(CatalogRepository);
+    reviewsService = module.get(ReviewsService);
   });
 
   describe('buscarServicios', () => {
@@ -109,6 +116,34 @@ describe('CatalogService', () => {
       repo.obtenerPorId.mockResolvedValue(null);
 
       await expect(service.obtenerServicio('no-existe')).rejects.toThrow(DomainException);
+    });
+
+    it('debería incluir las reseñas reales del servicio (no un array vacío hardcodeado)', async () => {
+      repo.obtenerPorId.mockResolvedValue(hotelDoc as never);
+      reviewsService.listarPorServicio.mockResolvedValue([
+        {
+          _id: 'r1',
+          usuarioNombre: 'María',
+          puntuacion: 5,
+          comentario: 'Genial con mi perro',
+          respuesta: null,
+          createdAt: new Date('2026-06-01T00:00:00.000Z'),
+        },
+      ] as never);
+
+      const result = await service.obtenerServicio('hotel-1');
+
+      expect(reviewsService.listarPorServicio).toHaveBeenCalledWith('hotel-1');
+      expect(result.resenas).toEqual([
+        {
+          id: 'r1',
+          autorNombre: 'María',
+          puntuacion: 5,
+          comentario: 'Genial con mi perro',
+          fecha: '2026-06-01T00:00:00.000Z',
+          respuesta: null,
+        },
+      ]);
     });
   });
 });

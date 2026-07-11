@@ -26,12 +26,22 @@
 >
 > 7. ✅ **Onboarding de comercio (A3)**: alta en un solo paso vía `POST /comercios/registro` (público) — crea el negocio + la cuenta `comercio_admin` vinculada y devuelve sesión ya autenticada (sin login adicional); rollback del comercio si falla la creación del usuario. Nuevo componente `registro-comercio` (arregla el link muerto "Hazte partner" del home, que ya apuntaba a esta ruta).
 >
-> **Verificación acumulada:** api 34 suites / 158 tests verde; web 12 suites / 68 tests verde; `nest build` y `ng build` OK en cada bloque. 7 commits atómicos pusheados.
+> **Log de sesión 2026-07-11 (cont.) — siguiendo el orden P0/P1 de CLAUDE.md §7:**
+> Se re-auditaron las historias restantes contra el código real (H1, F3, D1, G2, A4, I2) para priorizar por el propio plan en vez de criterio libre. Confirmado: H1 (editar perfil) ✅ ya funcionaba de verdad.
+> 8. ✅ **G2 (reseñas antes de reservar)**: `CatalogService.obtenerServicio` ahora consulta `ReviewsService.listarPorServicio` en vez de devolver `resenas: []` hardcodeado. `CatalogModule` importa `ReviewsModule`.
+> 9. ✅ **Bug real encontrado y corregido**: `alojamiento-detalle` hacía `@for` sobre `reglas` (campo que el API nunca envía) sin guarda — crasheaba la página de detalle con **cualquier dato real** (no solo en el catch). Corregido con `?? []`; `reglas`/`scoreDesglose` marcados opcionales en el tipo (reflejan la realidad: el API no los calcula todavía).
+> 10. ✅ **Interfaz `Resena` (frontend) honesta**: tenía campos que el backend nunca ha enviado (`autorAvatar`, `pais`, `tamanoPerro`, `titulo`, `desglose` por reseña — vestigios de un mock nunca implementado). Reescrita a los campos reales del módulo reviews (`autorNombre`, `puntuacion`, `comentario`, `fecha`, `respuesta`); template de reseñas actualizado.
 >
-> **Pendiente (por prioridad):**
+> **Verificación acumulada:** api 34 suites / 159 tests verde; web 12 suites / 68 tests verde.
+>
+> **Pendiente (por prioridad, del propio CLAUDE.md §7):**
+> - 🔴 **D1 (P0)** Gestión de disponibilidad/cupos del comercio — no existe ningún endpoint de edición ni componente (solo alta y publicar/pausar).
+> - 🟡 **F3 (P1)** Reembolso al cancelar — `cancelar()` solo cambia estado; no hay integración de `stripe.refunds` ni método en `PaymentGateway`.
+> - 🟡 **C3 (P1)** Editar atributos del listado ya publicado — solo existe alta (`crearServicio`); no hay `PATCH` de campos.
+> - 🟡 **A4 (P1)** Recuperar contraseña — no existe ni backend ni frontend.
+> - 🟡 **I2 (P1) parcial** — el dashboard de comercio usa datos reales pero: (a) le faltan "ocupación"/"conversión" (pedidos explícitamente por la historia), (b) comisión/fee de Stripe hardcodeados en el frontend en vez de venir de `comision_configs`, (c) bug de moneda `S/`→`€` y verticales viejos en `VERTICAL_ICON` (mismo patrón que ya se corrigió en `comercio-reservas`/`comercio-resenas`).
 > - 🔴 Cobertura de tests del API por debajo del umbral del 80% exigido por `jest.config.ts` (bloquea el job de test en CI aunque los tests pasen). Decisión pendiente: bajar el umbral o ampliar cobertura.
-> - 🟡 Gestión de disponibilidad/calendario del comercio (D1) — no existe ningún componente.
-> - 🟡 Editar listado ya publicado (C3) — solo existe alta.
+> - 🟢 SlotHold persistente + anti-sobreventa real (hoy en memoria, sin TTL efectivo).
 > - 🟡 SlotHold persistente + anti-sobreventa real (hoy en memoria, sin TTL efectivo).
 > - 🟢 Revisión visual de la web (requiere levantar la app con datos).
 
