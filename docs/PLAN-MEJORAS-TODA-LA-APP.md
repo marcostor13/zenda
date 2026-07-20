@@ -7,6 +7,18 @@
 
 ---
 
+## Estado de implementación
+
+- ✅ **Fase 1 completada** (commit "aplicar mejoras Fase 1"): copy, perfiles por rol, bugs de moneda/liquidación, navbar desplegable, trust badges, footer, logo.
+- ✅ **Fase 2 completada**:
+  - Favoritos end-to-end (módulo API con tests + front: servicio, botón corazón, página `/favoritos`, integración en navbar y perfil).
+  - Métricas reales del dashboard admin (verificaciones pendientes, nuevos comercios del mes, mascotas registradas, tasa de cancelación) + barra de alertas + últimas reservas enriquecidas (cliente/comercio/fecha).
+  - Reservas cliente con mascota (🐶 desde `perroSnapshot`) y ubicación (📍) en cada tarjeta.
+  - Pendiente de Fase 2 (movido a seguimiento): finanzas/ocupación reales del comercio y desglose completo de importes en el detalle de reserva.
+- ⏳ **Fase 3–4**: pendientes (estados de reserva, incidencias, timeline, filtros avanzados, diferenciadores).
+
+---
+
 ## 0. Resumen ejecutivo
 
 El feedback se hizo sobre capturas de pantalla, por lo que algunos puntos **ya están
