@@ -27,6 +27,8 @@ interface ReservaCard {
   montoAjustado?: number;
   suplementosMotivo?: string;
   yaResenada: boolean;
+  mascota?: string;
+  ciudad?: string;
 }
 
 @Component({
@@ -78,7 +80,11 @@ interface ReservaCard {
               <span class="{{ 'rs-badge ' + estadoBadge(r.estado) }}">{{ estadoLabel(r.estado) }}</span>
             </div>
             <h3 class="reserva-row__titulo">{{ r.titulo }}</h3>
-            <p class="reserva-row__subtitulo">{{ r.subtitulo }}</p>
+            <div class="reserva-row__meta">
+              @if (r.mascota) { <span class="reserva-row__mascota">🐶 {{ r.mascota }}</span> }
+              @if (r.ciudad) { <span class="reserva-row__ciudad">📍 {{ r.ciudad }}</span> }
+              <span class="reserva-row__subtitulo">{{ r.subtitulo }}</span>
+            </div>
             <div class="reserva-row__fechas">
               <span>📅 {{ r.fechaInicio }}</span>
               @if (r.fechaFin !== r.fechaInicio) {
@@ -206,7 +212,10 @@ interface ReservaCard {
     }
 
     .reserva-row__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .reserva-row__subtitulo { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-3); }
+    .reserva-row__subtitulo { font-size: var(--f-sm); color: var(--t-400); }
+    .reserva-row__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+    .reserva-row__mascota { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
+    .reserva-row__ciudad { font-size: var(--f-sm); color: var(--t-300); }
     .reserva-row__fechas { font-size: var(--f-sm); color: var(--t-300); display: flex; gap: var(--sp-3); }
     .reserva-row__aside { text-align: right; @media (max-width: 768px) { text-align: left; } }
     .reserva-row__codigo { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-1); font-family: monospace; }
@@ -365,11 +374,13 @@ export class MisReservasComponent implements OnInit {
     const meta = this.verticalMeta(r.vertical);
     let titulo = (r.detalle?.['titulo'] as string) ?? meta.label;
     let imagen = (r.detalle?.['imagen'] as string) ?? alojamientoImage(0, 400);
+    let ciudad = (r.detalle?.['ciudad'] as string) ?? '';
 
     try {
       const servicio = await this.alojamientoService.obtener(r.servicioId);
       titulo = servicio.nombre;
       imagen = servicio.imagenes?.[0] ?? imagen;
+      ciudad = servicio.ciudad ?? ciudad;
     } catch {
       // Si no se puede hidratar, se usa el título/imagen de respaldo.
     }
@@ -389,6 +400,8 @@ export class MisReservasComponent implements OnInit {
       estado: this.normalizarEstado(r.estado),
       montoAjustado: r.montoAjustado,
       yaResenada: resenadasIds.has(id),
+      mascota: (r.perroSnapshot?.['nombre'] as string) ?? undefined,
+      ciudad: ciudad || undefined,
     };
   }
 

@@ -32,6 +32,7 @@ export interface ReservaApi {
   servicioId: string;
   comercioId: string;
   detalle?: Record<string, unknown>;
+  perroSnapshot?: Record<string, unknown>;
   montoSubtotal: number;
   comisionMonto: number;
   descuentoMonto: number;

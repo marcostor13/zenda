@@ -8,6 +8,8 @@ import { UsersModule } from '../users/users.module';
 import { Pago, PagoSchema } from '../payments/pago.schema';
 import { Reserva, ReservaSchema } from '../bookings/reserva.schema';
 import { Usuario, UsuarioSchema } from '../users/usuario.schema';
+import { Comercio, ComercioSchema } from '../comercios/comercio.schema';
+import { Perro, PerroSchema } from '../perros/perro.schema';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -16,6 +18,8 @@ import { AuthModule } from '../auth/auth.module';
       { name: Pago.name, schema: PagoSchema },
       { name: Reserva.name, schema: ReservaSchema },
       { name: Usuario.name, schema: UsuarioSchema },
+      { name: Comercio.name, schema: ComercioSchema },
+      { name: Perro.name, schema: PerroSchema },
     ]),
     ComisionConfigsModule,
     ComerciosModule,

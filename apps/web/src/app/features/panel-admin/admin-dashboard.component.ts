@@ -39,6 +39,19 @@ const ESTADO_BADGE: Record<string, string> = {
         </div>
       </div>
 
+      <!-- BARRA DE ALERTAS -->
+      @if (totalAlertas() > 0) {
+        <div class="admin-alertas">
+          <span class="admin-alertas__title">🔴 Atención requerida ({{ totalAlertas() }})</span>
+          @if (kpis().verificacionesPendientes > 0) {
+            <a routerLink="/admin/comercios" class="admin-alertas__chip">🔔 {{ kpis().verificacionesPendientes }} verificaciones pendientes</a>
+          }
+          @if (kpis().comerciosPendientesCount > 0) {
+            <a routerLink="/admin/comercios" class="admin-alertas__chip">🔔 {{ kpis().comerciosPendientesCount }} comercios por aprobar</a>
+          }
+        </div>
+      }
+
       <!-- KPIs GLOBALES -->
       <div class="admin-kpi-grid">
         <div class="admin-kpi rs-card">
@@ -86,6 +99,42 @@ const ESTADO_BADGE: Record<string, string> = {
           </div>
           <div class="admin-kpi__value">{{ kpis().totalUsuarios }}</div>
           <div class="admin-kpi__label">Usuarios registrados</div>
+        </div>
+        <div class="admin-kpi rs-card">
+          <div class="admin-kpi__top">
+            <span class="admin-kpi__icon" style="background:rgba(250,204,21,.18);color:#D97706">
+              <rs-icon name="badge-check" [size]="18" [stroke]="2"></rs-icon>
+            </span>
+          </div>
+          <div class="admin-kpi__value">{{ kpis().verificacionesPendientes }}</div>
+          <div class="admin-kpi__label">Verificaciones pendientes</div>
+        </div>
+        <div class="admin-kpi rs-card">
+          <div class="admin-kpi__top">
+            <span class="admin-kpi__icon" style="background:rgba(0,201,177,.18);color:#00C9B1">
+              <rs-icon name="building" [size]="18" [stroke]="2"></rs-icon>
+            </span>
+          </div>
+          <div class="admin-kpi__value">{{ kpis().nuevosComerciosMes }}</div>
+          <div class="admin-kpi__label">Nuevos comercios (mes)</div>
+        </div>
+        <div class="admin-kpi rs-card">
+          <div class="admin-kpi__top">
+            <span class="admin-kpi__icon" style="background:rgba(155,92,246,.18);color:#9B5CF6">
+              <rs-icon name="paw" [size]="18" [stroke]="2"></rs-icon>
+            </span>
+          </div>
+          <div class="admin-kpi__value">{{ kpis().mascotasRegistradas | number:'1.0-0' }}</div>
+          <div class="admin-kpi__label">Mascotas registradas</div>
+        </div>
+        <div class="admin-kpi rs-card">
+          <div class="admin-kpi__top">
+            <span class="admin-kpi__icon" style="background:rgba(248,113,113,.18);color:#F87171">
+              <rs-icon name="percent" [size]="18" [stroke]="2"></rs-icon>
+            </span>
+          </div>
+          <div class="admin-kpi__value">{{ kpis().tasaCancelacionMes }} %</div>
+          <div class="admin-kpi__label">Cancelaciones del mes</div>
         </div>
       </div>
 
@@ -143,8 +192,8 @@ const ESTADO_BADGE: Record<string, string> = {
                   <rs-icon [name]="iconVertical(r.vertical)" [size]="18" [stroke]="1.5"></rs-icon>
                 </span>
                 <div class="ultima-reserva__info">
-                  <div><strong>{{ r.codigo }}</strong> · {{ r.vertical }}</div>
-                  <div>{{ r.montoTotal }} € · {{ r.createdAt | date:'d MMM, HH:mm' }}</div>
+                  <div><strong>{{ r.codigo }}</strong> · {{ r.comercio }}</div>
+                  <div>{{ r.cliente }} · {{ r.montoTotal }} € · {{ (r.fechaServicio || r.createdAt) | date:'d MMM, HH:mm' }}</div>
                 </div>
                 <span class="{{ 'rs-badge ' + badgeEstado(r.estado) }}">{{ r.estado }}</span>
               </div>
@@ -221,6 +270,10 @@ const ESTADO_BADGE: Record<string, string> = {
     .admin-header h1 { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
     .admin-header p { color: var(--t-400); }
 
+    .admin-alertas { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3); border-radius: var(--r-xl); }
+    .admin-alertas__title { font-weight: var(--w-7); color: var(--t-100); font-size: var(--f-sm); }
+    .admin-alertas__chip { font-size: var(--f-xs); color: var(--t-200); background: var(--c-card); border: 1px solid var(--b-1); padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full); text-decoration: none; &:hover { border-color: var(--c-accent); } }
+
     .admin-kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-4); @media (max-width: 1280px) { grid-template-columns: repeat(3, 1fr); } @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); } }
 
     .admin-kpi { padding: var(--sp-5); }
@@ -260,6 +313,8 @@ export class AdminDashboardComponent implements OnInit {
   readonly kpis = signal({
     totalReservas: 0, gmvMes: 0, ingresosMes: 0,
     comerciosPendientesCount: 0, totalUsuarios: 0,
+    verificacionesPendientes: 0, nuevosComerciosMes: 0,
+    mascotasRegistradas: 0, tasaCancelacionMes: 0,
   });
   readonly comerciosPendientes = signal<ComercioPendiente[]>([]);
   readonly ultimasReservas = signal<UltimaReserva[]>([]);
@@ -277,6 +332,10 @@ export class AdminDashboardComponent implements OnInit {
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  totalAlertas(): number {
+    return this.kpis().verificacionesPendientes + this.kpis().comerciosPendientesCount;
   }
 
   emojiVertical(vertical: string): string {

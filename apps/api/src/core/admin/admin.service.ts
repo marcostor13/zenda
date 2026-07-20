@@ -8,6 +8,8 @@ import { UsersRepository } from '../users/users.repository';
 import { Pago, PagoDocument } from '../payments/pago.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
+import { Comercio } from '../comercios/comercio.schema';
+import { Perro, PerroDocument } from '../perros/perro.schema';
 import { ActualizarComisionDto, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, VerticalKey } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
@@ -29,6 +31,12 @@ interface ReservaLean {
   createdAt: Date;
 }
 
+interface ReservaEnriquecidaLean extends ReservaLean {
+  fechaInicio?: Date;
+  usuarioId?: { nombre?: string };
+  comercioId?: { nombreComercial?: string };
+}
+
 export interface FiltrosReporte {
   fechaDesde: Date;
   fechaHasta: Date;
@@ -45,6 +53,8 @@ export class AdminService {
     @InjectModel(Pago.name) private readonly pagoModel: Model<PagoDocument>,
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     @InjectModel(Usuario.name) private readonly usuarioModel: Model<UsuarioDocument>,
+    @InjectModel(Comercio.name) private readonly comercioModel: Model<ComercioDocument>,
+    @InjectModel(Perro.name) private readonly perroModel: Model<PerroDocument>,
   ) {}
 
   // ── Dashboard ────────────────────────────────────────────────────────────────
@@ -56,6 +66,10 @@ export class AdminService {
       ingresosMes: number;
       comerciosPendientesCount: number;
       totalUsuarios: number;
+      verificacionesPendientes: number;
+      nuevosComerciosMes: number;
+      mascotasRegistradas: number;
+      tasaCancelacionMes: number;
     };
     comerciosPendientes: Array<{
       id: string;
@@ -71,6 +85,9 @@ export class AdminService {
       montoTotal: number;
       estado: string;
       createdAt: Date;
+      fechaServicio: Date | null;
+      cliente: string;
+      comercio: string;
     }>;
     comisiones: ComisionConfigDocument[];
   }> {
@@ -84,6 +101,11 @@ export class AdminService {
       ultimasReservas,
       pagosDelMes,
       comisiones,
+      verificacionesPendientes,
+      nuevosComerciosMes,
+      mascotasRegistradas,
+      reservasDelMes,
+      canceladasDelMes,
     ] = await Promise.all([
       this.reservaModel.countDocuments().exec(),
       this.usersRepo.contarTodos(),
@@ -92,18 +114,28 @@ export class AdminService {
         .find()
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('codigo vertical montoTotal estado createdAt')
+        .select('codigo vertical montoTotal estado createdAt fechaInicio')
+        .populate('usuarioId', 'nombre')
+        .populate('comercioId', 'nombreComercial')
         .lean()
-        .exec() as unknown as Promise<ReservaLean[]>,
+        .exec() as unknown as Promise<ReservaEnriquecidaLean[]>,
       this.pagoModel.aggregate<{ gmv: number; ingresos: number }>([
         { $match: { estado: PagoEstado.APROBADO, createdAt: { $gte: inicioMes } } },
         { $group: { _id: null, gmv: { $sum: '$montoTotal' }, ingresos: { $sum: '$comisionPlataforma' } } },
       ]).exec(),
       this.comisionConfigRepo.listarTodas(),
+      this.comercioModel.countDocuments({ 'verificacion.estado': 'pendiente' }).exec(),
+      this.comercioModel.countDocuments({ createdAt: { $gte: inicioMes } }).exec(),
+      this.perroModel.countDocuments().exec(),
+      this.reservaModel.countDocuments({ createdAt: { $gte: inicioMes } }).exec(),
+      this.reservaModel.countDocuments({ createdAt: { $gte: inicioMes }, estado: ReservaEstado.CANCELADA }).exec(),
     ]);
 
     const gmvMes     = Math.round((pagosDelMes[0]?.gmv     ?? 0) * 100) / 100;
     const ingresosMes = Math.round((pagosDelMes[0]?.ingresos ?? 0) * 100) / 100;
+    const tasaCancelacionMes = reservasDelMes > 0
+      ? Math.round((canceladasDelMes / reservasDelMes) * 1000) / 10
+      : 0;
 
     return {
       kpis: {
@@ -112,6 +144,10 @@ export class AdminService {
         ingresosMes,
         comerciosPendientesCount: comerciosPendientesList.length,
         totalUsuarios,
+        verificacionesPendientes,
+        nuevosComerciosMes,
+        mascotasRegistradas,
+        tasaCancelacionMes,
       },
       comerciosPendientes: comerciosPendientesList.map((c) => ({
         id: String(c._id),
@@ -127,6 +163,9 @@ export class AdminService {
         montoTotal: r.montoTotal,
         estado: r.estado,
         createdAt: r.createdAt,
+        fechaServicio: r.fechaInicio ?? null,
+        cliente: r.usuarioId?.nombre ?? 'Cliente',
+        comercio: r.comercioId?.nombreComercial ?? 'Comercio',
       })),
       comisiones,
     };

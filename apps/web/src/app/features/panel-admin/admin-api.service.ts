@@ -9,6 +9,10 @@ export interface DashboardKpis {
   ingresosMes: number;
   comerciosPendientesCount: number;
   totalUsuarios: number;
+  verificacionesPendientes: number;
+  nuevosComerciosMes: number;
+  mascotasRegistradas: number;
+  tasaCancelacionMes: number;
 }
 
 export interface ComercioPendiente {
@@ -26,6 +30,9 @@ export interface UltimaReserva {
   montoTotal: number;
   estado: string;
   createdAt: string;
+  fechaServicio: string | null;
+  cliente: string;
+  comercio: string;
 }
 
 export interface ComisionConfig {

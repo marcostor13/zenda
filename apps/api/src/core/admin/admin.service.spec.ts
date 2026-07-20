@@ -7,6 +7,8 @@ import { UsersRepository } from '../users/users.repository';
 import { Pago } from '../payments/pago.schema';
 import { Reserva } from '../bookings/reserva.schema';
 import { Usuario } from '../users/usuario.schema';
+import { Comercio } from '../comercios/comercio.schema';
+import { Perro } from '../perros/perro.schema';
 import { VerticalKey, PagoEstado, IVA_RATE } from 'shared';
 
 describe('AdminService', () => {
@@ -14,6 +16,8 @@ describe('AdminService', () => {
   let comisionConfigRepo: jest.Mocked<ComisionConfigRepository>;
   let pagoModel: any;
   let reservaModel: any;
+  let comercioModel: any;
+  let perroModel: any;
 
   const pagosMock = [
     {
@@ -46,10 +50,17 @@ describe('AdminService', () => {
   beforeEach(async () => {
     reservaModel = {
       find: jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(reservasMock),
       }),
+      // Distintos filtros devuelven distintos conteos: total 100, del mes 10, canceladas 2.
+      countDocuments: jest.fn().mockImplementation((filtro: any = {}) => ({
+        exec: jest.fn().mockResolvedValue(filtro.estado ? 2 : filtro.createdAt ? 10 : 100),
+      })),
     };
 
     pagoModel = {
@@ -57,6 +68,17 @@ describe('AdminService', () => {
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(pagosMock),
       }),
+      aggregate: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ gmv: 885, ingresos: 112.5 }]),
+      }),
+    };
+
+    comercioModel = {
+      countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(3) }),
+    };
+
+    perroModel = {
+      countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(42) }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -80,6 +102,8 @@ describe('AdminService', () => {
         { provide: getModelToken(Pago.name), useValue: pagoModel },
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
         { provide: getModelToken(Usuario.name), useValue: {} },
+        { provide: getModelToken(Comercio.name), useValue: comercioModel },
+        { provide: getModelToken(Perro.name), useValue: perroModel },
       ],
     }).compile();
 
@@ -109,6 +133,22 @@ describe('AdminService', () => {
 
       expect(hoteles).toBeDefined();
       expect(hoteles!.totalReservas).toBe(2);
+    });
+  });
+
+  describe('obtenerDashboard', () => {
+    it('debería exponer las métricas nuevas (verificaciones, nuevos comercios, mascotas)', async () => {
+      const dashboard = await service.obtenerDashboard();
+
+      expect(dashboard.kpis.verificacionesPendientes).toBe(3);
+      expect(dashboard.kpis.nuevosComerciosMes).toBe(3);
+      expect(dashboard.kpis.mascotasRegistradas).toBe(42);
+    });
+
+    it('debería calcular la tasa de cancelación del mes (canceladas/total × 100)', async () => {
+      const dashboard = await service.obtenerDashboard();
+      // 2 canceladas sobre 10 reservas del mes = 20 %
+      expect(dashboard.kpis.tasaCancelacionMes).toBe(20);
     });
   });
 
