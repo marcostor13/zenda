@@ -19,6 +19,13 @@ export interface EvidenciaReserva {
   createdAt: Date;
 }
 
+export interface CambioEstadoReserva {
+  estado: string;
+  motivo?: string;
+  por: string; // rol o id que ejecutó el cambio (ej. 'admin')
+  at: Date;
+}
+
 @Schema({ timestamps: true, collection: 'reservas' })
 export class Reserva {
   @Prop({ required: true, unique: true })
@@ -99,6 +106,11 @@ export class Reserva {
 
   @Prop({ type: [Object], default: [] })
   evidencias!: EvidenciaReserva[];
+
+  // Timeline de estados: cada transición operativa (confirmada, en curso,
+  // pago retenido/liberado, disputa, reembolso…) queda registrada aquí.
+  @Prop({ type: [Object], default: [] })
+  historialEstados!: CambioEstadoReserva[];
 
   /** Serie de reservas recurrentes (docs §4.3): presente solo en las reservas hija. */
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva' })

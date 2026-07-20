@@ -16,6 +16,8 @@ const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success', pendiente: 'rs-badge--warning',
   cancelada: 'rs-badge--error', completada: 'rs-badge--accent', no_show: 'rs-badge--neutral',
   ajuste_solicitado: 'rs-badge--warning',
+  en_curso: 'rs-badge--accent', pago_retenido: 'rs-badge--warning',
+  pago_liberado: 'rs-badge--success', en_disputa: 'rs-badge--error', reembolsada: 'rs-badge--neutral',
 };
 
 type FiltroEstado = 'todas' | 'confirmada' | 'pendiente' | 'cancelada' | 'completada';

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -70,6 +70,8 @@ export class AdminService {
       nuevosComerciosMes: number;
       mascotasRegistradas: number;
       tasaCancelacionMes: number;
+      pagosRetenidosMonto: number;
+      pagosRetenidosCount: number;
     };
     comerciosPendientes: Array<{
       id: string;
@@ -106,6 +108,7 @@ export class AdminService {
       mascotasRegistradas,
       reservasDelMes,
       canceladasDelMes,
+      pagosRetenidosAgg,
     ] = await Promise.all([
       this.reservaModel.countDocuments().exec(),
       this.usersRepo.contarTodos(),
@@ -129,6 +132,10 @@ export class AdminService {
       this.perroModel.countDocuments().exec(),
       this.reservaModel.countDocuments({ createdAt: { $gte: inicioMes } }).exec(),
       this.reservaModel.countDocuments({ createdAt: { $gte: inicioMes }, estado: ReservaEstado.CANCELADA }).exec(),
+      this.reservaModel.aggregate<{ monto: number; count: number }>([
+        { $match: { estado: ReservaEstado.PAGO_RETENIDO } },
+        { $group: { _id: null, monto: { $sum: '$montoTotal' }, count: { $sum: 1 } } },
+      ]).exec(),
     ]);
 
     const gmvMes     = Math.round((pagosDelMes[0]?.gmv     ?? 0) * 100) / 100;
@@ -136,6 +143,8 @@ export class AdminService {
     const tasaCancelacionMes = reservasDelMes > 0
       ? Math.round((canceladasDelMes / reservasDelMes) * 1000) / 10
       : 0;
+    const pagosRetenidosMonto = Math.round((pagosRetenidosAgg[0]?.monto ?? 0) * 100) / 100;
+    const pagosRetenidosCount = pagosRetenidosAgg[0]?.count ?? 0;
 
     return {
       kpis: {
@@ -148,6 +157,8 @@ export class AdminService {
         nuevosComerciosMes,
         mascotasRegistradas,
         tasaCancelacionMes,
+        pagosRetenidosMonto,
+        pagosRetenidosCount,
       },
       comerciosPendientes: comerciosPendientesList.map((c) => ({
         id: String(c._id),
@@ -299,21 +310,77 @@ export class AdminService {
   async listarReservas(
     page = 1,
     limite = 20,
-    estado?: string,
-  ): Promise<{ items: ReservaDocument[]; total: number }> {
+    filtros: { estado?: string; comercioId?: string; buscar?: string; fechaDesde?: string; fechaHasta?: string } = {},
+  ): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
     const skip = (page - 1) * limite;
-    const filtro: Record<string, unknown> = estado ? { estado } : {};
+    const filtro: Record<string, unknown> = {};
+    if (filtros.estado) filtro['estado'] = filtros.estado;
+    if (filtros.comercioId) filtro['comercioId'] = filtros.comercioId;
+    if (filtros.buscar) {
+      const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filtro['codigo'] = new RegExp(escaped, 'i');
+    }
+    if (filtros.fechaDesde || filtros.fechaHasta) {
+      const rango: Record<string, Date> = {};
+      if (filtros.fechaDesde) rango['$gte'] = new Date(filtros.fechaDesde);
+      if (filtros.fechaHasta) rango['$lte'] = new Date(filtros.fechaHasta);
+      filtro['fechaInicio'] = rango;
+    }
+
     const [items, total] = await Promise.all([
       this.reservaModel
         .find(filtro)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limite)
+        .populate('usuarioId', 'nombre email')
+        .populate('comercioId', 'nombreComercial')
         .lean()
-        .exec() as unknown as ReservaDocument[],
+        .exec() as unknown as ReservaEnriquecidaLean[],
       this.reservaModel.countDocuments(filtro).exec(),
     ]);
-    return { items, total };
+
+    const enriquecidas = items.map((r) => ({
+      ...r,
+      id: String(r._id),
+      cliente: r.usuarioId?.nombre ?? 'Cliente',
+      comercio: r.comercioId?.nombreComercial ?? 'Comercio',
+      comisionMonto: (r as unknown as { comisionMonto?: number }).comisionMonto ?? 0,
+    }));
+
+    return { items: enriquecidas, total };
+  }
+
+  // Estados que un admin puede fijar manualmente desde el centro de reservas.
+  private static readonly ESTADOS_ADMIN = [
+    ReservaEstado.PAGO_RETENIDO,
+    ReservaEstado.PAGO_LIBERADO,
+    ReservaEstado.EN_DISPUTA,
+    ReservaEstado.REEMBOLSADA,
+    ReservaEstado.EN_CURSO,
+    ReservaEstado.CANCELADA,
+    ReservaEstado.COMPLETADA,
+  ];
+
+  async cambiarEstadoReserva(
+    id: string,
+    estado: string,
+    adminId: string,
+    motivo?: string,
+  ): Promise<ReservaDocument> {
+    if (!AdminService.ESTADOS_ADMIN.includes(estado as ReservaEstado)) {
+      throw new BadRequestException(`Estado no permitido para operación de admin: ${estado}`);
+    }
+    const reserva = await this.reservaModel.findByIdAndUpdate(
+      id,
+      {
+        estado,
+        $push: { historialEstados: { estado, motivo, por: `admin:${adminId}`, at: new Date() } },
+      },
+      { new: true },
+    ).exec();
+    if (!reserva) throw new NotFoundException('Reserva no encontrada');
+    return reserva;
   }
 
   // ── Reportes financieros ─────────────────────────────────────────────────────

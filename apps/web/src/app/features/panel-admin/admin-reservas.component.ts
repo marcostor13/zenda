@@ -1,27 +1,37 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { AdminApiService, ReservaAdmin } from './admin-api.service';
+import { AdminApiService, ReservaAdmin, FiltrosReservasAdmin } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
-const VERTICAL_EMOJI: Record<string, string> = {
-  hoteles: '🏨', vuelos: '✈️', taxis: '🚗', transporte: '🚛', guarderia: '👶',
-};
+interface EstadoMeta { badge: string; emoji: string; label: string; }
 
-const ESTADO_BADGE: Record<string, string> = {
-  confirmada: 'rs-badge--success',
-  pendiente: 'rs-badge--warning',
-  cancelada: 'rs-badge--error',
-  completada: 'rs-badge--accent',
-  no_show: 'rs-badge--neutral',
+const ESTADO_META: Record<string, EstadoMeta> = {
+  pendiente:        { badge: 'rs-badge--warning', emoji: '🟡', label: 'Pendiente' },
+  confirmada:       { badge: 'rs-badge--success', emoji: '🟢', label: 'Confirmada' },
+  ajuste_solicitado:{ badge: 'rs-badge--warning', emoji: '⚠️', label: 'Ajuste solicitado' },
+  en_curso:         { badge: 'rs-badge--accent',  emoji: '🔵', label: 'En curso' },
+  completada:       { badge: 'rs-badge--accent',  emoji: '✅', label: 'Completada' },
+  pago_retenido:    { badge: 'rs-badge--warning', emoji: '🟣', label: 'Pago retenido' },
+  pago_liberado:    { badge: 'rs-badge--success', emoji: '🟢', label: 'Pago liberado' },
+  en_disputa:       { badge: 'rs-badge--error',   emoji: '🔴', label: 'En disputa' },
+  reembolsada:      { badge: 'rs-badge--neutral', emoji: '↩️', label: 'Reembolsada' },
+  cancelada:        { badge: 'rs-badge--error',   emoji: '⚫', label: 'Cancelada' },
+  no_show:          { badge: 'rs-badge--neutral', emoji: '⚫', label: 'No show' },
 };
 
 const FILTROS_ESTADO = [
   { label: 'Todas', valor: '' },
-  { label: 'Confirmadas', valor: 'confirmada' },
   { label: 'Pendientes', valor: 'pendiente' },
-  { label: 'Canceladas', valor: 'cancelada' },
+  { label: 'Confirmadas', valor: 'confirmada' },
+  { label: 'En curso', valor: 'en_curso' },
   { label: 'Completadas', valor: 'completada' },
+  { label: 'Pago retenido', valor: 'pago_retenido' },
+  { label: 'Pago liberado', valor: 'pago_liberado' },
+  { label: 'En disputa', valor: 'en_disputa' },
+  { label: 'Reembolsadas', valor: 'reembolsada' },
+  { label: 'Canceladas', valor: 'cancelada' },
 ] as const;
 
 const LIMITE = 20;
@@ -29,13 +39,13 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-reservas',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, RsIconComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, RsIconComponent],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Reservas</h1>
-        <p class="page-sub">Historial global de reservas en todos los verticales.</p>
+        <h1 class="page-title">Gestión de reservas</h1>
+        <p class="page-sub">Centro de operaciones del marketplace: supervisa y gestiona todas las reservas.</p>
       </div>
       <div class="page-kpi rs-card">
         <span class="kpi-num">{{ total() }}</span>
@@ -43,7 +53,17 @@ const LIMITE = 20;
       </div>
     </div>
 
-    <!-- Filtros por estado -->
+    <!-- Buscador global -->
+    <div class="search-bar">
+      <input type="text" class="rs-inp" placeholder="Buscar por código (ej. RES-584921)…"
+             [(ngModel)]="buscarInput" (keyup.enter)="aplicarBusqueda()" />
+      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarBusqueda()">Buscar</button>
+      @if (buscarActivo()) {
+        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarBusqueda()">✕ Limpiar</button>
+      }
+    </div>
+
+    <!-- Filtros por estado (semáforo) -->
     <div class="filter-bar">
       @for (f of filtros; track f.valor) {
         <button
@@ -59,81 +79,80 @@ const LIMITE = 20;
     @if (errorMsg()) {
       <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ errorMsg() }}</div>
     }
+    @if (okMsg()) {
+      <div class="rs-alert rs-alert--success" style="margin-bottom:var(--sp-4)">{{ okMsg() }}</div>
+    }
 
-    <!-- Tabla -->
-    <div class="rs-card" style="padding:0;overflow:hidden">
-      <div class="tbl-head">
-        <span>Código</span>
-        <span>Vertical</span>
-        <span>Inicio</span>
-        <span style="text-align:right">Monto</span>
-        <span>Estado</span>
-        <span>Creada</span>
+    <!-- Tabla (scroll horizontal propio para móvil) -->
+    <div class="rs-card" style="padding:0;overflow-x:auto">
+      <div class="tbl-wrap">
+        <div class="tbl-head">
+          <span>Código</span>
+          <span>Cliente</span>
+          <span>Comercio</span>
+          <span style="text-align:right">Importe</span>
+          <span style="text-align:right">Comisión</span>
+          <span>Estado</span>
+          <span>Acciones</span>
+        </div>
+
+        @if (cargando()) {
+          @for (i of [1,2,3,4,5]; track i) {
+            <div class="tbl-row tbl-skeleton">
+              <div class="skel skel--md"></div><div class="skel skel--sm"></div>
+              <div class="skel skel--sm"></div><div class="skel skel--sm"></div>
+              <div class="skel skel--sm"></div><div class="skel skel--sm"></div>
+              <div class="skel skel--sm"></div>
+            </div>
+          }
+        } @else {
+          @for (r of reservas(); track r._id) {
+            <div class="tbl-row">
+              <span class="cell-mono">{{ r.codigo }}</span>
+              <span class="cell-txt">{{ r.cliente }}</span>
+              <span class="cell-txt">{{ r.comercio }}</span>
+              <span class="cell-amount">{{ r.montoTotal | number:'1.2-2' }} €</span>
+              <span class="cell-amount cell-green">{{ r.comisionMonto | number:'1.2-2' }} €</span>
+              <span><span class="rs-badge {{ meta(r.estado).badge }}">{{ meta(r.estado).emoji }} {{ meta(r.estado).label }}</span></span>
+              <span class="cell-actions">
+                @if (r.estado !== 'pago_liberado' && r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
+                  <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Liberar pago"
+                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'pago_liberado')">💸 Liberar</button>
+                }
+                @if (r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
+                  <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Reembolsar"
+                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'reembolsada')">↩️ Reembolsar</button>
+                }
+                @if (r.estado !== 'en_disputa') {
+                  <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Abrir incidencia"
+                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'en_disputa')">🔴 Disputa</button>
+                }
+              </span>
+            </div>
+          }
+          @if (reservas().length === 0) {
+            <div class="empty-state">
+              <span class="empty-icon">📅</span>
+              <p>No hay reservas{{ filtroEstado() ? ' con estado "' + meta(filtroEstado()).label + '"' : '' }}</p>
+            </div>
+          }
+        }
       </div>
-
-      @if (cargando()) {
-        @for (i of [1,2,3,4,5]; track i) {
-          <div class="tbl-row tbl-skeleton">
-            <div class="skel skel--md"></div>
-            <div class="skel skel--sm"></div>
-            <div class="skel skel--sm"></div>
-            <div class="skel skel--sm"></div>
-            <div class="skel skel--sm"></div>
-            <div class="skel skel--sm"></div>
-          </div>
-        }
-      } @else {
-        @for (r of reservas(); track r._id) {
-          <div class="tbl-row">
-            <span class="cell-mono">{{ r.codigo }}</span>
-            <span class="vertical-cell">
-              <rs-icon [name]="iconVertical(r.vertical)" [size]="15" [stroke]="2"></rs-icon>
-              {{ r.vertical }}
-            </span>
-            <span class="cell-muted">
-              {{ r.fechaInicio ? (r.fechaInicio | date:'d MMM yyyy') : '—' }}
-            </span>
-            <span class="cell-amount">€ {{ r.montoTotal | number:'1.2-2' }}</span>
-            <span>
-              <span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span>
-            </span>
-            <span class="cell-muted">{{ r.createdAt | date:'d MMM, HH:mm' }}</span>
-          </div>
-        }
-        @if (reservas().length === 0) {
-          <div class="empty-state">
-            <span class="empty-icon">📅</span>
-            <p>No hay reservas{{ filtroEstado() ? ' con estado "' + filtroEstado() + '"' : '' }}</p>
-          </div>
-        }
-      }
     </div>
 
     <!-- Paginación -->
     @if (totalPaginas() > 1) {
       <div class="pagination">
-        <button
-          class="rs-btn rs-btn--secondary rs-btn--sm"
-          [disabled]="paginaActual() <= 1"
-          (click)="cambiarPagina(paginaActual() - 1)">
-          ← Anterior
-        </button>
-        <span class="page-info">
-          Página {{ paginaActual() }} de {{ totalPaginas() }}
-          · {{ total() }} reservas
-        </span>
-        <button
-          class="rs-btn rs-btn--secondary rs-btn--sm"
-          [disabled]="paginaActual() >= totalPaginas()"
-          (click)="cambiarPagina(paginaActual() + 1)">
-          Siguiente →
-        </button>
+        <button class="rs-btn rs-btn--secondary rs-btn--sm" [disabled]="paginaActual() <= 1"
+                (click)="cambiarPagina(paginaActual() - 1)">← Anterior</button>
+        <span class="page-info">Página {{ paginaActual() }} de {{ totalPaginas() }} · {{ total() }} reservas</span>
+        <button class="rs-btn rs-btn--secondary rs-btn--sm" [disabled]="paginaActual() >= totalPaginas()"
+                (click)="cambiarPagina(paginaActual() + 1)">Siguiente →</button>
       </div>
     }
   `,
   styles: [`
     :host { display: contents; }
-
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-6); margin-bottom: var(--sp-6); flex-wrap: wrap; }
     .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
@@ -141,17 +160,19 @@ const LIMITE = 20;
     .kpi-num { display: block; font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); }
     .kpi-lbl { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
 
+    .search-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-4); flex-wrap: wrap; .rs-inp { flex: 1; min-width: 220px; } }
     .filter-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-5); flex-wrap: wrap; }
 
-    .tbl-head { display: grid; grid-template-columns: 160px 140px 130px 130px 130px 150px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
-    .tbl-row { display: grid; grid-template-columns: 160px 140px 130px 130px 130px 150px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } }
+    .tbl-wrap { min-width: 920px; }
+    .tbl-head { display: grid; grid-template-columns: 150px 1fr 1fr 120px 120px 160px 220px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
+    .tbl-row { display: grid; grid-template-columns: 150px 1fr 1fr 120px 120px 160px 220px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } }
     .tbl-skeleton { pointer-events: none; }
 
     .cell-mono { font-family: monospace; font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
-    .cell-muted { font-size: var(--f-xs); color: var(--t-400); }
+    .cell-txt { font-size: var(--f-sm); color: var(--t-200); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cell-amount { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); text-align: right; }
-
-    .vertical-cell { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-300); text-transform: capitalize; }
+    .cell-green { color: #047857; }
+    .cell-actions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 14px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 130px; }
@@ -173,22 +194,31 @@ export class AdminReservasComponent implements OnInit {
   readonly paginaActual = signal(1);
   readonly filtroEstado = signal('');
   readonly errorMsg = signal('');
+  readonly okMsg = signal('');
+  readonly accionandoId = signal('');
+  readonly buscarActivo = signal(false);
+
+  buscarInput = '';
 
   readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
-
   readonly filtros = FILTROS_ESTADO;
 
   async ngOnInit(): Promise<void> {
     await this.cargar();
   }
 
+  private filtrosActuales(): FiltrosReservasAdmin {
+    return {
+      estado: this.filtroEstado() || undefined,
+      buscar: this.buscarActivo() ? this.buscarInput.trim() : undefined,
+    };
+  }
+
   private async cargar(): Promise<void> {
     this.cargando.set(true);
     this.errorMsg.set('');
     try {
-      const result = await firstValueFrom(
-        this.adminApi.getReservas(this.paginaActual(), this.filtroEstado() || undefined),
-      );
+      const result = await firstValueFrom(this.adminApi.getReservas(this.paginaActual(), this.filtrosActuales()));
       this.reservas.set(result.items);
       this.total.set(result.total);
     } catch {
@@ -204,23 +234,42 @@ export class AdminReservasComponent implements OnInit {
     await this.cargar();
   }
 
+  async aplicarBusqueda(): Promise<void> {
+    this.buscarActivo.set(this.buscarInput.trim().length > 0);
+    this.paginaActual.set(1);
+    await this.cargar();
+  }
+
+  async limpiarBusqueda(): Promise<void> {
+    this.buscarInput = '';
+    this.buscarActivo.set(false);
+    this.paginaActual.set(1);
+    await this.cargar();
+  }
+
   async cambiarPagina(pagina: number): Promise<void> {
     this.paginaActual.set(pagina);
     await this.cargar();
   }
 
-  emojiVertical(vertical: string): string {
-    return VERTICAL_EMOJI[vertical] ?? '📋';
+  async cambiar(reserva: ReservaAdmin, estado: string): Promise<void> {
+    this.accionandoId.set(reserva._id);
+    this.okMsg.set('');
+    this.errorMsg.set('');
+    try {
+      const actualizada = await firstValueFrom(this.adminApi.cambiarEstadoReserva(reserva._id, estado));
+      this.reservas.update((list) => list.map((r) => (r._id === reserva._id ? { ...r, estado: actualizada.estado } : r)));
+      this.okMsg.set(`Reserva ${reserva.codigo} → ${this.meta(estado).label}.`);
+      setTimeout(() => this.okMsg.set(''), 3000);
+    } catch {
+      this.errorMsg.set('No se pudo cambiar el estado de la reserva.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    } finally {
+      this.accionandoId.set('');
+    }
   }
 
-  iconVertical(vertical: string): string {
-    const MAP: Record<string, string> = {
-      hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
-    };
-    return MAP[vertical] ?? 'building';
-  }
-
-  badgeEstado(estado: string): string {
-    return ESTADO_BADGE[estado] ?? 'rs-badge--neutral';
+  meta(estado: string): EstadoMeta {
+    return ESTADO_META[estado] ?? { badge: 'rs-badge--neutral', emoji: '•', label: estado };
   }
 }

@@ -15,6 +15,12 @@ const ESTADO_BADGE: Record<string, string> = {
   pendiente: 'rs-badge--warning',
   cancelada: 'rs-badge--error',
   completada: 'rs-badge--accent',
+  en_curso: 'rs-badge--accent',
+  pago_retenido: 'rs-badge--warning',
+  pago_liberado: 'rs-badge--success',
+  en_disputa: 'rs-badge--error',
+  reembolsada: 'rs-badge--neutral',
+  no_show: 'rs-badge--neutral',
 };
 
 @Component({
@@ -48,6 +54,9 @@ const ESTADO_BADGE: Record<string, string> = {
           }
           @if (kpis().comerciosPendientesCount > 0) {
             <a routerLink="/admin/comercios" class="admin-alertas__chip">🔔 {{ kpis().comerciosPendientesCount }} comercios por aprobar</a>
+          }
+          @if (kpis().pagosRetenidosCount > 0) {
+            <a routerLink="/admin/reservas" class="admin-alertas__chip">🔔 {{ kpis().pagosRetenidosCount }} pagos retenidos por liberar</a>
           }
         </div>
       }
@@ -135,6 +144,15 @@ const ESTADO_BADGE: Record<string, string> = {
           </div>
           <div class="admin-kpi__value">{{ kpis().tasaCancelacionMes }} %</div>
           <div class="admin-kpi__label">Cancelaciones del mes</div>
+        </div>
+        <div class="admin-kpi rs-card">
+          <div class="admin-kpi__top">
+            <span class="admin-kpi__icon" style="background:rgba(0,201,177,.18);color:#00C9B1">
+              <rs-icon name="euro" [size]="18" [stroke]="2"></rs-icon>
+            </span>
+          </div>
+          <div class="admin-kpi__value">{{ kpis().pagosRetenidosMonto | number:'1.0-0' }} €</div>
+          <div class="admin-kpi__label">Pagos retenidos ({{ kpis().pagosRetenidosCount }})</div>
         </div>
       </div>
 
@@ -315,6 +333,7 @@ export class AdminDashboardComponent implements OnInit {
     comerciosPendientesCount: 0, totalUsuarios: 0,
     verificacionesPendientes: 0, nuevosComerciosMes: 0,
     mascotasRegistradas: 0, tasaCancelacionMes: 0,
+    pagosRetenidosMonto: 0, pagosRetenidosCount: 0,
   });
   readonly comerciosPendientes = signal<ComercioPendiente[]>([]);
   readonly ultimasReservas = signal<UltimaReserva[]>([]);
@@ -335,7 +354,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   totalAlertas(): number {
-    return this.kpis().verificacionesPendientes + this.kpis().comerciosPendientesCount;
+    return this.kpis().verificacionesPendientes + this.kpis().comerciosPendientesCount + this.kpis().pagosRetenidosCount;
   }
 
   emojiVertical(vertical: string): string {

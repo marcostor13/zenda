@@ -13,6 +13,8 @@ export interface DashboardKpis {
   nuevosComerciosMes: number;
   mascotasRegistradas: number;
   tasaCancelacionMes: number;
+  pagosRetenidosMonto: number;
+  pagosRetenidosCount: number;
 }
 
 export interface ComercioPendiente {
@@ -69,9 +71,20 @@ export interface ReservaAdmin {
   codigo: string;
   vertical: string;
   montoTotal: number;
+  comisionMonto: number;
   estado: string;
   fechaInicio?: string;
   createdAt: string;
+  cliente: string;
+  comercio: string;
+}
+
+export interface FiltrosReservasAdmin {
+  estado?: string;
+  comercioId?: string;
+  buscar?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
 }
 
 export interface UsuarioAdmin {
@@ -217,10 +230,18 @@ export class AdminApiService {
 
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
-  getReservas(page = 1, estado?: string): Observable<PaginatedResult<ReservaAdmin>> {
+  getReservas(page = 1, filtros: FiltrosReservasAdmin = {}): Observable<PaginatedResult<ReservaAdmin>> {
     let params = new HttpParams().set('page', String(page));
-    if (estado) params = params.set('estado', estado);
+    if (filtros.estado) params = params.set('estado', filtros.estado);
+    if (filtros.comercioId) params = params.set('comercioId', filtros.comercioId);
+    if (filtros.buscar) params = params.set('buscar', filtros.buscar);
+    if (filtros.fechaDesde) params = params.set('fechaDesde', filtros.fechaDesde);
+    if (filtros.fechaHasta) params = params.set('fechaHasta', filtros.fechaHasta);
     return this.http.get<PaginatedResult<ReservaAdmin>>(`${this.adminUrl}/reservas`, { params });
+  }
+
+  cambiarEstadoReserva(id: string, estado: string, motivo?: string): Observable<ReservaAdmin> {
+    return this.http.patch<ReservaAdmin>(`${this.adminUrl}/reservas/${id}/estado`, { estado, motivo });
   }
 
   // ── Cupones ──────────────────────────────────────────────────────────────────

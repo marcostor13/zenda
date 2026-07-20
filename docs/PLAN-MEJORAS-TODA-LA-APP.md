@@ -15,7 +15,12 @@
   - Métricas reales del dashboard admin (verificaciones pendientes, nuevos comercios del mes, mascotas registradas, tasa de cancelación) + barra de alertas + últimas reservas enriquecidas (cliente/comercio/fecha).
   - Reservas cliente con mascota (🐶 desde `perroSnapshot`) y ubicación (📍) en cada tarjeta.
   - Pendiente de Fase 2 (movido a seguimiento): finanzas/ocupación reales del comercio y desglose completo de importes en el detalle de reserva.
-- ⏳ **Fase 3–4**: pendientes (estados de reserva, incidencias, timeline, filtros avanzados, diferenciadores).
+- ✅ **Fase 3 (núcleo) completada**:
+  - Nuevos estados de reserva en el enum (`en_curso`, `pago_retenido`, `pago_liberado`, `en_disputa`, `reembolsada`) + semáforo de colores propagado a las pantallas de reservas (admin, comercio).
+  - Backend: operaciones de admin sobre la reserva (reembolsar, liberar pago, abrir disputa) con whitelist de estados y registro en `historialEstados` (semilla del timeline); métrica **pagos retenidos** (monto + conteo) en el dashboard; **filtros avanzados** en `/admin/reservas` (estado, comercio, código, fechas) con cliente/comercio poblados. Tests verde (315 API).
+  - Frontend: **centro de operaciones de reservas** del admin — buscador global por código, chips de estado (incl. disputa/retenido/liberado/reembolsada), semáforo, columnas cliente/comercio/comisión y botones de acción por fila; KPI "Pagos retenidos" y alerta en el dashboard.
+  - Pendiente de Fase 3 (seguimiento): módulo de incidencias dedicado, UI de timeline en el detalle, documentación/verificación de comercio.
+- ⏳ **Fase 4**: pendiente (mapa de calor, embudo, recompensas, recordatorios, seguimiento en tiempo real, equipo/permisos).
 
 ---
 

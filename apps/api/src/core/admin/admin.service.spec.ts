@@ -51,6 +51,7 @@ describe('AdminService', () => {
     reservaModel = {
       find: jest.fn().mockReturnValue({
         sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         populate: jest.fn().mockReturnThis(),
@@ -61,6 +62,12 @@ describe('AdminService', () => {
       countDocuments: jest.fn().mockImplementation((filtro: any = {}) => ({
         exec: jest.fn().mockResolvedValue(filtro.estado ? 2 : filtro.createdAt ? 10 : 100),
       })),
+      aggregate: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ monto: 2350, count: 4 }]),
+      }),
+      findByIdAndUpdate: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ _id: 'r1', estado: 'reembolsada' }),
+      }),
     };
 
     pagoModel = {
@@ -149,6 +156,34 @@ describe('AdminService', () => {
       const dashboard = await service.obtenerDashboard();
       // 2 canceladas sobre 10 reservas del mes = 20 %
       expect(dashboard.kpis.tasaCancelacionMes).toBe(20);
+    });
+
+    it('debería exponer el monto y conteo de pagos retenidos', async () => {
+      const dashboard = await service.obtenerDashboard();
+      expect(dashboard.kpis.pagosRetenidosMonto).toBe(2350);
+      expect(dashboard.kpis.pagosRetenidosCount).toBe(4);
+    });
+  });
+
+  describe('cambiarEstadoReserva', () => {
+    it('debería rechazar un estado no permitido para el admin', async () => {
+      await expect(service.cambiarEstadoReserva('r1', 'pendiente', 'admin-1')).rejects.toThrow(
+        /no permitido/i,
+      );
+    });
+
+    it('debería actualizar el estado y registrar la transición en el historial', async () => {
+      await service.cambiarEstadoReserva('r1', 'reembolsada', 'admin-1', 'Cliente no atendido');
+      expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({
+          estado: 'reembolsada',
+          $push: expect.objectContaining({
+            historialEstados: expect.objectContaining({ estado: 'reembolsada', motivo: 'Cliente no atendido', por: 'admin:admin-1' }),
+          }),
+        }),
+        { new: true },
+      );
     });
   });
 

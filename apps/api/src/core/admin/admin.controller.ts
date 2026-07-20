@@ -158,16 +158,34 @@ export class AdminController {
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
   @Get('reservas')
-  @ApiOperation({ summary: 'Listar todas las reservas paginadas con filtro opcional por estado' })
+  @ApiOperation({ summary: 'Listar reservas paginadas (filtros: estado, comercio, código, fechas)' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limite', required: false })
   @ApiQuery({ name: 'estado', required: false })
+  @ApiQuery({ name: 'comercioId', required: false })
+  @ApiQuery({ name: 'buscar', required: false })
+  @ApiQuery({ name: 'fechaDesde', required: false })
+  @ApiQuery({ name: 'fechaHasta', required: false })
   listarReservas(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limite', new DefaultValuePipe(20), ParseIntPipe) limite: number,
     @Query('estado') estado?: string,
+    @Query('comercioId') comercioId?: string,
+    @Query('buscar') buscar?: string,
+    @Query('fechaDesde') fechaDesde?: string,
+    @Query('fechaHasta') fechaHasta?: string,
   ) {
-    return this.adminService.listarReservas(page, limite, estado);
+    return this.adminService.listarReservas(page, limite, { estado, comercioId, buscar, fechaDesde, fechaHasta });
+  }
+
+  @Patch('reservas/:id/estado')
+  @ApiOperation({ summary: 'Cambiar el estado operativo de una reserva (reembolsar, liberar pago, disputa…)' })
+  cambiarEstadoReserva(
+    @Param('id') id: string,
+    @Body() dto: { estado: string; motivo?: string },
+    @Req() req: RequestConAdmin,
+  ) {
+    return this.adminService.cambiarEstadoReserva(id, dto.estado, req.user.sub, dto.motivo);
   }
 
   // ── Reportes financieros ─────────────────────────────────────────────────────
