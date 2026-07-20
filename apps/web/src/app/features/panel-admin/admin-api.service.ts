@@ -103,6 +103,13 @@ export interface CambioEstadoReserva {
   at: string;
 }
 
+export interface AnaliticaAdmin {
+  porVertical: Array<{ vertical: string; reservas: number; porcentaje: number }>;
+  porCiudad: Array<{ ciudad: string; reservas: number }>;
+  topComercios: Array<{ comercio: string; reservas: number; facturacion: number }>;
+  embudo: { registrados: number; conReserva: number; pagaron: number };
+}
+
 export interface FiltrosReservasAdmin {
   estado?: string;
   comercioId?: string;
@@ -257,6 +264,10 @@ export class AdminApiService {
   }
 
   // ── Reservas ─────────────────────────────────────────────────────────────────
+
+  getAnalitica(): Observable<AnaliticaAdmin> {
+    return this.http.get<AnaliticaAdmin>(`${this.adminUrl}/analitica`);
+  }
 
   getReservas(page = 1, filtros: FiltrosReservasAdmin = {}): Observable<PaginatedResult<ReservaAdmin>> {
     let params = new HttpParams().set('page', String(page));

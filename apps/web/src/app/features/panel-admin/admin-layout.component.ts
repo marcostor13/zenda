@@ -8,7 +8,8 @@ const NAV_SECTIONS = [
     title: 'Visión general',
     items: [
       { icon: 'sparkles',    label: 'Dashboard',  ruta: '/admin',           exact: true  },
-      { icon: 'trending-up', label: 'Reportes',   ruta: '/admin/reportes',  exact: false },
+      { icon: 'trending-up', label: 'Analítica',  ruta: '/admin/analitica', exact: false },
+      { icon: 'euro',        label: 'Reportes',   ruta: '/admin/reportes',  exact: false },
     ],
   },
   {

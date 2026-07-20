@@ -197,6 +197,14 @@ export class AdminController {
     return this.adminService.cambiarEstadoReserva(id, dto.estado, req.user.sub, dto.motivo);
   }
 
+  // ── Analítica ────────────────────────────────────────────────────────────────
+
+  @Get('analitica')
+  @ApiOperation({ summary: 'Analítica global: distribución por vertical/ciudad, top comercios y embudo' })
+  obtenerAnalitica() {
+    return this.adminService.obtenerAnalitica();
+  }
+
   // ── Reportes financieros ─────────────────────────────────────────────────────
 
   @Get('reportes/financiero')

@@ -413,6 +413,67 @@ export class AdminService {
     return reserva;
   }
 
+  // ── Analítica (Fase 4) ───────────────────────────────────────────────────────
+
+  /**
+   * Analítica global para el panel admin: distribución por vertical, distribución
+   * geográfica (mapa de calor por ciudad), Top 5 comercios por facturación y
+   * embudo de conversión (registrados → con reserva → pagaron).
+   */
+  async obtenerAnalitica(): Promise<{
+    porVertical: Array<{ vertical: string; reservas: number; porcentaje: number }>;
+    porCiudad: Array<{ ciudad: string; reservas: number }>;
+    topComercios: Array<{ comercio: string; reservas: number; facturacion: number }>;
+    embudo: { registrados: number; conReserva: number; pagaron: number };
+  }> {
+    const [porVerticalRaw, porCiudadRaw, topComerciosRaw, registrados, usuariosConReserva, pagaron] = await Promise.all([
+      this.reservaModel.aggregate<{ _id: string; reservas: number }>([
+        { $group: { _id: '$vertical', reservas: { $sum: 1 } } },
+        { $sort: { reservas: -1 } },
+      ]).exec(),
+      this.reservaModel.aggregate<{ _id: string; reservas: number }>([
+        { $lookup: { from: 'servicios', localField: 'servicioId', foreignField: '_id', as: 'servicio' } },
+        { $unwind: '$servicio' },
+        { $group: { _id: '$servicio.ubicacion.ciudad', reservas: { $sum: 1 } } },
+        { $sort: { reservas: -1 } },
+        { $limit: 15 },
+      ]).exec(),
+      this.pagoModel.aggregate<{ nombre: string; reservas: number; facturacion: number }>([
+        { $match: { estado: PagoEstado.APROBADO } },
+        { $lookup: { from: 'reservas', localField: 'reservaId', foreignField: '_id', as: 'reserva' } },
+        { $unwind: '$reserva' },
+        { $group: { _id: '$reserva.comercioId', facturacion: { $sum: '$montoTotal' }, reservas: { $sum: 1 } } },
+        { $sort: { facturacion: -1 } },
+        { $limit: 5 },
+        { $lookup: { from: 'comercios', localField: '_id', foreignField: '_id', as: 'comercio' } },
+        { $unwind: '$comercio' },
+        { $project: { _id: 0, nombre: '$comercio.nombreComercial', reservas: 1, facturacion: 1 } },
+      ]).exec(),
+      this.usersRepo.contarTodos(),
+      this.reservaModel.distinct('usuarioId').exec().then((ids) => ids.length),
+      this.pagoModel.countDocuments({ estado: PagoEstado.APROBADO }).exec(),
+    ]);
+
+    const totalReservas = porVerticalRaw.reduce((s, v) => s + v.reservas, 0) || 1;
+
+    return {
+      porVertical: porVerticalRaw.map((v) => ({
+        vertical: v._id ?? 'desconocido',
+        reservas: v.reservas,
+        porcentaje: Math.round((v.reservas / totalReservas) * 1000) / 10,
+      })),
+      porCiudad: porCiudadRaw
+        .filter((c) => c._id)
+        .map((c) => ({ ciudad: c._id, reservas: c.reservas })),
+      topComercios: topComerciosRaw.map((c) => ({
+        comercio: c.nombre,
+        reservas: c.reservas,
+        facturacion: Math.round(c.facturacion * 100) / 100,
+      })),
+      embudo: { registrados, conReserva: usuariosConReserva, pagaron },
+    };
+  }
+
   // ── Reportes financieros ─────────────────────────────────────────────────────
 
   async generarReporteFinanciero(filtros: FiltrosReporte): Promise<ReporteFinancieroDto> {

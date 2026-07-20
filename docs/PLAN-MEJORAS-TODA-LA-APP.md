@@ -22,7 +22,9 @@
   - **Timeline de reserva**: cada transición se registra en `historialEstados` (creación, confirmación por pago, completada por comercio, y acciones de admin) y se visualiza como línea de tiempo expandible en el centro de reservas. Captura de **motivo** en disputas/reembolsos (queda en el timeline). Métrica **incidencias abiertas** (reservas en disputa) con tarjeta y alerta en el dashboard.
   - Pendiente de Fase 3 (seguimiento): módulo de incidencias con mensajería dedicada, documentación/verificación de comercio con caducidades.
 - ✅ **Residual Fase 2 — finanzas reales del comercio**: nuevo endpoint `GET /comercios/mis-finanzas` que calcula en backend (desde los pagos) facturación bruta, comisión, Stripe, **reembolsos**, liquidación neta y **próxima liquidación** (servicios prestados pendientes de pago). La pantalla de Ingresos del comercio usa estas cifras reales (con estimación front como respaldo). Tests verde (317 API).
-- ⏳ **Fase 4**: pendiente (mapa de calor, embudo, recompensas, recordatorios, seguimiento en tiempo real, equipo/permisos).
+- ✅ **Residual Fase 3 — documentación y verificación de comercio**: `verificacion.documentos[]` (tipo, URL, caducidad, estado) con auto-marcado de caducados; endpoint admin para verificar/rechazar (con motivo); UI en admin (badge + botones) y en el comercio (sección de documentación adicional).
+- 🟡 **Fase 4 (en curso) — analítica del admin**: endpoint `GET /admin/analitica` (distribución por vertical con %, distribución geográfica por ciudad, Top 5 comercios por facturación, embudo registrados→con reserva→pagaron) + nueva pantalla **Analítica** en el panel admin. Tests verde (320 API).
+  - Pendiente de Fase 4: recompensas/puntos, recordatorios de mascota, seguimiento en tiempo real, equipo/permisos de comercio.
 
 ---
 
