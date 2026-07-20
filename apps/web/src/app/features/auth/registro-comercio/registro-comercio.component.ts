@@ -14,7 +14,7 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
       <div class="rs-auth__card" style="max-width:560px">
 
         <div class="rs-auth__brand">
-          <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:70px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
+          <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
           <p>Hazte partner de Doogking</p>
           <p style="font-size:var(--f-sm);color:var(--t-400);margin-top:var(--sp-1)">
             Publica tus servicios caninos y recibe reservas online.

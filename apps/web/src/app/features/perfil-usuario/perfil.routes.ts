@@ -4,7 +4,7 @@ export const perfilRoutes: Routes = [
   {
     path: '',
     loadComponent: () =>
-      import('./perfil-dashboard.component').then(m => m.PerfilDashboardComponent),
+      import('./perfil-router.component').then(m => m.PerfilRouterComponent),
   },
   {
     path: 'editar',

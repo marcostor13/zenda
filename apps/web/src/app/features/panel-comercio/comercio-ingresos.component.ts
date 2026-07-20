@@ -6,8 +6,8 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ComercioApiService, MiReserva } from './comercio-api.service';
 
 const COMISION_PCT = 0.15;
-const STRIPE_PCT = 0.029;
-const STRIPE_FIJO_SOLES = 1.10;
+const STRIPE_PCT = 0.015;
+const STRIPE_FIJO_EUR = 0.25;
 
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success', pendiente: 'rs-badge--warning',
@@ -38,12 +38,12 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="kpi-grid">
         <div class="kpi-card rs-card">
           <div class="kpi-card__header">
-            <span class="kpi-card__label">Ingresos brutos</span>
+            <span class="kpi-card__label">Facturación del mes</span>
             <div class="kpi-card__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
               <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
             </div>
           </div>
-          <div class="kpi-card__value">S/ {{ totalIngresos() | number:'1.0-0' }}</div>
+          <div class="kpi-card__value">{{ totalIngresos() | number:'1.0-0' }} €</div>
           <div class="kpi-card__sub">Suma de todas las reservas</div>
         </div>
 
@@ -66,7 +66,7 @@ const ESTADO_BADGE: Record<string, string> = {
             </div>
           </div>
           <div class="kpi-card__value kpi-card__value--danger">
-            − S/ {{ comisionEstimada() | number:'1.0-0' }}
+            − {{ comisionEstimada() | number:'1.0-0' }} €
           </div>
           <div class="kpi-card__sub">Fee del marketplace</div>
         </div>
@@ -79,7 +79,7 @@ const ESTADO_BADGE: Record<string, string> = {
             </div>
           </div>
           <div class="kpi-card__value kpi-card__value--teal">
-            S/ {{ liquidacionEstimada() | number:'1.0-0' }}
+            {{ liquidacionEstimada() | number:'1.0-0' }} €
           </div>
           <div class="kpi-card__sub">Ingresos − comisión − Stripe</div>
         </div>
@@ -89,21 +89,21 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="rs-card fin-card">
         <h3 class="fin-card__title">Desglose financiero</h3>
         <div class="fin-row">
-          <span>Ingresos brutos (GMV)</span>
-          <strong>S/ {{ totalIngresos() | number:'1.2-2' }}</strong>
+          <span>Facturación bruta (GMV)</span>
+          <strong>{{ totalIngresos() | number:'1.2-2' }} €</strong>
         </div>
         <div class="fin-row fin-row--minus">
           <span>Comisión plataforma (15%)</span>
-          <strong>− S/ {{ comisionEstimada() | number:'1.2-2' }}</strong>
+          <strong>− {{ comisionEstimada() | number:'1.2-2' }} €</strong>
         </div>
         <div class="fin-row fin-row--minus">
-          <span>Fee Stripe estimado (2.9% + S/ 1.10 × reservas)</span>
-          <strong>− S/ {{ feeStripeTotal() | number:'1.2-2' }}</strong>
+          <span>Fee Stripe estimado (1,5% + 0,25 € × reservas)</span>
+          <strong>− {{ feeStripeTotal() | number:'1.2-2' }} €</strong>
         </div>
         <hr class="fin-divider">
         <div class="fin-row fin-row--total">
           <strong>Liquidación neta estimada</strong>
-          <strong class="fin-total">S/ {{ liquidacionEstimada() | number:'1.2-2' }}</strong>
+          <strong class="fin-total">{{ liquidacionEstimada() | number:'1.2-2' }} €</strong>
         </div>
       </div>
 
@@ -127,9 +127,9 @@ const ESTADO_BADGE: Record<string, string> = {
                   <td><code>{{ r.codigo }}</code></td>
                   <td style="text-transform:capitalize">{{ r.vertical }}</td>
                   <td>{{ r.fechaInicio | date:'d MMM yy' }}</td>
-                  <td>S/ {{ r.montoTotal | number:'1.2-2' }}</td>
-                  <td class="text-danger">− S/ {{ comisionReserva(r) | number:'1.2-2' }}</td>
-                  <td class="text-teal">S/ {{ liquidacionReserva(r) | number:'1.2-2' }}</td>
+                  <td>{{ r.montoTotal | number:'1.2-2' }} €</td>
+                  <td class="text-danger">− {{ comisionReserva(r) | number:'1.2-2' }} €</td>
+                  <td class="text-teal">{{ liquidacionReserva(r) | number:'1.2-2' }} €</td>
                   <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
                 </tr>
               }
@@ -191,7 +191,7 @@ export class ComercioIngresosComponent implements OnInit {
   readonly comisionEstimada = computed(() => this.totalIngresos() * COMISION_PCT);
   readonly feeStripeTotal = computed(() =>
     this.reservas().length > 0
-      ? this.totalIngresos() * STRIPE_PCT + STRIPE_FIJO_SOLES * this.reservas().length
+      ? this.totalIngresos() * STRIPE_PCT + STRIPE_FIJO_EUR * this.reservas().length
       : 0,
   );
   readonly liquidacionEstimada = computed(() => this.totalIngresos() - this.comisionEstimada() - this.feeStripeTotal());
@@ -207,7 +207,7 @@ export class ComercioIngresosComponent implements OnInit {
   }
 
   comisionReserva(r: MiReserva): number { return r.montoTotal * COMISION_PCT; }
-  feeStripeReserva(r: MiReserva): number { return r.montoTotal * STRIPE_PCT + STRIPE_FIJO_SOLES; }
+  feeStripeReserva(r: MiReserva): number { return r.montoTotal * STRIPE_PCT + STRIPE_FIJO_EUR; }
   liquidacionReserva(r: MiReserva): number { return r.montoTotal - this.comisionReserva(r) - this.feeStripeReserva(r); }
   badgeEstado(e: string): string { return ESTADO_BADGE[e] ?? 'rs-badge--neutral'; }
 }

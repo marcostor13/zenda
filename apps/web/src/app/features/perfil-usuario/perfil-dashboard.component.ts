@@ -6,6 +6,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { hotelImage } from '../../shared/media/images';
 import { ReservasService, ReservaApi } from '../reservas/services/reservas.service';
+import { PerrosService, PerroApi } from '../perros/perros.service';
 
 interface MiniReserva {
   codigo: string;
@@ -76,6 +77,48 @@ interface ConfigItem {
           </div>
           <div class="rs-stat__value">{{ s.value }}</div>
           <div class="rs-stat__label">{{ s.label }}</div>
+        </div>
+      }
+    </div>
+
+    <!-- MIS MASCOTAS -->
+    <div class="perfil-section" style="margin-bottom:var(--sp-8)">
+      <div class="section-row-header">
+        <h2>🐾 Mis mascotas</h2>
+        <a routerLink="/perros" class="rs-link">Gestionar →</a>
+      </div>
+
+      @if (mascotas().length === 0) {
+        <div class="rs-card" style="padding:var(--sp-8);text-align:center">
+          <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-4)">
+            Todavía no has registrado ninguna mascota. Toda la información de tu perro, en un solo lugar.
+          </p>
+          <a routerLink="/perros/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">
+            <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon>
+            Añadir mascota
+          </a>
+        </div>
+      } @else {
+        <div class="mascotas-grid">
+          @for (m of mascotas(); track m._id) {
+            <a [routerLink]="['/perros', m._id, 'editar']" class="mascota-card rs-card">
+              <div class="mascota-card__avatar">
+                @if (m.fotos?.length) {
+                  <img [src]="m.fotos[0]" [alt]="m.nombre" rsImg />
+                } @else {
+                  <span>🐶</span>
+                }
+              </div>
+              <div class="mascota-card__info">
+                <strong>{{ m.nombre }}</strong>
+                <span>{{ m.raza || (m.esMestizo ? 'Mestizo' : 'Perro') }}@if (m.peso) { · {{ m.peso }} kg }</span>
+              </div>
+            </a>
+          }
+          <a routerLink="/perros/nuevo" class="mascota-card mascota-card--add rs-card">
+            <rs-icon name="plus" [size]="20" [stroke]="2"></rs-icon>
+            <span>Añadir mascota</span>
+          </a>
         </div>
       }
     </div>
@@ -205,6 +248,23 @@ interface ConfigItem {
       span { font-size: var(--f-xs); color: var(--t-400); }
     }
 
+    .mascotas-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--sp-4);
+    }
+    .mascota-card {
+      display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4);
+      text-decoration: none; transition: border-color var(--d-2);
+      &:hover { border-color: var(--c-accent); }
+    }
+    .mascota-card__avatar {
+      width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+      background: var(--c-raised); display: flex; align-items: center; justify-content: center;
+      font-size: var(--f-xl); overflow: hidden;
+      img { width: 100%; height: 100%; object-fit: cover; }
+    }
+    .mascota-card__info { min-width: 0; strong { display: block; font-size: var(--f-sm); color: var(--t-100); } span { font-size: var(--f-xs); color: var(--t-400); } }
+    .mascota-card--add { justify-content: center; color: var(--c-accent); font-size: var(--f-sm); font-weight: var(--w-6); border-style: dashed; }
+
     .config-list { display: flex; flex-direction: column; gap: var(--sp-2); }
     .config-item {
       display: flex; align-items: center; gap: var(--sp-4);
@@ -230,6 +290,7 @@ interface ConfigItem {
 export class PerfilDashboardComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly reservasService = inject(ReservasService);
+  private readonly perrosService = inject(PerrosService);
 
   readonly usuario = this.authService.usuario;
 
@@ -244,15 +305,16 @@ export class PerfilDashboardComponent implements OnInit {
 
   readonly stats = signal<StatItem[]>([
     { icon: 'calendar', iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)', value: '0', label: 'Reservas totales' },
-    { icon: 'check-circle', iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: '0', label: 'Completadas' },
-    { icon: 'star', iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: '—', label: 'Rating promedio' },
-    { icon: 'globe', iconColor: '#8B5CF6', iconBg: 'rgba(139,92,246,.12)', value: '—', label: 'Destinos visitados' },
+    { icon: 'check-circle', iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: '0', label: 'Servicios disfrutados' },
+    { icon: 'paw', iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: '0', label: 'Mis mascotas' },
+    { icon: 'zap', iconColor: '#8B5CF6', iconBg: 'rgba(139,92,246,.12)', value: '0', label: 'Próximas reservas' },
   ]);
 
   readonly reservasRecientes = signal<MiniReserva[]>([]);
+  readonly mascotas = signal<PerroApi[]>([]);
 
   readonly configItems: ConfigItem[] = [
-    { icon: 'paw',         label: 'Mis perros',          sub: 'Ficha inteligente de tus mascotas', ruta: '/perros' },
+    { icon: 'paw',         label: 'Mis mascotas',        sub: 'Ficha inteligente de tus mascotas', ruta: '/perros' },
     { icon: 'user',        label: 'Datos personales',   sub: 'Nombre, email, teléfono',   ruta: '/perfil/editar' },
     { icon: 'lock',        label: 'Seguridad',           sub: 'Contraseña y acceso',       ruta: '/perfil/seguridad' },
     { icon: 'bell',        label: 'Notificaciones',      sub: 'Email, WhatsApp, push',     ruta: '/perfil/notificaciones' },
@@ -262,13 +324,18 @@ export class PerfilDashboardComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      const apiReservas = await this.reservasService.misReservas();
+      const [apiReservas, misMascotas] = await Promise.all([
+        this.reservasService.misReservas(),
+        this.perrosService.misPerros().catch(() => [] as PerroApi[]),
+      ]);
       const completadas = apiReservas.filter(r => r.estado === 'completada').length;
+      const proximas = apiReservas.filter(r => r.estado === 'confirmada' || r.estado === 'pendiente').length;
+      this.mascotas.set(misMascotas);
       this.stats.set([
         { icon: 'calendar',    iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)',  value: String(apiReservas.length), label: 'Reservas totales' },
-        { icon: 'check-circle',iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: String(completadas),         label: 'Completadas' },
-        { icon: 'star',        iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: '—',                         label: 'Rating promedio' },
-        { icon: 'globe',       iconColor: '#8B5CF6', iconBg: 'rgba(139,92,246,.12)', value: '—',                         label: 'Destinos visitados' },
+        { icon: 'check-circle',iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: String(completadas),         label: 'Servicios disfrutados' },
+        { icon: 'paw',         iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: String(misMascotas.length),  label: 'Mis mascotas' },
+        { icon: 'zap',       iconColor: '#8B5CF6', iconBg: 'rgba(139,92,246,.12)', value: String(proximas),            label: 'Próximas reservas' },
       ]);
       this.reservasRecientes.set(apiReservas.slice(0, 3).map(r => this.toMini(r)));
     } catch {

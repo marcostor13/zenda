@@ -69,7 +69,7 @@ import { AdminApiService } from './admin-api.service';
           </div>
           <div class="form-2">
             <div class="rs-form-group">
-              <label class="rs-label">Tope descuento S/ (0 = sin tope)</label>
+              <label class="rs-label">Tope descuento € (0 = sin tope)</label>
               <input formControlName="topeDescuento" type="number" class="rs-input" placeholder="0" />
             </div>
             <div class="rs-form-group">
@@ -105,7 +105,7 @@ import { AdminApiService } from './admin-api.service';
               <div class="cupon-info">
                 <div class="cupon-codigo">{{ c.codigo }}</div>
                 <div class="cupon-meta">
-                  {{ c.tipo === 'porcentaje' ? (c.valor * 100).toFixed(0) + '%' : 'S/ ' + c.valor }}
+                  {{ c.tipo === 'porcentaje' ? (c.valor * 100).toFixed(0) + '%' : c.valor + ' €' }}
                   · {{ c.vertical }}
                   @if ((c.usoMaximo ?? 0) > 0) { · máx {{ c.usoMaximo }} usos }
                 </div>

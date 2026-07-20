@@ -190,12 +190,24 @@ type SearchMode = 'filtros' | 'ia';
     </div>
   </section>
 
+  <!-- ═══ CONFIANZA VISIBLE ════════════════════════════════════════ -->
+  <section class="trust-strip">
+    <div class="rs-wrap">
+      <div class="trust-strip__row" rsAnim>
+        <div class="trust-item"><span class="trust-item__icon">✅</span> Comercios verificados</div>
+        <div class="trust-item"><span class="trust-item__icon">⭐</span> Más de 10.000 reseñas reales</div>
+        <div class="trust-item"><span class="trust-item__icon">🔒</span> Pagos seguros con Stripe</div>
+        <div class="trust-item"><span class="trust-item__icon">🐾</span> Soporte especializado en mascotas</div>
+      </div>
+    </div>
+  </section>
+
   <!-- ═══ NUESTROS SERVICIOS REALES ═══════════════════════════════ -->
   <section class="rs-section services-section">
     <div class="rs-wrap">
       <div class="section-header" rsAnim>
         <h2 class="rs-h2">Nuestros servicios <span class="services-gold">reales</span></h2>
-        <p>Todo lo que necesitas para darle a tu perro un cuidado de reyes, en cinco categorías.</p>
+        <p>Todo lo que necesitas para darle a tu perro un cuidado de reyes, en un solo lugar.</p>
       </div>
 
       <div class="services__row" rsAnim>
@@ -283,11 +295,20 @@ type SearchMode = 'filtros' | 'ia';
         </ul>
       </div>
       <div class="rs-footer__col">
-        <h4>Más</h4>
+        <h4>Descubre</h4>
         <ul>
           <li><a routerLink="/buscador">Buscador</a></li>
-          <li><a routerLink="/auth/registro">Crear cuenta</a></li>
-          <li><a routerLink="/auth/registro-comercio">Hazte partner</a></li>
+          <li><a routerLink="/buscador" [queryParams]="{ tipo: 'playas' }">Playas caninas</a></li>
+          <li><a routerLink="/buscador" [queryParams]="{ tipo: 'parques' }">Parques caninos</a></li>
+          <li><a routerLink="/hoteles">Hoteles pet friendly</a></li>
+        </ul>
+      </div>
+      <div class="rs-footer__col">
+        <h4>Empresas</h4>
+        <ul>
+          <li><a routerLink="/auth/registro-comercio">Registrar negocio</a></li>
+          <li><a routerLink="/auth/registro-comercio">Tarifas profesionales</a></li>
+          <li><a routerLink="/auth/registro-comercio">Ventajas de Doogking</a></li>
           <li><a routerLink="/ayuda">Centro de ayuda</a></li>
           <li><a routerLink="/contacto">Contacto</a></li>
         </ul>
@@ -304,8 +325,8 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-footer__bottom">
       <p>© 2026 Doogking · Todos los derechos reservados</p>
       <div class="rs-flex rs-gap-4" style="flex-wrap:wrap">
-        <span class="rs-badge rs-badge--neutral home-footer__badge">IVA 21% incluido</span>
-        <span class="rs-badge rs-badge--neutral home-footer__badge">Pagos seguros Stripe</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge">🔒 Pago seguro Stripe</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge">✅ Empresas verificadas</span>
       </div>
     </div>
   </footer>
@@ -313,6 +334,21 @@ type SearchMode = 'filtros' | 'ia';
   `,
   styles: [`
     :host { display: block; }
+
+    /* ── TRUST STRIP ───────────────────────────────────────────────── */
+    .trust-strip {
+      background: var(--c-card);
+      border-block: 1px solid var(--b-1);
+      padding-block: var(--sp-5);
+    }
+    .trust-strip__row {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-6);
+    }
+    .trust-item {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200);
+    }
+    .trust-item__icon { font-size: var(--f-base); }
 
     /* ── HERO ──────────────────────────────────────────────────────── */
     .hero {
@@ -882,11 +918,12 @@ export class HomeComponent {
     'Peluquería canina en Valencia',
   ];
 
+  // Orden por frecuencia de uso: el veterinario es el servicio más habitual.
   readonly verticales: Vertical[] = [
-    { key: VerticalKey.ALOJAMIENTO,    icon: 'hotel',          label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    route: VERTICAL_ROUTES['alojamiento'],    badge: CATEGORIA_BADGES['alojamiento'] },
-    { key: VerticalKey.TRANSPORTE,     icon: 'truck',          label: VERTICAL_LABELS[VerticalKey.TRANSPORTE],     route: VERTICAL_ROUTES['transporte'],     badge: CATEGORIA_BADGES['transporte'] },
     { key: VerticalKey.VETERINARIA,    icon: 'stethoscope',    label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    route: VERTICAL_ROUTES['veterinaria'],    badge: CATEGORIA_BADGES['veterinaria'] },
     { key: VerticalKey.PELUQUERIA,     icon: 'scissors',       label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     route: VERTICAL_ROUTES['peluqueria'],     badge: CATEGORIA_BADGES['peluqueria'] },
+    { key: VerticalKey.ALOJAMIENTO,    icon: 'hotel',          label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    route: VERTICAL_ROUTES['alojamiento'],    badge: CATEGORIA_BADGES['alojamiento'] },
+    { key: VerticalKey.TRANSPORTE,     icon: 'truck',          label: VERTICAL_LABELS[VerticalKey.TRANSPORTE],     route: VERTICAL_ROUTES['transporte'],     badge: CATEGORIA_BADGES['transporte'] },
     { key: VerticalKey.ADIESTRAMIENTO, icon: 'graduation-cap', label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], route: VERTICAL_ROUTES['adiestramiento'], badge: CATEGORIA_BADGES['adiestramiento'] },
     { key: VerticalKey.HOTELES,        icon: 'building',       label: VERTICAL_LABELS[VerticalKey.HOTELES],        route: VERTICAL_ROUTES['hoteles'],        badge: CATEGORIA_BADGES['hoteles'] },
   ];

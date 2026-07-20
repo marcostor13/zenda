@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed, HostListener } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
@@ -38,13 +38,34 @@ import { RsIconComponent } from '../icon/rs-icon.component';
               Mi Comercio
             </a>
           }
-          <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--sm">Mi perfil</a>
-          <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--sm">Mis perros</a>
-          <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--sm">Mis reservas</a>
-          <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarSesion()">
-            <rs-icon name="log-out" [size]="14" [stroke]="2"></rs-icon>
-            Salir
-          </button>
+          <div class="rs-navbar__account" (click)="$event.stopPropagation()">
+            <button type="button" class="rs-btn rs-btn--primary rs-btn--sm rs-navbar__account-btn"
+                    (click)="cuentaAbierto.set(!cuentaAbierto())" [attr.aria-expanded]="cuentaAbierto()">
+              <span class="rs-navbar__avatar">{{ iniciales() }}</span>
+              Mi cuenta
+              <rs-icon name="chevron-down" [size]="14" [stroke]="2"></rs-icon>
+            </button>
+            @if (cuentaAbierto()) {
+              <div class="rs-navbar__dropdown">
+                <a routerLink="/perfil"          class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="user" [size]="15" [stroke]="2"></rs-icon> Mi perfil
+                </a>
+                <a routerLink="/perros"          class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="paw" [size]="15" [stroke]="2"></rs-icon> Mis mascotas
+                </a>
+                <a routerLink="/reservas"        class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="calendar" [size]="15" [stroke]="2"></rs-icon> Mis reservas
+                </a>
+                <a routerLink="/perfil/resenas"  class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="star" [size]="15" [stroke]="2"></rs-icon> Mis reseñas
+                </a>
+                <div class="rs-navbar__dropdown-divider"></div>
+                <button type="button" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--danger" (click)="cerrarSesion()">
+                  <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> Cerrar sesión
+                </button>
+              </div>
+            }
+          </div>
         } @else {
           <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm">Ingresar</a>
           <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm">Comenzar</a>
@@ -102,7 +123,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
               </a>
             }
             <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mi perfil</a>
-            <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis perros</a>
+            <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis mascotas</a>
             <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis reservas</a>
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cerrarSesion()">
               <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon>
@@ -117,6 +138,34 @@ import { RsIconComponent } from '../icon/rs-icon.component';
     }
   `,
   styles: [`
+    /* Account dropdown (desktop) */
+    .rs-navbar__account { position: relative; }
+    .rs-navbar__account-btn { display: inline-flex; align-items: center; gap: var(--sp-2); }
+    .rs-navbar__avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(255,255,255,.25); display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: var(--w-7);
+    }
+    .rs-navbar__dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0; z-index: var(--z-3);
+      min-width: 220px; padding: var(--sp-2);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
+      display: flex; flex-direction: column; gap: 2px;
+      animation: slideDown 160ms cubic-bezier(.4,0,.2,1) both;
+    }
+    .rs-navbar__dropdown-item {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-3); width: 100%;
+      font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-200);
+      background: transparent; border: none; border-radius: var(--r-lg);
+      text-decoration: none; cursor: pointer; text-align: left;
+      transition: all var(--d-1);
+      &:hover { background: var(--c-raised); color: var(--t-100); }
+    }
+    .rs-navbar__dropdown-item--danger { color: var(--c-red, #B91C1C); &:hover { color: var(--c-red, #B91C1C); } }
+    .rs-navbar__dropdown-divider { height: 1px; background: var(--b-1); margin: var(--sp-1) 0; }
+
     /* Hamburger: hidden on desktop */
     .rs-navbar__hamburger {
       display: none;
@@ -199,9 +248,22 @@ export class RsNavbarComponent {
   readonly esAdmin = this.authService.esAdmin;
   readonly esComercio = this.authService.esComercio;
   readonly menuAbierto = signal(false);
+  readonly cuentaAbierto = signal(false);
+
+  readonly iniciales = computed(() => {
+    const nombre = this.authService.usuario()?.nombre ?? '';
+    return nombre.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || '🐾';
+  });
+
+  /** Cierra el desplegable de cuenta al hacer clic fuera de él. */
+  @HostListener('document:click')
+  cerrarDropdownCuenta(): void {
+    this.cuentaAbierto.set(false);
+  }
 
   cerrarSesion(): void {
     this.menuAbierto.set(false);
+    this.cuentaAbierto.set(false);
     this.authService.logout();
   }
 }

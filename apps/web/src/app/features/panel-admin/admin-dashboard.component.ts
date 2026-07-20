@@ -6,7 +6,8 @@ import { AdminApiService, ComisionConfig, ComercioPendiente, UltimaReserva } fro
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 const VERTICAL_EMOJI: Record<string, string> = {
-  hoteles: '🏨', vuelos: '✈️', taxis: '🚗', transporte: '🚛', guarderia: '👶',
+  alojamiento: '🏠', transporte: '🚐', veterinaria: '🩺',
+  peluqueria: '✂️', adiestramiento: '🎓', hoteles: '🏨', global: '🌐',
 };
 
 const ESTADO_BADGE: Record<string, string> = {
@@ -46,8 +47,9 @@ const ESTADO_BADGE: Record<string, string> = {
               <rs-icon name="trending-up" [size]="18" [stroke]="2"></rs-icon>
             </span>
           </div>
-          <div class="admin-kpi__value">S/ {{ kpis().gmvMes | number:'1.0-0' }}</div>
-          <div class="admin-kpi__label">GMV del mes</div>
+          <div class="admin-kpi__value">{{ kpis().gmvMes | number:'1.0-0' }} €</div>
+          <div class="admin-kpi__label">Facturación bruta del mes</div>
+          <div class="admin-kpi__hint">Importe total gestionado por la plataforma</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
@@ -55,8 +57,8 @@ const ESTADO_BADGE: Record<string, string> = {
               <rs-icon name="euro" [size]="18" [stroke]="2"></rs-icon>
             </span>
           </div>
-          <div class="admin-kpi__value">S/ {{ kpis().ingresosMes | number:'1.0-0' }}</div>
-          <div class="admin-kpi__label">Ingresos netos</div>
+          <div class="admin-kpi__value">{{ kpis().ingresosMes | number:'1.0-0' }} €</div>
+          <div class="admin-kpi__label">Comisión Doogking del mes</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
@@ -142,7 +144,7 @@ const ESTADO_BADGE: Record<string, string> = {
                 </span>
                 <div class="ultima-reserva__info">
                   <div><strong>{{ r.codigo }}</strong> · {{ r.vertical }}</div>
-                  <div>S/ {{ r.montoTotal }} · {{ r.createdAt | date:'d MMM, HH:mm' }}</div>
+                  <div>{{ r.montoTotal }} € · {{ r.createdAt | date:'d MMM, HH:mm' }}</div>
                 </div>
                 <span class="{{ 'rs-badge ' + badgeEstado(r.estado) }}">{{ r.estado }}</span>
               </div>
@@ -169,6 +171,7 @@ const ESTADO_BADGE: Record<string, string> = {
             <span>Vertical</span>
             <span>Comisión (%)</span>
             <span>Fee Stripe</span>
+            <span>Comisión total</span>
             <span>Estado</span>
           </div>
           @for (c of comisiones(); track c.vertical) {
@@ -181,7 +184,10 @@ const ESTADO_BADGE: Record<string, string> = {
                 <span style="color:var(--t-400)">%</span>
               </div>
               <span style="color:var(--t-400);font-size:var(--f-sm)">
-                {{ (c.stripePct * 100).toFixed(1) }}% + S/ {{ c.stripeFijoEur.toFixed(2) }}
+                {{ (c.stripePct * 100).toFixed(1) }}% + {{ c.stripeFijoEur.toFixed(2) }} €
+              </span>
+              <span style="font-weight:var(--w-7);color:var(--t-100);font-size:var(--f-sm)">
+                {{ comisionTotal(c) }}%
               </span>
               <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
                 <input type="checkbox" [checked]="c.activo" (change)="c.activo = !c.activo"
@@ -222,6 +228,7 @@ const ESTADO_BADGE: Record<string, string> = {
     .admin-kpi__icon { width: 36px; height: 36px; border-radius: var(--r-lg); display: flex; align-items: center; justify-content: center; }
     .admin-kpi__value { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
     .admin-kpi__label { font-size: var(--f-xs); color: var(--t-400); }
+    .admin-kpi__hint { font-size: 10px; color: var(--t-500, var(--t-400)); margin-top: 2px; line-height: 1.3; }
 
     .admin-panel { padding: var(--sp-6); }
     .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-5); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
@@ -238,8 +245,8 @@ const ESTADO_BADGE: Record<string, string> = {
     .ultima-reserva__info { flex: 1; font-size: var(--f-sm); color: var(--t-300); div:first-child { color: var(--t-100); margin-bottom: 2px; } strong { color: var(--t-100); } }
 
     .comisiones-table { background: var(--c-raised); border-radius: var(--r-xl); overflow: hidden; }
-    .comisiones-head { display: grid; grid-template-columns: 1fr 160px 180px 120px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); }
-    .comisiones-row { display: grid; grid-template-columns: 1fr 160px 180px 120px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); &:last-child { border: none; } &:hover { background: var(--c-card); } }
+    .comisiones-head { display: grid; grid-template-columns: 1fr 160px 180px 120px 120px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); }
+    .comisiones-row { display: grid; grid-template-columns: 1fr 160px 180px 120px 120px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); &:last-child { border: none; } &:hover { background: var(--c-card); } }
     .comision-vertical { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
   `],
 })
@@ -274,6 +281,11 @@ export class AdminDashboardComponent implements OnInit {
 
   emojiVertical(vertical: string): string {
     return VERTICAL_EMOJI[vertical] ?? '📋';
+  }
+
+  /** Comisión plataforma + fee variable de Stripe, redondeado a 1 decimal (ej. 12% + 1,5% = 13,5%). */
+  comisionTotal(comision: ComisionConfig): string {
+    return ((comision.comisionPct + comision.stripePct) * 100).toFixed(1).replace('.', ',');
   }
 
   iconVertical(vertical: string): string {

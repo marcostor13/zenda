@@ -93,7 +93,7 @@ const LIMITE = 20;
             <span class="cell-muted">
               {{ r.fechaInicio ? (r.fechaInicio | date:'d MMM yyyy') : '—' }}
             </span>
-            <span class="cell-amount">S/ {{ r.montoTotal | number:'1.2-2' }}</span>
+            <span class="cell-amount">€ {{ r.montoTotal | number:'1.2-2' }}</span>
             <span>
               <span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span>
             </span>

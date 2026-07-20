@@ -20,7 +20,7 @@ const ESTADO_BADGE: Record<string, string> = {
     <!-- HEADER -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Dashboard</h1>
+        <h1 class="page-title">Panel de control</h1>
         <p class="page-sub">Bienvenido, {{ nombreComercio() }}</p>
       </div>
       <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">
@@ -33,12 +33,12 @@ const ESTADO_BADGE: Record<string, string> = {
     <div class="kpi-grid">
       <div class="kpi-card rs-card">
         <div class="kpi-card__header">
-          <span class="kpi-card__label">Ingresos brutos</span>
+          <span class="kpi-card__label">Facturación del mes</span>
           <div class="kpi-card__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
             <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
           </div>
         </div>
-        <div class="kpi-card__value">S/ {{ totalIngresos() | number:'1.0-0' }}</div>
+        <div class="kpi-card__value">{{ totalIngresos() | number:'1.0-0' }} €</div>
         <div class="kpi-card__trend up">del total de reservas</div>
       </div>
       <div class="kpi-card rs-card">
@@ -53,7 +53,7 @@ const ESTADO_BADGE: Record<string, string> = {
       </div>
       <div class="kpi-card rs-card">
         <div class="kpi-card__header">
-          <span class="kpi-card__label">Listados activos</span>
+          <span class="kpi-card__label">Servicios activos</span>
           <div class="kpi-card__icon" style="background:rgba(109,92,246,.12);color:var(--c-purple)">
             <rs-icon name="tag" [size]="17" [stroke]="2"></rs-icon>
           </div>
@@ -99,7 +99,7 @@ const ESTADO_BADGE: Record<string, string> = {
                     {{ r.vertical }}
                   </td>
                   <td>{{ r.fechaInicio | date:'d MMM yy' }}</td>
-                  <td>S/ {{ r.montoTotal | number:'1.0-0' }}</td>
+                  <td>{{ r.montoTotal | number:'1.0-0' }} €</td>
                   <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
                 </tr>
               }
@@ -110,22 +110,28 @@ const ESTADO_BADGE: Record<string, string> = {
 
       <div class="rs-card dashboard-panel">
         <div class="panel-header"><h3>Resumen financiero</h3></div>
-        <div class="fin-row">
-          <span>Ingresos brutos</span><strong>S/ {{ totalIngresos() | number:'1.0-0' }}</strong>
-        </div>
-        <div class="fin-row">
-          <span>Comisión plataforma</span>
-          <strong style="color:#B91C1C">− S/ {{ comisionEstimada() | number:'1.0-0' }}</strong>
-        </div>
-        <div class="fin-row">
-          <span>Fee Stripe (est.)</span>
-          <strong style="color:#B91C1C">− S/ {{ feeStripe() | number:'1.0-2' }}</strong>
-        </div>
-        <hr style="border:none;border-top:1px solid var(--b-1);margin-block:var(--sp-4)">
-        <div class="fin-row">
-          <strong style="color:var(--t-100)">Liquidación estimada</strong>
-          <strong style="color:var(--c-teal)">S/ {{ liquidacion() | number:'1.0-0' }}</strong>
-        </div>
+        @if (totalIngresos() === 0) {
+          <p style="text-align:center;padding:var(--sp-8) var(--sp-4);color:var(--t-400);font-size:var(--f-sm)">
+            Todavía no tienes ingresos suficientes para calcular una liquidación.
+          </p>
+        } @else {
+          <div class="fin-row">
+            <span>Facturación bruta</span><strong>{{ totalIngresos() | number:'1.0-0' }} €</strong>
+          </div>
+          <div class="fin-row">
+            <span>Comisión plataforma</span>
+            <strong style="color:#B91C1C">− {{ comisionEstimada() | number:'1.0-0' }} €</strong>
+          </div>
+          <div class="fin-row">
+            <span>Fee Stripe (est.)</span>
+            <strong style="color:#B91C1C">− {{ feeStripe() | number:'1.0-2' }} €</strong>
+          </div>
+          <hr style="border:none;border-top:1px solid var(--b-1);margin-block:var(--sp-4)">
+          <div class="fin-row">
+            <strong style="color:var(--t-100)">Liquidación estimada</strong>
+            <strong style="color:var(--c-teal)">{{ liquidacion() | number:'1.0-0' }} €</strong>
+          </div>
+        }
       </div>
 
     </div>
@@ -153,7 +159,7 @@ const ESTADO_BADGE: Record<string, string> = {
               </div>
               <div class="listado-item__info">
                 <strong>{{ l.titulo }}</strong>
-                <p>S/ {{ l.precioBase | number:'1.0-0' }} · {{ l.vertical }}</p>
+                <p>{{ l.precioBase | number:'1.0-0' }} € · {{ l.vertical }}</p>
                 <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
                   <span class="rs-badge {{ estadoServicioBadge(l.estado) }}">{{ l.estado }}</span>
                   @if (l.ratingPromedio) {
@@ -233,7 +239,9 @@ export class PanelComercioDashboardComponent implements OnInit {
     return (con.reduce((s, srv) => s + (srv.ratingPromedio ?? 0), 0) / con.length).toFixed(1);
   });
   readonly comisionEstimada = computed(() => this.totalIngresos() * 0.15);
-  readonly feeStripe = computed(() => this.totalIngresos() * 0.029 + 1.1);
+  // El fee fijo de Stripe (0,25 €) solo se aplica cuando hay facturación; de lo
+  // contrario la liquidación saldría negativa (bug "-1 €") sin ninguna reserva.
+  readonly feeStripe = computed(() => this.totalIngresos() === 0 ? 0 : this.totalIngresos() * 0.015 + 0.25);
   readonly liquidacion = computed(() => this.totalIngresos() - this.comisionEstimada() - this.feeStripe());
 
   async ngOnInit(): Promise<void> {
