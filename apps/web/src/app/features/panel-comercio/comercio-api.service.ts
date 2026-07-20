@@ -96,6 +96,14 @@ export type ActualizarPerfilComercioPayload = Partial<
   >
 > & { documentoIdentidadUrl?: string; licenciaNegocioUrl?: string };
 
+export interface SuplementoAplicado {
+  concepto: string;
+  monto: number;
+  motivo?: string;
+  evidenciaUrl?: string;
+  createdAt: string;
+}
+
 export interface MiReserva {
   _id: string;
   codigo: string;
@@ -105,6 +113,31 @@ export interface MiReserva {
   fechaInicio: string;
   fechaFin?: string;
   createdAt: string;
+  suplementos?: SuplementoAplicado[];
+  montoAjustado?: number;
+  perroId?: string;
+}
+
+export interface SuplementoConfig {
+  _id: string;
+  concepto: string;
+  monto: number;
+  unidad: 'fijo' | 'por_dia' | 'por_noche';
+  activo: boolean;
+  servicioId?: string;
+}
+
+export interface SuplementoConfigPayload {
+  concepto?: string;
+  monto?: number;
+  unidad?: 'fijo' | 'por_dia' | 'por_noche';
+  activo?: boolean;
+  servicioId?: string;
+}
+
+export interface SolicitarAjustePayload {
+  suplementos: Array<{ concepto: string; monto: number; motivo?: string }>;
+  evidenciaUrl?: string;
 }
 
 export interface EspacioDisponibilidad {
@@ -138,6 +171,12 @@ export interface DisponibilidadPayload {
   cuposDisponibles?: number;
 }
 
+export interface AptitudPerroPayload {
+  tamanosAdmitidos?: string[];
+  tipoPeloAdmitido?: string[];
+  temperamentosNoAdmitidos?: string[];
+}
+
 /** Payload base común a crear/actualizar un listado; los campos propios del vertical
  *  (espacios, tarifas, servicios clínicos/grooming, cupos…) van en `extra`. */
 export interface ServicioPayload {
@@ -148,6 +187,7 @@ export interface ServicioPayload {
   precioBase?: number;
   imagenes?: string[];
   extra?: Record<string, unknown>;
+  aptitud?: AptitudPerroPayload;
 }
 
 export interface ServicioGestion {
@@ -160,6 +200,7 @@ export interface ServicioGestion {
   imagenes: string[];
   estado: string;
   extra: Record<string, unknown>;
+  aptitud?: AptitudPerroPayload;
 }
 
 export interface MiResena {
@@ -179,6 +220,7 @@ export class ComercioApiService {
   private readonly http = inject(HttpClient);
   private readonly url = `${environment.apiUrl}/comercios`;
   private readonly catalogUrl = `${environment.apiUrl}/catalog/servicios`;
+  private readonly suplementosUrl = `${environment.apiUrl}/suplementos`;
 
   getMiComercio(): Observable<MiComercio> {
     return this.http.get<MiComercio>(`${this.url}/mi-comercio`);
@@ -190,6 +232,26 @@ export class ComercioApiService {
 
   completarReserva(reservaId: string): Observable<MiReserva> {
     return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/completar`, {});
+  }
+
+  solicitarAjuste(reservaId: string, dto: SolicitarAjustePayload): Observable<MiReserva> {
+    return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/solicitar-ajuste`, dto);
+  }
+
+  getMisSuplementos(): Observable<SuplementoConfig[]> {
+    return this.http.get<SuplementoConfig[]>(`${this.suplementosUrl}/mis`);
+  }
+
+  crearSuplemento(dto: SuplementoConfigPayload): Observable<SuplementoConfig> {
+    return this.http.post<SuplementoConfig>(this.suplementosUrl, dto);
+  }
+
+  actualizarSuplemento(id: string, dto: SuplementoConfigPayload): Observable<SuplementoConfig> {
+    return this.http.patch<SuplementoConfig>(`${this.suplementosUrl}/${id}`, dto);
+  }
+
+  eliminarSuplemento(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.suplementosUrl}/${id}`);
   }
 
   getMisServicios(): Observable<MiServicio[]> {

@@ -252,6 +252,7 @@ export class PerfilDashboardComponent implements OnInit {
   readonly reservasRecientes = signal<MiniReserva[]>([]);
 
   readonly configItems: ConfigItem[] = [
+    { icon: 'paw',         label: 'Mis perros',          sub: 'Ficha inteligente de tus mascotas', ruta: '/perros' },
     { icon: 'user',        label: 'Datos personales',   sub: 'Nombre, email, teléfono',   ruta: '/perfil/editar' },
     { icon: 'lock',        label: 'Seguridad',           sub: 'Contraseña y acceso',       ruta: '/perfil/seguridad' },
     { icon: 'bell',        label: 'Notificaciones',      sub: 'Email, WhatsApp, push',     ruta: '/perfil/notificaciones' },

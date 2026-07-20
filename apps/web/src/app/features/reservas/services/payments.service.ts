@@ -21,4 +21,18 @@ export class PaymentsService {
       this.http.post<PaymentIntentResponse>(`${this.base}/intent`, { reservaId }),
     );
   }
+
+  /** El cliente acepta el ajuste de precio propuesto: crea el PaymentIntent de la diferencia. */
+  aceptarAjuste(reservaId: string): Promise<PaymentIntentResponse> {
+    return firstValueFrom(
+      this.http.post<PaymentIntentResponse>(`${this.base}/reservas/${reservaId}/ajuste/aceptar`, {}),
+    );
+  }
+
+  /** El cliente rechaza el ajuste: reembolsa el pago original y cancela la reserva. */
+  rechazarAjuste(reservaId: string): Promise<{ ok: boolean }> {
+    return firstValueFrom(
+      this.http.post<{ ok: boolean }>(`${this.base}/reservas/${reservaId}/ajuste/rechazar`, {}),
+    );
+  }
 }

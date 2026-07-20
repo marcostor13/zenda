@@ -42,6 +42,10 @@ export class StripeGateway implements PaymentGateway {
     return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
   }
 
+  async reembolsar(paymentIntentId: string): Promise<void> {
+    await this.stripe.refunds.create({ payment_intent: paymentIntentId });
+  }
+
   extraerIntentDeEvento(evento: unknown): { intentId: string; estado: 'succeeded' | 'failed' | 'other'; chargeId?: string } | null {
     const stripeEvento = evento as Stripe.Event;
 

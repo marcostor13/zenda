@@ -12,6 +12,6 @@ export class RegistroDto {
   password!: string;
 
   @IsOptional()
-  @IsPhoneNumber('PE')
+  @IsPhoneNumber()
   telefono?: string;
 }

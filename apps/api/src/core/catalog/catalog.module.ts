@@ -7,10 +7,12 @@ import { Transporte, TransporteSchema } from '../../verticals/transporte/transpo
 import { Veterinaria, VeterinariaSchema } from '../../verticals/veterinaria/veterinaria.schema';
 import { Peluqueria, PeluqueriaSchema } from '../../verticals/peluqueria/peluqueria.schema';
 import { Adiestramiento, AdiestramientoSchema } from '../../verticals/adiestramiento/adiestramiento.schema';
+import { Hoteles, HotelesSchema } from '../../verticals/hoteles/hoteles.schema';
 import { CatalogRepository } from './catalog.repository';
 import { CatalogService } from './catalog.service';
 import { CatalogController } from './catalog.controller';
 import { ReviewsModule } from '../reviews/reviews.module';
+import { PerrosModule } from '../perros/perros.module';
 
 @Module({
   imports: [
@@ -24,10 +26,12 @@ import { ReviewsModule } from '../reviews/reviews.module';
           { name: Veterinaria.name, schema: VeterinariaSchema, value: VerticalKey.VETERINARIA },
           { name: Peluqueria.name, schema: PeluqueriaSchema, value: VerticalKey.PELUQUERIA },
           { name: Adiestramiento.name, schema: AdiestramientoSchema, value: VerticalKey.ADIESTRAMIENTO },
+          { name: Hoteles.name, schema: HotelesSchema, value: VerticalKey.HOTELES },
         ],
       },
     ]),
     ReviewsModule,
+    PerrosModule,
   ],
   controllers: [CatalogController],
   providers: [CatalogRepository, CatalogService],

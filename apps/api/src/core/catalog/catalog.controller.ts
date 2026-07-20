@@ -41,6 +41,7 @@ export class CatalogController {
   @ApiQuery({ name: 'precioMax', required: false, type: Number })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'perroId', required: false, description: 'Filtra solo servicios aptos para este perro' })
   buscar(
     @Query('vertical') vertical?: string,
     @Query('ciudad') ciudad?: string,
@@ -48,6 +49,7 @@ export class CatalogController {
     @Query('precioMax') precioMax?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('perroId') perroId?: string,
   ): Promise<PaginatedResult<ServicioCardDto>> {
     return this.catalogService.buscarServicios({
       vertical,
@@ -56,6 +58,7 @@ export class CatalogController {
       precioMax: this.toNumber(precioMax),
       page: this.toNumber(page),
       limit: this.toNumber(limit),
+      perroId,
     });
   }
 

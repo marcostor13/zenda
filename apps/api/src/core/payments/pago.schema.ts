@@ -1,15 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
 import { PagoEstado, PagoPasarela, MONEDA_DEFAULT } from 'shared';
 
 export type PagoDocument = HydratedDocument<Pago>;
 
 @Schema({ timestamps: true, collection: 'pagos' })
 export class Pago {
-  @Prop({ type: Types.ObjectId, ref: 'Reserva', required: true })
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva', required: true })
   reservaId!: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Usuario', required: true })
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Usuario', required: true })
   usuarioId!: Types.ObjectId;
 
   @Prop({ type: String, enum: PagoPasarela, default: PagoPasarela.STRIPE })
@@ -48,6 +48,10 @@ export class Pago {
 
   @Prop({ type: Object })
   stripeMetadata?: Record<string, unknown>;
+
+  // Cargo por la diferencia de un ajuste de precio aceptado (ver docs/mejora_servicios.md §7).
+  @Prop({ type: Boolean, default: false })
+  esSuplemento!: boolean;
 }
 
 export const PagoSchema = SchemaFactory.createForClass(Pago);

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
 import { VerticalKey } from 'shared';
 
 export type ComisionConfigDocument = HydratedDocument<ComisionConfig>;
@@ -21,7 +21,7 @@ export class ComisionConfig {
   @Prop({ default: true })
   activo!: boolean;
 
-  @Prop({ type: Types.ObjectId, ref: 'Usuario' })
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Usuario' })
   actualizadoPor?: Types.ObjectId;
 }
 

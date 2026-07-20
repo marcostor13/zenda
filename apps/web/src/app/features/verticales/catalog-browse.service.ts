@@ -39,4 +39,9 @@ export class CatalogBrowseService {
     );
     return res.items.map((s) => ({ ...s, extra: s.extra ?? {} }));
   }
+
+  async obtener(id: string): Promise<ServicioCard> {
+    const s = await firstValueFrom(this.http.get<ServicioCard>(`${this.base}/${id}`));
+    return { ...s, extra: s.extra ?? {} };
+  }
 }

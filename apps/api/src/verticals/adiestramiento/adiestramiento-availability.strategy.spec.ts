@@ -88,4 +88,48 @@ describe('AdiestramientoAvailabilityStrategy', () => {
     expect(hold.expiraEn.getTime()).toBeGreaterThan(Date.now());
     await expect(strategy.releaseSlot(hold.holdId)).resolves.toBeUndefined();
   });
+
+  describe('catálogo de servicios de adiestramiento', () => {
+    const mockConCatalogo = {
+      ...mock,
+      serviciosAdiestramiento: [
+        { nombre: 'Curso de cachorros', tipo: 'curso', precio: 250, maxPerros: 4, edadMinimaMeses: 2, edadMaximaMeses: 6 },
+        { nombre: 'Valoración de conducta', tipo: 'valoracion', precio: 45, maxPerros: 1 },
+      ],
+    };
+
+    it('usa el precio y maxPerros del servicio del catálogo cuando se solicita por nombre', async () => {
+      mockFindById(mockConCatalogo);
+      const r = await strategy.checkAvailability('a1', {
+        fechaInicio: new Date(), cantidad: 1, parametrosExtra: { servicio: 'Valoración de conducta' },
+      });
+      expect(r.precioCalculado).toBe(45);
+      expect(r.metadata?.servicio).toBe('Valoración de conducta');
+    });
+
+    it('bloquea si se superan los perros máximos propios del servicio (aunque quepan en la sesión general)', async () => {
+      mockFindById(mockConCatalogo);
+      const r = await strategy.checkAvailability('a1', {
+        fechaInicio: new Date(), cantidad: 2, parametrosExtra: { servicio: 'Valoración de conducta' },
+      });
+      expect(r.disponible).toBe(false);
+    });
+
+    it('valida la edad máxima propia del servicio (ej. curso de cachorros)', async () => {
+      mockFindById(mockConCatalogo);
+      const r = await strategy.checkAvailability('a1', {
+        fechaInicio: new Date(), parametrosExtra: { servicio: 'Curso de cachorros', edadMeses: 10 },
+      });
+      expect(r.disponible).toBe(false);
+      expect(r.metadata?.motivo).toBe('edad_excesiva');
+    });
+
+    it('cae a los precios genéricos si el nombre de servicio no existe en el catálogo', async () => {
+      mockFindById(mockConCatalogo);
+      const r = await strategy.checkAvailability('a1', {
+        fechaInicio: new Date(), parametrosExtra: { servicio: 'Servicio inexistente' },
+      });
+      expect(r.precioCalculado).toBe(40);
+    });
+  });
 });

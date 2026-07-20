@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
 
 export type ResenaDocument = HydratedDocument<Resena>;
 
@@ -11,16 +11,16 @@ export type ResenaDocument = HydratedDocument<Resena>;
 @Schema({ timestamps: true, collection: 'resenas' })
 export class Resena {
   // Una reseña por reserva.
-  @Prop({ type: Types.ObjectId, ref: 'Reserva', required: true, unique: true })
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva', required: true, unique: true })
   reservaId!: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true })
+  @Prop({ type: SchemaTypes.ObjectId, required: true })
   servicioId!: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true })
+  @Prop({ type: SchemaTypes.ObjectId, required: true })
   comercioId!: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true })
+  @Prop({ type: SchemaTypes.ObjectId, required: true })
   usuarioId!: Types.ObjectId;
 
   @Prop({ required: true })

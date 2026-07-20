@@ -2,12 +2,14 @@ import { Test } from '@nestjs/testing';
 import { CatalogService } from './catalog.service';
 import { CatalogRepository } from './catalog.repository';
 import { ReviewsService } from '../reviews/reviews.service';
+import { PerrosService } from '../perros/perros.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
 describe('CatalogService', () => {
   let service: CatalogService;
   let repo: jest.Mocked<CatalogRepository>;
   let reviewsService: jest.Mocked<ReviewsService>;
+  let perrosService: jest.Mocked<PerrosService>;
 
   const hotelDoc = {
     _id: 'hotel-1',
@@ -58,12 +60,17 @@ describe('CatalogService', () => {
           provide: ReviewsService,
           useValue: { listarPorServicio: jest.fn().mockResolvedValue([]) },
         },
+        {
+          provide: PerrosService,
+          useValue: { obtenerPerfilCompatibilidad: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
 
     service = module.get(CatalogService);
     repo = module.get(CatalogRepository);
     reviewsService = module.get(ReviewsService);
+    perrosService = module.get(PerrosService);
   });
 
   describe('buscarServicios', () => {
@@ -101,6 +108,18 @@ describe('CatalogService', () => {
       );
     });
 
+    it('debería resolver el perfil de compatibilidad del perro y pasarlo al repositorio', async () => {
+      repo.buscar.mockResolvedValue({ items: [], total: 0 });
+      perrosService.obtenerPerfilCompatibilidad.mockResolvedValue({ tamano: 'mini' as never });
+
+      await service.buscarServicios({ perroId: 'perro-1' });
+
+      expect(perrosService.obtenerPerfilCompatibilidad).toHaveBeenCalledWith('perro-1');
+      expect(repo.buscar).toHaveBeenCalledWith(
+        expect.objectContaining({ perfilPerro: { tamano: 'mini' } }),
+      );
+    });
+
     it('debería devolver totalPages 1 cuando no hay resultados', async () => {
       repo.buscar.mockResolvedValue({ items: [], total: 0 });
 
@@ -108,6 +127,58 @@ describe('CatalogService', () => {
 
       expect(result.totalPages).toBe(1);
       expect(result.items).toEqual([]);
+    });
+
+    it('debería exponer en "extra" los campos de enriquecimiento de residencia/alojamiento (Fase C)', async () => {
+      const alojamientoDoc = {
+        ...hotelDoc,
+        vertical: 'alojamiento',
+        compatibilidadSocialAdmitida: ['cualquiera'],
+        requisitoMicrochip: true,
+        requiereDesparasitacionInterna: true,
+        requiereDesparasitacionExterna: false,
+        requiereVacunaTosPerreras: false,
+        serviciosAdicionales: [{ nombre: 'Paseo individual', precio: 10 }],
+      };
+      repo.buscar.mockResolvedValue({ items: [alojamientoDoc] as never, total: 1 });
+
+      const result = await service.buscarServicios({ vertical: 'alojamiento' });
+
+      expect(result.items[0].extra).toMatchObject({
+        compatibilidadSocialAdmitida: ['cualquiera'],
+        requisitoMicrochip: true,
+        requiereDesparasitacionInterna: true,
+        requiereDesparasitacionExterna: false,
+        requiereVacunaTosPerreras: false,
+        serviciosAdicionales: alojamientoDoc.serviciosAdicionales,
+      });
+    });
+
+    it('debería exponer en "extra" los campos de enriquecimiento de peluquería (Fase C)', async () => {
+      const peluqueriaDoc = {
+        ...hotelDoc,
+        vertical: 'peluqueria',
+        serviciosGrooming: [{ nombre: 'Spa premium', precio: 55, tipoPeloCompatible: ['duro'] }],
+        politicaTemperamentoDificil: 'valoracion_previa',
+        bozalObligatorioSiAgresivo: true,
+        serviciosAdicionales: [{ nombre: 'Corte de uñas', precio: 8 }],
+        razasEspecificas: ['Caniche'],
+        requiereVacunasAlDia: true,
+        requiereMicrochip: false,
+      };
+      repo.buscar.mockResolvedValue({ items: [peluqueriaDoc] as never, total: 1 });
+
+      const result = await service.buscarServicios({ vertical: 'peluqueria' });
+
+      expect(result.items[0].extra).toMatchObject({
+        serviciosGrooming: peluqueriaDoc.serviciosGrooming,
+        politicaTemperamentoDificil: 'valoracion_previa',
+        bozalObligatorioSiAgresivo: true,
+        serviciosAdicionales: peluqueriaDoc.serviciosAdicionales,
+        razasEspecificas: ['Caniche'],
+        requiereVacunasAlDia: true,
+        requiereMicrochip: false,
+      });
     });
   });
 

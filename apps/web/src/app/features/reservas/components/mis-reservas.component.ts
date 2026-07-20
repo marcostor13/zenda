@@ -23,7 +23,9 @@ interface ReservaCard {
   fechaInicio: string;
   fechaFin: string;
   total: number;
-  estado: 'confirmada' | 'pendiente' | 'cancelada' | 'completada';
+  estado: 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'cancelada' | 'completada';
+  montoAjustado?: number;
+  suplementosMotivo?: string;
   yaResenada: boolean;
 }
 
@@ -57,6 +59,16 @@ interface ReservaCard {
     <!-- LISTA -->
     <div class="reservas-list">
       @for (r of reservasFiltradas(); track r.codigo) {
+        @if (r.estado === 'ajuste_solicitado') {
+          <div class="rs-card ajuste-banner">
+            <div>
+              <strong>El comercio solicitó un ajuste de precio</strong>
+              <p>{{ r.codigo }} · nuevo total propuesto: €{{ r.montoAjustado }} (antes €{{ r.total }}). Ningún cargo se aplicará sin tu aprobación.</p>
+            </div>
+            <a [routerLink]="['/reservas', r.codigo, 'ajuste']" class="rs-btn rs-btn--primary rs-btn--sm">Revisar y responder</a>
+          </div>
+        }
+
         <div class="reserva-row rs-card rs-card--hover">
           <img [src]="r.imagen" [alt]="r.titulo" class="reserva-row__img" rsImg />
 
@@ -202,6 +214,13 @@ interface ReservaCard {
 
     .empty-state { text-align: center; padding: var(--sp-20) var(--sp-8); h3 { font-size: var(--f-xl); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-3); } p { color: var(--t-400); } }
 
+    .ajuste-banner {
+      display: flex; justify-content: space-between; align-items: center; gap: var(--sp-4);
+      padding: var(--sp-4) var(--sp-5); border-color: var(--c-amber); flex-wrap: wrap;
+      strong { color: var(--t-100); font-size: var(--f-sm); }
+      p { color: var(--t-400); font-size: var(--f-xs); margin-top: var(--sp-1); }
+    }
+
     .resena-form { margin-top: calc(-1 * var(--sp-2)); padding: var(--sp-5); }
     .resena-form__estrellas { display: flex; gap: var(--sp-1); }
     .estrella-btn {
@@ -299,6 +318,7 @@ export class MisReservasComponent implements OnInit {
     const map: Record<string, string> = {
       confirmada: 'rs-badge--success',
       pendiente:  'rs-badge--warning',
+      ajuste_solicitado: 'rs-badge--warning',
       cancelada:  'rs-badge--danger',
       completada: 'rs-badge--accent',
     };
@@ -309,6 +329,7 @@ export class MisReservasComponent implements OnInit {
     const map: Record<string, string> = {
       confirmada: '✓ Confirmada',
       pendiente:  '⏳ Pendiente',
+      ajuste_solicitado: '⚠ Ajuste pendiente',
       cancelada:  '✗ Cancelada',
       completada: '★ Completada',
     };
@@ -366,6 +387,7 @@ export class MisReservasComponent implements OnInit {
       fechaFin: this.formatearFecha(r.fechaFin ?? r.fechaInicio),
       total: r.montoTotal,
       estado: this.normalizarEstado(r.estado),
+      montoAjustado: r.montoAjustado,
       yaResenada: resenadasIds.has(id),
     };
   }
@@ -377,6 +399,7 @@ export class MisReservasComponent implements OnInit {
       [VerticalKey.VETERINARIA]:    { label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    emoji: '🩺' },
       [VerticalKey.PELUQUERIA]:     { label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     emoji: '✂️' },
       [VerticalKey.ADIESTRAMIENTO]: { label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], emoji: '🎓' },
+      [VerticalKey.HOTELES]:        { label: VERTICAL_LABELS[VerticalKey.HOTELES],        emoji: '🏨' },
     };
     return map[vertical] ?? { label: vertical, emoji: '🐾' };
   }
@@ -398,13 +421,15 @@ export class MisReservasComponent implements OnInit {
       }
       case VerticalKey.ADIESTRAMIENTO:
         return r.detalle?.['modalidad'] === 'programa' ? 'Programa completo' : 'Sesión';
+      case VerticalKey.HOTELES:
+        return `${r.cantidad} ${r.cantidad === 1 ? 'mascota' : 'mascotas'}`;
       default:
         return `${r.cantidad} ${r.cantidad === 1 ? 'unidad' : 'unidades'}`;
     }
   }
 
   private normalizarEstado(estado: string): ReservaCard['estado'] {
-    const validos: ReservaCard['estado'][] = ['confirmada', 'pendiente', 'cancelada', 'completada'];
+    const validos: ReservaCard['estado'][] = ['confirmada', 'pendiente', 'ajuste_solicitado', 'cancelada', 'completada'];
     return (validos as string[]).includes(estado) ? (estado as ReservaCard['estado']) : 'pendiente';
   }
 

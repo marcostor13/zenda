@@ -77,4 +77,61 @@ describe('VeterinariaAvailabilityStrategy', () => {
     expect(hold.expiraEn.getTime()).toBeGreaterThan(Date.now());
     await expect(strategy.releaseSlot(hold.holdId)).resolves.toBeUndefined();
   });
+
+  describe('precio cerrado vs orientativo', () => {
+    const mockConPrecios = {
+      ...mock,
+      serviciosClinicos: [
+        { nombre: 'Vacunación', precio: 25, duracionMin: 15, esPrecioCerrado: true },
+        { nombre: 'Consulta dermatológica', precio: 40, duracionMin: 30, esPrecioCerrado: false },
+      ],
+    };
+
+    it('expone esPrecioCerrado=true para servicios de precio cerrado', async () => {
+      mockFindById(mockConPrecios);
+      const r = await strategy.checkAvailability('v1', {
+        fechaInicio: new Date(), parametrosExtra: { servicio: 'Vacunación' },
+      });
+      expect(r.metadata?.esPrecioCerrado).toBe(true);
+    });
+
+    it('expone esPrecioCerrado=false para servicios de precio orientativo', async () => {
+      mockFindById(mockConPrecios);
+      const r = await strategy.checkAvailability('v1', {
+        fechaInicio: new Date(), parametrosExtra: { servicio: 'Consulta dermatológica' },
+      });
+      expect(r.metadata?.esPrecioCerrado).toBe(false);
+    });
+
+    it('expone esPrecioCerrado=false cuando no se solicita un servicio del catálogo (consulta general)', async () => {
+      const r = await strategy.checkAvailability('v1', { fechaInicio: new Date() });
+      expect(r.metadata?.esPrecioCerrado).toBe(false);
+    });
+  });
+
+  describe('especies atendidas', () => {
+    const mockSoloPerros = { ...mock, especiesAtendidas: ['perro'] };
+
+    it('bloquea si la clínica no atiende la especie de la mascota', async () => {
+      mockFindById(mockSoloPerros);
+      await expect(strategy.checkAvailability('v1', {
+        fechaInicio: new Date(), parametrosExtra: { perroEspecie: 'gato' },
+      })).rejects.toThrow(DomainException);
+    });
+
+    it('permite la reserva si la especie está atendida', async () => {
+      mockFindById(mockSoloPerros);
+      const r = await strategy.checkAvailability('v1', {
+        fechaInicio: new Date(), parametrosExtra: { perroEspecie: 'perro' },
+      });
+      expect(r.disponible).toBe(true);
+    });
+
+    it('no bloquea si la clínica no declaró especiesAtendidas (comportamiento por defecto)', async () => {
+      const r = await strategy.checkAvailability('v1', {
+        fechaInicio: new Date(), parametrosExtra: { perroEspecie: 'gato' },
+      });
+      expect(r.disponible).toBe(true);
+    });
+  });
 });

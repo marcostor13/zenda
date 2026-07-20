@@ -40,7 +40,7 @@ describe('BuscadorComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('debería tener las 5 categorías caninas con sus etiquetas', async () => {
+  it('debería tener las 6 categorías caninas con sus etiquetas', async () => {
     await crearComponente();
     expect(component.verticales.map((v) => v.key)).toEqual([
       VerticalKey.ALOJAMIENTO,
@@ -48,6 +48,7 @@ describe('BuscadorComponent', () => {
       VerticalKey.VETERINARIA,
       VerticalKey.PELUQUERIA,
       VerticalKey.ADIESTRAMIENTO,
+      VerticalKey.HOTELES,
     ]);
     expect(component.verticales.map((v) => v.label)).toEqual([
       'Alojamiento canino',
@@ -55,6 +56,7 @@ describe('BuscadorComponent', () => {
       'Veterinarios',
       'Peluquerías caninas',
       'Adiestramiento canino',
+      'Hoteles pet-friendly',
     ]);
   });
 

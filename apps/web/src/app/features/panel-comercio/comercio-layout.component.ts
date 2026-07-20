@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { icon: 'sparkles',       label: 'Dashboard',      ruta: '/comercio',          exact: true  },
   { icon: 'calendar',       label: 'Reservas',        ruta: '/comercio/reservas', exact: false },
   { icon: 'tag',            label: 'Listados',        ruta: '/comercio/listados', exact: false },
+  { icon: 'euro',           label: 'Suplementos',     ruta: '/comercio/suplementos', exact: false },
   { icon: 'trending-up',   label: 'Ingresos',        ruta: '/comercio/ingresos', exact: false },
   { icon: 'star',           label: 'Reseñas',         ruta: '/comercio/resenas',  exact: false },
   { icon: 'settings',       label: 'Configuración',   ruta: '/comercio/config',   exact: false },

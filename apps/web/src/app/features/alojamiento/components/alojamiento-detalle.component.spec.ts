@@ -50,6 +50,12 @@ describe('AlojamientoDetalleComponent', () => {
     scoreDesglose: { limpieza: 5, ubicacion: 5, cuidado: 5, valorPrecio: 4.8, instalaciones: 5, personal: 5 },
     reglas: ['Cartilla de vacunación al día obligatoria'],
     comercioId: 'c1',
+    compatibilidadSocialAdmitida: [],
+    requisitoMicrochip: false,
+    requiereDesparasitacionInterna: false,
+    requiereDesparasitacionExterna: false,
+    requiereVacunaTosPerreras: false,
+    serviciosAdicionales: [],
   };
 
   beforeEach(async () => {

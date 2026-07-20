@@ -8,9 +8,67 @@ import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 import { CuponesService } from '../services/cupones.service';
+import { PerrosService, PerroApi } from '../../perros/perros.service';
+import { RecomendadorService, RecomendacionAdiestramiento, RecomendacionVeterinaria } from '../services/recomendador.service';
+import { CatalogBrowseService } from '../../verticales/catalog-browse.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 type Paso = 1 | 2 | 3 | 4;
+
+interface PrecioPorTamanoWizard {
+  tamano: string;
+  precio: number;
+  duracionMin: number;
+}
+
+interface ServicioGroomingWizard {
+  nombre: string;
+  precio: number;
+  duracionMin?: number;
+  tipoPeloCompatible?: string[];
+  preciosPorTamano?: PrecioPorTamanoWizard[];
+}
+
+interface ServicioAdicionalWizard {
+  nombre: string;
+  precio: number;
+}
+
+/** Detalle enriquecido del servicio de peluquería (Fase C), cargado bajo demanda. */
+interface PeluqueriaDetalleWizard {
+  serviciosGrooming: ServicioGroomingWizard[];
+  politicaTemperamentoDificil: string;
+  bozalObligatorioSiAgresivo: boolean;
+  serviciosAdicionales: ServicioAdicionalWizard[];
+  razasEspecificas: string[];
+  requiereVacunasAlDia: boolean;
+  requiereMicrochip: boolean;
+}
+
+interface ServicioClinicoWizard {
+  nombre: string;
+  precio: number;
+  duracionMin?: number;
+  esPrecioCerrado?: boolean;
+}
+
+interface ServicioAdiestramientoWizard {
+  nombre: string;
+  tipo: string;
+  precio: number;
+  duracionMin?: number;
+  maxPerros?: number;
+  edadMinimaMeses?: number;
+  edadMaximaMeses?: number;
+  lugar?: string;
+}
+
+const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
+  aceptar: 'Acepta perros nerviosos o con temperamento difícil sin condiciones.',
+  suplemento: 'Puede aplicar un suplemento si tu perro tiene temperamento difícil.',
+  valoracion_previa: 'Requiere una valoración previa si tu perro tiene temperamento difícil.',
+  rechazar: 'No atiende perros con temperamento difícil.',
+};
 
 @Component({
   selector: 'app-reserva-wizard',
@@ -67,6 +125,26 @@ type Paso = 1 | 2 | 3 | 4;
               </div>
             </div>
 
+            <!-- ── SELECCIÓN DE PERRO (Ficha Inteligente) ── -->
+            <div class="rs-field perro-picker">
+              <label class="rs-lbl">¿Para qué perro es esta reserva?</label>
+              @if (perros().length === 0) {
+                <p class="perro-picker__empty">
+                  Aún no tienes perros registrados.
+                  <a routerLink="/perros/nuevo">Registra uno</a> para que el precio y los servicios se adapten a él.
+                </p>
+              } @else {
+                <div class="perro-picker__list">
+                  @for (p of perros(); track p._id) {
+                    <button type="button" class="perro-chip" [class.selected]="perroSeleccionado() === p._id"
+                            (click)="seleccionarPerro(p._id)">
+                      {{ p.nombre }}
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+
             <!-- ── ALOJAMIENTO CANINO ── -->
             @if (vertical() === 'alojamiento') {
               <form [formGroup]="paso1AlojamientoForm">
@@ -98,6 +176,17 @@ type Paso = 1 | 2 | 3 | 4;
                       <option value="gigante">Gigante (más de 45 kg)</option>
                     </select>
                   </div>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Compatibilidad social de tu perro</label>
+                  <select formControlName="compatibilidadSocial" class="rs-inp rs-inp--lg">
+                    <option value="cualquiera">Se lleva bien con otros perros</option>
+                    <option value="solo_pequenos">Solo tolera perros pequeños</option>
+                    <option value="solo_machos">Solo tolera machos</option>
+                    <option value="solo_hembras">Solo tolera hembras</option>
+                    <option value="individual">Necesita alojamiento individual</option>
+                  </select>
+                  <span class="rs-field-hint">Ayuda a la residencia a alojarlo de forma segura junto a otros perros.</span>
                 </div>
                 <div class="extras-section">
                   <h3>Servicios adicionales</h3>
@@ -174,15 +263,63 @@ type Paso = 1 | 2 | 3 | 4;
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">Servicio (opcional)</label>
-                  <select formControlName="servicio" class="rs-inp rs-inp--lg">
-                    <option value="consulta">Consulta general</option>
-                    <option value="vacunacion">Vacunación</option>
-                    <option value="revision">Revisión / chequeo</option>
-                    <option value="dermatologia">Dermatología</option>
-                    <option value="urgencia">Urgencia</option>
-                  </select>
-                  <span class="rs-field-hint">El precio final puede variar según el servicio clínico</span>
+                  @if (serviciosClinicosDisponibles().length) {
+                    <select formControlName="servicio" class="rs-inp rs-inp--lg">
+                      <option value="">— Consulta general —</option>
+                      @for (s of serviciosClinicosDisponibles(); track s.nombre) {
+                        <option [value]="s.nombre">{{ s.nombre }} — €{{ s.precio }}</option>
+                      }
+                    </select>
+                    @if (servicioClinicoSeleccionado(); as sc) {
+                      <span class="rs-field-hint">
+                        {{ sc.esPrecioCerrado
+                          ? 'Precio cerrado: no cambiará tras la consulta.'
+                          : 'Precio orientativo: puede variar según lo que se detecte en consulta; pruebas o tratamientos adicionales se facturan aparte, fuera de Doogking.' }}
+                      </span>
+                    }
+                  } @else {
+                    <select formControlName="servicio" class="rs-inp rs-inp--lg">
+                      <option value="consulta">Consulta general</option>
+                      <option value="vacunacion">Vacunación</option>
+                      <option value="revision">Revisión / chequeo</option>
+                      <option value="dermatologia">Dermatología</option>
+                      <option value="urgencia">Urgencia</option>
+                    </select>
+                    <span class="rs-field-hint">El precio final puede variar según el servicio clínico</span>
+                  }
                 </div>
+
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Motivo principal</label>
+                    <select formControlName="motivoTriage" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionVeterinaria()">
+                      <option value="vacunacion">Vacunación</option>
+                      <option value="revision_general">Revisión general</option>
+                      <option value="problemas_digestivos">Problemas digestivos</option>
+                      <option value="problemas_dermatologicos">Problemas dermatológicos</option>
+                      <option value="cojera">Cojera</option>
+                      <option value="vomitos">Vómitos</option>
+                      <option value="diarrea">Diarrea</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Gravedad percibida</label>
+                    <select formControlName="gravedad" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionVeterinaria()">
+                      <option value="leve">Leve</option>
+                      <option value="moderada">Moderada</option>
+                      <option value="grave">Grave</option>
+                      <option value="emergencia">Emergencia</option>
+                    </select>
+                  </div>
+                </div>
+
+                @if (recomendacionVeterinaria(); as rec) {
+                  <div class="rs-alert" [class.rs-alert--error]="rec.accion === 'urgencias_inmediatas'"
+                       [class.rs-alert--info]="rec.accion !== 'urgencias_inmediatas'">
+                    {{ rec.mensaje }}
+                  </div>
+                }
               </form>
             }
 
@@ -201,14 +338,38 @@ type Paso = 1 | 2 | 3 | 4;
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">Servicio de grooming</label>
-                  <select formControlName="servicio" class="rs-inp rs-inp--lg">
-                    <option value="bano">Baño y secado</option>
-                    <option value="corte">Corte de pelo</option>
-                    <option value="deslanado">Deslanado</option>
-                    <option value="spa">Spa canino</option>
-                    <option value="unas">Corte de uñas</option>
-                  </select>
+                  @if (serviciosGroomingOpciones().length) {
+                    <select formControlName="servicio" class="rs-inp rs-inp--lg">
+                      @for (s of serviciosGroomingOpciones(); track s.nombre) {
+                        <option [value]="s.nombre">{{ s.nombre }} — €{{ precioServicioGrooming(s) }}</option>
+                      }
+                    </select>
+                    @if (perroSeleccionadoObj()?.tipoPelo?.length) {
+                      <span class="rs-field-hint">Filtrado según el tipo de pelo de {{ perroSeleccionadoObj()?.nombre }}.</span>
+                    }
+                  } @else {
+                    <select formControlName="servicio" class="rs-inp rs-inp--lg">
+                      <option value="bano">Baño y secado</option>
+                      <option value="corte">Corte de pelo</option>
+                      <option value="deslanado">Deslanado</option>
+                      <option value="spa">Spa canino</option>
+                      <option value="unas">Corte de uñas</option>
+                    </select>
+                  }
                 </div>
+
+                @if (politicaTemperamentoLabel(); as texto) {
+                  <div class="rs-alert rs-alert--info">🐾 {{ texto }}</div>
+                }
+                @if (peluqueriaDetalle()?.bozalObligatorioSiAgresivo) {
+                  <div class="rs-alert rs-alert--info">🦮 Si tu perro es agresivo con la manipulación, deberás traerlo con bozal.</div>
+                }
+                @if (peluqueriaDetalle()?.serviciosAdicionales?.length) {
+                  <div class="rs-field">
+                    <label class="rs-lbl">Servicios adicionales disponibles en el salón</label>
+                    <p class="rs-field-hint">{{ serviciosAdicionalesResumen() }}</p>
+                  </div>
+                }
               </form>
             }
 
@@ -224,15 +385,99 @@ type Paso = 1 | 2 | 3 | 4;
                     <label class="rs-lbl">Modalidad</label>
                     <select formControlName="modalidad" class="rs-inp rs-inp--lg">
                       <option value="sesion">Sesión suelta</option>
-                      <option value="programa">Programa completo</option>
+                      <option value="programa" [disabled]="recomendacionAdiestramiento()?.bloqueaGrupales">Programa completo</option>
                     </select>
                   </div>
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">Edad del perro (meses)</label>
-                  <input formControlName="edadMeses" type="number" class="rs-inp rs-inp--lg" min="0" max="240" />
+                  <input formControlName="edadMeses" type="number" class="rs-inp rs-inp--lg" min="0" max="240"
+                         (change)="consultarRecomendacionAdiestramiento()" />
                   <span class="rs-field-hint">Para verificar la edad mínima requerida por el adiestrador</span>
                 </div>
+                @if (serviciosAdiestramientoOpciones().length) {
+                  <div class="rs-field">
+                    <label class="rs-lbl">Servicio o técnica (opcional)</label>
+                    <select formControlName="servicio" class="rs-inp rs-inp--lg">
+                      <option value="">— El centro propondrá el más adecuado —</option>
+                      @for (s of serviciosAdiestramientoOpciones(); track s.nombre) {
+                        <option [value]="s.nombre">{{ s.nombre }} — €{{ s.precio }}</option>
+                      }
+                    </select>
+                  </div>
+                }
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Motivo principal</label>
+                    <select formControlName="motivo" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionAdiestramiento()">
+                      <option value="obediencia_basica">Obediencia básica</option>
+                      <option value="tirones_correa">Tirones de correa</option>
+                      <option value="no_acude_llamada">No acude a la llamada</option>
+                      <option value="ansiedad_separacion">Ansiedad por separación</option>
+                      <option value="destruccion_casa">Destrucción en casa</option>
+                      <option value="ladridos_excesivos">Ladridos excesivos</option>
+                      <option value="miedos">Miedos</option>
+                      <option value="agresividad_perros">Agresividad hacia perros</option>
+                      <option value="agresividad_personas">Agresividad hacia personas</option>
+                      <option value="proteccion_recursos">Protección de recursos</option>
+                      <option value="socializacion">Socialización</option>
+                      <option value="preparacion_cachorro">Preparación de cachorro</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Intensidad del problema</label>
+                    <select formControlName="intensidad" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionAdiestramiento()">
+                      <option value="leve">Leve</option>
+                      <option value="moderado">Moderado</option>
+                      <option value="grave">Grave</option>
+                    </select>
+                  </div>
+                </div>
+
+                @if (recomendacionAdiestramiento(); as rec) {
+                  <div class="rs-alert" [class.rs-alert--warning]="rec.tipoRecomendado === 'valoracion_previa'"
+                       [class.rs-alert--info]="rec.tipoRecomendado !== 'valoracion_previa'">
+                    {{ rec.mensaje }}
+                  </div>
+                }
+              </form>
+            }
+
+            <!-- ── HOTEL PET-FRIENDLY ── -->
+            @if (vertical() === 'hoteles') {
+              <form [formGroup]="paso1HotelesForm">
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Check-in</label>
+                    <input formControlName="checkIn" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Check-out</label>
+                    <input formControlName="checkOut" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Número de mascotas</label>
+                    <select formControlName="mascotas" class="rs-inp rs-inp--lg">
+                      <option value="1">1 mascota</option>
+                      <option value="2">2 mascotas</option>
+                      <option value="3">3 mascotas</option>
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Tamaño de tu mascota</label>
+                    <select formControlName="tamanoPerro" class="rs-inp rs-inp--lg">
+                      <option value="mini">Mini (hasta 5 kg)</option>
+                      <option value="pequeno">Pequeño (5–10 kg)</option>
+                      <option value="mediano">Mediano (10–25 kg)</option>
+                      <option value="grande">Grande (25–40 kg)</option>
+                      <option value="gigante">Gigante (más de 40 kg)</option>
+                    </select>
+                  </div>
+                </div>
+                <span class="rs-field-hint">El precio final puede incluir un suplemento por mascota según su tamaño y normas del hotel.</span>
               </form>
             }
 
@@ -254,23 +499,34 @@ type Paso = 1 | 2 | 3 | 4;
               <div class="form-row">
                 <div class="rs-field">
                   <label class="rs-lbl">Nombre</label>
-                  <input formControlName="nombre" class="rs-inp rs-inp--lg" placeholder="Tu nombre" />
+                  <input formControlName="nombre" class="rs-inp rs-inp--lg" placeholder="Tu nombre"
+                         [class.rs-inp--error]="p2Error('nombre')" />
+                  @if (p2Error('nombre')) { <span class="rs-field-err">Indica tu nombre.</span> }
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">Apellidos</label>
-                  <input formControlName="apellidos" class="rs-inp rs-inp--lg" placeholder="Tus apellidos" />
+                  <input formControlName="apellidos" class="rs-inp rs-inp--lg" placeholder="Tus apellidos"
+                         [class.rs-inp--error]="p2Error('apellidos')" />
+                  @if (p2Error('apellidos')) { <span class="rs-field-err">Indica tus apellidos.</span> }
                 </div>
               </div>
 
               <div class="rs-field">
                 <label class="rs-lbl">Correo electrónico</label>
-                <input formControlName="email" type="email" class="rs-inp rs-inp--lg" placeholder="tu@email.com" />
-                <span class="rs-field-hint">La confirmación se enviará a este correo</span>
+                <input formControlName="email" type="email" class="rs-inp rs-inp--lg" placeholder="tu@email.com"
+                       [class.rs-inp--error]="p2Error('email')" />
+                @if (p2Error('email')) {
+                  <span class="rs-field-err">Indica un correo electrónico válido.</span>
+                } @else {
+                  <span class="rs-field-hint">La confirmación se enviará a este correo</span>
+                }
               </div>
 
               <div class="rs-field">
                 <label class="rs-lbl">Teléfono</label>
-                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+34 600 000 000" />
+                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+34 600 000 000"
+                       [class.rs-inp--error]="p2Error('telefono')" />
+                @if (p2Error('telefono')) { <span class="rs-field-err">Indica un teléfono de contacto.</span> }
               </div>
 
               <div class="rs-field">
@@ -296,14 +552,15 @@ type Paso = 1 | 2 | 3 | 4;
                   <input type="checkbox" formControlName="aceptaTerminos" />
                   <span>Acepto los <a routerLink="/terminos" style="color:var(--c-accent)">Términos y condiciones</a> y la <a routerLink="/privacidad" style="color:var(--c-accent)">Política de privacidad</a></span>
                 </label>
+                @if (p2Error('aceptaTerminos')) {
+                  <span class="rs-field-err">Debes aceptar los términos para continuar.</span>
+                }
               </div>
             </form>
 
             <div class="wizard-nav">
               <button class="rs-btn rs-btn--secondary" (click)="irPaso(1)">← Atrás</button>
-              <button class="rs-btn rs-btn--gold rs-btn--lg"
-                      [disabled]="paso2Form.invalid"
-                      (click)="irPaso(3)">
+              <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="continuarPaso2()">
                 Continuar → Pago
               </button>
             </div>
@@ -365,9 +622,13 @@ type Paso = 1 | 2 | 3 | 4;
 
             <div class="wizard-nav">
               <button class="rs-btn rs-btn--secondary" (click)="irPaso(2)">← Atrás</button>
-              <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="procesarPago()">
+              <button class="rs-btn rs-btn--gold rs-btn--lg"
+                      [disabled]="procesando() || !stripeListo()"
+                      (click)="procesarPago()">
                 @if (procesando()) {
                   <span class="rs-spin"></span> Procesando…
+                } @else if (!stripeListo()) {
+                  Preparando pago…
                 } @else {
                   🔒 Pagar €{{ total() }}
                 }
@@ -602,6 +863,17 @@ type Paso = 1 | 2 | 3 | 4;
     .cupon-box__quitar { margin-left: var(--sp-3); text-decoration: underline; color: inherit; font-size: var(--f-xs); }
 
     .filter-check { display: flex; align-items: flex-start; gap: var(--sp-3); cursor: pointer; }
+
+    .perro-picker { margin-bottom: var(--sp-6); }
+    .perro-picker__empty { font-size: var(--f-sm); color: var(--t-400); a { color: var(--c-accent); } }
+    .perro-picker__list { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+    .perro-chip {
+      padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
+      border: 1px solid var(--b-2); background: var(--c-raised);
+      color: var(--t-300); font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
+      &:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      &.selected { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); font-weight: var(--w-6); }
+    }
   `],
 })
 export class ReservaWizardComponent implements OnInit {
@@ -612,6 +884,9 @@ export class ReservaWizardComponent implements OnInit {
   private readonly reservasService = inject(ReservasService);
   private readonly paymentsService = inject(PaymentsService);
   private readonly cuponesService  = inject(CuponesService);
+  private readonly perrosService   = inject(PerrosService);
+  private readonly recomendadorService = inject(RecomendadorService);
+  private readonly catalogBrowseService = inject(CatalogBrowseService);
 
   // Navigation
   readonly paso       = signal<Paso>(1);
@@ -637,6 +912,62 @@ export class ReservaWizardComponent implements OnInit {
   private reservaIdReal: string | null = null;
   readonly totalFromApi = signal<number | null>(null);
 
+  // Ficha Inteligente: perro para el que se reserva (opcional, filtra/precalcula en fases futuras).
+  readonly perros = signal<PerroApi[]>([]);
+  readonly perroSeleccionado = signal<string | null>(null);
+
+  // Recomendador de servicio (motivo/gravedad → recomendación, Fase B).
+  readonly recomendacionAdiestramiento = signal<RecomendacionAdiestramiento | null>(null);
+  readonly recomendacionVeterinaria = signal<RecomendacionVeterinaria | null>(null);
+
+  // Enriquecimiento de peluquería (Fase C): catálogo real de grooming filtrado por perro.
+  readonly peluqueriaDetalle = signal<PeluqueriaDetalleWizard | null>(null);
+  readonly perroSeleccionadoObj = computed(() =>
+    this.perros().find((p) => p._id === this.perroSeleccionado()) ?? null,
+  );
+  readonly serviciosGroomingOpciones = computed(() => {
+    const todos = this.peluqueriaDetalle()?.serviciosGrooming ?? [];
+    const tipoPeloPerro = this.perroSeleccionadoObj()?.tipoPelo ?? [];
+    if (!tipoPeloPerro.length) return todos;
+    return todos.filter(
+      (s) => !s.tipoPeloCompatible?.length || s.tipoPeloCompatible.some((t) => tipoPeloPerro.includes(t)),
+    );
+  });
+  readonly politicaTemperamentoLabel = computed(() => {
+    const politica = this.peluqueriaDetalle()?.politicaTemperamentoDificil;
+    return politica ? POLITICA_TEMPERAMENTO_LABEL[politica] ?? null : null;
+  });
+  readonly serviciosAdicionalesResumen = computed(() => {
+    const lista = this.peluqueriaDetalle()?.serviciosAdicionales ?? [];
+    return lista.map((a) => `${a.nombre} (€${a.precio})`).join(' · ');
+  });
+
+  // Enriquecimiento de veterinaria (Fase C): catálogo real de servicios clínicos.
+  readonly serviciosClinicosDisponibles = signal<ServicioClinicoWizard[]>([]);
+  servicioClinicoSeleccionado(): ServicioClinicoWizard | undefined {
+    const nombre = this.paso1VeterinariaForm.value.servicio;
+    return this.serviciosClinicosDisponibles().find((s) => s.nombre === nombre);
+  }
+
+  // Enriquecimiento de adiestramiento (Fase C): catálogo real de servicios/técnicas.
+  readonly serviciosAdiestramientoDisponibles = signal<ServicioAdiestramientoWizard[]>([]);
+
+  /** Método (no computed): depende del valor del FormGroup, que no es una señal reactiva. */
+  serviciosAdiestramientoOpciones(): ServicioAdiestramientoWizard[] {
+    const edad = Number(this.paso1AdiestramientoForm.value.edadMeses ?? 0);
+    return this.serviciosAdiestramientoDisponibles().filter((s) => {
+      if (s.edadMinimaMeses !== undefined && edad < s.edadMinimaMeses) return false;
+      if (s.edadMaximaMeses !== undefined && edad > s.edadMaximaMeses) return false;
+      return true;
+    });
+  }
+
+  precioServicioGrooming(s: ServicioGroomingWizard): number {
+    const tamanoPerro = this.perroSeleccionadoObj()?.tamano;
+    const tier = tamanoPerro ? s.preciosPorTamano?.find((t) => t.tamano === tamanoPerro) : undefined;
+    return tier?.precio ?? s.precio;
+  }
+
   metodoPagoVal = 'card';
 
   // ─── Step 1 forms (one per vertical) ───
@@ -645,6 +976,7 @@ export class ReservaWizardComponent implements OnInit {
     checkOut:    ['', Validators.required],
     perros:      [1, [Validators.required, Validators.min(1), Validators.max(3)]],
     tamanoPerro: ['mediano', Validators.required],
+    compatibilidadSocial: ['cualquiera'],
   });
 
   readonly paso1TransporteForm = this.fb.group({
@@ -660,6 +992,8 @@ export class ReservaWizardComponent implements OnInit {
     fecha:    ['', Validators.required],
     hora:     ['', Validators.required],
     servicio: ['consulta'],
+    motivoTriage: ['revision_general'],
+    gravedad: ['leve'],
   });
 
   readonly paso1PeluqueriaForm = this.fb.group({
@@ -672,6 +1006,16 @@ export class ReservaWizardComponent implements OnInit {
     fechaInicio: ['', Validators.required],
     modalidad:   ['sesion', Validators.required],
     edadMeses:   [12, [Validators.min(0), Validators.max(240)]],
+    motivo:      ['obediencia_basica'],
+    intensidad:  ['leve'],
+    servicio:    [''],
+  });
+
+  readonly paso1HotelesForm = this.fb.group({
+    checkIn:   ['', Validators.required],
+    checkOut:  ['', Validators.required],
+    mascotas:  [1, [Validators.required, Validators.min(1), Validators.max(3)]],
+    tamanoPerro: ['mediano', Validators.required],
   });
 
   // ─── Step 2 (shared) ───
@@ -709,6 +1053,7 @@ export class ReservaWizardComponent implements OnInit {
       case VerticalKey.VETERINARIA:    return this.paso1VeterinariaForm.valid;
       case VerticalKey.PELUQUERIA:     return this.paso1PeluqueriaForm.valid;
       case VerticalKey.ADIESTRAMIENTO: return this.paso1AdiestramientoForm.valid;
+      case VerticalKey.HOTELES:        return this.paso1HotelesForm.valid;
       default:                         return false;
     }
   });
@@ -723,6 +1068,11 @@ export class ReservaWizardComponent implements OnInit {
           (s, id) => s + (this.extras.find(e => e.id === id)?.precio ?? 0), 0,
         );
         return base * noches + extras;
+      }
+      case VerticalKey.HOTELES: {
+        const { checkIn, checkOut } = this.paso1HotelesForm.value;
+        const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
+        return base * noches;
       }
       default:
         return base;
@@ -743,6 +1093,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.VETERINARIA]: 'Tu cita',
       [VerticalKey.PELUQUERIA]: 'Tu cita',
       [VerticalKey.ADIESTRAMIENTO]: 'Tu sesión',
+      [VerticalKey.HOTELES]: 'Tu estancia',
     };
     return m[this.vertical()] ?? 'Selección';
   });
@@ -754,6 +1105,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.VETERINARIA]: 'Detalles de la cita veterinaria',
       [VerticalKey.PELUQUERIA]: 'Detalles de la cita de peluquería',
       [VerticalKey.ADIESTRAMIENTO]: 'Detalles del adiestramiento',
+      [VerticalKey.HOTELES]: 'Detalles de tu estancia pet-friendly',
     };
     return m[this.vertical()] ?? 'Resumen de tu reserva';
   });
@@ -765,6 +1117,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.VETERINARIA]: '🩺',
       [VerticalKey.PELUQUERIA]: '✂️',
       [VerticalKey.ADIESTRAMIENTO]: '🎓',
+      [VerticalKey.HOTELES]: '🏨',
     };
     return m[this.vertical()] ?? '🐾';
   });
@@ -780,6 +1133,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.VETERINARIA]: 'cita',
       [VerticalKey.PELUQUERIA]: 'servicio',
       [VerticalKey.ADIESTRAMIENTO]: 'sesión',
+      [VerticalKey.HOTELES]: 'noche',
     };
     return m[this.vertical()] ?? '';
   });
@@ -803,6 +1157,11 @@ export class ReservaWizardComponent implements OnInit {
         return this.paso1AdiestramientoForm.value.modalidad === 'programa'
           ? `Programa de adiestramiento · €${base}`
           : `Sesión de adiestramiento · €${base}`;
+      case VerticalKey.HOTELES: {
+        const { checkIn, checkOut } = this.paso1HotelesForm.value;
+        const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
+        return `€${base} × ${n} noche${n !== 1 ? 's' : ''} (+ suplemento por mascota)`;
+      }
       default:
         return `€${base}`;
     }
@@ -815,6 +1174,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.VETERINARIA]: 'Síntomas, historial médico, cartilla de vacunas…',
       [VerticalKey.PELUQUERIA]: 'Piel sensible, nudos, corte preferido…',
       [VerticalKey.ADIESTRAMIENTO]: 'Conducta a trabajar, nivel de socialización…',
+      [VerticalKey.HOTELES]: 'Necesidades especiales de tu mascota, movilidad reducida…',
     };
     return m[this.vertical()] ?? 'Peticiones especiales…';
   });
@@ -830,12 +1190,144 @@ export class ReservaWizardComponent implements OnInit {
     this.imagenServicio.set(queryParams.get('imagen') ?? '');
     this.precioBase.set(Number(queryParams.get('precioBase') ?? 0));
     this.espacioId = queryParams.get('espacioId');
+
+    // Prellenar con las fechas/perros ya buscados en el listado (no volver a pedirlos).
+    const checkIn = queryParams.get('checkIn');
+    const checkOut = queryParams.get('checkOut');
+    const perrosQP = queryParams.get('perros');
+    if (checkIn || checkOut || perrosQP) {
+      this.paso1AlojamientoForm.patchValue({
+        ...(checkIn ? { checkIn } : {}),
+        ...(checkOut ? { checkOut } : {}),
+        ...(perrosQP ? { perros: Number(perrosQP) } : {}),
+      });
+    }
+
+    const perroIdQP = queryParams.get('perroId');
+
+    void this.perrosService.misPerros().then((perros) => {
+      this.perros.set(perros);
+      if (perroIdQP && perros.some((p) => p._id === perroIdQP)) {
+        this.perroSeleccionado.set(perroIdQP);
+      } else if (perros.length === 1) {
+        this.perroSeleccionado.set(perros[0]._id);
+      }
+      this.sincronizarServicioPeluqueria();
+    }).catch(() => {
+      // Sin perros registrados o API no disponible: el selector queda vacío, no bloquea la reserva.
+    });
+
+    if (this.vertical() === VerticalKey.PELUQUERIA && this.servicioId) {
+      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+        const extra = s.extra ?? {};
+        this.peluqueriaDetalle.set({
+          serviciosGrooming: (extra['serviciosGrooming'] as ServicioGroomingWizard[] | undefined) ?? [],
+          politicaTemperamentoDificil: (extra['politicaTemperamentoDificil'] as string) ?? 'aceptar',
+          bozalObligatorioSiAgresivo: (extra['bozalObligatorioSiAgresivo'] as boolean) ?? true,
+          serviciosAdicionales: (extra['serviciosAdicionales'] as ServicioAdicionalWizard[] | undefined) ?? [],
+          razasEspecificas: (extra['razasEspecificas'] as string[] | undefined) ?? [],
+          requiereVacunasAlDia: (extra['requiereVacunasAlDia'] as boolean) ?? true,
+          requiereMicrochip: (extra['requiereMicrochip'] as boolean) ?? true,
+        });
+        this.sincronizarServicioPeluqueria();
+      }).catch(() => {
+        // Catálogo detallado no disponible: se mantiene sin opciones filtradas, no bloquea la reserva.
+      });
+    }
+
+    if (this.vertical() === VerticalKey.VETERINARIA && this.servicioId) {
+      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+        const extra = s.extra ?? {};
+        this.serviciosClinicosDisponibles.set(
+          (extra['serviciosClinicos'] as ServicioClinicoWizard[] | undefined) ?? [],
+        );
+      }).catch(() => {
+        // Catálogo detallado no disponible: se mantiene con el selector genérico.
+      });
+    }
+
+    if (this.vertical() === VerticalKey.ADIESTRAMIENTO && this.servicioId) {
+      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+        const extra = s.extra ?? {};
+        this.serviciosAdiestramientoDisponibles.set(
+          (extra['serviciosAdiestramiento'] as ServicioAdiestramientoWizard[] | undefined) ?? [],
+        );
+      }).catch(() => {
+        // Catálogo detallado no disponible: se mantiene con el selector de modalidad genérico.
+      });
+    }
+  }
+
+  /** Si el servicio elegido deja de estar disponible para el perro seleccionado, elige el primero compatible. */
+  private sincronizarServicioPeluqueria(): void {
+    if (this.vertical() !== VerticalKey.PELUQUERIA) return;
+    const opciones = this.serviciosGroomingOpciones();
+    if (!opciones.length) return;
+    const actual = this.paso1PeluqueriaForm.value.servicio;
+    if (!opciones.some((o) => o.nombre === actual)) {
+      this.paso1PeluqueriaForm.patchValue({ servicio: opciones[0].nombre });
+    }
+  }
+
+  seleccionarPerro(id: string): void {
+    this.perroSeleccionado.set(id);
+    this.sincronizarServicioPeluqueria();
   }
 
   irPaso(p: number): void {
+    // Si se vuelve al paso 1 tras haber preparado el pago, el importe pudo cambiar
+    // (fechas, extras…): se descarta el PaymentIntent anterior para no cobrar de más/menos.
+    if (p === 1 && this.stripeListo()) {
+      this.stripeListo.set(false);
+      this.totalFromApi.set(null);
+      this.clientSecret = null;
+      this.stripe = null;
+      this.elements = null;
+      this.reservaIdReal = null;
+    }
+
     this.paso.set(p as Paso);
     if (p === 3 && this.metodoPago() === 'card' && !this.stripeListo()) {
       void this.prepararStripe();
+    }
+  }
+
+  p2Error(campo: string): boolean {
+    const control = this.paso2Form.get(campo);
+    return !!(control && control.invalid && control.touched);
+  }
+
+  continuarPaso2(): void {
+    if (this.paso2Form.invalid) {
+      this.paso2Form.markAllAsTouched();
+      return;
+    }
+    this.irPaso(3);
+  }
+
+  async consultarRecomendacionAdiestramiento(): Promise<void> {
+    const { motivo, intensidad, edadMeses } = this.paso1AdiestramientoForm.value;
+    if (!motivo || !intensidad) return;
+    try {
+      const rec = await this.recomendadorService.adiestramiento(motivo, intensidad, Number(edadMeses ?? 0));
+      this.recomendacionAdiestramiento.set(rec);
+      if (rec.bloqueaGrupales) {
+        this.paso1AdiestramientoForm.patchValue({ modalidad: 'sesion' });
+      }
+    } catch {
+      // Recomendación no disponible: no bloquea el flujo de reserva.
+    }
+  }
+
+  async consultarRecomendacionVeterinaria(): Promise<void> {
+    const { motivoTriage, gravedad } = this.paso1VeterinariaForm.value;
+    if (!motivoTriage || !gravedad) return;
+    try {
+      this.recomendacionVeterinaria.set(
+        await this.recomendadorService.veterinaria(motivoTriage, gravedad),
+      );
+    } catch {
+      // Recomendación no disponible: no bloquea el flujo de reserva.
     }
   }
 
@@ -846,10 +1338,12 @@ export class ReservaWizardComponent implements OnInit {
         const f = this.paso1AlojamientoForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          perroId: this.perroSeleccionado() ?? undefined,
           fechaInicio: f.checkIn!, fechaFin: f.checkOut ?? undefined,
           cantidad: Number(f.perros ?? 1),
           detalle: {
             tamanoPerro: f.tamanoPerro,
+            compatibilidadSocial: f.compatibilidadSocial,
             ...(this.espacioId ? { espacioId: this.espacioId } : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
@@ -859,6 +1353,7 @@ export class ReservaWizardComponent implements OnInit {
         const f = this.paso1TransporteForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          perroId: this.perroSeleccionado() ?? undefined,
           fechaInicio: `${f.fechaRecogida}T${f.hora}:00`,
           cantidad: 1,
           detalle: {
@@ -873,6 +1368,7 @@ export class ReservaWizardComponent implements OnInit {
         const f = this.paso1VeterinariaForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          perroId: this.perroSeleccionado() ?? undefined,
           fechaInicio: f.fecha!,
           cantidad: 1,
           detalle: { hora: f.hora, servicio: f.servicio },
@@ -883,6 +1379,7 @@ export class ReservaWizardComponent implements OnInit {
         const f = this.paso1PeluqueriaForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          perroId: this.perroSeleccionado() ?? undefined,
           fechaInicio: f.fecha!,
           cantidad: 1,
           detalle: { hora: f.hora, servicio: f.servicio },
@@ -893,15 +1390,28 @@ export class ReservaWizardComponent implements OnInit {
         const f = this.paso1AdiestramientoForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          perroId: this.perroSeleccionado() ?? undefined,
           fechaInicio: f.fechaInicio!,
           cantidad: 1,
-          detalle: { modalidad: f.modalidad, edadMeses: Number(f.edadMeses ?? 0) },
+          detalle: { modalidad: f.modalidad, edadMeses: Number(f.edadMeses ?? 0), servicio: f.servicio || undefined },
+          cuponCodigo: this.cuponCodigo() ?? undefined,
+        };
+      }
+      case VerticalKey.HOTELES: {
+        const f = this.paso1HotelesForm.value;
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          perroId: this.perroSeleccionado() ?? undefined,
+          fechaInicio: f.checkIn!, fechaFin: f.checkOut ?? undefined,
+          cantidad: Number(f.mascotas ?? 1),
+          detalle: { tamanoPerro: f.tamanoPerro },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }
       default:
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          perroId: this.perroSeleccionado() ?? undefined,
           fechaInicio: new Date().toISOString(), cantidad: 1,
         };
     }

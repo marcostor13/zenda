@@ -45,6 +45,8 @@ export class VeterinariaAvailabilityStrategy implements AvailabilityStrategy {
       return { disponible: false, capacidadRestante: clinica.citasDisponibles ?? 0 };
     }
 
+    this.validarEspecie(clinica, params);
+
     const servicio = this.servicioClinicoSolicitado(clinica, params);
     const precioUnitario = servicio?.precio ?? clinica.precioConsulta;
 
@@ -56,8 +58,19 @@ export class VeterinariaAvailabilityStrategy implements AvailabilityStrategy {
         perros,
         ...(servicio ? { servicio: servicio.nombre } : {}),
         duracionMin: servicio?.duracionMin ?? clinica.duracionCitaMin,
+        esPrecioCerrado: servicio?.esPrecioCerrado ?? false,
       },
     };
+  }
+
+  /** Bloquea si la clínica no atiende la especie del animal (docs §5.1: no es un vertical solo de perros). */
+  private validarEspecie(clinica: Veterinaria, params: AvailabilityQuery): void {
+    if (!clinica.especiesAtendidas?.length) return;
+    const especie = params.parametrosExtra?.['perroEspecie'];
+    if (typeof especie !== 'string') return;
+    if (!clinica.especiesAtendidas.includes(especie)) {
+      throw new DomainException('Esta clínica no atiende la especie de tu mascota', 409);
+    }
   }
 
   async reserveSlot(servicioId: string, _params: ReserveParams): Promise<SlotHold> {

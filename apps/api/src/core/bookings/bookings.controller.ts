@@ -35,11 +35,15 @@ export class BookingsController {
       comercioId: dto.comercioId,
       servicioId: dto.servicioId,
       vertical: dto.vertical,
+      perroId: dto.perroId,
       fechaInicio: new Date(dto.fechaInicio),
       fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
       cantidad: dto.cantidad,
       detalle: dto.detalle,
       cuponCodigo: dto.cuponCodigo,
+      recurrencia: dto.recurrencia
+        ? { diasSemana: dto.recurrencia.diasSemana, hora: dto.recurrencia.hora, fechaFin: new Date(dto.recurrencia.fechaFin) }
+        : undefined,
     });
   }
 

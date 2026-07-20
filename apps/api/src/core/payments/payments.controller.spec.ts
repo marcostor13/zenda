@@ -23,6 +23,8 @@ describe('PaymentsController', () => {
           useValue: {
             crearIntent: jest.fn().mockResolvedValue(intentResponseMock),
             procesarWebhook: jest.fn().mockResolvedValue(undefined),
+            aceptarAjuste: jest.fn().mockResolvedValue(intentResponseMock),
+            rechazarAjuste: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -39,6 +41,26 @@ describe('PaymentsController', () => {
 
       expect(paymentsService.crearIntent).toHaveBeenCalledWith('reserva-1', 'user-1');
       expect(resultado).toEqual(intentResponseMock);
+    });
+  });
+
+  describe('aceptarAjuste', () => {
+    it('debería delegar a PaymentsService con el id de la reserva y el usuario del token', async () => {
+      const req: any = { user: { sub: 'user-1' } };
+      const resultado = await controller.aceptarAjuste('reserva-1', req);
+
+      expect(paymentsService.aceptarAjuste).toHaveBeenCalledWith('reserva-1', 'user-1');
+      expect(resultado).toEqual(intentResponseMock);
+    });
+  });
+
+  describe('rechazarAjuste', () => {
+    it('debería delegar a PaymentsService y responder { ok: true }', async () => {
+      const req: any = { user: { sub: 'user-1' } };
+      const resultado = await controller.rechazarAjuste('reserva-1', req);
+
+      expect(paymentsService.rechazarAjuste).toHaveBeenCalledWith('reserva-1', 'user-1');
+      expect(resultado).toEqual({ ok: true });
     });
   });
 

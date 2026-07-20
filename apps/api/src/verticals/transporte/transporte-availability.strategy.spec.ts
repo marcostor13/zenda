@@ -122,6 +122,7 @@ describe('TransporteAvailabilityStrategy', () => {
         tipoVehiculo: 'van_acondicionada',
         capacidadPerros: 4,
         perros: 3,
+        exclusivo: false,
       });
     });
 
@@ -143,6 +144,35 @@ describe('TransporteAvailabilityStrategy', () => {
 
       expect(resultado.metadata?.distanciaKm).toBe(10);
       expect(resultado.precioCalculado).toBe(12 + 1.2 * 10);
+    });
+
+    describe('transporte exclusivo', () => {
+      it('añade el suplemento de exclusividad configurado por el comercio', async () => {
+        mockFindById({ ...transporteMock, precioExclusivo: 20 });
+        const resultado = await strategy.checkAvailability('transporte-1', {
+          fechaInicio: new Date('2026-07-15T10:00:00Z'),
+          parametrosExtra: { distanciaKm: 10, exclusivo: true },
+        });
+        expect(resultado.precioCalculado).toBe(12 + 1.2 * 10 + 20);
+        expect(resultado.metadata?.exclusivo).toBe(true);
+      });
+
+      it('no añade suplemento si no se solicita transporte exclusivo', async () => {
+        mockFindById({ ...transporteMock, precioExclusivo: 20 });
+        const resultado = await strategy.checkAvailability('transporte-1', {
+          fechaInicio: new Date('2026-07-15T10:00:00Z'),
+          parametrosExtra: { distanciaKm: 10 },
+        });
+        expect(resultado.precioCalculado).toBe(12 + 1.2 * 10);
+      });
+
+      it('no añade suplemento si el comercio no configuró precioExclusivo', async () => {
+        const resultado = await strategy.checkAvailability('transporte-1', {
+          fechaInicio: new Date('2026-07-15T10:00:00Z'),
+          parametrosExtra: { distanciaKm: 10, exclusivo: true },
+        });
+        expect(resultado.precioCalculado).toBe(12 + 1.2 * 10);
+      });
     });
   });
 

@@ -12,7 +12,7 @@ import { CatalogService, ServicioCardDto } from '../catalog/catalog.service';
 import { AuthService } from '../auth/auth.service';
 import { UsersRepository } from '../users/users.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, Rol, ActualizarPerfilComercioDto } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, Rol, ActualizarPerfilComercioDto, SolicitarAjusteDto } from 'shared';
 
 @Injectable()
 export class ComerciosService {
@@ -171,6 +171,15 @@ export class ComerciosService {
   /** El comercio marca como completado un servicio ya prestado. */
   completarReserva(reservaId: string, comercioId: string): Promise<ReservaDocument> {
     return this.bookingsService.completar(reservaId, comercioId);
+  }
+
+  /** El comercio detecta en recepción condiciones no indicadas y propone un suplemento. */
+  solicitarAjusteReserva(
+    reservaId: string,
+    comercioId: string,
+    dto: SolicitarAjusteDto,
+  ): Promise<ReservaDocument> {
+    return this.bookingsService.solicitarAjuste(reservaId, comercioId, dto.suplementos, dto.evidenciaUrl);
   }
 
   /** El comercio actualiza la disponibilidad/cupos de uno de sus servicios (D1). */

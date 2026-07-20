@@ -58,7 +58,7 @@ describe('ComerciosService', () => {
         },
         {
           provide: BookingsService,
-          useValue: { completar: jest.fn() },
+          useValue: { completar: jest.fn(), solicitarAjuste: jest.fn() },
         },
         {
           provide: CatalogService,
@@ -129,6 +129,23 @@ describe('ComerciosService', () => {
 
       expect(bookingsService.completar).toHaveBeenCalledWith('reserva-1', 'comercio-1');
       expect(resultado).toMatchObject({ estado: 'completada' });
+    });
+  });
+
+  describe('solicitarAjusteReserva', () => {
+    it('debería delegar en BookingsService.solicitarAjuste con los suplementos y la evidencia', async () => {
+      bookingsService.solicitarAjuste.mockResolvedValue({ estado: 'ajuste_solicitado' } as never);
+      const dto = { suplementos: [{ concepto: 'Nudos severos', monto: 15 }], evidenciaUrl: 'https://x/foto.jpg' };
+
+      const resultado = await service.solicitarAjusteReserva('reserva-1', 'comercio-1', dto);
+
+      expect(bookingsService.solicitarAjuste).toHaveBeenCalledWith(
+        'reserva-1',
+        'comercio-1',
+        dto.suplementos,
+        dto.evidenciaUrl,
+      );
+      expect(resultado).toMatchObject({ estado: 'ajuste_solicitado' });
     });
   });
 

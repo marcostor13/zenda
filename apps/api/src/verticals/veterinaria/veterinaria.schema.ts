@@ -8,9 +8,16 @@ export interface ServicioClinico {
   nombre: string;
   precio: number;
   duracionMin?: number;
+  /**
+   * true = precio cerrado (vacunas, microchip, certificados, revisiones postop…), comisionable normal.
+   * false/ausente = precio orientativo ("desde X€": consulta general, dermatología, urgencias…) —
+   * Doogking solo comisiona este importe inicial; pruebas/tratamientos extra se facturan fuera de la
+   * plataforma (docs/mejora_servicios.md §5.4, decisión ya tomada: excepción de comisión veterinaria).
+   */
+  esPrecioCerrado?: boolean;
 }
 
-/** Discriminador del vertical Veterinaria: citas clínicas para perros. */
+/** Discriminador del vertical Veterinaria: citas clínicas, no solo para perros (docs §5.1). */
 @Schema({ _id: false })
 export class Veterinaria extends Servicio {
   @Prop({ type: [String], default: [] })
@@ -18,6 +25,10 @@ export class Veterinaria extends Servicio {
 
   @Prop({ type: [Object], default: [] })
   serviciosClinicos!: ServicioClinico[];
+
+  /** Especies que atiende la clínica; ['perro'] por defecto. Vacío = cualquier especie. */
+  @Prop({ type: [String], default: ['perro'] })
+  especiesAtendidas!: string[];
 
   @Prop({ type: Number, default: 30 })
   duracionCitaMin!: number;

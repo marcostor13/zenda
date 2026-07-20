@@ -1,5 +1,6 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsObject, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsObject, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { AptitudPerroDto } from './aptitud-perro.dto';
 
 /** El vertical de un servicio no se puede cambiar tras su creación. */
 export class ActualizarServicioDto {
@@ -30,4 +31,9 @@ export class ActualizarServicioDto {
   @IsOptional()
   @IsObject()
   extra?: Record<string, unknown>;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AptitudPerroDto)
+  aptitud?: AptitudPerroDto;
 }

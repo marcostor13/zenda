@@ -13,6 +13,11 @@ export const reservasRoutes: Routes = [
     // Only matches single-segment paths like RES-XXXXXXXX; two-segment :vertical/:servicioId takes precedence for 2-part paths.
   },
   {
+    path: ':codigo/ajuste',
+    loadComponent: () =>
+      import('./components/ajuste-pago.component').then(m => m.AjustePagoComponent),
+  },
+  {
     path: ':vertical/:servicioId',
     loadComponent: () =>
       import('./components/reserva-wizard.component').then(m => m.ReservaWizardComponent),

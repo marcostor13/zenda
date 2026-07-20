@@ -1,5 +1,7 @@
-import { IsString, IsOptional, IsInt, IsDateString, Min, IsEnum, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsDateString, Min, IsEnum, IsObject, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
+import { RecurrenciaDto } from './recurrencia.dto';
 
 export class CrearReservaDto {
   @IsString()
@@ -10,6 +12,10 @@ export class CrearReservaDto {
 
   @IsEnum(VerticalKey)
   vertical!: VerticalKey;
+
+  @IsOptional()
+  @IsString()
+  perroId?: string;
 
   @IsDateString()
   fechaInicio!: string;
@@ -30,4 +36,10 @@ export class CrearReservaDto {
   @IsOptional()
   @IsString()
   cuponCodigo?: string;
+
+  /** Patrón simple de recurrencia (docs §4.3): genera reservas hijas para cada ocurrencia. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RecurrenciaDto)
+  recurrencia?: RecurrenciaDto;
 }

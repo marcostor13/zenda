@@ -1,12 +1,15 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { BRAND, CATEGORIA_BADGES, HOTEL_IMAGES } from '../../shared/media/images';
+import { environment } from '../../../environments/environment';
 
 /** Ruta de navegación de cada categoría canina. */
 const VERTICAL_ROUTES: Record<string, string> = {
@@ -15,6 +18,7 @@ const VERTICAL_ROUTES: Record<string, string> = {
   veterinaria: '/veterinaria',
   peluqueria: '/peluqueria',
   adiestramiento: '/adiestramiento',
+  hoteles: '/hoteles',
 };
 
 interface Vertical {
@@ -36,6 +40,17 @@ interface AlojamientoRecomendado {
   imagen: string;
   tags: string[];
 }
+
+/** Respuesta del asistente de búsqueda con IA (`POST /ai-search`). */
+interface AiSearchResult {
+  vertical: string | null;
+  ciudad: string | null;
+  desde: string | null;
+  hasta: string | null;
+  extras?: Record<string, string>;
+}
+
+type SearchMode = 'filtros' | 'ia';
 
 @Component({
   selector: 'app-home',
@@ -64,62 +79,113 @@ interface AlojamientoRecomendado {
           real para tu perro. La forma más fácil de darle el trato que merece.
         </p>
 
-        <!-- Card de búsqueda -->
-        <form class="hero__search" [formGroup]="searchForm" (ngSubmit)="onBuscar()">
-          <div class="hero__search-grid">
-            <div class="hero__field">
-              <label class="hero__lbl" for="home-servicio">Servicio</label>
-              <div class="hero__inp-wrap">
-                <rs-icon [name]="verticalIcon()" [size]="16" [stroke]="2"></rs-icon>
-                <select id="home-servicio" formControlName="vertical" class="hero__inp hero__inp--select">
-                  @for (v of verticales; track v.key) {
-                    <option [value]="v.key">{{ v.label }}</option>
-                  }
-                </select>
-              </div>
-            </div>
+        <!-- Panel de búsqueda centrado -->
+        <div class="hero__panel">
+          <!-- Toggle: filtros vs IA (un clic) -->
+          <div class="hero__modes" role="tablist" aria-label="Modo de búsqueda">
+            <button type="button" class="hero__mode" role="tab"
+                    [class.is-active]="searchMode() === 'filtros'"
+                    [attr.aria-selected]="searchMode() === 'filtros'"
+                    (click)="searchMode.set('filtros')">
+              <rs-icon name="search" [size]="15" [stroke]="2.25"></rs-icon>
+              Buscar por filtros
+            </button>
+            <button type="button" class="hero__mode hero__mode--ia" role="tab"
+                    [class.is-active]="searchMode() === 'ia'"
+                    [attr.aria-selected]="searchMode() === 'ia'"
+                    (click)="searchMode.set('ia')">
+              <rs-icon name="sparkles" [size]="15" [stroke]="2"></rs-icon>
+              Buscar con IA
+            </button>
+          </div>
 
-            <div class="hero__field">
-              <label class="hero__lbl" for="home-ciudad">Ciudad</label>
-              <div class="hero__inp-wrap">
-                <rs-icon name="map-pin" [size]="16" [stroke]="2"></rs-icon>
-                <input id="home-ciudad" formControlName="ciudad" class="hero__inp"
-                       placeholder="Madrid, Barcelona, Valencia…" />
+          @if (searchMode() === 'filtros') {
+            <form class="hero__search" [formGroup]="searchForm" (ngSubmit)="onBuscar()">
+              <div class="hero__field hero__field--service">
+                <label class="hero__lbl" for="home-servicio">Servicio</label>
+                <div class="hero__inp-wrap">
+                  <rs-icon [name]="verticalIcon()" [size]="16" [stroke]="2"></rs-icon>
+                  <select id="home-servicio" formControlName="vertical" class="hero__inp hero__inp--select">
+                    @for (v of verticales; track v.key) {
+                      <option [value]="v.key">{{ v.label }}</option>
+                    }
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <div class="hero__field">
-              <label class="hero__lbl" for="home-desde">Fechas</label>
-              <div class="hero__dates">
+              <div class="hero__field hero__field--city">
+                <label class="hero__lbl" for="home-ciudad">Ciudad</label>
+                <div class="hero__inp-wrap">
+                  <rs-icon name="map-pin" [size]="16" [stroke]="2"></rs-icon>
+                  <input id="home-ciudad" formControlName="ciudad" class="hero__inp"
+                         placeholder="Madrid, Barcelona…" />
+                </div>
+              </div>
+
+              <div class="hero__field hero__field--date">
+                <label class="hero__lbl" for="home-desde">Entrada</label>
                 <div class="hero__inp-wrap">
                   <rs-icon name="calendar" [size]="16" [stroke]="2"></rs-icon>
                   <input id="home-desde" formControlName="fechaInicio" type="date" class="hero__inp" aria-label="Fecha de entrada" />
                 </div>
+              </div>
+
+              <div class="hero__field hero__field--date">
+                <label class="hero__lbl" for="home-hasta">Salida</label>
                 <div class="hero__inp-wrap">
                   <rs-icon name="calendar" [size]="16" [stroke]="2"></rs-icon>
-                  <input formControlName="fechaFin" type="date" class="hero__inp" aria-label="Fecha de salida" />
+                  <input id="home-hasta" formControlName="fechaFin" type="date" class="hero__inp" aria-label="Fecha de salida" />
                 </div>
               </div>
-            </div>
 
-            <div class="hero__field">
-              <label class="hero__lbl" for="home-perros">Nº de perros</label>
-              <div class="hero__inp-wrap">
-                <rs-icon name="paw" [size]="16" [stroke]="2"></rs-icon>
-                <select id="home-perros" formControlName="perros" class="hero__inp hero__inp--select">
-                  @for (n of [1,2,3,4]; track n) {
-                    <option [value]="n">{{ n }} {{ n === 1 ? 'perro' : 'perros' }}</option>
-                  }
-                </select>
+              <div class="hero__field hero__field--dogs">
+                <label class="hero__lbl" for="home-perros">Perros</label>
+                <div class="hero__inp-wrap">
+                  <rs-icon name="paw" [size]="16" [stroke]="2"></rs-icon>
+                  <select id="home-perros" formControlName="perros" class="hero__inp hero__inp--select">
+                    @for (n of [1,2,3,4]; track n) {
+                      <option [value]="n">{{ n }}</option>
+                    }
+                  </select>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg hero__cta">
-            <rs-icon name="search" [size]="17" [stroke]="2.25"></rs-icon>
-            Buscar
-          </button>
-        </form>
+              <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg hero__cta">
+                <rs-icon name="search" [size]="18" [stroke]="2.25"></rs-icon>
+                <span>Buscar</span>
+              </button>
+            </form>
+          } @else {
+            <form class="hero__ai" (ngSubmit)="buscarConIA()">
+              <div class="hero__ai-bar" [class.is-loading]="aiLoading()">
+                <rs-icon name="sparkles" [size]="18" [stroke]="1.75" class="hero__ai-spark"></rs-icon>
+                <input class="hero__ai-input" [formControl]="aiQuery"
+                       placeholder="Describe lo que necesitas… «Alojamiento en Madrid para mi golden este finde»"
+                       aria-label="Búsqueda con inteligencia artificial" />
+                <button type="submit" class="rs-btn rs-btn--gold hero__ai-btn"
+                        aria-label="Buscar con IA"
+                        [disabled]="aiLoading() || !aiQuery.value.trim()">
+                  @if (aiLoading()) {
+                    <span class="hero__ai-spinner"></span>
+                  } @else {
+                    <rs-icon name="arrow-right" [size]="18" [stroke]="2.5"></rs-icon>
+                  }
+                </button>
+              </div>
+
+              <div class="hero__ai-hints">
+                <span class="hero__ai-hint-label">Prueba:</span>
+                @for (s of sugerenciasIA; track s) {
+                  <button type="button" class="hero__ai-chip" (click)="usarSugerencia(s)">{{ s }}</button>
+                }
+              </div>
+
+              @if (aiError()) {
+                <p class="hero__ai-error">{{ aiError() }}</p>
+              }
+            </form>
+          }
+        </div>
       </div>
     </div>
   </section>
@@ -272,22 +338,26 @@ interface AlojamientoRecomendado {
       }
     }
 
-    /* Scrim oscuro (azul real de marca): fuerte contraste a la izquierda para
-       el texto claro, foto siempre visible y cada vez más nítida a la derecha. */
+    /* Scrim oscuro (azul real de marca): oscurece de forma uniforme con un
+       refuerzo en los bordes para que el contenido —ahora centrado— sea legible
+       sobre cualquier foto, sin tapar del todo la imagen. */
     .hero__overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg,
-        rgba(0,19,93,.90) 0%,
-        rgba(0,19,93,.74) 34%,
-        rgba(0,19,93,.42) 62%,
-        rgba(0,19,93,.14) 100%);
+      background:
+        linear-gradient(180deg,
+          rgba(0,19,93,.70) 0%,
+          rgba(0,19,93,.40) 40%,
+          rgba(0,19,93,.66) 100%),
+        radial-gradient(130% 100% at 50% 32%,
+          rgba(0,19,93,0) 42%,
+          rgba(0,19,93,.34) 100%);
 
       @media (max-width: 768px) {
         background: linear-gradient(180deg,
-          rgba(0,19,93,.78) 0%,
-          rgba(0,19,93,.88) 55%,
-          rgba(0,19,93,.92) 100%);
+          rgba(0,19,93,.72) 0%,
+          rgba(0,19,93,.84) 55%,
+          rgba(0,19,93,.90) 100%);
       }
     }
 
@@ -298,7 +368,9 @@ interface AlojamientoRecomendado {
     }
 
     .hero__content {
-      max-width: 560px;
+      max-width: 980px;
+      margin-inline: auto;
+      text-align: center;
       animation: fadeUp .7s ease both;
     }
 
@@ -321,32 +393,76 @@ interface AlojamientoRecomendado {
       font-size: var(--f-lg);
       color: rgba(255,255,255,.92);
       line-height: 1.7;
-      max-width: 46ch;
+      max-width: 54ch;
+      margin-inline: auto;
       margin-bottom: var(--sp-8);
       text-shadow: 0 1px 10px rgba(0,8,40,.35);
     }
 
-    /* Card de búsqueda blanca */
+    /* Panel de búsqueda centrado (ancho, tipo Booking) */
+    .hero__panel {
+      max-width: 960px;
+      margin-inline: auto;
+      animation: fadeUp .7s .15s ease both;
+    }
+
+    /* Toggle filtros ↔ IA (un clic) */
+    .hero__modes {
+      display: inline-flex;
+      gap: var(--sp-1);
+      padding: var(--sp-1);
+      margin-bottom: var(--sp-4);
+      background: rgba(255,255,255,.14);
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: var(--r-full);
+      backdrop-filter: blur(8px);
+    }
+
+    .hero__mode {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-5);
+      border: none;
+      background: transparent;
+      border-radius: var(--r-full);
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
+      color: rgba(255,255,255,.85);
+      transition: background var(--d-2), color var(--d-2);
+
+      &:hover { color: #fff; }
+    }
+
+    .hero__mode.is-active {
+      background: var(--c-card);
+      color: var(--dk-blue);
+      box-shadow: var(--sh-md);
+    }
+
+    .hero__mode--ia.is-active { color: var(--dk-gold-text); }
+
+    /* Barra de filtros horizontal */
     .hero__search {
+      display: flex;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: var(--sp-3);
       background: var(--c-card);
       border: 1px solid var(--b-1);
       border-radius: var(--r-lg);
       box-shadow: var(--sh-xl);
-      padding: var(--sp-5);
-      max-width: 480px;
-      animation: fadeUp .7s .15s ease both;
-    }
-
-    .hero__search-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--sp-4);
-      margin-bottom: var(--sp-5);
-
-      @media (max-width: 480px) { grid-template-columns: 1fr; }
+      padding: var(--sp-4);
+      text-align: left;
     }
 
     .hero__field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+    .hero__field--service { flex: 1.4 1 155px; }
+    .hero__field--city    { flex: 1.7 1 180px; }
+    .hero__field--date    { flex: 1 1 140px; }
+    .hero__field--dogs    { flex: .7 1 96px; }
 
     .hero__lbl {
       font-family: var(--font-accent);
@@ -390,20 +506,107 @@ interface AlojamientoRecomendado {
 
     .hero__inp--select { cursor: pointer; appearance: auto; }
 
-    .hero__dates {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--sp-2);
-    }
-
-    .hero__field:has(.hero__dates) { grid-column: 1 / -1; }
-
     .hero__cta {
-      width: 100%;
+      flex: 0 0 auto;
+      align-self: flex-end;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: var(--sp-2);
+    }
+
+    @media (max-width: 720px) {
+      .hero__field { flex: 1 1 100%; }
+      .hero__cta { width: 100%; }
+    }
+
+    /* Barra de búsqueda con IA */
+    .hero__ai { text-align: left; }
+
+    .hero__ai-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      background: var(--c-card);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-full);
+      box-shadow: var(--sh-xl);
+      padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);
+      transition: box-shadow var(--d-2);
+
+      &:focus-within { box-shadow: var(--sh-xl), 0 0 0 3px var(--c-accent-lo); }
+
+      @media (max-width: 480px) { border-radius: var(--r-lg); }
+    }
+
+    .hero__ai-bar.is-loading { opacity: .75; }
+
+    .hero__ai-spark { color: var(--dk-gold); flex-shrink: 0; display: flex; }
+
+    .hero__ai-input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: transparent;
+      padding-block: var(--sp-3);
+      font-family: var(--font);
+      font-size: var(--f-base);
+      color: var(--t-100);
+
+      &::placeholder { color: var(--t-500); }
+    }
+
+    .hero__ai-btn {
+      flex: 0 0 auto;
+      width: 52px;
+      height: 52px;
+      padding: 0;
+      border-radius: var(--r-full);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero__ai-spinner {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(0,19,93,.25);
+      border-top-color: var(--dk-blue-deep);
+      animation: heroSpin .7s linear infinite;
+    }
+    @keyframes heroSpin { to { transform: rotate(360deg); } }
+
+    .hero__ai-hints {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--sp-2);
+      margin-top: var(--sp-3);
+    }
+
+    .hero__ai-hint-label { font-size: var(--f-xs); color: rgba(255,255,255,.72); }
+
+    .hero__ai-chip {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.22);
+      color: rgba(255,255,255,.90);
+      border-radius: var(--r-full);
+      padding: var(--sp-1) var(--sp-3);
+      font-size: var(--f-xs);
+      cursor: pointer;
+      transition: background var(--d-2), border-color var(--d-2);
+      backdrop-filter: blur(4px);
+
+      &:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.40); }
+    }
+
+    .hero__ai-error {
+      margin-top: var(--sp-3);
+      font-size: var(--f-sm);
+      color: rgba(255,224,224,.95);
+      text-shadow: 0 1px 8px rgba(0,8,40,.40);
     }
 
     /* ── SECTION HEADERS ───────────────────────────────────────────── */
@@ -661,9 +864,23 @@ interface AlojamientoRecomendado {
 export class HomeComponent {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly http = inject(HttpClient);
 
   readonly heroImg = BRAND.heroHome;
   readonly logoFooter = BRAND.logoFooter;
+
+  /** Modo del buscador del hero: formulario clásico o asistente con IA. */
+  readonly searchMode = signal<SearchMode>('filtros');
+
+  readonly aiQuery = new FormControl('', { nonNullable: true });
+  readonly aiLoading = signal(false);
+  readonly aiError = signal('');
+
+  readonly sugerenciasIA = [
+    'Alojamiento en Madrid para mi golden este finde',
+    'Veterinario en Barcelona para vacunación',
+    'Peluquería canina en Valencia',
+  ];
 
   readonly verticales: Vertical[] = [
     { key: VerticalKey.ALOJAMIENTO,    icon: 'hotel',          label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    route: VERTICAL_ROUTES['alojamiento'],    badge: CATEGORIA_BADGES['alojamiento'] },
@@ -671,6 +888,7 @@ export class HomeComponent {
     { key: VerticalKey.VETERINARIA,    icon: 'stethoscope',    label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    route: VERTICAL_ROUTES['veterinaria'],    badge: CATEGORIA_BADGES['veterinaria'] },
     { key: VerticalKey.PELUQUERIA,     icon: 'scissors',       label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     route: VERTICAL_ROUTES['peluqueria'],     badge: CATEGORIA_BADGES['peluqueria'] },
     { key: VerticalKey.ADIESTRAMIENTO, icon: 'graduation-cap', label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], route: VERTICAL_ROUTES['adiestramiento'], badge: CATEGORIA_BADGES['adiestramiento'] },
+    { key: VerticalKey.HOTELES,        icon: 'building',       label: VERTICAL_LABELS[VerticalKey.HOTELES],        route: VERTICAL_ROUTES['hoteles'],        badge: CATEGORIA_BADGES['hoteles'] },
   ];
 
   readonly searchForm = this.fb.group({
@@ -728,5 +946,45 @@ export class HomeComponent {
         perros: perros || null,
       },
     });
+  }
+
+  usarSugerencia(sugerencia: string): void {
+    this.aiQuery.setValue(sugerencia);
+    void this.buscarConIA();
+  }
+
+  /**
+   * Búsqueda con IA: el asistente interpreta la frase libre y devuelve el
+   * vertical y filtros; navegamos directamente a los resultados. Si falla,
+   * mostramos un aviso y el usuario puede volver a los filtros.
+   */
+  async buscarConIA(): Promise<void> {
+    const query = this.aiQuery.value.trim();
+    if (!query || this.aiLoading()) return;
+
+    this.aiLoading.set(true);
+    this.aiError.set('');
+
+    try {
+      const resultado = await firstValueFrom(
+        this.http.post<AiSearchResult>(`${environment.apiUrl}/ai-search`, { query }),
+      );
+
+      const vertical =
+        resultado.vertical && VERTICAL_ROUTES[resultado.vertical] ? resultado.vertical : 'alojamiento';
+
+      void this.router.navigate([VERTICAL_ROUTES[vertical]], {
+        queryParams: {
+          ciudad: resultado.ciudad ?? resultado.extras?.['origen'] ?? null,
+          destino: resultado.extras?.['destino'] ?? null,
+          desde: resultado.desde ?? null,
+          hasta: resultado.hasta ?? null,
+        },
+      });
+    } catch {
+      this.aiError.set('No pudimos procesar tu búsqueda ahora mismo. Prueba con los filtros.');
+    } finally {
+      this.aiLoading.set(false);
+    }
   }
 }

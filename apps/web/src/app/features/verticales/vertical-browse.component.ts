@@ -81,6 +81,20 @@ const CONFIGS: Record<string, VerticalConfig> = {
     ],
     price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
   },
+  hoteles: {
+    vertical: 'hoteles', eyebrow: 'HOTELES PET-FRIENDLY', titulo: 'Alojamiento', tituloHighlight: 'para ti y tu perro',
+    sub: 'Hoteles donde tú y tu perro os quedáis juntos, con servicios y suplementos pensados para mascotas.',
+    placeholder: 'Ciudad (Madrid, Barcelona…)', cta: 'Reservar hotel', priceLabel: 'habitación desde',
+    confirmMsg: '✓ Hotel solicitado. Continúa al pago para confirmarlo.',
+    badge: (c) => (c.extra['admiteMascotas'] ?? true) ? '🐾 Pet-friendly' : '🏨 Hotel',
+    titulo3: (c) => c.nombre,
+    loc: (c) => `📍 ${c.ciudad}`,
+    meta: (c) => [
+      `🐾 Hasta ${(c.extra['maxMascotasPorReserva'] as number | undefined) ?? 'sin límite de'} mascota(s)`,
+      `🎁 ${((c.extra['serviciosPetfriendly'] as string[] | undefined) ?? [])[0] ?? 'Servicios pet-friendly'}`,
+    ],
+    price: (c) => c.precioPorNoche,
+  },
 };
 
 @Component({

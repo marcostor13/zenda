@@ -27,7 +27,7 @@ describe('HomeComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('debería tener las 5 categorías caninas de Doogking', () => {
+  it('debería tener las 6 categorías caninas de Doogking', () => {
     const keys = component.verticales.map((v) => v.key);
     expect(keys).toEqual([
       VerticalKey.ALOJAMIENTO,
@@ -35,6 +35,7 @@ describe('HomeComponent', () => {
       VerticalKey.VETERINARIA,
       VerticalKey.PELUQUERIA,
       VerticalKey.ADIESTRAMIENTO,
+      VerticalKey.HOTELES,
     ]);
   });
 
@@ -53,6 +54,7 @@ describe('HomeComponent', () => {
       '/veterinaria',
       '/peluqueria',
       '/adiestramiento',
+      '/hoteles',
     ]);
   });
 

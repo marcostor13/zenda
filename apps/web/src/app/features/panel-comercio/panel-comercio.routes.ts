@@ -33,6 +33,11 @@ export const panelComercioRoutes: Routes = [
           import('./comercio-listados.component').then(m => m.ComercioListadosComponent),
       },
       {
+        path: 'suplementos',
+        loadComponent: () =>
+          import('./comercio-suplementos.component').then(m => m.ComercioSuplementosComponent),
+      },
+      {
         path: 'ingresos',
         loadComponent: () =>
           import('./comercio-ingresos.component').then(m => m.ComercioIngresosComponent),

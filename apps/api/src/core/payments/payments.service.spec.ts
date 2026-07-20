@@ -61,6 +61,7 @@ describe('PaymentsService', () => {
             crearIntent: jest.fn().mockResolvedValue({ intentId: 'pi_test', clientSecret: 'pi_test_secret' }),
             construirEvento: jest.fn(),
             extraerIntentDeEvento: jest.fn(),
+            reembolsar: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -72,6 +73,9 @@ describe('PaymentsService', () => {
           useValue: {
             obtenerPorId: jest.fn().mockResolvedValue(reservaMock),
             confirmar: jest.fn().mockResolvedValue(undefined),
+            confirmarAjuste: jest.fn().mockResolvedValue(undefined),
+            rechazarAjuste: jest.fn().mockResolvedValue(undefined),
+            validarAjustePendiente: jest.fn(),
           },
         },
         {
@@ -136,6 +140,52 @@ describe('PaymentsService', () => {
     });
   });
 
+  describe('aceptarAjuste', () => {
+    const reservaConAjuste: any = {
+      ...reservaMock,
+      montoTotal: 121,
+      montoAjustado: 139.15,
+    };
+
+    it('debería cobrar la diferencia y crear un Pago marcado como suplemento', async () => {
+      bookingsService.validarAjustePendiente.mockResolvedValue(reservaConAjuste);
+
+      const resultado = await service.aceptarAjuste('reserva-1', 'user-1');
+
+      expect(paymentGateway.crearIntent).toHaveBeenCalledWith(
+        expect.objectContaining({ montoEnCentavos: 1815, reservaId: 'reserva-1', usuarioId: 'user-1' }),
+      );
+      expect(pagoModel).toHaveBeenCalledWith(expect.objectContaining({ esSuplemento: true, montoTotal: 18.15 }));
+      expect(resultado.clientSecret).toBe('pi_test_secret');
+    });
+  });
+
+  describe('rechazarAjuste', () => {
+    it('debería reembolsar el pago original aprobado y cancelar la reserva', async () => {
+      bookingsService.validarAjustePendiente.mockResolvedValue(reservaMock);
+      const pagoAprobado = { ...pagoMock, estado: PagoEstado.APROBADO, save: jest.fn() };
+      pagoModel.findOne.mockReturnValue({
+        sort: () => ({ exec: jest.fn().mockResolvedValue(pagoAprobado) }),
+      });
+
+      await service.rechazarAjuste('reserva-1', 'user-1');
+
+      expect(paymentGateway.reembolsar).toHaveBeenCalledWith('pi_test');
+      expect(pagoAprobado.estado).toBe(PagoEstado.REEMBOLSADO);
+      expect(bookingsService.rechazarAjuste).toHaveBeenCalledWith('reserva-1', 'user-1');
+    });
+
+    it('no debería reembolsar si no hay pago original aprobado', async () => {
+      bookingsService.validarAjustePendiente.mockResolvedValue(reservaMock);
+      pagoModel.findOne.mockReturnValue({ sort: () => ({ exec: jest.fn().mockResolvedValue(null) }) });
+
+      await service.rechazarAjuste('reserva-1', 'user-1');
+
+      expect(paymentGateway.reembolsar).not.toHaveBeenCalled();
+      expect(bookingsService.rechazarAjuste).toHaveBeenCalledWith('reserva-1', 'user-1');
+    });
+  });
+
   describe('procesarWebhook', () => {
     it('debería confirmar la reserva al recibir payment_intent.succeeded', async () => {
       pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({ ...pagoMock, save: jest.fn() }) });
@@ -159,6 +209,18 @@ describe('PaymentsService', () => {
       await expect(
         service.procesarWebhook(Buffer.from('{}'), 'sig_invalida'),
       ).rejects.toThrow(DomainException);
+    });
+
+    it('debería confirmar el ajuste (no la reserva) cuando el pago es de un suplemento', async () => {
+      const pagoSuplemento = { ...pagoMock, esSuplemento: true, save: jest.fn() };
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pagoSuplemento) });
+      paymentGateway.construirEvento.mockReturnValue({ type: 'payment_intent.succeeded' });
+      paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'succeeded' });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(bookingsService.confirmarAjuste).toHaveBeenCalledWith('reserva-1');
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
     });
 
     it('debería ignorar si el pago ya fue procesado (idempotencia)', async () => {

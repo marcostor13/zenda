@@ -11,7 +11,7 @@ import {
 } from '../../core/availability/availability.strategy';
 import { Servicio, ServicioDocument } from '../../core/catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { Adiestramiento } from './adiestramiento.schema';
+import { Adiestramiento, ServicioAdiestramiento } from './adiestramiento.schema';
 
 const MINUTOS_TTL = 15;
 
@@ -41,8 +41,10 @@ export class AdiestramientoAvailabilityStrategy implements AvailabilityStrategy 
     }
 
     const perros = Math.max(1, params.cantidad ?? 1);
+    const servicio = this.servicioSolicitado(adiestramiento, params);
+    const maxPerros = servicio?.maxPerros ?? adiestramiento.capacidadPorSesion ?? 0;
 
-    if ((adiestramiento.cuposDisponibles ?? 0) < perros || perros > (adiestramiento.capacidadPorSesion ?? 0)) {
+    if ((adiestramiento.cuposDisponibles ?? 0) < perros || perros > maxPerros) {
       return {
         disponible: false,
         capacidadRestante: adiestramiento.cuposDisponibles ?? 0,
@@ -51,21 +53,30 @@ export class AdiestramientoAvailabilityStrategy implements AvailabilityStrategy 
     }
 
     const edad = params.parametrosExtra?.['edadMeses'];
-    if (edad !== undefined && Number(edad) < (adiestramiento.edadMinimaMeses ?? 0)) {
+    const edadMinima = servicio?.edadMinimaMeses ?? adiestramiento.edadMinimaMeses ?? 0;
+    if (edad !== undefined && Number(edad) < edadMinima) {
       return { disponible: false, metadata: { motivo: 'edad_insuficiente' } };
+    }
+    if (edad !== undefined && servicio?.edadMaximaMeses !== undefined && Number(edad) > servicio.edadMaximaMeses) {
+      return { disponible: false, metadata: { motivo: 'edad_excesiva' } };
     }
 
     const modalidad = this.modalidadSolicitada(adiestramiento, params);
-    const precioUnitario = modalidad === 'programa' && adiestramiento.precioPrograma
-      ? adiestramiento.precioPrograma
-      : adiestramiento.precioSesion;
+    const precioUnitario = servicio?.precio
+      ?? (modalidad === 'programa' && adiestramiento.precioPrograma ? adiestramiento.precioPrograma : adiestramiento.precioSesion);
 
     return {
       disponible: true,
       capacidadRestante: adiestramiento.cuposDisponibles,
       precioCalculado: Math.round(precioUnitario * perros * 100) / 100,
-      metadata: { perros, modalidad },
+      metadata: { perros, modalidad, ...(servicio ? { servicio: servicio.nombre } : {}) },
     };
+  }
+
+  private servicioSolicitado(adiestramiento: Adiestramiento, params: AvailabilityQuery): ServicioAdiestramiento | undefined {
+    const nombre = params.parametrosExtra?.['servicio'];
+    if (typeof nombre !== 'string' || !nombre) return undefined;
+    return (adiestramiento.serviciosAdiestramiento ?? []).find((s) => s.nombre === nombre);
   }
 
   async reserveSlot(servicioId: string, _params: ReserveParams): Promise<SlotHold> {

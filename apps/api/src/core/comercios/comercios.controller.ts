@@ -15,7 +15,7 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, Rol } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, Rol } from 'shared';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -75,6 +75,19 @@ export class ComerciosController {
   @ApiOperation({ summary: 'Marcar una reserva confirmada como completada (servicio ya prestado)' })
   completarReserva(@Req() req: RequestConUser, @Param('reservaId') reservaId: string) {
     return this.comerciosService.completarReserva(reservaId, req.user.comercioId!);
+  }
+
+  @Patch('mis-reservas/:reservaId/solicitar-ajuste')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Solicitar un ajuste de precio (suplementos) sobre una reserva confirmada' })
+  solicitarAjusteReserva(
+    @Req() req: RequestConUser,
+    @Param('reservaId') reservaId: string,
+    @Body() dto: SolicitarAjusteDto,
+  ) {
+    return this.comerciosService.solicitarAjusteReserva(reservaId, req.user.comercioId!, dto);
   }
 
   @Get('mis-servicios')

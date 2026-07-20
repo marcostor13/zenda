@@ -17,6 +17,7 @@ describe('ComerciosController', () => {
             listar: jest.fn(),
             obtener: jest.fn(),
             cambiarEstado: jest.fn(),
+            solicitarAjusteReserva: jest.fn(),
           },
         },
       ],
@@ -49,5 +50,15 @@ describe('ComerciosController', () => {
     service.cambiarEstado.mockResolvedValue({ id: 'c1' } as never);
     await controller.cambiarEstado('c1', { estado: 'activo' });
     expect(service.cambiarEstado).toHaveBeenCalledWith('c1', 'activo');
+  });
+
+  it('debería solicitar un ajuste de precio con el comercioId del token', async () => {
+    const req = { user: { comercioId: 'comercio-1' } } as never;
+    const dto = { suplementos: [{ concepto: 'Nudos severos', monto: 15 }] };
+    service.solicitarAjusteReserva.mockResolvedValue({ id: 'r1' } as never);
+
+    await controller.solicitarAjusteReserva(req, 'reserva-1', dto);
+
+    expect(service.solicitarAjusteReserva).toHaveBeenCalledWith('reserva-1', 'comercio-1', dto);
   });
 });

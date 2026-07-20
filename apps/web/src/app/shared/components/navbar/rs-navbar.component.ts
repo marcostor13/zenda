@@ -39,7 +39,12 @@ import { RsIconComponent } from '../icon/rs-icon.component';
             </a>
           }
           <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--sm">Mi perfil</a>
+          <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--sm">Mis perros</a>
           <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--sm">Mis reservas</a>
+          <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarSesion()">
+            <rs-icon name="log-out" [size]="14" [stroke]="2"></rs-icon>
+            Salir
+          </button>
         } @else {
           <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm">Ingresar</a>
           <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm">Comenzar</a>
@@ -97,7 +102,12 @@ import { RsIconComponent } from '../icon/rs-icon.component';
               </a>
             }
             <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mi perfil</a>
+            <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis perros</a>
             <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis reservas</a>
+            <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cerrarSesion()">
+              <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon>
+              Cerrar sesión
+            </button>
           } @else {
             <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--block"   (click)="menuAbierto.set(false)">Ingresar</a>
             <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Comenzar gratis</a>
@@ -189,4 +199,9 @@ export class RsNavbarComponent {
   readonly esAdmin = this.authService.esAdmin;
   readonly esComercio = this.authService.esComercio;
   readonly menuAbierto = signal(false);
+
+  cerrarSesion(): void {
+    this.menuAbierto.set(false);
+    this.authService.logout();
+  }
 }

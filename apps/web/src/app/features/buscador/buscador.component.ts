@@ -32,7 +32,7 @@ interface SearchParams {
 const VERTICAL_ROUTES: Record<string, string> = {
   alojamiento: '/alojamiento', transporte: '/transporte',
   veterinaria: '/veterinaria', peluqueria: '/peluqueria',
-  adiestramiento: '/adiestramiento',
+  adiestramiento: '/adiestramiento', hoteles: '/hoteles',
 };
 
 @Component({
@@ -323,6 +323,7 @@ export class BuscadorComponent implements OnInit {
     { key: VerticalKey.VETERINARIA,    label: 'Veterinarios',           icon: 'stethoscope',    placeholder: 'Ciudad de la clínica',                             mostrarFechas: true, mostrarFechaFin: false, labelFechaInicio: 'Fecha de la cita' },
     { key: VerticalKey.PELUQUERIA,     label: 'Peluquerías caninas',    icon: 'scissors',       placeholder: 'Ciudad',                                           mostrarFechas: true, mostrarFechaFin: false, labelFechaInicio: 'Fecha de la cita' },
     { key: VerticalKey.ADIESTRAMIENTO, label: 'Adiestramiento canino',  icon: 'graduation-cap', placeholder: 'Ciudad',                                           mostrarFechas: true, mostrarFechaFin: false, labelFechaInicio: 'Fecha de la sesión' },
+    { key: VerticalKey.HOTELES,        label: 'Hoteles pet-friendly',   icon: 'building',       placeholder: '¿En qué ciudad buscas un hotel pet-friendly?',     mostrarFechas: true, mostrarFechaFin: true,  labelFechaInicio: 'Check-in' },
   ];
 
   readonly sugerencias = [

@@ -1,6 +1,7 @@
-import { IsString, IsEnum, IsNumber, IsOptional, IsArray, IsObject, Min } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsOptional, IsArray, IsObject, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
+import { AptitudPerroDto } from './aptitud-perro.dto';
 
 export class CrearServicioDto {
   @IsEnum(VerticalKey)
@@ -33,4 +34,10 @@ export class CrearServicioDto {
   @IsOptional()
   @IsObject()
   extra?: Record<string, unknown>;
+
+  /** Para qué perfiles de perro es apto este servicio (motor de compatibilidad, Fase B). */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AptitudPerroDto)
+  aptitud?: AptitudPerroDto;
 }

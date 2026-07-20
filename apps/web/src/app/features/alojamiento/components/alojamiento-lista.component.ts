@@ -1,11 +1,12 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../services/alojamiento.service';
+import { PerrosService, PerroApi } from '../../perros/perros.service';
 
 @Component({
   selector: 'app-alojamiento-lista',
@@ -36,6 +37,16 @@ import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../serv
             <option value="4">4+ perros</option>
           </select>
         </div>
+        @if (misPerros().length > 0) {
+          <div class="rs-field">
+            <select formControlName="perroId" class="rs-inp">
+              <option value="">Cualquier perro</option>
+              @for (p of misPerros(); track p._id) {
+                <option [value]="p._id">Solo apto para {{ p.nombre }}</option>
+              }
+            </select>
+          </div>
+        }
         <button type="submit" class="rs-btn rs-btn--gold">Buscar</button>
       </form>
     </div>
@@ -155,7 +166,7 @@ import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../serv
       @if (!cargando()) {
         <div class="results-list">
           @for (a of alojamientos(); track a.id) {
-            <a [routerLink]="['/alojamiento', a.id]" class="aloja-card"
+            <a [routerLink]="['/alojamiento', a.id]" [queryParams]="queryParamsDetalle()" class="aloja-card"
                [class.aloja-card--premium]="a.destacado" rsAnim>
               <!-- Imagen -->
               <div class="aloja-card__imgs">
@@ -212,10 +223,10 @@ import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../serv
                   <div class="aloja-card__period">/ noche</div>
                   <div class="aloja-card__taxes">IVA incluido</div>
                 </div>
-                <button class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-4)"
-                        (click)="$event.preventDefault(); verDetalle(a.id)">
+                <!-- Toda la card ya es un <a routerLink>; este span solo da apariencia de botón, sin anidar otro elemento interactivo. -->
+                <span class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-4)">
                   Ver disponibilidad
-                </button>
+                </span>
               </div>
             </a>
           }
@@ -468,9 +479,9 @@ import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../serv
 })
 export class AlojamientoListaComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly alojamientoService = inject(AlojamientoService);
+  private readonly perrosService = inject(PerrosService);
 
   readonly cargando = signal(true);
   readonly error = signal(false);
@@ -484,8 +495,10 @@ export class AlojamientoListaComponent implements OnInit {
   );
 
   readonly searchForm = this.fb.group({
-    ciudad: [''], desde: [''], hasta: [''], perros: [1],
+    ciudad: [''], desde: [''], hasta: [''], perros: [1], perroId: [''],
   });
+
+  readonly misPerros = signal<PerroApi[]>([]);
 
   /* Filtros locales */
   precioMin = 0;
@@ -511,6 +524,10 @@ export class AlojamientoListaComponent implements OnInit {
       if (params['hasta'])   this.searchForm.patchValue({ hasta: params['hasta'] });
       this.cargarAlojamientos();
     });
+
+    void this.perrosService.misPerros().then((perros) => this.misPerros.set(perros)).catch(() => {
+      // Sin sesión o sin perros registrados: el selector de compatibilidad no se muestra.
+    });
   }
 
   async cargarAlojamientos(): Promise<void> {
@@ -523,6 +540,7 @@ export class AlojamientoListaComponent implements OnInit {
         desde:    form.desde    ?? undefined,
         hasta:    form.hasta    ?? undefined,
         perros:   form.perros   ?? undefined,
+        perroId:  form.perroId || undefined,
         precioMin: this.precioMin || undefined,
         precioMax: this.precioMax < 500 ? this.precioMax : undefined,
         ratingMin: this.ratingMinimo || undefined,
@@ -563,7 +581,17 @@ export class AlojamientoListaComponent implements OnInit {
   }
 
   cambiarPagina(n: number): void { this.paginaActual.set(n); this.cargarAlojamientos(); }
-  verDetalle(id: string): void { void this.router.navigate(['/alojamiento', id]); }
+
+  /** Propaga fechas/perros buscados al detalle, para no pedirlos de nuevo antes de reservar. */
+  queryParamsDetalle(): Record<string, string> {
+    const { desde, hasta, perros, perroId } = this.searchForm.value;
+    const params: Record<string, string> = {};
+    if (desde) params['desde'] = desde;
+    if (hasta) params['hasta'] = hasta;
+    if (perros) params['perros'] = String(perros);
+    if (perroId) params['perroId'] = perroId;
+    return params;
+  }
 
   /** Estrellas doradas a partir del score (escala 0–5). */
   estrellas(score: number): string {

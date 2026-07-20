@@ -24,6 +24,7 @@ export const CATEGORIA_BADGES: Record<string, string> = {
   veterinaria: '/images/categoria-veterinaria.jpg',
   peluqueria: '/images/categoria-peluqueria.jpg',
   adiestramiento: '/images/categoria-adiestramiento.jpg',
+  hoteles: '/images/categoria-alojamiento.jpg',
 };
 
 /** Construye una URL del CDN de Pexels para un id de foto y un ancho dado. */

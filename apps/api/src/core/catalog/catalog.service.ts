@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { CatalogRepository, BuscarServiciosParams } from './catalog.repository';
 import { ReviewsService } from '../reviews/reviews.service';
 import { ResenaDocument } from '../reviews/resena.schema';
+import { PerrosService } from '../perros/perros.service';
+import { AptitudPerro } from './servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto } from 'shared';
 
@@ -12,6 +14,7 @@ const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarD
   veterinaria: ['citasDisponibles'],
   peluqueria: ['cuposDisponibles'],
   adiestramiento: ['cuposDisponibles'],
+  hoteles: ['unidadesDisponibles'],
 };
 
 /** Todos los campos propios de cada vertical (más allá de los del Servicio base), aceptados al crear/editar un listado. */
@@ -20,23 +23,36 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
     'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis',
     'barrio', 'direccion',
+    'compatibilidadSocialAdmitida', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
+    'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
   ],
   transporte: [
     'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm',
     'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
+    'tiposTransporteOfrecidos', 'precioExclusivo', 'requisitoMicrochip', 'requisitoVacunas',
+    'caracteristicasVehiculo', 'serviciosAdicionales',
   ],
   veterinaria: [
     'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia',
-    'citasDisponibles', 'atiendeUrgencias', 'horario', 'precioConsulta',
+    'citasDisponibles', 'atiendeUrgencias', 'horario', 'precioConsulta', 'especiesAtendidas',
   ],
   peluqueria: [
     'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea',
     'cuposDisponibles', 'aDomicilio', 'horario',
+    'politicaTemperamentoDificil', 'bozalObligatorioSiAgresivo', 'serviciosAdicionales',
+    'razasEspecificas', 'requiereVacunasAlDia', 'requiereMicrochip',
   ],
   adiestramiento: [
     'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma',
     'sesionesPorPrograma', 'edadMinimaMeses', 'aDomicilio', 'capacidadPorSesion',
-    'cuposDisponibles', 'horario',
+    'cuposDisponibles', 'horario', 'serviciosAdiestramiento', 'valoracionInicial',
+  ],
+  hoteles: [
+    'admiteMascotas', 'maxMascotasPorReserva', 'pesoMaximoMascotaKg', 'razasRestringidas',
+    'razasEspecificasRestringidas', 'especiesPermitidas', 'suplementoPorTamanoMascota',
+    'suplementoSegundaMascotaPorNoche', 'serviciosPetfriendly', 'puedeQuedarseSoloEnHabitacion',
+    'accesoZonasComunes', 'debeIrConCorrea', 'debeLlevarBozalSiCorresponde',
+    'checkIn', 'checkOut', 'fianza', 'unidadesDisponibles',
   ],
 };
 
@@ -47,6 +63,7 @@ const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
   veterinaria: ['precioConsulta'],
   peluqueria: [],
   adiestramiento: ['precioSesion'],
+  hoteles: [],
 };
 
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
@@ -112,6 +129,13 @@ export interface ServicioDetalleDto extends ServicioCardDto {
   habitaciones: HabitacionDto[];
   resenas: ResenaResumenDto[];
   comercioId: string;
+  /** Residencia canina (Fase C): perfiles de compatibilidad social admitidos; vacío = cualquiera. */
+  compatibilidadSocialAdmitida: string[];
+  requisitoMicrochip: boolean;
+  requiereDesparasitacionInterna: boolean;
+  requiereDesparasitacionExterna: boolean;
+  requiereVacunaTosPerreras: boolean;
+  serviciosAdicionales: Array<{ nombre: string; precio: number }>;
 }
 
 export interface PaginatedResult<T> {
@@ -132,6 +156,7 @@ export interface ServicioGestionDto {
   imagenes: string[];
   estado: string;
   extra: Record<string, unknown>;
+  aptitud?: AptitudPerro;
 }
 
 /** Estructura mínima de un documento de servicio ya "leaneado". */
@@ -163,6 +188,13 @@ interface ServicioLean {
   politicaCancelacion?: string;
   checkIn?: string;
   checkOut?: string;
+  aptitud?: AptitudPerro;
+  compatibilidadSocialAdmitida?: string[];
+  requisitoMicrochip?: boolean;
+  requiereDesparasitacionInterna?: boolean;
+  requiereDesparasitacionExterna?: boolean;
+  requiereVacunaTosPerreras?: boolean;
+  serviciosAdicionales?: Array<{ nombre: string; precio: number }>;
 }
 
 const DEFAULT_LIMIT = 10;
@@ -173,6 +205,7 @@ export class CatalogService {
   constructor(
     private readonly repo: CatalogRepository,
     private readonly reviewsService: ReviewsService,
+    private readonly perrosService: PerrosService,
   ) {}
 
   async buscarServicios(filtros: {
@@ -182,7 +215,12 @@ export class CatalogService {
     precioMax?: number;
     page?: number;
     limit?: number;
+    perroId?: string;
   }): Promise<PaginatedResult<ServicioCardDto>> {
+    const perfilPerro = filtros.perroId
+      ? (await this.perrosService.obtenerPerfilCompatibilidad(filtros.perroId)) ?? undefined
+      : undefined;
+
     const params: BuscarServiciosParams = {
       vertical: filtros.vertical ?? 'alojamiento',
       ciudad: filtros.ciudad,
@@ -190,6 +228,7 @@ export class CatalogService {
       precioMax: filtros.precioMax,
       page: Math.max(1, filtros.page ?? 1),
       limit: Math.min(MAX_LIMIT, Math.max(1, filtros.limit ?? DEFAULT_LIMIT)),
+      perfilPerro,
     };
 
     const { items, total } = await this.repo.buscar(params);
@@ -215,6 +254,7 @@ export class CatalogService {
       imagenes: dto.imagenes ?? [],
       comercioId,
       extra,
+      aptitud: dto.aptitud,
     });
     return this.toCard(doc as unknown as ServicioLean);
   }
@@ -238,6 +278,7 @@ export class CatalogService {
       precioBase: dto.precioBase,
       imagenes: dto.imagenes,
       extra,
+      aptitud: dto.aptitud,
     });
     if (!actualizado) {
       throw new DomainException('Servicio no encontrado', 404);
@@ -268,6 +309,7 @@ export class CatalogService {
       imagenes: h.imagenes ?? [],
       estado: (h['estado'] as string) ?? 'borrador',
       extra,
+      aptitud: h.aptitud,
     };
   }
 
@@ -392,14 +434,24 @@ export class CatalogService {
     const claves = [
       // alojamiento canino
       'espacios', 'espaciosDisponibles', 'checkIn', 'checkOut', 'requisitoVacunas', 'paseosIncluidos', 'camaras24h',
+      'compatibilidadSocialAdmitida', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
+      'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
       // transporte de animales
       'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
       // veterinaria
-      'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia', 'citasDisponibles', 'atiendeUrgencias', 'precioConsulta',
+      'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia', 'citasDisponibles', 'atiendeUrgencias', 'precioConsulta', 'especiesAtendidas',
       // peluquería canina
       'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea', 'aDomicilio',
+      'politicaTemperamentoDificil', 'bozalObligatorioSiAgresivo', 'serviciosAdicionales',
+      'razasEspecificas', 'requiereVacunasAlDia', 'requiereMicrochip',
       // adiestramiento canino
       'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma', 'sesionesPorPrograma', 'edadMinimaMeses', 'capacidadPorSesion',
+      'serviciosAdiestramiento', 'valoracionInicial',
+      // hotel pet-friendly
+      'admiteMascotas', 'maxMascotasPorReserva', 'pesoMaximoMascotaKg', 'razasRestringidas',
+      'razasEspecificasRestringidas', 'especiesPermitidas', 'suplementoPorTamanoMascota',
+      'suplementoSegundaMascotaPorNoche', 'serviciosPetfriendly', 'puedeQuedarseSoloEnHabitacion',
+      'accesoZonasComunes', 'debeIrConCorrea', 'debeLlevarBozalSiCorresponde', 'fianza', 'unidadesDisponibles',
       // comunes a citas/cupos
       'cuposDisponibles', 'horario',
     ];
@@ -423,6 +475,12 @@ export class CatalogService {
       habitaciones: this.espaciosComoHabitaciones(h).map((hab, i) => this.toHabitacion(hab, i)),
       resenas,
       comercioId: h.comercioId ? String(h.comercioId) : '',
+      compatibilidadSocialAdmitida: h.compatibilidadSocialAdmitida ?? [],
+      requisitoMicrochip: h.requisitoMicrochip ?? false,
+      requiereDesparasitacionInterna: h.requiereDesparasitacionInterna ?? false,
+      requiereDesparasitacionExterna: h.requiereDesparasitacionExterna ?? false,
+      requiereVacunaTosPerreras: h.requiereVacunaTosPerreras ?? false,
+      serviciosAdicionales: h.serviciosAdicionales ?? [],
     };
   }
 

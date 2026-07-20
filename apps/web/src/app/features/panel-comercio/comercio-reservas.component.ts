@@ -1,9 +1,12 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { ComercioApiService, MiReserva } from './comercio-api.service';
+import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
+import { ComercioApiService, MiReserva, SuplementoConfig } from './comercio-api.service';
+import { PerrosService, HistoriaCompartidaApi } from '../perros/perros.service';
 
 const VERTICAL_ICON: Record<string, string> = {
   alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
@@ -12,6 +15,7 @@ const VERTICAL_ICON: Record<string, string> = {
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success', pendiente: 'rs-badge--warning',
   cancelada: 'rs-badge--error', completada: 'rs-badge--accent', no_show: 'rs-badge--neutral',
+  ajuste_solicitado: 'rs-badge--warning',
 };
 
 type FiltroEstado = 'todas' | 'confirmada' | 'pendiente' | 'cancelada' | 'completada';
@@ -27,7 +31,7 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
 @Component({
   selector: 'app-comercio-reservas',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, RsIconComponent],
+  imports: [RouterLink, DatePipe, DecimalPipe, FormsModule, RsIconComponent, RsImageUploadComponent],
   template: `
     <!-- HEADER -->
     <div class="page-header">
@@ -89,17 +93,160 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
                 </td>
                 <td>{{ r.fechaInicio | date:'d MMM yyyy' }}</td>
                 <td>€{{ r.montoTotal | number:'1.2-2' }}</td>
-                <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
-                <td>
+                <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado === 'ajuste_solicitado' ? 'ajuste solicitado' : r.estado }}</span></td>
+                <td style="display:flex;gap:var(--sp-2)">
                   @if (r.estado === 'confirmada') {
                     <button class="rs-btn rs-btn--outline rs-btn--sm"
                             [disabled]="completandoId() === r._id"
                             (click)="completar(r)">
                       {{ completandoId() === r._id ? 'Guardando…' : 'Marcar completada' }}
                     </button>
+                    @if (r.vertical !== 'veterinaria') {
+                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleAjuste(r._id)">
+                        Solicitar ajuste
+                      </button>
+                    }
+                  }
+                  @if (r.estado === 'completada' && r.perroId && !valoradoId().has(r._id)) {
+                    <button class="rs-btn rs-btn--outline rs-btn--sm" (click)="toggleValorar(r._id)">
+                      ★ Valorar perro
+                    </button>
+                  }
+                  @if (valoradoId().has(r._id)) {
+                    <span class="rs-badge rs-badge--success">★ Valorado</span>
+                  }
+                  @if (r.vertical === 'veterinaria' && r.perroId) {
+                    <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleHistoriaVeterinaria(r)">
+                      🩺 Historia veterinaria
+                    </button>
                   }
                 </td>
               </tr>
+              @if (historiaAbiertaId() === r._id) {
+                <tr>
+                  <td colspan="6">
+                    <div class="ajuste-panel">
+                      @if (cargandoHistoria()) {
+                        <p class="ajuste-panel__hint">Cargando historia veterinaria compartida…</p>
+                      } @else if (errorHistoria()) {
+                        <p class="ajuste-panel__hint">{{ errorHistoria() }}</p>
+                      } @else if (historiaVeterinaria(); as h) {
+                        <p class="ajuste-panel__hint">
+                          {{ h.nombre }} · {{ h.especie }} @if (h.raza) { · {{ h.raza }} } @if (h.peso) { · {{ h.peso }} kg }
+                          @if (h.esterilizado) { · Esterilizado/a }
+                        </p>
+                        @if (h.alergias.length) { <p><strong>Alergias:</strong> {{ h.alergias.join(', ') }}</p> }
+                        @if (h.enfermedades.length) { <p><strong>Enfermedades:</strong> {{ h.enfermedades.join(', ') }}</p> }
+                        @if (h.medicacion.length) { <p><strong>Medicación:</strong> {{ h.medicacion.join(', ') }}</p> }
+                        @if (h.vacunas.length) { <p><strong>Vacunas:</strong> {{ h.vacunas.join(', ') }}</p> }
+                        @if (h.dieta) { <p><strong>Dieta:</strong> {{ h.dieta }}</p> }
+                        @if (h.historial.length) {
+                          <p><strong>Historial de otros profesionales:</strong></p>
+                          @for (nota of h.historial; track $index) {
+                            <p class="ajuste-panel__hint">· [{{ nota.vertical }}] {{ nota.nota }}</p>
+                          }
+                        }
+                      }
+                      <div class="ajuste-panel__actions">
+                        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="historiaAbiertaId.set(null)">Cerrar</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+              @if (valorarAbiertoId() === r._id) {
+                <tr>
+                  <td colspan="6">
+                    <div class="ajuste-panel">
+                      <p class="ajuste-panel__hint">
+                        Tu valoración se suma al pasaporte digital del perro y ayuda a otros profesionales de Doogking
+                        a adaptar el servicio.
+                      </p>
+                      <div class="resena-form__estrellas">
+                        @for (n of [1,2,3,4,5]; track n) {
+                          <button type="button" class="estrella-btn" [class.activa]="n <= puntuacionValoracion()"
+                                  (click)="puntuacionValoracion.set(n)">★</button>
+                        }
+                      </div>
+                      <div class="rs-field">
+                        <label class="rs-lbl">Comentario (opcional)</label>
+                        <input class="rs-inp" [(ngModel)]="comentarioValoracion"
+                               [ngModelOptions]="{standalone: true}"
+                               placeholder="Ej. muy tranquilo, excelente comportamiento" />
+                      </div>
+                      @if (r.vertical === 'adiestramiento') {
+                        <div class="rs-field">
+                          <label class="rs-lbl">Nivel Doogking (opcional)</label>
+                          <select class="rs-inp" [(ngModel)]="nivelDoogking" [ngModelOptions]="{standalone: true}">
+                            <option [ngValue]="null">— No actualizar —</option>
+                            <option [ngValue]="1">1 · Cachorro</option>
+                            <option [ngValue]="2">2 · Básico</option>
+                            <option [ngValue]="3">3 · Intermedio</option>
+                            <option [ngValue]="4">4 · Avanzado</option>
+                            <option [ngValue]="5">5 · Excelente sociabilidad</option>
+                          </select>
+                          <span class="rs-field-hint">Se guarda en la ficha del perro y lo verá cualquier profesional de Doogking.</span>
+                        </div>
+                      }
+                      <div class="ajuste-panel__actions">
+                        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarValorar()">Cancelar</button>
+                        <button class="rs-btn rs-btn--primary rs-btn--sm"
+                                [disabled]="enviandoValoracion()"
+                                (click)="enviarValoracion(r)">
+                          {{ enviandoValoracion() ? 'Enviando…' : 'Publicar valoración' }}
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+              @if (ajusteAbiertoId() === r._id) {
+                <tr>
+                  <td colspan="6">
+                    <div class="ajuste-panel">
+                      <p class="ajuste-panel__hint">
+                        Selecciona los suplementos detectados en recepción. El cliente recibirá una notificación y
+                        deberá aprobarlos antes de que se cobre nada.
+                      </p>
+
+                      @if (suplementosCatalogo().length === 0) {
+                        <p class="ajuste-panel__empty">
+                          No tienes suplementos preconfigurados.
+                          <a routerLink="/comercio/suplementos">Créalos aquí</a> para poder seleccionarlos con un click.
+                        </p>
+                      } @else {
+                        <div class="ajuste-panel__checks">
+                          @for (s of suplementosCatalogo(); track s._id) {
+                            <label class="filter-check">
+                              <input type="checkbox" [checked]="seleccionados().has(s._id)"
+                                     (change)="toggleSuplemento(s._id)" />
+                              {{ s.concepto }} (+€{{ s.monto | number:'1.2-2' }})
+                            </label>
+                          }
+                        </div>
+                      }
+
+                      <div class="ajuste-panel__evidencia">
+                        <label class="rs-lbl">Foto del estado del animal al llegar (opcional pero recomendado)</label>
+                        <rs-image-upload [(ngModel)]="evidenciaUrl"></rs-image-upload>
+                      </div>
+
+                      @if (totalSuplementoSeleccionado() > 0) {
+                        <p class="ajuste-panel__total">Suplemento total: +€{{ totalSuplementoSeleccionado() | number:'1.2-2' }}</p>
+                      }
+
+                      <div class="ajuste-panel__actions">
+                        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarAjuste()">Cancelar</button>
+                        <button class="rs-btn rs-btn--primary rs-btn--sm"
+                                [disabled]="enviandoAjuste() || seleccionados().size === 0"
+                                (click)="enviarAjuste(r)">
+                          {{ enviandoAjuste() ? 'Enviando…' : 'Enviar solicitud al cliente' }}
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>
@@ -156,16 +303,58 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
       code { font-family: monospace; color: var(--c-accent); background: var(--c-accent-lo); padding: 2px var(--sp-2); border-radius: var(--r-sm); font-size: var(--f-xs); }
     }
     .vertical-cell { display: flex; align-items: center; gap: var(--sp-2); text-transform: capitalize; }
+
+    .ajuste-panel { padding: var(--sp-4) 0; display: flex; flex-direction: column; gap: var(--sp-3); white-space: normal; }
+    .ajuste-panel__hint { font-size: var(--f-sm); color: var(--t-400); }
+    .ajuste-panel__empty { font-size: var(--f-sm); color: var(--t-400); a { color: var(--c-accent); } }
+    .ajuste-panel__checks { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .ajuste-panel__evidencia { max-width: 320px; }
+    .ajuste-panel__total { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
+    .ajuste-panel__actions { display: flex; gap: var(--sp-2); }
+    .filter-check { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size: var(--f-sm); color: var(--t-200); }
+
+    .resena-form__estrellas { display: flex; gap: var(--sp-1); margin-bottom: var(--sp-3); }
+    .estrella-btn {
+      background: none; border: none; cursor: pointer; font-size: 1.5rem; color: var(--b-2); line-height: 1;
+      &.activa { color: var(--c-amber); }
+    }
   `],
 })
 export class ComercioReservasComponent implements OnInit {
   private readonly comercioApi = inject(ComercioApiService);
+  private readonly perrosService = inject(PerrosService);
 
   readonly cargando = signal(true);
   readonly errorMsg = signal('');
   readonly reservas = signal<MiReserva[]>([]);
   readonly filtroActivo = signal<FiltroEstado>('todas');
   readonly completandoId = signal<string | null>(null);
+
+  // Solicitar ajuste de precio (docs/mejora_servicios.md §7)
+  readonly suplementosCatalogo = signal<SuplementoConfig[]>([]);
+  readonly ajusteAbiertoId = signal<string | null>(null);
+  readonly seleccionados = signal<Set<string>>(new Set());
+  readonly enviandoAjuste = signal(false);
+  evidenciaUrl = '';
+
+  readonly totalSuplementoSeleccionado = computed(() =>
+    this.suplementosCatalogo()
+      .filter((s) => this.seleccionados().has(s._id))
+      .reduce((acc, s) => acc + s.monto, 0),
+  );
+
+  // Reputación bidireccional: el comercio valora al perro tras completar el servicio.
+  readonly valorarAbiertoId = signal<string | null>(null);
+  readonly valoradoId = signal<Set<string>>(new Set());
+  readonly puntuacionValoracion = signal(5);
+  readonly enviandoValoracion = signal(false);
+  comentarioValoracion = '';
+  nivelDoogking: number | null = null;
+
+  readonly historiaAbiertaId = signal<string | null>(null);
+  readonly historiaVeterinaria = signal<HistoriaCompartidaApi | null>(null);
+  readonly cargandoHistoria = signal(false);
+  readonly errorHistoria = signal<string | null>(null);
 
   readonly reservasFiltradas = computed(() => {
     const filtro = this.filtroActivo();
@@ -177,11 +366,112 @@ export class ComercioReservasComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      this.reservas.set(await firstValueFrom(this.comercioApi.getMisReservas()));
+      const [reservas, suplementos] = await Promise.all([
+        firstValueFrom(this.comercioApi.getMisReservas()),
+        firstValueFrom(this.comercioApi.getMisSuplementos()).catch(() => []),
+      ]);
+      this.reservas.set(reservas);
+      this.suplementosCatalogo.set(suplementos.filter((s) => s.activo));
     } catch {
       this.errorMsg.set('Error al cargar las reservas. Verifica que el API esté activo.');
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  toggleAjuste(reservaId: string): void {
+    const yaAbierto = this.ajusteAbiertoId() === reservaId;
+    this.ajusteAbiertoId.set(yaAbierto ? null : reservaId);
+    this.seleccionados.set(new Set());
+    this.evidenciaUrl = '';
+  }
+
+  cerrarAjuste(): void {
+    this.ajusteAbiertoId.set(null);
+    this.seleccionados.set(new Set());
+    this.evidenciaUrl = '';
+  }
+
+  toggleSuplemento(id: string): void {
+    this.seleccionados.update((set) => {
+      const nuevo = new Set(set);
+      if (nuevo.has(id)) nuevo.delete(id); else nuevo.add(id);
+      return nuevo;
+    });
+  }
+
+  async enviarAjuste(r: MiReserva): Promise<void> {
+    const suplementos = this.suplementosCatalogo()
+      .filter((s) => this.seleccionados().has(s._id))
+      .map((s) => ({ concepto: s.concepto, monto: s.monto }));
+
+    if (!suplementos.length) return;
+
+    this.enviandoAjuste.set(true);
+    try {
+      const actualizado = await firstValueFrom(
+        this.comercioApi.solicitarAjuste(r._id, { suplementos, evidenciaUrl: this.evidenciaUrl || undefined }),
+      );
+      this.reservas.update((lista) => lista.map((x) => (x._id === r._id ? actualizado : x)));
+      this.cerrarAjuste();
+    } catch {
+      this.errorMsg.set('No se pudo enviar la solicitud de ajuste. Inténtalo de nuevo.');
+    } finally {
+      this.enviandoAjuste.set(false);
+    }
+  }
+
+  toggleValorar(reservaId: string): void {
+    const yaAbierto = this.valorarAbiertoId() === reservaId;
+    this.valorarAbiertoId.set(yaAbierto ? null : reservaId);
+    this.puntuacionValoracion.set(5);
+    this.comentarioValoracion = '';
+    this.nivelDoogking = null;
+  }
+
+  cerrarValorar(): void {
+    this.valorarAbiertoId.set(null);
+  }
+
+  async toggleHistoriaVeterinaria(r: MiReserva): Promise<void> {
+    if (this.historiaAbiertaId() === r._id) {
+      this.historiaAbiertaId.set(null);
+      return;
+    }
+    if (!r.perroId) return;
+
+    this.historiaAbiertaId.set(r._id);
+    this.historiaVeterinaria.set(null);
+    this.errorHistoria.set(null);
+    this.cargandoHistoria.set(true);
+    try {
+      const historia = await this.perrosService.historiaVeterinaria(r.perroId);
+      this.historiaVeterinaria.set(historia);
+    } catch {
+      this.errorHistoria.set('No se pudo cargar el historial (el propietario podría no haber autorizado compartirlo).');
+    } finally {
+      this.cargandoHistoria.set(false);
+    }
+  }
+
+  async enviarValoracion(r: MiReserva): Promise<void> {
+    if (!r.perroId) return;
+
+    this.enviandoValoracion.set(true);
+    this.errorMsg.set('');
+    try {
+      await this.perrosService.crearValoracion(r.perroId, {
+        reservaId: r._id,
+        puntuacion: this.puntuacionValoracion(),
+        comentario: this.comentarioValoracion || undefined,
+        atributos: this.nivelDoogking !== null ? { nivelDoogking: this.nivelDoogking } : undefined,
+      });
+      this.valoradoId.update((set) => new Set(set).add(r._id));
+      this.cerrarValorar();
+    } catch {
+      this.errorMsg.set('No se pudo publicar la valoración. Inténtalo de nuevo.');
+    } finally {
+      this.enviandoValoracion.set(false);
     }
   }
 

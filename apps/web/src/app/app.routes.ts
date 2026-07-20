@@ -44,9 +44,20 @@ export const routes: Routes = [
       import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
   },
   {
+    path: 'hoteles',
+    data: { vertical: 'hoteles' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+  },
+  {
     path: 'reservas',
     canActivate: [authGuard],
     loadChildren: () => import('./features/reservas/reservas.routes').then((m) => m.reservasRoutes),
+  },
+  {
+    path: 'perros',
+    canActivate: [authGuard],
+    loadChildren: () => import('./features/perros/perros.routes').then((m) => m.perrosRoutes),
   },
   {
     path: 'perfil',

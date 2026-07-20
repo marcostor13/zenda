@@ -16,6 +16,8 @@ export interface FiltrosAlojamiento {
   cancelacionGratis?: boolean;
   page?: number;
   limit?: number;
+  /** Filtra solo servicios aptos para este perro (motor de compatibilidad). */
+  perroId?: string;
 }
 
 export interface AlojamientoCard {
@@ -41,6 +43,11 @@ export interface AlojamientoCard {
   lng?: number;
 }
 
+export interface ServicioAdicionalAlojamiento {
+  nombre: string;
+  precio: number;
+}
+
 export interface AlojamientoDetalle extends AlojamientoCard {
   descripcion: string;
   politicaCancelacion: string;
@@ -55,16 +62,24 @@ export interface AlojamientoDetalle extends AlojamientoCard {
   /** El API aún no modela reglas de la casa; puede no venir. */
   reglas?: string[];
   comercioId: string;
+  /** Residencia canina (Fase C): perfiles de compatibilidad social admitidos; vacío = cualquiera. */
+  compatibilidadSocialAdmitida: string[];
+  requisitoMicrochip: boolean;
+  requiereDesparasitacionInterna: boolean;
+  requiereDesparasitacionExterna: boolean;
+  requiereVacunaTosPerreras: boolean;
+  serviciosAdicionales: ServicioAdicionalAlojamiento[];
 }
 
-export type TipoEspacio = 'suite' | 'estandar' | 'compartido';
-export type TamanoPerro = 'pequeno' | 'mediano' | 'grande' | 'gigante';
+export type TipoEspacio = 'suite' | 'estandar' | 'compartido' | 'premium' | 'climatizada';
+export type TamanoPerro = 'mini' | 'pequeno' | 'mediano' | 'grande' | 'gigante';
 
 export interface Espacio {
   id: string;
   tipo: TipoEspacio;
   descripcion: string;
-  tamanoMaxPerro: TamanoPerro;
+  /** Opcional: algunas residencias no diferencian por tamaño. */
+  tamanoMaxPerro?: TamanoPerro;
   precioNoche: number;
   precioAnterior?: number;
   cantidad: number;
@@ -114,6 +129,7 @@ export class AlojamientoService {
     if (filtros.precioMax) params['precioMax'] = String(filtros.precioMax);
     if (filtros.page)  params['page']  = String(filtros.page);
     if (filtros.limit) params['limit'] = String(filtros.limit);
+    if (filtros.perroId) params['perroId'] = filtros.perroId;
 
     return firstValueFrom(this.http.get<PaginatedResult<AlojamientoCard>>(this.base, { params }));
   }

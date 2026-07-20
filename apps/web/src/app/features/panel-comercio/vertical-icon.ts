@@ -7,6 +7,7 @@ export const VERTICAL_ICON: Record<string, string> = {
   [VerticalKey.VETERINARIA]: 'stethoscope',
   [VerticalKey.PELUQUERIA]: 'scissors',
   [VerticalKey.ADIESTRAMIENTO]: 'graduation-cap',
+  [VerticalKey.HOTELES]: 'building',
 };
 
 export function iconoVertical(vertical: string): string {

@@ -14,6 +14,7 @@ const VERTICAL_EMOJI: Record<string, string> = {
   [VerticalKey.VETERINARIA]: '🩺',
   [VerticalKey.PELUQUERIA]: '✂️',
   [VerticalKey.ADIESTRAMIENTO]: '🎓',
+  [VerticalKey.HOTELES]: '🏨',
 };
 
 const FILTROS = [

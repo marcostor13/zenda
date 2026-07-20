@@ -88,6 +88,105 @@ describe('AlojamientoAvailabilityStrategy', () => {
         strategy.checkAvailability('no-existe', { fechaInicio: new Date(), fechaFin: new Date() }),
       ).rejects.toThrow(DomainException);
     });
+
+    describe('selección de espacio por espacioId', () => {
+      const mockConDosEspacios = {
+        ...alojamientoMock,
+        espacios: [
+          { id: 'e1', tipo: 'estandar', tamanoMaxPerro: 'grande', precioNoche: 20, cantidad: 3 },
+          { id: 'e2', tipo: 'suite', tamanoMaxPerro: 'grande', precioNoche: 60, cantidad: 2 },
+        ],
+      };
+
+      beforeEach(() => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue(mockConDosEspacios),
+        });
+      });
+
+      it('usa el precio del espacio elegido por el cliente, no el primero', async () => {
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'),
+          fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { espacioId: 'e2' },
+        });
+        expect(resultado.precioCalculado).toBe(60);
+      });
+
+      it('cae al primer espacio con cupo si no se indica espacioId', async () => {
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'),
+          fechaFin: new Date('2026-01-11'),
+        });
+        expect(resultado.precioCalculado).toBe(20);
+      });
+    });
+
+    describe('compatibilidad de tamaño', () => {
+      const mockConTamano = {
+        ...alojamientoMock,
+        espacios: [{ id: 'e1', tipo: 'estandar', tamanoMaxPerro: 'mediano', precioNoche: 20, cantidad: 3 }],
+      };
+
+      beforeEach(() => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue(mockConTamano),
+        });
+      });
+
+      it('bloquea la reserva si el perro supera el tamaño máximo del espacio', async () => {
+        await expect(strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { perroTamano: 'gigante' },
+        })).rejects.toThrow(DomainException);
+      });
+
+      it('permite la reserva si el perro no supera el tamaño máximo', async () => {
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { perroTamano: 'pequeno' },
+        });
+        expect(resultado.disponible).toBe(true);
+      });
+
+      it('acepta también el parámetro legacy tamanoPerro (sin Ficha del Perro/perfil de invitado)', async () => {
+        await expect(strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { tamanoPerro: 'gigante' },
+        })).rejects.toThrow(DomainException);
+      });
+    });
+
+    describe('compatibilidad social', () => {
+      const mockConCompatibilidad = {
+        ...alojamientoMock,
+        compatibilidadSocialAdmitida: ['cualquiera', 'solo_pequenos'],
+      };
+
+      beforeEach(() => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue(mockConCompatibilidad),
+        });
+      });
+
+      it('bloquea la reserva si el perfil social del perro no está admitido', async () => {
+        await expect(strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { compatibilidadSocial: 'individual' },
+        })).rejects.toThrow(DomainException);
+      });
+
+      it('permite la reserva si el perfil social está admitido', async () => {
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { compatibilidadSocial: 'solo_pequenos' },
+        });
+        expect(resultado.disponible).toBe(true);
+      });
+    });
   });
 
   describe('reserveSlot', () => {

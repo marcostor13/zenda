@@ -15,6 +15,7 @@ const VERTICAL_META: Record<string, { label: string; icon: string; color: string
   [VerticalKey.VETERINARIA]:    { label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    icon: 'stethoscope',    color: '#16A34A' },
   [VerticalKey.PELUQUERIA]:     { label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     icon: 'scissors',       color: '#EC4899' },
   [VerticalKey.ADIESTRAMIENTO]: { label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], icon: 'graduation-cap', color: '#9B5CF6' },
+  [VerticalKey.HOTELES]:        { label: VERTICAL_LABELS[VerticalKey.HOTELES],        icon: 'building',       color: '#0EA5E9' },
 };
 
 const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: string; bg: string }> = {

@@ -202,7 +202,7 @@ export class RsImageUploadComponent
   disabled = false;
 
   private blobUrls: string[] = [];
-  private onChange: (v: string[]) => void = () => {};
+  private onChange: (v: string | string[] | null) => void = () => {};
   private onTouched: () => void = () => {};
 
   ngOnInit(): void {}
@@ -230,7 +230,7 @@ export class RsImageUploadComponent
     );
   }
 
-  registerOnChange(fn: (v: string[]) => void): void { this.onChange = fn; }
+  registerOnChange(fn: (v: string | string[] | null) => void): void { this.onChange = fn; }
   registerOnTouched(fn: () => void): void { this.onTouched = fn; }
   setDisabledState(disabled: boolean): void { this.disabled = disabled; }
 
@@ -315,7 +315,7 @@ export class RsImageUploadComponent
     const urls = this.slots()
       .filter(s => s.uploadedUrl && !s.error)
       .map(s => s.uploadedUrl!);
-    this.onChange(urls);
+    this.onChange(this.multiple ? urls : (urls[0] ?? null));
   }
 
   private uid(): string {

@@ -140,7 +140,11 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
                   <h3 class="room-card__type">{{ tipoLabel(esp.tipo) }}</h3>
                   <p class="room-card__desc">{{ esp.descripcion }}</p>
                   <div class="room-card__meta">
-                    <span><rs-icon name="paw" size="14" /> Hasta tamaño {{ tamanoLabel(esp.tamanoMaxPerro) }}</span>
+                    @if (esp.tamanoMaxPerro) {
+                      <span><rs-icon name="paw" size="14" /> Hasta tamaño {{ tamanoLabel(esp.tamanoMaxPerro) }}</span>
+                    } @else {
+                      <span><rs-icon name="paw" size="14" /> Cualquier tamaño</span>
+                    }
                     <span><rs-icon name="bone" size="14" /> {{ esp.cantidad }} {{ esp.cantidad === 1 ? 'espacio' : 'espacios' }}</span>
                   </div>
                   <div class="room-card__amenities">
@@ -197,7 +201,41 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
                 {{ alojamiento()!.requisitoVacunas ? 'Cartilla de vacunación obligatoria' : 'Sin requisito de vacunas' }}
               </div>
             </div>
+            @if (alojamiento()!.requisitoMicrochip) {
+              <div class="policy-item">
+                <div class="policy-item__label">Microchip</div>
+                <div class="policy-item__val">Obligatorio</div>
+              </div>
+            }
+            @if (alojamiento()!.requiereDesparasitacionInterna || alojamiento()!.requiereDesparasitacionExterna) {
+              <div class="policy-item">
+                <div class="policy-item__label">Desparasitación</div>
+                <div class="policy-item__val">{{ desparasitacionLabel() }}</div>
+              </div>
+            }
+            @if (alojamiento()!.requiereVacunaTosPerreras) {
+              <div class="policy-item">
+                <div class="policy-item__label">Vacuna tos de las perreras</div>
+                <div class="policy-item__val">Requerida</div>
+              </div>
+            }
+            @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
+              <div class="policy-item">
+                <div class="policy-item__label">Compatibilidad social admitida</div>
+                <div class="policy-item__val">{{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</div>
+              </div>
+            }
           </div>
+          @if (alojamiento()!.serviciosAdicionales.length) {
+            <div class="section-block">
+              <h3>Servicios adicionales</h3>
+              <div class="room-card__amenities">
+                @for (s of alojamiento()!.serviciosAdicionales; track s.nombre) {
+                  <span class="rs-amenity">{{ s.nombre }} (€{{ s.precio }})</span>
+                }
+              </div>
+            </div>
+          }
           <div class="rules-list">
             @for (r of (alojamiento()!.reglas ?? []); track r) {
               <div class="rule-item">• {{ r }}</div>
@@ -461,8 +499,19 @@ export class AlojamientoDetalleComponent implements OnInit {
   readonly imagenActiva = signal('');
   readonly espacioSelec = signal<Espacio | null>(null);
 
+  // Fechas/perros ya buscados en el listado, para no volver a pedirlos en el wizard.
+  private checkInQP: string | null = null;
+  private checkOutQP: string | null = null;
+  private perrosQP: string | null = null;
+  private perroIdQP: string | null = null;
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
+    const qp = this.route.snapshot.queryParamMap;
+    this.checkInQP = qp.get('desde');
+    this.checkOutQP = qp.get('hasta');
+    this.perrosQP = qp.get('perros');
+    this.perroIdQP = qp.get('perroId');
     this.cargar(id);
   }
 
@@ -491,18 +540,28 @@ export class AlojamientoDetalleComponent implements OnInit {
       suite: 'Suite individual',
       estandar: 'Espacio estándar',
       compartido: 'Espacio compartido',
+      premium: 'Zona premium',
+      climatizada: 'Habitación climatizada',
     };
     return map[tipo] ?? tipo;
   }
 
   tamanoLabel(tamano: TamanoPerro): string {
     const map: Record<TamanoPerro, string> = {
+      mini: 'mini',
       pequeno: 'pequeño',
       mediano: 'mediano',
       grande: 'grande',
       gigante: 'gigante',
     };
     return map[tamano] ?? tamano;
+  }
+
+  desparasitacionLabel(): string {
+    const a = this.alojamiento();
+    if (!a) return '';
+    const partes = [a.requiereDesparasitacionInterna ? 'Interna' : null, a.requiereDesparasitacionExterna ? 'Externa' : null];
+    return partes.filter((p): p is string => p !== null).join(' y ');
   }
 
   seleccionarEspacio(esp: Espacio): void {
@@ -519,6 +578,10 @@ export class AlojamientoDetalleComponent implements OnInit {
         nombre:     alojamiento.nombre,
         precioBase: this.espacioSelec()!.precioNoche,
         imagen:     alojamiento.imagenes?.[0] ?? '',
+        checkIn:    this.checkInQP ?? undefined,
+        checkOut:   this.checkOutQP ?? undefined,
+        perros:     this.perrosQP ?? undefined,
+        perroId:    this.perroIdQP ?? undefined,
       },
     });
   }

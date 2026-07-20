@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Param,
   Body,
   Headers,
   RawBodyRequest,
@@ -33,6 +34,30 @@ export class PaymentsController {
     @Req() req: RequestConUsuario,
   ): Promise<PaymentIntentResponseDto> {
     return this.paymentsService.crearIntent(dto.reservaId, req.user.sub);
+  }
+
+  @Post('reservas/:id/ajuste/aceptar')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Aceptar el ajuste de precio propuesto por el comercio (cobra la diferencia)' })
+  aceptarAjuste(
+    @Param('id') id: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<PaymentIntentResponseDto> {
+    return this.paymentsService.aceptarAjuste(id, req.user.sub);
+  }
+
+  @Post('reservas/:id/ajuste/rechazar')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Rechazar el ajuste: reembolsa el pago original y cancela la reserva' })
+  async rechazarAjuste(
+    @Param('id') id: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<{ ok: boolean }> {
+    await this.paymentsService.rechazarAjuste(id, req.user.sub);
+    return { ok: true };
   }
 
   @Post('webhook')

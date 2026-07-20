@@ -16,6 +16,7 @@ const VERTICALES_OPCIONES = [
   { label: '🩺 Veterinarios', valor: 'veterinaria' },
   { label: '✂️ Peluquerías caninas', valor: 'peluqueria' },
   { label: '🎓 Adiestramiento canino', valor: 'adiestramiento' },
+  { label: '🏨 Hoteles pet-friendly', valor: 'hoteles' },
 ] as const;
 
 @Component({

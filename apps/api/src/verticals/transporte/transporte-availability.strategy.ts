@@ -62,7 +62,11 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
       throw new DomainException('La distancia del trayecto debe ser mayor que 0', 400);
     }
 
-    const precioCalculado = Math.round((transporte.tarifaBase + transporte.tarifaKm * distanciaKm) * 100) / 100;
+    const exclusivo = this.exclusivoSolicitado(params);
+    const suplementoExclusivo = exclusivo ? (transporte.precioExclusivo ?? 0) : 0;
+    const precioCalculado = Math.round(
+      (transporte.tarifaBase + transporte.tarifaKm * distanciaKm + suplementoExclusivo) * 100,
+    ) / 100;
 
     return {
       disponible: true,
@@ -73,8 +77,13 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
         tipoVehiculo: transporte.tipoVehiculo,
         capacidadPerros: transporte.capacidadPerros,
         perros,
+        exclusivo,
       },
     };
+  }
+
+  private exclusivoSolicitado(params: AvailabilityQuery): boolean {
+    return params.parametrosExtra?.['exclusivo'] === true;
   }
 
   async reserveSlot(servicioId: string, _params: ReserveParams): Promise<SlotHold> {

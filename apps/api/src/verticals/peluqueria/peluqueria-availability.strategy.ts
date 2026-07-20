@@ -46,7 +46,14 @@ export class PeluqueriaAvailabilityStrategy implements AvailabilityStrategy {
     }
 
     const servicio = this.servicioGroomingSolicitado(peluqueria, params);
-    const precioUnitario = servicio?.precio ?? peluqueria.precioBase;
+    this.validarCompatibilidadPelo(servicio, params);
+
+    const tamanoPerro = params.parametrosExtra?.['perroTamano'] ?? params.parametrosExtra?.['tamanoPerro'];
+    const { precio: precioUnitario, duracionMin } = this.precioYDuracion(
+      servicio,
+      peluqueria,
+      typeof tamanoPerro === 'string' ? tamanoPerro : undefined,
+    );
 
     return {
       disponible: true,
@@ -55,8 +62,26 @@ export class PeluqueriaAvailabilityStrategy implements AvailabilityStrategy {
       metadata: {
         perros,
         ...(servicio ? { servicio: servicio.nombre } : {}),
-        duracionMin: servicio?.duracionMin ?? peluqueria.duracionSlotMin,
+        duracionMin,
       },
+    };
+  }
+
+  /** Si el servicio tiene matriz precio×tamaño y se indicó el tamaño del perro, prevalece
+   * sobre el precio/duración por defecto (comercios que no diferencian por tamaño). */
+  private precioYDuracion(
+    servicio: ServicioGrooming | undefined,
+    peluqueria: Peluqueria,
+    tamanoPerro?: string,
+  ): { precio: number; duracionMin: number } {
+    if (tamanoPerro && servicio?.preciosPorTamano?.length) {
+      const tier = servicio.preciosPorTamano.find((t) => t.tamano === tamanoPerro);
+      if (tier) return { precio: tier.precio, duracionMin: tier.duracionMin };
+    }
+
+    return {
+      precio: servicio?.precio ?? peluqueria.precioBase,
+      duracionMin: servicio?.duracionMin ?? peluqueria.duracionSlotMin,
     };
   }
 
@@ -75,5 +100,25 @@ export class PeluqueriaAvailabilityStrategy implements AvailabilityStrategy {
     const nombre = params.parametrosExtra?.['servicio'];
     if (typeof nombre !== 'string' || !nombre) return undefined;
     return (peluqueria.serviciosGrooming ?? []).find((s) => s.nombre === nombre);
+  }
+
+  /**
+   * Bloquea servicios incompatibles con el tipo de pelo del perro (ej. el
+   * stripping solo aparece para pelo duro, docs/mejora_servicios.md §1.1).
+   * Un `tipoPeloCompatible` vacío/ausente en el servicio significa "compatible
+   * con cualquier tipo de pelo".
+   */
+  private validarCompatibilidadPelo(servicio: ServicioGrooming | undefined, params: AvailabilityQuery): void {
+    if (!servicio?.tipoPeloCompatible?.length) return;
+    const perroTipoPelo = params.parametrosExtra?.['perroTipoPelo'];
+    if (!Array.isArray(perroTipoPelo) || perroTipoPelo.length === 0) return;
+
+    const compatible = perroTipoPelo.some((tipo) => servicio.tipoPeloCompatible?.includes(tipo));
+    if (!compatible) {
+      throw new DomainException(
+        `El servicio "${servicio.nombre}" no es compatible con el tipo de pelo de tu perro`,
+        409,
+      );
+    }
   }
 }

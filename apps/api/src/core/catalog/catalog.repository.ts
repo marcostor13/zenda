@@ -1,13 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
-import { MONEDA_DEFAULT } from 'shared';
-import { Servicio, ServicioDocument } from './servicio.schema';
+import { MONEDA_DEFAULT, TamanoPerro, TipoPelo } from 'shared';
+import { AptitudPerro, Servicio, ServicioDocument } from './servicio.schema';
 import { Alojamiento } from '../../verticals/alojamiento/alojamiento.schema';
 import { Transporte } from '../../verticals/transporte/transporte.schema';
 import { Veterinaria } from '../../verticals/veterinaria/veterinaria.schema';
 import { Peluqueria } from '../../verticals/peluqueria/peluqueria.schema';
 import { Adiestramiento } from '../../verticals/adiestramiento/adiestramiento.schema';
+
+export interface PerfilCompatibilidad {
+  tamano?: TamanoPerro;
+  tipoPelo?: TipoPelo[];
+  temperamento?: string;
+}
 
 export interface BuscarServiciosParams {
   vertical?: string;
@@ -16,6 +22,7 @@ export interface BuscarServiciosParams {
   precioMax?: number;
   page: number;
   limit: number;
+  perfilPerro?: PerfilCompatibilidad;
 }
 
 export interface BuscarServiciosResult {
@@ -32,6 +39,7 @@ export interface CrearServicioParams {
   imagenes: string[];
   comercioId: string;
   extra?: Record<string, unknown>;
+  aptitud?: AptitudPerro;
 }
 
 export interface ActualizarServicioParams {
@@ -41,6 +49,7 @@ export interface ActualizarServicioParams {
   precioBase?: number;
   imagenes?: string[];
   extra?: Record<string, unknown>;
+  aptitud?: AptitudPerro;
 }
 
 @Injectable()
@@ -108,6 +117,7 @@ export class CatalogRepository {
       comercioId: new Types.ObjectId(data.comercioId),
       estado: 'borrador',
       moneda: MONEDA_DEFAULT,
+      aptitud: data.aptitud,
       ...data.extra,
     });
     return doc.save() as unknown as Promise<ServicioDocument>;
@@ -125,6 +135,7 @@ export class CatalogRepository {
     if (data.ciudad !== undefined) set['ubicacion.ciudad'] = data.ciudad;
     if (data.precioBase !== undefined) set.precioBase = data.precioBase;
     if (data.imagenes !== undefined) set.imagenes = data.imagenes;
+    if (data.aptitud !== undefined) set.aptitud = data.aptitud;
 
     return this.servicioModel
       .findOneAndUpdate(
@@ -158,6 +169,44 @@ export class CatalogRepository {
       if (params.precioMax != null) filtro.precioBase.$lte = params.precioMax;
     }
 
+    const condicionesAptitud = this.condicionesCompatibilidad(params.perfilPerro);
+    if (condicionesAptitud.length) filtro.$and = condicionesAptitud;
+
     return filtro;
+  }
+
+  /**
+   * Un array vacío/ausente en `aptitud` significa "sin restricción" en ese eje;
+   * si el comercio declaró una lista, el perro debe encajar en ella.
+   */
+  private condicionesCompatibilidad(perfil?: PerfilCompatibilidad): FilterQuery<ServicioDocument>[] {
+    if (!perfil) return [];
+    const condiciones: FilterQuery<ServicioDocument>[] = [];
+
+    if (perfil.tamano) {
+      condiciones.push({
+        $or: [
+          { 'aptitud.tamanosAdmitidos': { $exists: false } },
+          { 'aptitud.tamanosAdmitidos': { $size: 0 } },
+          { 'aptitud.tamanosAdmitidos': perfil.tamano },
+        ],
+      });
+    }
+
+    if (perfil.tipoPelo?.length) {
+      condiciones.push({
+        $or: [
+          { 'aptitud.tipoPeloAdmitido': { $exists: false } },
+          { 'aptitud.tipoPeloAdmitido': { $size: 0 } },
+          { 'aptitud.tipoPeloAdmitido': { $in: perfil.tipoPelo } },
+        ],
+      });
+    }
+
+    if (perfil.temperamento) {
+      condiciones.push({ 'aptitud.temperamentosNoAdmitidos': { $ne: perfil.temperamento } });
+    }
+
+    return condiciones;
   }
 }

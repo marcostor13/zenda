@@ -7,11 +7,20 @@ export interface CrearReservaPayload {
   servicioId: string;
   comercioId: string;
   vertical: string;
+  perroId?: string;
   fechaInicio: string;
   fechaFin?: string;
   cantidad?: number;
   detalle?: Record<string, unknown>;
   cuponCodigo?: string;
+}
+
+export interface SuplementoAplicadoApi {
+  concepto: string;
+  monto: number;
+  motivo?: string;
+  evidenciaUrl?: string;
+  createdAt: string;
 }
 
 /** Reserva tal como la devuelve el API (documento crudo). */
@@ -32,8 +41,10 @@ export interface ReservaApi {
   fechaInicio: string;
   fechaFin?: string;
   cantidad: number;
-  estado: 'pendiente' | 'confirmada' | 'cancelada' | 'completada' | 'no_show';
+  estado: 'pendiente' | 'confirmada' | 'ajuste_solicitado' | 'cancelada' | 'completada' | 'no_show';
   pagoId?: string;
+  suplementos?: SuplementoAplicadoApi[];
+  montoAjustado?: number;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -58,6 +58,27 @@ describe('CatalogRepository', () => {
     expect(filtro.precioBase).toEqual({ $gte: 100, $lte: 500 });
   });
 
+  it('no debería añadir condiciones de compatibilidad si no se indica perfil de perro', async () => {
+    await repository.buscar({ vertical: 'alojamiento', page: 1, limit: 10 });
+    const filtro = model.find.mock.calls[0][0];
+    expect(filtro.$and).toBeUndefined();
+  });
+
+  it('debería filtrar por tamaño, tipo de pelo y excluir temperamentos no admitidos', async () => {
+    await repository.buscar({
+      vertical: 'peluqueria',
+      page: 1,
+      limit: 10,
+      perfilPerro: { tamano: 'mini' as never, tipoPelo: ['corto' as never], temperamento: 'nervioso' },
+    });
+
+    const filtro = model.find.mock.calls[0][0];
+    expect(filtro.$and).toHaveLength(3);
+    expect(filtro.$and[0].$or).toContainEqual({ 'aptitud.tamanosAdmitidos': 'mini' });
+    expect(filtro.$and[1].$or).toContainEqual({ 'aptitud.tipoPeloAdmitido': { $in: ['corto'] } });
+    expect(filtro.$and[2]).toEqual({ 'aptitud.temperamentosNoAdmitidos': { $ne: 'nervioso' } });
+  });
+
   it('debería paginar con skip = (page - 1) * limit', async () => {
     const chain = chainable([]);
     model.find.mockReturnValue(chain);

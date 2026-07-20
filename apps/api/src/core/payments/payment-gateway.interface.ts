@@ -15,6 +15,7 @@ export interface PaymentGateway {
   crearIntent(params: CrearIntentParams): Promise<PaymentIntentResult>;
   construirEvento(payload: Buffer, signature: string): unknown;
   extraerIntentDeEvento(evento: unknown): { intentId: string; estado: 'succeeded' | 'failed' | 'other'; chargeId?: string } | null;
+  reembolsar(paymentIntentId: string): Promise<void>;
 }
 
 export const PAYMENT_GATEWAY = Symbol('PAYMENT_GATEWAY');

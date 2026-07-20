@@ -6,8 +6,9 @@ export type AlojamientoDocument = HydratedDocument<Alojamiento>;
 
 export interface EspacioCanino {
   id?: string;
-  tipo: string; // 'suite' | 'estandar' | 'compartido'
-  tamanoMaxPerro: string; // 'pequeno' | 'mediano' | 'grande' | 'gigante'
+  tipo: string; // 'suite' | 'estandar' | 'compartido' | 'premium' | 'climatizada'
+  /** Opcional: algunas residencias no diferencian por tamaño (docs/mejora_servicios.md §2.1). */
+  tamanoMaxPerro?: string; // 'mini' | 'pequeno' | 'mediano' | 'grande' | 'gigante'
   descripcion?: string;
   precioNoche: number;
   precioAnterior?: number;
@@ -16,6 +17,11 @@ export interface EspacioCanino {
   cantidad: number;
   disponible?: boolean;
   cancelacionGratis?: boolean;
+}
+
+export interface ServicioAdicionalResidencia {
+  nombre: string;
+  precio: number;
 }
 
 @Schema({ _id: false })
@@ -61,6 +67,27 @@ export class Alojamiento extends Servicio {
 
   @Prop()
   direccion?: string;
+
+  // --- Enriquecimiento Fase C (docs/mejora_servicios.md §2) ---
+
+  /** Perfiles de compatibilidad social que esta residencia puede alojar. Vacío/ausente = cualquiera. */
+  @Prop({ type: [String], default: [] })
+  compatibilidadSocialAdmitida!: string[];
+
+  @Prop({ type: Boolean, default: false })
+  requisitoMicrochip!: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  requiereDesparasitacionInterna!: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  requiereDesparasitacionExterna!: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  requiereVacunaTosPerreras!: boolean;
+
+  @Prop({ type: [Object], default: [] })
+  serviciosAdicionales!: ServicioAdicionalResidencia[];
 }
 
 export const AlojamientoSchema = SchemaFactory.createForClass(Alojamiento);

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
 
 export type NotificacionDocument = HydratedDocument<Notificacion>;
 
@@ -10,7 +10,7 @@ export type TipoNotificacion = 'reserva_confirmada' | 'nueva_reserva_comercio';
 /** Outbox de notificaciones: cada intento de envío queda registrado. */
 @Schema({ timestamps: true, collection: 'notificaciones' })
 export class Notificacion {
-  @Prop({ type: Types.ObjectId, ref: 'Reserva' })
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva' })
   reservaId?: Types.ObjectId;
 
   @Prop({ type: String, enum: ['email'], default: 'email' })

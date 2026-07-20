@@ -77,4 +77,83 @@ describe('PeluqueriaAvailabilityStrategy', () => {
     expect(hold.expiraEn.getTime()).toBeGreaterThan(Date.now());
     await expect(strategy.releaseSlot(hold.holdId)).resolves.toBeUndefined();
   });
+
+  describe('matriz de precio por tamaño', () => {
+    const mockConTamanos = {
+      ...mock,
+      serviciosGrooming: [
+        {
+          nombre: 'Baño completo', precio: 25, duracionMin: 45,
+          preciosPorTamano: [
+            { tamano: 'pequeno', precio: 20, duracionMin: 30 },
+            { tamano: 'grande', precio: 40, duracionMin: 60 },
+          ],
+        },
+      ],
+    };
+
+    it('usa el precio del tier de tamaño cuando el perro coincide', async () => {
+      mockFindById(mockConTamanos);
+      const r = await strategy.checkAvailability('p1', {
+        fechaInicio: new Date(),
+        parametrosExtra: { servicio: 'Baño completo', perroTamano: 'grande' },
+      });
+      expect(r.precioCalculado).toBe(40);
+      expect(r.metadata?.duracionMin).toBe(60);
+    });
+
+    it('acepta también el parámetro legacy tamanoPerro (uso directo de API/tests)', async () => {
+      mockFindById(mockConTamanos);
+      const r = await strategy.checkAvailability('p1', {
+        fechaInicio: new Date(),
+        parametrosExtra: { servicio: 'Baño completo', tamanoPerro: 'pequeno' },
+      });
+      expect(r.precioCalculado).toBe(20);
+    });
+
+    it('cae al precio/duración por defecto del servicio si el tamaño no tiene tier', async () => {
+      mockFindById(mockConTamanos);
+      const r = await strategy.checkAvailability('p1', {
+        fechaInicio: new Date(),
+        parametrosExtra: { servicio: 'Baño completo', perroTamano: 'mediano' },
+      });
+      expect(r.precioCalculado).toBe(25);
+      expect(r.metadata?.duracionMin).toBe(45);
+    });
+  });
+
+  describe('compatibilidad de tipo de pelo', () => {
+    const mockConPelo = {
+      ...mock,
+      serviciosGrooming: [
+        { nombre: 'Stripping', precio: 45, duracionMin: 60, tipoPeloCompatible: ['duro'] },
+      ],
+    };
+
+    it('bloquea el servicio si el tipo de pelo del perro no es compatible', async () => {
+      mockFindById(mockConPelo);
+      await expect(strategy.checkAvailability('p1', {
+        fechaInicio: new Date(),
+        parametrosExtra: { servicio: 'Stripping', perroTipoPelo: ['corto'] },
+      })).rejects.toThrow(DomainException);
+    });
+
+    it('permite el servicio si el tipo de pelo del perro coincide', async () => {
+      mockFindById(mockConPelo);
+      const r = await strategy.checkAvailability('p1', {
+        fechaInicio: new Date(),
+        parametrosExtra: { servicio: 'Stripping', perroTipoPelo: ['duro', 'doble_capa'] },
+      });
+      expect(r.disponible).toBe(true);
+    });
+
+    it('no bloquea si no se informa el tipo de pelo del perro (ej. sin perro seleccionado)', async () => {
+      mockFindById(mockConPelo);
+      const r = await strategy.checkAvailability('p1', {
+        fechaInicio: new Date(),
+        parametrosExtra: { servicio: 'Stripping' },
+      });
+      expect(r.disponible).toBe(true);
+    });
+  });
 });
