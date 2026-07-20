@@ -48,10 +48,24 @@ export interface DatosBancarios {
   swift?: string;
 }
 
+export type TipoDocumento = 'dni' | 'cif' | 'licencia' | 'seguro_rc' | 'certificado' | 'otro';
+export type EstadoDocumento = 'pendiente' | 'verificado' | 'rechazado' | 'caducado';
+
+export interface DocumentoVerificacion {
+  tipo: TipoDocumento;
+  nombre?: string;
+  url: string;
+  fechaCaducidad?: string;
+  estado: EstadoDocumento;
+  subidoAt?: Date;
+}
+
 export interface VerificacionComercio {
   estado: EstadoVerificacion;
   documentoIdentidadUrl?: string;
   licenciaNegocioUrl?: string;
+  documentos?: DocumentoVerificacion[];
+  motivoRechazo?: string;
 }
 
 export interface PreferenciasNotificacion {

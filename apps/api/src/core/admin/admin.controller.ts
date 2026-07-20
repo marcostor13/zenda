@@ -107,6 +107,15 @@ export class AdminController {
     return this.adminService.actualizarComercio(id, dto as Parameters<AdminService['actualizarComercio']>[1]);
   }
 
+  @Patch('comercios/:id/verificacion')
+  @ApiOperation({ summary: 'Verificar o rechazar la documentación de un comercio' })
+  cambiarVerificacionComercio(
+    @Param('id') id: string,
+    @Body() dto: { estado: 'verificado' | 'rechazado' | 'pendiente'; motivo?: string },
+  ) {
+    return this.adminService.cambiarVerificacionComercio(id, dto.estado, dto.motivo);
+  }
+
   @Delete('comercios/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminar un comercio (admin)' })

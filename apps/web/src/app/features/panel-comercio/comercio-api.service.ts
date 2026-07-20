@@ -41,10 +41,20 @@ export interface DatosBancarios {
   swift?: string;
 }
 
+export interface DocumentoVerificacion {
+  tipo: string;
+  nombre?: string;
+  url: string;
+  fechaCaducidad?: string;
+  estado?: string;
+}
+
 export interface VerificacionComercio {
   estado: 'sin_verificar' | 'pendiente' | 'verificado' | 'rechazado';
   documentoIdentidadUrl?: string;
   licenciaNegocioUrl?: string;
+  documentos?: DocumentoVerificacion[];
+  motivoRechazo?: string;
 }
 
 export interface PreferenciasNotificacion {
@@ -94,7 +104,7 @@ export type ActualizarPerfilComercioPayload = Partial<
     | 'preferenciasNotificacion'
     | 'horario'
   >
-> & { documentoIdentidadUrl?: string; licenciaNegocioUrl?: string };
+> & { documentoIdentidadUrl?: string; licenciaNegocioUrl?: string; documentos?: DocumentoVerificacion[] };
 
 export interface SuplementoAplicado {
   concepto: string;

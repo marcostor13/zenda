@@ -36,6 +36,15 @@ export class HorarioDiaDto {
   cerrado!: boolean;
 }
 
+export class DocumentoVerificacionDto {
+  @IsIn(['dni', 'cif', 'licencia', 'seguro_rc', 'certificado', 'otro'])
+  tipo!: string;
+
+  @IsOptional() @IsString() nombre?: string;
+  @IsString() url!: string;
+  @IsOptional() @IsString() fechaCaducidad?: string;
+}
+
 export class DatosBancariosDto {
   @IsOptional() @IsString() titular?: string;
   @IsOptional() @IsString() iban?: string;

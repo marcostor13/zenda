@@ -256,6 +256,32 @@ export class AdminService {
     await this.comerciosRepo.eliminar(id);
   }
 
+  /** El admin verifica o rechaza la documentación del comercio. */
+  async cambiarVerificacionComercio(
+    id: string,
+    estado: 'verificado' | 'rechazado' | 'pendiente',
+    motivo?: string,
+  ): Promise<ComercioDocument> {
+    const comercio = await this.comerciosRepo.findById(id);
+    if (!comercio) throw new NotFoundException('Comercio no encontrado');
+
+    const documentos = (comercio.verificacion?.documentos ?? []).map((d) => ({
+      ...d,
+      estado: estado === 'verificado' ? 'verificado' : estado === 'rechazado' ? 'rechazado' : d.estado,
+    }));
+
+    const actualizado = await this.comerciosRepo.actualizar(id, {
+      verificacion: {
+        ...comercio.verificacion,
+        estado,
+        motivoRechazo: estado === 'rechazado' ? motivo : undefined,
+        documentos,
+      },
+    } as Parameters<ComerciosRepository['actualizar']>[1]);
+    if (!actualizado) throw new NotFoundException('Comercio no encontrado');
+    return actualizado;
+  }
+
   // ── Usuarios CRUD ────────────────────────────────────────────────────────────
 
   async listarUsuarios(

@@ -54,6 +54,20 @@ export interface AdminDashboardResponse {
   comisiones: ComisionConfig[];
 }
 
+export interface DocumentoVerificacion {
+  tipo: string;
+  nombre?: string;
+  url: string;
+  fechaCaducidad?: string;
+  estado: string;
+}
+
+export interface VerificacionComercio {
+  estado: string;
+  documentos?: DocumentoVerificacion[];
+  motivoRechazo?: string;
+}
+
 export interface ComercioAdmin {
   _id: string;
   nombreComercial: string;
@@ -65,6 +79,7 @@ export interface ComercioAdmin {
   comisionPctOverride?: number;
   logoUrl?: string;
   createdAt: string;
+  verificacion?: VerificacionComercio;
 }
 
 export interface ReservaAdmin {
@@ -189,6 +204,10 @@ export class AdminApiService {
 
   rechazarComercio(id: string): Observable<unknown> {
     return this.http.patch(`${this.comerciosUrl}/${id}/estado`, { estado: 'suspendido' });
+  }
+
+  cambiarVerificacionComercio(id: string, estado: 'verificado' | 'rechazado' | 'pendiente', motivo?: string): Observable<ComercioAdmin> {
+    return this.http.patch<ComercioAdmin>(`${this.adminUrl}/comercios/${id}/verificacion`, { estado, motivo });
   }
 
   // ── Comercios CRUD ───────────────────────────────────────────────────────────

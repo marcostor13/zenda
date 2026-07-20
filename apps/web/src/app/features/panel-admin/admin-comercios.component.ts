@@ -117,9 +117,20 @@ const LIMITE = 20;
             </span>
             <span>
               <span class="rs-badge {{ badgeEstado(c.estado) }}">{{ c.estado }}</span>
+              @if (c.verificacion?.estado && c.verificacion?.estado !== 'sin_verificar') {
+                <span class="rs-badge {{ badgeVerif(c.verificacion!.estado) }}" style="display:inline-block;margin-top:4px">
+                  {{ verifLabel(c.verificacion!.estado) }}
+                </span>
+              }
             </span>
             <span class="cell-muted">{{ c.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones">
+              @if (c.verificacion?.estado === 'pendiente') {
+                <button class="rs-btn rs-btn--sm" style="background:#047857;color:#fff" title="Verificar documentación"
+                  [disabled]="accionando() === c._id" (click)="verificar(c._id)">✅ Verificar</button>
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" title="Rechazar documentación"
+                  [disabled]="accionando() === c._id" (click)="rechazarVerif(c._id)">✕ Doc</button>
+              }
               @if (c.estado !== 'activo') {
                 <button class="rs-btn rs-btn--sm" style="background:var(--c-teal);color:#fff"
                   [disabled]="accionando() === c._id" (click)="aprobar(c._id)">✓ Aprobar</button>
@@ -412,6 +423,49 @@ export class AdminComerciosComponent implements OnInit {
     } finally {
       this.accionando.set(null);
     }
+  }
+
+  async verificar(id: string): Promise<void> {
+    this.accionando.set(id);
+    try {
+      await firstValueFrom(this.adminApi.cambiarVerificacionComercio(id, 'verificado'));
+      await this.cargar();
+    } catch {
+      this.errorMsg.set('Error al verificar la documentación.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    } finally {
+      this.accionando.set(null);
+    }
+  }
+
+  async rechazarVerif(id: string): Promise<void> {
+    const motivo = prompt('Motivo del rechazo de la documentación (opcional):') ?? undefined;
+    this.accionando.set(id);
+    try {
+      await firstValueFrom(this.adminApi.cambiarVerificacionComercio(id, 'rechazado', motivo));
+      await this.cargar();
+    } catch {
+      this.errorMsg.set('Error al rechazar la documentación.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    } finally {
+      this.accionando.set(null);
+    }
+  }
+
+  badgeVerif(estado: string): string {
+    const map: Record<string, string> = {
+      verificado: 'rs-badge--success', pendiente: 'rs-badge--warning',
+      rechazado: 'rs-badge--error', caducado: 'rs-badge--error',
+    };
+    return map[estado] ?? 'rs-badge--neutral';
+  }
+
+  verifLabel(estado: string): string {
+    const map: Record<string, string> = {
+      verificado: '✅ Verificado', pendiente: '⏳ Doc. pendiente',
+      rechazado: '✕ Doc. rechazada', caducado: '⚠️ Doc. caducada',
+    };
+    return map[estado] ?? estado;
   }
 
   async suspender(id: string): Promise<void> {

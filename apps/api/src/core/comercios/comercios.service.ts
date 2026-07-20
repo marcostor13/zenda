@@ -203,18 +203,38 @@ export class ComerciosService {
     comercioId: string,
     dto: ActualizarPerfilComercioDto,
   ): Promise<ComercioDocument> {
-    const { documentoIdentidadUrl, licenciaNegocioUrl, ...resto } = dto;
+    const { documentoIdentidadUrl, licenciaNegocioUrl, documentos, ...resto } = dto as ActualizarPerfilComercioDto & {
+      documentos?: Array<{ tipo: string; nombre?: string; url: string; fechaCaducidad?: string }>;
+    };
     const datos: Record<string, unknown> = { ...resto };
 
-    if (documentoIdentidadUrl !== undefined || licenciaNegocioUrl !== undefined) {
+    if (documentoIdentidadUrl !== undefined || licenciaNegocioUrl !== undefined || documentos !== undefined) {
       const actual = await this.repo.findById(comercioId);
       const verificacionActual = actual?.verificacion ?? { estado: 'sin_verificar' as EstadoVerificacion };
       const nuevoDocumentoIdentidad = documentoIdentidadUrl ?? verificacionActual.documentoIdentidadUrl;
       const nuevaLicencia = licenciaNegocioUrl ?? verificacionActual.licenciaNegocioUrl;
+
+      // Cada documento declarado por el comercio entra como 'pendiente' de revisión;
+      // se marca 'caducado' automáticamente si su fecha de caducidad ya pasó.
+      const ahora = new Date();
+      const documentosNormalizados = documentos !== undefined
+        ? documentos.map((d) => ({
+            tipo: d.tipo,
+            nombre: d.nombre,
+            url: d.url,
+            fechaCaducidad: d.fechaCaducidad,
+            estado: (d.fechaCaducidad && new Date(d.fechaCaducidad) < ahora ? 'caducado' : 'pendiente') as
+              'pendiente' | 'caducado',
+            subidoAt: ahora,
+          }))
+        : verificacionActual.documentos;
+
+      const tieneDocumentacion = Boolean(nuevoDocumentoIdentidad && nuevaLicencia) || Boolean(documentosNormalizados?.length);
       datos.verificacion = {
-        estado: nuevoDocumentoIdentidad && nuevaLicencia ? 'pendiente' : verificacionActual.estado,
+        estado: tieneDocumentacion ? 'pendiente' : verificacionActual.estado,
         documentoIdentidadUrl: nuevoDocumentoIdentidad,
         licenciaNegocioUrl: nuevaLicencia,
+        documentos: documentosNormalizados,
       };
     }
 

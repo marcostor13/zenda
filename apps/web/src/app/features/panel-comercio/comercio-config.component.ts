@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
-import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia } from './comercio-api.service';
+import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, DocumentoVerificacion } from './comercio-api.service';
 
 const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
   { clave: 'lunes', label: 'Lunes' },
@@ -393,6 +393,68 @@ function comoArray(v?: string): string[] {
       </form>
     </section>
 
+    <!-- Documentación adicional (seguro RC, certificados…) -->
+    <section class="config-section rs-card">
+      <div class="config-section__header">
+        <div class="config-section__icon" style="background:rgba(22,163,74,.12);color:#16A34A">
+          <rs-icon name="shield-check" [size]="18" [stroke]="2"></rs-icon>
+        </div>
+        <div>
+          <h2 class="config-section__title">Documentación adicional</h2>
+          <p class="config-section__sub">Seguro de responsabilidad civil, certificados profesionales y sus caducidades.</p>
+        </div>
+      </div>
+
+      @if (docsAdicionales().length) {
+        <div class="docs-list">
+          @for (d of docsAdicionales(); track $index) {
+            <div class="doc-item">
+              <span class="doc-item__tipo">{{ tipoDocLabel(d.tipo) }}</span>
+              <span class="doc-item__nombre">{{ d.nombre || d.url }}</span>
+              @if (d.fechaCaducidad) { <span class="doc-item__cad">Caduca: {{ d.fechaCaducidad }}</span> }
+              @if (d.estado) { <span class="rs-badge {{ docBadge(d.estado) }}">{{ d.estado }}</span> }
+              <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="quitarDoc($index)">🗑️</button>
+            </div>
+          }
+        </div>
+      }
+
+      <form [formGroup]="docForm" (ngSubmit)="agregarDoc()" class="config-form" style="margin-top:var(--sp-4)">
+        <div class="form-row">
+          <div class="rs-field">
+            <label class="rs-lbl">Tipo</label>
+            <select formControlName="tipo" class="rs-inp">
+              <option value="seguro_rc">Seguro responsabilidad civil</option>
+              <option value="certificado">Certificado profesional</option>
+              <option value="cif">CIF</option>
+              <option value="licencia">Licencia</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="rs-field">
+            <label class="rs-lbl">Nombre / referencia</label>
+            <input type="text" formControlName="nombre" class="rs-inp" placeholder="Ej. Póliza AXA 2026" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="rs-field">
+            <label class="rs-lbl">URL del documento</label>
+            <input type="text" formControlName="url" class="rs-inp" placeholder="https://…" />
+          </div>
+          <div class="rs-field">
+            <label class="rs-lbl">Fecha de caducidad</label>
+            <input type="date" formControlName="fechaCaducidad" class="rs-inp" />
+          </div>
+        </div>
+        <div class="form-actions" style="gap:var(--sp-2)">
+          <button type="submit" class="rs-btn rs-btn--secondary" [disabled]="docForm.invalid">➕ Añadir documento</button>
+          <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoDocs()" (click)="guardarDocumentacion()">
+            @if (guardandoDocs()) { Guardando… } @else { Guardar documentación }
+          </button>
+        </div>
+      </form>
+    </section>
+
     <!-- Notificaciones -->
     <section class="config-section rs-card">
       <div class="config-section__header">
@@ -494,6 +556,12 @@ function comoArray(v?: string): string[] {
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .form-row--3 { grid-template-columns: 1fr 1fr 1fr; @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .form-actions { display: flex; justify-content: flex-end; padding-top: var(--sp-2); }
+
+    .docs-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .doc-item { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-3); background: var(--c-raised); border-radius: var(--r-lg); }
+    .doc-item__tipo { font-size: var(--f-xs); font-weight: var(--w-7); color: var(--c-accent); }
+    .doc-item__nombre { font-size: var(--f-sm); color: var(--t-100); flex: 1; min-width: 120px; }
+    .doc-item__cad { font-size: var(--f-xs); color: var(--t-400); }
 
     .rs-field { display: flex; flex-direction: column; gap: var(--sp-2); }
     .rs-lbl { font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-300); text-transform: uppercase; letter-spacing: .06em; }
@@ -622,6 +690,15 @@ export class ComercioConfigComponent implements OnInit {
     licenciaNegocioUrl: [[] as string[]],
   });
 
+  readonly guardandoDocs = signal(false);
+  readonly docsAdicionales = signal<DocumentoVerificacion[]>([]);
+  readonly docForm = this.fb.group({
+    tipo: ['seguro_rc', Validators.required],
+    nombre: [''],
+    url: ['', Validators.required],
+    fechaCaducidad: [''],
+  });
+
   get diasControls() {
     return this.horarioForm.controls.dias.controls;
   }
@@ -683,6 +760,7 @@ export class ComercioConfigComponent implements OnInit {
       swift: data.datosBancarios?.swift ?? '',
     });
 
+    this.docsAdicionales.set(data.verificacion?.documentos ?? []);
     this.verificacionForm.patchValue({
       documentoIdentidadUrl: comoArray(data.verificacion?.documentoIdentidadUrl),
       licenciaNegocioUrl: comoArray(data.verificacion?.licenciaNegocioUrl),
@@ -799,5 +877,42 @@ export class ComercioConfigComponent implements OnInit {
       documentoIdentidadUrl: primero(v.documentoIdentidadUrl),
       licenciaNegocioUrl: primero(v.licenciaNegocioUrl),
     }, this.guardandoVerificacion);
+  }
+
+  agregarDoc(): void {
+    if (this.docForm.invalid) return;
+    const v = this.docForm.getRawValue();
+    this.docsAdicionales.update((list) => [...list, {
+      tipo: v.tipo ?? 'otro',
+      nombre: v.nombre || undefined,
+      url: v.url ?? '',
+      fechaCaducidad: v.fechaCaducidad || undefined,
+      estado: 'pendiente',
+    }]);
+    this.docForm.reset({ tipo: 'seguro_rc', nombre: '', url: '', fechaCaducidad: '' });
+  }
+
+  quitarDoc(index: number): void {
+    this.docsAdicionales.update((list) => list.filter((_, i) => i !== index));
+  }
+
+  async guardarDocumentacion(): Promise<void> {
+    await this.guardarSeccion({ documentos: this.docsAdicionales() }, this.guardandoDocs);
+  }
+
+  tipoDocLabel(tipo: string): string {
+    const map: Record<string, string> = {
+      dni: 'DNI', cif: 'CIF', licencia: 'Licencia',
+      seguro_rc: 'Seguro RC', certificado: 'Certificado', otro: 'Documento',
+    };
+    return map[tipo] ?? tipo;
+  }
+
+  docBadge(estado: string): string {
+    const map: Record<string, string> = {
+      verificado: 'rs-badge--success', pendiente: 'rs-badge--warning',
+      rechazado: 'rs-badge--error', caducado: 'rs-badge--error',
+    };
+    return map[estado] ?? 'rs-badge--neutral';
   }
 }

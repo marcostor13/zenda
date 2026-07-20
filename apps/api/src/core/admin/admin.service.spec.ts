@@ -100,7 +100,11 @@ describe('AdminService', () => {
         },
         {
           provide: ComerciosRepository,
-          useValue: { listar: jest.fn().mockResolvedValue([]) },
+          useValue: {
+            listar: jest.fn().mockResolvedValue([]),
+            findById: jest.fn(),
+            actualizar: jest.fn(),
+          },
         },
         {
           provide: UsersRepository,
@@ -162,6 +166,43 @@ describe('AdminService', () => {
       const dashboard = await service.obtenerDashboard();
       expect(dashboard.kpis.pagosRetenidosMonto).toBe(2350);
       expect(dashboard.kpis.pagosRetenidosCount).toBe(4);
+    });
+  });
+
+  describe('cambiarVerificacionComercio', () => {
+    it('debería marcar el comercio y sus documentos como verificados', async () => {
+      const comerciosRepo = (service as unknown as { comerciosRepo: any }).comerciosRepo;
+      comerciosRepo.findById.mockResolvedValue({
+        verificacion: { estado: 'pendiente', documentos: [{ tipo: 'cif', url: 'x', estado: 'pendiente' }] },
+      });
+      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
+
+      await service.cambiarVerificacionComercio('c1', 'verificado');
+
+      expect(comerciosRepo.actualizar).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({
+          verificacion: expect.objectContaining({
+            estado: 'verificado',
+            documentos: [expect.objectContaining({ estado: 'verificado' })],
+          }),
+        }),
+      );
+    });
+
+    it('debería guardar el motivo al rechazar', async () => {
+      const comerciosRepo = (service as unknown as { comerciosRepo: any }).comerciosRepo;
+      comerciosRepo.findById.mockResolvedValue({ verificacion: { estado: 'pendiente', documentos: [] } });
+      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
+
+      await service.cambiarVerificacionComercio('c1', 'rechazado', 'CIF ilegible');
+
+      expect(comerciosRepo.actualizar).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({
+          verificacion: expect.objectContaining({ estado: 'rechazado', motivoRechazo: 'CIF ilegible' }),
+        }),
+      );
     });
   });
 
