@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
+import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
 
 interface VerticalConfig {
@@ -100,7 +101,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
 @Component({
   selector: 'app-vertical-browse',
   standalone: true,
-  imports: [ReactiveFormsModule, RsNavbarComponent, ImgFallbackDirective, AnimateOnScrollDirective],
+  imports: [ReactiveFormsModule, RsNavbarComponent, ImgFallbackDirective, AnimateOnScrollDirective, RsFavoritoBtnComponent],
   template: `
 <div class="vb-page">
   <rs-navbar />
@@ -133,6 +134,9 @@ const CONFIGS: Record<string, VerticalConfig> = {
               <div class="vb-card__img">
                 <img [src]="c.imagenes[0]" [alt]="c.nombre" loading="lazy" rsImg />
                 <span class="rs-badge rs-badge--accent vb-card__badge">{{ cfg().badge(c) }}</span>
+                <div class="vb-card__fav">
+                  <rs-favorito-btn [servicioId]="c.id"></rs-favorito-btn>
+                </div>
               </div>
               <div class="vb-card__body">
                 <h3 class="vb-card__name">{{ cfg().titulo3(c) }}</h3>
@@ -187,6 +191,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
     .vb-card { background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--sh-card); transition: all var(--d-3); &:hover { box-shadow: var(--sh-lg); transform: translateY(-4px); .vb-card__img img { transform: scale(1.06); } } }
     .vb-card__img { position: relative; aspect-ratio: 16/10; overflow: hidden; background: linear-gradient(135deg, #143C7A, #1668E3); img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); } }
     .vb-card__badge { position: absolute; top: var(--sp-3); left: var(--sp-3); background: rgba(255,255,255,.92); color: var(--t-100); border-color: rgba(255,255,255,.6); backdrop-filter: blur(6px); }
+    .vb-card__fav { position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 2; }
     .vb-card__body { padding: var(--sp-5); }
     .vb-card__name { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); line-height: 1.3; }
     .vb-card__loc { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-3); }

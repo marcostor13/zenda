@@ -60,6 +60,11 @@ export const routes: Routes = [
     loadChildren: () => import('./features/perros/perros.routes').then((m) => m.perrosRoutes),
   },
   {
+    path: 'favoritos',
+    canActivate: [authGuard],
+    loadChildren: () => import('./features/favoritos/favoritos.routes').then((m) => m.favoritosRoutes),
+  },
+  {
     path: 'perfil',
     canActivate: [authGuard],
     loadChildren: () =>

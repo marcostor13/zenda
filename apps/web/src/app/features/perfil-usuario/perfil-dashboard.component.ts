@@ -7,6 +7,7 @@ import { ImgFallbackDirective } from '../../shared/directives/img-fallback.direc
 import { hotelImage } from '../../shared/media/images';
 import { ReservasService, ReservaApi } from '../reservas/services/reservas.service';
 import { PerrosService, PerroApi } from '../perros/perros.service';
+import { FavoritosService } from '../favoritos/favoritos.service';
 
 interface MiniReserva {
   codigo: string;
@@ -291,6 +292,7 @@ export class PerfilDashboardComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly reservasService = inject(ReservasService);
   private readonly perrosService = inject(PerrosService);
+  private readonly favoritosService = inject(FavoritosService);
 
   readonly usuario = this.authService.usuario;
 
@@ -307,7 +309,7 @@ export class PerfilDashboardComponent implements OnInit {
     { icon: 'calendar', iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)', value: '0', label: 'Reservas totales' },
     { icon: 'check-circle', iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: '0', label: 'Servicios disfrutados' },
     { icon: 'paw', iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: '0', label: 'Mis mascotas' },
-    { icon: 'zap', iconColor: '#8B5CF6', iconBg: 'rgba(139,92,246,.12)', value: '0', label: 'Próximas reservas' },
+    { icon: 'heart', iconColor: '#E11D48', iconBg: 'rgba(225,29,72,.12)', value: '0', label: 'Favoritos' },
   ]);
 
   readonly reservasRecientes = signal<MiniReserva[]>([]);
@@ -315,6 +317,7 @@ export class PerfilDashboardComponent implements OnInit {
 
   readonly configItems: ConfigItem[] = [
     { icon: 'paw',         label: 'Mis mascotas',        sub: 'Ficha inteligente de tus mascotas', ruta: '/perros' },
+    { icon: 'heart',       label: 'Favoritos',           sub: 'Servicios que has guardado',        ruta: '/favoritos' },
     { icon: 'user',        label: 'Datos personales',   sub: 'Nombre, email, teléfono',   ruta: '/perfil/editar' },
     { icon: 'lock',        label: 'Seguridad',           sub: 'Contraseña y acceso',       ruta: '/perfil/seguridad' },
     { icon: 'bell',        label: 'Notificaciones',      sub: 'Email, WhatsApp, push',     ruta: '/perfil/notificaciones' },
@@ -327,15 +330,15 @@ export class PerfilDashboardComponent implements OnInit {
       const [apiReservas, misMascotas] = await Promise.all([
         this.reservasService.misReservas(),
         this.perrosService.misPerros().catch(() => [] as PerroApi[]),
+        this.favoritosService.cargarIds(),
       ]);
       const completadas = apiReservas.filter(r => r.estado === 'completada').length;
-      const proximas = apiReservas.filter(r => r.estado === 'confirmada' || r.estado === 'pendiente').length;
       this.mascotas.set(misMascotas);
       this.stats.set([
-        { icon: 'calendar',    iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)',  value: String(apiReservas.length), label: 'Reservas totales' },
-        { icon: 'check-circle',iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: String(completadas),         label: 'Servicios disfrutados' },
-        { icon: 'paw',         iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: String(misMascotas.length),  label: 'Mis mascotas' },
-        { icon: 'zap',       iconColor: '#8B5CF6', iconBg: 'rgba(139,92,246,.12)', value: String(proximas),            label: 'Próximas reservas' },
+        { icon: 'calendar',    iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)',  value: String(apiReservas.length),            label: 'Reservas totales' },
+        { icon: 'check-circle',iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: String(completadas),                    label: 'Servicios disfrutados' },
+        { icon: 'paw',         iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: String(misMascotas.length),             label: 'Mis mascotas' },
+        { icon: 'heart',       iconColor: '#E11D48', iconBg: 'rgba(225,29,72,.12)',  value: String(this.favoritosService.count()), label: 'Favoritos' },
       ]);
       this.reservasRecientes.set(apiReservas.slice(0, 3).map(r => this.toMini(r)));
     } catch {

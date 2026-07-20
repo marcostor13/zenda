@@ -48,6 +48,9 @@ export * from './dtos/perros/actualizar-perro.dto';
 export * from './dtos/perros/crear-perro-historial.dto';
 export * from './dtos/perros/crear-perro-valoracion.dto';
 
+// DTOs — Favoritos
+export * from './dtos/favoritos/favorito.dto';
+
 // DTOs — Suplementos
 export * from './dtos/suplementos/crear-suplemento-config.dto';
 export * from './dtos/suplementos/actualizar-suplemento-config.dto';

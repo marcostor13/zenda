@@ -56,6 +56,9 @@ import { RsIconComponent } from '../icon/rs-icon.component';
                 <a routerLink="/reservas"        class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="calendar" [size]="15" [stroke]="2"></rs-icon> Mis reservas
                 </a>
+                <a routerLink="/favoritos"       class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="heart" [size]="15" [stroke]="2"></rs-icon> Favoritos
+                </a>
                 <a routerLink="/perfil/resenas"  class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="star" [size]="15" [stroke]="2"></rs-icon> Mis reseñas
                 </a>
@@ -125,6 +128,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
             <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mi perfil</a>
             <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis mascotas</a>
             <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis reservas</a>
+            <a routerLink="/favoritos" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Favoritos</a>
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cerrarSesion()">
               <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon>
               Cerrar sesión

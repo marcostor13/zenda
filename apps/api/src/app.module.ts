@@ -14,6 +14,7 @@ import { AdminModule } from './core/admin/admin.module';
 import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
 import { CuponesModule } from './core/cupones/cupones.module';
 import { PerrosModule } from './core/perros/perros.module';
+import { FavoritosModule } from './core/favoritos/favoritos.module';
 import { SuplementosModule } from './core/suplementos/suplementos.module';
 import { RecomendadorModule } from './core/recomendador/recomendador.module';
 import { AlojamientoModule } from './verticals/alojamiento/alojamiento.module';
@@ -47,6 +48,7 @@ import { AiSearchModule } from './core/ai-search/ai-search.module';
     ComisionConfigsModule,
     CuponesModule,
     PerrosModule,
+    FavoritosModule,
     SuplementosModule,
     RecomendadorModule,
     AlojamientoModule,
