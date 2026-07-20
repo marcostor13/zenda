@@ -19,7 +19,8 @@
   - Nuevos estados de reserva en el enum (`en_curso`, `pago_retenido`, `pago_liberado`, `en_disputa`, `reembolsada`) + semáforo de colores propagado a las pantallas de reservas (admin, comercio).
   - Backend: operaciones de admin sobre la reserva (reembolsar, liberar pago, abrir disputa) con whitelist de estados y registro en `historialEstados` (semilla del timeline); métrica **pagos retenidos** (monto + conteo) en el dashboard; **filtros avanzados** en `/admin/reservas` (estado, comercio, código, fechas) con cliente/comercio poblados. Tests verde (315 API).
   - Frontend: **centro de operaciones de reservas** del admin — buscador global por código, chips de estado (incl. disputa/retenido/liberado/reembolsada), semáforo, columnas cliente/comercio/comisión y botones de acción por fila; KPI "Pagos retenidos" y alerta en el dashboard.
-  - Pendiente de Fase 3 (seguimiento): módulo de incidencias dedicado, UI de timeline en el detalle, documentación/verificación de comercio.
+  - **Timeline de reserva**: cada transición se registra en `historialEstados` (creación, confirmación por pago, completada por comercio, y acciones de admin) y se visualiza como línea de tiempo expandible en el centro de reservas. Captura de **motivo** en disputas/reembolsos (queda en el timeline). Métrica **incidencias abiertas** (reservas en disputa) con tarjeta y alerta en el dashboard.
+  - Pendiente de Fase 3 (seguimiento): módulo de incidencias con mensajería dedicada, documentación/verificación de comercio con caducidades.
 - ⏳ **Fase 4**: pendiente (mapa de calor, embudo, recompensas, recordatorios, seguimiento en tiempo real, equipo/permisos).
 
 ---

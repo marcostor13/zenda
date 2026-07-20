@@ -58,6 +58,9 @@ const ESTADO_BADGE: Record<string, string> = {
           @if (kpis().pagosRetenidosCount > 0) {
             <a routerLink="/admin/reservas" class="admin-alertas__chip">🔔 {{ kpis().pagosRetenidosCount }} pagos retenidos por liberar</a>
           }
+          @if (kpis().incidenciasAbiertas > 0) {
+            <a routerLink="/admin/reservas" class="admin-alertas__chip">🔔 {{ kpis().incidenciasAbiertas }} incidencias abiertas</a>
+          }
         </div>
       }
 
@@ -153,6 +156,15 @@ const ESTADO_BADGE: Record<string, string> = {
           </div>
           <div class="admin-kpi__value">{{ kpis().pagosRetenidosMonto | number:'1.0-0' }} €</div>
           <div class="admin-kpi__label">Pagos retenidos ({{ kpis().pagosRetenidosCount }})</div>
+        </div>
+        <div class="admin-kpi rs-card">
+          <div class="admin-kpi__top">
+            <span class="admin-kpi__icon" style="background:rgba(248,113,113,.18);color:#F87171">
+              <rs-icon name="alert-circle" [size]="18" [stroke]="2"></rs-icon>
+            </span>
+          </div>
+          <div class="admin-kpi__value">{{ kpis().incidenciasAbiertas }}</div>
+          <div class="admin-kpi__label">Incidencias abiertas</div>
         </div>
       </div>
 
@@ -334,6 +346,7 @@ export class AdminDashboardComponent implements OnInit {
     verificacionesPendientes: 0, nuevosComerciosMes: 0,
     mascotasRegistradas: 0, tasaCancelacionMes: 0,
     pagosRetenidosMonto: 0, pagosRetenidosCount: 0,
+    incidenciasAbiertas: 0,
   });
   readonly comerciosPendientes = signal<ComercioPendiente[]>([]);
   readonly ultimasReservas = signal<UltimaReserva[]>([]);
@@ -354,7 +367,8 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   totalAlertas(): number {
-    return this.kpis().verificacionesPendientes + this.kpis().comerciosPendientesCount + this.kpis().pagosRetenidosCount;
+    return this.kpis().verificacionesPendientes + this.kpis().comerciosPendientesCount
+      + this.kpis().pagosRetenidosCount + this.kpis().incidenciasAbiertas;
   }
 
   emojiVertical(vertical: string): string {

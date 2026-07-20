@@ -112,6 +112,7 @@ export class BookingsService {
       cuponCodigo: params.cuponCodigo,
       estado: ReservaEstado.PENDIENTE,
       holdId: hold.holdId,
+      historialEstados: [{ estado: ReservaEstado.PENDIENTE, por: 'sistema', at: new Date() }],
     });
 
     const guardada = await reserva.save();
@@ -187,7 +188,11 @@ export class BookingsService {
   async confirmar(reservaId: string): Promise<ReservaDocument> {
     const reserva = await this.reservaModel.findByIdAndUpdate(
       reservaId,
-      { estado: ReservaEstado.CONFIRMADA, holdId: undefined },
+      {
+        estado: ReservaEstado.CONFIRMADA,
+        holdId: undefined,
+        $push: { historialEstados: { estado: ReservaEstado.CONFIRMADA, por: 'pago', at: new Date() } },
+      },
       { new: true },
     ).exec();
 
@@ -251,6 +256,7 @@ export class BookingsService {
     }
 
     reserva.estado = ReservaEstado.COMPLETADA;
+    reserva.historialEstados.push({ estado: ReservaEstado.COMPLETADA, por: `comercio:${comercioId}`, at: new Date() });
     return reserva.save();
   }
 

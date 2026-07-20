@@ -35,6 +35,7 @@ describe('BookingsService', () => {
     comercioId: { toString: () => 'comercio-1' },
     holdId: 'hold-1',
     vertical: VerticalKey.ALOJAMIENTO,
+    historialEstados: [],
     save: jest.fn(),
   };
 

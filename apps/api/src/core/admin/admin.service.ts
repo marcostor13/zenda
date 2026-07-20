@@ -72,6 +72,7 @@ export class AdminService {
       tasaCancelacionMes: number;
       pagosRetenidosMonto: number;
       pagosRetenidosCount: number;
+      incidenciasAbiertas: number;
     };
     comerciosPendientes: Array<{
       id: string;
@@ -109,6 +110,7 @@ export class AdminService {
       reservasDelMes,
       canceladasDelMes,
       pagosRetenidosAgg,
+      incidenciasAbiertas,
     ] = await Promise.all([
       this.reservaModel.countDocuments().exec(),
       this.usersRepo.contarTodos(),
@@ -136,6 +138,7 @@ export class AdminService {
         { $match: { estado: ReservaEstado.PAGO_RETENIDO } },
         { $group: { _id: null, monto: { $sum: '$montoTotal' }, count: { $sum: 1 } } },
       ]).exec(),
+      this.reservaModel.countDocuments({ estado: ReservaEstado.EN_DISPUTA }).exec(),
     ]);
 
     const gmvMes     = Math.round((pagosDelMes[0]?.gmv     ?? 0) * 100) / 100;
@@ -159,6 +162,7 @@ export class AdminService {
         tasaCancelacionMes,
         pagosRetenidosMonto,
         pagosRetenidosCount,
+        incidenciasAbiertas,
       },
       comerciosPendientes: comerciosPendientesList.map((c) => ({
         id: String(c._id),

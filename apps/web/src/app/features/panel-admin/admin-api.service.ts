@@ -15,6 +15,7 @@ export interface DashboardKpis {
   tasaCancelacionMes: number;
   pagosRetenidosMonto: number;
   pagosRetenidosCount: number;
+  incidenciasAbiertas: number;
 }
 
 export interface ComercioPendiente {
@@ -77,6 +78,14 @@ export interface ReservaAdmin {
   createdAt: string;
   cliente: string;
   comercio: string;
+  historialEstados?: CambioEstadoReserva[];
+}
+
+export interface CambioEstadoReserva {
+  estado: string;
+  motivo?: string;
+  por: string;
+  at: string;
 }
 
 export interface FiltrosReservasAdmin {

@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { AdminApiService, ReservaAdmin, FiltrosReservasAdmin } from './admin-api.service';
+import { AdminApiService, ReservaAdmin, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 interface EstadoMeta { badge: string; emoji: string; label: string; }
@@ -115,20 +115,41 @@ const LIMITE = 20;
               <span class="cell-amount cell-green">{{ r.comisionMonto | number:'1.2-2' }} €</span>
               <span><span class="rs-badge {{ meta(r.estado).badge }}">{{ meta(r.estado).emoji }} {{ meta(r.estado).label }}</span></span>
               <span class="cell-actions">
+                <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Ver timeline"
+                        (click)="toggleTimeline(r._id)">🕑</button>
                 @if (r.estado !== 'pago_liberado' && r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Liberar pago"
                           [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'pago_liberado')">💸 Liberar</button>
                 }
                 @if (r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Reembolsar"
-                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'reembolsada')">↩️ Reembolsar</button>
+                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'reembolsada')">↩️ Reembolsar</button>
                 }
                 @if (r.estado !== 'en_disputa') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Abrir incidencia"
-                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'en_disputa')">🔴 Disputa</button>
+                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'en_disputa')">🔴 Disputa</button>
                 }
               </span>
             </div>
+            @if (expandidoId() === r._id) {
+              <div class="timeline-row">
+                <h4>🕑 Timeline de la reserva {{ r.codigo }}</h4>
+                @if (r.historialEstados?.length) {
+                  <ol class="timeline">
+                    @for (h of r.historialEstados; track $index) {
+                      <li>
+                        <span class="timeline__dot">{{ meta(h.estado).emoji }}</span>
+                        <span class="timeline__estado">{{ meta(h.estado).label }}</span>
+                        <span class="timeline__meta">{{ h.at | date:'d MMM yyyy, HH:mm' }} · {{ h.por }}</span>
+                        @if (h.motivo) { <span class="timeline__motivo">"{{ h.motivo }}"</span> }
+                      </li>
+                    }
+                  </ol>
+                } @else {
+                  <p style="color:var(--t-400);font-size:var(--f-sm)">Sin eventos registrados todavía.</p>
+                }
+              </div>
+            }
           }
           @if (reservas().length === 0) {
             <div class="empty-state">
@@ -148,6 +169,24 @@ const LIMITE = 20;
         <span class="page-info">Página {{ paginaActual() }} de {{ totalPaginas() }} · {{ total() }} reservas</span>
         <button class="rs-btn rs-btn--secondary rs-btn--sm" [disabled]="paginaActual() >= totalPaginas()"
                 (click)="cambiarPagina(paginaActual() + 1)">Siguiente →</button>
+      </div>
+    }
+
+    <!-- Modal de motivo (disputa / reembolso) -->
+    @if (modalReserva()) {
+      <div class="modal-backdrop" (click)="cerrarModal()">
+        <div class="modal rs-card" (click)="$event.stopPropagation()">
+          <h3>{{ meta(modalEstado()).emoji }} {{ meta(modalEstado()).label }} · {{ modalReserva()!.codigo }}</h3>
+          <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-3)">
+            Indica el motivo (quedará registrado en el timeline de la reserva).
+          </p>
+          <textarea class="rs-inp" rows="3" [(ngModel)]="modalMotivo"
+                    placeholder="Ej. Servicio no prestado / cliente no se presentó…"></textarea>
+          <div style="display:flex;gap:var(--sp-2);justify-content:flex-end;margin-top:var(--sp-4)">
+            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarModal()">Cancelar</button>
+            <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="confirmarMotivo()">Confirmar</button>
+          </div>
+        </div>
       </div>
     }
   `,
@@ -183,6 +222,17 @@ const LIMITE = 20;
 
     .pagination { display: flex; align-items: center; justify-content: center; gap: var(--sp-4); margin-top: var(--sp-6); }
     .page-info { font-size: var(--f-sm); color: var(--t-400); }
+
+    .timeline-row { padding: var(--sp-4) var(--sp-6); background: var(--c-raised); border-bottom: 1px solid var(--b-1); h4 { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-3); } }
+    .timeline { list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); border-left: 2px solid var(--b-1); padding-left: var(--sp-4); margin-left: var(--sp-2); }
+    .timeline li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); position: relative; }
+    .timeline__dot { position: absolute; left: calc(-1 * var(--sp-4) - 11px); }
+    .timeline__estado { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
+    .timeline__meta { font-size: var(--f-xs); color: var(--t-400); }
+    .timeline__motivo { font-size: var(--f-xs); color: var(--t-300); font-style: italic; }
+
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; padding: var(--sp-4); }
+    .modal { width: 100%; max-width: 440px; padding: var(--sp-6); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); } textarea { width: 100%; resize: vertical; } }
   `],
 })
 export class AdminReservasComponent implements OnInit {
@@ -197,8 +247,12 @@ export class AdminReservasComponent implements OnInit {
   readonly okMsg = signal('');
   readonly accionandoId = signal('');
   readonly buscarActivo = signal(false);
+  readonly expandidoId = signal('');
+  readonly modalReserva = signal<ReservaAdmin | null>(null);
+  readonly modalEstado = signal('');
 
   buscarInput = '';
+  modalMotivo = '';
 
   readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
   readonly filtros = FILTROS_ESTADO;
@@ -252,13 +306,42 @@ export class AdminReservasComponent implements OnInit {
     await this.cargar();
   }
 
-  async cambiar(reserva: ReservaAdmin, estado: string): Promise<void> {
+  toggleTimeline(id: string): void {
+    this.expandidoId.update((actual) => (actual === id ? '' : id));
+  }
+
+  /** Estados con impacto (disputa/reembolso) piden un motivo antes de ejecutar. */
+  pedirMotivo(reserva: ReservaAdmin, estado: string): void {
+    this.modalReserva.set(reserva);
+    this.modalEstado.set(estado);
+    this.modalMotivo = '';
+  }
+
+  cerrarModal(): void {
+    this.modalReserva.set(null);
+    this.modalEstado.set('');
+  }
+
+  async confirmarMotivo(): Promise<void> {
+    const reserva = this.modalReserva();
+    const estado = this.modalEstado();
+    const motivo = this.modalMotivo.trim() || undefined;
+    this.cerrarModal();
+    if (reserva) await this.cambiar(reserva, estado, motivo);
+  }
+
+  async cambiar(reserva: ReservaAdmin, estado: string, motivo?: string): Promise<void> {
     this.accionandoId.set(reserva._id);
     this.okMsg.set('');
     this.errorMsg.set('');
     try {
-      const actualizada = await firstValueFrom(this.adminApi.cambiarEstadoReserva(reserva._id, estado));
-      this.reservas.update((list) => list.map((r) => (r._id === reserva._id ? { ...r, estado: actualizada.estado } : r)));
+      const actualizada = await firstValueFrom(this.adminApi.cambiarEstadoReserva(reserva._id, estado, motivo));
+      const evento: CambioEstadoReserva = { estado, motivo, por: 'admin', at: new Date().toISOString() };
+      this.reservas.update((list) => list.map((r) =>
+        r._id === reserva._id
+          ? { ...r, estado: actualizada.estado, historialEstados: [...(r.historialEstados ?? []), evento] }
+          : r,
+      ));
       this.okMsg.set(`Reserva ${reserva.codigo} → ${this.meta(estado).label}.`);
       setTimeout(() => this.okMsg.set(''), 3000);
     } catch {
