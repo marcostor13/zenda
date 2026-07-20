@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { Types } from 'mongoose';
 import { ComerciosService } from './comercios.service';
 import { ComerciosRepository } from './comercios.repository';
 import { ReviewsService } from '../reviews/reviews.service';
@@ -9,8 +10,9 @@ import { AuthService } from '../auth/auth.service';
 import { UsersRepository } from '../users/users.repository';
 import { Reserva } from '../bookings/reserva.schema';
 import { Servicio } from '../catalog/servicio.schema';
+import { Pago } from '../payments/pago.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { Rol } from 'shared';
+import { Rol, ReservaEstado } from 'shared';
 
 describe('ComerciosService', () => {
   let service: ComerciosService;
@@ -19,6 +21,8 @@ describe('ComerciosService', () => {
   let catalogService: jest.Mocked<CatalogService>;
   let usersRepo: jest.Mocked<UsersRepository>;
   let authService: jest.Mocked<AuthService>;
+  let reservaModel: { find: jest.Mock };
+  let pagoModel: { find: jest.Mock };
 
   const dto = {
     razonSocial: 'Hoteles Ibéricos S.L.',
@@ -36,6 +40,9 @@ describe('ComerciosService', () => {
   };
 
   beforeEach(async () => {
+    reservaModel = { find: jest.fn() };
+    pagoModel = { find: jest.fn() };
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         ComerciosService,
@@ -50,8 +57,9 @@ describe('ComerciosService', () => {
             eliminar: jest.fn(),
           },
         },
-        { provide: getModelToken(Reserva.name), useValue: {} },
+        { provide: getModelToken(Reserva.name), useValue: reservaModel },
         { provide: getModelToken(Servicio.name), useValue: {} },
+        { provide: getModelToken(Pago.name), useValue: pagoModel },
         {
           provide: ReviewsService,
           useValue: { listarPorComercio: jest.fn(), responder: jest.fn() },
@@ -204,6 +212,43 @@ describe('ComerciosService', () => {
         'servicio-1', 'comercio-1', { cuposDisponibles: 5 },
       );
       expect(resultado).toMatchObject({ id: 'servicio-1' });
+    });
+  });
+
+  describe('obtenerFinanzasComercio', () => {
+    const chain = (result: unknown) => ({
+      select: () => ({ lean: () => ({ exec: jest.fn().mockResolvedValue(result) }) }),
+    });
+
+    it('debería devolver ceros si el comercio no tiene reservas', async () => {
+      reservaModel.find.mockReturnValue(chain([]));
+      const finanzas = await service.obtenerFinanzasComercio(new Types.ObjectId().toString());
+      expect(finanzas).toEqual({
+        facturacionBruta: 0, comisionPlataforma: 0, stripeFee: 0,
+        reembolsos: 0, liquidacion: 0, proximaLiquidacion: 0, reservasPagadas: 0,
+      });
+    });
+
+    it('debería sumar pagos y separar reembolsos y próxima liquidación', async () => {
+      reservaModel.find.mockReturnValue(chain([
+        { _id: 'r1', estado: ReservaEstado.COMPLETADA },
+        { _id: 'r2', estado: ReservaEstado.REEMBOLSADA },
+        { _id: 'r3', estado: ReservaEstado.CANCELADA },
+      ]));
+      pagoModel.find.mockReturnValue(chain([
+        { reservaId: 'r1', montoTotal: 121, comisionPlataforma: 15, stripeFee: 2, montoLiquidacion: 104 },
+        { reservaId: 'r2', montoTotal: 60, comisionPlataforma: 9, stripeFee: 1, montoLiquidacion: 50 },
+      ]));
+
+      const finanzas = await service.obtenerFinanzasComercio(new Types.ObjectId().toString());
+
+      // r1 cuenta como facturación + próxima liquidación; r2 es reembolso.
+      expect(finanzas.facturacionBruta).toBe(121);
+      expect(finanzas.comisionPlataforma).toBe(15);
+      expect(finanzas.reembolsos).toBe(50);
+      expect(finanzas.liquidacion).toBe(104);
+      expect(finanzas.proximaLiquidacion).toBe(104);
+      expect(finanzas.reservasPagadas).toBe(2);
     });
   });
 });

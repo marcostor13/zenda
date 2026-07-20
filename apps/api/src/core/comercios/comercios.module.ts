@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Comercio, ComercioSchema } from './comercio.schema';
+import { Pago, PagoSchema } from '../payments/pago.schema';
 import { ComerciosRepository } from './comercios.repository';
 import { ComerciosService } from './comercios.service';
 import { ComerciosController } from './comercios.controller';
@@ -12,7 +13,10 @@ import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Comercio.name, schema: ComercioSchema }]),
+    MongooseModule.forFeature([
+      { name: Comercio.name, schema: ComercioSchema },
+      { name: Pago.name, schema: PagoSchema },
+    ]),
     CatalogModule,
     BookingsModule,
     ReviewsModule,

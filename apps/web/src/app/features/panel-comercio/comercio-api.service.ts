@@ -104,6 +104,16 @@ export interface SuplementoAplicado {
   createdAt: string;
 }
 
+export interface FinanzasComercio {
+  facturacionBruta: number;
+  comisionPlataforma: number;
+  stripeFee: number;
+  reembolsos: number;
+  liquidacion: number;
+  proximaLiquidacion: number;
+  reservasPagadas: number;
+}
+
 export interface MiReserva {
   _id: string;
   codigo: string;
@@ -228,6 +238,10 @@ export class ComercioApiService {
 
   getMisReservas(): Observable<MiReserva[]> {
     return this.http.get<MiReserva[]>(`${this.url}/mis-reservas`);
+  }
+
+  getMisFinanzas(): Observable<FinanzasComercio> {
+    return this.http.get<FinanzasComercio>(`${this.url}/mis-finanzas`);
   }
 
   completarReserva(reservaId: string): Observable<MiReserva> {

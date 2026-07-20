@@ -68,6 +68,15 @@ export class ComerciosController {
     return this.comerciosService.obtenerReservasComercio(req.user.comercioId!, 50);
   }
 
+  @Get('mis-finanzas')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Finanzas del comercio: bruto, comisión, Stripe, reembolsos, liquidación' })
+  misFinanzas(@Req() req: RequestConUser) {
+    return this.comerciosService.obtenerFinanzasComercio(req.user.comercioId!);
+  }
+
   @Patch('mis-reservas/:reservaId/completar')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)

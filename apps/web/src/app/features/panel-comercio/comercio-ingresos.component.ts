@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { ComercioApiService, MiReserva } from './comercio-api.service';
+import { ComercioApiService, MiReserva, FinanzasComercio } from './comercio-api.service';
 
 const COMISION_PCT = 0.15;
 const STRIPE_PCT = 0.015;
@@ -97,14 +97,26 @@ const ESTADO_BADGE: Record<string, string> = {
           <strong>− {{ comisionEstimada() | number:'1.2-2' }} €</strong>
         </div>
         <div class="fin-row fin-row--minus">
-          <span>Fee Stripe estimado (1,5% + 0,25 € × reservas)</span>
+          <span>Fee Stripe</span>
           <strong>− {{ feeStripeTotal() | number:'1.2-2' }} €</strong>
         </div>
+        @if (reembolsos() > 0) {
+          <div class="fin-row fin-row--minus">
+            <span>Reembolsos</span>
+            <strong>− {{ reembolsos() | number:'1.2-2' }} €</strong>
+          </div>
+        }
         <hr class="fin-divider">
         <div class="fin-row fin-row--total">
-          <strong>Liquidación neta estimada</strong>
+          <strong>Liquidación neta</strong>
           <strong class="fin-total">{{ liquidacionEstimada() | number:'1.2-2' }} €</strong>
         </div>
+        @if (proximaLiquidacion() > 0) {
+          <div class="fin-row" style="margin-top:var(--sp-2)">
+            <span>🏦 Próxima liquidación (servicios prestados pendientes de pago)</span>
+            <strong>{{ proximaLiquidacion() | number:'1.2-2' }} €</strong>
+          </div>
+        }
       </div>
 
       <!-- TABLA RESERVAS RECIENTES -->
@@ -184,21 +196,33 @@ export class ComercioIngresosComponent implements OnInit {
   readonly cargando = signal(true);
   readonly errorMsg = signal('');
   readonly reservas = signal<MiReserva[]>([]);
+  readonly finanzas = signal<FinanzasComercio | null>(null);
 
   readonly reservasRecientes = computed(() => this.reservas().slice(0, 10));
   readonly reservasCompletadas = computed(() => this.reservas().filter(r => r.estado === 'completada').length);
-  readonly totalIngresos = computed(() => this.reservas().reduce((s, r) => s + r.montoTotal, 0));
-  readonly comisionEstimada = computed(() => this.totalIngresos() * COMISION_PCT);
+
+  // Cifras reales del backend cuando están disponibles; si no, estimación front.
+  readonly totalIngresos = computed(() =>
+    this.finanzas()?.facturacionBruta ?? this.reservas().reduce((s, r) => s + r.montoTotal, 0));
+  readonly comisionEstimada = computed(() =>
+    this.finanzas()?.comisionPlataforma ?? this.totalIngresos() * COMISION_PCT);
   readonly feeStripeTotal = computed(() =>
-    this.reservas().length > 0
+    this.finanzas()?.stripeFee ?? (this.reservas().length > 0
       ? this.totalIngresos() * STRIPE_PCT + STRIPE_FIJO_EUR * this.reservas().length
-      : 0,
-  );
-  readonly liquidacionEstimada = computed(() => this.totalIngresos() - this.comisionEstimada() - this.feeStripeTotal());
+      : 0));
+  readonly reembolsos = computed(() => this.finanzas()?.reembolsos ?? 0);
+  readonly proximaLiquidacion = computed(() => this.finanzas()?.proximaLiquidacion ?? 0);
+  readonly liquidacionEstimada = computed(() =>
+    this.finanzas()?.liquidacion ?? (this.totalIngresos() - this.comisionEstimada() - this.feeStripeTotal()));
 
   async ngOnInit(): Promise<void> {
     try {
-      this.reservas.set(await firstValueFrom(this.comercioApi.getMisReservas()));
+      const [reservas, finanzas] = await Promise.all([
+        firstValueFrom(this.comercioApi.getMisReservas()),
+        firstValueFrom(this.comercioApi.getMisFinanzas()).catch(() => null),
+      ]);
+      this.reservas.set(reservas);
+      this.finanzas.set(finanzas);
     } catch {
       this.errorMsg.set('Error al cargar los datos financieros. Verifica que el API esté activo.');
     } finally {

@@ -6,6 +6,8 @@ import { ComerciosRepository } from './comercios.repository';
 import { ComercioDocument, EstadoComercio, EstadoVerificacion } from './comercio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
+import { Pago, PagoDocument } from '../payments/pago.schema';
+import { PagoEstado, ReservaEstado } from 'shared';
 import { ReviewsService } from '../reviews/reviews.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { CatalogService, ServicioCardDto } from '../catalog/catalog.service';
@@ -20,6 +22,7 @@ export class ComerciosService {
     private readonly repo: ComerciosRepository,
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
+    @InjectModel(Pago.name) private readonly pagoModel: Model<PagoDocument>,
     private readonly reviewsService: ReviewsService,
     private readonly bookingsService: BookingsService,
     private readonly catalogService: CatalogService,
@@ -110,6 +113,68 @@ export class ComerciosService {
       .limit(limite)
       .lean()
       .exec() as unknown as ReservaDocument[];
+  }
+
+  /**
+   * Finanzas reales del comercio calculadas en el backend a partir de los pagos
+   * (no en el front): facturación bruta, comisión, Stripe, reembolsos y la
+   * liquidación neta. La "próxima liquidación" es lo ya prestado pendiente de
+   * pagar (completadas / pago retenido) que todavía no se ha liberado.
+   */
+  async obtenerFinanzasComercio(comercioId: string): Promise<{
+    facturacionBruta: number;
+    comisionPlataforma: number;
+    stripeFee: number;
+    reembolsos: number;
+    liquidacion: number;
+    proximaLiquidacion: number;
+    reservasPagadas: number;
+  }> {
+    const reservas = await this.reservaModel
+      .find({ comercioId: new Types.ObjectId(comercioId) })
+      .select('_id estado')
+      .lean()
+      .exec() as unknown as Array<{ _id: Types.ObjectId; estado: string }>;
+
+    if (reservas.length === 0) {
+      return { facturacionBruta: 0, comisionPlataforma: 0, stripeFee: 0, reembolsos: 0, liquidacion: 0, proximaLiquidacion: 0, reservasPagadas: 0 };
+    }
+
+    const estadoPorReserva = new Map(reservas.map((r) => [String(r._id), r.estado]));
+    const reservaIds = reservas.map((r) => r._id);
+
+    const pagos = await this.pagoModel
+      .find({ reservaId: { $in: reservaIds }, estado: PagoEstado.APROBADO })
+      .select('reservaId montoTotal comisionPlataforma stripeFee montoLiquidacion')
+      .lean()
+      .exec() as unknown as Array<{ reservaId: Types.ObjectId; montoTotal: number; comisionPlataforma: number; stripeFee: number; montoLiquidacion: number }>;
+
+    const acc = { facturacionBruta: 0, comisionPlataforma: 0, stripeFee: 0, reembolsos: 0, liquidacion: 0, proximaLiquidacion: 0 };
+    const estadosPendientesPago = new Set<string>([ReservaEstado.COMPLETADA, ReservaEstado.PAGO_RETENIDO, ReservaEstado.CONFIRMADA]);
+
+    for (const pago of pagos) {
+      const estado = estadoPorReserva.get(String(pago.reservaId));
+      if (estado === ReservaEstado.REEMBOLSADA) {
+        acc.reembolsos += pago.montoLiquidacion;
+        continue;
+      }
+      acc.facturacionBruta += pago.montoTotal;
+      acc.comisionPlataforma += pago.comisionPlataforma;
+      acc.stripeFee += pago.stripeFee;
+      acc.liquidacion += pago.montoLiquidacion;
+      if (estado && estadosPendientesPago.has(estado)) acc.proximaLiquidacion += pago.montoLiquidacion;
+    }
+
+    const redondear = (n: number): number => Math.round(n * 100) / 100;
+    return {
+      facturacionBruta: redondear(acc.facturacionBruta),
+      comisionPlataforma: redondear(acc.comisionPlataforma),
+      stripeFee: redondear(acc.stripeFee),
+      reembolsos: redondear(acc.reembolsos),
+      liquidacion: redondear(acc.liquidacion),
+      proximaLiquidacion: redondear(acc.proximaLiquidacion),
+      reservasPagadas: pagos.length,
+    };
   }
 
   async obtenerServiciosComercio(comercioId: string): Promise<ServicioDocument[]> {

@@ -21,6 +21,7 @@
   - Frontend: **centro de operaciones de reservas** del admin — buscador global por código, chips de estado (incl. disputa/retenido/liberado/reembolsada), semáforo, columnas cliente/comercio/comisión y botones de acción por fila; KPI "Pagos retenidos" y alerta en el dashboard.
   - **Timeline de reserva**: cada transición se registra en `historialEstados` (creación, confirmación por pago, completada por comercio, y acciones de admin) y se visualiza como línea de tiempo expandible en el centro de reservas. Captura de **motivo** en disputas/reembolsos (queda en el timeline). Métrica **incidencias abiertas** (reservas en disputa) con tarjeta y alerta en el dashboard.
   - Pendiente de Fase 3 (seguimiento): módulo de incidencias con mensajería dedicada, documentación/verificación de comercio con caducidades.
+- ✅ **Residual Fase 2 — finanzas reales del comercio**: nuevo endpoint `GET /comercios/mis-finanzas` que calcula en backend (desde los pagos) facturación bruta, comisión, Stripe, **reembolsos**, liquidación neta y **próxima liquidación** (servicios prestados pendientes de pago). La pantalla de Ingresos del comercio usa estas cifras reales (con estimación front como respaldo). Tests verde (317 API).
 - ⏳ **Fase 4**: pendiente (mapa de calor, embudo, recompensas, recordatorios, seguimiento en tiempo real, equipo/permisos).
 
 ---
