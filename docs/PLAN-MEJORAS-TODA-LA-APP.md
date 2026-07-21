@@ -24,7 +24,8 @@
 - ✅ **Residual Fase 2 — finanzas reales del comercio**: nuevo endpoint `GET /comercios/mis-finanzas` que calcula en backend (desde los pagos) facturación bruta, comisión, Stripe, **reembolsos**, liquidación neta y **próxima liquidación** (servicios prestados pendientes de pago). La pantalla de Ingresos del comercio usa estas cifras reales (con estimación front como respaldo). Tests verde (317 API).
 - ✅ **Residual Fase 3 — documentación y verificación de comercio**: `verificacion.documentos[]` (tipo, URL, caducidad, estado) con auto-marcado de caducados; endpoint admin para verificar/rechazar (con motivo); UI en admin (badge + botones) y en el comercio (sección de documentación adicional).
 - 🟡 **Fase 4 (en curso) — analítica del admin**: endpoint `GET /admin/analitica` (distribución por vertical con %, distribución geográfica por ciudad, Top 5 comercios por facturación, embudo registrados→con reserva→pagaron) + nueva pantalla **Analítica** en el panel admin. Tests verde (320 API).
-  - Pendiente de Fase 4: recompensas/puntos, recordatorios de mascota, seguimiento en tiempo real, equipo/permisos de comercio.
+  - **Recordatorios de mascota**: endpoint `GET /reservas/recordatorios` que, a partir del historial real, sugiere volver a peluquería (>2 meses), veterinario (>12 meses) o adiestramiento (>6 meses); bloque "🔔 Próximos recordatorios" en el perfil del cliente. Tests verde (322 API).
+  - Pendiente de Fase 4: recompensas/puntos, seguimiento en tiempo real, equipo/permisos de comercio.
 
 ---
 

@@ -5,7 +5,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { hotelImage } from '../../shared/media/images';
-import { ReservasService, ReservaApi } from '../reservas/services/reservas.service';
+import { ReservasService, ReservaApi, RecordatorioApi } from '../reservas/services/reservas.service';
 import { PerrosService, PerroApi } from '../perros/perros.service';
 import { FavoritosService } from '../favoritos/favoritos.service';
 
@@ -123,6 +123,22 @@ interface ConfigItem {
         </div>
       }
     </div>
+
+    <!-- PRÓXIMOS RECORDATORIOS -->
+    @if (recordatorios().length) {
+      <div class="perfil-section" style="margin-bottom:var(--sp-8)">
+        <h2>🔔 Próximos recordatorios</h2>
+        <div class="recordatorios-list">
+          @for (r of recordatorios(); track r.mensaje) {
+            <a [routerLink]="r.ruta" class="recordatorio rs-card">
+              <span class="recordatorio__icon">{{ r.icono }}</span>
+              <span class="recordatorio__msg">{{ r.mensaje }}</span>
+              <span class="recordatorio__cta">Reservar →</span>
+            </a>
+          }
+        </div>
+      </div>
+    }
 
     <!-- GRID: reservas + configuración -->
     <div class="perfil-grid">
@@ -266,6 +282,17 @@ interface ConfigItem {
     .mascota-card__info { min-width: 0; strong { display: block; font-size: var(--f-sm); color: var(--t-100); } span { font-size: var(--f-xs); color: var(--t-400); } }
     .mascota-card--add { justify-content: center; color: var(--c-accent); font-size: var(--f-sm); font-weight: var(--w-6); border-style: dashed; }
 
+    .recordatorios-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .recordatorio {
+      display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4);
+      text-decoration: none; border-left: 3px solid var(--c-amber, #FBAE17);
+      transition: border-color var(--d-2);
+      &:hover { border-color: var(--c-accent); }
+    }
+    .recordatorio__icon { font-size: var(--f-xl); }
+    .recordatorio__msg { flex: 1; font-size: var(--f-sm); color: var(--t-100); }
+    .recordatorio__cta { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--c-accent); white-space: nowrap; }
+
     .config-list { display: flex; flex-direction: column; gap: var(--sp-2); }
     .config-item {
       display: flex; align-items: center; gap: var(--sp-4);
@@ -314,6 +341,7 @@ export class PerfilDashboardComponent implements OnInit {
 
   readonly reservasRecientes = signal<MiniReserva[]>([]);
   readonly mascotas = signal<PerroApi[]>([]);
+  readonly recordatorios = signal<RecordatorioApi[]>([]);
 
   readonly configItems: ConfigItem[] = [
     { icon: 'paw',         label: 'Mis mascotas',        sub: 'Ficha inteligente de tus mascotas', ruta: '/perros' },
@@ -327,11 +355,13 @@ export class PerfilDashboardComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      const [apiReservas, misMascotas] = await Promise.all([
+      const [apiReservas, misMascotas, misRecordatorios] = await Promise.all([
         this.reservasService.misReservas(),
         this.perrosService.misPerros().catch(() => [] as PerroApi[]),
+        this.reservasService.recordatorios().catch(() => [] as RecordatorioApi[]),
         this.favoritosService.cargarIds(),
       ]);
+      this.recordatorios.set(misRecordatorios);
       const completadas = apiReservas.filter(r => r.estado === 'completada').length;
       this.mascotas.set(misMascotas);
       this.stats.set([

@@ -404,6 +404,55 @@ export class BookingsService {
       .exec() as Promise<ReservaDocument[]>;
   }
 
+  /**
+   * Recordatorios de cuidado basados en el historial real del usuario: si hace
+   * demasiado tiempo desde el último servicio de un tipo (peluquería, veterinario,
+   * adiestramiento), se sugiere volver a reservar. Genera recurrencia/fidelización.
+   */
+  async recordatorios(usuarioId: string): Promise<Array<{
+    vertical: string;
+    icono: string;
+    mensaje: string;
+    mesesDesde: number;
+    ruta: string;
+  }>> {
+    const reservas = await this.reservaModel
+      .find({ usuarioId, estado: { $in: [ReservaEstado.COMPLETADA, ReservaEstado.CONFIRMADA] } })
+      .select('vertical fechaInicio')
+      .sort({ fechaInicio: -1 })
+      .lean()
+      .exec() as unknown as Array<{ vertical: string; fechaInicio: Date }>;
+
+    const ultimaPorVertical = new Map<string, Date>();
+    for (const r of reservas) {
+      if (!ultimaPorVertical.has(r.vertical)) ultimaPorVertical.set(r.vertical, new Date(r.fechaInicio));
+    }
+
+    const ahora = new Date();
+    const reglas: Array<{ vertical: VerticalKey; umbralMeses: number; icono: string; plantilla: (m: number) => string }> = [
+      { vertical: VerticalKey.PELUQUERIA, umbralMeses: 2, icono: '✂️', plantilla: (m) => `Han pasado ${m} meses desde la última peluquería de tu perro` },
+      { vertical: VerticalKey.VETERINARIA, umbralMeses: 12, icono: '🩺', plantilla: (m) => `Hace ${m} meses de la última visita al veterinario` },
+      { vertical: VerticalKey.ADIESTRAMIENTO, umbralMeses: 6, icono: '🎓', plantilla: (m) => `Hace ${m} meses de la última sesión de adiestramiento` },
+    ];
+
+    const recordatorios = [];
+    for (const regla of reglas) {
+      const ultima = ultimaPorVertical.get(regla.vertical);
+      if (!ultima) continue;
+      const meses = (ahora.getFullYear() - ultima.getFullYear()) * 12 + (ahora.getMonth() - ultima.getMonth());
+      if (meses >= regla.umbralMeses) {
+        recordatorios.push({
+          vertical: regla.vertical,
+          icono: regla.icono,
+          mensaje: regla.plantilla(meses),
+          mesesDesde: meses,
+          ruta: `/${regla.vertical}`,
+        });
+      }
+    }
+    return recordatorios;
+  }
+
   private generarCodigo(): string {
     return `RES-${nanoid(8).toUpperCase()}`;
   }

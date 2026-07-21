@@ -50,6 +50,14 @@ export interface ReservaApi {
   updatedAt?: string;
 }
 
+export interface RecordatorioApi {
+  vertical: string;
+  icono: string;
+  mensaje: string;
+  mesesDesde: number;
+  ruta: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReservasService {
   private readonly http = inject(HttpClient);
@@ -61,6 +69,10 @@ export class ReservasService {
 
   misReservas(): Promise<ReservaApi[]> {
     return firstValueFrom(this.http.get<ReservaApi[]>(`${this.base}/mis`));
+  }
+
+  recordatorios(): Promise<RecordatorioApi[]> {
+    return firstValueFrom(this.http.get<RecordatorioApi[]>(`${this.base}/recordatorios`));
   }
 
   obtener(id: string): Promise<ReservaApi> {

@@ -383,4 +383,35 @@ describe('BookingsService', () => {
       await expect(service.rechazarAjuste('reserva-1', 'user-1')).rejects.toThrow(DomainException);
     });
   });
+
+  describe('recordatorios', () => {
+    const findConReservas = (reservas: unknown[]) => {
+      reservaModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(reservas),
+      });
+    };
+
+    it('debería sugerir volver a peluquería si hace más del umbral (2 meses)', async () => {
+      const hace5meses = new Date();
+      hace5meses.setMonth(hace5meses.getMonth() - 5);
+      findConReservas([{ vertical: VerticalKey.PELUQUERIA, fechaInicio: hace5meses }]);
+
+      const recordatorios = await service.recordatorios('user-1');
+
+      expect(recordatorios).toHaveLength(1);
+      expect(recordatorios[0].vertical).toBe(VerticalKey.PELUQUERIA);
+      expect(recordatorios[0].mesesDesde).toBeGreaterThanOrEqual(2);
+    });
+
+    it('no debería sugerir nada si el servicio es reciente', async () => {
+      const haceUnMes = new Date();
+      haceUnMes.setMonth(haceUnMes.getMonth() - 1);
+      findConReservas([{ vertical: VerticalKey.PELUQUERIA, fechaInicio: haceUnMes }]);
+
+      expect(await service.recordatorios('user-1')).toHaveLength(0);
+    });
+  });
 });

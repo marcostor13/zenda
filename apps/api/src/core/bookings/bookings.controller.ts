@@ -53,6 +53,12 @@ export class BookingsController {
     return this.bookingsService.listarPorUsuario(req.user.sub);
   }
 
+  @Get('recordatorios')
+  @ApiOperation({ summary: 'Recordatorios de cuidado según el historial del usuario' })
+  recordatorios(@Req() req: RequestConUsuario) {
+    return this.bookingsService.recordatorios(req.user.sub);
+  }
+
   @Get('codigo/:codigo')
   @ApiOperation({ summary: 'Obtener una reserva propia por código (ej: RES-XXXXXXXX)' })
   obtenerPorCodigo(
