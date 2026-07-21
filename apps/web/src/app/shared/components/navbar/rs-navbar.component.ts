@@ -70,6 +70,10 @@ import { RsIconComponent } from '../icon/rs-icon.component';
             }
           </div>
         } @else {
+          <a routerLink="/auth/registro-comercio" class="rs-navbar__link rs-navbar__link--pro">
+            <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
+            Registra tu negocio
+          </a>
           <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm">Ingresar</a>
           <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm">Comenzar</a>
         }
@@ -134,6 +138,10 @@ import { RsIconComponent } from '../icon/rs-icon.component';
               Cerrar sesión
             </button>
           } @else {
+            <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--outline rs-btn--block" (click)="menuAbierto.set(false)">
+              <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
+              Registra tu negocio
+            </a>
             <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--block"   (click)="menuAbierto.set(false)">Ingresar</a>
             <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Comenzar gratis</a>
           }
@@ -142,6 +150,16 @@ import { RsIconComponent } from '../icon/rs-icon.component';
     }
   `,
   styles: [`
+    /* Enlace "Registra tu negocio" (desktop) */
+    .rs-navbar__link--pro {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-sm); font-weight: var(--w-6); color: var(--c-accent);
+      text-decoration: none; padding: var(--sp-2) var(--sp-1); white-space: nowrap;
+      transition: color var(--d-2);
+      &:hover { color: var(--dk-blue-deep, var(--c-accent-h)); }
+    }
+    @media (max-width: 900px) { .rs-navbar__link--pro { display: none; } }
+
     /* Account dropdown (desktop) */
     .rs-navbar__account { position: relative; }
     .rs-navbar__account-btn { display: inline-flex; align-items: center; gap: var(--sp-2); }

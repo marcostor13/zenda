@@ -84,6 +84,9 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
         <div class="rs-auth__footer">
           ¿No tienes cuenta? <a routerLink="/auth/registro">Regístrate gratis</a>
         </div>
+        <div class="rs-auth__footer" style="margin-top:var(--sp-2)">
+          ¿Tienes un negocio? <a routerLink="/auth/registro-comercio">Regístralo en Doogking</a>
+        </div>
       </div>
     </div>
   `,
