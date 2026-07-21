@@ -17,15 +17,23 @@ export class RegistroComercioDto {
   @IsString()
   telefono?: string;
 
+  /** Razón social: opcional al registrarse; si falta se usa el nombre comercial. */
+  @IsOptional()
   @IsString()
-  razonSocial!: string;
+  razonSocial?: string;
 
-  /** Identificador fiscal (NIF/VAT en Europa). */
+  /** Identificador fiscal (NIF/VAT en Europa). Opcional: se completa en el panel antes de cobrar. */
+  @IsOptional()
   @IsString()
-  vatNumber!: string;
+  vatNumber?: string;
 
   @IsString()
   nombreComercial!: string;
+
+  /** Ciudad principal del negocio, capturada en el alta para el buscador. */
+  @IsOptional()
+  @IsString()
+  ciudad?: string;
 
   @IsOptional()
   @IsArray()

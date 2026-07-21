@@ -25,6 +25,8 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
               type="email"
               formControlName="email"
               class="rs-inp"
+              autocomplete="email"
+              [attr.autofocus]="emailRecordado() ? null : ''"
               [class.rs-inp--error]="formulario.get('email')?.invalid && formulario.get('email')?.touched"
               placeholder="tu@email.com" />
             @if (formulario.get('email')?.invalid && formulario.get('email')?.touched) {
@@ -55,6 +57,12 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
             </div>
           </div>
 
+          <label style="display:flex;align-items:center;gap:var(--sp-2);font-size:var(--f-sm);color:var(--t-300);cursor:pointer;user-select:none">
+            <input type="checkbox" formControlName="recordar"
+                   style="accent-color:var(--c-accent);width:16px;height:16px" />
+            Recordar mi correo
+          </label>
+
           @if (error()) {
             <div class="rs-alert rs-alert--error">{{ error() }}</div>
           }
@@ -83,13 +91,19 @@ export class LoginComponent {
   private readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
 
+  private static readonly EMAIL_KEY = 'dk_login_email';
+
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
   readonly mostrarPassword = signal(false);
 
+  private readonly emailGuardado = localStorage.getItem(LoginComponent.EMAIL_KEY);
+  readonly emailRecordado = signal(!!this.emailGuardado);
+
   readonly formulario = this.fb.group({
-    email: ['', [Validators.required, Validators.email]],
+    email: [this.emailGuardado ?? '', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
+    recordar: [!!this.emailGuardado],
   });
 
   async onSubmit(): Promise<void> {
@@ -99,10 +113,13 @@ export class LoginComponent {
     this.error.set(null);
 
     try {
-      await this.authService.login({
-        email: this.formulario.value.email!,
-        password: this.formulario.value.password!,
-      });
+      const email = this.formulario.value.email!;
+      await this.authService.login({ email, password: this.formulario.value.password! });
+      if (this.formulario.value.recordar) {
+        localStorage.setItem(LoginComponent.EMAIL_KEY, email);
+      } else {
+        localStorage.removeItem(LoginComponent.EMAIL_KEY);
+      }
     } catch {
       this.error.set('Credenciales incorrectas. Intenta de nuevo.');
     } finally {

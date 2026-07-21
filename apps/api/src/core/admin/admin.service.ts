@@ -167,7 +167,7 @@ export class AdminService {
       comerciosPendientes: comerciosPendientesList.map((c) => ({
         id: String(c._id),
         nombre: c.nombreComercial,
-        nif: c.vatNumber,
+        nif: c.vatNumber ?? '—',
         vertical: c.verticales[0] ?? '',
         inicial: (c.nombreComercial[0] ?? 'C').toUpperCase(),
       })),

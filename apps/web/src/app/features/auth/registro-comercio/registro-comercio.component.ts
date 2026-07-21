@@ -1,9 +1,12 @@
-import { Component, inject, signal } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { Component, inject, signal, computed } from '@angular/core';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { iconoVertical } from '../../panel-comercio/vertical-icon';
+
+const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
 @Component({
   selector: 'app-registro-comercio',
@@ -14,101 +17,147 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
       <div class="rs-auth__card" style="max-width:560px">
 
         <div class="rs-auth__brand">
-          <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
+          <img src="/images/logo-doogking.jpg" alt="Doogking"
+               style="height:96px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-2)" />
           <p>Hazte partner de Doogking</p>
-          <p style="font-size:var(--f-sm);color:var(--t-400);margin-top:var(--sp-1)">
-            Publica tus servicios caninos y recibe reservas online.
-          </p>
         </div>
 
-        <form [formGroup]="formulario" (ngSubmit)="onSubmit()" class="rs-auth__form">
-
-          <h3 style="font-size:var(--f-sm);font-weight:var(--w-7);color:var(--t-300);text-transform:uppercase;letter-spacing:.04em;margin-bottom:var(--sp-2)">
-            Tu cuenta
-          </h3>
-
-          <div class="rs-field">
-            <label for="nombre" class="rs-lbl">Tu nombre</label>
-            <input id="nombre" type="text" formControlName="nombre" class="rs-inp"
-                   [class.rs-inp--error]="invalido('nombre')" placeholder="Nombre y apellidos" />
-            @if (invalido('nombre')) { <span class="rs-field-err">Ingresa tu nombre (mínimo 2 caracteres)</span> }
-          </div>
-
-          <div class="rs-field">
-            <label for="email" class="rs-lbl">Correo electrónico</label>
-            <input id="email" type="email" formControlName="email" class="rs-inp"
-                   [class.rs-inp--error]="invalido('email')" placeholder="tu@negocio.com" />
-            @if (invalido('email')) { <span class="rs-field-err">Ingresa un email válido</span> }
-          </div>
-
-          <div class="rs-field">
-            <label for="password" class="rs-lbl">Contraseña</label>
-            <div style="position:relative">
-              <input id="password" [type]="mostrarPassword() ? 'text' : 'password'" formControlName="password"
-                     class="rs-inp" [class.rs-inp--error]="invalido('password')"
-                     style="padding-right:var(--sp-10)" placeholder="Mínimo 8 caracteres" />
-              <button type="button" (click)="mostrarPassword.set(!mostrarPassword())"
-                      style="position:absolute;right:var(--sp-3);top:50%;transform:translateY(-50%);display:flex;align-items:center"
-                      [style.color]="mostrarPassword() ? 'var(--c-accent)' : 'var(--t-400)'">
-                <rs-icon [name]="mostrarPassword() ? 'eye-off' : 'eye'" [size]="16" [stroke]="2"></rs-icon>
-              </button>
+        <!-- Stepper -->
+        <div class="wz-steps">
+          @for (s of pasos; track s.n) {
+            <div class="wz-step" [class.wz-step--activo]="paso() === s.n" [class.wz-step--hecho]="paso() > s.n">
+              <div class="wz-step__dot">
+                @if (paso() > s.n) {
+                  <rs-icon name="check" [size]="14" [stroke]="2.5"></rs-icon>
+                } @else {
+                  {{ s.n }}
+                }
+              </div>
+              <span class="wz-step__label">{{ s.label }}</span>
             </div>
-            @if (invalido('password')) { <span class="rs-field-err">La contraseña debe tener al menos 8 caracteres</span> }
-          </div>
+          }
+        </div>
 
-          <h3 style="font-size:var(--f-sm);font-weight:var(--w-7);color:var(--t-300);text-transform:uppercase;letter-spacing:.04em;margin:var(--sp-5) 0 var(--sp-2)">
-            Tu negocio
-          </h3>
+        <!-- PASO 1: Categorías -->
+        @if (paso() === 1) {
+          <div class="wz-panel">
+            <h2 class="wz-title">¿Qué ofreces?</h2>
+            <p class="wz-sub">Elige una o varias categorías. Podrás añadir más luego.</p>
 
-          <div class="rs-field">
-            <label for="nombreComercial" class="rs-lbl">Nombre comercial</label>
-            <input id="nombreComercial" type="text" formControlName="nombreComercial" class="rs-inp"
-                   [class.rs-inp--error]="invalido('nombreComercial')" placeholder="Ej. Royal Dog Resort" />
-            @if (invalido('nombreComercial')) { <span class="rs-field-err">Ingresa el nombre comercial</span> }
-          </div>
-
-          <div class="rs-field">
-            <label for="razonSocial" class="rs-lbl">Razón social</label>
-            <input id="razonSocial" type="text" formControlName="razonSocial" class="rs-inp"
-                   [class.rs-inp--error]="invalido('razonSocial')" placeholder="Ej. Royal Dog Resort S.L." />
-            @if (invalido('razonSocial')) { <span class="rs-field-err">Ingresa la razón social</span> }
-          </div>
-
-          <div class="rs-field">
-            <label for="vatNumber" class="rs-lbl">Número de IVA / identificador fiscal</label>
-            <input id="vatNumber" type="text" formControlName="vatNumber" class="rs-inp"
-                   [class.rs-inp--error]="invalido('vatNumber')" placeholder="Ej. ES-B12345678" />
-            @if (invalido('vatNumber')) { <span class="rs-field-err">Ingresa tu identificador fiscal</span> }
-          </div>
-
-          <div class="rs-field">
-            <label class="rs-lbl">Categorías que ofreces</label>
-            <div style="display:flex;flex-wrap:wrap;gap:var(--sp-2)">
+            <div class="wz-grid">
               @for (v of verticalesDisponibles; track v.key) {
-                <label class="rs-badge {{ estaSeleccionada(v.key) ? 'rs-badge--accent' : 'rs-badge--neutral' }}"
-                       style="cursor:pointer;user-select:none">
-                  <input type="checkbox" [checked]="estaSeleccionada(v.key)" (change)="toggleVertical(v.key)"
-                         style="display:none" />
-                  {{ v.label }}
-                </label>
+                <button type="button" class="wz-cat" [class.wz-cat--sel]="estaSeleccionada(v.key)"
+                        (click)="toggleVertical(v.key)">
+                  <rs-icon [name]="v.icon" [size]="24" [stroke]="1.75"></rs-icon>
+                  <span>{{ v.label }}</span>
+                  @if (estaSeleccionada(v.key)) {
+                    <span class="wz-cat__check"><rs-icon name="check" [size]="12" [stroke]="3"></rs-icon></span>
+                  }
+                </button>
               }
             </div>
+
+            <button type="button" class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
+                    style="margin-top:var(--sp-6)"
+                    [disabled]="verticalesSel().length === 0" (click)="siguiente()">
+              Continuar
+            </button>
           </div>
+        }
 
-          @if (error()) {
-            <div class="rs-alert rs-alert--error">{{ error() }}</div>
-          }
+        <!-- PASO 2: Negocio -->
+        @if (paso() === 2) {
+          <form [formGroup]="negocioForm" class="wz-panel" (ngSubmit)="siguiente()">
+            <h2 class="wz-title">Tu negocio</h2>
+            <p class="wz-sub">Lo básico para que tus clientes te encuentren.</p>
 
-          <button type="submit" class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
-                  [disabled]="formulario.invalid || cargando()">
-            @if (cargando()) { <span class="rs-spin"></span> }
-            {{ cargando() ? 'Creando tu negocio…' : 'Registrar mi negocio' }}
-          </button>
-        </form>
+            <div class="rs-field">
+              <label for="nombreComercial" class="rs-lbl">Nombre del negocio</label>
+              <input id="nombreComercial" type="text" formControlName="nombreComercial" class="rs-inp"
+                     autocomplete="organization" [class.rs-inp--error]="invalido(negocioForm, 'nombreComercial')"
+                     placeholder="Ej. Royal Dog Resort" />
+              @if (invalido(negocioForm, 'nombreComercial')) {
+                <span class="rs-field-err">Ingresa el nombre de tu negocio</span>
+              }
+            </div>
 
-        <p style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-top:var(--sp-4);line-height:1.5">
-          Tu comercio quedará <strong>pendiente de aprobación</strong> por el equipo de Doogking antes de publicarse.
-        </p>
+            <div class="rs-field">
+              <label for="ciudad" class="rs-lbl">Ciudad</label>
+              <input id="ciudad" type="text" formControlName="ciudad" class="rs-inp"
+                     autocomplete="address-level2" [class.rs-inp--error]="invalido(negocioForm, 'ciudad')"
+                     placeholder="Ej. Madrid" />
+              @if (invalido(negocioForm, 'ciudad')) {
+                <span class="rs-field-err">Ingresa tu ciudad</span>
+              }
+            </div>
+
+            <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-5)">
+              <button type="button" class="rs-btn rs-btn--outline" (click)="atras()">Atrás</button>
+              <button type="submit" class="rs-btn rs-btn--primary rs-btn--block"
+                      [disabled]="negocioForm.invalid">Continuar</button>
+            </div>
+          </form>
+        }
+
+        <!-- PASO 3: Cuenta -->
+        @if (paso() === 3) {
+          <form [formGroup]="cuentaForm" class="wz-panel" (ngSubmit)="onSubmit()">
+            <h2 class="wz-title">Tu acceso</h2>
+            <p class="wz-sub">Con estos datos entrarás a gestionar tu negocio.</p>
+
+            <div class="rs-field">
+              <label for="nombre" class="rs-lbl">Tu nombre</label>
+              <input id="nombre" type="text" formControlName="nombre" class="rs-inp" autocomplete="name"
+                     [class.rs-inp--error]="invalido(cuentaForm, 'nombre')" placeholder="Nombre y apellidos" />
+              @if (invalido(cuentaForm, 'nombre')) { <span class="rs-field-err">Ingresa tu nombre</span> }
+            </div>
+
+            <div class="rs-field">
+              <label for="email" class="rs-lbl">Correo electrónico</label>
+              <input id="email" type="email" formControlName="email" class="rs-inp" autocomplete="email"
+                     [class.rs-inp--error]="invalido(cuentaForm, 'email')" placeholder="tu@negocio.com" />
+              @if (invalido(cuentaForm, 'email')) { <span class="rs-field-err">Ingresa un email válido</span> }
+            </div>
+
+            <div class="rs-field">
+              <label for="telefono" class="rs-lbl">Teléfono <span class="wz-opt">(opcional)</span></label>
+              <input id="telefono" type="tel" formControlName="telefono" class="rs-inp" autocomplete="tel"
+                     placeholder="+34 600 000 000" />
+            </div>
+
+            <div class="rs-field">
+              <label for="password" class="rs-lbl">Contraseña</label>
+              <div style="position:relative">
+                <input id="password" [type]="mostrarPassword() ? 'text' : 'password'" formControlName="password"
+                       class="rs-inp" autocomplete="new-password" [class.rs-inp--error]="invalido(cuentaForm, 'password')"
+                       style="padding-right:var(--sp-10)" placeholder="Mínimo 8 caracteres" />
+                <button type="button" (click)="mostrarPassword.set(!mostrarPassword())"
+                        style="position:absolute;right:var(--sp-3);top:50%;transform:translateY(-50%);display:flex;align-items:center"
+                        [style.color]="mostrarPassword() ? 'var(--c-accent)' : 'var(--t-400)'">
+                  <rs-icon [name]="mostrarPassword() ? 'eye-off' : 'eye'" [size]="16" [stroke]="2"></rs-icon>
+                </button>
+              </div>
+              @if (invalido(cuentaForm, 'password')) {
+                <span class="rs-field-err">La contraseña debe tener al menos 8 caracteres</span>
+              }
+            </div>
+
+            @if (error()) { <div class="rs-alert rs-alert--error">{{ error() }}</div> }
+
+            <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-4)">
+              <button type="button" class="rs-btn rs-btn--outline" (click)="atras()" [disabled]="cargando()">Atrás</button>
+              <button type="submit" class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
+                      [disabled]="cuentaForm.invalid || cargando()">
+                @if (cargando()) { <span class="rs-spin"></span> }
+                {{ cargando() ? 'Creando…' : 'Crear mi negocio' }}
+              </button>
+            </div>
+
+            <p style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-top:var(--sp-4);line-height:1.5">
+              Los datos fiscales y bancarios los completarás luego, sin prisa, desde tu panel.
+            </p>
+          </form>
+        }
 
         <div class="rs-auth__footer">
           ¿Eres dueño de un perro? <a routerLink="/auth/registro">Crea tu cuenta de cliente</a>
@@ -116,32 +165,96 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
       </div>
     </div>
   `,
+  styles: [`
+    .wz-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-2);
+      margin-bottom: var(--sp-6);
+    }
+    .wz-step { display: flex; align-items: center; gap: var(--sp-2); }
+    .wz-step__dot {
+      width: 28px; height: 28px; border-radius: var(--r-full);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--f-xs); font-weight: var(--w-7);
+      background: var(--c-raised); color: var(--t-400);
+      border: 1px solid var(--b-1); transition: all var(--d-2);
+    }
+    .wz-step__label { font-size: var(--f-xs); color: var(--t-400); font-weight: var(--w-5); }
+    .wz-step--activo .wz-step__dot { background: var(--c-accent); color: #fff; border-color: var(--c-accent); }
+    .wz-step--activo .wz-step__label { color: var(--t-100); }
+    .wz-step--hecho .wz-step__dot { background: var(--g-accent); color: #fff; border-color: transparent; }
+    @media (max-width: 480px) { .wz-step__label { display: none; } }
+
+    .wz-title { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
+    .wz-sub { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-5); }
+    .wz-opt { color: var(--t-400); font-weight: var(--w-4); }
+
+    .wz-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+    @media (min-width: 480px) { .wz-grid { grid-template-columns: repeat(3, 1fr); } }
+
+    .wz-cat {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2);
+      padding: var(--sp-4) var(--sp-2);
+      border: 1.5px solid var(--b-1); border-radius: var(--r-lg);
+      background: var(--c-card); color: var(--t-300);
+      font-size: var(--f-sm); font-weight: var(--w-6); cursor: pointer;
+      transition: all var(--d-2);
+    }
+    .wz-cat:hover { border-color: var(--c-accent); color: var(--t-100); }
+    .wz-cat--sel { border-color: var(--c-accent); background: var(--c-accent-lo); color: var(--c-accent); }
+    .wz-cat__check {
+      position: absolute; top: var(--sp-2); right: var(--sp-2);
+      width: 18px; height: 18px; border-radius: var(--r-full);
+      background: var(--c-accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+    }
+  `],
 })
 export class RegistroComercioComponent {
   private readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
 
+  readonly paso = signal(1);
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
   readonly mostrarPassword = signal(false);
   readonly verticalesSel = signal<VerticalKey[]>([]);
 
+  readonly pasos = [
+    { n: 1, label: 'Servicios' },
+    { n: 2, label: 'Negocio' },
+    { n: 3, label: 'Acceso' },
+  ];
+
   readonly verticalesDisponibles = Object.values(VerticalKey).map((key) => ({
     key,
     label: VERTICAL_LABELS[key],
+    icon: iconoVertical(key),
   }));
 
-  readonly formulario = this.fb.group({
-    nombre: ['', [Validators.required, Validators.minLength(2)]],
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
-    nombreComercial: ['', [Validators.required]],
-    razonSocial: ['', [Validators.required]],
-    vatNumber: ['', [Validators.required]],
+  readonly negocioForm = this.fb.group({
+    nombreComercial: ['', [Validators.required, Validators.minLength(2)]],
+    ciudad: ['', [Validators.required, Validators.minLength(2)]],
   });
 
-  invalido(control: string): boolean {
-    const c = this.formulario.get(control);
+  readonly cuentaForm = this.fb.group({
+    nombre: ['', [Validators.required, Validators.minLength(2)]],
+    email: ['', [Validators.required, Validators.email]],
+    telefono: [''],
+    password: ['', [Validators.required, Validators.minLength(8)]],
+  });
+
+  readonly seleccionValida = computed(() => this.verticalesSel().length > 0);
+
+  constructor() {
+    this.restaurarBorrador();
+  }
+
+  invalido(form: FormGroup, control: string): boolean {
+    const c = form.get(control);
     return !!c && c.invalid && c.touched;
   }
 
@@ -153,33 +266,80 @@ export class RegistroComercioComponent {
     this.verticalesSel.update((lista) =>
       lista.includes(v) ? lista.filter((x) => x !== v) : [...lista, v],
     );
+    this.guardarBorrador();
+  }
+
+  siguiente(): void {
+    if (this.paso() === 1 && !this.seleccionValida()) return;
+    if (this.paso() === 2) {
+      if (this.negocioForm.invalid) {
+        this.negocioForm.markAllAsTouched();
+        return;
+      }
+    }
+    this.guardarBorrador();
+    this.paso.update((p) => Math.min(3, p + 1));
+  }
+
+  atras(): void {
+    this.error.set(null);
+    this.paso.update((p) => Math.max(1, p - 1));
   }
 
   async onSubmit(): Promise<void> {
-    if (this.formulario.invalid) return;
+    if (this.cuentaForm.invalid) {
+      this.cuentaForm.markAllAsTouched();
+      return;
+    }
 
     this.cargando.set(true);
     this.error.set(null);
 
     try {
+      const negocio = this.negocioForm.getRawValue();
+      const cuenta = this.cuentaForm.getRawValue();
       await this.authService.registrarComercio({
-        nombre: this.formulario.value.nombre!,
-        email: this.formulario.value.email!,
-        password: this.formulario.value.password!,
-        nombreComercial: this.formulario.value.nombreComercial!,
-        razonSocial: this.formulario.value.razonSocial!,
-        vatNumber: this.formulario.value.vatNumber!,
+        nombre: cuenta.nombre!,
+        email: cuenta.email!,
+        password: cuenta.password!,
+        telefono: cuenta.telefono || undefined,
+        nombreComercial: negocio.nombreComercial!,
+        ciudad: negocio.ciudad || undefined,
         verticales: this.verticalesSel().length ? this.verticalesSel() : undefined,
       });
+      localStorage.removeItem(BORRADOR_KEY);
     } catch (e) {
       const status = (e as { status?: number })?.status;
       if (status === 409) {
-        this.error.set('Ese email o identificador fiscal ya está registrado.');
+        this.error.set('Ese email ya está registrado. ¿Quieres iniciar sesión?');
       } else {
-        this.error.set('Error al registrar tu negocio. Inténtalo de nuevo.');
+        this.error.set('No pudimos crear tu negocio. Inténtalo de nuevo.');
       }
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  private guardarBorrador(): void {
+    const borrador = {
+      verticales: this.verticalesSel(),
+      negocio: this.negocioForm.getRawValue(),
+    };
+    localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
+  }
+
+  private restaurarBorrador(): void {
+    const raw = localStorage.getItem(BORRADOR_KEY);
+    if (!raw) return;
+    try {
+      const b = JSON.parse(raw) as {
+        verticales?: VerticalKey[];
+        negocio?: { nombreComercial?: string; ciudad?: string };
+      };
+      if (Array.isArray(b.verticales)) this.verticalesSel.set(b.verticales);
+      if (b.negocio) this.negocioForm.patchValue(b.negocio);
+    } catch {
+      localStorage.removeItem(BORRADOR_KEY);
     }
   }
 }

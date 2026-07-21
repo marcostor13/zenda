@@ -201,6 +201,30 @@ describe('ComerciosService', () => {
       await expect(service.registrarConCuenta(dtoRegistroComercio)).rejects.toThrow('fallo inesperado');
       expect(repo.eliminar).toHaveBeenCalledWith('comercio-1');
     });
+
+    it('debería registrar sin CIF: usa nombreComercial como razón social y no valida el vat', async () => {
+      usersRepo.findByEmail.mockResolvedValue(null);
+      repo.crear.mockResolvedValue({ id: 'comercio-1' } as never);
+      usersRepo.crear.mockResolvedValue({ id: 'user-1' } as never);
+      authService.emitirTokenParaUsuario.mockResolvedValue({ accessToken: 'jwt', usuario: {} } as never);
+
+      await service.registrarConCuenta({
+        nombre: 'Ana Torres',
+        email: 'ana@royaldog.eu',
+        password: 'password123',
+        nombreComercial: 'Royal Dog Resort',
+        ciudad: 'Madrid',
+      });
+
+      expect(repo.findByVatNumber).not.toHaveBeenCalled();
+      expect(repo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({
+          razonSocial: 'Royal Dog Resort',
+          vatNumber: undefined,
+          direccion: { ciudad: 'Madrid' },
+        }),
+      );
+    });
   });
 
   describe('actualizarDisponibilidadServicio', () => {

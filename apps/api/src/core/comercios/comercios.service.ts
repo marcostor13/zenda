@@ -55,15 +55,19 @@ export class ComerciosService {
     if (await this.usersRepo.findByEmail(dto.email)) {
       throw new DomainException('El email ya está registrado', 409);
     }
-    if (await this.repo.findByVatNumber(dto.vatNumber)) {
+    // El CIF es opcional en el alta (perfilado progresivo): solo se valida su
+    // unicidad cuando el comercio lo aporta ya en el registro.
+    if (dto.vatNumber && (await this.repo.findByVatNumber(dto.vatNumber))) {
       throw new DomainException('Ya existe un comercio con ese identificador fiscal', 409);
     }
 
     const comercio = await this.repo.crear({
-      razonSocial: dto.razonSocial,
-      vatNumber: dto.vatNumber,
+      // Sin razón social todavía, se usa el nombre comercial como identidad legal provisional.
+      razonSocial: dto.razonSocial || dto.nombreComercial,
+      vatNumber: dto.vatNumber || undefined,
       nombreComercial: dto.nombreComercial,
       verticales: dto.verticales,
+      direccion: dto.ciudad ? { ciudad: dto.ciudad } : undefined,
     });
 
     try {

@@ -30,10 +30,10 @@ describe('HomeComponent', () => {
   it('debería tener las 6 categorías caninas de Doogking', () => {
     const keys = component.verticales.map((v) => v.key);
     expect(keys).toEqual([
-      VerticalKey.ALOJAMIENTO,
-      VerticalKey.TRANSPORTE,
       VerticalKey.VETERINARIA,
       VerticalKey.PELUQUERIA,
+      VerticalKey.ALOJAMIENTO,
+      VerticalKey.TRANSPORTE,
       VerticalKey.ADIESTRAMIENTO,
       VerticalKey.HOTELES,
     ]);
@@ -49,10 +49,10 @@ describe('HomeComponent', () => {
   it('debería enrutar cada categoría a su ruta propia', () => {
     const rutas = component.verticales.map((v) => v.route);
     expect(rutas).toEqual([
-      '/alojamiento',
-      '/transporte',
       '/veterinaria',
       '/peluqueria',
+      '/alojamiento',
+      '/transporte',
       '/adiestramiento',
       '/hoteles',
     ]);

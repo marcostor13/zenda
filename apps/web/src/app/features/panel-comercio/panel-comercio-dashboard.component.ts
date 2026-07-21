@@ -4,8 +4,14 @@ import { DecimalPipe, DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AuthService } from '../../core/auth/auth.service';
-import { ComercioApiService, MiReserva, MiServicio } from './comercio-api.service';
+import { ComercioApiService, MiReserva, MiServicio, MiComercio } from './comercio-api.service';
 import { iconoVertical } from './vertical-icon';
+
+interface PasoOnboarding {
+  clave: string;
+  label: string;
+  hecho: boolean;
+}
 
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success', pendiente: 'rs-badge--warning',
@@ -28,6 +34,33 @@ const ESTADO_BADGE: Record<string, string> = {
         Nuevo listado
       </a>
     </div>
+
+    <!-- COMPLETA TU NEGOCIO -->
+    @if (pasosPendientes() > 0) {
+      <div class="rs-card onboarding-card">
+        <div class="onboarding-card__head">
+          <div>
+            <h3>Completa tu negocio</h3>
+            <p>{{ pasosHechos() }} de {{ pasosOnboarding().length }} pasos · te faltan {{ pasosPendientes() }} para vender sin límites</p>
+          </div>
+          <div class="onboarding-card__pct">{{ progresoPct() }}%</div>
+        </div>
+        <div class="onboarding-bar"><div class="onboarding-bar__fill" [style.width.%]="progresoPct()"></div></div>
+        <ul class="onboarding-list">
+          @for (p of pasosOnboarding(); track p.clave) {
+            <li [class.hecho]="p.hecho">
+              <span class="onboarding-list__dot">
+                @if (p.hecho) { <rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> }
+              </span>
+              {{ p.label }}
+            </li>
+          }
+        </ul>
+        <a routerLink="/comercio/config" class="rs-btn rs-btn--primary rs-btn--sm" style="margin-top:var(--sp-4)">
+          Completar datos
+        </a>
+      </div>
+    }
 
     <!-- KPI GRID -->
     <div class="kpi-grid">
@@ -217,6 +250,16 @@ const ESTADO_BADGE: Record<string, string> = {
     .listado-item { display:grid; grid-template-columns:56px 1fr auto; gap:var(--sp-4); align-items:center; padding:var(--sp-3); background:var(--c-raised); border-radius:var(--r-lg); strong { font-size:var(--f-sm); color:var(--t-100); } p { font-size:var(--f-xs); color:var(--t-400); margin-top:var(--sp-1); } }
     .listado-img { width:56px; height:48px; border-radius:var(--r-md); background:var(--c-accent-lo); color:var(--c-accent); display:flex; align-items:center; justify-content:center; }
     .listado-item__actions { display:flex; gap:var(--sp-2); }
+
+    .onboarding-card { padding: var(--sp-5); border-left: 3px solid var(--c-accent); }
+    .onboarding-card__head { display:flex; justify-content:space-between; align-items:flex-start; gap:var(--sp-4); margin-bottom:var(--sp-3); h3 { font-size:var(--f-md); font-weight:var(--w-7); color:var(--t-100); } p { font-size:var(--f-xs); color:var(--t-400); margin-top:var(--sp-1); } }
+    .onboarding-card__pct { font-size:var(--f-xl); font-weight:var(--w-8); color:var(--c-accent); }
+    .onboarding-bar { height:6px; border-radius:var(--r-full); background:var(--c-raised); overflow:hidden; margin-bottom:var(--sp-4); }
+    .onboarding-bar__fill { height:100%; background:var(--g-accent); transition:width var(--d-3); }
+    .onboarding-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:var(--sp-2); list-style:none; }
+    .onboarding-list li { display:flex; align-items:center; gap:var(--sp-2); font-size:var(--f-sm); color:var(--t-300); &.hecho { color:var(--t-400); text-decoration:line-through; } }
+    .onboarding-list__dot { width:18px; height:18px; border-radius:var(--r-full); border:1.5px solid var(--b-1); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .onboarding-list li.hecho .onboarding-list__dot { background:var(--g-accent); border-color:transparent; color:#fff; }
   `],
 })
 export class PanelComercioDashboardComponent implements OnInit {
@@ -227,6 +270,24 @@ export class PanelComercioDashboardComponent implements OnInit {
   readonly errorMsg = signal('');
   readonly reservas = signal<MiReserva[]>([]);
   readonly servicios = signal<MiServicio[]>([]);
+  readonly comercio = signal<MiComercio | null>(null);
+
+  /** Checklist de perfilado progresivo: lo que faltó por pedir en el alta rápida. */
+  readonly pasosOnboarding = computed<PasoOnboarding[]>(() => {
+    const c = this.comercio();
+    return [
+      { clave: 'fiscal', label: 'Datos fiscales (CIF/NIF)', hecho: !!c?.vatNumber },
+      { clave: 'banco', label: 'Cuenta bancaria (IBAN)', hecho: !!c?.datosBancarios?.iban },
+      { clave: 'logo', label: 'Logo del negocio', hecho: !!c?.logoUrl },
+      { clave: 'documentos', label: 'Documentos de verificación', hecho: (c?.verificacion?.documentos?.length ?? 0) > 0 },
+      { clave: 'listado', label: 'Primer listado publicado', hecho: this.servicios().some((s) => s.estado === 'publicado') },
+    ];
+  });
+  readonly pasosHechos = computed(() => this.pasosOnboarding().filter((p) => p.hecho).length);
+  readonly pasosPendientes = computed(() => this.pasosOnboarding().length - this.pasosHechos());
+  readonly progresoPct = computed(() =>
+    Math.round((this.pasosHechos() / this.pasosOnboarding().length) * 100),
+  );
 
   readonly nombreComercio = computed(() => this.authService.usuario()?.nombre ?? 'tu comercio');
   readonly reservasRecientes = computed(() => this.reservas().slice(0, 5));
@@ -246,12 +307,14 @@ export class PanelComercioDashboardComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      const [reservas, servicios] = await Promise.all([
+      const [reservas, servicios, comercio] = await Promise.all([
         firstValueFrom(this.comercioApi.getMisReservas()),
         firstValueFrom(this.comercioApi.getMisServicios()),
+        firstValueFrom(this.comercioApi.getMiComercio()).catch(() => null),
       ]);
       this.reservas.set(reservas);
       this.servicios.set(servicios);
+      this.comercio.set(comercio);
     } catch {
       this.errorMsg.set('Error al cargar los datos. Verifica que el API esté activo.');
     } finally {

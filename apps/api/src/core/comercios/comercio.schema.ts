@@ -77,11 +77,13 @@ export interface PreferenciasNotificacion {
 
 @Schema({ timestamps: true, collection: 'comercios' })
 export class Comercio {
-  @Prop({ required: true })
-  razonSocial!: string;
+  // Datos fiscales: opcionales al registrarse (perfilado progresivo); se exigen
+  // en el panel antes del primer cobro/liquidación.
+  @Prop()
+  razonSocial?: string;
 
-  @Prop({ required: true, unique: true })
-  vatNumber!: string;
+  @Prop()
+  vatNumber?: string;
 
   @Prop({ required: true })
   nombreComercial!: string;
@@ -146,4 +148,5 @@ export class Comercio {
 
 export const ComercioSchema = SchemaFactory.createForClass(Comercio);
 
-ComercioSchema.index({ vatNumber: 1 }, { unique: true });
+// Único pero disperso: permite comercios sin CIF (perfilado progresivo) sin colisionar.
+ComercioSchema.index({ vatNumber: 1 }, { unique: true, sparse: true });

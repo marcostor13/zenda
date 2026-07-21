@@ -5,13 +5,14 @@ import { VerticalKey } from 'shared';
 import { Comercio, ComercioDocument, EstadoComercio, PlanComercio } from './comercio.schema';
 
 export interface CrearComercioParams {
-  razonSocial: string;
-  vatNumber: string;
+  razonSocial?: string;
+  vatNumber?: string;
   nombreComercial: string;
   logoUrl?: string;
   verticales?: VerticalKey[];
   plan?: PlanComercio;
   estado?: EstadoComercio;
+  direccion?: { ciudad?: string };
 }
 
 export interface ActualizarComercioParams {

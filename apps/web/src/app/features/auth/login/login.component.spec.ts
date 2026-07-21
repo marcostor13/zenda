@@ -33,7 +33,7 @@ describe('LoginComponent', () => {
   it('debería llamar a authService.login con los datos del formulario', async () => {
     authService.login.mockResolvedValue(undefined);
 
-    component.formulario.setValue({ email: 'juan@test.com', password: 'password123' });
+    component.formulario.setValue({ email: 'juan@test.com', password: 'password123', recordar: false });
     await component.onSubmit();
 
     expect(authService.login).toHaveBeenCalledWith({
@@ -45,14 +45,14 @@ describe('LoginComponent', () => {
   it('debería mostrar error si el login falla', async () => {
     authService.login.mockRejectedValue(new Error('Unauthorized'));
 
-    component.formulario.setValue({ email: 'juan@test.com', password: 'password123' });
+    component.formulario.setValue({ email: 'juan@test.com', password: 'password123', recordar: false });
     await component.onSubmit();
 
     expect(component.error()).toBe('Credenciales incorrectas. Intenta de nuevo.');
   });
 
   it('no debería llamar a login si el formulario es inválido', async () => {
-    component.formulario.setValue({ email: '', password: '' });
+    component.formulario.setValue({ email: '', password: '', recordar: false });
     await component.onSubmit();
 
     expect(authService.login).not.toHaveBeenCalled();
@@ -61,7 +61,7 @@ describe('LoginComponent', () => {
   it('debería desactivar el botón mientras carga', () => {
     // login queda pendiente a propósito para observar el estado de carga.
     authService.login.mockImplementation(() => new Promise(() => {}));
-    component.formulario.setValue({ email: 'juan@test.com', password: 'password123' });
+    component.formulario.setValue({ email: 'juan@test.com', password: 'password123', recordar: false });
 
     void component.onSubmit();
     expect(component.cargando()).toBe(true);
