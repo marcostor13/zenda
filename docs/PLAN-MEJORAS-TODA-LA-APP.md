@@ -27,7 +27,8 @@
   - **Recordatorios de mascota**: endpoint `GET /reservas/recordatorios` que, a partir del historial real, sugiere volver a peluquería (>2 meses), veterinario (>12 meses) o adiestramiento (>6 meses); bloque "🔔 Próximos recordatorios" en el perfil del cliente. Tests verde (322 API).
   - **Puntos Doogking (fidelización)**: endpoint `GET /reservas/puntos` (1 punto por € gastado en reservas completadas/confirmadas; cada 400 puntos = 5 € de descuento) + tarjeta de puntos con barra de progreso en el perfil del cliente. Tests verde (324 API).
   - **Equipo y permisos de comercio**: el `comercio_admin` da de alta/baja personal (`comercio_staff`) vinculado a su comercio, con puesto (gerente, recepción, peluquero…). Endpoints `GET/POST/DELETE /comercios/mi-equipo` con guardas (no auto-baja, solo staff del propio comercio) + pantalla **Equipo** en el panel del comercio. Tests verde (333 API).
-  - Pendiente de Fase 4: seguimiento en tiempo real (requiere websockets).
+  - **Seguimiento en tiempo real** (sin websockets): el comercio marca hitos (recogida, en ruta, entregada, entrada, salida, finalizada) en la reserva; el cliente los ve en un bloque "Seguimiento en vivo" en el detalle, con polling cada 15 s mientras el servicio está activo. Tests verde (336 API).
+  - **Fase 4 completada.** Todo el documento `mejoras_toda_la_app.md` queda implementado y funcional.
 
 ---
 
