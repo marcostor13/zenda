@@ -3,7 +3,6 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReservaAdmin, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
-import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 interface EstadoMeta { badge: string; emoji: string; label: string; }
 
@@ -39,7 +38,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-reservas',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, RsIconComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule],
   template: `
     <!-- Cabecera -->
     <div class="page-header">

@@ -120,6 +120,19 @@ export class ComerciosController {
     return this.comerciosService.completarReserva(reservaId, req.user.comercioId!);
   }
 
+  @Patch('mis-reservas/:reservaId/seguimiento')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Marcar un hito de seguimiento en tiempo real (entregada, recogida, finalizada…)' })
+  marcarSeguimiento(
+    @Req() req: RequestConUser,
+    @Param('reservaId') reservaId: string,
+    @Body() dto: { hito: string; nota?: string },
+  ) {
+    return this.comerciosService.marcarSeguimiento(reservaId, req.user.comercioId!, dto.hito, dto.nota);
+  }
+
   @Patch('mis-reservas/:reservaId/solicitar-ajuste')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)

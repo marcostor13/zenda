@@ -122,6 +122,13 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
                       🩺 Historia veterinaria
                     </button>
                   }
+                  @if (hitosDe(r.vertical).length && (r.estado === 'confirmada' || r.estado === 'en_curso')) {
+                    @for (h of hitosDe(r.vertical); track h.hito) {
+                      <button class="rs-btn rs-btn--ghost rs-btn--sm"
+                              [disabled]="seguimientoId() === r._id"
+                              (click)="marcarHito(r, h.hito)">{{ h.label }}</button>
+                    }
+                  }
                 </td>
               </tr>
               @if (historiaAbiertaId() === r._id) {
@@ -331,6 +338,7 @@ export class ComercioReservasComponent implements OnInit {
   readonly reservas = signal<MiReserva[]>([]);
   readonly filtroActivo = signal<FiltroEstado>('todas');
   readonly completandoId = signal<string | null>(null);
+  readonly seguimientoId = signal<string | null>(null);
 
   // Solicitar ajuste de precio (docs/mejora_servicios.md §7)
   readonly suplementosCatalogo = signal<SuplementoConfig[]>([]);
@@ -495,6 +503,41 @@ export class ComercioReservasComponent implements OnInit {
       this.errorMsg.set('No se pudo marcar la reserva como completada. Inténtalo de nuevo.');
     } finally {
       this.completandoId.set(null);
+    }
+  }
+
+  /** Hitos de seguimiento en tiempo real según el tipo de servicio. */
+  hitosDe(vertical: string): Array<{ hito: string; label: string }> {
+    if (vertical === 'transporte') {
+      return [
+        { hito: 'recogida', label: '🐾 Recogida' },
+        { hito: 'en_ruta', label: '🚐 En ruta' },
+        { hito: 'entregada', label: '📍 Entregada' },
+        { hito: 'finalizada', label: '✅ Finalizar' },
+      ];
+    }
+    if (vertical === 'alojamiento' || vertical === 'hoteles') {
+      return [
+        { hito: 'entrada', label: '🏠 Entrada' },
+        { hito: 'salida', label: '🐾 Salida' },
+        { hito: 'finalizada', label: '✅ Finalizar' },
+      ];
+    }
+    return [];
+  }
+
+  async marcarHito(r: MiReserva, hito: string): Promise<void> {
+    this.seguimientoId.set(r._id);
+    try {
+      const actualizada = await firstValueFrom(this.comercioApi.marcarSeguimiento(r._id, hito));
+      this.reservas.update((lista) =>
+        lista.map((x) => (x._id === r._id ? { ...x, estado: actualizada.estado } : x)),
+      );
+    } catch {
+      this.errorMsg.set('No se pudo registrar el hito de seguimiento.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    } finally {
+      this.seguimientoId.set(null);
     }
   }
 }

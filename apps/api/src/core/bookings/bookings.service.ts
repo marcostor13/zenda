@@ -260,6 +260,37 @@ export class BookingsService {
     return reserva.save();
   }
 
+  /**
+   * El comercio marca un hito de seguimiento en tiempo real (mascota entregada,
+   * recogida, servicio finalizado…). El cliente lo ve por polling. El primer
+   * hito pone la reserva EN_CURSO; el hito 'finalizada' la marca COMPLETADA.
+   */
+  async agregarSeguimiento(
+    reservaId: string,
+    comercioId: string,
+    hito: string,
+    nota?: string,
+  ): Promise<ReservaDocument> {
+    const reserva = await this.reservaModel.findById(reservaId).exec();
+    if (!reserva) throw new DomainException('Reserva no encontrada', 404);
+    if (reserva.comercioId.toString() !== comercioId) {
+      throw new DomainException('No tienes permiso sobre esta reserva', 403);
+    }
+
+    const ahora = new Date();
+    reserva.seguimiento.push({ hito, nota, at: ahora });
+
+    if (hito === 'finalizada') {
+      reserva.estado = ReservaEstado.COMPLETADA;
+      reserva.historialEstados.push({ estado: ReservaEstado.COMPLETADA, por: `comercio:${comercioId}`, at: ahora });
+    } else if (reserva.estado === ReservaEstado.CONFIRMADA) {
+      reserva.estado = ReservaEstado.EN_CURSO;
+      reserva.historialEstados.push({ estado: ReservaEstado.EN_CURSO, por: `comercio:${comercioId}`, at: ahora });
+    }
+
+    return reserva.save();
+  }
+
   /** El comercio propone suplementos en recepción; la reserva queda pendiente de aprobación del cliente. */
   async solicitarAjuste(
     reservaId: string,

@@ -2,7 +2,6 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, AnaliticaAdmin } from './admin-api.service';
-import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 const VERTICAL_EMOJI: Record<string, string> = {
   alojamiento: '🏠', transporte: '🚐', veterinaria: '🩺',
@@ -12,7 +11,7 @@ const VERTICAL_EMOJI: Record<string, string> = {
 @Component({
   selector: 'app-admin-analitica',
   standalone: true,
-  imports: [DecimalPipe, RsIconComponent],
+  imports: [DecimalPipe],
   template: `
     <div class="page-header">
       <div>

@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit, computed } from '@angular/core';
+import { Component, signal, inject, OnInit, OnDestroy, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
@@ -8,6 +8,11 @@ import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 
 type EstadoColor = 'success' | 'warning' | 'danger' | 'accent' | 'neutral';
+
+const HITO_LABEL: Record<string, string> = {
+  recogida: 'Mascota recogida', en_ruta: 'En ruta', entregada: 'Mascota entregada',
+  entrada: 'Entrada / check-in', salida: 'Salida / check-out', finalizada: 'Servicio finalizado',
+};
 
 const VERTICAL_META: Record<string, { label: string; icon: string; color: string }> = {
   [VerticalKey.ALOJAMIENTO]:    { label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    icon: 'hotel',          color: '#08258B' },
@@ -98,6 +103,26 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
               </div>
             </div>
           </div>
+
+          <!-- Seguimiento en vivo -->
+          @if (seguimiento().length) {
+            <div class="rs-card seguimiento-card">
+              <h3 class="seguimiento-card__title">
+                🛰️ Seguimiento en vivo
+                @if (esActiva()) { <span class="live-dot" title="Actualizando en tiempo real"></span> }
+              </h3>
+              <ol class="seg-timeline">
+                @for (h of seguimiento(); track $index) {
+                  <li>
+                    <span class="seg-timeline__dot">🟢</span>
+                    <span class="seg-timeline__label">{{ hitoLabel(h.hito) }}</span>
+                    <span class="seg-timeline__time">{{ h.at | date:'d MMM, HH:mm':'':'es' }}</span>
+                    @if (h.nota) { <span class="seg-timeline__nota">{{ h.nota }}</span> }
+                  </li>
+                }
+              </ol>
+            </div>
+          }
 
           <!-- Dates -->
           <div class="rs-card info-card">
@@ -309,6 +334,18 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
     }
     .status-bar__date { font-size: var(--f-xs); color: var(--t-400); }
 
+    /* ── Seguimiento en vivo ──────────────────────────────────── */
+    .seguimiento-card { padding: var(--sp-5); margin-bottom: var(--sp-5); }
+    .seguimiento-card__title { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-4); display: flex; align-items: center; gap: var(--sp-2); }
+    .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #10B981; box-shadow: 0 0 0 0 rgba(16,185,129,.6); animation: livePulse 1.6s infinite; }
+    @keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.6); } 70% { box-shadow: 0 0 0 8px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+    .seg-timeline { list-style: none; display: flex; flex-direction: column; gap: var(--sp-3); border-left: 2px solid var(--b-1); padding-left: var(--sp-4); margin-left: var(--sp-2); }
+    .seg-timeline li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); position: relative; }
+    .seg-timeline__dot { position: absolute; left: calc(-1 * var(--sp-4) - 12px); font-size: 10px; }
+    .seg-timeline__label { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
+    .seg-timeline__time { font-size: var(--f-xs); color: var(--t-400); }
+    .seg-timeline__nota { font-size: var(--f-xs); color: var(--t-300); font-style: italic; width: 100%; }
+
     /* ── Breadcrumb ───────────────────────────────────────────── */
     .breadcrumb {
       display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-7);
@@ -425,11 +462,13 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
     @keyframes spin { to { transform: rotate(360deg); } }
   `],
 })
-export class ReservaDetalleComponent implements OnInit {
+export class ReservaDetalleComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly reservasService = inject(ReservasService);
   private readonly paymentsService = inject(PaymentsService);
+
+  private pollId?: ReturnType<typeof setInterval>;
 
   readonly cargando = signal(true);
   readonly error = signal('');
@@ -466,6 +505,14 @@ export class ReservaDetalleComponent implements OnInit {
     const estado = this.reserva()?.estado;
     return estado === 'confirmada' || estado === 'pendiente';
   });
+
+  readonly seguimiento = computed(() => this.reserva()?.seguimiento ?? []);
+  readonly esActiva = computed(() => {
+    const e = this.reserva()?.estado;
+    return e === 'confirmada' || e === 'en_curso';
+  });
+
+  hitoLabel(hito: string): string { return HITO_LABEL[hito] ?? hito; }
 
   readonly duracion = computed(() => {
     const r = this.reserva();
@@ -513,11 +560,30 @@ export class ReservaDetalleComponent implements OnInit {
     try {
       const data = await this.reservasService.obtenerPorCodigo(codigo);
       this.reserva.set(data);
+      this.iniciarPolling(codigo);
     } catch {
       this.error.set('No se encontró la reserva o no tienes permiso para verla.');
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollId) clearInterval(this.pollId);
+  }
+
+  /** Refresca la reserva cada 15 s mientras el servicio está activo, para ver el seguimiento en vivo. */
+  private iniciarPolling(codigo: string): void {
+    if (!this.esActiva()) return;
+    this.pollId = setInterval(async () => {
+      try {
+        const data = await this.reservasService.obtenerPorCodigo(codigo);
+        this.reserva.set(data);
+        if (!this.esActiva() && this.pollId) clearInterval(this.pollId);
+      } catch {
+        // Ignorar fallos puntuales de red; se reintenta en el siguiente ciclo.
+      }
+    }, 15000);
   }
 
   async cancelar(): Promise<void> {

@@ -26,6 +26,13 @@ export interface CambioEstadoReserva {
   at: Date;
 }
 
+/** Hito de seguimiento en tiempo real del servicio (transporte/residencia…). */
+export interface SeguimientoHito {
+  hito: string; // 'recogida' | 'en_ruta' | 'entregada' | 'entrada' | 'salida' | 'finalizada' …
+  nota?: string;
+  at: Date;
+}
+
 @Schema({ timestamps: true, collection: 'reservas' })
 export class Reserva {
   @Prop({ required: true, unique: true })
@@ -111,6 +118,10 @@ export class Reserva {
   // pago retenido/liberado, disputa, reembolso…) queda registrada aquí.
   @Prop({ type: [Object], default: [] })
   historialEstados!: CambioEstadoReserva[];
+
+  // Hitos de seguimiento en tiempo real que el comercio va marcando.
+  @Prop({ type: [Object], default: [] })
+  seguimiento!: SeguimientoHito[];
 
   /** Serie de reservas recurrentes (docs §4.3): presente solo en las reservas hija. */
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva' })

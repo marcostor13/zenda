@@ -312,6 +312,10 @@ export class ComerciosService {
     return this.bookingsService.completar(reservaId, comercioId);
   }
 
+  marcarSeguimiento(reservaId: string, comercioId: string, hito: string, nota?: string): Promise<ReservaDocument> {
+    return this.bookingsService.agregarSeguimiento(reservaId, comercioId, hito, nota);
+  }
+
   /** El comercio detecta en recepción condiciones no indicadas y propone un suplemento. */
   solicitarAjusteReserva(
     reservaId: string,

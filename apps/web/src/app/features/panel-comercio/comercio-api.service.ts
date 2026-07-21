@@ -287,6 +287,10 @@ export class ComercioApiService {
     return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/completar`, {});
   }
 
+  marcarSeguimiento(reservaId: string, hito: string, nota?: string): Observable<MiReserva> {
+    return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/seguimiento`, { hito, nota });
+  }
+
   solicitarAjuste(reservaId: string, dto: SolicitarAjustePayload): Observable<MiReserva> {
     return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/solicitar-ajuste`, dto);
   }

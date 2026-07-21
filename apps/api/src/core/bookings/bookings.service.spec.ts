@@ -37,6 +37,7 @@ describe('BookingsService', () => {
     holdId: 'hold-1',
     vertical: VerticalKey.ALOJAMIENTO,
     historialEstados: [],
+    seguimiento: [],
     save: jest.fn(),
   };
 
@@ -413,6 +414,39 @@ describe('BookingsService', () => {
       findConReservas([{ vertical: VerticalKey.PELUQUERIA, fechaInicio: haceUnMes }]);
 
       expect(await service.recordatorios('user-1')).toHaveLength(0);
+    });
+  });
+
+  describe('agregarSeguimiento', () => {
+    it('añade un hito y pone EN_CURSO si la reserva estaba confirmada', async () => {
+      const doc = {
+        ...reservaMock, estado: ReservaEstado.CONFIRMADA, seguimiento: [], historialEstados: [],
+        save: jest.fn().mockImplementation(function (this: unknown) { return Promise.resolve(this); }),
+      };
+      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+
+      await service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida');
+
+      expect(doc.seguimiento).toHaveLength(1);
+      expect(doc.seguimiento[0]).toMatchObject({ hito: 'recogida' });
+      expect(doc.estado).toBe(ReservaEstado.EN_CURSO);
+    });
+
+    it('el hito "finalizada" marca la reserva COMPLETADA', async () => {
+      const doc = {
+        ...reservaMock, estado: ReservaEstado.EN_CURSO, seguimiento: [], historialEstados: [],
+        save: jest.fn().mockImplementation(function (this: unknown) { return Promise.resolve(this); }),
+      };
+      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+
+      await service.agregarSeguimiento('reserva-1', 'comercio-1', 'finalizada');
+      expect(doc.estado).toBe(ReservaEstado.COMPLETADA);
+    });
+
+    it('rechaza si la reserva no es del comercio', async () => {
+      const doc = { ...reservaMock, comercioId: { toString: () => 'otro' }, seguimiento: [] };
+      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+      await expect(service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida')).rejects.toThrow(DomainException);
     });
   });
 

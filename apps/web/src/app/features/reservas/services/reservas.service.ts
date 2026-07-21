@@ -33,6 +33,7 @@ export interface ReservaApi {
   comercioId: string;
   detalle?: Record<string, unknown>;
   perroSnapshot?: Record<string, unknown>;
+  seguimiento?: Array<{ hito: string; nota?: string; at: string }>;
   montoSubtotal: number;
   comisionMonto: number;
   descuentoMonto: number;
@@ -42,7 +43,7 @@ export interface ReservaApi {
   fechaInicio: string;
   fechaFin?: string;
   cantidad: number;
-  estado: 'pendiente' | 'confirmada' | 'ajuste_solicitado' | 'cancelada' | 'completada' | 'no_show';
+  estado: 'pendiente' | 'confirmada' | 'ajuste_solicitado' | 'en_curso' | 'cancelada' | 'completada' | 'no_show' | 'pago_retenido' | 'pago_liberado' | 'en_disputa' | 'reembolsada';
   pagoId?: string;
   suplementos?: SuplementoAplicadoApi[];
   montoAjustado?: number;

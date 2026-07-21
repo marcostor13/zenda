@@ -1,6 +1,5 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiembroEquipo } from './comercio-api.service';
@@ -17,7 +16,7 @@ const PUESTOS = [
 @Component({
   selector: 'app-comercio-equipo',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePipe, RsIconComponent],
+  imports: [ReactiveFormsModule, RsIconComponent],
   template: `
     <div class="page-header">
       <div>
