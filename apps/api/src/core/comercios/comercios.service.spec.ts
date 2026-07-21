@@ -202,6 +202,16 @@ describe('ComerciosService', () => {
       expect(repo.eliminar).toHaveBeenCalledWith('comercio-1');
     });
 
+    it('debería traducir un error de clave duplicada (E11000) a 409 en vez de 500', async () => {
+      usersRepo.findByEmail.mockResolvedValue(null);
+      repo.findByVatNumber.mockResolvedValue(null);
+      repo.crear.mockResolvedValue({ id: 'comercio-1' } as never);
+      usersRepo.crear.mockRejectedValue({ code: 11000, message: 'E11000 duplicate key' });
+
+      await expect(service.registrarConCuenta(dtoRegistroComercio)).rejects.toMatchObject({ statusCode: 409 });
+      expect(repo.eliminar).toHaveBeenCalledWith('comercio-1');
+    });
+
     it('debería registrar sin CIF: usa nombreComercial como razón social y no valida el vat', async () => {
       usersRepo.findByEmail.mockResolvedValue(null);
       repo.crear.mockResolvedValue({ id: 'comercio-1' } as never);

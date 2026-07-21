@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { VerticalKey } from 'shared';
@@ -27,10 +27,34 @@ export interface ActualizarComercioParams {
 }
 
 @Injectable()
-export class ComerciosRepository {
+export class ComerciosRepository implements OnModuleInit {
+  private readonly logger = new Logger(ComerciosRepository.name);
+
   constructor(
     @InjectModel(Comercio.name) private readonly comercioModel: Model<ComercioDocument>,
   ) {}
+
+  /**
+   * Auto-reparación de índices: si en la BB.DD. persiste un índice único de
+   * `vatNumber` en su forma antigua (sin filtro parcial), dos comercios sin CIF
+   * colisionan y el alta devuelve 500. MongoDB no cambia las opciones de un
+   * índice existente, así que lo eliminamos y dejamos que se recree como índice
+   * parcial según el schema. Nunca tumba el arranque.
+   */
+  async onModuleInit(): Promise<void> {
+    try {
+      const coleccion = this.comercioModel.collection;
+      const indices = await coleccion.indexes();
+      const vat = indices.find((i) => i['key'] && (i['key'] as Record<string, number>)['vatNumber'] === 1);
+      if (vat && !vat['partialFilterExpression']) {
+        await coleccion.dropIndex(vat['name'] as string);
+        this.logger.warn('Índice vatNumber obsoleto eliminado; se recreará como índice parcial.');
+      }
+      await this.comercioModel.createIndexes();
+    } catch (error) {
+      this.logger.error(`No se pudo sincronizar el índice de vatNumber: ${String(error)}`);
+    }
+  }
 
   async findById(id: string): Promise<ComercioDocument | null> {
     return this.comercioModel.findById(id).exec();

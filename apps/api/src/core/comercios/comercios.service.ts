@@ -86,6 +86,9 @@ export class ComerciosService {
     } catch (error) {
       // El comercio no debe quedar huérfano si la creación del usuario falla.
       await this.repo.eliminar(comercio.id);
+      if ((error as { code?: number })?.code === 11000) {
+        throw new DomainException('Ya existe una cuenta o comercio con esos datos.', 409);
+      }
       throw error;
     }
   }

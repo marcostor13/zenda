@@ -148,5 +148,9 @@ export class Comercio {
 
 export const ComercioSchema = SchemaFactory.createForClass(Comercio);
 
-// Único pero disperso: permite comercios sin CIF (perfilado progresivo) sin colisionar.
-ComercioSchema.index({ vatNumber: 1 }, { unique: true, sparse: true });
+// Único solo cuando hay CIF: el filtro parcial excluye documentos sin vatNumber
+// (ausente o null), de modo que varios comercios sin CIF no colisionan.
+ComercioSchema.index(
+  { vatNumber: 1 },
+  { unique: true, partialFilterExpression: { vatNumber: { $type: 'string' } } },
+);
