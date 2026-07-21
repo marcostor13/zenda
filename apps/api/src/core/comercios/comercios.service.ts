@@ -92,6 +92,37 @@ export class ComerciosService {
     return comercio;
   }
 
+  /**
+   * Onboarding self-service: una cuenta con rol de comercio pero SIN comercioId
+   * (cuenta huérfana) crea su negocio y queda vinculada, devolviendo un token
+   * fresco que ya incluye el comercioId.
+   */
+  async vincularNuevoComercio(usuarioId: string, dto: RegistrarComercioDto): Promise<AuthResponseDto> {
+    const usuario = await this.usersRepo.findById(usuarioId);
+    if (!usuario) throw new DomainException('Usuario no encontrado', 404);
+    if (usuario.comercioId) {
+      throw new DomainException('Tu cuenta ya está vinculada a un comercio', 409);
+    }
+    if (await this.repo.findByVatNumber(dto.vatNumber)) {
+      throw new DomainException('Ya existe un comercio con ese identificador fiscal', 409);
+    }
+
+    const comercio = await this.repo.crear({
+      razonSocial: dto.razonSocial,
+      vatNumber: dto.vatNumber,
+      nombreComercial: dto.nombreComercial,
+      logoUrl: dto.logoUrl,
+      verticales: dto.verticales,
+    });
+
+    const actualizado = await this.usersRepo.actualizarAdmin(usuarioId, { comercioId: comercio.id });
+    if (!actualizado) {
+      await this.repo.eliminar(comercio.id);
+      throw new DomainException('No se pudo vincular el comercio a tu cuenta', 500);
+    }
+    return this.authService.emitirTokenParaUsuario(actualizado);
+  }
+
   async listar(estado?: EstadoComercio): Promise<ComercioDocument[]> {
     return this.repo.listar(estado ? { estado } : {});
   }

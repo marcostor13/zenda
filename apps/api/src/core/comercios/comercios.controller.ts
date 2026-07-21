@@ -43,6 +43,15 @@ export class ComerciosController {
     return this.comerciosService.registrarConCuenta(dto);
   }
 
+  @Post('onboarding')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Vincular un negocio a una cuenta de comercio sin comercioId; devuelve token nuevo' })
+  onboarding(@Req() req: RequestConUser, @Body() dto: RegistrarComercioDto): Promise<AuthResponseDto> {
+    return this.comerciosService.vincularNuevoComercio(req.user.sub, dto);
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.ADMIN)

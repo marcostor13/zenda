@@ -263,6 +263,10 @@ export class ComercioApiService {
     return this.http.get<MiComercio>(`${this.url}/mi-comercio`);
   }
 
+  onboarding(dto: { razonSocial: string; vatNumber: string; nombreComercial: string; verticales?: string[] }): Observable<{ accessToken: string; usuario: unknown }> {
+    return this.http.post<{ accessToken: string; usuario: unknown }>(`${this.url}/onboarding`, dto);
+  }
+
   getMisReservas(): Observable<MiReserva[]> {
     return this.http.get<MiReserva[]>(`${this.url}/mis-reservas`);
   }

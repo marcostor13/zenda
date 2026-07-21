@@ -1,11 +1,21 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { TitleCasePipe } from '@angular/common';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { AuthService } from '../../core/auth/auth.service';
 import { ComercioApiService, MiComercio } from './comercio-api.service';
 import { iconoVertical } from './vertical-icon';
+
+const VERTICALES_OPCIONES = [
+  { valor: 'alojamiento', label: 'Alojamiento' },
+  { valor: 'transporte', label: 'Transporte' },
+  { valor: 'veterinaria', label: 'Veterinaria' },
+  { valor: 'peluqueria', label: 'Peluquería' },
+  { valor: 'adiestramiento', label: 'Adiestramiento' },
+];
 
 const PLAN_BADGE: Record<string, string> = {
   basico: 'rs-badge--neutral', pro: 'rs-badge--accent', premium: 'rs-badge--warning',
@@ -25,10 +35,54 @@ const NAV_ITEMS = [
 @Component({
   selector: 'app-comercio-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TitleCasePipe, RsNavbarComponent, RsIconComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ReactiveFormsModule, TitleCasePipe, RsNavbarComponent, RsIconComponent],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
+
+  @if (cargando()) {
+    <div style="text-align:center;padding:var(--sp-20);color:var(--t-400)">Cargando…</div>
+  } @else if (sinNegocio()) {
+    <!-- ONBOARDING: cuenta de comercio sin negocio vinculado -->
+    <div class="rs-wrap" style="padding-block:var(--sp-12);max-width:560px">
+      <div class="rs-card" style="padding:var(--sp-8)">
+        <h1 style="font-size:var(--f-2xl);font-weight:var(--w-8);color:var(--t-100);margin-bottom:var(--sp-2)">Configura tu negocio</h1>
+        <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-6)">
+          Tu cuenta aún no está vinculada a ningún negocio. Créalo para empezar a publicar servicios y recibir reservas.
+        </p>
+        <form [formGroup]="onboardingForm" (ngSubmit)="crearNegocio()" style="display:flex;flex-direction:column;gap:var(--sp-4)">
+          <div class="rs-form-group">
+            <label class="rs-label">Nombre comercial</label>
+            <input class="rs-input" formControlName="nombreComercial" placeholder="Ej. Centro Canino Vila-Can" />
+          </div>
+          <div class="rs-form-group">
+            <label class="rs-label">Razón social</label>
+            <input class="rs-input" formControlName="razonSocial" placeholder="Ej. Vila-Can S.L." />
+          </div>
+          <div class="rs-form-group">
+            <label class="rs-label">CIF / NIF</label>
+            <input class="rs-input" formControlName="vatNumber" placeholder="Ej. B12345678" />
+          </div>
+          <div class="rs-form-group">
+            <label class="rs-label">¿Qué servicios ofreces?</label>
+            <div style="display:flex;flex-wrap:wrap;gap:var(--sp-3);margin-top:var(--sp-2)">
+              @for (v of verticalesOpciones; track v.valor) {
+                <label style="display:inline-flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-size:var(--f-sm)">
+                  <input type="checkbox" [checked]="verticalesSel().has(v.valor)" (change)="toggleVertical(v.valor)"
+                         style="accent-color:var(--c-accent);width:16px;height:16px" />
+                  {{ v.label }}
+                </label>
+              }
+            </div>
+          </div>
+          @if (onboardingError()) { <div class="rs-alert rs-alert--error">{{ onboardingError() }}</div> }
+          <button type="submit" class="rs-btn rs-btn--primary" [disabled]="onboardingForm.invalid || creando()">
+            {{ creando() ? 'Creando…' : 'Crear mi negocio' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  } @else {
 
   <div class="cl-layout">
 
@@ -78,6 +132,7 @@ const NAV_ITEMS = [
     </main>
 
   </div>
+  }
 </div>
   `,
   styles: [`
@@ -171,13 +226,65 @@ const NAV_ITEMS = [
 })
 export class ComercioLayoutComponent implements OnInit {
   private readonly comercioApi = inject(ComercioApiService);
+  private readonly authService = inject(AuthService);
+  private readonly fb = inject(FormBuilder);
+
   readonly comercio = signal<MiComercio | null>(null);
   readonly navItems = NAV_ITEMS;
+  readonly verticalesOpciones = VERTICALES_OPCIONES;
+
+  readonly cargando = signal(true);
+  readonly sinNegocio = signal(false);
+  readonly creando = signal(false);
+  readonly onboardingError = signal('');
+  readonly verticalesSel = signal<Set<string>>(new Set(['alojamiento']));
+
+  readonly onboardingForm = this.fb.group({
+    nombreComercial: ['', Validators.required],
+    razonSocial: ['', Validators.required],
+    vatNumber: ['', Validators.required],
+  });
 
   async ngOnInit(): Promise<void> {
     try {
       this.comercio.set(await firstValueFrom(this.comercioApi.getMiComercio()));
-    } catch { /* sidebar shows defaults */ }
+    } catch {
+      // 404/403 = cuenta de comercio sin negocio vinculado → onboarding.
+      this.sinNegocio.set(true);
+    } finally {
+      this.cargando.set(false);
+    }
+  }
+
+  toggleVertical(v: string): void {
+    this.verticalesSel.update((set) => {
+      const copia = new Set(set);
+      copia.has(v) ? copia.delete(v) : copia.add(v);
+      return copia;
+    });
+  }
+
+  async crearNegocio(): Promise<void> {
+    if (this.onboardingForm.invalid) return;
+    this.creando.set(true);
+    this.onboardingError.set('');
+    try {
+      const v = this.onboardingForm.getRawValue();
+      const resp = await firstValueFrom(this.comercioApi.onboarding({
+        nombreComercial: v.nombreComercial!,
+        razonSocial: v.razonSocial!,
+        vatNumber: v.vatNumber!,
+        verticales: [...this.verticalesSel()],
+      }));
+      // Token nuevo ya incluye el comercioId → el panel funciona sin re-login manual.
+      this.authService.aplicarSesion(resp as never);
+      this.sinNegocio.set(false);
+      this.comercio.set(await firstValueFrom(this.comercioApi.getMiComercio()));
+    } catch {
+      this.onboardingError.set('No se pudo crear el negocio. ¿El CIF/NIF ya está registrado?');
+    } finally {
+      this.creando.set(false);
+    }
   }
 
   iconVertical(v: string): string {

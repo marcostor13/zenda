@@ -80,7 +80,7 @@ describe('ComerciosService', () => {
           provide: UsersRepository,
           useValue: {
             findByEmail: jest.fn(), crear: jest.fn(), findById: jest.fn(),
-            eliminar: jest.fn(), listarPorComercio: jest.fn(),
+            eliminar: jest.fn(), listarPorComercio: jest.fn(), actualizarAdmin: jest.fn(),
           },
         },
       ],
@@ -215,6 +215,28 @@ describe('ComerciosService', () => {
         'servicio-1', 'comercio-1', { cuposDisponibles: 5 },
       );
       expect(resultado).toMatchObject({ id: 'servicio-1' });
+    });
+  });
+
+  describe('vincularNuevoComercio (onboarding self-service)', () => {
+    const dtoComercio = { razonSocial: 'Mi SL', vatNumber: 'B-1', nombreComercial: 'Mi Negocio' };
+
+    it('crea el comercio, vincula la cuenta y devuelve un token nuevo', async () => {
+      usersRepo.findById.mockResolvedValue({ comercioId: undefined } as never);
+      repo.findByVatNumber.mockResolvedValue(null);
+      repo.crear.mockResolvedValue({ id: 'c9' } as never);
+      usersRepo.actualizarAdmin.mockResolvedValue({ id: 'u1', comercioId: 'c9' } as never);
+      authService.emitirTokenParaUsuario.mockResolvedValue({ accessToken: 'tok' } as never);
+
+      const res = await service.vincularNuevoComercio('u1', dtoComercio);
+
+      expect(usersRepo.actualizarAdmin).toHaveBeenCalledWith('u1', { comercioId: 'c9' });
+      expect(res.accessToken).toBe('tok');
+    });
+
+    it('rechaza si la cuenta ya tiene comercio', async () => {
+      usersRepo.findById.mockResolvedValue({ comercioId: 'ya' } as never);
+      await expect(service.vincularNuevoComercio('u1', dtoComercio)).rejects.toThrow(DomainException);
     });
   });
 

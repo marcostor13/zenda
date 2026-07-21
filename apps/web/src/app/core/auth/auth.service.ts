@@ -65,6 +65,11 @@ export class AuthService {
     void this.router.navigate(['/auth/login']);
   }
 
+  /** Aplica una sesión ya emitida por el backend (p. ej. tras vincular un comercio). */
+  aplicarSesion(respuesta: AuthResponseDto): void {
+    this.guardarSesion(respuesta);
+  }
+
   actualizarDatosLocales(datos: Partial<UsuarioAutenticado>): void {
     const actual = this._usuario();
     if (!actual) return;
