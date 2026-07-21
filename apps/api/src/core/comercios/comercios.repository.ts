@@ -35,24 +35,20 @@ export class ComerciosRepository implements OnModuleInit {
   ) {}
 
   /**
-   * Auto-reparación de índices: si en la BB.DD. persiste un índice único de
-   * `vatNumber` en su forma antigua (sin filtro parcial), dos comercios sin CIF
-   * colisionan y el alta devuelve 500. MongoDB no cambia las opciones de un
-   * índice existente, así que lo eliminamos y dejamos que se recree como índice
-   * parcial según el schema. Nunca tumba el arranque.
+   * Auto-reparación de índices al arrancar. MongoDB conserva índices obsoletos
+   * cuando el schema cambia (campos renombrados u opciones distintas):
+   *   - `ruc_1`, del antiguo campo fiscal `ruc`, provocaba
+   *     `E11000 { ruc: null }` al registrar comercios que ya no setean ese campo.
+   *   - el índice de `vatNumber` en su forma no-parcial colisionaba entre
+   *     comercios sin CIF.
+   * `syncIndexes()` elimina los índices que ya no están en el schema y crea los
+   * definidos (incluido el parcial de `vatNumber`). Nunca tumba el arranque.
    */
   async onModuleInit(): Promise<void> {
     try {
-      const coleccion = this.comercioModel.collection;
-      const indices = await coleccion.indexes();
-      const vat = indices.find((i) => i['key'] && (i['key'] as Record<string, number>)['vatNumber'] === 1);
-      if (vat && !vat['partialFilterExpression']) {
-        await coleccion.dropIndex(vat['name'] as string);
-        this.logger.warn('Índice vatNumber obsoleto eliminado; se recreará como índice parcial.');
-      }
-      await this.comercioModel.createIndexes();
+      await this.comercioModel.syncIndexes();
     } catch (error) {
-      this.logger.error(`No se pudo sincronizar el índice de vatNumber: ${String(error)}`);
+      this.logger.error(`No se pudieron sincronizar los índices de comercios: ${String(error)}`);
     }
   }
 
