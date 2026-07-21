@@ -476,7 +476,7 @@ export class CatalogService {
       checkOut: h.checkOut ?? '11:00',
       requisitoVacunas: h.requisitoVacunas ?? true,
       camaras24h: h.camaras24h ?? false,
-      espacios: h.espacios ?? [],
+      espacios: this.normalizarEspacios(h),
       habitaciones: this.espaciosComoHabitaciones(h).map((hab, i) => this.toHabitacion(hab, i)),
       resenas,
       comercioId: h.comercioId ? String(h.comercioId) : '',
@@ -487,6 +487,31 @@ export class CatalogService {
       requiereVacunaTosPerreras: h.requiereVacunaTosPerreras ?? false,
       serviciosAdicionales: h.serviciosAdicionales ?? [],
     };
+  }
+
+  /**
+   * Normaliza los espacios reservables para el frontend: cada subdocumento
+   * expone `id` (desde su `_id`), y `disponible`/arrays con valores por defecto,
+   * para que la selección de espacio y la reserva funcionen aunque el comercio
+   * no rellenara todos los campos.
+   */
+  private normalizarEspacios(h: ServicioLean): Record<string, unknown>[] {
+    const espacios = (h as unknown as Record<string, unknown>)['espacios'] as
+      | Array<Record<string, unknown>>
+      | undefined;
+    return (espacios ?? []).map((e, i) => ({
+      id: String(e['id'] ?? e['_id'] ?? `esp-${i}`),
+      tipo: (e['tipo'] as string) ?? 'estandar',
+      descripcion: (e['descripcion'] as string) ?? '',
+      tamanoMaxPerro: e['tamanoMaxPerro'] as string | undefined,
+      precioNoche: (e['precioNoche'] as number) ?? h.precioBase ?? 0,
+      precioAnterior: e['precioAnterior'] as number | undefined,
+      cantidad: (e['cantidad'] as number) ?? 1,
+      disponible: (e['disponible'] as boolean) ?? true,
+      amenities: (e['amenities'] as string[]) ?? [],
+      imagenes: (e['imagenes'] as string[]) ?? [],
+      cancelacionGratis: (e['cancelacionGratis'] as boolean) ?? true,
+    }));
   }
 
   /**

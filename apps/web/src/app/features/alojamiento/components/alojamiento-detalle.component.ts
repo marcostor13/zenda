@@ -137,9 +137,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
             @for (esp of alojamiento()!.espacios; track esp.id) {
               <div class="room-card rs-card" [class.rs-card--glow]="espacioSelec()?.id === esp.id">
                 <div class="room-card__img">
-                  @if (esp.imagenes[0]) {
-                    <img [src]="esp.imagenes[0]" [alt]="tipoLabel(esp.tipo)" rsImg />
-                  }
+                  <img [src]="imagenEspacio(esp)" [alt]="tipoLabel(esp.tipo)" rsImg />
                 </div>
                 <div class="room-card__body">
                   <h3 class="room-card__type">{{ tipoLabel(esp.tipo) }}</h3>
@@ -449,7 +447,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     /* ESPACIO CARD */
     .rooms-list { display: flex; flex-direction: column; gap: var(--sp-4); }
     .room-card { display: grid; grid-template-columns: 240px 1fr auto; padding: 0; overflow: hidden; @media (max-width: 768px) { grid-template-columns: 1fr; } }
-    .room-card__img { img { width: 100%; height: 100%; object-fit: cover; } }
+    .room-card__img { min-height: 180px; background: var(--c-surface); img { width: 100%; height: 100%; min-height: 180px; object-fit: cover; display: block; } }
     .room-card__body { padding: var(--sp-6); }
     .room-card__type { font-size: var(--f-md); font-weight: var(--w-7); color: var(--dk-blue); margin-bottom: var(--sp-2); }
     .room-card__desc { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); }
@@ -542,6 +540,11 @@ export class AlojamientoDetalleComponent implements OnInit {
   estrellas(score: number): string {
     const llenas = Math.round(Math.min(score, 5));
     return '★'.repeat(llenas) + '☆'.repeat(5 - llenas);
+  }
+
+  /** Foto del espacio con respaldo: la del espacio, si no la del alojamiento, si no un placeholder. */
+  imagenEspacio(esp: Espacio): string {
+    return esp.imagenes[0] || this.alojamiento()?.imagenes[0] || PLACEHOLDER_IMG;
   }
 
   tipoLabel(tipo: TipoEspacio): string {

@@ -194,7 +194,35 @@ describe('CatalogService', () => {
       expect(result.comercioId).toBe('comercio-1');
       expect(result.requisitoVacunas).toBe(true);
       expect(result.camaras24h).toBe(true);
-      expect(result.espacios).toEqual([{ tipo: 'suite', tamanoMaxPerro: 'grande', precioNoche: 45, cantidad: 3 }]);
+      // Los espacios se normalizan con id + disponible + arrays por defecto para el flujo de reserva.
+      expect(result.espacios).toEqual([
+        expect.objectContaining({
+          id: expect.any(String),
+          tipo: 'suite',
+          tamanoMaxPerro: 'grande',
+          precioNoche: 45,
+          cantidad: 3,
+          disponible: true,
+          amenities: [],
+          imagenes: [],
+          cancelacionGratis: true,
+        }),
+      ]);
+    });
+
+    it('debería asignar id, disponible y arrays por defecto a un espacio con datos mínimos', async () => {
+      repo.obtenerPorId.mockResolvedValue({
+        ...hotelDoc,
+        espacios: [{ tipo: 'estandar', precioNoche: 30, cantidad: 1 }],
+      } as never);
+
+      const result = await service.obtenerServicio('hotel-1');
+      const esp = result.espacios[0] as Record<string, unknown>;
+
+      expect(esp['id']).toBeTruthy();
+      expect(esp['disponible']).toBe(true);
+      expect(esp['imagenes']).toEqual([]);
+      expect(esp['amenities']).toEqual([]);
     });
 
     it('debería lanzar DomainException 404 si el hotel no existe', async () => {
