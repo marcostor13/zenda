@@ -9,7 +9,7 @@ import { Reserva } from '../bookings/reserva.schema';
 import { Usuario } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
 import { Perro } from '../perros/perro.schema';
-import { VerticalKey, PagoEstado, IVA_RATE } from 'shared';
+import { VerticalKey, PagoEstado, IVA_RATE, Rol } from 'shared';
 
 describe('AdminService', () => {
   let service: AdminService;
@@ -184,6 +184,14 @@ describe('AdminService', () => {
       expect(analitica.porCiudad).toEqual([{ ciudad: 'Madrid', reservas: 8 }]); // descarta ciudad nula
       expect(analitica.topComercios[0]).toEqual({ comercio: 'VilaCan', reservas: 5, facturacion: 900 });
       expect(analitica.embudo).toEqual({ registrados: 0, conReserva: 3, pagaron: 7 });
+    });
+  });
+
+  describe('crearUsuario', () => {
+    it('debería rechazar un usuario de comercio sin comercioId asociado', async () => {
+      await expect(
+        service.crearUsuario({ nombre: 'X', email: 'x@x.com', password: '123', rol: Rol.COMERCIO_ADMIN }),
+      ).rejects.toThrow(/comercioId/i);
     });
   });
 

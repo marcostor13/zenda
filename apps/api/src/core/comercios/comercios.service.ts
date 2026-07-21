@@ -103,10 +103,17 @@ export class ComerciosService {
     return comercio;
   }
 
+  private exigirComercio(comercioId: string): void {
+    if (!comercioId) {
+      throw new DomainException('Tu cuenta no está vinculada a ningún comercio.', 403);
+    }
+  }
+
   async obtenerReservasComercio(
     comercioId: string,
     limite = 20,
   ): Promise<ReservaDocument[]> {
+    this.exigirComercio(comercioId);
     return this.reservaModel
       .find({ comercioId: new Types.ObjectId(comercioId) })
       .sort({ createdAt: -1 })
@@ -130,6 +137,7 @@ export class ComerciosService {
     proximaLiquidacion: number;
     reservasPagadas: number;
   }> {
+    this.exigirComercio(comercioId);
     const reservas = await this.reservaModel
       .find({ comercioId: new Types.ObjectId(comercioId) })
       .select('_id estado')
@@ -178,6 +186,7 @@ export class ComerciosService {
   }
 
   async obtenerServiciosComercio(comercioId: string): Promise<ServicioDocument[]> {
+    this.exigirComercio(comercioId);
     return this.servicioModel
       .find({ comercioId: new Types.ObjectId(comercioId) })
       .sort({ prioridadRanking: -1, createdAt: -1 })

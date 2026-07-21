@@ -280,6 +280,13 @@ describe('CatalogService', () => {
   describe('crearServicio', () => {
     const base = { titulo: 'Test', descripcion: 'desc', ciudad: 'Madrid', precioBase: 20 };
 
+    it('debería rechazar la creación si no hay comercioId (evita listados huérfanos)', async () => {
+      await expect(
+        service.crearServicio({ ...base, vertical: 'peluqueria' as never, extra: {} }, ''),
+      ).rejects.toThrow(DomainException);
+      expect(repo.crear).not.toHaveBeenCalled();
+    });
+
     it('debería filtrar solo los campos del vertical elegido (ignora los ajenos)', async () => {
       repo.crear.mockResolvedValue(hotelDoc as never);
 

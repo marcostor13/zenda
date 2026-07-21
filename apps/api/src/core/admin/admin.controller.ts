@@ -143,7 +143,7 @@ export class AdminController {
   @Post('usuarios')
   @ApiOperation({ summary: 'Crear un usuario (admin)' })
   crearUsuario(
-    @Body() dto: { nombre: string; email: string; password: string; telefono?: string; rol?: Rol },
+    @Body() dto: { nombre: string; email: string; password: string; telefono?: string; rol?: Rol; comercioId?: string },
   ) {
     return this.adminService.crearUsuario(dto);
   }
@@ -152,7 +152,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Actualizar un usuario (admin)' })
   actualizarUsuario(
     @Param('id') id: string,
-    @Body() dto: { nombre?: string; email?: string; telefono?: string; rol?: Rol; verificado?: boolean },
+    @Body() dto: { nombre?: string; email?: string; telefono?: string; rol?: Rol; verificado?: boolean; comercioId?: string },
   ) {
     return this.adminService.actualizarUsuario(id, dto);
   }

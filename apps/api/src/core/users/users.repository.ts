@@ -49,7 +49,7 @@ export class UsersRepository {
 
   async actualizarAdmin(
     id: string,
-    datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado' | 'rol'>> & { email?: string },
+    datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado' | 'rol'>> & { email?: string; comercioId?: string },
   ): Promise<UsuarioDocument | null> {
     const update: Record<string, unknown> = { ...datos };
     if (datos.email) update['email'] = datos.email.toLowerCase();

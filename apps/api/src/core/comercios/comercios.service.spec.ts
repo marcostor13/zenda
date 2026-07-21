@@ -215,6 +215,16 @@ describe('ComerciosService', () => {
     });
   });
 
+  describe('guardas de comercio', () => {
+    it('obtenerServiciosComercio lanza si no hay comercioId (evita listados huérfanos)', async () => {
+      await expect(service.obtenerServiciosComercio('')).rejects.toThrow(DomainException);
+    });
+
+    it('obtenerReservasComercio lanza si no hay comercioId', async () => {
+      await expect(service.obtenerReservasComercio('')).rejects.toThrow(DomainException);
+    });
+  });
+
   describe('obtenerFinanzasComercio', () => {
     const chain = (result: unknown) => ({
       select: () => ({ lean: () => ({ exec: jest.fn().mockResolvedValue(result) }) }),

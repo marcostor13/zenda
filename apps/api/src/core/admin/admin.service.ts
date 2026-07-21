@@ -311,20 +311,27 @@ export class AdminService {
     password: string;
     telefono?: string;
     rol?: Rol;
+    comercioId?: string;
   }): Promise<UsuarioDocument> {
+    const rol = datos.rol ?? Rol.CLIENTE;
+    // Un usuario de comercio sin comercioId no podría gestionar listados/reservas.
+    if ((rol === Rol.COMERCIO_ADMIN || rol === Rol.COMERCIO_STAFF) && !datos.comercioId) {
+      throw new BadRequestException('Un usuario de comercio requiere un comercioId asociado.');
+    }
     const passwordHash = await bcrypt.hash(datos.password, 10);
     return this.usersRepo.crear({
       nombre: datos.nombre,
       email: datos.email,
       passwordHash,
       telefono: datos.telefono,
-      rol: datos.rol ?? Rol.CLIENTE,
+      rol,
+      comercioId: datos.comercioId,
     });
   }
 
   async actualizarUsuario(
     id: string,
-    datos: { nombre?: string; email?: string; telefono?: string; rol?: Rol; verificado?: boolean },
+    datos: { nombre?: string; email?: string; telefono?: string; rol?: Rol; verificado?: boolean; comercioId?: string },
   ): Promise<UsuarioDocument> {
     const actualizado = await this.usersRepo.actualizarAdmin(id, datos);
     if (!actualizado) throw new NotFoundException('Usuario no encontrado');

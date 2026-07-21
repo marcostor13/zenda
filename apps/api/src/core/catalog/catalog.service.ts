@@ -242,6 +242,11 @@ export class CatalogService {
   }
 
   async crearServicio(dto: CrearServicioDto, comercioId: string): Promise<ServicioCardDto> {
+    // Sin comercio vinculado, `new ObjectId(undefined)` generaría un id aleatorio:
+    // el listado se guardaría "huérfano" y nunca aparecería en "Mis listados".
+    if (!comercioId) {
+      throw new DomainException('Tu cuenta no está vinculada a ningún comercio; no puedes crear listados.', 403);
+    }
     const extra = this.filtrarExtraPorVertical(dto.vertical, dto.extra ?? {});
     this.validarCamposRequeridos(dto.vertical, extra);
 
