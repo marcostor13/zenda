@@ -24,6 +24,10 @@ export class Usuario {
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Comercio' })
   comercioId?: Types.ObjectId;
 
+  // Puesto del miembro del equipo del comercio (gerente, recepción, peluquero…).
+  @Prop()
+  puesto?: string;
+
   @Prop({ default: false })
   verificado!: boolean;
 

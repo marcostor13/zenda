@@ -26,7 +26,8 @@
 - 🟡 **Fase 4 (en curso) — analítica del admin**: endpoint `GET /admin/analitica` (distribución por vertical con %, distribución geográfica por ciudad, Top 5 comercios por facturación, embudo registrados→con reserva→pagaron) + nueva pantalla **Analítica** en el panel admin. Tests verde (320 API).
   - **Recordatorios de mascota**: endpoint `GET /reservas/recordatorios` que, a partir del historial real, sugiere volver a peluquería (>2 meses), veterinario (>12 meses) o adiestramiento (>6 meses); bloque "🔔 Próximos recordatorios" en el perfil del cliente. Tests verde (322 API).
   - **Puntos Doogking (fidelización)**: endpoint `GET /reservas/puntos` (1 punto por € gastado en reservas completadas/confirmadas; cada 400 puntos = 5 € de descuento) + tarjeta de puntos con barra de progreso en el perfil del cliente. Tests verde (324 API).
-  - Pendiente de Fase 4: seguimiento en tiempo real, equipo/permisos de comercio.
+  - **Equipo y permisos de comercio**: el `comercio_admin` da de alta/baja personal (`comercio_staff`) vinculado a su comercio, con puesto (gerente, recepción, peluquero…). Endpoints `GET/POST/DELETE /comercios/mi-equipo` con guardas (no auto-baja, solo staff del propio comercio) + pantalla **Equipo** en el panel del comercio. Tests verde (333 API).
+  - Pendiente de Fase 4: seguimiento en tiempo real (requiere websockets).
 
 ---
 

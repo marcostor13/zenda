@@ -114,6 +114,23 @@ export interface SuplementoAplicado {
   createdAt: string;
 }
 
+export interface MiembroEquipo {
+  _id: string;
+  nombre: string;
+  email: string;
+  rol: string;
+  puesto?: string;
+  createdAt?: string;
+}
+
+export interface CrearMiembroEquipoPayload {
+  nombre: string;
+  email: string;
+  password: string;
+  telefono?: string;
+  puesto?: string;
+}
+
 export interface FinanzasComercio {
   facturacionBruta: number;
   comisionPlataforma: number;
@@ -252,6 +269,18 @@ export class ComercioApiService {
 
   getMisFinanzas(): Observable<FinanzasComercio> {
     return this.http.get<FinanzasComercio>(`${this.url}/mis-finanzas`);
+  }
+
+  getMiEquipo(): Observable<MiembroEquipo[]> {
+    return this.http.get<MiembroEquipo[]>(`${this.url}/mi-equipo`);
+  }
+
+  crearMiembroEquipo(dto: CrearMiembroEquipoPayload): Observable<MiembroEquipo> {
+    return this.http.post<MiembroEquipo>(`${this.url}/mi-equipo`, dto);
+  }
+
+  eliminarMiembroEquipo(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.url}/mi-equipo/${id}`);
   }
 
   completarReserva(reservaId: string): Observable<MiReserva> {

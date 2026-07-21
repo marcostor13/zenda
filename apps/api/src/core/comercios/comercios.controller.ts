@@ -3,11 +3,14 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
   UseGuards,
   Req,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
@@ -75,6 +78,37 @@ export class ComerciosController {
   @ApiOperation({ summary: 'Finanzas del comercio: bruto, comisión, Stripe, reembolsos, liquidación' })
   misFinanzas(@Req() req: RequestConUser) {
     return this.comerciosService.obtenerFinanzasComercio(req.user.comercioId!);
+  }
+
+  @Get('mi-equipo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Miembros del equipo del comercio (admins y staff)' })
+  miEquipo(@Req() req: RequestConUser) {
+    return this.comerciosService.obtenerEquipo(req.user.comercioId!);
+  }
+
+  @Post('mi-equipo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Dar de alta un miembro del equipo (comercio_staff)' })
+  crearMiembroEquipo(
+    @Req() req: RequestConUser,
+    @Body() dto: { nombre: string; email: string; password: string; telefono?: string; puesto?: string },
+  ) {
+    return this.comerciosService.crearMiembroEquipo(req.user.comercioId!, dto);
+  }
+
+  @Delete('mi-equipo/:miembroId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Dar de baja a un miembro del equipo (staff)' })
+  async eliminarMiembroEquipo(@Req() req: RequestConUser, @Param('miembroId') miembroId: string): Promise<void> {
+    await this.comerciosService.eliminarMiembroEquipo(req.user.comercioId!, miembroId, req.user.sub);
   }
 
   @Patch('mis-reservas/:reservaId/completar')

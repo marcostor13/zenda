@@ -13,6 +13,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { CatalogService, ServicioCardDto } from '../catalog/catalog.service';
 import { AuthService } from '../auth/auth.service';
 import { UsersRepository } from '../users/users.repository';
+import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, Rol, ActualizarPerfilComercioDto, SolicitarAjusteDto } from 'shared';
 
@@ -192,6 +193,50 @@ export class ComerciosService {
       .sort({ prioridadRanking: -1, createdAt: -1 })
       .lean()
       .exec() as unknown as ServicioDocument[];
+  }
+
+  // ── Equipo y permisos (Fase 4) ───────────────────────────────────────────────
+
+  async obtenerEquipo(comercioId: string): Promise<UsuarioDocument[]> {
+    this.exigirComercio(comercioId);
+    return this.usersRepo.listarPorComercio(comercioId);
+  }
+
+  /** El comercio_admin da de alta a un miembro del equipo (comercio_staff). */
+  async crearMiembroEquipo(
+    comercioId: string,
+    datos: { nombre: string; email: string; password: string; telefono?: string; puesto?: string },
+  ): Promise<UsuarioDocument> {
+    this.exigirComercio(comercioId);
+    if (await this.usersRepo.findByEmail(datos.email)) {
+      throw new DomainException('Ya existe un usuario con ese email', 409);
+    }
+    const passwordHash = await bcrypt.hash(datos.password, 10);
+    return this.usersRepo.crear({
+      nombre: datos.nombre,
+      email: datos.email,
+      passwordHash,
+      telefono: datos.telefono,
+      rol: Rol.COMERCIO_STAFF,
+      comercioId,
+      puesto: datos.puesto,
+    });
+  }
+
+  /** Baja de un miembro del equipo; solo staff del propio comercio y nunca a uno mismo. */
+  async eliminarMiembroEquipo(comercioId: string, miembroId: string, solicitanteId: string): Promise<void> {
+    this.exigirComercio(comercioId);
+    if (miembroId === solicitanteId) {
+      throw new DomainException('No puedes eliminarte a ti mismo del equipo', 400);
+    }
+    const miembro = await this.usersRepo.findById(miembroId);
+    if (!miembro || miembro.comercioId?.toString() !== comercioId) {
+      throw new DomainException('Miembro no encontrado en tu equipo', 404);
+    }
+    if (miembro.rol !== Rol.COMERCIO_STAFF) {
+      throw new DomainException('Solo puedes eliminar miembros con rol de staff', 400);
+    }
+    await this.usersRepo.eliminar(miembroId);
   }
 
   async cambiarEstadoServicio(

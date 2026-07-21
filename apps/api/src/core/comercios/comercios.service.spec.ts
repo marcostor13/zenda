@@ -78,7 +78,10 @@ describe('ComerciosService', () => {
         },
         {
           provide: UsersRepository,
-          useValue: { findByEmail: jest.fn(), crear: jest.fn() },
+          useValue: {
+            findByEmail: jest.fn(), crear: jest.fn(), findById: jest.fn(),
+            eliminar: jest.fn(), listarPorComercio: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -212,6 +215,44 @@ describe('ComerciosService', () => {
         'servicio-1', 'comercio-1', { cuposDisponibles: 5 },
       );
       expect(resultado).toMatchObject({ id: 'servicio-1' });
+    });
+  });
+
+  describe('equipo del comercio', () => {
+    it('crearMiembroEquipo da de alta un comercio_staff vinculado al comercio', async () => {
+      usersRepo.findByEmail.mockResolvedValue(null);
+      usersRepo.crear.mockResolvedValue({ _id: 'u2' } as never);
+
+      await service.crearMiembroEquipo('comercio-1', {
+        nombre: 'Recepción', email: 'recep@vila.com', password: 'secret123', puesto: 'recepcion',
+      });
+
+      expect(usersRepo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({ rol: Rol.COMERCIO_STAFF, comercioId: 'comercio-1', puesto: 'recepcion' }),
+      );
+    });
+
+    it('crearMiembroEquipo rechaza un email ya existente', async () => {
+      usersRepo.findByEmail.mockResolvedValue({ _id: 'x' } as never);
+      await expect(
+        service.crearMiembroEquipo('comercio-1', { nombre: 'A', email: 'a@a.com', password: '12345678' }),
+      ).rejects.toThrow(DomainException);
+    });
+
+    it('eliminarMiembroEquipo no permite auto-eliminarse', async () => {
+      await expect(service.eliminarMiembroEquipo('comercio-1', 'u1', 'u1')).rejects.toThrow(DomainException);
+    });
+
+    it('eliminarMiembroEquipo rechaza a un miembro de otro comercio', async () => {
+      usersRepo.findById.mockResolvedValue({ comercioId: { toString: () => 'otro' }, rol: Rol.COMERCIO_STAFF } as never);
+      await expect(service.eliminarMiembroEquipo('comercio-1', 'u2', 'u1')).rejects.toThrow(DomainException);
+    });
+
+    it('eliminarMiembroEquipo elimina a un staff del propio comercio', async () => {
+      usersRepo.findById.mockResolvedValue({ comercioId: { toString: () => 'comercio-1' }, rol: Rol.COMERCIO_STAFF } as never);
+      usersRepo.eliminar.mockResolvedValue(undefined);
+      await service.eliminarMiembroEquipo('comercio-1', 'u2', 'u1');
+      expect(usersRepo.eliminar).toHaveBeenCalledWith('u2');
     });
   });
 

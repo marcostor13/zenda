@@ -11,6 +11,7 @@ export interface CrearUsuarioParams {
   telefono?: string;
   rol?: Rol;
   comercioId?: string;
+  puesto?: string;
 }
 
 @Injectable()
@@ -25,6 +26,16 @@ export class UsersRepository {
 
   async findById(id: string): Promise<UsuarioDocument | null> {
     return this.usuarioModel.findById(id).exec();
+  }
+
+  /** Miembros del equipo de un comercio (admins y staff vinculados). */
+  async listarPorComercio(comercioId: string): Promise<UsuarioDocument[]> {
+    return this.usuarioModel
+      .find({ comercioId })
+      .select('nombre email rol puesto createdAt')
+      .sort({ createdAt: 1 })
+      .lean()
+      .exec() as unknown as UsuarioDocument[];
   }
 
   async crear(params: CrearUsuarioParams): Promise<UsuarioDocument> {
