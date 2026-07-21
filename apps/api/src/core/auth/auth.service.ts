@@ -126,9 +126,10 @@ export class AuthService {
     const url = `${this.urlFrontend()}/auth/verificar?token=${token}`;
     await this.notificationsService.enviarVerificacionEmail(usuario.email, usuario.nombre, url);
 
-    // Sin SMTP el correo no llega: dejamos el enlace en el log para poder verificar en dev.
-    if (!this.config.get<string>('SMTP_HOST')) {
-      this.logger.warn(`Verificación (sin SMTP) para ${usuario.email}: ${url}`);
+    // Sin email configurado el correo no llega: dejamos el enlace en el log para verificar en dev.
+    const emailConfigurado = this.config.get<string>('EMAIL_USER') || this.config.get<string>('SMTP_HOST');
+    if (!emailConfigurado) {
+      this.logger.warn(`Verificación (sin email configurado) para ${usuario.email}: ${url}`);
     }
   }
 

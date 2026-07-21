@@ -20,11 +20,38 @@ se saltan este paso.
 
 ## Variables de entorno (Coolify → backend)
 
-Para que los correos se envíen de verdad hay que configurar el SMTP y la URL
-pública del frontend:
+Siempre hace falta la URL pública del frontend (para el enlace del correo):
 
 ```
 FRONTEND_URL=https://TU-DOMINIO-WEB      # base del enlace de verificación
+```
+
+Y una de estas dos opciones de envío:
+
+### Opción A — Gmail (recomendada, la que estás usando)
+
+```
+EMAIL_USER=tu-cuenta@gmail.com
+EMAIL_PASSWORD=xxxxxxxxxxxxxxxx          # CONTRASEÑA DE APLICACIÓN de Google (16 caracteres)
+EMAIL_FROM=Doogking <tu-cuenta@gmail.com>   # opcional; por defecto usa EMAIL_USER
+```
+
+> **Importante:** `EMAIL_PASSWORD` NO es la contraseña normal de tu Gmail. Es
+> una **contraseña de aplicación**:
+> 1. Activa la **verificación en 2 pasos** en tu cuenta de Google
+>    (myaccount.google.com → Seguridad).
+> 2. Entra en **Contraseñas de aplicaciones**
+>    (myaccount.google.com/apppasswords), crea una nueva (nombre: "Doogking").
+> 3. Copia los 16 caracteres que te da y ponlos en `EMAIL_PASSWORD` (sin
+>    espacios).
+>
+> Gmail gratuito permite ~500 correos/día, suficiente para empezar. Para más
+> volumen, usa la opción B con un proveedor transaccional (Mailgun, Resend,
+> SendGrid…).
+
+### Opción B — SMTP genérico
+
+```
 SMTP_HOST=smtp.tu-proveedor.com
 SMTP_PORT=587
 SMTP_SECURE=false                        # true si usas puerto 465
@@ -33,10 +60,12 @@ SMTP_PASS=contraseña-smtp
 SMTP_FROM=Doogking <no-reply@tu-dominio.com>
 ```
 
-> **Sin SMTP configurado** el API no se cae: el registro funciona, pero el
+Si están las dos, **Gmail (EMAIL_USER) tiene prioridad**.
+
+> **Sin ninguna configurada** el API no se cae: el registro funciona, pero el
 > correo no se envía. En ese caso el enlace de verificación se escribe en los
-> **logs** del backend (`Verificación (sin SMTP) para …: https://…`) para poder
-> probar el flujo en desarrollo. En producción, configura SMTP.
+> **logs** del backend (`Verificación (sin email configurado) para …: https://…`)
+> para poder probar el flujo en desarrollo.
 
 ## Notas
 
