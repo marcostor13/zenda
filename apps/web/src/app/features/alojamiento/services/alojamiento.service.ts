@@ -131,10 +131,34 @@ export class AlojamientoService {
     if (filtros.limit) params['limit'] = String(filtros.limit);
     if (filtros.perroId) params['perroId'] = filtros.perroId;
 
-    return firstValueFrom(this.http.get<PaginatedResult<AlojamientoCard>>(this.base, { params }));
+    const res = await firstValueFrom(
+      this.http.get<PaginatedResult<AlojamientoCard>>(this.base, { params }),
+    );
+    return { ...res, items: (res.items ?? []).map((c) => this.normalizarCard(c)) };
   }
 
   async obtener(id: string): Promise<AlojamientoDetalle> {
-    return firstValueFrom(this.http.get<AlojamientoDetalle>(`${this.base}/${id}`));
+    const data = await firstValueFrom(this.http.get<AlojamientoDetalle>(`${this.base}/${id}`));
+    return this.normalizarDetalle(data);
+  }
+
+  /** Garantiza que los arrays existan para que las plantillas no rompan con datos parciales del API. */
+  private normalizarCard<T extends AlojamientoCard>(card: T): T {
+    return { ...card, imagenes: card.imagenes ?? [], amenities: card.amenities ?? [] };
+  }
+
+  private normalizarDetalle(data: AlojamientoDetalle): AlojamientoDetalle {
+    return {
+      ...this.normalizarCard(data),
+      espacios: (data.espacios ?? []).map((esp) => ({
+        ...esp,
+        imagenes: esp.imagenes ?? [],
+        amenities: esp.amenities ?? [],
+      })),
+      resenas: data.resenas ?? [],
+      serviciosAdicionales: data.serviciosAdicionales ?? [],
+      compatibilidadSocialAdmitida: data.compatibilidadSocialAdmitida ?? [],
+      reglas: data.reglas ?? [],
+    };
   }
 }

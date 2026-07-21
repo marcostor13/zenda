@@ -5,7 +5,10 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { IMG_FALLBACK } from '../../../shared/media/images';
 import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspacio } from '../services/alojamiento.service';
+
+const PLACEHOLDER_IMG = IMG_FALLBACK;
 
 @Component({
   selector: 'app-alojamiento-detalle',
@@ -121,6 +124,8 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
           <div class="amenities-grid">
             @for (a of alojamiento()!.amenities; track a) {
               <div class="amenity-item"><rs-icon name="paw" size="16" /> {{ a }}</div>
+            } @empty {
+              <p style="color:var(--t-400);font-size:var(--f-sm)">Servicios no especificados.</p>
             }
           </div>
         </div>
@@ -175,6 +180,10 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
                   }
                 </div>
               </div>
+            } @empty {
+              <p style="color:var(--t-400);font-size:var(--f-sm)">
+                Este alojamiento aún no ha publicado sus tipos de espacio. Contacta con el comercio para más detalles.
+              </p>
             }
           </div>
         </div>
@@ -519,7 +528,7 @@ export class AlojamientoDetalleComponent implements OnInit {
     try {
       const data = await this.alojamientoService.obtener(id);
       this.alojamiento.set(data);
-      this.imagenActiva.set(data.imagenes[0]);
+      this.imagenActiva.set(data.imagenes[0] ?? PLACEHOLDER_IMG);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado"
       // en vez de un detalle falso que llevaría a una reserva imposible.

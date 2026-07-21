@@ -97,5 +97,38 @@ describe('AlojamientoService', () => {
       expect(detalle.requisitoVacunas).toBe(true);
       expect(detalle.camaras24h).toBe(true);
     });
+
+    it('debería rellenar arrays ausentes para que la plantilla no rompa con datos parciales', async () => {
+      // El API devuelve un servicio mínimo (sin imagenes/amenities/espacios).
+      const parcial = {
+        id: 'a2',
+        nombre: 'Nuevo alojamiento',
+        ciudad: 'Valencia',
+        descripcion: 'Recién publicado',
+        comercioId: 'c2',
+      };
+      const promesa = service.obtener('a2');
+      httpMock.expectOne((r) => r.url.endsWith('/catalog/servicios/a2')).flush(parcial);
+
+      const detalle = await promesa;
+      expect(detalle.imagenes).toEqual([]);
+      expect(detalle.amenities).toEqual([]);
+      expect(detalle.espacios).toEqual([]);
+      expect(detalle.resenas).toEqual([]);
+      expect(detalle.serviciosAdicionales).toEqual([]);
+    });
+
+    it('debería normalizar los arrays anidados de cada espacio', async () => {
+      const conEspacioParcial = {
+        ...resultadoMock.items[0],
+        espacios: [{ id: 'e1', tipo: 'suite', precioNoche: 40, cantidad: 2, disponible: true }],
+      };
+      const promesa = service.obtener('a3');
+      httpMock.expectOne((r) => r.url.endsWith('/catalog/servicios/a3')).flush(conEspacioParcial);
+
+      const detalle = await promesa;
+      expect(detalle.espacios[0].imagenes).toEqual([]);
+      expect(detalle.espacios[0].amenities).toEqual([]);
+    });
   });
 });
