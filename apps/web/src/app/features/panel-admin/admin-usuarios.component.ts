@@ -182,6 +182,21 @@ const LIMITE = 20;
           </div>
         </div>
 
+        @if (esRolComercio()) {
+          <div class="rs-form-group">
+            <label class="rs-label">Comercio asociado</label>
+            <select formControlName="comercioId" class="rs-input">
+              <option value="">— Selecciona un comercio —</option>
+              @for (c of comercios(); track c._id) {
+                <option [value]="c._id">{{ c.nombreComercial }}</option>
+              }
+            </select>
+            <p class="rs-field-hint" style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-1)">
+              Obligatorio para cuentas de comercio; sin él no podrán ver sus listados ni reservas.
+            </p>
+          </div>
+        }
+
         @if (editandoId()) {
           <div class="rs-form-group">
             <label class="check-item" style="cursor:pointer">
@@ -304,8 +319,16 @@ export class AdminUsuariosComponent implements OnInit {
     password: ['', Validators.minLength(6)],
     telefono: [''],
     rol: ['cliente'],
+    comercioId: [''],
     verificado: [false],
   });
+
+  readonly comercios = signal<Array<{ _id: string; nombreComercial: string }>>([]);
+
+  esRolComercio(): boolean {
+    const rol = this.form.controls.rol.value;
+    return rol === 'comercio_admin' || rol === 'comercio_staff';
+  }
 
   constructor() {
     this.buscarSubject.pipe(
@@ -321,6 +344,12 @@ export class AdminUsuariosComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.cargar();
+    try {
+      const res = await firstValueFrom(this.adminApi.getComercios({ limite: 200 }));
+      this.comercios.set(res.items.map((c) => ({ _id: c._id, nombreComercial: c.nombreComercial })));
+    } catch {
+      // Sin lista de comercios no se puede vincular, pero no bloquea el resto.
+    }
   }
 
   private async cargar(): Promise<void> {
@@ -373,6 +402,7 @@ export class AdminUsuariosComponent implements OnInit {
       email: u.email,
       telefono: u.telefono ?? '',
       rol: u.rol,
+      comercioId: u.comercioId ?? '',
       verificado: u.verificado,
     });
     this.form.get('password')!.clearValidators();
@@ -392,6 +422,12 @@ export class AdminUsuariosComponent implements OnInit {
     this.modalError.set('');
     const v = this.form.value;
     try {
+      const comercioId = this.esRolComercio() ? (v.comercioId || undefined) : undefined;
+      if (this.esRolComercio() && !comercioId) {
+        this.modalError.set('Selecciona el comercio asociado para una cuenta de comercio.');
+        this.guardando.set(false);
+        return;
+      }
       if (this.editandoId()) {
         const dto: ActualizarUsuarioDto = {
           nombre: v.nombre!,
@@ -399,6 +435,7 @@ export class AdminUsuariosComponent implements OnInit {
           telefono: v.telefono || undefined,
           rol: v.rol!,
           verificado: v.verificado ?? false,
+          comercioId,
         };
         await firstValueFrom(this.adminApi.actualizarUsuario(this.editandoId()!, dto));
       } else {
@@ -408,6 +445,7 @@ export class AdminUsuariosComponent implements OnInit {
           password: v.password!,
           telefono: v.telefono || undefined,
           rol: v.rol!,
+          comercioId,
         };
         await firstValueFrom(this.adminApi.crearUsuario(dto));
       }

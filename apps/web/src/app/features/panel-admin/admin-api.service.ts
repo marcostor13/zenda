@@ -125,6 +125,7 @@ export interface UsuarioAdmin {
   rol: string;
   verificado: boolean;
   telefono?: string;
+  comercioId?: string;
   createdAt: string;
 }
 
@@ -180,6 +181,7 @@ export interface CrearUsuarioDto {
   password: string;
   telefono?: string;
   rol?: string;
+  comercioId?: string;
 }
 
 export interface ActualizarUsuarioDto {
@@ -188,6 +190,7 @@ export interface ActualizarUsuarioDto {
   telefono?: string;
   rol?: string;
   verificado?: boolean;
+  comercioId?: string;
 }
 
 @Injectable({ providedIn: 'root' })
