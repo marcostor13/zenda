@@ -5,7 +5,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { hotelImage } from '../../shared/media/images';
-import { ReservasService, ReservaApi, RecordatorioApi } from '../reservas/services/reservas.service';
+import { ReservasService, ReservaApi, RecordatorioApi, PuntosApi } from '../reservas/services/reservas.service';
 import { PerrosService, PerroApi } from '../perros/perros.service';
 import { FavoritosService } from '../favoritos/favoritos.service';
 
@@ -123,6 +123,17 @@ interface ConfigItem {
         </div>
       }
     </div>
+
+    <!-- PUNTOS DOOGKING -->
+    @if (puntos(); as p) {
+      <div class="rs-card puntos-card">
+        <div class="puntos-card__head">
+          <span class="puntos-card__valor">🐾 {{ p.puntos }} puntos Doogking</span>
+          <span class="puntos-card__meta">Faltan {{ p.puntosFaltantes }} puntos → {{ p.valorProximoDescuento }} € de descuento</span>
+        </div>
+        <div class="puntos-bar"><div class="puntos-bar__fill" [style.width.%]="progresoPuntos()"></div></div>
+      </div>
+    }
 
     <!-- PRÓXIMOS RECORDATORIOS -->
     @if (recordatorios().length) {
@@ -282,6 +293,13 @@ interface ConfigItem {
     .mascota-card__info { min-width: 0; strong { display: block; font-size: var(--f-sm); color: var(--t-100); } span { font-size: var(--f-xs); color: var(--t-400); } }
     .mascota-card--add { justify-content: center; color: var(--c-accent); font-size: var(--f-sm); font-weight: var(--w-6); border-style: dashed; }
 
+    .puntos-card { padding: var(--sp-5); margin-bottom: var(--sp-8); background: var(--g-warm, linear-gradient(135deg, #FFF7E6, #FFFFFF)); }
+    .puntos-card__head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+    .puntos-card__valor { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--t-100); }
+    .puntos-card__meta { font-size: var(--f-sm); color: var(--t-400); }
+    .puntos-bar { height: 10px; background: rgba(0,0,0,.08); border-radius: var(--r-full); overflow: hidden; }
+    .puntos-bar__fill { height: 100%; background: var(--c-amber, #FBAE17); border-radius: var(--r-full); transition: width .4s; }
+
     .recordatorios-list { display: flex; flex-direction: column; gap: var(--sp-3); }
     .recordatorio {
       display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4);
@@ -342,6 +360,13 @@ export class PerfilDashboardComponent implements OnInit {
   readonly reservasRecientes = signal<MiniReserva[]>([]);
   readonly mascotas = signal<PerroApi[]>([]);
   readonly recordatorios = signal<RecordatorioApi[]>([]);
+  readonly puntos = signal<PuntosApi | null>(null);
+
+  readonly progresoPuntos = computed(() => {
+    const p = this.puntos();
+    if (!p || p.proximoUmbral === 0) return 0;
+    return Math.round((p.puntos / p.proximoUmbral) * 100);
+  });
 
   readonly configItems: ConfigItem[] = [
     { icon: 'paw',         label: 'Mis mascotas',        sub: 'Ficha inteligente de tus mascotas', ruta: '/perros' },
@@ -355,13 +380,15 @@ export class PerfilDashboardComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      const [apiReservas, misMascotas, misRecordatorios] = await Promise.all([
+      const [apiReservas, misMascotas, misRecordatorios, misPuntos] = await Promise.all([
         this.reservasService.misReservas(),
         this.perrosService.misPerros().catch(() => [] as PerroApi[]),
         this.reservasService.recordatorios().catch(() => [] as RecordatorioApi[]),
+        this.reservasService.puntos().catch(() => null),
         this.favoritosService.cargarIds(),
       ]);
       this.recordatorios.set(misRecordatorios);
+      this.puntos.set(misPuntos);
       const completadas = apiReservas.filter(r => r.estado === 'completada').length;
       this.mascotas.set(misMascotas);
       this.stats.set([

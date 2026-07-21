@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Reserva, ReservaDocument, SuplementoAplicado } from './reserva.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
 import { CuponesService } from '../cupones/cupones.service';
@@ -451,6 +451,35 @@ export class BookingsService {
       }
     }
     return recordatorios;
+  }
+
+  /**
+   * Programa de fidelización "Puntos Doogking": 1 punto por cada € gastado en
+   * reservas completadas o confirmadas. Cada 400 puntos se desbloquea un
+   * descuento de 5 €. Devuelve el progreso hacia la próxima recompensa.
+   */
+  async obtenerPuntos(usuarioId: string): Promise<{
+    puntos: number;
+    proximoUmbral: number;
+    puntosFaltantes: number;
+    valorProximoDescuento: number;
+  }> {
+    const UMBRAL = 400;
+    const VALOR_DESCUENTO = 5;
+
+    const agg = await this.reservaModel.aggregate<{ total: number }>([
+      { $match: { usuarioId: new Types.ObjectId(usuarioId), estado: { $in: [ReservaEstado.COMPLETADA, ReservaEstado.CONFIRMADA] } } },
+      { $group: { _id: null, total: { $sum: '$montoTotal' } } },
+    ]).exec();
+
+    const puntos = Math.floor(agg[0]?.total ?? 0);
+    const proximoUmbral = (Math.floor(puntos / UMBRAL) + 1) * UMBRAL;
+    return {
+      puntos,
+      proximoUmbral,
+      puntosFaltantes: proximoUmbral - puntos,
+      valorProximoDescuento: VALOR_DESCUENTO,
+    };
   }
 
   private generarCodigo(): string {

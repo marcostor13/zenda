@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { Types } from 'mongoose';
 import { BookingsService } from './bookings.service';
 import { Reserva, ReservaDocument } from './reserva.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
@@ -412,6 +413,33 @@ describe('BookingsService', () => {
       findConReservas([{ vertical: VerticalKey.PELUQUERIA, fechaInicio: haceUnMes }]);
 
       expect(await service.recordatorios('user-1')).toHaveLength(0);
+    });
+  });
+
+  describe('obtenerPuntos', () => {
+    const USER_ID = new Types.ObjectId().toString();
+
+    it('debería calcular puntos por gasto y el progreso al próximo descuento', async () => {
+      reservaModel.aggregate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ total: 350.75 }]),
+      });
+
+      const puntos = await service.obtenerPuntos(USER_ID);
+
+      expect(puntos.puntos).toBe(350); // se trunca
+      expect(puntos.proximoUmbral).toBe(400);
+      expect(puntos.puntosFaltantes).toBe(50);
+      expect(puntos.valorProximoDescuento).toBe(5);
+    });
+
+    it('debería devolver 0 puntos si no hay reservas', async () => {
+      reservaModel.aggregate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+      const puntos = await service.obtenerPuntos(USER_ID);
+      expect(puntos.puntos).toBe(0);
+      expect(puntos.proximoUmbral).toBe(400);
     });
   });
 });

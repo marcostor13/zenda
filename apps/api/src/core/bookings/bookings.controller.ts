@@ -59,6 +59,12 @@ export class BookingsController {
     return this.bookingsService.recordatorios(req.user.sub);
   }
 
+  @Get('puntos')
+  @ApiOperation({ summary: 'Puntos Doogking del usuario y progreso al próximo descuento' })
+  puntos(@Req() req: RequestConUsuario) {
+    return this.bookingsService.obtenerPuntos(req.user.sub);
+  }
+
   @Get('codigo/:codigo')
   @ApiOperation({ summary: 'Obtener una reserva propia por código (ej: RES-XXXXXXXX)' })
   obtenerPorCodigo(
