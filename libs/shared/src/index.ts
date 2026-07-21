@@ -13,6 +13,7 @@ export * from './constants';
 export * from './dtos/auth/login.dto';
 export * from './dtos/auth/registro.dto';
 export * from './dtos/auth/auth-response.dto';
+export * from './dtos/auth/social-login.dto';
 
 // DTOs — Payments
 export * from './dtos/payments/crear-payment-intent.dto';

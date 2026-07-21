@@ -3,11 +3,12 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { SocialButtonsComponent } from '../social-buttons/social-buttons.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, RsIconComponent],
+  imports: [ReactiveFormsModule, RouterLink, RsIconComponent, SocialButtonsComponent],
   template: `
     <div class="rs-auth">
       <div class="rs-auth__card">
@@ -78,7 +79,7 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
           </button>
         </form>
 
-        <div class="rs-auth__divider">o</div>
+        <app-social-buttons />
 
         <div class="rs-auth__footer">
           ¿No tienes cuenta? <a routerLink="/auth/registro">Regístrate gratis</a>

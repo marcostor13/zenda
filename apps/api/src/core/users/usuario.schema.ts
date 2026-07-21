@@ -12,8 +12,13 @@ export class Usuario {
   @Prop({ required: true, unique: true, lowercase: true })
   email!: string;
 
-  @Prop({ required: true })
-  passwordHash!: string;
+  // Opcional: las cuentas creadas solo con Google/Meta no tienen contraseña local.
+  @Prop()
+  passwordHash?: string;
+
+  // Proveedores de identidad vinculados a la cuenta: 'local' | 'google' | 'facebook'.
+  @Prop({ type: [String], default: [] })
+  proveedores!: string[];
 
   @Prop()
   telefono?: string;

@@ -3,11 +3,12 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { SocialButtonsComponent } from '../social-buttons/social-buttons.component';
 
 @Component({
   selector: 'app-registro',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, RsIconComponent],
+  imports: [ReactiveFormsModule, RouterLink, RsIconComponent, SocialButtonsComponent],
   template: `
     <div class="rs-auth">
       <div class="rs-auth__card">
@@ -84,6 +85,8 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
             {{ cargando() ? 'Creando cuenta…' : 'Crear cuenta' }}
           </button>
         </form>
+
+        <app-social-buttons />
 
         <p style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-top:var(--sp-4);line-height:1.5">
           Al registrarte aceptas nuestros <a routerLink="/terminos" style="color:#7AA3FF">Términos</a>

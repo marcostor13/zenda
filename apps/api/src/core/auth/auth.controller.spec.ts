@@ -21,6 +21,8 @@ describe('AuthController', () => {
           useValue: {
             login: jest.fn().mockResolvedValue(authResponseMock),
             registro: jest.fn().mockResolvedValue(authResponseMock),
+            loginConGoogle: jest.fn().mockResolvedValue(authResponseMock),
+            loginConFacebook: jest.fn().mockResolvedValue(authResponseMock),
           },
         },
       ],
@@ -46,6 +48,24 @@ describe('AuthController', () => {
       const resultado = await controller.registro(dto);
 
       expect(authService.registro).toHaveBeenCalledWith(dto);
+      expect(resultado).toEqual(authResponseMock);
+    });
+  });
+
+  describe('google', () => {
+    it('debería delegar el ID token al AuthService', async () => {
+      const resultado = await controller.google({ idToken: 'id-token' });
+
+      expect(authService.loginConGoogle).toHaveBeenCalledWith('id-token');
+      expect(resultado).toEqual(authResponseMock);
+    });
+  });
+
+  describe('facebook', () => {
+    it('debería delegar el access token al AuthService', async () => {
+      const resultado = await controller.facebook({ accessToken: 'access-token' });
+
+      expect(authService.loginConFacebook).toHaveBeenCalledWith('access-token');
       expect(resultado).toEqual(authResponseMock);
     });
   });

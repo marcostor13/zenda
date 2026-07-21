@@ -48,6 +48,24 @@ export class AuthService {
     await this.redirigirPorRol(respuesta.usuario.rol);
   }
 
+  /** Login/registro con Google usando el ID token emitido por Google Identity Services. */
+  async loginConGoogle(idToken: string): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/google`, { idToken }),
+    );
+    this.guardarSesion(respuesta);
+    await this.redirigirPorRol(respuesta.usuario.rol);
+  }
+
+  /** Login/registro con Meta (Facebook) usando el access token del SDK de Facebook. */
+  async loginConFacebook(accessToken: string): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/facebook`, { accessToken }),
+    );
+    this.guardarSesion(respuesta);
+    await this.redirigirPorRol(respuesta.usuario.rol);
+  }
+
   /** Alta de comercio en un solo paso (cuenta comercio_admin + negocio). */
   async registrarComercio(dto: RegistroComercioDto): Promise<void> {
     const respuesta = await firstValueFrom(

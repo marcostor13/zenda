@@ -7,11 +7,14 @@ import { Rol } from 'shared';
 export interface CrearUsuarioParams {
   nombre: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
   telefono?: string;
   rol?: Rol;
   comercioId?: string;
   puesto?: string;
+  proveedores?: string[];
+  avatarUrl?: string;
+  verificado?: boolean;
 }
 
 @Injectable()
@@ -56,6 +59,13 @@ export class UsersRepository {
 
   async actualizarPassword(id: string, passwordHash: string): Promise<void> {
     await this.usuarioModel.findByIdAndUpdate(id, { passwordHash }).exec();
+  }
+
+  /** Vincula un proveedor social a la cuenta (idempotente) y marca el email como verificado. */
+  async vincularProveedor(id: string, proveedor: string): Promise<UsuarioDocument | null> {
+    return this.usuarioModel
+      .findByIdAndUpdate(id, { $addToSet: { proveedores: proveedor }, verificado: true }, { new: true })
+      .exec();
   }
 
   async actualizarAdmin(
