@@ -18,7 +18,7 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, Rol } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, Rol } from 'shared';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -38,8 +38,8 @@ export class ComerciosController {
   }
 
   @Post('registro')
-  @ApiOperation({ summary: 'Alta de comercio en un solo paso (cuenta + negocio); devuelve sesión' })
-  registrarConCuenta(@Body() dto: RegistroComercioDto): Promise<AuthResponseDto> {
+  @ApiOperation({ summary: 'Alta de comercio en un solo paso (cuenta + negocio); pendiente de verificar email' })
+  registrarConCuenta(@Body() dto: RegistroComercioDto): Promise<RegistroPendienteDto> {
     return this.comerciosService.registrarConCuenta(dto);
   }
 

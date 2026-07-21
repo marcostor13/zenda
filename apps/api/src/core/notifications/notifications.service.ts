@@ -67,6 +67,30 @@ export class NotificationsService {
     }
   }
 
+  /** Envía el correo de verificación de email con el enlace de confirmación. */
+  async enviarVerificacionEmail(destinatario: string, nombre: string, url: string): Promise<void> {
+    await this.enviarYRegistrar({
+      tipo: 'verificacion_email',
+      destinatario,
+      asunto: 'Verifica tu email — Doogking',
+      cuerpo: this.plantillaVerificacion(nombre, url),
+    });
+  }
+
+  private plantillaVerificacion(nombre: string, url: string): string {
+    return `
+      <h2>¡Bienvenido a Doogking, ${nombre}!</h2>
+      <p>Confirma tu correo para activar tu cuenta y continuar.</p>
+      <p style="margin:24px 0">
+        <a href="${url}" style="background:#08258B;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600">
+          Verificar mi email
+        </a>
+      </p>
+      <p>O copia y pega este enlace en tu navegador:<br><a href="${url}">${url}</a></p>
+      <p style="color:#8B9BBC;font-size:13px">El enlace caduca en 24 horas. Si no creaste esta cuenta, ignora este correo.</p>
+    `;
+  }
+
   private async enviarYRegistrar(data: Parameters<NotificationsRepository['crear']>[0]): Promise<void> {
     const notif = await this.repo.crear(data);
     try {

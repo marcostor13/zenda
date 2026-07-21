@@ -1,6 +1,15 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { LoginDto, RegistroDto, AuthResponseDto, GoogleLoginDto, FacebookLoginDto } from 'shared';
+import {
+  LoginDto,
+  RegistroDto,
+  AuthResponseDto,
+  GoogleLoginDto,
+  FacebookLoginDto,
+  RegistroPendienteDto,
+  VerificarEmailDto,
+  ReenviarVerificacionDto,
+} from 'shared';
 import { AuthService } from './auth.service';
 
 @ApiTags('auth')
@@ -16,9 +25,24 @@ export class AuthController {
   }
 
   @Post('registro')
-  @ApiOperation({ summary: 'Registrar nuevo usuario' })
-  registro(@Body() dto: RegistroDto): Promise<AuthResponseDto> {
+  @ApiOperation({ summary: 'Registrar nuevo usuario (queda pendiente de verificar email)' })
+  registro(@Body() dto: RegistroDto): Promise<RegistroPendienteDto> {
     return this.authService.registro(dto);
+  }
+
+  @Post('verificar-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirmar el email con el token recibido por correo' })
+  verificarEmail(@Body() dto: VerificarEmailDto): Promise<AuthResponseDto> {
+    return this.authService.verificarEmail(dto.token);
+  }
+
+  @Post('reenviar-verificacion')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reenviar el correo de verificación' })
+  async reenviarVerificacion(@Body() dto: ReenviarVerificacionDto): Promise<{ ok: true }> {
+    await this.authService.reenviarVerificacion(dto.email);
+    return { ok: true };
   }
 
   @Post('google')

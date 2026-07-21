@@ -74,7 +74,7 @@ describe('ComerciosService', () => {
         },
         {
           provide: AuthService,
-          useValue: { emitirTokenParaUsuario: jest.fn() },
+          useValue: { emitirTokenParaUsuario: jest.fn(), iniciarVerificacionEmail: jest.fn() },
         },
         {
           provide: UsersRepository,
@@ -161,12 +161,11 @@ describe('ComerciosService', () => {
   });
 
   describe('registrarConCuenta', () => {
-    it('debería crear el comercio y el usuario comercio_admin, y devolver la sesión', async () => {
+    it('debería crear el comercio y la cuenta pendiente de verificar email (sin sesión)', async () => {
       usersRepo.findByEmail.mockResolvedValue(null);
       repo.findByVatNumber.mockResolvedValue(null);
       repo.crear.mockResolvedValue({ id: 'comercio-1' } as never);
-      usersRepo.crear.mockResolvedValue({ id: 'user-1' } as never);
-      authService.emitirTokenParaUsuario.mockResolvedValue({ accessToken: 'jwt', usuario: {} } as never);
+      usersRepo.crear.mockResolvedValue({ id: 'user-1', email: 'ana@royaldog.eu' } as never);
 
       const resultado = await service.registrarConCuenta(dtoRegistroComercio);
 
@@ -176,7 +175,8 @@ describe('ComerciosService', () => {
       expect(usersRepo.crear).toHaveBeenCalledWith(
         expect.objectContaining({ email: 'ana@royaldog.eu', rol: Rol.COMERCIO_ADMIN, comercioId: 'comercio-1' }),
       );
-      expect(resultado).toEqual({ accessToken: 'jwt', usuario: {} });
+      expect(authService.iniciarVerificacionEmail).toHaveBeenCalled();
+      expect(resultado).toEqual({ requiereVerificacion: true, email: 'ana@royaldog.eu' });
     });
 
     it('debería lanzar 409 si el email ya está registrado', async () => {
@@ -205,8 +205,7 @@ describe('ComerciosService', () => {
     it('debería registrar sin CIF: usa nombreComercial como razón social y no valida el vat', async () => {
       usersRepo.findByEmail.mockResolvedValue(null);
       repo.crear.mockResolvedValue({ id: 'comercio-1' } as never);
-      usersRepo.crear.mockResolvedValue({ id: 'user-1' } as never);
-      authService.emitirTokenParaUsuario.mockResolvedValue({ accessToken: 'jwt', usuario: {} } as never);
+      usersRepo.crear.mockResolvedValue({ id: 'user-1', email: 'ana@royaldog.eu' } as never);
 
       await service.registrarConCuenta({
         nombre: 'Ana Torres',

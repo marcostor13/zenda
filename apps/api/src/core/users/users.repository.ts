@@ -68,6 +68,37 @@ export class UsersRepository {
       .exec();
   }
 
+  /** Guarda (o renueva) el token de verificación de email y marca la cuenta como pendiente. */
+  async establecerTokenVerificacion(id: string, token: string, expira: Date): Promise<void> {
+    await this.usuarioModel
+      .findByIdAndUpdate(id, {
+        verificacionToken: token,
+        verificacionExpira: expira,
+        requiereVerificacionEmail: true,
+        verificado: false,
+      })
+      .exec();
+  }
+
+  async findByVerificacionToken(token: string): Promise<UsuarioDocument | null> {
+    return this.usuarioModel.findOne({ verificacionToken: token }).exec();
+  }
+
+  /** Confirma la verificación: marca verificado, libera el bloqueo y elimina el token. */
+  async confirmarVerificacion(id: string): Promise<UsuarioDocument | null> {
+    return this.usuarioModel
+      .findByIdAndUpdate(
+        id,
+        {
+          verificado: true,
+          requiereVerificacionEmail: false,
+          $unset: { verificacionToken: 1, verificacionExpira: 1 },
+        },
+        { new: true },
+      )
+      .exec();
+  }
+
   async actualizarAdmin(
     id: string,
     datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado' | 'rol'>> & { email?: string; comercioId?: string },

@@ -36,6 +36,17 @@ export class Usuario {
   @Prop({ default: false })
   verificado!: boolean;
 
+  // Bloquea el acceso hasta confirmar el email; solo se activa en registros
+  // locales (email/contraseña). Google/Meta ya llegan verificados.
+  @Prop({ default: false })
+  requiereVerificacionEmail!: boolean;
+
+  @Prop()
+  verificacionToken?: string;
+
+  @Prop()
+  verificacionExpira?: Date;
+
   @Prop()
   avatarUrl?: string;
 }

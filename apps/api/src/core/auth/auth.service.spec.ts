@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { SocialAuthService } from './social-auth.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UsersRepository } from '../users/users.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { Rol } from 'shared';
@@ -17,6 +19,7 @@ describe('AuthService', () => {
   let usersRepository: jest.Mocked<UsersRepository>;
   let jwtService: jest.Mocked<JwtService>;
   let socialAuthService: jest.Mocked<SocialAuthService>;
+  let notificationsService: jest.Mocked<NotificationsService>;
 
   const usuarioMock = {
     id: 'user-id-1',
@@ -37,6 +40,9 @@ describe('AuthService', () => {
             findByEmail: jest.fn(),
             crear: jest.fn(),
             vincularProveedor: jest.fn(),
+            establecerTokenVerificacion: jest.fn(),
+            findByVerificacionToken: jest.fn(),
+            confirmarVerificacion: jest.fn(),
           },
         },
         {
@@ -50,6 +56,14 @@ describe('AuthService', () => {
             verificarFacebook: jest.fn(),
           },
         },
+        {
+          provide: NotificationsService,
+          useValue: { enviarVerificacionEmail: jest.fn() },
+        },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn().mockReturnValue(undefined) },
+        },
       ],
     }).compile();
 
@@ -57,6 +71,7 @@ describe('AuthService', () => {
     usersRepository = module.get(UsersRepository);
     jwtService = module.get(JwtService);
     socialAuthService = module.get(SocialAuthService);
+    notificationsService = module.get(NotificationsService);
   });
 
   describe('login', () => {
@@ -150,7 +165,7 @@ describe('AuthService', () => {
   });
 
   describe('registro', () => {
-    it('debería crear el usuario y retornar accessToken', async () => {
+    it('debería crear el usuario pendiente y enviar el correo de verificación (sin sesión)', async () => {
       usersRepository.findByEmail.mockResolvedValue(null);
       (bcryptMock.hash as jest.Mock).mockResolvedValue('hashed-password');
       usersRepository.crear.mockResolvedValue(usuarioMock as any);
@@ -161,9 +176,17 @@ describe('AuthService', () => {
         password: 'password123',
       });
 
-      expect(resultado.accessToken).toBe('jwt-token');
-      expect(usersRepository.crear).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'juan@test.com' }),
+      expect(resultado).toEqual({ requiereVerificacion: true, email: 'juan@test.com' });
+      expect((resultado as { accessToken?: string }).accessToken).toBeUndefined();
+      expect(usersRepository.establecerTokenVerificacion).toHaveBeenCalledWith(
+        'user-id-1',
+        expect.any(String),
+        expect.any(Date),
+      );
+      expect(notificationsService.enviarVerificacionEmail).toHaveBeenCalledWith(
+        'juan@test.com',
+        'Juan Pérez',
+        expect.stringContaining('/auth/verificar?token='),
       );
     });
 
@@ -179,6 +202,64 @@ describe('AuthService', () => {
       } catch (error) {
         expect((error as DomainException).statusCode).toBe(409);
       }
+    });
+  });
+
+  describe('verificación de email', () => {
+    it('login debería bloquear una cuenta local con el email sin verificar (403)', async () => {
+      usersRepository.findByEmail.mockResolvedValue({
+        ...usuarioMock,
+        requiereVerificacionEmail: true,
+        verificado: false,
+      } as any);
+      (bcryptMock.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.login({ email: 'juan@test.com', password: 'password123' })).rejects.toThrow(
+        'Verifica tu email',
+      );
+    });
+
+    it('verificarEmail debería confirmar la cuenta y devolver sesión con un token válido', async () => {
+      const futuro = new Date(Date.now() + 60_000);
+      usersRepository.findByVerificacionToken.mockResolvedValue({ ...usuarioMock, verificacionExpira: futuro } as any);
+      usersRepository.confirmarVerificacion.mockResolvedValue(usuarioMock as any);
+
+      const resultado = await service.verificarEmail('token-valido');
+
+      expect(usersRepository.confirmarVerificacion).toHaveBeenCalledWith('user-id-1');
+      expect(resultado.accessToken).toBe('jwt-token');
+    });
+
+    it('verificarEmail debería rechazar un token caducado', async () => {
+      const pasado = new Date(Date.now() - 60_000);
+      usersRepository.findByVerificacionToken.mockResolvedValue({ ...usuarioMock, verificacionExpira: pasado } as any);
+
+      await expect(service.verificarEmail('token-caducado')).rejects.toThrow(DomainException);
+      expect(usersRepository.confirmarVerificacion).not.toHaveBeenCalled();
+    });
+
+    it('verificarEmail debería rechazar un token inexistente', async () => {
+      usersRepository.findByVerificacionToken.mockResolvedValue(null);
+      await expect(service.verificarEmail('no-existe')).rejects.toThrow(DomainException);
+    });
+
+    it('reenviarVerificacion solo reenvía si la cuenta está pendiente', async () => {
+      usersRepository.findByEmail.mockResolvedValue({
+        ...usuarioMock,
+        requiereVerificacionEmail: true,
+        verificado: false,
+      } as any);
+
+      await service.reenviarVerificacion('juan@test.com');
+
+      expect(usersRepository.establecerTokenVerificacion).toHaveBeenCalled();
+      expect(notificationsService.enviarVerificacionEmail).toHaveBeenCalled();
+    });
+
+    it('reenviarVerificacion no hace nada si el email no existe o ya está verificado', async () => {
+      usersRepository.findByEmail.mockResolvedValue(null);
+      await service.reenviarVerificacion('desconocido@test.com');
+      expect(notificationsService.enviarVerificacionEmail).not.toHaveBeenCalled();
     });
   });
 });

@@ -19,8 +19,32 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
         <div class="rs-auth__brand">
           <img src="/images/logo-doogking.jpg" alt="Doogking"
                style="height:96px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-2)" />
-          <p>Hazte partner de Doogking</p>
+          <p>{{ pendiente() ? 'Verifica tu correo' : 'Hazte partner de Doogking' }}</p>
         </div>
+
+        @if (pendiente()) {
+          <div style="text-align:center">
+            <div style="width:64px;height:64px;border-radius:50%;background:var(--c-accent-lo);color:var(--c-accent);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)">
+              <rs-icon name="mail" [size]="30" [stroke]="1.75"></rs-icon>
+            </div>
+            <p style="color:var(--t-200);font-size:var(--f-base);line-height:1.6">
+              Te enviamos un enlace de verificación a<br><strong>{{ emailRegistrado() }}</strong>.
+            </p>
+            <p style="color:var(--t-400);font-size:var(--f-sm);margin-top:var(--sp-3)">
+              Ábrelo para activar tu cuenta y entrar a tu panel de comercio. Revisa también el spam.
+            </p>
+            @if (reenviado()) {
+              <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">Correo reenviado ✓</div>
+            }
+            <button type="button" class="rs-btn rs-btn--outline rs-btn--block" style="margin-top:var(--sp-5)"
+                    (click)="reenviar()" [disabled]="reenviando()">
+              {{ reenviando() ? 'Reenviando…' : 'Reenviar correo' }}
+            </button>
+            <div class="rs-auth__footer" style="margin-top:var(--sp-4)">
+              <a routerLink="/auth/login">Volver a iniciar sesión</a>
+            </div>
+          </div>
+        } @else {
 
         <!-- Stepper -->
         <div class="wz-steps">
@@ -158,6 +182,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
             </p>
           </form>
         }
+        }
 
         <div class="rs-auth__footer">
           ¿Eres dueño de un perro? <a routerLink="/auth/registro">Crea tu cuenta de cliente</a>
@@ -222,6 +247,10 @@ export class RegistroComercioComponent {
   readonly error = signal<string | null>(null);
   readonly mostrarPassword = signal(false);
   readonly verticalesSel = signal<VerticalKey[]>([]);
+  readonly pendiente = signal(false);
+  readonly emailRegistrado = signal('');
+  readonly reenviando = signal(false);
+  readonly reenviado = signal(false);
 
   readonly pasos = [
     { n: 1, label: 'Servicios' },
@@ -298,7 +327,7 @@ export class RegistroComercioComponent {
     try {
       const negocio = this.negocioForm.getRawValue();
       const cuenta = this.cuentaForm.getRawValue();
-      await this.authService.registrarComercio({
+      const respuesta = await this.authService.registrarComercio({
         nombre: cuenta.nombre!,
         email: cuenta.email!,
         password: cuenta.password!,
@@ -308,6 +337,8 @@ export class RegistroComercioComponent {
         verticales: this.verticalesSel().length ? this.verticalesSel() : undefined,
       });
       localStorage.removeItem(BORRADOR_KEY);
+      this.emailRegistrado.set(respuesta.email);
+      this.pendiente.set(true);
     } catch (e) {
       const status = (e as { status?: number })?.status;
       if (status === 409) {
@@ -317,6 +348,19 @@ export class RegistroComercioComponent {
       }
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  async reenviar(): Promise<void> {
+    this.reenviando.set(true);
+    this.reenviado.set(false);
+    try {
+      await this.authService.reenviarVerificacion(this.emailRegistrado());
+      this.reenviado.set(true);
+    } catch {
+      this.error.set('No se pudo reenviar el correo.');
+    } finally {
+      this.reenviando.set(false);
     }
   }
 

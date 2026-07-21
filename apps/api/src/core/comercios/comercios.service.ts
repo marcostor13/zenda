@@ -15,7 +15,7 @@ import { AuthService } from '../auth/auth.service';
 import { UsersRepository } from '../users/users.repository';
 import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, Rol, ActualizarPerfilComercioDto, SolicitarAjusteDto } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, RegistroPendienteDto, Rol, ActualizarPerfilComercioDto, SolicitarAjusteDto } from 'shared';
 
 @Injectable()
 export class ComerciosService {
@@ -48,10 +48,10 @@ export class ComerciosService {
 
   /**
    * Alta de comercio en un solo paso (self-service, "Hazte partner"): crea el
-   * negocio y la cuenta comercio_admin que lo gestiona, y devuelve la sesión
-   * ya autenticada para no exigir un login adicional.
+   * negocio y la cuenta comercio_admin que lo gestiona. La cuenta queda
+   * pendiente de verificar el email antes de poder entrar al panel.
    */
-  async registrarConCuenta(dto: RegistroComercioDto): Promise<AuthResponseDto> {
+  async registrarConCuenta(dto: RegistroComercioDto): Promise<RegistroPendienteDto> {
     if (await this.usersRepo.findByEmail(dto.email)) {
       throw new DomainException('El email ya está registrado', 409);
     }
@@ -79,8 +79,10 @@ export class ComerciosService {
         telefono: dto.telefono,
         rol: Rol.COMERCIO_ADMIN,
         comercioId: comercio.id,
+        proveedores: ['local'],
       });
-      return await this.authService.emitirTokenParaUsuario(usuario);
+      await this.authService.iniciarVerificacionEmail(usuario);
+      return { requiereVerificacion: true, email: usuario.email };
     } catch (error) {
       // El comercio no debe quedar huérfano si la creación del usuario falla.
       await this.repo.eliminar(comercio.id);

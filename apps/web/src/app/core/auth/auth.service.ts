@@ -2,7 +2,7 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { LoginDto, RegistroDto, RegistroComercioDto, AuthResponseDto, Rol } from 'shared';
+import { LoginDto, RegistroDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, Rol } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface UsuarioAutenticado {
@@ -40,12 +40,26 @@ export class AuthService {
     await this.redirigirPorRol(respuesta.usuario.rol);
   }
 
-  async registro(dto: RegistroDto): Promise<void> {
+  /** Registro local: la cuenta queda pendiente de verificar el email (sin sesión aún). */
+  async registro(dto: RegistroDto): Promise<RegistroPendienteDto> {
+    return firstValueFrom(
+      this.http.post<RegistroPendienteDto>(`${environment.apiUrl}/auth/registro`, dto),
+    );
+  }
+
+  /** Confirma el email con el token del enlace y arranca la sesión. */
+  async verificarEmail(token: string): Promise<void> {
     const respuesta = await firstValueFrom(
-      this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/registro`, dto),
+      this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/verificar-email`, { token }),
     );
     this.guardarSesion(respuesta);
     await this.redirigirPorRol(respuesta.usuario.rol);
+  }
+
+  async reenviarVerificacion(email: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post(`${environment.apiUrl}/auth/reenviar-verificacion`, { email }),
+    );
   }
 
   /** Login/registro con Google usando el ID token emitido por Google Identity Services. */
@@ -66,13 +80,11 @@ export class AuthService {
     await this.redirigirPorRol(respuesta.usuario.rol);
   }
 
-  /** Alta de comercio en un solo paso (cuenta comercio_admin + negocio). */
-  async registrarComercio(dto: RegistroComercioDto): Promise<void> {
-    const respuesta = await firstValueFrom(
-      this.http.post<AuthResponseDto>(`${environment.apiUrl}/comercios/registro`, dto),
+  /** Alta de comercio en un solo paso; queda pendiente de verificar el email. */
+  async registrarComercio(dto: RegistroComercioDto): Promise<RegistroPendienteDto> {
+    return firstValueFrom(
+      this.http.post<RegistroPendienteDto>(`${environment.apiUrl}/comercios/registro`, dto),
     );
-    this.guardarSesion(respuesta);
-    await this.redirigirPorRol(respuesta.usuario.rol);
   }
 
   logout(): void {

@@ -5,7 +5,7 @@ export type NotificacionDocument = HydratedDocument<Notificacion>;
 
 export type CanalNotificacion = 'email';
 export type EstadoNotificacion = 'pendiente' | 'enviado' | 'fallido';
-export type TipoNotificacion = 'reserva_confirmada' | 'nueva_reserva_comercio';
+export type TipoNotificacion = 'reserva_confirmada' | 'nueva_reserva_comercio' | 'verificacion_email';
 
 /** Outbox de notificaciones: cada intento de envío queda registrado. */
 @Schema({ timestamps: true, collection: 'notificaciones' })

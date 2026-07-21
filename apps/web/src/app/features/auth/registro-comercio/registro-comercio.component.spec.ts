@@ -60,7 +60,7 @@ describe('RegistroComercioComponent (wizard)', () => {
   });
 
   it('debería registrar el comercio con negocio, cuenta y categorías', async () => {
-    authService.registrarComercio.mockResolvedValue(undefined);
+    authService.registrarComercio.mockResolvedValue({ requiereVerificacion: true, email: 'ana@royaldog.eu' });
     component.toggleVertical(VerticalKey.ALOJAMIENTO);
     component.toggleVertical(VerticalKey.PELUQUERIA);
     rellenarNegocio();
@@ -80,7 +80,7 @@ describe('RegistroComercioComponent (wizard)', () => {
   });
 
   it('debería enviar verticales=undefined si no hay categorías', async () => {
-    authService.registrarComercio.mockResolvedValue(undefined);
+    authService.registrarComercio.mockResolvedValue({ requiereVerificacion: true, email: 'ana@royaldog.eu' });
     rellenarNegocio();
     rellenarCuenta();
 

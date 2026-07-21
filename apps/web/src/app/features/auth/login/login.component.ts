@@ -68,6 +68,19 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
             <div class="rs-alert rs-alert--error">{{ error() }}</div>
           }
 
+          @if (requiereVerificacion()) {
+            <div class="rs-alert rs-alert--warning" style="display:flex;flex-direction:column;gap:var(--sp-2)">
+              <span>Tu email aún no está verificado. Revisa tu correo o reenvía el enlace.</span>
+              @if (reenviado()) {
+                <strong>Correo reenviado ✓</strong>
+              } @else {
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="reenviar()" [disabled]="reenviando()">
+                  {{ reenviando() ? 'Reenviando…' : 'Reenviar verificación' }}
+                </button>
+              }
+            </div>
+          }
+
           <button
             type="submit"
             class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
@@ -103,6 +116,9 @@ export class LoginComponent {
 
   private readonly emailGuardado = localStorage.getItem(LoginComponent.EMAIL_KEY);
   readonly emailRecordado = signal(!!this.emailGuardado);
+  readonly requiereVerificacion = signal(false);
+  readonly reenviando = signal(false);
+  readonly reenviado = signal(false);
 
   readonly formulario = this.fb.group({
     email: [this.emailGuardado ?? '', [Validators.required, Validators.email]],
@@ -115,6 +131,8 @@ export class LoginComponent {
 
     this.cargando.set(true);
     this.error.set(null);
+    this.requiereVerificacion.set(false);
+    this.reenviado.set(false);
 
     try {
       const email = this.formulario.value.email!;
@@ -124,10 +142,26 @@ export class LoginComponent {
       } else {
         localStorage.removeItem(LoginComponent.EMAIL_KEY);
       }
-    } catch {
-      this.error.set('Credenciales incorrectas. Intenta de nuevo.');
+    } catch (e) {
+      if ((e as { status?: number })?.status === 403) {
+        this.requiereVerificacion.set(true);
+      } else {
+        this.error.set('Credenciales incorrectas. Intenta de nuevo.');
+      }
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  async reenviar(): Promise<void> {
+    this.reenviando.set(true);
+    try {
+      await this.authService.reenviarVerificacion(this.formulario.value.email!);
+      this.reenviado.set(true);
+    } catch {
+      this.error.set('No se pudo reenviar el correo.');
+    } finally {
+      this.reenviando.set(false);
     }
   }
 }

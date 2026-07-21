@@ -14,5 +14,10 @@ export const authRoutes: Routes = [
     loadComponent: () =>
       import('./registro-comercio/registro-comercio.component').then((m) => m.RegistroComercioComponent),
   },
+  {
+    path: 'verificar',
+    loadComponent: () =>
+      import('./verificar/verificar-email.component').then((m) => m.VerificarEmailComponent),
+  },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 ];

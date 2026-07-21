@@ -54,28 +54,54 @@ describe('AuthService', () => {
   });
 
   describe('registrarComercio', () => {
-    it('debería registrar el comercio y navegar al panel si el rol es comercio_admin', async () => {
-      const respuestaComercio: AuthResponseDto = {
-        accessToken: 'jwt-comercio',
-        usuario: {
-          id: 'user-2', nombre: 'Ana', email: 'ana@royaldog.eu',
-          rol: Rol.COMERCIO_ADMIN, comercioId: 'comercio-1',
-        },
-      };
-
+    it('debería registrar el comercio y devolver estado pendiente (sin sesión ni redirección)', async () => {
       const promesa = service.registrarComercio({
-        nombre: 'Ana', email: 'ana@royaldog.eu', password: 'password123',
-        razonSocial: 'Royal Dog S.L.', vatNumber: 'ES-B1', nombreComercial: 'Royal Dog',
+        nombre: 'Ana', email: 'ana@royaldog.eu', password: 'password123', nombreComercial: 'Royal Dog',
       });
 
       const req = httpMock.expectOne((r) => r.url.includes('/comercios/registro'));
       expect(req.request.method).toBe('POST');
-      req.flush(respuestaComercio);
+      req.flush({ requiereVerificacion: true, email: 'ana@royaldog.eu' });
+      const resultado = await promesa;
+
+      expect(resultado).toEqual({ requiereVerificacion: true, email: 'ana@royaldog.eu' });
+      expect(service.estaAutenticado()).toBe(false);
+      expect(routerMock.navigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('registro', () => {
+    it('debería devolver estado pendiente sin iniciar sesión', async () => {
+      const promesa = service.registro({ nombre: 'Juan', email: 'juan@test.com', password: 'password123' });
+      const req = httpMock.expectOne((r) => r.url.includes('/auth/registro'));
+      req.flush({ requiereVerificacion: true, email: 'juan@test.com' });
+      const resultado = await promesa;
+
+      expect(resultado).toEqual({ requiereVerificacion: true, email: 'juan@test.com' });
+      expect(service.estaAutenticado()).toBe(false);
+    });
+  });
+
+  describe('verificarEmail', () => {
+    it('debería confirmar el email, iniciar sesión y redirigir por rol', async () => {
+      const promesa = service.verificarEmail('token-123');
+      const req = httpMock.expectOne((r) => r.url.includes('/auth/verificar-email'));
+      expect(req.request.body).toEqual({ token: 'token-123' });
+      req.flush(authResponseMock);
       await promesa;
 
       expect(service.estaAutenticado()).toBe(true);
-      expect(service.token()).toBe('jwt-comercio');
-      expect(routerMock.navigate).toHaveBeenCalledWith(['/comercio']);
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/']);
+    });
+  });
+
+  describe('reenviarVerificacion', () => {
+    it('debería postear el email al endpoint de reenvío', async () => {
+      const promesa = service.reenviarVerificacion('juan@test.com');
+      const req = httpMock.expectOne((r) => r.url.includes('/auth/reenviar-verificacion'));
+      expect(req.request.body).toEqual({ email: 'juan@test.com' });
+      req.flush({ ok: true });
+      await promesa;
     });
   });
 
