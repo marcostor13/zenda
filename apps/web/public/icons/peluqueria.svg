@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Peluquería canina">
+  <g fill="none" stroke="#08258B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5.5"/>
+    <circle cx="12" cy="36" r="5.5"/>
+    <path d="M39 8 16.2 31.8"/>
+    <path d="M28.9 29 39 40"/>
+    <path d="M16.2 16.2 24 24"/>
+  </g>
+  <circle cx="24" cy="24" r="1.7" fill="#08258B"/>
+  <path d="M40 4.5 41.4 8.6 45.5 10 41.4 11.4 40 15.5 38.6 11.4 34.5 10 38.6 8.6 40 4.5Z" fill="#FBAE17"/>
+</svg>

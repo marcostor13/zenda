@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Transporte de animales">
+  <g fill="none" stroke="#08258B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 32V16a2 2 0 0 1 2-2h20a2 2 0 0 1 2 2v16"/>
+    <path d="M28 20h6.6a2 2 0 0 1 1.6.8l6 8a2 2 0 0 1 .4 1.2V32"/>
+    <path d="M4 32h4M18 32h9M38 32h6"/>
+    <circle cx="13" cy="34.5" r="4"/>
+    <circle cx="33.5" cy="34.5" r="4"/>
+  </g>
+  <path d="M11 19.5h10a1.5 1.5 0 0 1 0 3H11a1.5 1.5 0 0 1 0-3Zm0 5h6a1.5 1.5 0 0 1 0 3h-6a1.5 1.5 0 0 1 0-3Z" fill="#FBAE17"/>
+</svg>

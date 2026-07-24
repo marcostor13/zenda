@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Adiestramiento canino">
+  <path d="M24 6 44 15l-20 9L4 15 24 6Z" fill="#FBAE17"/>
+  <g fill="none" stroke="#08258B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 6 44 15l-20 9L4 15 24 6Z"/>
+    <path d="M11 19.5v9c0 3.6 5.8 6.5 13 6.5s13-2.9 13-6.5v-9"/>
+    <path d="M42.6 16.3v13.4"/>
+  </g>
+  <circle cx="42.6" cy="32.6" r="3" fill="#FBAE17" stroke="#08258B" stroke-width="2"/>
+</svg>

@@ -10,6 +10,8 @@
 /** Assets de marca Doogking (public/images). */
 export const BRAND = {
   logo: '/images/logo-doogking.jpg',
+  /** Logotipo sin la banda del eslogan — para heros donde el eslogan es texto. */
+  logoMark: '/images/logo-doogking-mark.jpg',
   logoFooter: '/images/logo-doogking-footer.jpg',
   mascota: '/images/mascota-doogking.jpg',
   heroHome: '/images/hero-home.jpg',
@@ -26,6 +28,28 @@ export const CATEGORIA_BADGES: Record<string, string> = {
   adiestramiento: '/images/categoria-adiestramiento.jpg',
   hoteles: '/images/categoria-alojamiento.jpg',
 };
+
+/**
+ * Iconos SVG de las categorías caninas (`public/icons`). Trazo Royal King Blue
+ * con acento Crown Gold: misma línea gráfica que el logo de Doogking.
+ */
+export const CATEGORIA_ICONOS: Record<string, string> = {
+  alojamiento: '/icons/alojamiento.svg',
+  guarderia: '/icons/guarderia.svg',
+  transporte: '/icons/transporte.svg',
+  veterinaria: '/icons/veterinaria.svg',
+  peluqueria: '/icons/peluqueria.svg',
+  adiestramiento: '/icons/adiestramiento.svg',
+  hoteles: '/icons/hoteles.svg',
+  mas: '/icons/mas-servicios.svg',
+};
+
+/** Iconos de la franja de confianza — blanco + dorado, para fondo navy. */
+export const TRUST_ICONOS = {
+  verificados: '/icons/trust-verificados.svg',
+  reservaSegura: '/icons/trust-reserva-segura.svg',
+  prioridad: '/icons/trust-prioridad.svg',
+} as const;
 
 /** Construye una URL del CDN de Pexels para un id de foto y un ancho dado. */
 export function pexels(id: number, width = 800): string {

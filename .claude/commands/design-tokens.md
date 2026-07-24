@@ -120,7 +120,19 @@ UTILS:     .rs-spinner .rs-skeleton .rs-hr .rs-flex .rs-col .rs-center
 
 ## Assets de marca (`apps/web/public/`)
 
-`favicon.svg` (huella + corona) · `images/logo-doogking.jpg` · `images/hero-home.jpg` · `images/categoria-{alojamiento|transporte|veterinaria|peluqueria|adiestramiento}.jpg` (badges circulares) · `images/mascota-doogking.jpg` · helpers en `shared/media/images.ts` (BRAND, CATEGORIA_BADGES, HOTEL_IMAGES).
+`favicon.svg` (huella + corona) · `images/logo-doogking.jpg` · `images/logo-doogking-mark.jpg` (logo sin la banda del eslogan, para heros donde el eslogan es texto) · `images/hero-home.jpg` · `images/categoria-{alojamiento|transporte|veterinaria|peluqueria|adiestramiento}.jpg` (badges circulares) · `images/mascota-doogking.jpg` · helpers en `shared/media/images.ts` (BRAND, CATEGORIA_BADGES, CATEGORIA_ICONOS, TRUST_ICONOS, HOTEL_IMAGES).
+
+### Iconos de categoría (`apps/web/public/icons/`)
+
+Iconos SVG propios de línea gráfica Doogking: trazo `#08258B` de 2.6 y acento macizo `#FBAE17`, lienzo `0 0 48 48`.
+
+```
+icons/{alojamiento|guarderia|transporte|veterinaria|peluqueria|adiestramiento|hoteles|mas-servicios}.svg
+icons/trust-{verificados|reserva-segura|prioridad}.svg   ← blanco + dorado, para fondo navy
+```
+
+Se referencian con `CATEGORIA_ICONOS['<vertical>']` y `TRUST_ICONOS.*`, nunca por ruta literal.
+Al añadir un vertical nuevo: crear su SVG con la misma paleta y registrarlo en `CATEGORIA_ICONOS`.
 
 ## $ARGUMENTS
 

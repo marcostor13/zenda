@@ -1,6 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
@@ -8,7 +9,7 @@ import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scr
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { BRAND, CATEGORIA_BADGES, HOTEL_IMAGES } from '../../shared/media/images';
+import { BRAND, CATEGORIA_ICONOS, HOTEL_IMAGES, TRUST_ICONOS } from '../../shared/media/images';
 import { environment } from '../../../environments/environment';
 
 /** Ruta de navegación de cada categoría canina. */
@@ -21,12 +22,20 @@ const VERTICAL_ROUTES: Record<string, string> = {
   hoteles: '/hoteles',
 };
 
+/** Categorías que se reservan por noches (entrada/salida) y no por cita. */
+const VERTICALES_POR_NOCHES: readonly string[] = [VerticalKey.ALOJAMIENTO, VerticalKey.HOTELES];
+
 interface Vertical {
   key: VerticalKey;
   icon: string;
   label: string;
+  /** Etiqueta corta para la fila de categorías del buscador. */
+  labelCorto: string;
   route: string;
-  badge: string;
+  /** Icono SVG de la categoría (public/icons). */
+  icono: string;
+  /** Gancho comercial mostrado en la tarjeta de categoría. */
+  claim: string;
 }
 
 interface AlojamientoRecomendado {
@@ -39,6 +48,12 @@ interface AlojamientoRecomendado {
   precioPorNoche: number;
   imagen: string;
   tags: string[];
+}
+
+interface Ciudad {
+  nombre: string;
+  servicios: number;
+  imagen: string;
 }
 
 /** Respuesta del asistente de búsqueda con IA (`POST /ai-search`). */
@@ -60,163 +75,212 @@ type SearchMode = 'filtros' | 'ia';
 <div class="home">
   <rs-navbar />
 
-  <!-- ═══ HERO ════════════════════════════════════════════════════ -->
+  <!-- ═══ HERO + BUSCADOR ═════════════════════════════════════════ -->
   <section class="hero">
-    <div class="hero__bg" aria-hidden="true">
-      <img [src]="heroImg" alt="" loading="eager" fetchpriority="high" />
-      <div class="hero__overlay"></div>
-    </div>
+    <div class="hero__navy" aria-hidden="true"></div>
 
-    <div class="hero__inner rs-wrap">
-      <div class="hero__content">
+    <div class="hero__inner rs-wrap rs-wrap--2xl">
+      <div class="hero__brand">
+        <img [src]="logoMark" alt="Doogking" class="hero__logo" fetchpriority="high" />
         <h1 class="hero__title">
-          <span class="hero__title-blue">Todo para su rey,</span><br>
-          <span class="hero__title-gold">en un solo lugar</span>
+          <span class="hero__title-line hero__title-line--blue">
+            <i class="hero__dash" aria-hidden="true"></i>
+            Todo para su rey
+            <i class="hero__dash" aria-hidden="true"></i>
+          </span>
+          <span class="hero__title-line hero__title-line--gold">en un solo lugar</span>
         </h1>
+      </div>
 
-        <p class="hero__sub">
-          Reserva alojamientos premium, veterinarios de confianza y peluquería
-          real para tu perro. La forma más fácil de darle el trato que merece.
-        </p>
-
-        <!-- Panel de búsqueda centrado -->
-        <div class="hero__panel">
-          <!-- Toggle: filtros vs IA (un clic) -->
-          <div class="hero__modes" role="tablist" aria-label="Modo de búsqueda">
-            <button type="button" class="hero__mode" role="tab"
+      <!-- Panel de búsqueda (estilo Booking: categorías + filtros en una fila) -->
+      <div class="searchbox" role="search">
+        <div class="searchbox__head">
+          <p class="searchbox__question">¿Qué servicio necesitas?</p>
+          <div class="searchbox__modes" role="tablist" aria-label="Modo de búsqueda">
+            <button type="button" class="searchbox__mode" role="tab"
                     [class.is-active]="searchMode() === 'filtros'"
                     [attr.aria-selected]="searchMode() === 'filtros'"
                     (click)="searchMode.set('filtros')">
-              <rs-icon name="search" [size]="15" [stroke]="2.25"></rs-icon>
-              Buscar por filtros
+              <rs-icon name="search" [size]="14" [stroke]="2.25"></rs-icon>
+              Filtros
             </button>
-            <button type="button" class="hero__mode hero__mode--ia" role="tab"
+            <button type="button" class="searchbox__mode" role="tab"
                     [class.is-active]="searchMode() === 'ia'"
                     [attr.aria-selected]="searchMode() === 'ia'"
                     (click)="searchMode.set('ia')">
-              <rs-icon name="sparkles" [size]="15" [stroke]="2"></rs-icon>
+              <rs-icon name="sparkles" [size]="14" [stroke]="2"></rs-icon>
               Buscar con IA
             </button>
           </div>
+        </div>
 
-          @if (searchMode() === 'filtros') {
-            <form class="hero__search" [formGroup]="searchForm" (ngSubmit)="onBuscar()">
-              <div class="hero__field hero__field--service">
-                <label class="hero__lbl" for="home-servicio">Servicio</label>
-                <div class="hero__inp-wrap">
-                  <rs-icon [name]="verticalIcon()" [size]="16" [stroke]="2"></rs-icon>
-                  <select id="home-servicio" formControlName="vertical" class="hero__inp hero__inp--select">
-                    @for (v of verticales; track v.key) {
-                      <option [value]="v.key">{{ v.label }}</option>
-                    }
-                  </select>
-                </div>
-              </div>
-
-              <div class="hero__field hero__field--city">
-                <label class="hero__lbl" for="home-ciudad">Ciudad</label>
-                <div class="hero__inp-wrap">
-                  <rs-icon name="map-pin" [size]="16" [stroke]="2"></rs-icon>
-                  <input id="home-ciudad" formControlName="ciudad" class="hero__inp"
-                         placeholder="Madrid, Barcelona…" />
-                </div>
-              </div>
-
-              <div class="hero__field hero__field--date">
-                <label class="hero__lbl" for="home-desde">Entrada</label>
-                <div class="hero__inp-wrap">
-                  <rs-icon name="calendar" [size]="16" [stroke]="2"></rs-icon>
-                  <input id="home-desde" formControlName="fechaInicio" type="date" class="hero__inp" aria-label="Fecha de entrada" />
-                </div>
-              </div>
-
-              <div class="hero__field hero__field--date">
-                <label class="hero__lbl" for="home-hasta">Salida</label>
-                <div class="hero__inp-wrap">
-                  <rs-icon name="calendar" [size]="16" [stroke]="2"></rs-icon>
-                  <input id="home-hasta" formControlName="fechaFin" type="date" class="hero__inp" aria-label="Fecha de salida" />
-                </div>
-              </div>
-
-              <div class="hero__field hero__field--dogs">
-                <label class="hero__lbl" for="home-perros">Perros</label>
-                <div class="hero__inp-wrap">
-                  <rs-icon name="paw" [size]="16" [stroke]="2"></rs-icon>
-                  <select id="home-perros" formControlName="perros" class="hero__inp hero__inp--select">
-                    @for (n of [1,2,3,4]; track n) {
-                      <option [value]="n">{{ n }}</option>
-                    }
-                  </select>
-                </div>
-              </div>
-
-              <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg hero__cta">
-                <rs-icon name="search" [size]="18" [stroke]="2.25"></rs-icon>
-                <span>Buscar</span>
-              </button>
-            </form>
-          } @else {
-            <form class="hero__ai" (ngSubmit)="buscarConIA()">
-              <div class="hero__ai-bar" [class.is-loading]="aiLoading()">
-                <rs-icon name="sparkles" [size]="18" [stroke]="1.75" class="hero__ai-spark"></rs-icon>
-                <input class="hero__ai-input" [formControl]="aiQuery"
-                       placeholder="Describe lo que necesitas… «Alojamiento en Madrid para mi golden este finde»"
-                       aria-label="Búsqueda con inteligencia artificial" />
-                <button type="submit" class="rs-btn rs-btn--gold hero__ai-btn"
-                        aria-label="Buscar con IA"
-                        [disabled]="aiLoading() || !aiQuery.value.trim()">
-                  @if (aiLoading()) {
-                    <span class="hero__ai-spinner"></span>
-                  } @else {
-                    <rs-icon name="arrow-right" [size]="18" [stroke]="2.5"></rs-icon>
-                  }
-                </button>
-              </div>
-
-              <div class="hero__ai-hints">
-                <span class="hero__ai-hint-label">Prueba:</span>
-                @for (s of sugerenciasIA; track s) {
-                  <button type="button" class="hero__ai-chip" (click)="usarSugerencia(s)">{{ s }}</button>
-                }
-              </div>
-
-              @if (aiError()) {
-                <p class="hero__ai-error">{{ aiError() }}</p>
-              }
-            </form>
+        <!-- Fila de categorías con iconos -->
+        <div class="cat-row" role="tablist" aria-label="Categorías de servicio">
+          @for (v of verticales; track v.key) {
+            <button type="button" class="cat-row__item" role="tab"
+                    [class.is-active]="verticalActivo() === v.key"
+                    [attr.aria-selected]="verticalActivo() === v.key"
+                    (click)="seleccionarVertical(v.key)">
+              <img [src]="v.icono" [alt]="''" class="cat-row__icon" aria-hidden="true" />
+              <span class="cat-row__label">{{ v.labelCorto }}</span>
+            </button>
           }
+          <a routerLink="/buscador" class="cat-row__item cat-row__item--more">
+            <img [src]="iconoMas" alt="" class="cat-row__icon" aria-hidden="true" />
+            <span class="cat-row__label">Más servicios</span>
+          </a>
+        </div>
+
+        @if (searchMode() === 'filtros') {
+          <form class="sf" [formGroup]="searchForm" (ngSubmit)="onBuscar()">
+            <div class="sf__field sf__field--where">
+              <label class="sf__lbl" for="home-ciudad">{{ labelUbicacion() }}</label>
+              <div class="sf__ctrl">
+                <rs-icon name="map-pin" [size]="18" [stroke]="2"></rs-icon>
+                <input id="home-ciudad" formControlName="ciudad" class="sf__inp"
+                       placeholder="Ciudad, zona o dirección" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="sf__field">
+              <label class="sf__lbl" for="home-desde">{{ labelFechaInicio() }}</label>
+              <div class="sf__ctrl">
+                <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
+                <input id="home-desde" formControlName="fechaInicio" type="date" class="sf__inp" />
+              </div>
+            </div>
+
+            @if (reservaPorNoches()) {
+              <div class="sf__field">
+                <label class="sf__lbl" for="home-hasta">Salida</label>
+                <div class="sf__ctrl">
+                  <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
+                  <input id="home-hasta" formControlName="fechaFin" type="date" class="sf__inp" />
+                </div>
+              </div>
+            } @else {
+              <div class="sf__field">
+                <label class="sf__lbl" for="home-hora">Hora</label>
+                <div class="sf__ctrl">
+                  <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
+                  <select id="home-hora" formControlName="hora" class="sf__inp sf__inp--select">
+                    <option value="">Cualquiera</option>
+                    @for (h of horas; track h) { <option [value]="h">{{ h }}</option> }
+                  </select>
+                </div>
+              </div>
+            }
+
+            <div class="sf__field sf__field--pets">
+              <label class="sf__lbl" for="home-perros">Mascotas</label>
+              <div class="sf__ctrl">
+                <rs-icon name="paw" [size]="18" [stroke]="2"></rs-icon>
+                <select id="home-perros" formControlName="perros" class="sf__inp sf__inp--select">
+                  @for (n of [1,2,3,4]; track n) {
+                    <option [value]="n">{{ n }} {{ n === 1 ? 'perro' : 'perros' }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg sf__cta">
+              <rs-icon name="search" [size]="18" [stroke]="2.5"></rs-icon>
+              <span>Buscar</span>
+            </button>
+          </form>
+        } @else {
+          <form class="ai" (ngSubmit)="buscarConIA()">
+            <div class="ai__bar" [class.is-loading]="aiLoading()">
+              <rs-icon name="sparkles" [size]="20" [stroke]="1.75" class="ai__spark"></rs-icon>
+              <input class="ai__input" [formControl]="aiQuery"
+                     placeholder="Describe lo que necesitas… «Alojamiento en Madrid para mi golden este finde»"
+                     aria-label="Búsqueda con inteligencia artificial" />
+              <button type="submit" class="rs-btn rs-btn--gold ai__btn"
+                      aria-label="Buscar con IA"
+                      [disabled]="aiLoading() || !aiQuery.value.trim()">
+                @if (aiLoading()) {
+                  <span class="ai__spinner"></span>
+                } @else {
+                  <rs-icon name="arrow-right" [size]="18" [stroke]="2.5"></rs-icon>
+                }
+              </button>
+            </div>
+
+            <div class="ai__hints">
+              <span class="ai__hint-label">Prueba:</span>
+              @for (s of sugerenciasIA; track s) {
+                <button type="button" class="ai__chip" (click)="usarSugerencia(s)">{{ s }}</button>
+              }
+            </div>
+
+            @if (aiError()) {
+              <p class="ai__error">{{ aiError() }}</p>
+            }
+          </form>
+        }
+      </div>
+
+      <!-- Garantías sobre la franja navy -->
+      <div class="trust">
+        @for (t of garantias; track t.titulo) {
+          <div class="trust__item">
+            <img [src]="t.icono" alt="" class="trust__icon" aria-hidden="true" />
+            <p class="trust__text">{{ t.titulo }}<br />{{ t.detalle }}</p>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CATEGORÍAS ══════════════════════════════════════════════ -->
+  <section class="rs-section rs-section--sm cats-section">
+    <div class="rs-wrap rs-wrap--2xl">
+      <div class="sec-head" rsAnim>
+        <div>
+          <h2 class="rs-h3">Explora por categoría</h2>
+          <p>Todo lo que necesita tu perro, reservable online y con pago seguro.</p>
+        </div>
+        <a routerLink="/buscador" class="sec-head__link">
+          Ver todo <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
+        </a>
+      </div>
+
+      <div class="cats-grid" rsAnim>
+        @for (v of verticales; track v.key) {
+          <a class="cat-card" [routerLink]="v.route">
+            <span class="cat-card__art">
+              <img [src]="v.icono" alt="" class="cat-card__icon" aria-hidden="true" />
+            </span>
+            <span class="cat-card__body">
+              <span class="cat-card__title">{{ v.label }}</span>
+              <span class="cat-card__claim">{{ v.claim }}</span>
+            </span>
+            <rs-icon name="arrow-right" [size]="18" [stroke]="2" class="cat-card__go"></rs-icon>
+          </a>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CIUDADES ════════════════════════════════════════════════ -->
+  <section class="rs-section rs-section--sm cities-section">
+    <div class="rs-wrap rs-wrap--2xl">
+      <div class="sec-head" rsAnim>
+        <div>
+          <h2 class="rs-h3">Servicios cerca de ti</h2>
+          <p>Las ciudades con más profesionales caninos verificados de Doogking.</p>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- ═══ CONFIANZA VISIBLE ════════════════════════════════════════ -->
-  <section class="trust-strip">
-    <div class="rs-wrap">
-      <div class="trust-strip__row" rsAnim>
-        <div class="trust-item"><span class="trust-item__icon">✅</span> Comercios verificados</div>
-        <div class="trust-item"><span class="trust-item__icon">⭐</span> Más de 10.000 reseñas reales</div>
-        <div class="trust-item"><span class="trust-item__icon">🔒</span> Pagos seguros con Stripe</div>
-        <div class="trust-item"><span class="trust-item__icon">🐾</span> Soporte especializado en mascotas</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══ NUESTROS SERVICIOS REALES ═══════════════════════════════ -->
-  <section class="rs-section services-section">
-    <div class="rs-wrap">
-      <div class="section-header" rsAnim>
-        <h2 class="rs-h2">Nuestros servicios <span class="services-gold">reales</span></h2>
-        <p>Todo lo que necesitas para darle a tu perro un cuidado de reyes, en un solo lugar.</p>
-      </div>
-
-      <div class="services__row" rsAnim>
-        @for (v of verticales; track v.key) {
-          <a class="service-badge" [routerLink]="v.route">
-            <span class="service-badge__circle">
-              <img [src]="v.badge" [alt]="v.label" loading="lazy" rsImg />
+      <div class="cities-grid" rsAnim>
+        @for (c of ciudades; track c.nombre) {
+          <a class="city-card" routerLink="/buscador" [queryParams]="{ ciudad: c.nombre }">
+            <img [src]="c.imagen" [alt]="c.nombre" loading="lazy" rsImg />
+            <span class="city-card__veil"></span>
+            <span class="city-card__meta">
+              <strong>{{ c.nombre }}</strong>
+              <em>{{ c.servicios }} servicios</em>
             </span>
-            <span class="service-badge__label">{{ v.label }}</span>
           </a>
         }
       </div>
@@ -224,11 +288,16 @@ type SearchMode = 'filtros' | 'ia';
   </section>
 
   <!-- ═══ ALOJAMIENTOS RECOMENDADOS ═══════════════════════════════ -->
-  <section class="rs-section recommended-section">
-    <div class="rs-wrap">
-      <div class="section-header section-header--left" rsAnim>
-        <h2 class="rs-h2">Alojamientos recomendados</h2>
-        <p>Residencias caninas mejor valoradas por otros dueños este mes.</p>
+  <section class="rs-section rs-section--sm recommended-section">
+    <div class="rs-wrap rs-wrap--2xl">
+      <div class="sec-head" rsAnim>
+        <div>
+          <h2 class="rs-h3">Alojamientos recomendados</h2>
+          <p>Residencias caninas mejor valoradas por otros dueños este mes.</p>
+        </div>
+        <a routerLink="/alojamiento" class="sec-head__link">
+          Ver todos <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
+        </a>
       </div>
 
       <div class="stays-grid">
@@ -269,13 +338,47 @@ type SearchMode = 'filtros' | 'ia';
           </article>
         }
       </div>
+    </div>
+  </section>
 
-      <div class="section-cta" rsAnim>
-        <a routerLink="/alojamiento" class="rs-btn rs-btn--secondary rs-btn--lg">
-          Ver todos los alojamientos
-          <rs-icon name="arrow-right" [size]="16" [stroke]="2"></rs-icon>
-        </a>
+  <!-- ═══ CÓMO FUNCIONA ═══════════════════════════════════════════ -->
+  <section class="rs-section rs-section--sm how-section">
+    <div class="rs-wrap rs-wrap--lg">
+      <div class="sec-head sec-head--center" rsAnim>
+        <div>
+          <h2 class="rs-h3">Reservar es así de fácil</h2>
+          <p>Tres pasos y tu perro tiene plaza. Sin llamadas ni esperas.</p>
+        </div>
       </div>
+
+      <ol class="how-grid" rsAnim>
+        @for (p of pasos; track p.titulo) {
+          <li class="how-step">
+            <span class="how-step__num">{{ $index + 1 }}</span>
+            <rs-icon [name]="p.icon" [size]="26" [stroke]="1.9" class="how-step__icon"></rs-icon>
+            <h3 class="how-step__title">{{ p.titulo }}</h3>
+            <p class="how-step__text">{{ p.texto }}</p>
+          </li>
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- ═══ CTA COMERCIOS ═══════════════════════════════════════════ -->
+  <section class="pro-cta">
+    <div class="rs-wrap rs-wrap--lg pro-cta__inner" rsAnim>
+      <div>
+        <p class="pro-cta__eyebrow">Para profesionales</p>
+        <h2 class="pro-cta__title">¿Tienes un negocio canino?</h2>
+        <p class="pro-cta__text">
+          Publica tus servicios en Doogking, gestiona tu disponibilidad y recibe
+          reservas pagadas online. Sin cuota de alta: solo comisión por reserva.
+        </p>
+      </div>
+      <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--gold rs-btn--lg">
+        Registrar mi negocio
+        <rs-icon name="arrow-right" [size]="17" [stroke]="2.25"></rs-icon>
+      </a>
     </div>
   </section>
 
@@ -335,189 +438,189 @@ type SearchMode = 'filtros' | 'ia';
   styles: [`
     :host { display: block; }
 
-    /* ── TRUST STRIP ───────────────────────────────────────────────── */
-    .trust-strip {
-      background: var(--c-card);
-      border-block: 1px solid var(--b-1);
-      padding-block: var(--sp-5);
-    }
-    .trust-strip__row {
-      display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-6);
-    }
-    .trust-item {
-      display: inline-flex; align-items: center; gap: var(--sp-2);
-      font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200);
-    }
-    .trust-item__icon { font-size: var(--f-base); }
-
-    /* ── HERO ──────────────────────────────────────────────────────── */
+    /* ══ HERO ═══════════════════════════════════════════════════════
+       Réplica de la línea gráfica de marca: bloque blanco con el logo y
+       el eslogan, buscador flotante y franja navy curva con garantías. */
     .hero {
       position: relative;
-      min-height: 88vh;
-      display: flex;
-      align-items: center;
+      background: var(--c-card);
+      padding-block: var(--sp-12) 0;
       overflow: hidden;
-      padding-block: var(--sp-20) var(--sp-16);
     }
 
-    .hero__bg {
+    /* Franja navy curva que asoma por detrás del buscador */
+    .hero__navy {
       position: absolute;
-      inset: 0;
-      z-index: 0;
-      background: var(--c-raised);
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 0;
+      width: 160%;
+      height: 300px;
+      background: var(--dk-blue-deep);
+      border-radius: 50% 50% 0 0 / 90px 90px 0 0;
 
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center 35%;
-      }
+      @media (max-width: 900px) { height: 420px; border-radius: 50% 50% 0 0 / 50px 50px 0 0; }
     }
 
-    /* Scrim oscuro (azul real de marca): oscurece de forma uniforme con un
-       refuerzo en los bordes para que el contenido —ahora centrado— sea legible
-       sobre cualquier foto, sin tapar del todo la imagen. */
-    .hero__overlay {
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(180deg,
-          rgba(0,19,93,.70) 0%,
-          rgba(0,19,93,.40) 40%,
-          rgba(0,19,93,.66) 100%),
-        radial-gradient(130% 100% at 50% 32%,
-          rgba(0,19,93,0) 42%,
-          rgba(0,19,93,.34) 100%);
+    .hero__inner { position: relative; z-index: 1; }
 
-      @media (max-width: 768px) {
-        background: linear-gradient(180deg,
-          rgba(0,19,93,.72) 0%,
-          rgba(0,19,93,.84) 55%,
-          rgba(0,19,93,.90) 100%);
-      }
-    }
-
-    .hero__inner {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-    }
-
-    .hero__content {
-      max-width: 980px;
-      margin-inline: auto;
+    .hero__brand {
       text-align: center;
-      animation: fadeUp .7s ease both;
+      animation: fadeUp .6s ease both;
+      margin-bottom: var(--sp-10);
+    }
+
+    .hero__logo {
+      width: min(420px, 72vw);
+      height: auto;
+      margin-inline: auto;
+      margin-bottom: var(--sp-4);
     }
 
     .hero__title {
       font-family: var(--font-accent);
       font-weight: var(--w-7);
       text-transform: uppercase;
-      letter-spacing: -.02em;
-      line-height: 1.12;
-      font-size: clamp(2rem, 4.6vw, 3.125rem);
-      margin-bottom: var(--sp-5);
-      text-shadow: 0 2px 16px rgba(0,8,40,.45);
-    }
-
-    /* Texto claro sobre el scrim oscuro: máximo contraste + acento dorado de marca */
-    .hero__title-blue { color: #FFFFFF; }
-    .hero__title-gold { color: var(--dk-gold-light); }
-
-    .hero__sub {
-      font-size: var(--f-lg);
-      color: rgba(255,255,255,.92);
-      line-height: 1.7;
-      max-width: 54ch;
-      margin-inline: auto;
-      margin-bottom: var(--sp-8);
-      text-shadow: 0 1px 10px rgba(0,8,40,.35);
-    }
-
-    /* Panel de búsqueda centrado (ancho, tipo Booking) */
-    .hero__panel {
-      max-width: 960px;
-      margin-inline: auto;
-      animation: fadeUp .7s .15s ease both;
-    }
-
-    /* Toggle filtros ↔ IA (un clic) */
-    .hero__modes {
-      display: inline-flex;
+      letter-spacing: .01em;
+      line-height: 1.22;
+      font-size: clamp(1.25rem, 3.4vw, 2.1rem);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       gap: var(--sp-1);
-      padding: var(--sp-1);
-      margin-bottom: var(--sp-4);
-      background: rgba(255,255,255,.14);
-      border: 1px solid rgba(255,255,255,.22);
-      border-radius: var(--r-full);
-      backdrop-filter: blur(8px);
     }
 
-    .hero__mode {
+    .hero__title-line {
       display: inline-flex;
       align-items: center;
-      gap: var(--sp-2);
-      padding: var(--sp-2) var(--sp-5);
-      border: none;
-      background: transparent;
+      gap: var(--sp-4);
+    }
+    .hero__title-line--blue { color: var(--dk-blue); }
+    .hero__title-line--gold { color: var(--dk-gold); }
+
+    .hero__dash {
+      display: inline-block;
+      width: clamp(20px, 4vw, 42px);
+      height: 4px;
       border-radius: var(--r-full);
-      cursor: pointer;
-      font-family: var(--font);
-      font-size: var(--f-sm);
-      font-weight: var(--w-6);
-      color: rgba(255,255,255,.85);
-      transition: background var(--d-2), color var(--d-2);
-
-      &:hover { color: #fff; }
+      background: var(--dk-gold);
     }
 
-    .hero__mode.is-active {
-      background: var(--c-card);
-      color: var(--dk-blue);
-      box-shadow: var(--sh-md);
-    }
-
-    .hero__mode--ia.is-active { color: var(--dk-gold-text); }
-
-    /* Barra de filtros horizontal */
-    .hero__search {
-      display: flex;
-      align-items: flex-end;
-      flex-wrap: wrap;
-      gap: var(--sp-3);
+    /* ══ BUSCADOR (tarjeta flotante estilo Booking) ═════════════════ */
+    .searchbox {
       background: var(--c-card);
       border: 1px solid var(--b-1);
-      border-radius: var(--r-lg);
+      border-radius: var(--r-2xl);
       box-shadow: var(--sh-xl);
-      padding: var(--sp-4);
-      text-align: left;
+      padding: var(--sp-6) var(--sp-6) var(--sp-5);
+      animation: fadeUp .6s .1s ease both;
     }
 
-    .hero__field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-    .hero__field--service { flex: 1.4 1 155px; }
-    .hero__field--city    { flex: 1.7 1 180px; }
-    .hero__field--date    { flex: 1 1 140px; }
-    .hero__field--dogs    { flex: .7 1 96px; }
-
-    .hero__lbl {
-      font-family: var(--font-accent);
-      font-size: var(--f-xs);
-      font-weight: var(--w-7);
-      color: var(--t-400);
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-
-    .hero__inp-wrap {
+    .searchbox__head {
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-4);
+    }
+
+    .searchbox__question {
+      font-family: var(--font-display);
+      font-size: var(--f-lg);
+      font-weight: var(--w-7);
+      color: var(--dk-blue);
+    }
+
+    .searchbox__modes {
+      display: inline-flex;
+      gap: var(--sp-1);
+      padding: 3px;
+      background: var(--c-surface);
+      border-radius: var(--r-full);
+    }
+
+    .searchbox__mode {
+      display: inline-flex;
+      align-items: center;
       gap: var(--sp-2);
-      border: 1px solid var(--b-2);
-      border-radius: var(--r-sm);
-      padding-inline: var(--sp-3);
-      background: var(--c-base);
+      padding: var(--sp-2) var(--sp-4);
+      border-radius: var(--r-full);
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
       color: var(--t-400);
+      transition: background var(--d-2), color var(--d-2);
+
+      &:hover { color: var(--dk-blue); }
+      &.is-active { background: var(--c-card); color: var(--dk-blue); box-shadow: var(--sh-sm); }
+    }
+
+    /* Fila de categorías con iconos SVG de marca */
+    .cat-row {
+      display: flex;
+      align-items: stretch;
+      gap: var(--sp-2);
+      overflow-x: auto;
+      padding-bottom: var(--sp-4);
+      margin-bottom: var(--sp-4);
+      border-bottom: 1px solid var(--b-1);
+      scrollbar-width: thin;
+    }
+
+    .cat-row__item {
+      flex: 1 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: var(--sp-2);
+      min-width: 96px;
+      padding: var(--sp-3) var(--sp-3) var(--sp-2);
+      border-radius: var(--r-md);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--t-300);
+      text-align: center;
+      transition: background var(--d-2), border-color var(--d-2), color var(--d-2), transform var(--d-2);
+
+      &:hover { background: var(--c-accent-lo); color: var(--dk-blue); transform: translateY(-2px); }
+
+      &.is-active {
+        border-color: rgba(8,37,139,.22);
+        background: var(--c-accent-lo);
+        color: var(--dk-blue);
+        box-shadow: inset 0 -3px 0 var(--dk-gold);
+      }
+    }
+
+    .cat-row__icon { width: 34px; height: 34px; }
+
+    .cat-row__label {
+      font-size: var(--f-xs);
+      font-weight: var(--w-6);
+      line-height: 1.25;
+      letter-spacing: .01em;
+    }
+
+    /* Fila de filtros — celdas contiguas, CTA dorado (patrón Booking) */
+    .sf {
+      display: flex;
+      align-items: stretch;
+      gap: var(--sp-3);
+      flex-wrap: wrap;
+    }
+
+    .sf__field {
+      flex: 1 1 150px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      border: 1px solid var(--b-2);
+      border-radius: var(--r-md);
+      padding: var(--sp-2) var(--sp-4);
+      background: var(--c-card);
       transition: border-color var(--d-2), box-shadow var(--d-2);
 
       &:focus-within {
@@ -526,60 +629,72 @@ type SearchMode = 'filtros' | 'ia';
       }
     }
 
-    .hero__inp {
+    .sf__field--where { flex: 2 1 240px; }
+    .sf__field--pets  { flex: .9 1 140px; }
+
+    .sf__lbl {
+      font-family: var(--font-accent);
+      font-size: var(--f-xs);
+      font-weight: var(--w-7);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--dk-blue);
+    }
+
+    .sf__ctrl {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      color: var(--t-400);
+    }
+
+    .sf__inp {
       flex: 1;
       min-width: 0;
       border: none;
       outline: none;
       background: transparent;
-      padding-block: var(--sp-3);
-      font-size: var(--f-sm);
-      color: var(--t-100);
+      padding-block: 2px;
       font-family: var(--font);
+      font-size: var(--f-base);
+      color: var(--t-100);
 
       &::placeholder { color: var(--t-500); }
     }
 
-    .hero__inp--select { cursor: pointer; appearance: auto; }
+    .sf__inp--select { cursor: pointer; }
 
-    .hero__cta {
+    .sf__cta {
       flex: 0 0 auto;
-      align-self: flex-end;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--sp-2);
+      min-width: 148px;
+      font-size: var(--f-md);
+      font-weight: var(--w-7);
     }
 
-    @media (max-width: 720px) {
-      .hero__field { flex: 1 1 100%; }
-      .hero__cta { width: 100%; }
+    @media (max-width: 860px) {
+      .sf__field { flex: 1 1 100%; }
+      .sf__cta { width: 100%; }
     }
 
-    /* Barra de búsqueda con IA */
-    .hero__ai { text-align: left; }
-
-    .hero__ai-bar {
+    /* Modo IA */
+    .ai__bar {
       display: flex;
       align-items: center;
       gap: var(--sp-3);
-      background: var(--c-card);
-      border: 1px solid var(--b-1);
+      border: 1px solid var(--b-2);
       border-radius: var(--r-full);
-      box-shadow: var(--sh-xl);
       padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);
-      transition: box-shadow var(--d-2);
+      transition: box-shadow var(--d-2), border-color var(--d-2);
 
-      &:focus-within { box-shadow: var(--sh-xl), 0 0 0 3px var(--c-accent-lo); }
+      &:focus-within { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-lo); }
+      &.is-loading { opacity: .75; }
 
       @media (max-width: 480px) { border-radius: var(--r-lg); }
     }
 
-    .hero__ai-bar.is-loading { opacity: .75; }
+    .ai__spark { color: var(--dk-gold); flex-shrink: 0; }
 
-    .hero__ai-spark { color: var(--dk-gold); flex-shrink: 0; display: flex; }
-
-    .hero__ai-input {
+    .ai__input {
       flex: 1;
       min-width: 0;
       border: none;
@@ -593,28 +708,24 @@ type SearchMode = 'filtros' | 'ia';
       &::placeholder { color: var(--t-500); }
     }
 
-    .hero__ai-btn {
+    .ai__btn {
       flex: 0 0 auto;
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       padding: 0;
       border-radius: var(--r-full);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
     }
 
-    .hero__ai-spinner {
+    .ai__spinner {
       width: 18px;
       height: 18px;
       border-radius: 50%;
       border: 2px solid rgba(0,19,93,.25);
       border-top-color: var(--dk-blue-deep);
-      animation: heroSpin .7s linear infinite;
+      animation: spin .7s linear infinite;
     }
-    @keyframes heroSpin { to { transform: rotate(360deg); } }
 
-    .hero__ai-hints {
+    .ai__hints {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -622,107 +733,190 @@ type SearchMode = 'filtros' | 'ia';
       margin-top: var(--sp-3);
     }
 
-    .hero__ai-hint-label { font-size: var(--f-xs); color: rgba(255,255,255,.72); }
+    .ai__hint-label { font-size: var(--f-xs); color: var(--t-400); }
 
-    .hero__ai-chip {
-      background: rgba(255,255,255,.12);
-      border: 1px solid rgba(255,255,255,.22);
-      color: rgba(255,255,255,.90);
+    .ai__chip {
+      background: var(--c-surface);
+      border: 1px solid var(--b-1);
+      color: var(--t-300);
       border-radius: var(--r-full);
       padding: var(--sp-1) var(--sp-3);
       font-size: var(--f-xs);
-      cursor: pointer;
-      transition: background var(--d-2), border-color var(--d-2);
-      backdrop-filter: blur(4px);
+      transition: background var(--d-2), color var(--d-2);
 
-      &:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.40); }
+      &:hover { background: var(--c-accent-lo); color: var(--dk-blue); }
     }
 
-    .hero__ai-error {
-      margin-top: var(--sp-3);
-      font-size: var(--f-sm);
-      color: rgba(255,224,224,.95);
-      text-shadow: 0 1px 8px rgba(0,8,40,.40);
-    }
+    .ai__error { margin-top: var(--sp-3); font-size: var(--f-sm); color: #B91C1C; }
 
-    /* ── SECTION HEADERS ───────────────────────────────────────────── */
-    .section-header {
-      text-align: center;
-      margin-bottom: var(--sp-12);
-
-      h2 { margin-bottom: var(--sp-3); color: var(--dk-blue); }
-      p  { color: var(--t-400); max-width: 52ch; margin-inline: auto; }
-    }
-
-    .section-header--left {
-      text-align: left;
-      p { margin-inline: 0; }
-    }
-
-    .services-gold { color: var(--dk-gold-text); }
-
-    .section-cta {
-      text-align: center;
-      margin-top: var(--sp-10);
-
-      a { display: inline-flex; align-items: center; gap: var(--sp-2); }
-    }
-
-    /* ── SERVICIOS (badges circulares) ─────────────────────────────── */
-    .services-section { background: var(--c-base); }
-
-    .services__row {
+    /* Garantías sobre la franja navy */
+    .trust {
       display: flex;
       justify-content: center;
-      align-items: flex-start;
+      align-items: center;
       flex-wrap: wrap;
-      row-gap: var(--sp-8);
+      gap: var(--sp-6) var(--sp-10);
+      padding-block: var(--sp-8) var(--sp-10);
     }
 
-    .service-badge {
+    .trust__item {
       display: flex;
-      flex-direction: column;
       align-items: center;
       gap: var(--sp-3);
-      padding-inline: var(--sp-8);
-      text-decoration: none;
-      transition: transform var(--d-2);
 
-      &:hover { transform: translateY(-4px); }
+      & + & { border-left: 1px solid rgba(255,255,255,.22); padding-left: var(--sp-10); }
 
-      @media (min-width: 769px) {
-        & + & { border-left: 1px solid var(--dk-divider); }
+      @media (max-width: 900px) {
+        & + & { border-left: none; padding-left: 0; }
       }
-
-      @media (max-width: 768px) { padding-inline: var(--sp-5); }
     }
 
-    .service-badge__circle {
-      width: 96px;
-      height: 96px;
-      border-radius: var(--r-full);
-      overflow: hidden;
-      box-shadow: var(--sh-md);
-      border: 2px solid var(--c-card);
+    .trust__icon { width: 38px; height: 38px; flex-shrink: 0; }
 
-      img { width: 100%; height: 100%; object-fit: cover; }
-
-      @media (max-width: 768px) { width: 80px; height: 80px; }
+    .trust__text {
+      font-family: var(--font-accent);
+      font-size: var(--f-sm);
+      font-weight: var(--w-7);
+      line-height: 1.35;
+      color: #fff;
     }
 
-    .service-badge__label {
+    /* ══ CABECERAS DE SECCIÓN ═══════════════════════════════════════ */
+    .sec-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--sp-4);
+      flex-wrap: wrap;
+      margin-bottom: var(--sp-8);
+
+      h2 { color: var(--dk-blue); margin-bottom: var(--sp-2); }
+      p  { color: var(--t-400); font-size: var(--f-md); }
+    }
+
+    .sec-head--center {
+      justify-content: center;
+      text-align: center;
+
+      p { max-width: 46ch; margin-inline: auto; }
+    }
+
+    .sec-head__link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
       font-size: var(--f-sm);
       font-weight: var(--w-6);
-      color: var(--t-200);
-      text-align: center;
-      max-width: 14ch;
-      line-height: 1.35;
+      color: var(--dk-blue);
+
+      &:hover { color: var(--dk-blue-deep); text-decoration: underline; }
     }
 
-    .service-badge:hover .service-badge__label { color: var(--dk-blue); }
+    /* ══ CATEGORÍAS ═════════════════════════════════════════════════ */
+    .cats-section { background: var(--c-base); }
 
-    /* ── ALOJAMIENTOS RECOMENDADOS ─────────────────────────────────── */
-    .recommended-section { background: var(--c-raised); }
+    .cats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-5);
+
+      @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); }
+      @media (max-width: 620px)  { grid-template-columns: 1fr; }
+    }
+
+    .cat-card {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+      background: var(--c-card);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-xl);
+      padding: var(--sp-5);
+      box-shadow: var(--sh-card);
+      transition: transform var(--d-2), box-shadow var(--d-2), border-color var(--d-2);
+
+      &:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--sh-lg);
+        border-color: rgba(8,37,139,.25);
+
+        .cat-card__art { background: var(--c-accent-lo); }
+        .cat-card__go { transform: translateX(4px); color: var(--dk-blue); }
+      }
+    }
+
+    .cat-card__art {
+      flex-shrink: 0;
+      width: 72px;
+      height: 72px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--r-lg);
+      background: var(--c-base);
+      border: 1px solid var(--b-1);
+      transition: background var(--d-2);
+    }
+
+    .cat-card__icon { width: 42px; height: 42px; }
+
+    .cat-card__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+    .cat-card__title {
+      font-family: var(--font-display);
+      font-size: var(--f-md);
+      font-weight: var(--w-7);
+      color: var(--t-100);
+      line-height: 1.25;
+    }
+
+    .cat-card__claim { font-size: var(--f-sm); color: var(--t-400); line-height: 1.45; }
+
+    .cat-card__go { margin-left: auto; color: var(--t-500); transition: transform var(--d-2), color var(--d-2); }
+
+    /* ══ CIUDADES ═══════════════════════════════════════════════════ */
+    .cities-section { background: var(--c-raised); }
+
+    .cities-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: var(--sp-4);
+
+      @media (max-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
+      @media (max-width: 560px)  { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .city-card {
+      position: relative;
+      display: block;
+      aspect-ratio: 3 / 4;
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      box-shadow: var(--sh-card);
+
+      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
+      &:hover img { transform: scale(1.07); }
+    }
+
+    .city-card__veil {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,19,93,0) 35%, rgba(0,19,93,.85) 100%);
+    }
+
+    .city-card__meta {
+      position: absolute;
+      inset-inline: var(--sp-3);
+      bottom: var(--sp-3);
+      display: flex;
+      flex-direction: column;
+      color: #fff;
+
+      strong { font-family: var(--font-display); font-size: var(--f-md); font-weight: var(--w-7); }
+      em { font-style: normal; font-size: var(--f-xs); color: rgba(255,255,255,.8); }
+    }
+
+    /* ══ ALOJAMIENTOS RECOMENDADOS ══════════════════════════════════ */
+    .recommended-section { background: var(--c-base); }
 
     .stays-grid {
       display: grid;
@@ -757,12 +951,7 @@ type SearchMode = 'filtros' | 'ia';
       overflow: hidden;
       background: var(--c-surface);
 
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: transform var(--d-4);
-      }
+      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
     }
 
     .stay-card__badge {
@@ -777,12 +966,7 @@ type SearchMode = 'filtros' | 'ia';
       border-color: transparent;
     }
 
-    .stay-card__body {
-      padding: var(--sp-5);
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-    }
+    .stay-card__body { padding: var(--sp-5); display: flex; flex-direction: column; flex: 1; }
 
     .stay-card__stars {
       color: var(--dk-gold);
@@ -808,12 +992,7 @@ type SearchMode = 'filtros' | 'ia';
       margin-bottom: var(--sp-3);
     }
 
-    .stay-card__tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--sp-2);
-      margin-bottom: var(--sp-4);
-    }
+    .stay-card__tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
 
     .stay-card__tag {
       font-size: var(--f-xs);
@@ -862,11 +1041,86 @@ type SearchMode = 'filtros' | 'ia';
 
     .stay-card__cta { text-align: center; }
 
-    /* ── FOOTER navy ───────────────────────────────────────────────── */
-    .home-footer {
-      background: var(--dk-blue-deep);
-      border-top: none;
+    /* ══ CÓMO FUNCIONA ══════════════════════════════════════════════ */
+    .how-section { background: var(--c-card); }
+
+    .how-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-5);
+
+      @media (max-width: 800px) { grid-template-columns: 1fr; }
     }
+
+    .how-step {
+      position: relative;
+      background: var(--c-base);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-xl);
+      padding: var(--sp-8) var(--sp-6) var(--sp-6);
+      text-align: center;
+    }
+
+    .how-step__num {
+      position: absolute;
+      top: calc(-1 * var(--sp-4));
+      left: 50%;
+      transform: translateX(-50%);
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--r-full);
+      background: var(--dk-gold);
+      color: var(--dk-blue-deep);
+      font-family: var(--font-accent);
+      font-weight: var(--w-7);
+      font-size: var(--f-sm);
+      box-shadow: var(--sh-md);
+    }
+
+    .how-step__icon { color: var(--dk-blue); margin-inline: auto; margin-bottom: var(--sp-3); }
+
+    .how-step__title {
+      font-size: var(--f-md);
+      font-weight: var(--w-7);
+      color: var(--t-100);
+      margin-bottom: var(--sp-2);
+    }
+
+    .how-step__text { font-size: var(--f-sm); color: var(--t-400); line-height: 1.6; }
+
+    /* ══ CTA COMERCIOS ══════════════════════════════════════════════ */
+    .pro-cta { background: var(--dk-blue); padding-block: var(--sp-12); }
+
+    .pro-cta__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-6);
+      flex-wrap: wrap;
+    }
+
+    .pro-cta__eyebrow {
+      font-family: var(--font-accent);
+      font-size: var(--f-xs);
+      font-weight: var(--w-7);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--dk-gold);
+      margin-bottom: var(--sp-2);
+    }
+
+    .pro-cta__title {
+      font-size: var(--f-3xl);
+      color: #fff;
+      margin-bottom: var(--sp-2);
+    }
+
+    .pro-cta__text { color: rgba(255,255,255,.82); max-width: 56ch; font-size: var(--f-md); }
+
+    /* ══ FOOTER navy ════════════════════════════════════════════════ */
+    .home-footer { background: var(--dk-blue-deep); border-top: none; }
 
     .home-footer__logo {
       height: 44px;
@@ -877,7 +1131,6 @@ type SearchMode = 'filtros' | 'ia';
     }
 
     .home-footer .rs-footer__brand p { color: rgba(255,255,255,.72); }
-
     .home-footer .rs-footer__col h4 { color: var(--dk-gold); }
 
     .home-footer .rs-footer__col a {
@@ -902,8 +1155,9 @@ export class HomeComponent {
   private readonly fb = inject(FormBuilder);
   private readonly http = inject(HttpClient);
 
-  readonly heroImg = BRAND.heroHome;
+  readonly logoMark = BRAND.logoMark;
   readonly logoFooter = BRAND.logoFooter;
+  readonly iconoMas = CATEGORIA_ICONOS['mas'];
 
   /** Modo del buscador del hero: formulario clásico o asistente con IA. */
   readonly searchMode = signal<SearchMode>('filtros');
@@ -918,14 +1172,68 @@ export class HomeComponent {
     'Peluquería canina en Valencia',
   ];
 
+  readonly horas = ['09:00', '10:00', '11:00', '12:00', '16:00', '17:00', '18:00', '19:00'];
+
   // Orden por frecuencia de uso: el veterinario es el servicio más habitual.
   readonly verticales: Vertical[] = [
-    { key: VerticalKey.VETERINARIA,    icon: 'stethoscope',    label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    route: VERTICAL_ROUTES['veterinaria'],    badge: CATEGORIA_BADGES['veterinaria'] },
-    { key: VerticalKey.PELUQUERIA,     icon: 'scissors',       label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     route: VERTICAL_ROUTES['peluqueria'],     badge: CATEGORIA_BADGES['peluqueria'] },
-    { key: VerticalKey.ALOJAMIENTO,    icon: 'hotel',          label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    route: VERTICAL_ROUTES['alojamiento'],    badge: CATEGORIA_BADGES['alojamiento'] },
-    { key: VerticalKey.TRANSPORTE,     icon: 'truck',          label: VERTICAL_LABELS[VerticalKey.TRANSPORTE],     route: VERTICAL_ROUTES['transporte'],     badge: CATEGORIA_BADGES['transporte'] },
-    { key: VerticalKey.ADIESTRAMIENTO, icon: 'graduation-cap', label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], route: VERTICAL_ROUTES['adiestramiento'], badge: CATEGORIA_BADGES['adiestramiento'] },
-    { key: VerticalKey.HOTELES,        icon: 'building',       label: VERTICAL_LABELS[VerticalKey.HOTELES],        route: VERTICAL_ROUTES['hoteles'],        badge: CATEGORIA_BADGES['hoteles'] },
+    {
+      key: VerticalKey.VETERINARIA, icon: 'stethoscope', labelCorto: 'Veterinarios',
+      label: VERTICAL_LABELS[VerticalKey.VETERINARIA], route: VERTICAL_ROUTES['veterinaria'],
+      icono: CATEGORIA_ICONOS['veterinaria'],
+      claim: 'Consultas, vacunas y urgencias con cita online.',
+    },
+    {
+      key: VerticalKey.PELUQUERIA, icon: 'scissors', labelCorto: 'Peluquería',
+      label: VERTICAL_LABELS[VerticalKey.PELUQUERIA], route: VERTICAL_ROUTES['peluqueria'],
+      icono: CATEGORIA_ICONOS['peluqueria'],
+      claim: 'Baño, corte, deslanado y spa canino.',
+    },
+    {
+      key: VerticalKey.ALOJAMIENTO, icon: 'hotel', labelCorto: 'Alojamiento',
+      label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO], route: VERTICAL_ROUTES['alojamiento'],
+      icono: CATEGORIA_ICONOS['alojamiento'],
+      claim: 'Residencias y suites con cámaras 24/7.',
+    },
+    {
+      key: VerticalKey.TRANSPORTE, icon: 'truck', labelCorto: 'Transporte',
+      label: VERTICAL_LABELS[VerticalKey.TRANSPORTE], route: VERTICAL_ROUTES['transporte'],
+      icono: CATEGORIA_ICONOS['transporte'],
+      claim: 'Traslados en vehículos climatizados.',
+    },
+    {
+      key: VerticalKey.ADIESTRAMIENTO, icon: 'graduation-cap', labelCorto: 'Adiestramiento',
+      label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], route: VERTICAL_ROUTES['adiestramiento'],
+      icono: CATEGORIA_ICONOS['adiestramiento'],
+      claim: 'Obediencia, conducta y cachorros.',
+    },
+    {
+      key: VerticalKey.HOTELES, icon: 'building', labelCorto: 'Hoteles',
+      label: VERTICAL_LABELS[VerticalKey.HOTELES], route: VERTICAL_ROUTES['hoteles'],
+      icono: CATEGORIA_ICONOS['hoteles'],
+      claim: 'Hoteles pet-friendly para viajar juntos.',
+    },
+  ];
+
+  readonly garantias = [
+    { icono: TRUST_ICONOS.verificados, titulo: 'Profesionales', detalle: 'verificados' },
+    { icono: TRUST_ICONOS.reservaSegura, titulo: 'Reserva segura', detalle: 'y garantizada' },
+    { icono: TRUST_ICONOS.prioridad, titulo: 'Tu mascota,', detalle: 'nuestra prioridad' },
+  ];
+
+  readonly pasos = [
+    { icon: 'search', titulo: 'Busca y compara', texto: 'Elige categoría, ciudad y fechas. Filtra por precio, valoración y servicios.' },
+    { icon: 'credit-card', titulo: 'Reserva y paga seguro', texto: 'Pago online con Stripe. Confirmación inmediata y cancelación según la política del comercio.' },
+    { icon: 'paw', titulo: 'Disfruta el trato real', texto: 'Tu perro recibe el servicio y tú dejas tu reseña para ayudar a otros dueños.' },
+  ];
+
+  // Solo imágenes locales: el pool remoto (Pexels) no está garantizado offline.
+  readonly ciudades: Ciudad[] = [
+    { nombre: 'Madrid', servicios: 248, imagen: BRAND.heroHome },
+    { nombre: 'Barcelona', servicios: 194, imagen: HOTEL_IMAGES[3] },
+    { nombre: 'Valencia', servicios: 132, imagen: HOTEL_IMAGES[2] },
+    { nombre: 'Sevilla', servicios: 108, imagen: BRAND.heroDetalle },
+    { nombre: 'Bilbao', servicios: 76, imagen: HOTEL_IMAGES[4] },
+    { nombre: 'Málaga', servicios: 91, imagen: HOTEL_IMAGES[1] },
   ];
 
   readonly searchForm = this.fb.group({
@@ -933,8 +1241,25 @@ export class HomeComponent {
     ciudad: [''],
     fechaInicio: [''],
     fechaFin: [''],
+    hora: [''],
     perros: [1],
   });
+
+  /** Categoría activa del buscador — deriva del formulario (sin subscripciones). */
+  private readonly verticalValor = toSignal(this.searchForm.controls.vertical.valueChanges, {
+    initialValue: this.searchForm.controls.vertical.value,
+  });
+
+  readonly verticalActivo = computed(() => this.verticalValor() ?? VerticalKey.ALOJAMIENTO);
+
+  /** Alojamiento y hoteles se reservan por noches; el resto son citas. */
+  readonly reservaPorNoches = computed(() => VERTICALES_POR_NOCHES.includes(this.verticalActivo()));
+
+  readonly labelFechaInicio = computed(() => (this.reservaPorNoches() ? 'Entrada' : 'Fecha'));
+
+  readonly labelUbicacion = computed(() =>
+    this.verticalActivo() === VerticalKey.TRANSPORTE ? 'Recogida' : '¿Dónde?',
+  );
 
   readonly alojamientosRecomendados: AlojamientoRecomendado[] = [
     {
@@ -970,6 +1295,11 @@ export class HomeComponent {
 
   estrellas(n: number): string {
     return '★'.repeat(n) + '☆'.repeat(5 - n);
+  }
+
+  /** Cambia la categoría desde la fila de iconos del buscador. */
+  seleccionarVertical(key: VerticalKey): void {
+    this.searchForm.controls.vertical.setValue(key);
   }
 
   onBuscar(): void {

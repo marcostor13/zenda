@@ -114,4 +114,72 @@ describe('HomeComponent', () => {
   it('debería formatear las estrellas doradas', () => {
     expect(component.estrellas(4)).toBe('★★★★☆');
   });
+
+  it('debería usar un icono SVG propio por categoría', () => {
+    const iconos = component.verticales.map((v) => v.icono);
+    expect(iconos).toEqual([
+      '/icons/veterinaria.svg',
+      '/icons/peluqueria.svg',
+      '/icons/alojamiento.svg',
+      '/icons/transporte.svg',
+      '/icons/adiestramiento.svg',
+      '/icons/hoteles.svg',
+    ]);
+  });
+
+  it('debería renderizar la fila de categorías con sus iconos', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const iconos = el.querySelectorAll('.cat-row__icon');
+    // 6 categorías + el acceso «Más servicios»
+    expect(iconos.length).toBe(component.verticales.length + 1);
+  });
+
+  it('debería cambiar la categoría activa al pulsar un icono del buscador', () => {
+    component.seleccionarVertical(VerticalKey.VETERINARIA);
+
+    expect(component.verticalActivo()).toBe(VerticalKey.VETERINARIA);
+    expect(component.searchForm.controls.vertical.value).toBe(VerticalKey.VETERINARIA);
+  });
+
+  it('debería pedir entrada y salida solo en las categorías por noches', () => {
+    component.seleccionarVertical(VerticalKey.ALOJAMIENTO);
+    expect(component.reservaPorNoches()).toBe(true);
+    expect(component.labelFechaInicio()).toBe('Entrada');
+
+    component.seleccionarVertical(VerticalKey.VETERINARIA);
+    expect(component.reservaPorNoches()).toBe(false);
+    expect(component.labelFechaInicio()).toBe('Fecha');
+  });
+
+  it('debería mostrar el campo de salida solo cuando la reserva es por noches', () => {
+    const el: HTMLElement = fixture.nativeElement;
+
+    component.seleccionarVertical(VerticalKey.ALOJAMIENTO);
+    fixture.detectChanges();
+    expect(el.querySelector('#home-hasta')).toBeTruthy();
+
+    component.seleccionarVertical(VerticalKey.PELUQUERIA);
+    fixture.detectChanges();
+    expect(el.querySelector('#home-hasta')).toBeNull();
+    expect(el.querySelector('#home-hora')).toBeTruthy();
+  });
+
+  it('debería etiquetar la ubicación como recogida en transporte', () => {
+    component.seleccionarVertical(VerticalKey.TRANSPORTE);
+    expect(component.labelUbicacion()).toBe('Recogida');
+
+    component.seleccionarVertical(VerticalKey.ALOJAMIENTO);
+    expect(component.labelUbicacion()).toBe('¿Dónde?');
+  });
+
+  it('debería mostrar las tres garantías sobre la franja navy', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelectorAll('.trust__item').length).toBe(3);
+  });
+
+  it('debería listar las ciudades destacadas enlazando al buscador', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelectorAll('.city-card').length).toBe(component.ciudades.length);
+    expect(component.ciudades.map((c) => c.nombre)).toContain('Madrid');
+  });
 });
