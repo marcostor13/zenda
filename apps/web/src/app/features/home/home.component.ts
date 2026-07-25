@@ -63,11 +63,14 @@ type SearchMode = 'filtros' | 'ia';
         <h1 class="hero__title">
           <span class="hero__title-line hero__title-line--blue">
             <i class="hero__dash" aria-hidden="true"></i>
-            Todo para su rey
+            Todo para tu rey
             <i class="hero__dash" aria-hidden="true"></i>
           </span>
           <span class="hero__title-line hero__title-line--gold">en un solo lugar</span>
         </h1>
+        <p class="hero__subtitle">
+          Reserva alojamientos premium, veterinarios de confianza, peluquerías caninas y mucho más…
+        </p>
       </div>
 
       <!-- Panel de búsqueda (estilo Booking: categorías + filtros en una fila) -->
@@ -143,8 +146,8 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
-          <h2 class="rs-h3">Explora por categoría</h2>
-          <p>Todo lo que necesita tu perro, reservable online y con pago seguro.</p>
+          <h2 class="rs-h3">Explora todos nuestros servicios</h2>
+          <p>Reserva en segundos con los mejores profesionales cerca de ti.</p>
         </div>
       </div>
 
@@ -162,6 +165,33 @@ type SearchMode = 'filtros' | 'ia';
           </a>
         }
       </div>
+    </div>
+  </section>
+
+  <!-- ═══ ¿POR QUÉ DOOGKING? ══════════════════════════════════════
+       Bloque de propuesta de valor: es el que explica por qué elegir
+       Doogking frente a llamar al veterinario o buscar en Google. -->
+  <section class="rs-section why-section" id="por-que">
+    <div class="rs-wrap rs-wrap--2xl">
+      <div class="sec-head sec-head--center" rsAnim>
+        <div>
+          <p class="why__eyebrow">La plataforma de tu mascota</p>
+          <h2 class="rs-h3">¿Por qué Doogking.com?</h2>
+          <p>Todo lo que tu perro necesita a lo largo de su vida, en un único sitio y con un solo perfil.</p>
+        </div>
+      </div>
+
+      <ul class="why-grid" rsAnim>
+        @for (m of motivos; track m.titulo) {
+          <li class="why-card">
+            <span class="why-card__art" aria-hidden="true">
+              <rs-icon [name]="m.icon" [size]="26" [stroke]="1.9"></rs-icon>
+            </span>
+            <h3 class="why-card__title">{{ m.titulo }}</h3>
+            <p class="why-card__text">{{ m.texto }}</p>
+          </li>
+        }
+      </ul>
     </div>
   </section>
 
@@ -409,6 +439,18 @@ type SearchMode = 'filtros' | 'ia';
       background: var(--dk-gold);
     }
 
+    .hero__subtitle {
+      margin-top: var(--sp-4);
+      margin-inline: auto;
+      max-width: 58ch;
+      font-size: var(--f-md);
+      line-height: 1.55;
+      color: var(--t-300);
+
+      /* En pantallas bajas resta altura al buscador, que es lo que convierte. */
+      @media (max-width: 560px) { display: none; }
+    }
+
     /* ══ BUSCADOR (tarjeta flotante estilo Booking) ═════════════════ */
     .searchbox {
       background: var(--c-card);
@@ -593,6 +635,89 @@ type SearchMode = 'filtros' | 'ia';
       color: var(--dk-blue);
 
       &:hover { color: var(--dk-blue-deep); text-decoration: underline; }
+    }
+
+    /* ══ ¿POR QUÉ DOOGKING? ═════════════════════════════════════════ */
+    .why-section { background: var(--c-card); }
+
+    .why__eyebrow {
+      font-family: var(--font-accent);
+      font-size: var(--f-xs);
+      font-weight: var(--w-7);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--dk-gold);
+      margin-bottom: var(--sp-2);
+    }
+
+    .why-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--sp-5);
+      list-style: none;
+
+      @media (max-width: 1024px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+      /* Móvil: carrusel horizontal con scroll-snap en vez de apilar cuatro
+         tarjetas altas, que empujarían el resto de la home fuera de vista. */
+      @media (max-width: 640px) {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: 78%;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        margin-inline: calc(var(--sp-5) * -1);
+        padding-inline: var(--sp-5);
+        padding-bottom: var(--sp-3);
+        scrollbar-width: thin;
+      }
+    }
+
+    .why-card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--sp-3);
+      padding: var(--sp-6);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-xl);
+      background: var(--c-base);
+      transition: transform var(--d-2), box-shadow var(--d-2), border-color var(--d-2);
+
+      &:hover {
+        transform: translateY(-4px);
+        border-color: rgba(8,37,139,.22);
+        box-shadow: var(--sh-lg);
+      }
+
+      @media (max-width: 640px) { scroll-snap-align: start; }
+      @media (prefers-reduced-motion: reduce) { &:hover { transform: none; } }
+    }
+
+    .why-card__art {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border-radius: var(--r-lg);
+      background: var(--g-warm);
+      color: var(--dk-blue-deep);
+      flex-shrink: 0;
+    }
+
+    .why-card__title {
+      font-family: var(--font-display);
+      font-size: var(--f-lg);
+      font-weight: var(--w-7);
+      color: var(--dk-blue);
+      line-height: 1.3;
+    }
+
+    .why-card__text {
+      font-size: var(--f-sm);
+      line-height: 1.6;
+      color: var(--t-400);
     }
 
     /* ══ CATEGORÍAS ═════════════════════════════════════════════════ */
@@ -961,6 +1086,30 @@ export class HomeComponent {
     { icono: TRUST_ICONOS.verificados, titulo: 'Profesionales', detalle: 'verificados' },
     { icono: TRUST_ICONOS.reservaSegura, titulo: 'Reserva segura', detalle: 'y garantizada' },
     { icono: TRUST_ICONOS.prioridad, titulo: 'Tu mascota,', detalle: 'nuestra prioridad' },
+  ];
+
+  /** Pilares del bloque "¿Por qué Doogking?" (propuesta de valor de marca). */
+  readonly motivos = [
+    {
+      icon: 'zap',
+      titulo: 'Reserva en segundos',
+      texto: 'Eliges servicio, ciudad y fecha, y confirmas al momento. Sin llamadas, sin esperar respuesta.',
+    },
+    {
+      icon: 'shield-check',
+      titulo: 'Profesionales verificados',
+      texto: 'Cada comercio pasa por validación antes de publicar. Reseñas reales de dueños que ya reservaron.',
+    },
+    {
+      icon: 'globe',
+      titulo: 'Miles de servicios en un solo lugar',
+      texto: 'Alojamiento, veterinario, peluquería, transporte y adiestramiento con un único perfil y un único pago.',
+    },
+    {
+      icon: 'message-square',
+      titulo: 'Atención cuando la necesites',
+      texto: 'Soporte antes, durante y después de la reserva, y pago protegido hasta que el servicio se presta.',
+    },
   ];
 
   readonly pasos = [

@@ -5,6 +5,8 @@ export * from './enums/reserva-estado.enum';
 export * from './enums/pago-estado.enum';
 export * from './enums/pago-pasarela.enum';
 export * from './enums/perro.enum';
+export * from './enums/servicio-clinico.enum';
+export * from './enums/historial.enum';
 
 // Constants
 export * from './constants';
@@ -49,6 +51,7 @@ export * from './dtos/perros/crear-perro.dto';
 export * from './dtos/perros/actualizar-perro.dto';
 export * from './dtos/perros/crear-perro-historial.dto';
 export * from './dtos/perros/crear-perro-valoracion.dto';
+export * from './dtos/perros/fijar-consentimiento.dto';
 
 // DTOs — Favoritos
 export * from './dtos/favoritos/favorito.dto';

@@ -55,11 +55,40 @@ describe('HomeComponent', () => {
     ]);
   });
 
-  it('debería mostrar el eslogan "TODO PARA SU REY" en el hero', () => {
+  it('debería mostrar el eslogan en tuteo "TODO PARA TU REY" en el hero', () => {
     const el: HTMLElement = fixture.nativeElement;
     const titulo = el.querySelector('.hero__title')?.textContent ?? '';
-    expect(titulo.toLowerCase()).toContain('todo para su rey');
+    expect(titulo.toLowerCase()).toContain('todo para tu rey');
+    expect(titulo.toLowerCase()).not.toContain('todo para su rey');
     expect(titulo.toLowerCase()).toContain('en un solo lugar');
+  });
+
+  it('debería resumir la amplitud de servicios bajo el titular del hero', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const sub = el.querySelector('.hero__subtitle')?.textContent ?? '';
+    expect(sub).toContain('alojamientos premium');
+    expect(sub).toContain('veterinarios de confianza');
+    expect(sub).toContain('peluquerías caninas');
+  });
+
+  it('debería renderizar los cuatro pilares del bloque "¿Por qué Doogking?"', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const cards = el.querySelectorAll('.why-card');
+    expect(cards.length).toBe(4);
+    expect(component.motivos.map((m) => m.titulo)).toEqual([
+      'Reserva en segundos',
+      'Profesionales verificados',
+      'Miles de servicios en un solo lugar',
+      'Atención cuando la necesites',
+    ]);
+    expect(el.querySelector('#por-que h2')?.textContent).toContain('¿Por qué Doogking.com?');
+  });
+
+  it('debería invitar a explorar todos los servicios sobre la rejilla de categorías', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const head = el.querySelector('#categorias .sec-head')?.textContent ?? '';
+    expect(head).toContain('Explora todos nuestros servicios');
+    expect(head).toContain('Reserva en segundos con los mejores profesionales cerca de ti.');
   });
 
   it('debería usar el buscador común en el hero', () => {

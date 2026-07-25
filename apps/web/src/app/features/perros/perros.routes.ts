@@ -17,4 +17,9 @@ export const perrosRoutes: Routes = [
     loadComponent: () =>
       import('./perro-form.component').then((m) => m.PerroFormComponent),
   },
+  {
+    path: ':id/privacidad',
+    loadComponent: () =>
+      import('./perro-privacidad.component').then((m) => m.PerroPrivacidadComponent),
+  },
 ];

@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
-import { SexoPerro, TamanoPerro, TipoPelo, NivelSociabilidad } from 'shared';
+import { SexoPerro, TamanoPerro, TipoPelo, NivelSociabilidad, Vacuna } from 'shared';
 
 export type PerroDocument = HydratedDocument<Perro>;
 
@@ -62,8 +62,18 @@ export class Perro {
   esPPP!: boolean;
 
   // --- Salud ---
+  /**
+   * Texto libre heredado. Se mantiene para no perder lo ya registrado; la
+   * fuente de verdad nueva es `vacunasDetalle`, con lista cerrada y fecha.
+   */
   @Prop({ type: [String], default: [] })
   vacunas!: string[];
+
+  @Prop({
+    type: [{ tipo: { type: String, enum: Object.values(Vacuna) }, fecha: Date }],
+    default: [],
+  })
+  vacunasDetalle!: { tipo: Vacuna; fecha?: Date }[];
 
   @Prop({ type: [String], default: [] })
   alergias!: string[];
@@ -101,6 +111,21 @@ export class Perro {
 
   @Prop({ type: Boolean, default: false })
   protectorRecursos!: boolean;
+
+  // --- Conducta específica de alojamiento (HU-004) ---
+  // La ve el hotel o la residencia antes de la llegada, para preparar la
+  // estancia y evitar suplementos sorpresa en recepción.
+  @Prop({ type: Boolean, default: false })
+  orinaEnInterior!: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  ladraAlQuedarseSolo!: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  destructivoEnSoledad!: boolean;
+
+  @Prop()
+  notasAlojamiento?: string;
 
   // --- Viaje / transporte ---
   @Prop({ type: Boolean, default: true })

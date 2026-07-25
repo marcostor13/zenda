@@ -2,16 +2,21 @@ import { Component, inject, signal, computed, HostListener } from '@angular/core
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { RsRegionSelectorComponent } from '../region/rs-region-selector.component';
 import { VERTICALES_UI } from '../../verticales/verticales.config';
+import { BRAND } from '../../media/images';
 
 @Component({
   selector: 'rs-navbar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RsIconComponent],
+  imports: [RouterLink, RouterLinkActive, RsIconComponent, RsRegionSelectorComponent],
   template: `
     <nav class="rs-navbar">
-      <a routerLink="/" class="rs-navbar__brand">
-        <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:44px;width:auto;display:block" />
+      <!-- Marca: la inicial "D" siempre visible (patrón Booking) y el logotipo
+           completo solo cuando hay espacio, para que la barra nunca se rompa. -->
+      <a routerLink="/" class="rs-navbar__brand" aria-label="Doogking — inicio">
+        <img [src]="logoD" alt="" aria-hidden="true" class="rs-navbar__mark" />
+        <img src="/images/logo-doogking.jpg" alt="Doogking" class="rs-navbar__wordmark" />
       </a>
 
       <!-- Desktop nav — una entrada por categoría (misma config que el buscador) -->
@@ -25,6 +30,19 @@ import { VERTICALES_UI } from '../../verticales/verticales.config';
 
       <!-- Desktop actions -->
       <div class="rs-navbar__actions">
+        <rs-region-selector />
+
+        <a routerLink="/ayuda" class="rs-navbar__ayuda"
+           aria-label="Ayuda y atención al cliente" title="Ayuda y atención al cliente">
+          <rs-icon name="message-square" [size]="16" [stroke]="2"></rs-icon>
+        </a>
+
+        @if (muestraAltaComercio()) {
+          <a routerLink="/auth/registro-comercio" class="rs-navbar__link rs-navbar__link--pro">
+            <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
+            Registra tu empresa
+          </a>
+        }
         @if (estaAutenticado()) {
           @if (esAdmin()) {
             <a routerLink="/admin" class="rs-btn rs-btn--primary rs-btn--sm">
@@ -70,10 +88,6 @@ import { VERTICALES_UI } from '../../verticales/verticales.config';
             }
           </div>
         } @else {
-          <a routerLink="/auth/registro-comercio" class="rs-navbar__link rs-navbar__link--pro">
-            <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
-            Registra tu negocio
-          </a>
           <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm">Ingresar</a>
           <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm">Comenzar</a>
         }
@@ -104,6 +118,13 @@ import { VERTICALES_UI } from '../../verticales/verticales.config';
         <div class="rs-mobile-menu__divider"></div>
 
         <div class="rs-mobile-menu__actions">
+          <rs-region-selector [block]="true" />
+
+          <a routerLink="/ayuda" class="rs-btn rs-btn--ghost rs-btn--block" (click)="menuAbierto.set(false)">
+            <rs-icon name="message-square" [size]="15" [stroke]="2"></rs-icon>
+            Ayuda y atención al cliente
+          </a>
+
           @if (estaAutenticado()) {
             @if (esAdmin()) {
               <a routerLink="/admin" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">
@@ -126,22 +147,44 @@ import { VERTICALES_UI } from '../../verticales/verticales.config';
               Cerrar sesión
             </button>
           } @else {
-            <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--outline rs-btn--block" (click)="menuAbierto.set(false)">
-              <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
-              Registra tu negocio
-            </a>
             <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--block"   (click)="menuAbierto.set(false)">Ingresar</a>
             <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Comenzar gratis</a>
+          }
+
+          <!-- El alta de comercio cierra el menú: es una acción secundaria para
+               quien navega como cliente, no compite con sus propios accesos. -->
+          @if (muestraAltaComercio()) {
+            <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--outline rs-btn--block" (click)="menuAbierto.set(false)">
+              <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
+              Registra tu empresa
+            </a>
           }
         </div>
       </div>
     }
   `,
   styles: [`
-    /* Enlace "Registra tu negocio" (desktop) */
+    /* Marca: inicial "D" + logotipo */
+    .rs-navbar__mark { height: 34px; width: 34px; display: block; flex-shrink: 0; }
+    .rs-navbar__wordmark { height: 44px; width: auto; display: block; }
+    @media (max-width: 1180px) { .rs-navbar__wordmark { display: none; } }
+
+    /* Acceso a soporte: siempre visible, con o sin sesión */
+    .rs-navbar__ayuda {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; flex-shrink: 0;
+      border: 1px solid var(--b-2); border-radius: 50%;
+      color: var(--dk-blue); text-decoration: none;
+      transition: background var(--d-2), border-color var(--d-2);
+      &:hover { background: var(--c-accent-lo); border-color: var(--c-accent); }
+    }
+
+    /* Enlace "REGISTRA TU EMPRESA" (desktop) */
     .rs-navbar__link--pro {
       display: inline-flex; align-items: center; gap: var(--sp-2);
-      font-size: var(--f-sm); font-weight: var(--w-6); color: var(--c-accent);
+      font-family: var(--font-accent);
+      font-size: var(--f-xs); font-weight: var(--w-7); letter-spacing: .06em;
+      text-transform: uppercase; color: var(--c-accent);
       text-decoration: none; padding: var(--sp-2) var(--sp-1); white-space: nowrap;
       transition: color var(--d-2);
       &:hover { color: var(--dk-blue-deep, var(--c-accent-h)); }
@@ -263,6 +306,14 @@ export class RsNavbarComponent {
   readonly esComercio = this.authService.esComercio;
   readonly menuAbierto = signal(false);
   readonly cuentaAbierto = signal(false);
+
+  readonly logoD = BRAND.logoD;
+
+  /**
+   * El alta de comercio es la vía principal de captación de oferta: se muestra
+   * a quien no ha entrado y también al cliente logueado, no solo a los visitantes.
+   */
+  readonly muestraAltaComercio = computed(() => !this.esComercio() && !this.esAdmin());
 
   readonly iniciales = computed(() => {
     const nombre = this.authService.usuario()?.nombre ?? '';

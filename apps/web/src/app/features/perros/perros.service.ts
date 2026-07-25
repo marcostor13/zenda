@@ -1,7 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { TipoHistorial, Vacuna, VerticalKey } from 'shared';
 import { environment } from '../../../environments/environment';
+
+/** Vacuna marcada en la ficha, con la fecha si el dueño la recuerda. */
+export interface VacunaAplicada {
+  tipo: Vacuna;
+  fecha?: string;
+}
 
 export interface PerroApi {
   _id: string;
@@ -19,6 +26,7 @@ export interface PerroApi {
   tamano?: string;
   estadoManto?: string;
   vacunas: string[];
+  vacunasDetalle?: VacunaAplicada[];
   alergias: string[];
   enfermedades: string[];
   medicacion: string[];
@@ -31,6 +39,10 @@ export interface PerroApi {
   temperamento?: string;
   seMarea: boolean;
   requiereTransportin: boolean;
+  orinaEnInterior?: boolean;
+  ladraAlQuedarseSolo?: boolean;
+  destructivoEnSoledad?: boolean;
+  notasAlojamiento?: string;
   autorizaCompartirHistorial: boolean;
   nivelDoogking?: number;
   createdAt?: string;
@@ -48,6 +60,7 @@ export interface PerroPayload {
   tamano?: string;
   estadoManto?: string;
   vacunas?: string[];
+  vacunasDetalle?: VacunaAplicada[];
   alergias?: string[];
   enfermedades?: string[];
   medicacion?: string[];
@@ -60,13 +73,38 @@ export interface PerroPayload {
   temperamento?: string;
   seMarea?: boolean;
   requiereTransportin?: boolean;
+  orinaEnInterior?: boolean;
+  ladraAlQuedarseSolo?: boolean;
+  destructivoEnSoledad?: boolean;
+  notasAlojamiento?: string;
   autorizaCompartirHistorial?: boolean;
 }
 
 export interface PerroHistorialApi {
   _id: string;
   vertical: string;
+  tipoHistorial?: TipoHistorial;
+  origen?: 'comercio' | 'propietario';
   nota: string;
+  createdAt: string;
+  editadaAt?: string;
+}
+
+/** Permiso para que una categoría de servicio vea un tipo de historial. */
+export interface ConsentimientoApi {
+  _id: string;
+  tipoHistorial: TipoHistorial;
+  verticalDestino: VerticalKey;
+  concedido: boolean;
+  fechaConcesion?: string;
+  fechaRevocacion?: string;
+}
+
+/** Entrada del historial de cambios de la ficha. */
+export interface PerroVersionApi {
+  _id: string;
+  campos: string[];
+  anterior: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -142,5 +180,40 @@ export class PerrosService {
 
   crearValoracion(id: string, payload: CrearValoracionPayload): Promise<unknown> {
     return firstValueFrom(this.http.post(`${this.base}/${id}/valoraciones`, payload));
+  }
+
+  // ── Privacidad: quién ve qué del historial de la mascota (RGPD) ──
+
+  consentimientos(id: string): Promise<ConsentimientoApi[]> {
+    return firstValueFrom(this.http.get<ConsentimientoApi[]>(`${this.base}/${id}/consentimientos`));
+  }
+
+  fijarConsentimiento(
+    id: string,
+    payload: { tipoHistorial: TipoHistorial; verticalDestino: VerticalKey; concedido: boolean },
+  ): Promise<ConsentimientoApi> {
+    return firstValueFrom(
+      this.http.patch<ConsentimientoApi>(`${this.base}/${id}/consentimientos`, payload),
+    );
+  }
+
+  revocarTodos(id: string): Promise<{ revocados: number }> {
+    return firstValueFrom(
+      this.http.delete<{ revocados: number }>(`${this.base}/${id}/consentimientos`),
+    );
+  }
+
+  versiones(id: string): Promise<PerroVersionApi[]> {
+    return firstValueFrom(this.http.get<PerroVersionApi[]>(`${this.base}/${id}/versiones`));
+  }
+
+  editarHistorial(id: string, historialId: string, nota: string): Promise<PerroHistorialApi> {
+    return firstValueFrom(
+      this.http.patch<PerroHistorialApi>(`${this.base}/${id}/historial/${historialId}`, { nota }),
+    );
+  }
+
+  eliminarHistorial(id: string, historialId: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${this.base}/${id}/historial/${historialId}`));
   }
 }

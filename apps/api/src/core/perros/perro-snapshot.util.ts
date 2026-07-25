@@ -26,8 +26,15 @@ export function construirSnapshotPerro(perro: PerroDocument): Record<string, unk
     alergias: perro.alergias,
     medicacion: perro.medicacion,
     vacunas: perro.vacunas,
+    vacunasDetalle: perro.vacunasDetalle,
     seMarea: perro.seMarea,
     requiereTransportin: perro.requiereTransportin,
     toleraTrayectosLargos: perro.toleraTrayectosLargos,
+    // Conducta de alojamiento: el hotel o la residencia debe conocerla antes de
+    // la llegada, no descubrirla al devolver la habitación (HU-004).
+    orinaEnInterior: perro.orinaEnInterior,
+    ladraAlQuedarseSolo: perro.ladraAlQuedarseSolo,
+    destructivoEnSoledad: perro.destructivoEnSoledad,
+    notasAlojamiento: perro.notasAlojamiento,
   };
 }

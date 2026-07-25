@@ -15,6 +15,8 @@ export interface PerfilCompatibilidad {
   temperamento?: string;
 }
 
+export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valoracion' | 'distancia';
+
 export interface BuscarServiciosParams {
   vertical?: string;
   ciudad?: string;
@@ -23,7 +25,30 @@ export interface BuscarServiciosParams {
   page: number;
   limit: number;
   perfilPerro?: PerfilCompatibilidad;
+  orden?: OrdenServicios;
+  /** Punto de referencia del usuario; obligatorio para ordenar por distancia. */
+  lat?: number;
+  lng?: number;
+  /** Descarta lo que no se puede reservar ahora mismo (P2). */
+  soloDisponibles?: boolean;
 }
+
+/** Contador de plazas libres de cada vertical: su nombre cambia según la categoría. */
+const CAMPO_DISPONIBILIDAD: Record<string, string> = {
+  alojamiento: 'espaciosDisponibles',
+  hoteles: 'unidadesDisponibles',
+  transporte: 'unidadesDisponibles',
+  veterinaria: 'citasDisponibles',
+  peluqueria: 'cuposDisponibles',
+  adiestramiento: 'cuposDisponibles',
+};
+
+const ORDEN_SORT: Record<Exclude<OrdenServicios, 'distancia'>, Record<string, 1 | -1>> = {
+  relevancia: { destacado: -1, prioridadRanking: -1, precioBase: 1 },
+  precio_asc: { precioBase: 1 },
+  precio_desc: { precioBase: -1 },
+  valoracion: { ratingPromedio: -1, totalReseñas: -1 },
+};
 
 export interface BuscarServiciosResult {
   items: ServicioDocument[];
@@ -64,13 +89,25 @@ export class CatalogRepository {
   ) {}
 
   async buscar(params: BuscarServiciosParams): Promise<BuscarServiciosResult> {
+    if (params.orden === 'distancia' && params.lat != null && params.lng != null) {
+      const porDistancia = await this.buscarPorDistancia({
+        ...params, lat: params.lat, lng: params.lng,
+      });
+      // Un servicio sin coordenadas no entra en `$geoNear`. Si ningún listado
+      // las tiene todavía, es mejor devolver el orden por defecto que dejar la
+      // pantalla vacía; el usuario pidió ordenar, no filtrar.
+      if (porDistancia.total > 0) return porDistancia;
+    }
+
     const filtro = this.construirFiltro(params);
     const skip = (params.page - 1) * params.limit;
+    const sort = ORDEN_SORT[(params.orden as Exclude<OrdenServicios, 'distancia'>) ?? 'relevancia']
+      ?? ORDEN_SORT.relevancia;
 
     const [items, total] = await Promise.all([
       this.servicioModel
         .find(filtro)
-        .sort({ destacado: -1, prioridadRanking: -1, precioBase: 1 })
+        .sort(sort)
         .skip(skip)
         .limit(params.limit)
         .lean()
@@ -79,6 +116,39 @@ export class CatalogRepository {
     ]);
 
     return { items, total };
+  }
+
+  /**
+   * Orden por cercanía real usando el índice `2dsphere`. `$geoNear` debe ser la
+   * primera etapa del pipeline, por eso no reutiliza el `find` de arriba.
+   */
+  private async buscarPorDistancia(
+    params: BuscarServiciosParams & { lat: number; lng: number },
+  ): Promise<BuscarServiciosResult> {
+    const filtro = this.construirFiltro(params);
+    const skip = (params.page - 1) * params.limit;
+
+    const [resultado] = await this.servicioModel.aggregate<{
+      items: ServicioDocument[];
+      total: Array<{ n: number }>;
+    }>([
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates: [params.lng, params.lat] },
+          distanceField: 'distanciaMetros',
+          spherical: true,
+          query: filtro,
+        },
+      },
+      {
+        $facet: {
+          items: [{ $skip: skip }, { $limit: params.limit }],
+          total: [{ $count: 'n' }],
+        },
+      },
+    ]).exec();
+
+    return { items: resultado?.items ?? [], total: resultado?.total?.[0]?.n ?? 0 };
   }
 
   async obtenerPorId(id: string): Promise<ServicioDocument | null> {
@@ -169,10 +239,35 @@ export class CatalogRepository {
       if (params.precioMax != null) filtro.precioBase.$lte = params.precioMax;
     }
 
-    const condicionesAptitud = this.condicionesCompatibilidad(params.perfilPerro);
-    if (condicionesAptitud.length) filtro.$and = condicionesAptitud;
+    const condiciones = this.condicionesCompatibilidad(params.perfilPerro);
+
+    const condicionDisponible = this.condicionDisponibilidad(params);
+    if (condicionDisponible) condiciones.push(condicionDisponible);
+
+    if (condiciones.length) filtro.$and = condiciones;
 
     return filtro;
+  }
+
+  /**
+   * Descarta los servicios sin plazas libres (P2). Un contador ausente se trata
+   * como "sin declarar" y no oculta el listado: solo se esconde el que dice
+   * explícitamente que está a cero.
+   */
+  private condicionDisponibilidad(params: BuscarServiciosParams): FilterQuery<ServicioDocument> | null {
+    if (!params.soloDisponibles) return null;
+
+    const campos = params.vertical
+      ? [CAMPO_DISPONIBILIDAD[params.vertical]].filter(Boolean)
+      : [...new Set(Object.values(CAMPO_DISPONIBILIDAD))];
+    if (!campos.length) return null;
+
+    return {
+      $or: campos.flatMap((campo) => [
+        { [campo]: { $exists: false } },
+        { [campo]: { $gt: 0 } },
+      ]),
+    };
   }
 
   /**

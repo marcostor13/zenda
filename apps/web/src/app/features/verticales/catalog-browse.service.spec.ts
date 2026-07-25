@@ -35,12 +35,13 @@ describe('CatalogBrowseService', () => {
 
   describe('buscar', () => {
     it('debería consultar el catálogo con el vertical indicado y normalizar "extra"', async () => {
-      const promesa = service.buscar('peluqueria', 'Madrid');
+      const promesa = service.buscar('peluqueria', { ciudad: 'Madrid' });
 
       const req = httpMock.expectOne(
         (r) => r.url.includes('/catalog/servicios') && r.params.get('vertical') === 'peluqueria',
       );
       expect(req.request.params.get('ciudad')).toBe('Madrid');
+      expect(req.request.params.get('perroId')).toBeNull();
       req.flush({ items: [{ ...cardMock, extra: undefined }], total: 1, page: 1, totalPages: 1 });
 
       const resultado = await promesa;

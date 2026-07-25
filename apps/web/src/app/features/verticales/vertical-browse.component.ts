@@ -14,7 +14,11 @@ import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
 interface Busqueda {
   ciudad?: string;
   desde?: string;
+  /** Hora pedida en el buscador; ordena los resultados por cercanía al slot. */
+  hora?: string;
   perros?: string;
+  /** Mascota elegida en el buscador: filtra por compatibilidad. */
+  perroId?: string;
 }
 
 /**
@@ -125,8 +129,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
   <section class="rs-section rs-section--sm">
     <div class="rs-wrap">
       <header class="vb-head">
-        <h1>{{ ui().label }}<span class="vb-head__ciudad">{{ sufijoCiudad() }}</span></h1>
-        <p>{{ ui().descripcion }}</p>
+        <h1>{{ titular() }}</h1>
+        <p>{{ subtitular() }}</p>
       </header>
 
       @if (cargando()) {
@@ -136,7 +140,12 @@ const CONFIGS: Record<string, VerticalConfig> = {
           }
         </div>
       } @else {
-        <p class="vb-count">{{ items().length }} resultados</p>
+        <p class="vb-count">
+          {{ items().length }} {{ items().length === 1 ? 'resultado' : 'resultados' }}<span class="vb-count__ciudad">{{ sufijoCiudad() }}</span>
+          @for (c of contextoBusqueda(); track c) {
+            <span class="vb-chip">{{ c }}</span>
+          }
+        </p>
         <div class="vb-grid">
           @for (c of items(); track c.id) {
             <article class="vb-card" rsAnim>
@@ -193,9 +202,15 @@ const CONFIGS: Record<string, VerticalConfig> = {
     .vb-searchbar { background: var(--c-card); border-bottom: 1px solid var(--b-1); padding-block: var(--sp-4); box-shadow: var(--sh-sm); }
     .vb-head { margin-bottom: var(--sp-6); }
     .vb-head h1 { font-size: var(--f-3xl); color: var(--dk-blue); letter-spacing: -.02em; }
-    .vb-head__ciudad { color: var(--t-300); font-weight: var(--w-6); }
-    .vb-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); }
+    .vb-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); font-size: var(--f-md); }
     .vb-count { color: var(--t-400); font-size: var(--f-sm); margin-bottom: var(--sp-5); }
+    .vb-count__ciudad { color: var(--dk-blue); font-weight: var(--w-6); }
+    .vb-chip {
+      display: inline-block; margin-left: var(--sp-2);
+      padding: 2px var(--sp-2); border-radius: var(--r-full);
+      background: var(--c-accent-lo); color: var(--dk-blue);
+      font-size: var(--f-xs); font-weight: var(--w-6);
+    }
     .vb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .vb-card { background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--sh-card); transition: all var(--d-3); &:hover { box-shadow: var(--sh-lg); transform: translateY(-4px); .vb-card__img img { transform: scale(1.06); } } }
     .vb-card__img { position: relative; aspect-ratio: 16/10; overflow: hidden; background: linear-gradient(135deg, #143C7A, #1668E3); img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); } }
@@ -220,6 +235,10 @@ export class VerticalBrowseComponent implements OnInit {
 
   readonly cfg = signal<VerticalConfig>(CONFIGS['veterinaria']);
   readonly ui = signal<VerticalUi>(verticalUi(VerticalKey.VETERINARIA));
+
+  /** Copy de marca del vertical; cae a la etiqueta/descripción si no lo tiene. */
+  readonly titular = computed(() => this.ui().titular ?? this.ui().label);
+  readonly subtitular = computed(() => this.ui().subtitular ?? this.ui().descripcion);
   readonly cargando = signal(true);
   readonly items = signal<ServicioCard[]>([]);
   readonly error = signal(false);
@@ -227,6 +246,20 @@ export class VerticalBrowseComponent implements OnInit {
 
   /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
   private readonly busqueda = signal<Busqueda>({});
+
+  /**
+   * Resume lo que el usuario pidió (fecha, hora, mascota) junto al recuento:
+   * sin esto, al quitarse el botón "Buscar" no queda ninguna confirmación
+   * visible de que la búsqueda se aplicó.
+   */
+  readonly contextoBusqueda = computed(() => {
+    const { desde, hora, perroId } = this.busqueda();
+    const chips: string[] = [];
+    if (desde) chips.push(desde);
+    if (hora) chips.push(hora);
+    if (perroId) chips.push('Compatible con tu mascota');
+    return chips;
+  });
 
   readonly sufijoCiudad = computed(() => {
     const ciudad = this.busqueda().ciudad;
@@ -243,7 +276,9 @@ export class VerticalBrowseComponent implements OnInit {
       this.busqueda.set({
         ciudad: params['ciudad'] || undefined,
         desde: params['desde'] || undefined,
+        hora: params['hora'] || undefined,
         perros: params['perros'] || undefined,
+        perroId: (params['perroIds'] ?? '').split(',').filter(Boolean)[0] || undefined,
       });
       void this.cargar();
     });
@@ -256,7 +291,10 @@ export class VerticalBrowseComponent implements OnInit {
     try {
       // Datos reales del catálogo: nunca mocks, para no ofrecer servicios
       // inexistentes que romperían la reserva.
-      this.items.set(await this.browseService.buscar(this.cfg().vertical, this.busqueda().ciudad));
+      this.items.set(await this.browseService.buscar(this.cfg().vertical, {
+        ciudad: this.busqueda().ciudad,
+        perroId: this.busqueda().perroId,
+      }));
     } catch {
       this.items.set([]);
       this.error.set(true);

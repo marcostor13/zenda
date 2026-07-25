@@ -7,6 +7,7 @@ import { AvailabilityRegistry } from '../availability/availability.registry';
 import { AvailabilityStrategy } from '../availability/availability.strategy';
 import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { VerticalKey, ReservaEstado } from 'shared';
 
@@ -17,6 +18,7 @@ describe('BookingsService', () => {
   let estrategiaMock: jest.Mocked<AvailabilityStrategy>;
   let cuponesService: jest.Mocked<CuponesService>;
   let perrosService: jest.Mocked<PerrosService>;
+  let notificationsService: jest.Mocked<NotificationsService>;
 
   const parametrosBase = {
     usuarioId: 'user-1',
@@ -79,6 +81,10 @@ describe('BookingsService', () => {
           provide: PerrosService,
           useValue: { obtenerPropio: jest.fn() },
         },
+        {
+          provide: NotificationsService,
+          useValue: { notificarAjusteSolicitado: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
@@ -87,6 +93,7 @@ describe('BookingsService', () => {
     availabilityRegistry = module.get(AvailabilityRegistry);
     cuponesService = module.get(CuponesService);
     perrosService = module.get(PerrosService);
+    notificationsService = module.get(NotificationsService);
   });
 
   describe('crear', () => {
@@ -283,6 +290,7 @@ describe('BookingsService', () => {
 
   function ajusteReservaMock(overrides: Record<string, unknown> = {}) {
     const doc: any = {
+      _id: { toString: () => 'reserva-1' },
       comercioId: { toString: () => 'comercio-1' },
       usuarioId: { toString: () => 'user-1' },
       estado: ReservaEstado.CONFIRMADA,
@@ -314,6 +322,24 @@ describe('BookingsService', () => {
       expect(resultado.evidencias).toHaveLength(1);
       // (100 + 15) * 1.21 = 139.15
       expect(resultado.montoAjustado).toBeCloseTo(139.15);
+    });
+
+    it('debería avisar al cliente del ajuste, que nunca se aplica sin su aprobación', async () => {
+      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(ajusteReservaMock()) });
+
+      await service.solicitarAjuste('reserva-1', 'comercio-1', [{ concepto: 'Nudos severos', monto: 15 }]);
+
+      expect(notificationsService.notificarAjusteSolicitado).toHaveBeenCalledWith('reserva-1');
+    });
+
+    it('no debería avisar cuando el ajuste se rechaza por regla de negocio', async () => {
+      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(ajusteReservaMock()) });
+
+      await expect(
+        service.solicitarAjuste('reserva-1', 'otro-comercio', [{ concepto: 'X', monto: 5 }]),
+      ).rejects.toThrow(DomainException);
+
+      expect(notificationsService.notificarAjusteSolicitado).not.toHaveBeenCalled();
     });
 
     it('debería lanzar 403 si la reserva no es del comercio', async () => {

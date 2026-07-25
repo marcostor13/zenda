@@ -12,6 +12,8 @@ export const BRAND = {
   logo: '/images/logo-doogking.jpg',
   /** Logotipo sin la banda del eslogan — para heros donde el eslogan es texto. */
   logoMark: '/images/logo-doogking-mark.jpg',
+  /** Marca compacta: la inicial "D" (cabecera, favicon, avatares de marca). */
+  logoD: '/images/logo-doogking-d.svg',
   logoFooter: '/images/logo-doogking-footer.jpg',
   mascota: '/images/mascota-doogking.jpg',
   heroHome: '/images/hero-home.jpg',

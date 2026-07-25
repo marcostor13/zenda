@@ -1,10 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import { ServicioClinicoTipo } from 'shared';
 import { Servicio } from '../../core/catalog/servicio.schema';
 
 export type VeterinariaDocument = HydratedDocument<Veterinaria>;
 
 export interface ServicioClinico {
+  /**
+   * Servicio del catálogo cerrado. Es la fuente de verdad desde la Ola 4:
+   * `nombre` queda como texto heredado de los listados antiguos.
+   */
+  tipo?: ServicioClinicoTipo;
   nombre: string;
   precio: number;
   duracionMin?: number;

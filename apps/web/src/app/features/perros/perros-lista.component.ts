@@ -65,6 +65,10 @@ import { PerrosService, PerroApi, IndiceComportamientoApi } from './perros.servi
                 <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
                 Editar
               </a>
+              <a [routerLink]="['/perros', p._id, 'privacidad']" class="rs-btn rs-btn--outline rs-btn--sm">
+                <rs-icon name="lock" [size]="13" [stroke]="2"></rs-icon>
+                Privacidad
+              </a>
               <button class="rs-btn rs-btn--ghost rs-btn--sm" [disabled]="eliminandoId() === p._id"
                       (click)="eliminar(p)">
                 {{ eliminandoId() === p._id ? 'Eliminando…' : 'Eliminar' }}

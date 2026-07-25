@@ -7,7 +7,7 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
-import { verticalUi } from '../../../shared/verticales/verticales.config';
+import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../services/transporte.service';
 
 @Component({
@@ -31,8 +31,8 @@ import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../se
   <section class="rs-section rs-section--sm">
     <div class="rs-wrap">
       <header class="transporte-head">
-        <h1>{{ ui.label }}<span class="transporte-head__ciudad">{{ sufijoCiudad() }}</span></h1>
-        <p>{{ ui.descripcion }}</p>
+        <h1>{{ titular }}</h1>
+        <p>{{ subtitular }}</p>
       </header>
 
       @if (cargando()) {
@@ -42,7 +42,7 @@ import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../se
           }
         </div>
       } @else {
-        <p class="transporte-count">{{ transportes().length }} servicios de transporte disponibles</p>
+        <p class="transporte-count">{{ transportes().length }} servicios de transporte disponibles<span class="transporte-count__ciudad">{{ sufijoCiudad() }}</span></p>
         <div class="transporte-grid">
           @for (t of transportes(); track t.id) {
             <article class="transporte-card" [class.transporte-card--premium]="t.destacado" rsAnim>
@@ -110,9 +110,9 @@ import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../se
     .transporte-searchbar { background: var(--c-card); border-bottom: 1px solid var(--b-1); padding-block: var(--sp-4); box-shadow: var(--sh-sm); }
     .transporte-head { margin-bottom: var(--sp-6); }
     .transporte-head h1 { font-size: var(--f-3xl); color: var(--dk-blue); letter-spacing: -.02em; }
-    .transporte-head__ciudad { color: var(--t-300); font-weight: var(--w-6); }
-    .transporte-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); }
+    .transporte-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); font-size: var(--f-md); }
     .transporte-count { color: var(--t-400); font-size: var(--f-sm); margin-bottom: var(--sp-5); }
+    .transporte-count__ciudad { color: var(--dk-blue); font-weight: var(--w-6); }
     .transporte-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .transporte-card { background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--sh-card); transition: all var(--d-3); &:hover { box-shadow: var(--sh-lg); transform: translateY(-4px); .transporte-card__img img { transform: scale(1.06); } } }
     .transporte-card--premium { border-top: 4px solid var(--dk-gold); }
@@ -137,6 +137,8 @@ export class TransporteListaComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly ui = verticalUi(VerticalKey.TRANSPORTE);
+  readonly titular = titularDeVertical(VerticalKey.TRANSPORTE);
+  readonly subtitular = subtitularDeVertical(VerticalKey.TRANSPORTE);
   readonly cargando = signal(true);
   readonly error = signal(false);
   readonly transportes = signal<TransporteCard[]>([]);

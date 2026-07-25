@@ -25,6 +25,7 @@ import { AdiestramientoModule } from './verticals/adiestramiento/adiestramiento.
 import { HotelesModule } from './verticals/hoteles/hoteles.module';
 import { UploadModule } from './core/upload/upload.module';
 import { AiSearchModule } from './core/ai-search/ai-search.module';
+import { GeoModule } from './core/geo/geo.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { AiSearchModule } from './core/ai-search/ai-search.module';
     HotelesModule,
     UploadModule,
     AiSearchModule,
+    GeoModule,
   ],
 })
 export class AppModule {}

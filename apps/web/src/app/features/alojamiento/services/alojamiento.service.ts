@@ -18,7 +18,13 @@ export interface FiltrosAlojamiento {
   limit?: number;
   /** Filtra solo servicios aptos para este perro (motor de compatibilidad). */
   perroId?: string;
+  /** Criterio de ordenación; `distancia` requiere `lat` y `lng`. */
+  orden?: OrdenServicios;
+  lat?: number;
+  lng?: number;
 }
+
+export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valoracion' | 'distancia';
 
 export interface AlojamientoCard {
   id: string;
@@ -130,6 +136,9 @@ export class AlojamientoService {
     if (filtros.page)  params['page']  = String(filtros.page);
     if (filtros.limit) params['limit'] = String(filtros.limit);
     if (filtros.perroId) params['perroId'] = filtros.perroId;
+    if (filtros.orden) params['orden'] = filtros.orden;
+    if (filtros.lat != null) params['lat'] = String(filtros.lat);
+    if (filtros.lng != null) params['lng'] = String(filtros.lng);
 
     const res = await firstValueFrom(
       this.http.get<PaginatedResult<AlojamientoCard>>(this.base, { params }),

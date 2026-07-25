@@ -42,6 +42,16 @@ export class CatalogController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'perroId', required: false, description: 'Filtra solo servicios aptos para este perro' })
+  @ApiQuery({
+    name: 'orden', required: false,
+    enum: ['relevancia', 'precio_asc', 'precio_desc', 'valoracion', 'distancia'],
+  })
+  @ApiQuery({ name: 'lat', required: false, type: Number, description: 'Obligatorio para orden=distancia' })
+  @ApiQuery({ name: 'lng', required: false, type: Number, description: 'Obligatorio para orden=distancia' })
+  @ApiQuery({
+    name: 'soloDisponibles', required: false, type: Boolean,
+    description: 'Por defecto true: descarta lo que no se puede reservar',
+  })
   buscar(
     @Query('vertical') vertical?: string,
     @Query('ciudad') ciudad?: string,
@@ -50,6 +60,10 @@ export class CatalogController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('perroId') perroId?: string,
+    @Query('orden') orden?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('soloDisponibles') soloDisponibles?: string,
   ): Promise<PaginatedResult<ServicioCardDto>> {
     return this.catalogService.buscarServicios({
       vertical,
@@ -59,6 +73,10 @@ export class CatalogController {
       page: this.toNumber(page),
       limit: this.toNumber(limit),
       perroId,
+      orden,
+      lat: this.toNumber(lat),
+      lng: this.toNumber(lng),
+      soloDisponibles: soloDisponibles === undefined ? undefined : soloDisponibles !== 'false',
     });
   }
 

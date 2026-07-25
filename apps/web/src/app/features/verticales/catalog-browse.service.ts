@@ -19,6 +19,17 @@ export interface ServicioCard {
   extra: Record<string, unknown>;
 }
 
+export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valoracion' | 'distancia';
+
+export interface OpcionesBusqueda {
+  ciudad?: string;
+  /** Filtra por compatibilidad con esta mascota registrada. */
+  perroId?: string;
+  orden?: OrdenServicios;
+  lat?: number;
+  lng?: number;
+}
+
 interface PaginatedResult<T> {
   items: T[];
   total: number;
@@ -31,9 +42,14 @@ export class CatalogBrowseService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/catalog/servicios`;
 
-  async buscar(vertical: string, ciudad?: string): Promise<ServicioCard[]> {
+  async buscar(vertical: string, opciones: OpcionesBusqueda = {}): Promise<ServicioCard[]> {
     const params: Record<string, string> = { vertical, limit: '20' };
-    if (ciudad) params['ciudad'] = ciudad;
+    if (opciones.ciudad) params['ciudad'] = opciones.ciudad;
+    if (opciones.perroId) params['perroId'] = opciones.perroId;
+    if (opciones.orden) params['orden'] = opciones.orden;
+    if (opciones.lat != null) params['lat'] = String(opciones.lat);
+    if (opciones.lng != null) params['lng'] = String(opciones.lng);
+
     const res = await firstValueFrom(
       this.http.get<PaginatedResult<ServicioCard>>(this.base, { params }),
     );

@@ -4,6 +4,7 @@ import { CatalogRepository } from './catalog.repository';
 import { ReviewsService } from '../reviews/reviews.service';
 import { PerrosService } from '../perros/perros.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { ServicioClinicoTipo } from 'shared';
 
 describe('CatalogService', () => {
   let service: CatalogService;
@@ -356,6 +357,75 @@ describe('CatalogService', () => {
       expect(repo.crear).toHaveBeenCalledWith(
         expect.objectContaining({ extra: { precioConsulta: 35, especialidades: ['General'] } }),
       );
+    });
+
+    describe('catálogo cerrado de servicios veterinarios', () => {
+      const conServicios = (servicios: unknown[]) => ({
+        ...base,
+        vertical: 'veterinaria' as never,
+        extra: { precioConsulta: 35, serviciosClinicos: servicios },
+      });
+
+      it('debería aceptar los servicios del catálogo', async () => {
+        repo.crear.mockResolvedValue(hotelDoc as never);
+
+        await service.crearServicio(
+          conServicios([{ tipo: ServicioClinicoTipo.VACUNACION, nombre: 'Vacunación', precio: 25 }]),
+          'comercio-1',
+        );
+
+        expect(repo.crear).toHaveBeenCalled();
+      });
+
+      it('debería rechazar dermatología: Doogking no la intermedia', async () => {
+        await expect(
+          service.crearServicio(
+            conServicios([{ tipo: 'dermatologia', nombre: 'Consulta dermatología', precio: 55 }]),
+            'comercio-1',
+          ),
+        ).rejects.toThrow(DomainException);
+        expect(repo.crear).not.toHaveBeenCalled();
+      });
+
+      it('debería rechazar cirugía por la misma regla', async () => {
+        await expect(
+          service.crearServicio(
+            conServicios([{ tipo: 'cirugia_menor', nombre: 'Cirugía menor', precio: 320 }]),
+            'comercio-1',
+          ),
+        ).rejects.toThrow(DomainException);
+      });
+
+      it('debería rechazar cualquier servicio fuera del catálogo', async () => {
+        await expect(
+          service.crearServicio(
+            conServicios([{ tipo: 'ecografia', nombre: 'Ecografía', precio: 70 }]),
+            'comercio-1',
+          ),
+        ).rejects.toThrow(DomainException);
+      });
+
+      it('debería tolerar listados antiguos sin tipo, para no bloquear al comercio', async () => {
+        repo.crear.mockResolvedValue(hotelDoc as never);
+
+        await service.crearServicio(
+          conServicios([{ nombre: 'Consulta general', precio: 35 }]),
+          'comercio-1',
+        );
+
+        expect(repo.crear).toHaveBeenCalled();
+      });
+
+      it('no debería aplicar la regla a otros verticales', async () => {
+        repo.crear.mockResolvedValue(hotelDoc as never);
+
+        await service.crearServicio(
+          { ...base, vertical: 'peluqueria' as never, extra: { serviciosClinicos: [{ tipo: 'lo_que_sea' }] } },
+          'comercio-1',
+        );
+
+        expect(repo.crear).toHaveBeenCalled();
+      });
     });
   });
 });

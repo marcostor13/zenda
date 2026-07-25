@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { VerticalKey, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS } from 'shared';
 import { Veterinaria, VeterinariaDocument, ServicioClinico } from './veterinaria.schema';
 
 const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000003');
@@ -26,16 +26,28 @@ export class VeterinariaSeeder implements OnModuleInit {
     }
   }
 
+  /** Servicio clínico del catálogo cerrado, con su etiqueta oficial. */
+  private sc(
+    tipo: ServicioClinicoTipo,
+    precio: number,
+    duracionMin: number,
+    esPrecioCerrado = false,
+  ): ServicioClinico {
+    return { tipo, nombre: SERVICIO_CLINICO_LABELS[tipo], precio, duracionMin, esPrecioCerrado };
+  }
+
   private demo(): Partial<Veterinaria>[] {
     return [
+      // Solo servicios del catálogo cerrado: Doogking no intermedia
+      // dermatología, cirugía ni pruebas de precio abierto (plan unificado §2.2).
       this.v({
         titulo: 'Clínica Veterinaria Royal Paws',
-        especialidades: ['medicina general', 'vacunación', 'odontología', 'radiografía', 'urgencias'],
+        especialidades: ['medicina general', 'vacunación', 'odontología', 'urgencias'],
         servicios: [
-          { nombre: 'Consulta general', precio: 35, duracionMin: 30 },
-          { nombre: 'Vacunación', precio: 25, duracionMin: 15 },
-          { nombre: 'Limpieza dental', precio: 250, duracionMin: 60 },
-          { nombre: 'Radiografía', precio: 80, duracionMin: 30 },
+          this.sc(ServicioClinicoTipo.CONSULTA_GENERAL, 35, 30),
+          this.sc(ServicioClinicoTipo.VACUNACION, 25, 15, true),
+          this.sc(ServicioClinicoTipo.HIGIENE_DENTAL, 250, 60, true),
+          this.sc(ServicioClinicoTipo.CONSULTA_URGENTE, 60, 30),
         ],
         precioConsulta: 35, citasPorDia: 16, urgencias: true,
         horario: 'L–D 24h (urgencias) · Consultas L–V 09:00–20:00',
@@ -43,12 +55,12 @@ export class VeterinariaSeeder implements OnModuleInit {
       }),
       this.v({
         titulo: 'Hospital Veterinario Chamartín',
-        especialidades: ['medicina general', 'cirugía', 'dermatología', 'traumatología'],
+        especialidades: ['medicina general', 'traumatología'],
         servicios: [
-          { nombre: 'Consulta general', precio: 40, duracionMin: 30 },
-          { nombre: 'Consulta dermatología', precio: 55, duracionMin: 30 },
-          { nombre: 'Ecografía', precio: 70, duracionMin: 30 },
-          { nombre: 'Cirugía menor', precio: 320, duracionMin: 90 },
+          this.sc(ServicioClinicoTipo.CONSULTA_GENERAL, 40, 30),
+          this.sc(ServicioClinicoTipo.CONSULTA_REVISION, 30, 20),
+          this.sc(ServicioClinicoTipo.SEGUNDA_OPINION, 55, 40),
+          this.sc(ServicioClinicoTipo.ESTERILIZACION, 320, 90, true),
         ],
         precioConsulta: 40, citasPorDia: 24, urgencias: false,
         horario: 'L–V 09:00–21:00 · S 10:00–14:00',
@@ -58,9 +70,10 @@ export class VeterinariaSeeder implements OnModuleInit {
         titulo: 'Veterinaria Lavapiés Low Cost',
         especialidades: ['medicina general', 'vacunación'],
         servicios: [
-          { nombre: 'Consulta general', precio: 25, duracionMin: 20 },
-          { nombre: 'Vacunación', precio: 18, duracionMin: 15 },
-          { nombre: 'Desparasitación', precio: 15, duracionMin: 15 },
+          this.sc(ServicioClinicoTipo.CONSULTA_GENERAL, 25, 20),
+          this.sc(ServicioClinicoTipo.VACUNACION, 18, 15, true),
+          this.sc(ServicioClinicoTipo.MICROCHIP, 30, 15, true),
+          this.sc(ServicioClinicoTipo.TELECONSULTA, 15, 15, true),
         ],
         precioConsulta: 25, citasPorDia: 20, urgencias: false,
         horario: 'L–S 10:00–20:00',

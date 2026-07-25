@@ -9,8 +9,11 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { SexoPerro, TamanoPerro, TipoPelo, NivelSociabilidad } from '../../enums/perro.enum';
+import { VacunaAplicadaDto } from './crear-perro.dto';
 
 /** Mismos campos que CrearPerroDto, todos opcionales (actualización parcial). */
 export class ActualizarPerroDto {
@@ -86,6 +89,12 @@ export class ActualizarPerroDto {
 
   @IsOptional()
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VacunaAplicadaDto)
+  vacunasDetalle?: VacunaAplicadaDto[];
+
+  @IsOptional()
+  @IsArray()
   @IsString({ each: true })
   alergias?: string[];
 
@@ -135,6 +144,23 @@ export class ActualizarPerroDto {
   @IsOptional()
   @IsBoolean()
   protectorRecursos?: boolean;
+
+  // --- Conducta específica de alojamiento (HU-004) ---
+  @IsOptional()
+  @IsBoolean()
+  orinaEnInterior?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  ladraAlQuedarseSolo?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  destructivoEnSoledad?: boolean;
+
+  @IsOptional()
+  @IsString()
+  notasAlojamiento?: string;
 
   @IsOptional()
   @IsBoolean()

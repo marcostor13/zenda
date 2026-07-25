@@ -1,9 +1,13 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { VerticalKey, VERTICAL_LABELS, IVA_RATE } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
+import {
+  LugarElegido, RsPlaceAutocompleteComponent,
+} from '../../../shared/components/place-autocomplete/rs-place-autocomplete.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { GeoService } from '../../../core/geo/geo.service';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
@@ -73,7 +77,10 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 @Component({
   selector: 'app-reserva-wizard',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, ImgFallbackDirective],
+  imports: [
+    RouterLink, ReactiveFormsModule, FormsModule,
+    RsNavbarComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent,
+  ],
   template: `
 <div class="wizard-page">
   <rs-navbar />
@@ -160,12 +167,15 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Número de perros</label>
-                    <select formControlName="perros" class="rs-inp rs-inp--lg">
-                      <option value="1">1 perro</option>
-                      <option value="2">2 perros</option>
-                      <option value="3">3 perros</option>
-                    </select>
+                    <label class="rs-lbl" [attr.for]="idPerrosAlojamiento">Número de perros</label>
+                    <div class="contador">
+                      <button type="button" (click)="cambiarPerros(paso1AlojamientoForm.controls.perros, -1)"
+                              [disabled]="!puedeQuitarPerros(paso1AlojamientoForm.controls.perros)"
+                              aria-label="Quitar un perro">−</button>
+                      <output [id]="idPerrosAlojamiento">{{ paso1AlojamientoForm.controls.perros.value }}</output>
+                      <button type="button" (click)="cambiarPerros(paso1AlojamientoForm.controls.perros, 1)"
+                              aria-label="Añadir un perro">+</button>
+                    </div>
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">Tamaño del perro</label>
@@ -220,29 +230,45 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Dirección de recogida (origen)</label>
-                  <input formControlName="origen" class="rs-inp rs-inp--lg"
-                         placeholder="Ej. Calle Mayor 12, Madrid" />
+                  <label class="rs-lbl" for="wz-origen">Dirección de recogida (origen)</label>
+                  <div class="rs-inp rs-inp--lg rs-inp--host">
+                    <rs-place-autocomplete formControlName="origen" inputId="wz-origen"
+                                           placeholder="Ej. Madrid"
+                                           (lugarElegido)="fijarOrigen($event)" />
+                  </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Destino</label>
-                  <input formControlName="destino" class="rs-inp rs-inp--lg"
-                         placeholder="Ej. Clínica veterinaria, Toledo" />
+                  <label class="rs-lbl" for="wz-destino">Destino</label>
+                  <div class="rs-inp rs-inp--lg rs-inp--host">
+                    <rs-place-autocomplete formControlName="destino" inputId="wz-destino"
+                                           placeholder="Ej. Toledo"
+                                           (lugarElegido)="fijarDestino($event)" />
+                  </div>
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Distancia estimada (km)</label>
+                    <label class="rs-lbl">Distancia del trayecto (km)</label>
                     <input formControlName="distanciaKm" type="number" class="rs-inp rs-inp--lg" min="1" />
-                    <span class="rs-field-hint">Para estimar la tarifa (tarifa base + km)</span>
+                    @if (calculandoTrayecto()) {
+                      <span class="rs-field-hint">Calculando la distancia…</span>
+                    } @else if (resumenTrayecto()) {
+                      <span class="rs-field-hint">{{ resumenTrayecto() }}</span>
+                    } @else {
+                      <span class="rs-field-hint">
+                        Elige origen y destino y la calculamos por ti (tarifa base + km).
+                      </span>
+                    }
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Número de perros</label>
-                    <select formControlName="perros" class="rs-inp rs-inp--lg">
-                      <option value="1">1 perro</option>
-                      <option value="2">2 perros</option>
-                      <option value="3">3 perros</option>
-                      <option value="4">4 perros</option>
-                    </select>
+                    <label class="rs-lbl" [attr.for]="idPerrosTransporte">Número de perros</label>
+                    <div class="contador">
+                      <button type="button" (click)="cambiarPerros(paso1TransporteForm.controls.perros, -1)"
+                              [disabled]="!puedeQuitarPerros(paso1TransporteForm.controls.perros)"
+                              aria-label="Quitar un perro">−</button>
+                      <output [id]="idPerrosTransporte">{{ paso1TransporteForm.controls.perros.value }}</output>
+                      <button type="button" (click)="cambiarPerros(paso1TransporteForm.controls.perros, 1)"
+                              aria-label="Añadir un perro">+</button>
+                    </div>
                   </div>
                 </div>
               </form>
@@ -759,6 +785,32 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
     .wizard-steps { justify-content: center; margin-bottom: var(--sp-10); padding: var(--sp-6); background: var(--c-raised); border-radius: var(--r-xl); border: 1px solid var(--b-1); }
 
+    /* Envoltorio para que el autocompletado de direcciones se vea como un input. */
+    .rs-inp--host { display: flex; align-items: center; padding-block: 0; }
+    .rs-inp--host rs-place-autocomplete { flex: 1; min-width: 0; }
+
+    /* Contador de perros: sin tope superior, a diferencia del antiguo desplegable. */
+    .contador {
+      display: inline-flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-2) var(--sp-3);
+      border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      background: var(--c-card);
+
+      button {
+        width: 36px; height: 36px; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: var(--f-lg); line-height: 1; font-weight: var(--w-6);
+        border: 1px solid var(--b-2); border-radius: 50%;
+        background: var(--c-card); color: var(--dk-blue); cursor: pointer;
+        transition: background var(--d-2), border-color var(--d-2);
+
+        &:hover:not(:disabled) { background: var(--c-accent-lo); border-color: var(--c-accent); }
+        &:disabled { opacity: .4; cursor: not-allowed; }
+      }
+
+      output { min-width: 28px; text-align: center; font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); }
+    }
+
     .wizard-body {
       display: grid;
       grid-template-columns: 1fr 360px;
@@ -887,6 +939,7 @@ export class ReservaWizardComponent implements OnInit {
   private readonly perrosService   = inject(PerrosService);
   private readonly recomendadorService = inject(RecomendadorService);
   private readonly catalogBrowseService = inject(CatalogBrowseService);
+  private readonly geoService = inject(GeoService);
 
   // Navigation
   readonly paso       = signal<Paso>(1);
@@ -970,11 +1023,70 @@ export class ReservaWizardComponent implements OnInit {
 
   metodoPagoVal = 'card';
 
+  readonly idPerrosAlojamiento = 'wz-perros-alojamiento';
+  readonly idPerrosTransporte = 'wz-perros-transporte';
+
+  // ─── Trayecto de transporte: la distancia se calcula sola (DK-V03) ───
+  private readonly origenPlaceId = signal<string | null>(null);
+  private readonly destinoPlaceId = signal<string | null>(null);
+  readonly calculandoTrayecto = signal(false);
+  readonly resumenTrayecto = signal('');
+
+  fijarOrigen(lugar: LugarElegido): void {
+    this.origenPlaceId.set(lugar.placeId ?? null);
+    void this.calcularTrayecto();
+  }
+
+  fijarDestino(lugar: LugarElegido): void {
+    this.destinoPlaceId.set(lugar.placeId ?? null);
+    void this.calcularTrayecto();
+  }
+
+  /**
+   * Rellena la distancia en cuanto hay origen y destino. El campo sigue siendo
+   * editable: si el cliente sabe que su ruta real es otra, manda su dato.
+   */
+  private async calcularTrayecto(): Promise<void> {
+    const origen = this.origenPlaceId();
+    const destino = this.destinoPlaceId();
+    if (!origen || !destino) return;
+
+    this.calculandoTrayecto.set(true);
+    this.resumenTrayecto.set('');
+    try {
+      const trayecto = await this.geoService.trayecto(origen, destino);
+      if (!trayecto) {
+        this.resumenTrayecto.set('No hemos podido calcularla; indícala tú para ver el precio.');
+        return;
+      }
+
+      this.paso1TransporteForm.patchValue({ distanciaKm: trayecto.km });
+      this.resumenTrayecto.set(
+        trayecto.esEstimacion
+          ? `≈ ${trayecto.km} km · ${trayecto.duracionMin} min (estimación aproximada)`
+          : `${trayecto.km} km · ${trayecto.duracionMin} min por carretera`,
+      );
+    } finally {
+      this.calculandoTrayecto.set(false);
+    }
+  }
+
+  /** Suma o resta perros a la reserva. Mínimo 1; sin máximo (S3). */
+  cambiarPerros(control: AbstractControl, delta: number): void {
+    const actual = Number(control.value) || 1;
+    control.setValue(Math.max(1, actual + delta));
+  }
+
+  puedeQuitarPerros(control: AbstractControl): boolean {
+    return (Number(control.value) || 1) > 1;
+  }
+
   // ─── Step 1 forms (one per vertical) ───
   readonly paso1AlojamientoForm = this.fb.group({
     checkIn:     ['', Validators.required],
     checkOut:    ['', Validators.required],
-    perros:      [1, [Validators.required, Validators.min(1), Validators.max(3)]],
+    // Sin `max`: quien viaja con seis perros debe poder reservar para seis.
+    perros:      [1, [Validators.required, Validators.min(1)]],
     tamanoPerro: ['mediano', Validators.required],
     compatibilidadSocial: ['cualquiera'],
   });
@@ -1377,6 +1489,9 @@ export class ReservaWizardComponent implements OnInit {
             origen: f.origen, destino: f.destino,
             distanciaKm: Number(f.distanciaKm ?? 10),
             perros: Number(f.perros ?? 1),
+            // Se guarda cómo se obtuvo la distancia: si mañana hay una disputa
+            // por el importe, hace falta saber si fue medida o estimada.
+            trayectoCalculado: this.resumenTrayecto() || undefined,
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };

@@ -70,6 +70,34 @@ export class Transporte extends Servicio {
 
   @Prop({ type: [Object], default: [] })
   serviciosAdicionales!: ServicioAdicionalTransporte[];
+
+  // --- Cierre de Fase C.6: condiciones configurables del transportista ---
+
+  /**
+   * Radio de cobertura desde la ciudad base, en km. 0 = sin límite declarado.
+   * Evita recibir solicitudes de trayectos que el transportista no puede hacer.
+   */
+  @Prop({ type: Number, default: 0 })
+  radioCoberturaKm!: number;
+
+  /** Distancia mínima facturable: por debajo se cobra igualmente este trayecto. */
+  @Prop({ type: Number, default: 0 })
+  distanciaMinimaKm!: number;
+
+  @Prop({ type: Boolean, default: false })
+  aceptaPPP!: boolean;
+
+  /** El cliente debe aportar su propio transportín (si no hay jaulas incluidas). */
+  @Prop({ type: Boolean, default: false })
+  requiereTransportinPropio!: boolean;
+
+  /** Máximo de perros por trayecto, si difiere de la capacidad del vehículo. */
+  @Prop({ type: Number })
+  maxPerrosPorTrayecto?: number;
+
+  /** Antelación mínima con la que hay que reservar, en horas. */
+  @Prop({ type: Number, default: 0 })
+  antelacionMinimaHoras!: number;
 }
 
 export const TransporteSchema = SchemaFactory.createForClass(Transporte);

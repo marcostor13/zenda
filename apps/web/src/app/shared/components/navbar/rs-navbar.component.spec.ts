@@ -46,6 +46,25 @@ describe('RsNavbarComponent', () => {
     expect(hrefs).toContain('/hoteles');
   });
 
+  it('debería mostrar la marca compacta "D" junto al logotipo', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const marca = el.querySelector('.rs-navbar__brand .rs-navbar__mark');
+
+    expect(marca?.getAttribute('src')).toBe('/images/logo-doogking-d.svg');
+    expect(el.querySelector('.rs-navbar__brand .rs-navbar__wordmark')).toBeTruthy();
+  });
+
+  it('debería ofrecer el alta de empresa al visitante y al cliente', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const alta = el.querySelector('.rs-navbar__link--pro');
+
+    // Sin sesión (visitante) el enlace está presente…
+    expect(alta?.getAttribute('href')).toBe('/auth/registro-comercio');
+    expect(alta?.textContent?.trim()).toBe('Registra tu empresa');
+    // …y la regla que lo gobierna solo lo oculta a comercios y admin.
+    expect(fixture.componentInstance.muestraAltaComercio()).toBe(true);
+  });
+
   it('debería repetir las mismas categorías en el menú móvil', () => {
     fixture.componentInstance.menuAbierto.set(true);
     fixture.detectChanges();

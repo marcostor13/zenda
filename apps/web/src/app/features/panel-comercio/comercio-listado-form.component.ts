@@ -2,10 +2,29 @@ import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { VerticalKey, VERTICAL_LABELS } from 'shared';
+import {
+  VerticalKey, VERTICAL_LABELS, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
+} from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { ComercioApiService, ServicioPayload } from './comercio-api.service';
+
+/** Catálogo cerrado de servicios veterinarios, para el desplegable del formulario. */
+const SERVICIOS_CLINICOS_CATALOGO = Object.values(ServicioClinicoTipo)
+  .map((tipo) => ({ tipo, label: SERVICIO_CLINICO_LABELS[tipo] }));
+
+/**
+ * Reconoce el servicio del catálogo a partir del nombre escrito a mano en
+ * listados antiguos, para que al editarlos no se pierda lo ya publicado.
+ */
+function tipoDesdeNombre(nombre?: string): ServicioClinicoTipo | undefined {
+  if (!nombre) return undefined;
+  const sinTildes = (t: string): string =>
+    t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+  const buscado = sinTildes(nombre);
+  return SERVICIOS_CLINICOS_CATALOGO.find(({ label }) => sinTildes(label) === buscado)?.tipo;
+}
 
 const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = Object.values(VerticalKey)
   .map(valor => ({ valor, label: VERTICAL_LABELS[valor] }));
@@ -346,6 +365,35 @@ function aCsv(v: string): string[] {
                   <label class="rs-checkbox"><input type="checkbox" formControlName="acompananteHumano"> Acompañante humano opcional</label>
                   <label class="rs-checkbox"><input type="checkbox" formControlName="soloPerros"> Sólo perros</label>
                 </div>
+
+                <h2 class="section-title">Condiciones del servicio</h2>
+                <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
+                  Cuanto más concretes, menos solicitudes recibirás que no puedas atender.
+                </span>
+                <div class="row-card__grid row-card__grid--3">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Radio de cobertura (km)</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="radioCoberturaKm">
+                    <span class="rs-field-hint">0 = sin límite</span>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Distancia mínima facturable (km)</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="distanciaMinimaKm">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Antelación mínima (horas)</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="antelacionMinimaHoras">
+                  </div>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Máximo de perros por trayecto</label>
+                  <input class="rs-inp" type="number" min="1" formControlName="maxPerrosPorTrayecto">
+                  <span class="rs-field-hint">Déjalo vacío para usar la capacidad del vehículo.</span>
+                </div>
+                <div class="checkbox-row">
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> Acepto perros de razas PPP</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereTransportinPropio"> El cliente aporta su transportín</label>
+                </div>
               </div>
             }
 
@@ -364,7 +412,12 @@ function aCsv(v: string): string[] {
                       <div class="row-card__grid row-card__grid--3">
                         <div class="rs-field">
                           <label class="rs-lbl">Servicio *</label>
-                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Consulta general">
+                          <select class="rs-inp" formControlName="tipo">
+                            <option value="">Elige un servicio…</option>
+                            @for (t of serviciosClinicosCatalogo; track t.tipo) {
+                              <option [value]="t.tipo">{{ t.label }}</option>
+                            }
+                          </select>
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">Precio (€) *</label>
@@ -379,8 +432,8 @@ function aCsv(v: string): string[] {
                         <input type="checkbox" formControlName="esPrecioCerrado"> Precio cerrado (no orientativo)
                       </label>
                       <span class="rs-field-hint">
-                        Marca esto para vacunas, microchip, certificados, revisiones postoperatorias… Déjalo sin marcar
-                        para consultas, dermatología, urgencias u otros servicios donde el precio final puede variar.
+                        Marca esto para vacunas, microchip o higiene dental, donde el importe es fijo. Déjalo sin marcar
+                        para consultas y urgencias, donde el precio final puede variar.
                       </span>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioClinico(i)">
                         <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
@@ -391,6 +444,10 @@ function aCsv(v: string): string[] {
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioClinico()">
                   <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio clínico
                 </button>
+                <span class="rs-field-hint" style="display:block;margin-top:var(--sp-2)">
+                  Doogking solo intermedia servicios de precio acotado. Dermatología, cirugía y cualquier tratamiento
+                  de precio abierto se presupuestan y facturan directamente con el cliente, fuera de la plataforma.
+                </span>
 
                 <div class="form-row-2">
                   <div class="rs-field">
@@ -1004,6 +1061,12 @@ export class ComercioListadoFormComponent implements OnInit {
       jaulasIncluidas: [true],
       acompananteHumano: [false],
       soloPerros: [true],
+      radioCoberturaKm: [0],
+      distanciaMinimaKm: [0],
+      antelacionMinimaHoras: [0],
+      maxPerrosPorTrayecto: [null as number | null],
+      aceptaPPP: [false],
+      requiereTransportinPropio: [false],
     }),
 
     veterinaria: this.fb.group({
@@ -1154,13 +1217,21 @@ export class ComercioListadoFormComponent implements OnInit {
   }
 
   private nuevoServicioClinico(e?: Record<string, unknown>) {
+    const tipo = (e?.['tipo'] as ServicioClinicoTipo | undefined)
+      // Listados antiguos guardaban el nombre a mano: se intenta reconocer para
+      // que el comercio no pierda lo que ya tenía publicado.
+      ?? tipoDesdeNombre(e?.['nombre'] as string | undefined);
+
     return this.fb.group({
+      tipo: [tipo ?? '', Validators.required],
       nombre: [(e?.['nombre'] as string) ?? ''],
       precio: [(e?.['precio'] as number) ?? 0],
       duracionMin: [(e?.['duracionMin'] as number) ?? 30],
       esPrecioCerrado: [(e?.['esPrecioCerrado'] as boolean) ?? false],
     });
   }
+
+  readonly serviciosClinicosCatalogo = SERVICIOS_CLINICOS_CATALOGO;
 
   agregarServicioClinico(): void { this.serviciosClinicos.push(this.nuevoServicioClinico()); }
   quitarServicioClinico(i: number): void { this.serviciosClinicos.removeAt(i); }
@@ -1361,7 +1432,12 @@ export class ComercioListadoFormComponent implements OnInit {
         ...g,
         especialidades: aCsv(g.especialidades),
         especiesAtendidas: aCsv(g.especiesAtendidas),
-        serviciosClinicos: this.serviciosClinicos.controls.map(c => c.getRawValue()),
+        // `nombre` se rellena desde el catálogo: el comercio ya no lo escribe,
+        // pero el resto de la aplicación sigue mostrándolo.
+        serviciosClinicos: this.serviciosClinicos.controls.map((c) => {
+          const v = c.getRawValue() as { tipo: ServicioClinicoTipo; nombre: string };
+          return { ...v, nombre: SERVICIO_CLINICO_LABELS[v.tipo] ?? v.nombre };
+        }),
       };
     }
     if (vertical === VerticalKey.PELUQUERIA) {

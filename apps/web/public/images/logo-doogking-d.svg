@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Doogking">
+  <!-- Marca compacta: la misma "D" del favicon, para cabecera y contextos
+       donde no cabe el logotipo completo. -->
+  <rect width="64" height="64" rx="14" fill="#08258B"/>
+  <path fill="#FBAE17" fill-rule="evenodd"
+        d="M18 16 H31 A16 16 0 0 1 31 48 H18 Z
+           M25 23 H31 A9 9 0 0 1 31 41 H25 Z"/>
+</svg>

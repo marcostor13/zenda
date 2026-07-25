@@ -1,8 +1,9 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
+import { Vacuna, VACUNA_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { PerrosService, PerroPayload } from './perros.service';
+import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
 
 function csvA(v?: string[]): string {
   return (v ?? []).join(', ');
@@ -167,12 +168,55 @@ function aCsv(v: string): string[] {
             <input id="medicacion" class="rs-inp" formControlName="medicacion" />
           </div>
           <div class="rs-field">
-            <label class="rs-lbl" for="vacunas">Vacunas al día (separadas por comas)</label>
-            <input id="vacunas" class="rs-inp" formControlName="vacunas" placeholder="Ej. rabia, polivalente" />
+            <span class="rs-lbl">Vacunas</span>
+            <span class="rs-field-hint">
+              Marca las que tiene puestas. Muchas residencias y guarderías las exigen para admitir a tu perro.
+            </span>
+            <ul class="vacunas">
+              @for (v of vacunasCatalogo; track v.tipo) {
+                <li class="vacuna" [class.is-on]="tieneVacuna(v.tipo)">
+                  <label class="vacuna__check">
+                    <input type="checkbox" [checked]="tieneVacuna(v.tipo)" (change)="alternarVacuna(v.tipo)" />
+                    <span>{{ v.label }}</span>
+                  </label>
+                  @if (tieneVacuna(v.tipo)) {
+                    <input type="date" class="rs-inp vacuna__fecha"
+                           [attr.aria-label]="'Fecha de ' + v.label"
+                           [value]="fechaVacuna(v.tipo)"
+                           (change)="cambiarFechaVacuna(v.tipo, $event)" />
+                  }
+                </li>
+              }
+            </ul>
           </div>
           <div class="rs-field">
             <label class="rs-lbl" for="dieta">Dieta especial</label>
             <input id="dieta" class="rs-inp" formControlName="dieta" />
+          </div>
+
+          <h2 class="section-title">En un alojamiento</h2>
+          <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
+            Decirlo por adelantado evita sorpresas y suplementos en recepción: el alojamiento prepara la
+            estancia sabiendo qué esperar.
+          </p>
+          <div class="checks-grid">
+            <label class="filter-check">
+              <input type="checkbox" formControlName="orinaEnInterior" />
+              Se orina dentro de casa
+            </label>
+            <label class="filter-check">
+              <input type="checkbox" formControlName="ladraAlQuedarseSolo" />
+              Ladra al quedarse solo
+            </label>
+            <label class="filter-check">
+              <input type="checkbox" formControlName="destructivoEnSoledad" />
+              Muerde o rompe cosas al quedarse solo
+            </label>
+          </div>
+          <div class="rs-field" style="margin-top:var(--sp-4)">
+            <label class="rs-lbl" for="notasAlojamiento">Otras cosas que debería saber el alojamiento</label>
+            <input id="notasAlojamiento" class="rs-inp" formControlName="notasAlojamiento"
+                   placeholder="Ej. duerme en su propia cama, no sube a los sofás" />
           </div>
 
           <label class="filter-check" style="margin-top:var(--sp-4)">
@@ -211,6 +255,18 @@ function aCsv(v: string): string[] {
 
     .checks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--sp-2); }
     .filter-check { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size: var(--f-sm); color: var(--t-200); }
+
+    /* Vacunas: casillas en vez de texto libre, con fecha opcional al marcarlas. */
+    .vacunas { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--sp-2); margin-top: var(--sp-2); }
+    .vacuna {
+      display: flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3);
+      border: 1px solid var(--b-2); border-radius: var(--r-md);
+      transition: border-color var(--d-2), background var(--d-2);
+      &.is-on { border-color: var(--c-accent); background: var(--c-accent-lo); }
+    }
+    .vacuna__check { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size: var(--f-sm); color: var(--t-200); flex: 1; min-width: 0; }
+    .vacuna__fecha { width: 132px; flex-shrink: 0; padding: var(--sp-1) var(--sp-2); font-size: var(--f-xs); }
 
     .form-actions { margin-top: var(--sp-6); display: flex; justify-content: flex-end; }
   `],
@@ -254,8 +310,43 @@ export class PerroFormComponent implements OnInit {
     medicacion: [''],
     vacunas: [''],
     dieta: [''],
+    orinaEnInterior: [false],
+    ladraAlQuedarseSolo: [false],
+    destructivoEnSoledad: [false],
+    notasAlojamiento: [''],
     autorizaCompartirHistorial: [true],
   });
+
+  /** Catálogo cerrado de vacunas; sustituye al antiguo campo de texto libre. */
+  readonly vacunasCatalogo = Object.values(Vacuna).map((tipo) => ({
+    tipo,
+    label: VACUNA_LABELS[tipo],
+  }));
+
+  private readonly vacunasDetalle = signal<VacunaAplicada[]>([]);
+
+  tieneVacuna(tipo: Vacuna): boolean {
+    return this.vacunasDetalle().some((v) => v.tipo === tipo);
+  }
+
+  fechaVacuna(tipo: Vacuna): string {
+    return this.vacunasDetalle().find((v) => v.tipo === tipo)?.fecha?.slice(0, 10) ?? '';
+  }
+
+  alternarVacuna(tipo: Vacuna): void {
+    this.vacunasDetalle.update((lista) =>
+      lista.some((v) => v.tipo === tipo)
+        ? lista.filter((v) => v.tipo !== tipo)
+        : [...lista, { tipo }],
+    );
+  }
+
+  cambiarFechaVacuna(tipo: Vacuna, evento: Event): void {
+    const fecha = (evento.target as HTMLInputElement).value;
+    this.vacunasDetalle.update((lista) =>
+      lista.map((v) => (v.tipo === tipo ? { ...v, fecha: fecha || undefined } : v)),
+    );
+  }
 
   hasError(campo: string): boolean {
     const control = this.form.get(campo);
@@ -303,8 +394,13 @@ export class PerroFormComponent implements OnInit {
         medicacion: csvA(p.medicacion),
         vacunas: csvA(p.vacunas),
         dieta: p.dieta ?? '',
+        orinaEnInterior: p.orinaEnInterior ?? false,
+        ladraAlQuedarseSolo: p.ladraAlQuedarseSolo ?? false,
+        destructivoEnSoledad: p.destructivoEnSoledad ?? false,
+        notasAlojamiento: p.notasAlojamiento ?? '',
         autorizaCompartirHistorial: p.autorizaCompartirHistorial,
       });
+      this.vacunasDetalle.set(p.vacunasDetalle ?? []);
     } catch {
       this.errorMsg.set('No se pudo cargar la ficha del perro.');
     } finally {
@@ -342,7 +438,12 @@ export class PerroFormComponent implements OnInit {
       alergias: aCsv(v.alergias),
       medicacion: aCsv(v.medicacion),
       vacunas: aCsv(v.vacunas),
+      vacunasDetalle: this.vacunasDetalle(),
       dieta: v.dieta || undefined,
+      orinaEnInterior: v.orinaEnInterior,
+      ladraAlQuedarseSolo: v.ladraAlQuedarseSolo,
+      destructivoEnSoledad: v.destructivoEnSoledad,
+      notasAlojamiento: v.notasAlojamiento || undefined,
       autorizaCompartirHistorial: v.autorizaCompartirHistorial,
     };
 

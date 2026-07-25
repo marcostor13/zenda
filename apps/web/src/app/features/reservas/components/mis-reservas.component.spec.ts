@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MisReservasComponent } from './mis-reservas.component';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
@@ -46,6 +48,9 @@ describe('MisReservasComponent', () => {
     await TestBed.configureTestingModule({
       imports: [MisReservasComponent, RouterTestingModule],
       providers: [
+        // La cabecera lleva el selector de región, que consulta tipos de cambio.
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: ReservasService, useValue: reservasService },
         { provide: ReviewsService, useValue: reviewsService },
         { provide: AlojamientoService, useValue: alojamientoService },

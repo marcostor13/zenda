@@ -9,8 +9,20 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
-import { SexoPerro, TamanoPerro, TipoPelo, NivelSociabilidad } from '../../enums/perro.enum';
+import { Type } from 'class-transformer';
+import { SexoPerro, TamanoPerro, TipoPelo, NivelSociabilidad, Vacuna } from '../../enums/perro.enum';
+
+/** Una vacuna marcada en la ficha, con su fecha si el dueño la recuerda. */
+export class VacunaAplicadaDto {
+  @IsEnum(Vacuna)
+  tipo!: Vacuna;
+
+  @IsOptional()
+  @IsDateString()
+  fecha?: string;
+}
 
 export class CrearPerroDto {
   @IsString()
@@ -84,6 +96,12 @@ export class CrearPerroDto {
 
   @IsOptional()
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VacunaAplicadaDto)
+  vacunasDetalle?: VacunaAplicadaDto[];
+
+  @IsOptional()
+  @IsArray()
   @IsString({ each: true })
   alergias?: string[];
 
@@ -133,6 +151,23 @@ export class CrearPerroDto {
   @IsOptional()
   @IsBoolean()
   protectorRecursos?: boolean;
+
+  // --- Conducta específica de alojamiento (HU-004) ---
+  @IsOptional()
+  @IsBoolean()
+  orinaEnInterior?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  ladraAlQuedarseSolo?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  destructivoEnSoledad?: boolean;
+
+  @IsOptional()
+  @IsString()
+  notasAlojamiento?: string;
 
   @IsOptional()
   @IsBoolean()

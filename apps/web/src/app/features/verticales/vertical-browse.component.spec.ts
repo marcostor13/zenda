@@ -99,13 +99,45 @@ describe('VerticalBrowseComponent', () => {
   it('debería buscar con la ciudad que llega en la URL', async () => {
     await crearComponente('veterinaria', { ciudad: 'Bilbao' });
 
-    expect(browseService.buscar).toHaveBeenCalledWith('veterinaria', 'Bilbao');
+    expect(browseService.buscar).toHaveBeenCalledWith(
+      'veterinaria',
+      expect.objectContaining({ ciudad: 'Bilbao' }),
+    );
   });
 
-  it('debería titular la vista con la categoría y la ciudad buscada', async () => {
+  it('debería filtrar por compatibilidad con la mascota elegida en el buscador', async () => {
+    await crearComponente('veterinaria', { ciudad: 'Bilbao', perroIds: 'perro-1,perro-2' });
+
+    expect(browseService.buscar).toHaveBeenCalledWith(
+      'veterinaria',
+      expect.objectContaining({ perroId: 'perro-1' }),
+    );
+  });
+
+  it('debería resumir junto al recuento lo que se pidió en el buscador', async () => {
+    await crearComponente('veterinaria', {
+      ciudad: 'Bilbao', desde: '2026-09-01', hora: '10:30', perroIds: 'perro-1',
+    });
+
+    expect(component.contextoBusqueda()).toEqual([
+      '2026-09-01', '10:30', 'Compatible con tu mascota',
+    ]);
+  });
+
+  it('debería titular la vista con el copy de marca de la categoría', async () => {
+    await crearComponente('peluqueria', { ciudad: 'Sevilla' });
+    const el: HTMLElement = fixture.nativeElement;
+
+    expect(component.titular()).toBe('El cuidado que merece');
+    expect(component.subtitular()).toBe(
+      'Encuentra y reserva el cuidado ideal para su pelo, su piel y bienestar.',
+    );
+    expect(el.querySelector('.vb-head h1')?.textContent?.trim()).toBe('El cuidado que merece');
+  });
+
+  it('debería situar la ciudad buscada junto al recuento de resultados', async () => {
     await crearComponente('peluqueria', { ciudad: 'Sevilla' });
 
-    expect(component.ui().label).toBe('Peluquerías caninas');
     expect(component.sufijoCiudad()).toBe(' en Sevilla');
   });
 

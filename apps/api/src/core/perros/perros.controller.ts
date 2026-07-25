@@ -17,10 +17,16 @@ import { PerrosService, HistoriaCompartida } from './perros.service';
 import { PerroValoracionesService, IndiceComportamiento } from './perro-valoraciones.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { CrearPerroDto, ActualizarPerroDto, CrearPerroHistorialDto, CrearPerroValoracionDto, Rol } from 'shared';
+import {
+  CrearPerroDto, ActualizarPerroDto, CrearPerroHistorialDto, CrearPerroValoracionDto,
+  EditarHistorialDto, FijarConsentimientoDto, ImportarHistorialDto, PrevisualizarImportacionDto,
+  Rol,
+} from 'shared';
 import { PerroDocument } from './perro.schema';
 import { PerroHistorialDocument } from './perro-historial.schema';
 import { PerroValoracionDocument } from './perro-valoracion.schema';
+import { PerroVersionDocument } from './perro-version.schema';
+import { ConsentimientoDocument } from './consentimiento.schema';
 
 interface RequestConUsuario extends Request {
   user: { sub: string; comercioId?: string };
@@ -90,6 +96,91 @@ export class PerrosController {
     @Req() req: RequestConUsuario,
   ): Promise<PerroHistorialDocument> {
     return this.perrosService.agregarHistorial(id, req.user.comercioId!, dto);
+  }
+
+  @Patch(':id/historial/:historialId')
+  @ApiOperation({ summary: 'El propietario corrige una entrada del historial de su mascota' })
+  editarHistorial(
+    @Param('id') id: string,
+    @Param('historialId') historialId: string,
+    @Body() dto: EditarHistorialDto,
+    @Req() req: RequestConUsuario,
+  ): Promise<PerroHistorialDocument> {
+    return this.perrosService.editarHistorial(id, historialId, req.user.sub, dto.nota);
+  }
+
+  @Delete(':id/historial/:historialId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'El propietario elimina una entrada del historial de su mascota' })
+  eliminarHistorial(
+    @Param('id') id: string,
+    @Param('historialId') historialId: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<void> {
+    return this.perrosService.eliminarHistorial(id, historialId, req.user.sub);
+  }
+
+  @Post(':id/historial/previsualizar')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiOperation({ summary: 'Convierte el texto pegado (Excel o documento) en filas, sin guardar nada' })
+  previsualizarImportacion(
+    @Body() dto: PrevisualizarImportacionDto,
+  ): Array<{ fecha?: string; concepto: string; detalle?: string }> {
+    return this.perrosService.parsearImportacion(dto.texto);
+  }
+
+  @Post(':id/historial/importar')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
+  @ApiOperation({ summary: 'Guarda las filas del historial ya revisadas por el profesional' })
+  async importarHistorial(
+    @Param('id') id: string,
+    @Body() dto: ImportarHistorialDto,
+    @Req() req: RequestConUsuario,
+  ): Promise<{ importadas: number }> {
+    const importadas = await this.perrosService.importarHistorial(
+      id, req.user.comercioId!, dto.vertical, dto.filas,
+    );
+    return { importadas };
+  }
+
+  @Get(':id/versiones')
+  @ApiOperation({ summary: 'Historial de cambios de la ficha del perro' })
+  listarVersiones(
+    @Param('id') id: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<PerroVersionDocument[]> {
+    return this.perrosService.listarVersiones(id, req.user.sub);
+  }
+
+  @Get(':id/consentimientos')
+  @ApiOperation({ summary: 'Qué tipo de historial ve cada categoría de servicio' })
+  listarConsentimientos(
+    @Param('id') id: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<ConsentimientoDocument[]> {
+    return this.perrosService.listarConsentimientos(id, req.user.sub);
+  }
+
+  @Patch(':id/consentimientos')
+  @ApiOperation({ summary: 'Conceder o revocar el acceso de una categoría a un historial' })
+  fijarConsentimiento(
+    @Param('id') id: string,
+    @Body() dto: FijarConsentimientoDto,
+    @Req() req: RequestConUsuario,
+  ): Promise<ConsentimientoDocument> {
+    return this.perrosService.fijarConsentimiento(id, req.user.sub, dto);
+  }
+
+  @Delete(':id/consentimientos')
+  @ApiOperation({ summary: 'Revocar de golpe todos los permisos de compartición' })
+  async revocarConsentimientos(
+    @Param('id') id: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<{ revocados: number }> {
+    const revocados = await this.perrosService.revocarTodosLosConsentimientos(id, req.user.sub);
+    return { revocados };
   }
 
   @Get(':id/historia-veterinaria')

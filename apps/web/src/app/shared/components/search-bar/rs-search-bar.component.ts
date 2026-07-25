@@ -1,8 +1,13 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { VerticalKey } from 'shared';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { RsPetPickerComponent } from '../pet-picker/rs-pet-picker.component';
+import { RsPlaceAutocompleteComponent } from '../place-autocomplete/rs-place-autocomplete.component';
+import { CoordenadasLugar } from '../../../core/geo/geo.service';
 import { CATEGORIA_ICONOS } from '../../media/images';
 import { VERTICALES_UI, VerticalUi, verticalUi } from '../../verticales/verticales.config';
 
@@ -12,7 +17,12 @@ export interface BusquedaParams {
   ciudad: string | null;
   desde: string | null;
   hasta: string | null;
+  /** Hora de la cita, solo en verticales que reservan por slot. */
+  hora: string | null;
+  /** Total de perros de la reserva. Sin tope superior. */
   perros: number;
+  /** Mascotas registradas elegidas; alimenta precio y compatibilidad. */
+  perroIds: string[];
 }
 
 /**
@@ -28,7 +38,10 @@ export interface BusquedaParams {
 @Component({
   selector: 'rs-search-bar',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, RsIconComponent],
+  imports: [
+    ReactiveFormsModule, RouterLink, RsIconComponent,
+    RsPetPickerComponent, RsPlaceAutocompleteComponent,
+  ],
   template: `
 <div class="sb" [class.sb--strip]="variant() === 'strip'">
   @if (categorias()) {
@@ -52,11 +65,11 @@ export interface BusquedaParams {
   <form class="sb__form" [formGroup]="formulario" (ngSubmit)="buscar()">
     <div class="sb__field sb__field--where">
       <label class="sb__lbl" [attr.for]="idCiudad">{{ activo().labelUbicacion }}</label>
-      <div class="sb__ctrl">
-        <rs-icon name="map-pin" [size]="18" [stroke]="2"></rs-icon>
-        <input [id]="idCiudad" formControlName="ciudad" class="sb__inp"
-               [placeholder]="activo().placeholderUbicacion" autocomplete="off" />
-      </div>
+      <rs-place-autocomplete formControlName="ciudad"
+                             [inputId]="idCiudad"
+                             [placeholder]="activo().placeholderUbicacion"
+                             (lugarElegido)="elegirPoblacion($event)"
+                             (confirmado)="buscar()" />
     </div>
 
     <div class="sb__field">
@@ -77,22 +90,29 @@ export interface BusquedaParams {
       </div>
     }
 
-    <div class="sb__field sb__field--pets">
-      <label class="sb__lbl" [attr.for]="idPerros">Mascotas</label>
-      <div class="sb__ctrl">
-        <rs-icon name="paw" [size]="18" [stroke]="2"></rs-icon>
-        <select [id]="idPerros" formControlName="perros" class="sb__inp sb__inp--select">
-          @for (n of opcionesPerros; track n) {
-            <option [value]="n">{{ n }} {{ n === 1 ? 'perro' : 'perros' }}</option>
-          }
-        </select>
+    @if (activo().pideHora) {
+      <div class="sb__field sb__field--hora">
+        <label class="sb__lbl" [attr.for]="idHora">Hora</label>
+        <div class="sb__ctrl">
+          <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
+          <input [id]="idHora" formControlName="hora" type="time" class="sb__inp" />
+        </div>
       </div>
+    }
+
+    <div class="sb__field sb__field--pets">
+      <span class="sb__lbl">¿Para qué mascota?</span>
+      <rs-pet-picker [(perroIds)]="perroIds" [(numPerros)]="numPerros" />
     </div>
 
-    <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg sb__cta">
-      <rs-icon name="search" [size]="18" [stroke]="2.5"></rs-icon>
-      <span>Buscar</span>
-    </button>
+    <!-- El botón solo vive en el home: sobre un listado cualquier cambio ya
+         relanza la búsqueda, así que un "Buscar" aparte sería un paso de más. -->
+    @if (variant() === 'card') {
+      <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg sb__cta">
+        <rs-icon name="search" [size]="18" [stroke]="2.5"></rs-icon>
+        <span>Buscar</span>
+      </button>
+    }
   </form>
 </div>
   `,
@@ -172,7 +192,11 @@ export interface BusquedaParams {
     }
 
     .sb__field--where { flex: 2 1 240px; }
-    .sb__field--pets  { flex: .9 1 140px; }
+    .sb__field--pets  { flex: 1.1 1 190px; }
+    .sb__field--hora  { flex: .7 1 120px; }
+
+    /* El desplegable de mascotas debe poder salirse de su campo. */
+    .sb__field--pets { position: relative; overflow: visible; }
 
     .sb__lbl {
       font-family: var(--font-accent);
@@ -250,12 +274,18 @@ export class RsSearchBarComponent {
 
   readonly verticales = VERTICALES_UI;
   readonly iconoMas = CATEGORIA_ICONOS['mas'];
-  readonly opcionesPerros = [1, 2, 3, 4];
 
   readonly idCiudad = 'sb-ciudad';
   readonly idDesde = 'sb-desde';
   readonly idHasta = 'sb-hasta';
-  readonly idPerros = 'sb-perros';
+  readonly idHora = 'sb-hora';
+
+  /** Mascotas de la reserva: viven fuera del formulario porque el selector es un componente propio. */
+  readonly perroIds = signal<string[]>([]);
+  readonly numPerros = signal(1);
+
+  /** Coordenadas de la población elegida en el autocompletado, si las hubo. */
+  private readonly coordenadas = signal<{ lat: number; lng: number } | null>(null);
 
   /** Categoría elegida por el usuario; si no ha tocado nada, manda el input. */
   private readonly seleccion = signal<string | null>(null);
@@ -266,7 +296,7 @@ export class RsSearchBarComponent {
     ciudad: [''],
     desde: [''],
     hasta: [''],
-    perros: [1],
+    hora: [''],
   });
 
   constructor() {
@@ -275,15 +305,48 @@ export class RsSearchBarComponent {
       ciudad: qp.get('ciudad') ?? '',
       desde: qp.get('desde') ?? '',
       hasta: qp.get('hasta') ?? '',
-      perros: Number(qp.get('perros')) || 1,
+      hora: qp.get('hora') ?? '',
     });
+
+    const ids = (qp.get('perroIds') ?? '').split(',').filter(Boolean);
+    this.perroIds.set(ids);
+    this.numPerros.set(Math.max(1, ids.length, Number(qp.get('perros')) || 1));
+
+    const lat = Number(qp.get('lat'));
+    const lng = Number(qp.get('lng'));
+    if (Number.isFinite(lat) && Number.isFinite(lng) && qp.get('lat')) {
+      this.coordenadas.set({ lat, lng });
+    }
+
+    // Sobre un listado, cambiar cualquier campo relanza la búsqueda: no hay
+    // botón "Buscar" que pulsar (P4). El debounce evita disparar una petición
+    // por cada tecla mientras se escribe la ciudad.
+    this.formulario.valueChanges
+      .pipe(debounceTime(400), distinctUntilChanged(sonIguales), takeUntilDestroyed())
+      .subscribe(() => {
+        if (this.buscarAlCambiar()) this.buscar();
+      });
+  }
+
+  /**
+   * Elegir una población es una acción de búsqueda, no solo de escritura:
+   * "pulsar la provincia debe llevarme al resultado" (P4). Además guarda las
+   * coordenadas, que alimentan el orden por distancia sin volver a pedir permiso
+   * de ubicación al navegador.
+   */
+  elegirPoblacion(lugar: CoordenadasLugar): void {
+    this.coordenadas.set(Number.isFinite(lugar.lat) ? { lat: lugar.lat, lng: lugar.lng } : null);
+    this.buscar();
   }
 
   seleccionarVertical(key: string): void {
     this.seleccion.set(key);
-    if (this.buscarAlCambiar()) this.buscar();
+    // Pulsar la categoría lleva directamente al resultado, esté donde esté el
+    // buscador: es la acción que sustituye al botón "Buscar" (P4).
+    this.buscar();
   }
 
+  /** Enter en cualquier campo confirma la búsqueda, también sin botón. */
   buscar(): void {
     const params = this.valores();
     this.buscado.emit(params);
@@ -292,7 +355,11 @@ export class RsSearchBarComponent {
         ciudad: params.ciudad,
         desde: params.desde,
         hasta: params.hasta,
+        hora: params.hora,
         perros: params.perros,
+        perroIds: params.perroIds.length ? params.perroIds.join(',') : null,
+        lat: this.coordenadas()?.lat ?? null,
+        lng: this.coordenadas()?.lng ?? null,
       },
       // Conserva los filtros propios del listado (precio, rating…) que ya
       // estuvieran en la URL; los nulos los elimina.
@@ -301,14 +368,22 @@ export class RsSearchBarComponent {
   }
 
   private valores(): BusquedaParams {
-    const { ciudad, desde, hasta, perros } = this.formulario.getRawValue();
-    const porNoches = this.activo().reservaPorNoches;
+    const { ciudad, desde, hasta, hora } = this.formulario.getRawValue();
+    const activo = this.activo();
+    const ids = this.perroIds();
     return {
-      vertical: this.activo().key,
+      vertical: activo.key,
       ciudad: ciudad.trim() || null,
       desde: desde || null,
-      hasta: porNoches ? hasta || null : null,
-      perros: perros || 1,
+      hasta: activo.reservaPorNoches ? hasta || null : null,
+      hora: activo.pideHora ? hora || null : null,
+      perros: Math.max(1, ids.length, this.numPerros()),
+      perroIds: ids,
     };
   }
+}
+
+/** Dos estados del formulario son iguales si coinciden todos sus campos. */
+function sonIguales(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }

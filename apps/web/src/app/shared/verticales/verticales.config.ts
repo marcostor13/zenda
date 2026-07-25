@@ -22,8 +22,21 @@ export interface VerticalUi {
   readonly claim: string;
   /** Descripción de la vista de listado. */
   readonly descripcion: string;
+  /**
+   * Titular de la cabecera del listado. Si falta, la vista usa `label`.
+   * Es el único sitio donde vive el copy de marca de cada categoría: ninguna
+   * plantilla debe escribir estos textos a mano.
+   */
+  readonly titular?: string;
+  /** Subtitular emocional bajo el titular. Si falta, la vista usa `descripcion`. */
+  readonly subtitular?: string;
   /** true = se reserva por noches (entrada/salida); false = cita puntual. */
   readonly reservaPorNoches: boolean;
+  /**
+   * true = la reserva ocupa un slot horario, así que el buscador pide la hora
+   * además del día y puede devolver directamente los servicios que encajan.
+   */
+  readonly pideHora?: boolean;
   readonly labelUbicacion: string;
   readonly placeholderUbicacion: string;
   readonly labelFecha: string;
@@ -39,8 +52,13 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     icono: CATEGORIA_ICONOS['veterinaria'],
     icon: 'stethoscope',
     claim: 'Consultas, vacunas y urgencias con cita online.',
-    descripcion: 'Clínicas verificadas para tu perro: vacunación, cirugía, dermatología y urgencias 24h.',
+    // No se nombran cirugía ni dermatología: Doogking no intermedia esos
+    // servicios (regla de negocio, ver plan unificado §2.2).
+    descripcion: 'Clínicas verificadas: consulta, vacunación, urgencias 24 h, higiene dental y teleconsulta.',
+    titular: 'VETERINARIOS DE CONFIANZA',
+    subtitular: 'Clínicas veterinarias para tu mascota: vacunación, citas, urgencias 24 h y más.',
     reservaPorNoches: false,
+    pideHora: true,
     labelUbicacion: '¿Dónde?',
     placeholderUbicacion: 'Ciudad de la clínica',
     labelFecha: 'Fecha de la cita',
@@ -54,7 +72,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     icon: 'scissors',
     claim: 'Baño, corte, deslanado y spa canino.',
     descripcion: 'Baño, corte, deslanado y spa con groomers profesionales, en salón o a domicilio.',
+    titular: 'El cuidado que merece',
+    subtitular: 'Encuentra y reserva el cuidado ideal para su pelo, su piel y bienestar.',
     reservaPorNoches: false,
+    pideHora: true,
     labelUbicacion: '¿Dónde?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
     labelFecha: 'Fecha de la cita',
@@ -62,12 +83,14 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
   {
     key: VerticalKey.ALOJAMIENTO,
     label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],
-    labelCorto: 'Alojamiento',
+    labelCorto: 'Alojamiento canino',
     route: '/alojamiento',
     icono: CATEGORIA_ICONOS['alojamiento'],
     icon: 'hotel',
     claim: 'Residencias y suites con cámaras 24/7.',
     descripcion: 'Residencias caninas verificadas: suites, patio exterior, paseos diarios y cámaras 24/7.',
+    titular: 'Más que un alojamiento',
+    subtitular: 'Un lugar donde sentirse como en casa.',
     reservaPorNoches: true,
     labelUbicacion: '¿Dónde?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
@@ -82,6 +105,8 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     icon: 'truck',
     claim: 'Traslados en vehículos climatizados.',
     descripcion: 'Vehículos acondicionados y conductores especializados, con tarifas transparentes.',
+    titular: 'MÁS QUE UN TRANSPORTE',
+    subtitular: 'Su bienestar es el destino más importante.',
     reservaPorNoches: false,
     labelUbicacion: 'Recogida',
     placeholderUbicacion: 'Ciudad de recogida',
@@ -97,6 +122,7 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     claim: 'Obediencia, conducta y cachorros.',
     descripcion: 'Educadores certificados: obediencia, modificación de conducta y educación de cachorros.',
     reservaPorNoches: false,
+    pideHora: true,
     labelUbicacion: '¿Dónde?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
     labelFecha: 'Fecha de la sesión',
@@ -130,4 +156,16 @@ export function verticalUi(key: string | null | undefined): VerticalUi {
 /** Ruta del listado de un vertical (`/veterinaria`, `/alojamiento`…). */
 export function rutaDeVertical(key: string | null | undefined): string {
   return verticalUi(key).route;
+}
+
+/** Titular de cabecera del vertical; cae a la etiqueta si no hay copy propio. */
+export function titularDeVertical(key: string | null | undefined): string {
+  const ui = verticalUi(key);
+  return ui.titular ?? ui.label;
+}
+
+/** Subtitular de cabecera del vertical; cae a la descripción del listado. */
+export function subtitularDeVertical(key: string | null | undefined): string {
+  const ui = verticalUi(key);
+  return ui.subtitular ?? ui.descripcion;
 }

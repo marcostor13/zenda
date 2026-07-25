@@ -7,8 +7,10 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
-import { verticalUi } from '../../../shared/verticales/verticales.config';
-import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../services/alojamiento.service';
+import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
+import {
+  AlojamientoService, AlojamientoCard, FiltrosAlojamiento, OrdenServicios,
+} from '../services/alojamiento.service';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
 
 /** Filtros comunes de búsqueda, tal y como llegan en la URL. */
@@ -123,6 +125,7 @@ interface BusquedaUrl {
     <section class="results-col">
       <div class="results-header">
         <div>
+          <p class="results-header__eyebrow">{{ claimVertical }}</p>
           <h1 class="results-header__title">
             {{ cargando() ? 'Buscando…' : ui.label + sufijoCiudad() }}
           </h1>
@@ -133,13 +136,17 @@ interface BusquedaUrl {
         </div>
         <div class="results-header__sort">
           <select [(ngModel)]="ordenamiento" class="rs-inp" style="width:auto"
-                  (change)="aplicarFiltros()">
+                  aria-label="Ordenar resultados"
+                  (change)="cambiarOrden()">
             <option value="relevancia">Relevancia</option>
+            <option value="distancia">Distancia</option>
             <option value="precio_asc">Precio: menor a mayor</option>
             <option value="precio_desc">Precio: mayor a menor</option>
-            <option value="score">Mejor valorados</option>
-            <option value="resenas">Más reseñas</option>
+            <option value="valoracion">Mejor valorados</option>
           </select>
+          @if (avisoUbicacion()) {
+            <p class="results-header__geo">{{ avisoUbicacion() }}</p>
+          }
         </div>
       </div>
 
@@ -350,9 +357,19 @@ interface BusquedaUrl {
       gap: var(--sp-4);
     }
 
+    .results-header__eyebrow {
+      font-family: var(--font-accent);
+      font-size: var(--f-xs);
+      font-weight: var(--w-7);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--dk-gold);
+      margin-bottom: var(--sp-1);
+    }
     .results-header__title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--dk-blue); }
     .results-header__sub { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); }
     .results-header__count { color: var(--t-200); font-weight: var(--w-6); }
+    .results-header__geo { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); max-width: 32ch; }
 
     .results-list { display: flex; flex-direction: column; gap: var(--sp-4); }
 
@@ -497,6 +514,10 @@ export class AlojamientoListaComponent implements OnInit {
 
   readonly ui = verticalUi(VerticalKey.ALOJAMIENTO);
 
+  /** Claim de marca del vertical, sobre el título contextual de resultados. */
+  readonly claimVertical =
+    `${titularDeVertical(VerticalKey.ALOJAMIENTO)}. ${subtitularDeVertical(VerticalKey.ALOJAMIENTO)}`;
+
   /** Solo el filtro propio del listado: los campos comunes van en `<rs-search-bar>`. */
   readonly searchForm = this.fb.group({ perroId: [''] });
 
@@ -512,7 +533,13 @@ export class AlojamientoListaComponent implements OnInit {
   amenitiesSelec = signal<string[]>([]);
   soloCancelacionGratis = false;
   soloPaseos = false;
-  ordenamiento = 'relevancia';
+  ordenamiento: OrdenServicios = 'relevancia';
+
+  /** Punto de referencia para el orden por distancia. */
+  private readonly coordenadas = signal<{ lat: number; lng: number } | null>(null);
+  /** De dónde salió ese punto: la ciudad buscada o el GPS del dispositivo. */
+  private readonly origenUbicacion = signal<'ciudad' | 'dispositivo' | null>(null);
+  readonly avisoUbicacion = signal('');
 
   readonly ratingOpciones = [
     { valor: 5,   estrellas: '★★★★★', label: '5.0' },
@@ -531,6 +558,23 @@ export class AlojamientoListaComponent implements OnInit {
         hasta:  params['hasta']  || undefined,
         perros: Number(params['perros']) || undefined,
       });
+
+      // La mascota elegida en el buscador filtra por compatibilidad sin que el
+      // usuario tenga que volver a seleccionarla en el panel lateral.
+      const [primerPerro] = (params['perroIds'] ?? '').split(',').filter(Boolean);
+      if (primerPerro && primerPerro !== this.searchForm.value.perroId) {
+        this.searchForm.patchValue({ perroId: primerPerro }, { emitEvent: false });
+      }
+
+      // Si el usuario eligió la población en el autocompletado, ya tenemos su
+      // posición: ordenar por distancia no necesita pedirle permiso al navegador.
+      const lat = Number(params['lat']);
+      const lng = Number(params['lng']);
+      if (params['lat'] && Number.isFinite(lat) && Number.isFinite(lng)) {
+        this.coordenadas.set({ lat, lng });
+        this.origenUbicacion.set('ciudad');
+      }
+
       this.paginaActual.set(1);
       this.cargarAlojamientos();
     });
@@ -555,6 +599,9 @@ export class AlojamientoListaComponent implements OnInit {
         precioMax: this.precioMax < 500 ? this.precioMax : undefined,
         ratingMin: this.ratingMinimo || undefined,
         cancelacionGratis: this.soloCancelacionGratis || undefined,
+        orden: this.ordenamiento,
+        lat: this.coordenadas()?.lat,
+        lng: this.coordenadas()?.lng,
         page: this.paginaActual(),
         limit: 10,
       };
@@ -574,6 +621,49 @@ export class AlojamientoListaComponent implements OnInit {
   }
 
   aplicarFiltros(): void { this.paginaActual.set(1); this.cargarAlojamientos(); }
+
+  /**
+   * El permiso de ubicación solo se pide cuando el usuario elige ordenar por
+   * distancia, nunca al abrir la pantalla: pedirlo sin motivo hace que la gente
+   * lo deniegue y ya no se pueda volver a preguntar.
+   */
+  async cambiarOrden(): Promise<void> {
+    if (this.ordenamiento !== 'distancia') {
+      this.avisoUbicacion.set('');
+      this.aplicarFiltros();
+      return;
+    }
+
+    // Ya sabemos desde dónde medir porque el usuario eligió la población en el
+    // autocompletado: no hace falta molestarle con el permiso del navegador.
+    if (this.coordenadas()) {
+      if (this.origenUbicacion() === 'ciudad') {
+        this.avisoUbicacion.set('Ordenado desde la población que buscaste.');
+      }
+      this.aplicarFiltros();
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      this.avisoUbicacion.set('Tu navegador no comparte la ubicación; ordenamos por la ciudad buscada.');
+      this.aplicarFiltros();
+      return;
+    }
+
+    this.avisoUbicacion.set('Buscando tu ubicación…');
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 }),
+      );
+      this.coordenadas.set({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      this.origenUbicacion.set('dispositivo');
+      this.avisoUbicacion.set('Ordenado desde tu ubicación actual.');
+    } catch {
+      // Denegado o expirado: la búsqueda sigue siendo útil ordenada por la ciudad.
+      this.avisoUbicacion.set('Sin acceso a tu ubicación; ordenamos por la ciudad buscada.');
+    }
+    this.aplicarFiltros();
+  }
 
   limpiarFiltros(): void {
     this.precioMin = 0; this.precioMax = 500;

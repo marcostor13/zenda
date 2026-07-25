@@ -1,11 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { CatalogRepository, BuscarServiciosParams } from './catalog.repository';
+import { CatalogRepository, BuscarServiciosParams, OrdenServicios } from './catalog.repository';
 import { ReviewsService } from '../reviews/reviews.service';
 import { ResenaDocument } from '../reviews/resena.schema';
 import { PerrosService } from '../perros/perros.service';
 import { AptitudPerro } from './servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto } from 'shared';
+import {
+  CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
+  ServicioClinicoTipo, SERVICIOS_CLINICOS_EXCLUIDOS,
+} from 'shared';
 
 /** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
 const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarDisponibilidadDto>> = {
@@ -31,6 +34,8 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
     'tiposTransporteOfrecidos', 'precioExclusivo', 'requisitoMicrochip', 'requisitoVacunas',
     'caracteristicasVehiculo', 'serviciosAdicionales',
+    'radioCoberturaKm', 'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
+    'maxPerrosPorTrayecto', 'antelacionMinimaHoras',
   ],
   veterinaria: [
     'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia',
@@ -200,6 +205,11 @@ interface ServicioLean {
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
 
+/** Órdenes aceptados en la búsqueda; cualquier otro valor cae en `relevancia`. */
+const ORDENES_VALIDOS: readonly OrdenServicios[] = [
+  'relevancia', 'precio_asc', 'precio_desc', 'valoracion', 'distancia',
+];
+
 @Injectable()
 export class CatalogService {
   constructor(
@@ -216,6 +226,10 @@ export class CatalogService {
     page?: number;
     limit?: number;
     perroId?: string;
+    orden?: string;
+    lat?: number;
+    lng?: number;
+    soloDisponibles?: boolean;
   }): Promise<PaginatedResult<ServicioCardDto>> {
     const perfilPerro = filtros.perroId
       ? (await this.perrosService.obtenerPerfilCompatibilidad(filtros.perroId)) ?? undefined
@@ -229,6 +243,14 @@ export class CatalogService {
       page: Math.max(1, filtros.page ?? 1),
       limit: Math.min(MAX_LIMIT, Math.max(1, filtros.limit ?? DEFAULT_LIMIT)),
       perfilPerro,
+      orden: ORDENES_VALIDOS.includes(filtros.orden as OrdenServicios)
+        ? (filtros.orden as OrdenServicios)
+        : 'relevancia',
+      lat: filtros.lat,
+      lng: filtros.lng,
+      // Por defecto la búsqueda solo muestra lo reservable (P2); un consumidor
+      // puede pedir el catálogo completo pasando `soloDisponibles=false`.
+      soloDisponibles: filtros.soloDisponibles ?? true,
     };
 
     const { items, total } = await this.repo.buscar(params);
@@ -249,6 +271,7 @@ export class CatalogService {
     }
     const extra = this.filtrarExtraPorVertical(dto.vertical, dto.extra ?? {});
     this.validarCamposRequeridos(dto.vertical, extra);
+    this.validarServiciosClinicos(dto.vertical, extra);
 
     const doc = await this.repo.crear({
       vertical: dto.vertical,
@@ -275,6 +298,7 @@ export class CatalogService {
     }
     const vertical = (existente as unknown as Record<string, unknown>)['vertical'] as string;
     const extra = dto.extra ? this.filtrarExtraPorVertical(vertical, dto.extra) : undefined;
+    if (extra) this.validarServiciosClinicos(vertical, extra);
 
     const actualizado = await this.repo.actualizar(id, comercioId, {
       titulo: dto.titulo,
@@ -340,6 +364,38 @@ export class CatalogService {
     if (faltantes.length > 0) {
       throw new DomainException(
         `Faltan campos obligatorios para este tipo de servicio: ${faltantes.join(', ')}`,
+        400,
+      );
+    }
+  }
+
+  /**
+   * El catálogo clínico es cerrado: Doogking solo intermedia servicios de
+   * precio acotado. Se valida aquí, y no solo en el formulario, para que la
+   * regla se sostenga también contra llamadas directas al API.
+   */
+  private validarServiciosClinicos(vertical: string, extra: Record<string, unknown>): void {
+    if (vertical !== 'veterinaria') return;
+
+    const servicios = extra['serviciosClinicos'] as Array<Record<string, unknown>> | undefined;
+    if (!servicios?.length) return;
+
+    const permitidos = Object.values(ServicioClinicoTipo) as string[];
+
+    for (const servicio of servicios) {
+      const tipo = servicio['tipo'] as string | undefined;
+
+      // Sin `tipo` es un listado antiguo todavía sin migrar: se deja pasar para
+      // no bloquear al comercio, pero no se puede crear nada nuevo así.
+      if (tipo === undefined) continue;
+
+      if (permitidos.includes(tipo)) continue;
+
+      const excluido = SERVICIOS_CLINICOS_EXCLUIDOS.some((e) => tipo.toLowerCase().includes(e));
+      throw new DomainException(
+        excluido
+          ? 'Doogking no intermedia reservas de dermatología ni cirugía: esos tratamientos se presupuestan y facturan directamente con el cliente.'
+          : `"${tipo}" no está en el catálogo de servicios veterinarios reservables.`,
         400,
       );
     }
@@ -443,6 +499,8 @@ export class CatalogService {
       'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
       // transporte de animales
       'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
+      'radioCoberturaKm', 'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
+      'maxPerrosPorTrayecto', 'antelacionMinimaHoras',
       // veterinaria
       'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia', 'citasDisponibles', 'atiendeUrgencias', 'precioConsulta', 'especiesAtendidas',
       // peluquería canina

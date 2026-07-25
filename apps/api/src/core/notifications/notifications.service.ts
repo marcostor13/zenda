@@ -67,6 +67,67 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Avisa al cliente de que el comercio pide un ajuste de precio. Sin este
+   * correo el cliente solo se enteraría si entra por su cuenta a la reserva, y
+   * la regla del negocio es que ningún coste se aplica sin su aprobación.
+   * Nunca lanza: el ajuste ya se registró y un fallo de email no debe revertirlo.
+   */
+  async notificarAjusteSolicitado(reservaId: string): Promise<void> {
+    try {
+      const reserva = await this.reservaModel.findById(reservaId).lean().exec();
+      if (!reserva) return;
+
+      const cliente = await this.usuarioModel
+        .findById(reserva.usuarioId).select('nombre email').lean().exec();
+      if (!cliente) return;
+
+      // El motivo se compone de los suplementos propuestos: el cliente debe ver
+      // exactamente por qué sube el importe, no un mensaje genérico.
+      const motivo = reserva.suplementos
+        .map((s) => `${s.concepto} (+${s.monto.toFixed(2)} €)${s.motivo ? ` — ${s.motivo}` : ''}`)
+        .join('<br>');
+
+      await this.enviarYRegistrar({
+        reservaId: reserva._id,
+        tipo: 'ajuste_solicitado',
+        destinatario: cliente.email,
+        asunto: `Cambio de importe en tu reserva ${reserva.codigo}`,
+        cuerpo: this.plantillaAjusteSolicitado(
+          cliente.nombre,
+          reserva.codigo,
+          reserva.montoTotal,
+          reserva.montoAjustado ?? reserva.montoTotal,
+          motivo || 'El profesional ha detectado necesidades adicionales en recepción.',
+        ),
+      });
+    } catch (error) {
+      this.logger.error(`No se pudo notificar el ajuste de la reserva ${reservaId}`, error);
+    }
+  }
+
+  private plantillaAjusteSolicitado(
+    nombre: string,
+    codigo: string,
+    importeInicial: number,
+    importeNuevo: number,
+    motivo: string,
+  ): string {
+    return `
+      <h2>Hola ${nombre}, tu reserva ${codigo} necesita tu confirmación</h2>
+      <p>El profesional propone un nuevo importe para el servicio:</p>
+      <p style="font-size:18px">
+        <span style="color:#8B9BBC;text-decoration:line-through">${importeInicial.toFixed(2)} €</span>
+        &nbsp;→&nbsp;
+        <strong style="color:#08258B">${importeNuevo.toFixed(2)} €</strong>
+      </p>
+      <p><strong>Motivo:</strong> ${motivo}</p>
+      <p>No se te cobrará nada hasta que lo aceptes. Si lo rechazas, se te reembolsa el importe
+         original menos el cargo mínimo de gestión.</p>
+      <p style="color:#8B9BBC;font-size:13px">Entra en «Mis reservas» en Doogking para aceptar o rechazar el cambio.</p>
+    `;
+  }
+
   /** Envía el correo de verificación de email con el enlace de confirmación. */
   async enviarVerificacionEmail(destinatario: string, nombre: string, url: string): Promise<void> {
     await this.enviarYRegistrar({

@@ -6,6 +6,7 @@ import { BookingsController } from './bookings.controller';
 import { AvailabilityModule } from '../availability/availability.module';
 import { CuponesModule } from '../cupones/cupones.module';
 import { PerrosModule } from '../perros/perros.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { PerrosModule } from '../perros/perros.module';
     AvailabilityModule,
     CuponesModule,
     PerrosModule,
+    NotificationsModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

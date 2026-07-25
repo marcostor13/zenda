@@ -6,6 +6,7 @@ import { AvailabilityRegistry } from '../availability/availability.registry';
 import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
 import { construirSnapshotPerro } from '../perros/perro-snapshot.util';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT } from 'shared';
 import { nanoid } from 'nanoid';
@@ -46,6 +47,7 @@ export class BookingsService {
     private readonly availabilityRegistry: AvailabilityRegistry,
     private readonly cuponesService: CuponesService,
     private readonly perrosService: PerrosService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async crear(params: CrearReservaParams): Promise<ReservaDocument> {
@@ -345,7 +347,13 @@ export class BookingsService {
     reserva.estado = ReservaEstado.AJUSTE_SOLICITADO;
     reserva.ajusteSolicitadoAt = ahora;
 
-    return reserva.save();
+    const guardada = await reserva.save();
+
+    // Sin `await`: el ajuste ya está registrado y el comercio no debe esperar al
+    // correo. `notificarAjusteSolicitado` no lanza nunca.
+    void this.notificationsService.notificarAjusteSolicitado(guardada._id.toString());
+
+    return guardada;
   }
 
   /** Valida que el ajuste pertenezca al cliente y esté pendiente (lo usa PaymentsService antes de cobrar). */

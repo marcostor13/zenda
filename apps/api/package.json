@@ -10,7 +10,8 @@
     "test:watch": "jest --watch",
     "seed:admin": "ts-node -P tsconfig.json src/scripts/seed-admin.ts",
     "clear:seed": "ts-node -P tsconfig.json src/scripts/clear-seed-data.ts",
-    "seed:europe": "ts-node -P tsconfig.json src/scripts/seed-europe.ts"
+    "seed:europe": "ts-node -P tsconfig.json src/scripts/seed-europe.ts",
+    "migrar:servicios-clinicos": "ts-node -P tsconfig.json src/scripts/migrar-servicios-clinicos.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",

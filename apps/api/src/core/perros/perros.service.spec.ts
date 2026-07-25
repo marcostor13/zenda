@@ -4,7 +4,10 @@ import { Types } from 'mongoose';
 import { PerrosService } from './perros.service';
 import { Perro } from './perro.schema';
 import { PerroHistorial } from './perro-historial.schema';
+import { PerroVersion } from './perro-version.schema';
+import { Consentimiento } from './consentimiento.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { TipoHistorial, VerticalKey } from 'shared';
 
 const PROPIETARIO_ID = new Types.ObjectId().toString();
 
@@ -13,6 +16,7 @@ function perroDocMock(propietarioId: string) {
     _id: new Types.ObjectId(),
     propietarioId: { toString: () => propietarioId },
     nombre: 'Nala',
+    toObject: jest.fn().mockReturnValue({ nombre: 'Nala', peso: 12 }),
     save: jest.fn().mockImplementation(function (this: unknown) {
       return Promise.resolve(this);
     }),
@@ -23,17 +27,33 @@ function perroDocMock(propietarioId: string) {
 describe('PerrosService', () => {
   let service: PerrosService;
   let perroModel: { create: jest.Mock; find: jest.Mock; findById: jest.Mock };
-  let historialModel: { create: jest.Mock; find: jest.Mock };
+  let historialModel: {
+    create: jest.Mock; find: jest.Mock; insertMany: jest.Mock;
+    findOneAndUpdate: jest.Mock; deleteOne: jest.Mock;
+  };
+  let versionModel: { create: jest.Mock; find: jest.Mock };
+  let consentimientoModel: { find: jest.Mock; findOneAndUpdate: jest.Mock; updateMany: jest.Mock };
 
   beforeEach(async () => {
     perroModel = { create: jest.fn(), find: jest.fn(), findById: jest.fn() };
-    historialModel = { create: jest.fn(), find: jest.fn() };
+    historialModel = {
+      create: jest.fn(), find: jest.fn(), insertMany: jest.fn().mockResolvedValue([]),
+      findOneAndUpdate: jest.fn(), deleteOne: jest.fn(),
+    };
+    versionModel = { create: jest.fn().mockResolvedValue({}), find: jest.fn() };
+    consentimientoModel = {
+      find: jest.fn().mockReturnValue({ lean: () => ({ exec: () => Promise.resolve([]) }), exec: () => Promise.resolve([]) }),
+      findOneAndUpdate: jest.fn(),
+      updateMany: jest.fn(),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         PerrosService,
         { provide: getModelToken(Perro.name), useValue: perroModel },
         { provide: getModelToken(PerroHistorial.name), useValue: historialModel },
+        { provide: getModelToken(PerroVersion.name), useValue: versionModel },
+        { provide: getModelToken(Consentimiento.name), useValue: consentimientoModel },
       ],
     }).compile();
 
@@ -172,6 +192,155 @@ describe('PerrosService', () => {
       perroModel.findById.mockReturnValue({ select });
 
       await expect(service.obtenerHistoriaCompartida('perro-1')).rejects.toThrow(DomainException);
+    });
+  });
+
+  describe('historialVisiblePara (compartición selectiva, RGPD)', () => {
+    const perroId = new Types.ObjectId().toString();
+
+    /** Devuelve el filtro con el que se consultó el historial. */
+    const filtroConsultado = (): Record<string, unknown> =>
+      historialModel.find.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    const conConsentimientos = (lista: Array<{ tipoHistorial: string }>): void => {
+      consentimientoModel.find.mockReturnValue({
+        lean: () => ({ exec: () => Promise.resolve(lista) }),
+      });
+      historialModel.find.mockReturnValue({ sort: () => ({ exec: () => Promise.resolve([]) }) });
+    };
+
+    it('la peluquería no ve el informe veterinario sin consentimiento explícito', async () => {
+      conConsentimientos([]);
+
+      await service.historialVisiblePara(perroId, VerticalKey.PELUQUERIA);
+
+      const tipos = (filtroConsultado()['$or'] as Array<Record<string, unknown>>)[0];
+      expect(tipos['tipoHistorial']).toEqual({ $in: [TipoHistorial.GROOMING] });
+    });
+
+    it('cada vertical ve siempre lo que él mismo generó', async () => {
+      conConsentimientos([]);
+
+      await service.historialVisiblePara(perroId, VerticalKey.VETERINARIA);
+
+      const tipos = (filtroConsultado()['$or'] as Array<Record<string, unknown>>)[0];
+      expect(tipos['tipoHistorial']).toEqual({ $in: [TipoHistorial.VETERINARIO] });
+    });
+
+    it('con consentimiento, la peluquería sí ve el historial veterinario', async () => {
+      conConsentimientos([{ tipoHistorial: TipoHistorial.VETERINARIO }]);
+
+      await service.historialVisiblePara(perroId, VerticalKey.PELUQUERIA);
+
+      const tipos = (filtroConsultado()['$or'] as Array<Record<string, unknown>>)[0];
+      expect(tipos['tipoHistorial']).toEqual({
+        $in: expect.arrayContaining([TipoHistorial.VETERINARIO, TipoHistorial.GROOMING]),
+      });
+    });
+
+    it('solo cuentan los consentimientos concedidos y del vertical que pregunta', async () => {
+      conConsentimientos([]);
+
+      await service.historialVisiblePara(perroId, VerticalKey.PELUQUERIA);
+
+      expect(consentimientoModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ verticalDestino: VerticalKey.PELUQUERIA, concedido: true }),
+      );
+    });
+  });
+
+  describe('versionado de la ficha', () => {
+    it('debería guardar cómo estaba la ficha antes de cambiarla', async () => {
+      const doc = perroDocMock(PROPIETARIO_ID);
+      perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(doc) });
+
+      await service.actualizar('perro-1', PROPIETARIO_ID, { peso: 15 });
+
+      expect(versionModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ campos: ['peso'], anterior: { nombre: 'Nala', peso: 12 } }),
+      );
+    });
+
+    it('no debería ensuciar el historial si no cambia nada', async () => {
+      const doc = perroDocMock(PROPIETARIO_ID);
+      perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(doc) });
+
+      await service.actualizar('perro-1', PROPIETARIO_ID, { peso: 12 });
+
+      expect(versionModel.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('parsearImportacion (volcado copiar/pegar)', () => {
+    it('debería separar fecha, concepto y detalle de un pegado desde Excel', () => {
+      const filas = service.parsearImportacion('12/03/2026\tVacuna antirrábica\tLote A-22');
+
+      expect(filas).toEqual([
+        { fecha: '12/03/2026', concepto: 'Vacuna antirrábica', detalle: 'Lote A-22' },
+      ]);
+    });
+
+    it('debería tratar el texto plano como un único concepto por línea', () => {
+      const filas = service.parsearImportacion('Revisión anual sin incidencias');
+
+      expect(filas).toEqual([{ concepto: 'Revisión anual sin incidencias' }]);
+    });
+
+    it('no debería tomar por fecha una primera columna que no lo es', () => {
+      const filas = service.parsearImportacion('Vacunación\tAl día');
+
+      expect(filas).toEqual([{ concepto: 'Vacunación', detalle: 'Al día' }]);
+    });
+
+    it('debería descartar líneas vacías del pegado', () => {
+      const filas = service.parsearImportacion('Consulta\n\n   \nRevisión');
+
+      expect(filas).toHaveLength(2);
+    });
+  });
+
+  describe('control del historial por el propietario', () => {
+    it('debería lanzar 404 al editar una entrada que no existe', async () => {
+      perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
+      historialModel.findOneAndUpdate.mockReturnValue({ exec: () => Promise.resolve(null) });
+
+      await expect(
+        service.editarHistorial(
+          new Types.ObjectId().toString(), new Types.ObjectId().toString(), PROPIETARIO_ID, 'texto',
+        ),
+      ).rejects.toThrow(DomainException);
+    });
+
+    it('debería marcar la fecha de edición al corregir una entrada', async () => {
+      perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
+      historialModel.findOneAndUpdate.mockReturnValue({ exec: () => Promise.resolve({ nota: 'nuevo' }) });
+
+      await service.editarHistorial(
+        new Types.ObjectId().toString(), new Types.ObjectId().toString(), PROPIETARIO_ID, 'nuevo',
+      );
+
+      const cambios = historialModel.findOneAndUpdate.mock.calls[0][1] as { $set: Record<string, unknown> };
+      expect(cambios.$set['nota']).toBe('nuevo');
+      expect(cambios.$set['editadaAt']).toBeInstanceOf(Date);
+    });
+
+    it('debería lanzar 404 al eliminar una entrada que no existe', async () => {
+      perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
+      historialModel.deleteOne.mockReturnValue({ exec: () => Promise.resolve({ deletedCount: 0 }) });
+
+      await expect(
+        service.eliminarHistorial(
+          new Types.ObjectId().toString(), new Types.ObjectId().toString(), PROPIETARIO_ID,
+        ),
+      ).rejects.toThrow(DomainException);
+    });
+
+    it('debería rechazar un identificador malformado con 400, no reventar con 500', async () => {
+      perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
+
+      await expect(
+        service.eliminarHistorial(new Types.ObjectId().toString(), 'no-es-un-id', PROPIETARIO_ID),
+      ).rejects.toThrow(DomainException);
     });
   });
 });

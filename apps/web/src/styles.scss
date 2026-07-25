@@ -345,6 +345,12 @@ h1, h2, h3, h4, h5, h6 {
     align-items: center;
     gap: var(--sp-1);
     flex: 1;
+    /* Las etiquetas de categoría no se parten nunca: si no caben, la fila se
+       desplaza en horizontal en vez de romper la altura de la barra. */
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
   }
 
   /* Alias __links → kept for backward compat */
@@ -363,6 +369,8 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: var(--r-md);
     transition: color var(--d-1), background var(--d-1);
     text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
 
     &:hover { color: var(--t-100); background: rgba(5,26,102,.05); }
     &.active, &--active { color: var(--t-100); font-weight: var(--w-6); }
@@ -1151,6 +1159,22 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── 29. UTILIDADES ────────────────────────────────────────────── */
+
+/**
+ * Texto solo para lectores de pantalla. Se usa cuando un control es
+ * comprensible visualmente (un icono, una casilla dentro de una matriz) pero
+ * necesita una etiqueta explícita para quien no ve la pantalla.
+ */
+.rs-sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .rs-flex   { display: flex; }
 .rs-col    { flex-direction: column; }
 .rs-center { align-items: center; justify-content: center; }

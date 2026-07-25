@@ -53,6 +53,10 @@ export const routes: Routes = [
       import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
   },
   {
+    path: 'ayuda',
+    loadComponent: () => import('./features/ayuda/ayuda.component').then((m) => m.AyudaComponent),
+  },
+  {
     path: 'reservas',
     canActivate: [authGuard],
     loadChildren: () => import('./features/reservas/reservas.routes').then((m) => m.reservasRoutes),
