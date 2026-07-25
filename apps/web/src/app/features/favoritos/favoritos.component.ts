@@ -30,7 +30,7 @@ import { FavoritosService } from './favoritos.service';
         <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-4)">
           Todavía no tienes favoritos. Pulsa el corazón en cualquier servicio para guardarlo aquí.
         </p>
-        <a routerLink="/buscador" class="rs-btn rs-btn--primary rs-btn--sm">Explorar servicios</a>
+        <a routerLink="/" class="rs-btn rs-btn--primary rs-btn--sm">Explorar servicios</a>
       </div>
     } @else {
       <div class="fav-grid">

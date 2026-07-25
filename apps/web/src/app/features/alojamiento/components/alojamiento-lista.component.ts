@@ -1,54 +1,52 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { VerticalKey } from 'shared';
 import { FormBuilder, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
+import { verticalUi } from '../../../shared/verticales/verticales.config';
 import { AlojamientoService, AlojamientoCard, FiltrosAlojamiento } from '../services/alojamiento.service';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
+
+/** Filtros comunes de búsqueda, tal y como llegan en la URL. */
+interface BusquedaUrl {
+  ciudad?: string;
+  desde?: string;
+  hasta?: string;
+  perros?: number;
+}
 
 @Component({
   selector: 'app-alojamiento-lista',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective],
+  imports: [
+    RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
+    RsSearchBarComponent, AnimateOnScrollDirective, ImgFallbackDirective,
+  ],
   template: `
 <div class="alojamiento-page">
   <rs-navbar />
 
-  <!-- Barra de búsqueda refinada -->
+  <!-- Buscador estándar: mismos campos y orden que en el home -->
   <div class="search-bar-strip">
     <div class="rs-wrap">
-      <form [formGroup]="searchForm" (ngSubmit)="aplicarBusqueda()" class="search-bar-strip__form">
-        <div class="rs-field">
-          <input formControlName="ciudad" class="rs-inp" placeholder="Ciudad o zona" />
-        </div>
-        <div class="rs-field">
-          <input formControlName="desde" type="date" class="rs-inp" />
-        </div>
-        <div class="rs-field">
-          <input formControlName="hasta" type="date" class="rs-inp" />
-        </div>
-        <div class="rs-field">
-          <select formControlName="perros" class="rs-inp">
-            <option value="1">1 perro</option>
-            <option value="2">2 perros</option>
-            <option value="3">3 perros</option>
-            <option value="4">4+ perros</option>
+      <rs-search-bar variant="strip" [vertical]="ui.key" [buscarAlCambiar]="true" />
+
+      @if (misPerros().length > 0) {
+        <form [formGroup]="searchForm" class="search-bar-strip__perro">
+          <label class="rs-lbl" for="alojamiento-perro">Compatible con</label>
+          <select id="alojamiento-perro" formControlName="perroId" class="rs-inp"
+                  (change)="aplicarFiltros()">
+            <option value="">Cualquier perro</option>
+            @for (p of misPerros(); track p._id) {
+              <option [value]="p._id">Solo apto para {{ p.nombre }}</option>
+            }
           </select>
-        </div>
-        @if (misPerros().length > 0) {
-          <div class="rs-field">
-            <select formControlName="perroId" class="rs-inp">
-              <option value="">Cualquier perro</option>
-              @for (p of misPerros(); track p._id) {
-                <option [value]="p._id">Solo apto para {{ p.nombre }}</option>
-              }
-            </select>
-          </div>
-        }
-        <button type="submit" class="rs-btn rs-btn--gold">Buscar</button>
-      </form>
+        </form>
+      }
     </div>
   </div>
 
@@ -126,7 +124,7 @@ import { PerrosService, PerroApi } from '../../perros/perros.service';
       <div class="results-header">
         <div>
           <h1 class="results-header__title">
-            {{ cargando() ? 'Buscando…' : 'Alojamiento canino' }}
+            {{ cargando() ? 'Buscando…' : ui.label + sufijoCiudad() }}
           </h1>
           <p class="results-header__sub">
             @if (!cargando()) { <span class="results-header__count">{{ totalLabel() }}</span> · }
@@ -274,21 +272,19 @@ import { PerrosService, PerroApi } from '../../perros/perros.service';
     .alojamiento-page { min-height: 100vh; background: var(--c-base); }
 
     .search-bar-strip {
-      background: var(--c-raised);
+      background: var(--c-card);
       border-bottom: 1px solid var(--b-1);
       padding: var(--sp-4) 0;
-      position: sticky;
-      top: 64px;
-      z-index: 50;
+      box-shadow: var(--sh-sm);
     }
 
-    .search-bar-strip__form {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    .search-bar-strip__perro {
+      display: flex;
+      align-items: center;
       gap: var(--sp-3);
-      align-items: end;
+      margin-top: var(--sp-3);
 
-      @media (max-width: 768px) { grid-template-columns: 1fr; }
+      .rs-inp { width: auto; min-width: 220px; }
     }
 
     .alojamiento-body {
@@ -494,9 +490,18 @@ export class AlojamientoListaComponent implements OnInit {
     `${this.totalItems()} espacios encontrados`
   );
 
-  readonly searchForm = this.fb.group({
-    ciudad: [''], desde: [''], hasta: [''], perros: [1], perroId: [''],
+  readonly sufijoCiudad = computed(() => {
+    const ciudad = this.busqueda().ciudad;
+    return ciudad ? ` en ${ciudad}` : '';
   });
+
+  readonly ui = verticalUi(VerticalKey.ALOJAMIENTO);
+
+  /** Solo el filtro propio del listado: los campos comunes van en `<rs-search-bar>`. */
+  readonly searchForm = this.fb.group({ perroId: [''] });
+
+  /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
+  private readonly busqueda = signal<BusquedaUrl>({});
 
   readonly misPerros = signal<PerroApi[]>([]);
 
@@ -518,10 +523,15 @@ export class AlojamientoListaComponent implements OnInit {
   readonly amenitiesOpciones = ['Piscina', 'Jardín', 'Cuidado 24/7', 'Veterinario de guardia', 'Cámaras 24h', 'Paseos diarios'];
 
   ngOnInit(): void {
+    // La URL manda: cada búsqueda del buscador recarga el listado.
     this.route.queryParams.subscribe(params => {
-      if (params['ciudad'])  this.searchForm.patchValue({ ciudad: params['ciudad'] });
-      if (params['desde'])   this.searchForm.patchValue({ desde: params['desde'] });
-      if (params['hasta'])   this.searchForm.patchValue({ hasta: params['hasta'] });
+      this.busqueda.set({
+        ciudad: params['ciudad'] || undefined,
+        desde:  params['desde']  || undefined,
+        hasta:  params['hasta']  || undefined,
+        perros: Number(params['perros']) || undefined,
+      });
+      this.paginaActual.set(1);
       this.cargarAlojamientos();
     });
 
@@ -534,13 +544,13 @@ export class AlojamientoListaComponent implements OnInit {
     this.cargando.set(true);
     this.error.set(false);
     try {
-      const form = this.searchForm.value;
+      const busqueda = this.busqueda();
       const filtros: FiltrosAlojamiento = {
-        ciudad:   form.ciudad   ?? undefined,
-        desde:    form.desde    ?? undefined,
-        hasta:    form.hasta    ?? undefined,
-        perros:   form.perros   ?? undefined,
-        perroId:  form.perroId || undefined,
+        ciudad:   busqueda.ciudad,
+        desde:    busqueda.desde,
+        hasta:    busqueda.hasta,
+        perros:   busqueda.perros,
+        perroId:  this.searchForm.value.perroId || undefined,
         precioMin: this.precioMin || undefined,
         precioMax: this.precioMax < 500 ? this.precioMax : undefined,
         ratingMin: this.ratingMinimo || undefined,
@@ -563,8 +573,7 @@ export class AlojamientoListaComponent implements OnInit {
     }
   }
 
-  aplicarBusqueda(): void { this.paginaActual.set(1); this.cargarAlojamientos(); }
-  aplicarFiltros(): void  { this.paginaActual.set(1); this.cargarAlojamientos(); }
+  aplicarFiltros(): void { this.paginaActual.set(1); this.cargarAlojamientos(); }
 
   limpiarFiltros(): void {
     this.precioMin = 0; this.precioMax = 500;
@@ -584,7 +593,8 @@ export class AlojamientoListaComponent implements OnInit {
 
   /** Propaga fechas/perros buscados al detalle, para no pedirlos de nuevo antes de reservar. */
   queryParamsDetalle(): Record<string, string> {
-    const { desde, hasta, perros, perroId } = this.searchForm.value;
+    const { desde, hasta, perros } = this.busqueda();
+    const perroId = this.searchForm.value.perroId;
     const params: Record<string, string> = {};
     if (desde) params['desde'] = desde;
     if (hasta) params['hasta'] = hasta;

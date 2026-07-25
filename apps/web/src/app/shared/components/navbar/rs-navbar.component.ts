@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, HostListener } from '@angular/core
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { VERTICALES_UI } from '../../verticales/verticales.config';
 
 @Component({
   selector: 'rs-navbar',
@@ -13,14 +14,13 @@ import { RsIconComponent } from '../icon/rs-icon.component';
         <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:44px;width:auto;display:block" />
       </a>
 
-      <!-- Desktop nav -->
+      <!-- Desktop nav — una entrada por categoría (misma config que el buscador) -->
       <div class="rs-navbar__nav">
-        <a routerLink="/buscador"       routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Buscar</a>
-        <a routerLink="/alojamiento"    routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Alojamiento</a>
-        <a routerLink="/transporte"     routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Transporte</a>
-        <a routerLink="/veterinaria"    routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Veterinarios</a>
-        <a routerLink="/peluqueria"     routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Peluquerías</a>
-        <a routerLink="/adiestramiento" routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">Adiestramiento</a>
+        @for (v of verticales; track v.key) {
+          <a [routerLink]="v.route" routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">
+            {{ v.labelCorto }}
+          </a>
+        }
       </div>
 
       <!-- Desktop actions -->
@@ -93,24 +93,12 @@ import { RsIconComponent } from '../icon/rs-icon.component';
     @if (menuAbierto()) {
       <div class="rs-mobile-menu">
         <nav class="rs-mobile-menu__nav">
-          <a routerLink="/buscador"       routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="search" [size]="17" [stroke]="2"></rs-icon> Buscar
-          </a>
-          <a routerLink="/alojamiento"    routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="hotel" [size]="17" [stroke]="2"></rs-icon> Alojamiento canino
-          </a>
-          <a routerLink="/transporte"     routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="truck" [size]="17" [stroke]="2"></rs-icon> Transporte de animales
-          </a>
-          <a routerLink="/veterinaria"    routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="stethoscope" [size]="17" [stroke]="2"></rs-icon> Veterinarios
-          </a>
-          <a routerLink="/peluqueria"     routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="scissors" [size]="17" [stroke]="2"></rs-icon> Peluquerías caninas
-          </a>
-          <a routerLink="/adiestramiento" routerLinkActive="rs-mobile-menu__link--active" class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-            <rs-icon name="graduation-cap" [size]="17" [stroke]="2"></rs-icon> Adiestramiento
-          </a>
+          @for (v of verticales; track v.key) {
+            <a [routerLink]="v.route" routerLinkActive="rs-mobile-menu__link--active"
+               class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+              <rs-icon [name]="v.icon" [size]="17" [stroke]="2"></rs-icon> {{ v.label }}
+            </a>
+          }
         </nav>
 
         <div class="rs-mobile-menu__divider"></div>
@@ -266,6 +254,10 @@ import { RsIconComponent } from '../icon/rs-icon.component';
 })
 export class RsNavbarComponent {
   private readonly authService = inject(AuthService);
+
+  /** Menú de categorías: misma fuente que el buscador y las vistas. */
+  readonly verticales = VERTICALES_UI;
+
   readonly estaAutenticado = this.authService.estaAutenticado;
   readonly esAdmin = this.authService.esAdmin;
   readonly esComercio = this.authService.esComercio;

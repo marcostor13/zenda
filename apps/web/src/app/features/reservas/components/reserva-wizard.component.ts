@@ -1192,8 +1192,10 @@ export class ReservaWizardComponent implements OnInit {
     this.espacioId = queryParams.get('espacioId');
 
     // Prellenar con las fechas/perros ya buscados en el listado (no volver a pedirlos).
-    const checkIn = queryParams.get('checkIn');
-    const checkOut = queryParams.get('checkOut');
+    // `desde`/`hasta` son los parámetros del buscador común; `checkIn`/`checkOut`
+    // llegan del detalle de alojamiento.
+    const checkIn = queryParams.get('checkIn') ?? queryParams.get('desde');
+    const checkOut = queryParams.get('checkOut') ?? queryParams.get('hasta');
     const perrosQP = queryParams.get('perros');
     if (checkIn || checkOut || perrosQP) {
       this.paso1AlojamientoForm.patchValue({
@@ -1201,7 +1203,22 @@ export class ReservaWizardComponent implements OnInit {
         ...(checkOut ? { checkOut } : {}),
         ...(perrosQP ? { perros: Number(perrosQP) } : {}),
       });
+      this.paso1HotelesForm.patchValue({
+        ...(checkIn ? { checkIn } : {}),
+        ...(checkOut ? { checkOut } : {}),
+      });
     }
+
+    // Verticales de cita: la fecha buscada prellena el paso 1 correspondiente.
+    if (checkIn) {
+      this.paso1VeterinariaForm.patchValue({ fecha: checkIn });
+      this.paso1PeluqueriaForm.patchValue({ fecha: checkIn });
+      this.paso1AdiestramientoForm.patchValue({ fechaInicio: checkIn });
+      this.paso1TransporteForm.patchValue({ fechaRecogida: checkIn });
+    }
+
+    const origen = queryParams.get('ciudad');
+    if (origen) this.paso1TransporteForm.patchValue({ origen });
 
     const perroIdQP = queryParams.get('perroId');
 

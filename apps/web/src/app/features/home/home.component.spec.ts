@@ -1,5 +1,4 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -9,7 +8,6 @@ import { HomeComponent } from './home.component';
 describe('HomeComponent', () => {
   let fixture: ComponentFixture<HomeComponent>;
   let component: HomeComponent;
-  let router: Router;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -19,7 +17,6 @@ describe('HomeComponent', () => {
 
     fixture = TestBed.createComponent(HomeComponent);
     component = fixture.componentInstance;
-    router = TestBed.inject(Router);
     fixture.detectChanges();
   });
 
@@ -65,54 +62,16 @@ describe('HomeComponent', () => {
     expect(titulo.toLowerCase()).toContain('en un solo lugar');
   });
 
-  it('debería navegar a /buscador con los parámetros del formulario', () => {
-    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
-
-    component.searchForm.patchValue({
-      vertical: VerticalKey.VETERINARIA,
-      ciudad: 'Madrid',
-      fechaInicio: '2026-08-01',
-      fechaFin: '',
-      perros: 2,
-    });
-    component.onBuscar();
-
-    expect(navigateSpy).toHaveBeenCalledWith(['/buscador'], {
-      queryParams: {
-        vertical: VerticalKey.VETERINARIA,
-        ciudad: 'Madrid',
-        desde: '2026-08-01',
-        hasta: null,
-        perros: 2,
-      },
-    });
-  });
-
-  it('debería usar alojamiento como servicio por defecto en la búsqueda', () => {
-    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
-
-    component.onBuscar();
-
-    const [, opciones] = navigateSpy.mock.calls[0];
-    expect((opciones as { queryParams: { vertical: string } }).queryParams.vertical)
-      .toBe(VerticalKey.ALOJAMIENTO);
-  });
-
-  it('debería devolver el icono de la categoría seleccionada', () => {
-    component.searchForm.patchValue({ vertical: VerticalKey.PELUQUERIA });
-    expect(component.verticalIcon()).toBe('scissors');
-  });
-
-  it('debería renderizar los alojamientos recomendados con precio en euros', () => {
-    fixture.detectChanges();
+  it('debería usar el buscador común en el hero', () => {
     const el: HTMLElement = fixture.nativeElement;
-    const cards = el.querySelectorAll('.stay-card');
-    expect(cards.length).toBe(component.alojamientosRecomendados.length);
-    expect(el.querySelector('.stay-card__amount')?.textContent).toContain('€');
+    expect(el.querySelector('rs-search-bar')).toBeTruthy();
   });
 
-  it('debería formatear las estrellas doradas', () => {
-    expect(component.estrellas(4)).toBe('★★★★☆');
+  it('debería renderizar la fila de categorías del buscador con sus iconos', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const iconos = el.querySelectorAll('.sb__cat-icon');
+    // 6 categorías + el acceso «Más servicios»
+    expect(iconos.length).toBe(component.verticales.length + 1);
   });
 
   it('debería usar un icono SVG propio por categoría', () => {
@@ -127,49 +86,15 @@ describe('HomeComponent', () => {
     ]);
   });
 
-  it('debería renderizar la fila de categorías con sus iconos', () => {
+  it('debería renderizar los alojamientos recomendados con precio en euros', () => {
     const el: HTMLElement = fixture.nativeElement;
-    const iconos = el.querySelectorAll('.cat-row__icon');
-    // 6 categorías + el acceso «Más servicios»
-    expect(iconos.length).toBe(component.verticales.length + 1);
+    const cards = el.querySelectorAll('.stay-card');
+    expect(cards.length).toBe(component.alojamientosRecomendados.length);
+    expect(el.querySelector('.stay-card__amount')?.textContent).toContain('€');
   });
 
-  it('debería cambiar la categoría activa al pulsar un icono del buscador', () => {
-    component.seleccionarVertical(VerticalKey.VETERINARIA);
-
-    expect(component.verticalActivo()).toBe(VerticalKey.VETERINARIA);
-    expect(component.searchForm.controls.vertical.value).toBe(VerticalKey.VETERINARIA);
-  });
-
-  it('debería pedir entrada y salida solo en las categorías por noches', () => {
-    component.seleccionarVertical(VerticalKey.ALOJAMIENTO);
-    expect(component.reservaPorNoches()).toBe(true);
-    expect(component.labelFechaInicio()).toBe('Entrada');
-
-    component.seleccionarVertical(VerticalKey.VETERINARIA);
-    expect(component.reservaPorNoches()).toBe(false);
-    expect(component.labelFechaInicio()).toBe('Fecha');
-  });
-
-  it('debería mostrar el campo de salida solo cuando la reserva es por noches', () => {
-    const el: HTMLElement = fixture.nativeElement;
-
-    component.seleccionarVertical(VerticalKey.ALOJAMIENTO);
-    fixture.detectChanges();
-    expect(el.querySelector('#home-hasta')).toBeTruthy();
-
-    component.seleccionarVertical(VerticalKey.PELUQUERIA);
-    fixture.detectChanges();
-    expect(el.querySelector('#home-hasta')).toBeNull();
-    expect(el.querySelector('#home-hora')).toBeTruthy();
-  });
-
-  it('debería etiquetar la ubicación como recogida en transporte', () => {
-    component.seleccionarVertical(VerticalKey.TRANSPORTE);
-    expect(component.labelUbicacion()).toBe('Recogida');
-
-    component.seleccionarVertical(VerticalKey.ALOJAMIENTO);
-    expect(component.labelUbicacion()).toBe('¿Dónde?');
+  it('debería formatear las estrellas doradas', () => {
+    expect(component.estrellas(4)).toBe('★★★★☆');
   });
 
   it('debería mostrar las tres garantías sobre la franja navy', () => {
@@ -177,9 +102,10 @@ describe('HomeComponent', () => {
     expect(el.querySelectorAll('.trust__item').length).toBe(3);
   });
 
-  it('debería listar las ciudades destacadas enlazando al buscador', () => {
+  it('debería enlazar las ciudades destacadas al listado de alojamiento', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelectorAll('.city-card').length).toBe(component.ciudades.length);
+    expect(component.rutaAlojamiento).toBe('/alojamiento');
     expect(component.ciudades.map((c) => c.nombre)).toContain('Madrid');
   });
 });

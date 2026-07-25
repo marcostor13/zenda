@@ -1,19 +1,29 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
+import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
+import { VerticalUi, verticalUi } from '../../shared/verticales/verticales.config';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
 
+/** Filtros de búsqueda vigentes, tal y como llegan en la URL. */
+interface Busqueda {
+  ciudad?: string;
+  desde?: string;
+  perros?: string;
+}
+
+/**
+ * Presentación de las tarjetas de cada vertical de cita. El título, la
+ * descripción y el buscador ya no viven aquí: vienen de `verticales.config.ts`
+ * y de `<rs-search-bar>`, comunes a toda la aplicación.
+ */
 interface VerticalConfig {
   vertical: string;
-  eyebrow: string;
-  titulo: string;
-  tituloHighlight: string;
-  sub: string;
-  placeholder: string;
   cta: string;
   priceLabel: string;
   badge: (c: ServicioCard) => string | null;
@@ -41,9 +51,8 @@ const resumenServicios = (items: ItemConNombre[] | undefined, c: ServicioCard): 
 
 const CONFIGS: Record<string, VerticalConfig> = {
   veterinaria: {
-    vertical: 'veterinaria', eyebrow: 'VETERINARIOS', titulo: 'Cuidado veterinario', tituloHighlight: 'de confianza',
-    sub: 'Clínicas verificadas para tu perro: vacunación, cirugía, dermatología y urgencias 24h.',
-    placeholder: 'Ciudad de la clínica (Madrid, Barcelona…)', cta: 'Pedir cita', priceLabel: 'consulta desde',
+    vertical: 'veterinaria',
+    cta: 'Pedir cita', priceLabel: 'consulta desde',
     confirmMsg: '✓ Cita solicitada. Continúa al pago para confirmarla.',
     badge: (c) => `🩺 ${(c.extra['especialidades'] as string[] | undefined)?.[0] ?? 'Medicina general'}`,
     titulo3: (c) => c.nombre,
@@ -55,9 +64,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
     price: (c) => (c.extra['precioConsulta'] as number) ?? c.precioPorNoche,
   },
   peluqueria: {
-    vertical: 'peluqueria', eyebrow: 'PELUQUERÍAS CANINAS', titulo: 'Peluquería y spa', tituloHighlight: 'para tu perro',
-    sub: 'Baño, corte, deslanado y spa con groomers profesionales, en salón o a domicilio.',
-    placeholder: 'Ciudad (Madrid, Barcelona…)', cta: 'Reservar cita', priceLabel: 'servicio desde',
+    vertical: 'peluqueria',
+    cta: 'Reservar cita', priceLabel: 'servicio desde',
     confirmMsg: '✓ Cita de peluquería solicitada. Continúa al pago para confirmarla.',
     badge: (c) => `✂️ ${resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).primero ?? 'Corte y baño'}`,
     titulo3: (c) => c.nombre,
@@ -69,9 +77,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
     price: (c) => resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).precioMin,
   },
   adiestramiento: {
-    vertical: 'adiestramiento', eyebrow: 'ADIESTRAMIENTO CANINO', titulo: 'Educadores caninos', tituloHighlight: 'certificados',
-    sub: 'Obediencia, modificación de conducta y educación de cachorros, por sesión o programa.',
-    placeholder: 'Ciudad (Madrid, Barcelona…)', cta: 'Reservar sesión', priceLabel: 'sesión desde',
+    vertical: 'adiestramiento',
+    cta: 'Reservar sesión', priceLabel: 'sesión desde',
     confirmMsg: '✓ Sesión solicitada. Continúa al pago para confirmarla.',
     badge: (c) => `🎓 ${(c.extra['tiposAdiestramiento'] as string[] | undefined)?.[0] ?? 'Obediencia básica'}`,
     titulo3: (c) => c.nombre,
@@ -83,9 +90,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
     price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
   },
   hoteles: {
-    vertical: 'hoteles', eyebrow: 'HOTELES PET-FRIENDLY', titulo: 'Alojamiento', tituloHighlight: 'para ti y tu perro',
-    sub: 'Hoteles donde tú y tu perro os quedáis juntos, con servicios y suplementos pensados para mascotas.',
-    placeholder: 'Ciudad (Madrid, Barcelona…)', cta: 'Reservar hotel', priceLabel: 'habitación desde',
+    vertical: 'hoteles',
+    cta: 'Reservar hotel', priceLabel: 'habitación desde',
     confirmMsg: '✓ Hotel solicitado. Continúa al pago para confirmarlo.',
     badge: (c) => (c.extra['admiteMascotas'] ?? true) ? '🐾 Pet-friendly' : '🏨 Hotel',
     titulo3: (c) => c.nombre,
@@ -101,25 +107,28 @@ const CONFIGS: Record<string, VerticalConfig> = {
 @Component({
   selector: 'app-vertical-browse',
   standalone: true,
-  imports: [ReactiveFormsModule, RsNavbarComponent, ImgFallbackDirective, AnimateOnScrollDirective, RsFavoritoBtnComponent],
+  imports: [
+    RsNavbarComponent, RsSearchBarComponent, ImgFallbackDirective,
+    AnimateOnScrollDirective, RsFavoritoBtnComponent,
+  ],
   template: `
 <div class="vb-page">
   <rs-navbar />
 
-  <section class="vb-hero">
+  <!-- Buscador estándar: mismos campos y orden que en el home -->
+  <div class="vb-searchbar">
     <div class="rs-wrap">
-      <span class="rs-label-caps">{{ cfg().eyebrow }}</span>
-      <h1>{{ cfg().titulo }} <span class="rs-gradient-text">{{ cfg().tituloHighlight }}</span></h1>
-      <p>{{ cfg().sub }}</p>
-      <form [formGroup]="searchForm" (ngSubmit)="buscar()" class="vb-search">
-        <input formControlName="ciudad" class="rs-inp rs-inp--lg" [placeholder]="cfg().placeholder" />
-        <button type="submit" class="rs-btn rs-btn--primary rs-btn--lg">Buscar</button>
-      </form>
+      <rs-search-bar variant="strip" [vertical]="ui().key" [buscarAlCambiar]="true" />
     </div>
-  </section>
+  </div>
 
-  <section class="rs-section">
+  <section class="rs-section rs-section--sm">
     <div class="rs-wrap">
+      <header class="vb-head">
+        <h1>{{ ui().label }}<span class="vb-head__ciudad">{{ sufijoCiudad() }}</span></h1>
+        <p>{{ ui().descripcion }}</p>
+      </header>
+
       @if (cargando()) {
         <div class="vb-grid">
           @for (_ of [1,2,3]; track $index) {
@@ -181,11 +190,11 @@ const CONFIGS: Record<string, VerticalConfig> = {
   styles: [`
     :host { display: block; }
     .vb-page { min-height: 100vh; background: var(--c-base); }
-    .vb-hero { padding: var(--sp-16) 0 var(--sp-10); background: var(--g-hero); text-align: center; }
-    .vb-hero h1 { font-size: var(--f-4xl); font-weight: var(--w-9); letter-spacing: -.03em; margin: var(--sp-3) 0 var(--sp-4); }
-    .vb-hero p { color: var(--t-300); max-width: 52ch; margin: 0 auto var(--sp-8); }
-    .vb-search { display: flex; gap: var(--sp-3); max-width: 640px; margin: 0 auto; flex-wrap: wrap; }
-    .vb-search .rs-inp { flex: 1; min-width: 240px; }
+    .vb-searchbar { background: var(--c-card); border-bottom: 1px solid var(--b-1); padding-block: var(--sp-4); box-shadow: var(--sh-sm); }
+    .vb-head { margin-bottom: var(--sp-6); }
+    .vb-head h1 { font-size: var(--f-3xl); color: var(--dk-blue); letter-spacing: -.02em; }
+    .vb-head__ciudad { color: var(--t-300); font-weight: var(--w-6); }
+    .vb-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); }
     .vb-count { color: var(--t-400); font-size: var(--f-sm); margin-bottom: var(--sp-5); }
     .vb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .vb-card { background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--sh-card); transition: all var(--d-3); &:hover { box-shadow: var(--sh-lg); transform: translateY(-4px); .vb-card__img img { transform: scale(1.06); } } }
@@ -206,35 +215,48 @@ const CONFIGS: Record<string, VerticalConfig> = {
 export class VerticalBrowseComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly browseService = inject(CatalogBrowseService);
 
   readonly cfg = signal<VerticalConfig>(CONFIGS['veterinaria']);
+  readonly ui = signal<VerticalUi>(verticalUi(VerticalKey.VETERINARIA));
   readonly cargando = signal(true);
   readonly items = signal<ServicioCard[]>([]);
   readonly error = signal(false);
   readonly solicitadoId = signal<string | null>(null);
 
-  readonly searchForm = this.fb.group({ ciudad: [''] });
+  /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
+  private readonly busqueda = signal<Busqueda>({});
+
+  readonly sufijoCiudad = computed(() => {
+    const ciudad = this.busqueda().ciudad;
+    return ciudad ? ` en ${ciudad}` : '';
+  });
 
   ngOnInit(): void {
-    const vertical = (this.route.snapshot.data['vertical'] as string) ?? 'veterinaria';
+    const vertical = (this.route.snapshot.data['vertical'] as string) ?? VerticalKey.VETERINARIA;
     this.cfg.set(CONFIGS[vertical] ?? CONFIGS['veterinaria']);
-    void this.cargar();
+    this.ui.set(verticalUi(vertical));
+
+    // La URL manda: cada búsqueda del buscador recarga el listado.
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.busqueda.set({
+        ciudad: params['ciudad'] || undefined,
+        desde: params['desde'] || undefined,
+        perros: params['perros'] || undefined,
+      });
+      void this.cargar();
+    });
   }
 
-  async buscar(): Promise<void> {
-    await this.cargar(this.searchForm.value.ciudad ?? undefined);
-  }
-
-  private async cargar(ciudad?: string): Promise<void> {
+  private async cargar(): Promise<void> {
     this.cargando.set(true);
     this.error.set(false);
     this.solicitadoId.set(null);
     try {
       // Datos reales del catálogo: nunca mocks, para no ofrecer servicios
       // inexistentes que romperían la reserva.
-      this.items.set(await this.browseService.buscar(this.cfg().vertical, ciudad));
+      this.items.set(await this.browseService.buscar(this.cfg().vertical, this.busqueda().ciudad));
     } catch {
       this.items.set([]);
       this.error.set(true);
@@ -244,6 +266,7 @@ export class VerticalBrowseComponent implements OnInit {
   }
 
   solicitar(c: ServicioCard): void {
+    const { desde, perros } = this.busqueda();
     void this.router.navigate(
       ['/reservas', this.cfg().vertical, c.id],
       {
@@ -252,6 +275,9 @@ export class VerticalBrowseComponent implements OnInit {
           nombre:     c.nombre,
           precioBase: this.cfg().price(c),
           imagen:     c.imagenes?.[0] ?? '',
+          // Continuidad: la fecha y las mascotas buscadas prellenan la reserva.
+          desde:      desde ?? null,
+          perros:     perros ?? null,
         },
       },
     );

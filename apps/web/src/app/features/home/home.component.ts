@@ -1,42 +1,17 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { FormBuilder, ReactiveFormsModule, FormControl } from '@angular/forms';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { VerticalKey, VERTICAL_LABELS } from 'shared';
+import { VerticalKey } from 'shared';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { BRAND, CATEGORIA_ICONOS, HOTEL_IMAGES, TRUST_ICONOS } from '../../shared/media/images';
+import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
+import { BRAND, HOTEL_IMAGES, TRUST_ICONOS } from '../../shared/media/images';
+import { VERTICALES_UI, rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { environment } from '../../../environments/environment';
-
-/** Ruta de navegación de cada categoría canina. */
-const VERTICAL_ROUTES: Record<string, string> = {
-  alojamiento: '/alojamiento',
-  transporte: '/transporte',
-  veterinaria: '/veterinaria',
-  peluqueria: '/peluqueria',
-  adiestramiento: '/adiestramiento',
-  hoteles: '/hoteles',
-};
-
-/** Categorías que se reservan por noches (entrada/salida) y no por cita. */
-const VERTICALES_POR_NOCHES: readonly string[] = [VerticalKey.ALOJAMIENTO, VerticalKey.HOTELES];
-
-interface Vertical {
-  key: VerticalKey;
-  icon: string;
-  label: string;
-  /** Etiqueta corta para la fila de categorías del buscador. */
-  labelCorto: string;
-  route: string;
-  /** Icono SVG de la categoría (public/icons). */
-  icono: string;
-  /** Gancho comercial mostrado en la tarjeta de categoría. */
-  claim: string;
-}
 
 interface AlojamientoRecomendado {
   ciudad: string;
@@ -70,7 +45,10 @@ type SearchMode = 'filtros' | 'ia';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, AnimateOnScrollDirective, ImgFallbackDirective, RsNavbarComponent, RsIconComponent],
+  imports: [
+    RouterLink, ReactiveFormsModule, AnimateOnScrollDirective, ImgFallbackDirective,
+    RsNavbarComponent, RsIconComponent, RsSearchBarComponent,
+  ],
   template: `
 <div class="home">
   <rs-navbar />
@@ -114,80 +92,8 @@ type SearchMode = 'filtros' | 'ia';
           </div>
         </div>
 
-        <!-- Fila de categorías con iconos -->
-        <div class="cat-row" role="tablist" aria-label="Categorías de servicio">
-          @for (v of verticales; track v.key) {
-            <button type="button" class="cat-row__item" role="tab"
-                    [class.is-active]="verticalActivo() === v.key"
-                    [attr.aria-selected]="verticalActivo() === v.key"
-                    (click)="seleccionarVertical(v.key)">
-              <img [src]="v.icono" [alt]="''" class="cat-row__icon" aria-hidden="true" />
-              <span class="cat-row__label">{{ v.labelCorto }}</span>
-            </button>
-          }
-          <a routerLink="/buscador" class="cat-row__item cat-row__item--more">
-            <img [src]="iconoMas" alt="" class="cat-row__icon" aria-hidden="true" />
-            <span class="cat-row__label">Más servicios</span>
-          </a>
-        </div>
-
         @if (searchMode() === 'filtros') {
-          <form class="sf" [formGroup]="searchForm" (ngSubmit)="onBuscar()">
-            <div class="sf__field sf__field--where">
-              <label class="sf__lbl" for="home-ciudad">{{ labelUbicacion() }}</label>
-              <div class="sf__ctrl">
-                <rs-icon name="map-pin" [size]="18" [stroke]="2"></rs-icon>
-                <input id="home-ciudad" formControlName="ciudad" class="sf__inp"
-                       placeholder="Ciudad, zona o dirección" autocomplete="off" />
-              </div>
-            </div>
-
-            <div class="sf__field">
-              <label class="sf__lbl" for="home-desde">{{ labelFechaInicio() }}</label>
-              <div class="sf__ctrl">
-                <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
-                <input id="home-desde" formControlName="fechaInicio" type="date" class="sf__inp" />
-              </div>
-            </div>
-
-            @if (reservaPorNoches()) {
-              <div class="sf__field">
-                <label class="sf__lbl" for="home-hasta">Salida</label>
-                <div class="sf__ctrl">
-                  <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
-                  <input id="home-hasta" formControlName="fechaFin" type="date" class="sf__inp" />
-                </div>
-              </div>
-            } @else {
-              <div class="sf__field">
-                <label class="sf__lbl" for="home-hora">Hora</label>
-                <div class="sf__ctrl">
-                  <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
-                  <select id="home-hora" formControlName="hora" class="sf__inp sf__inp--select">
-                    <option value="">Cualquiera</option>
-                    @for (h of horas; track h) { <option [value]="h">{{ h }}</option> }
-                  </select>
-                </div>
-              </div>
-            }
-
-            <div class="sf__field sf__field--pets">
-              <label class="sf__lbl" for="home-perros">Mascotas</label>
-              <div class="sf__ctrl">
-                <rs-icon name="paw" [size]="18" [stroke]="2"></rs-icon>
-                <select id="home-perros" formControlName="perros" class="sf__inp sf__inp--select">
-                  @for (n of [1,2,3,4]; track n) {
-                    <option [value]="n">{{ n }} {{ n === 1 ? 'perro' : 'perros' }}</option>
-                  }
-                </select>
-              </div>
-            </div>
-
-            <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg sf__cta">
-              <rs-icon name="search" [size]="18" [stroke]="2.5"></rs-icon>
-              <span>Buscar</span>
-            </button>
-          </form>
+          <rs-search-bar />
         } @else {
           <form class="ai" (ngSubmit)="buscarConIA()">
             <div class="ai__bar" [class.is-loading]="aiLoading()">
@@ -233,16 +139,13 @@ type SearchMode = 'filtros' | 'ia';
   </section>
 
   <!-- ═══ CATEGORÍAS ══════════════════════════════════════════════ -->
-  <section class="rs-section rs-section--sm cats-section">
+  <section class="rs-section rs-section--sm cats-section" id="categorias">
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
           <h2 class="rs-h3">Explora por categoría</h2>
           <p>Todo lo que necesita tu perro, reservable online y con pago seguro.</p>
         </div>
-        <a routerLink="/buscador" class="sec-head__link">
-          Ver todo <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
-        </a>
       </div>
 
       <div class="cats-grid" rsAnim>
@@ -263,7 +166,7 @@ type SearchMode = 'filtros' | 'ia';
   </section>
 
   <!-- ═══ CIUDADES ════════════════════════════════════════════════ -->
-  <section class="rs-section rs-section--sm cities-section">
+  <section class="rs-section rs-section--sm cities-section" id="ciudades">
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
@@ -274,7 +177,7 @@ type SearchMode = 'filtros' | 'ia';
 
       <div class="cities-grid" rsAnim>
         @for (c of ciudades; track c.nombre) {
-          <a class="city-card" routerLink="/buscador" [queryParams]="{ ciudad: c.nombre }">
+          <a class="city-card" [routerLink]="rutaAlojamiento" [queryParams]="{ ciudad: c.nombre }">
             <img [src]="c.imagen" [alt]="c.nombre" loading="lazy" rsImg />
             <span class="city-card__veil"></span>
             <span class="city-card__meta">
@@ -400,9 +303,9 @@ type SearchMode = 'filtros' | 'ia';
       <div class="rs-footer__col">
         <h4>Descubre</h4>
         <ul>
-          <li><a routerLink="/buscador">Buscador</a></li>
-          <li><a routerLink="/buscador" [queryParams]="{ tipo: 'playas' }">Playas caninas</a></li>
-          <li><a routerLink="/buscador" [queryParams]="{ tipo: 'parques' }">Parques caninos</a></li>
+          <li><a routerLink="/" fragment="categorias">Todas las categorías</a></li>
+          <li><a routerLink="/" fragment="ciudades">Ciudades destacadas</a></li>
+          <li><a routerLink="/alojamiento">Alojamientos recomendados</a></li>
           <li><a routerLink="/hoteles">Hoteles pet friendly</a></li>
         </ul>
       </div>
@@ -555,126 +458,6 @@ type SearchMode = 'filtros' | 'ia';
       &.is-active { background: var(--c-card); color: var(--dk-blue); box-shadow: var(--sh-sm); }
     }
 
-    /* Fila de categorías con iconos SVG de marca */
-    .cat-row {
-      display: flex;
-      align-items: stretch;
-      gap: var(--sp-2);
-      overflow-x: auto;
-      padding-bottom: var(--sp-4);
-      margin-bottom: var(--sp-4);
-      border-bottom: 1px solid var(--b-1);
-      scrollbar-width: thin;
-    }
-
-    .cat-row__item {
-      flex: 1 0 auto;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      gap: var(--sp-2);
-      min-width: 96px;
-      padding: var(--sp-3) var(--sp-3) var(--sp-2);
-      border-radius: var(--r-md);
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--t-300);
-      text-align: center;
-      transition: background var(--d-2), border-color var(--d-2), color var(--d-2), transform var(--d-2);
-
-      &:hover { background: var(--c-accent-lo); color: var(--dk-blue); transform: translateY(-2px); }
-
-      &.is-active {
-        border-color: rgba(8,37,139,.22);
-        background: var(--c-accent-lo);
-        color: var(--dk-blue);
-        box-shadow: inset 0 -3px 0 var(--dk-gold);
-      }
-    }
-
-    .cat-row__icon { width: 34px; height: 34px; }
-
-    .cat-row__label {
-      font-size: var(--f-xs);
-      font-weight: var(--w-6);
-      line-height: 1.25;
-      letter-spacing: .01em;
-    }
-
-    /* Fila de filtros — celdas contiguas, CTA dorado (patrón Booking) */
-    .sf {
-      display: flex;
-      align-items: stretch;
-      gap: var(--sp-3);
-      flex-wrap: wrap;
-    }
-
-    .sf__field {
-      flex: 1 1 150px;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 2px;
-      border: 1px solid var(--b-2);
-      border-radius: var(--r-md);
-      padding: var(--sp-2) var(--sp-4);
-      background: var(--c-card);
-      transition: border-color var(--d-2), box-shadow var(--d-2);
-
-      &:focus-within {
-        border-color: var(--c-accent);
-        box-shadow: 0 0 0 3px var(--c-accent-lo);
-      }
-    }
-
-    .sf__field--where { flex: 2 1 240px; }
-    .sf__field--pets  { flex: .9 1 140px; }
-
-    .sf__lbl {
-      font-family: var(--font-accent);
-      font-size: var(--f-xs);
-      font-weight: var(--w-7);
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      color: var(--dk-blue);
-    }
-
-    .sf__ctrl {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-2);
-      color: var(--t-400);
-    }
-
-    .sf__inp {
-      flex: 1;
-      min-width: 0;
-      border: none;
-      outline: none;
-      background: transparent;
-      padding-block: 2px;
-      font-family: var(--font);
-      font-size: var(--f-base);
-      color: var(--t-100);
-
-      &::placeholder { color: var(--t-500); }
-    }
-
-    .sf__inp--select { cursor: pointer; }
-
-    .sf__cta {
-      flex: 0 0 auto;
-      min-width: 148px;
-      font-size: var(--f-md);
-      font-weight: var(--w-7);
-    }
-
-    @media (max-width: 860px) {
-      .sf__field { flex: 1 1 100%; }
-      .sf__cta { width: 100%; }
-    }
 
     /* Modo IA */
     .ai__bar {
@@ -1152,12 +935,11 @@ type SearchMode = 'filtros' | 'ia';
 })
 export class HomeComponent {
   private readonly router = inject(Router);
-  private readonly fb = inject(FormBuilder);
   private readonly http = inject(HttpClient);
 
   readonly logoMark = BRAND.logoMark;
   readonly logoFooter = BRAND.logoFooter;
-  readonly iconoMas = CATEGORIA_ICONOS['mas'];
+  readonly rutaAlojamiento = rutaDeVertical(VerticalKey.ALOJAMIENTO);
 
   /** Modo del buscador del hero: formulario clásico o asistente con IA. */
   readonly searchMode = signal<SearchMode>('filtros');
@@ -1172,47 +954,8 @@ export class HomeComponent {
     'Peluquería canina en Valencia',
   ];
 
-  readonly horas = ['09:00', '10:00', '11:00', '12:00', '16:00', '17:00', '18:00', '19:00'];
-
-  // Orden por frecuencia de uso: el veterinario es el servicio más habitual.
-  readonly verticales: Vertical[] = [
-    {
-      key: VerticalKey.VETERINARIA, icon: 'stethoscope', labelCorto: 'Veterinarios',
-      label: VERTICAL_LABELS[VerticalKey.VETERINARIA], route: VERTICAL_ROUTES['veterinaria'],
-      icono: CATEGORIA_ICONOS['veterinaria'],
-      claim: 'Consultas, vacunas y urgencias con cita online.',
-    },
-    {
-      key: VerticalKey.PELUQUERIA, icon: 'scissors', labelCorto: 'Peluquería',
-      label: VERTICAL_LABELS[VerticalKey.PELUQUERIA], route: VERTICAL_ROUTES['peluqueria'],
-      icono: CATEGORIA_ICONOS['peluqueria'],
-      claim: 'Baño, corte, deslanado y spa canino.',
-    },
-    {
-      key: VerticalKey.ALOJAMIENTO, icon: 'hotel', labelCorto: 'Alojamiento',
-      label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO], route: VERTICAL_ROUTES['alojamiento'],
-      icono: CATEGORIA_ICONOS['alojamiento'],
-      claim: 'Residencias y suites con cámaras 24/7.',
-    },
-    {
-      key: VerticalKey.TRANSPORTE, icon: 'truck', labelCorto: 'Transporte',
-      label: VERTICAL_LABELS[VerticalKey.TRANSPORTE], route: VERTICAL_ROUTES['transporte'],
-      icono: CATEGORIA_ICONOS['transporte'],
-      claim: 'Traslados en vehículos climatizados.',
-    },
-    {
-      key: VerticalKey.ADIESTRAMIENTO, icon: 'graduation-cap', labelCorto: 'Adiestramiento',
-      label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], route: VERTICAL_ROUTES['adiestramiento'],
-      icono: CATEGORIA_ICONOS['adiestramiento'],
-      claim: 'Obediencia, conducta y cachorros.',
-    },
-    {
-      key: VerticalKey.HOTELES, icon: 'building', labelCorto: 'Hoteles',
-      label: VERTICAL_LABELS[VerticalKey.HOTELES], route: VERTICAL_ROUTES['hoteles'],
-      icono: CATEGORIA_ICONOS['hoteles'],
-      claim: 'Hoteles pet-friendly para viajar juntos.',
-    },
-  ];
+  /** Categorías: misma configuración que el menú y el buscador. */
+  readonly verticales = VERTICALES_UI;
 
   readonly garantias = [
     { icono: TRUST_ICONOS.verificados, titulo: 'Profesionales', detalle: 'verificados' },
@@ -1235,31 +978,6 @@ export class HomeComponent {
     { nombre: 'Bilbao', servicios: 76, imagen: HOTEL_IMAGES[4] },
     { nombre: 'Málaga', servicios: 91, imagen: HOTEL_IMAGES[1] },
   ];
-
-  readonly searchForm = this.fb.group({
-    vertical: [VerticalKey.ALOJAMIENTO as string],
-    ciudad: [''],
-    fechaInicio: [''],
-    fechaFin: [''],
-    hora: [''],
-    perros: [1],
-  });
-
-  /** Categoría activa del buscador — deriva del formulario (sin subscripciones). */
-  private readonly verticalValor = toSignal(this.searchForm.controls.vertical.valueChanges, {
-    initialValue: this.searchForm.controls.vertical.value,
-  });
-
-  readonly verticalActivo = computed(() => this.verticalValor() ?? VerticalKey.ALOJAMIENTO);
-
-  /** Alojamiento y hoteles se reservan por noches; el resto son citas. */
-  readonly reservaPorNoches = computed(() => VERTICALES_POR_NOCHES.includes(this.verticalActivo()));
-
-  readonly labelFechaInicio = computed(() => (this.reservaPorNoches() ? 'Entrada' : 'Fecha'));
-
-  readonly labelUbicacion = computed(() =>
-    this.verticalActivo() === VerticalKey.TRANSPORTE ? 'Recogida' : '¿Dónde?',
-  );
 
   readonly alojamientosRecomendados: AlojamientoRecomendado[] = [
     {
@@ -1288,31 +1006,8 @@ export class HomeComponent {
     },
   ];
 
-  verticalIcon(): string {
-    const key = this.searchForm.controls.vertical.value;
-    return this.verticales.find((v) => v.key === key)?.icon ?? 'paw';
-  }
-
   estrellas(n: number): string {
     return '★'.repeat(n) + '☆'.repeat(5 - n);
-  }
-
-  /** Cambia la categoría desde la fila de iconos del buscador. */
-  seleccionarVertical(key: VerticalKey): void {
-    this.searchForm.controls.vertical.setValue(key);
-  }
-
-  onBuscar(): void {
-    const { vertical, ciudad, fechaInicio, fechaFin, perros } = this.searchForm.value;
-    void this.router.navigate(['/buscador'], {
-      queryParams: {
-        vertical: vertical || VerticalKey.ALOJAMIENTO,
-        ciudad: ciudad || null,
-        desde: fechaInicio || null,
-        hasta: fechaFin || null,
-        perros: perros || null,
-      },
-    });
   }
 
   usarSugerencia(sugerencia: string): void {
@@ -1337,10 +1032,8 @@ export class HomeComponent {
         this.http.post<AiSearchResult>(`${environment.apiUrl}/ai-search`, { query }),
       );
 
-      const vertical =
-        resultado.vertical && VERTICAL_ROUTES[resultado.vertical] ? resultado.vertical : 'alojamiento';
-
-      void this.router.navigate([VERTICAL_ROUTES[vertical]], {
+      // Si la IA no reconoce el vertical, `rutaDeVertical` cae en alojamiento.
+      void this.router.navigate([rutaDeVertical(resultado.vertical)], {
         queryParams: {
           ciudad: resultado.ciudad ?? resultado.extras?.['origen'] ?? null,
           destino: resultado.extras?.['destino'] ?? null,

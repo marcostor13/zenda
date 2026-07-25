@@ -1,35 +1,40 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
+import { VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
+import { verticalUi } from '../../../shared/verticales/verticales.config';
 import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../services/transporte.service';
 
 @Component({
   selector: 'app-transporte-lista',
   standalone: true,
-  imports: [ReactiveFormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, AnimateOnScrollDirective],
+  imports: [
+    RsNavbarComponent, RsIconComponent, RsSearchBarComponent,
+    ImgFallbackDirective, AnimateOnScrollDirective,
+  ],
   template: `
 <div class="transporte-page">
   <rs-navbar />
 
-  <section class="transporte-hero">
+  <!-- Buscador estándar: mismos campos y orden que en el home -->
+  <div class="transporte-searchbar">
     <div class="rs-wrap">
-      <span class="rs-label-caps">Transporte de animales</span>
-      <h1>Lleva a tu perro <span class="rs-gradient-text">a cualquier lugar</span></h1>
-      <p>Vehículos acondicionados, conductores especializados y tarifas transparentes. Tu perro viaja seguro y cómodo.</p>
-
-      <form [formGroup]="searchForm" (ngSubmit)="buscar()" class="transporte-search">
-        <input formControlName="ciudad" class="rs-inp rs-inp--lg" placeholder="¿En qué ciudad? (Madrid, Barcelona…)" />
-        <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg">Buscar</button>
-      </form>
+      <rs-search-bar variant="strip" [vertical]="ui.key" [buscarAlCambiar]="true" />
     </div>
-  </section>
+  </div>
 
-  <section class="rs-section">
+  <section class="rs-section rs-section--sm">
     <div class="rs-wrap">
+      <header class="transporte-head">
+        <h1>{{ ui.label }}<span class="transporte-head__ciudad">{{ sufijoCiudad() }}</span></h1>
+        <p>{{ ui.descripcion }}</p>
+      </header>
+
       @if (cargando()) {
         <div class="transporte-grid">
           @for (_ of [1,2,3,4,5,6]; track $index) {
@@ -102,11 +107,11 @@ import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../se
   styles: [`
     :host { display: block; }
     .transporte-page { min-height: 100vh; background: var(--c-base); }
-    .transporte-hero { padding: var(--sp-16) 0 var(--sp-10); background: var(--g-hero); text-align: center; }
-    .transporte-hero h1 { font-size: var(--f-4xl); font-weight: var(--w-9); letter-spacing: -.03em; margin: var(--sp-3) 0 var(--sp-4); color: var(--dk-blue); }
-    .transporte-hero p { color: var(--t-300); max-width: 52ch; margin: 0 auto var(--sp-8); }
-    .transporte-search { display: flex; gap: var(--sp-3); max-width: 640px; margin: 0 auto; flex-wrap: wrap; }
-    .transporte-search .rs-inp { flex: 1; min-width: 240px; }
+    .transporte-searchbar { background: var(--c-card); border-bottom: 1px solid var(--b-1); padding-block: var(--sp-4); box-shadow: var(--sh-sm); }
+    .transporte-head { margin-bottom: var(--sp-6); }
+    .transporte-head h1 { font-size: var(--f-3xl); color: var(--dk-blue); letter-spacing: -.02em; }
+    .transporte-head__ciudad { color: var(--t-300); font-weight: var(--w-6); }
+    .transporte-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); }
     .transporte-count { color: var(--t-400); font-size: var(--f-sm); margin-bottom: var(--sp-5); }
     .transporte-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .transporte-card { background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--sh-card); transition: all var(--d-3); &:hover { box-shadow: var(--sh-lg); transform: translateY(-4px); .transporte-card__img img { transform: scale(1.06); } } }
@@ -126,30 +131,42 @@ import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../se
   `],
 })
 export class TransporteListaComponent implements OnInit {
-  private readonly fb = inject(FormBuilder);
   private readonly transporteService = inject(TransporteService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
+  readonly ui = verticalUi(VerticalKey.TRANSPORTE);
   readonly cargando = signal(true);
   readonly error = signal(false);
   readonly transportes = signal<TransporteCard[]>([]);
 
-  readonly searchForm = this.fb.group({ ciudad: [''] });
+  /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
+  private readonly busqueda = signal<{ ciudad?: string; desde?: string; perros?: string }>({});
+
+  readonly sufijoCiudad = computed(() => {
+    const ciudad = this.busqueda().ciudad;
+    return ciudad ? ` desde ${ciudad}` : '';
+  });
 
   ngOnInit(): void {
-    void this.cargar();
+    // La URL manda: cada búsqueda del buscador recarga el listado.
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.busqueda.set({
+        ciudad: params['ciudad'] || undefined,
+        desde: params['desde'] || undefined,
+        perros: params['perros'] || undefined,
+      });
+      void this.cargar();
+    });
   }
 
-  async buscar(): Promise<void> {
-    await this.cargar(this.searchForm.value.ciudad ?? undefined);
-  }
-
-  private async cargar(ciudad?: string): Promise<void> {
+  private async cargar(): Promise<void> {
     this.cargando.set(true);
     this.error.set(false);
     try {
       // Datos reales del catálogo; nunca mocks (evita ofrecer traslados inexistentes).
-      this.transportes.set(await this.transporteService.buscar(ciudad));
+      this.transportes.set(await this.transporteService.buscar(this.busqueda().ciudad));
     } catch {
       this.transportes.set([]);
       this.error.set(true);
@@ -159,12 +176,17 @@ export class TransporteListaComponent implements OnInit {
   }
 
   solicitar(t: TransporteCard): void {
+    const { ciudad, desde, perros } = this.busqueda();
     void this.router.navigate(['/reservas', 'transporte', t.id], {
       queryParams: {
         comercioId:  t.comercioId,
         nombre:      t.nombre,
         precioBase:  t.tarifaBase,
         imagen:      t.imagen,
+        // Continuidad: origen, fecha y mascotas buscados prellenan la reserva.
+        ciudad:      ciudad ?? null,
+        desde:       desde ?? null,
+        perros:      perros ?? null,
       },
     });
   }

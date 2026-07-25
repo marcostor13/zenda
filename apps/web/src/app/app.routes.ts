@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard, comercioGuard } from './core/guards/role.guard';
+import { buscadorRedirectGuard } from './core/guards/buscador-redirect.guard';
 
 export const routes: Routes = [
   {
@@ -12,8 +13,10 @@ export const routes: Routes = [
     loadChildren: () => import('./features/auth/auth.routes').then((m) => m.authRoutes),
   },
   {
+    // Ruta heredada: redirige al listado del vertical con sus filtros.
     path: 'buscador',
-    loadChildren: () => import('./features/buscador/buscador.routes').then((m) => m.buscadorRoutes),
+    canActivate: [buscadorRedirectGuard],
+    children: [],
   },
   {
     path: 'alojamiento',
@@ -82,5 +85,5 @@ export const routes: Routes = [
     loadChildren: () =>
       import('./features/panel-admin/panel-admin.routes').then((m) => m.panelAdminRoutes),
   },
-  { path: '**', redirectTo: 'buscador' },
+  { path: '**', redirectTo: '' },
 ];

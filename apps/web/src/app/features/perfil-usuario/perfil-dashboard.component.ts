@@ -165,7 +165,7 @@ interface ConfigItem {
           <div class="rs-card" style="padding:var(--sp-8);text-align:center">
             <rs-icon name="calendar" [size]="32" [stroke]="1.25" style="color:var(--t-400);display:block;margin:0 auto var(--sp-4)"></rs-icon>
             <p style="color:var(--t-400);font-size:var(--f-sm)">No tienes reservas aún.</p>
-            <a routerLink="/buscador" class="rs-btn rs-btn--primary rs-btn--sm" style="margin-top:var(--sp-4)">
+            <a routerLink="/" class="rs-btn rs-btn--primary rs-btn--sm" style="margin-top:var(--sp-4)">
               Buscar servicios
             </a>
           </div>

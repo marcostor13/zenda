@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { of } from 'rxjs';
 import { VerticalBrowseComponent } from './vertical-browse.component';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
 
@@ -16,14 +17,23 @@ describe('VerticalBrowseComponent', () => {
     imagenes: [], destacado: false, extra,
   });
 
-  const crearComponente = async (vertical: string): Promise<void> => {
+  const crearComponente = async (
+    vertical: string,
+    queryParams: Record<string, string> = {},
+  ): Promise<void> => {
     browseService = { buscar: jest.fn().mockResolvedValue([]) } as any;
 
     await TestBed.configureTestingModule({
       imports: [VerticalBrowseComponent, RouterTestingModule, HttpClientTestingModule],
       providers: [
         { provide: CatalogBrowseService, useValue: browseService },
-        { provide: ActivatedRoute, useValue: { snapshot: { data: { vertical } } } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { data: { vertical }, queryParamMap: convertToParamMap(queryParams) },
+            queryParams: of(queryParams),
+          },
+        },
       ],
     }).compileComponents();
 
@@ -84,5 +94,39 @@ describe('VerticalBrowseComponent', () => {
     expect(component.cfg().badge(c)).toBe('🎓 Modificación de conducta');
     expect(component.cfg().meta(c)).toEqual(['🐕 Programa completo', '🦮 Desde 6 meses']);
     expect(component.cfg().price(c)).toBe(45);
+  });
+
+  it('debería buscar con la ciudad que llega en la URL', async () => {
+    await crearComponente('veterinaria', { ciudad: 'Bilbao' });
+
+    expect(browseService.buscar).toHaveBeenCalledWith('veterinaria', 'Bilbao');
+  });
+
+  it('debería titular la vista con la categoría y la ciudad buscada', async () => {
+    await crearComponente('peluqueria', { ciudad: 'Sevilla' });
+
+    expect(component.ui().label).toBe('Peluquerías caninas');
+    expect(component.sufijoCiudad()).toBe(' en Sevilla');
+  });
+
+  it('debería mostrar el buscador estándar sobre los resultados', async () => {
+    await crearComponente('veterinaria');
+    const el: HTMLElement = fixture.nativeElement;
+
+    expect(el.querySelector('rs-search-bar')).toBeTruthy();
+  });
+
+  it('debería llevar la fecha y las mascotas buscadas a la reserva', async () => {
+    await crearComponente('veterinaria', { desde: '2026-08-01', perros: '2' });
+    const navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+    component.solicitar(tarjeta({ precioConsulta: 35 }));
+
+    const [ruta, extras] = navigateSpy.mock.calls[0];
+    expect(ruta).toEqual(['/reservas', 'veterinaria', 's1']);
+    expect((extras as { queryParams: Record<string, unknown> }).queryParams).toMatchObject({
+      desde: '2026-08-01',
+      perros: '2',
+    });
   });
 });
