@@ -106,6 +106,11 @@ BUTTONS:   .rs-btn .rs-btn--{primary|gold|secondary|outline|ghost|teal|danger}
            → primary = azul real sólido · gold = CTA Crown Gold (texto navy)
 FORMS:     .rs-field > .rs-lbl + .rs-inp (+ .rs-field-err / .rs-field-hint)
            legacy: .rs-form-group .rs-label .rs-input .rs-field-error
+           listas → <rs-tags-input> (nunca un .rs-inp de valores con comas)
+           ciudad/provincia → <rs-place-autocomplete apariencia="campo">
+                              (nunca un .rs-inp de texto libre)
+           teléfono → <rs-phone-input> (prefijo europeo + bandera, ES por
+                      defecto; emite E.164 como exige el API)
 CARDS:     .rs-card  .rs-hotel-card (card de listado)
 BADGES:    .rs-badge --{accent|success|warning|error|neutral|purple|teal}
 ALERTS:    .rs-alert --{error|success|warning}

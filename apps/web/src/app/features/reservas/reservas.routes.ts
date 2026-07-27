@@ -6,6 +6,17 @@ export const reservasRoutes: Routes = [
     loadComponent: () =>
       import('./components/mis-reservas.component').then(m => m.MisReservasComponent),
   },
+  // Rutas fijas antes que las paramétricas: si no, ':codigo' las capturaría.
+  {
+    path: 'viaje-pago',
+    loadComponent: () =>
+      import('./components/viaje-pago.component').then(m => m.ViajePagoComponent),
+  },
+  {
+    path: 'viaje/:reservaMadreId',
+    loadComponent: () =>
+      import('./components/mi-viaje.component').then(m => m.MiViajeComponent),
+  },
   {
     path: ':codigo',
     loadComponent: () =>

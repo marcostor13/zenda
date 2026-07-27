@@ -4,9 +4,17 @@ import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, Fo
 import { firstValueFrom } from 'rxjs';
 import {
   VerticalKey, VERTICAL_LABELS, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
+  TipoSeguro, TIPO_SEGURO_LABELS,
 } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
+import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
+import { RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
+import {
+  AMENITIES_ALOJAMIENTO, AMENITIES_ESPACIO, ESPECIALIDADES_VETERINARIAS, ESPECIES_ATENDIDAS,
+  RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS, TIPOS_ADIESTRAMIENTO,
+} from '../../shared/catalogos/tags.catalogo';
+import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { ComercioApiService, ServicioPayload } from './comercio-api.service';
 
 /** Catálogo cerrado de servicios veterinarios, para el desplegable del formulario. */
@@ -49,7 +57,10 @@ function aCsv(v: string): string[] {
 @Component({
   selector: 'app-comercio-listado-form',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, FormsModule, RsIconComponent, RsImageUploadComponent],
+  imports: [
+    RouterLink, ReactiveFormsModule, FormsModule,
+    RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsPlaceAutocompleteComponent,
+  ],
   template: `
     <div class="page-wrap">
       <div class="page-header">
@@ -111,9 +122,9 @@ function aCsv(v: string): string[] {
           <div class="form-row-2">
             <div class="rs-field">
               <label class="rs-lbl" for="ciudad">Ciudad *</label>
-              <input id="ciudad" class="rs-inp" formControlName="ciudad"
-                     placeholder="Ej. Madrid"
-                     [class.rs-inp--error]="hasError('ciudad')">
+              <rs-place-autocomplete inputId="ciudad" formControlName="ciudad"
+                                     apariencia="campo" placeholder="Busca tu población…"
+                                     [catalogoLocal]="catalogos.ciudades" />
               @if (hasError('ciudad')) {
                 <span class="rs-field-err">La ciudad es obligatoria.</span>
               }
@@ -166,9 +177,11 @@ function aCsv(v: string): string[] {
             </div>
           </div>
           <div class="rs-field">
-            <label class="rs-lbl" for="temperamentosNoAdmitidos">Temperamentos que no admites (separados por comas)</label>
-            <input id="temperamentosNoAdmitidos" class="rs-inp" [(ngModel)]="temperamentosNoAdmitidosCsv"
-                   [ngModelOptions]="{standalone: true}" placeholder="Ej. agresivo, muy nervioso" />
+            <span class="rs-lbl">Temperamentos que no admites</span>
+            <rs-tags-input [(ngModel)]="temperamentosNoAdmitidos" [ngModelOptions]="{standalone: true}"
+                           etiqueta="Temperamentos que no admites"
+                           [opciones]="catalogos.temperamentos" [permiteNuevos]="false"
+                           placeholder="Elige de la lista…" />
           </div>
 
           <!-- ═══ SECCIÓN POR VERTICAL ═══ -->
@@ -217,8 +230,9 @@ function aCsv(v: string): string[] {
                         <input class="rs-inp" formControlName="descripcion" placeholder="Ej. Suite individual con jardín privado">
                       </div>
                       <div class="rs-field">
-                        <label class="rs-lbl">Amenities de este espacio (separados por comas)</label>
-                        <input class="rs-inp" formControlName="amenities" placeholder="cámara, aire acondicionado, cama ortopédica">
+                        <span class="rs-lbl">Amenities de este espacio</span>
+                        <rs-tags-input formControlName="amenities" etiqueta="Amenities de este espacio"
+                                       [opciones]="catalogos.amenitiesEspacio" placeholder="Ej. cama ortopédica…" />
                       </div>
                       <div class="checkbox-row">
                         <label class="rs-checkbox"><input type="checkbox" formControlName="disponible"> Disponible</label>
@@ -246,8 +260,9 @@ function aCsv(v: string): string[] {
                 </div>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Amenities generales (separados por comas)</label>
-                  <input class="rs-inp" formControlName="amenities" placeholder="patio, piscina canina, veterinario de guardia">
+                  <span class="rs-lbl">Amenities generales</span>
+                  <rs-tags-input formControlName="amenities" etiqueta="Amenities generales del alojamiento"
+                                 [opciones]="catalogos.amenitiesAlojamiento" placeholder="Ej. jardín vallado…" />
                 </div>
 
                 <div class="form-row-2">
@@ -345,8 +360,9 @@ function aCsv(v: string): string[] {
                 </div>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Zona de cobertura (separadas por comas)</label>
-                  <input class="rs-inp" formControlName="zonaCobertura" placeholder="Madrid centro, Alcobendas, Getafe">
+                  <span class="rs-lbl">Zona de cobertura</span>
+                  <rs-tags-input formControlName="zonaCobertura" etiqueta="Zona de cobertura"
+                                 [opciones]="catalogos.provincias" placeholder="Ej. Madrid, Toledo…" />
                 </div>
 
                 <div class="form-row-2">
@@ -402,8 +418,9 @@ function aCsv(v: string): string[] {
                 <h2 class="section-title">Servicios clínicos</h2>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Especialidades (separadas por comas)</label>
-                  <input class="rs-inp" formControlName="especialidades" placeholder="cirugía, dermatología, cardiología">
+                  <span class="rs-lbl">Especialidades</span>
+                  <rs-tags-input formControlName="especialidades" etiqueta="Especialidades de la clínica"
+                                 [opciones]="catalogos.especialidades" placeholder="Ej. traumatología…" />
                 </div>
 
                 <div formArrayName="serviciosClinicos" class="rows">
@@ -472,8 +489,10 @@ function aCsv(v: string): string[] {
                 </div>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Especies atendidas (separadas por comas)</label>
-                  <input class="rs-inp" formControlName="especiesAtendidas" placeholder="perro, gato, conejo, hurón, ave">
+                  <span class="rs-lbl">Especies atendidas</span>
+                  <rs-tags-input formControlName="especiesAtendidas" etiqueta="Especies atendidas"
+                                 [opciones]="catalogos.especies" [permiteNuevos]="false"
+                                 placeholder="Elige de la lista…" />
                   <span class="rs-field-hint">No es un vertical solo de perros: indica todas las especies que atiendes.</span>
                 </div>
 
@@ -628,8 +647,9 @@ function aCsv(v: string): string[] {
 
                 <h2 class="section-title">Requisitos</h2>
                 <div class="rs-field">
-                  <label class="rs-lbl">Razas específicas atendidas (opcional, separadas por comas)</label>
-                  <input class="rs-inp" formControlName="razasEspecificas" placeholder="Ej. Caniche, Yorkshire, Bichón">
+                  <span class="rs-lbl">Razas específicas atendidas (opcional)</span>
+                  <rs-tags-input formControlName="razasEspecificas" etiqueta="Razas específicas atendidas"
+                                 [opciones]="catalogos.razas" placeholder="Ej. Caniche…" />
                 </div>
                 <div class="checkbox-row">
                   <label class="rs-checkbox"><input type="checkbox" formControlName="requiereVacunasAlDia"> Exige vacunas al día</label>
@@ -643,8 +663,9 @@ function aCsv(v: string): string[] {
                 <h2 class="section-title">Detalles del adiestramiento</h2>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Tipos de adiestramiento (separados por comas)</label>
-                  <input class="rs-inp" formControlName="tiposAdiestramiento" placeholder="obediencia básica, socialización, modificación de conducta">
+                  <span class="rs-lbl">Tipos de adiestramiento</span>
+                  <rs-tags-input formControlName="tiposAdiestramiento" etiqueta="Tipos de adiestramiento"
+                                 [opciones]="catalogos.tiposAdiestramiento" placeholder="Ej. obediencia básica…" />
                 </div>
 
                 <div class="rs-field">
@@ -802,14 +823,17 @@ function aCsv(v: string): string[] {
                 </div>
                 @if (hotelesGroup.get('razasRestringidas')?.value === 'especificas') {
                   <div class="rs-field">
-                    <label class="rs-lbl">Razas restringidas (separadas por comas)</label>
-                    <input class="rs-inp" formControlName="razasEspecificasRestringidas" placeholder="Pitbull, Dogo argentino">
+                    <span class="rs-lbl">Razas restringidas</span>
+                    <rs-tags-input formControlName="razasEspecificasRestringidas" etiqueta="Razas restringidas"
+                                   [opciones]="catalogos.razas" placeholder="Ej. Pit Bull Terrier…" />
                   </div>
                 }
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Especies permitidas (separadas por comas)</label>
-                  <input class="rs-inp" formControlName="especiesPermitidas" placeholder="perro, gato, conejo, hurón">
+                  <span class="rs-lbl">Especies permitidas</span>
+                  <rs-tags-input formControlName="especiesPermitidas" etiqueta="Especies permitidas"
+                                 [opciones]="catalogos.especies" [permiteNuevos]="false"
+                                 placeholder="Elige de la lista…" />
                 </div>
 
                 <h2 class="section-title">Suplemento por tamaño de mascota (€/noche)</h2>
@@ -847,9 +871,9 @@ function aCsv(v: string): string[] {
 
                 <h2 class="section-title">Servicios petfriendly</h2>
                 <div class="rs-field">
-                  <label class="rs-lbl">Servicios disponibles (separados por comas)</label>
-                  <input class="rs-inp" formControlName="serviciosPetfriendly"
-                         placeholder="Camas para perros, comederos/bebederos, kit de bienvenida, zona de paseo, parque canino cercano, guardería, paseo, peluquería, veterinario cercano, menú para mascotas">
+                  <span class="rs-lbl">Servicios disponibles</span>
+                  <rs-tags-input formControlName="serviciosPetfriendly" etiqueta="Servicios pet-friendly del hotel"
+                                 [opciones]="catalogos.serviciosPetfriendly" placeholder="Ej. cama para mascota…" />
                 </div>
 
                 <h2 class="section-title">Normas del alojamiento</h2>
@@ -880,6 +904,94 @@ function aCsv(v: string): string[] {
                     <label class="rs-lbl">Habitaciones pet-friendly disponibles *</label>
                     <input class="rs-inp" type="number" min="0" formControlName="unidadesDisponibles">
                   </div>
+                </div>
+              </div>
+            }
+
+            @case ('seguros') {
+              <div formGroupName="seguros" class="vertical-section">
+                <h2 class="section-title">Coberturas de la póliza</h2>
+                <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
+                  Marca todo lo que incluye. El cliente verá estas coberturas antes de contratar.
+                </span>
+                <div class="checks-grid">
+                  @for (t of tiposSeguroCatalogo; track t.tipo) {
+                    <label class="rs-checkbox">
+                      <input type="checkbox" [checked]="tieneCobertura(t.tipo)"
+                             (change)="alternarCobertura(t.tipo)">
+                      {{ t.label }}
+                    </label>
+                  }
+                </div>
+
+                <h2 class="section-title">Prima y vigencia</h2>
+                <div class="row-card__grid row-card__grid--3">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Prima anual de referencia (€) *</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="primaAnualBase">
+                    <span class="rs-field-hint">Orientativa: la validas tú antes de emitir.</span>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Duración (meses)</label>
+                    <input class="rs-inp" type="number" min="1" formControlName="duracionMeses">
+                    <span class="rs-field-hint">12 = anual · menos = temporal (viajes, eventos)</span>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Descuento por pago anual (%)</label>
+                    <input class="rs-inp" type="number" min="0" max="100" formControlName="descuentoPagoAnualPct">
+                  </div>
+                </div>
+                <label class="rs-checkbox">
+                  <input type="checkbox" formControlName="renovacionAutomatica"> Renovación automática al vencimiento
+                </label>
+
+                <h2 class="section-title">Condiciones de admisión</h2>
+                <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
+                  Determinan qué mascotas pueden contratar. Doogking las comprueba antes de dejar
+                  contratar, así que no recibirás solicitudes que no puedas aceptar.
+                </span>
+                <div class="row-card__grid row-card__grid--3">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Edad mínima (meses)</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Edad máxima (años)</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="edadMaximaAnios">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Peso máximo (kg)</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="pesoMaximoKg">
+                  </div>
+                </div>
+                <div class="rs-field">
+                  <span class="rs-lbl">Razas excluidas</span>
+                  <rs-tags-input formControlName="razasExcluidas" etiqueta="Razas excluidas de la póliza"
+                                 [opciones]="catalogos.razas" placeholder="Ej. Pit Bull Terrier…" />
+                </div>
+                <div class="row-card__grid row-card__grid--2">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Recargo por riesgo (%)</label>
+                    <input class="rs-inp" type="number" min="0" max="200" formControlName="recargoRiesgoPct">
+                    <span class="rs-field-hint">Se aplica en vez de rechazar a perfiles de mayor riesgo.</span>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Cupo de pólizas (0 = sin límite)</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="cupoPolizas">
+                  </div>
+                </div>
+                <div class="checkbox-row">
+                  <label class="rs-checkbox">
+                    <input type="checkbox" formControlName="excluyePPP"> No cubre razas PPP
+                  </label>
+                  <label class="rs-checkbox">
+                    <input type="checkbox" formControlName="requiereVacunasAlDia"> Exige vacunación al día
+                  </label>
+                </div>
+
+                <div class="rs-field">
+                  <label class="rs-lbl">Condiciones generales (URL del PDF)</label>
+                  <input class="rs-inp" formControlName="documentoCondicionesUrl" placeholder="https://…">
                 </div>
               </div>
             }
@@ -1008,7 +1120,21 @@ export class ComercioListadoFormComponent implements OnInit {
   readonly tiposPelo = ['corto', 'medio', 'largo', 'rizado', 'duro', 'doble_capa'];
   private readonly tamanosSeleccionados = signal<string[]>([]);
   private readonly pelosSeleccionados = signal<string[]>([]);
-  temperamentosNoAdmitidosCsv = '';
+  temperamentosNoAdmitidos: string[] = [];
+
+  /** Sugerencias de los campos de etiquetas, agrupadas para la plantilla. */
+  readonly catalogos = {
+    amenitiesAlojamiento: AMENITIES_ALOJAMIENTO,
+    amenitiesEspacio: AMENITIES_ESPACIO,
+    provincias: PROVINCIAS_ES,
+    ciudades: CIUDADES_ES,
+    especialidades: ESPECIALIDADES_VETERINARIAS,
+    especies: ESPECIES_ATENDIDAS,
+    razas: RAZAS_FRECUENTES,
+    temperamentos: TEMPERAMENTOS,
+    tiposAdiestramiento: TIPOS_ADIESTRAMIENTO,
+    serviciosPetfriendly: SERVICIOS_PETFRIENDLY,
+  };
 
   tieneTamano(v: string): boolean { return this.tamanosSeleccionados().includes(v); }
   toggleTamano(v: string): void {
@@ -1035,7 +1161,7 @@ export class ComercioListadoFormComponent implements OnInit {
 
     alojamiento: this.fb.group({
       espacios: this.fb.array<FormGroup>([]),
-      amenities: [''],
+      amenities: [[] as string[]],
       checkIn: [''],
       checkOut: [''],
       politicaCancelacion: [''],
@@ -1055,7 +1181,7 @@ export class ComercioListadoFormComponent implements OnInit {
     transporte: this.fb.group({
       tipoVehiculo: ['van_acondicionada'],
       capacidadPerros: [4],
-      zonaCobertura: [''],
+      zonaCobertura: [[] as string[]],
       tarifaBase: [0, [Validators.required, Validators.min(0)]],
       tarifaKm: [0, [Validators.required, Validators.min(0)]],
       jaulasIncluidas: [true],
@@ -1070,14 +1196,14 @@ export class ComercioListadoFormComponent implements OnInit {
     }),
 
     veterinaria: this.fb.group({
-      especialidades: [''],
+      especialidades: [[] as string[]],
       serviciosClinicos: this.fb.array<FormGroup>([]),
       duracionCitaMin: [30],
       citasPorDia: [16],
       atiendeUrgencias: [false],
       horario: [''],
       precioConsulta: [0, [Validators.required, Validators.min(0)]],
-      especiesAtendidas: ['perro'],
+      especiesAtendidas: [['Perro'] as string[]],
     }),
 
     peluqueria: this.fb.group({
@@ -1089,13 +1215,13 @@ export class ComercioListadoFormComponent implements OnInit {
       politicaTemperamentoDificil: ['aceptar'],
       bozalObligatorioSiAgresivo: [true],
       serviciosAdicionales: this.fb.array<FormGroup>([]),
-      razasEspecificas: [''],
+      razasEspecificas: [[] as string[]],
       requiereVacunasAlDia: [true],
       requiereMicrochip: [true],
     }),
 
     adiestramiento: this.fb.group({
-      tiposAdiestramiento: [''],
+      tiposAdiestramiento: [[] as string[]],
       modalidad: ['sesion'],
       precioSesion: [0, [Validators.required, Validators.min(0)]],
       precioPrograma: [0],
@@ -1114,11 +1240,11 @@ export class ComercioListadoFormComponent implements OnInit {
       maxMascotasPorReserva: [0],
       pesoMaximoMascotaKg: [0],
       razasRestringidas: ['ninguna'],
-      razasEspecificasRestringidas: [''],
-      especiesPermitidas: [''],
+      razasEspecificasRestringidas: [[] as string[]],
+      especiesPermitidas: [[] as string[]],
       suplementoPorTamanoMascota: this.fb.array<FormGroup>([]),
       suplementoSegundaMascotaPorNoche: [0],
-      serviciosPetfriendly: [''],
+      serviciosPetfriendly: [[] as string[]],
       puedeQuedarseSoloEnHabitacion: [true],
       accesoZonasComunes: [true],
       debeIrConCorrea: [true],
@@ -1128,6 +1254,23 @@ export class ComercioListadoFormComponent implements OnInit {
       fianza: [0],
       unidadesDisponibles: [1, [Validators.required, Validators.min(0)]],
     }),
+
+    seguros: this.fb.group({
+      primaAnualBase: [0, [Validators.required, Validators.min(0)]],
+      duracionMeses: [12, [Validators.required, Validators.min(1)]],
+      descuentoPagoAnualPct: [0],
+      renovacionAutomatica: [true],
+      cupoPolizas: [0],
+      documentoCondicionesUrl: [''],
+      // Condiciones de admisión, planas en el formulario y anidadas al guardar.
+      edadMinimaMeses: [0],
+      edadMaximaAnios: [0],
+      pesoMaximoKg: [0],
+      razasExcluidas: [[] as string[]],
+      excluyePPP: [false],
+      requiereVacunasAlDia: [false],
+      recargoRiesgoPct: [0],
+    }),
   });
 
   get alojamientoGroup(): FormGroup { return this.form.controls.alojamiento; }
@@ -1136,6 +1279,7 @@ export class ComercioListadoFormComponent implements OnInit {
   get peluqueriaGroup(): FormGroup { return this.form.controls.peluqueria; }
   get adiestramientoGroup(): FormGroup { return this.form.controls.adiestramiento; }
   get hotelesGroup(): FormGroup { return this.form.controls.hoteles; }
+  get segurosGroup(): FormGroup { return this.form.controls.seguros; }
   get serviciosAdiestramiento(): FormArray { return this.adiestramientoGroup.get('serviciosAdiestramiento') as FormArray; }
 
   get espacios(): FormArray { return this.alojamientoGroup.get('espacios') as FormArray; }
@@ -1152,7 +1296,7 @@ export class ComercioListadoFormComponent implements OnInit {
       descripcion: [(e?.['descripcion'] as string) ?? ''],
       precioNoche: [(e?.['precioNoche'] as number) ?? 0],
       cantidad: [(e?.['cantidad'] as number) ?? 1],
-      amenities: [csvA(e?.['amenities'] as string[] | undefined)],
+      amenities: [(e?.['amenities'] as string[] | undefined) ?? []],
       disponible: [(e?.['disponible'] as boolean) ?? true],
       cancelacionGratis: [(e?.['cancelacionGratis'] as boolean) ?? true],
     });
@@ -1232,6 +1376,22 @@ export class ComercioListadoFormComponent implements OnInit {
   }
 
   readonly serviciosClinicosCatalogo = SERVICIOS_CLINICOS_CATALOGO;
+
+  readonly tiposSeguroCatalogo = Object.values(TipoSeguro)
+    .map((tipo) => ({ tipo, label: TIPO_SEGURO_LABELS[tipo] }));
+
+  /** Coberturas marcadas; van fuera del FormGroup por ser una lista de enum. */
+  private readonly coberturas = signal<TipoSeguro[]>([]);
+
+  tieneCobertura(tipo: TipoSeguro): boolean {
+    return this.coberturas().includes(tipo);
+  }
+
+  alternarCobertura(tipo: TipoSeguro): void {
+    this.coberturas.update((lista) =>
+      lista.includes(tipo) ? lista.filter((t) => t !== tipo) : [...lista, tipo],
+    );
+  }
 
   agregarServicioClinico(): void { this.serviciosClinicos.push(this.nuevoServicioClinico()); }
   quitarServicioClinico(i: number): void { this.serviciosClinicos.removeAt(i); }
@@ -1318,7 +1478,7 @@ export class ComercioListadoFormComponent implements OnInit {
       if (s.aptitud) {
         this.tamanosSeleccionados.set(s.aptitud.tamanosAdmitidos ?? []);
         this.pelosSeleccionados.set(s.aptitud.tipoPeloAdmitido ?? []);
-        this.temperamentosNoAdmitidosCsv = csvA(s.aptitud.temperamentosNoAdmitidos);
+        this.temperamentosNoAdmitidos = s.aptitud.temperamentosNoAdmitidos ?? [];
       }
     } catch {
       this.errorMsg.set('No se pudo cargar el listado.');
@@ -1332,7 +1492,7 @@ export class ComercioListadoFormComponent implements OnInit {
 
     if (vertical === VerticalKey.ALOJAMIENTO) {
       this.alojamientoGroup.patchValue({
-        amenities: csvA(d['amenities'] as string[] | undefined),
+        amenities: (d['amenities'] as string[] | undefined) ?? [],
         checkIn: d['checkIn'] ?? '',
         checkOut: d['checkOut'] ?? '',
         politicaCancelacion: d['politicaCancelacion'] ?? '',
@@ -1355,20 +1515,20 @@ export class ComercioListadoFormComponent implements OnInit {
     } else if (vertical === VerticalKey.TRANSPORTE) {
       this.transporteGroup.patchValue({
         ...d,
-        zonaCobertura: csvA(d['zonaCobertura'] as string[] | undefined),
+        zonaCobertura: (d['zonaCobertura'] as string[] | undefined) ?? [],
       });
     } else if (vertical === VerticalKey.VETERINARIA) {
       this.veterinariaGroup.patchValue({
         ...d,
-        especialidades: csvA(d['especialidades'] as string[] | undefined),
-        especiesAtendidas: csvA(d['especiesAtendidas'] as string[] | undefined),
+        especialidades: (d['especialidades'] as string[] | undefined) ?? [],
+        especiesAtendidas: (d['especiesAtendidas'] as string[] | undefined) ?? [],
       });
       const lista = (d['serviciosClinicos'] as Record<string, unknown>[] | undefined) ?? [];
       lista.forEach(e => this.serviciosClinicos.push(this.nuevoServicioClinico(e)));
     } else if (vertical === VerticalKey.PELUQUERIA) {
       this.peluqueriaGroup.patchValue({
         ...d,
-        razasEspecificas: csvA(d['razasEspecificas'] as string[] | undefined),
+        razasEspecificas: (d['razasEspecificas'] as string[] | undefined) ?? [],
       });
       const lista = (d['serviciosGrooming'] as Record<string, unknown>[] | undefined) ?? [];
       lista.forEach(e => this.serviciosGrooming.push(this.nuevoServicioGrooming(e)));
@@ -1378,7 +1538,7 @@ export class ComercioListadoFormComponent implements OnInit {
       const valoracionInicial = d['valoracionInicial'] as Record<string, unknown> | undefined;
       this.adiestramientoGroup.patchValue({
         ...d,
-        tiposAdiestramiento: csvA(d['tiposAdiestramiento'] as string[] | undefined),
+        tiposAdiestramiento: (d['tiposAdiestramiento'] as string[] | undefined) ?? [],
         valoracionInicialModalidad: valoracionInicial?.['modalidad'] ?? 'presencial',
         valoracionInicialPrecio: valoracionInicial?.['precio'] ?? 0,
       });
@@ -1387,12 +1547,27 @@ export class ComercioListadoFormComponent implements OnInit {
     } else if (vertical === VerticalKey.HOTELES) {
       this.hotelesGroup.patchValue({
         ...d,
-        especiesPermitidas: csvA(d['especiesPermitidas'] as string[] | undefined),
-        serviciosPetfriendly: csvA(d['serviciosPetfriendly'] as string[] | undefined),
-        razasEspecificasRestringidas: csvA(d['razasEspecificasRestringidas'] as string[] | undefined),
+        especiesPermitidas: (d['especiesPermitidas'] as string[] | undefined) ?? [],
+        serviciosPetfriendly: (d['serviciosPetfriendly'] as string[] | undefined) ?? [],
+        razasEspecificasRestringidas: (d['razasEspecificasRestringidas'] as string[] | undefined) ?? [],
       });
       const lista = (d['suplementoPorTamanoMascota'] as Record<string, unknown>[] | undefined) ?? [];
       lista.forEach(t => this.suplementoPorTamanoMascota.push(this.nuevoSuplementoPorTamanoMascota(t)));
+    } else if (vertical === VerticalKey.SEGUROS) {
+      const admision = (d['condicionesAdmision'] as Record<string, unknown> | undefined) ?? {};
+      this.segurosGroup.patchValue({
+        ...d,
+        // El modelo guarda fracciones; el formulario muestra porcentajes.
+        descuentoPagoAnualPct: Math.round(((d['descuentoPagoAnualPct'] as number) ?? 0) * 100),
+        edadMinimaMeses: admision['edadMinimaMeses'] ?? 0,
+        edadMaximaAnios: admision['edadMaximaAnios'] ?? 0,
+        pesoMaximoKg: admision['pesoMaximoKg'] ?? 0,
+        razasExcluidas: (admision['razasExcluidas'] as string[] | undefined) ?? [],
+        excluyePPP: admision['excluyePPP'] ?? false,
+        requiereVacunasAlDia: admision['requiereVacunasAlDia'] ?? false,
+        recargoRiesgoPct: Math.round(((admision['recargoRiesgoPct'] as number) ?? 0) * 100),
+      });
+      this.coberturas.set((d['tiposSeguro'] as TipoSeguro[] | undefined) ?? []);
     }
   }
 
@@ -1402,9 +1577,9 @@ export class ComercioListadoFormComponent implements OnInit {
       return {
         espacios: this.espacios.controls.map(c => {
           const v = c.getRawValue();
-          return { ...v, amenities: aCsv(v.amenities), tamanoMaxPerro: v.tamanoMaxPerro || undefined };
+          return { ...v, tamanoMaxPerro: v.tamanoMaxPerro || undefined };
         }),
-        amenities: aCsv(g.amenities),
+        amenities: g.amenities,
         checkIn: g.checkIn || undefined,
         checkOut: g.checkOut || undefined,
         politicaCancelacion: g.politicaCancelacion || undefined,
@@ -1423,15 +1598,12 @@ export class ComercioListadoFormComponent implements OnInit {
       };
     }
     if (vertical === VerticalKey.TRANSPORTE) {
-      const g = this.transporteGroup.getRawValue();
-      return { ...g, zonaCobertura: aCsv(g.zonaCobertura) };
+      return this.transporteGroup.getRawValue();
     }
     if (vertical === VerticalKey.VETERINARIA) {
       const g = this.veterinariaGroup.getRawValue();
       return {
         ...g,
-        especialidades: aCsv(g.especialidades),
-        especiesAtendidas: aCsv(g.especiesAtendidas),
         // `nombre` se rellena desde el catálogo: el comercio ya no lo escribe,
         // pero el resto de la aplicación sigue mostrándolo.
         serviciosClinicos: this.serviciosClinicos.controls.map((c) => {
@@ -1444,7 +1616,6 @@ export class ComercioListadoFormComponent implements OnInit {
       const g = this.peluqueriaGroup.getRawValue();
       return {
         ...g,
-        razasEspecificas: aCsv(g.razasEspecificas),
         serviciosGrooming: this.serviciosGrooming.controls.map(c => {
           const v = c.getRawValue();
           return { ...v, tipoPeloCompatible: aCsv(v.tipoPeloCompatible) };
@@ -1456,7 +1627,6 @@ export class ComercioListadoFormComponent implements OnInit {
       const g = this.adiestramientoGroup.getRawValue();
       return {
         ...g,
-        tiposAdiestramiento: aCsv(g.tiposAdiestramiento),
         precioPrograma: g.modalidad === 'programa' && g.precioPrograma > 0 ? g.precioPrograma : undefined,
         sesionesPorPrograma: g.modalidad === 'programa' && g.sesionesPorPrograma > 0 ? g.sesionesPorPrograma : undefined,
         serviciosAdiestramiento: this.serviciosAdiestramiento.controls.map(c => c.getRawValue()),
@@ -1469,14 +1639,34 @@ export class ComercioListadoFormComponent implements OnInit {
       const g = this.hotelesGroup.getRawValue();
       return {
         ...g,
-        especiesPermitidas: aCsv(g.especiesPermitidas),
-        serviciosPetfriendly: aCsv(g.serviciosPetfriendly),
-        razasEspecificasRestringidas: aCsv(g.razasEspecificasRestringidas),
         maxMascotasPorReserva: g.maxMascotasPorReserva > 0 ? g.maxMascotasPorReserva : undefined,
         pesoMaximoMascotaKg: g.pesoMaximoMascotaKg > 0 ? g.pesoMaximoMascotaKg : undefined,
         suplementoSegundaMascotaPorNoche: g.suplementoSegundaMascotaPorNoche > 0 ? g.suplementoSegundaMascotaPorNoche : undefined,
         fianza: g.fianza > 0 ? g.fianza : undefined,
         suplementoPorTamanoMascota: this.suplementoPorTamanoMascota.controls.map(c => c.getRawValue()),
+      };
+    }
+    if (vertical === VerticalKey.SEGUROS) {
+      const g = this.segurosGroup.getRawValue();
+      return {
+        tiposSeguro: this.coberturas(),
+        primaAnualBase: g.primaAnualBase,
+        duracionMeses: g.duracionMeses,
+        // El formulario pide porcentajes enteros; el modelo trabaja con fracciones.
+        descuentoPagoAnualPct: (g.descuentoPagoAnualPct || 0) / 100,
+        renovacionAutomatica: g.renovacionAutomatica,
+        cupoPolizas: g.cupoPolizas,
+        documentoCondicionesUrl: g.documentoCondicionesUrl || undefined,
+        condicionesAdmision: {
+          // Un cero significa "sin límite", no "límite cero".
+          edadMinimaMeses: g.edadMinimaMeses > 0 ? g.edadMinimaMeses : undefined,
+          edadMaximaAnios: g.edadMaximaAnios > 0 ? g.edadMaximaAnios : undefined,
+          pesoMaximoKg: g.pesoMaximoKg > 0 ? g.pesoMaximoKg : undefined,
+          razasExcluidas: g.razasExcluidas,
+          excluyePPP: g.excluyePPP,
+          requiereVacunasAlDia: g.requiereVacunasAlDia,
+          recargoRiesgoPct: g.recargoRiesgoPct > 0 ? g.recargoRiesgoPct / 100 : undefined,
+        },
       };
     }
     return null;
@@ -1485,6 +1675,9 @@ export class ComercioListadoFormComponent implements OnInit {
   private validarVertical(vertical: string): string | null {
     if (vertical === VerticalKey.ALOJAMIENTO && this.espacios.length === 0) {
       return 'Añade al menos un tipo de espacio para tu alojamiento.';
+    }
+    if (vertical === VerticalKey.SEGUROS && this.coberturas().length === 0) {
+      return 'Marca al menos una cobertura de la póliza.';
     }
     if (vertical === VerticalKey.VETERINARIA && this.serviciosClinicos.length === 0) {
       return 'Añade al menos un servicio clínico.';
@@ -1515,7 +1708,7 @@ export class ComercioListadoFormComponent implements OnInit {
       aptitud: {
         tamanosAdmitidos: this.tamanosSeleccionados(),
         tipoPeloAdmitido: this.pelosSeleccionados(),
-        temperamentosNoAdmitidos: aCsv(this.temperamentosNoAdmitidosCsv),
+        temperamentosNoAdmitidos: this.temperamentosNoAdmitidos,
       },
     };
 

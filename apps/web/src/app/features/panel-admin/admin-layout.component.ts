@@ -24,6 +24,8 @@ const NAV_SECTIONS = [
     title: 'Plataforma',
     items: [
       { icon: 'tag',         label: 'Cupones',    ruta: '/admin/cupones',   exact: false },
+      { icon: 'percent',     label: 'Campañas',   ruta: '/admin/campanas',  exact: false },
+      { icon: 'map-pin',     label: 'Comunidad',  ruta: '/admin/comunidad', exact: false },
     ],
   },
 ];

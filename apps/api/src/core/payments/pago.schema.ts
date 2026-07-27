@@ -52,6 +52,14 @@ export class Pago {
   // Cargo por la diferencia de un ajuste de precio aceptado (ver docs/mejora_servicios.md §7).
   @Prop({ type: Boolean, default: false })
   esSuplemento!: boolean;
+
+  /**
+   * Pago único de un viaje multi-vertical (Ola 5). `reservaId` apunta a la
+   * primera reserva por compatibilidad, pero al aprobarse se confirman **todas**
+   * las de esta lista. Vacío en un pago normal de una sola reserva.
+   */
+  @Prop({ type: [SchemaTypes.ObjectId], ref: 'Reserva', default: [] })
+  reservaIds!: Types.ObjectId[];
 }
 
 export const PagoSchema = SchemaFactory.createForClass(Pago);

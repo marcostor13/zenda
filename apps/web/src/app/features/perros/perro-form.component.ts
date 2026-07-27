@@ -3,19 +3,16 @@ import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { Vacuna, VACUNA_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
+import {
+  ALERGIAS_FRECUENTES, MEDICACION_FRECUENTE, MIEDOS_FRECUENTES,
+} from '../../shared/catalogos/tags.catalogo';
 import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
-
-function csvA(v?: string[]): string {
-  return (v ?? []).join(', ');
-}
-function aCsv(v: string): string[] {
-  return v.split(',').map((s) => s.trim()).filter(Boolean);
-}
 
 @Component({
   selector: 'app-perro-form',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsIconComponent],
+  imports: [RouterLink, ReactiveFormsModule, RsIconComponent, RsTagsInputComponent],
   template: `
     <div class="page-wrap">
       <div class="page-header">
@@ -154,18 +151,21 @@ function aCsv(v: string): string[] {
             </label>
           </div>
           <div class="rs-field">
-            <label class="rs-lbl" for="miedos">Miedos (separados por comas)</label>
-            <input id="miedos" class="rs-inp" formControlName="miedos" placeholder="Ej. secador, fuegos artificiales" />
+            <span class="rs-lbl">Miedos</span>
+            <rs-tags-input formControlName="miedos" etiqueta="Miedos de tu perro"
+                           [opciones]="catalogoMiedos" placeholder="Ej. tormentas, petardos…" />
           </div>
 
           <h2 class="section-title">Salud</h2>
           <div class="rs-field">
-            <label class="rs-lbl" for="alergias">Alergias (separadas por comas)</label>
-            <input id="alergias" class="rs-inp" formControlName="alergias" placeholder="Ej. pollo, polen" />
+            <span class="rs-lbl">Alergias</span>
+            <rs-tags-input formControlName="alergias" etiqueta="Alergias de tu perro"
+                           [opciones]="catalogoAlergias" placeholder="Ej. pollo, polen…" />
           </div>
           <div class="rs-field">
-            <label class="rs-lbl" for="medicacion">Medicación actual (separada por comas)</label>
-            <input id="medicacion" class="rs-inp" formControlName="medicacion" />
+            <span class="rs-lbl">Medicación actual</span>
+            <rs-tags-input formControlName="medicacion" etiqueta="Medicación actual"
+                           [opciones]="catalogoMedicacion" placeholder="Ej. antiinflamatorio…" />
           </div>
           <div class="rs-field">
             <span class="rs-lbl">Vacunas</span>
@@ -288,6 +288,10 @@ export class PerroFormComponent implements OnInit {
   readonly tiposPelo = ['corto', 'medio', 'largo', 'rizado', 'duro', 'doble_capa'];
   private readonly tipoPeloSeleccionado = signal<string[]>([]);
 
+  readonly catalogoMiedos = MIEDOS_FRECUENTES;
+  readonly catalogoAlergias = ALERGIAS_FRECUENTES;
+  readonly catalogoMedicacion = MEDICACION_FRECUENTE;
+
   readonly form = this.fb.group({
     nombre: ['', [Validators.required, Validators.minLength(1)]],
     raza: [''],
@@ -305,10 +309,9 @@ export class PerroFormComponent implements OnInit {
     ansiedadSeparacion: [false],
     seMarea: [false],
     requiereTransportin: [false],
-    miedos: [''],
-    alergias: [''],
-    medicacion: [''],
-    vacunas: [''],
+    miedos: [[] as string[]],
+    alergias: [[] as string[]],
+    medicacion: [[] as string[]],
     dieta: [''],
     orinaEnInterior: [false],
     ladraAlQuedarseSolo: [false],
@@ -389,10 +392,9 @@ export class PerroFormComponent implements OnInit {
         ansiedadSeparacion: p.ansiedadSeparacion,
         seMarea: p.seMarea,
         requiereTransportin: p.requiereTransportin,
-        miedos: csvA(p.miedos),
-        alergias: csvA(p.alergias),
-        medicacion: csvA(p.medicacion),
-        vacunas: csvA(p.vacunas),
+        miedos: p.miedos ?? [],
+        alergias: p.alergias ?? [],
+        medicacion: p.medicacion ?? [],
         dieta: p.dieta ?? '',
         orinaEnInterior: p.orinaEnInterior ?? false,
         ladraAlQuedarseSolo: p.ladraAlQuedarseSolo ?? false,
@@ -434,10 +436,9 @@ export class PerroFormComponent implements OnInit {
       ansiedadSeparacion: v.ansiedadSeparacion,
       seMarea: v.seMarea,
       requiereTransportin: v.requiereTransportin,
-      miedos: aCsv(v.miedos),
-      alergias: aCsv(v.alergias),
-      medicacion: aCsv(v.medicacion),
-      vacunas: aCsv(v.vacunas),
+      miedos: v.miedos,
+      alergias: v.alergias,
+      medicacion: v.medicacion,
       vacunasDetalle: this.vacunasDetalle(),
       dieta: v.dieta || undefined,
       orinaEnInterior: v.orinaEnInterior,

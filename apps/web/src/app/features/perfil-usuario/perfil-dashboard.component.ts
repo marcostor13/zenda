@@ -104,7 +104,7 @@ interface ConfigItem {
           @for (m of mascotas(); track m._id) {
             <a [routerLink]="['/perros', m._id, 'editar']" class="mascota-card rs-card">
               <div class="mascota-card__avatar">
-                @if (m.fotos?.length) {
+                @if (m.fotos.length) {
                   <img [src]="m.fotos[0]" [alt]="m.nombre" rsImg />
                 } @else {
                   <span>🐶</span>

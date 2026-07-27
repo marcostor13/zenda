@@ -9,7 +9,9 @@ export type TipoNotificacion =
   | 'reserva_confirmada'
   | 'nueva_reserva_comercio'
   | 'verificacion_email'
-  | 'ajuste_solicitado';
+  | 'ajuste_solicitado'
+  | 'solicitud_valoracion'
+  | 'recuperacion_reserva';
 
 /** Outbox de notificaciones: cada intento de envío queda registrado. */
 @Schema({ timestamps: true, collection: 'notificaciones' })

@@ -8,6 +8,8 @@ import { Veterinaria, VeterinariaSchema } from '../../verticals/veterinaria/vete
 import { Peluqueria, PeluqueriaSchema } from '../../verticals/peluqueria/peluqueria.schema';
 import { Adiestramiento, AdiestramientoSchema } from '../../verticals/adiestramiento/adiestramiento.schema';
 import { Hoteles, HotelesSchema } from '../../verticals/hoteles/hoteles.schema';
+import { Seguros, SegurosSchema } from '../../verticals/seguros/seguros.schema';
+import { Cuidadores, CuidadoresSchema } from '../../verticals/cuidadores/cuidadores.schema';
 import { CatalogRepository } from './catalog.repository';
 import { CatalogService } from './catalog.service';
 import { CatalogController } from './catalog.controller';
@@ -27,6 +29,8 @@ import { PerrosModule } from '../perros/perros.module';
           { name: Peluqueria.name, schema: PeluqueriaSchema, value: VerticalKey.PELUQUERIA },
           { name: Adiestramiento.name, schema: AdiestramientoSchema, value: VerticalKey.ADIESTRAMIENTO },
           { name: Hoteles.name, schema: HotelesSchema, value: VerticalKey.HOTELES },
+          { name: Seguros.name, schema: SegurosSchema, value: VerticalKey.SEGUROS },
+          { name: Cuidadores.name, schema: CuidadoresSchema, value: VerticalKey.CUIDADORES },
         ],
       },
     ]),

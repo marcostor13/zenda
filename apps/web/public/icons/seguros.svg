@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Seguros para mascotas">
+  <circle cx="24" cy="24" r="17.5" fill="none" stroke="#08258B" stroke-width="2.6"/>
+  <path d="M24 12.5 33.5 16v7.4c0 5.5-3.8 10.4-9.5 12.1-5.7-1.7-9.5-6.6-9.5-12.1V16L24 12.5Z" fill="#FBAE17"/>
+  <path d="m20 23.8 2.9 2.9 5.4-5.4" fill="none" stroke="#08258B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

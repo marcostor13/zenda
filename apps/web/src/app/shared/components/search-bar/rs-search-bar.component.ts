@@ -8,6 +8,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsPetPickerComponent } from '../pet-picker/rs-pet-picker.component';
 import { RsPlaceAutocompleteComponent } from '../place-autocomplete/rs-place-autocomplete.component';
 import { CoordenadasLugar } from '../../../core/geo/geo.service';
+import { EventosService } from '../../../core/eventos/eventos.service';
 import { CATEGORIA_ICONOS } from '../../media/images';
 import { VERTICALES_UI, VerticalUi, verticalUi } from '../../verticales/verticales.config';
 
@@ -259,6 +260,7 @@ export class RsSearchBarComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly eventosService = inject(EventosService);
 
   /** Categoría inicial del buscador. */
   readonly vertical = input<string>(VerticalKey.ALOJAMIENTO);
@@ -349,6 +351,9 @@ export class RsSearchBarComponent {
   /** Enter en cualquier campo confirma la búsqueda, también sin botón. */
   buscar(): void {
     const params = this.valores();
+    // Arranca el cronómetro del embudo: es el punto donde empieza a contar
+    // la meta de reservar en menos de 30 segundos (T4).
+    this.eventosService.iniciarEmbudo(params.vertical);
     this.buscado.emit(params);
     void this.router.navigate([this.activo().route], {
       queryParams: {

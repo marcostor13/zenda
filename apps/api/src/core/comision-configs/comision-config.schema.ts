@@ -4,6 +4,12 @@ import { VerticalKey } from 'shared';
 
 export type ComisionConfigDocument = HydratedDocument<ComisionConfig>;
 
+/** Un escalón de la comisión por tramos: se aplica hasta `hastaEur` inclusive. */
+export interface TramoComision {
+  hastaEur: number;
+  comisionPct: number;
+}
+
 @Schema({ timestamps: true, collection: 'comision_configs' })
 export class ComisionConfig {
   @Prop({ required: true })
@@ -11,6 +17,15 @@ export class ComisionConfig {
 
   @Prop({ required: true, type: Number })
   comisionPct!: number; // ej. 0.15 = 15%
+
+  /**
+   * Comisión por tramo de importe (HU-046). Si está vacío se usa `comisionPct`
+   * plano, así que activar los tramos no rompe las liquidaciones existentes.
+   * `hastaEur` es el límite superior del tramo; el último debe ser `Infinity`
+   * (o un valor muy alto) para cubrir el resto.
+   */
+  @Prop({ type: [{ hastaEur: Number, comisionPct: Number }], default: [] })
+  tramos!: TramoComision[];
 
   @Prop({ required: true, type: Number, default: 0.015 })
   stripePct!: number; // 1.5% (tarjetas EEE)

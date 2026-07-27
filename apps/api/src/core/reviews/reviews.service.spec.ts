@@ -8,6 +8,7 @@ import { Reserva } from '../bookings/reserva.schema';
 import { Servicio } from '../catalog/servicio.schema';
 import { Usuario } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { GrowthService } from '../eventos/growth.service';
 
 const USUARIO_ID = new Types.ObjectId().toString();
 const SERVICIO_ID = new Types.ObjectId();
@@ -27,6 +28,7 @@ describe('ReviewsService', () => {
   let service: ReviewsService;
   let repo: jest.Mocked<ReviewsRepository>;
   let reservaModel: { findById: jest.Mock };
+  let growthService: jest.Mocked<Pick<GrowthService, 'marcarCompletada'>>;
 
   const dto = { reservaId: new Types.ObjectId().toString(), puntuacion: 5, comentario: 'Excelente' };
 
@@ -60,11 +62,26 @@ describe('ReviewsService', () => {
           provide: getModelToken(Usuario.name),
           useValue: { findById: () => leanExec({ nombre: 'Juan' }) },
         },
+        {
+          provide: GrowthService,
+          useValue: { marcarCompletada: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
     service = moduleRef.get(ReviewsService);
     repo = moduleRef.get(ReviewsRepository);
+    growthService = moduleRef.get(GrowthService);
+  });
+
+  it('debería cerrar la solicitud automática al publicar la reseña', async () => {
+    const reserva = reservaMock(ReservaEstado.COMPLETADA);
+    reservaModel.findById.mockReturnValue({ exec: () => Promise.resolve(reserva) });
+
+    await service.crear(USUARIO_ID, dto);
+
+    // Sin esto, el recordatorio de los 3 días llegaría a quien ya ha valorado.
+    expect(growthService.marcarCompletada).toHaveBeenCalledWith(reserva._id.toString());
   });
 
   it('debería crear la reseña y recalcular el rating del servicio para una reserva confirmada', async () => {

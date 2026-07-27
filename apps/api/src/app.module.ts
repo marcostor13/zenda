@@ -23,9 +23,16 @@ import { VeterinariaModule } from './verticals/veterinaria/veterinaria.module';
 import { PeluqueriaModule } from './verticals/peluqueria/peluqueria.module';
 import { AdiestramientoModule } from './verticals/adiestramiento/adiestramiento.module';
 import { HotelesModule } from './verticals/hoteles/hoteles.module';
+import { SegurosModule } from './verticals/seguros/seguros.module';
+import { CuidadoresModule } from './verticals/cuidadores/cuidadores.module';
 import { UploadModule } from './core/upload/upload.module';
 import { AiSearchModule } from './core/ai-search/ai-search.module';
 import { GeoModule } from './core/geo/geo.module';
+import { CarritoModule } from './core/carrito/carrito.module';
+import { LugaresModule } from './core/lugares/lugares.module';
+import { EventosModule } from './core/eventos/eventos.module';
+import { PlanificadorModule } from './core/planificador/planificador.module';
+import { AgendaModule } from './core/agenda/agenda.module';
 
 @Module({
   imports: [
@@ -58,9 +65,16 @@ import { GeoModule } from './core/geo/geo.module';
     PeluqueriaModule,
     AdiestramientoModule,
     HotelesModule,
+    SegurosModule,
+    CuidadoresModule,
     UploadModule,
     AiSearchModule,
     GeoModule,
+    CarritoModule,
+    LugaresModule,
+    EventosModule,
+    PlanificadorModule,
+    AgendaModule,
   ],
 })
 export class AppModule {}

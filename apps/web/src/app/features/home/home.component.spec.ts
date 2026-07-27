@@ -24,7 +24,7 @@ describe('HomeComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('debería tener las 6 categorías caninas de Doogking', () => {
+  it('debería tener las categorías de Doogking en su orden de uso', () => {
     const keys = component.verticales.map((v) => v.key);
     expect(keys).toEqual([
       VerticalKey.VETERINARIA,
@@ -33,6 +33,8 @@ describe('HomeComponent', () => {
       VerticalKey.TRANSPORTE,
       VerticalKey.ADIESTRAMIENTO,
       VerticalKey.HOTELES,
+      VerticalKey.SEGUROS,
+      VerticalKey.CUIDADORES,
     ]);
   });
 
@@ -52,6 +54,8 @@ describe('HomeComponent', () => {
       '/transporte',
       '/adiestramiento',
       '/hoteles',
+      '/seguros',
+      '/cuidadores',
     ]);
   });
 
@@ -112,6 +116,8 @@ describe('HomeComponent', () => {
       '/icons/transporte.svg',
       '/icons/adiestramiento.svg',
       '/icons/hoteles.svg',
+      '/icons/seguros.svg',
+      '/icons/cuidadores.svg',
     ]);
   });
 

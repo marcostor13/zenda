@@ -65,6 +65,15 @@ export class BookingsController {
     return this.bookingsService.obtenerPuntos(req.user.sub);
   }
 
+  @Get('viaje/:reservaMadreId')
+  @ApiOperation({ summary: 'Todas las reservas de un viaje: la principal y las vinculadas' })
+  viaje(
+    @Param('reservaMadreId') reservaMadreId: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<ReservaDocument[]> {
+    return this.bookingsService.listarViaje(reservaMadreId, req.user.sub);
+  }
+
   @Get('codigo/:codigo')
   @ApiOperation({ summary: 'Obtener una reserva propia por código (ej: RES-XXXXXXXX)' })
   obtenerPorCodigo(

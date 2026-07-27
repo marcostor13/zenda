@@ -28,6 +28,31 @@ export class FavoritosController {
     return this.favoritosService.listarIds(req.user.sub);
   }
 
+  // Rutas de lugares antes que las paramétricas: si no, ':servicioId' las captura.
+  @Get('lugares/ids')
+  @ApiOperation({ summary: 'IDs de lugares favoritos de la comunidad' })
+  listarLugarIds(@Req() req: RequestConUsuario): Promise<string[]> {
+    return this.favoritosService.listarLugarIds(req.user.sub);
+  }
+
+  @Post('lugares/:lugarId')
+  @ApiOperation({ summary: 'Guardar un lugar de la comunidad' })
+  agregarLugar(
+    @Param('lugarId') lugarId: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<{ lugarId: string; favorito: boolean }> {
+    return this.favoritosService.agregarLugar(req.user.sub, lugarId);
+  }
+
+  @Delete('lugares/:lugarId')
+  @ApiOperation({ summary: 'Quitar un lugar de favoritos' })
+  eliminarLugar(
+    @Param('lugarId') lugarId: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<{ lugarId: string; favorito: boolean }> {
+    return this.favoritosService.eliminarLugar(req.user.sub, lugarId);
+  }
+
   @Post(':servicioId')
   @ApiOperation({ summary: 'Marcar un servicio como favorito' })
   agregar(

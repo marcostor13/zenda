@@ -112,6 +112,26 @@ export class Comercio {
   @Prop({ type: Number })
   comisionPctOverride?: number;
 
+  // --- Programa Socios Fundadores (HU-047) ---
+  /**
+   * Comercios de la primera hornada: su comisión queda **congelada** durante 24
+   * meses aunque la plataforma suba tarifas. Es un compromiso comercial, así que
+   * gana sobre cualquier otra regla mientras esté vigente.
+   */
+  @Prop({ type: Boolean, default: false })
+  socioFundador!: boolean;
+
+  @Prop({ type: Number })
+  comisionPctCongelada?: number;
+
+  /** Hasta cuándo se respeta la comisión congelada. */
+  @Prop({ type: Date })
+  congelacionHasta?: Date;
+
+  /** Cohorte de captación (`2026-Q3`…), dimensión del reporte financiero. */
+  @Prop()
+  cohorte?: string;
+
   @Prop({ type: String, enum: ['basico', 'pro', 'premium'], default: 'basico' })
   plan!: PlanComercio;
 

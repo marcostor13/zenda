@@ -7,7 +7,10 @@ import { ComercioDocument, EstadoComercio, EstadoVerificacion } from './comercio
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Pago, PagoDocument } from '../payments/pago.schema';
-import { PagoEstado, ReservaEstado } from 'shared';
+import { FijarSocioFundadorDto, PagoEstado, ReservaEstado } from 'shared';
+
+/** Compromiso estándar del programa Socios Fundadores. */
+const MESES_CONGELACION_POR_DEFECTO = 24;
 import { ReviewsService } from '../reviews/reviews.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { CatalogService, ServicioCardDto } from '../catalog/catalog.service';
@@ -142,6 +145,59 @@ export class ComerciosService {
       throw new DomainException('Comercio no encontrado', 404);
     }
     return comercio;
+  }
+
+  /**
+   * Alta o baja en Socios Fundadores (HU-047).
+   *
+   * Al dar de alta se guarda la comisión congelada y su fecha de caducidad; al
+   * dar de baja se limpian ambas, para que el resolver vuelva a la tarifa
+   * vigente sin que quede un valor huérfano que pudiera reactivarse por error.
+   */
+  async fijarSocioFundador(id: string, dto: FijarSocioFundadorDto): Promise<ComercioDocument> {
+    const comercio = await this.repo.findById(id);
+    if (!comercio) {
+      throw new DomainException('Comercio no encontrado', 404);
+    }
+
+    if (!dto.socioFundador) {
+      return this.exigirActualizado(await this.repo.actualizarCampos(id, {
+        socioFundador: false,
+        comisionPctCongelada: undefined,
+        congelacionHasta: undefined,
+      }));
+    }
+
+    if (dto.comisionPctCongelada == null) {
+      throw new DomainException(
+        'Indica la comisión que se congela para este socio fundador.',
+        400,
+      );
+    }
+
+    const meses = dto.mesesCongelacion ?? MESES_CONGELACION_POR_DEFECTO;
+    const congelacionHasta = new Date();
+    congelacionHasta.setMonth(congelacionHasta.getMonth() + meses);
+
+    return this.exigirActualizado(await this.repo.actualizarCampos(id, {
+      socioFundador: true,
+      comisionPctCongelada: dto.comisionPctCongelada,
+      congelacionHasta,
+      cohorte: dto.cohorte ?? this.cohorteActual(),
+    }));
+  }
+
+  private exigirActualizado(comercio: ComercioDocument | null): ComercioDocument {
+    if (!comercio) {
+      throw new DomainException('Comercio no encontrado', 404);
+    }
+    return comercio;
+  }
+
+  /** Cohorte por trimestre: `2026-Q3`. Es la dimensión que pide el reporte. */
+  private cohorteActual(): string {
+    const ahora = new Date();
+    return `${ahora.getFullYear()}-Q${Math.floor(ahora.getMonth() / 3) + 1}`;
   }
 
   private exigirComercio(comercioId: string): void {

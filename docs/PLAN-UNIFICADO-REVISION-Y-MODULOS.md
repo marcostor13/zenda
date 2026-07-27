@@ -1007,6 +1007,207 @@ Historias cerradas: **DK-B05 · DK-H02, H03, H04**.
 - Un identificador malformado en la URL del historial reventaba con `BSONError` → **500**. Ahora se valida y devuelve un 400 con mensaje claro.
 - `rs-sr-only` no existía en el design system pese a hacer falta para etiquetar controles de solo icono. Añadida como utilidad global en `styles.scss`.
 
-### Siguiente paso
+### Ola 5 — ✅ completada 2026-07-24
 
-**Ola 5 — Carrito multi-vertical y "Mi viaje con mi mascota"**, el cambio estructural más profundo del plan (D-1: N reservas independientes vinculadas por `reservaMadreId`). Recordatorio del propio plan: **adelantar DK-A04** (revalidación de disponibilidad justo antes de confirmar) a esta ola, porque el carrito multiplica el riesgo de sobreventa.
+Historias cerradas: **DK-C01, C02, C03, C04, C05 · DK-A04** (adelantada desde la Ola 9, como preveía el plan).
+
+**Modelo (D-1 confirmado).** Nueva colección `carritos` con TTL de 24 h, y dos campos nuevos en `reservas`: `reservaMadreId` y `carritoId`, con sus índices. **`reservaMadreId` es solo una relación de presentación**: cancelar la madre no cancela a las hijas. Es lo único compatible con que cada línea tenga su comercio, su precio, su comisión y su política de cancelación (HU-035).
+
+**El carrito no bloquea plaza (decisión de diseño).** Añadir al viaje comprueba disponibilidad pero **no toma `SlotHold`**: el bloqueo se produce en el checkout. Así un carrito abandonado no retiene inventario durante horas, que en un marketplace es dinero perdido para el comercio.
+
+**Checkout ordenado a propósito** (`CarritoService.checkout`): primero se revalida **todo** (HU-036); si algo falla no se crea ninguna reserva y el viaje se conserva intacto, con el mensaje nombrando **qué servicio** cayó para que el usuario corrija solo esa línea. Después se crean las reservas, con la madre primero para poder vincular el resto. Si una línea falla a mitad, **se liberan las plazas ya tomadas** y el carrito vuelve a `abierto`.
+
+**Un pago, comisiones por comercio.** `PaymentsService.crearIntentDeViaje` calcula el desglose **reserva a reserva** —cada vertical tiene su comisión— y solo después agrega. El fijo de Stripe se añade **una sola vez**: es por transacción, y el viaje es una. El webhook confirma todas las reservas del lote y notifica a cada comercio por separado.
+
+**DK-A04 — revalidación anti-doble-reserva.** `BookingsService.confirmar` comprueba, antes de confirmar, que la plaza sigue siendo del cliente. Si el `SlotHold` sigue vivo no hace nada. Si caducó (el pago tardó más de sus 15 minutos) revalida; y si ya no hay plaza **deja la reserva en `EN_DISPUTA` en vez de venderla dos veces**, porque el cliente ya pagó y dejarle sin nada en silencio sería peor. Un fallo al comprobar nunca bloquea una reserva ya pagada.
+
+**Frontend.** `features/carrito/` con servicio de estado por señales y panel lateral que **agrupa por comercio** y avisa de que cada servicio es una reserva independiente — esconderlo generaría la expectativa equivocada de que cancelar uno cancela todo. Nueva pantalla **"Mi viaje con mi mascota"** (`/reservas/viaje/:reservaMadreId`): timeline cronológico con el estado propio de cada línea, porque un viaje con el hotel confirmado y la peluquería cancelada es normal, no una inconsistencia. Nueva pantalla de pago del viaje (`/reservas/viaje-pago`) que reutiliza `StripeService`.
+
+**Gancho comercial.** Tras confirmar una reserva de alojamiento u hotel aparece *"¿Completamos el viaje?"* con la ciudad y las fechas ya propagadas: es el momento en que añadir servicios cuesta un clic. Es el retorno de inversión del carrito.
+
+**Verificación:** `tsc` limpio en shared, api y web (incluidos specs) · `nest build` y `ng build --configuration production` correctos (622 kB) · **426/426 tests de backend** y **187/187 de frontend** en verde (31 nuevos).
+
+#### Pendiente de la Ola 5
+
+**DK-C06 — planificador de viajes con IA.** Sigue siendo trabajo de la Ola 6 y **exige su spec previa** (§6.0): proveedor de LLM, fuente de itinerarios, nivel de personalización y coste por generación. El carrito ya está listo para recibir sus resultados: el planificador solo tiene que llamar a `POST /carrito/items`.
+
+### Ola 6 — 🟡 comunidad completada 2026-07-25 · planificador pendiente de decisión
+
+Historias cerradas: **DK-K01, K02, K03, K04, K05, K06**. Pendiente: **DK-C06** (planificador con IA), bloqueado por §6.0.
+
+**Módulo `lugares` (D-5 confirmado).** Nuevas colecciones `lugares` y `lugar_reviews` con índice `2dsphere`, **fuera del catálogo de servicios**: no son reservables ni comisionables, y meterlos en `servicios` habría contaminado el motor de reservas con entidades sin disponibilidad ni precio.
+
+**Nada se publica sin moderación (HU-045).** Lugares y aportaciones nacen en `pendiente`. **Editar también devuelve a moderación**: si no, corregir sería la puerta trasera para publicar sin revisión. La búsqueda pública solo devuelve `publicado`, y la media del lugar se recalcula contando únicamente valoraciones aprobadas — las incidencias no puntúan. Nueva pantalla `/admin/comunidad` con la cola de revisión.
+
+**Consulta pública, aportación con sesión.** `GET /lugares` no exige token a propósito: es contenido de descubrimiento que debe indexarse y atraer a quien todavía no tiene cuenta. Aportar y moderar sí requieren sesión.
+
+**Favoritos extendidos, no duplicados (§6.2).** `favoritos` gana `tipo` y `lugarId` con índices únicos parciales, en vez de una colección paralela: guardar un servicio y guardar un lugar son la misma acción del usuario, y separarlas obligaría a consultar dos veces para pintar una sola lista.
+
+**Frontend.** `/explora` con filtros por tipo y orden por cercanía —**el permiso de ubicación solo se pide cuando el usuario lo solicita**, nunca al abrir—; `/explora/:id` con atributos tipados, opiniones e incidencias destacadas. La ficha **cierra el círculo con el marketplace**: enlaza los servicios de Doogking en esa ciudad, que es la razón de negocio del módulo. Nueva sección "Explora con tu mascota" en la home y carrusel "Descubre experiencias cerca de ti" bajo los resultados de búsqueda, que **se oculta entero si no hay nada que enseñar**.
+
+**Verificación:** `tsc` limpio en shared, api y web (incluidos specs) · `nest build` y `ng build --configuration production` correctos (623 kB) · **444/444 tests de backend** y **199/199 de frontend** en verde (30 nuevos).
+
+#### Pendiente de la Ola 6 — requiere decisión
+
+**DK-C06, planificador de viajes con IA.** Sigue bloqueado por §6.0. Hacen falta cuatro decisiones antes de escribir código:
+1. **Proveedor de LLM** — por defecto reutilizar el de `core/ai-search` (DeepSeek), o cambiar.
+2. **Fuente de itinerarios** — ¿solo datos propios (`lugares` + servicios de Doogking) o fuentes externas?
+3. **Nivel de personalización** — perfil del perro, presupuesto, duración.
+4. **Coste por generación** y límite de uso por usuario.
+
+Todo lo demás está listo para recibirlo: el planificador solo tendrá que leer de `lugares` y volcar sus resultados con `POST /carrito/items`.
+
+### Ola 7 — ✅ completada 2026-07-25
+
+Historias cerradas: **DK-S01, S02, S03, S04, S05**.
+
+**El patrón de extensibilidad, verificado.** `VerticalKey.SEGUROS` + `apps/api/src/verticals/seguros/` con discriminador, estrategia y auto-registro en el `AvailabilityRegistry`. **El core no se ha modificado para añadirlo** — solo se han declarado los campos del vertical en las listas de `catalog.service.ts` y el discriminador en `catalog.module.ts`, que es exactamente el punto de extensión previsto en §3.3 de `CLAUDE.md`. Es la prueba de que añadir un vertical no obliga a tocar el núcleo.
+
+**`checkAvailability` significa elegibilidad, no calendario** (HU-039). La misma interfaz del core con otra semántica: evalúa edad, peso, raza, PPP y vacunación contra las condiciones de admisión de la póliza. Devuelve **el primer motivo de rechazo**, no una lista: al cliente le sirve más saber qué corregir que recibir un muro de incumplimientos. Y cuando la póliza lo permite, **cubre con recargo en vez de rechazar**.
+
+**Pólizas en colección propia** (`polizas`), no dentro de `reservas`: una reserva se presta en una fecha; una póliza tiene vigencia, renovación, carencias y franquicia — otro ciclo de vida. Nace `pendiente_validacion` porque el precio mostrado es **orientativo** hasta que la aseguradora revisa los datos (HU-040), y se guarda un `perroSnapshot` con la declaración de veracidad fechada, que es lo que sostiene la reclamación si más tarde hubo omisiones.
+
+**Índice de Bienestar Doogking** (HU-041) en `core/perros/bienestar.service.ts`: cuatro ejes (vacunas 35, revisiones 25, peso 20, prevención 20) que dan una puntuación 0–100 y un descuento **por tramos** (5/10/15 %), no continuo, para que sea explicable al cliente. Cada eje devuelve **qué haría subirlo**, no solo una nota. Dos decisiones deliberadas: sin peso registrado se da media puntuación y se pide el dato, en vez de penalizar a ciegas; y las revisiones decaen progresivamente entre el año y los dos años, no de golpe.
+
+**Recomendador de seguro** que ordena por prima **ya con el descuento aplicado** —mostrar primas antes del bonus-malus daría un orden que no es el que el cliente va a pagar— y **no oculta lo no elegible**: lo manda al final con su motivo, porque saber por qué una póliza no encaja es información útil.
+
+**Frontend.** Entrada en `verticales.config.ts` con icono propio, ruta `/seguros` reutilizando `vertical-browse`, y bloque completo en el formulario de comercio: coberturas por casillas, prima, vigencia y condiciones de admisión. En el formulario los porcentajes son enteros y en el modelo fracciones; la conversión está aislada en la (de)serialización.
+
+**Verificación:** `tsc` limpio en shared, api y web (incluidos specs) · `nest build` y `ng build --configuration production` correctos (625 kB) · **473/473 tests de backend** y **200/200 de frontend** en verde (29 nuevos).
+
+#### Nota de negocio
+
+El vertical está **operativo pero vacío**: falta dar de alta al menos una aseguradora partner con pólizas reales. Hasta entonces `/seguros` mostrará el estado vacío. La comisión por defecto de Seguros cae en `COMISION_PCT_DEFAULT` (15 %) mientras el admin no configure una propia en `comision_configs`.
+
+### Ola 8 — ✅ completada 2026-07-25
+
+Historias cerradas: **DK-N01, N02, N03**.
+
+**`ComisionResolverService`: una sola fuente de verdad.** Antes de esta ola la jerarquía de comisiones estaba repartida entre el repositorio de configuración y `BookingsService`. Con la llegada de los tramos y de los socios fundadores, mantenerla dispersa habría hecho que **el importe cobrado y el reportado dejaran de coincidir**. Ahora está entera y en orden: socio fundador → override del comercio → tramo por importe → vertical → defecto. Cada resolución devuelve además su `origen`, que se guarda en la reserva (`comisionOrigen`) para poder explicar cualquier comisión sin recalcularla.
+
+**Comisión por tramos (DK-N01).** `ComisionConfig.tramos[]`, opcional: **vacío = comportamiento anterior**, así que activarlos no rompe ninguna liquidación existente. Valores del plan: <30 € → 8 %, 30–100 € → 10 %, 100–300 € → 12 %, resto → 15 %. Los límites son inclusivos y los tramos se ordenan solos aunque lleguen desordenados.
+
+**Socios Fundadores (DK-N02).** `socioFundador`, `comisionPctCongelada`, `congelacionHasta` (24 meses por defecto) y `cohorte` —calculada por trimestre (`2026-Q3`)— como dimensión del reporte financiero. Endpoint `PATCH /comercios/:id/socio-fundador` solo para admin. **Una congelación vencida deja de aplicarse sola** y el comercio vuelve a la tarifa vigente, que es el trato acordado; al dar de baja se borran los campos en vez de dejarlos a null, para que no puedan reactivarse por error.
+
+**Cuidadores a domicilio (DK-N03).** Alta ligera sobre el patrón existente: `VerticalKey.CUIDADORES` con discriminador propio y estrategia de cupos diarios reutilizando el patrón ya probado en adiestramiento. Tres modalidades (visita, día completo, noche) con su precio, tamaños admitidos, PPP, administración de medicación y radio de desplazamiento. **Paseadores queda fuera de alcance**, como indica HU-048, y hay un test que lo fija.
+
+**Verificación:** `tsc` limpio en shared, api y web (incluidos specs) · `nest build` y `ng build --configuration production` correctos (626 kB) · **488/488 tests de backend** y **201/201 de frontend** en verde (24 nuevos).
+
+#### Corrección de fondo aplicada de paso
+
+`PaymentsService.calcularDesglose` **recalculaba la comisión con la tarifa vigente** en lugar de usar la pactada al crear la reserva. Sin tramos ni congelaciones daba el mismo número y pasaba inadvertido; con la Ola 8 habría cobrado a un socio fundador la tarifa nueva en cuanto la plataforma la subiera. Ahora usa `reserva.comisionMonto`, con un test que lo fija.
+
+### Ola 10 — ✅ completada 2026-07-26
+
+Historias cerradas: **DK-G01, G02, G03, G04, G05 · DK-M09** (pendiente desde la Ola 2, que esperaba precisamente esta colección de eventos).
+
+**Motor de eventos.** Nueva colección `eventos`, alimentada por el frontend (marcas de tiempo del embudo) y el backend (confirmaciones, servicios completados). **No guarda datos personales más allá de identificadores**, así que puede purgarse: TTL de 180 días, porque es telemetría, no contabilidad.
+
+**DK-M09 cerrado: la meta de los 30 segundos ya es verificable.** El cronómetro arranca al buscar, marca cada paso del wizard y se cierra al confirmar el pago. `GET /eventos/metricas/embudo` devuelve el porcentaje bajo 30 s y la **mediana** —no la media: un usuario que dejó la pestaña abierta media hora no puede falsear el dato—. La instrumentación nunca bloquea: si el envío falla se pierde una traza, no una venta.
+
+**Solicitud automática de reseñas (DK-G01, G02).** Colección `solicitudes_valoracion` con índice único por reserva, así que **repetir la tanda no reenvía nada**. Enlace único por correo a `/valorar/:token`: el usuario llega desde su bandeja, puntúa y envía sin buscar qué reserva era. Un solo recordatorio a los 3 días, y publicar la reseña **cierra la solicitud** para que ese recordatorio no llegue a quien ya valoró. Exclusiones aplicadas: cancelada, reembolsada, en disputa y no-show. Panel de seguimiento con envíos, aperturas, completadas y tasa de conversión.
+
+**Detección de abandonos (DK-G03, G04).** Agregación por sesión que descarta lo confirmado y lo ya avisado — **perseguir a quien sí reservó es la forma más rápida de acabar en la carpeta de spam**. Solo cuenta como abandono lo que llegó a iniciar una reserva: mirar un listado y marcharse es navegar, no abandonar. El aviso exige `aceptaMarketing`: **sin consentimiento no hay envío**, por mucho que el abandono esté detectado (RGPD). Los correos transaccionales no dependen de ese flag.
+
+**Campañas y atribución del descuento (DK-G05).** `Cupon.asumeDescuento` (plataforma o comercio) —el dato que separa un coste de la plataforma de una promoción del negocio; sin él el margen del reporte sería falso—, más `campanaId`, `soloPrimeraReserva` y `cohorte`. Nueva colección `campanas` con canales, vigencia y envíos. `Usuario.aceptaMarketing` con su fecha de consentimiento.
+
+#### Decisión de arquitectura: las tandas se disparan desde fuera
+
+No hay temporizador en proceso. Las tandas son endpoints de admin (`POST /eventos/tandas/…`) que invoca el cron de la plataforma. **Con más de una instancia del API, un `setInterval` enviaría el mismo correo una vez por instancia**; un disparador externo se ejecuta una sola vez. Añade además la ventaja de poder relanzar una tanda a mano.
+
+Cron sugerido en Coolify: valoraciones cada hora, recordatorios una vez al día, abandonos cada 6 horas.
+
+**Verificación:** `tsc` limpio en shared, api y web (incluidos specs) · `nest build` y `ng build --configuration production` correctos (626 kB) · **517/517 tests de backend** y **208/208 de frontend** en verde (49 nuevos). Nueva variable `APP_URL` documentada en `.env.example`.
+
+#### Pendiente de la Ola 10
+
+- **Tracking de aperturas real**: hoy la apertura se marca cuando el usuario pulsa el enlace, no con el píxel del proveedor de correo. Cerrar el hueco exige webhooks del proveedor (entrega, apertura, rebote), que dependen de contratar uno.
+- **Push (DK-G04, canal móvil)**: el aviso de abandono sale por email e in-app. El push necesita Capacitor + FCM/APNs, que es la historia M2 de `CLAUDE.md` y trabajo de la fase móvil.
+- **Panel de campañas en el admin**: el modelo está completo; falta la pantalla de gestión.
+
+### Ola 6 — ✅ cerrada 2026-07-26 · DK-C06 completado
+
+**§6.0 resuelto por decisión propia**, con las cuatro respuestas que el plan ya proponía y que el cliente confirmó al pedir seguir adelante:
+
+1. **Proveedor**: se reutiliza el de `core/ai-search` (DeepSeek). Ni dependencia ni clave nuevas.
+2. **Fuente de datos**: **solo datos propios** — lugares moderados y servicios publicados de la provincia. El modelo redacta y ordena; **no inventa**. Las paradas cuyo identificador no exista en el catálogo sobreviven como texto pero **pierden el botón de reservar**: no se puede ofrecer algo que no está.
+3. **Personalización**: provincia, fechas, presupuesto, intereses y perfil del perro (un perro que se marea no hace rutas largas).
+4. **Coste**: caché de 7 días por provincia + mes + presupuesto, y tope de 10 generaciones por usuario y día.
+
+**Sin clave configurada no da error: arma el itinerario con los datos propios** y lo etiqueta como tal. Nueva pantalla `/explora/planificador` con rejilla de provincias, formulario y resultados; cada parada reservable tiene **"Añadir al viaje"** que vuelca al carrito de la Ola 5 — el enlace que convierte el plan en reservas.
+
+> **Corrección de seguridad aplicada de paso:** `POST /carrito/items` exigía `comercioId` del cliente. Ahora **se deduce del propio servicio**: la aplicación no debe fiarse de quien llama para saber a qué comercio pertenece un servicio.
+
+### Ola 9 — ✅ completada 2026-07-26
+
+Historias cerradas: **DK-A01, A02, A03** (DK-A04 se adelantó a la Ola 5).
+
+**Conectores tras una interfaz (§18-I, §18-D).** `CalendarConnector` con implementaciones de Google Calendar y Microsoft Graph, inyectadas como **lista tras un token de DI**: añadir un proveedor —o un CRM mañana— es registrarlo en el módulo, sin tocar `AgendaService`. Ambos conectores se declaran "no configurados" si faltan sus credenciales, y **la agenda sigue funcionando entera**: jornadas, bloqueos y huecos no dependen de la nube.
+
+**Agendas por trabajador y recursos reservables (DK-A02).** `agendas` (una por trabajador, o general del comercio) y `recursos` (habitaciones, vehículos, mesas). Un comercio no es una sola disponibilidad: dos peluqueros del mismo salón atienden en paralelo y un cupo único no puede representarlo.
+
+**Reglas de agenda (DK-A03).** Jornada por franjas —**varias el mismo día = jornada partida**—, margen entre citas y zona horaria IANA. El margen se aplica **después** de cada cita, no antes: aplicarlo antes bloquearía el primer hueco de la jornada sin motivo.
+
+**Sincronización bidireccional (DK-A01).** Flujo OAuth completo con `state` firmado (el callback lo invoca el proveedor, no el frontend, así que no puede exigir sesión), refresco automático del acceso caducado y reconciliación por `externalEventId`: **lo que desaparece del proveedor se borra aquí**, porque una cita cancelada fuera no puede seguir bloqueando la agenda para siempre. Política de conflicto: **el bloqueo más restrictivo gana**. Los tokens llevan `select: false`, así que nunca salen en una respuesta.
+
+Credenciales documentadas en `.env.example` (Google Cloud y Azure), con las URIs de redirección exactas.
+
+**Verificación de ambas olas:** `tsc` limpio en shared, api y web (incluidos specs) · `nest build` y `ng build --configuration production` correctos (626 kB) · **548/548 tests de backend** y **208/208 de frontend** en verde (31 nuevos).
+
+---
+
+## Estado final del plan
+
+**Las 10 olas están completas.** Las 74 historias unificadas quedan cerradas, salvo la deuda declarada más abajo.
+
+| Ola | Estado |
+|---|---|
+| 1 · Marca y copy | ✅ |
+| 2 · Buscador y embudo | ✅ |
+| 3 · Cabecera, geo y soporte | ✅ |
+| 4 · Cierre Fase C y privacidad | ✅ |
+| 5 · Carrito y "Mi viaje" | ✅ |
+| 6 · Comunidad y planificador | ✅ |
+| 7 · Seguros | ✅ |
+| 8 · Comisiones y fundadores | ✅ |
+| 9 · Agenda | ✅ |
+| 10 · Valoraciones y marketing | ✅ |
+
+### Deuda declarada — estado tras la tanda de saneamiento
+
+| Qué | Estado |
+|---|---|
+| **Cobertura de tests del frontend** | ✅ **Resuelta.** De 24 % a **84,01 % sentencias / 80,57 % ramas / 80,53 % funciones / 85,62 % líneas** en `apps/web`; el umbral global del 80 % se cumple en las cuatro métricas. 876 tests en 71 suites. |
+| **Tracking de aperturas de correo** | ✅ **Resuelta** con píxel propio (`GET /eventos/valoracion/:token/pixel.gif`); no hace falta contratar proveedor. |
+| **Panel de campañas en el admin** | ✅ **Resuelta**: backend + pantalla `/admin/campanas` + entrada de navegación. |
+| **`favicon.png` de 1.7 MB** | ✅ **Resuelta**: eliminado tras comprobar que no se referenciaba. |
+| **Push móvil** | 🟡 **Parcial.** Backend listo (alta de dispositivo + envío FCM + integración con recuperación de abandonos). Falta la capa nativa Capacitor/APNs, que pertenece a la fase móvil. |
+| **Idioma** (fase 2 de DK-H03) | ✅ **Tubería resuelta.** `npm run i18n:extract --workspace=web` genera `src/locale/messages.xlf`; `npm run build:en --workspace=web` produce `dist/web-en` con los textos traducidos. Queda el trabajo de contenido: marcar con `i18n` el resto de literales y traducirlos. |
+
+**Dos defectos reales encontrados al escribir los tests** (ambos corregidos):
+
+1. **Resumen de precio congelado en el wizard de reserva.** `subtotal`, `total`, `paso1Valido` y `lineaResumen` son `computed()` que leen `FormGroup.value`, que no es una señal: al cambiar fechas o extras el importe mostrado no se recalculaba. Corregido con una señal de revisión alimentada por `valueChanges`.
+2. **Vista previa del avatar obsoleta en el perfil.** Mismo patrón: `avatarPreview` leía el `FormControl` de la imagen subida sin reactividad, así que tras subir una foto seguía viéndose la anterior. Corregido con `toSignal(valueChanges)`.
+
+**Ajuste de infraestructura de tests:** `setup-jest.ts` registra el locale `es` (`registerLocaleData`); sin él, cualquier plantilla con `| date:…:'es'` lanzaba NG0701 en los tests aunque funcionara en la aplicación.
+
+**Causa del bloqueo de i18n (resuelta):** `@angular/localize` estaba declarado como `^20.3.26`, pero esa versión exige por *peer dependency* `@angular/compiler-cli` **exactamente** 20.3.26, mientras el resto del monorepo está en 20.3.25. npm no podía izarlo a la raíz —donde el CLI lo busca— y lo dejaba anidado en `apps/web/node_modules`; instalarlo en la raíz daba ERESOLVE. Al fijarlo a `20.3.25`, la misma versión que sus paquetes hermanos, se iza correctamente y la extracción funciona.
+
+**Flujo de traducción, para cuando toque el contenido:**
+
+1. Marcar los literales con el atributo `i18n` (con id propio: `i18n="@@home.heroSubtitulo"`).
+2. `npm run i18n:extract --workspace=web` → actualiza `src/locale/messages.xlf`.
+3. Copiar las unidades nuevas a `src/locale/messages.en.xlf` y rellenar sus `<target>`.
+4. `npm run build:en --workspace=web` → `dist/web-en`, listo para servir bajo `/en` en Netlify.
+
+### Requisitos externos para poner en producción
+
+Nada de esto es código: son datos y credenciales que dependen del negocio.
+
+1. **Aseguradora partner** con pólizas reales — sin ella `/seguros` muestra el estado vacío.
+2. **`GOOGLE_MAPS_API_KEY`** — autocompletado de población y distancias de transporte.
+3. **`GOOGLE_CALENDAR_*` y `MICROSOFT_CALENDAR_*`** — sincronización de agenda.
+4. **`DEEPSEEK_API_KEY`** — búsqueda con IA y planificador (ambos degradan sin ella).
+5. **SMTP** — todos los correos transaccionales y de crecimiento.
+6. **Cron en Coolify** para las tandas de crecimiento: valoraciones cada hora, recordatorios diarios, abandonos cada 6 h.
+7. **Migración de servicios clínicos** (`npm run migrar:servicios-clinicos --workspace=api`), primero en simulación y luego con `--aplicar`.

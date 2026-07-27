@@ -1,13 +1,16 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { VerticalKey, VERTICAL_LABELS, IVA_RATE } from 'shared';
+import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import {
   LugarElegido, RsPlaceAutocompleteComponent,
 } from '../../../shared/components/place-autocomplete/rs-place-autocomplete.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { RsPhoneInputComponent } from '../../../shared/components/phone-input/rs-phone-input.component';
 import { GeoService } from '../../../core/geo/geo.service';
+import { EventosService } from '../../../core/eventos/eventos.service';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
@@ -18,6 +21,14 @@ import { CatalogBrowseService } from '../../verticales/catalog-browse.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 type Paso = 1 | 2 | 3 | 4;
+
+/** Traducción del número de paso del wizard al paso del embudo medido. */
+const PASO_EMBUDO: Record<number, PasoEmbudo> = {
+  1: PasoEmbudo.DETALLE,
+  2: PasoEmbudo.DATOS,
+  3: PasoEmbudo.PAGO,
+  4: PasoEmbudo.CONFIRMACION,
+};
 
 interface PrecioPorTamanoWizard {
   tamano: string;
@@ -79,7 +90,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule,
-    RsNavbarComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent,
+    RsNavbarComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
   ],
   template: `
 <div class="wizard-page">
@@ -550,8 +561,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
               <div class="rs-field">
                 <label class="rs-lbl">Teléfono</label>
-                <input formControlName="telefono" type="tel" class="rs-inp rs-inp--lg" placeholder="+34 600 000 000"
-                       [class.rs-inp--error]="p2Error('telefono')" />
+                <rs-phone-input formControlName="telefono" etiqueta="Teléfono de contacto"
+                                [error]="p2Error('telefono')" />
                 @if (p2Error('telefono')) { <span class="rs-field-err">Indica un teléfono de contacto.</span> }
               </div>
 
@@ -690,6 +701,25 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </div>
             </div>
 
+            @if (ofreceCompletarViaje()) {
+              <!-- Gancho del carrito: es el momento en que el cliente ya tiene
+                   fechas y ciudad, así que completar el viaje cuesta un clic. -->
+              <div class="completar-viaje">
+                <div>
+                  <h3>¿Completamos el viaje?</h3>
+                  <p>
+                    Peluquería, transporte o veterinario para esas mismas fechas en
+                    {{ ciudadServicio() || 'tu destino' }}. Cada servicio se reserva por separado,
+                    pero se paga de una vez.
+                  </p>
+                </div>
+                <a [routerLink]="['/peluqueria']" [queryParams]="parametrosViaje()"
+                   class="rs-btn rs-btn--gold">
+                  Añadir más servicios
+                </a>
+              </div>
+            }
+
             <div class="confirmation__actions">
               <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary rs-btn--lg">
                 Ver mis reservas
@@ -784,6 +814,19 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .wizard-wrap { padding-block: var(--sp-8); }
 
     .wizard-steps { justify-content: center; margin-bottom: var(--sp-10); padding: var(--sp-6); background: var(--c-raised); border-radius: var(--r-xl); border: 1px solid var(--b-1); }
+
+    /* Gancho para completar el viaje tras reservar alojamiento. */
+    .completar-viaje {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--sp-5); flex-wrap: wrap;
+      margin-top: var(--sp-6); padding: var(--sp-5);
+      border: 1px solid rgba(251,174,23,.4); border-radius: var(--r-xl);
+      background: rgba(251,174,23,.08);
+      text-align: left;
+
+      h3 { font-size: var(--f-md); color: var(--dk-blue); margin-bottom: var(--sp-1); }
+      p { font-size: var(--f-sm); color: var(--t-400); line-height: 1.55; max-width: 52ch; }
+    }
 
     /* Envoltorio para que el autocompletado de direcciones se vea como un input. */
     .rs-inp--host { display: flex; align-items: center; padding-block: 0; }
@@ -940,6 +983,7 @@ export class ReservaWizardComponent implements OnInit {
   private readonly recomendadorService = inject(RecomendadorService);
   private readonly catalogBrowseService = inject(CatalogBrowseService);
   private readonly geoService = inject(GeoService);
+  private readonly eventosService = inject(EventosService);
 
   // Navigation
   readonly paso       = signal<Paso>(1);
@@ -950,6 +994,8 @@ export class ReservaWizardComponent implements OnInit {
   // Vertical context (populated from route/query params)
   readonly vertical       = signal<string>(VerticalKey.ALOJAMIENTO);
   readonly nombreServicio = signal<string>('');
+  /** Ciudad del servicio reservado; propaga el destino al resto del viaje. */
+  readonly ciudadServicio = signal<string>('');
   readonly imagenServicio = signal<string>('');
   readonly precioBase     = signal<number>(0);
 
@@ -1022,6 +1068,27 @@ export class ReservaWizardComponent implements OnInit {
   }
 
   metodoPagoVal = 'card';
+
+  /**
+   * El gancho de viaje solo aparece tras reservar alojamiento u hotel: son los
+   * verticales que definen unas fechas y un destino sobre los que tiene sentido
+   * añadir el resto de servicios.
+   */
+  readonly ofreceCompletarViaje = computed(
+    () => this.vertical() === VerticalKey.ALOJAMIENTO || this.vertical() === VerticalKey.HOTELES,
+  );
+
+  /** Lleva al siguiente servicio con las fechas y la ciudad ya puestas. */
+  parametrosViaje(): Record<string, string> {
+    const form = this.vertical() === VerticalKey.HOTELES
+      ? this.paso1HotelesForm.value
+      : this.paso1AlojamientoForm.value;
+
+    const params: Record<string, string> = {};
+    if (this.ciudadServicio()) params['ciudad'] = this.ciudadServicio();
+    if (form.checkIn) params['desde'] = form.checkIn;
+    return params;
+  }
 
   readonly idPerrosAlojamiento = 'wz-perros-alojamiento';
   readonly idPerrosTransporte = 'wz-perros-transporte';
@@ -1158,7 +1225,28 @@ export class ReservaWizardComponent implements OnInit {
   cuponInput = '';
 
   // ─── Computed ───
+  /**
+   * Los `FormGroup` no son señales: sin esta revisión, los `computed` que leen
+   * `form.value` se quedarían con el primer valor y el resumen mostraría un
+   * importe distinto al que se cobra en cuanto el cliente cambia las fechas.
+   */
+  private readonly revisionFormularios = signal(0);
+
+  constructor() {
+    // `AbstractControl` unifica los seis grupos, que son de tipos distintos.
+    const formularios: AbstractControl[] = [
+      this.paso1AlojamientoForm, this.paso1TransporteForm, this.paso1VeterinariaForm,
+      this.paso1PeluqueriaForm, this.paso1AdiestramientoForm, this.paso1HotelesForm,
+    ];
+    for (const form of formularios) {
+      form.valueChanges
+        .pipe(takeUntilDestroyed())
+        .subscribe(() => this.revisionFormularios.update((v) => v + 1));
+    }
+  }
+
   readonly paso1Valido = computed(() => {
+    this.revisionFormularios();
     switch (this.vertical()) {
       case VerticalKey.ALOJAMIENTO:    return this.paso1AlojamientoForm.valid;
       case VerticalKey.TRANSPORTE:     return this.paso1TransporteForm.valid;
@@ -1171,6 +1259,7 @@ export class ReservaWizardComponent implements OnInit {
   });
 
   readonly subtotal = computed(() => {
+    this.revisionFormularios();
     const base = this.precioBase();
     switch (this.vertical()) {
       case VerticalKey.ALOJAMIENTO: {
@@ -1251,6 +1340,7 @@ export class ReservaWizardComponent implements OnInit {
   });
 
   readonly lineaResumen = computed(() => {
+    this.revisionFormularios();
     const base = this.precioBase();
     switch (this.vertical()) {
       case VerticalKey.ALOJAMIENTO: {
@@ -1299,6 +1389,7 @@ export class ReservaWizardComponent implements OnInit {
     this.servicioId = routeParams.get('servicioId') ?? undefined;
     this.comercioId = queryParams.get('comercioId') ?? undefined;
     this.nombreServicio.set(queryParams.get('nombre') ?? '');
+    this.ciudadServicio.set(queryParams.get('ciudad') ?? '');
     this.imagenServicio.set(queryParams.get('imagen') ?? '');
     this.precioBase.set(Number(queryParams.get('precioBase') ?? 0));
     this.espacioId = queryParams.get('espacioId');
@@ -1416,6 +1507,14 @@ export class ReservaWizardComponent implements OnInit {
     }
 
     this.paso.set(p as Paso);
+
+    // Traza del paso alcanzado: es lo que permite saber dónde se abandona.
+    this.eventosService.registrar(TipoEvento.PASO_COMPLETADO, {
+      paso: PASO_EMBUDO[p] ?? PasoEmbudo.DETALLE,
+      servicioId: this.servicioId,
+      vertical: this.vertical(),
+    });
+
     if (p === 3 && this.metodoPago() === 'card' && !this.stripeListo()) {
       void this.prepararStripe();
     }
@@ -1632,6 +1731,9 @@ export class ReservaWizardComponent implements OnInit {
       this.errorPago.set(error.message ?? 'No se pudo procesar el pago. Revisa los datos de la tarjeta.');
       return;
     }
+
+    // Cierra el cronómetro: aquí se sabe cuánto tardó la reserva de verdad.
+    this.eventosService.cerrarEmbudo(this.reservaIdReal ?? undefined, this.vertical());
     this.irPaso(4);
   }
 

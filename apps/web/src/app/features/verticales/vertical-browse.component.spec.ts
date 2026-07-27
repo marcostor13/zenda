@@ -148,6 +148,100 @@ describe('VerticalBrowseComponent', () => {
     expect(el.querySelector('rs-search-bar')).toBeTruthy();
   });
 
+  it('hoteles: debería distinguir los que admiten mascotas', async () => {
+    await crearComponente('hoteles');
+
+    const petFriendly = tarjeta({ maxMascotasPorReserva: 2, serviciosPetfriendly: ['Cama para perro'] });
+    expect(component.cfg().badge(petFriendly)).toBe('🐾 Pet-friendly');
+    expect(component.cfg().meta(petFriendly)).toEqual(['🐾 Hasta 2 mascota(s)', '🎁 Cama para perro']);
+    expect(component.cfg().price(petFriendly)).toBe(20);
+
+    expect(component.cfg().badge(tarjeta({ admiteMascotas: false }))).toBe('🏨 Hotel');
+    expect(component.cfg().meta(tarjeta({}))[0]).toContain('sin límite');
+  });
+
+  it('seguros: debería contar coberturas y avisar de la renovación', async () => {
+    await crearComponente('seguros');
+
+    const poliza = tarjeta({
+      tiposSeguro: ['salud', 'rc'], duracionMeses: 24,
+      renovacionAutomatica: false, primaAnualBase: 180,
+    });
+    expect(component.cfg().badge(poliza)).toBe('🛡️ 2 coberturas');
+    expect(component.cfg().meta(poliza)).toEqual(['📅 24 meses de vigencia', '🔁 Sin renovación automática']);
+    expect(component.cfg().price(poliza)).toBe(180);
+
+    // Sin datos propios se asume la póliza anual renovable, no una en blanco.
+    expect(component.cfg().meta(tarjeta({}))).toEqual(['📅 12 meses de vigencia', '🔁 Renovación automática']);
+    expect(component.cfg().price(tarjeta({}))).toBe(20);
+  });
+
+  it('cuidadores: debería resumir duración y radio de la visita', async () => {
+    await crearComponente('cuidadores');
+
+    const conMedicacion = tarjeta({
+      administraMedicacion: true, duracionVisitaMin: 60, radioDesplazamientoKm: 25, precioVisita: 18,
+    });
+    expect(component.cfg().badge(conMedicacion)).toBe('💊 Administra medicación');
+    expect(component.cfg().meta(conMedicacion)).toEqual(['⏱️ 60 min por visita', '🚗 Hasta 25 km']);
+    expect(component.cfg().price(conMedicacion)).toBe(18);
+
+    expect(component.cfg().badge(tarjeta({}))).toBe('🏠 A domicilio');
+    expect(component.cfg().meta(tarjeta({}))).toEqual(['⏱️ 45 min por visita', '🚗 Hasta 10 km']);
+  });
+
+  it('peluqueria y adiestramiento: deberían tener valores por defecto propios', async () => {
+    await crearComponente('peluqueria');
+    expect(component.cfg().badge(tarjeta({}))).toBeTruthy();
+    expect(component.cfg().meta(tarjeta({})).length).toBe(2);
+    expect(component.cfg().price(tarjeta({}))).toBe(20);
+  });
+
+  it('adiestramiento: debería describir la modalidad por sesión', async () => {
+    await crearComponente('adiestramiento');
+
+    expect(component.cfg().meta(tarjeta({ modalidad: 'sesion' }))[0]).toBeTruthy();
+    expect(component.cfg().badge(tarjeta({}))).toBeTruthy();
+    expect(component.cfg().price(tarjeta({}))).toBe(20);
+  });
+
+  it('debería caer a veterinaria ante un vertical desconocido', async () => {
+    await crearComponente('inventado');
+
+    expect(component.cfg().vertical).toBe('veterinaria');
+  });
+
+  it('debería marcar el error sin inventar servicios', async () => {
+    await crearComponente('veterinaria');
+    browseService.buscar.mockRejectedValue(new Error('500'));
+
+    await (component as unknown as { cargar: () => Promise<void> })['cargar']();
+
+    expect(component.error()).toBe(true);
+    expect(component.items()).toEqual([]);
+    expect(component.cargando()).toBe(false);
+  });
+
+  it('no debería mostrar contexto de búsqueda cuando no se filtró nada', async () => {
+    await crearComponente('veterinaria');
+
+    expect(component.contextoBusqueda()).toEqual([]);
+    expect(component.sufijoCiudad()).toBe('');
+  });
+
+  it('debería mandar cadena vacía si la tarjeta no trae comercio ni imagen', async () => {
+    await crearComponente('veterinaria');
+    const navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+    component.solicitar({ ...tarjeta({}), comercioId: undefined, imagenes: undefined } as never);
+
+    const [, extras] = navigateSpy.mock.calls[0];
+    const qp = (extras as { queryParams: Record<string, unknown> }).queryParams;
+    expect(qp['comercioId']).toBe('');
+    expect(qp['imagen']).toBe('');
+    expect(qp['desde']).toBeNull();
+  });
+
   it('debería llevar la fecha y las mascotas buscadas a la reserva', async () => {
     await crearComponente('veterinaria', { desde: '2026-08-01', perros: '2' });
     const navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);

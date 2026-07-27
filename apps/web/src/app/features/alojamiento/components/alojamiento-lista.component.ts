@@ -12,6 +12,7 @@ import {
   AlojamientoService, AlojamientoCard, FiltrosAlojamiento, OrdenServicios,
 } from '../services/alojamiento.service';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
+import { ExperienciasCercaComponent } from '../../explora/experiencias-cerca.component';
 
 /** Filtros comunes de búsqueda, tal y como llegan en la URL. */
 interface BusquedaUrl {
@@ -27,6 +28,7 @@ interface BusquedaUrl {
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
     RsSearchBarComponent, AnimateOnScrollDirective, ImgFallbackDirective,
+    ExperienciasCercaComponent,
   ],
   template: `
 <div class="alojamiento-page">
@@ -269,6 +271,8 @@ interface BusquedaUrl {
           </div>
         }
       }
+
+      <app-experiencias-cerca [ciudad]="busquedaCiudad()" />
     </section>
   </div>
 </div>
@@ -523,6 +527,9 @@ export class AlojamientoListaComponent implements OnInit {
 
   /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
   private readonly busqueda = signal<BusquedaUrl>({});
+
+  /** Ciudad buscada; la consume el carrusel de experiencias de la comunidad. */
+  readonly busquedaCiudad = computed(() => this.busqueda().ciudad);
 
   readonly misPerros = signal<PerroApi[]>([]);
 

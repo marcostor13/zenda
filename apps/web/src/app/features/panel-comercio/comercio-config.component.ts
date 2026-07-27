@@ -5,6 +5,9 @@ import { firstValueFrom } from 'rxjs';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
+import { RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
+import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
+import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, DocumentoVerificacion } from './comercio-api.service';
 
 const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
@@ -41,7 +44,10 @@ function comoArray(v?: string): string[] {
 @Component({
   selector: 'app-comercio-config',
   standalone: true,
-  imports: [UpperCasePipe, ReactiveFormsModule, RsIconComponent, RsImageUploadComponent],
+  imports: [
+    UpperCasePipe, ReactiveFormsModule,
+    RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+  ],
   template: `
     <!-- Page header -->
     <div class="page-header">
@@ -143,11 +149,15 @@ function comoArray(v?: string): string[] {
         <div class="form-row form-row--3">
           <div class="rs-field">
             <label class="rs-lbl">Ciudad</label>
-            <input class="rs-inp" formControlName="ciudad" placeholder="Ej: Madrid" />
+            <rs-place-autocomplete formControlName="ciudad" inputId="cfg-ciudad"
+                                   apariencia="campo" placeholder="Busca tu población…" />
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Provincia</label>
-            <input class="rs-inp" formControlName="provincia" placeholder="Ej: Madrid" />
+            <rs-place-autocomplete formControlName="provincia" inputId="cfg-provincia"
+                                   apariencia="campo" placeholder="Elige provincia…"
+                                   [catalogoLocal]="provincias" [usaPlaces]="false"
+                                   [sugerenciasIniciales]="52" />
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Código postal</label>
@@ -200,11 +210,11 @@ function comoArray(v?: string): string[] {
         <div class="form-row">
           <div class="rs-field">
             <label class="rs-lbl">Teléfono</label>
-            <input class="rs-inp" formControlName="telefono" placeholder="+34 600 000 000" />
+            <rs-phone-input formControlName="telefono" etiqueta="Teléfono del comercio" />
           </div>
           <div class="rs-field">
             <label class="rs-lbl">WhatsApp</label>
-            <input class="rs-inp" formControlName="whatsapp" placeholder="+34 600 000 000" />
+            <rs-phone-input formControlName="whatsapp" etiqueta="WhatsApp del comercio" />
           </div>
         </div>
 
@@ -633,6 +643,7 @@ export class ComercioConfigComponent implements OnInit {
   readonly guardandoVerificacion = signal(false);
 
   readonly dias = DIAS;
+  readonly provincias = PROVINCIAS_ES;
 
   readonly notifState = signal<Record<string, boolean>>({
     nuevaReserva: true,

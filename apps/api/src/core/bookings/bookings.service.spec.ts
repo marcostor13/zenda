@@ -8,8 +8,10 @@ import { AvailabilityStrategy } from '../availability/availability.strategy';
 import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ComisionResolverService } from '../comision-configs/comision-resolver.service';
+import { EventosService } from '../eventos/eventos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { VerticalKey, ReservaEstado } from 'shared';
+import { VerticalKey, ReservaEstado, COMISION_PCT_DEFAULT, TipoEvento } from 'shared';
 
 describe('BookingsService', () => {
   let service: BookingsService;
@@ -19,6 +21,7 @@ describe('BookingsService', () => {
   let cuponesService: jest.Mocked<CuponesService>;
   let perrosService: jest.Mocked<PerrosService>;
   let notificationsService: jest.Mocked<NotificationsService>;
+  let eventosService: jest.Mocked<Pick<EventosService, 'registrar'>>;
 
   const parametrosBase = {
     usuarioId: 'user-1',
@@ -55,7 +58,12 @@ describe('BookingsService', () => {
       ...reservaMock,
       save: jest.fn().mockResolvedValue(reservaMock),
     }));
-    mockConstructor.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(reservaMock) });
+    // `findById(...).lean()` lo usa la revalidación anti-doble-reserva; el mock
+    // devuelve la misma reserva con `holdId`, es decir: plaza aún retenida.
+    mockConstructor.findById = jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue(reservaMock),
+      lean: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(reservaMock) }),
+    });
     mockConstructor.findByIdAndUpdate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.CONFIRMADA }) });
     mockConstructor.find = jest.fn().mockReturnValue({
       sort: jest.fn().mockReturnThis(),
@@ -85,6 +93,19 @@ describe('BookingsService', () => {
           provide: NotificationsService,
           useValue: { notificarAjusteSolicitado: jest.fn().mockResolvedValue(undefined) },
         },
+        {
+          provide: EventosService,
+          useValue: { registrar: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: ComisionResolverService,
+          useValue: {
+            resolver: jest.fn().mockResolvedValue({
+              comisionPct: COMISION_PCT_DEFAULT, origen: 'vertical',
+              stripePct: 0.015, stripeFijoEur: 0.25,
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -94,6 +115,7 @@ describe('BookingsService', () => {
     cuponesService = module.get(CuponesService);
     perrosService = module.get(PerrosService);
     notificationsService = module.get(NotificationsService);
+    eventosService = module.get(EventosService);
   });
 
   describe('crear', () => {
@@ -234,6 +256,73 @@ describe('BookingsService', () => {
         { estado: ReservaEstado.CONFIRMADA },
       );
     });
+
+    describe('revalidación anti-doble-reserva', () => {
+      /** Reserva sin `holdId`: la retención de plaza ya caducó. */
+      const sinHold = {
+        ...reservaMock,
+        holdId: undefined,
+        servicioId: { toString: () => 'servicio-1' },
+        fechaInicio: new Date('2026-09-01'),
+        cantidad: 1,
+      };
+
+      const conRetencionCaducada = (disponible: boolean): void => {
+        reservaModel.findById.mockReturnValue({
+          exec: jest.fn().mockResolvedValue(sinHold),
+          lean: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(sinHold) }),
+        });
+        estrategiaMock.checkAvailability.mockResolvedValue({ disponible } as never);
+      };
+
+      it('no debería comprobar nada si la plaza sigue retenida', async () => {
+        estrategiaMock.checkAvailability.mockClear();
+
+        await service.confirmar('reserva-1');
+
+        expect(estrategiaMock.checkAvailability).not.toHaveBeenCalled();
+      });
+
+      it('debería confirmar si la retención caducó pero la plaza sigue libre', async () => {
+        conRetencionCaducada(true);
+
+        await service.confirmar('reserva-1');
+
+        expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
+          'reserva-1',
+          expect.objectContaining({ estado: ReservaEstado.CONFIRMADA }),
+          { new: true },
+        );
+      });
+
+      it('debería dejar la reserva en disputa si la plaza ya no existe, no venderla dos veces', async () => {
+        conRetencionCaducada(false);
+
+        await service.confirmar('reserva-1');
+
+        expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
+          'reserva-1',
+          expect.objectContaining({ estado: ReservaEstado.EN_DISPUTA }),
+          { new: true },
+        );
+      });
+
+      it('no debería bloquear una reserva ya pagada si falla la comprobación', async () => {
+        reservaModel.findById.mockReturnValue({
+          exec: jest.fn().mockResolvedValue(sinHold),
+          lean: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(sinHold) }),
+        });
+        estrategiaMock.checkAvailability.mockRejectedValue(new Error('proveedor caído'));
+
+        await service.confirmar('reserva-1');
+
+        expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
+          'reserva-1',
+          expect.objectContaining({ estado: ReservaEstado.CONFIRMADA }),
+          { new: true },
+        );
+      });
+    });
   });
 
   describe('cancelar', () => {
@@ -260,12 +349,31 @@ describe('BookingsService', () => {
       reservaModel.findById.mockReturnValue({
         exec: jest.fn().mockResolvedValue({
           ...reservaMock,
+          // `completar` emite el evento que dispara la solicitud de reseña.
+          servicioId: { toString: () => 'servicio-1' },
           estado: ReservaEstado.CONFIRMADA,
           save: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.COMPLETADA }),
         }),
       });
       const resultado = await service.completar('reserva-1', 'comercio-1');
       expect(resultado.estado).toBe(ReservaEstado.COMPLETADA);
+    });
+
+    it('debería anunciar el servicio completado para que se pida la reseña', async () => {
+      reservaModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          ...reservaMock,
+          servicioId: { toString: () => 'servicio-1' },
+          estado: ReservaEstado.CONFIRMADA,
+          save: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.COMPLETADA }),
+        }),
+      });
+
+      await service.completar('reserva-1', 'comercio-1');
+
+      expect(eventosService.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: TipoEvento.SERVICIO_COMPLETADO }),
+      );
     });
 
     it('debería lanzar DomainException 403 si la reserva no es del comercio', async () => {

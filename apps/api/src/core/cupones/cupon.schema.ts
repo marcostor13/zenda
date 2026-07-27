@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
+import { AsumeDescuento } from 'shared';
 
 export type CuponDocument = HydratedDocument<Cupon>;
 
@@ -42,6 +43,30 @@ export class Cupon {
 
   @Prop()
   descripcion?: string;
+
+  // --- Campañas y atribución del descuento (HU-057) ---
+  /**
+   * Quién paga el descuento. Es el dato que separa un descuento comercial
+   * (coste de la plataforma) de una promoción del negocio (coste suyo): sin él,
+   * el margen del reporte financiero sería falso.
+   */
+  @Prop({
+    type: String,
+    enum: Object.values(AsumeDescuento),
+    default: AsumeDescuento.PLATAFORMA,
+  })
+  asumeDescuento!: AsumeDescuento;
+
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Campana' })
+  campanaId?: Types.ObjectId;
+
+  /** Solo para la primera reserva del usuario (captación). */
+  @Prop({ type: Boolean, default: false })
+  soloPrimeraReserva!: boolean;
+
+  /** Restringe el cupón a comercios de una cohorte concreta (socios fundadores…). */
+  @Prop()
+  cohorte?: string;
 }
 
 export const CuponSchema = SchemaFactory.createForClass(Cupon);

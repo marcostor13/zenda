@@ -8,6 +8,7 @@ import { Consentimiento, ConsentimientoSchema } from './consentimiento.schema';
 import { Reserva, ReservaSchema } from '../bookings/reserva.schema';
 import { PerrosService } from './perros.service';
 import { PerroValoracionesService } from './perro-valoraciones.service';
+import { BienestarService } from './bienestar.service';
 import { PerrosController } from './perros.controller';
 
 @Module({
@@ -22,7 +23,7 @@ import { PerrosController } from './perros.controller';
     ]),
   ],
   controllers: [PerrosController],
-  providers: [PerrosService, PerroValoracionesService],
-  exports: [PerrosService, PerroValoracionesService],
+  providers: [PerrosService, PerroValoracionesService, BienestarService],
+  exports: [PerrosService, PerroValoracionesService, BienestarService],
 })
 export class PerrosModule {}

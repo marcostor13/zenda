@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="es" datatype="plaintext" original="ng2.template">
+    <body>
+      <trans-unit id="home.heroSubtitulo" datatype="html">
+        <source> Reserva alojamientos premium, veterinarios de confianza, peluquerías caninas y mucho más… </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/home/home.component.ts</context>
+          <context context-type="linenumber">72,74</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.exploraServicios" datatype="html">
+        <source>Explora todos nuestros servicios</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/home/home.component.ts</context>
+          <context context-type="linenumber">149,150</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.exploraClaim" datatype="html">
+        <source>Reserva en segundos con los mejores profesionales cerca de ti.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/home/home.component.ts</context>
+          <context context-type="linenumber">150,152</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.porQueEyebrow" datatype="html">
+        <source>La plataforma de tu mascota</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/home/home.component.ts</context>
+          <context context-type="linenumber">178,179</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.porQueTitulo" datatype="html">
+        <source>¿Por qué Doogking.com?</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/home/home.component.ts</context>
+          <context context-type="linenumber">179,180</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.porQueSub" datatype="html">
+        <source>Todo lo que tu perro necesita a lo largo de su vida, en un único sitio y con un solo perfil.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/home/home.component.ts</context>
+          <context context-type="linenumber">180,182</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="navbar.altaEmpresa" datatype="html">
+        <source>Registra tu empresa</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/components/navbar/rs-navbar.component.ts</context>
+          <context context-type="linenumber">43,45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="navbar.ingresar" datatype="html">
+        <source>Ingresar</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/components/navbar/rs-navbar.component.ts</context>
+          <context context-type="linenumber">91,92</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="navbar.comenzar" datatype="html">
+        <source>Comenzar</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/components/navbar/rs-navbar.component.ts</context>
+          <context context-type="linenumber">92,94</context>
+        </context-group>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

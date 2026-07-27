@@ -49,6 +49,17 @@ export class Usuario {
 
   @Prop()
   avatarUrl?: string;
+
+  /**
+   * Consentimiento para comunicaciones comerciales (RGPD). **Sin esto no se
+   * envía nada promocional**, ni siquiera un aviso de reserva abandonada: los
+   * correos transaccionales (confirmación, ajuste de precio) no dependen de él.
+   */
+  @Prop({ type: Boolean, default: false })
+  aceptaMarketing!: boolean;
+
+  @Prop()
+  fechaConsentimientoMarketing?: Date;
 }
 
 export const UsuarioSchema = SchemaFactory.createForClass(Usuario);

@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { AdminApiService, UsuarioAdmin, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
 
 const ROL_BADGE: Record<string, string> = {
@@ -31,7 +32,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-usuarios',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [DatePipe, ReactiveFormsModule, RsPhoneInputComponent],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -169,7 +170,7 @@ const LIMITE = 20;
         <div class="form-row">
           <div class="rs-form-group">
             <label class="rs-label">Teléfono</label>
-            <input formControlName="telefono" class="rs-input" placeholder="+51 999 999 999" />
+            <rs-phone-input formControlName="telefono" etiqueta="Teléfono del usuario" />
           </div>
           <div class="rs-form-group">
             <label class="rs-label">Rol</label>

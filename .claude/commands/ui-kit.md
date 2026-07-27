@@ -59,7 +59,24 @@ RsInputComponent       → rs-input (CVA) RsImageUploadComponent → rs-image-up
 RsCardComponent        → rs-card        AnimateOnScrollDirective / ImgFallbackDirective
 RsBadgeComponent       → rs-badge       shared/media/images.ts (BRAND, CATEGORIA_BADGES,
 RsNavbarComponent      → rs-navbar        HOTEL_IMAGES/ALOJAMIENTO_IMAGES, pexels())
+RsTagsInputComponent   → rs-tags-input (CVA sobre string[]; catálogos en
+                         shared/catalogos/tags.catalogo.ts)
 ```
+
+**Listas de valores → siempre `rs-tags-input`**, nunca un `.rs-inp` donde se escriban
+valores separados por comas: producía entradas con espacios, duplicadas o mal escritas
+que luego no casaban con ningún filtro del buscador. Acepta `[opciones]` (sugerencias),
+`[permiteNuevos]="false"` para catálogos cerrados y `[maximo]`.
+
+**Ciudad o provincia → siempre `rs-place-autocomplete`**, nunca un `.rs-inp` de texto
+libre. Combina el catálogo local de `shared/catalogos/lugares.catalogo.ts` (funciona sin
+clave de Google) con Places cuando está configurado. En un formulario se usa
+`apariencia="campo"`; en listas cerradas, `[catalogoLocal]="provincias" [usaPlaces]="false"`.
+
+**Teléfono → siempre `rs-phone-input`**, nunca un `input type="tel"` suelto. Selector de
+prefijo europeo con bandera (España por defecto) separado del número; el valor del control
+es E.164 (`+34600123456`), que es lo que exige `@IsPhoneNumber()` en el API. Catálogo en
+`shared/catalogos/paises.catalogo.ts`.
 
 Iconos rs-icon caninos: `paw`, `bone`, `scissors`, `stethoscope`, `graduation-cap`, `crown` (+ hotel, truck, star, search…).
 

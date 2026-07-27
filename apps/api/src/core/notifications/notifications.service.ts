@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Rol } from 'shared';
@@ -18,6 +19,7 @@ export class NotificationsService {
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
     @InjectModel(Usuario.name) private readonly usuarioModel: Model<UsuarioDocument>,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -126,6 +128,98 @@ export class NotificationsService {
          original menos el cargo mínimo de gestión.</p>
       <p style="color:#8B9BBC;font-size:13px">Entra en «Mis reservas» en Doogking para aceptar o rechazar el cambio.</p>
     `;
+  }
+
+  /**
+   * Solicitud de reseña con **enlace único** a la reserva concreta (HU-053):
+   * el usuario no tiene que buscar cuál valorar, y el token nos dice si abrió.
+   */
+  async solicitarValoracion(params: {
+    destinatario: string;
+    nombre: string;
+    codigoReserva: string;
+    token: string;
+    esRecordatorio: boolean;
+  }): Promise<void> {
+    const url = `${this.urlBase()}/valorar/${params.token}`;
+
+    await this.enviarYRegistrar({
+      tipo: 'solicitud_valoracion',
+      destinatario: params.destinatario,
+      asunto: params.esRecordatorio
+        ? `¿Cómo fue tu experiencia? — ${params.codigoReserva}`
+        : `Cuéntanos qué tal fue, ${params.nombre}`,
+      cuerpo: this.plantillaValoracion(
+        params.nombre, params.codigoReserva, url, params.esRecordatorio, params.token,
+      ),
+    });
+  }
+
+  /** Aviso de reserva a medias, con el paso donde se quedó (HU-056). */
+  async recuperarReserva(params: {
+    destinatario: string;
+    nombre: string;
+    paso?: string;
+    vertical?: string;
+  }): Promise<void> {
+    await this.enviarYRegistrar({
+      tipo: 'recuperacion_reserva',
+      destinatario: params.destinatario,
+      asunto: 'Tu reserva se quedó a medias',
+      cuerpo: this.plantillaRecuperacion(params.nombre, params.paso, params.vertical),
+    });
+  }
+
+  private plantillaValoracion(
+    nombre: string,
+    codigo: string,
+    url: string,
+    esRecordatorio: boolean,
+    token: string,
+  ): string {
+    return `
+      <h2>${esRecordatorio ? `¿Nos cuentas, ${nombre}?` : `¡Gracias por confiar en nosotros, ${nombre}!`}</h2>
+      <p>Tu reserva <strong>${codigo}</strong> ya está completada. Tu opinión ayuda a otros dueños
+         a elegir bien, y al profesional a mejorar.</p>
+      <p style="margin:24px 0">
+        <a href="${url}" style="background:#FBAE17;color:#00135D;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700">
+          Valorar en 30 segundos
+        </a>
+      </p>
+      <p style="color:#8B9BBC;font-size:13px">
+        Solo se puede valorar una vez por reserva.${esRecordatorio ? ' Este es el último recordatorio que te enviamos.' : ''}
+      </p>
+      <img src="${this.apiUrl()}/eventos/valoracion/${token}/pixel.gif"
+           width="1" height="1" alt="" style="display:none">
+    `;
+  }
+
+  private plantillaRecuperacion(nombre: string, paso?: string, vertical?: string): string {
+    const donde = paso ? `en el paso de <strong>${paso}</strong>` : 'a mitad';
+
+    return `
+      <h2>Hola ${nombre}, tu reserva se quedó ${donde}</h2>
+      <p>Seguimos guardando lo que habías elegido${vertical ? ` en ${vertical}` : ''}.
+         Retomarla te llevará menos de un minuto.</p>
+      <p style="margin:24px 0">
+        <a href="${this.urlBase()}/reservas" style="background:#08258B;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600">
+          Retomar mi reserva
+        </a>
+      </p>
+      <p style="color:#8B9BBC;font-size:13px">
+        Recibes este aviso porque aceptaste comunicaciones comerciales. Puedes desactivarlas
+        desde tu perfil cuando quieras.
+      </p>
+    `;
+  }
+
+  private urlBase(): string {
+    return this.config.get<string>('APP_URL') ?? 'https://doogking.com';
+  }
+
+  /** Base del API: el píxel de apertura lo sirve el backend, no la web. */
+  private apiUrl(): string {
+    return this.config.get<string>('API_URL') ?? 'https://api.doogking.com';
   }
 
   /** Envía el correo de verificación de email con el enlace de confirmación. */

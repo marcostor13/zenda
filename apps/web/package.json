@@ -6,7 +6,9 @@
     "build": "ng build",
     "lint": "ng lint",
     "test": "jest --coverage",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "i18n:extract": "ng extract-i18n",
+    "build:en": "ng build --configuration en"
   },
   "dependencies": {
     "@angular/animations": "^20.0.0",
@@ -14,6 +16,7 @@
     "@angular/compiler": "^20.0.0",
     "@angular/core": "^20.0.0",
     "@angular/forms": "^20.0.0",
+    "@angular/localize": "20.3.25",
     "@angular/platform-browser": "^20.0.0",
     "@angular/platform-browser-dynamic": "^20.0.0",
     "@angular/router": "^20.0.0",

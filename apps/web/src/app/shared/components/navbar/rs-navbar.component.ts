@@ -40,7 +40,7 @@ import { BRAND } from '../../media/images';
         @if (muestraAltaComercio()) {
           <a routerLink="/auth/registro-comercio" class="rs-navbar__link rs-navbar__link--pro">
             <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
-            Registra tu empresa
+            <span i18n="@@navbar.altaEmpresa">Registra tu empresa</span>
           </a>
         }
         @if (estaAutenticado()) {
@@ -88,8 +88,8 @@ import { BRAND } from '../../media/images';
             }
           </div>
         } @else {
-          <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm">Ingresar</a>
-          <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm">Comenzar</a>
+          <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm" i18n="@@navbar.ingresar">Ingresar</a>
+          <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm" i18n="@@navbar.comenzar">Comenzar</a>
         }
       </div>
 

@@ -8,6 +8,13 @@ export { RsSearchBarComponent } from './components/search-bar/rs-search-bar.comp
 export type { BusquedaParams } from './components/search-bar/rs-search-bar.component';
 export * from './verticales/verticales.config';
 export { RsImageUploadComponent } from './components/image-upload/rs-image-upload.component';
+export { RsTagsInputComponent } from './components/tags-input/rs-tags-input.component';
+export { RsPhoneInputComponent } from './components/phone-input/rs-phone-input.component';
+export * from './catalogos/paises.catalogo';
+export { RsPlaceAutocompleteComponent } from './components/place-autocomplete/rs-place-autocomplete.component';
+export type { LugarElegido } from './components/place-autocomplete/rs-place-autocomplete.component';
+export * from './catalogos/tags.catalogo';
+export * from './catalogos/lugares.catalogo';
 export { AnimateOnScrollDirective } from './directives/animate-on-scroll.directive';
 export { ImgFallbackDirective } from './directives/img-fallback.directive';
 export * from './media/images';

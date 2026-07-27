@@ -77,6 +77,42 @@ export class ComerciosRepository implements OnModuleInit {
     return this.comercioModel.findByIdAndUpdate(id, { estado }, { new: true }).exec();
   }
 
+  /**
+   * Actualiza campos sueltos. Un valor `undefined` se elimina del documento en
+   * vez de guardarse como nulo: así una congelación revocada no deja restos que
+   * pudieran reactivarse por error.
+   */
+  async actualizarCampos(
+    id: string,
+    campos: Record<string, unknown>,
+  ): Promise<ComercioDocument | null> {
+    const set: Record<string, unknown> = {};
+    const unset: Record<string, ''> = {};
+
+    for (const [clave, valor] of Object.entries(campos)) {
+      if (valor === undefined) unset[clave] = '';
+      else set[clave] = valor;
+    }
+
+    return this.comercioModel
+      .findByIdAndUpdate(
+        id,
+        {
+          ...(Object.keys(set).length ? { $set: set } : {}),
+          ...(Object.keys(unset).length ? { $unset: unset } : {}),
+        },
+        { new: true },
+      )
+      .exec();
+  }
+
+  /** Comercios cuya congelación de socio fundador ha vencido. */
+  async listarCongelacionesVencidas(): Promise<ComercioDocument[]> {
+    return this.comercioModel
+      .find({ socioFundador: true, congelacionHasta: { $lte: new Date() } })
+      .exec();
+  }
+
   async listar(filtros: { estado?: EstadoComercio } = {}): Promise<ComercioDocument[]> {
     return this.comercioModel.find(filtros).sort({ createdAt: -1 }).lean().exec() as Promise<ComercioDocument[]>;
   }

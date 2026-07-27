@@ -38,6 +38,22 @@ export class FavoritosService {
     return this.favoritosRepo.listarServicioIds(usuarioId);
   }
 
+  // ── Lugares de la comunidad (misma acción del usuario, misma colección) ──
+
+  async agregarLugar(usuarioId: string, lugarId: string): Promise<{ lugarId: string; favorito: boolean }> {
+    await this.favoritosRepo.agregarLugar(usuarioId, lugarId);
+    return { lugarId, favorito: true };
+  }
+
+  async eliminarLugar(usuarioId: string, lugarId: string): Promise<{ lugarId: string; favorito: boolean }> {
+    await this.favoritosRepo.eliminarLugar(usuarioId, lugarId);
+    return { lugarId, favorito: false };
+  }
+
+  listarLugarIds(usuarioId: string): Promise<string[]> {
+    return this.favoritosRepo.listarLugarIds(usuarioId);
+  }
+
   contar(usuarioId: string): Promise<number> {
     return this.favoritosRepo.contar(usuarioId);
   }

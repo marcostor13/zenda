@@ -7,6 +7,8 @@ import { AvailabilityModule } from '../availability/availability.module';
 import { CuponesModule } from '../cupones/cupones.module';
 import { PerrosModule } from '../perros/perros.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ComisionConfigsModule } from '../comision-configs/comision-configs.module';
+import { EventosModule } from '../eventos/eventos.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
     CuponesModule,
     PerrosModule,
     NotificationsModule,
+    ComisionConfigsModule,
+    EventosModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

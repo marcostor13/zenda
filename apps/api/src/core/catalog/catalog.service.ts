@@ -17,6 +17,7 @@ const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarD
   veterinaria: ['citasDisponibles'],
   peluqueria: ['cuposDisponibles'],
   adiestramiento: ['cuposDisponibles'],
+  cuidadores: ['cuposDisponibles'],
   hoteles: ['unidadesDisponibles'],
 };
 
@@ -59,6 +60,16 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'accesoZonasComunes', 'debeIrConCorrea', 'debeLlevarBozalSiCorresponde',
     'checkIn', 'checkOut', 'fianza', 'unidadesDisponibles',
   ],
+  seguros: [
+    'tiposSeguro', 'limitesCobertura', 'condicionesAdmision', 'primaAnualBase',
+    'descuentoPagoAnualPct', 'duracionMeses', 'renovacionAutomatica', 'cupoPolizas',
+    'documentoCondicionesUrl',
+  ],
+  cuidadores: [
+    'modalidades', 'precioVisita', 'precioDiaCompleto', 'precioNoche', 'duracionVisitaMin',
+    'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP', 'administraMedicacion',
+    'radioDesplazamientoKm', 'cuposDisponibles', 'horario',
+  ],
 };
 
 /** Campos que deben venir informados para que el listado sea reservable desde el día uno. */
@@ -69,6 +80,8 @@ const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
   peluqueria: [],
   adiestramiento: ['precioSesion'],
   hoteles: [],
+  seguros: ['primaAnualBase', 'tiposSeguro'],
+  cuidadores: ['precioVisita'],
 };
 
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
@@ -515,6 +528,13 @@ export class CatalogService {
       'razasEspecificasRestringidas', 'especiesPermitidas', 'suplementoPorTamanoMascota',
       'suplementoSegundaMascotaPorNoche', 'serviciosPetfriendly', 'puedeQuedarseSoloEnHabitacion',
       'accesoZonasComunes', 'debeIrConCorrea', 'debeLlevarBozalSiCorresponde', 'fianza', 'unidadesDisponibles',
+      // seguros
+      'tiposSeguro', 'limitesCobertura', 'condicionesAdmision', 'primaAnualBase',
+      'descuentoPagoAnualPct', 'duracionMeses', 'renovacionAutomatica', 'documentoCondicionesUrl',
+      // cuidadores a domicilio
+      'modalidades', 'precioVisita', 'precioDiaCompleto', 'precioNoche', 'duracionVisitaMin',
+      'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP', 'administraMedicacion',
+      'radioDesplazamientoKm',
       // comunes a citas/cupos
       'cuposDisponibles', 'horario',
     ];

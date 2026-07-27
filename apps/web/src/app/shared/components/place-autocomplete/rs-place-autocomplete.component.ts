@@ -1,9 +1,10 @@
 import {
-  ChangeDetectionStrategy, Component, ElementRef, HostListener, forwardRef, inject, input, output, signal,
+  ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, forwardRef, inject, input, output, signal,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
 import { CoordenadasLugar, GeoService, SugerenciaLugar } from '../../../core/geo/geo.service';
+import { CIUDADES_ES } from '../../catalogos/lugares.catalogo';
 import { RsIconComponent } from '../icon/rs-icon.component';
 
 /**
@@ -15,12 +16,28 @@ export interface LugarElegido extends CoordenadasLugar {
   placeId: string;
 }
 
+/** Marca las sugerencias que salen del catálogo local, sin `placeId` real. */
+const ORIGEN_LOCAL = 'local:';
+
+/** Compara ignorando mayúsculas y tildes: "Cadiz" encuentra "Cádiz". */
+const normalizar = (texto: string): string =>
+  texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
 /**
- * Campo de población con sugerencias desde la **primera letra** (P6). Es un
- * `ControlValueAccessor` para encajar tal cual en el formulario del buscador.
+ * Campo de población: **siempre un selector con buscador**, nunca un texto libre
+ * a ciegas. Sugiere desde la primera letra (P6) y también al enfocar sin escribir.
  *
- * Degrada a texto libre: si el proxy de geo no responde no aparece ninguna
- * lista, pero lo escrito sigue siendo una búsqueda válida por nombre de ciudad.
+ * Dos fuentes que se complementan:
+ * - **Catálogo local** de poblaciones españolas, que funciona siempre.
+ * - **Google Places**, que afina y aporta coordenadas cuando hay clave.
+ *
+ * Sin clave de Places el campo sigue siendo un selector real con el catálogo; el
+ * antiguo comportamiento (lista vacía y a escribir a mano) dejaba al usuario sin
+ * ninguna ayuda justo en el campo que decide los resultados de la búsqueda.
+ *
+ * Se sigue admitiendo escribir una población que no esté en ninguna de las dos
+ * fuentes: en España hay más de 8.000 municipios y bloquear el campo impediría
+ * dar de alta un comercio en un pueblo pequeño.
  */
 @Component({
   selector: 'rs-place-autocomplete',
@@ -36,7 +53,7 @@ export interface LugarElegido extends CoordenadasLugar {
   ],
   template: `
 <div class="pa">
-  <div class="pa__ctrl">
+  <div class="pa__ctrl" [class.is-campo]="apariencia() === 'campo'">
     <rs-icon name="map-pin" [size]="18" [stroke]="2"></rs-icon>
     <input class="pa__inp" type="text" role="combobox" autocomplete="off"
            [id]="inputId()"
@@ -79,6 +96,16 @@ export interface LugarElegido extends CoordenadasLugar {
     .pa { position: relative; }
 
     .pa__ctrl { display: flex; align-items: center; gap: var(--sp-2); color: var(--t-400); }
+
+    /* Dentro de un formulario adopta el aspecto de un .rs-inp normal. */
+    .pa__ctrl.is-campo {
+      min-height: 44px; padding: var(--sp-2) var(--sp-3);
+      background: var(--c-card);
+      border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      transition: border-color var(--d-2), box-shadow var(--d-2);
+
+      &:focus-within { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-lo); }
+    }
 
     .pa__inp {
       flex: 1; min-width: 0;
@@ -130,6 +157,14 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
 
   readonly inputId = input('pa-ciudad');
   readonly placeholder = input('Ciudad, zona o dirección');
+  /** `campo` lo enmarca como un `.rs-inp`; `plana` lo deja embebido (buscador). */
+  readonly apariencia = input<'plana' | 'campo'>('plana');
+  /** Lista local que siempre está disponible; por defecto, poblaciones españolas. */
+  readonly catalogoLocal = input<readonly string[]>(CIUDADES_ES);
+  /** `false` en listas cerradas (provincias): no tiene sentido consultar Places. */
+  readonly usaPlaces = input(true);
+  /** Cuántas sugerencias locales mostrar al enfocar sin haber escrito nada. */
+  readonly sugerenciasIniciales = input(8);
 
   /** Se emite al elegir una sugerencia, con las coordenadas ya resueltas. */
   readonly lugarElegido = output<LugarElegido>();
@@ -137,13 +172,43 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
   readonly confirmado = output<void>();
 
   readonly texto = signal('');
-  readonly sugerencias = signal<SugerenciaLugar[]>([]);
+  /** Sugerencias devueltas por Places; se funden con las del catálogo local. */
+  private readonly remotas = signal<SugerenciaLugar[]>([]);
   readonly cargando = signal(false);
   readonly deshabilitado = signal(false);
   readonly indiceActivo = signal(-1);
   private readonly abierto = signal(false);
 
   readonly listaId = 'pa-lista';
+
+  /** Poblaciones del catálogo que casan con lo escrito (o las primeras). */
+  private readonly locales = computed<SugerenciaLugar[]>(() => {
+    const filtro = normalizar(this.texto());
+    const casan = filtro
+      ? this.catalogoLocal().filter((c) => normalizar(c).includes(filtro))
+      : this.catalogoLocal().slice(0, this.sugerenciasIniciales());
+
+    // Las que empiezan por lo escrito van primero: es lo que se está buscando.
+    const ordenadas = filtro
+      ? [...casan].sort((a, b) =>
+          Number(normalizar(b).startsWith(filtro)) - Number(normalizar(a).startsWith(filtro)))
+      : casan;
+
+    return ordenadas.slice(0, 8).map((nombre) => ({
+      placeId: `${ORIGEN_LOCAL}${nombre}`,
+      descripcion: nombre,
+      principal: nombre,
+      secundario: '',
+    }));
+  });
+
+  /** Catálogo local primero (instantáneo) y debajo lo que aporte Places. */
+  readonly sugerencias = computed<SugerenciaLugar[]>(() => {
+    const locales = this.locales();
+    const yaEstan = new Set(locales.map((s) => normalizar(s.principal)));
+    const remotas = this.remotas().filter((s) => !yaEstan.has(normalizar(s.principal)));
+    return [...locales, ...remotas].slice(0, 12);
+  });
 
   private readonly termino$ = new Subject<string>();
   private readonly destruido$ = new Subject<void>();
@@ -160,7 +225,7 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
         takeUntil(this.destruido$),
       )
       .subscribe((lista) => {
-        this.sugerencias.set(lista);
+        this.remotas.set(lista);
         this.indiceActivo.set(-1);
         this.cargando.set(false);
       });
@@ -181,8 +246,8 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
     this.abierto.set(true);
 
     // Desde el primer carácter, tal y como pidió el cliente (P6).
-    if (!valor.trim()) {
-      this.sugerencias.set([]);
+    if (!valor.trim() || !this.usaPlaces()) {
+      this.remotas.set([]);
       this.cargando.set(false);
       return;
     }
@@ -190,8 +255,9 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
     this.termino$.next(valor.trim());
   }
 
+  /** Al enfocar siempre se despliega: el catálogo local nunca está vacío. */
   alEnfocar(): void {
-    if (this.sugerencias().length) this.abierto.set(true);
+    this.abierto.set(true);
   }
 
   alPerderFoco(): void {
@@ -230,8 +296,15 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
   async elegir(sugerencia: SugerenciaLugar): Promise<void> {
     this.texto.set(sugerencia.principal);
     this.alCambiar(sugerencia.principal);
-    this.sugerencias.set([]);
+    this.remotas.set([]);
     this.abierto.set(false);
+
+    // Las del catálogo local no tienen `placeId` real: no hay detalle que pedir
+    // ni sesión de Places que cerrar, así que se resuelven sin salir a la red.
+    if (sugerencia.placeId.startsWith(ORIGEN_LOCAL)) {
+      this.lugarElegido.emit({ placeId: '', ciudad: sugerencia.principal, lat: NaN, lng: NaN });
+      return;
+    }
 
     // Cierra la sesión de facturación de Places antes de pedir el detalle.
     this.geoService.cerrarSesion();

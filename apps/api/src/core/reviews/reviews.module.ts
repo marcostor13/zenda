@@ -7,6 +7,7 @@ import { Usuario, UsuarioSchema } from '../users/usuario.schema';
 import { ReviewsRepository } from './reviews.repository';
 import { ReviewsService } from './reviews.service';
 import { ReviewsController } from './reviews.controller';
+import { EventosModule } from '../eventos/eventos.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ReviewsController } from './reviews.controller';
       { name: Servicio.name, schema: ServicioSchema },
       { name: Usuario.name, schema: UsuarioSchema },
     ]),
+    EventosModule,
   ],
   controllers: [ReviewsController],
   providers: [ReviewsService, ReviewsRepository],

@@ -22,6 +22,23 @@ describe('verticales.config', () => {
     }
   });
 
+  it('debería incluir Seguros como vertical, no como añadido transversal', () => {
+    const seguros = verticalUi(VerticalKey.SEGUROS);
+
+    expect(seguros.key).toBe(VerticalKey.SEGUROS);
+    expect(seguros.route).toBe('/seguros');
+    // No se reserva por fechas: se contrata según elegibilidad.
+    expect(seguros.reservaPorNoches).toBe(false);
+  });
+
+  it('debería dar de alta cuidadores a domicilio, sin paseadores', () => {
+    const claves = VERTICALES_UI.map((v) => v.key);
+
+    expect(claves).toContain(VerticalKey.CUIDADORES);
+    // Paseadores queda explícitamente fuera de alcance (HU-048).
+    expect(claves).not.toContain('paseadores');
+  });
+
   it('debería reservar por noches solo alojamiento y hoteles', () => {
     const porNoches = VERTICALES_UI.filter((v) => v.reservaPorNoches).map((v) => v.key);
     expect(porNoches).toEqual([VerticalKey.ALOJAMIENTO, VerticalKey.HOTELES]);

@@ -4,6 +4,8 @@ import { RouterLink } from '@angular/router';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { RsPlaceAutocompleteComponent } from '../../../shared/components/place-autocomplete/rs-place-autocomplete.component';
+import { RsPhoneInputComponent } from '../../../shared/components/phone-input/rs-phone-input.component';
 import { iconoVertical } from '../../panel-comercio/vertical-icon';
 
 const BORRADOR_KEY = 'dk_registro_comercio_borrador';
@@ -11,7 +13,10 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 @Component({
   selector: 'app-registro-comercio',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, RsIconComponent],
+  imports: [
+    ReactiveFormsModule, RouterLink, RsIconComponent,
+    RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+  ],
   template: `
     <div class="rs-auth">
       <div class="rs-auth__card" style="max-width:560px">
@@ -107,9 +112,8 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
             <div class="rs-field">
               <label for="ciudad" class="rs-lbl">Ciudad</label>
-              <input id="ciudad" type="text" formControlName="ciudad" class="rs-inp"
-                     autocomplete="address-level2" [class.rs-inp--error]="invalido(negocioForm, 'ciudad')"
-                     placeholder="Ej. Madrid" />
+              <rs-place-autocomplete inputId="ciudad" formControlName="ciudad"
+                                     apariencia="campo" placeholder="Busca tu población…" />
               @if (invalido(negocioForm, 'ciudad')) {
                 <span class="rs-field-err">Ingresa tu ciudad</span>
               }
@@ -145,8 +149,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
             <div class="rs-field">
               <label for="telefono" class="rs-lbl">Teléfono <span class="wz-opt">(opcional)</span></label>
-              <input id="telefono" type="tel" formControlName="telefono" class="rs-inp" autocomplete="tel"
-                     placeholder="+34 600 000 000" />
+              <rs-phone-input inputId="telefono" formControlName="telefono" etiqueta="Teléfono" />
             </div>
 
             <div class="rs-field">

@@ -47,6 +47,11 @@ export interface ReservaApi {
   pagoId?: string;
   suplementos?: SuplementoAplicadoApi[];
   montoAjustado?: number;
+  /** Título del servicio, cuando el API lo adjunta para el listado. */
+  servicioTitulo?: string;
+  /** Viaje multi-vertical: reserva principal a la que está vinculada. */
+  reservaMadreId?: string;
+  carritoId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -85,6 +90,11 @@ export class ReservasService {
 
   puntos(): Promise<PuntosApi> {
     return firstValueFrom(this.http.get<PuntosApi>(`${this.base}/puntos`));
+  }
+
+  /** Todas las reservas de un mismo viaje, en orden cronológico (HU-037). */
+  viaje(reservaMadreId: string): Promise<ReservaApi[]> {
+    return firstValueFrom(this.http.get<ReservaApi[]>(`${this.base}/viaje/${reservaMadreId}`));
   }
 
   obtener(id: string): Promise<ReservaApi> {

@@ -22,6 +22,8 @@ describe('PaymentsService', () => {
     comercioId: { toString: () => 'comercio-1' },
     vertical: VerticalKey.ALOJAMIENTO,
     montoSubtotal: 500,
+    // Comisión fijada al crear la reserva; el cobro usa esta, no la vigente hoy.
+    comisionMonto: 75,
     moneda: 'EUR',
     reservaId: 'reserva-1',
   };
@@ -137,6 +139,20 @@ describe('PaymentsService', () => {
       expect(desglose.comisionPlataforma).toBe(comision);
       expect(desglose.stripeFee).toBe(stripeFee);
       expect(desglose.montoLiquidacion).toBe(liquidacion);
+    });
+
+    it('debería cobrar la comisión pactada en la reserva, no la vigente hoy', async () => {
+      // El vertical está al 15 %, pero esta reserva se creó con un 8 % (tramo
+      // bajo o socio fundador). Al comercio se le cobra lo que se le dijo.
+      const conComisionPactada = { ...reservaMock, comisionMonto: 40 };
+
+      const desglose = await service.calcularDesglose(conComisionPactada);
+
+      expect(desglose.comisionPlataforma).toBe(40);
+      // Y la liquidación se recalcula sobre esa comisión, no sobre la actual.
+      expect(desglose.montoLiquidacion).toBe(
+        Math.round((desglose.montoTotal - 40 - desglose.stripeFee) * 100) / 100,
+      );
     });
   });
 

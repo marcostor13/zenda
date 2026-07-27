@@ -43,6 +43,8 @@ export const CATEGORIA_ICONOS: Record<string, string> = {
   peluqueria: '/icons/peluqueria.svg',
   adiestramiento: '/icons/adiestramiento.svg',
   hoteles: '/icons/hoteles.svg',
+  seguros: '/icons/seguros.svg',
+  cuidadores: '/icons/cuidadores.svg',
   mas: '/icons/mas-servicios.svg',
 };
 

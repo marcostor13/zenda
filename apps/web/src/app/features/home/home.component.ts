@@ -3,7 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { VerticalKey } from 'shared';
+import { TipoLugar, VerticalKey } from 'shared';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
@@ -68,7 +68,7 @@ type SearchMode = 'filtros' | 'ia';
           </span>
           <span class="hero__title-line hero__title-line--gold">en un solo lugar</span>
         </h1>
-        <p class="hero__subtitle">
+        <p class="hero__subtitle" i18n="@@home.heroSubtitulo">
           Reserva alojamientos premium, veterinarios de confianza, peluquerías caninas y mucho más…
         </p>
       </div>
@@ -146,8 +146,8 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
-          <h2 class="rs-h3">Explora todos nuestros servicios</h2>
-          <p>Reserva en segundos con los mejores profesionales cerca de ti.</p>
+          <h2 class="rs-h3" i18n="@@home.exploraServicios">Explora todos nuestros servicios</h2>
+          <p i18n="@@home.exploraClaim">Reserva en segundos con los mejores profesionales cerca de ti.</p>
         </div>
       </div>
 
@@ -175,9 +175,9 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head sec-head--center" rsAnim>
         <div>
-          <p class="why__eyebrow">La plataforma de tu mascota</p>
-          <h2 class="rs-h3">¿Por qué Doogking.com?</h2>
-          <p>Todo lo que tu perro necesita a lo largo de su vida, en un único sitio y con un solo perfil.</p>
+          <p class="why__eyebrow" i18n="@@home.porQueEyebrow">La plataforma de tu mascota</p>
+          <h2 class="rs-h3" i18n="@@home.porQueTitulo">¿Por qué Doogking.com?</h2>
+          <p i18n="@@home.porQueSub">Todo lo que tu perro necesita a lo largo de su vida, en un único sitio y con un solo perfil.</p>
         </div>
       </div>
 
@@ -269,6 +269,37 @@ type SearchMode = 'filtros' | 'ia';
               </a>
             </div>
           </article>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ EXPLORA CON TU MASCOTA ══════════════════════════════════
+       Contenido de comunidad, no reservable: es lo que diferencia a
+       Doogking de un directorio de servicios. -->
+  <section class="rs-section rs-section--sm explora-section">
+    <div class="rs-wrap rs-wrap--2xl">
+      <div class="sec-head" rsAnim>
+        <div>
+          <h2 class="rs-h3">Explora con tu mascota</h2>
+          <p>Playas, parques y rutas donde tu perro es bienvenido de verdad.</p>
+        </div>
+        <a routerLink="/explora/planificador" class="sec-head__link">
+          Planificar un viaje con IA
+          <rs-icon name="arrow-right" [size]="16" [stroke]="2"></rs-icon>
+        </a>
+      </div>
+
+      <div class="explora-grid" rsAnim>
+        @for (e of exploraDestacados; track e.titulo) {
+          <a class="explora-card" routerLink="/explora" [queryParams]="{ tipo: e.tipo }">
+            <img [src]="e.imagen" [alt]="e.titulo" loading="lazy" rsImg />
+            <span class="explora-card__veil"></span>
+            <span class="explora-card__meta">
+              <strong>{{ e.titulo }}</strong>
+              <em>{{ e.detalle }}</em>
+            </span>
+          </a>
         }
       </div>
     </div>
@@ -635,6 +666,38 @@ type SearchMode = 'filtros' | 'ia';
       color: var(--dk-blue);
 
       &:hover { color: var(--dk-blue-deep); text-decoration: underline; }
+    }
+
+    /* ══ EXPLORA CON TU MASCOTA ═════════════════════════════════════ */
+    .explora-section { background: var(--c-card); }
+
+    .explora-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4);
+      @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); }
+      @media (max-width: 560px) { grid-template-columns: 1fr; }
+    }
+
+    .explora-card {
+      position: relative; display: block;
+      aspect-ratio: 3/4; overflow: hidden;
+      border-radius: var(--r-xl); text-decoration: none;
+
+      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
+      &:hover img { transform: scale(1.06); }
+      @media (prefers-reduced-motion: reduce) { &:hover img { transform: none; } }
+    }
+
+    .explora-card__veil {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(0,19,93,0) 40%, rgba(0,19,93,.78) 100%);
+    }
+
+    .explora-card__meta {
+      position: absolute; left: var(--sp-4); right: var(--sp-4); bottom: var(--sp-4);
+      display: flex; flex-direction: column; gap: 2px; color: #fff;
+
+      strong { font-family: var(--font-display); font-size: var(--f-md); font-weight: var(--w-7); }
+      em { font-style: normal; font-size: var(--f-xs); opacity: .88; }
     }
 
     /* ══ ¿POR QUÉ DOOGKING? ═════════════════════════════════════════ */
@@ -1110,6 +1173,14 @@ export class HomeComponent {
       titulo: 'Atención cuando la necesites',
       texto: 'Soporte antes, durante y después de la reserva, y pago protegido hasta que el servicio se presta.',
     },
+  ];
+
+  /** Puertas de entrada a la comunidad; cada una filtra `/explora` por tipo. */
+  readonly exploraDestacados = [
+    { tipo: TipoLugar.PLAYA, titulo: 'Playas caninas', detalle: 'Baño permitido todo el año', imagen: HOTEL_IMAGES[2] },
+    { tipo: TipoLugar.PARQUE, titulo: 'Parques caninos', detalle: 'Vallados y con agility', imagen: BRAND.heroHome },
+    { tipo: TipoLugar.RUTA, titulo: 'Rutas y ríos', detalle: 'Senderos para ir juntos', imagen: HOTEL_IMAGES[4] },
+    { tipo: TipoLugar.RESTAURANTE, titulo: 'Restaurantes', detalle: 'Con perro en la mesa', imagen: HOTEL_IMAGES[1] },
   ];
 
   readonly pasos = [

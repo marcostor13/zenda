@@ -76,6 +76,14 @@ export class Reserva {
   @Prop({ required: true, type: Number })
   comisionMonto!: number;
 
+  /**
+   * De dónde salió el porcentaje aplicado (socio fundador, override, tramo…).
+   * Se guarda para que el reporte financiero pueda explicar cada comisión sin
+   * recalcularla, y para auditar si un comercio reclama su tarifa.
+   */
+  @Prop()
+  comisionOrigen?: string;
+
   @Prop({ required: true, type: Number })
   montoTotal!: number;
 
@@ -96,6 +104,18 @@ export class Reserva {
 
   @Prop()
   holdId?: string;
+
+  // --- Viaje multi-vertical (Ola 5) ---
+  /**
+   * Reserva principal del viaje (normalmente el alojamiento). Es **solo una
+   * relación de presentación**: cancelar la madre no cancela a las hijas, cada
+   * reserva tiene su propia política y su propio ciclo de vida (HU-035).
+   */
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva' })
+  reservaMadreId?: Types.ObjectId;
+
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Carrito' })
+  carritoId?: Types.ObjectId;
 
   // --- Ciclo de precio estimado -> suplemento -> aprobación (docs/mejora_servicios.md §7) ---
   @Prop({ type: [Object], default: [] })
@@ -132,3 +152,6 @@ export const ReservaSchema = SchemaFactory.createForClass(Reserva);
 
 ReservaSchema.index({ usuarioId: 1, estado: 1, createdAt: -1 });
 ReservaSchema.index({ comercioId: 1, estado: 1, fechaInicio: 1 });
+// Vista "Mi viaje": todas las reservas de un mismo viaje, en orden cronológico.
+ReservaSchema.index({ reservaMadreId: 1, fechaInicio: 1 }, { sparse: true });
+ReservaSchema.index({ carritoId: 1 }, { sparse: true });

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Reserva, ReservaDocument, SuplementoAplicado } from './reserva.schema';
@@ -7,8 +7,10 @@ import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
 import { construirSnapshotPerro } from '../perros/perro-snapshot.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ComisionResolverService } from '../comision-configs/comision-resolver.service';
+import { EventosService } from '../eventos/eventos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT } from 'shared';
+import { VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento } from 'shared';
 import { nanoid } from 'nanoid';
 
 export interface SuplementoSolicitado {
@@ -42,12 +44,16 @@ const MAX_OCURRENCIAS_RECURRENCIA = 52;
 
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     private readonly availabilityRegistry: AvailabilityRegistry,
     private readonly cuponesService: CuponesService,
     private readonly perrosService: PerrosService,
     private readonly notificationsService: NotificationsService,
+    private readonly comisionResolver: ComisionResolverService,
+    private readonly eventosService: EventosService,
   ) {}
 
   async crear(params: CrearReservaParams): Promise<ReservaDocument> {
@@ -90,7 +96,17 @@ export class BookingsService {
       montoSubtotal = Math.round((montoSubtotal - descuentoMonto) * 100) / 100;
     }
 
-    const comisionPct = params.comisionPct ?? COMISION_PCT_DEFAULT;
+    // La jerarquía de comisiones vive entera en el resolver: socio fundador →
+    // override del comercio → tramo por importe → vertical → defecto.
+    const comision = params.comisionPct != null
+      ? { comisionPct: params.comisionPct, origen: 'override_comercio' as const }
+      : await this.comisionResolver.resolver({
+          vertical: params.vertical,
+          montoSubtotal,
+          comercioId: params.comercioId,
+        });
+
+    const comisionPct = comision.comisionPct;
     const comisionMonto = montoSubtotal * comisionPct;
     const iva = montoSubtotal * IVA_RATE;
     const montoTotal = montoSubtotal + iva;
@@ -109,6 +125,7 @@ export class BookingsService {
       cantidad: params.cantidad ?? 1,
       montoSubtotal,
       comisionMonto,
+      comisionOrigen: comision.origen,
       montoTotal,
       descuentoMonto,
       cuponCodigo: params.cuponCodigo,
@@ -188,18 +205,37 @@ export class BookingsService {
   }
 
   async confirmar(reservaId: string): Promise<ReservaDocument> {
+    // Revalidación anti-doble-reserva (DK-A04): entre tomar el SlotHold y
+    // cobrar pueden pasar más de sus 15 minutos de vida. Si el hold caducó y la
+    // plaza ya no está, confirmar sin más sería vender dos veces lo mismo.
+    const incidencia = await this.revalidarAntesDeConfirmar(reservaId);
+
     const reserva = await this.reservaModel.findByIdAndUpdate(
       reservaId,
       {
-        estado: ReservaEstado.CONFIRMADA,
+        estado: incidencia ? ReservaEstado.EN_DISPUTA : ReservaEstado.CONFIRMADA,
         holdId: undefined,
-        $push: { historialEstados: { estado: ReservaEstado.CONFIRMADA, por: 'pago', at: new Date() } },
+        $push: {
+          historialEstados: {
+            estado: incidencia ? ReservaEstado.EN_DISPUTA : ReservaEstado.CONFIRMADA,
+            por: 'pago',
+            at: new Date(),
+            ...(incidencia ? { motivo: incidencia } : {}),
+          },
+        },
       },
       { new: true },
     ).exec();
 
     if (!reserva) {
       throw new DomainException('Reserva no encontrada', 404);
+    }
+
+    if (incidencia) {
+      // El cliente ya pagó: no se le deja sin nada en silencio. La reserva entra
+      // en disputa para que el admin la resuelva (reubicar o reembolsar).
+      this.logger.error(`Reserva ${reservaId} pagada sin plaza disponible: ${incidencia}`);
+      return reserva;
     }
 
     // El uso del cupón se contabiliza al confirmar la reserva (pago aprobado).
@@ -215,6 +251,39 @@ export class BookingsService {
     ).exec();
 
     return reserva;
+  }
+
+  /**
+   * Comprueba que la plaza sigue siendo del cliente justo antes de confirmar.
+   *
+   * Si el `SlotHold` sigue vivo no hay nada que revisar: la plaza está retenida.
+   * Si caducó, se vuelve a pedir; solo si tampoco eso funciona hay incidencia.
+   * Devuelve el motivo si la reserva no puede honrarse, o `null` si todo bien.
+   */
+  private async revalidarAntesDeConfirmar(reservaId: string): Promise<string | null> {
+    const reserva = await this.reservaModel.findById(reservaId).lean().exec();
+    if (!reserva) return null;
+
+    // Hold vigente: la plaza está retenida, no hace falta comprobar nada.
+    if (reserva.holdId) return null;
+
+    try {
+      const estrategia = this.availabilityRegistry.obtener(reserva.vertical);
+      const disponibilidad = await estrategia.checkAvailability(reserva.servicioId.toString(), {
+        fechaInicio: reserva.fechaInicio,
+        fechaFin: reserva.fechaFin,
+        cantidad: reserva.cantidad ?? 1,
+        parametrosExtra: reserva.detalle,
+      });
+
+      return disponibilidad.disponible
+        ? null
+        : 'La retención de plaza caducó durante el pago y el servicio ya no tiene disponibilidad.';
+    } catch (error) {
+      // Un fallo al comprobar no debe impedir confirmar una reserva ya pagada.
+      this.logger.warn(`No se pudo revalidar la reserva ${reservaId}: ${error}`);
+      return null;
+    }
   }
 
   async cancelar(reservaId: string, usuarioId: string): Promise<ReservaDocument> {
@@ -259,7 +328,18 @@ export class BookingsService {
 
     reserva.estado = ReservaEstado.COMPLETADA;
     reserva.historialEstados.push({ estado: ReservaEstado.COMPLETADA, por: `comercio:${comercioId}`, at: new Date() });
-    return reserva.save();
+    const guardada = await reserva.save();
+
+    // Dispara la solicitud automática de reseña en la siguiente tanda (HU-053).
+    void this.eventosService.registrar({
+      tipo: TipoEvento.SERVICIO_COMPLETADO,
+      usuarioId: reserva.usuarioId.toString(),
+      reservaId: reserva._id.toString(),
+      servicioId: reserva.servicioId.toString(),
+      vertical: reserva.vertical,
+    });
+
+    return guardada;
   }
 
   /**
@@ -434,6 +514,25 @@ export class BookingsService {
     }
 
     return reserva;
+  }
+
+  /**
+   * Todas las reservas de un mismo viaje (HU-037): la madre y las vinculadas a
+   * ella, en orden cronológico. Cada una conserva su estado propio, así que la
+   * vista puede mostrar un viaje con el hotel confirmado y la peluquería
+   * cancelada sin que eso sea una inconsistencia.
+   */
+  async listarViaje(reservaMadreId: string, usuarioId: string): Promise<ReservaDocument[]> {
+    const madre = await this.obtenerDeUsuario(reservaMadreId, usuarioId);
+
+    const vinculadas = await this.reservaModel
+      .find({ reservaMadreId: madre._id, usuarioId: new Types.ObjectId(usuarioId) })
+      .sort({ fechaInicio: 1 })
+      .exec();
+
+    return [madre, ...vinculadas].sort(
+      (a, b) => a.fechaInicio.getTime() - b.fechaInicio.getTime(),
+    );
   }
 
   async listarPorUsuario(usuarioId: string): Promise<ReservaDocument[]> {

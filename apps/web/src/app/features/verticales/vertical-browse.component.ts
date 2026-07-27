@@ -7,6 +7,7 @@ import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-sear
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
+import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
 import { VerticalUi, verticalUi } from '../../shared/verticales/verticales.config';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
 
@@ -106,6 +107,34 @@ const CONFIGS: Record<string, VerticalConfig> = {
     ],
     price: (c) => c.precioPorNoche,
   },
+  seguros: {
+    vertical: 'seguros',
+    // No se "reserva": se contrata, y el precio es orientativo hasta que la
+    // aseguradora valida los datos declarados (HU-040).
+    cta: 'Ver cobertura', priceLabel: 'prima anual desde',
+    confirmMsg: '✓ Solicitud enviada. La aseguradora validará los datos antes de emitir la póliza.',
+    badge: (c) => `🛡️ ${((c.extra['tiposSeguro'] as string[] | undefined) ?? []).length} coberturas`,
+    titulo3: (c) => c.nombre,
+    loc: (c) => `📍 ${c.ciudad}`,
+    meta: (c) => [
+      `📅 ${(c.extra['duracionMeses'] as number | undefined) ?? 12} meses de vigencia`,
+      (c.extra['renovacionAutomatica'] ?? true) ? '🔁 Renovación automática' : '🔁 Sin renovación automática',
+    ],
+    price: (c) => (c.extra['primaAnualBase'] as number) ?? c.precioPorNoche,
+  },
+  cuidadores: {
+    vertical: 'cuidadores',
+    cta: 'Reservar visita', priceLabel: 'visita desde',
+    confirmMsg: '✓ Visita solicitada. Continúa al pago para confirmarla.',
+    badge: (c) => (c.extra['administraMedicacion'] ? '💊 Administra medicación' : '🏠 A domicilio'),
+    titulo3: (c) => c.nombre,
+    loc: (c) => `📍 ${c.ciudad}`,
+    meta: (c) => [
+      `⏱️ ${(c.extra['duracionVisitaMin'] as number | undefined) ?? 45} min por visita`,
+      `🚗 Hasta ${(c.extra['radioDesplazamientoKm'] as number | undefined) ?? 10} km`,
+    ],
+    price: (c) => (c.extra['precioVisita'] as number) ?? c.precioPorNoche,
+  },
 };
 
 @Component({
@@ -113,7 +142,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
   standalone: true,
   imports: [
     RsNavbarComponent, RsSearchBarComponent, ImgFallbackDirective,
-    AnimateOnScrollDirective, RsFavoritoBtnComponent,
+    AnimateOnScrollDirective, RsFavoritoBtnComponent, ExperienciasCercaComponent,
   ],
   template: `
 <div class="vb-page">
@@ -192,6 +221,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
           }
         </div>
       }
+
+      <app-experiencias-cerca [ciudad]="busqueda().ciudad" />
     </div>
   </section>
 </div>
@@ -245,7 +276,8 @@ export class VerticalBrowseComponent implements OnInit {
   readonly solicitadoId = signal<string | null>(null);
 
   /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
-  private readonly busqueda = signal<Busqueda>({});
+  /** Pública: la lee también el carrusel de experiencias de la comunidad. */
+  readonly busqueda = signal<Busqueda>({});
 
   /**
    * Resume lo que el usuario pidió (fecha, hora, mascota) junto al recuento:

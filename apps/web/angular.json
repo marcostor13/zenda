@@ -16,6 +16,12 @@
       "root": "",
       "sourceRoot": "src",
       "prefix": "app",
+      "i18n": {
+        "sourceLocale": "es",
+        "locales": {
+          "en": { "translation": "src/locale/messages.en.xlf" }
+        }
+      },
       "architect": {
         "build": {
           "builder": "@angular-devkit/build-angular:application",
@@ -23,7 +29,8 @@
             "outputPath": "dist/web",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": ["reflect-metadata", "zone.js"],
+            "localize": false,
+            "polyfills": ["@angular/localize/init", "reflect-metadata", "zone.js"],
             "tsConfig": "tsconfig.app.json",
             "assets": [
               { "glob": "**/*", "input": "public" }
@@ -49,6 +56,10 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "en": {
+              "localize": ["en"],
+              "outputPath": "dist/web-en"
             }
           },
           "defaultConfiguration": "production"
@@ -62,7 +73,12 @@
           "defaultConfiguration": "development"
         },
         "extract-i18n": {
-          "builder": "@angular-devkit/build-angular:extract-i18n"
+          "builder": "@angular-devkit/build-angular:extract-i18n",
+          "options": {
+            "buildTarget": "web:build",
+            "outputPath": "src/locale",
+            "outFile": "messages.xlf"
+          }
         },
         "test": {
           "builder": "@angular-devkit/build-angular:karma",

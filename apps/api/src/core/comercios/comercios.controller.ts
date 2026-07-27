@@ -18,7 +18,7 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, Rol } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, Rol } from 'shared';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -242,5 +242,19 @@ export class ComerciosController {
     @Body() dto: CambiarEstadoComercioDto,
   ): Promise<ComercioDocument> {
     return this.comerciosService.cambiarEstado(id, dto.estado);
+  }
+
+  @Patch(':id/socio-fundador')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Alta o baja en el programa Socios Fundadores, con la comisión congelada',
+  })
+  fijarSocioFundador(
+    @Param('id') id: string,
+    @Body() dto: FijarSocioFundadorDto,
+  ): Promise<ComercioDocument> {
+    return this.comerciosService.fijarSocioFundador(id, dto);
   }
 }

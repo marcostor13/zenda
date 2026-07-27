@@ -15,6 +15,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { PerrosService, HistoriaCompartida } from './perros.service';
 import { PerroValoracionesService, IndiceComportamiento } from './perro-valoraciones.service';
+import { BienestarService, IndiceBienestar } from './bienestar.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import {
@@ -40,6 +41,7 @@ export class PerrosController {
   constructor(
     private readonly perrosService: PerrosService,
     private readonly valoracionesService: PerroValoracionesService,
+    private readonly bienestarService: BienestarService,
   ) {}
 
   @Post()
@@ -189,6 +191,14 @@ export class PerrosController {
   @ApiOperation({ summary: 'Historia Veterinaria Compartida: salud e historial del perro, con autorización del propietario' })
   obtenerHistoriaCompartida(@Param('id') id: string): Promise<HistoriaCompartida> {
     return this.perrosService.obtenerHistoriaCompartida(id);
+  }
+
+  @Get(':id/bienestar')
+  @ApiOperation({
+    summary: 'Índice de Bienestar Doogking: cuidado preventivo y descuento en el seguro',
+  })
+  bienestar(@Param('id') id: string): Promise<IndiceBienestar> {
+    return this.bienestarService.calcular(id);
   }
 
   @Get(':id/indice-comportamiento')

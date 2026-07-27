@@ -9,6 +9,7 @@ import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { ReviewsRepository } from './reviews.repository';
 import { ResenaDocument } from './resena.schema';
 import { CrearReviewDto } from './dto/reviews.dto';
+import { GrowthService } from '../eventos/growth.service';
 
 // Estados de reserva sobre los que se permite reseñar (servicio ya prestado o en firme).
 const ESTADOS_RESENABLES: ReservaEstado[] = [ReservaEstado.CONFIRMADA, ReservaEstado.COMPLETADA];
@@ -20,6 +21,7 @@ export class ReviewsService {
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
     @InjectModel(Usuario.name) private readonly usuarioModel: Model<UsuarioDocument>,
+    private readonly growthService: GrowthService,
   ) {}
 
   async crear(usuarioId: string, dto: CrearReviewDto): Promise<ResenaDocument> {
@@ -52,6 +54,11 @@ export class ReviewsService {
     });
 
     await this.recalcularRatingServicio(reserva.servicioId.toString());
+
+    // Cierra la solicitud automática: sin esto, el recordatorio de los 3 días
+    // llegaría a alguien que ya ha valorado.
+    await this.growthService.marcarCompletada(reserva._id.toString());
+
     return resena;
   }
 

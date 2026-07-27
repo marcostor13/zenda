@@ -53,6 +53,30 @@ export const routes: Routes = [
       import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
   },
   {
+    path: 'seguros',
+    data: { vertical: 'seguros' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+  },
+  {
+    path: 'cuidadores',
+    data: { vertical: 'cuidadores' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+  },
+  {
+    path: 'explora',
+    loadChildren: () => import('./features/explora/explora.routes').then((m) => m.exploraRoutes),
+  },
+  {
+    // Enlace único del correo de valoración; público a propósito: el usuario
+    // llega desde su bandeja de entrada, no desde la aplicación.
+    path: 'valorar/:token',
+    loadComponent: () =>
+      import('./features/reservas/components/valorar-token.component')
+        .then((m) => m.ValorarTokenComponent),
+  },
+  {
     path: 'ayuda',
     loadComponent: () => import('./features/ayuda/ayuda.component').then((m) => m.AyudaComponent),
   },

@@ -1,4 +1,5 @@
 import { Component, signal, inject, computed, OnInit, effect } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators, FormControl } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -6,13 +7,17 @@ import { firstValueFrom } from 'rxjs';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
+import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-perfil-editar',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, RsImageUploadComponent],
+  imports: [
+    RouterLink, ReactiveFormsModule, RsNavbarComponent,
+    RsIconComponent, RsImageUploadComponent, RsPhoneInputComponent,
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -76,7 +81,7 @@ import { environment } from '../../../environments/environment';
 
           <div class="rs-field">
             <label class="rs-lbl">Teléfono</label>
-            <input class="rs-inp" formControlName="telefono" placeholder="+34 600 000 000" type="tel">
+            <rs-phone-input formControlName="telefono" etiqueta="Teléfono" />
           </div>
 
           @if (errorMsg()) {
@@ -170,8 +175,12 @@ export class PerfilEditarComponent implements OnInit {
     return nombre.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
   });
 
+  /** El `FormControl` no es una señal: sin esto la vista previa seguiría
+   *  mostrando la foto antigua después de subir una nueva. */
+  private readonly avatarSubido = toSignal(this.avatarControl.valueChanges, { initialValue: [] as string[] });
+
   readonly avatarPreview = computed(() => {
-    const uploaded = this.avatarControl.value[0] ?? null;
+    const uploaded = this.avatarSubido()[0] ?? null;
     return uploaded ?? (this.usuario() as unknown as { avatarUrl?: string })?.avatarUrl ?? null;
   });
 

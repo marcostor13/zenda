@@ -37,10 +37,14 @@ export interface BuscarServiciosParams {
 const CAMPO_DISPONIBILIDAD: Record<string, string> = {
   alojamiento: 'espaciosDisponibles',
   hoteles: 'unidadesDisponibles',
+  // Seguros no tiene contador de plazas: su "disponibilidad" es la elegibilidad
+  // de la mascota, que solo se puede evaluar con un perro concreto delante.
+  seguros: '',
   transporte: 'unidadesDisponibles',
   veterinaria: 'citasDisponibles',
   peluqueria: 'cuposDisponibles',
   adiestramiento: 'cuposDisponibles',
+  cuidadores: 'cuposDisponibles',
 };
 
 const ORDEN_SORT: Record<Exclude<OrdenServicios, 'distancia'>, Record<string, 1 | -1>> = {
@@ -259,7 +263,7 @@ export class CatalogRepository {
 
     const campos = params.vertical
       ? [CAMPO_DISPONIBILIDAD[params.vertical]].filter(Boolean)
-      : [...new Set(Object.values(CAMPO_DISPONIBILIDAD))];
+      : [...new Set(Object.values(CAMPO_DISPONIBILIDAD))].filter(Boolean);
     if (!campos.length) return null;
 
     return {

@@ -2,11 +2,13 @@ import { Test } from '@nestjs/testing';
 import { PerrosController } from './perros.controller';
 import { PerrosService } from './perros.service';
 import { PerroValoracionesService } from './perro-valoraciones.service';
+import { BienestarService } from './bienestar.service';
 
 describe('PerrosController', () => {
   let controller: PerrosController;
   let service: jest.Mocked<PerrosService>;
   let valoracionesService: jest.Mocked<PerroValoracionesService>;
+  let bienestarService: jest.Mocked<BienestarService>;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -33,12 +35,28 @@ describe('PerrosController', () => {
             indiceComportamiento: jest.fn().mockResolvedValue({ puntuacionPromedio: 0, totalValoraciones: 0, atributosPromedio: {} }),
           },
         },
+        {
+          provide: BienestarService,
+          useValue: {
+            calcular: jest.fn().mockResolvedValue({
+              perroId: 'p1', puntuacion: 80, nivel: 'muy_bueno', descuentoSeguroPct: 0.1, ejes: [],
+            }),
+          },
+        },
       ],
     }).compile();
 
     controller = moduleRef.get(PerrosController);
     service = moduleRef.get(PerrosService);
     valoracionesService = moduleRef.get(PerroValoracionesService);
+    bienestarService = moduleRef.get(BienestarService);
+  });
+
+  it('debería devolver el Índice de Bienestar del perro', async () => {
+    const indice = await controller.bienestar('p1');
+
+    expect(bienestarService.calcular).toHaveBeenCalledWith('p1');
+    expect(indice.descuentoSeguroPct).toBe(0.1);
   });
 
   it('debería crear el perro con el propietario del token', async () => {

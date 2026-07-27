@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import { NotificationsService } from './notifications.service';
@@ -59,6 +60,8 @@ describe('NotificationsService', () => {
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
         { provide: getModelToken(Servicio.name), useValue: servicioModel },
         { provide: getModelToken(Usuario.name), useValue: usuarioModel },
+        // Las plantillas nuevas componen enlaces con APP_URL.
+        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
       ],
     }).compile();
 
@@ -95,6 +98,7 @@ describe('NotificationsService', () => {
         { provide: getModelToken(Reserva.name), useValue: { findById: () => ({ lean: () => ({ exec: () => Promise.resolve(null) }) }) } },
         { provide: getModelToken(Servicio.name), useValue: {} },
         { provide: getModelToken(Usuario.name), useValue: {} },
+        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
       ],
     }).compile();
 
