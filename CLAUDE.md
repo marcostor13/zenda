@@ -78,7 +78,7 @@ Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda =
 | Backend API | **NestJS** (modular monolith) | REST + JWT; módulos por dominio y por vertical |
 | Base de datos | **MongoDB Atlas** (Mongoose) | Discriminadores para verticales; índices ESR |
 | Repositorio | **GitHub** (monorepo) | `nx` o workspace de carpetas `apps/` + `libs/` |
-| Hosting Frontend | **Netlify** | Deploy automático del build de Angular |
+| Hosting Frontend | **Coolify** (self-hosted, Docker + nginx) | Deploy automático del build de Angular |
 | Hosting Backend | **Coolify** (self-hosted, EC2) | Contenedor del API NestJS |
 | CI/CD | **GitHub Actions** | Lint + test + build + deploy automático |
 
@@ -87,7 +87,7 @@ Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda =
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                         CLIENTES                               │
-│   Web (Netlify)            Móvil (Capacitor: Android/iOS)      │
+│   Web (Coolify)             Móvil (Capacitor: Android/iOS)      │
 └───────────────┬───────────────────────────┬──────────────────┘
                 │  HTTPS / JWT               │
                 ▼                            ▼
@@ -265,10 +265,12 @@ comercios:    { vatNumber:1 } (unique)
 
 ## 6. CI/CD (GitHub Actions)
 
-### 6.1 Frontend → Netlify
-- Trigger: push a `main` que toque `apps/web/**`.
-- Pasos: `install → lint → test → build (ng build)`.
-- Deploy: Netlify conectado al repo (deploy automático del build) **o** `netlify deploy --prod` vía CLI con `NETLIFY_AUTH_TOKEN` + `NETLIFY_SITE_ID` en secrets.
+### 6.1 Frontend → Coolify
+- Trigger: push a `main` que toque `apps/web/**` o `libs/shared/**`.
+- Pasos: `install → test → build (ng build)`.
+- Deploy: **webhook de Coolify** con `COOLIFY_WEBHOOK_URL_WEB` en secrets. Coolify construye
+  `apps/web/Dockerfile` (build Node + Angular, servido con nginx a partir de `apps/web/nginx.conf`)
+  y lo levanta. Ver `DEPLOY.md` §3 para la guía completa.
 
 ### 6.2 Backend → Coolify (EC2)
 - Trigger: push a `main` que toque `apps/api/**`.
@@ -305,13 +307,12 @@ jobs:
         with: { node-version: 20 }
       - run: npm ci
       - run: npm run build --workspace=web
-      - name: Deploy Web (Netlify)
+      - name: Deploy Web (Coolify webhook)
         if: github.ref == 'refs/heads/main'
-        run: npx netlify deploy --prod --dir=apps/web/dist
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: curl -fsSL -X POST "${{ secrets.COOLIFY_WEBHOOK_URL_WEB }}"
 ```
+
+> Este esqueleto es ilustrativo; el workflow real y actualizado vive en `.github/workflows/ci.yml`.
 
 ---
 
@@ -431,7 +432,7 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 - **Disponibilidad:** usar `SlotHold` temporal (TTL) al iniciar el pago para evitar sobreventa; liberar si el pago no se concreta.
 - **Extender un vertical:** crear `verticals/<nombre>` con: schema discriminador + `AvailabilityStrategy` + `PricingStrategy` + auto-registro en el registry. **No tocar el core.**
 - **Variables sensibles:** sólo por `.env` / secrets de GitHub y Coolify. Nunca hardcodear credenciales.
-- **Propiedad del cliente:** repositorio GitHub, cuenta de Atlas, Netlify, Coolify y pasarelas a nombre del cliente final.
+- **Propiedad del cliente:** repositorio GitHub, cuenta de Atlas, Coolify y pasarelas a nombre del cliente final.
 
 ---
 
@@ -441,7 +442,7 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 3. Categoría **Alojamiento canino** (discriminator + estrategias).
 4. Frontend: auth, buscador unificado, flujo de reserva de alojamiento, perfil usuario, panel comercio, panel admin.
 5. Pagos (Stripe) + confirmación por webhook.
-6. CI/CD (Netlify + Coolify).
+6. CI/CD (Coolify para API y web).
 7. Categoría **Veterinaria** para validar extensibilidad → luego Transporte, Peluquería, Adiestramiento.
 
 ---

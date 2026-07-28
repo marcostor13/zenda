@@ -1,5 +1,5 @@
 node_modules/
-apps/web/
+dist/
 .angular/
 coverage/
 .env

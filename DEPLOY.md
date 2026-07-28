@@ -1,6 +1,6 @@
-# Guía de Despliegue — Reservalo
+# Guía de Despliegue — Doogking
 
-Backend en **Coolify** · Frontend en **AWS Amplify** · CI/CD con **GitHub Actions**
+Backend en **Coolify** · Frontend en **Coolify** · CI/CD con **GitHub Actions**
 
 ---
 
@@ -10,13 +10,17 @@ Backend en **Coolify** · Frontend en **AWS Amplify** · CI/CD con **GitHub Acti
 GitHub (monorepo)
 │
 ├── push a main (apps/api/** o libs/shared/**)
-│   └── GitHub Actions → tests + build → webhook Coolify
+│   └── GitHub Actions → tests + build → webhook Coolify (API)
 │                                              └── Coolify builds Docker → despliega API
 │
 └── push a main (apps/web/** o libs/shared/**)
-    └── GitHub Actions → tests + build → aws amplify start-job
-                                              └── Amplify build → despliega Angular SPA
+    └── GitHub Actions → tests + build → webhook Coolify (Web)
+                                              └── Coolify builds Docker (nginx) → despliega Angular SPA
 ```
+
+Ambas apps son **recursos Docker separados** dentro de la misma instancia de Coolify
+(`https://localcoolify.marcostorresalarcon.com`), cada uno con su propio Dockerfile, dominio,
+SSL y webhook de deploy.
 
 ---
 
@@ -24,10 +28,8 @@ GitHub (monorepo)
 
 | Herramienta | Uso |
 |---|---|
-| Coolify instalado en EC2/VPS | Hosting del backend NestJS |
-| Cuenta AWS con acceso a Amplify | Hosting del frontend Angular |
-| IAM User con permisos `amplify:StartJob` | GitHub Actions puede disparar builds |
-| Dominio configurado en DNS | `api.zenda.pe` y `zenda.pe` (o los que uses) |
+| Coolify instalado en EC2/VPS (`https://localcoolify.marcostorresalarcon.com`) | Hosting de backend y frontend |
+| Dominio configurado en DNS | uno para la API, otro para la web (ver §2.4 y §3.4) |
 
 ---
 
@@ -35,9 +37,9 @@ GitHub (monorepo)
 
 ### 2.1 Crear un nuevo Resource en Coolify
 
-1. Entra a tu instancia de Coolify (`https://coolify.tudominio.com`).
+1. Entra a `https://localcoolify.marcostorresalarcon.com`.
 2. Selecciona tu **Project** → **New Resource** → **Application**.
-3. Elige **GitHub** como fuente y autoriza el acceso al repo `reservalo` (o como se llame).
+3. Elige **GitHub** como fuente y autoriza el acceso al repo `zenda`.
 4. Selecciona el repositorio y la rama **`main`**.
 
 ### 2.2 Configurar el build (Docker)
@@ -81,8 +83,8 @@ En la pestaña **Domains**:
 ### 2.5 Obtener el Webhook URL de Coolify
 
 1. En la app de Coolify, ve a **Settings** → **Deploy Webhook**.
-2. Copia la URL del webhook (tiene el formato `https://coolify.tudominio.com/api/v1/deploy/webhook?uuid=...&token=...`).
-3. Guárdala — la usarás como secret en GitHub.
+2. Copia la URL del webhook (tiene el formato `https://localcoolify.marcostorresalarcon.com/api/v1/deploy/webhook?uuid=...&token=...`).
+3. Guárdala como `COOLIFY_WEBHOOK_URL` en GitHub Secrets (§5).
 
 ### 2.6 Primer deploy manual
 
@@ -90,139 +92,74 @@ Desde Coolify, haz clic en **Deploy** para verificar que el Docker build funcion
 
 ---
 
-## 3. Frontend en AWS Amplify
+## 3. Frontend en Coolify
 
-### 3.1 Crear la app en AWS Amplify
+El frontend Angular se sirve como un **Docker build multi-stage**: `apps/web/Dockerfile`
+compila la SPA con Node y la sirve con **nginx** (`apps/web/nginx.conf`), que además resuelve
+el ruteo de Angular Router (fallback a `index.html` en cualquier ruta que no sea un archivo real).
 
-1. Entra a la [consola de AWS Amplify](https://console.aws.amazon.com/amplify).
-2. Selecciona tu región (ej. `us-east-1` o la más cercana a Perú: `sa-east-1`).
-3. Haz clic en **Create new app** → **Host web app**.
+### 3.1 Crear un nuevo Resource en Coolify
 
-### 3.2 Conectar GitHub
+1. Entra a `https://localcoolify.marcostorresalarcon.com`.
+2. En el mismo **Project** que la API → **New Resource** → **Application**.
+3. Elige **GitHub** como fuente, mismo repo `zenda`, rama **`main`**.
 
-1. Selecciona **GitHub** como proveedor.
-2. Autoriza AWS Amplify para acceder a tu repo.
-3. Selecciona el repositorio y la rama **`main`**.
-4. En la pregunta "Is this a monorepo?": selecciona **No** (usamos el `amplify.yml` en raíz, no la detección automática por subdirectorio).
+### 3.2 Configurar el build (Docker)
 
-### 3.3 Configurar el build
+En la pestaña **Build**:
 
-Amplify leerá automáticamente el archivo `amplify.yml` de la raíz del repositorio.
+| Campo | Valor |
+|---|---|
+| Build Pack | **Dockerfile** |
+| Dockerfile location | `apps/web/Dockerfile` |
+| Docker build context | `/` (raíz del repo — necesario para incluir `libs/shared`) |
+| Port expuesto | `80` |
 
-Verifica que en la pantalla de Build Settings aparezca:
+> Igual que la API: el Dockerfile vive en `apps/web/` pero el build context debe ser la raíz
+> `/` para que Docker pueda copiar `libs/shared/`.
 
-```yaml
-version: 1
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - nvm use 20
-        - npm ci
-    build:
-      commands:
-        - npm run build:web
-  artifacts:
-    baseDirectory: apps/web/dist/web/browser
-    files:
-      - '**/*'
-```
+### 3.3 Variables de entorno
 
-Si no lo detecta automáticamente, pega el contenido del `amplify.yml` en el editor de Build Settings.
+El frontend no necesita variables de entorno en runtime — la URL de la API se fija en build
+time vía `apps/web/src/environments/environment.prod.ts` (ver §9). Si cambias el dominio del
+backend, edita ese archivo y haz push; el pipeline reconstruye la imagen automáticamente.
 
-### 3.4 Variables de entorno en Amplify
+### 3.4 Dominio y SSL en Coolify
 
-En **Environment variables** dentro de la consola de Amplify:
+En la pestaña **Domains**:
 
-```
-AMPLIFY_MONOREPO_APP_ROOT=apps/web
-```
+1. Agrega el dominio de la web (ej. `doogking.com` o `www.doogking.com`).
+2. Habilita **Generate SSL Certificate** (Let's Encrypt automático).
+3. En tu proveedor DNS, crea un registro **A** o **CNAME** apuntando ese dominio → IP de tu servidor Coolify.
 
-> Esta variable indica a Amplify cuál es la carpeta raíz de la app, pero como usamos el `amplify.yml` en raíz con rutas absolutas, es solo referencial.
+### 3.5 Obtener el Webhook URL de Coolify
 
-### 3.5 Configurar SPA Routing (Angular Router)
+1. En la app de Coolify (la del frontend), ve a **Settings** → **Deploy Webhook**.
+2. Copia la URL del webhook.
+3. Guárdala como `COOLIFY_WEBHOOK_URL_WEB` en GitHub Secrets (§5) — **distinto** del webhook de la API.
 
-Angular usa HTML5 History API. Sin esta regla, un refresh en cualquier ruta que no sea `/` dará 404.
+### 3.6 Primer deploy manual
 
-En Amplify Console → **Rewrites and redirects** → **Add rule**:
-
-| Source | Target | Type |
-|---|---|---|
-| `</^[^.]+$\|\.(?!(css\|gif\|ico\|jpg\|js\|png\|txt\|svg\|woff\|woff2\|ttf\|map\|json\|webp)$)([^.]+$)/>` | `/index.html` | **200 (Rewrite)** |
-
-O de forma más sencilla:
-| Source | Target | Type |
-|---|---|---|
-| `/<*>` | `/index.html` | **404 (Rewrite)** |
-
-### 3.6 Dominio personalizado en Amplify
-
-1. En Amplify Console → **Domain management** → **Add domain**.
-2. Ingresa `zenda.pe` (o el dominio que uses).
-3. Amplify provee registros DNS (CNAME o ALIAS) para agregar en tu proveedor.
-4. SSL se configura automáticamente vía AWS Certificate Manager.
-
-### 3.7 Obtener el App ID de Amplify
-
-El App ID está en la URL de la consola:
-`https://us-east-1.console.aws.amazon.com/amplify/apps/**d1xxxxxxx**/...`
-
-También puedes verlo en **App settings** → **General** → **App ARN**.
+Desde Coolify, haz clic en **Deploy** para verificar que el Docker build (Node → Angular →
+nginx) funciona antes de conectar GitHub Actions. Verifica que al abrir la URL:
+- Cargue el home.
+- Navegar a una ruta interna (ej. `/perfil`) y refrescar la página **no** dé 404 (confirma que
+  `nginx.conf` está resolviendo el fallback a `index.html`).
 
 ---
 
-## 4. IAM User para GitHub Actions
-
-Crea un usuario IAM con permisos mínimos para disparar builds desde GitHub Actions.
-
-### 4.1 Crear política IAM
-
-En AWS IAM → **Policies** → **Create policy**:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "amplify:StartJob",
-        "amplify:GetJob",
-        "amplify:ListJobs"
-      ],
-      "Resource": "arn:aws:amplify:*:*:apps/*/branches/main/jobs/*"
-    }
-  ]
-}
-```
-
-Nómbrala `GitHubActions-AmplifyDeploy`.
-
-### 4.2 Crear usuario IAM
-
-1. IAM → **Users** → **Create user**.
-2. Nombre: `github-actions-reservalo`.
-3. Adjunta la política `GitHubActions-AmplifyDeploy`.
-4. Crea **Access key** (tipo: Application running outside AWS).
-5. Guarda el `Access Key ID` y `Secret Access Key`.
-
----
-
-## 5. GitHub Secrets
+## 4. GitHub Secrets
 
 En tu repositorio GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
 
 | Secret | Valor |
 |---|---|
-| `COOLIFY_WEBHOOK_URL` | URL del webhook de Coolify (paso 2.5) |
-| `AWS_ACCESS_KEY_ID` | Access Key ID del usuario IAM |
-| `AWS_SECRET_ACCESS_KEY` | Secret Access Key del usuario IAM |
-| `AWS_REGION` | Región de AWS donde creaste la app Amplify (ej. `us-east-1`) |
-| `AMPLIFY_APP_ID` | App ID de Amplify (paso 3.7) |
+| `COOLIFY_WEBHOOK_URL` | URL del webhook de Coolify de la **API** (paso 2.5) |
+| `COOLIFY_WEBHOOK_URL_WEB` | URL del webhook de Coolify del **frontend** (paso 3.5) |
 
 ---
 
-## 6. Verificar el flujo completo
+## 5. Verificar el flujo completo
 
 ### Primera verificación
 
@@ -239,7 +176,7 @@ Observa en **GitHub → Actions**:
 2. El job `API — CI + Deploy` corre tests → build → lanza el webhook de Coolify.
 3. En Coolify, verás el deploy iniciarse automáticamente.
 
-Repite con un cambio en `apps/web/` para verificar el deploy de Amplify.
+Repite con un cambio en `apps/web/` para verificar el deploy del frontend (mismo flujo, otro webhook).
 
 ### Verificar endpoints
 
@@ -248,23 +185,23 @@ Repite con un cambio en `apps/web/` para verificar el deploy de Amplify.
 curl https://apizenda.marcostorresalarcon.com/api/v1/health
 
 # Frontend
-open https://zenda.pe  # (el dominio que configures en Amplify)
+open https://doogking.com  # (el dominio que configures en Coolify, §3.4)
 ```
 
 ---
 
-## 7. Flujo de CI/CD automático (resumen)
+## 6. Flujo de CI/CD automático (resumen)
 
 ```
 Developer → git push origin main
 │
 ├── Cambios en apps/api/** o libs/shared/**
 │   ├── GitHub Actions: npm test:api + npm build:api
-│   └── Si pasan: POST webhook → Coolify redeploy (Docker)
+│   └── Si pasan: POST webhook → Coolify redeploy API (Docker)
 │
 └── Cambios en apps/web/** o libs/shared/**
     ├── GitHub Actions: npm test:web + npm build:web
-    └── Si pasan: aws amplify start-job → Amplify build + deploy
+    └── Si pasan: POST webhook → Coolify redeploy Web (Docker: Node build + nginx)
 ```
 
 **Pull Requests:** el workflow corre igualmente (sin el paso de deploy) para validar que los tests y el build pasan antes de mergear a `main`.
@@ -273,27 +210,31 @@ Developer → git push origin main
 
 ---
 
-## 8. Troubleshooting
+## 7. Troubleshooting
 
-### Docker build falla en Coolify
+### Docker build falla en Coolify (API o Web)
 
-- Verifica que el build context sea `/` (raíz del repo), no `apps/api/`.
+- Verifica que el build context sea `/` (raíz del repo), no `apps/api/` ni `apps/web/`.
 - Revisa los logs de Coolify — el error más común es que no encuentra `libs/shared`.
-- Prueba localmente: `docker build -f apps/api/Dockerfile .` desde la raíz del monorepo.
+- Prueba localmente desde la raíz del monorepo:
+  ```bash
+  docker build -f apps/api/Dockerfile .
+  docker build -f apps/web/Dockerfile .
+  ```
 
-### Amplify no encuentra el `amplify.yml`
+### Angular Router devuelve 404 al refrescar (frontend en Coolify)
 
-- El archivo debe estar en la **raíz** del repositorio, no en `apps/web/`.
-- Si Amplify muestra su build spec por defecto, edítalo manualmente en la consola y pega el contenido del `amplify.yml`.
+- Revisa `apps/web/nginx.conf` — la directiva `try_files $uri $uri/ /index.html;` dentro de
+  `location /` es la que resuelve el fallback. Si la editaste, confirma que sigue ahí.
+- Verifica que el Dockerfile copie `nginx.conf` a `/etc/nginx/conf.d/default.conf` (no a otra ruta).
 
-### Angular Router devuelve 404 al refrescar
+### El webhook de Coolify no dispara el deploy
 
-- Asegúrate de haber configurado la regla de rewrite en Amplify (paso 3.5).
-
-### `aws amplify start-job` falla en GitHub Actions
-
-- Verifica que los secrets `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` y `AMPLIFY_APP_ID` estén correctamente configurados.
-- Verifica que el usuario IAM tenga el permiso `amplify:StartJob`.
+- Verifica que `COOLIFY_WEBHOOK_URL` (API) o `COOLIFY_WEBHOOK_URL_WEB` (Web) estén
+  correctamente configurados en GitHub Secrets — un secret vacío hace que `curl` reciba una
+  URL vacía y falle.
+- Confirma la URL copiándola de nuevo desde Coolify → **Settings** → **Deploy Webhook**: puede
+  regenerarse si el token expiró.
 
 ### El job de CI no se dispara al hacer push
 
@@ -303,7 +244,7 @@ Developer → git push origin main
 
 ---
 
-## 9. Variables de entorno del frontend
+## 8. Variables de entorno del frontend
 
 El archivo `apps/web/src/environments/environment.prod.ts` contiene la URL de la API:
 
