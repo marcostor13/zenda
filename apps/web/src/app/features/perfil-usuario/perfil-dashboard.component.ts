@@ -4,10 +4,11 @@ import { AuthService } from '../../core/auth/auth.service';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
-import { hotelImage } from '../../shared/media/images';
-import { ReservasService, ReservaApi, RecordatorioApi, PuntosApi } from '../reservas/services/reservas.service';
+import { hotelImage, IMG_FALLBACK } from '../../shared/media/images';
+import { ReservasService, ReservaApi, RecordatorioApi, PuntosApi, ProximaReservaApi } from '../reservas/services/reservas.service';
 import { PerrosService, PerroApi } from '../perros/perros.service';
 import { FavoritosService } from '../favoritos/favoritos.service';
+import { AlphaService, AlphaEstadoApi } from '../alpha/alpha.service';
 
 interface MiniReserva {
   codigo: string;
@@ -55,10 +56,10 @@ interface ConfigItem {
       </div>
 
       <div class="perfil-header__info">
-        <h1>{{ usuario()?.nombre ?? 'Mi perfil' }}</h1>
-        <p>{{ usuario()?.email }}</p>
+        <h1>👋 Hola, {{ primerNombre() }}</h1>
+        <p>Bienvenido de nuevo a Doogking</p>
         <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
-          <span class="rs-badge rs-badge--accent">Cliente verificado</span>
+          <span class="rs-badge rs-badge--success">✔ Cliente verificado</span>
           <span class="rs-badge">Miembro desde 2026</span>
         </div>
       </div>
@@ -69,18 +70,21 @@ interface ConfigItem {
       </a>
     </div>
 
-    <!-- STATS RÁPIDAS -->
-    <div class="perfil-stats">
-      @for (s of stats(); track s.label) {
-        <div class="rs-card rs-stat">
-          <div class="rs-stat__icon" [style.background]="s.iconBg" [style.color]="s.iconColor">
-            <rs-icon [name]="s.icon" [size]="18" [stroke]="1.75"></rs-icon>
-          </div>
-          <div class="rs-stat__value">{{ s.value }}</div>
-          <div class="rs-stat__label">{{ s.label }}</div>
+    <!-- PRÓXIMA RESERVA (HU-7.3) -->
+    @if (proximaReserva(); as pr) {
+      <a [routerLink]="['/reservas', pr.codigo]" class="rs-card proxima-reserva">
+        <img [src]="pr.imagen || fallbackImg" [alt]="pr.titulo" rsImg />
+        <div class="proxima-reserva__info">
+          <span class="proxima-reserva__eyebrow">📅 Tu próxima reserva</span>
+          <strong>{{ pr.titulo }}</strong>
+          <span class="proxima-reserva__meta">
+            @if (pr.ciudad) { 📍 {{ pr.ciudad }} · }
+            Dentro de {{ diasFaltantes(pr.fechaInicio) }} {{ diasFaltantes(pr.fechaInicio) === 1 ? 'día' : 'días' }}
+          </span>
         </div>
-      }
-    </div>
+        <span class="rs-btn rs-btn--primary rs-btn--sm">Ver reserva</span>
+      </a>
+    }
 
     <!-- MIS MASCOTAS -->
     <div class="perfil-section" style="margin-bottom:var(--sp-8)">
@@ -124,14 +128,32 @@ interface ConfigItem {
       }
     </div>
 
-    <!-- PUNTOS DOOGKING -->
-    @if (puntos(); as p) {
-      <div class="rs-card puntos-card">
-        <div class="puntos-card__head">
-          <span class="puntos-card__valor">🐾 {{ p.puntos }} puntos Doogking</span>
-          <span class="puntos-card__meta">Faltan {{ p.puntosFaltantes }} puntos → {{ p.valorProximoDescuento }} € de descuento</span>
+    <!-- DOOGKING ALPHA (HU-13.2) -->
+    @if (alpha(); as a) {
+      <div class="rs-card alpha-card">
+        <div class="alpha-card__head">
+          <span class="alpha-card__crown">👑</span>
+          <div class="alpha-card__texto">
+            <span class="alpha-card__nivel">{{ a.nombreNivel }}</span>
+            <span class="alpha-card__estado">
+              @if (a.esMaximoNivel) {
+                Has alcanzado el máximo nivel
+              } @else {
+                Solo te faltan {{ a.reservasParaSiguiente }} reserva{{ a.reservasParaSiguiente === 1 ? '' : 's' }} para desbloquear {{ a.siguienteNivel?.nombre }}
+              }
+            </span>
+          </div>
+          <a routerLink="/perfil/alpha" class="alpha-card__cta">Ver ventajas Alpha →</a>
         </div>
-        <div class="puntos-bar"><div class="puntos-bar__fill" [style.width.%]="progresoPuntos()"></div></div>
+        <div class="alpha-bar"><div class="alpha-bar__fill" [style.width.%]="progresoAlpha()"></div></div>
+        @if (a.beneficios.length > 0) {
+          <div class="alpha-card__beneficios">
+            @for (b of a.beneficios; track b) {
+              <span class="rs-badge rs-badge--neutral">{{ b }}</span>
+            }
+          </div>
+        }
+        <p class="alpha-card__progreso">✔ {{ a.reservasCompletadas }} reserva{{ a.reservasCompletadas === 1 ? '' : 's' }} completada{{ a.reservasCompletadas === 1 ? '' : 's' }}</p>
       </div>
     }
 
@@ -150,6 +172,19 @@ interface ConfigItem {
         </div>
       </div>
     }
+
+    <!-- STATS RÁPIDAS -->
+    <div class="perfil-stats">
+      @for (s of stats(); track s.label) {
+        <div class="rs-card rs-stat">
+          <div class="rs-stat__icon" [style.background]="s.iconBg" [style.color]="s.iconColor">
+            <rs-icon [name]="s.icon" [size]="18" [stroke]="1.75"></rs-icon>
+          </div>
+          <div class="rs-stat__value">{{ s.value }}</div>
+          <div class="rs-stat__label">{{ s.label }}</div>
+        </div>
+      }
+    </div>
 
     <!-- GRID: reservas + configuración -->
     <div class="perfil-grid">
@@ -244,6 +279,19 @@ interface ConfigItem {
       animation: pulseRing 2s ease-out infinite;
     }
 
+    .proxima-reserva {
+      display: flex; align-items: center; gap: var(--sp-4);
+      padding: var(--sp-4) var(--sp-5); margin-bottom: var(--sp-8);
+      text-decoration: none;
+      background: var(--g-accent); color: #fff;
+      border: none;
+      img { width: 72px; height: 56px; object-fit: cover; border-radius: var(--r-md); flex-shrink: 0; }
+    }
+    .proxima-reserva__info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .proxima-reserva__eyebrow { font-size: var(--f-xs); text-transform: uppercase; letter-spacing: .06em; opacity: .85; }
+    .proxima-reserva__info strong { font-size: var(--f-lg); font-weight: var(--w-7); }
+    .proxima-reserva__meta { font-size: var(--f-sm); opacity: .9; }
+
     .perfil-stats {
       display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-8);
       @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); }
@@ -293,12 +341,21 @@ interface ConfigItem {
     .mascota-card__info { min-width: 0; strong { display: block; font-size: var(--f-sm); color: var(--t-100); } span { font-size: var(--f-xs); color: var(--t-400); } }
     .mascota-card--add { justify-content: center; color: var(--c-accent); font-size: var(--f-sm); font-weight: var(--w-6); border-style: dashed; }
 
-    .puntos-card { padding: var(--sp-5); margin-bottom: var(--sp-8); background: var(--g-warm, linear-gradient(135deg, #FFF7E6, #FFFFFF)); }
-    .puntos-card__head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); }
-    .puntos-card__valor { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--t-100); }
-    .puntos-card__meta { font-size: var(--f-sm); color: var(--t-400); }
-    .puntos-bar { height: 10px; background: rgba(0,0,0,.08); border-radius: var(--r-full); overflow: hidden; }
-    .puntos-bar__fill { height: 100%; background: var(--c-amber, #FBAE17); border-radius: var(--r-full); transition: width .4s; }
+    .alpha-card {
+      padding: var(--sp-6); margin-bottom: var(--sp-8); border: none; color: #fff;
+      background: linear-gradient(135deg, var(--dk-blue, #08258B), var(--dk-blue-deep, #00135D) 55%, var(--dk-gold, #FBAE17));
+      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.25));
+    }
+    .alpha-card__head { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+    .alpha-card__crown { font-size: 32px; line-height: 1; }
+    .alpha-card__texto { display: flex; flex-direction: column; gap: 2px; }
+    .alpha-card__nivel { font-size: var(--f-lg); font-weight: var(--w-8); }
+    .alpha-card__estado { font-size: var(--f-sm); opacity: .92; }
+    .alpha-card__cta { margin-left: auto; color: #fff; font-size: var(--f-sm); font-weight: var(--w-6); text-decoration: none; white-space: nowrap; &:hover { text-decoration: underline; } }
+    .alpha-bar { height: 10px; background: rgba(255,255,255,.25); border-radius: var(--r-full); overflow: hidden; margin-bottom: var(--sp-4); }
+    .alpha-bar__fill { height: 100%; background: #fff; border-radius: var(--r-full); transition: width .4s; }
+    .alpha-card__beneficios { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); .rs-badge { background: rgba(255,255,255,.18); color: #fff; border: none; } }
+    .alpha-card__progreso { font-size: var(--f-xs); opacity: .85; }
 
     .recordatorios-list { display: flex; flex-direction: column; gap: var(--sp-3); }
     .recordatorio {
@@ -338,6 +395,7 @@ export class PerfilDashboardComponent implements OnInit {
   private readonly reservasService = inject(ReservasService);
   private readonly perrosService = inject(PerrosService);
   private readonly favoritosService = inject(FavoritosService);
+  private readonly alphaService = inject(AlphaService);
 
   readonly usuario = this.authService.usuario;
 
@@ -350,17 +408,28 @@ export class PerfilDashboardComponent implements OnInit {
     (this.usuario() as unknown as { avatarUrl?: string })?.avatarUrl ?? null
   );
 
+  readonly primerNombre = computed(() => (this.usuario()?.nombre ?? 'Mi perfil').split(' ')[0]);
+  readonly fallbackImg = IMG_FALLBACK;
+  readonly proximaReserva = signal<ProximaReservaApi | null>(null);
+
+  /** Días naturales hasta la fecha de la reserva (HU-7.3), nunca negativo. */
+  diasFaltantes(fechaInicio: string): number {
+    const ms = new Date(fechaInicio).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+  }
+
   readonly stats = signal<StatItem[]>([
-    { icon: 'calendar', iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)', value: '0', label: 'Reservas totales' },
-    { icon: 'check-circle', iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: '0', label: 'Servicios disfrutados' },
+    { icon: 'calendar', iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)', value: '0', label: 'Reservas realizadas' },
+    { icon: 'check-circle', iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: '0', label: 'Servicios utilizados' },
     { icon: 'paw', iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: '0', label: 'Mis mascotas' },
-    { icon: 'heart', iconColor: '#E11D48', iconBg: 'rgba(225,29,72,.12)', value: '0', label: 'Favoritos' },
+    { icon: 'heart', iconColor: '#E11D48', iconBg: 'rgba(225,29,72,.12)', value: '0', label: 'Servicios favoritos' },
   ]);
 
   readonly reservasRecientes = signal<MiniReserva[]>([]);
   readonly mascotas = signal<PerroApi[]>([]);
   readonly recordatorios = signal<RecordatorioApi[]>([]);
   readonly puntos = signal<PuntosApi | null>(null);
+  readonly alpha = signal<AlphaEstadoApi | null>(null);
 
   readonly progresoPuntos = computed(() => {
     const p = this.puntos();
@@ -368,34 +437,46 @@ export class PerfilDashboardComponent implements OnInit {
     return Math.round((p.puntos / p.proximoUmbral) * 100);
   });
 
+  readonly progresoAlpha = computed(() => {
+    const a = this.alpha();
+    if (!a) return 0;
+    if (a.esMaximoNivel) return 100;
+    const total = a.reservasCompletadas + (a.reservasParaSiguiente ?? 0);
+    return total === 0 ? 0 : Math.round((a.reservasCompletadas / total) * 100);
+  });
+
   readonly configItems: ConfigItem[] = [
-    { icon: 'paw',         label: 'Mis mascotas',        sub: 'Ficha inteligente de tus mascotas', ruta: '/perros' },
-    { icon: 'heart',       label: 'Favoritos',           sub: 'Servicios que has guardado',        ruta: '/favoritos' },
-    { icon: 'user',        label: 'Datos personales',   sub: 'Nombre, email, teléfono',   ruta: '/perfil/editar' },
-    { icon: 'lock',        label: 'Seguridad',           sub: 'Contraseña y acceso',       ruta: '/perfil/seguridad' },
-    { icon: 'bell',        label: 'Notificaciones',      sub: 'Email, WhatsApp, push',     ruta: '/perfil/notificaciones' },
-    { icon: 'credit-card', label: 'Métodos de pago',     sub: 'Tarjetas y pagos',          ruta: '/perfil/pagos' },
-    { icon: 'star',        label: 'Mis reseñas',          sub: 'Reseñas que has escrito',  ruta: '/perfil/resenas' },
+    { icon: 'paw',         label: 'Ficha inteligente de mis mascotas', sub: 'Datos, salud y comportamiento de tus mascotas', ruta: '/perros' },
+    { icon: 'heart',       label: 'Mis favoritos',                     sub: 'Servicios que has guardado',        ruta: '/favoritos' },
+    { icon: 'user',        label: 'Información personal',              sub: 'Nombre, email, teléfono',           ruta: '/perfil/editar' },
+    { icon: 'lock',        label: 'Seguridad y acceso',                sub: 'Contraseña y acceso',                ruta: '/perfil/seguridad' },
+    { icon: 'bell',        label: 'Notificaciones',                    sub: 'Email, WhatsApp, push',              ruta: '/perfil/notificaciones' },
+    { icon: 'credit-card', label: 'Métodos de pago guardados',         sub: 'Tarjetas y pagos',                   ruta: '/perfil/pagos' },
+    { icon: 'star',        label: 'Mis reseñas',                       sub: 'Reseñas que has escrito',            ruta: '/perfil/resenas' },
   ];
 
   async ngOnInit(): Promise<void> {
     try {
-      const [apiReservas, misMascotas, misRecordatorios, misPuntos] = await Promise.all([
+      const [apiReservas, misMascotas, misRecordatorios, misPuntos, miProximaReserva, miAlpha] = await Promise.all([
         this.reservasService.misReservas(),
         this.perrosService.misPerros().catch(() => [] as PerroApi[]),
         this.reservasService.recordatorios().catch(() => [] as RecordatorioApi[]),
         this.reservasService.puntos().catch(() => null),
+        this.reservasService.proximaReserva().catch(() => null),
+        this.alphaService.miEstado().catch(() => null),
         this.favoritosService.cargarIds(),
       ]);
       this.recordatorios.set(misRecordatorios);
       this.puntos.set(misPuntos);
+      this.proximaReserva.set(miProximaReserva);
+      this.alpha.set(miAlpha);
       const completadas = apiReservas.filter(r => r.estado === 'completada').length;
       this.mascotas.set(misMascotas);
       this.stats.set([
-        { icon: 'calendar',    iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)',  value: String(apiReservas.length),            label: 'Reservas totales' },
-        { icon: 'check-circle',iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: String(completadas),                    label: 'Servicios disfrutados' },
+        { icon: 'calendar',    iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,.12)',  value: String(apiReservas.length),            label: 'Reservas realizadas' },
+        { icon: 'check-circle',iconColor: '#10B981', iconBg: 'rgba(16,185,129,.12)', value: String(completadas),                    label: 'Servicios utilizados' },
         { icon: 'paw',         iconColor: '#F59E0B', iconBg: 'rgba(245,158,11,.12)', value: String(misMascotas.length),             label: 'Mis mascotas' },
-        { icon: 'heart',       iconColor: '#E11D48', iconBg: 'rgba(225,29,72,.12)',  value: String(this.favoritosService.count()), label: 'Favoritos' },
+        { icon: 'heart',       iconColor: '#E11D48', iconBg: 'rgba(225,29,72,.12)',  value: String(this.favoritosService.count()), label: 'Servicios favoritos' },
       ]);
       this.reservasRecientes.set(apiReservas.slice(0, 3).map(r => this.toMini(r)));
     } catch {

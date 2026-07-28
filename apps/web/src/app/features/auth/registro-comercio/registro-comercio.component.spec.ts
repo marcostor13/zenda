@@ -133,4 +133,41 @@ describe('RegistroComercioComponent (wizard)', () => {
     expect(component.paso()).toBe(1);
     expect(component.error()).toBeNull();
   });
+
+  describe('placeholder del nombre del negocio (HU-6.1.1)', () => {
+    it('debería sugerir un ejemplo genérico sin categoría elegida', () => {
+      expect(component.placeholderNombreNegocio()).toBe('Ej. Royal Dog Resort');
+    });
+
+    it('debería adaptar el ejemplo a la primera categoría elegida', () => {
+      component.toggleVertical(VerticalKey.VETERINARIA);
+      expect(component.placeholderNombreNegocio()).toContain('Veterinario');
+
+      component.toggleVertical(VerticalKey.HOTELES);
+      component.toggleVertical(VerticalKey.VETERINARIA);
+      expect(component.placeholderNombreNegocio()).toContain('Hotel');
+    });
+  });
+
+  describe('fuerza de la contraseña (HU-6.1.4)', () => {
+    it('debería marcar como débil una contraseña corta y simple', () => {
+      component.cuentaForm.patchValue({ password: 'abcdefgh' });
+      expect(component.fuerzaPassword()).toBe('debil');
+    });
+
+    it('debería subir de nivel con longitud y variedad de caracteres', () => {
+      component.cuentaForm.patchValue({ password: 'abcdefgh' });
+      const debil = component.nivelFuerzaPassword();
+
+      component.cuentaForm.patchValue({ password: 'AbcdefghIJKL' });
+      const media = component.nivelFuerzaPassword();
+
+      component.cuentaForm.patchValue({ password: 'AbcdefghIJKL123!' });
+      const muySegura = component.nivelFuerzaPassword();
+
+      expect(media).toBeGreaterThan(debil);
+      expect(muySegura).toBeGreaterThan(media);
+      expect(component.fuerzaPassword()).toBe('muy_segura');
+    });
+  });
 });

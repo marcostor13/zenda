@@ -45,6 +45,10 @@ describe('AdminDashboardComponent', () => {
       aprobarComercio: jest.fn().mockReturnValue(of({})),
       rechazarComercio: jest.fn().mockReturnValue(of({})),
       updateComision: jest.fn().mockReturnValue(of({})),
+      getAlphaNiveles: jest.fn().mockReturnValue(of([
+        { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 0, descuentoPct: 0, beneficios: ['Promos'] },
+      ])),
+      updateAlphaNivel: jest.fn().mockReturnValue(of({})),
       ...ajustes,
     };
 
@@ -61,6 +65,9 @@ describe('AdminDashboardComponent', () => {
     componente = fixture.componentInstance;
     fixture.detectChanges();
     await fixture.whenStable();
+    // ngOnInit encadena dashboard → niveles Alpha; whenStable() no basta para
+    // esperar la cadena completa, se necesita un macrotask real.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
   };
 
@@ -179,6 +186,50 @@ describe('AdminDashboardComponent', () => {
 
       expect(componente.errorMsg()).toContain('Error al guardar las comisiones');
       expect(componente.guardadoMsg()).toBe(false);
+    });
+  });
+
+  describe('programa Doogking Alpha', () => {
+    it('debería cargar la escalera de niveles al iniciar', async () => {
+      await crear();
+
+      expect(componente.alphaNiveles()).toHaveLength(1);
+      expect(componente.alphaNiveles()[0].nombre).toBe('Alpha 1');
+    });
+
+    it('debería seguir mostrando el dashboard aunque falle la carga de Alpha', async () => {
+      await crear({}, { getAlphaNiveles: fallo('500') });
+
+      expect(componente.alphaNiveles()).toEqual([]);
+      expect(componente.cargando()).toBe(false);
+    });
+
+    it('debería convertir el texto de beneficios separado por comas en un array', () => {
+      const resultado = componente.beneficiosDesdeTexto('5% descuento,  promos exclusivas ,');
+      expect(resultado).toEqual(['5% descuento', 'promos exclusivas']);
+    });
+
+    it('debería guardar todos los niveles de una vez', async () => {
+      await crear({}, {
+        getAlphaNiveles: jest.fn().mockReturnValue(of([
+          { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 0, descuentoPct: 0, beneficios: [] },
+          { nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0.05, beneficios: [] },
+        ])),
+      });
+
+      await componente.guardarAlphaNiveles();
+
+      expect(api['updateAlphaNivel']).toHaveBeenCalledTimes(2);
+      expect(componente.alphaGuardadoMsg()).toBe(true);
+    });
+
+    it('debería avisar si el guardado de Alpha falla', async () => {
+      await crear({}, { updateAlphaNivel: fallo('500') });
+
+      await componente.guardarAlphaNiveles();
+
+      expect(componente.errorMsg()).toContain('Error al guardar el programa Alpha');
+      expect(componente.alphaGuardadoMsg()).toBe(false);
     });
   });
 

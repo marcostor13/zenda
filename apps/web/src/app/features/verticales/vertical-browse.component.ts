@@ -4,9 +4,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
-import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
-import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
+import { RsCardComponent, type CardBadge } from '../../shared/components/card/rs-card.component';
 import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
 import { VerticalUi, verticalUi } from '../../shared/verticales/verticales.config';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
@@ -37,6 +36,8 @@ interface VerticalConfig {
   meta: (c: ServicioCard) => string[];
   price: (c: ServicioCard) => number;
   confirmMsg: string;
+  /** true = la tarjeta enlaza a su ficha de detalle (Fase 4); false = sigue yendo directo a "solicitar". */
+  tieneFicha?: boolean;
 }
 
 interface ItemConNombre {
@@ -93,6 +94,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
       `🦮 Desde ${(c.extra['edadMinimaMeses'] as number) ?? 3} meses`,
     ],
     price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
+    tieneFicha: true,
   },
   hoteles: {
     vertical: 'hoteles',
@@ -106,6 +108,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
       `🎁 ${((c.extra['serviciosPetfriendly'] as string[] | undefined) ?? [])[0] ?? 'Servicios pet-friendly'}`,
     ],
     price: (c) => c.precioPorNoche,
+    tieneFicha: true,
   },
   seguros: {
     vertical: 'seguros',
@@ -141,8 +144,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
   selector: 'app-vertical-browse',
   standalone: true,
   imports: [
-    RsNavbarComponent, RsSearchBarComponent, ImgFallbackDirective,
-    AnimateOnScrollDirective, RsFavoritoBtnComponent, ExperienciasCercaComponent,
+    RsNavbarComponent, RsSearchBarComponent,
+    AnimateOnScrollDirective, ExperienciasCercaComponent, RsCardComponent,
   ],
   template: `
 <div class="vb-page">
@@ -177,33 +180,19 @@ const CONFIGS: Record<string, VerticalConfig> = {
         </p>
         <div class="vb-grid">
           @for (c of items(); track c.id) {
-            <article class="vb-card" rsAnim>
-              <div class="vb-card__img">
-                <img [src]="c.imagenes[0]" [alt]="c.nombre" loading="lazy" rsImg />
-                <span class="rs-badge rs-badge--accent vb-card__badge">{{ cfg().badge(c) }}</span>
-                <div class="vb-card__fav">
-                  <rs-favorito-btn [servicioId]="c.id"></rs-favorito-btn>
-                </div>
-              </div>
-              <div class="vb-card__body">
-                <h3 class="vb-card__name">{{ cfg().titulo3(c) }}</h3>
-                <p class="vb-card__loc">{{ cfg().loc(c) }}</p>
-                <div class="vb-card__meta">
-                  @for (m of cfg().meta(c); track m) { <span>{{ m }}</span> }
-                </div>
-                <div class="vb-card__footer">
-                  <div class="rs-rating">
-                    <div class="rs-rating__score">{{ c.score }}</div>
-                    <div>
-                      <div class="rs-rating__label">{{ c.scoreLabel }}</div>
-                      <div class="rs-rating__count">{{ c.numResenas }} reseñas</div>
-                    </div>
-                  </div>
-                  <div class="vb-card__price">
-                    <div class="vb-card__amount">€{{ cfg().price(c) }}</div>
-                    <div class="vb-card__period">{{ cfg().priceLabel }}</div>
-                  </div>
-                </div>
+            <rs-card rsAnim
+              [imageUrl]="c.imagenes[0]" [imageAlt]="c.nombre"
+              [title]="cfg().titulo3(c)" [subtitle]="c.ciudad"
+              [badges]="badgesDe(c)"
+              [rating]="{ score: c.score, label: c.scoreLabel, count: c.numResenas }"
+              [price]="{ amount: '€' + cfg().price(c), period: cfg().priceLabel }"
+              [amenities]="cfg().meta(c)"
+              [favoritoServicioId]="c.id"
+              [routerLink]="cfg().tieneFicha ? [ui().route, c.id] : null"
+              [ctaLabel]="cfg().tieneFicha ? 'Ver ficha' : ''"
+              [clickable]="false">
+              @if (!cfg().tieneFicha) {
+              <div cardFooter>
                 @if (solicitadoId() === c.id) {
                   <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">{{ cfg().confirmMsg }}</div>
                 } @else {
@@ -211,7 +200,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
                           (click)="solicitar(c)">{{ cfg().cta }}</button>
                 }
               </div>
-            </article>
+              }
+            </rs-card>
           }
           @if (items().length === 0 && !error()) {
             <div class="vb-empty"><div style="font-size:3rem">🔍</div><h3>Sin resultados</h3><p>Prueba con otra ciudad.</p></div>
@@ -230,7 +220,15 @@ const CONFIGS: Record<string, VerticalConfig> = {
   styles: [`
     :host { display: block; }
     .vb-page { min-height: 100vh; background: var(--c-base); }
-    .vb-searchbar { background: var(--c-card); border-bottom: 1px solid var(--b-1); padding-block: var(--sp-4); box-shadow: var(--sh-sm); }
+    .vb-searchbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--c-card);
+      padding-block: var(--sp-5);
+      box-shadow: var(--sh-md);
+      border-radius: 0 0 var(--r-lg) var(--r-lg);
+    }
     .vb-head { margin-bottom: var(--sp-6); }
     .vb-head h1 { font-size: var(--f-3xl); color: var(--dk-blue); letter-spacing: -.02em; }
     .vb-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); font-size: var(--f-md); }
@@ -242,19 +240,9 @@ const CONFIGS: Record<string, VerticalConfig> = {
       background: var(--c-accent-lo); color: var(--dk-blue);
       font-size: var(--f-xs); font-weight: var(--w-6);
     }
-    .vb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
-    .vb-card { background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--sh-card); transition: all var(--d-3); &:hover { box-shadow: var(--sh-lg); transform: translateY(-4px); .vb-card__img img { transform: scale(1.06); } } }
-    .vb-card__img { position: relative; aspect-ratio: 16/10; overflow: hidden; background: linear-gradient(135deg, #143C7A, #1668E3); img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); } }
-    .vb-card__badge { position: absolute; top: var(--sp-3); left: var(--sp-3); background: rgba(255,255,255,.92); color: var(--t-100); border-color: rgba(255,255,255,.6); backdrop-filter: blur(6px); }
-    .vb-card__fav { position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 2; }
-    .vb-card__body { padding: var(--sp-5); }
-    .vb-card__name { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); line-height: 1.3; }
-    .vb-card__loc { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-3); }
-    .vb-card__meta { display: flex; gap: var(--sp-4); font-size: var(--f-xs); color: var(--t-300); margin-bottom: var(--sp-4); flex-wrap: wrap; }
-    .vb-card__footer { display: flex; align-items: flex-end; justify-content: space-between; }
-    .vb-card__price { text-align: right; }
-    .vb-card__amount { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); letter-spacing: -.02em; }
-    .vb-card__period { font-size: var(--f-xs); color: var(--t-400); }
+    /* La tarjeta (imagen 70-75%, badges, rating, precio) la aporta <rs-card>
+       en modo "resultado" (HU-3.1) — ver rs-card.component.ts. */
+    .vb-grid { display: grid; grid-template-columns: repeat(3, 1fr); align-items: stretch; gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .vb-empty { grid-column: 1 / -1; text-align: center; padding: var(--sp-20); color: var(--t-400); h3 { color: var(--t-200); margin: var(--sp-4) 0 var(--sp-2); } }
   `],
 })
@@ -333,6 +321,12 @@ export class VerticalBrowseComponent implements OnInit {
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /** Badge de categoría de la tarjeta unificada (HU-3.1); nunca null en la práctica pero el tipo lo permite. */
+  badgesDe(c: ServicioCard): CardBadge[] {
+    const label = this.cfg().badge(c);
+    return label ? [{ label }] : [];
   }
 
   solicitar(c: ServicioCard): void {

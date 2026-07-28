@@ -47,10 +47,22 @@ export const routes: Routes = [
       import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
   },
   {
+    path: 'adiestramiento/:id',
+    data: { vertical: 'adiestramiento' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-detalle.component').then((m) => m.VerticalDetalleComponent),
+  },
+  {
     path: 'hoteles',
     data: { vertical: 'hoteles' },
     loadComponent: () =>
       import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+  },
+  {
+    path: 'hoteles/:id',
+    data: { vertical: 'hoteles' },
+    loadComponent: () =>
+      import('./features/verticales/vertical-detalle.component').then((m) => m.VerticalDetalleComponent),
   },
   {
     path: 'seguros',

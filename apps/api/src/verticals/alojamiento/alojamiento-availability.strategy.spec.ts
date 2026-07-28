@@ -159,6 +159,51 @@ describe('AlojamientoAvailabilityStrategy', () => {
       });
     });
 
+    describe('servicios adicionales (HU-15.1/15.2)', () => {
+      const mockConExtras = {
+        ...alojamientoMock,
+        serviciosAdicionales: [
+          { nombre: 'Paseo extra diario', precio: 10 },
+          { nombre: 'Baño y cepillado', precio: 25 },
+        ],
+      };
+
+      beforeEach(() => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue(mockConExtras),
+        });
+      });
+
+      it('debería sumar el precio de los extras seleccionados por nombre', async () => {
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { extras: ['Paseo extra diario', 'Baño y cepillado'] },
+        });
+
+        // 1 noche × 45€ × 1 perro + 10 + 25
+        expect(resultado.precioCalculado).toBe(45 + 10 + 25);
+        expect(resultado.metadata?.extras).toBe(35);
+      });
+
+      it('debería ignorar nombres de extras que no existen en el servicio', async () => {
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { extras: ['Extra inventado'] },
+        });
+
+        expect(resultado.precioCalculado).toBe(45);
+      });
+
+      it('no debería sumar nada si no se seleccionan extras', async () => {
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+        });
+
+        expect(resultado.precioCalculado).toBe(45);
+      });
+    });
+
     describe('compatibilidad social', () => {
       const mockConCompatibilidad = {
         ...alojamientoMock,

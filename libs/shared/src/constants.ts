@@ -28,3 +28,39 @@ export const PAISES_SOPORTADOS = [
 ] as const;
 export const SLOT_HOLD_TTL_MINUTOS = 15;
 export const COMISION_PCT_DEFAULT = 0.15;
+
+/**
+ * Escalera de niveles del programa de fidelización Doogking Alpha (Bloque 13),
+ * usada como valor efectivo mientras el admin no haya guardado su propia
+ * configuración en `alpha_niveles` — "nada fijo en el código" (HU-13.4), pero
+ * el programa tiene que funcionar desde el primer día sin intervención manual.
+ */
+export const ALPHA_NIVELES_DEFAULT: readonly {
+  nivel: number;
+  nombre: string;
+  reservasRequeridas: number;
+  descuentoPct: number;
+  beneficios: string[];
+}[] = [
+  {
+    nivel: 1,
+    nombre: 'Alpha 1',
+    reservasRequeridas: 0,
+    descuentoPct: 0,
+    beneficios: ['Promociones y ofertas exclusivas'],
+  },
+  {
+    nivel: 2,
+    nombre: 'Alpha 2',
+    reservasRequeridas: 5,
+    descuentoPct: 0.05,
+    beneficios: ['Hasta 5% de descuento', 'Promociones exclusivas', 'Prioridad en campañas'],
+  },
+  {
+    nivel: 3,
+    nombre: 'Alpha 3',
+    reservasRequeridas: 15,
+    descuentoPct: 0.1,
+    beneficios: ['Hasta 10% de descuento', 'Promociones premium', 'Ventajas exclusivas'],
+  },
+];

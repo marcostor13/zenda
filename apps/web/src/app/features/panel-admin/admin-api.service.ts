@@ -54,6 +54,15 @@ export interface AdminDashboardResponse {
   comisiones: ComisionConfig[];
 }
 
+/** Un escalón del programa de fidelización Doogking Alpha (Bloque 13). */
+export interface AlphaNivel {
+  nivel: number;
+  nombre: string;
+  reservasRequeridas: number;
+  descuentoPct: number;
+  beneficios: string[];
+}
+
 export interface DocumentoVerificacion {
   tipo: string;
   nombre?: string;
@@ -206,6 +215,14 @@ export class AdminApiService {
 
   updateComision(dto: { vertical: string; comisionPct: number; stripePct?: number; stripeFijoEur?: number; activo: boolean }): Observable<ComisionConfig> {
     return this.http.put<ComisionConfig>(`${this.adminUrl}/comisiones`, dto);
+  }
+
+  getAlphaNiveles(): Observable<AlphaNivel[]> {
+    return this.http.get<AlphaNivel[]>(`${this.adminUrl}/alpha`);
+  }
+
+  updateAlphaNivel(dto: AlphaNivel): Observable<AlphaNivel> {
+    return this.http.put<AlphaNivel>(`${this.adminUrl}/alpha`, dto);
   }
 
   aprobarComercio(id: string): Observable<unknown> {

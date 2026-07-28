@@ -28,7 +28,12 @@ interface Dobles {
 }
 
 const perro = (extra: Record<string, unknown> = {}) => ({
-  _id: 'p1', nombre: 'Maya', tamano: 'mediano', tipoPelo: ['corto'], ...extra,
+  _id: 'p1', nombre: 'Maya', tamano: 'mediano', tipoPelo: ['corto'],
+  fotos: [], especie: 'perro', esMestizo: false, esterilizado: true,
+  vacunas: [], alergias: [], enfermedades: [], medicacion: [],
+  puedeQuedarseSolo: true, ansiedadSeparacion: false, miedos: [],
+  seMarea: false, requiereTransportin: false, autorizaCompartirHistorial: true,
+  ...extra,
 });
 
 describe('ReservaWizardComponent', () => {
@@ -197,6 +202,32 @@ describe('ReservaWizardComponent', () => {
     });
   });
 
+  describe('tarjeta visual de mascota (HU-5.1.3)', () => {
+    it('debería devolver la edad en meses para un cachorro', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+
+      const hace4meses = new Date(Date.now() - 4 * 30.44 * 24 * 60 * 60 * 1000).toISOString();
+      expect(componente.edadDe(perro({ fechaNacimiento: hace4meses }))).toBe('4 meses');
+    });
+
+    it('debería devolver la edad en años para un perro adulto', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+
+      const fecha = new Date();
+      fecha.setFullYear(fecha.getFullYear() - 3);
+      expect(componente.edadDe(perro({ fechaNacimiento: fecha.toISOString() }))).toBe('3 años');
+    });
+
+    it('no debería inventar una edad si la mascota no la tiene declarada', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+
+      expect(componente.edadDe(perro())).toBeNull();
+    });
+  });
+
   describe('precio', () => {
     it('debería multiplicar el precio por las noches reservadas', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
@@ -213,11 +244,15 @@ describe('ReservaWizardComponent', () => {
       expect(componente.subtotal()).toBe(50);
     });
 
-    it('debería sumar los extras seleccionados', async () => {
+    it('debería sumar los extras seleccionados, configurados por el comercio (HU-15.1/15.2)', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query);
-      componente.toggleExtra('paseo');
-      componente.toggleExtra('camara');
+      componente.serviciosAdicionalesAlojamiento.set([
+        { nombre: 'Paseo extra diario', precio: 10 },
+        { nombre: 'Acceso cámara 24/7', precio: 5 },
+      ]);
+      componente.toggleExtra('Paseo extra diario');
+      componente.toggleExtra('Acceso cámara 24/7');
 
       expect(componente.subtotal()).toBe(65);
     });
@@ -225,8 +260,9 @@ describe('ReservaWizardComponent', () => {
     it('debería quitar el extra al pulsarlo de nuevo', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query);
-      componente.toggleExtra('paseo');
-      componente.toggleExtra('paseo');
+      componente.serviciosAdicionalesAlojamiento.set([{ nombre: 'Paseo extra diario', precio: 10 }]);
+      componente.toggleExtra('Paseo extra diario');
+      componente.toggleExtra('Paseo extra diario');
 
       expect(componente.extrasSelec()).toEqual([]);
       expect(componente.subtotal()).toBe(50);
@@ -507,6 +543,30 @@ describe('ReservaWizardComponent', () => {
       expect(dobles.reservas.crear.mock.calls[0][0].detalle.espacioId).toBe('esp1');
     });
 
+    it('debería incluir los extras seleccionados en el detalle del alojamiento (HU-15.1/15.2)', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      componente.serviciosAdicionalesAlojamiento.set([{ nombre: 'Paseo extra diario', precio: 10 }]);
+      componente.toggleExtra('Paseo extra diario');
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-02' });
+
+      componente.irPaso(3);
+      await fixture.whenStable();
+
+      expect(dobles.reservas.crear.mock.calls[0][0].detalle.extras).toEqual(['Paseo extra diario']);
+    });
+
+    it('no debería enviar el campo extras si no se seleccionó ninguno', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-02' });
+
+      componente.irPaso(3);
+      await fixture.whenStable();
+
+      expect(dobles.reservas.crear.mock.calls[0][0].detalle.extras).toBeUndefined();
+    });
+
     it('no debería crear reserva sin servicio ni comercio en la ruta', async () => {
       await crear({ vertical: VerticalKey.ALOJAMIENTO }, {});
 
@@ -742,6 +802,48 @@ describe('ReservaWizardComponent', () => {
       expect(componente.serviciosAdiestramientoOpciones().map((s) => s.nombre)).toEqual(['Obediencia']);
     });
 
+    it('debería cargar los servicios adicionales configurados por el comercio de alojamiento (HU-15.1/15.2)', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, {
+        catalog: {
+          obtener: jest.fn().mockResolvedValue({
+            extra: { serviciosAdicionales: [{ nombre: 'Recogida a domicilio', precio: 15 }] },
+          }),
+        },
+      });
+
+      expect(componente.serviciosAdicionalesAlojamiento()).toEqual([{ nombre: 'Recogida a domicilio', precio: 15 }]);
+    });
+
+    it('debería cargar los suplementos del hotel configurados por el comercio (HU-15.1/15.2)', async () => {
+      const { params, query } = contexto(VerticalKey.HOTELES);
+      await crear(params, query, {
+        catalog: {
+          obtener: jest.fn().mockResolvedValue({
+            extra: {
+              suplementoPorTamanoMascota: [{ tamano: 'grande', precioPorNoche: 20 }],
+              suplementoSegundaMascotaPorNoche: 8,
+            },
+          }),
+        },
+      });
+      componente.paso1HotelesForm.patchValue({
+        checkIn: '2026-09-01', checkOut: '2026-09-03', mascotas: 2, tamanoPerro: 'grande',
+      });
+
+      // 2 noches × (20 tamaño + 8 segunda mascota) = 56
+      expect(componente.suplementoHotel()).toBe(56);
+      expect(componente.subtotal()).toBe(componente.precioBase() * 2 + 56);
+    });
+
+    it('el suplemento del hotel debería ser 0 si no hay configuración', async () => {
+      const { params, query } = contexto(VerticalKey.HOTELES);
+      await crear(params, query);
+      componente.paso1HotelesForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-03' });
+
+      expect(componente.suplementoHotel()).toBe(0);
+    });
+
     it('debería seguir funcionando si el catálogo enriquecido falla', async () => {
       const { params, query } = contexto(VerticalKey.PELUQUERIA);
       await crear(params, query, { catalog: { obtener: jest.fn().mockRejectedValue(new Error('404')) } });
@@ -897,9 +999,10 @@ describe('ReservaWizardComponent', () => {
     it('debería nombrar los extras seleccionados con su precio', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query);
+      componente.serviciosAdicionalesAlojamiento.set([{ nombre: 'Baño y cepillado', precio: 25 }]);
 
-      expect(componente.extraNombre('bano')).toBe('Baño y cepillado');
-      expect(componente.extraPrecio('bano')).toBe(25);
+      expect(componente.extraNombre('Baño y cepillado')).toBe('Baño y cepillado');
+      expect(componente.extraPrecio('Baño y cepillado')).toBe(25);
       expect(componente.extraNombre('inexistente')).toBe('');
       expect(componente.extraPrecio('inexistente')).toBe(0);
     });

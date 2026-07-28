@@ -22,21 +22,24 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
       <div class="rs-auth__card" style="max-width:560px">
 
         <div class="rs-auth__brand">
-          <img src="/images/logo-doogking.jpg" alt="Doogking"
-               style="height:96px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-2)" />
-          <p>{{ pendiente() ? 'Verifica tu correo' : 'Hazte partner de Doogking' }}</p>
+          <a routerLink="/" aria-label="Ir a la Home de Doogking" style="display:inline-block;cursor:pointer">
+            <img src="/images/logo-doogking.jpg" alt="Doogking"
+                 style="height:96px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-2)" />
+          </a>
+          <p>{{ pendiente() ? '¡Ya casi está!' : 'Empieza a recibir reservas con Doogking' }}</p>
         </div>
 
         @if (pendiente()) {
           <div style="text-align:center">
-            <div style="width:64px;height:64px;border-radius:50%;background:var(--c-accent-lo);color:var(--c-accent);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)">
-              <rs-icon name="mail" [size]="30" [stroke]="1.75"></rs-icon>
+            <div style="width:72px;height:72px;border-radius:50%;background:var(--g-accent);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4);box-shadow:var(--sh-glow)">
+              <rs-icon name="mail" [size]="34" [stroke]="1.5"></rs-icon>
             </div>
             <p style="color:var(--t-200);font-size:var(--f-base);line-height:1.6">
-              Te enviamos un enlace de verificación a<br><strong>{{ emailRegistrado() }}</strong>.
+              Solo queda verificar tu correo para empezar a recibir reservas.<br>
+              Hemos enviado un correo a: <strong>{{ emailRegistrado() }}</strong>.
             </p>
             <p style="color:var(--t-400);font-size:var(--f-sm);margin-top:var(--sp-3)">
-              Ábrelo para activar tu cuenta y entrar a tu panel de comercio. Revisa también el spam.
+              Haz clic en el enlace del correo para activar tu cuenta y entrar a tu panel de comercio. Revisa también el spam.
             </p>
             @if (reenviado()) {
               <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">Correo reenviado ✓</div>
@@ -70,8 +73,8 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
         <!-- PASO 1: Categorías -->
         @if (paso() === 1) {
           <div class="wz-panel">
-            <h2 class="wz-title">¿Qué ofreces?</h2>
-            <p class="wz-sub">Elige una o varias categorías. Podrás añadir más luego.</p>
+            <h2 class="wz-title">¿Qué servicios quieres ofrecer?</h2>
+            <p class="wz-sub">Puedes seleccionar uno o varios servicios. Más adelante podrás modificarlos cuando quieras.</p>
 
             <div class="wz-grid">
               @for (v of verticalesDisponibles; track v.key) {
@@ -86,6 +89,17 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
               }
             </div>
 
+            <div class="wz-benefits">
+              <strong>¿Qué conseguirás al unirte?</strong>
+              <ul>
+                <li>✓ Miles de usuarios buscando servicios como el tuyo</li>
+                <li>✓ Reservas online 24 h, sin llamadas ni gestión manual</li>
+                <li>✓ Calendario y gestión de tu negocio en un solo panel</li>
+                <li>✓ Cobro seguro con Stripe</li>
+                <li>✓ Sin permanencia: date de baja cuando quieras</li>
+              </ul>
+            </div>
+
             <button type="button" class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
                     style="margin-top:var(--sp-6)"
                     [disabled]="verticalesSel().length === 0" (click)="siguiente()">
@@ -97,23 +111,23 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
         <!-- PASO 2: Negocio -->
         @if (paso() === 2) {
           <form [formGroup]="negocioForm" class="wz-panel" (ngSubmit)="siguiente()">
-            <h2 class="wz-title">Tu negocio</h2>
-            <p class="wz-sub">Lo básico para que tus clientes te encuentren.</p>
+            <h2 class="wz-title">Cuéntanos sobre tu negocio</h2>
+            <p class="wz-sub">Estos datos aparecerán en tu perfil público.</p>
 
             <div class="rs-field">
               <label for="nombreComercial" class="rs-lbl">Nombre del negocio</label>
               <input id="nombreComercial" type="text" formControlName="nombreComercial" class="rs-inp"
                      autocomplete="organization" [class.rs-inp--error]="invalido(negocioForm, 'nombreComercial')"
-                     placeholder="Ej. Royal Dog Resort" />
+                     [placeholder]="placeholderNombreNegocio()" />
               @if (invalido(negocioForm, 'nombreComercial')) {
                 <span class="rs-field-err">Ingresa el nombre de tu negocio</span>
               }
             </div>
 
             <div class="rs-field">
-              <label for="ciudad" class="rs-lbl">Ciudad</label>
+              <label for="ciudad" class="rs-lbl">¿Dónde prestas tus servicios?</label>
               <rs-place-autocomplete inputId="ciudad" formControlName="ciudad"
-                                     apariencia="campo" placeholder="Busca tu población…" />
+                                     apariencia="campo" placeholder="¿Dónde prestas tus servicios?" />
               @if (invalido(negocioForm, 'ciudad')) {
                 <span class="rs-field-err">Ingresa tu ciudad</span>
               }
@@ -131,7 +145,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
         @if (paso() === 3) {
           <form [formGroup]="cuentaForm" class="wz-panel" (ngSubmit)="onSubmit()">
             <h2 class="wz-title">Tu acceso</h2>
-            <p class="wz-sub">Con estos datos entrarás a gestionar tu negocio.</p>
+            <p class="wz-sub">Crea tu cuenta para empezar a gestionar tus reservas.</p>
 
             <div class="rs-field">
               <label for="nombre" class="rs-lbl">Tu nombre</label>
@@ -148,8 +162,9 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
             </div>
 
             <div class="rs-field">
-              <label for="telefono" class="rs-lbl">Teléfono <span class="wz-opt">(opcional)</span></label>
+              <label for="telefono" class="rs-lbl">Teléfono</label>
               <rs-phone-input inputId="telefono" formControlName="telefono" etiqueta="Teléfono" />
+              <span class="wz-opt">Opcional</span>
             </div>
 
             <div class="rs-field">
@@ -166,10 +181,26 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
               </div>
               @if (invalido(cuentaForm, 'password')) {
                 <span class="rs-field-err">La contraseña debe tener al menos 8 caracteres</span>
+              } @else if (cuentaForm.value.password) {
+                <div class="wz-pwstrength">
+                  <div class="wz-pwstrength__track">
+                    <div class="wz-pwstrength__fill" [class]="'wz-pwstrength__fill--' + fuerzaPassword()"
+                         [style.width.%]="(nivelFuerzaPassword() / 4) * 100"></div>
+                  </div>
+                  <span [class]="'wz-pwstrength__label wz-pwstrength__label--' + fuerzaPassword()">
+                    {{ etiquetaFuerzaPassword() }}
+                  </span>
+                </div>
               }
             </div>
 
             @if (error()) { <div class="rs-alert rs-alert--error">{{ error() }}</div> }
+
+            <div class="wz-trust">
+              <p>🔒 Tus datos están protegidos</p>
+              <p>📄 Podrás completar la información fiscal y bancaria más adelante</p>
+              <p>⏱️ En menos de 2 minutos tendrás tu negocio creado</p>
+            </div>
 
             <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-4)">
               <button type="button" class="rs-btn rs-btn--outline" (click)="atras()" [disabled]="cargando()">Atrás</button>
@@ -179,16 +210,12 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                 {{ cargando() ? 'Creando…' : 'Crear mi negocio' }}
               </button>
             </div>
-
-            <p style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-top:var(--sp-4);line-height:1.5">
-              Los datos fiscales y bancarios los completarás luego, sin prisa, desde tu panel.
-            </p>
           </form>
         }
         }
 
         <div class="rs-auth__footer">
-          ¿Eres dueño de un perro? <a routerLink="/auth/registro">Crea tu cuenta de cliente</a>
+          ¿Buscas servicios para tu mascota? <a routerLink="/auth/registro">Crear cuenta de cliente</a>
         </div>
       </div>
     </div>
@@ -217,7 +244,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
     .wz-title { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
     .wz-sub { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-5); }
-    .wz-opt { color: var(--t-400); font-weight: var(--w-4); }
+    .wz-opt { display: inline-block; margin-top: var(--sp-1); color: var(--t-400); font-weight: var(--w-4); font-size: var(--f-xs); }
 
     .wz-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
     @media (min-width: 480px) { .wz-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -232,13 +259,45 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
       transition: all var(--d-2);
     }
     .wz-cat:hover { border-color: var(--c-accent); color: var(--t-100); }
-    .wz-cat--sel { border-color: var(--c-accent); background: var(--c-accent-lo); color: var(--c-accent); }
+    .wz-cat--sel {
+      border-color: var(--c-accent); background: var(--c-accent-lo); color: var(--c-accent);
+      box-shadow: var(--sh-md); transform: translateY(-1px);
+    }
     .wz-cat__check {
       position: absolute; top: var(--sp-2); right: var(--sp-2);
       width: 18px; height: 18px; border-radius: var(--r-full);
       background: var(--c-accent); color: #fff;
       display: flex; align-items: center; justify-content: center;
     }
+
+    .wz-benefits {
+      margin-top: var(--sp-5);
+      padding: var(--sp-4);
+      background: var(--c-accent-lo);
+      border-radius: var(--r-lg);
+      strong { font-size: var(--f-sm); color: var(--dk-blue); }
+      ul { list-style: none; margin-top: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-1); }
+      li { font-size: var(--f-xs); color: var(--t-300); }
+    }
+
+    .wz-trust {
+      margin-top: var(--sp-4);
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      p { font-size: var(--f-xs); color: var(--t-400); margin: 0; }
+    }
+
+    .wz-pwstrength { margin-top: var(--sp-2); }
+    .wz-pwstrength__track { height: 4px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; }
+    .wz-pwstrength__fill { height: 100%; border-radius: var(--r-full); transition: width var(--d-2), background var(--d-2); }
+    .wz-pwstrength__fill--debil { background: #EF4444; }
+    .wz-pwstrength__fill--media { background: #F59E0B; }
+    .wz-pwstrength__fill--segura { background: #10B981; }
+    .wz-pwstrength__fill--muy_segura { background: #047857; }
+    .wz-pwstrength__label { font-size: var(--f-xs); font-weight: var(--w-6); margin-top: var(--sp-1); display: inline-block; }
+    .wz-pwstrength__label--debil { color: #EF4444; }
+    .wz-pwstrength__label--media { color: #B45309; }
+    .wz-pwstrength__label--segura { color: #047857; }
+    .wz-pwstrength__label--muy_segura { color: #047857; }
   `],
 })
 export class RegistroComercioComponent {
@@ -280,6 +339,40 @@ export class RegistroComercioComponent {
   });
 
   readonly seleccionValida = computed(() => this.verticalesSel().length > 0);
+
+  private readonly placeholdersPorVertical: Partial<Record<VerticalKey, string>> = {
+    [VerticalKey.VETERINARIA]: 'Ej. Veterinario Pérez',
+    [VerticalKey.PELUQUERIA]: 'Ej. Peluquería Canina Vila-Can',
+    [VerticalKey.ALOJAMIENTO]: 'Ej. Residencia Canina Vila-Can',
+    [VerticalKey.TRANSPORTE]: 'Ej. Transportes Caninos Madrid',
+    [VerticalKey.ADIESTRAMIENTO]: 'Ej. Adiestramiento Canino Vila-Can',
+    [VerticalKey.HOTELES]: 'Ej. Hotel Canino Luna',
+  };
+
+  /** Placeholder del nombre del negocio según el primer servicio elegido (HU-6.1.1). */
+  placeholderNombreNegocio(): string {
+    const primero = this.verticalesSel()[0];
+    return (primero && this.placeholdersPorVertical[primero]) || 'Ej. Royal Dog Resort';
+  }
+
+  /** Fuerza de la contraseña (HU-6.1.4): sin validación de servidor, solo guía visual. */
+  nivelFuerzaPassword(): 1 | 2 | 3 | 4 {
+    const pwd = this.cuentaForm.value.password ?? '';
+    let puntos = 0;
+    if (pwd.length >= 8) puntos++;
+    if (pwd.length >= 12) puntos++;
+    if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) puntos++;
+    if (/\d/.test(pwd) && /[^A-Za-z0-9]/.test(pwd)) puntos++;
+    return Math.max(1, puntos) as 1 | 2 | 3 | 4;
+  }
+
+  fuerzaPassword(): 'debil' | 'media' | 'segura' | 'muy_segura' {
+    return (['debil', 'media', 'segura', 'muy_segura'] as const)[this.nivelFuerzaPassword() - 1];
+  }
+
+  etiquetaFuerzaPassword(): string {
+    return { debil: 'Débil', media: 'Media', segura: 'Segura', muy_segura: 'Muy segura' }[this.fuerzaPassword()];
+  }
 
   constructor() {
     this.restaurarBorrador();

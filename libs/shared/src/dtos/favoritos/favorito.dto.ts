@@ -12,4 +12,6 @@ export interface FavoritoResumenDto {
   ratingPromedio: number;
   totalResenas: number;
   createdAt: string;
+  /** Presente solo si el precio ha bajado desde que se guardó como favorito (HU-10.4). */
+  precioAnterior?: number;
 }

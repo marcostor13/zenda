@@ -14,7 +14,9 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
       <div class="rs-auth__card">
 
         <div class="rs-auth__brand">
-        <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
+        <a routerLink="/" aria-label="Ir a la Home de Doogking" style="display:inline-block;cursor:pointer">
+          <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
+        </a>
           <p>{{ pendiente() ? 'Verifica tu correo' : 'Crea tu cuenta gratis' }}</p>
         </div>
 

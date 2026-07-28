@@ -8,11 +8,20 @@ import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { ReviewsRepository } from './reviews.repository';
 import { ResenaDocument } from './resena.schema';
-import { CrearReviewDto } from './dto/reviews.dto';
+import { ActualizarReviewDto, CrearReviewDto } from './dto/reviews.dto';
 import { GrowthService } from '../eventos/growth.service';
 
 // Estados de reserva sobre los que se permite reseñar (servicio ya prestado o en firme).
 const ESTADOS_RESENABLES: ReservaEstado[] = [ReservaEstado.CONFIRMADA, ReservaEstado.COMPLETADA];
+
+export interface PendienteDeValorarDto {
+  reservaId: string;
+  servicioId: string;
+  servicioTitulo: string;
+  vertical: string;
+  imagen: string | null;
+  fechaInicio: string;
+}
 
 @Injectable()
 export class ReviewsService {
@@ -51,6 +60,8 @@ export class ReviewsService {
       vertical: reserva.vertical,
       puntuacion: dto.puntuacion,
       comentario: dto.comentario,
+      aspectos: dto.aspectos,
+      fotos: dto.fotos,
     });
 
     await this.recalcularRatingServicio(reserva.servicioId.toString());
@@ -72,6 +83,72 @@ export class ReviewsService {
 
   listarPorComercio(comercioId: string): Promise<ResenaDocument[]> {
     return this.repo.listarPorComercio(comercioId);
+  }
+
+  async actualizar(usuarioId: string, resenaId: string, dto: ActualizarReviewDto): Promise<ResenaDocument> {
+    const resena = await this.repo.findById(resenaId);
+    if (!resena || resena.usuarioId.toString() !== usuarioId || resena.eliminada) {
+      throw new DomainException('Reseña no encontrada', 404);
+    }
+    const actualizada = await this.repo.actualizar(resenaId, {
+      puntuacion: dto.puntuacion,
+      comentario: dto.comentario,
+      aspectos: dto.aspectos,
+      fotos: dto.fotos,
+    });
+    if (!actualizada) {
+      throw new DomainException('Reseña no encontrada', 404);
+    }
+    if (dto.puntuacion !== undefined) {
+      await this.recalcularRatingServicio(resena.servicioId.toString());
+    }
+    return actualizada;
+  }
+
+  async eliminar(usuarioId: string, resenaId: string): Promise<void> {
+    const resena = await this.repo.findById(resenaId);
+    if (!resena || resena.usuarioId.toString() !== usuarioId) {
+      throw new DomainException('Reseña no encontrada', 404);
+    }
+    await this.repo.eliminar(resenaId);
+    await this.recalcularRatingServicio(resena.servicioId.toString());
+  }
+
+  /** Reservas confirmadas/completadas del usuario que todavía no tienen reseña (HU-11.2). */
+  async pendientesDeValorar(usuarioId: string): Promise<PendienteDeValorarDto[]> {
+    const [reservas, reservaIdsReseñados] = await Promise.all([
+      this.reservaModel
+        .find({ usuarioId: new Types.ObjectId(usuarioId), estado: { $in: ESTADOS_RESENABLES } })
+        .select('servicioId vertical fechaInicio')
+        .sort({ fechaInicio: -1 })
+        .lean()
+        .exec(),
+      this.repo.listarReservaIdsReseñados(usuarioId),
+    ]);
+
+    const yaReseñados = new Set(reservaIdsReseñados);
+    const pendientes = reservas.filter((r) => !yaReseñados.has(String(r._id)));
+    if (pendientes.length === 0) return [];
+
+    const servicioIds = pendientes.map((r) => r.servicioId);
+    const servicios = await this.servicioModel
+      .find({ _id: { $in: servicioIds } })
+      .select('titulo imagenes')
+      .lean()
+      .exec();
+    const porServicio = new Map(servicios.map((s) => [String(s._id), s]));
+
+    return pendientes.map((r) => {
+      const servicio = porServicio.get(String(r.servicioId));
+      return {
+        reservaId: String(r._id),
+        servicioId: String(r.servicioId),
+        servicioTitulo: servicio?.titulo ?? '',
+        vertical: r.vertical,
+        imagen: servicio?.imagenes?.[0] ?? null,
+        fechaInicio: r.fechaInicio.toISOString(),
+      };
+    });
   }
 
   async responder(resenaId: string, comercioId: string, respuesta: string): Promise<ResenaDocument> {

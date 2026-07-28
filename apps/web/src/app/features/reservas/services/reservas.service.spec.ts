@@ -78,6 +78,12 @@ describe('ReservasService', () => {
     await puntos;
   });
 
+  it('debería pedir la próxima reserva en su propia ruta (HU-7.3)', async () => {
+    const promesa = service.proximaReserva();
+    expect(resolver('/reservas/proxima', null).method).toBe('GET');
+    await promesa;
+  });
+
   it('debería propagar el error del API en lugar de tragárselo', async () => {
     const promesa = service.obtener('inexistente');
     httpMock.expectOne((r) => r.url.includes('/reservas/inexistente'))

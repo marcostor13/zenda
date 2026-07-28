@@ -1,12 +1,14 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
-import { FavoritoResumenDto } from 'shared';
+import { FavoritoResumenDto, VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { FavoritosService } from './favoritos.service';
+
+type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
 
 @Component({
   selector: 'app-favoritos',
@@ -22,6 +24,28 @@ import { FavoritosService } from './favoritos.service';
       <p>Los servicios que has guardado para reservar más rápido.</p>
     </div>
 
+    @if (!cargando() && favoritos().length > 0) {
+      <div class="fav-toolbar">
+        <div class="fav-toolbar__group">
+          <label for="fav-filtro">Categoría</label>
+          <select id="fav-filtro" class="rs-input" [value]="filtroVertical()" (change)="filtroVertical.set($any($event.target).value)">
+            <option value="">Todas</option>
+            @for (v of verticalesDisponibles(); track v) {
+              <option [value]="v">{{ etiquetaVertical(v) }}</option>
+            }
+          </select>
+        </div>
+        <div class="fav-toolbar__group">
+          <label for="fav-orden">Ordenar por</label>
+          <select id="fav-orden" class="rs-input" [value]="orden()" (change)="orden.set($any($event.target).value)">
+            <option value="recientes">Más recientes</option>
+            <option value="valorados">Mejor valorados</option>
+            <option value="precio">Precio (menor a mayor)</option>
+          </select>
+        </div>
+      </div>
+    }
+
     @if (cargando()) {
       <div style="text-align:center;padding:var(--sp-16);color:var(--t-400)">Cargando favoritos…</div>
     } @else if (favoritos().length === 0) {
@@ -32,15 +56,22 @@ import { FavoritosService } from './favoritos.service';
         </p>
         <a routerLink="/" class="rs-btn rs-btn--primary rs-btn--sm">Explorar servicios</a>
       </div>
+    } @else if (favoritosVisibles().length === 0) {
+      <div class="rs-card" style="padding:var(--sp-12);text-align:center">
+        <p style="color:var(--t-400);font-size:var(--f-sm)">Ningún favorito coincide con este filtro.</p>
+      </div>
     } @else {
       <div class="fav-grid">
-        @for (f of favoritos(); track f.servicioId) {
+        @for (f of favoritosVisibles(); track f.servicioId) {
           <article class="fav-card rs-card">
             <a [routerLink]="['/', f.vertical]" class="fav-card__img">
               @if (f.imagen) {
                 <img [src]="f.imagen" [alt]="f.titulo" rsImg />
               } @else {
                 <div class="fav-card__placeholder">🐾</div>
+              }
+              @if (f.precioAnterior) {
+                <span class="fav-card__badge">🔥 Ha bajado {{ f.precioAnterior - f.precioBase | number:'1.0-0' }} € desde que lo guardaste</span>
               }
               <div class="fav-card__fav">
                 <rs-favorito-btn [servicioId]="f.servicioId" (click)="marcarPendiente(f.servicioId)"></rs-favorito-btn>
@@ -67,11 +98,14 @@ import { FavoritosService } from './favoritos.service';
   styles: [`
     :host { display: block; }
     .fav-header { margin-bottom: var(--sp-6); h1 { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); } p { color: var(--t-400); font-size: var(--f-sm); } }
+    .fav-toolbar { display: flex; gap: var(--sp-5); flex-wrap: wrap; margin-bottom: var(--sp-6); }
+    .fav-toolbar__group { display: flex; flex-direction: column; gap: var(--sp-1); label { font-size: var(--f-xs); color: var(--t-400); } }
     .fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--sp-5); }
     .fav-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
     .fav-card__img { position: relative; display: block; aspect-ratio: 16/10; background: var(--c-raised); img { width: 100%; height: 100%; object-fit: cover; } }
     .fav-card__placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px; }
     .fav-card__fav { position: absolute; top: var(--sp-3); right: var(--sp-3); }
+    .fav-card__badge { position: absolute; left: var(--sp-3); bottom: var(--sp-3); right: var(--sp-3); background: var(--c-amber); color: var(--t-900); font-size: var(--f-xs); font-weight: var(--w-7); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); }
     .fav-card__body { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
     .fav-card__loc { display: inline-flex; align-items: center; gap: 4px; font-size: var(--f-xs); color: var(--t-400); }
     .fav-card__footer { display: flex; justify-content: space-between; align-items: center; margin-block: var(--sp-1); }
@@ -84,6 +118,19 @@ export class FavoritosComponent implements OnInit {
 
   readonly cargando = signal(true);
   readonly favoritos = signal<FavoritoResumenDto[]>([]);
+  readonly orden = signal<OrdenFavoritos>('recientes');
+  readonly filtroVertical = signal<VerticalKey | ''>('');
+
+  readonly verticalesDisponibles = computed(() => {
+    const vistos = new Set(this.favoritos().map((f) => f.vertical));
+    return Array.from(vistos);
+  });
+
+  readonly favoritosVisibles = computed(() => {
+    const filtro = this.filtroVertical();
+    const lista = filtro ? this.favoritos().filter((f) => f.vertical === filtro) : this.favoritos();
+    return [...lista].sort((a, b) => this.comparar(a, b));
+  });
 
   async ngOnInit(): Promise<void> {
     await this.favoritosService.cargarIds();
@@ -96,6 +143,10 @@ export class FavoritosComponent implements OnInit {
     }
   }
 
+  etiquetaVertical(v: VerticalKey): string {
+    return VERTICAL_LABELS[v] ?? v;
+  }
+
   /** Al quitar un favorito desde el corazón, lo retiramos también de la lista visible. */
   marcarPendiente(servicioId: string): void {
     setTimeout(() => {
@@ -103,5 +154,17 @@ export class FavoritosComponent implements OnInit {
         this.favoritos.update((list) => list.filter((f) => f.servicioId !== servicioId));
       }
     }, 250);
+  }
+
+  private comparar(a: FavoritoResumenDto, b: FavoritoResumenDto): number {
+    switch (this.orden()) {
+      case 'valorados':
+        return b.ratingPromedio - a.ratingPromedio;
+      case 'precio':
+        return a.precioBase - b.precioBase;
+      case 'recientes':
+      default:
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
   }
 }

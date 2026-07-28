@@ -25,7 +25,12 @@ export class FavoritosService {
   ) {}
 
   async agregar(usuarioId: string, servicioId: string): Promise<{ servicioId: string; favorito: boolean }> {
-    await this.favoritosRepo.agregar(usuarioId, servicioId);
+    const servicio = await this.servicioModel
+      .findById(servicioId)
+      .select('precioBase')
+      .lean()
+      .exec();
+    await this.favoritosRepo.agregar(usuarioId, servicioId, servicio?.precioBase);
     return { servicioId, favorito: true };
   }
 
@@ -60,10 +65,10 @@ export class FavoritosService {
 
   /** Lista de favoritos enriquecida con los datos del servicio, en orden de guardado. */
   async listar(usuarioId: string): Promise<FavoritoResumenDto[]> {
-    const ids = await this.favoritosRepo.listarServicioIds(usuarioId);
-    if (ids.length === 0) return [];
+    const favoritos = await this.favoritosRepo.listarServicios(usuarioId);
+    if (favoritos.length === 0) return [];
 
-    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    const objectIds = favoritos.map((f) => new Types.ObjectId(f.servicioId));
     const servicios = (await this.servicioModel
       .find({ _id: { $in: objectIds } })
       .select('titulo imagenes ubicacion vertical precioBase moneda ratingPromedio totalReseñas')
@@ -72,21 +77,26 @@ export class FavoritosService {
 
     const porId = new Map(servicios.map((s) => [String(s._id), s]));
 
-    // Respetar el orden de `ids` (más reciente primero) y descartar servicios borrados.
-    return ids
-      .map((id) => porId.get(id))
-      .filter((s): s is ServicioLean => Boolean(s))
-      .map((s) => ({
-        servicioId: String(s._id),
-        titulo: s.titulo,
-        imagen: s.imagenes?.[0] ?? null,
-        ciudad: s.ubicacion?.ciudad ?? '',
-        vertical: s.vertical,
-        precioBase: s.precioBase,
-        moneda: s.moneda ?? 'EUR',
-        ratingPromedio: s.ratingPromedio ?? 0,
-        totalResenas: s.totalReseñas ?? 0,
-        createdAt: new Date().toISOString(),
-      }));
+    // Respetar el orden de `favoritos` (más reciente primero) y descartar servicios borrados.
+    return favoritos
+      .map((f): FavoritoResumenDto | null => {
+        const s = porId.get(f.servicioId);
+        if (!s) return null;
+        const haBajado = f.precioGuardado !== undefined && f.precioGuardado > s.precioBase;
+        return {
+          servicioId: String(s._id),
+          titulo: s.titulo,
+          imagen: s.imagenes?.[0] ?? null,
+          ciudad: s.ubicacion?.ciudad ?? '',
+          vertical: s.vertical,
+          precioBase: s.precioBase,
+          moneda: s.moneda ?? 'EUR',
+          ratingPromedio: s.ratingPromedio ?? 0,
+          totalResenas: s.totalReseñas ?? 0,
+          createdAt: f.createdAt.toISOString(),
+          precioAnterior: haBajado ? f.precioGuardado : undefined,
+        };
+      })
+      .filter((s): s is FavoritoResumenDto => s !== null);
   }
 }

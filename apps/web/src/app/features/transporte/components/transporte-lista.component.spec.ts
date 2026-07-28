@@ -103,42 +103,6 @@ describe('TransporteListaComponent', () => {
     });
   });
 
-  describe('solicitud de traslado', () => {
-    it('debería llevar al wizard con el servicio elegido', async () => {
-      await crear();
-
-      componente.solicitar(card());
-
-      expect(router.navigate).toHaveBeenCalledWith(
-        ['/reservas', 'transporte', 't1'],
-        expect.objectContaining({
-          queryParams: expect.objectContaining({
-            comercioId: 'c1', nombre: 'DogVan Madrid', precioBase: 25,
-          }),
-        }),
-      );
-    });
-
-    it('debería arrastrar la búsqueda para no volver a pedirla', async () => {
-      await crear({ ciudad: 'Madrid', desde: '2026-09-01', perros: '2' });
-
-      componente.solicitar(card());
-
-      const { queryParams: qp } = (router.navigate as jest.Mock).mock.calls[0][1];
-      expect(qp).toMatchObject({ ciudad: 'Madrid', desde: '2026-09-01', perros: '2' });
-    });
-
-    it('debería enviar nulos cuando no hubo búsqueda previa', async () => {
-      await crear();
-
-      componente.solicitar(card());
-
-      const { queryParams: qp } = (router.navigate as jest.Mock).mock.calls[0][1];
-      expect(qp.ciudad).toBeNull();
-      expect(qp.desde).toBeNull();
-    });
-  });
-
   describe('etiquetas', () => {
     it('debería nombrar cada tipo de vehículo', async () => {
       await crear();

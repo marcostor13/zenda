@@ -1,5 +1,5 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { VerticalKey } from 'shared';
 import { FormBuilder, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
@@ -7,10 +7,13 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
+import { RsCardComponent } from '../../../shared/components/card/rs-card.component';
+import { RsChipComponent } from '../../../shared/components/chip/rs-chip.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import {
   AlojamientoService, AlojamientoCard, FiltrosAlojamiento, OrdenServicios,
 } from '../services/alojamiento.service';
+import { calcularBadgesAutomaticos, type BadgeAutomatico } from '../../../shared/badges/badges-automaticos';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
 import { ExperienciasCercaComponent } from '../../explora/experiencias-cerca.component';
 
@@ -26,8 +29,8 @@ interface BusquedaUrl {
   selector: 'app-alojamiento-lista',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
-    RsSearchBarComponent, AnimateOnScrollDirective, ImgFallbackDirective,
+    ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
+    RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent, RsChipComponent,
     ExperienciasCercaComponent,
   ],
   template: `
@@ -81,13 +84,11 @@ interface BusquedaUrl {
       <!-- Rating -->
       <div class="filter-group">
         <h4>Valoración</h4>
-        <div class="filter-checks">
+        <div class="filter-chips">
           @for (sc of ratingOpciones; track sc.valor) {
-            <label class="filter-check">
-              <input type="radio" name="rating" [value]="sc.valor" [(ngModel)]="ratingMinimo" />
-              <span class="filter-stars">{{ sc.estrellas }}</span>
-              <span><strong>{{ sc.label }}</strong></span>
-            </label>
+            <rs-chip [active]="ratingMinimo === sc.valor" (chipClick)="ratingMinimo = sc.valor">
+              {{ sc.estrellas }} {{ sc.label }}
+            </rs-chip>
           }
         </div>
       </div>
@@ -95,27 +96,24 @@ interface BusquedaUrl {
       <!-- Servicios caninos -->
       <div class="filter-group">
         <h4>Servicios</h4>
-        <div class="filter-checks">
+        <div class="filter-chips">
           @for (a of amenitiesOpciones; track a) {
-            <label class="filter-check">
-              <input type="checkbox" [checked]="amenitiesSelec().includes(a)"
-                     (change)="toggleAmenity(a)" />
-              <span>{{ a }}</span>
-            </label>
+            <rs-chip [active]="amenitiesSelec().includes(a)" (chipClick)="toggleAmenity(a)">{{ a }}</rs-chip>
           }
         </div>
       </div>
 
       <!-- Extras -->
       <div class="filter-group">
-        <label class="filter-check filter-check--toggle">
-          <input type="checkbox" [(ngModel)]="soloCancelacionGratis" />
-          <span>Solo cancelación gratis</span>
-        </label>
-        <label class="filter-check filter-check--toggle">
-          <input type="checkbox" [(ngModel)]="soloPaseos" />
-          <span>Paseos incluidos</span>
-        </label>
+        <h4>Extras</h4>
+        <div class="filter-chips">
+          <rs-chip [active]="soloCancelacionGratis" (chipClick)="soloCancelacionGratis = !soloCancelacionGratis">
+            ✓ Cancelación gratis
+          </rs-chip>
+          <rs-chip [active]="soloPaseos" (chipClick)="soloPaseos = !soloPaseos">
+            🐾 Paseos incluidos
+          </rs-chip>
+        </div>
       </div>
 
       <button class="rs-btn rs-btn--primary rs-btn--block" (click)="aplicarFiltros()">
@@ -156,15 +154,7 @@ interface BusquedaUrl {
       @if (cargando()) {
         <div class="results-list">
           @for (_ of [1,2,3,4]; track $index) {
-            <div class="aloja-card">
-              <div class="rs-skeleton rs-skeleton--img" style="width:280px;flex-shrink:0;border-radius:var(--r-xl)"></div>
-              <div class="aloja-card__body" style="flex:1;display:flex;flex-direction:column;gap:var(--sp-3)">
-                <div class="rs-skeleton rs-skeleton--title"></div>
-                <div class="rs-skeleton rs-skeleton--text" style="width:40%"></div>
-                <div class="rs-skeleton rs-skeleton--text" style="width:60%"></div>
-                <div class="rs-skeleton rs-skeleton--text" style="width:30%;margin-top:auto"></div>
-              </div>
-            </div>
+            <div class="rs-skeleton rs-skeleton--img" style="height:340px;border-radius:var(--r-xl)"></div>
           }
         </div>
       }
@@ -173,69 +163,18 @@ interface BusquedaUrl {
       @if (!cargando()) {
         <div class="results-list">
           @for (a of alojamientos(); track a.id) {
-            <a [routerLink]="['/alojamiento', a.id]" [queryParams]="queryParamsDetalle()" class="aloja-card"
-               [class.aloja-card--premium]="a.destacado" rsAnim>
-              <!-- Imagen -->
-              <div class="aloja-card__imgs">
-                <img [src]="a.imagenes[0]" [alt]="a.nombre" loading="lazy" rsImg />
-                @if (a.destacado) {
-                  <span class="premium-badge">★ Premium</span>
-                }
-                @if (a.descuentoPct) {
-                  <span class="rs-badge rs-badge--success" style="position:absolute;top:var(--sp-3);right:var(--sp-3)">
-                    -{{ a.descuentoPct }}%
-                  </span>
-                }
-              </div>
-
-              <!-- Info -->
-              <div class="aloja-card__body">
-                <h3 class="aloja-card__name">{{ a.nombre }}</h3>
-                <div class="aloja-card__rating">
-                  <span class="aloja-card__stars">{{ estrellas(a.score) }}</span>
-                  <strong>{{ a.score }}</strong>
-                  <span class="aloja-card__reviews">({{ a.numResenas }} reseñas)</span>
-                  <span class="aloja-card__loc">· {{ a.barrio }}, {{ a.ciudad }}</span>
-                </div>
-                @if (a.descripcion) {
-                  <p class="aloja-card__desc">{{ a.descripcion }}</p>
-                }
-
-                <div class="aloja-card__amenities">
-                  @for (am of a.amenities.slice(0,4); track am) {
-                    <span class="rs-amenity">{{ am }}</span>
-                  }
-                </div>
-
-                <div class="aloja-card__tags">
-                  @if (a.cancelacionGratis) {
-                    <span class="tag-green">✓ Cancelación gratis</span>
-                  }
-                  @if (a.paseosIncluidos) {
-                    <span class="tag-green">✓ Paseos diarios incluidos</span>
-                  }
-                  @if (a.espaciosDisponibles <= 3 && a.espaciosDisponibles > 0) {
-                    <span class="tag-amber">⚡ Solo {{ a.espaciosDisponibles }} espacios disponibles</span>
-                  }
-                </div>
-              </div>
-
-              <!-- Precio + CTA -->
-              <div class="aloja-card__price">
-                <div class="aloja-card__price-box">
-                  @if (a.precioAnterior) {
-                    <div class="rs-price__old">€{{ a.precioAnterior }}</div>
-                  }
-                  <div class="aloja-card__amount">€{{ a.precioPorNoche }}</div>
-                  <div class="aloja-card__period">/ noche</div>
-                  <div class="aloja-card__taxes">IVA incluido</div>
-                </div>
-                <!-- Toda la card ya es un <a routerLink>; este span solo da apariencia de botón, sin anidar otro elemento interactivo. -->
-                <span class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-4)">
-                  Ver disponibilidad
-                </span>
-              </div>
-            </a>
+            <rs-card rsAnim
+              [imageUrl]="a.imagenes[0]" [imageAlt]="a.nombre"
+              [title]="a.nombre" [subtitle]="a.barrio + ', ' + a.ciudad"
+              [badges]="badgesDe(a)"
+              [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
+              [price]="{ amount: '€' + a.precioPorNoche, period: '/ noche', oldAmount: a.precioAnterior ? '€' + a.precioAnterior : undefined }"
+              [amenities]="serviciosDe(a)"
+              [favoritoServicioId]="a.id"
+              [routerLink]="['/alojamiento', a.id]"
+              [queryParams]="queryParamsDetalle()"
+              ctaLabel="Ver disponibilidad">
+            </rs-card>
           }
 
           @if (!cargando() && alojamientos().length === 0 && !error()) {
@@ -283,10 +222,13 @@ interface BusquedaUrl {
     .alojamiento-page { min-height: 100vh; background: var(--c-base); }
 
     .search-bar-strip {
+      position: sticky;
+      top: 0;
+      z-index: 30;
       background: var(--c-card);
-      border-bottom: 1px solid var(--b-1);
-      padding: var(--sp-4) 0;
-      box-shadow: var(--sh-sm);
+      padding: var(--sp-5) 0;
+      box-shadow: var(--sh-md);
+      border-radius: 0 0 var(--r-lg) var(--r-lg);
     }
 
     .search-bar-strip__perro {
@@ -334,20 +276,8 @@ interface BusquedaUrl {
       h4 { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); margin-bottom: var(--sp-4); }
     }
 
-    .filter-checks { display: flex; flex-direction: column; gap: var(--sp-3); }
-
-    .filter-check {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-3);
-      font-size: var(--f-sm);
-      color: var(--t-300);
-      cursor: pointer;
-
-      input[type="checkbox"], input[type="radio"] { accent-color: var(--c-accent); }
-    }
-    .filter-check--toggle { justify-content: space-between; }
-    .filter-stars { color: var(--dk-gold); letter-spacing: 1px; }
+    /* Filtros como chips (HU-3.3): estado activo se ilumina en dorado — ver .rs-chip en styles.scss. */
+    .filter-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 
     .price-range { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
 
@@ -375,102 +305,16 @@ interface BusquedaUrl {
     .results-header__count { color: var(--t-200); font-weight: var(--w-6); }
     .results-header__geo { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); max-width: 32ch; }
 
-    .results-list { display: flex; flex-direction: column; gap: var(--sp-4); }
-
-    /* ALOJAMIENTO ROW CARD — blanca horizontal, imagen izquierda */
-    .aloja-card {
+    /* La tarjeta (imagen 70-75%, badges, rating, precio) la aporta <rs-card>
+       en modo "resultado" (HU-3.1) — ver rs-card.component.ts. */
+    .results-list {
       display: grid;
-      grid-template-columns: 280px 1fr 200px;
-      background: var(--c-card);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-xl);
-      overflow: hidden;
-      text-decoration: none;
-      transition: all var(--d-3);
-      cursor: pointer;
+      grid-template-columns: repeat(2, 1fr);
+      align-items: stretch;
+      gap: var(--sp-5);
 
-      &:hover {
-        border-color: var(--b-2);
-        box-shadow: var(--sh-lg);
-        transform: translateY(-2px);
-
-        .aloja-card__imgs img { transform: scale(1.05); }
-      }
-
-      @media (max-width: 768px) { grid-template-columns: 1fr; }
+      @media (max-width: 900px) { grid-template-columns: 1fr; }
     }
-
-    /* Card destacada: barra superior dorada de 4px */
-    .aloja-card--premium { border-top: 4px solid var(--dk-gold); }
-
-    .premium-badge {
-      position: absolute;
-      top: var(--sp-3);
-      left: var(--sp-3);
-      background: var(--dk-gold);
-      color: var(--dk-blue-deep);
-      font-size: var(--f-xs);
-      font-weight: var(--w-7);
-      padding: var(--sp-1) var(--sp-3);
-      border-radius: var(--r-md);
-    }
-
-    .aloja-card__imgs {
-      position: relative;
-      overflow: hidden;
-      min-height: 200px;
-
-      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
-    }
-
-    .aloja-card__body { padding: var(--sp-5); }
-    .aloja-card__name { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--dk-blue); margin-bottom: var(--sp-2); line-height: 1.3; }
-
-    .aloja-card__rating {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-2);
-      font-size: var(--f-sm);
-      color: var(--t-200);
-      margin-bottom: var(--sp-3);
-      flex-wrap: wrap;
-    }
-    .aloja-card__stars   { color: var(--dk-gold); letter-spacing: 1px; }
-    .aloja-card__reviews { color: var(--t-400); font-size: var(--f-xs); }
-    .aloja-card__loc     { color: var(--t-400); font-size: var(--f-xs); }
-
-    .aloja-card__desc {
-      font-size: var(--f-sm);
-      color: var(--t-300);
-      margin-bottom: var(--sp-4);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .aloja-card__amenities { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
-
-    .aloja-card__tags { display: flex; flex-direction: column; gap: var(--sp-2); }
-
-    .tag-green { font-size: var(--f-xs); color: var(--c-success); }
-    .tag-amber { font-size: var(--f-xs); color: var(--dk-gold); }
-
-    .aloja-card__price {
-      padding: var(--sp-5);
-      border-left: 1px solid var(--b-1);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: var(--sp-4);
-
-      @media (max-width: 768px) { border-left: none; border-top: 1px solid var(--b-1); }
-    }
-
-    .aloja-card__price-box { text-align: right; }
-    .aloja-card__amount { font-size: var(--f-3xl); font-weight: var(--w-8); color: var(--dk-blue); letter-spacing: -.03em; }
-    .aloja-card__period { font-size: var(--f-sm); color: var(--t-400); }
-    .aloja-card__taxes { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); }
 
     /* EMPTY STATE */
     .empty-state {
@@ -505,6 +349,25 @@ export class AlojamientoListaComponent implements OnInit {
   readonly alojamientos = signal<AlojamientoCard[]>([]);
   readonly paginaActual = signal(1);
   readonly totalPaginas = signal(1);
+
+  /** Badges de la tarjeta unificada (HU-3.1/HU-0.9): destacado, descuento, y automáticos por datos reales. */
+  badgesDe(a: AlojamientoCard): BadgeAutomatico[] {
+    const badges: BadgeAutomatico[] = [];
+    if (a.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
+    if (a.descuentoPct) badges.push({ icon: '', label: `-${a.descuentoPct}%`, variant: 'success' });
+    badges.push(...calcularBadgesAutomaticos({
+      score: a.score, numResenas: a.numResenas, plazasRestantes: a.espaciosDisponibles,
+    }));
+    return badges;
+  }
+
+  /** Servicios como iconos en una línea bajo la foto (HU-3.1). */
+  serviciosDe(a: AlojamientoCard): string[] {
+    const items = a.amenities.slice(0, 3);
+    if (a.cancelacionGratis) items.push('✓ Cancelación gratis');
+    if (a.paseosIncluidos) items.push('✓ Paseos incluidos');
+    return items;
+  }
   readonly totalItems = signal(0);
 
   readonly totalLabel = computed(() =>
@@ -698,12 +561,6 @@ export class AlojamientoListaComponent implements OnInit {
     if (perros) params['perros'] = String(perros);
     if (perroId) params['perroId'] = perroId;
     return params;
-  }
-
-  /** Estrellas doradas a partir del score (escala 0–5). */
-  estrellas(score: number): string {
-    const llenas = Math.round(Math.min(score, 5));
-    return '★'.repeat(llenas) + '☆'.repeat(5 - llenas);
   }
 
 }

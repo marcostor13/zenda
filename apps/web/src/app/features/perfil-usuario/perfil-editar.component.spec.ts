@@ -37,6 +37,15 @@ describe('PerfilEditarComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
+    // El <rs-navbar> embebido pide sus propios contadores (mascotas, favoritos,
+    // próxima reserva) cuando hay sesión; se drenan aquí para no interferir
+    // con las peticiones que sí le importan a este spec.
+    if (usuario !== null) {
+      const respuestas: Record<string, unknown[] | null> = { '/favoritos/ids': [], '/perros/mis': [], '/reservas/proxima': null };
+      for (const [url, cuerpo] of Object.entries(respuestas)) {
+        httpMock.match((r) => r.url.includes(url)).forEach((req) => req.flush(cuerpo));
+      }
+    }
   };
 
   const peticion = () => httpMock.expectOne((r) => r.url.includes('/users/me'));

@@ -11,7 +11,7 @@ se saltan este paso.
    cuenta con `requiereVerificacionEmail = true`, se genera un token de un solo
    uso (caduca en 24 h) y se envía un correo con el enlace. **No** se inicia
    sesión todavía; la pantalla muestra "Verifica tu correo".
-2. El correo enlaza a `FRONTEND_URL/auth/verificar?token=…`.
+2. El correo enlaza a `APP_URL/auth/verificar?token=…`.
 3. Al abrirlo, el frontend llama a `POST /auth/verificar-email`; el backend
    valida el token, marca la cuenta como verificada y **devuelve la sesión** →
    redirige por rol (cliente, comercio o admin).
@@ -20,10 +20,12 @@ se saltan este paso.
 
 ## Variables de entorno (Coolify → backend)
 
-Siempre hace falta la URL pública del frontend (para el enlace del correo):
+Siempre hace falta la URL pública del frontend (para el enlace del correo). Es la
+**misma variable `APP_URL`** que usan el resto de correos (valoraciones,
+recuperación de reservas) — no una variable aparte:
 
 ```
-FRONTEND_URL=https://TU-DOMINIO-WEB      # base del enlace de verificación
+APP_URL=https://TU-DOMINIO-WEB      # base del enlace de verificación y del resto de correos
 ```
 
 Y una de estas dos opciones de envío:

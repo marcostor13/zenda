@@ -719,6 +719,44 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--t-300);
 }
 
+/* ── 14b. FILTER CHIPS (HU-0.5) ──────────────────────────────────── */
+.rs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--f-sm);
+  font-weight: var(--w-5);
+  color: var(--t-300);
+  background: var(--c-card);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r-full);
+  cursor: pointer;
+  transition: all var(--d-2);
+
+  &:hover {
+    border-color: var(--b-2);
+    background: var(--c-raised);
+  }
+
+  &--active {
+    background: var(--dk-gold, var(--c-amber));
+    border-color: var(--dk-gold, var(--c-amber));
+    color: #1a1300;
+    font-weight: var(--w-7);
+  }
+
+  &--all {
+    border-width: 1.5px;
+  }
+}
+
+/* ── 14c. STICKY PANEL (HU-0.6 / 3.4 / 4.1.4 / 5.1.4) ───────────── */
+.rs-sticky-panel {
+  position: sticky;
+  top: var(--sticky-top, 84px);
+}
+
 /* ── 15. VERTICAL PILL TABS ────────────────────────────────────── */
 .rs-vtabs {
   display: flex;
@@ -862,8 +900,9 @@ h1, h2, h3, h4, h5, h6 {
     font-size: var(--f-sm);
     color: var(--t-400);
 
-    &.done   { color: var(--c-teal); }
-    &.active { color: var(--t-100); font-weight: var(--w-6); }
+    /* HU-5.1.2: completados en verde, paso actual en azul y más grande. */
+    &.done   { color: var(--c-success); font-weight: var(--w-6); }
+    &.active { color: var(--t-100); font-weight: var(--w-7); }
   }
 
   &__num {
@@ -877,9 +916,10 @@ h1, h2, h3, h4, h5, h6 {
     font-size: var(--f-xs);
     font-weight: var(--w-7);
     flex-shrink: 0;
+    transition: all var(--d-2);
 
-    .done &   { background: var(--c-teal); border-color: var(--c-teal); color: #000; }
-    .active & { background: var(--c-accent); border-color: var(--c-accent); color: #fff; }
+    .done &   { background: var(--c-success); border-color: var(--c-success); color: #fff; }
+    .active & { width: 34px; height: 34px; background: var(--c-accent); border-color: var(--c-accent); color: #fff; box-shadow: var(--sh-glow); }
   }
 
   &__line {

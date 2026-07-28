@@ -18,6 +18,9 @@ describe('ReviewsController', () => {
             listarPorServicio: jest.fn().mockResolvedValue([]),
             listarPorUsuario: jest.fn().mockResolvedValue([]),
             listarPorComercio: jest.fn().mockResolvedValue([]),
+            actualizar: jest.fn().mockResolvedValue({ _id: 'r1' }),
+            eliminar: jest.fn().mockResolvedValue(undefined),
+            pendientesDeValorar: jest.fn().mockResolvedValue([]),
           },
         },
       ],
@@ -46,5 +49,24 @@ describe('ReviewsController', () => {
 
   it('debería lanzar 400 si no se pasa ningún filtro', () => {
     expect(() => controller.listar()).toThrow(DomainException);
+  });
+
+  it('debería editar la reseña con el usuario del token', async () => {
+    const req = { user: { sub: 'user-1' } } as never;
+    const dto = { puntuacion: 4 };
+    await controller.actualizar(req, 'r1', dto);
+    expect(service.actualizar).toHaveBeenCalledWith('user-1', 'r1', dto);
+  });
+
+  it('debería eliminar la reseña con el usuario del token', async () => {
+    const req = { user: { sub: 'user-1' } } as never;
+    await controller.eliminar(req, 'r1');
+    expect(service.eliminar).toHaveBeenCalledWith('user-1', 'r1');
+  });
+
+  it('debería listar las reservas pendientes de valorar del usuario del token', async () => {
+    const req = { user: { sub: 'user-1' } } as never;
+    await controller.pendientes(req);
+    expect(service.pendientesDeValorar).toHaveBeenCalledWith('user-1');
   });
 });

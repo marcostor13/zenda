@@ -15,6 +15,8 @@ type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'cancelada' | 'comple
 interface ReservaCard {
   id: string;
   codigo: string;
+  servicioId: string;
+  verticalKey: string;
   vertical: string;
   emoji: string;
   titulo: string;
@@ -111,9 +113,22 @@ interface ReservaCard {
               @if (r.estado === 'completada' && r.yaResenada) {
                 <span class="rs-badge rs-badge--success" style="font-size:var(--f-xs)">✓ Reseñada</span>
               }
+              @if (r.estado === 'completada') {
+                <a [routerLink]="rutaReservarDeNuevo(r)" class="rs-btn rs-btn--outline rs-btn--sm">↻ Reservar de nuevo</a>
+              }
             </div>
           </div>
         </div>
+
+        @if (necesitaChecklist(r)) {
+          <div class="checklist-antes-de-ir">
+            <strong>🐶 Antes de ir recuerda llevar:</strong>
+            <span>✔ Cartilla sanitaria</span>
+            <span>✔ Su pienso habitual</span>
+            <span>✔ Medicación (si toma)</span>
+            <span>✔ Correa y collar</span>
+          </div>
+        }
 
         @if (resenandoId() === r.id) {
           <div class="rs-card resena-form">
@@ -230,6 +245,14 @@ interface ReservaCard {
       p { color: var(--t-400); font-size: var(--f-xs); margin-top: var(--sp-1); }
     }
 
+    .checklist-antes-de-ir {
+      display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4);
+      padding: var(--sp-3) var(--sp-5); margin-top: calc(-1 * var(--sp-2));
+      background: var(--c-accent-lo); border-radius: var(--r-lg);
+      font-size: var(--f-xs); color: var(--t-300);
+      strong { color: var(--dk-blue); font-size: var(--f-sm); }
+    }
+
     .resena-form { margin-top: calc(-1 * var(--sp-2)); padding: var(--sp-5); }
     .resena-form__estrellas { display: flex; gap: var(--sp-1); }
     .estrella-btn {
@@ -251,6 +274,8 @@ export class MisReservasComponent implements OnInit {
     {
       id: 'mock-1',
       codigo: 'RES-A1B2C3',
+      servicioId: 'servicio-mock-1',
+      verticalKey: VerticalKey.ALOJAMIENTO,
       vertical: 'Alojamiento canino',
       emoji: '🏠',
       titulo: 'Residencia Canina Villa Perruna',
@@ -265,6 +290,8 @@ export class MisReservasComponent implements OnInit {
     {
       id: 'mock-2',
       codigo: 'RES-D4E5F6',
+      servicioId: 'servicio-mock-2',
+      verticalKey: VerticalKey.TRANSPORTE,
       vertical: 'Transporte de animales',
       emoji: '🚐',
       titulo: 'Traslado canino Madrid Centro',
@@ -279,6 +306,8 @@ export class MisReservasComponent implements OnInit {
     {
       id: 'mock-3',
       codigo: 'RES-G7H8I9',
+      servicioId: 'servicio-mock-3',
+      verticalKey: VerticalKey.PELUQUERIA,
       vertical: 'Peluquerías caninas',
       emoji: '✂️',
       titulo: 'Peluquería Canina Real Grooming',
@@ -389,6 +418,8 @@ export class MisReservasComponent implements OnInit {
     return {
       id,
       codigo: r.codigo,
+      servicioId: r.servicioId,
+      verticalKey: r.vertical,
       vertical: meta.label,
       emoji: meta.emoji,
       titulo,
@@ -439,6 +470,25 @@ export class MisReservasComponent implements OnInit {
       default:
         return `${r.cantidad} ${r.cantidad === 1 ? 'unidad' : 'unidades'}`;
     }
+  }
+
+  /** Verticales con ficha de detalle propia (Fase 4); las demás solo tienen listado. */
+  private readonly VERTICALES_CON_FICHA = new Set<string>([
+    VerticalKey.ALOJAMIENTO, VerticalKey.TRANSPORTE, VerticalKey.ADIESTRAMIENTO, VerticalKey.HOTELES,
+  ]);
+
+  /** Ruta para "Reservar de nuevo" (HU-9.6): a la ficha si existe, si no al listado del vertical. */
+  rutaReservarDeNuevo(r: ReservaCard): string[] {
+    if (this.VERTICALES_CON_FICHA.has(r.verticalKey) && r.servicioId) {
+      return [`/${r.verticalKey}`, r.servicioId];
+    }
+    return [`/${r.verticalKey}`];
+  }
+
+  /** HU-9.7: recordatorio de qué llevar, solo para estancias (alojamiento/hoteles) próximas. */
+  necesitaChecklist(r: ReservaCard): boolean {
+    return (r.verticalKey === VerticalKey.ALOJAMIENTO || r.verticalKey === VerticalKey.HOTELES)
+      && (r.estado === 'confirmada' || r.estado === 'pendiente');
   }
 
   private normalizarEstado(estado: string): ReservaCard['estado'] {

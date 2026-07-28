@@ -9,6 +9,7 @@ import { ImgFallbackDirective } from '../../shared/directives/img-fallback.direc
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
+import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import { BRAND, HOTEL_IMAGES, TRUST_ICONOS } from '../../shared/media/images';
 import { VERTICALES_UI, rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { environment } from '../../../environments/environment';
@@ -47,7 +48,7 @@ type SearchMode = 'filtros' | 'ia';
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, AnimateOnScrollDirective, ImgFallbackDirective,
-    RsNavbarComponent, RsIconComponent, RsSearchBarComponent,
+    RsNavbarComponent, RsIconComponent, RsSearchBarComponent, RsCardComponent,
   ],
   template: `
 <div class="home">
@@ -63,20 +64,21 @@ type SearchMode = 'filtros' | 'ia';
         <h1 class="hero__title">
           <span class="hero__title-line hero__title-line--blue">
             <i class="hero__dash" aria-hidden="true"></i>
-            Todo para tu rey
+            Todo para tu mascota
             <i class="hero__dash" aria-hidden="true"></i>
           </span>
           <span class="hero__title-line hero__title-line--gold">en un solo lugar</span>
         </h1>
         <p class="hero__subtitle" i18n="@@home.heroSubtitulo">
-          Reserva alojamientos premium, veterinarios de confianza, peluquerías caninas y mucho más…
+          Veterinarios, peluquerías, residencias, hoteles pet friendly, transporte, adiestramiento y mucho más.
         </p>
+        <p class="hero__slogan">Reserva en menos de un minuto con profesionales de confianza cerca de ti.</p>
       </div>
 
       <!-- Panel de búsqueda (estilo Booking: categorías + filtros en una fila) -->
       <div class="searchbox" role="search">
         <div class="searchbox__head">
-          <p class="searchbox__question">¿Qué servicio necesitas?</p>
+          <p class="searchbox__question">Encuentra el servicio perfecto para tu mascota</p>
           <div class="searchbox__modes" role="tablist" aria-label="Modo de búsqueda">
             <button type="button" class="searchbox__mode" role="tab"
                     [class.is-active]="searchMode() === 'filtros'"
@@ -235,40 +237,17 @@ type SearchMode = 'filtros' | 'ia';
 
       <div class="stays-grid">
         @for (a of alojamientosRecomendados; track a.nombre) {
-          <article class="stay-card" [rsAnim]="''" [rsAnimDelay]="$index * 70">
-            <div class="stay-card__img">
-              <img [src]="a.imagen" [alt]="a.nombre" loading="lazy" rsImg />
-              <span class="rs-badge rs-badge--accent stay-card__badge">
-                <rs-icon name="crown" [size]="12" [stroke]="2"></rs-icon>
-                Recomendado
-              </span>
-            </div>
-            <div class="stay-card__body">
-              <div class="stay-card__stars" aria-hidden="true">{{ estrellas(a.estrellas) }}</div>
-              <h3 class="stay-card__name">{{ a.nombre }}</h3>
-              <p class="stay-card__loc">
-                <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon>
-                {{ a.ciudad }}
-              </p>
-              <div class="stay-card__tags">
-                @for (t of a.tags; track t) { <span class="stay-card__tag">{{ t }}</span> }
-              </div>
-              <div class="stay-card__footer">
-                <div class="stay-card__rating">
-                  <span class="stay-card__score">{{ a.score }}</span>
-                  <span class="stay-card__score-meta">{{ a.scoreLabel }} · {{ a.numResenas }} reseñas</span>
-                </div>
-                <div class="stay-card__price">
-                  <span class="stay-card__amount">€{{ a.precioPorNoche }}</span>
-                  <span class="stay-card__period">/noche</span>
-                </div>
-              </div>
-              <a routerLink="/alojamiento" [queryParams]="{ ciudad: a.ciudad }"
-                 class="rs-btn rs-btn--primary rs-btn--block stay-card__cta">
-                Ver alojamiento
-              </a>
-            </div>
-          </article>
+          <rs-card
+            [rsAnim]="''" [rsAnimDelay]="$index * 70"
+            [imageUrl]="a.imagen" [imageAlt]="a.nombre"
+            [title]="a.nombre" [subtitle]="a.ciudad"
+            [badges]="[{ icon: '👑', label: 'Recomendado', variant: 'accent' }]"
+            [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
+            [price]="{ amount: '€' + a.precioPorNoche, period: '/noche' }"
+            [amenities]="a.tags"
+            ctaLabel="Ver alojamiento"
+            (cardClick)="irAAlojamiento(a.ciudad)">
+          </rs-card>
         }
       </div>
     </div>
@@ -282,7 +261,7 @@ type SearchMode = 'filtros' | 'ia';
       <div class="sec-head" rsAnim>
         <div>
           <h2 class="rs-h3">Explora con tu mascota</h2>
-          <p>Playas, parques y rutas donde tu perro es bienvenido de verdad.</p>
+          <p>Descubre playas caninas, parques caninos, rutas, restaurantes y otros lugares pet friendly recomendados por la comunidad Doogking.</p>
         </div>
         <a routerLink="/explora/planificador" class="sec-head__link">
           Planificar un viaje con IA
@@ -292,7 +271,7 @@ type SearchMode = 'filtros' | 'ia';
 
       <div class="explora-grid" rsAnim>
         @for (e of exploraDestacados; track e.titulo) {
-          <a class="explora-card" routerLink="/explora" [queryParams]="{ tipo: e.tipo }">
+          <a class="explora-card" [routerLink]="e.ruta" [queryParams]="e.tipo ? { tipo: e.tipo } : {}">
             <img [src]="e.imagen" [alt]="e.titulo" loading="lazy" rsImg />
             <span class="explora-card__veil"></span>
             <span class="explora-card__meta">
@@ -302,6 +281,8 @@ type SearchMode = 'filtros' | 'ia';
           </a>
         }
       </div>
+
+      <p class="explora-nota">Todos los lugares son compartidos por la comunidad y revisados por el equipo Doogking antes de su publicación.</p>
     </div>
   </section>
 
@@ -351,7 +332,15 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-footer__grid">
       <div class="rs-footer__brand">
         <img [src]="logoFooter" alt="Doogking" class="home-footer__logo" />
+        <p class="home-footer__claim">La plataforma líder para reservar servicios para mascotas.</p>
         <p>El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.</p>
+        <div class="home-footer__social" aria-label="Redes sociales de Doogking">
+          <a href="https://instagram.com/doogking" target="_blank" rel="noopener" class="home-footer__social-link">Instagram</a>
+          <a href="https://facebook.com/doogking" target="_blank" rel="noopener" class="home-footer__social-link">Facebook</a>
+          <a href="https://tiktok.com/@doogking" target="_blank" rel="noopener" class="home-footer__social-link">TikTok</a>
+          <a href="https://linkedin.com/company/doogking" target="_blank" rel="noopener" class="home-footer__social-link">LinkedIn</a>
+          <a href="https://youtube.com/@doogking" target="_blank" rel="noopener" class="home-footer__social-link">YouTube</a>
+        </div>
       </div>
       <div class="rs-footer__col">
         <h4>Servicios</h4>
@@ -389,11 +378,20 @@ type SearchMode = 'filtros' | 'ia';
         </ul>
       </div>
     </div>
+    <div class="home-footer__stores">
+      <span class="home-footer__store-badge">📱 Próximamente en App Store</span>
+      <span class="home-footer__store-badge">▶️ Próximamente en Google Play</span>
+      <span class="home-footer__pay">💳 Visa · Mastercard · Stripe · Apple Pay · Google Pay</span>
+    </div>
+
+    <p class="home-footer__closing">Todo lo que tu mascota necesita. En un solo lugar.<br />Gracias por confiar en Doogking.</p>
+
     <div class="rs-footer__bottom">
-      <p>© 2026 Doogking · Todos los derechos reservados</p>
+      <p>© 2026 Doogking · Todos los derechos reservados · <a routerLink="/privacidad">Política de privacidad</a> · <a routerLink="/cookies">Cookies</a> · <a routerLink="/terminos">Aviso legal</a></p>
       <div class="rs-flex rs-gap-4" style="flex-wrap:wrap">
-        <span class="rs-badge rs-badge--neutral home-footer__badge">🔒 Pago seguro Stripe</span>
-        <span class="rs-badge rs-badge--neutral home-footer__badge">✅ Empresas verificadas</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge">🟢 Empresas verificadas</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge">🔒 Pago seguro con Stripe</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge">🛡 Protección de reservas</span>
       </div>
     </div>
   </footer>
@@ -431,7 +429,7 @@ type SearchMode = 'filtros' | 'ia';
     .hero__brand {
       text-align: center;
       animation: fadeUp .6s ease both;
-      margin-bottom: var(--sp-10);
+      margin-bottom: var(--sp-6);
     }
 
     .hero__logo {
@@ -479,6 +477,17 @@ type SearchMode = 'filtros' | 'ia';
       color: var(--t-300);
 
       /* En pantallas bajas resta altura al buscador, que es lo que convierte. */
+      @media (max-width: 560px) { display: none; }
+    }
+
+    .hero__slogan {
+      margin-top: var(--sp-2);
+      margin-inline: auto;
+      max-width: 52ch;
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
+      color: var(--dk-blue);
+
       @media (max-width: 560px) { display: none; }
     }
 
@@ -700,6 +709,13 @@ type SearchMode = 'filtros' | 'ia';
       em { font-style: normal; font-size: var(--f-xs); opacity: .88; }
     }
 
+    .explora-nota {
+      margin-top: var(--sp-4);
+      font-size: var(--f-xs);
+      color: var(--t-400);
+      text-align: center;
+    }
+
     /* ══ ¿POR QUÉ DOOGKING? ═════════════════════════════════════════ */
     .why-section { background: var(--c-card); }
 
@@ -850,7 +866,7 @@ type SearchMode = 'filtros' | 'ia';
     .cities-grid {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
-      gap: var(--sp-4);
+      gap: var(--sp-6);
 
       @media (max-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
       @media (max-width: 560px)  { grid-template-columns: repeat(2, 1fr); }
@@ -859,13 +875,21 @@ type SearchMode = 'filtros' | 'ia';
     .city-card {
       position: relative;
       display: block;
-      aspect-ratio: 3 / 4;
+      aspect-ratio: 3 / 4.6;
       border-radius: var(--r-lg);
       overflow: hidden;
       box-shadow: var(--sh-card);
+      transition: box-shadow var(--d-3), transform var(--d-3);
 
       img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
-      &:hover img { transform: scale(1.07); }
+
+      &:hover {
+        box-shadow: var(--sh-lg);
+        transform: translateY(-3px);
+
+        img { transform: scale(1.07); }
+      }
+      @media (prefers-reduced-motion: reduce) { &:hover { transform: none; } }
     }
 
     .city-card__veil {
@@ -898,119 +922,8 @@ type SearchMode = 'filtros' | 'ia';
       @media (max-width: 640px)  { grid-template-columns: 1fr; }
     }
 
-    .stay-card {
-      background: var(--c-card);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-lg);
-      overflow: hidden;
-      box-shadow: var(--sh-card);
-      display: flex;
-      flex-direction: column;
-      transition: all var(--d-3);
-
-      &:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--sh-lg);
-
-        .stay-card__img img { transform: scale(1.05); }
-      }
-    }
-
-    .stay-card__img {
-      position: relative;
-      aspect-ratio: 16 / 10;
-      overflow: hidden;
-      background: var(--c-surface);
-
-      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
-    }
-
-    .stay-card__badge {
-      position: absolute;
-      top: var(--sp-3);
-      left: var(--sp-3);
-      display: inline-flex;
-      align-items: center;
-      gap: var(--sp-1);
-      background: var(--dk-gold);
-      color: var(--dk-blue-deep);
-      border-color: transparent;
-    }
-
-    .stay-card__body { padding: var(--sp-5); display: flex; flex-direction: column; flex: 1; }
-
-    .stay-card__stars {
-      color: var(--dk-gold);
-      font-size: var(--f-sm);
-      letter-spacing: .12em;
-      margin-bottom: var(--sp-1);
-    }
-
-    .stay-card__name {
-      font-size: var(--f-md);
-      font-weight: var(--w-7);
-      color: var(--t-100);
-      line-height: 1.3;
-      margin-bottom: var(--sp-1);
-    }
-
-    .stay-card__loc {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-1);
-      font-size: var(--f-xs);
-      color: var(--t-400);
-      margin-bottom: var(--sp-3);
-    }
-
-    .stay-card__tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
-
-    .stay-card__tag {
-      font-size: var(--f-xs);
-      color: var(--t-300);
-      background: var(--c-accent-lo);
-      border-radius: var(--r-full);
-      padding: var(--sp-1) var(--sp-3);
-    }
-
-    .stay-card__footer {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: var(--sp-3);
-      margin-top: auto;
-      margin-bottom: var(--sp-4);
-    }
-
-    .stay-card__rating { display: flex; flex-direction: column; gap: 2px; }
-
-    .stay-card__score {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: fit-content;
-      background: var(--dk-blue);
-      color: #fff;
-      font-size: var(--f-xs);
-      font-weight: var(--w-7);
-      border-radius: var(--r-xs);
-      padding: 2px var(--sp-2);
-    }
-
-    .stay-card__score-meta { font-size: var(--f-xs); color: var(--t-400); }
-
-    .stay-card__price { text-align: right; }
-
-    .stay-card__amount {
-      font-size: var(--f-xl);
-      font-weight: var(--w-8);
-      color: var(--dk-blue);
-      letter-spacing: -.02em;
-    }
-
-    .stay-card__period { font-size: var(--f-xs); color: var(--t-400); }
-
-    .stay-card__cta { text-align: center; }
+    /* La tarjeta en sí (imagen, badges, rating, precio, CTA) la aporta
+       <rs-card> en modo "resultado" (HU-0.1/0.8/1.7.1) — ver rs-card.component.ts. */
 
     /* ══ CÓMO FUNCIONA ══════════════════════════════════════════════ */
     .how-section { background: var(--c-card); }
@@ -1094,11 +1007,18 @@ type SearchMode = 'filtros' | 'ia';
     .home-footer { background: var(--dk-blue-deep); border-top: none; }
 
     .home-footer__logo {
-      height: 44px;
+      height: 62px;
       width: auto;
       display: block;
       margin-bottom: var(--sp-4);
       border-radius: var(--r-xs);
+    }
+
+    .home-footer__claim {
+      font-family: var(--font-display);
+      font-weight: var(--w-7);
+      color: #fff !important;
+      margin-bottom: var(--sp-2);
     }
 
     .home-footer .rs-footer__brand p { color: rgba(255,255,255,.72); }
@@ -1106,12 +1026,57 @@ type SearchMode = 'filtros' | 'ia';
 
     .home-footer .rs-footer__col a {
       color: rgba(255,255,255,.80);
-      &:hover { color: #fff; }
+      &:hover { color: var(--dk-gold); text-decoration: underline; }
+    }
+
+    .home-footer__social {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-3);
+      margin-top: var(--sp-4);
+    }
+
+    .home-footer__social-link {
+      font-size: var(--f-xs);
+      font-weight: var(--w-6);
+      color: rgba(255,255,255,.80) !important;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: var(--r-full);
+      padding: var(--sp-1) var(--sp-3);
+      transition: all var(--d-2);
+
+      &:hover { color: var(--dk-blue-deep) !important; background: var(--dk-gold); border-color: var(--dk-gold); text-decoration: none !important; }
+    }
+
+    .home-footer__stores {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--sp-4);
+      padding-block: var(--sp-6);
+      margin-top: var(--sp-6);
+      border-top: 1px solid rgba(255,255,255,.15);
+    }
+
+    .home-footer__store-badge, .home-footer__pay {
+      font-size: var(--f-xs);
+      color: rgba(255,255,255,.65);
+    }
+
+    .home-footer__closing {
+      text-align: center;
+      color: rgba(255,255,255,.85);
+      font-family: var(--font-display);
+      font-weight: var(--w-6);
+      font-size: var(--f-md);
+      line-height: 1.6;
+      padding-bottom: var(--sp-6);
     }
 
     .home-footer .rs-footer__bottom {
       border-top-color: rgba(255,255,255,.15);
       p { color: rgba(255,255,255,.55); }
+      a { color: rgba(255,255,255,.65); &:hover { color: var(--dk-gold); } }
     }
 
     .home-footer__badge {
@@ -1177,10 +1142,13 @@ export class HomeComponent {
 
   /** Puertas de entrada a la comunidad; cada una filtra `/explora` por tipo. */
   readonly exploraDestacados = [
-    { tipo: TipoLugar.PLAYA, titulo: 'Playas caninas', detalle: 'Baño permitido todo el año', imagen: HOTEL_IMAGES[2] },
-    { tipo: TipoLugar.PARQUE, titulo: 'Parques caninos', detalle: 'Vallados y con agility', imagen: BRAND.heroHome },
-    { tipo: TipoLugar.RUTA, titulo: 'Rutas y ríos', detalle: 'Senderos para ir juntos', imagen: HOTEL_IMAGES[4] },
-    { tipo: TipoLugar.RESTAURANTE, titulo: 'Restaurantes', detalle: 'Con perro en la mesa', imagen: HOTEL_IMAGES[1] },
+    { tipo: TipoLugar.PLAYA as TipoLugar | null, ruta: '/explora', titulo: 'Playas caninas', detalle: '🌊 Disfrutad juntos del mar durante todo el año', imagen: HOTEL_IMAGES[2] },
+    { tipo: TipoLugar.PARQUE as TipoLugar | null, ruta: '/explora', titulo: 'Parques caninos', detalle: '🐶 Espacios seguros para correr, jugar y socializar', imagen: BRAND.heroHome },
+    { tipo: TipoLugar.RUTA as TipoLugar | null, ruta: '/explora', titulo: 'Rutas y ríos', detalle: '🌿 Naturaleza para descubrir juntos', imagen: HOTEL_IMAGES[4] },
+    { tipo: TipoLugar.RESTAURANTE as TipoLugar | null, ruta: '/explora', titulo: 'Restaurantes', detalle: '🍽️ Sitios donde tu mascota también es bienvenida', imagen: HOTEL_IMAGES[1] },
+    // No es un TipoLugar de la comunidad (decisión D-5): es el vertical reservable
+    // Hoteles, así que enlaza directo a su listado en vez de a /explora.
+    { tipo: null as TipoLugar | null, ruta: '/hoteles', titulo: 'Hoteles pet friendly', detalle: '🏨 Descubre alojamientos donde vuestra mascota también es bienvenida', imagen: HOTEL_IMAGES[0] },
   ];
 
   readonly pasos = [
@@ -1226,8 +1194,9 @@ export class HomeComponent {
     },
   ];
 
-  estrellas(n: number): string {
-    return '★'.repeat(n) + '☆'.repeat(5 - n);
+  /** Click en la tarjeta de "Alojamientos recomendados" (HU-1.7.1: toda la tarjeta es clicable). */
+  irAAlojamiento(ciudad: string): void {
+    void this.router.navigate([this.rutaAlojamiento], { queryParams: { ciudad } });
   }
 
   usarSugerencia(sugerencia: string): void {

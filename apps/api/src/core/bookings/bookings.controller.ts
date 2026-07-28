@@ -65,6 +65,12 @@ export class BookingsController {
     return this.bookingsService.obtenerPuntos(req.user.sub);
   }
 
+  @Get('proxima')
+  @ApiOperation({ summary: 'Próxima reserva confirmada del usuario, o null si no tiene ninguna' })
+  proxima(@Req() req: RequestConUsuario) {
+    return this.bookingsService.proxima(req.user.sub);
+  }
+
   @Get('viaje/:reservaMadreId')
   @ApiOperation({ summary: 'Todas las reservas de un viaje: la principal y las vinculadas' })
   viaje(

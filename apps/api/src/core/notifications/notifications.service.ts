@@ -223,26 +223,55 @@ export class NotificationsService {
   }
 
   /** Envía el correo de verificación de email con el enlace de confirmación. */
-  async enviarVerificacionEmail(destinatario: string, nombre: string, url: string): Promise<void> {
+  async enviarVerificacionEmail(destinatario: string, nombre: string, url: string, esComercio = false): Promise<void> {
     await this.enviarYRegistrar({
       tipo: 'verificacion_email',
       destinatario,
-      asunto: 'Verifica tu email — Doogking',
-      cuerpo: this.plantillaVerificacion(nombre, url),
+      asunto: esComercio
+        ? '¡Bienvenido a Doogking! Activa tu cuenta'
+        : '¡Bienvenido a Doogking! Confirma tu correo',
+      cuerpo: this.plantillaVerificacion(nombre, url, esComercio),
     });
   }
 
-  private plantillaVerificacion(nombre: string, url: string): string {
+  private plantillaVerificacion(nombre: string, url: string, esComercio: boolean): string {
+    const saludo = esComercio
+      ? `¡Bienvenido a Doogking! ${nombre}, estás a un solo paso de empezar a recibir reservas desde nuestra plataforma.`
+      : `¡Bienvenido a Doogking! ${nombre}, estás a un solo paso de encontrar el mejor cuidado para tu mascota.`;
+    const textoPrincipal = esComercio
+      ? 'Gracias por registrarte. Solo necesitamos verificar tu correo para activar tu cuenta y que puedas acceder al panel de tu negocio.'
+      : 'Gracias por registrarte. Solo necesitamos verificar tu correo para activar tu cuenta.';
+    const botonTexto = esComercio ? 'Activar mi negocio' : 'Activar mi cuenta';
+    const pasos = esComercio
+      ? ['Cuenta activada', 'Acceso a tu panel de negocio', 'Completa el perfil de tu negocio']
+      : ['Cuenta activada', 'Acceso a tu perfil', 'Empieza a reservar servicios para tu mascota'];
+    const ilusion = esComercio
+      ? 'Cada día miles de personas buscan servicios como el tuyo. Ya falta muy poco para que puedan encontrarte.'
+      : 'Miles de profesionales caninos verificados te esperan en Doogking.';
+
     return `
-      <h2>¡Bienvenido a Doogking, ${nombre}!</h2>
-      <p>Confirma tu correo para activar tu cuenta y continuar.</p>
-      <p style="margin:24px 0">
-        <a href="${url}" style="background:#08258B;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600">
-          Verificar mi email
-        </a>
-      </p>
-      <p>O copia y pega este enlace en tu navegador:<br><a href="${url}">${url}</a></p>
-      <p style="color:#8B9BBC;font-size:13px">El enlace caduca en 24 horas. Si no creaste esta cuenta, ignora este correo.</p>
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
+        <h2 style="color:#08258B;margin-bottom:4px">${saludo}</h2>
+        <p style="color:#334155">${textoPrincipal}</p>
+        <p style="margin:28px 0;text-align:center">
+          <a href="${url}" style="background:#08258B;color:#fff;padding:14px 32px;border-radius:999px;text-decoration:none;font-weight:700;box-shadow:0 4px 12px rgba(8,37,139,.25)">
+            ${botonTexto}
+          </a>
+        </p>
+        <div style="background:#F8F9FA;border-radius:12px;padding:16px 20px;margin:24px 0">
+          <strong style="color:#08258B;font-size:14px">¿Qué ocurre después?</strong>
+          <p style="margin:8px 0 0;font-size:13px;color:#475569">
+            ${pasos.map((p) => `✅ ${p}`).join(' → ')}
+          </p>
+        </div>
+        <p style="color:#475569;font-size:14px">${ilusion}</p>
+        <p style="color:#8B9BBC;font-size:12px;margin-top:24px">
+          Si el botón no funciona, copia este enlace:<br>
+          <a href="${url}" style="color:#8B9BBC">${url}</a>
+        </p>
+        <p style="color:#8B9BBC;font-size:12px">El enlace caduca en 24 horas. Si no creaste esta cuenta, puedes ignorar este correo con total tranquilidad.</p>
+        <p style="color:#8B9BBC;font-size:12px;margin-top:16px">Equipo Doogking · www.doogking.com</p>
+      </div>
     `;
   }
 

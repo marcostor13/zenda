@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { AdminService } from './admin.service';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
+import { AlphaRepository } from '../alpha/alpha.repository';
 import { ComerciosRepository } from '../comercios/comercios.repository';
 import { UsersRepository } from '../users/users.repository';
 import { Pago } from '../payments/pago.schema';
@@ -14,6 +15,7 @@ import { VerticalKey, PagoEstado, IVA_RATE, Rol } from 'shared';
 describe('AdminService', () => {
   let service: AdminService;
   let comisionConfigRepo: jest.Mocked<ComisionConfigRepository>;
+  let alphaRepo: jest.Mocked<AlphaRepository>;
   let pagoModel: any;
   let reservaModel: any;
   let comercioModel: any;
@@ -101,6 +103,13 @@ describe('AdminService', () => {
           },
         },
         {
+          provide: AlphaRepository,
+          useValue: {
+            listarNiveles: jest.fn().mockResolvedValue([]),
+            upsert: jest.fn().mockResolvedValue({ nivel: 2, nombre: 'Alpha 2' }),
+          },
+        },
+        {
           provide: ComerciosRepository,
           useValue: {
             listar: jest.fn().mockResolvedValue([]),
@@ -122,6 +131,7 @@ describe('AdminService', () => {
 
     service = module.get<AdminService>(AdminService);
     comisionConfigRepo = module.get(ComisionConfigRepository);
+    alphaRepo = module.get(AlphaRepository);
   });
 
   describe('generarReporteFinanciero', () => {
@@ -271,6 +281,27 @@ describe('AdminService', () => {
         expect.objectContaining({ comisionPct: 0.18 }),
         'admin-1',
       );
+    });
+  });
+
+  describe('actualizarNivelAlpha', () => {
+    it('debería delegar al repositorio Alpha con los datos correctos', async () => {
+      const dto = { nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0.05, beneficios: ['x'] };
+
+      await service.actualizarNivelAlpha(dto, 'admin-1');
+
+      expect(alphaRepo.upsert).toHaveBeenCalledWith(
+        2,
+        expect.objectContaining({ nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0.05 }),
+        'admin-1',
+      );
+    });
+  });
+
+  describe('listarNivelesAlpha', () => {
+    it('debería delegar en el repositorio Alpha', async () => {
+      await service.listarNivelesAlpha();
+      expect(alphaRepo.listarNiveles).toHaveBeenCalled();
     });
   });
 });

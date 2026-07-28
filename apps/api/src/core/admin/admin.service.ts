@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
+import { AlphaRepository } from '../alpha/alpha.repository';
 import { ComerciosRepository } from '../comercios/comercios.repository';
 import { UsersRepository } from '../users/users.repository';
 import { Pago, PagoDocument } from '../payments/pago.schema';
@@ -10,8 +11,9 @@ import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
 import { Perro, PerroDocument } from '../perros/perro.schema';
-import { ActualizarComisionDto, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, VerticalKey } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, VerticalKey } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
+import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
 import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
 
 interface PagoLean {
@@ -48,6 +50,7 @@ export interface FiltrosReporte {
 export class AdminService {
   constructor(
     private readonly comisionConfigRepo: ComisionConfigRepository,
+    private readonly alphaRepo: AlphaRepository,
     private readonly comerciosRepo: ComerciosRepository,
     private readonly usersRepo: UsersRepository,
     @InjectModel(Pago.name) private readonly pagoModel: Model<PagoDocument>,
@@ -203,6 +206,28 @@ export class AdminService {
         stripePct: dto.stripePct,
         stripeFijoEur: dto.stripeFijoEur,
         activo: dto.activo,
+      },
+      adminId,
+    );
+  }
+
+  // ── Doogking Alpha ───────────────────────────────────────────────────────────
+
+  async listarNivelesAlpha(): Promise<AlphaNivelDto[]> {
+    return this.alphaRepo.listarNiveles();
+  }
+
+  async actualizarNivelAlpha(
+    dto: ActualizarAlphaNivelDto,
+    adminId: string,
+  ): Promise<AlphaNivelConfigDocument> {
+    return this.alphaRepo.upsert(
+      dto.nivel,
+      {
+        nombre: dto.nombre,
+        reservasRequeridas: dto.reservasRequeridas,
+        descuentoPct: dto.descuentoPct,
+        beneficios: dto.beneficios,
       },
       adminId,
     );

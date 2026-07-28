@@ -48,4 +48,36 @@ describe('ReviewsService', () => {
 
     expect(await promesa).toEqual([resenaMock]);
   });
+
+  it('debería editar una reseña con PATCH /reviews/:id', async () => {
+    const promesa = service.actualizar('r1', { puntuacion: 4 });
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/reviews/r1`);
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ puntuacion: 4 });
+    req.flush({ ...resenaMock, puntuacion: 4 });
+
+    expect((await promesa).puntuacion).toBe(4);
+  });
+
+  it('debería eliminar una reseña con DELETE /reviews/:id', async () => {
+    const promesa = service.eliminar('r1');
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/reviews/r1`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+
+    await promesa;
+  });
+
+  it('debería listar las reservas pendientes de valorar con GET /reviews/pendientes', async () => {
+    const pendiente = { reservaId: 'res-2', servicioId: 's1', servicioTitulo: 'Hotel', vertical: 'alojamiento', imagen: null, fechaInicio: '2026-01-01T00:00:00.000Z' };
+    const promesa = service.pendientesDeValorar();
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/reviews/pendientes`);
+    expect(req.request.method).toBe('GET');
+    req.flush([pendiente]);
+
+    expect(await promesa).toEqual([pendiente]);
+  });
 });

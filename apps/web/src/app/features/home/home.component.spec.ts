@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -59,20 +60,19 @@ describe('HomeComponent', () => {
     ]);
   });
 
-  it('debería mostrar el eslogan en tuteo "TODO PARA TU REY" en el hero', () => {
+  it('debería mostrar el titular "Todo para tu mascota en un solo lugar" en el hero (HU-1.1.1)', () => {
     const el: HTMLElement = fixture.nativeElement;
     const titulo = el.querySelector('.hero__title')?.textContent ?? '';
-    expect(titulo.toLowerCase()).toContain('todo para tu rey');
-    expect(titulo.toLowerCase()).not.toContain('todo para su rey');
+    expect(titulo.toLowerCase()).toContain('todo para tu mascota');
     expect(titulo.toLowerCase()).toContain('en un solo lugar');
   });
 
-  it('debería resumir la amplitud de servicios bajo el titular del hero', () => {
+  it('debería resumir la amplitud de servicios bajo el titular del hero (HU-1.1.1)', () => {
     const el: HTMLElement = fixture.nativeElement;
     const sub = el.querySelector('.hero__subtitle')?.textContent ?? '';
-    expect(sub).toContain('alojamientos premium');
-    expect(sub).toContain('veterinarios de confianza');
-    expect(sub).toContain('peluquerías caninas');
+    expect(sub).toContain('Veterinarios');
+    expect(sub).toContain('peluquerías');
+    expect(sub).toContain('hoteles pet friendly');
   });
 
   it('debería renderizar los cuatro pilares del bloque "¿Por qué Doogking?"', () => {
@@ -121,15 +121,18 @@ describe('HomeComponent', () => {
     ]);
   });
 
-  it('debería renderizar los alojamientos recomendados con precio en euros', () => {
+  it('debería renderizar los alojamientos recomendados con precio en euros (HU-1.7.1, rs-card unificado)', () => {
     const el: HTMLElement = fixture.nativeElement;
-    const cards = el.querySelectorAll('.stay-card');
+    const cards = el.querySelectorAll('.stays-grid rs-card');
     expect(cards.length).toBe(component.alojamientosRecomendados.length);
-    expect(el.querySelector('.stay-card__amount')?.textContent).toContain('€');
+    expect(el.querySelector('.stays-grid')?.textContent).toContain('€');
   });
 
-  it('debería formatear las estrellas doradas', () => {
-    expect(component.estrellas(4)).toBe('★★★★☆');
+  it('debería navegar al listado de alojamiento con la ciudad al pulsar la tarjeta', () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+    component.irAAlojamiento('Madrid');
+    expect(navigateSpy).toHaveBeenCalledWith([component.rutaAlojamiento], { queryParams: { ciudad: 'Madrid' } });
   });
 
   it('debería mostrar las tres garantías sobre la franja navy', () => {

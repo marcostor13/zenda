@@ -13,6 +13,15 @@ export interface CrearResenaData {
   vertical: string;
   puntuacion: number;
   comentario: string;
+  aspectos?: Record<string, number>;
+  fotos?: string[];
+}
+
+export interface ActualizarResenaData {
+  puntuacion?: number;
+  comentario?: string;
+  aspectos?: Record<string, number>;
+  fotos?: string[];
 }
 
 @Injectable()
@@ -35,12 +44,13 @@ export class ReviewsRepository {
 
   listarPorServicio(servicioId: string): Promise<ResenaDocument[]> {
     return this.resenaModel
-      .find({ servicioId: new Types.ObjectId(servicioId) })
+      .find({ servicioId: new Types.ObjectId(servicioId), eliminada: { $ne: true } })
       .sort({ createdAt: -1 })
       .lean<ResenaDocument[]>()
       .exec();
   }
 
+  /** Incluye las reseñas eliminadas: el propio usuario debe poder verlas en el filtro "Eliminadas". */
   listarPorUsuario(usuarioId: string): Promise<ResenaDocument[]> {
     return this.resenaModel
       .find({ usuarioId: new Types.ObjectId(usuarioId) })
@@ -51,20 +61,38 @@ export class ReviewsRepository {
 
   listarPorComercio(comercioId: string): Promise<ResenaDocument[]> {
     return this.resenaModel
-      .find({ comercioId: new Types.ObjectId(comercioId) })
+      .find({ comercioId: new Types.ObjectId(comercioId), eliminada: { $ne: true } })
       .sort({ createdAt: -1 })
       .lean<ResenaDocument[]>()
       .exec();
+  }
+
+  /** IDs de reserva ya reseñados (con o sin borrado lógico) por el usuario, para excluirlos de "pendientes de valorar". */
+  async listarReservaIdsReseñados(usuarioId: string): Promise<string[]> {
+    const docs = await this.resenaModel
+      .find({ usuarioId: new Types.ObjectId(usuarioId) })
+      .select('reservaId')
+      .lean()
+      .exec();
+    return docs.map((d) => String(d.reservaId));
+  }
+
+  actualizar(id: string, data: ActualizarResenaData): Promise<ResenaDocument | null> {
+    return this.resenaModel.findByIdAndUpdate(id, data, { new: true }).exec();
+  }
+
+  eliminar(id: string): Promise<ResenaDocument | null> {
+    return this.resenaModel.findByIdAndUpdate(id, { eliminada: true }, { new: true }).exec();
   }
 
   guardarRespuesta(id: string, respuesta: string): Promise<ResenaDocument | null> {
     return this.resenaModel.findByIdAndUpdate(id, { respuesta }, { new: true }).exec();
   }
 
-  /** Media de puntuación y total de reseñas de un servicio. */
+  /** Media de puntuación y total de reseñas activas (no eliminadas) de un servicio. */
   async agregadoServicio(servicioId: string): Promise<{ promedio: number; total: number }> {
     const [row] = await this.resenaModel.aggregate<{ promedio: number; total: number }>([
-      { $match: { servicioId: new Types.ObjectId(servicioId) } },
+      { $match: { servicioId: new Types.ObjectId(servicioId), eliminada: { $ne: true } } },
       { $group: { _id: null, promedio: { $avg: '$puntuacion' }, total: { $sum: 1 } } },
     ]);
     return { promedio: row?.promedio ?? 0, total: row?.total ?? 0 };

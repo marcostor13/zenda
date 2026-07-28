@@ -31,4 +31,9 @@ export const perfilRoutes: Routes = [
     loadComponent: () =>
       import('./perfil-resenas.component').then(m => m.PerfilResenasComponent),
   },
+  {
+    path: 'alpha',
+    loadComponent: () =>
+      import('./perfil-alpha.component').then(m => m.PerfilAlphaComponent),
+  },
 ];

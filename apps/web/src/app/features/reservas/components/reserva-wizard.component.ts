@@ -8,6 +8,7 @@ import {
   LugarElegido, RsPlaceAutocompleteComponent,
 } from '../../../shared/components/place-autocomplete/rs-place-autocomplete.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { IMG_FALLBACK } from '../../../shared/media/images';
 import { RsPhoneInputComponent } from '../../../shared/components/phone-input/rs-phone-input.component';
 import { GeoService } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
@@ -78,6 +79,17 @@ interface ServicioAdiestramientoWizard {
   lugar?: string;
 }
 
+interface SuplementoTamanoWizard {
+  tamano: string;
+  precioPorNoche: number;
+}
+
+/** Suplementos del hotel (HU-15.1/15.2), cargados bajo demanda desde el servicio configurado por el comercio. */
+interface HotelSuplementosWizard {
+  suplementoPorTamanoMascota: SuplementoTamanoWizard[];
+  suplementoSegundaMascotaPorNoche: number;
+}
+
 const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   aceptar: 'Acepta perros nerviosos o con temperamento difícil sin condiciones.',
   suplemento: 'Puede aplicar un suplemento si tu perro tiene temperamento difícil.',
@@ -126,22 +138,25 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       <!-- COLUMNA PRINCIPAL -->
       <div class="wizard-main">
 
+        <!-- Resumen del establecimiento: visible en los 4 pasos (HU-5.1.1) -->
+        <div class="reserva-summary">
+          <div class="reserva-summary__service">
+            <img [src]="imagenServicio()" alt="Servicio" rsImg />
+            <div>
+              <h3>{{ nombreServicio() || 'Servicio seleccionado' }}</h3>
+              <p>€{{ precioBase() }} / {{ precioPorLabel() }}</p>
+              <div class="reserva-summary__tags">
+                <span class="rs-badge rs-badge--accent">{{ emojiVertical() }} {{ verticaLabel() }}</span>
+                <span class="rs-badge rs-badge--success">✅ Profesional verificado</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ═══════════ PASO 1 ═══════════ -->
         @if (paso() === 1) {
           <div class="wizard-card">
             <h2 class="wizard-card__title">{{ paso1Titulo() }}</h2>
-
-            <!-- Resumen del servicio -->
-            <div class="reserva-summary">
-              <div class="reserva-summary__service">
-                <img [src]="imagenServicio()" alt="Servicio" rsImg />
-                <div>
-                  <h3>{{ nombreServicio() || 'Servicio seleccionado' }}</h3>
-                  <p>€{{ precioBase() }} / {{ precioPorLabel() }}</p>
-                  <span class="rs-badge rs-badge--accent">{{ emojiVertical() }} {{ verticaLabel() }}</span>
-                </div>
-              </div>
-            </div>
 
             <!-- ── SELECCIÓN DE PERRO (Ficha Inteligente) ── -->
             <div class="rs-field perro-picker">
@@ -154,9 +169,20 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               } @else {
                 <div class="perro-picker__list">
                   @for (p of perros(); track p._id) {
-                    <button type="button" class="perro-chip" [class.selected]="perroSeleccionado() === p._id"
+                    <button type="button" class="perro-card" [class.selected]="perroSeleccionado() === p._id"
                             (click)="seleccionarPerro(p._id)">
-                      {{ p.nombre }}
+                      <img [src]="p.fotos?.[0] || imgFallback" [alt]="p.nombre" rsImg />
+                      <span class="perro-card__body">
+                        <strong>🐶 {{ p.nombre }}</strong>
+                        <span class="perro-card__meta">
+                          {{ p.raza || 'Raza no indicada' }}
+                          @if (edadDe(p); as edad) { · {{ edad }} }
+                          @if (p.peso) { · {{ p.peso }} kg }
+                        </span>
+                      </span>
+                      @if (perroSeleccionado() === p._id) {
+                        <span class="perro-card__check">✓</span>
+                      }
                     </button>
                   }
                 </div>
@@ -209,21 +235,23 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </select>
                   <span class="rs-field-hint">Ayuda a la residencia a alojarlo de forma segura junto a otros perros.</span>
                 </div>
-                <div class="extras-section">
-                  <h3>Servicios adicionales</h3>
-                  <div class="extras-grid">
-                    @for (extra of extras; track extra.id) {
-                      <label class="extra-item" [class.selected]="extrasSelec().includes(extra.id)">
-                        <input type="checkbox" [value]="extra.id" (change)="toggleExtra(extra.id)" />
-                        <div class="extra-item__icon">{{ extra.icon }}</div>
-                        <div class="extra-item__info">
-                          <div class="extra-item__name">{{ extra.nombre }}</div>
-                          <div class="extra-item__price">€{{ extra.precio }}</div>
-                        </div>
-                      </label>
-                    }
+                @if (serviciosAdicionalesAlojamiento().length > 0) {
+                  <div class="extras-section">
+                    <h3>Servicios adicionales</h3>
+                    <div class="extras-grid">
+                      @for (extra of serviciosAdicionalesAlojamiento(); track extra.nombre) {
+                        <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
+                          <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
+                          <div class="extra-item__icon">✨</div>
+                          <div class="extra-item__info">
+                            <div class="extra-item__name">{{ extra.nombre }}</div>
+                            <div class="extra-item__price">€{{ extra.precio }}</div>
+                          </div>
+                        </label>
+                      }
+                    </div>
                   </div>
-                </div>
+                }
               </form>
             }
 
@@ -750,6 +778,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
               }
             }
+            @if (vertical() === 'hoteles' && suplementoHotel() > 0) {
+              <div class="price-row">
+                <span>Suplemento por mascota</span>
+                <span>€{{ suplementoHotel() }}</span>
+              </div>
+            }
             <hr class="rs-hr" style="margin-block:var(--sp-4)">
             <div class="price-row price-row--sub">
               <span>Subtotal</span>
@@ -890,6 +924,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       h3  { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }
       p   { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-3); }
     }
+    .reserva-summary__tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 
     .form-row {
       display: grid;
@@ -961,13 +996,28 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
     .perro-picker { margin-bottom: var(--sp-6); }
     .perro-picker__empty { font-size: var(--f-sm); color: var(--t-400); a { color: var(--c-accent); } }
-    .perro-picker__list { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-    .perro-chip {
-      padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
-      border: 1px solid var(--b-2); background: var(--c-raised);
-      color: var(--t-300); font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
-      &:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      &.selected { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); font-weight: var(--w-6); }
+    .perro-picker__list { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+    .perro-card {
+      position: relative;
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-2);
+      border-radius: var(--r-lg);
+      border: 1.5px solid var(--b-2); background: var(--c-raised);
+      cursor: pointer; transition: all var(--d-2); text-align: left;
+
+      img { width: 44px; height: 44px; border-radius: var(--r-full); object-fit: cover; flex-shrink: 0; }
+
+      &:hover { border-color: var(--c-accent); }
+      &.selected { background: var(--c-accent-lo); border-color: var(--c-accent); box-shadow: var(--sh-sm); }
+    }
+    .perro-card__body { display: flex; flex-direction: column; gap: 2px; }
+    .perro-card__body strong { font-size: var(--f-sm); color: var(--t-100); }
+    .perro-card__meta { font-size: var(--f-xs); color: var(--t-400); }
+    .perro-card__check {
+      position: absolute; top: -6px; right: -6px;
+      width: 20px; height: 20px; border-radius: var(--r-full);
+      background: var(--c-accent); color: #fff; font-size: var(--f-xs);
+      display: flex; align-items: center; justify-content: center;
     }
   `],
 })
@@ -1014,6 +1064,18 @@ export class ReservaWizardComponent implements OnInit {
   // Ficha Inteligente: perro para el que se reserva (opcional, filtra/precalcula en fases futuras).
   readonly perros = signal<PerroApi[]>([]);
   readonly perroSeleccionado = signal<string | null>(null);
+  readonly imgFallback = IMG_FALLBACK;
+
+  /** Edad legible a partir de la fecha de nacimiento (HU-5.1.3); null si no está declarada. */
+  edadDe(p: PerroApi): string | null {
+    if (!p.fechaNacimiento) return null;
+    const nacimiento = new Date(p.fechaNacimiento);
+    if (Number.isNaN(nacimiento.getTime())) return null;
+    const meses = (Date.now() - nacimiento.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+    if (meses < 12) return `${Math.max(1, Math.round(meses))} meses`;
+    const anios = Math.floor(meses / 12);
+    return `${anios} ${anios === 1 ? 'año' : 'años'}`;
+  }
 
   // Recomendador de servicio (motivo/gravedad → recomendación, Fase B).
   readonly recomendacionAdiestramiento = signal<RecomendacionAdiestramiento | null>(null);
@@ -1208,14 +1270,15 @@ export class ReservaWizardComponent implements OnInit {
     aceptaTerminos: [false, Validators.requiredTrue],
   });
 
-  // ─── Extras (alojamiento only) ───
+  // ─── Extras (alojamiento) — configurados por el comercio (HU-15.1/15.2), no fijos ───
   readonly extrasSelec = signal<string[]>([]);
-  readonly extras = [
-    { id: 'paseo',    icon: '🐕', nombre: 'Paseo extra diario',     precio: 10 },
-    { id: 'bano',     icon: '🛁', nombre: 'Baño y cepillado',       precio: 25 },
-    { id: 'recogida', icon: '🚐', nombre: 'Recogida a domicilio',   precio: 15 },
-    { id: 'camara',   icon: '📷', nombre: 'Acceso cámara 24/7',     precio: 5 },
-  ];
+  readonly serviciosAdicionalesAlojamiento = signal<ServicioAdicionalWizard[]>([]);
+
+  // ─── Suplementos (hoteles) — configurados por el comercio (HU-15.1/15.2) ───
+  readonly hotelSuplementos = signal<HotelSuplementosWizard>({
+    suplementoPorTamanoMascota: [],
+    suplementoSegundaMascotaPorNoche: 0,
+  });
 
   // ─── Coupon ───
   readonly descuento      = signal(0);
@@ -1266,18 +1329,38 @@ export class ReservaWizardComponent implements OnInit {
         const { checkIn, checkOut } = this.paso1AlojamientoForm.value;
         const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         const extras = this.extrasSelec().reduce(
-          (s, id) => s + (this.extras.find(e => e.id === id)?.precio ?? 0), 0,
+          (s, nombre) => s + (this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.precio ?? 0), 0,
         );
         return base * noches + extras;
       }
       case VerticalKey.HOTELES: {
         const { checkIn, checkOut } = this.paso1HotelesForm.value;
         const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
-        return base * noches;
+        return base * noches + this.suplementoHotel();
       }
       default:
         return base;
     }
+  });
+
+  /**
+   * Estimación del suplemento por mascota del hotel (tamaño + mascotas adicionales),
+   * replicando `HotelesAvailabilityStrategy` para que el resumen no muestre un precio
+   * distinto al que se cobrará (HU-15.2).
+   */
+  readonly suplementoHotel = computed(() => {
+    this.revisionFormularios();
+    if (this.vertical() !== VerticalKey.HOTELES) return 0;
+    const { checkIn, checkOut, mascotas, tamanoPerro } = this.paso1HotelesForm.value;
+    const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
+    const suplementos = this.hotelSuplementos();
+    const tier = suplementos.suplementoPorTamanoMascota.find(t => t.tamano === tamanoPerro);
+    const suplementoTamano = (tier?.precioPorNoche ?? 0) * noches;
+    const numMascotas = Number(mascotas ?? 1);
+    const suplementoAdicionales = numMascotas > 1
+      ? suplementos.suplementoSegundaMascotaPorNoche * noches * (numMascotas - 1)
+      : 0;
+    return suplementoTamano + suplementoAdicionales;
   });
 
   readonly subtotalNeto = computed(() => Math.max(0, this.subtotal() - this.descuento()));
@@ -1362,7 +1445,7 @@ export class ReservaWizardComponent implements OnInit {
       case VerticalKey.HOTELES: {
         const { checkIn, checkOut } = this.paso1HotelesForm.value;
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
-        return `€${base} × ${n} noche${n !== 1 ? 's' : ''} (+ suplemento por mascota)`;
+        return `€${base} × ${n} noche${n !== 1 ? 's' : ''}`;
       }
       default:
         return `€${base}`;
@@ -1476,6 +1559,29 @@ export class ReservaWizardComponent implements OnInit {
         // Catálogo detallado no disponible: se mantiene con el selector de modalidad genérico.
       });
     }
+
+    if (this.vertical() === VerticalKey.ALOJAMIENTO && this.servicioId) {
+      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+        const extra = s.extra ?? {};
+        this.serviciosAdicionalesAlojamiento.set(
+          (extra['serviciosAdicionales'] as ServicioAdicionalWizard[] | undefined) ?? [],
+        );
+      }).catch(() => {
+        // Catálogo detallado no disponible: sin servicios adicionales que ofrecer.
+      });
+    }
+
+    if (this.vertical() === VerticalKey.HOTELES && this.servicioId) {
+      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+        const extra = s.extra ?? {};
+        this.hotelSuplementos.set({
+          suplementoPorTamanoMascota: (extra['suplementoPorTamanoMascota'] as SuplementoTamanoWizard[] | undefined) ?? [],
+          suplementoSegundaMascotaPorNoche: (extra['suplementoSegundaMascotaPorNoche'] as number | undefined) ?? 0,
+        });
+      }).catch(() => {
+        // Catálogo detallado no disponible: el resumen no anticipará el suplemento, pero el cobro final sigue siendo correcto.
+      });
+    }
   }
 
   /** Si el servicio elegido deja de estar disponible para el perro seleccionado, elige el primero compatible. */
@@ -1573,6 +1679,7 @@ export class ReservaWizardComponent implements OnInit {
             tamanoPerro: f.tamanoPerro,
             compatibilidadSocial: f.compatibilidadSocial,
             ...(this.espacioId ? { espacioId: this.espacioId } : {}),
+            ...(this.extrasSelec().length > 0 ? { extras: this.extrasSelec() } : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
@@ -1684,8 +1791,8 @@ export class ReservaWizardComponent implements OnInit {
     );
   }
 
-  extraNombre(id: string): string { return this.extras.find(e => e.id === id)?.nombre ?? ''; }
-  extraPrecio(id: string): number  { return this.extras.find(e => e.id === id)?.precio ?? 0; }
+  extraNombre(nombre: string): string { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.nombre ?? ''; }
+  extraPrecio(nombre: string): number { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.precio ?? 0; }
 
   async aplicarCupon(): Promise<void> {
     const codigo = this.cuponInput.trim().toUpperCase();

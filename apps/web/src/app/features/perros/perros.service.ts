@@ -48,6 +48,30 @@ export interface PerroApi {
   createdAt?: string;
 }
 
+/** Campos opcionales que definen qué tan completa está la Ficha Inteligente (HU-8.1.2/8.2.8). */
+const CAMPOS_COMPLETITUD: ReadonlyArray<(p: PerroApi) => boolean> = [
+  (p) => !!p.raza,
+  (p) => !!p.fechaNacimiento,
+  (p) => p.peso != null,
+  (p) => !!p.sexo,
+  (p) => p.tipoPelo.length > 0,
+  (p) => !!p.tamano,
+  (p) => !!p.estadoManto,
+  (p) => p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0,
+  (p) => !!p.sociabilidadPerros,
+  (p) => !!p.sociabilidadPersonas,
+  (p) => !!p.temperamento,
+  (p) => !!p.microchip,
+  (p) => !!p.dieta,
+  (p) => p.fotos.length > 0,
+];
+
+/** % de la Ficha Inteligente ya completado, calculado en el cliente a partir del propio DTO. */
+export function porcentajeCompletitud(p: PerroApi): number {
+  const rellenos = CAMPOS_COMPLETITUD.filter((chequeo) => chequeo(p)).length;
+  return Math.round((rellenos / CAMPOS_COMPLETITUD.length) * 100);
+}
+
 export interface PerroPayload {
   nombre?: string;
   raza?: string;
@@ -114,6 +138,24 @@ export interface IndiceComportamientoApi {
   atributosPromedio: Record<string, number>;
 }
 
+/** Un eje del Índice de Bienestar (vacunas, revisiones, peso, prevención…). */
+export interface EjeBienestarApi {
+  clave: string;
+  etiqueta: string;
+  puntos: number;
+  maximo: number;
+  consejo?: string;
+}
+
+/** Índice de Bienestar Doogking (HU-8.1.7): cuidado preventivo, no un juicio al propietario. */
+export interface IndiceBienestarApi {
+  perroId: string;
+  puntuacion: number;
+  nivel: 'inicial' | 'bueno' | 'muy_bueno' | 'excelente';
+  descuentoSeguroPct: number;
+  ejes: EjeBienestarApi[];
+}
+
 /** Historia Veterinaria Compartida: ficha de salud + historial, con autorización del propietario. */
 export interface HistoriaCompartidaApi {
   nombre: string;
@@ -172,6 +214,10 @@ export class PerrosService {
 
   indiceComportamiento(id: string): Promise<IndiceComportamientoApi> {
     return firstValueFrom(this.http.get<IndiceComportamientoApi>(`${this.base}/${id}/indice-comportamiento`));
+  }
+
+  bienestar(id: string): Promise<IndiceBienestarApi> {
+    return firstValueFrom(this.http.get<IndiceBienestarApi>(`${this.base}/${id}/bienestar`));
   }
 
   historiaVeterinaria(id: string): Promise<HistoriaCompartidaApi> {

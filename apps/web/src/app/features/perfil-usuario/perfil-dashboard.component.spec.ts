@@ -9,6 +9,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ReservaApi, ReservasService } from '../reservas/services/reservas.service';
 import { PerrosService } from '../perros/perros.service';
 import { FavoritosService } from '../favoritos/favoritos.service';
+import { AlphaService, AlphaEstadoApi } from '../alpha/alpha.service';
 
 const reserva = (extra: Partial<ReservaApi> = {}): ReservaApi => ({
   _id: 'r1', codigo: 'RES-AAAA1111', vertical: VerticalKey.ALOJAMIENTO,
@@ -33,6 +34,7 @@ describe('PerfilDashboardComponent', () => {
     mascotas?: unknown[];
     favoritos?: number;
     ajustes?: Record<string, jest.Mock>;
+    alphaEstado?: AlphaEstadoApi | null;
   } = {}): Promise<void> => {
     // La barra de navegación embebida consulta también el rol del usuario.
     auth = {
@@ -46,10 +48,15 @@ describe('PerfilDashboardComponent', () => {
       misReservas: jest.fn().mockResolvedValue(datos.reservas ?? []),
       recordatorios: jest.fn().mockResolvedValue([]),
       puntos: jest.fn().mockResolvedValue({ puntos: 50, proximoUmbral: 200, nivel: 'plata' }),
+      proximaReserva: jest.fn().mockResolvedValue(null),
       ...datos.ajustes,
     };
     perrosService = { misPerros: jest.fn().mockResolvedValue(datos.mascotas ?? []) };
     favoritos = { cargarIds: jest.fn().mockResolvedValue(undefined), count: () => datos.favoritos ?? 0 };
+    const alphaService = {
+      miEstado: jest.fn().mockResolvedValue(datos.alphaEstado ?? null),
+      niveles: jest.fn().mockResolvedValue([]),
+    };
 
     await TestBed.configureTestingModule({
       imports: [PerfilDashboardComponent, RouterTestingModule],
@@ -60,6 +67,7 @@ describe('PerfilDashboardComponent', () => {
         { provide: ReservasService, useValue: reservasService },
         { provide: PerrosService, useValue: perrosService },
         { provide: FavoritosService, useValue: favoritos },
+        { provide: AlphaService, useValue: alphaService },
       ],
     }).compileComponents();
 
@@ -107,10 +115,10 @@ describe('PerfilDashboardComponent', () => {
         favoritos: 3,
       });
 
-      expect(stat('Reservas totales')).toBe('2');
-      expect(stat('Servicios disfrutados')).toBe('1');
+      expect(stat('Reservas realizadas')).toBe('2');
+      expect(stat('Servicios utilizados')).toBe('1');
       expect(stat('Mis mascotas')).toBe('1');
-      expect(stat('Favoritos')).toBe('3');
+      expect(stat('Servicios favoritos')).toBe('3');
     });
 
     it('debería mostrar solo las tres reservas más recientes', async () => {
@@ -122,7 +130,7 @@ describe('PerfilDashboardComponent', () => {
     it('debería quedarse a cero si el API no responde', async () => {
       await crear({ ajustes: { misReservas: jest.fn(() => { throw new Error('500'); }) } });
 
-      expect(stat('Reservas totales')).toBe('0');
+      expect(stat('Reservas realizadas')).toBe('0');
       expect(componente.reservasRecientes()).toEqual([]);
     });
 
@@ -135,9 +143,53 @@ describe('PerfilDashboardComponent', () => {
         },
       });
 
-      expect(stat('Reservas totales')).toBe('1');
+      expect(stat('Reservas realizadas')).toBe('1');
       expect(componente.puntos()).toBeNull();
       expect(componente.recordatorios()).toEqual([]);
+    });
+  });
+
+  describe('próxima reserva (HU-7.3)', () => {
+    it('debería mostrar el bloque cuando el usuario tiene una próxima reserva', async () => {
+      const enTresDias = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+      await crear({
+        ajustes: {
+          proximaReserva: jest.fn().mockResolvedValue({
+            codigo: 'RES-BBBB2222', titulo: 'Royal Dog Resort', imagen: 'foto.jpg',
+            ciudad: 'Madrid', fechaInicio: enTresDias, vertical: VerticalKey.ALOJAMIENTO,
+          }),
+        },
+      });
+
+      expect(componente.proximaReserva()?.titulo).toBe('Royal Dog Resort');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).toContain('Tu próxima reserva');
+      expect(el.textContent).toContain('Royal Dog Resort');
+    });
+
+    it('no debería mostrar nada si el usuario no tiene reservas por delante', async () => {
+      await crear();
+
+      expect(componente.proximaReserva()).toBeNull();
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).not.toContain('Tu próxima reserva');
+    });
+
+    it('debería calcular los días restantes sin devolver negativos', async () => {
+      await crear();
+
+      const pasado = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+      expect(componente.diasFaltantes(pasado)).toBe(0);
+    });
+  });
+
+  describe('saludo personalizado (HU-7.1)', () => {
+    it('debería saludar solo con el primer nombre', async () => {
+      await crear({ usuario: { nombre: 'Ana Ruiz García' } });
+
+      expect(componente.primerNombre()).toBe('Ana');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).toContain('Hola, Ana');
     });
   });
 
@@ -180,6 +232,45 @@ describe('PerfilDashboardComponent', () => {
       await crear({ ajustes: { puntos: jest.fn().mockResolvedValue({ puntos: 500, proximoUmbral: 0, nivel: 'oro' }) } });
 
       expect(componente.progresoPuntos()).toBe(0);
+    });
+  });
+
+  describe('Doogking Alpha (HU-13.2)', () => {
+    const estado = (extra: Partial<AlphaEstadoApi> = {}): AlphaEstadoApi => ({
+      nivelActual: 1,
+      nombreNivel: 'Alpha 1',
+      descuentoPct: 0,
+      beneficios: ['Promos'],
+      reservasCompletadas: 2,
+      reservasParaSiguiente: 3,
+      siguienteNivel: { nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0.05, beneficios: [] },
+      esMaximoNivel: false,
+      ...extra,
+    });
+
+    it('debería mostrar el nivel actual y el progreso hacia el siguiente', async () => {
+      await crear({ alphaEstado: estado() });
+
+      expect(componente.alpha()?.nombreNivel).toBe('Alpha 1');
+      expect(componente.progresoAlpha()).toBe(40); // 2 de 5 reservas
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).toContain('Alpha 2');
+    });
+
+    it('debería mostrar el 100% y el mensaje de nivel máximo cuando no hay siguiente nivel', async () => {
+      await crear({
+        alphaEstado: estado({ nivelActual: 3, nombreNivel: 'Alpha 3', reservasParaSiguiente: null, siguienteNivel: null, esMaximoNivel: true }),
+      });
+
+      expect(componente.progresoAlpha()).toBe(100);
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).toContain('máximo nivel');
+    });
+
+    it('no debería mostrar la tarjeta si el estado Alpha no está disponible', async () => {
+      await crear();
+
+      expect(componente.alpha()).toBeNull();
     });
   });
 

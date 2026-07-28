@@ -12,6 +12,7 @@ import { ReviewsModule } from './core/reviews/reviews.module';
 import { NotificationsModule } from './core/notifications/notifications.module';
 import { AdminModule } from './core/admin/admin.module';
 import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
+import { AlphaModule } from './core/alpha/alpha.module';
 import { CuponesModule } from './core/cupones/cupones.module';
 import { PerrosModule } from './core/perros/perros.module';
 import { FavoritosModule } from './core/favoritos/favoritos.module';
@@ -54,6 +55,7 @@ import { AgendaModule } from './core/agenda/agenda.module';
     NotificationsModule,
     AdminModule,
     ComisionConfigsModule,
+    AlphaModule,
     CuponesModule,
     PerrosModule,
     FavoritosModule,

@@ -263,4 +263,98 @@ describe('PerroFormComponent', () => {
       expect(componente.guardando()).toBe(false);
     });
   });
+
+  describe('wizard por bloques (HU-8.2.2)', () => {
+    it('debería empezar en el paso 1 y avanzar/retroceder', async () => {
+      await crear();
+      expect(componente.paso()).toBe(1);
+
+      await componente.siguiente();
+      expect(componente.paso()).toBe(2);
+
+      componente.atras();
+      expect(componente.paso()).toBe(1);
+    });
+
+    it('no debería retroceder antes del primer paso ni avanzar más allá del último', async () => {
+      await crear();
+      componente.atras();
+      expect(componente.paso()).toBe(1);
+
+      componente.irAPaso(5);
+      await componente.siguiente();
+      expect(componente.paso()).toBe(5);
+    });
+
+    it('debería seguir validando el formulario entero al enviar, sin importar en qué paso esté', async () => {
+      await crear();
+      componente.irAPaso(3);
+
+      await componente.submit();
+
+      expect(service['crear']).not.toHaveBeenCalled();
+      expect(componente.form.touched).toBe(true);
+    });
+
+    it('no debería autoguardar sin nombre todavía (nada que crear)', async () => {
+      await crear();
+
+      await componente.siguiente();
+
+      expect(service['crear']).not.toHaveBeenCalled();
+      expect(componente.paso()).toBe(2);
+    });
+
+    it('debería autoguardar como borrador al avanzar de paso una vez hay nombre', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya' });
+      jest.useFakeTimers();
+
+      await componente.siguiente();
+
+      expect(service['crear']).toHaveBeenCalled();
+      expect(componente.perroId()).toBe('p1');
+      expect(componente.autoguardadoMsg()).toContain('Guardado automáticamente');
+      jest.runAllTimers();
+      expect(componente.autoguardadoMsg()).toBe('');
+      jest.useRealTimers();
+    });
+
+    it('debería actualizar (no volver a crear) en los siguientes autoguardados del mismo borrador', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya' });
+
+      await componente.siguiente();
+      await componente.siguiente();
+
+      expect(service['crear']).toHaveBeenCalledTimes(1);
+      expect(service['actualizar']).toHaveBeenCalledTimes(1);
+    });
+
+    it('un fallo de autoguardado no debe bloquear la navegación', async () => {
+      await crear();
+      service['crear'].mockRejectedValue(new Error('500'));
+      componente.form.patchValue({ nombre: 'Maya' });
+
+      await componente.siguiente();
+
+      expect(componente.paso()).toBe(2);
+    });
+  });
+
+  describe('% de completitud (HU-8.1.2/8.2.8)', () => {
+    it('debería subir a medida que se rellenan campos opcionales', async () => {
+      await crear();
+      const inicial = componente.completitud();
+
+      componente.form.patchValue({ raza: 'Golden Retriever', peso: 20, temperamento: 'tranquilo' });
+
+      expect(componente.completitud()).toBeGreaterThan(inicial);
+    });
+
+    it('debería ser 0% en una ficha completamente en blanco', async () => {
+      await crear();
+      expect(componente.completitud()).toBe(0);
+    });
+  });
 });

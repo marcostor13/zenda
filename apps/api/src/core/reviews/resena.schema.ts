@@ -38,6 +38,18 @@ export class Resena {
   @Prop({ required: true, trim: true })
   comentario!: string;
 
+  /** Valoración por criterio específico de la categoría (HU-11.4), ej. `{ limpieza: 5, trato: 4 }`. */
+  @Prop({ type: SchemaTypes.Mixed, default: {} })
+  aspectos!: Record<string, number>;
+
+  /** URLs de fotos subidas junto a la reseña (antes/después, instalaciones, resultado...). */
+  @Prop({ type: [String], default: [] })
+  fotos!: string[];
+
+  /** Borrado lógico: permite al usuario "eliminar" su reseña sin perder el histórico de rating. */
+  @Prop({ type: Boolean, default: false })
+  eliminada!: boolean;
+
   // Respuesta del comercio (opcional).
   @Prop({ type: String, default: null })
   respuesta?: string | null;

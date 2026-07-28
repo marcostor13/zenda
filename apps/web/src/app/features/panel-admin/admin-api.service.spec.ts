@@ -162,5 +162,19 @@ describe('AdminApiService', () => {
       service.getAnalitica().subscribe();
       expect(peticion('/admin/analitica').method).toBe('GET');
     });
+
+    it('debería listar los niveles Alpha con GET', () => {
+      service.getAlphaNiveles().subscribe();
+
+      expect(peticion('/admin/alpha').method).toBe('GET');
+    });
+
+    it('debería guardar un nivel Alpha con PUT', () => {
+      service.updateAlphaNivel({ nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0.05, beneficios: ['x'] }).subscribe();
+
+      const req = peticion('/admin/alpha');
+      expect(req.method).toBe('PUT');
+      expect(req.body).toMatchObject({ nivel: 2, nombre: 'Alpha 2' });
+    });
   });
 });

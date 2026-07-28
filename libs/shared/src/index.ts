@@ -29,6 +29,9 @@ export * from './dtos/payments/payment-intent-response.dto';
 export * from './dtos/admin/comision-config.dto';
 export * from './dtos/admin/reporte-financiero.dto';
 
+// DTOs — Alpha (Doogking Alpha, Bloque 13)
+export * from './dtos/alpha/alpha.dto';
+
 // DTOs — Bookings
 export * from './dtos/bookings/crear-reserva.dto';
 export * from './dtos/bookings/solicitar-ajuste.dto';

@@ -9,6 +9,16 @@ import {
 } from '../../shared/catalogos/tags.catalogo';
 import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
 
+type Paso = 1 | 2 | 3 | 4 | 5;
+const PASO_LABELS: Record<Paso, string> = {
+  1: '🐶 Datos básicos',
+  2: '📏 Físico y pelo',
+  3: '🧠 Comportamiento',
+  4: '❤️ Salud',
+  5: '🏨 En un alojamiento',
+};
+const TOTAL_PASOS: Paso = 5;
+
 @Component({
   selector: 'app-perro-form',
   standalone: true,
@@ -20,16 +30,32 @@ import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
           <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
           Volver a mis perros
         </a>
-        <h1>{{ esEdicion() ? 'Editar ficha' : 'Nuevo perro' }}</h1>
-        <p>Cuanta más información des, mejor se adaptarán peluquerías, residencias, veterinarios y adiestradores al perfil de tu perro.</p>
+        <h1>{{ esEdicion() ? 'Editar ficha' : 'Crea la ficha inteligente de tu mascota' }}</h1>
+        <p>Complétala una sola vez: peluquerías, residencias, veterinarios y adiestradores de Doogking adaptarán el servicio automáticamente a tu perro, sin volver a rellenar formularios en cada reserva.</p>
       </div>
 
       @if (cargando()) {
         <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">Cargando…</div>
       } @else {
       <div class="form-card rs-card">
+
+        <!-- Progreso del wizard (HU-8.2.2) -->
+        <div class="wizard-progress">
+          <div class="wizard-progress__head">
+            <span>Paso {{ paso() }} de {{ totalPasos }} · {{ pasoLabels[paso()] }}</span>
+            <span>{{ completitud() }}% completada</span>
+          </div>
+          <div class="wizard-progress__track">
+            <div class="wizard-progress__fill" [style.width.%]="(paso() / totalPasos) * 100"></div>
+          </div>
+          @if (autoguardadoMsg()) {
+            <p class="wizard-progress__autosave">✓ {{ autoguardadoMsg() }}</p>
+          }
+        </div>
+
         <form [formGroup]="form" (ngSubmit)="submit()">
 
+          @if (paso() === 1) {
           <h2 class="section-title">Datos básicos</h2>
           <div class="form-row">
             <div class="rs-field">
@@ -72,7 +98,9 @@ import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
               Es mestizo
             </label>
           </div>
+          }
 
+          @if (paso() === 2) {
           <h2 class="section-title">Físico y pelo</h2>
           <div class="form-row">
             <div class="rs-field">
@@ -103,7 +131,9 @@ import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
               }
             </div>
           </div>
+          }
 
+          @if (paso() === 3) {
           <h2 class="section-title">Comportamiento</h2>
           <div class="form-row">
             <div class="rs-field">
@@ -155,7 +185,9 @@ import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
             <rs-tags-input formControlName="miedos" etiqueta="Miedos de tu perro"
                            [opciones]="catalogoMiedos" placeholder="Ej. tormentas, petardos…" />
           </div>
+          }
 
+          @if (paso() === 4) {
           <h2 class="section-title">Salud</h2>
           <div class="rs-field">
             <span class="rs-lbl">Alergias</span>
@@ -193,7 +225,9 @@ import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
             <label class="rs-lbl" for="dieta">Dieta especial</label>
             <input id="dieta" class="rs-inp" formControlName="dieta" />
           </div>
+          }
 
+          @if (paso() === 5) {
           <h2 class="section-title">En un alojamiento</h2>
           <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
             Decirlo por adelantado evita sorpresas y suplementos en recepción: el alojamiento prepara la
@@ -223,14 +257,25 @@ import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
             <input type="checkbox" formControlName="autorizaCompartirHistorial" />
             Autorizo compartir el historial de servicios de mi perro con los profesionales que reserve en Doogking
           </label>
+          }
 
           @if (errorMsg()) { <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div> }
           @if (exitoMsg()) { <div class="rs-alert rs-alert--success">{{ exitoMsg() }}</div> }
 
           <div class="form-actions">
-            <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
-              {{ guardando() ? 'Guardando…' : (esEdicion() ? 'Guardar cambios' : 'Registrar perro') }}
-            </button>
+            @if (paso() > 1) {
+              <button type="button" class="rs-btn rs-btn--ghost" (click)="atras()">← Atrás</button>
+            }
+            <div class="form-actions__spacer"></div>
+            @if (paso() < totalPasos) {
+              <button type="button" class="rs-btn rs-btn--primary" [disabled]="autoguardando()" (click)="siguiente()">
+                {{ autoguardando() ? 'Guardando…' : 'Siguiente →' }}
+              </button>
+            } @else {
+              <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
+                {{ guardando() ? 'Guardando…' : (esEdicion() ? 'Guardar cambios' : '🐶 Crear ficha inteligente') }}
+              </button>
+            }
           </div>
         </form>
       </div>
@@ -268,7 +313,14 @@ import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
     .vacuna__check { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size: var(--f-sm); color: var(--t-200); flex: 1; min-width: 0; }
     .vacuna__fecha { width: 132px; flex-shrink: 0; padding: var(--sp-1) var(--sp-2); font-size: var(--f-xs); }
 
-    .form-actions { margin-top: var(--sp-6); display: flex; justify-content: flex-end; }
+    .form-actions { margin-top: var(--sp-6); display: flex; align-items: center; gap: var(--sp-3); }
+    .form-actions__spacer { flex: 1; }
+
+    .wizard-progress { margin-bottom: var(--sp-6); }
+    .wizard-progress__head { display: flex; justify-content: space-between; font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-2); }
+    .wizard-progress__track { height: 6px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; }
+    .wizard-progress__fill { height: 100%; background: var(--c-accent); border-radius: var(--r-full); transition: width var(--d-3); }
+    .wizard-progress__autosave { margin-top: var(--sp-2); font-size: var(--f-xs); color: var(--c-success); }
   `],
 })
 export class PerroFormComponent implements OnInit {
@@ -284,6 +336,14 @@ export class PerroFormComponent implements OnInit {
 
   readonly perroId = signal<string | null>(null);
   readonly esEdicion = computed(() => this.perroId() !== null);
+
+  // Wizard por bloques (HU-8.2.2): mismo formulario de siempre, solo cambia
+  // qué sección se muestra — submit() sigue validando el formulario entero.
+  readonly paso = signal<Paso>(1);
+  readonly totalPasos = TOTAL_PASOS;
+  readonly pasoLabels = PASO_LABELS;
+  readonly autoguardando = signal(false);
+  readonly autoguardadoMsg = signal('');
 
   readonly tiposPelo = ['corto', 'medio', 'largo', 'rizado', 'duro', 'doble_capa'];
   private readonly tipoPeloSeleccionado = signal<string[]>([]);
@@ -410,15 +470,9 @@ export class PerroFormComponent implements OnInit {
     }
   }
 
-  async submit(): Promise<void> {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-
-    this.guardando.set(true);
-    this.errorMsg.set('');
-    this.exitoMsg.set('');
-
+  private construirPayload(): PerroPayload {
     const v = this.form.getRawValue();
-    const payload: PerroPayload = {
+    return {
       nombre: v.nombre,
       raza: v.raza || undefined,
       fechaNacimiento: v.fechaNacimiento || undefined,
@@ -447,6 +501,70 @@ export class PerroFormComponent implements OnInit {
       notasAlojamiento: v.notasAlojamiento || undefined,
       autorizaCompartirHistorial: v.autorizaCompartirHistorial,
     };
+  }
+
+  /** % de la ficha ya rellenado (HU-8.1.2/8.2.8), a partir de los mismos campos que `porcentajeCompletitud`. */
+  completitud(): number {
+    const v = this.form.getRawValue();
+    const campos = [
+      !!v.raza, !!v.fechaNacimiento, v.peso != null, !!v.sexo,
+      this.tipoPeloSeleccionado().length > 0, !!v.tamano, !!v.estadoManto,
+      this.vacunasDetalle().length > 0, !!v.sociabilidadPerros, !!v.sociabilidadPersonas,
+      !!v.temperamento, !!v.dieta,
+    ];
+    return Math.round((campos.filter(Boolean).length / campos.length) * 100);
+  }
+
+  irAPaso(p: Paso): void {
+    this.paso.set(p);
+  }
+
+  atras(): void {
+    this.paso.update((p) => Math.max(1, p - 1) as Paso);
+  }
+
+  /** Avanza de paso y guarda en segundo plano lo ya rellenado (HU-8.2.6). */
+  async siguiente(): Promise<void> {
+    await this.guardarProgreso();
+    this.paso.update((p) => Math.min(this.totalPasos, p + 1) as Paso);
+  }
+
+  /**
+   * Guardado automático por bloque: sin nombre aún no hay nada que crear en
+   * el servidor, así que ese paso solo avanza en local. Si el guardado falla,
+   * no bloquea la navegación — el usuario siempre puede terminar y guardarlo
+   * todo con el botón final.
+   */
+  private async guardarProgreso(): Promise<void> {
+    if (!this.form.getRawValue().nombre) return;
+
+    this.autoguardando.set(true);
+    try {
+      const payload = this.construirPayload();
+      const id = this.perroId();
+      if (id) {
+        await this.perrosService.actualizar(id, payload);
+      } else {
+        const creado = await this.perrosService.crear(payload);
+        this.perroId.set(creado._id);
+      }
+      this.autoguardadoMsg.set('Guardado automáticamente');
+      setTimeout(() => this.autoguardadoMsg.set(''), 2500);
+    } catch {
+      // Autoguardado silencioso: un fallo aquí no debe impedir seguir editando.
+    } finally {
+      this.autoguardando.set(false);
+    }
+  }
+
+  async submit(): Promise<void> {
+    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+
+    this.guardando.set(true);
+    this.errorMsg.set('');
+    this.exitoMsg.set('');
+
+    const payload = this.construirPayload();
 
     try {
       const id = this.perroId();

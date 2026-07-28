@@ -61,13 +61,29 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy {
     this.validarCompatibilidadSocial(alojamiento, params);
 
     const perros = Math.max(1, params.cantidad ?? 1);
+    const extras = this.calcularExtras(alojamiento, params);
 
     return {
       disponible: true,
       capacidadRestante: espacio.cantidad,
-      precioCalculado: espacio.precioNoche * noches * perros,
-      metadata: { noches, perros },
+      precioCalculado: espacio.precioNoche * noches * perros + extras,
+      metadata: { noches, perros, extras },
     };
+  }
+
+  /**
+   * Suma el precio de los `serviciosAdicionales` configurados por el comercio y
+   * elegidos por el cliente (HU-15.1/15.2) — se identifican por nombre, no por id,
+   * porque el schema no tiene id estable por servicio adicional.
+   */
+  private calcularExtras(alojamiento: Alojamiento, params: AvailabilityQuery): number {
+    const seleccionados = params.parametrosExtra?.['extras'];
+    if (!Array.isArray(seleccionados) || seleccionados.length === 0) return 0;
+    const disponibles = alojamiento.serviciosAdicionales ?? [];
+    return seleccionados.reduce((suma: number, nombre) => {
+      const extra = disponibles.find((e) => e.nombre === nombre);
+      return suma + (extra?.precio ?? 0);
+    }, 0);
   }
 
   /** Usa el espacio elegido por el cliente (`espacioId`); si no se indica, el primero con cupo. */

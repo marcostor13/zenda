@@ -6,14 +6,20 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { IMG_FALLBACK } from '../../../shared/media/images';
+import { RsRatingComponent } from '../../../shared/components/rating/rs-rating.component';
+import { RsTrustBlockComponent, type TrustItem } from '../../../shared/components/trust-block/rs-trust-block.component';
 import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspacio } from '../services/alojamiento.service';
+import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
 
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
 @Component({
   selector: 'app-alojamiento-detalle',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective],
+  imports: [
+    RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
+    RsRatingComponent, RsTrustBlockComponent,
+  ],
   template: `
 <div class="detalle-page">
   <rs-navbar />
@@ -91,6 +97,32 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
             }
           </div>
         </div>
+
+        <!-- Compromiso Doogking (HU-4.1.9) -->
+        <div class="compromiso-block" rsAnim>
+          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> Compromiso Doogking</h3>
+          <rs-trust-block [items]="[
+            { icon: '🟢', label: 'Empresa verificada' },
+            { icon: '⭐', label: 'Reseñas de clientes reales' },
+            { icon: '🔒', label: 'Reserva segura' },
+            { icon: '🎧', label: 'Soporte antes, durante y después de la estancia' }
+          ]"></rs-trust-block>
+        </div>
+
+        <!-- Compatibilidad con tu perro (HU-4.1.7) -->
+        @if (perroCompat() && compatibilidad().length) {
+          <div class="compat-block" rsAnim>
+            <h3 class="compat-block__title">🐶 Compatibilidad con {{ perroCompat()!.nombre }}</h3>
+            @if (bienestarPerro(); as ib) {
+              <p class="compat-block__bienestar">🟢 Índice de Bienestar de {{ perroCompat()!.nombre }}: {{ ib.puntuacion }}/100</p>
+            }
+            <ul class="compat-block__list">
+              @for (p of compatibilidad(); track p) {
+                <li>✔ {{ p }}</li>
+              }
+            </ul>
+          </div>
+        }
 
         <!-- Rating summary -->
         <div class="rating-summary rs-card" rsAnim>
@@ -282,7 +314,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
       </div>
 
       <!-- BOOKING PANEL (sticky, acento dorado superior) -->
-      <div class="booking-panel">
+      <div class="booking-panel rs-sticky-panel">
         <div class="booking-panel__card">
           @if (espacioSelec()) {
             <div class="booking-panel__selected">
@@ -311,23 +343,12 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
             {{ espacioSelec() ? 'Reservar' : 'Selecciona un espacio' }}
           </button>
 
-          <div class="booking-panel__trust">
-            <p>🔒 Datos seguros con Stripe</p>
-            <p>✅ Confirmación instantánea</p>
-            @if (alojamiento()!.paseosIncluidos) { <p>🦴 Paseos diarios incluidos</p> }
-            @if (alojamiento()!.camaras24h) { <p>📹 Sigue a tu perro por cámara 24h</p> }
-          </div>
+          <rs-trust-block class="booking-panel__trust" [items]="extrasTrust()"></rs-trust-block>
 
           <hr class="rs-hr" style="margin-block:var(--sp-5)">
 
           <div class="booking-panel__score">
-            <div class="rs-rating">
-              <div class="rs-rating__score">{{ alojamiento()!.score }}</div>
-              <div>
-                <div class="rs-rating__label">{{ alojamiento()!.scoreLabel }}</div>
-                <div class="rs-rating__count">{{ alojamiento()!.numResenas | number }} reseñas</div>
-              </div>
-            </div>
+            <rs-rating [score]="alojamiento()!.score" [label]="alojamiento()!.scoreLabel" [count]="alojamiento()!.numResenas"></rs-rating>
           </div>
         </div>
       </div>
@@ -423,6 +444,30 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
       border-radius: var(--r-full);
     }
 
+    .compromiso-block {
+      margin-top: var(--sp-5);
+      padding: var(--sp-5);
+      background: var(--c-accent-lo);
+      border: 1px solid var(--b-a);
+      border-radius: var(--r-lg);
+    }
+    .compromiso-block__title {
+      display: flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-md); font-weight: var(--w-7); color: var(--dk-blue);
+      margin-bottom: var(--sp-3);
+    }
+    .compat-block {
+      margin-top: var(--sp-5);
+      padding: var(--sp-5);
+      background: rgba(251,174,23,.08);
+      border: 1px solid rgba(251,174,23,.3);
+      border-radius: var(--r-lg);
+    }
+    .compat-block__title { font-size: var(--f-md); font-weight: var(--w-7); color: var(--dk-blue-deep); margin-bottom: var(--sp-3); }
+    .compat-block__bienestar { font-size: var(--f-sm); color: var(--t-200); margin-bottom: var(--sp-3); }
+    .compat-block__list { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); }
+    .compat-block__list li { list-style: none; }
+
     .rating-summary {
       display: grid;
       grid-template-columns: auto 1fr;
@@ -477,8 +522,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     .resena-card__texto  { font-size: var(--f-sm); color: var(--t-300); line-height: 1.7; }
     .resena-respuesta { margin-top: var(--sp-4); padding: var(--sp-4); background: var(--c-raised); border-left: 2px solid var(--c-accent); border-radius: 0 var(--r-md) var(--r-md) 0; font-size: var(--f-sm); color: var(--t-300); strong { color: var(--t-200); display: block; margin-bottom: var(--sp-2); } }
 
-    /* BOOKING PANEL — acento dorado superior */
-    .booking-panel { position: sticky; top: 84px; }
+    /* BOOKING PANEL — acento dorado superior. Sticky vía .rs-sticky-panel (styles.scss). */
     .booking-panel__card {
       background: var(--c-card);
       border: 1px solid var(--b-2);
@@ -500,17 +544,31 @@ export class AlojamientoDetalleComponent implements OnInit {
   private readonly route  = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly alojamientoService = inject(AlojamientoService);
+  private readonly perrosService = inject(PerrosService);
 
   readonly cargando = signal(true);
   readonly alojamiento = signal<AlojamientoDetalle | null>(null);
   readonly imagenActiva = signal('');
   readonly espacioSelec = signal<Espacio | null>(null);
+  /** Mascota elegida en el buscador, para el bloque "Compatibilidad con tu perro" (HU-4.1.7). */
+  readonly perroCompat = signal<PerroApi | null>(null);
+  /** Índice de Bienestar de esa mascota (HU-8.1.7); null si aún no está calculado. */
+  readonly bienestarPerro = signal<IndiceBienestarApi | null>(null);
 
   // Fechas/perros ya buscados en el listado, para no volver a pedirlos en el wizard.
   private checkInQP: string | null = null;
   private checkOutQP: string | null = null;
   private perrosQP: string | null = null;
   private perroIdQP: string | null = null;
+
+  /** Extras propios de este alojamiento que se añaden al bloque de confianza estándar. */
+  extrasTrust(): TrustItem[] {
+    const a = this.alojamiento();
+    const items: TrustItem[] = [];
+    if (a?.paseosIncluidos) items.push({ icon: '🦴', label: 'Paseos diarios incluidos' });
+    if (a?.camaras24h) items.push({ icon: '📹', label: 'Sigue a tu perro por cámara 24h' });
+    return items;
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -520,6 +578,43 @@ export class AlojamientoDetalleComponent implements OnInit {
     this.perrosQP = qp.get('perros');
     this.perroIdQP = qp.get('perroId');
     this.cargar(id);
+    if (this.perroIdQP) {
+      this.perrosService.obtener(this.perroIdQP).then(
+        (perro) => this.perroCompat.set(perro),
+        () => this.perroCompat.set(null), // Mascota no disponible: se omite el bloque, no se inventa.
+      );
+      this.perrosService.bienestar(this.perroIdQP).then(
+        (indice) => this.bienestarPerro.set(indice),
+        () => this.bienestarPerro.set(null),
+      );
+    }
+  }
+
+  /**
+   * Puntos de compatibilidad reales entre la mascota elegida y este alojamiento
+   * (HU-4.1.7) — solo a partir de datos que ambos declaran, nunca inventados.
+   */
+  compatibilidad(): string[] {
+    const perro = this.perroCompat();
+    const a = this.alojamiento();
+    if (!perro || !a) return [];
+    const puntos: string[] = [];
+
+    if (!a.compatibilidadSocialAdmitida.length || (perro.sociabilidadPerros && a.compatibilidadSocialAdmitida.some(
+      (p) => p.toLowerCase().includes(perro.sociabilidadPerros!.toLowerCase())))) {
+      puntos.push(`Perfil social admitido para perros ${perro.sociabilidadPerros ?? 'de cualquier tipo'}`);
+    }
+    if (perro.ansiedadSeparacion && a.camaras24h) {
+      puntos.push('Cámaras 24h: podrás ver cómo lleva la separación');
+    }
+    if (perro.tamano) {
+      const admiteTamano = a.espacios.some((e) => !e.tamanoMaxPerro || e.tamanoMaxPerro === perro.tamano);
+      if (!a.espacios.length || admiteTamano) puntos.push(`Espacio adecuado para su tamaño (${this.tamanoLabel(perro.tamano as TamanoPerro)})`);
+    }
+    if (perro.temperamento) {
+      puntos.push(`Temperamento declarado: ${perro.temperamento}`);
+    }
+    return puntos;
   }
 
   async cargar(id: string): Promise<void> {

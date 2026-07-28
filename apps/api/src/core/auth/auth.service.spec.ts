@@ -187,6 +187,20 @@ describe('AuthService', () => {
         'juan@test.com',
         'Juan Pérez',
         expect.stringContaining('/auth/verificar?token='),
+        false,
+      );
+    });
+
+    it('debería marcar el correo como de comercio para roles comercio_admin/comercio_staff (HU-6.2.2)', async () => {
+      await service.iniciarVerificacionEmail({
+        ...usuarioMock, id: 'comercio-1', rol: Rol.COMERCIO_ADMIN,
+      } as any);
+
+      expect(notificationsService.enviarVerificacionEmail).toHaveBeenCalledWith(
+        'juan@test.com',
+        'Juan Pérez',
+        expect.any(String),
+        true,
       );
     });
 

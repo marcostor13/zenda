@@ -110,7 +110,7 @@ export interface BusquedaParams {
          relanza la búsqueda, así que un "Buscar" aparte sería un paso de más. -->
     @if (variant() === 'card') {
       <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg sb__cta">
-        <rs-icon name="search" [size]="18" [stroke]="2.5"></rs-icon>
+        <rs-icon name="search" [size]="21" [stroke]="2.5"></rs-icon>
         <span>Buscar</span>
       </button>
     }
@@ -150,14 +150,16 @@ export interface BusquedaParams {
       &:hover { background: var(--c-accent-lo); color: var(--dk-blue); transform: translateY(-2px); }
 
       &.is-active {
-        border-color: rgba(8,37,139,.22);
+        border: 2px solid var(--dk-gold);
         background: var(--c-accent-lo);
         color: var(--dk-blue);
-        box-shadow: inset 0 -3px 0 var(--dk-gold);
+        box-shadow: var(--sh-sm), inset 0 -3px 0 var(--dk-gold);
+
+        .sb__cat-icon { transform: scale(1.12); }
       }
     }
 
-    .sb__cat-icon { width: 34px; height: 34px; }
+    .sb__cat-icon { width: 34px; height: 34px; transition: transform var(--d-2); }
 
     .sb__cat-label {
       font-size: var(--f-xs);
@@ -236,9 +238,10 @@ export interface BusquedaParams {
 
     .sb__cta {
       flex: 0 0 auto;
-      min-width: 148px;
+      min-width: 170px;
       font-size: var(--f-md);
       font-weight: var(--w-7);
+      box-shadow: var(--sh-md);
     }
 
     /* Variante compacta para las cabeceras de listado */

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TipoHistorial, Vacuna, VerticalKey } from 'shared';
-import { PerrosService } from './perros.service';
+import { PerrosService, PerroApi, porcentajeCompletitud } from './perros.service';
 
 describe('PerrosService', () => {
   let service: PerrosService;
@@ -60,6 +60,13 @@ describe('PerrosService', () => {
       const promesa = service.eliminar('p1');
 
       expect(resolver('/perros/p1').method).toBe('DELETE');
+      await promesa;
+    });
+
+    it('debería pedir el Índice de Bienestar en su propia ruta (HU-8.1.7)', async () => {
+      const promesa = service.bienestar('p1');
+
+      expect(resolver('/perros/p1/bienestar').url).toContain('/bienestar');
       await promesa;
     });
   });
@@ -124,5 +131,37 @@ describe('PerrosService', () => {
       expect(resolver('/perros/p1/historia-veterinaria').url).toContain('historia-veterinaria');
       await promesa;
     });
+  });
+});
+
+describe('porcentajeCompletitud', () => {
+  const perroVacio: PerroApi = {
+    _id: 'p1', nombre: 'Maya', fotos: [], especie: 'perro', esMestizo: true,
+    esterilizado: false, tipoPelo: [], vacunas: [], alergias: [], enfermedades: [],
+    medicacion: [], puedeQuedarseSolo: true, ansiedadSeparacion: false, miedos: [],
+    seMarea: false, requiereTransportin: false, autorizaCompartirHistorial: true,
+  };
+
+  it('debería ser 0% para una ficha recién creada sin datos opcionales', () => {
+    expect(porcentajeCompletitud(perroVacio)).toBe(0);
+  });
+
+  it('debería ser 100% cuando todos los campos opcionales están rellenos', () => {
+    const completo: PerroApi = {
+      ...perroVacio,
+      raza: 'Golden Retriever', fechaNacimiento: '2022-01-01', peso: 28, sexo: 'hembra',
+      tipoPelo: ['corto'], tamano: 'grande', estadoManto: 'bueno',
+      vacunas: ['rabia'], sociabilidadPerros: 'alta', sociabilidadPersonas: 'alta',
+      temperamento: 'tranquilo', microchip: '123456789', dieta: 'pienso premium',
+      fotos: ['maya.jpg'],
+    };
+    expect(porcentajeCompletitud(completo)).toBe(100);
+  });
+
+  it('debería subir gradualmente al rellenar campos, no todo o nada', () => {
+    const parcial: PerroApi = { ...perroVacio, raza: 'Mestizo', peso: 12 };
+    const pct = porcentajeCompletitud(parcial);
+    expect(pct).toBeGreaterThan(0);
+    expect(pct).toBeLessThan(100);
   });
 });

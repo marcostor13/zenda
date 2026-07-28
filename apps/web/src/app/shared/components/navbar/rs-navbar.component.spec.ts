@@ -2,8 +2,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { VERTICALES_UI } from '../../verticales/verticales.config';
 import { RsNavbarComponent } from './rs-navbar.component';
+import { AuthService } from '../../../core/auth/auth.service';
+import { PerrosService } from '../../../features/perros/perros.service';
+import { ReservasService } from '../../../features/reservas/services/reservas.service';
 
 describe('RsNavbarComponent', () => {
   let fixture: ComponentFixture<RsNavbarComponent>;
@@ -72,5 +76,61 @@ describe('RsNavbarComponent', () => {
 
     const enlaces = el.querySelectorAll('.rs-mobile-menu__nav .rs-mobile-menu__link');
     expect(enlaces.length).toBe(VERTICALES_UI.length);
+  });
+});
+
+describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
+  let fixture: ComponentFixture<RsNavbarComponent>;
+
+  const crear = async (opciones: {
+    mascotas?: unknown[];
+    proximaReserva?: unknown | null;
+  } = {}): Promise<void> => {
+    await TestBed.configureTestingModule({
+      imports: [RsNavbarComponent, RouterTestingModule],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(),
+        {
+          provide: AuthService,
+          useValue: {
+            usuario: signal({ nombre: 'Ana Ruiz' }),
+            estaAutenticado: signal(true),
+            esAdmin: signal(false),
+            esComercio: signal(false),
+          },
+        },
+        { provide: PerrosService, useValue: { misPerros: jest.fn().mockResolvedValue(opciones.mascotas ?? []) } },
+        { provide: ReservasService, useValue: { proximaReserva: jest.fn().mockResolvedValue(opciones.proximaReserva ?? null) } },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(RsNavbarComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
+
+  it('debería contar las mascotas del usuario en el desplegable', async () => {
+    await crear({ mascotas: [{ _id: 'p1' }, { _id: 'p2' }] });
+
+    expect(fixture.componentInstance.numMascotas()).toBe(2);
+  });
+
+  it('debería marcar el punto de notificación cuando hay una reserva próxima', async () => {
+    await crear({ proximaReserva: { codigo: 'RES-1', titulo: 'Royal Dog Resort' } });
+
+    expect(fixture.componentInstance.tieneReservaProxima()).toBe(true);
+    fixture.componentInstance.cuentaAbierto.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.rs-navbar__dot')).toBeTruthy();
+    expect(el.textContent).toContain('Próxima reserva');
+  });
+
+  it('no debería marcar nada sin reservas ni mascotas', async () => {
+    await crear();
+
+    expect(fixture.componentInstance.numMascotas()).toBe(0);
+    expect(fixture.componentInstance.tieneReservaProxima()).toBe(false);
   });
 });

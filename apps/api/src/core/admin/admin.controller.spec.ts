@@ -28,6 +28,8 @@ describe('AdminController', () => {
           useValue: {
             listarComisiones: jest.fn().mockResolvedValue([]),
             actualizarComision: jest.fn().mockResolvedValue({ vertical: VerticalKey.ALOJAMIENTO }),
+            listarNivelesAlpha: jest.fn().mockResolvedValue([]),
+            actualizarNivelAlpha: jest.fn().mockResolvedValue({ nivel: 2 }),
             generarReporteFinanciero: jest.fn().mockResolvedValue(reporteMock),
           },
         },
@@ -59,6 +61,25 @@ describe('AdminController', () => {
 
       const resultado = await controller.actualizarComision(dto, req);
       expect(adminService.actualizarComision).toHaveBeenCalledWith(dto, 'admin-1');
+    });
+  });
+
+  describe('listarNivelesAlpha', () => {
+    it('debería retornar la escalera de niveles Alpha', async () => {
+      const resultado = await controller.listarNivelesAlpha();
+      expect(adminService.listarNivelesAlpha).toHaveBeenCalled();
+      expect(resultado).toEqual([]);
+    });
+  });
+
+  describe('actualizarNivelAlpha', () => {
+    it('debería actualizar el nivel Alpha con el admin del token', async () => {
+      const req: any = { user: { sub: 'admin-1', rol: Rol.ADMIN } };
+      const dto = { nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0.05, beneficios: ['x'] };
+
+      await controller.actualizarNivelAlpha(dto, req);
+
+      expect(adminService.actualizarNivelAlpha).toHaveBeenCalledWith(dto, 'admin-1');
     });
   });
 

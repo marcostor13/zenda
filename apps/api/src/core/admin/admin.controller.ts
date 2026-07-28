@@ -20,7 +20,7 @@ import { Request } from 'express';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { ActualizarComisionDto, ReporteFinancieroDto, Rol } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, ReporteFinancieroDto, Rol } from 'shared';
 
 interface RequestConAdmin extends Request {
   user: { sub: string; rol: Rol };
@@ -57,6 +57,23 @@ export class AdminController {
     @Req() req: RequestConAdmin,
   ) {
     return this.adminService.actualizarComision(dto, req.user.sub);
+  }
+
+  // ── Doogking Alpha ───────────────────────────────────────────────────────────
+
+  @Get('alpha')
+  @ApiOperation({ summary: 'Listar la escalera de niveles Doogking Alpha' })
+  listarNivelesAlpha() {
+    return this.adminService.listarNivelesAlpha();
+  }
+
+  @Put('alpha')
+  @ApiOperation({ summary: 'Crear o actualizar un nivel del programa Doogking Alpha' })
+  actualizarNivelAlpha(
+    @Body() dto: ActualizarAlphaNivelDto,
+    @Req() req: RequestConAdmin,
+  ) {
+    return this.adminService.actualizarNivelAlpha(dto, req.user.sub);
   }
 
   // ── Comercios CRUD ───────────────────────────────────────────────────────────

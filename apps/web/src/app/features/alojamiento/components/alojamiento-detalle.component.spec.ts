@@ -4,6 +4,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { Router } from '@angular/router';
 import { AlojamientoDetalleComponent } from './alojamiento-detalle.component';
 import { AlojamientoService, AlojamientoDetalle, Espacio } from '../services/alojamiento.service';
+import { PerrosService, PerroApi } from '../../perros/perros.service';
 
 describe('AlojamientoDetalleComponent', () => {
   let fixture: ComponentFixture<AlojamientoDetalleComponent>;
@@ -64,7 +65,13 @@ describe('AlojamientoDetalleComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [AlojamientoDetalleComponent, RouterTestingModule, HttpClientTestingModule],
-      providers: [{ provide: AlojamientoService, useValue: alojamientoService }],
+      providers: [
+        { provide: AlojamientoService, useValue: alojamientoService },
+        {
+          provide: PerrosService,
+          useValue: { obtener: jest.fn().mockResolvedValue(null), bienestar: jest.fn().mockResolvedValue(null) },
+        },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(AlojamientoDetalleComponent);
@@ -115,6 +122,54 @@ describe('AlojamientoDetalleComponent', () => {
     component.irAReserva();
 
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  describe('compatibilidad con la mascota (HU-4.1.7)', () => {
+    const perroMock: PerroApi = {
+      _id: 'p1', nombre: 'Maya', fotos: [], especie: 'perro', esMestizo: false,
+      esterilizado: true, tipoPelo: [], vacunas: [], alergias: [], enfermedades: [],
+      medicacion: [], puedeQuedarseSolo: true, ansiedadSeparacion: true, miedos: [],
+      seMarea: false, requiereTransportin: false, autorizaCompartirHistorial: true,
+      sociabilidadPerros: 'sociable', tamano: 'grande', temperamento: 'tranquilo',
+    };
+
+    it('sin mascota elegida no da ningún punto de compatibilidad', () => {
+      component.alojamiento.set(detalleMock);
+      expect(component.compatibilidad()).toEqual([]);
+    });
+
+    it('detecta cámaras 24h como punto útil para un perro con ansiedad por separación', () => {
+      component.alojamiento.set(detalleMock);
+      component.perroCompat.set(perroMock);
+
+      expect(component.compatibilidad()).toContain('Cámaras 24h: podrás ver cómo lleva la separación');
+    });
+
+    it('admite el perfil social cuando el alojamiento no restringe compatibilidad', () => {
+      component.alojamiento.set({ ...detalleMock, compatibilidadSocialAdmitida: [] });
+      component.perroCompat.set(perroMock);
+
+      expect(component.compatibilidad()).toContain('Perfil social admitido para perros sociable');
+    });
+
+    it('no inventa compatibilidad social si el alojamiento la restringe a otro perfil', () => {
+      component.alojamiento.set({ ...detalleMock, compatibilidadSocialAdmitida: ['tímido'] });
+      component.perroCompat.set(perroMock);
+
+      expect(component.compatibilidad()).not.toContain('Perfil social admitido para perros sociable');
+    });
+
+    it('muestra el Índice de Bienestar de la mascota junto a la compatibilidad (HU-8.1.7)', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      component.perroCompat.set(perroMock);
+      component.bienestarPerro.set({ perroId: 'p1', puntuacion: 88, nivel: 'muy_bueno', descuentoSeguroPct: 0.1, ejes: [] });
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).toContain('Índice de Bienestar de Maya: 88/100');
+    });
   });
 
   it('debería navegar a /reservas/alojamiento con el espacio seleccionado', async () => {

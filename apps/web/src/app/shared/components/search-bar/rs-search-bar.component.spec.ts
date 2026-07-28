@@ -157,7 +157,7 @@ describe('RsSearchBarComponent', () => {
     await crear();
     jest.spyOn(router, 'navigate').mockResolvedValue(true);
     expect(bar.activo().labelFecha).toBe('Entrada');
-    expect(bar.activo().labelUbicacion).toBe('¿Dónde?');
+    expect(bar.activo().labelUbicacion).toBe('¿Dónde buscas el servicio?');
 
     bar.seleccionarVertical(VerticalKey.TRANSPORTE);
     expect(bar.activo().labelFecha).toBe('Fecha del traslado');

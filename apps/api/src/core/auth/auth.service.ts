@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { LoginDto, RegistroDto, AuthResponseDto, RegistroPendienteDto } from 'shared';
+import { LoginDto, RegistroDto, AuthResponseDto, RegistroPendienteDto, Rol } from 'shared';
 import { UsersRepository } from '../users/users.repository';
 import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
@@ -124,7 +124,8 @@ export class AuthService {
     await this.usersRepository.establecerTokenVerificacion(usuario.id, token, expira);
 
     const url = `${this.urlFrontend()}/auth/verificar?token=${token}`;
-    await this.notificationsService.enviarVerificacionEmail(usuario.email, usuario.nombre, url);
+    const esComercio = usuario.rol === Rol.COMERCIO_ADMIN || usuario.rol === Rol.COMERCIO_STAFF;
+    await this.notificationsService.enviarVerificacionEmail(usuario.email, usuario.nombre, url, esComercio);
 
     // Sin email configurado el correo no llega: dejamos el enlace en el log para verificar en dev.
     const emailConfigurado = this.config.get<string>('EMAIL_USER') || this.config.get<string>('SMTP_HOST');
@@ -158,7 +159,7 @@ export class AuthService {
   }
 
   private urlFrontend(): string {
-    return this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:4200';
+    return this.config.get<string>('APP_URL') ?? 'https://doogking.com';
   }
 
   private construirRespuesta(usuario: UsuarioDocument): AuthResponseDto {

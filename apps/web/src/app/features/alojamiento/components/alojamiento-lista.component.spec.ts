@@ -88,12 +88,6 @@ describe('AlojamientoListaComponent', () => {
     expect(html).toContain('Premium');
   });
 
-  it('debería generar estrellas doradas a partir del score', () => {
-    expect(component.estrellas(5)).toBe('★★★★★');
-    expect(component.estrellas(4.6)).toBe('★★★★★');
-    expect(component.estrellas(4.2)).toBe('★★★★☆');
-  });
-
   it('debería resetear la página al aplicar filtros', async () => {
     fixture.detectChanges();
     await fixture.whenStable();

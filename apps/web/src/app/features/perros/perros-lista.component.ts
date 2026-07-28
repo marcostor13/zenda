@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { PerrosService, PerroApi, IndiceComportamientoApi } from './perros.service';
+import { PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, porcentajeCompletitud } from './perros.service';
 
 @Component({
   selector: 'app-perros-lista',
@@ -58,6 +58,17 @@ import { PerrosService, PerroApi, IndiceComportamientoApi } from './perros.servi
                 @if (p.nivelDoogking) {
                   <span class="rs-badge rs-badge--accent">🎓 Nivel Doogking {{ p.nivelDoogking }}/5</span>
                 }
+                @if (bienestar()[p._id]; as ib) {
+                  <span class="rs-badge" [class]="'rs-badge--' + varianteBienestar(ib.nivel)">
+                    {{ iconoBienestar(ib.nivel) }} Bienestar {{ ib.puntuacion }}/100
+                  </span>
+                }
+              </div>
+              <div class="perro-card__completitud">
+                <div class="perro-card__completitud-track">
+                  <div class="perro-card__completitud-fill" [style.width.%]="porcentajeCompletitud(p)"></div>
+                </div>
+                <span>Ficha inteligente: {{ porcentajeCompletitud(p) }}% completada</span>
               </div>
             </div>
             <div class="perro-card__actions">
@@ -106,6 +117,9 @@ import { PerrosService, PerroApi, IndiceComportamientoApi } from './perros.servi
     .perro-card__info h3 { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); }
     .perro-card__info p { font-size: var(--f-sm); color: var(--t-400); margin-top: 2px; }
     .perro-card__badges { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
+    .perro-card__completitud { margin-top: var(--sp-3); font-size: var(--f-xs); color: var(--t-400); }
+    .perro-card__completitud-track { height: 4px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; margin-bottom: var(--sp-1); }
+    .perro-card__completitud-fill { height: 100%; background: var(--dk-gold); border-radius: var(--r-full); transition: width var(--d-3); }
     .perro-card__actions { display: flex; gap: var(--sp-2); margin-top: auto; }
   `],
 })
@@ -117,12 +131,15 @@ export class PerrosListaComponent implements OnInit {
   readonly perros = signal<PerroApi[]>([]);
   readonly eliminandoId = signal<string | null>(null);
   readonly indices = signal<Record<string, IndiceComportamientoApi>>({});
+  readonly bienestar = signal<Record<string, IndiceBienestarApi>>({});
+  readonly porcentajeCompletitud = porcentajeCompletitud;
 
   async ngOnInit(): Promise<void> {
     try {
       const perros = await this.perrosService.misPerros();
       this.perros.set(perros);
       await this.cargarIndices(perros);
+      await this.cargarBienestar(perros);
     } catch {
       this.errorMsg.set('No se pudieron cargar tus perros. Verifica que el API esté activo.');
     } finally {
@@ -139,6 +156,26 @@ export class PerrosListaComponent implements OnInit {
       if (indice) mapa[id] = indice;
     }
     this.indices.set(mapa);
+  }
+
+  /** Índice de Bienestar (HU-8.1.7): cuidado preventivo, no un juicio al propietario. */
+  private async cargarBienestar(perros: PerroApi[]): Promise<void> {
+    const entradas = await Promise.all(
+      perros.map(async (p) => [p._id, await this.perrosService.bienestar(p._id).catch(() => null)] as const),
+    );
+    const mapa: Record<string, IndiceBienestarApi> = {};
+    for (const [id, indice] of entradas) {
+      if (indice) mapa[id] = indice;
+    }
+    this.bienestar.set(mapa);
+  }
+
+  iconoBienestar(nivel: IndiceBienestarApi['nivel']): string {
+    return { inicial: '⚪', bueno: '🟡', muy_bueno: '🟢', excelente: '🟢' }[nivel];
+  }
+
+  varianteBienestar(nivel: IndiceBienestarApi['nivel']): 'neutral' | 'warning' | 'success' {
+    return { inicial: 'neutral', bueno: 'warning', muy_bueno: 'success', excelente: 'success' }[nivel] as 'neutral' | 'warning' | 'success';
   }
 
   async eliminar(p: PerroApi): Promise<void> {

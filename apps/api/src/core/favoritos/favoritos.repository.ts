@@ -10,8 +10,12 @@ export class FavoritosRepository {
     @InjectModel(Favorito.name) private readonly favoritoModel: Model<FavoritoDocument>,
   ) {}
 
-  /** Alta idempotente: si ya existe, devuelve el existente (upsert por índice único). */
-  async agregar(usuarioId: string, servicioId: string): Promise<FavoritoDocument> {
+  /**
+   * Alta idempotente: si ya existe, devuelve el existente (upsert por índice único).
+   * `precioGuardado` solo se fija en el `$setOnInsert`: si el usuario ya lo tenía
+   * en favoritos, repetir la llamada no debe pisar el precio original guardado.
+   */
+  async agregar(usuarioId: string, servicioId: string, precioGuardado?: number): Promise<FavoritoDocument> {
     const clave = {
       usuarioId: new Types.ObjectId(usuarioId),
       servicioId: new Types.ObjectId(servicioId),
@@ -19,7 +23,7 @@ export class FavoritosRepository {
     return this.favoritoModel
       .findOneAndUpdate(
         clave,
-        { $setOnInsert: { ...clave, tipo: TipoFavorito.SERVICIO } },
+        { $setOnInsert: { ...clave, tipo: TipoFavorito.SERVICIO, precioGuardado } },
         { upsert: true, new: true },
       )
       .exec();
@@ -40,6 +44,23 @@ export class FavoritosRepository {
       .lean()
       .exec();
     return docs.map((d) => String(d.servicioId));
+  }
+
+  /** Igual que {@link listarServicioIds} pero con la fecha real de guardado y el precio snapshot (HU-10.3/10.4). */
+  async listarServicios(
+    usuarioId: string,
+  ): Promise<{ servicioId: string; createdAt: Date; precioGuardado?: number }[]> {
+    const docs = (await this.favoritoModel
+      .find({ usuarioId: new Types.ObjectId(usuarioId), servicioId: { $exists: true } })
+      .sort({ createdAt: -1 })
+      .select('servicioId createdAt precioGuardado')
+      .lean()
+      .exec()) as unknown as { servicioId: Types.ObjectId; createdAt: Date; precioGuardado?: number }[];
+    return docs.map((d) => ({
+      servicioId: String(d.servicioId),
+      createdAt: d.createdAt,
+      precioGuardado: d.precioGuardado,
+    }));
   }
 
   async contar(usuarioId: string): Promise<number> {

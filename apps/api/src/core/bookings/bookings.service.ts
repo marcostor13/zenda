@@ -542,6 +542,40 @@ export class BookingsService {
       .exec() as Promise<ReservaDocument[]>;
   }
 
+  /** Próxima reserva confirmada del usuario (HU-7.3), o null si no tiene ninguna por delante. */
+  async proxima(usuarioId: string): Promise<{
+    codigo: string;
+    titulo: string;
+    imagen: string;
+    ciudad: string;
+    fechaInicio: Date;
+    vertical: string;
+  } | null> {
+    const reserva = await this.reservaModel
+      .findOne({ usuarioId, estado: ReservaEstado.CONFIRMADA, fechaInicio: { $gt: new Date() } })
+      .sort({ fechaInicio: 1 })
+      .populate('servicioId', 'titulo imagenes')
+      .populate('comercioId', 'nombreComercial direccion')
+      .lean()
+      .exec() as unknown as {
+        codigo: string;
+        fechaInicio: Date;
+        vertical: string;
+        servicioId?: { titulo?: string; imagenes?: string[] };
+        comercioId?: { nombreComercial?: string; direccion?: { ciudad?: string } };
+      } | null;
+
+    if (!reserva) return null;
+    return {
+      codigo: reserva.codigo,
+      titulo: reserva.servicioId?.titulo ?? reserva.comercioId?.nombreComercial ?? 'Tu reserva',
+      imagen: reserva.servicioId?.imagenes?.[0] ?? '',
+      ciudad: reserva.comercioId?.direccion?.ciudad ?? '',
+      fechaInicio: reserva.fechaInicio,
+      vertical: reserva.vertical,
+    };
+  }
+
   /**
    * Recordatorios de cuidado basados en el historial real del usuario: si hace
    * demasiado tiempo desde el último servicio de un tipo (peluquería, veterinario,

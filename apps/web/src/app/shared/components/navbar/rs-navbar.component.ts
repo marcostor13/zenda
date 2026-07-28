@@ -1,10 +1,13 @@
-import { Component, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsRegionSelectorComponent } from '../region/rs-region-selector.component';
 import { VERTICALES_UI } from '../../verticales/verticales.config';
 import { BRAND } from '../../media/images';
+import { FavoritosService } from '../../../features/favoritos/favoritos.service';
+import { PerrosService } from '../../../features/perros/perros.service';
+import { ReservasService } from '../../../features/reservas/services/reservas.service';
 
 @Component({
   selector: 'rs-navbar',
@@ -59,28 +62,45 @@ import { BRAND } from '../../media/images';
           <div class="rs-navbar__account" (click)="$event.stopPropagation()">
             <button type="button" class="rs-btn rs-btn--primary rs-btn--sm rs-navbar__account-btn"
                     (click)="cuentaAbierto.set(!cuentaAbierto())" [attr.aria-expanded]="cuentaAbierto()">
-              <span class="rs-navbar__avatar">{{ iniciales() }}</span>
+              <span class="rs-navbar__avatar">
+                {{ iniciales() }}
+                @if (tieneReservaProxima()) { <span class="rs-navbar__dot" aria-hidden="true"></span> }
+              </span>
               Mi cuenta
               <rs-icon name="chevron-down" [size]="14" [stroke]="2"></rs-icon>
             </button>
             @if (cuentaAbierto()) {
               <div class="rs-navbar__dropdown">
-                <a routerLink="/perfil"          class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                <a routerLink="/perfil" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="user" [size]="15" [stroke]="2"></rs-icon> Mi perfil
                 </a>
-                <a routerLink="/perros"          class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                <a routerLink="/perros" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="paw" [size]="15" [stroke]="2"></rs-icon> Mis mascotas
+                  @if (numMascotas() > 0) { <span class="rs-navbar__count">{{ numMascotas() }}</span> }
                 </a>
-                <a routerLink="/reservas"        class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                <a routerLink="/reservas" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--highlight" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="calendar" [size]="15" [stroke]="2"></rs-icon> Mis reservas
+                  @if (tieneReservaProxima()) { <span class="rs-navbar__pill">🟡 Próxima reserva</span> }
                 </a>
-                <a routerLink="/favoritos"       class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                <a routerLink="/favoritos" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="heart" [size]="15" [stroke]="2"></rs-icon> Favoritos
+                  @if (favoritosService.count() > 0) { <span class="rs-navbar__count">{{ favoritosService.count() }}</span> }
                 </a>
-                <a routerLink="/perfil/resenas"  class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                <a routerLink="/perfil/resenas" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="star" [size]="15" [stroke]="2"></rs-icon> Mis reseñas
                 </a>
+
                 <div class="rs-navbar__dropdown-divider"></div>
+
+                <a routerLink="/perfil" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="settings" [size]="15" [stroke]="2"></rs-icon> Configuración
+                </a>
+                <a routerLink="/ayuda" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="message-square" [size]="15" [stroke]="2"></rs-icon> Ayuda
+                </a>
+
+                <div class="rs-navbar__dropdown-divider"></div>
+
                 <button type="button" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--danger" (click)="cerrarSesion()">
                   <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> Cerrar sesión
                 </button>
@@ -195,10 +215,27 @@ import { BRAND } from '../../media/images';
     .rs-navbar__account { position: relative; }
     .rs-navbar__account-btn { display: inline-flex; align-items: center; gap: var(--sp-2); }
     .rs-navbar__avatar {
+      position: relative;
       width: 22px; height: 22px; border-radius: 50%;
       background: rgba(255,255,255,.25); display: inline-flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: var(--w-7);
     }
+    .rs-navbar__dot {
+      position: absolute; top: -2px; right: -2px;
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #EF4444; border: 1.5px solid var(--c-accent);
+    }
+    .rs-navbar__count {
+      margin-left: auto; padding: 1px var(--sp-2);
+      border-radius: var(--r-full); background: var(--c-raised); color: var(--t-300);
+      font-size: var(--f-xs); font-weight: var(--w-6);
+    }
+    .rs-navbar__pill {
+      margin-left: auto; padding: 2px var(--sp-2);
+      border-radius: var(--r-full); background: rgba(251,174,23,.15); color: #B45309;
+      font-size: 11px; font-weight: var(--w-6); white-space: nowrap;
+    }
+    .rs-navbar__dropdown-item--highlight { font-weight: var(--w-6); }
     .rs-navbar__dropdown {
       position: absolute; top: calc(100% + 8px); right: 0; z-index: var(--z-3);
       min-width: 220px; padding: var(--sp-2);
@@ -295,8 +332,11 @@ import { BRAND } from '../../media/images';
     }
   `],
 })
-export class RsNavbarComponent {
+export class RsNavbarComponent implements OnInit {
   private readonly authService = inject(AuthService);
+  private readonly perrosService = inject(PerrosService);
+  private readonly reservasService = inject(ReservasService);
+  readonly favoritosService = inject(FavoritosService);
 
   /** Menú de categorías: misma fuente que el buscador y las vistas. */
   readonly verticales = VERTICALES_UI;
@@ -306,6 +346,10 @@ export class RsNavbarComponent {
   readonly esComercio = this.authService.esComercio;
   readonly menuAbierto = signal(false);
   readonly cuentaAbierto = signal(false);
+
+  /** Contadores del desplegable "Mi cuenta" (HU-12.3). */
+  readonly numMascotas = signal(0);
+  readonly tieneReservaProxima = signal(false);
 
   readonly logoD = BRAND.logoD;
 
@@ -319,6 +363,27 @@ export class RsNavbarComponent {
     const nombre = this.authService.usuario()?.nombre ?? '';
     return nombre.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || '🐾';
   });
+
+  ngOnInit(): void {
+    if (!this.estaAutenticado()) return;
+    // El navbar se embebe en casi todas las páginas: un fallo aquí (API caída,
+    // mock de test incompleto) no puede tirar abajo el resto de la pantalla.
+    try {
+      void this.favoritosService.cargarIds();
+    } catch { /* noop */ }
+    try {
+      this.perrosService.misPerros().then(
+        (perros) => this.numMascotas.set(perros.length),
+        () => this.numMascotas.set(0),
+      );
+    } catch { this.numMascotas.set(0); }
+    try {
+      this.reservasService.proximaReserva().then(
+        (proxima) => this.tieneReservaProxima.set(!!proxima),
+        () => this.tieneReservaProxima.set(false),
+      );
+    } catch { this.tieneReservaProxima.set(false); }
+  }
 
   /** Cierra el desplegable de cuenta al hacer clic fuera de él. */
   @HostListener('document:click')

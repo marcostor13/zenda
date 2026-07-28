@@ -71,6 +71,16 @@ export interface PuntosApi {
   valorProximoDescuento: number;
 }
 
+/** Próxima reserva confirmada del usuario (HU-7.3), sin campos inventados. */
+export interface ProximaReservaApi {
+  codigo: string;
+  titulo: string;
+  imagen: string;
+  ciudad: string;
+  fechaInicio: string;
+  vertical: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReservasService {
   private readonly http = inject(HttpClient);
@@ -90,6 +100,10 @@ export class ReservasService {
 
   puntos(): Promise<PuntosApi> {
     return firstValueFrom(this.http.get<PuntosApi>(`${this.base}/puntos`));
+  }
+
+  proximaReserva(): Promise<ProximaReservaApi | null> {
+    return firstValueFrom(this.http.get<ProximaReservaApi | null>(`${this.base}/proxima`));
   }
 
   /** Todas las reservas de un mismo viaje, en orden cronológico (HU-037). */

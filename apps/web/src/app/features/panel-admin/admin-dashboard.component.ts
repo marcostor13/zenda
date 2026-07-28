@@ -2,7 +2,7 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe, DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
-import { AdminApiService, ComisionConfig, ComercioPendiente, UltimaReserva } from './admin-api.service';
+import { AdminApiService, ComisionConfig, ComercioPendiente, UltimaReserva, AlphaNivel } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 const VERTICAL_EMOJI: Record<string, string> = {
@@ -291,6 +291,46 @@ const ESTADO_BADGE: Record<string, string> = {
         }
       </div>
 
+      <!-- PROGRAMA DOOGKING ALPHA (HU-13.4) -->
+      <div class="rs-card admin-panel">
+        <div class="panel-header">
+          <h3>👑 Programa Doogking Alpha</h3>
+          <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardarAlphaNiveles()">
+            💾 Guardar cambios
+          </button>
+        </div>
+
+        <div class="comisiones-table alpha-table">
+          <div class="comisiones-head alpha-head">
+            <span>Nivel</span>
+            <span>Nombre</span>
+            <span>Reservas requeridas</span>
+            <span>Descuento (%)</span>
+            <span>Beneficios (separados por coma)</span>
+          </div>
+          @for (n of alphaNiveles(); track n.nivel) {
+            <div class="comisiones-row alpha-row">
+              <span class="comision-vertical">Alpha {{ n.nivel }}</span>
+              <input type="text" class="rs-inp" [value]="n.nombre" (input)="n.nombre = $any($event).target.value" />
+              <input type="number" class="rs-inp" style="width:100px;text-align:center"
+                     [value]="n.reservasRequeridas"
+                     (input)="n.reservasRequeridas = +$any($event).target.value" />
+              <input type="number" class="rs-inp" style="width:80px;text-align:center"
+                     [value]="(n.descuentoPct * 100).toFixed(0)"
+                     (input)="n.descuentoPct = +$any($event).target.value / 100" />
+              <input type="text" class="rs-inp" [value]="n.beneficios.join(', ')"
+                     (input)="n.beneficios = beneficiosDesdeTexto($any($event).target.value)" />
+            </div>
+          }
+        </div>
+
+        @if (alphaGuardadoMsg()) {
+          <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">
+            ✓ Programa Alpha actualizado exitosamente
+          </div>
+        }
+      </div>
+
       } <!-- end @if cargando -->
   `,
   styles: [`
@@ -331,6 +371,8 @@ const ESTADO_BADGE: Record<string, string> = {
     .comisiones-head { display: grid; grid-template-columns: 1fr 160px 180px 120px 120px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); }
     .comisiones-row { display: grid; grid-template-columns: 1fr 160px 180px 120px 120px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); &:last-child { border: none; } &:hover { background: var(--c-card); } }
     .comision-vertical { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
+
+    .alpha-head, .alpha-row { grid-template-columns: 100px 160px 160px 140px 1fr; gap: var(--sp-3); }
   `],
 })
 export class AdminDashboardComponent implements OnInit {
@@ -351,6 +393,8 @@ export class AdminDashboardComponent implements OnInit {
   readonly comerciosPendientes = signal<ComercioPendiente[]>([]);
   readonly ultimasReservas = signal<UltimaReserva[]>([]);
   readonly comisiones = signal<ComisionConfig[]>([]);
+  readonly alphaNiveles = signal<AlphaNivel[]>([]);
+  readonly alphaGuardadoMsg = signal(false);
 
   async ngOnInit(): Promise<void> {
     try {
@@ -363,6 +407,13 @@ export class AdminDashboardComponent implements OnInit {
       this.errorMsg.set('Error cargando el dashboard. Verifica que el API esté activo.');
     } finally {
       this.cargando.set(false);
+    }
+
+    try {
+      const niveles = await firstValueFrom(this.adminApi.getAlphaNiveles());
+      this.alphaNiveles.set(niveles);
+    } catch {
+      // El programa Alpha no bloquea el resto del dashboard si falla.
     }
   }
 
@@ -393,6 +444,10 @@ export class AdminDashboardComponent implements OnInit {
 
   actualizarPct(comision: ComisionConfig, pct: number): void {
     comision.comisionPct = pct / 100;
+  }
+
+  beneficiosDesdeTexto(texto: string): string[] {
+    return texto.split(',').map(b => b.trim()).filter(Boolean);
   }
 
   async aprobarComercio(id: string): Promise<void> {
@@ -435,6 +490,18 @@ export class AdminDashboardComponent implements OnInit {
       setTimeout(() => this.guardadoMsg.set(false), 3000);
     } catch {
       this.errorMsg.set('Error al guardar las comisiones.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    }
+  }
+
+  async guardarAlphaNiveles(): Promise<void> {
+    try {
+      const lista = this.alphaNiveles();
+      await Promise.all(lista.map(n => firstValueFrom(this.adminApi.updateAlphaNivel(n))));
+      this.alphaGuardadoMsg.set(true);
+      setTimeout(() => this.alphaGuardadoMsg.set(false), 3000);
+    } catch {
+      this.errorMsg.set('Error al guardar el programa Alpha.');
       setTimeout(() => this.errorMsg.set(''), 3000);
     }
   }

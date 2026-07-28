@@ -70,6 +70,12 @@ describe('BookingsService', () => {
       lean: jest.fn().mockReturnThis(),
       exec: jest.fn().mockResolvedValue([reservaMock]),
     });
+    mockConstructor.findOne = jest.fn().mockReturnValue({
+      sort: jest.fn().mockReturnThis(),
+      populate: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(null),
+    });
     mockConstructor.insertMany = jest.fn().mockResolvedValue([]);
     mockConstructor.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
 
@@ -548,6 +554,60 @@ describe('BookingsService', () => {
       findConReservas([{ vertical: VerticalKey.PELUQUERIA, fechaInicio: haceUnMes }]);
 
       expect(await service.recordatorios('user-1')).toHaveLength(0);
+    });
+  });
+
+  describe('proxima', () => {
+    const findOneCon = (reserva: unknown) => {
+      reservaModel.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(reserva),
+      });
+    };
+
+    it('debería devolver null si el usuario no tiene reservas confirmadas por delante', async () => {
+      findOneCon(null);
+      expect(await service.proxima('user-1')).toBeNull();
+    });
+
+    it('debería devolver el nombre del servicio, imagen y ciudad de la próxima reserva', async () => {
+      const fecha = new Date('2026-09-01');
+      findOneCon({
+        codigo: 'RES-ABCD1234',
+        fechaInicio: fecha,
+        vertical: VerticalKey.ALOJAMIENTO,
+        servicioId: { titulo: 'Royal Dog Resort', imagenes: ['foto.jpg'] },
+        comercioId: { nombreComercial: 'Royal Dog SL', direccion: { ciudad: 'Madrid' } },
+      });
+
+      const resultado = await service.proxima('user-1');
+
+      expect(resultado).toEqual({
+        codigo: 'RES-ABCD1234',
+        titulo: 'Royal Dog Resort',
+        imagen: 'foto.jpg',
+        ciudad: 'Madrid',
+        fechaInicio: fecha,
+        vertical: VerticalKey.ALOJAMIENTO,
+      });
+    });
+
+    it('debería caer al nombre del comercio si el servicio no tiene título', async () => {
+      findOneCon({
+        codigo: 'RES-ABCD1234',
+        fechaInicio: new Date(),
+        vertical: VerticalKey.TRANSPORTE,
+        servicioId: {},
+        comercioId: { nombreComercial: 'Transportes Fido' },
+      });
+
+      const resultado = await service.proxima('user-1');
+
+      expect(resultado?.titulo).toBe('Transportes Fido');
+      expect(resultado?.imagen).toBe('');
+      expect(resultado?.ciudad).toBe('');
     });
   });
 

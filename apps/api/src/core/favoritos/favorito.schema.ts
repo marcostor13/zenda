@@ -24,6 +24,10 @@ export class Favorito {
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Servicio' })
   servicioId?: Types.ObjectId;
 
+  /** Precio del servicio en el momento de guardarlo como favorito (HU-10.4); no se actualiza nunca. */
+  @Prop({ type: Number })
+  precioGuardado?: number;
+
   /** Presente cuando `tipo` es `lugar`. */
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Lugar' })
   lugarId?: Types.ObjectId;

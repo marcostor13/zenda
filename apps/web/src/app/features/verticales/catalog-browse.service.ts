@@ -19,6 +19,27 @@ export interface ServicioCard {
   extra: Record<string, unknown>;
 }
 
+/** Reseña real (no fabricada) tal como la ve el usuario en la ficha de detalle. */
+export interface ResenaResumen {
+  id: string;
+  autorNombre: string;
+  puntuacion: number;
+  comentario: string;
+  fecha: string;
+  respuesta?: string | null;
+}
+
+/** Ficha completa de un servicio (cualquier vertical) — GET /catalog/servicios/:id. */
+export interface ServicioDetalle extends ServicioCard {
+  barrio: string;
+  direccion: string;
+  amenities: string[];
+  cancelacionGratis: boolean;
+  descripcion: string;
+  resenas: ResenaResumen[];
+  comercioId: string;
+}
+
 export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valoracion' | 'distancia';
 
 export interface OpcionesBusqueda {
@@ -56,8 +77,8 @@ export class CatalogBrowseService {
     return res.items.map((s) => ({ ...s, extra: s.extra ?? {} }));
   }
 
-  async obtener(id: string): Promise<ServicioCard> {
-    const s = await firstValueFrom(this.http.get<ServicioCard>(`${this.base}/${id}`));
+  async obtener(id: string): Promise<ServicioDetalle> {
+    const s = await firstValueFrom(this.http.get<ServicioDetalle>(`${this.base}/${id}`));
     return { ...s, extra: s.extra ?? {} };
   }
 }

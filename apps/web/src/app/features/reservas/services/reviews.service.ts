@@ -7,6 +7,15 @@ export interface CrearReviewPayload {
   reservaId: string;
   puntuacion: number;
   comentario: string;
+  aspectos?: Record<string, number>;
+  fotos?: string[];
+}
+
+export interface ActualizarReviewPayload {
+  puntuacion?: number;
+  comentario?: string;
+  aspectos?: Record<string, number>;
+  fotos?: string[];
 }
 
 export interface ResenaApi {
@@ -16,8 +25,20 @@ export interface ResenaApi {
   vertical: string;
   puntuacion: number;
   comentario: string;
+  aspectos?: Record<string, number>;
+  fotos?: string[];
+  eliminada?: boolean;
   respuesta?: string | null;
   createdAt: string;
+}
+
+export interface PendienteDeValorarApi {
+  reservaId: string;
+  servicioId: string;
+  servicioTitulo: string;
+  vertical: string;
+  imagen: string | null;
+  fechaInicio: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -29,7 +50,19 @@ export class ReviewsService {
     return firstValueFrom(this.http.post<ResenaApi>(this.base, payload));
   }
 
+  actualizar(id: string, payload: ActualizarReviewPayload): Promise<ResenaApi> {
+    return firstValueFrom(this.http.patch<ResenaApi>(`${this.base}/${id}`, payload));
+  }
+
+  eliminar(id: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${this.base}/${id}`));
+  }
+
   misResenas(usuarioId: string): Promise<ResenaApi[]> {
     return firstValueFrom(this.http.get<ResenaApi[]>(`${this.base}?usuarioId=${usuarioId}`));
+  }
+
+  pendientesDeValorar(): Promise<PendienteDeValorarApi[]> {
+    return firstValueFrom(this.http.get<PendienteDeValorarApi[]>(`${this.base}/pendientes`));
   }
 }
