@@ -83,8 +83,14 @@ En la pestaña **Domains**:
 ### 2.5 Obtener el Webhook URL de Coolify
 
 1. En la app de Coolify, ve a **Settings** → **Deploy Webhook**.
-2. Copia la URL del webhook (tiene el formato `https://localcoolify.marcostorresalarcon.com/api/v1/deploy/webhook?uuid=...&token=...`).
-3. Guárdala como `COOLIFY_WEBHOOK_URL` en GitHub Secrets (§5).
+2. Copia la URL del endpoint de deploy (formato `https://localcoolify.marcostorresalarcon.com/api/v1/deploy?uuid=...&force=false`).
+3. Guárdala como `COOLIFY_WEBHOOK_URL` en GitHub Secrets (§4).
+
+> **La URL por sí sola no autoriza nada.** La API de Coolify autentica con la cabecera
+> `Authorization: Bearer <API token>`, no con un token en la query string. Sin esa cabecera el
+> endpoint responde **401** y el deploy no se encola. Genera el token en Coolify →
+> **Keys & Tokens** → **API tokens** y guárdalo como `COOLIFY_TOKEN` en GitHub Secrets;
+> `.github/scripts/coolify-deploy.sh` lo envía en cada llamada.
 
 ### 2.6 Primer deploy manual
 
@@ -135,8 +141,11 @@ En la pestaña **Domains**:
 ### 3.5 Obtener el Webhook URL de Coolify
 
 1. En la app de Coolify (la del frontend), ve a **Settings** → **Deploy Webhook**.
-2. Copia la URL del webhook.
-3. Guárdala como `COOLIFY_WEBHOOK_URL_WEB` en GitHub Secrets (§5) — **distinto** del webhook de la API.
+2. Copia la URL del endpoint de deploy.
+3. Guárdala como `COOLIFY_WEBHOOK_URL_WEB` en GitHub Secrets (§4) — **distinto** del de la API.
+
+> El `COOLIFY_TOKEN` de §2.5 es el mismo para ambos recursos: lo que cambia entre API y
+> frontend es el `uuid` dentro de la URL, no el token.
 
 ### 3.6 Primer deploy manual
 
@@ -154,8 +163,9 @@ En tu repositorio GitHub → **Settings** → **Secrets and variables** → **Ac
 
 | Secret | Valor |
 |---|---|
-| `COOLIFY_WEBHOOK_URL` | URL del webhook de Coolify de la **API** (paso 2.5) |
-| `COOLIFY_WEBHOOK_URL_WEB` | URL del webhook de Coolify del **frontend** (paso 3.5) |
+| `COOLIFY_WEBHOOK_URL` | URL del endpoint de deploy de la **API** (paso 2.5) |
+| `COOLIFY_WEBHOOK_URL_WEB` | URL del endpoint de deploy del **frontend** (paso 3.5) |
+| `COOLIFY_TOKEN` | API token de Coolify (**Keys & Tokens** → **API tokens**). Común a los dos recursos; sin él ambos deploys fallan con 401 |
 
 ---
 
@@ -228,13 +238,33 @@ Developer → git push origin main
   `location /` es la que resuelve el fallback. Si la editaste, confirma que sigue ahí.
 - Verifica que el Dockerfile copie `nginx.conf` a `/etc/nginx/conf.d/default.conf` (no a otra ruta).
 
+### El dominio devuelve 502 Bad Gateway
+
+Un 502 significa que el proxy de Coolify (Traefik) tiene el dominio enrutado pero **no hay
+contenedor sano detrás**. No es un problema de nginx ni del código Angular: la petición nunca
+llega a la app. Por orden de probabilidad:
+
+1. **El deploy nunca se ejecutó.** Mira el último run en GitHub Actions: si el step
+   *Deploy … (Coolify webhook)* está en rojo, Coolify jamás recibió la orden y sigue sin
+   imagen que levantar. Un `401` ahí significa `COOLIFY_TOKEN` ausente, inválido o caducado.
+2. **El build falló en Coolify.** Abre el recurso → pestaña **Deployments** y revisa el log
+   del último intento.
+3. **Puerto mal configurado.** El contenedor del frontend escucha en el **80** (`EXPOSE 80` +
+   `listen 80` en `nginx.conf`) y el de la API en el **3000**. Si el campo *Port* del recurso
+   no coincide, Traefik enruta a un puerto muerto y devuelve 502.
+
+Para desbloquear el sitio sin esperar al CI, pulsa **Deploy** manualmente en el recurso.
+
 ### El webhook de Coolify no dispara el deploy
 
-- Verifica que `COOLIFY_WEBHOOK_URL` (API) o `COOLIFY_WEBHOOK_URL_WEB` (Web) estén
-  correctamente configurados en GitHub Secrets — un secret vacío hace que `curl` reciba una
-  URL vacía y falle.
-- Confirma la URL copiándola de nuevo desde Coolify → **Settings** → **Deploy Webhook**: puede
-  regenerarse si el token expiró.
+- Un **401** es el fallo más común: la API de Coolify exige `Authorization: Bearer <token>` y
+  no acepta el token en la query string. Comprueba que `COOLIFY_TOKEN` existe en GitHub
+  Secrets y sigue vigente en Coolify → **Keys & Tokens** → **API tokens**.
+- Un **404** suele ser un `uuid` que no corresponde al recurso: recopia la URL desde
+  Coolify → **Settings** → **Deploy Webhook**.
+- Verifica que `COOLIFY_WEBHOOK_URL` (API) o `COOLIFY_WEBHOOK_URL_WEB` (Web) no estén vacíos.
+- El script `.github/scripts/coolify-deploy.sh` imprime el código HTTP y el cuerpo de la
+  respuesta de Coolify en el log del job; empieza siempre por ahí.
 
 ### El job de CI no se dispara al hacer push
 

@@ -3,7 +3,13 @@
   "compilerOptions": {
     "types": ["jest", "node"],
     "outDir": "./dist",
-    "isolatedModules": false
+    "isolatedModules": false,
+    // Los tests resuelven `shared` desde el código fuente, no desde libs/shared/dist:
+    // así jest no depende de que se haya compilado el workspace shared antes de correr.
+    // Debe coincidir con el moduleNameMapper de jest.config.ts.
+    "paths": {
+      "shared": ["../../libs/shared/src"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.spec.ts"]
 }

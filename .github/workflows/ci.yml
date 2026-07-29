@@ -55,7 +55,10 @@ jobs:
 
       - name: Deploy API (Coolify webhook)
         if: github.ref == 'refs/heads/main'
-        run: curl -fsSL -X POST "${{ secrets.COOLIFY_WEBHOOK_URL }}"
+        env:
+          COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: .github/scripts/coolify-deploy.sh "$COOLIFY_WEBHOOK_URL" "la API"
 
   web:
     name: Web — CI + Deploy
@@ -83,9 +86,5 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           COOLIFY_WEBHOOK_URL_WEB: ${{ secrets.COOLIFY_WEBHOOK_URL_WEB }}
-        run: |
-          if [ -z "$COOLIFY_WEBHOOK_URL_WEB" ]; then
-            echo "::error::El secret COOLIFY_WEBHOOK_URL_WEB no está configurado en GitHub (Settings > Secrets and variables > Actions)."
-            exit 1
-          fi
-          curl -fsSL -X POST "$COOLIFY_WEBHOOK_URL_WEB"
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: .github/scripts/coolify-deploy.sh "$COOLIFY_WEBHOOK_URL_WEB" "el frontend"
