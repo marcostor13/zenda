@@ -1,6 +1,9 @@
 export const environment = {
   production: false,
   apiUrl: 'http://localhost:3051/api/v1',
+  // Pantalla "muy pronto": desactivada en desarrollo para no estorbar.
+  underConstruction: false,
+  underConstructionKey: 'royal-preview-2026',
   // Clave publicable de Stripe (de test; segura para exponer en el frontend).
   stripePublicKey: 'pk_test_51TmN6IA68yWZtvLm0XfmtZLLxqSmfTUshpLVz1mEyFcLAhv64LFPgn6d3jxKufHjFClHyCqcMU4lWZrQCVxKTjFM00x6Uf0Pnm',
   // Login social: rellenar con las credenciales públicas (client_id / app_id).
