@@ -82,9 +82,20 @@ En la pestaña **Domains**:
 
 ### 2.5 Obtener el Webhook URL de Coolify
 
-1. En la app de Coolify, ve a **Settings** → **Deploy Webhook**.
-2. Copia la URL del webhook (tiene el formato `https://localcoolify.marcostorresalarcon.com/api/v1/deploy/webhook?uuid=...&token=...`).
-3. Guárdala como `COOLIFY_WEBHOOK_URL` en GitHub Secrets (§5).
+1. En la app de Coolify, ve a la pestaña **Webhooks**.
+2. Copia la URL de **Deploy Webhook** — en esta instancia tiene el formato
+   `https://localcoolify.marcostorresalarcon.com/api/v1/deploy?uuid=<uuid-del-recurso>&force=false`
+   y está marcada como **"(auth required)"**: la URL sola no basta, hay que llamarla con un
+   header `Authorization: Bearer <token>` (ver §2.5.1).
+3. Guárdala como `COOLIFY_WEBHOOK_URL` en GitHub Secrets (§4).
+
+### 2.5.1 Generar el API Token de Coolify (una sola vez, sirve para todos los recursos)
+
+1. En Coolify → tu usuario/team → **Keys & Tokens** → **API tokens** → **Create New Token**.
+2. Dale permiso de `deploy` (o `root`/`*` si tu versión no separa el scope).
+3. Copia el token — Coolify solo lo muestra una vez.
+4. Guárdalo como `COOLIFY_API_TOKEN` en GitHub Secrets (§4). El mismo token sirve para
+   disparar el deploy de **cualquier** recurso (API y Web) — solo cambia el `uuid` en la URL.
 
 ### 2.6 Primer deploy manual
 
@@ -113,7 +124,8 @@ En la pestaña **Build**:
 | Build Pack | **Dockerfile** |
 | Dockerfile location | `apps/web/Dockerfile` |
 | Docker build context | `/` (raíz del repo — necesario para incluir `libs/shared`) |
-| Port expuesto | `80` |
+| Port expuesto (contenedor) | `80` |
+| Ports Mapping (host) | `8085:80` — ver §3.4, es el puerto que espera el Cloudflare Tunnel |
 
 > Igual que la API: el Dockerfile vive en `apps/web/` pero el build context debe ser la raíz
 > `/` para que Docker pueda copiar `libs/shared/`.
@@ -124,19 +136,33 @@ El frontend no necesita variables de entorno en runtime — la URL de la API se 
 time vía `apps/web/src/environments/environment.prod.ts` (ver §9). Si cambias el dominio del
 backend, edita ese archivo y haz push; el pipeline reconstruye la imagen automáticamente.
 
-### 3.4 Dominio y SSL en Coolify
+### 3.4 Dominio: Cloudflare Tunnel (no A/CNAME directo)
 
-En la pestaña **Domains**:
+`doogking.com`, `doogking.eu` y `doogking.es` **no** usan un registro A/CNAME apuntando a la IP
+del servidor — el servidor Coolify no expone IP pública directa para estos dominios. En su
+lugar usan el **Cloudflare Tunnel `ai`** (`acb6beb0-5c3f-4de8-9293-47898fbee030`), el mismo
+tunnel compartido que ya sirve `localcoolify.marcostorresalarcon.com`, `mayahelp`, etc. — un
+solo `cloudflared` corriendo en el servidor enruta cada hostname a un puerto `localhost` distinto.
 
-1. Agrega el dominio de la web (ej. `doogking.com` o `www.doogking.com`).
-2. Habilita **Generate SSL Certificate** (Let's Encrypt automático).
-3. En tu proveedor DNS, crea un registro **A** o **CNAME** apuntando ese dominio → IP de tu servidor Coolify.
+Ya está configurado (2026-07-28): el tunnel tiene reglas de ingress para `doogking.com`,
+`doogking.eu` y `doogking.es` → `http://localhost:8085`. Lo único que falta del lado de
+Coolify es que el recurso del frontend tenga **Ports Mapping = `8085:80`** (§3.2) para que algo
+responda en ese puerto.
 
-### 3.5 Obtener el Webhook URL de Coolify
+> Si en el futuro agregas otro dominio a este mismo servidor por Cloudflare Tunnel: Cloudflare
+> dashboard → **Zero Trust** → **Networks** → **Tunnels** → `ai` → **Public Hostname** → añade
+> el hostname con `service = http://localhost:<puerto-libre>`, y usa ese mismo puerto como
+> Ports Mapping del recurso en Coolify. La API de Cloudflare (`cfd_tunnel/.../configurations`)
+> también permite editarlo por API con un token con permiso `Account:Cloudflare Tunnel:Edit`.
 
-1. En la app de Coolify (la del frontend), ve a **Settings** → **Deploy Webhook**.
-2. Copia la URL del webhook.
-3. Guárdala como `COOLIFY_WEBHOOK_URL_WEB` en GitHub Secrets (§5) — **distinto** del webhook de la API.
+### 3.5 Obtener el Webhook URL y el API Token de Coolify
+
+1. En la app de Coolify (la del frontend), ve a la pestaña **Webhooks**.
+2. Copia la URL de **Deploy Webhook** (formato `.../api/v1/deploy?uuid=...&force=false`,
+   marcada **"(auth required)"**).
+3. Guárdala como `COOLIFY_WEBHOOK_URL_WEB` en GitHub Secrets (§4) — **distinto** del webhook de la API.
+4. El token Bearer (`COOLIFY_API_TOKEN`) es el mismo que generaste en §2.5.1 — no hace falta
+   crear uno nuevo por recurso, sirve para cualquier `uuid`.
 
 ### 3.6 Primer deploy manual
 
@@ -156,6 +182,11 @@ En tu repositorio GitHub → **Settings** → **Secrets and variables** → **Ac
 |---|---|
 | `COOLIFY_WEBHOOK_URL` | URL del webhook de Coolify de la **API** (paso 2.5) |
 | `COOLIFY_WEBHOOK_URL_WEB` | URL del webhook de Coolify del **frontend** (paso 3.5) |
+| `COOLIFY_API_TOKEN` | Token Bearer de Coolify (paso 2.5.1) — el mismo para API y Web |
+
+> Los webhooks de Coolify en esta instancia requieren autenticación ("auth required"): la URL
+> sola devuelve **401**. Hace falta llamarla con `Authorization: Bearer $COOLIFY_API_TOKEN` —
+> ya está así en `.github/workflows/ci.yml`.
 
 ---
 
@@ -233,8 +264,12 @@ Developer → git push origin main
 - Verifica que `COOLIFY_WEBHOOK_URL` (API) o `COOLIFY_WEBHOOK_URL_WEB` (Web) estén
   correctamente configurados en GitHub Secrets — un secret vacío hace que `curl` reciba una
   URL vacía y falle.
-- Confirma la URL copiándola de nuevo desde Coolify → **Settings** → **Deploy Webhook**: puede
-  regenerarse si el token expiró.
+- Confirma la URL copiándola de nuevo desde Coolify → pestaña **Webhooks**: puede regenerarse
+  si cambia el `uuid` del recurso.
+- **Error 401 (`curl: (22) ... returned error: 401`)**: falta o es inválido el header
+  `Authorization: Bearer`. Verifica que `COOLIFY_API_TOKEN` esté seteado en GitHub Secrets y
+  que el token siga activo en Coolify → **Keys & Tokens** → **API tokens**. Esta instancia
+  marca los webhooks como "(auth required)", así que la URL sola nunca es suficiente.
 
 ### El job de CI no se dispara al hacer push
 
