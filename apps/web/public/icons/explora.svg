@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Explora con tu mascota">
+  <circle cx="35.5" cy="13" r="4.5" fill="#FBAE17"/>
+  <g fill="none" stroke="#08258B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 32.5 16 18l7.5 9.4 4.2-5 15.8 10.1"/>
+    <path d="M4.5 32.5h39"/>
+  </g>
+  <g fill="#FBAE17">
+    <ellipse cx="24" cy="41.5" rx="3.8" ry="2.9"/>
+    <circle cx="19.4" cy="38.2" r="1.5"/>
+    <circle cx="24" cy="37" r="1.5"/>
+    <circle cx="28.6" cy="38.2" r="1.5"/>
+  </g>
+</svg>

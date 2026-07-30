@@ -72,3 +72,6 @@ export * from './dtos/suplementos/actualizar-suplemento-config.dto';
 // DTOs — Recomendador
 export * from './dtos/recomendador/recomendar-adiestramiento.dto';
 export * from './dtos/recomendador/recomendar-veterinaria.dto';
+
+// DTOs — Lista de espera (prelanzamiento)
+export * from './dtos/lista-espera/lista-espera.dto';
