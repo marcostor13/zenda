@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, inject } from '@angular/core';
+import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DecimalPipe, DatePipe } from '@angular/common';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
@@ -52,8 +52,9 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
 
     <!-- GALERÍA -->
     <div class="gallery rs-wrap">
-      <div class="gallery__main">
+      <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
         <img [src]="imagenActiva()" [alt]="alojamiento()!.nombre" rsImg />
+        <span class="gallery__contador">📷 {{ alojamiento()!.imagenes.length }} fotografías</span>
       </div>
       <div class="gallery__thumbs">
         @for (img of alojamiento()!.imagenes.slice(0,4); track img) {
@@ -63,12 +64,28 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
           </div>
         }
         @if (alojamiento()!.imagenes.length > 4) {
-          <div class="gallery__thumb gallery__thumb--more">
+          <div class="gallery__thumb gallery__thumb--more" (click)="abrirLightbox(alojamiento()!.imagenes[4])">
             +{{ alojamiento()!.imagenes.length - 4 }} fotos
           </div>
         }
       </div>
     </div>
+
+    @if (lightboxAbierto()) {
+      <div class="lightbox" role="dialog" aria-label="Galería a pantalla completa" (click)="cerrarLightbox()">
+        <button type="button" class="lightbox__cerrar" (click)="cerrarLightbox()" aria-label="Cerrar galería">
+          <rs-icon name="x" [size]="22" [stroke]="2"></rs-icon>
+        </button>
+        <button type="button" class="lightbox__nav lightbox__nav--prev" (click)="fotoAnterior(); $event.stopPropagation()" aria-label="Foto anterior">
+          <rs-icon name="arrow-left" [size]="22" [stroke]="2"></rs-icon>
+        </button>
+        <img [src]="lightboxImagen()" [alt]="alojamiento()!.nombre" (click)="$event.stopPropagation()" />
+        <button type="button" class="lightbox__nav lightbox__nav--next" (click)="siguienteFoto(); $event.stopPropagation()" aria-label="Foto siguiente">
+          <rs-icon name="arrow-right" [size]="22" [stroke]="2"></rs-icon>
+        </button>
+        <span class="lightbox__contador">📷 {{ lightboxIndice() + 1 }} / {{ alojamiento()!.imagenes.length }}</span>
+      </div>
+    }
 
     <!-- CUERPO: info + booking panel -->
     <div class="detalle-body rs-wrap">
@@ -387,9 +404,65 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     }
 
     .gallery__main {
+      position: relative;
       border-radius: var(--r-xl);
       overflow: hidden;
+      cursor: pointer;
       img { width: 100%; height: 100%; object-fit: cover; }
+    }
+    .gallery__contador {
+      position: absolute;
+      right: var(--sp-3);
+      bottom: var(--sp-3);
+      background: rgba(0,0,0,.6);
+      color: #fff;
+      font-size: var(--f-xs);
+      font-weight: var(--w-6);
+      padding: var(--sp-1) var(--sp-3);
+      border-radius: var(--r-full);
+    }
+
+    /* LIGHTBOX (HU-4.1.1) */
+    .lightbox {
+      position: fixed; inset: 0; z-index: var(--z-4, 100);
+      background: rgba(0,0,0,.92);
+      display: flex; align-items: center; justify-content: center;
+      animation: fadeIn 160ms ease both;
+
+      img {
+        max-width: min(92vw, 1100px); max-height: 86vh;
+        object-fit: contain; border-radius: var(--r-lg);
+        cursor: default;
+      }
+    }
+    .lightbox__cerrar {
+      position: absolute; top: var(--sp-5); right: var(--sp-5);
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(255,255,255,.12); border: none; color: #fff;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: background var(--d-2);
+      &:hover { background: rgba(255,255,255,.22); }
+    }
+    .lightbox__nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(255,255,255,.12); border: none; color: #fff;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: background var(--d-2);
+      &:hover { background: rgba(255,255,255,.22); }
+    }
+    .lightbox__nav--prev { left: var(--sp-5); }
+    .lightbox__nav--next { right: var(--sp-5); }
+    .lightbox__contador {
+      position: absolute; bottom: var(--sp-5); left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: var(--f-sm); font-weight: var(--w-6);
+      background: rgba(255,255,255,.12); padding: var(--sp-1) var(--sp-4); border-radius: var(--r-full);
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @media (max-width: 640px) {
+      .lightbox__nav { width: 40px; height: 40px; }
+      .lightbox__nav--prev { left: var(--sp-2); }
+      .lightbox__nav--next { right: var(--sp-2); }
     }
 
     .gallery__thumbs { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -550,6 +623,38 @@ export class AlojamientoDetalleComponent implements OnInit {
   readonly alojamiento = signal<AlojamientoDetalle | null>(null);
   readonly imagenActiva = signal('');
   readonly espacioSelec = signal<Espacio | null>(null);
+
+  /** Galería a pantalla completa (HU-4.1.1). */
+  readonly lightboxAbierto = signal(false);
+  readonly lightboxImagen = signal('');
+  readonly lightboxIndice = computed(() => {
+    const imagenes = this.alojamiento()?.imagenes ?? [];
+    const indice = imagenes.indexOf(this.lightboxImagen());
+    return indice >= 0 ? indice : 0;
+  });
+
+  abrirLightbox(imagen: string): void {
+    this.lightboxImagen.set(imagen);
+    this.lightboxAbierto.set(true);
+  }
+
+  cerrarLightbox(): void {
+    this.lightboxAbierto.set(false);
+  }
+
+  siguienteFoto(): void {
+    const imagenes = this.alojamiento()?.imagenes ?? [];
+    if (!imagenes.length) return;
+    const siguiente = (this.lightboxIndice() + 1) % imagenes.length;
+    this.lightboxImagen.set(imagenes[siguiente]);
+  }
+
+  fotoAnterior(): void {
+    const imagenes = this.alojamiento()?.imagenes ?? [];
+    if (!imagenes.length) return;
+    const anterior = (this.lightboxIndice() - 1 + imagenes.length) % imagenes.length;
+    this.lightboxImagen.set(imagenes[anterior]);
+  }
   /** Mascota elegida en el buscador, para el bloque "Compatibilidad con tu perro" (HU-4.1.7). */
   readonly perroCompat = signal<PerroApi | null>(null);
   /** Índice de Bienestar de esa mascota (HU-8.1.7); null si aún no está calculado. */

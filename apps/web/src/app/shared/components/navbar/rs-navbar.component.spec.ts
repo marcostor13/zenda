@@ -8,6 +8,8 @@ import { RsNavbarComponent } from './rs-navbar.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { PerrosService } from '../../../features/perros/perros.service';
 import { ReservasService } from '../../../features/reservas/services/reservas.service';
+import { ReviewsService } from '../../../features/reservas/services/reviews.service';
+import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.service';
 
 describe('RsNavbarComponent', () => {
   let fixture: ComponentFixture<RsNavbarComponent>;
@@ -85,6 +87,10 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
   const crear = async (opciones: {
     mascotas?: unknown[];
     proximaReserva?: unknown | null;
+    misResenas?: unknown[];
+    pendientes?: unknown[];
+    alpha?: Partial<AlphaEstadoApi> | null;
+    usuarioId?: string;
   } = {}): Promise<void> => {
     await TestBed.configureTestingModule({
       imports: [RsNavbarComponent, RouterTestingModule],
@@ -93,7 +99,7 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
         {
           provide: AuthService,
           useValue: {
-            usuario: signal({ nombre: 'Ana Ruiz' }),
+            usuario: signal({ id: opciones.usuarioId ?? 'u1', nombre: 'Ana Ruiz' }),
             estaAutenticado: signal(true),
             esAdmin: signal(false),
             esComercio: signal(false),
@@ -101,6 +107,14 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
         },
         { provide: PerrosService, useValue: { misPerros: jest.fn().mockResolvedValue(opciones.mascotas ?? []) } },
         { provide: ReservasService, useValue: { proximaReserva: jest.fn().mockResolvedValue(opciones.proximaReserva ?? null) } },
+        {
+          provide: ReviewsService,
+          useValue: {
+            misResenas: jest.fn().mockResolvedValue(opciones.misResenas ?? []),
+            pendientesDeValorar: jest.fn().mockResolvedValue(opciones.pendientes ?? []),
+          },
+        },
+        { provide: AlphaService, useValue: { miEstado: jest.fn().mockResolvedValue(opciones.alpha ?? null) } },
       ],
     }).compileComponents();
 
@@ -132,5 +146,39 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
 
     expect(fixture.componentInstance.numMascotas()).toBe(0);
     expect(fixture.componentInstance.tieneReservaProxima()).toBe(false);
+  });
+
+  it('debería mostrar el nombre y el sello de verificado en la cabecera del desplegable (HU-12.1)', async () => {
+    await crear();
+    fixture.componentInstance.cuentaAbierto.set(true);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.rs-navbar__dropdown-name')?.textContent?.trim()).toBe('Ana Ruiz');
+    expect(el.textContent).toContain('Cliente verificado');
+  });
+
+  it('debería mostrar el nivel Alpha en la cabecera cuando está disponible (HU-12.1/12.2)', async () => {
+    await crear({ alpha: { nombreNivel: 'Alpha 2', reservasCompletadas: 6 } });
+    fixture.componentInstance.cuentaAbierto.set(true);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.rs-navbar__dropdown-alpha')?.textContent).toContain('Alpha 2');
+    expect(el.querySelector('a[href="/perfil/alpha"]')).toBeTruthy();
+  });
+
+  it('debería contar las reseñas del usuario (HU-12.3)', async () => {
+    await crear({ misResenas: [{ _id: 'r1' }, { _id: 'r2' }, { _id: 'r3' }] });
+
+    expect(fixture.componentInstance.numResenas()).toBe(3);
+  });
+
+  it('debería marcar el punto de notificación cuando hay una reseña pendiente, aunque no haya reserva próxima', async () => {
+    await crear({ pendientes: [{ reservaId: 'r1' }] });
+
+    expect(fixture.componentInstance.tieneReservaProxima()).toBe(false);
+    expect(fixture.componentInstance.tienePendientesResena()).toBe(true);
+    expect(fixture.componentInstance.tieneAvisoPendiente()).toBe(true);
   });
 });

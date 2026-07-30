@@ -124,6 +124,47 @@ describe('AlojamientoDetalleComponent', () => {
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
+  describe('galería a pantalla completa (HU-4.1.1)', () => {
+    it('debería mostrar el contador de fotografías sobre la galería', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const html: string = fixture.nativeElement.innerHTML;
+      expect(html).toContain('📷 2 fotografías');
+    });
+
+    it('debería abrir el lightbox con la foto pulsada', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      component.abrirLightbox('img2.jpg');
+
+      expect(component.lightboxAbierto()).toBe(true);
+      expect(component.lightboxImagen()).toBe('img2.jpg');
+      expect(component.lightboxIndice()).toBe(1);
+    });
+
+    it('debería navegar circularmente entre fotos', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      component.abrirLightbox('img2.jpg');
+
+      component.siguienteFoto();
+      expect(component.lightboxImagen()).toBe('img1.jpg');
+
+      component.fotoAnterior();
+      expect(component.lightboxImagen()).toBe('img2.jpg');
+    });
+
+    it('debería cerrar el lightbox', () => {
+      component.abrirLightbox('img1.jpg');
+      component.cerrarLightbox();
+
+      expect(component.lightboxAbierto()).toBe(false);
+    });
+  });
+
   describe('compatibilidad con la mascota (HU-4.1.7)', () => {
     const perroMock: PerroApi = {
       _id: 'p1', nombre: 'Maya', fotos: [], especie: 'perro', esMestizo: false,

@@ -834,6 +834,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <p>✓ Sin cargos ocultos</p>
               <p>✓ Pago 100% seguro vía Stripe</p>
               <p>✓ Confirmación inmediata por correo</p>
+              <p>🔒 No se realizará ningún cargo hasta confirmar el siguiente paso</p>
+              <p>🛡️ Protección Doogking: tu dinero está protegido hasta que el servicio se complete según la política de cancelación</p>
             </div>
           </div>
         </div>

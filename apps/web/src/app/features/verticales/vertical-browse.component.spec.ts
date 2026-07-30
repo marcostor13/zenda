@@ -255,4 +255,28 @@ describe('VerticalBrowseComponent', () => {
       perros: '2',
     });
   });
+
+  it('HU-3.2: debería calcular badges automáticos reales, no solo la categoría', async () => {
+    await crearComponente('veterinaria');
+    const c = tarjeta({ especialidades: ['Dermatología'] });
+    c.score = 4.9;
+    c.numResenas = 30;
+
+    const badges = component.badgesDe(c);
+
+    expect(badges).toEqual([
+      { label: '🩺 Dermatología' },
+      { icon: '🏆', label: 'Mejor valorado', variant: 'warning' },
+    ]);
+  });
+
+  it('HU-3.2: debería marcar Premium cuando el servicio está destacado', async () => {
+    await crearComponente('veterinaria');
+    const c = tarjeta({ especialidades: ['Dermatología'] });
+    c.destacado = true;
+
+    const badges = component.badgesDe(c);
+
+    expect(badges).toContainEqual({ icon: '★', label: 'Premium', variant: 'warning' });
+  });
 });

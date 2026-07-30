@@ -224,14 +224,17 @@ export class NotificationsService {
 
   /** Envía el correo de verificación de email con el enlace de confirmación. */
   async enviarVerificacionEmail(destinatario: string, nombre: string, url: string, esComercio = false): Promise<void> {
-    await this.enviarYRegistrar({
-      tipo: 'verificacion_email',
-      destinatario,
-      asunto: esComercio
-        ? '¡Bienvenido a Doogking! Activa tu cuenta'
-        : '¡Bienvenido a Doogking! Confirma tu correo',
-      cuerpo: this.plantillaVerificacion(nombre, url, esComercio),
-    });
+    await this.enviarYRegistrar(
+      {
+        tipo: 'verificacion_email',
+        destinatario,
+        asunto: esComercio
+          ? '¡Bienvenido a Doogking! Activa tu cuenta'
+          : '¡Bienvenido a Doogking! Confirma tu correo',
+        cuerpo: this.plantillaVerificacion(nombre, url, esComercio),
+      },
+      'Doogking | Equipo de verificación',
+    );
   }
 
   private plantillaVerificacion(nombre: string, url: string, esComercio: boolean): string {
@@ -275,10 +278,13 @@ export class NotificationsService {
     `;
   }
 
-  private async enviarYRegistrar(data: Parameters<NotificationsRepository['crear']>[0]): Promise<void> {
+  private async enviarYRegistrar(
+    data: Parameters<NotificationsRepository['crear']>[0],
+    nombreRemitente?: string,
+  ): Promise<void> {
     const notif = await this.repo.crear(data);
     try {
-      await this.mailer.enviar({ to: data.destinatario, subject: data.asunto, html: data.cuerpo });
+      await this.mailer.enviar({ to: data.destinatario, subject: data.asunto, html: data.cuerpo, nombreRemitente });
       await this.repo.marcarEnviado(notif._id);
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'Error desconocido';

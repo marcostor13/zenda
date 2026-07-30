@@ -5,6 +5,8 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { FavoritoResumenDto, VerticalKey } from 'shared';
 import { FavoritosComponent } from './favoritos.component';
 import { FavoritosService } from './favoritos.service';
+import { ReservasService } from '../reservas/services/reservas.service';
+import { AuthService } from '../../core/auth/auth.service';
 
 const favorito = (overrides: Partial<FavoritoResumenDto>): FavoritoResumenDto => ({
   servicioId: 's1',
@@ -25,7 +27,10 @@ describe('FavoritosComponent', () => {
   let componente: FavoritosComponent;
   let servicio: jest.Mocked<Pick<FavoritosService, 'cargarIds' | 'listar' | 'esFavorito'>>;
 
-  const crear = async (favoritos: FavoritoResumenDto[]): Promise<void> => {
+  const crear = async (
+    favoritos: FavoritoResumenDto[],
+    opciones: { misReservas?: Array<{ servicioId: string }>; usuario?: unknown } = {},
+  ): Promise<void> => {
     servicio = {
       cargarIds: jest.fn().mockResolvedValue(undefined),
       listar: jest.fn().mockResolvedValue(favoritos),
@@ -38,6 +43,19 @@ describe('FavoritosComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: FavoritosService, useValue: servicio },
+        {
+          provide: ReservasService,
+          useValue: { misReservas: jest.fn().mockResolvedValue(opciones.misReservas ?? []) },
+        },
+        {
+          provide: AuthService,
+          useValue: {
+            usuario: () => opciones.usuario ?? null,
+            estaAutenticado: () => !!opciones.usuario,
+            esAdmin: () => false,
+            esComercio: () => false,
+          },
+        },
       ],
     }).compileComponents();
 
@@ -102,6 +120,15 @@ describe('FavoritosComponent', () => {
     expect(componente.verticalesDisponibles()).toEqual([VerticalKey.ALOJAMIENTO]);
   });
 
+  it('debería etiquetar la antigüedad del favorito (HU-10.2)', async () => {
+    await crear([favorito({ servicioId: 's1' })]);
+
+    expect(componente.desdeHace(new Date().toISOString())).toBe('Añadido hoy');
+    expect(componente.desdeHace(new Date(Date.now() - 86_400_000).toISOString())).toBe('Añadido ayer');
+    expect(componente.desdeHace(new Date(Date.now() - 5 * 86_400_000).toISOString())).toBe('Favorito desde hace 5 días');
+    expect(componente.desdeHace(new Date(Date.now() - 90 * 86_400_000).toISOString())).toBe('Favorito desde hace 3 meses');
+  });
+
   it('debería retirar un favorito de la lista visible cuando se desmarca', async () => {
     await crear([favorito({ servicioId: 's1' })]);
     servicio.esFavorito.mockReturnValue(false);
@@ -112,5 +139,77 @@ describe('FavoritosComponent', () => {
 
     expect(componente.favoritos()).toHaveLength(0);
     jest.useRealTimers();
+  });
+
+  describe('disponibilidad y acciones (HU-10.4/10.2)', () => {
+    it('debería marcar "ya reservaste aquí" cuando el usuario ya reservó ese servicio', async () => {
+      await crear([favorito({ servicioId: 's1' })], {
+        usuario: { id: 'u1' },
+        misReservas: [{ servicioId: 's1' }, { servicioId: 'otro' }],
+      });
+
+      expect(componente.yaReservados().has('s1')).toBe(true);
+      expect(componente.yaReservados().has('otro')).toBe(true);
+      expect(componente.yaReservados().has('s2')).toBe(false);
+    });
+
+    it('no debería consultar reservas sin sesión iniciada', async () => {
+      const reservasSpy = jest.fn().mockResolvedValue([]);
+      await TestBed.configureTestingModule({
+        imports: [FavoritosComponent, RouterTestingModule],
+        providers: [
+          provideHttpClient(), provideHttpClientTesting(),
+          {
+            provide: FavoritosService,
+            useValue: { cargarIds: jest.fn().mockResolvedValue(undefined), listar: jest.fn().mockResolvedValue([]) },
+          },
+          { provide: ReservasService, useValue: { misReservas: reservasSpy } },
+          {
+            provide: AuthService,
+            useValue: { usuario: () => null, estaAutenticado: () => false, esAdmin: () => false, esComercio: () => false },
+          },
+        ],
+      }).compileComponents();
+      fixture = TestBed.createComponent(FavoritosComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(reservasSpy).not.toHaveBeenCalled();
+    });
+
+    it('debería enlazar "Reservar" a la ficha cuando el vertical tiene una', async () => {
+      await crear([favorito({ servicioId: 's1', vertical: VerticalKey.ALOJAMIENTO })]);
+      const f = componente.favoritos()[0];
+
+      expect(componente.rutaReservar(f)).toEqual(['/', VerticalKey.ALOJAMIENTO, 's1']);
+    });
+
+    it('debería enlazar "Reservar" al listado cuando el vertical no tiene ficha propia', async () => {
+      await crear([favorito({ servicioId: 's1', vertical: VerticalKey.VETERINARIA })]);
+      const f = componente.favoritos()[0];
+
+      expect(componente.rutaReservar(f)).toEqual(['/', VerticalKey.VETERINARIA]);
+    });
+
+    it('debería compartir con la Web Share API cuando está disponible', async () => {
+      await crear([favorito({ servicioId: 's1' })]);
+      const share = jest.fn().mockResolvedValue(undefined);
+      (navigator as unknown as { share: typeof share }).share = share;
+
+      await componente.compartir(componente.favoritos()[0]);
+
+      expect(share).toHaveBeenCalledWith(expect.objectContaining({ title: 'Doogking' }));
+    });
+
+    it('debería copiar al portapapeles si no hay Web Share API', async () => {
+      await crear([favorito({ servicioId: 's1', titulo: 'Hotel canino' })]);
+      delete (navigator as unknown as { share?: unknown }).share;
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+
+      await componente.compartir(componente.favoritos()[0]);
+
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Hotel canino'));
+    });
   });
 });

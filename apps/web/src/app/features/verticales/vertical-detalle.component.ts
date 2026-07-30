@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { VerticalKey } from 'shared';
@@ -122,8 +122,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     <!-- GALERÍA -->
     <div class="gallery">
-      <div class="gallery__main">
+      <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
         <img [src]="imagenActiva()" [alt]="s.nombre" rsImg />
+        @if (s.imagenes.length) {
+          <span class="gallery__contador">📷 {{ s.imagenes.length }} fotografías</span>
+        }
       </div>
       <div class="gallery__thumbs">
         @for (img of s.imagenes.slice(0,4); track img) {
@@ -133,6 +136,22 @@ const CONFIGS: Record<string, DetalleConfig> = {
         }
       </div>
     </div>
+
+    @if (lightboxAbierto()) {
+      <div class="lightbox" role="dialog" aria-label="Galería a pantalla completa" (click)="cerrarLightbox()">
+        <button type="button" class="lightbox__cerrar" (click)="cerrarLightbox()" aria-label="Cerrar galería">
+          <rs-icon name="x" [size]="22" [stroke]="2"></rs-icon>
+        </button>
+        <button type="button" class="lightbox__nav lightbox__nav--prev" (click)="fotoAnterior(); $event.stopPropagation()" aria-label="Foto anterior">
+          <rs-icon name="arrow-left" [size]="22" [stroke]="2"></rs-icon>
+        </button>
+        <img [src]="lightboxImagen()" [alt]="s.nombre" (click)="$event.stopPropagation()" />
+        <button type="button" class="lightbox__nav lightbox__nav--next" (click)="siguienteFoto(); $event.stopPropagation()" aria-label="Foto siguiente">
+          <rs-icon name="arrow-right" [size]="22" [stroke]="2"></rs-icon>
+        </button>
+        <span class="lightbox__contador">📷 {{ lightboxIndice() + 1 }} / {{ s.imagenes.length }}</span>
+      </div>
+    }
 
     <div class="vd-body">
       <div class="info-col">
@@ -234,7 +253,48 @@ const CONFIGS: Record<string, DetalleConfig> = {
     .breadcrumb { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-5); a { color: var(--t-400); } }
 
     .gallery { border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-8); }
-    .gallery__main { aspect-ratio: 21/9; img { width: 100%; height: 100%; object-fit: cover; } }
+    .gallery__main {
+      position: relative; aspect-ratio: 21/9; cursor: pointer;
+      img { width: 100%; height: 100%; object-fit: cover; }
+    }
+    .gallery__contador {
+      position: absolute; right: var(--sp-3); bottom: var(--sp-3);
+      background: rgba(0,0,0,.6); color: #fff; font-size: var(--f-xs); font-weight: var(--w-6);
+      padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full);
+    }
+
+    /* LIGHTBOX (HU-4.1.1) */
+    .lightbox {
+      position: fixed; inset: 0; z-index: var(--z-4, 100);
+      background: rgba(0,0,0,.92);
+      display: flex; align-items: center; justify-content: center;
+      animation: fadeIn 160ms ease both;
+      img { max-width: min(92vw, 1100px); max-height: 86vh; object-fit: contain; border-radius: var(--r-lg); cursor: default; }
+    }
+    .lightbox__cerrar {
+      position: absolute; top: var(--sp-5); right: var(--sp-5);
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(255,255,255,.12); border: none; color: #fff;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: background var(--d-2);
+      &:hover { background: rgba(255,255,255,.22); }
+    }
+    .lightbox__nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(255,255,255,.12); border: none; color: #fff;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: background var(--d-2);
+      &:hover { background: rgba(255,255,255,.22); }
+    }
+    .lightbox__nav--prev { left: var(--sp-5); }
+    .lightbox__nav--next { right: var(--sp-5); }
+    .lightbox__contador {
+      position: absolute; bottom: var(--sp-5); left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: var(--f-sm); font-weight: var(--w-6);
+      background: rgba(255,255,255,.12); padding: var(--sp-1) var(--sp-4); border-radius: var(--r-full);
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .gallery__thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); margin-top: var(--sp-2); }
     .gallery__thumb {
       aspect-ratio: 16/10; border-radius: var(--r-md); overflow: hidden; cursor: pointer; opacity: .65; transition: opacity var(--d-2);
@@ -279,6 +339,38 @@ export class VerticalDetalleComponent implements OnInit {
   readonly cargando = signal(true);
   readonly servicio = signal<ServicioDetalle | null>(null);
   readonly imagenActiva = signal('');
+
+  /** Galería a pantalla completa (HU-4.1.1). */
+  readonly lightboxAbierto = signal(false);
+  readonly lightboxImagen = signal('');
+  readonly lightboxIndice = computed(() => {
+    const imagenes = this.servicio()?.imagenes ?? [];
+    const indice = imagenes.indexOf(this.lightboxImagen());
+    return indice >= 0 ? indice : 0;
+  });
+
+  abrirLightbox(imagen: string): void {
+    this.lightboxImagen.set(imagen);
+    this.lightboxAbierto.set(true);
+  }
+
+  cerrarLightbox(): void {
+    this.lightboxAbierto.set(false);
+  }
+
+  siguienteFoto(): void {
+    const imagenes = this.servicio()?.imagenes ?? [];
+    if (!imagenes.length) return;
+    const siguiente = (this.lightboxIndice() + 1) % imagenes.length;
+    this.lightboxImagen.set(imagenes[siguiente]);
+  }
+
+  fotoAnterior(): void {
+    const imagenes = this.servicio()?.imagenes ?? [];
+    if (!imagenes.length) return;
+    const anterior = (this.lightboxIndice() - 1 + imagenes.length) % imagenes.length;
+    this.lightboxImagen.set(imagenes[anterior]);
+  }
 
   cfg = signal<DetalleConfig>(CONFIGS['transporte']);
   ui: VerticalUi = verticalUi(VerticalKey.TRANSPORTE);

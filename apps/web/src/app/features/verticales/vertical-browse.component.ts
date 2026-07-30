@@ -9,6 +9,7 @@ import { RsCardComponent, type CardBadge } from '../../shared/components/card/rs
 import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
 import { VerticalUi, verticalUi } from '../../shared/verticales/verticales.config';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
+import { calcularBadgesAutomaticos } from '../../shared/badges/badges-automaticos';
 
 /** Filtros de búsqueda vigentes, tal y como llegan en la URL. */
 interface Busqueda {
@@ -323,10 +324,14 @@ export class VerticalBrowseComponent implements OnInit {
     }
   }
 
-  /** Badge de categoría de la tarjeta unificada (HU-3.1); nunca null en la práctica pero el tipo lo permite. */
+  /** Badges de la tarjeta unificada (HU-3.1/HU-3.2): categoría + automáticos por datos reales. */
   badgesDe(c: ServicioCard): CardBadge[] {
-    const label = this.cfg().badge(c);
-    return label ? [{ label }] : [];
+    const badges: CardBadge[] = [];
+    const categoria = this.cfg().badge(c);
+    if (categoria) badges.push({ label: categoria });
+    if (c.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
+    badges.push(...calcularBadgesAutomaticos({ score: c.score, numResenas: c.numResenas }));
+    return badges;
   }
 
   solicitar(c: ServicioCard): void {

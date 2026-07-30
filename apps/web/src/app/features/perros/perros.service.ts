@@ -20,6 +20,7 @@ export interface PerroApi {
   fechaNacimiento?: string;
   sexo?: 'macho' | 'hembra';
   esterilizado: boolean;
+  ciudad?: string;
   peso?: number;
   microchip?: string;
   tipoPelo: string[];
@@ -45,6 +46,9 @@ export interface PerroApi {
   notasAlojamiento?: string;
   autorizaCompartirHistorial: boolean;
   nivelDoogking?: number;
+  cartillaSanitariaUrl?: string;
+  pasaporteEuropeoUrl?: string;
+  certificadosUrl?: string[];
   createdAt?: string;
 }
 
@@ -64,6 +68,8 @@ const CAMPOS_COMPLETITUD: ReadonlyArray<(p: PerroApi) => boolean> = [
   (p) => !!p.microchip,
   (p) => !!p.dieta,
   (p) => p.fotos.length > 0,
+  (p) => !!p.ciudad,
+  (p) => !!p.cartillaSanitariaUrl,
 ];
 
 /** % de la Ficha Inteligente ya completado, calculado en el cliente a partir del propio DTO. */
@@ -74,11 +80,13 @@ export function porcentajeCompletitud(p: PerroApi): number {
 
 export interface PerroPayload {
   nombre?: string;
+  fotos?: string[];
   raza?: string;
   esMestizo?: boolean;
   fechaNacimiento?: string;
   sexo?: 'macho' | 'hembra';
   esterilizado?: boolean;
+  ciudad?: string;
   peso?: number;
   tipoPelo?: string[];
   tamano?: string;
@@ -102,6 +110,9 @@ export interface PerroPayload {
   destructivoEnSoledad?: boolean;
   notasAlojamiento?: string;
   autorizaCompartirHistorial?: boolean;
+  cartillaSanitariaUrl?: string;
+  pasaporteEuropeoUrl?: string;
+  certificadosUrl?: string[];
 }
 
 export interface PerroHistorialApi {

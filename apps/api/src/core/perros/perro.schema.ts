@@ -39,6 +39,9 @@ export class Perro {
   @Prop({ type: Boolean, default: false })
   esterilizado!: boolean;
 
+  @Prop()
+  ciudad?: string;
+
   @Prop({ type: Number })
   peso?: number;
 

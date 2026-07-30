@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { PerrosListaComponent } from './perros-lista.component';
-import { PerrosService, PerroApi, IndiceBienestarApi } from './perros.service';
+import { PerrosService, PerroApi, IndiceBienestarApi, PerroHistorialApi } from './perros.service';
 
 describe('PerrosListaComponent', () => {
   let fixture: ComponentFixture<PerrosListaComponent>;
@@ -29,6 +29,7 @@ describe('PerrosListaComponent', () => {
       bienestar: bienestarMock
         ? jest.fn().mockResolvedValue(bienestarMock)
         : jest.fn().mockRejectedValue(new Error('sin datos')),
+      historial: jest.fn().mockResolvedValue([]),
     } as unknown as jest.Mocked<PerrosService>;
 
     await TestBed.configureTestingModule({
@@ -87,5 +88,76 @@ describe('PerrosListaComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.textContent).toContain('Ficha inteligente:');
     expect(el.textContent).toContain('% completada');
+  });
+
+  describe('tarjeta pasaporte (HU-8.1.1)', () => {
+    it('debería mostrar edad, sexo y ciudad cuando existen', async () => {
+      const hace3anios = new Date();
+      hace3anios.setFullYear(hace3anios.getFullYear() - 3);
+      await crear([perro({ fechaNacimiento: hace3anios.toISOString(), sexo: 'hembra', ciudad: 'Madrid' })]);
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).toContain('3 años');
+      expect(el.textContent).toContain('Hembra');
+      expect(el.textContent).toContain('📍 Madrid');
+    });
+
+    it('no debería inventar una edad si la mascota no la tiene declarada', async () => {
+      await crear([perro()]);
+
+      expect(component.edadDe(component.perros()[0])).toBeNull();
+    });
+
+    it('debería calcular las etiquetas de estado a partir de datos reales', async () => {
+      await crear([perro({
+        sociabilidadPerros: 'alta', vacunas: ['rabia'], esterilizado: true, microchip: '123',
+      })]);
+
+      const tags = component.etiquetasEstado(component.perros()[0]).map((t) => t.label);
+      expect(tags).toEqual(['Sociable', 'Vacunada', 'Esterilizada', 'Microchip']);
+    });
+
+    it('no debería mostrar ninguna etiqueta si no hay datos reales que la respalden', async () => {
+      await crear([perro({ esterilizado: false })]);
+
+      expect(component.etiquetasEstado(component.perros()[0])).toEqual([]);
+    });
+  });
+
+  describe('resumen de salud e historial (HU-8.1.3/8.1.4)', () => {
+    it('debería mostrar el resumen al pulsar "Ver ficha completa" y cargar el historial', async () => {
+      await crear([perro()]);
+      const historial: PerroHistorialApi[] = [
+        { _id: 'h1', vertical: 'peluqueria', nota: 'Baño y corte', createdAt: '2026-01-01' },
+      ];
+      perrosService.historial.mockResolvedValue(historial);
+
+      await component.toggleHistorial(component.perros()[0]);
+      fixture.detectChanges();
+
+      expect(component.historialAbiertoId()).toBe('p1');
+      expect(perrosService.historial).toHaveBeenCalledWith('p1');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).toContain('Baño y corte');
+    });
+
+    it('debería ocultar el resumen al pulsar de nuevo', async () => {
+      await crear([perro()]);
+
+      await component.toggleHistorial(component.perros()[0]);
+      await component.toggleHistorial(component.perros()[0]);
+
+      expect(component.historialAbiertoId()).toBeNull();
+    });
+
+    it('no debería volver a pedir el historial si ya está en caché', async () => {
+      await crear([perro()]);
+
+      await component.toggleHistorial(component.perros()[0]);
+      await component.toggleHistorial(component.perros()[0]);
+      await component.toggleHistorial(component.perros()[0]);
+
+      expect(perrosService.historial).toHaveBeenCalledTimes(1);
+    });
   });
 });

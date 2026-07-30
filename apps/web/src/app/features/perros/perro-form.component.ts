@@ -4,25 +4,38 @@ import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angula
 import { Vacuna, VACUNA_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
+import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import {
   ALERGIAS_FRECUENTES, MEDICACION_FRECUENTE, MIEDOS_FRECUENTES,
 } from '../../shared/catalogos/tags.catalogo';
 import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
 
-type Paso = 1 | 2 | 3 | 4 | 5;
+type Paso = 1 | 2 | 3 | 4 | 5 | 6;
 const PASO_LABELS: Record<Paso, string> = {
   1: '🐶 Datos básicos',
   2: '📏 Físico y pelo',
   3: '🧠 Comportamiento',
   4: '❤️ Salud',
   5: '🏨 En un alojamiento',
+  6: '📄 Documentación',
 };
-const TOTAL_PASOS: Paso = 5;
+const TOTAL_PASOS: Paso = 6;
+
+/** Catálogo cerrado de temperamentos (HU-8.2.3): sustituye al campo de texto libre. */
+const TEMPERAMENTOS = ['Muy tranquilo', 'Activo', 'Nervioso', 'Protector', 'Sociable', 'Independiente'];
+
+/** Selector gráfico de sociabilidad (HU-8.2.3): mismos 4 niveles del enum NivelSociabilidad. */
+const NIVELES_SOCIABILIDAD = [
+  { valor: 'alta', icon: '😊🟢', label: 'Alta' },
+  { valor: 'media', icon: '😐🟡', label: 'Media' },
+  { valor: 'baja', icon: '😟🟠', label: 'Baja' },
+  { valor: 'no_tolera', icon: '😡🔴', label: 'No tolera' },
+];
 
 @Component({
   selector: 'app-perro-form',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsIconComponent, RsTagsInputComponent],
+  imports: [RouterLink, ReactiveFormsModule, RsIconComponent, RsTagsInputComponent, RsImageUploadComponent],
   template: `
     <div class="page-wrap">
       <div class="page-header">
@@ -53,10 +66,20 @@ const TOTAL_PASOS: Paso = 5;
           }
         </div>
 
+        <div class="privacy-box">
+          🔒 <strong>Privacidad:</strong> Doogking solo compartirá la información necesaria con los
+          profesionales que tú autorices mediante una reserva.
+        </div>
+
         <form [formGroup]="form" (ngSubmit)="submit()">
 
           @if (paso() === 1) {
           <h2 class="section-title">Datos básicos</h2>
+          <div class="rs-field">
+            <span class="rs-lbl">Foto de tu perro</span>
+            <span class="rs-field-hint">Ayuda a los profesionales a identificar y preparar la visita de tu mascota.</span>
+            <rs-image-upload formControlName="fotos" [multiple]="true" [maxFiles]="4" />
+          </div>
           <div class="form-row">
             <div class="rs-field">
               <label class="rs-lbl" for="nombre">Nombre *</label>
@@ -86,6 +109,12 @@ const TOTAL_PASOS: Paso = 5;
                 <option value="macho">Macho</option>
                 <option value="hembra">Hembra</option>
               </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="rs-field">
+              <label class="rs-lbl" for="ciudad">Ciudad</label>
+              <input id="ciudad" class="rs-inp" formControlName="ciudad" placeholder="Madrid" />
             </div>
           </div>
           <div class="form-row">
@@ -122,6 +151,7 @@ const TOTAL_PASOS: Paso = 5;
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Tipo de pelo</label>
+            <span class="rs-field-hint">Ayuda a las peluquerías a preparar tiempo y material para el corte.</span>
             <div class="checks-grid">
               @for (t of tiposPelo; track t) {
                 <label class="filter-check">
@@ -135,31 +165,42 @@ const TOTAL_PASOS: Paso = 5;
 
           @if (paso() === 3) {
           <h2 class="section-title">Comportamiento</h2>
-          <div class="form-row">
-            <div class="rs-field">
-              <label class="rs-lbl" for="temperamento">Temperamento</label>
-              <input id="temperamento" class="rs-inp" formControlName="temperamento"
-                     placeholder="Ej. muy tranquilo, nervioso, miedo al secador…" />
+          <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
+            Permite recomendar el profesional más adecuado para tu perro.
+          </p>
+          <div class="rs-field">
+            <label class="rs-lbl">Temperamento</label>
+            <div class="chip-row">
+              @for (t of catalogoTemperamentos; track t) {
+                <button type="button" class="chip" [class.chip--activo]="form.controls.temperamento.value === t"
+                        (click)="elegirTemperamento(t)">
+                  {{ t }}
+                </button>
+              }
             </div>
-            <div class="rs-field">
-              <label class="rs-lbl" for="sociabilidadPerros">Sociabilidad con perros</label>
-              <select id="sociabilidadPerros" class="rs-inp" formControlName="sociabilidadPerros">
-                <option value="">—</option>
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="baja">Baja</option>
-                <option value="no_tolera">No tolera a otros perros</option>
-              </select>
+          </div>
+          <div class="rs-field">
+            <label class="rs-lbl">Sociabilidad con perros</label>
+            <div class="nivel-row">
+              @for (n of nivelesSociabilidad; track n.valor) {
+                <button type="button" class="nivel-btn"
+                        [class.nivel-btn--activo]="form.controls.sociabilidadPerros.value === n.valor"
+                        (click)="elegirNivel('sociabilidadPerros', n.valor)">
+                  {{ n.icon }} {{ n.label }}
+                </button>
+              }
             </div>
-            <div class="rs-field">
-              <label class="rs-lbl" for="sociabilidadPersonas">Sociabilidad con personas</label>
-              <select id="sociabilidadPersonas" class="rs-inp" formControlName="sociabilidadPersonas">
-                <option value="">—</option>
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="baja">Baja</option>
-                <option value="no_tolera">No tolera desconocidos</option>
-              </select>
+          </div>
+          <div class="rs-field">
+            <label class="rs-lbl">Sociabilidad con personas</label>
+            <div class="nivel-row">
+              @for (n of nivelesSociabilidad; track n.valor) {
+                <button type="button" class="nivel-btn"
+                        [class.nivel-btn--activo]="form.controls.sociabilidadPersonas.value === n.valor"
+                        (click)="elegirNivel('sociabilidadPersonas', n.valor)">
+                  {{ n.icon }} {{ n.label }}
+                </button>
+              }
             </div>
           </div>
           <div class="form-row">
@@ -259,6 +300,37 @@ const TOTAL_PASOS: Paso = 5;
           </label>
           }
 
+          @if (paso() === 6) {
+          <h2 class="section-title">Documentación</h2>
+          <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
+            Las residencias y hoteles podrán comprobar automáticamente si tu mascota cumple sus requisitos antes de la llegada. Todos estos documentos son opcionales.
+          </p>
+          <div class="rs-field">
+            <label class="rs-lbl">Cartilla sanitaria</label>
+            <rs-image-upload formControlName="cartillaSanitariaUrl" [multiple]="false" />
+          </div>
+          <div class="rs-field">
+            <label class="rs-lbl">Pasaporte europeo para mascotas</label>
+            <rs-image-upload formControlName="pasaporteEuropeoUrl" [multiple]="false" />
+          </div>
+          <div class="rs-field">
+            <label class="rs-lbl">Otros certificados (vacunación internacional, seguro…)</label>
+            <rs-image-upload formControlName="certificadosUrl" [multiple]="true" [maxFiles]="4" />
+          </div>
+
+          <div class="resumen-final">
+            <strong>📋 Ficha Inteligente completada al {{ completitud() }}%</strong>
+            <p>Tu mascota ya está preparada para:</p>
+            <div class="resumen-final__chips">
+              @for (d of disponibilidadPorVertical(); track d.label) {
+                <span class="rs-badge" [class]="d.lista ? 'rs-badge--success' : 'rs-badge--neutral'">
+                  {{ d.lista ? '✅' : '⚠' }} {{ d.label }}
+                </span>
+              }
+            </div>
+          </div>
+          }
+
           @if (errorMsg()) { <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div> }
           @if (exitoMsg()) { <div class="rs-alert rs-alert--success">{{ exitoMsg() }}</div> }
 
@@ -321,6 +393,43 @@ const TOTAL_PASOS: Paso = 5;
     .wizard-progress__track { height: 6px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; }
     .wizard-progress__fill { height: 100%; background: var(--c-accent); border-radius: var(--r-full); transition: width var(--d-3); }
     .wizard-progress__autosave { margin-top: var(--sp-2); font-size: var(--f-xs); color: var(--c-success); }
+
+    /* HU-8.2.6: privacidad, visible en todos los pasos */
+    .privacy-box {
+      background: var(--c-accent-lo); border-radius: var(--r-lg);
+      padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-5);
+      font-size: var(--f-xs); color: var(--t-300);
+      strong { color: var(--t-100); }
+    }
+
+    /* HU-8.2.3: temperamento en chips */
+    .chip-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+    .chip {
+      padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
+      border: 1px solid var(--b-2); background: var(--c-raised); color: var(--t-300);
+      font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
+      &.chip--activo { background: var(--c-accent); border-color: var(--c-accent); color: #fff; }
+      &:hover:not(.chip--activo) { border-color: var(--c-accent); }
+    }
+
+    /* HU-8.2.3: selector gráfico de sociabilidad */
+    .nivel-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+    .nivel-btn {
+      padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md);
+      border: 1px solid var(--b-2); background: var(--c-raised); color: var(--t-300);
+      font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
+      &.nivel-btn--activo { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--t-100); font-weight: var(--w-6); }
+      &:hover:not(.nivel-btn--activo) { border-color: var(--c-accent); }
+    }
+
+    /* HU-8.2.8: resumen final de disponibilidad */
+    .resumen-final {
+      margin-top: var(--sp-6); padding: var(--sp-5); border-radius: var(--r-lg);
+      background: var(--c-raised);
+      strong { font-size: var(--f-md); color: var(--t-100); }
+      p { font-size: var(--f-sm); color: var(--t-300); margin: var(--sp-2) 0 var(--sp-3); }
+    }
+    .resumen-final__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
   `],
 })
 export class PerroFormComponent implements OnInit {
@@ -351,13 +460,17 @@ export class PerroFormComponent implements OnInit {
   readonly catalogoMiedos = MIEDOS_FRECUENTES;
   readonly catalogoAlergias = ALERGIAS_FRECUENTES;
   readonly catalogoMedicacion = MEDICACION_FRECUENTE;
+  readonly catalogoTemperamentos = TEMPERAMENTOS;
+  readonly nivelesSociabilidad = NIVELES_SOCIABILIDAD;
 
   readonly form = this.fb.group({
     nombre: ['', [Validators.required, Validators.minLength(1)]],
+    fotos: [[] as string[]],
     raza: [''],
     fechaNacimiento: [''],
     peso: [null as number | null, [Validators.min(0), Validators.max(120)]],
     sexo: [''],
+    ciudad: [''],
     esterilizado: [false],
     esMestizo: [false],
     tamano: [''],
@@ -378,7 +491,22 @@ export class PerroFormComponent implements OnInit {
     destructivoEnSoledad: [false],
     notasAlojamiento: [''],
     autorizaCompartirHistorial: [true],
+    cartillaSanitariaUrl: [null as string | null],
+    pasaporteEuropeoUrl: [null as string | null],
+    certificadosUrl: [[] as string[]],
   });
+
+  /** HU-8.2.3: temperamento como chip único (clic de nuevo para deseleccionar). */
+  elegirTemperamento(valor: string): void {
+    const actual = this.form.controls.temperamento.value;
+    this.form.controls.temperamento.setValue(actual === valor ? '' : valor);
+  }
+
+  /** HU-8.2.3: selector gráfico de sociabilidad (clic de nuevo para deseleccionar). */
+  elegirNivel(campo: 'sociabilidadPerros' | 'sociabilidadPersonas', valor: string): void {
+    const control = this.form.controls[campo];
+    control.setValue(control.value === valor ? '' : valor);
+  }
 
   /** Catálogo cerrado de vacunas; sustituye al antiguo campo de texto libre. */
   readonly vacunasCatalogo = Object.values(Vacuna).map((tipo) => ({
@@ -437,10 +565,12 @@ export class PerroFormComponent implements OnInit {
       this.tipoPeloSeleccionado.set(p.tipoPelo ?? []);
       this.form.patchValue({
         nombre: p.nombre,
+        fotos: p.fotos ?? [],
         raza: p.raza ?? '',
         fechaNacimiento: p.fechaNacimiento ? p.fechaNacimiento.slice(0, 10) : '',
         peso: p.peso ?? null,
         sexo: p.sexo ?? '',
+        ciudad: p.ciudad ?? '',
         esterilizado: p.esterilizado,
         esMestizo: p.esMestizo,
         tamano: p.tamano ?? '',
@@ -461,6 +591,9 @@ export class PerroFormComponent implements OnInit {
         destructivoEnSoledad: p.destructivoEnSoledad ?? false,
         notasAlojamiento: p.notasAlojamiento ?? '',
         autorizaCompartirHistorial: p.autorizaCompartirHistorial,
+        cartillaSanitariaUrl: p.cartillaSanitariaUrl ?? null,
+        pasaporteEuropeoUrl: p.pasaporteEuropeoUrl ?? null,
+        certificadosUrl: p.certificadosUrl ?? [],
       });
       this.vacunasDetalle.set(p.vacunasDetalle ?? []);
     } catch {
@@ -474,10 +607,12 @@ export class PerroFormComponent implements OnInit {
     const v = this.form.getRawValue();
     return {
       nombre: v.nombre,
+      fotos: v.fotos,
       raza: v.raza || undefined,
       fechaNacimiento: v.fechaNacimiento || undefined,
       peso: v.peso ?? undefined,
       sexo: (v.sexo || undefined) as PerroPayload['sexo'],
+      ciudad: v.ciudad || undefined,
       esterilizado: v.esterilizado,
       esMestizo: v.esMestizo,
       tamano: v.tamano || undefined,
@@ -500,6 +635,9 @@ export class PerroFormComponent implements OnInit {
       destructivoEnSoledad: v.destructivoEnSoledad,
       notasAlojamiento: v.notasAlojamiento || undefined,
       autorizaCompartirHistorial: v.autorizaCompartirHistorial,
+      cartillaSanitariaUrl: v.cartillaSanitariaUrl ?? undefined,
+      pasaporteEuropeoUrl: v.pasaporteEuropeoUrl ?? undefined,
+      certificadosUrl: v.certificadosUrl,
     };
   }
 
@@ -510,9 +648,23 @@ export class PerroFormComponent implements OnInit {
       !!v.raza, !!v.fechaNacimiento, v.peso != null, !!v.sexo,
       this.tipoPeloSeleccionado().length > 0, !!v.tamano, !!v.estadoManto,
       this.vacunasDetalle().length > 0, !!v.sociabilidadPerros, !!v.sociabilidadPersonas,
-      !!v.temperamento, !!v.dieta,
+      !!v.temperamento, !!v.dieta, v.fotos.length > 0, !!v.ciudad, !!v.cartillaSanitariaUrl,
     ];
     return Math.round((campos.filter(Boolean).length / campos.length) * 100);
+  }
+
+  /** HU-8.2.8: resumen final de qué categorías ya pueden atender bien a la mascota. */
+  disponibilidadPorVertical(): { label: string; lista: boolean }[] {
+    const v = this.form.getRawValue();
+    const tieneVacunas = this.vacunasDetalle().length > 0;
+    const tieneTamano = !!v.tamano;
+    const tienePelo = this.tipoPeloSeleccionado().length > 0;
+    return [
+      { label: 'Hoteles y residencias', lista: tieneTamano && tieneVacunas },
+      { label: 'Peluquerías', lista: tienePelo && tieneTamano },
+      { label: 'Veterinarios', lista: tieneVacunas },
+      { label: 'Adiestramiento', lista: true },
+    ];
   }
 
   irAPaso(p: Paso): void {

@@ -7,8 +7,15 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { FavoritosService } from './favoritos.service';
+import { ReservasService } from '../reservas/services/reservas.service';
+import { AuthService } from '../../core/auth/auth.service';
 
 type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
+
+/** Verticales con ficha de detalle propia (Fase 4); las demás solo tienen listado. */
+const VERTICALES_CON_FICHA = new Set<string>([
+  VerticalKey.ALOJAMIENTO, VerticalKey.TRANSPORTE, VerticalKey.ADIESTRAMIENTO, VerticalKey.HOTELES,
+]);
 
 @Component({
   selector: 'app-favoritos',
@@ -73,6 +80,9 @@ type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
               @if (f.precioAnterior) {
                 <span class="fav-card__badge">🔥 Ha bajado {{ f.precioAnterior - f.precioBase | number:'1.0-0' }} € desde que lo guardaste</span>
               }
+              @if (yaReservados().has(f.servicioId)) {
+                <span class="fav-card__reservado">✔ Ya reservaste aquí</span>
+              }
               <div class="fav-card__fav">
                 <rs-favorito-btn [servicioId]="f.servicioId" (click)="marcarPendiente(f.servicioId)"></rs-favorito-btn>
               </div>
@@ -82,11 +92,15 @@ type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
               <p class="fav-card__loc">
                 <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon> {{ f.ciudad || '—' }}
               </p>
+              <p class="fav-card__desde">❤️ {{ desdeHace(f.createdAt) }}</p>
               <div class="fav-card__footer">
                 <span class="fav-card__rating">⭐ {{ f.ratingPromedio | number:'1.1-1' }} · {{ f.totalResenas }} reseñas</span>
                 <span class="fav-card__price">{{ f.precioBase | number:'1.0-0' }} €</span>
               </div>
-              <a [routerLink]="['/', f.vertical]" class="rs-btn rs-btn--primary rs-btn--block rs-btn--sm">Ver servicio</a>
+              <div class="fav-card__acciones">
+                <a [routerLink]="rutaReservar(f)" class="rs-btn rs-btn--primary rs-btn--block rs-btn--sm">Reservar</a>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" title="Compartir" (click)="compartir(f)">🔗</button>
+              </div>
             </div>
           </article>
         }
@@ -106,20 +120,28 @@ type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
     .fav-card__placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px; }
     .fav-card__fav { position: absolute; top: var(--sp-3); right: var(--sp-3); }
     .fav-card__badge { position: absolute; left: var(--sp-3); bottom: var(--sp-3); right: var(--sp-3); background: var(--c-amber); color: var(--t-900); font-size: var(--f-xs); font-weight: var(--w-7); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); }
+    .fav-card__reservado { position: absolute; left: var(--sp-3); top: var(--sp-3); background: var(--c-success, #16A34A); color: #fff; font-size: var(--f-xs); font-weight: var(--w-7); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); }
+    .fav-card__acciones { display: flex; gap: var(--sp-2); }
     .fav-card__body { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
     .fav-card__loc { display: inline-flex; align-items: center; gap: 4px; font-size: var(--f-xs); color: var(--t-400); }
+    .fav-card__desde { font-size: var(--f-xs); color: var(--t-400); }
     .fav-card__footer { display: flex; justify-content: space-between; align-items: center; margin-block: var(--sp-1); }
     .fav-card__rating { font-size: var(--f-xs); color: var(--t-400); }
     .fav-card__price { font-size: var(--f-md); font-weight: var(--w-8); color: var(--c-accent); }
   `],
 })
+
 export class FavoritosComponent implements OnInit {
   private readonly favoritosService = inject(FavoritosService);
+  private readonly reservasService = inject(ReservasService);
+  private readonly auth = inject(AuthService);
 
   readonly cargando = signal(true);
   readonly favoritos = signal<FavoritoResumenDto[]>([]);
   readonly orden = signal<OrdenFavoritos>('recientes');
   readonly filtroVertical = signal<VerticalKey | ''>('');
+  /** HU-10.4: servicios que el usuario ya reservó, para el sello "Ya reservaste aquí". */
+  readonly yaReservados = signal<Set<string>>(new Set());
 
   readonly verticalesDisponibles = computed(() => {
     const vistos = new Set(this.favoritos().map((f) => f.vertical));
@@ -141,10 +163,57 @@ export class FavoritosComponent implements OnInit {
     } finally {
       this.cargando.set(false);
     }
+
+    if (this.auth.usuario()) {
+      try {
+        const reservas = await this.reservasService.misReservas();
+        this.yaReservados.set(new Set(reservas.map((r) => r.servicioId)));
+      } catch {
+        // Sin datos de reservas no se muestra el sello, pero la página sigue funcionando.
+      }
+    }
   }
 
   etiquetaVertical(v: VerticalKey): string {
     return VERTICAL_LABELS[v] ?? v;
+  }
+
+  /** HU-10.2: "Reservar" lleva a la ficha si existe, si no al listado del vertical. */
+  rutaReservar(f: FavoritoResumenDto): string[] {
+    if (VERTICALES_CON_FICHA.has(f.vertical) && f.servicioId) {
+      return ['/', f.vertical, f.servicioId];
+    }
+    return ['/', f.vertical];
+  }
+
+  async compartir(f: FavoritoResumenDto): Promise<void> {
+    const texto = `Mira ${f.titulo} en Doogking: ${f.precioBase} € · ${f.ciudad || ''}`.trim();
+    const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
+    if (nav.share) {
+      try {
+        await nav.share({ title: 'Doogking', text: texto });
+        return;
+      } catch {
+        // El usuario canceló el share nativo: caemos al portapapeles.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch {
+      // Sin acceso al portapapeles (permiso denegado): no hay más que ofrecer.
+    }
+  }
+
+  /** HU-10.2: etiqueta temporal ("Favorito desde hace 3 meses" / "Añadido ayer"). */
+  desdeHace(fechaISO: string): string {
+    const dias = Math.floor((Date.now() - new Date(fechaISO).getTime()) / 86_400_000);
+    if (dias <= 0) return 'Añadido hoy';
+    if (dias === 1) return 'Añadido ayer';
+    if (dias < 30) return `Favorito desde hace ${dias} días`;
+    const meses = Math.floor(dias / 30);
+    if (meses < 12) return `Favorito desde hace ${meses} mes${meses > 1 ? 'es' : ''}`;
+    const anios = Math.floor(meses / 12);
+    return `Favorito desde hace ${anios} año${anios > 1 ? 's' : ''}`;
   }
 
   /** Al quitar un favorito desde el corazón, lo retiramos también de la lista visible. */

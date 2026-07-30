@@ -31,9 +31,13 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
         @if (pendiente()) {
           <div style="text-align:center">
-            <div style="width:72px;height:72px;border-radius:50%;background:var(--g-accent);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4);box-shadow:var(--sh-glow)">
-              <rs-icon name="mail" [size]="34" [stroke]="1.5"></rs-icon>
-            </div>
+            <svg width="140" height="104" viewBox="0 0 140 104" style="margin:0 auto var(--sp-4);display:block" aria-hidden="true">
+              <rect x="10" y="18" width="120" height="80" rx="14" fill="var(--c-raised)" stroke="var(--b-1)" stroke-width="2"/>
+              <path d="M14 26 L70 66 L126 26" fill="none" stroke="var(--dk-blue)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 32 L10 92 Q10 98 16 98 L124 98 Q130 98 130 92 L130 32" fill="none" stroke="var(--b-1)" stroke-width="2"/>
+              <circle cx="108" cy="80" r="22" fill="var(--dk-gold)"/>
+              <path d="M97 80 L104 87 L119 71" fill="none" stroke="var(--dk-blue-deep)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
             <p style="color:var(--t-200);font-size:var(--f-base);line-height:1.6">
               Solo queda verificar tu correo para empezar a recibir reservas.<br>
               Hemos enviado un correo a: <strong>{{ emailRegistrado() }}</strong>.
@@ -56,7 +60,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
         <!-- Stepper -->
         <div class="wz-steps">
-          @for (s of pasos; track s.n) {
+          @for (s of pasos; track s.n; let last = $last) {
             <div class="wz-step" [class.wz-step--activo]="paso() === s.n" [class.wz-step--hecho]="paso() > s.n">
               <div class="wz-step__dot">
                 @if (paso() > s.n) {
@@ -67,6 +71,9 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
               </div>
               <span class="wz-step__label">{{ s.label }}</span>
             </div>
+            @if (!last) {
+              <div class="wz-step__track" [class.wz-step__track--hecho]="paso() > s.n"></div>
+            }
           }
         </div>
 
@@ -229,6 +236,12 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
       margin-bottom: var(--sp-6);
     }
     .wz-step { display: flex; align-items: center; gap: var(--sp-2); }
+    .wz-step__track {
+      width: 24px; height: 2px; border-radius: var(--r-full);
+      background: var(--b-1); transition: background var(--d-2);
+    }
+    .wz-step__track--hecho { background: var(--g-accent); }
+    @media (max-width: 480px) { .wz-step__track { width: 12px; } }
     .wz-step__dot {
       width: 28px; height: 28px; border-radius: var(--r-full);
       display: flex; align-items: center; justify-content: center;

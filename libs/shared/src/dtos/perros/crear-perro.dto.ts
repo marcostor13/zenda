@@ -59,6 +59,10 @@ export class CrearPerroDto {
   esterilizado?: boolean;
 
   @IsOptional()
+  @IsString()
+  ciudad?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(120)

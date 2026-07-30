@@ -281,9 +281,9 @@ describe('PerroFormComponent', () => {
       componente.atras();
       expect(componente.paso()).toBe(1);
 
-      componente.irAPaso(5);
+      componente.irAPaso(6);
       await componente.siguiente();
-      expect(componente.paso()).toBe(5);
+      expect(componente.paso()).toBe(6);
     });
 
     it('debería seguir validando el formulario entero al enviar, sin importar en qué paso esté', async () => {
@@ -355,6 +355,99 @@ describe('PerroFormComponent', () => {
     it('debería ser 0% en una ficha completamente en blanco', async () => {
       await crear();
       expect(componente.completitud()).toBe(0);
+    });
+  });
+
+  describe('temperamento y sociabilidad con chips (HU-8.2.3)', () => {
+    it('debería seleccionar un temperamento del catálogo cerrado', async () => {
+      await crear();
+
+      componente.elegirTemperamento('Activo');
+
+      expect(componente.form.controls.temperamento.value).toBe('Activo');
+    });
+
+    it('debería deseleccionar el temperamento si se pulsa de nuevo el mismo chip', async () => {
+      await crear();
+      componente.elegirTemperamento('Activo');
+
+      componente.elegirTemperamento('Activo');
+
+      expect(componente.form.controls.temperamento.value).toBe('');
+    });
+
+    it('debería fijar el nivel de sociabilidad con perros mediante el selector gráfico', async () => {
+      await crear();
+
+      componente.elegirNivel('sociabilidadPerros', 'alta');
+
+      expect(componente.form.controls.sociabilidadPerros.value).toBe('alta');
+    });
+
+    it('debería mantener sociabilidad con perros y con personas de forma independiente', async () => {
+      await crear();
+
+      componente.elegirNivel('sociabilidadPerros', 'alta');
+      componente.elegirNivel('sociabilidadPersonas', 'baja');
+
+      expect(componente.form.controls.sociabilidadPerros.value).toBe('alta');
+      expect(componente.form.controls.sociabilidadPersonas.value).toBe('baja');
+    });
+  });
+
+  describe('ciudad, fotos y documentación (HU-8.1.1/8.2.2)', () => {
+    it('debería enviar la ciudad y las fotos en el payload', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya', ciudad: 'Madrid', fotos: ['maya.jpg'] });
+
+      await componente.submit();
+
+      expect(payload().ciudad).toBe('Madrid');
+      expect(payload().fotos).toEqual(['maya.jpg']);
+    });
+
+    it('debería enviar los documentos cuando se han subido', async () => {
+      await crear();
+      componente.form.patchValue({
+        nombre: 'Maya',
+        cartillaSanitariaUrl: 'cartilla.pdf',
+        certificadosUrl: ['seguro.pdf'],
+      });
+
+      await componente.submit();
+
+      expect(payload().cartillaSanitariaUrl).toBe('cartilla.pdf');
+      expect(payload().certificadosUrl).toEqual(['seguro.pdf']);
+    });
+
+    it('debería cargar ciudad y documentos ya guardados al editar', async () => {
+      await crear('p1', perro({
+        ciudad: 'Barcelona', cartillaSanitariaUrl: 'cartilla.pdf', fotos: ['maya.jpg'],
+      }));
+
+      expect(componente.form.getRawValue()).toMatchObject({
+        ciudad: 'Barcelona', cartillaSanitariaUrl: 'cartilla.pdf', fotos: ['maya.jpg'],
+      });
+    });
+  });
+
+  describe('resumen final de disponibilidad (HU-8.2.8)', () => {
+    it('debería marcar veterinarios como listo solo con vacunas registradas', async () => {
+      await crear();
+      componente.alternarVacuna(Vacuna.ANTIRRABICA);
+
+      const resumen = componente.disponibilidadPorVertical();
+
+      expect(resumen.find((d) => d.label === 'Veterinarios')?.lista).toBe(true);
+      expect(resumen.find((d) => d.label === 'Hoteles y residencias')?.lista).toBe(false);
+    });
+
+    it('adiestramiento debería estar siempre disponible', async () => {
+      await crear();
+
+      const resumen = componente.disponibilidadPorVertical();
+
+      expect(resumen.find((d) => d.label === 'Adiestramiento')?.lista).toBe(true);
     });
   });
 });

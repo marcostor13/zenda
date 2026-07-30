@@ -2,7 +2,10 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, porcentajeCompletitud } from './perros.service';
+import {
+  PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, PerroHistorialApi,
+  porcentajeCompletitud,
+} from './perros.service';
 
 @Component({
   selector: 'app-perros-lista',
@@ -46,8 +49,17 @@ import { PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, p
             </div>
             <div class="perro-card__info">
               <h3>{{ p.nombre }}</h3>
-              <p>{{ p.raza || 'Mestizo' }} @if (p.peso) { · {{ p.peso }} kg }</p>
+              <p class="perro-card__linea">
+                {{ p.raza || 'Mestizo' }}
+                @if (p.peso) { · {{ p.peso }} kg }
+                @if (edadDe(p)) { · {{ edadDe(p) }} }
+                @if (p.sexo) { · {{ p.sexo === 'macho' ? 'Macho' : 'Hembra' }} }
+                @if (p.ciudad) { · 📍 {{ p.ciudad }} }
+              </p>
               <div class="perro-card__badges">
+                @for (t of etiquetasEstado(p); track t.label) {
+                  <span class="rs-badge" [class]="t.icon === '🟡' ? 'rs-badge--warning' : 'rs-badge--success'">{{ t.icon }} {{ t.label }}</span>
+                }
                 @if (p.tamano) { <span class="rs-badge">{{ p.tamano }}</span> }
                 @if (p.temperamento) { <span class="rs-badge rs-badge--accent">{{ p.temperamento }}</span> }
                 @if (indices()[p._id]?.totalValoraciones) {
@@ -70,8 +82,39 @@ import { PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, p
                 </div>
                 <span>Ficha inteligente: {{ porcentajeCompletitud(p) }}% completada</span>
               </div>
+
+              @if (historialAbiertoId() === p._id) {
+                <div class="perro-card__resumen">
+                  <strong>Resumen de salud</strong>
+                  <div class="perro-card__salud">
+                    <span [class.ok]="p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0">
+                      {{ (p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0) ? '✔' : '⚠' }} Vacunas registradas
+                    </span>
+                    <span [class.ok]="!!p.microchip">{{ p.microchip ? '✔' : '⚠' }} Microchip registrado</span>
+                    <span [class.ok]="p.esterilizado">{{ p.esterilizado ? '✔' : '⚠' }} Esterilizado</span>
+                  </div>
+                  @if (indices()[p._id]; as ic) {
+                    <strong>Estadísticas</strong>
+                    <p class="perro-card__stats">★ {{ ic.puntuacionPromedio }} valoración media de profesionales · {{ ic.totalValoraciones }} servicios valorados</p>
+                  }
+                  <strong>Historial reciente</strong>
+                  @if (historialCargando()) {
+                    <p class="perro-card__stats">Cargando…</p>
+                  } @else if ((historialPorPerro()[p._id] ?? []).length === 0) {
+                    <p class="perro-card__stats">Todavía no hay notas de profesionales en el historial.</p>
+                  } @else {
+                    @for (h of (historialPorPerro()[p._id] ?? []).slice(0, 3); track h._id) {
+                      <p class="perro-card__stats">{{ h.vertical }} · {{ h.nota }}</p>
+                    }
+                  }
+                </div>
+              }
             </div>
             <div class="perro-card__actions">
+              <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="toggleHistorial(p)">
+                <rs-icon name="check-circle" [size]="13" [stroke]="2"></rs-icon>
+                {{ historialAbiertoId() === p._id ? 'Ocultar resumen' : 'Ver ficha completa' }}
+              </button>
               <a [routerLink]="['/perros', p._id, 'editar']" class="rs-btn rs-btn--outline rs-btn--sm">
                 <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
                 Editar
@@ -116,11 +159,21 @@ import { PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, p
     }
     .perro-card__info h3 { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); }
     .perro-card__info p { font-size: var(--f-sm); color: var(--t-400); margin-top: 2px; }
+    .perro-card__linea { display: block; }
     .perro-card__badges { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
     .perro-card__completitud { margin-top: var(--sp-3); font-size: var(--f-xs); color: var(--t-400); }
     .perro-card__completitud-track { height: 4px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; margin-bottom: var(--sp-1); }
     .perro-card__completitud-fill { height: 100%; background: var(--dk-gold); border-radius: var(--r-full); transition: width var(--d-3); }
-    .perro-card__actions { display: flex; gap: var(--sp-2); margin-top: auto; }
+    .perro-card__actions { display: flex; gap: var(--sp-2); margin-top: auto; flex-wrap: wrap; }
+    .perro-card__resumen {
+      margin-top: var(--sp-3); padding: var(--sp-3); border-radius: var(--r-lg); background: var(--c-raised);
+      display: flex; flex-direction: column; gap: var(--sp-1);
+      strong { font-size: var(--f-xs); color: var(--t-200); margin-top: var(--sp-2); &:first-child { margin-top: 0; } }
+    }
+    .perro-card__salud { display: flex; flex-direction: column; gap: 2px; font-size: var(--f-xs); color: var(--t-400);
+      span.ok { color: var(--c-success, #16A34A); }
+    }
+    .perro-card__stats { font-size: var(--f-xs); color: var(--t-400); margin: 0; }
   `],
 })
 export class PerrosListaComponent implements OnInit {
@@ -133,6 +186,11 @@ export class PerrosListaComponent implements OnInit {
   readonly indices = signal<Record<string, IndiceComportamientoApi>>({});
   readonly bienestar = signal<Record<string, IndiceBienestarApi>>({});
   readonly porcentajeCompletitud = porcentajeCompletitud;
+
+  /** HU-8.1.3/8.1.4: resumen de salud/historial expandible por mascota. */
+  readonly historialAbiertoId = signal<string | null>(null);
+  readonly historialPorPerro = signal<Record<string, PerroHistorialApi[]>>({});
+  readonly historialCargando = signal(false);
 
   async ngOnInit(): Promise<void> {
     try {
@@ -176,6 +234,46 @@ export class PerrosListaComponent implements OnInit {
 
   varianteBienestar(nivel: IndiceBienestarApi['nivel']): 'neutral' | 'warning' | 'success' {
     return { inicial: 'neutral', bueno: 'warning', muy_bueno: 'success', excelente: 'success' }[nivel] as 'neutral' | 'warning' | 'success';
+  }
+
+  /** HU-8.1.1: edad legible desde la fecha de nacimiento. */
+  edadDe(p: PerroApi): string | null {
+    if (!p.fechaNacimiento) return null;
+    const nacimiento = new Date(p.fechaNacimiento);
+    if (Number.isNaN(nacimiento.getTime())) return null;
+    const meses = (Date.now() - nacimiento.getTime()) / (30.44 * 24 * 60 * 60 * 1000);
+    if (meses < 12) return `${Math.max(1, Math.round(meses))} meses`;
+    return `${Math.floor(meses / 12)} años`;
+  }
+
+  /** HU-8.1.1: etiquetas de estado a partir de datos reales, nunca texto manual. */
+  etiquetasEstado(p: PerroApi): { icon: string; label: string }[] {
+    const tags: { icon: string; label: string }[] = [];
+    if (p.sociabilidadPerros === 'alta') tags.push({ icon: '🟢', label: 'Sociable' });
+    if (p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0) tags.push({ icon: '🟢', label: 'Vacunada' });
+    if (p.esterilizado) tags.push({ icon: '🟢', label: 'Esterilizada' });
+    if (p.ansiedadSeparacion || /nervios/i.test(p.temperamento ?? '')) tags.push({ icon: '🟡', label: 'Nerviosa' });
+    if (p.microchip) tags.push({ icon: '🟢', label: 'Microchip' });
+    return tags;
+  }
+
+  /** HU-8.1.3/8.1.4: abre/cierra el resumen de salud e historial, con carga perezosa. */
+  async toggleHistorial(p: PerroApi): Promise<void> {
+    if (this.historialAbiertoId() === p._id) {
+      this.historialAbiertoId.set(null);
+      return;
+    }
+    this.historialAbiertoId.set(p._id);
+    if (this.historialPorPerro()[p._id]) return;
+    this.historialCargando.set(true);
+    try {
+      const historial = await this.perrosService.historial(p._id);
+      this.historialPorPerro.update((mapa) => ({ ...mapa, [p._id]: historial }));
+    } catch {
+      this.historialPorPerro.update((mapa) => ({ ...mapa, [p._id]: [] }));
+    } finally {
+      this.historialCargando.set(false);
+    }
   }
 
   async eliminar(p: PerroApi): Promise<void> {

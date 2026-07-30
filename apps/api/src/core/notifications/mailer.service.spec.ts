@@ -42,6 +42,23 @@ describe('MailerService', () => {
     );
   });
 
+  it('debería sobrescribir solo el nombre de remitente cuando se pasa nombreRemitente, manteniendo el email real', async () => {
+    const sendMail = jest.fn().mockResolvedValue(undefined);
+    (nodemailerMock.createTransport as jest.Mock).mockReturnValue({ sendMail } as never);
+
+    const service = await construir({ EMAIL_USER: 'doog@gmail.com', EMAIL_PASSWORD: 'app-pass' });
+    await service.enviar({
+      to: 'cliente@x.com',
+      subject: 'Verifica tu correo',
+      html: '<p>hi</p>',
+      nombreRemitente: 'Doogking | Equipo de verificación',
+    });
+
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ from: 'Doogking | Equipo de verificación <doog@gmail.com>' }),
+    );
+  });
+
   it('debería usar SMTP genérico cuando hay SMTP_HOST (sin credenciales de Gmail)', async () => {
     const sendMail = jest.fn().mockResolvedValue(undefined);
     (nodemailerMock.createTransport as jest.Mock).mockReturnValue({ sendMail } as never);

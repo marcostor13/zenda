@@ -8,6 +8,8 @@ import { BRAND } from '../../media/images';
 import { FavoritosService } from '../../../features/favoritos/favoritos.service';
 import { PerrosService } from '../../../features/perros/perros.service';
 import { ReservasService } from '../../../features/reservas/services/reservas.service';
+import { ReviewsService } from '../../../features/reservas/services/reviews.service';
+import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.service';
 
 @Component({
   selector: 'rs-navbar',
@@ -64,13 +66,23 @@ import { ReservasService } from '../../../features/reservas/services/reservas.se
                     (click)="cuentaAbierto.set(!cuentaAbierto())" [attr.aria-expanded]="cuentaAbierto()">
               <span class="rs-navbar__avatar">
                 {{ iniciales() }}
-                @if (tieneReservaProxima()) { <span class="rs-navbar__dot" aria-hidden="true"></span> }
+                @if (tieneAvisoPendiente()) { <span class="rs-navbar__dot" aria-hidden="true"></span> }
               </span>
               Mi cuenta
               <rs-icon name="chevron-down" [size]="14" [stroke]="2"></rs-icon>
             </button>
             @if (cuentaAbierto()) {
               <div class="rs-navbar__dropdown">
+                <div class="rs-navbar__dropdown-header">
+                  <span class="rs-navbar__dropdown-name">{{ authService.usuario()?.nombre }}</span>
+                  <span class="rs-badge rs-badge--success rs-navbar__verificado">🟢 Cliente verificado</span>
+                  @if (alpha(); as a) {
+                    <span class="rs-navbar__dropdown-alpha">👑 {{ a.nombreNivel }} · {{ a.reservasCompletadas }} reservas</span>
+                  }
+                </div>
+
+                <div class="rs-navbar__dropdown-divider"></div>
+
                 <a routerLink="/perfil" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="user" [size]="15" [stroke]="2"></rs-icon> Mi perfil
                 </a>
@@ -88,6 +100,14 @@ import { ReservasService } from '../../../features/reservas/services/reservas.se
                 </a>
                 <a routerLink="/perfil/resenas" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="star" [size]="15" [stroke]="2"></rs-icon> Mis reseñas
+                  @if (numResenas() > 0) { <span class="rs-navbar__count">{{ numResenas() }}</span> }
+                  @if (tienePendientesResena()) { <span class="rs-navbar__pill">Pendiente</span> }
+                </a>
+
+                <div class="rs-navbar__dropdown-divider"></div>
+
+                <a routerLink="/perfil/alpha" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="crown" [size]="15" [stroke]="2"></rs-icon> Mi nivel Alpha y recompensas
                 </a>
 
                 <div class="rs-navbar__dropdown-divider"></div>
@@ -97,6 +117,12 @@ import { ReservasService } from '../../../features/reservas/services/reservas.se
                 </a>
                 <a routerLink="/ayuda" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="message-square" [size]="15" [stroke]="2"></rs-icon> Ayuda
+                </a>
+
+                <div class="rs-navbar__dropdown-divider"></div>
+
+                <a routerLink="/" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--action" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon> Buscar servicios
                 </a>
 
                 <div class="rs-navbar__dropdown-divider"></div>
@@ -236,6 +262,13 @@ import { ReservasService } from '../../../features/reservas/services/reservas.se
       font-size: 11px; font-weight: var(--w-6); white-space: nowrap;
     }
     .rs-navbar__dropdown-item--highlight { font-weight: var(--w-6); }
+    .rs-navbar__dropdown-header {
+      display: flex; flex-direction: column; gap: var(--sp-1);
+      padding: var(--sp-2) var(--sp-3) var(--sp-1);
+    }
+    .rs-navbar__dropdown-name { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
+    .rs-navbar__verificado { align-self: flex-start; }
+    .rs-navbar__dropdown-alpha { font-size: var(--f-xs); color: var(--t-400); font-weight: var(--w-5); }
     .rs-navbar__dropdown {
       position: absolute; top: calc(100% + 8px); right: 0; z-index: var(--z-3);
       min-width: 220px; padding: var(--sp-2);
@@ -254,6 +287,7 @@ import { ReservasService } from '../../../features/reservas/services/reservas.se
       &:hover { background: var(--c-raised); color: var(--t-100); }
     }
     .rs-navbar__dropdown-item--danger { color: var(--c-red, #B91C1C); &:hover { color: var(--c-red, #B91C1C); } }
+    .rs-navbar__dropdown-item--action { color: var(--c-accent); font-weight: var(--w-6); }
     .rs-navbar__dropdown-divider { height: 1px; background: var(--b-1); margin: var(--sp-1) 0; }
 
     /* Hamburger: hidden on desktop */
@@ -333,9 +367,11 @@ import { ReservasService } from '../../../features/reservas/services/reservas.se
   `],
 })
 export class RsNavbarComponent implements OnInit {
-  private readonly authService = inject(AuthService);
+  readonly authService = inject(AuthService);
   private readonly perrosService = inject(PerrosService);
   private readonly reservasService = inject(ReservasService);
+  private readonly reviewsService = inject(ReviewsService);
+  private readonly alphaService = inject(AlphaService);
   readonly favoritosService = inject(FavoritosService);
 
   /** Menú de categorías: misma fuente que el buscador y las vistas. */
@@ -349,7 +385,13 @@ export class RsNavbarComponent implements OnInit {
 
   /** Contadores del desplegable "Mi cuenta" (HU-12.3). */
   readonly numMascotas = signal(0);
+  readonly numResenas = signal(0);
   readonly tieneReservaProxima = signal(false);
+  readonly tienePendientesResena = signal(false);
+  readonly tieneAvisoPendiente = computed(() => this.tieneReservaProxima() || this.tienePendientesResena());
+
+  /** Nivel Alpha del cliente para la cabecera del desplegable (HU-12.1/12.2). */
+  readonly alpha = signal<AlphaEstadoApi | null>(null);
 
   readonly logoD = BRAND.logoD;
 
@@ -383,6 +425,27 @@ export class RsNavbarComponent implements OnInit {
         () => this.tieneReservaProxima.set(false),
       );
     } catch { this.tieneReservaProxima.set(false); }
+    try {
+      const usuarioId = this.authService.usuario()?.id;
+      if (usuarioId) {
+        this.reviewsService.misResenas(usuarioId).then(
+          (resenas) => this.numResenas.set(resenas.length),
+          () => this.numResenas.set(0),
+        );
+      }
+    } catch { this.numResenas.set(0); }
+    try {
+      this.reviewsService.pendientesDeValorar().then(
+        (pendientes) => this.tienePendientesResena.set(pendientes.length > 0),
+        () => this.tienePendientesResena.set(false),
+      );
+    } catch { this.tienePendientesResena.set(false); }
+    try {
+      this.alphaService.miEstado().then(
+        (estado) => this.alpha.set(estado),
+        () => this.alpha.set(null),
+      );
+    } catch { this.alpha.set(null); }
   }
 
   /** Cierra el desplegable de cuenta al hacer clic fuera de él. */

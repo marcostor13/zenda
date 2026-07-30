@@ -133,4 +133,33 @@ describe('VerticalDetalleComponent', () => {
     expect(component.ui.key).toBeTruthy();
     expect(component.cfg().vertical).toBe('transporte');
   });
+
+  describe('galería a pantalla completa (HU-4.1.1)', () => {
+    it('debería mostrar el contador de fotografías sobre la galería', async () => {
+      await crearComponente('transporte');
+
+      const html: string = fixture.nativeElement.innerHTML;
+      expect(html).toContain('📷 2 fotografías');
+    });
+
+    it('debería abrir el lightbox con la foto pulsada', async () => {
+      await crearComponente('transporte');
+
+      component.abrirLightbox('b.jpg');
+
+      expect(component.lightboxAbierto()).toBe(true);
+      expect(component.lightboxIndice()).toBe(1);
+    });
+
+    it('debería navegar circularmente entre fotos y cerrar', async () => {
+      await crearComponente('transporte');
+      component.abrirLightbox('b.jpg');
+
+      component.siguienteFoto();
+      expect(component.lightboxImagen()).toBe('a.jpg');
+
+      component.cerrarLightbox();
+      expect(component.lightboxAbierto()).toBe(false);
+    });
+  });
 });

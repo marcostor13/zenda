@@ -269,4 +269,84 @@ describe('MisReservasComponent', () => {
       expect(component.cancelandoId()).toBeNull();
     });
   });
+
+  describe('línea temporal (HU-9.4)', () => {
+    it('debería marcar solo "Reserva realizada" como paso actual para una reserva pendiente', () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
+      reserva.estado = 'pendiente';
+
+      const pasos = component.pasosTimeline(reserva);
+
+      expect(pasos[0]).toEqual({ label: 'Reserva realizada', hecho: true, actual: false });
+      expect(pasos[1]).toEqual({ label: 'Confirmada', hecho: false, actual: true });
+    });
+
+    it('debería marcar todos los pasos hechos para una reserva completada y ya valorada', () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-COMP02')!;
+      reserva.yaResenada = true;
+
+      const pasos = component.pasosTimeline(reserva);
+
+      expect(pasos.every((p) => p.hecho)).toBe(true);
+    });
+
+    it('debería marcar "Valorada" como paso actual en una reserva completada sin reseñar', () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-COMP02')!;
+      reserva.yaResenada = false;
+
+      const pasos = component.pasosTimeline(reserva);
+
+      expect(pasos[3]).toEqual({ label: 'Valorada', hecho: false, actual: true });
+    });
+  });
+
+  describe('acciones rápidas (HU-9.3)', () => {
+    it('debería abrir Google Maps con el nombre y la ciudad del establecimiento', () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
+      reserva.ciudad = 'Madrid';
+      const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+
+      component.comoLlegar(reserva);
+
+      expect(openSpy).toHaveBeenCalledWith(
+        expect.stringContaining('google.com/maps/search'),
+        '_blank',
+        'noopener',
+      );
+    });
+
+    it('debería generar un archivo .ics descargable para añadir al calendario', () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
+      const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+      const createObjectURL = jest.fn().mockReturnValue('blob:mock');
+      (URL as unknown as { createObjectURL: typeof createObjectURL }).createObjectURL = createObjectURL;
+      (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = jest.fn();
+
+      component.anadirACalendario(reserva);
+
+      expect(createObjectURL).toHaveBeenCalled();
+      expect(clickSpy).toHaveBeenCalled();
+    });
+
+    it('debería compartir con la Web Share API cuando está disponible', async () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
+      const share = jest.fn().mockResolvedValue(undefined);
+      (navigator as unknown as { share: typeof share }).share = share;
+
+      await component.compartir(reserva);
+
+      expect(share).toHaveBeenCalledWith(expect.objectContaining({ title: 'Doogking' }));
+    });
+
+    it('debería copiar al portapapeles si no hay Web Share API', async () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
+      delete (navigator as unknown as { share?: unknown }).share;
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+
+      await component.compartir(reserva);
+
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('RES-CONF01'));
+    });
+  });
 });

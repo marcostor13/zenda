@@ -153,7 +153,7 @@ describe('porcentajeCompletitud', () => {
       tipoPelo: ['corto'], tamano: 'grande', estadoManto: 'bueno',
       vacunas: ['rabia'], sociabilidadPerros: 'alta', sociabilidadPersonas: 'alta',
       temperamento: 'tranquilo', microchip: '123456789', dieta: 'pienso premium',
-      fotos: ['maya.jpg'],
+      fotos: ['maya.jpg'], ciudad: 'Madrid', cartillaSanitariaUrl: 'cartilla.pdf',
     };
     expect(porcentajeCompletitud(completo)).toBe(100);
   });

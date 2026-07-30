@@ -6,6 +6,8 @@ export interface EnvioEmail {
   to: string;
   subject: string;
   html: string;
+  /** Sobrescribe el nombre de remitente para este envío (mantiene el email real). */
+  nombreRemitente?: string;
 }
 
 /**
@@ -19,6 +21,7 @@ export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private transporter?: nodemailer.Transporter;
   private readonly from: string;
+  private readonly fromEmail: string;
 
   constructor(private readonly config: ConfigService) {
     const emailUser = config.get<string>('EMAIL_USER');
@@ -31,6 +34,7 @@ export class MailerService {
         service: 'gmail',
         auth: { user: emailUser, pass: emailPassword },
       });
+      this.fromEmail = emailUser;
       this.from = config.get<string>('EMAIL_FROM') ?? `Doogking <${emailUser}>`;
       return;
     }
@@ -45,10 +49,12 @@ export class MailerService {
           pass: config.get<string>('SMTP_PASS'),
         },
       });
+      this.fromEmail = config.get<string>('SMTP_USER') ?? 'no-reply@doogking.eu';
       this.from = config.get<string>('SMTP_FROM') ?? 'Doogking <no-reply@doogking.eu>';
       return;
     }
 
+    this.fromEmail = 'no-reply@doogking.eu';
     this.from = 'Doogking <no-reply@doogking.eu>';
   }
 
@@ -57,7 +63,7 @@ export class MailerService {
       throw new Error('Email no configurado (falta EMAIL_USER/EMAIL_PASSWORD o SMTP_HOST): no se envió.');
     }
     await this.transporter.sendMail({
-      from: this.from,
+      from: email.nombreRemitente ? `${email.nombreRemitente} <${this.fromEmail}>` : this.from,
       to: email.to,
       subject: email.subject,
       html: email.html,

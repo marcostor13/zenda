@@ -9,6 +9,7 @@ import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-
 import { RsCardComponent, type CardBadge } from '../../../shared/components/card/rs-card.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../services/transporte.service';
+import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automaticos';
 
 @Component({
   selector: 'app-transporte-lista',
@@ -156,10 +157,11 @@ export class TransporteListaComponent implements OnInit {
     return map[tipo] ?? tipo;
   }
 
-  /** Badges de la tarjeta unificada (HU-3.1): tipo de vehículo + destacado. */
+  /** Badges de la tarjeta unificada (HU-3.1/HU-3.2): tipo de vehículo + destacado + automáticos. */
   badgesDe(t: TransporteCard): CardBadge[] {
     const badges: CardBadge[] = [{ label: this.tipoLabel(t.tipoVehiculo) }];
     if (t.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
+    badges.push(...calcularBadgesAutomaticos({ score: t.score, numResenas: t.numResenas }));
     return badges;
   }
 

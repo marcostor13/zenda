@@ -112,4 +112,24 @@ describe('TransporteListaComponent', () => {
       expect(componente.tipoLabel('furgon_climatizado')).toContain('Furgón');
     });
   });
+
+  describe('badges automáticos (HU-3.2)', () => {
+    it('debería añadir "Mejor valorado" cuando la puntuación y el nº de reseñas superan el umbral', async () => {
+      await crear();
+      const t = card({ score: 4.9, numResenas: 30 });
+
+      const badges = componente.badgesDe(t);
+
+      expect(badges).toContainEqual({ icon: '🏆', label: 'Mejor valorado', variant: 'warning' });
+    });
+
+    it('no debería inventar el badge si no hay suficientes reseñas reales', async () => {
+      await crear();
+      const t = card({ score: 4.9, numResenas: 3 });
+
+      const badges = componente.badgesDe(t);
+
+      expect(badges.some((b) => b.label === 'Mejor valorado')).toBe(false);
+    });
+  });
 });

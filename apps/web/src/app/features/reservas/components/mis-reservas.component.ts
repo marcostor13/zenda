@@ -10,7 +10,7 @@ import { ReviewsService } from '../services/reviews.service';
 import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 import { AuthService } from '../../../core/auth/auth.service';
 
-type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'cancelada' | 'completada';
+type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'cancelada' | 'completada';
 
 interface ReservaCard {
   id: string;
@@ -24,6 +24,9 @@ interface ReservaCard {
   imagen: string;
   fechaInicio: string;
   fechaFin: string;
+  /** Fechas ISO sin formatear, para exportar (calendario, etc.) sin re-parsear texto localizado. */
+  fechaInicioIso: string;
+  fechaFinIso: string;
   total: number;
   estado: 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'cancelada' | 'completada';
   montoAjustado?: number;
@@ -53,7 +56,10 @@ interface ReservaCard {
       @for (f of filtros; track f.valor) {
         <button class="filtro-pill"
                 [class.active]="filtroActivo() === f.valor"
+                [style.background]="filtroActivo() === f.valor ? f.color : null"
+                [style.border-color]="filtroActivo() === f.valor ? f.color : null"
                 (click)="filtroActivo.set(f.valor)">
+          @if (f.dot) { <span aria-hidden="true">{{ f.dot }}</span> }
           {{ f.label }}
           <span class="filtro-pill__count">{{ conteo(f.valor) }}</span>
         </button>
@@ -93,12 +99,28 @@ interface ReservaCard {
                 <span>→ {{ r.fechaFin }}</span>
               }
             </div>
+
+            @if (r.estado !== 'cancelada') {
+              <div class="timeline">
+                @for (paso of pasosTimeline(r); track paso.label; let last = $last) {
+                  <span class="timeline__paso" [class.timeline__paso--hecho]="paso.hecho" [class.timeline__paso--actual]="paso.actual">
+                    {{ paso.hecho ? '✔' : '○' }} {{ paso.label }}
+                  </span>
+                  @if (!last) { <span class="timeline__linea" [class.timeline__linea--hecha]="paso.hecho"></span> }
+                }
+              </div>
+            }
           </div>
 
           <div class="reserva-row__aside">
             <div class="reserva-row__codigo">{{ r.codigo }}</div>
             <div class="reserva-row__precio">€{{ r.total }}</div>
-            <div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-4)">
+            <div class="reserva-row__quick">
+              <button type="button" class="quick-btn" title="Cómo llegar" (click)="comoLlegar(r)">🚗</button>
+              <button type="button" class="quick-btn" title="Añadir al calendario" (click)="anadirACalendario(r)">🗓️</button>
+              <button type="button" class="quick-btn" title="Compartir" (click)="compartir(r)">🔗</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-3)">
               <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--outline rs-btn--sm">Ver detalle</a>
               @if (r.estado === 'confirmada' || r.estado === 'pendiente') {
                 <button class="rs-btn rs-btn--danger rs-btn--sm"
@@ -235,6 +257,23 @@ interface ReservaCard {
     .reserva-row__aside { text-align: right; @media (max-width: 768px) { text-align: left; } }
     .reserva-row__codigo { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-1); font-family: monospace; }
     .reserva-row__precio { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); }
+    .reserva-row__quick { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-3); @media (max-width: 768px) { justify-content: flex-start; } }
+    .quick-btn {
+      width: 32px; height: 32px; border-radius: var(--r-full); border: 1px solid var(--b-1);
+      background: var(--c-raised); cursor: pointer; font-size: 14px; line-height: 1;
+      transition: all var(--d-2);
+      &:hover { border-color: var(--b-2); background: var(--c-accent-lo); }
+    }
+
+    /* HU-9.4: timeline de estado de la reserva */
+    .timeline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-3); }
+    .timeline__paso {
+      font-size: var(--f-xs); color: var(--t-400); white-space: nowrap;
+    }
+    .timeline__paso--hecho { color: var(--c-success, #16A34A); font-weight: var(--w-6); }
+    .timeline__paso--actual { color: var(--c-accent); font-weight: var(--w-7); }
+    .timeline__linea { width: 16px; height: 1px; background: var(--b-1); }
+    .timeline__linea--hecha { background: var(--c-success, #16A34A); }
 
     .empty-state { text-align: center; padding: var(--sp-20) var(--sp-8); h3 { font-size: var(--f-xl); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-3); } p { color: var(--t-400); } }
 
@@ -283,6 +322,8 @@ export class MisReservasComponent implements OnInit {
       imagen: alojamientoImage(0, 400),
       fechaInicio: '15 Jul 2026',
       fechaFin: '17 Jul 2026',
+      fechaInicioIso: '2026-07-15',
+      fechaFinIso: '2026-07-17',
       total: 76,
       estado: 'confirmada',
       yaResenada: false,
@@ -299,6 +340,8 @@ export class MisReservasComponent implements OnInit {
       imagen: alojamientoImage(7, 400),
       fechaInicio: '14 Jul 2026',
       fechaFin: '14 Jul 2026',
+      fechaInicioIso: '2026-07-14',
+      fechaFinIso: '2026-07-14',
       total: 45,
       estado: 'completada',
       yaResenada: false,
@@ -315,6 +358,8 @@ export class MisReservasComponent implements OnInit {
       imagen: alojamientoImage(8, 400),
       fechaInicio: '20 Ago 2026',
       fechaFin: '20 Ago 2026',
+      fechaInicioIso: '2026-08-20',
+      fechaFinIso: '2026-08-20',
       total: 38,
       estado: 'pendiente',
       yaResenada: false,
@@ -323,12 +368,13 @@ export class MisReservasComponent implements OnInit {
 
   readonly filtroActivo = signal<EstadoFiltro>('todas');
 
-  readonly filtros: { valor: EstadoFiltro; label: string }[] = [
-    { valor: 'todas',      label: 'Todas' },
-    { valor: 'confirmada', label: 'Confirmadas' },
-    { valor: 'pendiente',  label: 'Pendientes' },
-    { valor: 'completada', label: 'Completadas' },
-    { valor: 'cancelada',  label: 'Canceladas' },
+  readonly filtros: { valor: EstadoFiltro; label: string; dot: string; color: string }[] = [
+    { valor: 'todas',             label: 'Todas',       dot: '',   color: 'var(--c-accent)' },
+    { valor: 'confirmada',        label: 'Confirmadas', dot: '🟢', color: 'var(--c-success, #16A34A)' },
+    { valor: 'pendiente',         label: 'Pendientes',  dot: '🟡', color: 'var(--c-warning, #CA8A04)' },
+    { valor: 'ajuste_solicitado', label: 'Con ajuste',  dot: '🟠', color: 'var(--c-warning, #EA580C)' },
+    { valor: 'completada',        label: 'Completadas', dot: '🔵', color: 'var(--c-accent)' },
+    { valor: 'cancelada',         label: 'Canceladas',  dot: '🔴', color: 'var(--c-red, #DC2626)' },
   ];
 
   readonly reservas = signal<ReservaCard[]>(this.useMock ? this.MOCK_RESERVAS : []);
@@ -427,6 +473,8 @@ export class MisReservasComponent implements OnInit {
       imagen,
       fechaInicio: this.formatearFecha(r.fechaInicio),
       fechaFin: this.formatearFecha(r.fechaFin ?? r.fechaInicio),
+      fechaInicioIso: r.fechaInicio,
+      fechaFinIso: r.fechaFin ?? r.fechaInicio,
       total: r.montoTotal,
       estado: this.normalizarEstado(r.estado),
       montoAjustado: r.montoAjustado,
@@ -489,6 +537,70 @@ export class MisReservasComponent implements OnInit {
   necesitaChecklist(r: ReservaCard): boolean {
     return (r.verticalKey === VerticalKey.ALOJAMIENTO || r.verticalKey === VerticalKey.HOTELES)
       && (r.estado === 'confirmada' || r.estado === 'pendiente');
+  }
+
+  /** HU-9.4: línea temporal simplificada, aplicable a cualquier vertical (no solo estancias). */
+  pasosTimeline(r: ReservaCard): { label: string; hecho: boolean; actual: boolean }[] {
+    const confirmada = r.estado === 'confirmada' || r.estado === 'completada';
+    const completada = r.estado === 'completada';
+    const valorada = completada && r.yaResenada;
+    return [
+      { label: 'Reserva realizada', hecho: true, actual: false },
+      { label: 'Confirmada', hecho: confirmada, actual: !confirmada },
+      { label: 'Servicio', hecho: completada, actual: confirmada && !completada },
+      { label: 'Valorada', hecho: valorada, actual: completada && !valorada },
+    ];
+  }
+
+  /** HU-9.3: acciones rápidas — cómo llegar, calendario, compartir. */
+  comoLlegar(r: ReservaCard): void {
+    const consulta = encodeURIComponent(`${r.titulo}${r.ciudad ? ', ' + r.ciudad : ''}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${consulta}`, '_blank', 'noopener');
+  }
+
+  anadirACalendario(r: ReservaCard): void {
+    const inicio = this.aFechaIcs(r.fechaInicioIso);
+    const fin = this.aFechaIcs(r.fechaFinIso || r.fechaInicioIso);
+    const ics = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+      `UID:${r.codigo}@doogking.com`,
+      `SUMMARY:${r.titulo} (${r.codigo})`,
+      `DTSTART;VALUE=DATE:${inicio}`,
+      `DTEND;VALUE=DATE:${fin}`,
+      `LOCATION:${r.ciudad ?? ''}`,
+      'END:VEVENT', 'END:VCALENDAR',
+    ].join('\r\n');
+    const blob = new Blob([ics], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `doogking-${r.codigo}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private aFechaIcs(fechaIso: string): string {
+    const fecha = new Date(fechaIso);
+    if (Number.isNaN(fecha.getTime())) return '';
+    return fecha.toISOString().slice(0, 10).replace(/-/g, '');
+  }
+
+  async compartir(r: ReservaCard): Promise<void> {
+    const texto = `Mi reserva en Doogking: ${r.titulo} (${r.codigo}), ${r.fechaInicio}.`;
+    const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
+    if (nav.share) {
+      try {
+        await nav.share({ title: 'Doogking', text: texto });
+        return;
+      } catch {
+        // El usuario canceló el share nativo: caemos al portapapeles.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch {
+      // Sin acceso al portapapeles (permiso denegado): no hay más que ofrecer.
+    }
   }
 
   private normalizarEstado(estado: string): ReservaCard['estado'] {
