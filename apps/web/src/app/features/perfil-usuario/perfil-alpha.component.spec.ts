@@ -19,11 +19,14 @@ describe('PerfilAlphaComponent', () => {
   let componente: PerfilAlphaComponent;
   let alphaService: jest.Mocked<Pick<AlphaService, 'niveles' | 'miEstado'>>;
 
-  const crear = async (miEstado: AlphaEstadoApi | null): Promise<void> => {
-    alphaService = {
-      niveles: jest.fn().mockResolvedValue(NIVELES),
-      miEstado: jest.fn().mockResolvedValue(miEstado),
-    };
+  /** Monta el componente con los dobles indicados; resetea el TestBed para poder
+      montarlo varias veces dentro de un mismo `it`. */
+  const montar = async (
+    niveles: jest.Mock,
+    miEstado: jest.Mock,
+  ): Promise<void> => {
+    TestBed.resetTestingModule();
+    alphaService = { niveles, miEstado };
 
     await TestBed.configureTestingModule({
       imports: [PerfilAlphaComponent, RouterTestingModule],
@@ -42,6 +45,9 @@ describe('PerfilAlphaComponent', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
   };
+
+  const crear = (miEstado: AlphaEstadoApi | null): Promise<void> =>
+    montar(jest.fn().mockResolvedValue(NIVELES), jest.fn().mockResolvedValue(miEstado));
 
   const estadoNivel2: AlphaEstadoApi = {
     nivelActual: 2, nombreNivel: 'Alpha 2', descuentoPct: 0.05, beneficios: [],
@@ -105,27 +111,12 @@ describe('PerfilAlphaComponent', () => {
   });
 
   it('debería respetar un nombre propio que haya puesto el admin', async () => {
-    alphaService = {
-      niveles: jest.fn().mockResolvedValue([
+    await montar(
+      jest.fn().mockResolvedValue([
         { nivel: 1, nombre: 'Club Doogking', reservasRequeridas: 0, descuentoPct: 0, beneficios: [] },
       ]),
-      miEstado: jest.fn().mockResolvedValue(null),
-    };
-    await TestBed.configureTestingModule({
-      imports: [PerfilAlphaComponent, RouterTestingModule],
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        { provide: AuthService, useValue: { usuario: signal(null), estaAutenticado: signal(false), esAdmin: signal(false), esComercio: signal(false), logout: jest.fn() } },
-        { provide: AlphaService, useValue: alphaService },
-      ],
-    }).compileComponents();
-    fixture = TestBed.createComponent(PerfilAlphaComponent);
-    componente = fixture.componentInstance;
-    fixture.detectChanges();
-    await fixture.whenStable();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    fixture.detectChanges();
+      jest.fn().mockResolvedValue(null),
+    );
 
     expect(componente.nivelesVista()[0].nombre).toBe('Club Doogking');
   });
@@ -134,5 +125,77 @@ describe('PerfilAlphaComponent', () => {
     await crear(estadoNivel2);
 
     expect((fixture.nativeElement as HTMLElement).textContent ?? '').not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+  });
+
+  describe('iconos de beneficio', () => {
+    const conBeneficios = async (beneficios: string[]): Promise<string[]> => {
+      await montar(
+        jest.fn().mockResolvedValue([
+          { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 0, descuentoPct: 0, beneficios },
+        ]),
+        jest.fn().mockResolvedValue(null),
+      );
+      return componente.nivelesVista()[0].beneficios.map((b) => b.icono);
+    };
+
+    it('debería elegir el icono según el tipo de beneficio, que el admin escribe libre', async () => {
+      expect(await conBeneficios(['Ahorra hasta un 5% en tus reservas'])).toEqual(['percent']);
+      expect(await conBeneficios(['Descuento en peluquería'])).toEqual(['percent']);
+      expect(await conBeneficios(['Prioridad en las campañas'])).toEqual(['zap']);
+      expect(await conBeneficios(['Accede antes que nadie'])).toEqual(['zap']);
+      expect(await conBeneficios(['Promociones de temporada'])).toEqual(['tag']);
+      expect(await conBeneficios(['Ofertas de verano'])).toEqual(['tag']);
+      expect(await conBeneficios(['Ventajas premium'])).toEqual(['sparkles']);
+      expect(await conBeneficios(['Contenido exclusivo'])).toEqual(['sparkles']);
+      expect(await conBeneficios(['Regalo de bienvenida'])).toEqual(['gift']);
+      expect(await conBeneficios(['Sorteos mensuales'])).toEqual(['gift']);
+    });
+
+    it('debería caer en un check genérico si el beneficio no encaja en ninguna categoría', async () => {
+      expect(await conBeneficios(['Atención personalizada'])).toEqual(['check']);
+    });
+  });
+
+  describe('progreso', () => {
+    it('debería quedarse a 0 mientras no se conoce el estado del usuario', async () => {
+      await crear(null);
+
+      expect(componente.progresoPct()).toBe(0);
+      expect(componente.nombreActual()).toBe('');
+      expect(componente.nombreSiguiente()).toBe('');
+      expect(componente.beneficiosSiguiente()).toEqual([]);
+    });
+
+    it('debería dar el 100% si el tramo hacia el siguiente nivel no avanza', async () => {
+      // Dos niveles con el mismo umbral: el tramo es 0 y no se puede dividir.
+      await montar(
+        jest.fn().mockResolvedValue([
+          { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 5, descuentoPct: 0, beneficios: [] },
+          { nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0, beneficios: [] },
+        ]),
+        jest.fn().mockResolvedValue({
+          nivelActual: 1, nombreNivel: 'Alpha 1', descuentoPct: 0, beneficios: [],
+          reservasCompletadas: 5, reservasParaSiguiente: 0,
+          siguienteNivel: { nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0, beneficios: [] },
+          esMaximoNivel: false,
+        }),
+      );
+
+      expect(componente.progresoPct()).toBe(100);
+    });
+  });
+
+  it('debería dejar de cargar aunque la API falle, sin romper el perfil', async () => {
+    // El rechazo se difiere un tick para que se parezca a un fallo HTTP real:
+    // rechazar de forma síncrona haría que zone.js lo viera como no capturado.
+    await montar(
+      jest.fn().mockImplementation(
+        () => new Promise((_, reject) => setTimeout(() => reject(new Error('API caída')), 0)),
+      ),
+      jest.fn().mockResolvedValue(null),
+    );
+
+    expect(componente.cargando()).toBe(false);
+    expect(componente.niveles()).toEqual([]);
   });
 });
