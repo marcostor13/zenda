@@ -108,10 +108,10 @@ interface BusquedaUrl {
         <h4>Extras</h4>
         <div class="filter-chips">
           <rs-chip [active]="soloCancelacionGratis" (chipClick)="soloCancelacionGratis = !soloCancelacionGratis">
-            ✓ Cancelación gratis
+            <rs-icon name="check" [size]="13" [stroke]="3" /> Cancelación gratis
           </rs-chip>
           <rs-chip [active]="soloPaseos" (chipClick)="soloPaseos = !soloPaseos">
-            🐾 Paseos incluidos
+            <rs-icon name="bone" [size]="13" [stroke]="2" /> Paseos incluidos
           </rs-chip>
         </div>
       </div>
@@ -353,7 +353,7 @@ export class AlojamientoListaComponent implements OnInit {
   /** Badges de la tarjeta unificada (HU-3.1/HU-0.9): destacado, descuento, y automáticos por datos reales. */
   badgesDe(a: AlojamientoCard): BadgeAutomatico[] {
     const badges: BadgeAutomatico[] = [];
-    if (a.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
+    if (a.destacado) badges.push({ icon: 'crown', label: 'Premium', variant: 'warning' });
     if (a.descuentoPct) badges.push({ icon: '', label: `-${a.descuentoPct}%`, variant: 'success' });
     badges.push(...calcularBadgesAutomaticos({
       score: a.score, numResenas: a.numResenas, plazasRestantes: a.espaciosDisponibles,
@@ -364,8 +364,8 @@ export class AlojamientoListaComponent implements OnInit {
   /** Servicios como iconos en una línea bajo la foto (HU-3.1). */
   serviciosDe(a: AlojamientoCard): string[] {
     const items = a.amenities.slice(0, 3);
-    if (a.cancelacionGratis) items.push('✓ Cancelación gratis');
-    if (a.paseosIncluidos) items.push('✓ Paseos incluidos');
+    if (a.cancelacionGratis) items.push('Cancelación gratis');
+    if (a.paseosIncluidos) items.push('Paseos incluidos');
     return items;
   }
   readonly totalItems = signal(0);

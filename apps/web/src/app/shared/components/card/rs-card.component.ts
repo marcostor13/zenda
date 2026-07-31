@@ -5,10 +5,12 @@ import { RsBadgeComponent, type BadgeVariant } from '../badge/rs-badge.component
 import { RsRatingComponent } from '../rating/rs-rating.component';
 import { RsFavoritoBtnComponent } from '../favorito-btn/rs-favorito-btn.component';
 import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
+import { RsIconComponent } from '../icon/rs-icon.component';
 
 export interface CardBadge {
   label: string;
   variant?: BadgeVariant;
+  /** Nombre de icono de `rs-icon` (Lucide). Nunca un emoji: TCK-8010. */
   icon?: string;
 }
 
@@ -35,7 +37,7 @@ export interface CardPrice {
 @Component({
   selector: 'rs-card',
   standalone: true,
-  imports: [CommonModule, RouterLink, RsBadgeComponent, RsRatingComponent, RsFavoritoBtnComponent, ImgFallbackDirective],
+  imports: [CommonModule, RouterLink, RsBadgeComponent, RsRatingComponent, RsFavoritoBtnComponent, ImgFallbackDirective, RsIconComponent],
   template: `
     @if (imageUrl()) {
       @if (routerLink()) {
@@ -59,7 +61,10 @@ export interface CardPrice {
           @if (badges().length) {
             <div class="rs-hotel-card__img-badges">
               @for (b of badges(); track b.label) {
-                <rs-badge [variant]="b.variant || 'accent'">{{ b.icon ? b.icon + ' ' : '' }}{{ b.label }}</rs-badge>
+                <rs-badge [variant]="b.variant || 'accent'">
+                  @if (b.icon) { <rs-icon [name]="b.icon" [size]="12" [stroke]="2.5" /> }
+                  {{ b.label }}
+                </rs-badge>
               }
             </div>
           }
@@ -71,7 +76,9 @@ export interface CardPrice {
         </div>
         <div class="rs-hotel-card__body">
           @if (title()) { <h3 class="rs-hotel-card__name">{{ title() }}</h3> }
-          @if (subtitle()) { <p class="rs-hotel-card__loc">📍 {{ subtitle() }}</p> }
+          @if (subtitle()) {
+            <p class="rs-hotel-card__loc"><rs-icon name="map-pin" [size]="14" [stroke]="2" /> {{ subtitle() }}</p>
+          }
           @if (amenities().length) {
             <div class="rs-hotel-card__amenities">
               @for (a of amenities(); track a) { <span class="rs-amenity">{{ a }}</span> }

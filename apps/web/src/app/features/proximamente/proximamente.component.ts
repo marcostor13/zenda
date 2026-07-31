@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { RsSocialIconComponent, type RedSocialKey } from '../../shared/components/social-icon/rs-social-icon.component';
 import { BRAND, CATEGORIA_ICONOS } from '../../shared/media/images';
 import { ListaEsperaService } from './lista-espera.service';
 
@@ -17,6 +19,7 @@ interface VentajaAnunciada {
 /** Perfil social de Doogking mostrado en el bloque de comunidad. */
 interface RedSocial {
   readonly nombre: string;
+  readonly icono: RedSocialKey;
   readonly url: string;
 }
 
@@ -29,14 +32,16 @@ interface RedSocial {
 @Component({
   selector: 'app-proximamente',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RsIconComponent, RsSocialIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="pm">
       <section class="pm__hero">
         <img [src]="logo" alt="Doogking" class="pm__logo" />
 
-        <p class="pm__badge">🚀 Estamos preparando algo muy grande</p>
+        <p class="pm__badge">
+          <rs-icon name="rocket" [size]="15" [stroke]="2.25" /> Estamos preparando algo muy grande
+        </p>
 
         <h1 class="pm__title">
           <span class="pm__title-line pm__title-line--blue">Todo para tu rey,</span>
@@ -52,7 +57,7 @@ interface RedSocial {
         <ul class="pm__ventajas">
           @for (ventaja of ventajas; track ventaja.texto) {
             <li class="pm__ventaja">
-              <span class="pm__ventaja-check" aria-hidden="true">✔</span>
+              <rs-icon class="pm__ventaja-check" name="check" [size]="16" [stroke]="3" />
               {{ ventaja.texto }}
             </li>
           }
@@ -89,10 +94,14 @@ interface RedSocial {
           </p>
 
           @if (suscrito()) {
-            <p class="pm__cta-exito" role="status">🎉 {{ mensaje() }}</p>
+            <p class="pm__cta-exito" role="status">
+              <rs-icon name="party-popper" [size]="18" [stroke]="2" /> {{ mensaje() }}
+            </p>
           } @else {
             <form class="pm__cta-form" [formGroup]="formulario" (ngSubmit)="suscribir()">
-              <label class="pm__cta-label" for="pm-email">📩 Tu email</label>
+              <label class="pm__cta-label" for="pm-email">
+                <rs-icon name="mail" [size]="13" [stroke]="2.25" /> Tu email
+              </label>
               <div class="pm__cta-fila">
                 <input
                   id="pm-email"
@@ -118,15 +127,22 @@ interface RedSocial {
           }
 
           <p class="pm__cta-redes">
-            <span class="pm__cta-redes-label">📱 Síguenos:</span>
+            <span class="pm__cta-redes-label">Síguenos</span>
             @for (red of redes; track red.nombre) {
-              <a class="pm__cta-red" [href]="red.url" target="_blank" rel="noopener">
-                {{ red.nombre }}
+              <a
+                class="pm__cta-red"
+                [href]="red.url"
+                target="_blank"
+                rel="noopener"
+                [attr.title]="red.nombre">
+                <rs-social-icon [name]="red.icono" [size]="20" [etiqueta]="red.nombre" />
               </a>
             }
           </p>
 
-          <p class="pm__cta-legal">🐾 Gracias por tu paciencia — © 2026 Doogking</p>
+          <p class="pm__cta-legal">
+            <rs-icon name="paw" [size]="14" [stroke]="2" /> Gracias por tu paciencia — © 2026 Doogking
+          </p>
         </div>
       </section>
     </div>
@@ -158,7 +174,9 @@ interface RedSocial {
     }
 
     .pm__badge {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
       font-family: var(--font-accent);
       font-weight: var(--w-7);
       text-transform: uppercase;
@@ -218,7 +236,7 @@ interface RedSocial {
       padding: var(--sp-2) var(--sp-5);
     }
 
-    .pm__ventaja-check { color: var(--dk-gold-text); font-weight: var(--w-7); }
+    .pm__ventaja-check { color: var(--dk-gold-text); flex: 0 0 auto; }
 
     /* ── Rejilla de servicios ─────────────────────────────────────── */
     .pm__servicios {
@@ -314,7 +332,9 @@ interface RedSocial {
     }
 
     .pm__cta-label {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
       font-family: var(--font-accent);
       font-weight: var(--w-7);
       text-transform: uppercase;
@@ -362,6 +382,10 @@ interface RedSocial {
     }
 
     .pm__cta-exito {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-2);
       font-size: var(--f-md);
       font-weight: var(--w-6);
       line-height: 1.5;
@@ -384,15 +408,34 @@ interface RedSocial {
 
     .pm__cta-redes-label { color: rgba(255,255,255,.7); font-weight: var(--w-6); }
 
+    /* El logo sustituye al nombre escrito (TCK-8008): el área táctil la da el
+       círculo, no el texto, así que se fija a 44px (mínimo accesible). */
     .pm__cta-red {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--r-full);
       color: var(--dk-gold);
-      font-weight: var(--w-6);
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.20);
       text-decoration: none;
+      transition: color var(--d-2), background var(--d-2), transform var(--d-2);
 
-      &:hover { color: var(--dk-gold-light); text-decoration: underline; }
+      &:hover {
+        color: var(--dk-blue-deep);
+        background: var(--dk-gold);
+        border-color: var(--dk-gold);
+        transform: translateY(-2px);
+      }
     }
 
     .pm__cta-legal {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-2);
       margin-top: var(--sp-8);
       font-size: var(--f-sm);
       color: rgba(255,255,255,.6);
@@ -443,9 +486,9 @@ export class ProximamenteComponent {
   ];
 
   readonly redes: readonly RedSocial[] = [
-    { nombre: 'Instagram', url: 'https://instagram.com/doogking' },
-    { nombre: 'Facebook', url: 'https://facebook.com/doogking' },
-    { nombre: 'TikTok', url: 'https://tiktok.com/@doogking' },
+    { nombre: 'Instagram', icono: 'instagram', url: 'https://instagram.com/doogking' },
+    { nombre: 'Facebook', icono: 'facebook', url: 'https://facebook.com/doogking' },
+    { nombre: 'TikTok', icono: 'tiktok', url: 'https://tiktok.com/@doogking' },
   ];
 
   readonly formulario = this.fb.nonNullable.group({

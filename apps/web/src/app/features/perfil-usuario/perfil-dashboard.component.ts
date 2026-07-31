@@ -1,5 +1,6 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { nombreAlphaPresentacion } from 'shared';
 import { AuthService } from '../../core/auth/auth.service';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -56,10 +57,10 @@ interface ConfigItem {
       </div>
 
       <div class="perfil-header__info">
-        <h1>👋 Hola, {{ primerNombre() }}</h1>
+        <h1>Hola, {{ primerNombre() }}</h1>
         <p>Bienvenido de nuevo a Doogking</p>
         <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
-          <span class="rs-badge rs-badge--success">✔ Cliente verificado</span>
+          <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Cliente verificado</span>
           <span class="rs-badge">Miembro desde 2026</span>
         </div>
       </div>
@@ -75,10 +76,10 @@ interface ConfigItem {
       <a [routerLink]="['/reservas', pr.codigo]" class="rs-card proxima-reserva">
         <img [src]="pr.imagen || fallbackImg" [alt]="pr.titulo" rsImg />
         <div class="proxima-reserva__info">
-          <span class="proxima-reserva__eyebrow">📅 Tu próxima reserva</span>
+          <span class="proxima-reserva__eyebrow"><rs-icon name="calendar" [size]="13" [stroke]="2" /> Tu próxima reserva</span>
           <strong>{{ pr.titulo }}</strong>
           <span class="proxima-reserva__meta">
-            @if (pr.ciudad) { 📍 {{ pr.ciudad }} · }
+            @if (pr.ciudad) { <rs-icon name="map-pin" [size]="13" [stroke]="2" /> {{ pr.ciudad }} · }
             Dentro de {{ diasFaltantes(pr.fechaInicio) }} {{ diasFaltantes(pr.fechaInicio) === 1 ? 'día' : 'días' }}
           </span>
         </div>
@@ -89,7 +90,7 @@ interface ConfigItem {
     <!-- MIS MASCOTAS -->
     <div class="perfil-section" style="margin-bottom:var(--sp-8)">
       <div class="section-row-header">
-        <h2>🐾 Mis mascotas</h2>
+        <h2><rs-icon name="paw" [size]="18" [stroke]="2" /> Mis mascotas</h2>
         <a routerLink="/perros" class="rs-link">Gestionar →</a>
       </div>
 
@@ -111,7 +112,7 @@ interface ConfigItem {
                 @if (m.fotos.length) {
                   <img [src]="m.fotos[0]" [alt]="m.nombre" rsImg />
                 } @else {
-                  <span>🐶</span>
+                  <rs-icon name="dog" [size]="24" [stroke]="1.75" />
                 }
               </div>
               <div class="mascota-card__info">
@@ -132,18 +133,24 @@ interface ConfigItem {
     @if (alpha(); as a) {
       <div class="rs-card alpha-card">
         <div class="alpha-card__head">
-          <span class="alpha-card__crown">👑</span>
+          <span class="alpha-card__crown" aria-hidden="true">
+            <rs-icon name="crown" [size]="20" [stroke]="2" />
+          </span>
           <div class="alpha-card__texto">
-            <span class="alpha-card__nivel">{{ a.nombreNivel }}</span>
+            <span class="alpha-card__club">Programa Doogking Alpha</span>
+            <span class="alpha-card__nivel">{{ nombreAlpha() }}</span>
             <span class="alpha-card__estado">
               @if (a.esMaximoNivel) {
-                Has alcanzado el máximo nivel
+                Has alcanzado el nivel máximo del club
               } @else {
-                Solo te faltan {{ a.reservasParaSiguiente }} reserva{{ a.reservasParaSiguiente === 1 ? '' : 's' }} para desbloquear {{ a.siguienteNivel?.nombre }}
+                Solo te {{ a.reservasParaSiguiente === 1 ? 'falta' : 'faltan' }} {{ a.reservasParaSiguiente }} reserva{{ a.reservasParaSiguiente === 1 ? '' : 's' }} para llegar a {{ nombreSiguienteAlpha() }}
               }
             </span>
           </div>
-          <a routerLink="/perfil/alpha" class="alpha-card__cta">Ver ventajas Alpha →</a>
+          <a routerLink="/perfil/alpha" class="alpha-card__cta">
+            Ver ventajas Alpha
+            <rs-icon name="arrow-right" [size]="14" [stroke]="2" />
+          </a>
         </div>
         <div class="alpha-bar"><div class="alpha-bar__fill" [style.width.%]="progresoAlpha()"></div></div>
         @if (a.beneficios.length > 0) {
@@ -153,14 +160,17 @@ interface ConfigItem {
             }
           </div>
         }
-        <p class="alpha-card__progreso">✔ {{ a.reservasCompletadas }} reserva{{ a.reservasCompletadas === 1 ? '' : 's' }} completada{{ a.reservasCompletadas === 1 ? '' : 's' }}</p>
+        <p class="alpha-card__progreso">
+          <rs-icon name="check" [size]="13" [stroke]="3" />
+          {{ a.reservasCompletadas }} reserva{{ a.reservasCompletadas === 1 ? '' : 's' }} completada{{ a.reservasCompletadas === 1 ? '' : 's' }}
+        </p>
       </div>
     }
 
     <!-- PRÓXIMOS RECORDATORIOS -->
     @if (recordatorios().length) {
       <div class="perfil-section" style="margin-bottom:var(--sp-8)">
-        <h2>🔔 Próximos recordatorios</h2>
+        <h2><rs-icon name="bell" [size]="18" [stroke]="2" /> Próximos recordatorios</h2>
         <div class="recordatorios-list">
           @for (r of recordatorios(); track r.mensaje) {
             <a [routerLink]="r.ruta" class="recordatorio rs-card">
@@ -347,15 +357,28 @@ interface ConfigItem {
       box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.25));
     }
     .alpha-card__head { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; margin-bottom: var(--sp-4); }
-    .alpha-card__crown { font-size: 32px; line-height: 1; }
+    .alpha-card__crown {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; flex: 0 0 auto;
+      border-radius: var(--r-full);
+      background: rgba(255,255,255,.18);
+      border: 2px solid var(--dk-gold, #FBAE17);
+      color: #fff;
+    }
+    .alpha-card__club {
+      font-family: var(--font-accent);
+      font-size: var(--f-xs); font-weight: var(--w-7);
+      text-transform: uppercase; letter-spacing: .1em;
+      color: rgba(255,255,255,.75);
+    }
     .alpha-card__texto { display: flex; flex-direction: column; gap: 2px; }
-    .alpha-card__nivel { font-size: var(--f-lg); font-weight: var(--w-8); }
+    .alpha-card__nivel { font-family: var(--font-accent); font-size: var(--f-lg); font-weight: var(--w-8); letter-spacing: .04em; }
     .alpha-card__estado { font-size: var(--f-sm); opacity: .92; }
-    .alpha-card__cta { margin-left: auto; color: #fff; font-size: var(--f-sm); font-weight: var(--w-6); text-decoration: none; white-space: nowrap; &:hover { text-decoration: underline; } }
+    .alpha-card__cta { display: inline-flex; align-items: center; gap: var(--sp-2); margin-left: auto; color: #fff; font-size: var(--f-sm); font-weight: var(--w-6); text-decoration: none; white-space: nowrap; &:hover { text-decoration: underline; } }
     .alpha-bar { height: 10px; background: rgba(255,255,255,.25); border-radius: var(--r-full); overflow: hidden; margin-bottom: var(--sp-4); }
     .alpha-bar__fill { height: 100%; background: #fff; border-radius: var(--r-full); transition: width .4s; }
     .alpha-card__beneficios { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); .rs-badge { background: rgba(255,255,255,.18); color: #fff; border: none; } }
-    .alpha-card__progreso { font-size: var(--f-xs); opacity: .85; }
+    .alpha-card__progreso { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-xs); opacity: .85; }
 
     .recordatorios-list { display: flex; flex-direction: column; gap: var(--sp-3); }
     .recordatorio {
@@ -430,6 +453,17 @@ export class PerfilDashboardComponent implements OnInit {
   readonly recordatorios = signal<RecordatorioApi[]>([]);
   readonly puntos = signal<PuntosApi | null>(null);
   readonly alpha = signal<AlphaEstadoApi | null>(null);
+
+  /** Nombre del nivel Alpha en numeración romana (TCK-8011). */
+  readonly nombreAlpha = computed(() => {
+    const a = this.alpha();
+    return a ? nombreAlphaPresentacion(a.nombreNivel, a.nivelActual) : '';
+  });
+
+  readonly nombreSiguienteAlpha = computed(() => {
+    const s = this.alpha()?.siguienteNivel;
+    return s ? nombreAlphaPresentacion(s.nombre, s.nivel) : '';
+  });
 
   readonly progresoPuntos = computed(() => {
     const p = this.puntos();

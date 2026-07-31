@@ -929,7 +929,7 @@ describe('ReservaWizardComponent', () => {
 
       expect(componente.paso1Label()).toBe('Tu estancia');
       expect(componente.paso1Titulo()).toContain('pet-friendly');
-      expect(componente.emojiVertical()).toBe('🏨');
+      expect(componente.iconoVertical()).toBe('hotel');
       expect(componente.peticionesPlaceholder()).toContain('mascota');
     });
 
@@ -963,7 +963,7 @@ describe('ReservaWizardComponent', () => {
       await crear(params, query);
 
       expect(componente.lineaResumen()).toContain('Cita veterinaria');
-      expect(componente.emojiVertical()).toBe('🩺');
+      expect(componente.iconoVertical()).toBe('stethoscope');
       expect(componente.peticionesPlaceholder()).toContain('Síntomas');
     });
 
@@ -989,7 +989,7 @@ describe('ReservaWizardComponent', () => {
 
       expect(componente.paso1Label()).toBe('Selección');
       expect(componente.paso1Titulo()).toContain('Resumen');
-      expect(componente.emojiVertical()).toBe('🐾');
+      expect(componente.iconoVertical()).toBe('paw');
       expect(componente.precioPorLabel()).toBe('');
       expect(componente.lineaResumen()).toBe('€50');
       expect(componente.paso1Valido()).toBe(false);

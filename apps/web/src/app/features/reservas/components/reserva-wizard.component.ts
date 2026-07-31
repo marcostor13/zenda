@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento } from 'shared';
+import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import {
   LugarElegido, RsPlaceAutocompleteComponent,
@@ -102,7 +103,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule,
-    RsNavbarComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+    RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
   ],
   template: `
 <div class="wizard-page">
@@ -113,17 +114,17 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     <!-- STEPS INDICATOR -->
     <div class="rs-steps wizard-steps">
       <div class="rs-steps__item" [class.active]="paso() >= 1" [class.done]="paso() > 1">
-        <div class="rs-steps__num">{{ paso() > 1 ? '✓' : '1' }}</div>
+        <div class="rs-steps__num">@if (paso() > 1) { <rs-icon name="check" [size]="14" [stroke]="3" /> } @else { 1 }</div>
         <span>{{ paso1Label() }}</span>
       </div>
       <div class="rs-steps__line"></div>
       <div class="rs-steps__item" [class.active]="paso() >= 2" [class.done]="paso() > 2">
-        <div class="rs-steps__num">{{ paso() > 2 ? '✓' : '2' }}</div>
+        <div class="rs-steps__num">@if (paso() > 2) { <rs-icon name="check" [size]="14" [stroke]="3" /> } @else { 2 }</div>
         <span>Tus datos</span>
       </div>
       <div class="rs-steps__line"></div>
       <div class="rs-steps__item" [class.active]="paso() >= 3" [class.done]="paso() > 3">
-        <div class="rs-steps__num">{{ paso() > 3 ? '✓' : '3' }}</div>
+        <div class="rs-steps__num">@if (paso() > 3) { <rs-icon name="check" [size]="14" [stroke]="3" /> } @else { 3 }</div>
         <span>Pago</span>
       </div>
       <div class="rs-steps__line"></div>
@@ -146,8 +147,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <h3>{{ nombreServicio() || 'Servicio seleccionado' }}</h3>
               <p>€{{ precioBase() }} / {{ precioPorLabel() }}</p>
               <div class="reserva-summary__tags">
-                <span class="rs-badge rs-badge--accent">{{ emojiVertical() }} {{ verticaLabel() }}</span>
-                <span class="rs-badge rs-badge--success">✅ Profesional verificado</span>
+                <span class="rs-badge rs-badge--accent"><rs-icon [name]="iconoVertical()" [size]="13" [stroke]="2" /> {{ verticaLabel() }}</span>
+                <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Profesional verificado</span>
               </div>
             </div>
           </div>
@@ -173,7 +174,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                             (click)="seleccionarPerro(p._id)">
                       <img [src]="p.fotos?.[0] || imgFallback" [alt]="p.nombre" rsImg />
                       <span class="perro-card__body">
-                        <strong>🐶 {{ p.nombre }}</strong>
+                        <strong><rs-icon name="dog" [size]="16" [stroke]="2" /> {{ p.nombre }}</strong>
                         <span class="perro-card__meta">
                           {{ p.raza || 'Raza no indicada' }}
                           @if (edadDe(p); as edad) { · {{ edad }} }
@@ -181,7 +182,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                         </span>
                       </span>
                       @if (perroSeleccionado() === p._id) {
-                        <span class="perro-card__check">✓</span>
+                        <span class="perro-card__check"><rs-icon name="check" [size]="13" [stroke]="3" /></span>
                       }
                     </button>
                   }
@@ -242,7 +243,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                       @for (extra of serviciosAdicionalesAlojamiento(); track extra.nombre) {
                         <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
                           <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
-                          <div class="extra-item__icon">✨</div>
+                          <div class="extra-item__icon"><rs-icon name="sparkles" [size]="20" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
                             <div class="extra-item__price">€{{ extra.precio }}</div>
@@ -424,10 +425,10 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
 
                 @if (politicaTemperamentoLabel(); as texto) {
-                  <div class="rs-alert rs-alert--info">🐾 {{ texto }}</div>
+                  <div class="rs-alert rs-alert--info"><rs-icon name="paw" [size]="15" [stroke]="2" /> {{ texto }}</div>
                 }
                 @if (peluqueriaDetalle()?.bozalObligatorioSiAgresivo) {
-                  <div class="rs-alert rs-alert--info">🦮 Si tu perro es agresivo con la manipulación, deberás traerlo con bozal.</div>
+                  <div class="rs-alert rs-alert--info"><rs-icon name="alert-circle" [size]="15" [stroke]="2" /> Si tu perro es agresivo con la manipulación, deberás traerlo con bozal.</div>
                 }
                 @if (peluqueriaDetalle()?.serviciosAdicionales?.length) {
                   <div class="rs-field">
@@ -641,7 +642,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <label class="payment-option" [class.selected]="metodoPago() === 'card'">
                 <input type="radio" name="metodo" value="card" [(ngModel)]="metodoPagoVal"
                        (change)="metodoPago.set('card')" />
-                <div class="payment-option__icon">💳</div>
+                <div class="payment-option__icon"><rs-icon name="credit-card" [size]="20" [stroke]="2" /></div>
                 <div>
                   <div class="payment-option__name">Tarjeta de crédito / débito</div>
                   <div class="payment-option__brands">Visa · Mastercard · American Express</div>
@@ -659,7 +660,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <div class="stripe-placeholder">
                 <div class="stripe-placeholder__header">
                   <span>Datos de tarjeta</span>
-                  <span class="rs-badge rs-badge--accent">🔒 Stripe · Cifrado SSL</span>
+                  <span class="rs-badge rs-badge--accent"><rs-icon name="lock" [size]="13" [stroke]="2" /> Stripe · Cifrado SSL</span>
                 </div>
 
                 <div id="stripe-payment-element"></div>
@@ -677,7 +678,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             }
 
             <div class="rs-alert rs-alert--info" style="margin-block:var(--sp-5);display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap">
-              <span>🔒 Tu pago está protegido por</span>
+              <span><rs-icon name="lock" [size]="14" [stroke]="2" /> Tu pago está protegido por</span>
               <svg width="42" height="17" viewBox="0 0 468 222" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Stripe" style="flex-shrink:0">
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M0 22.1C0 9.9 9.9 0 22.1 0h423.8c12.2 0 22.1 9.9 22.1 22.1v177.8c0 12.2-9.9 22.1-22.1 22.1H22.1C9.9 222 0 212.1 0 199.9V22.1z" fill="#635BFF"/>
                 <path d="M224.4 88.6c0-4.1 3.4-5.7 9-5.7 8 0 18.2 2.4 26.2 6.7V63.7c-8.8-3.5-17.5-4.9-26.2-4.9-21.4 0-35.7 11.2-35.7 29.9 0 29.2 40.2 24.5 40.2 37.1 0 4.8-4.2 6.4-10.1 6.4-8.7 0-19.8-3.6-28.6-8.4v26.3c9.7 4.2 19.5 5.9 28.6 5.9 21.8 0 36.8-10.8 36.8-29.7-.1-31.5-40.2-25.9-40.2-37.7zM290 42.6l-26.8 5.7v21.5h-14.7v22.8h14.7v42.8c0 18.9 13.7 26.1 32.6 26.1 8 0 15.7-1.4 21-4.2v-22.5c-3.8 1.9-11.8 3.6-17.2 3.6-6.5 0-9.6-2.4-9.6-9.3V92.6h26.8V69.8H290V42.6zM339.4 78.5l-1.5-8.7h-24.1v89.7h27.8v-56.2c7.3-9.6 19.6-7.8 23.4-6.5V69.4c-4-1.4-18.3-4-25.6 9.1zM393.5 59.3c-8.9 0-14.7 5.8-14.7 14.5 0 8.6 5.8 14.5 14.7 14.5 8.9 0 14.7-5.9 14.7-14.5 0-8.7-5.8-14.5-14.7-14.5zm-13.9 100.2h27.8V69.8h-27.8v89.7zM131.7 113c0 15.2 10.4 25.6 23.9 25.6 13.6 0 22.1-7.9 24.4-19.7H153c-1.3 5-3.8 8-7.8 8-5.3 0-8.3-3.6-8.8-10.1h44.3c.2-2.1.3-4.2.3-6.2 0-22.8-12.5-35.6-31.2-35.6-18.6 0-29.4 12.3-29.4 29.3l-.1.1-.1.1.2 8.5zm12.3-11.8c1.3-6.2 4.7-10 9.3-10 5.2 0 8.3 3.7 8.6 10h-17.9zM108.3 78.1c-4.4-1.9-13.5-3.5-21.2 0-8.7 4-13.6 12.3-13.6 22.4v59h27.8v-55.4c0-6.4 4.2-10.1 9.4-10.1 2.9 0 5.3.8 7.1 2.2l.5-18.1z" fill="white"/>
@@ -695,7 +696,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 } @else if (!stripeListo()) {
                   Preparando pago…
                 } @else {
-                  🔒 Pagar €{{ total() }}
+                  <rs-icon name="lock" [size]="16" [stroke]="2.25" /> Pagar €{{ total() }}
                 }
               </button>
             </div>
@@ -705,7 +706,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
         <!-- ═══════════ PASO 4 ═══════════ -->
         @if (paso() === 4) {
           <div class="wizard-card confirmation">
-            <div class="confirmation__icon">🎉</div>
+            <div class="confirmation__icon"><rs-icon name="party-popper" [size]="40" [stroke]="1.75" /></div>
             <h2>¡Reserva confirmada!</h2>
             <p>Tu reserva ha sido procesada exitosamente. Recibirás la confirmación en tu correo.</p>
 
@@ -716,15 +717,15 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
             <div class="confirmation__details rs-card">
               <div class="cd-row">
-                <span>{{ emojiVertical() }} Servicio</span>
+                <span><rs-icon [name]="iconoVertical()" [size]="14" [stroke]="2" /> Servicio</span>
                 <strong>{{ nombreServicio() || verticaLabel() }}</strong>
               </div>
               <div class="cd-row">
-                <span>📋 Detalle</span>
+                <span><rs-icon name="file-text" [size]="14" [stroke]="2" /> Detalle</span>
                 <strong>{{ lineaResumen() }}</strong>
               </div>
               <div class="cd-row">
-                <span>💰 Total pagado</span>
+                <span><rs-icon name="wallet" [size]="14" [stroke]="2" /> Total pagado</span>
                 <strong class="rs-gradient-text">€{{ total() }}</strong>
               </div>
             </div>
@@ -808,7 +809,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <div class="cupon-box">
               @if (descuento() > 0) {
                 <div class="rs-alert rs-alert--success" style="font-size:var(--f-xs)">
-                  ✓ Cupón {{ cuponCodigo() }} aplicado
+                  <rs-icon name="check" [size]="14" [stroke]="3" /> Cupón {{ cuponCodigo() }} aplicado
                   <button class="cupon-box__quitar" (click)="quitarCupon()">Quitar</button>
                 </div>
               } @else {
@@ -831,11 +832,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <hr class="rs-hr" style="margin-block:var(--sp-5)">
 
             <div class="price-trust">
-              <p>✓ Sin cargos ocultos</p>
-              <p>✓ Pago 100% seguro vía Stripe</p>
-              <p>✓ Confirmación inmediata por correo</p>
-              <p>🔒 No se realizará ningún cargo hasta confirmar el siguiente paso</p>
-              <p>🛡️ Protección Doogking: tu dinero está protegido hasta que el servicio se complete según la política de cancelación</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Sin cargos ocultos</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Pago 100% seguro vía Stripe</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Confirmación inmediata por correo</p>
+              <p><rs-icon name="lock" [size]="13" [stroke]="2" /> No se realizará ningún cargo hasta confirmar el siguiente paso</p>
+              <p><rs-icon name="shield-check" [size]="13" [stroke]="2" /> Protección Doogking: tu dinero está protegido hasta que el servicio se complete según la política de cancelación</p>
             </div>
           </div>
         </div>
@@ -1396,16 +1397,17 @@ export class ReservaWizardComponent implements OnInit {
     return m[this.vertical()] ?? 'Resumen de tu reserva';
   });
 
-  readonly emojiVertical = computed(() => {
+  /** Icono Lucide del vertical de la reserva (TCK-8010: ya no es un emoji). */
+  readonly iconoVertical = computed(() => {
     const m: Record<string, string> = {
-      [VerticalKey.ALOJAMIENTO]: '🏠',
-      [VerticalKey.TRANSPORTE]: '🚐',
-      [VerticalKey.VETERINARIA]: '🩺',
-      [VerticalKey.PELUQUERIA]: '✂️',
-      [VerticalKey.ADIESTRAMIENTO]: '🎓',
-      [VerticalKey.HOTELES]: '🏨',
+      [VerticalKey.ALOJAMIENTO]: 'home',
+      [VerticalKey.TRANSPORTE]: 'truck',
+      [VerticalKey.VETERINARIA]: 'stethoscope',
+      [VerticalKey.PELUQUERIA]: 'scissors',
+      [VerticalKey.ADIESTRAMIENTO]: 'graduation-cap',
+      [VerticalKey.HOTELES]: 'hotel',
     };
-    return m[this.vertical()] ?? '🐾';
+    return m[this.vertical()] ?? 'paw';
   });
 
   readonly verticaLabel = computed(() =>

@@ -108,13 +108,13 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
           @if (seguimiento().length) {
             <div class="rs-card seguimiento-card">
               <h3 class="seguimiento-card__title">
-                🛰️ Seguimiento en vivo
+                <rs-icon name="radio-tower" [size]="16" [stroke]="2" /> Seguimiento en vivo
                 @if (esActiva()) { <span class="live-dot" title="Actualizando en tiempo real"></span> }
               </h3>
               <ol class="seg-timeline">
                 @for (h of seguimiento(); track $index) {
                   <li>
-                    <span class="seg-timeline__dot">🟢</span>
+                    <span class="seg-timeline__dot"><rs-icon name="circle" [size]="10" [stroke]="3" /></span>
                     <span class="seg-timeline__label">{{ hitoLabel(h.hito) }}</span>
                     <span class="seg-timeline__time">{{ h.at | date:'d MMM, HH:mm':'':'es' }}</span>
                     @if (h.nota) { <span class="seg-timeline__nota">{{ h.nota }}</span> }

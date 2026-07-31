@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { RsCardComponent, type CardBadge } from '../../shared/components/card/rs-card.component';
 import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
@@ -60,39 +61,39 @@ const CONFIGS: Record<string, VerticalConfig> = {
   veterinaria: {
     vertical: 'veterinaria',
     cta: 'Pedir cita', priceLabel: 'consulta desde',
-    confirmMsg: '✓ Cita solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => `🩺 ${(c.extra['especialidades'] as string[] | undefined)?.[0] ?? 'Medicina general'}`,
+    confirmMsg: 'Cita solicitada. Continúa al pago para confirmarla.',
+    badge: (c) => `${(c.extra['especialidades'] as string[] | undefined)?.[0] ?? 'Medicina general'}`,
     titulo3: (c) => c.nombre,
-    loc: (c) => `📍 ${c.ciudad}`,
+    loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `💉 ${resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).nombres || 'Consulta general'}`,
-      c.extra['atiendeUrgencias'] ? '🚑 Urgencias 24h' : `🕐 ${(c.extra['horario'] as string) ?? 'Consulta horario'}`,
+      `${resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).nombres || 'Consulta general'}`,
+      c.extra['atiendeUrgencias'] ? 'Urgencias 24h' : `${(c.extra['horario'] as string) ?? 'Consulta horario'}`,
     ],
     price: (c) => (c.extra['precioConsulta'] as number) ?? c.precioPorNoche,
   },
   peluqueria: {
     vertical: 'peluqueria',
     cta: 'Reservar cita', priceLabel: 'servicio desde',
-    confirmMsg: '✓ Cita de peluquería solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => `✂️ ${resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).primero ?? 'Corte y baño'}`,
+    confirmMsg: 'Cita de peluquería solicitada. Continúa al pago para confirmarla.',
+    badge: (c) => `${resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).primero ?? 'Corte y baño'}`,
     titulo3: (c) => c.nombre,
-    loc: (c) => `📍 ${c.ciudad}`,
+    loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `🛁 ${resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).nombres || 'Baño completo'}`,
-      c.extra['aDomicilio'] ? '🏠 A domicilio' : '🐩 En salón',
+      `${resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).nombres || 'Baño completo'}`,
+      c.extra['aDomicilio'] ? 'A domicilio' : 'En salón',
     ],
     price: (c) => resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).precioMin,
   },
   adiestramiento: {
     vertical: 'adiestramiento',
     cta: 'Reservar sesión', priceLabel: 'sesión desde',
-    confirmMsg: '✓ Sesión solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => `🎓 ${(c.extra['tiposAdiestramiento'] as string[] | undefined)?.[0] ?? 'Obediencia básica'}`,
+    confirmMsg: 'Sesión solicitada. Continúa al pago para confirmarla.',
+    badge: (c) => `${(c.extra['tiposAdiestramiento'] as string[] | undefined)?.[0] ?? 'Obediencia básica'}`,
     titulo3: (c) => c.nombre,
-    loc: (c) => `📍 ${c.ciudad}`,
+    loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `🐕 ${c.extra['modalidad'] === 'programa' ? 'Programa completo' : 'Por sesión'}`,
-      `🦮 Desde ${(c.extra['edadMinimaMeses'] as number) ?? 3} meses`,
+      `${c.extra['modalidad'] === 'programa' ? 'Programa completo' : 'Por sesión'}`,
+      `Desde ${(c.extra['edadMinimaMeses'] as number) ?? 3} meses`,
     ],
     price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
     tieneFicha: true,
@@ -100,13 +101,13 @@ const CONFIGS: Record<string, VerticalConfig> = {
   hoteles: {
     vertical: 'hoteles',
     cta: 'Reservar hotel', priceLabel: 'habitación desde',
-    confirmMsg: '✓ Hotel solicitado. Continúa al pago para confirmarlo.',
-    badge: (c) => (c.extra['admiteMascotas'] ?? true) ? '🐾 Pet-friendly' : '🏨 Hotel',
+    confirmMsg: 'Hotel solicitado. Continúa al pago para confirmarlo.',
+    badge: (c) => (c.extra['admiteMascotas'] ?? true) ? 'Pet-friendly' : 'Hotel',
     titulo3: (c) => c.nombre,
-    loc: (c) => `📍 ${c.ciudad}`,
+    loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `🐾 Hasta ${(c.extra['maxMascotasPorReserva'] as number | undefined) ?? 'sin límite de'} mascota(s)`,
-      `🎁 ${((c.extra['serviciosPetfriendly'] as string[] | undefined) ?? [])[0] ?? 'Servicios pet-friendly'}`,
+      `Hasta ${(c.extra['maxMascotasPorReserva'] as number | undefined) ?? 'sin límite de'} mascota(s)`,
+      `${((c.extra['serviciosPetfriendly'] as string[] | undefined) ?? [])[0] ?? 'Servicios pet-friendly'}`,
     ],
     price: (c) => c.precioPorNoche,
     tieneFicha: true,
@@ -116,26 +117,26 @@ const CONFIGS: Record<string, VerticalConfig> = {
     // No se "reserva": se contrata, y el precio es orientativo hasta que la
     // aseguradora valida los datos declarados (HU-040).
     cta: 'Ver cobertura', priceLabel: 'prima anual desde',
-    confirmMsg: '✓ Solicitud enviada. La aseguradora validará los datos antes de emitir la póliza.',
-    badge: (c) => `🛡️ ${((c.extra['tiposSeguro'] as string[] | undefined) ?? []).length} coberturas`,
+    confirmMsg: 'Solicitud enviada. La aseguradora validará los datos antes de emitir la póliza.',
+    badge: (c) => `${((c.extra['tiposSeguro'] as string[] | undefined) ?? []).length} coberturas`,
     titulo3: (c) => c.nombre,
-    loc: (c) => `📍 ${c.ciudad}`,
+    loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `📅 ${(c.extra['duracionMeses'] as number | undefined) ?? 12} meses de vigencia`,
-      (c.extra['renovacionAutomatica'] ?? true) ? '🔁 Renovación automática' : '🔁 Sin renovación automática',
+      `${(c.extra['duracionMeses'] as number | undefined) ?? 12} meses de vigencia`,
+      (c.extra['renovacionAutomatica'] ?? true) ? 'Renovación automática' : 'Sin renovación automática',
     ],
     price: (c) => (c.extra['primaAnualBase'] as number) ?? c.precioPorNoche,
   },
   cuidadores: {
     vertical: 'cuidadores',
     cta: 'Reservar visita', priceLabel: 'visita desde',
-    confirmMsg: '✓ Visita solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => (c.extra['administraMedicacion'] ? '💊 Administra medicación' : '🏠 A domicilio'),
+    confirmMsg: 'Visita solicitada. Continúa al pago para confirmarla.',
+    badge: (c) => (c.extra['administraMedicacion'] ? 'Administra medicación' : 'A domicilio'),
     titulo3: (c) => c.nombre,
-    loc: (c) => `📍 ${c.ciudad}`,
+    loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `⏱️ ${(c.extra['duracionVisitaMin'] as number | undefined) ?? 45} min por visita`,
-      `🚗 Hasta ${(c.extra['radioDesplazamientoKm'] as number | undefined) ?? 10} km`,
+      `${(c.extra['duracionVisitaMin'] as number | undefined) ?? 45} min por visita`,
+      `Hasta ${(c.extra['radioDesplazamientoKm'] as number | undefined) ?? 10} km`,
     ],
     price: (c) => (c.extra['precioVisita'] as number) ?? c.precioPorNoche,
   },
@@ -145,7 +146,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
   selector: 'app-vertical-browse',
   standalone: true,
   imports: [
-    RsNavbarComponent, RsSearchBarComponent,
+    RsNavbarComponent, RsSearchBarComponent, RsIconComponent,
     AnimateOnScrollDirective, ExperienciasCercaComponent, RsCardComponent,
   ],
   template: `
@@ -205,10 +206,10 @@ const CONFIGS: Record<string, VerticalConfig> = {
             </rs-card>
           }
           @if (items().length === 0 && !error()) {
-            <div class="vb-empty"><div style="font-size:3rem">🔍</div><h3>Sin resultados</h3><p>Prueba con otra ciudad.</p></div>
+            <div class="vb-empty"><rs-icon name="search" [size]="48" [stroke]="1.5" style="color:var(--t-400)" /><h3>Sin resultados</h3><p>Prueba con otra ciudad.</p></div>
           }
           @if (error()) {
-            <div class="vb-empty"><div style="font-size:3rem">⚠️</div><h3>No se pudo cargar el catálogo</h3><p>Inténtalo de nuevo en unos momentos.</p></div>
+            <div class="vb-empty"><rs-icon name="alert-triangle" [size]="48" [stroke]="1.5" style="color:var(--t-400)" /><h3>No se pudo cargar el catálogo</h3><p>Inténtalo de nuevo en unos momentos.</p></div>
           }
         </div>
       }
@@ -329,7 +330,7 @@ export class VerticalBrowseComponent implements OnInit {
     const badges: CardBadge[] = [];
     const categoria = this.cfg().badge(c);
     if (categoria) badges.push({ label: categoria });
-    if (c.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
+    if (c.destacado) badges.push({ icon: 'crown', label: 'Premium', variant: 'warning' });
     badges.push(...calcularBadgesAutomaticos({ score: c.score, numResenas: c.numResenas }));
     return badges;
   }

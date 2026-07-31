@@ -2,6 +2,7 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
+import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { alojamientoImage } from '../../../shared/media/images';
@@ -18,7 +19,8 @@ interface ReservaCard {
   servicioId: string;
   verticalKey: string;
   vertical: string;
-  emoji: string;
+  /** Nombre de icono de `rs-icon` (Lucide) del vertical. */
+  icono: string;
   titulo: string;
   subtitulo: string;
   imagen: string;
@@ -39,7 +41,7 @@ interface ReservaCard {
 @Component({
   selector: 'app-mis-reservas',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsNavbarComponent, ImgFallbackDirective],
+  imports: [RouterLink, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -84,17 +86,17 @@ interface ReservaCard {
 
           <div class="reserva-row__info">
             <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-2)">
-              <span class="rs-badge rs-badge--purple" style="font-size:var(--f-xs)">{{ r.emoji }} {{ r.vertical }}</span>
+              <span class="rs-badge rs-badge--purple" style="font-size:var(--f-xs)"><rs-icon [name]="r.icono" [size]="13" [stroke]="2" /> {{ r.vertical }}</span>
               <span class="{{ 'rs-badge ' + estadoBadge(r.estado) }}">{{ estadoLabel(r.estado) }}</span>
             </div>
             <h3 class="reserva-row__titulo">{{ r.titulo }}</h3>
             <div class="reserva-row__meta">
-              @if (r.mascota) { <span class="reserva-row__mascota">🐶 {{ r.mascota }}</span> }
-              @if (r.ciudad) { <span class="reserva-row__ciudad">📍 {{ r.ciudad }}</span> }
+              @if (r.mascota) { <span class="reserva-row__mascota"><rs-icon name="dog" [size]="14" [stroke]="2" /> {{ r.mascota }}</span> }
+              @if (r.ciudad) { <span class="reserva-row__ciudad"><rs-icon name="map-pin" [size]="14" [stroke]="2" /> {{ r.ciudad }}</span> }
               <span class="reserva-row__subtitulo">{{ r.subtitulo }}</span>
             </div>
             <div class="reserva-row__fechas">
-              <span>📅 {{ r.fechaInicio }}</span>
+              <span><rs-icon name="calendar" [size]="14" [stroke]="2" /> {{ r.fechaInicio }}</span>
               @if (r.fechaFin !== r.fechaInicio) {
                 <span>→ {{ r.fechaFin }}</span>
               }
@@ -104,7 +106,7 @@ interface ReservaCard {
               <div class="timeline">
                 @for (paso of pasosTimeline(r); track paso.label; let last = $last) {
                   <span class="timeline__paso" [class.timeline__paso--hecho]="paso.hecho" [class.timeline__paso--actual]="paso.actual">
-                    {{ paso.hecho ? '✔' : '○' }} {{ paso.label }}
+                    <rs-icon [name]="paso.hecho ? 'check' : 'circle'" [size]="13" [stroke]="2.5" /> {{ paso.label }}
                   </span>
                   @if (!last) { <span class="timeline__linea" [class.timeline__linea--hecha]="paso.hecho"></span> }
                 }
@@ -116,9 +118,15 @@ interface ReservaCard {
             <div class="reserva-row__codigo">{{ r.codigo }}</div>
             <div class="reserva-row__precio">€{{ r.total }}</div>
             <div class="reserva-row__quick">
-              <button type="button" class="quick-btn" title="Cómo llegar" (click)="comoLlegar(r)">🚗</button>
-              <button type="button" class="quick-btn" title="Añadir al calendario" (click)="anadirACalendario(r)">🗓️</button>
-              <button type="button" class="quick-btn" title="Compartir" (click)="compartir(r)">🔗</button>
+              <button type="button" class="quick-btn" title="Cómo llegar" aria-label="Cómo llegar" (click)="comoLlegar(r)">
+                <rs-icon name="navigation" [size]="16" [stroke]="2" />
+              </button>
+              <button type="button" class="quick-btn" title="Añadir al calendario" aria-label="Añadir al calendario" (click)="anadirACalendario(r)">
+                <rs-icon name="calendar-plus" [size]="16" [stroke]="2" />
+              </button>
+              <button type="button" class="quick-btn" title="Compartir" aria-label="Compartir" (click)="compartir(r)">
+                <rs-icon name="share" [size]="16" [stroke]="2" />
+              </button>
             </div>
             <div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-3)">
               <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--outline rs-btn--sm">Ver detalle</a>
@@ -133,10 +141,10 @@ interface ReservaCard {
                 <button class="rs-btn rs-btn--gold rs-btn--sm" (click)="abrirResena(r.id)">Dejar reseña</button>
               }
               @if (r.estado === 'completada' && r.yaResenada) {
-                <span class="rs-badge rs-badge--success" style="font-size:var(--f-xs)">✓ Reseñada</span>
+                <span class="rs-badge rs-badge--success" style="font-size:var(--f-xs)"><rs-icon name="check" [size]="12" [stroke]="3" /> Reseñada</span>
               }
               @if (r.estado === 'completada') {
-                <a [routerLink]="rutaReservarDeNuevo(r)" class="rs-btn rs-btn--outline rs-btn--sm">↻ Reservar de nuevo</a>
+                <a [routerLink]="rutaReservarDeNuevo(r)" class="rs-btn rs-btn--outline rs-btn--sm"><rs-icon name="refresh-cw" [size]="14" [stroke]="2" /> Reservar de nuevo</a>
               }
             </div>
           </div>
@@ -144,11 +152,11 @@ interface ReservaCard {
 
         @if (necesitaChecklist(r)) {
           <div class="checklist-antes-de-ir">
-            <strong>🐶 Antes de ir recuerda llevar:</strong>
-            <span>✔ Cartilla sanitaria</span>
-            <span>✔ Su pienso habitual</span>
-            <span>✔ Medicación (si toma)</span>
-            <span>✔ Correa y collar</span>
+            <strong><rs-icon name="dog" [size]="16" [stroke]="2" /> Antes de ir recuerda llevar:</strong>
+            <span><rs-icon name="check" [size]="13" [stroke]="3" /> Cartilla sanitaria</span>
+            <span><rs-icon name="check" [size]="13" [stroke]="3" /> Su pienso habitual</span>
+            <span><rs-icon name="check" [size]="13" [stroke]="3" /> Medicación (si toma)</span>
+            <span><rs-icon name="check" [size]="13" [stroke]="3" /> Correa y collar</span>
           </div>
         }
 
@@ -178,7 +186,7 @@ interface ReservaCard {
 
       @if (reservasFiltradas().length === 0) {
         <div class="empty-state">
-          <div style="font-size:3rem;margin-bottom:var(--sp-4)">🔍</div>
+          <rs-icon name="search" [size]="48" [stroke]="1.5" style="color:var(--t-400);margin-bottom:var(--sp-4)" />
           <h3>No hay reservas {{ filtroActivo() !== 'todas' ? 'con este estado' : '' }}</h3>
           <p>Cuando hagas tu primera reserva aparecerá aquí.</p>
           <a routerLink="/alojamiento" class="rs-btn rs-btn--gold" style="margin-top:var(--sp-5)">Explorar alojamientos</a>
@@ -316,7 +324,7 @@ export class MisReservasComponent implements OnInit {
       servicioId: 'servicio-mock-1',
       verticalKey: VerticalKey.ALOJAMIENTO,
       vertical: 'Alojamiento canino',
-      emoji: '🏠',
+      icono: 'home',
       titulo: 'Residencia Canina Villa Perruna',
       subtitulo: 'Suite estándar · 2 noches · 1 perro',
       imagen: alojamientoImage(0, 400),
@@ -334,7 +342,7 @@ export class MisReservasComponent implements OnInit {
       servicioId: 'servicio-mock-2',
       verticalKey: VerticalKey.TRANSPORTE,
       vertical: 'Transporte de animales',
-      emoji: '🚐',
+      icono: 'truck',
       titulo: 'Traslado canino Madrid Centro',
       subtitulo: 'Madrid → Toledo · Van acondicionada',
       imagen: alojamientoImage(7, 400),
@@ -352,7 +360,7 @@ export class MisReservasComponent implements OnInit {
       servicioId: 'servicio-mock-3',
       verticalKey: VerticalKey.PELUQUERIA,
       vertical: 'Peluquerías caninas',
-      emoji: '✂️',
+      icono: 'scissors',
       titulo: 'Peluquería Canina Real Grooming',
       subtitulo: 'Baño y corte · Perro mediano',
       imagen: alojamientoImage(8, 400),
@@ -370,11 +378,11 @@ export class MisReservasComponent implements OnInit {
 
   readonly filtros: { valor: EstadoFiltro; label: string; dot: string; color: string }[] = [
     { valor: 'todas',             label: 'Todas',       dot: '',   color: 'var(--c-accent)' },
-    { valor: 'confirmada',        label: 'Confirmadas', dot: '🟢', color: 'var(--c-success, #16A34A)' },
-    { valor: 'pendiente',         label: 'Pendientes',  dot: '🟡', color: 'var(--c-warning, #CA8A04)' },
-    { valor: 'ajuste_solicitado', label: 'Con ajuste',  dot: '🟠', color: 'var(--c-warning, #EA580C)' },
-    { valor: 'completada',        label: 'Completadas', dot: '🔵', color: 'var(--c-accent)' },
-    { valor: 'cancelada',         label: 'Canceladas',  dot: '🔴', color: 'var(--c-red, #DC2626)' },
+    { valor: 'confirmada',        label: 'Confirmadas', dot: '●', color: 'var(--c-success, #16A34A)' },
+    { valor: 'pendiente',         label: 'Pendientes',  dot: '●', color: 'var(--c-warning, #CA8A04)' },
+    { valor: 'ajuste_solicitado', label: 'Con ajuste',  dot: '●', color: 'var(--c-warning, #EA580C)' },
+    { valor: 'completada',        label: 'Completadas', dot: '●', color: 'var(--c-accent)' },
+    { valor: 'cancelada',         label: 'Canceladas',  dot: '●', color: 'var(--c-red, #DC2626)' },
   ];
 
   readonly reservas = signal<ReservaCard[]>(this.useMock ? this.MOCK_RESERVAS : []);
@@ -411,11 +419,11 @@ export class MisReservasComponent implements OnInit {
 
   estadoLabel(estado: string): string {
     const map: Record<string, string> = {
-      confirmada: '✓ Confirmada',
-      pendiente:  '⏳ Pendiente',
-      ajuste_solicitado: '⚠ Ajuste pendiente',
-      cancelada:  '✗ Cancelada',
-      completada: '★ Completada',
+      confirmada: 'Confirmada',
+      pendiente:  'Pendiente',
+      ajuste_solicitado: 'Ajuste pendiente',
+      cancelada:  'Cancelada',
+      completada: 'Completada',
     };
     return map[estado] ?? estado;
   }
@@ -467,7 +475,7 @@ export class MisReservasComponent implements OnInit {
       servicioId: r.servicioId,
       verticalKey: r.vertical,
       vertical: meta.label,
-      emoji: meta.emoji,
+      icono: meta.icono,
       titulo,
       subtitulo: this.subtituloReserva(r),
       imagen,
@@ -484,16 +492,16 @@ export class MisReservasComponent implements OnInit {
     };
   }
 
-  private verticalMeta(vertical: string): { label: string; emoji: string } {
-    const map: Record<string, { label: string; emoji: string }> = {
-      [VerticalKey.ALOJAMIENTO]:    { label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    emoji: '🏠' },
-      [VerticalKey.TRANSPORTE]:     { label: VERTICAL_LABELS[VerticalKey.TRANSPORTE],     emoji: '🚐' },
-      [VerticalKey.VETERINARIA]:    { label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    emoji: '🩺' },
-      [VerticalKey.PELUQUERIA]:     { label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     emoji: '✂️' },
-      [VerticalKey.ADIESTRAMIENTO]: { label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], emoji: '🎓' },
-      [VerticalKey.HOTELES]:        { label: VERTICAL_LABELS[VerticalKey.HOTELES],        emoji: '🏨' },
+  private verticalMeta(vertical: string): { label: string; icono: string } {
+    const map: Record<string, { label: string; icono: string }> = {
+      [VerticalKey.ALOJAMIENTO]:    { label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],    icono: 'home' },
+      [VerticalKey.TRANSPORTE]:     { label: VERTICAL_LABELS[VerticalKey.TRANSPORTE],     icono: 'truck' },
+      [VerticalKey.VETERINARIA]:    { label: VERTICAL_LABELS[VerticalKey.VETERINARIA],    icono: 'stethoscope' },
+      [VerticalKey.PELUQUERIA]:     { label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     icono: 'scissors' },
+      [VerticalKey.ADIESTRAMIENTO]: { label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], icono: 'graduation-cap' },
+      [VerticalKey.HOTELES]:        { label: VERTICAL_LABELS[VerticalKey.HOTELES],        icono: 'hotel' },
     };
-    return map[vertical] ?? { label: vertical, emoji: '🐾' };
+    return map[vertical] ?? { label: vertical, icono: 'paw' };
   }
 
   /** Línea secundaria de la tarjeta según la lógica de reserva de cada categoría. */
