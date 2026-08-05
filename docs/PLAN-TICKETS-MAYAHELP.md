@@ -20,7 +20,7 @@ Verificación del estado real en código de los 6 tickets exportados desde MayaH
 | **TCK-8009** | "Garantía Doogking" con iconos y orden | ✅ **Implementado** (commit `931dbb7`) |
 | **TCK-8010** | Iconografía Lucide en toda la plataforma, sin emojis | 🟡 **Parcial** — hecho en las pantallas públicas; ~175 emojis vivos en paneles y formularios |
 | **TCK-8011** | Programa Doogking Alpha premium | ✅ **Implementado** (commit `931dbb7`) salvo un emoji residual en el navbar |
-| **TCK-8012** | La foto del perro no sale al registrarlo | ❌ **No resuelto** — bug abierto, causa identificada |
+| **TCK-8012** | La foto del perro no sale al registrarlo | ✅ **Resuelto** — ver §3 T3 (hecho) |
 
 Estado de los planes `.md` anteriores: los 12 bloques de `docs/PLAN-NEW-CHANGES-27-07.md`,
 `docs/PLAN-UNIFICADO-REVISION-Y-MODULOS.md` y `docs/PLAN-MEJORAS-TODA-LA-APP.md` figuran
@@ -156,7 +156,34 @@ El fallo está en la subida/servido del fichero, en `apps/api/src/core/upload/up
 
 Orden por impacto: primero el bug, luego la coherencia visual, luego el detalle de marca.
 
-### T3 — Arreglar la foto de la mascota (TCK-8012) · prioridad alta
+### T3 — Arreglar la foto de la mascota (TCK-8012) · ✅ hecho
+
+Implementado. Resumen de lo entregado, sobre el plan original:
+
+- `upload.service.ts`: dos modos. Con las 4 variables de S3 va a S3 y respeta
+  `S3_PUBLIC_BASE_URL`; sin ellas guarda en **GridFS** y devuelve
+  `{API_URL}/api/v1/upload/<id>`. La subida ya no puede devolver 503 por falta de
+  configuración.
+- `upload.controller.ts`: `GET /upload/:id` **público** (el `src` de un `<img>` no puede
+  mandar el header de autorización) con `Cache-Control` inmutable; el `POST` sigue
+  detrás de `JwtAuthGuard`.
+- `rs-image-upload.component.ts`: mensaje de error visible con el motivo real
+  (sin conexión / formato o tamaño / mensaje del servidor), botón **Reintentar** que
+  reusa el fichero, e implementa `Validator` para invalidar el control mientras haya una
+  subida fallida o en curso.
+- `perro-form.component.ts`: `submit()` ya no falla en silencio; explica que la foto no
+  se subió, porque el aviso vive en el paso 1 y se guarda desde el último.
+- `perros-lista` y `rs-pet-picker`: directiva `rsImg`, para degradar a la imagen de
+  respaldo si la URL guardada está rota.
+- `.env.example` y `DEPLOY.md` §2.3.1: los dos modos, y el aviso de que un bucket S3
+  privado devuelve 403 al pintar la imagen.
+
+Tests: 12 nuevos en el API (`upload.service.spec.ts`, `upload.controller.spec.ts`),
+7 en `rs-image-upload.component.spec.ts` y 2 en `perro-form.component.spec.ts`.
+Suites completas en verde (API 609, web 1157) y los dos builds compilan.
+
+<details>
+<summary>Plan original de T3</summary>
 
 1. **Backend `upload`:**
    - Añadir `S3_PUBLIC_BASE_URL` opcional (CDN/CloudFront o dominio del bucket) y usarla
@@ -180,6 +207,8 @@ Orden por impacto: primero el bug, luego la coherencia visual, luego el detalle 
 
 **Verificación:** alta de perro con foto en local sin S3 → la foto se ve en "Mis perros",
 en el pet-picker y en el wizard.
+
+</details>
 
 ### T2 — Retirar los emojis restantes (TCK-8010, cierra también el 👑 del 8011) · prioridad alta
 

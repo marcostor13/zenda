@@ -710,7 +710,11 @@ export class PerroFormComponent implements OnInit {
   }
 
   async submit(): Promise<void> {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.errorMsg.set(this.motivoDeFormularioInvalido());
+      return;
+    }
 
     this.guardando.set(true);
     this.errorMsg.set('');
@@ -733,5 +737,21 @@ export class PerroFormComponent implements OnInit {
     } finally {
       this.guardando.set(false);
     }
+  }
+
+  /**
+   * Explica por qué no se puede guardar. La foto merece mensaje propio: está en
+   * el paso 1 y el usuario puede pulsar "Guardar" desde el último paso sin ver
+   * el aviso de la subida fallida (TCK-8012).
+   */
+  private motivoDeFormularioInvalido(): string {
+    const fotos = this.form.controls.fotos;
+    if (fotos.hasError('subidaEnCurso')) {
+      return 'Espera a que termine de subirse la foto de tu perro.';
+    }
+    if (fotos.hasError('subidaFallida')) {
+      return 'La foto de tu perro no se pudo subir. Reinténtala o quítala en el paso 1 para guardar la ficha.';
+    }
+    return 'Revisa los campos marcados en rojo antes de guardar.';
   }
 }

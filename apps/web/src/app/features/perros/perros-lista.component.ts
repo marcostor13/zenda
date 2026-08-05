@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import {
   PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, PerroHistorialApi,
   porcentajeCompletitud,
@@ -10,7 +11,7 @@ import {
 @Component({
   selector: 'app-perros-lista',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent],
+  imports: [RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -42,7 +43,7 @@ import {
           <div class="rs-card perro-card">
             <div class="perro-card__avatar">
               @if (p.fotos.length) {
-                <img [src]="p.fotos[0]" [alt]="p.nombre" />
+                <img [src]="p.fotos[0]" [alt]="p.nombre" rsImg />
               } @else {
                 <rs-icon name="paw" [size]="28" [stroke]="1.5"></rs-icon>
               }

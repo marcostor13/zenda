@@ -1,7 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["jest", "node"],
+    // `multer` aporta el tipo global Express.Multer.File que usan el módulo de
+    // upload y sus tests; sin él aquí, el typecheck de los specs falla (TS2694).
+    "types": ["jest", "node", "multer"],
     "outDir": "./dist",
     "isolatedModules": false,
     /*
