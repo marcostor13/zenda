@@ -73,7 +73,7 @@ describe('PerrosListaComponent', () => {
   it('debería usar variante e icono neutros para el nivel inicial (no es un juicio al propietario)', async () => {
     await crear([perro()]);
     expect(component.varianteBienestar('inicial')).toBe('neutral');
-    expect(component.iconoBienestar('inicial')).toBe('⚪');
+    expect(component.iconoBienestar('inicial')).toBe('circle');
   });
 
   it('debería usar variante de éxito para niveles buenos', async () => {
@@ -99,7 +99,7 @@ describe('PerrosListaComponent', () => {
       const el: HTMLElement = fixture.nativeElement;
       expect(el.textContent).toContain('3 años');
       expect(el.textContent).toContain('Hembra');
-      expect(el.textContent).toContain('📍 Madrid');
+      expect(el.textContent).toContain('Madrid');
     });
 
     it('no debería inventar una edad si la mascota no la tiene declarada', async () => {

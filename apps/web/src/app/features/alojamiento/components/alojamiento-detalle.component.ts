@@ -7,6 +7,7 @@ import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { IMG_FALLBACK } from '../../../shared/media/images';
 import { RsRatingComponent } from '../../../shared/components/rating/rs-rating.component';
+import { RsStarsComponent } from '../../../shared/components/stars/rs-stars.component';
 import { RsTrustBlockComponent, type TrustItem } from '../../../shared/components/trust-block/rs-trust-block.component';
 import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspacio } from '../services/alojamiento.service';
 import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
@@ -18,7 +19,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
   standalone: true,
   imports: [
     RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
-    RsRatingComponent, RsTrustBlockComponent,
+    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent,
   ],
   template: `
 <div class="detalle-page">
@@ -95,7 +96,10 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
 
         <!-- Header -->
         <div class="info-header">
-          <div class="info-header__stars">{{ estrellas(alojamiento()!.score) }} <strong>{{ alojamiento()!.score }}</strong></div>
+          <div class="info-header__stars">
+            <rs-stars [score]="alojamiento()!.score" [size]="16" />
+            <strong>{{ alojamiento()!.score }}</strong>
+          </div>
           <h1 class="info-header__name">{{ alojamiento()!.nombre }}</h1>
           <p class="info-header__loc"><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ alojamiento()!.direccion }}, {{ alojamiento()!.barrio }}, {{ alojamiento()!.ciudad }}</p>
 
@@ -731,12 +735,6 @@ export class AlojamientoDetalleComponent implements OnInit {
     } finally {
       this.cargando.set(false);
     }
-  }
-
-  /** Estrellas doradas a partir del score (escala 0–5). */
-  estrellas(score: number): string {
-    const llenas = Math.round(Math.min(score, 5));
-    return '★'.repeat(llenas) + '☆'.repeat(5 - llenas);
   }
 
   /** Foto del espacio con respaldo: la del espacio, si no la del alojamiento, si no un placeholder. */

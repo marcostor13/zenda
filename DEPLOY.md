@@ -72,6 +72,40 @@ NODE_ENV=production
 
 > Nunca pongas estos valores en el repositorio. Solo en Coolify.
 
+Añade también `API_URL` con el dominio público del API
+(`API_URL=https://apizenda.marcostorresalarcon.com`): es la base de los enlaces de
+los callbacks de calendario **y de las URLs de las imágenes subidas** (§2.3.1).
+
+#### 2.3.1 Imágenes subidas (fotos de listados y de la mascota)
+
+`POST /api/v1/upload/image` tiene dos modos y **no hace falta configurar nada** para
+que funcione:
+
+| Modo | Cuándo se usa | Dónde se guarda | URL devuelta |
+|---|---|---|---|
+| **GridFS** (por defecto) | Si falta cualquiera de las 4 variables de S3 | MongoDB Atlas, colección `uploads.*` | `{API_URL}/api/v1/upload/<id>` |
+| **S3** | Con las 4 variables de S3 puestas | Bucket S3 | `{S3_PUBLIC_BASE_URL}/uploads/<uuid>.<ext>` o la URL directa del bucket |
+
+Variables opcionales:
+
+```
+S3_REGION=eu-west-1
+S3_BUCKET=doogking-uploads
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+S3_PUBLIC_BASE_URL=https://cdn.doogking.com
+```
+
+> **Si usas S3, el bucket tiene que servir los objetos públicamente.** Desde 2023 los
+> buckets nuevos de AWS bloquean el acceso público por defecto, así que la imagen se
+> sube bien pero el `<img>` recibe un 403 y la foto no aparece. Dos salidas:
+> a) política de bucket con `s3:GetObject` público sobre `uploads/*`, o
+> b) servirlo por CloudFront/dominio propio y fijar `S3_PUBLIC_BASE_URL`.
+>
+> Si no quieres administrar un bucket, no pongas ninguna variable de S3: el modo
+> GridFS guarda las imágenes en la misma base de datos y no requiere infraestructura
+> adicional. `API_URL` sí debe estar bien puesta, porque de ahí sale la URL pública.
+
 ### 2.4 Dominio y SSL en Coolify
 
 En la pestaña **Domains**:

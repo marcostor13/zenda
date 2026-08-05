@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { PerroApi, PerrosService } from '../../../features/perros/perros.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 /**
  * Selector de mascotas de la reserva. Sustituye al antiguo desplegable
@@ -19,7 +20,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
 @Component({
   selector: 'rs-pet-picker',
   standalone: true,
-  imports: [RouterLink, RsIconComponent],
+  imports: [RouterLink, RsIconComponent, ImgFallbackDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="pp">
@@ -46,7 +47,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
                          (change)="alternarPerro(p._id)" />
                   <span class="pp__avatar">
                     @if (p.fotos.length) {
-                      <img [src]="p.fotos[0]" alt="" aria-hidden="true" />
+                      <img [src]="p.fotos[0]" alt="" aria-hidden="true" rsImg />
                     } @else {
                       <rs-icon name="paw" [size]="16" [stroke]="2"></rs-icon>
                     }

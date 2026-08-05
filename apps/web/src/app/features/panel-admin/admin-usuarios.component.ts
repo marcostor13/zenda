@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { AdminApiService, UsuarioAdmin, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
 
@@ -32,7 +33,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-usuarios',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, RsPhoneInputComponent],
+  imports: [DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -109,22 +110,28 @@ const LIMITE = 20;
             </span>
             <span>
               @if (u.verificado) {
-                <span class="rs-badge rs-badge--success">✓ Verificado</span>
+                <span class="rs-badge rs-badge--success">
+                  <rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> Verificado
+                </span>
               } @else {
                 <span class="rs-badge rs-badge--neutral">Pendiente</span>
               }
             </span>
             <span class="cell-muted">{{ u.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones">
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="abrirEditar(u)">✏️ Editar</button>
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="abrirEditar(u)">
+                <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
+              </button>
               <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171"
-                (click)="confirmarEliminar(u)">🗑️</button>
+                (click)="confirmarEliminar(u)" aria-label="Eliminar usuario">
+                <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
+              </button>
             </div>
           </div>
         }
         @if (usuarios().length === 0) {
           <div class="empty-state">
-            <span class="empty-icon">👥</span>
+            <span class="empty-icon"><rs-icon name="users" [size]="34" [stroke]="1.5"></rs-icon></span>
             <p>No hay usuarios{{ filtroRol() ? ' con rol "' + filtroRol() + '"' : '' }}</p>
           </div>
         }

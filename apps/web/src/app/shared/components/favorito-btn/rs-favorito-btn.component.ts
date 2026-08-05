@@ -4,7 +4,7 @@ import { FavoritosService } from '../../../features/favoritos/favoritos.service'
 import { AuthService } from '../../../core/auth/auth.service';
 
 /**
- * Botón ❤️ para marcar/desmarcar un servicio como favorito. Se apoya en el
+ * Botón de corazón para marcar/desmarcar un servicio como favorito. Se apoya en el
  * cache de FavoritosService; si el usuario no está autenticado, no se muestra.
  */
 @Component({

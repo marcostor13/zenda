@@ -101,6 +101,27 @@ describe('PerroFormComponent', () => {
       expect(componente.form.touched).toBe(true);
     });
 
+    it('debería explicar que la foto no se subió en vez de callar (TCK-8012)', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya' });
+      componente.form.controls.fotos.setErrors({ subidaFallida: true });
+
+      await componente.submit();
+
+      expect(service['crear']).not.toHaveBeenCalled();
+      expect(componente.errorMsg()).toContain('no se pudo subir');
+    });
+
+    it('debería pedir esperar mientras la foto se está subiendo', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya' });
+      componente.form.controls.fotos.setErrors({ subidaEnCurso: true });
+
+      await componente.submit();
+
+      expect(componente.errorMsg()).toContain('Espera a que termine');
+    });
+
     it('debería rechazar un peso imposible', async () => {
       await crear();
       componente.form.patchValue({ nombre: 'Maya', peso: 500 });

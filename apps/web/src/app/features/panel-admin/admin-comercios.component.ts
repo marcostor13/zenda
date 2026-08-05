@@ -8,15 +8,6 @@ import { AdminApiService, ComercioAdmin, CrearComercioDto, ActualizarComercioDto
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 
-const VERTICAL_EMOJI: Record<string, string> = {
-  [VerticalKey.ALOJAMIENTO]: '🏠',
-  [VerticalKey.TRANSPORTE]: '🚛',
-  [VerticalKey.VETERINARIA]: '🩺',
-  [VerticalKey.PELUQUERIA]: '✂️',
-  [VerticalKey.ADIESTRAMIENTO]: '🎓',
-  [VerticalKey.HOTELES]: '🏨',
-};
-
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
@@ -119,6 +110,7 @@ const LIMITE = 20;
               <span class="rs-badge {{ badgeEstado(c.estado) }}">{{ c.estado }}</span>
               @if (c.verificacion?.estado && c.verificacion?.estado !== 'sin_verificar') {
                 <span class="rs-badge {{ badgeVerif(c.verificacion!.estado) }}" style="display:inline-block;margin-top:4px">
+                  <rs-icon [name]="verifIcono(c.verificacion!.estado)" [size]="12" [stroke]="2"></rs-icon>
                   {{ verifLabel(c.verificacion!.estado) }}
                 </span>
               }
@@ -127,28 +119,38 @@ const LIMITE = 20;
             <div class="acciones">
               @if (c.verificacion?.estado === 'pendiente') {
                 <button class="rs-btn rs-btn--sm" style="background:#047857;color:#fff" title="Verificar documentación"
-                  [disabled]="accionando() === c._id" (click)="verificar(c._id)">✅ Verificar</button>
+                  [disabled]="accionando() === c._id" (click)="verificar(c._id)">
+                      <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Verificar
+                    </button>
                 <button class="rs-btn rs-btn--ghost rs-btn--sm" title="Rechazar documentación"
-                  [disabled]="accionando() === c._id" (click)="rechazarVerif(c._id)">✕ Doc</button>
+                  [disabled]="accionando() === c._id" (click)="rechazarVerif(c._id)">
+                      <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon> Doc
+                    </button>
               }
               @if (c.estado !== 'activo') {
                 <button class="rs-btn rs-btn--sm" style="background:var(--c-teal);color:#fff"
-                  [disabled]="accionando() === c._id" (click)="aprobar(c._id)">✓ Aprobar</button>
+                  [disabled]="accionando() === c._id" (click)="aprobar(c._id)">
+                      <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> Aprobar
+                    </button>
               }
               @if (c.estado !== 'suspendido') {
                 <button class="rs-btn rs-btn--danger rs-btn--sm"
                   [disabled]="accionando() === c._id" (click)="suspender(c._id)">Suspender</button>
               }
               <button class="rs-btn rs-btn--ghost rs-btn--sm"
-                [disabled]="accionando() === c._id" (click)="abrirEditar(c)">✏️</button>
+                [disabled]="accionando() === c._id" (click)="abrirEditar(c)" aria-label="Editar comercio">
+                      <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
+                    </button>
               <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171"
-                [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)">🗑️</button>
+                [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)" aria-label="Eliminar comercio">
+                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
+                    </button>
             </div>
           </div>
         }
         @if (comercios().length === 0) {
           <div class="empty-state">
-            <span class="empty-icon">🏪</span>
+            <span class="empty-icon"><rs-icon name="store" [size]="34" [stroke]="1.5"></rs-icon></span>
             <p>No hay comercios {{ filtroEstado() ? 'con estado "' + filtroEstado() + '"' : '' }}</p>
           </div>
         }
@@ -462,10 +464,19 @@ export class AdminComerciosComponent implements OnInit {
 
   verifLabel(estado: string): string {
     const map: Record<string, string> = {
-      verificado: '✅ Verificado', pendiente: '⏳ Doc. pendiente',
-      rechazado: '✕ Doc. rechazada', caducado: '⚠️ Doc. caducada',
+      verificado: 'Verificado', pendiente: 'Doc. pendiente',
+      rechazado: 'Doc. rechazada', caducado: 'Doc. caducada',
     };
     return map[estado] ?? estado;
+  }
+
+  /** Icono Lucide del estado de verificación documental (TCK-8010). */
+  verifIcono(estado: string): string {
+    const map: Record<string, string> = {
+      verificado: 'badge-check', pendiente: 'hourglass',
+      rechazado: 'x', caducado: 'alert-triangle',
+    };
+    return map[estado] ?? 'circle';
   }
 
   async suspender(id: string): Promise<void> {
@@ -582,10 +593,6 @@ export class AdminComerciosComponent implements OnInit {
     } finally {
       this.guardando.set(false);
     }
-  }
-
-  emojiVertical(vertical: string): string {
-    return VERTICAL_EMOJI[vertical] ?? '📋';
   }
 
   iconVertical(vertical: string): string {

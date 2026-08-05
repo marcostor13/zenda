@@ -165,7 +165,10 @@ interface ReservaCard {
             <label class="rs-label">Tu puntuación</label>
             <div class="resena-form__estrellas">
               @for (n of [1,2,3,4,5]; track n) {
-                <button type="button" class="estrella-btn" [class.activa]="n <= puntuacionSel()" (click)="puntuacionSel.set(n)">★</button>
+                <button type="button" class="estrella-btn" [class.activa]="n <= puntuacionSel()"
+                        [attr.aria-label]="n + ' de 5'" (click)="puntuacionSel.set(n)">
+                  <rs-icon name="star" [size]="26" [stroke]="1.75" [filled]="n <= puntuacionSel()"></rs-icon>
+                </button>
               }
             </div>
             <label class="rs-label" style="margin-top:var(--sp-3)">Tu comentario</label>

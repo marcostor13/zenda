@@ -1,17 +1,14 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 import { AdminApiService, AnaliticaAdmin } from './admin-api.service';
-
-const VERTICAL_EMOJI: Record<string, string> = {
-  alojamiento: '🏠', transporte: '🚐', veterinaria: '🩺',
-  peluqueria: '✂️', adiestramiento: '🎓', hoteles: '🏨',
-};
 
 @Component({
   selector: 'app-admin-analitica',
   standalone: true,
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, RsIconComponent],
   template: `
     <div class="page-header">
       <div>
@@ -50,7 +47,10 @@ const VERTICAL_EMOJI: Record<string, string> = {
           }
           @for (v of analitica()!.porVertical; track v.vertical) {
             <div class="rank-row">
-              <span class="rank-row__label">{{ emoji(v.vertical) }} {{ v.vertical }}</span>
+              <span class="rank-row__label">
+                <rs-icon [name]="iconoVertical(v.vertical)" [size]="14" [stroke]="2"></rs-icon>
+                {{ v.vertical }}
+              </span>
               <div class="rank-bar"><div class="rank-bar__fill" [style.width.%]="v.porcentaje"></div></div>
               <span class="rank-row__val">{{ v.porcentaje }}% · {{ v.reservas }}</span>
             </div>
@@ -59,13 +59,15 @@ const VERTICAL_EMOJI: Record<string, string> = {
 
         <!-- Distribución geográfica -->
         <div class="rs-card panel">
-          <h3 class="panel__title">🌍 Distribución geográfica</h3>
+          <h3 class="panel__title"><rs-icon name="globe" [size]="16" [stroke]="2"></rs-icon> Distribución geográfica</h3>
           @if (analitica()!.porCiudad.length === 0) {
             <p class="empty">Sin datos de ciudad todavía.</p>
           }
           @for (c of analitica()!.porCiudad; track c.ciudad) {
             <div class="rank-row">
-              <span class="rank-row__label">📍 {{ c.ciudad }}</span>
+              <span class="rank-row__label">
+                <rs-icon name="map-pin" [size]="14" [stroke]="2"></rs-icon> {{ c.ciudad }}
+              </span>
               <div class="rank-bar"><div class="rank-bar__fill rank-bar__fill--gold" [style.width.%]="pctCiudad(c.reservas)"></div></div>
               <span class="rank-row__val">{{ c.reservas }}</span>
             </div>
@@ -74,7 +76,7 @@ const VERTICAL_EMOJI: Record<string, string> = {
 
         <!-- Top comercios -->
         <div class="rs-card panel">
-          <h3 class="panel__title">🏆 Top 5 comercios</h3>
+          <h3 class="panel__title"><rs-icon name="trophy" [size]="16" [stroke]="2"></rs-icon> Top 5 comercios</h3>
           @if (analitica()!.topComercios.length === 0) {
             <p class="empty">Sin facturación todavía.</p>
           }
@@ -154,6 +156,6 @@ export class AdminAnaliticaComponent implements OnInit {
     }
   }
 
-  emoji(v: string): string { return VERTICAL_EMOJI[v] ?? '📋'; }
+  iconoVertical(vertical: string): string { return iconoDeVertical(vertical); }
   pctCiudad(reservas: number): number { return Math.round((reservas / this.maxCiudad()) * 100); }
 }

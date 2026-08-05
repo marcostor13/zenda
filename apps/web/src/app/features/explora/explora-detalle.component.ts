@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TIPO_LUGAR_LABELS, TipoLugar, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { RsStarsComponent } from '../../shared/components/stars/rs-stars.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { LugarApi, LugarReviewApi, LugaresService } from './lugares.service';
@@ -35,7 +36,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-explora-detalle',
   standalone: true,
-  imports: [DatePipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
+  imports: [DatePipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsStarsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ed-page">
@@ -114,7 +115,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
                       <rs-icon name="alert-circle" [size]="12" [stroke]="2"></rs-icon> Incidencia
                     </span>
                   } @else {
-                    <span class="ed-estrellas" aria-label="{{ r.puntuacion }} de 5">{{ estrellas(r.puntuacion) }}</span>
+                    <rs-stars class="ed-estrellas" [score]="r.puntuacion" />
                   }
                   <em>{{ r.createdAt | date: 'd MMM y' }}</em>
                 </div>
@@ -270,7 +271,4 @@ export class ExploraDetalleComponent implements OnInit {
     return tipo ? TIPO_LUGAR_LABELS[tipo as TipoLugar] : '';
   }
 
-  estrellas(puntuacion: number): string {
-    return '★'.repeat(puntuacion) + '☆'.repeat(5 - puntuacion);
-  }
 }

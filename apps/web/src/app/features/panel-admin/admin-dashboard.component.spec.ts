@@ -234,13 +234,12 @@ describe('AdminDashboardComponent', () => {
   });
 
   describe('etiquetas', () => {
-    it('debería dar emoji e icono por vertical con respaldo', async () => {
+    it('debería dar un icono Lucide por vertical con respaldo (TCK-8010)', async () => {
       await crear();
 
-      expect(componente.emojiVertical(VerticalKey.ALOJAMIENTO)).toBeTruthy();
-      expect(componente.emojiVertical('inventado')).toBe('📋');
-      expect(componente.iconVertical('hoteles')).toBe('hotel');
-      expect(componente.iconVertical('inventado')).toBe('building');
+      expect(componente.iconoVertical(VerticalKey.ALOJAMIENTO)).toBe('hotel');
+      expect(componente.iconoVertical('hoteles')).toBe('building');
+      expect(componente.iconoVertical('inventado')).toBe('paw');
     });
 
     it('debería dar un badge por estado de reserva', async () => {

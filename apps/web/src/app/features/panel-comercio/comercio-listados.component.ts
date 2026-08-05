@@ -108,7 +108,9 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
                            (input)="actualizarEspacio($index, 'precioNoche', $any($event.target).value)"
                            placeholder="Precio/noche" />
                     <span class="rs-badge rs-badge--neutral">{{ e.tipo }}</span>
-                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarEspacio($index)">✕</button>
+                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarEspacio($index)" aria-label="Quitar espacio">
+                  <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon>
+                </button>
                   </div>
                 }
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarEspacio()">

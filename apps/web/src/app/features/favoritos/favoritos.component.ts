@@ -27,7 +27,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
 
   <div class="rs-wrap" style="padding-block:var(--sp-10)">
     <div class="fav-header">
-      <h1>❤️ Mis favoritos</h1>
+      <h1><rs-icon name="heart" [size]="24" [stroke]="2"></rs-icon> Mis favoritos</h1>
       <p>Los servicios que has guardado para reservar más rápido.</p>
     </div>
 
@@ -75,13 +75,13 @@ const VERTICALES_CON_FICHA = new Set<string>([
               @if (f.imagen) {
                 <img [src]="f.imagen" [alt]="f.titulo" rsImg />
               } @else {
-                <div class="fav-card__placeholder">🐾</div>
+                <div class="fav-card__placeholder"><rs-icon name="paw" [size]="28" [stroke]="1.5"></rs-icon></div>
               }
               @if (f.precioAnterior) {
-                <span class="fav-card__badge">🔥 Ha bajado {{ f.precioAnterior - f.precioBase | number:'1.0-0' }} € desde que lo guardaste</span>
+                <span class="fav-card__badge"><rs-icon name="flame" [size]="13" [stroke]="2"></rs-icon> Ha bajado {{ f.precioAnterior - f.precioBase | number:'1.0-0' }} € desde que lo guardaste</span>
               }
               @if (yaReservados().has(f.servicioId)) {
-                <span class="fav-card__reservado">✔ Ya reservaste aquí</span>
+                <span class="fav-card__reservado"><rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> Ya reservaste aquí</span>
               }
               <div class="fav-card__fav">
                 <rs-favorito-btn [servicioId]="f.servicioId" (click)="marcarPendiente(f.servicioId)"></rs-favorito-btn>
@@ -92,14 +92,14 @@ const VERTICALES_CON_FICHA = new Set<string>([
               <p class="fav-card__loc">
                 <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon> {{ f.ciudad || '—' }}
               </p>
-              <p class="fav-card__desde">❤️ {{ desdeHace(f.createdAt) }}</p>
+              <p class="fav-card__desde"><rs-icon name="heart" [size]="12" [stroke]="2"></rs-icon> {{ desdeHace(f.createdAt) }}</p>
               <div class="fav-card__footer">
-                <span class="fav-card__rating">⭐ {{ f.ratingPromedio | number:'1.1-1' }} · {{ f.totalResenas }} reseñas</span>
+                <span class="fav-card__rating"><rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> {{ f.ratingPromedio | number:'1.1-1' }} · {{ f.totalResenas }} reseñas</span>
                 <span class="fav-card__price">{{ f.precioBase | number:'1.0-0' }} €</span>
               </div>
               <div class="fav-card__acciones">
                 <a [routerLink]="rutaReservar(f)" class="rs-btn rs-btn--primary rs-btn--block rs-btn--sm">Reservar</a>
-                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" title="Compartir" (click)="compartir(f)">🔗</button>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" title="Compartir" (click)="compartir(f)"><rs-icon name="share" [size]="14" [stroke]="2"></rs-icon></button>
               </div>
             </div>
           </article>

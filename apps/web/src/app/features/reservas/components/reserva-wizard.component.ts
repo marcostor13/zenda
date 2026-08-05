@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { RsBrandIconComponent, type MarcaPagoKey } from '../../../shared/components/brand-icon/rs-brand-icon.component';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import {
   LugarElegido, RsPlaceAutocompleteComponent,
@@ -104,6 +105,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule,
     RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+    RsBrandIconComponent,
   ],
   template: `
 <div class="wizard-page">
@@ -645,7 +647,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <div class="payment-option__icon"><rs-icon name="credit-card" [size]="20" [stroke]="2" /></div>
                 <div>
                   <div class="payment-option__name">Tarjeta de crédito / débito</div>
-                  <div class="payment-option__brands">Visa · Mastercard · American Express</div>
+                  <div class="payment-option__brands">
+                    @for (marca of marcasTarjeta; track marca) {
+                      <rs-brand-icon [name]="marca" [size]="20" />
+                    }
+                  </div>
                 </div>
                 <div class="payment-option__secure">
                   <svg width="38" height="16" viewBox="0 0 468 222" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Stripe">
@@ -968,7 +974,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     }
     .payment-option__icon { font-size: 1.5rem; }
     .payment-option__name { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
-    .payment-option__brands { font-size: var(--f-xs); color: var(--t-400); }
+    .payment-option__brands { display: flex; align-items: center; gap: var(--sp-1); margin-top: 2px; }
     .payment-option__secure { margin-left: auto; font-size: var(--f-xs); color: var(--t-400); }
 
     .stripe-placeholder { background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-xl); padding: var(--sp-6); margin-bottom: var(--sp-5); }
@@ -1154,6 +1160,9 @@ export class ReservaWizardComponent implements OnInit {
     if (form.checkIn) params['desde'] = form.checkIn;
     return params;
   }
+
+  /** Tarjetas admitidas, mostradas con su marca y no con el nombre (TCK-8008). */
+  readonly marcasTarjeta: readonly MarcaPagoKey[] = ['visa', 'mastercard', 'amex'];
 
   readonly idPerrosAlojamiento = 'wz-perros-alojamiento';
   readonly idPerrosTransporte = 'wz-perros-transporte';
