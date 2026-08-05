@@ -1111,12 +1111,12 @@ export class HomeComponent {
   readonly logoFooter = BRAND.logoFooter;
   readonly rutaAlojamiento = rutaDeVertical(VerticalKey.ALOJAMIENTO);
 
-  /** Perfiles sociales del footer; se muestran con su logo oficial (TCK-8008). */
   /** Marcas de pago del pie, con su logotipo en vez del nombre escrito (TCK-8008). */
   readonly marcasPago: readonly MarcaPagoKey[] = [
     'visa', 'mastercard', 'amex', 'stripe', 'apple-pay', 'google-pay',
   ];
 
+  /** Perfiles sociales del footer; se muestran con su logo oficial (TCK-8008). */
   readonly redesSociales: readonly { nombre: string; icono: RedSocialKey; url: string }[] = [
     { nombre: 'Instagram', icono: 'instagram', url: 'https://instagram.com/doogking' },
     { nombre: 'Facebook', icono: 'facebook', url: 'https://facebook.com/doogking' },

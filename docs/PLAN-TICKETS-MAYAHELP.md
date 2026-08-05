@@ -16,7 +16,7 @@ Verificación del estado real en código de los 6 tickets exportados desde MayaH
 | Ticket | Tema | Estado real |
 |---|---|---|
 | **TCK-8004** | Landing "Muy pronto" | ✅ **Implementado** (commit `5282789`) |
-| **TCK-8008** | Iconos oficiales en lugar del nombre | ✅ **Resuelto** — ver §3 T1 (hecho) · **[pendiente de confirmar la captura]** |
+| **TCK-8008** | Iconos oficiales en lugar del nombre | ✅ **Resuelto** — redes en `931dbb7`, marcas de pago en T1 |
 | **TCK-8009** | "Garantía Doogking" con iconos y orden | ✅ **Implementado** (commit `931dbb7`) |
 | **TCK-8010** | Iconografía Lucide en toda la plataforma, sin emojis | ✅ **Resuelto** — ver §3 T2 (hecho) |
 | **TCK-8011** | Programa Doogking Alpha premium | ✅ **Implementado** (commit `931dbb7`); el emoji residual del navbar se retiró en T2 |
@@ -102,9 +102,12 @@ Sigue como **texto** en la app (candidato a lo que muestra la captura del ticket
 | `home.component.ts:390` | `Visa · Mastercard · Stripe · Apple Pay · Google Pay` |
 | `perfil-pagos.component.ts:53-57` | `Visa`, `Mastercard` como etiqueta de la tarjeta guardada |
 
-**[requiere captura]** Si la captura `foto-1785490677035.jpg` corresponde a estas marcas
-de pago, la tarea T1 de §3 lo cierra. Si corresponde a otra zona, se ajusta con el mismo
-patrón (`rs-social-icon` / nuevo `rs-brand-icon`).
+**Captura confirmada por el cliente (05/08):** es el pie del home, con las redes como
+píldoras de texto ("Instagram", "Facebook", "TikTok", "LinkedIn", "YouTube") y la línea
+"Visa · Mastercard …" debajo. Corresponde al build anterior a `931dbb7`: desde ese
+commit las redes ya salen con su logotipo, y las marcas de pago con el suyo desde T1.
+Ambas mitades de lo que muestra la captura quedan cubiertas; falta desplegar para que
+la clienta lo vea.
 
 ### TCK-8010 — Iconografía uniforme sin emojis 🟡
 
@@ -340,8 +343,8 @@ pide el export de MayaHelp.
 
 ## 5. Preguntas abiertas para la clienta
 
-1. **TCK-8008:** ¿la captura corresponde a las marcas de pago (Visa/Mastercard/Stripe) o a
-   otra zona de la app? No pudimos abrir el adjunto desde el entorno de desarrollo.
+1. **TCK-8008:** resuelto — la clienta envió la captura el 05/08 y es el pie del home
+   (redes + línea de métodos de pago). Ambas partes están ya en código.
 2. **TCK-8010:** ¿mantenemos las banderas emoji en el selector de prefijo telefónico
    (recomendado, es lo estándar) o también se sustituyen por SVG?
 3. **TCK-8012:** ¿el entorno de producción tiene bucket S3 propio, o preferís el
