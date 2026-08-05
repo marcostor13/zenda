@@ -3,21 +3,23 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReservaAdmin, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
-interface EstadoMeta { badge: string; emoji: string; label: string; }
+/** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
+interface EstadoMeta { badge: string; icono: string; label: string; }
 
 const ESTADO_META: Record<string, EstadoMeta> = {
-  pendiente:        { badge: 'rs-badge--warning', emoji: '🟡', label: 'Pendiente' },
-  confirmada:       { badge: 'rs-badge--success', emoji: '🟢', label: 'Confirmada' },
-  ajuste_solicitado:{ badge: 'rs-badge--warning', emoji: '⚠️', label: 'Ajuste solicitado' },
-  en_curso:         { badge: 'rs-badge--accent',  emoji: '🔵', label: 'En curso' },
-  completada:       { badge: 'rs-badge--accent',  emoji: '✅', label: 'Completada' },
-  pago_retenido:    { badge: 'rs-badge--warning', emoji: '🟣', label: 'Pago retenido' },
-  pago_liberado:    { badge: 'rs-badge--success', emoji: '🟢', label: 'Pago liberado' },
-  en_disputa:       { badge: 'rs-badge--error',   emoji: '🔴', label: 'En disputa' },
-  reembolsada:      { badge: 'rs-badge--neutral', emoji: '↩️', label: 'Reembolsada' },
-  cancelada:        { badge: 'rs-badge--error',   emoji: '⚫', label: 'Cancelada' },
-  no_show:          { badge: 'rs-badge--neutral', emoji: '⚫', label: 'No show' },
+  pendiente:        { badge: 'rs-badge--warning', icono: 'hourglass',      label: 'Pendiente' },
+  confirmada:       { badge: 'rs-badge--success', icono: 'check-circle',   label: 'Confirmada' },
+  ajuste_solicitado:{ badge: 'rs-badge--warning', icono: 'alert-triangle', label: 'Ajuste solicitado' },
+  en_curso:         { badge: 'rs-badge--accent',  icono: 'play',           label: 'En curso' },
+  completada:       { badge: 'rs-badge--accent',  icono: 'badge-check',    label: 'Completada' },
+  pago_retenido:    { badge: 'rs-badge--warning', icono: 'lock',           label: 'Pago retenido' },
+  pago_liberado:    { badge: 'rs-badge--success', icono: 'banknote',       label: 'Pago liberado' },
+  en_disputa:       { badge: 'rs-badge--error',   icono: 'siren',          label: 'En disputa' },
+  reembolsada:      { badge: 'rs-badge--neutral', icono: 'rotate-ccw',     label: 'Reembolsada' },
+  cancelada:        { badge: 'rs-badge--error',   icono: 'x',              label: 'Cancelada' },
+  no_show:          { badge: 'rs-badge--neutral', icono: 'circle',         label: 'No show' },
 };
 
 const FILTROS_ESTADO = [
@@ -38,7 +40,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-reservas',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule],
+  imports: [DatePipe, DecimalPipe, FormsModule, RsIconComponent],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -58,7 +60,9 @@ const LIMITE = 20;
              [(ngModel)]="buscarInput" (keyup.enter)="aplicarBusqueda()" />
       <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarBusqueda()">Buscar</button>
       @if (buscarActivo()) {
-        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarBusqueda()">✕ Limpiar</button>
+        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarBusqueda()">
+            <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon> Limpiar
+          </button>
       }
     </div>
 
@@ -112,32 +116,47 @@ const LIMITE = 20;
               <span class="cell-txt">{{ r.comercio }}</span>
               <span class="cell-amount">{{ r.montoTotal | number:'1.2-2' }} €</span>
               <span class="cell-amount cell-green">{{ r.comisionMonto | number:'1.2-2' }} €</span>
-              <span><span class="rs-badge {{ meta(r.estado).badge }}">{{ meta(r.estado).emoji }} {{ meta(r.estado).label }}</span></span>
+              <span>
+                <span class="rs-badge {{ meta(r.estado).badge }}">
+                  <rs-icon [name]="meta(r.estado).icono" [size]="12" [stroke]="2"></rs-icon>
+                  {{ meta(r.estado).label }}
+                </span>
+              </span>
               <span class="cell-actions">
                 <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Ver timeline"
-                        (click)="toggleTimeline(r._id)">🕑</button>
+                        (click)="toggleTimeline(r._id)" aria-label="Ver timeline">
+                    <rs-icon name="clock" [size]="14" [stroke]="2"></rs-icon>
+                  </button>
                 @if (r.estado !== 'pago_liberado' && r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Liberar pago"
-                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'pago_liberado')">💸 Liberar</button>
+                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'pago_liberado')">
+                    <rs-icon name="banknote" [size]="13" [stroke]="2"></rs-icon> Liberar
+                  </button>
                 }
                 @if (r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Reembolsar"
-                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'reembolsada')">↩️ Reembolsar</button>
+                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'reembolsada')">
+                    <rs-icon name="rotate-ccw" [size]="13" [stroke]="2"></rs-icon> Reembolsar
+                  </button>
                 }
                 @if (r.estado !== 'en_disputa') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Abrir incidencia"
-                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'en_disputa')">🔴 Disputa</button>
+                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'en_disputa')">
+                    <rs-icon name="siren" [size]="13" [stroke]="2"></rs-icon> Disputa
+                  </button>
                 }
               </span>
             </div>
             @if (expandidoId() === r._id) {
               <div class="timeline-row">
-                <h4>🕑 Timeline de la reserva {{ r.codigo }}</h4>
+                <h4><rs-icon name="clock" [size]="15" [stroke]="2"></rs-icon> Timeline de la reserva {{ r.codigo }}</h4>
                 @if (r.historialEstados?.length) {
                   <ol class="timeline">
                     @for (h of r.historialEstados; track $index) {
                       <li>
-                        <span class="timeline__dot">{{ meta(h.estado).emoji }}</span>
+                        <span class="timeline__dot">
+                          <rs-icon [name]="meta(h.estado).icono" [size]="13" [stroke]="2"></rs-icon>
+                        </span>
                         <span class="timeline__estado">{{ meta(h.estado).label }}</span>
                         <span class="timeline__meta">{{ h.at | date:'d MMM yyyy, HH:mm' }} · {{ h.por }}</span>
                         @if (h.motivo) { <span class="timeline__motivo">"{{ h.motivo }}"</span> }
@@ -152,7 +171,7 @@ const LIMITE = 20;
           }
           @if (reservas().length === 0) {
             <div class="empty-state">
-              <span class="empty-icon">📅</span>
+              <span class="empty-icon"><rs-icon name="calendar" [size]="34" [stroke]="1.5"></rs-icon></span>
               <p>No hay reservas{{ filtroEstado() ? ' con estado "' + meta(filtroEstado()).label + '"' : '' }}</p>
             </div>
           }
@@ -175,7 +194,10 @@ const LIMITE = 20;
     @if (modalReserva()) {
       <div class="modal-backdrop" (click)="cerrarModal()">
         <div class="modal rs-card" (click)="$event.stopPropagation()">
-          <h3>{{ meta(modalEstado()).emoji }} {{ meta(modalEstado()).label }} · {{ modalReserva()!.codigo }}</h3>
+          <h3>
+            <rs-icon [name]="meta(modalEstado()).icono" [size]="16" [stroke]="2"></rs-icon>
+            {{ meta(modalEstado()).label }} · {{ modalReserva()!.codigo }}
+          </h3>
           <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-3)">
             Indica el motivo (quedará registrado en el timeline de la reserva).
           </p>

@@ -32,7 +32,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
               Ábrelo para activar tu cuenta y continuar. Revisa también la carpeta de spam.
             </p>
             @if (reenviado()) {
-              <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">Correo reenviado ✓</div>
+              <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">Correo reenviado <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon></div>
             }
             <button type="button" class="rs-btn rs-btn--outline rs-btn--block" style="margin-top:var(--sp-5)"
                     (click)="reenviar()" [disabled]="reenviando()">

@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { CuponesAdminService, Cupon } from './services/cupones-admin.service';
 import { AdminApiService } from './admin-api.service';
@@ -9,7 +10,7 @@ import { AdminApiService } from './admin-api.service';
 @Component({
   selector: 'app-cupones-admin',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, ReactiveFormsModule],
+  imports: [RouterLink, RsNavbarComponent, ReactiveFormsModule, RsIconComponent],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -18,7 +19,7 @@ import { AdminApiService } from './admin-api.service';
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-4);margin-bottom:var(--sp-8);flex-wrap:wrap">
       <div>
         <a routerLink="/admin" class="back-link">← Panel admin</a>
-        <h1 style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100)">🎟️ Cupones</h1>
+        <h1 style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100)"><rs-icon name="ticket" [size]="26" [stroke]="2"></rs-icon> Cupones</h1>
         <p style="color:var(--t-400)">Crea y gestiona promociones de descuento.</p>
       </div>
       <div class="page-kpi rs-card">
@@ -30,7 +31,10 @@ import { AdminApiService } from './admin-api.service';
     <div class="cupones-grid">
       <!-- CREAR -->
       <div class="rs-card" style="padding:var(--sp-6);height:fit-content">
-        <h3 class="section-title">{{ editandoId() ? '✏️ Editar cupón' : '➕ Nuevo cupón' }}</h3>
+        <h3 class="section-title">
+          <rs-icon [name]="editandoId() ? 'pencil' : 'plus'" [size]="16" [stroke]="2"></rs-icon>
+          {{ editandoId() ? 'Editar cupón' : 'Nuevo cupón' }}
+        </h3>
         <form [formGroup]="form" (ngSubmit)="guardar()">
           <div class="rs-form-group">
             <label class="rs-label">Código</label>
@@ -82,7 +86,9 @@ import { AdminApiService } from './admin-api.service';
             <input formControlName="descripcion" class="rs-input" placeholder="Descripción opcional" />
           </div>
           @if (formError()) { <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ formError() }}</div> }
-          @if (formOk()) { <div class="rs-alert rs-alert--success" style="margin-bottom:var(--sp-4)">✓ {{ formOk() }}</div> }
+          @if (formOk()) { <div class="rs-alert rs-alert--success" style="margin-bottom:var(--sp-4)">
+          <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon> {{ formOk() }}
+        </div> }
           <div style="display:flex;gap:var(--sp-3)">
             @if (editandoId()) {
               <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cancelarEdicion()">Cancelar</button>
@@ -119,12 +125,18 @@ import { AdminApiService } from './admin-api.service';
                   {{ c.activo ? 'Activo' : 'Inactivo' }}
                 </span>
                 <button class="rs-btn rs-btn--ghost rs-btn--sm" title="Editar"
-                  (click)="iniciarEdicion(c)">✏️</button>
+                  (click)="iniciarEdicion(c)" aria-label="Editar cupón">
+                  <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
+                </button>
                 <button class="rs-btn rs-btn--ghost rs-btn--sm"
                   [title]="c.activo ? 'Desactivar' : 'Activar'"
-                  (click)="toggleActivo(c)">{{ c.activo ? '⏸️' : '▶️' }}</button>
+                  (click)="toggleActivo(c)" [attr.aria-label]="c.activo ? 'Pausar cupón' : 'Activar cupón'">
+                  <rs-icon [name]="c.activo ? 'pause' : 'play'" [size]="13" [stroke]="2"></rs-icon>
+                </button>
                 <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171" title="Eliminar"
-                  (click)="confirmarEliminar(c)">🗑️</button>
+                  (click)="confirmarEliminar(c)" aria-label="Eliminar cupón">
+                  <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
+                </button>
               </div>
             </div>
           }

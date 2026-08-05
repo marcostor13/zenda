@@ -113,7 +113,10 @@ const ESTADO_BADGE: Record<string, string> = {
         </div>
         @if (proximaLiquidacion() > 0) {
           <div class="fin-row" style="margin-top:var(--sp-2)">
-            <span>🏦 Próxima liquidación (servicios prestados pendientes de pago)</span>
+            <span>
+            <rs-icon name="banknote" [size]="15" [stroke]="2"></rs-icon>
+            Próxima liquidación (servicios prestados pendientes de pago)
+          </span>
             <strong>{{ proximaLiquidacion() | number:'1.2-2' }} €</strong>
           </div>
         }

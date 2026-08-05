@@ -8,6 +8,13 @@ import {
   porcentajeCompletitud,
 } from './perros.service';
 
+/** Etiqueta de estado de la ficha: icono Lucide + variante del badge (TCK-8010). */
+interface EtiquetaEstado {
+  readonly icon: string;
+  readonly variante: 'success' | 'warning';
+  readonly label: string;
+}
+
 @Component({
   selector: 'app-perros-lista',
   standalone: true,
@@ -55,25 +62,34 @@ import {
                 @if (p.peso) { · {{ p.peso }} kg }
                 @if (edadDe(p)) { · {{ edadDe(p) }} }
                 @if (p.sexo) { · {{ p.sexo === 'macho' ? 'Macho' : 'Hembra' }} }
-                @if (p.ciudad) { · 📍 {{ p.ciudad }} }
+                @if (p.ciudad) {
+                  · <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon> {{ p.ciudad }}
+                }
               </p>
               <div class="perro-card__badges">
                 @for (t of etiquetasEstado(p); track t.label) {
-                  <span class="rs-badge" [class]="t.icon === '🟡' ? 'rs-badge--warning' : 'rs-badge--success'">{{ t.icon }} {{ t.label }}</span>
+                  <span class="rs-badge" [class]="'rs-badge--' + t.variante">
+                    <rs-icon [name]="t.icon" [size]="13" [stroke]="2.5"></rs-icon> {{ t.label }}
+                  </span>
                 }
                 @if (p.tamano) { <span class="rs-badge">{{ p.tamano }}</span> }
                 @if (p.temperamento) { <span class="rs-badge rs-badge--accent">{{ p.temperamento }}</span> }
                 @if (indices()[p._id]?.totalValoraciones) {
                   <span class="rs-badge rs-badge--success">
-                    ★ {{ indices()[p._id].puntuacionPromedio }} ({{ indices()[p._id].totalValoraciones }})
+                    <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon>
+                    {{ indices()[p._id].puntuacionPromedio }} ({{ indices()[p._id].totalValoraciones }})
                   </span>
                 }
                 @if (p.nivelDoogking) {
-                  <span class="rs-badge rs-badge--accent">🎓 Nivel Doogking {{ p.nivelDoogking }}/5</span>
+                  <span class="rs-badge rs-badge--accent">
+                    <rs-icon name="graduation-cap" [size]="13" [stroke]="2"></rs-icon>
+                    Nivel Doogking {{ p.nivelDoogking }}/5
+                  </span>
                 }
                 @if (bienestar()[p._id]; as ib) {
                   <span class="rs-badge" [class]="'rs-badge--' + varianteBienestar(ib.nivel)">
-                    {{ iconoBienestar(ib.nivel) }} Bienestar {{ ib.puntuacion }}/100
+                    <rs-icon [name]="iconoBienestar(ib.nivel)" [size]="13" [stroke]="2.5"></rs-icon>
+                    Bienestar {{ ib.puntuacion }}/100
                   </span>
                 }
               </div>
@@ -89,14 +105,25 @@ import {
                   <strong>Resumen de salud</strong>
                   <div class="perro-card__salud">
                     <span [class.ok]="p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0">
-                      {{ (p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0) ? '✔' : '⚠' }} Vacunas registradas
+                      <rs-icon [name]="(p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0) ? 'check' : 'alert-triangle'"
+                               [size]="14" [stroke]="2.5"></rs-icon>
+                      Vacunas registradas
                     </span>
-                    <span [class.ok]="!!p.microchip">{{ p.microchip ? '✔' : '⚠' }} Microchip registrado</span>
-                    <span [class.ok]="p.esterilizado">{{ p.esterilizado ? '✔' : '⚠' }} Esterilizado</span>
+                    <span [class.ok]="!!p.microchip">
+                      <rs-icon [name]="p.microchip ? 'check' : 'alert-triangle'" [size]="14" [stroke]="2.5"></rs-icon>
+                      Microchip registrado
+                    </span>
+                    <span [class.ok]="p.esterilizado">
+                      <rs-icon [name]="p.esterilizado ? 'check' : 'alert-triangle'" [size]="14" [stroke]="2.5"></rs-icon>
+                      Esterilizado
+                    </span>
                   </div>
                   @if (indices()[p._id]; as ic) {
                     <strong>Estadísticas</strong>
-                    <p class="perro-card__stats">★ {{ ic.puntuacionPromedio }} valoración media de profesionales · {{ ic.totalValoraciones }} servicios valorados</p>
+                    <p class="perro-card__stats">
+                      <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon>
+                      {{ ic.puntuacionPromedio }} valoración media de profesionales · {{ ic.totalValoraciones }} servicios valorados
+                    </p>
                   }
                   <strong>Historial reciente</strong>
                   @if (historialCargando()) {
@@ -229,8 +256,9 @@ export class PerrosListaComponent implements OnInit {
     this.bienestar.set(mapa);
   }
 
+  /** Icono Lucide del nivel de bienestar; el color lo pone la variante del badge. */
   iconoBienestar(nivel: IndiceBienestarApi['nivel']): string {
-    return { inicial: '⚪', bueno: '🟡', muy_bueno: '🟢', excelente: '🟢' }[nivel];
+    return { inicial: 'circle', bueno: 'trending-up', muy_bueno: 'check-circle', excelente: 'award' }[nivel];
   }
 
   varianteBienestar(nivel: IndiceBienestarApi['nivel']): 'neutral' | 'warning' | 'success' {
@@ -248,13 +276,17 @@ export class PerrosListaComponent implements OnInit {
   }
 
   /** HU-8.1.1: etiquetas de estado a partir de datos reales, nunca texto manual. */
-  etiquetasEstado(p: PerroApi): { icon: string; label: string }[] {
-    const tags: { icon: string; label: string }[] = [];
-    if (p.sociabilidadPerros === 'alta') tags.push({ icon: '🟢', label: 'Sociable' });
-    if (p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0) tags.push({ icon: '🟢', label: 'Vacunada' });
-    if (p.esterilizado) tags.push({ icon: '🟢', label: 'Esterilizada' });
-    if (p.ansiedadSeparacion || /nervios/i.test(p.temperamento ?? '')) tags.push({ icon: '🟡', label: 'Nerviosa' });
-    if (p.microchip) tags.push({ icon: '🟢', label: 'Microchip' });
+  etiquetasEstado(p: PerroApi): EtiquetaEstado[] {
+    const tags: EtiquetaEstado[] = [];
+    if (p.sociabilidadPerros === 'alta') tags.push({ icon: 'users', variante: 'success', label: 'Sociable' });
+    if (p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0) {
+      tags.push({ icon: 'syringe', variante: 'success', label: 'Vacunada' });
+    }
+    if (p.esterilizado) tags.push({ icon: 'check-circle', variante: 'success', label: 'Esterilizada' });
+    if (p.ansiedadSeparacion || /nervios/i.test(p.temperamento ?? '')) {
+      tags.push({ icon: 'alert-triangle', variante: 'warning', label: 'Nerviosa' });
+    }
+    if (p.microchip) tags.push({ icon: 'radio-tower', variante: 'success', label: 'Microchip' });
     return tags;
   }
 

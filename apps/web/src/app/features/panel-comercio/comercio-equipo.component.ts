@@ -50,7 +50,9 @@ const PUESTOS = [
                 </span>
                 @if (m.rol === 'comercio_staff') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" [disabled]="eliminandoId() === m._id"
-                          (click)="eliminar(m)">🗑️</button>
+                          (click)="eliminar(m)" aria-label="Eliminar miembro del equipo">
+                  <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
+                </button>
                 } @else {
                   <span style="width:28px"></span>
                 }

@@ -169,7 +169,7 @@ const PROVINCIAS = [
                             <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
                                     [disabled]="anadiendo() === p.servicioId || anadidos().includes(p.servicioId)"
                                     (click)="anadir(p)">
-                              @if (anadidos().includes(p.servicioId)) { ✓ En tu viaje }
+                              @if (anadidos().includes(p.servicioId)) { <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> En tu viaje }
                               @else if (anadiendo() === p.servicioId) { Añadiendo… }
                               @else { Añadir al viaje }
                             </button>

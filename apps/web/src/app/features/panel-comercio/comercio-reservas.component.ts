@@ -7,10 +7,14 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { ComercioApiService, MiReserva, SuplementoConfig } from './comercio-api.service';
 import { PerrosService, HistoriaCompartidaApi } from '../perros/perros.service';
+import { iconoVertical } from './vertical-icon';
 
-const VERTICAL_ICON: Record<string, string> = {
-  alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
-};
+/** Hito de seguimiento en tiempo real que el comercio va marcando. */
+interface Hito {
+  readonly hito: string;
+  readonly icono: string;
+  readonly label: string;
+}
 
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success', pendiente: 'rs-badge--warning',
@@ -111,22 +115,26 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
                   }
                   @if (r.estado === 'completada' && r.perroId && !valoradoId().has(r._id)) {
                     <button class="rs-btn rs-btn--outline rs-btn--sm" (click)="toggleValorar(r._id)">
-                      ★ Valorar perro
+                      <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> Valorar perro
                     </button>
                   }
                   @if (valoradoId().has(r._id)) {
-                    <span class="rs-badge rs-badge--success">★ Valorado</span>
+                    <span class="rs-badge rs-badge--success">
+                      <rs-icon name="star" [size]="12" [stroke]="2.5" [filled]="true"></rs-icon> Valorado
+                    </span>
                   }
                   @if (r.vertical === 'veterinaria' && r.perroId) {
                     <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleHistoriaVeterinaria(r)">
-                      🩺 Historia veterinaria
+                      <rs-icon name="stethoscope" [size]="13" [stroke]="2"></rs-icon> Historia veterinaria
                     </button>
                   }
                   @if (hitosDe(r.vertical).length && (r.estado === 'confirmada' || r.estado === 'en_curso')) {
                     @for (h of hitosDe(r.vertical); track h.hito) {
                       <button class="rs-btn rs-btn--ghost rs-btn--sm"
                               [disabled]="seguimientoId() === r._id"
-                              (click)="marcarHito(r, h.hito)">{{ h.label }}</button>
+                              (click)="marcarHito(r, h.hito)">
+                        <rs-icon [name]="h.icono" [size]="13" [stroke]="2"></rs-icon> {{ h.label }}
+                      </button>
                     }
                   }
                 </td>
@@ -174,7 +182,11 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
                       <div class="resena-form__estrellas">
                         @for (n of [1,2,3,4,5]; track n) {
                           <button type="button" class="estrella-btn" [class.activa]="n <= puntuacionValoracion()"
-                                  (click)="puntuacionValoracion.set(n)">★</button>
+                                  [attr.aria-label]="n + ' de 5'"
+                                  (click)="puntuacionValoracion.set(n)">
+                            <rs-icon name="star" [size]="24" [stroke]="1.75"
+                                     [filled]="n <= puntuacionValoracion()"></rs-icon>
+                          </button>
                         }
                       </div>
                       <div class="rs-field">
@@ -485,7 +497,7 @@ export class ComercioReservasComponent implements OnInit {
     }
   }
 
-  iconVertical(v: string): string { return VERTICAL_ICON[v] ?? 'building'; }
+  iconVertical(v: string): string { return iconoVertical(v); }
   badgeEstado(e: string): string { return ESTADO_BADGE[e] ?? 'rs-badge--neutral'; }
   contarEstado(filtro: FiltroEstado): number {
     if (filtro === 'todas') return this.reservas().length;
@@ -507,20 +519,20 @@ export class ComercioReservasComponent implements OnInit {
   }
 
   /** Hitos de seguimiento en tiempo real según el tipo de servicio. */
-  hitosDe(vertical: string): Array<{ hito: string; label: string }> {
+  hitosDe(vertical: string): Hito[] {
     if (vertical === 'transporte') {
       return [
-        { hito: 'recogida', label: '🐾 Recogida' },
-        { hito: 'en_ruta', label: '🚐 En ruta' },
-        { hito: 'entregada', label: '📍 Entregada' },
-        { hito: 'finalizada', label: '✅ Finalizar' },
+        { hito: 'recogida', icono: 'paw', label: 'Recogida' },
+        { hito: 'en_ruta', icono: 'truck', label: 'En ruta' },
+        { hito: 'entregada', icono: 'map-pin', label: 'Entregada' },
+        { hito: 'finalizada', icono: 'check-circle', label: 'Finalizar' },
       ];
     }
     if (vertical === 'alojamiento' || vertical === 'hoteles') {
       return [
-        { hito: 'entrada', label: '🏠 Entrada' },
-        { hito: 'salida', label: '🐾 Salida' },
-        { hito: 'finalizada', label: '✅ Finalizar' },
+        { hito: 'entrada', icono: 'hotel', label: 'Entrada' },
+        { hito: 'salida', icono: 'paw', label: 'Salida' },
+        { hito: 'finalizada', icono: 'check-circle', label: 'Finalizar' },
       ];
     }
     return [];

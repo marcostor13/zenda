@@ -8,6 +8,7 @@ import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
 import { RsCardComponent } from '../../../shared/components/card/rs-card.component';
+import { RsStarsComponent } from '../../../shared/components/stars/rs-stars.component';
 import { RsChipComponent } from '../../../shared/components/chip/rs-chip.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import {
@@ -31,7 +32,7 @@ interface BusquedaUrl {
   imports: [
     ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
     RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent, RsChipComponent,
-    ExperienciasCercaComponent,
+    ExperienciasCercaComponent, RsStarsComponent,
   ],
   template: `
 <div class="alojamiento-page">
@@ -87,7 +88,7 @@ interface BusquedaUrl {
         <div class="filter-chips">
           @for (sc of ratingOpciones; track sc.valor) {
             <rs-chip [active]="ratingMinimo === sc.valor" (chipClick)="ratingMinimo = sc.valor">
-              {{ sc.estrellas }} {{ sc.label }}
+              <rs-stars [score]="sc.valor" [size]="12" /> {{ sc.label }}
             </rs-chip>
           }
         </div>
@@ -412,9 +413,9 @@ export class AlojamientoListaComponent implements OnInit {
   readonly avisoUbicacion = signal('');
 
   readonly ratingOpciones = [
-    { valor: 5,   estrellas: '★★★★★', label: '5.0' },
-    { valor: 4,   estrellas: '★★★★☆', label: '4.0+' },
-    { valor: 3,   estrellas: '★★★☆☆', label: '3.0+' },
+    { valor: 5, label: '5.0' },
+    { valor: 4, label: '4.0+' },
+    { valor: 3, label: '3.0+' },
   ];
 
   readonly amenitiesOpciones = ['Piscina', 'Jardín', 'Cuidado 24/7', 'Veterinario de guardia', 'Cámaras 24h', 'Paseos diarios'];

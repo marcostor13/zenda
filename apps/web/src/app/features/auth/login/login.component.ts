@@ -72,7 +72,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
             <div class="rs-alert rs-alert--warning" style="display:flex;flex-direction:column;gap:var(--sp-2)">
               <span>Tu email aún no está verificado. Revisa tu correo o reenvía el enlace.</span>
               @if (reenviado()) {
-                <strong>Correo reenviado ✓</strong>
+                <strong>Correo reenviado <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon></strong>
               } @else {
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="reenviar()" [disabled]="reenviando()">
                   {{ reenviando() ? 'Reenviando…' : 'Reenviar verificación' }}

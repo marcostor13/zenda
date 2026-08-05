@@ -65,7 +65,11 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
             <button type="button" class="rs-btn rs-btn--primary rs-btn--sm rs-navbar__account-btn"
                     (click)="cuentaAbierto.set(!cuentaAbierto())" [attr.aria-expanded]="cuentaAbierto()">
               <span class="rs-navbar__avatar">
-                {{ iniciales() }}
+                @if (iniciales()) {
+                  {{ iniciales() }}
+                } @else {
+                  <rs-icon name="paw" [size]="16" [stroke]="2"></rs-icon>
+                }
                 @if (tieneAvisoPendiente()) { <span class="rs-navbar__dot" aria-hidden="true"></span> }
               </span>
               Mi cuenta
@@ -75,9 +79,14 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
               <div class="rs-navbar__dropdown">
                 <div class="rs-navbar__dropdown-header">
                   <span class="rs-navbar__dropdown-name">{{ authService.usuario()?.nombre }}</span>
-                  <span class="rs-badge rs-badge--success rs-navbar__verificado">🟢 Cliente verificado</span>
+                  <span class="rs-badge rs-badge--success rs-navbar__verificado">
+                    <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Cliente verificado
+                  </span>
                   @if (alpha(); as a) {
-                    <span class="rs-navbar__dropdown-alpha">👑 {{ a.nombreNivel }} · {{ a.reservasCompletadas }} reservas</span>
+                    <span class="rs-navbar__dropdown-alpha">
+                      <rs-icon name="crown" [size]="13" [stroke]="2"></rs-icon>
+                      {{ a.nombreNivel }} · {{ a.reservasCompletadas }} reservas
+                    </span>
                   }
                 </div>
 
@@ -92,7 +101,11 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                 </a>
                 <a routerLink="/reservas" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--highlight" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="calendar" [size]="15" [stroke]="2"></rs-icon> Mis reservas
-                  @if (tieneReservaProxima()) { <span class="rs-navbar__pill">🟡 Próxima reserva</span> }
+                  @if (tieneReservaProxima()) {
+                    <span class="rs-navbar__pill">
+                      <rs-icon name="clock" [size]="12" [stroke]="2.5"></rs-icon> Próxima reserva
+                    </span>
+                  }
                 </a>
                 <a routerLink="/favoritos" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="heart" [size]="15" [stroke]="2"></rs-icon> Favoritos
@@ -403,7 +416,8 @@ export class RsNavbarComponent implements OnInit {
 
   readonly iniciales = computed(() => {
     const nombre = this.authService.usuario()?.nombre ?? '';
-    return nombre.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() || '🐾';
+    // Sin nombre no hay iniciales: la plantilla cae al icono de huella (TCK-8010).
+    return nombre.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
   });
 
   ngOnInit(): void {

@@ -14,6 +14,12 @@ export interface CardBadge {
   icon?: string;
 }
 
+/**
+ * Servicio destacado de la tarjeta. Admite texto suelto (uso histórico) o texto
+ * con icono Lucide, que es lo que se debe usar en pantallas nuevas (TCK-8010).
+ */
+export type CardAmenity = string | { icon: string; label: string };
+
 export interface CardRating {
   score: number | string;
   label?: string;
@@ -81,7 +87,12 @@ export interface CardPrice {
           }
           @if (amenities().length) {
             <div class="rs-hotel-card__amenities">
-              @for (a of amenities(); track a) { <span class="rs-amenity">{{ a }}</span> }
+              @for (a of amenities(); track etiquetaAmenity(a)) {
+                <span class="rs-amenity">
+                  @if (iconoAmenity(a); as icono) { <rs-icon [name]="icono" [size]="12" [stroke]="2" /> }
+                  {{ etiquetaAmenity(a) }}
+                </span>
+              }
             </div>
           }
           <div class="rs-hotel-card__footer">
@@ -155,7 +166,7 @@ export class RsCardComponent {
   readonly badges = input<CardBadge[]>([]);
   readonly rating = input<CardRating | null>(null);
   readonly price = input<CardPrice | null>(null);
-  readonly amenities = input<string[]>([]);
+  readonly amenities = input<CardAmenity[]>([]);
   readonly ctaLabel = input<string>('');
   readonly clickable = input(true);
   readonly favoritoServicioId = input<string | null>(null);
@@ -175,5 +186,13 @@ export class RsCardComponent {
 
   onCardClick(): void {
     if (this.clickable()) this.cardClick.emit();
+  }
+
+  etiquetaAmenity(amenity: CardAmenity): string {
+    return typeof amenity === 'string' ? amenity : amenity.label;
+  }
+
+  iconoAmenity(amenity: CardAmenity): string {
+    return typeof amenity === 'string' ? '' : amenity.icon;
   }
 }

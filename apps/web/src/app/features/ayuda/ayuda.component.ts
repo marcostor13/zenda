@@ -160,7 +160,7 @@ const APRENDIZAJE: readonly string[] = [
 
       @if (saludo(); as s) {
         <div class="ay-personal">
-          <h2>👋 Hola {{ s.nombre }}, ¿necesitas ayuda con alguna de estas reservas?</h2>
+          <h2>Hola {{ s.nombre }}, ¿necesitas ayuda con alguna de estas reservas?</h2>
           <div class="ay-personal__lista">
             @for (r of s.reservas; track r.codigo) {
               <div class="ay-personal__item">
@@ -180,7 +180,7 @@ const APRENDIZAJE: readonly string[] = [
 
       <div class="ay-buscador">
         <rs-icon name="search" [size]="18" [stroke]="2"></rs-icon>
-        <input type="search" class="rs-input" placeholder="🔍 Buscar una pregunta…"
+        <input type="search" class="rs-input" placeholder="Buscar una pregunta…"
                [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
       </div>
 
@@ -233,11 +233,11 @@ const APRENDIZAJE: readonly string[] = [
           <div class="rs-card ay-dato"><span class="ay-dato__label">Comisión</span><strong>Desde 10%</strong></div>
           <div class="rs-card ay-dato"><span class="ay-dato__label">Pago</span><strong>Tras completar el servicio</strong></div>
           <div class="rs-card ay-dato"><span class="ay-dato__label">Respuesta de soporte</span><strong>&lt; 24 h laborables</strong></div>
-          <div class="rs-card ay-dato"><span class="ay-dato__label">Estado de la plataforma</span><strong>🟢 Operativa</strong></div>
+          <div class="rs-card ay-dato"><span class="ay-dato__label">Estado de la plataforma</span><strong><rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Operativa</strong></div>
         </div>
 
         <div class="ay-section">
-          <h2>🚨 Incidencias rápidas</h2>
+          <h2><rs-icon name="siren" [size]="18" [stroke]="2"></rs-icon> Incidencias rápidas</h2>
           <div class="ay-incidencias">
             @for (i of incidencias; track i.label) {
               <a class="rs-card ay-incidencia" [href]="'mailto:soporte&#64;doogking.com?subject=' + i.asunto">
@@ -249,16 +249,16 @@ const APRENDIZAJE: readonly string[] = [
         </div>
 
         <div class="ay-section">
-          <h2>🎓 Centro de aprendizaje Doogking</h2>
+          <h2><rs-icon name="graduation-cap" [size]="18" [stroke]="2"></rs-icon> Centro de aprendizaje Doogking</h2>
           <ul class="ay-aprendizaje">
             @for (tema of aprendizaje; track tema) {
-              <li>✔ {{ tema }}</li>
+              <li><rs-icon name="check" [size]="14" [stroke]="3"></rs-icon> {{ tema }}</li>
             }
           </ul>
         </div>
 
         <div class="ay-section">
-          <h2>🔥 Lo más consultado esta semana</h2>
+          <h2><rs-icon name="flame" [size]="18" [stroke]="2"></rs-icon> Lo más consultado esta semana</h2>
           <div class="ay-consultadas">
             @for (f of masConsultadas(); track f.p) {
               <button type="button" class="ay-consultada" (click)="busqueda.set(f.p)">{{ f.p }}</button>
@@ -271,7 +271,11 @@ const APRENDIZAJE: readonly string[] = [
         <div>
           <h2>¿No encuentras tu respuesta?</h2>
           <p>Escríbenos y te contestamos en menos de 24 horas laborables.</p>
-          <p class="ay-contacto__confianza">⏱ Respuesta media: 4 h · ⭐ 4.8/5 satisfacción · 🌍 Español, inglés, catalán</p>
+          <p class="ay-contacto__confianza">
+          <rs-icon name="clock" [size]="13" [stroke]="2"></rs-icon> Respuesta media: 4 h ·
+          <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> 4.8/5 satisfacción ·
+          <rs-icon name="globe" [size]="13" [stroke]="2"></rs-icon> Español, inglés, catalán
+        </p>
         </div>
         <div class="ay-contacto__acciones">
           <a class="rs-btn rs-btn--primary" href="mailto:soporte&#64;doogking.com">

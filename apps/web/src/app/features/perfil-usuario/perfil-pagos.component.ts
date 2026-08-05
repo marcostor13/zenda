@@ -83,8 +83,8 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
           </svg>
         </div>
         <div class="stripe-block__chips">
-          <span class="stripe-chip">🔒 SSL 256-bit</span>
-          <span class="stripe-chip">✓ PCI DSS Nivel 1</span>
+          <span class="stripe-chip"><rs-icon name="lock" [size]="12" [stroke]="2"></rs-icon> SSL 256-bit</span>
+          <span class="stripe-chip"><rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> PCI DSS Nivel 1</span>
         </div>
       </div>
     </div>

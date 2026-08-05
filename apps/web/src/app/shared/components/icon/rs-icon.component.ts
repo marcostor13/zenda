@@ -6,7 +6,7 @@ import { Component, Input } from '@angular/core';
   template: `
     <svg
       viewBox="0 0 24 24"
-      fill="none"
+      [attr.fill]="filled ? 'currentColor' : 'none'"
       stroke="currentColor"
       [attr.width]="size"
       [attr.height]="size"
@@ -403,6 +403,61 @@ import { Component, Input } from '@angular/core';
           <path d="M8 14v.5"/>
           <path d="M8.5 8.5c-.384 1.05-1.083 2.028-2.344 2.5-1.931.722-3.576-.297-3.656-1-.113-.994 1.177-6.53 4-7 1.923-.321 3.651.845 3.651 2.235A7.497 7.497 0 0 1 14 5.277c0-1.39 1.844-2.598 3.767-2.277 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.96-1.45-2.344-2.5"/>
         }
+        @case ('meh') {
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M8 15h8M9 9h.01M15 9h.01"/>
+        }
+        @case ('frown') {
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M16 16s-1.5-2-4-2-4 2-4 2M9 9h.01M15 9h.01"/>
+        }
+        @case ('angry') {
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M16 16s-1.5-2-4-2-4 2-4 2"/>
+          <path d="M7.5 8 10 9M16.5 8 14 9"/>
+          <path d="M9 11.5h.01M15 11.5h.01"/>
+        }
+        @case ('flame') {
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/>
+        }
+        @case ('brain') {
+          <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+          <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+        }
+        @case ('trash') {
+          <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+          <path d="M10 11v6M14 11v6"/>
+        }
+        @case ('save') {
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        }
+        @case ('ticket') {
+          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+          <path d="M13 5v2M13 17v2M13 11v2"/>
+        }
+        @case ('bar-chart') {
+          <line x1="12" y1="20" x2="12" y2="10"/>
+          <line x1="18" y1="20" x2="18" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="16"/>
+        }
+        @case ('store') {
+          <path d="m2 7 1.5-4h17L22 7"/>
+          <path d="M2 7h20v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0Z"/>
+          <path d="M4 12v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8"/>
+        }
+        @case ('baby') {
+          <path d="M9 12h.01M15 12h.01"/>
+          <path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/>
+          <path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5.5 5 2"/>
+        }
+        @case ('banknote') {
+          <rect x="2" y="6" width="20" height="12" rx="2"/>
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M6 12h.01M18 12h.01"/>
+        }
         @default {}
       }
     </svg>
@@ -416,4 +471,6 @@ export class RsIconComponent {
   @Input() name = '';
   @Input() size: number | string = 24;
   @Input() stroke: number | string = 1.75;
+  /** Rellena el trazo con el color actual (estrellas de valoración, corazones). */
+  @Input() filled = false;
 }

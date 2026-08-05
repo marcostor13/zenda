@@ -6,7 +6,9 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
-import { RsCardComponent, type CardBadge } from '../../../shared/components/card/rs-card.component';
+import {
+  RsCardComponent, type CardAmenity, type CardBadge,
+} from '../../../shared/components/card/rs-card.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../services/transporte.service';
 import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automaticos';
@@ -150,27 +152,43 @@ export class TransporteListaComponent implements OnInit {
 
   tipoLabel(tipo: TipoVehiculoTransporte): string {
     const map: Record<TipoVehiculoTransporte, string> = {
-      van_acondicionada: '🚐 Van acondicionada',
-      coche: '🚗 Coche',
-      furgon_climatizado: '🚚 Furgón climatizado',
+      van_acondicionada: 'Van acondicionada',
+      coche: 'Coche',
+      furgon_climatizado: 'Furgón climatizado',
     };
     return map[tipo] ?? tipo;
   }
 
+  /** Icono Lucide del vehículo; sustituye a los emojis de la tarjeta (TCK-8010). */
+  private iconoVehiculo(tipo: TipoVehiculoTransporte): string {
+    const map: Record<TipoVehiculoTransporte, string> = {
+      van_acondicionada: 'truck',
+      coche: 'car',
+      furgon_climatizado: 'truck',
+    };
+    return map[tipo] ?? 'car';
+  }
+
   /** Badges de la tarjeta unificada (HU-3.1/HU-3.2): tipo de vehículo + destacado + automáticos. */
   badgesDe(t: TransporteCard): CardBadge[] {
-    const badges: CardBadge[] = [{ label: this.tipoLabel(t.tipoVehiculo) }];
-    if (t.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
+    const badges: CardBadge[] = [
+      { icon: this.iconoVehiculo(t.tipoVehiculo), label: this.tipoLabel(t.tipoVehiculo) },
+    ];
+    if (t.destacado) badges.push({ icon: 'star', label: 'Premium', variant: 'warning' });
     badges.push(...calcularBadgesAutomaticos({ score: t.score, numResenas: t.numResenas }));
     return badges;
   }
 
   /** Servicios como iconos en una línea bajo la foto (HU-3.1). */
-  serviciosDe(t: TransporteCard): string[] {
-    const items = [`🐾 Hasta ${t.capacidadPerros} ${t.capacidadPerros === 1 ? 'perro' : 'perros'}`];
-    if (t.jaulasIncluidas) items.push('✓ Jaulas incluidas');
-    if (t.acompananteHumano) items.push('✓ Puedes acompañarlo');
-    if (t.zonaCobertura.length) items.push(`📍 Cubre ${t.zonaCobertura.slice(0, 3).join(', ')}`);
+  serviciosDe(t: TransporteCard): CardAmenity[] {
+    const items: CardAmenity[] = [
+      { icon: 'paw', label: `Hasta ${t.capacidadPerros} ${t.capacidadPerros === 1 ? 'perro' : 'perros'}` },
+    ];
+    if (t.jaulasIncluidas) items.push({ icon: 'check', label: 'Jaulas incluidas' });
+    if (t.acompananteHumano) items.push({ icon: 'check', label: 'Puedes acompañarlo' });
+    if (t.zonaCobertura.length) {
+      items.push({ icon: 'map-pin', label: `Cubre ${t.zonaCobertura.slice(0, 3).join(', ')}` });
+    }
     return items;
   }
 

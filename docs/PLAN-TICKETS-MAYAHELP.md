@@ -18,8 +18,8 @@ Verificación del estado real en código de los 6 tickets exportados desde MayaH
 | **TCK-8004** | Landing "Muy pronto" | ✅ **Implementado** (commit `5282789`) |
 | **TCK-8008** | Iconos oficiales en lugar del nombre | 🟡 **Parcial** — redes sociales hechas; marcas de pago siguen como texto |
 | **TCK-8009** | "Garantía Doogking" con iconos y orden | ✅ **Implementado** (commit `931dbb7`) |
-| **TCK-8010** | Iconografía Lucide en toda la plataforma, sin emojis | 🟡 **Parcial** — hecho en las pantallas públicas; ~175 emojis vivos en paneles y formularios |
-| **TCK-8011** | Programa Doogking Alpha premium | ✅ **Implementado** (commit `931dbb7`) salvo un emoji residual en el navbar |
+| **TCK-8010** | Iconografía Lucide en toda la plataforma, sin emojis | ✅ **Resuelto** — ver §3 T2 (hecho) |
+| **TCK-8011** | Programa Doogking Alpha premium | ✅ **Implementado** (commit `931dbb7`); el emoji residual del navbar se retiró en T2 |
 | **TCK-8012** | La foto del perro no sale al registrarlo | ✅ **Resuelto** — ver §3 T3 (hecho) |
 
 Estado de los planes `.md` anteriores: los 12 bloques de `docs/PLAN-NEW-CHANGES-27-07.md`,
@@ -210,7 +210,39 @@ en el pet-picker y en el wizard.
 
 </details>
 
-### T2 — Retirar los emojis restantes (TCK-8010, cierra también el 👑 del 8011) · prioridad alta
+### T2 — Retirar los emojis restantes (TCK-8010, cierra también la corona del 8011) · ✅ hecho
+
+Implementado. Resumen de lo entregado:
+
+- **Barrido A (mascota y cliente):** ficha y lista de mascotas, favoritos, mis reservas,
+  valoración por token, listados y ficha de alojamiento, listado de transporte, explora,
+  perfiles y navbar. Los cuatro niveles de sociabilidad pasan de emojis de semáforo a
+  caras Lucide con color por token; las etiquetas de estado de la ficha llevan icono
+  y variante de badge en vez de un círculo de color.
+- **Barrido B (paneles):** panel admin completo (dashboard, comercios, reservas,
+  usuarios, reportes, analítica, cupones) y panel comercio (config, equipo, ingresos,
+  listados, reservas).
+- **Barrido C (auth y ayuda):** registro, registro de comercio, login y centro de ayuda.
+- **Componentes nuevos:** `rs-stars` (fila de estrellas de valoración, sustituye a los
+  helpers que repetían el carácter de estrella como texto) y el input `filled` de
+  `rs-icon` para rellenar el trazo.
+- **Iconos añadidos a `rs-icon`:** `meh`, `frown`, `angry`, `flame`, `brain`, `trash`,
+  `save`, `ticket`, `bar-chart`, `store`, `baby`, `banknote`.
+- **Una sola fuente de iconos por vertical:** `iconoDeVertical()` en
+  `verticales.config.ts`; `vertical-icon.ts` delega en ella y se borraron los tres
+  mapas de emojis y los dos mapas de iconos duplicados que vivían en los paneles.
+- **`rs-card`:** el input `amenities` admite ahora `{ icon, label }` además de texto
+  suelto, para que los servicios de la tarjeta lleven icono.
+- **Guardia anti-regresión:** `shared/sin-emojis.spec.ts` recorre el código de
+  producción del frontend y falla si reaparece un emoji.
+- **Excepción documentada:** las banderas de `paises.catalogo.ts` se mantienen (son la
+  representación estándar en un selector de prefijo telefónico y no hay equivalente en
+  Lucide). Es la única entrada de la lista blanca del test, junto al propio test.
+
+Suite completa del frontend en verde (90 suites, 1158 tests) y `build:web` compila.
+
+<details>
+<summary>Plan original de T2</summary>
 
 Por barridos, cada uno con sus tests actualizados:
 
@@ -228,6 +260,8 @@ Por barridos, cada uno con sus tests actualizados:
    representación estándar en un selector de prefijo). Se documenta como excepción.
 
 **Verificación:** el test anti-regresión en verde + revisión visual de admin y ficha de mascota.
+
+</details>
 
 ### T1 — Marcas oficiales en lugar del nombre (TCK-8008) · prioridad media
 
