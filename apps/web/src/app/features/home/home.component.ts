@@ -8,6 +8,7 @@ import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scr
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components/brand-icon/rs-brand-icon.component';
 import { RsSocialIconComponent, type RedSocialKey } from '../../shared/components/social-icon/rs-social-icon.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
@@ -50,6 +51,7 @@ type SearchMode = 'filtros' | 'ia';
   imports: [
     RouterLink, ReactiveFormsModule, AnimateOnScrollDirective, ImgFallbackDirective,
     RsNavbarComponent, RsIconComponent, RsSocialIconComponent, RsSearchBarComponent, RsCardComponent,
+    RsBrandIconComponent,
   ],
   template: `
 <div class="home">
@@ -387,7 +389,11 @@ type SearchMode = 'filtros' | 'ia';
     <div class="home-footer__stores">
       <span class="home-footer__store-badge"><rs-icon name="smartphone" [size]="14" [stroke]="2" /> Próximamente en App Store</span>
       <span class="home-footer__store-badge"><rs-icon name="play" [size]="14" [stroke]="2" /> Próximamente en Google Play</span>
-      <span class="home-footer__pay"><rs-icon name="credit-card" [size]="14" [stroke]="2" /> Visa · Mastercard · Stripe · Apple Pay · Google Pay</span>
+      <span class="home-footer__pay">
+        @for (marca of marcasPago; track marca) {
+          <rs-brand-icon [name]="marca" [size]="20" />
+        }
+      </span>
     </div>
 
     <p class="home-footer__closing">Todo lo que tu mascota necesita. En un solo lugar.<br />Gracias por confiar en Doogking.</p>
@@ -1068,10 +1074,11 @@ type SearchMode = 'filtros' | 'ia';
       border-top: 1px solid rgba(255,255,255,.15);
     }
 
-    .home-footer__store-badge, .home-footer__pay {
+    .home-footer__store-badge {
       font-size: var(--f-xs);
       color: rgba(255,255,255,.65);
     }
+    .home-footer__pay { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; }
 
     .home-footer__closing {
       text-align: center;
@@ -1105,6 +1112,11 @@ export class HomeComponent {
   readonly rutaAlojamiento = rutaDeVertical(VerticalKey.ALOJAMIENTO);
 
   /** Perfiles sociales del footer; se muestran con su logo oficial (TCK-8008). */
+  /** Marcas de pago del pie, con su logotipo en vez del nombre escrito (TCK-8008). */
+  readonly marcasPago: readonly MarcaPagoKey[] = [
+    'visa', 'mastercard', 'amex', 'stripe', 'apple-pay', 'google-pay',
+  ];
+
   readonly redesSociales: readonly { nombre: string; icono: RedSocialKey; url: string }[] = [
     { nombre: 'Instagram', icono: 'instagram', url: 'https://instagram.com/doogking' },
     { nombre: 'Facebook', icono: 'facebook', url: 'https://facebook.com/doogking' },

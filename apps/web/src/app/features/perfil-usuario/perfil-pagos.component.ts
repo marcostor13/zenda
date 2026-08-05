@@ -2,11 +2,12 @@ import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components/brand-icon/rs-brand-icon.component';
 
 @Component({
   selector: 'app-perfil-pagos',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent],
+  imports: [RouterLink, RsNavbarComponent, RsIconComponent, RsBrandIconComponent],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -48,26 +49,9 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
     <div class="rs-card accepted-card">
       <h3>Métodos de pago aceptados</h3>
       <div class="card-logos">
-        <div class="card-logo-chip">
-          <rs-icon name="credit-card" [size]="14" [stroke]="2"></rs-icon>
-          Visa
-        </div>
-        <div class="card-logo-chip">
-          <rs-icon name="credit-card" [size]="14" [stroke]="2"></rs-icon>
-          Mastercard
-        </div>
-        <div class="card-logo-chip">
-          <rs-icon name="credit-card" [size]="14" [stroke]="2"></rs-icon>
-          American Express
-        </div>
-        <div class="card-logo-chip">
-          <rs-icon name="zap" [size]="14" [stroke]="2"></rs-icon>
-          Apple Pay
-        </div>
-        <div class="card-logo-chip">
-          <rs-icon name="zap" [size]="14" [stroke]="2"></rs-icon>
-          Google Pay
-        </div>
+        @for (marca of marcasPago; track marca) {
+          <rs-brand-icon [name]="marca" [size]="26" />
+        }
       </div>
       <p class="accepted-note">
         Los pagos se procesan de forma segura mediante Stripe, con cifrado SSL de 256 bits.
@@ -125,13 +109,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
       max-width: 520px; padding: var(--sp-6);
       h3 { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-300); margin-bottom: var(--sp-4); text-transform: uppercase; letter-spacing: .06em; }
     }
-    .card-logos { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
-    .card-logo-chip {
-      display: inline-flex; align-items: center; gap: var(--sp-2);
-      padding: var(--sp-2) var(--sp-3); border-radius: var(--r-lg);
-      background: var(--c-raised); border: 1px solid var(--b-2);
-      font-size: var(--f-xs); color: var(--t-300); font-weight: var(--w-5);
-    }
+    .card-logos { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-4); }
     .accepted-note { font-size: var(--f-xs); color: var(--t-400); line-height: 1.6; margin-bottom: var(--sp-5); }
 
     .stripe-block {
@@ -149,6 +127,11 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
   `],
 })
 export class PerfilPagosComponent {
+  /** Métodos aceptados, mostrados con su marca y no con el nombre (TCK-8008). */
+  readonly marcasPago: readonly MarcaPagoKey[] = [
+    'visa', 'mastercard', 'amex', 'apple-pay', 'google-pay',
+  ];
+
   abrirPortalStripe(): void {
     alert('La gestión de tarjetas guardadas estará disponible próximamente. Los pagos se completan de forma segura en cada reserva mediante Stripe Checkout.');
   }

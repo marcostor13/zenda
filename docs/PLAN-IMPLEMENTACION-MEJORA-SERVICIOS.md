@@ -30,13 +30,13 @@ Resolviendo `ANALISIS-ESPECIFICACIONES.md` §7 con la información disponible en
 - [x] `perros.service.ts` + `perros.controller.ts` + `perros.module.ts` — CRUD propio + historial (comercio añade notas vía `POST /perros/:id/historial`, cliente lista vía `GET /perros/:id/historial`).
 - [x] DTOs en `libs/shared/src/dtos/perros/` + enums `TamanoPerro`, `TipoPelo`, `SexoPerro`, `NivelSociabilidad` en `libs/shared/src/enums/perro.enum.ts`.
 - [x] Tests `perros.service.spec.ts` + `perros.controller.spec.ts` (16 tests, todos verdes).
-- [ ] **Pendiente:** UI "Mis perros" en frontend (ver A2/A3 frontend, tarea #8 del backlog de sesión).
+- [x] **Hecho:** UI "Mis perros" en frontend — `features/perros/perros-lista.component.ts` + `perro-form.component.ts`, ruta `/perros`.
 
 ### A2. `Reserva.perroId` + snapshot — ✅ completado 2026-07-18 (backend)
 - [x] `reserva.schema.ts`: `perroId?: ObjectId`, `perroSnapshot?: Record<string,unknown>`.
 - [x] `bookings.service.ts`: `crear()` valida ownership del perro (`perrosService.obtenerPropio`) y congela snapshot vía `perro-snapshot.util.ts` **antes** de reservar el slot (falla rápido, no deja holds huérfanos).
 - [x] `CrearReservaDto.perroId` opcional (no obligatorio aún por vertical — eso es trabajo de Fase C cuando cada vertical defina si lo requiere).
-- [ ] **Pendiente:** selector de perro en `reserva-wizard.component.ts` (frontend, tarea #8).
+- [x] **Hecho:** selector de perro en `reserva-wizard.component.ts` (bloque "¿Para qué perro es esta reserva?") y `rs-pet-picker` en el buscador.
 
 ### A3. Ciclo de suplementos y evidencias — ✅ completado 2026-07-18 (backend)
 - [x] `ReservaEstado.AJUSTE_SOLICITADO` (un único estado nuevo, no 3 — simplificación deliberada: aceptar vuelve a `CONFIRMADA`, rechazar va a `CANCELADA`, ambos ya soportados por el resto del sistema).
@@ -50,7 +50,7 @@ Resolviendo `ANALISIS-ESPECIFICACIONES.md` §7 con la información disponible en
 - [x] `PaymentsController`: `POST payments/reservas/:id/ajuste/aceptar` y `.../rechazar`.
 - [x] Recalcula comisión sobre el monto ajustado (mantiene el % de comisión efectivo de la reserva original: `comisionMonto/montoSubtotal`). La excepción de veterinaria (comisión solo sobre consulta inicial) **no aplica todavía** porque el flag `esPrecioCerrado`/`esPrecioOrientativo` es trabajo de Fase C — cuando se añada, `solicitarAjuste` deberá comprobarlo antes de permitir el ciclo en ese vertical.
 - [x] Tests: 22 en `bookings.service.spec.ts` (incluye ajuste), 12 en `payments.service.spec.ts` (incluye aceptar/rechazar/webhook suplemento), 9+4 en `suplementos.*.spec.ts`, más los delegates en `comercios.service.spec.ts`/`comercios.controller.spec.ts`. Total 85 tests en los módulos tocados, todos verdes.
-- [ ] **Pendiente (no bloqueante):** plantillas de `notifications` para avisar al cliente del ajuste solicitado — hoy el cliente solo se entera si consulta la reserva; falta el email/push proactivo. UI de comercio (botón solicitar ajuste) y UI de cliente (aceptar/rechazar) — tarea #9 del backlog de sesión.
+- [x] **Hecho:** aviso proactivo del ajuste de precio — `notifications.service.ts` (tipo `ajuste_solicitado`), con la UI de comercio para solicitarlo y la de cliente para aceptar/rechazar.
 
 ### A4. Verificación — ✅ completado 2026-07-18
 - [x] `npm run build --workspace=shared` + `npx tsc --noEmit` en `apps/api` — sin errores.

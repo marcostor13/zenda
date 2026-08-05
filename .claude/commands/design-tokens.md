@@ -114,7 +114,8 @@ FORMS:     .rs-field > .rs-lbl + .rs-inp (+ .rs-field-err / .rs-field-hint)
 CARDS:     .rs-card  .rs-hotel-card (card de listado)
 BADGES:    .rs-badge --{accent|success|warning|error|neutral|purple|teal}
 ALERTS:    .rs-alert --{error|success|warning}
-RATING:    .rs-rating (estrellas doradas)   PRECIO: .rs-price
+RATING:    .rs-rating (caja de nota)  ·  <rs-stars [score]="4.5"> (fila de estrellas)
+           PRECIO: .rs-price
 TABS:      .rs-vtabs .rs-vtab (legacy .rs-vertical-tabs)
 SEARCH:    .rs-search  (legacy .rs-search-box, .rs-buscador-hero)
 AUTH:      .rs-auth (legacy .rs-auth-layout .rs-auth-card)
@@ -122,6 +123,28 @@ FOOTER:    .rs-footer (navy --dk-blue-deep)
 UTILS:     .rs-spinner .rs-skeleton .rs-hr .rs-flex .rs-col .rs-center
            .rs-between .rs-gap-{2|3|4|6|8} .rs-text-center .rs-truncate
 ```
+
+## Iconografía (regla TCK-8010: nunca emojis)
+
+Toda la UI usa iconos vectoriales de la misma familia. Hay tres componentes, y
+ninguno se sustituye por un emoji ni por un carácter tipográfico:
+
+```
+<rs-icon name="star" [size]="16" [stroke]="2" [filled]="true">   ← iconos de trazo (Lucide)
+<rs-social-icon name="instagram">                                 ← logos de redes sociales
+<rs-brand-icon name="visa" [size]="22">                           ← marcas de pago (TCK-8008)
+```
+
+- `rs-icon` mantiene el contrato `fill=none` + `stroke=currentColor`; `filled`
+  lo rellena con el color actual (estrellas, corazones). Icono nuevo = un `@case`
+  más en `rs-icon.component.ts` con el path de Lucide.
+- `rs-brand-icon` cubre `visa | mastercard | amex | stripe | apple-pay | google-pay`.
+  Si algún día se dispone del artwork oficial, se deja en `public/icons/pagos/` y
+  se cambia solo ese componente.
+- El icono de cada vertical sale siempre de `iconoDeVertical()`
+  (`shared/verticales/verticales.config.ts`), nunca de un mapa local.
+- `shared/sin-emojis.spec.ts` falla el build si aparece un emoji en el código de
+  producción. Única excepción: las banderas de `paises.catalogo.ts`.
 
 ## Assets de marca (`apps/web/public/`)
 

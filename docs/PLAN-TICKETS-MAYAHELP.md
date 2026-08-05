@@ -16,7 +16,7 @@ Verificación del estado real en código de los 6 tickets exportados desde MayaH
 | Ticket | Tema | Estado real |
 |---|---|---|
 | **TCK-8004** | Landing "Muy pronto" | ✅ **Implementado** (commit `5282789`) |
-| **TCK-8008** | Iconos oficiales en lugar del nombre | 🟡 **Parcial** — redes sociales hechas; marcas de pago siguen como texto |
+| **TCK-8008** | Iconos oficiales en lugar del nombre | ✅ **Resuelto** — ver §3 T1 (hecho) · **[pendiente de confirmar la captura]** |
 | **TCK-8009** | "Garantía Doogking" con iconos y orden | ✅ **Implementado** (commit `931dbb7`) |
 | **TCK-8010** | Iconografía Lucide en toda la plataforma, sin emojis | ✅ **Resuelto** — ver §3 T2 (hecho) |
 | **TCK-8011** | Programa Doogking Alpha premium | ✅ **Implementado** (commit `931dbb7`); el emoji residual del navbar se retiró en T2 |
@@ -26,7 +26,9 @@ Estado de los planes `.md` anteriores: los 12 bloques de `docs/PLAN-NEW-CHANGES-
 `docs/PLAN-UNIFICADO-REVISION-Y-MODULOS.md` y `docs/PLAN-MEJORAS-TODA-LA-APP.md` figuran
 como completados y se han verificado por muestreo en código. De
 `docs/PLAN-IMPLEMENTACION-MEJORA-SERVICIOS.md` quedaban 4 items marcados `[ ]`; tres ya
-están implementados y solo falta actualizar el documento (ver §4).
+estaban implementados y se han marcado como hechos. El único que sigue abierto es la
+prueba manual end-to-end con Stripe en modo test, que necesita el stack levantado y
+claves de test.
 
 ---
 
@@ -263,7 +265,30 @@ Por barridos, cada uno con sus tests actualizados:
 
 </details>
 
-### T1 — Marcas oficiales en lugar del nombre (TCK-8008) · prioridad media
+### T1 — Marcas oficiales en lugar del nombre (TCK-8008) · ✅ hecho
+
+Implementado. Nuevo `RsBrandIconComponent`
+(`shared/components/brand-icon/rs-brand-icon.component.ts`) con
+`visa | mastercard | amex | stripe | apple-pay | google-pay`, y sustituido el texto en
+los tres sitios donde las marcas se leían en lugar de reconocerse:
+
+| Antes | Ahora |
+|---|---|
+| `reserva-wizard`: "Visa · Mastercard · American Express" | fila de marcas bajo el método de pago |
+| `home` (pie): "Visa · Mastercard · Stripe · Apple Pay · Google Pay" | fila de marcas |
+| `perfil-pagos`: chips con nombre y un icono genérico de tarjeta | fila de marcas |
+
+Cada marca lleva `role="img"` y `aria-label` con su nombre, así que el lector de pantalla
+sigue diciendo "Visa" aunque en pantalla ya no se lea. 5 tests nuevos.
+
+**Nota sobre el artwork:** el símbolo de Mastercard son sus dos círculos, geometría
+exacta. Las demás marcas son logotipos de texto y aquí se dibujan como lettering sobre
+el fondo corporativo de cada una: reconocible y sin depender de assets externos (el CSP
+de la app no permite cargar imágenes de terceros). Si se dispone del artwork oficial,
+se deja en `public/icons/pagos/` y solo cambia ese componente.
+
+<details>
+<summary>Plan original de T1</summary>
 
 1. Nuevo `RsBrandIconComponent` (`shared/components/brand-icon/`) con los logotipos
    vectoriales de `visa`, `mastercard`, `amex`, `stripe`, `apple-pay`, `google-pay`,
@@ -277,7 +302,17 @@ Por barridos, cada uno con sus tests actualizados:
 
 **Verificación:** test de render del componente + revisión visual del paso de pago.
 
-### T4 — Cierre documental · prioridad baja
+</details>
+
+### T4 — Cierre documental · ✅ hecho
+
+`docs/PLAN-IMPLEMENTACION-MEJORA-SERVICIOS.md` actualizado (los tres items ya
+implementados marcados como hechos) y `.claude/commands/design-tokens.md` amplía la
+sección de iconografía con la regla anti-emojis, los tres componentes de icono y la
+guardia automática.
+
+<details>
+<summary>Plan original de T4</summary>
 
 1. Actualizar `docs/PLAN-IMPLEMENTACION-MEJORA-SERVICIOS.md`: marcar como hechos los tres
    items ya implementados —
@@ -288,20 +323,20 @@ Por barridos, cada uno con sus tests actualizados:
    Queda abierto solo el e2e manual de Stripe en modo test.
 2. Actualizar este documento con el resultado de cada tarea.
 
+</details>
+
 ---
 
 ## 4. Secuencia sugerida y commits
 
-| Orden | Tarea | Commit sugerido |
+| Orden | Tarea | Commit |
 |---|---|---|
-| 1 | T3 backend + frontend + fallback | `fix(upload): servir y mostrar la foto de la mascota (TCK-8012)` |
-| 2 | T2 barrido A | `refactor(web): iconos Lucide en mascota y área de cliente (TCK-8010)` |
-| 3 | T2 barrido B | `refactor(web): iconos Lucide en paneles admin y comercio (TCK-8010)` |
-| 4 | T2 barrido C + test anti-regresión | `test(web): impedir emojis nuevos en la UI (TCK-8010)` |
-| 5 | T1 | `feat(web): marcas de pago oficiales en lugar del nombre (TCK-8008)` |
-| 6 | T4 | `docs: cerrar los tickets de MayaHelp verificados` |
+| 1 | T3 | `fix(upload): servir y mostrar la foto de la mascota (TCK-8012)` |
+| 2 | T2 (los tres barridos + guardia) | `refactor(web): iconografía Lucide uniforme en toda la app (TCK-8010)` |
+| 3 | T1 + T4 | `feat(web): marcas de pago oficiales en lugar del nombre (TCK-8008)` |
 
-Cada commit cita su código de ticket, según pide el export de MayaHelp.
+Los seis tickets quedan cerrados en código. Cada commit cita su código de ticket, según
+pide el export de MayaHelp.
 
 ## 5. Preguntas abiertas para la clienta
 
