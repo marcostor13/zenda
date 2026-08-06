@@ -123,7 +123,7 @@ const LIMITE = 20;
                 <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
               </button>
               <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171"
-                (click)="confirmarEliminar(u)" aria-label="Eliminar usuario">
+                (click)="confirmarEliminar(u)" aria-label="Eliminar usuario" data-icono>
                 <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
               </button>
             </div>
@@ -307,7 +307,6 @@ const LIMITE = 20;
         text-transform: uppercase;
         color: var(--t-400);
       }
-      .acciones { justify-content: flex-end; flex-wrap: wrap; }
     }
 
     .tbl-skeleton { pointer-events: none; }
@@ -318,6 +317,34 @@ const LIMITE = 20;
     .cell-email { font-size: var(--f-sm); color: var(--t-300); word-break: break-all; }
     .cell-muted { font-size: var(--f-xs); color: var(--t-400); }
     .acciones { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+
+    /*
+     * Móvil: las acciones son el pie de la tarjeta, no una celda más. Se alinean
+     * a la izquierda tras un separador y los botones con texto reparten el ancho;
+     * los de solo icono se quedan cuadrados al final en vez de estirarse.
+     */
+    @media (max-width: 768px) {
+      .acciones {
+        justify-content: flex-start;
+        gap: var(--sp-2);
+        margin-top: var(--sp-1);
+        padding-top: var(--sp-3);
+        border-top: 1px solid var(--b-1);
+      }
+
+      .acciones .rs-btn {
+        /* Dos botones con texto por fila: repartir "auto" dejaba filas huérfanas. */
+        flex: 1 1 calc(50% - var(--sp-2));
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      .acciones [data-icono] {
+        flex: 0 0 44px;
+        padding-inline: 0;
+      }
+    }
+
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 14px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 120px; } .skel--lg { width: 150px; } .skel--xl { width: 200px; }
