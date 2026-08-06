@@ -1,6 +1,7 @@
 import type { BadgeVariant } from '../components/badge/rs-badge.component';
 
 export interface BadgeAutomatico {
+  /** Nombre de icono de `rs-icon` (Lucide). Nunca un emoji: TCK-8010. */
   icon: string;
   label: string;
   variant: BadgeVariant;
@@ -33,22 +34,22 @@ export function calcularBadgesAutomaticos(s: ServicioParaBadges): BadgeAutomatic
   const badges: BadgeAutomatico[] = [];
 
   if (s.destacado) {
-    badges.push({ icon: '⭐', label: 'Recomendado', variant: 'accent' });
+    badges.push({ icon: 'sparkles', label: 'Recomendado', variant: 'accent' });
   }
   if ((s.reservasUltimoMes ?? 0) >= UMBRAL_MAS_RESERVADO) {
-    badges.push({ icon: '🔥', label: 'Más reservado', variant: 'success' });
+    badges.push({ icon: 'trending-up', label: 'Más reservado', variant: 'success' });
   }
   if ((s.score ?? 0) >= UMBRAL_MEJOR_VALORADO && (s.numResenas ?? 0) >= UMBRAL_MIN_RESENAS) {
-    badges.push({ icon: '🏆', label: 'Mejor valorado', variant: 'warning' });
+    badges.push({ icon: 'trophy', label: 'Mejor valorado', variant: 'warning' });
   }
   if (s.respuestaRapidaMin != null && s.respuestaRapidaMin <= UMBRAL_RESPUESTA_RAPIDA_MIN) {
-    badges.push({ icon: '⚡', label: 'Responde en < 1 h', variant: 'neutral' });
+    badges.push({ icon: 'zap', label: 'Responde en < 1 h', variant: 'neutral' });
   }
   if (s.plazasRestantes != null && s.plazasRestantes > 0 && s.plazasRestantes <= UMBRAL_ULTIMAS_PLAZAS) {
-    badges.push({ icon: '🔥', label: 'Últimas plazas', variant: 'error' });
+    badges.push({ icon: 'hourglass', label: 'Últimas plazas', variant: 'error' });
   }
   if (s.alphaAdherido) {
-    badges.push({ icon: '🏆', label: 'Ventajas Alpha', variant: 'accent' });
+    badges.push({ icon: 'crown', label: 'Ventajas Alpha', variant: 'accent' });
   }
 
   return badges;

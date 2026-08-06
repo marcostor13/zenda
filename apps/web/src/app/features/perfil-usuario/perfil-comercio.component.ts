@@ -9,11 +9,18 @@ import { ComercioApiService, MiComercio } from '../panel-comercio/comercio-api.s
 interface StatItem { icon: string; iconColor: string; iconBg: string; value: string; label: string; }
 interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
 
-const VERIFICACION_BADGE: Record<string, { clase: string; texto: string }> = {
-  verificado:   { clase: 'rs-badge--success', texto: '✅ Comercio verificado' },
-  pendiente:    { clase: 'rs-badge--warning', texto: '⏳ Verificación pendiente' },
-  rechazado:    { clase: 'rs-badge--error',   texto: '✗ Verificación rechazada' },
-  sin_verificar:{ clase: 'rs-badge--neutral', texto: 'Sin verificar' },
+/** Estado de verificación del comercio, con icono Lucide en vez de emoji (TCK-8010). */
+interface VerificacionBadge {
+  readonly clase: string;
+  readonly icono: string;
+  readonly texto: string;
+}
+
+const VERIFICACION_BADGE: Record<string, VerificacionBadge> = {
+  verificado:   { clase: 'rs-badge--success', icono: 'badge-check', texto: 'Comercio verificado' },
+  pendiente:    { clase: 'rs-badge--warning', icono: 'hourglass',   texto: 'Verificación pendiente' },
+  rechazado:    { clase: 'rs-badge--error',   icono: 'x',           texto: 'Verificación rechazada' },
+  sin_verificar:{ clase: 'rs-badge--neutral', icono: 'circle',      texto: 'Sin verificar' },
 };
 
 @Component({
@@ -45,7 +52,10 @@ const VERIFICACION_BADGE: Record<string, { clase: string; texto: string }> = {
           </p>
         }
         <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
-          <span class="rs-badge {{ verificacionBadge().clase }}">{{ verificacionBadge().texto }}</span>
+          <span class="rs-badge {{ verificacionBadge().clase }}">
+            <rs-icon [name]="verificacionBadge().icono" [size]="13" [stroke]="2"></rs-icon>
+            {{ verificacionBadge().texto }}
+          </span>
           <span class="rs-badge">Miembro desde 2026</span>
         </div>
       </div>
@@ -149,7 +159,7 @@ export class PerfilComercioComponent implements OnInit {
   inicial(): string { return (this.comercio()?.nombreComercial?.[0] ?? 'C').toUpperCase(); }
   categorias(): string { return (this.comercio()?.verticales ?? []).join(' · ') || 'Comercio'; }
   ciudad(): string { return this.comercio()?.direccion?.ciudad ?? ''; }
-  verificacionBadge(): { clase: string; texto: string } {
+  verificacionBadge(): VerificacionBadge {
     return VERIFICACION_BADGE[this.comercio()?.verificacion?.estado ?? 'sin_verificar'];
   }
 

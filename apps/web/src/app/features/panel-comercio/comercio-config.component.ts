@@ -423,7 +423,9 @@ function comoArray(v?: string): string[] {
               <span class="doc-item__nombre">{{ d.nombre || d.url }}</span>
               @if (d.fechaCaducidad) { <span class="doc-item__cad">Caduca: {{ d.fechaCaducidad }}</span> }
               @if (d.estado) { <span class="rs-badge {{ docBadge(d.estado) }}">{{ d.estado }}</span> }
-              <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="quitarDoc($index)">🗑️</button>
+              <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="quitarDoc($index)" aria-label="Quitar documento">
+                <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
+              </button>
             </div>
           }
         </div>
@@ -457,7 +459,9 @@ function comoArray(v?: string): string[] {
           </div>
         </div>
         <div class="form-actions" style="gap:var(--sp-2)">
-          <button type="submit" class="rs-btn rs-btn--secondary" [disabled]="docForm.invalid">➕ Añadir documento</button>
+          <button type="submit" class="rs-btn rs-btn--secondary" [disabled]="docForm.invalid">
+              <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir documento
+            </button>
           <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoDocs()" (click)="guardarDocumentacion()">
             @if (guardandoDocs()) { Guardando… } @else { Guardar documentación }
           </button>
@@ -580,7 +584,7 @@ function comoArray(v?: string): string[] {
     .rs-hr { border-top: 1px solid var(--b-1); margin: var(--sp-2) 0; }
 
     .rs-checkbox { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; white-space: nowrap; }
-    .rs-checkbox input { accent-color: var(--c-accent); width: 16px; height: 16px; }
+    .rs-checkbox input { accent-color: var(--c-accent); width: 18px; height: 18px; }
 
     .verticales-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 

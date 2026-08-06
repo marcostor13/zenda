@@ -288,7 +288,7 @@ describe('ComercioReservasComponent', () => {
   describe('etiquetas', () => {
     it('debería dar un icono por vertical con respaldo genérico', () => {
       expect(component.iconVertical('alojamiento')).toBeTruthy();
-      expect(component.iconVertical('inventado')).toBe('building');
+      expect(component.iconVertical('inventado')).toBe('paw');
     });
 
     it('debería dar un badge por estado con respaldo neutro', () => {

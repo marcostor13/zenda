@@ -7,6 +7,7 @@ import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { IMG_FALLBACK } from '../../../shared/media/images';
 import { RsRatingComponent } from '../../../shared/components/rating/rs-rating.component';
+import { RsStarsComponent } from '../../../shared/components/stars/rs-stars.component';
 import { RsTrustBlockComponent, type TrustItem } from '../../../shared/components/trust-block/rs-trust-block.component';
 import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspacio } from '../services/alojamiento.service';
 import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
@@ -20,7 +21,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
   standalone: true,
   imports: [
     RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
-    RsRatingComponent, RsTrustBlockComponent,
+    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent,
   ],
   template: `
 <div class="detalle-page">
@@ -34,7 +35,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
 
   @if (!cargando() && !alojamiento()) {
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:var(--sp-4);text-align:center">
-      <div style="font-size:3rem">🐾</div>
+      <rs-icon name="paw" [size]="48" [stroke]="1.5" style="color:var(--t-400)" />
       <h3>No se pudo cargar este alojamiento</h3>
       <p style="color:var(--t-300)">Puede que ya no esté disponible.</p>
       <a routerLink="/alojamiento" class="rs-btn rs-btn--secondary">Volver al listado</a>
@@ -56,7 +57,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     <div class="gallery rs-wrap">
       <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
         <img [src]="imagenActiva()" [alt]="alojamiento()!.nombre" rsImg />
-        <span class="gallery__contador">📷 {{ alojamiento()!.imagenes.length }} fotografías</span>
+        <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ alojamiento()!.imagenes.length }} fotografías</span>
       </div>
       <div class="gallery__thumbs">
         @for (img of alojamiento()!.imagenes.slice(0,4); track img) {
@@ -85,7 +86,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
         <button type="button" class="lightbox__nav lightbox__nav--next" (click)="siguienteFoto(); $event.stopPropagation()" aria-label="Foto siguiente">
           <rs-icon name="arrow-right" [size]="22" [stroke]="2"></rs-icon>
         </button>
-        <span class="lightbox__contador">📷 {{ lightboxIndice() + 1 }} / {{ alojamiento()!.imagenes.length }}</span>
+        <span class="lightbox__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ lightboxIndice() + 1 }} / {{ alojamiento()!.imagenes.length }}</span>
       </div>
     }
 
@@ -97,19 +98,22 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
 
         <!-- Header -->
         <div class="info-header">
-          <div class="info-header__stars">{{ estrellas(alojamiento()!.score) }} <strong>{{ alojamiento()!.score }}</strong></div>
+          <div class="info-header__stars">
+            <rs-stars [score]="alojamiento()!.score" [size]="16" />
+            <strong>{{ alojamiento()!.score }}</strong>
+          </div>
           <h1 class="info-header__name">{{ alojamiento()!.nombre }}</h1>
-          <p class="info-header__loc">📍 {{ alojamiento()!.direccion }}, {{ alojamiento()!.barrio }}, {{ alojamiento()!.ciudad }}</p>
+          <p class="info-header__loc"><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ alojamiento()!.direccion }}, {{ alojamiento()!.barrio }}, {{ alojamiento()!.ciudad }}</p>
 
           <div class="info-header__tags">
             @if (alojamiento()!.cancelacionGratis) {
-              <span class="rs-badge rs-badge--success">✓ Cancelación gratis</span>
+              <span class="rs-badge rs-badge--success"><rs-icon name="check" [size]="13" [stroke]="3" /> Cancelación gratis</span>
             }
             @if (alojamiento()!.paseosIncluidos) {
-              <span class="rs-badge rs-badge--teal">✓ Paseos diarios incluidos</span>
+              <span class="rs-badge rs-badge--teal"><rs-icon name="bone" [size]="13" [stroke]="2" /> Paseos diarios incluidos</span>
             }
             @if (alojamiento()!.camaras24h) {
-              <span class="rs-badge rs-badge--accent">📹 Cámaras 24h</span>
+              <span class="rs-badge rs-badge--accent"><rs-icon name="video" [size]="13" [stroke]="2" /> Cámaras 24h</span>
             }
             @if (alojamiento()!.destacado) {
               <span class="premium-pill"><rs-icon name="crown" size="14" /> Premium</span>
@@ -117,27 +121,22 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
           </div>
         </div>
 
-        <!-- Compromiso Doogking (HU-4.1.9) -->
+        <!-- Garantía Doogking (HU-4.1.9 · TCK-8009) -->
         <div class="compromiso-block" rsAnim>
-          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> Compromiso Doogking</h3>
-          <rs-trust-block [items]="[
-            { icon: '🟢', label: 'Empresa verificada' },
-            { icon: '⭐', label: 'Reseñas de clientes reales' },
-            { icon: '🔒', label: 'Reserva segura' },
-            { icon: '🎧', label: 'Soporte antes, durante y después de la estancia' }
-          ]"></rs-trust-block>
+          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> Garantía Doogking</h3>
+          <rs-trust-block></rs-trust-block>
         </div>
 
         <!-- Compatibilidad con tu perro (HU-4.1.7) -->
         @if (perroCompat() && compatibilidad().length) {
           <div class="compat-block" rsAnim>
-            <h3 class="compat-block__title">🐶 Compatibilidad con {{ perroCompat()!.nombre }}</h3>
+            <h3 class="compat-block__title"><rs-icon name="dog" [size]="18" [stroke]="2" /> Compatibilidad con {{ perroCompat()!.nombre }}</h3>
             @if (bienestarPerro(); as ib) {
-              <p class="compat-block__bienestar">🟢 Índice de Bienestar de {{ perroCompat()!.nombre }}: {{ ib.puntuacion }}/100</p>
+              <p class="compat-block__bienestar"><rs-icon name="badge-check" [size]="15" [stroke]="2" /> Índice de Bienestar de {{ perroCompat()!.nombre }}: {{ ib.puntuacion }}/100</p>
             }
             <ul class="compat-block__list">
               @for (p of compatibilidad(); track p) {
-                <li>✔ {{ p }}</li>
+                <li><rs-icon name="check" [size]="14" [stroke]="3" /> {{ p }}</li>
               }
             </ul>
           </div>
@@ -207,7 +206,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
                     }
                   </div>
                   @if (esp.cancelacionGratis) {
-                    <p class="room-card__free-cancel">✓ Cancelación gratis</p>
+                    <p class="room-card__free-cancel"><rs-icon name="check" [size]="13" [stroke]="3" /> Cancelación gratis</p>
                   }
                 </div>
                 <div class="room-card__price">
@@ -221,7 +220,9 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
                             style="margin-top:var(--sp-4)"
                             [class.rs-btn--outline]="espacioSelec()?.id === esp.id"
                             (click)="seleccionarEspacio(esp)">
-                      {{ espacioSelec()?.id === esp.id ? '✓ Seleccionado' : 'Seleccionar' }}
+                      @if (espacioSelec()?.id === esp.id) {
+                        <rs-icon name="check" [size]="14" [stroke]="3" /> Seleccionado
+                      } @else { Seleccionar }
                     </button>
                   } @else {
                     <button class="rs-btn rs-btn--ghost rs-btn--block" disabled
@@ -344,7 +345,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
         <div class="booking-panel__card">
           @if (espacioSelec()) {
             <div class="booking-panel__selected">
-              <span class="rs-badge rs-badge--success">✓ Espacio seleccionado</span>
+              <span class="rs-badge rs-badge--success"><rs-icon name="check" [size]="13" [stroke]="3" /> Espacio seleccionado</span>
               <h4>{{ tipoLabel(espacioSelec()!.tipo) }}</h4>
             </div>
           } @else {
@@ -683,8 +684,8 @@ export class AlojamientoDetalleComponent implements OnInit {
   extrasTrust(): TrustItem[] {
     const a = this.alojamiento();
     const items: TrustItem[] = [];
-    if (a?.paseosIncluidos) items.push({ icon: '🦴', label: 'Paseos diarios incluidos' });
-    if (a?.camaras24h) items.push({ icon: '📹', label: 'Sigue a tu perro por cámara 24h' });
+    if (a?.paseosIncluidos) items.push({ icon: 'bone', label: 'Paseos diarios incluidos' });
+    if (a?.camaras24h) items.push({ icon: 'video', label: 'Sigue a tu perro por cámara 24h' });
     return items;
   }
 
@@ -747,12 +748,6 @@ export class AlojamientoDetalleComponent implements OnInit {
     } finally {
       this.cargando.set(false);
     }
-  }
-
-  /** Estrellas doradas a partir del score (escala 0–5). */
-  estrellas(score: number): string {
-    const llenas = Math.round(Math.min(score, 5));
-    return '★'.repeat(llenas) + '☆'.repeat(5 - llenas);
   }
 
   /** Foto del espacio con respaldo: la del espacio, si no la del alojamiento, si no un placeholder. */

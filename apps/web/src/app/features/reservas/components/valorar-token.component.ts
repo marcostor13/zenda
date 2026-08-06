@@ -37,7 +37,7 @@ const COMENTARIO_MINIMO = 10;
       </div>
     } @else if (enviada()) {
       <div class="rs-card vt-card vt-card--ok">
-        <div class="vt-icono">🎉</div>
+        <div class="vt-icono"><rs-icon name="party-popper" [size]="40" [stroke]="1.5"></rs-icon></div>
         <h1>¡Gracias por tu valoración!</h1>
         <p>Tu opinión ayuda a otros dueños a elegir bien.</p>
         <a routerLink="/explora" class="rs-btn rs-btn--gold">Descubre sitios para tu mascota</a>
@@ -54,7 +54,9 @@ const COMENTARIO_MINIMO = 10;
                     [class.is-on]="n <= puntuacion()"
                     [attr.aria-checked]="n === puntuacion()"
                     [attr.aria-label]="n + ' de 5'"
-                    (click)="puntuacion.set(n)">★</button>
+                    (click)="puntuacion.set(n)">
+              <rs-icon name="star" [size]="30" [stroke]="1.75" [filled]="n <= puntuacion()"></rs-icon>
+            </button>
           }
         </div>
 

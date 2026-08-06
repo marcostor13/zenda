@@ -8,6 +8,8 @@ import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scr
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components/brand-icon/rs-brand-icon.component';
+import { RsSocialIconComponent, type RedSocialKey } from '../../shared/components/social-icon/rs-social-icon.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import { BRAND, HOTEL_IMAGES, TRUST_ICONOS } from '../../shared/media/images';
@@ -48,7 +50,8 @@ type SearchMode = 'filtros' | 'ia';
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, AnimateOnScrollDirective, ImgFallbackDirective,
-    RsNavbarComponent, RsIconComponent, RsSearchBarComponent, RsCardComponent,
+    RsNavbarComponent, RsIconComponent, RsSocialIconComponent, RsSearchBarComponent, RsCardComponent,
+    RsBrandIconComponent,
   ],
   template: `
 <div class="home">
@@ -241,7 +244,7 @@ type SearchMode = 'filtros' | 'ia';
             [rsAnim]="''" [rsAnimDelay]="$index * 70"
             [imageUrl]="a.imagen" [imageAlt]="a.nombre"
             [title]="a.nombre" [subtitle]="a.ciudad"
-            [badges]="[{ icon: '👑', label: 'Recomendado', variant: 'accent' }]"
+            [badges]="[{ icon: 'crown', label: 'Recomendado', variant: 'accent' }]"
             [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
             [price]="{ amount: '€' + a.precioPorNoche, period: '/noche' }"
             [amenities]="a.tags"
@@ -335,11 +338,16 @@ type SearchMode = 'filtros' | 'ia';
         <p class="home-footer__claim">La plataforma líder para reservar servicios para mascotas.</p>
         <p>El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.</p>
         <div class="home-footer__social" aria-label="Redes sociales de Doogking">
-          <a href="https://instagram.com/doogking" target="_blank" rel="noopener" class="home-footer__social-link">Instagram</a>
-          <a href="https://facebook.com/doogking" target="_blank" rel="noopener" class="home-footer__social-link">Facebook</a>
-          <a href="https://tiktok.com/@doogking" target="_blank" rel="noopener" class="home-footer__social-link">TikTok</a>
-          <a href="https://linkedin.com/company/doogking" target="_blank" rel="noopener" class="home-footer__social-link">LinkedIn</a>
-          <a href="https://youtube.com/@doogking" target="_blank" rel="noopener" class="home-footer__social-link">YouTube</a>
+          @for (red of redesSociales; track red.nombre) {
+            <a
+              [href]="red.url"
+              target="_blank"
+              rel="noopener"
+              class="home-footer__social-link"
+              [attr.title]="red.nombre">
+              <rs-social-icon [name]="red.icono" [size]="18" [etiqueta]="red.nombre" />
+            </a>
+          }
         </div>
       </div>
       <div class="rs-footer__col">
@@ -379,9 +387,13 @@ type SearchMode = 'filtros' | 'ia';
       </div>
     </div>
     <div class="home-footer__stores">
-      <span class="home-footer__store-badge">📱 Próximamente en App Store</span>
-      <span class="home-footer__store-badge">▶️ Próximamente en Google Play</span>
-      <span class="home-footer__pay">💳 Visa · Mastercard · Stripe · Apple Pay · Google Pay</span>
+      <span class="home-footer__store-badge"><rs-icon name="smartphone" [size]="14" [stroke]="2" /> Próximamente en App Store</span>
+      <span class="home-footer__store-badge"><rs-icon name="play" [size]="14" [stroke]="2" /> Próximamente en Google Play</span>
+      <span class="home-footer__pay">
+        @for (marca of marcasPago; track marca) {
+          <rs-brand-icon [name]="marca" [size]="20" />
+        }
+      </span>
     </div>
 
     <p class="home-footer__closing">Todo lo que tu mascota necesita. En un solo lugar.<br />Gracias por confiar en Doogking.</p>
@@ -389,9 +401,9 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-footer__bottom">
       <p>© 2026 Doogking · Todos los derechos reservados · <a routerLink="/privacidad">Política de privacidad</a> · <a routerLink="/cookies">Cookies</a> · <a routerLink="/terminos">Aviso legal</a></p>
       <div class="rs-flex rs-gap-4" style="flex-wrap:wrap">
-        <span class="rs-badge rs-badge--neutral home-footer__badge">🟢 Empresas verificadas</span>
-        <span class="rs-badge rs-badge--neutral home-footer__badge">🔒 Pago seguro con Stripe</span>
-        <span class="rs-badge rs-badge--neutral home-footer__badge">🛡 Protección de reservas</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Empresas verificadas</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="lock" [size]="13" [stroke]="2" /> Pago seguro con Stripe</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="shield-check" [size]="13" [stroke]="2" /> Protección de reservas</span>
       </div>
     </div>
   </footer>
@@ -667,6 +679,8 @@ type SearchMode = 'filtros' | 'ia';
     }
 
     .sec-head__link {
+      /* En móvil la fila crece para poder pulsarla con el pulgar. */
+      @media (max-width: 768px) { min-height: 36px; }
       display: inline-flex;
       align-items: center;
       gap: var(--sp-2);
@@ -1036,16 +1050,20 @@ type SearchMode = 'filtros' | 'ia';
       margin-top: var(--sp-4);
     }
 
+    /* El logo sustituye al nombre escrito (TCK-8008): el círculo de 40px
+       mantiene el área táctil que antes daba el texto. */
     .home-footer__social-link {
-      font-size: var(--f-xs);
-      font-weight: var(--w-6);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
       color: rgba(255,255,255,.80) !important;
       border: 1px solid rgba(255,255,255,.2);
       border-radius: var(--r-full);
-      padding: var(--sp-1) var(--sp-3);
       transition: all var(--d-2);
 
-      &:hover { color: var(--dk-blue-deep) !important; background: var(--dk-gold); border-color: var(--dk-gold); text-decoration: none !important; }
+      &:hover { color: var(--dk-blue-deep) !important; background: var(--dk-gold); border-color: var(--dk-gold); text-decoration: none !important; transform: translateY(-2px); }
     }
 
     .home-footer__stores {
@@ -1058,10 +1076,11 @@ type SearchMode = 'filtros' | 'ia';
       border-top: 1px solid rgba(255,255,255,.15);
     }
 
-    .home-footer__store-badge, .home-footer__pay {
+    .home-footer__store-badge {
       font-size: var(--f-xs);
       color: rgba(255,255,255,.65);
     }
+    .home-footer__pay { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; }
 
     .home-footer__closing {
       text-align: center;
@@ -1093,6 +1112,20 @@ export class HomeComponent {
   readonly logoMark = BRAND.logoMark;
   readonly logoFooter = BRAND.logoFooter;
   readonly rutaAlojamiento = rutaDeVertical(VerticalKey.ALOJAMIENTO);
+
+  /** Marcas de pago del pie, con su logotipo en vez del nombre escrito (TCK-8008). */
+  readonly marcasPago: readonly MarcaPagoKey[] = [
+    'visa', 'mastercard', 'amex', 'stripe', 'apple-pay', 'google-pay',
+  ];
+
+  /** Perfiles sociales del footer; se muestran con su logo oficial (TCK-8008). */
+  readonly redesSociales: readonly { nombre: string; icono: RedSocialKey; url: string }[] = [
+    { nombre: 'Instagram', icono: 'instagram', url: 'https://instagram.com/doogking' },
+    { nombre: 'Facebook', icono: 'facebook', url: 'https://facebook.com/doogking' },
+    { nombre: 'TikTok', icono: 'tiktok', url: 'https://tiktok.com/@doogking' },
+    { nombre: 'LinkedIn', icono: 'linkedin', url: 'https://linkedin.com/company/doogking' },
+    { nombre: 'YouTube', icono: 'youtube', url: 'https://youtube.com/@doogking' },
+  ];
 
   /** Modo del buscador del hero: formulario clásico o asistente con IA. */
   readonly searchMode = signal<SearchMode>('filtros');
@@ -1142,13 +1175,13 @@ export class HomeComponent {
 
   /** Puertas de entrada a la comunidad; cada una filtra `/explora` por tipo. */
   readonly exploraDestacados = [
-    { tipo: TipoLugar.PLAYA as TipoLugar | null, ruta: '/explora', titulo: 'Playas caninas', detalle: '🌊 Disfrutad juntos del mar durante todo el año', imagen: HOTEL_IMAGES[2] },
-    { tipo: TipoLugar.PARQUE as TipoLugar | null, ruta: '/explora', titulo: 'Parques caninos', detalle: '🐶 Espacios seguros para correr, jugar y socializar', imagen: BRAND.heroHome },
-    { tipo: TipoLugar.RUTA as TipoLugar | null, ruta: '/explora', titulo: 'Rutas y ríos', detalle: '🌿 Naturaleza para descubrir juntos', imagen: HOTEL_IMAGES[4] },
-    { tipo: TipoLugar.RESTAURANTE as TipoLugar | null, ruta: '/explora', titulo: 'Restaurantes', detalle: '🍽️ Sitios donde tu mascota también es bienvenida', imagen: HOTEL_IMAGES[1] },
+    { tipo: TipoLugar.PLAYA as TipoLugar | null, ruta: '/explora', titulo: 'Playas caninas', detalle: 'Disfrutad juntos del mar durante todo el año', imagen: HOTEL_IMAGES[2] },
+    { tipo: TipoLugar.PARQUE as TipoLugar | null, ruta: '/explora', titulo: 'Parques caninos', detalle: 'Espacios seguros para correr, jugar y socializar', imagen: BRAND.heroHome },
+    { tipo: TipoLugar.RUTA as TipoLugar | null, ruta: '/explora', titulo: 'Rutas y ríos', detalle: 'Naturaleza para descubrir juntos', imagen: HOTEL_IMAGES[4] },
+    { tipo: TipoLugar.RESTAURANTE as TipoLugar | null, ruta: '/explora', titulo: 'Restaurantes', detalle: 'Sitios donde tu mascota también es bienvenida', imagen: HOTEL_IMAGES[1] },
     // No es un TipoLugar de la comunidad (decisión D-5): es el vertical reservable
     // Hoteles, así que enlaza directo a su listado en vez de a /explora.
-    { tipo: null as TipoLugar | null, ruta: '/hoteles', titulo: 'Hoteles pet friendly', detalle: '🏨 Descubre alojamientos donde vuestra mascota también es bienvenida', imagen: HOTEL_IMAGES[0] },
+    { tipo: null as TipoLugar | null, ruta: '/hoteles', titulo: 'Hoteles pet friendly', detalle: 'Descubre alojamientos donde vuestra mascota también es bienvenida', imagen: HOTEL_IMAGES[0] },
   ];
 
   readonly pasos = [

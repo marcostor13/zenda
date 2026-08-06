@@ -34,6 +34,7 @@ import { LugaresModule } from './core/lugares/lugares.module';
 import { EventosModule } from './core/eventos/eventos.module';
 import { PlanificadorModule } from './core/planificador/planificador.module';
 import { AgendaModule } from './core/agenda/agenda.module';
+import { ListaEsperaModule } from './core/lista-espera/lista-espera.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { AgendaModule } from './core/agenda/agenda.module';
     EventosModule,
     PlanificadorModule,
     AgendaModule,
+    ListaEsperaModule,
   ],
 })
 export class AppModule {}

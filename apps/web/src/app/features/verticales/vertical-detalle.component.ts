@@ -34,14 +34,14 @@ const CONFIGS: Record<string, DetalleConfig> = {
     puntos: (s) => {
       const items: string[] = [];
       const tipo = s.extra['tipoVehiculo'] as string | undefined;
-      if (tipo) items.push(`🚐 ${({ van_acondicionada: 'Van acondicionada', coche: 'Coche', furgon_climatizado: 'Furgón climatizado' } as Record<string, string>)[tipo] ?? tipo}`);
-      if (s.extra['jaulasIncluidas']) items.push('🐾 Jaulas homologadas incluidas');
-      if (s.extra['acompananteHumano']) items.push('🧑 Puedes acompañar a tu perro en el trayecto');
-      if (s.extra['soloPerros']) items.push('🐕 Trayecto exclusivo para perros, sin compartir con otros animales');
-      if (s.extra['aceptaPPP']) items.push('✔ Acepta perros potencialmente peligrosos (PPP)');
-      if (s.extra['requisitoVacunas']) items.push('💉 Requiere cartilla de vacunación al día');
+      if (tipo) items.push(`${({ van_acondicionada: 'Van acondicionada', coche: 'Coche', furgon_climatizado: 'Furgón climatizado' } as Record<string, string>)[tipo] ?? tipo}`);
+      if (s.extra['jaulasIncluidas']) items.push('Jaulas homologadas incluidas');
+      if (s.extra['acompananteHumano']) items.push('Puedes acompañar a tu perro en el trayecto');
+      if (s.extra['soloPerros']) items.push('Trayecto exclusivo para perros, sin compartir con otros animales');
+      if (s.extra['aceptaPPP']) items.push('Acepta perros potencialmente peligrosos (PPP)');
+      if (s.extra['requisitoVacunas']) items.push('Requiere cartilla de vacunación al día');
       const zona = s.extra['zonaCobertura'] as string[] | undefined;
-      if (zona?.length) items.push(`📍 Cubre ${zona.slice(0, 4).join(', ')}`);
+      if (zona?.length) items.push(`Cubre ${zona.slice(0, 4).join(', ')}`);
       return items;
     },
     price: (s) => (s.extra['tarifaBase'] as number) ?? s.precioPorNoche,
@@ -55,12 +55,12 @@ const CONFIGS: Record<string, DetalleConfig> = {
     puntos: (s) => {
       const items: string[] = [];
       const modalidad = s.extra['modalidad'] as string | undefined;
-      items.push(modalidad === 'programa' ? '📋 Programa completo de varias sesiones' : '🐕 Sesión individual');
+      items.push(modalidad === 'programa' ? 'Programa completo de varias sesiones' : 'Sesión individual');
       const edadMin = s.extra['edadMinimaMeses'] as number | undefined;
-      if (edadMin != null) items.push(`🦮 Admite cachorros desde ${edadMin} meses`);
-      if (s.extra['aDomicilio']) items.push('🏠 Disponible a domicilio');
+      if (edadMin != null) items.push(`Admite cachorros desde ${edadMin} meses`);
+      if (s.extra['aDomicilio']) items.push('Disponible a domicilio');
       const capacidad = s.extra['capacidadPorSesion'] as number | undefined;
-      if (capacidad != null) items.push(`👥 Hasta ${capacidad} ${capacidad === 1 ? 'perro' : 'perros'} por sesión`);
+      if (capacidad != null) items.push(`Hasta ${capacidad} ${capacidad === 1 ? 'perro' : 'perros'} por sesión`);
       return items;
     },
     price: (s) => (s.extra['precioSesion'] as number) ?? s.precioPorNoche,
@@ -73,12 +73,12 @@ const CONFIGS: Record<string, DetalleConfig> = {
     chips: (s) => (s.extra['serviciosPetfriendly'] as string[] | undefined) ?? [],
     puntos: (s) => {
       const items: string[] = [];
-      if (s.extra['admiteMascotas'] ?? true) items.push('🐾 Admite mascotas en la habitación');
+      if (s.extra['admiteMascotas'] ?? true) items.push('Admite mascotas en la habitación');
       const pesoMax = s.extra['pesoMaximoMascotaKg'] as number | undefined;
-      if (pesoMax != null) items.push(`⚖️ Hasta ${pesoMax} kg por mascota`);
+      if (pesoMax != null) items.push(`Hasta ${pesoMax} kg por mascota`);
       const maxMascotas = s.extra['maxMascotasPorReserva'] as number | undefined;
-      if (maxMascotas != null) items.push(`🐕 Hasta ${maxMascotas} mascota(s) por reserva`);
-      if (s.cancelacionGratis) items.push('✓ Cancelación gratuita');
+      if (maxMascotas != null) items.push(`Hasta ${maxMascotas} mascota(s) por reserva`);
+      if (s.cancelacionGratis) items.push('Cancelación gratuita');
       return items;
     },
     price: (s) => s.precioPorNoche,
@@ -104,7 +104,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
   @if (!cargando() && !servicio()) {
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:var(--sp-4);text-align:center">
-      <div style="font-size:3rem">🐾</div>
+      <rs-icon name="paw" [size]="48" [stroke]="1.5" style="color:var(--t-400)" />
       <h3>No se pudo cargar esta ficha</h3>
       <p style="color:var(--t-300)">Puede que ya no esté disponible.</p>
       <a [routerLink]="ui.route" class="rs-btn rs-btn--secondary">Volver al listado</a>
@@ -125,7 +125,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
         <img [src]="imagenActiva()" [alt]="s.nombre" rsImg />
         @if (s.imagenes.length) {
-          <span class="gallery__contador">📷 {{ s.imagenes.length }} fotografías</span>
+          <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ s.imagenes.length }} fotografías</span>
         }
       </div>
       <div class="gallery__thumbs">
@@ -149,7 +149,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
         <button type="button" class="lightbox__nav lightbox__nav--next" (click)="siguienteFoto(); $event.stopPropagation()" aria-label="Foto siguiente">
           <rs-icon name="arrow-right" [size]="22" [stroke]="2"></rs-icon>
         </button>
-        <span class="lightbox__contador">📷 {{ lightboxIndice() + 1 }} / {{ s.imagenes.length }}</span>
+        <span class="lightbox__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ lightboxIndice() + 1 }} / {{ s.imagenes.length }}</span>
       </div>
     }
 
@@ -159,18 +159,14 @@ const CONFIGS: Record<string, DetalleConfig> = {
           <h1 class="info-header__name">{{ s.nombre }}</h1>
           <div class="info-header__meta">
             <rs-rating [score]="s.score" [label]="s.scoreLabel" [count]="s.numResenas" size="sm"></rs-rating>
-            <span>📍 {{ s.direccion ? s.direccion + ', ' : '' }}{{ s.ciudad }}</span>
-            <span class="rs-badge rs-badge--success">🟢 Profesional verificado</span>
+            <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ s.direccion ? s.direccion + ', ' : '' }}{{ s.ciudad }}</span>
+            <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Profesional verificado</span>
           </div>
         </div>
 
         <div class="compromiso-block">
-          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> Compromiso Doogking</h3>
-          <rs-trust-block [items]="[
-            { icon: '🟢', label: 'Empresa verificada' },
-            { icon: '⭐', label: 'Reseñas de clientes reales' },
-            { icon: '🔒', label: 'Reserva segura' }
-          ]"></rs-trust-block>
+          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> Garantía Doogking</h3>
+          <rs-trust-block></rs-trust-block>
         </div>
 
         @if (cfg().chips(s).length) {
@@ -192,7 +188,9 @@ const CONFIGS: Record<string, DetalleConfig> = {
         <div class="section-block">
           <h2>{{ cfg().tituloBloque }}</h2>
           <ul class="puntos-list">
-            @for (p of cfg().puntos(s); track p) { <li>{{ p }}</li> }
+            @for (p of cfg().puntos(s); track p) {
+              <li><rs-icon name="check" [size]="15" [stroke]="2.5" /> {{ p }}</li>
+            }
             @empty { <p style="color:var(--t-400);font-size:var(--f-sm)">Sin datos adicionales de este profesional.</p> }
           </ul>
         </div>
@@ -314,7 +312,14 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     .section-block { padding-block: var(--sp-6); border-top: 1px solid var(--b-1); h2 { font-size: var(--f-lg); color: var(--dk-blue); margin-bottom: var(--sp-4); } }
 
-    .puntos-list { display: flex; flex-direction: column; gap: var(--sp-3); li { list-style: none; font-size: var(--f-sm); color: var(--t-200); } }
+    .puntos-list {
+      display: flex; flex-direction: column; gap: var(--sp-3);
+      li {
+        list-style: none; font-size: var(--f-sm); color: var(--t-200);
+        display: flex; align-items: flex-start; gap: var(--sp-2);
+        rs-icon { flex: 0 0 auto; margin-top: 2px; color: var(--c-accent); }
+      }
+    }
 
     .resena-card { padding-block: var(--sp-4); border-top: 1px solid var(--b-1); }
     .resena-card__head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }

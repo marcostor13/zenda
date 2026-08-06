@@ -154,7 +154,7 @@ describe('MisReservasComponent', () => {
       const card = await conReserva({ vertical: 'alojamiento', cantidad: 2 });
 
       expect(card.subtitulo).toBe('2 perros');
-      expect(card.emoji).toBe('🏠');
+      expect(card.icono).toBe('home');
     });
 
     it('debería mostrar el trayecto del transporte', async () => {
@@ -187,14 +187,14 @@ describe('MisReservasComponent', () => {
       const card = await conReserva({ vertical: 'hoteles', cantidad: 1 });
 
       expect(card.subtitulo).toBe('1 mascota');
-      expect(card.emoji).toBe('🏨');
+      expect(card.icono).toBe('hotel');
     });
 
     it('debería tolerar un vertical desconocido', async () => {
       const card = await conReserva({ vertical: 'inventado', cantidad: 3 });
 
       expect(card.vertical).toBe('inventado');
-      expect(card.emoji).toBe('🐾');
+      expect(card.icono).toBe('paw');
       expect(card.subtitulo).toBe('3 unidades');
     });
 

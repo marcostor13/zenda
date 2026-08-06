@@ -46,7 +46,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
               Haz clic en el enlace del correo para activar tu cuenta y entrar a tu panel de comercio. Revisa también el spam.
             </p>
             @if (reenviado()) {
-              <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">Correo reenviado ✓</div>
+              <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">Correo reenviado <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon></div>
             }
             <button type="button" class="rs-btn rs-btn--outline rs-btn--block" style="margin-top:var(--sp-5)"
                     (click)="reenviar()" [disabled]="reenviando()">
@@ -99,11 +99,11 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
             <div class="wz-benefits">
               <strong>¿Qué conseguirás al unirte?</strong>
               <ul>
-                <li>✓ Miles de usuarios buscando servicios como el tuyo</li>
-                <li>✓ Reservas online 24 h, sin llamadas ni gestión manual</li>
-                <li>✓ Calendario y gestión de tu negocio en un solo panel</li>
-                <li>✓ Cobro seguro con Stripe</li>
-                <li>✓ Sin permanencia: date de baja cuando quieras</li>
+                <li><rs-icon name="check" [size]="14" [stroke]="3"></rs-icon> Miles de usuarios buscando servicios como el tuyo</li>
+                <li><rs-icon name="check" [size]="14" [stroke]="3"></rs-icon> Reservas online 24 h, sin llamadas ni gestión manual</li>
+                <li><rs-icon name="check" [size]="14" [stroke]="3"></rs-icon> Calendario y gestión de tu negocio en un solo panel</li>
+                <li><rs-icon name="check" [size]="14" [stroke]="3"></rs-icon> Cobro seguro con Stripe</li>
+                <li><rs-icon name="check" [size]="14" [stroke]="3"></rs-icon> Sin permanencia: date de baja cuando quieras</li>
               </ul>
             </div>
 
@@ -181,7 +181,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                        class="rs-inp" autocomplete="new-password" [class.rs-inp--error]="invalido(cuentaForm, 'password')"
                        style="padding-right:var(--sp-10)" placeholder="Mínimo 8 caracteres" />
                 <button type="button" (click)="mostrarPassword.set(!mostrarPassword())"
-                        style="position:absolute;right:var(--sp-3);top:50%;transform:translateY(-50%);display:flex;align-items:center"
+                        style="position:absolute;right:var(--sp-2);top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:40px;height:40px"
                         [style.color]="mostrarPassword() ? 'var(--c-accent)' : 'var(--t-400)'">
                   <rs-icon [name]="mostrarPassword() ? 'eye-off' : 'eye'" [size]="16" [stroke]="2"></rs-icon>
                 </button>
@@ -204,9 +204,9 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
             @if (error()) { <div class="rs-alert rs-alert--error">{{ error() }}</div> }
 
             <div class="wz-trust">
-              <p>🔒 Tus datos están protegidos</p>
-              <p>📄 Podrás completar la información fiscal y bancaria más adelante</p>
-              <p>⏱️ En menos de 2 minutos tendrás tu negocio creado</p>
+              <p><rs-icon name="lock" [size]="14" [stroke]="2"></rs-icon> Tus datos están protegidos</p>
+              <p><rs-icon name="file-text" [size]="14" [stroke]="2"></rs-icon> Podrás completar la información fiscal y bancaria más adelante</p>
+              <p><rs-icon name="clock" [size]="14" [stroke]="2"></rs-icon> En menos de 2 minutos tendrás tu negocio creado</p>
             </div>
 
             <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-4)">

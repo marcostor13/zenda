@@ -4,11 +4,8 @@ import { DecimalPipe, DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ComisionConfig, ComercioPendiente, UltimaReserva, AlphaNivel } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
-const VERTICAL_EMOJI: Record<string, string> = {
-  alojamiento: '🏠', transporte: '🚐', veterinaria: '🩺',
-  peluqueria: '✂️', adiestramiento: '🎓', hoteles: '🏨', global: '🌐',
-};
 
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success',
@@ -40,26 +37,33 @@ const ESTADO_BADGE: Record<string, string> = {
           <p>Doogking · Panel de Control</p>
         </div>
         <div style="display:flex;gap:var(--sp-3)">
-          <a routerLink="/admin/cupones" class="rs-btn rs-btn--secondary rs-btn--sm">🎟️ Cupones</a>
-          <a routerLink="/admin/reportes" class="rs-btn rs-btn--primary rs-btn--sm">📊 Reportes</a>
+          <a routerLink="/admin/cupones" class="rs-btn rs-btn--secondary rs-btn--sm">
+            <rs-icon name="ticket" [size]="14" [stroke]="2"></rs-icon> Cupones
+          </a>
+          <a routerLink="/admin/reportes" class="rs-btn rs-btn--primary rs-btn--sm">
+            <rs-icon name="bar-chart" [size]="14" [stroke]="2"></rs-icon> Reportes
+          </a>
         </div>
       </div>
 
       <!-- BARRA DE ALERTAS -->
       @if (totalAlertas() > 0) {
         <div class="admin-alertas">
-          <span class="admin-alertas__title">🔴 Atención requerida ({{ totalAlertas() }})</span>
+          <span class="admin-alertas__title">
+            <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
+            Atención requerida ({{ totalAlertas() }})
+          </span>
           @if (kpis().verificacionesPendientes > 0) {
-            <a routerLink="/admin/comercios" class="admin-alertas__chip">🔔 {{ kpis().verificacionesPendientes }} verificaciones pendientes</a>
+            <a routerLink="/admin/comercios" class="admin-alertas__chip"><rs-icon name="bell" [size]="13" [stroke]="2"></rs-icon> {{ kpis().verificacionesPendientes }} verificaciones pendientes</a>
           }
           @if (kpis().comerciosPendientesCount > 0) {
-            <a routerLink="/admin/comercios" class="admin-alertas__chip">🔔 {{ kpis().comerciosPendientesCount }} comercios por aprobar</a>
+            <a routerLink="/admin/comercios" class="admin-alertas__chip"><rs-icon name="bell" [size]="13" [stroke]="2"></rs-icon> {{ kpis().comerciosPendientesCount }} comercios por aprobar</a>
           }
           @if (kpis().pagosRetenidosCount > 0) {
-            <a routerLink="/admin/reservas" class="admin-alertas__chip">🔔 {{ kpis().pagosRetenidosCount }} pagos retenidos por liberar</a>
+            <a routerLink="/admin/reservas" class="admin-alertas__chip"><rs-icon name="bell" [size]="13" [stroke]="2"></rs-icon> {{ kpis().pagosRetenidosCount }} pagos retenidos por liberar</a>
           }
           @if (kpis().incidenciasAbiertas > 0) {
-            <a routerLink="/admin/reservas" class="admin-alertas__chip">🔔 {{ kpis().incidenciasAbiertas }} incidencias abiertas</a>
+            <a routerLink="/admin/reservas" class="admin-alertas__chip"><rs-icon name="bell" [size]="13" [stroke]="2"></rs-icon> {{ kpis().incidenciasAbiertas }} incidencias abiertas</a>
           }
         </div>
       }
@@ -186,7 +190,7 @@ const ESTADO_BADGE: Record<string, string> = {
                   <strong>{{ c.nombre }}</strong>
                   <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-1);flex-wrap:wrap">
                     <span class="rs-badge rs-badge--accent" style="display:inline-flex;align-items:center;gap:4px">
-                    <rs-icon [name]="iconVertical(c.vertical)" [size]="11" [stroke]="2"></rs-icon>
+                    <rs-icon [name]="iconoVertical(c.vertical)" [size]="11" [stroke]="2"></rs-icon>
                     {{ c.vertical }}
                   </span>
                     <span style="font-size:var(--f-xs);color:var(--t-400)">RUC {{ c.nif }}</span>
@@ -194,16 +198,20 @@ const ESTADO_BADGE: Record<string, string> = {
                 </div>
                 <div style="display:flex;gap:var(--sp-2)">
                   <button class="rs-btn rs-btn--sm" style="background:var(--c-teal);color:#000;font-weight:600"
-                          (click)="aprobarComercio(c.id)">✓ Aprobar</button>
+                          (click)="aprobarComercio(c.id)">
+                    <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> Aprobar
+                  </button>
                   <button class="rs-btn rs-btn--danger rs-btn--sm"
-                          (click)="rechazarComercio(c.id)">✗</button>
+                          (click)="rechazarComercio(c.id)" aria-label="Rechazar comercio">
+                    <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon>
+                  </button>
                 </div>
               </div>
             }
 
             @if (comerciosPendientes().length === 0) {
               <div style="text-align:center;padding:var(--sp-10);color:var(--t-400)">
-                ✓ Sin comercios pendientes
+                <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Sin comercios pendientes
               </div>
             }
           </div>
@@ -219,7 +227,7 @@ const ESTADO_BADGE: Record<string, string> = {
             @for (r of ultimasReservas(); track r.id) {
               <div class="ultima-reserva">
                 <span class="ultima-reserva__icon">
-                  <rs-icon [name]="iconVertical(r.vertical)" [size]="18" [stroke]="1.5"></rs-icon>
+                  <rs-icon [name]="iconoVertical(r.vertical)" [size]="18" [stroke]="1.5"></rs-icon>
                 </span>
                 <div class="ultima-reserva__info">
                   <div><strong>{{ r.codigo }}</strong> · {{ r.comercio }}</div>
@@ -241,7 +249,7 @@ const ESTADO_BADGE: Record<string, string> = {
         <div class="panel-header">
           <h3>Configuración de comisiones por vertical</h3>
           <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardarComisiones()">
-            💾 Guardar cambios
+            <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
           </button>
         </div>
 
@@ -255,20 +263,23 @@ const ESTADO_BADGE: Record<string, string> = {
           </div>
           @for (c of comisiones(); track c.vertical) {
             <div class="comisiones-row">
-              <span class="comision-vertical">{{ emojiVertical(c.vertical) }} {{ c.vertical }}</span>
-              <div style="display:flex;align-items:center;gap:var(--sp-2)">
+              <span class="comision-vertical">
+                <rs-icon [name]="iconoVertical(c.vertical)" [size]="14" [stroke]="2"></rs-icon>
+                {{ c.vertical }}
+              </span>
+              <div data-col="Comisión" style="display:flex;align-items:center;gap:var(--sp-2)">
                 <input type="number" class="rs-inp" style="width:80px;text-align:center"
                        [value]="(c.comisionPct * 100).toFixed(0)"
                        (input)="actualizarPct(c, +$any($event).target.value)" />
                 <span style="color:var(--t-400)">%</span>
               </div>
-              <span style="color:var(--t-400);font-size:var(--f-sm)">
+              <span data-col="Fee Stripe" style="color:var(--t-400);font-size:var(--f-sm)">
                 {{ (c.stripePct * 100).toFixed(1) }}% + {{ c.stripeFijoEur.toFixed(2) }} €
               </span>
-              <span style="font-weight:var(--w-7);color:var(--t-100);font-size:var(--f-sm)">
+              <span data-col="Total" style="font-weight:var(--w-7);color:var(--t-100);font-size:var(--f-sm)">
                 {{ comisionTotal(c) }}%
               </span>
-              <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
+              <label data-col="Estado" style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
                 <input type="checkbox" [checked]="c.activo" (change)="c.activo = !c.activo"
                        style="accent-color:var(--c-accent)" />
                 <span class="rs-badge" [class]="c.activo ? 'rs-badge--success' : 'rs-badge--warning'">
@@ -281,7 +292,7 @@ const ESTADO_BADGE: Record<string, string> = {
 
         @if (guardadoMsg()) {
           <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">
-            ✓ Comisiones actualizadas exitosamente
+            <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Comisiones actualizadas exitosamente
           </div>
         }
         @if (errorMsg()) {
@@ -294,9 +305,9 @@ const ESTADO_BADGE: Record<string, string> = {
       <!-- PROGRAMA DOOGKING ALPHA (HU-13.4) -->
       <div class="rs-card admin-panel">
         <div class="panel-header">
-          <h3>👑 Programa Doogking Alpha</h3>
+          <h3><rs-icon name="crown" [size]="17" [stroke]="2"></rs-icon> Programa Doogking Alpha</h3>
           <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardarAlphaNiveles()">
-            💾 Guardar cambios
+            <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
           </button>
         </div>
 
@@ -311,22 +322,30 @@ const ESTADO_BADGE: Record<string, string> = {
           @for (n of alphaNiveles(); track n.nivel) {
             <div class="comisiones-row alpha-row">
               <span class="comision-vertical">Alpha {{ n.nivel }}</span>
-              <input type="text" class="rs-inp" [value]="n.nombre" (input)="n.nombre = $any($event).target.value" />
-              <input type="number" class="rs-inp" style="width:100px;text-align:center"
-                     [value]="n.reservasRequeridas"
-                     (input)="n.reservasRequeridas = +$any($event).target.value" />
-              <input type="number" class="rs-inp" style="width:80px;text-align:center"
-                     [value]="(n.descuentoPct * 100).toFixed(0)"
-                     (input)="n.descuentoPct = +$any($event).target.value / 100" />
-              <input type="text" class="rs-inp" [value]="n.beneficios.join(', ')"
-                     (input)="n.beneficios = beneficiosDesdeTexto($any($event).target.value)" />
+              <label class="alpha-campo"><span>Nombre</span>
+                <input type="text" class="rs-inp" [value]="n.nombre" (input)="n.nombre = $any($event).target.value" />
+              </label>
+              <label class="alpha-campo"><span>Reservas requeridas</span>
+                <input type="number" class="rs-inp" style="width:100px;text-align:center"
+                       [value]="n.reservasRequeridas"
+                       (input)="n.reservasRequeridas = +$any($event).target.value" />
+              </label>
+              <label class="alpha-campo"><span>Descuento (%)</span>
+                <input type="number" class="rs-inp" style="width:80px;text-align:center"
+                       [value]="(n.descuentoPct * 100).toFixed(0)"
+                       (input)="n.descuentoPct = +$any($event).target.value / 100" />
+              </label>
+              <label class="alpha-campo"><span>Beneficios (separados por coma)</span>
+                <input type="text" class="rs-inp" [value]="n.beneficios.join(', ')"
+                       (input)="n.beneficios = beneficiosDesdeTexto($any($event).target.value)" />
+              </label>
             </div>
           }
         </div>
 
         @if (alphaGuardadoMsg()) {
           <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">
-            ✓ Programa Alpha actualizado exitosamente
+            <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Programa Alpha actualizado exitosamente
           </div>
         }
       </div>
@@ -354,7 +373,8 @@ const ESTADO_BADGE: Record<string, string> = {
     .admin-kpi__hint { font-size: 10px; color: var(--t-500, var(--t-400)); margin-top: 2px; line-height: 1.3; }
 
     .admin-panel { padding: var(--sp-6); }
-    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-5); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
+    /* El botón de guardar cae debajo del título cuando no cabe a su lado. */
+    .panel-header { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-5); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
 
     .admin-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: 1fr; } }
 
@@ -373,6 +393,58 @@ const ESTADO_BADGE: Record<string, string> = {
     .comision-vertical { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
 
     .alpha-head, .alpha-row { grid-template-columns: 100px 160px 160px 140px 1fr; gap: var(--sp-3); }
+    .alpha-campo > span { display: none; }
+    .alpha-campo .rs-inp { width: 100%; }
+
+    /*
+     * Móvil: las dos tablas de configuración pasan a lista. Cada campo queda
+     * bajo su etiqueta, que aquí es imprescindible porque son inputs sueltos
+     * (un porcentaje sin su cabecera no se sabe de qué es).
+     */
+    @media (max-width: 768px) {
+      .comisiones-head, .alpha-head { display: none; }
+
+      .comisiones-row,
+      .alpha-head, .alpha-row {
+        grid-template-columns: 1fr;
+        gap: var(--sp-3);
+        padding: var(--sp-4) var(--sp-5);
+        border-bottom: 6px solid var(--c-base);
+      }
+
+      .comisiones-row > [data-col] {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-4);
+      }
+
+      .comisiones-row > [data-col]::before {
+        content: attr(data-col);
+        flex: 0 0 auto;
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+
+      /* El primer dato de cada fila es el título de la tarjeta. */
+      .comision-vertical { font-weight: var(--w-7); color: var(--t-100); }
+
+      .alpha-campo > span {
+        display: block;
+        margin-bottom: var(--sp-1);
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+      .alpha-campo .rs-inp { width: 100%; text-align: left; }
+    }
   `],
 })
 export class AdminDashboardComponent implements OnInit {
@@ -422,20 +494,13 @@ export class AdminDashboardComponent implements OnInit {
       + this.kpis().pagosRetenidosCount + this.kpis().incidenciasAbiertas;
   }
 
-  emojiVertical(vertical: string): string {
-    return VERTICAL_EMOJI[vertical] ?? '📋';
+  iconoVertical(vertical: string): string {
+    return iconoDeVertical(vertical);
   }
 
   /** Comisión plataforma + fee variable de Stripe, redondeado a 1 decimal (ej. 12% + 1,5% = 13,5%). */
   comisionTotal(comision: ComisionConfig): string {
     return ((comision.comisionPct + comision.stripePct) * 100).toFixed(1).replace('.', ',');
-  }
-
-  iconVertical(vertical: string): string {
-    const MAP: Record<string, string> = {
-      hoteles: 'hotel', vuelos: 'plane', taxis: 'car', transporte: 'truck', guarderia: 'users',
-    };
-    return MAP[vertical] ?? 'building';
   }
 
   badgeEstado(estado: string): string {

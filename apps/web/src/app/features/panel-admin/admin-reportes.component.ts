@@ -4,19 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReporteFinanciero, ReporteVertical } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-
-const VERTICAL_EMOJI: Record<string, string> = {
-  hoteles: '🏨', vuelos: '✈️', taxis: '🚗', transporte: '🚛', guarderia: '👶',
-};
+import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
 const VERTICALES_OPCIONES = [
   { label: 'Todas las categorías', valor: '' },
-  { label: '🏠 Alojamiento canino', valor: 'alojamiento' },
-  { label: '🚐 Transporte de animales', valor: 'transporte' },
-  { label: '🩺 Veterinarios', valor: 'veterinaria' },
-  { label: '✂️ Peluquerías caninas', valor: 'peluqueria' },
-  { label: '🎓 Adiestramiento canino', valor: 'adiestramiento' },
-  { label: '🏨 Hoteles pet-friendly', valor: 'hoteles' },
+  { label: 'Alojamiento canino', valor: 'alojamiento' },
+  { label: 'Transporte de animales', valor: 'transporte' },
+  { label: 'Veterinarios', valor: 'veterinaria' },
+  { label: 'Peluquerías caninas', valor: 'peluqueria' },
+  { label: 'Adiestramiento canino', valor: 'adiestramiento' },
+  { label: 'Hoteles pet-friendly', valor: 'hoteles' },
 ] as const;
 
 @Component({
@@ -71,7 +68,7 @@ const VERTICALES_OPCIONES = [
         @if (cargando()) {
           <span>Generando…</span>
         } @else {
-          <span>📊 Generar reporte</span>
+          <span><rs-icon name="bar-chart" [size]="14" [stroke]="2"></rs-icon> Generar reporte</span>
         }
       </button>
     </div>
@@ -233,8 +230,8 @@ export class AdminReportesComponent {
     }
   }
 
-  emojiVertical(vertical: string): string {
-    return VERTICAL_EMOJI[vertical] ?? '📋';
+  iconoVertical(vertical: string): string {
+    return iconoDeVertical(vertical);
   }
 
   iconVertical(vertical: string): string {

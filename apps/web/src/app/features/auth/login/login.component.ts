@@ -38,7 +38,8 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
           <div class="rs-field">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <label for="password" class="rs-lbl">Contraseña</label>
-              <a routerLink="/auth/recuperar" style="font-size:var(--f-xs);color:#7AA3FF">¿Olvidaste tu contraseña?</a>
+              <a routerLink="/auth/recuperar"
+                 style="font-size:var(--f-xs);color:#7AA3FF;display:inline-flex;align-items:center;min-height:36px;padding-inline:var(--sp-1)">¿Olvidaste tu contraseña?</a>
             </div>
             <div style="position:relative">
               <input
@@ -51,7 +52,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
               <button
                 type="button"
                 (click)="mostrarPassword.set(!mostrarPassword())"
-                style="position:absolute;right:var(--sp-3);top:50%;transform:translateY(-50%);color:var(--t-400);display:flex;align-items:center;transition:color var(--d-1)"
+                style="position:absolute;right:var(--sp-2);top:50%;transform:translateY(-50%);color:var(--t-400);display:flex;align-items:center;justify-content:center;width:40px;height:40px;transition:color var(--d-1)"
                 [style.color]="mostrarPassword() ? 'var(--c-accent)' : 'var(--t-400)'">
                 <rs-icon [name]="mostrarPassword() ? 'eye-off' : 'eye'" [size]="16" [stroke]="2"></rs-icon>
               </button>
@@ -60,7 +61,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
 
           <label style="display:flex;align-items:center;gap:var(--sp-2);font-size:var(--f-sm);color:var(--t-300);cursor:pointer;user-select:none">
             <input type="checkbox" formControlName="recordar"
-                   style="accent-color:var(--c-accent);width:16px;height:16px" />
+                   style="accent-color:var(--c-accent);width:20px;height:20px" />
             Recordar mi correo
           </label>
 
@@ -72,7 +73,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
             <div class="rs-alert rs-alert--warning" style="display:flex;flex-direction:column;gap:var(--sp-2)">
               <span>Tu email aún no está verificado. Revisa tu correo o reenvía el enlace.</span>
               @if (reenviado()) {
-                <strong>Correo reenviado ✓</strong>
+                <strong>Correo reenviado <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon></strong>
               } @else {
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="reenviar()" [disabled]="reenviando()">
                   {{ reenviando() ? 'Reenviando…' : 'Reenviar verificación' }}

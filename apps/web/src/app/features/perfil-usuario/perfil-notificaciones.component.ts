@@ -83,7 +83,7 @@ interface NotifGroup {
       }
 
       @if (guardado()) {
-        <div class="rs-alert rs-alert--success">✓ Preferencias guardadas.</div>
+        <div class="rs-alert rs-alert--success"><rs-icon name="check" [size]="15" [stroke]="3"></rs-icon> Preferencias guardadas.</div>
       }
     </div>
 

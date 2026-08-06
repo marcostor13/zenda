@@ -1,9 +1,21 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["jest", "node"],
+    // `multer` aporta el tipo global Express.Multer.File que usan el módulo de
+    // upload y sus tests; sin él aquí, el typecheck de los specs falla (TS2694).
+    "types": ["jest", "node", "multer"],
     "outDir": "./dist",
-    "isolatedModules": false
+    "isolatedModules": false,
+    /*
+     * El typecheck de los tests resuelve `shared` a sus FUENTES, igual que ya
+     * hace Jest en runtime con `moduleNameMapper`. Sin esto, TypeScript sigue
+     * el `types` del package.json de shared (`dist/index.d.ts`) y falla con
+     * TS2307 en cualquier clon donde no se haya ejecutado `build:shared`
+     * antes — que es justo lo que pasaba en CI.
+     */
+    "paths": {
+      "shared": ["../../libs/shared/src"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.spec.ts"]
 }

@@ -188,6 +188,17 @@ export function verticalUi(key: string | null | undefined): VerticalUi {
   return (key && POR_KEY.get(key)) || VERTICAL_POR_DEFECTO;
 }
 
+/**
+ * Icono `rs-icon` del vertical. Única fuente de verdad para los paneles de
+ * admin y comercio, que antes mantenían cada uno su propio mapa de emojis
+ * (TCK-8010). `global` no es un vertical: es el ámbito de la config general.
+ */
+export function iconoDeVertical(key: string | null | undefined): string {
+  if (key === 'global') return 'globe';
+  // Una clave desconocida no debe disfrazarse del icono de alojamiento.
+  return (key && POR_KEY.get(key)?.icon) ?? 'paw';
+}
+
 /** Ruta del listado de un vertical (`/veterinaria`, `/alojamiento`…). */
 export function rutaDeVertical(key: string | null | undefined): string {
   return verticalUi(key).route;

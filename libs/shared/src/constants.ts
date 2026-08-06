@@ -44,23 +44,51 @@ export const ALPHA_NIVELES_DEFAULT: readonly {
 }[] = [
   {
     nivel: 1,
-    nombre: 'Alpha 1',
+    nombre: 'ALPHA I',
     reservasRequeridas: 0,
     descuentoPct: 0,
-    beneficios: ['Promociones y ofertas exclusivas'],
+    beneficios: ['Accede antes que nadie a promociones exclusivas'],
   },
   {
     nivel: 2,
-    nombre: 'Alpha 2',
+    nombre: 'ALPHA II',
     reservasRequeridas: 5,
     descuentoPct: 0.05,
-    beneficios: ['Hasta 5% de descuento', 'Promociones exclusivas', 'Prioridad en campañas'],
+    beneficios: [
+      'Ahorra hasta un 5% en tus próximas reservas',
+      'Accede antes que nadie a promociones exclusivas',
+      'Prioridad en las campañas de temporada',
+    ],
   },
   {
     nivel: 3,
-    nombre: 'Alpha 3',
+    nombre: 'ALPHA III',
     reservasRequeridas: 15,
     descuentoPct: 0.1,
-    beneficios: ['Hasta 10% de descuento', 'Promociones premium', 'Ventajas exclusivas'],
+    beneficios: [
+      'Ahorra hasta un 10% en tus próximas reservas',
+      'Disfruta de promociones premium reservadas a miembros Alpha',
+      'Ventajas exclusivas antes que el resto de usuarios',
+    ],
   },
 ];
+
+/**
+ * Numeración romana del nivel Alpha. Los nombres pueden venir editados desde el
+ * panel de administración (HU-13.4) con el formato antiguo "Alpha 2", así que la
+ * presentación se normaliza aquí en lugar de asumir que la BD ya está migrada
+ * (TCK-8011).
+ */
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'] as const;
+
+export function nombreAlphaPresentacion(nombre: string, nivel: number): string {
+  const yaEsRomano = /^ALPHA\s+[IVX]+$/i.test(nombre.trim());
+  if (yaEsRomano) return nombre.trim().toUpperCase();
+
+  const romano = ROMANOS[nivel - 1];
+  if (!romano) return nombre.toUpperCase();
+
+  // Sólo se reescribe el patrón por defecto "Alpha <n>"; un nombre propio que el
+  // admin haya elegido a mano se respeta tal cual.
+  return /^alpha\s*\d+$/i.test(nombre.trim()) ? `ALPHA ${romano}` : nombre;
+}

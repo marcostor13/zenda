@@ -8,15 +8,6 @@ import { AdminApiService, ComercioAdmin, CrearComercioDto, ActualizarComercioDto
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 
-const VERTICAL_EMOJI: Record<string, string> = {
-  [VerticalKey.ALOJAMIENTO]: '🏠',
-  [VerticalKey.TRANSPORTE]: '🚛',
-  [VerticalKey.VETERINARIA]: '🩺',
-  [VerticalKey.PELUQUERIA]: '✂️',
-  [VerticalKey.ADIESTRAMIENTO]: '🎓',
-  [VerticalKey.HOTELES]: '🏨',
-};
-
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
@@ -111,29 +102,36 @@ const LIMITE = 20;
                 </div>
               </div>
             </div>
-            <span class="cell-mono">{{ c.vatNumber }}</span>
-            <span>
+            <span class="cell-mono" data-col="RUC">{{ c.vatNumber }}</span>
+            <span data-col="Plan">
               <span class="rs-badge rs-badge--accent">{{ c.plan }}</span>
             </span>
-            <span>
+            <span data-col="Estado">
               <span class="rs-badge {{ badgeEstado(c.estado) }}">{{ c.estado }}</span>
               @if (c.verificacion?.estado && c.verificacion?.estado !== 'sin_verificar') {
                 <span class="rs-badge {{ badgeVerif(c.verificacion!.estado) }}" style="display:inline-block;margin-top:4px">
+                  <rs-icon [name]="verifIcono(c.verificacion!.estado)" [size]="12" [stroke]="2"></rs-icon>
                   {{ verifLabel(c.verificacion!.estado) }}
                 </span>
               }
             </span>
-            <span class="cell-muted">{{ c.createdAt | date:'d MMM yyyy' }}</span>
+            <span class="cell-muted" data-col="Registro">{{ c.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones">
               @if (c.verificacion?.estado === 'pendiente') {
                 <button class="rs-btn rs-btn--sm" style="background:#047857;color:#fff" title="Verificar documentación"
-                  [disabled]="accionando() === c._id" (click)="verificar(c._id)">✅ Verificar</button>
+                  [disabled]="accionando() === c._id" (click)="verificar(c._id)">
+                      <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Verificar
+                    </button>
                 <button class="rs-btn rs-btn--ghost rs-btn--sm" title="Rechazar documentación"
-                  [disabled]="accionando() === c._id" (click)="rechazarVerif(c._id)">✕ Doc</button>
+                  [disabled]="accionando() === c._id" (click)="rechazarVerif(c._id)">
+                      <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon> Doc
+                    </button>
               }
               @if (c.estado !== 'activo') {
                 <button class="rs-btn rs-btn--sm" style="background:var(--c-teal);color:#fff"
-                  [disabled]="accionando() === c._id" (click)="aprobar(c._id)">✓ Aprobar</button>
+                  [disabled]="accionando() === c._id" (click)="aprobar(c._id)">
+                      <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> Aprobar
+                    </button>
               }
               @if (c.estado !== 'suspendido') {
                 <button class="rs-btn rs-btn--danger rs-btn--sm"
@@ -145,17 +143,23 @@ const LIMITE = 20;
                 [style.background]="c.alphaAdherido ? 'var(--dk-gold, #FBAE17)' : ''"
                 [style.color]="c.alphaAdherido ? '#00135D' : ''"
                 [title]="c.alphaAdherido ? 'Dar de baja del programa Alpha' : 'Adherir al programa Alpha'"
-                [disabled]="accionando() === c._id" (click)="alternarAlpha(c)">🏆 Alpha</button>
+                [disabled]="accionando() === c._id" (click)="alternarAlpha(c)">
+                      <rs-icon name="crown" [size]="13" [stroke]="2"></rs-icon> Alpha
+                    </button>
               <button class="rs-btn rs-btn--ghost rs-btn--sm"
-                [disabled]="accionando() === c._id" (click)="abrirEditar(c)">✏️</button>
+                [disabled]="accionando() === c._id" (click)="abrirEditar(c)" aria-label="Editar comercio" data-icono>
+                      <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
+                    </button>
               <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171"
-                [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)">🗑️</button>
+                [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)" aria-label="Eliminar comercio" data-icono>
+                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
+                    </button>
             </div>
           </div>
         }
         @if (comercios().length === 0) {
           <div class="empty-state">
-            <span class="empty-icon">🏪</span>
+            <span class="empty-icon"><rs-icon name="store" [size]="34" [stroke]="1.5"></rs-icon></span>
             <p>No hay comercios {{ filtroEstado() ? 'con estado "' + filtroEstado() + '"' : '' }}</p>
           </div>
         }
@@ -301,6 +305,44 @@ const LIMITE = 20;
     .tbl-row { display: grid; grid-template-columns: 2fr 130px 90px 120px 120px 240px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; }
     .tbl-row:hover { background: var(--c-raised); }
+
+    /*
+     * Móvil: una tabla de 6 columnas no se puede leer en 390px ni estrechando
+     * ni con scroll lateral, así que deja de ser tabla. Cada fila se convierte
+     * en una tarjeta y cada celda muestra su etiqueta (data-col) junto al dato.
+     */
+    @media (max-width: 768px) {
+      .tbl-head { display: none; }
+
+      .tbl-row {
+        grid-template-columns: 1fr;
+        gap: var(--sp-2);
+        padding: var(--sp-4) var(--sp-5);
+        border-bottom: 6px solid var(--c-base);
+      }
+
+      .tbl-row > [data-col] {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        /* Un email o una razón social larga parte de línea en vez de desbordar. */
+        overflow-wrap: anywhere;
+        text-align: right;
+      }
+
+      .tbl-row > [data-col]::before {
+        content: attr(data-col);
+        flex: 0 0 auto;
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+    }
+
     .tbl-skeleton { pointer-events: none; }
 
     .comercio-cell { display: flex; align-items: flex-start; gap: var(--sp-3); }
@@ -310,6 +352,34 @@ const LIMITE = 20;
     .cell-mono { font-family: monospace; font-size: var(--f-xs); color: var(--t-300); }
     .verticales-pills { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-top: var(--sp-1); }
     .acciones { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+
+    /*
+     * Móvil: las acciones son el pie de la tarjeta, no una celda más. Se alinean
+     * a la izquierda tras un separador y los botones con texto reparten el ancho;
+     * los de solo icono se quedan cuadrados al final en vez de estirarse.
+     */
+    @media (max-width: 768px) {
+      .acciones {
+        justify-content: flex-start;
+        gap: var(--sp-2);
+        margin-top: var(--sp-1);
+        padding-top: var(--sp-3);
+        border-top: 1px solid var(--b-1);
+      }
+
+      .acciones .rs-btn {
+        /* Dos botones con texto por fila: repartir "auto" dejaba filas huérfanas. */
+        flex: 1 1 calc(50% - var(--sp-2));
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      .acciones [data-icono] {
+        flex: 0 0 44px;
+        padding-inline: 0;
+      }
+    }
+
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 16px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 120px; } .skel--lg { width: 180px; }
@@ -331,7 +401,7 @@ const LIMITE = 20;
 
     .verticales-check { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-2); }
     .check-item { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; }
-    .check-item input { accent-color: var(--c-accent); width: 16px; height: 16px; }
+    .check-item input { accent-color: var(--c-accent); width: 18px; height: 18px; }
   `],
 })
 export class AdminComerciosComponent implements OnInit {
@@ -469,10 +539,19 @@ export class AdminComerciosComponent implements OnInit {
 
   verifLabel(estado: string): string {
     const map: Record<string, string> = {
-      verificado: '✅ Verificado', pendiente: '⏳ Doc. pendiente',
-      rechazado: '✕ Doc. rechazada', caducado: '⚠️ Doc. caducada',
+      verificado: 'Verificado', pendiente: 'Doc. pendiente',
+      rechazado: 'Doc. rechazada', caducado: 'Doc. caducada',
     };
     return map[estado] ?? estado;
+  }
+
+  /** Icono Lucide del estado de verificación documental (TCK-8010). */
+  verifIcono(estado: string): string {
+    const map: Record<string, string> = {
+      verificado: 'badge-check', pendiente: 'hourglass',
+      rechazado: 'x', caducado: 'alert-triangle',
+    };
+    return map[estado] ?? 'circle';
   }
 
   async suspender(id: string): Promise<void> {
@@ -603,10 +682,6 @@ export class AdminComerciosComponent implements OnInit {
     } finally {
       this.guardando.set(false);
     }
-  }
-
-  emojiVertical(vertical: string): string {
-    return VERTICAL_EMOJI[vertical] ?? '📋';
   }
 
   iconVertical(vertical: string): string {

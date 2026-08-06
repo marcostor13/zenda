@@ -56,8 +56,8 @@ describe('VerticalBrowseComponent', () => {
       precioConsulta: 35,
     });
 
-    expect(component.cfg().badge(c)).toBe('🩺 Dermatología');
-    expect(component.cfg().meta(c)).toEqual(['💉 Vacunación · Cirugía', '🚑 Urgencias 24h']);
+    expect(component.cfg().badge(c)).toBe('Dermatología');
+    expect(component.cfg().meta(c)).toEqual(['Vacunación · Cirugía', 'Urgencias 24h']);
     expect(component.cfg().price(c)).toBe(35);
   });
 
@@ -65,8 +65,8 @@ describe('VerticalBrowseComponent', () => {
     await crearComponente('veterinaria');
     const c = tarjeta({});
 
-    expect(component.cfg().badge(c)).toBe('🩺 Medicina general');
-    expect(component.cfg().meta(c)).toEqual(['💉 Consulta general', '🕐 Consulta horario']);
+    expect(component.cfg().badge(c)).toBe('Medicina general');
+    expect(component.cfg().meta(c)).toEqual(['Consulta general', 'Consulta horario']);
     expect(component.cfg().price(c)).toBe(20);
   });
 
@@ -77,8 +77,8 @@ describe('VerticalBrowseComponent', () => {
       aDomicilio: true,
     });
 
-    expect(component.cfg().badge(c)).toBe('✂️ Baño y corte');
-    expect(component.cfg().meta(c)).toEqual(['🛁 Baño y corte · Deslanado', '🏠 A domicilio']);
+    expect(component.cfg().badge(c)).toBe('Baño y corte');
+    expect(component.cfg().meta(c)).toEqual(['Baño y corte · Deslanado', 'A domicilio']);
     expect(component.cfg().price(c)).toBe(25);
   });
 
@@ -91,8 +91,8 @@ describe('VerticalBrowseComponent', () => {
       precioSesion: 45,
     });
 
-    expect(component.cfg().badge(c)).toBe('🎓 Modificación de conducta');
-    expect(component.cfg().meta(c)).toEqual(['🐕 Programa completo', '🦮 Desde 6 meses']);
+    expect(component.cfg().badge(c)).toBe('Modificación de conducta');
+    expect(component.cfg().meta(c)).toEqual(['Programa completo', 'Desde 6 meses']);
     expect(component.cfg().price(c)).toBe(45);
   });
 
@@ -152,11 +152,11 @@ describe('VerticalBrowseComponent', () => {
     await crearComponente('hoteles');
 
     const petFriendly = tarjeta({ maxMascotasPorReserva: 2, serviciosPetfriendly: ['Cama para perro'] });
-    expect(component.cfg().badge(petFriendly)).toBe('🐾 Pet-friendly');
-    expect(component.cfg().meta(petFriendly)).toEqual(['🐾 Hasta 2 mascota(s)', '🎁 Cama para perro']);
+    expect(component.cfg().badge(petFriendly)).toBe('Pet-friendly');
+    expect(component.cfg().meta(petFriendly)).toEqual(['Hasta 2 mascota(s)', 'Cama para perro']);
     expect(component.cfg().price(petFriendly)).toBe(20);
 
-    expect(component.cfg().badge(tarjeta({ admiteMascotas: false }))).toBe('🏨 Hotel');
+    expect(component.cfg().badge(tarjeta({ admiteMascotas: false }))).toBe('Hotel');
     expect(component.cfg().meta(tarjeta({}))[0]).toContain('sin límite');
   });
 
@@ -167,12 +167,12 @@ describe('VerticalBrowseComponent', () => {
       tiposSeguro: ['salud', 'rc'], duracionMeses: 24,
       renovacionAutomatica: false, primaAnualBase: 180,
     });
-    expect(component.cfg().badge(poliza)).toBe('🛡️ 2 coberturas');
-    expect(component.cfg().meta(poliza)).toEqual(['📅 24 meses de vigencia', '🔁 Sin renovación automática']);
+    expect(component.cfg().badge(poliza)).toBe('2 coberturas');
+    expect(component.cfg().meta(poliza)).toEqual(['24 meses de vigencia', 'Sin renovación automática']);
     expect(component.cfg().price(poliza)).toBe(180);
 
     // Sin datos propios se asume la póliza anual renovable, no una en blanco.
-    expect(component.cfg().meta(tarjeta({}))).toEqual(['📅 12 meses de vigencia', '🔁 Renovación automática']);
+    expect(component.cfg().meta(tarjeta({}))).toEqual(['12 meses de vigencia', 'Renovación automática']);
     expect(component.cfg().price(tarjeta({}))).toBe(20);
   });
 
@@ -182,12 +182,12 @@ describe('VerticalBrowseComponent', () => {
     const conMedicacion = tarjeta({
       administraMedicacion: true, duracionVisitaMin: 60, radioDesplazamientoKm: 25, precioVisita: 18,
     });
-    expect(component.cfg().badge(conMedicacion)).toBe('💊 Administra medicación');
-    expect(component.cfg().meta(conMedicacion)).toEqual(['⏱️ 60 min por visita', '🚗 Hasta 25 km']);
+    expect(component.cfg().badge(conMedicacion)).toBe('Administra medicación');
+    expect(component.cfg().meta(conMedicacion)).toEqual(['60 min por visita', 'Hasta 25 km']);
     expect(component.cfg().price(conMedicacion)).toBe(18);
 
-    expect(component.cfg().badge(tarjeta({}))).toBe('🏠 A domicilio');
-    expect(component.cfg().meta(tarjeta({}))).toEqual(['⏱️ 45 min por visita', '🚗 Hasta 10 km']);
+    expect(component.cfg().badge(tarjeta({}))).toBe('A domicilio');
+    expect(component.cfg().meta(tarjeta({}))).toEqual(['45 min por visita', 'Hasta 10 km']);
   });
 
   it('peluqueria y adiestramiento: deberían tener valores por defecto propios', async () => {
@@ -265,8 +265,8 @@ describe('VerticalBrowseComponent', () => {
     const badges = component.badgesDe(c);
 
     expect(badges).toEqual([
-      { label: '🩺 Dermatología' },
-      { icon: '🏆', label: 'Mejor valorado', variant: 'warning' },
+      { label: 'Dermatología' },
+      { icon: 'trophy', label: 'Mejor valorado', variant: 'warning' },
     ]);
   });
 
@@ -277,6 +277,6 @@ describe('VerticalBrowseComponent', () => {
 
     const badges = component.badgesDe(c);
 
-    expect(badges).toContainEqual({ icon: '★', label: 'Premium', variant: 'warning' });
+    expect(badges).toContainEqual({ icon: 'crown', label: 'Premium', variant: 'warning' });
   });
 });

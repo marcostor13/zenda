@@ -8,6 +8,7 @@ import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
 import { RsCardComponent } from '../../../shared/components/card/rs-card.component';
+import { RsStarsComponent } from '../../../shared/components/stars/rs-stars.component';
 import { RsChipComponent } from '../../../shared/components/chip/rs-chip.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import {
@@ -31,7 +32,7 @@ interface BusquedaUrl {
   imports: [
     ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
     RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent, RsChipComponent,
-    ExperienciasCercaComponent,
+    ExperienciasCercaComponent, RsStarsComponent,
   ],
   template: `
 <div class="alojamiento-page">
@@ -87,7 +88,7 @@ interface BusquedaUrl {
         <div class="filter-chips">
           @for (sc of ratingOpciones; track sc.valor) {
             <rs-chip [active]="ratingMinimo === sc.valor" (chipClick)="ratingMinimo = sc.valor">
-              {{ sc.estrellas }} {{ sc.label }}
+              <rs-stars [score]="sc.valor" [size]="12" /> {{ sc.label }}
             </rs-chip>
           }
         </div>
@@ -108,10 +109,10 @@ interface BusquedaUrl {
         <h4>Extras</h4>
         <div class="filter-chips">
           <rs-chip [active]="soloCancelacionGratis" (chipClick)="soloCancelacionGratis = !soloCancelacionGratis">
-            ✓ Cancelación gratis
+            <rs-icon name="check" [size]="13" [stroke]="3" /> Cancelación gratis
           </rs-chip>
           <rs-chip [active]="soloPaseos" (chipClick)="soloPaseos = !soloPaseos">
-            🐾 Paseos incluidos
+            <rs-icon name="bone" [size]="13" [stroke]="2" /> Paseos incluidos
           </rs-chip>
         </div>
       </div>
@@ -353,7 +354,7 @@ export class AlojamientoListaComponent implements OnInit {
   /** Badges de la tarjeta unificada (HU-3.1/HU-0.9): destacado, descuento, y automáticos por datos reales. */
   badgesDe(a: AlojamientoCard): BadgeAutomatico[] {
     const badges: BadgeAutomatico[] = [];
-    if (a.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
+    if (a.destacado) badges.push({ icon: 'crown', label: 'Premium', variant: 'warning' });
     if (a.descuentoPct) badges.push({ icon: '', label: `-${a.descuentoPct}%`, variant: 'success' });
     badges.push(...calcularBadgesAutomaticos({
       score: a.score, numResenas: a.numResenas, plazasRestantes: a.espaciosDisponibles,
@@ -365,8 +366,8 @@ export class AlojamientoListaComponent implements OnInit {
   /** Servicios como iconos en una línea bajo la foto (HU-3.1). */
   serviciosDe(a: AlojamientoCard): string[] {
     const items = a.amenities.slice(0, 3);
-    if (a.cancelacionGratis) items.push('✓ Cancelación gratis');
-    if (a.paseosIncluidos) items.push('✓ Paseos incluidos');
+    if (a.cancelacionGratis) items.push('Cancelación gratis');
+    if (a.paseosIncluidos) items.push('Paseos incluidos');
     return items;
   }
   readonly totalItems = signal(0);
@@ -413,9 +414,9 @@ export class AlojamientoListaComponent implements OnInit {
   readonly avisoUbicacion = signal('');
 
   readonly ratingOpciones = [
-    { valor: 5,   estrellas: '★★★★★', label: '5.0' },
-    { valor: 4,   estrellas: '★★★★☆', label: '4.0+' },
-    { valor: 3,   estrellas: '★★★☆☆', label: '3.0+' },
+    { valor: 5, label: '5.0' },
+    { valor: 4, label: '4.0+' },
+    { valor: 3, label: '3.0+' },
   ];
 
   readonly amenitiesOpciones = ['Piscina', 'Jardín', 'Cuidado 24/7', 'Veterinario de guardia', 'Cámaras 24h', 'Paseos diarios'];

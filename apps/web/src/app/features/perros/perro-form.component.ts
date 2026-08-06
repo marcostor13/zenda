@@ -11,25 +11,31 @@ import {
 import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
 
 type Paso = 1 | 2 | 3 | 4 | 5 | 6;
-const PASO_LABELS: Record<Paso, string> = {
-  1: '🐶 Datos básicos',
-  2: '📏 Físico y pelo',
-  3: '🧠 Comportamiento',
-  4: '❤️ Salud',
-  5: '🏨 En un alojamiento',
-  6: '📄 Documentación',
+
+/** Título de cada bloque del wizard, con su icono Lucide (TCK-8010). */
+const PASOS: Record<Paso, { icono: string; texto: string }> = {
+  1: { icono: 'dog', texto: 'Datos básicos' },
+  2: { icono: 'ruler', texto: 'Físico y pelo' },
+  3: { icono: 'brain', texto: 'Comportamiento' },
+  4: { icono: 'heart', texto: 'Salud' },
+  5: { icono: 'hotel', texto: 'En un alojamiento' },
+  6: { icono: 'file-text', texto: 'Documentación' },
 };
 const TOTAL_PASOS: Paso = 6;
 
 /** Catálogo cerrado de temperamentos (HU-8.2.3): sustituye al campo de texto libre. */
 const TEMPERAMENTOS = ['Muy tranquilo', 'Activo', 'Nervioso', 'Protector', 'Sociable', 'Independiente'];
 
-/** Selector gráfico de sociabilidad (HU-8.2.3): mismos 4 niveles del enum NivelSociabilidad. */
+/**
+ * Selector gráfico de sociabilidad (HU-8.2.3): mismos 4 niveles del enum
+ * NivelSociabilidad. El nivel se distingue por la cara y por el color del token,
+ * no por un emoji de semáforo (TCK-8010).
+ */
 const NIVELES_SOCIABILIDAD = [
-  { valor: 'alta', icon: '😊🟢', label: 'Alta' },
-  { valor: 'media', icon: '😐🟡', label: 'Media' },
-  { valor: 'baja', icon: '😟🟠', label: 'Baja' },
-  { valor: 'no_tolera', icon: '😡🔴', label: 'No tolera' },
+  { valor: 'alta', icon: 'smile', tono: 'ok', label: 'Alta' },
+  { valor: 'media', icon: 'meh', tono: 'medio', label: 'Media' },
+  { valor: 'baja', icon: 'frown', tono: 'bajo', label: 'Baja' },
+  { valor: 'no_tolera', icon: 'angry', tono: 'malo', label: 'No tolera' },
 ];
 
 @Component({
@@ -55,19 +61,26 @@ const NIVELES_SOCIABILIDAD = [
         <!-- Progreso del wizard (HU-8.2.2) -->
         <div class="wizard-progress">
           <div class="wizard-progress__head">
-            <span>Paso {{ paso() }} de {{ totalPasos }} · {{ pasoLabels[paso()] }}</span>
+            <span class="wizard-progress__paso">
+              Paso {{ paso() }} de {{ totalPasos }} ·
+              <rs-icon [name]="pasos[paso()].icono" [size]="14" [stroke]="2"></rs-icon>
+              {{ pasos[paso()].texto }}
+            </span>
             <span>{{ completitud() }}% completada</span>
           </div>
           <div class="wizard-progress__track">
             <div class="wizard-progress__fill" [style.width.%]="(paso() / totalPasos) * 100"></div>
           </div>
           @if (autoguardadoMsg()) {
-            <p class="wizard-progress__autosave">✓ {{ autoguardadoMsg() }}</p>
+            <p class="wizard-progress__autosave">
+              <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> {{ autoguardadoMsg() }}
+            </p>
           }
         </div>
 
         <div class="privacy-box">
-          🔒 <strong>Privacidad:</strong> Doogking solo compartirá la información necesaria con los
+          <rs-icon name="lock" [size]="15" [stroke]="2"></rs-icon>
+          <strong>Privacidad:</strong> Doogking solo compartirá la información necesaria con los
           profesionales que tú autorices mediante una reserva.
         </div>
 
@@ -185,8 +198,9 @@ const NIVELES_SOCIABILIDAD = [
               @for (n of nivelesSociabilidad; track n.valor) {
                 <button type="button" class="nivel-btn"
                         [class.nivel-btn--activo]="form.controls.sociabilidadPerros.value === n.valor"
+                        [attr.data-tono]="n.tono"
                         (click)="elegirNivel('sociabilidadPerros', n.valor)">
-                  {{ n.icon }} {{ n.label }}
+                  <rs-icon [name]="n.icon" [size]="18" [stroke]="2"></rs-icon> {{ n.label }}
                 </button>
               }
             </div>
@@ -197,8 +211,9 @@ const NIVELES_SOCIABILIDAD = [
               @for (n of nivelesSociabilidad; track n.valor) {
                 <button type="button" class="nivel-btn"
                         [class.nivel-btn--activo]="form.controls.sociabilidadPersonas.value === n.valor"
+                        [attr.data-tono]="n.tono"
                         (click)="elegirNivel('sociabilidadPersonas', n.valor)">
-                  {{ n.icon }} {{ n.label }}
+                  <rs-icon [name]="n.icon" [size]="18" [stroke]="2"></rs-icon> {{ n.label }}
                 </button>
               }
             </div>
@@ -319,12 +334,16 @@ const NIVELES_SOCIABILIDAD = [
           </div>
 
           <div class="resumen-final">
-            <strong>📋 Ficha Inteligente completada al {{ completitud() }}%</strong>
+            <strong>
+              <rs-icon name="clipboard-list" [size]="16" [stroke]="2"></rs-icon>
+              Ficha Inteligente completada al {{ completitud() }}%
+            </strong>
             <p>Tu mascota ya está preparada para:</p>
             <div class="resumen-final__chips">
               @for (d of disponibilidadPorVertical(); track d.label) {
                 <span class="rs-badge" [class]="d.lista ? 'rs-badge--success' : 'rs-badge--neutral'">
-                  {{ d.lista ? '✅' : '⚠' }} {{ d.label }}
+                  <rs-icon [name]="d.lista ? 'check-circle' : 'alert-triangle'" [size]="15" [stroke]="2"></rs-icon>
+                  {{ d.label }}
                 </span>
               }
             </div>
@@ -345,7 +364,10 @@ const NIVELES_SOCIABILIDAD = [
               </button>
             } @else {
               <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
-                {{ guardando() ? 'Guardando…' : (esEdicion() ? 'Guardar cambios' : '🐶 Crear ficha inteligente') }}
+                @if (!guardando() && !esEdicion()) {
+                  <rs-icon name="dog" [size]="16" [stroke]="2"></rs-icon>
+                }
+                {{ guardando() ? 'Guardando…' : (esEdicion() ? 'Guardar cambios' : 'Crear ficha inteligente') }}
               </button>
             }
           </div>
@@ -392,14 +414,20 @@ const NIVELES_SOCIABILIDAD = [
     .wizard-progress__head { display: flex; justify-content: space-between; font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-2); }
     .wizard-progress__track { height: 6px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; }
     .wizard-progress__fill { height: 100%; background: var(--c-accent); border-radius: var(--r-full); transition: width var(--d-3); }
-    .wizard-progress__autosave { margin-top: var(--sp-2); font-size: var(--f-xs); color: var(--c-success); }
+    .wizard-progress__autosave {
+      margin-top: var(--sp-2); font-size: var(--f-xs); color: var(--c-success);
+      display: inline-flex; align-items: center; gap: var(--sp-1);
+    }
+    .wizard-progress__paso { display: inline-flex; align-items: center; gap: var(--sp-1); }
 
     /* HU-8.2.6: privacidad, visible en todos los pasos */
     .privacy-box {
       background: var(--c-accent-lo); border-radius: var(--r-lg);
       padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-5);
       font-size: var(--f-xs); color: var(--t-300);
+      display: flex; align-items: flex-start; gap: var(--sp-2);
       strong { color: var(--t-100); }
+      rs-icon { flex: 0 0 auto; margin-top: 1px; color: var(--c-accent); }
     }
 
     /* HU-8.2.3: temperamento en chips */
@@ -418,18 +446,25 @@ const NIVELES_SOCIABILIDAD = [
       padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md);
       border: 1px solid var(--b-2); background: var(--c-raised); color: var(--t-300);
       font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
+      display: inline-flex; align-items: center; gap: var(--sp-2);
       &.nivel-btn--activo { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--t-100); font-weight: var(--w-6); }
       &:hover:not(.nivel-btn--activo) { border-color: var(--c-accent); }
+      /* El color del icono es lo que distingue el nivel ahora que no hay semáforo. */
+      &[data-tono='ok'] rs-icon { color: var(--c-success); }
+      &[data-tono='medio'] rs-icon { color: var(--c-warning); }
+      &[data-tono='bajo'] rs-icon { color: var(--c-amber); }
+      &[data-tono='malo'] rs-icon { color: var(--c-danger); }
     }
 
     /* HU-8.2.8: resumen final de disponibilidad */
     .resumen-final {
       margin-top: var(--sp-6); padding: var(--sp-5); border-radius: var(--r-lg);
       background: var(--c-raised);
-      strong { font-size: var(--f-md); color: var(--t-100); }
+      strong { font-size: var(--f-md); color: var(--t-100); display: inline-flex; align-items: center; gap: var(--sp-2); }
       p { font-size: var(--f-sm); color: var(--t-300); margin: var(--sp-2) 0 var(--sp-3); }
     }
     .resumen-final__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .resumen-final__chips span { display: inline-flex; align-items: center; gap: var(--sp-1); }
   `],
 })
 export class PerroFormComponent implements OnInit {
@@ -450,7 +485,7 @@ export class PerroFormComponent implements OnInit {
   // qué sección se muestra — submit() sigue validando el formulario entero.
   readonly paso = signal<Paso>(1);
   readonly totalPasos = TOTAL_PASOS;
-  readonly pasoLabels = PASO_LABELS;
+  readonly pasos = PASOS;
   readonly autoguardando = signal(false);
   readonly autoguardadoMsg = signal('');
 
@@ -710,7 +745,11 @@ export class PerroFormComponent implements OnInit {
   }
 
   async submit(): Promise<void> {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.errorMsg.set(this.motivoDeFormularioInvalido());
+      return;
+    }
 
     this.guardando.set(true);
     this.errorMsg.set('');
@@ -733,5 +772,21 @@ export class PerroFormComponent implements OnInit {
     } finally {
       this.guardando.set(false);
     }
+  }
+
+  /**
+   * Explica por qué no se puede guardar. La foto merece mensaje propio: está en
+   * el paso 1 y el usuario puede pulsar "Guardar" desde el último paso sin ver
+   * el aviso de la subida fallida (TCK-8012).
+   */
+  private motivoDeFormularioInvalido(): string {
+    const fotos = this.form.controls.fotos;
+    if (fotos.hasError('subidaEnCurso')) {
+      return 'Espera a que termine de subirse la foto de tu perro.';
+    }
+    if (fotos.hasError('subidaFallida')) {
+      return 'La foto de tu perro no se pudo subir. Reinténtala o quítala en el paso 1 para guardar la ficha.';
+    }
+    return 'Revisa los campos marcados en rojo antes de guardar.';
   }
 }

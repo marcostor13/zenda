@@ -69,7 +69,7 @@ const NAV_ITEMS = [
               @for (v of verticalesOpciones; track v.valor) {
                 <label style="display:inline-flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-size:var(--f-sm)">
                   <input type="checkbox" [checked]="verticalesSel().has(v.valor)" (change)="toggleVertical(v.valor)"
-                         style="accent-color:var(--c-accent);width:16px;height:16px" />
+                         style="accent-color:var(--c-accent);width:20px;height:20px" />
                   {{ v.label }}
                 </label>
               }

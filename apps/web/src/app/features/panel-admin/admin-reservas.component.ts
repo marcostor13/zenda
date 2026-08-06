@@ -3,21 +3,23 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReservaAdmin, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
+import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
-interface EstadoMeta { badge: string; emoji: string; label: string; }
+/** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
+interface EstadoMeta { badge: string; icono: string; label: string; }
 
 const ESTADO_META: Record<string, EstadoMeta> = {
-  pendiente:        { badge: 'rs-badge--warning', emoji: '🟡', label: 'Pendiente' },
-  confirmada:       { badge: 'rs-badge--success', emoji: '🟢', label: 'Confirmada' },
-  ajuste_solicitado:{ badge: 'rs-badge--warning', emoji: '⚠️', label: 'Ajuste solicitado' },
-  en_curso:         { badge: 'rs-badge--accent',  emoji: '🔵', label: 'En curso' },
-  completada:       { badge: 'rs-badge--accent',  emoji: '✅', label: 'Completada' },
-  pago_retenido:    { badge: 'rs-badge--warning', emoji: '🟣', label: 'Pago retenido' },
-  pago_liberado:    { badge: 'rs-badge--success', emoji: '🟢', label: 'Pago liberado' },
-  en_disputa:       { badge: 'rs-badge--error',   emoji: '🔴', label: 'En disputa' },
-  reembolsada:      { badge: 'rs-badge--neutral', emoji: '↩️', label: 'Reembolsada' },
-  cancelada:        { badge: 'rs-badge--error',   emoji: '⚫', label: 'Cancelada' },
-  no_show:          { badge: 'rs-badge--neutral', emoji: '⚫', label: 'No show' },
+  pendiente:        { badge: 'rs-badge--warning', icono: 'hourglass',      label: 'Pendiente' },
+  confirmada:       { badge: 'rs-badge--success', icono: 'check-circle',   label: 'Confirmada' },
+  ajuste_solicitado:{ badge: 'rs-badge--warning', icono: 'alert-triangle', label: 'Ajuste solicitado' },
+  en_curso:         { badge: 'rs-badge--accent',  icono: 'play',           label: 'En curso' },
+  completada:       { badge: 'rs-badge--accent',  icono: 'badge-check',    label: 'Completada' },
+  pago_retenido:    { badge: 'rs-badge--warning', icono: 'lock',           label: 'Pago retenido' },
+  pago_liberado:    { badge: 'rs-badge--success', icono: 'banknote',       label: 'Pago liberado' },
+  en_disputa:       { badge: 'rs-badge--error',   icono: 'siren',          label: 'En disputa' },
+  reembolsada:      { badge: 'rs-badge--neutral', icono: 'rotate-ccw',     label: 'Reembolsada' },
+  cancelada:        { badge: 'rs-badge--error',   icono: 'x',              label: 'Cancelada' },
+  no_show:          { badge: 'rs-badge--neutral', icono: 'circle',         label: 'No show' },
 };
 
 const FILTROS_ESTADO = [
@@ -38,7 +40,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-reservas',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule],
+  imports: [DatePipe, DecimalPipe, FormsModule, RsIconComponent],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -58,7 +60,9 @@ const LIMITE = 20;
              [(ngModel)]="buscarInput" (keyup.enter)="aplicarBusqueda()" />
       <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarBusqueda()">Buscar</button>
       @if (buscarActivo()) {
-        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarBusqueda()">✕ Limpiar</button>
+        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarBusqueda()">
+            <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon> Limpiar
+          </button>
       }
     </div>
 
@@ -107,37 +111,52 @@ const LIMITE = 20;
         } @else {
           @for (r of reservas(); track r._id) {
             <div class="tbl-row">
-              <span class="cell-mono">{{ r.codigo }}</span>
-              <span class="cell-txt">{{ r.cliente }}</span>
-              <span class="cell-txt">{{ r.comercio }}</span>
-              <span class="cell-amount">{{ r.montoTotal | number:'1.2-2' }} €</span>
-              <span class="cell-amount cell-green">{{ r.comisionMonto | number:'1.2-2' }} €</span>
-              <span><span class="rs-badge {{ meta(r.estado).badge }}">{{ meta(r.estado).emoji }} {{ meta(r.estado).label }}</span></span>
+              <span class="cell-mono" data-col="Código">{{ r.codigo }}</span>
+              <span class="cell-txt" data-col="Cliente">{{ r.cliente }}</span>
+              <span class="cell-txt" data-col="Comercio">{{ r.comercio }}</span>
+              <span class="cell-amount" data-col="Importe">{{ r.montoTotal | number:'1.2-2' }} €</span>
+              <span class="cell-amount cell-green" data-col="Comisión">{{ r.comisionMonto | number:'1.2-2' }} €</span>
+              <span data-col="Estado">
+                <span class="rs-badge {{ meta(r.estado).badge }}">
+                  <rs-icon [name]="meta(r.estado).icono" [size]="12" [stroke]="2"></rs-icon>
+                  {{ meta(r.estado).label }}
+                </span>
+              </span>
               <span class="cell-actions">
                 <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Ver timeline"
-                        (click)="toggleTimeline(r._id)">🕑</button>
+                        (click)="toggleTimeline(r._id)" aria-label="Ver timeline" data-icono>
+                    <rs-icon name="clock" [size]="14" [stroke]="2"></rs-icon>
+                  </button>
                 @if (r.estado !== 'pago_liberado' && r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Liberar pago"
-                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'pago_liberado')">💸 Liberar</button>
+                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'pago_liberado')">
+                    <rs-icon name="banknote" [size]="13" [stroke]="2"></rs-icon> Liberar
+                  </button>
                 }
                 @if (r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Reembolsar"
-                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'reembolsada')">↩️ Reembolsar</button>
+                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'reembolsada')">
+                    <rs-icon name="rotate-ccw" [size]="13" [stroke]="2"></rs-icon> Reembolsar
+                  </button>
                 }
                 @if (r.estado !== 'en_disputa') {
                   <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Abrir incidencia"
-                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'en_disputa')">🔴 Disputa</button>
+                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'en_disputa')">
+                    <rs-icon name="siren" [size]="13" [stroke]="2"></rs-icon> Disputa
+                  </button>
                 }
               </span>
             </div>
             @if (expandidoId() === r._id) {
               <div class="timeline-row">
-                <h4>🕑 Timeline de la reserva {{ r.codigo }}</h4>
+                <h4><rs-icon name="clock" [size]="15" [stroke]="2"></rs-icon> Timeline de la reserva {{ r.codigo }}</h4>
                 @if (r.historialEstados?.length) {
                   <ol class="timeline">
                     @for (h of r.historialEstados; track $index) {
                       <li>
-                        <span class="timeline__dot">{{ meta(h.estado).emoji }}</span>
+                        <span class="timeline__dot">
+                          <rs-icon [name]="meta(h.estado).icono" [size]="13" [stroke]="2"></rs-icon>
+                        </span>
                         <span class="timeline__estado">{{ meta(h.estado).label }}</span>
                         <span class="timeline__meta">{{ h.at | date:'d MMM yyyy, HH:mm' }} · {{ h.por }}</span>
                         @if (h.motivo) { <span class="timeline__motivo">"{{ h.motivo }}"</span> }
@@ -152,7 +171,7 @@ const LIMITE = 20;
           }
           @if (reservas().length === 0) {
             <div class="empty-state">
-              <span class="empty-icon">📅</span>
+              <span class="empty-icon"><rs-icon name="calendar" [size]="34" [stroke]="1.5"></rs-icon></span>
               <p>No hay reservas{{ filtroEstado() ? ' con estado "' + meta(filtroEstado()).label + '"' : '' }}</p>
             </div>
           }
@@ -175,7 +194,10 @@ const LIMITE = 20;
     @if (modalReserva()) {
       <div class="modal-backdrop" (click)="cerrarModal()">
         <div class="modal rs-card" (click)="$event.stopPropagation()">
-          <h3>{{ meta(modalEstado()).emoji }} {{ meta(modalEstado()).label }} · {{ modalReserva()!.codigo }}</h3>
+          <h3>
+            <rs-icon [name]="meta(modalEstado()).icono" [size]="16" [stroke]="2"></rs-icon>
+            {{ meta(modalEstado()).label }} · {{ modalReserva()!.codigo }}
+          </h3>
           <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-3)">
             Indica el motivo (quedará registrado en el timeline de la reserva).
           </p>
@@ -202,8 +224,49 @@ const LIMITE = 20;
     .filter-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-5); flex-wrap: wrap; }
 
     .tbl-wrap { min-width: 920px; }
+
     .tbl-head { display: grid; grid-template-columns: 150px 1fr 1fr 120px 120px 160px 220px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
     .tbl-row { display: grid; grid-template-columns: 150px 1fr 1fr 120px 120px 160px 220px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } }
+
+    /*
+     * Móvil: la tabla deja de serlo. Sin esto la única salida era el scroll
+     * lateral, que obliga a arrastrar para leer una sola reserva.
+     */
+    @media (max-width: 768px) {
+      .tbl-wrap { min-width: 0; }
+      .tbl-head { display: none; }
+
+      .tbl-row {
+        grid-template-columns: 1fr;
+        gap: var(--sp-2);
+        padding: var(--sp-4) var(--sp-5);
+        border-bottom: 6px solid var(--c-base);
+      }
+
+      .tbl-row > [data-col] {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        /* Un email o una razón social larga parte de línea en vez de desbordar. */
+        overflow-wrap: anywhere;
+        text-align: right;
+        text-align: left;
+      }
+
+      .tbl-row > [data-col]::before {
+        content: attr(data-col);
+        flex: 0 0 auto;
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+
+    }
+
     .tbl-skeleton { pointer-events: none; }
 
     .cell-mono { font-family: monospace; font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
@@ -211,6 +274,34 @@ const LIMITE = 20;
     .cell-amount { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); text-align: right; }
     .cell-green { color: #047857; }
     .cell-actions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+
+    /*
+     * Móvil: las acciones son el pie de la tarjeta, no una celda más. Se alinean
+     * a la izquierda tras un separador y los botones con texto reparten el ancho;
+     * los de solo icono se quedan cuadrados al final en vez de estirarse.
+     */
+    @media (max-width: 768px) {
+      .cell-actions {
+        justify-content: flex-start;
+        gap: var(--sp-2);
+        margin-top: var(--sp-1);
+        padding-top: var(--sp-3);
+        border-top: 1px solid var(--b-1);
+      }
+
+      .cell-actions .rs-btn {
+        /* Dos botones con texto por fila: repartir "auto" dejaba filas huérfanas. */
+        flex: 1 1 calc(50% - var(--sp-2));
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      .cell-actions [data-icono] {
+        flex: 0 0 44px;
+        padding-inline: 0;
+      }
+    }
+
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 14px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 130px; }

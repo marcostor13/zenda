@@ -172,7 +172,7 @@ describe('AlojamientoDetalleComponent', () => {
       fixture.detectChanges();
 
       const html: string = fixture.nativeElement.innerHTML;
-      expect(html).toContain('📷 2 fotografías');
+      expect(html).toContain('2 fotografías');
     });
 
     it('debería abrir el lightbox con la foto pulsada', async () => {

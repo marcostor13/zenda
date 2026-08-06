@@ -107,7 +107,7 @@ function passwordsMatch(group: AbstractControl): ValidationErrors | null {
           <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
         }
         @if (exito()) {
-          <div class="rs-alert rs-alert--success">✓ Contraseña cambiada correctamente.</div>
+          <div class="rs-alert rs-alert--success"><rs-icon name="check" [size]="15" [stroke]="3"></rs-icon> Contraseña cambiada correctamente.</div>
         }
 
         <div class="form-actions">

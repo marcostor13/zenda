@@ -120,7 +120,7 @@ describe('TransporteListaComponent', () => {
 
       const badges = componente.badgesDe(t);
 
-      expect(badges).toContainEqual({ icon: '🏆', label: 'Mejor valorado', variant: 'warning' });
+      expect(badges).toContainEqual({ icon: 'trophy', label: 'Mejor valorado', variant: 'warning' });
     });
 
     it('no debería inventar el badge si no hay suficientes reseñas reales', async () => {

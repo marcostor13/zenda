@@ -1,15 +1,10 @@
-import { VerticalKey } from 'shared';
+import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
-/** Icono rs-icon por vertical canina de Doogking (consistente con home.component.ts). */
-export const VERTICAL_ICON: Record<string, string> = {
-  [VerticalKey.ALOJAMIENTO]: 'hotel',
-  [VerticalKey.TRANSPORTE]: 'truck',
-  [VerticalKey.VETERINARIA]: 'stethoscope',
-  [VerticalKey.PELUQUERIA]: 'scissors',
-  [VerticalKey.ADIESTRAMIENTO]: 'graduation-cap',
-  [VerticalKey.HOTELES]: 'building',
-};
-
+/**
+ * Icono `rs-icon` de una vertical. Delega en `verticales.config`, que es la
+ * única fuente de verdad de la UI de cada categoría: este módulo se mantiene
+ * porque es el punto de entrada que ya usan los paneles de comercio y admin.
+ */
 export function iconoVertical(vertical: string): string {
-  return VERTICAL_ICON[vertical] ?? 'paw';
+  return iconoDeVertical(vertical);
 }

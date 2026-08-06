@@ -257,6 +257,31 @@ export interface BusquedaParams {
       .sb__field { flex: 1 1 100%; }
       .sb__cta { width: 100%; }
     }
+
+    /*
+     * Móvil: los campos del buscador son la interacción principal de la app, así
+     * que cada uno tiene que ser un objetivo táctil cómodo (44px) y el texto de
+     * 16px para que iOS no haga zoom al enfocar.
+     */
+    @media (max-width: 768px) {
+      .sb__ctrl { min-height: 32px; }
+      .sb__inp { font-size: var(--f-md); padding-block: var(--sp-2); }
+      .sb__field { padding-block: var(--sp-2); }
+
+      /*
+       * El carrusel de categorías llega hasta el borde de la tarjeta: si se
+       * queda dentro del padding, la pastilla cortada parece un fallo de
+       * maquetación en vez de un "desliza para ver más".
+       */
+      .sb__cats {
+        scroll-snap-type: x proximity;
+        scroll-padding-inline: var(--sp-6);
+        margin-inline: calc(var(--sp-6) * -1);
+        padding-inline: var(--sp-6);
+        -webkit-overflow-scrolling: touch;
+      }
+      .sb__cat { scroll-snap-align: center; }
+    }
   `],
 })
 export class RsSearchBarComponent {

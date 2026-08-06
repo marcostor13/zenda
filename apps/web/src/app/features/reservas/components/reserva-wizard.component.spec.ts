@@ -597,18 +597,20 @@ describe('ReservaWizardComponent', () => {
       componente.irPaso(2);
       await fixture.whenStable();
 
-      const resumen = componente.resumenViaje();
-      expect(resumen).toContain('2 adultos');
-      expect(resumen).toContain('1 niño');
-      expect(resumen).toContain('2 mascotas');
-      expect(resumen).toContain('28–30 julio');
+      // Cada dato lleva su icono Lucide, no un emoji en el texto (TCK-8010).
+      expect(componente.resumenViaje()).toEqual([
+        { icono: 'user', texto: '2 adultos' },
+        { icono: 'baby', texto: '1 niño' },
+        { icono: 'dog', texto: '2 mascotas' },
+        { icono: 'calendar', texto: '28–30 julio' },
+      ]);
     });
 
     it('no debería mostrar resumen de viaje fuera de hoteles', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query);
 
-      expect(componente.resumenViaje()).toBeNull();
+      expect(componente.resumenViaje()).toEqual([]);
     });
 
     it('debería adjuntar el perro seleccionado a la reserva', async () => {
@@ -1021,7 +1023,7 @@ describe('ReservaWizardComponent', () => {
       // HU-5.7.1: en hoteles el paso 1 es "Tu viaje", no "Tu estancia".
       expect(componente.paso1Label()).toBe('Tu viaje');
       expect(componente.paso1Titulo()).toContain('pet-friendly');
-      expect(componente.emojiVertical()).toBe('🏨');
+      expect(componente.iconoVertical()).toBe('hotel');
       expect(componente.peticionesPlaceholder()).toContain('mascota');
     });
 
@@ -1055,7 +1057,7 @@ describe('ReservaWizardComponent', () => {
       await crear(params, query);
 
       expect(componente.lineaResumen()).toContain('Cita veterinaria');
-      expect(componente.emojiVertical()).toBe('🩺');
+      expect(componente.iconoVertical()).toBe('stethoscope');
       expect(componente.peticionesPlaceholder()).toContain('Síntomas');
     });
 
@@ -1081,7 +1083,7 @@ describe('ReservaWizardComponent', () => {
 
       expect(componente.paso1Label()).toBe('Selección');
       expect(componente.paso1Titulo()).toContain('Resumen');
-      expect(componente.emojiVertical()).toBe('🐾');
+      expect(componente.iconoVertical()).toBe('paw');
       expect(componente.precioPorLabel()).toBe('');
       expect(componente.lineaResumen()).toBe('€50');
       expect(componente.paso1Valido()).toBe(false);

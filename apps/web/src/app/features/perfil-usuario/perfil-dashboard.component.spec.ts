@@ -260,8 +260,12 @@ describe('PerfilDashboardComponent', () => {
 
       expect(componente.alpha()?.nombreNivel).toBe('Alpha 1');
       expect(componente.progresoAlpha()).toBe(40); // 2 de 5 reservas
+      // Se muestra en numeración romana aunque la API devuelva el formato antiguo (TCK-8011).
+      expect(componente.nombreAlpha()).toBe('ALPHA I');
+      expect(componente.nombreSiguienteAlpha()).toBe('ALPHA II');
       const el: HTMLElement = fixture.nativeElement;
-      expect(el.textContent).toContain('Alpha 2');
+      expect(el.textContent).toContain('ALPHA II');
+      expect(el.textContent).toContain('Programa Doogking Alpha');
     });
 
     it('debería mostrar el 100% y el mensaje de nivel máximo cuando no hay siguiente nivel', async () => {
@@ -271,7 +275,7 @@ describe('PerfilDashboardComponent', () => {
 
       expect(componente.progresoAlpha()).toBe(100);
       const el: HTMLElement = fixture.nativeElement;
-      expect(el.textContent).toContain('máximo nivel');
+      expect(el.textContent).toContain('nivel máximo');
     });
 
     it('no debería mostrar la tarjeta si el estado Alpha no está disponible', async () => {

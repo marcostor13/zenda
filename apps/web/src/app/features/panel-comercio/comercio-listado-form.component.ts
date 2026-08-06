@@ -1113,7 +1113,7 @@ function aCsv(v: string): string[] {
 
     .checkbox-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); }
     .rs-checkbox { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; }
-    .rs-checkbox input { accent-color: var(--c-accent); width: 16px; height: 16px; }
+    .rs-checkbox input { accent-color: var(--c-accent); width: 18px; height: 18px; }
 
     .form-actions {
       display: flex; justify-content: flex-end; gap: var(--sp-3);

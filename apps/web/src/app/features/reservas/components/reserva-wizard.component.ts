@@ -3,6 +3,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento } from 'shared';
+import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { RsBrandIconComponent, type MarcaPagoKey } from '../../../shared/components/brand-icon/rs-brand-icon.component';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import {
   LugarElegido, RsPlaceAutocompleteComponent,
@@ -48,6 +50,12 @@ interface ServicioGroomingWizard {
 interface ServicioAdicionalWizard {
   nombre: string;
   precio: number;
+}
+
+/** Un dato del resumen del viaje de hotel (HU-5.7.2), con su icono Lucide. */
+interface ResumenViajeParte {
+  icono: string;
+  texto: string;
 }
 
 /** Detalle enriquecido del servicio de peluquería (Fase C), cargado bajo demanda. */
@@ -102,7 +110,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule,
-    RsNavbarComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+    RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+    RsBrandIconComponent,
   ],
   template: `
 <div class="wizard-page">
@@ -113,17 +122,17 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     <!-- STEPS INDICATOR -->
     <div class="rs-steps wizard-steps">
       <div class="rs-steps__item" [class.active]="paso() >= 1" [class.done]="paso() > 1">
-        <div class="rs-steps__num">{{ paso() > 1 ? '✓' : '1' }}</div>
+        <div class="rs-steps__num">@if (paso() > 1) { <rs-icon name="check" [size]="14" [stroke]="3" /> } @else { 1 }</div>
         <span>{{ paso1Label() }}</span>
       </div>
       <div class="rs-steps__line"></div>
       <div class="rs-steps__item" [class.active]="paso() >= 2" [class.done]="paso() > 2">
-        <div class="rs-steps__num">{{ paso() > 2 ? '✓' : '2' }}</div>
+        <div class="rs-steps__num">@if (paso() > 2) { <rs-icon name="check" [size]="14" [stroke]="3" /> } @else { 2 }</div>
         <span>Tus datos</span>
       </div>
       <div class="rs-steps__line"></div>
       <div class="rs-steps__item" [class.active]="paso() >= 3" [class.done]="paso() > 3">
-        <div class="rs-steps__num">{{ paso() > 3 ? '✓' : '3' }}</div>
+        <div class="rs-steps__num">@if (paso() > 3) { <rs-icon name="check" [size]="14" [stroke]="3" /> } @else { 3 }</div>
         <span>Pago</span>
       </div>
       <div class="rs-steps__line"></div>
@@ -146,15 +155,22 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <h3>{{ nombreServicio() || 'Servicio seleccionado' }}</h3>
               <p>€{{ precioBase() }} / {{ precioPorLabel() }}</p>
               <div class="reserva-summary__tags">
-                <span class="rs-badge rs-badge--accent">{{ emojiVertical() }} {{ verticaLabel() }}</span>
-                <span class="rs-badge rs-badge--success">✅ Profesional verificado</span>
+                <span class="rs-badge rs-badge--accent"><rs-icon [name]="iconoVertical()" [size]="13" [stroke]="2" /> {{ verticaLabel() }}</span>
+                <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Profesional verificado</span>
               </div>
             </div>
           </div>
 
           <!-- Resumen del viaje: personas + mascotas + fechas (HU-5.7.2) -->
-          @if (resumenViaje(); as viaje) {
-            <p class="reserva-summary__viaje">{{ viaje }}</p>
+          @if (resumenViaje().length) {
+            <p class="reserva-summary__viaje">
+              @for (parte of resumenViaje(); track parte.texto; let ultimo = $last) {
+                <span class="reserva-summary__dato">
+                  <rs-icon [name]="parte.icono" [size]="14" [stroke]="2" /> {{ parte.texto }}
+                </span>
+                @if (!ultimo) { <span aria-hidden="true">·</span> }
+              }
+            </p>
           }
         </div>
 
@@ -178,7 +194,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                             (click)="seleccionarPerro(p._id)">
                       <img [src]="p.fotos?.[0] || imgFallback" [alt]="p.nombre" rsImg />
                       <span class="perro-card__body">
-                        <strong>🐶 {{ p.nombre }}</strong>
+                        <strong><rs-icon name="dog" [size]="16" [stroke]="2" /> {{ p.nombre }}</strong>
                         <span class="perro-card__meta">
                           {{ p.raza || 'Raza no indicada' }}
                           @if (edadDe(p); as edad) { · {{ edad }} }
@@ -186,7 +202,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                         </span>
                       </span>
                       @if (perroSeleccionado() === p._id) {
-                        <span class="perro-card__check">✓</span>
+                        <span class="perro-card__check"><rs-icon name="check" [size]="13" [stroke]="3" /></span>
                       }
                     </button>
                   }
@@ -247,7 +263,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                       @for (extra of serviciosAdicionalesAlojamiento(); track extra.nombre) {
                         <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
                           <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
-                          <div class="extra-item__icon">✨</div>
+                          <div class="extra-item__icon"><rs-icon name="sparkles" [size]="20" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
                             <div class="extra-item__price">€{{ extra.precio }}</div>
@@ -262,31 +278,29 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <div class="info-block">
                   <h3>¿Qué incluye este precio?</h3>
                   <ul class="info-block__checks">
-                    <li>Paseos diarios</li>
-                    <li>Alimentación</li>
-                    <li>Supervisión</li>
-                    <li>Limpieza</li>
-                    <li>Atención 24 h</li>
+                    @for (item of ['Paseos diarios', 'Alimentación', 'Supervisión', 'Limpieza', 'Atención 24 h']; track item) {
+                      <li><rs-icon name="check" [size]="15" [stroke]="2.5" /> {{ item }}</li>
+                    }
                   </ul>
                 </div>
 
                 <div class="info-block">
                   <h3>Recomendaciones para esta estancia</h3>
-                  <ul>
-                    <li>📗 Trae la cartilla de vacunación al día.</li>
-                    <li>🥣 Trae su comida habitual para no cambiarle la dieta.</li>
-                    <li>🧸 Un juguete o manta suyos le ayudarán a adaptarse.</li>
-                    <li>💊 Indícanos cualquier medicación en el paso siguiente.</li>
+                  <ul class="info-block__iconos">
+                    <li><rs-icon name="clipboard-list" [size]="15" [stroke]="2" /> Trae la cartilla de vacunación al día.</li>
+                    <li><rs-icon name="utensils" [size]="15" [stroke]="2" /> Trae su comida habitual para no cambiarle la dieta.</li>
+                    <li><rs-icon name="bone" [size]="15" [stroke]="2" /> Un juguete o manta suyos le ayudarán a adaptarse.</li>
+                    <li><rs-icon name="pill" [size]="15" [stroke]="2" /> Indícanos cualquier medicación en el paso siguiente.</li>
                   </ul>
                 </div>
 
                 <div class="info-block">
                   <h3>¿Qué ocurrirá después de reservar?</h3>
-                  <ol class="info-block__pasos">
-                    <li>📧 Recibes la confirmación inmediata por email.</li>
-                    <li>📱 El alojamiento recibe tu reserva.</li>
-                    <li>✅ Te confirman los detalles definitivos.</li>
-                    <li>🐶 Empieza la estancia.</li>
+                  <ol class="info-block__iconos">
+                    <li><rs-icon name="mail" [size]="15" [stroke]="2" /> Recibes la confirmación inmediata por email.</li>
+                    <li><rs-icon name="smartphone" [size]="15" [stroke]="2" /> El alojamiento recibe tu reserva.</li>
+                    <li><rs-icon name="check-circle" [size]="15" [stroke]="2" /> Te confirman los detalles definitivos.</li>
+                    <li><rs-icon name="dog" [size]="15" [stroke]="2" /> Empieza la estancia.</li>
                   </ol>
                 </div>
               </form>
@@ -356,7 +370,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                       @for (extra of serviciosAdicionalesTransporte(); track extra.nombre) {
                         <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
                           <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
-                          <div class="extra-item__icon">✨</div>
+                          <div class="extra-item__icon"><rs-icon name="sparkles" [size]="16" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
                             <div class="extra-item__price">€{{ extra.precio }}</div>
@@ -484,10 +498,10 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 }
 
                 @if (politicaTemperamentoLabel(); as texto) {
-                  <div class="rs-alert rs-alert--info">🐾 {{ texto }}</div>
+                  <div class="rs-alert rs-alert--info"><rs-icon name="paw" [size]="15" [stroke]="2" /> {{ texto }}</div>
                 }
                 @if (peluqueriaDetalle()?.bozalObligatorioSiAgresivo) {
-                  <div class="rs-alert rs-alert--info">🦮 Si tu perro es agresivo con la manipulación, deberás traerlo con bozal.</div>
+                  <div class="rs-alert rs-alert--info"><rs-icon name="alert-circle" [size]="15" [stroke]="2" /> Si tu perro es agresivo con la manipulación, deberás traerlo con bozal.</div>
                 }
                 @if (peluqueriaDetalle()?.serviciosAdicionales?.length) {
                   <div class="rs-field">
@@ -499,10 +513,10 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <!-- Preparación previa a la cita (HU-5.3.4) -->
                 <div class="info-block">
                   <h3>Antes de la cita</h3>
-                  <ul>
-                    <li>🐕 Pasea a tu perro antes de venir.</li>
-                    <li>🍖 Evita darle de comer justo antes si se pone nervioso.</li>
-                    <li>🪮 Si tiene nudos importantes, el precio podría variar tras la valoración.</li>
+                  <ul class="info-block__iconos">
+                    <li><rs-icon name="dog" [size]="15" [stroke]="2" /> Pasea a tu perro antes de venir.</li>
+                    <li><rs-icon name="utensils" [size]="15" [stroke]="2" /> Evita darle de comer justo antes si se pone nervioso.</li>
+                    <li><rs-icon name="scissors" [size]="15" [stroke]="2" /> Si tiene nudos importantes, el precio podría variar tras la valoración.</li>
                   </ul>
                 </div>
               </form>
@@ -563,9 +577,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <div class="rs-field">
                     <label class="rs-lbl">Intensidad del problema</label>
                     <select formControlName="intensidad" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionAdiestramiento()">
-                      <option value="leve">🟢 Leve</option>
-                      <option value="moderado">🟡 Moderado</option>
-                      <option value="grave">🔴 Grave</option>
+                      <option value="leve">Leve</option>
+                      <option value="moderado">Moderado</option>
+                      <option value="grave">Grave</option>
                     </select>
                   </div>
                 </div>
@@ -591,20 +605,19 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <div class="info-block">
                   <h3>¿Qué incluye esta sesión?</h3>
                   <ul class="info-block__checks">
-                    <li>Valoración inicial de tu perro</li>
-                    <li>Plan de trabajo personalizado</li>
-                    <li>Recomendaciones para casa</li>
-                    <li>Resolución de dudas</li>
+                    @for (item of ['Valoración inicial de tu perro', 'Plan de trabajo personalizado', 'Recomendaciones para casa', 'Resolución de dudas']; track item) {
+                      <li><rs-icon name="check" [size]="15" [stroke]="2.5" /> {{ item }}</li>
+                    }
                   </ul>
                 </div>
 
                 <div class="info-block">
                   <h3>¿Qué conseguirás con esta sesión?</h3>
-                  <ul>
-                    <li>🔍 Evaluar el comportamiento de tu perro.</li>
-                    <li>🧠 Identificar la causa real de la conducta.</li>
-                    <li>📋 Un plan personalizado para trabajarla.</li>
-                    <li>🏠 Ejercicios concretos para hacer en casa.</li>
+                  <ul class="info-block__iconos">
+                    <li><rs-icon name="search" [size]="15" [stroke]="2" /> Evaluar el comportamiento de tu perro.</li>
+                    <li><rs-icon name="brain" [size]="15" [stroke]="2" /> Identificar la causa real de la conducta.</li>
+                    <li><rs-icon name="clipboard-list" [size]="15" [stroke]="2" /> Un plan personalizado para trabajarla.</li>
+                    <li><rs-icon name="home" [size]="15" [stroke]="2" /> Ejercicios concretos para hacer en casa.</li>
                   </ul>
                 </div>
               </form>
@@ -625,7 +638,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">👤 Adultos</label>
+                    <label class="rs-lbl">Adultos</label>
                     <select formControlName="adultos" class="rs-inp rs-inp--lg">
                       @for (n of [1,2,3,4,5,6,7,8,9,10]; track n) {
                         <option [value]="n">{{ n }} {{ n === 1 ? 'adulto' : 'adultos' }}</option>
@@ -633,7 +646,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">👶 Niños</label>
+                    <label class="rs-lbl">Niños</label>
                     <select formControlName="ninos" class="rs-inp rs-inp--lg">
                       @for (n of [0,1,2,3,4,5,6,7,8,9,10]; track n) {
                         <option [value]="n">{{ n }} {{ n === 1 ? 'niño' : 'niños' }}</option>
@@ -643,7 +656,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">🐶 Número de mascotas</label>
+                    <label class="rs-lbl">Número de mascotas</label>
                     <select formControlName="mascotas" class="rs-inp rs-inp--lg">
                       <option value="1">1 mascota</option>
                       <option value="2">2 mascotas</option>
@@ -766,10 +779,14 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <label class="payment-option" [class.selected]="metodoPago() === 'card'">
                 <input type="radio" name="metodo" value="card" [(ngModel)]="metodoPagoVal"
                        (change)="metodoPago.set('card')" />
-                <div class="payment-option__icon">💳</div>
+                <div class="payment-option__icon"><rs-icon name="credit-card" [size]="20" [stroke]="2" /></div>
                 <div>
                   <div class="payment-option__name">Tarjeta de crédito / débito</div>
-                  <div class="payment-option__brands">Visa · Mastercard · American Express</div>
+                  <div class="payment-option__brands">
+                    @for (marca of marcasTarjeta; track marca) {
+                      <rs-brand-icon [name]="marca" [size]="20" />
+                    }
+                  </div>
                 </div>
                 <div class="payment-option__secure">
                   <svg width="38" height="16" viewBox="0 0 468 222" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Stripe">
@@ -784,7 +801,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <div class="stripe-placeholder">
                 <div class="stripe-placeholder__header">
                   <span>Datos de tarjeta</span>
-                  <span class="rs-badge rs-badge--accent">🔒 Stripe · Cifrado SSL</span>
+                  <span class="rs-badge rs-badge--accent"><rs-icon name="lock" [size]="13" [stroke]="2" /> Stripe · Cifrado SSL</span>
                 </div>
 
                 <div id="stripe-payment-element"></div>
@@ -802,7 +819,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             }
 
             <div class="rs-alert rs-alert--info" style="margin-block:var(--sp-5);display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap">
-              <span>🔒 Tu pago está protegido por</span>
+              <span><rs-icon name="lock" [size]="14" [stroke]="2" /> Tu pago está protegido por</span>
               <svg width="42" height="17" viewBox="0 0 468 222" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Stripe" style="flex-shrink:0">
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M0 22.1C0 9.9 9.9 0 22.1 0h423.8c12.2 0 22.1 9.9 22.1 22.1v177.8c0 12.2-9.9 22.1-22.1 22.1H22.1C9.9 222 0 212.1 0 199.9V22.1z" fill="#635BFF"/>
                 <path d="M224.4 88.6c0-4.1 3.4-5.7 9-5.7 8 0 18.2 2.4 26.2 6.7V63.7c-8.8-3.5-17.5-4.9-26.2-4.9-21.4 0-35.7 11.2-35.7 29.9 0 29.2 40.2 24.5 40.2 37.1 0 4.8-4.2 6.4-10.1 6.4-8.7 0-19.8-3.6-28.6-8.4v26.3c9.7 4.2 19.5 5.9 28.6 5.9 21.8 0 36.8-10.8 36.8-29.7-.1-31.5-40.2-25.9-40.2-37.7zM290 42.6l-26.8 5.7v21.5h-14.7v22.8h14.7v42.8c0 18.9 13.7 26.1 32.6 26.1 8 0 15.7-1.4 21-4.2v-22.5c-3.8 1.9-11.8 3.6-17.2 3.6-6.5 0-9.6-2.4-9.6-9.3V92.6h26.8V69.8H290V42.6zM339.4 78.5l-1.5-8.7h-24.1v89.7h27.8v-56.2c7.3-9.6 19.6-7.8 23.4-6.5V69.4c-4-1.4-18.3-4-25.6 9.1zM393.5 59.3c-8.9 0-14.7 5.8-14.7 14.5 0 8.6 5.8 14.5 14.7 14.5 8.9 0 14.7-5.9 14.7-14.5 0-8.7-5.8-14.5-14.7-14.5zm-13.9 100.2h27.8V69.8h-27.8v89.7zM131.7 113c0 15.2 10.4 25.6 23.9 25.6 13.6 0 22.1-7.9 24.4-19.7H153c-1.3 5-3.8 8-7.8 8-5.3 0-8.3-3.6-8.8-10.1h44.3c.2-2.1.3-4.2.3-6.2 0-22.8-12.5-35.6-31.2-35.6-18.6 0-29.4 12.3-29.4 29.3l-.1.1-.1.1.2 8.5zm12.3-11.8c1.3-6.2 4.7-10 9.3-10 5.2 0 8.3 3.7 8.6 10h-17.9zM108.3 78.1c-4.4-1.9-13.5-3.5-21.2 0-8.7 4-13.6 12.3-13.6 22.4v59h27.8v-55.4c0-6.4 4.2-10.1 9.4-10.1 2.9 0 5.3.8 7.1 2.2l.5-18.1z" fill="white"/>
@@ -820,7 +837,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 } @else if (!stripeListo()) {
                   Preparando pago…
                 } @else {
-                  🔒 Pagar €{{ total() }}
+                  <rs-icon name="lock" [size]="16" [stroke]="2.25" /> Pagar €{{ total() }}
                 }
               </button>
             </div>
@@ -830,7 +847,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
         <!-- ═══════════ PASO 4 ═══════════ -->
         @if (paso() === 4) {
           <div class="wizard-card confirmation">
-            <div class="confirmation__icon">🎉</div>
+            <div class="confirmation__icon"><rs-icon name="party-popper" [size]="40" [stroke]="1.75" /></div>
             <h2>¡Reserva confirmada!</h2>
             <p>Tu reserva ha sido procesada exitosamente. Recibirás la confirmación en tu correo.</p>
 
@@ -841,15 +858,15 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
             <div class="confirmation__details rs-card">
               <div class="cd-row">
-                <span>{{ emojiVertical() }} Servicio</span>
+                <span><rs-icon [name]="iconoVertical()" [size]="14" [stroke]="2" /> Servicio</span>
                 <strong>{{ nombreServicio() || verticaLabel() }}</strong>
               </div>
               <div class="cd-row">
-                <span>📋 Detalle</span>
+                <span><rs-icon name="file-text" [size]="14" [stroke]="2" /> Detalle</span>
                 <strong>{{ lineaResumen() }}</strong>
               </div>
               <div class="cd-row">
-                <span>💰 Total pagado</span>
+                <span><rs-icon name="wallet" [size]="14" [stroke]="2" /> Total pagado</span>
                 <strong class="rs-gradient-text">€{{ total() }}</strong>
               </div>
             </div>
@@ -952,7 +969,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <div class="cupon-box">
               @if (descuento() > 0) {
                 <div class="rs-alert rs-alert--success" style="font-size:var(--f-xs)">
-                  ✓ Cupón {{ cuponCodigo() }} aplicado
+                  <rs-icon name="check" [size]="14" [stroke]="3" /> Cupón {{ cuponCodigo() }} aplicado
                   <button class="cupon-box__quitar" (click)="quitarCupon()">Quitar</button>
                 </div>
               } @else {
@@ -975,11 +992,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <hr class="rs-hr" style="margin-block:var(--sp-5)">
 
             <div class="price-trust">
-              <p>✓ Sin cargos ocultos</p>
-              <p>✓ Pago 100% seguro vía Stripe</p>
-              <p>✓ Confirmación inmediata por correo</p>
-              <p>🔒 No se realizará ningún cargo hasta confirmar el siguiente paso</p>
-              <p>🛡️ Protección Doogking: tu dinero está protegido hasta que el servicio se complete según la política de cancelación</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Sin cargos ocultos</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Pago 100% seguro vía Stripe</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Confirmación inmediata por correo</p>
+              <p><rs-icon name="lock" [size]="13" [stroke]="2" /> No se realizará ningún cargo hasta confirmar el siguiente paso</p>
+              <p><rs-icon name="shield-check" [size]="13" [stroke]="2" /> Protección Doogking: tu dinero está protegido hasta que el servicio se complete según la política de cancelación</p>
             </div>
           </div>
         </div>
@@ -1072,13 +1089,14 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     }
     .reserva-summary__tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
     .reserva-summary__viaje {
+      display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2);
       margin: var(--sp-3) 0 0;
       padding-top: var(--sp-3);
       border-top: 1px solid var(--b-1);
       font-size: var(--f-sm);
-      font-weight: var(--fw-semibold);
-      color: var(--text-secondary);
+      color: var(--t-300);
     }
+    .reserva-summary__dato { display: inline-flex; align-items: center; gap: 4px; }
 
     .form-row {
       display: grid;
@@ -1101,11 +1119,14 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       ul, ol { margin: 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
       li { font-size: var(--f-sm); color: var(--t-300); line-height: 1.6; }
     }
-    .info-block__checks {
+    /* Listas con icono Lucide en línea (TCK-8010: nada de emojis ni pseudo-elementos). */
+    .info-block__checks, .info-block__iconos {
       list-style: none; padding-left: 0;
-      li::before { content: '✓'; color: var(--c-success); font-weight: var(--fw-bold); margin-right: var(--sp-2); }
+      li { display: flex; align-items: center; gap: var(--sp-2); }
+      rs-icon { flex-shrink: 0; }
     }
-    .info-block__pasos { list-style: none; padding-left: 0; counter-reset: paso; }
+    .info-block__checks rs-icon { color: var(--c-success); }
+    .info-block__iconos rs-icon { color: var(--c-accent); }
 
     .extras-section { margin-block: var(--sp-6); h3 { font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); margin-bottom: var(--sp-4); } }
     .extras-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
@@ -1135,7 +1156,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     }
     .payment-option__icon { font-size: 1.5rem; }
     .payment-option__name { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
-    .payment-option__brands { font-size: var(--f-xs); color: var(--t-400); }
+    .payment-option__brands { display: flex; align-items: center; gap: var(--sp-1); margin-top: 2px; }
     .payment-option__secure { margin-left: auto; font-size: var(--f-xs); color: var(--t-400); }
 
     .stripe-placeholder { background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-xl); padding: var(--sp-6); margin-bottom: var(--sp-5); }
@@ -1337,6 +1358,9 @@ export class ReservaWizardComponent implements OnInit {
     if (form.checkIn) params['desde'] = form.checkIn;
     return params;
   }
+
+  /** Tarjetas admitidas, mostradas con su marca y no con el nombre (TCK-8008). */
+  readonly marcasTarjeta: readonly MarcaPagoKey[] = ['visa', 'mastercard', 'amex'];
 
   readonly idPerrosAlojamiento = 'wz-perros-alojamiento';
   readonly idPerrosTransporte = 'wz-perros-transporte';
@@ -1604,30 +1628,37 @@ export class ReservaWizardComponent implements OnInit {
    * hotel. Solo aplica a hoteles: es el único vertical donde viajan personas
    * además de la mascota. Devuelve `null` en el resto para no pintar la línea.
    */
-  readonly resumenViaje = computed(() => {
+  readonly resumenViaje = computed<ResumenViajeParte[]>(() => {
     this.revisionFormularios();
-    if (this.vertical() !== VerticalKey.HOTELES) return null;
+    if (this.vertical() !== VerticalKey.HOTELES) return [];
 
     const { checkIn, checkOut, adultos, ninos, mascotas } = this.paso1HotelesForm.value;
-    const partes: string[] = [];
+    const partes: ResumenViajeParte[] = [];
 
     const numAdultos = Number(adultos ?? 0);
-    if (numAdultos > 0) partes.push(`👤 ${numAdultos} ${numAdultos === 1 ? 'adulto' : 'adultos'}`);
+    if (numAdultos > 0) {
+      partes.push({ icono: 'user', texto: `${numAdultos} ${numAdultos === 1 ? 'adulto' : 'adultos'}` });
+    }
 
     const numNinos = Number(ninos ?? 0);
-    if (numNinos > 0) partes.push(`👶 ${numNinos} ${numNinos === 1 ? 'niño' : 'niños'}`);
+    if (numNinos > 0) {
+      partes.push({ icono: 'baby', texto: `${numNinos} ${numNinos === 1 ? 'niño' : 'niños'}` });
+    }
 
     // Si hay una mascota elegida en la Ficha Inteligente mostramos su nombre;
     // si son varias, el recuento — el nombre solo identifica a la primera.
     const numMascotas = Number(mascotas ?? 0);
     const nombrePerro = this.perroSeleccionadoObj()?.nombre;
-    if (numMascotas === 1 && nombrePerro) partes.push(`🐶 ${nombrePerro}`);
-    else if (numMascotas > 0) partes.push(`🐶 ${numMascotas} ${numMascotas === 1 ? 'mascota' : 'mascotas'}`);
+    if (numMascotas === 1 && nombrePerro) {
+      partes.push({ icono: 'dog', texto: nombrePerro });
+    } else if (numMascotas > 0) {
+      partes.push({ icono: 'dog', texto: `${numMascotas} ${numMascotas === 1 ? 'mascota' : 'mascotas'}` });
+    }
 
     const rango = this.rangoFechasCorto(checkIn, checkOut);
-    if (rango) partes.push(`📅 ${rango}`);
+    if (rango) partes.push({ icono: 'calendar', texto: rango });
 
-    return partes.length > 0 ? partes.join(' · ') : null;
+    return partes;
   });
 
   /**
@@ -1681,16 +1712,17 @@ export class ReservaWizardComponent implements OnInit {
     return m[this.vertical()] ?? 'Resumen de tu reserva';
   });
 
-  readonly emojiVertical = computed(() => {
+  /** Icono Lucide del vertical de la reserva (TCK-8010: ya no es un emoji). */
+  readonly iconoVertical = computed(() => {
     const m: Record<string, string> = {
-      [VerticalKey.ALOJAMIENTO]: '🏠',
-      [VerticalKey.TRANSPORTE]: '🚐',
-      [VerticalKey.VETERINARIA]: '🩺',
-      [VerticalKey.PELUQUERIA]: '✂️',
-      [VerticalKey.ADIESTRAMIENTO]: '🎓',
-      [VerticalKey.HOTELES]: '🏨',
+      [VerticalKey.ALOJAMIENTO]: 'home',
+      [VerticalKey.TRANSPORTE]: 'truck',
+      [VerticalKey.VETERINARIA]: 'stethoscope',
+      [VerticalKey.PELUQUERIA]: 'scissors',
+      [VerticalKey.ADIESTRAMIENTO]: 'graduation-cap',
+      [VerticalKey.HOTELES]: 'hotel',
     };
-    return m[this.vertical()] ?? '🐾';
+    return m[this.vertical()] ?? 'paw';
   });
 
   readonly verticaLabel = computed(() =>

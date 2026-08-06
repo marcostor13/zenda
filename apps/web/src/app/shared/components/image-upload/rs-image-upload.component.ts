@@ -7,8 +7,15 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import {
+  AbstractControl,
+  ControlValueAccessor,
+  NG_VALIDATORS,
+  NG_VALUE_ACCESSOR,
+  ValidationErrors,
+  Validator,
+} from '@angular/forms';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { environment } from '../../../../environments/environment';
@@ -29,6 +36,11 @@ interface ImageSlot {
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => RsImageUploadComponent),
+      multi: true,
+    },
+    {
+      provide: NG_VALIDATORS,
       useExisting: forwardRef(() => RsImageUploadComponent),
       multi: true,
     },
@@ -97,6 +109,14 @@ interface ImageSlot {
         </div>
       }
     </div>
+
+    @if (mensajeError(); as error) {
+      <p class="upload-error" role="alert">
+        <rs-icon name="alert-circle" [size]="15" [stroke]="2" />
+        <span>{{ error }}</span>
+        <button type="button" class="upload-error__retry" (click)="reintentar()">Reintentar</button>
+      </p>
+    }
 
     <input
       #fileInput
@@ -180,6 +200,19 @@ interface ImageSlot {
     }
     .image-tile--add:hover { border-color: var(--c-accent); background: var(--c-accent-lo); }
 
+    /* El aviso vive fuera de la zona de subida: el usuario tiene que leerlo
+       antes de guardar la ficha, no descubrir un icono rojo sobre la miniatura. */
+    .upload-error {
+      display: flex; align-items: center; gap: var(--sp-2);
+      margin-top: var(--sp-2);
+      font-size: var(--f-xs); color: var(--c-danger, #DC2626);
+    }
+    .upload-error__retry {
+      background: none; border: none; padding: 0;
+      color: var(--c-accent); cursor: pointer;
+      font-size: inherit; text-decoration: underline;
+    }
+
     .spinner {
       width: 22px; height: 22px; border-radius: 50%;
       border: 2px solid rgba(255,255,255,.3);
@@ -190,7 +223,7 @@ interface ImageSlot {
   `],
 })
 export class RsImageUploadComponent
-  implements ControlValueAccessor, OnInit, OnDestroy
+  implements ControlValueAccessor, Validator, OnInit, OnDestroy
 {
   private readonly http = inject(HttpClient);
 
@@ -199,11 +232,16 @@ export class RsImageUploadComponent
 
   readonly isDragging = signal(false);
   readonly slots = signal<ImageSlot[]>([]);
+  /** Motivo del último fallo de subida; se muestra bajo la zona de subida. */
+  readonly mensajeError = signal('');
   disabled = false;
 
   private blobUrls: string[] = [];
+  /** Ficheros que fallaron, para poder reintentar sin volver a elegirlos. */
+  private pendientes = new Map<string, File>();
   private onChange: (v: string | string[] | null) => void = () => {};
   private onTouched: () => void = () => {};
+  private onValidatorChange: () => void = () => {};
 
   ngOnInit(): void {}
 
@@ -216,6 +254,8 @@ export class RsImageUploadComponent
   }
 
   writeValue(value: string | string[] | null): void {
+    this.mensajeError.set('');
+    this.pendientes.clear();
     if (!value) { this.slots.set([]); return; }
     const urls = Array.isArray(value) ? value : [value];
     this.slots.set(
@@ -233,6 +273,29 @@ export class RsImageUploadComponent
   registerOnChange(fn: (v: string | string[] | null) => void): void { this.onChange = fn; }
   registerOnTouched(fn: () => void): void { this.onTouched = fn; }
   setDisabledState(disabled: boolean): void { this.disabled = disabled; }
+
+  registerOnValidatorChange(fn: () => void): void { this.onValidatorChange = fn; }
+
+  /**
+   * Invalida el control mientras haya una subida fallida o en curso: sin esto el
+   * formulario se guardaba sin foto y el usuario creía que se había subido
+   * (TCK-8012).
+   */
+  validate(_control: AbstractControl): ValidationErrors | null {
+    const slots = this.slots();
+    if (slots.some(s => s.error)) return { subidaFallida: true };
+    if (slots.some(s => s.uploading)) return { subidaEnCurso: true };
+    return null;
+  }
+
+  /** Vuelve a intentar las subidas que fallaron, sin reelegir los ficheros. */
+  reintentar(): void {
+    const fallidos = this.slots().filter(s => s.error);
+    fallidos.forEach(s => this.removeSlot(s.id));
+    const ficheros = fallidos.map(s => this.pendientes.get(s.id)).filter((f): f is File => !!f);
+    fallidos.forEach(s => this.pendientes.delete(s.id));
+    void this.processFiles(ficheros);
+  }
 
   onDragOver(e: DragEvent): void {
     e.preventDefault();
@@ -262,6 +325,7 @@ export class RsImageUploadComponent
       this.blobUrls = this.blobUrls.filter(u => u !== slot.previewUrl);
     }
     this.slots.update(s => s.filter(sl => sl.id !== id));
+    if (!this.slots().some(sl => sl.error)) this.mensajeError.set('');
     this.emitValue();
     this.onTouched();
   }
@@ -292,6 +356,7 @@ export class RsImageUploadComponent
     } else {
       this.slots.update(s => [...s, slot]);
     }
+    this.onValidatorChange();
 
     try {
       const formData = new FormData();
@@ -302,13 +367,32 @@ export class RsImageUploadComponent
       this.slots.update(s =>
         s.map(sl => sl.id === id ? { ...sl, uploadedUrl: res.url, uploading: false } : sl),
       );
+      this.mensajeError.set('');
       this.emitValue();
       this.onTouched();
-    } catch {
+    } catch (error) {
+      this.pendientes.set(id, file);
       this.slots.update(s =>
         s.map(sl => sl.id === id ? { ...sl, uploading: false, error: 'Error al subir' } : sl),
       );
+      this.mensajeError.set(this.textoDelError(error));
+      this.emitValue();
     }
+  }
+
+  /** Traduce el fallo HTTP a algo que el usuario pueda entender y accionar. */
+  private textoDelError(error: unknown): string {
+    if (!(error instanceof HttpErrorResponse)) {
+      return 'No se pudo subir la imagen. Vuelve a intentarlo.';
+    }
+    if (error.status === 0) {
+      return 'No se pudo subir la imagen: sin conexión con el servidor.';
+    }
+    if (error.status === 413 || error.status === 422) {
+      return 'La imagen no es válida: usa JPEG, PNG, WebP o GIF de menos de 5 MB.';
+    }
+    const detalle = (error.error as { message?: string } | null)?.message;
+    return detalle ?? 'No se pudo subir la imagen. Vuelve a intentarlo.';
   }
 
   private emitValue(): void {
@@ -316,6 +400,7 @@ export class RsImageUploadComponent
       .filter(s => s.uploadedUrl && !s.error)
       .map(s => s.uploadedUrl!);
     this.onChange(this.multiple ? urls : (urls[0] ?? null));
+    this.onValidatorChange();
   }
 
   private uid(): string {

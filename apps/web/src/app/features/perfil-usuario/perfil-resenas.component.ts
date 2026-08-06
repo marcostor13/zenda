@@ -27,9 +27,9 @@ const COMENTARIO_MINIMO = 10;
  * que el primer `find` que cumpla el umbral sea el nivel alcanzado.
  */
 const RECONOCIMIENTOS = [
-  { desde: 25, emoji: '🥇', label: 'Embajador Doogking', siguienteDesde: null, siguienteLabel: '' },
-  { desde: 10, emoji: '🥈', label: 'Experto',            siguienteDesde: 25,   siguienteLabel: 'Embajador Doogking' },
-  { desde: 1,  emoji: '🥉', label: 'Colaborador',        siguienteDesde: 10,   siguienteLabel: 'Experto' },
+  { desde: 25, icono: 'trophy', label: 'Embajador Doogking', siguienteDesde: null, siguienteLabel: '' },
+  { desde: 10, icono: 'award',  label: 'Experto',            siguienteDesde: 25,   siguienteLabel: 'Embajador Doogking' },
+  { desde: 1,  icono: 'star',   label: 'Colaborador',        siguienteDesde: 10,   siguienteLabel: 'Experto' },
 ] as const;
 
 @Component({
@@ -61,7 +61,9 @@ const RECONOCIMIENTOS = [
       @if (reputacion(); as rep) {
         <div class="rs-card reputacion">
           <div class="reputacion__nivel">
-            <span class="reputacion__emoji">{{ rep.nivelEmoji }}</span>
+            <span class="reputacion__icono" aria-hidden="true">
+              <rs-icon [name]="rep.nivelIcono" [size]="24" [stroke]="2"></rs-icon>
+            </span>
             <div>
               <strong>{{ rep.nivelLabel }}</strong>
               <span class="reputacion__sub">Tu reputación en Doogking</span>
@@ -83,11 +85,15 @@ const RECONOCIMIENTOS = [
           </div>
           @if (rep.siguiente; as sig) {
             <p class="reputacion__meta">
-              🎖 Te {{ sig.falta === 1 ? 'falta' : 'faltan' }} {{ sig.falta }}
+              <rs-icon name="trending-up" [size]="15" [stroke]="2"></rs-icon>
+              Te {{ sig.falta === 1 ? 'falta' : 'faltan' }} {{ sig.falta }}
               reseña{{ sig.falta === 1 ? '' : 's' }} para llegar a <strong>{{ sig.label }}</strong>.
             </p>
           } @else {
-            <p class="reputacion__meta">🎖 Has alcanzado el máximo reconocimiento. ¡Gracias por ayudar a la comunidad!</p>
+            <p class="reputacion__meta">
+              <rs-icon name="trophy" [size]="15" [stroke]="2"></rs-icon>
+              Has alcanzado el máximo reconocimiento. ¡Gracias por ayudar a la comunidad!
+            </p>
           }
         </div>
       }
@@ -311,7 +317,11 @@ const RECONOCIMIENTOS = [
     /* Reputación del reseñador (HU-11.5) */
     .reputacion { padding: var(--sp-5); max-width: 680px; margin-bottom: var(--sp-5); }
     .reputacion__nivel { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); }
-    .reputacion__emoji { font-size: 2rem; line-height: 1; }
+    .reputacion__icono {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; border-radius: var(--r-full);
+      background: var(--c-raised); color: var(--dk-gold, #FBAE17); flex-shrink: 0;
+    }
     .reputacion__nivel strong { display: block; font-size: var(--f-md); }
     .reputacion__sub { font-size: var(--f-xs); color: var(--t-400); }
     .reputacion__datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
@@ -320,7 +330,10 @@ const RECONOCIMIENTOS = [
       strong { display: block; font-size: var(--f-lg); font-weight: var(--w-7); }
       span { font-size: var(--f-xs); color: var(--t-400); }
     }
-    .reputacion__meta { margin-top: var(--sp-4); font-size: var(--f-sm); color: var(--t-300); }
+    .reputacion__meta {
+      display: flex; align-items: center; gap: var(--sp-2);
+      margin-top: var(--sp-4); font-size: var(--f-sm); color: var(--t-300);
+    }
 
     .empty-card {
       max-width: 480px; padding: var(--sp-10);
@@ -461,7 +474,7 @@ export class PerfilResenasComponent implements OnInit {
       total: publicadas.length,
       media: Math.round(media * 10) / 10,
       conFotos: publicadas.filter((r) => (r.fotos?.length ?? 0) > 0).length,
-      nivelEmoji: nivel.emoji,
+      nivelIcono: nivel.icono,
       nivelLabel: nivel.label,
       siguiente: nivel.siguienteDesde === null
         ? null

@@ -76,9 +76,9 @@ describe('VerticalDetalleComponent', () => {
     }));
 
     const puntos = component.cfg().puntos(component.servicio()!);
-    expect(puntos).toContain('🚐 Van acondicionada');
-    expect(puntos).toContain('🐾 Jaulas homologadas incluidas');
-    expect(puntos).toContain('🧑 Puedes acompañar a tu perro en el trayecto');
+    expect(puntos).toContain('Van acondicionada');
+    expect(puntos).toContain('Jaulas homologadas incluidas');
+    expect(puntos).toContain('Puedes acompañar a tu perro en el trayecto');
     expect(puntos.some((p) => p.includes('trayectos realizados'))).toBe(false);
   });
 
@@ -88,7 +88,7 @@ describe('VerticalDetalleComponent', () => {
     }));
 
     expect(component.cfg().chips(component.servicio()!)).toEqual(['Obediencia', 'Cachorros']);
-    expect(component.cfg().puntos(component.servicio()!)).toContain('📋 Programa completo de varias sesiones');
+    expect(component.cfg().puntos(component.servicio()!)).toContain('Programa completo de varias sesiones');
   });
 
   it('hoteles: debería anunciar ventajas reales del hotel', async () => {
@@ -98,9 +98,9 @@ describe('VerticalDetalleComponent', () => {
     ));
 
     const puntos = component.cfg().puntos(component.servicio()!);
-    expect(puntos).toContain('🐾 Admite mascotas en la habitación');
-    expect(puntos).toContain('🐕 Hasta 2 mascota(s) por reserva');
-    expect(puntos).toContain('✓ Cancelación gratuita');
+    expect(puntos).toContain('Admite mascotas en la habitación');
+    expect(puntos).toContain('Hasta 2 mascota(s) por reserva');
+    expect(puntos).toContain('Cancelación gratuita');
     expect(component.cfg().chips(component.servicio()!)).toEqual(['Cama para perro']);
   });
 
@@ -139,7 +139,7 @@ describe('VerticalDetalleComponent', () => {
       await crearComponente('transporte');
 
       const html: string = fixture.nativeElement.innerHTML;
-      expect(html).toContain('📷 2 fotografías');
+      expect(html).toContain('2 fotografías');
     });
 
     it('debería abrir el lightbox con la foto pulsada', async () => {
