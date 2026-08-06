@@ -181,7 +181,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                        class="rs-inp" autocomplete="new-password" [class.rs-inp--error]="invalido(cuentaForm, 'password')"
                        style="padding-right:var(--sp-10)" placeholder="Mínimo 8 caracteres" />
                 <button type="button" (click)="mostrarPassword.set(!mostrarPassword())"
-                        style="position:absolute;right:var(--sp-3);top:50%;transform:translateY(-50%);display:flex;align-items:center"
+                        style="position:absolute;right:var(--sp-2);top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:40px;height:40px"
                         [style.color]="mostrarPassword() ? 'var(--c-accent)' : 'var(--t-400)'">
                   <rs-icon [name]="mostrarPassword() ? 'eye-off' : 'eye'" [size]="16" [stroke]="2"></rs-icon>
                 </button>

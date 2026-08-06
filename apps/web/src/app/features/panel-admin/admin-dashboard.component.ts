@@ -267,19 +267,19 @@ const ESTADO_BADGE: Record<string, string> = {
                 <rs-icon [name]="iconoVertical(c.vertical)" [size]="14" [stroke]="2"></rs-icon>
                 {{ c.vertical }}
               </span>
-              <div style="display:flex;align-items:center;gap:var(--sp-2)">
+              <div data-col="Comisión" style="display:flex;align-items:center;gap:var(--sp-2)">
                 <input type="number" class="rs-inp" style="width:80px;text-align:center"
                        [value]="(c.comisionPct * 100).toFixed(0)"
                        (input)="actualizarPct(c, +$any($event).target.value)" />
                 <span style="color:var(--t-400)">%</span>
               </div>
-              <span style="color:var(--t-400);font-size:var(--f-sm)">
+              <span data-col="Fee Stripe" style="color:var(--t-400);font-size:var(--f-sm)">
                 {{ (c.stripePct * 100).toFixed(1) }}% + {{ c.stripeFijoEur.toFixed(2) }} €
               </span>
-              <span style="font-weight:var(--w-7);color:var(--t-100);font-size:var(--f-sm)">
+              <span data-col="Total" style="font-weight:var(--w-7);color:var(--t-100);font-size:var(--f-sm)">
                 {{ comisionTotal(c) }}%
               </span>
-              <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
+              <label data-col="Estado" style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
                 <input type="checkbox" [checked]="c.activo" (change)="c.activo = !c.activo"
                        style="accent-color:var(--c-accent)" />
                 <span class="rs-badge" [class]="c.activo ? 'rs-badge--success' : 'rs-badge--warning'">
@@ -322,15 +322,23 @@ const ESTADO_BADGE: Record<string, string> = {
           @for (n of alphaNiveles(); track n.nivel) {
             <div class="comisiones-row alpha-row">
               <span class="comision-vertical">Alpha {{ n.nivel }}</span>
-              <input type="text" class="rs-inp" [value]="n.nombre" (input)="n.nombre = $any($event).target.value" />
-              <input type="number" class="rs-inp" style="width:100px;text-align:center"
-                     [value]="n.reservasRequeridas"
-                     (input)="n.reservasRequeridas = +$any($event).target.value" />
-              <input type="number" class="rs-inp" style="width:80px;text-align:center"
-                     [value]="(n.descuentoPct * 100).toFixed(0)"
-                     (input)="n.descuentoPct = +$any($event).target.value / 100" />
-              <input type="text" class="rs-inp" [value]="n.beneficios.join(', ')"
-                     (input)="n.beneficios = beneficiosDesdeTexto($any($event).target.value)" />
+              <label class="alpha-campo"><span>Nombre</span>
+                <input type="text" class="rs-inp" [value]="n.nombre" (input)="n.nombre = $any($event).target.value" />
+              </label>
+              <label class="alpha-campo"><span>Reservas requeridas</span>
+                <input type="number" class="rs-inp" style="width:100px;text-align:center"
+                       [value]="n.reservasRequeridas"
+                       (input)="n.reservasRequeridas = +$any($event).target.value" />
+              </label>
+              <label class="alpha-campo"><span>Descuento (%)</span>
+                <input type="number" class="rs-inp" style="width:80px;text-align:center"
+                       [value]="(n.descuentoPct * 100).toFixed(0)"
+                       (input)="n.descuentoPct = +$any($event).target.value / 100" />
+              </label>
+              <label class="alpha-campo"><span>Beneficios (separados por coma)</span>
+                <input type="text" class="rs-inp" [value]="n.beneficios.join(', ')"
+                       (input)="n.beneficios = beneficiosDesdeTexto($any($event).target.value)" />
+              </label>
             </div>
           }
         </div>
@@ -365,7 +373,8 @@ const ESTADO_BADGE: Record<string, string> = {
     .admin-kpi__hint { font-size: 10px; color: var(--t-500, var(--t-400)); margin-top: 2px; line-height: 1.3; }
 
     .admin-panel { padding: var(--sp-6); }
-    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-5); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
+    /* El botón de guardar cae debajo del título cuando no cabe a su lado. */
+    .panel-header { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-5); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
 
     .admin-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: 1fr; } }
 
@@ -384,6 +393,58 @@ const ESTADO_BADGE: Record<string, string> = {
     .comision-vertical { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
 
     .alpha-head, .alpha-row { grid-template-columns: 100px 160px 160px 140px 1fr; gap: var(--sp-3); }
+    .alpha-campo > span { display: none; }
+    .alpha-campo .rs-inp { width: 100%; }
+
+    /*
+     * Móvil: las dos tablas de configuración pasan a lista. Cada campo queda
+     * bajo su etiqueta, que aquí es imprescindible porque son inputs sueltos
+     * (un porcentaje sin su cabecera no se sabe de qué es).
+     */
+    @media (max-width: 768px) {
+      .comisiones-head, .alpha-head { display: none; }
+
+      .comisiones-row,
+      .alpha-head, .alpha-row {
+        grid-template-columns: 1fr;
+        gap: var(--sp-3);
+        padding: var(--sp-4) var(--sp-5);
+        border-bottom: 6px solid var(--c-base);
+      }
+
+      .comisiones-row > [data-col] {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-4);
+      }
+
+      .comisiones-row > [data-col]::before {
+        content: attr(data-col);
+        flex: 0 0 auto;
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+
+      /* El primer dato de cada fila es el título de la tarjeta. */
+      .comision-vertical { font-weight: var(--w-7); color: var(--t-100); }
+
+      .alpha-campo > span {
+        display: block;
+        margin-bottom: var(--sp-1);
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+      .alpha-campo .rs-inp { width: 100%; text-align: left; }
+    }
   `],
 })
 export class AdminDashboardComponent implements OnInit {

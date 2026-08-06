@@ -108,6 +108,11 @@ import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
       width: 100%; padding: 0; border: none; background: transparent;
       color: var(--t-400); cursor: pointer; text-align: left;
     }
+    /* En móvil el disparador ocupa todo el alto del campo, no solo su texto. */
+    @media (max-width: 768px) {
+      .pp__trigger { min-height: 32px; }
+      .pp__summary { font-size: var(--f-md); }
+    }
     .pp__summary {
       flex: 1; min-width: 0;
       font-family: var(--font); font-size: var(--f-base); color: var(--t-100);

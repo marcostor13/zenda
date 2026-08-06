@@ -87,7 +87,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
               <button
                 type="button"
                 (click)="mostrarPassword.set(!mostrarPassword())"
-                style="position:absolute;right:var(--sp-3);top:50%;transform:translateY(-50%);display:flex;align-items:center;transition:color var(--d-1)"
+                style="position:absolute;right:var(--sp-2);top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:40px;height:40px;transition:color var(--d-1)"
                 [style.color]="mostrarPassword() ? 'var(--c-accent)' : 'var(--t-400)'">
                 <rs-icon [name]="mostrarPassword() ? 'eye-off' : 'eye'" [size]="16" [stroke]="2"></rs-icon>
               </button>

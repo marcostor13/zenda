@@ -338,6 +338,16 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       border-bottom: 1px solid var(--b-1);
       padding: var(--sp-4) var(--sp-5) var(--sp-6);
       animation: slideDown 200ms cubic-bezier(.4,0,.2,1) both;
+      /*
+       * El menú está posicionado fixed, así que no acompaña al scroll de la
+       * página: sin altura máxima propia, en un móvil corto (568px) las últimas
+       * entradas quedaban fuera de pantalla y no había forma de llegar a ellas.
+       * La unidad dvh además descuenta la barra del navegador móvil.
+       */
+      max-height: calc(100dvh - 64px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }
 
     @keyframes slideDown {

@@ -111,12 +111,12 @@ const LIMITE = 20;
         } @else {
           @for (r of reservas(); track r._id) {
             <div class="tbl-row">
-              <span class="cell-mono">{{ r.codigo }}</span>
-              <span class="cell-txt">{{ r.cliente }}</span>
-              <span class="cell-txt">{{ r.comercio }}</span>
-              <span class="cell-amount">{{ r.montoTotal | number:'1.2-2' }} €</span>
-              <span class="cell-amount cell-green">{{ r.comisionMonto | number:'1.2-2' }} €</span>
-              <span>
+              <span class="cell-mono" data-col="Código">{{ r.codigo }}</span>
+              <span class="cell-txt" data-col="Cliente">{{ r.cliente }}</span>
+              <span class="cell-txt" data-col="Comercio">{{ r.comercio }}</span>
+              <span class="cell-amount" data-col="Importe">{{ r.montoTotal | number:'1.2-2' }} €</span>
+              <span class="cell-amount cell-green" data-col="Comisión">{{ r.comisionMonto | number:'1.2-2' }} €</span>
+              <span data-col="Estado">
                 <span class="rs-badge {{ meta(r.estado).badge }}">
                   <rs-icon [name]="meta(r.estado).icono" [size]="12" [stroke]="2"></rs-icon>
                   {{ meta(r.estado).label }}
@@ -124,7 +124,7 @@ const LIMITE = 20;
               </span>
               <span class="cell-actions">
                 <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Ver timeline"
-                        (click)="toggleTimeline(r._id)" aria-label="Ver timeline">
+                        (click)="toggleTimeline(r._id)" aria-label="Ver timeline" data-icono>
                     <rs-icon name="clock" [size]="14" [stroke]="2"></rs-icon>
                   </button>
                 @if (r.estado !== 'pago_liberado' && r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
@@ -224,8 +224,49 @@ const LIMITE = 20;
     .filter-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-5); flex-wrap: wrap; }
 
     .tbl-wrap { min-width: 920px; }
+
     .tbl-head { display: grid; grid-template-columns: 150px 1fr 1fr 120px 120px 160px 220px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
     .tbl-row { display: grid; grid-template-columns: 150px 1fr 1fr 120px 120px 160px 220px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } }
+
+    /*
+     * Móvil: la tabla deja de serlo. Sin esto la única salida era el scroll
+     * lateral, que obliga a arrastrar para leer una sola reserva.
+     */
+    @media (max-width: 768px) {
+      .tbl-wrap { min-width: 0; }
+      .tbl-head { display: none; }
+
+      .tbl-row {
+        grid-template-columns: 1fr;
+        gap: var(--sp-2);
+        padding: var(--sp-4) var(--sp-5);
+        border-bottom: 6px solid var(--c-base);
+      }
+
+      .tbl-row > [data-col] {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        /* Un email o una razón social larga parte de línea en vez de desbordar. */
+        overflow-wrap: anywhere;
+        text-align: right;
+        text-align: left;
+      }
+
+      .tbl-row > [data-col]::before {
+        content: attr(data-col);
+        flex: 0 0 auto;
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+
+    }
+
     .tbl-skeleton { pointer-events: none; }
 
     .cell-mono { font-family: monospace; font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
@@ -233,6 +274,34 @@ const LIMITE = 20;
     .cell-amount { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); text-align: right; }
     .cell-green { color: #047857; }
     .cell-actions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+
+    /*
+     * Móvil: las acciones son el pie de la tarjeta, no una celda más. Se alinean
+     * a la izquierda tras un separador y los botones con texto reparten el ancho;
+     * los de solo icono se quedan cuadrados al final en vez de estirarse.
+     */
+    @media (max-width: 768px) {
+      .cell-actions {
+        justify-content: flex-start;
+        gap: var(--sp-2);
+        margin-top: var(--sp-1);
+        padding-top: var(--sp-3);
+        border-top: 1px solid var(--b-1);
+      }
+
+      .cell-actions .rs-btn {
+        /* Dos botones con texto por fila: repartir "auto" dejaba filas huérfanas. */
+        flex: 1 1 calc(50% - var(--sp-2));
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      .cell-actions [data-icono] {
+        flex: 0 0 44px;
+        padding-inline: 0;
+      }
+    }
+
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 14px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 130px; }

@@ -584,7 +584,7 @@ function comoArray(v?: string): string[] {
     .rs-hr { border-top: 1px solid var(--b-1); margin: var(--sp-2) 0; }
 
     .rs-checkbox { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; white-space: nowrap; }
-    .rs-checkbox input { accent-color: var(--c-accent); width: 16px; height: 16px; }
+    .rs-checkbox input { accent-color: var(--c-accent); width: 18px; height: 18px; }
 
     .verticales-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 

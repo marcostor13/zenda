@@ -102,11 +102,11 @@ const LIMITE = 20;
                 </div>
               </div>
             </div>
-            <span class="cell-mono">{{ c.vatNumber }}</span>
-            <span>
+            <span class="cell-mono" data-col="RUC">{{ c.vatNumber }}</span>
+            <span data-col="Plan">
               <span class="rs-badge rs-badge--accent">{{ c.plan }}</span>
             </span>
-            <span>
+            <span data-col="Estado">
               <span class="rs-badge {{ badgeEstado(c.estado) }}">{{ c.estado }}</span>
               @if (c.verificacion?.estado && c.verificacion?.estado !== 'sin_verificar') {
                 <span class="rs-badge {{ badgeVerif(c.verificacion!.estado) }}" style="display:inline-block;margin-top:4px">
@@ -115,7 +115,7 @@ const LIMITE = 20;
                 </span>
               }
             </span>
-            <span class="cell-muted">{{ c.createdAt | date:'d MMM yyyy' }}</span>
+            <span class="cell-muted" data-col="Registro">{{ c.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones">
               @if (c.verificacion?.estado === 'pendiente') {
                 <button class="rs-btn rs-btn--sm" style="background:#047857;color:#fff" title="Verificar documentación"
@@ -138,11 +138,11 @@ const LIMITE = 20;
                   [disabled]="accionando() === c._id" (click)="suspender(c._id)">Suspender</button>
               }
               <button class="rs-btn rs-btn--ghost rs-btn--sm"
-                [disabled]="accionando() === c._id" (click)="abrirEditar(c)" aria-label="Editar comercio">
+                [disabled]="accionando() === c._id" (click)="abrirEditar(c)" aria-label="Editar comercio" data-icono>
                       <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
                     </button>
               <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171"
-                [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)" aria-label="Eliminar comercio">
+                [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)" aria-label="Eliminar comercio" data-icono>
                       <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
                     </button>
             </div>
@@ -296,6 +296,44 @@ const LIMITE = 20;
     .tbl-row { display: grid; grid-template-columns: 2fr 130px 90px 120px 120px 240px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; }
     .tbl-row:hover { background: var(--c-raised); }
+
+    /*
+     * Móvil: una tabla de 6 columnas no se puede leer en 390px ni estrechando
+     * ni con scroll lateral, así que deja de ser tabla. Cada fila se convierte
+     * en una tarjeta y cada celda muestra su etiqueta (data-col) junto al dato.
+     */
+    @media (max-width: 768px) {
+      .tbl-head { display: none; }
+
+      .tbl-row {
+        grid-template-columns: 1fr;
+        gap: var(--sp-2);
+        padding: var(--sp-4) var(--sp-5);
+        border-bottom: 6px solid var(--c-base);
+      }
+
+      .tbl-row > [data-col] {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        /* Un email o una razón social larga parte de línea en vez de desbordar. */
+        overflow-wrap: anywhere;
+        text-align: right;
+      }
+
+      .tbl-row > [data-col]::before {
+        content: attr(data-col);
+        flex: 0 0 auto;
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+    }
+
     .tbl-skeleton { pointer-events: none; }
 
     .comercio-cell { display: flex; align-items: flex-start; gap: var(--sp-3); }
@@ -305,6 +343,34 @@ const LIMITE = 20;
     .cell-mono { font-family: monospace; font-size: var(--f-xs); color: var(--t-300); }
     .verticales-pills { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-top: var(--sp-1); }
     .acciones { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+
+    /*
+     * Móvil: las acciones son el pie de la tarjeta, no una celda más. Se alinean
+     * a la izquierda tras un separador y los botones con texto reparten el ancho;
+     * los de solo icono se quedan cuadrados al final en vez de estirarse.
+     */
+    @media (max-width: 768px) {
+      .acciones {
+        justify-content: flex-start;
+        gap: var(--sp-2);
+        margin-top: var(--sp-1);
+        padding-top: var(--sp-3);
+        border-top: 1px solid var(--b-1);
+      }
+
+      .acciones .rs-btn {
+        /* Dos botones con texto por fila: repartir "auto" dejaba filas huérfanas. */
+        flex: 1 1 calc(50% - var(--sp-2));
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      .acciones [data-icono] {
+        flex: 0 0 44px;
+        padding-inline: 0;
+      }
+    }
+
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 16px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 120px; } .skel--lg { width: 180px; }
@@ -326,7 +392,7 @@ const LIMITE = 20;
 
     .verticales-check { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-2); }
     .check-item { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; }
-    .check-item input { accent-color: var(--c-accent); width: 16px; height: 16px; }
+    .check-item input { accent-color: var(--c-accent); width: 18px; height: 18px; }
   `],
 })
 export class AdminComerciosComponent implements OnInit {
