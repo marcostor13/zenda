@@ -104,11 +104,11 @@ const LIMITE = 20;
               <div class="avatar">{{ u.nombre[0]?.toUpperCase() ?? 'U' }}</div>
               <span class="cell-primary">{{ u.nombre }}</span>
             </div>
-            <span class="cell-email">{{ u.email }}</span>
-            <span>
+            <span class="cell-email" data-col="Email">{{ u.email }}</span>
+            <span data-col="Rol">
               <span class="rs-badge {{ badgeRol(u.rol) }}">{{ labelRol(u.rol) }}</span>
             </span>
-            <span>
+            <span data-col="Verificado">
               @if (u.verificado) {
                 <span class="rs-badge rs-badge--success">
                   <rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> Verificado
@@ -117,7 +117,7 @@ const LIMITE = 20;
                 <span class="rs-badge rs-badge--neutral">Pendiente</span>
               }
             </span>
-            <span class="cell-muted">{{ u.createdAt | date:'d MMM yyyy' }}</span>
+            <span class="cell-muted" data-col="Registro">{{ u.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones">
               <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="abrirEditar(u)">
                 <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
@@ -271,6 +271,45 @@ const LIMITE = 20;
     .tbl-row { display: grid; grid-template-columns: 1.2fr 1.4fr 160px 130px 120px 160px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; }
     .tbl-row:hover { background: var(--c-raised); }
+
+    /*
+     * Móvil: una tabla de 6 columnas no se puede leer en 390px ni estrechando
+     * ni con scroll lateral, así que deja de ser tabla. Cada fila se convierte
+     * en una tarjeta y cada celda muestra su etiqueta (data-col) junto al dato.
+     */
+    @media (max-width: 768px) {
+      .tbl-head { display: none; }
+
+      .tbl-row {
+        grid-template-columns: 1fr;
+        gap: var(--sp-2);
+        padding: var(--sp-4) var(--sp-5);
+        border-bottom: 6px solid var(--c-base);
+      }
+
+      .tbl-row > [data-col] {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        /* Un email o una razón social larga parte de línea en vez de desbordar. */
+        overflow-wrap: anywhere;
+        text-align: right;
+      }
+
+      .tbl-row > [data-col]::before {
+        content: attr(data-col);
+        flex: 0 0 auto;
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+      .acciones { justify-content: flex-end; flex-wrap: wrap; }
+    }
+
     .tbl-skeleton { pointer-events: none; }
 
     .usuario-cell { display: flex; align-items: center; gap: var(--sp-3); }
