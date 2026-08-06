@@ -679,6 +679,8 @@ type SearchMode = 'filtros' | 'ia';
     }
 
     .sec-head__link {
+      /* En móvil la fila crece para poder pulsarla con el pulgar. */
+      @media (max-width: 768px) { min-height: 36px; }
       display: inline-flex;
       align-items: center;
       gap: var(--sp-2);

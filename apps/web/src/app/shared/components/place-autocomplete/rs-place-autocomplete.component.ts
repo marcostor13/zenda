@@ -111,6 +111,8 @@ const normalizar = (texto: string): string =>
       flex: 1; min-width: 0;
       border: none; outline: none; background: transparent;
       padding-block: 2px;
+      /* En móvil sube a 16px y gana alto: ver §30 de styles.scss. */
+      @media (max-width: 768px) { font-size: var(--f-md); padding-block: var(--sp-2); }
       font-family: var(--font); font-size: var(--f-base); color: var(--t-100);
       &::placeholder { color: var(--t-500); }
     }

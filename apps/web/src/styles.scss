@@ -1285,63 +1285,6 @@ h1, h2, h3, h4, h5, h6 {
   --t-fast: var(--d-1); --t-base: var(--d-2); --t-slow: var(--d-3);
 }
 
-/* ── NAVBAR (.rs-navbar) ───────────────────────────────────────── */
-.rs-navbar {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-3);
-  height: 64px;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-8);
-  padding-inline: var(--sp-6);
-  background: rgba(255,255,255,.82);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid var(--b-1);
-
-  &__brand {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-1);
-    font-size: var(--f-xl);
-    font-weight: var(--w-8);
-    letter-spacing: -.03em;
-    color: var(--t-100);
-    flex-shrink: 0;
-
-    span { background: var(--g-accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  }
-
-  &__nav {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-1);
-    flex: 1;
-
-    @media (max-width: 640px) { display: none; }
-  }
-
-  &__link {
-    padding: var(--sp-2) var(--sp-3);
-    font-size: var(--f-sm);
-    font-weight: var(--w-5);
-    color: var(--t-300);
-    border-radius: var(--r-md);
-    transition: color var(--d-1), background var(--d-1);
-
-    &:hover { color: var(--t-100); background: rgba(5,26,102,.05); }
-    &--active { color: var(--t-100); background: var(--c-accent-lo); }
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
-    margin-left: auto;
-  }
-}
-
 /* ── FORMULARIOS (.rs-form-group / .rs-label / .rs-input) ──────── */
 .rs-form-group {
   display: flex;
@@ -1599,5 +1542,61 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--t-400);
 
     a { color: var(--c-accent); font-weight: var(--w-5); transition: color var(--d-1); &:hover { color: #fff; } }
+  }
+}
+
+/* ── 30. ERGONOMÍA TÁCTIL EN MÓVIL ─────────────────────────────── */
+/*
+ * Reglas transversales para que la app se pueda usar con el pulgar. Viven aquí
+ * y no en cada componente porque afectan a todos los controles del design
+ * system; los componentes solo ajustan lo suyo (buscador, selector de mascota).
+ */
+@media (max-width: 768px) {
+  /*
+   * iOS Safari hace zoom automático al enfocar un campo de menos de 16px y deja
+   * la página desplazada en horizontal. Con 16px justos no se dispara.
+   */
+  .rs-inp,
+  .rs-input,
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: var(--f-md);
+  }
+
+  /* 44px es el objetivo táctil cómodo de las guías de iOS y Android. */
+  .rs-inp,
+  .rs-input,
+  select,
+  textarea,
+  .rs-btn:not(.rs-btn--xs) {
+    min-height: 44px;
+  }
+
+  /* El botón extra pequeño no llega a 44px sin romper su fila, pero 32px ya
+     es acertable; se usa en acciones secundarias tipo "Limpiar filtros". */
+  .rs-btn--xs { min-height: 32px; }
+
+  /* Los enlaces de las columnas del pie se pulsan con el pulgar, así que la
+     fila crece aunque el texto siga siendo pequeño. */
+  .rs-footer__col a,
+  .rs-footer__links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+  }
+
+  /* La fila legal del pie es navegación, no texto corrido: se separa para que
+     los tres enlaces no se peguen entre sí al pulsarlos. */
+  .rs-footer__bottom a {
+    display: inline-block;
+    padding-block: var(--sp-2);
+  }
+
+  /* Las casillas diminutas se fallan con el dedo: se agrandan con su etiqueta. */
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 20px;
+    height: 20px;
   }
 }

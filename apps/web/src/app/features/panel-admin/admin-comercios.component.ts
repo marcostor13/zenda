@@ -326,7 +326,7 @@ const LIMITE = 20;
 
     .verticales-check { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-2); }
     .check-item { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; }
-    .check-item input { accent-color: var(--c-accent); width: 16px; height: 16px; }
+    .check-item input { accent-color: var(--c-accent); width: 18px; height: 18px; }
   `],
 })
 export class AdminComerciosComponent implements OnInit {

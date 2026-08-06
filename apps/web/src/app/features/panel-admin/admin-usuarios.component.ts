@@ -208,7 +208,7 @@ const LIMITE = 20;
         @if (editandoId()) {
           <div class="rs-form-group">
             <label class="check-item" style="cursor:pointer">
-              <input type="checkbox" formControlName="verificado" style="accent-color:var(--c-accent);width:16px;height:16px" />
+              <input type="checkbox" formControlName="verificado" style="accent-color:var(--c-accent);width:20px;height:20px" />
               <span style="font-size:var(--f-sm);color:var(--t-200)">Cuenta verificada</span>
             </label>
           </div>
