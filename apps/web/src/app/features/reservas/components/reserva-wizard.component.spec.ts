@@ -268,6 +268,30 @@ describe('ReservaWizardComponent', () => {
       expect(componente.subtotal()).toBe(50);
     });
 
+    it('debería desglosar el trayecto: tarifa base + kilómetros + extras (HU-5.5.3)', async () => {
+      const { params, query } = contexto(VerticalKey.TRANSPORTE);
+      await crear(params, query);
+      componente.tarifasTransporte.set({ tarifaBase: 12, tarifaKm: 1.2 });
+      componente.serviciosAdicionalesTransporte.set([{ nombre: 'Recogida a domicilio', precio: 15 }]);
+      componente.paso1TransporteForm.patchValue({ distanciaKm: 25 });
+      componente.toggleExtra('Recogida a domicilio');
+
+      expect(componente.tarifaBaseTransporte()).toBe(12);
+      expect(componente.costeKmTransporte()).toBe(30);
+      expect(componente.extrasTransporte()).toBe(15);
+      expect(componente.subtotal()).toBe(57);
+    });
+
+    it('debería caer a la tarifa base si el catálogo del transportista no ha cargado', async () => {
+      const { params, query } = contexto(VerticalKey.TRANSPORTE);
+      await crear(params, query);
+      componente.paso1TransporteForm.patchValue({ distanciaKm: 25 });
+
+      // Sin config no se inventan kilómetros: el backend sigue siendo la fuente de verdad.
+      expect(componente.costeKmTransporte()).toBe(0);
+      expect(componente.subtotal()).toBe(componente.precioBase());
+    });
+
     it('debería aplicar el IVA sobre el importe ya descontado', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO, { precioBase: '100' });
       await crear(params, query);
@@ -494,14 +518,56 @@ describe('ReservaWizardComponent', () => {
       await crear(params, query);
       componente.paso1AdiestramientoForm.patchValue({
         fechaInicio: '2026-09-01', modalidad: 'programa', edadMeses: 18, servicio: 'Obediencia',
+        motivo: 'miedos', intensidad: 'grave',
+        descripcionComportamiento: 'Se esconde cuando hay ruido',
       });
 
       componente.irPaso(3);
       await fixture.whenStable();
 
+      // El contexto del problema (HU-5.6.2) viaja con la reserva: es lo que
+      // permite al adiestrador preparar la primera sesión.
       expect(dobles.reservas.crear).toHaveBeenCalledWith(expect.objectContaining({
-        detalle: { modalidad: 'programa', edadMeses: 18, servicio: 'Obediencia' },
+        detalle: {
+          modalidad: 'programa', edadMeses: 18, servicio: 'Obediencia',
+          motivo: 'miedos', intensidad: 'grave',
+          descripcionComportamiento: 'Se esconde cuando hay ruido',
+        },
       }));
+    });
+
+    it('debería exponer la duración del servicio de grooming elegido (HU-5.3.2)', async () => {
+      const { params, query } = contexto(VerticalKey.PELUQUERIA);
+      await crear(params, query);
+      componente.peluqueriaDetalle.set({
+        serviciosGrooming: [{ nombre: 'Baño completo', precio: 30, duracionMin: 60 }],
+        politicaTemperamentoDificil: 'aceptar',
+        bozalObligatorioSiAgresivo: false,
+        serviciosAdicionales: [],
+        razasEspecificas: [],
+        requiereVacunasAlDia: true,
+        requiereMicrochip: false,
+      });
+      componente.paso1PeluqueriaForm.patchValue({ servicio: 'Baño completo' });
+
+      expect(componente.duracionGroomingElegida()).toBe(60);
+    });
+
+    it('no debería inventar duración si el salón no la ha configurado', async () => {
+      const { params, query } = contexto(VerticalKey.PELUQUERIA);
+      await crear(params, query);
+      componente.peluqueriaDetalle.set({
+        serviciosGrooming: [{ nombre: 'Baño completo', precio: 30 }],
+        politicaTemperamentoDificil: 'aceptar',
+        bozalObligatorioSiAgresivo: false,
+        serviciosAdicionales: [],
+        razasEspecificas: [],
+        requiereVacunasAlDia: true,
+        requiereMicrochip: false,
+      });
+      componente.paso1PeluqueriaForm.patchValue({ servicio: 'Baño completo' });
+
+      expect(componente.duracionGroomingElegida()).toBeNull();
     });
 
     it('debería enviar las mascotas declaradas en un hotel', async () => {
@@ -509,6 +575,7 @@ describe('ReservaWizardComponent', () => {
       await crear(params, query);
       componente.paso1HotelesForm.patchValue({
         checkIn: '2026-09-01', checkOut: '2026-09-03', mascotas: 2, tamanoPerro: 'grande',
+        adultos: 3, ninos: 1,
       });
 
       componente.irPaso(3);
@@ -516,8 +583,32 @@ describe('ReservaWizardComponent', () => {
 
       expect(dobles.reservas.crear).toHaveBeenCalledWith(expect.objectContaining({
         fechaInicio: '2026-09-01', fechaFin: '2026-09-03', cantidad: 2,
-        detalle: { tamanoPerro: 'grande' },
+        // HU-5.7.1: en hoteles viajan personas además de la mascota.
+        detalle: { tamanoPerro: 'grande', adultos: 3, ninos: 1, observaciones: undefined },
       }));
+    });
+
+    it('debería resumir el viaje con personas, mascotas y fechas en hoteles', async () => {
+      const { params, query } = contexto(VerticalKey.HOTELES);
+      await crear(params, query);
+      componente.paso1HotelesForm.patchValue({
+        checkIn: '2026-07-28', checkOut: '2026-07-30', mascotas: 2, adultos: 2, ninos: 1,
+      });
+      componente.irPaso(2);
+      await fixture.whenStable();
+
+      const resumen = componente.resumenViaje();
+      expect(resumen).toContain('2 adultos');
+      expect(resumen).toContain('1 niño');
+      expect(resumen).toContain('2 mascotas');
+      expect(resumen).toContain('28–30 julio');
+    });
+
+    it('no debería mostrar resumen de viaje fuera de hoteles', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+
+      expect(componente.resumenViaje()).toBeNull();
     });
 
     it('debería adjuntar el perro seleccionado a la reserva', async () => {
@@ -927,7 +1018,8 @@ describe('ReservaWizardComponent', () => {
       const { params, query } = contexto(VerticalKey.HOTELES);
       await crear(params, query);
 
-      expect(componente.paso1Label()).toBe('Tu estancia');
+      // HU-5.7.1: en hoteles el paso 1 es "Tu viaje", no "Tu estancia".
+      expect(componente.paso1Label()).toBe('Tu viaje');
       expect(componente.paso1Titulo()).toContain('pet-friendly');
       expect(componente.emojiVertical()).toBe('🏨');
       expect(componente.peticionesPlaceholder()).toContain('mascota');

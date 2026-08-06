@@ -84,7 +84,6 @@ describe('AlojamientoService', () => {
         camaras24h: true,
         espacios: [],
         resenas: [],
-        scoreDesglose: { limpieza: 5, ubicacion: 5, cuidado: 5, valorPrecio: 5, instalaciones: 5, personal: 5 },
         reglas: [],
         comercioId: 'c1',
       };

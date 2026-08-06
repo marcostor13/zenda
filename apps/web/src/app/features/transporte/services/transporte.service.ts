@@ -15,6 +15,7 @@ export interface ServicioCard {
   numResenas: number;
   imagenes: string[];
   destacado: boolean;
+  alphaAdherido?: boolean;
   vertical?: string;
   extra?: Record<string, unknown>;
 }
@@ -42,6 +43,8 @@ export interface TransporteCard {
   jaulasIncluidas: boolean;
   acompananteHumano: boolean;
   destacado: boolean;
+  /** El comercio ofrece ventajas del programa Doogking Alpha (HU-13.3). */
+  alphaAdherido?: boolean;
   score: number;
   scoreLabel: string;
   numResenas: number;
@@ -77,6 +80,7 @@ export class TransporteService {
       jaulasIncluidas: (e['jaulasIncluidas'] as boolean) ?? false,
       acompananteHumano: (e['acompananteHumano'] as boolean) ?? false,
       destacado: s.destacado,
+      alphaAdherido: s.alphaAdherido,
       score: s.score,
       scoreLabel: s.scoreLabel,
       numResenas: s.numResenas,

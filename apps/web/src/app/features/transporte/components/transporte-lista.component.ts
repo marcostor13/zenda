@@ -161,7 +161,9 @@ export class TransporteListaComponent implements OnInit {
   badgesDe(t: TransporteCard): CardBadge[] {
     const badges: CardBadge[] = [{ label: this.tipoLabel(t.tipoVehiculo) }];
     if (t.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
-    badges.push(...calcularBadgesAutomaticos({ score: t.score, numResenas: t.numResenas }));
+    badges.push(...calcularBadgesAutomaticos({
+      score: t.score, numResenas: t.numResenas, alphaAdherido: t.alphaAdherido,
+    }));
     return badges;
   }
 

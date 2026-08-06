@@ -5,7 +5,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { signal } from '@angular/core';
 import { PerfilAlphaComponent } from './perfil-alpha.component';
 import { AuthService } from '../../core/auth/auth.service';
-import { AlphaService, AlphaEstadoApi, AlphaNivelApi } from '../alpha/alpha.service';
+import { AlphaService, AlphaEstadoApi, AlphaNivelApi, AlphaVentajaApi } from '../alpha/alpha.service';
 
 const NIVELES: AlphaNivelApi[] = [
   { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 0, descuentoPct: 0, beneficios: ['Promociones y ofertas exclusivas'] },
@@ -16,12 +16,13 @@ const NIVELES: AlphaNivelApi[] = [
 describe('PerfilAlphaComponent', () => {
   let fixture: ComponentFixture<PerfilAlphaComponent>;
   let componente: PerfilAlphaComponent;
-  let alphaService: jest.Mocked<Pick<AlphaService, 'niveles' | 'miEstado'>>;
+  let alphaService: jest.Mocked<Pick<AlphaService, 'niveles' | 'miEstado' | 'ventajas'>>;
 
-  const crear = async (miEstado: AlphaEstadoApi | null): Promise<void> => {
+  const crear = async (miEstado: AlphaEstadoApi | null, ventajas: AlphaVentajaApi[] = []): Promise<void> => {
     alphaService = {
       niveles: jest.fn().mockResolvedValue(NIVELES),
       miEstado: jest.fn().mockResolvedValue(miEstado),
+      ventajas: jest.fn().mockResolvedValue(ventajas),
     };
 
     await TestBed.configureTestingModule({
@@ -65,5 +66,41 @@ describe('PerfilAlphaComponent', () => {
     await crear(null);
 
     expect(componente.esNivelActual(1)).toBe(false);
+  });
+
+  describe('carrusel de ventajas (HU-13.3)', () => {
+    const ventaja: AlphaVentajaApi = {
+      id: 'h1', nombre: 'Hotel Luna', ciudad: 'Madrid',
+      vertical: 'hoteles', imagenes: ['luna.jpg'],
+    };
+
+    it('no debería pintar el carrusel si no hay negocios adheridos', async () => {
+      await crear(null);
+
+      expect(componente.adheridos()).toEqual([]);
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).not.toContain('Ventajas disponibles para ti');
+    });
+
+    it('debería listar los negocios adheridos al programa', async () => {
+      await crear(null, [ventaja]);
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.textContent).toContain('Ventajas disponibles para ti');
+      expect(el.textContent).toContain('Hotel Luna');
+    });
+
+    it('debería enlazar a la ficha cuando el vertical tiene una', async () => {
+      await crear(null, [ventaja]);
+
+      expect(componente.enlaceAServicio('hoteles', 'h1')).toEqual(['/hoteles', 'h1']);
+    });
+
+    it('debería enlazar al listado cuando el vertical no tiene ficha propia', async () => {
+      await crear(null, [ventaja]);
+
+      // Veterinaria no tiene ruta `:id`: enlazar al detalle daría un 404.
+      expect(componente.enlaceAServicio('veterinaria', 'v1')).toEqual(['/veterinaria']);
+    });
   });
 });

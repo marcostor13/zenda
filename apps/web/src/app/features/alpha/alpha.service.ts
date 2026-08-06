@@ -22,6 +22,15 @@ export interface AlphaEstadoApi {
   esMaximoNivel: boolean;
 }
 
+/** Negocio adherido al programa Alpha, tal como lo pinta el carrusel del perfil. */
+export interface AlphaVentajaApi {
+  id: string;
+  nombre: string;
+  ciudad: string;
+  vertical: string;
+  imagenes: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AlphaService {
   private readonly http = inject(HttpClient);
@@ -33,5 +42,10 @@ export class AlphaService {
 
   miEstado(): Promise<AlphaEstadoApi> {
     return firstValueFrom(this.http.get<AlphaEstadoApi>(`${this.base}/mi-estado`));
+  }
+
+  /** Negocios adheridos al programa Alpha, para el carrusel de ventajas (HU-13.3). */
+  ventajas(): Promise<AlphaVentajaApi[]> {
+    return firstValueFrom(this.http.get<AlphaVentajaApi[]>(`${this.base}/ventajas`));
   }
 }

@@ -195,4 +195,51 @@ describe('PerfilResenasComponent', () => {
       expect(componente.resenas()[0].eliminada).toBeFalsy();
     });
   });
+
+  describe('reputación del reseñador (HU-11.5)', () => {
+    const varias = (n: number, extra: Partial<ResenaApi> = {}): ResenaApi[] =>
+      Array.from({ length: n }, (_, i) => resena({ _id: `r${i}`, ...extra }));
+
+    it('no debería mostrar reputación sin reseñas publicadas', async () => {
+      await crear([], [pendiente({})]);
+
+      expect(componente.reputacion()).toBeNull();
+    });
+
+    it('debería empezar en Colaborador con la primera reseña', async () => {
+      await crear([resena({ puntuacion: 4 })], []);
+
+      const rep = componente.reputacion()!;
+      expect(rep.nivelLabel).toBe('Colaborador');
+      expect(rep.total).toBe(1);
+      expect(rep.media).toBe(4);
+      expect(rep.siguiente).toEqual({ falta: 9, label: 'Experto' });
+    });
+
+    it('debería subir a Experto a partir de 10 reseñas', async () => {
+      await crear(varias(10), []);
+
+      expect(componente.reputacion()!.nivelLabel).toBe('Experto');
+    });
+
+    it('debería marcar el máximo reconocimiento sin siguiente nivel', async () => {
+      await crear(varias(25), []);
+
+      const rep = componente.reputacion()!;
+      expect(rep.nivelLabel).toBe('Embajador Doogking');
+      expect(rep.siguiente).toBeNull();
+    });
+
+    it('no debería contar las reseñas eliminadas en la reputación', async () => {
+      await crear([resena({ _id: 'r1' }), resena({ _id: 'r2', eliminada: true })], []);
+
+      expect(componente.reputacion()!.total).toBe(1);
+    });
+
+    it('debería contar cuántas reseñas llevan fotos', async () => {
+      await crear([resena({ _id: 'r1', fotos: ['a.jpg'] }), resena({ _id: 'r2' })], []);
+
+      expect(componente.reputacion()!.conFotos).toBe(1);
+    });
+  });
 });

@@ -330,7 +330,9 @@ export class VerticalBrowseComponent implements OnInit {
     const categoria = this.cfg().badge(c);
     if (categoria) badges.push({ label: categoria });
     if (c.destacado) badges.push({ icon: '★', label: 'Premium', variant: 'warning' });
-    badges.push(...calcularBadgesAutomaticos({ score: c.score, numResenas: c.numResenas }));
+    badges.push(...calcularBadgesAutomaticos({
+      score: c.score, numResenas: c.numResenas, alphaAdherido: c.alphaAdherido,
+    }));
     return badges;
   }
 

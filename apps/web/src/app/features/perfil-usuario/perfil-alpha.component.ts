@@ -1,14 +1,17 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { AlphaService, AlphaEstadoApi, AlphaNivelApi } from '../alpha/alpha.service';
+import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { IMG_FALLBACK } from '../../shared/media/images';
+import { enlaceAServicio } from '../../shared/verticales/verticales.config';
+import { AlphaService, AlphaEstadoApi, AlphaNivelApi, AlphaVentajaApi } from '../alpha/alpha.service';
 
 @Component({
   selector: 'app-perfil-alpha',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent],
+  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -59,6 +62,31 @@ import { AlphaService, AlphaEstadoApi, AlphaNivelApi } from '../alpha/alpha.serv
           </div>
         }
       </div>
+
+      <!-- Ventajas disponibles para ti (HU-13.3) -->
+      @if (adheridos().length > 0) {
+        <section class="ventajas">
+          <h2>Ventajas disponibles para ti</h2>
+          <p class="ventajas__sub">
+            Estos negocios están adheridos al programa Alpha.
+            @if (descuentoActual() > 0) {
+              Con tu nivel tienes hasta un {{ descuentoActual() | number:'1.0-0':'es' }}% de descuento.
+            }
+          </p>
+          <div class="ventajas__carrusel">
+            @for (s of adheridos(); track s.id) {
+              <a [routerLink]="enlaceAServicio(s.vertical, s.id)" class="ventaja-card">
+                <img [src]="s.imagenes[0] || fallbackImg" [alt]="s.nombre" rsImg />
+                <div class="ventaja-card__info">
+                  <span class="rs-badge rs-badge--accent">🏆 Ventajas Alpha</span>
+                  <strong>{{ s.nombre }}</strong>
+                  <span class="ventaja-card__meta">📍 {{ s.ciudad }}</span>
+                </div>
+              </a>
+            }
+          </div>
+        </section>
+      }
     }
 
   </div>
@@ -88,6 +116,27 @@ import { AlphaService, AlphaEstadoApi, AlphaNivelApi } from '../alpha/alpha.serv
     .nivel-card__requisito { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-3); }
     .nivel-card__beneficios { list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); li { font-size: var(--f-sm); color: var(--t-300); } }
 
+    /* Carrusel de ventajas Alpha (HU-13.3) */
+    .ventajas { margin-top: var(--sp-10); }
+    .ventajas h2 { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-2); }
+    .ventajas__sub { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-5); }
+    .ventajas__carrusel {
+      display: flex; gap: var(--sp-4); overflow-x: auto; padding-bottom: var(--sp-3);
+      scroll-snap-type: x mandatory;
+    }
+    .ventaja-card {
+      flex: 0 0 240px; scroll-snap-align: start; text-decoration: none;
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      overflow: hidden; transition: transform var(--d-2), box-shadow var(--d-2);
+      &:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+      img { width: 100%; height: 132px; object-fit: cover; display: block; }
+    }
+    .ventaja-card__info {
+      padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start;
+      strong { font-size: var(--f-sm); color: var(--t-100); }
+    }
+    .ventaja-card__meta { font-size: var(--f-xs); color: var(--t-400); }
+
     .spinner {
       width: 32px; height: 32px; border-radius: 50%;
       border: 3px solid var(--b-2); border-top-color: var(--c-accent);
@@ -103,14 +152,25 @@ export class PerfilAlphaComponent implements OnInit {
   readonly niveles = signal<AlphaNivelApi[]>([]);
   readonly miEstado = signal<AlphaEstadoApi | null>(null);
 
+  // Carrusel "Ventajas disponibles para ti" (HU-13.3)
+  readonly adheridos = signal<AlphaVentajaApi[]>([]);
+  readonly fallbackImg = IMG_FALLBACK;
+  readonly enlaceAServicio = enlaceAServicio;
+
+  /** Descuento del nivel actual; 0 si el usuario no tiene sesión o estado Alpha. */
+  readonly descuentoActual = computed(() => this.miEstado()?.descuentoPct ?? 0);
+
   async ngOnInit(): Promise<void> {
     try {
-      const [niveles, miEstado] = await Promise.all([
+      const [niveles, miEstado, ventajas] = await Promise.all([
         this.alphaService.niveles(),
         this.alphaService.miEstado().catch(() => null),
+        // Sin sesión o sin adheridos el carrusel simplemente no se pinta.
+        this.alphaService.ventajas().catch(() => [] as AlphaVentajaApi[]),
       ]);
       this.niveles.set(niveles);
       this.miEstado.set(miEstado);
+      this.adheridos.set(ventajas);
     } catch {
       // API no disponible
     } finally {

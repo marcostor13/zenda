@@ -9,6 +9,7 @@ import { ReservasService, ReservaApi, RecordatorioApi, PuntosApi, ProximaReserva
 import { PerrosService, PerroApi } from '../perros/perros.service';
 import { FavoritosService } from '../favoritos/favoritos.service';
 import { AlphaService, AlphaEstadoApi } from '../alpha/alpha.service';
+import { ReviewsService, ResenaApi } from '../reservas/services/reviews.service';
 
 interface MiniReserva {
   codigo: string;
@@ -32,6 +33,25 @@ interface ConfigItem {
   label: string;
   sub: string;
   ruta: string;
+}
+
+interface AccesoRapido {
+  icon: string;
+  label: string;
+  ruta: string;
+}
+
+interface ActividadItem {
+  icon: string;
+  label: string;
+  valor: string;
+  fecha: string;
+}
+
+interface LogroItem {
+  emoji: string;
+  label: string;
+  conseguido: boolean;
 }
 
 @Component({
@@ -70,6 +90,15 @@ interface ConfigItem {
       </a>
     </div>
 
+    <!-- MENSAJES PERSONALIZADOS (HU-7.8) -->
+    @if (mensajesPersonalizados().length) {
+      <div class="mensajes-personales">
+        @for (m of mensajesPersonalizados(); track m) {
+          <p class="mensajes-personales__item">💡 {{ m }}</p>
+        }
+      </div>
+    }
+
     <!-- PRÓXIMA RESERVA (HU-7.3) -->
     @if (proximaReserva(); as pr) {
       <a [routerLink]="['/reservas', pr.codigo]" class="rs-card proxima-reserva">
@@ -85,6 +114,16 @@ interface ConfigItem {
         <span class="rs-btn rs-btn--primary rs-btn--sm">Ver reserva</span>
       </a>
     }
+
+    <!-- ACCESOS RÁPIDOS (HU-7.6) -->
+    <nav class="accesos-rapidos" aria-label="Accesos rápidos">
+      @for (a of accesosRapidos; track a.ruta) {
+        <a [routerLink]="a.ruta" class="acceso-rapido">
+          <rs-icon [name]="a.icon" [size]="18" [stroke]="2"></rs-icon>
+          <span>{{ a.label }}</span>
+        </a>
+      }
+    </nav>
 
     <!-- MIS MASCOTAS -->
     <div class="perfil-section" style="margin-bottom:var(--sp-8)">
@@ -184,6 +223,39 @@ interface ConfigItem {
           <div class="rs-stat__label">{{ s.label }}</div>
         </div>
       }
+    </div>
+
+    <!-- MI ACTIVIDAD Y LOGROS (HU-7.7) -->
+    <div class="perfil-grid" style="margin-bottom:var(--sp-8)">
+      @if (actividad().length) {
+        <div class="perfil-section">
+          <div class="section-row-header"><h2>Mi actividad</h2></div>
+          <div class="actividad-list">
+            @for (a of actividad(); track a.label) {
+              <div class="actividad-item">
+                <rs-icon [name]="a.icon" [size]="16" [stroke]="2"></rs-icon>
+                <div class="actividad-item__texto">
+                  <span class="actividad-item__label">{{ a.label }}</span>
+                  <strong>{{ a.valor }}</strong>
+                </div>
+                @if (a.fecha) { <span class="actividad-item__fecha">{{ a.fecha }}</span> }
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="perfil-section">
+        <div class="section-row-header"><h2>Logros</h2></div>
+        <div class="logros-grid">
+          @for (l of logros(); track l.label) {
+            <div class="logro" [class.logro--pendiente]="!l.conseguido">
+              <span class="logro__emoji">{{ l.emoji }}</span>
+              <span class="logro__label">{{ l.label }}</span>
+            </div>
+          }
+        </div>
+      </div>
     </div>
 
     <!-- GRID: reservas + configuración -->
@@ -297,6 +369,52 @@ interface ConfigItem {
       @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); }
     }
 
+    /* Mensajes personalizados (HU-7.8) */
+    .mensajes-personales {
+      display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-6);
+    }
+    .mensajes-personales__item {
+      margin: 0; padding: var(--sp-3) var(--sp-4);
+      background: var(--c-raised); border-radius: var(--r-lg);
+      font-size: var(--f-sm); color: var(--t-300);
+    }
+
+    /* Accesos rápidos (HU-7.6) */
+    .accesos-rapidos {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3); margin-bottom: var(--sp-8);
+      @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); }
+    }
+    .acceso-rapido {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-4); background: var(--c-card); border: 1px solid var(--b-1);
+      border-radius: var(--r-lg); text-decoration: none;
+      font-size: var(--f-sm); font-weight: var(--fw-semibold); color: var(--t-200);
+      transition: transform var(--d-2), box-shadow var(--d-2);
+      &:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+    }
+
+    /* Mi actividad y logros (HU-7.7) */
+    .actividad-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .actividad-item {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4); background: var(--c-card);
+      border: 1px solid var(--b-1); border-radius: var(--r-lg);
+    }
+    .actividad-item__texto { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .actividad-item__label { font-size: var(--f-xs); color: var(--t-400); }
+    .actividad-item__texto strong { font-size: var(--f-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .actividad-item__fecha { font-size: var(--f-xs); color: var(--t-400); white-space: nowrap; }
+
+    .logros-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+    .logro {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4); background: var(--c-card);
+      border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      font-size: var(--f-sm);
+    }
+    .logro--pendiente { opacity: .45; }
+    .logro__emoji { font-size: var(--f-lg); }
+
     .rs-stat {
       padding: var(--sp-5); display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3);
     }
@@ -396,6 +514,7 @@ export class PerfilDashboardComponent implements OnInit {
   private readonly perrosService = inject(PerrosService);
   private readonly favoritosService = inject(FavoritosService);
   private readonly alphaService = inject(AlphaService);
+  private readonly reviewsService = inject(ReviewsService);
 
   readonly usuario = this.authService.usuario;
 
@@ -445,6 +564,100 @@ export class PerfilDashboardComponent implements OnInit {
     return total === 0 ? 0 : Math.round((a.reservasCompletadas / total) * 100);
   });
 
+  // ─── Actividad, logros y mensajes (HU-7.6/7.7/7.8) ───
+
+  readonly misResenas = signal<ResenaApi[]>([]);
+
+  /** Atajos a las acciones más frecuentes (HU-7.6). */
+  readonly accesosRapidos: readonly AccesoRapido[] = [
+    { icon: 'search',   label: 'Reservar un servicio',       ruta: '/' },
+    { icon: 'map-pin',  label: 'Explorar lugares pet friendly', ruta: '/explora' },
+    { icon: 'calendar', label: 'Mi historial',                ruta: '/reservas' },
+    { icon: 'heart',    label: 'Mis favoritos',               ruta: '/favoritos' },
+  ];
+
+  /**
+   * "Mi actividad" (HU-7.7): últimos hitos reales del usuario. Cada línea sale
+   * de datos ya cargados; si algo no ha ocurrido todavía, no se pinta esa línea
+   * en vez de mostrar un placeholder vacío.
+   */
+  readonly actividad = computed<ActividadItem[]>(() => {
+    const items: ActividadItem[] = [];
+
+    const ultimaReserva = this.reservasRecientes()[0];
+    if (ultimaReserva) {
+      items.push({ icon: 'calendar', label: 'Última reserva', valor: ultimaReserva.titulo, fecha: ultimaReserva.fecha });
+    }
+
+    const ultimaResena = [...this.misResenas()]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (ultimaResena) {
+      items.push({
+        icon: 'star', label: 'Última valoración', valor: ultimaResena.servicioTitulo,
+        fecha: this.formatearFecha(ultimaResena.createdAt),
+      });
+    }
+
+    const ultimaMascota = this.mascotas()[this.mascotas().length - 1];
+    if (ultimaMascota) {
+      items.push({ icon: 'paw', label: 'Última mascota añadida', valor: ultimaMascota.nombre, fecha: '' });
+    }
+
+    return items;
+  });
+
+  /**
+   * Logros desbloqueados (HU-7.7). Se calculan sobre actividad real; los no
+   * conseguidos se muestran apagados para que el usuario vea qué le falta.
+   */
+  readonly logros = computed<LogroItem[]>(() => {
+    const totalReservas = Number(this.stats()[0]?.value ?? 0);
+    const totalResenas = this.misResenas().filter(r => !r.eliminada).length;
+
+    return [
+      { emoji: '🏆', label: 'Primer servicio reservado', conseguido: totalReservas >= 1 },
+      { emoji: '🏆', label: 'Primera valoración',        conseguido: totalResenas >= 1 },
+      { emoji: '🏆', label: '10 reservas realizadas',    conseguido: totalReservas >= 10 },
+      { emoji: '🏆', label: 'Cliente fiel',              conseguido: (this.alpha()?.nivelActual ?? 1) >= 2 },
+    ];
+  });
+
+  /**
+   * Mensajes personalizados de la cabecera (HU-7.8). Solo se emiten los que se
+   * pueden afirmar con datos reales — nada de cifras de ahorro inventadas.
+   */
+  readonly mensajesPersonalizados = computed<string[]>(() => {
+    const mensajes: string[] = [];
+
+    const alpha = this.alpha();
+    if (alpha && !alpha.esMaximoNivel && (alpha.reservasParaSiguiente ?? 0) > 0) {
+      const n = alpha.reservasParaSiguiente as number;
+      mensajes.push(`Te ${n === 1 ? 'falta' : 'faltan'} ${n} ${n === 1 ? 'reserva' : 'reservas'} para subir de nivel Alpha.`);
+    }
+
+    const proxima = this.proximaReserva();
+    if (proxima) {
+      const dias = this.diasFaltantes(proxima.fechaInicio);
+      mensajes.push(dias === 0
+        ? '¡Tu próxima reserva es hoy!'
+        : `Tu próxima reserva es dentro de ${dias} ${dias === 1 ? 'día' : 'días'}.`);
+    }
+
+    const sinFicha = this.mascotas().find(m => !m.raza || !m.fechaNacimiento);
+    if (sinFicha) {
+      mensajes.push(`Completa la ficha inteligente de ${sinFicha.nombre} para recibir mejores recomendaciones.`);
+    }
+
+    return mensajes;
+  });
+
+  private formatearFecha(iso: string): string {
+    const fecha = new Date(iso);
+    return Number.isNaN(fecha.getTime())
+      ? ''
+      : fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
   readonly configItems: ConfigItem[] = [
     { icon: 'paw',         label: 'Ficha inteligente de mis mascotas', sub: 'Datos, salud y comportamiento de tus mascotas', ruta: '/perros' },
     { icon: 'heart',       label: 'Mis favoritos',                     sub: 'Servicios que has guardado',        ruta: '/favoritos' },
@@ -457,15 +670,20 @@ export class PerfilDashboardComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      const [apiReservas, misMascotas, misRecordatorios, misPuntos, miProximaReserva, miAlpha] = await Promise.all([
+      const usuarioId = this.usuario()?.id;
+      const [apiReservas, misMascotas, misRecordatorios, misPuntos, miProximaReserva, miAlpha, resenas] = await Promise.all([
         this.reservasService.misReservas(),
         this.perrosService.misPerros().catch(() => [] as PerroApi[]),
         this.reservasService.recordatorios().catch(() => [] as RecordatorioApi[]),
         this.reservasService.puntos().catch(() => null),
         this.reservasService.proximaReserva().catch(() => null),
         this.alphaService.miEstado().catch(() => null),
+        // Alimenta "Mi actividad" y los logros (HU-7.7); si falla, el resto del
+        // panel sigue funcionando sin esas dos secciones.
+        usuarioId ? this.reviewsService.misResenas(usuarioId).catch(() => [] as ResenaApi[]) : Promise.resolve([] as ResenaApi[]),
         this.favoritosService.cargarIds(),
       ]);
+      this.misResenas.set(resenas);
       this.recordatorios.set(misRecordatorios);
       this.puntos.set(misPuntos);
       this.proximaReserva.set(miProximaReserva);

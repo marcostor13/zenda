@@ -45,6 +45,8 @@ export interface AlojamientoCard {
   paseosIncluidos: boolean;
   espaciosDisponibles: number;
   destacado: boolean;
+  /** El comercio ofrece ventajas del programa Doogking Alpha (HU-13.3). */
+  alphaAdherido?: boolean;
   lat?: number;
   lng?: number;
 }
@@ -64,7 +66,6 @@ export interface AlojamientoDetalle extends AlojamientoCard {
   espacios: Espacio[];
   resenas: Resena[];
   /** El API aún no calcula un desglose por categoría; puede no venir. */
-  scoreDesglose?: ScoreDesglose;
   /** El API aún no modela reglas de la casa; puede no venir. */
   reglas?: string[];
   comercioId: string;
@@ -103,15 +104,9 @@ export interface Resena {
   comentario: string;
   fecha: string;
   respuesta?: string | null;
-}
-
-export interface ScoreDesglose {
-  limpieza: number;
-  ubicacion: number;
-  cuidado: number;
-  valorPrecio: number;
-  instalaciones: number;
-  personal: number;
+  /** Puntuación por criterio (limpieza, atención…). Vacío si el autor no puntuó por aspectos. */
+  aspectos?: Record<string, number>;
+  fotos?: string[];
 }
 
 export interface PaginatedResult<T> {

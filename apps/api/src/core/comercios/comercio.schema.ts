@@ -121,6 +121,16 @@ export class Comercio {
   @Prop({ type: Boolean, default: false })
   socioFundador!: boolean;
 
+  // --- Programa Doogking Alpha (HU-13.3) ---
+  /**
+   * El comercio ofrece las ventajas del programa Alpha a los clientes según su
+   * nivel. Se muestra como insignia en los listados y alimenta el carrusel de
+   * "Ventajas disponibles para ti"; el descuento concreto sale de la escalera
+   * configurada por el admin, no de aquí.
+   */
+  @Prop({ type: Boolean, default: false })
+  alphaAdherido!: boolean;
+
   @Prop({ type: Number })
   comisionPctCongelada?: number;
 

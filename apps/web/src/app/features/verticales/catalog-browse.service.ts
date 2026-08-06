@@ -16,6 +16,8 @@ export interface ServicioCard {
   imagenes: string[];
   destacado: boolean;
   vertical?: string;
+  /** El comercio ofrece ventajas del programa Doogking Alpha (HU-13.3). */
+  alphaAdherido?: boolean;
   extra: Record<string, unknown>;
 }
 
@@ -27,6 +29,9 @@ export interface ResenaResumen {
   comentario: string;
   fecha: string;
   respuesta?: string | null;
+  /** Puntuación por criterio (limpieza, trato…) según el vertical. Vacío si no se valoró. */
+  aspectos?: Record<string, number>;
+  fotos?: string[];
 }
 
 /** Ficha completa de un servicio (cualquier vertical) — GET /catalog/servicios/:id. */

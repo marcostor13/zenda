@@ -22,6 +22,16 @@ interface FormularioAbierto {
 
 const COMENTARIO_MINIMO = 10;
 
+/**
+ * Escalera de reconocimientos del reseñador (HU-11.5), de mayor a menor para
+ * que el primer `find` que cumpla el umbral sea el nivel alcanzado.
+ */
+const RECONOCIMIENTOS = [
+  { desde: 25, emoji: '🥇', label: 'Embajador Doogking', siguienteDesde: null, siguienteLabel: '' },
+  { desde: 10, emoji: '🥈', label: 'Experto',            siguienteDesde: 25,   siguienteLabel: 'Embajador Doogking' },
+  { desde: 1,  emoji: '🥉', label: 'Colaborador',        siguienteDesde: 10,   siguienteLabel: 'Experto' },
+] as const;
+
 @Component({
   selector: 'app-perfil-resenas',
   standalone: true,
@@ -47,6 +57,41 @@ const COMENTARIO_MINIMO = 10;
         <div class="spinner"></div>
       </div>
     } @else if (huboAlgunaVez()) {
+      <!-- Reputación del reseñador (HU-11.5) -->
+      @if (reputacion(); as rep) {
+        <div class="rs-card reputacion">
+          <div class="reputacion__nivel">
+            <span class="reputacion__emoji">{{ rep.nivelEmoji }}</span>
+            <div>
+              <strong>{{ rep.nivelLabel }}</strong>
+              <span class="reputacion__sub">Tu reputación en Doogking</span>
+            </div>
+          </div>
+          <div class="reputacion__datos">
+            <div class="reputacion__dato">
+              <strong>{{ rep.total }}</strong>
+              <span>reseña{{ rep.total === 1 ? '' : 's' }} publicada{{ rep.total === 1 ? '' : 's' }}</span>
+            </div>
+            <div class="reputacion__dato">
+              <strong>{{ rep.media }}</strong>
+              <span>nota media que das</span>
+            </div>
+            <div class="reputacion__dato">
+              <strong>{{ rep.conFotos }}</strong>
+              <span>con fotos</span>
+            </div>
+          </div>
+          @if (rep.siguiente; as sig) {
+            <p class="reputacion__meta">
+              🎖 Te {{ sig.falta === 1 ? 'falta' : 'faltan' }} {{ sig.falta }}
+              reseña{{ sig.falta === 1 ? '' : 's' }} para llegar a <strong>{{ sig.label }}</strong>.
+            </p>
+          } @else {
+            <p class="reputacion__meta">🎖 Has alcanzado el máximo reconocimiento. ¡Gracias por ayudar a la comunidad!</p>
+          }
+        </div>
+      }
+
       <div class="tabs">
         @for (t of tabs; track t.valor) {
           <button type="button" class="tab" [class.tab--activo]="filtro() === t.valor" (click)="filtro.set(t.valor)">
@@ -263,6 +308,20 @@ const COMENTARIO_MINIMO = 10;
       p { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
     }
 
+    /* Reputación del reseñador (HU-11.5) */
+    .reputacion { padding: var(--sp-5); max-width: 680px; margin-bottom: var(--sp-5); }
+    .reputacion__nivel { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+    .reputacion__emoji { font-size: 2rem; line-height: 1; }
+    .reputacion__nivel strong { display: block; font-size: var(--f-md); }
+    .reputacion__sub { font-size: var(--f-xs); color: var(--t-400); }
+    .reputacion__datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
+    .reputacion__dato {
+      text-align: center; padding: var(--sp-3); background: var(--c-raised); border-radius: var(--r-md);
+      strong { display: block; font-size: var(--f-lg); font-weight: var(--w-7); }
+      span { font-size: var(--f-xs); color: var(--t-400); }
+    }
+    .reputacion__meta { margin-top: var(--sp-4); font-size: var(--f-sm); color: var(--t-300); }
+
     .empty-card {
       max-width: 480px; padding: var(--sp-10);
       text-align: center;
@@ -382,6 +441,32 @@ export class PerfilResenasComponent implements OnInit {
   readonly aspectosDelFormulario = computed(() => {
     const f = this.formulario();
     return f ? aspectosDeVertical(f.vertical) : ([] as readonly AspectoResenaUi[]);
+  });
+
+  /**
+   * Reputación del reseñador (HU-11.5). Todo sale de las reseñas publicadas del
+   * usuario: nº, nota media que otorga y reconocimiento alcanzado.
+   *
+   * No se incluye el "% de reseñas útiles" que pide el documento: no existe
+   * sistema de votos de utilidad en el backend y el dato sería inventado.
+   */
+  readonly reputacion = computed(() => {
+    const publicadas = this.resenas().filter((r) => !r.eliminada);
+    if (publicadas.length === 0) return null;
+
+    const media = publicadas.reduce((s, r) => s + r.puntuacion, 0) / publicadas.length;
+    const nivel = RECONOCIMIENTOS.find((n) => publicadas.length >= n.desde) ?? RECONOCIMIENTOS[RECONOCIMIENTOS.length - 1];
+
+    return {
+      total: publicadas.length,
+      media: Math.round(media * 10) / 10,
+      conFotos: publicadas.filter((r) => (r.fotos?.length ?? 0) > 0).length,
+      nivelEmoji: nivel.emoji,
+      nivelLabel: nivel.label,
+      siguiente: nivel.siguienteDesde === null
+        ? null
+        : { falta: nivel.siguienteDesde - publicadas.length, label: nivel.siguienteLabel },
+    };
   });
 
   async ngOnInit(): Promise<void> {

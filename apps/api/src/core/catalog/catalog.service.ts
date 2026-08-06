@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { CatalogRepository, BuscarServiciosParams, OrdenServicios } from './catalog.repository';
+import { Comercio, ComercioDocument } from '../comercios/comercio.schema';
 import { ReviewsService } from '../reviews/reviews.service';
 import { ResenaDocument } from '../reviews/resena.schema';
 import { PerrosService } from '../perros/perros.service';
@@ -107,6 +110,8 @@ export interface ServicioCardDto {
   destacado: boolean;
   /** Clave del vertical del servicio. */
   vertical?: string;
+  /** El comercio ofrece ventajas del programa Doogking Alpha (HU-13.3). */
+  alphaAdherido?: boolean;
   /** Campos propios del vertical (taxi, vuelo, etc.) para cualquier UI. */
   extra?: Record<string, unknown>;
 }
@@ -134,6 +139,9 @@ export interface ResenaResumenDto {
   comentario: string;
   fecha: string;
   respuesta?: string | null;
+  /** Puntuación por criterio (limpieza, trato…) según el vertical. Vacío si no se valoró. */
+  aspectos?: Record<string, number>;
+  fotos?: string[];
 }
 
 export interface ServicioDetalleDto extends ServicioCardDto {
@@ -229,6 +237,7 @@ export class CatalogService {
     private readonly repo: CatalogRepository,
     private readonly reviewsService: ReviewsService,
     private readonly perrosService: PerrosService,
+    @InjectModel(Comercio.name) private readonly comercioModel: Model<ComercioDocument>,
   ) {}
 
   async buscarServicios(filtros: {
@@ -267,13 +276,40 @@ export class CatalogService {
     };
 
     const { items, total } = await this.repo.buscar(params);
+    const adheridos = await this.comerciosAdheridosAlpha(items as unknown as ServicioLean[]);
 
     return {
-      items: items.map((doc) => this.toCard(doc as unknown as ServicioLean)),
+      items: items.map((doc) => {
+        const lean = doc as unknown as ServicioLean;
+        const card = this.toCard(lean);
+        card.alphaAdherido = adheridos.has(String(lean.comercioId));
+        return card;
+      }),
       total,
       page: params.page,
       totalPages: Math.max(1, Math.ceil(total / params.limit)),
     };
+  }
+
+  /**
+   * Comercios de la página actual adheridos al programa Alpha (HU-13.3).
+   *
+   * Es una sola consulta con `$in` sobre los comercios ya listados, no una por
+   * tarjeta: el flag vive en `comercios` y no se denormaliza en `servicios`
+   * para que darse de alta o de baja del programa no obligue a reescribir
+   * todos los listados del comercio.
+   */
+  private async comerciosAdheridosAlpha(items: ServicioLean[]): Promise<Set<string>> {
+    const ids = [...new Set(items.map((s) => String(s.comercioId)).filter(Boolean))];
+    if (ids.length === 0) return new Set();
+
+    const adheridos = await this.comercioModel
+      .find({ _id: { $in: ids }, alphaAdherido: true })
+      .select('_id')
+      .lean()
+      .exec();
+
+    return new Set(adheridos.map((c) => String(c._id)));
   }
 
   async crearServicio(dto: CrearServicioDto, comercioId: string): Promise<ServicioCardDto> {
@@ -473,6 +509,8 @@ export class CatalogService {
       comentario: r.comentario,
       fecha,
       respuesta: r.respuesta,
+      aspectos: r.aspectos ?? {},
+      fotos: r.fotos ?? [],
     };
   }
 

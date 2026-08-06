@@ -151,6 +151,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </div>
             </div>
           </div>
+
+          <!-- Resumen del viaje: personas + mascotas + fechas (HU-5.7.2) -->
+          @if (resumenViaje(); as viaje) {
+            <p class="reserva-summary__viaje">{{ viaje }}</p>
+          }
         </div>
 
         <!-- ═══════════ PASO 1 ═══════════ -->
@@ -252,6 +257,38 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </div>
                   </div>
                 }
+
+                <!-- Qué cubre el importe y qué pasa después (HU-5.4.3/5.4.4) -->
+                <div class="info-block">
+                  <h3>¿Qué incluye este precio?</h3>
+                  <ul class="info-block__checks">
+                    <li>Paseos diarios</li>
+                    <li>Alimentación</li>
+                    <li>Supervisión</li>
+                    <li>Limpieza</li>
+                    <li>Atención 24 h</li>
+                  </ul>
+                </div>
+
+                <div class="info-block">
+                  <h3>Recomendaciones para esta estancia</h3>
+                  <ul>
+                    <li>📗 Trae la cartilla de vacunación al día.</li>
+                    <li>🥣 Trae su comida habitual para no cambiarle la dieta.</li>
+                    <li>🧸 Un juguete o manta suyos le ayudarán a adaptarse.</li>
+                    <li>💊 Indícanos cualquier medicación en el paso siguiente.</li>
+                  </ul>
+                </div>
+
+                <div class="info-block">
+                  <h3>¿Qué ocurrirá después de reservar?</h3>
+                  <ol class="info-block__pasos">
+                    <li>📧 Recibes la confirmación inmediata por email.</li>
+                    <li>📱 El alojamiento recibe tu reserva.</li>
+                    <li>✅ Te confirman los detalles definitivos.</li>
+                    <li>🐶 Empieza la estancia.</li>
+                  </ol>
+                </div>
               </form>
             }
 
@@ -310,6 +347,25 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </div>
                   </div>
                 </div>
+
+                <!-- Extras que ofrece este transportista (HU-5.5.2) -->
+                @if (serviciosAdicionalesTransporte().length > 0) {
+                  <div class="extras-section">
+                    <h3>Servicios adicionales</h3>
+                    <div class="extras-grid">
+                      @for (extra of serviciosAdicionalesTransporte(); track extra.nombre) {
+                        <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
+                          <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
+                          <div class="extra-item__icon">✨</div>
+                          <div class="extra-item__info">
+                            <div class="extra-item__name">{{ extra.nombre }}</div>
+                            <div class="extra-item__price">€{{ extra.precio }}</div>
+                          </div>
+                        </label>
+                      }
+                    </div>
+                  </div>
+                }
               </form>
             }
 
@@ -423,6 +479,10 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   }
                 </div>
 
+                @if (duracionGroomingElegida(); as minutos) {
+                  <p class="rs-field-hint">⏱ Duración aproximada: {{ minutos }} min</p>
+                }
+
                 @if (politicaTemperamentoLabel(); as texto) {
                   <div class="rs-alert rs-alert--info">🐾 {{ texto }}</div>
                 }
@@ -435,6 +495,16 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     <p class="rs-field-hint">{{ serviciosAdicionalesResumen() }}</p>
                   </div>
                 }
+
+                <!-- Preparación previa a la cita (HU-5.3.4) -->
+                <div class="info-block">
+                  <h3>Antes de la cita</h3>
+                  <ul>
+                    <li>🐕 Pasea a tu perro antes de venir.</li>
+                    <li>🍖 Evita darle de comer justo antes si se pone nervioso.</li>
+                    <li>🪮 Si tiene nudos importantes, el precio podría variar tras la valoración.</li>
+                  </ul>
+                </div>
               </form>
             }
 
@@ -473,7 +543,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 }
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Motivo principal</label>
+                    <label class="rs-lbl">¿Qué quieres trabajar?</label>
                     <select formControlName="motivo" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionAdiestramiento()">
                       <option value="obediencia_basica">Obediencia básica</option>
                       <option value="tirones_correa">Tirones de correa</option>
@@ -493,11 +563,21 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <div class="rs-field">
                     <label class="rs-lbl">Intensidad del problema</label>
                     <select formControlName="intensidad" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionAdiestramiento()">
-                      <option value="leve">Leve</option>
-                      <option value="moderado">Moderado</option>
-                      <option value="grave">Grave</option>
+                      <option value="leve">🟢 Leve</option>
+                      <option value="moderado">🟡 Moderado</option>
+                      <option value="grave">🔴 Grave</option>
                     </select>
                   </div>
+                </div>
+
+                <!-- Contexto libre para que el adiestrador prepare la sesión (HU-5.6.2) -->
+                <div class="rs-field">
+                  <label class="rs-lbl">Cuéntanos un poco más</label>
+                  <textarea formControlName="descripcionComportamiento" rows="3" class="rs-inp"
+                            placeholder="¿Cuándo aparece la conducta? ¿Desde cuándo? ¿Qué habéis probado ya?"></textarea>
+                  <span class="rs-field-hint">
+                    Cuanta más información nos proporciones, mejor podrá preparar el adiestrador la primera sesión.
+                  </span>
                 </div>
 
                 @if (recomendacionAdiestramiento(); as rec) {
@@ -506,6 +586,27 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     {{ rec.mensaje }}
                   </div>
                 }
+
+                <!-- Qué compra el cliente y qué se lleva (HU-5.6.1) -->
+                <div class="info-block">
+                  <h3>¿Qué incluye esta sesión?</h3>
+                  <ul class="info-block__checks">
+                    <li>Valoración inicial de tu perro</li>
+                    <li>Plan de trabajo personalizado</li>
+                    <li>Recomendaciones para casa</li>
+                    <li>Resolución de dudas</li>
+                  </ul>
+                </div>
+
+                <div class="info-block">
+                  <h3>¿Qué conseguirás con esta sesión?</h3>
+                  <ul>
+                    <li>🔍 Evaluar el comportamiento de tu perro.</li>
+                    <li>🧠 Identificar la causa real de la conducta.</li>
+                    <li>📋 Un plan personalizado para trabajarla.</li>
+                    <li>🏠 Ejercicios concretos para hacer en casa.</li>
+                  </ul>
+                </div>
               </form>
             }
 
@@ -524,7 +625,25 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Número de mascotas</label>
+                    <label class="rs-lbl">👤 Adultos</label>
+                    <select formControlName="adultos" class="rs-inp rs-inp--lg">
+                      @for (n of [1,2,3,4,5,6,7,8,9,10]; track n) {
+                        <option [value]="n">{{ n }} {{ n === 1 ? 'adulto' : 'adultos' }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">👶 Niños</label>
+                    <select formControlName="ninos" class="rs-inp rs-inp--lg">
+                      @for (n of [0,1,2,3,4,5,6,7,8,9,10]; track n) {
+                        <option [value]="n">{{ n }} {{ n === 1 ? 'niño' : 'niños' }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">🐶 Número de mascotas</label>
                     <select formControlName="mascotas" class="rs-inp rs-inp--lg">
                       <option value="1">1 mascota</option>
                       <option value="2">2 mascotas</option>
@@ -542,7 +661,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </select>
                   </div>
                 </div>
-                <span class="rs-field-hint">El precio final puede incluir un suplemento por mascota según su tamaño y normas del hotel.</span>
+                <div class="rs-field">
+                  <label class="rs-lbl">Observaciones para el hotel</label>
+                  <textarea formControlName="observaciones" rows="2" class="rs-inp"
+                            placeholder="Llegada tardía, cuna, planta baja…"></textarea>
+                  <span class="rs-field-hint">Opcional.</span>
+                </div>
+                <span class="rs-field-hint">El suplemento por mascota, si existe, se calculará automáticamente según las condiciones configuradas por el hotel.</span>
               </form>
             }
 
@@ -778,6 +903,25 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
               }
             }
+            @if (vertical() === 'transporte') {
+              <!-- Desglose transparente del trayecto (HU-5.5.3) -->
+              <div class="price-row price-row--sub">
+                <span>Servicio base</span>
+                <span>€{{ tarifaBaseTransporte() }}</span>
+              </div>
+              @if (costeKmTransporte() > 0) {
+                <div class="price-row price-row--sub">
+                  <span>Kilómetros</span>
+                  <span>€{{ costeKmTransporte() }}</span>
+                </div>
+              }
+              @for (extra of extrasSelec(); track extra) {
+                <div class="price-row price-row--sub">
+                  <span>{{ extra }}</span>
+                  <span>€{{ extraPrecioTransporte(extra) }}</span>
+                </div>
+              }
+            }
             @if (vertical() === 'hoteles' && suplementoHotel() > 0) {
               <div class="price-row">
                 <span>Suplemento por mascota</span>
@@ -927,6 +1071,14 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       p   { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-3); }
     }
     .reserva-summary__tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .reserva-summary__viaje {
+      margin: var(--sp-3) 0 0;
+      padding-top: var(--sp-3);
+      border-top: 1px solid var(--b-1);
+      font-size: var(--f-sm);
+      font-weight: var(--fw-semibold);
+      color: var(--text-secondary);
+    }
 
     .form-row {
       display: grid;
@@ -938,6 +1090,22 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
     .rs-field { margin-bottom: var(--sp-5); }
     .rs-field-hint { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); display: block; }
+
+    /* Bloques informativos del paso 1 (HU-5.3.4/5.4.3/5.4.4/5.6.1) */
+    .info-block {
+      margin-top: var(--sp-6);
+      padding: var(--sp-4);
+      background: var(--c-raised);
+      border-radius: var(--r-lg);
+      h3 { font-size: var(--f-sm); font-weight: var(--fw-bold); margin: 0 0 var(--sp-3); }
+      ul, ol { margin: 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+      li { font-size: var(--f-sm); color: var(--t-300); line-height: 1.6; }
+    }
+    .info-block__checks {
+      list-style: none; padding-left: 0;
+      li::before { content: '✓'; color: var(--c-success); font-weight: var(--fw-bold); margin-right: var(--sp-2); }
+    }
+    .info-block__pasos { list-style: none; padding-left: 0; counter-reset: paso; }
 
     .extras-section { margin-block: var(--sp-6); h3 { font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); margin-bottom: var(--sp-4); } }
     .extras-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
@@ -1131,6 +1299,22 @@ export class ReservaWizardComponent implements OnInit {
     return tier?.precio ?? s.precio;
   }
 
+  /**
+   * Duración del servicio de grooming elegido (HU-5.3.2). Igual que el precio,
+   * puede depender del tamaño del perro. `null` si el salón no la ha configurado:
+   * preferimos no decir nada a inventar una estimación.
+   */
+  readonly duracionGroomingElegida = computed(() => {
+    this.revisionFormularios();
+    const nombre = this.paso1PeluqueriaForm.value.servicio;
+    const servicio = this.serviciosGroomingOpciones().find((s) => s.nombre === nombre);
+    if (!servicio) return null;
+
+    const tamanoPerro = this.perroSeleccionadoObj()?.tamano;
+    const tier = tamanoPerro ? servicio.preciosPorTamano?.find((t) => t.tamano === tamanoPerro) : undefined;
+    return tier?.duracionMin ?? servicio.duracionMin ?? null;
+  });
+
   metodoPagoVal = 'card';
 
   /**
@@ -1252,13 +1436,22 @@ export class ReservaWizardComponent implements OnInit {
     motivo:      ['obediencia_basica'],
     intensidad:  ['leve'],
     servicio:    [''],
+    descripcionComportamiento: [''],
   });
 
+  /**
+   * HU-5.7.1 — En hoteles la unidad reservable es el viaje completo (personas +
+   * mascotas), no solo la estancia del perro: el paso 1 pide únicamente lo que
+   * afecta a disponibilidad y precio; los datos personales viven en el paso 2.
+   */
   readonly paso1HotelesForm = this.fb.group({
     checkIn:   ['', Validators.required],
     checkOut:  ['', Validators.required],
+    adultos:   [2, [Validators.required, Validators.min(1), Validators.max(10)]],
+    ninos:     [0, [Validators.required, Validators.min(0), Validators.max(10)]],
     mascotas:  [1, [Validators.required, Validators.min(1), Validators.max(3)]],
     tamanoPerro: ['mediano', Validators.required],
+    observaciones: [''],
   });
 
   // ─── Step 2 (shared) ───
@@ -1275,6 +1468,14 @@ export class ReservaWizardComponent implements OnInit {
   // ─── Extras (alojamiento) — configurados por el comercio (HU-15.1/15.2), no fijos ───
   readonly extrasSelec = signal<string[]>([]);
   readonly serviciosAdicionalesAlojamiento = signal<ServicioAdicionalWizard[]>([]);
+
+  /**
+   * Tarifas y extras del transportista (HU-5.5.2/5.5.3/15.1). Sin esto el resumen
+   * mostraba solo la tarifa base e ignoraba los kilómetros, así que el cliente veía
+   * un importe menor al que el backend cobra después.
+   */
+  readonly serviciosAdicionalesTransporte = signal<ServicioAdicionalWizard[]>([]);
+  readonly tarifasTransporte = signal<{ tarifaBase: number; tarifaKm: number } | null>(null);
 
   // ─── Suplementos (hoteles) — configurados por el comercio (HU-15.1/15.2) ───
   readonly hotelSuplementos = signal<HotelSuplementosWizard>({
@@ -1335,6 +1536,8 @@ export class ReservaWizardComponent implements OnInit {
         );
         return base * noches + extras;
       }
+      case VerticalKey.TRANSPORTE:
+        return Math.round((this.tarifaBaseTransporte() + this.costeKmTransporte() + this.extrasTransporte()) * 100) / 100;
       case VerticalKey.HOTELES: {
         const { checkIn, checkOut } = this.paso1HotelesForm.value;
         const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
@@ -1344,6 +1547,30 @@ export class ReservaWizardComponent implements OnInit {
         return base;
     }
   });
+
+  /**
+   * Desglose del trayecto (HU-5.5.3). Replica la fórmula de
+   * `transporte-availability.strategy.ts` (tarifaBase + tarifaKm × km + extras);
+   * si el catálogo no ha cargado aún, cae a `precioBase()` para no mostrar 0 €.
+   */
+  readonly tarifaBaseTransporte = computed(
+    () => this.tarifasTransporte()?.tarifaBase ?? this.precioBase(),
+  );
+
+  readonly costeKmTransporte = computed(() => {
+    this.revisionFormularios();
+    const tarifas = this.tarifasTransporte();
+    if (!tarifas) return 0;
+    const km = Number(this.paso1TransporteForm.value.distanciaKm ?? 0);
+    if (!Number.isFinite(km) || km <= 0) return 0;
+    return Math.round(tarifas.tarifaKm * km * 100) / 100;
+  });
+
+  readonly extrasTransporte = computed(() =>
+    this.extrasSelec().reduce(
+      (s, nombre) => s + (this.serviciosAdicionalesTransporte().find(e => e.nombre === nombre)?.precio ?? 0), 0,
+    ),
+  );
 
   /**
    * Estimación del suplemento por mascota del hotel (tamaño + mascotas adicionales),
@@ -1372,6 +1599,64 @@ export class ReservaWizardComponent implements OnInit {
     return real !== null ? real : Math.round((this.subtotalNeto() + this.iva()) * 100) / 100;
   });
 
+  /**
+   * HU-5.7.2 — Resumen del viaje visible durante todo el proceso de reserva de
+   * hotel. Solo aplica a hoteles: es el único vertical donde viajan personas
+   * además de la mascota. Devuelve `null` en el resto para no pintar la línea.
+   */
+  readonly resumenViaje = computed(() => {
+    this.revisionFormularios();
+    if (this.vertical() !== VerticalKey.HOTELES) return null;
+
+    const { checkIn, checkOut, adultos, ninos, mascotas } = this.paso1HotelesForm.value;
+    const partes: string[] = [];
+
+    const numAdultos = Number(adultos ?? 0);
+    if (numAdultos > 0) partes.push(`👤 ${numAdultos} ${numAdultos === 1 ? 'adulto' : 'adultos'}`);
+
+    const numNinos = Number(ninos ?? 0);
+    if (numNinos > 0) partes.push(`👶 ${numNinos} ${numNinos === 1 ? 'niño' : 'niños'}`);
+
+    // Si hay una mascota elegida en la Ficha Inteligente mostramos su nombre;
+    // si son varias, el recuento — el nombre solo identifica a la primera.
+    const numMascotas = Number(mascotas ?? 0);
+    const nombrePerro = this.perroSeleccionadoObj()?.nombre;
+    if (numMascotas === 1 && nombrePerro) partes.push(`🐶 ${nombrePerro}`);
+    else if (numMascotas > 0) partes.push(`🐶 ${numMascotas} ${numMascotas === 1 ? 'mascota' : 'mascotas'}`);
+
+    const rango = this.rangoFechasCorto(checkIn, checkOut);
+    if (rango) partes.push(`📅 ${rango}`);
+
+    return partes.length > 0 ? partes.join(' · ') : null;
+  });
+
+  /**
+   * "28–30 julio" a partir de dos fechas `YYYY-MM-DD`. Vacío si falta alguna.
+   *
+   * Las partes se parsean del propio string en vez de con `new Date(iso)`: ese
+   * constructor interpreta la fecha como UTC y `getDate()` la lee en la zona
+   * local, así que en husos negativos el resumen mostraba el día anterior.
+   */
+  private rangoFechasCorto(desde?: string | null, hasta?: string | null): string {
+    const inicio = this.partesFecha(desde);
+    const fin = this.partesFecha(hasta);
+    if (!inicio || !fin) return '';
+
+    const nombreMes = (mes: number): string =>
+      new Date(2000, mes - 1, 1).toLocaleDateString('es-ES', { month: 'long' });
+
+    // Mismo mes → "28–30 julio"; distinto mes → "28 julio – 2 agosto".
+    if (inicio.mes === fin.mes && inicio.anio === fin.anio) {
+      return `${inicio.dia}–${fin.dia} ${nombreMes(fin.mes)}`;
+    }
+    return `${inicio.dia} ${nombreMes(inicio.mes)} – ${fin.dia} ${nombreMes(fin.mes)}`;
+  }
+
+  private partesFecha(iso?: string | null): { anio: number; mes: number; dia: number } | null {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+    return m ? { anio: Number(m[1]), mes: Number(m[2]), dia: Number(m[3]) } : null;
+  }
+
   readonly paso1Label = computed(() => {
     const m: Record<string, string> = {
       [VerticalKey.ALOJAMIENTO]: 'Tu estancia',
@@ -1379,7 +1664,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.VETERINARIA]: 'Tu cita',
       [VerticalKey.PELUQUERIA]: 'Tu cita',
       [VerticalKey.ADIESTRAMIENTO]: 'Tu sesión',
-      [VerticalKey.HOTELES]: 'Tu estancia',
+      [VerticalKey.HOTELES]: 'Tu viaje',
     };
     return m[this.vertical()] ?? 'Selección';
   });
@@ -1391,7 +1676,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.VETERINARIA]: 'Detalles de la cita veterinaria',
       [VerticalKey.PELUQUERIA]: 'Detalles de la cita de peluquería',
       [VerticalKey.ADIESTRAMIENTO]: 'Detalles del adiestramiento',
-      [VerticalKey.HOTELES]: 'Detalles de tu estancia pet-friendly',
+      [VerticalKey.HOTELES]: 'Detalles de tu viaje pet-friendly',
     };
     return m[this.vertical()] ?? 'Resumen de tu reserva';
   });
@@ -1573,6 +1858,23 @@ export class ReservaWizardComponent implements OnInit {
       });
     }
 
+    if (this.vertical() === VerticalKey.TRANSPORTE && this.servicioId) {
+      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+        const extra = s.extra ?? {};
+        this.serviciosAdicionalesTransporte.set(
+          (extra['serviciosAdicionales'] as ServicioAdicionalWizard[] | undefined) ?? [],
+        );
+        const tarifaBase = extra['tarifaBase'] as number | undefined;
+        const tarifaKm = extra['tarifaKm'] as number | undefined;
+        if (tarifaBase !== undefined && tarifaKm !== undefined) {
+          this.tarifasTransporte.set({ tarifaBase, tarifaKm });
+        }
+      }).catch(() => {
+        // Catálogo detallado no disponible: el resumen cae a la tarifa base
+        // (el cobro final lo sigue calculando el backend, que es la fuente de verdad).
+      });
+    }
+
     if (this.vertical() === VerticalKey.HOTELES && this.servicioId) {
       void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
         const extra = s.extra ?? {};
@@ -1700,6 +2002,7 @@ export class ReservaWizardComponent implements OnInit {
             // Se guarda cómo se obtuvo la distancia: si mañana hay una disputa
             // por el importe, hace falta saber si fue medida o estimada.
             trayectoCalculado: this.resumenTrayecto() || undefined,
+            ...(this.extrasSelec().length > 0 ? { extras: this.extrasSelec() } : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
@@ -1733,7 +2036,14 @@ export class ReservaWizardComponent implements OnInit {
           perroId: this.perroSeleccionado() ?? undefined,
           fechaInicio: f.fechaInicio!,
           cantidad: 1,
-          detalle: { modalidad: f.modalidad, edadMeses: Number(f.edadMeses ?? 0), servicio: f.servicio || undefined },
+          detalle: {
+            modalidad: f.modalidad,
+            edadMeses: Number(f.edadMeses ?? 0),
+            servicio: f.servicio || undefined,
+            motivo: f.motivo || undefined,
+            intensidad: f.intensidad || undefined,
+            descripcionComportamiento: f.descripcionComportamiento || undefined,
+          },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }
@@ -1744,7 +2054,12 @@ export class ReservaWizardComponent implements OnInit {
           perroId: this.perroSeleccionado() ?? undefined,
           fechaInicio: f.checkIn!, fechaFin: f.checkOut ?? undefined,
           cantidad: Number(f.mascotas ?? 1),
-          detalle: { tamanoPerro: f.tamanoPerro },
+          detalle: {
+            tamanoPerro: f.tamanoPerro,
+            adultos: Number(f.adultos ?? 0),
+            ninos: Number(f.ninos ?? 0),
+            observaciones: f.observaciones || undefined,
+          },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }
@@ -1795,6 +2110,7 @@ export class ReservaWizardComponent implements OnInit {
 
   extraNombre(nombre: string): string { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.nombre ?? ''; }
   extraPrecio(nombre: string): number { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.precio ?? 0; }
+  extraPrecioTransporte(nombre: string): number { return this.serviciosAdicionalesTransporte().find(e => e.nombre === nombre)?.precio ?? 0; }
 
   async aplicarCupon(): Promise<void> {
     const codigo = this.cuponInput.trim().toUpperCase();

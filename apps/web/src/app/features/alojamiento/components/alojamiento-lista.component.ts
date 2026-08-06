@@ -357,6 +357,7 @@ export class AlojamientoListaComponent implements OnInit {
     if (a.descuentoPct) badges.push({ icon: '', label: `-${a.descuentoPct}%`, variant: 'success' });
     badges.push(...calcularBadgesAutomaticos({
       score: a.score, numResenas: a.numResenas, plazasRestantes: a.espaciosDisponibles,
+      alphaAdherido: a.alphaAdherido,
     }));
     return badges;
   }

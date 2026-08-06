@@ -193,6 +193,26 @@ export function rutaDeVertical(key: string | null | undefined): string {
   return verticalUi(key).route;
 }
 
+/**
+ * Verticales con página de ficha propia (`/<vertical>/:id`). El resto solo tiene
+ * listado, así que enlazar a `[ruta, id]` para ellos daría un 404.
+ */
+const VERTICALES_CON_FICHA = new Set<string>([
+  VerticalKey.ALOJAMIENTO,
+  VerticalKey.TRANSPORTE,
+  VerticalKey.ADIESTRAMIENTO,
+  VerticalKey.HOTELES,
+]);
+
+/**
+ * Enlace al servicio: su ficha si el vertical tiene una, y si no el listado de
+ * la categoría — nunca una ruta que no exista.
+ */
+export function enlaceAServicio(vertical: string | null | undefined, servicioId: string): unknown[] {
+  const ruta = rutaDeVertical(vertical);
+  return vertical && VERTICALES_CON_FICHA.has(vertical) ? [ruta, servicioId] : [ruta];
+}
+
 /** Titular de cabecera del vertical; cae a la etiqueta si no hay copy propio. */
 export function titularDeVertical(key: string | null | undefined): string {
   const ui = verticalUi(key);

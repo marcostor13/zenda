@@ -10,6 +10,7 @@ import { ReservaApi, ReservasService } from '../reservas/services/reservas.servi
 import { PerrosService } from '../perros/perros.service';
 import { FavoritosService } from '../favoritos/favoritos.service';
 import { AlphaService, AlphaEstadoApi } from '../alpha/alpha.service';
+import { ReviewsService, ResenaApi } from '../reservas/services/reviews.service';
 
 const reserva = (extra: Partial<ReservaApi> = {}): ReservaApi => ({
   _id: 'r1', codigo: 'RES-AAAA1111', vertical: VerticalKey.ALOJAMIENTO,
@@ -35,10 +36,11 @@ describe('PerfilDashboardComponent', () => {
     favoritos?: number;
     ajustes?: Record<string, jest.Mock>;
     alphaEstado?: AlphaEstadoApi | null;
+    resenas?: ResenaApi[];
   } = {}): Promise<void> => {
     // La barra de navegación embebida consulta también el rol del usuario.
     auth = {
-      usuario: signal(datos.usuario === undefined ? { nombre: 'Ana Ruiz García' } : datos.usuario),
+      usuario: signal(datos.usuario === undefined ? { id: 'u1', nombre: 'Ana Ruiz García' } : datos.usuario),
       estaAutenticado: signal(datos.usuario !== null),
       esAdmin: signal(false),
       esComercio: signal(false),
@@ -57,6 +59,10 @@ describe('PerfilDashboardComponent', () => {
       miEstado: jest.fn().mockResolvedValue(datos.alphaEstado ?? null),
       niveles: jest.fn().mockResolvedValue([]),
     };
+    const reviewsService = {
+      misResenas: jest.fn().mockResolvedValue(datos.resenas ?? []),
+      pendientesDeValorar: jest.fn().mockResolvedValue([]),
+    };
 
     await TestBed.configureTestingModule({
       imports: [PerfilDashboardComponent, RouterTestingModule],
@@ -68,6 +74,7 @@ describe('PerfilDashboardComponent', () => {
         { provide: PerrosService, useValue: perrosService },
         { provide: FavoritosService, useValue: favoritos },
         { provide: AlphaService, useValue: alphaService },
+        { provide: ReviewsService, useValue: reviewsService },
       ],
     }).compileComponents();
 
@@ -271,6 +278,72 @@ describe('PerfilDashboardComponent', () => {
       await crear();
 
       expect(componente.alpha()).toBeNull();
+    });
+  });
+
+  describe('actividad, logros y mensajes (HU-7.6/7.7/7.8)', () => {
+    const resena = (extra: Partial<ResenaApi> = {}): ResenaApi => ({
+      _id: 'rev1', reservaId: 'r1', servicioTitulo: 'Royal Paws',
+      vertical: VerticalKey.ALOJAMIENTO, puntuacion: 5, comentario: 'Genial',
+      createdAt: '2026-07-10T00:00:00.000Z', ...extra,
+    });
+
+    it('debería ofrecer accesos rápidos a las acciones frecuentes', async () => {
+      await crear();
+
+      expect(componente.accesosRapidos.map((a) => a.ruta)).toContain('/favoritos');
+      expect(componente.accesosRapidos.length).toBeGreaterThan(0);
+    });
+
+    it('debería resumir la última reserva, valoración y mascota', async () => {
+      await crear({
+        reservas: [reserva()],
+        mascotas: [{ _id: 'p1', nombre: 'Maya', fotos: [], esMestizo: false }],
+        resenas: [resena()],
+      });
+
+      const labels = componente.actividad().map((a) => a.label);
+      expect(labels).toContain('Última reserva');
+      expect(labels).toContain('Última valoración');
+      expect(labels).toContain('Última mascota añadida');
+    });
+
+    it('no debería listar actividad que aún no ha ocurrido', async () => {
+      await crear();
+
+      expect(componente.actividad()).toEqual([]);
+    });
+
+    it('debería desbloquear logros según la actividad real', async () => {
+      await crear({ reservas: [reserva()], resenas: [resena()] });
+
+      const logros = componente.logros();
+      expect(logros.find((l) => l.label === 'Primer servicio reservado')?.conseguido).toBe(true);
+      expect(logros.find((l) => l.label === 'Primera valoración')?.conseguido).toBe(true);
+      expect(logros.find((l) => l.label === '10 reservas realizadas')?.conseguido).toBe(false);
+    });
+
+    it('no debería contar reseñas eliminadas como logro', async () => {
+      await crear({ resenas: [resena({ eliminada: true })] });
+
+      expect(componente.logros().find((l) => l.label === 'Primera valoración')?.conseguido).toBe(false);
+    });
+
+    it('debería avisar de cuántas reservas faltan para el siguiente nivel Alpha', async () => {
+      await crear({
+        alphaEstado: {
+          nivelActual: 1, nombreNivel: 'Alpha 1', descuentoPct: 0, beneficios: [],
+          reservasCompletadas: 3, reservasParaSiguiente: 2, siguienteNivel: null, esMaximoNivel: false,
+        },
+      });
+
+      expect(componente.mensajesPersonalizados().join(' ')).toContain('2 reservas');
+    });
+
+    it('no debería inventar mensajes sin datos que los respalden', async () => {
+      await crear();
+
+      expect(componente.mensajesPersonalizados()).toEqual([]);
     });
   });
 

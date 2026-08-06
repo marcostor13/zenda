@@ -139,6 +139,13 @@ const LIMITE = 20;
                 <button class="rs-btn rs-btn--danger rs-btn--sm"
                   [disabled]="accionando() === c._id" (click)="suspender(c._id)">Suspender</button>
               }
+              <!-- Alta/baja en el programa Doogking Alpha (HU-13.3) -->
+              <button class="rs-btn rs-btn--sm"
+                [class.rs-btn--ghost]="!c.alphaAdherido"
+                [style.background]="c.alphaAdherido ? 'var(--dk-gold, #FBAE17)' : ''"
+                [style.color]="c.alphaAdherido ? '#00135D' : ''"
+                [title]="c.alphaAdherido ? 'Dar de baja del programa Alpha' : 'Adherir al programa Alpha'"
+                [disabled]="accionando() === c._id" (click)="alternarAlpha(c)">🏆 Alpha</button>
               <button class="rs-btn rs-btn--ghost rs-btn--sm"
                 [disabled]="accionando() === c._id" (click)="abrirEditar(c)">✏️</button>
               <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171"
@@ -475,6 +482,20 @@ export class AdminComerciosComponent implements OnInit {
       await this.cargar();
     } catch {
       this.errorMsg.set('Error al suspender el comercio.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    } finally {
+      this.accionando.set(null);
+    }
+  }
+
+  /** Alta o baja del comercio en el programa Doogking Alpha (HU-13.3). */
+  async alternarAlpha(c: ComercioAdmin): Promise<void> {
+    this.accionando.set(c._id);
+    try {
+      await firstValueFrom(this.adminApi.fijarAlphaAdherido(c._id, !c.alphaAdherido));
+      await this.cargar();
+    } catch {
+      this.errorMsg.set('Error al cambiar la adhesión al programa Alpha.');
       setTimeout(() => this.errorMsg.set(''), 3000);
     } finally {
       this.accionando.set(null);

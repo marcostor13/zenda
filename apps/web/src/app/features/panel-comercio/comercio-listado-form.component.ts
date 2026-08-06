@@ -410,6 +410,33 @@ function aCsv(v: string): string[] {
                   <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> Acepto perros de razas PPP</label>
                   <label class="rs-checkbox"><input type="checkbox" formControlName="requiereTransportinPropio"> El cliente aporta su transportín</label>
                 </div>
+
+                <h2 class="section-title">Servicios adicionales</h2>
+                <p class="rs-field-hint">
+                  Se muestran al cliente en el paso 1 de la reserva y se suman al precio del trayecto.
+                </p>
+                <div formArrayName="serviciosAdicionales" class="rows">
+                  @for (s of serviciosAdicionalesTransporte.controls; track $index; let i = $index) {
+                    <div [formGroupName]="i" class="row-card row-card--sm">
+                      <div class="row-card__grid row-card__grid--2">
+                        <div class="rs-field">
+                          <label class="rs-lbl">Nombre</label>
+                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Recogida a domicilio">
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Precio (€)</label>
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                        </div>
+                      </div>
+                      <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalTransporte(i)">
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                      </button>
+                    </div>
+                  }
+                </div>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioAdicionalTransporte()">
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio adicional
+                </button>
               </div>
             }
 
@@ -1193,6 +1220,7 @@ export class ComercioListadoFormComponent implements OnInit {
       maxPerrosPorTrayecto: [null as number | null],
       aceptaPPP: [false],
       requiereTransportinPropio: [false],
+      serviciosAdicionales: this.fb.array<FormGroup>([]),
     }),
 
     veterinaria: this.fb.group({
@@ -1287,6 +1315,7 @@ export class ComercioListadoFormComponent implements OnInit {
   get serviciosClinicos(): FormArray { return this.veterinariaGroup.get('serviciosClinicos') as FormArray; }
   get serviciosGrooming(): FormArray { return this.peluqueriaGroup.get('serviciosGrooming') as FormArray; }
   get serviciosAdicionalesPeluqueria(): FormArray { return this.peluqueriaGroup.get('serviciosAdicionales') as FormArray; }
+  get serviciosAdicionalesTransporte(): FormArray { return this.transporteGroup.get('serviciosAdicionales') as FormArray; }
   get suplementoPorTamanoMascota(): FormArray { return this.hotelesGroup.get('suplementoPorTamanoMascota') as FormArray; }
 
   private nuevoEspacio(e?: Record<string, unknown>) {
@@ -1316,6 +1345,12 @@ export class ComercioListadoFormComponent implements OnInit {
     this.serviciosAdicionalesAlojamiento.push(this.nuevoServicioAdicionalAlojamiento());
   }
   quitarServicioAdicionalAlojamiento(i: number): void { this.serviciosAdicionalesAlojamiento.removeAt(i); }
+
+  agregarServicioAdicionalTransporte(): void {
+    // Mismo par nombre/precio que alojamiento y peluquería: `ServicioAdicionalTransporte`.
+    this.serviciosAdicionalesTransporte.push(this.nuevoServicioAdicionalAlojamiento());
+  }
+  quitarServicioAdicionalTransporte(i: number): void { this.serviciosAdicionalesTransporte.removeAt(i); }
 
   private nuevoServicioAdiestramiento(e?: Record<string, unknown>) {
     return this.fb.group({
@@ -1517,6 +1552,8 @@ export class ComercioListadoFormComponent implements OnInit {
         ...d,
         zonaCobertura: (d['zonaCobertura'] as string[] | undefined) ?? [],
       });
+      const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
+      adicionales.forEach(e => this.serviciosAdicionalesTransporte.push(this.nuevoServicioAdicionalAlojamiento(e)));
     } else if (vertical === VerticalKey.VETERINARIA) {
       this.veterinariaGroup.patchValue({
         ...d,

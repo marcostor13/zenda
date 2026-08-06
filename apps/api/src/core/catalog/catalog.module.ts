@@ -13,6 +13,7 @@ import { Cuidadores, CuidadoresSchema } from '../../verticals/cuidadores/cuidado
 import { CatalogRepository } from './catalog.repository';
 import { CatalogService } from './catalog.service';
 import { CatalogController } from './catalog.controller';
+import { Comercio, ComercioSchema } from '../comercios/comercio.schema';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { PerrosModule } from '../perros/perros.module';
 
@@ -33,6 +34,8 @@ import { PerrosModule } from '../perros/perros.module';
           { name: Cuidadores.name, schema: CuidadoresSchema, value: VerticalKey.CUIDADORES },
         ],
       },
+      // Solo para leer el flag `alphaAdherido` de los comercios listados (HU-13.3).
+      { name: Comercio.name, schema: ComercioSchema },
     ]),
     ReviewsModule,
     PerrosModule,

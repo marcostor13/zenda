@@ -64,8 +64,9 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
 
     const exclusivo = this.exclusivoSolicitado(params);
     const suplementoExclusivo = exclusivo ? (transporte.precioExclusivo ?? 0) : 0;
+    const extras = this.calcularExtras(transporte, params);
     const precioCalculado = Math.round(
-      (transporte.tarifaBase + transporte.tarifaKm * distanciaKm + suplementoExclusivo) * 100,
+      (transporte.tarifaBase + transporte.tarifaKm * distanciaKm + suplementoExclusivo + extras) * 100,
     ) / 100;
 
     return {
@@ -78,12 +79,28 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
         capacidadPerros: transporte.capacidadPerros,
         perros,
         exclusivo,
+        extras,
       },
     };
   }
 
   private exclusivoSolicitado(params: AvailabilityQuery): boolean {
     return params.parametrosExtra?.['exclusivo'] === true;
+  }
+
+  /**
+   * Suma los `serviciosAdicionales` que el transportista ha configurado y el
+   * cliente ha elegido (HU-5.5.2/15.1). Se identifican por nombre, igual que en
+   * alojamiento: el schema no tiene id estable por servicio adicional.
+   */
+  private calcularExtras(transporte: Transporte, params: AvailabilityQuery): number {
+    const seleccionados = params.parametrosExtra?.['extras'];
+    if (!Array.isArray(seleccionados) || seleccionados.length === 0) return 0;
+    const disponibles = transporte.serviciosAdicionales ?? [];
+    return seleccionados.reduce((suma: number, nombre) => {
+      const extra = disponibles.find((e) => e.nombre === nombre);
+      return suma + (extra?.precio ?? 0);
+    }, 0);
   }
 
   async reserveSlot(servicioId: string, _params: ReserveParams): Promise<SlotHold> {

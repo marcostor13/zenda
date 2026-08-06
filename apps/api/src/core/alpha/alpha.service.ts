@@ -6,6 +6,15 @@ import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { AlphaRepository } from './alpha.repository';
 import { AlphaNivelConfigDocument } from './alpha-nivel.schema';
 
+/** Negocio adherido al programa Alpha tal como lo pinta el carrusel del perfil. */
+export interface AlphaVentajaDto {
+  id: string;
+  nombre: string;
+  ciudad: string;
+  vertical: string;
+  imagenes: string[];
+}
+
 @Injectable()
 export class AlphaService {
   constructor(
@@ -15,6 +24,21 @@ export class AlphaService {
 
   listarNiveles(): Promise<AlphaNivelDto[]> {
     return this.repo.listarNiveles();
+  }
+
+  /** Escaparate de negocios adheridos al programa Alpha (HU-13.3). */
+  async listarVentajas(): Promise<AlphaVentajaDto[]> {
+    const servicios = await this.repo.listarVentajas();
+    return servicios.map((s) => {
+      const lean = s as unknown as Record<string, unknown>;
+      return {
+        id: String(lean['_id']),
+        nombre: (lean['titulo'] as string) ?? '',
+        ciudad: ((lean['ubicacion'] as { ciudad?: string } | undefined)?.ciudad) ?? '',
+        vertical: (lean['vertical'] as string) ?? '',
+        imagenes: (lean['imagenes'] as string[] | undefined) ?? [],
+      };
+    });
   }
 
   actualizarNivel(dto: ActualizarAlphaNivelDto, adminId: string): Promise<AlphaNivelConfigDocument> {

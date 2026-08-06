@@ -1,8 +1,10 @@
 import { Test } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
 import { CatalogService } from './catalog.service';
 import { CatalogRepository } from './catalog.repository';
 import { ReviewsService } from '../reviews/reviews.service';
 import { PerrosService } from '../perros/perros.service';
+import { Comercio } from '../comercios/comercio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { ServicioClinicoTipo } from 'shared';
 
@@ -11,6 +13,7 @@ describe('CatalogService', () => {
   let repo: jest.Mocked<CatalogRepository>;
   let reviewsService: jest.Mocked<ReviewsService>;
   let perrosService: jest.Mocked<PerrosService>;
+  let comercioModel: { find: jest.Mock };
 
   const hotelDoc = {
     _id: 'hotel-1',
@@ -47,6 +50,13 @@ describe('CatalogService', () => {
   };
 
   beforeEach(async () => {
+    comercioModel = {
+      find: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      }),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         CatalogService,
@@ -65,6 +75,11 @@ describe('CatalogService', () => {
           provide: PerrosService,
           useValue: { obtenerPerfilCompatibilidad: jest.fn().mockResolvedValue(null) },
         },
+        {
+          // Solo se consulta para marcar los comercios adheridos a Alpha (HU-13.3).
+          provide: getModelToken(Comercio.name),
+          useValue: comercioModel,
+        },
       ],
     }).compile();
 
@@ -72,6 +87,36 @@ describe('CatalogService', () => {
     repo = module.get(CatalogRepository);
     reviewsService = module.get(ReviewsService);
     perrosService = module.get(PerrosService);
+  });
+
+  describe('ventajas Alpha en el listado (HU-13.3)', () => {
+    it('debería marcar las tarjetas de comercios adheridos', async () => {
+      repo.buscar.mockResolvedValue({ items: [hotelDoc] as never, total: 1 });
+      comercioModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ _id: 'comercio-1' }]),
+      });
+
+      const result = await service.buscarServicios({});
+
+      expect(result.items[0].alphaAdherido).toBe(true);
+    });
+
+    it('no debería marcar las tarjetas de comercios no adheridos', async () => {
+      repo.buscar.mockResolvedValue({ items: [hotelDoc] as never, total: 1 });
+
+      const result = await service.buscarServicios({});
+
+      expect(result.items[0].alphaAdherido).toBe(false);
+    });
+
+    it('no debería consultar comercios si la búsqueda no devuelve nada', async () => {
+      repo.buscar.mockResolvedValue({ items: [] as never, total: 0 });
+
+      await service.buscarServicios({});
+
+      expect(comercioModel.find).not.toHaveBeenCalled();
+    });
   });
 
   describe('buscarServicios', () => {
@@ -256,6 +301,8 @@ describe('CatalogService', () => {
           comentario: 'Genial con mi perro',
           fecha: '2026-06-01T00:00:00.000Z',
           respuesta: null,
+          aspectos: {},
+          fotos: [],
         },
       ]);
     });

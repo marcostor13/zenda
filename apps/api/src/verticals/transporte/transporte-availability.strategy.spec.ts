@@ -21,6 +21,10 @@ describe('TransporteAvailabilityStrategy', () => {
     tarifaBase: 12,
     tarifaKm: 1.2,
     unidadesDisponibles: 6,
+    serviciosAdicionales: [
+      { nombre: 'Recogida a domicilio', precio: 15 },
+      { nombre: 'Fotos del trayecto', precio: 5 },
+    ],
   };
 
   const mockFindById = (doc: unknown): void => {
@@ -123,7 +127,30 @@ describe('TransporteAvailabilityStrategy', () => {
         capacidadPerros: 4,
         perros: 3,
         exclusivo: false,
+        extras: 0,
       });
+    });
+
+    it('debería sumar los servicios adicionales elegidos por el cliente', async () => {
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: new Date('2026-07-15T10:00:00Z'),
+        parametrosExtra: {
+          distanciaKm: 25,
+          extras: ['Recogida a domicilio', 'Fotos del trayecto'],
+        },
+      });
+
+      expect(resultado.precioCalculado).toBe(12 + 1.2 * 25 + 15 + 5); // 62
+      expect(resultado.metadata?.['extras']).toBe(20);
+    });
+
+    it('debería ignorar los extras que el transportista no ofrece', async () => {
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: new Date('2026-07-15T10:00:00Z'),
+        parametrosExtra: { distanciaKm: 25, extras: ['Masaje canino'] },
+      });
+
+      expect(resultado.precioCalculado).toBe(12 + 1.2 * 25); // 42, sin cargo fantasma
     });
 
     it('debería usar la distancia por defecto (10 km) si no se indica', async () => {

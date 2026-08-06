@@ -267,11 +267,64 @@
     limpios.
 
 **Plan completo.** Las 12 fases de `docs/new-changes-27-07.md` están implementadas y
-verificadas. Quedan documentados como fuera de alcance deliberado (no builds fallidos, no
-deuda oculta): HU-11.5 (gamificación de reseñas, P3), HU-13.3 (insignia Alpha en listados,
-P3), el contador de incidencias del icono de ayuda (parte de HU-14.1.1, sin sistema de
-tickets) y la UI de `serviciosAdicionales` de transporte (sin la cual el paso de extras del
-wizard no tendría contenido real que mostrar).
+verificadas.
+
+- ✅ **Fase 13 — cierre de los pendientes** (auditoría de 2026-08-06 sobre el código, no
+  sobre este documento: se confirmó que HU-5.5.1 ya estaba resuelta por otro plan —
+  `geoService.trayecto()` calcula la distancia desde origen/destino — así que la lista de
+  "fuera de alcance" de arriba estaba desactualizada). Implementado todo lo que quedaba:
+  - **HU-5.7.1/5.7.2 (P1)**: el paso 1 de hoteles pasa de "Tu estancia" a **"Tu viaje"** y
+    pide adultos/niños además de mascotas y observaciones; resumen del viaje
+    (`👤 2 adultos · 👶 1 niño · 🐶 Maya · 📅 28–30 julio`) visible en los 4 pasos. Las
+    fechas se formatean parseando el string ISO, no con `new Date(iso)`: ese constructor las
+    interpreta como UTC y `getDate()` las lee en local, así que en husos negativos el
+    resumen mostraba el día anterior (lo detectó un test, no el navegador).
+  - **HU-15.1/15.2 + HU-5.5.2/5.5.3**: `transporte.serviciosAdicionales` ya existía en el
+    schema y en el whitelist del catálogo pero **no tenía UI**; ahora se configura en
+    `comercio-listado-form` (mismo FormArray que alojamiento/peluquería), se ofrece en el
+    paso 1 del wizard y **se cobra** — `transporte-availability.strategy` los suma por
+    nombre igual que alojamiento. De paso se corrigió un desfase de precio del mismo tipo
+    que el de hoteles de la Fase 12: el resumen del wizard mostraba solo la tarifa base e
+    **ignoraba los kilómetros**, de modo que el cliente veía menos de lo que Stripe le
+    cobraba. Ahora hay desglose real (Servicio base · Kilómetros · Extras · IVA · Total),
+    con caída a la tarifa base si el catálogo no ha cargado.
+  - **HU-4.1.6**: el bloque de desglose de valoración de la ficha de alojamiento leía
+    `scoreDesglose`, **un campo que el backend nunca ha enviado** — llevaba desde siempre
+    vacío. Se sustituyó por medias reales calculadas sobre `resena.aspectos` (existe desde
+    la Fase 9), usando `resena-aspectos.config.ts` como fuente de criterios; un aspecto que
+    nadie ha puntuado no se pinta en vez de mostrarse como 0. Se eliminó el tipo muerto
+    `ScoreDesglose` y se exponen `aspectos`/`fotos` en `ResenaResumenDto`; las reseñas con
+    fotos ya se ven en la ficha.
+  - **HU-5.3.2/5.3.4, 5.4.3/5.4.4, 5.6.1/5.6.2**: bloques informativos por vertical en el
+    paso 1 (duración del grooming elegido —desde la config del salón, sin estimar si no la
+    hay—, "Antes de la cita", "¿Qué incluye este precio?", "Recomendaciones", "¿Qué ocurrirá
+    después de reservar?", "¿Qué incluye/conseguirás con esta sesión?"). El contexto del
+    problema de adiestramiento (motivo, intensidad, descripción libre) ahora **viaja en la
+    reserva**: antes se pedía en pantalla y se descartaba.
+  - **HU-7.6/7.7/7.8**: accesos rápidos, "Mi actividad" y "Logros" en el perfil, todo
+    derivado de datos reales (reservas, reseñas, mascotas, nivel Alpha). Los mensajes
+    personalizados solo emiten lo que se puede afirmar — se descartó el "Has ahorrado 45 €"
+    del documento por no existir ese dato.
+  - **HU-11.5**: bloque "Tu reputación en Doogking" (nº de reseñas, nota media, reseñas con
+    fotos y escalera 🥉 Colaborador → 🥈 Experto → 🥇 Embajador). **No** se incluye el "%
+    de reseñas útiles" que pide el documento: no hay sistema de votos de utilidad y el dato
+    sería inventado.
+  - **HU-13.3**: nuevo flag `alphaAdherido` en `comercios` (no denormalizado en `servicios`,
+    para que darse de alta/baja no obligue a reescribir todos los listados del comercio),
+    con toggle en el panel admin (`PATCH /comercios/:id/alpha-adherido`). La insignia
+    "🏆 Ventajas Alpha" se añadió a `calcularBadgesAutomaticos`, así que aparece en los tres
+    listados a la vez. El carrusel "Ventajas disponibles para ti" vive en `/perfil/alpha` y
+    se alimenta de `GET /alpha/ventajas`. Los enlaces usan un nuevo `enlaceAServicio()`:
+    solo 4 verticales tienen ruta `:id`, y enlazar al detalle en los demás daría un 404.
+  - 591 tests API + 1141 tests frontend verdes, `tsc` (api+web) + `ng build` + `nest build`
+    limpios.
+
+**Fuera de alcance, con motivo:** el contador de incidencias del icono de ayuda (parte de
+HU-14.1.1) sigue sin hacerse porque no existe un sistema de tickets en el backend; HU-3.6
+(carrusel de fotos en la tarjeta) y HU-4.3.2 (vídeos en la galería) están marcados como
+"futuro" en el propio documento del cliente; HU-4.3.3 (selector "¿qué problema quieres
+resolver?" que reordena adiestradores) necesitaría un criterio de ranking por especialidad
+que hoy no está en el modelo de datos.
 
 
 > Plan de ejecución para el feedback del cliente (Edgar y socio, 27/07/2026) recibido en

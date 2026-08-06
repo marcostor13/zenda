@@ -89,6 +89,8 @@ export interface ComercioAdmin {
   logoUrl?: string;
   createdAt: string;
   verificacion?: VerificacionComercio;
+  /** Adherido al programa Doogking Alpha (HU-13.3). */
+  alphaAdherido?: boolean;
 }
 
 export interface ReservaAdmin {
@@ -231,6 +233,11 @@ export class AdminApiService {
 
   rechazarComercio(id: string): Observable<unknown> {
     return this.http.patch(`${this.comerciosUrl}/${id}/estado`, { estado: 'suspendido' });
+  }
+
+  /** Alta o baja del comercio en el programa Doogking Alpha (HU-13.3). */
+  fijarAlphaAdherido(id: string, alphaAdherido: boolean): Observable<ComercioAdmin> {
+    return this.http.patch<ComercioAdmin>(`${this.comerciosUrl}/${id}/alpha-adherido`, { alphaAdherido });
   }
 
   cambiarVerificacionComercio(id: string, estado: 'verificado' | 'rechazado' | 'pendiente', motivo?: string): Observable<ComercioAdmin> {

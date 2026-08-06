@@ -2,7 +2,7 @@ import { Controller, Get, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AlphaEstadoDto, AlphaNivelDto } from 'shared';
-import { AlphaService } from './alpha.service';
+import { AlphaService, AlphaVentajaDto } from './alpha.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 interface RequestConUsuario extends Request {
@@ -18,6 +18,12 @@ export class AlphaController {
   @ApiOperation({ summary: 'Escalera de niveles Doogking Alpha (pública)' })
   niveles(): Promise<AlphaNivelDto[]> {
     return this.alphaService.listarNiveles();
+  }
+
+  @Get('ventajas')
+  @ApiOperation({ summary: 'Negocios adheridos al programa Alpha (público)' })
+  ventajas(): Promise<AlphaVentajaDto[]> {
+    return this.alphaService.listarVentajas();
   }
 
   @Get('mi-estado')

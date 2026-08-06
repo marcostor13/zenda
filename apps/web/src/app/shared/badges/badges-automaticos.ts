@@ -14,6 +14,8 @@ export interface ServicioParaBadges {
   reservasUltimoMes?: number;
   respuestaRapidaMin?: number;
   plazasRestantes?: number | null;
+  /** El comercio está adherido al programa Doogking Alpha (HU-13.3). */
+  alphaAdherido?: boolean;
 }
 
 const UMBRAL_MEJOR_VALORADO = 4.7;
@@ -44,6 +46,9 @@ export function calcularBadgesAutomaticos(s: ServicioParaBadges): BadgeAutomatic
   }
   if (s.plazasRestantes != null && s.plazasRestantes > 0 && s.plazasRestantes <= UMBRAL_ULTIMAS_PLAZAS) {
     badges.push({ icon: '🔥', label: 'Últimas plazas', variant: 'error' });
+  }
+  if (s.alphaAdherido) {
+    badges.push({ icon: '🏆', label: 'Ventajas Alpha', variant: 'accent' });
   }
 
   return badges;

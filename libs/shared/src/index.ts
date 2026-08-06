@@ -61,6 +61,7 @@ export * from './dtos/perros/fijar-consentimiento.dto';
 export * from './dtos/carrito/carrito.dto';
 export * from './dtos/lugares/lugar.dto';
 export * from './dtos/comercios/socio-fundador.dto';
+export * from './dtos/comercios/alpha-adherido.dto';
 
 // DTOs — Favoritos
 export * from './dtos/favoritos/favorito.dto';

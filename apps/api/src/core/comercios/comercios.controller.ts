@@ -18,7 +18,7 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, Rol } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, FijarAlphaAdheridoDto, Rol } from 'shared';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -256,5 +256,19 @@ export class ComerciosController {
     @Body() dto: FijarSocioFundadorDto,
   ): Promise<ComercioDocument> {
     return this.comerciosService.fijarSocioFundador(id, dto);
+  }
+
+  @Patch(':id/alpha-adherido')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Alta o baja del comercio en el programa Doogking Alpha (HU-13.3)',
+  })
+  fijarAlphaAdherido(
+    @Param('id') id: string,
+    @Body() dto: FijarAlphaAdheridoDto,
+  ): Promise<ComercioDocument> {
+    return this.comerciosService.fijarAlphaAdherido(id, dto.alphaAdherido);
   }
 }

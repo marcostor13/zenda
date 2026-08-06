@@ -187,6 +187,19 @@ export class ComerciosService {
     }));
   }
 
+  /**
+   * Alta o baja del comercio en el programa Doogking Alpha (HU-13.3). Es un
+   * simple interruptor: las ventajas concretas las define la escalera de niveles
+   * del admin, no el comercio.
+   */
+  async fijarAlphaAdherido(id: string, alphaAdherido: boolean): Promise<ComercioDocument> {
+    const comercio = await this.repo.findById(id);
+    if (!comercio) {
+      throw new DomainException('Comercio no encontrado', 404);
+    }
+    return this.exigirActualizado(await this.repo.actualizarCampos(id, { alphaAdherido }));
+  }
+
   private exigirActualizado(comercio: ComercioDocument | null): ComercioDocument {
     if (!comercio) {
       throw new DomainException('Comercio no encontrado', 404);

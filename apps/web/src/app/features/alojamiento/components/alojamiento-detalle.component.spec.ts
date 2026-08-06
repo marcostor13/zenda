@@ -48,7 +48,6 @@ describe('AlojamientoDetalleComponent', () => {
     camaras24h: true,
     espacios: [espacioMock],
     resenas: [],
-    scoreDesglose: { limpieza: 5, ubicacion: 5, cuidado: 5, valorPrecio: 4.8, instalaciones: 5, personal: 5 },
     reglas: ['Cartilla de vacunación al día obligatoria'],
     comercioId: 'c1',
     compatibilidadSocialAdmitida: [],
@@ -80,6 +79,48 @@ describe('AlojamientoDetalleComponent', () => {
 
   it('debería crear el componente', () => {
     expect(component).toBeTruthy();
+  });
+
+  describe('desglose de valoración por aspectos (HU-4.1.6)', () => {
+    const resenaCon = (aspectos: Record<string, number>) => ({
+      id: `r${Math.random()}`, autorNombre: 'Ana', puntuacion: 5,
+      comentario: 'Genial', fecha: '2026-07-01T00:00:00.000Z', aspectos,
+    });
+
+    it('debería promediar cada aspecto sobre las reseñas que lo puntuaron', async () => {
+      alojamientoService.obtener.mockResolvedValue({
+        ...detalleMock,
+        resenas: [
+          resenaCon({ limpieza: 5, atencion: 4 }),
+          resenaCon({ limpieza: 4, atencion: 3 }),
+        ],
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const items = component.ratingItems();
+      expect(items).toContainEqual({ label: 'Limpieza', val: 4.5, pct: 90 });
+      expect(items).toContainEqual({ label: 'Atención', val: 3.5, pct: 70 });
+    });
+
+    it('debería omitir los aspectos que nadie ha valorado, no mostrarlos como 0', async () => {
+      alojamientoService.obtener.mockResolvedValue({
+        ...detalleMock,
+        resenas: [resenaCon({ limpieza: 5 })],
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const labels = component.ratingItems().map((i) => i.label);
+      expect(labels).toEqual(['Limpieza']);
+    });
+
+    it('no debería mostrar desglose si no hay reseñas', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(component.ratingItems()).toEqual([]);
+    });
   });
 
   it('debería cargar el detalle del alojamiento al iniciar', async () => {

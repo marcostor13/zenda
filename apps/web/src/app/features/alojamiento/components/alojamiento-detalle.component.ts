@@ -10,6 +10,8 @@ import { RsRatingComponent } from '../../../shared/components/rating/rs-rating.c
 import { RsTrustBlockComponent, type TrustItem } from '../../../shared/components/trust-block/rs-trust-block.component';
 import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspacio } from '../services/alojamiento.service';
 import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
+import { aspectosDeVertical } from '../../../shared/verticales/resena-aspectos.config';
+import { VerticalKey } from 'shared';
 
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
@@ -314,6 +316,13 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
                   <div class="resena-card__score rs-badge rs-badge--accent">{{ r.puntuacion }}/5</div>
                 </div>
                 <p class="resena-card__texto">{{ r.comentario }}</p>
+                @if (r.fotos?.length) {
+                  <div class="resena-card__fotos">
+                    @for (foto of r.fotos; track foto) {
+                      <img [src]="foto" [alt]="'Foto de la reseña de ' + r.autorNombre" rsImg />
+                    }
+                  </div>
+                }
                 @if (r.respuesta) {
                   <div class="resena-respuesta">
                     <strong>Respuesta del alojamiento:</strong>
@@ -593,6 +602,10 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     .resena-card__score { margin-left: auto; }
     .resena-card__titulo { font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); margin-bottom: var(--sp-3); }
     .resena-card__texto  { font-size: var(--f-sm); color: var(--t-300); line-height: 1.7; }
+    .resena-card__fotos {
+      display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3);
+      img { width: 84px; height: 84px; object-fit: cover; border-radius: var(--r-md); }
+    }
     .resena-respuesta { margin-top: var(--sp-4); padding: var(--sp-4); background: var(--c-raised); border-left: 2px solid var(--c-accent); border-radius: 0 var(--r-md) var(--r-md) 0; font-size: var(--f-sm); color: var(--t-300); strong { color: var(--t-200); display: block; margin-bottom: var(--sp-2); } }
 
     /* BOOKING PANEL — acento dorado superior. Sticky vía .rs-sticky-panel (styles.scss). */
@@ -798,17 +811,30 @@ export class AlojamientoDetalleComponent implements OnInit {
     });
   }
 
-  ratingItems() {
-    const d = this.alojamiento()?.scoreDesglose;
-    if (!d) return [];
-    return [
-      { label: 'Limpieza', val: d.limpieza, pct: d.limpieza * 20 },
-      { label: 'Ubicación', val: d.ubicacion, pct: d.ubicacion * 20 },
-      { label: 'Cuidado', val: d.cuidado, pct: d.cuidado * 20 },
-      { label: 'Valor/Precio', val: d.valorPrecio, pct: d.valorPrecio * 20 },
-      { label: 'Instalaciones', val: d.instalaciones, pct: d.instalaciones * 20 },
-      { label: 'Personal', val: d.personal, pct: d.personal * 20 },
-    ];
-  }
+  /**
+   * Desglose de la valoración por aspectos (HU-4.1.6), promediado sobre las
+   * reseñas reales que puntuaron cada criterio.
+   *
+   * Antes leía `scoreDesglose`, un campo que el backend nunca ha enviado: el
+   * bloque quedaba siempre vacío. Ahora sale de `resena.aspectos`, que sí
+   * existe desde que el formulario de reseña permite puntuar por criterio; un
+   * aspecto que nadie ha valorado no se pinta, en vez de mostrarse como 0.
+   */
+  readonly ratingItems = computed(() => {
+    const resenas = this.alojamiento()?.resenas ?? [];
+    if (resenas.length === 0) return [];
+
+    return aspectosDeVertical(VerticalKey.ALOJAMIENTO)
+      .map(({ key, label }) => {
+        const notas = resenas
+          .map((r) => r.aspectos?.[key])
+          .filter((n): n is number => typeof n === 'number' && n > 0);
+        if (notas.length === 0) return null;
+
+        const media = Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 10) / 10;
+        return { label, val: media, pct: media * 20 };
+      })
+      .filter((item): item is { label: string; val: number; pct: number } => item !== null);
+  });
 
 }
