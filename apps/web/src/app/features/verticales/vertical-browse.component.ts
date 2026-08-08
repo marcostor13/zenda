@@ -7,6 +7,7 @@ import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-sear
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
 import { RsCardComponent, type CardBadge } from '../../shared/components/card/rs-card.component';
+import { RsChipComponent } from '../../shared/components/chip/rs-chip.component';
 import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
 import { VerticalUi, verticalUi } from '../../shared/verticales/verticales.config';
 import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
@@ -56,6 +57,22 @@ const resumenServicios = (items: ItemConNombre[] | undefined, c: ServicioCard): 
     precioMin: Math.min(...items.map((i) => i.precio)),
   };
 };
+
+/**
+ * Problemas que el cliente reconoce ("tira de la correa", "no obedece"…)
+ * traducidos a los `tiposAdiestramiento` que el profesional declara en su ficha
+ * (PDF 27/07 §13). La correspondencia vive aquí y no en el backend porque es
+ * vocabulario de interfaz: el dato que se compara sigue siendo el declarado.
+ */
+const PROBLEMAS_ADIESTRAMIENTO: ReadonlyArray<{ label: string; tipos: readonly string[] }> = [
+  { label: 'Tira de la correa',   tipos: ['Paseo con correa'] },
+  { label: 'No obedece',          tipos: ['Obediencia básica', 'Obediencia avanzada', 'Llamada'] },
+  { label: 'Es un cachorro',      tipos: ['Educación de cachorros'] },
+  { label: 'Tiene miedo',         tipos: ['Modificación de conducta', 'Socialización'] },
+  { label: 'Rompe cosas en casa', tipos: ['Ansiedad por separación', 'Modificación de conducta'] },
+  { label: 'Agresividad',         tipos: ['Reactividad', 'Modificación de conducta'] },
+  { label: 'Se pone nervioso',    tipos: ['Ansiedad por separación', 'Reactividad'] },
+];
 
 const CONFIGS: Record<string, VerticalConfig> = {
   veterinaria: {
@@ -147,7 +164,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
   standalone: true,
   imports: [
     RsNavbarComponent, RsSearchBarComponent, RsIconComponent,
-    AnimateOnScrollDirective, ExperienciasCercaComponent, RsCardComponent,
+    AnimateOnScrollDirective, ExperienciasCercaComponent, RsCardComponent, RsChipComponent,
   ],
   template: `
 <div class="vb-page">
@@ -167,6 +184,29 @@ const CONFIGS: Record<string, VerticalConfig> = {
         <p>{{ subtitular() }}</p>
       </header>
 
+      <!-- Selector de problema en adiestramiento (PDF 27/07 §13): ordena
+           primero a quien declara esa especialidad. -->
+      @if (esAdiestramiento()) {
+        <div class="vb-problema">
+          <p class="vb-problema__titulo">¿Qué problema quieres resolver?</p>
+          <div class="vb-problema__chips">
+            <rs-chip [active]="problema() === null" [isAll]="true" (chipClick)="elegirProblema(null)">
+              Todos
+            </rs-chip>
+            @for (p of problemas; track p.label) {
+              <rs-chip [active]="problema() === p.label" (chipClick)="elegirProblema(p.label)">
+                {{ p.label }}
+              </rs-chip>
+            }
+          </div>
+          @if (problema()) {
+            <p class="vb-problema__nota">
+              Primero los adiestradores que declaran esta especialidad en su ficha.
+            </p>
+          }
+        </div>
+      }
+
       @if (cargando()) {
         <div class="vb-grid">
           @for (_ of [1,2,3]; track $index) {
@@ -175,13 +215,13 @@ const CONFIGS: Record<string, VerticalConfig> = {
         </div>
       } @else {
         <p class="vb-count">
-          {{ items().length }} {{ items().length === 1 ? 'resultado' : 'resultados' }}<span class="vb-count__ciudad">{{ sufijoCiudad() }}</span>
+          {{ itemsOrdenados().length }} {{ itemsOrdenados().length === 1 ? 'resultado' : 'resultados' }}<span class="vb-count__ciudad">{{ sufijoCiudad() }}</span>
           @for (c of contextoBusqueda(); track c) {
             <span class="vb-chip">{{ c }}</span>
           }
         </p>
         <div class="vb-grid">
-          @for (c of items(); track c.id) {
+          @for (c of itemsOrdenados(); track c.id) {
             <rs-card rsAnim
               [imageUrl]="c.imagenes[0]" [imageAlt]="c.nombre"
               [title]="cfg().titulo3(c)" [subtitle]="c.ciudad"
@@ -205,7 +245,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
               }
             </rs-card>
           }
-          @if (items().length === 0 && !error()) {
+          @if (itemsOrdenados().length === 0 && !error()) {
             <div class="vb-empty"><rs-icon name="search" [size]="48" [stroke]="1.5" style="color:var(--t-400)" /><h3>Sin resultados</h3><p>Prueba con otra ciudad.</p></div>
           }
           @if (error()) {
@@ -235,6 +275,15 @@ const CONFIGS: Record<string, VerticalConfig> = {
     .vb-head h1 { font-size: var(--f-3xl); color: var(--dk-blue); letter-spacing: -.02em; }
     .vb-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); font-size: var(--f-md); }
     .vb-count { color: var(--t-400); font-size: var(--f-sm); margin-bottom: var(--sp-5); }
+
+    /* Selector "¿Qué problema quieres resolver?" (PDF §13) */
+    .vb-problema { margin-bottom: var(--sp-6); }
+    .vb-problema__titulo {
+      font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100);
+      margin-bottom: var(--sp-3);
+    }
+    .vb-problema__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .vb-problema__nota { margin-top: var(--sp-2); font-size: var(--f-xs); color: var(--t-400); }
     .vb-count__ciudad { color: var(--dk-blue); font-weight: var(--w-6); }
     .vb-chip {
       display: inline-block; margin-left: var(--sp-2);
@@ -262,6 +311,35 @@ export class VerticalBrowseComponent implements OnInit {
   readonly subtitular = computed(() => this.ui().subtitular ?? this.ui().descripcion);
   readonly cargando = signal(true);
   readonly items = signal<ServicioCard[]>([]);
+
+  // ── Selector de problema en adiestramiento (PDF 27/07 §13) ────────
+  readonly problemas = PROBLEMAS_ADIESTRAMIENTO;
+  readonly problema = signal<string | null>(null);
+  readonly esAdiestramiento = computed(() => this.cfg().vertical === 'adiestramiento');
+
+  elegirProblema(label: string | null): void {
+    this.problema.set(this.problema() === label ? null : label);
+  }
+
+  /**
+   * Resultados con los especialistas del problema elegido delante. Es una
+   * reordenación, no un filtro: quien no declara esa especialidad sigue
+   * apareciendo debajo, porque no declararla no significa no saber tratarla.
+   * El orden relativo original se conserva dentro de cada grupo.
+   */
+  readonly itemsOrdenados = computed(() => {
+    const elegido = this.problema();
+    const lista = this.items();
+    if (!elegido || !this.esAdiestramiento()) return lista;
+
+    const tipos = PROBLEMAS_ADIESTRAMIENTO.find((p) => p.label === elegido)?.tipos ?? [];
+    const especialista = (c: ServicioCard): boolean => {
+      const declarados = (c.extra['tiposAdiestramiento'] as string[] | undefined) ?? [];
+      return declarados.some((d) => tipos.includes(d));
+    };
+
+    return [...lista.filter(especialista), ...lista.filter((c) => !especialista(c))];
+  });
   readonly error = signal(false);
   readonly solicitadoId = signal<string | null>(null);
 

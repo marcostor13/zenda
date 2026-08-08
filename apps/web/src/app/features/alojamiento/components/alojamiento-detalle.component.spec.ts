@@ -81,6 +81,35 @@ describe('AlojamientoDetalleComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  describe('políticas en acordeón (PDF 27/07 §13)', () => {
+    it('debería agrupar las políticas en Entrada, Salida, Cancelación y Vacunas', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const acordeones: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.policy-acc'));
+      const titulos = acordeones.map((a) => a.querySelector('summary')?.textContent?.trim() ?? '');
+
+      expect(titulos).toEqual([
+        'Entrada',
+        'Salida',
+        'Cancelación',
+        'Vacunas y requisitos sanitarios',
+      ]);
+    });
+
+    it('debería dejar "Entrada" abierta y el resto plegadas al llegar', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const acordeones: HTMLDetailsElement[] =
+        Array.from(fixture.nativeElement.querySelectorAll('.policy-acc'));
+
+      expect(acordeones.map((a) => a.open)).toEqual([true, false, false, false]);
+    });
+  });
+
   describe('desglose de valoración por aspectos (HU-4.1.6)', () => {
     const resenaCon = (aspectos: Record<string, number>) => ({
       id: `r${Math.random()}`, autorNombre: 'Ana', puntuacion: 5,

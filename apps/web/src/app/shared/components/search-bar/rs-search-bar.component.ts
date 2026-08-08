@@ -167,12 +167,21 @@ export interface BusquedaParams {
       line-height: 1.25;
     }
 
-    /* Fila de campos */
+    /*
+     * Fila de campos con el marco dorado tipo Booking (PDF 27/07 §1, capturas
+     * WA0005/WA0009): un marco continuo de 3px envuelve las celdas blancas y
+     * asoma entre ellas como separador. El fondo del contenedor ES el marco,
+     * por eso el gap entre celdas es de 3px y no un espaciado normal.
+     */
     .sb__form {
       display: flex;
       align-items: stretch;
-      gap: var(--sp-3);
+      gap: 3px;
       flex-wrap: wrap;
+      background: var(--dk-gold);
+      border: 3px solid var(--dk-gold);
+      border-radius: var(--r-lg);
+      box-shadow: var(--sh-sm);
     }
 
     .sb__field {
@@ -182,15 +191,15 @@ export interface BusquedaParams {
       flex-direction: column;
       justify-content: center;
       gap: 2px;
-      border: 1px solid var(--b-2);
-      border-radius: var(--r-md);
+      border-radius: calc(var(--r-lg) - 3px);
       padding: var(--sp-2) var(--sp-4);
       background: var(--c-card);
-      transition: border-color var(--d-2), box-shadow var(--d-2);
+      transition: box-shadow var(--d-2);
 
+      /* Sin overflow:hidden en el contenedor (el desplegable de mascotas debe
+         salirse), así que el foco se marca con un anillo interior. */
       &:focus-within {
-        border-color: var(--c-accent);
-        box-shadow: 0 0 0 3px var(--c-accent-lo);
+        box-shadow: inset 0 0 0 2px var(--c-accent);
       }
     }
 
@@ -242,6 +251,9 @@ export interface BusquedaParams {
       font-size: var(--f-md);
       font-weight: var(--w-7);
       box-shadow: var(--sh-md);
+      /* Dentro del marco dorado el botón es el "remate" del final de la barra:
+         mismo radio que las celdas para que encaje sin escalones. */
+      border-radius: calc(var(--r-lg) - 3px);
     }
 
     /* Variante compacta para las cabeceras de listado */

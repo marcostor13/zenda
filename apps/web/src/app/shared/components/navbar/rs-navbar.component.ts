@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, OnInit, inject, input, signal, computed, HostListener } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
@@ -18,10 +18,14 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
   template: `
     <nav class="rs-navbar">
       <!-- Marca: la inicial "D" siempre visible (patrón Booking) y el logotipo
-           completo solo cuando hay espacio, para que la barra nunca se rompa. -->
+           completo solo cuando hay espacio, para que la barra nunca se rompa.
+           En la home el logotipo ya aparece en grande en el hero, así que ahí
+           se oculta el pequeño para no duplicarlo (PDF 27/07 §1). -->
       <a routerLink="/" class="rs-navbar__brand" aria-label="Doogking — inicio">
         <img [src]="logoD" alt="" aria-hidden="true" class="rs-navbar__mark" />
-        <img src="/images/logo-doogking.jpg" alt="Doogking" class="rs-navbar__wordmark" />
+        @if (!soloMarcaD()) {
+          <img src="/images/logo-doogking.jpg" alt="Doogking" class="rs-navbar__wordmark" />
+        }
       </a>
 
       <!-- Desktop nav — una entrada por categoría (misma config que el buscador) -->
@@ -238,17 +242,28 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       &:hover { background: var(--c-accent-lo); border-color: var(--c-accent); }
     }
 
-    /* Enlace "REGISTRA TU EMPRESA" (desktop) */
+    /* "REGISTRA TU EMPRESA" con peso de botón (PDF 27/07 §1: más peso visual
+       que idioma/moneda, referencia Booking WA0005). */
     .rs-navbar__link--pro {
       display: inline-flex; align-items: center; gap: var(--sp-2);
       font-family: var(--font-accent);
       font-size: var(--f-xs); font-weight: var(--w-7); letter-spacing: .06em;
       text-transform: uppercase; color: var(--c-accent);
-      text-decoration: none; padding: var(--sp-2) var(--sp-1); white-space: nowrap;
-      transition: color var(--d-2);
-      &:hover { color: var(--dk-blue-deep, var(--c-accent-h)); }
+      text-decoration: none; padding: var(--sp-2) var(--sp-3); white-space: nowrap;
+      border: 1.5px solid var(--c-accent);
+      border-radius: var(--r-md);
+      transition: color var(--d-2), background var(--d-2);
+      &:hover { color: var(--dk-blue-deep, var(--c-accent-h)); background: var(--c-accent-lo); }
     }
     @media (max-width: 900px) { .rs-navbar__link--pro { display: none; } }
+
+    /* Idioma y moneda con menos peso (PDF 27/07 §1): secundarios frente a
+       "Registra tu empresa" y "Mi cuenta". */
+    .rs-navbar__actions rs-region-selector {
+      opacity: .72;
+      transition: opacity var(--d-2);
+      &:hover, &:focus-within { opacity: 1; }
+    }
 
     /* Account dropdown (desktop) */
     .rs-navbar__account { position: relative; }
@@ -417,6 +432,12 @@ export class RsNavbarComponent implements OnInit {
   readonly alpha = signal<AlphaEstadoApi | null>(null);
 
   readonly logoD = BRAND.logoD;
+
+  /**
+   * Oculta el logotipo completo y deja solo la "D". La home lo activa porque el
+   * logotipo grande ya está en el hero y el pequeño quedaba duplicado (PDF §1).
+   */
+  readonly soloMarcaD = input(false);
 
   /**
    * El alta de comercio es la vía principal de captación de oferta: se muestra

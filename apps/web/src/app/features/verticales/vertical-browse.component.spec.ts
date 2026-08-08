@@ -279,4 +279,52 @@ describe('VerticalBrowseComponent', () => {
 
     expect(badges).toContainEqual({ icon: 'crown', label: 'Premium', variant: 'warning' });
   });
+
+  describe('selector "¿Qué problema quieres resolver?" (PDF 27/07 §13)', () => {
+    const conTipos = (id: string, tipos: string[]): ServicioCard =>
+      ({ ...tarjeta({ tiposAdiestramiento: tipos }), id });
+
+    it('debería ofrecerse en adiestramiento', async () => {
+      await crearComponente('adiestramiento');
+      expect(component.esAdiestramiento()).toBe(true);
+    });
+
+    it('no debería ofrecerse en el resto de verticales', async () => {
+      await crearComponente('veterinaria');
+      expect(component.esAdiestramiento()).toBe(false);
+    });
+
+    it('debería poner delante a quien declara la especialidad, sin ocultar al resto', async () => {
+      await crearComponente('adiestramiento');
+      component.items.set([
+        conTipos('generalista', ['Agility']),
+        conTipos('especialista', ['Paseo con correa']),
+      ]);
+
+      component.elegirProblema('Tira de la correa');
+
+      // Reordena, no filtra: no declarar la especialidad no significa no saber tratarla.
+      expect(component.itemsOrdenados().map((c) => c.id)).toEqual(['especialista', 'generalista']);
+    });
+
+    it('debería volver al orden original al deseleccionar el mismo problema', async () => {
+      await crearComponente('adiestramiento');
+      component.items.set([conTipos('a', ['Agility']), conTipos('b', ['Paseo con correa'])]);
+
+      component.elegirProblema('Tira de la correa');
+      component.elegirProblema('Tira de la correa');
+
+      expect(component.problema()).toBeNull();
+      expect(component.itemsOrdenados().map((c) => c.id)).toEqual(['a', 'b']);
+    });
+
+    it('no debería reordenar nada si ningún profesional declara esa especialidad', async () => {
+      await crearComponente('adiestramiento');
+      component.items.set([conTipos('a', ['Agility']), conTipos('b', ['Llamada'])]);
+
+      component.elegirProblema('Es un cachorro');
+
+      expect(component.itemsOrdenados().map((c) => c.id)).toEqual(['a', 'b']);
+    });
+  });
 });

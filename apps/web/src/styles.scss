@@ -6,6 +6,9 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=Montserrat:wght@700&display=swap');
 
+/* Leaflet (mapa de resultados y de comunidad, PDF 27/07 §3 — RsMapaComponent). */
+@import 'leaflet/dist/leaflet.css';
+
 /* ── 1. TOKENS ─────────────────────────────────────────────────── */
 :root {
   /* Marca Doogking */

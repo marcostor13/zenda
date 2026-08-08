@@ -299,6 +299,43 @@ describe('PerfilDashboardComponent', () => {
       expect(componente.accesosRapidos.length).toBeGreaterThan(0);
     });
 
+    describe('invitar a un amigo (PDF 27/07 §16)', () => {
+      const conNavigator = (extra: Partial<Navigator>) => {
+        Object.entries(extra).forEach(([clave, valor]) => {
+          Object.defineProperty(navigator, clave, { value: valor, configurable: true });
+        });
+      };
+
+      it('debería usar la hoja de compartir nativa cuando existe', async () => {
+        await crear();
+        const share = jest.fn().mockResolvedValue(undefined);
+        conNavigator({ share });
+
+        await componente.invitarAmigo();
+
+        expect(share).toHaveBeenCalledWith(expect.objectContaining({ title: 'Doogking' }));
+      });
+
+      it('debería copiar el enlace si el navegador no sabe compartir', async () => {
+        await crear();
+        const writeText = jest.fn().mockResolvedValue(undefined);
+        conNavigator({ share: undefined, clipboard: { writeText } as unknown as Clipboard });
+
+        await componente.invitarAmigo();
+
+        expect(writeText).toHaveBeenCalledWith(window.location.origin);
+        expect(componente.textoInvitar()).toBe('Enlace copiado');
+      });
+
+      it('no debería mostrar error si el usuario cancela la hoja de compartir', async () => {
+        await crear();
+        conNavigator({ share: jest.fn().mockRejectedValue(new Error('AbortError')) });
+
+        await expect(componente.invitarAmigo()).resolves.toBeUndefined();
+        expect(componente.textoInvitar()).toBe('Invitar a un amigo');
+      });
+    });
+
     it('debería resumir la última reserva, valoración y mascota', async () => {
       await crear({
         reservas: [reserva()],

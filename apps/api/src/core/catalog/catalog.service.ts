@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CatalogRepository, BuscarServiciosParams, OrdenServicios } from './catalog.repository';
+import { CatalogRepository, BuscarServiciosParams, FacetasResult, OrdenServicios } from './catalog.repository';
 import { Comercio, ComercioDocument } from '../comercios/comercio.schema';
 import { ReviewsService } from '../reviews/reviews.service';
 import { ResenaDocument } from '../reviews/resena.schema';
@@ -289,6 +289,21 @@ export class CatalogService {
       page: params.page,
       totalPages: Math.max(1, Math.ceil(total / params.limit)),
     };
+  }
+
+  /**
+   * Facetas de la búsqueda (PDF 27/07 §3): histograma de precios y contadores
+   * por filtro para el panel lateral tipo Booking. Misma base de búsqueda que
+   * `buscarServicios`, sin paginación (los contadores describen el total).
+   */
+  obtenerFacetas(filtros: { vertical?: string; ciudad?: string }): Promise<FacetasResult> {
+    return this.repo.facetas({
+      vertical: filtros.vertical ?? 'alojamiento',
+      ciudad: filtros.ciudad,
+      page: 1,
+      limit: 1,
+      soloDisponibles: true,
+    });
   }
 
   /**

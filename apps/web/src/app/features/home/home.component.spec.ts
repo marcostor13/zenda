@@ -5,6 +5,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { VerticalKey } from 'shared';
 import { HomeComponent } from './home.component';
+import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
 
 describe('HomeComponent', () => {
   let fixture: ComponentFixture<HomeComponent>;
@@ -79,10 +80,11 @@ describe('HomeComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     const cards = el.querySelectorAll('.why-card');
     expect(cards.length).toBe(4);
+    // Copy aprobado por el cliente (PDF 27/07 §6, captura WA0010).
     expect(component.motivos.map((m) => m.titulo)).toEqual([
       'Reserva en segundos',
       'Profesionales verificados',
-      'Miles de servicios en un solo lugar',
+      'Todo para tu mascota en un solo lugar',
       'Atención cuando la necesites',
     ]);
     expect(el.querySelector('#por-que h2')?.textContent).toContain('¿Por qué Doogking.com?');
@@ -91,8 +93,25 @@ describe('HomeComponent', () => {
   it('debería invitar a explorar todos los servicios sobre la rejilla de categorías', () => {
     const el: HTMLElement = fixture.nativeElement;
     const head = el.querySelector('#categorias .sec-head')?.textContent ?? '';
-    expect(head).toContain('Explora todos nuestros servicios');
-    expect(head).toContain('Reserva en segundos con los mejores profesionales cerca de ti.');
+    // Título y subtítulo aprobados por el cliente (PDF 27/07 §5, captura WA0011).
+    expect(head).toContain('Todo lo que tu mascota necesita, en un solo lugar.');
+    expect(head).toContain('Reserva con profesionales verificados cerca de ti, de forma rápida, segura y sin complicaciones.');
+  });
+
+  it('debería mostrar los 3 valores aprobados bajo el buscador (PDF 27/07 §4)', () => {
+    expect(component.garantias.map((g) => g.titulo)).toEqual([
+      'Reserva en menos de un minuto',
+      'Profesionales verificados',
+      'Atención 24/7',
+    ]);
+    // Cada valor lleva su descripción completa, no solo el titular.
+    expect(component.garantias.every((g) => g.descripcion.length > 20)).toBe(true);
+  });
+
+  it('debería dejar solo la "D" en la barra porque el logotipo grande ya está en el hero (PDF §1)', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.rs-navbar__mark')).toBeTruthy();
+    expect(el.querySelector('.rs-navbar__wordmark')).toBeNull();
   });
 
   it('debería usar el buscador común en el hero', () => {
@@ -124,8 +143,40 @@ describe('HomeComponent', () => {
   it('debería renderizar los alojamientos recomendados con precio en euros (HU-1.7.1, rs-card unificado)', () => {
     const el: HTMLElement = fixture.nativeElement;
     const cards = el.querySelectorAll('.stays-grid rs-card');
-    expect(cards.length).toBe(component.alojamientosRecomendados.length);
+    expect(cards.length).toBe(component.alojamientosRecomendados().length);
     expect(el.querySelector('.stays-grid')?.textContent).toContain('€');
+  });
+
+  it('debería sustituir el escaparate estático por los mejor valorados reales cuando el catálogo responde (PDF §8)', async () => {
+    const alojamientoService = TestBed.inject(AlojamientoService);
+    jest.spyOn(alojamientoService, 'buscar').mockResolvedValue({
+      items: [{
+        id: 'a1', nombre: 'Residencia Real', ciudad: 'Madrid', barrio: '', direccion: '',
+        score: 9.8, scoreLabel: 'Excepcional', numResenas: 120, precioPorNoche: 44,
+        imagenes: ['foto.jpg'], amenities: ['Patio', 'Cámaras', 'Paseos', 'Spa'],
+        cancelacionGratis: true, paseosIncluidos: true, espaciosDisponibles: 3, destacado: false,
+      }],
+      total: 1, page: 1, totalPages: 1,
+    });
+
+    await component.ngOnInit();
+
+    const [primero] = component.alojamientosRecomendados();
+    expect(alojamientoService.buscar).toHaveBeenCalledWith({ orden: 'valoracion' });
+    expect(primero.id).toBe('a1');
+    // Solo con id real la tarjeta lleva corazón de favorito y enlace a la ficha.
+    expect(primero.tags).toEqual(['Patio', 'Cámaras', 'Paseos']);
+  });
+
+  it('debería conservar el escaparate por defecto (sin favoritos) si el catálogo falla', async () => {
+    const alojamientoService = TestBed.inject(AlojamientoService);
+    jest.spyOn(alojamientoService, 'buscar').mockRejectedValue(new Error('API caída'));
+
+    await component.ngOnInit();
+
+    const recomendados = component.alojamientosRecomendados();
+    expect(recomendados.length).toBe(4);
+    expect(recomendados.every((r) => r.id === undefined)).toBe(true);
   });
 
   it('debería navegar al listado de alojamiento con la ciudad al pulsar la tarjeta', () => {

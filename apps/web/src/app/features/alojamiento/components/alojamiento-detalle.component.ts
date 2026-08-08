@@ -151,15 +151,22 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
               <div style="font-size:var(--f-xs);color:var(--t-400)">{{ alojamiento()!.numResenas | number }} reseñas verificadas</div>
             </div>
           </div>
-          <div class="rating-breakdown">
-            @for (item of ratingItems(); track item.label) {
-              <div class="rating-bar">
-                <span>{{ item.label }}</span>
-                <div class="rating-bar__track"><div class="rating-bar__fill" [style.width.%]="item.pct"></div></div>
-                <strong>{{ item.val }}</strong>
-              </div>
-            }
-          </div>
+          <!-- "Índice Doogking" con barras (PDF 27/07 §13): son las medias
+               reales por aspecto de las reseñas, no una puntuación aparte. -->
+          @if (ratingItems().length > 0) {
+            <div class="rating-breakdown">
+              <p class="rating-breakdown__titulo">
+                <rs-icon name="crown" [size]="15" [stroke]="2" /> Índice Doogking
+              </p>
+              @for (item of ratingItems(); track item.label) {
+                <div class="rating-bar">
+                  <span>{{ item.label }}</span>
+                  <div class="rating-bar__track"><div class="rating-bar__fill" [style.width.%]="item.pct"></div></div>
+                  <strong>{{ item.val }}</strong>
+                </div>
+              }
+            </div>
+          }
         </div>
 
         <!-- Descripción -->
@@ -238,52 +245,57 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
           </div>
         </div>
 
-        <!-- Políticas -->
+        <!-- Políticas en acordeón (PDF 27/07 §13) con details/summary nativos:
+             accesibles y operables con teclado sin JavaScript. -->
         <div class="section-block" rsAnim>
           <h2>Políticas del alojamiento</h2>
-          <div class="policies-grid">
-            <div class="policy-item">
-              <div class="policy-item__label">Check-in</div>
-              <div class="policy-item__val">{{ alojamiento()!.checkIn }}</div>
-            </div>
-            <div class="policy-item">
-              <div class="policy-item__label">Check-out</div>
-              <div class="policy-item__val">{{ alojamiento()!.checkOut }}</div>
-            </div>
-            <div class="policy-item">
-              <div class="policy-item__label">Cancelación</div>
-              <div class="policy-item__val">{{ alojamiento()!.politicaCancelacion }}</div>
-            </div>
-            <div class="policy-item">
-              <div class="policy-item__label">Vacunas</div>
-              <div class="policy-item__val">
-                {{ alojamiento()!.requisitoVacunas ? 'Cartilla de vacunación obligatoria' : 'Sin requisito de vacunas' }}
+          <div class="policies-acc">
+            <details class="policy-acc" open>
+              <summary class="policy-acc__head">
+                <rs-icon name="log-out" [size]="16" [stroke]="2" /> Entrada
+              </summary>
+              <div class="policy-acc__body">
+                <p><strong>Check-in:</strong> {{ alojamiento()!.checkIn }}</p>
+                @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
+                  <p><strong>Compatibilidad social admitida:</strong>
+                    {{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</p>
+                }
               </div>
-            </div>
-            @if (alojamiento()!.requisitoMicrochip) {
-              <div class="policy-item">
-                <div class="policy-item__label">Microchip</div>
-                <div class="policy-item__val">Obligatorio</div>
+            </details>
+
+            <details class="policy-acc">
+              <summary class="policy-acc__head">
+                <rs-icon name="clock" [size]="16" [stroke]="2" /> Salida
+              </summary>
+              <div class="policy-acc__body">
+                <p><strong>Check-out:</strong> {{ alojamiento()!.checkOut }}</p>
               </div>
-            }
-            @if (alojamiento()!.requiereDesparasitacionInterna || alojamiento()!.requiereDesparasitacionExterna) {
-              <div class="policy-item">
-                <div class="policy-item__label">Desparasitación</div>
-                <div class="policy-item__val">{{ desparasitacionLabel() }}</div>
+            </details>
+
+            <details class="policy-acc">
+              <summary class="policy-acc__head">
+                <rs-icon name="shield-check" [size]="16" [stroke]="2" /> Cancelación
+              </summary>
+              <div class="policy-acc__body">
+                <p>{{ alojamiento()!.politicaCancelacion }}</p>
               </div>
-            }
-            @if (alojamiento()!.requiereVacunaTosPerreras) {
-              <div class="policy-item">
-                <div class="policy-item__label">Vacuna tos de las perreras</div>
-                <div class="policy-item__val">Requerida</div>
+            </details>
+
+            <details class="policy-acc">
+              <summary class="policy-acc__head">
+                <rs-icon name="syringe" [size]="16" [stroke]="2" /> Vacunas y requisitos sanitarios
+              </summary>
+              <div class="policy-acc__body">
+                <p>{{ alojamiento()!.requisitoVacunas ? 'Cartilla de vacunación obligatoria' : 'Sin requisito de vacunas' }}</p>
+                @if (alojamiento()!.requisitoMicrochip) { <p><strong>Microchip:</strong> obligatorio</p> }
+                @if (alojamiento()!.requiereDesparasitacionInterna || alojamiento()!.requiereDesparasitacionExterna) {
+                  <p><strong>Desparasitación:</strong> {{ desparasitacionLabel() }}</p>
+                }
+                @if (alojamiento()!.requiereVacunaTosPerreras) {
+                  <p><strong>Vacuna tos de las perreras:</strong> requerida</p>
+                }
               </div>
-            }
-            @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
-              <div class="policy-item">
-                <div class="policy-item__label">Compatibilidad social admitida</div>
-                <div class="policy-item__val">{{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</div>
-              </div>
-            }
+            </details>
           </div>
           @if (alojamiento()!.serviciosAdicionales.length) {
             <div class="section-block">
@@ -563,6 +575,15 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     .rating-big { font-size: var(--f-6xl); font-weight: var(--w-9); color: var(--dk-blue); line-height: 1; }
     .rating-big-label { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); }
     .rating-breakdown { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .rating-breakdown__titulo {
+      display: flex; align-items: center; gap: var(--sp-2);
+      margin: 0 0 var(--sp-1);
+      font-family: var(--font-accent);
+      font-size: var(--f-xs); font-weight: var(--w-7);
+      letter-spacing: .06em; text-transform: uppercase;
+      color: var(--dk-blue);
+      rs-icon { color: var(--dk-gold); }
+    }
     .rating-bar { display: grid; grid-template-columns: 100px 1fr 30px; align-items: center; gap: var(--sp-3); font-size: var(--f-sm); color: var(--t-300); }
     .rating-bar__track { height: 6px; background: var(--c-surface); border-radius: var(--r-full); overflow: hidden; }
     .rating-bar__fill  { height: 100%; background: var(--g-accent); border-radius: var(--r-full); transition: width .8s ease; }
@@ -586,10 +607,54 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     .room-price-amount { font-size: var(--f-3xl); font-weight: var(--w-8); color: var(--dk-blue); letter-spacing: -.03em; }
 
     /* POLICIES */
-    .policies-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-6); @media (max-width: 640px) { grid-template-columns: 1fr; } }
-    .policy-item { padding: var(--sp-4); background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg); }
-    .policy-item__label { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-2); text-transform: uppercase; letter-spacing: .06em; font-weight: var(--w-6); }
-    .policy-item__val   { font-size: var(--f-sm); color: var(--t-100); font-weight: var(--w-5); }
+    /* Políticas en acordeón (PDF 27/07 §13) */
+    .policies-acc { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-6); }
+
+    .policy-acc {
+      background: var(--c-card);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+    }
+
+    .policy-acc__head {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      padding: var(--sp-4);
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
+      color: var(--t-100);
+      cursor: pointer;
+      list-style: none;
+      transition: background var(--d-2);
+
+      &::-webkit-details-marker { display: none; }
+      &:hover { background: var(--c-raised); }
+      rs-icon { color: var(--c-accent); flex-shrink: 0; }
+
+      /* Chevron propio que gira al abrir. */
+      &::after {
+        content: '';
+        margin-left: auto;
+        width: 8px; height: 8px;
+        border-right: 2px solid var(--t-400);
+        border-bottom: 2px solid var(--t-400);
+        transform: rotate(45deg) translate(-2px, -2px);
+        transition: transform var(--d-2);
+      }
+    }
+
+    .policy-acc[open] .policy-acc__head::after { transform: rotate(-135deg) translate(-2px, -2px); }
+
+    .policy-acc__body {
+      padding: 0 var(--sp-4) var(--sp-4) calc(var(--sp-4) + 16px + var(--sp-3));
+      font-size: var(--f-sm);
+      color: var(--t-300);
+
+      p { margin: 0 0 var(--sp-2); &:last-child { margin-bottom: 0; } }
+      strong { color: var(--t-200); }
+    }
     .rules-list { display: flex; flex-direction: column; gap: var(--sp-2); }
     .rule-item { font-size: var(--f-sm); color: var(--t-300); }
 

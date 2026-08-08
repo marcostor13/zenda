@@ -4,6 +4,7 @@ import { TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { RsMapaComponent, type PuntoMapa } from '../../shared/components/mapa/rs-mapa.component';
 import { LugarApi, LugaresService } from './lugares.service';
 
 /** Icono de cada tipo de lugar, para reconocerlo de un vistazo. */
@@ -25,7 +26,7 @@ const ICONOS: Record<TipoLugar, string> = {
 @Component({
   selector: 'app-explora-lista',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
+  imports: [RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsMapaComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ex-page">
@@ -65,8 +66,24 @@ const ICONOS: Record<TipoLugar, string> = {
           <rs-icon name="sparkles" [size]="14" [stroke]="2"></rs-icon>
           Planificar un viaje
         </a>
+        @if (puntosMapa().length > 0) {
+          <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
+                  (click)="alternarMapa()" [attr.aria-expanded]="mapaAbierto()">
+            <rs-icon name="map-pin" [size]="14" [stroke]="2"></rs-icon>
+            {{ mapaAbierto() ? 'Ocultar el mapa' : 'Ver en el mapa' }}
+          </button>
+        }
         @if (avisoUbicacion()) { <span class="ex-aviso">{{ avisoUbicacion() }}</span> }
       </div>
+
+      <!-- Mapa de la comunidad: el hueco pendiente de ANALISIS-ESPECIFICACIONES §4.2,
+           resuelto con el mismo componente que el mapa de resultados (PDF §3). -->
+      @if (mapaAbierto() && puntosMapa().length > 0) {
+        <div class="ex-mapa">
+          <rs-mapa [puntos]="puntosMapa()" ariaLabel="Mapa de lugares pet-friendly"
+                   (puntoElegido)="abrirLugar($event)" />
+        </div>
+      }
 
       @if (cargando()) {
         <div class="ex-grid">
@@ -143,6 +160,15 @@ const ICONOS: Record<TipoLugar, string> = {
 
     .ex-count { color: var(--t-400); font-size: var(--f-sm); margin-bottom: var(--sp-4); }
 
+    /* Mapa de la comunidad (ANALISIS-ESPECIFICACIONES §4.2). */
+    .ex-mapa {
+      height: 420px;
+      margin-bottom: var(--sp-6);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+    }
+
     .ex-grid {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5);
       @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); }
@@ -201,6 +227,30 @@ export class ExploraListaComponent implements OnInit {
 
   private readonly coordenadas = signal<{ lat: number; lng: number } | null>(null);
   readonly cerca = computed(() => this.coordenadas() !== null);
+
+  // ── Mapa de la comunidad (ANALISIS-ESPECIFICACIONES §4.2 + PDF 27/07 §3) ──
+  readonly mapaAbierto = signal(false);
+
+  /**
+   * Solo entran los lugares con coordenadas. `geo.coordinates` viene en orden
+   * GeoJSON [lng, lat], al revés de como lo espera el mapa.
+   */
+  readonly puntosMapa = computed<PuntoMapa[]>(() =>
+    this.lugares()
+      .filter((l) => l.ubicacion.geo?.coordinates?.length === 2)
+      .map((l) => {
+        const [lng, lat] = l.ubicacion.geo!.coordinates;
+        return { id: l._id, lat, lng, etiqueta: l.nombre, titulo: l.nombre };
+      }),
+  );
+
+  alternarMapa(): void {
+    this.mapaAbierto.update((abierto) => !abierto);
+  }
+
+  abrirLugar(id: string): void {
+    void this.router.navigate(['/explora', id]);
+  }
 
   private ciudad?: string;
 

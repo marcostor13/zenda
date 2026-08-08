@@ -10,7 +10,10 @@ import { Adiestramiento } from '../../verticals/adiestramiento/adiestramiento.sc
 
 describe('CatalogRepository', () => {
   let repository: CatalogRepository;
-  let model: { find: jest.Mock; countDocuments: jest.Mock; findById: jest.Mock; estimatedDocumentCount: jest.Mock };
+  let model: {
+    find: jest.Mock; countDocuments: jest.Mock; findById: jest.Mock;
+    estimatedDocumentCount: jest.Mock; aggregate: jest.Mock;
+  };
   let alojamientoModelCtor: jest.Mock;
   let transporteModelCtor: jest.Mock;
 
@@ -27,6 +30,7 @@ describe('CatalogRepository', () => {
       countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
       findById: jest.fn().mockReturnValue({ lean: () => ({ exec: jest.fn().mockResolvedValue(null) }) }),
       estimatedDocumentCount: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
+      aggregate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
     };
 
     const mockDoc = (datos: Record<string, unknown>) => ({ ...datos, save: jest.fn().mockResolvedValue(datos) });
@@ -113,6 +117,62 @@ describe('CatalogRepository', () => {
       expect(alojamientoModelCtor).toHaveBeenCalledWith(
         expect.objectContaining({ espacios: [{ tipo: 'estandar', cantidad: 2, precioNoche: 40 }] }),
       );
+    });
+  });
+
+  describe('facetas (PDF 27/07 §3)', () => {
+    const facetasCrudas = {
+      precios: [
+        { _id: { min: 10, max: 30 }, n: 4 },
+        { _id: { min: 30, max: 60 }, n: 7 },
+      ],
+      amenities: [
+        { _id: 'Parking', n: 514 },
+        { _id: 'Piscina', n: 87 },
+      ],
+      valoracion: [{ tres: 20, cuatro: 12, cinco: 3 }],
+    };
+
+    it('debería devolver histograma de precios, contadores de amenities y de valoración', async () => {
+      model.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([facetasCrudas]) });
+
+      const facetas = await repository.facetas({ vertical: 'alojamiento', ciudad: 'Madrid', page: 1, limit: 1 });
+
+      expect(facetas.precios).toEqual([
+        { desde: 10, hasta: 30, n: 4 },
+        { desde: 30, hasta: 60, n: 7 },
+      ]);
+      expect(facetas.amenities).toEqual([
+        { valor: 'Parking', n: 514 },
+        { valor: 'Piscina', n: 87 },
+      ]);
+      expect(facetas.valoracion).toEqual([
+        { minimo: 3, n: 20 },
+        { minimo: 4, n: 12 },
+        { minimo: 5, n: 3 },
+      ]);
+    });
+
+    it('debería ignorar el rango de precio al calcular el histograma', async () => {
+      model.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([facetasCrudas]) });
+
+      await repository.facetas({
+        vertical: 'alojamiento', precioMin: 20, precioMax: 40, page: 1, limit: 1,
+      });
+
+      // El histograma describe el destino entero, no solo el tramo ya filtrado:
+      // si se recortara, el usuario no podría volver a ampliar el rango.
+      const [{ $match: filtro }] = model.aggregate.mock.calls[0][0];
+      expect(filtro.precioBase).toBeUndefined();
+      expect(filtro.vertical).toBe('alojamiento');
+    });
+
+    it('debería devolver facetas vacías si la agregación no trae nada', async () => {
+      model.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      const facetas = await repository.facetas({ vertical: 'alojamiento', page: 1, limit: 1 });
+
+      expect(facetas).toEqual({ precios: [], amenities: [], valoracion: [] });
     });
   });
 });

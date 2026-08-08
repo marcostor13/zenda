@@ -19,6 +19,7 @@
     "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.22",
     "typescript": "^5.5.0"
   }
 }

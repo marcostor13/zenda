@@ -126,6 +126,12 @@ interface LogroItem {
           <span>{{ a.label }}</span>
         </a>
       }
+      <!-- Invitar a un amigo (PDF 27/07 §16): comparte el enlace de Doogking.
+           No es un programa de referidos — eso sería otro proyecto. -->
+      <button type="button" class="acceso-rapido" (click)="invitarAmigo()">
+        <rs-icon name="share" [size]="18" [stroke]="2"></rs-icon>
+        <span>{{ textoInvitar() }}</span>
+      </button>
     </nav>
 
     <!-- MIS MASCOTAS -->
@@ -404,6 +410,7 @@ interface LogroItem {
       padding: var(--sp-4); background: var(--c-card); border: 1px solid var(--b-1);
       border-radius: var(--r-lg); text-decoration: none;
       font-size: var(--f-sm); font-weight: var(--fw-semibold); color: var(--t-200);
+      text-align: left; cursor: pointer; font-family: inherit;
       transition: transform var(--d-2), box-shadow var(--d-2);
       &:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
     }
@@ -614,6 +621,40 @@ export class PerfilDashboardComponent implements OnInit {
     { icon: 'calendar', label: 'Mi historial',                ruta: '/reservas' },
     { icon: 'heart',    label: 'Mis favoritos',               ruta: '/favoritos' },
   ];
+
+  /** Texto del botón de invitar; cambia un instante al copiar para dar feedback. */
+  readonly textoInvitar = signal('Invitar a un amigo');
+
+  /**
+   * Comparte Doogking con la hoja nativa del sistema y, si no está disponible
+   * (escritorio), copia el enlace al portapapeles. Sin sistema de referidos
+   * detrás: se comparte la web, no un código personal que no existe.
+   */
+  async invitarAmigo(): Promise<void> {
+    const url = window.location.origin;
+    const datos = {
+      title: 'Doogking',
+      text: 'Reserva veterinario, peluquería, alojamiento y más para tu mascota en Doogking.',
+      url,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(datos);
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      this.avisarCopiado('Enlace copiado');
+    } catch {
+      // El usuario canceló la hoja de compartir o el navegador bloqueó el
+      // portapapeles: no es un error que merezca molestarle con un mensaje.
+    }
+  }
+
+  private avisarCopiado(texto: string): void {
+    this.textoInvitar.set(texto);
+    setTimeout(() => this.textoInvitar.set('Invitar a un amigo'), 2000);
+  }
 
   /**
    * "Mi actividad" (HU-7.7): últimos hitos reales del usuario. Cada línea sale

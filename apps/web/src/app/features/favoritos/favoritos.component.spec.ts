@@ -7,6 +7,7 @@ import { FavoritosComponent } from './favoritos.component';
 import { FavoritosService } from './favoritos.service';
 import { ReservasService } from '../reservas/services/reservas.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { CatalogBrowseService } from '../verticales/catalog-browse.service';
 
 const favorito = (overrides: Partial<FavoritoResumenDto>): FavoritoResumenDto => ({
   servicioId: 's1',
@@ -27,15 +28,22 @@ describe('FavoritosComponent', () => {
   let componente: FavoritosComponent;
   let servicio: jest.Mocked<Pick<FavoritosService, 'cargarIds' | 'listar' | 'esFavorito'>>;
 
+  let catalogBrowse: { buscar: jest.Mock };
+
   const crear = async (
     favoritos: FavoritoResumenDto[],
-    opciones: { misReservas?: Array<{ servicioId: string }>; usuario?: unknown } = {},
+    opciones: {
+      misReservas?: Array<{ servicioId: string }>;
+      usuario?: unknown;
+      recomendados?: unknown[];
+    } = {},
   ): Promise<void> => {
     servicio = {
       cargarIds: jest.fn().mockResolvedValue(undefined),
       listar: jest.fn().mockResolvedValue(favoritos),
       esFavorito: jest.fn().mockReturnValue(false),
     };
+    catalogBrowse = { buscar: jest.fn().mockResolvedValue(opciones.recomendados ?? []) };
 
     await TestBed.configureTestingModule({
       imports: [FavoritosComponent, RouterTestingModule],
@@ -43,6 +51,7 @@ describe('FavoritosComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: FavoritosService, useValue: servicio },
+        { provide: CatalogBrowseService, useValue: catalogBrowse },
         {
           provide: ReservasService,
           useValue: { misReservas: jest.fn().mockResolvedValue(opciones.misReservas ?? []) },
@@ -210,6 +219,54 @@ describe('FavoritosComponent', () => {
       await componente.compartir(componente.favoritos()[0]);
 
       expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Hotel canino'));
+    });
+  });
+
+  describe('recomendados para ti (PDF 27/07 §19)', () => {
+    const servicio = (id: string) => ({
+      id, nombre: `Servicio ${id}`, ciudad: 'Madrid', precioPorNoche: 30,
+      score: 4.6, scoreLabel: 'Muy bueno', numResenas: 8, imagenes: [], destacado: false, extra: {},
+    });
+
+    it('debería buscar en la categoría y ciudad que el usuario más guarda', async () => {
+      await crear([
+        favorito({ servicioId: 'f1', vertical: VerticalKey.ALOJAMIENTO, ciudad: 'Madrid' }),
+        favorito({ servicioId: 'f2', vertical: VerticalKey.ALOJAMIENTO, ciudad: 'Madrid' }),
+        favorito({ servicioId: 'f3', vertical: VerticalKey.PELUQUERIA, ciudad: 'Valencia' }),
+      ], { recomendados: [servicio('nuevo')] });
+
+      expect(catalogBrowse.buscar).toHaveBeenCalledWith(
+        VerticalKey.ALOJAMIENTO,
+        { ciudad: 'Madrid', orden: 'valoracion' },
+      );
+      expect(componente.recomendados().map((s) => s.id)).toEqual(['nuevo']);
+    });
+
+    it('no debería recomendar algo que ya está en favoritos', async () => {
+      await crear([favorito({ servicioId: 'f1', vertical: VerticalKey.ALOJAMIENTO })], {
+        recomendados: [servicio('f1'), servicio('otro')],
+      });
+
+      expect(componente.recomendados().map((s) => s.id)).toEqual(['otro']);
+    });
+
+    it('no debería recomendar nada si el usuario aún no tiene favoritos', async () => {
+      await crear([], { recomendados: [servicio('x')] });
+
+      // Sin favoritos no hay base para recomendar: mejor nada que resultados al azar.
+      expect(catalogBrowse.buscar).not.toHaveBeenCalled();
+      expect(componente.recomendados()).toEqual([]);
+    });
+
+    it('debería aguantar que el catálogo falle sin romper la página', async () => {
+      catalogBrowse = { buscar: jest.fn() };
+      await crear([favorito({ servicioId: 'f1', vertical: VerticalKey.ALOJAMIENTO })]);
+      catalogBrowse.buscar.mockImplementation(() => Promise.reject(new Error('catálogo caído')));
+
+      await componente.cargarRecomendados();
+
+      expect(componente.recomendados()).toEqual([]);
+      expect(componente.favoritos()).toHaveLength(1);
     });
   });
 });

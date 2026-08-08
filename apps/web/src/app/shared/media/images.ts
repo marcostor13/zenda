@@ -54,6 +54,8 @@ export const TRUST_ICONOS = {
   verificados: '/icons/trust-verificados.svg',
   reservaSegura: '/icons/trust-reserva-segura.svg',
   prioridad: '/icons/trust-prioridad.svg',
+  rapidez: '/icons/trust-rapidez.svg',
+  atencion: '/icons/trust-atencion.svg',
 } as const;
 
 /** Construye una URL del CDN de Pexels para un id de foto y un ancho dado. */

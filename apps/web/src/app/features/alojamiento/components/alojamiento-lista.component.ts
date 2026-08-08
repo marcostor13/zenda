@@ -1,4 +1,5 @@
-import { Component, signal, computed, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, signal, computed, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { VerticalKey } from 'shared';
 import { FormBuilder, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -10,9 +11,13 @@ import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-s
 import { RsCardComponent } from '../../../shared/components/card/rs-card.component';
 import { RsStarsComponent } from '../../../shared/components/stars/rs-stars.component';
 import { RsChipComponent } from '../../../shared/components/chip/rs-chip.component';
+import {
+  RsRangeSliderComponent, type BarraHistograma,
+} from '../../../shared/components/range-slider/rs-range-slider.component';
+import { RsMapaComponent, type PuntoMapa } from '../../../shared/components/mapa/rs-mapa.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import {
-  AlojamientoService, AlojamientoCard, FiltrosAlojamiento, OrdenServicios,
+  AlojamientoService, AlojamientoCard, FacetasCatalogo, FiltrosAlojamiento, OrdenServicios,
 } from '../services/alojamiento.service';
 import { calcularBadgesAutomaticos, type BadgeAutomatico } from '../../../shared/badges/badges-automaticos';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
@@ -32,7 +37,7 @@ interface BusquedaUrl {
   imports: [
     ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
     RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent, RsChipComponent,
-    ExperienciasCercaComponent, RsStarsComponent,
+    ExperienciasCercaComponent, RsStarsComponent, RsRangeSliderComponent, RsMapaComponent,
   ],
   template: `
 <div class="alojamiento-page">
@@ -62,24 +67,31 @@ interface BusquedaUrl {
 
     <!-- ── SIDEBAR ─────────────────────────────────────────── -->
     <aside class="filters-sidebar">
+      <!-- Miniatura del mapa sobre los filtros, como en Booking (PDF §3, WA0009) -->
+      @if (puntosMapa().length > 0) {
+        <button type="button" class="mapa-teaser" (click)="alternarMapa()"
+                [attr.aria-expanded]="mapaAbierto()">
+          <rs-mapa class="mapa-teaser__mini" [puntos]="puntosMapa()" ariaLabel="Vista previa del mapa" />
+          <span class="mapa-teaser__cta">
+            <rs-icon name="map-pin" [size]="15" [stroke]="2" />
+            {{ mapaAbierto() ? 'Ocultar el mapa' : 'Ver en el mapa' }}
+          </span>
+        </button>
+      }
+
       <div class="filters-sidebar__header">
         <h3>Filtros</h3>
         <button class="rs-btn rs-btn--ghost rs-btn--xs" (click)="limpiarFiltros()">Limpiar</button>
       </div>
 
-      <!-- Precio -->
+      <!-- Presupuesto con slider de doble asa e histograma (PDF §3) -->
       <div class="filter-group">
-        <h4>Precio por noche</h4>
-        <div class="price-range">
-          <div class="rs-field">
-            <label class="rs-lbl">Mínimo</label>
-            <input type="number" [(ngModel)]="precioMin" class="rs-inp" placeholder="Min €" />
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Máximo</label>
-            <input type="number" [(ngModel)]="precioMax" class="rs-inp" placeholder="Max €" />
-          </div>
-        </div>
+        <h4>Tu presupuesto (por noche)</h4>
+        <rs-range-slider
+          [min]="0" [max]="PRECIO_TOPE" [step]="5"
+          [histograma]="histogramaPrecios()"
+          [(valorMin)]="precioMin" [(valorMax)]="precioMax"
+          (cambio)="aplicarFiltros()" />
       </div>
 
       <!-- Rating -->
@@ -89,6 +101,7 @@ interface BusquedaUrl {
           @for (sc of ratingOpciones; track sc.valor) {
             <rs-chip [active]="ratingMinimo === sc.valor" (chipClick)="ratingMinimo = sc.valor">
               <rs-stars [score]="sc.valor" [size]="12" /> {{ sc.label }}
+              @if (conteoValoracion(sc.valor); as n) { <span class="filter-count">{{ n }}</span> }
             </rs-chip>
           }
         </div>
@@ -99,7 +112,10 @@ interface BusquedaUrl {
         <h4>Servicios</h4>
         <div class="filter-chips">
           @for (a of amenitiesOpciones; track a) {
-            <rs-chip [active]="amenitiesSelec().includes(a)" (chipClick)="toggleAmenity(a)">{{ a }}</rs-chip>
+            <rs-chip [active]="amenitiesSelec().includes(a)" (chipClick)="toggleAmenity(a)">
+              {{ a }}
+              @if (conteoAmenity(a); as n) { <span class="filter-count">{{ n }}</span> }
+            </rs-chip>
           }
         </div>
       </div>
@@ -151,6 +167,21 @@ interface BusquedaUrl {
         </div>
       </div>
 
+      <!-- Mapa desplegado: pines con el precio (PDF §3) -->
+      @if (mapaAbierto() && puntosMapa().length > 0) {
+        <div class="mapa-panel">
+          <rs-mapa [puntos]="puntosMapa()" [activo]="destacadoId()"
+                   ariaLabel="Mapa de alojamientos encontrados"
+                   (puntoElegido)="destacarDesdeMapa($event)" />
+        </div>
+        @if (sinCoordenadas() > 0) {
+          <p class="mapa-panel__aviso">
+            {{ sinCoordenadas() }} {{ sinCoordenadas() === 1 ? 'alojamiento no aparece' : 'alojamientos no aparecen' }}
+            en el mapa porque todavía no tienen ubicación exacta.
+          </p>
+        }
+      }
+
       <!-- Skeleton loading -->
       @if (cargando()) {
         <div class="results-list">
@@ -165,6 +196,8 @@ interface BusquedaUrl {
         <div class="results-list">
           @for (a of alojamientos(); track a.id) {
             <rs-card rsAnim
+              [id]="'card-' + a.id"
+              [class.card--destacada]="destacadoId() === a.id"
               [imageUrl]="a.imagenes[0]" [imageAlt]="a.nombre"
               [title]="a.nombre" [subtitle]="a.barrio + ', ' + a.ciudad"
               [badges]="badgesDe(a)"
@@ -261,6 +294,72 @@ interface BusquedaUrl {
       top: 140px;
     }
 
+    /* Miniatura de mapa sobre los filtros con su CTA superpuesto (PDF §3, WA0009). */
+    .mapa-teaser {
+      position: relative;
+      display: block;
+      width: 100%;
+      height: 130px;
+      margin-bottom: var(--sp-5);
+      padding: 0;
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      background: var(--c-raised);
+      cursor: pointer;
+    }
+
+    /* La miniatura es decorativa: el clic lo gestiona el botón que la envuelve. */
+    .mapa-teaser__mini { display: block; height: 100%; pointer-events: none; }
+
+    .mapa-teaser__cta {
+      position: absolute;
+      inset-inline: 0;
+      bottom: var(--sp-3);
+      margin-inline: auto;
+      width: max-content;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-4);
+      border-radius: var(--r-full);
+      background: var(--c-accent);
+      color: #fff;
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
+      box-shadow: var(--sh-md);
+    }
+
+    /* Mapa desplegado sobre la columna de resultados. */
+    .mapa-panel {
+      height: 420px;
+      margin-bottom: var(--sp-5);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+    }
+
+    .mapa-panel__aviso {
+      margin: calc(var(--sp-3) * -1) 0 var(--sp-5);
+      font-size: var(--f-xs);
+      color: var(--t-400);
+    }
+
+    /* Contador por opción de filtro ("Parking 514"). */
+    .filter-count {
+      margin-left: var(--sp-2);
+      font-size: var(--f-xs);
+      font-weight: var(--w-6);
+      color: var(--t-400);
+    }
+
+    /* Tarjeta resaltada al pulsar su pin en el mapa. */
+    .card--destacada {
+      outline: 2px solid var(--dk-gold);
+      outline-offset: 3px;
+      border-radius: var(--r-xl);
+    }
+
     .filters-sidebar__header {
       display: flex;
       align-items: center;
@@ -341,6 +440,7 @@ interface BusquedaUrl {
 })
 export class AlojamientoListaComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
   private readonly alojamientoService = inject(AlojamientoService);
   private readonly perrosService = inject(PerrosService);
@@ -350,6 +450,49 @@ export class AlojamientoListaComponent implements OnInit {
   readonly alojamientos = signal<AlojamientoCard[]>([]);
   readonly paginaActual = signal(1);
   readonly totalPaginas = signal(1);
+
+  // ── Mapa y facetas (PDF 27/07 §3, captura WA0009) ──────────────────
+  readonly mapaAbierto = signal(false);
+  /** Tarjeta resaltada al pulsar su pin en el mapa. */
+  readonly destacadoId = signal<string | null>(null);
+  readonly facetas = signal<FacetasCatalogo | null>(null);
+
+  /** Solo se pintan en el mapa los alojamientos que tienen coordenadas reales. */
+  readonly puntosMapa = computed<PuntoMapa[]>(() =>
+    this.alojamientos()
+      .filter((a) => a.lat != null && a.lng != null)
+      .map((a) => ({
+        id: a.id,
+        lat: a.lat as number,
+        lng: a.lng as number,
+        etiqueta: `€${a.precioPorNoche}`,
+        titulo: a.nombre,
+      })),
+  );
+
+  /** Cuántos resultados quedan fuera del mapa por no tener ubicación (se avisa, no se oculta). */
+  readonly sinCoordenadas = computed(() => this.alojamientos().length - this.puntosMapa().length);
+
+  readonly histogramaPrecios = computed<BarraHistograma[]>(() => this.facetas()?.precios ?? []);
+
+  conteoAmenity(valor: string): number | null {
+    return this.facetas()?.amenities.find((a) => a.valor === valor)?.n ?? null;
+  }
+
+  conteoValoracion(minimo: number): number | null {
+    return this.facetas()?.valoracion.find((v) => v.minimo === minimo)?.n ?? null;
+  }
+
+  alternarMapa(): void {
+    this.mapaAbierto.update((abierto) => !abierto);
+    if (!this.mapaAbierto()) this.destacadoId.set(null);
+  }
+
+  /** Al pulsar un pin se resalta su tarjeta y se lleva al usuario hasta ella. */
+  destacarDesdeMapa(id: string): void {
+    this.destacadoId.set(id);
+    document.getElementById(`card-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   /** Badges de la tarjeta unificada (HU-3.1/HU-0.9): destacado, descuento, y automáticos por datos reales. */
   badgesDe(a: AlojamientoCard): BadgeAutomatico[] {
@@ -399,6 +542,7 @@ export class AlojamientoListaComponent implements OnInit {
   readonly misPerros = signal<PerroApi[]>([]);
 
   /* Filtros locales */
+  readonly PRECIO_TOPE = 500;
   precioMin = 0;
   precioMax = 500;
   ratingMinimo = 0;
@@ -423,7 +567,9 @@ export class AlojamientoListaComponent implements OnInit {
 
   ngOnInit(): void {
     // La URL manda: cada búsqueda del buscador recarga el listado.
-    this.route.queryParams.subscribe(params => {
+    // `takeUntilDestroyed` como en el resto de listados: sin él, el componente
+    // sigue reaccionando a la URL después de destruirse.
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       this.busqueda.set({
         ciudad: params['ciudad'] || undefined,
         desde:  params['desde']  || undefined,
@@ -481,6 +627,9 @@ export class AlojamientoListaComponent implements OnInit {
       this.alojamientos.set(result.items);
       this.totalItems.set(result.total);
       this.totalPaginas.set(result.totalPages);
+      // El pin resaltado deja de tener sentido con otra tanda de resultados.
+      this.destacadoId.set(null);
+      void this.cargarFacetas(busqueda.ciudad);
     } catch {
       // Sin datos inventados: se muestra estado de error, no listados falsos.
       this.alojamientos.set([]);
@@ -489,6 +638,19 @@ export class AlojamientoListaComponent implements OnInit {
       this.error.set(true);
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  /**
+   * Contadores e histograma del panel de filtros (PDF §3). Van aparte de la
+   * búsqueda: si fallan, los filtros siguen funcionando — simplemente se quedan
+   * sin número al lado, que es preferible a romper el listado.
+   */
+  async cargarFacetas(ciudad?: string): Promise<void> {
+    try {
+      this.facetas.set(await this.alojamientoService.facetas(ciudad));
+    } catch {
+      this.facetas.set(null);
     }
   }
 

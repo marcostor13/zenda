@@ -170,4 +170,36 @@ describe('ExploraListaComponent', () => {
       expect(componente.tipos.length).toBeGreaterThan(0);
     });
   });
+
+  describe('mapa de la comunidad (ANALISIS-ESPECIFICACIONES §4.2)', () => {
+    it('debería convertir las coordenadas GeoJSON [lng, lat] al orden del mapa', async () => {
+      await crear({}, [
+        lugar({
+          _id: 'l1',
+          ubicacion: { ciudad: 'Valencia', geo: { type: 'Point', coordinates: [-0.3763, 39.4699] } },
+        }),
+      ]);
+
+      // GeoJSON guarda [lng, lat]; el mapa espera lat primero. Invertirlo mal
+      // colocaría Valencia en mitad del Índico.
+      expect(componente.puntosMapa()).toEqual([
+        { id: 'l1', lat: 39.4699, lng: -0.3763, etiqueta: 'Playa canina', titulo: 'Playa canina' },
+      ]);
+    });
+
+    it('debería descartar los lugares sin coordenadas', async () => {
+      await crear({}, [lugar({ _id: 'l1' })]);
+
+      expect(componente.puntosMapa()).toEqual([]);
+    });
+
+    it('debería abrir la ficha del lugar al pulsar su pin', async () => {
+      await crear();
+      const navegar = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      componente.abrirLugar('l1');
+
+      expect(navegar).toHaveBeenCalledWith(['/explora', 'l1']);
+    });
+  });
 });

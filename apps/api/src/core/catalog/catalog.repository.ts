@@ -54,6 +54,16 @@ const ORDEN_SORT: Record<Exclude<OrdenServicios, 'distancia'>, Record<string, 1 
   valoracion: { ratingPromedio: -1, totalReseñas: -1 },
 };
 
+/** Facetas de la búsqueda (PDF 27/07 §3, WA0009): contadores y distribución de precios. */
+export interface FacetasResult {
+  /** Histograma de precios por tramo, para el slider de presupuesto. */
+  precios: Array<{ desde: number; hasta: number; n: number }>;
+  /** Recuento por amenity, para los contadores de los checkboxes ("Parking 514"). */
+  amenities: Array<{ valor: string; n: number }>;
+  /** Recuento acumulado por valoración mínima (>=3, >=4, >=5). */
+  valoracion: Array<{ minimo: number; n: number }>;
+}
+
 export interface BuscarServiciosResult {
   items: ServicioDocument[];
   total: number;
@@ -120,6 +130,62 @@ export class CatalogRepository {
     ]);
 
     return { items, total };
+  }
+
+  /**
+   * Facetas de la búsqueda actual (PDF 27/07 §3): histograma de precios para el
+   * slider, contadores por amenity y por valoración mínima. El filtro base
+   * ignora el propio rango de precio a propósito — el histograma describe el
+   * paisaje completo del destino, como en Booking, no solo el tramo elegido.
+   */
+  async facetas(params: BuscarServiciosParams): Promise<FacetasResult> {
+    const filtro = this.construirFiltro({ ...params, precioMin: undefined, precioMax: undefined });
+
+    interface FacetasCrudas {
+      precios: Array<{ _id: { min: number; max: number }; n: number }>;
+      amenities: Array<{ _id: string; n: number }>;
+      valoracion: Array<{ tres: number; cuatro: number; cinco: number }>;
+    }
+
+    const [crudas] = await this.servicioModel.aggregate<FacetasCrudas>([
+      { $match: filtro },
+      {
+        $facet: {
+          precios: [
+            { $match: { precioBase: { $type: 'number' } } },
+            { $bucketAuto: { groupBy: '$precioBase', buckets: 16, output: { n: { $sum: 1 } } } },
+          ],
+          amenities: [
+            { $unwind: '$amenities' },
+            { $group: { _id: '$amenities', n: { $sum: 1 } } },
+            { $sort: { n: -1 } },
+          ],
+          valoracion: [
+            {
+              $group: {
+                _id: null,
+                tres:   { $sum: { $cond: [{ $gte: ['$ratingPromedio', 3] }, 1, 0] } },
+                cuatro: { $sum: { $cond: [{ $gte: ['$ratingPromedio', 4] }, 1, 0] } },
+                cinco:  { $sum: { $cond: [{ $gte: ['$ratingPromedio', 5] }, 1, 0] } },
+              },
+            },
+          ],
+        },
+      },
+    ]).exec();
+
+    const valoracion = crudas?.valoracion?.[0];
+    return {
+      precios: (crudas?.precios ?? []).map((b) => ({ desde: b._id.min, hasta: b._id.max, n: b.n })),
+      amenities: (crudas?.amenities ?? []).map((a) => ({ valor: a._id, n: a.n })),
+      valoracion: valoracion
+        ? [
+            { minimo: 3, n: valoracion.tres },
+            { minimo: 4, n: valoracion.cuatro },
+            { minimo: 5, n: valoracion.cinco },
+          ]
+        : [],
+    };
   }
 
   /**

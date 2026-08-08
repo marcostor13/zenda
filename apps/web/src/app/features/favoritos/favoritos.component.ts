@@ -9,6 +9,7 @@ import { ImgFallbackDirective } from '../../shared/directives/img-fallback.direc
 import { FavoritosService } from './favoritos.service';
 import { ReservasService } from '../reservas/services/reservas.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { CatalogBrowseService, type ServicioCard } from '../verticales/catalog-browse.service';
 
 type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
 
@@ -106,6 +107,44 @@ const VERTICALES_CON_FICHA = new Set<string>([
         }
       </div>
     }
+
+    <!-- Recomendados a partir de lo que ya tiene guardado (PDF 27/07 §19) -->
+    @if (recomendados().length > 0) {
+      <section class="fav-reco">
+        <h2 class="fav-reco__titulo">
+          <rs-icon name="sparkles" [size]="18" [stroke]="2"></rs-icon>
+          Recomendados para ti
+        </h2>
+        <p class="fav-reco__sub">Más opciones parecidas a las que sueles guardar.</p>
+
+        <div class="fav-grid">
+          @for (s of recomendados(); track s.id) {
+            <article class="rs-card fav-card">
+              <a class="fav-card__img" [routerLink]="['/', s.vertical, s.id]">
+                @if (s.imagenes[0]) {
+                  <img [src]="s.imagenes[0]" [alt]="s.nombre" rsImg />
+                } @else {
+                  <span class="fav-card__placeholder"><rs-icon name="paw" [size]="32" [stroke]="1.5"></rs-icon></span>
+                }
+                <span class="fav-card__fav" (click)="$event.stopPropagation()">
+                  <rs-favorito-btn [servicioId]="s.id"></rs-favorito-btn>
+                </span>
+              </a>
+              <div class="fav-card__body">
+                <h3>{{ s.nombre }}</h3>
+                <span class="fav-card__loc">
+                  <rs-icon name="map-pin" [size]="12" [stroke]="2"></rs-icon> {{ s.ciudad }}
+                </span>
+                <div class="fav-card__footer">
+                  <span class="fav-card__rating">{{ s.score | number:'1.1-1' }} ({{ s.numResenas }})</span>
+                  <span class="fav-card__price">€{{ s.precioPorNoche }}</span>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+    }
   </div>
 </div>
   `,
@@ -128,6 +167,15 @@ const VERTICALES_CON_FICHA = new Set<string>([
     .fav-card__footer { display: flex; justify-content: space-between; align-items: center; margin-block: var(--sp-1); }
     .fav-card__rating { font-size: var(--f-xs); color: var(--t-400); }
     .fav-card__price { font-size: var(--f-md); font-weight: var(--w-8); color: var(--c-accent); }
+
+    /* Recomendados para ti (PDF §19) */
+    .fav-reco { margin-top: var(--sp-10); padding-top: var(--sp-8); border-top: 1px solid var(--b-1); }
+    .fav-reco__titulo {
+      display: flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-lg); font-weight: var(--w-8); color: var(--t-100);
+      rs-icon { color: var(--dk-gold); }
+    }
+    .fav-reco__sub { color: var(--t-400); font-size: var(--f-sm); margin: var(--sp-1) 0 var(--sp-5); }
   `],
 })
 
@@ -135,6 +183,7 @@ export class FavoritosComponent implements OnInit {
   private readonly favoritosService = inject(FavoritosService);
   private readonly reservasService = inject(ReservasService);
   private readonly auth = inject(AuthService);
+  private readonly catalogBrowse = inject(CatalogBrowseService);
 
   readonly cargando = signal(true);
   readonly favoritos = signal<FavoritoResumenDto[]>([]);
@@ -142,6 +191,8 @@ export class FavoritosComponent implements OnInit {
   readonly filtroVertical = signal<VerticalKey | ''>('');
   /** HU-10.4: servicios que el usuario ya reservó, para el sello "Ya reservaste aquí". */
   readonly yaReservados = signal<Set<string>>(new Set());
+  /** "Recomendados para ti" a partir de lo que ya tiene guardado (PDF §19). */
+  readonly recomendados = signal<ServicioCard[]>([]);
 
   readonly verticalesDisponibles = computed(() => {
     const vistos = new Set(this.favoritos().map((f) => f.vertical));
@@ -172,6 +223,38 @@ export class FavoritosComponent implements OnInit {
         // Sin datos de reservas no se muestra el sello, pero la página sigue funcionando.
       }
     }
+
+    await this.cargarRecomendados();
+  }
+
+  /**
+   * "Recomendados para ti" (PDF 27/07 §19): más servicios de la categoría que
+   * el usuario más guarda, en la ciudad donde más guarda. Si todavía no tiene
+   * favoritos no hay nada en lo que basarse y la sección no se pinta — no se
+   * rellena con resultados al azar.
+   */
+  async cargarRecomendados(): Promise<void> {
+    const guardados = this.favoritos();
+    if (guardados.length === 0) return;
+
+    const vertical = this.masFrecuente(guardados.map((f) => f.vertical));
+    const ciudad = this.masFrecuente(guardados.filter((f) => f.ciudad).map((f) => f.ciudad));
+    if (!vertical) return;
+
+    try {
+      const encontrados = await this.catalogBrowse.buscar(vertical, { ciudad, orden: 'valoracion' });
+      const yaGuardados = new Set(guardados.map((f) => f.servicioId));
+      this.recomendados.set(encontrados.filter((s) => !yaGuardados.has(s.id)).slice(0, 4));
+    } catch {
+      // Sin recomendaciones la página sigue siendo útil: es una sección extra.
+    }
+  }
+
+  /** Valor que más se repite en una lista; `undefined` si la lista está vacía. */
+  private masFrecuente<T extends string>(valores: T[]): T | undefined {
+    const conteo = new Map<T, number>();
+    valores.forEach((v) => conteo.set(v, (conteo.get(v) ?? 0) + 1));
+    return [...conteo.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   }
 
   etiquetaVertical(v: VerticalKey): string {

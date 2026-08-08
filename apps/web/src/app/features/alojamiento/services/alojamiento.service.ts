@@ -26,6 +26,16 @@ export interface FiltrosAlojamiento {
 
 export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valoracion' | 'distancia';
 
+/**
+ * Facetas del panel de filtros (PDF 27/07 §3): histograma de precios para el
+ * slider y contadores por opción, como en la referencia de Booking.
+ */
+export interface FacetasCatalogo {
+  precios: Array<{ desde: number; hasta: number; n: number }>;
+  amenities: Array<{ valor: string; n: number }>;
+  valoracion: Array<{ minimo: number; n: number }>;
+}
+
 export interface AlojamientoCard {
   id: string;
   nombre: string;
@@ -144,6 +154,16 @@ export class AlojamientoService {
   async obtener(id: string): Promise<AlojamientoDetalle> {
     const data = await firstValueFrom(this.http.get<AlojamientoDetalle>(`${this.base}/${id}`));
     return this.normalizarDetalle(data);
+  }
+
+  /**
+   * Facetas del panel de filtros (PDF 27/07 §3). No dependen del rango de
+   * precio elegido, así que basta con recargarlas al cambiar de ciudad.
+   */
+  facetas(ciudad?: string): Promise<FacetasCatalogo> {
+    const params: Record<string, string> = { vertical: VerticalKey.ALOJAMIENTO };
+    if (ciudad) params['ciudad'] = ciudad;
+    return firstValueFrom(this.http.get<FacetasCatalogo>(`${this.base}/facetas`, { params }));
   }
 
   /** Garantiza que los arrays existan para que las plantillas no rompan con datos parciales del API. */

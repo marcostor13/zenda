@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, inject, signal, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -14,12 +14,15 @@ import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-sear
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import { BRAND, HOTEL_IMAGES, TRUST_ICONOS } from '../../shared/media/images';
 import { VERTICALES_UI, rutaDeVertical } from '../../shared/verticales/verticales.config';
+import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
 import { environment } from '../../../environments/environment';
 
 interface AlojamientoRecomendado {
+  /** Presente solo cuando la tarjeta viene del catálogo real: habilita favorito y enlace a la ficha. */
+  id?: string;
   ciudad: string;
   nombre: string;
-  estrellas: number;
+  estrellas?: number;
   score: number;
   scoreLabel: string;
   numResenas: number;
@@ -55,7 +58,8 @@ type SearchMode = 'filtros' | 'ia';
   ],
   template: `
 <div class="home">
-  <rs-navbar />
+  <!-- El logotipo grande ya está en el hero: la barra deja solo la "D" (PDF §1). -->
+  <rs-navbar [soloMarcaD]="true" />
 
   <!-- ═══ HERO + BUSCADOR ═════════════════════════════════════════ -->
   <section class="hero">
@@ -134,12 +138,15 @@ type SearchMode = 'filtros' | 'ia';
         }
       </div>
 
-      <!-- Garantías sobre la franja navy -->
+      <!-- Bloque de 3 valores sobre la franja navy (copys aprobados, PDF 27/07 §4) -->
       <div class="trust">
         @for (t of garantias; track t.titulo) {
           <div class="trust__item">
             <img [src]="t.icono" alt="" class="trust__icon" aria-hidden="true" />
-            <p class="trust__text">{{ t.titulo }}<br />{{ t.detalle }}</p>
+            <div class="trust__body">
+              <p class="trust__title">{{ t.titulo }}</p>
+              <p class="trust__desc">{{ t.descripcion }}</p>
+            </div>
           </div>
         }
       </div>
@@ -151,8 +158,8 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
-          <h2 class="rs-h3" i18n="@@home.exploraServicios">Explora todos nuestros servicios</h2>
-          <p i18n="@@home.exploraClaim">Reserva en segundos con los mejores profesionales cerca de ti.</p>
+          <h2 class="rs-h3" i18n="@@home.exploraServicios">Todo lo que tu mascota necesita, en un solo lugar.</h2>
+          <p i18n="@@home.exploraClaim">Reserva con profesionales verificados cerca de ti, de forma rápida, segura y sin complicaciones.</p>
         </div>
       </div>
 
@@ -186,6 +193,13 @@ type SearchMode = 'filtros' | 'ia';
         </div>
       </div>
 
+      <!-- Banda fotográfica emocional entre el título y las tarjetas (PDF §6).
+           TODO(D-3): sustituir por la fotografía de "familia disfrutando con su
+           mascota" que aporte el cliente — basta con cambiar este fichero. -->
+      <figure class="why-banner" rsAnim>
+        <img [src]="bandaPorQue" alt="Momento de disfrute con una mascota" loading="lazy" rsImg />
+      </figure>
+
       <ul class="why-grid" rsAnim>
         @for (m of motivos; track m.titulo) {
           <li class="why-card">
@@ -210,17 +224,30 @@ type SearchMode = 'filtros' | 'ia';
         </div>
       </div>
 
-      <div class="cities-grid" rsAnim>
-        @for (c of ciudades; track c.nombre) {
-          <a class="city-card" [routerLink]="rutaAlojamiento" [queryParams]="{ ciudad: c.nombre }">
-            <img [src]="c.imagen" [alt]="c.nombre" loading="lazy" rsImg />
-            <span class="city-card__veil"></span>
-            <span class="city-card__meta">
-              <strong>{{ c.nombre }}</strong>
-              <em>{{ c.servicios }} servicios</em>
-            </span>
-          </a>
-        }
+      <!-- Carrusel con flechas laterales, rueda y gesto táctil (PDF 27/07 §7). -->
+      <div class="cities-carousel">
+        <button type="button" class="cities-nav cities-nav--prev"
+                (click)="desplazarCiudades(-1)" aria-label="Ver ciudades anteriores">
+          <rs-icon name="arrow-left" [size]="18" [stroke]="2"></rs-icon>
+        </button>
+
+        <div class="cities-track" #ciudadesTrack rsAnim>
+          @for (c of ciudades; track c.nombre) {
+            <a class="city-card" [routerLink]="rutaAlojamiento" [queryParams]="{ ciudad: c.nombre }">
+              <img [src]="c.imagen" [alt]="c.nombre" loading="lazy" rsImg />
+              <span class="city-card__veil"></span>
+              <span class="city-card__meta">
+                <strong>{{ c.nombre }}</strong>
+                <em>{{ c.servicios }} servicios</em>
+              </span>
+            </a>
+          }
+        </div>
+
+        <button type="button" class="cities-nav cities-nav--next"
+                (click)="desplazarCiudades(1)" aria-label="Ver más ciudades">
+          <rs-icon name="arrow-right" [size]="18" [stroke]="2"></rs-icon>
+        </button>
       </div>
     </div>
   </section>
@@ -239,7 +266,7 @@ type SearchMode = 'filtros' | 'ia';
       </div>
 
       <div class="stays-grid">
-        @for (a of alojamientosRecomendados; track a.nombre) {
+        @for (a of alojamientosRecomendados(); track a.nombre) {
           <rs-card
             [rsAnim]="''" [rsAnimDelay]="$index * 70"
             [imageUrl]="a.imagen" [imageAlt]="a.nombre"
@@ -249,6 +276,8 @@ type SearchMode = 'filtros' | 'ia';
             [price]="{ amount: '€' + a.precioPorNoche, period: '/noche' }"
             [amenities]="a.tags"
             ctaLabel="Ver alojamiento"
+            [favoritoServicioId]="a.id ?? null"
+            [routerLink]="a.id ? ['/alojamiento', a.id] : null"
             (cardClick)="irAAlojamiento(a.ciudad)">
           </rs-card>
         }
@@ -266,10 +295,6 @@ type SearchMode = 'filtros' | 'ia';
           <h2 class="rs-h3">Explora con tu mascota</h2>
           <p>Descubre playas caninas, parques caninos, rutas, restaurantes y otros lugares pet friendly recomendados por la comunidad Doogking.</p>
         </div>
-        <a routerLink="/explora/planificador" class="sec-head__link">
-          Planificar un viaje con IA
-          <rs-icon name="arrow-right" [size]="16" [stroke]="2"></rs-icon>
-        </a>
       </div>
 
       <div class="explora-grid" rsAnim>
@@ -283,6 +308,18 @@ type SearchMode = 'filtros' | 'ia';
             </span>
           </a>
         }
+      </div>
+
+      <!-- CTAs integrados en la sección, no aislados arriba (PDF 27/07 §9). -->
+      <div class="explora-ctas" rsAnim>
+        <a routerLink="/explora" class="rs-btn rs-btn--outline">
+          <rs-icon name="map-pin" [size]="16" [stroke]="2"></rs-icon>
+          Ver lugares cercanos
+        </a>
+        <a routerLink="/explora/planificador" class="rs-btn rs-btn--gold">
+          <rs-icon name="sparkles" [size]="16" [stroke]="2"></rs-icon>
+          Planificar mi viaje con IA
+        </a>
       </div>
 
       <p class="explora-nota">Todos los lugares son compartidos por la comunidad y revisados por el equipo Doogking antes de su publicación.</p>
@@ -312,21 +349,41 @@ type SearchMode = 'filtros' | 'ia';
     </div>
   </section>
 
-  <!-- ═══ CTA COMERCIOS ═══════════════════════════════════════════ -->
+  <!-- ═══ CTA COMERCIOS ═══════════════════════════════════════════
+       El cliente validó esta combinación de colores (WA0004): no rediseñar,
+       solo añadir beneficios, cierre aspiracional y hueco de fotografía. -->
   <section class="pro-cta">
     <div class="rs-wrap rs-wrap--lg pro-cta__inner" rsAnim>
-      <div>
+      <div class="pro-cta__body">
         <p class="pro-cta__eyebrow">Para profesionales</p>
         <h2 class="pro-cta__title">¿Tienes un negocio canino?</h2>
         <p class="pro-cta__text">
           Publica tus servicios en Doogking, gestiona tu disponibilidad y recibe
           reservas pagadas online. Sin cuota de alta: solo comisión por reserva.
         </p>
+
+        <!-- Tres beneficios con icono (PDF §10). -->
+        <ul class="pro-cta__beneficios">
+          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> Sin cuota de alta</li>
+          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> Reservas 24/7</li>
+          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> Cobros seguros</li>
+        </ul>
+
+        <p class="pro-cta__cierre">
+          Únete a la plataforma que está transformando la forma de reservar servicios para mascotas.
+        </p>
+
+        <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--gold rs-btn--lg">
+          Registrar mi negocio
+          <rs-icon name="arrow-right" [size]="17" [stroke]="2.25"></rs-icon>
+        </a>
       </div>
-      <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--gold rs-btn--lg">
-        Registrar mi negocio
-        <rs-icon name="arrow-right" [size]="17" [stroke]="2.25"></rs-icon>
-      </a>
+
+      <!-- TODO(D-3): sustituir por la foto real de un profesional trabajando
+           (veterinario, peluquero, residencia…) cuando la aporte el cliente. -->
+      <figure class="pro-cta__foto">
+        <img [src]="fotoProfesional" alt="Profesional atendiendo a una mascota" loading="lazy" rsImg />
+      </figure>
     </div>
   </section>
 
@@ -638,7 +695,7 @@ type SearchMode = 'filtros' | 'ia';
 
     .trust__item {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: var(--sp-3);
 
       & + & { border-left: 1px solid rgba(255,255,255,.22); padding-left: var(--sp-10); }
@@ -650,12 +707,23 @@ type SearchMode = 'filtros' | 'ia';
 
     .trust__icon { width: 38px; height: 38px; flex-shrink: 0; }
 
-    .trust__text {
+    /* Título + descripción aprobados (§4): cada valor ocupa una columna con texto completo. */
+    .trust__body { max-width: 300px; }
+
+    .trust__title {
       font-family: var(--font-accent);
       font-size: var(--f-sm);
       font-weight: var(--w-7);
       line-height: 1.35;
       color: #fff;
+      margin: 0 0 var(--sp-1);
+    }
+
+    .trust__desc {
+      font-size: var(--f-xs);
+      line-height: 1.5;
+      color: rgba(255, 255, 255, .82);
+      margin: 0;
     }
 
     /* ══ CABECERAS DE SECCIÓN ═══════════════════════════════════════ */
@@ -723,6 +791,17 @@ type SearchMode = 'filtros' | 'ia';
       em { font-style: normal; font-size: var(--f-xs); opacity: .88; }
     }
 
+    /* CTAs de la sección Explora (PDF §9): dentro de la sección, no aislados. */
+    .explora-ctas {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: var(--sp-4);
+      margin-top: var(--sp-8);
+
+      .rs-btn { display: inline-flex; align-items: center; gap: var(--sp-2); }
+    }
+
     .explora-nota {
       margin-top: var(--sp-4);
       font-size: var(--f-xs);
@@ -732,6 +811,17 @@ type SearchMode = 'filtros' | 'ia';
 
     /* ══ ¿POR QUÉ DOOGKING? ═════════════════════════════════════════ */
     .why-section { background: var(--c-card); }
+
+    /* Banda fotográfica emocional (PDF §6) — placeholder hasta D-3. */
+    .why-banner {
+      margin: 0 0 var(--sp-10);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      box-shadow: var(--sh-card);
+
+      img { display: block; width: 100%; height: 240px; object-fit: cover; }
+      @media (max-width: 640px) { img { height: 160px; } }
+    }
 
     .why__eyebrow {
       font-family: var(--font-accent);
@@ -842,7 +932,12 @@ type SearchMode = 'filtros' | 'ia';
         border-color: rgba(8,37,139,.25);
 
         .cat-card__art { background: var(--c-accent-lo); }
-        .cat-card__go { transform: translateX(4px); color: var(--dk-blue); }
+        .cat-card__go {
+          transform: translateX(4px);
+          color: var(--dk-blue-text, var(--dk-blue));
+          background: var(--dk-gold);
+          border-color: var(--dk-gold);
+        }
       }
     }
 
@@ -872,24 +967,72 @@ type SearchMode = 'filtros' | 'ia';
 
     .cat-card__claim { font-size: var(--f-sm); color: var(--t-400); line-height: 1.45; }
 
-    .cat-card__go { margin-left: auto; color: var(--t-500); transition: transform var(--d-2), color var(--d-2); }
+    /* Botón circular "○→" que se vuelve dorado al hover (PDF 27/07 §5). */
+    .cat-card__go {
+      margin-left: auto;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border: 1.5px solid var(--b-2);
+      border-radius: var(--r-full);
+      color: var(--t-500);
+      transition: transform var(--d-2), color var(--d-2), background var(--d-2), border-color var(--d-2);
+    }
 
     /* ══ CIUDADES ═══════════════════════════════════════════════════ */
     .cities-section { background: var(--c-raised); }
 
-    .cities-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: var(--sp-6);
+    /* Carrusel de ciudades (PDF 27/07 §7): scroll-snap + flechas laterales.
+       La rueda del ratón y el gesto táctil funcionan por el overflow nativo. */
+    .cities-carousel { position: relative; }
 
-      @media (max-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
-      @media (max-width: 560px)  { grid-template-columns: repeat(2, 1fr); }
+    .cities-track {
+      display: flex;
+      gap: var(--sp-6);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding-bottom: var(--sp-2);
+      scrollbar-width: none;
+      &::-webkit-scrollbar { display: none; }
     }
+
+    .cities-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-full);
+      background: var(--c-card);
+      color: var(--dk-blue);
+      box-shadow: var(--sh-md);
+      cursor: pointer;
+      transition: background var(--d-2), color var(--d-2), transform var(--d-2);
+
+      &:hover { background: var(--dk-gold); color: var(--dk-blue-text, var(--dk-blue)); transform: translateY(-50%) scale(1.06); }
+    }
+
+    .cities-nav--prev { left: calc(var(--sp-4) * -1); }
+    .cities-nav--next { right: calc(var(--sp-4) * -1); }
+
+    /* En táctil el gesto de deslizar sustituye a las flechas. */
+    @media (hover: none) { .cities-nav { display: none; } }
 
     .city-card {
       position: relative;
       display: block;
-      aspect-ratio: 3 / 4.6;
+      /* Tarjeta +15% con foto horizontal y snap (PDF §7). */
+      flex: 0 0 min(300px, 78vw);
+      scroll-snap-align: start;
+      aspect-ratio: 4 / 3;
       border-radius: var(--r-lg);
       overflow: hidden;
       box-shadow: var(--sh-card);
@@ -920,7 +1063,8 @@ type SearchMode = 'filtros' | 'ia';
       flex-direction: column;
       color: #fff;
 
-      strong { font-family: var(--font-display); font-size: var(--f-md); font-weight: var(--w-7); }
+      /* El nombre de la ciudad manda sobre el nº de servicios (PDF §7). */
+      strong { font-family: var(--font-display); font-size: var(--f-lg); font-weight: var(--w-8); }
       em { font-style: normal; font-size: var(--f-xs); color: rgba(255,255,255,.8); }
     }
 
@@ -957,6 +1101,25 @@ type SearchMode = 'filtros' | 'ia';
       border-radius: var(--r-xl);
       padding: var(--sp-8) var(--sp-6) var(--sp-6);
       text-align: center;
+      transition: transform var(--d-2), box-shadow var(--d-2);
+
+      /* Línea fina que conecta los pasos a la altura del número (PDF §10). */
+      &:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        /* A la altura del centro del círculo numerado (42px que arranca en -16px). */
+        top: 4px;
+        left: calc(50% + 26px);
+        width: calc(100% + var(--sp-5) - 52px);
+        border-top: 2px dashed var(--dk-divider, var(--b-2));
+        @media (max-width: 800px) { display: none; }
+      }
+
+      &:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--sh-lg);
+        .how-step__num { transform: translateX(-50%) scale(1.15); }
+      }
     }
 
     .how-step__num {
@@ -964,17 +1127,20 @@ type SearchMode = 'filtros' | 'ia';
       top: calc(-1 * var(--sp-4));
       left: 50%;
       transform: translateX(-50%);
-      width: 34px;
-      height: 34px;
+      /* Números protagonistas, con círculo dorado llamativo (PDF §10). */
+      width: 42px;
+      height: 42px;
       display: grid;
       place-items: center;
       border-radius: var(--r-full);
       background: var(--dk-gold);
       color: var(--dk-blue-deep);
       font-family: var(--font-accent);
-      font-weight: var(--w-7);
-      font-size: var(--f-sm);
+      font-weight: var(--w-8);
+      font-size: var(--f-md);
       box-shadow: var(--sh-md);
+      transition: transform var(--d-2);
+      z-index: 1;
     }
 
     .how-step__icon { color: var(--dk-blue); margin-inline: auto; margin-bottom: var(--sp-3); }
@@ -988,20 +1154,66 @@ type SearchMode = 'filtros' | 'ia';
 
     .how-step__text { font-size: var(--f-sm); color: var(--t-400); line-height: 1.6; }
 
-    /* ══ CTA COMERCIOS ══════════════════════════════════════════════ */
-    .pro-cta { background: var(--dk-blue); padding-block: var(--sp-12); }
+    /* ══ CTA COMERCIOS ══════════════════════════════════════════════
+       Degradado azul elegante (PDF §10) manteniendo la combinación que el
+       cliente validó en WA0004. */
+    .pro-cta {
+      background: linear-gradient(135deg, var(--dk-blue) 0%, var(--dk-blue-deep, #00135D) 100%);
+      padding-block: var(--sp-12);
+    }
 
     .pro-cta__inner {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: var(--sp-6);
+      gap: var(--sp-8);
       flex-wrap: wrap;
+    }
+
+    .pro-cta__body { flex: 1 1 420px; max-width: 620px; }
+
+    .pro-cta__beneficios {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-3) var(--sp-6);
+      padding: 0;
+      margin: var(--sp-5) 0 0;
+
+      li {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--sp-2);
+        font-size: var(--f-sm);
+        font-weight: var(--w-6);
+        color: rgba(255, 255, 255, .92);
+        rs-icon { color: var(--dk-gold); }
+      }
+    }
+
+    .pro-cta__cierre {
+      margin: var(--sp-5) 0 var(--sp-6);
+      font-size: var(--f-sm);
+      color: rgba(255, 255, 255, .78);
+      max-width: 52ch;
+    }
+
+    /* Hueco de fotografía del profesional (PDF §10) — placeholder hasta D-3. */
+    .pro-cta__foto {
+      flex: 0 1 340px;
+      margin: 0;
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      box-shadow: var(--sh-lg);
+
+      img { display: block; width: 100%; height: 260px; object-fit: cover; }
+      @media (max-width: 900px) { display: none; }
     }
 
     .pro-cta__eyebrow {
       font-family: var(--font-accent);
-      font-size: var(--f-xs);
+      /* "un pelín más grande", pedido explícito del cliente (WA0004) — un escalón: xs → sm. */
+      font-size: var(--f-sm);
       font-weight: var(--w-7);
       letter-spacing: .12em;
       text-transform: uppercase;
@@ -1105,12 +1317,53 @@ type SearchMode = 'filtros' | 'ia';
     }
   `],
 })
-export class HomeComponent {
+export class HomeComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
+  private readonly alojamientoService = inject(AlojamientoService);
+
+  private readonly ciudadesTrack = viewChild<ElementRef<HTMLElement>>('ciudadesTrack');
+
+  async ngOnInit(): Promise<void> {
+    // "Recomendados" reales: los alojamientos mejor valorados del catálogo
+    // (PDF 27/07 §8). Si el API no responde, se queda el escaparate estático.
+    try {
+      const { items } = await this.alojamientoService.buscar({ orden: 'valoracion' });
+      if (items.length > 0) {
+        this.alojamientosRecomendados.set(items.slice(0, 4).map((a) => ({
+          id: a.id,
+          nombre: a.nombre,
+          ciudad: a.ciudad,
+          score: a.score,
+          scoreLabel: a.scoreLabel,
+          numResenas: a.numResenas,
+          precioPorNoche: a.precioPorNoche,
+          imagen: a.imagenes[0] ?? HOTEL_IMAGES[0],
+          tags: a.amenities.slice(0, 3),
+        })));
+      }
+    } catch {
+      // Catálogo no disponible: el escaparate por defecto sigue siendo válido.
+    }
+  }
+
+  /**
+   * Desplaza el carrusel de ciudades aproximadamente una "página" visible; el
+   * `scroll-snap` remata el encaje en la tarjeta más cercana (PDF 27/07 §7).
+   */
+  desplazarCiudades(direccion: 1 | -1): void {
+    const track = this.ciudadesTrack()?.nativeElement;
+    if (!track) return;
+    track.scrollBy({ left: direccion * track.clientWidth * 0.8, behavior: 'smooth' });
+  }
 
   readonly logoMark = BRAND.logoMark;
   readonly logoFooter = BRAND.logoFooter;
+
+  /* Placeholders a la espera del material del cliente (D-3): sustituir la
+     imagen equivale a cambiar la ruta aquí. */
+  readonly bandaPorQue = BRAND.heroHome;
+  readonly fotoProfesional = HOTEL_IMAGES[0];
   readonly rutaAlojamiento = rutaDeVertical(VerticalKey.ALOJAMIENTO);
 
   /** Marcas de pago del pie, con su logotipo en vez del nombre escrito (TCK-8008). */
@@ -1143,10 +1396,23 @@ export class HomeComponent {
   /** Categorías: misma configuración que el menú y el buscador. */
   readonly verticales = VERTICALES_UI;
 
+  /** Bloque de 3 valores bajo el buscador — textos aprobados por el cliente (PDF 27/07 §4). */
   readonly garantias = [
-    { icono: TRUST_ICONOS.verificados, titulo: 'Profesionales', detalle: 'verificados' },
-    { icono: TRUST_ICONOS.reservaSegura, titulo: 'Reserva segura', detalle: 'y garantizada' },
-    { icono: TRUST_ICONOS.prioridad, titulo: 'Tu mascota,', detalle: 'nuestra prioridad' },
+    {
+      icono: TRUST_ICONOS.rapidez,
+      titulo: 'Reserva en menos de un minuto',
+      descripcion: 'Encuentra y reserva el servicio perfecto sin llamadas, sin esperas y con confirmación inmediata.',
+    },
+    {
+      icono: TRUST_ICONOS.verificados,
+      titulo: 'Profesionales verificados',
+      descripcion: 'Cada empresa es validada antes de unirse a Doogking para que reserves con total confianza. Reseñas reales de clientes completan cada perfil.',
+    },
+    {
+      icono: TRUST_ICONOS.atencion,
+      titulo: 'Atención 24/7',
+      descripcion: 'Siempre disponibles para ayudarte antes, durante y después de cada reserva.',
+    },
   ];
 
   /** Pilares del bloque "¿Por qué Doogking?" (propuesta de valor de marca). */
@@ -1163,8 +1429,10 @@ export class HomeComponent {
     },
     {
       icon: 'globe',
-      titulo: 'Miles de servicios en un solo lugar',
-      texto: 'Alojamiento, veterinario, peluquería, transporte y adiestramiento con un único perfil y un único pago.',
+      // Copy aprobado por el cliente (PDF 27/07 §6, captura WA0010): la
+      // descripción enumera TODOS los servicios, no solo los cinco primeros.
+      titulo: 'Todo para tu mascota en un solo lugar',
+      texto: 'Alojamiento, veterinarios, peluquería, transporte, adiestramiento, hoteles pet-friendly, seguros y cuidadores con un único perfil y un único pago.',
     },
     {
       icon: 'message-square',
@@ -1200,7 +1468,12 @@ export class HomeComponent {
     { nombre: 'Málaga', servicios: 91, imagen: HOTEL_IMAGES[1] },
   ];
 
-  readonly alojamientosRecomendados: AlojamientoRecomendado[] = [
+  /**
+   * Escaparate por defecto mientras carga el catálogo (o si el API falla).
+   * Sin `id`: estas tarjetas no llevan corazón de favorito ni enlace a ficha,
+   * porque no apuntan a un servicio real.
+   */
+  private readonly recomendadosPorDefecto: AlojamientoRecomendado[] = [
     {
       nombre: 'Royal Dog Resort', ciudad: 'Madrid',
       estrellas: 5, score: 9.4, scoreLabel: 'Excepcional', numResenas: 812,
@@ -1226,6 +1499,13 @@ export class HomeComponent {
       tags: ['Grupos pequeños', 'Paseos incluidos'],
     },
   ];
+
+  /**
+   * "Alojamientos recomendados" con datos reales del catálogo (PDF 27/07 §8):
+   * los mejor valorados, con botón de favorito y enlace a su ficha. Si el API no
+   * responde se mantiene el escaparate estático, sin corazón (no hay id real).
+   */
+  readonly alojamientosRecomendados = signal<AlojamientoRecomendado[]>(this.recomendadosPorDefecto);
 
   /** Click en la tarjeta de "Alojamientos recomendados" (HU-1.7.1: toda la tarjeta es clicable). */
   irAAlojamiento(ciudad: string): void {

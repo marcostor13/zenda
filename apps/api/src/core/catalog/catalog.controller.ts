@@ -8,6 +8,7 @@ import {
   PaginatedResult,
   ServicioGestionDto,
 } from './catalog.service';
+import { FacetasResult } from './catalog.repository';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { CrearServicioDto, ActualizarServicioDto, Rol } from 'shared';
@@ -78,6 +79,18 @@ export class CatalogController {
       lng: this.toNumber(lng),
       soloDisponibles: soloDisponibles === undefined ? undefined : soloDisponibles !== 'false',
     });
+  }
+
+  /* Declarada antes de ':id' para que "facetas" no se interprete como un id. */
+  @Get('facetas')
+  @ApiOperation({ summary: 'Facetas de la búsqueda: histograma de precios y contadores por filtro' })
+  @ApiQuery({ name: 'vertical', required: false, example: 'alojamiento' })
+  @ApiQuery({ name: 'ciudad', required: false })
+  facetas(
+    @Query('vertical') vertical?: string,
+    @Query('ciudad') ciudad?: string,
+  ): Promise<FacetasResult> {
+    return this.catalogService.obtenerFacetas({ vertical, ciudad });
   }
 
   @Get(':id')
