@@ -221,6 +221,9 @@ export interface ServicioPayload {
   titulo?: string;
   descripcion?: string;
   ciudad?: string;
+  /** Coordenadas del listado; sin ellas no aparece en la búsqueda por mapa. */
+  lat?: number;
+  lng?: number;
   precioBase?: number;
   imagenes?: string[];
   extra?: Record<string, unknown>;
@@ -233,6 +236,9 @@ export interface ServicioGestion {
   titulo: string;
   descripcion: string;
   ciudad: string;
+  /** Coordenadas ya guardadas; ausentes si el listado nunca se geolocalizó. */
+  lat?: number;
+  lng?: number;
   precioBase: number;
   imagenes: string[];
   estado: string;

@@ -17,6 +17,18 @@ export interface PerfilCompatibilidad {
 
 export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valoracion' | 'distancia';
 
+/**
+ * Rectángulo visible del mapa (búsqueda por zona, estilo Booking). Se nombra
+ * por sus esquinas suroeste y noreste porque es lo que devuelve `getBounds()`
+ * de Leaflet, y así el frontend no tiene que traducir nada.
+ */
+export interface BboxParams {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+}
+
 export interface BuscarServiciosParams {
   vertical?: string;
   ciudad?: string;
@@ -31,7 +43,27 @@ export interface BuscarServiciosParams {
   lng?: number;
   /** Descarta lo que no se puede reservar ahora mismo (P2). */
   soloDisponibles?: boolean;
+  /** Recorta la búsqueda al rectángulo que el usuario tiene delante en el mapa. */
+  bbox?: BboxParams;
 }
+
+/** Pin del mapa: lo mínimo para dibujarlo y reconocerlo sin cargar la ficha entera. */
+export interface PuntoServicio {
+  id: string;
+  titulo: string;
+  precio: number;
+  lat: number;
+  lng: number;
+  rating: number;
+  imagen?: string;
+}
+
+/**
+ * Tope de pines por consulta. El mapa no puede dibujar miles de marcadores sin
+ * bloquear el hilo, y por encima de esta cifra el usuario ya no distingue nada:
+ * lo correcto es que acerque el zoom, no que le enviemos el catálogo entero.
+ */
+const LIMITE_PUNTOS_MAPA = 300;
 
 /** Contador de plazas libres de cada vertical: su nombre cambia según la categoría. */
 const CAMPO_DISPONIBILIDAD: Record<string, string> = {
@@ -79,6 +111,9 @@ export interface CrearServicioParams {
   comercioId: string;
   extra?: Record<string, unknown>;
   aptitud?: AptitudPerro;
+  /** Coordenadas del listado; sin ellas no aparece en la búsqueda por mapa. */
+  lat?: number;
+  lng?: number;
 }
 
 export interface ActualizarServicioParams {
@@ -89,6 +124,8 @@ export interface ActualizarServicioParams {
   imagenes?: string[];
   extra?: Record<string, unknown>;
   aptitud?: AptitudPerro;
+  lat?: number;
+  lng?: number;
 }
 
 @Injectable()
@@ -251,7 +288,7 @@ export class CatalogRepository {
       vertical: data.vertical,
       titulo: data.titulo,
       descripcion: data.descripcion,
-      ubicacion: { ciudad: data.ciudad },
+      ubicacion: { ciudad: data.ciudad, geo: this.aGeoJson(data.lat, data.lng) },
       precioBase: data.precioBase,
       imagenes: data.imagenes,
       comercioId: new Types.ObjectId(data.comercioId),
@@ -273,6 +310,10 @@ export class CatalogRepository {
     if (data.titulo !== undefined) set.titulo = data.titulo;
     if (data.descripcion !== undefined) set.descripcion = data.descripcion;
     if (data.ciudad !== undefined) set['ubicacion.ciudad'] = data.ciudad;
+
+    const geo = this.aGeoJson(data.lat, data.lng);
+    if (geo) set['ubicacion.geo'] = geo;
+
     if (data.precioBase !== undefined) set.precioBase = data.precioBase;
     if (data.imagenes !== undefined) set.imagenes = data.imagenes;
     if (data.aptitud !== undefined) set.aptitud = data.aptitud;
@@ -284,6 +325,16 @@ export class CatalogRepository {
         { new: true },
       )
       .exec();
+  }
+
+  /**
+   * Punto GeoJSON para el índice `2dsphere`, que guarda [lng, lat] y no al
+   * revés. Devuelve `undefined` si falta alguna de las dos: un punto a medias
+   * rompería el índice, y el servicio debe poder publicarse sin coordenadas.
+   */
+  private aGeoJson(lat?: number, lng?: number): { type: 'Point'; coordinates: [number, number] } | undefined {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+    return { type: 'Point', coordinates: [lng as number, lat as number] };
   }
 
   private modeloPorVertical(vertical: string): Model<ServicioDocument> {
@@ -303,6 +354,15 @@ export class CatalogRepository {
     if (params.vertical) filtro.vertical = params.vertical;
     if (params.ciudad) filtro['ubicacion.ciudad'] = new RegExp(params.ciudad, 'i');
 
+    // La zona del mapa manda sobre la ciudad escrita: si el usuario arrastró el
+    // mapa hasta otra comarca, quiere ver lo que hay ahí, no lo que casaba con
+    // el texto que tecleó antes.
+    const zona = this.condicionZona(params.bbox);
+    if (zona) {
+      delete filtro['ubicacion.ciudad'];
+      filtro['ubicacion.geo'] = zona;
+    }
+
     if (params.precioMin != null || params.precioMax != null) {
       filtro.precioBase = {};
       if (params.precioMin != null) filtro.precioBase.$gte = params.precioMin;
@@ -317,6 +377,80 @@ export class CatalogRepository {
     if (condiciones.length) filtro.$and = condiciones;
 
     return filtro;
+  }
+
+  /**
+   * Traduce el rectángulo del mapa a un polígono GeoJSON para el índice
+   * `2dsphere`. Se descarta un rectángulo degenerado (esquinas invertidas o
+   * coordenadas fuera de rango): MongoDB lo rechazaría con un error de consulta
+   * y tumbaría la búsqueda entera por un dato de interfaz mal formado.
+   */
+  private condicionZona(bbox?: BboxParams): FilterQuery<ServicioDocument> | null {
+    if (!bbox) return null;
+
+    const { swLat, swLng, neLat, neLng } = bbox;
+    const finitos = [swLat, swLng, neLat, neLng].every(Number.isFinite);
+    const enRango = Math.abs(swLat) <= 90 && Math.abs(neLat) <= 90
+      && Math.abs(swLng) <= 180 && Math.abs(neLng) <= 180;
+    if (!finitos || !enRango || swLat >= neLat || swLng >= neLng) return null;
+
+    return {
+      $geoWithin: {
+        $geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [swLng, swLat],
+            [neLng, swLat],
+            [neLng, neLat],
+            [swLng, neLat],
+            [swLng, swLat],
+          ]],
+        },
+      },
+    };
+  }
+
+  /**
+   * Pines de la zona visible. Va aparte de `buscar` porque el mapa y la lista
+   * responden a necesidades distintas: la lista se pagina de diez en diez, pero
+   * el mapa tiene que enseñar todo lo que hay en pantalla o el usuario creería
+   * que la zona está vacía.
+   */
+  async puntos(params: BuscarServiciosParams): Promise<PuntoServicio[]> {
+    const filtro = this.construirFiltro(params);
+    // Sin coordenadas no hay pin que pintar; pedirlas aquí evita traer
+    // documentos que luego habría que descartar en memoria.
+    filtro['ubicacion.geo.coordinates'] = { $exists: true, $ne: null };
+
+    const docs = await this.servicioModel
+      .find(filtro)
+      .select('titulo precioBase ubicacion.geo ratingPromedio imagenes')
+      .limit(LIMITE_PUNTOS_MAPA)
+      .lean()
+      .exec();
+
+    return docs.flatMap((doc) => {
+      const coordenadas = (doc as unknown as {
+        ubicacion?: { geo?: { coordinates?: number[] } };
+      }).ubicacion?.geo?.coordinates;
+      // GeoJSON guarda [lng, lat]; el mapa espera el orden inverso.
+      const [lng, lat] = coordenadas ?? [];
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+
+      const lean = doc as unknown as {
+        _id: unknown; titulo: string; precioBase: number;
+        ratingPromedio?: number; imagenes?: string[];
+      };
+      return [{
+        id: String(lean._id),
+        titulo: lean.titulo,
+        precio: lean.precioBase,
+        lat: lat as number,
+        lng: lng as number,
+        rating: Math.round((lean.ratingPromedio ?? 0) * 10) / 10,
+        imagen: lean.imagenes?.[0],
+      }];
+    });
   }
 
   /**

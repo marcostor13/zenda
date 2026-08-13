@@ -614,5 +614,5 @@ Fase 11 (centro de ayuda)
 Fase 12 (panel admin)
 ```
 
-Cada fase termina con `npm run test` + `ng build`/`nest build` (regla de verificación de
+Cada fase termina con `bun run test` + `ng build`/`nest build` (regla de verificación de
 builds ya establecida en el proyecto) antes de pasar a la siguiente.

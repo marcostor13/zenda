@@ -122,6 +122,46 @@ describe('ComercioListadoFormComponent', () => {
     });
   });
 
+  describe('geolocalización del listado (búsqueda por mapa)', () => {
+    it('debería enviar las coordenadas de la población elegida', async () => {
+      await crear('s1', {
+        vertical: VerticalKey.TRANSPORTE, titulo: 'DogVan', descripcion: 'Traslados con jaula',
+        ciudad: 'Madrid', precioBase: 30, extra: {},
+      });
+
+      componente.guardarCoordenadas({ placeId: 'p1', ciudad: 'Madrid', lat: 40.4168, lng: -3.7038 });
+      await componente.submit();
+
+      expect(payloadGuardado()).toMatchObject({ lat: 40.4168, lng: -3.7038 });
+      expect(componente.tieneCoordenadas()).toBe(true);
+    });
+
+    it('no debería enviar coordenadas de una población sin resolver', async () => {
+      await crear('s1', {
+        vertical: VerticalKey.TRANSPORTE, titulo: 'DogVan', descripcion: 'Traslados con jaula',
+        ciudad: 'Cuenca', precioBase: 30, extra: {},
+      });
+
+      // El catálogo local sugiere poblaciones sin coordenadas reales; guardar un
+      // punto inventado colocaría el anuncio en el sitio equivocado del mapa.
+      componente.guardarCoordenadas({ placeId: '', ciudad: 'Cuenca', lat: NaN, lng: NaN });
+      await componente.submit();
+
+      expect(payloadGuardado()).not.toHaveProperty('lat');
+      expect(componente.tieneCoordenadas()).toBe(false);
+    });
+
+    it('debería reconocer un listado que ya venía geolocalizado', async () => {
+      await crear('s1', {
+        vertical: VerticalKey.TRANSPORTE, titulo: 'DogVan', descripcion: 'Traslados con jaula',
+        ciudad: 'Madrid', precioBase: 30, extra: {}, lat: 40.4168, lng: -3.7038,
+      });
+
+      // Sin esto la pista pediría reelegir la población en cada edición.
+      expect(componente.tieneCoordenadas()).toBe(true);
+    });
+  });
+
   describe('validación previa al guardado', () => {
     it('debería marcar los campos y no llamar al API con el formulario vacío', async () => {
       await crear();

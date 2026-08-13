@@ -1,4 +1,7 @@
-import { IsString, IsEnum, IsNumber, IsOptional, IsArray, IsObject, Min, ValidateNested } from 'class-validator';
+import {
+  IsString, IsEnum, IsNumber, IsOptional, IsArray, IsObject, IsLatitude, IsLongitude,
+  Min, ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
 import { AptitudPerroDto } from './aptitud-perro.dto';
@@ -15,6 +18,21 @@ export class CrearServicioDto {
 
   @IsString()
   ciudad!: string;
+
+  /**
+   * Coordenadas del listado. Opcionales: no todas las poblaciones se eligen
+   * desde el autocompletado, y un servicio sin ellas debe poder publicarse
+   * igualmente — simplemente no saldrá en la búsqueda por mapa.
+   */
+  @IsOptional()
+  @IsLatitude()
+  @Type(() => Number)
+  lat?: number;
+
+  @IsOptional()
+  @IsLongitude()
+  @Type(() => Number)
+  lng?: number;
 
   @IsNumber()
   @Min(0)

@@ -35,9 +35,12 @@ describe('AlojamientoListaComponent', () => {
   };
 
   beforeEach(async () => {
-    alojamientoService = { buscar: jest.fn(), obtener: jest.fn(), facetas: jest.fn() } as any;
+    alojamientoService = {
+      buscar: jest.fn(), obtener: jest.fn(), facetas: jest.fn(), puntosMapa: jest.fn(),
+    } as any;
     alojamientoService.buscar.mockResolvedValue(resultadoMock);
     alojamientoService.facetas.mockResolvedValue({ precios: [], amenities: [], valoracion: [] });
+    alojamientoService.puntosMapa.mockResolvedValue([]);
 
     await TestBed.configureTestingModule({
       imports: [AlojamientoListaComponent, RouterTestingModule, HttpClientTestingModule],
@@ -54,6 +57,7 @@ describe('AlojamientoListaComponent', () => {
     // sin manejar y estalla en el siguiente test, no en este.
     alojamientoService.buscar.mockResolvedValue(resultadoMock);
     alojamientoService.facetas.mockResolvedValue({ precios: [], amenities: [], valoracion: [] });
+    alojamientoService.puntosMapa.mockResolvedValue([]);
     fixture.destroy();
   });
 
@@ -78,12 +82,14 @@ describe('AlojamientoListaComponent', () => {
   });
 
   it('debería mostrar estado de error (sin listados falsos) si la API falla', async () => {
-    // `mockImplementation` y no `mockRejectedValue`: este último construye la
-    // promesa rechazada al definir el doble, y si el componente no llega a
-    // consumirla queda como unhandled rejection que estalla en otro test.
-    alojamientoService.buscar.mockImplementation(() => Promise.reject(new Error('offline')));
     fixture.detectChanges();
     await fixture.whenStable();
+
+    // El fallo se provoca sobre una carga que este test espera de verdad: con
+    // el `detectChanges` inicial, la promesa rechazada la consumía el `ngOnInit`
+    // fuera del test y quedaba como unhandled rejection que estallaba en otro.
+    alojamientoService.buscar.mockImplementation(() => Promise.reject(new Error('offline')));
+    await component.cargarAlojamientos();
 
     expect(component.alojamientos().length).toBe(0);
     expect(component.error()).toBe(true);
@@ -120,19 +126,30 @@ describe('AlojamientoListaComponent', () => {
   });
 
   describe('mapa y facetas (PDF 27/07 §3)', () => {
-    const conGeo = (extra: Partial<AlojamientoCard>): AlojamientoCard => ({ ...cardMock, ...extra });
-
-    it('debería pintar solo los alojamientos con coordenadas y avisar de los que faltan', () => {
-      component.alojamientos.set([
-        conGeo({ id: 'a1', lat: 40.4, lng: -3.7, precioPorNoche: 24 }),
-        conGeo({ id: 'a2' }), // sin lat/lng
+    it('debería construir los pines desde el endpoint de mapa, no desde la página actual', async () => {
+      alojamientoService.puntosMapa.mockResolvedValue([
+        { id: 'a1', titulo: 'Royal Paws Retreat', precio: 24, lat: 40.4, lng: -3.7, rating: 4.8, imagen: 'img.jpg' },
       ]);
+
+      await component.cargarPuntosMapa({});
 
       expect(component.puntosMapa()).toEqual([
-        { id: 'a1', lat: 40.4, lng: -3.7, etiqueta: '€24', titulo: 'Royal Paws Retreat' },
+        {
+          id: 'a1', lat: 40.4, lng: -3.7, etiqueta: '€24',
+          titulo: 'Royal Paws Retreat', imagen: 'img.jpg', rating: 4.8,
+        },
       ]);
-      // El que no tiene ubicación no se oculta del listado: solo se avisa.
-      expect(component.sinCoordenadas()).toBe(1);
+    });
+
+    it('no debería quedarse sin listado si fallan los pines del mapa', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      alojamientoService.puntosMapa.mockImplementation(() => Promise.reject(new Error('mapa caído')));
+
+      await component.cargarPuntosMapa({});
+
+      expect(component.puntosMapa()).toEqual([]);
+      expect(component.alojamientos()).toEqual([cardMock]);
     });
 
     it('debería abrir y cerrar el mapa, limpiando el pin resaltado al cerrar', () => {
@@ -146,6 +163,39 @@ describe('AlojamientoListaComponent', () => {
       expect(component.destacadoId()).toBeNull();
     });
 
+    it('debería buscar acotando a la zona del mapa y descartar la ciudad escrita', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      alojamientoService.buscar.mockClear();
+
+      await component.buscarEnZona({
+        swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6,
+        centroLat: 40.4, centroLng: -3.7, zoom: 12,
+      });
+
+      const filtros = alojamientoService.buscar.mock.calls[0][0];
+      expect(filtros.zona).toEqual({ swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 });
+      // La zona manda: si el usuario arrastró el mapa, la ciudad tecleada sobra.
+      expect(filtros.ciudad).toBeUndefined();
+      expect(component.paginaActual()).toBe(1);
+    });
+
+    it('debería volver a buscar sin zona al cerrar el mapa', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      component.alternarMapa();
+      await component.buscarEnZona({
+        swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6,
+        centroLat: 40.4, centroLng: -3.7, zoom: 12,
+      });
+      alojamientoService.buscar.mockClear();
+
+      component.alternarMapa();
+      await fixture.whenStable();
+
+      expect(alojamientoService.buscar.mock.calls[0][0].zona).toBeUndefined();
+    });
+
     it('debería exponer los contadores por amenity y por valoración', async () => {
       alojamientoService.facetas.mockResolvedValue({
         precios: [{ desde: 10, hasta: 40, n: 6 }],
@@ -155,7 +205,7 @@ describe('AlojamientoListaComponent', () => {
 
       await component.cargarFacetas('Madrid');
 
-      expect(alojamientoService.facetas).toHaveBeenCalledWith('Madrid');
+      expect(alojamientoService.facetas).toHaveBeenCalledWith('Madrid', undefined);
       expect(component.conteoAmenity('Piscina')).toBe(87);
       expect(component.conteoValoracion(4)).toBe(12);
       expect(component.histogramaPrecios()).toEqual([{ desde: 10, hasta: 40, n: 6 }]);

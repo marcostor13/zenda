@@ -12,7 +12,9 @@ import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components
 import { RsSocialIconComponent, type RedSocialKey } from '../../shared/components/social-icon/rs-social-icon.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
-import { BRAND, HOTEL_IMAGES, TRUST_ICONOS } from '../../shared/media/images';
+import {
+  BANDA_POR_QUE, BRAND, HOTEL_IMAGES, MOTIVOS_IMAGES, TRUST_ICONOS,
+} from '../../shared/media/images';
 import { VERTICALES_UI, rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
 import { environment } from '../../../environments/environment';
@@ -197,15 +199,18 @@ type SearchMode = 'filtros' | 'ia';
            TODO(D-3): sustituir por la fotografía de "familia disfrutando con su
            mascota" que aporte el cliente — basta con cambiar este fichero. -->
       <figure class="why-banner" rsAnim>
-        <img [src]="bandaPorQue" alt="Momento de disfrute con una mascota" loading="lazy" rsImg />
+        <picture>
+          <source media="(min-width: 641px)" [srcset]="bandaPorQueEscritorio" />
+          <img [src]="bandaPorQue" alt="Momento de disfrute con una mascota" loading="lazy" rsImg />
+        </picture>
       </figure>
 
       <ul class="why-grid" rsAnim>
         @for (m of motivos; track m.titulo) {
           <li class="why-card">
-            <span class="why-card__art" aria-hidden="true">
-              <rs-icon [name]="m.icon" [size]="26" [stroke]="1.9"></rs-icon>
-            </span>
+            <figure class="why-card__art">
+              <img [src]="m.imagen" [alt]="m.alt" loading="lazy" rsImg />
+            </figure>
             <h3 class="why-card__title">{{ m.titulo }}</h3>
             <p class="why-card__text">{{ m.texto }}</p>
           </li>
@@ -469,14 +474,24 @@ type SearchMode = 'filtros' | 'ia';
   styles: [`
     :host { display: block; }
 
-    /* ══ HERO ═══════════════════════════════════════════════════════
-       Réplica de la línea gráfica de marca: bloque blanco con el logo y
-       el eslogan, buscador flotante y franja navy curva con garantías. */
+    /*
+     * ══ HERO ═══════════════════════════════════════════════════════
+     * Réplica de la línea gráfica de marca: bloque blanco con el logo y el
+     * eslogan, buscador flotante y franja navy curva con garantías.
+     *
+     * Sin overflow:hidden aquí a propósito (bug 2026-08-12): los desplegables
+     * del buscador (.pa__list de "Dónde", .pp__pop de "¿Para qué mascota?")
+     * son position:absolute dentro de este contenedor, y con overflow:hidden
+     * cualquier lista que no cupiera en el resto del hero se cortaba a mitad
+     * — literalmente desaparecían las últimas ciudades/mascotas de la lista.
+     * No hace falta para la franja navy: .hero__navy sangra un 160% de
+     * ancho, pero el body ya tiene overflow-x: hidden (styles.scss) y recorta
+     * ese desbordamiento horizontal a nivel de página.
+     */
     .hero {
       position: relative;
       background: var(--c-card);
-      padding-block: var(--sp-12) 0;
-      overflow: hidden;
+      padding-block: var(--sp-8) 0;
     }
 
     /* Franja navy curva que asoma por detrás del buscador */
@@ -495,54 +510,58 @@ type SearchMode = 'filtros' | 'ia';
 
     .hero__inner { position: relative; z-index: 1; }
 
+    /* Logo y titular son la firma de marca, no el protagonista: se mantienen
+       pero a tamaño reducido para que el buscador —lo que convierte— gane el
+       peso visual del hero (feedback 2026-08-12: "toda la parte del
+       formulario debe tener más relevancia"). */
     .hero__brand {
       text-align: center;
       animation: fadeUp .6s ease both;
-      margin-bottom: var(--sp-6);
+      margin-bottom: var(--sp-4);
     }
 
     .hero__logo {
-      width: min(420px, 72vw);
+      width: min(180px, 42vw);
       height: auto;
       margin-inline: auto;
-      margin-bottom: var(--sp-4);
+      margin-bottom: var(--sp-2);
     }
 
     .hero__title {
       font-family: var(--font-accent);
-      font-weight: var(--w-7);
+      font-weight: var(--w-6);
       text-transform: uppercase;
       letter-spacing: .01em;
-      line-height: 1.22;
-      font-size: clamp(1.25rem, 3.4vw, 2.1rem);
+      line-height: 1.25;
+      font-size: clamp(1.05rem, 2.2vw, 1.5rem);
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: var(--sp-1);
+      gap: 2px;
     }
 
     .hero__title-line {
       display: inline-flex;
       align-items: center;
-      gap: var(--sp-4);
+      gap: var(--sp-3);
     }
     .hero__title-line--blue { color: var(--dk-blue); }
     .hero__title-line--gold { color: var(--dk-gold); }
 
     .hero__dash {
       display: inline-block;
-      width: clamp(20px, 4vw, 42px);
-      height: 4px;
+      width: clamp(14px, 3vw, 28px);
+      height: 3px;
       border-radius: var(--r-full);
       background: var(--dk-gold);
     }
 
     .hero__subtitle {
-      margin-top: var(--sp-4);
+      margin-top: var(--sp-2);
       margin-inline: auto;
-      max-width: 58ch;
-      font-size: var(--f-md);
-      line-height: 1.55;
+      max-width: 54ch;
+      font-size: var(--f-sm);
+      line-height: 1.5;
       color: var(--t-300);
 
       /* En pantallas bajas resta altura al buscador, que es lo que convierte. */
@@ -550,10 +569,10 @@ type SearchMode = 'filtros' | 'ia';
     }
 
     .hero__slogan {
-      margin-top: var(--sp-2);
+      margin-top: var(--sp-1);
       margin-inline: auto;
-      max-width: 52ch;
-      font-size: var(--f-sm);
+      max-width: 48ch;
+      font-size: var(--f-xs);
       font-weight: var(--w-6);
       color: var(--dk-blue);
 
@@ -819,8 +838,24 @@ type SearchMode = 'filtros' | 'ia';
       overflow: hidden;
       box-shadow: var(--sh-card);
 
-      img { display: block; width: 100%; height: 240px; object-fit: cover; }
-      @media (max-width: 640px) { img { height: 160px; } }
+      picture { display: block; }
+
+      /* La banda ocupa el ancho completo (~1.4k) y la foto es apaisada 1.75:1,
+         así que el alto decide cuánto se recorta. A 240px solo sobrevivía un
+         30% del original y el perro quedaba partido; 320px deja ver la figura
+         entera, y el encuadre se sube un poco para no cortarle la cabeza. */
+      img {
+        display: block;
+        width: 100%;
+        height: 320px;
+        object-fit: cover;
+        object-position: center 42%;
+      }
+
+      @media (max-width: 1024px) { img { height: 260px; } }
+      /* En móvil la banda ya es casi tan apaisada como la foto: no hace falta
+         corregir el encuadre y se usa el hero de siempre. */
+      @media (max-width: 640px) { img { height: 160px; object-position: center; } }
     }
 
     .why__eyebrow {
@@ -835,13 +870,13 @@ type SearchMode = 'filtros' | 'ia';
 
     .why-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: var(--sp-5);
       list-style: none;
 
       @media (max-width: 1024px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-      /* Móvil: carrusel horizontal con scroll-snap en vez de apilar cuatro
+      /* Móvil: carrusel horizontal con scroll-snap en vez de apilar tres
          tarjetas altas, que empujarían el resto de la home fuera de vista. */
       @media (max-width: 640px) {
         grid-template-columns: none;
@@ -861,7 +896,9 @@ type SearchMode = 'filtros' | 'ia';
       flex-direction: column;
       align-items: flex-start;
       gap: var(--sp-3);
-      padding: var(--sp-6);
+      /* La foto sangra hasta el borde de la tarjeta: el padding pasa al texto. */
+      padding: 0 0 var(--sp-6);
+      overflow: hidden;
       border: 1px solid var(--b-1);
       border-radius: var(--r-xl);
       background: var(--c-base);
@@ -873,23 +910,37 @@ type SearchMode = 'filtros' | 'ia';
         box-shadow: var(--sh-lg);
       }
 
+      &:hover .why-card__art img { transform: scale(1.04); }
+
       @media (max-width: 640px) { scroll-snap-align: start; }
-      @media (prefers-reduced-motion: reduce) { &:hover { transform: none; } }
+      @media (prefers-reduced-motion: reduce) {
+        &:hover { transform: none; }
+        &:hover .why-card__art img { transform: none; }
+      }
     }
 
+    /* Fotografía de cabecera de cada valor, en lugar del icono anterior. */
     .why-card__art {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 56px;
-      height: 56px;
-      border-radius: var(--r-lg);
-      background: var(--g-warm);
-      color: var(--dk-blue-deep);
-      flex-shrink: 0;
+      width: 100%;
+      /* Alto fijo por proporción: con tres textos de longitudes muy distintas,
+         un alto automático descuadraría las fotos entre tarjetas. */
+      aspect-ratio: 16 / 10;
+      margin-bottom: var(--sp-2);
+      overflow: hidden;
+      background: var(--c-raised);
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: transform var(--d-3);
+      }
     }
 
+    /* El padding vive en el texto porque la foto sangra a los bordes. */
     .why-card__title {
+      padding-inline: var(--sp-6);
       font-family: var(--font-display);
       font-size: var(--f-lg);
       font-weight: var(--w-7);
@@ -898,6 +949,7 @@ type SearchMode = 'filtros' | 'ia';
     }
 
     .why-card__text {
+      padding-inline: var(--sp-6);
       font-size: var(--f-sm);
       line-height: 1.6;
       color: var(--t-400);
@@ -1362,7 +1414,13 @@ export class HomeComponent implements OnInit {
 
   /* Placeholders a la espera del material del cliente (D-3): sustituir la
      imagen equivale a cambiar la ruta aquí. */
-  readonly bandaPorQue = BRAND.heroHome;
+  /**
+   * Banda del bloque "¿Por qué Doogking.com?". En escritorio se cambia la foto
+   * porque la banda es ahí mucho más apaisada: con el hero, el recorte dejaba
+   * al perro descolocado en lugar de centrado.
+   */
+  readonly bandaPorQue = BANDA_POR_QUE.movil;
+  readonly bandaPorQueEscritorio = BANDA_POR_QUE.escritorio;
   readonly fotoProfesional = HOTEL_IMAGES[0];
   readonly rutaAlojamiento = rutaDeVertical(VerticalKey.ALOJAMIENTO);
 
@@ -1415,29 +1473,29 @@ export class HomeComponent implements OnInit {
     },
   ];
 
-  /** Pilares del bloque "¿Por qué Doogking?" (propuesta de valor de marca). */
+  /**
+   * Los tres valores del bloque "¿Por qué Doogking.com?", con el copy exacto
+   * aprobado por el cliente. Van con fotografía en lugar de icono: son la
+   * propuesta de valor de marca y la imagen sostiene mejor el mensaje.
+   */
   readonly motivos = [
     {
-      icon: 'zap',
-      titulo: 'Reserva en segundos',
-      texto: 'Eliges servicio, ciudad y fecha, y confirmas al momento. Sin llamadas, sin esperar respuesta.',
+      imagen: MOTIVOS_IMAGES.rapidez,
+      alt: 'Perro esperando feliz una reserva confirmada al momento',
+      titulo: 'Reserva en menos de un minuto',
+      texto: 'Encuentra y reserva el servicio perfecto sin llamadas, sin esperas y con confirmación inmediata.',
     },
     {
-      icon: 'shield-check',
+      imagen: MOTIVOS_IMAGES.verificados,
+      alt: 'Instalación de un profesional canino validado por Doogking',
       titulo: 'Profesionales verificados',
-      texto: 'Cada comercio pasa por validación antes de publicar. Reseñas reales de dueños que ya reservaron.',
+      texto: 'Cada empresa es validada antes de unirse a Doogking para que reserves con total confianza. Reseñas reales de clientes completan cada perfil.',
     },
     {
-      icon: 'globe',
-      // Copy aprobado por el cliente (PDF 27/07 §6, captura WA0010): la
-      // descripción enumera TODOS los servicios, no solo los cinco primeros.
-      titulo: 'Todo para tu mascota en un solo lugar',
-      texto: 'Alojamiento, veterinarios, peluquería, transporte, adiestramiento, hoteles pet-friendly, seguros y cuidadores con un único perfil y un único pago.',
-    },
-    {
-      icon: 'message-square',
-      titulo: 'Atención cuando la necesites',
-      texto: 'Soporte antes, durante y después de la reserva, y pago protegido hasta que el servicio se presta.',
+      imagen: MOTIVOS_IMAGES.atencion,
+      alt: 'Perro descansando tranquilo a cualquier hora',
+      titulo: 'Atención 24/7',
+      texto: 'Siempre disponibles para ayudarte antes, durante y después de cada reserva.',
     },
   ];
 

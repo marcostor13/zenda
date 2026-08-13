@@ -294,7 +294,7 @@ Leyenda de estado: ✅ hecho · 🟡 parcial · 🔴 pendiente.
 
 ## 4. Plan de implementación por olas
 
-Cada ola es entregable y desplegable de forma independiente. Al cierre de cada una: `npm run build --workspace=shared` → `tsc` en api y web → `nest build` → `ng build --configuration production` → tests de ambos workspaces (umbral 80 % vigente).
+Cada ola es entregable y desplegable de forma independiente. Al cierre de cada una: `bun run build:shared` → `tsc` en api y web → `nest build` → `ng build --configuration production` → tests de ambos workspaces (umbral 80 % vigente).
 
 ---
 
@@ -866,10 +866,10 @@ Ola 10 Valoraciones y marketing                              ██████�
 
 ## 7. Verificación (aplicable a toda ola)
 
-1. `npm run build --workspace=shared` **primero** (el resto depende de sus tipos).
+1. `bun run build:shared` **primero** (el resto depende de sus tipos).
 2. `tsc --noEmit` en `apps/api` y `apps/web`.
 3. `nest build` y `ng build --configuration production`.
-4. `npm run test` en ambos workspaces, umbral 80 % statements/branches (§20 de `CLAUDE.md`).
+4. `bun run test` en ambos workspaces, umbral 80 % statements/branches (§20 de `CLAUDE.md`).
 5. Cada archivo de producción nuevo con su `.spec.ts` en el mismo commit — sin excepciones.
 6. Auditoría de design system (`/ui-kit audit`) en las olas con UI: cero colores y espaciados hardcodeados.
 7. Actualizar el **Estado actual** de este documento y la memoria del proyecto al cerrar cada ola.
@@ -913,7 +913,7 @@ Historias cerradas: **DK-M01, M02, M03, M04, M05, M06, M08 · DK-B04 · DK-V01, 
 
 **Verificación:** `tsc --noEmit` sin errores · `ng build --configuration production` correcto (612 kB inicial) · **134/134 tests en verde** (5 nuevos: pilares, subtítulo del hero, copy de categorías, marca "D" y alta de empresa, copy por vertical con guarda de "sin cirugía ni dermatología").
 
-> ⚠️ **Deuda preexistente detectada, no introducida por esta ola:** `npm run test --workspace=web` falla el umbral global de cobertura (24 % statements frente al 80 % exigido en `jest.config.ts`). Afecta a todo `apps/web`, no a los archivos tocados aquí. Debe abordarse como tarea propia; hasta entonces, verificar con `--coverage=false` para distinguir fallos reales de este umbral.
+> ⚠️ **Deuda preexistente detectada, no introducida por esta ola:** `bun run test:web` falla el umbral global de cobertura (24 % statements frente al 80 % exigido en `jest.config.ts`). Afecta a todo `apps/web`, no a los archivos tocados aquí. Debe abordarse como tarea propia; hasta entonces, verificar con `--coverage=false` para distinguir fallos reales de este umbral.
 
 **Pendiente menor de la Ola 1:** regenerar `apps/web/public/favicon.png` (hoy **1.7 MB**) a ≤ 20 KB. No está referenciado desde `index.html`, así que no penaliza el LCP actual, pero conviene sustituirlo o eliminarlo.
 
@@ -984,7 +984,7 @@ Historias cerradas: **DK-B05 · DK-H02, H03, H04**.
 **§2.2 resuelto:** el cliente confirma el catálogo de 10 entradas propuesto. Historias cerradas: **DK-V03, V07, V13, V15 · DK-F06, F07, F08**.
 
 **Catálogo cerrado de servicios veterinarios (DK-V07).** Nuevo enum `ServicioClinicoTipo` en `shared` con las 10 entradas de §2.2. `ServicioClinico.tipo` pasa a ser la fuente de verdad; `nombre` queda como texto heredado. El formulario del comercio cambia el `<input>` libre por un `<select>`, y **la regla se valida también en `CatalogService`**, no solo en la UI: una llamada directa al API con `dermatologia` o `cirugia` recibe un 400 con el motivo de negocio explicado, no un "valor no permitido" genérico. Los listados antiguos sin `tipo` se toleran para no bloquear al comercio.
-> **Migración no destructiva**: `npm run migrar:servicios-clinicos --workspace=api` corre en **simulación por defecto** y solo escribe con `--aplicar`. Reconoce etiquetas oficiales y sinónimos frecuentes ("limpieza dental" → higiene dental, "urgencias" → urgencia, "chip" → microchip); lo que no reconoce lo marca `activo: false` **y lo lista en el informe** para revisarlo con el comercio. No borra nada.
+> **Migración no destructiva**: `bun run --cwd apps/api migrar:servicios-clinicos` corre en **simulación por defecto** y solo escribe con `--aplicar`. Reconoce etiquetas oficiales y sinónimos frecuentes ("limpieza dental" → higiene dental, "urgencias" → urgencia, "chip" → microchip); lo que no reconoce lo marca `activo: false` **y lo lista en el informe** para revisarlo con el comercio. No borra nada.
 > El seeder de veterinaria contenía radiografía, ecografía, cirugía menor y consulta de dermatología: sustituidos por servicios del catálogo.
 
 **Distancia automática en transporte (DK-V03).** `GET /geo/trayecto` sobre Google Routes, cacheado 7 días por par de poblaciones. La UI del wizard sustituye los dos campos de dirección por `rs-place-autocomplete` y rellena la distancia sola, mostrando *"73,5 km · 60 min por carretera"*. **Sin proveedor cae a Haversine con factor de sinuosidad 1,3** y lo etiqueta como estimación aproximada, en vez de dar un precio como si fuera firme. Los kilómetros se redondean al alza a 0,5 km. El campo sigue siendo editable: si el cliente conoce su ruta real, manda su dato. `distanciaKm` y el resumen del cálculo se guardan en `Reserva.detalle` para trazabilidad ante disputas.
@@ -1182,7 +1182,7 @@ Credenciales documentadas en `.env.example` (Google Cloud y Azure), con las URIs
 | **Panel de campañas en el admin** | ✅ **Resuelta**: backend + pantalla `/admin/campanas` + entrada de navegación. |
 | **`favicon.png` de 1.7 MB** | ✅ **Resuelta**: eliminado tras comprobar que no se referenciaba. |
 | **Push móvil** | 🟡 **Parcial.** Backend listo (alta de dispositivo + envío FCM + integración con recuperación de abandonos). Falta la capa nativa Capacitor/APNs, que pertenece a la fase móvil. |
-| **Idioma** (fase 2 de DK-H03) | ✅ **Tubería resuelta.** `npm run i18n:extract --workspace=web` genera `src/locale/messages.xlf`; `npm run build:en --workspace=web` produce `dist/web-en` con los textos traducidos. Queda el trabajo de contenido: marcar con `i18n` el resto de literales y traducirlos. |
+| **Idioma** (fase 2 de DK-H03) | ✅ **Tubería resuelta.** `bun run --cwd apps/web i18n:extract` genera `src/locale/messages.xlf`; `bun run --cwd apps/web build:en` produce `dist/web-en` con los textos traducidos. Queda el trabajo de contenido: marcar con `i18n` el resto de literales y traducirlos. |
 
 **Dos defectos reales encontrados al escribir los tests** (ambos corregidos):
 
@@ -1196,9 +1196,9 @@ Credenciales documentadas en `.env.example` (Google Cloud y Azure), con las URIs
 **Flujo de traducción, para cuando toque el contenido:**
 
 1. Marcar los literales con el atributo `i18n` (con id propio: `i18n="@@home.heroSubtitulo"`).
-2. `npm run i18n:extract --workspace=web` → actualiza `src/locale/messages.xlf`.
+2. `bun run --cwd apps/web i18n:extract` → actualiza `src/locale/messages.xlf`.
 3. Copiar las unidades nuevas a `src/locale/messages.en.xlf` y rellenar sus `<target>`.
-4. `npm run build:en --workspace=web` → `dist/web-en`, listo para servir bajo `/en` en Netlify.
+4. `bun run --cwd apps/web build:en` → `dist/web-en`, listo para servir bajo `/en` en Netlify.
 
 ### Requisitos externos para poner en producción
 
@@ -1210,4 +1210,4 @@ Nada de esto es código: son datos y credenciales que dependen del negocio.
 4. **`DEEPSEEK_API_KEY`** — búsqueda con IA y planificador (ambos degradan sin ella).
 5. **SMTP** — todos los correos transaccionales y de crecimiento.
 6. **Cron en Coolify** para las tandas de crecimiento: valoraciones cada hora, recordatorios diarios, abandonos cada 6 h.
-7. **Migración de servicios clínicos** (`npm run migrar:servicios-clinicos --workspace=api`), primero en simulación y luego con `--aplicar`.
+7. **Migración de servicios clínicos** (`bun run --cwd apps/api migrar:servicios-clinicos`), primero en simulación y luego con `--aplicar`.

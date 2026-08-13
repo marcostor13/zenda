@@ -10,7 +10,7 @@ Marketplace de reservas multi-vertical para el mercado europeo. Un solo producto
 
 1. **Core agnóstico al vertical.** Nunca añadir `if vertical === 'hotel'` dentro de módulos core (`bookings`, `payments`, `catalog`, `availability`). Cada vertical es un módulo aislado.
 2. **Extensibilidad por diseño.** Añadir un vertical = crear `verticals/<nombre>` con schema discriminador + AvailabilityStrategy + PricingStrategy. El core no cambia.
-3. **Un solo repositorio.** Frontend Angular y backend NestJS en el mismo monorepo con npm workspaces. DTOs compartidos en `libs/shared`.
+3. **Un solo repositorio.** Frontend Angular y backend NestJS en el mismo monorepo con workspaces de Bun. DTOs compartidos en `libs/shared`.
 4. **Pago primero.** La reserva solo se confirma tras webhook de pago aprobado (Stripe). Idempotencia obligatoria en el handler.
 5. **Multi-tenant lógico.** Todo dato de comercio filtrado por `comercioId`. Los guards impiden acceso cruzado.
 

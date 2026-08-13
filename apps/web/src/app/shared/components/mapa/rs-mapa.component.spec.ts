@@ -47,4 +47,15 @@ describe('RsMapaComponent', () => {
   it('refrescar debería ser seguro aunque no haya mapa', () => {
     expect(() => componente.refrescar()).not.toThrow();
   });
+
+  it('centrarEn debería ignorar coordenadas no numéricas', () => {
+    fixture.detectChanges();
+    // El catálogo local de poblaciones no trae coordenadas: centrar con NaN
+    // mandaría el mapa al punto (0,0), en mitad del Atlántico.
+    expect(() => componente.centrarEn(NaN, NaN)).not.toThrow();
+  });
+
+  it('zonaActual debería ser null mientras el mapa no exista', () => {
+    expect(componente.zonaActual()).toBeNull();
+  });
 });

@@ -13,7 +13,7 @@
 | Base de datos | MongoDB Atlas con Mongoose (discriminadores por vertical) |
 | Pagos | Stripe (PaymentIntent + webhooks) |
 | Almacenamiento | AWS S3 (imágenes) |
-| Shared | `libs/shared` — DTOs, enums, constantes (npm workspace) |
+| Shared | `libs/shared` — DTOs, enums, constantes (workspace de Bun) |
 
 ---
 

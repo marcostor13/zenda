@@ -140,7 +140,7 @@ Desde Coolify, haz clic en **Deploy** para verificar que el Docker build funcion
 ## 3. Frontend en Coolify
 
 El frontend Angular se sirve como un **Docker build multi-stage**: `apps/web/Dockerfile`
-compila la SPA con Node y la sirve con **nginx** (`apps/web/nginx.conf`), que además resuelve
+instala con **Bun** (`bun install --frozen-lockfile`), compila la SPA con Node y la sirve con **nginx** (`apps/web/nginx.conf`), que además resuelve
 el ruteo de Angular Router (fallback a `index.html` en cualquier ruta que no sea un archivo real).
 
 ### 3.1 Crear un nuevo Resource en Coolify
@@ -261,11 +261,11 @@ open https://doogking.com  # (el dominio que configures en Coolify, §3.4)
 Developer → git push origin main
 │
 ├── Cambios en apps/api/** o libs/shared/**
-│   ├── GitHub Actions: npm test:api + npm build:api
+│   ├── GitHub Actions: bun run test:api + bun run build:api
 │   └── Si pasan: POST webhook → Coolify redeploy API (Docker)
 │
 └── Cambios en apps/web/** o libs/shared/**
-    ├── GitHub Actions: npm test:web + npm build:web
+    ├── GitHub Actions: bun run test:web + bun run build:web
     └── Si pasan: POST webhook → Coolify redeploy Web (Docker: Node build + nginx)
 ```
 

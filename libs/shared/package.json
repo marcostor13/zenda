@@ -8,10 +8,12 @@
     "dev": "tsc --watch"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.5.0"
   },
   "dependencies": {
     "class-validator": "^0.14.1",
-    "class-transformer": "^0.5.1"
+    "class-transformer": "^0.5.1",
+    "tslib": "^2.8.0"
   }
 }

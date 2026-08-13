@@ -76,18 +76,41 @@ describe('HomeComponent', () => {
     expect(sub).toContain('hoteles pet friendly');
   });
 
-  it('debería renderizar los cuatro pilares del bloque "¿Por qué Doogking?"', () => {
+  it('debería renderizar los tres valores del bloque "¿Por qué Doogking.com?"', () => {
     const el: HTMLElement = fixture.nativeElement;
     const cards = el.querySelectorAll('.why-card');
-    expect(cards.length).toBe(4);
-    // Copy aprobado por el cliente (PDF 27/07 §6, captura WA0010).
+    expect(cards.length).toBe(3);
+    // Copy exacto aprobado por el cliente: tres valores, ni uno más.
     expect(component.motivos.map((m) => m.titulo)).toEqual([
-      'Reserva en segundos',
+      'Reserva en menos de un minuto',
       'Profesionales verificados',
-      'Todo para tu mascota en un solo lugar',
-      'Atención cuando la necesites',
+      'Atención 24/7',
     ]);
     expect(el.querySelector('#por-que h2')?.textContent).toContain('¿Por qué Doogking.com?');
+  });
+
+  it('debería servir una foto distinta en escritorio para la banda de "¿Por qué Doogking.com?"', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const fuente = el.querySelector<HTMLSourceElement>('.why-banner picture source');
+
+    // En escritorio la banda recorta casi todo el alto del original, así que
+    // necesita una foto con el perro centrado; el hero solo vale en móvil.
+    expect(fuente?.getAttribute('media')).toBe('(min-width: 641px)');
+    expect(fuente?.getAttribute('srcset')).toBe(component.bandaPorQueEscritorio);
+    expect(component.bandaPorQueEscritorio).not.toBe(component.bandaPorQue);
+    expect(el.querySelector('.why-banner img')?.getAttribute('alt')).toBeTruthy();
+  });
+
+  it('debería ilustrar cada valor con una fotografía descrita, no con un icono', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const fotos = el.querySelectorAll<HTMLImageElement>('.why-card__art img');
+
+    expect(fotos.length).toBe(3);
+    // Cada foto necesita su propio alt: son contenido, no decoración.
+    fotos.forEach((foto) => expect(foto.getAttribute('alt')).toBeTruthy());
+    // Sin fotos repetidas: tres valores distintos piden tres imágenes distintas.
+    expect(new Set(component.motivos.map((m) => m.imagen)).size).toBe(3);
+    expect(el.querySelectorAll('.why-card rs-icon').length).toBe(0);
   });
 
   it('debería invitar a explorar todos los servicios sobre la rejilla de categorías', () => {

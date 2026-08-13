@@ -120,13 +120,21 @@ export interface BusquedaParams {
   styles: [`
     :host { display: block; }
 
-    /* Fila de categorías */
+    /*
+     * Fila de categorías. overflow-x: auto hace que el navegador compute
+     * overflow-y como auto también (regla CSS: si un eje no es 'visible', el
+     * otro deja de serlo) — sin padding-top, ese recorte vertical se comía
+     * los 2px que .sb__cat:hover sube con translateY, y el borde/sombra del
+     * botón se veía "cortado" por arriba al pasar el ratón.
+     */
     .sb__cats {
       display: flex;
       align-items: stretch;
       gap: var(--sp-2);
       overflow-x: auto;
+      padding-top: var(--sp-2);
       padding-bottom: var(--sp-4);
+      margin-top: calc(var(--sp-2) * -1);
       margin-bottom: var(--sp-4);
       border-bottom: 1px solid var(--b-1);
       scrollbar-width: thin;
@@ -191,7 +199,7 @@ export interface BusquedaParams {
       flex-direction: column;
       justify-content: center;
       gap: 2px;
-      border-radius: calc(var(--r-lg) - 3px);
+      border-radius: 0;
       padding: var(--sp-2) var(--sp-4);
       background: var(--c-card);
       transition: box-shadow var(--d-2);
@@ -202,6 +210,19 @@ export interface BusquedaParams {
         box-shadow: inset 0 0 0 2px var(--c-accent);
       }
     }
+
+    /*
+     * Solo las celdas de los extremos redondean, y solo por el lado que hace
+     * de esquina exterior de la tarjeta: las celdas del medio van a 0 (si no,
+     * el radio completo de cada celda blanca sobre el fondo dorado dibuja un
+     * "ojal" dorado en las junturas, arriba y abajo, entre cada par de
+     * campos). En fila (desktop) las esquinas exteriores son las de
+     * izquierda/derecha; apiladas en móvil (<861px, ver media query de
+     * .sb__field/.sb__cta más abajo) pasan a ser arriba/abajo.
+     */
+    .sb__form > :first-child { border-radius: calc(var(--r-lg) - 3px) 0 0 calc(var(--r-lg) - 3px); }
+    .sb__form > :last-child  { border-radius: 0 calc(var(--r-lg) - 3px) calc(var(--r-lg) - 3px) 0; }
+    .sb__form > :first-child:last-child { border-radius: calc(var(--r-lg) - 3px); }
 
     .sb__field--where { flex: 2 1 240px; }
     .sb__field--pets  { flex: 1.1 1 190px; }
@@ -251,9 +272,10 @@ export interface BusquedaParams {
       font-size: var(--f-md);
       font-weight: var(--w-7);
       box-shadow: var(--sh-md);
-      /* Dentro del marco dorado el botón es el "remate" del final de la barra:
-         mismo radio que las celdas para que encaje sin escalones. */
-      border-radius: calc(var(--r-lg) - 3px);
+      /* El radio de esquina lo decide su posición en la fila (:first-child/
+         :last-child arriba), no esta clase: si el botón cae en medio de la
+         fila en algún layout futuro, no debe heredar redondeo de aquí. */
+      border-radius: 0;
     }
 
     /* Variante compacta para las cabeceras de listado */
@@ -268,6 +290,10 @@ export interface BusquedaParams {
     @media (max-width: 860px) {
       .sb__field { flex: 1 1 100%; }
       .sb__cta { width: 100%; }
+
+      /* Apiladas, la esquina exterior pasa de izq/der a arriba/abajo. */
+      .sb__form > :first-child { border-radius: calc(var(--r-lg) - 3px) calc(var(--r-lg) - 3px) 0 0; }
+      .sb__form > :last-child  { border-radius: 0 0 calc(var(--r-lg) - 3px) calc(var(--r-lg) - 3px); }
     }
 
     /*

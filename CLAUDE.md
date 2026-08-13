@@ -292,10 +292,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - run: npm ci
-      - run: npm run lint --workspace=api
-      - run: npm run test --workspace=api
-      - run: npm run build --workspace=api
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: 1.3.2 }
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd apps/api lint
+      - run: bun run test:api
+      - run: bun run build:api
       - name: Deploy API (Coolify webhook)
         if: github.ref == 'refs/heads/main'
         run: curl -fsSL -X POST "${{ secrets.COOLIFY_WEBHOOK_URL }}"
@@ -305,8 +307,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - run: npm ci
-      - run: npm run build --workspace=web
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: 1.3.2 }
+      - run: bun install --frozen-lockfile
+      - run: bun run build:web
       - name: Deploy Web (Coolify webhook)
         if: github.ref == 'refs/heads/main'
         run: curl -fsSL -X POST "${{ secrets.COOLIFY_WEBHOOK_URL_WEB }}"
@@ -534,7 +538,7 @@ El panel admin debe mostrar **siempre** los tres niveles de la ganancia:
 
 ## 16. Monorepo — única fuente de código (front + back)
 
-> **Regla absoluta:** frontend Angular y backend NestJS viven en el **mismo repositorio Git**. No hay repos separados. El monorepo usa **npm workspaces** para que ambas apps compartan el paquete `libs/shared` sin publicar a npm.
+> **Regla absoluta:** frontend Angular y backend NestJS viven en el **mismo repositorio Git**. No hay repos separados. El monorepo usa **workspaces de Bun** (`bun install`, lockfile `bun.lock`) para que ambas apps compartan el paquete `libs/shared` sin publicar a ningún registro.
 
 ```
 /                           ← raíz del monorepo (un solo git init)
@@ -544,14 +548,19 @@ El panel admin debe mostrar **siempre** los tres niveles de la ganancia:
 ├── libs/
 │   └── shared/            ← DTOs, enums, tipos compartidos (workspace "shared")
 ├── package.json           ← workspaces: ["apps/*", "libs/*"]
+├── bun.lock               ← lockfile único del monorepo
 ├── .github/workflows/
 └── CLAUDE.md
 ```
 
 **Reglas de workspace:**
-- `npm run dev:api` → levanta NestJS en modo watch.
-- `npm run dev:web` → levanta Angular en modo watch.
-- `npm run test` → ejecuta tests en todos los workspaces.
+- **Gestor de paquetes: Bun** (`bun install`, `bun run`, `bunx`). No usar `npm`/`yarn`/`pnpm`: romperían `bun.lock`.
+- **Runtime: Node 20.** Bun instala y orquesta scripts; `nest build`, `ng build` y el contenedor de producción siguen ejecutándose con Node (Bun respeta el shebang `node` de los binarios).
+- `bun run dev:api` → levanta NestJS en modo watch.
+- `bun run dev:web` → levanta Angular en modo watch.
+- `bun run test` → ejecuta tests en todos los workspaces (`--filter '*'`).
+- Un workspace concreto: `bun run --cwd apps/api <script>`.
+- **Sin hoisting implícito:** Bun instala las dependencias dentro de cada workspace. Todo paquete importado desde un workspace debe estar declarado en **su** `package.json`, aunque otro workspace ya lo tenga.
 - Imports del backend a shared: `import { CreateReservaDto } from 'shared'`.
 - Imports del frontend a shared: idéntico; el build de Angular lo resuelve vía `paths` en `tsconfig`.
 

@@ -12,7 +12,9 @@ describe('CatalogController', () => {
       providers: [
         {
           provide: CatalogService,
-          useValue: { buscarServicios: jest.fn(), obtenerServicio: jest.fn() },
+          useValue: {
+            buscarServicios: jest.fn(), obtenerServicio: jest.fn(), obtenerPuntosMapa: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -50,6 +52,57 @@ describe('CatalogController', () => {
         page: undefined,
         limit: undefined,
       });
+    });
+  });
+
+  describe('búsqueda por mapa', () => {
+    it('debería agrupar las cuatro esquinas en el rectángulo de búsqueda', async () => {
+      service.buscarServicios.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
+
+      await controller.buscar(
+        'alojamiento', undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, undefined, undefined,
+        '40.3', '-3.8', '40.5', '-3.6',
+      );
+
+      expect(service.buscarServicios).toHaveBeenCalledWith(
+        expect.objectContaining({ bbox: { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 } }),
+      );
+    });
+
+    it('no debería construir el rectángulo si falta alguna esquina', async () => {
+      service.buscarServicios.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
+
+      // Media zona no describe ningún área: filtrar por ella daría resultados
+      // sin sentido, así que se descarta entera.
+      await controller.buscar(
+        'alojamiento', undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, undefined, undefined,
+        '40.3', '-3.8', undefined, '-3.6',
+      );
+
+      expect(service.buscarServicios).toHaveBeenCalledWith(
+        expect.objectContaining({ bbox: undefined }),
+      );
+    });
+
+    it('debería delegar los pines del mapa en el service', async () => {
+      const puntos = [{ id: 'a1', titulo: 'Las Rozas', precio: 24, lat: 40.4, lng: -3.7, rating: 4.8 }];
+      service.obtenerPuntosMapa.mockResolvedValue(puntos);
+
+      const result = await controller.mapa(
+        'alojamiento', 'Madrid', '20', '80', 'perro-1', '40.3', '-3.8', '40.5', '-3.6',
+      );
+
+      expect(service.obtenerPuntosMapa).toHaveBeenCalledWith({
+        vertical: 'alojamiento',
+        ciudad: 'Madrid',
+        precioMin: 20,
+        precioMax: 80,
+        perroId: 'perro-1',
+        bbox: { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 },
+      });
+      expect(result).toBe(puntos);
     });
   });
 

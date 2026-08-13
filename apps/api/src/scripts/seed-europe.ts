@@ -1,7 +1,7 @@
 /**
  * seed-europe.ts — Datos de prueba para la plataforma Doogking (mercado europeo)
  *
- * Uso: npm run seed:europe --workspace=api
+ * Uso: bun run --cwd apps/api seed:europe
  *
  * Marketplace de servicios caninos en Europa (EUR). Inserta datos coherentes:
  * - 1 admin + 4 usuarios clientes

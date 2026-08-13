@@ -22,6 +22,27 @@ export interface FiltrosAlojamiento {
   orden?: OrdenServicios;
   lat?: number;
   lng?: number;
+  /** Recorta la búsqueda a lo que se ve en el mapa; sustituye a `ciudad`. */
+  zona?: ZonaBusqueda;
+}
+
+/** Rectángulo visible del mapa, tal y como lo espera el API. */
+export interface ZonaBusqueda {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+}
+
+/** Pin del mapa: lo mínimo para dibujarlo sin cargar la ficha completa. */
+export interface PuntoServicio {
+  id: string;
+  titulo: string;
+  precio: number;
+  lat: number;
+  lng: number;
+  rating: number;
+  imagen?: string;
 }
 
 export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valoracion' | 'distancia';
@@ -144,6 +165,7 @@ export class AlojamientoService {
     if (filtros.orden) params['orden'] = filtros.orden;
     if (filtros.lat != null) params['lat'] = String(filtros.lat);
     if (filtros.lng != null) params['lng'] = String(filtros.lng);
+    Object.assign(params, this.paramsZona(filtros.zona));
 
     const res = await firstValueFrom(
       this.http.get<PaginatedResult<AlojamientoCard>>(this.base, { params }),
@@ -160,10 +182,36 @@ export class AlojamientoService {
    * Facetas del panel de filtros (PDF 27/07 §3). No dependen del rango de
    * precio elegido, así que basta con recargarlas al cambiar de ciudad.
    */
-  facetas(ciudad?: string): Promise<FacetasCatalogo> {
+  facetas(ciudad?: string, zona?: ZonaBusqueda): Promise<FacetasCatalogo> {
     const params: Record<string, string> = { vertical: VerticalKey.ALOJAMIENTO };
     if (ciudad) params['ciudad'] = ciudad;
+    Object.assign(params, this.paramsZona(zona));
     return firstValueFrom(this.http.get<FacetasCatalogo>(`${this.base}/facetas`, { params }));
+  }
+
+  /**
+   * Pines de la zona visible. Va aparte de `buscar` porque la lista se pagina
+   * de diez en diez y el mapa tiene que enseñar todo lo que hay en pantalla:
+   * si solo pintase la página actual, el usuario leería la zona como vacía.
+   */
+  puntosMapa(filtros: FiltrosAlojamiento): Promise<PuntoServicio[]> {
+    const params: Record<string, string> = { vertical: VerticalKey.ALOJAMIENTO };
+    if (filtros.ciudad) params['ciudad'] = filtros.ciudad;
+    if (filtros.precioMin) params['precioMin'] = String(filtros.precioMin);
+    if (filtros.precioMax) params['precioMax'] = String(filtros.precioMax);
+    if (filtros.perroId) params['perroId'] = filtros.perroId;
+    Object.assign(params, this.paramsZona(filtros.zona));
+
+    return firstValueFrom(this.http.get<PuntoServicio[]>(`${this.base}/mapa`, { params }));
+  }
+
+  /** Las cuatro esquinas van juntas: media zona no describe ningún área. */
+  private paramsZona(zona?: ZonaBusqueda): Record<string, string> {
+    if (!zona) return {};
+    return {
+      swLat: String(zona.swLat), swLng: String(zona.swLng),
+      neLat: String(zona.neLat), neLng: String(zona.neLng),
+    };
   }
 
   /** Garantiza que los arrays existan para que las plantillas no rompan con datos parciales del API. */

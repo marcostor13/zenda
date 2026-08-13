@@ -13,6 +13,16 @@ const config: Config = {
       },
     ],
   },
+  /*
+   * Los paquetes de Angular (p.ej. `@angular/common/locales/es`) y los `.mjs`
+   * son ESM y hay que transformarlos. Bun no aplana node_modules como npm:
+   * instala en `node_modules/.bun/<pkg>@<ver>/node_modules/<pkg>/`, así que el
+   * patrón acepta cualquier prefijo antes del segmento del paquete y ambos
+   * separadores de ruta (Windows y CI Linux).
+   */
+  transformIgnorePatterns: [
+    'node_modules[\\\\/](?!(.*[\\\\/])?(@angular[\\\\/]|@stripe[\\\\/]|.*\\.mjs$))',
+  ],
   moduleNameMapper: {
     '^shared$': '<rootDir>/../../libs/shared/src',
   },

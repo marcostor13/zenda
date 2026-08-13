@@ -2,8 +2,8 @@
  * migrar-servicios-clinicos.ts — Ola 4, DK-V07
  *
  * Uso:
- *   npm run migrar:servicios-clinicos --workspace=api            (simulación)
- *   npm run migrar:servicios-clinicos --workspace=api -- --aplicar
+ *   bun run --cwd apps/api migrar:servicios-clinicos            (simulación)
+ *   bun run --cwd apps/api migrar:servicios-clinicos -- --aplicar
  *
  * Los listados de veterinaria guardaban el servicio como texto libre. El
  * catálogo pasa a ser cerrado (`ServicioClinicoTipo`), así que hay que asignar

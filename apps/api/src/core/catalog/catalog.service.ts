@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CatalogRepository, BuscarServiciosParams, FacetasResult, OrdenServicios } from './catalog.repository';
+import {
+  CatalogRepository, BboxParams, BuscarServiciosParams, FacetasResult, OrdenServicios, PuntoServicio,
+} from './catalog.repository';
 import { Comercio, ComercioDocument } from '../comercios/comercio.schema';
 import { ReviewsService } from '../reviews/reviews.service';
 import { ResenaDocument } from '../reviews/resena.schema';
@@ -114,6 +116,9 @@ export interface ServicioCardDto {
   alphaAdherido?: boolean;
   /** Campos propios del vertical (taxi, vuelo, etc.) para cualquier UI. */
   extra?: Record<string, unknown>;
+  /** Coordenadas del listado; ausentes mientras el comercio no las declare. */
+  lat?: number;
+  lng?: number;
 }
 
 export interface HabitacionDto {
@@ -178,6 +183,9 @@ export interface ServicioGestionDto {
   titulo: string;
   descripcion: string;
   ciudad: string;
+  /** Coordenadas ya guardadas del listado; ausentes si nunca se geolocalizó. */
+  lat?: number;
+  lng?: number;
   precioBase: number;
   imagenes: string[];
   estado: string;
@@ -192,7 +200,7 @@ interface ServicioLean {
   titulo: string;
   descripcion?: string;
   imagenes?: string[];
-  ubicacion?: { ciudad?: string };
+  ubicacion?: { ciudad?: string; geo?: { coordinates?: number[] } };
   precioBase: number;
   precioAnterior?: number;
   descuentoPct?: number;
@@ -252,6 +260,7 @@ export class CatalogService {
     lat?: number;
     lng?: number;
     soloDisponibles?: boolean;
+    bbox?: BboxParams;
   }): Promise<PaginatedResult<ServicioCardDto>> {
     const perfilPerro = filtros.perroId
       ? (await this.perrosService.obtenerPerfilCompatibilidad(filtros.perroId)) ?? undefined
@@ -273,6 +282,7 @@ export class CatalogService {
       // Por defecto la búsqueda solo muestra lo reservable (P2); un consumidor
       // puede pedir el catálogo completo pasando `soloDisponibles=false`.
       soloDisponibles: filtros.soloDisponibles ?? true,
+      bbox: filtros.bbox,
     };
 
     const { items, total } = await this.repo.buscar(params);
@@ -296,13 +306,45 @@ export class CatalogService {
    * por filtro para el panel lateral tipo Booking. Misma base de búsqueda que
    * `buscarServicios`, sin paginación (los contadores describen el total).
    */
-  obtenerFacetas(filtros: { vertical?: string; ciudad?: string }): Promise<FacetasResult> {
+  obtenerFacetas(filtros: { vertical?: string; ciudad?: string; bbox?: BboxParams }): Promise<FacetasResult> {
     return this.repo.facetas({
       vertical: filtros.vertical ?? 'alojamiento',
       ciudad: filtros.ciudad,
       page: 1,
       limit: 1,
       soloDisponibles: true,
+      bbox: filtros.bbox,
+    });
+  }
+
+  /**
+   * Pines de la zona visible del mapa (búsqueda por mapa, estilo Booking).
+   * Comparte filtros con `buscarServicios` para que el mapa y la lista nunca
+   * cuenten cosas distintas, pero se pide aparte porque no se pagina.
+   */
+  async obtenerPuntosMapa(filtros: {
+    vertical?: string;
+    ciudad?: string;
+    precioMin?: number;
+    precioMax?: number;
+    perroId?: string;
+    soloDisponibles?: boolean;
+    bbox?: BboxParams;
+  }): Promise<PuntoServicio[]> {
+    const perfilPerro = filtros.perroId
+      ? (await this.perrosService.obtenerPerfilCompatibilidad(filtros.perroId)) ?? undefined
+      : undefined;
+
+    return this.repo.puntos({
+      vertical: filtros.vertical ?? 'alojamiento',
+      ciudad: filtros.ciudad,
+      precioMin: filtros.precioMin,
+      precioMax: filtros.precioMax,
+      perfilPerro,
+      page: 1,
+      limit: 1,
+      soloDisponibles: filtros.soloDisponibles ?? true,
+      bbox: filtros.bbox,
     });
   }
 
@@ -342,6 +384,8 @@ export class CatalogService {
       titulo: dto.titulo,
       descripcion: dto.descripcion,
       ciudad: dto.ciudad,
+      lat: dto.lat,
+      lng: dto.lng,
       precioBase: dto.precioBase,
       imagenes: dto.imagenes ?? [],
       comercioId,
@@ -368,6 +412,8 @@ export class CatalogService {
       titulo: dto.titulo,
       descripcion: dto.descripcion,
       ciudad: dto.ciudad,
+      lat: dto.lat,
+      lng: dto.lng,
       precioBase: dto.precioBase,
       imagenes: dto.imagenes,
       extra,
@@ -398,12 +444,21 @@ export class CatalogService {
       titulo: h.titulo,
       descripcion: h.descripcion ?? '',
       ciudad: h.ubicacion?.ciudad ?? '',
+      // GeoJSON guarda [lng, lat]; el formulario del comercio necesita saber si
+      // el listado ya está geolocalizado para no avisar de algo que ya cumple.
+      lat: this.coordenada(h, 1),
+      lng: this.coordenada(h, 0),
       precioBase: h.precioBase,
       imagenes: h.imagenes ?? [],
       estado: (h['estado'] as string) ?? 'borrador',
       extra,
       aptitud: h.aptitud,
     };
+  }
+
+  private coordenada(h: ServicioLean, indice: 0 | 1): number | undefined {
+    const valor = h.ubicacion?.geo?.coordinates?.[indice];
+    return Number.isFinite(valor) ? valor : undefined;
   }
 
   /** Filtra los campos propios del vertical elegido; ignora cualquier otro campo enviado. */
@@ -531,7 +586,12 @@ export class CatalogService {
 
   private toCard(h: ServicioLean): ServicioCardDto {
     const score = Math.round((h.ratingPromedio ?? 0) * 10) / 10;
+    // GeoJSON guarda [lng, lat]; invertirlo aquí evita que cada consumidor
+    // tenga que acordarse del orden y lo pinte en mitad del océano.
+    const [lng, lat] = h.ubicacion?.geo?.coordinates ?? [];
     return {
+      lat: Number.isFinite(lat) ? lat : undefined,
+      lng: Number.isFinite(lng) ? lng : undefined,
       id: String(h._id),
       nombre: h.titulo,
       ciudad: h.ubicacion?.ciudad ?? '',

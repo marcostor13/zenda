@@ -102,6 +102,32 @@ export const HOTEL_IMAGES: readonly string[] = [
 /** Alias semántico nuevo — mismo pool que HOTEL_IMAGES. */
 export const ALOJAMIENTO_IMAGES = HOTEL_IMAGES;
 
+/**
+ * Banda fotográfica del bloque "¿Por qué Doogking.com?".
+ *
+ * Dos encuadres a propósito: en escritorio la banda es muy apaisada y recorta
+ * casi todo el alto del original, así que necesita una foto con el perro
+ * centrado; en móvil la banda es casi cuadrada y admite el hero habitual.
+ */
+export const BANDA_POR_QUE = {
+  movil: '/images/hero-home.jpg',
+  escritorio: '/images/alojamiento-exterior.jpg',
+} as const;
+
+/**
+ * Fotos del bloque "¿Por qué Doogking.com?" — una por cada uno de los tres
+ * valores, en lugar de iconos.
+ *
+ * TODO(D-3): sustituir por la fotografía de marca que aporte el cliente; basta
+ * con cambiar estas tres rutas. Mientras tanto se usan assets ya verificados
+ * del pool canino para no depender de URLs sin comprobar.
+ */
+export const MOTIVOS_IMAGES = {
+  rapidez: pexels(1254140, 640),
+  verificados: '/images/alojamiento-interior.jpg',
+  atencion: pexels(2607544, 640),
+} as const;
+
 /** Imágenes de fondo escénicas (perros / naturaleza). */
 export const BG_IMAGES = {
   hero: '/images/hero-home.jpg',

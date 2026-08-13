@@ -4,7 +4,7 @@
  * a insertar datos demo automáticamente, o corre seed:europe para un seed completo.
  *
  * Uso:
- *   npm run clear:seed --workspace=api
+ *   bun run --cwd apps/api clear:seed
  */
 import * as dotenv from 'dotenv';
 import * as dns from 'dns';

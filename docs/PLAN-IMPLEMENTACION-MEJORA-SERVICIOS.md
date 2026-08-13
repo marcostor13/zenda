@@ -53,7 +53,7 @@ Resolviendo `ANALISIS-ESPECIFICACIONES.md` §7 con la información disponible en
 - [x] **Hecho:** aviso proactivo del ajuste de precio — `notifications.service.ts` (tipo `ajuste_solicitado`), con la UI de comercio para solicitarlo y la de cliente para aceptar/rechazar.
 
 ### A4. Verificación — ✅ completado 2026-07-18
-- [x] `npm run build --workspace=shared` + `npx tsc --noEmit` en `apps/api` — sin errores.
+- [x] `bun run build:shared` + `bunx tsc --noEmit` en `apps/api` — sin errores.
 - [x] `npx nest build` — sin errores.
 - [x] Test suite completo de `apps/api`: 187/188 (el único fallo es un timeout preexistente de bcrypt en `comercios.service.spec.ts` no relacionado, confirmado pasando en aislado).
 - [x] `npx tsc --noEmit` en `apps/web` — sin errores.

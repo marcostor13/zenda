@@ -1,4 +1,4 @@
-import { Component, DestroyRef, signal, computed, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, signal, computed, OnInit, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { VerticalKey } from 'shared';
@@ -14,10 +14,12 @@ import { RsChipComponent } from '../../../shared/components/chip/rs-chip.compone
 import {
   RsRangeSliderComponent, type BarraHistograma,
 } from '../../../shared/components/range-slider/rs-range-slider.component';
-import { RsMapaComponent, type PuntoMapa } from '../../../shared/components/mapa/rs-mapa.component';
+import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../../../shared/components/mapa/rs-mapa.component';
+import { RsMapaBuscadorComponent } from '../../../shared/components/mapa-buscador/rs-mapa-buscador.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import {
   AlojamientoService, AlojamientoCard, FacetasCatalogo, FiltrosAlojamiento, OrdenServicios,
+  PuntoServicio, ZonaBusqueda,
 } from '../services/alojamiento.service';
 import { calcularBadgesAutomaticos, type BadgeAutomatico } from '../../../shared/badges/badges-automaticos';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
@@ -38,6 +40,7 @@ interface BusquedaUrl {
     ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
     RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent, RsChipComponent,
     ExperienciasCercaComponent, RsStarsComponent, RsRangeSliderComponent, RsMapaComponent,
+    RsMapaBuscadorComponent,
   ],
   template: `
 <div class="alojamiento-page">
@@ -63,18 +66,22 @@ interface BusquedaUrl {
     </div>
   </div>
 
-  <div class="rs-wrap alojamiento-body">
+  <div class="rs-wrap alojamiento-body" [class.alojamiento-body--mapa]="mapaAbierto()">
 
     <!-- ── SIDEBAR ─────────────────────────────────────────── -->
     <aside class="filters-sidebar">
       <!-- Miniatura del mapa sobre los filtros, como en Booking (PDF §3, WA0009) -->
-      @if (puntosMapa().length > 0) {
+      @if (!mapaAbierto()) {
         <button type="button" class="mapa-teaser" (click)="alternarMapa()"
-                [attr.aria-expanded]="mapaAbierto()">
-          <rs-mapa class="mapa-teaser__mini" [puntos]="puntosMapa()" ariaLabel="Vista previa del mapa" />
+                [attr.aria-expanded]="false">
+          @if (puntosMapa().length > 0) {
+            <rs-mapa class="mapa-teaser__mini" [puntos]="puntosMapa()" ariaLabel="Vista previa del mapa" />
+          } @else {
+            <span class="mapa-teaser__vacio"></span>
+          }
           <span class="mapa-teaser__cta">
             <rs-icon name="map-pin" [size]="15" [stroke]="2" />
-            {{ mapaAbierto() ? 'Ocultar el mapa' : 'Ver en el mapa' }}
+            Ver en el mapa
           </span>
         </button>
       }
@@ -167,21 +174,6 @@ interface BusquedaUrl {
         </div>
       </div>
 
-      <!-- Mapa desplegado: pines con el precio (PDF §3) -->
-      @if (mapaAbierto() && puntosMapa().length > 0) {
-        <div class="mapa-panel">
-          <rs-mapa [puntos]="puntosMapa()" [activo]="destacadoId()"
-                   ariaLabel="Mapa de alojamientos encontrados"
-                   (puntoElegido)="destacarDesdeMapa($event)" />
-        </div>
-        @if (sinCoordenadas() > 0) {
-          <p class="mapa-panel__aviso">
-            {{ sinCoordenadas() }} {{ sinCoordenadas() === 1 ? 'alojamiento no aparece' : 'alojamientos no aparecen' }}
-            en el mapa porque todavía no tienen ubicación exacta.
-          </p>
-        }
-      }
-
       <!-- Skeleton loading -->
       @if (cargando()) {
         <div class="results-list">
@@ -245,8 +237,25 @@ interface BusquedaUrl {
         }
       }
 
-      <app-experiencias-cerca [ciudad]="busquedaCiudad()" />
+      @if (!mapaAbierto()) {
+        <app-experiencias-cerca [ciudad]="busquedaCiudad()" />
+      }
     </section>
+
+    <!-- ── MAPA (vista dividida estilo Booking) ─────────────── -->
+    @if (mapaAbierto()) {
+      <section class="mapa-col" aria-label="Buscar en el mapa">
+        <rs-mapa-buscador #mapaBuscador
+          [puntos]="puntosMapa()"
+          [activo]="destacadoId()"
+          [cargando]="cargandoMapa()"
+          [total]="totalItems()"
+          ariaLabel="Mapa de alojamientos caninos encontrados"
+          (cerrar)="alternarMapa()"
+          (puntoElegido)="destacarDesdeMapa($event)"
+          (zonaBuscada)="buscarEnZona($event)" />
+      </section>
+    }
   </div>
 </div>
   `,
@@ -282,6 +291,48 @@ interface BusquedaUrl {
       align-items: start;
 
       @media (max-width: 1024px) { grid-template-columns: 1fr; }
+    }
+
+    /* Vista dividida al abrir el mapa: filtros · lista · mapa, como Booking.
+       La lista se estrecha a una columna de tarjetas porque comparte el ancho
+       con el mapa; a dos seguirían saliendo tarjetas de un palmo. */
+    .alojamiento-body--mapa {
+      grid-template-columns: 240px minmax(320px, 460px) 1fr;
+      gap: var(--sp-6);
+
+      .results-list { grid-template-columns: 1fr; }
+
+      /* El mapa ocupa el alto de la ventana y la lista rueda a su lado: sin
+         esto habría que bajar hasta el final del listado para volver a verlo. */
+      .results-col {
+        max-height: calc(100vh - 160px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-right: var(--sp-2);
+      }
+
+      @media (max-width: 1280px) { grid-template-columns: minmax(300px, 420px) 1fr; }
+      /* En móvil no caben las dos cosas: el mapa se queda con la pantalla. */
+      @media (max-width: 900px) {
+        grid-template-columns: 1fr;
+        .filters-sidebar, .results-col { display: none; }
+      }
+    }
+
+    .alojamiento-body--mapa .filters-sidebar {
+      @media (max-width: 1280px) { display: none; }
+    }
+
+    .mapa-col {
+      position: sticky;
+      top: 140px;
+      height: calc(100vh - 160px);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      box-shadow: var(--sh-md);
+
+      @media (max-width: 900px) { top: 100px; height: calc(100vh - 120px); }
     }
 
     /* SIDEBAR */
@@ -330,19 +381,11 @@ interface BusquedaUrl {
       box-shadow: var(--sh-md);
     }
 
-    /* Mapa desplegado sobre la columna de resultados. */
-    .mapa-panel {
-      height: 420px;
-      margin-bottom: var(--sp-5);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-xl);
-      overflow: hidden;
-    }
-
-    .mapa-panel__aviso {
-      margin: calc(var(--sp-3) * -1) 0 var(--sp-5);
-      font-size: var(--f-xs);
-      color: var(--t-400);
+    /* Sin resultados geolocalizados la miniatura queda vacía; se rellena para
+       que el botón "Ver en el mapa" siga siendo una superficie pulsable. */
+    .mapa-teaser__vacio {
+      display: block; height: 100%;
+      background: linear-gradient(135deg, var(--c-raised), var(--c-surface));
     }
 
     /* Contador por opción de filtro ("Parking 514"). */
@@ -456,22 +499,31 @@ export class AlojamientoListaComponent implements OnInit {
   /** Tarjeta resaltada al pulsar su pin en el mapa. */
   readonly destacadoId = signal<string | null>(null);
   readonly facetas = signal<FacetasCatalogo | null>(null);
+  readonly cargandoMapa = signal(false);
 
-  /** Solo se pintan en el mapa los alojamientos que tienen coordenadas reales. */
+  /**
+   * Pines de la búsqueda actual. Se piden a un endpoint propio y no se derivan
+   * de `alojamientos()`: la lista está paginada de diez en diez y el mapa debe
+   * enseñar todo lo que hay en la zona, o la mitad de los pines faltarían.
+   */
+  private readonly puntos = signal<PuntoServicio[]>([]);
+
   readonly puntosMapa = computed<PuntoMapa[]>(() =>
-    this.alojamientos()
-      .filter((a) => a.lat != null && a.lng != null)
-      .map((a) => ({
-        id: a.id,
-        lat: a.lat as number,
-        lng: a.lng as number,
-        etiqueta: `€${a.precioPorNoche}`,
-        titulo: a.nombre,
-      })),
+    this.puntos().map((p) => ({
+      id: p.id,
+      lat: p.lat,
+      lng: p.lng,
+      etiqueta: `€${p.precio}`,
+      titulo: p.titulo,
+      imagen: p.imagen,
+      rating: p.rating,
+    })),
   );
 
-  /** Cuántos resultados quedan fuera del mapa por no tener ubicación (se avisa, no se oculta). */
-  readonly sinCoordenadas = computed(() => this.alojamientos().length - this.puntosMapa().length);
+  /** Zona del mapa por la que se está filtrando; null = búsqueda por ciudad. */
+  private readonly zona = signal<ZonaBusqueda | null>(null);
+
+  private readonly mapaBuscador = viewChild<RsMapaBuscadorComponent>('mapaBuscador');
 
   readonly histogramaPrecios = computed<BarraHistograma[]>(() => this.facetas()?.precios ?? []);
 
@@ -484,8 +536,36 @@ export class AlojamientoListaComponent implements OnInit {
   }
 
   alternarMapa(): void {
-    this.mapaAbierto.update((abierto) => !abierto);
-    if (!this.mapaAbierto()) this.destacadoId.set(null);
+    const abierto = !this.mapaAbierto();
+    this.mapaAbierto.set(abierto);
+
+    if (!abierto) {
+      this.destacadoId.set(null);
+      // Cerrar el mapa devuelve la búsqueda a la ciudad escrita: dejar activo
+      // un rectángulo invisible haría que los filtros no cuadrasen con nada.
+      if (this.zona()) {
+        this.zona.set(null);
+        this.aplicarFiltros();
+      }
+      return;
+    }
+
+    // Leaflet mide el contenedor al crearse; el panel acaba de aparecer, así
+    // que hay que decirle que vuelva a medir una vez pintado.
+    setTimeout(() => this.mapaBuscador()?.refrescar(), 0);
+  }
+
+  /**
+   * Nueva zona visible del mapa: se vuelve a buscar acotando a ese rectángulo,
+   * como el "Buscar mientras me desplazo" de Booking. Vuelve a la página uno
+   * porque los resultados de la zona anterior ya no aplican.
+   */
+  buscarEnZona(zona: ZonaMapa): Promise<void> {
+    this.zona.set({
+      swLat: zona.swLat, swLng: zona.swLng, neLat: zona.neLat, neLng: zona.neLng,
+    });
+    this.paginaActual.set(1);
+    return this.cargarAlojamientos();
   }
 
   /** Al pulsar un pin se resalta su tarjeta y se lleva al usuario hasta ella. */
@@ -607,8 +687,12 @@ export class AlojamientoListaComponent implements OnInit {
     this.error.set(false);
     try {
       const busqueda = this.busqueda();
+      const zona = this.zona();
       const filtros: FiltrosAlojamiento = {
-        ciudad:   busqueda.ciudad,
+        // Con el mapa acotando la zona, la ciudad sobra: el usuario ya ha dicho
+        // por dónde quiere buscar arrastrando el mapa hasta ahí.
+        ciudad:   zona ? undefined : busqueda.ciudad,
+        zona:     zona ?? undefined,
         desde:    busqueda.desde,
         hasta:    busqueda.hasta,
         perros:   busqueda.perros,
@@ -629,7 +713,8 @@ export class AlojamientoListaComponent implements OnInit {
       this.totalPaginas.set(result.totalPages);
       // El pin resaltado deja de tener sentido con otra tanda de resultados.
       this.destacadoId.set(null);
-      void this.cargarFacetas(busqueda.ciudad);
+      void this.cargarFacetas(filtros.ciudad, zona);
+      void this.cargarPuntosMapa(filtros);
     } catch {
       // Sin datos inventados: se muestra estado de error, no listados falsos.
       this.alojamientos.set([]);
@@ -646,11 +731,27 @@ export class AlojamientoListaComponent implements OnInit {
    * búsqueda: si fallan, los filtros siguen funcionando — simplemente se quedan
    * sin número al lado, que es preferible a romper el listado.
    */
-  async cargarFacetas(ciudad?: string): Promise<void> {
+  async cargarFacetas(ciudad?: string, zona?: ZonaBusqueda | null): Promise<void> {
     try {
-      this.facetas.set(await this.alojamientoService.facetas(ciudad));
+      this.facetas.set(await this.alojamientoService.facetas(ciudad, zona ?? undefined));
     } catch {
       this.facetas.set(null);
+    }
+  }
+
+  /**
+   * Pines del mapa. También van aparte de la búsqueda principal: si el mapa
+   * falla, la lista de resultados sigue siendo perfectamente usable, y quedarse
+   * sin pines es mejor que quedarse sin resultados.
+   */
+  async cargarPuntosMapa(filtros: FiltrosAlojamiento): Promise<void> {
+    this.cargandoMapa.set(true);
+    try {
+      this.puntos.set(await this.alojamientoService.puntosMapa(filtros));
+    } catch {
+      this.puntos.set([]);
+    } finally {
+      this.cargandoMapa.set(false);
     }
   }
 

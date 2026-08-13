@@ -1,4 +1,7 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsObject, Min, ValidateNested } from 'class-validator';
+import {
+  IsString, IsNumber, IsOptional, IsArray, IsObject, IsLatitude, IsLongitude,
+  Min, ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { AptitudPerroDto } from './aptitud-perro.dto';
 
@@ -15,6 +18,17 @@ export class ActualizarServicioDto {
   @IsOptional()
   @IsString()
   ciudad?: string;
+
+  /** Coordenadas del listado; sin ellas el servicio no sale en la búsqueda por mapa. */
+  @IsOptional()
+  @IsLatitude()
+  @Type(() => Number)
+  lat?: number;
+
+  @IsOptional()
+  @IsLongitude()
+  @Type(() => Number)
+  lng?: number;
 
   @IsOptional()
   @IsNumber()

@@ -70,6 +70,49 @@ describe('AlojamientoService', () => {
 
       await promesa;
     });
+
+    it('debería enviar las cuatro esquinas del mapa como params', async () => {
+      const promesa = service.buscar({
+        zona: { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 },
+      });
+
+      const req = httpMock.expectOne((r) => r.url.includes('/catalog/servicios'));
+      expect(req.request.params.get('swLat')).toBe('40.3');
+      expect(req.request.params.get('swLng')).toBe('-3.8');
+      expect(req.request.params.get('neLat')).toBe('40.5');
+      expect(req.request.params.get('neLng')).toBe('-3.6');
+      req.flush(resultadoMock);
+
+      await promesa;
+    });
+  });
+
+  describe('puntosMapa', () => {
+    it('debería pedir los pines al endpoint de mapa acotados a la zona', async () => {
+      const promesa = service.puntosMapa({
+        precioMin: 20,
+        zona: { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 },
+      });
+
+      const req = httpMock.expectOne((r) => r.url.endsWith('/catalog/servicios/mapa'));
+      expect(req.request.params.get('vertical')).toBe('alojamiento');
+      expect(req.request.params.get('precioMin')).toBe('20');
+      expect(req.request.params.get('neLng')).toBe('-3.6');
+      req.flush([{ id: 'a1', titulo: 'Las Rozas', precio: 24, lat: 40.4, lng: -3.7, rating: 4.8 }]);
+
+      expect(await promesa).toHaveLength(1);
+    });
+
+    it('no debería enviar esquinas sueltas cuando no hay zona', async () => {
+      const promesa = service.puntosMapa({ ciudad: 'Madrid' });
+
+      const req = httpMock.expectOne((r) => r.url.endsWith('/catalog/servicios/mapa'));
+      expect(req.request.params.get('swLat')).toBeNull();
+      expect(req.request.params.get('ciudad')).toBe('Madrid');
+      req.flush([]);
+
+      await promesa;
+    });
   });
 
   describe('obtener', () => {

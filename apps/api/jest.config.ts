@@ -8,7 +8,13 @@ const config: Config = {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.spec.json' }],
     '^.+\\.mjs$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.spec.json' }],
   },
-  transformIgnorePatterns: ['node_modules/(?!(nanoid)/)'],
+  /*
+   * nanoid v5 es ESM puro y hay que transformarlo. Bun no aplana node_modules
+   * como npm: instala en `node_modules/.bun/nanoid@x.y.z/node_modules/nanoid/`,
+   * así que el patrón acepta cualquier prefijo antes del segmento del paquete y
+   * ambos separadores de ruta (Windows y CI Linux).
+   */
+  transformIgnorePatterns: ['node_modules[\\\\/](?!(.*[\\\\/])?nanoid[\\\\/])'],
   extensionsToTreatAsEsm: [],
   collectCoverageFrom: ['**/*.(t|j)s', '!**/*.module.ts', '!**/main.ts'],
   coverageDirectory: '../coverage',

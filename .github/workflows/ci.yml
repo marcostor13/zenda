@@ -24,12 +24,12 @@ jobs:
               - 'apps/api/**'
               - 'libs/shared/**'
               - 'package.json'
-              - 'package-lock.json'
+              - 'bun.lock'
             web:
               - 'apps/web/**'
               - 'libs/shared/**'
               - 'package.json'
-              - 'package-lock.json'
+              - 'bun.lock'
 
   api:
     name: API — CI + Deploy
@@ -39,19 +39,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node sigue siendo el runtime de nest build; bun es el gestor de paquetes.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.2
 
       - name: Instalar dependencias
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Tests API (con cobertura)
-        run: npm run test:api
+        run: bun run test:api
 
       - name: Build API
-        run: npm run build:api
+        run: bun run build:api
 
       - name: Deploy API (Coolify webhook)
         if: github.ref == 'refs/heads/main'
@@ -77,19 +81,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node sigue siendo el runtime de ng build; bun es el gestor de paquetes.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.2
 
       - name: Instalar dependencias
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Tests Web (con cobertura)
-        run: npm run test:web
+        run: bun run test:web
 
       - name: Build Web
-        run: npm run build:web
+        run: bun run build:web
 
       - name: Deploy Web (Coolify webhook)
         if: github.ref == 'refs/heads/main'

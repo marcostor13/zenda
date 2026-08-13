@@ -64,7 +64,7 @@ describe('CatalogService', () => {
           provide: CatalogRepository,
           useValue: {
             buscar: jest.fn(), obtenerPorId: jest.fn(), contarTotal: jest.fn(),
-            actualizarCampos: jest.fn(), crear: jest.fn(),
+            actualizarCampos: jest.fn(), crear: jest.fn(), puntos: jest.fn(),
           },
         },
         {
@@ -142,6 +142,37 @@ describe('CatalogService', () => {
         espaciosDisponibles: 4,
         paseosIncluidos: true,
       });
+    });
+
+    it('debería exponer las coordenadas invertidas respecto a GeoJSON', async () => {
+      repo.buscar.mockResolvedValue({
+        items: [{ ...hotelDoc, ubicacion: { ciudad: 'Madrid', geo: { coordinates: [-3.7038, 40.4168] } } }] as never,
+        total: 1,
+      });
+
+      const [card] = (await service.buscarServicios({})).items;
+
+      // Sin esto el mapa pintaría los alojamientos en mitad del océano Índico.
+      expect(card.lat).toBe(40.4168);
+      expect(card.lng).toBe(-3.7038);
+    });
+
+    it('no debería inventar coordenadas para un servicio que no las tiene', async () => {
+      repo.buscar.mockResolvedValue({ items: [hotelDoc] as never, total: 1 });
+
+      const [card] = (await service.buscarServicios({})).items;
+
+      expect(card.lat).toBeUndefined();
+      expect(card.lng).toBeUndefined();
+    });
+
+    it('debería pasar el rectángulo del mapa al repositorio', async () => {
+      repo.buscar.mockResolvedValue({ items: [], total: 0 });
+      const bbox = { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 };
+
+      await service.buscarServicios({ bbox });
+
+      expect(repo.buscar).toHaveBeenCalledWith(expect.objectContaining({ bbox }));
     });
 
     it('debería usar el vertical hoteles por defecto y acotar el límite máximo', async () => {
@@ -225,6 +256,22 @@ describe('CatalogService', () => {
         requiereVacunasAlDia: true,
         requiereMicrochip: false,
       });
+    });
+  });
+
+  describe('obtenerPuntosMapa', () => {
+    it('debería resolver la compatibilidad del perro también para los pines', async () => {
+      repo.puntos.mockResolvedValue([]);
+      perrosService.obtenerPerfilCompatibilidad.mockResolvedValue({ tamano: 'mini' as never });
+      const bbox = { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 };
+
+      await service.obtenerPuntosMapa({ vertical: 'alojamiento', perroId: 'perro-1', bbox });
+
+      // El mapa y la lista deben contar lo mismo: si el filtro por perro solo se
+      // aplicara a la lista, aparecerían pines de sitios que no lo admiten.
+      expect(repo.puntos).toHaveBeenCalledWith(expect.objectContaining({
+        vertical: 'alojamiento', perfilPerro: { tamano: 'mini' }, bbox, soloDisponibles: true,
+      }));
     });
   });
 

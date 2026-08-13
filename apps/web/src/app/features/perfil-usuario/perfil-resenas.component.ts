@@ -244,7 +244,7 @@ const RECONOCIMIENTOS = [
                   <div class="stars stars--picker stars--picker-sm">
                     @for (n of [1, 2, 3, 4, 5]; track n) {
                       <button type="button" (click)="setAspecto(a.key, n)" [attr.aria-label]="a.label + ' ' + n + ' estrellas'">
-                        <rs-icon name="star" [size]="18" [stroke]="1.5" [style.color]="n <= (aspectos()[a.key] ?? 0) ? '#F59E0B' : 'var(--b-2)'"></rs-icon>
+                        <rs-icon name="star" [size]="18" [stroke]="1.5" [style.color]="n <= valorAspecto(a.key) ? '#F59E0B' : 'var(--b-2)'"></rs-icon>
                       </button>
                     }
                   </div>
@@ -526,6 +526,18 @@ export class PerfilResenasComponent implements OnInit {
 
   setAspecto(key: string, valor: number): void {
     this.aspectos.update((a) => ({ ...a, [key]: valor }));
+  }
+
+  /**
+   * `aspectos` solo contiene entrada para las claves ya puntuadas: el mapa
+   * arranca vacío y se rellena aspecto a aspecto, así que el valor de una
+   * clave todavía no tocada es `undefined` en tiempo de ejecución aunque el
+   * tipo del signal (para encajar con el payload de `ReviewsService`) diga
+   * `Record<string, number>`. El cast a `Partial<...>` refleja esa realidad
+   * sólo en la lectura, sin aflojar el tipo que se envía al guardar.
+   */
+  valorAspecto(key: string): number {
+    return (this.aspectos() as Partial<Record<string, number>>)[key] ?? 0;
   }
 
   async guardar(): Promise<void> {

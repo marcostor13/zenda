@@ -19,7 +19,7 @@ describe('CatalogRepository', () => {
 
   const chainable = (resultado: unknown) => {
     const chain: Record<string, jest.Mock> = {};
-    ['sort', 'skip', 'limit', 'lean'].forEach((m) => (chain[m] = jest.fn(() => chain)));
+    ['sort', 'skip', 'limit', 'lean', 'select'].forEach((m) => (chain[m] = jest.fn(() => chain)));
     chain['exec'] = jest.fn().mockResolvedValue(resultado);
     return chain;
   };
@@ -107,6 +107,31 @@ describe('CatalogRepository', () => {
       expect(alojamientoModelCtor).not.toHaveBeenCalled();
     });
 
+    it('debería guardar las coordenadas como punto GeoJSON [lng, lat]', async () => {
+      await repository.crear({
+        vertical: 'alojamiento', titulo: 'Suite Canina', descripcion: 'desc', ciudad: 'Madrid',
+        precioBase: 40, imagenes: [], comercioId: '650000000000000000000001',
+        lat: 40.4168, lng: -3.7038,
+      });
+
+      expect(alojamientoModelCtor).toHaveBeenCalledWith(expect.objectContaining({
+        ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: [-3.7038, 40.4168] } },
+      }));
+    });
+
+    it('debería publicar sin geo si falta alguna coordenada', async () => {
+      await repository.crear({
+        vertical: 'alojamiento', titulo: 'Suite Canina', descripcion: 'desc', ciudad: 'Cuenca',
+        precioBase: 40, imagenes: [], comercioId: '650000000000000000000001',
+        lat: 40.4168,
+      });
+
+      // Un punto a medias rompería el índice 2dsphere; mejor sin geolocalizar.
+      expect(alojamientoModelCtor).toHaveBeenCalledWith(expect.objectContaining({
+        ubicacion: { ciudad: 'Cuenca', geo: undefined },
+      }));
+    });
+
     it('debería persistir los campos extra del vertical en el documento creado', async () => {
       await repository.crear({
         vertical: 'alojamiento', titulo: 'Suite Canina', descripcion: 'desc', ciudad: 'Madrid',
@@ -117,6 +142,91 @@ describe('CatalogRepository', () => {
       expect(alojamientoModelCtor).toHaveBeenCalledWith(
         expect.objectContaining({ espacios: [{ tipo: 'estandar', cantidad: 2, precioNoche: 40 }] }),
       );
+    });
+  });
+
+  describe('búsqueda por mapa', () => {
+    const zona = { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 };
+
+    it('debería acotar la búsqueda al rectángulo visible con $geoWithin', async () => {
+      await repository.buscar({ vertical: 'alojamiento', page: 1, limit: 10, bbox: zona });
+
+      const filtro = model.find.mock.calls[0][0];
+      expect(filtro['ubicacion.geo'].$geoWithin.$geometry).toEqual({
+        type: 'Polygon',
+        coordinates: [[
+          [-3.8, 40.3], [-3.6, 40.3], [-3.6, 40.5], [-3.8, 40.5], [-3.8, 40.3],
+        ]],
+      });
+    });
+
+    it('debería descartar la ciudad cuando se busca por zona del mapa', async () => {
+      await repository.buscar({
+        vertical: 'alojamiento', ciudad: 'Madrid', page: 1, limit: 10, bbox: zona,
+      });
+
+      // Si el usuario arrastró el mapa hasta otra comarca, quiere ver lo que
+      // hay ahí, no lo que casaba con el texto que tecleó antes.
+      const filtro = model.find.mock.calls[0][0];
+      expect(filtro['ubicacion.ciudad']).toBeUndefined();
+    });
+
+    it('debería ignorar un rectángulo degenerado en vez de romper la búsqueda', async () => {
+      await repository.buscar({
+        vertical: 'alojamiento', ciudad: 'Madrid', page: 1, limit: 10,
+        // Esquinas invertidas: MongoDB rechazaría la consulta entera.
+        bbox: { swLat: 40.5, swLng: -3.6, neLat: 40.3, neLng: -3.8 },
+      });
+
+      const filtro = model.find.mock.calls[0][0];
+      expect(filtro['ubicacion.geo']).toBeUndefined();
+      expect(filtro['ubicacion.ciudad']).toBeInstanceOf(RegExp);
+    });
+
+    it('debería ignorar coordenadas fuera del rango terrestre', async () => {
+      await repository.buscar({
+        vertical: 'alojamiento', page: 1, limit: 10,
+        bbox: { swLat: -95, swLng: -3.8, neLat: 40.5, neLng: -3.6 },
+      });
+
+      expect(model.find.mock.calls[0][0]['ubicacion.geo']).toBeUndefined();
+    });
+
+    it('debería devolver los pines con lat/lng invertidas respecto a GeoJSON', async () => {
+      model.find.mockReturnValue(chainable([
+        {
+          _id: 'a1', titulo: 'Residencia Las Rozas', precioBase: 24,
+          ratingPromedio: 4.75, imagenes: ['img.jpg'],
+          ubicacion: { geo: { coordinates: [-3.7038, 40.4168] } },
+        },
+      ]));
+
+      const puntos = await repository.puntos({ vertical: 'alojamiento', page: 1, limit: 1, bbox: zona });
+
+      expect(puntos).toEqual([{
+        id: 'a1', titulo: 'Residencia Las Rozas', precio: 24,
+        lat: 40.4168, lng: -3.7038, rating: 4.8, imagen: 'img.jpg',
+      }]);
+    });
+
+    it('debería descartar los servicios sin coordenadas utilizables', async () => {
+      model.find.mockReturnValue(chainable([
+        { _id: 'a1', titulo: 'Sin ubicación', precioBase: 30, ubicacion: {} },
+        { _id: 'a2', titulo: 'Coordenadas rotas', precioBase: 30, ubicacion: { geo: { coordinates: [] } } },
+      ]));
+
+      expect(await repository.puntos({ vertical: 'alojamiento', page: 1, limit: 1 })).toEqual([]);
+    });
+
+    it('debería topar el número de pines y exigir coordenadas en la consulta', async () => {
+      const chain = chainable([]);
+      model.find.mockReturnValue(chain);
+
+      await repository.puntos({ vertical: 'alojamiento', page: 1, limit: 1 });
+
+      expect(chain['limit']).toHaveBeenCalledWith(300);
+      expect(model.find.mock.calls[0][0]['ubicacion.geo.coordinates'])
+        .toEqual({ $exists: true, $ne: null });
     });
   });
 

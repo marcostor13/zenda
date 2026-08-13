@@ -192,7 +192,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   @for (p of perros(); track p._id) {
                     <button type="button" class="perro-card" [class.selected]="perroSeleccionado() === p._id"
                             (click)="seleccionarPerro(p._id)">
-                      <img [src]="p.fotos?.[0] || imgFallback" [alt]="p.nombre" rsImg />
+                      <img [src]="p.fotos[0] || imgFallback" [alt]="p.nombre" rsImg />
                       <span class="perro-card__body">
                         <strong><rs-icon name="dog" [size]="16" [stroke]="2" /> {{ p.nombre }}</strong>
                         <span class="perro-card__meta">

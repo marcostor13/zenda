@@ -8,7 +8,7 @@ import {
   PaginatedResult,
   ServicioGestionDto,
 } from './catalog.service';
-import { FacetasResult } from './catalog.repository';
+import { BboxParams, FacetasResult, PuntoServicio } from './catalog.repository';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { CrearServicioDto, ActualizarServicioDto, Rol } from 'shared';
@@ -65,10 +65,15 @@ export class CatalogController {
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('soloDisponibles') soloDisponibles?: string,
+    @Query('swLat') swLat?: string,
+    @Query('swLng') swLng?: string,
+    @Query('neLat') neLat?: string,
+    @Query('neLng') neLng?: string,
   ): Promise<PaginatedResult<ServicioCardDto>> {
     return this.catalogService.buscarServicios({
       vertical,
       ciudad,
+      bbox: this.toBbox(swLat, swLng, neLat, neLng),
       precioMin: this.toNumber(precioMin),
       precioMax: this.toNumber(precioMax),
       page: this.toNumber(page),
@@ -89,8 +94,53 @@ export class CatalogController {
   facetas(
     @Query('vertical') vertical?: string,
     @Query('ciudad') ciudad?: string,
+    @Query('swLat') swLat?: string,
+    @Query('swLng') swLng?: string,
+    @Query('neLat') neLat?: string,
+    @Query('neLng') neLng?: string,
   ): Promise<FacetasResult> {
-    return this.catalogService.obtenerFacetas({ vertical, ciudad });
+    return this.catalogService.obtenerFacetas({
+      vertical, ciudad, bbox: this.toBbox(swLat, swLng, neLat, neLng),
+    });
+  }
+
+  /* Declarada antes de ':id' para que "mapa" no se interprete como un id. */
+  @Get('mapa')
+  @ApiOperation({
+    summary: 'Pines de la zona visible del mapa (búsqueda por mapa)',
+    description:
+      'Devuelve los servicios con coordenadas dentro del rectángulo visible, sin paginar y con '
+      + 'un tope de 300 pines. La lista de resultados sí se pagina; el mapa no, porque un pin '
+      + 'ausente se lee como "aquí no hay nada".',
+  })
+  @ApiQuery({ name: 'vertical', required: false, example: 'alojamiento' })
+  @ApiQuery({ name: 'ciudad', required: false, description: 'Se ignora si se envía un rectángulo' })
+  @ApiQuery({ name: 'precioMin', required: false, type: Number })
+  @ApiQuery({ name: 'precioMax', required: false, type: Number })
+  @ApiQuery({ name: 'perroId', required: false })
+  @ApiQuery({ name: 'swLat', required: false, type: Number, description: 'Esquina suroeste del mapa' })
+  @ApiQuery({ name: 'swLng', required: false, type: Number })
+  @ApiQuery({ name: 'neLat', required: false, type: Number, description: 'Esquina noreste del mapa' })
+  @ApiQuery({ name: 'neLng', required: false, type: Number })
+  mapa(
+    @Query('vertical') vertical?: string,
+    @Query('ciudad') ciudad?: string,
+    @Query('precioMin') precioMin?: string,
+    @Query('precioMax') precioMax?: string,
+    @Query('perroId') perroId?: string,
+    @Query('swLat') swLat?: string,
+    @Query('swLng') swLng?: string,
+    @Query('neLat') neLat?: string,
+    @Query('neLng') neLng?: string,
+  ): Promise<PuntoServicio[]> {
+    return this.catalogService.obtenerPuntosMapa({
+      vertical,
+      ciudad,
+      precioMin: this.toNumber(precioMin),
+      precioMax: this.toNumber(precioMax),
+      perroId,
+      bbox: this.toBbox(swLat, swLng, neLat, neLng),
+    });
   }
 
   @Get(':id')
@@ -128,5 +178,18 @@ export class CatalogController {
     if (value == null || value === '') return undefined;
     const n = Number(value);
     return Number.isFinite(n) ? n : undefined;
+  }
+
+  /**
+   * Rectángulo del mapa. Las cuatro esquinas van juntas o no van: media zona no
+   * describe ningún área, y filtrar por ella daría resultados sin sentido.
+   */
+  private toBbox(
+    swLat?: string, swLng?: string, neLat?: string, neLng?: string,
+  ): BboxParams | undefined {
+    const valores = [swLat, swLng, neLat, neLng].map((v) => this.toNumber(v));
+    if (valores.some((v) => v === undefined)) return undefined;
+    const [sur, oeste, norte, este] = valores as [number, number, number, number];
+    return { swLat: sur, swLng: oeste, neLat: norte, neLng: este };
   }
 }

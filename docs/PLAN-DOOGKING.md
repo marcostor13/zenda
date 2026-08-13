@@ -142,7 +142,7 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 ### Fase 1 — libs/shared ✅
 
 - [x] `enums/vertical.enum.ts`: VerticalKey = ALOJAMIENTO|TRANSPORTE|VETERINARIA|PELUQUERIA|ADIESTRAMIENTO
-- [x] Rebuild shared (`npm run build --workspace=shared`)
+- [x] Rebuild shared (`bun run build:shared`)
 
 ### Fase 2 — API verticales nuevas (apps/api/src/verticals/)
 
@@ -194,7 +194,7 @@ Campos base de todo `Servicio`: titulo, descripcion, imagenes[], ubicacion{ciuda
 
 ### Fase 6 — Verificación final
 
-- [x] `npm run build --workspace=shared` → `--workspace=api` → `--workspace=web` (los tres compilan)
+- [x] `bun run build:shared` → `bun run build:api` → `bun run build:web` (los tres compilan)
 - [x] Tests api (133/133) + web (49/49) en verde
 - [ ] Revisión visual (levantar web) — hero, resultados, detalle, panel comercio
 

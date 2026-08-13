@@ -9,7 +9,9 @@ import {
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
-import { RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
+import {
+  RsPlaceAutocompleteComponent, type LugarElegido,
+} from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
 import {
   AMENITIES_ALOJAMIENTO, AMENITIES_ESPACIO, ESPECIALIDADES_VETERINARIAS, ESPECIES_ATENDIDAS,
   RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS, TIPOS_ADIESTRAMIENTO,
@@ -124,9 +126,15 @@ function aCsv(v: string): string[] {
               <label class="rs-lbl" for="ciudad">Ciudad *</label>
               <rs-place-autocomplete inputId="ciudad" formControlName="ciudad"
                                      apariencia="campo" placeholder="Busca tu población…"
-                                     [catalogoLocal]="catalogos.ciudades" />
+                                     [catalogoLocal]="catalogos.ciudades"
+                                     (lugarElegido)="guardarCoordenadas($event)" />
               @if (hasError('ciudad')) {
                 <span class="rs-field-err">La ciudad es obligatoria.</span>
+              }
+              @if (!tieneCoordenadas()) {
+                <span class="rs-field-hint">
+                  Elige tu población en la lista para que tu anuncio salga en la búsqueda por mapa.
+                </span>
               }
             </div>
 
@@ -1178,6 +1186,9 @@ export class ComercioListadoFormComponent implements OnInit {
     return PLACEHOLDER_TITULO[vertical] ?? 'Ej. Residencia Canina Villa Perruna';
   }
 
+  /** Coordenadas de la población elegida; null mientras no se resuelvan. */
+  private readonly coordenadas = signal<{ lat: number; lng: number } | null>(null);
+
   readonly form = this.fb.group({
     vertical:    ['', Validators.required],
     titulo:      ['', [Validators.required, Validators.minLength(3)]],
@@ -1492,6 +1503,21 @@ export class ComercioListadoFormComponent implements OnInit {
     return !!(control && control.invalid && control.touched);
   }
 
+  /**
+   * Coordenadas de la población elegida, para que el listado aparezca en la
+   * búsqueda por mapa. El catálogo local sugiere poblaciones sin coordenadas
+   * (`NaN`): ahí se deja el listado sin geolocalizar en lugar de guardar un
+   * punto falso, y se avisa al comercio con la pista bajo el campo.
+   */
+  guardarCoordenadas(lugar: LugarElegido): void {
+    const valido = Number.isFinite(lugar.lat) && Number.isFinite(lugar.lng);
+    this.coordenadas.set(valido ? { lat: lugar.lat, lng: lugar.lng } : null);
+  }
+
+  tieneCoordenadas(): boolean {
+    return this.coordenadas() !== null;
+  }
+
   async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) return;
@@ -1508,6 +1534,9 @@ export class ComercioListadoFormComponent implements OnInit {
         precioBase: s.precioBase,
         imagenes: s.imagenes,
       });
+      // Un listado ya geolocalizado no debe pedir que se vuelva a elegir la
+      // población: la pista solo tiene sentido cuando faltan coordenadas.
+      if (s.lat != null && s.lng != null) this.coordenadas.set({ lat: s.lat, lng: s.lng });
       this.form.controls.vertical.disable();
       this.precargarVertical(s.vertical, s.extra);
       if (s.aptitud) {
@@ -1741,6 +1770,9 @@ export class ComercioListadoFormComponent implements OnInit {
     const payload: ServicioPayload = {
       ...(this.esEdicion() ? {} : { vertical }),
       titulo, descripcion, ciudad, precioBase, imagenes,
+      // Sin coordenadas no se envían las claves: así una edición que no toca la
+      // ciudad no borra la geolocalización que el listado ya tuviera.
+      ...(this.coordenadas() ?? {}),
       ...(detalle ? { extra: detalle } : {}),
       aptitud: {
         tamanosAdmitidos: this.tamanosSeleccionados(),

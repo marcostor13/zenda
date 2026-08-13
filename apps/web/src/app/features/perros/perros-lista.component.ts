@@ -217,7 +217,15 @@ export class PerrosListaComponent implements OnInit {
 
   /** HU-8.1.3/8.1.4: resumen de salud/historial expandible por mascota. */
   readonly historialAbiertoId = signal<string | null>(null);
-  readonly historialPorPerro = signal<Record<string, PerroHistorialApi[]>>({});
+  /*
+   * `Partial<...>` en vez de `Record<string, PerroHistorialApi[]>`: el mapa
+   * arranca vacío y solo gana una entrada por perro cuando `toggleHistorial`
+   * termina de cargarla, así que leer una clave todavía no cargada es
+   * `undefined` en tiempo de ejecución. Con `Record<string, X>` a secas TS no
+   * lo refleja y sugiere quitar el `?? []` del template — que sí hace falta:
+   * sin él, `.length`/`.slice` sobre `undefined` rompería.
+   */
+  readonly historialPorPerro = signal<Partial<Record<string, PerroHistorialApi[]>>>({});
   readonly historialCargando = signal(false);
 
   async ngOnInit(): Promise<void> {
