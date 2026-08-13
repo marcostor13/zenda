@@ -13,7 +13,8 @@ export interface FiltrosAlojamiento {
   precioMax?: number;
   ratingMin?: number;
   amenities?: string[];
-  cancelacionGratis?: boolean;
+  /** Filtros propios del vertical (cancelación gratis, paseos, cámaras…). */
+  filtrosVertical?: Record<string, string[] | boolean>;
   page?: number;
   limit?: number;
   /** Filtra solo servicios aptos para este perro (motor de compatibilidad). */
@@ -165,7 +166,7 @@ export class AlojamientoService {
     if (filtros.orden) params['orden'] = filtros.orden;
     if (filtros.lat != null) params['lat'] = String(filtros.lat);
     if (filtros.lng != null) params['lng'] = String(filtros.lng);
-    Object.assign(params, this.paramsZona(filtros.zona));
+    Object.assign(params, this.paramsZona(filtros.zona), this.paramsFiltros(filtros));
 
     const res = await firstValueFrom(
       this.http.get<PaginatedResult<AlojamientoCard>>(this.base, { params }),
@@ -200,9 +201,25 @@ export class AlojamientoService {
     if (filtros.precioMin) params['precioMin'] = String(filtros.precioMin);
     if (filtros.precioMax) params['precioMax'] = String(filtros.precioMax);
     if (filtros.perroId) params['perroId'] = filtros.perroId;
-    Object.assign(params, this.paramsZona(filtros.zona));
+    Object.assign(params, this.paramsZona(filtros.zona), this.paramsFiltros(filtros));
 
     return firstValueFrom(this.http.get<PuntoServicio[]>(`${this.base}/mapa`, { params }));
+  }
+
+  /**
+   * Filtros del panel lateral. Los propios del vertical viajan con su propio
+   * nombre de campo; el API solo aplica los que tiene declarados en su lista
+   * blanca, así que un campo desconocido se ignora.
+   */
+  private paramsFiltros(filtros: FiltrosAlojamiento): Record<string, string> {
+    const params: Record<string, string> = {};
+    if (filtros.ratingMin) params['ratingMin'] = String(filtros.ratingMin);
+    if (filtros.amenities?.length) params['amenities'] = filtros.amenities.join(',');
+
+    for (const [campo, valor] of Object.entries(filtros.filtrosVertical ?? {})) {
+      params[campo] = Array.isArray(valor) ? valor.join(',') : String(valor);
+    }
+    return params;
   }
 
   /** Las cuatro esquinas van juntas: media zona no describe ningún área. */

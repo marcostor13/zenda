@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { VerticalKey } from 'shared';
@@ -6,11 +6,20 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
-import { RsCardComponent, type CardBadge } from '../../shared/components/card/rs-card.component';
+import { RsCardComponent, type CardAmenity, type CardBadge } from '../../shared/components/card/rs-card.component';
+import { conIconos } from '../../shared/catalogos/amenity-iconos';
 import { RsChipComponent } from '../../shared/components/chip/rs-chip.component';
 import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
 import { VerticalUi, verticalUi } from '../../shared/verticales/verticales.config';
-import { CatalogBrowseService, ServicioCard } from './catalog-browse.service';
+import {
+  CatalogBrowseService, FacetasCatalogo, OpcionesBusqueda, PuntoServicio, ServicioCard, ZonaBusqueda,
+} from './catalog-browse.service';
+import {
+  RsFiltrosListadoComponent, type FiltrosSeleccionados,
+} from '../../shared/components/filtros-listado/rs-filtros-listado.component';
+import { RsMapaBuscadorComponent } from '../../shared/components/mapa-buscador/rs-mapa-buscador.component';
+import type { PuntoMapa, ZonaMapa } from '../../shared/components/mapa/rs-mapa.component';
+import type { BarraHistograma } from '../../shared/components/range-slider/rs-range-slider.component';
 import { calcularBadgesAutomaticos } from '../../shared/badges/badges-automaticos';
 
 /** Filtros de búsqueda vigentes, tal y como llegan en la URL. */
@@ -165,6 +174,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
   imports: [
     RsNavbarComponent, RsSearchBarComponent, RsIconComponent,
     AnimateOnScrollDirective, ExperienciasCercaComponent, RsCardComponent, RsChipComponent,
+    RsFiltrosListadoComponent, RsMapaBuscadorComponent,
   ],
   template: `
 <div class="vb-page">
@@ -178,7 +188,24 @@ const CONFIGS: Record<string, VerticalConfig> = {
   </div>
 
   <section class="rs-section rs-section--sm">
-    <div class="rs-wrap">
+    <div class="rs-wrap vb-body" [class.vb-body--mapa]="mapaAbierto()">
+      <!-- ── FILTROS ─────────────────────────────────────────── -->
+      <aside class="vb-filtros">
+        @if (!mapaAbierto()) {
+          <button type="button" class="vb-mapa-teaser" (click)="alternarMapa()">
+            <rs-icon name="map-pin" [size]="15" [stroke]="2" /> Ver en el mapa
+          </button>
+        }
+        <rs-filtros-listado
+          [vertical]="cfg().vertical"
+          [histograma]="histogramaPrecios()"
+          [conteos]="facetas()?.amenities ?? []"
+          [conteosValoracion]="facetas()?.valoracion ?? []"
+          (cambio)="aplicarFiltros($event)" />
+      </aside>
+
+      <!-- ── RESULTADOS ──────────────────────────────────────── -->
+      <section class="vb-resultados">
       <header class="vb-head">
         <h1>{{ titular() }}</h1>
         <p>{{ subtitular() }}</p>
@@ -208,9 +235,9 @@ const CONFIGS: Record<string, VerticalConfig> = {
       }
 
       @if (cargando()) {
-        <div class="vb-grid">
-          @for (_ of [1,2,3]; track $index) {
-            <div class="rs-skeleton rs-skeleton--img" style="height:280px;border-radius:var(--r-xl)"></div>
+        <div class="rs-result-grid">
+          @for (_ of [1,2,3,4]; track $index) {
+            <div class="rs-skeleton rs-result-skeleton"></div>
           }
         </div>
       } @else {
@@ -220,41 +247,53 @@ const CONFIGS: Record<string, VerticalConfig> = {
             <span class="vb-chip">{{ c }}</span>
           }
         </p>
-        <div class="vb-grid">
+        <div class="rs-result-grid">
           @for (c of itemsOrdenados(); track c.id) {
+            <!-- Los verticales sin ficha usan el mismo botón integrado que el
+                 resto, vía ctaClick: antes lo proyectaban por cardFooter y ese
+                 DOM aparte lo dejaba a otra altura. -->
             <rs-card rsAnim
+              [horizontal]="true"
               [imageUrl]="c.imagenes[0]" [imageAlt]="c.nombre"
               [title]="cfg().titulo3(c)" [subtitle]="c.ciudad"
               [badges]="badgesDe(c)"
               [rating]="{ score: c.score, label: c.scoreLabel, count: c.numResenas }"
               [price]="{ amount: '€' + cfg().price(c), period: cfg().priceLabel }"
-              [amenities]="cfg().meta(c)"
+              notaPrecio="IVA incluido"
+              [amenities]="serviciosDe(c)"
               [favoritoServicioId]="c.id"
               [routerLink]="cfg().tieneFicha ? [ui().route, c.id] : null"
-              [ctaLabel]="cfg().tieneFicha ? 'Ver ficha' : ''"
-              [clickable]="false">
-              @if (!cfg().tieneFicha) {
-              <div cardFooter>
-                @if (solicitadoId() === c.id) {
-                  <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">{{ cfg().confirmMsg }}</div>
-                } @else {
-                  <button class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-4)"
-                          (click)="solicitar(c)">{{ cfg().cta }}</button>
-                }
-              </div>
-              }
+              [ctaLabel]="cfg().tieneFicha ? 'Ver ficha' : cfg().cta"
+              [mensaje]="solicitadoId() === c.id ? cfg().confirmMsg : ''"
+              (ctaClick)="solicitar(c)">
             </rs-card>
           }
           @if (itemsOrdenados().length === 0 && !error()) {
-            <div class="vb-empty"><rs-icon name="search" [size]="48" [stroke]="1.5" style="color:var(--t-400)" /><h3>Sin resultados</h3><p>Prueba con otra ciudad.</p></div>
+            <div class="rs-result-empty"><rs-icon name="search" [size]="48" [stroke]="1.5" /><h3>Sin resultados</h3><p>Prueba con otra ciudad.</p></div>
           }
           @if (error()) {
-            <div class="vb-empty"><rs-icon name="alert-triangle" [size]="48" [stroke]="1.5" style="color:var(--t-400)" /><h3>No se pudo cargar el catálogo</h3><p>Inténtalo de nuevo en unos momentos.</p></div>
+            <div class="rs-result-empty"><rs-icon name="alert-triangle" [size]="48" [stroke]="1.5" /><h3>No se pudo cargar el catálogo</h3><p>Inténtalo de nuevo en unos momentos.</p></div>
           }
         </div>
       }
 
-      <app-experiencias-cerca [ciudad]="busqueda().ciudad" />
+      @if (!mapaAbierto()) {
+        <app-experiencias-cerca [ciudad]="busqueda().ciudad" />
+      }
+      </section>
+
+      <!-- ── MAPA ────────────────────────────────────────────── -->
+      @if (mapaAbierto()) {
+        <section class="vb-mapa" aria-label="Buscar en el mapa">
+          <rs-mapa-buscador #mapaBuscador
+            [puntos]="puntosMapa()"
+            [cargando]="cargandoMapa()"
+            [total]="total()"
+            [ariaLabel]="'Mapa de resultados de ' + ui().label"
+            (cerrar)="alternarMapa()"
+            (zonaBuscada)="buscarEnZona($event)" />
+        </section>
+      }
     </div>
   </section>
 </div>
@@ -271,6 +310,69 @@ const CONFIGS: Record<string, VerticalConfig> = {
       box-shadow: var(--sh-md);
       border-radius: 0 0 var(--r-lg) var(--r-lg);
     }
+    /* Misma disposición que el listado de alojamiento: filtros · lista · mapa. */
+    .vb-body {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: var(--sp-8);
+      align-items: start;
+
+      @media (max-width: 1024px) { grid-template-columns: 1fr; }
+    }
+
+    .vb-body--mapa {
+      grid-template-columns: 240px minmax(360px, 520px) 1fr;
+      gap: var(--sp-6);
+
+      /* El mapa ocupa el alto de la ventana y la lista rueda a su lado. */
+      .vb-resultados {
+        max-height: calc(100vh - 160px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-right: var(--sp-2);
+      }
+
+      @media (max-width: 1280px) { grid-template-columns: minmax(320px, 460px) 1fr; }
+      @media (max-width: 900px) {
+        grid-template-columns: 1fr;
+        .vb-filtros, .vb-resultados { display: none; }
+      }
+    }
+
+    .vb-body--mapa .vb-filtros { @media (max-width: 1280px) { display: none; } }
+
+    .vb-filtros { position: sticky; top: 140px; }
+
+    .vb-mapa-teaser {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-2);
+      width: 100%;
+      margin-bottom: var(--sp-4);
+      padding: var(--sp-3) var(--sp-4);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+      background: var(--c-accent);
+      color: #fff;
+      font-family: var(--font);
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
+      cursor: pointer;
+
+      &:hover { background: var(--c-accent-h); }
+    }
+
+    .vb-mapa {
+      position: sticky;
+      top: 140px;
+      height: calc(100vh - 160px);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      box-shadow: var(--sh-md);
+    }
+
     .vb-head { margin-bottom: var(--sp-6); }
     .vb-head h1 { font-size: var(--f-3xl); color: var(--dk-blue); letter-spacing: -.02em; }
     .vb-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); font-size: var(--f-md); }
@@ -291,10 +393,9 @@ const CONFIGS: Record<string, VerticalConfig> = {
       background: var(--c-accent-lo); color: var(--dk-blue);
       font-size: var(--f-xs); font-weight: var(--w-6);
     }
-    /* La tarjeta (imagen 70-75%, badges, rating, precio) la aporta <rs-card>
-       en modo "resultado" (HU-3.1) — ver rs-card.component.ts. */
-    .vb-grid { display: grid; grid-template-columns: repeat(3, 1fr); align-items: stretch; gap: var(--sp-5); @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); } @media (max-width: 640px) { grid-template-columns: 1fr; } }
-    .vb-empty { grid-column: 1 / -1; text-align: center; padding: var(--sp-20); color: var(--t-400); h3 { color: var(--t-200); margin: var(--sp-4) 0 var(--sp-2); } }
+    /* La tarjeta, la rejilla, el esqueleto y el estado vacío son comunes a
+       todos los verticales: .rs-hotel-card, .rs-result-grid,
+       .rs-result-skeleton y .rs-result-empty, en styles.scss. */
   `],
 })
 export class VerticalBrowseComponent implements OnInit {
@@ -343,6 +444,54 @@ export class VerticalBrowseComponent implements OnInit {
   readonly error = signal(false);
   readonly solicitadoId = signal<string | null>(null);
 
+  // ── Filtros, facetas y mapa (mismo esqueleto que alojamiento) ──────
+  readonly total = signal(0);
+  readonly facetas = signal<FacetasCatalogo | null>(null);
+  readonly histogramaPrecios = computed<BarraHistograma[]>(() => this.facetas()?.precios ?? []);
+  private readonly filtros = signal<FiltrosSeleccionados>({ vertical: {} });
+
+  readonly mapaAbierto = signal(false);
+  readonly cargandoMapa = signal(false);
+  private readonly puntos = signal<PuntoServicio[]>([]);
+  private readonly zona = signal<ZonaBusqueda | null>(null);
+  private readonly mapaBuscador = viewChild<RsMapaBuscadorComponent>('mapaBuscador');
+
+  readonly puntosMapa = computed<PuntoMapa[]>(() =>
+    this.puntos().map((p) => ({
+      id: p.id, lat: p.lat, lng: p.lng,
+      etiqueta: `€${p.precio}`, titulo: p.titulo, imagen: p.imagen, rating: p.rating,
+    })),
+  );
+
+  aplicarFiltros(seleccion: FiltrosSeleccionados): void {
+    this.filtros.set(seleccion);
+    void this.cargar();
+  }
+
+  alternarMapa(): void {
+    const abierto = !this.mapaAbierto();
+    this.mapaAbierto.set(abierto);
+
+    if (!abierto) {
+      // Cerrar el mapa devuelve la búsqueda a la ciudad escrita: dejar activa
+      // una zona invisible haría que los filtros no cuadrasen con nada.
+      if (this.zona()) {
+        this.zona.set(null);
+        void this.cargar();
+      }
+      return;
+    }
+    // Leaflet mide el contenedor al crearse y el panel acaba de aparecer.
+    setTimeout(() => this.mapaBuscador()?.refrescar(), 0);
+  }
+
+  buscarEnZona(zona: ZonaMapa): Promise<void> {
+    this.zona.set({
+      swLat: zona.swLat, swLng: zona.swLng, neLat: zona.neLat, neLng: zona.neLng,
+    });
+    return this.cargar();
+  }
+
   /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
   /** Pública: la lee también el carrusel de experiencias de la comunidad. */
   readonly busqueda = signal<Busqueda>({});
@@ -388,19 +537,72 @@ export class VerticalBrowseComponent implements OnInit {
     this.cargando.set(true);
     this.error.set(false);
     this.solicitadoId.set(null);
+
+    const filtros = this.filtros();
+    const zona = this.zona();
+    const opciones: OpcionesBusqueda = {
+      // Con el mapa acotando la zona la ciudad sobra: el usuario ya ha dicho
+      // por dónde quiere buscar arrastrando el mapa hasta ahí.
+      ciudad: zona ? undefined : this.busqueda().ciudad,
+      zona: zona ?? undefined,
+      perroId: this.busqueda().perroId,
+      precioMin: filtros.precioMin,
+      precioMax: filtros.precioMax,
+      ratingMin: filtros.ratingMin,
+      amenities: filtros.amenities,
+      filtrosVertical: filtros.vertical,
+    };
+
     try {
       // Datos reales del catálogo: nunca mocks, para no ofrecer servicios
       // inexistentes que romperían la reserva.
-      this.items.set(await this.browseService.buscar(this.cfg().vertical, {
-        ciudad: this.busqueda().ciudad,
-        perroId: this.busqueda().perroId,
-      }));
+      const res = await this.browseService.buscarPaginado(this.cfg().vertical, opciones);
+      this.items.set(res.items);
+      this.total.set(res.total);
+      void this.cargarFacetas();
+      void this.cargarPuntosMapa(opciones);
     } catch {
       this.items.set([]);
+      this.total.set(0);
       this.error.set(true);
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /**
+   * Contadores e histograma del panel de filtros. Van aparte de la búsqueda: si
+   * fallan, los filtros siguen funcionando y solo se quedan sin número al lado,
+   * que es preferible a romper el listado.
+   */
+  private async cargarFacetas(): Promise<void> {
+    try {
+      this.facetas.set(await this.browseService.facetas(this.cfg().vertical, this.busqueda().ciudad));
+    } catch {
+      this.facetas.set(null);
+    }
+  }
+
+  /** Pines del mapa; si fallan, la lista sigue siendo perfectamente usable. */
+  private async cargarPuntosMapa(opciones: OpcionesBusqueda): Promise<void> {
+    this.cargandoMapa.set(true);
+    try {
+      this.puntos.set(await this.browseService.puntosMapa(this.cfg().vertical, opciones));
+    } catch {
+      this.puntos.set([]);
+    } finally {
+      this.cargandoMapa.set(false);
+    }
+  }
+
+  /**
+   * Etiquetas de la tarjeta. El texto lo sigue decidiendo cada vertical en su
+   * `meta()`, pero el icono se resuelve con el mapeo común para que la misma
+   * etiqueta se vea igual aquí que en alojamiento o transporte. El recorte a
+   * tres lo aplica `<rs-card>`.
+   */
+  serviciosDe(c: ServicioCard): CardAmenity[] {
+    return conIconos(this.cfg().meta(c));
   }
 
   /** Badges de la tarjeta unificada (HU-3.1/HU-3.2): categoría + automáticos por datos reales. */

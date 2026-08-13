@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
 import { VerticalKey } from 'shared';
-import { environment } from '../../../../environments/environment';
+import {
+  CatalogBrowseService, type OpcionesBusqueda,
+} from '../../verticales/catalog-browse.service';
 
 export interface ServicioCard {
   id: string;
@@ -52,16 +52,17 @@ export interface TransporteCard {
 
 @Injectable({ providedIn: 'root' })
 export class TransporteService {
-  private readonly http = inject(HttpClient);
-  private readonly base = `${environment.apiUrl}/catalog/servicios`;
+  private readonly browse = inject(CatalogBrowseService);
 
-  async buscar(ciudad?: string): Promise<TransporteCard[]> {
-    const params: Record<string, string> = { vertical: VerticalKey.TRANSPORTE, limit: '20' };
-    if (ciudad) params['ciudad'] = ciudad;
-    const res = await firstValueFrom(
-      this.http.get<PaginatedResult<ServicioCard>>(this.base, { params }),
-    );
-    return res.items.map((s) => this.toTransporte(s));
+  /**
+   * Delega la construcción de parámetros en `CatalogBrowseService`, que es el
+   * que conoce los filtros comunes y los del mapa, y solo se queda con la
+   * traducción a `TransporteCard`. Así el listado de transporte filtra
+   * exactamente igual que el resto de verticales.
+   */
+  async buscar(opciones: OpcionesBusqueda = {}): Promise<TransporteCard[]> {
+    const items = await this.browse.buscar(VerticalKey.TRANSPORTE, opciones);
+    return items.map((s) => this.toTransporte(s as ServicioCard));
   }
 
   private toTransporte(s: ServicioCard): TransporteCard {

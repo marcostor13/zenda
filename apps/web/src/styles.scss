@@ -840,7 +840,12 @@ h1, h2, h3, h4, h5, h6 {
   &__img {
     position: relative;
     overflow: hidden;
+    /* 4/3, la proporción que ya tenía la tarjeta de alojamiento y que es el
+       estándar del resto de listados. Para que la foto no se dispare al pasar
+       a dos columnas, lo que se acota es el ancho de la rejilla — ver
+       `.rs-result-grid`— y no la proporción. */
     aspect-ratio: 4/3;
+    flex-shrink: 0;
 
     img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
 
@@ -881,13 +886,255 @@ h1, h2, h3, h4, h5, h6 {
     &:hover { background: rgba(8,37,139,.3); }
   }
 
-  &__body   { padding: var(--sp-5); }
+  /* El cuerpo es una columna flexible que ocupa lo que sobra de la tarjeta.
+     Sin esto, titulo, etiquetas, precio y boton fluian uno detras de otro y
+     cada tarjeta los dejaba a una altura distinta segun lo largo que fuese su
+     contenido; es lo que hacia que los listados no cuadrasen entre si. */
+  &__body {
+    padding: var(--sp-5);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
   &__stars  { font-size: var(--f-sm); color: var(--c-amber); margin-bottom: var(--sp-2); }
-  &__name   { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); line-height: 1.3; }
-  &__loc    { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-3); display: flex; align-items: center; gap: var(--sp-1); }
-  &__amenities { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
-  &__footer { display: flex; align-items: flex-end; justify-content: space-between; }
+
+  /* Dos lineas exactas: se reserva el alto aunque el nombre ocupe una sola,
+     para que la ubicacion y todo lo que sigue arranquen siempre igual. */
+  &__name {
+    font-size: var(--f-md);
+    font-weight: var(--w-7);
+    color: var(--t-100);
+    margin-bottom: var(--sp-1);
+    line-height: 1.3;
+    min-height: calc(2 * 1.3em);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Una sola linea: una direccion larga no puede empujar el resto. */
+  &__loc {
+    font-size: var(--f-xs);
+    color: var(--t-400);
+    margin-bottom: var(--sp-3);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    rs-icon { flex-shrink: 0; }
+  }
+
+  /* Zona de etiquetas de alto fijo (por defecto dos filas). El tope de tres
+     etiquetas lo aplica rs-card; aqui se reserva el hueco aunque el servicio
+     traiga menos, que es lo que mantiene el precio y el boton a la misma
+     altura en toda la fila. */
+  &__amenities {
+    /* Alto de una etiqueta: sp-2 arriba + sp-2 abajo + linea (f-xs x 1.6) +
+       borde x2 = 36px. Se reserva el hueco de dos filas, pero con min-height y
+       no con height: si en una tarjeta estrecha las etiquetas necesitan una
+       fila mas, es preferible que crezca a que las recorte. */
+    --rs-card-tag-h: 36px;
+    --rs-card-tags-rows: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+    min-height: calc(
+      var(--rs-card-tags-rows) * var(--rs-card-tag-h)
+      + (var(--rs-card-tags-rows) - 1) * var(--sp-2)
+    );
+  }
+
+  /* `auto` empuja valoracion y precio al fondo del cuerpo: pase lo que pase
+     arriba, quedan siempre a la misma distancia del borde inferior. */
+  &__footer {
+    margin-top: auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--sp-3);
+  }
+
+  &__cta {
+    margin-top: var(--sp-4);
+
+    /* El aviso de confirmación ocupa el sitio del botón, así que debe medir lo
+       mismo: si no, al confirmar una solicitud esa tarjeta desplazaba su
+       precio respecto a las vecinas. `min-height` y no `height` para que un
+       texto largo pueda crecer en vez de recortarse. */
+    &.rs-alert {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Sin relleno vertical y con el alto mínimo del botón queda exactamente
+         de su tamaño; el `min-height` deja que crezca si el texto ocupa dos
+         líneas, en vez de recortarlo. */
+      padding-block: 0;
+      min-height: 40px;
+      text-align: center;
+    }
+  }
+
   &__cancel { font-size: var(--f-xs); color: #34D399; margin-top: var(--sp-1); }
+
+  /* Valoración + ubicación en una línea (solo apaisada). */
+  &__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+    font-size: var(--f-xs);
+    color: var(--t-400);
+
+    strong { color: var(--t-100); font-weight: var(--w-7); font-size: var(--f-sm); }
+  }
+  &__meta-loc { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Lo que incluye la reserva, con marca de verificación. */
+  &__destacados {
+    list-style: none;
+    margin-top: var(--sp-1);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: var(--f-xs);
+      color: var(--c-success, #15803D);
+    }
+  }
+}
+
+/* ── 17a. TARJETA DE RESULTADO APAISADA ────────────────────────────
+   Formato de los listados de todos los verticales: foto a la izquierda,
+   contenido en el centro y precio con su botón en una columna aparte a la
+   derecha. Permite recorrer la lista comparando precios en vertical, que es
+   justo lo que no dejaba hacer la tarjeta en columna. */
+.rs-hotel-card--horizontal {
+  /* La dirección se impone por variable, no con `flex-direction`: la regla
+     del componente lleva [_ngcontent-…] y le ganaría a esta por especificidad
+     (ver rs-card.component.ts). */
+  --rs-card-dir: row;
+  align-items: stretch;
+
+  .rs-hotel-card__img {
+    /* Ancho fijo y alto completo: la foto no manda sobre el alto de la
+       tarjeta, que lo decide el contenido. */
+    width: 270px;
+    flex: 0 0 270px;
+    aspect-ratio: auto;
+    align-self: stretch;
+  }
+
+  .rs-hotel-card__body {
+    flex: 1;
+    min-width: 0;
+    padding: var(--sp-5) var(--sp-5) var(--sp-5) var(--sp-6);
+  }
+
+  .rs-hotel-card__name {
+    font-size: var(--f-lg);
+    color: var(--dk-blue);
+    /* En apaisado hay ancho de sobra: no hace falta reservar dos líneas. */
+    min-height: 0;
+    margin-bottom: var(--sp-2);
+  }
+
+  /* Las etiquetas fluyen libres: aquí el alto lo iguala la rejilla y el hueco
+     reservado de la tarjeta en columna solo dejaría un vacío raro. */
+  .rs-hotel-card__amenities { min-height: 0; margin-bottom: var(--sp-2); }
+
+  .rs-hotel-card__aside {
+    flex: 0 0 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: var(--sp-1);
+    padding: var(--sp-5);
+    border-left: 1px solid var(--b-1);
+    text-align: right;
+
+    .rs-price { flex-direction: column; align-items: flex-end; gap: 0; }
+    .rs-price__amount { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--dk-blue); }
+    .rs-price__period { font-size: var(--f-xs); color: var(--t-400); }
+
+    /* El botón se separa del precio y se pega abajo, de modo que todas las
+       tarjetas lo tengan a la misma distancia del borde inferior. */
+    .rs-hotel-card__cta { margin-top: auto; width: 100%; }
+  }
+
+  .rs-hotel-card__nota { font-size: var(--f-xs); color: var(--t-500); }
+
+  /* Móvil: no caben tres columnas, así que vuelve a apilarse. */
+  @media (max-width: 860px) {
+    --rs-card-dir: column;
+
+    .rs-hotel-card__img { width: 100%; flex: none; aspect-ratio: 16/9; }
+    .rs-hotel-card__body { padding: var(--sp-5); }
+
+    .rs-hotel-card__aside {
+      flex: none;
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+      border-left: none;
+      border-top: 1px solid var(--b-1);
+      text-align: left;
+      padding-top: var(--sp-4);
+
+      .rs-price { align-items: flex-start; }
+      .rs-hotel-card__cta { margin-top: 0; width: auto; }
+    }
+  }
+}
+
+/* ── 17b. LISTADOS DE RESULTADOS ───────────────────────────────────
+   Rejilla, esqueleto y estado vacio comunes a los listados de todos los
+   verticales. Antes cada uno traia los suyos (2 vs 3 columnas, cortes en
+   900 o en 1024+640, esqueletos de 280 o 340 px y tres estados vacios
+   distintos), y bastaba cambiar de categoria para que se notase. */
+/* Una sola columna: las tarjetas son apaisadas y ocupan el ancho disponible,
+   así que la lista se recorre de arriba abajo comparando precios. */
+.rs-result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--sp-4);
+}
+
+/* Alto aproximado de una tarjeta real (foto 16/10 + cuerpo), para que al
+   cargar los resultados el salto sea el menor posible. No lleva
+   `rs-skeleton--img` a propósito: ese modificador impone 4/3 y se declara más
+   abajo, así que ganaría sobre la proporción de la tarjeta. */
+/* Alto aproximado de una tarjeta apaisada real, para que al cargar los
+   resultados el salto sea el menor posible. */
+.rs-result-skeleton {
+  height: 230px;
+  border-radius: var(--r-xl);
+
+  @media (max-width: 860px) { height: 420px; }
+}
+
+.rs-result-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--sp-20) var(--sp-8);
+  color: var(--t-400);
+
+  rs-icon { color: var(--dk-gold); }
+  h3 { font-size: var(--f-xl); color: var(--t-200); margin: var(--sp-4) 0 var(--sp-2); }
 }
 
 /* ── 18. STEP WIZARD ───────────────────────────────────────────── */

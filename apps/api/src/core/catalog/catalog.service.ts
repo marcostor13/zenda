@@ -261,6 +261,9 @@ export class CatalogService {
     lng?: number;
     soloDisponibles?: boolean;
     bbox?: BboxParams;
+    ratingMin?: number;
+    amenities?: string[];
+    filtrosVertical?: Record<string, unknown>;
   }): Promise<PaginatedResult<ServicioCardDto>> {
     const perfilPerro = filtros.perroId
       ? (await this.perrosService.obtenerPerfilCompatibilidad(filtros.perroId)) ?? undefined
@@ -283,6 +286,9 @@ export class CatalogService {
       // puede pedir el catálogo completo pasando `soloDisponibles=false`.
       soloDisponibles: filtros.soloDisponibles ?? true,
       bbox: filtros.bbox,
+      ratingMin: filtros.ratingMin,
+      amenities: filtros.amenities,
+      filtrosVertical: filtros.filtrosVertical,
     };
 
     const { items, total } = await this.repo.buscar(params);
@@ -330,6 +336,9 @@ export class CatalogService {
     perroId?: string;
     soloDisponibles?: boolean;
     bbox?: BboxParams;
+    ratingMin?: number;
+    amenities?: string[];
+    filtrosVertical?: Record<string, unknown>;
   }): Promise<PuntoServicio[]> {
     const perfilPerro = filtros.perroId
       ? (await this.perrosService.obtenerPerfilCompatibilidad(filtros.perroId)) ?? undefined
@@ -345,6 +354,9 @@ export class CatalogService {
       limit: 1,
       soloDisponibles: filtros.soloDisponibles ?? true,
       bbox: filtros.bbox,
+      ratingMin: filtros.ratingMin,
+      amenities: filtros.amenities,
+      filtrosVertical: filtros.filtrosVertical,
     });
   }
 

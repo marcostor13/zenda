@@ -1,8 +1,9 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RsBadgeComponent, type BadgeVariant } from '../badge/rs-badge.component';
 import { RsRatingComponent } from '../rating/rs-rating.component';
+import { RsStarsComponent } from '../stars/rs-stars.component';
 import { RsFavoritoBtnComponent } from '../favorito-btn/rs-favorito-btn.component';
 import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 import { RsIconComponent } from '../icon/rs-icon.component';
@@ -43,12 +44,13 @@ export interface CardPrice {
 @Component({
   selector: 'rs-card',
   standalone: true,
-  imports: [CommonModule, RouterLink, RsBadgeComponent, RsRatingComponent, RsFavoritoBtnComponent, ImgFallbackDirective, RsIconComponent],
+  imports: [CommonModule, RouterLink, RsBadgeComponent, RsRatingComponent, RsStarsComponent, RsFavoritoBtnComponent, ImgFallbackDirective, RsIconComponent],
   template: `
     @if (imageUrl()) {
       @if (routerLink()) {
         <a
           class="rs-hotel-card"
+          [class.rs-hotel-card--horizontal]="horizontal()"
           [routerLink]="routerLink()!"
           [queryParams]="queryParams()">
           <ng-container *ngTemplateOutlet="cardBody" />
@@ -56,6 +58,7 @@ export interface CardPrice {
       } @else {
         <article
           class="rs-hotel-card"
+          [class.rs-hotel-card--horizontal]="horizontal()"
           [class.rs-hotel-card--clickable]="clickable()"
           (click)="onCardClick()">
           <ng-container *ngTemplateOutlet="cardBody" />
@@ -82,38 +85,88 @@ export interface CardPrice {
         </div>
         <div class="rs-hotel-card__body">
           @if (title()) { <h3 class="rs-hotel-card__name">{{ title() }}</h3> }
-          @if (subtitle()) {
+
+          @if (horizontal()) {
+            <!-- Valoración y ubicación en una línea, como en el listado de
+                 alojamiento: las estrellas sitúan la nota de un vistazo y el
+                 precio se lee aparte, en su propia columna. -->
+            <p class="rs-hotel-card__meta">
+              @if (rating(); as r) {
+                <rs-stars [score]="+r.score" [size]="13" />
+                <strong>{{ r.score }}</strong>
+                @if (r.count) { <span>({{ r.count }} {{ r.count === 1 ? 'reseña' : 'reseñas' }})</span> }
+              }
+              @if (subtitle()) { <span class="rs-hotel-card__meta-loc">· {{ subtitle() }}</span> }
+            </p>
+          } @else if (subtitle()) {
             <p class="rs-hotel-card__loc"><rs-icon name="map-pin" [size]="14" [stroke]="2" /> {{ subtitle() }}</p>
           }
-          @if (amenities().length) {
-            <div class="rs-hotel-card__amenities">
-              @for (a of amenities(); track etiquetaAmenity(a)) {
-                <span class="rs-amenity">
-                  @if (iconoAmenity(a); as icono) { <rs-icon [name]="icono" [size]="12" [stroke]="2" /> }
-                  {{ etiquetaAmenity(a) }}
-                </span>
-              }
-            </div>
-          }
-          <div class="rs-hotel-card__footer">
-            @if (rating()) {
-              <rs-rating [score]="rating()!.score" [label]="rating()!.label || ''" [count]="rating()!.count ?? null" size="sm"></rs-rating>
-            }
-            @if (price()) {
-              <div class="rs-price">
-                @if (price()!.oldAmount) { <span class="rs-price__old">{{ price()!.oldAmount }}</span> }
-                <span class="rs-price__amount">{{ price()!.amount }}</span>
-                @if (price()!.period) { <span class="rs-price__period">{{ price()!.period }}</span> }
-              </div>
+          <!-- La zona de etiquetas se pinta siempre, aunque el servicio no
+               traiga ninguna: su hueco reservado es lo que mantiene el precio
+               y el botón a la misma altura en todas las tarjetas. -->
+          <div class="rs-hotel-card__amenities">
+            @for (a of amenidadesVisibles(); track etiquetaAmenity(a)) {
+              <span class="rs-amenity">
+                @if (iconoAmenity(a); as icono) { <rs-icon [name]="icono" [size]="12" [stroke]="2" /> }
+                {{ etiquetaAmenity(a) }}
+              </span>
             }
           </div>
-          @if (ctaLabel()) {
-            <button type="button" class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-4)">
-              {{ ctaLabel() }}
-            </button>
+          <!-- Distintivos con marca de verificación, separados de las etiquetas
+               porque no describen el servicio sino lo que incluye la reserva. -->
+          @if (destacados().length) {
+            <ul class="rs-hotel-card__destacados">
+              @for (d of destacados(); track d) {
+                <li><rs-icon name="check" [size]="13" [stroke]="2.5" /> {{ d }}</li>
+              }
+            </ul>
+          }
+
+          @if (!horizontal()) {
+            <div class="rs-hotel-card__footer">
+              @if (rating()) {
+                <rs-rating [score]="rating()!.score" [label]="rating()!.label || ''" [count]="rating()!.count ?? null" size="sm"></rs-rating>
+              }
+              <ng-container *ngTemplateOutlet="bloquePrecio" />
+            </div>
+            <ng-container *ngTemplateOutlet="bloqueAccion" />
           }
           <ng-content select="[cardFooter]" />
         </div>
+
+        <!-- En horizontal el precio y el botón viven en su propia columna, a la
+             derecha y separados por una línea, para que la vista se pueda
+             recorrer comparando precios en vertical. -->
+        @if (horizontal()) {
+          <div class="rs-hotel-card__aside">
+            <ng-container *ngTemplateOutlet="bloquePrecio" />
+            @if (notaPrecio()) { <span class="rs-hotel-card__nota">{{ notaPrecio() }}</span> }
+            <ng-container *ngTemplateOutlet="bloqueAccion" />
+          </div>
+        }
+      </ng-template>
+
+      <ng-template #bloquePrecio>
+        @if (price()) {
+          <div class="rs-price">
+            @if (price()!.oldAmount) { <span class="rs-price__old">{{ price()!.oldAmount }}</span> }
+            <span class="rs-price__amount">{{ price()!.amount }}</span>
+            @if (price()!.period) { <span class="rs-price__period">{{ price()!.period }}</span> }
+          </div>
+        }
+      </ng-template>
+
+      <!-- El aviso ocupa el sitio del botón, no se añade debajo: así la tarjeta
+           no cambia de alto al confirmar una solicitud. -->
+      <ng-template #bloqueAccion>
+        @if (mensaje()) {
+          <div class="rs-alert rs-alert--success rs-hotel-card__cta">{{ mensaje() }}</div>
+        } @else if (ctaLabel()) {
+          <button type="button" class="rs-btn rs-btn--primary rs-btn--block rs-hotel-card__cta"
+                  (click)="onCtaClick($event)">
+            {{ ctaLabel() }}
+          </button>
+        }
       </ng-template>
     } @else {
       <div [class]="cardClasses">
@@ -133,7 +186,19 @@ export interface CardPrice {
     :host { display: block; }
     :host:has(.rs-hotel-card) { height: 100%; }
 
-    .rs-hotel-card { height: 100%; display: flex; flex-direction: column; }
+    /* La dirección se lee de una variable en vez de fijarse aquí: Angular
+       añade [_ngcontent-…] a los estilos de componente y eso sube su
+       especificidad por encima de la hoja global, así que fijar aquí
+       flex-direction en column ganaba siempre y la variante
+       apaisada (.rs-hotel-card--horizontal, en styles.scss) no se aplicaba
+       nunca. Con la variable, la hoja global solo cambia el valor y no tiene
+       que pelear por especificidad. */
+    .rs-hotel-card {
+      height: 100%;
+      display: flex;
+      flex-direction: var(--rs-card-dir, column);
+    }
+
     .rs-hotel-card--clickable { cursor: pointer; }
     .rs-hotel-card__amount { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--dk-blue); }
 
@@ -168,13 +233,53 @@ export class RsCardComponent {
   readonly price = input<CardPrice | null>(null);
   readonly amenities = input<CardAmenity[]>([]);
   readonly ctaLabel = input<string>('');
+  /**
+   * Aviso que sustituye al botón una vez completada la acción (p. ej. "Cita
+   * solicitada"). Va aquí y no proyectado para que ocupe exactamente el mismo
+   * hueco que el botón y la tarjeta no se descuadre respecto a sus vecinas.
+   */
+  readonly mensaje = input<string>('');
   readonly clickable = input(true);
+
+  /**
+   * Disposición de la tarjeta. `true` la pinta apaisada (foto · contenido ·
+   * precio), que es el formato de los listados de resultados; `false` la deja
+   * en columna, para escaparates como el de la portada.
+   */
+  readonly horizontal = input(false);
+
+  /** Lo que incluye la reserva, con marca de verificación bajo las etiquetas. */
+  readonly destacados = input<string[]>([]);
+
+  /** Letra pequeña bajo el precio ("IVA incluido"). Solo en horizontal. */
+  readonly notaPrecio = input<string>('');
   readonly favoritoServicioId = input<string | null>(null);
   /** Si se define, toda la tarjeta se renderiza como `<a routerLink>` (SEO, ctrl+click) en vez de `<article (click)>`. */
   readonly routerLink = input<string | unknown[] | null>(null);
   readonly queryParams = input<Record<string, unknown>>({});
 
   readonly cardClick = output<void>();
+  /**
+   * Acción del botón para las tarjetas que no navegan a una ficha (pedir cita,
+   * reservar sesión…). Antes cada listado proyectaba su propio botón por
+   * `[cardFooter]`, y ese DOM distinto lo dejaba a otra altura.
+   */
+  readonly ctaClick = output<void>();
+
+  /**
+   * Tope de etiquetas visibles. Lo aplica la tarjeta y no cada listado para
+   * que todos los verticales enseñen lo mismo. En apaisado cabe más porque el
+   * contenido dispone de todo el ancho; en columna, tres es lo que entra sin
+   * que la tarjeta crezca a lo alto.
+   */
+  private static readonly MAX_AMENITIES_HORIZONTAL = 6;
+  private static readonly MAX_AMENITIES_VERTICAL = 3;
+
+  readonly amenidadesVisibles = computed(() =>
+    this.amenities().slice(0, this.horizontal()
+      ? RsCardComponent.MAX_AMENITIES_HORIZONTAL
+      : RsCardComponent.MAX_AMENITIES_VERTICAL),
+  );
 
   get cardClasses(): string {
     const classes = ['rs-card'];
@@ -186,6 +291,17 @@ export class RsCardComponent {
 
   onCardClick(): void {
     if (this.clickable()) this.cardClick.emit();
+  }
+
+  /**
+   * En una tarjeta con `routerLink` el botón vive dentro del enlace y debe
+   * dejar navegar; en una tarjeta de acción se queda el evento para no
+   * disparar además el clic de la tarjeta entera.
+   */
+  onCtaClick(evento: Event): void {
+    if (this.routerLink()) return;
+    evento.stopPropagation();
+    this.ctaClick.emit();
   }
 
   etiquetaAmenity(amenity: CardAmenity): string {

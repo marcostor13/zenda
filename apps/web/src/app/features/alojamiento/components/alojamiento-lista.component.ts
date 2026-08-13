@@ -8,14 +8,14 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
-import { RsCardComponent } from '../../../shared/components/card/rs-card.component';
-import { RsStarsComponent } from '../../../shared/components/stars/rs-stars.component';
-import { RsChipComponent } from '../../../shared/components/chip/rs-chip.component';
-import {
-  RsRangeSliderComponent, type BarraHistograma,
-} from '../../../shared/components/range-slider/rs-range-slider.component';
+import { RsCardComponent, type CardAmenity } from '../../../shared/components/card/rs-card.component';
+import { conIconos } from '../../../shared/catalogos/amenity-iconos';
+import type { BarraHistograma } from '../../../shared/components/range-slider/rs-range-slider.component';
 import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../../../shared/components/mapa/rs-mapa.component';
 import { RsMapaBuscadorComponent } from '../../../shared/components/mapa-buscador/rs-mapa-buscador.component';
+import {
+  RsFiltrosListadoComponent, type FiltrosSeleccionados,
+} from '../../../shared/components/filtros-listado/rs-filtros-listado.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import {
   AlojamientoService, AlojamientoCard, FacetasCatalogo, FiltrosAlojamiento, OrdenServicios,
@@ -38,9 +38,9 @@ interface BusquedaUrl {
   standalone: true,
   imports: [
     ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
-    RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent, RsChipComponent,
-    ExperienciasCercaComponent, RsStarsComponent, RsRangeSliderComponent, RsMapaComponent,
-    RsMapaBuscadorComponent,
+    RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent,
+    ExperienciasCercaComponent, RsMapaComponent,
+    RsMapaBuscadorComponent, RsFiltrosListadoComponent,
   ],
   template: `
 <div class="alojamiento-page">
@@ -86,63 +86,14 @@ interface BusquedaUrl {
         </button>
       }
 
-      <div class="filters-sidebar__header">
-        <h3>Filtros</h3>
-        <button class="rs-btn rs-btn--ghost rs-btn--xs" (click)="limpiarFiltros()">Limpiar</button>
-      </div>
-
-      <!-- Presupuesto con slider de doble asa e histograma (PDF §3) -->
-      <div class="filter-group">
-        <h4>Tu presupuesto (por noche)</h4>
-        <rs-range-slider
-          [min]="0" [max]="PRECIO_TOPE" [step]="5"
-          [histograma]="histogramaPrecios()"
-          [(valorMin)]="precioMin" [(valorMax)]="precioMax"
-          (cambio)="aplicarFiltros()" />
-      </div>
-
-      <!-- Rating -->
-      <div class="filter-group">
-        <h4>Valoración</h4>
-        <div class="filter-chips">
-          @for (sc of ratingOpciones; track sc.valor) {
-            <rs-chip [active]="ratingMinimo === sc.valor" (chipClick)="ratingMinimo = sc.valor">
-              <rs-stars [score]="sc.valor" [size]="12" /> {{ sc.label }}
-              @if (conteoValoracion(sc.valor); as n) { <span class="filter-count">{{ n }}</span> }
-            </rs-chip>
-          }
-        </div>
-      </div>
-
-      <!-- Servicios caninos -->
-      <div class="filter-group">
-        <h4>Servicios</h4>
-        <div class="filter-chips">
-          @for (a of amenitiesOpciones; track a) {
-            <rs-chip [active]="amenitiesSelec().includes(a)" (chipClick)="toggleAmenity(a)">
-              {{ a }}
-              @if (conteoAmenity(a); as n) { <span class="filter-count">{{ n }}</span> }
-            </rs-chip>
-          }
-        </div>
-      </div>
-
-      <!-- Extras -->
-      <div class="filter-group">
-        <h4>Extras</h4>
-        <div class="filter-chips">
-          <rs-chip [active]="soloCancelacionGratis" (chipClick)="soloCancelacionGratis = !soloCancelacionGratis">
-            <rs-icon name="check" [size]="13" [stroke]="3" /> Cancelación gratis
-          </rs-chip>
-          <rs-chip [active]="soloPaseos" (chipClick)="soloPaseos = !soloPaseos">
-            <rs-icon name="bone" [size]="13" [stroke]="2" /> Paseos incluidos
-          </rs-chip>
-        </div>
-      </div>
-
-      <button class="rs-btn rs-btn--primary rs-btn--block" (click)="aplicarFiltros()">
-        Aplicar filtros
-      </button>
+      <!-- Panel común a los ocho verticales; sus grupos salen de
+           filtros.config.ts según la categoría. -->
+      <rs-filtros-listado
+        [vertical]="ui.key"
+        [histograma]="histogramaPrecios()"
+        [conteos]="facetas()?.amenities ?? []"
+        [conteosValoracion]="facetas()?.valoracion ?? []"
+        (cambio)="aplicarFiltros($event)" />
     </aside>
 
     <!-- ── RESULTADOS ──────────────────────────────────────── -->
@@ -176,26 +127,29 @@ interface BusquedaUrl {
 
       <!-- Skeleton loading -->
       @if (cargando()) {
-        <div class="results-list">
+        <div class="rs-result-grid">
           @for (_ of [1,2,3,4]; track $index) {
-            <div class="rs-skeleton rs-skeleton--img" style="height:340px;border-radius:var(--r-xl)"></div>
+            <div class="rs-skeleton rs-result-skeleton"></div>
           }
         </div>
       }
 
       <!-- Lista de alojamientos -->
       @if (!cargando()) {
-        <div class="results-list">
+        <div class="rs-result-grid">
           @for (a of alojamientos(); track a.id) {
             <rs-card rsAnim
               [id]="'card-' + a.id"
               [class.card--destacada]="destacadoId() === a.id"
+              [horizontal]="true"
               [imageUrl]="a.imagenes[0]" [imageAlt]="a.nombre"
               [title]="a.nombre" [subtitle]="a.barrio + ', ' + a.ciudad"
               [badges]="badgesDe(a)"
               [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
               [price]="{ amount: '€' + a.precioPorNoche, period: '/ noche', oldAmount: a.precioAnterior ? '€' + a.precioAnterior : undefined }"
+              notaPrecio="IVA incluido"
               [amenities]="serviciosDe(a)"
+              [destacados]="incluyeDe(a)"
               [favoritoServicioId]="a.id"
               [routerLink]="['/alojamiento', a.id]"
               [queryParams]="queryParamsDetalle()"
@@ -204,17 +158,15 @@ interface BusquedaUrl {
           }
 
           @if (!cargando() && alojamientos().length === 0 && !error()) {
-            <div class="empty-state">
-              <rs-icon name="paw" size="56" />
+            <div class="rs-result-empty">
+              <rs-icon name="paw" [size]="48" [stroke]="1.5" />
               <h3>No encontramos alojamientos caninos</h3>
               <p>Prueba cambiando los filtros o la ciudad.</p>
-              <button class="rs-btn rs-btn--secondary" style="margin-top:var(--sp-6)"
-                      (click)="limpiarFiltros()">Limpiar filtros</button>
             </div>
           }
           @if (!cargando() && error()) {
-            <div class="empty-state">
-              <rs-icon name="paw" size="56" />
+            <div class="rs-result-empty">
+              <rs-icon name="paw" [size]="48" [stroke]="1.5" />
               <h3>No se pudo cargar el catálogo</h3>
               <p>Inténtalo de nuevo en unos momentos.</p>
               <button class="rs-btn rs-btn--secondary" style="margin-top:var(--sp-6)"
@@ -300,7 +252,7 @@ interface BusquedaUrl {
       grid-template-columns: 240px minmax(320px, 460px) 1fr;
       gap: var(--sp-6);
 
-      .results-list { grid-template-columns: 1fr; }
+      .rs-result-grid { grid-template-columns: 1fr; }
 
       /* El mapa ocupa el alto de la ventana y la lista rueda a su lado: sin
          esto habría que bajar hasta el final del listado para volver a verlo. */
@@ -448,26 +400,9 @@ interface BusquedaUrl {
     .results-header__count { color: var(--t-200); font-weight: var(--w-6); }
     .results-header__geo { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); max-width: 32ch; }
 
-    /* La tarjeta (imagen 70-75%, badges, rating, precio) la aporta <rs-card>
-       en modo "resultado" (HU-3.1) — ver rs-card.component.ts. */
-    .results-list {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      align-items: stretch;
-      gap: var(--sp-5);
-
-      @media (max-width: 900px) { grid-template-columns: 1fr; }
-    }
-
-    /* EMPTY STATE */
-    .empty-state {
-      text-align: center;
-      padding: var(--sp-20) var(--sp-8);
-      color: var(--t-400);
-
-      rs-icon { color: var(--dk-gold); }
-      h3 { font-size: var(--f-xl); color: var(--t-200); margin-block: var(--sp-4); }
-    }
+    /* La tarjeta, la rejilla, el esqueleto y el estado vacío son comunes a
+       todos los verticales: .rs-hotel-card, .rs-result-grid,
+       .rs-result-skeleton y .rs-result-empty, en styles.scss. */
 
     /* PAGINATION */
     .pagination {
@@ -586,11 +521,25 @@ export class AlojamientoListaComponent implements OnInit {
     return badges;
   }
 
-  /** Servicios como iconos en una línea bajo la foto (HU-3.1). */
-  serviciosDe(a: AlojamientoCard): string[] {
-    const items = a.amenities.slice(0, 3);
+  /**
+   * Servicios como etiquetas con icono bajo la foto (HU-3.1). Los distintivos
+   * del alojamiento van primero porque el recorte a tres lo aplica `<rs-card>`
+   * y son los que más ayudan a decidir; el icono lo resuelve el mapeo común,
+   * para que la misma etiqueta se vea igual en todos los listados.
+   */
+  serviciosDe(a: AlojamientoCard): CardAmenity[] {
+    return conIconos(a.amenities);
+  }
+
+  /**
+   * Lo que incluye la reserva, con marca de verificación bajo las etiquetas.
+   * Va aparte de los servicios porque no describe el alojamiento sino las
+   * condiciones de la reserva, que es lo que decide la compra.
+   */
+  incluyeDe(a: AlojamientoCard): string[] {
+    const items: string[] = [];
     if (a.cancelacionGratis) items.push('Cancelación gratis');
-    if (a.paseosIncluidos) items.push('Paseos incluidos');
+    if (a.paseosIncluidos) items.push('Paseos diarios incluidos');
     return items;
   }
   readonly totalItems = signal(0);
@@ -621,14 +570,8 @@ export class AlojamientoListaComponent implements OnInit {
 
   readonly misPerros = signal<PerroApi[]>([]);
 
-  /* Filtros locales */
-  readonly PRECIO_TOPE = 500;
-  precioMin = 0;
-  precioMax = 500;
-  ratingMinimo = 0;
-  amenitiesSelec = signal<string[]>([]);
-  soloCancelacionGratis = false;
-  soloPaseos = false;
+  /** Lo marcado en el panel común de filtros (`rs-filtros-listado`). */
+  private readonly filtros = signal<FiltrosSeleccionados>({ vertical: {} });
   ordenamiento: OrdenServicios = 'relevancia';
 
   /** Punto de referencia para el orden por distancia. */
@@ -636,14 +579,6 @@ export class AlojamientoListaComponent implements OnInit {
   /** De dónde salió ese punto: la ciudad buscada o el GPS del dispositivo. */
   private readonly origenUbicacion = signal<'ciudad' | 'dispositivo' | null>(null);
   readonly avisoUbicacion = signal('');
-
-  readonly ratingOpciones = [
-    { valor: 5, label: '5.0' },
-    { valor: 4, label: '4.0+' },
-    { valor: 3, label: '3.0+' },
-  ];
-
-  readonly amenitiesOpciones = ['Piscina', 'Jardín', 'Cuidado 24/7', 'Veterinario de guardia', 'Cámaras 24h', 'Paseos diarios'];
 
   ngOnInit(): void {
     // La URL manda: cada búsqueda del buscador recarga el listado.
@@ -688,6 +623,7 @@ export class AlojamientoListaComponent implements OnInit {
     try {
       const busqueda = this.busqueda();
       const zona = this.zona();
+      const seleccion = this.filtros();
       const filtros: FiltrosAlojamiento = {
         // Con el mapa acotando la zona, la ciudad sobra: el usuario ya ha dicho
         // por dónde quiere buscar arrastrando el mapa hasta ahí.
@@ -697,10 +633,11 @@ export class AlojamientoListaComponent implements OnInit {
         hasta:    busqueda.hasta,
         perros:   busqueda.perros,
         perroId:  this.searchForm.value.perroId || undefined,
-        precioMin: this.precioMin || undefined,
-        precioMax: this.precioMax < 500 ? this.precioMax : undefined,
-        ratingMin: this.ratingMinimo || undefined,
-        cancelacionGratis: this.soloCancelacionGratis || undefined,
+        precioMin: seleccion.precioMin,
+        precioMax: seleccion.precioMax,
+        ratingMin: seleccion.ratingMin,
+        amenities: seleccion.amenities,
+        filtrosVertical: seleccion.vertical,
         orden: this.ordenamiento,
         lat: this.coordenadas()?.lat,
         lng: this.coordenadas()?.lng,
@@ -755,7 +692,15 @@ export class AlojamientoListaComponent implements OnInit {
     }
   }
 
-  aplicarFiltros(): void { this.paginaActual.set(1); this.cargarAlojamientos(); }
+  /**
+   * Nueva selección del panel de filtros, o recarga sin argumento cuando lo
+   * que cambia es el orden o el selector de mascota.
+   */
+  aplicarFiltros(seleccion?: FiltrosSeleccionados): void {
+    if (seleccion) this.filtros.set(seleccion);
+    this.paginaActual.set(1);
+    void this.cargarAlojamientos();
+  }
 
   /**
    * El permiso de ubicación solo se pide cuando el usuario elige ordenar por
@@ -798,20 +743,6 @@ export class AlojamientoListaComponent implements OnInit {
       this.avisoUbicacion.set('Sin acceso a tu ubicación; ordenamos por la ciudad buscada.');
     }
     this.aplicarFiltros();
-  }
-
-  limpiarFiltros(): void {
-    this.precioMin = 0; this.precioMax = 500;
-    this.amenitiesSelec.set([]);
-    this.soloCancelacionGratis = false; this.soloPaseos = false;
-    this.ratingMinimo = 0;
-    this.aplicarFiltros();
-  }
-
-  toggleAmenity(a: string): void {
-    this.amenitiesSelec.update(list =>
-      list.includes(a) ? list.filter(x => x !== a) : [...list, a]
-    );
   }
 
   cambiarPagina(n: number): void { this.paginaActual.set(n); this.cargarAlojamientos(); }

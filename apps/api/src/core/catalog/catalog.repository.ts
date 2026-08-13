@@ -45,6 +45,17 @@ export interface BuscarServiciosParams {
   soloDisponibles?: boolean;
   /** Recorta la búsqueda al rectángulo que el usuario tiene delante en el mapa. */
   bbox?: BboxParams;
+  /** Nota media mínima exigida (panel de filtros: 3.0+, 4.0+, 5.0). */
+  ratingMin?: number;
+  /** Servicios que el listado debe ofrecer TODOS, no solo alguno. */
+  amenities?: string[];
+  /**
+   * Filtros propios del vertical (urgencias, tipo de vehículo, modalidad…).
+   * Llegan como pares campo/valor y se aplican contra la lista blanca de
+   * `FILTROS_VERTICAL`: lo que no esté declarado ahí se ignora, de modo que
+   * nadie pueda consultar campos arbitrarios desde la URL.
+   */
+  filtrosVertical?: Record<string, unknown>;
 }
 
 /** Pin del mapa: lo mínimo para dibujarlo y reconocerlo sin cargar la ficha entera. */
@@ -64,6 +75,63 @@ export interface PuntoServicio {
  * lo correcto es que acerque el zoom, no que le enviemos el catálogo entero.
  */
 const LIMITE_PUNTOS_MAPA = 300;
+
+/**
+ * Cómo se compara cada filtro propio de un vertical:
+ * - `bool`     el campo debe ser exactamente true
+ * - `en`       el campo debe ser uno de los valores pedidos
+ * - `todos`    el array del servicio debe contener TODOS los valores pedidos
+ */
+type ComparadorFiltro = 'bool' | 'en' | 'todos';
+
+/**
+ * Lista blanca de filtros propios de cada vertical. El core sigue siendo
+ * agnóstico: añadir una categoría es añadir una entrada aquí, no tocar la
+ * lógica de búsqueda (mismo patrón que `CAMPO_DISPONIBILIDAD`). Además actúa
+ * de barrera de seguridad — un campo que no esté declarado no se consulta,
+ * aunque llegue en la URL.
+ */
+const FILTROS_VERTICAL: Record<string, Record<string, ComparadorFiltro>> = {
+  alojamiento: {
+    cancelacionGratis: 'bool',
+    paseosIncluidos: 'bool',
+    camaras24h: 'bool',
+    requisitoVacunas: 'bool',
+  },
+  veterinaria: {
+    atiendeUrgencias: 'bool',
+    especialidades: 'todos',
+  },
+  peluqueria: {
+    aDomicilio: 'bool',
+    requiereVacunasAlDia: 'bool',
+  },
+  adiestramiento: {
+    modalidad: 'en',
+    tiposAdiestramiento: 'todos',
+    aDomicilio: 'bool',
+  },
+  transporte: {
+    tipoVehiculo: 'en',
+    jaulasIncluidas: 'bool',
+    acompananteHumano: 'bool',
+    soloPerros: 'bool',
+  },
+  hoteles: {
+    admiteMascotas: 'bool',
+    puedeQuedarseSoloEnHabitacion: 'bool',
+    accesoZonasComunes: 'bool',
+  },
+  seguros: {
+    tiposSeguro: 'todos',
+    renovacionAutomatica: 'bool',
+  },
+  cuidadores: {
+    administraMedicacion: 'bool',
+    aceptaPPP: 'bool',
+    modalidades: 'todos',
+  },
+};
 
 /** Contador de plazas libres de cada vertical: su nombre cambia según la categoría. */
 const CAMPO_DISPONIBILIDAD: Record<string, string> = {
@@ -369,14 +437,56 @@ export class CatalogRepository {
       if (params.precioMax != null) filtro.precioBase.$lte = params.precioMax;
     }
 
+    // La nota media es 0 mientras nadie ha reseñado; pedir "4.0+" debe dejar
+    // fuera esos servicios, no colarlos por no tener nota todavía.
+    if (params.ratingMin != null && params.ratingMin > 0) {
+      filtro.ratingPromedio = { $gte: params.ratingMin };
+    }
+
+    // `$all` y no `$in`: marcar dos servicios en el panel significa "que tenga
+    // los dos", que es como lo lee el usuario.
+    if (params.amenities?.length) {
+      filtro.amenities = { $all: params.amenities };
+    }
+
     const condiciones = this.condicionesCompatibilidad(params.perfilPerro);
 
     const condicionDisponible = this.condicionDisponibilidad(params);
     if (condicionDisponible) condiciones.push(condicionDisponible);
 
+    Object.assign(filtro, this.condicionesVertical(params));
+
     if (condiciones.length) filtro.$and = condiciones;
 
     return filtro;
+  }
+
+  /**
+   * Traduce los filtros propios del vertical a condiciones de Mongo, tomando
+   * solo los declarados en `FILTROS_VERTICAL`. Los valores vacíos se descartan:
+   * un checkbox sin marcar no debe estrechar la búsqueda.
+   */
+  private condicionesVertical(params: BuscarServiciosParams): FilterQuery<ServicioDocument> {
+    const permitidos = FILTROS_VERTICAL[params.vertical ?? ''] ?? {};
+    const pedidos = params.filtrosVertical ?? {};
+    const condiciones: FilterQuery<ServicioDocument> = {};
+
+    for (const [campo, comparador] of Object.entries(permitidos)) {
+      const valor = pedidos[campo];
+      if (valor === undefined || valor === null || valor === '' || valor === false) continue;
+
+      if (comparador === 'bool') {
+        condiciones[campo] = true;
+        continue;
+      }
+
+      const valores = (Array.isArray(valor) ? valor : [valor]).filter((v) => v !== '');
+      if (!valores.length) continue;
+
+      condiciones[campo] = comparador === 'todos' ? { $all: valores } : { $in: valores };
+    }
+
+    return condiciones;
   }
 
   /**

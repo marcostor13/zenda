@@ -9,6 +9,19 @@ import {
   ServicioGestionDto,
 } from './catalog.service';
 import { BboxParams, FacetasResult, PuntoServicio } from './catalog.repository';
+
+/**
+ * Parámetros de la búsqueda común. Todo lo demás que llegue en la URL se trata
+ * como filtro propio del vertical.
+ */
+const PARAMS_COMUNES = new Set([
+  'vertical', 'ciudad', 'precioMin', 'precioMax', 'page', 'limit', 'perroId',
+  'orden', 'lat', 'lng', 'soloDisponibles', 'ratingMin', 'amenities',
+  'swLat', 'swLng', 'neLat', 'neLng',
+  // Los envía el buscador para conservar el contexto de la búsqueda, pero la
+  // disponibilidad por fechas no se resuelve todavía en esta consulta.
+  'desde', 'hasta', 'perros', 'perroIds', 'hora',
+]);
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { CrearServicioDto, ActualizarServicioDto, Rol } from 'shared';
@@ -69,6 +82,9 @@ export class CatalogController {
     @Query('swLng') swLng?: string,
     @Query('neLat') neLat?: string,
     @Query('neLng') neLng?: string,
+    @Query('ratingMin') ratingMin?: string,
+    @Query('amenities') amenities?: string,
+    @Query() query?: Record<string, string>,
   ): Promise<PaginatedResult<ServicioCardDto>> {
     return this.catalogService.buscarServicios({
       vertical,
@@ -83,6 +99,9 @@ export class CatalogController {
       lat: this.toNumber(lat),
       lng: this.toNumber(lng),
       soloDisponibles: soloDisponibles === undefined ? undefined : soloDisponibles !== 'false',
+      ratingMin: this.toNumber(ratingMin),
+      amenities: this.toLista(amenities),
+      filtrosVertical: this.toFiltrosVertical(query),
     });
   }
 
@@ -132,7 +151,12 @@ export class CatalogController {
     @Query('swLng') swLng?: string,
     @Query('neLat') neLat?: string,
     @Query('neLng') neLng?: string,
+    @Query('ratingMin') ratingMin?: string,
+    @Query('amenities') amenities?: string,
+    @Query() query?: Record<string, string>,
   ): Promise<PuntoServicio[]> {
+    // Mismos filtros que la lista: si el mapa pintase pines que la lista
+    // descarta, el recuento y los pines dejarían de cuadrar.
     return this.catalogService.obtenerPuntosMapa({
       vertical,
       ciudad,
@@ -140,6 +164,9 @@ export class CatalogController {
       precioMax: this.toNumber(precioMax),
       perroId,
       bbox: this.toBbox(swLat, swLng, neLat, neLng),
+      ratingMin: this.toNumber(ratingMin),
+      amenities: this.toLista(amenities),
+      filtrosVertical: this.toFiltrosVertical(query),
     });
   }
 
@@ -178,6 +205,34 @@ export class CatalogController {
     if (value == null || value === '') return undefined;
     const n = Number(value);
     return Number.isFinite(n) ? n : undefined;
+  }
+
+  /** Lista separada por comas ("Piscina,Jardín") a array, sin huecos vacíos. */
+  private toLista(valor?: string): string[] | undefined {
+    const items = (valor ?? '').split(',').map((v) => v.trim()).filter(Boolean);
+    return items.length ? items : undefined;
+  }
+
+  /**
+   * Parámetros que no son de la búsqueda común: son los filtros propios del
+   * vertical (urgencias, tipo de vehículo…). No se validan aquí a propósito —
+   * el repositorio solo aplica los declarados en su lista blanca, así que un
+   * parámetro inventado en la URL se ignora en vez de consultar un campo
+   * arbitrario.
+   */
+  private toFiltrosVertical(query?: Record<string, string>): Record<string, unknown> | undefined {
+    if (!query) return undefined;
+
+    const filtros: Record<string, unknown> = {};
+    for (const [clave, valor] of Object.entries(query)) {
+      if (PARAMS_COMUNES.has(clave) || valor === '') continue;
+      if (valor === 'true' || valor === 'false') {
+        filtros[clave] = valor === 'true';
+      } else {
+        filtros[clave] = valor.includes(',') ? this.toLista(valor) : valor;
+      }
+    }
+    return Object.keys(filtros).length ? filtros : undefined;
   }
 
   /**

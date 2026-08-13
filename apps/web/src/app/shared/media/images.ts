@@ -14,7 +14,12 @@ export const BRAND = {
   logoMark: '/images/logo-doogking-mark.jpg',
   /** Marca compacta: la inicial "D" (cabecera, favicon, avatares de marca). */
   logoD: '/images/logo-doogking-d.svg',
-  logoFooter: '/images/logo-doogking-footer.jpg',
+  /**
+   * Logo del footer con el fondo ya recortado (PNG con alfa). Va aparte del
+   * resto porque los huecos de las letras llevan pintado el navy del footer:
+   * fuera de ese fondo se verían como manchas oscuras.
+   */
+  logoFooter: '/images/logo-doogking-footer.png',
   mascota: '/images/mascota-doogking.jpg',
   heroHome: '/images/hero-home.jpg',
   heroDetalle: '/images/hero-detalle.jpg',

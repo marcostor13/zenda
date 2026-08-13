@@ -396,7 +396,8 @@ type SearchMode = 'filtros' | 'ia';
   <footer class="rs-footer home-footer">
     <div class="rs-footer__grid">
       <div class="rs-footer__brand">
-        <img [src]="logoFooter" alt="Doogking" class="home-footer__logo" />
+        <img [src]="logoFooter" alt="Doogking · Todo para su rey, en un solo lugar"
+             class="home-footer__logo" />
         <p class="home-footer__claim">La plataforma líder para reservar servicios para mascotas.</p>
         <p>El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.</p>
         <div class="home-footer__social" aria-label="Redes sociales de Doogking">
@@ -1141,7 +1142,9 @@ type SearchMode = 'filtros' | 'ia';
     .how-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: var(--sp-5);
+      /* El hueco es donde vive el conector entre pasos: con --sp-5 quedaba
+         demasiado corto para leerse como una línea que une los círculos. */
+      gap: var(--sp-6);
 
       @media (max-width: 800px) { grid-template-columns: 1fr; }
     }
@@ -1155,15 +1158,20 @@ type SearchMode = 'filtros' | 'ia';
       text-align: center;
       transition: transform var(--d-2), box-shadow var(--d-2);
 
-      /* Línea fina que conecta los pasos a la altura del número (PDF §10). */
+      /* Línea fina que conecta los pasos a la altura del número (PDF §10).
+         Ocupa solo el hueco entre tarjetas: antes cruzaba media tarjeta hasta
+         casi el círculo siguiente, pero la tarjeta de al lado tiene fondo
+         opaco y se pinta después, así que le comía el tramo final y la línea
+         se quedaba colgando a mitad de camino. */
       &:not(:last-child)::after {
         content: '';
         position: absolute;
         /* A la altura del centro del círculo numerado (42px que arranca en -16px). */
         top: 4px;
-        left: calc(50% + 26px);
-        width: calc(100% + var(--sp-5) - 52px);
-        border-top: 2px dashed var(--dk-divider, var(--b-2));
+        left: 100%;
+        width: var(--sp-6);
+        height: 2px;
+        background: var(--dk-divider);
         @media (max-width: 800px) { display: none; }
       }
 
@@ -1284,12 +1292,19 @@ type SearchMode = 'filtros' | 'ia';
     /* ══ FOOTER navy ════════════════════════════════════════════════ */
     .home-footer { background: var(--dk-blue-deep); border-top: none; }
 
+    /* El logo ya viene recortado sobre transparencia, así que no necesita
+       redondeo: no hay recuadro que disimular. El ancho se limita al 100% para
+       que en la columna estrecha del footer no desborde. */
     .home-footer__logo {
-      height: 62px;
+      height: 116px;
       width: auto;
+      max-width: 100%;
+      object-fit: contain;
+      object-position: left center;
       display: block;
       margin-bottom: var(--sp-4);
-      border-radius: var(--r-xs);
+
+      @media (max-width: 768px) { height: 92px; }
     }
 
     .home-footer__claim {
