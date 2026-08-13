@@ -8,6 +8,7 @@ import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { NotificationsRepository } from './notifications.repository';
 import { MailerService } from './mailer.service';
+import { urlPublica } from '../../shared/url-publica';
 
 @Injectable()
 export class NotificationsService {
@@ -214,7 +215,7 @@ export class NotificationsService {
   }
 
   private urlBase(): string {
-    return this.config.get<string>('APP_URL') ?? 'https://doogking.com';
+    return urlPublica(this.config.get<string>('APP_URL'), this.config.get<string>('NODE_ENV'));
   }
 
   /** Base del API: el píxel de apertura lo sirve el backend, no la web. */
@@ -244,7 +245,9 @@ export class NotificationsService {
     const textoPrincipal = esComercio
       ? 'Gracias por registrarte. Solo necesitamos verificar tu correo para activar tu cuenta y que puedas acceder al panel de tu negocio.'
       : 'Gracias por registrarte. Solo necesitamos verificar tu correo para activar tu cuenta.';
-    const botonTexto = esComercio ? 'Activar mi negocio' : 'Activar mi cuenta';
+    // "Activar mi cuenta" en ambos casos: es lo que el cliente aprobó, y lo que
+    // se activa con el enlace es la cuenta — el negocio se completa después.
+    const botonTexto = 'Activar mi cuenta';
     const pasos = esComercio
       ? ['Cuenta activada', 'Acceso a tu panel de negocio', 'Completa el perfil de tu negocio']
       : ['Cuenta activada', 'Acceso a tu perfil', 'Empieza a reservar servicios para tu mascota'];
@@ -268,9 +271,13 @@ export class NotificationsService {
           </p>
         </div>
         <p style="color:#475569;font-size:14px">${ilusion}</p>
+        <!-- El enlace va detrás de un texto, nunca a la vista: un token de
+             verificación en crudo dentro del correo es feo, se rompe al
+             partirse en dos líneas y es justo lo que enseñan los correos de
+             phishing. -->
         <p style="color:#8B9BBC;font-size:12px;margin-top:24px">
-          Si el botón no funciona, copia este enlace:<br>
-          <a href="${url}" style="color:#8B9BBC">${url}</a>
+          ¿No te funciona el botón?
+          <a href="${url}" style="color:#08258B;font-weight:700">Activa tu cuenta desde aquí</a>.
         </p>
         <p style="color:#8B9BBC;font-size:12px">El enlace caduca en 24 horas. Si no creaste esta cuenta, puedes ignorar este correo con total tranquilidad.</p>
         <p style="color:#8B9BBC;font-size:12px;margin-top:16px">Equipo Doogking · www.doogking.com</p>

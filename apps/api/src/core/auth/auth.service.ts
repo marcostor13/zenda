@@ -9,6 +9,7 @@ import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PerfilSocial, SocialAuthService } from './social-auth.service';
+import { urlPublica } from '../../shared/url-publica';
 
 const VERIFICACION_VALIDEZ_MS = 24 * 60 * 60 * 1000;
 
@@ -159,7 +160,7 @@ export class AuthService {
   }
 
   private urlFrontend(): string {
-    return this.config.get<string>('APP_URL') ?? 'https://doogking.com';
+    return urlPublica(this.config.get<string>('APP_URL'), this.config.get<string>('NODE_ENV'));
   }
 
   private construirRespuesta(usuario: UsuarioDocument): AuthResponseDto {
