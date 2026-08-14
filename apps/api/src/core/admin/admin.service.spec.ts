@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { AdminService } from './admin.service';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { AlphaRepository } from '../alpha/alpha.repository';
+import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ComerciosRepository } from '../comercios/comercios.repository';
 import { UsersRepository } from '../users/users.repository';
 import { Pago } from '../payments/pago.schema';
@@ -127,6 +128,7 @@ describe('AdminService', () => {
           provide: UsersRepository,
           useValue: { contarTodos: jest.fn().mockResolvedValue(0) },
         },
+        { provide: AuditoriaService, useValue: { registrar: jest.fn(), listar: jest.fn() } },
         { provide: getModelToken(Pago.name), useValue: pagoModel },
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
         { provide: getModelToken(Usuario.name), useValue: usuarioModel },

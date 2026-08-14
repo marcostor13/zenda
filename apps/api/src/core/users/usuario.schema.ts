@@ -33,6 +33,14 @@ export class Usuario {
   @Prop()
   puesto?: string;
 
+  /**
+   * Áreas del panel que puede tocar un administrador. Vacío = acceso total, que
+   * es como se comportaban todas las cuentas antes de existir los permisos
+   * (TCK-8040 §7).
+   */
+  @Prop({ type: [String], default: [] })
+  permisosAdmin!: string[];
+
   @Prop({ default: false })
   verificado!: boolean;
 

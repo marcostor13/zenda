@@ -242,8 +242,9 @@ export class ComerciosController {
   cambiarEstado(
     @Param('id') id: string,
     @Body() dto: CambiarEstadoComercioDto,
+    @Req() req: RequestConUser,
   ): Promise<ComercioDocument> {
-    return this.comerciosService.cambiarEstado(id, dto.estado);
+    return this.comerciosService.cambiarEstado(id, dto.estado, dto.motivo, req.user.sub);
   }
 
   @Patch(':id/socio-fundador')

@@ -46,10 +46,14 @@ describe('ComerciosController', () => {
     expect(service.obtener).toHaveBeenCalledWith('c1');
   });
 
-  it('debería cambiar el estado pasando el valor del dto', async () => {
+  it('debería cambiar el estado pasando el motivo y quién lo hace', async () => {
     service.cambiarEstado.mockResolvedValue({ id: 'c1' } as never);
-    await controller.cambiarEstado('c1', { estado: 'activo' });
-    expect(service.cambiarEstado).toHaveBeenCalledWith('c1', 'activo');
+    const req = { user: { sub: 'admin-1' } } as never;
+
+    await controller.cambiarEstado('c1', { estado: 'suspendido', motivo: 'documentación caducada' }, req);
+
+    // El motivo y el actor son lo que permite auditar la decisión (TCK-8034).
+    expect(service.cambiarEstado).toHaveBeenCalledWith('c1', 'suspendido', 'documentación caducada', 'admin-1');
   });
 
   it('debería solicitar un ajuste de precio con el comercioId del token', async () => {

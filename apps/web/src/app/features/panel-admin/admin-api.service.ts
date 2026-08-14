@@ -131,6 +131,17 @@ export interface ReservaAdmin {
   historialEstados?: CambioEstadoReserva[];
 }
 
+/** Una acción administrativa registrada (TCK-8030 §8, 8034, 8035 §9). */
+export interface RegistroAuditoria {
+  _id: string;
+  actorNombre: string;
+  entidad: string;
+  entidadId?: string;
+  descripcion: string;
+  motivo?: string;
+  createdAt: string;
+}
+
 /** Un pago con su desglose económico, para el control del dinero (TCK-8040 §1). */
 export interface PagoAdmin {
   _id: string;
@@ -223,6 +234,8 @@ export interface UsuarioAdmin {
   reservas?: number;
   /** Nivel Doogking Alpha: sólo llega para clientes (TCK-8035). */
   nivelAlpha?: string;
+  /** Áreas del panel que puede tocar; vacío = acceso total (TCK-8040 §7). */
+  permisosAdmin?: string[];
 }
 
 /** Contadores de la cabecera de Comercios (TCK-8034). */
@@ -305,6 +318,7 @@ export interface ActualizarUsuarioDto {
   rol?: string;
   verificado?: boolean;
   comercioId?: string;
+  permisosAdmin?: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -340,8 +354,19 @@ export class AdminApiService {
     return this.http.patch(`${this.comerciosUrl}/${id}/estado`, { estado: 'activo' });
   }
 
-  rechazarComercio(id: string): Observable<unknown> {
-    return this.http.patch(`${this.comerciosUrl}/${id}/estado`, { estado: 'suspendido' });
+  /** Suspender o rechazar exige motivo: el backend lo valida (TCK-8034). */
+  rechazarComercio(id: string, motivo: string): Observable<unknown> {
+    return this.http.patch(`${this.comerciosUrl}/${id}/estado`, { estado: 'suspendido', motivo });
+  }
+
+  getAuditoria(params: { page?: number; limite?: number; entidad?: string; entidadId?: string; buscar?: string } = {}): Observable<PaginatedResult<RegistroAuditoria>> {
+    let p = new HttpParams();
+    if (params.page) p = p.set('page', String(params.page));
+    if (params.limite) p = p.set('limite', String(params.limite));
+    if (params.entidad) p = p.set('entidad', params.entidad);
+    if (params.entidadId) p = p.set('entidadId', params.entidadId);
+    if (params.buscar) p = p.set('buscar', params.buscar);
+    return this.http.get<PaginatedResult<RegistroAuditoria>>(`${environment.apiUrl}/auditoria`, { params: p });
   }
 
   /** Alta o baja del comercio en el programa Doogking Alpha (HU-13.3). */

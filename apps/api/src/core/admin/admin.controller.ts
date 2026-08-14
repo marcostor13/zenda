@@ -20,7 +20,8 @@ import { Request } from 'express';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, ReporteFinancieroDto, Rol } from 'shared';
+import { PermisosAdminGuard, PermisosAdmin } from '../auth/guards/permisos.guard';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, PermisoAdmin, ReporteFinancieroDto, Rol } from 'shared';
 
 interface RequestConAdmin extends Request {
   user: { sub: string; rol: Rol };
@@ -28,7 +29,7 @@ interface RequestConAdmin extends Request {
 
 @ApiTags('admin')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermisosAdminGuard)
 @Roles(Rol.ADMIN)
 @Controller('admin')
 export class AdminController {
@@ -53,6 +54,7 @@ export class AdminController {
     return this.adminService.listarComisiones();
   }
 
+  @PermisosAdmin(PermisoAdmin.CONFIGURACION)
   @Put('comisiones')
   @ApiOperation({ summary: 'Crear o actualizar comisión de un vertical' })
   actualizarComision(
@@ -70,6 +72,7 @@ export class AdminController {
     return this.adminService.listarNivelesAlpha();
   }
 
+  @PermisosAdmin(PermisoAdmin.CONFIGURACION)
   @Put('alpha')
   @ApiOperation({ summary: 'Crear o actualizar un nivel del programa Doogking Alpha' })
   actualizarNivelAlpha(
@@ -106,6 +109,7 @@ export class AdminController {
     return this.adminService.resumenComercios();
   }
 
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @Post('comercios')
   @ApiOperation({ summary: 'Crear un comercio (admin)' })
   crearComercio(@Body() dto: {
@@ -120,6 +124,7 @@ export class AdminController {
     return this.adminService.crearComercio(dto as Parameters<AdminService['crearComercio']>[0]);
   }
 
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @Patch('comercios/:id')
   @ApiOperation({ summary: 'Actualizar un comercio (admin)' })
   actualizarComercio(
@@ -137,15 +142,18 @@ export class AdminController {
     return this.adminService.actualizarComercio(id, dto as Parameters<AdminService['actualizarComercio']>[1]);
   }
 
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @Patch('comercios/:id/verificacion')
   @ApiOperation({ summary: 'Verificar o rechazar la documentación de un comercio' })
   cambiarVerificacionComercio(
     @Param('id') id: string,
     @Body() dto: { estado: 'verificado' | 'rechazado' | 'pendiente'; motivo?: string },
+    @Req() req: RequestConAdmin,
   ) {
-    return this.adminService.cambiarVerificacionComercio(id, dto.estado, dto.motivo);
+    return this.adminService.cambiarVerificacionComercio(id, dto.estado, dto.motivo, req.user.sub);
   }
 
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @Delete('comercios/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminar un comercio (admin)' })
@@ -179,6 +187,7 @@ export class AdminController {
     return this.adminService.resumenUsuarios();
   }
 
+  @PermisosAdmin(PermisoAdmin.USUARIOS)
   @Post('usuarios')
   @ApiOperation({ summary: 'Crear un usuario (admin)' })
   crearUsuario(
@@ -187,24 +196,28 @@ export class AdminController {
     return this.adminService.crearUsuario(dto);
   }
 
+  @PermisosAdmin(PermisoAdmin.USUARIOS)
   @Patch('usuarios/:id')
   @ApiOperation({ summary: 'Actualizar un usuario (admin)' })
   actualizarUsuario(
     @Param('id') id: string,
-    @Body() dto: { nombre?: string; email?: string; telefono?: string; rol?: Rol; verificado?: boolean; comercioId?: string },
+    @Body() dto: { nombre?: string; email?: string; telefono?: string; rol?: Rol; verificado?: boolean; comercioId?: string; permisosAdmin?: string[] },
+    @Req() req: RequestConAdmin,
   ) {
-    return this.adminService.actualizarUsuario(id, dto);
+    return this.adminService.actualizarUsuario(id, dto, req.user.sub);
   }
 
+  @PermisosAdmin(PermisoAdmin.USUARIOS)
   @Delete('usuarios/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminar un usuario (admin)' })
-  async eliminarUsuario(@Param('id') id: string): Promise<void> {
-    await this.adminService.eliminarUsuario(id);
+  async eliminarUsuario(@Param('id') id: string, @Req() req: RequestConAdmin): Promise<void> {
+    await this.adminService.eliminarUsuario(id, req.user.sub);
   }
 
   // ── Pagos y liquidaciones ────────────────────────────────────────────────────
 
+  @PermisosAdmin(PermisoAdmin.FINANZAS)
   @Get('pagos')
   @ApiOperation({ summary: 'Pagos con su desglose: comisión, coste de pasarela y neto del comercio' })
   @ApiQuery({ name: 'page', required: false })
@@ -222,6 +235,7 @@ export class AdminController {
     return this.adminService.listarPagos(page, limite, { estado, comercioId, buscar });
   }
 
+  @PermisosAdmin(PermisoAdmin.FINANZAS)
   @Get('pagos/resumen')
   @ApiOperation({ summary: 'Totales de dinero cobrado, comisión, pasarela y liquidaciones' })
   resumenPagos() {
@@ -277,6 +291,7 @@ export class AdminController {
 
   // ── Reportes financieros ─────────────────────────────────────────────────────
 
+  @PermisosAdmin(PermisoAdmin.FINANZAS)
   @Get('reportes/financiero')
   @ApiOperation({ summary: 'Reporte financiero: GMV, comisiones, Stripe fees, margen neto' })
   @ApiQuery({ name: 'fechaDesde', type: String, example: '2026-01-01' })

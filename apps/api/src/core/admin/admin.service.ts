@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { AlphaRepository } from '../alpha/alpha.repository';
+import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ComerciosRepository } from '../comercios/comercios.repository';
 import { UsersRepository } from '../users/users.repository';
 import { Pago, PagoDocument } from '../payments/pago.schema';
@@ -11,7 +12,7 @@ import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
 import { Perro, PerroDocument } from '../perros/perro.schema';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, VerticalKey } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, VerticalKey } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
 import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
@@ -60,6 +61,7 @@ export class AdminService {
   constructor(
     private readonly comisionConfigRepo: ComisionConfigRepository,
     private readonly alphaRepo: AlphaRepository,
+    private readonly auditoria: AuditoriaService,
     private readonly comerciosRepo: ComerciosRepository,
     private readonly usersRepo: UsersRepository,
     @InjectModel(Pago.name) private readonly pagoModel: Model<PagoDocument>,
@@ -245,7 +247,12 @@ export class AdminService {
     dto: ActualizarComisionDto,
     adminId: string,
   ): Promise<ComisionConfigDocument> {
-    return this.comisionConfigRepo.upsert(
+    // Se lee el valor anterior antes de escribir: sin el "de cuánto a cuánto",
+    // el historial no explica nada (TCK-8030 §8).
+    const anteriores = await this.comisionConfigRepo.listarTodas();
+    const previa = anteriores.find((c) => c.vertical === dto.vertical);
+
+    const actualizada = await this.comisionConfigRepo.upsert(
       dto.vertical,
       {
         comisionPct: dto.comisionPct,
@@ -255,6 +262,21 @@ export class AdminService {
       },
       adminId,
     );
+
+    const antes = previa ? Math.round(previa.comisionPct * 1000) / 10 : null;
+    const despues = Math.round(dto.comisionPct * 1000) / 10;
+    if (antes !== despues) {
+      await this.auditoria.registrar({
+        actorId: adminId,
+        entidad: EntidadAuditada.COMISION,
+        entidadId: dto.vertical,
+        descripcion: `Comisión de ${dto.vertical} ${antes === null ? 'fijada' : 'cambiada'} ${antes === null ? '' : `del ${antes} % `}al ${despues} %`.replace('  ', ' '),
+        antes: previa ? { comisionPct: previa.comisionPct } : undefined,
+        despues: { comisionPct: dto.comisionPct },
+      });
+    }
+
+    return actualizada;
   }
 
   // ── Doogking Alpha ───────────────────────────────────────────────────────────
@@ -267,7 +289,7 @@ export class AdminService {
     dto: ActualizarAlphaNivelDto,
     adminId: string,
   ): Promise<AlphaNivelConfigDocument> {
-    return this.alphaRepo.upsert(
+    const nivel = await this.alphaRepo.upsert(
       dto.nivel,
       {
         nombre: dto.nombre,
@@ -277,6 +299,16 @@ export class AdminService {
       },
       adminId,
     );
+
+    await this.auditoria.registrar({
+      actorId: adminId,
+      entidad: EntidadAuditada.ALPHA,
+      entidadId: String(dto.nivel),
+      descripcion: `Nivel ${dto.nombre} actualizado: ${dto.reservasRequeridas} reservas y ${Math.round(dto.descuentoPct * 100)} % de descuento`,
+      despues: { ...dto },
+    });
+
+    return nivel;
   }
 
   // ── Comercios CRUD ───────────────────────────────────────────────────────────
@@ -351,9 +383,15 @@ export class AdminService {
     id: string,
     estado: 'verificado' | 'rechazado' | 'pendiente',
     motivo?: string,
+    adminId?: string,
   ): Promise<ComercioDocument> {
     const comercio = await this.comerciosRepo.findById(id);
     if (!comercio) throw new NotFoundException('Comercio no encontrado');
+
+    // Rechazar sin decir por qué deja al comercio sin saber qué corregir.
+    if (estado === 'rechazado' && !motivo?.trim()) {
+      throw new BadRequestException('Para rechazar la documentación hay que indicar el motivo');
+    }
 
     const documentos = (comercio.verificacion?.documentos ?? []).map((d) => ({
       ...d,
@@ -369,6 +407,19 @@ export class AdminService {
       },
     } as Parameters<ComerciosRepository['actualizar']>[1]);
     if (!actualizado) throw new NotFoundException('Comercio no encontrado');
+
+    if (adminId) {
+      await this.auditoria.registrar({
+        actorId: adminId,
+        entidad: EntidadAuditada.COMERCIO,
+        entidadId: id,
+        descripcion: `Documentación de ${comercio.nombreComercial} marcada como ${estado}`,
+        motivo,
+        antes: { verificacion: comercio.verificacion?.estado },
+        despues: { verificacion: estado },
+      });
+    }
+
     return actualizado;
   }
 
@@ -488,15 +539,40 @@ export class AdminService {
 
   async actualizarUsuario(
     id: string,
-    datos: { nombre?: string; email?: string; telefono?: string; rol?: Rol; verificado?: boolean; comercioId?: string },
+    datos: { nombre?: string; email?: string; telefono?: string; rol?: Rol; verificado?: boolean; comercioId?: string; permisosAdmin?: string[] },
+    adminId?: string,
   ): Promise<UsuarioDocument> {
+    const previo = await this.usersRepo.findById(id);
     const actualizado = await this.usersRepo.actualizarAdmin(id, datos);
     if (!actualizado) throw new NotFoundException('Usuario no encontrado');
+
+    if (adminId) {
+      await this.auditoria.registrar({
+        actorId: adminId,
+        entidad: EntidadAuditada.USUARIO,
+        entidadId: id,
+        descripcion: `Cuenta de ${actualizado.nombre} modificada`,
+        antes: previo ? { rol: previo.rol, verificado: previo.verificado } : undefined,
+        despues: { ...datos },
+      });
+    }
+
     return actualizado;
   }
 
-  async eliminarUsuario(id: string): Promise<void> {
+  async eliminarUsuario(id: string, adminId?: string): Promise<void> {
+    const previo = await this.usersRepo.findById(id);
     await this.usersRepo.eliminar(id);
+
+    if (adminId) {
+      await this.auditoria.registrar({
+        actorId: adminId,
+        entidad: EntidadAuditada.USUARIO,
+        entidadId: id,
+        descripcion: `Cuenta de ${previo?.nombre ?? 'un usuario'} eliminada`,
+        antes: previo ? { nombre: previo.nombre, email: previo.email, rol: previo.rol } : undefined,
+      });
+    }
   }
 
   // ── Listados admin ───────────────────────────────────────────────────────────

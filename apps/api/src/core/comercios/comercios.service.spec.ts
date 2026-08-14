@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import { ComerciosService } from './comercios.service';
 import { ComerciosRepository } from './comercios.repository';
+import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ReviewsService } from '../reviews/reviews.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { CatalogService } from '../catalog/catalog.service';
@@ -46,6 +47,7 @@ describe('ComerciosService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ComerciosService,
+        { provide: AuditoriaService, useValue: { registrar: jest.fn(), listar: jest.fn() } },
         {
           provide: ComerciosRepository,
           useValue: {

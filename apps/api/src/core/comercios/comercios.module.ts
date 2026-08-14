@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Comercio, ComercioSchema } from './comercio.schema';
 import { Pago, PagoSchema } from '../payments/pago.schema';
@@ -13,6 +14,7 @@ import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
+    AuditoriaModule,
     MongooseModule.forFeature([
       { name: Comercio.name, schema: ComercioSchema },
       { name: Pago.name, schema: PagoSchema },

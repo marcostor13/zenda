@@ -196,7 +196,7 @@ const LIMITE = 20;
                   }
                   @if (c.estado !== 'suspendido') {
                     <button class="acciones__item acciones__item--danger"
-                            [disabled]="accionando() === c._id" (click)="suspender(c._id)">
+                            [disabled]="accionando() === c._id" (click)="abrirSuspender(c)">
                       <rs-icon name="alert-circle" [size]="13" [stroke]="2"></rs-icon>
                       {{ c.estado === 'pendiente' ? 'Rechazar solicitud' : 'Suspender comercio' }}
                     </button>
@@ -316,6 +316,32 @@ const LIMITE = 20;
 }
 
 <!-- MODAL CONFIRMAR ELIMINAR -->
+<!-- Suspender o rechazar exige motivo: queda en el historial (TCK-8034) -->
+@if (suspendiendo(); as c) {
+  <div class="modal-backdrop" (click)="cancelarSuspender()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3 class="modal__titulo">
+        {{ c.estado === 'pendiente' ? 'Rechazar la solicitud de' : 'Suspender a' }} {{ c.nombreComercial }}
+      </h3>
+      <p class="modal__texto">
+        Explica el motivo. Se guarda en el historial administrativo y permite justificar la decisión.
+      </p>
+      <input class="rs-inp" [value]="motivoSuspension()"
+             (input)="motivoSuspension.set($any($event.target).value)"
+             placeholder="Ej. documentación caducada y sin renovar tras dos avisos" />
+      @if (modalError()) { <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-3)">{{ modalError() }}</div> }
+      <div class="modal__acciones">
+        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarSuspender()">Cancelar</button>
+        <button class="rs-btn rs-btn--danger rs-btn--sm"
+                [disabled]="!motivoSuspension().trim() || accionando() === c._id"
+                (click)="confirmarSuspender()">
+          {{ c.estado === 'pendiente' ? 'Rechazar solicitud' : 'Suspender comercio' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
 @if (eliminarComercio()) {
   <div class="overlay" (click)="cancelarEliminar()">
     <div class="modal modal--sm rs-card" (click)="$event.stopPropagation()">
@@ -358,6 +384,19 @@ const LIMITE = 20;
     .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
     .resumen-tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
     .resumen-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: var(--z-4, 100);
+      background: rgba(0,19,93,.35); display: flex; align-items: center; justify-content: center;
+      padding: var(--sp-5);
+    }
+    .modal {
+      width: 100%; max-width: 460px; padding: var(--sp-6);
+      background: var(--c-card); border-radius: var(--r-xl); box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.18));
+    }
+    .modal__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }
+    .modal__texto { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); }
+    .modal__acciones { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); }
 
     .filtro-select { height: 40px; max-width: 220px; }
 
@@ -500,6 +539,8 @@ export class AdminComerciosComponent implements OnInit {
   readonly filtroVertical = signal('');
   readonly filtroPlan = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
+  readonly suspendiendo = signal<ComercioAdmin | null>(null);
+  readonly motivoSuspension = signal('');
 
   readonly verticalesDisponibles = computed(() =>
     [...new Set(this.comercios().flatMap((c) => c.verticales))].sort(),
@@ -667,7 +708,7 @@ export class AdminComerciosComponent implements OnInit {
   async suspender(id: string): Promise<void> {
     this.accionando.set(id);
     try {
-      await firstValueFrom(this.adminApi.rechazarComercio(id));
+      await firstValueFrom(this.adminApi.rechazarComercio(id, this.motivoSuspension().trim()));
       await this.cargar();
     } catch {
       this.errorMsg.set('Error al suspender el comercio.');
@@ -675,6 +716,24 @@ export class AdminComerciosComponent implements OnInit {
     } finally {
       this.accionando.set(null);
     }
+  }
+
+  abrirSuspender(comercio: ComercioAdmin): void {
+    this.suspendiendo.set(comercio);
+    this.motivoSuspension.set('');
+    this.modalError.set('');
+  }
+
+  cancelarSuspender(): void {
+    this.suspendiendo.set(null);
+    this.motivoSuspension.set('');
+  }
+
+  async confirmarSuspender(): Promise<void> {
+    const comercio = this.suspendiendo();
+    if (!comercio || !this.motivoSuspension().trim()) return;
+    await this.suspender(comercio._id);
+    this.cancelarSuspender();
   }
 
   abrirCrear(): void {

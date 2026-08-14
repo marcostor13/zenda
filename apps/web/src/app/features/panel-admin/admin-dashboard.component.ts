@@ -578,9 +578,10 @@ export class AdminDashboardComponent implements OnInit {
     }
   }
 
-  async rechazarComercio(id: string): Promise<void> {
+  /** El rechazo exige motivo; desde el Dashboard se pasa el que llega del diálogo. */
+  async rechazarComercio(id: string, motivo: string): Promise<void> {
     try {
-      await firstValueFrom(this.adminApi.rechazarComercio(id));
+      await firstValueFrom(this.adminApi.rechazarComercio(id, motivo));
       this.comerciosPendientes.update(list => list.filter(c => c.id !== id));
       this.kpis.update(k => ({ ...k, comerciosPendientesCount: k.comerciosPendientesCount - 1 }));
     } catch {

@@ -132,12 +132,23 @@ describe('AdminComerciosComponent', () => {
       expect(componente.accionando()).toBeNull();
     });
 
-    it('debería suspender el comercio', async () => {
+    it('debería suspender el comercio con el motivo escrito', async () => {
       await crear();
+      componente.motivoSuspension.set('documentación caducada');
 
       await componente.suspender('c1');
 
-      expect(api['rechazarComercio']).toHaveBeenCalledWith('c1');
+      expect(api['rechazarComercio']).toHaveBeenCalledWith('c1', 'documentación caducada');
+    });
+
+    it('no debería suspender sin motivo desde el diálogo', async () => {
+      await crear();
+      componente.abrirSuspender({ _id: 'c1', nombreComercial: 'VilaCan', estado: 'activo' } as never);
+      componente.motivoSuspension.set('   ');
+
+      await componente.confirmarSuspender();
+
+      expect(api['rechazarComercio']).not.toHaveBeenCalled();
     });
 
     it('debería informar si la aprobación falla', async () => {

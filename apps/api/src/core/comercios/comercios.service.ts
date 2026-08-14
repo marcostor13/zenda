@@ -7,7 +7,7 @@ import { ComercioDocument, EstadoComercio, EstadoVerificacion } from './comercio
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Pago, PagoDocument } from '../payments/pago.schema';
-import { FijarSocioFundadorDto, PagoEstado, ReservaEstado } from 'shared';
+import { EntidadAuditada, FijarSocioFundadorDto, PagoEstado, ReservaEstado } from 'shared';
 
 /** Compromiso estándar del programa Socios Fundadores. */
 const MESES_CONGELACION_POR_DEFECTO = 24;
@@ -26,6 +26,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { CatalogService, ServicioCardDto } from '../catalog/catalog.service';
 import { AuthService } from '../auth/auth.service';
 import { UsersRepository } from '../users/users.repository';
+import { AuditoriaService } from '../auditoria/auditoria.service';
 import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, RegistroPendienteDto, Rol, ActualizarPerfilComercioDto, SolicitarAjusteDto } from 'shared';
@@ -43,6 +44,7 @@ export class ComerciosService {
     private readonly catalogService: CatalogService,
     private readonly authService: AuthService,
     private readonly usersRepo: UsersRepository,
+    private readonly auditoria: AuditoriaService,
   ) {}
 
   async registrar(dto: RegistrarComercioDto): Promise<ComercioDocument> {
@@ -150,11 +152,34 @@ export class ComerciosService {
     return this.repo.listar(estado ? { estado } : {});
   }
 
-  async cambiarEstado(id: string, estado: EstadoComercio): Promise<ComercioDocument> {
+  /**
+   * Aprueba, deja pendiente o suspende un comercio. Suspender sin motivo deja al
+   * negocio sin saber qué ha pasado y a la plataforma sin poder justificarlo, así
+   * que aquí es obligatorio (TCK-8034).
+   */
+  async cambiarEstado(id: string, estado: EstadoComercio, motivo?: string, adminId?: string): Promise<ComercioDocument> {
+    if (estado === 'suspendido' && !motivo?.trim()) {
+      throw new DomainException('Para suspender o rechazar un comercio hay que indicar el motivo', 400);
+    }
+
+    const previo = await this.repo.findById(id);
     const comercio = await this.repo.actualizarEstado(id, estado);
     if (!comercio) {
       throw new DomainException('Comercio no encontrado', 404);
     }
+
+    if (adminId) {
+      await this.auditoria.registrar({
+        actorId: adminId,
+        entidad: EntidadAuditada.COMERCIO,
+        entidadId: id,
+        descripcion: `${comercio.nombreComercial} pasó a estado ${estado}`,
+        motivo,
+        antes: { estado: previo?.estado },
+        despues: { estado },
+      });
+    }
+
     return comercio;
   }
 

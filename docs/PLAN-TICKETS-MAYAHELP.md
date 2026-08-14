@@ -24,7 +24,7 @@ que son los que más tiempo consumen.
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
-| F7 | Módulos nuevos (producto) | 8040 §1 (parcial), §2, §3, §4 y §5 ✅ · §6, §7, §8 ⬜ | 🟡 en curso |
+| F7 | Módulos nuevos (producto) | 8040 §1 (parcial), §2, §3, §4, §5 y §7 ✅ · §6, §8 ⬜ | 🟡 en curso |
 
 ## F0 — Auditoría (hecho)
 
@@ -80,7 +80,7 @@ faltaba: **los indicadores y las barras ahora filtran la lista** (puntos 5, 7 y 
 cambiado a *"Consulta y responde las opiniones de tus clientes."*
 ⚠️ **Sin verificar en la app**: compila y construye, pero no se ha comprobado el filtro con
 datos reales.
-**Falta:** ordenación (Más recientes / Mejor valoradas), punto 9.
+La ordenación que faltaba (punto 9) se añadió después en F4: el ticket queda cerrado.
 
 **8026/8027 Equipo — parcial** (son el mismo ticket duplicado). Hecho el subtítulo:
 *"Gestiona tu equipo, asigna roles y controla los accesos al panel de tu negocio."*
@@ -253,16 +253,17 @@ Administradores Doogking · Nuevos este mes) vía nuevo `GET /admin/usuarios/res
 verificación; columnas **Alpha** y **Reservas** (Alpha sólo para clientes, `—` para el resto), y
 las acciones dentro de un menú **⋯** en lugar de la papelera suelta. El backend calcula reservas
 y nivel Alpha por lote y **sólo para cuentas de cliente**.
-**Falta:** ficha administrativa del usuario, roles internos de administración, historial de
-acciones y exportación CSV.
+Añadidos después los **roles internos de administración** (permisos por área) y el **historial de
+acciones**, comunes con 8034 y 8030 §8.
+**Falta:** ficha administrativa del usuario y exportación CSV.
 
 **TCK-8034 🟡 Comercios.** Resumen superior (Totales · Activos · Pendientes · Suspendidos ·
 Verificados) vía `GET /admin/comercios/resumen`; filtros por verificación, vertical y plan;
 **Estado y Verificación en columnas separadas**; máximo 2 verticales + "+X"; acciones dentro de
 **⋯**, con *Revisar solicitud* destacado en los pendientes y *Rechazar solicitud* en vez de
 *Suspender* cuando el comercio aún está pendiente.
-**Falta:** ficha administrativa del comercio, motivo obligatorio en rechazo/suspensión con
-historial (necesita backend), y reservas/facturación/valoración por comercio.
+Añadido después el **motivo obligatorio en rechazo y suspensión, con historial administrativo**.
+**Falta:** ficha administrativa del comercio y reservas/facturación/valoración por comercio.
 
 > **TCK-8032 y TCK-8033 son el mismo ticket duplicado** (Reportes financieros, texto
 > idéntico). Confirmado con el cliente: se tratan como uno solo.
@@ -318,8 +319,19 @@ No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
    **Falta:** que el cliente y el comercio puedan abrirlas desde sus paneles (el endpoint ya
    existe, `POST /incidencias`) y enlazar el KPI del dashboard, que hoy cuenta reservas en
    disputa y no incidencias.
-5. **Administradores y permisos** (§7) e **historial de acciones administrativas**: es lo que
-   también piden 8035 §7/§9 y 8034. Requiere roles internos y una colección de auditoría.
+5. **Administradores y permisos + historial ✅ hecho** (§7, y con ello 8030 §8, 8034 y 8035 §9).
+   - **Auditoría**: colección `auditoria` de sólo escritura y pantalla `/admin/auditoria` con
+     filtros por área y buscador. Se registran cambios de comisión (con el *de cuánto a cuánto*),
+     de nivel Alpha, verificación y estado de comercios, y alta/edición/baja de usuarios.
+     Registrar **nunca hace fallar la operación**: perder el cambio del administrador es peor
+     que perder el registro, así que un fallo de auditoría sólo se avisa por log.
+   - **Motivo obligatorio**: suspender o rechazar un comercio, y rechazar documentación, exigen
+     motivo — validado en el backend, no sólo en el formulario— y queda en el historial. El panel
+     pide el motivo en un diálogo antes de suspender.
+   - **Permisos internos**: `permisosAdmin` en la cuenta (Finanzas · Comercios · Usuarios ·
+     Soporte · Marketing · Configuración), guard `PermisosAdminGuard` aplicado a los endpoints
+     sensibles y editor en la ficha del usuario. **Una cuenta sin permisos declarados sigue
+     siendo superadministradora**: cambiarlo en silencio habría dejado al equipo fuera del panel.
 6. **Notificaciones** (§6) y **configuración general** (§8).
 
 ## Verificación

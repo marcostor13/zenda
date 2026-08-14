@@ -4,6 +4,7 @@ import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
 import { ComisionConfigsModule } from '../comision-configs/comision-configs.module';
 import { AlphaModule } from '../alpha/alpha.module';
+import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { ComerciosModule } from '../comercios/comercios.module';
 import { UsersModule } from '../users/users.module';
 import { Pago, PagoSchema } from '../payments/pago.schema';
@@ -24,6 +25,7 @@ import { AuthModule } from '../auth/auth.module';
     ]),
     ComisionConfigsModule,
     AlphaModule,
+    AuditoriaModule,
     ComerciosModule,
     UsersModule,
     AuthModule,

@@ -36,6 +36,7 @@ const NAV_SECTIONS = [
     items: [
       { icon: 'percent',     label: 'Comisiones', ruta: '/admin/comisiones', exact: false },
       { icon: 'crown',       label: 'Doogking Alpha', ruta: '/admin/alpha',  exact: false },
+      { icon: 'clock',       label: 'Historial',  ruta: '/admin/auditoria', exact: false },
     ],
   },
 ];

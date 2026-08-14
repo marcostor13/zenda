@@ -5,7 +5,7 @@ import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxj
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
-import { nombreAlphaPresentacion } from 'shared';
+import { PERMISO_ADMIN_DESCRIPCIONES, PERMISO_ADMIN_LABELS, PermisoAdmin, nombreAlphaPresentacion } from 'shared';
 import { AdminApiService, UsuarioAdmin, ResumenUsuarios, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
 
 const ROL_BADGE: Record<string, string> = {
@@ -252,6 +252,29 @@ const LIMITE = 20;
           </div>
         }
 
+        <!-- Permisos internos: una persona de soporte no debería poder tocar
+             comisiones ni liquidaciones (TCK-8040 §7). -->
+        @if (esRolAdmin()) {
+          <div class="rs-form-group">
+            <label class="rs-label">Acceso del administrador</label>
+            <div class="permisos">
+              @for (p of permisosDisponibles; track p.valor) {
+                <label class="permiso">
+                  <input type="checkbox" [checked]="tienePermiso(p.valor)"
+                         (change)="alternarPermiso(p.valor)" />
+                  <span>
+                    <strong>{{ p.label }}</strong>
+                    <em>{{ p.descripcion }}</em>
+                  </span>
+                </label>
+              }
+            </div>
+            <p class="rs-field-hint" style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-2)">
+              Sin marcar nada, la cuenta es superadministradora y ve todo el panel.
+            </p>
+          </div>
+        }
+
         @if (editandoId()) {
           <div class="rs-form-group">
             <label class="check-item" style="cursor:pointer">
@@ -318,6 +341,16 @@ const LIMITE = 20;
     .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
     .resumen-tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
     .resumen-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .permisos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-2); }
+    .permiso {
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      padding: var(--sp-3); cursor: pointer;
+      background: var(--c-raised); border-radius: var(--r-lg);
+    }
+    .permiso span { display: flex; flex-direction: column; gap: 2px; }
+    .permiso strong { font-size: var(--f-sm); color: var(--t-100); }
+    .permiso em { font-size: var(--f-xs); color: var(--t-400); font-style: normal; }
 
     .filtro-select { height: 40px; max-width: 240px; }
 
@@ -474,6 +507,28 @@ export class AdminUsuariosComponent implements OnInit {
 
   readonly comercios = signal<Array<{ _id: string; nombreComercial: string }>>([]);
 
+  /** Áreas marcadas para este administrador; vacío = acceso total. */
+  readonly permisosDisponibles = Object.values(PermisoAdmin).map((valor) => ({
+    valor,
+    label: PERMISO_ADMIN_LABELS[valor],
+    descripcion: PERMISO_ADMIN_DESCRIPCIONES[valor],
+  }));
+  readonly permisosSeleccionados = signal<string[]>([]);
+
+  esRolAdmin(): boolean {
+    return this.form.controls.rol.value === 'admin';
+  }
+
+  tienePermiso(permiso: string): boolean {
+    return this.permisosSeleccionados().includes(permiso);
+  }
+
+  alternarPermiso(permiso: string): void {
+    this.permisosSeleccionados.update((lista) =>
+      lista.includes(permiso) ? lista.filter((p) => p !== permiso) : [...lista, permiso],
+    );
+  }
+
   esRolComercio(): boolean {
     const rol = this.form.controls.rol.value;
     return rol === 'comercio_admin' || rol === 'comercio_staff';
@@ -582,6 +637,7 @@ export class AdminUsuariosComponent implements OnInit {
       comercioId: u.comercioId ?? '',
       verificado: u.verificado,
     });
+    this.permisosSeleccionados.set(u.permisosAdmin ?? []);
     this.form.get('password')!.clearValidators();
     this.form.get('password')!.updateValueAndValidity();
     this.modalError.set('');
@@ -613,6 +669,7 @@ export class AdminUsuariosComponent implements OnInit {
           rol: v.rol!,
           verificado: v.verificado ?? false,
           comercioId,
+          permisosAdmin: this.esRolAdmin() ? this.permisosSeleccionados() : [],
         };
         await firstValueFrom(this.adminApi.actualizarUsuario(this.editandoId()!, dto));
       } else {

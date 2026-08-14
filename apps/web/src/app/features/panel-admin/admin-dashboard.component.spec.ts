@@ -119,9 +119,9 @@ describe('AdminDashboardComponent', () => {
     it('debería sacar también el comercio rechazado', async () => {
       await crear();
 
-      await componente.rechazarComercio('c1');
+      await componente.rechazarComercio('c1', 'documentación caducada');
 
-      expect(api['rechazarComercio']).toHaveBeenCalledWith('c1');
+      expect(api['rechazarComercio']).toHaveBeenCalledWith('c1', 'documentación caducada');
       expect(componente.comerciosPendientes()).toHaveLength(0);
     });
 
@@ -137,7 +137,7 @@ describe('AdminDashboardComponent', () => {
     it('debería avisar si el rechazo falla', async () => {
       await crear({}, { rechazarComercio: fallo('500') });
 
-      await componente.rechazarComercio('c1');
+      await componente.rechazarComercio('c1', 'documentación caducada');
 
       expect(componente.errorMsg()).toContain('Error al rechazar');
     });
