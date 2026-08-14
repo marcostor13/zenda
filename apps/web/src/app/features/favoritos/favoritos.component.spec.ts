@@ -63,6 +63,8 @@ describe('FavoritosComponent', () => {
             estaAutenticado: () => !!opciones.usuario,
             esAdmin: () => false,
             esComercio: () => false,
+            esCliente: () => !!opciones.usuario,
+            clienteVerificado: () => false,
           },
         },
       ],
@@ -175,7 +177,7 @@ describe('FavoritosComponent', () => {
           { provide: ReservasService, useValue: { misReservas: reservasSpy } },
           {
             provide: AuthService,
-            useValue: { usuario: () => null, estaAutenticado: () => false, esAdmin: () => false, esComercio: () => false },
+            useValue: { usuario: () => null, estaAutenticado: () => false, esAdmin: () => false, esComercio: () => false, esCliente: () => false, clienteVerificado: () => false },
           },
         ],
       }).compileComponents();

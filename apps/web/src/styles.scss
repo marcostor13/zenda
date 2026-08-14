@@ -1110,6 +1110,10 @@ h1, h2, h3, h4, h5, h6 {
 .rs-result-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  /* `1fr` en las filas las iguala todas a la más alta. Con `auto` cada tarjeta
+     tomaba su altura natural y la lista quedaba dentada, porque unas traen más
+     etiquetas o más distintivos que otras. */
+  grid-auto-rows: 1fr;
   align-items: stretch;
   gap: var(--sp-4);
 }
@@ -1213,6 +1217,31 @@ h1, h2, h3, h4, h5, h6 {
     padding: var(--sp-10) var(--sp-8);
     box-shadow: var(--sh-xl);
     animation: scaleIn var(--d-4) ease;
+  }
+
+  /* Salida visible del formulario. El logo también enlaza a la portada, pero
+     nadie adivina que una imagen es pulsable: sin este control, quien llegaba
+     al registro se quedaba sin forma evidente de volver. Va dentro de la
+     tarjeta y no flotando en una esquina para que no se solape con ella en
+     pantallas estrechas. */
+  &__volver {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-5);
+    padding: var(--sp-2) var(--sp-3);
+    margin-left: calc(var(--sp-3) * -1);
+    border-radius: var(--r-full);
+    color: var(--t-400);
+    font-size: var(--f-sm);
+    font-weight: var(--w-6);
+    text-decoration: none;
+    transition: color var(--d-2), background var(--d-2);
+
+    &:hover {
+      color: var(--dk-blue);
+      background: var(--c-raised);
+    }
   }
 
   &__brand {

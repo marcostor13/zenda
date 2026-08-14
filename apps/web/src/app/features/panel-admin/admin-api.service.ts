@@ -138,6 +138,28 @@ export interface UsuarioAdmin {
   telefono?: string;
   comercioId?: string;
   createdAt: string;
+  /** Reservas hechas como cliente; sin valor para cuentas que no son de cliente. */
+  reservas?: number;
+  /** Nivel Doogking Alpha: sólo llega para clientes (TCK-8035). */
+  nivelAlpha?: string;
+}
+
+/** Contadores de la cabecera de Comercios (TCK-8034). */
+export interface ResumenComercios {
+  total: number;
+  activos: number;
+  pendientes: number;
+  suspendidos: number;
+  verificados: number;
+}
+
+/** Contadores de la cabecera de Usuarios (TCK-8035). */
+export interface ResumenUsuarios {
+  total: number;
+  clientes: number;
+  comercios: number;
+  administradores: number;
+  nuevosMes: number;
 }
 
 export interface PaginatedResult<T> {
@@ -246,12 +268,13 @@ export class AdminApiService {
 
   // ── Comercios CRUD ───────────────────────────────────────────────────────────
 
-  getComercios(params: { page?: number; limite?: number; estado?: string; buscar?: string } = {}): Observable<PaginatedResult<ComercioAdmin>> {
+  getComercios(params: { page?: number; limite?: number; estado?: string; buscar?: string; alphaAdherido?: boolean } = {}): Observable<PaginatedResult<ComercioAdmin>> {
     let p = new HttpParams();
     if (params.page) p = p.set('page', String(params.page));
     if (params.limite) p = p.set('limite', String(params.limite));
     if (params.estado) p = p.set('estado', params.estado);
     if (params.buscar) p = p.set('buscar', params.buscar);
+    if (params.alphaAdherido !== undefined) p = p.set('alphaAdherido', String(params.alphaAdherido));
     return this.http.get<PaginatedResult<ComercioAdmin>>(`${this.adminUrl}/comercios`, { params: p });
   }
 
@@ -269,13 +292,22 @@ export class AdminApiService {
 
   // ── Usuarios CRUD ────────────────────────────────────────────────────────────
 
-  getUsuarios(params: { page?: number; limite?: number; rol?: string; buscar?: string } = {}): Observable<PaginatedResult<UsuarioAdmin>> {
+  getUsuarios(params: { page?: number; limite?: number; rol?: string; buscar?: string; verificado?: boolean } = {}): Observable<PaginatedResult<UsuarioAdmin>> {
     let p = new HttpParams();
     if (params.page) p = p.set('page', String(params.page));
     if (params.limite) p = p.set('limite', String(params.limite));
     if (params.rol) p = p.set('rol', params.rol);
     if (params.buscar) p = p.set('buscar', params.buscar);
+    if (params.verificado !== undefined) p = p.set('verificado', String(params.verificado));
     return this.http.get<PaginatedResult<UsuarioAdmin>>(`${this.adminUrl}/usuarios`, { params: p });
+  }
+
+  getResumenComercios(): Observable<ResumenComercios> {
+    return this.http.get<ResumenComercios>(`${this.adminUrl}/comercios/resumen`);
+  }
+
+  getResumenUsuarios(): Observable<ResumenUsuarios> {
+    return this.http.get<ResumenUsuarios>(`${this.adminUrl}/usuarios/resumen`);
   }
 
   crearUsuario(dto: CrearUsuarioDto): Observable<UsuarioAdmin> {

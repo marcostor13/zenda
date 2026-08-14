@@ -1,11 +1,12 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
-import { AdminApiService, UsuarioAdmin, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
+import { nombreAlphaPresentacion } from 'shared';
+import { AdminApiService, UsuarioAdmin, ResumenUsuarios, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
 
 const ROL_BADGE: Record<string, string> = {
   cliente: 'rs-badge--neutral',
@@ -41,12 +42,30 @@ const LIMITE = 20;
         <h1 class="page-title">Usuarios</h1>
         <p class="page-sub">Usuarios registrados en la plataforma.</p>
       </div>
-      <div style="display:flex;gap:var(--sp-3);align-items:center;flex-wrap:wrap">
-        <div class="page-kpi rs-card">
-          <span class="kpi-num">{{ total() }}</span>
-          <span class="kpi-lbl">{{ filtroRol() || 'total' }}</span>
-        </div>
-        <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo usuario</button>
+      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo usuario</button>
+    </div>
+
+    <!-- Resumen superior: un solo "5 Total" no decía nada (TCK-8035) -->
+    <div class="resumen-usuarios">
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.total ?? total() }}</span>
+        <span class="resumen-tile__lbl">Usuarios totales</span>
+      </div>
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.clientes ?? '—' }}</span>
+        <span class="resumen-tile__lbl">Clientes</span>
+      </div>
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.comercios ?? '—' }}</span>
+        <span class="resumen-tile__lbl">Usuarios de comercios</span>
+      </div>
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.administradores ?? '—' }}</span>
+        <span class="resumen-tile__lbl">Administradores Doogking</span>
+      </div>
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.nuevosMes ?? '—' }}</span>
+        <span class="resumen-tile__lbl">Nuevos este mes</span>
       </div>
     </div>
 
@@ -69,6 +88,13 @@ const LIMITE = 20;
         placeholder="Buscar por nombre o email…"
         [value]="buscar()"
         (input)="onBuscar($event)" />
+      <!-- Filtro por verificación (TCK-8035 §2) -->
+      <select class="rs-inp filtro-select" [value]="filtroVerificado()"
+              (change)="setVerificado($any($event.target).value)" aria-label="Verificación">
+        <option value="">Verificados y sin verificar</option>
+        <option value="true">Solo verificados</option>
+        <option value="false">Solo sin verificar</option>
+      </select>
     </div>
 
     @if (errorMsg()) {
@@ -81,7 +107,9 @@ const LIMITE = 20;
         <span>Usuario</span>
         <span>Email</span>
         <span>Rol</span>
-        <span>Verificado</span>
+        <span>Verificación</span>
+        <span>Alpha</span>
+        <span>Reservas</span>
         <span>Registro</span>
         <span>Acciones</span>
       </div>
@@ -117,15 +145,34 @@ const LIMITE = 20;
                 <span class="rs-badge rs-badge--neutral">Pendiente</span>
               }
             </span>
+            <!-- Alpha sólo aplica a clientes; el resto muestra "—" (TCK-8035) -->
+            <span data-col="Alpha">
+              @if (esCliente(u)) {
+                <span class="rs-badge rs-badge--warning">
+                  <rs-icon name="crown" [size]="12" [stroke]="2"></rs-icon> {{ nombreAlpha(u) }}
+                </span>
+              } @else {
+                <span class="cell-muted">—</span>
+              }
+            </span>
+            <span class="cell-muted" data-col="Reservas">{{ esCliente(u) ? (u.reservas ?? 0) : '—' }}</span>
             <span class="cell-muted" data-col="Registro">{{ u.createdAt | date:'d MMM yyyy' }}</span>
-            <div class="acciones">
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="abrirEditar(u)">
-                <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
+            <!-- Acciones dentro de ⋯ para no dejar la papelera al descubierto (TCK-8035 §8) -->
+            <div class="acciones" (click)="$event.stopPropagation()">
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Acciones"
+                      (click)="menuAbiertoId.set(menuAbiertoId() === u._id ? null : u._id)">
+                <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
               </button>
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171"
-                (click)="confirmarEliminar(u)" aria-label="Eliminar usuario" data-icono>
-                <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
-              </button>
+              @if (menuAbiertoId() === u._id) {
+                <div class="acciones__menu">
+                  <button class="acciones__item" (click)="abrirEditar(u)">
+                    <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
+                  </button>
+                  <button class="acciones__item acciones__item--danger" (click)="confirmarEliminar(u)">
+                    <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> Eliminar usuario
+                  </button>
+                </div>
+              }
             </div>
           </div>
         }
@@ -267,8 +314,31 @@ const LIMITE = 20;
     .filter-bar { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
     .search-input { flex: 1; min-width: 240px; max-width: 360px; }
 
-    .tbl-head { display: grid; grid-template-columns: 1.2fr 1.4fr 160px 130px 120px 160px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
-    .tbl-row { display: grid; grid-template-columns: 1.2fr 1.4fr 160px 130px 120px 160px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
+    .resumen-usuarios { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-4); }
+    .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
+    .resumen-tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
+    .resumen-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .filtro-select { height: 40px; max-width: 240px; }
+
+    .acciones { position: relative; }
+    .acciones__menu {
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
+      min-width: 190px; padding: var(--sp-2);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
+    }
+    .acciones__item {
+      display: flex; align-items: center; gap: var(--sp-2); width: 100%;
+      padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
+      border-radius: var(--r-md); cursor: pointer; text-align: left;
+      font-size: var(--f-sm); color: var(--t-200);
+      &:hover { background: var(--c-raised); }
+    }
+    .acciones__item--danger { color: var(--c-red, #B91C1C); }
+
+    .tbl-head { display: grid; grid-template-columns: 1.1fr 1.3fr 150px 130px 130px 90px 110px 70px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
+    .tbl-row { display: grid; grid-template-columns: 1.1fr 1.3fr 150px 130px 130px 90px 110px 70px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; }
     .tbl-row:hover { background: var(--c-raised); }
 
@@ -378,6 +448,11 @@ export class AdminUsuariosComponent implements OnInit {
   readonly buscar = signal('');
   readonly errorMsg = signal('');
 
+  /** Cabecera, filtro de verificación y menú de acciones (TCK-8035). */
+  readonly resumen = signal<ResumenUsuarios | null>(null);
+  readonly filtroVerificado = signal('');
+  readonly menuAbiertoId = signal<string | null>(null);
+
   readonly modalVisible = signal(false);
   readonly editandoId = signal<string | null>(null);
   readonly guardando = signal(false);
@@ -416,8 +491,35 @@ export class AdminUsuariosComponent implements OnInit {
     });
   }
 
+  /** El menú ⋯ se cierra al pulsar fuera. */
+  @HostListener('document:click')
+  cerrarMenu(): void {
+    this.menuAbiertoId.set(null);
+  }
+
+  esCliente(u: UsuarioAdmin): boolean {
+    return u.rol === 'cliente';
+  }
+
+  /** Nivel Alpha en romanos aunque la BD guarde el formato antiguo (TCK-8011). */
+  nombreAlpha(u: UsuarioAdmin): string {
+    if (!u.nivelAlpha) return 'ALPHA I';
+    return nombreAlphaPresentacion(u.nivelAlpha, 1);
+  }
+
+  setVerificado(valor: string): void {
+    this.filtroVerificado.set(valor);
+    this.paginaActual.set(1);
+    void this.cargar();
+  }
+
   async ngOnInit(): Promise<void> {
     await this.cargar();
+    try {
+      this.resumen.set(await firstValueFrom(this.adminApi.getResumenUsuarios()));
+    } catch {
+      // Sin resumen la tabla sigue siendo utilizable: cae al total paginado.
+    }
     try {
       const res = await firstValueFrom(this.adminApi.getComercios({ limite: 200 }));
       this.comercios.set(res.items.map((c) => ({ _id: c._id, nombreComercial: c.nombreComercial })));
@@ -435,6 +537,7 @@ export class AdminUsuariosComponent implements OnInit {
         limite: LIMITE,
         rol: this.filtroRol() || undefined,
         buscar: this.buscar() || undefined,
+        verificado: this.filtroVerificado() === '' ? undefined : this.filtroVerificado() === 'true',
       }));
       this.usuarios.set(result.items);
       this.total.set(result.total);

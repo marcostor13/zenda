@@ -153,6 +153,12 @@ export interface MiReserva {
   suplementos?: SuplementoAplicado[];
   montoAjustado?: number;
   perroId?: string;
+  /** Contexto de gestión diaria: quién reserva, qué servicio y qué mascota (TCK-8018). */
+  clienteNombre?: string;
+  clienteEmail?: string;
+  clienteTelefono?: string;
+  servicioTitulo?: string;
+  perroNombre?: string;
 }
 
 export interface SuplementoConfig {

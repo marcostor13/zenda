@@ -35,6 +35,8 @@ describe('ComercioLayoutComponent', () => {
       estaAutenticado: signal(true),
       esAdmin: signal(false),
       esComercio: signal(true),
+      esCliente: signal(false),
+      clienteVerificado: signal(false),
       aplicarSesion: jest.fn(),
       logout: jest.fn(),
     };

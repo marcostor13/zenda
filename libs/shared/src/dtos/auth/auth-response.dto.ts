@@ -8,5 +8,11 @@ export class AuthResponseDto {
     email: string;
     rol: Rol;
     comercioId?: string;
+    /**
+     * Verificación de la cuenta personal (email confirmado). Es la única
+     * verificación que existe del usuario: no confundirla con la verificación
+     * documental del comercio (TCK-8029).
+     */
+    verificado?: boolean;
   };
 }

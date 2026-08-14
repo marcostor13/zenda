@@ -80,7 +80,11 @@ interface LogroItem {
         <h1>Hola, {{ primerNombre() }}</h1>
         <p>Bienvenido de nuevo a Doogking</p>
         <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
-          <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Cliente verificado</span>
+          <!-- Sólo si la cuenta personal está realmente verificada: no es la
+               verificación documental del comercio (TCK-8029). -->
+          @if (clienteVerificado()) {
+            <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Cliente verificado</span>
+          }
           <span class="rs-badge">Miembro desde 2026</span>
         </div>
       </div>
@@ -552,6 +556,7 @@ export class PerfilDashboardComponent implements OnInit {
   private readonly reviewsService = inject(ReviewsService);
 
   readonly usuario = this.authService.usuario;
+  readonly clienteVerificado = this.authService.clienteVerificado;
 
   readonly iniciales = computed(() => {
     const nombre = this.usuario()?.nombre ?? '';
@@ -757,7 +762,9 @@ export class PerfilDashboardComponent implements OnInit {
         this.reservasService.recordatorios().catch(() => [] as RecordatorioApi[]),
         this.reservasService.puntos().catch(() => null),
         this.reservasService.proximaReserva().catch(() => null),
-        this.alphaService.miEstado().catch(() => null),
+        // Alpha es fidelización del cliente: una cuenta de comercio o de
+        // administración no tiene nivel (TCK-8029).
+        this.authService.esCliente() ? this.alphaService.miEstado().catch(() => null) : Promise.resolve(null),
         // Alimenta "Mi actividad" y los logros (HU-7.7); si falla, el resto del
         // panel sigue funcionando sin esas dos secciones.
         usuarioId ? this.reviewsService.misResenas(usuarioId).catch(() => [] as ResenaApi[]) : Promise.resolve([] as ResenaApi[]),

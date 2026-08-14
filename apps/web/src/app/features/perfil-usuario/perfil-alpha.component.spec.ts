@@ -34,7 +34,7 @@ describe('PerfilAlphaComponent', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { usuario: signal(null), estaAutenticado: signal(false), esAdmin: signal(false), esComercio: signal(false), logout: jest.fn() } },
+        { provide: AuthService, useValue: { usuario: signal(null), estaAutenticado: signal(false), esAdmin: signal(false), esComercio: signal(false), esCliente: signal(false), clienteVerificado: signal(false), logout: jest.fn() } },
         { provide: AlphaService, useValue: alphaService },
       ],
     }).compileComponents();

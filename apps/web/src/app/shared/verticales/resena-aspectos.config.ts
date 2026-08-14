@@ -60,11 +60,6 @@ export const ASPECTOS_POR_VERTICAL: Record<VerticalKey, readonly AspectoResenaUi
     { key: 'rapidezGestion', label: 'Rapidez de gestión' },
     { key: 'claridadCondiciones', label: 'Claridad de condiciones' },
   ],
-  [VerticalKey.CUIDADORES]: [
-    { key: 'tratoAlPerro', label: 'Trato al perro' },
-    { key: 'puntualidad', label: 'Puntualidad' },
-    { key: 'comunicacion', label: 'Comunicación' },
-  ],
 };
 
 /** Criterios de valoración del vertical, o un set genérico si la clave no existe. */

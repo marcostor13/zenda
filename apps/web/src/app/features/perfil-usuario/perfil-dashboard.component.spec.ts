@@ -44,6 +44,8 @@ describe('PerfilDashboardComponent', () => {
       estaAutenticado: signal(datos.usuario !== null),
       esAdmin: signal(false),
       esComercio: signal(false),
+      esCliente: signal(true),
+      clienteVerificado: signal(true),
       logout: jest.fn(),
     };
     reservasService = {

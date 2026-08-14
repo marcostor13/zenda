@@ -158,25 +158,6 @@ export const FILTROS_POR_VERTICAL: Record<string, readonly GrupoFiltro[]> = {
     },
   ],
 
-  [VerticalKey.CUIDADORES]: [
-    precio('por visita', 150),
-    VALORACION,
-    {
-      titulo: 'Modalidad', tipo: 'opciones', campo: 'modalidades',
-      opciones: [
-        { valor: 'visita', etiqueta: 'Visita a domicilio' },
-        { valor: 'dia_completo', etiqueta: 'Día completo' },
-        { valor: 'noche', etiqueta: 'Noche' },
-      ],
-    },
-    {
-      titulo: 'Extras', tipo: 'booleanos',
-      opciones: [
-        { valor: 'administraMedicacion', etiqueta: 'Administra medicación' },
-        { valor: 'aceptaPPP', etiqueta: 'Acepta PPP' },
-      ],
-    },
-  ],
 };
 
 /** Filtros del vertical pedido; los comunes si la categoría no declara ninguno. */

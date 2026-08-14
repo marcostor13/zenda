@@ -21,7 +21,7 @@ const PUESTOS = [
     <div class="page-header">
       <div>
         <h1 class="page-title">Equipo</h1>
-        <p class="page-sub">Da de alta a tu personal con acceso al panel del negocio.</p>
+        <p class="page-sub">Gestiona tu equipo, asigna roles y controla los accesos al panel de tu negocio.</p>
       </div>
     </div>
 

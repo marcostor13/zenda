@@ -118,12 +118,15 @@ export class ComerciosRepository implements OnModuleInit {
   }
 
   async listarPaginado(
-    filtros: { estado?: EstadoComercio; buscar?: string },
+    filtros: { estado?: EstadoComercio; buscar?: string; alphaAdherido?: boolean },
     page = 1,
     limite = 20,
   ): Promise<{ items: ComercioDocument[]; total: number }> {
     const query: Record<string, unknown> = {};
     if (filtros.estado) query['estado'] = filtros.estado;
+    // Los no adheridos incluyen los documentos antiguos sin el campo (HU-13.3).
+    if (filtros.alphaAdherido === true) query['alphaAdherido'] = true;
+    if (filtros.alphaAdherido === false) query['alphaAdherido'] = { $ne: true };
     if (filtros.buscar) {
       const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(escaped, 'i');

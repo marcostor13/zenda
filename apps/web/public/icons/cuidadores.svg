@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Cuidadores a domicilio">
-  <circle cx="24" cy="24" r="17.5" fill="none" stroke="#08258B" stroke-width="2.6"/>
-  <path d="M14 24.5 24 16l10 8.5V33a1.5 1.5 0 0 1-1.5 1.5h-17A1.5 1.5 0 0 1 14 33v-8.5Z" fill="#FBAE17"/>
-  <circle cx="21" cy="27.5" r="1.5" fill="#08258B"/>
-  <circle cx="27" cy="27.5" r="1.5" fill="#08258B"/>
-  <path d="M21.5 30.5c.7.9 1.6 1.3 2.5 1.3s1.8-.4 2.5-1.3" fill="none" stroke="#08258B" stroke-width="1.8" stroke-linecap="round"/>
-</svg>

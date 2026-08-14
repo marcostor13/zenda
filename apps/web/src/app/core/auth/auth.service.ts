@@ -11,6 +11,12 @@ export interface UsuarioAutenticado {
   email: string;
   rol: Rol;
   comercioId?: string;
+  /**
+   * Verificación de la cuenta personal (email confirmado). Las sesiones
+   * anteriores a TCK-8029 no lo traen: sin dato no se afirma que el cliente
+   * esté verificado.
+   */
+  verificado?: boolean;
 }
 
 const TOKEN_KEY = 'zenda_token';
@@ -30,6 +36,16 @@ export class AuthService {
   readonly esComercio = computed(
     () =>
       this._usuario()?.rol === Rol.COMERCIO_ADMIN || this._usuario()?.rol === Rol.COMERCIO_STAFF,
+  );
+  /**
+   * El programa Doogking Alpha es fidelización de quien reserva: sólo aplica a
+   * cuentas de cliente, nunca a personal de comercio ni a administración
+   * (TCK-8029 / TCK-8034 / TCK-8035).
+   */
+  readonly esCliente = computed(() => this._usuario()?.rol === Rol.CLIENTE);
+  /** Verificación real de la cuenta personal, no la del comercio (TCK-8029). */
+  readonly clienteVerificado = computed(
+    () => this.esCliente() && this._usuario()?.verificado === true,
   );
 
   async login(dto: LoginDto): Promise<void> {

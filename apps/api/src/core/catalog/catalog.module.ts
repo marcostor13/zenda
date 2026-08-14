@@ -9,7 +9,6 @@ import { Peluqueria, PeluqueriaSchema } from '../../verticals/peluqueria/peluque
 import { Adiestramiento, AdiestramientoSchema } from '../../verticals/adiestramiento/adiestramiento.schema';
 import { Hoteles, HotelesSchema } from '../../verticals/hoteles/hoteles.schema';
 import { Seguros, SegurosSchema } from '../../verticals/seguros/seguros.schema';
-import { Cuidadores, CuidadoresSchema } from '../../verticals/cuidadores/cuidadores.schema';
 import { CatalogRepository } from './catalog.repository';
 import { CatalogService } from './catalog.service';
 import { CatalogController } from './catalog.controller';
@@ -31,7 +30,6 @@ import { PerrosModule } from '../perros/perros.module';
           { name: Adiestramiento.name, schema: AdiestramientoSchema, value: VerticalKey.ADIESTRAMIENTO },
           { name: Hoteles.name, schema: HotelesSchema, value: VerticalKey.HOTELES },
           { name: Seguros.name, schema: SegurosSchema, value: VerticalKey.SEGUROS },
-          { name: Cuidadores.name, schema: CuidadoresSchema, value: VerticalKey.CUIDADORES },
         ],
       },
       // Solo para leer el flag `alphaAdherido` de los comercios listados (HU-13.3).

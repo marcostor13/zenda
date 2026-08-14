@@ -81,6 +81,11 @@ export const ALPHA_NIVELES_DEFAULT: readonly {
  */
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'] as const;
 
+/** Etiqueta canónica del escalón ("ALPHA II"), al margen del nombre editable. */
+export function etiquetaAlphaNivel(nivel: number): string {
+  return `ALPHA ${ROMANOS[nivel - 1] ?? nivel}`;
+}
+
 export function nombreAlphaPresentacion(nombre: string, nivel: number): string {
   const yaEsRomano = /^ALPHA\s+[IVX]+$/i.test(nombre.trim());
   if (yaEsRomano) return nombre.trim().toUpperCase();

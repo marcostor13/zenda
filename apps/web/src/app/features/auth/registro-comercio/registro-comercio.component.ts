@@ -21,6 +21,11 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
     <div class="rs-auth">
       <div class="rs-auth__card" style="max-width:560px">
 
+        <a routerLink="/" class="rs-auth__volver">
+          <rs-icon name="arrow-left" [size]="16" [stroke]="2" />
+          Volver al inicio
+        </a>
+
         <div class="rs-auth__brand">
           <a routerLink="/" aria-label="Ir a la Home de Doogking" style="display:inline-block;cursor:pointer">
             <img src="/images/logo-doogking.jpg" alt="Doogking"

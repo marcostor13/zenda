@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit, WritableSignal } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, WritableSignal } from '@angular/core';
 import { UpperCasePipe } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -9,6 +9,24 @@ import { RsPlaceAutocompleteComponent } from '../../shared/components/place-auto
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, DocumentoVerificacion } from './comercio-api.service';
+
+type TabConfig =
+  | 'perfil' | 'ubicacion' | 'contacto' | 'redes' | 'horarios' | 'politicas'
+  | 'verificacion' | 'documentacion' | 'notificaciones' | 'verticales' | 'plan';
+
+const TABS: ReadonlyArray<{ clave: TabConfig; label: string; icono: string }> = [
+  { clave: 'perfil',         label: 'Perfil',            icono: 'building' },
+  { clave: 'ubicacion',      label: 'Ubicación',         icono: 'map-pin' },
+  { clave: 'contacto',       label: 'Contacto',          icono: 'phone' },
+  { clave: 'redes',          label: 'Redes',             icono: 'globe' },
+  { clave: 'horarios',       label: 'Horarios',          icono: 'clock' },
+  { clave: 'politicas',      label: 'Políticas y cobros', icono: 'euro' },
+  { clave: 'verificacion',   label: 'Verificación',      icono: 'badge-check' },
+  { clave: 'documentacion',  label: 'Documentación',     icono: 'file-text' },
+  { clave: 'notificaciones', label: 'Notificaciones',    icono: 'bell' },
+  { clave: 'verticales',     label: 'Verticales',        icono: 'tag' },
+  { clave: 'plan',           label: 'Plan',              icono: 'sparkles' },
+];
 
 const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
   { clave: 'lunes', label: 'Lunes' },
@@ -67,7 +85,44 @@ function comoArray(v?: string): string[] {
       <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
     }
 
+    <!-- Perfil completado: qué falta y dónde completarlo (TCK-8028) -->
+    <div class="rs-card progreso-card">
+      <div class="progreso-card__head">
+        <strong class="progreso-card__titulo">Perfil completado</strong>
+        <span class="progreso-card__pct">{{ progresoPerfil() }} %</span>
+      </div>
+      <div class="progreso-card__barra">
+        <div class="progreso-card__fill" [style.width.%]="progresoPerfil()"></div>
+      </div>
+      @if (faltantes().length) {
+        <p class="progreso-card__hint">Te falta por completar:</p>
+        <div class="progreso-card__chips">
+          @for (f of faltantes(); track f.label) {
+            <button class="progreso-chip" (click)="tab.set(f.tab)">
+              <rs-icon name="plus" [size]="12" [stroke]="2.5"></rs-icon> {{ f.label }}
+            </button>
+          }
+        </div>
+      } @else {
+        <p class="progreso-card__hint">
+          <rs-icon name="check-circle" [size]="14" [stroke]="2"></rs-icon>
+          Tu ficha está completa. Así es como genera más confianza en los clientes.
+        </p>
+      }
+    </div>
+
+    <!-- Pestañas: la página era un scroll interminable (TCK-8028) -->
+    <div class="config-tabs" role="tablist">
+      @for (t of tabs; track t.clave) {
+        <button class="config-tab" role="tab" [attr.aria-selected]="tab() === t.clave"
+                [class.activa]="tab() === t.clave" (click)="tab.set(t.clave)">
+          <rs-icon [name]="t.icono" [size]="14" [stroke]="2"></rs-icon> {{ t.label }}
+        </button>
+      }
+    </div>
+
     <!-- Información del negocio -->
+@if (tab() === 'perfil') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(22,104,227,.12);color:var(--c-accent)">
@@ -122,8 +177,10 @@ function comoArray(v?: string): string[] {
         </div>
       </form>
     </section>
+    }
 
     <!-- Ubicación -->
+@if (tab() === 'ubicacion') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(16,185,129,.12);color:var(--c-success, #10B981)">
@@ -179,8 +236,10 @@ function comoArray(v?: string): string[] {
         </div>
       </form>
     </section>
+    }
 
     <!-- Datos de contacto -->
+@if (tab() === 'contacto') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
@@ -228,8 +287,10 @@ function comoArray(v?: string): string[] {
         </div>
       </form>
     </section>
+    }
 
     <!-- Redes y web -->
+@if (tab() === 'redes') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(109,92,246,.12);color:var(--c-purple)">
@@ -271,8 +332,10 @@ function comoArray(v?: string): string[] {
         </div>
       </form>
     </section>
+    }
 
     <!-- Horario de atención -->
+@if (tab() === 'horarios') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(245,158,11,.12);color:var(--c-amber)">
@@ -309,8 +372,10 @@ function comoArray(v?: string): string[] {
         </div>
       </form>
     </section>
+    }
 
     <!-- Políticas y datos bancarios -->
+@if (tab() === 'politicas') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(239,68,68,.10);color:#B91C1C">
@@ -365,8 +430,10 @@ function comoArray(v?: string): string[] {
         </div>
       </form>
     </section>
+    }
 
     <!-- Verificación de identidad -->
+@if (tab() === 'verificacion') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(22,163,74,.12);color:#16A34A">
@@ -402,8 +469,10 @@ function comoArray(v?: string): string[] {
         </div>
       </form>
     </section>
+    }
 
     <!-- Documentación adicional (seguro RC, certificados…) -->
+@if (tab() === 'documentacion') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(22,163,74,.12);color:#16A34A">
@@ -468,8 +537,10 @@ function comoArray(v?: string): string[] {
         </div>
       </form>
     </section>
+    }
 
     <!-- Notificaciones -->
+@if (tab() === 'notificaciones') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(245,158,11,.12);color:var(--c-amber)">
@@ -499,8 +570,10 @@ function comoArray(v?: string): string[] {
         }
       </div>
     </section>
+    }
 
     <!-- Verticales activas -->
+@if (tab() === 'verticales') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(22,104,227,.12);color:var(--c-accent)">
@@ -522,8 +595,10 @@ function comoArray(v?: string): string[] {
       </div>
       <p class="rs-field-hint">Para añadir o quitar verticales contacta al soporte.</p>
     </section>
+    }
 
     <!-- Plan actual -->
+@if (tab() === 'plan') {
     <section class="config-section rs-card">
       <div class="config-section__header">
         <div class="config-section__icon" style="background:rgba(109,92,246,.12);color:var(--c-purple)">
@@ -552,9 +627,41 @@ function comoArray(v?: string): string[] {
         </a>
       </div>
     </section>
+    }
   `,
   styles: [`
     :host { display: contents; }
+
+    /* Perfil completado */
+    .progreso-card { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+    .progreso-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); }
+    .progreso-card__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); }
+    .progreso-card__pct { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--c-accent); }
+    .progreso-card__barra { height: 8px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; }
+    .progreso-card__fill { height: 100%; border-radius: var(--r-full); background: var(--g-accent); transition: width var(--d-3); }
+    .progreso-card__hint { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-400); }
+    .progreso-card__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .progreso-chip {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full);
+      border: 1px dashed var(--b-2); background: transparent;
+      color: var(--t-300); font-size: var(--f-xs); cursor: pointer; transition: all var(--d-2);
+      &:hover { border-color: var(--c-accent); color: var(--c-accent); border-style: solid; }
+    }
+
+    /* Pestañas de configuración */
+    .config-tabs {
+      display: flex; gap: var(--sp-2); flex-wrap: wrap;
+      padding-bottom: var(--sp-1);
+    }
+    .config-tab {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
+      border: 1px solid var(--b-2); background: var(--c-raised);
+      color: var(--t-300); font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
+      &:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      &.activa { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); font-weight: var(--w-6); }
+    }
 
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; }
     .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
@@ -637,6 +744,39 @@ export class ComercioConfigComponent implements OnInit {
   readonly comercio = signal<MiComercio | null>(null);
   readonly guardado = signal(false);
   readonly errorMsg = signal('');
+
+  /** Pestaña visible; la configuración era una sola página kilométrica (TCK-8028). */
+  readonly tabs = TABS;
+  readonly tab = signal<TabConfig>('perfil');
+
+  /**
+   * Qué falta por rellenar en la ficha. Cada carencia sabe a qué pestaña lleva,
+   * para que el aviso sea accionable y no un simple porcentaje.
+   */
+  readonly camposPerfil = computed(() => {
+    const c = this.comercio();
+    const horarioPuesto = (c?.horario ?? []).some((d) => d.cerrado || (d.abre && d.cierra));
+    return [
+      { label: 'Descripción del negocio', tab: 'perfil' as TabConfig, ok: !!c?.descripcion?.trim() },
+      { label: 'Logo', tab: 'perfil' as TabConfig, ok: !!c?.logoUrl },
+      { label: 'Imagen de portada', tab: 'perfil' as TabConfig, ok: !!c?.coverUrl },
+      { label: 'Galería de fotos', tab: 'perfil' as TabConfig, ok: (c?.galeria?.length ?? 0) > 0 },
+      { label: 'Dirección', tab: 'ubicacion' as TabConfig, ok: !!c?.direccion?.calle && !!c?.direccion?.ciudad },
+      { label: 'Email de contacto', tab: 'contacto' as TabConfig, ok: !!c?.contacto?.email },
+      { label: 'Teléfono', tab: 'contacto' as TabConfig, ok: !!c?.contacto?.telefono },
+      { label: 'Horario de atención', tab: 'horarios' as TabConfig, ok: horarioPuesto },
+      { label: 'Política de cancelación', tab: 'politicas' as TabConfig, ok: !!c?.politicaCancelacion },
+      { label: 'Datos bancarios', tab: 'politicas' as TabConfig, ok: !!c?.datosBancarios?.iban },
+      { label: 'Verificación de identidad', tab: 'verificacion' as TabConfig, ok: c?.verificacion?.estado === 'verificado' },
+    ];
+  });
+
+  readonly progresoPerfil = computed(() => {
+    const campos = this.camposPerfil();
+    return Math.round((campos.filter((c) => c.ok).length / campos.length) * 100);
+  });
+
+  readonly faltantes = computed(() => this.camposPerfil().filter((c) => !c.ok));
 
   readonly guardandoInfo = signal(false);
   readonly guardandoDireccion = signal(false);

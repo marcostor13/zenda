@@ -44,6 +44,8 @@ describe('AyudaComponent', () => {
             estaAutenticado: signal(usuario !== null),
             esAdmin: signal(false),
             esComercio: signal(false),
+            esCliente: signal(usuario !== null),
+            clienteVerificado: signal(false),
             logout: jest.fn(),
           },
         },

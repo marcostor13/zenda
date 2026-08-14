@@ -18,7 +18,7 @@ const VERTICAL_ICON: Record<string, string> = {
     <div class="page-header">
       <div>
         <h1 class="page-title">Reseñas</h1>
-        <p class="page-sub">Opiniones de tus clientes sobre tus servicios.</p>
+        <p class="page-sub">Consulta y responde las opiniones de tus clientes.</p>
       </div>
       <div class="header-kpis">
         <div class="rs-card kpi-chip">
@@ -29,10 +29,12 @@ const VERTICAL_ICON: Record<string, string> = {
           <div class="kpi-chip__value">{{ resenas().length }}</div>
           <div class="kpi-chip__label">Total</div>
         </div>
-        <div class="rs-card kpi-chip">
+        <button type="button" class="rs-card kpi-chip kpi-chip--accion"
+                [class.is-activo]="filtro() === 'sinResponder'"
+                (click)="filtrarPor('sinResponder')">
           <div class="kpi-chip__value">{{ sinResponder() }}</div>
           <div class="kpi-chip__label">Sin responder</div>
-        </div>
+        </button>
       </div>
     </div>
 
@@ -49,17 +51,34 @@ const VERTICAL_ICON: Record<string, string> = {
       </div>
       <div class="breakdown-bars">
         @for (n of [5,4,3,2,1]; track n) {
-          <div class="bar-row">
+          <button type="button" class="bar-row bar-row--accion"
+                  [class.is-activo]="filtro() === n" (click)="filtrarPor(n)">
             <span class="bar-label">{{ n }}</span>
             <rs-icon name="star" [size]="12" [stroke]="2" style="color:var(--c-amber)"></rs-icon>
             <div class="bar-track">
               <div class="bar-fill" [style.width.%]="pctEstrellas(n)"></div>
             </div>
             <span class="bar-count">{{ countEstrellas(n) }}</span>
-          </div>
+          </button>
         }
       </div>
     </div>
+
+    <!-- Orden de la lista (TCK-8025) -->
+    @if (!cargando() && resenas().length > 1) {
+      <div class="orden-barra">
+        <span class="orden-barra__label">Ordenar por</span>
+        <div class="orden-toggle" role="group" aria-label="Ordenar reseñas">
+          <button class="orden-toggle__btn" [class.activa]="orden() === 'recientes'"
+                  (click)="orden.set('recientes')">Más recientes</button>
+          <button class="orden-toggle__btn" [class.activa]="orden() === 'mejor'"
+                  (click)="orden.set('mejor')">Mejor valoradas</button>
+        </div>
+        @if (filtro() !== 'todas') {
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="filtrarPor('todas')">Quitar el filtro</button>
+        }
+      </div>
+    }
 
     <!-- Reviews list -->
     @if (cargando()) {
@@ -76,7 +95,7 @@ const VERTICAL_ICON: Record<string, string> = {
         <p>Las reseñas aparecerán aquí cuando tus clientes las dejen tras completar una reserva.</p>
       </div>
     } @else {
-      @for (r of resenas(); track r._id) {
+      @for (r of resenasFiltradas(); track r._id) {
         <div class="rs-card resena-card">
 
           <!-- Header -->
@@ -152,9 +171,29 @@ const VERTICAL_ICON: Record<string, string> = {
   styles: [`
     :host { display: contents; }
 
+    .orden-barra { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+    .orden-barra__label { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+    .orden-toggle {
+      display: inline-flex; padding: 3px; gap: 2px;
+      background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+    }
+    .orden-toggle__btn {
+      padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
+      border-radius: var(--r-md); cursor: pointer;
+      font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-400);
+      transition: all var(--d-2);
+      &.activa { background: var(--c-card); color: var(--c-accent); box-shadow: var(--shadow-sm, 0 1px 3px rgba(8,37,139,.10)); }
+    }
+
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-5); flex-wrap: wrap; }
     .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
+
+    /* Indicadores y barras pulsables: filtran la lista (TCK-8025). */
+    .kpi-chip--accion, .bar-row--accion { cursor: pointer; border: none; font: inherit; text-align: inherit; }
+    .bar-row--accion { background: none; width: 100%; padding: 0; }
+    .kpi-chip--accion:hover, .bar-row--accion:hover { background: var(--c-raised); }
+    .kpi-chip--accion.is-activo, .bar-row--accion.is-activo { outline: 2px solid var(--c-accent); outline-offset: 2px; border-radius: var(--r-md); }
 
     .header-kpis { display: flex; gap: var(--sp-3); }
     .kpi-chip { padding: var(--sp-3) var(--sp-5); text-align: center; min-width: 80px; }
@@ -219,6 +258,36 @@ export class ComercioResenasComponent implements OnInit {
   readonly promedioGeneral = computed(() =>
     this.resenas().length ? this.promedioNum().toFixed(1) : null
   );
+
+  /**
+   * Filtro activo de la lista (TCK-8025). Los indicadores y las barras de
+   * distribución no eran más que decoración: ahora pulsarlos filtra, que es lo
+   * que uno espera al ver "12 sin responder" y querer verlas.
+   */
+  readonly filtro = signal<'todas' | 'sinResponder' | number>('todas');
+
+  /** Orden de la lista (TCK-8025 §9). */
+  readonly orden = signal<'recientes' | 'mejor'>('recientes');
+
+  readonly resenasFiltradas = computed(() => {
+    const f = this.filtro();
+    const base =
+      f === 'todas' ? this.resenas()
+      : f === 'sinResponder' ? this.resenas().filter((r) => !r.respuesta)
+      : this.resenas().filter((r) => Math.round(r.puntuacion) === f);
+
+    // Copia antes de ordenar: el signal guarda el orden que devolvió el API.
+    return [...base].sort((a, b) =>
+      this.orden() === 'mejor'
+        ? b.puntuacion - a.puntuacion
+        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  });
+
+  /** Alterna el filtro: volver a pulsar el mismo lo quita. */
+  filtrarPor(valor: 'todas' | 'sinResponder' | number): void {
+    this.filtro.update((actual) => (actual === valor ? 'todas' : valor));
+  }
 
   readonly sinResponder = computed(() =>
     this.resenas().filter(r => !r.respuesta).length

@@ -18,6 +18,8 @@ describe('PerfilEditarComponent', () => {
       estaAutenticado: signal(usuario !== null),
       esAdmin: signal(false),
       esComercio: signal(false),
+      esCliente: signal(usuario !== null),
+      clienteVerificado: signal(false),
       actualizarDatosLocales: jest.fn(),
       logout: jest.fn(),
     };

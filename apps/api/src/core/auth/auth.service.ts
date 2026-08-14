@@ -179,6 +179,7 @@ export class AuthService {
         email: usuario.email,
         rol: usuario.rol,
         comercioId: usuario.comercioId?.toString(),
+        verificado: usuario.verificado,
       },
     };
   }

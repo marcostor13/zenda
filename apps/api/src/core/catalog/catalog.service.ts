@@ -10,6 +10,7 @@ import { ResenaDocument } from '../reviews/resena.schema';
 import { PerrosService } from '../perros/perros.service';
 import { AptitudPerro } from './servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
 import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
   ServicioClinicoTipo, SERVICIOS_CLINICOS_EXCLUIDOS,
@@ -22,7 +23,6 @@ const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarD
   veterinaria: ['citasDisponibles'],
   peluqueria: ['cuposDisponibles'],
   adiestramiento: ['cuposDisponibles'],
-  cuidadores: ['cuposDisponibles'],
   hoteles: ['unidadesDisponibles'],
 };
 
@@ -70,11 +70,6 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'descuentoPagoAnualPct', 'duracionMeses', 'renovacionAutomatica', 'cupoPolizas',
     'documentoCondicionesUrl',
   ],
-  cuidadores: [
-    'modalidades', 'precioVisita', 'precioDiaCompleto', 'precioNoche', 'duracionVisitaMin',
-    'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP', 'administraMedicacion',
-    'radioDesplazamientoKm', 'cuposDisponibles', 'horario',
-  ],
 };
 
 /** Campos que deben venir informados para que el listado sea reservable desde el día uno. */
@@ -86,7 +81,6 @@ const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
   adiestramiento: ['precioSesion'],
   hoteles: [],
   seguros: ['primaAnualBase', 'tiposSeguro'],
-  cuidadores: ['precioVisita'],
 };
 
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
@@ -233,6 +227,7 @@ interface ServicioLean {
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
+
 
 /** Órdenes aceptados en la búsqueda; cualquier otro valor cae en `relevancia`. */
 const ORDENES_VALIDOS: readonly OrdenServicios[] = [
@@ -387,9 +382,12 @@ export class CatalogService {
     if (!comercioId) {
       throw new DomainException('Tu cuenta no está vinculada a ningún comercio; no puedes crear listados.', 403);
     }
-    const extra = this.filtrarExtraPorVertical(dto.vertical, dto.extra ?? {});
-    this.validarCamposRequeridos(dto.vertical, extra);
-    this.validarServiciosClinicos(dto.vertical, extra);
+    const filtrado = this.filtrarExtraPorVertical(dto.vertical, dto.extra ?? {});
+    this.validarCamposRequeridos(dto.vertical, filtrado);
+    this.validarServiciosClinicos(dto.vertical, filtrado);
+    // Un listado recién creado no tiene reservas, así que sus plazas libres son
+    // toda su capacidad.
+    const extra = this.conDisponibilidad(dto.vertical, filtrado);
 
     const doc = await this.repo.crear({
       vertical: dto.vertical,
@@ -417,8 +415,16 @@ export class CatalogService {
       throw new DomainException('Servicio no encontrado', 404);
     }
     const vertical = (existente as unknown as Record<string, unknown>)['vertical'] as string;
-    const extra = dto.extra ? this.filtrarExtraPorVertical(vertical, dto.extra) : undefined;
-    if (extra) this.validarServiciosClinicos(vertical, extra);
+    const filtrado = dto.extra ? this.filtrarExtraPorVertical(vertical, dto.extra) : undefined;
+    if (filtrado) this.validarServiciosClinicos(vertical, filtrado);
+
+    // Al editar solo se recalcula si el contador está a cero o no existe: así se
+    // rescatan los listados que quedaron invisibles, pero no se pisa un contador
+    // vivo que las reservas ya han ido descontando.
+    const contadorActual = (existente as unknown as Record<string, unknown>)[campoContador(vertical) ?? ''];
+    const extra = filtrado && sinPlazas(contadorActual)
+      ? this.conDisponibilidad(vertical, filtrado)
+      : filtrado;
 
     const actualizado = await this.repo.actualizar(id, comercioId, {
       titulo: dto.titulo,
@@ -471,6 +477,18 @@ export class CatalogService {
   private coordenada(h: ServicioLean, indice: 0 | 1): number | undefined {
     const valor = h.ubicacion?.geo?.coordinates?.[indice];
     return Number.isFinite(valor) ? valor : undefined;
+  }
+
+  /**
+   * Rellena el contador de plazas libres a partir de la capacidad declarada.
+   * Si el comercio ya envió un contador propio se respeta: manda lo que él diga.
+   */
+  private conDisponibilidad(vertical: string, extra: Record<string, unknown>): Record<string, unknown> {
+    const contador = campoContador(vertical);
+    if (!contador || extra[contador] !== undefined) return extra;
+
+    const plazas = plazasDeclaradas(vertical, extra);
+    return plazas === undefined ? extra : { ...extra, [contador]: plazas };
   }
 
   /** Filtra los campos propios del vertical elegido; ignora cualquier otro campo enviado. */
@@ -656,7 +674,6 @@ export class CatalogService {
       // seguros
       'tiposSeguro', 'limitesCobertura', 'condicionesAdmision', 'primaAnualBase',
       'descuentoPagoAnualPct', 'duracionMeses', 'renovacionAutomatica', 'documentoCondicionesUrl',
-      // cuidadores a domicilio
       'modalidades', 'precioVisita', 'precioDiaCompleto', 'precioNoche', 'duracionVisitaMin',
       'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP', 'administraMedicacion',
       'radioDesplazamientoKm',

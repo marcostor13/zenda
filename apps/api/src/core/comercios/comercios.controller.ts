@@ -75,9 +75,11 @@ export class ComerciosController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Reservas del comercio autenticado (últimas 50)' })
+  @ApiOperation({ summary: 'Reservas del comercio autenticado (últimas 200)' })
   misReservas(@Req() req: RequestConUser) {
-    return this.comerciosService.obtenerReservasComercio(req.user.comercioId!, 50);
+    // El panel filtra y cuenta en cliente: con 50 los contadores por estado
+    // salían cortos en cuanto el comercio tenía algo de volumen (TCK-8018).
+    return this.comerciosService.obtenerReservasComercio(req.user.comercioId!, 200);
   }
 
   @Get('mis-finanzas')

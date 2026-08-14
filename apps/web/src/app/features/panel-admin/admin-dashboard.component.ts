@@ -2,7 +2,8 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe, DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
-import { AdminApiService, ComisionConfig, ComercioPendiente, UltimaReserva, AlphaNivel } from './admin-api.service';
+import { etiquetaAlphaNivel } from 'shared';
+import { AdminApiService, ComisionConfig, ComercioAdmin, ComercioPendiente, UltimaReserva, AlphaNivel } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
@@ -310,6 +311,10 @@ const ESTADO_BADGE: Record<string, string> = {
             <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
           </button>
         </div>
+        <p class="panel-nota">
+          Fidelización de los clientes que reservan. Las empresas no tienen nivel Alpha:
+          su escalera es el plan Básico / Pro / Premium.
+        </p>
 
         <div class="comisiones-table alpha-table">
           <div class="comisiones-head alpha-head">
@@ -321,7 +326,7 @@ const ESTADO_BADGE: Record<string, string> = {
           </div>
           @for (n of alphaNiveles(); track n.nivel) {
             <div class="comisiones-row alpha-row">
-              <span class="comision-vertical">Alpha {{ n.nivel }}</span>
+              <span class="comision-vertical">{{ etiquetaNivel(n.nivel) }}</span>
               <label class="alpha-campo"><span>Nombre</span>
                 <input type="text" class="rs-inp" [value]="n.nombre" (input)="n.nombre = $any($event).target.value" />
               </label>
@@ -348,6 +353,54 @@ const ESTADO_BADGE: Record<string, string> = {
             <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Programa Alpha actualizado exitosamente
           </div>
         }
+
+        <!-- Empresas que aplican los descuentos Alpha a sus clientes. Se gestiona
+             aquí, dentro del programa, y no en la ficha del comercio (TCK-8034). -->
+        <div class="alpha-adheridos">
+          <h4 class="alpha-adheridos__titulo">Empresas que aplican descuentos Alpha</h4>
+          <p class="panel-nota">
+            No es un nivel del comercio: sólo indica que acepta aplicar el descuento
+            Alpha a los clientes del programa.
+          </p>
+
+          <div class="alpha-adheridos__buscador">
+            <input type="text" class="rs-inp" placeholder="Buscar una empresa por nombre o CIF…"
+                   [value]="alphaBusqueda()"
+                   (input)="alphaBusqueda.set($any($event).target.value)"
+                   (keyup.enter)="buscarComerciosAlpha()" />
+            <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="buscarComerciosAlpha()">
+              <rs-icon name="search" [size]="14" [stroke]="2"></rs-icon> Buscar
+            </button>
+          </div>
+
+          @if (alphaResultados().length > 0) {
+            <div class="alpha-adheridos__lista">
+              @for (c of alphaResultados(); track c._id) {
+                <div class="alpha-adheridos__fila">
+                  <span class="alpha-adheridos__nombre">{{ c.nombreComercial }}</span>
+                  <span class="alpha-adheridos__vat">{{ c.vatNumber }}</span>
+                  <button class="rs-btn rs-btn--sm"
+                    [class.rs-btn--ghost]="!c.alphaAdherido"
+                    [class.rs-btn--primary]="c.alphaAdherido"
+                    [disabled]="alphaAccionando() === c._id"
+                    (click)="alternarAdhesionAlpha(c)">
+                    {{ c.alphaAdherido ? 'Dar de baja' : 'Adherir' }}
+                  </button>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="alpha-adheridos__vacio">
+              {{ alphaBuscado()
+                 ? 'Ninguna empresa coincide con la búsqueda.'
+                 : 'Todavía no hay empresas adheridas al programa. Búscalas por nombre para darlas de alta.' }}
+            </p>
+          }
+
+          @if (alphaAdhesionError()) {
+            <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-3)">{{ alphaAdhesionError() }}</div>
+          }
+        </div>
       </div>
 
       } <!-- end @if cargando -->
@@ -391,6 +444,17 @@ const ESTADO_BADGE: Record<string, string> = {
     .comisiones-head { display: grid; grid-template-columns: 1fr 160px 180px 120px 120px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); }
     .comisiones-row { display: grid; grid-template-columns: 1fr 160px 180px 120px 120px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); &:last-child { border: none; } &:hover { background: var(--c-card); } }
     .comision-vertical { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
+
+    .panel-nota { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); max-width: 70ch; }
+
+    .alpha-adheridos { margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--b-1); }
+    .alpha-adheridos__titulo { font-size: var(--f-base); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
+    .alpha-adheridos__buscador { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); .rs-inp { flex: 1; min-width: 240px; } }
+    .alpha-adheridos__lista { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .alpha-adheridos__fila { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-3) var(--sp-4); background: var(--c-raised); border-radius: var(--r-lg); flex-wrap: wrap; }
+    .alpha-adheridos__nombre { flex: 1; min-width: 160px; font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
+    .alpha-adheridos__vat { font-size: var(--f-xs); color: var(--t-400); }
+    .alpha-adheridos__vacio { font-size: var(--f-sm); color: var(--t-400); }
 
     .alpha-head, .alpha-row { grid-template-columns: 100px 160px 160px 140px 1fr; gap: var(--sp-3); }
     .alpha-campo > span { display: none; }
@@ -468,6 +532,13 @@ export class AdminDashboardComponent implements OnInit {
   readonly alphaNiveles = signal<AlphaNivel[]>([]);
   readonly alphaGuardadoMsg = signal(false);
 
+  /** Gestión de empresas adheridas al programa Alpha (TCK-8034, antes en Comercios). */
+  readonly alphaResultados = signal<ComercioAdmin[]>([]);
+  readonly alphaBusqueda = signal('');
+  readonly alphaBuscado = signal(false);
+  readonly alphaAccionando = signal<string | null>(null);
+  readonly alphaAdhesionError = signal('');
+
   async ngOnInit(): Promise<void> {
     try {
       const data = await firstValueFrom(this.adminApi.getDashboard());
@@ -486,6 +557,61 @@ export class AdminDashboardComponent implements OnInit {
       this.alphaNiveles.set(niveles);
     } catch {
       // El programa Alpha no bloquea el resto del dashboard si falla.
+    }
+
+    await this.cargarAdheridosAlpha();
+  }
+
+  /** Etiqueta canónica del escalón, al margen del nombre editable (TCK-8011). */
+  etiquetaNivel(nivel: number): string {
+    return etiquetaAlphaNivel(nivel);
+  }
+
+  /** Sin búsqueda se listan las empresas ya adheridas: es el estado que interesa. */
+  private async cargarAdheridosAlpha(): Promise<void> {
+    try {
+      const res = await firstValueFrom(
+        this.adminApi.getComercios({ limite: 50, alphaAdherido: true }),
+      );
+      this.alphaResultados.set(res.items);
+      this.alphaBuscado.set(false);
+    } catch {
+      this.alphaResultados.set([]);
+    }
+  }
+
+  async buscarComerciosAlpha(): Promise<void> {
+    const termino = this.alphaBusqueda().trim();
+    if (!termino) {
+      await this.cargarAdheridosAlpha();
+      return;
+    }
+    try {
+      const res = await firstValueFrom(this.adminApi.getComercios({ limite: 20, buscar: termino }));
+      this.alphaResultados.set(res.items);
+      this.alphaBuscado.set(true);
+    } catch {
+      this.alphaAdhesionError.set('No se pudo buscar empresas.');
+      setTimeout(() => this.alphaAdhesionError.set(''), 3000);
+    }
+  }
+
+  async alternarAdhesionAlpha(comercio: ComercioAdmin): Promise<void> {
+    this.alphaAccionando.set(comercio._id);
+    try {
+      await firstValueFrom(this.adminApi.fijarAlphaAdherido(comercio._id, !comercio.alphaAdherido));
+      if (this.alphaBuscado()) {
+        this.alphaResultados.update(items =>
+          items.map(c => (c._id === comercio._id ? { ...c, alphaAdherido: !comercio.alphaAdherido } : c)),
+        );
+      } else {
+        await this.cargarAdheridosAlpha();
+      }
+    } catch {
+      this.alphaAdhesionError.set('No se pudo cambiar la adhesión al programa Alpha.');
+      setTimeout(() => this.alphaAdhesionError.set(''), 3000);
+    } finally {
+      this.alphaAccionando.set(null);
     }
   }
 

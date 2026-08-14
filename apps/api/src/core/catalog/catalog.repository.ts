@@ -126,11 +126,6 @@ const FILTROS_VERTICAL: Record<string, Record<string, ComparadorFiltro>> = {
     tiposSeguro: 'todos',
     renovacionAutomatica: 'bool',
   },
-  cuidadores: {
-    administraMedicacion: 'bool',
-    aceptaPPP: 'bool',
-    modalidades: 'todos',
-  },
 };
 
 /** Contador de plazas libres de cada vertical: su nombre cambia según la categoría. */
@@ -144,7 +139,6 @@ const CAMPO_DISPONIBILIDAD: Record<string, string> = {
   veterinaria: 'citasDisponibles',
   peluqueria: 'cuposDisponibles',
   adiestramiento: 'cuposDisponibles',
-  cuidadores: 'cuposDisponibles',
 };
 
 const ORDEN_SORT: Record<Exclude<OrdenServicios, 'distancia'>, Record<string, 1 | -1>> = {

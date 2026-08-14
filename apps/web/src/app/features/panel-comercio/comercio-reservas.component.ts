@@ -24,15 +24,51 @@ const ESTADO_BADGE: Record<string, string> = {
   pago_liberado: 'rs-badge--success', en_disputa: 'rs-badge--error', reembolsada: 'rs-badge--neutral',
 };
 
-type FiltroEstado = 'todas' | 'confirmada' | 'pendiente' | 'cancelada' | 'completada';
+const ESTADO_LABEL: Record<string, string> = {
+  pendiente: 'Pendiente', confirmada: 'Confirmada', en_curso: 'En curso',
+  completada: 'Completada', cancelada: 'Cancelada', no_show: 'No se presentó',
+  ajuste_solicitado: 'Ajuste solicitado', pago_retenido: 'Pago retenido',
+  pago_liberado: 'Pago liberado', en_disputa: 'En disputa', reembolsada: 'Reembolsada',
+};
+
+const ESTADO_ICONO: Record<string, string> = {
+  pendiente: 'clock', confirmada: 'check-circle', en_curso: 'truck',
+  completada: 'check', cancelada: 'x', no_show: 'alert-circle',
+  ajuste_solicitado: 'euro', pago_retenido: 'clock', pago_liberado: 'check-circle',
+  en_disputa: 'alert-circle', reembolsada: 'arrow-right',
+};
+
+type FiltroEstado = 'todas' | 'pendiente' | 'confirmada' | 'en_curso' | 'completada' | 'cancelada';
 
 const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
   { valor: 'todas', label: 'Todas' },
-  { valor: 'confirmada', label: 'Confirmadas' },
   { valor: 'pendiente', label: 'Pendientes' },
-  { valor: 'cancelada', label: 'Canceladas' },
+  { valor: 'confirmada', label: 'Confirmadas' },
+  { valor: 'en_curso', label: 'En curso' },
   { valor: 'completada', label: 'Completadas' },
+  { valor: 'cancelada', label: 'Canceladas' },
 ];
+
+type Periodo = 'todas' | 'hoy' | 'semana' | 'mes' | 'rango';
+
+const PERIODOS: ReadonlyArray<{ valor: Periodo; label: string }> = [
+  { valor: 'todas', label: 'Todas las fechas' },
+  { valor: 'hoy', label: 'Hoy' },
+  { valor: 'semana', label: 'Esta semana' },
+  { valor: 'mes', label: 'Este mes' },
+  { valor: 'rango', label: 'Elegir fechas' },
+];
+
+/** Verticales que se reservan por estancia (entrada/salida) y no por cita. */
+const VERTICALES_ESTANCIA = new Set(['alojamiento', 'hoteles']);
+
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+/** Medianoche del día, para comparar fechas sin que la hora estorbe. */
+function aDia(fecha: string | Date): Date {
+  const d = new Date(fecha);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
 
 @Component({
   selector: 'app-comercio-reservas',
@@ -43,7 +79,80 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
     <div class="page-header">
       <div>
         <h1 class="page-title">Reservas</h1>
-        <p class="page-sub">Gestiona todas las reservas recibidas en tu comercio</p>
+        <p class="page-sub">Gestiona el día a día de tu negocio: quién viene, cuándo y con qué mascota.</p>
+      </div>
+    </div>
+
+    <!-- RESUMEN DEL DÍA (TCK-8018) -->
+    <div class="resumen">
+      <button class="resumen__tile" [class.activa]="periodo() === 'hoy'" (click)="verHoy()">
+        <span class="resumen__icon"><rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon></span>
+        <span class="resumen__dato">
+          <strong>{{ reservasDeHoy().length }}</strong>
+          <span>Reservas de hoy</span>
+        </span>
+      </button>
+      <button class="resumen__tile" [class.activa]="filtroActivo() === 'pendiente'" (click)="verPendientes()">
+        <span class="resumen__icon resumen__icon--warning"><rs-icon name="clock" [size]="18" [stroke]="2"></rs-icon></span>
+        <span class="resumen__dato">
+          <strong>{{ contarEstado('pendiente') }}</strong>
+          <span>Pendientes de confirmar</span>
+        </span>
+      </button>
+      <div class="resumen__tile resumen__tile--estatica">
+        <span class="resumen__icon resumen__icon--accent"><rs-icon name="arrow-right" [size]="18" [stroke]="2"></rs-icon></span>
+        <span class="resumen__dato">
+          <strong>{{ proximas().length }}</strong>
+          <span>Próximas (7 días)</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- BUSCADOR Y FILTROS -->
+    <div class="controles">
+      <label class="buscador">
+        <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon>
+        <input class="buscador__input" type="search"
+               placeholder="Buscar por cliente, mascota o nº de reserva"
+               [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)"
+               [ngModelOptions]="{standalone: true}" />
+      </label>
+
+      <select class="rs-inp control-select" [ngModel]="periodo()"
+              (ngModelChange)="periodo.set($event)" [ngModelOptions]="{standalone: true}"
+              aria-label="Periodo">
+        @for (p of periodos; track p.valor) {
+          <option [value]="p.valor">{{ p.label }}</option>
+        }
+      </select>
+
+      @if (periodo() === 'rango') {
+        <input class="rs-inp control-fecha" type="date" [ngModel]="desde()"
+               (ngModelChange)="desde.set($event)" [ngModelOptions]="{standalone: true}"
+               aria-label="Desde" />
+        <input class="rs-inp control-fecha" type="date" [ngModel]="hasta()"
+               (ngModelChange)="hasta.set($event)" [ngModelOptions]="{standalone: true}"
+               aria-label="Hasta" />
+      }
+
+      @if (servicios().length > 1) {
+        <select class="rs-inp control-select" [ngModel]="servicioFiltro()"
+                (ngModelChange)="servicioFiltro.set($event)" [ngModelOptions]="{standalone: true}"
+                aria-label="Servicio">
+          <option value="">Todos los servicios</option>
+          @for (s of servicios(); track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+      }
+
+      <div class="vista-toggle" role="group" aria-label="Visualización">
+        <button class="vista-toggle__btn" [class.activa]="vista() === 'lista'" (click)="vista.set('lista')">
+          <rs-icon name="list" [size]="14" [stroke]="2"></rs-icon> Lista
+        </button>
+        <button class="vista-toggle__btn" [class.activa]="vista() === 'calendario'" (click)="vista.set('calendario')">
+          <rs-icon name="calendar" [size]="14" [stroke]="2"></rs-icon> Calendario
+        </button>
       </div>
     </div>
 
@@ -66,41 +175,157 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
           <div class="skeleton-row"></div>
         }
       </div>
-    } @else if (reservasFiltradas().length === 0) {
+    } @else if (reservas().length === 0) {
+      <!-- Vacío real: el comercio todavía no ha recibido ninguna reserva -->
       <div class="rs-card empty-state">
         <rs-icon name="calendar" [size]="40" [stroke]="1.25" style="color:var(--t-400)"></rs-icon>
-        <p>No hay reservas{{ filtroActivo() !== 'todas' ? ' con este filtro' : ' aún' }}.</p>
-        @if (filtroActivo() !== 'todas') {
-          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="filtroActivo.set('todas')">
-            Ver todas las reservas
-          </button>
-        }
+        <p>
+          Todavía no tienes reservas. Cuando recibas una reserva aparecerá aquí con toda la
+          información necesaria para gestionarla.
+        </p>
+        <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary">
+          <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon> Crear o publicar un servicio
+        </a>
       </div>
     } @else {
-      <div class="rs-card" style="overflow-x:auto">
-        <table class="rs-table">
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Vertical</th>
-              <th>Fecha inicio</th>
-              <th>Monto total</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (r of reservasFiltradas(); track r._id) {
-              <tr>
-                <td><code>{{ r.codigo }}</code></td>
-                <td class="vertical-cell">
-                  <rs-icon [name]="iconVertical(r.vertical)" [size]="14" [stroke]="2"></rs-icon>
-                  {{ r.vertical }}
-                </td>
-                <td>{{ r.fechaInicio | date:'d MMM yyyy' }}</td>
-                <td>€{{ r.montoTotal | number:'1.2-2' }}</td>
-                <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado === 'ajuste_solicitado' ? 'ajuste solicitado' : r.estado }}</span></td>
-                <td style="display:flex;gap:var(--sp-2)">
+      @if (vista() === 'calendario') {
+        <div class="rs-card calendario">
+          <div class="calendario__head">
+            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cambiarMes(-1)" aria-label="Mes anterior">
+              <rs-icon name="chevron-left" [size]="15" [stroke]="2"></rs-icon>
+            </button>
+            <strong class="calendario__mes">{{ mes() | date:'LLLL yyyy' }}</strong>
+            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cambiarMes(1)" aria-label="Mes siguiente">
+              <rs-icon name="chevron-right" [size]="15" [stroke]="2"></rs-icon>
+            </button>
+          </div>
+          <div class="calendario__grid">
+            @for (d of diasSemana; track d) {
+              <span class="calendario__dow">{{ d }}</span>
+            }
+            @for (celda of celdasCalendario(); track celda.clave) {
+              <button class="calendario__dia"
+                      [class.fuera]="!celda.delMes"
+                      [class.hoy]="celda.esHoy"
+                      [class.seleccionado]="diaSeleccionado() === celda.clave"
+                      (click)="seleccionarDia(celda.clave)">
+                <span class="calendario__num">{{ celda.dia }}</span>
+                @if (celda.reservas.length) {
+                  <span class="calendario__marca">{{ celda.reservas.length }}</span>
+                }
+              </button>
+            }
+          </div>
+          <p class="calendario__pie">
+            {{ diaSeleccionado()
+               ? 'Reservas del día seleccionado.'
+               : 'Elige un día para ver sus reservas; sin selección se listan todas las del filtro.' }}
+            @if (diaSeleccionado()) {
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="diaSeleccionado.set(null)">Quitar el día</button>
+            }
+          </p>
+        </div>
+      }
+
+      @if (reservasFiltradas().length === 0) {
+        <div class="rs-card empty-state">
+          <rs-icon name="search" [size]="36" [stroke]="1.25" style="color:var(--t-400)"></rs-icon>
+          <p>Ninguna reserva coincide con lo que has buscado.</p>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarFiltros()">Quitar los filtros</button>
+        </div>
+      } @else {
+        <div class="reservas-lista">
+          @for (r of reservasFiltradas(); track r._id) {
+            <div class="reserva-card">
+              <div class="reserva-card__main">
+                <span class="reserva-card__icono">
+                  <rs-icon [name]="iconVertical(r.vertical)" [size]="18" [stroke]="1.75"></rs-icon>
+                </span>
+
+                <div class="reserva-card__info">
+                  <div class="reserva-card__titulo">
+                    <strong>{{ r.perroNombre || 'Mascota sin ficha' }}</strong>
+                    <span class="reserva-card__cliente">· {{ r.clienteNombre || 'Cliente' }}</span>
+                  </div>
+                  <div class="reserva-card__servicio">
+                    {{ r.servicioTitulo || r.vertical }}
+                  </div>
+                  <div class="reserva-card__fecha">
+                    <rs-icon [name]="esEstancia(r.vertical) ? 'hotel' : 'clock'" [size]="13" [stroke]="2"></rs-icon>
+                    @if (esEstancia(r.vertical)) {
+                      Entrada {{ r.fechaInicio | date:'d MMM' }}
+                      @if (r.fechaFin) { · Salida {{ r.fechaFin | date:'d MMM' }} }
+                    } @else {
+                      {{ r.fechaInicio | date:'d MMM yyyy' }} · {{ r.fechaInicio | date:'HH:mm' }}
+                    }
+                  </div>
+                </div>
+
+                <div class="reserva-card__meta">
+                  <span class="rs-badge {{ badgeEstado(r.estado) }}">
+                    <rs-icon [name]="iconoEstado(r.estado)" [size]="12" [stroke]="2"></rs-icon>
+                    {{ etiquetaEstado(r.estado) }}
+                  </span>
+                  <span class="reserva-card__importe">€{{ (r.montoAjustado ?? r.montoTotal) | number:'1.2-2' }}</span>
+                  <code class="reserva-card__codigo">{{ r.codigo }}</code>
+                </div>
+              </div>
+
+              <!-- Acciones rápidas -->
+              <div class="reserva-card__acciones">
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleDetalle(r._id)">
+                  <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon>
+                  {{ detalleAbiertoId() === r._id ? 'Ocultar' : 'Ver reserva' }}
+                </button>
+                @if (r.clienteTelefono) {
+                  <a class="rs-btn rs-btn--ghost rs-btn--sm" [href]="'tel:' + r.clienteTelefono">
+                    <rs-icon name="phone" [size]="13" [stroke]="2"></rs-icon> Contactar
+                  </a>
+                } @else if (r.clienteEmail) {
+                  <a class="rs-btn rs-btn--ghost rs-btn--sm" [href]="'mailto:' + r.clienteEmail">
+                    <rs-icon name="mail" [size]="13" [stroke]="2"></rs-icon> Contactar
+                  </a>
+                }
+                @if (tieneGestion(r)) {
+                  <button class="rs-btn rs-btn--outline rs-btn--sm" (click)="toggleGestion(r._id)">
+                    <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon>
+                    {{ gestionAbiertaId() === r._id ? 'Cerrar' : 'Gestionar' }}
+                  </button>
+                }
+              </div>
+
+              @if (detalleAbiertoId() === r._id) {
+                <div class="reserva-card__panel">
+                  <dl class="detalle">
+                    <div><dt>Nº de reserva</dt><dd>{{ r.codigo }}</dd></div>
+                    <div><dt>Servicio</dt><dd>{{ r.servicioTitulo || r.vertical }}</dd></div>
+                    <div><dt>Cliente</dt><dd>{{ r.clienteNombre || '—' }}</dd></div>
+                    @if (r.clienteEmail) { <div><dt>Email</dt><dd>{{ r.clienteEmail }}</dd></div> }
+                    @if (r.clienteTelefono) { <div><dt>Teléfono</dt><dd>{{ r.clienteTelefono }}</dd></div> }
+                    <div><dt>Mascota</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
+                    <div>
+                      <dt>{{ esEstancia(r.vertical) ? 'Entrada' : 'Fecha y hora' }}</dt>
+                      <dd>{{ r.fechaInicio | date:'d MMM yyyy, HH:mm' }}</dd>
+                    </div>
+                    @if (r.fechaFin) {
+                      <div><dt>{{ esEstancia(r.vertical) ? 'Salida' : 'Fin' }}</dt><dd>{{ r.fechaFin | date:'d MMM yyyy, HH:mm' }}</dd></div>
+                    }
+                    <div><dt>Importe</dt><dd>€{{ (r.montoAjustado ?? r.montoTotal) | number:'1.2-2' }}</dd></div>
+                    <div><dt>Reservada el</dt><dd>{{ r.createdAt | date:'d MMM yyyy' }}</dd></div>
+                  </dl>
+                  @if (r.suplementos?.length) {
+                    <p class="detalle__suplementos">
+                      <strong>Suplementos:</strong>
+                      @for (s of r.suplementos; track $index) {
+                        {{ s.concepto }} (+€{{ s.monto | number:'1.2-2' }}){{ $last ? '' : ' · ' }}
+                      }
+                    </p>
+                  }
+                </div>
+              }
+
+              @if (gestionAbiertaId() === r._id) {
+                <div class="reserva-card__panel reserva-card__panel--acciones">
                   @if (r.estado === 'confirmada') {
                     <button class="rs-btn rs-btn--outline rs-btn--sm"
                             [disabled]="completandoId() === r._id"
@@ -137,141 +362,138 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
                       </button>
                     }
                   }
-                </td>
-              </tr>
+                </div>
+              }
+
               @if (historiaAbiertaId() === r._id) {
-                <tr>
-                  <td colspan="6">
-                    <div class="ajuste-panel">
-                      @if (cargandoHistoria()) {
-                        <p class="ajuste-panel__hint">Cargando historia veterinaria compartida…</p>
-                      } @else if (errorHistoria()) {
-                        <p class="ajuste-panel__hint">{{ errorHistoria() }}</p>
-                      } @else if (historiaVeterinaria(); as h) {
-                        <p class="ajuste-panel__hint">
-                          {{ h.nombre }} · {{ h.especie }} @if (h.raza) { · {{ h.raza }} } @if (h.peso) { · {{ h.peso }} kg }
-                          @if (h.esterilizado) { · Esterilizado/a }
-                        </p>
-                        @if (h.alergias.length) { <p><strong>Alergias:</strong> {{ h.alergias.join(', ') }}</p> }
-                        @if (h.enfermedades.length) { <p><strong>Enfermedades:</strong> {{ h.enfermedades.join(', ') }}</p> }
-                        @if (h.medicacion.length) { <p><strong>Medicación:</strong> {{ h.medicacion.join(', ') }}</p> }
-                        @if (h.vacunas.length) { <p><strong>Vacunas:</strong> {{ h.vacunas.join(', ') }}</p> }
-                        @if (h.dieta) { <p><strong>Dieta:</strong> {{ h.dieta }}</p> }
-                        @if (h.historial.length) {
-                          <p><strong>Historial de otros profesionales:</strong></p>
-                          @for (nota of h.historial; track $index) {
-                            <p class="ajuste-panel__hint">· [{{ nota.vertical }}] {{ nota.nota }}</p>
-                          }
+                <div class="reserva-card__panel">
+                  <div class="ajuste-panel">
+                    @if (cargandoHistoria()) {
+                      <p class="ajuste-panel__hint">Cargando historia veterinaria compartida…</p>
+                    } @else if (errorHistoria()) {
+                      <p class="ajuste-panel__hint">{{ errorHistoria() }}</p>
+                    } @else if (historiaVeterinaria(); as h) {
+                      <p class="ajuste-panel__hint">
+                        {{ h.nombre }} · {{ h.especie }} @if (h.raza) { · {{ h.raza }} } @if (h.peso) { · {{ h.peso }} kg }
+                        @if (h.esterilizado) { · Esterilizado/a }
+                      </p>
+                      @if (h.alergias.length) { <p><strong>Alergias:</strong> {{ h.alergias.join(', ') }}</p> }
+                      @if (h.enfermedades.length) { <p><strong>Enfermedades:</strong> {{ h.enfermedades.join(', ') }}</p> }
+                      @if (h.medicacion.length) { <p><strong>Medicación:</strong> {{ h.medicacion.join(', ') }}</p> }
+                      @if (h.vacunas.length) { <p><strong>Vacunas:</strong> {{ h.vacunas.join(', ') }}</p> }
+                      @if (h.dieta) { <p><strong>Dieta:</strong> {{ h.dieta }}</p> }
+                      @if (h.historial.length) {
+                        <p><strong>Historial de otros profesionales:</strong></p>
+                        @for (nota of h.historial; track $index) {
+                          <p class="ajuste-panel__hint">· [{{ nota.vertical }}] {{ nota.nota }}</p>
                         }
                       }
-                      <div class="ajuste-panel__actions">
-                        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="historiaAbiertaId.set(null)">Cerrar</button>
-                      </div>
+                    }
+                    <div class="ajuste-panel__actions">
+                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="historiaAbiertaId.set(null)">Cerrar</button>
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               }
+
               @if (valorarAbiertoId() === r._id) {
-                <tr>
-                  <td colspan="6">
-                    <div class="ajuste-panel">
-                      <p class="ajuste-panel__hint">
-                        Tu valoración se suma al pasaporte digital del perro y ayuda a otros profesionales de Doogking
-                        a adaptar el servicio.
+                <div class="reserva-card__panel">
+                  <div class="ajuste-panel">
+                    <p class="ajuste-panel__hint">
+                      Tu valoración se suma al pasaporte digital del perro y ayuda a otros profesionales de Doogking
+                      a adaptar el servicio.
+                    </p>
+                    <div class="resena-form__estrellas">
+                      @for (n of [1,2,3,4,5]; track n) {
+                        <button type="button" class="estrella-btn" [class.activa]="n <= puntuacionValoracion()"
+                                [attr.aria-label]="n + ' de 5'"
+                                (click)="puntuacionValoracion.set(n)">
+                          <rs-icon name="star" [size]="24" [stroke]="1.75"
+                                   [filled]="n <= puntuacionValoracion()"></rs-icon>
+                        </button>
+                      }
+                    </div>
+                    <div class="rs-field">
+                      <label class="rs-lbl">Comentario (opcional)</label>
+                      <input class="rs-inp" [(ngModel)]="comentarioValoracion"
+                             [ngModelOptions]="{standalone: true}"
+                             placeholder="Ej. muy tranquilo, excelente comportamiento" />
+                    </div>
+                    @if (r.vertical === 'adiestramiento') {
+                      <div class="rs-field">
+                        <label class="rs-lbl">Nivel Doogking (opcional)</label>
+                        <select class="rs-inp" [(ngModel)]="nivelDoogking" [ngModelOptions]="{standalone: true}">
+                          <option [ngValue]="null">— No actualizar —</option>
+                          <option [ngValue]="1">1 · Cachorro</option>
+                          <option [ngValue]="2">2 · Básico</option>
+                          <option [ngValue]="3">3 · Intermedio</option>
+                          <option [ngValue]="4">4 · Avanzado</option>
+                          <option [ngValue]="5">5 · Excelente sociabilidad</option>
+                        </select>
+                        <span class="rs-field-hint">Se guarda en la ficha del perro y lo verá cualquier profesional de Doogking.</span>
+                      </div>
+                    }
+                    <div class="ajuste-panel__actions">
+                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarValorar()">Cancelar</button>
+                      <button class="rs-btn rs-btn--primary rs-btn--sm"
+                              [disabled]="enviandoValoracion()"
+                              (click)="enviarValoracion(r)">
+                        {{ enviandoValoracion() ? 'Enviando…' : 'Publicar valoración' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              @if (ajusteAbiertoId() === r._id) {
+                <div class="reserva-card__panel">
+                  <div class="ajuste-panel">
+                    <p class="ajuste-panel__hint">
+                      Selecciona los suplementos detectados en recepción. El cliente recibirá una notificación y
+                      deberá aprobarlos antes de que se cobre nada.
+                    </p>
+
+                    @if (suplementosCatalogo().length === 0) {
+                      <p class="ajuste-panel__empty">
+                        No tienes suplementos preconfigurados.
+                        <a routerLink="/comercio/suplementos">Créalos aquí</a> para poder seleccionarlos con un click.
                       </p>
-                      <div class="resena-form__estrellas">
-                        @for (n of [1,2,3,4,5]; track n) {
-                          <button type="button" class="estrella-btn" [class.activa]="n <= puntuacionValoracion()"
-                                  [attr.aria-label]="n + ' de 5'"
-                                  (click)="puntuacionValoracion.set(n)">
-                            <rs-icon name="star" [size]="24" [stroke]="1.75"
-                                     [filled]="n <= puntuacionValoracion()"></rs-icon>
-                          </button>
+                    } @else {
+                      <div class="ajuste-panel__checks">
+                        @for (s of suplementosCatalogo(); track s._id) {
+                          <label class="filter-check">
+                            <input type="checkbox" [checked]="seleccionados().has(s._id)"
+                                   (change)="toggleSuplemento(s._id)" />
+                            {{ s.concepto }} (+€{{ s.monto | number:'1.2-2' }})
+                          </label>
                         }
                       </div>
-                      <div class="rs-field">
-                        <label class="rs-lbl">Comentario (opcional)</label>
-                        <input class="rs-inp" [(ngModel)]="comentarioValoracion"
-                               [ngModelOptions]="{standalone: true}"
-                               placeholder="Ej. muy tranquilo, excelente comportamiento" />
-                      </div>
-                      @if (r.vertical === 'adiestramiento') {
-                        <div class="rs-field">
-                          <label class="rs-lbl">Nivel Doogking (opcional)</label>
-                          <select class="rs-inp" [(ngModel)]="nivelDoogking" [ngModelOptions]="{standalone: true}">
-                            <option [ngValue]="null">— No actualizar —</option>
-                            <option [ngValue]="1">1 · Cachorro</option>
-                            <option [ngValue]="2">2 · Básico</option>
-                            <option [ngValue]="3">3 · Intermedio</option>
-                            <option [ngValue]="4">4 · Avanzado</option>
-                            <option [ngValue]="5">5 · Excelente sociabilidad</option>
-                          </select>
-                          <span class="rs-field-hint">Se guarda en la ficha del perro y lo verá cualquier profesional de Doogking.</span>
-                        </div>
-                      }
-                      <div class="ajuste-panel__actions">
-                        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarValorar()">Cancelar</button>
-                        <button class="rs-btn rs-btn--primary rs-btn--sm"
-                                [disabled]="enviandoValoracion()"
-                                (click)="enviarValoracion(r)">
-                          {{ enviandoValoracion() ? 'Enviando…' : 'Publicar valoración' }}
-                        </button>
-                      </div>
+                    }
+
+                    <div class="ajuste-panel__evidencia">
+                      <label class="rs-lbl">Foto del estado del animal al llegar (opcional pero recomendado)</label>
+                      <rs-image-upload [(ngModel)]="evidenciaUrl"></rs-image-upload>
                     </div>
-                  </td>
-                </tr>
-              }
-              @if (ajusteAbiertoId() === r._id) {
-                <tr>
-                  <td colspan="6">
-                    <div class="ajuste-panel">
-                      <p class="ajuste-panel__hint">
-                        Selecciona los suplementos detectados en recepción. El cliente recibirá una notificación y
-                        deberá aprobarlos antes de que se cobre nada.
-                      </p>
 
-                      @if (suplementosCatalogo().length === 0) {
-                        <p class="ajuste-panel__empty">
-                          No tienes suplementos preconfigurados.
-                          <a routerLink="/comercio/suplementos">Créalos aquí</a> para poder seleccionarlos con un click.
-                        </p>
-                      } @else {
-                        <div class="ajuste-panel__checks">
-                          @for (s of suplementosCatalogo(); track s._id) {
-                            <label class="filter-check">
-                              <input type="checkbox" [checked]="seleccionados().has(s._id)"
-                                     (change)="toggleSuplemento(s._id)" />
-                              {{ s.concepto }} (+€{{ s.monto | number:'1.2-2' }})
-                            </label>
-                          }
-                        </div>
-                      }
+                    @if (totalSuplementoSeleccionado() > 0) {
+                      <p class="ajuste-panel__total">Suplemento total: +€{{ totalSuplementoSeleccionado() | number:'1.2-2' }}</p>
+                    }
 
-                      <div class="ajuste-panel__evidencia">
-                        <label class="rs-lbl">Foto del estado del animal al llegar (opcional pero recomendado)</label>
-                        <rs-image-upload [(ngModel)]="evidenciaUrl"></rs-image-upload>
-                      </div>
-
-                      @if (totalSuplementoSeleccionado() > 0) {
-                        <p class="ajuste-panel__total">Suplemento total: +€{{ totalSuplementoSeleccionado() | number:'1.2-2' }}</p>
-                      }
-
-                      <div class="ajuste-panel__actions">
-                        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarAjuste()">Cancelar</button>
-                        <button class="rs-btn rs-btn--primary rs-btn--sm"
-                                [disabled]="enviandoAjuste() || seleccionados().size === 0"
-                                (click)="enviarAjuste(r)">
-                          {{ enviandoAjuste() ? 'Enviando…' : 'Enviar solicitud al cliente' }}
-                        </button>
-                      </div>
+                    <div class="ajuste-panel__actions">
+                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarAjuste()">Cancelar</button>
+                      <button class="rs-btn rs-btn--primary rs-btn--sm"
+                              [disabled]="enviandoAjuste() || seleccionados().size === 0"
+                              (click)="enviarAjuste(r)">
+                        {{ enviandoAjuste() ? 'Enviando…' : 'Enviar solicitud al cliente' }}
+                      </button>
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               }
-            }
-          </tbody>
-        </table>
-      </div>
+            </div>
+          }
+        </div>
+      }
     }
 
     @if (errorMsg()) {
@@ -284,6 +506,58 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; }
     .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
+
+    /* Resumen del día: lo primero que mira el profesional al entrar */
+    .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-4); }
+    .resumen__tile {
+      display: flex; align-items: center; gap: var(--sp-4);
+      padding: var(--sp-4) var(--sp-5); text-align: left;
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+      cursor: pointer; transition: all var(--d-2);
+      &:hover { border-color: var(--c-accent); }
+      &.activa { border-color: var(--c-accent); background: var(--c-accent-lo); }
+    }
+    .resumen__tile--estatica { cursor: default; &:hover { border-color: var(--b-1); } }
+    .resumen__icon {
+      width: 38px; height: 38px; border-radius: var(--r-lg); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--c-accent-lo); color: var(--c-accent);
+    }
+    .resumen__icon--warning { background: rgba(251,174,23,.14); color: #B45309; }
+    .resumen__icon--accent { background: var(--c-raised); color: var(--t-300); }
+    .resumen__dato { display: flex; flex-direction: column; min-width: 0;
+      strong { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
+      span { font-size: var(--f-xs); color: var(--t-400); }
+    }
+
+    .controles { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+    .buscador {
+      display: flex; align-items: center; gap: var(--sp-2);
+      flex: 1; min-width: 260px;
+      padding: 0 var(--sp-3); height: 40px;
+      background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      color: var(--t-400);
+      &:focus-within { border-color: var(--c-accent); }
+    }
+    .buscador__input {
+      flex: 1; border: none; background: transparent; outline: none;
+      font-size: var(--f-sm); color: var(--t-100); min-width: 0;
+    }
+    .control-select, .control-fecha { height: 40px; }
+    .control-fecha { max-width: 160px; }
+
+    .vista-toggle {
+      display: inline-flex; padding: 3px; gap: 2px;
+      background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+    }
+    .vista-toggle__btn {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
+      border-radius: var(--r-md); cursor: pointer;
+      font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-400);
+      transition: all var(--d-2);
+      &.activa { background: var(--c-card); color: var(--c-accent); box-shadow: var(--shadow-sm, 0 1px 3px rgba(8,37,139,.10)); }
+    }
 
     .filter-pills { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
     .filter-pill {
@@ -310,22 +584,87 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
     }
 
     .empty-state {
-      padding: var(--sp-16); text-align: center;
+      padding: var(--sp-16) var(--sp-8); text-align: center;
       display: flex; flex-direction: column; align-items: center; gap: var(--sp-4);
-      p { color: var(--t-400); font-size: var(--f-md); }
+      p { color: var(--t-400); font-size: var(--f-md); max-width: 46ch; line-height: 1.6; }
     }
 
-    .rs-table {
-      width: 100%; border-collapse: collapse; font-size: var(--f-sm);
-      th { color: var(--t-400); text-align: left; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--b-1); font-size: var(--f-xs); text-transform: uppercase; letter-spacing: .06em; font-weight: var(--w-6); white-space: nowrap; }
-      td { padding: var(--sp-4); border-bottom: 1px solid var(--b-1); color: var(--t-200); white-space: nowrap; }
-      tr:last-child td { border-bottom: none; }
-      tr:hover td { background: var(--c-raised); }
-      code { font-family: monospace; color: var(--c-accent); background: var(--c-accent-lo); padding: 2px var(--sp-2); border-radius: var(--r-sm); font-size: var(--f-xs); }
+    /* Tarjetas de reserva */
+    .reservas-lista { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .reserva-card {
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+      padding: var(--sp-4) var(--sp-5);
+      transition: border-color var(--d-2);
+      &:hover { border-color: var(--b-2); }
     }
-    .vertical-cell { display: flex; align-items: center; gap: var(--sp-2); text-transform: capitalize; }
+    .reserva-card__main { display: flex; align-items: flex-start; gap: var(--sp-4); flex-wrap: wrap; }
+    .reserva-card__icono {
+      width: 38px; height: 38px; border-radius: var(--r-lg); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--c-accent-lo); color: var(--c-accent);
+    }
+    .reserva-card__info { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 2px; }
+    .reserva-card__titulo { font-size: var(--f-base); color: var(--t-100);
+      strong { font-weight: var(--w-7); }
+    }
+    .reserva-card__cliente { color: var(--t-300); font-weight: var(--w-5); }
+    .reserva-card__servicio { font-size: var(--f-sm); color: var(--t-300); }
+    .reserva-card__fecha {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-sm); color: var(--t-400);
+    }
+    .reserva-card__meta {
+      display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-1);
+      margin-left: auto;
+    }
+    .reserva-card__importe { font-size: var(--f-base); font-weight: var(--w-7); color: var(--t-100); }
+    .reserva-card__codigo {
+      font-family: monospace; font-size: var(--f-xs);
+      color: var(--c-accent); background: var(--c-accent-lo);
+      padding: 2px var(--sp-2); border-radius: var(--r-sm);
+    }
+    .reserva-card__acciones { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+    .reserva-card__panel { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--b-1); }
+    .reserva-card__panel--acciones { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
 
-    .ajuste-panel { padding: var(--sp-4) 0; display: flex; flex-direction: column; gap: var(--sp-3); white-space: normal; }
+    .detalle {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-3);
+      dt { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+      dd { font-size: var(--f-sm); color: var(--t-100); }
+    }
+    .detalle__suplementos { margin-top: var(--sp-3); font-size: var(--f-sm); color: var(--t-300); }
+
+    /* Calendario mensual */
+    .calendario { padding: var(--sp-5); }
+    .calendario__head { display: flex; align-items: center; justify-content: center; gap: var(--sp-4); margin-bottom: var(--sp-4); }
+    .calendario__mes { font-size: var(--f-base); color: var(--t-100); text-transform: capitalize; min-width: 150px; text-align: center; }
+    .calendario__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .calendario__dow {
+      text-align: center; font-size: var(--f-xs); color: var(--t-400);
+      text-transform: uppercase; letter-spacing: .05em; padding-bottom: var(--sp-2);
+    }
+    .calendario__dia {
+      position: relative; aspect-ratio: 1 / 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      background: var(--c-raised); border: 1px solid transparent; border-radius: var(--r-md);
+      cursor: pointer; transition: all var(--d-2);
+      &:hover { border-color: var(--c-accent); }
+      &.fuera { opacity: .35; }
+      &.hoy { border-color: var(--b-2); font-weight: var(--w-7); }
+      &.seleccionado { background: var(--c-accent-lo); border-color: var(--c-accent); }
+    }
+    .calendario__num { font-size: var(--f-sm); color: var(--t-200); }
+    .calendario__marca {
+      min-width: 18px; padding: 0 4px; border-radius: var(--r-full);
+      background: var(--c-accent); color: #fff;
+      font-size: 10px; font-weight: var(--w-7); line-height: 16px;
+    }
+    .calendario__pie {
+      margin-top: var(--sp-4); font-size: var(--f-sm); color: var(--t-400);
+      display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+    }
+
+    .ajuste-panel { display: flex; flex-direction: column; gap: var(--sp-3); }
     .ajuste-panel__hint { font-size: var(--f-sm); color: var(--t-400); }
     .ajuste-panel__empty { font-size: var(--f-sm); color: var(--t-400); a { color: var(--c-accent); } }
     .ajuste-panel__checks { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -339,6 +678,10 @@ const FILTROS: ReadonlyArray<{ valor: FiltroEstado; label: string }> = [
       background: none; border: none; cursor: pointer; font-size: 1.5rem; color: var(--b-2); line-height: 1;
       &.activa { color: var(--c-amber); }
     }
+
+    @media (max-width: 768px) {
+      .reserva-card__meta { align-items: flex-start; margin-left: 0; flex-direction: row; flex-wrap: wrap; align-items: center; }
+    }
   `],
 })
 export class ComercioReservasComponent implements OnInit {
@@ -351,6 +694,18 @@ export class ComercioReservasComponent implements OnInit {
   readonly filtroActivo = signal<FiltroEstado>('todas');
   readonly completandoId = signal<string | null>(null);
   readonly seguimientoId = signal<string | null>(null);
+
+  /** Buscador, filtros y visualización (TCK-8018). */
+  readonly busqueda = signal('');
+  readonly periodo = signal<Periodo>('todas');
+  readonly desde = signal('');
+  readonly hasta = signal('');
+  readonly servicioFiltro = signal('');
+  readonly vista = signal<'lista' | 'calendario'>('lista');
+  readonly mes = signal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  readonly diaSeleccionado = signal<string | null>(null);
+  readonly detalleAbiertoId = signal<string | null>(null);
+  readonly gestionAbiertaId = signal<string | null>(null);
 
   // Solicitar ajuste de precio (docs/mejora_servicios.md §7)
   readonly suplementosCatalogo = signal<SuplementoConfig[]>([]);
@@ -378,13 +733,73 @@ export class ComercioReservasComponent implements OnInit {
   readonly cargandoHistoria = signal(false);
   readonly errorHistoria = signal<string | null>(null);
 
-  readonly reservasFiltradas = computed(() => {
-    const filtro = this.filtroActivo();
-    if (filtro === 'todas') return this.reservas();
-    return this.reservas().filter(r => r.estado === filtro);
+  readonly filtros = FILTROS;
+  readonly periodos = PERIODOS;
+  readonly diasSemana = DIAS_SEMANA;
+
+  /** Servicios distintos que aparecen en las reservas, para el desplegable. */
+  readonly servicios = computed(() =>
+    [...new Set(this.reservas().map((r) => r.servicioTitulo).filter((t): t is string => !!t))].sort(),
+  );
+
+  readonly reservasDeHoy = computed(() => {
+    const hoy = aDia(new Date()).getTime();
+    return this.reservas().filter((r) => this.cubreElDia(r, hoy));
   });
 
-  readonly filtros = FILTROS;
+  readonly proximas = computed(() => {
+    const hoy = aDia(new Date()).getTime();
+    const limite = hoy + 7 * 86400000;
+    return this.reservas().filter((r) => {
+      const inicio = aDia(r.fechaInicio).getTime();
+      return inicio > hoy && inicio <= limite && r.estado !== 'cancelada';
+    });
+  });
+
+  readonly reservasFiltradas = computed(() => {
+    const estado = this.filtroActivo();
+    const texto = this.busqueda().trim().toLowerCase();
+    const servicio = this.servicioFiltro();
+    const rango = this.rangoPeriodo();
+    const dia = this.diaSeleccionado();
+
+    return this.reservas().filter((r) => {
+      if (estado !== 'todas' && r.estado !== estado) return false;
+      if (servicio && r.servicioTitulo !== servicio) return false;
+      if (texto) {
+        const campos = [r.clienteNombre, r.perroNombre, r.codigo, r.servicioTitulo]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!campos.includes(texto)) return false;
+      }
+      if (rango && !this.solapaRango(r, rango)) return false;
+      if (dia && !this.cubreElDia(r, new Date(dia).getTime())) return false;
+      return true;
+    });
+  });
+
+  /** Celdas del mes visible con las reservas que caen en cada día. */
+  readonly celdasCalendario = computed(() => {
+    const primero = this.mes();
+    const inicioSemana = new Date(primero);
+    // La rejilla arranca en lunes: getDay() da 0 para domingo.
+    const desplazamiento = (primero.getDay() + 6) % 7;
+    inicioSemana.setDate(primero.getDate() - desplazamiento);
+
+    const hoy = aDia(new Date()).getTime();
+    const filtradas = this.reservasFiltradas();
+
+    return Array.from({ length: 42 }, (_, i) => {
+      const fecha = new Date(inicioSemana.getFullYear(), inicioSemana.getMonth(), inicioSemana.getDate() + i);
+      const tiempo = fecha.getTime();
+      return {
+        clave: fecha.toISOString().slice(0, 10),
+        dia: fecha.getDate(),
+        delMes: fecha.getMonth() === primero.getMonth(),
+        esHoy: tiempo === hoy,
+        reservas: filtradas.filter((r) => this.cubreElDia(r, tiempo)),
+      };
+    });
+  });
 
   async ngOnInit(): Promise<void> {
     try {
@@ -400,6 +815,98 @@ export class ComercioReservasComponent implements OnInit {
       this.cargando.set(false);
     }
   }
+
+  // ── Filtros y vista ─────────────────────────────────────────────────────────
+
+  /** Una estancia ocupa todos sus días, no sólo el de entrada. */
+  private cubreElDia(r: MiReserva, dia: number): boolean {
+    const inicio = aDia(r.fechaInicio).getTime();
+    const fin = r.fechaFin ? aDia(r.fechaFin).getTime() : inicio;
+    return dia >= inicio && dia <= fin;
+  }
+
+  private solapaRango(r: MiReserva, rango: { desde: number; hasta: number }): boolean {
+    const inicio = aDia(r.fechaInicio).getTime();
+    const fin = r.fechaFin ? aDia(r.fechaFin).getTime() : inicio;
+    return fin >= rango.desde && inicio <= rango.hasta;
+  }
+
+  private rangoPeriodo(): { desde: number; hasta: number } | null {
+    const hoy = aDia(new Date());
+    switch (this.periodo()) {
+      case 'hoy':
+        return { desde: hoy.getTime(), hasta: hoy.getTime() };
+      case 'semana': {
+        const lunes = new Date(hoy);
+        lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+        const domingo = new Date(lunes);
+        domingo.setDate(lunes.getDate() + 6);
+        return { desde: lunes.getTime(), hasta: domingo.getTime() };
+      }
+      case 'mes': {
+        const primero = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        const ultimo = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+        return { desde: primero.getTime(), hasta: ultimo.getTime() };
+      }
+      case 'rango': {
+        if (!this.desde() && !this.hasta()) return null;
+        const desde = this.desde() ? aDia(this.desde()).getTime() : -Infinity;
+        const hasta = this.hasta() ? aDia(this.hasta()).getTime() : Infinity;
+        return { desde, hasta };
+      }
+      default:
+        return null;
+    }
+  }
+
+  verHoy(): void {
+    this.periodo.set(this.periodo() === 'hoy' ? 'todas' : 'hoy');
+    this.diaSeleccionado.set(null);
+  }
+
+  verPendientes(): void {
+    this.filtroActivo.set(this.filtroActivo() === 'pendiente' ? 'todas' : 'pendiente');
+  }
+
+  limpiarFiltros(): void {
+    this.filtroActivo.set('todas');
+    this.busqueda.set('');
+    this.periodo.set('todas');
+    this.desde.set('');
+    this.hasta.set('');
+    this.servicioFiltro.set('');
+    this.diaSeleccionado.set(null);
+  }
+
+  cambiarMes(delta: number): void {
+    const actual = this.mes();
+    this.mes.set(new Date(actual.getFullYear(), actual.getMonth() + delta, 1));
+  }
+
+  seleccionarDia(clave: string): void {
+    this.diaSeleccionado.set(this.diaSeleccionado() === clave ? null : clave);
+  }
+
+  toggleDetalle(id: string): void {
+    this.detalleAbiertoId.set(this.detalleAbiertoId() === id ? null : id);
+  }
+
+  toggleGestion(id: string): void {
+    this.gestionAbiertaId.set(this.gestionAbiertaId() === id ? null : id);
+  }
+
+  /** Si no hay ninguna acción posible, el botón "Gestionar" no se pinta. */
+  tieneGestion(r: MiReserva): boolean {
+    if (r.estado === 'confirmada' || r.estado === 'en_curso') return true;
+    if (r.estado === 'completada' && r.perroId) return true;
+    return r.vertical === 'veterinaria' && !!r.perroId;
+  }
+
+  esEstancia(vertical: string): boolean {
+    return VERTICALES_ESTANCIA.has(vertical);
+  }
+
+  // ── Acciones sobre la reserva ───────────────────────────────────────────────
 
   toggleAjuste(reservaId: string): void {
     const yaAbierto = this.ajusteAbiertoId() === reservaId;
@@ -434,7 +941,7 @@ export class ComercioReservasComponent implements OnInit {
       const actualizado = await firstValueFrom(
         this.comercioApi.solicitarAjuste(r._id, { suplementos, evidenciaUrl: this.evidenciaUrl || undefined }),
       );
-      this.reservas.update((lista) => lista.map((x) => (x._id === r._id ? actualizado : x)));
+      this.reservas.update((lista) => lista.map((x) => (x._id === r._id ? { ...x, ...actualizado } : x)));
       this.cerrarAjuste();
     } catch {
       this.errorMsg.set('No se pudo enviar la solicitud de ajuste. Inténtalo de nuevo.');
@@ -499,6 +1006,9 @@ export class ComercioReservasComponent implements OnInit {
 
   iconVertical(v: string): string { return iconoVertical(v); }
   badgeEstado(e: string): string { return ESTADO_BADGE[e] ?? 'rs-badge--neutral'; }
+  etiquetaEstado(e: string): string { return ESTADO_LABEL[e] ?? e; }
+  iconoEstado(e: string): string { return ESTADO_ICONO[e] ?? 'circle'; }
+
   contarEstado(filtro: FiltroEstado): number {
     if (filtro === 'todas') return this.reservas().length;
     return this.reservas().filter(r => r.estado === filtro).length;

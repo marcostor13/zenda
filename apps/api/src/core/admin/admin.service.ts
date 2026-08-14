@@ -33,6 +33,13 @@ interface ReservaLean {
   createdAt: Date;
 }
 
+/** Usuario del listado del admin, con reservas y nivel Alpha si es cliente. */
+export interface UsuarioAdminDto extends Usuario {
+  _id: Types.ObjectId;
+  reservas?: number;
+  nivelAlpha?: string;
+}
+
 interface ReservaEnriquecidaLean extends ReservaLean {
   fechaInicio?: Date;
   usuarioId?: { nombre?: string };
@@ -240,12 +247,31 @@ export class AdminService {
     limite = 20,
     estado?: string,
     buscar?: string,
+    alphaAdherido?: boolean,
   ): Promise<{ items: ComercioDocument[]; total: number }> {
     return this.comerciosRepo.listarPaginado(
-      { estado: estado as EstadoComercio | undefined, buscar },
+      { estado: estado as EstadoComercio | undefined, buscar, alphaAdherido },
       page,
       limite,
     );
+  }
+
+  /** Contadores de la cabecera de Comercios (TCK-8034). */
+  async resumenComercios(): Promise<{
+    total: number;
+    activos: number;
+    pendientes: number;
+    suspendidos: number;
+    verificados: number;
+  }> {
+    const [total, activos, pendientes, suspendidos, verificados] = await Promise.all([
+      this.comercioModel.countDocuments({}).exec(),
+      this.comercioModel.countDocuments({ estado: 'activo' }).exec(),
+      this.comercioModel.countDocuments({ estado: 'pendiente' }).exec(),
+      this.comercioModel.countDocuments({ estado: 'suspendido' }).exec(),
+      this.comercioModel.countDocuments({ 'verificacion.estado': 'verificado' }).exec(),
+    ]);
+    return { total, activos, pendientes, suspendidos, verificados };
   }
 
   async crearComercio(datos: {
@@ -309,15 +335,23 @@ export class AdminService {
 
   // ── Usuarios CRUD ────────────────────────────────────────────────────────────
 
+  /**
+   * Usuarios con lo que el admin necesita ver de un vistazo: reservas hechas y
+   * nivel Alpha. El nivel **sólo se calcula para clientes**: Alpha es
+   * fidelización de quien reserva, no de las empresas ni de la administración
+   * (TCK-8035).
+   */
   async listarUsuarios(
     page = 1,
     limite = 20,
     rol?: string,
     buscar?: string,
-  ): Promise<{ items: UsuarioDocument[]; total: number }> {
+    verificado?: boolean,
+  ): Promise<{ items: UsuarioAdminDto[]; total: number }> {
     const skip = (page - 1) * limite;
     const filtro: Record<string, unknown> = {};
     if (rol) filtro['rol'] = rol;
+    if (verificado !== undefined) filtro['verificado'] = verificado;
     if (buscar) {
       const escaped = buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(escaped, 'i');
@@ -327,7 +361,66 @@ export class AdminService {
       this.usuarioModel.find(filtro).sort({ createdAt: -1 }).skip(skip).limit(limite).lean().exec() as unknown as UsuarioDocument[],
       this.usuarioModel.countDocuments(filtro).exec(),
     ]);
-    return { items, total };
+
+    const clientes = items.filter((u) => u.rol === Rol.CLIENTE).map((u) => String(u._id));
+    if (!clientes.length) return { items: items as UsuarioAdminDto[], total };
+
+    const [porUsuario, niveles] = await Promise.all([
+      this.reservaModel.aggregate<{ _id: Types.ObjectId; total: number; completadas: number }>([
+        { $match: { usuarioId: { $in: clientes.map((id) => new Types.ObjectId(id)) } } },
+        {
+          $group: {
+            _id: '$usuarioId',
+            total: { $sum: 1 },
+            completadas: {
+              $sum: { $cond: [{ $eq: ['$estado', ReservaEstado.COMPLETADA] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+      this.alphaRepo.listarNiveles(),
+    ]);
+
+    const ordenados = [...niveles].sort((a, b) => a.reservasRequeridas - b.reservasRequeridas);
+    const contadores = new Map(porUsuario.map((r) => [String(r._id), r]));
+
+    return {
+      items: items.map((usuario) => {
+        if (usuario.rol !== Rol.CLIENTE) return usuario as UsuarioAdminDto;
+        const contador = contadores.get(String(usuario._id));
+        const completadas = contador?.completadas ?? 0;
+        const nivel =
+          [...ordenados].reverse().find((n) => completadas >= n.reservasRequeridas) ?? ordenados[0];
+        return {
+          ...(usuario as UsuarioAdminDto),
+          reservas: contador?.total ?? 0,
+          nivelAlpha: nivel?.nombre,
+        };
+      }),
+      total,
+    };
+  }
+
+  /** Contadores de la cabecera de Usuarios (TCK-8035 §1). */
+  async resumenUsuarios(): Promise<{
+    total: number;
+    clientes: number;
+    comercios: number;
+    administradores: number;
+    nuevosMes: number;
+  }> {
+    const inicioMes = new Date();
+    inicioMes.setDate(1);
+    inicioMes.setHours(0, 0, 0, 0);
+
+    const [total, clientes, comercios, administradores, nuevosMes] = await Promise.all([
+      this.usuarioModel.countDocuments({}).exec(),
+      this.usuarioModel.countDocuments({ rol: Rol.CLIENTE }).exec(),
+      this.usuarioModel.countDocuments({ rol: { $in: [Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF] } }).exec(),
+      this.usuarioModel.countDocuments({ rol: Rol.ADMIN }).exec(),
+      this.usuarioModel.countDocuments({ createdAt: { $gte: inicioMes } }).exec(),
+    ]);
+    return { total, clientes, comercios, administradores, nuevosMes };
   }
 
   async crearUsuario(datos: {

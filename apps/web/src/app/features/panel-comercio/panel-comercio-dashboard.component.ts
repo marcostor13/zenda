@@ -26,12 +26,12 @@ const ESTADO_BADGE: Record<string, string> = {
     <!-- HEADER -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Panel de control</h1>
-        <p class="page-sub">Bienvenido, {{ nombreComercio() }}</p>
+        <h1 class="page-title">Inicio</h1>
+        <p class="page-sub">{{ nombreComercio() }} — aquí tienes un resumen de la actividad de tu negocio.</p>
       </div>
       <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">
         <rs-icon name="plus" [size]="15" [stroke]="2"></rs-icon>
-        Nuevo listado
+        Nuevo servicio
       </a>
     </div>
 
@@ -40,7 +40,7 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="rs-card onboarding-card">
         <div class="onboarding-card__head">
           <div>
-            <h3>Completa tu negocio</h3>
+            <h3>Completa tu perfil de empresa</h3>
             <p>{{ pasosHechos() }} de {{ pasosOnboarding().length }} pasos · te faltan {{ pasosPendientes() }} para vender sin límites</p>
           </div>
           <div class="onboarding-card__pct">{{ progresoPct() }}%</div>
@@ -66,7 +66,7 @@ const ESTADO_BADGE: Record<string, string> = {
     <div class="kpi-grid">
       <div class="kpi-card rs-card">
         <div class="kpi-card__header">
-          <span class="kpi-card__label">Facturación del mes</span>
+          <span class="kpi-card__label">Ingresos este mes</span>
           <div class="kpi-card__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
             <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
           </div>
@@ -96,7 +96,7 @@ const ESTADO_BADGE: Record<string, string> = {
       </div>
       <div class="kpi-card rs-card">
         <div class="kpi-card__header">
-          <span class="kpi-card__label">Rating promedio</span>
+          <span class="kpi-card__label">Valoración media</span>
           <div class="kpi-card__icon" style="background:rgba(245,158,11,.12);color:var(--c-amber)">
             <rs-icon name="star" [size]="17" [stroke]="2"></rs-icon>
           </div>
@@ -149,19 +149,19 @@ const ESTADO_BADGE: Record<string, string> = {
           </p>
         } @else {
           <div class="fin-row">
-            <span>Facturación bruta</span><strong>{{ totalIngresos() | number:'1.0-0' }} €</strong>
+            <span>Ingresos brutos</span><strong>{{ totalIngresos() | number:'1.0-0' }} €</strong>
           </div>
           <div class="fin-row">
-            <span>Comisión plataforma</span>
+            <span>Comisión Doogking</span>
             <strong style="color:#B91C1C">− {{ comisionEstimada() | number:'1.0-0' }} €</strong>
           </div>
           <div class="fin-row">
-            <span>Fee Stripe (est.)</span>
+            <span>Gastos de procesamiento (est.)</span>
             <strong style="color:#B91C1C">− {{ feeStripe() | number:'1.0-2' }} €</strong>
           </div>
           <hr style="border:none;border-top:1px solid var(--b-1);margin-block:var(--sp-4)">
           <div class="fin-row">
-            <strong style="color:var(--t-100)">Liquidación estimada</strong>
+            <strong style="color:var(--t-100)">Total a recibir (est.)</strong>
             <strong style="color:var(--c-teal)">{{ liquidacion() | number:'1.0-0' }} €</strong>
           </div>
         }
@@ -172,12 +172,12 @@ const ESTADO_BADGE: Record<string, string> = {
     <!-- LISTADOS -->
     <div class="rs-card">
       <div class="panel-header" style="margin-bottom:var(--sp-5)">
-        <h3>Mis listados</h3>
+        <h3>Mis servicios</h3>
         <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost rs-btn--xs">Ver todos</a>
       </div>
       @if (servicios().length === 0) {
         <div style="text-align:center;padding:var(--sp-10);color:var(--t-400)">
-          No tienes listados publicados.<br>
+          Todavía no tienes servicios publicados.<br>
           <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary rs-btn--sm" style="margin-top:var(--sp-4)">
             <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon>
             Crear primer listado
@@ -279,17 +279,47 @@ export class PanelComercioDashboardComponent implements OnInit {
       { clave: 'fiscal', label: 'Datos fiscales (CIF/NIF)', hecho: !!c?.vatNumber },
       { clave: 'banco', label: 'Cuenta bancaria (IBAN)', hecho: !!c?.datosBancarios?.iban },
       { clave: 'logo', label: 'Logo del negocio', hecho: !!c?.logoUrl },
-      { clave: 'documentos', label: 'Documentos de verificación', hecho: (c?.verificacion?.documentos?.length ?? 0) > 0 },
+      { clave: 'documentos', label: 'Documentos de verificación', hecho: this.tieneDocumentacion(c) },
       { clave: 'listado', label: 'Primer listado publicado', hecho: this.servicios().some((s) => s.estado === 'publicado') },
     ];
   });
+  /**
+   * El paso está hecho cuando el comercio ya ha aportado su documentación.
+   *
+   * Antes solo miraba `verificacion.documentos`, que es la lista de documentos
+   * ADICIONALES; los dos obligatorios (identidad y licencia) viajan en sus
+   * propios campos. Un comercio que subía los dos obligatorios —y al que el
+   * admin incluso había verificado— seguía viendo el paso pendiente para
+   * siempre, porque esa lista de extras estaba vacía.
+   *
+   * Exigir los dos obligatorios juntos, y no cualquiera de ellos, es la misma
+   * regla que aplica el API en `comercios.service.ts` para dar la
+   * documentación por entregada; si divergen, el panel y el backend dirían
+   * cosas distintas sobre el mismo comercio.
+   */
+  private tieneDocumentacion(c: MiComercio | null): boolean {
+    const v = c?.verificacion;
+    if (!v) return false;
+    // Si el admin ya lo validó, el paso está hecho pase lo que pase.
+    if (v.estado === 'verificado') return true;
+    return (!!v.documentoIdentidadUrl && !!v.licenciaNegocioUrl) || (v.documentos?.length ?? 0) > 0;
+  }
+
   readonly pasosHechos = computed(() => this.pasosOnboarding().filter((p) => p.hecho).length);
   readonly pasosPendientes = computed(() => this.pasosOnboarding().length - this.pasosHechos());
   readonly progresoPct = computed(() =>
     Math.round((this.pasosHechos() / this.pasosOnboarding().length) * 100),
   );
 
-  readonly nombreComercio = computed(() => this.authService.usuario()?.nombre ?? 'tu comercio');
+  /**
+   * Nombre real del negocio (TCK-8017). Antes salía el nombre del USUARIO, y por
+   * eso la cabecera decía "Bienvenido, Comercio": ese es el nombre de la cuenta,
+   * no el del negocio. El del usuario queda solo como último recurso.
+   */
+  readonly nombreComercio = computed(() =>
+    this.comercio()?.nombreComercial?.trim()
+    || this.authService.usuario()?.nombre
+    || 'Tu negocio');
   readonly reservasRecientes = computed(() => this.reservas().slice(0, 5));
   readonly reservasConfirmadas = computed(() => this.reservas().filter(r => r.estado === 'confirmada').length);
   readonly totalIngresos = computed(() => this.reservas().reduce((s, r) => s + r.montoTotal, 0));

@@ -11,6 +11,16 @@ import { FijarSocioFundadorDto, PagoEstado, ReservaEstado } from 'shared';
 
 /** Compromiso estándar del programa Socios Fundadores. */
 const MESES_CONGELACION_POR_DEFECTO = 24;
+
+/** Reserva tal y como la consume el panel del comercio (TCK-8018). */
+export interface ReservaComercioDto extends Reserva {
+  _id: Types.ObjectId;
+  clienteNombre?: string;
+  clienteEmail?: string;
+  clienteTelefono?: string;
+  servicioTitulo?: string;
+  perroNombre?: string;
+}
 import { ReviewsService } from '../reviews/reviews.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { CatalogService, ServicioCardDto } from '../catalog/catalog.service';
@@ -19,6 +29,7 @@ import { UsersRepository } from '../users/users.repository';
 import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, RegistroPendienteDto, Rol, ActualizarPerfilComercioDto, SolicitarAjusteDto } from 'shared';
+import { campoContador, plazasDeclaradas, sinPlazas } from '../catalog/disponibilidad';
 
 @Injectable()
 export class ComerciosService {
@@ -219,17 +230,51 @@ export class ComerciosService {
     }
   }
 
+  /**
+   * Reservas del comercio con el contexto que necesita quien las gestiona a
+   * diario: quién reserva, qué servicio y qué mascota (TCK-8018). El panel
+   * busca y filtra sobre estos campos, así que se resuelven aquí en tres
+   * consultas por lote y no una por fila.
+   */
   async obtenerReservasComercio(
     comercioId: string,
     limite = 20,
-  ): Promise<ReservaDocument[]> {
+  ): Promise<ReservaComercioDto[]> {
     this.exigirComercio(comercioId);
-    return this.reservaModel
+    const reservas = (await this.reservaModel
       .find({ comercioId: new Types.ObjectId(comercioId) })
       .sort({ createdAt: -1 })
       .limit(limite)
       .lean()
-      .exec() as unknown as ReservaDocument[];
+      .exec()) as unknown as Array<Reserva & { _id: Types.ObjectId }>;
+
+    if (!reservas.length) return [];
+
+    const [clientes, servicios] = await Promise.all([
+      this.usersRepo.findContactosByIds([...new Set(reservas.map((r) => String(r.usuarioId)))]),
+      this.servicioModel
+        .find({ _id: { $in: [...new Set(reservas.map((r) => String(r.servicioId)))] } })
+        .select('titulo')
+        .lean()
+        .exec() as unknown as Array<{ _id: Types.ObjectId; titulo?: string }>,
+    ]);
+
+    const porCliente = new Map(clientes.map((c) => [String(c._id), c]));
+    const porServicio = new Map(servicios.map((s) => [String(s._id), s.titulo]));
+
+    return reservas.map((reserva) => {
+      const cliente = porCliente.get(String(reserva.usuarioId));
+      return {
+        ...reserva,
+        clienteNombre: cliente?.nombre,
+        clienteEmail: cliente?.email,
+        clienteTelefono: cliente?.telefono,
+        servicioTitulo: porServicio.get(String(reserva.servicioId)),
+        // El nombre viaja en la copia congelada del perro: no hace falta ir a
+        // su ficha, y sigue estando aunque el cliente la borre después.
+        perroNombre: reserva.perroSnapshot?.['nombre'] as string | undefined,
+      };
+    });
   }
 
   /**
@@ -353,9 +398,25 @@ export class ComerciosService {
     comercioId: string,
     estado: 'publicado' | 'pausado' | 'borrador',
   ): Promise<ServicioDocument> {
+    const actual = await this.servicioModel.findOne(
+      { _id: new Types.ObjectId(servicioId), comercioId: new Types.ObjectId(comercioId) },
+    ).lean().exec() as Record<string, unknown> | null;
+    if (!actual) throw new DomainException('Servicio no encontrado', 404);
+
+    // Publicar con el contador de plazas a cero deja el listado invisible en la
+    // web pese a aparecer como publicado en el panel, que es justo lo que el
+    // comercio no entiende. Si nunca se fijó, se deduce aquí de la capacidad
+    // declarada: se publica algo que de verdad se puede encontrar.
+    const cambios: Record<string, unknown> = { estado };
+    const contador = campoContador(actual['vertical'] as string);
+    if (estado === 'publicado' && contador && sinPlazas(actual[contador])) {
+      const plazas = plazasDeclaradas(actual['vertical'] as string, actual);
+      if (plazas !== undefined) cambios[contador] = plazas;
+    }
+
     const servicio = await this.servicioModel.findOneAndUpdate(
       { _id: new Types.ObjectId(servicioId), comercioId: new Types.ObjectId(comercioId) },
-      { estado },
+      cambios,
       { new: true },
     ).exec();
     if (!servicio) throw new DomainException('Servicio no encontrado', 404);

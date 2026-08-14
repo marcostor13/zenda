@@ -84,13 +84,23 @@ export class AdminController {
   @ApiQuery({ name: 'limite', required: false })
   @ApiQuery({ name: 'estado', required: false, enum: ['pendiente', 'activo', 'suspendido'] })
   @ApiQuery({ name: 'buscar', required: false })
+  @ApiQuery({ name: 'alphaAdherido', required: false, type: Boolean })
   listarComercios(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limite', new DefaultValuePipe(20), ParseIntPipe) limite: number,
     @Query('estado') estado?: string,
     @Query('buscar') buscar?: string,
+    @Query('alphaAdherido') alphaAdherido?: string,
   ) {
-    return this.adminService.listarComercios(page, limite, estado, buscar);
+    // Sin el parámetro no se filtra; con él, 'true'/'false' explícitos.
+    const adherido = alphaAdherido === undefined ? undefined : alphaAdherido === 'true';
+    return this.adminService.listarComercios(page, limite, estado, buscar, adherido);
+  }
+
+  @Get('comercios/resumen')
+  @ApiOperation({ summary: 'Contadores de comercios por estado y verificación' })
+  resumenComercios() {
+    return this.adminService.resumenComercios();
   }
 
   @Post('comercios')
@@ -148,13 +158,22 @@ export class AdminController {
   @ApiQuery({ name: 'limite', required: false })
   @ApiQuery({ name: 'rol', required: false })
   @ApiQuery({ name: 'buscar', required: false })
+  @ApiQuery({ name: 'verificado', required: false, type: Boolean })
   listarUsuarios(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limite', new DefaultValuePipe(20), ParseIntPipe) limite: number,
     @Query('rol') rol?: string,
     @Query('buscar') buscar?: string,
+    @Query('verificado') verificado?: string,
   ) {
-    return this.adminService.listarUsuarios(page, limite, rol, buscar);
+    const verificacion = verificado === undefined ? undefined : verificado === 'true';
+    return this.adminService.listarUsuarios(page, limite, rol, buscar, verificacion);
+  }
+
+  @Get('usuarios/resumen')
+  @ApiOperation({ summary: 'Contadores de usuarios por tipo y altas del mes' })
+  resumenUsuarios() {
+    return this.adminService.resumenUsuarios();
   }
 
   @Post('usuarios')

@@ -159,23 +159,6 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     placeholderUbicacion: 'Ciudad de residencia',
     labelFecha: 'Inicio de la cobertura',
   },
-  {
-    key: VerticalKey.CUIDADORES,
-    label: VERTICAL_LABELS[VerticalKey.CUIDADORES],
-    labelCorto: 'Cuidadores',
-    route: '/cuidadores',
-    icono: CATEGORIA_ICONOS['cuidadores'],
-    icon: 'users',
-    claim: 'Cuidado en tu propia casa, sin mover a tu perro.',
-    descripcion: 'Cuidadores que van a tu domicilio: visitas, día completo o noche, sin sacar a tu perro de su entorno.',
-    titular: 'Su casa, su rutina',
-    subtitular: 'Cuidado profesional sin sacarlo de donde se siente seguro.',
-    reservaPorNoches: false,
-    pideHora: true,
-    labelUbicacion: '¿Dónde buscas el servicio?',
-    placeholderUbicacion: 'Ciudad o dirección',
-    labelFecha: 'Fecha de la visita',
-  },
 ];
 
 const POR_KEY = new Map<string, VerticalUi>(VERTICALES_UI.map((v) => [v.key, v]));

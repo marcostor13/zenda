@@ -43,6 +43,8 @@ describe('MisReservasComponent', () => {
       estaAutenticado: () => true,
       esAdmin: () => false,
       esComercio: () => false,
+      esCliente: () => true,
+      clienteVerificado: () => false,
     };
 
     await TestBed.configureTestingModule({

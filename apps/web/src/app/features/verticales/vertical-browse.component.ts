@@ -153,19 +153,6 @@ const CONFIGS: Record<string, VerticalConfig> = {
     ],
     price: (c) => (c.extra['primaAnualBase'] as number) ?? c.precioPorNoche,
   },
-  cuidadores: {
-    vertical: 'cuidadores',
-    cta: 'Reservar visita', priceLabel: 'visita desde',
-    confirmMsg: 'Visita solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => (c.extra['administraMedicacion'] ? 'Administra medicación' : 'A domicilio'),
-    titulo3: (c) => c.nombre,
-    loc: (c) => `${c.ciudad}`,
-    meta: (c) => [
-      `${(c.extra['duracionVisitaMin'] as number | undefined) ?? 45} min por visita`,
-      `Hasta ${(c.extra['radioDesplazamientoKm'] as number | undefined) ?? 10} km`,
-    ],
-    price: (c) => (c.extra['precioVisita'] as number) ?? c.precioPorNoche,
-  },
 };
 
 @Component({

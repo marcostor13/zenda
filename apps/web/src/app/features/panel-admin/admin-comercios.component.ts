@@ -1,10 +1,10 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
-import { AdminApiService, ComercioAdmin, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
+import { AdminApiService, ComercioAdmin, ResumenComercios, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 
@@ -29,12 +29,30 @@ const LIMITE = 20;
         <h1 class="page-title">Comercios</h1>
         <p class="page-sub">Gestiona los comercios registrados en la plataforma.</p>
       </div>
-      <div style="display:flex;gap:var(--sp-3);align-items:center;flex-wrap:wrap">
-        <div class="page-kpi rs-card">
-          <span class="kpi-num">{{ total() }}</span>
-          <span class="kpi-lbl">{{ filtroEstado() ? filtroEstado() + 's' : 'total' }}</span>
-        </div>
-        <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo comercio</button>
+      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo comercio</button>
+    </div>
+
+    <!-- Resumen superior (TCK-8034) -->
+    <div class="resumen-comercios">
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.total ?? total() }}</span>
+        <span class="resumen-tile__lbl">Comercios totales</span>
+      </div>
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.activos ?? '—' }}</span>
+        <span class="resumen-tile__lbl">Activos</span>
+      </div>
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.pendientes ?? '—' }}</span>
+        <span class="resumen-tile__lbl">Pendientes</span>
+      </div>
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.suspendidos ?? '—' }}</span>
+        <span class="resumen-tile__lbl">Suspendidos</span>
+      </div>
+      <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.verificados ?? '—' }}</span>
+        <span class="resumen-tile__lbl">Verificados</span>
       </div>
     </div>
 
@@ -54,9 +72,32 @@ const LIMITE = 20;
       <input
         class="rs-inp search-input"
         type="text"
-        placeholder="Buscar por nombre, razón social o RUC…"
+        placeholder="Buscar por nombre, razón social o CIF/NIF…"
         [value]="buscar()"
         (input)="onBuscar($event)" />
+      <!-- Filtros de la propia página: se aplican sobre lo ya cargado (TCK-8034) -->
+      <select class="rs-inp filtro-select" [value]="filtroVerificacion()"
+              (change)="filtroVerificacion.set($any($event.target).value)" aria-label="Verificación">
+        <option value="">Cualquier verificación</option>
+        <option value="verificado">Verificados</option>
+        <option value="pendiente">Verificación pendiente</option>
+        <option value="sin_verificar">Sin verificar</option>
+        <option value="rechazado">Rechazados</option>
+      </select>
+      <select class="rs-inp filtro-select" [value]="filtroVertical()"
+              (change)="filtroVertical.set($any($event.target).value)" aria-label="Vertical">
+        <option value="">Todos los verticales</option>
+        @for (v of verticalesDisponibles(); track v) {
+          <option [value]="v">{{ labelVertical(v) }}</option>
+        }
+      </select>
+      <select class="rs-inp filtro-select" [value]="filtroPlan()"
+              (change)="filtroPlan.set($any($event.target).value)" aria-label="Plan">
+        <option value="">Todos los planes</option>
+        <option value="basico">Plan Básico</option>
+        <option value="pro">Plan Pro</option>
+        <option value="premium">Plan Premium</option>
+      </select>
     </div>
 
     @if (errorMsg()) {
@@ -67,9 +108,10 @@ const LIMITE = 20;
     <div class="rs-card" style="padding:0;overflow:hidden">
       <div class="tbl-head">
         <span>Comercio</span>
-        <span>RUC</span>
+        <span>CIF/NIF</span>
         <span>Plan</span>
         <span>Estado</span>
+        <span>Verificación</span>
         <span>Registro</span>
         <span>Acciones</span>
       </div>
@@ -86,7 +128,7 @@ const LIMITE = 20;
           </div>
         }
       } @else {
-        @for (c of comercios(); track c._id) {
+        @for (c of comerciosFiltrados(); track c._id) {
           <div class="tbl-row">
             <div class="comercio-cell">
               <div class="comercio-avatar">{{ c.nombreComercial[0]?.toUpperCase() ?? 'C' }}</div>
@@ -94,70 +136,81 @@ const LIMITE = 20;
                 <div class="cell-primary">{{ c.nombreComercial }}</div>
                 <div class="cell-muted">{{ c.razonSocial }}</div>
                 <div class="verticales-pills">
-                  @for (v of c.verticales; track v) {
+                  @for (v of c.verticales.slice(0, 2); track v) {
                     <span class="rs-badge rs-badge--neutral" style="display:inline-flex;align-items:center;gap:4px">
                     <rs-icon [name]="iconVertical(v)" [size]="11" [stroke]="2"></rs-icon>{{ labelVertical(v) }}
                   </span>
                   }
+                  @if (c.verticales.length > 2) {
+                    <span class="rs-badge rs-badge--neutral"
+                          [title]="c.verticales.join(', ')">+{{ c.verticales.length - 2 }}</span>
+                  }
                 </div>
               </div>
             </div>
-            <span class="cell-mono" data-col="RUC">{{ c.vatNumber }}</span>
+            <span class="cell-mono" data-col="CIF/NIF">{{ c.vatNumber }}</span>
             <span data-col="Plan">
-              <span class="rs-badge rs-badge--accent">{{ c.plan }}</span>
+              <span class="rs-badge rs-badge--accent">Plan {{ c.plan }}</span>
             </span>
             <span data-col="Estado">
               <span class="rs-badge {{ badgeEstado(c.estado) }}">{{ c.estado }}</span>
-              @if (c.verificacion?.estado && c.verificacion?.estado !== 'sin_verificar') {
-                <span class="rs-badge {{ badgeVerif(c.verificacion!.estado) }}" style="display:inline-block;margin-top:4px">
-                  <rs-icon [name]="verifIcono(c.verificacion!.estado)" [size]="12" [stroke]="2"></rs-icon>
-                  {{ verifLabel(c.verificacion!.estado) }}
-                </span>
-              }
+            </span>
+            <!-- Verificación en su propia columna: es otra cosa que el estado (TCK-8034) -->
+            <span data-col="Verificación">
+              <span class="rs-badge {{ badgeVerif(c.verificacion?.estado ?? 'sin_verificar') }}">
+                <rs-icon [name]="verifIcono(c.verificacion?.estado ?? 'sin_verificar')" [size]="12" [stroke]="2"></rs-icon>
+                {{ verifLabel(c.verificacion?.estado ?? 'sin_verificar') }}
+              </span>
             </span>
             <span class="cell-muted" data-col="Registro">{{ c.createdAt | date:'d MMM yyyy' }}</span>
-            <div class="acciones">
-              @if (c.verificacion?.estado === 'pendiente') {
-                <button class="rs-btn rs-btn--sm" style="background:#047857;color:#fff" title="Verificar documentación"
-                  [disabled]="accionando() === c._id" (click)="verificar(c._id)">
-                      <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Verificar
-                    </button>
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" title="Rechazar documentación"
-                  [disabled]="accionando() === c._id" (click)="rechazarVerif(c._id)">
-                      <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon> Doc
-                    </button>
+            <div class="acciones" (click)="$event.stopPropagation()">
+              <!-- En un comercio pendiente lo primero es revisar su solicitud,
+                   no aprobarla a ciegas (TCK-8034). -->
+              @if (c.estado === 'pendiente') {
+                <button class="rs-btn rs-btn--outline rs-btn--sm"
+                        [disabled]="accionando() === c._id" (click)="abrirEditar(c)">
+                  Revisar solicitud
+                </button>
               }
-              @if (c.estado !== 'activo') {
-                <button class="rs-btn rs-btn--sm" style="background:var(--c-teal);color:#fff"
-                  [disabled]="accionando() === c._id" (click)="aprobar(c._id)">
-                      <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> Aprobar
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Acciones"
+                      (click)="menuAbiertoId.set(menuAbiertoId() === c._id ? null : c._id)">
+                <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
+              </button>
+              @if (menuAbiertoId() === c._id) {
+                <div class="acciones__menu">
+                  <button class="acciones__item" (click)="abrirEditar(c)">
+                    <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Ver ficha y editar
+                  </button>
+                  @if (c.verificacion?.estado === 'pendiente') {
+                    <button class="acciones__item" [disabled]="accionando() === c._id" (click)="verificar(c._id)">
+                      <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Verificar documentación
                     </button>
+                    <button class="acciones__item" [disabled]="accionando() === c._id" (click)="rechazarVerif(c._id)">
+                      <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon> Rechazar documentación
+                    </button>
+                  }
+                  @if (c.estado !== 'activo') {
+                    <button class="acciones__item" [disabled]="accionando() === c._id" (click)="aprobar(c._id)">
+                      <rs-icon name="check" [size]="13" [stroke]="2.5"></rs-icon> Aprobar comercio
+                    </button>
+                  }
+                  @if (c.estado !== 'suspendido') {
+                    <button class="acciones__item acciones__item--danger"
+                            [disabled]="accionando() === c._id" (click)="suspender(c._id)">
+                      <rs-icon name="alert-circle" [size]="13" [stroke]="2"></rs-icon>
+                      {{ c.estado === 'pendiente' ? 'Rechazar solicitud' : 'Suspender comercio' }}
+                    </button>
+                  }
+                  <button class="acciones__item acciones__item--danger"
+                          [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)">
+                    <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> Eliminar comercio
+                  </button>
+                </div>
               }
-              @if (c.estado !== 'suspendido') {
-                <button class="rs-btn rs-btn--danger rs-btn--sm"
-                  [disabled]="accionando() === c._id" (click)="suspender(c._id)">Suspender</button>
-              }
-              <!-- Alta/baja en el programa Doogking Alpha (HU-13.3) -->
-              <button class="rs-btn rs-btn--sm"
-                [class.rs-btn--ghost]="!c.alphaAdherido"
-                [style.background]="c.alphaAdherido ? 'var(--dk-gold, #FBAE17)' : ''"
-                [style.color]="c.alphaAdherido ? '#00135D' : ''"
-                [title]="c.alphaAdherido ? 'Dar de baja del programa Alpha' : 'Adherir al programa Alpha'"
-                [disabled]="accionando() === c._id" (click)="alternarAlpha(c)">
-                      <rs-icon name="crown" [size]="13" [stroke]="2"></rs-icon> Alpha
-                    </button>
-              <button class="rs-btn rs-btn--ghost rs-btn--sm"
-                [disabled]="accionando() === c._id" (click)="abrirEditar(c)" aria-label="Editar comercio" data-icono>
-                      <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
-                    </button>
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171"
-                [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)" aria-label="Eliminar comercio" data-icono>
-                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
-                    </button>
             </div>
           </div>
         }
-        @if (comercios().length === 0) {
+        @if (comerciosFiltrados().length === 0) {
           <div class="empty-state">
             <span class="empty-icon"><rs-icon name="store" [size]="34" [stroke]="1.5"></rs-icon></span>
             <p>No hay comercios {{ filtroEstado() ? 'con estado "' + filtroEstado() + '"' : '' }}</p>
@@ -301,8 +354,31 @@ const LIMITE = 20;
     .filter-bar { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
     .search-input { flex: 1; min-width: 240px; max-width: 360px; }
 
-    .tbl-head { display: grid; grid-template-columns: 2fr 130px 90px 120px 120px 240px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
-    .tbl-row { display: grid; grid-template-columns: 2fr 130px 90px 120px 120px 240px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
+    .resumen-comercios { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-4); }
+    .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
+    .resumen-tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
+    .resumen-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .filtro-select { height: 40px; max-width: 220px; }
+
+    .acciones { position: relative; display: flex; align-items: center; gap: var(--sp-2); justify-content: flex-end; }
+    .acciones__menu {
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
+      min-width: 210px; padding: var(--sp-2);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
+    }
+    .acciones__item {
+      display: flex; align-items: center; gap: var(--sp-2); width: 100%;
+      padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
+      border-radius: var(--r-md); cursor: pointer; text-align: left;
+      font-size: var(--f-sm); color: var(--t-200);
+      &:hover { background: var(--c-raised); }
+    }
+    .acciones__item--danger { color: var(--c-red, #B91C1C); }
+
+    .tbl-head { display: grid; grid-template-columns: 2fr 120px 110px 110px 130px 110px 130px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
+    .tbl-row { display: grid; grid-template-columns: 2fr 120px 110px 110px 130px 110px 130px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; }
     .tbl-row:hover { background: var(--c-raised); }
 
@@ -418,6 +494,29 @@ export class AdminComerciosComponent implements OnInit {
   readonly errorMsg = signal('');
   readonly accionando = signal<string | null>(null);
 
+  /** Resumen, filtros de página y menú de acciones (TCK-8034). */
+  readonly resumen = signal<ResumenComercios | null>(null);
+  readonly filtroVerificacion = signal('');
+  readonly filtroVertical = signal('');
+  readonly filtroPlan = signal('');
+  readonly menuAbiertoId = signal<string | null>(null);
+
+  readonly verticalesDisponibles = computed(() =>
+    [...new Set(this.comercios().flatMap((c) => c.verticales))].sort(),
+  );
+
+  readonly comerciosFiltrados = computed(() => {
+    const verificacion = this.filtroVerificacion();
+    const vertical = this.filtroVertical();
+    const plan = this.filtroPlan();
+    return this.comercios().filter((c) => {
+      if (verificacion && (c.verificacion?.estado ?? 'sin_verificar') !== verificacion) return false;
+      if (vertical && !c.verticales.includes(vertical)) return false;
+      if (plan && c.plan !== plan) return false;
+      return true;
+    });
+  });
+
   readonly modalVisible = signal(false);
   readonly editandoId = signal<string | null>(null);
   readonly guardando = signal(false);
@@ -451,8 +550,19 @@ export class AdminComerciosComponent implements OnInit {
     });
   }
 
+  /** El menú ⋯ se cierra al pulsar fuera. */
+  @HostListener('document:click')
+  cerrarMenu(): void {
+    this.menuAbiertoId.set(null);
+  }
+
   async ngOnInit(): Promise<void> {
     await this.cargar();
+    try {
+      this.resumen.set(await firstValueFrom(this.adminApi.getResumenComercios()));
+    } catch {
+      // Sin resumen la tabla sigue siendo utilizable.
+    }
   }
 
   private async cargar(): Promise<void> {
@@ -561,20 +671,6 @@ export class AdminComerciosComponent implements OnInit {
       await this.cargar();
     } catch {
       this.errorMsg.set('Error al suspender el comercio.');
-      setTimeout(() => this.errorMsg.set(''), 3000);
-    } finally {
-      this.accionando.set(null);
-    }
-  }
-
-  /** Alta o baja del comercio en el programa Doogking Alpha (HU-13.3). */
-  async alternarAlpha(c: ComercioAdmin): Promise<void> {
-    this.accionando.set(c._id);
-    try {
-      await firstValueFrom(this.adminApi.fijarAlphaAdherido(c._id, !c.alphaAdherido));
-      await this.cargar();
-    } catch {
-      this.errorMsg.set('Error al cambiar la adhesión al programa Alpha.');
       setTimeout(() => this.errorMsg.set(''), 3000);
     } finally {
       this.accionando.set(null);

@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -22,11 +22,11 @@ const PLAN_BADGE: Record<string, string> = {
 };
 
 const NAV_ITEMS = [
-  { icon: 'sparkles',       label: 'Dashboard',      ruta: '/comercio',          exact: true  },
+  { icon: 'sparkles',       label: 'Inicio',         ruta: '/comercio',          exact: true  },
   { icon: 'calendar',       label: 'Reservas',        ruta: '/comercio/reservas', exact: false },
-  { icon: 'tag',            label: 'Listados',        ruta: '/comercio/listados', exact: false },
-  { icon: 'euro',           label: 'Suplementos',     ruta: '/comercio/suplementos', exact: false },
-  { icon: 'trending-up',   label: 'Ingresos',        ruta: '/comercio/ingresos', exact: false },
+  { icon: 'tag',            label: 'Servicios',       ruta: '/comercio/listados', exact: false },
+  { icon: 'euro',           label: 'Extras y suplementos', ruta: '/comercio/suplementos', exact: false },
+  { icon: 'trending-up',   label: 'Ingresos y pagos',ruta: '/comercio/ingresos', exact: false },
   { icon: 'star',           label: 'Reseñas',         ruta: '/comercio/resenas',  exact: false },
   { icon: 'users',          label: 'Equipo',          ruta: '/comercio/equipo',   exact: false },
   { icon: 'settings',       label: 'Configuración',   ruta: '/comercio/config',   exact: false },
@@ -94,10 +94,18 @@ const NAV_ITEMS = [
         <div class="cl-brand__icon">
           <rs-icon [name]="iconVertical(comercio()?.verticales?.[0] ?? '')" [size]="20" [stroke]="1.75"></rs-icon>
         </div>
+        <!-- Identidad profesional: nombre del negocio, verificación del comercio
+             y plan contratado. Aquí nunca aparece el nivel Alpha, que es
+             fidelización del cliente (TCK-8029). -->
         <div class="cl-brand__info">
           <div class="cl-brand__name">{{ comercio()?.nombreComercial ?? 'Mi comercio' }}</div>
+          @if (comercioVerificado()) {
+            <span class="rs-badge rs-badge--success cl-brand__verificado">
+              <rs-icon name="badge-check" [size]="12" [stroke]="2"></rs-icon> Comercio verificado
+            </span>
+          }
           <span class="rs-badge {{ planBadge(comercio()?.plan ?? 'basico') }}">
-            {{ (comercio()?.plan ?? 'básico') | titlecase }}
+            Plan {{ (comercio()?.plan ?? 'básico') | titlecase }}
           </span>
         </div>
       </div>
@@ -178,6 +186,8 @@ const NAV_ITEMS = [
       justify-content: center;
       flex-shrink: 0;
     }
+    .cl-brand__info { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 0; }
+    .cl-brand__verificado { display: inline-flex; align-items: center; gap: 4px; }
     .cl-brand__name {
       font-size: var(--f-sm);
       font-weight: var(--w-7);
@@ -230,6 +240,8 @@ export class ComercioLayoutComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   readonly comercio = signal<MiComercio | null>(null);
+  /** Verificación documental del negocio, la única que se afirma aquí (TCK-8029). */
+  readonly comercioVerificado = computed(() => this.comercio()?.verificacion?.estado === 'verificado');
   readonly navItems = NAV_ITEMS;
   readonly verticalesOpciones = VERTICALES_OPCIONES;
 

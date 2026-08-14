@@ -6,8 +6,8 @@ export enum VerticalKey {
   ADIESTRAMIENTO = 'adiestramiento',
   HOTELES = 'hoteles',
   SEGUROS = 'seguros',
-  /** Cuidado en el domicilio del cliente. Paseadores queda fuera (HU-048). */
-  CUIDADORES = 'cuidadores',
+  // Cuidadores a domicilio se retiró (TCK-8021): Doogking solo lista empresas
+  // de profesionales verificadas, no particulares por libre.
 }
 
 /** Etiquetas legibles de cada categoría canina de Doogking. */
@@ -19,5 +19,4 @@ export const VERTICAL_LABELS: Record<VerticalKey, string> = {
   [VerticalKey.ADIESTRAMIENTO]: 'Adiestramiento canino',
   [VerticalKey.HOTELES]: 'Hoteles pet-friendly',
   [VerticalKey.SEGUROS]: 'Seguros para mascotas',
-  [VerticalKey.CUIDADORES]: 'Cuidadores a domicilio',
 };

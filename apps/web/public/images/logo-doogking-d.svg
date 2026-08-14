@@ -5,4 +5,7 @@
   <path fill="#FBAE17" fill-rule="evenodd"
         d="M18 16 H31 A16 16 0 0 1 31 48 H18 Z
            M25 23 H31 A9 9 0 0 1 31 41 H25 Z"/>
+  <!-- Mismo punto que el favicon: los dos archivos deben ir a la par o la
+       marca de la cabecera y la de la pestaña dejarían de coincidir. -->
+  <circle cx="46" cy="44" r="4.2" fill="#FBAE17"/>
 </svg>

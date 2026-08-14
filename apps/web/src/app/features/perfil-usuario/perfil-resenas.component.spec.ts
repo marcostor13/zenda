@@ -54,6 +54,8 @@ describe('PerfilResenasComponent', () => {
             estaAutenticado: signal(true),
             esAdmin: signal(false),
             esComercio: signal(false),
+            esCliente: signal(true),
+            clienteVerificado: signal(false),
             logout: jest.fn(),
           },
         },

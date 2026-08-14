@@ -99,10 +99,12 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
         {
           provide: AuthService,
           useValue: {
-            usuario: signal({ id: opciones.usuarioId ?? 'u1', nombre: 'Ana Ruiz' }),
+            usuario: signal({ id: opciones.usuarioId ?? 'u1', nombre: 'Ana Ruiz', verificado: true }),
             estaAutenticado: signal(true),
             esAdmin: signal(false),
             esComercio: signal(false),
+            esCliente: signal(true),
+            clienteVerificado: signal(true),
           },
         },
         { provide: PerrosService, useValue: { misPerros: jest.fn().mockResolvedValue(opciones.mascotas ?? []) } },
@@ -159,12 +161,13 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
   });
 
   it('debería mostrar el nivel Alpha en la cabecera cuando está disponible (HU-12.1/12.2)', async () => {
-    await crear({ alpha: { nombreNivel: 'Alpha 2', reservasCompletadas: 6 } });
+    await crear({ alpha: { nombreNivel: 'Alpha 2', nivelActual: 2, reservasCompletadas: 6 } });
     fixture.componentInstance.cuentaAbierto.set(true);
     fixture.detectChanges();
 
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelector('.rs-navbar__dropdown-alpha')?.textContent).toContain('Alpha 2');
+    // El nombre antiguo guardado en BD se presenta en romanos (TCK-8011).
+    expect(el.querySelector('.rs-navbar__dropdown-alpha')?.textContent).toContain('ALPHA II');
     expect(el.querySelector('a[href="/perfil/alpha"]')).toBeTruthy();
   });
 

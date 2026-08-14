@@ -38,7 +38,7 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="kpi-grid">
         <div class="kpi-card rs-card">
           <div class="kpi-card__header">
-            <span class="kpi-card__label">Facturación del mes</span>
+            <span class="kpi-card__label">Ingresos este mes</span>
             <div class="kpi-card__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
               <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
             </div>
@@ -60,7 +60,7 @@ const ESTADO_BADGE: Record<string, string> = {
 
         <div class="kpi-card rs-card">
           <div class="kpi-card__header">
-            <span class="kpi-card__label">Comisión plataforma (15%)</span>
+            <span class="kpi-card__label">Comisión Doogking (15%)</span>
             <div class="kpi-card__icon" style="background:rgba(239,68,68,.10);color:#B91C1C">
               <rs-icon name="tag" [size]="17" [stroke]="2"></rs-icon>
             </div>
@@ -89,15 +89,15 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="rs-card fin-card">
         <h3 class="fin-card__title">Desglose financiero</h3>
         <div class="fin-row">
-          <span>Facturación bruta (GMV)</span>
+          <span>Ingresos brutos</span>
           <strong>{{ totalIngresos() | number:'1.2-2' }} €</strong>
         </div>
         <div class="fin-row fin-row--minus">
-          <span>Comisión plataforma (15%)</span>
+          <span>Comisión Doogking (15%)</span>
           <strong>− {{ comisionEstimada() | number:'1.2-2' }} €</strong>
         </div>
         <div class="fin-row fin-row--minus">
-          <span>Fee Stripe</span>
+          <span>Gastos de procesamiento de pago</span>
           <strong>− {{ feeStripeTotal() | number:'1.2-2' }} €</strong>
         </div>
         @if (reembolsos() > 0) {
@@ -108,7 +108,7 @@ const ESTADO_BADGE: Record<string, string> = {
         }
         <hr class="fin-divider">
         <div class="fin-row fin-row--total">
-          <strong>Liquidación neta</strong>
+          <strong>Total a recibir</strong>
           <strong class="fin-total">{{ liquidacionEstimada() | number:'1.2-2' }} €</strong>
         </div>
         @if (proximaLiquidacion() > 0) {

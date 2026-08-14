@@ -78,6 +78,25 @@ import { Component, Input } from '@angular/core';
         @case ('chevron-down') {
           <path d="m6 9 6 6 6-6"/>
         }
+        @case ('more-horizontal') {
+          <circle cx="12" cy="12" r="1"/>
+          <circle cx="19" cy="12" r="1"/>
+          <circle cx="5" cy="12" r="1"/>
+        }
+        @case ('chevron-left') {
+          <path d="m15 18-6-6 6-6"/>
+        }
+        @case ('chevron-right') {
+          <path d="m9 18 6-6-6-6"/>
+        }
+        @case ('list') {
+          <path d="M8 6h13"/>
+          <path d="M8 12h13"/>
+          <path d="M8 18h13"/>
+          <path d="M3 6h.01"/>
+          <path d="M3 12h.01"/>
+          <path d="M3 18h.01"/>
+        }
         @case ('arrow-right') {
           <path d="M5 12h14"/>
           <path d="m12 5 7 7-7 7"/>

@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, input, signal, computed, HostListener } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { nombreAlphaPresentacion } from 'shared';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsRegionSelectorComponent } from '../region/rs-region-selector.component';
@@ -60,9 +61,12 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
             </a>
           }
           @if (esComercio()) {
+            <!-- "Panel de mi comercio": el nombre deja claro que al pulsarlo se
+                 abandona la parte de cliente y se entra en la gestión profesional
+                 (TCK-8029). -->
             <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--sm">
               <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
-              Mi Comercio
+              Panel de mi comercio
             </a>
           }
           <div class="rs-navbar__account" (click)="$event.stopPropagation()">
@@ -81,15 +85,20 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
             </button>
             @if (cuentaAbierto()) {
               <div class="rs-navbar__dropdown">
+                <!-- Cabecera de la identidad de CLIENTE: nombre de la persona,
+                     nunca el del negocio (TCK-8029). -->
                 <div class="rs-navbar__dropdown-header">
-                  <span class="rs-navbar__dropdown-name">{{ authService.usuario()?.nombre }}</span>
-                  <span class="rs-badge rs-badge--success rs-navbar__verificado">
-                    <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Cliente verificado
-                  </span>
+                  <span class="rs-navbar__dropdown-name">{{ nombreCuenta() }}</span>
+                  @if (clienteVerificado()) {
+                    <span class="rs-badge rs-badge--success rs-navbar__verificado">
+                      <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Cliente verificado
+                    </span>
+                  }
                   @if (alpha(); as a) {
                     <span class="rs-navbar__dropdown-alpha">
                       <rs-icon name="crown" [size]="13" [stroke]="2"></rs-icon>
-                      {{ a.nombreNivel }} · {{ a.reservasCompletadas }} reservas
+                      Nivel {{ nombreAlpha(a) }} · {{ a.reservasCompletadas }}
+                      {{ a.reservasCompletadas === 1 ? 'reserva' : 'reservas' }}
                     </span>
                   }
                 </div>
@@ -121,11 +130,13 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                   @if (tienePendientesResena()) { <span class="rs-navbar__pill">Pendiente</span> }
                 </a>
 
-                <div class="rs-navbar__dropdown-divider"></div>
+                @if (esCliente()) {
+                  <div class="rs-navbar__dropdown-divider"></div>
 
-                <a routerLink="/perfil/alpha" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="crown" [size]="15" [stroke]="2"></rs-icon> Mi nivel Alpha y recompensas
-                </a>
+                  <a routerLink="/perfil/alpha" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                    <rs-icon name="crown" [size]="15" [stroke]="2"></rs-icon> Nivel Alpha y recompensas
+                  </a>
+                }
 
                 <div class="rs-navbar__dropdown-divider"></div>
 
@@ -136,12 +147,8 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                   <rs-icon name="message-square" [size]="15" [stroke]="2"></rs-icon> Ayuda
                 </a>
 
-                <div class="rs-navbar__dropdown-divider"></div>
-
-                <a routerLink="/" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--action" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon> Buscar servicios
-                </a>
-
+                <!-- Buscar servicios vive en la navegación principal, no en la
+                     configuración de la cuenta (TCK-8029). -->
                 <div class="rs-navbar__dropdown-divider"></div>
 
                 <button type="button" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--danger" (click)="cerrarSesion()">
@@ -198,7 +205,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
             @if (esComercio()) {
               <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">
                 <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
-                Mi Comercio
+                Panel de mi comercio
               </a>
             }
             <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mi perfil</a>
@@ -307,7 +314,9 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     }
     .rs-navbar__dropdown-item {
       display: flex; align-items: center; gap: var(--sp-3);
-      padding: var(--sp-3) var(--sp-3); width: 100%;
+      /* Menú compacto y premium: menos aire vertical que el resto de listas
+         del producto, con separadores que agrupan (TCK-8029). */
+      padding: var(--sp-2) var(--sp-3); width: 100%;
       font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-200);
       background: transparent; border: none; border-radius: var(--r-lg);
       text-decoration: none; cursor: pointer; text-align: left;
@@ -418,6 +427,14 @@ export class RsNavbarComponent implements OnInit {
   readonly estaAutenticado = this.authService.estaAutenticado;
   readonly esAdmin = this.authService.esAdmin;
   readonly esComercio = this.authService.esComercio;
+  readonly esCliente = this.authService.esCliente;
+  readonly clienteVerificado = this.authService.clienteVerificado;
+
+  /**
+   * El desplegable es la identidad personal: si la cuenta no tiene nombre se
+   * rotula "Mi cuenta" antes que arriesgarse a mostrar el del negocio (TCK-8029).
+   */
+  readonly nombreCuenta = computed(() => this.authService.usuario()?.nombre?.trim() || 'Mi cuenta');
   readonly menuAbierto = signal(false);
   readonly cuentaAbierto = signal(false);
 
@@ -430,6 +447,11 @@ export class RsNavbarComponent implements OnInit {
 
   /** Nivel Alpha del cliente para la cabecera del desplegable (HU-12.1/12.2). */
   readonly alpha = signal<AlphaEstadoApi | null>(null);
+
+  /** Nivel en numeración romana aunque la BD guarde el formato antiguo (TCK-8011). */
+  nombreAlpha(estado: AlphaEstadoApi): string {
+    return nombreAlphaPresentacion(estado.nombreNivel, estado.nivelActual);
+  }
 
   readonly logoD = BRAND.logoD;
 
@@ -485,6 +507,9 @@ export class RsNavbarComponent implements OnInit {
         () => this.tienePendientesResena.set(false),
       );
     } catch { this.tienePendientesResena.set(false); }
+    // Alpha es fidelización de quien reserva: no se consulta siquiera para
+    // cuentas de comercio o de administración (TCK-8029).
+    if (!this.esCliente()) return;
     try {
       this.alphaService.miEstado().then(
         (estado) => this.alpha.set(estado),

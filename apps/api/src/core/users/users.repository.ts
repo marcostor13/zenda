@@ -31,6 +31,16 @@ export class UsersRepository {
     return this.usuarioModel.findById(id).exec();
   }
 
+  /** Datos de contacto de varios clientes de una vez (listados del comercio). */
+  async findContactosByIds(ids: string[]): Promise<UsuarioDocument[]> {
+    if (!ids.length) return [];
+    return this.usuarioModel
+      .find({ _id: { $in: ids } })
+      .select('nombre email telefono')
+      .lean()
+      .exec() as unknown as UsuarioDocument[];
+  }
+
   /** Miembros del equipo de un comercio (admins y staff vinculados). */
   async listarPorComercio(comercioId: string): Promise<UsuarioDocument[]> {
     return this.usuarioModel

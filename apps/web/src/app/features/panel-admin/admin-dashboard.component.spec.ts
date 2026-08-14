@@ -49,6 +49,9 @@ describe('AdminDashboardComponent', () => {
         { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 0, descuentoPct: 0, beneficios: ['Promos'] },
       ])),
       updateAlphaNivel: jest.fn().mockReturnValue(of({})),
+      // Empresas adheridas al programa Alpha, ahora gestionadas aquí (TCK-8034).
+      getComercios: jest.fn().mockReturnValue(of({ items: [], total: 0 })),
+      fijarAlphaAdherido: jest.fn().mockReturnValue(of({})),
       ...ajustes,
     };
 
