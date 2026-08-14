@@ -1,10 +1,21 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReporteFinanciero, ReporteVertical } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
+
+type AtajoClave = 'hoy' | '7d' | '30d' | 'mes' | 'ano' | 'personalizado';
+
+const ATAJOS: ReadonlyArray<{ clave: AtajoClave; label: string }> = [
+  { clave: 'hoy', label: 'Hoy' },
+  { clave: '7d', label: '7 días' },
+  { clave: '30d', label: '30 días' },
+  { clave: 'mes', label: 'Este mes' },
+  { clave: 'ano', label: 'Este año' },
+  { clave: 'personalizado', label: 'Personalizado' },
+];
 
 const VERTICALES_OPCIONES = [
   { label: 'Todas las categorías', valor: '' },
@@ -30,6 +41,16 @@ const VERTICALES_OPCIONES = [
     <!-- Formulario de filtros -->
     <div class="rs-card" style="padding:var(--sp-6);margin-bottom:var(--sp-6)">
       <h3 class="section-title">Parámetros del reporte</h3>
+
+      <!-- Atajos: la pantalla ya no arranca vacía esperando a que rellenes fechas (TCK-8032/8033) -->
+      <div class="atajos">
+        @for (a of atajos; track a.clave) {
+          <button class="atajo" [class.activa]="atajoActivo() === a.clave" (click)="aplicarAtajo(a.clave)">
+            {{ a.label }}
+          </button>
+        }
+      </div>
+
       <div class="filtros-grid">
         <div class="rs-field">
           <label class="rs-lbl">Desde</label>
@@ -49,9 +70,18 @@ const VERTICALES_OPCIONES = [
         </div>
         <div class="rs-field">
           <label class="rs-lbl">Vertical (opcional)</label>
-          <select class="rs-inp" [(ngModel)]="filtroVertical">
+          <select class="rs-inp" [(ngModel)]="filtroVertical" (ngModelChange)="generarReporte()">
             @for (v of verticalesOpciones; track v.valor) {
               <option [value]="v.valor">{{ v.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="rs-field">
+          <label class="rs-lbl">Comercio (opcional)</label>
+          <select class="rs-inp" [(ngModel)]="filtroComercio" (ngModelChange)="generarReporte()">
+            <option value="">Todos los comercios</option>
+            @for (c of comercios(); track c._id) {
+              <option [value]="c._id">{{ c.nombreComercial }}</option>
             }
           </select>
         </div>
@@ -74,6 +104,11 @@ const VERTICALES_OPCIONES = [
     </div>
 
     <!-- Resultados -->
+    @if (cargando() && !reporte()) {
+      <div class="rs-card" style="padding:var(--sp-10);text-align:center;color:var(--t-400)">
+        Calculando el reporte…
+      </div>
+    }
     @if (reporte()) {
       <!-- KPIs resumen -->
       <div class="kpi-grid" style="margin-bottom:var(--sp-6)">
@@ -173,6 +208,16 @@ const VERTICALES_OPCIONES = [
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
     .section-title { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-5); }
 
+    .atajos { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+    .atajo {
+      padding: var(--sp-2) var(--sp-3); border-radius: var(--r-full);
+      border: 1px solid var(--b-2); background: var(--c-raised);
+      color: var(--t-300); font-size: var(--f-xs); font-weight: var(--w-6); cursor: pointer;
+      transition: all var(--d-2);
+    }
+    .atajo:hover { border-color: var(--c-accent); color: var(--c-accent); }
+    .atajo.activa { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); }
+
     .filtros-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-5); @media (max-width: 768px) { grid-template-columns: 1fr; } }
     .rs-field { display: flex; flex-direction: column; gap: var(--sp-2); }
 
@@ -196,7 +241,7 @@ const VERTICALES_OPCIONES = [
     .cell-red { color: #dc2626; }
   `],
 })
-export class AdminReportesComponent {
+export class AdminReportesComponent implements OnInit {
   private readonly adminApi = inject(AdminApiService);
 
   readonly cargando = signal(false);
@@ -204,10 +249,53 @@ export class AdminReportesComponent {
   readonly errorMsg = signal('');
 
   readonly verticalesOpciones = VERTICALES_OPCIONES;
+  readonly atajos = ATAJOS;
+  readonly atajoActivo = signal<AtajoClave>('30d');
+  readonly comercios = signal<Array<{ _id: string; nombreComercial: string }>>([]);
 
   fechaDesde = '';
   fechaHasta = '';
   filtroVertical = '';
+  filtroComercio = '';
+
+  async ngOnInit(): Promise<void> {
+    // Arranca con los últimos 30 días ya calculados: la pantalla nunca se ve
+    // como un formulario a medias (TCK-8032/8033).
+    this.aplicarRango(30);
+    await this.generarReporte();
+    try {
+      const res = await firstValueFrom(this.adminApi.getComercios({ limite: 200 }));
+      this.comercios.set(res.items.map((c) => ({ _id: c._id, nombreComercial: c.nombreComercial })));
+    } catch {
+      // Sin la lista, el filtro por comercio se queda en "Todos".
+    }
+  }
+
+  /** Fija el rango a los últimos `dias` días, hoy incluido. */
+  private aplicarRango(dias: number): void {
+    const hoy = new Date();
+    const desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (dias - 1));
+    this.fechaHasta = hoy.toISOString().slice(0, 10);
+    this.fechaDesde = desde.toISOString().slice(0, 10);
+  }
+
+  async aplicarAtajo(clave: AtajoClave): Promise<void> {
+    this.atajoActivo.set(clave);
+    const hoy = new Date();
+    if (clave === 'hoy') this.aplicarRango(1);
+    else if (clave === '7d') this.aplicarRango(7);
+    else if (clave === '30d') this.aplicarRango(30);
+    else if (clave === 'mes') {
+      this.fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
+      this.fechaHasta = hoy.toISOString().slice(0, 10);
+    } else if (clave === 'ano') {
+      this.fechaDesde = new Date(hoy.getFullYear(), 0, 1).toISOString().slice(0, 10);
+      this.fechaHasta = hoy.toISOString().slice(0, 10);
+    } else {
+      return; // 'personalizado': el usuario elige las fechas a mano
+    }
+    await this.generarReporte();
+  }
 
   async generarReporte(): Promise<void> {
     if (!this.fechaDesde || !this.fechaHasta) return;
@@ -220,6 +308,7 @@ export class AdminReportesComponent {
           this.fechaDesde,
           this.fechaHasta,
           this.filtroVertical || undefined,
+          this.filtroComercio || undefined,
         ),
       );
       this.reporte.set(data);

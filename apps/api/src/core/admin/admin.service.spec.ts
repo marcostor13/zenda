@@ -20,6 +20,7 @@ describe('AdminService', () => {
   let reservaModel: any;
   let comercioModel: any;
   let perroModel: any;
+  let usuarioModel: any;
 
   const pagosMock = [
     {
@@ -88,6 +89,11 @@ describe('AdminService', () => {
       countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(3) }),
     };
 
+    usuarioModel = {
+      countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(5) }),
+      find: jest.fn(),
+    };
+
     perroModel = {
       countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(42) }),
     };
@@ -123,7 +129,7 @@ describe('AdminService', () => {
         },
         { provide: getModelToken(Pago.name), useValue: pagoModel },
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
-        { provide: getModelToken(Usuario.name), useValue: {} },
+        { provide: getModelToken(Usuario.name), useValue: usuarioModel },
         { provide: getModelToken(Comercio.name), useValue: comercioModel },
         { provide: getModelToken(Perro.name), useValue: perroModel },
       ],
@@ -184,16 +190,29 @@ describe('AdminService', () => {
   describe('obtenerAnalitica', () => {
     it('debería calcular distribución por vertical con porcentajes y el embudo', async () => {
       reservaModel.aggregate
-        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: 'veterinaria', reservas: 6 }, { _id: 'peluqueria', reservas: 4 }]) })
-        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ _id: 'Madrid', reservas: 8 }, { _id: null, reservas: 2 }]) });
-      pagoModel.aggregate.mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ nombre: 'VilaCan', reservas: 5, facturacion: 900 }]) });
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([
+          { _id: 'veterinaria', reservas: 6, facturacion: 600, comision: 90, comercios: ['c1', 'c2'] },
+          { _id: 'peluqueria', reservas: 4, facturacion: 200, comision: 30, comercios: ['c3'] },
+        ]) })
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([
+          { _id: 'Madrid', reservas: 8, facturacion: 700, comercios: ['c1'] },
+          { _id: null, reservas: 2, facturacion: 100, comercios: [] },
+        ]) });
+      pagoModel.aggregate
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ nombre: 'VilaCan', reservas: 5, facturacion: 900, valoracion: 4.8 }]) })
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([{ facturacion: 900, comision: 135, pagos: 9 }]) });
 
       const analitica = await service.obtenerAnalitica();
 
-      expect(analitica.porVertical[0]).toEqual({ vertical: 'veterinaria', reservas: 6, porcentaje: 60 });
-      expect(analitica.porCiudad).toEqual([{ ciudad: 'Madrid', reservas: 8 }]); // descarta ciudad nula
-      expect(analitica.topComercios[0]).toEqual({ comercio: 'VilaCan', reservas: 5, facturacion: 900 });
+      expect(analitica.porVertical[0]).toEqual({
+        vertical: 'veterinaria', reservas: 6, porcentaje: 60, facturacion: 600, comision: 90, comercios: 2,
+      });
+      // Descarta la ciudad nula y cuenta comercios distintos por ciudad.
+      expect(analitica.porCiudad).toEqual([{ ciudad: 'Madrid', reservas: 8, comercios: 1, facturacion: 700 }]);
+      expect(analitica.topComercios[0]).toEqual({ comercio: 'VilaCan', reservas: 5, facturacion: 900, valoracion: 4.8 });
       expect(analitica.embudo).toEqual({ registrados: 0, conReserva: 3, pagaron: 7 });
+      // Ticket medio = facturación aprobada / pagos aprobados.
+      expect(analitica.kpis.ticketMedio).toBe(100);
     });
   });
 

@@ -36,6 +36,8 @@ export interface UltimaReserva {
   fechaServicio: string | null;
   cliente: string;
   comercio: string;
+  servicio: string;
+  comisionMonto: number;
 }
 
 export interface ComisionConfig {
@@ -47,11 +49,21 @@ export interface ComisionConfig {
   activo: boolean;
 }
 
+/** Variación frente al periodo anterior; `null` cuando no había datos con los que comparar. */
+export interface ComparativaDashboard {
+  gmvPct: number | null;
+  ingresosPct: number | null;
+  reservasPct: number | null;
+  comerciosPct: number | null;
+}
+
 export interface AdminDashboardResponse {
   kpis: DashboardKpis;
   comerciosPendientes: ComercioPendiente[];
   ultimasReservas: UltimaReserva[];
   comisiones: ComisionConfig[];
+  periodo: { desde: string; hasta: string };
+  comparativa: ComparativaDashboard;
 }
 
 /** Un escalón del programa de fidelización Doogking Alpha (Bloque 13). */
@@ -114,10 +126,34 @@ export interface CambioEstadoReserva {
   at: string;
 }
 
+export interface VerticalAnalitica {
+  vertical: string;
+  reservas: number;
+  porcentaje: number;
+  facturacion: number;
+  comision: number;
+  comercios: number;
+}
+
+export interface ComercioTop {
+  comercio: string;
+  reservas: number;
+  facturacion: number;
+  valoracion: number;
+}
+
 export interface AnaliticaAdmin {
-  porVertical: Array<{ vertical: string; reservas: number; porcentaje: number }>;
-  porCiudad: Array<{ ciudad: string; reservas: number }>;
-  topComercios: Array<{ comercio: string; reservas: number; facturacion: number }>;
+  kpis: {
+    usuariosNuevosMes: number;
+    reservas: number;
+    conversionPct: number;
+    facturacion: number;
+    comision: number;
+    ticketMedio: number;
+  };
+  porVertical: VerticalAnalitica[];
+  porCiudad: Array<{ ciudad: string; reservas: number; comercios: number; facturacion: number }>;
+  topComercios: ComercioTop[];
   embudo: { registrados: number; conReserva: number; pagaron: number };
 }
 
@@ -233,8 +269,10 @@ export class AdminApiService {
   private readonly comerciosUrl = `${environment.apiUrl}/comercios`;
   private readonly cuponesUrl = `${environment.apiUrl}/cupones`;
 
-  getDashboard(): Observable<AdminDashboardResponse> {
-    return this.http.get<AdminDashboardResponse>(`${this.adminUrl}/dashboard`);
+  getDashboard(rango?: { desde: string; hasta: string }): Observable<AdminDashboardResponse> {
+    let p = new HttpParams();
+    if (rango) p = p.set('desde', rango.desde).set('hasta', rango.hasta);
+    return this.http.get<AdminDashboardResponse>(`${this.adminUrl}/dashboard`, { params: p });
   }
 
   updateComision(dto: { vertical: string; comisionPct: number; stripePct?: number; stripeFijoEur?: number; activo: boolean }): Observable<ComisionConfig> {

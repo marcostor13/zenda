@@ -22,7 +22,7 @@ que son los que más tiempo consumen.
 | F2 | Renombrados y textos · panel comercio | **8017 ✅ · 8022 ✅ · 8023 ✅ · 8024 ✅ · 8025 🟡 · 8026/8027 🟡** | 🟡 en curso |
 | F3 | Alpha solo para clientes | **8029 ✅ · 8034 🟡 (parte Alpha) · 8035 🟡 (parte Alpha)** | 🟡 en curso |
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
-| F5 | Panel admin · textos, resúmenes y filtros | **8034 🟡 · 8035 🟡** · resto 8030–8039 ⬜ | 🟡 en curso |
+| F5 | Panel admin · textos, resúmenes y filtros | **8030 🟡 · 8031 🟡 · 8032/8033 🟡 · 8034 🟡 · 8035 🟡** · 8036–8039 ⬜ | 🟡 en curso |
 | F6 | Marca y público | 8004, 8008, 8009, 8010, 8011 | ⬜ |
 | F7 | Módulos nuevos (producto) | 8040 | ⬜ planificar al terminar F1–F6 |
 
@@ -179,6 +179,39 @@ mapa en Ubicación, contador de caracteres, sección de Plan completa y guardado
 Casi todo eso **necesita backend** (schema de horario, documentos, plan).
 
 ### F5 — Panel admin (avance parcial)
+
+**TCK-8030 🟡 Dashboard.** Ya no es una parrilla de tarjetas con el mismo peso:
+- **Selector de periodo** (Hoy · 7 días · 30 días · Este mes · Este año · Personalizado). El
+  backend acepta `desde`/`hasta` en `GET /admin/dashboard` y **compara con la ventana anterior
+  de la misma duración**: las tarjetas de facturación, comisión y reservas muestran
+  *+12 %* / *−7 %*. Sin datos previos no se enseña porcentaje (un "+100 %" desde cero engaña).
+- **Cinco KPIs ejecutivos arriba** (Facturación · Comisión Doogking · Reservas · Comercios
+  activos · Usuarios) y el resto degradado a una fila de tarjetas pequeñas.
+- Comercios pendientes: fuera *Aprobar / X* directos; ahora **Revisar comercio**, que lleva a la
+  ficha donde ya se puede aprobar o rechazar.
+- Últimas reservas en **tabla** con Nº · Cliente · Comercio · Servicio · Fecha · Importe ·
+  Comisión · Estado y botón *Ver todas* (el backend añade comisión y título del servicio).
+- Comisiones: nota que explica que *Comisión total* es lo que realmente deja de cobrar el
+  comercio. Alpha pasa a titularse **"Programa de fidelización de clientes · Doogking Alpha"** y
+  los beneficios se editan **uno a uno** con *Añadir beneficio*, no en un campo con comas.
+**Falta:** historial de cambios de comisiones (necesita colección de auditoría) y el resto de
+opciones de configuración de Alpha (máximo de descuento, servicios donde aplica).
+
+**TCK-8031 🟡 Analítica.** Fila de **KPIs** arriba (Usuarios nuevos · Reservas · Conversión ·
+Facturación · Comisión Doogking · Ticket medio). La distribución por categoría tiene **selector
+de métrica** (Reservas / Facturación / Comisión / Nº de comercios) y se reordena con ella; la
+geográfica pasa de una barra a una **tabla Ciudad · Comercios · Reservas · Facturación**; y el
+Top 5 se puede ordenar por facturación, reservas o valoración, mostrando la nota del comercio.
+El backend calcula todo eso por agregación.
+**Falta:** gráficos de evolución temporal, mapa de España y el embudo ampliado
+(búsquedas y visitas a ficha) — **no hay eventos de navegación registrados**, así que el embudo
+sigue siendo registrados → con reserva → pagaron.
+
+**TCK-8032 / 8033 🟡 Reportes financieros.** La pantalla ya no parece un formulario vacío:
+**carga sola con los últimos 30 días**, tiene atajos de periodo (Hoy · 7 días · 30 días · Este
+mes · Este año · Personalizado) y filtro por **comercio** además del de vertical; cambiar
+cualquier filtro recalcula sin pulsar nada.
+**Falta:** exportación y comparativa entre periodos.
 
 **TCK-8035 🟡 Usuarios.** Resumen superior real (Totales · Clientes · Usuarios de comercios ·
 Administradores Doogking · Nuevos este mes) vía nuevo `GET /admin/usuarios/resumen`; filtro por

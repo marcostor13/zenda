@@ -3,7 +3,10 @@ import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
-import { AdminApiService, AnaliticaAdmin } from './admin-api.service';
+import { AdminApiService, AnaliticaAdmin, ComercioTop, VerticalAnalitica } from './admin-api.service';
+
+type MetricaVertical = 'reservas' | 'facturacion' | 'comision' | 'comercios';
+type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
 
 @Component({
   selector: 'app-admin-analitica',
@@ -22,6 +25,16 @@ import { AdminApiService, AnaliticaAdmin } from './admin-api.service';
     } @else if (errorMsg()) {
       <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
     } @else {
+      <!-- Cabecera de KPIs: cómo va la plataforma en cinco segundos (TCK-8031) -->
+      <div class="kpi-fila">
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.usuariosNuevosMes }}</span><span class="kpi__lbl">Usuarios nuevos (mes)</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.reservas }}</span><span class="kpi__lbl">Reservas</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.conversionPct }} %</span><span class="kpi__lbl">Conversión</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.facturacion | number:'1.0-0' }} €</span><span class="kpi__lbl">Facturación</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.comision | number:'1.0-0' }} €</span><span class="kpi__lbl">Comisión Doogking</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.ticketMedio | number:'1.0-0' }} €</span><span class="kpi__lbl">Ticket medio</span></div>
+      </div>
+
       <div class="analitica-grid">
 
         <!-- Embudo de conversión -->
@@ -41,18 +54,27 @@ import { AdminApiService, AnaliticaAdmin } from './admin-api.service';
 
         <!-- Ranking por vertical -->
         <div class="rs-card panel">
-          <h3 class="panel__title">Distribución por categoría</h3>
+          <div class="panel__head">
+            <h3 class="panel__title">Distribución por categoría</h3>
+            <select class="rs-inp panel__select" [value]="metricaVertical()"
+                    (change)="metricaVertical.set($any($event.target).value)" aria-label="Métrica">
+              <option value="reservas">Reservas</option>
+              <option value="facturacion">Facturación</option>
+              <option value="comision">Comisión Doogking</option>
+              <option value="comercios">Nº de comercios</option>
+            </select>
+          </div>
           @if (analitica()!.porVertical.length === 0) {
             <p class="empty">Sin reservas todavía.</p>
           }
-          @for (v of analitica()!.porVertical; track v.vertical) {
+          @for (v of verticalesOrdenados(); track v.vertical) {
             <div class="rank-row">
               <span class="rank-row__label">
                 <rs-icon [name]="iconoVertical(v.vertical)" [size]="14" [stroke]="2"></rs-icon>
                 {{ v.vertical }}
               </span>
-              <div class="rank-bar"><div class="rank-bar__fill" [style.width.%]="v.porcentaje"></div></div>
-              <span class="rank-row__val">{{ v.porcentaje }}% · {{ v.reservas }}</span>
+              <div class="rank-bar"><div class="rank-bar__fill" [style.width.%]="pctVertical(v)"></div></div>
+              <span class="rank-row__val">{{ valorVertical(v) }}</span>
             </div>
           }
         </div>
@@ -63,29 +85,48 @@ import { AdminApiService, AnaliticaAdmin } from './admin-api.service';
           @if (analitica()!.porCiudad.length === 0) {
             <p class="empty">Sin datos de ciudad todavía.</p>
           }
-          @for (c of analitica()!.porCiudad; track c.ciudad) {
-            <div class="rank-row">
-              <span class="rank-row__label">
-                <rs-icon name="map-pin" [size]="14" [stroke]="2"></rs-icon> {{ c.ciudad }}
-              </span>
-              <div class="rank-bar"><div class="rank-bar__fill rank-bar__fill--gold" [style.width.%]="pctCiudad(c.reservas)"></div></div>
-              <span class="rank-row__val">{{ c.reservas }}</span>
+          @if (analitica()!.porCiudad.length) {
+            <div class="ciudades">
+              <div class="ciudades__head"><span>Ciudad</span><span>Comercios</span><span>Reservas</span><span>Facturación</span></div>
+              @for (c of analitica()!.porCiudad; track c.ciudad) {
+                <div class="ciudades__row">
+                  <span class="ciudades__ciudad" data-col="Ciudad">
+                    <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon> {{ c.ciudad }}
+                  </span>
+                  <span data-col="Comercios">{{ c.comercios }}</span>
+                  <span data-col="Reservas">{{ c.reservas }}</span>
+                  <span data-col="Facturación">{{ c.facturacion | number:'1.0-0' }} €</span>
+                </div>
+              }
             </div>
           }
         </div>
 
         <!-- Top comercios -->
         <div class="rs-card panel">
-          <h3 class="panel__title"><rs-icon name="trophy" [size]="16" [stroke]="2"></rs-icon> Top 5 comercios</h3>
+          <div class="panel__head">
+            <h3 class="panel__title"><rs-icon name="trophy" [size]="16" [stroke]="2"></rs-icon> Top 5 comercios</h3>
+            <select class="rs-inp panel__select" [value]="ordenTop()"
+                    (change)="ordenTop.set($any($event.target).value)" aria-label="Ordenar top">
+              <option value="facturacion">Por facturación</option>
+              <option value="reservas">Por reservas</option>
+              <option value="valoracion">Por valoración</option>
+            </select>
+          </div>
           @if (analitica()!.topComercios.length === 0) {
             <p class="empty">Sin facturación todavía.</p>
           }
           <div class="top-list">
-            @for (t of analitica()!.topComercios; track t.comercio; let i = $index) {
+            @for (t of topOrdenado(); track t.comercio; let i = $index) {
               <div class="top-item">
                 <span class="top-item__pos">{{ i + 1 }}</span>
                 <span class="top-item__name">{{ t.comercio }}</span>
-                <span class="top-item__meta">{{ t.reservas }} reservas</span>
+                <span class="top-item__meta">
+                  {{ t.reservas }} reservas
+                  @if (t.valoracion) {
+                    · <rs-icon name="star" [size]="11" [stroke]="2" [filled]="true"></rs-icon> {{ t.valoracion | number:'1.1-1' }}
+                  }
+                </span>
                 <strong class="top-item__fact">{{ t.facturacion | number:'1.0-0' }} €</strong>
               </div>
             }
@@ -99,6 +140,30 @@ import { AdminApiService, AnaliticaAdmin } from './admin-api.service';
     .page-header { margin-bottom: var(--sp-6); }
     .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
+    .kpi-fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-5); }
+    .kpi { padding: var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
+    .kpi__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
+    .kpi__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .panel__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-5); flex-wrap: wrap; }
+    .panel__head .panel__title { margin-bottom: 0; }
+    .panel__select { height: 34px; font-size: var(--f-xs); max-width: 190px; }
+
+    .ciudades { display: flex; flex-direction: column; }
+    .ciudades__head, .ciudades__row {
+      display: grid; grid-template-columns: 1.4fr 90px 90px 110px; gap: var(--sp-3);
+      padding: var(--sp-2) 0; border-bottom: 1px solid var(--b-1); font-size: var(--f-sm); color: var(--t-200);
+    }
+    .ciudades__head { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+    .ciudades__row:last-child { border-bottom: none; }
+    .ciudades__ciudad { display: inline-flex; align-items: center; gap: var(--sp-2); }
+    @media (max-width: 640px) {
+      .ciudades__head { display: none; }
+      .ciudades__row { grid-template-columns: 1fr; gap: 2px; padding: var(--sp-3) 0; }
+      .ciudades__row > [data-col]::before { content: attr(data-col) ': '; font-size: var(--f-xs); color: var(--t-400); }
+      .ciudades__row > .ciudades__ciudad::before { content: none; }
+    }
+
     .analitica-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-5); @media (max-width: 900px) { grid-template-columns: 1fr; } }
     .panel { padding: var(--sp-6); }
     .panel__title { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-5); }
@@ -143,8 +208,52 @@ export class AdminAnaliticaComponent implements OnInit {
     ];
   });
 
+  /** Qué se mide en el reparto por categoría y cómo se ordena el top (TCK-8031). */
+  readonly metricaVertical = signal<MetricaVertical>('reservas');
+  readonly ordenTop = signal<OrdenTop>('facturacion');
+
+  readonly verticalesOrdenados = computed(() => {
+    const metrica = this.metricaVertical();
+    return [...(this.analitica()?.porVertical ?? [])]
+      .sort((a, b) => this.metricaDe(b, metrica) - this.metricaDe(a, metrica));
+  });
+
+  private readonly maxVertical = computed(() => {
+    const metrica = this.metricaVertical();
+    return Math.max(1, ...(this.analitica()?.porVertical ?? []).map((v) => this.metricaDe(v, metrica)));
+  });
+
+  readonly topOrdenado = computed(() => {
+    const orden = this.ordenTop();
+    return [...(this.analitica()?.topComercios ?? [])].sort((a, b) => this.valorTop(b, orden) - this.valorTop(a, orden));
+  });
+
   private readonly maxCiudad = computed(() =>
     Math.max(1, ...(this.analitica()?.porCiudad ?? []).map((c) => c.reservas)));
+
+  private metricaDe(v: VerticalAnalitica, metrica: MetricaVertical): number {
+    return metrica === 'reservas' ? v.reservas
+      : metrica === 'facturacion' ? v.facturacion
+      : metrica === 'comision' ? v.comision
+      : v.comercios;
+  }
+
+  private valorTop(c: ComercioTop, orden: OrdenTop): number {
+    return orden === 'reservas' ? c.reservas : orden === 'valoracion' ? c.valoracion : c.facturacion;
+  }
+
+  /** La barra se lee siempre contra el mayor de la métrica elegida. */
+  pctVertical(v: VerticalAnalitica): number {
+    return Math.round((this.metricaDe(v, this.metricaVertical()) / this.maxVertical()) * 100);
+  }
+
+  valorVertical(v: VerticalAnalitica): string {
+    const metrica = this.metricaVertical();
+    const valor = this.metricaDe(v, metrica);
+    if (metrica === 'reservas') return `${v.porcentaje}% · ${valor}`;
+    if (metrica === 'comercios') return `${valor} comercio${valor === 1 ? '' : 's'}`;
+    return `${Math.round(valor)} €`;
+  }
 
   async ngOnInit(): Promise<void> {
     try {

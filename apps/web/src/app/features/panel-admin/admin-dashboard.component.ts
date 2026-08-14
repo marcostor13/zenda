@@ -3,7 +3,22 @@ import { RouterLink } from '@angular/router';
 import { DecimalPipe, DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { etiquetaAlphaNivel } from 'shared';
-import { AdminApiService, ComisionConfig, ComercioAdmin, ComercioPendiente, UltimaReserva, AlphaNivel } from './admin-api.service';
+import { AdminApiService, ComisionConfig, ComercioAdmin, ComercioPendiente, ComparativaDashboard, UltimaReserva, AlphaNivel } from './admin-api.service';
+
+const SIN_COMPARATIVA: ComparativaDashboard = {
+  gmvPct: null, ingresosPct: null, reservasPct: null, comerciosPct: null,
+};
+
+type PeriodoClave = 'hoy' | '7d' | '30d' | 'mes' | 'ano' | 'personalizado';
+
+const PERIODOS: ReadonlyArray<{ clave: PeriodoClave; label: string }> = [
+  { clave: 'hoy', label: 'Hoy' },
+  { clave: '7d', label: '7 días' },
+  { clave: '30d', label: '30 días' },
+  { clave: 'mes', label: 'Este mes' },
+  { clave: 'ano', label: 'Este año' },
+  { clave: 'personalizado', label: 'Personalizado' },
+];
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
@@ -47,6 +62,23 @@ const ESTADO_BADGE: Record<string, string> = {
         </div>
       </div>
 
+      <!-- PERIODO: todo el panel se lee sobre el rango elegido (TCK-8030) -->
+      <div class="periodo-barra">
+        <span class="periodo-barra__label">Periodo</span>
+        <div class="periodo-toggle" role="group" aria-label="Periodo">
+          @for (p of periodos; track p.clave) {
+            <button class="periodo-toggle__btn" [class.activa]="periodo() === p.clave"
+                    (click)="cambiarPeriodo(p.clave)">{{ p.label }}</button>
+          }
+        </div>
+        @if (periodo() === 'personalizado') {
+          <input class="rs-inp periodo-fecha" type="date" [value]="desde()"
+                 (change)="desde.set($any($event.target).value); recargarPeriodo()" aria-label="Desde" />
+          <input class="rs-inp periodo-fecha" type="date" [value]="hasta()"
+                 (change)="hasta.set($any($event.target).value); recargarPeriodo()" aria-label="Hasta" />
+        }
+      </div>
+
       <!-- BARRA DE ALERTAS -->
       @if (totalAlertas() > 0) {
         <div class="admin-alertas">
@@ -69,44 +101,59 @@ const ESTADO_BADGE: Record<string, string> = {
         </div>
       }
 
-      <!-- KPIs GLOBALES -->
-      <div class="admin-kpi-grid">
+      <!-- KPIs EJECUTIVOS: sólo lo que de verdad manda (TCK-8030) -->
+      <div class="admin-kpi-grid admin-kpi-grid--destacados">
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
             <span class="admin-kpi__icon" style="background:rgba(84,114,248,.18);color:#5472F8">
               <rs-icon name="trending-up" [size]="18" [stroke]="2"></rs-icon>
             </span>
+            @if (comparativa().gmvPct !== null) {
+              <span class="admin-kpi__delta" [class.baja]="comparativa().gmvPct! < 0">
+                {{ comparativa().gmvPct! > 0 ? '+' : '' }}{{ comparativa().gmvPct }} %
+              </span>
+            }
           </div>
           <div class="admin-kpi__value">{{ kpis().gmvMes | number:'1.0-0' }} €</div>
-          <div class="admin-kpi__label">Facturación bruta del mes</div>
-          <div class="admin-kpi__hint">Importe total gestionado por la plataforma</div>
+          <div class="admin-kpi__label">Facturación</div>
+          <div class="admin-kpi__hint">Importe total gestionado en el periodo</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
             <span class="admin-kpi__icon" style="background:rgba(0,201,177,.18);color:#00C9B1">
               <rs-icon name="euro" [size]="18" [stroke]="2"></rs-icon>
             </span>
+            @if (comparativa().ingresosPct !== null) {
+              <span class="admin-kpi__delta" [class.baja]="comparativa().ingresosPct! < 0">
+                {{ comparativa().ingresosPct! > 0 ? '+' : '' }}{{ comparativa().ingresosPct }} %
+              </span>
+            }
           </div>
           <div class="admin-kpi__value">{{ kpis().ingresosMes | number:'1.0-0' }} €</div>
-          <div class="admin-kpi__label">Comisión Doogking del mes</div>
+          <div class="admin-kpi__label">Comisión Doogking</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
             <span class="admin-kpi__icon" style="background:rgba(155,92,246,.18);color:#9B5CF6">
               <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
             </span>
+            @if (comparativa().reservasPct !== null) {
+              <span class="admin-kpi__delta" [class.baja]="comparativa().reservasPct! < 0">
+                {{ comparativa().reservasPct! > 0 ? '+' : '' }}{{ comparativa().reservasPct }} %
+              </span>
+            }
           </div>
           <div class="admin-kpi__value">{{ kpis().totalReservas }}</div>
           <div class="admin-kpi__label">Reservas totales</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
-            <span class="admin-kpi__icon" style="background:rgba(250,204,21,.18);color:#D97706">
+            <span class="admin-kpi__icon" style="background:rgba(0,201,177,.18);color:#00C9B1">
               <rs-icon name="building" [size]="18" [stroke]="2"></rs-icon>
             </span>
           </div>
-          <div class="admin-kpi__value">{{ kpis().comerciosPendientesCount }}</div>
-          <div class="admin-kpi__label">Comercios pendientes</div>
+          <div class="admin-kpi__value">{{ comerciosActivos() ?? '—' }}</div>
+          <div class="admin-kpi__label">Comercios activos</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
@@ -117,59 +164,37 @@ const ESTADO_BADGE: Record<string, string> = {
           <div class="admin-kpi__value">{{ kpis().totalUsuarios }}</div>
           <div class="admin-kpi__label">Usuarios registrados</div>
         </div>
-        <div class="admin-kpi rs-card">
-          <div class="admin-kpi__top">
-            <span class="admin-kpi__icon" style="background:rgba(250,204,21,.18);color:#D97706">
-              <rs-icon name="badge-check" [size]="18" [stroke]="2"></rs-icon>
-            </span>
-          </div>
-          <div class="admin-kpi__value">{{ kpis().verificacionesPendientes }}</div>
-          <div class="admin-kpi__label">Verificaciones pendientes</div>
+      </div>
+
+      <!-- KPIs SECUNDARIOS: operación del día a día -->
+      <div class="kpi-secundarios">
+        <div class="kpi-mini rs-card">
+          <span class="kpi-mini__num">{{ kpis().comerciosPendientesCount }}</span>
+          <span class="kpi-mini__lbl">Comercios pendientes</span>
         </div>
-        <div class="admin-kpi rs-card">
-          <div class="admin-kpi__top">
-            <span class="admin-kpi__icon" style="background:rgba(0,201,177,.18);color:#00C9B1">
-              <rs-icon name="building" [size]="18" [stroke]="2"></rs-icon>
-            </span>
-          </div>
-          <div class="admin-kpi__value">{{ kpis().nuevosComerciosMes }}</div>
-          <div class="admin-kpi__label">Nuevos comercios (mes)</div>
+        <div class="kpi-mini rs-card">
+          <span class="kpi-mini__num">{{ kpis().verificacionesPendientes }}</span>
+          <span class="kpi-mini__lbl">Verificaciones pendientes</span>
         </div>
-        <div class="admin-kpi rs-card">
-          <div class="admin-kpi__top">
-            <span class="admin-kpi__icon" style="background:rgba(155,92,246,.18);color:#9B5CF6">
-              <rs-icon name="paw" [size]="18" [stroke]="2"></rs-icon>
-            </span>
-          </div>
-          <div class="admin-kpi__value">{{ kpis().mascotasRegistradas | number:'1.0-0' }}</div>
-          <div class="admin-kpi__label">Mascotas registradas</div>
+        <div class="kpi-mini rs-card">
+          <span class="kpi-mini__num">{{ kpis().nuevosComerciosMes }}</span>
+          <span class="kpi-mini__lbl">Nuevos comercios</span>
         </div>
-        <div class="admin-kpi rs-card">
-          <div class="admin-kpi__top">
-            <span class="admin-kpi__icon" style="background:rgba(248,113,113,.18);color:#F87171">
-              <rs-icon name="percent" [size]="18" [stroke]="2"></rs-icon>
-            </span>
-          </div>
-          <div class="admin-kpi__value">{{ kpis().tasaCancelacionMes }} %</div>
-          <div class="admin-kpi__label">Cancelaciones del mes</div>
+        <div class="kpi-mini rs-card">
+          <span class="kpi-mini__num">{{ kpis().tasaCancelacionMes }} %</span>
+          <span class="kpi-mini__lbl">Cancelaciones</span>
         </div>
-        <div class="admin-kpi rs-card">
-          <div class="admin-kpi__top">
-            <span class="admin-kpi__icon" style="background:rgba(0,201,177,.18);color:#00C9B1">
-              <rs-icon name="euro" [size]="18" [stroke]="2"></rs-icon>
-            </span>
-          </div>
-          <div class="admin-kpi__value">{{ kpis().pagosRetenidosMonto | number:'1.0-0' }} €</div>
-          <div class="admin-kpi__label">Pagos retenidos ({{ kpis().pagosRetenidosCount }})</div>
+        <div class="kpi-mini rs-card">
+          <span class="kpi-mini__num">{{ kpis().pagosRetenidosMonto | number:'1.0-0' }} €</span>
+          <span class="kpi-mini__lbl">Pagos retenidos ({{ kpis().pagosRetenidosCount }})</span>
         </div>
-        <div class="admin-kpi rs-card">
-          <div class="admin-kpi__top">
-            <span class="admin-kpi__icon" style="background:rgba(248,113,113,.18);color:#F87171">
-              <rs-icon name="alert-circle" [size]="18" [stroke]="2"></rs-icon>
-            </span>
-          </div>
-          <div class="admin-kpi__value">{{ kpis().incidenciasAbiertas }}</div>
-          <div class="admin-kpi__label">Incidencias abiertas</div>
+        <div class="kpi-mini rs-card">
+          <span class="kpi-mini__num">{{ kpis().incidenciasAbiertas }}</span>
+          <span class="kpi-mini__lbl">Incidencias abiertas</span>
+        </div>
+        <div class="kpi-mini rs-card">
+          <span class="kpi-mini__num">{{ kpis().mascotasRegistradas | number:'1.0-0' }}</span>
+          <span class="kpi-mini__lbl">Mascotas registradas</span>
         </div>
       </div>
 
@@ -197,16 +222,10 @@ const ESTADO_BADGE: Record<string, string> = {
                     <span style="font-size:var(--f-xs);color:var(--t-400)">RUC {{ c.nif }}</span>
                   </div>
                 </div>
-                <div style="display:flex;gap:var(--sp-2)">
-                  <button class="rs-btn rs-btn--sm" style="background:var(--c-teal);color:#000;font-weight:600"
-                          (click)="aprobarComercio(c.id)">
-                    <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> Aprobar
-                  </button>
-                  <button class="rs-btn rs-btn--danger rs-btn--sm"
-                          (click)="rechazarComercio(c.id)" aria-label="Rechazar comercio">
-                    <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon>
-                  </button>
-                </div>
+                <!-- Sin aprobar a ciegas: primero se revisa la ficha (TCK-8030) -->
+                <a routerLink="/admin/comercios" class="rs-btn rs-btn--outline rs-btn--sm">
+                  Revisar comercio
+                </a>
               </div>
             }
 
@@ -222,23 +241,30 @@ const ESTADO_BADGE: Record<string, string> = {
         <div class="rs-card admin-panel">
           <div class="panel-header">
             <h3>Últimas reservas</h3>
+            <a routerLink="/admin/reservas" class="rs-btn rs-btn--ghost rs-btn--sm">Ver todas</a>
           </div>
 
-          <div style="display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="ultimas-tabla">
+            <div class="ultimas-tabla__head">
+              <span>Nº</span><span>Cliente</span><span>Comercio</span><span>Servicio</span>
+              <span>Fecha</span><span>Importe</span><span>Comisión</span><span>Estado</span>
+            </div>
             @for (r of ultimasReservas(); track r.id) {
-              <div class="ultima-reserva">
-                <span class="ultima-reserva__icon">
-                  <rs-icon [name]="iconoVertical(r.vertical)" [size]="18" [stroke]="1.5"></rs-icon>
-                </span>
-                <div class="ultima-reserva__info">
-                  <div><strong>{{ r.codigo }}</strong> · {{ r.comercio }}</div>
-                  <div>{{ r.cliente }} · {{ r.montoTotal }} € · {{ (r.fechaServicio || r.createdAt) | date:'d MMM, HH:mm' }}</div>
-                </div>
-                <span class="{{ 'rs-badge ' + badgeEstado(r.estado) }}">{{ r.estado }}</span>
+              <div class="ultimas-tabla__row">
+                <span class="ultimas-tabla__codigo" data-col="Nº">{{ r.codigo }}</span>
+                <span data-col="Cliente">{{ r.cliente }}</span>
+                <span data-col="Comercio">{{ r.comercio }}</span>
+                <span data-col="Servicio">{{ r.servicio }}</span>
+                <span data-col="Fecha">{{ (r.fechaServicio || r.createdAt) | date:'d MMM, HH:mm' }}</span>
+                <span data-col="Importe">{{ r.montoTotal | number:'1.0-2' }} €</span>
+                <span data-col="Comisión">{{ r.comisionMonto | number:'1.0-2' }} €</span>
+                <span data-col="Estado"><span class="{{ 'rs-badge ' + badgeEstado(r.estado) }}">{{ r.estado }}</span></span>
               </div>
             }
             @if (ultimasReservas().length === 0) {
-              <div style="text-align:center;padding:var(--sp-6);color:var(--t-400)">Sin reservas aún</div>
+              <div style="text-align:center;padding:var(--sp-6);color:var(--t-400)">
+                Todavía no hay reservas en Doogking.
+              </div>
             }
           </div>
         </div>
@@ -248,12 +274,16 @@ const ESTADO_BADGE: Record<string, string> = {
       <!-- CONFIGURACIÓN DE COMISIONES -->
       <div class="rs-card admin-panel">
         <div class="panel-header">
-          <h3>Configuración de comisiones por vertical</h3>
+          <h3>Comisiones por vertical</h3>
           <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardarComisiones()">
             <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
           </button>
         </div>
 
+        <p class="panel-nota">
+          La columna <strong>Comisión total</strong> es lo que el comercio deja de cobrar por cada
+          reserva: comisión de Doogking más el coste de la pasarela de pago.
+        </p>
         <div class="comisiones-table">
           <div class="comisiones-head">
             <span>Vertical</span>
@@ -306,7 +336,7 @@ const ESTADO_BADGE: Record<string, string> = {
       <!-- PROGRAMA DOOGKING ALPHA (HU-13.4) -->
       <div class="rs-card admin-panel">
         <div class="panel-header">
-          <h3><rs-icon name="crown" [size]="17" [stroke]="2"></rs-icon> Programa Doogking Alpha</h3>
+          <h3><rs-icon name="crown" [size]="17" [stroke]="2"></rs-icon> Programa de fidelización de clientes · Doogking Alpha</h3>
           <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardarAlphaNiveles()">
             <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
           </button>
@@ -340,10 +370,24 @@ const ESTADO_BADGE: Record<string, string> = {
                        [value]="(n.descuentoPct * 100).toFixed(0)"
                        (input)="n.descuentoPct = +$any($event).target.value / 100" />
               </label>
-              <label class="alpha-campo"><span>Beneficios (separados por coma)</span>
-                <input type="text" class="rs-inp" [value]="n.beneficios.join(', ')"
-                       (input)="n.beneficios = beneficiosDesdeTexto($any($event).target.value)" />
-              </label>
+              <!-- Beneficios uno a uno: en un solo campo con comas era imposible
+                   escribir un beneficio que llevara coma (TCK-8030 §10). -->
+              <div class="alpha-campo alpha-beneficios">
+                <span>Beneficios</span>
+                @for (b of n.beneficios; track $index) {
+                  <div class="alpha-beneficio">
+                    <input type="text" class="rs-inp" [value]="b"
+                           (input)="editarBeneficio(n, $index, $any($event).target.value)" />
+                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                            (click)="quitarBeneficio(n, $index)" aria-label="Quitar beneficio">
+                      <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon>
+                    </button>
+                  </div>
+                }
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="anadirBeneficio(n)">
+                  <rs-icon name="plus" [size]="13" [stroke]="2.5"></rs-icon> Añadir beneficio
+                </button>
+              </div>
             </div>
           }
         </div>
@@ -445,6 +489,57 @@ const ESTADO_BADGE: Record<string, string> = {
     .comisiones-row { display: grid; grid-template-columns: 1fr 160px 180px 120px 120px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); &:last-child { border: none; } &:hover { background: var(--c-card); } }
     .comision-vertical { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
 
+    /* Periodo */
+    .periodo-barra { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+    .periodo-barra__label { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+    .periodo-toggle { display: inline-flex; padding: 3px; gap: 2px; background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-lg); flex-wrap: wrap; }
+    .periodo-toggle__btn {
+      padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
+      border-radius: var(--r-md); cursor: pointer;
+      font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-400);
+      transition: all var(--d-2);
+      &.activa { background: var(--c-card); color: var(--c-accent); box-shadow: var(--shadow-sm, 0 1px 3px rgba(8,37,139,.10)); }
+    }
+    .periodo-fecha { height: 36px; max-width: 160px; }
+
+    .admin-kpi__delta {
+      margin-left: auto; padding: 2px var(--sp-2); border-radius: var(--r-full);
+      background: rgba(16,185,129,.14); color: #047857;
+      font-size: var(--f-xs); font-weight: var(--w-7);
+      &.baja { background: rgba(248,113,113,.16); color: #B91C1C; }
+    }
+
+    .kpi-secundarios { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-3); }
+    .kpi-mini { padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
+    .kpi-mini__num { font-family: var(--font-accent); font-size: var(--f-lg); font-weight: var(--w-8); color: var(--t-100); }
+    .kpi-mini__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    /* Últimas reservas en tabla */
+    .ultimas-tabla { display: flex; flex-direction: column; }
+    .ultimas-tabla__head, .ultimas-tabla__row {
+      display: grid; grid-template-columns: 120px 1fr 1fr 1fr 130px 90px 90px 110px;
+      gap: var(--sp-3); align-items: center;
+      padding: var(--sp-3) 0; border-bottom: 1px solid var(--b-1);
+      font-size: var(--f-sm); color: var(--t-200);
+    }
+    .ultimas-tabla__head { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+    .ultimas-tabla__row:last-child { border-bottom: none; }
+    .ultimas-tabla__codigo { font-family: monospace; font-size: var(--f-xs); color: var(--c-accent); }
+    @media (max-width: 900px) {
+      .ultimas-tabla__head { display: none; }
+      .ultimas-tabla__row {
+        grid-template-columns: 1fr; gap: var(--sp-1);
+        padding: var(--sp-4) 0;
+        > [data-col]::before {
+          content: attr(data-col) ': ';
+          font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em;
+        }
+      }
+    }
+
+    .alpha-beneficios { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; }
+    .alpha-beneficio { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+
     .panel-nota { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); max-width: 70ch; }
 
     .alpha-adheridos { margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--b-1); }
@@ -529,6 +624,14 @@ export class AdminDashboardComponent implements OnInit {
   readonly comerciosPendientes = signal<ComercioPendiente[]>([]);
   readonly ultimasReservas = signal<UltimaReserva[]>([]);
   readonly comisiones = signal<ComisionConfig[]>([]);
+
+  /** Periodo del panel y variación frente al anterior (TCK-8030). */
+  readonly periodos = PERIODOS;
+  readonly periodo = signal<PeriodoClave>('mes');
+  readonly desde = signal('');
+  readonly hasta = signal('');
+  readonly comparativa = signal<ComparativaDashboard>(SIN_COMPARATIVA);
+  readonly comerciosActivos = signal<number | null>(null);
   readonly alphaNiveles = signal<AlphaNivel[]>([]);
   readonly alphaGuardadoMsg = signal(false);
 
@@ -540,16 +643,12 @@ export class AdminDashboardComponent implements OnInit {
   readonly alphaAdhesionError = signal('');
 
   async ngOnInit(): Promise<void> {
+    await this.cargarDashboard();
     try {
-      const data = await firstValueFrom(this.adminApi.getDashboard());
-      this.kpis.set(data.kpis);
-      this.comerciosPendientes.set(data.comerciosPendientes);
-      this.ultimasReservas.set(data.ultimasReservas);
-      this.comisiones.set(data.comisiones);
+      const resumen = await firstValueFrom(this.adminApi.getResumenComercios());
+      this.comerciosActivos.set(resumen.activos);
     } catch {
-      this.errorMsg.set('Error cargando el dashboard. Verifica que el API esté activo.');
-    } finally {
-      this.cargando.set(false);
+      // Sin este dato la tarjeta muestra un guion; el resto del panel funciona.
     }
 
     try {
@@ -560,6 +659,69 @@ export class AdminDashboardComponent implements OnInit {
     }
 
     await this.cargarAdheridosAlpha();
+  }
+
+  /** Carga (o recarga) el panel para el periodo elegido. */
+  private async cargarDashboard(): Promise<void> {
+    this.cargando.set(true);
+    try {
+      const rango = this.rangoDelPeriodo();
+      const data = await firstValueFrom(this.adminApi.getDashboard(rango));
+      this.kpis.set(data.kpis);
+      this.comerciosPendientes.set(data.comerciosPendientes);
+      this.ultimasReservas.set(data.ultimasReservas);
+      this.comisiones.set(data.comisiones);
+      // Un API anterior a TCK-8030 no manda comparativa: sin ella no se pinta
+      // ningún porcentaje, en vez de reventar el panel entero.
+      this.comparativa.set(data.comparativa ?? SIN_COMPARATIVA);
+    } catch {
+      this.errorMsg.set('Error cargando el dashboard. Verifica que el API esté activo.');
+    } finally {
+      this.cargando.set(false);
+    }
+  }
+
+  /** `undefined` = el backend usa su rango por defecto (el mes en curso). */
+  private rangoDelPeriodo(): { desde: string; hasta: string } | undefined {
+    const hoy = new Date();
+    const fin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+    const desdeDia = (dias: number) =>
+      new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - dias);
+
+    switch (this.periodo()) {
+      case 'hoy': return { desde: new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).toISOString(), hasta: fin.toISOString() };
+      case '7d': return { desde: desdeDia(6).toISOString(), hasta: fin.toISOString() };
+      case '30d': return { desde: desdeDia(29).toISOString(), hasta: fin.toISOString() };
+      case 'mes': return undefined;
+      case 'ano': return { desde: new Date(hoy.getFullYear(), 0, 1).toISOString(), hasta: fin.toISOString() };
+      case 'personalizado':
+        if (!this.desde() || !this.hasta()) return undefined;
+        return { desde: new Date(this.desde()).toISOString(), hasta: new Date(this.hasta() + 'T23:59:59').toISOString() };
+    }
+  }
+
+  async cambiarPeriodo(clave: PeriodoClave): Promise<void> {
+    this.periodo.set(clave);
+    if (clave === 'personalizado' && (!this.desde() || !this.hasta())) return;
+    await this.cargarDashboard();
+  }
+
+  async recargarPeriodo(): Promise<void> {
+    if (this.desde() && this.hasta()) await this.cargarDashboard();
+  }
+
+  anadirBeneficio(nivel: AlphaNivel): void {
+    nivel.beneficios = [...nivel.beneficios, ''];
+    this.alphaNiveles.update((lista) => [...lista]);
+  }
+
+  editarBeneficio(nivel: AlphaNivel, indice: number, valor: string): void {
+    nivel.beneficios = nivel.beneficios.map((b, i) => (i === indice ? valor : b));
+  }
+
+  quitarBeneficio(nivel: AlphaNivel, indice: number): void {
+    nivel.beneficios = nivel.beneficios.filter((_, i) => i !== indice);
+    this.alphaNiveles.update((lista) => [...lista]);
   }
 
   /** Etiqueta canónica del escalón, al margen del nombre editable (TCK-8011). */

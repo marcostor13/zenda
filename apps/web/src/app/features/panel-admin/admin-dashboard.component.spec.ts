@@ -40,6 +40,7 @@ describe('AdminDashboardComponent', () => {
         comerciosPendientes: [{ id: 'c1', nombreComercial: 'Canes' }],
         ultimasReservas: [{ _id: 'r1', codigo: 'RES-AAAA1111', estado: 'confirmada' }],
         comisiones: [comision()],
+        comparativa: { gmvPct: 12.5, ingresosPct: null, reservasPct: -4, comerciosPct: null },
         ...datos,
       })),
       aprobarComercio: jest.fn().mockReturnValue(of({})),

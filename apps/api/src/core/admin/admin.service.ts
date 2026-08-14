@@ -42,8 +42,10 @@ export interface UsuarioAdminDto extends Usuario {
 
 interface ReservaEnriquecidaLean extends ReservaLean {
   fechaInicio?: Date;
+  comisionMonto?: number;
   usuarioId?: { nombre?: string };
   comercioId?: { nombreComercial?: string };
+  servicioId?: { titulo?: string };
 }
 
 export interface FiltrosReporte {
@@ -69,7 +71,7 @@ export class AdminService {
 
   // ── Dashboard ────────────────────────────────────────────────────────────────
 
-  async obtenerDashboard(): Promise<{
+  async obtenerDashboard(rango?: { desde: Date; hasta: Date }): Promise<{
     kpis: {
       totalReservas: number;
       gmvMes: number;
@@ -101,11 +103,24 @@ export class AdminService {
       fechaServicio: Date | null;
       cliente: string;
       comercio: string;
+      servicio: string;
+      comisionMonto: number;
     }>;
     comisiones: ComisionConfigDocument[];
+    periodo: { desde: Date; hasta: Date };
+    comparativa: { gmvPct: number | null; ingresosPct: number | null; reservasPct: number | null; comerciosPct: number | null };
   }> {
+    // Sin rango explícito se mira el mes en curso, que es lo que se veía antes
+    // de que el dashboard tuviera selector de periodo (TCK-8030).
     const ahora = new Date();
-    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    const inicioMes = rango?.desde ?? new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    const finPeriodo = rango?.hasta ?? ahora;
+    const enPeriodo = { $gte: inicioMes, $lte: finPeriodo };
+
+    // Ventana anterior de la misma duración, para el "+12 % vs. periodo anterior".
+    const duracion = finPeriodo.getTime() - inicioMes.getTime();
+    const inicioPrevio = new Date(inicioMes.getTime() - duracion);
+    const enPeriodoPrevio = { $gte: inicioPrevio, $lt: inicioMes };
 
     const [
       totalReservas,
@@ -121,6 +136,9 @@ export class AdminService {
       canceladasDelMes,
       pagosRetenidosAgg,
       incidenciasAbiertas,
+      pagosPrevios,
+      reservasPrevias,
+      comerciosPrevios,
     ] = await Promise.all([
       this.reservaModel.countDocuments().exec(),
       this.usersRepo.contarTodos(),
@@ -129,26 +147,33 @@ export class AdminService {
         .find()
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('codigo vertical montoTotal estado createdAt fechaInicio')
+        .select('codigo vertical montoTotal comisionMonto estado createdAt fechaInicio')
         .populate('usuarioId', 'nombre')
         .populate('comercioId', 'nombreComercial')
+        .populate('servicioId', 'titulo')
         .lean()
         .exec() as unknown as Promise<ReservaEnriquecidaLean[]>,
       this.pagoModel.aggregate<{ gmv: number; ingresos: number }>([
-        { $match: { estado: PagoEstado.APROBADO, createdAt: { $gte: inicioMes } } },
+        { $match: { estado: PagoEstado.APROBADO, createdAt: enPeriodo } },
         { $group: { _id: null, gmv: { $sum: '$montoTotal' }, ingresos: { $sum: '$comisionPlataforma' } } },
       ]).exec(),
       this.comisionConfigRepo.listarTodas(),
       this.comercioModel.countDocuments({ 'verificacion.estado': 'pendiente' }).exec(),
-      this.comercioModel.countDocuments({ createdAt: { $gte: inicioMes } }).exec(),
+      this.comercioModel.countDocuments({ createdAt: enPeriodo }).exec(),
       this.perroModel.countDocuments().exec(),
-      this.reservaModel.countDocuments({ createdAt: { $gte: inicioMes } }).exec(),
-      this.reservaModel.countDocuments({ createdAt: { $gte: inicioMes }, estado: ReservaEstado.CANCELADA }).exec(),
+      this.reservaModel.countDocuments({ createdAt: enPeriodo }).exec(),
+      this.reservaModel.countDocuments({ createdAt: enPeriodo, estado: ReservaEstado.CANCELADA }).exec(),
       this.reservaModel.aggregate<{ monto: number; count: number }>([
         { $match: { estado: ReservaEstado.PAGO_RETENIDO } },
         { $group: { _id: null, monto: { $sum: '$montoTotal' }, count: { $sum: 1 } } },
       ]).exec(),
       this.reservaModel.countDocuments({ estado: ReservaEstado.EN_DISPUTA }).exec(),
+      this.pagoModel.aggregate<{ gmv: number; ingresos: number }>([
+        { $match: { estado: PagoEstado.APROBADO, createdAt: enPeriodoPrevio } },
+        { $group: { _id: null, gmv: { $sum: '$montoTotal' }, ingresos: { $sum: '$comisionPlataforma' } } },
+      ]).exec(),
+      this.reservaModel.countDocuments({ createdAt: enPeriodoPrevio }).exec(),
+      this.comercioModel.countDocuments({ createdAt: enPeriodoPrevio }).exec(),
     ]);
 
     const gmvMes     = Math.round((pagosDelMes[0]?.gmv     ?? 0) * 100) / 100;
@@ -158,6 +183,11 @@ export class AdminService {
       : 0;
     const pagosRetenidosMonto = Math.round((pagosRetenidosAgg[0]?.monto ?? 0) * 100) / 100;
     const pagosRetenidosCount = pagosRetenidosAgg[0]?.count ?? 0;
+
+    // Sin datos en el periodo anterior no hay porcentaje que enseñar: un "+100 %"
+    // desde cero engañaría más de lo que informa.
+    const variacion = (actual: number, previo: number): number | null =>
+      previo > 0 ? Math.round(((actual - previo) / previo) * 1000) / 10 : null;
 
     return {
       kpis: {
@@ -191,8 +221,17 @@ export class AdminService {
         fechaServicio: r.fechaInicio ?? null,
         cliente: r.usuarioId?.nombre ?? 'Cliente',
         comercio: r.comercioId?.nombreComercial ?? 'Comercio',
+        servicio: r.servicioId?.titulo ?? r.vertical,
+        comisionMonto: r.comisionMonto ?? 0,
       })),
       comisiones,
+      periodo: { desde: inicioMes, hasta: finPeriodo },
+      comparativa: {
+        gmvPct: variacion(gmvMes, Math.round((pagosPrevios[0]?.gmv ?? 0) * 100) / 100),
+        ingresosPct: variacion(ingresosMes, Math.round((pagosPrevios[0]?.ingresos ?? 0) * 100) / 100),
+        reservasPct: variacion(reservasDelMes, reservasPrevias),
+        comerciosPct: variacion(nuevosComerciosMes, comerciosPrevios),
+      },
     };
   }
 
@@ -545,25 +584,57 @@ export class AdminService {
    * geográfica (mapa de calor por ciudad), Top 5 comercios por facturación y
    * embudo de conversión (registrados → con reserva → pagaron).
    */
+  /**
+   * Analítica global. Además del reparto por vertical/ciudad devuelve una fila
+   * de KPIs y, por vertical y ciudad, facturación y comisión: sin eso la
+   * pantalla enseñaba porcentajes sin dinero detrás (TCK-8031).
+   */
   async obtenerAnalitica(): Promise<{
-    porVertical: Array<{ vertical: string; reservas: number; porcentaje: number }>;
-    porCiudad: Array<{ ciudad: string; reservas: number }>;
-    topComercios: Array<{ comercio: string; reservas: number; facturacion: number }>;
+    kpis: {
+      usuariosNuevosMes: number;
+      reservas: number;
+      conversionPct: number;
+      facturacion: number;
+      comision: number;
+      ticketMedio: number;
+    };
+    porVertical: Array<{ vertical: string; reservas: number; porcentaje: number; facturacion: number; comision: number; comercios: number }>;
+    porCiudad: Array<{ ciudad: string; reservas: number; comercios: number; facturacion: number }>;
+    topComercios: Array<{ comercio: string; reservas: number; facturacion: number; valoracion: number }>;
     embudo: { registrados: number; conReserva: number; pagaron: number };
   }> {
-    const [porVerticalRaw, porCiudadRaw, topComerciosRaw, registrados, usuariosConReserva, pagaron] = await Promise.all([
-      this.reservaModel.aggregate<{ _id: string; reservas: number }>([
-        { $group: { _id: '$vertical', reservas: { $sum: 1 } } },
+    const inicioMes = new Date();
+    inicioMes.setDate(1);
+    inicioMes.setHours(0, 0, 0, 0);
+
+    const [porVerticalRaw, porCiudadRaw, topComerciosRaw, registrados, usuariosConReserva, pagaron, usuariosNuevosMes, totales] = await Promise.all([
+      this.reservaModel.aggregate<{ _id: string; reservas: number; facturacion: number; comision: number; comercios: string[] }>([
+        {
+          $group: {
+            _id: '$vertical',
+            reservas: { $sum: 1 },
+            facturacion: { $sum: '$montoTotal' },
+            comision: { $sum: '$comisionMonto' },
+            comercios: { $addToSet: '$comercioId' },
+          },
+        },
         { $sort: { reservas: -1 } },
       ]).exec(),
-      this.reservaModel.aggregate<{ _id: string; reservas: number }>([
+      this.reservaModel.aggregate<{ _id: string; reservas: number; facturacion: number; comercios: string[] }>([
         { $lookup: { from: 'servicios', localField: 'servicioId', foreignField: '_id', as: 'servicio' } },
         { $unwind: '$servicio' },
-        { $group: { _id: '$servicio.ubicacion.ciudad', reservas: { $sum: 1 } } },
+        {
+          $group: {
+            _id: '$servicio.ubicacion.ciudad',
+            reservas: { $sum: 1 },
+            facturacion: { $sum: '$montoTotal' },
+            comercios: { $addToSet: '$comercioId' },
+          },
+        },
         { $sort: { reservas: -1 } },
         { $limit: 15 },
       ]).exec(),
-      this.pagoModel.aggregate<{ nombre: string; reservas: number; facturacion: number }>([
+      this.pagoModel.aggregate<{ nombre: string; reservas: number; facturacion: number; valoracion?: number }>([
         { $match: { estado: PagoEstado.APROBADO } },
         { $lookup: { from: 'reservas', localField: 'reservaId', foreignField: '_id', as: 'reserva' } },
         { $unwind: '$reserva' },
@@ -572,28 +643,54 @@ export class AdminService {
         { $limit: 5 },
         { $lookup: { from: 'comercios', localField: '_id', foreignField: '_id', as: 'comercio' } },
         { $unwind: '$comercio' },
-        { $project: { _id: 0, nombre: '$comercio.nombreComercial', reservas: 1, facturacion: 1 } },
+        { $project: { _id: 0, nombre: '$comercio.nombreComercial', reservas: 1, facturacion: 1, valoracion: '$comercio.ratingPromedio' } },
       ]).exec(),
       this.usersRepo.contarTodos(),
       this.reservaModel.distinct('usuarioId').exec().then((ids) => ids.length),
       this.pagoModel.countDocuments({ estado: PagoEstado.APROBADO }).exec(),
+      this.usuarioModel.countDocuments({ createdAt: { $gte: inicioMes } }).exec(),
+      this.pagoModel.aggregate<{ facturacion: number; comision: number; pagos: number }>([
+        { $match: { estado: PagoEstado.APROBADO } },
+        { $group: { _id: null, facturacion: { $sum: '$montoTotal' }, comision: { $sum: '$comisionPlataforma' }, pagos: { $sum: 1 } } },
+      ]).exec(),
     ]);
 
     const totalReservas = porVerticalRaw.reduce((s, v) => s + v.reservas, 0) || 1;
+    const dosDecimales = (n: number): number => Math.round(n * 100) / 100;
+    const facturacion = dosDecimales(totales[0]?.facturacion ?? 0);
+    const pagosAprobados = totales[0]?.pagos ?? 0;
 
     return {
+      kpis: {
+        usuariosNuevosMes,
+        reservas: totalReservas,
+        // Conversión = quién llega a pagar de todo el que se registra.
+        conversionPct: registrados > 0 ? Math.round((pagaron / registrados) * 1000) / 10 : 0,
+        facturacion,
+        comision: dosDecimales(totales[0]?.comision ?? 0),
+        ticketMedio: pagosAprobados > 0 ? dosDecimales(facturacion / pagosAprobados) : 0,
+      },
       porVertical: porVerticalRaw.map((v) => ({
         vertical: v._id ?? 'desconocido',
         reservas: v.reservas,
         porcentaje: Math.round((v.reservas / totalReservas) * 1000) / 10,
+        facturacion: dosDecimales(v.facturacion ?? 0),
+        comision: dosDecimales(v.comision ?? 0),
+        comercios: v.comercios?.length ?? 0,
       })),
       porCiudad: porCiudadRaw
         .filter((c) => c._id)
-        .map((c) => ({ ciudad: c._id, reservas: c.reservas })),
+        .map((c) => ({
+          ciudad: c._id,
+          reservas: c.reservas,
+          comercios: c.comercios?.length ?? 0,
+          facturacion: dosDecimales(c.facturacion ?? 0),
+        })),
       topComercios: topComerciosRaw.map((c) => ({
         comercio: c.nombre,
         reservas: c.reservas,
-        facturacion: Math.round(c.facturacion * 100) / 100,
+        facturacion: dosDecimales(c.facturacion),
+        valoracion: c.valoracion ?? 0,
       })),
       embudo: { registrados, conReserva: usuariosConReserva, pagaron },
     };

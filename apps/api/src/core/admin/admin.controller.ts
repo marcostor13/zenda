@@ -37,9 +37,12 @@ export class AdminController {
   // ── Dashboard ────────────────────────────────────────────────────────────────
 
   @Get('dashboard')
-  @ApiOperation({ summary: 'KPIs globales del panel admin + últimas reservas + comercios pendientes' })
-  obtenerDashboard() {
-    return this.adminService.obtenerDashboard();
+  @ApiOperation({ summary: 'KPIs del panel admin en un periodo + últimas reservas + comercios pendientes' })
+  @ApiQuery({ name: 'desde', required: false, description: 'ISO; por defecto, inicio del mes en curso' })
+  @ApiQuery({ name: 'hasta', required: false, description: 'ISO; por defecto, ahora' })
+  obtenerDashboard(@Query('desde') desde?: string, @Query('hasta') hasta?: string) {
+    const rango = desde && hasta ? { desde: new Date(desde), hasta: new Date(hasta) } : undefined;
+    return this.adminService.obtenerDashboard(rango);
   }
 
   // ── Comisiones ───────────────────────────────────────────────────────────────
