@@ -23,8 +23,8 @@ que son los que más tiempo consumen.
 | F3 | Alpha solo para clientes | **8029 ✅ · 8034 🟡 (parte Alpha) · 8035 🟡 (parte Alpha)** | 🟡 en curso |
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
-| F6 | Marca y público | 8004, 8008, 8009, 8010, 8011 | ⬜ |
-| F7 | Módulos nuevos (producto) | 8040 | ⬜ planificar al terminar F1–F6 |
+| F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
+| F7 | Módulos nuevos (producto) | 8040 | ⬜ planificado abajo |
 
 ## F0 — Auditoría (hecho)
 
@@ -273,8 +273,30 @@ desarrollo de producto, no ajustes.
   *"Estamos preparando algo muy grande"*, el texto largo que pedía el cliente, las tres
   ventajas con check y los iconos con etiqueta. Se dio por hecho en el PDF 27/07; queda
   comprobarlo en la app antes de cerrarlo.
-- **TCK-8011** — Doogking Alpha con imagen más premium.
-- **TCK-8008 / 8009 / 8010** — verificar que no queda ningún emoji en las pantallas citadas.
+- **TCK-8011 ✅ revisado en código** — `/perfil/alpha` ya tiene el eyebrow *Club exclusivo*, el
+  título *Programa Doogking Alpha*, el texto aspiracional literal del ticket, tarjeta destacada
+  del nivel actual con barra de progreso y mensaje motivador, una tarjeta con insignia por nivel
+  (ALPHA I/II/III en romanos) y los beneficios con iconos Lucide. Falta verlo en la app.
+- **TCK-8008 / 8009 / 8010 ✅** — el test `shared/sin-emojis.spec.ts` pasa: no queda ningún emoji
+  en el código de producción del frontend. Queda repasar visualmente las capturas del ticket.
+
+## F7 — TCK-8040: lo que falta a nivel global en el panel admin
+
+No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
+
+1. **Alpha y Comisiones como apartados propios** (§4 y §5). Es mover a `/admin/alpha` y
+   `/admin/comisiones` dos bloques que hoy viven dentro del Dashboard, con su entrada en el menú.
+   Sin backend nuevo; hay que mover también sus tests.
+2. **Gestión administrativa de reseñas** (§3): listar todas, ver usuario/comercio/reserva y poder
+   ocultar o eliminar. El módulo `reviews` ya existe; falta el listado de admin y el flag de
+   ocultación.
+3. **Pagos y liquidaciones** (§1): la colección `pagos` ya guarda comisión, fee de Stripe y
+   liquidación; falta la pantalla y el **historial de liquidaciones** (colección nueva).
+4. **Incidencias y disputas** (§2): hoy sólo existe el estado `en_disputa` en la reserva. Necesita
+   entidad propia con estado (abierta / en revisión / resuelta) e historial de actuaciones.
+5. **Administradores y permisos** (§7) e **historial de acciones administrativas**: es lo que
+   también piden 8035 §7/§9 y 8034. Requiere roles internos y una colección de auditoría.
+6. **Notificaciones** (§6) y **configuración general** (§8).
 
 ## Verificación
 
