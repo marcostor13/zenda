@@ -1,5 +1,5 @@
 import { Component, signal, computed, inject, OnInit, WritableSignal } from '@angular/core';
-import { UpperCasePipe } from '@angular/common';
+import { UpperCasePipe, TitleCasePipe } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
@@ -8,7 +8,7 @@ import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-
 import { RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
-import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, DocumentoVerificacion } from './comercio-api.service';
+import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, ExcepcionHorario, DocumentoVerificacion } from './comercio-api.service';
 
 type TabConfig =
   | 'perfil' | 'ubicacion' | 'contacto' | 'redes' | 'horarios' | 'politicas'
@@ -38,6 +38,28 @@ const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
   { clave: 'domingo', label: 'Domingo' },
 ];
 
+/** Con cuánta antelación se avisa de que un documento va a caducar. */
+const DIAS_AVISO_CADUCIDAD = 30;
+
+/** Lo que incluye cada plan; el precio se muestra tal cual, sin cálculos. */
+const PLANES: Record<string, { precio: string; maxServicios: number | null; ventajas: string[] }> = {
+  basico: {
+    precio: 'Gratis',
+    maxServicios: 3,
+    ventajas: ['Hasta 3 servicios publicados', 'Reservas y pagos online', 'Perfil público en Doogking'],
+  },
+  pro: {
+    precio: '29 € / mes',
+    maxServicios: 15,
+    ventajas: ['Hasta 15 servicios', 'Listados destacados en el buscador', 'Analítica de tu negocio'],
+  },
+  premium: {
+    precio: '79 € / mes',
+    maxServicios: null,
+    ventajas: ['Servicios ilimitados', 'Máxima prioridad en el buscador', 'Soporte prioritario'],
+  },
+};
+
 const VERIFICACION_BADGE: Record<string, string> = {
   sin_verificar: 'rs-badge--neutral',
   pendiente: 'rs-badge--warning',
@@ -63,7 +85,7 @@ function comoArray(v?: string): string[] {
   selector: 'app-comercio-config',
   standalone: true,
   imports: [
-    UpperCasePipe, ReactiveFormsModule,
+    UpperCasePipe, TitleCasePipe, ReactiveFormsModule,
     RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
   ],
   template: `
@@ -343,7 +365,7 @@ function comoArray(v?: string): string[] {
         </div>
         <div>
           <h2 class="config-section__title">Horario de atención</h2>
-          <p class="config-section__sub">Indica tus horas de apertura por día.</p>
+          <p class="config-section__sub">Indica tus horas de apertura por día, incluida la jornada partida.</p>
         </div>
       </div>
 
@@ -358,11 +380,18 @@ function comoArray(v?: string): string[] {
               <input class="rs-inp rs-inp--time" type="time" formControlName="abre">
               <span class="horario-row__sep">—</span>
               <input class="rs-inp rs-inp--time" type="time" formControlName="cierra">
+              <!-- Segundo tramo: muchos negocios cierran a mediodía (TCK-8028) -->
+              <input class="rs-inp rs-inp--time" type="time" formControlName="abre2" aria-label="Segundo tramo, apertura">
+              <span class="horario-row__sep">—</span>
+              <input class="rs-inp rs-inp--time" type="time" formControlName="cierra2" aria-label="Segundo tramo, cierre">
             </div>
           }
         </div>
 
         <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--outline" (click)="copiarHorarioATodos()">
+            Copiar el horario del lunes a todos los días
+          </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoHorario()">
             @if (guardandoHorario()) { Guardando… } @else {
               <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
@@ -371,6 +400,63 @@ function comoArray(v?: string): string[] {
           </button>
         </div>
       </form>
+
+      <!-- Festivos, vacaciones y cierres puntuales (TCK-8028) -->
+      <div class="excepciones">
+        <h3 class="excepciones__titulo">Días especiales</h3>
+        <p class="config-section__sub">
+          Festivos, vacaciones o cierres puntuales. Mandan sobre el horario semanal.
+        </p>
+
+        @if (excepciones().length) {
+          <div class="excepciones__lista">
+            @for (e of excepciones(); track $index) {
+              <div class="excepcion">
+                <span class="excepcion__fecha">{{ e.fecha }}</span>
+                <span class="excepcion__detalle">
+                  {{ e.cerrado ? 'Cerrado' : (e.abre || '—') + ' — ' + (e.cierra || '—') }}
+                  @if (e.motivo) { · {{ e.motivo }} }
+                </span>
+                <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                        (click)="quitarExcepcion($index)" aria-label="Quitar día especial">
+                  <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon>
+                </button>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="config-section__sub">Todavía no has marcado ningún día especial.</p>
+        }
+
+        <div class="excepcion-form">
+          <input class="rs-inp" type="date" [value]="nuevaExcepcionFecha()"
+                 (input)="nuevaExcepcionFecha.set($any($event.target).value)" aria-label="Fecha" />
+          <input class="rs-inp" type="text" [value]="nuevaExcepcionMotivo()"
+                 (input)="nuevaExcepcionMotivo.set($any($event.target).value)"
+                 placeholder="Motivo (ej. vacaciones)" />
+          <label class="rs-checkbox">
+            <input type="checkbox" [checked]="nuevaExcepcionCerrado()"
+                   (change)="nuevaExcepcionCerrado.set(!nuevaExcepcionCerrado())" /> Cerrado todo el día
+          </label>
+          @if (!nuevaExcepcionCerrado()) {
+            <input class="rs-inp rs-inp--time" type="time" [value]="nuevaExcepcionAbre()"
+                   (input)="nuevaExcepcionAbre.set($any($event.target).value)" aria-label="Abre" />
+            <input class="rs-inp rs-inp--time" type="time" [value]="nuevaExcepcionCierra()"
+                   (input)="nuevaExcepcionCierra.set($any($event.target).value)" aria-label="Cierra" />
+          }
+          <button type="button" class="rs-btn rs-btn--secondary rs-btn--sm"
+                  [disabled]="!nuevaExcepcionFecha()" (click)="anadirExcepcion()">
+            <rs-icon name="plus" [size]="14" [stroke]="2.5"></rs-icon> Añadir día
+          </button>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoExcepciones()"
+                  (click)="guardarExcepciones()">
+            {{ guardandoExcepciones() ? 'Guardando…' : 'Guardar días especiales' }}
+          </button>
+        </div>
+      </div>
     </section>
     }
 
@@ -490,7 +576,17 @@ function comoArray(v?: string): string[] {
             <div class="doc-item">
               <span class="doc-item__tipo">{{ tipoDocLabel(d.tipo) }}</span>
               <span class="doc-item__nombre">{{ d.nombre || d.url }}</span>
-              @if (d.fechaCaducidad) { <span class="doc-item__cad">Caduca: {{ d.fechaCaducidad }}</span> }
+              @if (d.fechaCaducidad) {
+                <!-- Avisa antes de caducar, no el día que ya ha caducado (TCK-8028) -->
+                <span class="doc-caduca"
+                      [class.doc-caduca--pronto]="estadoCaducidad(d.fechaCaducidad) === 'pronto'"
+                      [class.doc-caduca--caducado]="estadoCaducidad(d.fechaCaducidad) === 'caducado'">
+                  @if (estadoCaducidad(d.fechaCaducidad) !== 'vigente') {
+                    <rs-icon name="alert-circle" [size]="12" [stroke]="2"></rs-icon>
+                  }
+                  {{ textoCaducidad(d.fechaCaducidad) }}
+                </span>
+              }
               @if (d.estado) { <span class="rs-badge {{ docBadge(d.estado) }}">{{ d.estado }}</span> }
               <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="quitarDoc($index)" aria-label="Quitar documento">
                 <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
@@ -612,8 +708,10 @@ function comoArray(v?: string): string[] {
 
       <div class="plan-display">
         <div class="plan-badge-wrap">
-          <span class="rs-badge {{ planBadgeClass() }} plan-badge">{{ comercio()?.plan ?? 'básico' | uppercase }}</span>
+          <span class="rs-badge {{ planBadgeClass() }} plan-badge">Plan {{ comercio()?.plan ?? 'básico' | uppercase }}</span>
+          <span class="plan-precio">{{ planActual().precio }}</span>
         </div>
+
         <div class="plan-features">
           @for (f of planFeatures(); track f) {
             <div class="plan-feature">
@@ -622,8 +720,37 @@ function comoArray(v?: string): string[] {
             </div>
           }
         </div>
-        <a href="mailto:soporte@doogking.com" class="rs-btn rs-btn--secondary rs-btn--sm" style="margin-top:var(--sp-4)">
-          Contactar para cambiar plan
+
+        <!-- Límites de uso: sin esto el plan no dice nada útil (TCK-8028) -->
+        <div class="plan-limites">
+          <div class="plan-limite">
+            <span class="plan-limite__texto">
+              {{ serviciosPublicados() }} de
+              {{ planActual().maxServicios === null ? 'ilimitados' : planActual().maxServicios }} servicios usados
+            </span>
+            @if (planActual().maxServicios !== null) {
+              <div class="plan-barra">
+                <div class="plan-barra__fill" [style.width.%]="pctServiciosUsados()"></div>
+              </div>
+            }
+          </div>
+        </div>
+
+        @if (planSiguiente(); as siguiente) {
+          <div class="plan-siguiente">
+            <h3 class="plan-siguiente__titulo">Si pasas a Plan {{ siguiente.nombre | titlecase }}</h3>
+            <p class="plan-siguiente__precio">{{ siguiente.precio }}</p>
+            <ul class="plan-siguiente__lista">
+              @for (v of siguiente.ventajas; track v) {
+                <li><rs-icon name="check" [size]="13" [stroke]="2.5"></rs-icon> {{ v }}</li>
+              }
+            </ul>
+          </div>
+        }
+
+        <a href="mailto:soporte@doogking.com?subject=Quiero%20mejorar%20mi%20plan%20Doogking"
+           class="rs-btn rs-btn--primary" style="margin-top:var(--sp-4)">
+          Ver planes y mejorar mi plan
         </a>
       </div>
     </section>
@@ -631,6 +758,29 @@ function comoArray(v?: string): string[] {
   `,
   styles: [`
     :host { display: contents; }
+
+    .plan-precio { font-size: var(--f-sm); color: var(--t-400); margin-left: var(--sp-3); }
+    .plan-limites { margin-top: var(--sp-4); }
+    .plan-limite__texto { font-size: var(--f-sm); color: var(--t-300); }
+    .plan-barra { height: 8px; margin-top: var(--sp-2); border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; max-width: 320px; }
+    .plan-barra__fill { height: 100%; background: var(--g-accent); border-radius: var(--r-full); }
+    .plan-siguiente { margin-top: var(--sp-5); padding: var(--sp-4); background: var(--c-raised); border-radius: var(--r-xl); }
+    .plan-siguiente__titulo { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
+    .plan-siguiente__precio { font-family: var(--font-accent); font-size: var(--f-lg); color: var(--c-accent); margin-bottom: var(--sp-2); }
+    .plan-siguiente__lista { display: flex; flex-direction: column; gap: var(--sp-1); list-style: none; font-size: var(--f-sm); color: var(--t-300); }
+    .plan-siguiente__lista li { display: flex; align-items: center; gap: var(--sp-2); }
+
+    .doc-caduca { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--f-xs); }
+    .doc-caduca--pronto { color: #B45309; }
+    .doc-caduca--caducado { color: var(--c-red, #B91C1C); font-weight: var(--w-6); }
+
+    .excepciones { margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--b-1); }
+    .excepciones__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
+    .excepciones__lista { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-3) 0; }
+    .excepcion { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--c-raised); border-radius: var(--r-lg); flex-wrap: wrap; }
+    .excepcion__fecha { font-family: var(--font-accent); font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
+    .excepcion__detalle { flex: 1; font-size: var(--f-sm); color: var(--t-300); }
+    .excepcion-form { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; margin-top: var(--sp-3); }
 
     /* Perfil completado */
     .progreso-card { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -785,6 +935,74 @@ export class ComercioConfigComponent implements OnInit {
   readonly guardandoHorario = signal(false);
   readonly guardandoPoliticas = signal(false);
   readonly guardandoVerificacion = signal(false);
+  readonly guardandoExcepciones = signal(false);
+
+  /** Cuántos servicios tiene publicados, para el límite del plan (TCK-8028). */
+  readonly serviciosPublicados = signal(0);
+
+  readonly planActual = computed(() => PLANES[this.comercio()?.plan ?? 'basico'] ?? PLANES['basico']);
+
+  readonly planSiguiente = computed(() => {
+    const orden = ['basico', 'pro', 'premium'];
+    const actual = this.comercio()?.plan ?? 'basico';
+    const siguiente = orden[orden.indexOf(actual) + 1];
+    return siguiente ? { nombre: siguiente, ...PLANES[siguiente] } : null;
+  });
+
+  readonly pctServiciosUsados = computed(() => {
+    const maximo = this.planActual().maxServicios;
+    if (maximo === null) return 0;
+    return Math.min(100, Math.round((this.serviciosPublicados() / maximo) * 100));
+  });
+
+  /** Festivos, vacaciones y cierres puntuales (TCK-8028). */
+  readonly excepciones = signal<ExcepcionHorario[]>([]);
+  readonly nuevaExcepcionFecha = signal('');
+  readonly nuevaExcepcionMotivo = signal('');
+  readonly nuevaExcepcionCerrado = signal(true);
+  readonly nuevaExcepcionAbre = signal('');
+  readonly nuevaExcepcionCierra = signal('');
+
+  /** Evita teclear siete veces el mismo horario (TCK-8028). */
+  copiarHorarioATodos(): void {
+    const lunes = this.diasControls[0].getRawValue();
+    for (const control of this.diasControls.slice(1)) {
+      control.patchValue({
+        abre: lunes.abre, cierra: lunes.cierra,
+        abre2: lunes.abre2, cierra2: lunes.cierra2,
+        cerrado: lunes.cerrado,
+      });
+    }
+  }
+
+  anadirExcepcion(): void {
+    const fecha = this.nuevaExcepcionFecha();
+    if (!fecha) return;
+    const cerrado = this.nuevaExcepcionCerrado();
+    this.excepciones.update((lista) => [
+      ...lista.filter((e) => e.fecha !== fecha),
+      {
+        fecha,
+        motivo: this.nuevaExcepcionMotivo() || undefined,
+        cerrado,
+        abre: cerrado ? undefined : this.nuevaExcepcionAbre() || undefined,
+        cierra: cerrado ? undefined : this.nuevaExcepcionCierra() || undefined,
+      },
+    ].sort((a, b) => a.fecha.localeCompare(b.fecha)));
+
+    this.nuevaExcepcionFecha.set('');
+    this.nuevaExcepcionMotivo.set('');
+    this.nuevaExcepcionAbre.set('');
+    this.nuevaExcepcionCierra.set('');
+  }
+
+  quitarExcepcion(indice: number): void {
+    this.excepciones.update((lista) => lista.filter((_, i) => i !== indice));
+  }
+
+  async guardarExcepciones(): Promise<void> {
+    await this.guardarSeccion({ excepcionesHorario: this.excepciones() }, this.guardandoExcepciones);
+  }
 
   readonly dias = DIAS;
   readonly provincias = PROVINCIAS_ES;
@@ -831,6 +1049,8 @@ export class ComercioConfigComponent implements OnInit {
       dia: [d.clave],
       abre: ['09:00'],
       cierra: ['18:00'],
+      abre2: [''],
+      cierra2: [''],
       cerrado: [false],
     }))),
   });
@@ -863,10 +1083,39 @@ export class ComercioConfigComponent implements OnInit {
       const data = await firstValueFrom(this.comercioApi.getMiComercio());
       this.aplicarDatos(data);
     } catch { /* usa formularios vacíos */ }
+
+    try {
+      const servicios = await firstValueFrom(this.comercioApi.getMisServicios());
+      this.serviciosPublicados.set(servicios.length);
+    } catch {
+      // Sin este dato el límite del plan no se pinta; el resto sigue igual.
+    }
+  }
+
+  /**
+   * Avisa antes de que caduque un seguro o certificado: enterarse el día que
+   * expira ya es tarde (TCK-8028).
+   */
+  estadoCaducidad(fecha?: string): 'caducado' | 'pronto' | 'vigente' | null {
+    if (!fecha) return null;
+    const dias = Math.ceil((new Date(fecha).getTime() - Date.now()) / 86400000);
+    if (dias < 0) return 'caducado';
+    if (dias <= DIAS_AVISO_CADUCIDAD) return 'pronto';
+    return 'vigente';
+  }
+
+  textoCaducidad(fecha?: string): string {
+    const estado = this.estadoCaducidad(fecha);
+    if (!estado || !fecha) return '';
+    const dias = Math.ceil((new Date(fecha).getTime() - Date.now()) / 86400000);
+    if (estado === 'caducado') return 'Caducado';
+    if (estado === 'pronto') return `Caduca en ${dias} día${dias === 1 ? '' : 's'}`;
+    return `Vigente hasta ${fecha}`;
   }
 
   private aplicarDatos(data: MiComercio): void {
     this.comercio.set(data);
+    this.excepciones.set(data.excepcionesHorario ?? []);
 
     this.infoForm.patchValue({
       nombreComercial: data.nombreComercial,

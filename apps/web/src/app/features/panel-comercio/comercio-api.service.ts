@@ -31,7 +31,19 @@ export interface HorarioDia {
   dia: string;
   abre?: string;
   cierra?: string;
+  /** Segundo tramo, para jornadas partidas (TCK-8028). */
+  abre2?: string;
+  cierra2?: string;
   cerrado: boolean;
+}
+
+/** Festivo, vacaciones o cierre puntual que se salta el horario semanal. */
+export interface ExcepcionHorario {
+  fecha: string;
+  motivo?: string;
+  cerrado: boolean;
+  abre?: string;
+  cierra?: string;
 }
 
 export interface DatosBancarios {
@@ -85,6 +97,7 @@ export interface MiComercio {
   datosBancarios?: DatosBancarios;
   verificacion: VerificacionComercio;
   preferenciasNotificacion: PreferenciasNotificacion;
+  excepcionesHorario?: ExcepcionHorario[];
 }
 
 export type ActualizarPerfilComercioPayload = Partial<
@@ -103,6 +116,7 @@ export type ActualizarPerfilComercioPayload = Partial<
     | 'datosBancarios'
     | 'preferenciasNotificacion'
     | 'horario'
+    | 'excepcionesHorario'
   >
 > & { documentoIdentidadUrl?: string; licenciaNegocioUrl?: string; documentos?: DocumentoVerificacion[] };
 

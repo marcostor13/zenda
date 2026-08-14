@@ -36,9 +36,26 @@ export interface RedesSociales {
 
 export interface HorarioDia {
   dia: string;
+  /** Primer tramo. Se mantienen `abre`/`cierra` sueltos por compatibilidad. */
   abre?: string;
   cierra?: string;
+  /**
+   * Segundo tramo del día. Muchos negocios cierran a mediodía y sin esto había
+   * que declarar la jornada partida como continua (TCK-8028).
+   */
+  abre2?: string;
+  cierra2?: string;
   cerrado: boolean;
+}
+
+/** Festivo, vacaciones o cierre puntual que se salta el horario semanal. */
+export interface ExcepcionHorario {
+  /** Fecha en formato ISO corto (YYYY-MM-DD). */
+  fecha: string;
+  motivo?: string;
+  cerrado: boolean;
+  abre?: string;
+  cierra?: string;
 }
 
 export interface DatosBancarios {
@@ -159,6 +176,10 @@ export class Comercio {
 
   @Prop({ type: [Object], default: [] })
   horario!: HorarioDia[];
+
+  /** Festivos, vacaciones y cierres puntuales (TCK-8028). */
+  @Prop({ type: [Object], default: [] })
+  excepcionesHorario!: ExcepcionHorario[];
 
   @Prop({ type: String, enum: ['flexible', 'moderada', 'estricta'] })
   politicaCancelacion?: PoliticaCancelacion;

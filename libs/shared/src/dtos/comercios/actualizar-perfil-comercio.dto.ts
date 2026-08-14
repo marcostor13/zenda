@@ -60,6 +60,11 @@ export class PreferenciasNotificacionDto {
 }
 
 export class ActualizarPerfilComercioDto {
+  /** Festivos, vacaciones y cierres puntuales (TCK-8028). */
+  @IsOptional()
+  @IsArray()
+  excepcionesHorario?: Array<{ fecha: string; motivo?: string; cerrado: boolean; abre?: string; cierra?: string }>;
+
   @IsOptional() @IsString() nombreComercial?: string;
   @IsOptional() @IsString() descripcion?: string;
   @IsOptional() @IsString() logoUrl?: string;

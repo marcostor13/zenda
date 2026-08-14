@@ -176,9 +176,17 @@ Notificaciones · Verticales · Plan), con un indicador **"Perfil completado XX 
 qué falta y lleva de un clic a la pestaña donde se rellena.
 *(La pestaña "Verticales" no estaba en la lista del ticket, pero esa sección existe y hay que
 poder llegar a ella.)*
-**Falta:** horarios partidos y excepciones, subida real de documentos + avisos de caducidad,
-mapa en Ubicación, contador de caracteres, sección de Plan completa y guardado automático.
-Casi todo eso **necesita backend** (schema de horario, documentos, plan).
+Añadido después el resto de prioridades del cliente:
+- **Horarios partidos** (segundo tramo por día) y **días especiales** —festivos, vacaciones y
+  cierres puntuales, que mandan sobre el horario semanal—, con `excepcionesHorario` en el
+  comercio. Más el botón **copiar el horario del lunes a todos los días**.
+- **Avisos de caducidad**: cada documento avisa 30 días antes y marca en rojo el caducado, en
+  vez de enterarse el día que expira.
+- **Plan completo**: precio, **límite de servicios usados** con barra, y comparativa con el plan
+  siguiente. *"Contactar para cambiar plan"* → **"Ver planes y mejorar mi plan"**.
+
+**Falta:** subida real de PDF/JPG (hoy se pega una URL), mapa en Ubicación, contador de
+caracteres y guardado automático.
 
 ### F5 — Panel admin (avance parcial)
 
