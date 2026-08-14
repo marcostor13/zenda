@@ -1,8 +1,10 @@
 import { Controller, Post, Get, Patch, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ReviewsService, PendienteDeValorarDto } from './reviews.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard, Roles } from '../auth/guards/roles.guard';
+import { Rol } from 'shared';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { ActualizarReviewDto, CrearReviewDto } from './dto/reviews.dto';
 import { ResenaDocument } from './resena.schema';
@@ -43,6 +45,46 @@ export class ReviewsController {
     if (usuarioId) return this.reviewsService.listarPorUsuario(usuarioId);
     if (comercioId) return this.reviewsService.listarPorComercio(comercioId);
     throw new DomainException('Indica servicioId, usuarioId o comercioId', 400);
+  }
+
+  @Get('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Todas las reseñas para administración, ocultas incluidas' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limite', required: false })
+  @ApiQuery({ name: 'buscar', required: false })
+  @ApiQuery({ name: 'ocultas', required: false, type: Boolean })
+  @ApiQuery({ name: 'puntuacion', required: false })
+  listarParaAdmin(
+    @Query('page') page?: string,
+    @Query('limite') limite?: string,
+    @Query('buscar') buscar?: string,
+    @Query('ocultas') ocultas?: string,
+    @Query('puntuacion') puntuacion?: string,
+  ): Promise<{ items: ResenaDocument[]; total: number }> {
+    return this.reviewsService.listarParaAdmin(
+      {
+        buscar,
+        ocultas: ocultas === undefined ? undefined : ocultas === 'true',
+        puntuacion: puntuacion ? Number(puntuacion) : undefined,
+      },
+      page ? Number(page) : 1,
+      limite ? Number(limite) : 20,
+    );
+  }
+
+  @Patch(':id/visibilidad')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Ocultar o reponer una reseña desde administración' })
+  fijarVisibilidad(
+    @Param('id') id: string,
+    @Body() dto: { oculta: boolean },
+  ): Promise<ResenaDocument> {
+    return this.reviewsService.fijarOcultaComoAdmin(id, dto.oculta);
   }
 
   @Patch(':id')

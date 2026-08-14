@@ -18,6 +18,7 @@ const NAV_SECTIONS = [
       { icon: 'building',    label: 'Comercios',  ruta: '/admin/comercios', exact: false },
       { icon: 'users',       label: 'Usuarios',   ruta: '/admin/usuarios',  exact: false },
       { icon: 'calendar',    label: 'Reservas',   ruta: '/admin/reservas',  exact: false },
+      { icon: 'star',        label: 'Reseñas',    ruta: '/admin/resenas',   exact: false },
     ],
   },
   {

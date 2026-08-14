@@ -59,6 +59,37 @@ export class ReviewsRepository {
       .exec();
   }
 
+  /**
+   * Listado para administración: incluye las ocultas, porque el admin tiene que
+   * poder revisar (y revertir) lo que ya se retiró (TCK-8040 §3).
+   */
+  async listarParaAdmin(
+    filtros: { buscar?: string; ocultas?: boolean; puntuacion?: number },
+    page = 1,
+    limite = 20,
+  ): Promise<{ items: ResenaDocument[]; total: number }> {
+    const query: Record<string, unknown> = {};
+    if (filtros.ocultas !== undefined) query['eliminada'] = filtros.ocultas ? true : { $ne: true };
+    if (filtros.puntuacion) query['puntuacion'] = filtros.puntuacion;
+    if (filtros.buscar) {
+      const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+      query['$or'] = [{ usuarioNombre: regex }, { servicioTitulo: regex }, { comentario: regex }];
+    }
+
+    const skip = (page - 1) * limite;
+    const [items, total] = await Promise.all([
+      this.resenaModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limite).lean<ResenaDocument[]>().exec(),
+      this.resenaModel.countDocuments(query).exec(),
+    ]);
+    return { items, total };
+  }
+
+  /** Oculta o repone una reseña sin borrarla: el contenido sigue auditable. */
+  async fijarOculta(id: string, oculta: boolean): Promise<ResenaDocument | null> {
+    return this.resenaModel.findByIdAndUpdate(id, { eliminada: oculta }, { new: true }).exec();
+  }
+
   listarPorComercio(comercioId: string): Promise<ResenaDocument[]> {
     return this.resenaModel
       .find({ comercioId: new Types.ObjectId(comercioId), eliminada: { $ne: true } })

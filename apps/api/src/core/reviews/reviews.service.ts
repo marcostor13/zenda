@@ -173,4 +173,27 @@ export class ReviewsService {
       })
       .exec();
   }
+
+  /** Todas las reseñas para el panel admin, ocultas incluidas (TCK-8040 §3). */
+  listarParaAdmin(
+    filtros: { buscar?: string; ocultas?: boolean; puntuacion?: number },
+    page?: number,
+    limite?: number,
+  ): Promise<{ items: ResenaDocument[]; total: number }> {
+    return this.repo.listarParaAdmin(filtros, page, limite);
+  }
+
+  /**
+   * Oculta o repone una reseña desde administración. Al cambiar la visibilidad
+   * hay que recalcular la media del servicio: si no, un comercio seguiría
+   * arrastrando la nota de una reseña que ya no se ve.
+   */
+  async fijarOcultaComoAdmin(id: string, oculta: boolean): Promise<ResenaDocument> {
+    const resena = await this.repo.fijarOculta(id, oculta);
+    if (!resena) {
+      throw new DomainException('Reseña no encontrada', 404);
+    }
+    await this.recalcularRatingServicio(String(resena.servicioId));
+    return resena;
+  }
 }

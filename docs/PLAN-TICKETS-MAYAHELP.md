@@ -24,7 +24,7 @@ que son los que más tiempo consumen.
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
-| F7 | Módulos nuevos (producto) | 8040 §4 y §5 ✅ · resto ⬜ | 🟡 en curso |
+| F7 | Módulos nuevos (producto) | 8040 §3, §4 y §5 ✅ · resto ⬜ | 🟡 en curso |
 
 ## F0 — Auditoría (hecho)
 
@@ -294,9 +294,12 @@ No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
    (`admin-alpha.component.spec.ts` y `admin-comisiones.component.spec.ts`). Alpha gana además
    una escalera por tarjetas con insignia por nivel, y al guardar ya no se envían beneficios
    vacíos a medio escribir.
-2. **Gestión administrativa de reseñas** (§3): listar todas, ver usuario/comercio/reserva y poder
-   ocultar o eliminar. El módulo `reviews` ya existe; falta el listado de admin y el flag de
-   ocultación.
+2. **Gestión administrativa de reseñas ✅ hecho** (§3). Nueva pantalla `/admin/resenas`: lista
+   todas las opiniones (ocultas incluidas), filtra por visibilidad y puntuación, busca por
+   cliente, servicio o texto, y permite **ocultar y reponer**. Ocultar no borra —se reutiliza el
+   `eliminada` que ya tenía el schema— y al cambiar la visibilidad el backend **recalcula la nota
+   del servicio**, para que un comercio no siga arrastrando la media de una reseña retirada.
+   API: `GET /reviews/admin` y `PATCH /reviews/:id/visibilidad`, ambos sólo para admin.
 3. **Pagos y liquidaciones** (§1): la colección `pagos` ya guarda comisión, fee de Stripe y
    liquidación; falta la pantalla y el **historial de liquidaciones** (colección nueva).
 4. **Incidencias y disputas** (§2): hoy sólo existe el estado `en_disputa` en la reserva. Necesita
