@@ -41,6 +41,21 @@ export class Usuario {
   @Prop({ type: [String], default: [] })
   permisosAdmin!: string[];
 
+  /**
+   * Áreas del panel del comercio que puede tocar este miembro. Vacío = acceso
+   * completo, que es como funcionaba el equipo antes de existir los permisos
+   * (TCK-8026/8027).
+   */
+  @Prop({ type: [String], default: [] })
+  permisosComercio!: string[];
+
+  /**
+   * Una cuenta desactivada conserva su historial pero no puede entrar. Se
+   * prefiere a borrarla: al eliminarla se perdería quién atendió cada reserva.
+   */
+  @Prop({ default: true })
+  activo!: boolean;
+
   @Prop({ default: false })
   verificado!: boolean;
 

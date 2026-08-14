@@ -112,6 +112,19 @@ export class ComerciosController {
     return this.comerciosService.crearMiembroEquipo(req.user.comercioId!, dto);
   }
 
+  @Patch('mi-equipo/:miembroId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cambiar puesto, permisos o estado de un miembro del equipo' })
+  actualizarMiembroEquipo(
+    @Req() req: RequestConUser,
+    @Param('miembroId') miembroId: string,
+    @Body() dto: { puesto?: string; permisosComercio?: string[]; activo?: boolean },
+  ) {
+    return this.comerciosService.actualizarMiembroEquipo(req.user.comercioId!, miembroId, req.user.sub, dto);
+  }
+
   @Delete('mi-equipo/:miembroId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN)

@@ -19,7 +19,7 @@ que son los que más tiempo consumen.
 |---|---|---|---|
 | F0 | Auditoría de lo ya hecho | — | ✅ hecho |
 | F1 | Errores reales | 8012 ⚠️ · **8021 ✅** | 🟡 en curso |
-| F2 | Renombrados y textos · panel comercio | **8017 ✅ · 8022 ✅ · 8023 ✅ · 8024 ✅ · 8025 🟡 · 8026/8027 🟡** | 🟡 en curso |
+| F2 | Renombrados y textos · panel comercio | **8017 ✅ · 8022 ✅ · 8023 ✅ · 8024 ✅ · 8025 ✅ · 8026/8027 ✅** | ✅ hecho |
 | F3 | Alpha solo para clientes | **8029 ✅ · 8034 🟡 (parte Alpha) · 8035 🟡 (parte Alpha)** | 🟡 en curso |
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
@@ -84,10 +84,12 @@ La ordenación que faltaba (punto 9) se añadió después en F4: el ticket queda
 
 **8026/8027 Equipo — parcial** (son el mismo ticket duplicado). Hecho el subtítulo:
 *"Gestiona tu equipo, asigna roles y controla los accesos al panel de tu negocio."*
-**Falta lo gordo:** fichas con avatar/puesto/rol, acciones por empleado (Editar · Permisos ·
-Desactivar), separar *puesto* de *nivel de acceso*, permisos por empleado y estados
-(Activo / Invitación pendiente / Desactivado). Esto último **necesita backend**: hoy no
-existe el concepto de permisos por miembro.
+**Cerrado después.** Cada miembro se ve con avatar, puesto y **acceso** —que ahora es otra cosa
+que el puesto—, su **estado** (Activo · Invitación pendiente · Desactivado, deducido de la
+verificación de email y del nuevo campo `activo`) y las acciones *Permisos · Desactivar ·
+Eliminar*. Backend: `permisosComercio` y `activo` en la cuenta, `PATCH /comercios/mi-equipo/:id`,
+y el **login rechaza cuentas desactivadas** — desactivar sin bloquear la entrada no serviría de
+nada. Desactivar se prefiere a eliminar porque conserva quién atendió cada reserva.
 
 Resto de renombrados previstos:
 - `Dashboard` → **Inicio**; `Listados` → **Servicios**; `Ingresos` → **Ingresos y pagos**;

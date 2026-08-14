@@ -45,7 +45,7 @@ export class UsersRepository {
   async listarPorComercio(comercioId: string): Promise<UsuarioDocument[]> {
     return this.usuarioModel
       .find({ comercioId })
-      .select('nombre email rol puesto createdAt')
+      .select('nombre email rol puesto createdAt permisosComercio activo verificado requiereVerificacionEmail telefono')
       .sort({ createdAt: 1 })
       .lean()
       .exec() as unknown as UsuarioDocument[];
@@ -111,7 +111,7 @@ export class UsersRepository {
 
   async actualizarAdmin(
     id: string,
-    datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado' | 'rol' | 'permisosAdmin'>> & { email?: string; comercioId?: string },
+    datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado' | 'rol' | 'permisosAdmin' | 'permisosComercio' | 'activo' | 'puesto'>> & { email?: string; comercioId?: string },
   ): Promise<UsuarioDocument | null> {
     const update: Record<string, unknown> = { ...datos };
     if (datos.email) update['email'] = datos.email.toLowerCase();

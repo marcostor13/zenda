@@ -2,7 +2,11 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { ComercioApiService, MiembroEquipo } from './comercio-api.service';
+import {
+  ESTADO_MIEMBRO_LABELS, EstadoMiembroEquipo,
+  PERMISO_COMERCIO_DESCRIPCIONES, PERMISO_COMERCIO_LABELS, PermisoComercio,
+} from 'shared';
+import { ComercioApiService, MiembroEquipo, ActualizarMiembroEquipoPayload } from './comercio-api.service';
 
 const PUESTOS = [
   { valor: 'gerente', label: 'Gerente' },
@@ -39,24 +43,74 @@ const PUESTOS = [
         } @else {
           <div class="miembros">
             @for (m of miembros(); track m._id) {
-              <div class="miembro">
+              <div class="miembro" [class.miembro--inactivo]="m.activo === false">
                 <div class="miembro__avatar">{{ m.nombre[0]?.toUpperCase() ?? '?' }}</div>
                 <div class="miembro__info">
                   <strong>{{ m.nombre }}</strong>
                   <span>{{ m.email }}</span>
+                  <!-- El puesto dice lo que hace; el acceso, lo que puede tocar (TCK-8026/8027) -->
+                  <span class="miembro__acceso">
+                    {{ m.rol === 'comercio_admin' ? 'Administrador' : (puestoLabel(m.puesto) || 'Sin puesto') }}
+                    · acceso: {{ resumenAcceso(m) }}
+                  </span>
                 </div>
-                <span class="rs-badge {{ m.rol === 'comercio_admin' ? 'rs-badge--accent' : 'rs-badge--neutral' }}">
-                  {{ m.rol === 'comercio_admin' ? 'Administrador' : (puestoLabel(m.puesto) || 'Staff') }}
-                </span>
+
+                <span class="rs-badge {{ badgeEstado(m) }}">{{ etiquetaEstado(m) }}</span>
+
                 @if (m.rol === 'comercio_staff') {
-                  <button class="rs-btn rs-btn--ghost rs-btn--xs" [disabled]="eliminandoId() === m._id"
-                          (click)="eliminar(m)" aria-label="Eliminar miembro del equipo">
-                  <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
-                </button>
-                } @else {
-                  <span style="width:28px"></span>
+                  <div class="miembro__acciones">
+                    <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="abrirPermisos(m)">
+                      <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> Permisos
+                    </button>
+                    <button class="rs-btn rs-btn--ghost rs-btn--sm"
+                            [disabled]="guardandoMiembroId() === m._id" (click)="alternarActivo(m)">
+                      @if (m.activo === false) {
+                        <rs-icon name="play" [size]="13" [stroke]="2"></rs-icon> Reactivar
+                      } @else {
+                        <rs-icon name="pause" [size]="13" [stroke]="2"></rs-icon> Desactivar
+                      }
+                    </button>
+                    <button class="rs-btn rs-btn--ghost rs-btn--sm" [disabled]="eliminandoId() === m._id"
+                            (click)="eliminar(m)" aria-label="Eliminar miembro del equipo">
+                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
+                    </button>
+                  </div>
                 }
               </div>
+
+              @if (editandoId() === m._id) {
+                <div class="permisos-panel">
+                  <div class="rs-form-group">
+                    <label class="rs-label">Puesto</label>
+                    <select class="rs-input" [value]="puestoEdit()"
+                            (change)="puestoEdit.set($any($event.target).value)">
+                      @for (p of puestos; track p.valor) { <option [value]="p.valor">{{ p.label }}</option> }
+                    </select>
+                  </div>
+
+                  <label class="rs-label">Qué puede ver y gestionar</label>
+                  <div class="permisos">
+                    @for (p of permisosDisponibles; track p.valor) {
+                      <label class="permiso">
+                        <input type="checkbox" [checked]="tienePermiso(p.valor)" (change)="alternarPermiso(p.valor)" />
+                        <span>
+                          <strong>{{ p.label }}</strong>
+                          <em>{{ p.descripcion }}</em>
+                        </span>
+                      </label>
+                    }
+                  </div>
+                  <p class="muted">Sin marcar nada, el miembro ve todo el panel del negocio.</p>
+
+                  <div class="permisos-panel__acciones">
+                    <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarPermisos()">Cancelar</button>
+                    <button class="rs-btn rs-btn--primary rs-btn--sm"
+                            [disabled]="guardandoMiembroId() === m._id" (click)="guardarPermisos(m)">
+                      Guardar cambios
+                    </button>
+                  </div>
+                </div>
+              }
             }
           </div>
         }
@@ -106,6 +160,21 @@ const PUESTOS = [
     .miembro__avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--g-accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: var(--w-7); flex-shrink: 0; }
     .miembro__info { flex: 1; min-width: 0; strong { display: block; font-size: var(--f-sm); color: var(--t-100); } span { font-size: var(--f-xs); color: var(--t-400); } }
     .form { display: flex; flex-direction: column; gap: var(--sp-4); }
+    .miembro--inactivo { opacity: .6; border: 1px dashed var(--b-2); }
+    .miembro__acceso { display: block; font-size: var(--f-xs); color: var(--t-400); }
+    .miembro__acciones { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+
+    .permisos-panel {
+      padding: var(--sp-4); margin: calc(-1 * var(--sp-1)) 0 var(--sp-2);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      display: flex; flex-direction: column; gap: var(--sp-3);
+    }
+    .permisos-panel__acciones { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+    .permisos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-2); }
+    .permiso { display: flex; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-2); background: var(--c-raised); border-radius: var(--r-md); cursor: pointer; }
+    .permiso span { display: flex; flex-direction: column; gap: 2px; }
+    .permiso strong { font-size: var(--f-sm); color: var(--t-100); }
+    .permiso em { font-size: var(--f-xs); color: var(--t-400); font-style: normal; }
   `],
 })
 export class ComercioEquipoComponent implements OnInit {
@@ -118,6 +187,90 @@ export class ComercioEquipoComponent implements OnInit {
   readonly okMsg = signal('');
   readonly errorMsg = signal('');
   readonly miembros = signal<MiembroEquipo[]>([]);
+
+  /** Edición de puesto y acceso de un miembro (TCK-8026/8027). */
+  readonly permisosDisponibles = Object.values(PermisoComercio).map((valor) => ({
+    valor,
+    label: PERMISO_COMERCIO_LABELS[valor],
+    descripcion: PERMISO_COMERCIO_DESCRIPCIONES[valor],
+  }));
+  readonly editandoId = signal('');
+  readonly permisosEdit = signal<string[]>([]);
+  readonly puestoEdit = signal('');
+  readonly guardandoMiembroId = signal('');
+
+  /** Un miembro sin permisos marcados ve todo: es como funcionaba antes. */
+  resumenAcceso(m: MiembroEquipo): string {
+    const permisos = m.permisosComercio ?? [];
+    if (!permisos.length) return 'todo el panel';
+    return permisos.map((p) => PERMISO_COMERCIO_LABELS[p as PermisoComercio] ?? p).join(', ');
+  }
+
+  estadoDe(m: MiembroEquipo): EstadoMiembroEquipo {
+    if (m.activo === false) return EstadoMiembroEquipo.DESACTIVADO;
+    if (m.requiereVerificacionEmail && !m.verificado) return EstadoMiembroEquipo.INVITACION_PENDIENTE;
+    return EstadoMiembroEquipo.ACTIVO;
+  }
+
+  etiquetaEstado(m: MiembroEquipo): string {
+    return ESTADO_MIEMBRO_LABELS[this.estadoDe(m)];
+  }
+
+  badgeEstado(m: MiembroEquipo): string {
+    const estado = this.estadoDe(m);
+    if (estado === EstadoMiembroEquipo.ACTIVO) return 'rs-badge--success';
+    if (estado === EstadoMiembroEquipo.INVITACION_PENDIENTE) return 'rs-badge--warning';
+    return 'rs-badge--neutral';
+  }
+
+  abrirPermisos(m: MiembroEquipo): void {
+    this.editandoId.set(this.editandoId() === m._id ? '' : m._id);
+    this.permisosEdit.set([...(m.permisosComercio ?? [])]);
+    this.puestoEdit.set(m.puesto ?? '');
+  }
+
+  cerrarPermisos(): void {
+    this.editandoId.set('');
+  }
+
+  tienePermiso(permiso: string): boolean {
+    return this.permisosEdit().includes(permiso);
+  }
+
+  alternarPermiso(permiso: string): void {
+    this.permisosEdit.update((lista) =>
+      lista.includes(permiso) ? lista.filter((p) => p !== permiso) : [...lista, permiso],
+    );
+  }
+
+  async guardarPermisos(m: MiembroEquipo): Promise<void> {
+    await this.actualizarMiembro(m, {
+      puesto: this.puestoEdit() || undefined,
+      permisosComercio: this.permisosEdit(),
+    });
+    this.cerrarPermisos();
+  }
+
+  /** Desactivar conserva el historial; eliminar lo perdería. */
+  async alternarActivo(m: MiembroEquipo): Promise<void> {
+    await this.actualizarMiembro(m, { activo: m.activo === false });
+  }
+
+  private async actualizarMiembro(m: MiembroEquipo, cambios: ActualizarMiembroEquipoPayload): Promise<void> {
+    this.guardandoMiembroId.set(m._id);
+    this.errorMsg.set('');
+    try {
+      const actualizado = await firstValueFrom(this.comercioApi.actualizarMiembroEquipo(m._id, cambios));
+      this.miembros.update((lista) => lista.map((x) => (x._id === m._id ? { ...x, ...actualizado } : x)));
+      this.okMsg.set('Equipo actualizado.');
+      setTimeout(() => this.okMsg.set(''), 3000);
+    } catch {
+      this.errorMsg.set('No se pudo actualizar al miembro del equipo.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    } finally {
+      this.guardandoMiembroId.set('');
+    }
+  }
   readonly puestos = PUESTOS;
 
   readonly form = this.fb.group({

@@ -31,6 +31,8 @@ export * from './dtos/admin/reporte-financiero.dto';
 
 // DTOs — Alpha (Doogking Alpha, Bloque 13)
 export * from './dtos/alpha/alpha.dto';
+// Permisos y estados del equipo del comercio (TCK-8026/8027)
+export * from './enums/permiso-comercio.enum';
 // Permisos internos de administración (TCK-8040 §7)
 export * from './enums/permiso-admin.enum';
 // Auditoría de acciones administrativas (TCK-8030 §8, 8034, 8035 §9)

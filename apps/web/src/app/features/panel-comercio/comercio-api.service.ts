@@ -118,9 +118,21 @@ export interface MiembroEquipo {
   _id: string;
   nombre: string;
   email: string;
+  telefono?: string;
   rol: string;
   puesto?: string;
   createdAt?: string;
+  /** Áreas que puede tocar; vacío = acceso completo (TCK-8026/8027). */
+  permisosComercio?: string[];
+  activo?: boolean;
+  verificado?: boolean;
+  requiereVerificacionEmail?: boolean;
+}
+
+export interface ActualizarMiembroEquipoPayload {
+  puesto?: string;
+  permisosComercio?: string[];
+  activo?: boolean;
 }
 
 export interface CrearMiembroEquipoPayload {
@@ -297,6 +309,10 @@ export class ComercioApiService {
 
   eliminarMiembroEquipo(id: string): Observable<void> {
     return this.http.delete<void>(`${this.url}/mi-equipo/${id}`);
+  }
+
+  actualizarMiembroEquipo(miembroId: string, payload: ActualizarMiembroEquipoPayload): Observable<MiembroEquipo> {
+    return this.http.patch<MiembroEquipo>(`${this.url}/mi-equipo/${miembroId}`, payload);
   }
 
   completarReserva(reservaId: string): Observable<MiReserva> {

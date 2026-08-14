@@ -50,6 +50,11 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales incorrectas');
     }
 
+    // Desactivar a alguien del equipo sólo sirve si además no puede entrar.
+    if (usuario.activo === false) {
+      throw new DomainException('Tu cuenta está desactivada. Contacta con el administrador de tu negocio.', 403);
+    }
+
     // Bloqueo por email sin verificar (solo afecta a registros locales recientes).
     if (usuario.requiereVerificacionEmail && !usuario.verificado) {
       throw new DomainException(

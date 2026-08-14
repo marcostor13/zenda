@@ -403,6 +403,32 @@ export class ComerciosService {
   }
 
   /** Baja de un miembro del equipo; solo staff del propio comercio y nunca a uno mismo. */
+  /**
+   * Actualiza puesto, acceso o estado de un miembro. El puesto es lo que hace y
+   * los permisos lo que puede tocar: son cosas distintas (TCK-8026/8027).
+   */
+  async actualizarMiembroEquipo(
+    comercioId: string,
+    miembroId: string,
+    solicitanteId: string,
+    datos: { puesto?: string; permisosComercio?: string[]; activo?: boolean },
+  ): Promise<UsuarioDocument> {
+    this.exigirComercio(comercioId);
+    const miembro = await this.usersRepo.findById(miembroId);
+    if (!miembro || miembro.comercioId?.toString() !== comercioId) {
+      throw new DomainException('Miembro no encontrado en tu equipo', 404);
+    }
+    if (miembroId === solicitanteId && datos.activo === false) {
+      throw new DomainException('No puedes desactivarte a ti mismo', 400);
+    }
+
+    const actualizado = await this.usersRepo.actualizarAdmin(miembroId, datos);
+    if (!actualizado) {
+      throw new DomainException('Miembro no encontrado en tu equipo', 404);
+    }
+    return actualizado;
+  }
+
   async eliminarMiembroEquipo(comercioId: string, miembroId: string, solicitanteId: string): Promise<void> {
     this.exigirComercio(comercioId);
     if (miembroId === solicitanteId) {
