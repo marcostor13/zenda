@@ -109,6 +109,13 @@ export class AdminController {
     return this.adminService.resumenComercios();
   }
 
+  @Get('comercios/:id/ficha')
+  @PermisosAdmin(PermisoAdmin.COMERCIOS, PermisoAdmin.SOPORTE)
+  @ApiOperation({ summary: 'Ficha administrativa completa de un comercio' })
+  fichaComercio(@Param('id') id: string) {
+    return this.adminService.fichaComercio(id);
+  }
+
   @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @Post('comercios')
   @ApiOperation({ summary: 'Crear un comercio (admin)' })
@@ -188,6 +195,13 @@ export class AdminController {
   }
 
   @PermisosAdmin(PermisoAdmin.USUARIOS)
+  @Get('usuarios/:id/ficha')
+  @PermisosAdmin(PermisoAdmin.USUARIOS, PermisoAdmin.SOPORTE)
+  @ApiOperation({ summary: 'Ficha administrativa completa de una cuenta' })
+  fichaUsuario(@Param('id') id: string) {
+    return this.adminService.fichaUsuario(id);
+  }
+
   @Post('usuarios')
   @ApiOperation({ summary: 'Crear un usuario (admin)' })
   crearUsuario(

@@ -1,12 +1,12 @@
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { PERMISO_ADMIN_DESCRIPCIONES, PERMISO_ADMIN_LABELS, PermisoAdmin, nombreAlphaPresentacion } from 'shared';
-import { AdminApiService, UsuarioAdmin, ResumenUsuarios, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
+import { AdminApiService, UsuarioAdmin, ResumenUsuarios, FichaUsuario, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
 
 const ROL_BADGE: Record<string, string> = {
   cliente: 'rs-badge--neutral',
@@ -31,10 +31,15 @@ const FILTROS_ROL = [
 
 const LIMITE = 20;
 
+/** Etiqueta del rol, también fuera de la plantilla (para el CSV). */
+function labelRolDe(rol: string): string {
+  return ROL_LABEL[rol] ?? rol;
+}
+
 @Component({
   selector: 'app-admin-usuarios',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -42,7 +47,12 @@ const LIMITE = 20;
         <h1 class="page-title">Usuarios</h1>
         <p class="page-sub">Usuarios registrados en la plataforma.</p>
       </div>
-      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo usuario</button>
+      <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap">
+        <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="exportarCsv()">
+          <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon> Exportar CSV
+        </button>
+        <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo usuario</button>
+      </div>
     </div>
 
     <!-- Resumen superior: un solo "5 Total" no decía nada (TCK-8035) -->
@@ -165,6 +175,9 @@ const LIMITE = 20;
               </button>
               @if (menuAbiertoId() === u._id) {
                 <div class="acciones__menu">
+                  <button class="acciones__item" (click)="abrirFicha(u)">
+                    <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver ficha
+                  </button>
                   <button class="acciones__item" (click)="abrirEditar(u)">
                     <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
                   </button>
@@ -300,6 +313,83 @@ const LIMITE = 20;
 }
 
 <!-- MODAL CONFIRMAR ELIMINAR -->
+<!-- Ficha administrativa completa (TCK-8035 §5 y §6) -->
+@if (fichaAbierta()) {
+  <div class="modal-backdrop" (click)="cerrarFicha()">
+    <div class="ficha" (click)="$event.stopPropagation()">
+      @if (cargandoFicha()) {
+        <p style="color:var(--t-400)">Cargando la ficha…</p>
+      } @else if (ficha(); as f) {
+        <div class="ficha__cabecera">
+          <div>
+            <h3 class="ficha__nombre">{{ f.usuario.nombre }}</h3>
+            <p class="ficha__meta">
+              {{ f.usuario.email }}
+              @if (f.usuario.telefono) { · {{ f.usuario.telefono }} }
+              · {{ labelRol(f.usuario.rol) }}
+              @if (f.usuario.createdAt) { · alta {{ f.usuario.createdAt | date:'d MMM yyyy' }} }
+            </p>
+          </div>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">Cerrar</button>
+        </div>
+
+        <div class="ficha__kpis">
+          <div class="ficha__kpi"><strong>{{ f.resumen.totalReservas }}</strong><span>Reservas</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.canceladas }}</strong><span>Canceladas</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.totalGastado | number:'1.0-0' }} €</strong><span>Gastado</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.resenas }}</strong><span>Reseñas</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.incidencias }}</strong><span>Incidencias</span></div>
+        </div>
+
+        @if (f.comercio) {
+          <div class="ficha__bloque">
+            <h4>Comercio asociado</h4>
+            <p>{{ f.comercio.nombreComercial }} · {{ f.comercio.estado }} · plan {{ f.comercio.plan }}</p>
+          </div>
+        }
+
+        @if (f.usuario.rol === 'admin') {
+          <div class="ficha__bloque">
+            <h4>Acceso al panel</h4>
+            <p>
+              {{ f.usuario.permisosAdmin.length
+                 ? f.usuario.permisosAdmin.join(' · ')
+                 : 'Superadministrador (acceso completo)' }}
+            </p>
+          </div>
+        }
+
+        @if (f.mascotas.length) {
+          <div class="ficha__bloque">
+            <h4>Mascotas</h4>
+            <p>@for (m of f.mascotas; track m.nombre) { {{ m.nombre }}@if (m.raza) { ({{ m.raza }}) }{{ $last ? '' : ' · ' }} }</p>
+          </div>
+        }
+
+        <div class="ficha__bloque">
+          <h4>Últimas reservas</h4>
+          @if (f.reservas.length) {
+            <ul class="ficha__reservas">
+              @for (r of f.reservas; track r._id) {
+                <li>
+                  <code>{{ r.codigo }}</code>
+                  <span>{{ r.vertical }} · {{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy' }}</span>
+                  <span>{{ r.montoTotal | number:'1.2-2' }} €</span>
+                  <span class="rs-badge rs-badge--neutral">{{ r.estado }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p style="color:var(--t-400)">Sin reservas todavía.</p>
+          }
+        </div>
+      } @else {
+        <p class="rs-alert rs-alert--error">No se pudo cargar la ficha.</p>
+      }
+    </div>
+  </div>
+}
+
 @if (eliminarUsuario()) {
   <div class="overlay" (click)="cancelarEliminar()">
     <div class="modal modal--sm rs-card" (click)="$event.stopPropagation()">
@@ -341,6 +431,30 @@ const LIMITE = 20;
     .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
     .resumen-tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
     .resumen-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: var(--z-4, 100);
+      background: rgba(0,19,93,.35); display: flex; align-items: center; justify-content: center;
+      padding: var(--sp-5);
+    }
+    .ficha {
+      width: 100%; max-width: 720px; max-height: 86vh; overflow-y: auto;
+      padding: var(--sp-6); background: var(--c-card); border-radius: var(--r-xl);
+      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.18));
+      display: flex; flex-direction: column; gap: var(--sp-5);
+    }
+    .ficha__cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-4); }
+    .ficha__nombre { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); }
+    .ficha__meta { font-size: var(--f-sm); color: var(--t-400); }
+    .ficha__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: var(--sp-3); }
+    .ficha__kpi { padding: var(--sp-3); background: var(--c-raised); border-radius: var(--r-lg); display: flex; flex-direction: column; }
+    .ficha__kpi strong { font-family: var(--font-accent); font-size: var(--f-lg); color: var(--t-100); }
+    .ficha__kpi span { font-size: var(--f-xs); color: var(--t-400); }
+    .ficha__bloque h4 { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }
+    .ficha__bloque p { font-size: var(--f-sm); color: var(--t-300); }
+    .ficha__reservas { display: flex; flex-direction: column; gap: var(--sp-2); list-style: none; }
+    .ficha__reservas li { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; font-size: var(--f-sm); color: var(--t-300); }
+    .ficha__reservas code { font-family: monospace; font-size: var(--f-xs); color: var(--c-accent); }
 
     .permisos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-2); }
     .permiso {
@@ -485,6 +599,9 @@ export class AdminUsuariosComponent implements OnInit {
   readonly resumen = signal<ResumenUsuarios | null>(null);
   readonly filtroVerificado = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
+  readonly fichaAbierta = signal(false);
+  readonly cargandoFicha = signal(false);
+  readonly ficha = signal<FichaUsuario | null>(null);
 
   readonly modalVisible = signal(false);
   readonly editandoId = signal<string | null>(null);
@@ -514,6 +631,55 @@ export class AdminUsuariosComponent implements OnInit {
     descripcion: PERMISO_ADMIN_DESCRIPCIONES[valor],
   }));
   readonly permisosSeleccionados = signal<string[]>([]);
+
+  async abrirFicha(u: UsuarioAdmin): Promise<void> {
+    this.fichaAbierta.set(true);
+    this.cargandoFicha.set(true);
+    this.ficha.set(null);
+    try {
+      this.ficha.set(await firstValueFrom(this.adminApi.getFichaUsuario(u._id)));
+    } catch {
+      this.ficha.set(null);
+    } finally {
+      this.cargandoFicha.set(false);
+    }
+  }
+
+  cerrarFicha(): void {
+    this.fichaAbierta.set(false);
+    this.ficha.set(null);
+  }
+
+  /**
+   * Exporta lo que hay en pantalla. No se descargan todos los usuarios de la
+   * base: lo que ves filtrado es lo que te llevas, que es lo que se espera y
+   * evita volcar miles de filas sin querer (TCK-8035).
+   */
+  exportarCsv(): void {
+    const cabecera = ['Nombre', 'Email', 'Rol', 'Verificado', 'Alpha', 'Reservas', 'Alta'];
+    const filas = this.usuarios().map((u) => [
+      u.nombre,
+      u.email,
+      labelRolDe(u.rol),
+      u.verificado ? 'Sí' : 'No',
+      this.esCliente(u) ? this.nombreAlpha(u) : '—',
+      this.esCliente(u) ? String(u.reservas ?? 0) : '—',
+      new Date(u.createdAt).toLocaleDateString('es-ES'),
+    ]);
+
+    // Punto y coma y BOM: es lo que Excel en español abre sin preguntar nada.
+    const csv = [cabecera, ...filas]
+      .map((fila) => fila.map((celda) => `"${String(celda).replace(/"/g, '""')}"`).join(';'))
+      .join('\n');
+
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = `usuarios-doogking-${new Date().toISOString().slice(0, 10)}.csv`;
+    enlace.click();
+    URL.revokeObjectURL(url);
+  }
 
   esRolAdmin(): boolean {
     return this.form.controls.rol.value === 'admin';

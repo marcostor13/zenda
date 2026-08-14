@@ -1,10 +1,10 @@
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
-import { AdminApiService, ComercioAdmin, ResumenComercios, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
+import { AdminApiService, ComercioAdmin, ResumenComercios, FichaComercio, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 
@@ -21,7 +21,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-comercios',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, RsIconComponent],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RsIconComponent],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -168,7 +168,7 @@ const LIMITE = 20;
                    no aprobarla a ciegas (TCK-8034). -->
               @if (c.estado === 'pendiente') {
                 <button class="rs-btn rs-btn--outline rs-btn--sm"
-                        [disabled]="accionando() === c._id" (click)="abrirEditar(c)">
+                        [disabled]="accionando() === c._id" (click)="abrirFicha(c)">
                   Revisar solicitud
                 </button>
               }
@@ -178,8 +178,11 @@ const LIMITE = 20;
               </button>
               @if (menuAbiertoId() === c._id) {
                 <div class="acciones__menu">
+                  <button class="acciones__item" (click)="abrirFicha(c)">
+                    <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver ficha
+                  </button>
                   <button class="acciones__item" (click)="abrirEditar(c)">
-                    <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Ver ficha y editar
+                    <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar datos
                   </button>
                   @if (c.verificacion?.estado === 'pendiente') {
                     <button class="acciones__item" [disabled]="accionando() === c._id" (click)="verificar(c._id)">
@@ -316,6 +319,80 @@ const LIMITE = 20;
 }
 
 <!-- MODAL CONFIRMAR ELIMINAR -->
+<!-- Ficha administrativa del comercio (TCK-8034) -->
+@if (fichaAbierta()) {
+  <div class="modal-backdrop" (click)="cerrarFicha()">
+    <div class="ficha" (click)="$event.stopPropagation()">
+      @if (cargandoFicha()) {
+        <p style="color:var(--t-400)">Cargando la ficha…</p>
+      } @else if (ficha(); as f) {
+        <div class="ficha__cabecera">
+          <div>
+            <h3 class="ficha__nombre">{{ f.comercio.nombreComercial }}</h3>
+            <p class="ficha__meta">
+              {{ f.comercio.razonSocial }} · {{ f.comercio.vatNumber }}
+              · {{ f.comercio.estado }} · plan {{ f.comercio.plan }}
+              @if (f.comercio.createdAt) { · alta {{ f.comercio.createdAt | date:'d MMM yyyy' }} }
+            </p>
+          </div>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">Cerrar</button>
+        </div>
+
+        <div class="ficha__kpis">
+          <div class="ficha__kpi"><strong>{{ f.resumen.servicios }}</strong><span>Servicios</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.reservas }}</strong><span>Reservas recientes</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.facturacion | number:'1.0-0' }} €</strong><span>Facturación</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.comision | number:'1.0-0' }} €</strong><span>Comisión Doogking</span></div>
+          <div class="ficha__kpi">
+            <strong>{{ f.resumen.valoracion ? (f.resumen.valoracion | number:'1.1-1') : '—' }}</strong>
+            <span>Valoración ({{ f.resumen.resenas }})</span>
+          </div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.equipo }}</strong><span>Equipo</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.incidencias }}</strong><span>Incidencias</span></div>
+        </div>
+
+        <div class="ficha__bloque">
+          <h4>Verticales</h4>
+          <p>@for (v of f.comercio.verticales; track v) { {{ labelVertical(v) }}{{ $last ? '' : ' · ' }} }</p>
+        </div>
+
+        <div class="ficha__bloque">
+          <h4>Verificación</h4>
+          <p>
+            {{ verifLabel(f.comercio.verificacion?.estado ?? 'sin_verificar') }}
+            @if (f.comercio.verificacion?.motivoRechazo) {
+              · motivo del rechazo: {{ f.comercio.verificacion!.motivoRechazo }}
+            }
+            @if (f.comercio.verificacion?.documentos?.length) {
+              · {{ f.comercio.verificacion!.documentos!.length }} documento(s) aportado(s)
+            }
+          </p>
+        </div>
+
+        <div class="ficha__bloque">
+          <h4>Últimas reservas</h4>
+          @if (f.reservas.length) {
+            <ul class="ficha__reservas">
+              @for (r of f.reservas; track r._id) {
+                <li>
+                  <code>{{ r.codigo }}</code>
+                  <span>{{ r.vertical }} · {{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy' }}</span>
+                  <span>{{ r.montoTotal | number:'1.2-2' }} €</span>
+                  <span class="rs-badge rs-badge--neutral">{{ r.estado }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p style="color:var(--t-400)">Todavía no ha recibido reservas.</p>
+          }
+        </div>
+      } @else {
+        <p class="rs-alert rs-alert--error">No se pudo cargar la ficha.</p>
+      }
+    </div>
+  </div>
+}
+
 <!-- Suspender o rechazar exige motivo: queda en el historial (TCK-8034) -->
 @if (suspendiendo(); as c) {
   <div class="modal-backdrop" (click)="cancelarSuspender()">
@@ -384,6 +461,25 @@ const LIMITE = 20;
     .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
     .resumen-tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
     .resumen-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .ficha {
+      width: 100%; max-width: 720px; max-height: 86vh; overflow-y: auto;
+      padding: var(--sp-6); background: var(--c-card); border-radius: var(--r-xl);
+      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.18));
+      display: flex; flex-direction: column; gap: var(--sp-5);
+    }
+    .ficha__cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-4); }
+    .ficha__nombre { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); }
+    .ficha__meta { font-size: var(--f-sm); color: var(--t-400); }
+    .ficha__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--sp-3); }
+    .ficha__kpi { padding: var(--sp-3); background: var(--c-raised); border-radius: var(--r-lg); display: flex; flex-direction: column; }
+    .ficha__kpi strong { font-family: var(--font-accent); font-size: var(--f-lg); color: var(--t-100); }
+    .ficha__kpi span { font-size: var(--f-xs); color: var(--t-400); }
+    .ficha__bloque h4 { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }
+    .ficha__bloque p { font-size: var(--f-sm); color: var(--t-300); }
+    .ficha__reservas { display: flex; flex-direction: column; gap: var(--sp-2); list-style: none; }
+    .ficha__reservas li { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; font-size: var(--f-sm); color: var(--t-300); }
+    .ficha__reservas code { font-family: monospace; font-size: var(--f-xs); color: var(--c-accent); }
 
     .modal-backdrop {
       position: fixed; inset: 0; z-index: var(--z-4, 100);
@@ -540,6 +636,9 @@ export class AdminComerciosComponent implements OnInit {
   readonly filtroPlan = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
   readonly suspendiendo = signal<ComercioAdmin | null>(null);
+  readonly fichaAbierta = signal(false);
+  readonly cargandoFicha = signal(false);
+  readonly ficha = signal<FichaComercio | null>(null);
   readonly motivoSuspension = signal('');
 
   readonly verticalesDisponibles = computed(() =>
@@ -716,6 +815,24 @@ export class AdminComerciosComponent implements OnInit {
     } finally {
       this.accionando.set(null);
     }
+  }
+
+  async abrirFicha(comercio: ComercioAdmin): Promise<void> {
+    this.fichaAbierta.set(true);
+    this.cargandoFicha.set(true);
+    this.ficha.set(null);
+    try {
+      this.ficha.set(await firstValueFrom(this.adminApi.getFichaComercio(comercio._id)));
+    } catch {
+      this.ficha.set(null);
+    } finally {
+      this.cargandoFicha.set(false);
+    }
+  }
+
+  cerrarFicha(): void {
+    this.fichaAbierta.set(false);
+    this.ficha.set(null);
   }
 
   abrirSuspender(comercio: ComercioAdmin): void {

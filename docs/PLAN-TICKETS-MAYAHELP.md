@@ -253,17 +253,20 @@ Administradores Doogking · Nuevos este mes) vía nuevo `GET /admin/usuarios/res
 verificación; columnas **Alpha** y **Reservas** (Alpha sólo para clientes, `—` para el resto), y
 las acciones dentro de un menú **⋯** en lugar de la papelera suelta. El backend calcula reservas
 y nivel Alpha por lote y **sólo para cuentas de cliente**.
-Añadidos después los **roles internos de administración** (permisos por área) y el **historial de
-acciones**, comunes con 8034 y 8030 §8.
-**Falta:** ficha administrativa del usuario y exportación CSV.
+Añadidos después los **roles internos de administración** (permisos por área), el **historial de
+acciones**, la **ficha administrativa** (datos, mascotas, reservas, gasto, reseñas, incidencias,
+comercio asociado y permisos) y la **exportación CSV**, que se lleva lo que hay en pantalla ya
+filtrado en vez de volcar la base entera. Con esto el ticket queda cerrado.
 
 **TCK-8034 🟡 Comercios.** Resumen superior (Totales · Activos · Pendientes · Suspendidos ·
 Verificados) vía `GET /admin/comercios/resumen`; filtros por verificación, vertical y plan;
 **Estado y Verificación en columnas separadas**; máximo 2 verticales + "+X"; acciones dentro de
 **⋯**, con *Revisar solicitud* destacado en los pendientes y *Rechazar solicitud* en vez de
 *Suspender* cuando el comercio aún está pendiente.
-Añadido después el **motivo obligatorio en rechazo y suspensión, con historial administrativo**.
-**Falta:** ficha administrativa del comercio y reservas/facturación/valoración por comercio.
+Añadidos después el **motivo obligatorio en rechazo y suspensión con historial administrativo** y
+la **ficha administrativa del comercio**: servicios, reservas recientes, facturación, comisión,
+valoración, equipo, incidencias y estado de la verificación. *Revisar solicitud* abre esa ficha.
+Con esto el ticket queda cerrado.
 
 > **TCK-8032 y TCK-8033 son el mismo ticket duplicado** (Reportes financieros, texto
 > idéntico). Confirmado con el cliente: se tratan como uno solo.

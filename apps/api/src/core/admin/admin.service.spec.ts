@@ -11,6 +11,9 @@ import { Reserva } from '../bookings/reserva.schema';
 import { Usuario } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
 import { Perro } from '../perros/perro.schema';
+import { Resena } from '../reviews/resena.schema';
+import { Incidencia } from '../incidencias/incidencia.schema';
+import { Servicio } from '../catalog/servicio.schema';
 import { VerticalKey, PagoEstado, IVA_RATE, Rol } from 'shared';
 
 describe('AdminService', () => {
@@ -134,6 +137,10 @@ describe('AdminService', () => {
         { provide: getModelToken(Usuario.name), useValue: usuarioModel },
         { provide: getModelToken(Comercio.name), useValue: comercioModel },
         { provide: getModelToken(Perro.name), useValue: perroModel },
+        // Las fichas administrativas consultan reseñas, incidencias y servicios.
+        { provide: getModelToken(Resena.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }), aggregate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) } },
+        { provide: getModelToken(Incidencia.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }) } },
+        { provide: getModelToken(Servicio.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }) } },
       ],
     }).compile();
 

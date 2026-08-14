@@ -247,6 +247,46 @@ export interface ResumenComercios {
   verificados: number;
 }
 
+/** Reserva resumida tal y como sale en las fichas administrativas. */
+export interface ReservaFicha {
+  _id: string;
+  codigo: string;
+  vertical: string;
+  estado: string;
+  montoTotal: number;
+  fechaInicio?: string;
+  createdAt: string;
+}
+
+/** Ficha administrativa de una cuenta (TCK-8035 §5 y §6). */
+export interface FichaUsuario {
+  usuario: {
+    _id: string; nombre: string; email: string; telefono?: string; rol: string;
+    verificado: boolean; permisosAdmin: string[]; createdAt?: string;
+  };
+  comercio: { _id: string; nombreComercial: string; estado: string; plan: string } | null;
+  mascotas: Array<{ nombre: string; raza?: string }>;
+  reservas: ReservaFicha[];
+  resumen: {
+    totalReservas: number; canceladas: number; totalGastado: number;
+    pagos: number; resenas: number; incidencias: number;
+  };
+}
+
+/** Ficha administrativa de un comercio (TCK-8034). */
+export interface FichaComercio {
+  comercio: {
+    _id: string; nombreComercial: string; razonSocial: string; vatNumber: string;
+    estado: string; plan: string; verticales: string[];
+    verificacion?: VerificacionComercio; createdAt?: string;
+  };
+  reservas: ReservaFicha[];
+  resumen: {
+    servicios: number; reservas: number; facturacion: number; comision: number;
+    valoracion: number; resenas: number; equipo: number; incidencias: number;
+  };
+}
+
 /** Contadores de la cabecera de Usuarios (TCK-8035). */
 export interface ResumenUsuarios {
   total: number;
@@ -434,6 +474,14 @@ export class AdminApiService {
 
   getResumenComercios(): Observable<ResumenComercios> {
     return this.http.get<ResumenComercios>(`${this.adminUrl}/comercios/resumen`);
+  }
+
+  getFichaUsuario(id: string): Observable<FichaUsuario> {
+    return this.http.get<FichaUsuario>(`${this.adminUrl}/usuarios/${id}/ficha`);
+  }
+
+  getFichaComercio(id: string): Observable<FichaComercio> {
+    return this.http.get<FichaComercio>(`${this.adminUrl}/comercios/${id}/ficha`);
   }
 
   getResumenUsuarios(): Observable<ResumenUsuarios> {

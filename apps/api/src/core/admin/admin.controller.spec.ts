@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { UsersRepository } from '../users/users.repository';
 import { VerticalKey, Rol } from 'shared';
 
 describe('AdminController', () => {
@@ -23,6 +24,8 @@ describe('AdminController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AdminController],
       providers: [
+        // El guard de permisos resuelve el administrador por id (TCK-8040 §7).
+        { provide: UsersRepository, useValue: { findById: jest.fn().mockResolvedValue({ permisosAdmin: [] }) } },
         {
           provide: AdminService,
           useValue: {

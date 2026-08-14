@@ -5,6 +5,9 @@ import { AdminController } from './admin.controller';
 import { ComisionConfigsModule } from '../comision-configs/comision-configs.module';
 import { AlphaModule } from '../alpha/alpha.module';
 import { AuditoriaModule } from '../auditoria/auditoria.module';
+import { Resena, ResenaSchema } from '../reviews/resena.schema';
+import { Incidencia, IncidenciaSchema } from '../incidencias/incidencia.schema';
+import { Servicio, ServicioSchema } from '../catalog/servicio.schema';
 import { ComerciosModule } from '../comercios/comercios.module';
 import { UsersModule } from '../users/users.module';
 import { Pago, PagoSchema } from '../payments/pago.schema';
@@ -22,6 +25,9 @@ import { AuthModule } from '../auth/auth.module';
       { name: Usuario.name, schema: UsuarioSchema },
       { name: Comercio.name, schema: ComercioSchema },
       { name: Perro.name, schema: PerroSchema },
+      { name: Resena.name, schema: ResenaSchema },
+      { name: Incidencia.name, schema: IncidenciaSchema },
+      { name: Servicio.name, schema: ServicioSchema },
     ]),
     ComisionConfigsModule,
     AlphaModule,

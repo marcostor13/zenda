@@ -12,6 +12,9 @@ import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
 import { Perro, PerroDocument } from '../perros/perro.schema';
+import { Resena, ResenaDocument } from '../reviews/resena.schema';
+import { Incidencia, IncidenciaDocument } from '../incidencias/incidencia.schema';
+import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, VerticalKey } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
@@ -69,6 +72,9 @@ export class AdminService {
     @InjectModel(Usuario.name) private readonly usuarioModel: Model<UsuarioDocument>,
     @InjectModel(Comercio.name) private readonly comercioModel: Model<ComercioDocument>,
     @InjectModel(Perro.name) private readonly perroModel: Model<PerroDocument>,
+    @InjectModel(Resena.name) private readonly resenaModel: Model<ResenaDocument>,
+    @InjectModel(Incidencia.name) private readonly incidenciaModel: Model<IncidenciaDocument>,
+    @InjectModel(Servicio.name) private readonly servicioModelAdmin: Model<ServicioDocument>,
   ) {}
 
   // ── Dashboard ────────────────────────────────────────────────────────────────
@@ -511,6 +517,128 @@ export class AdminService {
       this.usuarioModel.countDocuments({ createdAt: { $gte: inicioMes } }).exec(),
     ]);
     return { total, clientes, comercios, administradores, nuevosMes };
+  }
+
+  /**
+   * Ficha administrativa de una cuenta (TCK-8035 §5 y §6). Reúne en una sola
+   * consulta lo que hay que mirar antes de tocar nada: qué ha reservado, qué ha
+   * pagado, qué ha opinado y qué ha reclamado.
+   */
+  async fichaUsuario(id: string): Promise<Record<string, unknown>> {
+    const usuario = await this.usersRepo.findById(id);
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const usuarioObjectId = new Types.ObjectId(id);
+    const esCliente = usuario.rol === Rol.CLIENTE;
+
+    const [mascotas, reservas, gastado, resenas, incidencias, comercio] = await Promise.all([
+      esCliente
+        ? this.perroModel.find({ usuarioId: usuarioObjectId }).select('nombre raza').lean().exec() as unknown as Array<{ nombre: string; raza?: string }>
+        : Promise.resolve([]),
+      esCliente
+        ? this.reservaModel
+            .find({ usuarioId: usuarioObjectId })
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .select('codigo vertical estado montoTotal fechaInicio createdAt')
+            .lean()
+            .exec() as unknown as Array<Record<string, unknown>>
+        : Promise.resolve([]),
+      esCliente
+        ? this.pagoModel.aggregate<{ total: number; pagos: number }>([
+            { $match: { usuarioId: usuarioObjectId, estado: PagoEstado.APROBADO } },
+            { $group: { _id: null, total: { $sum: '$montoTotal' }, pagos: { $sum: 1 } } },
+          ]).exec()
+        : Promise.resolve([]),
+      esCliente ? this.resenaModel.countDocuments({ usuarioId: usuarioObjectId }).exec() : Promise.resolve(0),
+      this.incidenciaModel.countDocuments({ abiertaPorId: usuarioObjectId }).exec(),
+      usuario.comercioId ? this.comerciosRepo.findById(String(usuario.comercioId)) : Promise.resolve(null),
+    ]);
+
+    // Las canceladas cuentan como actividad, pero no como servicio disfrutado.
+    const canceladas = reservas.filter((r) => r['estado'] === ReservaEstado.CANCELADA).length;
+
+    return {
+      usuario: {
+        _id: String(usuario._id),
+        nombre: usuario.nombre,
+        email: usuario.email,
+        telefono: usuario.telefono,
+        rol: usuario.rol,
+        verificado: usuario.verificado,
+        permisosAdmin: usuario.permisosAdmin ?? [],
+        createdAt: (usuario as unknown as { createdAt?: Date }).createdAt,
+      },
+      comercio: comercio
+        ? { _id: String(comercio._id), nombreComercial: comercio.nombreComercial, estado: comercio.estado, plan: comercio.plan }
+        : null,
+      mascotas: mascotas.map((m) => ({ nombre: m.nombre, raza: m.raza })),
+      reservas,
+      resumen: {
+        totalReservas: reservas.length,
+        canceladas,
+        totalGastado: Math.round((gastado[0]?.total ?? 0) * 100) / 100,
+        pagos: gastado[0]?.pagos ?? 0,
+        resenas,
+        incidencias,
+      },
+    };
+  }
+
+  /** Ficha administrativa del comercio (TCK-8034). */
+  async fichaComercio(id: string): Promise<Record<string, unknown>> {
+    const comercio = await this.comerciosRepo.findById(id);
+    if (!comercio) throw new NotFoundException('Comercio no encontrado');
+
+    const comercioObjectId = new Types.ObjectId(id);
+    const [servicios, reservas, facturacion, resenas, equipo, incidencias] = await Promise.all([
+      this.servicioModelAdmin.countDocuments({ comercioId: comercioObjectId }).exec(),
+      this.reservaModel
+        .find({ comercioId: comercioObjectId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select('codigo vertical estado montoTotal fechaInicio createdAt')
+        .lean()
+        .exec() as unknown as Array<Record<string, unknown>>,
+      this.pagoModel.aggregate<{ total: number; comision: number }>([
+        { $match: { estado: PagoEstado.APROBADO } },
+        { $lookup: { from: 'reservas', localField: 'reservaId', foreignField: '_id', as: 'reserva' } },
+        { $unwind: '$reserva' },
+        { $match: { 'reserva.comercioId': comercioObjectId } },
+        { $group: { _id: null, total: { $sum: '$montoTotal' }, comision: { $sum: '$comisionPlataforma' } } },
+      ]).exec(),
+      this.resenaModel.aggregate<{ media: number; total: number }>([
+        { $match: { comercioId: comercioObjectId, eliminada: { $ne: true } } },
+        { $group: { _id: null, media: { $avg: '$puntuacion' }, total: { $sum: 1 } } },
+      ]).exec(),
+      this.usuarioModel.countDocuments({ comercioId: comercioObjectId }).exec(),
+      this.incidenciaModel.countDocuments({ comercioId: comercioObjectId }).exec(),
+    ]);
+
+    return {
+      comercio: {
+        _id: String(comercio._id),
+        nombreComercial: comercio.nombreComercial,
+        razonSocial: comercio.razonSocial,
+        vatNumber: comercio.vatNumber,
+        estado: comercio.estado,
+        plan: comercio.plan,
+        verticales: comercio.verticales,
+        verificacion: comercio.verificacion,
+        createdAt: (comercio as unknown as { createdAt?: Date }).createdAt,
+      },
+      reservas,
+      resumen: {
+        servicios,
+        reservas: reservas.length,
+        facturacion: Math.round((facturacion[0]?.total ?? 0) * 100) / 100,
+        comision: Math.round((facturacion[0]?.comision ?? 0) * 100) / 100,
+        valoracion: resenas[0]?.media ? Math.round(resenas[0].media * 10) / 10 : 0,
+        resenas: resenas[0]?.total ?? 0,
+        equipo,
+        incidencias,
+      },
+    };
   }
 
   async crearUsuario(datos: {
