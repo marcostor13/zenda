@@ -91,6 +91,11 @@ const VERTICALES_OPCIONES = [
         <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ errorMsg() }}</div>
       }
 
+      @if (reporte()) {
+        <button class="rs-btn rs-btn--secondary" style="margin-right:var(--sp-3)" (click)="exportarCsv()">
+          <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon> Exportar CSV
+        </button>
+      }
       <button
         class="rs-btn rs-btn--primary"
         [disabled]="!fechaDesde || !fechaHasta || cargando()"
@@ -317,6 +322,47 @@ export class AdminReportesComponent implements OnInit {
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /**
+   * Exporta el reporte que hay en pantalla, con el desglose por vertical.
+   * Separador ";" y BOM: es lo que Excel en español abre sin preguntar.
+   */
+  exportarCsv(): void {
+    const r = this.reporte();
+    if (!r) return;
+
+    const filas: string[][] = [
+      ['Reporte financiero Doogking'],
+      ['Desde', r.fechaDesde, 'Hasta', r.fechaHasta],
+      [],
+      ['Concepto', 'Importe (€)'],
+      ['GMV', String(r.gmv)],
+      ['Ingresos plataforma', String(r.ingresosPlataforma)],
+      ['Coste de pasarela', String(r.costoStripe)],
+      ['Margen neto', String(r.margenNetoPlataforma)],
+      ['Liquidaciones a comercios', String(r.liquidacionesComercio)],
+      ['Reservas', String(r.totalReservas)],
+      [],
+      ['Vertical', 'GMV', 'Comisión', 'Coste pasarela', 'Margen neto', 'Reservas'],
+      ...r.porVertical.map((v) => [
+        v.vertical, String(v.gmv), String(v.comision), String(v.costoStripe),
+        String(v.margenNeto), String(v.totalReservas),
+      ]),
+    ];
+
+    const csv = filas
+      .map((fila) => fila.map((celda) => `"${String(celda).replace(/"/g, '""')}"`).join(';'))
+      .join('\n');
+
+    // El BOM hace que Excel en español lo abra sin preguntar por la codificación.
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = `reporte-doogking-${r.fechaDesde}-a-${r.fechaHasta}.csv`;
+    enlace.click();
+    URL.revokeObjectURL(url);
   }
 
   iconoVertical(vertical: string): string {

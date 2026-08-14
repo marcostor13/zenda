@@ -294,8 +294,14 @@ export interface MiResena {
 export class ComercioApiService {
   private readonly http = inject(HttpClient);
   private readonly url = `${environment.apiUrl}/comercios`;
+  private readonly incidenciasUrl = `${environment.apiUrl}/incidencias`;
   private readonly catalogUrl = `${environment.apiUrl}/catalog/servicios`;
   private readonly suplementosUrl = `${environment.apiUrl}/suplementos`;
+
+  /** Abre una reclamación o incidencia sobre una reserva propia (TCK-8040 §2). */
+  abrirIncidencia(payload: { reservaId?: string; tipo: string; asunto: string; descripcion: string }): Observable<unknown> {
+    return this.http.post(this.incidenciasUrl, payload);
+  }
 
   getMiComercio(): Observable<MiComercio> {
     return this.http.get<MiComercio>(`${this.url}/mi-comercio`);

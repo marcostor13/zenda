@@ -292,6 +292,10 @@ function aDia(fecha: string | Date): Date {
                     {{ gestionAbiertaId() === r._id ? 'Cerrar' : 'Gestionar' }}
                   </button>
                 }
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleIncidencia(r._id)">
+                  <rs-icon name="alert-circle" [size]="13" [stroke]="2"></rs-icon>
+                  {{ incidenciaAbiertaId() === r._id ? 'Cerrar' : 'Incidencia' }}
+                </button>
               </div>
 
               @if (detalleAbiertoId() === r._id) {
@@ -321,6 +325,42 @@ function aDia(fecha: string | Date): Date {
                       }
                     </p>
                   }
+                </div>
+              }
+
+              @if (incidenciaAbiertaId() === r._id) {
+                <!-- Reclamar sobre una reserva: llega al panel de incidencias del
+                     admin con su historial (TCK-8040 §2). -->
+                <div class="reserva-card__panel">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Tipo</label>
+                    <select class="rs-inp" [value]="incidenciaTipo()"
+                            (change)="incidenciaTipo.set($any($event.target).value)">
+                      <option value="incidencia">Incidencia con el servicio</option>
+                      <option value="reclamacion">Reclamación</option>
+                      <option value="devolucion">Solicitud de devolución</option>
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Asunto</label>
+                    <input class="rs-inp" [value]="incidenciaAsunto()"
+                           (input)="incidenciaAsunto.set($any($event.target).value)"
+                           placeholder="Ej. el cliente no se presentó" />
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Qué ha pasado</label>
+                    <input class="rs-inp" [value]="incidenciaDescripcion()"
+                           (input)="incidenciaDescripcion.set($any($event.target).value)"
+                           placeholder="Cuenta lo ocurrido con el detalle que puedas" />
+                  </div>
+                  <div class="ajuste-panel__actions">
+                    <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarIncidencia()">Cancelar</button>
+                    <button class="rs-btn rs-btn--primary rs-btn--sm"
+                            [disabled]="!puedeEnviarIncidencia() || enviandoIncidencia()"
+                            (click)="enviarIncidencia(r)">
+                      {{ enviandoIncidencia() ? 'Enviando…' : 'Abrir incidencia' }}
+                    </button>
+                  </div>
                 </div>
               }
 
@@ -707,6 +747,13 @@ export class ComercioReservasComponent implements OnInit {
   readonly detalleAbiertoId = signal<string | null>(null);
   readonly gestionAbiertaId = signal<string | null>(null);
 
+  /** Alta de incidencias desde el propio comercio (TCK-8040 §2). */
+  readonly incidenciaAbiertaId = signal<string | null>(null);
+  readonly incidenciaTipo = signal('incidencia');
+  readonly incidenciaAsunto = signal('');
+  readonly incidenciaDescripcion = signal('');
+  readonly enviandoIncidencia = signal(false);
+
   // Solicitar ajuste de precio (docs/mejora_servicios.md §7)
   readonly suplementosCatalogo = signal<SuplementoConfig[]>([]);
   readonly ajusteAbiertoId = signal<string | null>(null);
@@ -889,6 +936,42 @@ export class ComercioReservasComponent implements OnInit {
 
   toggleDetalle(id: string): void {
     this.detalleAbiertoId.set(this.detalleAbiertoId() === id ? null : id);
+  }
+
+  toggleIncidencia(id: string): void {
+    this.incidenciaAbiertaId.set(this.incidenciaAbiertaId() === id ? null : id);
+    this.incidenciaTipo.set('incidencia');
+    this.incidenciaAsunto.set('');
+    this.incidenciaDescripcion.set('');
+  }
+
+  cerrarIncidencia(): void {
+    this.incidenciaAbiertaId.set(null);
+  }
+
+  /** El backend exige una descripción con algo de fondo: se avisa antes. */
+  puedeEnviarIncidencia(): boolean {
+    return this.incidenciaAsunto().trim().length >= 3 && this.incidenciaDescripcion().trim().length >= 10;
+  }
+
+  async enviarIncidencia(r: MiReserva): Promise<void> {
+    if (!this.puedeEnviarIncidencia()) return;
+    this.enviandoIncidencia.set(true);
+    try {
+      await firstValueFrom(this.comercioApi.abrirIncidencia({
+        reservaId: r._id,
+        tipo: this.incidenciaTipo(),
+        asunto: this.incidenciaAsunto().trim(),
+        descripcion: this.incidenciaDescripcion().trim(),
+      }));
+      this.cerrarIncidencia();
+      this.errorMsg.set('');
+    } catch {
+      this.errorMsg.set('No se pudo abrir la incidencia. Inténtalo de nuevo.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    } finally {
+      this.enviandoIncidencia.set(false);
+    }
   }
 
   toggleGestion(id: string): void {
