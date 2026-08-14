@@ -20,6 +20,7 @@ const NAV_SECTIONS = [
       { icon: 'users',       label: 'Usuarios',   ruta: '/admin/usuarios',  exact: false },
       { icon: 'calendar',    label: 'Reservas',   ruta: '/admin/reservas',  exact: false },
       { icon: 'star',        label: 'Reseñas',    ruta: '/admin/resenas',   exact: false },
+      { icon: 'alert-circle', label: 'Incidencias', ruta: '/admin/incidencias', exact: false },
     ],
   },
   {

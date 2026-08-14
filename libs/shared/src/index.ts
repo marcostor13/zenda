@@ -31,6 +31,9 @@ export * from './dtos/admin/reporte-financiero.dto';
 
 // DTOs — Alpha (Doogking Alpha, Bloque 13)
 export * from './dtos/alpha/alpha.dto';
+// Incidencias y disputas (TCK-8040 §2)
+export * from './enums/incidencia.enum';
+export * from './dtos/incidencias/incidencia.dto';
 
 // DTOs — Bookings
 export * from './dtos/bookings/crear-reserva.dto';

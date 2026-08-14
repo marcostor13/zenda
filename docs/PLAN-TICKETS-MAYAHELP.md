@@ -24,7 +24,7 @@ que son los que más tiempo consumen.
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
-| F7 | Módulos nuevos (producto) | 8040 §1 (parcial), §3, §4 y §5 ✅ · §2, §6, §7, §8 ⬜ | 🟡 en curso |
+| F7 | Módulos nuevos (producto) | 8040 §1 (parcial), §2, §3, §4 y §5 ✅ · §6, §7, §8 ⬜ | 🟡 en curso |
 
 ## F0 — Auditoría (hecho)
 
@@ -308,8 +308,16 @@ No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
    búsqueda por código de reserva. API: `GET /admin/pagos` y `GET /admin/pagos/resumen`.
    **Falta:** el **historial de liquidaciones** formales, que necesita colección propia — hoy se
    deduce de los pagos, no hay un registro de "esto se pagó al comercio tal día".
-4. **Incidencias y disputas** (§2): hoy sólo existe el estado `en_disputa` en la reserva. Necesita
-   entidad propia con estado (abierta / en revisión / resuelta) e historial de actuaciones.
+4. **Incidencias y disputas ✅ hecho** (§2). Módulo nuevo `incidencias` en el API (schema,
+   repositorio, servicio, controlador y tests) y pantalla `/admin/incidencias`: pestañas por
+   estado con contador, filtro por tipo (reclamación / devolución / incidencia) y buscador.
+   Cada cambio de estado **deja constancia de quién lo hizo y cuándo** en el historial de
+   actuaciones, y **cerrar una incidencia exige explicar cómo se resolvió** —lo valida el
+   backend, no sólo el formulario—. Al abrirla sobre una reserva se comprueba que sea de quien
+   reclama: si no, cualquiera podría reclamar sobre la reserva de otro conociendo el id.
+   **Falta:** que el cliente y el comercio puedan abrirlas desde sus paneles (el endpoint ya
+   existe, `POST /incidencias`) y enlazar el KPI del dashboard, que hoy cuenta reservas en
+   disputa y no incidencias.
 5. **Administradores y permisos** (§7) e **historial de acciones administrativas**: es lo que
    también piden 8035 §7/§9 y 8034. Requiere roles internos y una colección de auditoría.
 6. **Notificaciones** (§6) y **configuración general** (§8).

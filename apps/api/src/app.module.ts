@@ -14,6 +14,7 @@ import { AdminModule } from './core/admin/admin.module';
 import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
 import { AlphaModule } from './core/alpha/alpha.module';
 import { CuponesModule } from './core/cupones/cupones.module';
+import { IncidenciasModule } from './core/incidencias/incidencias.module';
 import { PerrosModule } from './core/perros/perros.module';
 import { FavoritosModule } from './core/favoritos/favoritos.module';
 import { SuplementosModule } from './core/suplementos/suplementos.module';
@@ -57,6 +58,7 @@ import { ListaEsperaModule } from './core/lista-espera/lista-espera.module';
     ComisionConfigsModule,
     AlphaModule,
     CuponesModule,
+    IncidenciasModule,
     PerrosModule,
     FavoritosModule,
     SuplementosModule,
