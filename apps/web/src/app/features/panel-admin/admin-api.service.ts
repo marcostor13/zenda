@@ -120,7 +120,38 @@ export interface ReservaAdmin {
   servicio?: string;
   /** Estado del pago, distinto del estado de la reserva (TCK-8036). */
   estadoPago?: string;
+  /** Desglose económico de la reserva, para la ficha administrativa. */
+  stripeFee?: number;
+  montoLiquidacion?: number;
+  perroNombre?: string;
+  suplementos?: Array<{ concepto: string; monto: number; motivo?: string }>;
+  montoAjustado?: number;
+  fechaFin?: string;
+  cantidad?: number;
   historialEstados?: CambioEstadoReserva[];
+}
+
+/** Un pago con su desglose económico, para el control del dinero (TCK-8040 §1). */
+export interface PagoAdmin {
+  _id: string;
+  codigoReserva: string;
+  comercio: string;
+  vertical: string;
+  montoTotal: number;
+  comisionPlataforma: number;
+  stripeFee: number;
+  montoLiquidacion: number;
+  estado: string;
+  createdAt: string;
+}
+
+export interface ResumenPagos {
+  cobrado: number;
+  comisionDoogking: number;
+  costePasarela: number;
+  liquidadoComercios: number;
+  pendienteLiquidar: number;
+  reembolsado: number;
 }
 
 /** Contadores e importes de la cabecera del centro de reservas (TCK-8036). */
@@ -356,6 +387,20 @@ export class AdminApiService {
     if (params.buscar) p = p.set('buscar', params.buscar);
     if (params.verificado !== undefined) p = p.set('verificado', String(params.verificado));
     return this.http.get<PaginatedResult<UsuarioAdmin>>(`${this.adminUrl}/usuarios`, { params: p });
+  }
+
+  getPagos(params: { page?: number; limite?: number; estado?: string; comercioId?: string; buscar?: string } = {}): Observable<PaginatedResult<PagoAdmin>> {
+    let p = new HttpParams();
+    if (params.page) p = p.set('page', String(params.page));
+    if (params.limite) p = p.set('limite', String(params.limite));
+    if (params.estado) p = p.set('estado', params.estado);
+    if (params.comercioId) p = p.set('comercioId', params.comercioId);
+    if (params.buscar) p = p.set('buscar', params.buscar);
+    return this.http.get<PaginatedResult<PagoAdmin>>(`${this.adminUrl}/pagos`, { params: p });
+  }
+
+  getResumenPagos(): Observable<ResumenPagos> {
+    return this.http.get<ResumenPagos>(`${this.adminUrl}/pagos/resumen`);
   }
 
   getResumenReservas(): Observable<ResumenReservas> {

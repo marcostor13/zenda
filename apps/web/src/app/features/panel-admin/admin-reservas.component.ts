@@ -223,7 +223,37 @@ const LIMITE = 20;
             </div>
             @if (expandidoId() === r._id) {
               <div class="timeline-row">
-                <h4><rs-icon name="clock" [size]="15" [stroke]="2"></rs-icon> Timeline de la reserva {{ r.codigo }}</h4>
+                <!-- Ficha administrativa completa (TCK-8036 §6) -->
+                <h4><rs-icon name="eye" [size]="15" [stroke]="2"></rs-icon> Reserva {{ r.codigo }}</h4>
+                <dl class="ficha">
+                  <div><dt>Cliente</dt><dd>{{ r.cliente }}@if (r.clienteEmail) { · {{ r.clienteEmail }} }</dd></div>
+                  <div><dt>Mascota</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
+                  <div><dt>Comercio</dt><dd>{{ r.comercio }}</dd></div>
+                  <div><dt>Servicio</dt><dd>{{ r.servicio || r.vertical }}</dd></div>
+                  <div>
+                    <dt>Fechas</dt>
+                    <dd>
+                      {{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy, HH:mm' }}
+                      @if (r.fechaFin) { → {{ r.fechaFin | date:'d MMM yyyy, HH:mm' }} }
+                    </dd>
+                  </div>
+                  <div><dt>Importe</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | number:'1.2-2' }} €</dd></div>
+                  <div><dt>Comisión Doogking</dt><dd>{{ r.comisionMonto | number:'1.2-2' }} €</dd></div>
+                  <div><dt>Coste de pasarela</dt><dd>{{ (r.stripeFee ?? 0) | number:'1.2-2' }} €</dd></div>
+                  <div><dt>Neto del comercio</dt><dd>{{ (r.montoLiquidacion ?? 0) | number:'1.2-2' }} €</dd></div>
+                  <div><dt>Estado del pago</dt><dd>{{ labelPago(r.estadoPago) }}</dd></div>
+                </dl>
+
+                @if (r.suplementos?.length) {
+                  <p class="ficha__extras">
+                    <strong>Extras y suplementos:</strong>
+                    @for (sup of r.suplementos; track $index) {
+                      {{ sup.concepto }} (+{{ sup.monto | number:'1.2-2' }} €){{ $last ? '' : ' · ' }}
+                    }
+                  </p>
+                }
+
+                <h4><rs-icon name="clock" [size]="15" [stroke]="2"></rs-icon> Historial de la reserva</h4>
                 @if (r.historialEstados?.length) {
                   <ol class="timeline">
                     @for (h of r.historialEstados; track $index) {
@@ -321,6 +351,14 @@ const LIMITE = 20;
       color: var(--c-accent); font-family: monospace; text-decoration: underline dotted;
     }
     .cell-sub { display: block; font-size: var(--f-xs); color: var(--t-400); }
+
+    .ficha {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: var(--sp-3); margin: var(--sp-3) 0 var(--sp-4);
+    }
+    .ficha dt { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+    .ficha dd { font-size: var(--f-sm); color: var(--t-100); }
+    .ficha__extras { font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-4); }
 
     .cell-actions { position: relative; }
     .acciones__menu {

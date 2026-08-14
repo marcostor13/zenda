@@ -24,7 +24,7 @@ que son los que más tiempo consumen.
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
-| F7 | Módulos nuevos (producto) | 8040 §3, §4 y §5 ✅ · resto ⬜ | 🟡 en curso |
+| F7 | Módulos nuevos (producto) | 8040 §1 (parcial), §3, §4 y §5 ✅ · §2, §6, §7, §8 ⬜ | 🟡 en curso |
 
 ## F0 — Auditoría (hecho)
 
@@ -214,8 +214,10 @@ limita al código: busca también por **cliente, email o comercio** (el backend 
 antes de filtrar). La tabla gana **Fecha, Servicio y Estado del pago**, con el estado del pago
 en **columna propia** —cancelada y reembolsada no son lo mismo— y el código es clicable para
 abrir el historial. Las acciones pasan a un menú **⋯**.
-**Falta:** ficha administrativa completa de la reserva (mascota, extras, fee de Stripe, neto del
-comercio, política aplicada) y el panel de filtros avanzados por ciudad/importe.
+Añadida después la **ficha administrativa** al desplegar una reserva: cliente y email, mascota,
+comercio, servicio, fechas, importe, comisión Doogking, **coste de pasarela y neto del comercio**
+(el backend los trae del pago), estado del pago, extras y suplementos, y el historial de estados.
+**Falta:** política de cancelación aplicada y el panel de filtros avanzados por ciudad/importe.
 
 **TCK-8037 🟡 Cupones.** Fuera los campos que había que descifrar: **Descuento (%)** en enteros
 (20 = 20 %, la fracción la sigue guardando el backend), **Importe mínimo de reserva (€)**,
@@ -300,8 +302,12 @@ No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
    `eliminada` que ya tenía el schema— y al cambiar la visibilidad el backend **recalcula la nota
    del servicio**, para que un comercio no siga arrastrando la media de una reseña retirada.
    API: `GET /reviews/admin` y `PATCH /reviews/:id/visibilidad`, ambos sólo para admin.
-3. **Pagos y liquidaciones** (§1): la colección `pagos` ya guarda comisión, fee de Stripe y
-   liquidación; falta la pantalla y el **historial de liquidaciones** (colección nueva).
+3. **Pagos y liquidaciones ✅ hecho** (§1). Nueva pantalla `/admin/pagos`: totales de dinero
+   cobrado, comisión Doogking, coste de pasarela, importe para los comercios, **pendiente de
+   liquidar** y reembolsado; debajo, la tabla de pagos con su desglose, filtro por estado y
+   búsqueda por código de reserva. API: `GET /admin/pagos` y `GET /admin/pagos/resumen`.
+   **Falta:** el **historial de liquidaciones** formales, que necesita colección propia — hoy se
+   deduce de los pagos, no hay un registro de "esto se pagó al comercio tal día".
 4. **Incidencias y disputas** (§2): hoy sólo existe el estado `en_disputa` en la reserva. Necesita
    entidad propia con estado (abierta / en revisión / resuelta) e historial de actuaciones.
 5. **Administradores y permisos** (§7) e **historial de acciones administrativas**: es lo que

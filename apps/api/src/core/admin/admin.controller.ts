@@ -203,6 +203,31 @@ export class AdminController {
     await this.adminService.eliminarUsuario(id);
   }
 
+  // ── Pagos y liquidaciones ────────────────────────────────────────────────────
+
+  @Get('pagos')
+  @ApiOperation({ summary: 'Pagos con su desglose: comisión, coste de pasarela y neto del comercio' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limite', required: false })
+  @ApiQuery({ name: 'estado', required: false })
+  @ApiQuery({ name: 'comercioId', required: false })
+  @ApiQuery({ name: 'buscar', required: false })
+  listarPagos(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limite', new DefaultValuePipe(20), ParseIntPipe) limite: number,
+    @Query('estado') estado?: string,
+    @Query('comercioId') comercioId?: string,
+    @Query('buscar') buscar?: string,
+  ) {
+    return this.adminService.listarPagos(page, limite, { estado, comercioId, buscar });
+  }
+
+  @Get('pagos/resumen')
+  @ApiOperation({ summary: 'Totales de dinero cobrado, comisión, pasarela y liquidaciones' })
+  resumenPagos() {
+    return this.adminService.resumenPagos();
+  }
+
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
   @Get('reservas/resumen')

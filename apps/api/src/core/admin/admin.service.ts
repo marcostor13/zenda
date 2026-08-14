@@ -548,12 +548,16 @@ export class AdminService {
 
     // El estado del pago es otra cosa que el estado de la reserva: se resuelve
     // aparte para que la tabla pueda enseñarlos en columnas distintas (TCK-8036).
+    // Con el pago viajan también el coste de Stripe y el neto del comercio, que
+    // es lo que hay que poder explicar en la ficha de la reserva (TCK-8036 §6).
     const pagos = await this.pagoModel
       .find({ reservaId: { $in: items.map((r) => r._id) } })
-      .select('reservaId estado')
+      .select('reservaId estado stripeFee montoLiquidacion')
       .lean()
-      .exec() as unknown as Array<{ reservaId: Types.ObjectId; estado: string }>;
-    const estadoPagoPorReserva = new Map(pagos.map((p) => [String(p.reservaId), p.estado]));
+      .exec() as unknown as Array<{
+        reservaId: Types.ObjectId; estado: string; stripeFee?: number; montoLiquidacion?: number;
+      }>;
+    const pagoPorReserva = new Map(pagos.map((p) => [String(p.reservaId), p]));
 
     const enriquecidas = items.map((r) => ({
       ...r,
@@ -562,11 +566,132 @@ export class AdminService {
       clienteEmail: r.usuarioId?.email,
       comercio: r.comercioId?.nombreComercial ?? 'Comercio',
       servicio: r.servicioId?.titulo ?? r.vertical,
-      estadoPago: estadoPagoPorReserva.get(String(r._id)) ?? 'sin_pago',
+      estadoPago: pagoPorReserva.get(String(r._id))?.estado ?? 'sin_pago',
+      stripeFee: pagoPorReserva.get(String(r._id))?.stripeFee ?? 0,
+      montoLiquidacion: pagoPorReserva.get(String(r._id))?.montoLiquidacion ?? 0,
+      // El nombre viaja en la copia congelada del perro: sigue estando aunque
+      // el cliente borre después su ficha.
+      perroNombre: (r as unknown as { perroSnapshot?: Record<string, unknown> }).perroSnapshot?.['nombre'] as string | undefined,
       comisionMonto: (r as unknown as { comisionMonto?: number }).comisionMonto ?? 0,
     }));
 
     return { items: enriquecidas, total };
+  }
+
+  /**
+   * Control del dinero: qué se ha cobrado, cuánto es del comercio, cuánto de
+   * Doogking y cuánto se lleva la pasarela (TCK-8040 §1). Se calcula sobre los
+   * pagos ya existentes; el historial de liquidaciones formales es aparte.
+   */
+  async listarPagos(
+    page = 1,
+    limite = 20,
+    filtros: { estado?: string; comercioId?: string; buscar?: string } = {},
+  ): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
+    const skip = (page - 1) * limite;
+    const filtro: Record<string, unknown> = {};
+    if (filtros.estado) filtro['estado'] = filtros.estado;
+
+    // El pago no guarda el comercio: se llega a él por la reserva.
+    if (filtros.comercioId || filtros.buscar) {
+      const filtroReserva: Record<string, unknown> = {};
+      if (filtros.comercioId) filtroReserva['comercioId'] = new Types.ObjectId(filtros.comercioId);
+      if (filtros.buscar) {
+        const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        filtroReserva['codigo'] = new RegExp(escaped, 'i');
+      }
+      const reservas = await this.reservaModel.find(filtroReserva).select('_id').lean().exec() as unknown as Array<{ _id: Types.ObjectId }>;
+      filtro['reservaId'] = { $in: reservas.map((r) => r._id) };
+    }
+
+    const [items, total] = await Promise.all([
+      this.pagoModel
+        .find(filtro)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limite)
+        .populate('reservaId', 'codigo comercioId vertical')
+        .lean()
+        .exec() as unknown as Array<Record<string, unknown>>,
+      this.pagoModel.countDocuments(filtro).exec(),
+    ]);
+
+    const comercioIds = items
+      .map((p) => (p['reservaId'] as { comercioId?: Types.ObjectId } | undefined)?.comercioId)
+      .filter((id): id is Types.ObjectId => !!id);
+    const comercios = await this.comercioModel
+      .find({ _id: { $in: comercioIds } })
+      .select('nombreComercial')
+      .lean()
+      .exec() as unknown as Array<{ _id: Types.ObjectId; nombreComercial: string }>;
+    const nombrePorComercio = new Map(comercios.map((c) => [String(c._id), c.nombreComercial]));
+
+    return {
+      items: items.map((pago) => {
+        const reserva = pago['reservaId'] as { _id?: Types.ObjectId; codigo?: string; comercioId?: Types.ObjectId; vertical?: string } | undefined;
+        return {
+          _id: String(pago['_id']),
+          codigoReserva: reserva?.codigo ?? '—',
+          comercio: nombrePorComercio.get(String(reserva?.comercioId)) ?? 'Comercio',
+          vertical: reserva?.vertical ?? '',
+          montoTotal: pago['montoTotal'] ?? 0,
+          comisionPlataforma: pago['comisionPlataforma'] ?? 0,
+          stripeFee: pago['stripeFee'] ?? 0,
+          montoLiquidacion: pago['montoLiquidacion'] ?? 0,
+          estado: pago['estado'],
+          createdAt: pago['createdAt'],
+        };
+      }),
+      total,
+    };
+  }
+
+  /** Totales de la cabecera de Pagos y liquidaciones (TCK-8040 §1). */
+  async resumenPagos(): Promise<{
+    cobrado: number;
+    comisionDoogking: number;
+    costePasarela: number;
+    liquidadoComercios: number;
+    pendienteLiquidar: number;
+    reembolsado: number;
+  }> {
+    const sumar = async (match: Record<string, unknown>) => {
+      const [fila] = await this.pagoModel.aggregate<{
+        cobrado: number; comision: number; stripe: number; liquidacion: number;
+      }>([
+        { $match: match },
+        {
+          $group: {
+            _id: null,
+            cobrado: { $sum: '$montoTotal' },
+            comision: { $sum: '$comisionPlataforma' },
+            stripe: { $sum: '$stripeFee' },
+            liquidacion: { $sum: '$montoLiquidacion' },
+          },
+        },
+      ]).exec();
+      return fila ?? { cobrado: 0, comision: 0, stripe: 0, liquidacion: 0 };
+    };
+
+    const dosDecimales = (n: number): number => Math.round(n * 100) / 100;
+    const [aprobados, reembolsados, retenidas] = await Promise.all([
+      sumar({ estado: PagoEstado.APROBADO }),
+      sumar({ estado: PagoEstado.REEMBOLSADO }),
+      // Lo prestado que todavía no se ha liberado al comercio.
+      this.reservaModel.aggregate<{ monto: number }>([
+        { $match: { estado: { $in: [ReservaEstado.COMPLETADA, ReservaEstado.PAGO_RETENIDO] } } },
+        { $group: { _id: null, monto: { $sum: '$montoTotal' } } },
+      ]).exec(),
+    ]);
+
+    return {
+      cobrado: dosDecimales(aprobados.cobrado),
+      comisionDoogking: dosDecimales(aprobados.comision),
+      costePasarela: dosDecimales(aprobados.stripe),
+      liquidadoComercios: dosDecimales(aprobados.liquidacion),
+      pendienteLiquidar: dosDecimales(retenidas[0]?.monto ?? 0),
+      reembolsado: dosDecimales(reembolsados.cobrado),
+    };
   }
 
   /** Contadores e importes de la cabecera del centro de reservas (TCK-8036). */

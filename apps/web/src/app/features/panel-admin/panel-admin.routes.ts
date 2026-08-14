@@ -47,6 +47,11 @@ export const panelAdminRoutes: Routes = [
           import('./admin-comunidad.component').then(m => m.AdminComunidadComponent),
       },
       {
+        path: 'pagos',
+        loadComponent: () =>
+          import('./admin-pagos.component').then(m => m.AdminPagosComponent),
+      },
+      {
         path: 'resenas',
         loadComponent: () =>
           import('./admin-resenas.component').then(m => m.AdminResenasComponent),

@@ -10,6 +10,7 @@ const NAV_SECTIONS = [
       { icon: 'sparkles',    label: 'Dashboard',  ruta: '/admin',           exact: true  },
       { icon: 'trending-up', label: 'Analítica',  ruta: '/admin/analitica', exact: false },
       { icon: 'euro',        label: 'Reportes',   ruta: '/admin/reportes',  exact: false },
+      { icon: 'banknote',    label: 'Pagos',      ruta: '/admin/pagos',     exact: false },
     ],
   },
   {
