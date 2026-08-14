@@ -289,6 +289,10 @@ export class AdminApiService {
     return this.http.get<AdminDashboardResponse>(`${this.adminUrl}/dashboard`, { params: p });
   }
 
+  getComisiones(): Observable<ComisionConfig[]> {
+    return this.http.get<ComisionConfig[]>(`${this.adminUrl}/comisiones`);
+  }
+
   updateComision(dto: { vertical: string; comisionPct: number; stripePct?: number; stripeFijoEur?: number; activo: boolean }): Observable<ComisionConfig> {
     return this.http.put<ComisionConfig>(`${this.adminUrl}/comisiones`, dto);
   }

@@ -6,6 +6,12 @@ import { EstadoModeracion, TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
 
+const TABS_MODERACION: ReadonlyArray<{ estado: EstadoModeracion; label: string }> = [
+  { estado: EstadoModeracion.PENDIENTE, label: 'Pendientes' },
+  { estado: EstadoModeracion.PUBLICADO, label: 'Publicados' },
+  { estado: EstadoModeracion.RECHAZADO, label: 'Rechazados' },
+];
+
 interface LugarPendiente {
   _id: string;
   tipo: TipoLugar;
@@ -44,23 +50,41 @@ interface ReviewPendiente {
       <h1>Comunidad</h1>
       <p>Revisa y gestiona el contenido compartido por la comunidad de Doogking.</p>
     </div>
-    <span class="ac__contador">{{ totalPendiente() }} pendientes</span>
+    <span class="ac__contador">{{ conteo('pendiente') }} pendientes</span>
   </header>
+
+  <!-- El admin no sólo aprueba: también revisa lo ya resuelto (TCK-8039) -->
+  <div class="ac__tabs" role="tablist">
+    @for (t of tabs; track t.estado) {
+      <button type="button" class="ac__tab" role="tab"
+              [attr.aria-selected]="estadoActivo() === t.estado"
+              [class.activa]="estadoActivo() === t.estado"
+              (click)="cambiarEstado(t.estado)">
+        {{ t.label }}
+        <span class="ac__tab-num">{{ conteo(t.estado) }}</span>
+      </button>
+    }
+  </div>
+
+  <label class="ac__buscador">
+    <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon>
+    <input type="search" placeholder="Buscar por título, usuario o ciudad…"
+           [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
+  </label>
 
   @if (cargando()) {
     <p class="ac__cargando">Cargando la cola de moderación…</p>
-  } @else if (!totalPendiente()) {
+  } @else if (!totalVisible()) {
     <div class="ac__vacio">
       <rs-icon name="check-circle" [size]="36" [stroke]="1.5"></rs-icon>
-      <p>No hay nada pendiente de moderar. Cuando la comunidad comparta un sitio o
-        una reseña, aparecerá aquí para que la revises antes de publicarla.</p>
+      <p>{{ mensajeVacio() }}</p>
     </div>
   } @else {
-    @if (lugares().length) {
+    @if (lugaresVisibles().length) {
       <section class="ac__bloque">
-        <h2>Sitios propuestos ({{ lugares().length }})</h2>
+        <h2>Sitios ({{ lugaresVisibles().length }})</h2>
         <ul class="ac__lista">
-          @for (l of lugares(); track l._id) {
+          @for (l of lugaresVisibles(); track l._id) {
             <li class="ac__card">
               <div class="ac__card-cuerpo">
                 <span class="ac__tipo">{{ etiquetaTipo(l.tipo) }}</span>
@@ -91,11 +115,11 @@ interface ReviewPendiente {
       </section>
     }
 
-    @if (reviews().length) {
+    @if (reviewsVisibles().length) {
       <section class="ac__bloque">
         <h2>Aportaciones ({{ reviews().length }})</h2>
         <ul class="ac__lista">
-          @for (r of reviews(); track r._id) {
+          @for (r of reviewsVisibles(); track r._id) {
             <li class="ac__card">
               <div class="ac__card-cuerpo">
                 <span class="ac__tipo">
@@ -141,6 +165,29 @@ interface ReviewPendiente {
     }
 
     .ac__cargando { color: var(--t-400); }
+    .ac__tabs { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+    .ac__tab {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
+      border: 1px solid var(--b-2); background: var(--c-raised);
+      color: var(--t-300); font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
+    }
+    .ac__tab:hover { border-color: var(--c-accent); color: var(--c-accent); }
+    .ac__tab.activa { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); font-weight: var(--w-6); }
+    .ac__tab-num { padding: 1px var(--sp-2); border-radius: var(--r-full); background: var(--c-surface); font-size: var(--f-xs); color: var(--t-400); }
+
+    .ac__buscador {
+      display: flex; align-items: center; gap: var(--sp-2);
+      max-width: 420px; height: 40px; padding: 0 var(--sp-3); margin-bottom: var(--sp-5);
+      background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      color: var(--t-400);
+    }
+    .ac__buscador:focus-within { border-color: var(--c-accent); }
+    .ac__buscador input {
+      flex: 1; border: none; background: transparent; outline: none;
+      font-size: var(--f-sm); color: var(--t-100); min-width: 0;
+    }
+
     .ac__vacio {
       display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
       padding: var(--sp-16) var(--sp-4); color: var(--t-400); text-align: center;
@@ -188,6 +235,45 @@ export class AdminComunidadComponent implements OnInit {
   readonly error = signal('');
 
   readonly totalPendiente = computed(() => this.lugares().length + this.reviews().length);
+
+  /** Pestañas de moderación y buscador (TCK-8039). */
+  readonly tabs = TABS_MODERACION;
+  readonly estadoActivo = signal<EstadoModeracion>(EstadoModeracion.PENDIENTE);
+  readonly busqueda = signal('');
+  readonly conteos = signal<Record<string, number>>({});
+
+  private coincide(texto: string): boolean {
+    const termino = this.busqueda().trim().toLowerCase();
+    return !termino || texto.toLowerCase().includes(termino);
+  }
+
+  readonly lugaresVisibles = computed(() =>
+    this.lugares().filter((l) => this.coincide(`${l.nombre} ${l.ubicacion.ciudad} ${l.descripcion ?? ''}`)),
+  );
+
+  readonly reviewsVisibles = computed(() =>
+    this.reviews().filter((r) => this.coincide(`${r.usuarioNombre} ${r.texto ?? ''}`)),
+  );
+
+  readonly totalVisible = computed(() => this.lugaresVisibles().length + this.reviewsVisibles().length);
+
+  conteo(estado: string): number {
+    return this.conteos()[estado] ?? 0;
+  }
+
+  mensajeVacio(): string {
+    if (this.busqueda().trim()) return 'Nada coincide con lo que has buscado.';
+    if (this.estadoActivo() === EstadoModeracion.PENDIENTE) {
+      return 'No hay nada pendiente de moderar. Cuando la comunidad comparta un sitio o una reseña, aparecerá aquí para que la revises antes de publicarla.';
+    }
+    if (this.estadoActivo() === EstadoModeracion.PUBLICADO) return 'Todavía no has publicado ninguna aportación.';
+    return 'No has rechazado ninguna aportación.';
+  }
+
+  async cambiarEstado(estado: EstadoModeracion): Promise<void> {
+    this.estadoActivo.set(estado);
+    await this.cargar();
+  }
 
   async ngOnInit(): Promise<void> {
     await this.cargar();
@@ -238,11 +324,18 @@ export class AdminComunidadComponent implements OnInit {
     try {
       const pendientes = await firstValueFrom(
         this.http.get<{ lugares: LugarPendiente[]; reviews: ReviewPendiente[] }>(
-          `${this.base}/moderacion/pendientes`,
+          `${this.base}/moderacion/pendientes?estado=${this.estadoActivo()}`,
         ),
       );
       this.lugares.set(pendientes.lugares);
       this.reviews.set(pendientes.reviews);
+      try {
+        this.conteos.set(
+          await firstValueFrom(this.http.get<Record<string, number>>(`${this.base}/moderacion/resumen`)),
+        );
+      } catch {
+        // Sin contadores las pestañas siguen funcionando, sólo salen a cero.
+      }
     } catch {
       this.error.set('No se pudo cargar la cola de moderación.');
     } finally {

@@ -150,12 +150,35 @@ export class LugaresService {
 
   // ── Moderación (admin) ──
 
-  async listarPendientes(): Promise<{ lugares: LugarDocument[]; reviews: LugarReviewDocument[] }> {
+  /**
+   * Contenido de la comunidad por estado. El admin no sólo aprueba: también
+   * tiene que poder volver sobre lo ya publicado o rechazado (TCK-8039).
+   */
+  async listarPendientes(
+    estado: EstadoModeracion = EstadoModeracion.PENDIENTE,
+  ): Promise<{ lugares: LugarDocument[]; reviews: LugarReviewDocument[] }> {
+    // Lo pendiente se atiende por antigüedad; lo ya resuelto interesa al revés.
+    const orden = estado === EstadoModeracion.PENDIENTE ? 1 : -1;
     const [lugares, reviews] = await Promise.all([
-      this.lugarModel.find({ estado: EstadoModeracion.PENDIENTE }).sort({ createdAt: 1 }).exec(),
-      this.reviewModel.find({ estado: EstadoModeracion.PENDIENTE }).sort({ createdAt: 1 }).exec(),
+      this.lugarModel.find({ estado }).sort({ createdAt: orden }).limit(100).exec(),
+      this.reviewModel.find({ estado }).sort({ createdAt: orden }).limit(100).exec(),
     ]);
     return { lugares, reviews };
+  }
+
+  /** Cuántos hay en cada estado, para los contadores de las pestañas. */
+  async contarPorEstado(): Promise<Record<string, number>> {
+    const estados = Object.values(EstadoModeracion);
+    const conteos = await Promise.all(
+      estados.map(async (estado) => {
+        const [lugares, reviews] = await Promise.all([
+          this.lugarModel.countDocuments({ estado }).exec(),
+          this.reviewModel.countDocuments({ estado }).exec(),
+        ]);
+        return [estado, lugares + reviews] as const;
+      }),
+    );
+    return Object.fromEntries(conteos);
   }
 
   async moderarLugar(id: string, dto: ModerarDto): Promise<LugarDocument> {

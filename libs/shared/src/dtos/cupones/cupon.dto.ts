@@ -1,4 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsIn, IsBoolean, Min, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsIn, IsBoolean, IsEnum, Min, IsDateString } from 'class-validator';
+import { AsumeDescuento } from '../../enums/evento.enum';
 
 export class ValidarCuponDto {
   @IsString()
@@ -53,4 +54,17 @@ export class CrearCuponDto {
   @IsOptional()
   @IsString()
   descripcion?: string;
+
+  /**
+   * Quién paga el descuento: cambia el margen real de la reserva, así que no
+   * puede quedar implícito (TCK-8037 §7).
+   */
+  @IsOptional()
+  @IsEnum(AsumeDescuento)
+  asumeDescuento?: AsumeDescuento;
+
+  /** Restringe el cupón a quien todavía no ha reservado (TCK-8037 §4). */
+  @IsOptional()
+  @IsBoolean()
+  soloPrimeraReserva?: boolean;
 }

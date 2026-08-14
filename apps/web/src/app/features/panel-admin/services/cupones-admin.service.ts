@@ -17,6 +17,10 @@ export interface Cupon {
   descripcion?: string;
   /** Fin de la validez; sin valor, el cupón no caduca (TCK-8037). */
   validoHasta?: string;
+  /** Quién asume el descuento; por defecto, la plataforma (TCK-8037). */
+  asumeDescuento?: 'plataforma' | 'comercio';
+  /** Sólo para clientes que aún no han reservado (TCK-8037). */
+  soloPrimeraReserva?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

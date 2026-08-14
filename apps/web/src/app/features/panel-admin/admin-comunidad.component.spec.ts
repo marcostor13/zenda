@@ -42,6 +42,13 @@ describe('AdminComunidadComponent', () => {
     else req.flush(pendientes);
 
     await fixture.whenStable();
+
+    // Tras la cola llegan los contadores de las pestañas (TCK-8039).
+    if (!estado) {
+      const resumen = httpMock.expectOne((r) => r.url.includes('/lugares/moderacion/resumen'));
+      resumen.flush({ pendiente: 2, publicado: 0, rechazado: 0 });
+      await fixture.whenStable();
+    }
     fixture.detectChanges();
   };
 

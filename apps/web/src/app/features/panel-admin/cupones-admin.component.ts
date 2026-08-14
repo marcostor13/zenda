@@ -113,6 +113,23 @@ import { AdminApiService } from './admin-api.service';
               Sin fecha de caducidad
             </label>
           </div>
+          <div class="form-2">
+            <div class="rs-form-group">
+              <label class="rs-label">Quién asume el descuento</label>
+              <select formControlName="asumeDescuento" class="rs-input">
+                <option value="plataforma">Doogking</option>
+                <option value="comercio">El comercio</option>
+              </select>
+            </div>
+            <div class="rs-form-group">
+              <label class="rs-label">Quién puede usarlo</label>
+              <label class="casilla">
+                <input type="checkbox" formControlName="soloPrimeraReserva" />
+                Sólo clientes nuevos (primera reserva)
+              </label>
+            </div>
+          </div>
+
           <div class="rs-form-group">
             <label class="rs-label">Descripción</label>
             <input formControlName="descripcion" class="rs-input" placeholder="Descripción opcional" />
@@ -147,6 +164,9 @@ import { AdminApiService } from './admin-api.service';
                   {{ c.tipo === 'porcentaje' ? (c.valor * 100).toFixed(0) + '%' : c.valor + ' €' }}
                   · {{ c.vertical }}
                   @if ((c.usoMaximo ?? 0) > 0) { · máx {{ c.usoMaximo }} usos }
+                  · lo asume {{ c.asumeDescuento === 'comercio' ? 'el comercio' : 'Doogking' }}
+                  @if (c.soloPrimeraReserva) { · sólo clientes nuevos }
+                  @if (c.validoHasta) { · hasta {{ c.validoHasta.slice(0, 10) }} }
                 </div>
                 <div class="cupon-uso">
                   {{ c.usados ?? 0 }} usos
@@ -257,6 +277,8 @@ export class CuponesAdminComponent implements OnInit {
     topeDescuento: [0],
     usoMaximo: [0],
     validoHasta: [''],
+    asumeDescuento: ['plataforma' as 'plataforma' | 'comercio'],
+    soloPrimeraReserva: [false],
     descripcion: [''],
   });
 
@@ -324,6 +346,8 @@ export class CuponesAdminComponent implements OnInit {
           topeDescuento: this.sinTope() ? 0 : Number(v.topeDescuento) || 0,
           usoMaximo: this.usosIlimitados() ? 0 : Number(v.usoMaximo) || 0,
           validoHasta: this.sinCaducidad() || !v.validoHasta ? undefined : v.validoHasta,
+          asumeDescuento: v.asumeDescuento ?? 'plataforma',
+          soloPrimeraReserva: !!v.soloPrimeraReserva,
           descripcion: v.descripcion || undefined,
         }));
         this.formOk.set('Cupón actualizado correctamente.');
@@ -338,6 +362,8 @@ export class CuponesAdminComponent implements OnInit {
           topeDescuento: this.sinTope() ? 0 : Number(v.topeDescuento) || 0,
           usoMaximo: this.usosIlimitados() ? 0 : Number(v.usoMaximo) || 0,
           validoHasta: this.sinCaducidad() || !v.validoHasta ? undefined : v.validoHasta,
+          asumeDescuento: v.asumeDescuento ?? 'plataforma',
+          soloPrimeraReserva: !!v.soloPrimeraReserva,
         });
         this.formOk.set('Cupón creado correctamente.');
         this.form.patchValue({ codigo: '' });
@@ -367,6 +393,8 @@ export class CuponesAdminComponent implements OnInit {
       topeDescuento: c.topeDescuento ?? 0,
       usoMaximo: c.usoMaximo ?? 0,
       validoHasta: c.validoHasta ? String(c.validoHasta).slice(0, 10) : '',
+      asumeDescuento: c.asumeDescuento ?? 'plataforma',
+      soloPrimeraReserva: c.soloPrimeraReserva ?? false,
       descripcion: c.descripcion ?? '',
     });
     this.formError.set(null);
@@ -376,7 +404,11 @@ export class CuponesAdminComponent implements OnInit {
 
   cancelarEdicion(): void {
     this.editandoId.set(null);
-    this.form.reset({ tipo: 'porcentaje', valor: 20, vertical: 'global', montoMinimo: 0, topeDescuento: 0, usoMaximo: 0, validoHasta: '' });
+    this.form.reset({
+      tipo: 'porcentaje', valor: 20, vertical: 'global', montoMinimo: 0,
+      topeDescuento: 0, usoMaximo: 0, validoHasta: '',
+      asumeDescuento: 'plataforma', soloPrimeraReserva: false,
+    });
     this.sinTope.set(true);
     this.usosIlimitados.set(true);
     this.sinCaducidad.set(true);

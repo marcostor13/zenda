@@ -24,7 +24,7 @@ que son los que más tiempo consumen.
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
-| F7 | Módulos nuevos (producto) | 8040 | ⬜ planificado abajo |
+| F7 | Módulos nuevos (producto) | 8040 §4 y §5 ✅ · resto ⬜ | 🟡 en curso |
 
 ## F0 — Auditoría (hecho)
 
@@ -122,8 +122,8 @@ tienen nivel; la escalera de la empresa es el plan Básico / Pro / Premium.
 
 **TCK-8034 🟡 — sólo la parte Alpha.** Quitado el botón *Alpha* de la tabla de comercios del
 admin. Para no perder la funcionalidad (HU-13.3: qué empresas aplican el descuento), la
-gestión se ha movido al bloque **Programa Doogking Alpha** del inicio del admin: busca la
-empresa por nombre/CIF y la adhiere o la da de baja; sin búsqueda lista las ya adheridas.
+gestión se ha movido al **apartado Doogking Alpha** (`/admin/alpha`): busca la empresa por
+nombre/CIF y la adhiere o la da de baja; sin búsqueda lista las ya adheridas.
 Backend: filtro `alphaAdherido` en `GET /admin/comercios` (controller → service →
 `comercios.repository`). El resto del ticket (resumen superior, filtros, ficha del comercio,
 menú ⋯, motivo de rechazo) es **F5**.
@@ -222,9 +222,11 @@ comercio, política aplicada) y el panel de filtros avanzados por ciudad/importe
 **Descuento máximo (€)** y **Límite total de usos** con casillas *Sin límite* / *Ilimitado* en
 vez del 0 con significado oculto, y **Fecha de finalización** con *Sin fecha de caducidad*. El
 listado pasa a ancho completo y el formulario se abre con *Nuevo cupón*.
-**Falta:** audiencia (nuevos / recurrentes / nivel Alpha), alcance por comercio o ciudad, usos
-por usuario y quién asume el descuento. Ojo: `asumeDescuento`, `soloPrimeraReserva` y `cohorte`
-**ya existen en el schema**; falta exponerlos en el DTO y en el formulario.
+Añadido después: **quién asume el descuento** (Doogking / el comercio) y **sólo clientes nuevos**,
+que ya existían en el schema y no se podían tocar desde el panel; ambos se ven también en el
+listado junto a la fecha de caducidad.
+**Falta:** audiencia por nivel Alpha o usuarios seleccionados, alcance por comercio o ciudad, y
+usos por usuario.
 
 **TCK-8038 🟡 Campañas.** Cabecera reescrita (*"Gestiona, segmenta y analiza las campañas
 promocionales de Doogking"*) y estado vacío trabajado con explicación, botón *Crear primera
@@ -232,9 +234,11 @@ campaña* y los tres ejemplos de objetivo.
 **Falta:** objetivo y segmentación de la campaña, y enlazarla con cupones (necesita backend).
 
 **TCK-8039 🟡 Comunidad.** Cabecera reescrita y estado vacío que explica qué aparecerá ahí.
-**Falta lo gordo:** pestañas Pendientes / Publicados / Rechazados / Reportados, buscador y
-filtros, y contenido reportado. Hoy el API **sólo devuelve la cola de pendientes**: sin listado
-por estado no hay pestañas que enseñar.
+Añadido después: **pestañas Pendientes / Publicados / Rechazados con contador** y **buscador**
+por título, usuario o ciudad. Para eso el API pasó de devolver sólo la cola de pendientes a
+aceptar `?estado=` y exponer `GET /lugares/moderacion/resumen`.
+**Falta:** contenido reportado por usuarios (no existe la denuncia como entidad), filtros por
+categoría y fecha, y la vista previa completa antes de aprobar.
 
 **TCK-8032 / 8033 🟡 Reportes financieros.** La pantalla ya no parece un formulario vacío:
 **carga sola con los últimos 30 días**, tiene atajos de periodo (Hoy · 7 días · 30 días · Este
@@ -284,9 +288,12 @@ desarrollo de producto, no ajustes.
 
 No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
 
-1. **Alpha y Comisiones como apartados propios** (§4 y §5). Es mover a `/admin/alpha` y
-   `/admin/comisiones` dos bloques que hoy viven dentro del Dashboard, con su entrada en el menú.
-   Sin backend nuevo; hay que mover también sus tests.
+1. **Alpha y Comisiones como apartados propios ✅ hecho** (§4 y §5). `/admin/alpha` y
+   `/admin/comisiones`, con su sección *Configuración* en el menú lateral. El Dashboard se queda
+   con dos accesos y pierde el código de ambos bloques; sus tests se movieron a los specs nuevos
+   (`admin-alpha.component.spec.ts` y `admin-comisiones.component.spec.ts`). Alpha gana además
+   una escalera por tarjetas con insignia por nivel, y al guardar ya no se envían beneficios
+   vacíos a medio escribir.
 2. **Gestión administrativa de reseñas** (§3): listar todas, ver usuario/comercio/reserva y poder
    ocultar o eliminar. El módulo `reviews` ya existe; falta el listado de admin y el flag de
    ocultación.

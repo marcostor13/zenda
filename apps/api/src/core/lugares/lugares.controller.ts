@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import {
-  ActualizarLugarDto, CrearLugarDto, CrearLugarReviewDto, ModerarDto, Rol, TipoLugar,
+  ActualizarLugarDto, CrearLugarDto, CrearLugarReviewDto, EstadoModeracion, ModerarDto, Rol, TipoLugar,
 } from 'shared';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
@@ -55,9 +55,21 @@ export class LugaresController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Rol.ADMIN)
-  @ApiOperation({ summary: 'Cola de moderación: lugares y aportaciones sin revisar' })
-  pendientes(): Promise<{ lugares: LugarDocument[]; reviews: LugarReviewDocument[] }> {
-    return this.lugaresService.listarPendientes();
+  @ApiOperation({ summary: 'Contenido de la comunidad por estado de moderación' })
+  @ApiQuery({ name: 'estado', required: false, enum: EstadoModeracion })
+  pendientes(
+    @Query('estado') estado?: EstadoModeracion,
+  ): Promise<{ lugares: LugarDocument[]; reviews: LugarReviewDocument[] }> {
+    return this.lugaresService.listarPendientes(estado);
+  }
+
+  @Get('moderacion/resumen')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Cuántas aportaciones hay en cada estado de moderación' })
+  resumenModeracion(): Promise<Record<string, number>> {
+    return this.lugaresService.contarPorEstado();
   }
 
   @Get(':id')

@@ -28,6 +28,13 @@ const NAV_SECTIONS = [
       { icon: 'map-pin',     label: 'Comunidad',  ruta: '/admin/comunidad', exact: false },
     ],
   },
+  {
+    title: 'Configuración',
+    items: [
+      { icon: 'percent',     label: 'Comisiones', ruta: '/admin/comisiones', exact: false },
+      { icon: 'crown',       label: 'Doogking Alpha', ruta: '/admin/alpha',  exact: false },
+    ],
+  },
 ];
 
 @Component({

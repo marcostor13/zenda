@@ -2,8 +2,7 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe, DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
-import { etiquetaAlphaNivel } from 'shared';
-import { AdminApiService, ComisionConfig, ComercioAdmin, ComercioPendiente, ComparativaDashboard, UltimaReserva, AlphaNivel } from './admin-api.service';
+import { AdminApiService, ComercioPendiente, ComparativaDashboard, UltimaReserva } from './admin-api.service';
 
 const SIN_COMPARATIVA: ComparativaDashboard = {
   gmvPct: null, ingresosPct: null, reservasPct: null, comerciosPct: null,
@@ -271,180 +270,24 @@ const ESTADO_BADGE: Record<string, string> = {
 
       </div>
 
-      <!-- CONFIGURACIÓN DE COMISIONES -->
-      <div class="rs-card admin-panel">
-        <div class="panel-header">
-          <h3>Comisiones por vertical</h3>
-          <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardarComisiones()">
-            <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
-          </button>
-        </div>
-
-        <p class="panel-nota">
-          La columna <strong>Comisión total</strong> es lo que el comercio deja de cobrar por cada
-          reserva: comisión de Doogking más el coste de la pasarela de pago.
-        </p>
-        <div class="comisiones-table">
-          <div class="comisiones-head">
-            <span>Vertical</span>
-            <span>Comisión (%)</span>
-            <span>Fee Stripe</span>
-            <span>Comisión total</span>
-            <span>Estado</span>
-          </div>
-          @for (c of comisiones(); track c.vertical) {
-            <div class="comisiones-row">
-              <span class="comision-vertical">
-                <rs-icon [name]="iconoVertical(c.vertical)" [size]="14" [stroke]="2"></rs-icon>
-                {{ c.vertical }}
-              </span>
-              <div data-col="Comisión" style="display:flex;align-items:center;gap:var(--sp-2)">
-                <input type="number" class="rs-inp" style="width:80px;text-align:center"
-                       [value]="(c.comisionPct * 100).toFixed(0)"
-                       (input)="actualizarPct(c, +$any($event).target.value)" />
-                <span style="color:var(--t-400)">%</span>
-              </div>
-              <span data-col="Fee Stripe" style="color:var(--t-400);font-size:var(--f-sm)">
-                {{ (c.stripePct * 100).toFixed(1) }}% + {{ c.stripeFijoEur.toFixed(2) }} €
-              </span>
-              <span data-col="Total" style="font-weight:var(--w-7);color:var(--t-100);font-size:var(--f-sm)">
-                {{ comisionTotal(c) }}%
-              </span>
-              <label data-col="Estado" style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
-                <input type="checkbox" [checked]="c.activo" (change)="c.activo = !c.activo"
-                       style="accent-color:var(--c-accent)" />
-                <span class="rs-badge" [class]="c.activo ? 'rs-badge--success' : 'rs-badge--warning'">
-                  {{ c.activo ? 'Activo' : 'Pausado' }}
-                </span>
-              </label>
-            </div>
-          }
-        </div>
-
-        @if (guardadoMsg()) {
-          <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">
-            <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Comisiones actualizadas exitosamente
-          </div>
-        }
-        @if (errorMsg()) {
-          <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-4)">
-            {{ errorMsg() }}
-          </div>
-        }
-      </div>
-
-      <!-- PROGRAMA DOOGKING ALPHA (HU-13.4) -->
-      <div class="rs-card admin-panel">
-        <div class="panel-header">
-          <h3><rs-icon name="crown" [size]="17" [stroke]="2"></rs-icon> Programa de fidelización de clientes · Doogking Alpha</h3>
-          <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardarAlphaNiveles()">
-            <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
-          </button>
-        </div>
-        <p class="panel-nota">
-          Fidelización de los clientes que reservan. Las empresas no tienen nivel Alpha:
-          su escalera es el plan Básico / Pro / Premium.
-        </p>
-
-        <div class="comisiones-table alpha-table">
-          <div class="comisiones-head alpha-head">
-            <span>Nivel</span>
-            <span>Nombre</span>
-            <span>Reservas requeridas</span>
-            <span>Descuento (%)</span>
-            <span>Beneficios (separados por coma)</span>
-          </div>
-          @for (n of alphaNiveles(); track n.nivel) {
-            <div class="comisiones-row alpha-row">
-              <span class="comision-vertical">{{ etiquetaNivel(n.nivel) }}</span>
-              <label class="alpha-campo"><span>Nombre</span>
-                <input type="text" class="rs-inp" [value]="n.nombre" (input)="n.nombre = $any($event).target.value" />
-              </label>
-              <label class="alpha-campo"><span>Reservas requeridas</span>
-                <input type="number" class="rs-inp" style="width:100px;text-align:center"
-                       [value]="n.reservasRequeridas"
-                       (input)="n.reservasRequeridas = +$any($event).target.value" />
-              </label>
-              <label class="alpha-campo"><span>Descuento (%)</span>
-                <input type="number" class="rs-inp" style="width:80px;text-align:center"
-                       [value]="(n.descuentoPct * 100).toFixed(0)"
-                       (input)="n.descuentoPct = +$any($event).target.value / 100" />
-              </label>
-              <!-- Beneficios uno a uno: en un solo campo con comas era imposible
-                   escribir un beneficio que llevara coma (TCK-8030 §10). -->
-              <div class="alpha-campo alpha-beneficios">
-                <span>Beneficios</span>
-                @for (b of n.beneficios; track $index) {
-                  <div class="alpha-beneficio">
-                    <input type="text" class="rs-inp" [value]="b"
-                           (input)="editarBeneficio(n, $index, $any($event).target.value)" />
-                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                            (click)="quitarBeneficio(n, $index)" aria-label="Quitar beneficio">
-                      <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon>
-                    </button>
-                  </div>
-                }
-                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="anadirBeneficio(n)">
-                  <rs-icon name="plus" [size]="13" [stroke]="2.5"></rs-icon> Añadir beneficio
-                </button>
-              </div>
-            </div>
-          }
-        </div>
-
-        @if (alphaGuardadoMsg()) {
-          <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">
-            <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Programa Alpha actualizado exitosamente
-          </div>
-        }
-
-        <!-- Empresas que aplican los descuentos Alpha a sus clientes. Se gestiona
-             aquí, dentro del programa, y no en la ficha del comercio (TCK-8034). -->
-        <div class="alpha-adheridos">
-          <h4 class="alpha-adheridos__titulo">Empresas que aplican descuentos Alpha</h4>
-          <p class="panel-nota">
-            No es un nivel del comercio: sólo indica que acepta aplicar el descuento
-            Alpha a los clientes del programa.
-          </p>
-
-          <div class="alpha-adheridos__buscador">
-            <input type="text" class="rs-inp" placeholder="Buscar una empresa por nombre o CIF…"
-                   [value]="alphaBusqueda()"
-                   (input)="alphaBusqueda.set($any($event).target.value)"
-                   (keyup.enter)="buscarComerciosAlpha()" />
-            <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="buscarComerciosAlpha()">
-              <rs-icon name="search" [size]="14" [stroke]="2"></rs-icon> Buscar
-            </button>
-          </div>
-
-          @if (alphaResultados().length > 0) {
-            <div class="alpha-adheridos__lista">
-              @for (c of alphaResultados(); track c._id) {
-                <div class="alpha-adheridos__fila">
-                  <span class="alpha-adheridos__nombre">{{ c.nombreComercial }}</span>
-                  <span class="alpha-adheridos__vat">{{ c.vatNumber }}</span>
-                  <button class="rs-btn rs-btn--sm"
-                    [class.rs-btn--ghost]="!c.alphaAdherido"
-                    [class.rs-btn--primary]="c.alphaAdherido"
-                    [disabled]="alphaAccionando() === c._id"
-                    (click)="alternarAdhesionAlpha(c)">
-                    {{ c.alphaAdherido ? 'Dar de baja' : 'Adherir' }}
-                  </button>
-                </div>
-              }
-            </div>
-          } @else {
-            <p class="alpha-adheridos__vacio">
-              {{ alphaBuscado()
-                 ? 'Ninguna empresa coincide con la búsqueda.'
-                 : 'Todavía no hay empresas adheridas al programa. Búscalas por nombre para darlas de alta.' }}
-            </p>
-          }
-
-          @if (alphaAdhesionError()) {
-            <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-3)">{{ alphaAdhesionError() }}</div>
-          }
-        </div>
+      <!-- Comisiones y Alpha viven ahora en su propio apartado (TCK-8040 §4 y §5) -->
+      <div class="accesos-config">
+        <a routerLink="/admin/comisiones" class="acceso">
+          <span class="acceso__icono"><rs-icon name="percent" [size]="18" [stroke]="2"></rs-icon></span>
+          <span class="acceso__texto">
+            <strong>Comisiones por vertical</strong>
+            <span>Qué cobra Doogking y qué deja de ingresar el comercio.</span>
+          </span>
+          <rs-icon name="arrow-right" [size]="16" [stroke]="2"></rs-icon>
+        </a>
+        <a routerLink="/admin/alpha" class="acceso">
+          <span class="acceso__icono"><rs-icon name="crown" [size]="18" [stroke]="2"></rs-icon></span>
+          <span class="acceso__texto">
+            <strong>Programa Doogking Alpha</strong>
+            <span>Niveles, beneficios y empresas adheridas del club de clientes.</span>
+          </span>
+          <rs-icon name="arrow-right" [size]="16" [stroke]="2"></rs-icon>
+        </a>
       </div>
 
       } <!-- end @if cargando -->
@@ -540,6 +383,23 @@ const ESTADO_BADGE: Record<string, string> = {
     .alpha-beneficios { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; }
     .alpha-beneficio { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
 
+    .accesos-config { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--sp-4); }
+    .acceso {
+      display: flex; align-items: center; gap: var(--sp-4);
+      padding: var(--sp-5); text-decoration: none;
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+      color: var(--t-300); transition: border-color var(--d-2);
+    }
+    .acceso:hover { border-color: var(--c-accent); }
+    .acceso__icono {
+      width: 40px; height: 40px; border-radius: var(--r-lg); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--c-accent-lo); color: var(--c-accent);
+    }
+    .acceso__texto { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .acceso__texto strong { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
+    .acceso__texto span { font-size: var(--f-xs); color: var(--t-400); }
+
     .panel-nota { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); max-width: 70ch; }
 
     .alpha-adheridos { margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--b-1); }
@@ -623,7 +483,6 @@ export class AdminDashboardComponent implements OnInit {
   });
   readonly comerciosPendientes = signal<ComercioPendiente[]>([]);
   readonly ultimasReservas = signal<UltimaReserva[]>([]);
-  readonly comisiones = signal<ComisionConfig[]>([]);
 
   /** Periodo del panel y variación frente al anterior (TCK-8030). */
   readonly periodos = PERIODOS;
@@ -632,15 +491,6 @@ export class AdminDashboardComponent implements OnInit {
   readonly hasta = signal('');
   readonly comparativa = signal<ComparativaDashboard>(SIN_COMPARATIVA);
   readonly comerciosActivos = signal<number | null>(null);
-  readonly alphaNiveles = signal<AlphaNivel[]>([]);
-  readonly alphaGuardadoMsg = signal(false);
-
-  /** Gestión de empresas adheridas al programa Alpha (TCK-8034, antes en Comercios). */
-  readonly alphaResultados = signal<ComercioAdmin[]>([]);
-  readonly alphaBusqueda = signal('');
-  readonly alphaBuscado = signal(false);
-  readonly alphaAccionando = signal<string | null>(null);
-  readonly alphaAdhesionError = signal('');
 
   async ngOnInit(): Promise<void> {
     await this.cargarDashboard();
@@ -650,15 +500,6 @@ export class AdminDashboardComponent implements OnInit {
     } catch {
       // Sin este dato la tarjeta muestra un guion; el resto del panel funciona.
     }
-
-    try {
-      const niveles = await firstValueFrom(this.adminApi.getAlphaNiveles());
-      this.alphaNiveles.set(niveles);
-    } catch {
-      // El programa Alpha no bloquea el resto del dashboard si falla.
-    }
-
-    await this.cargarAdheridosAlpha();
   }
 
   /** Carga (o recarga) el panel para el periodo elegido. */
@@ -670,7 +511,6 @@ export class AdminDashboardComponent implements OnInit {
       this.kpis.set(data.kpis);
       this.comerciosPendientes.set(data.comerciosPendientes);
       this.ultimasReservas.set(data.ultimasReservas);
-      this.comisiones.set(data.comisiones);
       // Un API anterior a TCK-8030 no manda comparativa: sin ella no se pinta
       // ningún porcentaje, en vez de reventar el panel entero.
       this.comparativa.set(data.comparativa ?? SIN_COMPARATIVA);
@@ -710,72 +550,6 @@ export class AdminDashboardComponent implements OnInit {
     if (this.desde() && this.hasta()) await this.cargarDashboard();
   }
 
-  anadirBeneficio(nivel: AlphaNivel): void {
-    nivel.beneficios = [...nivel.beneficios, ''];
-    this.alphaNiveles.update((lista) => [...lista]);
-  }
-
-  editarBeneficio(nivel: AlphaNivel, indice: number, valor: string): void {
-    nivel.beneficios = nivel.beneficios.map((b, i) => (i === indice ? valor : b));
-  }
-
-  quitarBeneficio(nivel: AlphaNivel, indice: number): void {
-    nivel.beneficios = nivel.beneficios.filter((_, i) => i !== indice);
-    this.alphaNiveles.update((lista) => [...lista]);
-  }
-
-  /** Etiqueta canónica del escalón, al margen del nombre editable (TCK-8011). */
-  etiquetaNivel(nivel: number): string {
-    return etiquetaAlphaNivel(nivel);
-  }
-
-  /** Sin búsqueda se listan las empresas ya adheridas: es el estado que interesa. */
-  private async cargarAdheridosAlpha(): Promise<void> {
-    try {
-      const res = await firstValueFrom(
-        this.adminApi.getComercios({ limite: 50, alphaAdherido: true }),
-      );
-      this.alphaResultados.set(res.items);
-      this.alphaBuscado.set(false);
-    } catch {
-      this.alphaResultados.set([]);
-    }
-  }
-
-  async buscarComerciosAlpha(): Promise<void> {
-    const termino = this.alphaBusqueda().trim();
-    if (!termino) {
-      await this.cargarAdheridosAlpha();
-      return;
-    }
-    try {
-      const res = await firstValueFrom(this.adminApi.getComercios({ limite: 20, buscar: termino }));
-      this.alphaResultados.set(res.items);
-      this.alphaBuscado.set(true);
-    } catch {
-      this.alphaAdhesionError.set('No se pudo buscar empresas.');
-      setTimeout(() => this.alphaAdhesionError.set(''), 3000);
-    }
-  }
-
-  async alternarAdhesionAlpha(comercio: ComercioAdmin): Promise<void> {
-    this.alphaAccionando.set(comercio._id);
-    try {
-      await firstValueFrom(this.adminApi.fijarAlphaAdherido(comercio._id, !comercio.alphaAdherido));
-      if (this.alphaBuscado()) {
-        this.alphaResultados.update(items =>
-          items.map(c => (c._id === comercio._id ? { ...c, alphaAdherido: !comercio.alphaAdherido } : c)),
-        );
-      } else {
-        await this.cargarAdheridosAlpha();
-      }
-    } catch {
-      this.alphaAdhesionError.set('No se pudo cambiar la adhesión al programa Alpha.');
-      setTimeout(() => this.alphaAdhesionError.set(''), 3000);
-    } finally {
-      this.alphaAccionando.set(null);
-    }
-  }
 
   totalAlertas(): number {
     return this.kpis().verificacionesPendientes + this.kpis().comerciosPendientesCount
@@ -787,21 +561,11 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   /** Comisión plataforma + fee variable de Stripe, redondeado a 1 decimal (ej. 12% + 1,5% = 13,5%). */
-  comisionTotal(comision: ComisionConfig): string {
-    return ((comision.comisionPct + comision.stripePct) * 100).toFixed(1).replace('.', ',');
-  }
 
   badgeEstado(estado: string): string {
     return ESTADO_BADGE[estado] ?? 'rs-badge--neutral';
   }
 
-  actualizarPct(comision: ComisionConfig, pct: number): void {
-    comision.comisionPct = pct / 100;
-  }
-
-  beneficiosDesdeTexto(texto: string): string[] {
-    return texto.split(',').map(b => b.trim()).filter(Boolean);
-  }
 
   async aprobarComercio(id: string): Promise<void> {
     try {
@@ -825,37 +589,4 @@ export class AdminDashboardComponent implements OnInit {
     }
   }
 
-  async guardarComisiones(): Promise<void> {
-    try {
-      const lista = this.comisiones();
-      await Promise.all(
-        lista.map(c =>
-          firstValueFrom(this.adminApi.updateComision({
-            vertical: c.vertical,
-            comisionPct: c.comisionPct,
-            stripePct: c.stripePct,
-            stripeFijoEur: c.stripeFijoEur,
-            activo: c.activo,
-          }))
-        )
-      );
-      this.guardadoMsg.set(true);
-      setTimeout(() => this.guardadoMsg.set(false), 3000);
-    } catch {
-      this.errorMsg.set('Error al guardar las comisiones.');
-      setTimeout(() => this.errorMsg.set(''), 3000);
-    }
-  }
-
-  async guardarAlphaNiveles(): Promise<void> {
-    try {
-      const lista = this.alphaNiveles();
-      await Promise.all(lista.map(n => firstValueFrom(this.adminApi.updateAlphaNivel(n))));
-      this.alphaGuardadoMsg.set(true);
-      setTimeout(() => this.alphaGuardadoMsg.set(false), 3000);
-    } catch {
-      this.errorMsg.set('Error al guardar el programa Alpha.');
-      setTimeout(() => this.errorMsg.set(''), 3000);
-    }
-  }
 }
