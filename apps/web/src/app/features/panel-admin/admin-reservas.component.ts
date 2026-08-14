@@ -1,8 +1,8 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { AdminApiService, ReservaAdmin, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
+import { AdminApiService, ReservaAdmin, ResumenReservas, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 /** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
@@ -35,6 +35,34 @@ const FILTROS_ESTADO = [
   { label: 'Canceladas', valor: 'cancelada' },
 ] as const;
 
+/** Contadores de la cabecera: los estados que el admin mira a diario. */
+const RESUMEN_ESTADOS: ReadonlyArray<{ estado: string; label: string }> = [
+  { estado: '', label: 'Reservas totales' },
+  { estado: 'pendiente', label: 'Pendientes' },
+  { estado: 'confirmada', label: 'Confirmadas' },
+  { estado: 'en_curso', label: 'En curso' },
+  { estado: 'completada', label: 'Completadas' },
+  { estado: 'cancelada', label: 'Canceladas' },
+  { estado: 'en_disputa', label: 'En disputa' },
+];
+
+/** Estado del pago, que no es el de la reserva (TCK-8036). */
+const PAGO_BADGE: Record<string, string> = {
+  aprobado: 'rs-badge--success',
+  iniciado: 'rs-badge--warning',
+  rechazado: 'rs-badge--error',
+  reembolsado: 'rs-badge--neutral',
+  sin_pago: 'rs-badge--neutral',
+};
+
+const PAGO_LABEL: Record<string, string> = {
+  aprobado: 'Pagado',
+  iniciado: 'Pago iniciado',
+  rechazado: 'Pago rechazado',
+  reembolsado: 'Reembolsado',
+  sin_pago: 'Sin pago',
+};
+
 const LIMITE = 20;
 
 @Component({
@@ -48,15 +76,40 @@ const LIMITE = 20;
         <h1 class="page-title">Gestión de reservas</h1>
         <p class="page-sub">Centro de operaciones del marketplace: supervisa y gestiona todas las reservas.</p>
       </div>
-      <div class="page-kpi rs-card">
-        <span class="kpi-num">{{ total() }}</span>
-        <span class="kpi-lbl">{{ filtroEstado() || 'total' }}</span>
+    </div>
+
+    <!-- Resumen: estados a la izquierda, dinero a la derecha (TCK-8036) -->
+    <div class="resumen-reservas">
+      @for (e of resumenEstados; track e.estado) {
+        <button class="resumen-tile" [class.activa]="filtroEstado() === e.estado"
+                (click)="setFiltro(filtroEstado() === e.estado ? '' : e.estado)">
+          <span class="resumen-tile__num">{{ contarEstado(e.estado) }}</span>
+          <span class="resumen-tile__lbl">{{ e.label }}</span>
+        </button>
+      }
+    </div>
+    <div class="resumen-dinero">
+      <div class="rs-card dinero-tile">
+        <span class="dinero-tile__num">{{ resumen()?.importeReservado ?? 0 | number:'1.0-0' }} €</span>
+        <span class="dinero-tile__lbl">Importe reservado</span>
+      </div>
+      <div class="rs-card dinero-tile">
+        <span class="dinero-tile__num">{{ resumen()?.comisiones ?? 0 | number:'1.0-0' }} €</span>
+        <span class="dinero-tile__lbl">Comisiones Doogking</span>
+      </div>
+      <div class="rs-card dinero-tile">
+        <span class="dinero-tile__num">{{ resumen()?.pagosRetenidos ?? 0 | number:'1.0-0' }} €</span>
+        <span class="dinero-tile__lbl">Pagos retenidos</span>
+      </div>
+      <div class="rs-card dinero-tile">
+        <span class="dinero-tile__num">{{ resumen()?.reembolsos ?? 0 | number:'1.0-0' }} €</span>
+        <span class="dinero-tile__lbl">Reembolsos</span>
       </div>
     </div>
 
     <!-- Buscador global -->
     <div class="search-bar">
-      <input type="text" class="rs-inp" placeholder="Buscar por código (ej. RES-584921)…"
+      <input type="text" class="rs-inp" placeholder="Buscar por código, cliente, comercio o email…"
              [(ngModel)]="buscarInput" (keyup.enter)="aplicarBusqueda()" />
       <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarBusqueda()">Buscar</button>
       @if (buscarActivo()) {
@@ -91,11 +144,14 @@ const LIMITE = 20;
       <div class="tbl-wrap">
         <div class="tbl-head">
           <span>Código</span>
+          <span>Fecha</span>
           <span>Cliente</span>
           <span>Comercio</span>
+          <span>Servicio</span>
           <span style="text-align:right">Importe</span>
           <span style="text-align:right">Comisión</span>
-          <span>Estado</span>
+          <span>Estado reserva</span>
+          <span>Estado pago</span>
           <span>Acciones</span>
         </div>
 
@@ -111,39 +167,57 @@ const LIMITE = 20;
         } @else {
           @for (r of reservas(); track r._id) {
             <div class="tbl-row">
-              <span class="cell-mono" data-col="Código">{{ r.codigo }}</span>
-              <span class="cell-txt" data-col="Cliente">{{ r.cliente }}</span>
+              <button class="cell-mono cell-codigo" data-col="Código" (click)="toggleTimeline(r._id)">
+                {{ r.codigo }}
+              </button>
+              <span class="cell-txt" data-col="Fecha">{{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy' }}</span>
+              <span class="cell-txt" data-col="Cliente">
+                {{ r.cliente }}
+                @if (r.clienteEmail) { <span class="cell-sub">{{ r.clienteEmail }}</span> }
+              </span>
               <span class="cell-txt" data-col="Comercio">{{ r.comercio }}</span>
+              <span class="cell-txt" data-col="Servicio">{{ r.servicio || r.vertical }}</span>
               <span class="cell-amount" data-col="Importe">{{ r.montoTotal | number:'1.2-2' }} €</span>
               <span class="cell-amount cell-green" data-col="Comisión">{{ r.comisionMonto | number:'1.2-2' }} €</span>
-              <span data-col="Estado">
+              <span data-col="Estado reserva">
                 <span class="rs-badge {{ meta(r.estado).badge }}">
                   <rs-icon [name]="meta(r.estado).icono" [size]="12" [stroke]="2"></rs-icon>
                   {{ meta(r.estado).label }}
                 </span>
               </span>
-              <span class="cell-actions">
-                <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Ver timeline"
-                        (click)="toggleTimeline(r._id)" aria-label="Ver timeline" data-icono>
-                    <rs-icon name="clock" [size]="14" [stroke]="2"></rs-icon>
-                  </button>
-                @if (r.estado !== 'pago_liberado' && r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
-                  <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Liberar pago"
-                          [disabled]="accionandoId() === r._id" (click)="cambiar(r, 'pago_liberado')">
-                    <rs-icon name="banknote" [size]="13" [stroke]="2"></rs-icon> Liberar
-                  </button>
-                }
-                @if (r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
-                  <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Reembolsar"
-                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'reembolsada')">
-                    <rs-icon name="rotate-ccw" [size]="13" [stroke]="2"></rs-icon> Reembolsar
-                  </button>
-                }
-                @if (r.estado !== 'en_disputa') {
-                  <button class="rs-btn rs-btn--ghost rs-btn--xs" title="Abrir incidencia"
-                          [disabled]="accionandoId() === r._id" (click)="pedirMotivo(r, 'en_disputa')">
-                    <rs-icon name="siren" [size]="13" [stroke]="2"></rs-icon> Disputa
-                  </button>
+              <!-- Estado del pago aparte: cancelada y reembolsada no son lo mismo (TCK-8036) -->
+              <span data-col="Estado pago">
+                <span class="rs-badge {{ badgePago(r.estadoPago) }}">{{ labelPago(r.estadoPago) }}</span>
+              </span>
+              <span class="cell-actions" (click)="$event.stopPropagation()">
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Acciones"
+                        (click)="menuAbiertoId.set(menuAbiertoId() === r._id ? null : r._id)">
+                  <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
+                </button>
+                @if (menuAbiertoId() === r._id) {
+                  <div class="acciones__menu">
+                    <button class="acciones__item" (click)="toggleTimeline(r._id)">
+                      <rs-icon name="clock" [size]="13" [stroke]="2"></rs-icon> Ver reserva e historial
+                    </button>
+                    @if (r.estado !== 'pago_liberado' && r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
+                      <button class="acciones__item" [disabled]="accionandoId() === r._id"
+                              (click)="cambiar(r, 'pago_liberado')">
+                        <rs-icon name="banknote" [size]="13" [stroke]="2"></rs-icon> Liberar pago
+                      </button>
+                    }
+                    @if (r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
+                      <button class="acciones__item" [disabled]="accionandoId() === r._id"
+                              (click)="pedirMotivo(r, 'reembolsada')">
+                        <rs-icon name="rotate-ccw" [size]="13" [stroke]="2"></rs-icon> Reembolsar
+                      </button>
+                    }
+                    @if (r.estado !== 'en_disputa') {
+                      <button class="acciones__item acciones__item--danger" [disabled]="accionandoId() === r._id"
+                              (click)="pedirMotivo(r, 'en_disputa')">
+                        <rs-icon name="siren" [size]="13" [stroke]="2"></rs-icon> Abrir incidencia
+                      </button>
+                    }
+                  </div>
                 }
               </span>
             </div>
@@ -225,8 +299,47 @@ const LIMITE = 20;
 
     .tbl-wrap { min-width: 920px; }
 
-    .tbl-head { display: grid; grid-template-columns: 150px 1fr 1fr 120px 120px 160px 220px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
-    .tbl-row { display: grid; grid-template-columns: 150px 1fr 1fr 120px 120px 160px 220px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } }
+    .resumen-reservas { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-3); }
+    .resumen-tile {
+      display: flex; flex-direction: column; gap: 2px; text-align: left;
+      padding: var(--sp-3) var(--sp-4); cursor: pointer;
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      transition: all var(--d-2);
+    }
+    .resumen-tile:hover { border-color: var(--c-accent); }
+    .resumen-tile.activa { border-color: var(--c-accent); background: var(--c-accent-lo); }
+    .resumen-tile__num { font-family: var(--font-accent); font-size: var(--f-lg); font-weight: var(--w-8); color: var(--t-100); }
+    .resumen-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .resumen-dinero { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-4); }
+    .dinero-tile { padding: var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
+    .dinero-tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
+    .dinero-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+
+    .cell-codigo {
+      background: none; border: none; padding: 0; text-align: left; cursor: pointer;
+      color: var(--c-accent); font-family: monospace; text-decoration: underline dotted;
+    }
+    .cell-sub { display: block; font-size: var(--f-xs); color: var(--t-400); }
+
+    .cell-actions { position: relative; }
+    .acciones__menu {
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
+      min-width: 210px; padding: var(--sp-2);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
+    }
+    .acciones__item {
+      display: flex; align-items: center; gap: var(--sp-2); width: 100%;
+      padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
+      border-radius: var(--r-md); cursor: pointer; text-align: left;
+      font-size: var(--f-sm); color: var(--t-200);
+    }
+    .acciones__item:hover { background: var(--c-raised); }
+    .acciones__item--danger { color: var(--c-red, #B91C1C); }
+
+    .tbl-head { display: grid; grid-template-columns: 140px 110px 1.2fr 1fr 1fr 110px 110px 150px 130px 70px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
+    .tbl-row { display: grid; grid-template-columns: 140px 110px 1.2fr 1fr 1fr 110px 110px 150px 130px 70px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } }
 
     /*
      * Móvil: la tabla deja de serlo. Sin esto la única salida era el scroll
@@ -346,9 +459,17 @@ export class AdminReservasComponent implements OnInit {
 
   readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
   readonly filtros = FILTROS_ESTADO;
+  readonly resumenEstados = RESUMEN_ESTADOS;
+  readonly resumen = signal<ResumenReservas | null>(null);
+  readonly menuAbiertoId = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
     await this.cargar();
+    try {
+      this.resumen.set(await firstValueFrom(this.adminApi.getResumenReservas()));
+    } catch {
+      // Sin resumen los contadores salen a cero; la tabla sigue funcionando.
+    }
   }
 
   private filtrosActuales(): FiltrosReservasAdmin {
@@ -440,6 +561,26 @@ export class AdminReservasComponent implements OnInit {
     } finally {
       this.accionandoId.set('');
     }
+  }
+
+  /** El menu de acciones se cierra al pulsar fuera. */
+  @HostListener('document:click')
+  cerrarMenu(): void {
+    this.menuAbiertoId.set(null);
+  }
+
+  contarEstado(estado: string): number {
+    const resumen = this.resumen();
+    if (!resumen) return 0;
+    return estado === '' ? resumen.total : (resumen.porEstado[estado] ?? 0);
+  }
+
+  badgePago(estado?: string): string {
+    return PAGO_BADGE[estado ?? 'sin_pago'] ?? 'rs-badge--neutral';
+  }
+
+  labelPago(estado?: string): string {
+    return PAGO_LABEL[estado ?? 'sin_pago'] ?? (estado ?? '—');
   }
 
   meta(estado: string): EstadoMeta {

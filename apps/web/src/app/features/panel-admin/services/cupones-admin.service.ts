@@ -15,6 +15,8 @@ export interface Cupon {
   usados?: number;
   activo?: boolean;
   descripcion?: string;
+  /** Fin de la validez; sin valor, el cupón no caduca (TCK-8037). */
+  validoHasta?: string;
 }
 
 @Injectable({ providedIn: 'root' })

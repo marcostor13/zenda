@@ -28,8 +28,16 @@ import { AdminApiService } from './admin-api.service';
       </div>
     </div>
 
+    <div class="cupones-barra">
+      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="alternarFormulario()">
+        <rs-icon [name]="formularioVisible() ? 'x' : 'plus'" [size]="14" [stroke]="2.5"></rs-icon>
+        {{ formularioVisible() ? 'Cerrar formulario' : 'Nuevo cupón' }}
+      </button>
+    </div>
+
     <div class="cupones-grid">
       <!-- CREAR -->
+      @if (formularioVisible() || editandoId()) {
       <div class="rs-card" style="padding:var(--sp-6);height:fit-content">
         <h3 class="section-title">
           <rs-icon [name]="editandoId() ? 'pencil' : 'plus'" [size]="16" [stroke]="2"></rs-icon>
@@ -49,9 +57,11 @@ import { AdminApiService } from './admin-api.service';
                 <option value="fijo">Importe fijo</option>
               </select>
             </div>
+            <!-- Un 20 % se escribe "20", no "0.2" (TCK-8037) -->
             <div class="rs-form-group">
-              <label class="rs-label">{{ form.value.tipo === 'porcentaje' ? 'Valor (0–1)' : 'Importe S/' }}</label>
-              <input formControlName="valor" type="number" step="0.01" class="rs-input" placeholder="0.2" />
+              <label class="rs-label">{{ form.value.tipo === 'porcentaje' ? 'Descuento (%)' : 'Importe del descuento (€)' }}</label>
+              <input formControlName="valor" type="number" step="1" class="rs-input"
+                     [placeholder]="form.value.tipo === 'porcentaje' ? '20' : '10'" />
             </div>
           </div>
           <div class="form-2">
@@ -67,19 +77,41 @@ import { AdminApiService } from './admin-api.service';
               </select>
             </div>
             <div class="rs-form-group">
-              <label class="rs-label">Monto mínimo S/</label>
+              <label class="rs-label">Importe mínimo de reserva (€)</label>
               <input formControlName="montoMinimo" type="number" class="rs-input" placeholder="0" />
             </div>
           </div>
+          <!-- Nada de "0 = sin límite": se marca la casilla y el campo desaparece -->
           <div class="form-2">
             <div class="rs-form-group">
-              <label class="rs-label">Tope descuento € (0 = sin tope)</label>
-              <input formControlName="topeDescuento" type="number" class="rs-input" placeholder="0" />
+              <label class="rs-label">Descuento máximo (€)</label>
+              @if (!sinTope()) {
+                <input formControlName="topeDescuento" type="number" class="rs-input" placeholder="0" />
+              }
+              <label class="casilla">
+                <input type="checkbox" [checked]="sinTope()" (change)="alternarSinTope()" /> Sin límite
+              </label>
             </div>
             <div class="rs-form-group">
-              <label class="rs-label">Máx. usos (0 = ilimitado)</label>
-              <input formControlName="usoMaximo" type="number" class="rs-input" placeholder="0" />
+              <label class="rs-label">Límite total de usos</label>
+              @if (!usosIlimitados()) {
+                <input formControlName="usoMaximo" type="number" class="rs-input" placeholder="0" />
+              }
+              <label class="casilla">
+                <input type="checkbox" [checked]="usosIlimitados()" (change)="alternarUsosIlimitados()" /> Ilimitado
+              </label>
             </div>
+          </div>
+
+          <div class="rs-form-group">
+            <label class="rs-label">Fecha de finalización</label>
+            @if (!sinCaducidad()) {
+              <input formControlName="validoHasta" type="date" class="rs-input" />
+            }
+            <label class="casilla">
+              <input type="checkbox" [checked]="sinCaducidad()" (change)="alternarSinCaducidad()" />
+              Sin fecha de caducidad
+            </label>
           </div>
           <div class="rs-form-group">
             <label class="rs-label">Descripción</label>
@@ -99,6 +131,7 @@ import { AdminApiService } from './admin-api.service';
           </div>
         </form>
       </div>
+      }
 
       <!-- LISTA -->
       <div class="rs-card" style="padding:var(--sp-6)">
@@ -178,7 +211,9 @@ import { AdminApiService } from './admin-api.service';
     .kpi-lbl { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
     .section-title { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-5); }
 
-    .cupones-grid { display: grid; grid-template-columns: 380px 1fr; gap: var(--sp-6); align-items: start; }
+    .cupones-barra { display: flex; justify-content: flex-end; margin-bottom: var(--sp-4); }
+    .casilla { display: inline-flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); font-size: var(--f-sm); color: var(--t-300); cursor: pointer; }
+    .cupones-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-6); align-items: start; }
     @media (max-width: 900px) { .cupones-grid { grid-template-columns: 1fr; } }
     .rs-form-group { margin-bottom: var(--sp-4); }
     .form-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
@@ -215,13 +250,48 @@ export class CuponesAdminComponent implements OnInit {
   readonly form = this.fb.group({
     codigo: ['', Validators.required],
     tipo: ['porcentaje' as 'porcentaje' | 'fijo', Validators.required],
-    valor: [0.2, [Validators.required, Validators.min(0)]],
+    // Se escribe en las unidades del admin: 20 para un 20 % (TCK-8037).
+    valor: [20, [Validators.required, Validators.min(0)]],
     vertical: ['global', Validators.required],
     montoMinimo: [0],
     topeDescuento: [0],
     usoMaximo: [0],
+    validoHasta: [''],
     descripcion: [''],
   });
+
+  /** Opciones especiales como casilla, no como un 0 con significado oculto. */
+  readonly sinTope = signal(true);
+  readonly usosIlimitados = signal(true);
+  readonly sinCaducidad = signal(true);
+  readonly formularioVisible = signal(false);
+
+  alternarFormulario(): void {
+    const abriendo = !this.formularioVisible();
+    this.formularioVisible.set(abriendo);
+    if (!abriendo) this.cancelarEdicion();
+  }
+
+  alternarSinTope(): void {
+    this.sinTope.update((v) => !v);
+    if (this.sinTope()) this.form.patchValue({ topeDescuento: 0 });
+  }
+
+  alternarUsosIlimitados(): void {
+    this.usosIlimitados.update((v) => !v);
+    if (this.usosIlimitados()) this.form.patchValue({ usoMaximo: 0 });
+  }
+
+  alternarSinCaducidad(): void {
+    this.sinCaducidad.update((v) => !v);
+    if (this.sinCaducidad()) this.form.patchValue({ validoHasta: '' });
+  }
+
+  /** El backend guarda el porcentaje como fracción; el formulario, en enteros. */
+  private valorAGuardar(): number {
+    const valor = Number(this.form.value.valor) || 0;
+    return this.form.value.tipo === 'porcentaje' ? valor / 100 : valor;
+  }
 
   ngOnInit(): void {
     void this.cargar();
@@ -248,11 +318,12 @@ export class CuponesAdminComponent implements OnInit {
       if (this.editandoId()) {
         await firstValueFrom(this.adminApi.actualizarCupon(this.editandoId()!, {
           tipo: v.tipo,
-          valor: Number(v.valor),
+          valor: this.valorAGuardar(),
           vertical: v.vertical,
           montoMinimo: Number(v.montoMinimo) || 0,
-          topeDescuento: Number(v.topeDescuento) || 0,
-          usoMaximo: Number(v.usoMaximo) || 0,
+          topeDescuento: this.sinTope() ? 0 : Number(v.topeDescuento) || 0,
+          usoMaximo: this.usosIlimitados() ? 0 : Number(v.usoMaximo) || 0,
+          validoHasta: this.sinCaducidad() || !v.validoHasta ? undefined : v.validoHasta,
           descripcion: v.descripcion || undefined,
         }));
         this.formOk.set('Cupón actualizado correctamente.');
@@ -261,9 +332,12 @@ export class CuponesAdminComponent implements OnInit {
         await this.service.crear({
           codigo: (v.codigo ?? '').toUpperCase(),
           tipo: v.tipo ?? 'porcentaje',
-          valor: Number(v.valor),
+          valor: this.valorAGuardar(),
           vertical: v.vertical ?? 'global',
           montoMinimo: Number(v.montoMinimo) || 0,
+          topeDescuento: this.sinTope() ? 0 : Number(v.topeDescuento) || 0,
+          usoMaximo: this.usosIlimitados() ? 0 : Number(v.usoMaximo) || 0,
+          validoHasta: this.sinCaducidad() || !v.validoHasta ? undefined : v.validoHasta,
         });
         this.formOk.set('Cupón creado correctamente.');
         this.form.patchValue({ codigo: '' });
@@ -280,14 +354,19 @@ export class CuponesAdminComponent implements OnInit {
 
   iniciarEdicion(c: Cupon): void {
     this.editandoId.set(c._id ?? c.codigo);
+    this.sinTope.set(!(c.topeDescuento ?? 0));
+    this.usosIlimitados.set(!(c.usoMaximo ?? 0));
+    this.sinCaducidad.set(!c.validoHasta);
+    this.formularioVisible.set(true);
     this.form.patchValue({
       codigo: c.codigo,
       tipo: c.tipo,
-      valor: c.valor,
+      valor: c.tipo === 'porcentaje' ? Math.round(c.valor * 100) : c.valor,
       vertical: c.vertical,
       montoMinimo: c.montoMinimo,
       topeDescuento: c.topeDescuento ?? 0,
       usoMaximo: c.usoMaximo ?? 0,
+      validoHasta: c.validoHasta ? String(c.validoHasta).slice(0, 10) : '',
       descripcion: c.descripcion ?? '',
     });
     this.formError.set(null);
@@ -297,7 +376,10 @@ export class CuponesAdminComponent implements OnInit {
 
   cancelarEdicion(): void {
     this.editandoId.set(null);
-    this.form.reset({ tipo: 'porcentaje', valor: 0.2, vertical: 'global', montoMinimo: 0, topeDescuento: 0, usoMaximo: 0 });
+    this.form.reset({ tipo: 'porcentaje', valor: 20, vertical: 'global', montoMinimo: 0, topeDescuento: 0, usoMaximo: 0, validoHasta: '' });
+    this.sinTope.set(true);
+    this.usosIlimitados.set(true);
+    this.sinCaducidad.set(true);
     this.formError.set(null);
     this.formOk.set(null);
   }

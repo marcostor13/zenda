@@ -22,7 +22,7 @@ que son los que más tiempo consumen.
 | F2 | Renombrados y textos · panel comercio | **8017 ✅ · 8022 ✅ · 8023 ✅ · 8024 ✅ · 8025 🟡 · 8026/8027 🟡** | 🟡 en curso |
 | F3 | Alpha solo para clientes | **8029 ✅ · 8034 🟡 (parte Alpha) · 8035 🟡 (parte Alpha)** | 🟡 en curso |
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
-| F5 | Panel admin · textos, resúmenes y filtros | **8030 🟡 · 8031 🟡 · 8032/8033 🟡 · 8034 🟡 · 8035 🟡** · 8036–8039 ⬜ | 🟡 en curso |
+| F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
 | F6 | Marca y público | 8004, 8008, 8009, 8010, 8011 | ⬜ |
 | F7 | Módulos nuevos (producto) | 8040 | ⬜ planificar al terminar F1–F6 |
 
@@ -206,6 +206,35 @@ El backend calcula todo eso por agregación.
 **Falta:** gráficos de evolución temporal, mapa de España y el embudo ampliado
 (búsquedas y visitas a ficha) — **no hay eventos de navegación registrados**, así que el embudo
 sigue siendo registrados → con reserva → pagaron.
+
+**TCK-8036 🟡 Reservas (admin).** Resumen superior en dos filas: **contadores por estado**
+(clicables, filtran la tabla) y **cifras económicas** (importe reservado · comisiones ·
+pagos retenidos · reembolsos), con nuevo `GET /admin/reservas/resumen`. El buscador ya no se
+limita al código: busca también por **cliente, email o comercio** (el backend resuelve los ids
+antes de filtrar). La tabla gana **Fecha, Servicio y Estado del pago**, con el estado del pago
+en **columna propia** —cancelada y reembolsada no son lo mismo— y el código es clicable para
+abrir el historial. Las acciones pasan a un menú **⋯**.
+**Falta:** ficha administrativa completa de la reserva (mascota, extras, fee de Stripe, neto del
+comercio, política aplicada) y el panel de filtros avanzados por ciudad/importe.
+
+**TCK-8037 🟡 Cupones.** Fuera los campos que había que descifrar: **Descuento (%)** en enteros
+(20 = 20 %, la fracción la sigue guardando el backend), **Importe mínimo de reserva (€)**,
+**Descuento máximo (€)** y **Límite total de usos** con casillas *Sin límite* / *Ilimitado* en
+vez del 0 con significado oculto, y **Fecha de finalización** con *Sin fecha de caducidad*. El
+listado pasa a ancho completo y el formulario se abre con *Nuevo cupón*.
+**Falta:** audiencia (nuevos / recurrentes / nivel Alpha), alcance por comercio o ciudad, usos
+por usuario y quién asume el descuento. Ojo: `asumeDescuento`, `soloPrimeraReserva` y `cohorte`
+**ya existen en el schema**; falta exponerlos en el DTO y en el formulario.
+
+**TCK-8038 🟡 Campañas.** Cabecera reescrita (*"Gestiona, segmenta y analiza las campañas
+promocionales de Doogking"*) y estado vacío trabajado con explicación, botón *Crear primera
+campaña* y los tres ejemplos de objetivo.
+**Falta:** objetivo y segmentación de la campaña, y enlazarla con cupones (necesita backend).
+
+**TCK-8039 🟡 Comunidad.** Cabecera reescrita y estado vacío que explica qué aparecerá ahí.
+**Falta lo gordo:** pestañas Pendientes / Publicados / Rechazados / Reportados, buscador y
+filtros, y contenido reportado. Hoy el API **sólo devuelve la cola de pendientes**: sin listado
+por estado no hay pestañas que enseñar.
 
 **TCK-8032 / 8033 🟡 Reportes financieros.** La pantalla ya no parece un formulario vacío:
 **carga sola con los últimos 30 días**, tiene atajos de periodo (Hoy · 7 días · 30 días · Este

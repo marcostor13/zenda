@@ -144,7 +144,8 @@ describe('CuponesAdminComponent', () => {
       await crear();
       jest.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
       componente.iniciarEdicion(cupon());
-      componente.form.patchValue({ valor: 0.25 });
+      // El formulario habla en porcentaje entero; el API sigue guardando fracción.
+      componente.form.patchValue({ valor: 25 });
 
       await componente.guardar();
 
@@ -184,7 +185,7 @@ describe('CuponesAdminComponent', () => {
       componente.cancelarEdicion();
 
       expect(componente.editandoId()).toBeNull();
-      expect(componente.form.value).toMatchObject({ tipo: 'porcentaje', valor: 0.2, vertical: 'global' });
+      expect(componente.form.value).toMatchObject({ tipo: 'porcentaje', valor: 20, vertical: 'global' });
     });
   });
 

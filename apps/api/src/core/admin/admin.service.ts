@@ -43,7 +43,7 @@ export interface UsuarioAdminDto extends Usuario {
 interface ReservaEnriquecidaLean extends ReservaLean {
   fechaInicio?: Date;
   comisionMonto?: number;
-  usuarioId?: { nombre?: string };
+  usuarioId?: { nombre?: string; email?: string };
   comercioId?: { nombreComercial?: string };
   servicioId?: { titulo?: string };
 }
@@ -512,7 +512,18 @@ export class AdminService {
     if (filtros.comercioId) filtro['comercioId'] = filtros.comercioId;
     if (filtros.buscar) {
       const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filtro['codigo'] = new RegExp(escaped, 'i');
+      const regex = new RegExp(escaped, 'i');
+      // Buscar sólo por código obligaba a conocer la reserva de antemano; ahora
+      // vale también el cliente (nombre o email) o el comercio (TCK-8036).
+      const [usuarios, comercios] = await Promise.all([
+        this.usuarioModel.find({ $or: [{ nombre: regex }, { email: regex }] }).select('_id').lean().exec() as unknown as Array<{ _id: Types.ObjectId }>,
+        this.comercioModel.find({ nombreComercial: regex }).select('_id').lean().exec() as unknown as Array<{ _id: Types.ObjectId }>,
+      ]);
+      filtro['$or'] = [
+        { codigo: regex },
+        ...(usuarios.length ? [{ usuarioId: { $in: usuarios.map((u) => u._id) } }] : []),
+        ...(comercios.length ? [{ comercioId: { $in: comercios.map((c) => c._id) } }] : []),
+      ];
     }
     if (filtros.fechaDesde || filtros.fechaHasta) {
       const rango: Record<string, Date> = {};
@@ -529,20 +540,77 @@ export class AdminService {
         .limit(limite)
         .populate('usuarioId', 'nombre email')
         .populate('comercioId', 'nombreComercial')
+        .populate('servicioId', 'titulo')
         .lean()
         .exec() as unknown as ReservaEnriquecidaLean[],
       this.reservaModel.countDocuments(filtro).exec(),
     ]);
 
+    // El estado del pago es otra cosa que el estado de la reserva: se resuelve
+    // aparte para que la tabla pueda enseñarlos en columnas distintas (TCK-8036).
+    const pagos = await this.pagoModel
+      .find({ reservaId: { $in: items.map((r) => r._id) } })
+      .select('reservaId estado')
+      .lean()
+      .exec() as unknown as Array<{ reservaId: Types.ObjectId; estado: string }>;
+    const estadoPagoPorReserva = new Map(pagos.map((p) => [String(p.reservaId), p.estado]));
+
     const enriquecidas = items.map((r) => ({
       ...r,
       id: String(r._id),
       cliente: r.usuarioId?.nombre ?? 'Cliente',
+      clienteEmail: r.usuarioId?.email,
       comercio: r.comercioId?.nombreComercial ?? 'Comercio',
+      servicio: r.servicioId?.titulo ?? r.vertical,
+      estadoPago: estadoPagoPorReserva.get(String(r._id)) ?? 'sin_pago',
       comisionMonto: (r as unknown as { comisionMonto?: number }).comisionMonto ?? 0,
     }));
 
     return { items: enriquecidas, total };
+  }
+
+  /** Contadores e importes de la cabecera del centro de reservas (TCK-8036). */
+  async resumenReservas(): Promise<{
+    porEstado: Record<string, number>;
+    total: number;
+    importeReservado: number;
+    comisiones: number;
+    pagosRetenidos: number;
+    reembolsos: number;
+  }> {
+    const [porEstadoRaw, importes, retenidos, reembolsados] = await Promise.all([
+      this.reservaModel.aggregate<{ _id: string; total: number }>([
+        { $group: { _id: '$estado', total: { $sum: 1 } } },
+      ]).exec(),
+      this.reservaModel.aggregate<{ importe: number; comision: number }>([
+        { $group: { _id: null, importe: { $sum: '$montoTotal' }, comision: { $sum: '$comisionMonto' } } },
+      ]).exec(),
+      this.reservaModel.aggregate<{ monto: number }>([
+        { $match: { estado: ReservaEstado.PAGO_RETENIDO } },
+        { $group: { _id: null, monto: { $sum: '$montoTotal' } } },
+      ]).exec(),
+      this.reservaModel.aggregate<{ monto: number }>([
+        { $match: { estado: ReservaEstado.REEMBOLSADA } },
+        { $group: { _id: null, monto: { $sum: '$montoTotal' } } },
+      ]).exec(),
+    ]);
+
+    const dosDecimales = (n: number): number => Math.round(n * 100) / 100;
+    const porEstado: Record<string, number> = {};
+    let total = 0;
+    for (const fila of porEstadoRaw) {
+      porEstado[fila._id] = fila.total;
+      total += fila.total;
+    }
+
+    return {
+      porEstado,
+      total,
+      importeReservado: dosDecimales(importes[0]?.importe ?? 0),
+      comisiones: dosDecimales(importes[0]?.comision ?? 0),
+      pagosRetenidos: dosDecimales(retenidos[0]?.monto ?? 0),
+      reembolsos: dosDecimales(reembolsados[0]?.monto ?? 0),
+    };
   }
 
   // Estados que un admin puede fijar manualmente desde el centro de reservas.

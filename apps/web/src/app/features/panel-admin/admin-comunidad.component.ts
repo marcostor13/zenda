@@ -42,7 +42,7 @@ interface ReviewPendiente {
   <header class="ac__head">
     <div>
       <h1>Comunidad</h1>
-      <p>Contenido aportado por usuarios, pendiente de revisión antes de publicarse.</p>
+      <p>Revisa y gestiona el contenido compartido por la comunidad de Doogking.</p>
     </div>
     <span class="ac__contador">{{ totalPendiente() }} pendientes</span>
   </header>
@@ -52,7 +52,8 @@ interface ReviewPendiente {
   } @else if (!totalPendiente()) {
     <div class="ac__vacio">
       <rs-icon name="check-circle" [size]="36" [stroke]="1.5"></rs-icon>
-      <p>No hay nada pendiente de moderar.</p>
+      <p>No hay nada pendiente de moderar. Cuando la comunidad comparta un sitio o
+        una reseña, aparecerá aquí para que la revises antes de publicarla.</p>
     </div>
   } @else {
     @if (lugares().length) {

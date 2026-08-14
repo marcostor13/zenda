@@ -205,6 +205,12 @@ export class AdminController {
 
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
+  @Get('reservas/resumen')
+  @ApiOperation({ summary: 'Contadores por estado e importes globales de reservas' })
+  resumenReservas() {
+    return this.adminService.resumenReservas();
+  }
+
   @Get('reservas')
   @ApiOperation({ summary: 'Listar reservas paginadas (filtros: estado, comercio, código, fechas)' })
   @ApiQuery({ name: 'page', required: false })

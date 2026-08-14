@@ -116,7 +116,21 @@ export interface ReservaAdmin {
   createdAt: string;
   cliente: string;
   comercio: string;
+  clienteEmail?: string;
+  servicio?: string;
+  /** Estado del pago, distinto del estado de la reserva (TCK-8036). */
+  estadoPago?: string;
   historialEstados?: CambioEstadoReserva[];
+}
+
+/** Contadores e importes de la cabecera del centro de reservas (TCK-8036). */
+export interface ResumenReservas {
+  porEstado: Record<string, number>;
+  total: number;
+  importeReservado: number;
+  comisiones: number;
+  pagosRetenidos: number;
+  reembolsos: number;
 }
 
 export interface CambioEstadoReserva {
@@ -338,6 +352,10 @@ export class AdminApiService {
     if (params.buscar) p = p.set('buscar', params.buscar);
     if (params.verificado !== undefined) p = p.set('verificado', String(params.verificado));
     return this.http.get<PaginatedResult<UsuarioAdmin>>(`${this.adminUrl}/usuarios`, { params: p });
+  }
+
+  getResumenReservas(): Observable<ResumenReservas> {
+    return this.http.get<ResumenReservas>(`${this.adminUrl}/reservas/resumen`);
   }
 
   getResumenComercios(): Observable<ResumenComercios> {

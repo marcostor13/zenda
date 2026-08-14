@@ -46,7 +46,7 @@ interface MetricaApi {
   <header class="ac__head">
     <div>
       <h1>Campañas</h1>
-      <p>Qué cuesta cada promoción y qué trae.</p>
+      <p>Gestiona, segmenta y analiza las campañas promocionales de Doogking.</p>
     </div>
     <button type="button" class="rs-btn rs-btn--primary" (click)="alternarFormulario()">
       <rs-icon name="plus" [size]="15" [stroke]="2"></rs-icon>
@@ -86,9 +86,22 @@ interface MetricaApi {
   @if (cargando()) {
     <p class="ac__cargando">Cargando campañas…</p>
   } @else if (!metricas().length) {
+    <!-- Estado vacío trabajado: qué es una campaña y para qué sirve (TCK-8038) -->
     <div class="ac__vacio">
       <rs-icon name="tag" [size]="36" [stroke]="1.5"></rs-icon>
-      <p>Todavía no has creado ninguna campaña.</p>
+      <p class="ac__vacio-titulo">Aún no has creado ninguna campaña</p>
+      <p class="ac__vacio-texto">
+        Crea tu primera campaña para captar nuevos usuarios, aumentar las reservas
+        o reactivar clientes.
+      </p>
+      <button type="button" class="rs-btn rs-btn--primary" (click)="formularioAbierto.set(true)">
+        <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon> Crear primera campaña
+      </button>
+      <div class="ac__ejemplos">
+        <span class="ac__ejemplo">Captar nuevos clientes</span>
+        <span class="ac__ejemplo">Aumentar reservas</span>
+        <span class="ac__ejemplo">Reactivar usuarios</span>
+      </div>
     </div>
   } @else {
     <div class="ac__resumen">
@@ -163,6 +176,13 @@ interface MetricaApi {
     }
 
     .ac__cargando { color: var(--t-400); }
+    .ac__vacio-titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); }
+    .ac__vacio-texto { max-width: 46ch; line-height: 1.6; }
+    .ac__ejemplos { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: center; }
+    .ac__ejemplo {
+      padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full);
+      border: 1px dashed var(--b-2); font-size: var(--f-xs); color: var(--t-400);
+    }
     .ac__vacio {
       display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
       padding: var(--sp-16) var(--sp-4); color: var(--t-400); text-align: center;
