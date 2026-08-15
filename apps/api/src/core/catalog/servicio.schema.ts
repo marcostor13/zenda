@@ -50,6 +50,18 @@ export class Servicio {
     geo?: { type: 'Point'; coordinates: [number, number] };
   };
 
+  /**
+   * Dirección visible en la ficha. Vive en el documento base, no en un
+   * discriminador: el bloque "Dónde está" es igual en una residencia canina que
+   * en una clínica, y tenerla sólo en alojamiento dejaba al resto de verticales
+   * enseñando la ciudad a secas.
+   */
+  @Prop()
+  direccion?: string;
+
+  @Prop()
+  barrio?: string;
+
   @Prop({ required: true, type: Number })
   precioBase!: number;
 

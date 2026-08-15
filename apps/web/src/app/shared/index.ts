@@ -9,6 +9,9 @@ export { RsRangeSliderComponent } from './components/range-slider/rs-range-slide
 export { RsMapaComponent } from './components/mapa/rs-mapa.component';
 export type { PuntoMapa, ZonaMapa } from './components/mapa/rs-mapa.component';
 export { RsMapaBuscadorComponent } from './components/mapa-buscador/rs-mapa-buscador.component';
+export { RsUbicacionComponent } from './components/ubicacion/rs-ubicacion.component';
+export { enlaceComoLlegar, enlaceGoogleMaps, tieneCoordenadas } from './mapas/google-maps';
+export type { PuntoUbicacion } from './mapas/google-maps';
 export type { BarraHistograma, RangoSeleccionado } from './components/range-slider/rs-range-slider.component';
 export { RsTrustBlockComponent } from './components/trust-block/rs-trust-block.component';
 export type { TrustItem } from './components/trust-block/rs-trust-block.component';

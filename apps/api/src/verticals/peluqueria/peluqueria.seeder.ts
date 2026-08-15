@@ -3,10 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { VerticalKey } from 'shared';
 import { Peluqueria, PeluqueriaDocument, ServicioGrooming } from './peluqueria.schema';
+import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
 const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000004');
-
-const GEO_MADRID: [number, number] = [-3.7038, 40.4168];
 
 /** Siembra peluquerías caninas demo de Madrid (colección vacía). */
 @Injectable()
@@ -60,7 +59,13 @@ export class PeluqueriaSeeder implements OnModuleInit {
         capacidad: 2, aDomicilio: false,
         horario: 'M–S 10:00–19:00',
       }),
-    ];
+    ]
+      // Cada listado a su barrio: con todos en el mismo punto los pines se
+      // apilaban y el mapa del buscador parecía vacío.
+      .map((servicio, indice) => ({
+        ...servicio,
+        ...ubicacionServicio(DESPLAZAMIENTO_DEMO.peluqueria + indice),
+      }));
   }
 
   private p(d: {
@@ -74,7 +79,6 @@ export class PeluqueriaSeeder implements OnModuleInit {
       titulo: d.titulo,
       descripcion: `${d.titulo}: grooming profesional para perros con productos hipoalergénicos y trato paciente. Madrid, España.`,
       imagenes: ['/images/categoria-peluqueria.jpg'],
-      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: GEO_MADRID } },
       precioBase,
       moneda: 'EUR',
       estado: 'publicado',

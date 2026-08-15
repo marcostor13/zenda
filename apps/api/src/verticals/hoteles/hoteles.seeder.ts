@@ -3,10 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { VerticalKey } from 'shared';
 import { Hoteles, HotelesDocument, RazasRestringidas, SuplementoPorTamanoMascota } from './hoteles.schema';
+import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
 const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000005');
-
-const GEO_MADRID: [number, number] = [-3.7038, 40.4168];
 
 /** Siembra hoteles pet-friendly demo de Madrid (colección vacía). */
 @Injectable()
@@ -74,7 +73,13 @@ export class HotelesSeeder implements OnModuleInit {
         servicios: ['Camas para perros', 'Guardería', 'Zona de paseo'],
         unidades: 10,
       }),
-    ];
+    ]
+      // Cada listado a su barrio: con todos en el mismo punto los pines se
+      // apilaban y el mapa del buscador parecía vacío.
+      .map((servicio, indice) => ({
+        ...servicio,
+        ...ubicacionServicio(DESPLAZAMIENTO_DEMO.hoteles + indice),
+      }));
   }
 
   private h(d: {
@@ -88,7 +93,6 @@ export class HotelesSeeder implements OnModuleInit {
       titulo: d.titulo,
       descripcion: `${d.titulo}: alojamiento pet-friendly donde tú y tu perro os quedáis juntos, con servicios pensados para ambos. Madrid, España.`,
       imagenes: ['/images/categoria-alojamiento.jpg'],
-      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: GEO_MADRID } },
       precioBase: d.precioBase,
       moneda: 'EUR',
       estado: 'publicado',

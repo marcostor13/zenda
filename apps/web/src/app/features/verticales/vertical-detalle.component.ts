@@ -11,6 +11,8 @@ import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { verticalUi, VerticalUi } from '../../shared/verticales/verticales.config';
 import { EventosService } from '../../core/eventos/eventos.service';
+import { RsUbicacionComponent } from '../../shared/components/ubicacion/rs-ubicacion.component';
+import { PuntoUbicacion } from '../../shared/mapas/google-maps';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 
 interface DetalleConfig {
@@ -92,6 +94,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
   imports: [
     RouterLink, DatePipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
     RsTrustBlockComponent, RsChipComponent, RsFavoritoBtnComponent, ImgFallbackDirective,
+    RsUbicacionComponent,
   ],
   template: `
 <div class="vd-page">
@@ -194,6 +197,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
             }
             @empty { <p style="color:var(--t-400);font-size:var(--f-sm)">Sin datos adicionales de este profesional.</p> }
           </ul>
+        </div>
+
+        <!-- Dónde está: mapa del punto exacto + atajos a Google Maps -->
+        <div class="section-block">
+          <rs-ubicacion [lugar]="ubicacion()" />
         </div>
 
         <div class="section-block">
@@ -345,6 +353,15 @@ export class VerticalDetalleComponent implements OnInit {
 
   readonly cargando = signal(true);
   readonly servicio = signal<ServicioDetalle | null>(null);
+
+  /** Lo que necesita el bloque "Dónde está": punto exacto y dirección legible. */
+  readonly ubicacion = computed<PuntoUbicacion>(() => {
+    const s = this.servicio();
+    return {
+      lat: s?.lat, lng: s?.lng,
+      direccion: s?.direccion, ciudad: s?.ciudad, nombre: s?.nombre,
+    };
+  });
   readonly imagenActiva = signal('');
 
   /** Galería a pantalla completa (HU-4.1.1). */

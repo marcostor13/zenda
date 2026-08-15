@@ -18,6 +18,9 @@ export interface ServicioCard {
   vertical?: string;
   /** El comercio ofrece ventajas del programa Doogking Alpha (HU-13.3). */
   alphaAdherido?: boolean;
+  /** Punto exacto del negocio; ausente mientras no haya fijado su ubicación. */
+  lat?: number;
+  lng?: number;
   extra: Record<string, unknown>;
 }
 

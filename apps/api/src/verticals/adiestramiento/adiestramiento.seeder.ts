@@ -3,10 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { VerticalKey } from 'shared';
 import { Adiestramiento, AdiestramientoDocument, ModalidadAdiestramiento } from './adiestramiento.schema';
+import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
 const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000005');
-
-const GEO_MADRID: [number, number] = [-3.7038, 40.4168];
 
 /** Siembra servicios de adiestramiento canino demo de Madrid (colección vacía). */
 @Injectable()
@@ -49,7 +48,13 @@ export class AdiestramientoSeeder implements OnModuleInit {
         edadMin: 6, capacidad: 4, aDomicilio: false,
         horario: 'M–D 09:00–14:00 y 16:00–20:00',
       }),
-    ];
+    ]
+      // Cada listado a su barrio: con todos en el mismo punto los pines se
+      // apilaban y el mapa del buscador parecía vacío.
+      .map((servicio, indice) => ({
+        ...servicio,
+        ...ubicacionServicio(DESPLAZAMIENTO_DEMO.adiestramiento + indice),
+      }));
   }
 
   private a(d: {
@@ -63,7 +68,6 @@ export class AdiestramientoSeeder implements OnModuleInit {
       titulo: d.titulo,
       descripcion: `${d.titulo}: adiestramiento canino en positivo con educadores certificados y planes a medida. Madrid, España.`,
       imagenes: ['/images/categoria-adiestramiento.jpg'],
-      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: GEO_MADRID } },
       precioBase: d.sesion,
       moneda: 'EUR',
       estado: 'publicado',

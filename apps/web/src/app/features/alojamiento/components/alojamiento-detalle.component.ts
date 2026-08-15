@@ -14,6 +14,8 @@ import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros
 import { aspectosDeVertical } from '../../../shared/verticales/resena-aspectos.config';
 import { VerticalKey } from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
+import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
+import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
@@ -22,7 +24,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
   standalone: true,
   imports: [
     RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
-    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent,
+    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent,
   ],
   template: `
 <div class="detalle-page">
@@ -174,6 +176,11 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
         <div class="section-block" rsAnim>
           <h2>Sobre este alojamiento canino</h2>
           <p>{{ alojamiento()!.descripcion }}</p>
+        </div>
+
+        <!-- Dónde está: mapa del punto exacto + atajos a Google Maps -->
+        <div class="section-block" rsAnim>
+          <rs-ubicacion [lugar]="ubicacion()" />
         </div>
 
         <!-- Amenidades caninas -->
@@ -704,6 +711,15 @@ export class AlojamientoDetalleComponent implements OnInit {
   readonly alojamiento = signal<AlojamientoDetalle | null>(null);
   readonly imagenActiva = signal('');
   readonly espacioSelec = signal<Espacio | null>(null);
+
+  /** Lo que necesita el bloque "Dónde está": punto exacto y dirección legible. */
+  readonly ubicacion = computed<PuntoUbicacion>(() => {
+    const a = this.alojamiento();
+    return {
+      lat: a?.lat, lng: a?.lng,
+      direccion: a?.direccion, ciudad: a?.ciudad, nombre: a?.nombre,
+    };
+  });
 
   /** Galería a pantalla completa (HU-4.1.1). */
   readonly lightboxAbierto = signal(false);

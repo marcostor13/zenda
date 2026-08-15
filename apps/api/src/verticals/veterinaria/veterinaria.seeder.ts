@@ -3,10 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { VerticalKey, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS } from 'shared';
 import { Veterinaria, VeterinariaDocument, ServicioClinico } from './veterinaria.schema';
+import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
 const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000003');
-
-const GEO_MADRID: [number, number] = [-3.7038, 40.4168];
 
 /** Siembra clínicas veterinarias demo de Madrid (colección vacía). */
 @Injectable()
@@ -79,7 +78,13 @@ export class VeterinariaSeeder implements OnModuleInit {
         horario: 'L–S 10:00–20:00',
         img: '/images/categoria-veterinaria.jpg',
       }),
-    ];
+    ]
+      // Cada listado a su barrio: con todos en el mismo punto los pines se
+      // apilaban y el mapa del buscador parecía vacío.
+      .map((servicio, indice) => ({
+        ...servicio,
+        ...ubicacionServicio(DESPLAZAMIENTO_DEMO.veterinaria + indice),
+      }));
   }
 
   private v(d: {
@@ -93,7 +98,6 @@ export class VeterinariaSeeder implements OnModuleInit {
       titulo: d.titulo,
       descripcion: `${d.titulo}: atención veterinaria para perros con equipo colegiado, diagnóstico por imagen y trato cercano. Madrid, España.`,
       imagenes: [d.img],
-      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: GEO_MADRID } },
       precioBase: d.precioConsulta,
       moneda: 'EUR',
       estado: 'publicado',

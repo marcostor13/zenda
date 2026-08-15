@@ -3,13 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { VerticalKey } from 'shared';
 import { Transporte, TransporteDocument } from './transporte.schema';
+import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
 const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000002');
 
 const px = (id: number, w = 800): string =>
   `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${w}`;
 
-const GEO_MADRID: [number, number] = [-3.7038, 40.4168];
 
 /** Siembra servicios demo de transporte de animales en Madrid (colección vacía). */
 @Injectable()
@@ -58,7 +58,13 @@ export class TransporteSeeder implements OnModuleInit {
         zonas: ['Madrid', 'Collado Villalba', 'Cercedilla', 'Navacerrada'],
         acompanante: false,
       }),
-    ];
+    ]
+      // Cada listado a su barrio: con todos en el mismo punto los pines se
+      // apilaban y el mapa del buscador parecía vacío.
+      .map((servicio, indice) => ({
+        ...servicio,
+        ...ubicacionServicio(DESPLAZAMIENTO_DEMO.transporte + indice),
+      }));
   }
 
   private transporte(d: {
@@ -72,7 +78,6 @@ export class TransporteSeeder implements OnModuleInit {
       titulo: d.titulo,
       descripcion: d.descripcion,
       imagenes: d.imagenes,
-      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: GEO_MADRID } },
       precioBase: d.base,
       moneda: 'EUR',
       estado: 'publicado',

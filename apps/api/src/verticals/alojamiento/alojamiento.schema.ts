@@ -62,12 +62,6 @@ export class Alojamiento extends Servicio {
   @Prop({ default: true })
   cancelacionGratis!: boolean;
 
-  @Prop()
-  barrio?: string;
-
-  @Prop()
-  direccion?: string;
-
   // --- Enriquecimiento Fase C (docs/mejora_servicios.md §2) ---
 
   /** Perfiles de compatibilidad social que esta residencia puede alojar. Vacío/ausente = cualquiera. */

@@ -8,6 +8,7 @@ import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { LugarElegido, RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
+import { enlaceGoogleMaps } from '../../shared/mapas/google-maps';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
 import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
@@ -306,6 +307,12 @@ function comoArray(v?: string): string[] {
           <p class="config-section__sub">
             Si el marcador no cae donde está tu negocio, corrige la dirección y vuelve a guardar.
           </p>
+          @if (enlaceGoogleMaps(); as url) {
+            <a class="rs-btn rs-btn--outline rs-btn--sm" [href]="url" target="_blank" rel="noopener">
+              <rs-icon name="map-pin" [size]="14" [stroke]="2"></rs-icon>
+              Comprobar en Google Maps
+            </a>
+          }
         </div>
       } @else {
         <p class="config-section__sub">
@@ -1076,6 +1083,12 @@ export class ComercioConfigComponent implements OnInit {
 
   /** Coordenadas tecleadas en esta sesión; se refresca en cada cambio del formulario. */
   private readonly geoFormulario = signal<{ lat: number; lng: number } | null>(null);
+
+  /** Atajo para verificar el punto guardado en el mapa que usa todo el mundo. */
+  readonly enlaceGoogleMaps = computed(() => {
+    const punto = this.coordenadas();
+    return punto ? enlaceGoogleMaps({ lat: punto.lat, lng: punto.lng, nombre: punto.titulo }) : null;
+  });
 
   /**
    * Rellena la dirección con lo que devuelve Google y guarda el punto exacto.

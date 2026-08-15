@@ -6,8 +6,6 @@ import { Alojamiento, AlojamientoDocument, EspacioCanino } from './alojamiento.s
 
 const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000001');
 
-const GEO_MADRID: [number, number] = [-3.7038, 40.4168];
-
 /** Siembra alojamientos caninos demo en Madrid (colección vacía). */
 @Injectable()
 export class AlojamientoSeeder implements OnModuleInit {
@@ -34,6 +32,7 @@ export class AlojamientoSeeder implements OnModuleInit {
           'Villa Canina Retiro: suites individuales con piscina canina, cámaras 24/7 y veterinario de guardia. Junto al parque de El Retiro, Madrid.',
         barrio: 'Retiro',
         direccion: 'Calle de Alfonso XII 40, Madrid',
+        coordenadas: [-3.6870, 40.4155],
         precioBase: 45,
         precioAnterior: 55,
         descuentoPct: 18,
@@ -74,6 +73,7 @@ export class AlojamientoSeeder implements OnModuleInit {
           'City Paws Hotel Chamberí: suites climatizadas en pleno centro de Madrid, con paseos urbanos diarios y seguimiento por app.',
         barrio: 'Chamberí',
         direccion: 'Calle de Fuencarral 120, Madrid',
+        coordenadas: [-3.7018, 40.4318],
         precioBase: 30,
         imagenes: ['/images/alojamiento-boutique.jpg', '/images/ejemplo-alojamiento-2.jpg'],
         amenities: ['suites climatizadas', 'paseos diarios', 'cámaras 24/7', 'recogida a domicilio'],
@@ -100,6 +100,7 @@ export class AlojamientoSeeder implements OnModuleInit {
           'Residencia Campestre Las Rozas: espacios compartidos con gran patio exterior y socialización supervisada, a 20 minutos de Madrid.',
         barrio: 'Las Rozas',
         direccion: 'Camino del Garzo 15, Las Rozas de Madrid',
+        coordenadas: [-3.8730, 40.4920],
         precioBase: 24,
         imagenes: ['/images/alojamiento-exterior.jpg', '/images/ejemplo-alojamiento-2.jpg'],
         amenities: ['patio exterior', 'socialización supervisada', 'paseos diarios', 'piscina de verano'],
@@ -128,6 +129,8 @@ export class AlojamientoSeeder implements OnModuleInit {
     descripcion: string;
     barrio: string;
     direccion: string;
+    /** Punto real del portal, en orden GeoJSON [lng, lat]. */
+    coordenadas: [number, number];
     precioBase: number;
     precioAnterior?: number;
     descuentoPct?: number;
@@ -144,7 +147,7 @@ export class AlojamientoSeeder implements OnModuleInit {
       titulo: d.titulo,
       descripcion: d.descripcion,
       imagenes: d.imagenes,
-      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: GEO_MADRID } },
+      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: d.coordenadas } },
       precioBase: d.precioBase,
       moneda: 'EUR',
       estado: 'publicado',
