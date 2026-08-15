@@ -261,8 +261,10 @@ categoría y fecha, y la vista previa completa antes de aprobar.
 **carga sola con los últimos 30 días**, tiene atajos de periodo (Hoy · 7 días · 30 días · Este
 mes · Este año · Personalizado) y filtro por **comercio** además del de vertical; cambiar
 cualquier filtro recalcula sin pulsar nada.
-Añadida después la **exportación CSV** del reporte con su desglose por vertical.
-**Falta:** comparativa entre periodos.
+Añadidas después la **exportación CSV** del reporte con su desglose por vertical y la
+**comparativa con el periodo anterior** de la misma duración (GMV, comisión y reservas). Si en el
+periodo previo no hubo actividad no se enseña porcentaje: un "+100 %" desde cero engaña.
+Con esto el ticket queda cerrado.
 
 **TCK-8035 🟡 Usuarios.** Resumen superior real (Totales · Clientes · Usuarios de comercios ·
 Administradores Doogking · Nuevos este mes) vía nuevo `GET /admin/usuarios/resumen`; filtro por
@@ -340,8 +342,8 @@ No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
    reclama: si no, cualquiera podría reclamar sobre la reserva de otro conociendo el id.
    Añadido después: el **comercio abre incidencias desde su pantalla de reservas** (tipo, asunto
    y descripción, sobre la reserva concreta).
-   **Falta:** el mismo formulario en el panel del cliente y enlazar el KPI del dashboard, que hoy
-   cuenta reservas en disputa y no incidencias.
+   Y también **desde el detalle de reserva del cliente** ("Tengo un problema con esta reserva").
+   **Falta:** enlazar el KPI del dashboard, que hoy cuenta reservas en disputa y no incidencias.
 5. **Administradores y permisos + historial ✅ hecho** (§7, y con ello 8030 §8, 8034 y 8035 §9).
    - **Auditoría**: colección `auditoria` de sólo escritura y pantalla `/admin/auditoria` con
      filtros por área y buscador. Se registran cambios de comisión (con el *de cuánto a cuánto*),

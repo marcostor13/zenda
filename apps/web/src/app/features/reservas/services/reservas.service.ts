@@ -122,4 +122,9 @@ export class ReservasService {
   cancelar(id: string): Promise<ReservaApi> {
     return firstValueFrom(this.http.post<ReservaApi>(`${this.base}/${id}/cancelar`, {}));
   }
+
+  /** Abre una incidencia sobre una reserva propia (TCK-8040 §2). */
+  async abrirIncidencia(payload: { reservaId: string; tipo: string; asunto: string; descripcion: string }): Promise<void> {
+    await firstValueFrom(this.http.post(`${environment.apiUrl}/incidencias`, payload));
+  }
 }

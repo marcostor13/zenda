@@ -115,6 +115,33 @@ const VERTICALES_OPCIONES = [
       </div>
     }
     @if (reporte()) {
+      @if (comparativa(); as comp) {
+        <!-- Cómo va frente al periodo anterior de la misma duración (TCK-8032/8033) -->
+        <div class="rs-card comparativa">
+          <strong class="comparativa__titulo">Frente al periodo anterior</strong>
+          <div class="comparativa__datos">
+            <span class="comparativa__dato">
+              GMV
+              <b [class.baja]="comp.gmv !== null && comp.gmv < 0">
+                {{ comp.gmv === null ? 'sin datos' : (comp.gmv > 0 ? '+' : '') + comp.gmv + ' %' }}
+              </b>
+            </span>
+            <span class="comparativa__dato">
+              Comisión Doogking
+              <b [class.baja]="comp.ingresos !== null && comp.ingresos < 0">
+                {{ comp.ingresos === null ? 'sin datos' : (comp.ingresos > 0 ? '+' : '') + comp.ingresos + ' %' }}
+              </b>
+            </span>
+            <span class="comparativa__dato">
+              Reservas
+              <b [class.baja]="comp.reservas !== null && comp.reservas < 0">
+                {{ comp.reservas === null ? 'sin datos' : (comp.reservas > 0 ? '+' : '') + comp.reservas + ' %' }}
+              </b>
+            </span>
+          </div>
+        </div>
+      }
+
       <!-- KPIs resumen -->
       <div class="kpi-grid" style="margin-bottom:var(--sp-6)">
         <div class="kpi-card rs-card">
@@ -213,6 +240,13 @@ const VERTICALES_OPCIONES = [
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
     .section-title { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-5); }
 
+    .comparativa { padding: var(--sp-4) var(--sp-5); margin-bottom: var(--sp-4); }
+    .comparativa__titulo { font-size: var(--f-sm); color: var(--t-400); }
+    .comparativa__datos { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2); }
+    .comparativa__dato { font-size: var(--f-sm); color: var(--t-300); display: flex; align-items: center; gap: var(--sp-2); }
+    .comparativa__dato b { color: #047857; font-family: var(--font-accent); }
+    .comparativa__dato b.baja { color: #B91C1C; }
+
     .atajos { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
     .atajo {
       padding: var(--sp-2) var(--sp-3); border-radius: var(--r-full);
@@ -257,6 +291,9 @@ export class AdminReportesComponent implements OnInit {
   readonly atajos = ATAJOS;
   readonly atajoActivo = signal<AtajoClave>('30d');
   readonly comercios = signal<Array<{ _id: string; nombreComercial: string }>>([]);
+
+  /** Variación frente al periodo anterior de la misma duración. */
+  readonly comparativa = signal<{ gmv: number | null; ingresos: number | null; reservas: number | null } | null>(null);
 
   fechaDesde = '';
   fechaHasta = '';
@@ -317,6 +354,7 @@ export class AdminReportesComponent implements OnInit {
         ),
       );
       this.reporte.set(data);
+      await this.calcularComparativa(data);
     } catch {
       this.errorMsg.set('Error generando el reporte. Verifica el rango de fechas e intenta de nuevo.');
     } finally {
@@ -363,6 +401,40 @@ export class AdminReportesComponent implements OnInit {
     enlace.download = `reporte-doogking-${r.fechaDesde}-a-${r.fechaHasta}.csv`;
     enlace.click();
     URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Pide el mismo rango justo anterior y compara. Si allí no hubo actividad no
+   * se enseña porcentaje: un "+100 %" desde cero engaña más de lo que informa.
+   */
+  private async calcularComparativa(actual: ReporteFinanciero): Promise<void> {
+    this.comparativa.set(null);
+    const desde = new Date(this.fechaDesde);
+    const hasta = new Date(this.fechaHasta);
+    const duracion = hasta.getTime() - desde.getTime();
+    const previoHasta = new Date(desde.getTime() - 86400000);
+    const previoDesde = new Date(previoHasta.getTime() - duracion);
+
+    try {
+      const previo = await firstValueFrom(
+        this.adminApi.getReporteFinanciero(
+          previoDesde.toISOString().slice(0, 10),
+          previoHasta.toISOString().slice(0, 10),
+          this.filtroVertical || undefined,
+          this.filtroComercio || undefined,
+        ),
+      );
+      const variacion = (ahora: number, antes: number): number | null =>
+        antes > 0 ? Math.round(((ahora - antes) / antes) * 1000) / 10 : null;
+
+      this.comparativa.set({
+        gmv: variacion(actual.gmv, previo.gmv),
+        ingresos: variacion(actual.ingresosPlataforma, previo.ingresosPlataforma),
+        reservas: variacion(actual.totalReservas, previo.totalReservas),
+      });
+    } catch {
+      // Sin periodo anterior comparable, el reporte se enseña igual.
+    }
   }
 
   iconoVertical(vertical: string): string {

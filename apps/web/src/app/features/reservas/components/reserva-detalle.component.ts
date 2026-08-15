@@ -285,6 +285,48 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
               </button>
             }
 
+            <!-- Reclamar sobre esta reserva; llega al panel de incidencias (TCK-8040 §2) -->
+            <button type="button" class="rs-btn rs-btn--ghost rs-btn--block"
+                    (click)="incidenciaAbierta.set(!incidenciaAbierta())">
+              <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
+              {{ incidenciaAbierta() ? 'Cerrar' : 'Tengo un problema con esta reserva' }}
+            </button>
+
+            @if (incidenciaAbierta()) {
+              <div class="incidencia">
+                <label class="rs-lbl" for="inc-tipo">Qué necesitas</label>
+                <select id="inc-tipo" class="rs-inp" [value]="incidenciaTipo()"
+                        (change)="incidenciaTipo.set($any($event.target).value)">
+                  <option value="incidencia">Contar una incidencia</option>
+                  <option value="reclamacion">Poner una reclamación</option>
+                  <option value="devolucion">Pedir la devolución</option>
+                </select>
+
+                <label class="rs-lbl" for="inc-asunto">Asunto</label>
+                <input id="inc-asunto" class="rs-inp" [value]="incidenciaAsunto()"
+                       (input)="incidenciaAsunto.set($any($event.target).value)"
+                       placeholder="Ej. el servicio no fue el contratado" />
+
+                <label class="rs-lbl" for="inc-desc">Qué ha pasado</label>
+                <input id="inc-desc" class="rs-inp" [value]="incidenciaDescripcion()"
+                       (input)="incidenciaDescripcion.set($any($event.target).value)"
+                       placeholder="Cuéntanoslo con el detalle que puedas" />
+
+                @if (incidenciaEnviada()) {
+                  <p class="incidencia__ok">
+                    <rs-icon name="check-circle" [size]="14" [stroke]="2"></rs-icon>
+                    Hemos recibido tu incidencia. El equipo de Doogking la revisará.
+                  </p>
+                } @else {
+                  <button type="button" class="rs-btn rs-btn--primary rs-btn--block"
+                          [disabled]="!puedeEnviarIncidencia() || enviandoIncidencia()"
+                          (click)="enviarIncidencia()">
+                    {{ enviandoIncidencia() ? 'Enviando…' : 'Enviar' }}
+                  </button>
+                }
+              </div>
+            }
+
             <a routerLink="/reservas/mis-reservas"
                class="rs-btn rs-btn--ghost rs-btn--block">
               <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
@@ -304,6 +346,9 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
 </div>
   `,
   styles: [`
+    .incidencia { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-3) 0; }
+    .incidencia__ok { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: #047857; }
+
     :host { display: block; }
 
     /* ── Status bar ───────────────────────────────────────────── */
@@ -471,6 +516,14 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
   private pollId?: ReturnType<typeof setInterval>;
 
   readonly cargando = signal(true);
+
+  /** Abrir una incidencia sobre esta reserva (TCK-8040 §2). */
+  readonly incidenciaAbierta = signal(false);
+  readonly incidenciaTipo = signal('incidencia');
+  readonly incidenciaAsunto = signal('');
+  readonly incidenciaDescripcion = signal('');
+  readonly enviandoIncidencia = signal(false);
+  readonly incidenciaEnviada = signal(false);
   readonly error = signal('');
   readonly reserva = signal<ReservaApi | null>(null);
   readonly procesando = signal(false);
@@ -616,6 +669,34 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
       this.errorAccion.set('No se pudo iniciar el pago. Inténtalo de nuevo.');
     } finally {
       this.procesando.set(false);
+    }
+  }
+
+  /** El backend pide una descripción con fondo; se comprueba antes de enviar. */
+  puedeEnviarIncidencia(): boolean {
+    return this.incidenciaAsunto().trim().length >= 3 && this.incidenciaDescripcion().trim().length >= 10;
+  }
+
+  async enviarIncidencia(): Promise<void> {
+    const reserva = this.reserva();
+    // El API devuelve el id como `_id` o `id` según el endpoint.
+    const reservaId = reserva?._id ?? reserva?.id;
+    if (!reservaId || !this.puedeEnviarIncidencia()) return;
+
+    this.enviandoIncidencia.set(true);
+    this.errorAccion.set('');
+    try {
+      await this.reservasService.abrirIncidencia({
+        reservaId,
+        tipo: this.incidenciaTipo(),
+        asunto: this.incidenciaAsunto().trim(),
+        descripcion: this.incidenciaDescripcion().trim(),
+      });
+      this.incidenciaEnviada.set(true);
+    } catch {
+      this.errorAccion.set('No se pudo enviar la incidencia. Inténtalo de nuevo.');
+    } finally {
+      this.enviandoIncidencia.set(false);
     }
   }
 }
