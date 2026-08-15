@@ -13,6 +13,7 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
 import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
 import { aspectosDeVertical } from '../../../shared/verticales/resena-aspectos.config';
 import { VerticalKey } from 'shared';
+import { EventosService } from '../../../core/eventos/eventos.service';
 
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
@@ -697,6 +698,7 @@ export class AlojamientoDetalleComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly alojamientoService = inject(AlojamientoService);
   private readonly perrosService = inject(PerrosService);
+  private readonly eventosService = inject(EventosService);
 
   readonly cargando = signal(true);
   readonly alojamiento = signal<AlojamientoDetalle | null>(null);
@@ -806,6 +808,8 @@ export class AlojamientoDetalleComponent implements OnInit {
       const data = await this.alojamientoService.obtener(id);
       this.alojamiento.set(data);
       this.imagenActiva.set(data.imagenes[0] ?? PLACEHOLDER_IMG);
+      // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
+      this.eventosService.registrarVistaServicio(id, VerticalKey.ALOJAMIENTO);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado"
       // en vez de un detalle falso que llevaría a una reserva imposible.

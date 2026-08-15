@@ -93,7 +93,17 @@ describe('AlphaService', () => {
 
       expect(repo.upsert).toHaveBeenCalledWith(
         2,
-        { nombre: 'Alpha 2 Pro', reservasRequeridas: 8, descuentoPct: 0.08, beneficios: ['x'] },
+        {
+          nombre: 'Alpha 2 Pro',
+          reservasRequeridas: 8,
+          descuentoPct: 0.08,
+          beneficios: ['x'],
+          // Sin tope, sin vigencia y sin categorías: aplica siempre y a todo.
+          descuentoMaximoEur: undefined,
+          verticalesAplicables: [],
+          vigenciaDesde: undefined,
+          vigenciaHasta: undefined,
+        },
         'admin-1',
       );
     });

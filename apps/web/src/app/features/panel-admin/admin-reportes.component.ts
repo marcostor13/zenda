@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReporteFinanciero, ReporteVertical } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
+import { descargarCsv } from '../../shared/exportacion/csv';
 
 type AtajoClave = 'hoy' | '7d' | '30d' | 'mes' | 'ano' | 'personalizado';
 
@@ -389,18 +390,7 @@ export class AdminReportesComponent implements OnInit {
       ]),
     ];
 
-    const csv = filas
-      .map((fila) => fila.map((celda) => `"${String(celda).replace(/"/g, '""')}"`).join(';'))
-      .join('\n');
-
-    // El BOM hace que Excel en español lo abra sin preguntar por la codificación.
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = `reporte-doogking-${r.fechaDesde}-a-${r.fechaHasta}.csv`;
-    enlace.click();
-    URL.revokeObjectURL(url);
+    descargarCsv(filas, `reporte-doogking-${r.fechaDesde}-a-${r.fechaHasta}.csv`);
   }
 
   /**

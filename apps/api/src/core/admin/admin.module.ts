@@ -8,6 +8,7 @@ import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { Resena, ResenaSchema } from '../reviews/resena.schema';
 import { Incidencia, IncidenciaSchema } from '../incidencias/incidencia.schema';
 import { Servicio, ServicioSchema } from '../catalog/servicio.schema';
+import { Evento, EventoSchema } from '../eventos/evento.schema';
 import { ComerciosModule } from '../comercios/comercios.module';
 import { UsersModule } from '../users/users.module';
 import { Pago, PagoSchema } from '../payments/pago.schema';
@@ -28,6 +29,7 @@ import { AuthModule } from '../auth/auth.module';
       { name: Resena.name, schema: ResenaSchema },
       { name: Incidencia.name, schema: IncidenciaSchema },
       { name: Servicio.name, schema: ServicioSchema },
+      { name: Evento.name, schema: EventoSchema },
     ]),
     ComisionConfigsModule,
     AlphaModule,

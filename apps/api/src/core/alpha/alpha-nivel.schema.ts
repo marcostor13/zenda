@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
+import { VerticalKey } from 'shared';
 
 export type AlphaNivelConfigDocument = HydratedDocument<AlphaNivelConfig>;
 
@@ -25,6 +26,20 @@ export class AlphaNivelConfig {
 
   @Prop({ type: [String], default: [] })
   beneficios!: string[];
+
+  /** Tope del descuento en euros. Ausente = sin límite (TCK-8030 §10). */
+  @Prop({ type: Number })
+  descuentoMaximoEur?: number;
+
+  /** Categorías donde aplica. Lista vacía = todas, que es el caso habitual. */
+  @Prop({ type: [String], default: [] })
+  verticalesAplicables!: VerticalKey[];
+
+  @Prop({ type: Date })
+  vigenciaDesde?: Date;
+
+  @Prop({ type: Date })
+  vigenciaHasta?: Date;
 
   @Prop({ default: true })
   activo!: boolean;

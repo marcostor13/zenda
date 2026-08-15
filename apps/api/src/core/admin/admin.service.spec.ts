@@ -14,6 +14,7 @@ import { Perro } from '../perros/perro.schema';
 import { Resena } from '../reviews/resena.schema';
 import { Incidencia } from '../incidencias/incidencia.schema';
 import { Servicio } from '../catalog/servicio.schema';
+import { Evento } from '../eventos/evento.schema';
 import { VerticalKey, PagoEstado, IVA_RATE, Rol } from 'shared';
 
 describe('AdminService', () => {
@@ -140,7 +141,9 @@ describe('AdminService', () => {
         // Las fichas administrativas consultan reseñas, incidencias y servicios.
         { provide: getModelToken(Resena.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }), aggregate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) } },
         { provide: getModelToken(Incidencia.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }) } },
-        { provide: getModelToken(Servicio.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }) } },
+        { provide: getModelToken(Servicio.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }), find: jest.fn().mockReturnValue({ select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue([]) }) } },
+        // El embudo de la analítica cuenta sesiones en la colección de eventos.
+        { provide: getModelToken(Evento.name), useValue: { distinct: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) } },
       ],
     }).compile();
 
@@ -219,7 +222,11 @@ describe('AdminService', () => {
       // Descarta la ciudad nula y cuenta comercios distintos por ciudad.
       expect(analitica.porCiudad).toEqual([{ ciudad: 'Madrid', reservas: 8, comercios: 1, facturacion: 700 }]);
       expect(analitica.topComercios[0]).toEqual({ comercio: 'VilaCan', reservas: 5, facturacion: 900, valoracion: 4.8 });
-      expect(analitica.embudo).toEqual({ registrados: 0, conReserva: 3, pagaron: 7 });
+      // Búsquedas y visitas a ficha salen de la colección de eventos (TCK-8031 §3).
+      expect(analitica.embudo).toEqual({
+        registrados: 0, busquedas: 0, visitasFicha: 0,
+        conReserva: 3, pagaron: 7, completaron: 2,
+      });
       // Ticket medio = facturación aprobada / pagos aprobados.
       expect(analitica.kpis.ticketMedio).toBe(100);
     });

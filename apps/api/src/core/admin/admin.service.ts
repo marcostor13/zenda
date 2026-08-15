@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { AlphaRepository } from '../alpha/alpha.repository';
+import { datosDeNivel } from '../alpha/alpha.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ComerciosRepository } from '../comercios/comercios.repository';
 import { UsersRepository } from '../users/users.repository';
@@ -15,7 +16,8 @@ import { Perro, PerroDocument } from '../perros/perro.schema';
 import { Resena, ResenaDocument } from '../reviews/resena.schema';
 import { Incidencia, IncidenciaDocument } from '../incidencias/incidencia.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, VerticalKey } from 'shared';
+import { Evento, EventoDocument } from '../eventos/evento.schema';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
 import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
@@ -48,8 +50,27 @@ interface ReservaEnriquecidaLean extends ReservaLean {
   fechaInicio?: Date;
   comisionMonto?: number;
   usuarioId?: { nombre?: string; email?: string };
-  comercioId?: { nombreComercial?: string };
-  servicioId?: { titulo?: string };
+  comercioId?: { nombreComercial?: string; politicaCancelacion?: string };
+  servicioId?: { titulo?: string; politicaCancelacion?: string };
+}
+
+/** Filtros del listado de reservas del admin (TCK-8036 §2). */
+export interface FiltrosReservasAdmin {
+  estado?: string;
+  comercioId?: string;
+  buscar?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  vertical?: string;
+  ciudad?: string;
+  estadoPago?: string;
+  importeMin?: number;
+  importeMax?: number;
+}
+
+/** Un término de búsqueda con `.` o `(` no debe convertirse en comodín. */
+function escaparRegex(termino: string): string {
+  return termino.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export interface FiltrosReporte {
@@ -75,6 +96,7 @@ export class AdminService {
     @InjectModel(Resena.name) private readonly resenaModel: Model<ResenaDocument>,
     @InjectModel(Incidencia.name) private readonly incidenciaModel: Model<IncidenciaDocument>,
     @InjectModel(Servicio.name) private readonly servicioModelAdmin: Model<ServicioDocument>,
+    @InjectModel(Evento.name) private readonly eventoModel: Model<EventoDocument>,
   ) {}
 
   // ── Dashboard ────────────────────────────────────────────────────────────────
@@ -297,22 +319,19 @@ export class AdminService {
     dto: ActualizarAlphaNivelDto,
     adminId: string,
   ): Promise<AlphaNivelConfigDocument> {
-    const nivel = await this.alphaRepo.upsert(
-      dto.nivel,
-      {
-        nombre: dto.nombre,
-        reservasRequeridas: dto.reservasRequeridas,
-        descuentoPct: dto.descuentoPct,
-        beneficios: dto.beneficios,
-      },
-      adminId,
-    );
+    const nivel = await this.alphaRepo.upsert(dto.nivel, datosDeNivel(dto), adminId);
 
     await this.auditoria.registrar({
       actorId: adminId,
       entidad: EntidadAuditada.ALPHA,
       entidadId: String(dto.nivel),
-      descripcion: `Nivel ${dto.nombre} actualizado: ${dto.reservasRequeridas} reservas y ${Math.round(dto.descuentoPct * 100)} % de descuento`,
+      descripcion:
+        `Nivel ${dto.nombre} actualizado: ${dto.reservasRequeridas} reservas y ` +
+        `${Math.round(dto.descuentoPct * 100)} % de descuento` +
+        (dto.descuentoMaximoEur ? ` (máximo ${dto.descuentoMaximoEur} €)` : '') +
+        (dto.verticalesAplicables?.length
+          ? `, sólo en ${dto.verticalesAplicables.join(', ')}`
+          : ''),
       despues: { ...dto },
     });
 
@@ -710,15 +729,15 @@ export class AdminService {
   async listarReservas(
     page = 1,
     limite = 20,
-    filtros: { estado?: string; comercioId?: string; buscar?: string; fechaDesde?: string; fechaHasta?: string } = {},
+    filtros: FiltrosReservasAdmin = {},
   ): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
     const skip = (page - 1) * limite;
     const filtro: Record<string, unknown> = {};
     if (filtros.estado) filtro['estado'] = filtros.estado;
     if (filtros.comercioId) filtro['comercioId'] = filtros.comercioId;
+    if (filtros.vertical) filtro['vertical'] = filtros.vertical;
     if (filtros.buscar) {
-      const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escaped, 'i');
+      const regex = new RegExp(escaparRegex(filtros.buscar), 'i');
       // Buscar sólo por código obligaba a conocer la reserva de antemano; ahora
       // vale también el cliente (nombre o email) o el comercio (TCK-8036).
       const [usuarios, comercios] = await Promise.all([
@@ -737,6 +756,32 @@ export class AdminService {
       if (filtros.fechaHasta) rango['$lte'] = new Date(filtros.fechaHasta);
       filtro['fechaInicio'] = rango;
     }
+    if (filtros.importeMin != null || filtros.importeMax != null) {
+      const rango: Record<string, number> = {};
+      if (filtros.importeMin != null) rango['$gte'] = filtros.importeMin;
+      if (filtros.importeMax != null) rango['$lte'] = filtros.importeMax;
+      filtro['montoTotal'] = rango;
+    }
+    // La reserva no guarda la ciudad: se llega a ella por el servicio, que es
+    // donde vive la ubicación (TCK-8036 §2).
+    if (filtros.ciudad) {
+      const servicios = await this.servicioModelAdmin
+        .find({ 'ubicacion.ciudad': new RegExp(escaparRegex(filtros.ciudad), 'i') })
+        .select('_id')
+        .lean()
+        .exec() as unknown as Array<{ _id: Types.ObjectId }>;
+      filtro['servicioId'] = { $in: servicios.map((s) => s._id) };
+    }
+    // El estado del pago vive en otra colección: se resuelven antes las reservas
+    // que lo cumplen para poder filtrar por él sin desnormalizar el dato.
+    if (filtros.estadoPago) {
+      const pagosFiltrados = await this.pagoModel
+        .find({ estado: filtros.estadoPago })
+        .select('reservaId')
+        .lean()
+        .exec() as unknown as Array<{ reservaId: Types.ObjectId }>;
+      filtro['_id'] = { $in: pagosFiltrados.map((p) => p.reservaId) };
+    }
 
     const [items, total] = await Promise.all([
       this.reservaModel
@@ -745,8 +790,8 @@ export class AdminService {
         .skip(skip)
         .limit(limite)
         .populate('usuarioId', 'nombre email')
-        .populate('comercioId', 'nombreComercial')
-        .populate('servicioId', 'titulo')
+        .populate('comercioId', 'nombreComercial politicaCancelacion')
+        .populate('servicioId', 'titulo politicaCancelacion')
         .lean()
         .exec() as unknown as ReservaEnriquecidaLean[],
       this.reservaModel.countDocuments(filtro).exec(),
@@ -779,6 +824,9 @@ export class AdminService {
       // el cliente borre después su ficha.
       perroNombre: (r as unknown as { perroSnapshot?: Record<string, unknown> }).perroSnapshot?.['nombre'] as string | undefined,
       comisionMonto: (r as unknown as { comisionMonto?: number }).comisionMonto ?? 0,
+      // Política de cancelación que rige la reserva (TCK-8036 §6): la del
+      // servicio si la tiene escrita, y si no la que el comercio declara.
+      politicaCancelacion: r.servicioId?.politicaCancelacion ?? r.comercioId?.politicaCancelacion,
     }));
 
     return { items: enriquecidas, total };
@@ -1000,13 +1048,19 @@ export class AdminService {
     porVertical: Array<{ vertical: string; reservas: number; porcentaje: number; facturacion: number; comision: number; comercios: number }>;
     porCiudad: Array<{ ciudad: string; reservas: number; comercios: number; facturacion: number }>;
     topComercios: Array<{ comercio: string; reservas: number; facturacion: number; valoracion: number }>;
-    embudo: { registrados: number; conReserva: number; pagaron: number };
+    embudo: {
+      registrados: number; busquedas: number; visitasFicha: number;
+      conReserva: number; pagaron: number; completaron: number;
+    };
   }> {
     const inicioMes = new Date();
     inicioMes.setDate(1);
     inicioMes.setHours(0, 0, 0, 0);
 
-    const [porVerticalRaw, porCiudadRaw, topComerciosRaw, registrados, usuariosConReserva, pagaron, usuariosNuevosMes, totales] = await Promise.all([
+    const [
+      porVerticalRaw, porCiudadRaw, topComerciosRaw, registrados, usuariosConReserva,
+      pagaron, usuariosNuevosMes, totales, busquedas, visitasFicha, completaron,
+    ] = await Promise.all([
       this.reservaModel.aggregate<{ _id: string; reservas: number; facturacion: number; comision: number; comercios: string[] }>([
         {
           $group: {
@@ -1052,6 +1106,11 @@ export class AdminService {
         { $match: { estado: PagoEstado.APROBADO } },
         { $group: { _id: null, facturacion: { $sum: '$montoTotal' }, comision: { $sum: '$comisionPlataforma' }, pagos: { $sum: 1 } } },
       ]).exec(),
+      // Los dos primeros peldaños del embudo se cuentan por sesión, no por
+      // evento: quien busca cinco veces sigue siendo una persona (TCK-8031).
+      this.eventoModel.distinct('sesionId', { tipo: TipoEvento.BUSQUEDA_INICIADA }).exec().then((ids) => ids.length),
+      this.eventoModel.distinct('sesionId', { tipo: TipoEvento.SERVICIO_ABIERTO }).exec().then((ids) => ids.length),
+      this.reservaModel.countDocuments({ estado: ReservaEstado.COMPLETADA }).exec(),
     ]);
 
     const totalReservas = porVerticalRaw.reduce((s, v) => s + v.reservas, 0) || 1;
@@ -1091,7 +1150,10 @@ export class AdminService {
         facturacion: dosDecimales(c.facturacion),
         valoracion: c.valoracion ?? 0,
       })),
-      embudo: { registrados, conReserva: usuariosConReserva, pagaron },
+      embudo: {
+        registrados, busquedas, visitasFicha,
+        conReserva: usuariosConReserva, pagaron, completaron,
+      },
     };
   }
 

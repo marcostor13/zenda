@@ -50,6 +50,10 @@ export class AlphaRepository {
       reservasRequeridas: d.reservasRequeridas,
       descuentoPct: d.descuentoPct,
       beneficios: d.beneficios,
+      descuentoMaximoEur: d.descuentoMaximoEur ?? null,
+      verticalesAplicables: d.verticalesAplicables ?? [],
+      vigenciaDesde: d.vigenciaDesde ? d.vigenciaDesde.toISOString() : null,
+      vigenciaHasta: d.vigenciaHasta ? d.vigenciaHasta.toISOString() : null,
     }));
   }
 

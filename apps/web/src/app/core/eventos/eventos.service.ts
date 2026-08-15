@@ -32,13 +32,22 @@ export class EventosService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/eventos`;
 
-  /** Arranca el cronómetro del embudo. Idempotente dentro de la misma sesión. */
+  /**
+   * Arranca el cronómetro del embudo (sólo si el anterior ya caducó) y anota la
+   * búsqueda. El evento se registra **siempre**: el embudo del panel necesita
+   * cuántas búsquedas hubo de verdad (TCK-8031), no cuántas sesiones empezaron.
+   */
   iniciarEmbudo(vertical?: string): void {
     const inicio = this.leerInicio();
-    if (inicio && Date.now() - inicio < VIDA_EMBUDO_MS) return;
-
-    sessionStorage.setItem(CLAVE_INICIO, String(Date.now()));
+    if (!inicio || Date.now() - inicio >= VIDA_EMBUDO_MS) {
+      sessionStorage.setItem(CLAVE_INICIO, String(Date.now()));
+    }
     this.registrar(TipoEvento.BUSQUEDA_INICIADA, { vertical, paso: PasoEmbudo.BUSQUEDA });
+  }
+
+  /** Visita a la ficha de un servicio: el paso que faltaba entre buscar y reservar. */
+  registrarVistaServicio(servicioId: string, vertical?: string): void {
+    this.registrar(TipoEvento.SERVICIO_ABIERTO, { servicioId, vertical, paso: PasoEmbudo.DETALLE });
   }
 
   registrar(

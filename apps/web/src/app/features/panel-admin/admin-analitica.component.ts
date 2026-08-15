@@ -80,7 +80,12 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
                 <strong>{{ paso.valor | number:'1.0-0' }}</strong>
               </div>
               <div class="funnel-bar"><div class="funnel-bar__fill" [style.width.%]="paso.pct"></div></div>
-              <span class="funnel-row__pct">{{ paso.pct }}%</span>
+              <span class="funnel-row__pct">
+                {{ paso.pct }}%
+                @if (paso.caidaPct !== null && paso.caidaPct > 0) {
+                  <span class="funnel-row__caida">−{{ paso.caidaPct }}% respecto al paso anterior</span>
+                }
+              </span>
             </div>
           }
         </div>
@@ -218,7 +223,8 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
     .funnel-row__head { display: flex; justify-content: space-between; font-size: var(--f-sm); color: var(--t-200); margin-bottom: var(--sp-2); strong { color: var(--t-100); } }
     .funnel-bar { height: 10px; background: var(--c-raised); border-radius: var(--r-full); overflow: hidden; }
     .funnel-bar__fill { height: 100%; background: var(--g-accent, var(--c-accent)); border-radius: var(--r-full); transition: width .4s; }
-    .funnel-row__pct { font-size: var(--f-xs); color: var(--t-400); }
+    .funnel-row__pct { display: flex; justify-content: space-between; gap: var(--sp-3); font-size: var(--f-xs); color: var(--t-400); }
+    .funnel-row__caida { color: var(--c-error, var(--t-400)); }
 
     .rank-row { display: grid; grid-template-columns: 150px 1fr 90px; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
     .rank-row__label { font-size: var(--f-sm); color: var(--t-200); text-transform: capitalize; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -242,15 +248,34 @@ export class AdminAnaliticaComponent implements OnInit {
   readonly errorMsg = signal('');
   readonly analitica = signal<AnaliticaAdmin | null>(null);
 
+  /**
+   * Embudo completo con la caída entre peldaños (TCK-8031 §3): saber que pagan
+   * 82 de 1.000 dice menos que saber en qué paso se pierde la gente.
+   */
   readonly embudoPasos = computed(() => {
     const e = this.analitica()?.embudo;
     if (!e) return [];
-    const base = e.registrados || 1;
-    return [
-      { label: 'Usuarios registrados', valor: e.registrados, pct: 100 },
-      { label: 'Con reserva iniciada', valor: e.conReserva, pct: Math.round((e.conReserva / base) * 100) },
-      { label: 'Pagaron', valor: e.pagaron, pct: Math.round((e.pagaron / base) * 100) },
+
+    const pasos = [
+      { label: 'Usuarios registrados', valor: e.registrados },
+      { label: 'Búsquedas realizadas', valor: e.busquedas ?? 0 },
+      { label: 'Ficha de comercio visitada', valor: e.visitasFicha ?? 0 },
+      { label: 'Reserva iniciada', valor: e.conReserva },
+      { label: 'Pago realizado', valor: e.pagaron },
+      { label: 'Reserva completada', valor: e.completaron ?? 0 },
     ];
+
+    const base = pasos[0].valor || 1;
+    return pasos.map((paso, indice) => {
+      const anterior = indice === 0 ? null : pasos[indice - 1].valor;
+      return {
+        ...paso,
+        pct: Math.round((paso.valor / base) * 100),
+        // Sin paso anterior con datos no hay caída que enseñar; un "−100 %"
+        // desde cero sería ruido, no información.
+        caidaPct: anterior ? Math.round(((anterior - paso.valor) / anterior) * 100) : null,
+      };
+    });
   });
 
   /** Qué se mide en el reparto por categoría y cómo se ordena el top (TCK-8031). */

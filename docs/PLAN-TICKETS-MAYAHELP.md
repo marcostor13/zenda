@@ -22,7 +22,7 @@ que son los que más tiempo consumen.
 | F2 | Renombrados y textos · panel comercio | **8017 ✅ · 8022 ✅ · 8023 ✅ · 8024 ✅ · 8025 ✅ · 8026/8027 ✅** | ✅ hecho |
 | F3 | Alpha solo para clientes | **8029 ✅ · 8034 🟡 (parte Alpha) · 8035 🟡 (parte Alpha)** | 🟡 en curso |
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 ✅** | ✅ hecho |
-| F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 ✅** (falta sólo el embudo con eventos de navegación) | 🟢 casi |
+| F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 ✅** (falta sólo el mapa de España, aplazado por el cliente) | 🟢 casi |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
 | F7 | Módulos nuevos (producto) | 8040 §1–§8 ✅ | ✅ hecho |
 
@@ -208,8 +208,16 @@ del aviso: guardar solo sin avisar en una ficha con datos bancarios y fiscales e
 - Comisiones: nota que explica que *Comisión total* es lo que realmente deja de cobrar el
   comercio. Alpha pasa a titularse **"Programa de fidelización de clientes · Doogking Alpha"** y
   los beneficios se editan **uno a uno** con *Añadir beneficio*, no en un campo con comas.
-**Falta:** historial de cambios de comisiones (necesita colección de auditoría) y el resto de
-opciones de configuración de Alpha (máximo de descuento, servicios donde aplica).
+Añadido después el **historial de cambios de comisiones** en `/admin/comisiones`: lee la
+auditoría (`entidad=comision`), que ya registraba el *de cuánto a cuánto*, y lo enseña donde se
+cambia el dato. Y la **configuración completa de Alpha** (§10): **descuento máximo en euros**
+—vacío = sin tope, porque "sin tope" y "tope de 0 €" no pueden ser el mismo valor—, **servicios
+donde aplica** (sin marcar ninguno = todas las categorías) y **vigencia** desde/hasta. Las tres
+condiciones se enseñan también al cliente en `/perfil/alpha`: un "−10 %" sin tope ni categorías
+se lee como si valiera para todo y sin límite.
+⚠️ El descuento Alpha **sigue sin aplicarse en el cobro** (nunca lo estuvo): hoy la escalera es
+informativa y el descuento real se hace con cupones. Configurarlo es el paso previo, no el
+mismo trabajo. Con esto el ticket queda cerrado salvo eso.
 
 **TCK-8031 🟡 Analítica.** Fila de **KPIs** arriba (Usuarios nuevos · Reservas · Conversión ·
 Facturación · Comisión Doogking · Ticket medio). La distribución por categoría tiene **selector
@@ -220,9 +228,18 @@ El backend calcula todo eso por agregación.
 Añadido después el **gráfico de evolución de los últimos 30 días** (reservas o facturación, con
 serie diaria calculada en el backend; los días sin actividad se rellenan con ceros porque una
 línea con huecos miente sobre la tendencia).
-**Falta:** el mapa de España y el embudo ampliado (búsquedas y visitas a ficha) — **no hay
-eventos de navegación registrados**, así que el embudo sigue siendo registrados → con reserva →
-pagaron. Eso es instrumentar analítica, no rehacer la pantalla.
+Añadido después el **embudo ampliado** (§3), que era lo que faltaba instrumentar: existía la
+colección `eventos` pero el frontend sólo marcaba el arranque del embudo una vez cada dos horas
+y nunca la visita a una ficha. Ahora **cada búsqueda cuenta** (sin reiniciar el cronómetro de
+"reservar en menos de 30 s", que mide otra cosa) y las fichas de servicio registran
+`servicio_abierto` en los dos detalles que hay (alojamiento y el genérico de verticales). El
+embudo pasa a ser **registrados → búsquedas → ficha visitada → reserva iniciada → pago →
+reserva completada**, con la **caída porcentual entre peldaños**: saber que pagan 82 de 1.000
+dice menos que saber en qué paso se pierde la gente. Búsquedas y visitas se cuentan **por
+sesión**: quien busca cinco veces sigue siendo una persona.
+**Falta:** el mapa de España, que el propio cliente aplaza ("y más adelante incluso un mapa").
+La columna *Usuarios* de la tabla geográfica no se puede calcular: la cuenta de usuario no
+guarda ciudad.
 
 **TCK-8036 🟡 Reservas (admin).** Resumen superior en dos filas: **contadores por estado**
 (clicables, filtran la tabla) y **cifras económicas** (importe reservado · comisiones ·
@@ -234,7 +251,12 @@ abrir el historial. Las acciones pasan a un menú **⋯**.
 Añadida después la **ficha administrativa** al desplegar una reserva: cliente y email, mascota,
 comercio, servicio, fechas, importe, comisión Doogking, **coste de pasarela y neto del comercio**
 (el backend los trae del pago), estado del pago, extras y suplementos, y el historial de estados.
-**Falta:** política de cancelación aplicada y el panel de filtros avanzados por ciudad/importe.
+Añadidos después la **política de cancelación** en la ficha —la del servicio si la tiene escrita
+y si no la que declara el comercio—, el **panel "Filtros"** (§2) con fecha, tipo de servicio,
+ciudad, estado del pago e importe mínimo/máximo, y la **exportación CSV** (§9) de lo que hay en
+pantalla ya filtrado, hasta 500 filas. La ciudad se resuelve por el servicio, que es donde vive
+la ubicación, y el estado del pago por la colección de pagos: ninguno de los dos vive en la
+reserva y desnormalizarlos habría sido peor. Con esto el ticket queda cerrado.
 
 **TCK-8037 🟡 Cupones.** Fuera los campos que había que descifrar: **Descuento (%)** en enteros
 (20 = 20 %, la fracción la sigue guardando el backend), **Importe mínimo de reserva (€)**,

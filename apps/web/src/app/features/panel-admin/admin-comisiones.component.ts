@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AdminApiService, ComisionConfig } from './admin-api.service';
+import { AdminApiService, ComisionConfig, RegistroAuditoria } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
@@ -80,6 +80,33 @@ import { iconoDeVertical } from '../../shared/verticales/verticales.config';
         <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-4)">{{ errorMsg() }}</div>
       }
     </div>
+
+    <!-- Historial: una comisión que cambia sin dejar rastro es un cargo que
+         nadie puede justificar ante el comercio (TCK-8030). -->
+    <div class="rs-card admin-panel">
+      <h3 class="panel-titulo">Historial de cambios</h3>
+      <p class="panel-nota">Quién cambió qué comisión y cuándo. El registro no se puede editar.</p>
+
+      @if (cargandoHistorial()) {
+        <p style="color:var(--t-400)">Cargando el historial…</p>
+      } @else if (historial().length === 0) {
+        <p style="color:var(--t-400)">
+          Todavía no se ha modificado ninguna comisión. Los cambios que hagas aquí quedarán registrados.
+        </p>
+      } @else {
+        <ul class="historial">
+          @for (h of historial(); track h._id) {
+            <li class="historial__item">
+              <rs-icon name="clock" [size]="14" [stroke]="2"></rs-icon>
+              <div>
+                <p class="historial__texto">{{ h.descripcion }}</p>
+                <span class="historial__meta">{{ h.actorNombre }} · {{ fecha(h.createdAt) }}</span>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
   `,
   styles: [`
     :host { display: contents; }
@@ -89,7 +116,17 @@ import { iconoDeVertical } from '../../shared/verticales/verticales.config';
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
 
     .admin-panel { padding: var(--sp-6); }
+    .panel-titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }
     .panel-nota { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); max-width: 70ch; }
+
+    .historial { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+    .historial__item {
+      display: flex; align-items: flex-start; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4); background: var(--c-raised); border-radius: var(--r-lg);
+      color: var(--t-400);
+    }
+    .historial__texto { font-size: var(--f-sm); color: var(--t-100); }
+    .historial__meta { font-size: var(--f-xs); color: var(--t-400); }
 
     .comisiones-table { background: var(--c-raised); border-radius: var(--r-xl); overflow: hidden; }
     .comisiones-head { display: grid; grid-template-columns: 1fr 160px 180px 120px 120px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); }
@@ -126,6 +163,9 @@ export class AdminComisionesComponent implements OnInit {
   readonly guardadoMsg = signal(false);
   readonly errorMsg = signal('');
 
+  readonly historial = signal<RegistroAuditoria[]>([]);
+  readonly cargandoHistorial = signal(true);
+
   async ngOnInit(): Promise<void> {
     try {
       this.comisiones.set(await firstValueFrom(this.adminApi.getComisiones()));
@@ -133,6 +173,25 @@ export class AdminComisionesComponent implements OnInit {
       this.errorMsg.set('Error cargando las comisiones. Verifica que el API esté activo.');
     } finally {
       this.cargando.set(false);
+    }
+    await this.cargarHistorial();
+  }
+
+  fecha(iso: string): string {
+    return new Date(iso).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  /** Un historial que no carga no debe tumbar la pantalla de comisiones. */
+  private async cargarHistorial(): Promise<void> {
+    try {
+      const res = await firstValueFrom(
+        this.adminApi.getAuditoria({ entidad: 'comision', limite: 20 }),
+      );
+      this.historial.set(res.items);
+    } catch {
+      this.historial.set([]);
+    } finally {
+      this.cargandoHistorial.set(false);
     }
   }
 
@@ -166,6 +225,7 @@ export class AdminComisionesComponent implements OnInit {
       );
       this.guardadoMsg.set(true);
       setTimeout(() => this.guardadoMsg.set(false), 3000);
+      await this.cargarHistorial();
     } catch {
       this.errorMsg.set('Error al guardar las comisiones. Inténtalo de nuevo.');
     }

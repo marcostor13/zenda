@@ -9,6 +9,11 @@ export interface AlphaNivelApi {
   reservasRequeridas: number;
   descuentoPct: number;
   beneficios: string[];
+  /** `null` = sin tope; lista vacía = todas las categorías (TCK-8030 §10). */
+  descuentoMaximoEur?: number | null;
+  verticalesAplicables?: string[];
+  vigenciaDesde?: string | null;
+  vigenciaHasta?: string | null;
 }
 
 export interface AlphaEstadoApi {
@@ -16,6 +21,9 @@ export interface AlphaEstadoApi {
   nombreNivel: string;
   descuentoPct: number;
   beneficios: string[];
+  descuentoMaximoEur?: number | null;
+  verticalesAplicables?: string[];
+  vigenciaHasta?: string | null;
   reservasCompletadas: number;
   reservasParaSiguiente: number | null;
   siguienteNivel: AlphaNivelApi | null;

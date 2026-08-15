@@ -6,7 +6,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { IMG_FALLBACK } from '../../shared/media/images';
-import { enlaceAServicio } from '../../shared/verticales/verticales.config';
+import { enlaceAServicio, verticalUi } from '../../shared/verticales/verticales.config';
 import { AlphaService, AlphaEstadoApi, AlphaNivelApi, AlphaVentajaApi } from '../alpha/alpha.service';
 
 /** Un escalón del club, ya resuelto para pintar (nombre romano, insignia, estado). */
@@ -92,6 +92,17 @@ function iconoDeBeneficio(texto: string): string {
               </span>
             }
           </div>
+
+          <!-- Condiciones del descuento tal y como las configura el admin
+               (TCK-8030 §10): un "−10 %" sin tope ni categorías se lee como
+               si valiera para todo y sin límite. -->
+          @if (condicionesDescuento().length) {
+            <ul class="condiciones">
+              @for (c of condicionesDescuento(); track c) {
+                <li><rs-icon name="alert-circle" [size]="13" [stroke]="2" /> {{ c }}</li>
+              }
+            </ul>
+          }
 
           <div class="progreso">
             <div class="progreso__barra">
@@ -315,6 +326,15 @@ function iconoDeBeneficio(texto: string): string {
       color: var(--dk-gold);
     }
 
+    .condiciones {
+      list-style: none; margin: 0 0 var(--sp-4); padding: 0;
+      display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5);
+    }
+    .condiciones li {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-sm); color: rgba(255,255,255,.82);
+    }
+
     .progreso__barra {
       height: 10px; border-radius: var(--r-full); overflow: hidden;
       background: rgba(255,255,255,.22); margin-bottom: var(--sp-3);
@@ -525,6 +545,29 @@ export class PerfilAlphaComponent implements OnInit {
 
   /** Descuento del nivel actual; 0 si el usuario no tiene sesión o estado Alpha. */
   readonly descuentoActual = computed(() => this.estado()?.descuentoPct ?? 0);
+
+  /**
+   * Límites del descuento configurados en el panel (TCK-8030 §10). Sólo se
+   * enumeran los que existen: repetir "sin tope" o "todas las categorías" en
+   * cada nivel llenaría la tarjeta de ruido.
+   */
+  readonly condicionesDescuento = computed<string[]>(() => {
+    const e = this.estado();
+    if (!e || e.descuentoPct <= 0) return [];
+
+    const condiciones: string[] = [];
+    if (e.descuentoMaximoEur != null) {
+      condiciones.push(`Hasta ${e.descuentoMaximoEur} € de descuento por reserva`);
+    }
+    const verticales = e.verticalesAplicables ?? [];
+    if (verticales.length) {
+      condiciones.push(`Válido en ${verticales.map((v) => verticalUi(v).labelCorto).join(', ')}`);
+    }
+    if (e.vigenciaHasta) {
+      condiciones.push(`Vigente hasta el ${new Date(e.vigenciaHasta).toLocaleDateString('es-ES')}`);
+    }
+    return condiciones;
+  });
 
   async ngOnInit(): Promise<void> {
     try {

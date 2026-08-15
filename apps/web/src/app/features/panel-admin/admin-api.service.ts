@@ -73,6 +73,12 @@ export interface AlphaNivel {
   reservasRequeridas: number;
   descuentoPct: number;
   beneficios: string[];
+  /** `null` = sin tope. */
+  descuentoMaximoEur?: number | null;
+  /** Vacío = todas las categorías. */
+  verticalesAplicables?: string[];
+  vigenciaDesde?: string | null;
+  vigenciaHasta?: string | null;
 }
 
 export interface DocumentoVerificacion {
@@ -129,6 +135,8 @@ export interface ReservaAdmin {
   fechaFin?: string;
   cantidad?: number;
   historialEstados?: CambioEstadoReserva[];
+  /** Política que rige la cancelación de esta reserva (TCK-8036 §6). */
+  politicaCancelacion?: string;
 }
 
 /** Una acción administrativa registrada (TCK-8030 §8, 8034, 8035 §9). */
@@ -234,7 +242,15 @@ export interface AnaliticaAdmin {
   porVertical: VerticalAnalitica[];
   porCiudad: Array<{ ciudad: string; reservas: number; comercios: number; facturacion: number }>;
   topComercios: ComercioTop[];
-  embudo: { registrados: number; conReserva: number; pagaron: number };
+  /** Búsquedas y visitas a ficha se cuentan por sesión (TCK-8031 §3). */
+  embudo: {
+    registrados: number;
+    busquedas?: number;
+    visitasFicha?: number;
+    conReserva: number;
+    pagaron: number;
+    completaron?: number;
+  };
 }
 
 export interface FiltrosReservasAdmin {
@@ -243,6 +259,12 @@ export interface FiltrosReservasAdmin {
   buscar?: string;
   fechaDesde?: string;
   fechaHasta?: string;
+  /** Filtros avanzados del panel "Filtros" (TCK-8036 §2). */
+  vertical?: string;
+  ciudad?: string;
+  estadoPago?: string;
+  importeMin?: number | null;
+  importeMax?: number | null;
 }
 
 export interface UsuarioAdmin {
@@ -553,13 +575,19 @@ export class AdminApiService {
     return this.http.get<AnaliticaAdmin>(`${this.adminUrl}/analitica`);
   }
 
-  getReservas(page = 1, filtros: FiltrosReservasAdmin = {}): Observable<PaginatedResult<ReservaAdmin>> {
+  getReservas(page = 1, filtros: FiltrosReservasAdmin = {}, limite?: number): Observable<PaginatedResult<ReservaAdmin>> {
     let params = new HttpParams().set('page', String(page));
+    if (limite) params = params.set('limite', String(limite));
     if (filtros.estado) params = params.set('estado', filtros.estado);
     if (filtros.comercioId) params = params.set('comercioId', filtros.comercioId);
     if (filtros.buscar) params = params.set('buscar', filtros.buscar);
     if (filtros.fechaDesde) params = params.set('fechaDesde', filtros.fechaDesde);
     if (filtros.fechaHasta) params = params.set('fechaHasta', filtros.fechaHasta);
+    if (filtros.vertical) params = params.set('vertical', filtros.vertical);
+    if (filtros.ciudad) params = params.set('ciudad', filtros.ciudad);
+    if (filtros.estadoPago) params = params.set('estadoPago', filtros.estadoPago);
+    if (filtros.importeMin != null) params = params.set('importeMin', String(filtros.importeMin));
+    if (filtros.importeMax != null) params = params.set('importeMax', String(filtros.importeMax));
     return this.http.get<PaginatedResult<ReservaAdmin>>(`${this.adminUrl}/reservas`, { params });
   }
 

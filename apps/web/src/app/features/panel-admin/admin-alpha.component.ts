@@ -3,6 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { etiquetaAlphaNivel } from 'shared';
 import { AdminApiService, AlphaNivel, ComercioAdmin } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
 
 /**
  * Programa Doogking Alpha en su propio apartado (TCK-8040 §4). Es fidelización
@@ -57,6 +58,43 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
                   <input type="number" class="rs-inp" [value]="(n.descuentoPct * 100).toFixed(0)"
                          (input)="n.descuentoPct = +$any($event).target.value / 100" />
                 </label>
+              </div>
+
+              <!-- Tope, categorías y vigencia (TCK-8030 §10). -->
+              <div class="nivel__limites">
+                <label class="campo">
+                  <span>Descuento máximo (€)</span>
+                  <input type="number" min="0" class="rs-inp" placeholder="Sin tope"
+                         [value]="n.descuentoMaximoEur ?? ''"
+                         (input)="fijarTope(n, $any($event).target.value)" />
+                  <small class="ayuda">Vacío = sin tope.</small>
+                </label>
+                <label class="campo">
+                  <span>Vigente desde</span>
+                  <input type="date" class="rs-inp" [value]="fecha(n.vigenciaDesde)"
+                         (change)="n.vigenciaDesde = $any($event).target.value || null" />
+                </label>
+                <label class="campo">
+                  <span>Vigente hasta</span>
+                  <input type="date" class="rs-inp" [value]="fecha(n.vigenciaHasta)"
+                         (change)="n.vigenciaHasta = $any($event).target.value || null" />
+                  <small class="ayuda">Vacío = sin caducidad.</small>
+                </label>
+              </div>
+
+              <div class="verticales">
+                <span class="verticales__titulo">Servicios donde aplica</span>
+                <p class="ayuda">Sin marcar ninguno, el descuento vale para todas las categorías.</p>
+                <div class="verticales__lista">
+                  @for (v of verticales; track v.key) {
+                    <label class="vertical-chip" [class.activo]="aplicaEn(n, v.key)">
+                      <input type="checkbox" [checked]="aplicaEn(n, v.key)"
+                             (change)="alternarVertical(n, v.key)" />
+                      <rs-icon [name]="v.icon" [size]="13" [stroke]="2"></rs-icon>
+                      {{ v.labelCorto }}
+                    </label>
+                  }
+                </div>
               </div>
 
               <!-- Beneficios uno a uno: en un campo con comas era imposible
@@ -163,6 +201,20 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
     .campo { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 130px; }
     .campo--ancho { flex: 1; min-width: 200px; }
     .campo > span { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+    .ayuda { font-size: var(--f-xs); color: var(--t-400); }
+
+    .nivel__limites { display: flex; flex-wrap: wrap; gap: var(--sp-4); margin-bottom: var(--sp-4); }
+    .verticales { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+    .verticales__titulo { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+    .verticales__lista { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .vertical-chip {
+      display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer;
+      padding: var(--sp-2) var(--sp-3); border-radius: var(--r-full);
+      border: 1px solid var(--b-1); background: var(--c-card);
+      font-size: var(--f-sm); color: var(--t-300);
+    }
+    .vertical-chip.activo { border-color: var(--c-accent); color: var(--t-100); font-weight: var(--w-6); }
+    .vertical-chip input { accent-color: var(--c-accent); }
 
     .beneficios { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; }
     .beneficios__titulo { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
@@ -205,8 +257,33 @@ export class AdminAlphaComponent implements OnInit {
     await this.cargarAdheridos();
   }
 
+  /** Categorías donde puede aplicarse el descuento, en el orden del buscador. */
+  readonly verticales = VERTICALES_UI;
+
   etiquetaNivel(nivel: number): string {
     return etiquetaAlphaNivel(nivel);
+  }
+
+  /** El input de fecha sólo entiende `YYYY-MM-DD`; la API devuelve ISO completo. */
+  fecha(valor: string | null | undefined): string {
+    return valor ? valor.slice(0, 10) : '';
+  }
+
+  /** Campo vacío = sin tope; un 0 escrito a mano sí es un tope de 0 €. */
+  fijarTope(nivel: AlphaNivel, valor: string): void {
+    nivel.descuentoMaximoEur = valor.trim() === '' ? null : +valor;
+  }
+
+  aplicaEn(nivel: AlphaNivel, vertical: string): boolean {
+    return (nivel.verticalesAplicables ?? []).includes(vertical);
+  }
+
+  alternarVertical(nivel: AlphaNivel, vertical: string): void {
+    const actuales = nivel.verticalesAplicables ?? [];
+    nivel.verticalesAplicables = actuales.includes(vertical)
+      ? actuales.filter((v) => v !== vertical)
+      : [...actuales, vertical];
+    this.niveles.update((lista) => [...lista]);
   }
 
   anadirBeneficio(nivel: AlphaNivel): void {
@@ -236,6 +313,10 @@ export class AdminAlphaComponent implements OnInit {
             descuentoPct: n.descuentoPct,
             // Un beneficio vacío es un campo a medio escribir, no un beneficio.
             beneficios: n.beneficios.map((b) => b.trim()).filter(Boolean),
+            descuentoMaximoEur: n.descuentoMaximoEur ?? null,
+            verticalesAplicables: n.verticalesAplicables ?? [],
+            vigenciaDesde: n.vigenciaDesde || null,
+            vigenciaHasta: n.vigenciaHasta || null,
           })),
         ),
       );

@@ -10,6 +10,7 @@ import { RsChipComponent } from '../../shared/components/chip/rs-chip.component'
 import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { verticalUi, VerticalUi } from '../../shared/verticales/verticales.config';
+import { EventosService } from '../../core/eventos/eventos.service';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 
 interface DetalleConfig {
@@ -340,6 +341,7 @@ export class VerticalDetalleComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly browseService = inject(CatalogBrowseService);
+  private readonly eventosService = inject(EventosService);
 
   readonly cargando = signal(true);
   readonly servicio = signal<ServicioDetalle | null>(null);
@@ -397,6 +399,8 @@ export class VerticalDetalleComponent implements OnInit {
       const data = await this.browseService.obtener(id);
       this.servicio.set(data);
       this.imagenActiva.set(data.imagenes[0] ?? '');
+      // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
+      this.eventosService.registrarVistaServicio(id, this.cfg().vertical);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado".
       this.servicio.set(null);

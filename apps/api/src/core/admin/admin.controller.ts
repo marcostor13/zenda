@@ -27,6 +27,13 @@ interface RequestConAdmin extends Request {
   user: { sub: string; rol: Rol };
 }
 
+/** Un filtro numérico vacío no es un 0: se queda sin aplicar. */
+function numeroOpcional(valor?: string): number | undefined {
+  if (valor === undefined || valor === '') return undefined;
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : undefined;
+}
+
 @ApiTags('admin')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, PermisosAdminGuard)
@@ -280,16 +287,28 @@ export class AdminController {
   @ApiQuery({ name: 'buscar', required: false })
   @ApiQuery({ name: 'fechaDesde', required: false })
   @ApiQuery({ name: 'fechaHasta', required: false })
+  @ApiQuery({ name: 'vertical', required: false })
+  @ApiQuery({ name: 'ciudad', required: false })
+  @ApiQuery({ name: 'estadoPago', required: false })
+  @ApiQuery({ name: 'importeMin', required: false })
+  @ApiQuery({ name: 'importeMax', required: false })
   listarReservas(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limite', new DefaultValuePipe(20), ParseIntPipe) limite: number,
-    @Query('estado') estado?: string,
-    @Query('comercioId') comercioId?: string,
-    @Query('buscar') buscar?: string,
-    @Query('fechaDesde') fechaDesde?: string,
-    @Query('fechaHasta') fechaHasta?: string,
+    @Query() filtros: Record<string, string | undefined>,
   ) {
-    return this.adminService.listarReservas(page, limite, { estado, comercioId, buscar, fechaDesde, fechaHasta });
+    return this.adminService.listarReservas(page, limite, {
+      estado: filtros['estado'],
+      comercioId: filtros['comercioId'],
+      buscar: filtros['buscar'],
+      fechaDesde: filtros['fechaDesde'],
+      fechaHasta: filtros['fechaHasta'],
+      vertical: filtros['vertical'],
+      ciudad: filtros['ciudad'],
+      estadoPago: filtros['estadoPago'],
+      importeMin: numeroOpcional(filtros['importeMin']),
+      importeMax: numeroOpcional(filtros['importeMax']),
+    });
   }
 
   @Patch('reservas/:id/estado')

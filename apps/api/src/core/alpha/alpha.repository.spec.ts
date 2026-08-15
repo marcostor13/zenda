@@ -71,7 +71,17 @@ describe('AlphaRepository', () => {
       const resultado = await repository.listarNiveles();
 
       expect(resultado).toEqual([
-        { nivel: 2, nombre: 'Alpha 2 personalizado', reservasRequeridas: 8, descuentoPct: 0.07, beneficios: ['Prioridad en campañas'] },
+        {
+          nivel: 2,
+          nombre: 'Alpha 2 personalizado',
+          reservasRequeridas: 8,
+          descuentoPct: 0.07,
+          beneficios: ['Prioridad en campañas'],
+          descuentoMaximoEur: null,
+          verticalesAplicables: [],
+          vigenciaDesde: null,
+          vigenciaHasta: null,
+        },
       ]);
     });
   });

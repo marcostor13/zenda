@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReservaAdmin, ResumenReservas, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
+import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
 
 /** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
 interface EstadoMeta { badge: string; icono: string; label: string; }
@@ -63,7 +65,17 @@ const PAGO_LABEL: Record<string, string> = {
   sin_pago: 'Sin pago',
 };
 
+/** Política de cancelación declarada por el comercio, en palabras (TCK-8036 §6). */
+const POLITICA_LABEL: Record<string, string> = {
+  flexible: 'Flexible · cancelación gratuita hasta 24 h antes',
+  moderada: 'Moderada · cancelación gratuita hasta 3 días antes',
+  estricta: 'Estricta · sin devolución al cancelar',
+};
+
 const LIMITE = 20;
+
+/** Tope de filas de la exportación: un CSV es un informe, no un volcado de la BD. */
+const MAX_EXPORTACION = 500;
 
 @Component({
   selector: 'app-admin-reservas',
@@ -76,7 +88,69 @@ const LIMITE = 20;
         <h1 class="page-title">Gestión de reservas</h1>
         <p class="page-sub">Centro de operaciones del marketplace: supervisa y gestiona todas las reservas.</p>
       </div>
+      <div class="page-header__acciones">
+        <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="panelFiltros.set(!panelFiltros())">
+          <rs-icon name="list" [size]="14" [stroke]="2"></rs-icon>
+          Filtros
+          @if (filtrosAvanzadosActivos()) { <span class="rs-badge rs-badge--accent">{{ filtrosAvanzadosActivos() }}</span> }
+        </button>
+        <button class="rs-btn rs-btn--outline rs-btn--sm" [disabled]="exportando()" (click)="exportarCsv()">
+          <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon>
+          {{ exportando() ? 'Exportando…' : 'Exportar CSV' }}
+        </button>
+      </div>
     </div>
+
+    <!-- Filtros avanzados: los que no caben como pill de estado (TCK-8036 §2) -->
+    @if (panelFiltros()) {
+      <div class="rs-card panel-filtros">
+        <div class="panel-filtros__grid">
+          <label class="campo">
+            <span>Desde</span>
+            <input type="date" class="rs-inp" [(ngModel)]="fDesde" />
+          </label>
+          <label class="campo">
+            <span>Hasta</span>
+            <input type="date" class="rs-inp" [(ngModel)]="fHasta" />
+          </label>
+          <label class="campo">
+            <span>Tipo de servicio</span>
+            <select class="rs-inp" [(ngModel)]="fVertical">
+              <option value="">Todos</option>
+              @for (v of verticales; track v.key) {
+                <option [value]="v.key">{{ v.labelCorto }}</option>
+              }
+            </select>
+          </label>
+          <label class="campo">
+            <span>Ciudad</span>
+            <input type="text" class="rs-inp" placeholder="Ej. Madrid" [(ngModel)]="fCiudad" />
+          </label>
+          <label class="campo">
+            <span>Estado del pago</span>
+            <select class="rs-inp" [(ngModel)]="fEstadoPago">
+              <option value="">Todos</option>
+              <option value="aprobado">Pagado</option>
+              <option value="iniciado">Pago iniciado</option>
+              <option value="rechazado">Pago rechazado</option>
+              <option value="reembolsado">Reembolsado</option>
+            </select>
+          </label>
+          <label class="campo">
+            <span>Importe mínimo (€)</span>
+            <input type="number" min="0" class="rs-inp" placeholder="Sin mínimo" [(ngModel)]="fImporteMin" />
+          </label>
+          <label class="campo">
+            <span>Importe máximo (€)</span>
+            <input type="number" min="0" class="rs-inp" placeholder="Sin máximo" [(ngModel)]="fImporteMax" />
+          </label>
+        </div>
+        <div class="panel-filtros__acciones">
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarFiltrosAvanzados()">Limpiar</button>
+          <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarFiltrosAvanzados()">Aplicar filtros</button>
+        </div>
+      </div>
+    }
 
     <!-- Resumen: estados a la izquierda, dinero a la derecha (TCK-8036) -->
     <div class="resumen-reservas">
@@ -242,6 +316,10 @@ const LIMITE = 20;
                   <div><dt>Coste de pasarela</dt><dd>{{ (r.stripeFee ?? 0) | number:'1.2-2' }} €</dd></div>
                   <div><dt>Neto del comercio</dt><dd>{{ (r.montoLiquidacion ?? 0) | number:'1.2-2' }} €</dd></div>
                   <div><dt>Estado del pago</dt><dd>{{ labelPago(r.estadoPago) }}</dd></div>
+                  <div class="ficha__ancho">
+                    <dt>Política de cancelación</dt>
+                    <dd>{{ politica(r) }}</dd>
+                  </div>
                 </dl>
 
                 @if (r.suplementos?.length) {
@@ -327,6 +405,17 @@ const LIMITE = 20;
     .search-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-4); flex-wrap: wrap; .rs-inp { flex: 1; min-width: 220px; } }
     .filter-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-5); flex-wrap: wrap; }
 
+    .page-header__acciones { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+    .panel-filtros { padding: var(--sp-5); margin-bottom: var(--sp-5); }
+    .panel-filtros__grid {
+      display: grid; gap: var(--sp-4);
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      margin-bottom: var(--sp-4);
+    }
+    .campo { display: flex; flex-direction: column; gap: var(--sp-1); }
+    .campo > span { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
+    .panel-filtros__acciones { display: flex; gap: var(--sp-2); justify-content: flex-end; }
+
     .tbl-wrap { min-width: 920px; }
 
     .resumen-reservas { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-3); }
@@ -358,6 +447,7 @@ const LIMITE = 20;
     }
     .ficha dt { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
     .ficha dd { font-size: var(--f-sm); color: var(--t-100); }
+    .ficha__ancho { grid-column: 1 / -1; }
     .ficha__extras { font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-4); }
 
     .cell-actions { position: relative; }
@@ -495,6 +585,24 @@ export class AdminReservasComponent implements OnInit {
   buscarInput = '';
   modalMotivo = '';
 
+  // Filtros avanzados: se editan en el panel y sólo se aplican al pulsar
+  // "Aplicar", para no relanzar la consulta con cada tecla.
+  readonly panelFiltros = signal(false);
+  readonly exportando = signal(false);
+  readonly verticales = VERTICALES_UI;
+  fDesde = '';
+  fHasta = '';
+  fVertical = '';
+  fCiudad = '';
+  fEstadoPago = '';
+  fImporteMin: number | null = null;
+  fImporteMax: number | null = null;
+  private readonly avanzados = signal<FiltrosReservasAdmin>({});
+
+  readonly filtrosAvanzadosActivos = computed(
+    () => Object.values(this.avanzados()).filter((v) => v !== undefined && v !== null && v !== '').length,
+  );
+
   readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
   readonly filtros = FILTROS_ESTADO;
   readonly resumenEstados = RESUMEN_ESTADOS;
@@ -512,9 +620,77 @@ export class AdminReservasComponent implements OnInit {
 
   private filtrosActuales(): FiltrosReservasAdmin {
     return {
+      ...this.avanzados(),
       estado: this.filtroEstado() || undefined,
       buscar: this.buscarActivo() ? this.buscarInput.trim() : undefined,
     };
+  }
+
+  async aplicarFiltrosAvanzados(): Promise<void> {
+    this.avanzados.set({
+      fechaDesde: this.fDesde || undefined,
+      fechaHasta: this.fHasta || undefined,
+      vertical: this.fVertical || undefined,
+      ciudad: this.fCiudad.trim() || undefined,
+      estadoPago: this.fEstadoPago || undefined,
+      importeMin: this.fImporteMin ?? undefined,
+      importeMax: this.fImporteMax ?? undefined,
+    });
+    this.paginaActual.set(1);
+    await this.cargar();
+  }
+
+  async limpiarFiltrosAvanzados(): Promise<void> {
+    this.fDesde = this.fHasta = this.fVertical = this.fCiudad = this.fEstadoPago = '';
+    this.fImporteMin = this.fImporteMax = null;
+    this.avanzados.set({});
+    this.paginaActual.set(1);
+    await this.cargar();
+  }
+
+  /** Política que rige la cancelación; el texto del servicio manda sobre el nivel del comercio. */
+  politica(reserva: ReservaAdmin): string {
+    const valor = reserva.politicaCancelacion;
+    if (!valor) return 'Sin política declarada por el comercio';
+    return POLITICA_LABEL[valor] ?? valor;
+  }
+
+  /**
+   * Exporta lo que hay en pantalla ya filtrado (TCK-8036 §9). Se piden todas
+   * las páginas del filtro actual: exportar sólo la página visible daría un
+   * fichero que no cuadra con los totales de arriba.
+   */
+  async exportarCsv(): Promise<void> {
+    this.exportando.set(true);
+    try {
+      const result = await firstValueFrom(
+        this.adminApi.getReservas(1, this.filtrosActuales(), MAX_EXPORTACION),
+      );
+      const cabecera = [
+        'Código', 'Fecha', 'Cliente', 'Email', 'Comercio', 'Servicio',
+        'Importe', 'Comisión Doogking', 'Coste pasarela', 'Neto comercio',
+        'Estado reserva', 'Estado pago',
+      ];
+      const filas = result.items.map((r) => [
+        r.codigo,
+        new Date(r.fechaInicio || r.createdAt).toLocaleDateString('es-ES'),
+        r.cliente,
+        r.clienteEmail ?? '',
+        r.comercio,
+        r.servicio ?? r.vertical,
+        (r.montoAjustado ?? r.montoTotal).toFixed(2),
+        r.comisionMonto.toFixed(2),
+        (r.stripeFee ?? 0).toFixed(2),
+        (r.montoLiquidacion ?? 0).toFixed(2),
+        this.meta(r.estado).label,
+        this.labelPago(r.estadoPago),
+      ]);
+      descargarCsv([cabecera, ...filas], conFecha('reservas-doogking'));
+    } catch {
+      this.errorMsg.set('No se pudo exportar el listado de reservas.');
+    } finally {
+      this.exportando.set(false);
+    }
   }
 
   private async cargar(): Promise<void> {

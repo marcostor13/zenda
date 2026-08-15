@@ -37,15 +37,26 @@ describe('EventosService', () => {
     expect(sessionStorage.getItem('doogking_embudo_inicio')).toBeTruthy();
   });
 
-  it('no debería reiniciar el cronómetro si el embudo ya está en marcha', () => {
+  it('debería registrar la visita a la ficha de un servicio', () => {
+    service.registrarVistaServicio('serv-1', 'peluqueria');
+
+    const cuerpo = cuerpoEnviado();
+    expect(cuerpo['tipo']).toBe(TipoEvento.SERVICIO_ABIERTO);
+    expect(cuerpo['servicioId']).toBe('serv-1');
+    expect(cuerpo['paso']).toBe(PasoEmbudo.DETALLE);
+  });
+
+  it('no debería reiniciar el cronómetro si el embudo ya está en marcha, pero sí contar la búsqueda', () => {
     service.iniciarEmbudo();
     cuerpoEnviado();
     const inicio = sessionStorage.getItem('doogking_embudo_inicio');
 
     service.iniciarEmbudo();
 
+    // El cronómetro mide la reserva completa; el evento cuenta cuántas
+    // búsquedas hubo de verdad, que es lo que pide el embudo (TCK-8031).
     expect(sessionStorage.getItem('doogking_embudo_inicio')).toBe(inicio);
-    httpMock.expectNone((r) => r.url.endsWith('/eventos'));
+    expect(cuerpoEnviado()['tipo']).toBe(TipoEvento.BUSQUEDA_INICIADA);
   });
 
   it('debería medir el tiempo transcurrido desde el inicio del embudo', () => {

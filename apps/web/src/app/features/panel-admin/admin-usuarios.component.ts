@@ -7,6 +7,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { PERMISO_ADMIN_DESCRIPCIONES, PERMISO_ADMIN_LABELS, PermisoAdmin, nombreAlphaPresentacion } from 'shared';
 import { AdminApiService, UsuarioAdmin, ResumenUsuarios, FichaUsuario, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
+import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
 
 const ROL_BADGE: Record<string, string> = {
   cliente: 'rs-badge--neutral',
@@ -667,18 +668,7 @@ export class AdminUsuariosComponent implements OnInit {
       new Date(u.createdAt).toLocaleDateString('es-ES'),
     ]);
 
-    // Punto y coma y BOM: es lo que Excel en español abre sin preguntar nada.
-    const csv = [cabecera, ...filas]
-      .map((fila) => fila.map((celda) => `"${String(celda).replace(/"/g, '""')}"`).join(';'))
-      .join('\n');
-
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = `usuarios-doogking-${new Date().toISOString().slice(0, 10)}.csv`;
-    enlace.click();
-    URL.revokeObjectURL(url);
+    descargarCsv([cabecera, ...filas], conFecha('usuarios-doogking'));
   }
 
   esRolAdmin(): boolean {
