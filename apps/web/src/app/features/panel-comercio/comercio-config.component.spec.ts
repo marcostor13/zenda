@@ -156,6 +156,37 @@ describe('ComercioConfigComponent', () => {
       expect(componente.infoForm.touched).toBe(true);
     });
 
+    it('debería rellenar la dirección y guardar las coordenadas al elegir del desplegable', async () => {
+      await crear();
+
+      componente.usarDireccionSugerida({
+        placeId: 'p1', ciudad: 'Madrid', lat: 40.4169, lng: -3.7035,
+        direccion: {
+          calle: 'Calle Mayor', numero: '24', codigoPostal: '28013',
+          ciudad: 'Madrid', provincia: 'Madrid', pais: 'España',
+          formateada: 'C. Mayor, 24, 28013 Madrid', lat: 40.4169, lng: -3.7035,
+        },
+      });
+      await componente.guardarDireccion();
+
+      expect(ultimoPayload().direccion).toMatchObject({
+        calle: 'Calle Mayor', numero: '24', codigoPostal: '28013',
+        lat: 40.4169, lng: -3.7035,
+      });
+      // El mapa se pinta sin esperar a que el servidor devuelva el perfil.
+      expect(componente.coordenadas()).toMatchObject({ lat: 40.4169, lng: -3.7035 });
+    });
+
+    it('no debería enviar coordenadas vacías al guardar una dirección tecleada a mano', async () => {
+      await crear();
+      componente.direccionForm.patchValue({ calle: 'Camino del Monte', ciudad: 'Soria' });
+
+      await componente.guardarDireccion();
+
+      expect(ultimoPayload().direccion).not.toHaveProperty('lat');
+      expect(ultimoPayload().direccion).toMatchObject({ ciudad: 'Soria' });
+    });
+
     it('no debería guardar un contacto con email inválido', async () => {
       await crear();
       componente.contactoForm.patchValue({ email: 'no-es-un-email' });

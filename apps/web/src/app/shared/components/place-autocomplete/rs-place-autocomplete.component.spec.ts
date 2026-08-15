@@ -14,7 +14,9 @@ const valencia: SugerenciaLugar = {
 describe('RsPlaceAutocompleteComponent', () => {
   let fixture: ComponentFixture<RsPlaceAutocompleteComponent>;
   let componente: RsPlaceAutocompleteComponent;
-  let geoService: jest.Mocked<Pick<GeoService, 'autocompletar' | 'coordenadas' | 'cerrarSesion'>>;
+  let geoService: jest.Mocked<
+    Pick<GeoService, 'autocompletar' | 'coordenadas' | 'direccion' | 'cerrarSesion'>
+  >;
 
   const escribir = (valor: string): void => {
     const input: HTMLInputElement = fixture.nativeElement.querySelector('.pa__inp');
@@ -39,6 +41,7 @@ describe('RsPlaceAutocompleteComponent', () => {
     geoService = {
       autocompletar: jest.fn().mockReturnValue(of([valencia])),
       coordenadas: jest.fn().mockResolvedValue({ ciudad: 'Valencia', lat: 39.47, lng: -0.376 }),
+      direccion: jest.fn().mockResolvedValue(null),
       cerrarSesion: jest.fn(),
     };
 
@@ -54,7 +57,7 @@ describe('RsPlaceAutocompleteComponent', () => {
     tick(300);
     fixture.detectChanges();
 
-    expect(geoService.autocompletar).toHaveBeenCalledWith('v');
+    expect(geoService.autocompletar).toHaveBeenCalledWith('v', 'ciudad');
     expect(componente.sugerencias()).toEqual([valencia]);
   }));
 
@@ -68,7 +71,7 @@ describe('RsPlaceAutocompleteComponent', () => {
     tick(300);
 
     expect(geoService.autocompletar).toHaveBeenCalledTimes(1);
-    expect(geoService.autocompletar).toHaveBeenCalledWith('val');
+    expect(geoService.autocompletar).toHaveBeenCalledWith('val', 'ciudad');
   }));
 
   it('no debería consultar con el campo vacío', fakeAsync(() => {
@@ -105,6 +108,55 @@ describe('RsPlaceAutocompleteComponent', () => {
     await componente.elegir(valencia);
 
     expect(emitido).toHaveBeenCalledWith(expect.objectContaining({ ciudad: 'Valencia' }));
+  });
+
+  describe('modo dirección', () => {
+    const portal: SugerenciaLugar = {
+      placeId: 'place-portal',
+      descripcion: 'Calle Mayor 24, Madrid',
+      principal: 'Calle Mayor 24',
+      secundario: 'Madrid, España',
+    };
+
+    const crearDireccion = (): void => {
+      fixture = TestBed.createComponent(RsPlaceAutocompleteComponent);
+      componente = fixture.componentInstance;
+      fixture.componentRef.setInput('tipo', 'direccion');
+      fixture.detectChanges();
+    };
+
+    it('debería emitir la dirección desmenuzada al elegir un portal', async () => {
+      crearDireccion();
+      geoService.direccion.mockResolvedValue({
+        calle: 'Calle Mayor', numero: '24', codigoPostal: '28013',
+        ciudad: 'Madrid', provincia: 'Madrid', pais: 'España',
+        formateada: 'C. Mayor, 24, 28013 Madrid', lat: 40.4169, lng: -3.7035,
+      });
+      const emitido = jest.fn();
+      componente.lugarElegido.subscribe(emitido);
+
+      await componente.elegir(portal);
+
+      // El campo se queda con la calle y su número, que es lo que se espera ver.
+      expect(componente.texto()).toBe('Calle Mayor 24');
+      expect(emitido).toHaveBeenCalledWith(expect.objectContaining({
+        placeId: 'place-portal',
+        lat: 40.4169,
+        lng: -3.7035,
+        direccion: expect.objectContaining({ codigoPostal: '28013' }),
+      }));
+    });
+
+    it('no debería ofrecer poblaciones del catálogo local buscando direcciones', fakeAsync(() => {
+      crearDireccion();
+      geoService.autocompletar.mockReturnValue(of([portal]));
+      escribir('calle mayor');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(geoService.autocompletar).toHaveBeenCalledWith('calle mayor', 'direccion');
+      expect(componente.sugerencias()).toEqual([portal]);
+    }));
   });
 
   it('debería recorrer las sugerencias con las flechas y elegir con Enter', fakeAsync(() => {

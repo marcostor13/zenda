@@ -1,6 +1,11 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { CoordenadasLugar, GeoService, SugerenciaLugar, TiposDeCambio, Trayecto } from './geo.service';
+import { CoordenadasLugar, DireccionLugar, GeoService, SugerenciaLugar, TipoLugar, TiposDeCambio, Trayecto } from './geo.service';
+
+/** Un `tipo` desconocido cae a poblaciones, que es el uso mayoritario. */
+function esTipoLugar(valor?: string): valor is TipoLugar {
+  return valor === 'ciudad' || valor === 'direccion';
+}
 
 /**
  * Proxy público de mapas y divisas. Es público a propósito: el buscador lo usa
@@ -13,14 +18,16 @@ export class GeoController {
   constructor(private readonly geoService: GeoService) {}
 
   @Get('autocomplete')
-  @ApiOperation({ summary: 'Sugerir poblaciones desde la primera letra escrita' })
+  @ApiOperation({ summary: 'Sugerir poblaciones o direcciones desde la primera letra escrita' })
   @ApiQuery({ name: 'q', required: true, description: 'Texto tecleado por el usuario' })
   @ApiQuery({ name: 'session', required: false, description: 'Token de sesión de Places (agrupa la facturación)' })
+  @ApiQuery({ name: 'tipo', required: false, enum: ['ciudad', 'direccion'] })
   autocompletar(
     @Query('q') q?: string,
     @Query('session') session?: string,
+    @Query('tipo') tipo?: string,
   ): Promise<SugerenciaLugar[]> {
-    return this.geoService.autocompletar(q ?? '', session);
+    return this.geoService.autocompletar(q ?? '', session, esTipoLugar(tipo) ? tipo : 'ciudad');
   }
 
   @Get('geocode')
@@ -28,6 +35,13 @@ export class GeoController {
   @ApiQuery({ name: 'placeId', required: true })
   geocodificar(@Query('placeId') placeId?: string): Promise<CoordenadasLugar | null> {
     return this.geoService.coordenadas(placeId ?? '');
+  }
+
+  @Get('direccion')
+  @ApiOperation({ summary: 'Dirección postal completa y coordenadas de un portal elegido' })
+  @ApiQuery({ name: 'placeId', required: true })
+  direccion(@Query('placeId') placeId?: string): Promise<DireccionLugar | null> {
+    return this.geoService.direccion(placeId ?? '');
   }
 
   @Get('trayecto')

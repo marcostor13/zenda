@@ -7,7 +7,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
-import { RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
+import { LugarElegido, RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
 import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
@@ -239,7 +239,12 @@ function comoArray(v?: string): string[] {
         <div class="form-row">
           <div class="rs-field">
             <label class="rs-lbl">Calle</label>
-            <input class="rs-inp" formControlName="calle" placeholder="Ej: Calle Mayor" />
+            <rs-place-autocomplete formControlName="calle" inputId="cfg-calle" tipo="direccion"
+                                   apariencia="campo" placeholder="Empieza a escribir tu dirección…"
+                                   (lugarElegido)="usarDireccionSugerida($event)" />
+            <span class="rs-field-hint">
+              Elige tu dirección de la lista y rellenaremos el resto con la ubicación exacta.
+            </span>
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Número</label>
@@ -269,6 +274,21 @@ function comoArray(v?: string): string[] {
           <input class="rs-inp" formControlName="pais" placeholder="España" />
         </div>
 
+        <!-- Estado de las coordenadas: sin ellas el negocio no sale en el mapa
+             del buscador, y eso el comercio tiene que saberlo antes de guardar. -->
+        <div class="geo-estado" [class.geo-estado--ok]="coordenadas()">
+          @if (coordenadas()) {
+            <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon>
+            <span>Ubicación exacta guardada: tu negocio se puede situar en el mapa.</span>
+          } @else {
+            <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
+            <span>
+              Sin ubicación exacta. Elige tu dirección del desplegable para que aparezcas
+              en el mapa del buscador.
+            </span>
+          }
+        </div>
+
         <div class="form-actions">
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoDireccion()">
             @if (guardandoDireccion()) { Guardando… } @else {
@@ -282,14 +302,14 @@ function comoArray(v?: string): string[] {
       <!-- Comprobar de un vistazo que la dirección cayó donde toca (TCK-8028) -->
       @if (coordenadas(); as punto) {
         <div class="mapa-ubicacion">
-          <rs-mapa [puntos]="[punto]" [centro]="{ lat: punto.lat, lng: punto.lng, zoom: 15 }" />
+          <rs-mapa [puntos]="[punto]" [centro]="{ lat: punto.lat, lng: punto.lng, zoom: 16 }" />
           <p class="config-section__sub">
             Si el marcador no cae donde está tu negocio, corrige la dirección y vuelve a guardar.
           </p>
         </div>
       } @else {
         <p class="config-section__sub">
-          Guarda la dirección para ver el negocio situado en el mapa.
+          Elige tu dirección del desplegable para ver el negocio situado en el mapa.
         </p>
       }
     </section>
@@ -821,6 +841,16 @@ function comoArray(v?: string): string[] {
 
     .subir-doc { display: inline-block; margin-top: var(--sp-2); cursor: pointer; }
     .subir-doc input[type="file"] { display: none; }
+    .geo-estado {
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-4);
+      border-radius: var(--r-lg);
+      background: var(--c-raised);
+      font-size: var(--f-sm); color: var(--t-300);
+    }
+    .geo-estado rs-icon { flex-shrink: 0; color: var(--c-amber); }
+    .geo-estado--ok rs-icon { color: var(--c-success, #10B981); }
+
     .mapa-ubicacion { margin-top: var(--sp-5); }
     .mapa-ubicacion rs-mapa { display: block; height: 260px; border-radius: var(--r-xl); overflow: hidden; }
 
@@ -1025,17 +1055,52 @@ export class ComercioConfigComponent implements OnInit {
   }
   readonly errorDoc = signal('');
 
-  /** Punto del mapa; sin coordenadas guardadas no hay nada que situar. */
+  /**
+   * Punto del mapa. Manda lo que hay en el formulario —así el marcador salta al
+   * elegir la dirección, sin esperar a guardar— y si no, lo ya guardado.
+   */
   readonly coordenadas = computed(() => {
-    const direccion = this.comercio()?.direccion;
-    if (!direccion?.lat || !direccion?.lng) return null;
+    const enFormulario = this.geoFormulario();
+    const guardada = this.comercio()?.direccion;
+    const lat = enFormulario?.lat ?? guardada?.lat;
+    const lng = enFormulario?.lng ?? guardada?.lng;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
     return {
       id: 'negocio',
-      lat: direccion.lat,
-      lng: direccion.lng,
+      lat: lat as number,
+      lng: lng as number,
       titulo: this.comercio()?.nombreComercial ?? 'Tu negocio',
     };
   });
+
+  /** Coordenadas tecleadas en esta sesión; se refresca en cada cambio del formulario. */
+  private readonly geoFormulario = signal<{ lat: number; lng: number } | null>(null);
+
+  /**
+   * Rellena la dirección con lo que devuelve Google y guarda el punto exacto.
+   * Sin coordenadas el negocio no se puede situar en el mapa del buscador, así
+   * que el desplegable es el camino recomendado, no un adorno.
+   */
+  usarDireccionSugerida(lugar: LugarElegido): void {
+    const direccion = lugar.direccion;
+    if (!direccion) return;
+
+    this.direccionForm.patchValue({
+      calle: direccion.calle || this.direccionForm.controls.calle.value,
+      // El número llega aparte y sólo si el portal lo tiene; no se borra lo
+      // que el comercio ya hubiera escrito (un "2ºB" que Google no conoce).
+      numero: direccion.numero || this.direccionForm.controls.numero.value,
+      codigoPostal: direccion.codigoPostal || this.direccionForm.controls.codigoPostal.value,
+      ciudad: direccion.ciudad || this.direccionForm.controls.ciudad.value,
+      provincia: direccion.provincia || this.direccionForm.controls.provincia.value,
+      pais: direccion.pais || this.direccionForm.controls.pais.value,
+      lat: direccion.lat,
+      lng: direccion.lng,
+    });
+    this.direccionForm.markAsDirty();
+    this.geoFormulario.set({ lat: direccion.lat, lng: direccion.lng });
+  }
 
   /**
    * Sube el fichero y rellena la URL del documento. Se acepta PDF o foto: el
@@ -1158,6 +1223,9 @@ export class ComercioConfigComponent implements OnInit {
 
   readonly direccionForm = this.fb.group({
     calle: [''], numero: [''], ciudad: [''], provincia: [''], codigoPostal: [''], pais: ['España'],
+    // No se editan a mano: los rellena el desplegable de direcciones. Viven en
+    // el formulario para que el mapa reaccione antes de guardar.
+    lat: [null as number | null], lng: [null as number | null],
   });
 
   readonly contactoForm = this.fb.group({
@@ -1277,7 +1345,11 @@ export class ComercioConfigComponent implements OnInit {
       provincia: data.direccion?.provincia ?? '',
       codigoPostal: data.direccion?.codigoPostal ?? '',
       pais: data.direccion?.pais ?? 'España',
+      // Se recargan para no perderlas al guardar un cambio de otro campo.
+      lat: data.direccion?.lat ?? null,
+      lng: data.direccion?.lng ?? null,
     });
+    this.geoFormulario.set(null);
 
     this.contactoForm.patchValue({
       nombreContacto: data.contacto?.nombreContacto ?? '',
@@ -1391,7 +1463,11 @@ export class ComercioConfigComponent implements OnInit {
   }
 
   async guardarDireccion(): Promise<void> {
-    await this.guardarSeccion({ direccion: this.direccionForm.getRawValue() }, this.guardandoDireccion);
+    const { lat, lng, ...campos } = this.direccionForm.getRawValue();
+    // Un `lat: null` sobrescribiría con basura unas coordenadas ya guardadas;
+    // si no hay punto, sencillamente no se envía el campo.
+    const geo = lat != null && lng != null ? { lat, lng } : {};
+    await this.guardarSeccion({ direccion: { ...campos, ...geo } }, this.guardandoDireccion);
   }
 
   async guardarContacto(): Promise<void> {

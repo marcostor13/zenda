@@ -24,6 +24,7 @@ describe('ComerciosService', () => {
   let authService: jest.Mocked<AuthService>;
   let reservaModel: { find: jest.Mock };
   let pagoModel: { find: jest.Mock };
+  let servicioModel: { updateMany: jest.Mock };
 
   const dto = {
     razonSocial: 'Hoteles Ibéricos S.L.',
@@ -43,6 +44,7 @@ describe('ComerciosService', () => {
   beforeEach(async () => {
     reservaModel = { find: jest.fn() };
     pagoModel = { find: jest.fn() };
+    servicioModel = { updateMany: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) }) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -60,7 +62,7 @@ describe('ComerciosService', () => {
           },
         },
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
-        { provide: getModelToken(Servicio.name), useValue: {} },
+        { provide: getModelToken(Servicio.name), useValue: servicioModel },
         { provide: getModelToken(Pago.name), useValue: pagoModel },
         {
           provide: ReviewsService,
@@ -357,6 +359,32 @@ describe('ComerciosService', () => {
       expect(finanzas.liquidacion).toBe(104);
       expect(finanzas.proximaLiquidacion).toBe(104);
       expect(finanzas.reservasPagadas).toBe(2);
+    });
+  });
+
+  describe('actualizarComercio', () => {
+    const comercioId = new Types.ObjectId().toString();
+
+    beforeEach(() => {
+      repo.actualizar = jest.fn().mockResolvedValue({ _id: comercioId } as never);
+    });
+
+    it('debería situar en el mapa los listados que no tenían coordenadas', async () => {
+      await service.actualizarComercio(comercioId, {
+        direccion: { calle: 'Calle Mayor', lat: 40.4169, lng: -3.7035 },
+      });
+
+      expect(servicioModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ 'ubicacion.geo.coordinates': { $exists: false } }),
+        // GeoJSON invierte el orden: [lng, lat].
+        { $set: { 'ubicacion.geo': { type: 'Point', coordinates: [-3.7035, 40.4169] } } },
+      );
+    });
+
+    it('no debería tocar los listados si la dirección llega sin coordenadas', async () => {
+      await service.actualizarComercio(comercioId, { direccion: { calle: 'Calle Mayor' } });
+
+      expect(servicioModel.updateMany).not.toHaveBeenCalled();
     });
   });
 });

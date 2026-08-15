@@ -515,7 +515,35 @@ export class ComerciosService {
 
     const actualizado = await this.repo.actualizar(comercioId, datos);
     if (!actualizado) throw new DomainException('Comercio no encontrado', 404);
+
+    await this.situarServiciosSinCoordenadas(comercioId, dto.direccion);
     return actualizado;
+  }
+
+  /**
+   * Da al catálogo del comercio el punto exacto que acaba de guardar en su
+   * ficha. Sin coordenadas un listado no sale en el mapa del buscador, y hasta
+   * ahora sólo las tenían los que se crearon eligiendo población en el
+   * desplegable (precisión de centro de ciudad).
+   *
+   * **Sólo rellena los que no tienen ninguna**: si el comercio afinó a mano la
+   * ubicación de una sucursal, cambiar la dirección fiscal no debe moverla.
+   */
+  private async situarServiciosSinCoordenadas(
+    comercioId: string,
+    direccion?: { lat?: number; lng?: number },
+  ): Promise<void> {
+    const { lat, lng } = direccion ?? {};
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    await this.servicioModel.updateMany(
+      {
+        comercioId: new Types.ObjectId(comercioId),
+        'ubicacion.geo.coordinates': { $exists: false },
+      },
+      // GeoJSON guarda [lng, lat], en ese orden.
+      { $set: { 'ubicacion.geo': { type: 'Point', coordinates: [lng, lat] } } },
+    ).exec();
   }
 
   /** Reseñas recibidas por el comercio (delegado al módulo transversal de reviews). */

@@ -57,6 +57,25 @@ describe('GeoService', () => {
       ]);
     });
 
+    it('debería pedir portales, no poblaciones, cuando el tipo es dirección', async () => {
+      responder(respuestaAutocomplete);
+
+      await service.autocompletar('calle mayor 2', undefined, 'direccion');
+
+      const cuerpo = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+      expect(cuerpo.includedPrimaryTypes).toEqual(['street_address', 'premise', 'subpremise', 'route']);
+    });
+
+    it('no debería servir sugerencias de ciudad cacheadas cuando se piden direcciones', async () => {
+      responder(respuestaAutocomplete);
+      await service.autocompletar('valencia');
+
+      await service.autocompletar('valencia', undefined, 'direccion');
+
+      // Dos llamadas: la caché no puede mezclar poblaciones con portales.
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('debería restringir la búsqueda al mercado europeo', async () => {
       responder(respuestaAutocomplete);
 
@@ -132,6 +151,54 @@ describe('GeoService', () => {
       await service.coordenadas('place-valencia');
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('direccion', () => {
+    const respuestaPortal = {
+      location: { latitude: 40.4169, longitude: -3.7035 },
+      formattedAddress: 'C. Mayor, 24, 28013 Madrid, España',
+      addressComponents: [
+        { longText: '24', types: ['street_number'] },
+        { longText: 'Calle Mayor', types: ['route'] },
+        { longText: 'Madrid', types: ['locality'] },
+        { longText: 'Madrid', types: ['administrative_area_level_2'] },
+        { longText: '28013', types: ['postal_code'] },
+        { longText: 'España', types: ['country'] },
+      ],
+    };
+
+    it('debería desmenuzar la dirección del portal elegido', async () => {
+      responder(respuestaPortal);
+
+      await expect(service.direccion('place-portal')).resolves.toEqual({
+        calle: 'Calle Mayor',
+        numero: '24',
+        codigoPostal: '28013',
+        ciudad: 'Madrid',
+        provincia: 'Madrid',
+        pais: 'España',
+        formateada: 'C. Mayor, 24, 28013 Madrid, España',
+        lat: 40.4169,
+        lng: -3.7035,
+      });
+    });
+
+    it('debería usar la provincia de nivel 1 cuando no llega la de nivel 2', async () => {
+      responder({
+        location: { latitude: 35.89, longitude: -5.31 },
+        addressComponents: [{ longText: 'Ceuta', types: ['administrative_area_level_1'] }],
+      });
+
+      await expect(service.direccion('place-ceuta')).resolves.toEqual(
+        expect.objectContaining({ provincia: 'Ceuta' }),
+      );
+    });
+
+    it('debería devolver null si la respuesta no trae posición', async () => {
+      responder({ formattedAddress: 'Sin coordenadas' });
+
+      await expect(service.direccion('place-portal')).resolves.toBeNull();
     });
   });
 

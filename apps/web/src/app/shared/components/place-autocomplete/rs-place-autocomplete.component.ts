@@ -3,7 +3,9 @@ import {
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
-import { CoordenadasLugar, GeoService, SugerenciaLugar } from '../../../core/geo/geo.service';
+import {
+  CoordenadasLugar, DireccionLugar, GeoService, SugerenciaLugar, TipoLugar,
+} from '../../../core/geo/geo.service';
 import { CIUDADES_ES } from '../../catalogos/lugares.catalogo';
 import { RsIconComponent } from '../icon/rs-icon.component';
 
@@ -14,6 +16,8 @@ import { RsIconComponent } from '../icon/rs-icon.component';
  */
 export interface LugarElegido extends CoordenadasLugar {
   placeId: string;
+  /** Sólo con `tipo="direccion"`: la dirección postal ya desmenuzada. */
+  direccion?: DireccionLugar;
 }
 
 /** Marca las sugerencias que salen del catálogo local, sin `placeId` real. */
@@ -161,6 +165,11 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
   readonly placeholder = input('Ciudad, zona o dirección');
   /** `campo` lo enmarca como un `.rs-inp`; `plana` lo deja embebido (buscador). */
   readonly apariencia = input<'plana' | 'campo'>('plana');
+  /**
+   * `ciudad` sugiere poblaciones; `direccion` sugiere portales con calle y
+   * número y emite la dirección postal completa al elegir uno.
+   */
+  readonly tipo = input<TipoLugar>('ciudad');
   /** Lista local que siempre está disponible; por defecto, poblaciones españolas. */
   readonly catalogoLocal = input<readonly string[]>(CIUDADES_ES);
   /** `false` en listas cerradas (provincias): no tiene sentido consultar Places. */
@@ -183,8 +192,13 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
 
   readonly listaId = 'pa-lista';
 
-  /** Poblaciones del catálogo que casan con lo escrito (o las primeras). */
+  /**
+   * Poblaciones del catálogo que casan con lo escrito (o las primeras). Buscando
+   * direcciones no hay catálogo que valga: no existe una lista local de portales.
+   */
   private readonly locales = computed<SugerenciaLugar[]>(() => {
+    if (this.tipo() === 'direccion') return [];
+
     const filtro = normalizar(this.texto());
     const casan = filtro
       ? this.catalogoLocal().filter((c) => normalizar(c).includes(filtro))
@@ -223,7 +237,7 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
       .pipe(
         debounceTime(200),
         distinctUntilChanged(),
-        switchMap((t) => this.geoService.autocompletar(t)),
+        switchMap((t) => this.geoService.autocompletar(t, this.tipo())),
         takeUntil(this.destruido$),
       )
       .subscribe((lista) => {
@@ -311,11 +325,44 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
     // Cierra la sesión de facturación de Places antes de pedir el detalle.
     this.geoService.cerrarSesion();
 
+    if (this.tipo() === 'direccion') {
+      await this.emitirDireccion(sugerencia);
+      return;
+    }
+
     const lugar = await this.geoService.coordenadas(sugerencia.placeId);
     // Pulsar la población lleva al resultado (P4), tenga o no coordenadas.
     this.lugarElegido.emit({
       placeId: sugerencia.placeId,
       ...(lugar ?? { ciudad: sugerencia.principal, lat: NaN, lng: NaN }),
+    });
+  }
+
+  /**
+   * Emite el portal elegido con su dirección desmenuzada. Si el detalle no llega
+   * se emite igual con lo que ya se sabe: el comercio conserva lo tecleado y
+   * puede completar el resto a mano, en vez de perder la selección.
+   */
+  private async emitirDireccion(sugerencia: SugerenciaLugar): Promise<void> {
+    const direccion = await this.geoService.direccion(sugerencia.placeId);
+    if (!direccion) {
+      this.lugarElegido.emit({ placeId: sugerencia.placeId, ciudad: '', lat: NaN, lng: NaN });
+      return;
+    }
+
+    // La calle con su número es lo que el usuario espera ver en el campo.
+    const rotulo = [direccion.calle, direccion.numero].filter(Boolean).join(' ');
+    if (rotulo) {
+      this.texto.set(rotulo);
+      this.alCambiar(rotulo);
+    }
+
+    this.lugarElegido.emit({
+      placeId: sugerencia.placeId,
+      ciudad: direccion.ciudad,
+      lat: direccion.lat,
+      lng: direccion.lng,
+      direccion,
     });
   }
 

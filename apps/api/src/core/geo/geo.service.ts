@@ -19,6 +19,43 @@ export interface CoordenadasLugar {
   lng: number;
 }
 
+/**
+ * Dirección postal ya desmenuzada, tal y como la necesita el formulario del
+ * comercio. Se devuelve entera para que el panel no tenga que interpretar el
+ * texto formateado de Google, que cambia de formato según el país.
+ */
+export interface DireccionLugar {
+  calle: string;
+  numero: string;
+  codigoPostal: string;
+  ciudad: string;
+  provincia: string;
+  pais: string;
+  /** Texto completo tal y como lo escribe Google, para mostrarlo de un vistazo. */
+  formateada: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Qué se está buscando. `ciudad` alimenta el buscador (poblaciones); `direccion`
+ * alimenta la ficha del comercio, donde hace falta calle y número exactos.
+ */
+export type TipoLugar = 'ciudad' | 'direccion';
+
+/** Tipos de Places por cada búsqueda. `address` = portales con calle y número. */
+const TIPOS_PLACES: Record<TipoLugar, string[]> = {
+  ciudad: ['locality', 'administrative_area_level_2'],
+  direccion: ['street_address', 'premise', 'subpremise', 'route'],
+};
+
+/** Componente de dirección de Google, recortado a lo que se usa. */
+interface ComponenteDireccion {
+  longText?: string;
+  shortText?: string;
+  types?: string[];
+}
+
 /** Tipos de cambio con el euro como base (la moneda de cobro nunca cambia). */
 export interface TiposDeCambio {
   base: 'EUR';
@@ -74,6 +111,8 @@ interface RespuestaAutocomplete {
 interface RespuestaDetalles {
   location?: { latitude?: number; longitude?: number };
   displayName?: { text?: string };
+  formattedAddress?: string;
+  addressComponents?: ComponenteDireccion[];
 }
 
 /**
@@ -91,6 +130,7 @@ export class GeoService {
 
   private readonly cacheSugerencias = new Map<string, Entrada<SugerenciaLugar[]>>();
   private readonly cacheCoordenadas = new Map<string, Entrada<CoordenadasLugar>>();
+  private readonly cacheDirecciones = new Map<string, Entrada<DireccionLugar>>();
   private readonly cacheTrayectos = new Map<string, Entrada<Trayecto>>();
   private cacheCambio?: Entrada<TiposDeCambio>;
 
@@ -104,11 +144,18 @@ export class GeoService {
     return Boolean(this.apiKey);
   }
 
-  async autocompletar(termino: string, sessionToken?: string): Promise<SugerenciaLugar[]> {
+  async autocompletar(
+    termino: string,
+    sessionToken?: string,
+    tipo: TipoLugar = 'ciudad',
+  ): Promise<SugerenciaLugar[]> {
     const consulta = termino.trim();
     if (!consulta || !this.apiKey) return [];
 
-    const cacheado = this.leerCache(this.cacheSugerencias, consulta.toLowerCase());
+    // El tipo entra en la clave: "Calle Mayor" no devuelve lo mismo buscando
+    // poblaciones que buscando portales.
+    const clave = `${tipo}:${consulta.toLowerCase()}`;
+    const cacheado = this.leerCache(this.cacheSugerencias, clave);
     if (cacheado) return cacheado;
 
     try {
@@ -120,7 +167,7 @@ export class GeoService {
         },
         body: JSON.stringify({
           input: consulta,
-          includedPrimaryTypes: ['locality', 'administrative_area_level_2'],
+          includedPrimaryTypes: TIPOS_PLACES[tipo],
           includedRegionCodes: PAISES,
           languageCode: 'es',
           ...(sessionToken ? { sessionToken } : {}),
@@ -140,7 +187,7 @@ export class GeoService {
           secundario: p.structuredFormat?.secondaryText?.text ?? '',
         }));
 
-      this.escribirCache(this.cacheSugerencias, consulta.toLowerCase(), sugerencias, TTL_SUGERENCIAS_MS);
+      this.escribirCache(this.cacheSugerencias, clave, sugerencias, TTL_SUGERENCIAS_MS);
       return sugerencias;
     } catch (error) {
       this.logger.warn(`Autocompletado no disponible para "${consulta}": ${this.mensaje(error)}`);
@@ -177,6 +224,71 @@ export class GeoService {
       this.logger.warn(`Sin coordenadas para ${placeId}: ${this.mensaje(error)}`);
       return null;
     }
+  }
+
+  /**
+   * Dirección postal completa de un portal ya elegido, con sus coordenadas. Es
+   * lo que rellena la ficha del comercio: sin esto el comercio teclea la calle a
+   * mano y la plataforma se queda sin el punto exacto con el que situarlo en el
+   * mapa del buscador.
+   */
+  async direccion(placeId: string): Promise<DireccionLugar | null> {
+    if (!placeId || !this.apiKey) return null;
+
+    const cacheado = this.leerCache(this.cacheDirecciones, placeId);
+    if (cacheado) return cacheado;
+
+    try {
+      const respuesta = await fetch(`${PLACES_DETAILS_URL}/${encodeURIComponent(placeId)}`, {
+        headers: {
+          'X-Goog-Api-Key': this.apiKey,
+          'X-Goog-FieldMask': 'location,formattedAddress,addressComponents',
+        },
+      });
+
+      if (!respuesta.ok) throw new Error(`Places details: ${respuesta.status}`);
+
+      const datos = (await respuesta.json()) as RespuestaDetalles;
+      const lat = datos.location?.latitude;
+      const lng = datos.location?.longitude;
+      if (lat == null || lng == null) return null;
+
+      const direccion = this.componerDireccion(datos, lat, lng);
+      this.escribirCache(this.cacheDirecciones, placeId, direccion, TTL_COORDENADAS_MS);
+      return direccion;
+    } catch (error) {
+      this.logger.warn(`Sin dirección para ${placeId}: ${this.mensaje(error)}`);
+      return null;
+    }
+  }
+
+  /**
+   * Traduce los componentes de Google a los campos del formulario. Se buscan
+   * alternativas por campo porque no todos los países usan los mismos tipos:
+   * en España la provincia es `administrative_area_level_2`, pero en las
+   * ciudades autónomas y en otros países llega sólo el nivel 1.
+   */
+  private componerDireccion(datos: RespuestaDetalles, lat: number, lng: number): DireccionLugar {
+    const componentes = datos.addressComponents ?? [];
+    const buscar = (...tipos: string[]): string => {
+      for (const tipo of tipos) {
+        const encontrado = componentes.find((c) => c.types?.includes(tipo));
+        if (encontrado?.longText) return encontrado.longText;
+      }
+      return '';
+    };
+
+    return {
+      calle: buscar('route'),
+      numero: buscar('street_number'),
+      codigoPostal: buscar('postal_code'),
+      ciudad: buscar('locality', 'postal_town', 'administrative_area_level_3'),
+      provincia: buscar('administrative_area_level_2', 'administrative_area_level_1'),
+      pais: buscar('country'),
+      formateada: datos.formattedAddress ?? '',
+      lat,
+      lng,
+    };
   }
 
   /**

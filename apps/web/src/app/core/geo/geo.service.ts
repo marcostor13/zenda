@@ -18,6 +18,22 @@ export interface CoordenadasLugar {
   lng: number;
 }
 
+/** Dirección postal desmenuzada, para rellenar el formulario del comercio. */
+export interface DireccionLugar {
+  calle: string;
+  numero: string;
+  codigoPostal: string;
+  ciudad: string;
+  provincia: string;
+  pais: string;
+  formateada: string;
+  lat: number;
+  lng: number;
+}
+
+/** Qué se busca: poblaciones (buscador) o portales con calle y número (ficha). */
+export type TipoLugar = 'ciudad' | 'direccion';
+
 export interface TiposDeCambio {
   base: 'EUR';
   fecha: string;
@@ -46,10 +62,10 @@ export class GeoService {
 
   private cambio$?: Observable<TiposDeCambio>;
 
-  autocompletar(termino: string): Observable<SugerenciaLugar[]> {
+  autocompletar(termino: string, tipo: TipoLugar = 'ciudad'): Observable<SugerenciaLugar[]> {
     return this.http
       .get<SugerenciaLugar[]>(`${this.base}/autocomplete`, {
-        params: { q: termino, session: this.sessionToken },
+        params: { q: termino, session: this.sessionToken, tipo },
       })
       .pipe(catchError(() => of([])));
   }
@@ -66,6 +82,17 @@ export class GeoService {
     try {
       return await firstValueFrom(
         this.http.get<CoordenadasLugar | null>(`${this.base}/geocode`, { params: { placeId } }),
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /** Dirección postal completa y coordenadas del portal elegido. */
+  async direccion(placeId: string): Promise<DireccionLugar | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<DireccionLugar | null>(`${this.base}/direccion`, { params: { placeId } }),
       );
     } catch {
       return null;
