@@ -185,8 +185,9 @@ Añadido después el resto de prioridades del cliente:
 - **Plan completo**: precio, **límite de servicios usados** con barra, y comparativa con el plan
   siguiente. *"Contactar para cambiar plan"* → **"Ver planes y mejorar mi plan"**.
 
-**Falta:** subida real de PDF/JPG (hoy se pega una URL), mapa en Ubicación, contador de
-caracteres y guardado automático.
+Añadido después el **contador de caracteres** de la descripción, con una guía de qué contar
+cuando el texto se queda corto.
+**Falta:** subida real de PDF/JPG (hoy se pega una URL), mapa en Ubicación y guardado automático.
 
 ### F5 — Panel admin (avance parcial)
 
@@ -251,7 +252,8 @@ Añadidos después el **objetivo** (captación, más reservas, reactivación, ca
 estacional, fidelización Alpha) y la **segmentación** (todos, nuevos, sin reservas, recurrentes,
 inactivos, por nivel Alpha) con detalle de ciudad o categoría. Guardarlos es lo que permitirá
 comparar después qué tipo de campaña funciona.
-**Falta:** enlazar campaña y cupón desde la misma pantalla.
+Añadido después el **enlace campaña ↔ cupón**: al crear o editar un cupón se elige la campaña a
+la que pertenece. Con esto el ticket queda cerrado.
 
 **TCK-8039 🟡 Comunidad.** Cabecera reescrita y estado vacío que explica qué aparecerá ahí.
 Añadido después: **pestañas Pendientes / Publicados / Rechazados con contador** y **buscador**
@@ -349,7 +351,8 @@ No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
    Añadido después: el **comercio abre incidencias desde su pantalla de reservas** (tipo, asunto
    y descripción, sobre la reserva concreta).
    Y también **desde el detalle de reserva del cliente** ("Tengo un problema con esta reserva").
-   **Falta:** enlazar el KPI del dashboard, que hoy cuenta reservas en disputa y no incidencias.
+   El **KPI del dashboard** ya cuenta incidencias abiertas o en revisión del módulo propio, no
+   reservas marcadas en disputa: son cosas distintas y el admin actúa sobre las primeras.
 5. **Administradores y permisos + historial ✅ hecho** (§7, y con ello 8030 §8, 8034 y 8035 §9).
    - **Auditoría**: colección `auditoria` de sólo escritura y pantalla `/admin/auditoria` con
      filtros por área y buscador. Se registran cambios de comisión (con el *de cuánto a cuánto*),

@@ -1,7 +1,8 @@
-import { Component, signal, computed, inject, OnInit, WritableSignal } from '@angular/core';
+import { Component, signal, computed, inject, DestroyRef, OnInit, WritableSignal } from '@angular/core';
 import { UpperCasePipe, TitleCasePipe } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
@@ -170,6 +171,14 @@ function comoArray(v?: string): string[] {
           <label class="rs-lbl">Descripción del negocio</label>
           <textarea class="rs-inp" formControlName="descripcion" rows="3"
                     placeholder="Describe tu negocio, tu experiencia y lo que lo hace especial…" style="resize:vertical"></textarea>
+          <!-- Contador y guía de qué contar (TCK-8028) -->
+          <span class="rs-field-hint contador" [class.contador--corta]="caracteresDescripcion() < 120">
+            {{ caracteresDescripcion() }} / {{ MAX_DESCRIPCION }} caracteres.
+            @if (caracteresDescripcion() < 120) {
+              Cuenta qué te diferencia, con quién trabajas y qué incluye tu servicio: las fichas
+              con más detalle reciben más reservas.
+            }
+          </span>
         </div>
 
         <div class="form-row">
@@ -774,6 +783,9 @@ function comoArray(v?: string): string[] {
     .doc-caduca--pronto { color: #B45309; }
     .doc-caduca--caducado { color: var(--c-red, #B91C1C); font-weight: var(--w-6); }
 
+    .contador { display: block; margin-top: var(--sp-1); }
+    .contador--corta { color: #B45309; }
+
     .excepciones { margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--b-1); }
     .excepciones__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
     .excepciones__lista { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-3) 0; }
@@ -890,6 +902,7 @@ function comoArray(v?: string): string[] {
 export class ComercioConfigComponent implements OnInit {
   private readonly comercioApi = inject(ComercioApiService);
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly comercio = signal<MiComercio | null>(null);
   readonly guardado = signal(false);
@@ -936,6 +949,10 @@ export class ComercioConfigComponent implements OnInit {
   readonly guardandoPoliticas = signal(false);
   readonly guardandoVerificacion = signal(false);
   readonly guardandoExcepciones = signal(false);
+
+  /** Longitud de la descripción, para el contador (TCK-8028). */
+  readonly MAX_DESCRIPCION = 600;
+  readonly caracteresDescripcion = signal(0);
 
   /** Cuántos servicios tiene publicados, para el límite del plan (TCK-8028). */
   readonly serviciosPublicados = signal(0);
@@ -1079,6 +1096,11 @@ export class ComercioConfigComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    // El contador se mantiene al día mientras se escribe.
+    this.infoForm.controls.descripcion.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((texto) => this.caracteresDescripcion.set(String(texto ?? '').length));
+
     try {
       const data = await firstValueFrom(this.comercioApi.getMiComercio());
       this.aplicarDatos(data);
@@ -1116,6 +1138,7 @@ export class ComercioConfigComponent implements OnInit {
   private aplicarDatos(data: MiComercio): void {
     this.comercio.set(data);
     this.excepciones.set(data.excepcionesHorario ?? []);
+    this.caracteresDescripcion.set((data.descripcion ?? '').length);
 
     this.infoForm.patchValue({
       nombreComercial: data.nombreComercial,

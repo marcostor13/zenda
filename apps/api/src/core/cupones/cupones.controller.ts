@@ -31,13 +31,14 @@ export class CuponesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Crear un cupón (admin)' })
   crear(@Body() dto: CrearCuponDto): Promise<CuponDocument> {
-    const { comercioId, ...resto } = dto;
+    const { comercioId, campanaId, ...resto } = dto;
     return this.cuponesRepo.crear({
       ...resto,
       vertical: dto.vertical ?? 'global',
       validoHasta: dto.validoHasta ? new Date(dto.validoHasta) : undefined,
       // El DTO viaja con el id en texto; el documento lo guarda como ObjectId.
       comercioId: comercioId ? new Types.ObjectId(comercioId) : undefined,
+      campanaId: campanaId ? new Types.ObjectId(campanaId) : undefined,
     });
   }
 

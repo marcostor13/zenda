@@ -175,7 +175,9 @@ export class AdminService {
         { $match: { estado: ReservaEstado.PAGO_RETENIDO } },
         { $group: { _id: null, monto: { $sum: '$montoTotal' }, count: { $sum: 1 } } },
       ]).exec(),
-      this.reservaModel.countDocuments({ estado: ReservaEstado.EN_DISPUTA }).exec(),
+      // Incidencias del módulo propio, no reservas marcadas en disputa: son
+      // cosas distintas y el admin actúa sobre las primeras (TCK-8040 §2).
+      this.incidenciaModel.countDocuments({ estado: { $in: ['abierta', 'en_revision'] } }).exec(),
       this.pagoModel.aggregate<{ gmv: number; ingresos: number }>([
         { $match: { estado: PagoEstado.APROBADO, createdAt: enPeriodoPrevio } },
         { $group: { _id: null, gmv: { $sum: '$montoTotal' }, ingresos: { $sum: '$comisionPlataforma' } } },

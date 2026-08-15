@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsIn, IsBoolean, IsEnum, Min, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsIn, IsBoolean, IsEnum, IsMongoId, Min, IsDateString } from 'class-validator';
 import { AsumeDescuento } from '../../enums/evento.enum';
 
 export class ValidarCuponDto {
@@ -88,4 +88,9 @@ export class CrearCuponDto {
   @IsNumber()
   @Min(0)
   nivelAlphaMinimo?: number;
+
+  /** Campaña a la que pertenece el cupón (TCK-8038 §5). */
+  @IsOptional()
+  @IsMongoId()
+  campanaId?: string;
 }

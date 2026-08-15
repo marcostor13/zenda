@@ -28,6 +28,8 @@ export interface Cupon {
   ciudad?: string;
   /** Nivel Alpha mínimo; 0 = cualquiera (TCK-8037 §4). */
   nivelAlphaMinimo?: number;
+  /** Campaña a la que pertenece el cupón (TCK-8038 §5). */
+  campanaId?: string;
 }
 
 @Injectable({ providedIn: 'root' })

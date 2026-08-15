@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -6,6 +7,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { CuponesAdminService, Cupon } from './services/cupones-admin.service';
 import { AdminApiService } from './admin-api.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-cupones-admin',
@@ -169,6 +171,19 @@ import { AdminApiService } from './admin-api.service';
             </div>
           </div>
 
+          <!-- Cupón y campaña dejan de ser dos apartados sueltos (TCK-8038 §5) -->
+          @if (campanas().length) {
+            <div class="rs-form-group">
+              <label class="rs-label">Campaña asociada</label>
+              <select formControlName="campanaId" class="rs-input">
+                <option value="">Sin campaña</option>
+                @for (c of campanas(); track c._id) {
+                  <option [value]="c._id">{{ c.nombre }}</option>
+                }
+              </select>
+            </div>
+          }
+
           <div class="rs-form-group">
             <label class="rs-label">Descripción</label>
             <input formControlName="descripcion" class="rs-input" placeholder="Descripción opcional" />
@@ -299,6 +314,7 @@ export class CuponesAdminComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly service = inject(CuponesAdminService);
   private readonly adminApi = inject(AdminApiService);
+  private readonly http = inject(HttpClient);
 
   readonly cupones = signal<Cupon[]>([]);
   readonly cargando = signal(true);
@@ -325,8 +341,12 @@ export class CuponesAdminComponent implements OnInit {
     comercioId: [''],
     ciudad: [''],
     nivelAlphaMinimo: [0],
+    campanaId: [''],
     descripcion: [''],
   });
+
+  /** Campañas vivas, para poder colgar el cupón de una (TCK-8038 §5). */
+  readonly campanas = signal<Array<{ _id: string; nombre: string }>>([]);
 
   /** Comercios para acotar el alcance del cupón (TCK-8037 §5). */
   readonly comercios = signal<Array<{ _id: string; nombreComercial: string }>>([]);
@@ -345,6 +365,7 @@ export class CuponesAdminComponent implements OnInit {
       comercioId: v.comercioId || undefined,
       ciudad: v.ciudad || undefined,
       nivelAlphaMinimo: Number(v.nivelAlphaMinimo) || 0,
+      campanaId: v.campanaId || undefined,
     };
   }
 
@@ -388,6 +409,15 @@ export class CuponesAdminComponent implements OnInit {
       this.comercios.set(res.items.map((c) => ({ _id: c._id, nombreComercial: c.nombreComercial })));
     } catch {
       // Sin la lista, el cupón se queda con alcance global: sigue siendo válido.
+    }
+
+    try {
+      const campanas = await firstValueFrom(
+        this.http.get<Array<{ _id: string; nombre: string }>>(`${environment.apiUrl}/campanas`),
+      );
+      this.campanas.set(campanas);
+    } catch {
+      // Sin campañas el selector no se pinta y el cupón vive suelto.
     }
   }
 
@@ -474,6 +504,7 @@ export class CuponesAdminComponent implements OnInit {
       comercioId: c.comercioId ?? '',
       ciudad: c.ciudad ?? '',
       nivelAlphaMinimo: c.nivelAlphaMinimo ?? 0,
+      campanaId: c.campanaId ?? '',
       descripcion: c.descripcion ?? '',
     });
     this.formError.set(null);
@@ -487,7 +518,7 @@ export class CuponesAdminComponent implements OnInit {
       tipo: 'porcentaje', valor: 20, vertical: 'global', montoMinimo: 0,
       topeDescuento: 0, usoMaximo: 0, validoHasta: '',
       asumeDescuento: 'plataforma', soloPrimeraReserva: false,
-      usosPorUsuario: 1, comercioId: '', ciudad: '', nivelAlphaMinimo: 0,
+      usosPorUsuario: 1, comercioId: '', ciudad: '', nivelAlphaMinimo: 0, campanaId: '',
     });
     this.usosPorUsuarioIlimitado.set(true);
     this.sinTope.set(true);
