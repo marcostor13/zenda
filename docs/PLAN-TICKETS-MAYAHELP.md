@@ -44,7 +44,13 @@ que son los que más tiempo consumen.
 ## Detalle por fase
 
 ### F1 — Errores reales
-- **TCK-8012** — al registrar un perro no se guarda/muestra la foto.
+- **TCK-8012** — al registrar un perro no se guarda/muestra la foto. **Cadena auditada entera
+  en código y sin defecto a la vista**: el formulario sube (`rs-image-upload`), el DTO y el
+  schema aceptan `fotos`, la ficha se guarda con ellas y la lista pinta `fotos[0]`. El API
+  guarda en S3 si está configurado y si no en GridFS. Si el fallo persiste en producción, el
+  sospechoso es la **configuración del entorno**, no el código: `S3_PUBLIC_BASE_URL` (un bucket
+  privado devuelve 403 al pintar la URL directa) o `API_URL` (si no está declarada, las URLs de
+  GridFS salen apuntando a `localhost`). **Queda reproducirlo en la app** antes de cerrarlo.
 - **TCK-8021 ✅ hecho** — eliminado el vertical **Cuidadores** de toda la plataforma.
   Comprobado antes en Mongo que **no había ningún servicio con ese vertical**, así que no
   hizo falta migrar datos. Tocado:
