@@ -21,6 +21,13 @@ export interface Cupon {
   asumeDescuento?: 'plataforma' | 'comercio';
   /** Sólo para clientes que aún no han reservado (TCK-8037). */
   soloPrimeraReserva?: boolean;
+  /** Usos por persona; 0 = sin límite individual (TCK-8037 §6). */
+  usosPorUsuario?: number;
+  /** Alcance: comercio o ciudad concretos (TCK-8037 §5). */
+  comercioId?: string;
+  ciudad?: string;
+  /** Nivel Alpha mínimo; 0 = cualquiera (TCK-8037 §4). */
+  nivelAlphaMinimo?: number;
 }
 
 @Injectable({ providedIn: 'root' })

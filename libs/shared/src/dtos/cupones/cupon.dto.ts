@@ -67,4 +67,25 @@ export class CrearCuponDto {
   @IsOptional()
   @IsBoolean()
   soloPrimeraReserva?: boolean;
+
+  /** Usos por persona; 0 = sin límite individual (TCK-8037 §6). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  usosPorUsuario?: number;
+
+  /** Alcance: un comercio concreto o una ciudad (TCK-8037 §5). */
+  @IsOptional()
+  @IsString()
+  comercioId?: string;
+
+  @IsOptional()
+  @IsString()
+  ciudad?: string;
+
+  /** Nivel Alpha mínimo para poder usarlo; 0 = cualquiera (TCK-8037 §4). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  nivelAlphaMinimo?: number;
 }

@@ -64,6 +64,25 @@ export class Cupon {
   @Prop({ type: Boolean, default: false })
   soloPrimeraReserva!: boolean;
 
+  /**
+   * Cuántas veces puede usarlo **cada** usuario; 0 = sin límite por persona.
+   * Sin esto, una sola persona podía agotar el cupón (TCK-8037 §6).
+   */
+  @Prop({ type: Number, default: 0 })
+  usosPorUsuario!: number;
+
+  /** Restringe el cupón a un comercio concreto; vacío = cualquiera (TCK-8037 §5). */
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Comercio' })
+  comercioId?: Types.ObjectId;
+
+  /** Restringe el cupón a una ciudad; vacío = toda España (TCK-8037 §5). */
+  @Prop({ trim: true })
+  ciudad?: string;
+
+  /** Nivel Alpha mínimo del cliente para poder usarlo; 0 = cualquiera. */
+  @Prop({ type: Number, default: 0 })
+  nivelAlphaMinimo!: number;
+
   /** Restringe el cupón a comercios de una cohorte concreta (socios fundadores…). */
   @Prop()
   cohorte?: string;

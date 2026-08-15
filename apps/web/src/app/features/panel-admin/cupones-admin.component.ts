@@ -130,6 +130,45 @@ import { AdminApiService } from './admin-api.service';
             </div>
           </div>
 
+          <!-- Alcance y límite por persona (TCK-8037 §5 y §6) -->
+          <div class="form-2">
+            <div class="rs-form-group">
+              <label class="rs-label">Dónde funciona</label>
+              <select formControlName="comercioId" class="rs-input">
+                <option value="">Toda la plataforma</option>
+                @for (c of comercios(); track c._id) {
+                  <option [value]="c._id">Solo {{ c.nombreComercial }}</option>
+                }
+              </select>
+            </div>
+            <div class="rs-form-group">
+              <label class="rs-label">Ciudad (opcional)</label>
+              <input formControlName="ciudad" class="rs-input" placeholder="Ej. Valencia" />
+            </div>
+          </div>
+
+          <div class="form-2">
+            <div class="rs-form-group">
+              <label class="rs-label">Usos por persona</label>
+              @if (!usosPorUsuarioIlimitado()) {
+                <input formControlName="usosPorUsuario" type="number" min="1" class="rs-input" />
+              }
+              <label class="casilla">
+                <input type="checkbox" [checked]="usosPorUsuarioIlimitado()"
+                       (change)="alternarUsosPorUsuario()" /> Sin límite por persona
+              </label>
+            </div>
+            <div class="rs-form-group">
+              <label class="rs-label">Nivel Alpha mínimo</label>
+              <select formControlName="nivelAlphaMinimo" class="rs-input">
+                <option [value]="0">Cualquier cliente</option>
+                <option [value]="1">ALPHA I o superior</option>
+                <option [value]="2">ALPHA II o superior</option>
+                <option [value]="3">ALPHA III</option>
+              </select>
+            </div>
+          </div>
+
           <div class="rs-form-group">
             <label class="rs-label">Descripción</label>
             <input formControlName="descripcion" class="rs-input" placeholder="Descripción opcional" />
@@ -166,6 +205,9 @@ import { AdminApiService } from './admin-api.service';
                   @if ((c.usoMaximo ?? 0) > 0) { · máx {{ c.usoMaximo }} usos }
                   · lo asume {{ c.asumeDescuento === 'comercio' ? 'el comercio' : 'Doogking' }}
                   @if (c.soloPrimeraReserva) { · sólo clientes nuevos }
+                  @if (c.ciudad) { · sólo en {{ c.ciudad }} }
+                  @if (c.comercioId) { · un solo comercio }
+                  @if (c.usosPorUsuario) { · máx {{ c.usosPorUsuario }} por persona }
                   @if (c.validoHasta) { · hasta {{ c.validoHasta.slice(0, 10) }} }
                 </div>
                 <div class="cupon-uso">
@@ -279,8 +321,32 @@ export class CuponesAdminComponent implements OnInit {
     validoHasta: [''],
     asumeDescuento: ['plataforma' as 'plataforma' | 'comercio'],
     soloPrimeraReserva: [false],
+    usosPorUsuario: [1],
+    comercioId: [''],
+    ciudad: [''],
+    nivelAlphaMinimo: [0],
     descripcion: [''],
   });
+
+  /** Comercios para acotar el alcance del cupón (TCK-8037 §5). */
+  readonly comercios = signal<Array<{ _id: string; nombreComercial: string }>>([]);
+  readonly usosPorUsuarioIlimitado = signal(true);
+
+  alternarUsosPorUsuario(): void {
+    this.usosPorUsuarioIlimitado.update((v) => !v);
+    if (this.usosPorUsuarioIlimitado()) this.form.patchValue({ usosPorUsuario: 0 });
+  }
+
+  /** Los campos de alcance viajan juntos: se arman una sola vez. */
+  private alcanceDelFormulario(): Record<string, unknown> {
+    const v = this.form.value;
+    return {
+      usosPorUsuario: this.usosPorUsuarioIlimitado() ? 0 : Number(v.usosPorUsuario) || 0,
+      comercioId: v.comercioId || undefined,
+      ciudad: v.ciudad || undefined,
+      nivelAlphaMinimo: Number(v.nivelAlphaMinimo) || 0,
+    };
+  }
 
   /** Opciones especiales como casilla, no como un 0 con significado oculto. */
   readonly sinTope = signal(true);
@@ -315,8 +381,14 @@ export class CuponesAdminComponent implements OnInit {
     return this.form.value.tipo === 'porcentaje' ? valor / 100 : valor;
   }
 
-  ngOnInit(): void {
-    void this.cargar();
+  async ngOnInit(): Promise<void> {
+    await this.cargar();
+    try {
+      const res = await firstValueFrom(this.adminApi.getComercios({ limite: 200 }));
+      this.comercios.set(res.items.map((c) => ({ _id: c._id, nombreComercial: c.nombreComercial })));
+    } catch {
+      // Sin la lista, el cupón se queda con alcance global: sigue siendo válido.
+    }
   }
 
   private async cargar(): Promise<void> {
@@ -348,6 +420,7 @@ export class CuponesAdminComponent implements OnInit {
           validoHasta: this.sinCaducidad() || !v.validoHasta ? undefined : v.validoHasta,
           asumeDescuento: v.asumeDescuento ?? 'plataforma',
           soloPrimeraReserva: !!v.soloPrimeraReserva,
+          ...this.alcanceDelFormulario(),
           descripcion: v.descripcion || undefined,
         }));
         this.formOk.set('Cupón actualizado correctamente.');
@@ -364,6 +437,7 @@ export class CuponesAdminComponent implements OnInit {
           validoHasta: this.sinCaducidad() || !v.validoHasta ? undefined : v.validoHasta,
           asumeDescuento: v.asumeDescuento ?? 'plataforma',
           soloPrimeraReserva: !!v.soloPrimeraReserva,
+          ...this.alcanceDelFormulario(),
         });
         this.formOk.set('Cupón creado correctamente.');
         this.form.patchValue({ codigo: '' });
@@ -383,6 +457,7 @@ export class CuponesAdminComponent implements OnInit {
     this.sinTope.set(!(c.topeDescuento ?? 0));
     this.usosIlimitados.set(!(c.usoMaximo ?? 0));
     this.sinCaducidad.set(!c.validoHasta);
+    this.usosPorUsuarioIlimitado.set(!(c.usosPorUsuario ?? 0));
     this.formularioVisible.set(true);
     this.form.patchValue({
       codigo: c.codigo,
@@ -395,6 +470,10 @@ export class CuponesAdminComponent implements OnInit {
       validoHasta: c.validoHasta ? String(c.validoHasta).slice(0, 10) : '',
       asumeDescuento: c.asumeDescuento ?? 'plataforma',
       soloPrimeraReserva: c.soloPrimeraReserva ?? false,
+      usosPorUsuario: c.usosPorUsuario ?? 1,
+      comercioId: c.comercioId ?? '',
+      ciudad: c.ciudad ?? '',
+      nivelAlphaMinimo: c.nivelAlphaMinimo ?? 0,
       descripcion: c.descripcion ?? '',
     });
     this.formError.set(null);
@@ -408,7 +487,9 @@ export class CuponesAdminComponent implements OnInit {
       tipo: 'porcentaje', valor: 20, vertical: 'global', montoMinimo: 0,
       topeDescuento: 0, usoMaximo: 0, validoHasta: '',
       asumeDescuento: 'plataforma', soloPrimeraReserva: false,
+      usosPorUsuario: 1, comercioId: '', ciudad: '', nivelAlphaMinimo: 0,
     });
+    this.usosPorUsuarioIlimitado.set(true);
     this.sinTope.set(true);
     this.usosIlimitados.set(true);
     this.sinCaducidad.set(true);

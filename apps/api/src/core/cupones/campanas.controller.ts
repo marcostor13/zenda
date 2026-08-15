@@ -1,12 +1,13 @@
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { IsArray, IsBoolean, IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import { Rol } from 'shared';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { CampanaDocument } from './campana.schema';
 import { CampanasService, MetricasCampana } from './campanas.service';
+import { ObjetivoCampana, SegmentoCampana } from 'shared';
 
 interface RequestConUsuario extends Request {
   user: { sub: string };
@@ -30,6 +31,16 @@ class GuardarCampanaDto {
 
   @IsOptional() @IsBoolean()
   activa?: boolean;
+
+  /** Para qué se lanza y a quién se dirige (TCK-8038 §3 y §4). */
+  @IsOptional() @IsEnum(ObjetivoCampana)
+  objetivo?: ObjetivoCampana;
+
+  @IsOptional() @IsEnum(SegmentoCampana)
+  segmento?: SegmentoCampana;
+
+  @IsOptional() @IsString()
+  segmentoDetalle?: string;
 }
 
 @ApiTags('campanas')

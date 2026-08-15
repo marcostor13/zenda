@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
+import { ObjetivoCampana, SegmentoCampana } from 'shared';
 
 export type CampanaDocument = HydratedDocument<Campana>;
 
@@ -36,6 +37,18 @@ export class Campana {
 
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Usuario' })
   creadaPor?: Types.ObjectId;
+
+  /** Para qué se lanza; permite comparar resultados por objetivo (TCK-8038 §3). */
+  @Prop({ type: String, enum: Object.values(ObjetivoCampana) })
+  objetivo?: ObjetivoCampana;
+
+  /** A quién se dirige (TCK-8038 §4). */
+  @Prop({ type: String, enum: Object.values(SegmentoCampana), default: SegmentoCampana.TODOS })
+  segmento!: SegmentoCampana;
+
+  /** Ciudad o categoría concreta cuando el objetivo lo pide. */
+  @Prop({ trim: true })
+  segmentoDetalle?: string;
 }
 
 export const CampanaSchema = SchemaFactory.createForClass(Campana);

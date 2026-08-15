@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Types } from 'mongoose';
 import { CuponesService, DescuentoAplicado } from './cupones.service';
 import { CuponesRepository } from './cupones.repository';
 import { Cupon, CuponDocument } from './cupon.schema';
@@ -30,10 +31,13 @@ export class CuponesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Crear un cupón (admin)' })
   crear(@Body() dto: CrearCuponDto): Promise<CuponDocument> {
+    const { comercioId, ...resto } = dto;
     return this.cuponesRepo.crear({
-      ...dto,
+      ...resto,
       vertical: dto.vertical ?? 'global',
       validoHasta: dto.validoHasta ? new Date(dto.validoHasta) : undefined,
+      // El DTO viaja con el id en texto; el documento lo guarda como ObjectId.
+      comercioId: comercioId ? new Types.ObjectId(comercioId) : undefined,
     });
   }
 

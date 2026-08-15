@@ -5,6 +5,10 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
+import {
+  OBJETIVO_CAMPANA_LABELS, ObjetivoCampana,
+  SEGMENTO_CAMPANA_LABELS, SegmentoCampana,
+} from 'shared';
 
 interface CampanaApi {
   _id: string;
@@ -70,6 +74,32 @@ interface MetricaApi {
           <input id="ca-hasta" type="date" class="rs-inp" [(ngModel)]="hasta" />
         </div>
       </div>
+      <!-- Objetivo y segmento: sin esto no se puede comparar qué funciona (TCK-8038) -->
+      <div class="ac__form-campos">
+        <div class="rs-field">
+          <label class="rs-lbl" for="ca-objetivo">Objetivo</label>
+          <select id="ca-objetivo" class="rs-inp" [(ngModel)]="objetivo">
+            <option value="">Sin definir</option>
+            @for (o of objetivos; track o.valor) {
+              <option [value]="o.valor">{{ o.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="rs-field">
+          <label class="rs-lbl" for="ca-segmento">A quién se dirige</label>
+          <select id="ca-segmento" class="rs-inp" [(ngModel)]="segmento">
+            @for (sg of segmentos; track sg.valor) {
+              <option [value]="sg.valor">{{ sg.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="rs-field">
+          <label class="rs-lbl" for="ca-detalle">Ciudad o categoría (opcional)</label>
+          <input id="ca-detalle" class="rs-inp" [(ngModel)]="segmentoDetalle"
+                 placeholder="Ej. Valencia o peluquería" />
+        </div>
+      </div>
+
       <div class="rs-field">
         <label class="rs-lbl" for="ca-desc">Descripción</label>
         <input id="ca-desc" class="rs-inp" [(ngModel)]="descripcion" />
@@ -239,6 +269,16 @@ export class AdminCampanasComponent implements OnInit {
   descripcion = '';
   desde = '';
   hasta = '';
+  objetivo = '';
+  segmento: string = SegmentoCampana.TODOS;
+  segmentoDetalle = '';
+
+  readonly objetivos = Object.values(ObjetivoCampana).map((valor) => ({
+    valor, label: OBJETIVO_CAMPANA_LABELS[valor],
+  }));
+  readonly segmentos = Object.values(SegmentoCampana).map((valor) => ({
+    valor, label: SEGMENTO_CAMPANA_LABELS[valor],
+  }));
 
   async ngOnInit(): Promise<void> {
     await this.cargar();
@@ -271,8 +311,12 @@ export class AdminCampanasComponent implements OnInit {
         descripcion: this.descripcion.trim() || undefined,
         desde: this.desde,
         hasta: this.hasta,
+        objetivo: this.objetivo || undefined,
+        segmento: this.segmento,
+        segmentoDetalle: this.segmentoDetalle.trim() || undefined,
       }));
       this.nombre = ''; this.descripcion = ''; this.desde = ''; this.hasta = '';
+      this.objetivo = ''; this.segmento = SegmentoCampana.TODOS; this.segmentoDetalle = '';
       this.formularioAbierto.set(false);
       await this.cargar();
     } catch (e) {

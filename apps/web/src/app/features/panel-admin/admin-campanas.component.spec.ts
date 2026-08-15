@@ -129,8 +129,11 @@ describe('AdminCampanasComponent', () => {
 
       const promesa = componente.crear();
       const req = httpMock.expectOne((r) => r.url.endsWith('/campanas') && r.method === 'POST');
+      // Objetivo y segmento viajan siempre: sin ellos no se pueden comparar
+      // resultados por tipo de campaña (TCK-8038).
       expect(req.request.body).toEqual({
         nombre: 'Navidad', descripcion: 'Promo', desde: '2026-12-01', hasta: '2026-12-31',
+        objetivo: undefined, segmento: 'todos', segmentoDetalle: undefined,
       });
       req.flush({ _id: 'k2' });
       await fixture.whenStable();

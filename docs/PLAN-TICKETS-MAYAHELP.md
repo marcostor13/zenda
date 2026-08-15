@@ -237,13 +237,18 @@ listado pasa a ancho completo y el formulario se abre con *Nuevo cupón*.
 Añadido después: **quién asume el descuento** (Doogking / el comercio) y **sólo clientes nuevos**,
 que ya existían en el schema y no se podían tocar desde el panel; ambos se ven también en el
 listado junto a la fecha de caducidad.
-**Falta:** audiencia por nivel Alpha o usuarios seleccionados, alcance por comercio o ciudad, y
-usos por usuario.
+Añadidos después el **alcance** (un comercio concreto o una ciudad), el **límite de usos por
+persona** —sin él una sola persona podía agotar el cupón— y el **nivel Alpha mínimo**. Todo se ve
+también en el listado. Con esto el ticket queda cerrado.
 
 **TCK-8038 🟡 Campañas.** Cabecera reescrita (*"Gestiona, segmenta y analiza las campañas
 promocionales de Doogking"*) y estado vacío trabajado con explicación, botón *Crear primera
 campaña* y los tres ejemplos de objetivo.
-**Falta:** objetivo y segmentación de la campaña, y enlazarla con cupones (necesita backend).
+Añadidos después el **objetivo** (captación, más reservas, reactivación, categoría, zona,
+estacional, fidelización Alpha) y la **segmentación** (todos, nuevos, sin reservas, recurrentes,
+inactivos, por nivel Alpha) con detalle de ciudad o categoría. Guardarlos es lo que permitirá
+comparar después qué tipo de campaña funciona.
+**Falta:** enlazar campaña y cupón desde la misma pantalla.
 
 **TCK-8039 🟡 Comunidad.** Cabecera reescrita y estado vacío que explica qué aparecerá ahí.
 Añadido después: **pestañas Pendientes / Publicados / Rechazados con contador** y **buscador**

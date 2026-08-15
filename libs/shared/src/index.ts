@@ -31,6 +31,8 @@ export * from './dtos/admin/reporte-financiero.dto';
 
 // DTOs — Alpha (Doogking Alpha, Bloque 13)
 export * from './dtos/alpha/alpha.dto';
+// Objetivo y segmentación de campañas (TCK-8038)
+export * from './enums/campana.enum';
 // Avisos automáticos de la plataforma (TCK-8040 §6)
 export * from './enums/aviso.enum';
 // Permisos y estados del equipo del comercio (TCK-8026/8027)
