@@ -1,15 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { GeoService } from '../../../core/geo/geo.service';
 import { RsMapaComponent, PuntoMapa } from './rs-mapa.component';
 
 /**
- * Leaflet necesita un contenedor con tamaño real y APIs que jsdom no
- * implementa del todo, así que aquí se comprueba lo que sí es verificable sin
- * un navegador: que el componente monta sin romper, expone el lienzo accesible
- * y sobrevive a que el mapa no llegue a inicializarse.
+ * El proveedor del mapa (Google Maps u OpenStreetMap) necesita un contenedor
+ * con tamaño real y APIs que jsdom no implementa del todo, así que aquí se
+ * comprueba lo que sí es verificable sin un navegador: que el componente monta
+ * sin romper, expone el lienzo accesible, pide la clave al API y sobrevive a
+ * que el mapa no llegue a inicializarse.
  */
 describe('RsMapaComponent', () => {
   let fixture: ComponentFixture<RsMapaComponent>;
   let componente: RsMapaComponent;
+  let geoService: jest.Mocked<Pick<GeoService, 'claveMapas'>>;
 
   const puntos: PuntoMapa[] = [
     { id: 'a1', lat: 40.4168, lng: -3.7038, etiqueta: '€24', titulo: 'Residencia Las Rozas' },
@@ -17,7 +20,13 @@ describe('RsMapaComponent', () => {
   ];
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [RsMapaComponent] }).compileComponents();
+    geoService = { claveMapas: jest.fn().mockResolvedValue('') };
+
+    await TestBed.configureTestingModule({
+      imports: [RsMapaComponent],
+      providers: [{ provide: GeoService, useValue: geoService }],
+    }).compileComponents();
+
     fixture = TestBed.createComponent(RsMapaComponent);
     componente = fixture.componentInstance;
   });
@@ -32,6 +41,20 @@ describe('RsMapaComponent', () => {
     expect(lienzo).toBeTruthy();
     expect(lienzo.getAttribute('role')).toBe('application');
     expect(lienzo.getAttribute('aria-label')).toBe('Mapa de alojamientos');
+  });
+
+  it('debería preguntar al API por la clave de Google Maps al montarse', async () => {
+    fixture.detectChanges();
+    await componente.ngAfterViewInit();
+
+    expect(geoService.claveMapas).toHaveBeenCalled();
+  });
+
+  it('no debería romper si el API no responde con la clave', async () => {
+    geoService.claveMapas.mockRejectedValue(new Error('API caído'));
+    fixture.detectChanges();
+
+    await expect(componente.ngAfterViewInit()).resolves.toBeUndefined();
   });
 
   it('no debería romper al recibir puntos antes de que el mapa esté listo', () => {

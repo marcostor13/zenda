@@ -32,18 +32,30 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
            (puntoElegido)="puntoElegido.emit($event)"
            (zonaCambiada)="alMoverMapa($event)" />
 
-  <!-- Caja "Buscar en el mapa": recentra sin tocar el resto de filtros -->
-  <div class="mb__buscar">
-    <rs-place-autocomplete
-      inputId="mapa-buscar"
-      placeholder="Buscar en el mapa"
-      (lugarElegido)="irALugar($event)" />
-  </div>
+  <!-- Buscador, cierre y estado en una sola rejilla: repartirse el ancho entre
+       ellos es lo que evita que en móvil se pisen o se salgan de la pantalla. -->
+  <div class="mb__superior">
+    <!-- Caja "Buscar en el mapa": recentra sin tocar el resto de filtros -->
+    <div class="mb__buscar">
+      <rs-place-autocomplete
+        inputId="mapa-buscar"
+        placeholder="Buscar en el mapa"
+        (lugarElegido)="irALugar($event)" />
+    </div>
 
-  <button type="button" class="mb__cerrar" (click)="cerrar.emit()">
-    Cerrar el mapa
-    <rs-icon name="x" [size]="18" [stroke]="2" />
-  </button>
+    <button type="button" class="mb__cerrar" aria-label="Cerrar el mapa" (click)="cerrar.emit()">
+      <span class="mb__cerrar-txt">Cerrar el mapa</span>
+      <rs-icon name="x" [size]="18" [stroke]="2" />
+    </button>
+
+    <p class="mb__estado" role="status">
+      @if (cargando()) {
+        Buscando en esta zona…
+      } @else {
+        {{ resumen() }}
+      }
+    </p>
+  </div>
 
   <!-- Controles de zona: réplica del "Buscar mientras me desplazo" de Booking -->
   <div class="mb__zona">
@@ -59,14 +71,6 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
       </button>
     }
   </div>
-
-  <p class="mb__estado" role="status">
-    @if (cargando()) {
-      Buscando en esta zona…
-    } @else {
-      {{ resumen() }}
-    }
-  </p>
 </div>
   `,
   styles: [`
@@ -75,18 +79,40 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
     .mb { position: relative; height: 100%; }
     .mb__lienzo { height: 100%; }
 
-    /* Los controles flotan sobre el lienzo; por encima del panel de Leaflet
-       (z-index 400 en su hoja) o quedarían tapados por los tiles. */
+    /* Los controles flotan sobre el lienzo; por encima del panel del proveedor
+       del mapa (Leaflet usa z-index 400) o quedarían tapados por las teselas. */
+    .mb__superior,
+    .mb__zona {
+      position: absolute;
+      z-index: 500;
+      /* Las dos barras cruzan el mapa de lado a lado; sin esto sus huecos
+         vacíos se comerían el arrastre justo en las franjas superior e
+         inferior, que en móvil son media pantalla. */
+      pointer-events: none;
+    }
+
     .mb__buscar,
     .mb__cerrar,
-    .mb__zona,
-    .mb__estado { position: absolute; z-index: 500; }
+    .mb__estado,
+    .mb__auto,
+    .mb__rebuscar { pointer-events: auto; }
+
+    /* La caja de búsqueda se queda con el ancho sobrante y el cierre ocupa lo
+       que necesite. Con anchos fijos se solapaban en cuanto el mapa compartía
+       pantalla con la lista, que es el caso normal en escritorio. */
+    .mb__superior {
+      top: var(--sp-4);
+      left: var(--sp-4);
+      right: var(--sp-4);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      gap: var(--sp-3);
+    }
 
     .mb__buscar {
-      top: var(--sp-4);
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(420px, calc(100% - var(--sp-8)));
+      grid-column: 1;
+      max-width: 420px;
       padding: var(--sp-2) var(--sp-4);
       background: var(--c-card);
       border: 2px solid var(--dk-gold);
@@ -95,11 +121,16 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
     }
 
     .mb__cerrar {
-      top: var(--sp-4);
-      right: var(--sp-4);
+      grid-column: 2;
+      justify-self: end;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: var(--sp-2);
+      min-height: 44px;
+      /* Sin esto, en la columna estrecha del mapa el texto se parte en tres
+         líneas y el botón crece hasta tapar la caja de búsqueda. */
+      white-space: nowrap;
       padding: var(--sp-3) var(--sp-4);
       background: var(--c-card);
       border: 1px solid var(--b-1);
@@ -115,9 +146,11 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
     }
 
     .mb__zona {
-      bottom: var(--sp-4);
-      left: 50%;
-      transform: translateX(-50%);
+      /* En móvil la barra del navegador se come la franja inferior: el área
+         segura levanta los controles justo lo necesario para poder pulsarlos. */
+      bottom: max(var(--sp-4), env(safe-area-inset-bottom, 0px));
+      left: var(--sp-4);
+      right: var(--sp-4);
       display: flex;
       align-items: center;
       gap: var(--sp-3);
@@ -129,6 +162,7 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
       display: inline-flex;
       align-items: center;
       gap: var(--sp-2);
+      min-height: 44px;
       padding: var(--sp-2) var(--sp-4);
       background: var(--c-card);
       border: 1px solid var(--b-1);
@@ -144,6 +178,7 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
       display: inline-flex;
       align-items: center;
       gap: var(--sp-2);
+      min-height: 44px;
       padding: var(--sp-2) var(--sp-5);
       background: var(--c-accent);
       border: none;
@@ -158,23 +193,31 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
       &:hover { background: var(--c-accent-h); }
     }
 
+    /* Va bajo la caja de búsqueda, dentro de la rejilla: colocarlo con un
+       desplazamiento fijo lo dejaba encima del buscador en cuanto el texto
+       ocupaba dos líneas. */
     .mb__estado {
-      top: calc(var(--sp-4) + 58px);
-      left: 50%;
-      transform: translateX(-50%);
+      grid-column: 1;
+      justify-self: start;
+      max-width: 100%;
       padding: var(--sp-1) var(--sp-4);
       background: var(--c-card);
       border-radius: var(--r-full);
       box-shadow: var(--sh-md);
       color: var(--t-300);
       font-size: var(--f-xs);
-      white-space: nowrap;
+      text-align: center;
     }
 
+    /* Móvil: la caja de búsqueda se queda con el ancho sobrante y el cierre
+       encoge a icono, que a 320px es lo único que cabe junto a ella. */
     @media (max-width: 640px) {
-      .mb__cerrar { padding: var(--sp-2) var(--sp-3); font-size: var(--f-xs); }
-      .mb__buscar { width: calc(100% - 150px); left: var(--sp-4); transform: none; }
-      .mb__estado { left: var(--sp-4); transform: none; }
+      .mb__superior { gap: var(--sp-2); }
+      .mb__buscar { padding: var(--sp-1) var(--sp-3); }
+      .mb__cerrar { min-width: 44px; padding: var(--sp-2); }
+      .mb__estado { grid-column: 1 / -1; }
+      .mb__cerrar-txt { display: none; }
+      .mb__auto, .mb__rebuscar { font-size: var(--f-xs); }
     }
   `],
 })

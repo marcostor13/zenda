@@ -1,6 +1,8 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { CoordenadasLugar, GeoService, SugerenciaLugar, TiposDeCambio, Trayecto } from './geo.service';
+import {
+  ConfigMapas, CoordenadasLugar, GeoService, SugerenciaLugar, TiposDeCambio, Trayecto,
+} from './geo.service';
 
 /**
  * Proxy público de mapas y divisas. Es público a propósito: el buscador lo usa
@@ -11,6 +13,17 @@ import { CoordenadasLugar, GeoService, SugerenciaLugar, TiposDeCambio, Trayecto 
 @Controller('geo')
 export class GeoController {
   constructor(private readonly geoService: GeoService) {}
+
+  @Get('config')
+  @ApiOperation({
+    summary: 'Clave de navegador para pintar el mapa con Google Maps',
+    description:
+      'Devuelve cadena vacía si no está configurada, y entonces el frontend pinta el mapa con '
+      + 'OpenStreetMap. La clave de servidor (Places/Routes) nunca sale por aquí.',
+  })
+  config(): ConfigMapas {
+    return this.geoService.configMapas();
+  }
 
   @Get('autocomplete')
   @ApiOperation({ summary: 'Sugerir poblaciones desde la primera letra escrita' })

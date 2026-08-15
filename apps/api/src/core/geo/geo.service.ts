@@ -34,6 +34,15 @@ export interface Trayecto {
   esEstimacion: boolean;
 }
 
+/** Lo poco de la configuración de mapas que el navegador necesita conocer. */
+export interface ConfigMapas {
+  /**
+   * Clave de navegador para cargar Maps JavaScript. Cadena vacía = sin clave,
+   * y entonces el frontend pinta el mapa con teselas de OpenStreetMap.
+   */
+  mapsApiKey: string;
+}
+
 const PLACES_AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
 const PLACES_DETAILS_URL = 'https://places.googleapis.com/v1/places';
 const ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
@@ -88,6 +97,7 @@ interface RespuestaDetalles {
 export class GeoService {
   private readonly logger = new Logger(GeoService.name);
   private readonly apiKey?: string;
+  private readonly browserKey?: string;
 
   private readonly cacheSugerencias = new Map<string, Entrada<SugerenciaLugar[]>>();
   private readonly cacheCoordenadas = new Map<string, Entrada<CoordenadasLugar>>();
@@ -97,11 +107,22 @@ export class GeoService {
   constructor(config: ConfigService) {
     // Lectura no-eager, igual que la búsqueda con IA: el API arranca sin clave.
     this.apiKey = config.get<string>('GOOGLE_MAPS_API_KEY');
+    this.browserKey = config.get<string>('GOOGLE_MAPS_BROWSER_KEY');
   }
 
   /** true si el proxy puede responder; el frontend lo usa para degradar la UI. */
   get estaConfigurado(): boolean {
     return Boolean(this.apiKey);
+  }
+
+  /**
+   * Configuración que sí puede viajar al navegador. Es una clave aparte y
+   * restringida por dominio a propósito: Maps JavaScript se ejecuta en el
+   * cliente, así que su clave es pública, mientras que `GOOGLE_MAPS_API_KEY`
+   * es de servidor y publicarla dejaría facturar Places contra ella.
+   */
+  configMapas(): ConfigMapas {
+    return { mapsApiKey: this.browserKey?.trim() ?? '' };
   }
 
   async autocompletar(termino: string, sessionToken?: string): Promise<SugerenciaLugar[]> {

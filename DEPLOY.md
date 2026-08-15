@@ -76,6 +76,29 @@ Añade también `API_URL` con el dominio público del API
 (`API_URL=https://apizenda.marcostorresalarcon.com`): es la base de los enlaces de
 los callbacks de calendario **y de las URLs de las imágenes subidas** (§2.3.1).
 
+#### 2.3.0 Mapas: dos claves de Google distintas
+
+El mapa de resultados se pinta con **Google Maps** y necesita **dos** claves
+separadas, creadas ambas en Google Cloud sobre el mismo proyecto:
+
+```
+GOOGLE_MAPS_API_KEY=<clave de servidor>
+GOOGLE_MAPS_BROWSER_KEY=<clave de navegador>
+```
+
+| Variable | Quién la usa | Cómo restringirla en Google Cloud |
+|---|---|---|
+| `GOOGLE_MAPS_API_KEY` | Solo el API (autocompletado de población, geocodificación y cálculo de trayectos). Nunca sale del servidor. | Restricción de aplicación: **direcciones IP** (o ninguna). Restricción de API: *Places API (New)* y *Routes API*. |
+| `GOOGLE_MAPS_BROWSER_KEY` | El navegador, que la pide con `GET /api/v1/geo/config` para cargar el SDK del mapa. Es **pública por diseño**: aparece en la URL del script. | Restricción de aplicación: **sitios web**, con `https://doogking.com/*`, `https://www.doogking.com/*` y `http://localhost:4200/*`. Restricción de API: **solo** *Maps JavaScript API*. |
+
+> No uses la misma clave para las dos cosas: la de servidor no lleva restricción
+> de dominio, así que publicarla permitiría a cualquiera facturar Places contra
+> la cuenta del proyecto.
+
+Sin `GOOGLE_MAPS_BROWSER_KEY` la web **no se rompe**: los listados se siguen
+viendo en el mapa, pero sobre teselas de OpenStreetMap en lugar de Google Maps.
+Es el modo en el que arranca un entorno recién montado.
+
 #### 2.3.1 Imágenes subidas (fotos de listados y de la mascota)
 
 `POST /api/v1/upload/image` tiene dos modos y **no hace falta configurar nada** para

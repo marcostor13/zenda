@@ -255,9 +255,12 @@ interface BusquedaUrl {
       .rs-result-grid { grid-template-columns: 1fr; }
 
       /* El mapa ocupa el alto de la ventana y la lista rueda a su lado: sin
-         esto habría que bajar hasta el final del listado para volver a verlo. */
+         esto habría que bajar hasta el final del listado para volver a verlo.
+         Se mide en dvh y no en vh: en móvil la barra del navegador se retrae y
+         con vh el bloque queda más alto que la pantalla, cortado por abajo. */
       .results-col {
         max-height: calc(100vh - 160px);
+        max-height: calc(100dvh - 160px);
         overflow-y: auto;
         overscroll-behavior: contain;
         padding-right: var(--sp-2);
@@ -279,12 +282,27 @@ interface BusquedaUrl {
       position: sticky;
       top: 140px;
       height: calc(100vh - 160px);
+      height: calc(100dvh - 160px);
       border: 1px solid var(--b-1);
       border-radius: var(--r-xl);
       overflow: hidden;
       box-shadow: var(--sh-md);
 
-      @media (max-width: 900px) { top: 100px; height: calc(100vh - 120px); }
+      /* En móvil el mapa pasa a ocupar la pantalla entera, como en Booking.
+         Colocado en el flujo quedaba por debajo de la cabecera y del buscador
+         y solo enseñaba un tercio de la pantalla hasta que se hacía scroll,
+         que es justo lo que no se puede hacer con el mapa abierto. */
+      @media (max-width: 900px) {
+        position: fixed;
+        inset: 0;
+        /* Por encima de la navbar (--z-3): el mapa a pantalla completa se
+           cierra con su propio botón, como en Booking. */
+        z-index: var(--z-4);
+        height: 100vh;
+        height: 100dvh;
+        border: none;
+        border-radius: 0;
+      }
     }
 
     /* SIDEBAR */
