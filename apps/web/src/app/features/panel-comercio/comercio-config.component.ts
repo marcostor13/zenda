@@ -1,6 +1,7 @@
 import { Component, signal, computed, inject, DestroyRef, OnInit, WritableSignal } from '@angular/core';
 import { UpperCasePipe, TitleCasePipe } from '@angular/common';
-import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
+import { AbstractControl, ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
@@ -8,7 +9,9 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
+import { RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
 import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
+import { environment } from '../../../environments/environment';
 import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, ExcepcionHorario, DocumentoVerificacion } from './comercio-api.service';
 
 type TabConfig =
@@ -87,7 +90,7 @@ function comoArray(v?: string): string[] {
   standalone: true,
   imports: [
     UpperCasePipe, TitleCasePipe, ReactiveFormsModule,
-    RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+    RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent, RsMapaComponent,
   ],
   template: `
     <!-- Page header -->
@@ -121,7 +124,7 @@ function comoArray(v?: string): string[] {
         <p class="progreso-card__hint">Te falta por completar:</p>
         <div class="progreso-card__chips">
           @for (f of faltantes(); track f.label) {
-            <button class="progreso-chip" (click)="tab.set(f.tab)">
+            <button class="progreso-chip" (click)="cambiarTab(f.tab)">
               <rs-icon name="plus" [size]="12" [stroke]="2.5"></rs-icon> {{ f.label }}
             </button>
           }
@@ -138,11 +141,20 @@ function comoArray(v?: string): string[] {
     <div class="config-tabs" role="tablist">
       @for (t of tabs; track t.clave) {
         <button class="config-tab" role="tab" [attr.aria-selected]="tab() === t.clave"
-                [class.activa]="tab() === t.clave" (click)="tab.set(t.clave)">
+                [class.activa]="tab() === t.clave" (click)="cambiarTab(t.clave)">
           <rs-icon [name]="t.icono" [size]="14" [stroke]="2"></rs-icon> {{ t.label }}
         </button>
       }
     </div>
+
+    <!-- Aviso de cambios sin guardar: guardar por sección es cómodo hasta que
+         te vas de pestaña y pierdes lo escrito (TCK-8028) -->
+    @if (hayCambiosSinGuardar()) {
+      <div class="rs-alert rs-alert--warning aviso-cambios">
+        <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+        Tienes cambios sin guardar en esta pestaña. Pulsa el botón de guardar antes de salir.
+      </div>
+    }
 
     <!-- Información del negocio -->
 @if (tab() === 'perfil') {
@@ -266,6 +278,20 @@ function comoArray(v?: string): string[] {
           </button>
         </div>
       </form>
+
+      <!-- Comprobar de un vistazo que la dirección cayó donde toca (TCK-8028) -->
+      @if (coordenadas(); as punto) {
+        <div class="mapa-ubicacion">
+          <rs-mapa [puntos]="[punto]" [centro]="{ lat: punto.lat, lng: punto.lng, zoom: 15 }" />
+          <p class="config-section__sub">
+            Si el marcador no cae donde está tu negocio, corrige la dirección y vuelve a guardar.
+          </p>
+        </div>
+      } @else {
+        <p class="config-section__sub">
+          Guarda la dirección para ver el negocio situado en el mapa.
+        </p>
+      }
     </section>
     }
 
@@ -626,6 +652,16 @@ function comoArray(v?: string): string[] {
           <div class="rs-field">
             <label class="rs-lbl">URL del documento</label>
             <input type="text" formControlName="url" class="rs-inp" placeholder="https://…" />
+            <!-- Subida real del fichero: pegar una URL a mano no lo hacía nadie (TCK-8028) -->
+            <label class="subir-doc">
+              <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp"
+                     (change)="subirDocumento($event)" />
+              <span class="rs-btn rs-btn--outline rs-btn--sm">
+                <rs-icon name="download" [size]="13" [stroke]="2"></rs-icon>
+                {{ subiendoDoc() ? 'Subiendo…' : 'Subir PDF o foto' }}
+              </span>
+            </label>
+            @if (errorDoc()) { <span class="rs-field-error">{{ errorDoc() }}</span> }
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Fecha de caducidad</label>
@@ -783,6 +819,13 @@ function comoArray(v?: string): string[] {
     .doc-caduca--pronto { color: #B45309; }
     .doc-caduca--caducado { color: var(--c-red, #B91C1C); font-weight: var(--w-6); }
 
+    .subir-doc { display: inline-block; margin-top: var(--sp-2); cursor: pointer; }
+    .subir-doc input[type="file"] { display: none; }
+    .mapa-ubicacion { margin-top: var(--sp-5); }
+    .mapa-ubicacion rs-mapa { display: block; height: 260px; border-radius: var(--r-xl); overflow: hidden; }
+
+    .aviso-cambios { display: flex; align-items: center; gap: var(--sp-2); }
+
     .contador { display: block; margin-top: var(--sp-1); }
     .contador--corta { color: #B45309; }
 
@@ -903,6 +946,7 @@ export class ComercioConfigComponent implements OnInit {
   private readonly comercioApi = inject(ComercioApiService);
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly http = inject(HttpClient);
 
   readonly comercio = signal<MiComercio | null>(null);
   readonly guardado = signal(false);
@@ -952,6 +996,72 @@ export class ComercioConfigComponent implements OnInit {
 
   /** Longitud de la descripción, para el contador (TCK-8028). */
   readonly MAX_DESCRIPCION = 600;
+  readonly subiendoDoc = signal(false);
+
+  /** Formulario que corresponde a cada pestaña, para avisar de lo no guardado. */
+  private formularioDeTab(): AbstractControl | null {
+    switch (this.tab()) {
+      case 'perfil': return this.infoForm;
+      case 'ubicacion': return this.direccionForm;
+      case 'contacto': return this.contactoForm;
+      case 'redes': return this.redesForm;
+      case 'horarios': return this.horarioForm;
+      case 'politicas': return this.politicasForm;
+      case 'verificacion': return this.verificacionForm;
+      default: return null;
+    }
+  }
+
+  readonly hayCambiosSinGuardar = signal(false);
+
+  /** Se recalcula al cambiar de pestaña y en cada tecleo del formulario activo. */
+  private vigilarCambios(): void {
+    this.hayCambiosSinGuardar.set(this.formularioDeTab()?.dirty ?? false);
+  }
+
+  cambiarTab(clave: TabConfig): void {
+    this.tab.set(clave);
+    this.vigilarCambios();
+  }
+  readonly errorDoc = signal('');
+
+  /** Punto del mapa; sin coordenadas guardadas no hay nada que situar. */
+  readonly coordenadas = computed(() => {
+    const direccion = this.comercio()?.direccion;
+    if (!direccion?.lat || !direccion?.lng) return null;
+    return {
+      id: 'negocio',
+      lat: direccion.lat,
+      lng: direccion.lng,
+      titulo: this.comercio()?.nombreComercial ?? 'Tu negocio',
+    };
+  });
+
+  /**
+   * Sube el fichero y rellena la URL del documento. Se acepta PDF o foto: el
+   * seguro llega en PDF y el certificado, casi siempre, en foto del móvil.
+   */
+  async subirDocumento(evento: Event): Promise<void> {
+    const input = evento.target as HTMLInputElement;
+    const fichero = input.files?.[0];
+    if (!fichero) return;
+
+    this.subiendoDoc.set(true);
+    this.errorDoc.set('');
+    try {
+      const datos = new FormData();
+      datos.append('file', fichero);
+      const { url } = await firstValueFrom(
+        this.http.post<{ url: string }>(`${environment.apiUrl}/upload/documento`, datos),
+      );
+      this.docForm.patchValue({ url, nombre: this.docForm.value.nombre || fichero.name });
+    } catch {
+      this.errorDoc.set('No se pudo subir el fichero. Debe ser PDF o imagen y pesar menos de 10 MB.');
+    } finally {
+      this.subiendoDoc.set(false);
+      input.value = '';
+    }
+  }
   readonly caracteresDescripcion = signal(0);
 
   /** Cuántos servicios tiene publicados, para el límite del plan (TCK-8028). */
@@ -1096,6 +1206,18 @@ export class ComercioConfigComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    // Cualquier tecleo puede dejar el formulario sucio: se revisa en cada uno.
+    // Los grupos tienen tipos distintos, así que se recorren como FormGroup suelto.
+    const formularios: AbstractControl[] = [
+      this.infoForm, this.direccionForm, this.contactoForm, this.redesForm,
+      this.horarioForm, this.politicasForm, this.verificacionForm,
+    ];
+    for (const formulario of formularios) {
+      formulario.valueChanges
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe(() => this.vigilarCambios());
+    }
+
     // El contador se mantiene al día mientras se escribe.
     this.infoForm.controls.descripcion.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))

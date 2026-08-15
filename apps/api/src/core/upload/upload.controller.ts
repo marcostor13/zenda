@@ -51,6 +51,33 @@ export class UploadController {
     return this.uploadService.uploadImage(file);
   }
 
+  @Post('documento')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOperation({
+    summary: 'Subir documentación (máx 10 MB, PDF o imagen). Mismo almacén que las imágenes',
+  })
+  uploadDocumento(
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        // Los seguros y certificados llegan casi siempre en PDF; el móvil, en foto.
+        .addFileTypeValidator({ fileType: /(application\/pdf|image\/(jpeg|png|webp))/ })
+        .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 })
+        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.uploadService.uploadImage(file);
+  }
+
   /**
    * Sirve las imágenes guardadas en GridFS. Es público a propósito: la URL viaja
    * en el `src` de un `<img>`, que no puede enviar el Authorization header.

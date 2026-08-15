@@ -74,11 +74,30 @@ interface ReviewPendiente {
     }
   </div>
 
-  <label class="ac__buscador">
-    <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon>
-    <input type="search" placeholder="Buscar por título, usuario o ciudad…"
-           [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
-  </label>
+  <div class="ac__filtros">
+    <label class="ac__buscador">
+      <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon>
+      <input type="search" placeholder="Buscar por título, usuario o ciudad…"
+             [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
+    </label>
+
+    <!-- Filtros de contenido (TCK-8039 §3) -->
+    <select class="rs-inp ac__select" [value]="filtroTipo()"
+            (change)="filtroTipo.set($any($event.target).value)" aria-label="Categoría">
+      <option value="">Todas las categorías</option>
+      @for (t of tiposLugar; track t.valor) {
+        <option [value]="t.valor">{{ t.label }}</option>
+      }
+    </select>
+
+    <select class="rs-inp ac__select" [value]="filtroAntiguedad()"
+            (change)="filtroAntiguedad.set($any($event.target).value)" aria-label="Fecha">
+      <option value="">Cualquier fecha</option>
+      <option value="7">Última semana</option>
+      <option value="30">Último mes</option>
+      <option value="90">Últimos 3 meses</option>
+    </select>
+  </div>
 
   @if (cargando()) {
     <p class="ac__cargando">Cargando la cola de moderación…</p>
@@ -192,11 +211,15 @@ interface ReviewPendiente {
     .ac__tab.activa { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); font-weight: var(--w-6); }
     .ac__tab-num { padding: 1px var(--sp-2); border-radius: var(--r-full); background: var(--c-surface); font-size: var(--f-xs); color: var(--t-400); }
 
+    .ac__filtros { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; margin-bottom: var(--sp-5); }
+    .ac__select { height: 40px; max-width: 220px; }
+
     .ac__buscador {
       display: flex; align-items: center; gap: var(--sp-2);
       max-width: 420px; height: 40px; padding: 0 var(--sp-3); margin-bottom: var(--sp-5);
       background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-lg);
       color: var(--t-400);
+      margin-bottom: 0;
     }
     .ac__buscador:focus-within { border-color: var(--c-accent); }
     .ac__buscador input {
@@ -256,6 +279,17 @@ export class AdminComunidadComponent implements OnInit {
   readonly tabs = TABS_MODERACION;
   readonly estadoActivo = signal<FiltroComunidad>(EstadoModeracion.PENDIENTE);
   readonly busqueda = signal('');
+  readonly filtroTipo = signal('');
+  readonly filtroAntiguedad = signal('');
+
+  readonly tiposLugar = Object.entries(TIPO_LUGAR_LABELS).map(([valor, label]) => ({ valor, label }));
+
+  /** Días de antigüedad máxima; sin filtro, entra todo. */
+  private dentroDeFecha(fecha: string): boolean {
+    const dias = Number(this.filtroAntiguedad());
+    if (!dias) return true;
+    return (Date.now() - new Date(fecha).getTime()) / 86400000 <= dias;
+  }
   readonly conteos = signal<Record<string, number>>({});
 
   private coincide(texto: string): boolean {
@@ -264,11 +298,20 @@ export class AdminComunidadComponent implements OnInit {
   }
 
   readonly lugaresVisibles = computed(() =>
-    this.lugares().filter((l) => this.coincide(`${l.nombre} ${l.ubicacion.ciudad} ${l.descripcion ?? ''}`)),
+    this.lugares().filter((l) =>
+      this.coincide(`${l.nombre} ${l.ubicacion.ciudad} ${l.descripcion ?? ''}`)
+      && (!this.filtroTipo() || l.tipo === this.filtroTipo())
+      && this.dentroDeFecha(l.createdAt),
+    ),
   );
 
   readonly reviewsVisibles = computed(() =>
-    this.reviews().filter((r) => this.coincide(`${r.usuarioNombre} ${r.texto ?? ''}`)),
+    this.reviews().filter((r) =>
+      this.coincide(`${r.usuarioNombre} ${r.texto ?? ''}`)
+      // Las aportaciones no tienen categoría propia: al filtrar por una, se ocultan.
+      && !this.filtroTipo()
+      && this.dentroDeFecha(r.createdAt),
+    ),
   );
 
   readonly totalVisible = computed(() => this.lugaresVisibles().length + this.reviewsVisibles().length);

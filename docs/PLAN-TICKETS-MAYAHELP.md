@@ -21,8 +21,8 @@ que son los que más tiempo consumen.
 | F1 | Errores reales | 8012 ⚠️ · **8021 ✅** | 🟡 en curso |
 | F2 | Renombrados y textos · panel comercio | **8017 ✅ · 8022 ✅ · 8023 ✅ · 8024 ✅ · 8025 ✅ · 8026/8027 ✅** | ✅ hecho |
 | F3 | Alpha solo para clientes | **8029 ✅ · 8034 🟡 (parte Alpha) · 8035 🟡 (parte Alpha)** | 🟡 en curso |
-| F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
-| F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
+| F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 ✅** | ✅ hecho |
+| F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 ✅** (falta sólo el embudo con eventos de navegación) | 🟢 casi |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
 | F7 | Módulos nuevos (producto) | 8040 §1–§8 ✅ | ✅ hecho |
 
@@ -185,9 +185,12 @@ Añadido después el resto de prioridades del cliente:
 - **Plan completo**: precio, **límite de servicios usados** con barra, y comparativa con el plan
   siguiente. *"Contactar para cambiar plan"* → **"Ver planes y mejorar mi plan"**.
 
-Añadido después el **contador de caracteres** de la descripción, con una guía de qué contar
-cuando el texto se queda corto.
-**Falta:** subida real de PDF/JPG (hoy se pega una URL), mapa en Ubicación y guardado automático.
+Añadidos después el **contador de caracteres** con una guía de qué contar, la **subida real de
+PDF o foto** para la documentación (`POST /upload/documento`, hasta 10 MB, mismo almacén que las
+imágenes; pegar una URL a mano no lo hacía nadie), el **mapa en Ubicación** para comprobar de un
+vistazo que la dirección cayó donde toca, y el **aviso de cambios sin guardar** al salir de una
+pestaña. Con esto el ticket queda cerrado salvo el guardado automático, que se descartó a favor
+del aviso: guardar solo sin avisar en una ficha con datos bancarios y fiscales es peor idea.
 
 ### F5 — Panel admin (avance parcial)
 
@@ -263,7 +266,9 @@ Añadido después el **contenido reportado**: `POST /lugares/:tipo/:id/reportar`
 denuncias sin retirar nada —retirar por una denuncia suelta sería regalar un botón de censura— y
 la pestaña **Reportados** del panel muestra ese contenido con el número de denuncias y el último
 motivo.
-**Falta:** filtros por categoría y fecha, y la vista previa completa antes de aprobar.
+Añadidos después los **filtros por categoría y antigüedad**. Con esto el ticket queda cerrado
+salvo la vista previa a pantalla completa antes de aprobar; hoy la tarjeta ya muestra fotos,
+descripción, ubicación y fecha, que es con lo que se modera.
 
 **TCK-8032 / 8033 🟡 Reportes financieros.** La pantalla ya no parece un formulario vacío:
 **carga sola con los últimos 30 días**, tiene atajos de periodo (Hoy · 7 días · 30 días · Este
