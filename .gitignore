@@ -4,6 +4,10 @@ dist/
 .env.local
 .env.deploy
 .env.*
+# Las plantillas sí se versionan: son la documentación de qué hay que configurar.
+!.env.example
+# Configuración de la web generada en cada build/arranque (ver apps/web/.env.example).
+apps/web/public/env.js
 coverage/
 *.log
 .angular/

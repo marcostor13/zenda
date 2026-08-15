@@ -166,9 +166,31 @@ En la pestaña **Build**:
 
 ### 3.3 Variables de entorno
 
-El frontend no necesita variables de entorno en runtime — la URL de la API se fija en build
-time vía `apps/web/src/environments/environment.prod.ts` (ver §9). Si cambias el dominio del
-backend, edita ese archivo y haz push; el pipeline reconstruye la imagen automáticamente.
+El frontend se configura **en runtime** con variables del servicio en Coolify. Al arrancar, el
+contenedor ejecuta `apps/web/docker-entrypoint.sh`, que escribe `/usr/share/nginx/html/env.js`
+con todas las variables que empiecen por `WEB_`; `index.html` lo carga antes del bundle. Cambiar
+una variable es **reiniciar el servicio**, no reconstruir la imagen. Lo escrito en
+`environment.prod.ts` queda sólo como respaldo si la variable no está declarada.
+
+| Variable | Para qué |
+|---|---|
+| `WEB_API_URL` | Base del API con el prefijo de versión: `https://apizenda.marcostorresalarcon.com/api/v1` |
+| `WEB_UNDER_CONSTRUCTION` | `true` mantiene la pantalla "muy pronto"; `false` abre la web |
+| `WEB_UNDER_CONSTRUCTION_KEY` | Clave del acceso anticipado (`?acceso=…`) |
+| `WEB_STRIPE_PUBLIC_KEY` | Clave **publicable** de Stripe (`pk_live_…`) |
+| `WEB_GOOGLE_CLIENT_ID` · `WEB_FACEBOOK_APP_ID` | Identificadores públicos del login social |
+
+> ⚠️ **Nada de esto es secreto.** La web es una SPA: el navegador se descarga `env.js` y
+> cualquiera puede leerlo. Sirve para no tener los valores escritos en el repositorio y para
+> cambiarlos por entorno, **no** para ocultarlos.
+>
+> El prefijo `WEB_` es la barrera: una variable sin él nunca llega al navegador. Por eso
+> `GOOGLE_MAPS_API_KEY`, `STRIPE_SECRET_KEY` y `MONGODB_URI` se declaran **sólo en el servicio
+> del API** y jamás con ese prefijo. El mapa del comercio no necesita la clave en la web: el
+> frontend pide siempre a `/geo/*` del API, que es quien habla con Google.
+
+En desarrollo, copia `apps/web/.env.example` a `apps/web/.env`; `bun run dev:web` genera el
+mismo `env.js` a partir de ese fichero.
 
 ### 3.4 Dominio: Cloudflare Tunnel (no A/CNAME directo)
 

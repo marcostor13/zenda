@@ -2,13 +2,13 @@
   "name": "web",
   "version": "1.0.0",
   "scripts": {
-    "dev": "ng serve",
-    "build": "ng build",
+    "dev": "node scripts/generar-env.mjs && ng serve",
+    "build": "node scripts/generar-env.mjs && ng build",
     "lint": "ng lint",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "i18n:extract": "ng extract-i18n",
-    "build:en": "ng build --configuration en"
+    "build:en": "node scripts/generar-env.mjs && ng build --configuration en"
   },
   "dependencies": {
     "@angular/animations": "^20.0.0",

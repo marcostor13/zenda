@@ -23,4 +23,11 @@ FROM nginx:1.27-alpine AS production
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/apps/web/dist/web/browser /usr/share/nginx/html
 
+# La configuración (URL del API, claves publicables) se inyecta al arrancar, no
+# al construir: la misma imagen sirve para cualquier entorno.
+COPY apps/web/docker-entrypoint.sh /entrypoint-doogking.sh
+RUN chmod +x /entrypoint-doogking.sh
+
 EXPOSE 80
+ENTRYPOINT ["/entrypoint-doogking.sh"]
+CMD ["nginx", "-g", "daemon off;"]
