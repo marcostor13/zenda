@@ -213,9 +213,12 @@ de métrica** (Reservas / Facturación / Comisión / Nº de comercios) y se reor
 geográfica pasa de una barra a una **tabla Ciudad · Comercios · Reservas · Facturación**; y el
 Top 5 se puede ordenar por facturación, reservas o valoración, mostrando la nota del comercio.
 El backend calcula todo eso por agregación.
-**Falta:** gráficos de evolución temporal, mapa de España y el embudo ampliado
-(búsquedas y visitas a ficha) — **no hay eventos de navegación registrados**, así que el embudo
-sigue siendo registrados → con reserva → pagaron.
+Añadido después el **gráfico de evolución de los últimos 30 días** (reservas o facturación, con
+serie diaria calculada en el backend; los días sin actividad se rellenan con ceros porque una
+línea con huecos miente sobre la tendencia).
+**Falta:** el mapa de España y el embudo ampliado (búsquedas y visitas a ficha) — **no hay
+eventos de navegación registrados**, así que el embudo sigue siendo registrados → con reserva →
+pagaron. Eso es instrumentar analítica, no rehacer la pantalla.
 
 **TCK-8036 🟡 Reservas (admin).** Resumen superior en dos filas: **contadores por estado**
 (clicables, filtran la tabla) y **cifras económicas** (importe reservado · comisiones ·
@@ -254,8 +257,11 @@ comparar después qué tipo de campaña funciona.
 Añadido después: **pestañas Pendientes / Publicados / Rechazados con contador** y **buscador**
 por título, usuario o ciudad. Para eso el API pasó de devolver sólo la cola de pendientes a
 aceptar `?estado=` y exponer `GET /lugares/moderacion/resumen`.
-**Falta:** contenido reportado por usuarios (no existe la denuncia como entidad), filtros por
-categoría y fecha, y la vista previa completa antes de aprobar.
+Añadido después el **contenido reportado**: `POST /lugares/:tipo/:id/reportar` sube el contador de
+denuncias sin retirar nada —retirar por una denuncia suelta sería regalar un botón de censura— y
+la pestaña **Reportados** del panel muestra ese contenido con el número de denuncias y el último
+motivo.
+**Falta:** filtros por categoría y fecha, y la vista previa completa antes de aprobar.
 
 **TCK-8032 / 8033 🟡 Reportes financieros.** La pantalla ya no parece un formulario vacío:
 **carga sola con los últimos 30 días**, tiene atajos de periodo (Hoy · 7 días · 30 días · Este

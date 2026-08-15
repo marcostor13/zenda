@@ -1093,6 +1093,39 @@ export class AdminService {
     };
   }
 
+  /**
+   * Serie diaria de reservas y facturación (TCK-8031 §1). Se rellenan los días
+   * sin actividad con ceros: una línea con huecos miente sobre la tendencia.
+   */
+  async evolucion(dias = 30): Promise<Array<{ fecha: string; reservas: number; facturacion: number }>> {
+    const hoy = new Date();
+    const desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (dias - 1));
+
+    const [reservasPorDia, pagosPorDia] = await Promise.all([
+      this.reservaModel.aggregate<{ _id: string; total: number }>([
+        { $match: { createdAt: { $gte: desde } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, total: { $sum: 1 } } },
+      ]).exec(),
+      this.pagoModel.aggregate<{ _id: string; total: number }>([
+        { $match: { estado: PagoEstado.APROBADO, createdAt: { $gte: desde } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, total: { $sum: '$montoTotal' } } },
+      ]).exec(),
+    ]);
+
+    const reservas = new Map(reservasPorDia.map((r) => [r._id, r.total]));
+    const facturacion = new Map(pagosPorDia.map((p) => [p._id, p.total]));
+
+    return Array.from({ length: dias }, (_, i) => {
+      const dia = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + i);
+      const clave = dia.toISOString().slice(0, 10);
+      return {
+        fecha: clave,
+        reservas: reservas.get(clave) ?? 0,
+        facturacion: Math.round((facturacion.get(clave) ?? 0) * 100) / 100,
+      };
+    });
+  }
+
   // ── Reportes financieros ─────────────────────────────────────────────────────
 
   async generarReporteFinanciero(filtros: FiltrosReporte): Promise<ReporteFinancieroDto> {

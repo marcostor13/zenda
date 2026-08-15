@@ -63,6 +63,17 @@ export class Lugar {
   @Prop({ type: String, enum: Object.values(EstadoModeracion), default: EstadoModeracion.PENDIENTE })
   estado!: EstadoModeracion;
 
+  /**
+   * Denuncias de usuarios sobre este contenido (TCK-8039 §5). Se guarda el
+   * recuento y el último motivo: con eso el admin decide si mirarlo, sin
+   * necesidad de una colección aparte todavía.
+   */
+  @Prop({ type: Number, default: 0 })
+  reportes!: number;
+
+  @Prop()
+  ultimoMotivoReporte?: string;
+
   @Prop()
   motivoRechazo?: string;
 

@@ -6,14 +6,20 @@ import { EstadoModeracion, TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
 
-const TABS_MODERACION: ReadonlyArray<{ estado: EstadoModeracion; label: string }> = [
+/** 'reportados' no es un estado de moderación: es un corte transversal. */
+type FiltroComunidad = EstadoModeracion | 'reportados';
+
+const TABS_MODERACION: ReadonlyArray<{ estado: FiltroComunidad; label: string }> = [
   { estado: EstadoModeracion.PENDIENTE, label: 'Pendientes' },
   { estado: EstadoModeracion.PUBLICADO, label: 'Publicados' },
   { estado: EstadoModeracion.RECHAZADO, label: 'Rechazados' },
+  { estado: 'reportados', label: 'Reportados' },
 ];
 
 interface LugarPendiente {
   _id: string;
+  reportes?: number;
+  ultimoMotivoReporte?: string;
   tipo: TipoLugar;
   nombre: string;
   descripcion: string;
@@ -24,6 +30,8 @@ interface LugarPendiente {
 
 interface ReviewPendiente {
   _id: string;
+  reportes?: number;
+  ultimoMotivoReporte?: string;
   lugarId: string;
   usuarioNombre: string;
   puntuacion: number;
@@ -90,6 +98,12 @@ interface ReviewPendiente {
                 <span class="ac__tipo">{{ etiquetaTipo(l.tipo) }}</span>
                 <strong>{{ l.nombre }}</strong>
                 <em>{{ l.ubicacion.ciudad }}@if (l.ubicacion.provincia) { · {{ l.ubicacion.provincia }} } · {{ l.createdAt | date: 'd MMM y' }}</em>
+                @if (l.reportes) {
+                  <span class="ac__reportes">
+                    <rs-icon name="alert-circle" [size]="13" [stroke]="2"></rs-icon>
+                    {{ l.reportes }} denuncia(s)@if (l.ultimoMotivoReporte) { · "{{ l.ultimoMotivoReporte }}" }
+                  </span>
+                }
                 @if (l.descripcion) { <p>{{ l.descripcion }}</p> }
                 @if (l.fotos.length) {
                   <div class="ac__fotos">
@@ -165,6 +179,8 @@ interface ReviewPendiente {
     }
 
     .ac__cargando { color: var(--t-400); }
+    .ac__reportes { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--f-xs); color: var(--c-red, #B91C1C); }
+
     .ac__tabs { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
     .ac__tab {
       display: inline-flex; align-items: center; gap: var(--sp-2);
@@ -238,7 +254,7 @@ export class AdminComunidadComponent implements OnInit {
 
   /** Pestañas de moderación y buscador (TCK-8039). */
   readonly tabs = TABS_MODERACION;
-  readonly estadoActivo = signal<EstadoModeracion>(EstadoModeracion.PENDIENTE);
+  readonly estadoActivo = signal<FiltroComunidad>(EstadoModeracion.PENDIENTE);
   readonly busqueda = signal('');
   readonly conteos = signal<Record<string, number>>({});
 
@@ -258,6 +274,10 @@ export class AdminComunidadComponent implements OnInit {
   readonly totalVisible = computed(() => this.lugaresVisibles().length + this.reviewsVisibles().length);
 
   conteo(estado: string): number {
+    // Los reportados no tienen contador propio: se cuenta lo que se está viendo.
+    if (estado === 'reportados') {
+      return this.estadoActivo() === 'reportados' ? this.totalPendiente() : 0;
+    }
     return this.conteos()[estado] ?? 0;
   }
 
@@ -267,10 +287,11 @@ export class AdminComunidadComponent implements OnInit {
       return 'No hay nada pendiente de moderar. Cuando la comunidad comparta un sitio o una reseña, aparecerá aquí para que la revises antes de publicarla.';
     }
     if (this.estadoActivo() === EstadoModeracion.PUBLICADO) return 'Todavía no has publicado ninguna aportación.';
+    if (this.estadoActivo() === 'reportados') return 'Nadie ha denunciado contenido. Cuando alguien lo haga, aparecerá aquí.';
     return 'No has rechazado ninguna aportación.';
   }
 
-  async cambiarEstado(estado: EstadoModeracion): Promise<void> {
+  async cambiarEstado(estado: FiltroComunidad): Promise<void> {
     this.estadoActivo.set(estado);
     await this.cargar();
   }
@@ -324,7 +345,9 @@ export class AdminComunidadComponent implements OnInit {
     try {
       const pendientes = await firstValueFrom(
         this.http.get<{ lugares: LugarPendiente[]; reviews: ReviewPendiente[] }>(
-          `${this.base}/moderacion/pendientes?estado=${this.estadoActivo()}`,
+          this.estadoActivo() === 'reportados'
+            ? `${this.base}/moderacion/reportados`
+            : `${this.base}/moderacion/pendientes?estado=${this.estadoActivo()}`,
         ),
       );
       this.lugares.set(pendientes.lugares);

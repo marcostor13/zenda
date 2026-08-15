@@ -256,6 +256,13 @@ export class AdminController {
     return this.adminService.resumenPagos();
   }
 
+  @Get('analitica/evolucion')
+  @ApiOperation({ summary: 'Serie diaria de reservas y facturación' })
+  @ApiQuery({ name: 'dias', required: false })
+  evolucion(@Query('dias', new DefaultValuePipe(30), ParseIntPipe) dias: number) {
+    return this.adminService.evolucion(dias);
+  }
+
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
   @Get('reservas/resumen')

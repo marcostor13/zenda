@@ -3,7 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
-import { AdminApiService, AnaliticaAdmin, ComercioTop, VerticalAnalitica } from './admin-api.service';
+import { AdminApiService, AnaliticaAdmin, ComercioTop, PuntoEvolucion, VerticalAnalitica } from './admin-api.service';
 
 type MetricaVertical = 'reservas' | 'facturacion' | 'comision' | 'comercios';
 type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
@@ -33,6 +33,39 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
         <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.facturacion | number:'1.0-0' }} €</span><span class="kpi__lbl">Facturación</span></div>
         <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.comision | number:'1.0-0' }} €</span><span class="kpi__lbl">Comisión Doogking</span></div>
         <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.ticketMedio | number:'1.0-0' }} €</span><span class="kpi__lbl">Ticket medio</span></div>
+      </div>
+
+      <!-- Evolución real, no barras estáticas (TCK-8031 §1) -->
+      <div class="rs-card panel evolucion">
+        <div class="panel__head">
+          <h3 class="panel__title">Evolución de los últimos 30 días</h3>
+          <div class="evolucion__toggle" role="group" aria-label="Métrica del gráfico">
+            <button class="evolucion__btn" [class.activa]="metricaEvolucion() === 'reservas'"
+                    (click)="metricaEvolucion.set('reservas')">Reservas</button>
+            <button class="evolucion__btn" [class.activa]="metricaEvolucion() === 'facturacion'"
+                    (click)="metricaEvolucion.set('facturacion')">Facturación</button>
+          </div>
+        </div>
+
+        @if (evolucion().length) {
+          <svg class="grafico" viewBox="0 0 600 160" preserveAspectRatio="none" role="img"
+               [attr.aria-label]="'Evolución de ' + metricaEvolucion() + ' en los últimos 30 días'">
+            <polyline class="grafico__linea" [attr.points]="puntosLinea()" />
+            @for (b of barras(); track b.fecha) {
+              <rect class="grafico__barra" [attr.x]="b.x" [attr.y]="b.y"
+                    [attr.width]="b.ancho" [attr.height]="b.alto">
+                <title>{{ b.fecha }}: {{ b.valor }}</title>
+              </rect>
+            }
+          </svg>
+          <div class="grafico__pie">
+            <span>{{ evolucion()[0].fecha }}</span>
+            <span>Máximo: {{ maximoEvolucion() }}</span>
+            <span>{{ evolucion()[evolucion().length - 1].fecha }}</span>
+          </div>
+        } @else {
+          <p class="empty">Todavía no hay actividad que representar.</p>
+        }
       </div>
 
       <div class="analitica-grid">
@@ -140,6 +173,18 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
     .page-header { margin-bottom: var(--sp-6); }
     .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
+    .evolucion { margin-bottom: var(--sp-5); }
+    .evolucion__toggle { display: inline-flex; padding: 3px; gap: 2px; background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-lg); }
+    .evolucion__btn {
+      padding: var(--sp-2) var(--sp-3); border: none; background: transparent; border-radius: var(--r-md);
+      cursor: pointer; font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-400);
+    }
+    .evolucion__btn.activa { background: var(--c-card); color: var(--c-accent); }
+    .grafico { width: 100%; height: 180px; overflow: visible; }
+    .grafico__barra { fill: var(--c-accent-lo); }
+    .grafico__linea { fill: none; stroke: var(--c-accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .grafico__pie { display: flex; justify-content: space-between; font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-2); }
+
     .kpi-fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-5); }
     .kpi { padding: var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
     .kpi__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
@@ -210,6 +255,39 @@ export class AdminAnaliticaComponent implements OnInit {
 
   /** Qué se mide en el reparto por categoría y cómo se ordena el top (TCK-8031). */
   readonly metricaVertical = signal<MetricaVertical>('reservas');
+
+  /** Serie diaria y qué métrica se pinta (TCK-8031 §1). */
+  readonly evolucion = signal<PuntoEvolucion[]>([]);
+  readonly metricaEvolucion = signal<'reservas' | 'facturacion'>('reservas');
+
+  readonly maximoEvolucion = computed(() => {
+    const metrica = this.metricaEvolucion();
+    return Math.max(1, ...this.evolucion().map((p) => p[metrica]));
+  });
+
+  /** Barras del gráfico ya en coordenadas del viewBox 600x160. */
+  readonly barras = computed(() => {
+    const serie = this.evolucion();
+    if (!serie.length) return [];
+    const metrica = this.metricaEvolucion();
+    const maximo = this.maximoEvolucion();
+    const ancho = 600 / serie.length;
+    return serie.map((punto, i) => {
+      const alto = Math.round((punto[metrica] / maximo) * 140);
+      return {
+        fecha: punto.fecha,
+        valor: punto[metrica],
+        x: Math.round(i * ancho) + 1,
+        y: 150 - alto,
+        ancho: Math.max(2, Math.round(ancho) - 2),
+        alto,
+      };
+    });
+  });
+
+  readonly puntosLinea = computed(() =>
+    this.barras().map((b) => `${b.x + b.ancho / 2},${b.y}`).join(' '),
+  );
   readonly ordenTop = signal<OrdenTop>('facturacion');
 
   readonly verticalesOrdenados = computed(() => {
@@ -258,6 +336,11 @@ export class AdminAnaliticaComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     try {
       this.analitica.set(await firstValueFrom(this.adminApi.getAnalitica()));
+      try {
+        this.evolucion.set(await firstValueFrom(this.adminApi.getEvolucion(30)));
+      } catch {
+        // Sin serie, el resto de la analítica se sigue viendo.
+      }
     } catch {
       this.errorMsg.set('Error cargando la analítica. Verifica que el API esté activo.');
     } finally {

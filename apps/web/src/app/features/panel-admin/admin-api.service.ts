@@ -199,6 +199,13 @@ export interface CambioEstadoReserva {
   at: string;
 }
 
+/** Un día de la serie de evolución (TCK-8031 §1). */
+export interface PuntoEvolucion {
+  fecha: string;
+  reservas: number;
+  facturacion: number;
+}
+
 export interface VerticalAnalitica {
   vertical: string;
   reservas: number;
@@ -500,6 +507,12 @@ export class AdminApiService {
 
   getResumenPagos(): Observable<ResumenPagos> {
     return this.http.get<ResumenPagos>(`${this.adminUrl}/pagos/resumen`);
+  }
+
+  getEvolucion(dias = 30): Observable<PuntoEvolucion[]> {
+    return this.http.get<PuntoEvolucion[]>(`${this.adminUrl}/analitica/evolucion`, {
+      params: new HttpParams().set('dias', String(dias)),
+    });
   }
 
   getResumenReservas(): Observable<ResumenReservas> {

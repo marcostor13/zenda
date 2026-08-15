@@ -181,6 +181,33 @@ export class LugaresService {
     return Object.fromEntries(conteos);
   }
 
+  /**
+   * Un usuario denuncia contenido. No lo retira solo: sube el contador y lo
+   * pone en la cola de reportados para que un administrador lo mire, porque
+   * retirar por una denuncia suelta sería regalar un botón de censura.
+   */
+  async reportar(tipo: 'lugar' | 'review', id: string, motivo?: string): Promise<void> {
+    // Los dos modelos comparten los campos que se tocan, pero no el tipo: se
+    // resuelve cada rama por separado en vez de forzar una unión.
+    const cambio = { $inc: { reportes: 1 }, $set: motivo ? { ultimoMotivoReporte: motivo } : {} };
+    const actualizado = tipo === 'lugar'
+      ? await this.lugarModel.findByIdAndUpdate(this.aObjectId(id), cambio, { new: true }).exec()
+      : await this.reviewModel.findByIdAndUpdate(this.aObjectId(id), cambio, { new: true }).exec();
+
+    if (!actualizado) {
+      throw new DomainException('Contenido no encontrado', 404);
+    }
+  }
+
+  /** Contenido con denuncias sin resolver, lo mire quien lo mire. */
+  async listarReportados(): Promise<{ lugares: LugarDocument[]; reviews: LugarReviewDocument[] }> {
+    const [lugares, reviews] = await Promise.all([
+      this.lugarModel.find({ reportes: { $gt: 0 } }).sort({ reportes: -1 }).limit(100).exec(),
+      this.reviewModel.find({ reportes: { $gt: 0 } }).sort({ reportes: -1 }).limit(100).exec(),
+    ]);
+    return { lugares, reviews };
+  }
+
   async moderarLugar(id: string, dto: ModerarDto): Promise<LugarDocument> {
     const lugar = await this.lugarModel
       .findByIdAndUpdate(

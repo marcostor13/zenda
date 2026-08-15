@@ -63,6 +63,28 @@ export class LugaresController {
     return this.lugaresService.listarPendientes(estado);
   }
 
+  @Post(':tipo/:id/reportar')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Denunciar un lugar o una aportación de la comunidad' })
+  async reportar(
+    @Param('tipo') tipo: 'lugar' | 'review',
+    @Param('id') id: string,
+    @Body() dto: { motivo?: string },
+  ): Promise<{ ok: true }> {
+    await this.lugaresService.reportar(tipo, id, dto?.motivo);
+    return { ok: true };
+  }
+
+  @Get('moderacion/reportados')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Contenido denunciado por usuarios' })
+  reportados(): Promise<{ lugares: LugarDocument[]; reviews: LugarReviewDocument[] }> {
+    return this.lugaresService.listarReportados();
+  }
+
   @Get('moderacion/resumen')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
