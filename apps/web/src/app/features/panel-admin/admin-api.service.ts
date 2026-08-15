@@ -156,6 +156,23 @@ export interface PagoAdmin {
   createdAt: string;
 }
 
+/** Una liquidación registrada a un comercio (TCK-8040 §1). */
+export interface Liquidacion {
+  _id: string;
+  comercioNombre: string;
+  desde: string;
+  hasta: string;
+  facturacionBruta: number;
+  comisionPlataforma: number;
+  stripeFee: number;
+  importeNeto: number;
+  reservas: number;
+  estado: 'pendiente' | 'pagada';
+  fechaPago?: string;
+  referencia?: string;
+  createdAt: string;
+}
+
 export interface ResumenPagos {
   cobrado: number;
   comisionDoogking: number;
@@ -462,6 +479,23 @@ export class AdminApiService {
     if (params.comercioId) p = p.set('comercioId', params.comercioId);
     if (params.buscar) p = p.set('buscar', params.buscar);
     return this.http.get<PaginatedResult<PagoAdmin>>(`${this.adminUrl}/pagos`, { params: p });
+  }
+
+  getLiquidaciones(params: { page?: number; limite?: number; comercioId?: string; estado?: string } = {}): Observable<PaginatedResult<Liquidacion>> {
+    let p = new HttpParams();
+    if (params.page) p = p.set('page', String(params.page));
+    if (params.limite) p = p.set('limite', String(params.limite));
+    if (params.comercioId) p = p.set('comercioId', params.comercioId);
+    if (params.estado) p = p.set('estado', params.estado);
+    return this.http.get<PaginatedResult<Liquidacion>>(`${environment.apiUrl}/liquidaciones`, { params: p });
+  }
+
+  generarLiquidacion(dto: { comercioId: string; desde: string; hasta: string }): Observable<Liquidacion> {
+    return this.http.post<Liquidacion>(`${environment.apiUrl}/liquidaciones`, dto);
+  }
+
+  marcarLiquidacionPagada(id: string, referencia: string): Observable<Liquidacion> {
+    return this.http.patch<Liquidacion>(`${environment.apiUrl}/liquidaciones/${id}/pagada`, { referencia });
   }
 
   getResumenPagos(): Observable<ResumenPagos> {

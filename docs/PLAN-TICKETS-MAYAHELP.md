@@ -24,7 +24,7 @@ que son los que más tiempo consumen.
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
-| F7 | Módulos nuevos (producto) | 8040 §1 (parcial) · §2–§8 ✅ | 🟢 falta el historial de liquidaciones |
+| F7 | Módulos nuevos (producto) | 8040 §1–§8 ✅ | ✅ hecho |
 
 ## F0 — Auditoría (hecho)
 
@@ -321,8 +321,11 @@ No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
    cobrado, comisión Doogking, coste de pasarela, importe para los comercios, **pendiente de
    liquidar** y reembolsado; debajo, la tabla de pagos con su desglose, filtro por estado y
    búsqueda por código de reserva. API: `GET /admin/pagos` y `GET /admin/pagos/resumen`.
-   **Falta:** el **historial de liquidaciones** formales, que necesita colección propia — hoy se
-   deduce de los pagos, no hay un registro de "esto se pagó al comercio tal día".
+   Añadido después el **historial de liquidaciones**: colección `liquidaciones` y una segunda
+   pestaña en `/admin/pagos`. Se genera la liquidación de un comercio para un periodo —calculada
+   sobre los pagos cobrados— y se marca como pagada con **referencia obligatoria**, para poder
+   casarla con el banco. Generar **no mueve dinero**: deja constancia del importe, y la
+   transferencia se confirma aparte. Todo queda en el historial administrativo.
 4. **Incidencias y disputas ✅ hecho** (§2). Módulo nuevo `incidencias` en el API (schema,
    repositorio, servicio, controlador y tests) y pantalla `/admin/incidencias`: pestañas por
    estado con contador, filtro por tipo (reclamación / devolución / incidencia) y buscador.

@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
-import { AdminApiService, PagoAdmin, ResumenPagos } from './admin-api.service';
+import { AdminApiService, PagoAdmin, ResumenPagos, Liquidacion } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 const LIMITE = 20;
@@ -72,6 +72,13 @@ const FILTROS = [
       </div>
     </div>
 
+    <div class="vista-tabs" role="tablist">
+      <button class="vista-tab" role="tab" [class.activa]="vista() === 'pagos'"
+              (click)="vista.set('pagos')">Pagos recibidos</button>
+      <button class="vista-tab" role="tab" [class.activa]="vista() === 'liquidaciones'"
+              (click)="cambiarALiquidaciones()">Liquidaciones a comercios</button>
+    </div>
+
     <div class="toolbar">
       <div class="filtros">
         @for (f of filtros; track f.valor) {
@@ -91,7 +98,85 @@ const FILTROS = [
       <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
     }
 
-    @if (cargando()) {
+    @if (vista() === 'liquidaciones') {
+      <!-- Historial de liquidaciones: qué se pagó, cuándo y con qué referencia -->
+      <div class="rs-card panel-generar">
+        <h3 class="panel-generar__titulo">Generar una liquidación</h3>
+        <p class="panel-generar__nota">
+          Calcula lo cobrado de ese comercio en el periodo y lo deja registrado.
+          No mueve dinero: la transferencia se marca después.
+        </p>
+        <div class="panel-generar__form">
+          <select class="rs-inp" [value]="comercioSel()"
+                  (change)="comercioSel.set($any($event.target).value)" aria-label="Comercio">
+            <option value="">Elige un comercio</option>
+            @for (c of comercios(); track c._id) {
+              <option [value]="c._id">{{ c.nombreComercial }}</option>
+            }
+          </select>
+          <input class="rs-inp" type="date" [value]="desdeSel()"
+                 (input)="desdeSel.set($any($event.target).value)" aria-label="Desde" />
+          <input class="rs-inp" type="date" [value]="hastaSel()"
+                 (input)="hastaSel.set($any($event.target).value)" aria-label="Hasta" />
+          <button class="rs-btn rs-btn--primary rs-btn--sm"
+                  [disabled]="!puedeGenerar() || generando()" (click)="generarLiquidacion()">
+            {{ generando() ? 'Calculando…' : 'Generar liquidación' }}
+          </button>
+        </div>
+      </div>
+
+      @if (liquidaciones().length === 0) {
+        <div class="rs-card vacio">
+          <rs-icon name="banknote" [size]="34" [stroke]="1.5"></rs-icon>
+          <p>Todavía no has registrado ninguna liquidación.</p>
+        </div>
+      } @else {
+        <div class="lista-liquidaciones">
+          @for (l of liquidaciones(); track l._id) {
+            <div class="liquidacion">
+              <div class="liquidacion__info">
+                <strong>{{ l.comercioNombre }}</strong>
+                <span>
+                  {{ l.desde | date:'d MMM yyyy' }} — {{ l.hasta | date:'d MMM yyyy' }}
+                  · {{ l.reservas }} pago(s)
+                </span>
+                <span class="liquidacion__desglose">
+                  Bruto {{ l.facturacionBruta | number:'1.2-2' }} € ·
+                  comisión {{ l.comisionPlataforma | number:'1.2-2' }} € ·
+                  pasarela {{ l.stripeFee | number:'1.2-2' }} €
+                </span>
+              </div>
+              <span class="liquidacion__neto">{{ l.importeNeto | number:'1.2-2' }} €</span>
+              <span class="rs-badge {{ l.estado === 'pagada' ? 'rs-badge--success' : 'rs-badge--warning' }}">
+                {{ l.estado === 'pagada' ? 'Pagada' : 'Pendiente' }}
+              </span>
+              @if (l.estado === 'pagada') {
+                <span class="liquidacion__ref">
+                  {{ l.fechaPago | date:'d MMM yyyy' }} · ref. {{ l.referencia }}
+                </span>
+              } @else {
+                <button class="rs-btn rs-btn--outline rs-btn--sm" (click)="abrirPago(l._id)">
+                  Marcar como pagada
+                </button>
+              }
+            </div>
+
+            @if (pagandoId() === l._id) {
+              <div class="liquidacion__pago">
+                <input class="rs-inp" [value]="referencia()"
+                       (input)="referencia.set($any($event.target).value)"
+                       placeholder="Referencia de la transferencia" />
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarPago()">Cancelar</button>
+                <button class="rs-btn rs-btn--primary rs-btn--sm"
+                        [disabled]="!referencia().trim()" (click)="confirmarPago(l)">
+                  Confirmar pago
+                </button>
+              </div>
+            }
+          }
+        </div>
+      }
+    } @else if (cargando()) {
       <p style="color:var(--t-400)">Cargando pagos…</p>
     } @else if (pagos().length === 0) {
       <div class="rs-card vacio">
@@ -149,6 +234,34 @@ const FILTROS = [
     .tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
     .tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
 
+    .vista-tabs { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+    .vista-tab {
+      padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
+      border: 1px solid var(--b-2); background: var(--c-raised);
+      color: var(--t-300); font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
+    }
+    .vista-tab.activa { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); font-weight: var(--w-6); }
+
+    .panel-generar { padding: var(--sp-5); }
+    .panel-generar__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
+    .panel-generar__nota { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); max-width: 70ch; }
+    .panel-generar__form { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+    .panel-generar__form .rs-inp { height: 40px; min-width: 180px; }
+
+    .lista-liquidaciones { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .liquidacion {
+      display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
+      padding: var(--sp-4) var(--sp-5);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+    }
+    .liquidacion__info { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 2px; }
+    .liquidacion__info strong { font-size: var(--f-sm); color: var(--t-100); }
+    .liquidacion__info span { font-size: var(--f-xs); color: var(--t-400); }
+    .liquidacion__neto { font-family: var(--font-accent); font-size: var(--f-lg); font-weight: var(--w-8); color: var(--t-100); }
+    .liquidacion__ref { font-size: var(--f-xs); color: var(--t-400); }
+    .liquidacion__pago { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; padding: 0 var(--sp-5) var(--sp-3); }
+    .liquidacion__pago .rs-inp { flex: 1; min-width: 220px; height: 38px; }
+
     .toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
     .filtros { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
     .buscador { height: 40px; flex: 1; min-width: 240px; }
@@ -196,6 +309,90 @@ export class AdminPagosComponent implements OnInit {
   readonly resumen = signal<ResumenPagos | null>(null);
 
   readonly filtros = FILTROS;
+
+  /** Historial de liquidaciones (TCK-8040 §1). */
+  readonly vista = signal<'pagos' | 'liquidaciones'>('pagos');
+  readonly liquidaciones = signal<Liquidacion[]>([]);
+  readonly comercios = signal<Array<{ _id: string; nombreComercial: string }>>([]);
+  readonly comercioSel = signal('');
+  readonly desdeSel = signal('');
+  readonly hastaSel = signal('');
+  readonly generando = signal(false);
+  readonly pagandoId = signal('');
+  readonly referencia = signal('');
+
+  puedeGenerar(): boolean {
+    return !!this.comercioSel() && !!this.desdeSel() && !!this.hastaSel();
+  }
+
+  async cambiarALiquidaciones(): Promise<void> {
+    this.vista.set('liquidaciones');
+    await this.cargarLiquidaciones();
+    if (this.comercios().length === 0) {
+      try {
+        const res = await firstValueFrom(this.adminApi.getComercios({ limite: 200 }));
+        this.comercios.set(res.items.map((c) => ({ _id: c._id, nombreComercial: c.nombreComercial })));
+      } catch {
+        // Sin la lista no se puede generar, pero el historial sigue viéndose.
+      }
+    }
+  }
+
+  private async cargarLiquidaciones(): Promise<void> {
+    try {
+      const res = await firstValueFrom(this.adminApi.getLiquidaciones({ limite: 50 }));
+      this.liquidaciones.set(res.items);
+    } catch {
+      this.errorMsg.set('Error cargando las liquidaciones.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    }
+  }
+
+  async generarLiquidacion(): Promise<void> {
+    if (!this.puedeGenerar()) return;
+    this.generando.set(true);
+    this.errorMsg.set('');
+    try {
+      await firstValueFrom(this.adminApi.generarLiquidacion({
+        comercioId: this.comercioSel(),
+        desde: new Date(this.desdeSel()).toISOString(),
+        hasta: new Date(this.hastaSel() + 'T23:59:59').toISOString(),
+      }));
+      await this.cargarLiquidaciones();
+    } catch {
+      this.errorMsg.set('No se pudo generar: revisa que haya pagos cobrados en ese periodo.');
+      setTimeout(() => this.errorMsg.set(''), 4000);
+    } finally {
+      this.generando.set(false);
+    }
+  }
+
+  abrirPago(id: string): void {
+    this.pagandoId.set(id);
+    this.referencia.set('');
+  }
+
+  cancelarPago(): void {
+    this.pagandoId.set('');
+    this.referencia.set('');
+  }
+
+  /** La referencia es obligatoria: sin ella no se puede casar con el banco. */
+  async confirmarPago(liquidacion: Liquidacion): Promise<void> {
+    if (!this.referencia().trim()) return;
+    try {
+      const actualizada = await firstValueFrom(
+        this.adminApi.marcarLiquidacionPagada(liquidacion._id, this.referencia().trim()),
+      );
+      this.liquidaciones.update((lista) =>
+        lista.map((l) => (l._id === liquidacion._id ? { ...l, ...actualizada } : l)),
+      );
+      this.cancelarPago();
+    } catch {
+      this.errorMsg.set('No se pudo marcar la liquidación como pagada.');
+      setTimeout(() => this.errorMsg.set(''), 3000);
+    }
+  }
   readonly filtroEstado = signal('');
   readonly buscar = signal('');
 
