@@ -1,4 +1,4 @@
-import { Component, DestroyRef, signal, computed, OnInit, inject, viewChild } from '@angular/core';
+import { ElementRef, Component, DestroyRef, signal, computed, OnInit, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { VerticalKey } from 'shared';
@@ -33,6 +33,8 @@ interface BusquedaUrl {
   perros?: number;
 }
 
+import { AltoBuscadorDirective } from '../../../shared/directives/alto-buscador.directive';
+
 @Component({
   selector: 'app-alojamiento-lista',
   standalone: true,
@@ -40,14 +42,14 @@ interface BusquedaUrl {
     ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
     RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent,
     ExperienciasCercaComponent, RsMapaComponent,
-    RsMapaBuscadorComponent, RsFiltrosListadoComponent,
+    RsMapaBuscadorComponent, RsFiltrosListadoComponent, AltoBuscadorDirective,
   ],
   template: `
-<div class="alojamiento-page">
+<div class="alojamiento-page" [class.alojamiento-page--mapa]="mapaAbierto()">
   <rs-navbar />
 
   <!-- Buscador estándar: mismos campos y orden que en el home -->
-  <div class="search-bar-strip">
+  <div class="search-bar-strip" rsAltoBuscador>
     <div class="rs-wrap">
       <rs-search-bar variant="strip" [vertical]="ui.key" [buscarAlCambiar]="true" />
 
@@ -72,18 +74,24 @@ interface BusquedaUrl {
     <aside class="filters-sidebar">
       <!-- Miniatura del mapa sobre los filtros, como en Booking (PDF §3, WA0009) -->
       @if (!mapaAbierto()) {
-        <button type="button" class="mapa-teaser" (click)="alternarMapa()"
-                [attr.aria-expanded]="false">
+        <!-- El mapa va fuera del botón, no dentro: Leaflet inyecta enlaces
+             (atribución, zoom) y anidarlos en un <button> no es marcado válido
+             ni navegable con teclado. -->
+        <div class="mapa-teaser">
           @if (puntosMapa().length > 0) {
-            <rs-mapa class="mapa-teaser__mini" [puntos]="puntosMapa()" ariaLabel="Vista previa del mapa" />
+            <rs-mapa class="mapa-teaser__mini" [puntos]="puntosMapa()" [estatico]="true"
+                     ariaLabel="Vista previa del mapa de resultados" />
           } @else {
             <span class="mapa-teaser__vacio"></span>
           }
-          <span class="mapa-teaser__cta">
-            <rs-icon name="map-pin" [size]="15" [stroke]="2" />
-            Ver en el mapa
-          </span>
-        </button>
+          <button type="button" class="mapa-teaser__cta" (click)="alternarMapa()"
+                  [attr.aria-expanded]="false">
+            <span class="mapa-teaser__pill">
+              <rs-icon name="map-pin" [size]="15" [stroke]="2" />
+              Ver en el mapa
+            </span>
+          </button>
+        </div>
       }
 
       <!-- Panel común a los ocho verticales; sus grupos salen de
@@ -196,7 +204,7 @@ interface BusquedaUrl {
 
     <!-- ── MAPA (vista dividida estilo Booking) ─────────────── -->
     @if (mapaAbierto()) {
-      <section class="mapa-col" aria-label="Buscar en el mapa">
+      <section class="mapa-col" #mapaCol aria-label="Buscar en el mapa">
         <rs-mapa-buscador #mapaBuscador
           [puntos]="puntosMapa()"
           [activo]="destacadoId()"
@@ -267,6 +275,7 @@ interface BusquedaUrl {
       /* En móvil no caben las dos cosas: el mapa se queda con la pantalla. */
       @media (max-width: 900px) {
         grid-template-columns: 1fr;
+        padding-block: var(--sp-3);
         .filters-sidebar, .results-col { display: none; }
       }
     }
@@ -275,16 +284,40 @@ interface BusquedaUrl {
       @media (max-width: 1280px) { display: none; }
     }
 
+    /* Con el mapa abierto en móvil, el buscador pegajoso se retira: mide
+       casi media pantalla y, al quedarse fijo arriba, tapaba la caja
+       "Buscar en el mapa" y el botón de cerrar del propio mapa. */
+    .alojamiento-page--mapa .search-bar-strip {
+      @media (max-width: 900px) { display: none; }
+    }
+
     .mapa-col {
       position: sticky;
-      top: 140px;
-      height: calc(100vh - 160px);
+      /* Justo debajo de la cabecera fija: la barra de búsqueda y la navegación
+         se anclan las dos arriba, así que manda la más alta de las dos. Su alto
+         real lo publica la directiva rsAltoBuscador, porque cambia con la ventana y con
+         los campos de cada vertical. */
+      top: calc(max(var(--alto-navbar), var(--alto-buscador, 192px)) + var(--sp-3));
+      /* La unidad dvh descuenta las barras del navegador móvil, que aparecen y
+         desaparecen al desplazarse; con vh el mapa se corta por abajo. La
+         regla en vh queda de reserva para quien no entienda dvh. */
+      height: calc(100vh - max(var(--alto-navbar), var(--alto-buscador, 192px)) - var(--sp-6));
+      height: calc(100dvh - max(var(--alto-navbar), var(--alto-buscador, 192px)) - var(--sp-6));
       border: 1px solid var(--b-1);
       border-radius: var(--r-xl);
       overflow: hidden;
       box-shadow: var(--sh-md);
 
-      @media (max-width: 900px) { top: 100px; height: calc(100vh - 120px); }
+      /* A pantalla completa el mapa se pega al borde: los 24px del contenedor
+         a cada lado son ancho de mapa que en un móvil se echa de menos. */
+      @media (max-width: 900px) {
+        top: calc(var(--alto-navbar) + var(--sp-3));
+        height: calc(100vh - var(--alto-navbar) - var(--sp-6));
+        height: calc(100dvh - var(--alto-navbar) - var(--sp-6));
+        margin-inline: calc(var(--sp-6) * -1);
+        border-inline: none;
+        border-radius: var(--r-lg);
+      }
     }
 
     /* SIDEBAR */
@@ -294,7 +327,11 @@ interface BusquedaUrl {
       border-radius: var(--r-xl);
       padding: var(--sp-6);
       position: sticky;
-      top: 140px;
+      top: calc(max(var(--alto-navbar), var(--alto-buscador, 192px)) + var(--sp-3));
+
+      /* En una sola columna los filtros van delante de los resultados: fijarlos
+         dejaría un panel alto pegado arriba tapando las tarjetas. */
+      @media (max-width: 1024px) { position: static; }
     }
 
     /* Miniatura de mapa sobre los filtros con su CTA superpuesto (PDF §3, WA0009). */
@@ -304,30 +341,44 @@ interface BusquedaUrl {
       width: 100%;
       height: 130px;
       margin-bottom: var(--sp-5);
-      padding: 0;
       border: 1px solid var(--b-1);
       border-radius: var(--r-lg);
       overflow: hidden;
       background: var(--c-raised);
-      cursor: pointer;
     }
 
-    /* La miniatura es decorativa: el clic lo gestiona el botón que la envuelve. */
+    /* La miniatura es decorativa: el clic lo gestiona el botón superpuesto. */
     .mapa-teaser__mini { display: block; height: 100%; pointer-events: none; }
 
+    /* El botón cubre toda la miniatura para que el objetivo táctil sea la
+       tarjeta entera y no solo la pastilla de texto. */
     .mapa-teaser__cta {
       position: absolute;
-      inset-inline: 0;
-      bottom: var(--sp-3);
-      margin-inline: auto;
-      width: max-content;
+      inset: 0;
+      /* Sobre los tiles y los controles de Leaflet (z-index 1000). */
+      z-index: 1100;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: var(--sp-3);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+
+      &:hover .mapa-teaser__pill { background: var(--c-accent-h); }
+      &:focus-visible { outline: 2px solid var(--dk-gold); outline-offset: -2px; }
+    }
+
+    .mapa-teaser__pill {
       display: inline-flex;
       align-items: center;
       gap: var(--sp-2);
+      max-width: calc(100% - var(--sp-6));
       padding: var(--sp-2) var(--sp-4);
       border-radius: var(--r-full);
       background: var(--c-accent);
       color: #fff;
+      font-family: var(--font);
       font-size: var(--f-sm);
       font-weight: var(--w-6);
       box-shadow: var(--sh-md);
@@ -459,6 +510,7 @@ export class AlojamientoListaComponent implements OnInit {
   private readonly zona = signal<ZonaBusqueda | null>(null);
 
   private readonly mapaBuscador = viewChild<RsMapaBuscadorComponent>('mapaBuscador');
+  private readonly mapaCol = viewChild<ElementRef<HTMLElement>>('mapaCol');
 
   readonly histogramaPrecios = computed<BarraHistograma[]>(() => this.facetas()?.precios ?? []);
 
@@ -487,7 +539,14 @@ export class AlojamientoListaComponent implements OnInit {
 
     // Leaflet mide el contenedor al crearse; el panel acaba de aparecer, así
     // que hay que decirle que vuelva a medir una vez pintado.
-    setTimeout(() => this.mapaBuscador()?.refrescar(), 0);
+    setTimeout(() => {
+      this.mapaBuscador()?.refrescar();
+      // El mapa se ancla por debajo del buscador, así que recién abierto le
+      // asoma el borde inferior por fuera de la ventana y los mandos de "buscar
+      // en esta zona" quedan sin verse. Traerlo a la vista evita que el usuario
+      // tenga que adivinar que hay que desplazarse.
+      this.mapaCol()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
   }
 
   /**

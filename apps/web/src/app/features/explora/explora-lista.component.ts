@@ -160,13 +160,21 @@ const ICONOS: Record<TipoLugar, string> = {
 
     .ex-count { color: var(--t-400); font-size: var(--f-sm); margin-bottom: var(--sp-4); }
 
-    /* Mapa de la comunidad (ANALISIS-ESPECIFICACIONES §4.2). */
+    /* Mapa de la comunidad (ANALISIS-ESPECIFICACIONES §4.2). En móvil se mide
+       contra la ventana y no en píxeles fijos: 420px en una pantalla apaisada
+       de 375px de alto no dejaría ver ni el mapa ni la lista. */
     .ex-mapa {
       height: 420px;
       margin-bottom: var(--sp-6);
       border: 1px solid var(--b-1);
       border-radius: var(--r-xl);
       overflow: hidden;
+
+      @media (max-width: 768px) {
+        height: 60vh;
+        height: 60dvh;
+        min-height: 260px;
+      }
     }
 
     .ex-grid {

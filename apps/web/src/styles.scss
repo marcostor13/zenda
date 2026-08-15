@@ -101,6 +101,11 @@
   --sp-24: 6rem;
   --sp-32: 8rem;
 
+  /* Alto de la barra de navegación. Es un token y no un número suelto porque
+     todo lo que se fija en pantalla (el mapa de los listados, por ejemplo) debe
+     colocarse justo por debajo de ella. */
+  --alto-navbar: 64px;
+
   /* Radios */
   --r-xs:   .25rem;
   --r-sm:   .5rem;
@@ -313,7 +318,7 @@ h1, h2, h3, h4, h5, h6 {
   position: sticky;
   top: 0;
   z-index: var(--z-3);
-  height: 64px;
+  height: var(--alto-navbar);
   display: flex;
   align-items: center;
   padding-inline: var(--sp-8);

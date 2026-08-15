@@ -27,21 +27,35 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
            [activo]="activo()"
            [autoencuadre]="autoencuadre()"
            [zoomConRueda]="true"
+           posicionZoom="bottomright"
            [centro]="centro()"
            [ariaLabel]="ariaLabel()"
            (puntoElegido)="puntoElegido.emit($event)"
            (zonaCambiada)="alMoverMapa($event)" />
 
-  <!-- Caja "Buscar en el mapa": recentra sin tocar el resto de filtros -->
-  <div class="mb__buscar">
-    <rs-place-autocomplete
-      inputId="mapa-buscar"
-      placeholder="Buscar en el mapa"
-      (lugarElegido)="irALugar($event)" />
+  <!-- Caja "Buscar en el mapa" y su estado, apilados: al ir en el mismo
+       contenedor, el recuento se coloca solo debajo del buscador y no hay que
+       adivinar su altura desde el CSS. -->
+  <div class="mb__panel">
+    <div class="mb__buscar">
+      <rs-place-autocomplete
+        inputId="mapa-buscar"
+        placeholder="Buscar en el mapa"
+        (lugarElegido)="irALugar($event)" />
+    </div>
+
+    <p class="mb__estado" role="status">
+      @if (cargando()) {
+        Buscando en esta zona…
+      } @else {
+        {{ resumen() }}
+      }
+    </p>
   </div>
 
-  <button type="button" class="mb__cerrar" (click)="cerrar.emit()">
-    Cerrar el mapa
+  <button type="button" class="mb__cerrar" (click)="cerrar.emit()"
+          aria-label="Cerrar el mapa y volver a la lista">
+    <span class="mb__cerrar-txt">Cerrar el mapa</span>
     <rs-icon name="x" [size]="18" [stroke]="2" />
   </button>
 
@@ -60,33 +74,37 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
     }
   </div>
 
-  <p class="mb__estado" role="status">
-    @if (cargando()) {
-      Buscando en esta zona…
-    } @else {
-      {{ resumen() }}
-    }
-  </p>
 </div>
   `,
   styles: [`
     :host { display: block; height: 100%; }
 
-    .mb { position: relative; height: 100%; }
+    /* Los mandos se reordenan según el ancho del mapa, no el de la ventana: en
+       la vista dividida el mapa ocupa media pantalla, así que en un portátil
+       tiene el mismo ancho que en una tableta y necesita el mismo reparto. */
+    .mb { position: relative; height: 100%; container-type: inline-size; }
     .mb__lienzo { height: 100%; }
 
-    /* Los controles flotan sobre el lienzo; por encima del panel de Leaflet
-       (z-index 400 en su hoja) o quedarían tapados por los tiles. */
-    .mb__buscar,
+    /* Los controles flotan sobre el lienzo. Van por encima de 1000, que es
+       donde Leaflet cuelga sus propios controles: con menos, el zoom se
+       dibujaría encima de la caja de búsqueda. */
+    .mb__panel,
     .mb__cerrar,
-    .mb__zona,
-    .mb__estado { position: absolute; z-index: 500; }
+    .mb__zona { position: absolute; z-index: 1100; }
 
-    .mb__buscar {
+    .mb__panel {
       top: var(--sp-4);
       left: 50%;
       transform: translateX(-50%);
       width: min(420px, calc(100% - var(--sp-8)));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+
+    .mb__buscar {
+      width: 100%;
       padding: var(--sp-2) var(--sp-4);
       background: var(--c-card);
       border: 2px solid var(--dk-gold);
@@ -115,9 +133,12 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
     }
 
     .mb__zona {
-      bottom: var(--sp-4);
+      /* Por encima de la línea de atribución de OpenStreetMap y sin invadir
+         las esquinas, donde Leaflet clava el zoom y la propia atribución. */
+      bottom: calc(var(--sp-4) + 22px);
       left: 50%;
       transform: translateX(-50%);
+      max-width: calc(100% - 120px);
       display: flex;
       align-items: center;
       gap: var(--sp-3);
@@ -159,22 +180,69 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
     }
 
     .mb__estado {
-      top: calc(var(--sp-4) + 58px);
-      left: 50%;
-      transform: translateX(-50%);
+      max-width: 100%;
       padding: var(--sp-1) var(--sp-4);
       background: var(--c-card);
       border-radius: var(--r-full);
       box-shadow: var(--sh-md);
       color: var(--t-300);
       font-size: var(--f-xs);
-      white-space: nowrap;
+      text-align: center;
     }
 
-    @media (max-width: 640px) {
-      .mb__cerrar { padding: var(--sp-2) var(--sp-3); font-size: var(--f-xs); }
-      .mb__buscar { width: calc(100% - 150px); left: var(--sp-4); transform: none; }
-      .mb__estado { left: var(--sp-4); transform: none; }
+    /* Mapa estrecho (móvil, o la vista dividida en un portátil): la barra
+       superior pasa a ser buscador + botón redondo de cerrar. El texto del
+       botón desaparece porque, con él, la caja de búsqueda se quedaba en poco
+       más de un centímetro en una pantalla de 360px. */
+    @container (max-width: 720px) {
+      .mb__panel {
+        top: var(--sp-3);
+        left: var(--sp-3);
+        /* Hueco a la derecha para el botón redondo de cerrar. */
+        right: calc(var(--sp-3) + 52px);
+        width: auto;
+        transform: none;
+        align-items: stretch;
+      }
+
+      .mb__buscar { padding: var(--sp-1) var(--sp-3); }
+
+      .mb__cerrar {
+        top: var(--sp-3);
+        right: var(--sp-3);
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border-radius: var(--r-full);
+      }
+
+      .mb__cerrar-txt {
+        position: absolute;
+        width: 1px; height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+
+      .mb__estado {
+        border-radius: var(--r-lg);
+        text-align: start;
+      }
+
+      /* Alineada a la izquierda, con hueco a la derecha para el zoom y por
+         encima de la línea de atribución de OpenStreetMap, que Leaflet clava
+         en la esquina inferior derecha. */
+      .mb__zona {
+        left: var(--sp-3);
+        right: calc(var(--sp-3) + 48px);
+        bottom: calc(var(--sp-3) + 22px);
+        max-width: none;
+        transform: none;
+        gap: var(--sp-2);
+        justify-content: flex-start;
+      }
+
+      .mb__auto, .mb__rebuscar { padding-block: var(--sp-2); }
     }
   `],
 })

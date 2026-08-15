@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { RsMapaComponent, PuntoMapa } from './rs-mapa.component';
+import { RsMapaComponent, PuntoMapa, opcionesInteraccion, desenvolverLeaflet } from './rs-mapa.component';
 
 /**
  * Leaflet necesita un contenedor con tamaño real y APIs que jsdom no
@@ -57,5 +57,56 @@ describe('RsMapaComponent', () => {
 
   it('zonaActual debería ser null mientras el mapa no exista', () => {
     expect(componente.zonaActual()).toBeNull();
+  });
+
+  describe('desenvolverLeaflet', () => {
+    it('debería aceptar la API plana, tal y como la entrega el require de Jest', () => {
+      const api = { map: () => undefined } as unknown as typeof import('leaflet');
+      expect(desenvolverLeaflet(api)).toBe(api);
+    });
+
+    it('debería sacar la API de `default` cuando el empaquetador la envuelve', () => {
+      // Leaflet solo publica su build UMD, así que el empaquetador no deduce sus
+      // exportaciones con nombre y cuelga todo de `default`. Sin desenvolverlo,
+      // `L.map` no existe y no se dibuja ni un mapa en toda la aplicación.
+      const api = { map: () => undefined } as unknown as typeof import('leaflet');
+      expect(desenvolverLeaflet({ default: api })).toBe(api);
+    });
+
+    it('debería fallar con un mensaje claro si el módulo no trae la API', () => {
+      expect(() => desenvolverLeaflet({ algo: 1 })).toThrow(/Leaflet/);
+    });
+  });
+
+  describe('opcionesInteraccion', () => {
+    it('debería apagar todos los gestos en el mapa estático', () => {
+      // La miniatura del listado vive dentro de un botón: si arrastrase, en
+      // móvil se quedaría con el gesto de desplazar la página.
+      expect(opcionesInteraccion(true, true)).toEqual({
+        scrollWheelZoom: false,
+        dragging: false,
+        touchZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+      });
+    });
+
+    it('debería permitir arrastrar pero no el zoom con rueda en el mapa embebido', () => {
+      // Sobre un mapa embebido en la página, la rueda tiene que seguir
+      // desplazando la página y no acercando el mapa.
+      expect(opcionesInteraccion(false, false)).toMatchObject({
+        scrollWheelZoom: false,
+        dragging: true,
+        touchZoom: true,
+      });
+    });
+
+    it('debería permitir el zoom con rueda en el mapa a pantalla completa', () => {
+      expect(opcionesInteraccion(false, true)).toMatchObject({
+        scrollWheelZoom: true,
+        dragging: true,
+      });
+    });
   });
 });

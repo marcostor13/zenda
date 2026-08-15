@@ -42,6 +42,47 @@ const ZOOM_PUNTO_UNICO = 14;
 const ESPERA_MOVIMIENTO_MS = 400;
 
 /**
+ * Carga Leaflet en el navegador y devuelve su API real.
+ *
+ * El paquete solo publica `main` (un UMD), sin `module` ni `exports`, así que
+ * el empaquetador no puede deducir sus exportaciones con nombre y entrega un
+ * espacio de nombres con todo colgando de `default`. Sin este desenvuelto,
+ * `L.map` es `undefined` en el build y **ningún mapa llega a dibujarse**, por
+ * mucho que en los tests el `require` de Jest sí devuelva la API plana.
+ */
+export const desenvolverLeaflet = (modulo: unknown): typeof import('leaflet') => {
+  const conDefecto = modulo as { default?: typeof import('leaflet') };
+  const api = typeof (modulo as typeof import('leaflet')).map === 'function'
+    ? modulo as typeof import('leaflet')
+    : conDefecto.default;
+  if (!api || typeof api.map !== 'function') {
+    throw new Error('Leaflet se cargó sin su API: no se puede montar el mapa');
+  }
+  return api;
+};
+
+const cargarLeaflet = async (): Promise<typeof import('leaflet')> =>
+  desenvolverLeaflet(await import('leaflet'));
+
+/**
+ * Interacciones que admite el mapa. Vive fuera de la clase para poder
+ * comprobarla en los tests: Leaflet necesita un navegador de verdad, así que
+ * montar el mapa solo para verificar qué gestos quedan activos no es opción.
+ */
+export const opcionesInteraccion = (
+  estatico: boolean, zoomConRueda: boolean,
+): Record<'scrollWheelZoom' | 'dragging' | 'touchZoom' | 'doubleClickZoom' | 'boxZoom' | 'keyboard', boolean> => ({
+  // El scroll de la página no debe secuestrarse al pasar sobre el mapa, salvo
+  // cuando el mapa ocupa la pantalla y es lo que se está usando.
+  scrollWheelZoom: !estatico && zoomConRueda,
+  dragging: !estatico,
+  touchZoom: !estatico,
+  doubleClickZoom: !estatico,
+  boxZoom: !estatico,
+  keyboard: !estatico,
+});
+
+/**
  * Mapa de puntos sobre OpenStreetMap (PDF 27/07 §3, captura WA0009).
  *
  * Compartido a propósito: lo consumen el listado de resultados (pines con
@@ -79,6 +120,11 @@ const ESPERA_MOVIMIENTO_MS = 400;
       box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
       cursor: pointer;
       transition: background .15s, color .15s, transform .15s;
+      /* El pin se centra sobre su coordenada desde CSS y no con la opción iconAnchor:
+         su ancho depende del precio ("€9" no mide lo que "€1.250"), así que
+         Leaflet no puede calcularlo y, sin esto, dibujaría la esquina superior
+         izquierda de la etiqueta sobre el punto, un par de calles desviado. */
+      transform: translate(-50%, -50%);
     }
 
     :host ::ng-deep .rs-pin:hover,
@@ -86,7 +132,34 @@ const ESPERA_MOVIMIENTO_MS = 400;
       background: var(--dk-gold);
       border-color: var(--dk-gold);
       color: var(--dk-blue-deep, #00135D);
-      transform: scale(1.08);
+      transform: translate(-50%, -50%) scale(1.08);
+    }
+
+    /* Con el dedo no hay hover ni puntería fina: el pin crece para ser
+       pulsable sin acertar en una pastilla de 20px de alto. */
+    @media (pointer: coarse) {
+      :host ::ng-deep .rs-pin { padding: 6px 12px; font-size: 13px; }
+    }
+
+    /* Los controles de Leaflet viven en su propio z-index (1000) y taparían
+       los mandos que cada consumidor superpone al mapa; en móvil el zoom cae
+       justo encima de la caja de búsqueda. Se apartan a la esquina que ningún
+       control propio ocupa y se agrandan para el dedo. */
+    :host ::ng-deep .leaflet-control-zoom a {
+      width: 34px;
+      height: 34px;
+      line-height: 34px;
+    }
+
+    /* Miniatura decorativa: sin cursor de arrastre sobre los tiles, y con los
+       pines encogidos para que media docena de precios quepan en 130px de alto
+       sin taparse unos a otros. */
+    .rs-mapa__lienzo.rs-mapa--estatico { cursor: default; }
+
+    :host ::ng-deep .rs-mapa--estatico .rs-pin {
+      padding: 2px 6px;
+      font-size: 10px;
+      border-width: 1px;
     }
 
     /* Tarjeta emergente del pin (mismo contenido mínimo que la de Booking). */
@@ -125,6 +198,21 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
   /** Permite hacer zoom con la rueda; solo en el mapa a pantalla completa. */
   readonly zoomConRueda = input(false);
 
+  /**
+   * Mapa de adorno: ni se arrastra, ni hace zoom, ni pinta controles. Lo usan
+   * las miniaturas ("Ver en el mapa"), donde un mapa vivo robaría el gesto de
+   * desplazar la página en móvil y metería enlaces dentro del botón que la
+   * envuelve, que no es marcado válido.
+   */
+  readonly estatico = input(false);
+
+  /**
+   * Esquina del control de zoom. Por defecto arriba a la izquierda, como en
+   * cualquier mapa; el buscador a pantalla completa lo baja porque ahí arriba
+   * están su caja de búsqueda y el botón de cerrar.
+   */
+  readonly posicionZoom = input<'topleft' | 'topright' | 'bottomleft' | 'bottomright'>('topleft');
+
   /** Vista impuesta desde fuera (al elegir una población en el buscador). */
   readonly centro = input<{ lat: number; lng: number; zoom?: number } | null>(null);
 
@@ -139,6 +227,7 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
   /** Módulo Leaflet ya cargado; null hasta que termina el import dinámico. */
   private L: typeof import('leaflet') | null = null;
   private temporizadorMovimiento: ReturnType<typeof setTimeout> | null = null;
+  private observadorTamano: ResizeObserver | null = null;
   /**
    * Silencia `zonaCambiada` mientras el propio componente reencuadra. Sin esto,
    * ajustar la vista a los resultados pediría otra búsqueda, que reencuadraría
@@ -163,25 +252,36 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
   }
 
   async ngAfterViewInit(): Promise<void> {
-    this.L = await import('leaflet');
+    this.L = await cargarLeaflet();
     // El componente puede haberse destruido mientras se cargaba Leaflet; montar
     // el mapa sobre un elemento ya desconectado deja un observer huérfano.
     if (!this.lienzo().nativeElement.isConnected) return;
 
+    const estatico = this.estatico();
+
     this.mapa = this.L.map(this.lienzo().nativeElement, {
       center: CENTRO_POR_DEFECTO,
       zoom: ZOOM_POR_DEFECTO,
-      // El scroll de la página no debe secuestrarse al pasar sobre el mapa,
-      // salvo cuando el mapa ocupa la pantalla y es lo que se está usando.
-      scrollWheelZoom: this.zoomConRueda(),
+      // El control de zoom se añade aparte para poder elegir su esquina.
+      zoomControl: false,
+      ...opcionesInteraccion(estatico, this.zoomConRueda()),
     });
+
+    if (estatico) this.lienzo().nativeElement.classList.add('rs-mapa--estatico');
+    else this.L.control.zoom({ position: this.posicionZoom() }).addTo(this.mapa);
 
     this.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; colaboradores de OpenStreetMap',
       maxZoom: 19,
     }).addTo(this.mapa);
 
+    // Sin el prefijo de Leaflet la atribución es texto plano. Importa más de lo
+    // que parece: la miniatura del listado vive dentro de un <button> y un
+    // enlace ahí dentro no es marcado válido ni navegable con teclado.
+    this.mapa.attributionControl.setPrefix(false);
+
     this.mapa.on('moveend', () => this.anunciarZona());
+    this.observarTamano();
 
     const centro = this.centro();
     if (centro) this.centrarEn(centro.lat, centro.lng, centro.zoom);
@@ -191,8 +291,22 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.temporizadorMovimiento) clearTimeout(this.temporizadorMovimiento);
+    this.observadorTamano?.disconnect();
+    this.observadorTamano = null;
     this.mapa?.remove();
     this.mapa = null;
+  }
+
+  /**
+   * Leaflet mide el contenedor una sola vez y deja el resto de tiles en gris si
+   * después cambia de tamaño: girar el móvil, abrir la vista dividida o que el
+   * teclado virtual encoja la ventana bastan para romperlo. Vigilar el elemento
+   * evita tener que acordarse de llamar a `refrescar()` desde cada consumidor.
+   */
+  private observarTamano(): void {
+    if (typeof ResizeObserver === 'undefined') return;
+    this.observadorTamano = new ResizeObserver(() => this.mapa?.invalidateSize());
+    this.observadorTamano.observe(this.lienzo().nativeElement);
   }
 
   /** Redibuja el mapa tras un cambio de tamaño del contenedor (abrir/cerrar la vista). */
@@ -246,20 +360,32 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
     const conCoordenadas = puntos.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
     if (conCoordenadas.length === 0) return;
 
+    const estatico = this.estatico();
+
     for (const punto of conCoordenadas) {
       const esActivo = punto.id === activo;
       const icono = L.divIcon({
         className: '',
         html: `<span class="rs-pin${esActivo ? ' rs-pin--activo' : ''}">${punto.etiqueta ?? '•'}</span>`,
+        // Sin `iconSize` el pin se ajusta al ancho del precio; el centrado
+        // sobre la coordenada lo hace la regla `.rs-pin` en CSS.
         iconSize: undefined,
       });
 
-      const marcador = L.marker([punto.lat, punto.lng], { icon: icono, title: punto.titulo })
-        .addTo(mapa)
-        .on('click', () => this.puntoElegido.emit(punto.id));
+      const marcador = L.marker([punto.lat, punto.lng], {
+        icon: icono,
+        title: punto.titulo,
+        // En la miniatura los pines son dibujo: ni se pulsan ni se tabulan,
+        // porque el botón que la envuelve es lo único pulsable.
+        interactive: !estatico,
+        keyboard: !estatico,
+      }).addTo(mapa);
 
-      const tarjeta = this.tarjetaEmergente(punto);
-      if (tarjeta) marcador.bindPopup(tarjeta, { closeButton: true, offset: [0, -6] });
+      if (!estatico) {
+        marcador.on('click', () => this.puntoElegido.emit(punto.id));
+        const tarjeta = this.tarjetaEmergente(punto);
+        if (tarjeta) marcador.bindPopup(tarjeta, { closeButton: true, offset: [0, -6] });
+      }
 
       this.marcadores.set(punto.id, marcador);
     }

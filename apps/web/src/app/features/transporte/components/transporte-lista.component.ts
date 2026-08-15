@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import { ElementRef, Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { VerticalKey } from 'shared';
@@ -18,9 +18,11 @@ import {
   RsFiltrosListadoComponent, type FiltrosSeleccionados,
 } from '../../../shared/components/filtros-listado/rs-filtros-listado.component';
 import { RsMapaBuscadorComponent } from '../../../shared/components/mapa-buscador/rs-mapa-buscador.component';
-import type { PuntoMapa, ZonaMapa } from '../../../shared/components/mapa/rs-mapa.component';
+import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../../../shared/components/mapa/rs-mapa.component';
 import type { BarraHistograma } from '../../../shared/components/range-slider/rs-range-slider.component';
 import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automaticos';
+
+import { AltoBuscadorDirective } from '../../../shared/directives/alto-buscador.directive';
 
 @Component({
   selector: 'app-transporte-lista',
@@ -28,14 +30,14 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
   imports: [
     RsNavbarComponent, RsIconComponent, RsSearchBarComponent,
     AnimateOnScrollDirective, RsCardComponent,
-    RsFiltrosListadoComponent, RsMapaBuscadorComponent,
+    RsFiltrosListadoComponent, RsMapaBuscadorComponent, RsMapaComponent, AltoBuscadorDirective,
   ],
   template: `
-<div class="transporte-page">
+<div class="transporte-page" [class.transporte-page--mapa]="mapaAbierto()">
   <rs-navbar />
 
   <!-- Buscador estándar: mismos campos y orden que en el home -->
-  <div class="transporte-searchbar">
+  <div class="transporte-searchbar" rsAltoBuscador>
     <div class="rs-wrap">
       <rs-search-bar variant="strip" [vertical]="ui.key" [buscarAlCambiar]="true" />
     </div>
@@ -47,9 +49,23 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
       <!-- ── FILTROS ─────────────────────────────────────────── -->
       <aside class="transporte-filtros">
         @if (!mapaAbierto()) {
-          <button type="button" class="transporte-mapa-teaser" (click)="alternarMapa()">
-            <rs-icon name="map-pin" [size]="15" [stroke]="2" /> Ver en el mapa
-          </button>
+          <!-- Miniatura con los pines de la búsqueda, igual que en alojamiento.
+               El mapa va fuera del botón, no dentro: Leaflet inyecta enlaces y
+               anidarlos en un <button> no es marcado válido. -->
+          <div class="transporte-mapa-teaser">
+            @if (puntosMapa().length > 0) {
+              <rs-mapa class="transporte-mapa-teaser__mini" [puntos]="puntosMapa()" [estatico]="true"
+                       ariaLabel="Vista previa del mapa de resultados" />
+            } @else {
+              <span class="transporte-mapa-teaser__vacio"></span>
+            }
+            <button type="button" class="transporte-mapa-teaser__cta" (click)="alternarMapa()"
+                    [attr.aria-expanded]="false">
+              <span class="transporte-mapa-teaser__pill">
+                <rs-icon name="map-pin" [size]="15" [stroke]="2" /> Ver en el mapa
+              </span>
+            </button>
+          </div>
         }
         <rs-filtros-listado
           [vertical]="ui.key"
@@ -112,7 +128,7 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
 
       <!-- ── MAPA ────────────────────────────────────────────── -->
       @if (mapaAbierto()) {
-        <section class="transporte-mapa" aria-label="Buscar en el mapa">
+        <section class="transporte-mapa" #mapaCol aria-label="Buscar en el mapa">
           <rs-mapa-buscador #mapaBuscador
             [puntos]="puntosMapa()"
             [cargando]="cargandoMapa()"
@@ -160,6 +176,7 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
       }
 
       @media (max-width: 1280px) { grid-template-columns: minmax(320px, 460px) 1fr; }
+      /* En móvil no caben las dos cosas: el mapa se queda con la pantalla. */
       @media (max-width: 900px) {
         grid-template-columns: 1fr;
         .transporte-filtros, .transporte-resultados { display: none; }
@@ -168,28 +185,104 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
 
     .transporte-body--mapa .transporte-filtros { @media (max-width: 1280px) { display: none; } }
 
-    .transporte-filtros { position: sticky; top: 140px; }
+    .transporte-filtros {
+      position: sticky;
+      top: calc(max(var(--alto-navbar), var(--alto-buscador, 192px)) + var(--sp-3));
 
+      /* En una sola columna los filtros van delante de los resultados: fijarlos
+         dejaría un panel alto pegado arriba tapando las tarjetas. */
+      @media (max-width: 1024px) { position: static; }
+    }
+
+    /* Miniatura de mapa sobre los filtros con su CTA superpuesto (PDF §3). */
     .transporte-mapa-teaser {
-      display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
-      width: 100%; margin-bottom: var(--sp-4);
-      padding: var(--sp-3) var(--sp-4);
-      border: 1px solid var(--b-1); border-radius: var(--r-lg);
-      background: var(--c-accent); color: #fff;
-      font-family: var(--font); font-size: var(--f-sm); font-weight: var(--w-6);
+      position: relative;
+      display: block;
+      width: 100%;
+      height: 130px;
+      margin-bottom: var(--sp-4);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      background: var(--c-raised);
+    }
+
+    /* La miniatura es decorativa: el clic lo gestiona el botón superpuesto. */
+    .transporte-mapa-teaser__mini { display: block; height: 100%; pointer-events: none; }
+
+    .transporte-mapa-teaser__vacio {
+      display: block; height: 100%;
+      background: linear-gradient(135deg, var(--c-raised), var(--c-surface));
+    }
+
+    /* El botón cubre toda la miniatura para que el objetivo táctil sea la
+       tarjeta entera y no solo la pastilla de texto. */
+    .transporte-mapa-teaser__cta {
+      position: absolute;
+      inset: 0;
+      /* Sobre los tiles y los controles de Leaflet (z-index 1000). */
+      z-index: 1100;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: var(--sp-3);
+      border: none;
+      background: transparent;
       cursor: pointer;
 
-      &:hover { background: var(--c-accent-h); }
+      &:hover .transporte-mapa-teaser__pill { background: var(--c-accent-h); }
+      &:focus-visible { outline: 2px solid var(--dk-gold); outline-offset: -2px; }
+    }
+
+    .transporte-mapa-teaser__pill {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      max-width: calc(100% - var(--sp-6));
+      padding: var(--sp-2) var(--sp-4);
+      border-radius: var(--r-full);
+      background: var(--c-accent);
+      color: #fff;
+      font-family: var(--font);
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
+      box-shadow: var(--sh-md);
+    }
+
+    /* Con el mapa abierto en móvil, el buscador pegajoso se retira: mide
+       casi media pantalla y, al quedarse fijo arriba, tapaba la caja
+       "Buscar en el mapa" y el botón de cerrar del propio mapa. */
+    .transporte-page--mapa .transporte-searchbar {
+      @media (max-width: 900px) { display: none; }
     }
 
     .transporte-mapa {
       position: sticky;
-      top: 140px;
-      height: calc(100vh - 160px);
+      /* Justo debajo de la cabecera fija: la barra de búsqueda y la navegación
+         se anclan las dos arriba, así que manda la más alta de las dos. Su alto
+         real lo publica la directiva rsAltoBuscador, porque cambia con la ventana y con
+         los campos de cada vertical. */
+      top: calc(max(var(--alto-navbar), var(--alto-buscador, 192px)) + var(--sp-3));
+      /* La unidad dvh descuenta las barras del navegador móvil, que aparecen y
+         desaparecen al desplazarse; con vh el mapa se corta por abajo. La
+         regla en vh queda de reserva para quien no entienda dvh. */
+      height: calc(100vh - max(var(--alto-navbar), var(--alto-buscador, 192px)) - var(--sp-6));
+      height: calc(100dvh - max(var(--alto-navbar), var(--alto-buscador, 192px)) - var(--sp-6));
       border: 1px solid var(--b-1);
       border-radius: var(--r-xl);
       overflow: hidden;
       box-shadow: var(--sh-md);
+
+      /* A pantalla completa el mapa se pega al borde: los 24px del contenedor
+         a cada lado son ancho de mapa que en un móvil se echa de menos. */
+      @media (max-width: 900px) {
+        top: calc(var(--alto-navbar) + var(--sp-3));
+        height: calc(100vh - var(--alto-navbar) - var(--sp-6));
+        height: calc(100dvh - var(--alto-navbar) - var(--sp-6));
+        margin-inline: calc(var(--sp-6) * -1);
+        border-inline: none;
+        border-radius: var(--r-lg);
+      }
     }
 
     .transporte-head { margin-bottom: var(--sp-6); }
@@ -225,6 +318,7 @@ export class TransporteListaComponent implements OnInit {
   private readonly puntos = signal<PuntoServicio[]>([]);
   private readonly zona = signal<ZonaBusqueda | null>(null);
   private readonly mapaBuscador = viewChild<RsMapaBuscadorComponent>('mapaBuscador');
+  private readonly mapaCol = viewChild<ElementRef<HTMLElement>>('mapaCol');
 
   readonly puntosMapa = computed<PuntoMapa[]>(() =>
     this.puntos().map((p) => ({
@@ -249,7 +343,14 @@ export class TransporteListaComponent implements OnInit {
       }
       return;
     }
-    setTimeout(() => this.mapaBuscador()?.refrescar(), 0);
+    setTimeout(() => {
+      this.mapaBuscador()?.refrescar();
+      // El mapa se ancla por debajo del buscador, así que recién abierto le
+      // asoma el borde inferior por fuera de la ventana y los mandos de "buscar
+      // en esta zona" quedan sin verse. Traerlo a la vista evita que el usuario
+      // tenga que adivinar que hay que desplazarse.
+      this.mapaCol()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
   }
 
   buscarEnZona(zona: ZonaMapa): Promise<void> {
