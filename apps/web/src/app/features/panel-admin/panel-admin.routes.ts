@@ -47,6 +47,11 @@ export const panelAdminRoutes: Routes = [
           import('./admin-comunidad.component').then(m => m.AdminComunidadComponent),
       },
       {
+        path: 'configuracion',
+        loadComponent: () =>
+          import('./admin-configuracion.component').then(m => m.AdminConfiguracionComponent),
+      },
+      {
         path: 'auditoria',
         loadComponent: () =>
           import('./admin-auditoria.component').then(m => m.AdminAuditoriaComponent),

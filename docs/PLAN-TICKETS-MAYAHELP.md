@@ -24,7 +24,7 @@ que son los que más tiempo consumen.
 | F4 | Panel comercio · estados, filtros y vacíos | **8018 ✅ · 8022 ✅ · 8025 ✅ · 8028 🟡** | 🟡 en curso |
 | F5 | Panel admin · textos, resúmenes y filtros | **8030–8039 🟡** (todas las pantallas tocadas; queda lo que pide backend) | 🟡 en curso |
 | F6 | Marca y público | 8004 ✅ · 8008/8009/8010 ✅ · 8011 ✅ (revisado en código) | 🟢 falta verlo en la app |
-| F7 | Módulos nuevos (producto) | 8040 §1 (parcial), §2, §3, §4, §5 y §7 ✅ · §6, §8 ⬜ | 🟡 en curso |
+| F7 | Módulos nuevos (producto) | 8040 §1 (parcial) · §2–§8 ✅ | 🟢 falta el historial de liquidaciones |
 
 ## F0 — Auditoría (hecho)
 
@@ -347,7 +347,17 @@ No son ajustes, es producto nuevo. Orden propuesto, de menos a más coste:
      Soporte · Marketing · Configuración), guard `PermisosAdminGuard` aplicado a los endpoints
      sensibles y editor en la ficha del usuario. **Una cuenta sin permisos declarados sigue
      siendo superadministradora**: cambiarlo en silencio habría dejado al equipo fuera del panel.
-6. **Notificaciones** (§6) y **configuración general** (§8).
+6. **Notificaciones y configuración general ✅ hecho** (§6 y §8). Colección `configuracion_plataforma`
+   (documento único) y pantalla `/admin/configuracion`:
+   - **Avisos automáticos** por tipo y canal (email · en plataforma · push): nueva reserva,
+     modificación, cancelación, recordatorio, reseña, pago, liquidación, documentación que caduca
+     y promociones. Push se declara ya aunque el canal llegue después. Un aviso añadido más
+     adelante entra con los valores por defecto en vez de quedarse sin fila.
+   - **Parámetros generales**: nombre, email y teléfono de soporte, días de aviso de caducidad,
+     **verticales abiertos al público** y **modo mantenimiento** — que deja el panel de
+     administración accesible, porque si no no habría forma de desactivarlo.
+   - `GET /configuracion/publica` es abierto a propósito: el frontend necesita saber si hay
+     mantenimiento antes de que nadie inicie sesión.
 
 ## Verificación
 

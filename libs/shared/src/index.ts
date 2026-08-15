@@ -31,6 +31,8 @@ export * from './dtos/admin/reporte-financiero.dto';
 
 // DTOs — Alpha (Doogking Alpha, Bloque 13)
 export * from './dtos/alpha/alpha.dto';
+// Avisos automáticos de la plataforma (TCK-8040 §6)
+export * from './enums/aviso.enum';
 // Permisos y estados del equipo del comercio (TCK-8026/8027)
 export * from './enums/permiso-comercio.enum';
 // Permisos internos de administración (TCK-8040 §7)

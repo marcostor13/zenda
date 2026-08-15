@@ -16,6 +16,7 @@ import { AlphaModule } from './core/alpha/alpha.module';
 import { CuponesModule } from './core/cupones/cupones.module';
 import { IncidenciasModule } from './core/incidencias/incidencias.module';
 import { AuditoriaModule } from './core/auditoria/auditoria.module';
+import { ConfiguracionModule } from './core/configuracion/configuracion.module';
 import { PerrosModule } from './core/perros/perros.module';
 import { FavoritosModule } from './core/favoritos/favoritos.module';
 import { SuplementosModule } from './core/suplementos/suplementos.module';
@@ -61,6 +62,7 @@ import { ListaEsperaModule } from './core/lista-espera/lista-espera.module';
     CuponesModule,
     IncidenciasModule,
     AuditoriaModule,
+    ConfiguracionModule,
     PerrosModule,
     FavoritosModule,
     SuplementosModule,
