@@ -67,7 +67,10 @@ describe('TransporteListaComponent', () => {
     it('debería cargar los traslados de la ciudad buscada', async () => {
       await crear({ ciudad: 'Madrid' });
 
-      expect(service['buscar']).toHaveBeenCalledWith('Madrid');
+      // `buscar` recibe las opciones completas del listado, no la ciudad suelta.
+      expect(service['buscar']).toHaveBeenCalledWith(
+        expect.objectContaining({ ciudad: 'Madrid' }),
+      );
       expect(componente.transportes()).toHaveLength(1);
       expect(componente.cargando()).toBe(false);
       expect(componente.error()).toBe(false);
@@ -80,7 +83,9 @@ describe('TransporteListaComponent', () => {
       await fixture.whenStable();
 
       // La url es la fuente de verdad: el buscador y el listado no pueden divergir.
-      expect(service['buscar']).toHaveBeenLastCalledWith('Toledo');
+      expect(service['buscar']).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ciudad: 'Toledo' }),
+      );
     });
 
     it('debería marcar el error sin inventar traslados', async () => {

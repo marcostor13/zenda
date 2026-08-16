@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
-import { ReservaEstado } from 'shared';
+import { ReservaEstado, VerticalKey } from 'shared';
 import { AlphaService } from './alpha.service';
 import { AlphaRepository } from './alpha.repository';
 import { Reserva } from '../bookings/reserva.schema';
@@ -106,6 +106,24 @@ describe('AlphaService', () => {
         },
         'admin-1',
       );
+    });
+
+    it('debería guardar el tope, las categorías y la vigencia cuando se declaran', async () => {
+      const dto = {
+        nivel: 3, nombre: 'ALPHA III', reservasRequeridas: 15, descuentoPct: 0.1, beneficios: [],
+        descuentoMaximoEur: 20,
+        verticalesAplicables: [VerticalKey.ALOJAMIENTO, VerticalKey.PELUQUERIA],
+        vigenciaDesde: '2026-01-01', vigenciaHasta: '2026-12-31',
+      };
+
+      await service.actualizarNivel(dto, 'admin-1');
+
+      const guardado = repo.upsert.mock.calls[0][1];
+      expect(guardado.descuentoMaximoEur).toBe(20);
+      expect(guardado.verticalesAplicables).toEqual([VerticalKey.ALOJAMIENTO, VerticalKey.PELUQUERIA]);
+      // Las fechas se guardan como Date: en Mongo una cadena no se puede comparar.
+      expect(guardado.vigenciaDesde).toEqual(new Date('2026-01-01'));
+      expect(guardado.vigenciaHasta).toEqual(new Date('2026-12-31'));
     });
   });
 });

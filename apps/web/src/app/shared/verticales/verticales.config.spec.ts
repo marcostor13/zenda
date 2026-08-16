@@ -31,11 +31,12 @@ describe('verticales.config', () => {
     expect(seguros.reservaPorNoches).toBe(false);
   });
 
-  it('debería dar de alta cuidadores a domicilio, sin paseadores', () => {
-    const claves = VERTICALES_UI.map((v) => v.key);
+  it('no debería ofrecer verticales fuera de alcance', () => {
+    const claves: string[] = VERTICALES_UI.map((v) => v.key);
 
-    expect(claves).toContain(VerticalKey.CUIDADORES);
-    // Paseadores queda explícitamente fuera de alcance (HU-048).
+    // Cuidadores se retiró de la plataforma (TCK-8021) y paseadores nunca entró
+    // en alcance (HU-048): ninguno debe volver por la puerta de atrás.
+    expect(claves).not.toContain('cuidadores');
     expect(claves).not.toContain('paseadores');
   });
 

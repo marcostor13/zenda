@@ -42,7 +42,9 @@ describe('TransporteService', () => {
   });
 
   it('debería propagar la ciudad cuando se indica', async () => {
-    const promesa = service.buscar('Madrid');
+    // `buscar` recibe las opciones de búsqueda, no la ciudad suelta: el filtro
+    // se comparte con el resto de verticales desde CatalogBrowseService.
+    const promesa = service.buscar({ ciudad: 'Madrid' });
 
     expect(responder([]).params.get('ciudad')).toBe('Madrid');
     await promesa;

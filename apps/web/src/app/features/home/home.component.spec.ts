@@ -57,7 +57,6 @@ describe('HomeComponent', () => {
       '/adiestramiento',
       '/hoteles',
       '/seguros',
-      '/cuidadores',
     ]);
   });
 
@@ -159,7 +158,6 @@ describe('HomeComponent', () => {
       '/icons/adiestramiento.svg',
       '/icons/hoteles.svg',
       '/icons/seguros.svg',
-      '/icons/cuidadores.svg',
     ]);
   });
 

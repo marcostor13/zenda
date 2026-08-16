@@ -117,12 +117,18 @@ describe('AlojamientoListaComponent', () => {
     expect(component.paginaActual()).toBe(1);
   });
 
-  it('debería alternar amenities seleccionadas', () => {
-    component.toggleAmenity('Piscina');
-    expect(component.amenitiesSelec()).toContain('Piscina');
+  it('debería llevar al buscador lo marcado en el panel de filtros', async () => {
+    // Las amenidades ya no se alternan en el listado: las marca el panel común
+    // `rs-filtros-listado` y llegan aquí en un solo evento.
+    component.aplicarFiltros({ amenities: ['Piscina'], precioMin: 20, vertical: {} });
+    await fixture.whenStable();
 
-    component.toggleAmenity('Piscina');
-    expect(component.amenitiesSelec()).not.toContain('Piscina');
+    expect(alojamientoService.buscar).toHaveBeenLastCalledWith(
+      expect.objectContaining({ amenities: ['Piscina'], precioMin: 20 }),
+    );
+    // Cambiar el filtro vuelve a la primera página: si no, se pediría la 3 de
+    // un resultado que ahora quizá tiene una sola.
+    expect(component.paginaActual()).toBe(1);
   });
 
   describe('mapa y facetas (PDF 27/07 §3)', () => {

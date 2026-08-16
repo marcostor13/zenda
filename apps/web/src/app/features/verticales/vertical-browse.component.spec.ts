@@ -21,7 +21,13 @@ describe('VerticalBrowseComponent', () => {
     vertical: string,
     queryParams: Record<string, string> = {},
   ): Promise<void> => {
-    browseService = { buscar: jest.fn().mockResolvedValue([]) } as any;
+    // El listado unificado pagina, pide facetas y pinta el mapa: el doble tiene
+    // que responder a los tres, o `cargar()` se corta antes de buscar.
+    browseService = {
+      buscarPaginado: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 }),
+      facetas: jest.fn().mockResolvedValue({ amenities: [], precios: [], valoracion: [] }),
+      puntosMapa: jest.fn().mockResolvedValue([]),
+    } as any;
 
     await TestBed.configureTestingModule({
       imports: [VerticalBrowseComponent, RouterTestingModule, HttpClientTestingModule],
@@ -99,7 +105,7 @@ describe('VerticalBrowseComponent', () => {
   it('debería buscar con la ciudad que llega en la URL', async () => {
     await crearComponente('veterinaria', { ciudad: 'Bilbao' });
 
-    expect(browseService.buscar).toHaveBeenCalledWith(
+    expect(browseService.buscarPaginado).toHaveBeenCalledWith(
       'veterinaria',
       expect.objectContaining({ ciudad: 'Bilbao' }),
     );
@@ -108,7 +114,7 @@ describe('VerticalBrowseComponent', () => {
   it('debería filtrar por compatibilidad con la mascota elegida en el buscador', async () => {
     await crearComponente('veterinaria', { ciudad: 'Bilbao', perroIds: 'perro-1,perro-2' });
 
-    expect(browseService.buscar).toHaveBeenCalledWith(
+    expect(browseService.buscarPaginado).toHaveBeenCalledWith(
       'veterinaria',
       expect.objectContaining({ perroId: 'perro-1' }),
     );
@@ -176,20 +182,6 @@ describe('VerticalBrowseComponent', () => {
     expect(component.cfg().price(tarjeta({}))).toBe(20);
   });
 
-  it('cuidadores: debería resumir duración y radio de la visita', async () => {
-    await crearComponente('cuidadores');
-
-    const conMedicacion = tarjeta({
-      administraMedicacion: true, duracionVisitaMin: 60, radioDesplazamientoKm: 25, precioVisita: 18,
-    });
-    expect(component.cfg().badge(conMedicacion)).toBe('Administra medicación');
-    expect(component.cfg().meta(conMedicacion)).toEqual(['60 min por visita', 'Hasta 25 km']);
-    expect(component.cfg().price(conMedicacion)).toBe(18);
-
-    expect(component.cfg().badge(tarjeta({}))).toBe('A domicilio');
-    expect(component.cfg().meta(tarjeta({}))).toEqual(['45 min por visita', 'Hasta 10 km']);
-  });
-
   it('peluqueria y adiestramiento: deberían tener valores por defecto propios', async () => {
     await crearComponente('peluqueria');
     expect(component.cfg().badge(tarjeta({}))).toBeTruthy();
@@ -213,7 +205,7 @@ describe('VerticalBrowseComponent', () => {
 
   it('debería marcar el error sin inventar servicios', async () => {
     await crearComponente('veterinaria');
-    browseService.buscar.mockRejectedValue(new Error('500'));
+    browseService.buscarPaginado.mockRejectedValue(new Error('500'));
 
     await (component as unknown as { cargar: () => Promise<void> })['cargar']();
 

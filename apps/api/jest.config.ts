@@ -16,7 +16,14 @@ const config: Config = {
    */
   transformIgnorePatterns: ['node_modules[\\\\/](?!(.*[\\\\/])?nanoid[\\\\/])'],
   extensionsToTreatAsEsm: [],
-  collectCoverageFrom: ['**/*.(t|j)s', '!**/*.module.ts', '!**/main.ts'],
+  /*
+   * `scripts/` queda fuera de la medición: son utilidades de línea de comandos
+   * que se ejecutan a mano (sembrar datos, migrar, limpiar), nunca forman parte
+   * del API servido y no tienen forma razonable de probarse en unitario. Contar
+   * sus ~200 sentencias siempre a cero distorsionaba el porcentaje del código
+   * que sí se sirve, que es lo que el umbral pretende vigilar.
+   */
+  collectCoverageFrom: ['**/*.(t|j)s', '!**/*.module.ts', '!**/main.ts', '!scripts/**'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
   moduleNameMapper: {

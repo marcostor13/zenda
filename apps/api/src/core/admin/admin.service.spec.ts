@@ -26,6 +26,8 @@ describe('AdminService', () => {
   let comercioModel: any;
   let perroModel: any;
   let usuarioModel: any;
+  let servicioModel: any;
+  let auditoria: { registrar: jest.Mock; listar: jest.Mock };
 
   const pagosMock = [
     {
@@ -81,6 +83,7 @@ describe('AdminService', () => {
 
     pagoModel = {
       find: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
         lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(pagosMock),
       }),
@@ -101,6 +104,17 @@ describe('AdminService', () => {
 
     perroModel = {
       countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(42) }),
+    };
+
+    auditoria = { registrar: jest.fn(), listar: jest.fn() };
+
+    servicioModel = {
+      countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
+      find: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -132,7 +146,7 @@ describe('AdminService', () => {
           provide: UsersRepository,
           useValue: { contarTodos: jest.fn().mockResolvedValue(0) },
         },
-        { provide: AuditoriaService, useValue: { registrar: jest.fn(), listar: jest.fn() } },
+        { provide: AuditoriaService, useValue: auditoria },
         { provide: getModelToken(Pago.name), useValue: pagoModel },
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
         { provide: getModelToken(Usuario.name), useValue: usuarioModel },
@@ -141,7 +155,7 @@ describe('AdminService', () => {
         // Las fichas administrativas consultan reseñas, incidencias y servicios.
         { provide: getModelToken(Resena.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }), aggregate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) } },
         { provide: getModelToken(Incidencia.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }) } },
-        { provide: getModelToken(Servicio.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }), find: jest.fn().mockReturnValue({ select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue([]) }) } },
+        { provide: getModelToken(Servicio.name), useValue: servicioModel },
         // El embudo de la analítica cuenta sesiones en la colección de eventos.
         { provide: getModelToken(Evento.name), useValue: { distinct: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) } },
       ],
@@ -174,6 +188,116 @@ describe('AdminService', () => {
 
       expect(hoteles).toBeDefined();
       expect(hoteles!.totalReservas).toBe(2);
+    });
+  });
+
+  describe('listarReservas', () => {
+    /** Filtro con el que se consultó la colección de reservas. */
+    const filtroUsado = (): Record<string, any> => reservaModel.find.mock.calls.at(-1)![0];
+
+    it('debería consultar sin condiciones cuando no se filtra nada', async () => {
+      await service.listarReservas(1, 20);
+
+      expect(filtroUsado()).toEqual({});
+    });
+
+    it('debería filtrar por vertical, estado e importe', async () => {
+      await service.listarReservas(1, 20, {
+        estado: 'confirmada',
+        vertical: VerticalKey.PELUQUERIA,
+        importeMin: 50,
+        importeMax: 200,
+      });
+
+      expect(filtroUsado()).toMatchObject({
+        estado: 'confirmada',
+        vertical: VerticalKey.PELUQUERIA,
+        montoTotal: { $gte: 50, $lte: 200 },
+      });
+    });
+
+    it('debería aplicar sólo el extremo declarado del rango de importe', async () => {
+      await service.listarReservas(1, 20, { importeMin: 50 });
+
+      expect(filtroUsado()['montoTotal']).toEqual({ $gte: 50 });
+    });
+
+    it('debería resolver la ciudad por el servicio, que es donde vive la ubicación', async () => {
+      servicioModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ _id: 'srv-1' }, { _id: 'srv-2' }]),
+      });
+
+      await service.listarReservas(1, 20, { ciudad: 'Madrid' });
+
+      expect(filtroUsado()['servicioId']).toEqual({ $in: ['srv-1', 'srv-2'] });
+    });
+
+    it('debería resolver el estado del pago por la colección de pagos', async () => {
+      pagoModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ reservaId: 'res-1' }]),
+      });
+
+      await service.listarReservas(1, 20, { estadoPago: PagoEstado.REEMBOLSADO });
+
+      expect(pagoModel.find).toHaveBeenCalledWith({ estado: PagoEstado.REEMBOLSADO });
+      expect(filtroUsado()['_id']).toEqual({ $in: ['res-1'] });
+    });
+
+    it('debería buscar por código, cliente o comercio sin tratar el punto como comodín', async () => {
+      usuarioModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ _id: 'u1' }]),
+      });
+      comercioModel.find = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+      await service.listarReservas(1, 20, { buscar: 'ana.perez@correo.com' });
+
+      const condiciones = filtroUsado()['$or'];
+      expect(condiciones).toHaveLength(2); // código + usuarios encontrados
+      expect(condiciones[0].codigo.source).toContain('ana\\.perez');
+    });
+
+    it('debería exponer la política de cancelación del servicio y, si no la tiene, la del comercio', async () => {
+      reservaModel.find.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          {
+            _id: 'r1', codigo: 'RES-1', vertical: VerticalKey.ALOJAMIENTO,
+            servicioId: { titulo: 'Villa Canina', politicaCancelacion: 'Gratis hasta 48 h antes' },
+            comercioId: { nombreComercial: 'Royal Dog', politicaCancelacion: 'estricta' },
+          },
+          {
+            _id: 'r2', codigo: 'RES-2', vertical: VerticalKey.PELUQUERIA,
+            servicioId: { titulo: 'Estilo Canino' },
+            comercioId: { nombreComercial: 'Groomer', politicaCancelacion: 'moderada' },
+          },
+        ]),
+      });
+      pagoModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+      const { items } = await service.listarReservas(1, 20);
+
+      expect(items[0]['politicaCancelacion']).toBe('Gratis hasta 48 h antes');
+      expect(items[1]['politicaCancelacion']).toBe('moderada');
+      // Sin pago registrado, la reserva no se queda sin estado.
+      expect(items[0]['estadoPago']).toBe('sin_pago');
     });
   });
 
@@ -330,6 +454,33 @@ describe('AdminService', () => {
         expect.objectContaining({ nombre: 'Alpha 2', reservasRequeridas: 5, descuentoPct: 0.05 }),
         'admin-1',
       );
+    });
+
+    it('debería dejar en la auditoría el tope y las categorías del descuento', async () => {
+      await service.actualizarNivelAlpha({
+        nivel: 3, nombre: 'ALPHA III', reservasRequeridas: 15, descuentoPct: 0.1, beneficios: [],
+        descuentoMaximoEur: 20,
+        verticalesAplicables: [VerticalKey.PELUQUERIA],
+      }, 'admin-1');
+
+      expect(auditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          descripcion: expect.stringContaining('máximo 20 €'),
+        }),
+      );
+      expect(auditoria.registrar.mock.calls.at(-1)![0].descripcion)
+        .toContain('sólo en peluqueria');
+    });
+
+    it('no debería inventar límites en la auditoría cuando el nivel no los tiene', async () => {
+      await service.actualizarNivelAlpha(
+        { nivel: 1, nombre: 'ALPHA I', reservasRequeridas: 0, descuentoPct: 0, beneficios: [] },
+        'admin-1',
+      );
+
+      const descripcion = auditoria.registrar.mock.calls.at(-1)![0].descripcion;
+      expect(descripcion).not.toContain('máximo');
+      expect(descripcion).not.toContain('sólo en');
     });
   });
 
