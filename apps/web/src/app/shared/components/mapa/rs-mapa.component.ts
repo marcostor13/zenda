@@ -1,56 +1,35 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy,
-  effect, input, output, viewChild,
+  effect, inject, input, output, viewChild,
 } from '@angular/core';
-import type { Map as LeafletMap, Marker } from 'leaflet';
+import { GeoService } from '../../../core/geo/geo.service';
+import { crearMotorGoogle } from './motores/motor-google';
+import { crearMotorLeaflet } from './motores/motor-leaflet';
+import {
+  CENTRO_POR_DEFECTO, MotorMapa, OpcionesMotor, PuntoMapa, ZOOM_POR_DEFECTO, ZOOM_PUNTO_UNICO,
+  ZonaMapa, puntosGeolocalizados,
+} from './motores/motor-mapa';
 
-/** Punto pintable en el mapa. `etiqueta` es lo que se ve en el pin (p. ej. "€24"). */
-export interface PuntoMapa {
-  readonly id: string;
-  readonly lat: number;
-  readonly lng: number;
-  readonly etiqueta?: string;
-  readonly titulo?: string;
-  /** Miniatura de la tarjeta emergente al pulsar el pin. */
-  readonly imagen?: string;
-  /** Nota media, para la tarjeta emergente. 0 = todavía sin reseñas. */
-  readonly rating?: number;
-}
-
-/** Rectángulo visible del mapa, en el mismo lenguaje que espera el API. */
-export interface ZonaMapa {
-  readonly swLat: number;
-  readonly swLng: number;
-  readonly neLat: number;
-  readonly neLng: number;
-  readonly centroLat: number;
-  readonly centroLng: number;
-  readonly zoom: number;
-}
-
-/** Centro por defecto (Madrid) cuando ningún punto trae coordenadas. */
-const CENTRO_POR_DEFECTO: [number, number] = [40.4168, -3.7038];
-const ZOOM_POR_DEFECTO = 11;
-/** Zoom al centrar sobre un único resultado; `fitBounds` daría uno absurdo. */
-const ZOOM_PUNTO_UNICO = 14;
+export type { PuntoMapa, ZonaMapa } from './motores/motor-mapa';
 
 /**
- * Espera antes de anunciar la zona visible. Arrastrar el mapa dispara `moveend`
+ * Espera antes de anunciar la zona visible. Arrastrar el mapa dispara un aviso
  * en cada soltar del ratón; sin este margen, un paseo por la costa lanzaría una
  * búsqueda por cada tirón.
  */
 const ESPERA_MOVIMIENTO_MS = 400;
 
 /**
- * Mapa de puntos sobre OpenStreetMap (PDF 27/07 §3, captura WA0009).
+ * Mapa de puntos (PDF 27/07 §3, captura WA0009).
  *
  * Compartido a propósito: lo consumen el listado de resultados (pines con
  * precio), el buscador por mapa estilo Booking y el módulo Comunidad/Explora.
  *
- * Leaflet se carga con `import()` dinámico y solo en el navegador: es una
- * librería que toca `window` al importarse, así que un import estático rompería
- * cualquier render en servidor y engordaría el bundle inicial de quien nunca
- * abre el mapa.
+ * **Se pinta con Google Maps** cuando el API expone una clave de navegador
+ * (`GET /geo/config`), que es la cartografía que pide el cliente y la misma que
+ * ya alimenta el buscador de poblaciones. Si no hay clave, o si su SDK no llega
+ * a cargarse, cae a OpenStreetMap: el buscador por mapa no puede depender de
+ * que un proveedor externo esté disponible.
  */
 @Component({
   selector: 'rs-mapa',
@@ -61,12 +40,32 @@ const ESPERA_MOVIMIENTO_MS = 400;
     :host { display: block; height: 100%; }
     .rs-mapa__lienzo { height: 100%; width: 100%; border-radius: inherit; }
 
-    /* Pin con el precio, al estilo Booking. Se inyecta como divIcon, por eso
-       necesita ::ng-deep: Leaflet lo cuelga fuera del árbol del componente. */
+    /* Los pines viven fuera del árbol del componente (los cuelga el proveedor
+       del mapa), así que su estilo necesita ::ng-deep. */
+
+    /* Capa que el motor coloca en la coordenada exacta. Va a tamaño cero y el
+       centrado lo hace el pin de dentro: Leaflet posiciona sus marcadores con
+       un transform propio sobre esta misma capa, así que ponerle aquí otro la
+       amontonaría toda en el origen del mapa. */
+    :host ::ng-deep .rs-pin-capa {
+      position: absolute;
+      width: 0;
+      height: 0;
+    }
+
+    /* Pin con el precio, al estilo Booking. Se centra sobre la coordenada en
+       lugar de colgar de ella por la esquina superior izquierda. */
     :host ::ng-deep .rs-pin {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, -50%);
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      /* Alto mínimo de objetivo táctil: por debajo de esto, en móvil se falla
+         el pin y se acaba arrastrando el mapa. */
+      min-height: 32px;
       padding: 4px 9px;
       border-radius: var(--r-full);
       background: var(--c-card);
@@ -82,15 +81,25 @@ const ESPERA_MOVIMIENTO_MS = 400;
     }
 
     :host ::ng-deep .rs-pin:hover,
+    :host ::ng-deep .rs-pin:focus-visible,
     :host ::ng-deep .rs-pin--activo {
       background: var(--dk-gold);
       border-color: var(--dk-gold);
       color: var(--dk-blue-deep, #00135D);
-      transform: scale(1.08);
+      /* El centrado va en el mismo transform: si se sustituye por el escalado
+         a secas, el pin salta de sitio al pasarle el ratón por encima. */
+      transform: translate(-50%, -50%) scale(1.08);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      :host ::ng-deep .rs-pin { transition: none; }
+      :host ::ng-deep .rs-pin:hover,
+      :host ::ng-deep .rs-pin:focus-visible,
+      :host ::ng-deep .rs-pin--activo { transform: translate(-50%, -50%); }
     }
 
     /* Tarjeta emergente del pin (mismo contenido mínimo que la de Booking). */
-    :host ::ng-deep .rs-mapa-pop { width: 200px; font-family: var(--font); }
+    :host ::ng-deep .rs-mapa-pop { width: min(200px, 60vw); font-family: var(--font); }
     :host ::ng-deep .rs-mapa-pop__img {
       width: 100%; height: 96px; object-fit: cover;
       border-radius: var(--r-md); margin-bottom: 6px;
@@ -133,11 +142,9 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
   readonly zonaCambiada = output<ZonaMapa>();
 
   private readonly lienzo = viewChild.required<ElementRef<HTMLElement>>('lienzo');
+  private readonly geoService = inject(GeoService);
 
-  private mapa: LeafletMap | null = null;
-  private marcadores = new Map<string, Marker>();
-  /** Módulo Leaflet ya cargado; null hasta que termina el import dinámico. */
-  private L: typeof import('leaflet') | null = null;
+  private motor: MotorMapa | null = null;
   private temporizadorMovimiento: ReturnType<typeof setTimeout> | null = null;
   /**
    * Silencia `zonaCambiada` mientras el propio componente reencuadra. Sin esto,
@@ -145,6 +152,8 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
    * otra vez: el mapa entraría en un bucle de peticiones.
    */
   private reencuadrando = false;
+  /** El componente puede morir mientras se carga el SDK del proveedor. */
+  private destruido = false;
 
   constructor() {
     // Repinta los pines cuando cambian los puntos o el resaltado, pero solo
@@ -152,36 +161,27 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const puntos = this.puntos();
       const activo = this.activo();
-      if (this.mapa) this.pintar(puntos, activo);
+      if (this.motor) this.pintar(puntos, activo);
     });
 
     // Centrado imperativo desde el buscador de poblaciones del mapa.
     effect(() => {
       const centro = this.centro();
-      if (centro && this.mapa) this.centrarEn(centro.lat, centro.lng, centro.zoom);
+      if (centro && this.motor) this.centrarEn(centro.lat, centro.lng, centro.zoom);
     });
   }
 
   async ngAfterViewInit(): Promise<void> {
-    this.L = await import('leaflet');
-    // El componente puede haberse destruido mientras se cargaba Leaflet; montar
-    // el mapa sobre un elemento ya desconectado deja un observer huérfano.
-    if (!this.lienzo().nativeElement.isConnected) return;
+    const motor = await this.crearMotor();
+    // El componente puede haberse destruido mientras cargaba el SDK; montar el
+    // mapa sobre un elemento ya desconectado deja un observer huérfano.
+    if (!motor) return;
+    if (this.destruido || !this.lienzo().nativeElement.isConnected) {
+      motor.destruir();
+      return;
+    }
 
-    this.mapa = this.L.map(this.lienzo().nativeElement, {
-      center: CENTRO_POR_DEFECTO,
-      zoom: ZOOM_POR_DEFECTO,
-      // El scroll de la página no debe secuestrarse al pasar sobre el mapa,
-      // salvo cuando el mapa ocupa la pantalla y es lo que se está usando.
-      scrollWheelZoom: this.zoomConRueda(),
-    });
-
-    this.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; colaboradores de OpenStreetMap',
-      maxZoom: 19,
-    }).addTo(this.mapa);
-
-    this.mapa.on('moveend', () => this.anunciarZona());
+    this.motor = motor;
 
     const centro = this.centro();
     if (centro) this.centrarEn(centro.lat, centro.lng, centro.zoom);
@@ -190,138 +190,98 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destruido = true;
     if (this.temporizadorMovimiento) clearTimeout(this.temporizadorMovimiento);
-    this.mapa?.remove();
-    this.mapa = null;
+    this.motor?.destruir();
+    this.motor = null;
   }
 
   /** Redibuja el mapa tras un cambio de tamaño del contenedor (abrir/cerrar la vista). */
   refrescar(): void {
-    this.mapa?.invalidateSize();
+    this.motor?.refrescar();
   }
 
   /** Lleva el mapa a una posición concreta sin emitir la zona como si fuese del usuario. */
   centrarEn(lat: number, lng: number, zoom = ZOOM_PUNTO_UNICO): void {
-    if (!this.mapa || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
-    this.mapa.setView([lat, lng], zoom);
+    if (!this.motor || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    this.motor.centrarEn(lat, lng, zoom);
   }
 
   /** Zona visible actual; útil para la primera búsqueda al abrir el mapa. */
   zonaActual(): ZonaMapa | null {
-    return this.mapa ? this.leerZona() : null;
-  }
-
-  private anunciarZona(): void {
-    if (!this.mapa || this.reencuadrando) return;
-    if (this.temporizadorMovimiento) clearTimeout(this.temporizadorMovimiento);
-    this.temporizadorMovimiento = setTimeout(() => {
-      const zona = this.leerZona();
-      if (zona) this.zonaCambiada.emit(zona);
-    }, ESPERA_MOVIMIENTO_MS);
-  }
-
-  private leerZona(): ZonaMapa | null {
-    if (!this.mapa) return null;
-    const limites = this.mapa.getBounds();
-    const centro = this.mapa.getCenter();
-    return {
-      swLat: limites.getSouth(),
-      swLng: limites.getWest(),
-      neLat: limites.getNorth(),
-      neLng: limites.getEast(),
-      centroLat: centro.lat,
-      centroLng: centro.lng,
-      zoom: this.mapa.getZoom(),
-    };
-  }
-
-  private pintar(puntos: PuntoMapa[], activo: string | null): void {
-    const L = this.L;
-    const mapa = this.mapa;
-    if (!L || !mapa) return;
-
-    this.marcadores.forEach((m) => m.remove());
-    this.marcadores.clear();
-
-    const conCoordenadas = puntos.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-    if (conCoordenadas.length === 0) return;
-
-    for (const punto of conCoordenadas) {
-      const esActivo = punto.id === activo;
-      const icono = L.divIcon({
-        className: '',
-        html: `<span class="rs-pin${esActivo ? ' rs-pin--activo' : ''}">${punto.etiqueta ?? '•'}</span>`,
-        iconSize: undefined,
-      });
-
-      const marcador = L.marker([punto.lat, punto.lng], { icon: icono, title: punto.titulo })
-        .addTo(mapa)
-        .on('click', () => this.puntoElegido.emit(punto.id));
-
-      const tarjeta = this.tarjetaEmergente(punto);
-      if (tarjeta) marcador.bindPopup(tarjeta, { closeButton: true, offset: [0, -6] });
-
-      this.marcadores.set(punto.id, marcador);
-    }
-
-    if (this.autoencuadre()) this.encuadrar(conCoordenadas);
+    return this.motor?.zonaActual() ?? null;
   }
 
   /**
-   * Contenido de la tarjeta emergente. Se compone a mano porque Leaflet solo
-   * acepta HTML plano en los popups; los datos vienen del API, y los textos van
-   * escapados para que un título con comillas no rompa el marcado.
+   * Google Maps si el API da una clave de navegador; OpenStreetMap si no la hay
+   * o si su SDK falla. Devuelve `null` solo cuando tampoco arranca el respaldo.
    */
-  private tarjetaEmergente(punto: PuntoMapa): string | null {
-    if (!punto.titulo) return null;
+  private async crearMotor(): Promise<MotorMapa | null> {
+    const opciones: OpcionesMotor = {
+      lienzo: this.lienzo().nativeElement,
+      centro: CENTRO_POR_DEFECTO,
+      zoom: ZOOM_POR_DEFECTO,
+      zoomConRueda: this.zoomConRueda(),
+    };
+    const escuchas = {
+      alMoverse: (): void => this.anunciarZona(),
+      alElegirPunto: (id: string): void => this.puntoElegido.emit(id),
+    };
 
-    const titulo = this.escapar(punto.titulo);
-    const imagen = punto.imagen
-      ? `<img class="rs-mapa-pop__img" src="${this.escapar(punto.imagen)}" alt="" loading="lazy">`
-      : '';
-    // La nota va en una insignia con su número, como el marcador de puntuación
-    // de Booking: el proyecto no admite emojis en el código de producción.
-    const nota = punto.rating
-      ? `<span class="rs-mapa-pop__nota" title="Valoración">${punto.rating.toFixed(1)}</span> `
-      : '';
-    const precio = punto.etiqueta
-      ? `<span class="rs-mapa-pop__precio">${this.escapar(punto.etiqueta)}</span>`
-      : '';
+    const clave = await this.geoService.claveMapas().catch(() => '');
+    if (clave && !this.destruido) {
+      try {
+        return await crearMotorGoogle(clave, opciones, escuchas);
+      } catch {
+        // Clave inválida, cuota agotada o red caída: mejor OpenStreetMap que
+        // un hueco gris donde deberían salir los listados.
+      }
+    }
 
-    return `<div class="rs-mapa-pop">${imagen}`
-      + `<span class="rs-mapa-pop__titulo">${titulo}</span>`
-      + `<span class="rs-mapa-pop__meta">${nota}${precio}</span></div>`;
+    if (this.destruido) return null;
+    try {
+      return await crearMotorLeaflet(opciones, escuchas);
+    } catch {
+      return null;
+    }
   }
 
-  private escapar(texto: string): string {
-    return texto
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  private pintar(puntos: readonly PuntoMapa[], activo: string | null): void {
+    const motor = this.motor;
+    if (!motor) return;
+
+    motor.pintar(puntos, activo);
+
+    const conCoordenadas = puntosGeolocalizados(puntos);
+    if (conCoordenadas.length === 0 || !this.autoencuadre()) return;
+    this.encuadrar(motor, conCoordenadas);
   }
 
   /**
    * Encaja la vista a todos los puntos. Se marca como movimiento propio para
    * que no se confunda con una navegación del usuario y dispare otra búsqueda.
    */
-  private encuadrar(puntos: PuntoMapa[]): void {
-    const L = this.L;
-    const mapa = this.mapa;
-    if (!L || !mapa) return;
-
+  private encuadrar(motor: MotorMapa, puntos: PuntoMapa[]): void {
     this.reencuadrando = true;
     try {
       if (puntos.length === 1) {
-        mapa.setView([puntos[0].lat, puntos[0].lng], ZOOM_PUNTO_UNICO);
+        motor.centrarEn(puntos[0].lat, puntos[0].lng, ZOOM_PUNTO_UNICO);
       } else {
-        mapa.fitBounds(
-          L.latLngBounds(puntos.map((p) => [p.lat, p.lng] as [number, number])),
-          { padding: [40, 40] },
-        );
+        motor.encuadrar(puntos);
       }
     } finally {
-      // `moveend` llega en el mismo tick que `fitBounds`; liberar la bandera en
-      // una macrotarea garantiza que ya ha pasado.
+      // El aviso de movimiento llega en el mismo tick que el reencuadre;
+      // liberar la bandera en una macrotarea garantiza que ya ha pasado.
       setTimeout(() => { this.reencuadrando = false; }, 0);
     }
+  }
+
+  private anunciarZona(): void {
+    if (!this.motor || this.reencuadrando) return;
+    if (this.temporizadorMovimiento) clearTimeout(this.temporizadorMovimiento);
+    this.temporizadorMovimiento = setTimeout(() => {
+      const zona = this.motor?.zonaActual();
+      if (zona) this.zonaCambiada.emit(zona);
+    }, ESPERA_MOVIMIENTO_MS);
   }
 }

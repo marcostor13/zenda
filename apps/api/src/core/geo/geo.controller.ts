@@ -1,6 +1,9 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { CoordenadasLugar, DireccionLugar, GeoService, SugerenciaLugar, TipoLugar, TiposDeCambio, Trayecto } from './geo.service';
+import {
+  ConfigMapas, CoordenadasLugar, DireccionLugar, GeoService, SugerenciaLugar, TipoLugar,
+  TiposDeCambio, Trayecto,
+} from './geo.service';
 
 /** Un `tipo` desconocido cae a poblaciones, que es el uso mayoritario. */
 function esTipoLugar(valor?: string): valor is TipoLugar {
@@ -16,6 +19,17 @@ function esTipoLugar(valor?: string): valor is TipoLugar {
 @Controller('geo')
 export class GeoController {
   constructor(private readonly geoService: GeoService) {}
+
+  @Get('config')
+  @ApiOperation({
+    summary: 'Clave de navegador para pintar el mapa con Google Maps',
+    description:
+      'Devuelve cadena vacía si no está configurada, y entonces el frontend pinta el mapa con '
+      + 'OpenStreetMap. La clave de servidor (Places/Routes) nunca sale por aquí.',
+  })
+  config(): ConfigMapas {
+    return this.geoService.configMapas();
+  }
 
   @Get('autocomplete')
   @ApiOperation({ summary: 'Sugerir poblaciones o direcciones desde la primera letra escrita' })

@@ -41,6 +41,38 @@ describe('GeoService', () => {
     service = await crear('clave-de-prueba');
   });
 
+  describe('configMapas', () => {
+    const crearConVariables = async (vars: Record<string, string>): Promise<GeoService> => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          GeoService,
+          { provide: ConfigService, useValue: { get: (clave: string) => vars[clave] } },
+        ],
+      }).compile();
+      return module.get(GeoService);
+    };
+
+    it('debería exponer la clave de navegador para pintar el mapa', async () => {
+      const conClave = await crearConVariables({ GOOGLE_MAPS_BROWSER_KEY: 'clave-navegador' });
+
+      expect(conClave.configMapas()).toEqual({ mapsApiKey: 'clave-navegador' });
+    });
+
+    it('no debería exponer nunca la clave de servidor', async () => {
+      // Publicar la de Places permitiría facturar contra ella desde cualquier
+      // sitio: sin clave de navegador, el frontend cae a OpenStreetMap.
+      const soloServidor = await crearConVariables({ GOOGLE_MAPS_API_KEY: 'clave-servidor' });
+
+      expect(soloServidor.configMapas()).toEqual({ mapsApiKey: '' });
+    });
+
+    it('debería devolver cadena vacía si la variable está en blanco', async () => {
+      const enBlanco = await crearConVariables({ GOOGLE_MAPS_BROWSER_KEY: '   ' });
+
+      expect(enBlanco.configMapas()).toEqual({ mapsApiKey: '' });
+    });
+  });
+
   describe('autocompletar', () => {
     it('debería sugerir poblaciones desde la primera letra', async () => {
       responder(respuestaAutocomplete);

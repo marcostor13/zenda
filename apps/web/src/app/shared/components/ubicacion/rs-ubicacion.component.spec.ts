@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { RsUbicacionComponent } from './rs-ubicacion.component';
 
 describe('RsUbicacionComponent', () => {
@@ -11,7 +13,11 @@ describe('RsUbicacionComponent', () => {
   };
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [RsUbicacionComponent] }).compileComponents();
+    // El mapa consulta al API con qué motor pintarse (Google o OpenStreetMap).
+    await TestBed.configureTestingModule({
+      imports: [RsUbicacionComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
   });
 
   it('debería pintar el mapa y los dos atajos cuando hay coordenadas', () => {

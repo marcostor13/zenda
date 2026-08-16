@@ -30,6 +30,32 @@ describe('GeoService', () => {
 
   afterEach(() => httpMock.verify());
 
+  describe('claveMapas', () => {
+    it('debería pedir la clave de Google Maps al API', async () => {
+      const promesa = service.claveMapas();
+      resolver('/geo/config', { mapsApiKey: 'clave-navegador' });
+
+      await expect(promesa).resolves.toBe('clave-navegador');
+    });
+
+    it('debería pedirla una sola vez aunque haya varios mapas en la pantalla', async () => {
+      const primera = service.claveMapas();
+      resolver('/geo/config', { mapsApiKey: 'clave-navegador' });
+      await primera;
+
+      // Sin la segunda petición pendiente, `httpMock.verify()` confirma que no
+      // se ha vuelto a llamar al API.
+      await expect(service.claveMapas()).resolves.toBe('clave-navegador');
+    });
+
+    it('debería caer a cadena vacía si el API no responde, para usar OpenStreetMap', async () => {
+      const promesa = service.claveMapas();
+      fallar('/geo/config');
+
+      await expect(promesa).resolves.toBe('');
+    });
+  });
+
   describe('autocompletado', () => {
     it('debería enviar el término y el token de sesión', async () => {
       const promesa = firstValueFrom(service.autocompletar('Madr'));

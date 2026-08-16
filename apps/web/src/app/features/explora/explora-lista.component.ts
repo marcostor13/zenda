@@ -167,6 +167,11 @@ const ICONOS: Record<TipoLugar, string> = {
       border: 1px solid var(--b-1);
       border-radius: var(--r-xl);
       overflow: hidden;
+
+      /* En un móvil apaisado 420px se comen la pantalla entera y la lista de
+         sitios queda fuera de la vista. */
+      @media (max-width: 640px) { height: 320px; }
+      @media (max-height: 520px) { height: 240px; }
     }
 
     .ex-grid {

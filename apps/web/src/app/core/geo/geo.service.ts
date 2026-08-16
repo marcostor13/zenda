@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { catchError, shareReplay } from 'rxjs/operators';
+import { catchError, map, shareReplay } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -40,6 +40,12 @@ export interface TiposDeCambio {
   tasas: Record<string, number>;
 }
 
+/** Configuración de mapas que el API deja ver al navegador. */
+export interface ConfigMapas {
+  /** Clave de Maps JavaScript; cadena vacía = pintar con OpenStreetMap. */
+  mapsApiKey: string;
+}
+
 export interface Trayecto {
   km: number;
   duracionMin: number;
@@ -61,6 +67,21 @@ export class GeoService {
   private sessionToken = this.nuevoToken();
 
   private cambio$?: Observable<TiposDeCambio>;
+  private claveMapas$?: Observable<string>;
+
+  /**
+   * Clave de navegador con la que se pinta el mapa con Google Maps. Se pide una
+   * sola vez por sesión y cae a cadena vacía si el API no responde: entonces el
+   * mapa usa OpenStreetMap en lugar de quedarse en blanco.
+   */
+  claveMapas(): Promise<string> {
+    this.claveMapas$ ??= this.http.get<ConfigMapas>(`${this.base}/config`).pipe(
+      map((config) => config?.mapsApiKey ?? ''),
+      catchError(() => of('')),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
+    return firstValueFrom(this.claveMapas$);
+  }
 
   autocompletar(termino: string, tipo: TipoLugar = 'ciudad'): Observable<SugerenciaLugar[]> {
     return this.http

@@ -5,7 +5,7 @@ import { GeoService } from './geo.service';
 describe('GeoController', () => {
   let controller: GeoController;
   let geoService: jest.Mocked<
-    Pick<GeoService, 'autocompletar' | 'coordenadas' | 'direccion' | 'tiposDeCambio'>
+    Pick<GeoService, 'autocompletar' | 'coordenadas' | 'direccion' | 'tiposDeCambio' | 'configMapas'>
   >;
 
   beforeEach(async () => {
@@ -14,6 +14,7 @@ describe('GeoController', () => {
       coordenadas: jest.fn().mockResolvedValue(null),
       direccion: jest.fn().mockResolvedValue(null),
       tiposDeCambio: jest.fn().mockResolvedValue({ base: 'EUR', fecha: '2026-07-24', tasas: { EUR: 1 } }),
+      configMapas: jest.fn().mockReturnValue({ mapsApiKey: 'clave-navegador' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -58,6 +59,10 @@ describe('GeoController', () => {
     await controller.direccion('place-9');
 
     expect(geoService.direccion).toHaveBeenCalledWith('place-9');
+  });
+
+  it('debería exponer la clave con la que el navegador pinta el mapa', () => {
+    expect(controller.config()).toEqual({ mapsApiKey: 'clave-navegador' });
   });
 
   it('debería exponer los tipos de cambio con base euro', async () => {
