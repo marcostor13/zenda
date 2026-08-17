@@ -65,8 +65,20 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
     const exclusivo = this.exclusivoSolicitado(params);
     const suplementoExclusivo = exclusivo ? (transporte.precioExclusivo ?? 0) : 0;
     const extras = this.calcularExtras(transporte, params);
+
+    // Ida y vuelta con espera (Ref. TRA4): un solo servicio en vez de dos reservas
+    // sueltas. Tarifa base y km se cobran por duplicado (ida + vuelta); la espera
+    // se cobra aparte, a la tarifa/hora que el transportista haya configurado.
+    const idaVuelta = params.parametrosExtra?.['tipoTrayecto'] === 'ida_vuelta';
+    const esperaMinutos = idaVuelta ? this.esperaSolicitada(params) : 0;
+    const multiplicadorTrayecto = idaVuelta ? 2 : 1;
+    const cargoEspera = Math.round(
+      (transporte.tarifaEsperaPorHora ?? 0) * (esperaMinutos / 60) * 100,
+    ) / 100;
+
     const precioCalculado = Math.round(
-      (transporte.tarifaBase + transporte.tarifaKm * distanciaKm + suplementoExclusivo + extras) * 100,
+      ((transporte.tarifaBase + transporte.tarifaKm * distanciaKm) * multiplicadorTrayecto
+        + suplementoExclusivo + extras + cargoEspera) * 100,
     ) / 100;
 
     return {
@@ -80,8 +92,17 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
         perros,
         exclusivo,
         extras,
+        ...(idaVuelta ? { tipoTrayecto: 'ida_vuelta', esperaMinutos, cargoEspera } : {}),
       },
     };
+  }
+
+  /** Minutos de espera solicitados en un trayecto de ida y vuelta (Ref. TRA4). */
+  private esperaSolicitada(params: AvailabilityQuery): number {
+    const raw = params.parametrosExtra?.['esperaMinutos'];
+    if (raw === undefined || raw === null) return 0;
+    const minutos = Number(raw);
+    return Number.isFinite(minutos) && minutos > 0 ? minutos : 0;
   }
 
   private exclusivoSolicitado(params: AvailabilityQuery): boolean {

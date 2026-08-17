@@ -187,6 +187,8 @@ export interface MiReserva {
   perroNombre?: string;
   /** Copia congelada de la ficha del perro al reservar; base del resumen automático (Ref. N5). */
   perroSnapshot?: Record<string, unknown>;
+  /** Detalle específico del vertical (motivo, vídeos, tipo de trayecto…). */
+  detalle?: Record<string, unknown>;
 }
 
 export interface SuplementoConfig {

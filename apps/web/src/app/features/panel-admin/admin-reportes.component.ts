@@ -231,6 +231,34 @@ const VERTICALES_OPCIONES = [
           </div>
         </div>
       }
+
+      <!-- Ajustes de precio por comercio (Ref. S11) -->
+      @if (reporte()!.ajustesPorComercio.length > 0) {
+        <div class="rs-card" style="padding:0;overflow:hidden;margin-top:var(--sp-5)">
+          <div class="tbl-header">
+            <h3 class="section-title" style="margin:0">Ajustes de precio por comercio</h3>
+            <span style="font-size:var(--f-sm);color:var(--t-400)">
+              {{ reporte()!.totalReservasConAjuste }} reserva(s) con ajuste · +€ {{ reporte()!.importeTotalAjustes | number:'1.2-2' }}
+            </span>
+          </div>
+          <div class="ajustes-head">
+            <span>Comercio</span>
+            <span style="text-align:right">Reservas</span>
+            <span style="text-align:right">Con ajuste</span>
+            <span style="text-align:right">% ajustadas</span>
+            <span style="text-align:right">Importe ajustes</span>
+          </div>
+          @for (c of reporte()!.ajustesPorComercio; track c.comercioId) {
+            <div class="ajustes-row">
+              <span>{{ c.comercioNombre }}</span>
+              <span class="cell-num">{{ c.totalReservas }}</span>
+              <span class="cell-num">{{ c.reservasConAjuste }}</span>
+              <span class="cell-num" [class.cell-amber]="c.porcentajeConAjuste >= 30">{{ c.porcentajeConAjuste }}%</span>
+              <span class="cell-num">€ {{ c.importeAjustes | number:'1.2-2' }}</span>
+            </div>
+          }
+        </div>
+      }
     }
 
   `,
@@ -272,6 +300,9 @@ const VERTICALES_OPCIONES = [
     .vtbl-head { display: grid; grid-template-columns: 1fr repeat(5, 140px); padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); @media (max-width: 900px) { display: none; } }
     .vtbl-row { display: grid; grid-template-columns: 1fr repeat(5, 140px); padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } @media (max-width: 900px) { grid-template-columns: 1fr 1fr; gap: var(--sp-2); } }
     .vtbl-total { background: var(--c-raised); font-weight: var(--w-7); }
+
+    .ajustes-head { display: grid; grid-template-columns: 1fr repeat(4, 130px); padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); @media (max-width: 900px) { display: none; } }
+    .ajustes-row { display: grid; grid-template-columns: 1fr repeat(4, 130px); padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); font-size: var(--f-sm); color: var(--t-200); &:last-child { border: none; } &:hover { background: var(--c-raised); } @media (max-width: 900px) { grid-template-columns: 1fr 1fr; gap: var(--sp-2); } }
 
     .vertical-cell { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-100); }
     .cell-num { font-size: var(--f-sm); text-align: right; color: var(--t-300); }

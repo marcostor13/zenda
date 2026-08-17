@@ -5,11 +5,20 @@ import { Perro, PerroDocument } from './perro.schema';
 import { PerroHistorial, PerroHistorialDocument } from './perro-historial.schema';
 import { PerroVersion, PerroVersionDocument } from './perro-version.schema';
 import { Consentimiento, ConsentimientoDocument } from './consentimiento.schema';
+import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
   CrearPerroDto, ActualizarPerroDto, CrearPerroHistorialDto, FijarConsentimientoDto,
-  TamanoPerro, TipoPelo, TipoHistorial, VerticalKey, HISTORIAL_ORIGEN,
+  TamanoPerro, TipoPelo, TipoHistorial, VerticalKey, HISTORIAL_ORIGEN, ReservaEstado,
 } from 'shared';
+
+/** Estimación de precio ajustada por el historial de suplementos del perro (Ref. N8). */
+export interface EstimacionPrecio {
+  precioBase: number;
+  precioEstimado: number;
+  promedioAjustePct: number;
+  basadoEnReservas: number;
+}
 
 type CrearPerroData = Omit<CrearPerroDto, 'fechaNacimiento' | 'fechaImplantacionMicrochip'> & {
   fechaNacimiento?: Date;
@@ -49,6 +58,8 @@ export class PerrosService {
     private readonly historialModel: Model<PerroHistorialDocument>,
     @InjectModel(PerroVersion.name)
     private readonly versionModel: Model<PerroVersionDocument>,
+    @InjectModel(Reserva.name)
+    private readonly reservaModel: Model<ReservaDocument>,
     @InjectModel(Consentimiento.name)
     private readonly consentimientoModel: Model<ConsentimientoDocument>,
   ) {}
@@ -431,6 +442,41 @@ export class PerrosService {
     );
 
     return filas.length;
+  }
+
+  /**
+   * Presupuesto ajustado por el historial del perro (Ref. N8): usa el porcentaje medio
+   * de ajuste de precio (suplementos aceptados) de sus reservas anteriores para dar una
+   * estimación más realista que el precio base — no toca el cálculo real, que sigue
+   * haciendo la estrategia de disponibilidad del vertical al reservar.
+   */
+  async estimarPrecioConHistorial(perroId: string, precioBase: number): Promise<EstimacionPrecio> {
+    const reservas = await this.reservaModel
+      .find({
+        perroId: aObjectId(perroId, 'Identificador de perro'),
+        estado: { $in: [ReservaEstado.CONFIRMADA, ReservaEstado.COMPLETADA] },
+        montoSubtotal: { $gt: 0 },
+      })
+      .select('montoSubtotal suplementos')
+      .lean()
+      .exec();
+
+    if (!reservas.length) {
+      return { precioBase, precioEstimado: precioBase, promedioAjustePct: 0, basadoEnReservas: 0 };
+    }
+
+    const ratios = reservas.map((r) => {
+      const totalSuplementos = (r.suplementos ?? []).reduce((suma, s) => suma + s.monto, 0);
+      return totalSuplementos / r.montoSubtotal;
+    });
+    const promedioRatio = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+
+    return {
+      precioBase,
+      precioEstimado: Math.round(precioBase * (1 + promedioRatio) * 100) / 100,
+      promedioAjustePct: Math.round(promedioRatio * 1000) / 10,
+      basadoEnReservas: reservas.length,
+    };
   }
 }
 

@@ -33,6 +33,10 @@ export class Transporte extends Servicio {
   @Prop({ type: Number, required: true })
   tarifaKm!: number;
 
+  /** Cargo por hora de espera en trayectos "ida y vuelta con espera" (Ref. TRA4). 0/ausente = no se cobra. */
+  @Prop({ type: Number, default: 0 })
+  tarifaEsperaPorHora!: number;
+
   @Prop({ type: Boolean, default: true })
   jaulasIncluidas!: boolean;
 

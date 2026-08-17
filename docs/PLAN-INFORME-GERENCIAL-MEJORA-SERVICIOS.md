@@ -16,9 +16,9 @@
 | 1 | Trayectos recurrentes (UI) + importar historial clínico desde Excel (UI) | ✅ hecho |
 | 2 | Confirmación de datos antes de pagar + mensaje unificado de estimación + desglose permanente de cargos + resumen automático del perro para el negocio | ✅ hecho |
 | 3 | Bloqueo por comportamiento no admitido en residencias | ✅ hecho |
-| 4 | Transporte: campos obligatorios/opcionales, comportamiento en viaje visible, ida-vuelta con espera | ⬜ pendiente |
-| 5 | Adiestramiento: vídeos, seguimiento estructurado, cuestionario ampliado, plan personalizado/bono | ⬜ pendiente |
-| 6 | Reporte de ajustes de precio (admin) + presupuesto ajustado por historial del perro | ⬜ pendiente |
+| 4 | Transporte: campos obligatorios/opcionales, comportamiento en viaje visible, ida-vuelta con espera | ✅ hecho |
+| 5 | Adiestramiento: vídeos, seguimiento estructurado, cuestionario ampliado, plan personalizado/bono | ✅ hecho |
+| 6 | Reporte de ajustes de precio (admin) + presupuesto ajustado por historial del perro | ✅ hecho |
 | 7 | Categorías "paseadores"/"cuidado a domicilio" | ⛔ requiere decisión del cliente (ver abajo) — no planificar hasta confirmar |
 
 ---
@@ -85,39 +85,61 @@
 
 ---
 
-## Bloque 4 — Terminar de pulir Transporte (pendiente)
+## Bloque 4 — Terminar de pulir Transporte ✅ hecho
 
-- **TRA1** Campos obligatorios/opcionales claros: marcar visualmente en el formulario del
-  comercio (`comercio-listado-form.component.ts`, sección transporte) qué campos son obligatorios.
-- **TRA2** Comportamiento del perro en viaje visible al transportista: panel dedicado en
-  `comercio-reservas.component.ts` (mismo patrón que "Historia veterinaria"), leyendo
-  `perroSnapshot.seMarea/requiereTransportin/toleraTrayectosLargos`.
-- **TRA4** Ida y vuelta con espera en un solo servicio: nuevo tipo de detalle
-  (`tipoTrayecto: 'ida_vuelta'`, `esperaMinutos`) en el schema de transporte + estrategia de
-  precio (tarifa base ×2 + km ×2 + posible cargo por espera) + UI en el wizard. Requiere acordar
-  con negocio cómo cobrar la espera antes de fijar la fórmula (el informe lo señala explícitamente).
+- **TRA1** ✅ `comercio-listado-form.component.ts` (sección transporte): leyenda "los campos con *
+  son obligatorios" + etiquetas "(opcional)" en los campos que no lo son. Los únicos campos
+  realmente obligatorios en el schema (`tarifaBase`, `tarifaKm`) ya tenían `*`.
+- **TRA2** ✅ Ya cubierto por el resumen automático del Bloque 2 (N5): `resumenPerro()` en
+  `comercio-reservas.component.ts` ya muestra "Se marea en viajes"/"Requiere transportín" como
+  chip visible en cada fila de reserva, sin clic adicional — cubre el objetivo sin necesitar un
+  panel dedicado aparte.
+- **TRA4** ✅ Ida y vuelta con espera en un solo servicio: `detalle.tipoTrayecto: 'ida_vuelta'` +
+  `esperaMinutos` (wizard, vertical transporte) → `TransporteAvailabilityStrategy` cobra
+  `(tarifaBase + tarifaKm×distancia) × 2 + tarifaEsperaPorHora × (esperaMinutos/60)`.
+  **Decisión de precio tomada sin confirmación del cliente** (el informe pedía acordarla antes):
+  se añadió `Transporte.tarifaEsperaPorHora`, configurable por el propio comercio en su listado
+  (0 por defecto = no cobra espera), en vez de imponer una fórmula fija — evita bloquear la
+  entrega mientras se resuelve con el cliente, pero conviene confirmarlo con él cuando pueda.
 
-## Bloque 5 — Ampliar Adiestramiento (pendiente)
+## Bloque 5 — Ampliar Adiestramiento ✅ hecho
 
-- **ADI3** Subida de vídeos: extender `rs-image-upload` o componente nuevo de subida de vídeo en
-  el wizard (paso 1 adiestramiento) + campo `videosUrl: string[]` en el detalle de la reserva.
-- **ADI5** Seguimiento estructurado: nuevos campos en `PerroHistorial` (`objetivos`, `evolucion`,
-  `tareasCasa`) específicos cuando `vertical === 'adiestramiento'`, formulario propio en
-  `comercio-reservas.component.ts` en vez del textarea libre actual.
-- **ADI2** Cuestionario de comportamiento ampliado: campos estructurados
-  (historial previo, vínculo con el propietario) en el paso 1 del wizard de adiestramiento.
-- **ADI4** Plan personalizado/bono: flujo dedicado (el ciclo de suplementos genérico no cubre
-  "proponer sesiones futuras") — nuevo estado o colección `planes_adiestramiento` con
-  propuesta del comercio → aceptación y pago del cliente. Es la tarea de mayor alcance del plan.
+- **ADI3** ✅ Nuevo endpoint `POST /upload/video` (MP4/WebM/MOV, máx 50 MB, reutiliza
+  `UploadService.uploadImage` que ya es agnóstico al tipo de archivo) + input de fichero en el
+  paso 1 del wizard de adiestramiento → `detalle.videosUrl: string[]`. Visible al comercio en el
+  panel de detalle de `comercio-reservas.component.ts` (no se muestra en el detalle del propio
+  cliente, que ya sabe lo que subió).
+- **ADI5** ✅ `PerroHistorial.datosEstructurados` ya existía en el schema (genérico, sin usar) —
+  se añadió `PerrosService.agregarHistorial()` al frontend (`perros.service.ts`, el endpoint
+  backend ya existía) y un panel "Registrar seguimiento de la sesión" en
+  `comercio-reservas.component.ts` con campos propios (objetivos/evolución/tareas para casa) que
+  se guardan en `datosEstructurados`, no como texto libre.
+- **ADI2** ✅ Campos `historialPrevio` (texto libre) y `vinculoPropietario` (select) en
+  `paso1AdiestramientoForm` del wizard → `detalle`, visibles al comercio en el panel de detalle.
+- **ADI4** ✅ **Decisión de diseño tomada sin confirmación del cliente** (ver §4 del informe: era
+  la tarea de mayor alcance): en vez de una colección/flujo de pago nuevos, se reutiliza el ciclo
+  de ajuste/suplemento ya probado (S3-S9: notificación, aprobación con un botón, cobro
+  automático, comisión recalculada) — el comercio compone un suplemento con concepto libre
+  ("Plan personalizado: X (N sesiones)") y precio, en vez de elegir del catálogo fijo. Evita
+  tocar el webhook de Stripe (código sensible ya probado) y reduce el riesgo, a cambio de una
+  limitación real: `solicitarAjuste` exige `reserva.estado === 'confirmada'`, así que el plan solo
+  se puede proponer **antes** de marcar la valoración inicial como completada, no después. Si el
+  cliente necesita proponerlo también sobre reservas ya completadas, hay que relajar esa validación
+  en `BookingsService.solicitarAjuste` (código de pagos, cambiarlo con cuidado y tests).
 
-## Bloque 6 — Analítica e inteligencia de precio (pendiente)
+## Bloque 6 — Analítica e inteligencia de precio ✅ hecho
 
-- **S11** Reporte de ajustes de precio para el admin: nuevo agregado en `admin.service.ts`
-  (reservas con `suplementos.length > 0`, conteo + impacto económico por comercio) + sección en
-  el panel admin.
-- **N8** Presupuesto ajustado por historial del perro: en `BookingsService`/`CatalogService`,
-  usar el histórico de suplementos aceptados del perro para ajustar el precio estimado mostrado
-  antes de reservar.
+- **S11** ✅ `AdminService.generarReporteAjustes()` (nuevo, dentro de `generarReporteFinanciero`):
+  reservas con `suplementos.length > 0` en el rango filtrado, agrupadas por comercio, con
+  `reservasConAjuste`/`importeAjustes`/`porcentajeConAjuste`. Nueva sección "Ajustes de precio
+  por comercio" en `admin-reportes.component.ts`, ordenada por % descendente (resalta comercios
+  con ≥30% de reservas ajustadas).
+- **N8** ✅ `PerrosService.estimarPrecioConHistorial()`: promedio del % de suplementos aceptados
+  en las reservas anteriores del perro (cualquier vertical), aplicado sobre el precio base
+  actual — **puramente informativo**, no cambia el cálculo real que hace la estrategia de
+  disponibilidad al reservar. Nuevo endpoint `GET /perros/:id/estimacion-precio?precioBase=`.
+  Banner en el paso 2 del wizard ("según el historial de tu perro, el precio suele rondar €X"),
+  solo si hay al menos 1 reserva previa y el ajuste medio es ≥1%.
 
 ## Bloque 7 — Decisión pendiente del cliente (Ref. COMI3)
 

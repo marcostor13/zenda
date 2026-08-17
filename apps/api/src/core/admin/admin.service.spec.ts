@@ -53,8 +53,8 @@ describe('AdminService', () => {
   ];
 
   const reservasMock = [
-    { _id: { toString: () => 'res-1' }, vertical: VerticalKey.ALOJAMIENTO },
-    { _id: { toString: () => 'res-2' }, vertical: VerticalKey.ALOJAMIENTO },
+    { _id: { toString: () => 'res-1' }, vertical: VerticalKey.ALOJAMIENTO, comercioId: { toString: () => 'comercio-1' } },
+    { _id: { toString: () => 'res-2' }, vertical: VerticalKey.ALOJAMIENTO, comercioId: { toString: () => 'comercio-1' } },
   ];
 
   beforeEach(async () => {
@@ -95,6 +95,13 @@ describe('AdminService', () => {
 
     comercioModel = {
       countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(3) }),
+      find: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          { _id: { toString: () => 'comercio-1' }, nombreComercial: 'Comercio Test' },
+        ]),
+      }),
     };
 
     usuarioModel = {
@@ -188,6 +195,38 @@ describe('AdminService', () => {
 
       expect(hoteles).toBeDefined();
       expect(hoteles!.totalReservas).toBe(2);
+    });
+
+    it('debería reportar ajustes de precio por comercio (Ref. S11)', async () => {
+      reservaModel.find.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          { _id: { toString: () => 'res-1' }, vertical: VerticalKey.ALOJAMIENTO, comercioId: { toString: () => 'comercio-1' }, suplementos: [{ monto: 15 }] },
+          { _id: { toString: () => 'res-2' }, vertical: VerticalKey.ALOJAMIENTO, comercioId: { toString: () => 'comercio-1' }, suplementos: [] },
+        ]),
+      });
+
+      const reporte = await service.generarReporteFinanciero(filtros);
+
+      expect(reporte.totalReservasConAjuste).toBe(1);
+      expect(reporte.importeTotalAjustes).toBeCloseTo(15, 2);
+      expect(reporte.ajustesPorComercio).toEqual([
+        {
+          comercioId: 'comercio-1', comercioNombre: 'Comercio Test',
+          totalReservas: 2, reservasConAjuste: 1, importeAjustes: 15, porcentajeConAjuste: 50,
+        },
+      ]);
+    });
+
+    it('no debería listar comercios sin ningún ajuste', async () => {
+      const reporte = await service.generarReporteFinanciero(filtros);
+      expect(reporte.ajustesPorComercio).toEqual([]);
+      expect(reporte.totalReservasConAjuste).toBe(0);
     });
   });
 

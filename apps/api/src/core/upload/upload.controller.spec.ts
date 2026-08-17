@@ -35,6 +35,16 @@ describe('UploadController', () => {
     expect(service.uploadImage).toHaveBeenCalledWith(fichero);
   });
 
+  it('debería delegar la subida de vídeo en el servicio (Ref. ADI3)', async () => {
+    const fichero = { originalname: 'sesion.mp4' } as Express.Multer.File;
+    service.uploadImage.mockResolvedValue({ url: 'https://cdn.doogking.com/uploads/sesion.mp4' });
+
+    await expect(controller.uploadVideo(fichero)).resolves.toEqual({
+      url: 'https://cdn.doogking.com/uploads/sesion.mp4',
+    });
+    expect(service.uploadImage).toHaveBeenCalledWith(fichero);
+  });
+
   it('debería servir la imagen con su tipo y una caché larga', async () => {
     const stream = Readable.from(['imagen']);
     service.obtenerImagen.mockResolvedValue({ stream, contentType: 'image/png', length: 6 });

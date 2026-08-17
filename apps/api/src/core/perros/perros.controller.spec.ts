@@ -25,6 +25,9 @@ describe('PerrosController', () => {
             listarHistorial: jest.fn().mockResolvedValue([]),
             agregarHistorial: jest.fn().mockResolvedValue({ _id: 'h1' }),
             obtenerHistoriaCompartida: jest.fn().mockResolvedValue({ nombre: 'Nala' }),
+            estimarPrecioConHistorial: jest.fn().mockResolvedValue({
+              precioBase: 100, precioEstimado: 110, promedioAjustePct: 10, basadoEnReservas: 2,
+            }),
           },
         },
         {
@@ -124,5 +127,15 @@ describe('PerrosController', () => {
   it('debería listar las valoraciones de un perro', async () => {
     await controller.listarValoraciones('p1');
     expect(valoracionesService.listarPorPerro).toHaveBeenCalledWith('p1');
+  });
+
+  it('debería calcular la estimación de precio ajustada por historial (Ref. N8)', async () => {
+    const estimacion = await controller.estimacionPrecio('p1', '100');
+    expect(service.estimarPrecioConHistorial).toHaveBeenCalledWith('p1', 100);
+    expect(estimacion.precioEstimado).toBe(110);
+  });
+
+  it('debería rechazar un precioBase no numérico con 400', async () => {
+    expect(() => controller.estimacionPrecio('p1', 'no-es-un-numero')).toThrow();
   });
 });

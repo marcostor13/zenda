@@ -2,6 +2,10 @@ import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { DecimalPipe } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsBrandIconComponent, type MarcaPagoKey } from '../../../shared/components/brand-icon/rs-brand-icon.component';
@@ -18,7 +22,7 @@ import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 import { CuponesService } from '../services/cupones.service';
-import { PerrosService, PerroApi } from '../../perros/perros.service';
+import { PerrosService, PerroApi, EstimacionPrecioApi } from '../../perros/perros.service';
 import { RecomendadorService, RecomendacionAdiestramiento, RecomendacionVeterinaria } from '../services/recomendador.service';
 import { CatalogBrowseService } from '../../verticales/catalog-browse.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
@@ -109,7 +113,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   selector: 'app-reserva-wizard',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, FormsModule,
+    RouterLink, ReactiveFormsModule, FormsModule, DecimalPipe,
     RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
     RsBrandIconComponent,
   ],
@@ -381,6 +385,24 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </div>
                 }
 
+                <!-- Ida y vuelta con espera, como un solo servicio (Ref. TRA4) -->
+                <div class="extras-section">
+                  <label class="filter-check">
+                    <input type="checkbox" [checked]="esIdaVuelta()"
+                           (change)="esIdaVuelta.set(!esIdaVuelta())" />
+                    Ida y vuelta con espera (ej. llevar y traer del veterinario)
+                  </label>
+                  @if (esIdaVuelta()) {
+                    <div class="rs-field" style="margin-top:var(--sp-3)">
+                      <label class="rs-lbl">Tiempo de espera estimado (minutos)</label>
+                      <input type="number" min="0" step="5" class="rs-inp rs-inp--lg"
+                             [value]="esperaMinutos()"
+                             (input)="esperaMinutos.set(+$any($event.target).value)" />
+                      <span class="rs-field-hint">La tarifa base y los km se cobran ida + vuelta; la espera se cobra aparte, según la tarifa del transportista.</span>
+                    </div>
+                  }
+                </div>
+
                 <!-- Trayectos recurrentes (Ref. TRA3) -->
                 <div class="extras-section">
                   <label class="filter-check">
@@ -624,6 +646,50 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </span>
                 </div>
 
+                <!-- Cuestionario de comportamiento ampliado (Ref. ADI2) -->
+                <div class="rs-field">
+                  <label class="rs-lbl">Historial previo (opcional)</label>
+                  <textarea formControlName="historialPrevio" rows="2" class="rs-inp"
+                            placeholder="¿Ha recibido adiestramiento antes? ¿Con qué resultado? ¿De dónde viene el perro?"></textarea>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Vínculo con el propietario (opcional)</label>
+                  <select formControlName="vinculoPropietario" class="rs-inp rs-inp--lg">
+                    <option value="">— Sin especificar —</option>
+                    <option value="desde_cachorro">Lo tengo desde cachorro</option>
+                    <option value="adoptado_reciente">Adoptado hace poco (menos de 6 meses)</option>
+                    <option value="adoptado_antiguo">Adoptado hace tiempo (más de 6 meses)</option>
+                    <option value="varios_convivientes">Varias personas conviven con él</option>
+                  </select>
+                </div>
+
+                <!-- Vídeos del comportamiento (Ref. ADI3) -->
+                <div class="rs-field">
+                  <label class="rs-lbl">Vídeos del comportamiento (opcional)</label>
+                  <input type="file" accept="video/mp4,video/webm,video/quicktime"
+                         (change)="subirVideoComportamiento($any($event.target))" />
+                  <span class="rs-field-hint">Máx. 50 MB por vídeo. Ayuda al adiestrador a preparar la sesión.</span>
+                  @if (subiendoVideo()) {
+                    <span class="rs-field-hint">Subiendo vídeo…</span>
+                  }
+                  @if (errorVideo()) {
+                    <span class="rs-field-err">{{ errorVideo() }}</span>
+                  }
+                  @if (videosComportamiento().length) {
+                    <ul class="videos-lista">
+                      @for (v of videosComportamiento(); track v; let i = $index) {
+                        <li>
+                          <rs-icon name="check-circle" [size]="13" [stroke]="2"></rs-icon>
+                          Vídeo {{ i + 1 }}
+                          <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarVideoComportamiento(i)">
+                            <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+
                 @if (recomendacionAdiestramiento(); as rec) {
                   <div class="rs-alert" [class.rs-alert--warning]="rec.tipoRecomendado === 'valoracion_previa'"
                        [class.rs-alert--info]="rec.tipoRecomendado !== 'valoracion_previa'">
@@ -786,6 +852,20 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   necesidades de tu mascota no coinciden con lo indicado al llegar al servicio (te avisaremos
                   y podrás aceptar o rechazar cualquier ajuste antes de que se cobre nada de más).</span>
               </div>
+
+              <!-- Presupuesto ajustado por el historial del perro (Ref. N8) -->
+              @if (estimacionPrecio(); as est) {
+                <div class="rs-alert rs-alert--warning" style="margin-block:var(--sp-4)">
+                  <rs-icon name="trending-up" [size]="16" [stroke]="2"></rs-icon>
+                  <span>
+                    Según el historial de {{ perroSeleccionadoObj()?.nombre }} ({{ est.basadoEnReservas }} reserva(s)
+                    anteriores), el precio final suele rondar
+                    <strong>€{{ est.precioEstimado | number:'1.2-2' }}</strong>
+                    ({{ est.promedioAjustePct > 0 ? '+' : '' }}{{ est.promedioAjustePct }}% sobre la estimación
+                    inicial de €{{ est.precioBase | number:'1.2-2' }}).
+                  </span>
+                </div>
+              }
 
               <div class="consent-box">
                 <label class="filter-check">
@@ -1176,6 +1256,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .extras-section { margin-block: var(--sp-6); h3 { font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); margin-bottom: var(--sp-4); } }
     .extras-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
     .checks-grid { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+    .videos-lista { list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); margin-top: var(--sp-2); padding: 0; }
+    .videos-lista li { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); }
     .extra-item {
       display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4);
       background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-lg);
@@ -1264,6 +1346,7 @@ export class ReservaWizardComponent implements OnInit {
   private readonly fb             = inject(FormBuilder);
   private readonly stripeService  = inject(StripeService);
   private readonly reservasService = inject(ReservasService);
+  private readonly http = inject(HttpClient);
   private readonly paymentsService = inject(PaymentsService);
   private readonly cuponesService  = inject(CuponesService);
   private readonly perrosService   = inject(PerrosService);
@@ -1301,6 +1384,8 @@ export class ReservaWizardComponent implements OnInit {
   // Ficha Inteligente: perro para el que se reserva (opcional, filtra/precalcula en fases futuras).
   readonly perros = signal<PerroApi[]>([]);
   readonly perroSeleccionado = signal<string | null>(null);
+  /** Presupuesto ajustado por el historial del perro (Ref. N8), solo informativo. */
+  readonly estimacionPrecio = signal<EstimacionPrecioApi | null>(null);
   readonly imgFallback = IMG_FALLBACK;
 
   /** Edad legible a partir de la fecha de nacimiento (HU-5.1.3); null si no está declarada. */
@@ -1485,6 +1570,10 @@ export class ReservaWizardComponent implements OnInit {
     perros:        [1],
   });
 
+  /** Ida y vuelta con espera, como un solo servicio (Ref. TRA4). */
+  readonly esIdaVuelta = signal(false);
+  readonly esperaMinutos = signal(30);
+
   /** Trayectos recurrentes (Ref. TRA3): el motor ya existe en el backend, esto es solo la UI. */
   readonly esRecurrente = signal(false);
   readonly diasSemanaSelec = signal<number[]>([]);
@@ -1521,7 +1610,39 @@ export class ReservaWizardComponent implements OnInit {
     intensidad:  ['leve'],
     servicio:    [''],
     descripcionComportamiento: [''],
+    // Cuestionario ampliado (Ref. ADI2)
+    historialPrevio: [''],
+    vinculoPropietario: [''],
   });
+
+  /** Vídeos del comportamiento subidos por el cliente (Ref. ADI3). */
+  readonly videosComportamiento = signal<string[]>([]);
+  readonly subiendoVideo = signal(false);
+  readonly errorVideo = signal<string | null>(null);
+
+  async subirVideoComportamiento(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    if (!file) return;
+    this.errorVideo.set(null);
+    this.subiendoVideo.set(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await firstValueFrom(
+        this.http.post<{ url: string }>(`${environment.apiUrl}/upload/video`, formData),
+      );
+      this.videosComportamiento.update((v) => [...v, res.url]);
+    } catch {
+      this.errorVideo.set('No se pudo subir el vídeo. Comprueba el formato (MP4/WebM/MOV) y que pese menos de 50 MB.');
+    } finally {
+      this.subiendoVideo.set(false);
+      input.value = '';
+    }
+  }
+
+  quitarVideoComportamiento(indice: number): void {
+    this.videosComportamiento.update((v) => v.filter((_, i) => i !== indice));
+  }
 
   /**
    * HU-5.7.1 — En hoteles la unidad reservable es el viaje completo (personas +
@@ -2021,6 +2142,31 @@ export class ReservaWizardComponent implements OnInit {
     if (p === 3 && this.metodoPago() === 'card' && !this.stripeListo()) {
       void this.prepararStripe();
     }
+
+    if (p === 2) {
+      void this.cargarEstimacionPrecio();
+    }
+  }
+
+  /**
+   * Presupuesto ajustado por el historial de suplementos del perro (Ref. N8): informativo,
+   * no cambia el precio real que calcula el backend al reservar.
+   */
+  private async cargarEstimacionPrecio(): Promise<void> {
+    const perroId = this.perroSeleccionado();
+    const precioBase = this.subtotal();
+    if (!perroId || precioBase <= 0) {
+      this.estimacionPrecio.set(null);
+      return;
+    }
+    try {
+      const estimacion = await this.perrosService.estimacionPrecio(perroId, precioBase);
+      this.estimacionPrecio.set(
+        estimacion.basadoEnReservas > 0 && Math.abs(estimacion.promedioAjustePct) >= 1 ? estimacion : null,
+      );
+    } catch {
+      this.estimacionPrecio.set(null);
+    }
   }
 
   p2Error(campo: string): boolean {
@@ -2096,6 +2242,7 @@ export class ReservaWizardComponent implements OnInit {
             // por el importe, hace falta saber si fue medida o estimada.
             trayectoCalculado: this.resumenTrayecto() || undefined,
             ...(this.extrasSelec().length > 0 ? { extras: this.extrasSelec() } : {}),
+            ...(this.esIdaVuelta() ? { tipoTrayecto: 'ida_vuelta', esperaMinutos: this.esperaMinutos() } : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
           ...(this.esRecurrente() && this.diasSemanaSelec().length > 0 && this.fechaFinRecurrencia()
@@ -2145,6 +2292,9 @@ export class ReservaWizardComponent implements OnInit {
             motivo: f.motivo || undefined,
             intensidad: f.intensidad || undefined,
             descripcionComportamiento: f.descripcionComportamiento || undefined,
+            historialPrevio: f.historialPrevio || undefined,
+            vinculoPropietario: f.vinculoPropietario || undefined,
+            ...(this.videosComportamiento().length > 0 ? { videosUrl: this.videosComportamiento() } : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };

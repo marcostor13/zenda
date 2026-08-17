@@ -16,6 +16,9 @@ const reporte = (extra: Partial<ReporteFinanciero> = {}): ReporteFinanciero => (
       costoStripe: 24, margenNeto: 96, totalReservas: 8,
     },
   ],
+  totalReservasConAjuste: 0,
+  importeTotalAjustes: 0,
+  ajustesPorComercio: [],
   ...extra,
 } as ReporteFinanciero);
 

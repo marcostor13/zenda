@@ -6,14 +6,16 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Req,
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
-import { PerrosService, HistoriaCompartida } from './perros.service';
+import { PerrosService, HistoriaCompartida, EstimacionPrecio } from './perros.service';
 import { PerroValoracionesService, IndiceComportamiento } from './perro-valoraciones.service';
 import { BienestarService, IndiceBienestar } from './bienestar.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -191,6 +193,19 @@ export class PerrosController {
   @ApiOperation({ summary: 'Historia Veterinaria Compartida: salud e historial del perro, con autorización del propietario' })
   obtenerHistoriaCompartida(@Param('id') id: string): Promise<HistoriaCompartida> {
     return this.perrosService.obtenerHistoriaCompartida(id);
+  }
+
+  @Get(':id/estimacion-precio')
+  @ApiOperation({ summary: 'Presupuesto ajustado por el historial de suplementos del perro (Ref. N8)' })
+  estimacionPrecio(
+    @Param('id') id: string,
+    @Query('precioBase') precioBase: string,
+  ): Promise<EstimacionPrecio> {
+    const monto = Number(precioBase);
+    if (!Number.isFinite(monto) || monto < 0) {
+      throw new BadRequestException('precioBase debe ser un número válido');
+    }
+    return this.perrosService.estimarPrecioConHistorial(id, monto);
   }
 
   @Get(':id/bienestar')

@@ -78,6 +78,32 @@ export class UploadController {
     return this.uploadService.uploadImage(file);
   }
 
+  @Post('video')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOperation({
+    summary: 'Subir vídeo (máx 50 MB, MP4/WebM/MOV). Ref. ADI3: vídeo del comportamiento del perro',
+  })
+  uploadVideo(
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({ fileType: /video\/(mp4|webm|quicktime)/ })
+        .addMaxSizeValidator({ maxSize: 50 * 1024 * 1024 })
+        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.uploadService.uploadImage(file);
+  }
+
   /**
    * Sirve las imágenes guardadas en GridFS. Es público a propósito: la URL viaja
    * en el `src` de un `<img>`, que no puede enviar el Authorization header.

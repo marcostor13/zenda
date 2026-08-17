@@ -36,7 +36,7 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
   ],
   transporte: [
-    'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm',
+    'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'tarifaEsperaPorHora',
     'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
     'tiposTransporteOfrecidos', 'precioExclusivo', 'requisitoMicrochip', 'requisitoVacunas',
     'caracteristicasVehiculo', 'serviciosAdicionales',
@@ -654,7 +654,7 @@ export class CatalogService {
       'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
       'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
       // transporte de animales
-      'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
+      'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'tarifaEsperaPorHora', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
       'radioCoberturaKm', 'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
       'maxPerrosPorTrayecto', 'antelacionMinimaHoras',
       // veterinaria

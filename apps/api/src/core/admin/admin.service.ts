@@ -17,7 +17,7 @@ import { Resena, ResenaDocument } from '../reviews/resena.schema';
 import { Incidencia, IncidenciaDocument } from '../incidencias/incidencia.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Evento, EventoDocument } from '../eventos/evento.schema';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
 import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
@@ -37,6 +37,13 @@ interface ReservaLean {
   montoTotal: number;
   estado: string;
   createdAt: Date;
+}
+
+interface ReservaConAjusteLean {
+  _id: Types.ObjectId;
+  vertical: string;
+  comercioId: Types.ObjectId;
+  suplementos?: Array<{ monto: number }>;
 }
 
 /** Usuario del listado del admin, con reservas y nivel Alpha si es cliente. */
@@ -1225,6 +1232,7 @@ export class AdminService {
     );
 
     const porVertical = this.agruparPorVertical(pagos, reservasIds);
+    const ajustes = await this.generarReporteAjustes(matchReservas);
 
     return {
       fechaDesde: filtros.fechaDesde.toISOString(),
@@ -1236,6 +1244,76 @@ export class AdminService {
       liquidacionesComercio: Math.round(totales.liquidacionesComercio * 100) / 100,
       totalReservas: reservaIdsArr.length,
       porVertical,
+      ...ajustes,
+    };
+  }
+
+  /**
+   * Frecuencia e impacto económico de los ajustes de precio, agrupados por comercio
+   * (Ref. S11) — ayuda a detectar negocios que ajustan precios con frecuencia fuera de
+   * lo normal. Usa el mismo filtro de fechas/vertical/comercio que el resto del reporte.
+   */
+  private async generarReporteAjustes(matchReservas: Record<string, unknown>): Promise<{
+    totalReservasConAjuste: number;
+    importeTotalAjustes: number;
+    ajustesPorComercio: ReporteAjustePorComercioDto[];
+  }> {
+    const reservas = await this.reservaModel
+      .find(matchReservas)
+      .select('vertical comercioId suplementos')
+      .lean()
+      .exec() as unknown as ReservaConAjusteLean[];
+
+    const comercioIds = [...new Set(reservas.map((r) => r.comercioId.toString()))];
+    const comercios = await this.comercioModel
+      .find({ _id: { $in: comercioIds } })
+      .select('nombreComercial')
+      .lean()
+      .exec() as unknown as Array<{ _id: Types.ObjectId; nombreComercial?: string }>;
+    const nombrePorComercio = new Map(comercios.map((c) => [c._id.toString(), c.nombreComercial ?? 'Sin nombre']));
+
+    const acumulador = new Map<string, ReporteAjustePorComercioDto>();
+    let totalReservasConAjuste = 0;
+    let importeTotalAjustes = 0;
+
+    for (const reserva of reservas) {
+      const comercioId = reserva.comercioId.toString();
+      const entrada = acumulador.get(comercioId) ?? {
+        comercioId,
+        comercioNombre: nombrePorComercio.get(comercioId) ?? 'Sin nombre',
+        totalReservas: 0,
+        reservasConAjuste: 0,
+        importeAjustes: 0,
+        porcentajeConAjuste: 0,
+      };
+
+      entrada.totalReservas += 1;
+      const importeReserva = (reserva.suplementos ?? []).reduce((suma, s) => suma + s.monto, 0);
+      if (importeReserva > 0) {
+        entrada.reservasConAjuste += 1;
+        entrada.importeAjustes += importeReserva;
+        totalReservasConAjuste += 1;
+        importeTotalAjustes += importeReserva;
+      }
+
+      acumulador.set(comercioId, entrada);
+    }
+
+    const ajustesPorComercio = Array.from(acumulador.values())
+      .map((c) => ({
+        ...c,
+        importeAjustes: Math.round(c.importeAjustes * 100) / 100,
+        porcentajeConAjuste: c.totalReservas > 0
+          ? Math.round((c.reservasConAjuste / c.totalReservas) * 1000) / 10
+          : 0,
+      }))
+      .filter((c) => c.reservasConAjuste > 0)
+      .sort((a, b) => b.porcentajeConAjuste - a.porcentajeConAjuste);
+
+    return {
+      totalReservasConAjuste,
+      importeTotalAjustes: Math.round(importeTotalAjustes * 100) / 100,
+      ajustesPorComercio,
     };
   }
 

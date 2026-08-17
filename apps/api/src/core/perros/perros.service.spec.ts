@@ -6,6 +6,7 @@ import { Perro } from './perro.schema';
 import { PerroHistorial } from './perro-historial.schema';
 import { PerroVersion } from './perro-version.schema';
 import { Consentimiento } from './consentimiento.schema';
+import { Reserva } from '../bookings/reserva.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { TipoHistorial, VerticalKey } from 'shared';
 
@@ -33,6 +34,7 @@ describe('PerrosService', () => {
   };
   let versionModel: { create: jest.Mock; find: jest.Mock };
   let consentimientoModel: { find: jest.Mock; findOneAndUpdate: jest.Mock; updateMany: jest.Mock };
+  let reservaModel: { find: jest.Mock };
 
   beforeEach(async () => {
     perroModel = { create: jest.fn(), find: jest.fn(), findById: jest.fn() };
@@ -46,6 +48,11 @@ describe('PerrosService', () => {
       findOneAndUpdate: jest.fn(),
       updateMany: jest.fn(),
     };
+    reservaModel = {
+      find: jest.fn().mockReturnValue({
+        select: () => ({ lean: () => ({ exec: () => Promise.resolve([]) }) }),
+      }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -53,6 +60,7 @@ describe('PerrosService', () => {
         { provide: getModelToken(Perro.name), useValue: perroModel },
         { provide: getModelToken(PerroHistorial.name), useValue: historialModel },
         { provide: getModelToken(PerroVersion.name), useValue: versionModel },
+        { provide: getModelToken(Reserva.name), useValue: reservaModel },
         { provide: getModelToken(Consentimiento.name), useValue: consentimientoModel },
       ],
     }).compile();
@@ -341,6 +349,39 @@ describe('PerrosService', () => {
       await expect(
         service.eliminarHistorial(new Types.ObjectId().toString(), 'no-es-un-id', PROPIETARIO_ID),
       ).rejects.toThrow(DomainException);
+    });
+  });
+
+  describe('estimarPrecioConHistorial (Ref. N8)', () => {
+    it('debería devolver el precio base sin ajustar si el perro no tiene reservas anteriores', async () => {
+      reservaModel.find.mockReturnValue({
+        select: () => ({ lean: () => ({ exec: () => Promise.resolve([]) }) }),
+      });
+
+      const estimacion = await service.estimarPrecioConHistorial(new Types.ObjectId().toString(), 100);
+
+      expect(estimacion).toEqual({
+        precioBase: 100, precioEstimado: 100, promedioAjustePct: 0, basadoEnReservas: 0,
+      });
+    });
+
+    it('debería ajustar el precio según el porcentaje medio de suplementos aceptados', async () => {
+      reservaModel.find.mockReturnValue({
+        select: () => ({
+          lean: () => ({
+            exec: () => Promise.resolve([
+              { montoSubtotal: 100, suplementos: [{ monto: 20 }] }, // +20%
+              { montoSubtotal: 100, suplementos: [] },              // +0%
+            ]),
+          }),
+        }),
+      });
+
+      const estimacion = await service.estimarPrecioConHistorial(new Types.ObjectId().toString(), 100);
+
+      expect(estimacion.basadoEnReservas).toBe(2);
+      expect(estimacion.promedioAjustePct).toBe(10);
+      expect(estimacion.precioEstimado).toBe(110);
     });
   });
 });

@@ -605,12 +605,14 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
 
   readonly detalleExtra = computed(() => {
     const detalle = this.reserva()?.detalle ?? {};
-    const ignorar = new Set(['titulo', 'nombre', 'imagen', 'imagenes']);
+    const ignorar = new Set(['titulo', 'nombre', 'imagen', 'imagenes', 'videosUrl']);
     const LABELS: Record<string, string> = {
       espacioId: 'Espacio', tamanoPerro: 'Tamaño del perro', perros: 'Perros',
       origen: 'Origen', destino: 'Destino', distanciaKm: 'Distancia (km)',
       tipoVehiculo: 'Tipo de vehículo', hora: 'Hora', servicio: 'Servicio',
       modalidad: 'Modalidad', edadMeses: 'Edad (meses)',
+      tipoTrayecto: 'Tipo de trayecto', esperaMinutos: 'Espera (minutos)',
+      historialPrevio: 'Historial previo', vinculoPropietario: 'Vínculo con el propietario',
     };
     return Object.entries(detalle)
       .filter(([k, v]) => !ignorar.has(k) && v != null && v !== '')

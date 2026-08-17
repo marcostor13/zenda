@@ -196,6 +196,14 @@ export interface FilaHistorialApi {
   detalle?: string;
 }
 
+/** Presupuesto ajustado por el historial de suplementos del perro (Ref. N8). */
+export interface EstimacionPrecioApi {
+  precioBase: number;
+  precioEstimado: number;
+  promedioAjustePct: number;
+  basadoEnReservas: number;
+}
+
 export interface CrearValoracionPayload {
   reservaId: string;
   puntuacion: number;
@@ -232,8 +240,25 @@ export class PerrosService {
     return firstValueFrom(this.http.get<PerroHistorialApi[]>(`${this.base}/${id}/historial`));
   }
 
+  /** El comercio añade una nota (con datos estructurados opcionales) al historial del perro. */
+  agregarHistorial(
+    id: string,
+    payload: { vertical: string; reservaId?: string; nota: string; datosEstructurados?: Record<string, unknown> },
+  ): Promise<PerroHistorialApi> {
+    return firstValueFrom(this.http.post<PerroHistorialApi>(`${this.base}/${id}/historial`, payload));
+  }
+
   indiceComportamiento(id: string): Promise<IndiceComportamientoApi> {
     return firstValueFrom(this.http.get<IndiceComportamientoApi>(`${this.base}/${id}/indice-comportamiento`));
+  }
+
+  /** Presupuesto ajustado por el historial de suplementos del perro (Ref. N8). */
+  estimacionPrecio(id: string, precioBase: number): Promise<EstimacionPrecioApi> {
+    return firstValueFrom(
+      this.http.get<EstimacionPrecioApi>(`${this.base}/${id}/estimacion-precio`, {
+        params: { precioBase: String(precioBase) },
+      }),
+    );
   }
 
   bienestar(id: string): Promise<IndiceBienestarApi> {

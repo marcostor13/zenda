@@ -335,6 +335,64 @@ function aDia(fecha: string | Date): Date {
                       }
                     </p>
                   }
+
+                  <!-- Cuestionario ampliado y vídeos (Ref. ADI2/ADI3) -->
+                  @if (r.vertical === 'adiestramiento' && (r.detalle?.['historialPrevio'] || r.detalle?.['vinculoPropietario'] || videosDe(r).length)) {
+                    <div class="detalle__adiestramiento">
+                      @if (r.detalle?.['historialPrevio']) {
+                        <p><strong>Historial previo:</strong> {{ r.detalle!['historialPrevio'] }}</p>
+                      }
+                      @if (r.detalle?.['vinculoPropietario']) {
+                        <p><strong>Vínculo con el propietario:</strong> {{ r.detalle!['vinculoPropietario'] }}</p>
+                      }
+                      @if (videosDe(r).length) {
+                        <p><strong>Vídeos del comportamiento:</strong></p>
+                        <ul class="videos-lista">
+                          @for (url of videosDe(r); track url; let i = $index) {
+                            <li><a [href]="url" target="_blank" rel="noopener">Vídeo {{ i + 1 }}</a></li>
+                          }
+                        </ul>
+                      }
+                    </div>
+                  }
+
+                  <!-- Seguimiento estructurado del progreso (Ref. ADI5) -->
+                  @if (r.vertical === 'adiestramiento' && (r.estado === 'confirmada' || r.estado === 'completada' || r.estado === 'en_curso')) {
+                    <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" style="margin-top:var(--sp-3)"
+                            (click)="toggleSeguimientoAdiestramiento(r._id)">
+                      <rs-icon name="clipboard-list" [size]="13" [stroke]="2"></rs-icon>
+                      {{ seguimientoAbiertoId() === r._id ? 'Cerrar' : 'Registrar seguimiento de la sesión' }}
+                    </button>
+                    @if (seguimientoAbiertoId() === r._id) {
+                      <div class="ajuste-panel" style="margin-top:var(--sp-3)">
+                        <div class="rs-field">
+                          <label class="rs-lbl">Objetivos trabajados</label>
+                          <textarea class="rs-inp" rows="2" [value]="seguimientoObjetivos()"
+                                    (input)="seguimientoObjetivos.set($any($event.target).value)"></textarea>
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Evolución observada</label>
+                          <textarea class="rs-inp" rows="2" [value]="seguimientoEvolucion()"
+                                    (input)="seguimientoEvolucion.set($any($event.target).value)"></textarea>
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Tareas para casa</label>
+                          <textarea class="rs-inp" rows="2" [value]="seguimientoTareas()"
+                                    (input)="seguimientoTareas.set($any($event.target).value)"></textarea>
+                        </div>
+                        <div class="ajuste-panel__actions">
+                          <button type="button" class="rs-btn rs-btn--primary rs-btn--sm"
+                                  [disabled]="guardandoSeguimiento() || !puedeGuardarSeguimiento()"
+                                  (click)="guardarSeguimientoAdiestramiento(r)">
+                            {{ guardandoSeguimiento() ? 'Guardando…' : 'Guardar seguimiento' }}
+                          </button>
+                        </div>
+                        @if (mensajeSeguimiento()) {
+                          <p class="ajuste-panel__hint">{{ mensajeSeguimiento() }}</p>
+                        }
+                      </div>
+                    }
+                  }
                 </div>
               }
 
@@ -572,6 +630,31 @@ function aDia(fecha: string | Date): Date {
                       <rs-image-upload [(ngModel)]="evidenciaUrl"></rs-image-upload>
                     </div>
 
+                    <!-- Plan personalizado / bono de sesiones tras la valoración (Ref. ADI4) -->
+                    @if (r.vertical === 'adiestramiento' && r.estado === 'confirmada') {
+                      <div class="ajuste-panel__evidencia">
+                        <h3 class="section-title" style="font-size:var(--f-sm)">Proponer plan personalizado o bono de sesiones</h3>
+                        <p class="ajuste-panel__hint">
+                          Se envía como el resto de ajustes: el cliente lo aprueba y paga desde la plataforma, o lo rechaza sin cargo.
+                        </p>
+                        <div class="row-card__grid row-card__grid--3">
+                          <div class="rs-field">
+                            <label class="rs-lbl">Nombre del plan</label>
+                            <input class="rs-inp" [(ngModel)]="planNombre" [ngModelOptions]="{standalone: true}"
+                                   placeholder="Ej. Bono modificación de conducta">
+                          </div>
+                          <div class="rs-field">
+                            <label class="rs-lbl">Nº de sesiones</label>
+                            <input class="rs-inp" type="number" min="1" [(ngModel)]="planSesiones" [ngModelOptions]="{standalone: true}">
+                          </div>
+                          <div class="rs-field">
+                            <label class="rs-lbl">Precio total (€)</label>
+                            <input class="rs-inp" type="number" min="0" step="0.01" [(ngModel)]="planPrecio" [ngModelOptions]="{standalone: true}">
+                          </div>
+                        </div>
+                      </div>
+                    }
+
                     @if (totalSuplementoSeleccionado() > 0) {
                       <p class="ajuste-panel__total">Suplemento total: +€{{ totalSuplementoSeleccionado() | number:'1.2-2' }}</p>
                     }
@@ -579,7 +662,7 @@ function aDia(fecha: string | Date): Date {
                     <div class="ajuste-panel__actions">
                       <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarAjuste()">Cancelar</button>
                       <button class="rs-btn rs-btn--primary rs-btn--sm"
-                              [disabled]="enviandoAjuste() || seleccionados().size === 0"
+                              [disabled]="enviandoAjuste() || !puedeEnviarAjuste()"
                               (click)="enviarAjuste(r)">
                         {{ enviandoAjuste() ? 'Enviando…' : 'Enviar solicitud al cliente' }}
                       </button>
@@ -730,6 +813,8 @@ function aDia(fecha: string | Date): Date {
       dd { font-size: var(--f-sm); color: var(--t-100); }
     }
     .detalle__suplementos { margin-top: var(--sp-3); font-size: var(--f-sm); color: var(--t-300); }
+    .detalle__adiestramiento { margin-top: var(--sp-3); font-size: var(--f-sm); color: var(--t-300); display: flex; flex-direction: column; gap: var(--sp-1); }
+    .detalle__adiestramiento .videos-lista { list-style: none; padding: 0; display: flex; gap: var(--sp-3); a { color: var(--c-accent); } }
 
     /* Calendario mensual */
     .calendario { padding: var(--sp-5); }
@@ -829,6 +914,13 @@ export class ComercioReservasComponent implements OnInit {
   readonly enviandoAjuste = signal(false);
   evidenciaUrl = '';
 
+  // Plan personalizado / bono de sesiones tras la valoración (Ref. ADI4) — reutiliza el
+  // ciclo de ajuste ya probado (notificación, aprobación, cobro, comisión), con un
+  // concepto/monto compuesto libremente en vez de elegido del catálogo de suplementos.
+  planNombre = '';
+  planSesiones: number | null = null;
+  planPrecio: number | null = null;
+
   readonly totalSuplementoSeleccionado = computed(() =>
     this.suplementosCatalogo()
       .filter((s) => this.seleccionados().has(s._id))
@@ -854,6 +946,14 @@ export class ComercioReservasComponent implements OnInit {
   readonly previsualizando = signal(false);
   readonly importandoHistorial = signal(false);
   readonly mensajeImportacion = signal<string | null>(null);
+
+  // Seguimiento estructurado del progreso en adiestramiento (Ref. ADI5).
+  readonly seguimientoAbiertoId = signal<string | null>(null);
+  readonly seguimientoObjetivos = signal('');
+  readonly seguimientoEvolucion = signal('');
+  readonly seguimientoTareas = signal('');
+  readonly guardandoSeguimiento = signal(false);
+  readonly mensajeSeguimiento = signal<string | null>(null);
 
   readonly filtros = FILTROS;
   readonly periodos = PERIODOS;
@@ -1088,6 +1188,59 @@ export class ComercioReservasComponent implements OnInit {
     return chips;
   }
 
+  /** URLs de vídeo del comportamiento subidos al reservar (Ref. ADI3). */
+  videosDe(r: MiReserva): string[] {
+    const v = r.detalle?.['videosUrl'];
+    return Array.isArray(v) ? (v as string[]) : [];
+  }
+
+  toggleSeguimientoAdiestramiento(reservaId: string): void {
+    if (this.seguimientoAbiertoId() === reservaId) {
+      this.seguimientoAbiertoId.set(null);
+      return;
+    }
+    this.seguimientoAbiertoId.set(reservaId);
+    this.seguimientoObjetivos.set('');
+    this.seguimientoEvolucion.set('');
+    this.seguimientoTareas.set('');
+    this.mensajeSeguimiento.set(null);
+  }
+
+  puedeGuardarSeguimiento(): boolean {
+    return !!(this.seguimientoObjetivos().trim() || this.seguimientoEvolucion().trim() || this.seguimientoTareas().trim());
+  }
+
+  /**
+   * Guarda el seguimiento estructurado de la sesión (Ref. ADI5) en el historial del perro,
+   * con `datosEstructurados` en vez del texto libre genérico.
+   */
+  async guardarSeguimientoAdiestramiento(r: MiReserva): Promise<void> {
+    if (!r.perroId || !this.puedeGuardarSeguimiento()) return;
+    const objetivos = this.seguimientoObjetivos().trim();
+    const evolucion = this.seguimientoEvolucion().trim();
+    const tareas = this.seguimientoTareas().trim();
+
+    this.guardandoSeguimiento.set(true);
+    this.mensajeSeguimiento.set(null);
+    try {
+      await this.perrosService.agregarHistorial(r.perroId, {
+        vertical: 'adiestramiento',
+        reservaId: r._id,
+        nota: [objetivos, evolucion, tareas].filter(Boolean).join(' · ') || 'Seguimiento de sesión',
+        datosEstructurados: {
+          objetivos: objetivos || undefined,
+          evolucion: evolucion || undefined,
+          tareasCasa: tareas || undefined,
+        },
+      });
+      this.mensajeSeguimiento.set('Seguimiento guardado en el historial del perro.');
+    } catch {
+      this.mensajeSeguimiento.set('No se pudo guardar el seguimiento.');
+    } finally {
+      this.guardandoSeguimiento.set(false);
+    }
+  }
+
   // ── Acciones sobre la reserva ───────────────────────────────────────────────
 
   toggleAjuste(reservaId: string): void {
@@ -1101,6 +1254,18 @@ export class ComercioReservasComponent implements OnInit {
     this.ajusteAbiertoId.set(null);
     this.seleccionados.set(new Set());
     this.evidenciaUrl = '';
+    this.planNombre = '';
+    this.planSesiones = null;
+    this.planPrecio = null;
+  }
+
+  /** El plan personalizado (Ref. ADI4) es válido si tiene nombre y un precio positivo. */
+  planValido(): boolean {
+    return !!this.planNombre.trim() && !!this.planPrecio && this.planPrecio > 0;
+  }
+
+  puedeEnviarAjuste(): boolean {
+    return this.seleccionados().size > 0 || this.planValido();
   }
 
   toggleSuplemento(id: string): void {
@@ -1115,6 +1280,14 @@ export class ComercioReservasComponent implements OnInit {
     const suplementos = this.suplementosCatalogo()
       .filter((s) => this.seleccionados().has(s._id))
       .map((s) => ({ concepto: s.concepto, monto: s.monto }));
+
+    if (this.planValido()) {
+      const sesiones = this.planSesiones ? `${this.planSesiones} sesiones` : 'programa';
+      suplementos.push({
+        concepto: `Plan personalizado: ${this.planNombre.trim()} (${sesiones})`,
+        monto: this.planPrecio!,
+      });
+    }
 
     if (!suplementos.length) return;
 

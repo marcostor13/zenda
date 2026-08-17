@@ -356,6 +356,16 @@ export interface ReporteVertical {
   totalReservas: number;
 }
 
+/** Frecuencia e impacto económico de los ajustes de precio por comercio (Ref. S11). */
+export interface ReporteAjustePorComercio {
+  comercioId: string;
+  comercioNombre: string;
+  totalReservas: number;
+  reservasConAjuste: number;
+  importeAjustes: number;
+  porcentajeConAjuste: number;
+}
+
 export interface ReporteFinanciero {
   fechaDesde: string;
   fechaHasta: string;
@@ -366,6 +376,9 @@ export interface ReporteFinanciero {
   liquidacionesComercio: number;
   totalReservas: number;
   porVertical: ReporteVertical[];
+  totalReservasConAjuste: number;
+  importeTotalAjustes: number;
+  ajustesPorComercio: ReporteAjustePorComercio[];
 }
 
 export interface CrearComercioDto {

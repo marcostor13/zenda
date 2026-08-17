@@ -365,10 +365,14 @@ function aCsv(v: string): string[] {
             @case ('transporte') {
               <div formGroupName="transporte" class="vertical-section">
                 <h2 class="section-title">Detalles del transporte</h2>
+                <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
+                  Los campos marcados con <strong>*</strong> son obligatorios; el resto son
+                  opcionales y solo ayudan a que recibas solicitudes que sí puedas atender.
+                </p>
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Tipo de vehículo</label>
+                    <label class="rs-lbl">Tipo de vehículo <span class="rs-field-hint">(opcional)</span></label>
                     <select class="rs-inp" formControlName="tipoVehiculo">
                       <option value="van_acondicionada">Van acondicionada</option>
                       <option value="coche">Coche</option>
@@ -376,13 +380,13 @@ function aCsv(v: string): string[] {
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Capacidad (perros)</label>
+                    <label class="rs-lbl">Capacidad (perros) <span class="rs-field-hint">(opcional)</span></label>
                     <input class="rs-inp" type="number" min="1" formControlName="capacidadPerros">
                   </div>
                 </div>
 
                 <div class="rs-field">
-                  <span class="rs-lbl">Zona de cobertura</span>
+                  <span class="rs-lbl">Zona de cobertura <span class="rs-field-hint">(opcional)</span></span>
                   <rs-tags-input formControlName="zonaCobertura" etiqueta="Zona de cobertura"
                                  [opciones]="catalogos.provincias" placeholder="Ej. Madrid, Toledo…" />
                 </div>
@@ -398,13 +402,19 @@ function aCsv(v: string): string[] {
                   </div>
                 </div>
 
+                <div class="rs-field">
+                  <label class="rs-lbl">Tarifa de espera, por hora (€) <span class="rs-field-hint">(opcional)</span></label>
+                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaEsperaPorHora">
+                  <span class="rs-field-hint">Se cobra en trayectos de "ida y vuelta con espera" (Ref. TRA4). Déjalo en 0 si no cobras el tiempo de espera.</span>
+                </div>
+
                 <div class="checkbox-row">
                   <label class="rs-checkbox"><input type="checkbox" formControlName="jaulasIncluidas"> Jaulas incluidas</label>
                   <label class="rs-checkbox"><input type="checkbox" formControlName="acompananteHumano"> Acompañante humano opcional</label>
                   <label class="rs-checkbox"><input type="checkbox" formControlName="soloPerros"> Sólo perros</label>
                 </div>
 
-                <h2 class="section-title">Condiciones del servicio</h2>
+                <h2 class="section-title">Condiciones del servicio (todas opcionales)</h2>
                 <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
                   Cuanto más concretes, menos solicitudes recibirás que no puedas atender.
                 </span>
@@ -1236,6 +1246,7 @@ export class ComercioListadoFormComponent implements OnInit {
       zonaCobertura: [[] as string[]],
       tarifaBase: [0, [Validators.required, Validators.min(0)]],
       tarifaKm: [0, [Validators.required, Validators.min(0)]],
+      tarifaEsperaPorHora: [0, [Validators.min(0)]],
       jaulasIncluidas: [true],
       acompananteHumano: [false],
       soloPerros: [true],
