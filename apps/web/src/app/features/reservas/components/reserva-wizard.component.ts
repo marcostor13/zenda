@@ -380,6 +380,36 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </div>
                   </div>
                 }
+
+                <!-- Trayectos recurrentes (Ref. TRA3) -->
+                <div class="extras-section">
+                  <label class="filter-check">
+                    <input type="checkbox" [checked]="esRecurrente()"
+                           (change)="esRecurrente.set(!esRecurrente())" />
+                    Repetir este trayecto varios días a la semana
+                  </label>
+                  @if (esRecurrente()) {
+                    <div class="rs-field" style="margin-top:var(--sp-3)">
+                      <label class="rs-lbl">Días de la semana</label>
+                      <div class="checks-grid">
+                        @for (d of diasSemanaOpciones; track d.valor) {
+                          <label class="filter-check">
+                            <input type="checkbox" [checked]="tieneDiaSemana(d.valor)"
+                                   (change)="toggleDiaSemana(d.valor)" />
+                            {{ d.label }}
+                          </label>
+                        }
+                      </div>
+                    </div>
+                    <div class="rs-field">
+                      <label class="rs-lbl">Repetir hasta</label>
+                      <input type="date" class="rs-inp rs-inp--lg"
+                             [value]="fechaFinRecurrencia()"
+                             (input)="fechaFinRecurrencia.set($any($event.target).value)" />
+                      <span class="rs-field-hint">Se crea una reserva por cada día elegido, con el mismo origen, destino y hora, hasta esta fecha (máx. 52 trayectos).</span>
+                    </div>
+                  }
+                </div>
               </form>
             }
 
@@ -750,7 +780,22 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                           placeholder="{{ peticionesPlaceholder() }}"></textarea>
               </div>
 
+              <div class="rs-alert rs-alert--info" style="margin-block:var(--sp-4)">
+                <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+                <span>El importe mostrado es una estimación. El precio final puede variar si el estado o las
+                  necesidades de tu mascota no coinciden con lo indicado al llegar al servicio (te avisaremos
+                  y podrás aceptar o rechazar cualquier ajuste antes de que se cobre nada de más).</span>
+              </div>
+
               <div class="consent-box">
+                <label class="filter-check">
+                  <input type="checkbox" formControlName="confirmaDatosMascota" />
+                  <span>Confirmo que la información de mi mascota es correcta y entiendo que el precio puede ajustarse si no coincide al llegar.</span>
+                </label>
+                @if (p2Error('confirmaDatosMascota')) {
+                  <span class="rs-field-err">Debes confirmar que los datos de tu mascota son correctos.</span>
+                }
+
                 <label class="filter-check">
                   <input type="checkbox" formControlName="aceptaTerminos" />
                   <span>Acepto los <a routerLink="/terminos" style="color:var(--c-accent)">Términos y condiciones</a> y la <a routerLink="/privacidad" style="color:var(--c-accent)">Política de privacidad</a></span>
@@ -1130,6 +1175,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
     .extras-section { margin-block: var(--sp-6); h3 { font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); margin-bottom: var(--sp-4); } }
     .extras-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+    .checks-grid { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
     .extra-item {
       display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4);
       background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-lg);
@@ -1439,6 +1485,20 @@ export class ReservaWizardComponent implements OnInit {
     perros:        [1],
   });
 
+  /** Trayectos recurrentes (Ref. TRA3): el motor ya existe en el backend, esto es solo la UI. */
+  readonly esRecurrente = signal(false);
+  readonly diasSemanaSelec = signal<number[]>([]);
+  readonly fechaFinRecurrencia = signal('');
+  readonly diasSemanaOpciones: ReadonlyArray<{ valor: number; label: string }> = [
+    { valor: 1, label: 'Lun' }, { valor: 2, label: 'Mar' }, { valor: 3, label: 'Mié' },
+    { valor: 4, label: 'Jue' }, { valor: 5, label: 'Vie' }, { valor: 6, label: 'Sáb' },
+    { valor: 0, label: 'Dom' },
+  ];
+  toggleDiaSemana(dia: number): void {
+    this.diasSemanaSelec.update((l) => (l.includes(dia) ? l.filter((d) => d !== dia) : [...l, dia]));
+  }
+  tieneDiaSemana(dia: number): boolean { return this.diasSemanaSelec().includes(dia); }
+
   readonly paso1VeterinariaForm = this.fb.group({
     fecha:    ['', Validators.required],
     hora:     ['', Validators.required],
@@ -1486,6 +1546,7 @@ export class ReservaWizardComponent implements OnInit {
     telefono:       ['', Validators.required],
     pais:           ['ES'],
     peticiones:     [''],
+    confirmaDatosMascota: [false, Validators.requiredTrue],
     aceptaTerminos: [false, Validators.requiredTrue],
   });
 
@@ -2037,6 +2098,15 @@ export class ReservaWizardComponent implements OnInit {
             ...(this.extrasSelec().length > 0 ? { extras: this.extrasSelec() } : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
+          ...(this.esRecurrente() && this.diasSemanaSelec().length > 0 && this.fechaFinRecurrencia()
+            ? {
+                recurrencia: {
+                  diasSemana: this.diasSemanaSelec(),
+                  hora: f.hora!,
+                  fechaFin: this.fechaFinRecurrencia(),
+                },
+              }
+            : {}),
         };
       }
       case VerticalKey.VETERINARIA: {

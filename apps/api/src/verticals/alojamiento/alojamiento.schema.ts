@@ -68,6 +68,14 @@ export class Alojamiento extends Servicio {
   @Prop({ type: [String], default: [] })
   compatibilidadSocialAdmitida!: string[];
 
+  /**
+   * Conductas de riesgo que esta residencia NO admite (Ref. RES5): agresividad,
+   * ansiedad_extrema, tendencia_escapar, destructivo. Vacío/ausente = admite cualquiera
+   * (la reserva se avisa/bloquea en `AlojamientoAvailabilityStrategy`, no aquí).
+   */
+  @Prop({ type: [String], default: [] })
+  conductasNoAdmitidas!: string[];
+
   @Prop({ type: Boolean, default: false })
   requisitoMicrochip!: boolean;
 

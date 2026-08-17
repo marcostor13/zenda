@@ -396,7 +396,7 @@ describe('ReservaWizardComponent', () => {
       await crear(params, query);
       componente.paso2Form.setValue({
         nombre: 'Ana', apellidos: 'Ruiz', email: 'ana@ruiz.com', telefono: '600000000',
-        pais: 'ES', peticiones: '', aceptaTerminos: true,
+        pais: 'ES', peticiones: '', confirmaDatosMascota: true, aceptaTerminos: true,
       });
 
       componente.continuarPaso2();

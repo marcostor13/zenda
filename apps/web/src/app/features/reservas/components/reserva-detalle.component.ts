@@ -161,6 +161,30 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
             }
           </div>
 
+          <!-- Cargos adicionales (Ref. S10): desglose permanente, no solo mientras está pendiente -->
+          @if (reserva()!.suplementos?.length) {
+            <div class="rs-card info-card">
+              <h3 class="info-card__title">
+                <rs-icon name="plus" [size]="15" [stroke]="2"></rs-icon>
+                Cargos adicionales aplicados
+              </h3>
+              <div class="info-rows">
+                @for (s of reserva()!.suplementos!; track $index) {
+                  <div class="info-row" style="align-items:flex-start">
+                    <span class="info-row__label">
+                      {{ s.concepto }}
+                      @if (s.motivo) { <br /><span style="font-size:var(--f-xs)">{{ s.motivo }}</span> }
+                      @if (s.evidenciaUrl) {
+                        <br /><a [href]="s.evidenciaUrl" target="_blank" rel="noopener" style="font-size:var(--f-xs);color:var(--c-accent)">Ver foto</a>
+                      }
+                    </span>
+                    <span class="info-row__val">€{{ s.monto | number:'1.2-2' }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
           <!-- Coupon -->
           @if (reserva()!.cuponCodigo) {
             <div class="rs-card info-card" style="padding:var(--sp-4) var(--sp-5)">

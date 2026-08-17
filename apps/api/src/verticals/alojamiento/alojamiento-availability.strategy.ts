@@ -59,6 +59,7 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy {
 
     this.validarTamano(espacio, params);
     this.validarCompatibilidadSocial(alojamiento, params);
+    this.validarConductaRiesgo(alojamiento, params);
 
     const perros = Math.max(1, params.cantidad ?? 1);
     const extras = this.calcularExtras(alojamiento, params);
@@ -128,6 +129,31 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy {
     if (!alojamiento.compatibilidadSocialAdmitida.includes(compatibilidad)) {
       throw new DomainException(
         'Esta residencia no admite el perfil de compatibilidad social indicado para tu perro',
+        409,
+      );
+    }
+  }
+
+  /**
+   * Bloquea la reserva si el perro presenta una conducta de riesgo que esta residencia
+   * marcó como no admitida (Ref. RES5). Un array vacío/ausente admite cualquier conducta.
+   */
+  private validarConductaRiesgo(alojamiento: Alojamiento, params: AvailabilityQuery): void {
+    const noAdmitidas = alojamiento.conductasNoAdmitidas ?? [];
+    if (!noAdmitidas.length) return;
+
+    const extra = params.parametrosExtra ?? {};
+    const CONDUCTA_PERRO: Record<string, unknown> = {
+      agresividad: extra['perroProtectorRecursos'] || extra['perroReactividadCorrea'],
+      ansiedad_extrema: extra['perroAnsiedadSeparacion'],
+      tendencia_escapar: extra['perroTendenciaEscapar'],
+      destructivo: extra['perroDestructivoEnSoledad'],
+    };
+
+    const conductaDetectada = noAdmitidas.find((c) => !!CONDUCTA_PERRO[c]);
+    if (conductaDetectada) {
+      throw new DomainException(
+        'Esta residencia no admite perros con esta conducta de riesgo. Contacta con el negocio antes de reservar.',
         409,
       );
     }

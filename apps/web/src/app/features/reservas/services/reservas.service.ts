@@ -3,6 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
+export interface RecurrenciaPayload {
+  diasSemana: number[];
+  hora: string;
+  fechaFin: string;
+}
+
 export interface CrearReservaPayload {
   servicioId: string;
   comercioId: string;
@@ -13,6 +19,8 @@ export interface CrearReservaPayload {
   cantidad?: number;
   detalle?: Record<string, unknown>;
   cuponCodigo?: string;
+  /** Trayectos recurrentes (Ref. TRA3): genera reservas hijas para cada ocurrencia. */
+  recurrencia?: RecurrenciaPayload;
 }
 
 export interface SuplementoAplicadoApi {

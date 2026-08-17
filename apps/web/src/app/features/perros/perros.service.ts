@@ -43,6 +43,7 @@ export interface PerroApi {
   orinaEnInterior?: boolean;
   ladraAlQuedarseSolo?: boolean;
   destructivoEnSoledad?: boolean;
+  tendenciaEscapar?: boolean;
   notasAlojamiento?: string;
   autorizaCompartirHistorial: boolean;
   nivelDoogking?: number;
@@ -108,6 +109,7 @@ export interface PerroPayload {
   orinaEnInterior?: boolean;
   ladraAlQuedarseSolo?: boolean;
   destructivoEnSoledad?: boolean;
+  tendenciaEscapar?: boolean;
   notasAlojamiento?: string;
   autorizaCompartirHistorial?: boolean;
   cartillaSanitariaUrl?: string;
@@ -185,6 +187,13 @@ export interface HistoriaCompartidaApi {
   pasaporteEuropeoUrl?: string;
   certificadosUrl: string[];
   historial: Array<{ vertical: string; nota: string; createdAt?: string }>;
+}
+
+/** Una fila del historial pegado desde Excel o un documento, ya parseada o revisada. */
+export interface FilaHistorialApi {
+  fecha?: string;
+  concepto: string;
+  detalle?: string;
 }
 
 export interface CrearValoracionPayload {
@@ -272,5 +281,23 @@ export class PerrosService {
 
   eliminarHistorial(id: string, historialId: string): Promise<void> {
     return firstValueFrom(this.http.delete<void>(`${this.base}/${id}/historial/${historialId}`));
+  }
+
+  /** Convierte el texto pegado (Excel/documento) en filas, sin guardar nada (Ref. VET5). */
+  previsualizarImportacion(id: string, texto: string): Promise<FilaHistorialApi[]> {
+    return firstValueFrom(
+      this.http.post<FilaHistorialApi[]>(`${this.base}/${id}/historial/previsualizar`, { texto }),
+    );
+  }
+
+  /** Guarda las filas del historial ya revisadas por el profesional (Ref. VET5). */
+  importarHistorial(
+    id: string,
+    vertical: string,
+    filas: FilaHistorialApi[],
+  ): Promise<{ importadas: number }> {
+    return firstValueFrom(
+      this.http.post<{ importadas: number }>(`${this.base}/${id}/historial/importar`, { vertical, filas }),
+    );
   }
 }

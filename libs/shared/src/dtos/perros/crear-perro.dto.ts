@@ -169,6 +169,11 @@ export class CrearPerroDto {
   @IsBoolean()
   destructivoEnSoledad?: boolean;
 
+  /** Conducta de riesgo para residencias (Ref. RES5): el perro tiende a escaparse. */
+  @IsOptional()
+  @IsBoolean()
+  tendenciaEscapar?: boolean;
+
   @IsOptional()
   @IsString()
   notasAlojamiento?: string;

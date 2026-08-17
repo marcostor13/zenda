@@ -322,6 +322,20 @@ function aCsv(v: string): string[] {
                   }
                 </div>
 
+                <h2 class="section-title">Conductas de riesgo que no admites (Ref. RES5)</h2>
+                <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
+                  Si un perro con esta conducta intenta reservar, se le avisará antes de completar la reserva.
+                  Déjalo todo sin marcar si admites cualquier conducta.
+                </p>
+                <div class="checks-grid">
+                  @for (c of conductasRiesgo; track c.valor) {
+                    <label class="filter-check">
+                      <input type="checkbox" [checked]="tieneConductaNoAdmitida(c.valor)" (change)="toggleConductaNoAdmitida(c.valor)" />
+                      {{ c.label }}
+                    </label>
+                  }
+                </div>
+
                 <h2 class="section-title">Servicios adicionales</h2>
                 <div formArrayName="serviciosAdicionales" class="rows">
                   @for (s of serviciosAdicionalesAlojamiento.controls; track $index; let i = $index) {
@@ -1400,6 +1414,19 @@ export class ComercioListadoFormComponent implements OnInit {
     { valor: 'solo_hembras', label: 'Solo con hembras' },
     { valor: 'individual', label: 'Necesita alojamiento individual' },
   ];
+
+  // Conductas de riesgo no admitidas (residencia, Ref. RES5) — mismo patrón que compatibilidad social.
+  readonly conductasRiesgo: ReadonlyArray<{ valor: string; label: string }> = [
+    { valor: 'agresividad', label: 'Agresividad' },
+    { valor: 'ansiedad_extrema', label: 'Ansiedad extrema' },
+    { valor: 'tendencia_escapar', label: 'Tendencia a escapar' },
+    { valor: 'destructivo', label: 'Destructivo' },
+  ];
+  private readonly conductasNoAdmitidasSeleccionadas = signal<string[]>([]);
+  tieneConductaNoAdmitida(v: string): boolean { return this.conductasNoAdmitidasSeleccionadas().includes(v); }
+  toggleConductaNoAdmitida(v: string): void {
+    this.conductasNoAdmitidasSeleccionadas.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
+  }
   private readonly compatibilidadesSeleccionadas = signal<string[]>([]);
   tieneCompatibilidad(v: string): boolean { return this.compatibilidadesSeleccionadas().includes(v); }
   toggleCompatibilidad(v: string): void {
@@ -1574,6 +1601,7 @@ export class ComercioListadoFormComponent implements OnInit {
       const lista = (d['espacios'] as Record<string, unknown>[] | undefined) ?? [];
       lista.forEach(e => this.espacios.push(this.nuevoEspacio(e)));
       this.compatibilidadesSeleccionadas.set((d['compatibilidadSocialAdmitida'] as string[] | undefined) ?? []);
+      this.conductasNoAdmitidasSeleccionadas.set((d['conductasNoAdmitidas'] as string[] | undefined) ?? []);
       const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
       adicionales.forEach(e => this.serviciosAdicionalesAlojamiento.push(this.nuevoServicioAdicionalAlojamiento(e)));
     } else if (vertical === VerticalKey.TRANSPORTE) {
@@ -1660,6 +1688,7 @@ export class ComercioListadoFormComponent implements OnInit {
         requiereDesparasitacionExterna: g.requiereDesparasitacionExterna,
         requiereVacunaTosPerreras: g.requiereVacunaTosPerreras,
         compatibilidadSocialAdmitida: this.compatibilidadesSeleccionadas(),
+        conductasNoAdmitidas: this.conductasNoAdmitidasSeleccionadas(),
         serviciosAdicionales: this.serviciosAdicionalesAlojamiento.controls.map(c => c.getRawValue()),
       };
     }

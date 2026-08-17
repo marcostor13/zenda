@@ -6,7 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { ComercioApiService, MiReserva, SuplementoConfig } from './comercio-api.service';
-import { PerrosService, HistoriaCompartidaApi } from '../perros/perros.service';
+import { PerrosService, HistoriaCompartidaApi, FilaHistorialApi } from '../perros/perros.service';
 import { iconoVertical } from './vertical-icon';
 
 /** Hito de seguimiento en tiempo real que el comercio va marcando. */
@@ -250,6 +250,16 @@ function aDia(fecha: string | Date): Date {
                   <div class="reserva-card__servicio">
                     {{ r.servicioTitulo || r.vertical }}
                   </div>
+                  @if (resumenPerro(r).length) {
+                    <div class="resumen-perro">
+                      @for (dato of resumenPerro(r); track dato) {
+                        <span class="resumen-perro__chip">
+                          <rs-icon name="alert-circle" [size]="11" [stroke]="2.5"></rs-icon>
+                          {{ dato }}
+                        </span>
+                      }
+                    </div>
+                  }
                   <div class="reserva-card__fecha">
                     <rs-icon [name]="esEstancia(r.vertical) ? 'hotel' : 'clock'" [size]="13" [stroke]="2"></rs-icon>
                     @if (esEstancia(r.vertical)) {
@@ -428,6 +438,53 @@ function aDia(fecha: string | Date): Date {
                           <p class="ajuste-panel__hint">· [{{ nota.vertical }}] {{ nota.nota }}</p>
                         }
                       }
+
+                      <!-- Cargar historial clínico desde Excel/documento (Ref. VET5) -->
+                      <div class="importar-historial">
+                        <p><strong>Añadir historial pegando una tabla o Excel</strong></p>
+                        <p class="ajuste-panel__hint">
+                          Copia y pega aquí las filas (fecha, concepto, detalle separados por tabulador o coma).
+                        </p>
+                        <textarea class="rs-inp" rows="3"
+                                  [value]="textoImportar()"
+                                  (input)="textoImportar.set($any($event.target).value)"
+                                  placeholder="12/03/2026&#9;Vacuna rabia&#9;Refuerzo anual"></textarea>
+                        <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
+                                [disabled]="!textoImportar().trim() || previsualizando()"
+                                (click)="previsualizarImportacion()">
+                          {{ previsualizando() ? 'Analizando…' : 'Previsualizar' }}
+                        </button>
+
+                        @if (filasImportar().length) {
+                          <table class="importar-tabla">
+                            <thead>
+                              <tr><th>Fecha</th><th>Concepto</th><th>Detalle</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                              @for (fila of filasImportar(); track $index) {
+                                <tr>
+                                  <td>{{ fila.fecha || '—' }}</td>
+                                  <td>{{ fila.concepto }}</td>
+                                  <td>{{ fila.detalle || '—' }}</td>
+                                  <td>
+                                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarFilaImportar($index)">
+                                      <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
+                                    </button>
+                                  </td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                          <button type="button" class="rs-btn rs-btn--primary rs-btn--sm"
+                                  [disabled]="importandoHistorial()"
+                                  (click)="importarHistorial(r)">
+                            {{ importandoHistorial() ? 'Guardando…' : 'Guardar ' + filasImportar().length + ' filas' }}
+                          </button>
+                        }
+                        @if (mensajeImportacion()) {
+                          <p class="ajuste-panel__hint">{{ mensajeImportacion() }}</p>
+                        }
+                      </div>
                     }
                     <div class="ajuste-panel__actions">
                       <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="historiaAbiertaId.set(null)">Cerrar</button>
@@ -713,6 +770,17 @@ function aDia(fecha: string | Date): Date {
     .ajuste-panel__actions { display: flex; gap: var(--sp-2); }
     .filter-check { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size: var(--f-sm); color: var(--t-200); }
 
+    .importar-historial { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--b-1); }
+    .importar-tabla { width: 100%; border-collapse: collapse; font-size: var(--f-xs); }
+    .importar-tabla th, .importar-tabla td { text-align: left; padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--b-1); }
+
+    .resumen-perro { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-2); }
+    .resumen-perro__chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: var(--f-xs); padding: 2px var(--sp-2); border-radius: var(--r-full);
+      background: rgba(245,158,11,.12); color: #B45309;
+    }
+
     .resena-form__estrellas { display: flex; gap: var(--sp-1); margin-bottom: var(--sp-3); }
     .estrella-btn {
       background: none; border: none; cursor: pointer; font-size: 1.5rem; color: var(--b-2); line-height: 1;
@@ -779,6 +847,13 @@ export class ComercioReservasComponent implements OnInit {
   readonly historiaVeterinaria = signal<HistoriaCompartidaApi | null>(null);
   readonly cargandoHistoria = signal(false);
   readonly errorHistoria = signal<string | null>(null);
+
+  // Cargar historial clínico desde Excel/documento (Ref. VET5).
+  readonly textoImportar = signal('');
+  readonly filasImportar = signal<FilaHistorialApi[]>([]);
+  readonly previsualizando = signal(false);
+  readonly importandoHistorial = signal(false);
+  readonly mensajeImportacion = signal<string | null>(null);
 
   readonly filtros = FILTROS;
   readonly periodos = PERIODOS;
@@ -989,6 +1064,30 @@ export class ComercioReservasComponent implements OnInit {
     return VERTICALES_ESTANCIA.has(vertical);
   }
 
+  /**
+   * Resumen automático del perfil del perro para el negocio (Ref. N5): lo más relevante de la
+   * Ficha del Perro (alergias, miedos, requisitos), sin que el negocio tenga que buscarlo.
+   */
+  resumenPerro(r: MiReserva): string[] {
+    const s = r.perroSnapshot;
+    if (!s) return [];
+    const chips: string[] = [];
+    const alergias = s['alergias'] as string[] | undefined;
+    const miedos = s['miedos'] as string[] | undefined;
+    const medicacion = s['medicacion'] as string[] | undefined;
+    if (alergias?.length) chips.push(`Alergias: ${alergias.join(', ')}`);
+    if (miedos?.length) chips.push(`Miedos: ${miedos.join(', ')}`);
+    if (medicacion?.length) chips.push(`Medicación: ${medicacion.join(', ')}`);
+    if (s['ansiedadSeparacion']) chips.push('Ansiedad por separación');
+    if (s['protectorRecursos']) chips.push('Protector de recursos');
+    if (s['reactividadCorrea']) chips.push('Reactivo con correa');
+    if (s['destructivoEnSoledad']) chips.push('Destructivo en soledad');
+    if (s['orinaEnInterior']) chips.push('Puede orinar en interior');
+    if (s['seMarea']) chips.push('Se marea en viajes');
+    if (s['requiereTransportin']) chips.push('Requiere transportín');
+    return chips;
+  }
+
   // ── Acciones sobre la reserva ───────────────────────────────────────────────
 
   toggleAjuste(reservaId: string): void {
@@ -1056,6 +1155,9 @@ export class ComercioReservasComponent implements OnInit {
     this.historiaVeterinaria.set(null);
     this.errorHistoria.set(null);
     this.cargandoHistoria.set(true);
+    this.textoImportar.set('');
+    this.filasImportar.set([]);
+    this.mensajeImportacion.set(null);
     try {
       const historia = await this.perrosService.historiaVeterinaria(r.perroId);
       this.historiaVeterinaria.set(historia);
@@ -1063,6 +1165,47 @@ export class ComercioReservasComponent implements OnInit {
       this.errorHistoria.set('No se pudo cargar el historial (el propietario podría no haber autorizado compartirlo).');
     } finally {
       this.cargandoHistoria.set(false);
+    }
+  }
+
+  async previsualizarImportacion(): Promise<void> {
+    const id = this.historiaAbiertaId();
+    const texto = this.textoImportar().trim();
+    if (!id || !texto) return;
+    this.previsualizando.set(true);
+    this.mensajeImportacion.set(null);
+    try {
+      const filas = await this.perrosService.previsualizarImportacion(id, texto);
+      this.filasImportar.set(filas);
+      if (!filas.length) {
+        this.mensajeImportacion.set('No se reconoció ninguna fila. Revisa el formato (una fila por línea).');
+      }
+    } catch {
+      this.mensajeImportacion.set('No se pudo analizar el texto pegado.');
+    } finally {
+      this.previsualizando.set(false);
+    }
+  }
+
+  quitarFilaImportar(indice: number): void {
+    this.filasImportar.update((filas) => filas.filter((_, i) => i !== indice));
+  }
+
+  async importarHistorial(r: MiReserva): Promise<void> {
+    const id = this.historiaAbiertaId();
+    const filas = this.filasImportar();
+    if (!id || !filas.length) return;
+    this.importandoHistorial.set(true);
+    this.mensajeImportacion.set(null);
+    try {
+      const resultado = await this.perrosService.importarHistorial(id, r.vertical, filas);
+      this.mensajeImportacion.set(`${resultado.importadas} fila(s) guardadas en el historial.`);
+      this.textoImportar.set('');
+      this.filasImportar.set([]);
+    } catch {
+      this.mensajeImportacion.set('No se pudo guardar el historial importado.');
+    } finally {
+      this.importandoHistorial.set(false);
     }
   }
 

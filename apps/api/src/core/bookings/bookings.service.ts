@@ -679,6 +679,13 @@ export class BookingsService {
       perroEspecie: perroSnapshot['especie'],
       perroEsPPP: perroSnapshot['esPPP'],
       perroRaza: perroSnapshot['raza'],
+      // Conductas de riesgo (Ref. RES5): permiten a AlojamientoAvailabilityStrategy
+      // bloquear la reserva si la residencia no las admite.
+      perroAnsiedadSeparacion: perroSnapshot['ansiedadSeparacion'],
+      perroProtectorRecursos: perroSnapshot['protectorRecursos'],
+      perroReactividadCorrea: perroSnapshot['reactividadCorrea'],
+      perroDestructivoEnSoledad: perroSnapshot['destructivoEnSoledad'],
+      perroTendenciaEscapar: perroSnapshot['tendenciaEscapar'],
     };
   }
 }

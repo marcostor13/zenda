@@ -302,6 +302,10 @@ const NIVELES_SOCIABILIDAD = [
               <input type="checkbox" formControlName="destructivoEnSoledad" />
               Muerde o rompe cosas al quedarse solo
             </label>
+            <label class="filter-check">
+              <input type="checkbox" formControlName="tendenciaEscapar" />
+              Tiene tendencia a escaparse
+            </label>
           </div>
           <div class="rs-field" style="margin-top:var(--sp-4)">
             <label class="rs-lbl" for="notasAlojamiento">Otras cosas que debería saber el alojamiento</label>
@@ -524,6 +528,7 @@ export class PerroFormComponent implements OnInit {
     orinaEnInterior: [false],
     ladraAlQuedarseSolo: [false],
     destructivoEnSoledad: [false],
+    tendenciaEscapar: [false],
     notasAlojamiento: [''],
     autorizaCompartirHistorial: [true],
     cartillaSanitariaUrl: [null as string | null],
@@ -624,6 +629,7 @@ export class PerroFormComponent implements OnInit {
         orinaEnInterior: p.orinaEnInterior ?? false,
         ladraAlQuedarseSolo: p.ladraAlQuedarseSolo ?? false,
         destructivoEnSoledad: p.destructivoEnSoledad ?? false,
+        tendenciaEscapar: p.tendenciaEscapar ?? false,
         notasAlojamiento: p.notasAlojamiento ?? '',
         autorizaCompartirHistorial: p.autorizaCompartirHistorial,
         cartillaSanitariaUrl: p.cartillaSanitariaUrl ?? null,
@@ -668,6 +674,7 @@ export class PerroFormComponent implements OnInit {
       orinaEnInterior: v.orinaEnInterior,
       ladraAlQuedarseSolo: v.ladraAlQuedarseSolo,
       destructivoEnSoledad: v.destructivoEnSoledad,
+      tendenciaEscapar: v.tendenciaEscapar,
       notasAlojamiento: v.notasAlojamiento || undefined,
       autorizaCompartirHistorial: v.autorizaCompartirHistorial,
       cartillaSanitariaUrl: v.cartillaSanitariaUrl ?? undefined,

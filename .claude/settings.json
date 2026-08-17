@@ -1,3 +1,6 @@
 {
-  "hooks": {}
+  "hooks": {},
+  "enabledPlugins": {
+    "codex@openai-codex": true
+  }
 }

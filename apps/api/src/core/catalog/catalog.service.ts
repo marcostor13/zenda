@@ -32,7 +32,7 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
     'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis',
     'barrio', 'direccion',
-    'compatibilidadSocialAdmitida', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
+    'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
     'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
   ],
   transporte: [
@@ -651,7 +651,7 @@ export class CatalogService {
     const claves = [
       // alojamiento canino
       'espacios', 'espaciosDisponibles', 'checkIn', 'checkOut', 'requisitoVacunas', 'paseosIncluidos', 'camaras24h',
-      'compatibilidadSocialAdmitida', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
+      'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
       'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
       // transporte de animales
       'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',

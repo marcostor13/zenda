@@ -127,6 +127,10 @@ export class Perro {
   @Prop({ type: Boolean, default: false })
   destructivoEnSoledad!: boolean;
 
+  /** Conducta de riesgo para residencias (Ref. RES5): el perro tiende a escaparse. */
+  @Prop({ type: Boolean, default: false })
+  tendenciaEscapar!: boolean;
+
   @Prop()
   notasAlojamiento?: string;
 
