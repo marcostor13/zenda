@@ -8,6 +8,28 @@ import { htmlPin, htmlTarjeta } from './pin-html';
 const MARGEN_ENCUADRE: [number, number] = [48, 48];
 
 /**
+ * Desenvuelve la API real de Leaflet.
+ *
+ * El paquete solo publica `main` (un UMD), sin `module` ni `exports`, así que
+ * el empaquetador no puede deducir sus exportaciones con nombre y entrega un
+ * espacio de nombres con todo colgando de `default`. Sin este desenvuelto,
+ * `L.map` es `undefined` en el build y **ningún mapa llega a dibujarse** —el
+ * fallo queda silencioso, porque `crearMotor()` atrapa la excepción y no hay
+ * proveedor de respaldo tras Leaflet—, por mucho que en los tests el `require`
+ * de Jest sí devuelva la API plana y el mismo código parezca funcionar ahí.
+ */
+export function desenvolverLeaflet(modulo: unknown): typeof import('leaflet') {
+  const conDefecto = modulo as { default?: typeof import('leaflet') };
+  const api = typeof (modulo as typeof import('leaflet')).map === 'function'
+    ? (modulo as typeof import('leaflet'))
+    : conDefecto.default;
+  if (!api || typeof api.map !== 'function') {
+    throw new Error('Leaflet se cargó sin su API: no se puede montar el mapa');
+  }
+  return api;
+}
+
+/**
  * Mapa pintado con teselas de OpenStreetMap. Es el **respaldo** de Google Maps:
  * se usa cuando no hay clave de navegador configurada o cuando su SDK no llega
  * a cargarse, para que el buscador por mapa nunca deje un hueco gris.
@@ -20,7 +42,7 @@ export async function crearMotorLeaflet(
   opciones: OpcionesMotor,
   escuchas: EscuchasMotor,
 ): Promise<MotorMapa> {
-  const L = await import('leaflet');
+  const L = desenvolverLeaflet(await import('leaflet'));
   return new MotorLeaflet(L, opciones, escuchas);
 }
 

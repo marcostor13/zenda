@@ -307,7 +307,11 @@ const CONFIGS: Record<string, VerticalConfig> = {
       @media (max-width: 1024px) { grid-template-columns: 1fr; }
     }
 
+    /* .rs-wrap limita el ancho a --w-xl para la lectura, pero aquí no hay
+       texto: es un plano partido en tres, y limitarlo deja el mapa mucho más
+       estrecho de lo que la pantalla permite. Se anula solo en este modo. */
     .vb-body--mapa {
+      max-width: none;
       grid-template-columns: 240px minmax(360px, 520px) 1fr;
       gap: var(--sp-6);
 

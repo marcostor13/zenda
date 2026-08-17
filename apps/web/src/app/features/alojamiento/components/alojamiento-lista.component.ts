@@ -247,8 +247,13 @@ interface BusquedaUrl {
 
     /* Vista dividida al abrir el mapa: filtros · lista · mapa, como Booking.
        La lista se estrecha a una columna de tarjetas porque comparte el ancho
-       con el mapa; a dos seguirían saliendo tarjetas de un palmo. */
+       con el mapa; a dos seguirían saliendo tarjetas de un palmo.
+       .rs-wrap limita el ancho a --w-xl para que la lectura no se estire de
+       borde a borde en pantallas grandes, pero aquí no hay texto que leer: es
+       un plano partido en tres, y limitarlo deja el mapa mucho más estrecho de
+       lo que la pantalla permite. Se anula solo en este modo. */
     .alojamiento-body--mapa {
+      max-width: none;
       grid-template-columns: 240px minmax(320px, 460px) 1fr;
       gap: var(--sp-6);
 

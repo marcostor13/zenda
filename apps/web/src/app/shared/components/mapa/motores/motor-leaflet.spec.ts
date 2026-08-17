@@ -1,4 +1,4 @@
-import { crearMotorLeaflet } from './motor-leaflet';
+import { crearMotorLeaflet, desenvolverLeaflet } from './motor-leaflet';
 import type { EscuchasMotor, OpcionesMotor, PuntoMapa } from './motor-mapa';
 
 /**
@@ -50,6 +50,31 @@ const PUNTOS: PuntoMapa[] = [
   { id: 'a1', lat: 40.4168, lng: -3.7038, etiqueta: '€24', titulo: 'Residencia Las Rozas' },
   { id: 'sin-geo', lat: NaN, lng: NaN, etiqueta: '€19', titulo: 'Sin geocodificar' },
 ];
+
+describe('desenvolverLeaflet', () => {
+  /**
+   * Leaflet solo publica `main` (un UMD), sin `module` ni `exports`: bajo el
+   * empaquetador de Angular (esbuild) su `import()` entrega la API real colgada
+   * de `.default`, no en el nivel superior. Con `L.map` así de `undefined`, el
+   * mapa nunca llegaba a dibujarse y el fallo quedaba silencioso, porque no hay
+   * proveedor de respaldo tras Leaflet (TCK: regresión del refactor a motores/).
+   */
+  it('debería desenvolver la API cuando el empaquetador la cuelga de default', () => {
+    const apiReal = { map: jest.fn() } as unknown as typeof import('leaflet');
+
+    expect(desenvolverLeaflet({ default: apiReal })).toBe(apiReal);
+  });
+
+  it('debería devolver la API tal cual cuando ya llega plana (interop de Jest/CJS)', () => {
+    const apiReal = { map: jest.fn() } as unknown as typeof import('leaflet');
+
+    expect(desenvolverLeaflet(apiReal)).toBe(apiReal);
+  });
+
+  it('debería fallar con un mensaje claro si ninguna de las dos formas trae la API', () => {
+    expect(() => desenvolverLeaflet({})).toThrow(/Leaflet se cargó sin su API/);
+  });
+});
 
 describe('crearMotorLeaflet', () => {
   let escuchas: jest.Mocked<EscuchasMotor>;
