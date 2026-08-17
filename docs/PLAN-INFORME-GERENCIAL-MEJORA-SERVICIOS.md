@@ -19,7 +19,7 @@
 | 4 | Transporte: campos obligatorios/opcionales, comportamiento en viaje visible, ida-vuelta con espera | ✅ hecho |
 | 5 | Adiestramiento: vídeos, seguimiento estructurado, cuestionario ampliado, plan personalizado/bono | ✅ hecho |
 | 6 | Reporte de ajustes de precio (admin) + presupuesto ajustado por historial del perro | ✅ hecho |
-| 7 | Categorías "paseadores"/"cuidado a domicilio" | ⛔ requiere decisión del cliente (ver abajo) — no planificar hasta confirmar |
+| 7 | Categorías "paseadores"/"cuidado a domicilio" | ✅ hecho (confirmado por el cliente: la decisión de retirar "Cuidadores" ya no aplica) |
 
 ---
 
@@ -141,8 +141,38 @@
   Banner en el paso 2 del wizard ("según el historial de tu perro, el precio suele rondar €X"),
   solo si hay al menos 1 reserva previa y el ajuste medio es ≥1%.
 
-## Bloque 7 — Decisión pendiente del cliente (Ref. COMI3)
+## Bloque 7 — Paseadores y cuidado a domicilio ✅ hecho (Ref. COMI3)
 
-No es trabajo de desarrollo. El vertical "Cuidadores" (el más parecido a "paseadores y cuidado a
-domicilio") fue retirado explícitamente por decisión del cliente (TCK-8021). **No empezar este
-bloque sin confirmar con el cliente que esa decisión cambió.**
+El cliente confirmó que la decisión de retirar el vertical "Cuidadores" (TCK-8021) ya no aplica.
+Se reintrodujo como `VerticalKey.CUIDADORES` — "Paseadores y cuidado a domicilio" — combinando
+la modalidad `paseo` (nunca construida; TCK-8021 la había dejado explícitamente fuera de
+alcance) con las modalidades de cuidado a domicilio ya diseñadas entonces (visita, día completo,
+noche), recuperadas de la última versión antes de borrarse (commit `d38d76b^`).
+
+**Nota importante sobre el motivo de la retirada original**, encontrada al investigar antes de
+reconstruir: el commit de retirada decía *"Doogking solo lista empresas de profesionales
+verificadas, no particulares por libre"*. Este vertical no reabre esa puerta: como cualquier otro
+vertical, un profesional solo puede publicar un listado dando de alta un `comercio` y pasando la
+aprobación del admin — la misma verificación que ya exige toda la plataforma. Vale la pena que el
+cliente lo sepa, por si esa distinción (empresa vs. profesional individual verificado) le importa
+en la práctica.
+
+**Lo que existía antes (backend únicamente, nunca conectado a ninguna pantalla) vs. lo que se
+construyó de cero esta vez:**
+- Restaurado tal cual (con la extensión de `paseo`): `libs/shared/src/enums/vertical.enum.ts`,
+  `apps/api/src/verticals/cuidadores/` (schema + `CuidadoresAvailabilityStrategy` + módulo),
+  wiring en `app.module.ts`/`catalog.module.ts`/`catalog.repository.ts`/`catalog.service.ts`,
+  icono `apps/web/public/icons/cuidadores.svg`, y las entradas en `verticales.config.ts` /
+  `filtros.config.ts` / `resena-aspectos.config.ts` / `images.ts`.
+- **Nuevo, no existía antes**: sección completa en `comercio-listado-form.component.ts` (el
+  comercio nunca pudo autogestionar un listado de este vertical, solo se creaba por seed/script)
+  y el paso 1 del wizard de reserva en `reserva-wizard.component.ts` (el cliente nunca pudo
+  reservarlo desde la UI). Sin estas dos piezas el vertical era solo navegable, no reservable.
+- Bonus: al restaurar el enum, `home.component.spec.ts` dejó de fallar — tenía una aserción
+  (`VerticalKey.CUIDADORES` en el orden de categorías) que llevaba desde TCK-8021 sin poder
+  compilar, deuda que no se había limpiado.
+
+Verificado: tsc (shared/api/web app/web spec) sin errores, `nest build` sin errores,
+`ng build production` sin errores. Test nuevo:
+`cuidadores-availability.strategy.spec.ts` (13 casos). Pendiente de verificación final: correr
+la suite completa backend+frontend antes de dar el bloque por cerrado del todo.

@@ -29,6 +29,7 @@ import { PeluqueriaModule } from './verticals/peluqueria/peluqueria.module';
 import { AdiestramientoModule } from './verticals/adiestramiento/adiestramiento.module';
 import { HotelesModule } from './verticals/hoteles/hoteles.module';
 import { SegurosModule } from './verticals/seguros/seguros.module';
+import { CuidadoresModule } from './verticals/cuidadores/cuidadores.module';
 import { UploadModule } from './core/upload/upload.module';
 import { AiSearchModule } from './core/ai-search/ai-search.module';
 import { GeoModule } from './core/geo/geo.module';
@@ -76,6 +77,7 @@ import { ListaEsperaModule } from './core/lista-espera/lista-espera.module';
     AdiestramientoModule,
     HotelesModule,
     SegurosModule,
+    CuidadoresModule,
     UploadModule,
     AiSearchModule,
     GeoModule,

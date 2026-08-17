@@ -365,6 +365,7 @@ export class RegistroComercioComponent {
     [VerticalKey.TRANSPORTE]: 'Ej. Transportes Caninos Madrid',
     [VerticalKey.ADIESTRAMIENTO]: 'Ej. Adiestramiento Canino Vila-Can',
     [VerticalKey.HOTELES]: 'Ej. Hotel Canino Luna',
+    [VerticalKey.CUIDADORES]: 'Ej. Paseos y Cuidado Canino Vila-Can',
   };
 
   /** Placeholder del nombre del negocio según el primer servicio elegido (HU-6.1.1). */

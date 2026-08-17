@@ -82,6 +82,12 @@ export const routes: Routes = [
           import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
       },
       {
+        path: 'cuidadores',
+        data: { vertical: 'cuidadores' },
+        loadComponent: () =>
+          import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+      },
+      {
         path: 'explora',
         loadChildren: () => import('./features/explora/explora.routes').then((m) => m.exploraRoutes),
       },

@@ -24,6 +24,7 @@ const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarD
   peluqueria: ['cuposDisponibles'],
   adiestramiento: ['cuposDisponibles'],
   hoteles: ['unidadesDisponibles'],
+  cuidadores: ['cuposDisponibles'],
 };
 
 /** Todos los campos propios de cada vertical (más allá de los del Servicio base), aceptados al crear/editar un listado. */
@@ -70,6 +71,11 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'descuentoPagoAnualPct', 'duracionMeses', 'renovacionAutomatica', 'cupoPolizas',
     'documentoCondicionesUrl',
   ],
+  cuidadores: [
+    'modalidades', 'precioPaseo', 'precioVisita', 'precioDiaCompleto', 'precioNoche',
+    'duracionPaseoMin', 'duracionVisitaMin', 'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP',
+    'administraMedicacion', 'radioDesplazamientoKm', 'cuposDisponibles', 'horario',
+  ],
 };
 
 /** Campos que deben venir informados para que el listado sea reservable desde el día uno. */
@@ -81,6 +87,7 @@ const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
   adiestramiento: ['precioSesion'],
   hoteles: [],
   seguros: ['primaAnualBase', 'tiposSeguro'],
+  cuidadores: ['modalidades'],
 };
 
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
@@ -674,9 +681,10 @@ export class CatalogService {
       // seguros
       'tiposSeguro', 'limitesCobertura', 'condicionesAdmision', 'primaAnualBase',
       'descuentoPagoAnualPct', 'duracionMeses', 'renovacionAutomatica', 'documentoCondicionesUrl',
-      'modalidades', 'precioVisita', 'precioDiaCompleto', 'precioNoche', 'duracionVisitaMin',
-      'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP', 'administraMedicacion',
-      'radioDesplazamientoKm',
+      // paseadores y cuidado a domicilio
+      'modalidades', 'precioPaseo', 'precioVisita', 'precioDiaCompleto', 'precioNoche',
+      'duracionPaseoMin', 'duracionVisitaMin', 'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP',
+      'administraMedicacion', 'radioDesplazamientoKm',
       // comunes a citas/cupos
       'cuposDisponibles', 'horario',
     ];

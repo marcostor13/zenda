@@ -1054,6 +1054,93 @@ function aCsv(v: string): string[] {
                 </div>
               </div>
             }
+
+            @case ('cuidadores') {
+              <div formGroupName="cuidadores" class="vertical-section">
+                <h2 class="section-title">Qué servicios ofreces</h2>
+                <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
+                  Marca al menos una modalidad. Comparten el mismo cupo diario.
+                </p>
+                <div class="checks-grid">
+                  @for (m of modalidadesCuidado; track m.valor) {
+                    <label class="filter-check">
+                      <input type="checkbox" [checked]="tieneModalidad(m.valor)" (change)="toggleModalidad(m.valor)" />
+                      {{ m.label }}
+                    </label>
+                  }
+                </div>
+
+                <h2 class="section-title">Precios</h2>
+                <div class="row-card__grid row-card__grid--2">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Precio por paseo (€)</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioPaseo">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Duración del paseo (min)</label>
+                    <input class="rs-inp" type="number" min="1" formControlName="duracionPaseoMin">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Precio por visita (€)</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioVisita">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Duración de la visita (min)</label>
+                    <input class="rs-inp" type="number" min="1" formControlName="duracionVisitaMin">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Precio día completo (€)</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioDiaCompleto">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Precio noche (€)</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche">
+                  </div>
+                </div>
+                <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-4)">
+                  Deja en 0 el precio de cualquier modalidad que no ofrezcas.
+                </span>
+
+                <h2 class="section-title">Condiciones</h2>
+                <div class="row-card__grid row-card__grid--2">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Radio de desplazamiento (km)</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="radioDesplazamientoKm">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Cupos disponibles al día</label>
+                    <input class="rs-inp" type="number" min="0" formControlName="cuposDisponibles">
+                  </div>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Horario (opcional)</label>
+                  <input class="rs-inp" formControlName="horario" placeholder="Ej. L-V 9:00-19:00">
+                </div>
+                <div class="checkbox-row">
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> Acepto razas PPP</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="administraMedicacion"> Administro medicación</label>
+                </div>
+
+                <h2 class="section-title">Tamaños de perro admitidos</h2>
+                <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
+                  Déjalo todo sin marcar si admites cualquier tamaño.
+                </p>
+                <div class="checks-grid">
+                  @for (t of tamanosCuidado; track t.valor) {
+                    <label class="filter-check">
+                      <input type="checkbox" [checked]="tieneTamanoCuidado(t.valor)" (change)="toggleTamanoCuidado(t.valor)" />
+                      {{ t.label }}
+                    </label>
+                  }
+                </div>
+
+                <div class="rs-field">
+                  <span class="rs-lbl">Tareas incluidas</span>
+                  <rs-tags-input formControlName="tareasIncluidas" etiqueta="Tareas incluidas"
+                                 placeholder="Ej. Comida, agua, juego…" />
+                </div>
+              </div>
+            }
           }
 
           @if (!esEdicion()) {
@@ -1335,6 +1422,21 @@ export class ComercioListadoFormComponent implements OnInit {
       requiereVacunasAlDia: [false],
       recargoRiesgoPct: [0],
     }),
+
+    cuidadores: this.fb.group({
+      tareasIncluidas: [[] as string[]],
+      precioPaseo: [0, [Validators.min(0)]],
+      precioVisita: [0, [Validators.min(0)]],
+      precioDiaCompleto: [0, [Validators.min(0)]],
+      precioNoche: [0, [Validators.min(0)]],
+      duracionPaseoMin: [30, [Validators.min(1)]],
+      duracionVisitaMin: [45, [Validators.min(1)]],
+      aceptaPPP: [false],
+      administraMedicacion: [false],
+      radioDesplazamientoKm: [10, [Validators.min(0)]],
+      cuposDisponibles: [1, [Validators.required, Validators.min(0)]],
+      horario: [''],
+    }),
   });
 
   get alojamientoGroup(): FormGroup { return this.form.controls.alojamiento; }
@@ -1344,6 +1446,7 @@ export class ComercioListadoFormComponent implements OnInit {
   get adiestramientoGroup(): FormGroup { return this.form.controls.adiestramiento; }
   get hotelesGroup(): FormGroup { return this.form.controls.hoteles; }
   get segurosGroup(): FormGroup { return this.form.controls.seguros; }
+  get cuidadoresGroup(): FormGroup { return this.form.controls.cuidadores; }
   get serviciosAdiestramiento(): FormArray { return this.adiestramientoGroup.get('serviciosAdiestramiento') as FormArray; }
 
   get espacios(): FormArray { return this.alojamientoGroup.get('espacios') as FormArray; }
@@ -1437,6 +1540,31 @@ export class ComercioListadoFormComponent implements OnInit {
   tieneConductaNoAdmitida(v: string): boolean { return this.conductasNoAdmitidasSeleccionadas().includes(v); }
   toggleConductaNoAdmitida(v: string): void {
     this.conductasNoAdmitidasSeleccionadas.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
+  }
+
+  // Modalidades y tamaños admitidos (paseadores/cuidado a domicilio, Ref. COMI3).
+  readonly modalidadesCuidado: ReadonlyArray<{ valor: string; label: string }> = [
+    { valor: 'paseo', label: 'Paseo' },
+    { valor: 'visita', label: 'Visita suelta' },
+    { valor: 'dia_completo', label: 'Día completo' },
+    { valor: 'noche', label: 'Noche' },
+  ];
+  readonly tamanosCuidado: ReadonlyArray<{ valor: string; label: string }> = [
+    { valor: 'mini', label: 'Mini' },
+    { valor: 'pequeno', label: 'Pequeño' },
+    { valor: 'mediano', label: 'Mediano' },
+    { valor: 'grande', label: 'Grande' },
+    { valor: 'gigante', label: 'Gigante' },
+  ];
+  private readonly modalidadesSeleccionadas = signal<string[]>([]);
+  private readonly tamanosCuidadoSeleccionados = signal<string[]>([]);
+  tieneModalidad(v: string): boolean { return this.modalidadesSeleccionadas().includes(v); }
+  toggleModalidad(v: string): void {
+    this.modalidadesSeleccionadas.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
+  }
+  tieneTamanoCuidado(v: string): boolean { return this.tamanosCuidadoSeleccionados().includes(v); }
+  toggleTamanoCuidado(v: string): void {
+    this.tamanosCuidadoSeleccionados.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
   }
   private readonly compatibilidadesSeleccionadas = signal<string[]>([]);
   tieneCompatibilidad(v: string): boolean { return this.compatibilidadesSeleccionadas().includes(v); }
@@ -1673,6 +1801,13 @@ export class ComercioListadoFormComponent implements OnInit {
         recargoRiesgoPct: Math.round(((admision['recargoRiesgoPct'] as number) ?? 0) * 100),
       });
       this.coberturas.set((d['tiposSeguro'] as TipoSeguro[] | undefined) ?? []);
+    } else if (vertical === VerticalKey.CUIDADORES) {
+      this.cuidadoresGroup.patchValue({
+        ...d,
+        tareasIncluidas: (d['tareasIncluidas'] as string[] | undefined) ?? [],
+      });
+      this.modalidadesSeleccionadas.set((d['modalidades'] as string[] | undefined) ?? ['visita']);
+      this.tamanosCuidadoSeleccionados.set((d['tamanosAdmitidos'] as string[] | undefined) ?? []);
     }
   }
 
@@ -1775,6 +1910,19 @@ export class ComercioListadoFormComponent implements OnInit {
         },
       };
     }
+    if (vertical === VerticalKey.CUIDADORES) {
+      const g = this.cuidadoresGroup.getRawValue();
+      return {
+        ...g,
+        modalidades: this.modalidadesSeleccionadas(),
+        tamanosAdmitidos: this.tamanosCuidadoSeleccionados(),
+        precioPaseo: g.precioPaseo > 0 ? g.precioPaseo : undefined,
+        precioVisita: g.precioVisita > 0 ? g.precioVisita : undefined,
+        precioDiaCompleto: g.precioDiaCompleto > 0 ? g.precioDiaCompleto : undefined,
+        precioNoche: g.precioNoche > 0 ? g.precioNoche : undefined,
+        horario: g.horario || undefined,
+      };
+    }
     return null;
   }
 
@@ -1790,6 +1938,9 @@ export class ComercioListadoFormComponent implements OnInit {
     }
     if (vertical === VerticalKey.PELUQUERIA && this.serviciosGrooming.length === 0) {
       return 'Añade al menos un servicio de grooming.';
+    }
+    if (vertical === VerticalKey.CUIDADORES && this.modalidadesSeleccionadas().length === 0) {
+      return 'Marca al menos una modalidad (paseo, visita, día completo o noche).';
     }
     return null;
   }

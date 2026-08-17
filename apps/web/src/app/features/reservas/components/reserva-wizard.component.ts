@@ -780,6 +780,32 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </form>
             }
 
+            <!-- ── PASEADORES Y CUIDADO A DOMICILIO ── -->
+            @if (vertical() === 'cuidadores') {
+              <form [formGroup]="paso1CuidadoresForm">
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Fecha</label>
+                    <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Hora</label>
+                    <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
+                  </div>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Qué necesitas</label>
+                  <select formControlName="modalidad" class="rs-inp rs-inp--lg">
+                    <option value="paseo">Paseo</option>
+                    <option value="visita">Visita suelta</option>
+                    <option value="dia_completo">Día completo</option>
+                    <option value="noche">Noche</option>
+                  </select>
+                  <span class="rs-field-hint">Solo verás precio si el profesional ofrece esta modalidad.</span>
+                </div>
+              </form>
+            }
+
             <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
                     style="margin-top:var(--sp-6)"
                     [disabled]="!paso1Valido()"
@@ -1659,6 +1685,12 @@ export class ReservaWizardComponent implements OnInit {
     observaciones: [''],
   });
 
+  readonly paso1CuidadoresForm = this.fb.group({
+    fecha:      ['', Validators.required],
+    hora:       ['', Validators.required],
+    modalidad:  ['paseo', Validators.required],
+  });
+
   // ─── Step 2 (shared) ───
   readonly paso2Form = this.fb.group({
     nombre:         ['', Validators.required],
@@ -1709,6 +1741,7 @@ export class ReservaWizardComponent implements OnInit {
     const formularios: AbstractControl[] = [
       this.paso1AlojamientoForm, this.paso1TransporteForm, this.paso1VeterinariaForm,
       this.paso1PeluqueriaForm, this.paso1AdiestramientoForm, this.paso1HotelesForm,
+      this.paso1CuidadoresForm,
     ];
     for (const form of formularios) {
       form.valueChanges
@@ -1726,6 +1759,7 @@ export class ReservaWizardComponent implements OnInit {
       case VerticalKey.PELUQUERIA:     return this.paso1PeluqueriaForm.valid;
       case VerticalKey.ADIESTRAMIENTO: return this.paso1AdiestramientoForm.valid;
       case VerticalKey.HOTELES:        return this.paso1HotelesForm.valid;
+      case VerticalKey.CUIDADORES:     return this.paso1CuidadoresForm.valid;
       default:                         return false;
     }
   });
@@ -1878,6 +1912,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'Tu cita',
       [VerticalKey.ADIESTRAMIENTO]: 'Tu sesión',
       [VerticalKey.HOTELES]: 'Tu viaje',
+      [VerticalKey.CUIDADORES]: 'Tu servicio',
     };
     return m[this.vertical()] ?? 'Selección';
   });
@@ -1890,6 +1925,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'Detalles de la cita de peluquería',
       [VerticalKey.ADIESTRAMIENTO]: 'Detalles del adiestramiento',
       [VerticalKey.HOTELES]: 'Detalles de tu viaje pet-friendly',
+      [VerticalKey.CUIDADORES]: 'Detalles del paseo o cuidado',
     };
     return m[this.vertical()] ?? 'Resumen de tu reserva';
   });
@@ -1903,6 +1939,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'scissors',
       [VerticalKey.ADIESTRAMIENTO]: 'graduation-cap',
       [VerticalKey.HOTELES]: 'hotel',
+      [VerticalKey.CUIDADORES]: 'users',
     };
     return m[this.vertical()] ?? 'paw';
   });
@@ -1919,6 +1956,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'servicio',
       [VerticalKey.ADIESTRAMIENTO]: 'sesión',
       [VerticalKey.HOTELES]: 'noche',
+      [VerticalKey.CUIDADORES]: 'servicio',
     };
     return m[this.vertical()] ?? '';
   });
@@ -1948,6 +1986,8 @@ export class ReservaWizardComponent implements OnInit {
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         return `€${base} × ${n} noche${n !== 1 ? 's' : ''}`;
       }
+      case VerticalKey.CUIDADORES:
+        return `Servicio · €${base}`;
       default:
         return `€${base}`;
     }
@@ -1961,6 +2001,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'Piel sensible, nudos, corte preferido…',
       [VerticalKey.ADIESTRAMIENTO]: 'Conducta a trabajar, nivel de socialización…',
       [VerticalKey.HOTELES]: 'Necesidades especiales de tu mascota, movilidad reducida…',
+      [VerticalKey.CUIDADORES]: 'Rutina de paseo, dónde guardas la comida, dónde duerme…',
     };
     return m[this.vertical()] ?? 'Peticiones especiales…';
   });
@@ -2312,6 +2353,17 @@ export class ReservaWizardComponent implements OnInit {
             ninos: Number(f.ninos ?? 0),
             observaciones: f.observaciones || undefined,
           },
+          cuponCodigo: this.cuponCodigo() ?? undefined,
+        };
+      }
+      case VerticalKey.CUIDADORES: {
+        const f = this.paso1CuidadoresForm.value;
+        return {
+          servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
+          perroId: this.perroSeleccionado() ?? undefined,
+          fechaInicio: `${f.fecha}T${f.hora}:00`,
+          cantidad: 1,
+          detalle: { modalidad: f.modalidad },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }

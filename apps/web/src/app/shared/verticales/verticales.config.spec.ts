@@ -31,12 +31,15 @@ describe('verticales.config', () => {
     expect(seguros.reservaPorNoches).toBe(false);
   });
 
-  it('no debería ofrecer verticales fuera de alcance', () => {
-    const claves: string[] = VERTICALES_UI.map((v) => v.key);
+  it('debería incluir Paseadores y cuidado a domicilio como vertical (Ref. COMI3)', () => {
+    // Retirado como "Cuidadores" (TCK-8021); reintroducido con paseo + cuidado a domicilio
+    // tras confirmar con el cliente que esa decisión ya no aplica.
+    const cuidadores = verticalUi(VerticalKey.CUIDADORES);
 
-    // Cuidadores se retiró de la plataforma (TCK-8021) y paseadores nunca entró
-    // en alcance (HU-048): ninguno debe volver por la puerta de atrás.
-    expect(claves).not.toContain('cuidadores');
+    expect(cuidadores.key).toBe(VerticalKey.CUIDADORES);
+    expect(cuidadores.route).toBe('/cuidadores');
+    // "Paseadores" no es un vertical propio: es una modalidad dentro de este.
+    const claves: string[] = VERTICALES_UI.map((v) => v.key);
     expect(claves).not.toContain('paseadores');
   });
 
