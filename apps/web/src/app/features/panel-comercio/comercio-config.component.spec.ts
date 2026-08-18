@@ -935,4 +935,183 @@ describe('ComercioConfigComponent', () => {
       expect(faltantesDeEsasSecciones).toEqual([]);
     });
   });
+  /**
+   * Días especiales con calendario de selección múltiple. Antes era un campo de
+   * fecha y un botón: un puente son cuatro días y agosto entero son treinta, y
+   * añadirlos de uno en uno con su motivo cada vez era la parte que nadie
+   * terminaba.
+   */
+  describe('calendario de días especiales', () => {
+    /** Primer día del mes visible que no está en el pasado ni ya marcado. */
+    const primerDisponible = () =>
+      componente.celdasExcepciones().find((c) => c.delMes && !c.pasado && !c.yaEsExcepcion)!;
+
+    it('debería pintar seis semanas empezando en lunes', async () => {
+      await crear();
+      const celdas = componente.celdasExcepciones();
+
+      expect(celdas).toHaveLength(42);
+      const [anio, mes, dia] = celdas[0].clave.split('-').map(Number);
+      expect(new Date(anio, mes - 1, dia).getDay()).toBe(1);
+    });
+
+    it('debería empezar sin ningún día marcado', async () => {
+      await crear();
+
+      expect(componente.totalSeleccionados()).toBe(0);
+    });
+
+    it('debería marcar y desmarcar un día al pulsarlo', async () => {
+      await crear();
+      const celda = primerDisponible();
+
+      componente.alternarDiaExcepcion(celda);
+      expect(componente.totalSeleccionados()).toBe(1);
+
+      componente.alternarDiaExcepcion(celda);
+      expect(componente.totalSeleccionados()).toBe(0);
+    });
+
+    it('no debería dejar marcar un día que ya pasó', async () => {
+      // Marcar un festivo pasado no cambia nada; invitar a hacerlo confunde.
+      await crear();
+      const pasado = componente.celdasExcepciones().find((c) => c.pasado);
+      if (!pasado) return;
+
+      componente.alternarDiaExcepcion(pasado);
+
+      expect(componente.totalSeleccionados()).toBe(0);
+    });
+
+    it('debería moverse de mes hacia delante y hacia atrás', async () => {
+      await crear();
+      const inicial = componente.mesExcepciones().getMonth();
+
+      componente.cambiarMesExcepciones(1);
+      expect(componente.mesExcepciones().getMonth()).toBe((inicial + 1) % 12);
+
+      componente.cambiarMesExcepciones(-1);
+      expect(componente.mesExcepciones().getMonth()).toBe(inicial);
+    });
+
+    it('debería marcar de golpe todo el mes visible', async () => {
+      // El caso de las vacaciones de agosto.
+      await crear();
+      componente.cambiarMesExcepciones(1);
+
+      componente.seleccionarMesEntero();
+
+      const delMes = componente.celdasExcepciones().filter((c) => c.delMes && !c.pasado);
+      expect(componente.totalSeleccionados()).toBe(delMes.length);
+    });
+
+    it('debería poder quitar toda la selección', async () => {
+      await crear();
+      componente.seleccionarMesEntero();
+
+      componente.limpiarSeleccion();
+
+      expect(componente.totalSeleccionados()).toBe(0);
+    });
+
+    it('debería aplicar el mismo motivo y horario a todos los días marcados', async () => {
+      await crear();
+      componente.cambiarMesExcepciones(1);
+      componente.seleccionarMesEntero();
+      const marcados = componente.totalSeleccionados();
+      componente.nuevaExcepcionMotivo.set('Vacaciones');
+      componente.nuevaExcepcionCerrado.set(true);
+
+      componente.anadirSeleccionados();
+
+      expect(componente.excepciones()).toHaveLength(marcados);
+      expect(componente.excepciones().every((e) => e.motivo === 'Vacaciones')).toBe(true);
+      expect(componente.excepciones().every((e) => e.cerrado)).toBe(true);
+    });
+
+    it('debería guardar el horario reducido cuando no se cierra el día', async () => {
+      await crear();
+      componente.cambiarMesExcepciones(1);
+      componente.alternarDiaExcepcion(primerDisponible());
+      componente.nuevaExcepcionCerrado.set(false);
+      componente.nuevaExcepcionAbre.set('10:00');
+      componente.nuevaExcepcionCierra.set('14:00');
+
+      componente.anadirSeleccionados();
+
+      expect(componente.excepciones()[0]).toMatchObject({ abre: '10:00', cierra: '14:00', cerrado: false });
+    });
+
+    it('debería limpiar la selección y el motivo tras aplicarlos', async () => {
+      // Si no, el siguiente puente heredaría el motivo del anterior.
+      await crear();
+      componente.cambiarMesExcepciones(1);
+      componente.alternarDiaExcepcion(primerDisponible());
+      componente.nuevaExcepcionMotivo.set('Navidad');
+
+      componente.anadirSeleccionados();
+
+      expect(componente.totalSeleccionados()).toBe(0);
+      expect(componente.nuevaExcepcionMotivo()).toBe('');
+    });
+
+    it('no debería hacer nada sin días marcados', async () => {
+      await crear();
+
+      componente.anadirSeleccionados();
+
+      expect(componente.excepciones()).toEqual([]);
+    });
+
+    it('debería marcar en el calendario los días ya guardados', async () => {
+      await crear();
+      componente.cambiarMesExcepciones(1);
+      const celda = primerDisponible();
+      componente.alternarDiaExcepcion(celda);
+      componente.anadirSeleccionados();
+
+      const yaPuesta = componente.celdasExcepciones().find((c) => c.clave === celda.clave)!;
+      expect(yaPuesta.yaEsExcepcion).toBe(true);
+    });
+
+    it('no debería dejar volver a marcar un día que ya es especial', async () => {
+      // Se quita desde la lista, no volviéndolo a marcar en el calendario.
+      await crear();
+      componente.cambiarMesExcepciones(1);
+      const celda = primerDisponible();
+      componente.alternarDiaExcepcion(celda);
+      componente.anadirSeleccionados();
+
+      const yaPuesta = componente.celdasExcepciones().find((c) => c.clave === celda.clave)!;
+      componente.alternarDiaExcepcion(yaPuesta);
+
+      expect(componente.totalSeleccionados()).toBe(0);
+    });
+
+    it('debería reemplazar el día si ya existía, no duplicarlo', async () => {
+      await crear();
+      componente.cambiarMesExcepciones(1);
+      const celda = primerDisponible();
+      componente.alternarDiaExcepcion(celda);
+      componente.nuevaExcepcionMotivo.set('Primera');
+      componente.anadirSeleccionados();
+
+      // Se fuerza el mismo día por la vía de uno en uno.
+      componente.nuevaExcepcionFecha.set(celda.clave);
+      componente.nuevaExcepcionMotivo.set('Corregida');
+      componente.anadirExcepcion();
+
+      expect(componente.excepciones()).toHaveLength(1);
+      expect(componente.excepciones()[0].motivo).toBe('Corregida');
+    });
+
+    it('debería mostrar la fecha en formato legible, no en ISO', async () => {
+      await crear();
+
+      const texto = componente.fechaLarga('2026-08-03');
+
+      expect(texto).not.toBe('2026-08-03');
+      expect(texto).toContain('2026');
+    });
+  });
 });

@@ -12,6 +12,7 @@ import { enlaceGoogleMaps } from '../../shared/mapas/google-maps';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
 import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
+import { celdasDelMes, claveDia, desdeClaveDia, hoyLocal } from '../../shared/fechas';
 import { environment } from '../../../environments/environment';
 import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, ExcepcionHorario, DocumentoVerificacion } from './comercio-api.service';
 
@@ -481,25 +482,52 @@ type UrlImagen = string | null;
       <form [formGroup]="horarioForm" (ngSubmit)="continuar(guardarHorario())" class="config-form">
         <div formArrayName="dias" class="horario-list">
           @for (dia of diasControls; track dia; let i = $index) {
-            <div [formGroupName]="i" class="horario-row">
-              <span class="horario-row__label">{{ dias[i].label }}</span>
-              <label class="rs-checkbox">
-                <input type="checkbox" formControlName="cerrado" (change)="onCerradoChange(i)"> Cerrado
-              </label>
-              <input class="rs-inp rs-inp--time" type="time" formControlName="abre">
-              <span class="horario-row__sep">—</span>
-              <input class="rs-inp rs-inp--time" type="time" formControlName="cierra">
-              <!-- Segundo tramo: muchos negocios cierran a mediodía (TCK-8028) -->
-              <input class="rs-inp rs-inp--time" type="time" formControlName="abre2" aria-label="Segundo tramo, apertura">
-              <span class="horario-row__sep">—</span>
-              <input class="rs-inp rs-inp--time" type="time" formControlName="cierra2" aria-label="Segundo tramo, cierre">
+            <div [formGroupName]="i" class="horario-row" [class.horario-row--cerrado]="dia.get('cerrado')?.value">
+              <div class="horario-row__dia">
+                <span class="horario-row__label">{{ dias[i].label }}</span>
+                <label class="rs-checkbox">
+                  <input type="checkbox" formControlName="cerrado" (change)="onCerradoChange(i)"> Cerrado
+                </label>
+              </div>
+
+              <!--
+                Las horas desaparecen al marcar "Cerrado": no significan nada ese
+                día, y en el móvil son cuatro campos que estorban en una pantalla
+                donde el espacio es lo que falta.
+              -->
+              @if (!dia.get('cerrado')?.value) {
+                <div class="horario-row__tramos">
+                  <div class="horario-tramo">
+                    <span class="horario-tramo__et">Mañana</span>
+                    <input class="rs-inp rs-inp--time" type="time" formControlName="abre"
+                           aria-label="{{ dias[i].label }}: primer tramo, apertura">
+                    <span class="horario-row__sep">—</span>
+                    <input class="rs-inp rs-inp--time" type="time" formControlName="cierra"
+                           aria-label="{{ dias[i].label }}: primer tramo, cierre">
+                  </div>
+
+                  <!-- Segundo tramo: muchos negocios cierran a mediodía (TCK-8028) -->
+                  <div class="horario-tramo">
+                    <span class="horario-tramo__et">Tarde</span>
+                    <input class="rs-inp rs-inp--time" type="time" formControlName="abre2"
+                           aria-label="{{ dias[i].label }}: segundo tramo, apertura">
+                    <span class="horario-row__sep">—</span>
+                    <input class="rs-inp rs-inp--time" type="time" formControlName="cierra2"
+                           aria-label="{{ dias[i].label }}: segundo tramo, cierre">
+                  </div>
+                </div>
+              } @else {
+                <span class="horario-row__cerrado">Cerrado todo el día</span>
+              }
             </div>
           }
         </div>
 
         <div class="form-actions">
           <button type="button" class="rs-btn rs-btn--outline" (click)="copiarHorarioATodos()">
-            Copiar el horario del lunes a todos los días
+            <rs-icon name="copy" [size]="14" [stroke]="2"></rs-icon>
+            <span class="solo-escritorio">Copiar el horario del lunes a todos los días</span>
+            <span class="solo-movil">Copiar el lunes a todos</span>
           </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoHorario()">
             @if (guardandoHorario()) { Guardando… } @else {
@@ -521,7 +549,7 @@ type UrlImagen = string | null;
           <div class="excepciones__lista">
             @for (e of excepciones(); track $index) {
               <div class="excepcion">
-                <span class="excepcion__fecha">{{ e.fecha }}</span>
+                <span class="excepcion__fecha">{{ fechaLarga(e.fecha) }}</span>
                 <span class="excepcion__detalle">
                   {{ e.cerrado ? 'Cerrado' : (e.abre || '—') + ' — ' + (e.cierra || '—') }}
                   @if (e.motivo) { · {{ e.motivo }} }
@@ -537,12 +565,61 @@ type UrlImagen = string | null;
           <p class="config-section__sub">Todavía no has marcado ningún día especial.</p>
         }
 
+        <!--
+          Calendario con selección múltiple. Antes era un campo de fecha y un
+          botón: un puente son cuatro días y agosto entero son treinta, y
+          añadirlos de uno en uno —con su motivo cada vez— era la parte que
+          nadie terminaba. Se marcan los que sean y se aplican de una vez.
+        -->
+        <div class="cal">
+          <div class="cal__barra">
+            <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                    (click)="cambiarMesExcepciones(-1)" aria-label="Mes anterior">
+              <rs-icon name="chevron-left" [size]="16" [stroke]="2.5"></rs-icon>
+            </button>
+            <strong class="cal__mes">{{ nombreMes() }}</strong>
+            <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                    (click)="cambiarMesExcepciones(1)" aria-label="Mes siguiente">
+              <rs-icon name="chevron-right" [size]="16" [stroke]="2.5"></rs-icon>
+            </button>
+          </div>
+
+          <div class="cal__semana" aria-hidden="true">
+            @for (d of diasSemanaCorto; track $index) { <span>{{ d }}</span> }
+          </div>
+
+          <div class="cal__rejilla" role="group" aria-label="Elige los días especiales">
+            @for (c of celdasExcepciones(); track c.clave) {
+              <button type="button" class="cal__dia"
+                      [class.cal__dia--fuera]="!c.delMes"
+                      [class.cal__dia--sel]="c.seleccionado"
+                      [class.cal__dia--puesto]="c.yaEsExcepcion"
+                      [disabled]="c.pasado || c.yaEsExcepcion"
+                      [attr.aria-pressed]="c.seleccionado"
+                      [attr.title]="c.yaEsExcepcion ? 'Ya marcado como día especial' : null"
+                      (click)="alternarDiaExcepcion(c)">
+                {{ c.dia }}
+              </button>
+            }
+          </div>
+
+          <div class="cal__atajos">
+            <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="seleccionarMesEntero()">
+              Marcar el mes entero
+            </button>
+            @if (totalSeleccionados()) {
+              <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarSeleccion()">
+                Quitar la selección
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Lo que se aplica a TODOS los días marcados, para no repetirlo día a día. -->
         <div class="excepcion-form">
-          <input class="rs-inp" type="date" [value]="nuevaExcepcionFecha()"
-                 (input)="nuevaExcepcionFecha.set($any($event.target).value)" aria-label="Fecha" />
           <input class="rs-inp" type="text" [value]="nuevaExcepcionMotivo()"
                  (input)="nuevaExcepcionMotivo.set($any($event.target).value)"
-                 placeholder="Motivo (ej. vacaciones)" />
+                 placeholder="Motivo (ej. vacaciones de verano)" />
           <label class="rs-checkbox">
             <input type="checkbox" [checked]="nuevaExcepcionCerrado()"
                    (change)="nuevaExcepcionCerrado.set(!nuevaExcepcionCerrado())" /> Cerrado todo el día
@@ -554,8 +631,13 @@ type UrlImagen = string | null;
                    (input)="nuevaExcepcionCierra.set($any($event.target).value)" aria-label="Cierra" />
           }
           <button type="button" class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="!nuevaExcepcionFecha()" (click)="anadirExcepcion()">
-            <rs-icon name="plus" [size]="14" [stroke]="2.5"></rs-icon> Añadir día
+                  [disabled]="!totalSeleccionados()" (click)="anadirSeleccionados()">
+            <rs-icon name="plus" [size]="14" [stroke]="2.5"></rs-icon>
+            @if (totalSeleccionados()) {
+              Añadir {{ totalSeleccionados() }} {{ totalSeleccionados() === 1 ? 'día' : 'días' }}
+            } @else {
+              Elige días en el calendario
+            }
           </button>
         </div>
 
@@ -1058,6 +1140,48 @@ type UrlImagen = string | null;
       }
     }
     .config-tab__ok { color: #16A34A; }
+
+    .cal { margin: var(--sp-4) 0; max-width: 380px; }
+    .cal__barra { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
+    .cal__mes { font-size: var(--f-sm); color: var(--t-100); text-transform: capitalize; }
+    .cal__semana,
+    .cal__rejilla { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--sp-1); }
+    .cal__semana span { text-align: center; font-size: var(--f-xs); color: var(--t-400); padding-bottom: var(--sp-1); }
+
+    .cal__dia {
+      /* 40px: el mínimo para acertar con el dedo sin apuntar. */
+      aspect-ratio: 1; min-height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid transparent; border-radius: var(--r-md);
+      background: transparent; cursor: pointer;
+      font-size: var(--f-sm); color: var(--t-200);
+      transition: background var(--d-1), color var(--d-1), border-color var(--d-1);
+
+      &:hover:not(:disabled) { background: var(--c-raised); }
+      &:disabled { cursor: default; opacity: .45; }
+    }
+    .cal__dia--fuera { color: var(--t-400); opacity: .5; }
+    .cal__dia--sel {
+      background: var(--c-accent); border-color: var(--c-accent);
+      color: #fff; font-weight: var(--w-7);
+    }
+    /* Los ya guardados se distinguen de los que se están marcando ahora. */
+    .cal__dia--puesto {
+      border-color: var(--c-amber); color: var(--c-amber);
+      font-weight: var(--w-6); opacity: 1;
+    }
+    .cal__atajos { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); flex-wrap: wrap; }
+
+    @media (max-width: 768px) {
+      .cal { max-width: none; }
+    }
+
+    /* El texto largo del botón no cabe en un móvil; se acorta sin perder sentido. */
+    .solo-movil { display: none; }
+    @media (max-width: 768px) {
+      .solo-escritorio { display: none; }
+      .solo-movil { display: inline; }
+    }
     .form-actions__grupo { display: flex; gap: var(--sp-2); }
 
     @media (max-width: 768px) {
@@ -1084,10 +1208,51 @@ type UrlImagen = string | null;
     .verticales-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 
     .horario-list { display: flex; flex-direction: column; gap: var(--sp-2); }
-    .horario-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid var(--b-1); &:last-child { border: none; } }
+    .horario-row {
+      display: flex; align-items: center; gap: var(--sp-4);
+      padding: var(--sp-2) 0; border-bottom: 1px solid var(--b-1);
+      &:last-child { border: none; }
+    }
+    .horario-row__dia {
+      display: flex; align-items: center; gap: var(--sp-3);
+      width: 210px; flex-shrink: 0;
+    }
     .horario-row__label { width: 90px; font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); flex-shrink: 0; }
+    .horario-row__tramos { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
+    .horario-tramo { display: flex; align-items: center; gap: var(--sp-2); }
+    .horario-tramo__et { font-size: var(--f-xs); color: var(--t-400); min-width: 48px; }
     .horario-row__sep { color: var(--t-400); }
+    .horario-row__cerrado { font-size: var(--f-sm); color: var(--t-400); font-style: italic; }
     .rs-inp--time { width: 130px; padding: var(--sp-2) var(--sp-3); }
+
+    /*
+     * Móvil: en una fila caben la etiqueta del día y cuatro campos de hora de
+     * 130px, o sea unos 700px. En 390 se salía de la pantalla y no había forma
+     * de llegar a los campos de la derecha. Cada día pasa a ser una tarjeta con
+     * sus tramos apilados y los campos a lo ancho.
+     */
+    @media (max-width: 768px) {
+      .horario-list { gap: var(--sp-3); }
+
+      .horario-row {
+        flex-direction: column; align-items: stretch; gap: var(--sp-3);
+        padding: var(--sp-4); border: 1px solid var(--b-1);
+        border-radius: var(--r-lg); background: var(--c-raised);
+      }
+      .horario-row:last-child { border: 1px solid var(--b-1); }
+
+      /* El día y su interruptor, en los extremos: se lee de un vistazo. */
+      .horario-row__dia { width: auto; justify-content: space-between; }
+      .horario-row__label { width: auto; font-size: var(--f-base); }
+
+      .horario-row--cerrado { background: transparent; }
+
+      .horario-row__tramos { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+      .horario-tramo { gap: var(--sp-2); }
+      .horario-tramo__et { min-width: 56px; }
+      /* Los dos campos se reparten el ancho en vez de desbordar. */
+      .rs-inp--time { width: auto; flex: 1; min-width: 0; }
+    }
 
     .notif-list { display: flex; flex-direction: column; gap: 0; }
     .notif-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-4) 0; border-bottom: 1px solid var(--b-1); &:last-child { border: none; } }
@@ -1371,6 +1536,109 @@ export class ComercioConfigComponent implements OnInit {
         cerrado: lunes.cerrado,
       });
     }
+  }
+
+  /** Mes visible del calendario de días especiales. */
+  readonly mesExcepciones = signal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+
+  /**
+   * Días marcados en el calendario, sin guardar todavía.
+   *
+   * Se marcan varios y se aplican de una vez: un puente son cuatro días y las
+   * vacaciones de agosto son treinta. Añadirlos de uno en uno, con su fecha y su
+   * motivo cada vez, era la parte que nadie completaba.
+   */
+  readonly diasSeleccionados = signal<ReadonlySet<string>>(new Set());
+
+  readonly nombreMes = computed(() =>
+    this.mesExcepciones().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }));
+
+  /** Cabecera de la rejilla; la semana empieza en lunes. */
+  readonly diasSemanaCorto = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+  readonly celdasExcepciones = computed(() => {
+    const mes = this.mesExcepciones();
+    const seleccionados = this.diasSeleccionados();
+    const yaPuestos = new Set(this.excepciones().map((e) => e.fecha));
+    const hoy = hoyLocal().getTime();
+
+    return celdasDelMes(mes).map((fecha) => {
+      const clave = claveDia(fecha);
+      return {
+        clave,
+        dia: fecha.getDate(),
+        delMes: fecha.getMonth() === mes.getMonth(),
+        // Marcar un festivo que ya pasó no cambia nada: se deja fuera para que
+        // el calendario no invite a hacer algo sin efecto.
+        pasado: fecha.getTime() < hoy,
+        yaEsExcepcion: yaPuestos.has(clave),
+        seleccionado: seleccionados.has(clave),
+      };
+    });
+  });
+
+  readonly totalSeleccionados = computed(() => this.diasSeleccionados().size);
+
+  cambiarMesExcepciones(delta: number): void {
+    const actual = this.mesExcepciones();
+    this.mesExcepciones.set(new Date(actual.getFullYear(), actual.getMonth() + delta, 1));
+  }
+
+  /** Alterna un día de la selección. Los pasados y los ya puestos no se tocan. */
+  alternarDiaExcepcion(celda: { clave: string; pasado: boolean; yaEsExcepcion: boolean }): void {
+    if (celda.pasado || celda.yaEsExcepcion) return;
+
+    this.diasSeleccionados.update((actuales) => {
+      const nuevos = new Set(actuales);
+      if (nuevos.has(celda.clave)) nuevos.delete(celda.clave);
+      else nuevos.add(celda.clave);
+      return nuevos;
+    });
+  }
+
+  /** Marca de golpe el resto del mes visible: el caso de las vacaciones. */
+  seleccionarMesEntero(): void {
+    const disponibles = this.celdasExcepciones()
+      .filter((c) => c.delMes && !c.pasado && !c.yaEsExcepcion)
+      .map((c) => c.clave);
+
+    this.diasSeleccionados.update((actuales) => new Set([...actuales, ...disponibles]));
+  }
+
+  limpiarSeleccion(): void {
+    this.diasSeleccionados.set(new Set());
+  }
+
+  /**
+   * Convierte la selección en días especiales, todos con el mismo motivo y el
+   * mismo horario. Reemplaza los que ya existieran con esa fecha, igual que al
+   * añadirlos de uno en uno.
+   */
+  anadirSeleccionados(): void {
+    const seleccionados = [...this.diasSeleccionados()];
+    if (!seleccionados.length) return;
+
+    const cerrado = this.nuevaExcepcionCerrado();
+    const motivo = this.nuevaExcepcionMotivo() || undefined;
+    const abre = cerrado ? undefined : this.nuevaExcepcionAbre() || undefined;
+    const cierra = cerrado ? undefined : this.nuevaExcepcionCierra() || undefined;
+
+    this.excepciones.update((lista) => [
+      ...lista.filter((e) => !seleccionados.includes(e.fecha)),
+      ...seleccionados.map((fecha) => ({ fecha, motivo, cerrado, abre, cierra })),
+    ].sort((a, b) => a.fecha.localeCompare(b.fecha)));
+
+    this.limpiarSeleccion();
+    this.nuevaExcepcionMotivo.set('');
+    this.nuevaExcepcionAbre.set('');
+    this.nuevaExcepcionCierra.set('');
+  }
+
+  /** Fecha larga y legible para la lista de días ya puestos. */
+  fechaLarga(clave: string): string {
+    return desdeClaveDia(clave).toLocaleDateString('es-ES', {
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    });
   }
 
   anadirExcepcion(): void {
