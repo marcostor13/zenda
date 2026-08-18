@@ -143,12 +143,34 @@ type UrlImagen = string | null;
       }
     </div>
 
+    <!--
+      Paso a paso, pero con las pestañas navegables. Es una pantalla de ajustes a
+      la que se vuelve: obligar a recorrer once pasos para cambiar un teléfono
+      sería peor que no guiar nada. El recorrido guiado es el camino por defecto;
+      la pestaña, el atajo de quien ya sabe a qué viene.
+    -->
+    <div class="config-pasos">
+      <span class="config-pasos__num">Paso {{ pasoActual() }} de {{ totalPasos }}</span>
+      <div class="config-pasos__barra" role="progressbar"
+           [attr.aria-valuenow]="pasoActual()" [attr.aria-valuemin]="1"
+           [attr.aria-valuemax]="totalPasos">
+        <span [style.width.%]="(pasoActual() / totalPasos) * 100"></span>
+      </div>
+    </div>
+
     <!-- Pestañas: la página era un scroll interminable (TCK-8028) -->
     <div class="config-tabs" role="tablist">
       @for (t of tabs; track t.clave) {
         <button class="config-tab" role="tab" [attr.aria-selected]="tab() === t.clave"
                 [class.activa]="tab() === t.clave" (click)="cambiarTab(t.clave)">
-          <rs-icon [name]="t.icono" [size]="14" [stroke]="2"></rs-icon> {{ t.label }}
+          <!-- La marca dice de un vistazo qué queda por rellenar, sin abrir
+               pestaña por pestaña a buscarlo. -->
+          @if (estadoSeccion(t.clave) === true) {
+            <rs-icon name="check" [size]="14" [stroke]="2.5" class="config-tab__ok"></rs-icon>
+          } @else {
+            <rs-icon [name]="t.icono" [size]="14" [stroke]="2"></rs-icon>
+          }
+          {{ t.label }}
         </button>
       }
     </div>
@@ -175,7 +197,7 @@ type UrlImagen = string | null;
         </div>
       </div>
 
-      <form [formGroup]="infoForm" (ngSubmit)="guardarInfo()" class="config-form">
+      <form [formGroup]="infoForm" (ngSubmit)="continuar(guardarInfo())" class="config-form">
         <div class="rs-field">
           <label class="rs-lbl">Nombre comercial *</label>
           <input class="rs-inp" formControlName="nombreComercial" placeholder="Ej: Residencia Canina Villa Perruna"
@@ -217,10 +239,15 @@ type UrlImagen = string | null;
         </div>
 
         <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                  [disabled]="esPrimerPaso()">
+            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+            Atrás
+          </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoInfo()">
             @if (guardandoInfo()) { Guardando… } @else {
               <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              Guardar información
+              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
             }
           </button>
         </div>
@@ -241,7 +268,7 @@ type UrlImagen = string | null;
         </div>
       </div>
 
-      <form [formGroup]="direccionForm" (ngSubmit)="guardarDireccion()" class="config-form">
+      <form [formGroup]="direccionForm" (ngSubmit)="continuar(guardarDireccion())" class="config-form">
         <div class="form-row">
           <div class="rs-field">
             <label class="rs-lbl">Calle</label>
@@ -296,10 +323,15 @@ type UrlImagen = string | null;
         </div>
 
         <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                  [disabled]="esPrimerPaso()">
+            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+            Atrás
+          </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoDireccion()">
             @if (guardandoDireccion()) { Guardando… } @else {
               <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              Guardar ubicación
+              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
             }
           </button>
         </div>
@@ -340,7 +372,7 @@ type UrlImagen = string | null;
         </div>
       </div>
 
-      <form [formGroup]="contactoForm" (ngSubmit)="guardarContacto()" class="config-form">
+      <form [formGroup]="contactoForm" (ngSubmit)="continuar(guardarContacto())" class="config-form">
         <div class="form-row">
           <div class="rs-field">
             <label class="rs-lbl">Persona de contacto</label>
@@ -367,10 +399,15 @@ type UrlImagen = string | null;
         </div>
 
         <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                  [disabled]="esPrimerPaso()">
+            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+            Atrás
+          </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoContacto()">
             @if (guardandoContacto()) { Guardando… } @else {
               <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              Guardar contacto
+              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
             }
           </button>
         </div>
@@ -391,7 +428,7 @@ type UrlImagen = string | null;
         </div>
       </div>
 
-      <form [formGroup]="redesForm" (ngSubmit)="guardarRedes()" class="config-form">
+      <form [formGroup]="redesForm" (ngSubmit)="continuar(guardarRedes())" class="config-form">
         <div class="rs-field">
           <label class="rs-lbl">Sitio web</label>
           <input class="rs-inp" formControlName="sitioWeb" placeholder="https://miweb.com" />
@@ -412,10 +449,15 @@ type UrlImagen = string | null;
         </div>
 
         <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                  [disabled]="esPrimerPaso()">
+            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+            Atrás
+          </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoRedes()">
             @if (guardandoRedes()) { Guardando… } @else {
               <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              Guardar enlaces
+              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
             }
           </button>
         </div>
@@ -436,7 +478,7 @@ type UrlImagen = string | null;
         </div>
       </div>
 
-      <form [formGroup]="horarioForm" (ngSubmit)="guardarHorario()" class="config-form">
+      <form [formGroup]="horarioForm" (ngSubmit)="continuar(guardarHorario())" class="config-form">
         <div formArrayName="dias" class="horario-list">
           @for (dia of diasControls; track dia; let i = $index) {
             <div [formGroupName]="i" class="horario-row">
@@ -540,7 +582,7 @@ type UrlImagen = string | null;
         </div>
       </div>
 
-      <form [formGroup]="politicasForm" (ngSubmit)="guardarPoliticas()" class="config-form">
+      <form [formGroup]="politicasForm" (ngSubmit)="continuar(guardarPoliticas())" class="config-form">
         <div class="rs-field">
           <label class="rs-lbl">Política de cancelación por defecto</label>
           <select class="rs-inp" formControlName="politicaCancelacion">
@@ -574,10 +616,15 @@ type UrlImagen = string | null;
         <p class="rs-field-hint">Estos datos sólo se usan para tus liquidaciones y nunca se muestran públicamente.</p>
 
         <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                  [disabled]="esPrimerPaso()">
+            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+            Atrás
+          </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoPoliticas()">
             @if (guardandoPoliticas()) { Guardando… } @else {
               <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              Guardar políticas y cobros
+              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
             }
           </button>
         </div>
@@ -599,7 +646,7 @@ type UrlImagen = string | null;
         <span class="rs-badge {{ verificacionBadge() }}" style="margin-left:auto">{{ verificacionLabel() }}</span>
       </div>
 
-      <form [formGroup]="verificacionForm" (ngSubmit)="guardarVerificacion()" class="config-form">
+      <form [formGroup]="verificacionForm" (ngSubmit)="continuar(guardarVerificacion())" class="config-form">
         <div class="form-row">
           <div class="rs-field">
             <label class="rs-lbl">Documento de identidad del titular</label>
@@ -613,10 +660,15 @@ type UrlImagen = string | null;
         <p class="rs-field-hint">Nuestro equipo revisará tus documentos en un plazo de 24–48 horas.</p>
 
         <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                  [disabled]="esPrimerPaso()">
+            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+            Atrás
+          </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoVerificacion()">
             @if (guardandoVerificacion()) { Guardando… } @else {
               <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              Enviar para verificación
+              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
             }
           </button>
         </div>
@@ -701,13 +753,25 @@ type UrlImagen = string | null;
             <input type="date" formControlName="fechaCaducidad" class="rs-inp" />
           </div>
         </div>
-        <div class="form-actions" style="gap:var(--sp-2)">
-          <button type="submit" class="rs-btn rs-btn--secondary" [disabled]="docForm.invalid">
+        <div class="form-actions">
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                  [disabled]="esPrimerPaso()">
+            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+            Atrás
+          </button>
+          <div class="form-actions__grupo">
+            <!-- Añadir es lo que se repite; guardar y seguir cierra el paso. -->
+            <button type="submit" class="rs-btn rs-btn--secondary" [disabled]="docForm.invalid">
               <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir documento
             </button>
-          <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoDocs()" (click)="guardarDocumentacion()">
-            @if (guardandoDocs()) { Guardando… } @else { Guardar documentación }
-          </button>
+            <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoDocs()"
+                    (click)="continuar(guardarDocumentacion())">
+              @if (guardandoDocs()) { Guardando… } @else {
+                <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
+                {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
+              }
+            </button>
+          </div>
         </div>
       </form>
     </section>
@@ -743,6 +807,21 @@ type UrlImagen = string | null;
           </div>
         }
       </div>
+          <!-- Sin formulario propio: estas secciones informan o se guardan solas al
+           tocarlas, pero el recorrido no puede terminar aquí sin salida. -->
+      <div class="form-actions">
+        <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                [disabled]="esPrimerPaso()">
+          <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+          Atrás
+        </button>
+        @if (!esUltimoPaso()) {
+          <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
+            Continuar
+            <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
+          </button>
+        }
+      </div>
     </section>
     }
 
@@ -768,6 +847,21 @@ type UrlImagen = string | null;
         }
       </div>
       <p class="rs-field-hint">Para añadir o quitar verticales contacta al soporte.</p>
+          <!-- Sin formulario propio: estas secciones informan o se guardan solas al
+           tocarlas, pero el recorrido no puede terminar aquí sin salida. -->
+      <div class="form-actions">
+        <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                [disabled]="esPrimerPaso()">
+          <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+          Atrás
+        </button>
+        @if (!esUltimoPaso()) {
+          <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
+            Continuar
+            <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
+          </button>
+        }
+      </div>
     </section>
     }
 
@@ -830,6 +924,21 @@ type UrlImagen = string | null;
            class="rs-btn rs-btn--primary" style="margin-top:var(--sp-4)">
           Ver planes y mejorar mi plan
         </a>
+      </div>
+          <!-- Sin formulario propio: estas secciones informan o se guardan solas al
+           tocarlas, pero el recorrido no puede terminar aquí sin salida. -->
+      <div class="form-actions">
+        <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                [disabled]="esPrimerPaso()">
+          <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+          Atrás
+        </button>
+        @if (!esUltimoPaso()) {
+          <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
+            Continuar
+            <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
+          </button>
+        }
       </div>
     </section>
     }
@@ -924,7 +1033,38 @@ type UrlImagen = string | null;
     .config-form { display: flex; flex-direction: column; gap: var(--sp-4); }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .form-row--3 { grid-template-columns: 1fr 1fr 1fr; @media (max-width: 640px) { grid-template-columns: 1fr; } }
-    .form-actions { display: flex; justify-content: flex-end; padding-top: var(--sp-2); }
+    /* El "Atrás" a la izquierda y el avance a la derecha: el orden de lectura. */
+    .form-actions {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: var(--sp-3); padding-top: var(--sp-2);
+    }
+
+    .config-pasos {
+      display: flex; align-items: center; gap: var(--sp-3);
+      margin-bottom: var(--sp-3);
+    }
+    .config-pasos__num {
+      font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-400);
+      white-space: nowrap;
+    }
+    .config-pasos__barra {
+      flex: 1; height: 4px; border-radius: var(--r-full);
+      background: var(--c-raised); overflow: hidden;
+
+      span {
+        display: block; height: 100%;
+        background: var(--g-accent, var(--c-accent));
+        transition: width var(--d-3) ease;
+      }
+    }
+    .config-tab__ok { color: #16A34A; }
+    .form-actions__grupo { display: flex; gap: var(--sp-2); }
+
+    @media (max-width: 768px) {
+      /* En móvil el pie ocupa el ancho: los botones a tamaño de dedo. */
+      .form-actions { flex-direction: column-reverse; align-items: stretch; }
+      .form-actions__grupo { flex-direction: column-reverse; }
+    }
 
     .docs-list { display: flex; flex-direction: column; gap: var(--sp-2); }
     .doc-item { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-3); background: var(--c-raised); border-radius: var(--r-lg); }
@@ -1065,6 +1205,53 @@ export class ComercioConfigComponent implements OnInit {
   cambiarTab(clave: TabConfig): void {
     this.tab.set(clave);
     this.vigilarCambios();
+    // Cada sección es larga: sin esto se cambia de paso y la vista se queda a
+    // mitad del anterior, con el formulario nuevo fuera de pantalla.
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /** Posición del paso actual, para el "Paso N de M" de la cabecera. */
+  readonly pasoActual = computed(() => TABS.findIndex((t) => t.clave === this.tab()) + 1);
+  readonly totalPasos = TABS.length;
+  readonly esPrimerPaso = computed(() => this.pasoActual() <= 1);
+  readonly esUltimoPaso = computed(() => this.pasoActual() >= this.totalPasos);
+
+  pasoAnterior(): void {
+    const anterior = TABS[this.pasoActual() - 2];
+    if (anterior) this.cambiarTab(anterior.clave);
+  }
+
+  /**
+   * Avanza al paso siguiente **sólo si el guardado funcionó**.
+   *
+   * Se le pasa la promesa del `guardar*` de la sección, así cada formulario
+   * conserva su propia validación y su propio payload y aquí sólo se decide si
+   * se pasa de pantalla.
+   */
+  /** Avanza sin guardar, para las secciones que no tienen nada que enviar. */
+  saltarPaso(): Promise<void> {
+    return this.continuar(Promise.resolve(true));
+  }
+
+  async continuar(guardado: Promise<boolean>): Promise<void> {
+    if (!(await guardado)) return;
+    if (this.esUltimoPaso()) return;
+
+    const siguiente = TABS[this.pasoActual()];
+    if (siguiente) this.cambiarTab(siguiente.clave);
+  }
+
+  /**
+   * ¿Está completa esta sección? Se calcula con los mismos campos que el aviso
+   * de perfil incompleto, para que la marca de la pestaña y el porcentaje de la
+   * cabecera no puedan contradecirse.
+   *
+   * `null` en las secciones que no tienen campos obligatorios (redes, plan…):
+   * no se marcan ni como hechas ni como pendientes.
+   */
+  estadoSeccion(clave: TabConfig): boolean | null {
+    const campos = this.camposPerfil().filter((c) => c.tab === clave);
+    return campos.length ? campos.every((c) => c.ok) : null;
   }
   readonly errorDoc = signal('');
 
@@ -1211,8 +1398,8 @@ export class ComercioConfigComponent implements OnInit {
     this.excepciones.update((lista) => lista.filter((_, i) => i !== indice));
   }
 
-  async guardarExcepciones(): Promise<void> {
-    await this.guardarSeccion({ excepcionesHorario: this.excepciones() }, this.guardandoExcepciones);
+  async guardarExcepciones(): Promise<boolean> {
+    return this.guardarSeccion({ excepcionesHorario: this.excepciones() }, this.guardandoExcepciones);
   }
 
   readonly dias = DIAS;
@@ -1449,10 +1636,15 @@ export class ComercioConfigComponent implements OnInit {
     void this.guardarSeccion({ preferenciasNotificacion: this.notifState() as unknown as MiComercio['preferenciasNotificacion'] }, signal(false));
   }
 
+  /**
+   * @returns `true` si el guardado llegó al servidor. Lo necesita el paso a paso:
+   * avanzar tras un error escondería el mensaje y el comercio creería que sus
+   * datos están puestos cuando no lo están.
+   */
   private async guardarSeccion(
     payload: ActualizarPerfilComercioPayload,
     guardando: WritableSignal<boolean>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     guardando.set(true);
     this.guardado.set(false);
     this.errorMsg.set('');
@@ -1461,18 +1653,20 @@ export class ComercioConfigComponent implements OnInit {
       this.comercio.set(actualizado);
       this.guardado.set(true);
       setTimeout(() => this.guardado.set(false), 3000);
+      return true;
     } catch {
       this.errorMsg.set('Error al guardar los cambios. Intenta de nuevo.');
       setTimeout(() => this.errorMsg.set(''), 4000);
+      return false;
     } finally {
       guardando.set(false);
     }
   }
 
-  async guardarInfo(): Promise<void> {
-    if (this.infoForm.invalid) { this.infoForm.markAllAsTouched(); return; }
+  async guardarInfo(): Promise<boolean> {
+    if (this.infoForm.invalid) { this.infoForm.markAllAsTouched(); return false; }
     const v = this.infoForm.getRawValue();
-    await this.guardarSeccion({
+    return this.guardarSeccion({
       nombreComercial: v.nombreComercial,
       descripcion: v.descripcion,
       logoUrl: v.logoUrl ?? undefined,
@@ -1481,43 +1675,43 @@ export class ComercioConfigComponent implements OnInit {
     }, this.guardandoInfo);
   }
 
-  async guardarDireccion(): Promise<void> {
+  async guardarDireccion(): Promise<boolean> {
     const { lat, lng, ...campos } = this.direccionForm.getRawValue();
     // Un `lat: null` sobrescribiría con basura unas coordenadas ya guardadas;
     // si no hay punto, sencillamente no se envía el campo.
     const geo = lat != null && lng != null ? { lat, lng } : {};
-    await this.guardarSeccion({ direccion: { ...campos, ...geo } }, this.guardandoDireccion);
+    return this.guardarSeccion({ direccion: { ...campos, ...geo } }, this.guardandoDireccion);
   }
 
-  async guardarContacto(): Promise<void> {
-    if (this.contactoForm.invalid) { this.contactoForm.markAllAsTouched(); return; }
-    await this.guardarSeccion({ contacto: this.contactoForm.getRawValue() }, this.guardandoContacto);
+  async guardarContacto(): Promise<boolean> {
+    if (this.contactoForm.invalid) { this.contactoForm.markAllAsTouched(); return false; }
+    return this.guardarSeccion({ contacto: this.contactoForm.getRawValue() }, this.guardandoContacto);
   }
 
-  async guardarRedes(): Promise<void> {
+  async guardarRedes(): Promise<boolean> {
     const v = this.redesForm.getRawValue();
-    await this.guardarSeccion({
+    return this.guardarSeccion({
       sitioWeb: v.sitioWeb,
       redesSociales: { instagram: v.instagram, facebook: v.facebook, tiktok: v.tiktok },
     }, this.guardandoRedes);
   }
 
-  async guardarHorario(): Promise<void> {
+  async guardarHorario(): Promise<boolean> {
     const horario: HorarioDia[] = this.diasControls.map(ctrl => ctrl.getRawValue());
-    await this.guardarSeccion({ horario }, this.guardandoHorario);
+    return this.guardarSeccion({ horario }, this.guardandoHorario);
   }
 
-  async guardarPoliticas(): Promise<void> {
+  async guardarPoliticas(): Promise<boolean> {
     const v = this.politicasForm.getRawValue();
-    await this.guardarSeccion({
+    return this.guardarSeccion({
       politicaCancelacion: (v.politicaCancelacion || undefined) as MiComercio['politicaCancelacion'],
       datosBancarios: { titular: v.titular, iban: v.iban, banco: v.banco, swift: v.swift },
     }, this.guardandoPoliticas);
   }
 
-  async guardarVerificacion(): Promise<void> {
+  async guardarVerificacion(): Promise<boolean> {
     const v = this.verificacionForm.getRawValue();
-    await this.guardarSeccion({
+    return this.guardarSeccion({
       documentoIdentidadUrl: v.documentoIdentidadUrl ?? undefined,
       licenciaNegocioUrl: v.licenciaNegocioUrl ?? undefined,
     }, this.guardandoVerificacion);
@@ -1540,7 +1734,7 @@ export class ComercioConfigComponent implements OnInit {
     this.docsAdicionales.update((list) => list.filter((_, i) => i !== index));
   }
 
-  async guardarDocumentacion(): Promise<void> {
+  async guardarDocumentacion(): Promise<boolean> {
     /*
      * Se envía sólo lo que el comercio aporta. `estado` y `subidoAt` los fija el
      * servidor —un comercio no puede marcar sus propios papeles como
@@ -1554,7 +1748,7 @@ export class ComercioConfigComponent implements OnInit {
       fechaCaducidad: d.fechaCaducidad,
     }));
 
-    await this.guardarSeccion({ documentos }, this.guardandoDocs);
+    return this.guardarSeccion({ documentos }, this.guardandoDocs);
   }
 
   tipoDocLabel(tipo: string): string {

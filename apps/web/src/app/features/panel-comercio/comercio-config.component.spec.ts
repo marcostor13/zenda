@@ -791,4 +791,148 @@ describe('ComercioConfigComponent', () => {
       expect(documento['estado']).toBeUndefined();
     });
   });
+  /**
+   * Paso a paso con escapatoria: guardar avanza a la sección siguiente, pero las
+   * pestañas siguen siendo navegables. Es una pantalla de ajustes a la que se
+   * vuelve; obligar a recorrer once pasos para cambiar un teléfono sería peor
+   * que no guiar nada.
+   */
+  describe('recorrido paso a paso', () => {
+    beforeAll(() => {
+      // jsdom no implementa el scroll suave que dispara cada cambio de paso.
+      window.scrollTo = jest.fn();
+    });
+
+    it('debería empezar en el primer paso', async () => {
+      await crear();
+
+      expect(componente.pasoActual()).toBe(1);
+      expect(componente.esPrimerPaso()).toBe(true);
+      expect(componente.esUltimoPaso()).toBe(false);
+    });
+
+    it('debería avanzar al paso siguiente cuando el guardado funciona', async () => {
+      await crear();
+
+      await componente.continuar(componente.guardarInfo());
+
+      expect(componente.pasoActual()).toBe(2);
+      expect(componente.tab()).toBe('ubicacion');
+    });
+
+    it('NO debería avanzar si el guardado falla', async () => {
+      // Avanzar sobre un error escondería el mensaje y el comercio creería que
+      // sus datos están puestos cuando no lo están.
+      await crear();
+      api['actualizarComercio'].mockReturnValue(throwError(() => new Error('500')));
+
+      await componente.continuar(componente.guardarInfo());
+
+      expect(componente.pasoActual()).toBe(1);
+      expect(componente.errorMsg()).toContain('Error al guardar');
+    });
+
+    it('NO debería avanzar si el formulario es inválido', async () => {
+      await crear();
+      componente.infoForm.patchValue({ nombreComercial: '' });
+
+      await componente.continuar(componente.guardarInfo());
+
+      expect(componente.pasoActual()).toBe(1);
+      expect(api['actualizarComercio']).not.toHaveBeenCalled();
+    });
+
+    it('debería poder retroceder', async () => {
+      await crear();
+      componente.cambiarTab('contacto');
+
+      componente.pasoAnterior();
+
+      expect(componente.tab()).toBe('ubicacion');
+    });
+
+    it('no debería retroceder más allá del primero', async () => {
+      await crear();
+
+      componente.pasoAnterior();
+
+      expect(componente.pasoActual()).toBe(1);
+    });
+
+    it('no debería avanzar más allá del último', async () => {
+      await crear();
+      componente.cambiarTab('plan');
+      expect(componente.esUltimoPaso()).toBe(true);
+
+      await componente.continuar(Promise.resolve(true));
+
+      expect(componente.tab()).toBe('plan');
+    });
+
+    it('debería dejar saltar las secciones que no guardan nada', async () => {
+      await crear();
+      componente.cambiarTab('notificaciones');
+      const antes = componente.pasoActual();
+
+      await componente.saltarPaso();
+
+      expect(componente.pasoActual()).toBe(antes + 1);
+    });
+
+    it('debería seguir permitiendo ir directo a cualquier pestaña', async () => {
+      // La escapatoria: quien vuelve sólo a cambiar el IBAN no recorre diez pasos.
+      await crear();
+
+      componente.cambiarTab('politicas');
+
+      expect(componente.tab()).toBe('politicas');
+    });
+
+    it('debería subir la vista al cambiar de paso', async () => {
+      // Las secciones son largas: sin esto se cambia de paso y el formulario
+      // nuevo queda fuera de pantalla.
+      await crear();
+
+      componente.cambiarTab('horarios');
+
+      expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+    });
+  });
+
+  describe('estado de cada sección', () => {
+    it('debería marcar como completa la sección con todos sus campos puestos', async () => {
+      await crear(miComercio({
+        contacto: { nombreContacto: 'Ana', email: 'ana@canes.com', telefono: '600000000', whatsapp: '' },
+      } as Partial<MiComercio>));
+
+      expect(componente.estadoSeccion('contacto')).toBe(true);
+    });
+
+    it('debería marcar como incompleta la sección a la que le falta algo', async () => {
+      await crear();
+
+      expect(componente.estadoSeccion('contacto')).toBe(false);
+    });
+
+    it('no debería opinar de las secciones sin campos obligatorios', async () => {
+      // Redes o plan no se marcan ni como hechas ni como pendientes.
+      await crear();
+
+      expect(componente.estadoSeccion('redes')).toBeNull();
+      expect(componente.estadoSeccion('plan')).toBeNull();
+    });
+
+    it('no debería contradecir al porcentaje de la cabecera', async () => {
+      // Ambos salen de `camposPerfil`: si divergieran, la pestaña diría "hecho"
+      // sobre algo que el aviso cuenta como pendiente.
+      await crear();
+
+      const seccionesHechas = componente.tabs
+        .filter((t) => componente.estadoSeccion(t.clave) === true);
+      const faltantesDeEsasSecciones = componente.faltantes()
+        .filter((f) => seccionesHechas.some((t) => t.clave === f.tab));
+
+      expect(faltantesDeEsasSecciones).toEqual([]);
+    });
+  });
 });
