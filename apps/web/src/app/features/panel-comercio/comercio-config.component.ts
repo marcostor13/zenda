@@ -686,7 +686,8 @@ type UrlImagen = string | null;
             <input type="text" formControlName="url" class="rs-inp" placeholder="https://…" />
             <!-- Subida real del fichero: pegar una URL a mano no lo hacía nadie (TCK-8028) -->
             <label class="subir-doc">
-              <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp"
+              <input type="file"
+                     accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.pdf"
                      (change)="subirDocumento($event)" />
               <span class="rs-btn rs-btn--outline rs-btn--sm">
                 <rs-icon name="download" [size]="13" [stroke]="2"></rs-icon>

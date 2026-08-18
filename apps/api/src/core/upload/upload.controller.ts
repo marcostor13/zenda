@@ -45,12 +45,16 @@ export class UploadController {
     },
   })
   @ApiOperation({
-    summary: 'Subir imagen (max 5 MB, JPEG / PNG / WebP / GIF). Va a S3 si está configurado; si no, a GridFS',
+    summary: 'Subir imagen (max 5 MB, JPEG / PNG / WebP / GIF / HEIC). Va a S3 si está configurado; si no, a GridFS',
   })
   uploadImage(
     @UploadedFile(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({ fileType: /image\/(jpeg|png|webp|gif)/ })
+        // heic/heif: es el formato por defecto del carrete del iPhone desde
+        // iOS 11. El navegador convierte a JPEG antes de subir siempre que puede
+        // (ver `shared/media/heic.ts`), pero la app de Capacitor y los ficheros
+        // que llegan desde la app Archivos pueden entrar en crudo.
+        .addFileTypeValidator({ fileType: /image\/(jpeg|png|webp|gif|heic|heif)/ })
         .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
         .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
     )
@@ -71,13 +75,15 @@ export class UploadController {
     },
   })
   @ApiOperation({
-    summary: 'Subir documentación (máx 10 MB, PDF o imagen). Mismo almacén que las imágenes',
+    summary: 'Subir documentación (máx 10 MB, PDF o imagen, HEIC incluido). Mismo almacén que las imágenes',
   })
   uploadDocumento(
     @UploadedFile(
       new ParseFilePipeBuilder()
         // Los seguros y certificados llegan casi siempre en PDF; el móvil, en foto.
-        .addFileTypeValidator({ fileType: /(application\/pdf|image\/(jpeg|png|webp))/ })
+        // Una foto del móvil es la forma más común de aportar un certificado, y
+        // en iPhone esa foto es HEIC.
+        .addFileTypeValidator({ fileType: /(application\/pdf|image\/(jpeg|png|webp|heic|heif))/ })
         .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 })
         .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
     )

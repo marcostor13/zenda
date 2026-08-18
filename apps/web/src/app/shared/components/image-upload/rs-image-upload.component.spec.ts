@@ -135,4 +135,116 @@ describe('RsImageUploadComponent', () => {
       expect(component.validate({} as never)).toBeNull();
     });
   });
+  /**
+   * Fotos de iPhone. Desde iOS 11 el carrete guarda en HEIC, que sólo Safari
+   * sabe pintar: se convierte a JPEG antes de subir para que la imagen se vea
+   * también desde Chrome y Android.
+   */
+  describe('fotos de iPhone (HEIC)', () => {
+    /** Simula la decodificación y el volcado a JPEG que hace Safari. */
+    function conCanvasQueConvierte(): void {
+      global.createImageBitmap = jest.fn().mockResolvedValue({
+        width: 100, height: 80, close: jest.fn(),
+      }) as never;
+
+      jest.spyOn(document, 'createElement').mockImplementation((etiqueta: string) => {
+        if (etiqueta !== 'canvas') {
+          return Object.getPrototypeOf(document).createElement.call(document, etiqueta) as HTMLElement;
+        }
+        return {
+          width: 0, height: 0,
+          getContext: () => ({ drawImage: jest.fn() }),
+          toBlob: (cb: (b: Blob | null) => void) => cb(new Blob(['jpeg'], { type: 'image/jpeg' })),
+        } as unknown as HTMLCanvasElement;
+      });
+    }
+
+    /** Lo que hace el navegador de escritorio: no sabe decodificar HEIC. */
+    function sinDecodificador(): void {
+      global.createImageBitmap = jest.fn().mockRejectedValue(new Error('sin decodificador')) as never;
+    }
+
+    function elegir(nombre: string, tipo: string): void {
+      const file = new File(['contenido'], nombre, { type: tipo });
+      component.onFileChange({ target: { files: [file], value: '' } } as unknown as Event);
+    }
+
+    /**
+     * La conversión encadena varias promesas (decodificar, pintar, volcar a
+     * JPEG); `whenStable` no basta para vaciar esa cola antes de que salga la
+     * petición.
+     */
+    const esperarConversion = (): Promise<void> =>
+      new Promise((resolver) => setTimeout(resolver, 0));
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('debería subir la foto ya convertida a JPEG', async () => {
+      conCanvasQueConvierte();
+
+      elegir('IMG_0042.HEIC', 'image/heic');
+      await esperarConversion();
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
+      const enviado = (req.request.body as FormData).get('file') as File;
+      expect(enviado.type).toBe('image/jpeg');
+      expect(enviado.name).toBe('IMG_0042.jpg');
+      req.flush({ url: 'https://cdn.doogking.com/foto.jpg' });
+      await fixture.whenStable();
+    });
+
+    it('debería intentar subirla igualmente si no se puede convertir', async () => {
+      // El API acepta HEIC como último recurso: mejor eso que dejar al usuario
+      // sin poder subir su foto.
+      sinDecodificador();
+
+      elegir('IMG_0042.HEIC', 'image/heic');
+      await esperarConversion();
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
+      expect((req.request.body as FormData).get('file')).toBeInstanceOf(File);
+      req.flush({ url: 'https://cdn.doogking.com/foto.heic' });
+      await fixture.whenStable();
+    });
+
+    it('debería aceptar la foto aunque iOS no rellene el tipo', async () => {
+      // Pasa cuando llega desde la app Archivos. Antes se descartaba en silencio:
+      // el usuario elegía su foto y no ocurría nada.
+      sinDecodificador();
+
+      elegir('IMG_0042.HEIC', '');
+      await esperarConversion();
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
+      req.flush({ url: 'https://cdn.doogking.com/foto.heic' });
+      await fixture.whenStable();
+    });
+
+    it('debería aceptar un JPEG sin tipo por su extensión', async () => {
+      elegir('IMG_0042.JPG', '');
+      await fixture.whenStable();
+
+      const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
+      req.flush({ url: 'https://cdn.doogking.com/foto.jpg' });
+      await fixture.whenStable();
+    });
+
+    it('debería avisar en vez de callarse cuando el archivo no es una imagen', async () => {
+      elegir('contrato.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      await fixture.whenStable();
+
+      expect(component.mensajeError()).toContain('no es una imagen');
+      httpMock.expectNone(`${environment.apiUrl}/upload/image`);
+    });
+  });
+
+  it('debería ofrecer las fotos del carrete en el selector del sistema', () => {
+    // Sin HEIC en el accept, iOS deja en gris las fotos del iPhone.
+    fixture.detectChanges();
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('input[type="file"]');
+
+    expect(input.accept).toContain('image/heic');
+    expect(input.accept).toContain('.heic');
+    expect(input.accept).toContain('image/jpeg');
+  });
 });

@@ -19,6 +19,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { environment } from '../../../../environments/environment';
+import { esHeic, normalizarImagen } from '../../media/heic';
 
 interface ImageSlot {
   id: string;
@@ -65,7 +66,7 @@ interface ImageSlot {
             Arrastra {{ multiple ? 'imágenes' : 'una imagen' }} aquí o
             <button type="button" class="upload-link" (click)="fileInput.click()">haz clic para seleccionar</button>
           </p>
-          <p class="upload-meta">JPEG, PNG, WebP · Max 5 MB{{ multiple ? ' · Hasta ' + maxFiles + ' imágenes' : '' }}</p>
+          <p class="upload-meta">JPEG, PNG, WebP, HEIC · Max 5 MB{{ multiple ? ' · Hasta ' + maxFiles + ' imágenes' : '' }}</p>
         </div>
       } @else {
         <div class="image-grid" (click)="$event.stopPropagation()">
@@ -118,10 +119,12 @@ interface ImageSlot {
       </p>
     }
 
+    <!-- Las extensiones van además del tipo MIME: iOS no siempre rellena el
+         tipo del fichero, y sin ellas el selector deja en gris las fotos del carrete. -->
     <input
       #fileInput
       type="file"
-      accept="image/jpeg,image/png,image/webp,image/gif"
+      accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
       style="display:none"
       [multiple]="multiple"
       (change)="onFileChange($event)" />
@@ -330,19 +333,51 @@ export class RsImageUploadComponent
     this.onTouched();
   }
 
+  /**
+   * ¿Se puede intentar subir este fichero?
+   *
+   * No basta con `type.startsWith('image/')`: iOS deja el tipo vacío cuando la
+   * foto llega desde la app Archivos, y esos ficheros se descartaban aquí sin
+   * subida y sin mensaje — el usuario elegía su foto y no pasaba nada.
+   */
+  private esImagen(fichero: File): boolean {
+    return fichero.type.startsWith('image/')
+      || esHeic(fichero)
+      || (!fichero.type && /\.(jpe?g|png|webp|gif)$/i.test(fichero.name));
+  }
+
   private async processFiles(files: File[]): Promise<void> {
-    const filtered = files.filter(f => f.type.startsWith('image/'));
+    const imagenes = files.filter(f => this.esImagen(f));
+
+    // Callar un descarte deja al usuario mirando una pantalla que no reacciona.
+    if (files.length && !imagenes.length) {
+      this.mensajeError.set('Ese archivo no es una imagen. Usa JPEG, PNG, WebP, GIF o HEIC.');
+      return;
+    }
+
     if (!this.multiple) {
-      await this.uploadFile(filtered[0]);
+      await this.uploadFile(imagenes[0]);
     } else {
       const remaining = this.maxFiles - this.slots().length;
-      const toUpload = filtered.slice(0, remaining);
+      const toUpload = imagenes.slice(0, remaining);
       await Promise.all(toUpload.map(f => this.uploadFile(f)));
     }
   }
 
-  private async uploadFile(file: File): Promise<void> {
-    if (!file) return;
+  private async uploadFile(original: File): Promise<void> {
+    if (!original) return;
+
+    /*
+     * HEIC → JPEG antes de nada: subirlo en crudo lo dejaría almacenado en un
+     * formato que sólo Safari sabe pintar (ver `shared/media/heic.ts`). También
+     * arregla la vista previa, que en Chrome saldría rota.
+     *
+     * La conversión sólo se espera cuando hace falta: un `await` para el 99 % de
+     * las fotos, que ya son JPEG, retrasaría la petición un microtask sin ganar
+     * nada.
+     */
+    const file = esHeic(original) ? await normalizarImagen(original) : original;
+
     const id = this.uid();
     const previewUrl = URL.createObjectURL(file);
     this.blobUrls.push(previewUrl);
@@ -389,7 +424,7 @@ export class RsImageUploadComponent
       return 'No se pudo subir la imagen: sin conexión con el servidor.';
     }
     if (error.status === 413 || error.status === 422) {
-      return 'La imagen no es válida: usa JPEG, PNG, WebP o GIF de menos de 5 MB.';
+      return 'La imagen no es válida: usa JPEG, PNG, WebP, GIF o HEIC de menos de 5 MB.';
     }
     const detalle = (error.error as { message?: string } | null)?.message;
     return detalle ?? 'No se pudo subir la imagen. Vuelve a intentarlo.';

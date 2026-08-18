@@ -23,8 +23,19 @@ interface Firma {
 
 const ASCII = (texto: string): number[] => [...texto].map((c) => c.charCodeAt(0));
 
-/** `ftyp` + marca del subtipo, que es lo que separa un MP4 de un MOV. */
+/**
+ * Marca del contenedor ISO-BMFF (los cuatro bytes tras `ftyp`). Es lo único que
+ * separa un MP4 de un MOV… y también de una foto de iPhone: HEIC usa el mismo
+ * contenedor que el vídeo, así que sin mirar la marca una foto del carrete se
+ * detecta como `video/mp4` y la subida se rechaza por no coincidir con lo que
+ * declara el navegador.
+ */
 const marcaIso = (buffer: Buffer): string => buffer.subarray(8, 12).toString('ascii');
+
+/** Marcas de las fotos y ráfagas de iPhone (HEIC/HEIF, ISO/IEC 23008-12). */
+const MARCAS_HEIC = ['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs', 'mif1', 'msf1'];
+
+const esHeic = (buffer: Buffer): boolean => MARCAS_HEIC.includes(marcaIso(buffer));
 
 const FIRMAS: readonly Firma[] = [
   { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff] },
@@ -37,6 +48,13 @@ const FIRMAS: readonly Firma[] = [
     ademas: (b) => b.subarray(8, 12).toString('ascii') === 'WEBP',
   },
   { mime: 'application/pdf', bytes: ASCII('%PDF-') },
+  // Antes que los vídeos: comparten contenedor y `find` devuelve la primera.
+  {
+    mime: 'image/heic',
+    bytes: ASCII('ftyp'),
+    desde: 4,
+    ademas: esHeic,
+  },
   { mime: 'video/webm', bytes: [0x1a, 0x45, 0xdf, 0xa3] },
   {
     mime: 'video/quicktime',
@@ -48,7 +66,7 @@ const FIRMAS: readonly Firma[] = [
     mime: 'video/mp4',
     bytes: ASCII('ftyp'),
     desde: 4,
-    ademas: (b) => !marcaIso(b).startsWith('qt'),
+    ademas: (b) => !marcaIso(b).startsWith('qt') && !esHeic(b),
   },
 ];
 
@@ -79,6 +97,18 @@ export function coincideConDeclarado(buffer: Buffer, declarado: string): boolean
   if (!real) return false;
   if (real === declarado) return true;
 
-  const contenedorIso = ['video/mp4', 'video/quicktime'];
-  return contenedorIso.includes(real) && contenedorIso.includes(declarado);
+  /*
+   * Familias cuyos miembros el navegador confunde entre sí. Rechazarlas dejaría
+   * fuera ficheros legítimos:
+   *  - MP4 y MOV comparten contenedor y muchos móviles etiquetan uno como el otro.
+   *  - HEIC y HEIF son el mismo formato con dos nombres; iOS usa ambos, y a
+   *    veces manda `application/octet-stream` porque el fichero viene de Ficheros
+   *    y no del carrete.
+   */
+  const familias = [
+    ['video/mp4', 'video/quicktime'],
+    ['image/heic', 'image/heif', 'application/octet-stream'],
+  ];
+
+  return familias.some((familia) => familia.includes(real) && familia.includes(declarado));
 }

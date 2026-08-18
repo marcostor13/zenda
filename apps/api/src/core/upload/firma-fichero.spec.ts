@@ -15,6 +15,10 @@ const WEBM = conCabecera([0x1a, 0x45, 0xdf, 0xa3]);
 const MP4 = conCabecera([0, 0, 0, 0x20, ...ascii('ftyp'), ...ascii('isom')]);
 const MOV = conCabecera([0, 0, 0, 0x14, ...ascii('ftyp'), ...ascii('qt  ')]);
 
+/** Foto del carrete de un iPhone: mismo contenedor que el vídeo, otra marca. */
+const HEIC = conCabecera([0, 0, 0, 0x18, ...ascii('ftyp'), ...ascii('heic')]);
+const HEIF = conCabecera([0, 0, 0, 0x18, ...ascii('ftyp'), ...ascii('mif1')]);
+
 describe('detectarTipoReal', () => {
   it.each([
     ['image/jpeg', JPEG],
@@ -25,6 +29,8 @@ describe('detectarTipoReal', () => {
     ['video/webm', WEBM],
     ['video/mp4', MP4],
     ['video/quicktime', MOV],
+    ['image/heic', HEIC],
+    ['image/heic', HEIF],
   ])('debería reconocer %s por su firma', (esperado, buffer) => {
     expect(detectarTipoReal(buffer)).toBe(esperado);
   });
@@ -74,5 +80,38 @@ describe('coincideConDeclarado', () => {
 
   it('no debería tolerar la mezcla entre vídeo e imagen', () => {
     expect(coincideConDeclarado(MP4, 'image/png')).toBe(false);
+  });
+  describe('fotos de iPhone', () => {
+    it('no debería confundir una foto HEIC con un vídeo MP4', () => {
+      // HEIC usa el mismo contenedor ISO-BMFF que el vídeo. Sin mirar la marca,
+      // una foto del carrete se detectaba como MP4 y la subida se rechazaba por
+      // no coincidir con lo que declaraba el navegador.
+      expect(detectarTipoReal(HEIC)).toBe('image/heic');
+      expect(detectarTipoReal(HEIC)).not.toBe('video/mp4');
+    });
+
+    it('debería seguir reconociendo el MP4 y el MOV de verdad', () => {
+      expect(detectarTipoReal(MP4)).toBe('video/mp4');
+      expect(detectarTipoReal(MOV)).toBe('video/quicktime');
+    });
+
+    it('debería aceptar la foto tanto si iOS la llama heic como heif', () => {
+      expect(coincideConDeclarado(HEIC, 'image/heic')).toBe(true);
+      expect(coincideConDeclarado(HEIC, 'image/heif')).toBe(true);
+      expect(coincideConDeclarado(HEIF, 'image/heic')).toBe(true);
+    });
+
+    it('debería aceptarla cuando iOS no sabe qué tipo poner', () => {
+      // Pasa con las fotos que llegan desde la app Archivos en vez del carrete.
+      expect(coincideConDeclarado(HEIC, 'application/octet-stream')).toBe(true);
+    });
+
+    it('no debería dejar pasar un HEIC declarado como vídeo', () => {
+      expect(coincideConDeclarado(HEIC, 'video/mp4')).toBe(false);
+    });
+
+    it('no debería dejar pasar un vídeo declarado como foto HEIC', () => {
+      expect(coincideConDeclarado(MP4, 'image/heic')).toBe(false);
+    });
   });
 });
