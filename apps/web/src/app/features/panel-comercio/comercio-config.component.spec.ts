@@ -76,10 +76,12 @@ describe('ComercioConfigComponent', () => {
       expect(componente.direccionForm.getRawValue().pais).toBe('España');
     });
 
-    it('debería normalizar el logo a lista para el componente de subida', async () => {
+    it('debería cargar el logo tal cual, que es lo que espera el componente de subida', async () => {
+      // `rs-image-upload` con [multiple]="false" trabaja con la URL suelta;
+      // envolverla en un array hacía que al guardar se enviara sólo su primera letra.
       await crear(miComercio({ logoUrl: '/logo.png' }));
 
-      expect(componente.infoForm.getRawValue().logoUrl).toEqual(['/logo.png']);
+      expect(componente.infoForm.getRawValue().logoUrl).toBe('/logo.png');
     });
 
     it('debería respetar las preferencias de notificación guardadas', async () => {
@@ -138,7 +140,7 @@ describe('ComercioConfigComponent', () => {
   describe('guardado por secciones', () => {
     it('debería enviar solo la información del negocio', async () => {
       await crear();
-      componente.infoForm.patchValue({ nombreComercial: 'Canes Premium', logoUrl: ['/logo.png'] });
+      componente.infoForm.patchValue({ nombreComercial: 'Canes Premium', logoUrl: '/logo.png' });
 
       await componente.guardarInfo();
 
@@ -268,10 +270,10 @@ describe('ComercioConfigComponent', () => {
   });
 
   describe('verificación y documentos', () => {
-    it('debería enviar el primer archivo subido de cada documento', async () => {
+    it('debería enviar la URL de cada documento sin trocearla', async () => {
       await crear();
       componente.verificacionForm.patchValue({
-        documentoIdentidadUrl: ['/dni.pdf'], licenciaNegocioUrl: ['/licencia.pdf'],
+        documentoIdentidadUrl: '/dni.pdf', licenciaNegocioUrl: '/licencia.pdf',
       });
 
       await componente.guardarVerificacion();
@@ -696,6 +698,97 @@ describe('ComercioConfigComponent', () => {
       await crear();
 
       expect(componente.verificacionBadge()).toBeDefined();
+    });
+  });
+  /**
+   * `rs-image-upload` con `[multiple]="false"` emite la URL suelta. Al guardar se
+   * hacía `arr[0]` sobre ella, y `"https://…"[0]` es `"h"`: eso quedó escrito en
+   * la base para el logo, la portada, el DNI y la licencia, y la imagen salía
+   * rota al recargar.
+   */
+  describe('imágenes de una sola URL', () => {
+    const CDN = 'https://cdn.doogking.com/logo.jpg';
+
+    it('debería guardar la URL entera del logo, no su primera letra', async () => {
+      await crear();
+      componente.infoForm.patchValue({ logoUrl: CDN });
+
+      await componente.guardarInfo();
+
+      expect(ultimoPayload().logoUrl).toBe(CDN);
+    });
+
+    it('debería guardar la URL entera de la portada', async () => {
+      await crear();
+      componente.infoForm.patchValue({ coverUrl: CDN });
+
+      await componente.guardarInfo();
+
+      expect(ultimoPayload().coverUrl).toBe(CDN);
+    });
+
+    it('debería cargar la URL guardada tal cual, para que la imagen se vea', async () => {
+      await crear(miComercio({ logoUrl: CDN, coverUrl: CDN } as Partial<MiComercio>));
+
+      expect(componente.infoForm.getRawValue().logoUrl).toBe(CDN);
+      expect(componente.infoForm.getRawValue().coverUrl).toBe(CDN);
+    });
+
+    it('debería dejar el control vacío si el comercio no tiene imagen', async () => {
+      await crear();
+
+      expect(componente.infoForm.getRawValue().logoUrl).toBeNull();
+    });
+
+    it('no debería enviar la imagen si no se ha subido ninguna', async () => {
+      // `null` borraría el valor guardado; se omite el campo.
+      await crear();
+
+      await componente.guardarInfo();
+
+      expect(ultimoPayload().logoUrl).toBeUndefined();
+    });
+
+    it('debería aguantar el viaje completo: cargar, no tocar y volver a guardar', async () => {
+      // Es el caso que rompía: se guardaba bien la primera vez y al reguardar
+      // sobre lo cargado se troceaba la URL.
+      await crear(miComercio({ logoUrl: CDN } as Partial<MiComercio>));
+
+      await componente.guardarInfo();
+
+      expect(ultimoPayload().logoUrl).toBe(CDN);
+    });
+  });
+
+  describe('documentación de verificación', () => {
+    const DOC = 'https://cdn.doogking.com/dni.pdf';
+
+    it('debería guardar entera la URL del documento de identidad y la licencia', async () => {
+      await crear();
+      componente.verificacionForm.patchValue({ documentoIdentidadUrl: DOC, licenciaNegocioUrl: DOC });
+
+      await componente.guardarVerificacion();
+
+      expect(ultimoPayload().documentoIdentidadUrl).toBe(DOC);
+      expect(ultimoPayload().licenciaNegocioUrl).toBe(DOC);
+    });
+
+    it('debería enviar sólo los campos que aporta el comercio en cada documento', async () => {
+      // `estado` y `subidoAt` los fija el servidor; devolvérselos hace que el API
+      // rechace la petición entera con 400.
+      await crear();
+      componente.docsAdicionales.set([{
+        tipo: 'seguro_rc', nombre: 'Póliza', url: DOC, fechaCaducidad: '2027-01-31',
+        estado: 'verificado', subidoAt: new Date(),
+      } as never]);
+
+      await componente.guardarDocumentacion();
+
+      const [documento] = ultimoPayload().documentos as Record<string, unknown>[];
+      expect(documento).toEqual({
+        tipo: 'seguro_rc', nombre: 'Póliza', url: DOC, fechaCaducidad: '2027-01-31',
+      });
+      expect(documento['estado']).toBeUndefined();
     });
   });
 });

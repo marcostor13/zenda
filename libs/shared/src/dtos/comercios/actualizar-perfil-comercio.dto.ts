@@ -36,6 +36,14 @@ export class HorarioDiaDto {
   cerrado!: boolean;
 }
 
+/**
+ * Documento que el comercio adjunta para su verificación.
+ *
+ * Sólo declara lo que aporta el comercio. `estado` y `subidoAt` los fija el
+ * servidor a propósito: si el cliente pudiera enviar `estado`, un comercio
+ * marcaría sus propios papeles como `verificado` y se saltaría la revisión del
+ * administrador (HU J1).
+ */
 export class DocumentoVerificacionDto {
   @IsIn(['dni', 'cif', 'licencia', 'seguro_rc', 'certificado', 'otro'])
   tipo!: string;
@@ -83,6 +91,18 @@ export class ActualizarPerfilComercioDto {
 
   @IsOptional() @IsString() documentoIdentidadUrl?: string;
   @IsOptional() @IsString() licenciaNegocioUrl?: string;
+
+  /**
+   * Documentación adicional (seguro de RC, certificados…). El servicio ya sabía
+   * tratarla, pero faltaba declararla aquí: con `forbidNonWhitelisted` el API
+   * devolvía 400 "property documentos should not exist" y la pantalla de
+   * verificación del panel no podía guardar nada.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DocumentoVerificacionDto)
+  documentos?: DocumentoVerificacionDto[];
 
   @IsOptional()
   @ValidateNested()

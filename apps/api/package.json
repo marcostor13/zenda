@@ -16,6 +16,7 @@
     "backfill:comercio-activo": "ts-node -P tsconfig.json src/scripts/backfill-comercio-activo.ts",
     "sembrar:lugares-cv": "ts-node -P tsconfig.json src/scripts/sembrar-lugares-cv.ts",
     "diagnostico:catalogo": "ts-node -P tsconfig.json src/scripts/diagnostico-catalogo.ts",
+    "limpiar:urls-imagen": "ts-node -P tsconfig.json src/scripts/limpiar-urls-imagen-rotas.ts",
     "test:e2e": "jest --config test/jest-e2e.config.ts"
   },
   "dependencies": {

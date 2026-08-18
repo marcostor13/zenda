@@ -486,9 +486,7 @@ export class ComerciosService {
     comercioId: string,
     dto: ActualizarPerfilComercioDto,
   ): Promise<ComercioDocument> {
-    const { documentoIdentidadUrl, licenciaNegocioUrl, documentos, ...resto } = dto as ActualizarPerfilComercioDto & {
-      documentos?: Array<{ tipo: string; nombre?: string; url: string; fechaCaducidad?: string }>;
-    };
+    const { documentoIdentidadUrl, licenciaNegocioUrl, documentos, ...resto } = dto;
     const datos: Record<string, unknown> = { ...resto };
 
     if (documentoIdentidadUrl !== undefined || licenciaNegocioUrl !== undefined || documentos !== undefined) {

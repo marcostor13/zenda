@@ -8,6 +8,12 @@ import type { Config } from 'jest';
 const config: Config = {
   rootDir: 'src',
   testEnvironment: 'node',
+  /*
+   * Los decoradores de class-validator de los DTOs se evalúan al importarlos, y
+   * necesitan el registro de metadatos ya cargado. Mismo motivo que en
+   * `apps/api/jest.config.ts`.
+   */
+  setupFiles: ['reflect-metadata'],
   testRegex: '.*\.spec\.ts$',
   transform: {
     '^.+\.ts$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.spec.json' }],

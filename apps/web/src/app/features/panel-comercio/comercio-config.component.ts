@@ -79,12 +79,17 @@ const VERIFICACION_LABEL: Record<string, string> = {
   rechazado: 'Rechazado',
 };
 
-function primero(arr: string[]): string | undefined {
-  return arr[0] || undefined;
-}
-function comoArray(v?: string): string[] {
-  return v ? [v] : [];
-}
+/**
+ * `rs-image-upload` con `[multiple]="false"` emite **la URL suelta**, no un array
+ * (ver `emitValue`). Los controles de imagen única guardan por tanto un `string`,
+ * y `writeValue` ya acepta tanto la cadena como el array al cargar la ficha.
+ *
+ * Antes se declaraban como `string[]` y al guardar se hacía `arr[0]`: sobre la
+ * cadena `"https://…"` eso devuelve `"h"`, que es lo que acabó escrito en la base
+ * para el logo, la portada, el DNI y la licencia. La imagen salía rota al
+ * recargar porque el `<img src="h">` no apunta a ninguna parte.
+ */
+type UrlImagen = string | null;
 
 @Component({
   selector: 'app-comercio-config',
@@ -1229,8 +1234,8 @@ export class ComercioConfigComponent implements OnInit {
   readonly infoForm = this.fb.group({
     nombreComercial: ['', Validators.required],
     descripcion: [''],
-    logoUrl: [[] as string[]],
-    coverUrl: [[] as string[]],
+    logoUrl: [null as UrlImagen],
+    coverUrl: [null as UrlImagen],
     galeria: [[] as string[]],
   });
 
@@ -1269,8 +1274,8 @@ export class ComercioConfigComponent implements OnInit {
   });
 
   readonly verificacionForm = this.fb.group({
-    documentoIdentidadUrl: [[] as string[]],
-    licenciaNegocioUrl: [[] as string[]],
+    documentoIdentidadUrl: [null as UrlImagen],
+    licenciaNegocioUrl: [null as UrlImagen],
   });
 
   readonly guardandoDocs = signal(false);
@@ -1346,8 +1351,8 @@ export class ComercioConfigComponent implements OnInit {
     this.infoForm.patchValue({
       nombreComercial: data.nombreComercial,
       descripcion: data.descripcion ?? '',
-      logoUrl: comoArray(data.logoUrl),
-      coverUrl: comoArray(data.coverUrl),
+      logoUrl: data.logoUrl ?? null,
+      coverUrl: data.coverUrl ?? null,
       galeria: data.galeria ?? [],
     });
 
@@ -1396,8 +1401,8 @@ export class ComercioConfigComponent implements OnInit {
 
     this.docsAdicionales.set(data.verificacion?.documentos ?? []);
     this.verificacionForm.patchValue({
-      documentoIdentidadUrl: comoArray(data.verificacion?.documentoIdentidadUrl),
-      licenciaNegocioUrl: comoArray(data.verificacion?.licenciaNegocioUrl),
+      documentoIdentidadUrl: data.verificacion?.documentoIdentidadUrl ?? null,
+      licenciaNegocioUrl: data.verificacion?.licenciaNegocioUrl ?? null,
     });
 
     if (data.preferenciasNotificacion) {
@@ -1469,8 +1474,8 @@ export class ComercioConfigComponent implements OnInit {
     await this.guardarSeccion({
       nombreComercial: v.nombreComercial,
       descripcion: v.descripcion,
-      logoUrl: primero(v.logoUrl),
-      coverUrl: primero(v.coverUrl),
+      logoUrl: v.logoUrl ?? undefined,
+      coverUrl: v.coverUrl ?? undefined,
       galeria: v.galeria,
     }, this.guardandoInfo);
   }
@@ -1512,8 +1517,8 @@ export class ComercioConfigComponent implements OnInit {
   async guardarVerificacion(): Promise<void> {
     const v = this.verificacionForm.getRawValue();
     await this.guardarSeccion({
-      documentoIdentidadUrl: primero(v.documentoIdentidadUrl),
-      licenciaNegocioUrl: primero(v.licenciaNegocioUrl),
+      documentoIdentidadUrl: v.documentoIdentidadUrl ?? undefined,
+      licenciaNegocioUrl: v.licenciaNegocioUrl ?? undefined,
     }, this.guardandoVerificacion);
   }
 
@@ -1535,7 +1540,20 @@ export class ComercioConfigComponent implements OnInit {
   }
 
   async guardarDocumentacion(): Promise<void> {
-    await this.guardarSeccion({ documentos: this.docsAdicionales() }, this.guardandoDocs);
+    /*
+     * Se envía sólo lo que el comercio aporta. `estado` y `subidoAt` los fija el
+     * servidor —un comercio no puede marcar sus propios papeles como
+     * verificados— y llegan de vuelta al leer la ficha; devolvérselos hace que
+     * el API rechace la petición entera con 400.
+     */
+    const documentos = this.docsAdicionales().map((d) => ({
+      tipo: d.tipo,
+      nombre: d.nombre,
+      url: d.url,
+      fechaCaducidad: d.fechaCaducidad,
+    }));
+
+    await this.guardarSeccion({ documentos }, this.guardandoDocs);
   }
 
   tipoDocLabel(tipo: string): string {
