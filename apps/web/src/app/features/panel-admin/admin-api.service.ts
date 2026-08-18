@@ -87,10 +87,16 @@ export interface DocumentoVerificacion {
   url: string;
   fechaCaducidad?: string;
   estado: string;
+  subidoAt?: string;
 }
 
 export interface VerificacionComercio {
   estado: string;
+  /** Documento de identidad del titular; el comercio lo sube una sola vez. */
+  documentoIdentidadUrl?: string;
+  /** Licencia de actividad del negocio. */
+  licenciaNegocioUrl?: string;
+  /** Seguros, certificados y demás documentación adicional. */
   documentos?: DocumentoVerificacion[];
   motivoRechazo?: string;
 }

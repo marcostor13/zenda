@@ -29,8 +29,18 @@ export class HorarioDiaDto {
   @IsIn(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'])
   dia!: string;
 
+  /** Primer tramo del día. */
   @IsOptional() @IsString() abre?: string;
   @IsOptional() @IsString() cierra?: string;
+
+  /**
+   * Segundo tramo, para la jornada partida. El esquema y el formulario del panel
+   * ya lo contemplaban (TCK-8028: "muchos negocios cierran a mediodía"), pero
+   * faltaba declararlo aquí, así que guardar el horario devolvía siempre 400
+   * "property abre2 should not exist" — los catorce días de la semana a la vez.
+   */
+  @IsOptional() @IsString() abre2?: string;
+  @IsOptional() @IsString() cierra2?: string;
 
   @IsBoolean()
   cerrado!: boolean;

@@ -4,8 +4,17 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
-import { AdminApiService, ComercioAdmin, ResumenComercios, FichaComercio, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
+import { AdminApiService, ComercioAdmin, ResumenComercios, FichaComercio, CrearComercioDto, ActualizarComercioDto, VerificacionComercio } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+
+/** Documento listo para pintar en la ficha, venga del campo fijo o de la lista. */
+interface DocumentoFicha {
+  titulo: string;
+  url: string;
+  nombre?: string;
+  fechaCaducidad?: string;
+  estado?: string;
+}
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 
 const FILTROS = [
@@ -105,7 +114,10 @@ const LIMITE = 20;
     }
 
     <!-- Tabla -->
-    <div class="rs-card" style="padding:0;overflow:hidden">
+    <!-- Sin overflow:hidden: recortaba el desplegable de acciones, que se
+         desborda de la tarjeta a propósito. Las esquinas se redondean en la
+         cabecera y en la última fila (ver .tbl-head / .tbl-row:last-child). -->
+    <div class="rs-card tbl-card" style="padding:0">
       <div class="tbl-head">
         <span>Comercio</span>
         <span>CIF/NIF</span>
@@ -359,14 +371,44 @@ const LIMITE = 20;
         <div class="ficha__bloque">
           <h4>Verificación</h4>
           <p>
-            {{ verifLabel(f.comercio.verificacion?.estado ?? 'sin_verificar') }}
+            <span class="rs-badge {{ badgeVerif(f.comercio.verificacion?.estado ?? 'sin_verificar') }}">
+              {{ verifLabel(f.comercio.verificacion?.estado ?? 'sin_verificar') }}
+            </span>
             @if (f.comercio.verificacion?.motivoRechazo) {
               · motivo del rechazo: {{ f.comercio.verificacion!.motivoRechazo }}
             }
-            @if (f.comercio.verificacion?.documentos?.length) {
-              · {{ f.comercio.verificacion!.documentos!.length }} documento(s) aportado(s)
-            }
           </p>
+
+          <!-- Sin poder abrir los papeles, verificar es firmar a ciegas: el admin
+               tiene que ver lo que el comercio subió antes de decidir. -->
+          @if (documentosDe(f.comercio.verificacion).length) {
+            <ul class="docs">
+              @for (d of documentosDe(f.comercio.verificacion); track d.url) {
+                <li class="docs__item">
+                  <rs-icon [name]="iconoDoc(d.url)" [size]="15" [stroke]="2"></rs-icon>
+                  <span class="docs__nombre">
+                    {{ d.titulo }}
+                    @if (d.nombre) { <em>· {{ d.nombre }}</em> }
+                  </span>
+                  @if (d.fechaCaducidad) {
+                    <span class="docs__caducidad" [class.docs__caducidad--vencida]="estaCaducado(d.fechaCaducidad)">
+                      {{ estaCaducado(d.fechaCaducidad) ? 'caducó el' : 'vence el' }}
+                      {{ d.fechaCaducidad | date:'d MMM yyyy' }}
+                    </span>
+                  }
+                  @if (d.estado) {
+                    <span class="rs-badge {{ badgeDoc(d.estado) }}">{{ d.estado }}</span>
+                  }
+                  <!-- Nueva pestaña: perder el modal a medio revisar obligaría a
+                       volver a abrir la ficha y buscar el comercio otra vez. -->
+                  <a [href]="d.url" target="_blank" rel="noopener"
+                     class="rs-btn rs-btn--outline rs-btn--sm">Abrir</a>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="docs__vacio">Este comercio todavía no ha subido documentación.</p>
+          }
         </div>
 
         <div class="ficha__bloque">
@@ -496,12 +538,40 @@ const LIMITE = 20;
 
     .filtro-select { height: 40px; max-width: 220px; }
 
+    .docs { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
+    .docs__item {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-3); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      background: var(--c-raised); font-size: var(--f-sm); color: var(--t-200);
+    }
+    .docs__nombre { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .docs__nombre em { color: var(--t-400); font-style: normal; }
+    .docs__caducidad { font-size: var(--f-xs); color: var(--t-400); white-space: nowrap; }
+    .docs__caducidad--vencida { color: #B91C1C; font-weight: var(--w-6); }
+    .docs__vacio { color: var(--t-400); font-size: var(--f-sm); margin-top: var(--sp-2); }
+
+    @media (max-width: 768px) {
+      .docs__item { flex-wrap: wrap; }
+      .docs__nombre { flex-basis: 100%; }
+    }
+
     .acciones { position: relative; display: flex; align-items: center; gap: var(--sp-2); justify-content: flex-end; }
     .acciones__menu {
-      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
+      position: absolute; right: 0; top: calc(100% + 4px);
+      /*
+       * Por encima de las filas siguientes: sin esto, el menú de una fila queda
+       * por debajo de la de abajo y sus opciones no se pueden pulsar.
+       */
+      z-index: var(--z-3, 30);
       min-width: 210px; padding: var(--sp-2);
       background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
       box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
+    }
+
+    /* En las últimas filas se abre hacia arriba para no salirse de la pantalla. */
+    .tbl-row:nth-last-child(-n + 2) .acciones__menu {
+      top: auto;
+      bottom: calc(100% + 4px);
     }
     .acciones__item {
       display: flex; align-items: center; gap: var(--sp-2); width: 100%;
@@ -512,9 +582,15 @@ const LIMITE = 20;
     }
     .acciones__item--danger { color: var(--c-red, #B91C1C); }
 
-    .tbl-head { display: grid; grid-template-columns: 2fr 120px 110px 110px 130px 110px 130px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
+    /*
+     * La tarjeta no recorta su contenido para que el menú de acciones pueda
+     * salirse; a cambio, las esquinas redondeadas se aplican aquí, en la primera
+     * y la última fila, que es donde tocan el borde.
+     */
+    .tbl-card { overflow: visible; }
+    .tbl-head { display: grid; grid-template-columns: 2fr 120px 110px 110px 130px 110px 130px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); border-radius: var(--r-2xl) var(--r-2xl) 0 0; }
     .tbl-row { display: grid; grid-template-columns: 2fr 120px 110px 110px 130px 110px 130px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
-    .tbl-row:last-child { border: none; }
+    .tbl-row:last-child { border: none; border-radius: 0 0 var(--r-2xl) var(--r-2xl); }
     .tbl-row:hover { background: var(--c-raised); }
 
     /*
@@ -635,6 +711,62 @@ export class AdminComerciosComponent implements OnInit {
   readonly filtroVertical = signal('');
   readonly filtroPlan = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
+
+  /** Etiquetas de los tipos del catálogo de documentos del comercio. */
+  private readonly TIPO_DOC: Record<string, string> = {
+    dni: 'DNI', cif: 'CIF', licencia: 'Licencia',
+    seguro_rc: 'Seguro de responsabilidad civil', certificado: 'Certificado', otro: 'Documento',
+  };
+
+  /**
+   * Toda la documentación del comercio en una sola lista.
+   *
+   * El identidad y la licencia viven en campos propios de `verificacion` y el
+   * resto en `documentos[]`; para quien revisa son lo mismo —papeles que abrir—,
+   * así que se presentan juntos en vez de en dos bloques distintos.
+   */
+  documentosDe(verificacion?: VerificacionComercio): DocumentoFicha[] {
+    if (!verificacion) return [];
+
+    const fijos: DocumentoFicha[] = [
+      { titulo: 'Documento de identidad', url: verificacion.documentoIdentidadUrl },
+      { titulo: 'Licencia de actividad', url: verificacion.licenciaNegocioUrl },
+    ].filter((d): d is DocumentoFicha => Boolean(d.url));
+
+    const adicionales: DocumentoFicha[] = (verificacion.documentos ?? [])
+      .filter((d) => Boolean(d.url))
+      .map((d) => ({
+        titulo: this.TIPO_DOC[d.tipo] ?? d.tipo,
+        nombre: d.nombre,
+        url: d.url,
+        fechaCaducidad: d.fechaCaducidad,
+        estado: d.estado,
+      }));
+
+    return [...fijos, ...adicionales];
+  }
+
+  /** Un PDF y una foto no se revisan igual; el icono lo adelanta. */
+  iconoDoc(url: string): string {
+    return url.toLowerCase().split('?')[0].endsWith('.pdf') ? 'file-text' : 'image';
+  }
+
+  /**
+   * Un seguro vencido no vale para verificar, aunque el documento esté subido.
+   * Se calcula aquí y no se confía en el `estado` guardado porque ese sólo se
+   * recalcula al guardar la ficha, no con el paso del tiempo.
+   */
+  estaCaducado(fecha?: string): boolean {
+    return Boolean(fecha) && new Date(fecha as string).getTime() < Date.now();
+  }
+
+  badgeDoc(estado: string): string {
+    const mapa: Record<string, string> = {
+      verificado: 'rs-badge--success', pendiente: 'rs-badge--warning',
+      rechazado: 'rs-badge--error', caducado: 'rs-badge--error',
+    };
+    return mapa[estado] ?? 'rs-badge--neutral';
+  }
   readonly suspendiendo = signal<ComercioAdmin | null>(null);
   readonly fichaAbierta = signal(false);
   readonly cargandoFicha = signal(false);
