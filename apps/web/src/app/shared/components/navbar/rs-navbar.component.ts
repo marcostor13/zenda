@@ -4,7 +4,7 @@ import { nombreAlphaPresentacion } from 'shared';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsRegionSelectorComponent } from '../region/rs-region-selector.component';
-import { VERTICALES_UI } from '../../verticales/verticales.config';
+import { VERTICALES_PUBLICOS } from '../../verticales/verticales.config';
 import { BRAND } from '../../media/images';
 import { FavoritosService } from '../../../features/favoritos/favoritos.service';
 import { PerrosService } from '../../../features/perros/perros.service';
@@ -422,7 +422,7 @@ export class RsNavbarComponent implements OnInit {
   readonly favoritosService = inject(FavoritosService);
 
   /** Menú de categorías: misma fuente que el buscador y las vistas. */
-  readonly verticales = VERTICALES_UI;
+  readonly verticales = VERTICALES_PUBLICOS;
 
   readonly estaAutenticado = this.authService.estaAutenticado;
   readonly esAdmin = this.authService.esAdmin;

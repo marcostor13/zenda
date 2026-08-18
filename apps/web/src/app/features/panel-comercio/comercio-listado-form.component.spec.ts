@@ -275,32 +275,101 @@ describe('ComercioListadoFormComponent', () => {
     });
   });
 
+  describe('política de cancelación', () => {
+    const politicas = (): HTMLElement[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('.politica'));
+
+    it('debería explicar cada opción, no sólo nombrarla', async () => {
+      // Elegir entre "flexible", "moderada" y "estricta" sin saber qué implica
+      // cada una lleva a marcar la primera.
+      await crear();
+      componente.form.patchValue({ vertical: VerticalKey.ALOJAMIENTO });
+      fixture.detectChanges();
+
+      const descripciones = politicas().map((p) => p.querySelector('.politica__desc')?.textContent?.trim());
+
+      expect(descripciones.length).toBe(componente.politicasCancelacion.length + 1);
+      expect(descripciones.every((d) => !!d && d.length > 20)).toBe(true);
+    });
+
+    it('debería marcar "sin especificar" mientras no se elige nada', async () => {
+      await crear();
+
+      expect(componente.politicaElegida()).toBe('');
+    });
+
+    it('debería reflejar la opción elegida', async () => {
+      await crear();
+
+      componente.alojamientoGroup.patchValue({ politicaCancelacion: 'moderada' });
+
+      expect(componente.politicaElegida()).toBe('moderada');
+    });
+
+    it('debería enviar la política elegida', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+      componente.alojamientoGroup.patchValue({ politicaCancelacion: 'estricta' });
+
+      await componente.submit();
+
+      expect(payloadGuardado().extra?.['politicaCancelacion']).toBe('estricta');
+    });
+  });
+
   describe('aptitud del servicio', () => {
-    it('debería alternar tamaños y tipos de pelo admitidos', async () => {
+    it('debería alternar los tamaños admitidos', async () => {
       await crear();
 
       componente.toggleTamano('grande');
-      componente.togglePelo('rizado');
       expect(componente.tieneTamano('grande')).toBe(true);
-      expect(componente.tienePelo('rizado')).toBe(true);
 
       componente.toggleTamano('grande');
       expect(componente.tieneTamano('grande')).toBe(false);
     });
 
+    it('debería ofrecer sólo pequeño, mediano y grande', async () => {
+      // Cinco tramos se dejaban a medias; con tres se marca de un vistazo.
+      await crear();
+
+      expect(componente.tamanosAdmitidos.map((t) => t.valor)).toEqual([
+        'pequeno', 'mediano', 'grande',
+      ]);
+    });
+
     it('debería enviar la aptitud declarada junto al listado', async () => {
       await crear();
       rellenarBase(VerticalKey.TRANSPORTE);
-      componente.toggleTamano('mini');
-      componente.togglePelo('corto');
+      componente.toggleTamano('mediano');
       componente.temperamentosNoAdmitidos = ['Agresivo con perros', 'Muy nervioso'];
 
       await componente.submit();
 
       expect(payloadGuardado().aptitud).toEqual({
-        tamanosAdmitidos: ['mini'],
-        tipoPeloAdmitido: ['corto'],
+        tamanosAdmitidos: ['mediano'],
+        tipoPeloAdmitido: [],
         temperamentosNoAdmitidos: ['Agresivo con perros', 'Muy nervioso'],
+      });
+    });
+
+    it('debería conservar el tipo de pelo guardado aunque ya no se edite', async () => {
+      // El campo salió del formulario; editar la ficha no debe borrar de la BD
+      // lo que el comercio dejara puesto antes.
+      await crear('s1', {
+        _id: 's1',
+        vertical: VerticalKey.TRANSPORTE,
+        titulo: 'Traslado veterinario',
+        descripcion: 'Traslados con vehículo climatizado.',
+        ciudad: 'Valencia',
+        precioBase: 30,
+        aptitud: { tipoPeloAdmitido: ['rizado', 'largo'], tamanosAdmitidos: ['mediano'] },
+      });
+
+      await componente.submit();
+
+      expect(payloadGuardado().aptitud).toMatchObject({
+        tipoPeloAdmitido: ['rizado', 'largo'],
       });
     });
   });

@@ -40,6 +40,12 @@ export interface VerticalUi {
   readonly labelUbicacion: string;
   readonly placeholderUbicacion: string;
   readonly labelFecha: string;
+  /**
+   * true = la categoría existe (ruta, fichas, panel de comercio) pero no se
+   * anuncia todavía en la navegación pública. Se retira del escaparate sin
+   * borrar el vertical ni romper los enlaces de quien ya la tenga guardada.
+   */
+  readonly fueraDelEscaparate?: boolean;
 }
 
 /** Orden de aparición en el menú y en el buscador (frecuencia de uso). */
@@ -170,6 +176,7 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     descripcion: 'Profesionales verificados que van a tu domicilio: paseos, visitas, día completo o noche.',
     titular: 'Su casa, su rutina',
     subtitular: 'Cuidado profesional sin sacarlo de donde se siente seguro.',
+    fueraDelEscaparate: true,
     reservaPorNoches: false,
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
@@ -178,6 +185,16 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
 ];
 
 const POR_KEY = new Map<string, VerticalUi>(VERTICALES_UI.map((v) => [v.key, v]));
+
+/**
+ * Las categorías que se ofrecen al público: menú, buscador y portada.
+ *
+ * `VERTICALES_UI` sigue siendo la lista completa —la usan los paneles de admin
+ * y de comercio, que sí tienen que ver todo lo que existe—; ésta es la que
+ * decide qué se enseña a quien llega a la web.
+ */
+export const VERTICALES_PUBLICOS: readonly VerticalUi[] =
+  VERTICALES_UI.filter((v) => !v.fueraDelEscaparate);
 
 /** Categoría por defecto cuando la clave recibida no existe. */
 export const VERTICAL_POR_DEFECTO = POR_KEY.get(VerticalKey.ALOJAMIENTO) as VerticalUi;

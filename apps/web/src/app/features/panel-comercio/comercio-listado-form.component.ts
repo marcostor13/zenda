@@ -17,6 +17,7 @@ import {
   RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS, TIPOS_ADIESTRAMIENTO,
 } from '../../shared/catalogos/tags.catalogo';
 import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
+import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 import { ComercioApiService, ServicioPayload } from './comercio-api.service';
 
 /** Catálogo cerrado de servicios veterinarios, para el desplegable del formulario. */
@@ -70,7 +71,7 @@ function aCsv(v: string): string[] {
           <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
           Volver a listados
         </a>
-        <h1>{{ esEdicion() ? 'Editar listado' : 'Nuevo listado' }}</h1>
+        <h1>{{ esEdicion() ? 'Editar servicio' : 'Nuevo servicio' }}</h1>
         <p>{{ esEdicion() ? 'Actualiza los datos de tu servicio.' : 'Completa todos los datos de tu servicio: cuanta más información, más confianza generas.' }}</p>
       </div>
 
@@ -165,21 +166,10 @@ function aCsv(v: string): string[] {
           <div class="rs-field">
             <label class="rs-lbl">Tamaños admitidos</label>
             <div class="checks-grid">
-              @for (t of tamanosPerro; track t.valor) {
+              @for (t of tamanosAdmitidos; track t.valor) {
                 <label class="filter-check">
                   <input type="checkbox" [checked]="tieneTamano(t.valor)" (change)="toggleTamano(t.valor)" />
                   {{ t.label }}
-                </label>
-              }
-            </div>
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Tipo de pelo admitido</label>
-            <div class="checks-grid">
-              @for (t of tiposPelo; track t) {
-                <label class="filter-check">
-                  <input type="checkbox" [checked]="tienePelo(t)" (change)="togglePelo(t)" />
-                  {{ t }}
                 </label>
               }
             </div>
@@ -286,12 +276,30 @@ function aCsv(v: string): string[] {
 
                 <div class="rs-field">
                   <label class="rs-lbl">Política de cancelación</label>
-                  <select class="rs-inp" formControlName="politicaCancelacion">
-                    <option value="">— Sin especificar —</option>
-                    <option value="flexible">Flexible</option>
-                    <option value="moderada">Moderada</option>
-                    <option value="estricta">Estricta</option>
-                  </select>
+                  <!--
+                    Tarjetas en vez de un desplegable: elegir entre "flexible",
+                    "moderada" y "estricta" sin saber qué significa cada una
+                    lleva a marcar la primera. Con la condición a la vista se
+                    elige la que el comercio de verdad puede cumplir.
+                  -->
+                  <div class="politicas">
+                    @for (p of politicasCancelacion; track p.valor) {
+                      <label class="politica" [class.politica--sel]="politicaElegida() === p.valor">
+                        <input type="radio" formControlName="politicaCancelacion" [value]="p.valor" />
+                        <span>
+                          <span class="politica__nombre">{{ p.label }}</span>
+                          <span class="politica__desc">{{ p.descripcion }}</span>
+                        </span>
+                      </label>
+                    }
+                    <label class="politica" [class.politica--sel]="!politicaElegida()">
+                      <input type="radio" formControlName="politicaCancelacion" value="" />
+                      <span>
+                        <span class="politica__nombre">Sin especificar</span>
+                        <span class="politica__desc">Acuerdas las condiciones con cada cliente.</span>
+                      </span>
+                    </label>
+                  </div>
                 </div>
 
                 <div class="checkbox-row">
@@ -1161,7 +1169,7 @@ function aCsv(v: string): string[] {
             <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
               @if (guardando()) { Guardando… } @else {
                 <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-                {{ esEdicion() ? 'Guardar cambios' : 'Crear listado' }}
+                {{ esEdicion() ? 'Guardar cambios' : 'Crear servicio' }}
               }
             </button>
           </div>
@@ -1217,6 +1225,19 @@ function aCsv(v: string): string[] {
     .rs-field-err { font-size: var(--f-xs); color: #B91C1C; }
     .rs-field-hint { font-size: var(--f-xs); color: var(--t-400); }
 
+    .politicas { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .politica {
+      display: flex; align-items: flex-start; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4); cursor: pointer;
+      background: var(--c-raised); border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      transition: border-color var(--d-2), background var(--d-2);
+      &:hover { border-color: var(--c-accent); }
+      input { margin-top: 2px; flex-shrink: 0; }
+    }
+    .politica--sel { border-color: var(--c-accent); background: var(--c-accent-lo); }
+    .politica__nombre { display: block; font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
+    .politica__desc { display: block; font-size: var(--f-xs); color: var(--t-400); margin-top: 2px; }
+
     .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); @media (max-width: 540px) { grid-template-columns: 1fr; } }
 
     .rows { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -1263,8 +1284,33 @@ export class ComercioListadoFormComponent implements OnInit {
     { valor: 'grande', label: 'Grande (25-40 kg)' },
     { valor: 'gigante', label: 'Gigante (+40 kg)' },
   ];
+  /**
+   * Los tamaños que el comercio declara aceptar. Lista más corta que
+   * `tamanosPerro` a propósito: los tramos de precio de peluquería siguen
+   * distinguiendo mini y gigante, pero para decir "a qué perros atiendo" tres
+   * opciones se marcan de un vistazo y cinco se dejan a medias.
+   */
+  readonly politicasCancelacion = POLITICAS_CANCELACION;
+
+  /** Sólo para resaltar la tarjeta elegida; el valor vive en el formulario. */
+  politicaElegida(): string {
+    return this.alojamientoGroup.controls['politicaCancelacion'].value as string;
+  }
+
+  readonly tamanosAdmitidos: ReadonlyArray<{ valor: string; label: string }> = [
+    { valor: 'pequeno', label: 'Pequeño' },
+    { valor: 'mediano', label: 'Mediano' },
+    { valor: 'grande', label: 'Grande' },
+  ];
+
   readonly tiposPelo = ['corto', 'medio', 'largo', 'rizado', 'duro', 'doble_capa'];
   private readonly tamanosSeleccionados = signal<string[]>([]);
+  /**
+   * Tipo de pelo admitido por el servicio. Ya no se edita desde el formulario
+   * —la peluquería lo declara por servicio de grooming, que es donde importa—,
+   * pero se conserva y se reenvía para no borrar lo que un comercio dejara
+   * puesto antes de quitar el campo.
+   */
   private readonly pelosSeleccionados = signal<string[]>([]);
   temperamentosNoAdmitidos: string[] = [];
 
@@ -1287,10 +1333,6 @@ export class ComercioListadoFormComponent implements OnInit {
     this.tamanosSeleccionados.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
   }
 
-  tienePelo(v: string): boolean { return this.pelosSeleccionados().includes(v); }
-  togglePelo(v: string): void {
-    this.pelosSeleccionados.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
-  }
 
   placeholderTitulo(): string {
     const vertical = this.form.controls.vertical.value;

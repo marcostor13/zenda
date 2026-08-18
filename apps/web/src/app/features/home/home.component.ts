@@ -15,7 +15,7 @@ import { RsCardComponent } from '../../shared/components/card/rs-card.component'
 import {
   BANDA_POR_QUE, BRAND, HOTEL_IMAGES, MOTIVOS_IMAGES, TRUST_ICONOS,
 } from '../../shared/media/images';
-import { VERTICALES_UI, rutaDeVertical } from '../../shared/verticales/verticales.config';
+import { VERTICALES_PUBLICOS, rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
 import { environment } from '../../../environments/environment';
 
@@ -1446,7 +1446,7 @@ export class HomeComponent implements OnInit {
 
   /** Perfiles sociales del footer; se muestran con su logo oficial (TCK-8008). */
   readonly redesSociales: readonly { nombre: string; icono: RedSocialKey; url: string }[] = [
-    { nombre: 'Instagram', icono: 'instagram', url: 'https://instagram.com/doogking' },
+    { nombre: 'Instagram', icono: 'instagram', url: 'https://www.instagram.com/doogkingcom' },
     { nombre: 'Facebook', icono: 'facebook', url: 'https://facebook.com/doogking' },
     { nombre: 'TikTok', icono: 'tiktok', url: 'https://tiktok.com/@doogking' },
     { nombre: 'LinkedIn', icono: 'linkedin', url: 'https://linkedin.com/company/doogking' },
@@ -1467,7 +1467,7 @@ export class HomeComponent implements OnInit {
   ];
 
   /** Categorías: misma configuración que el menú y el buscador. */
-  readonly verticales = VERTICALES_UI;
+  readonly verticales = VERTICALES_PUBLICOS;
 
   /** Bloque de 3 valores bajo el buscador — textos aprobados por el cliente (PDF 27/07 §4). */
   readonly garantias = [

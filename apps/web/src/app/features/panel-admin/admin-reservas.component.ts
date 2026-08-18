@@ -6,6 +6,7 @@ import { AdminApiService, ReservaAdmin, ResumenReservas, FiltrosReservasAdmin, C
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
 import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
+import { describirPolitica } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 
 /** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
 interface EstadoMeta { badge: string; icono: string; label: string; }
@@ -63,13 +64,6 @@ const PAGO_LABEL: Record<string, string> = {
   rechazado: 'Pago rechazado',
   reembolsado: 'Reembolsado',
   sin_pago: 'Sin pago',
-};
-
-/** Política de cancelación declarada por el comercio, en palabras (TCK-8036 §6). */
-const POLITICA_LABEL: Record<string, string> = {
-  flexible: 'Flexible · cancelación gratuita hasta 24 h antes',
-  moderada: 'Moderada · cancelación gratuita hasta 3 días antes',
-  estricta: 'Estricta · sin devolución al cancelar',
 };
 
 const LIMITE = 20;
@@ -652,7 +646,7 @@ export class AdminReservasComponent implements OnInit {
   politica(reserva: ReservaAdmin): string {
     const valor = reserva.politicaCancelacion;
     if (!valor) return 'Sin política declarada por el comercio';
-    return POLITICA_LABEL[valor] ?? valor;
+    return describirPolitica(valor);
   }
 
   /**

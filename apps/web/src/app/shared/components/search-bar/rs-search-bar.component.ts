@@ -10,7 +10,7 @@ import { RsPlaceAutocompleteComponent } from '../place-autocomplete/rs-place-aut
 import { CoordenadasLugar } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { CATEGORIA_ICONOS } from '../../media/images';
-import { VERTICALES_UI, VerticalUi, verticalUi } from '../../verticales/verticales.config';
+import { VERTICALES_PUBLICOS, VerticalUi, verticalUi } from '../../verticales/verticales.config';
 
 /** Parámetros de búsqueda: mismo contrato en toda la aplicación (URL incluida). */
 export interface BusquedaParams {
@@ -340,7 +340,7 @@ export class RsSearchBarComponent {
   /** Se emite además de navegar, por si la vista necesita reaccionar. */
   readonly buscado = output<BusquedaParams>();
 
-  readonly verticales = VERTICALES_UI;
+  readonly verticales = VERTICALES_PUBLICOS;
   readonly iconoMas = CATEGORIA_ICONOS['mas'];
 
   readonly idCiudad = 'sb-ciudad';

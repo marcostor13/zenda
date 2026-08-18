@@ -3,7 +3,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
-import { VERTICALES_UI } from '../../verticales/verticales.config';
+import { VERTICALES_PUBLICOS } from '../../verticales/verticales.config';
 import { RsNavbarComponent } from './rs-navbar.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { PerrosService } from '../../../features/perros/perros.service';
@@ -28,9 +28,9 @@ describe('RsNavbarComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     const enlaces = Array.from(el.querySelectorAll('.rs-navbar__nav .rs-navbar__link'));
 
-    expect(enlaces.length).toBe(VERTICALES_UI.length);
+    expect(enlaces.length).toBe(VERTICALES_PUBLICOS.length);
     expect(enlaces.map((a) => a.textContent?.trim())).toEqual(
-      VERTICALES_UI.map((v) => v.labelCorto),
+      VERTICALES_PUBLICOS.map((v) => v.labelCorto),
     );
   });
 
@@ -40,7 +40,17 @@ describe('RsNavbarComponent', () => {
       a.getAttribute('href'),
     );
 
-    expect(hrefs).toEqual(VERTICALES_UI.map((v) => v.route));
+    expect(hrefs).toEqual(VERTICALES_PUBLICOS.map((v) => v.route));
+  });
+
+  it('no debería anunciar las categorías fuera del escaparate', () => {
+    // Cuidadores sigue existiendo y su ruta funciona; simplemente no se ofrece.
+    const el: HTMLElement = fixture.nativeElement;
+    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__nav a')).map((a) =>
+      a.getAttribute('href'),
+    );
+
+    expect(hrefs).not.toContain('/cuidadores');
   });
 
   it('debería incluir hoteles pet-friendly en el menú', () => {
@@ -77,7 +87,7 @@ describe('RsNavbarComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
 
     const enlaces = el.querySelectorAll('.rs-mobile-menu__nav .rs-mobile-menu__link');
-    expect(enlaces.length).toBe(VERTICALES_UI.length);
+    expect(enlaces.length).toBe(VERTICALES_PUBLICOS.length);
   });
 });
 

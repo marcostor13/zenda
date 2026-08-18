@@ -1,6 +1,7 @@
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import {
-  VERTICALES_UI, rutaDeVertical, subtitularDeVertical, titularDeVertical, verticalUi,
+  VERTICALES_PUBLICOS, VERTICALES_UI, rutaDeVertical, subtitularDeVertical,
+  titularDeVertical, verticalUi,
 } from './verticales.config';
 
 describe('verticales.config', () => {
@@ -41,6 +42,31 @@ describe('verticales.config', () => {
     // "Paseadores" no es un vertical propio: es una modalidad dentro de este.
     const claves: string[] = VERTICALES_UI.map((v) => v.key);
     expect(claves).not.toContain('paseadores');
+  });
+
+  describe('escaparate público', () => {
+    it('no debería ofrecer Cuidadores en el menú ni en el buscador', () => {
+      expect(VERTICALES_PUBLICOS.map((v) => v.key)).not.toContain(VerticalKey.CUIDADORES);
+    });
+
+    it('debería seguir resolviendo Cuidadores para quien llegue por su ruta', () => {
+      // Retirarlo del escaparate no borra el vertical: la ficha, el panel del
+      // comercio y los enlaces guardados siguen funcionando.
+      expect(verticalUi(VerticalKey.CUIDADORES).key).toBe(VerticalKey.CUIDADORES);
+    });
+
+    it('debería ofrecer todo lo demás', () => {
+      const ocultos = VERTICALES_UI.filter((v) => v.fueraDelEscaparate);
+
+      expect(VERTICALES_PUBLICOS).toHaveLength(VERTICALES_UI.length - ocultos.length);
+      expect(VERTICALES_PUBLICOS.every((v) => !v.fueraDelEscaparate)).toBe(true);
+    });
+
+    it('debería mantener el orden de la lista completa', () => {
+      const enOrden = VERTICALES_UI.filter((v) => VERTICALES_PUBLICOS.includes(v));
+
+      expect(VERTICALES_PUBLICOS).toEqual(enOrden);
+    });
   });
 
   it('debería reservar por noches solo alojamiento y hoteles', () => {

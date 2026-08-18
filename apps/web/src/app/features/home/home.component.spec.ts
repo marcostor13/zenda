@@ -36,8 +36,12 @@ describe('HomeComponent', () => {
       VerticalKey.ADIESTRAMIENTO,
       VerticalKey.HOTELES,
       VerticalKey.SEGUROS,
-      VerticalKey.CUIDADORES,
     ]);
+  });
+
+  it('no debería ofrecer las categorías fuera del escaparate', () => {
+    // Cuidadores sigue existiendo —ruta, fichas y panel— pero no se anuncia.
+    expect(component.verticales.map((v) => v.key)).not.toContain(VerticalKey.CUIDADORES);
   });
 
   it('debería usar las etiquetas caninas en las categorías', () => {
@@ -57,7 +61,6 @@ describe('HomeComponent', () => {
       '/adiestramiento',
       '/hoteles',
       '/seguros',
-      '/cuidadores',
     ]);
   });
 
@@ -159,7 +162,6 @@ describe('HomeComponent', () => {
       '/icons/adiestramiento.svg',
       '/icons/hoteles.svg',
       '/icons/seguros.svg',
-      '/icons/cuidadores.svg',
     ]);
   });
 
