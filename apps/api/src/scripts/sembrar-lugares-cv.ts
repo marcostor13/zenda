@@ -14,26 +14,23 @@
  * **Idempotente**: cada ficha se identifica por tipo + ciudad + nombre, así que
  * volver a ejecutarlo actualiza lo que ya existe en vez de duplicarlo.
  *
- * `--geo` añade las coordenadas de cada municipio con Places (New), la misma API
- * que usa `GeoService`. Sin ellas las fichas salen en el listado y en los
- * filtros, pero **no en el mapa ni en "cerca de mí"**, que necesitan un punto.
+ * `--geo` añade las coordenadas de cada municipio. Intenta primero Places (New),
+ * la misma API que usa `GeoService`, y si no está disponible cae a Nominatim
+ * (OpenStreetMap) — la misma degradación que ya hace el mapa del frontend cuando
+ * falta la clave de Google. Sin coordenadas las fichas salen en el listado y en
+ * los filtros, pero **no en el mapa ni en "cerca de mí"**.
  */
 // Los DTOs de `shared` llevan decoradores de class-validator, que necesitan el
 // registro de metadatos disponible antes de importarlos.
 import 'reflect-metadata';
 import mongoose from 'mongoose';
-import * as dotenv from 'dotenv';
 import * as path from 'path';
+import { prepararEntorno } from './entorno';
 import * as XLSX from 'xlsx';
 import { lugaresDeMunicipio, type FilaMunicipio, type LugarSembrado } from '../core/lugares/municipios-cv';
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
-const MONGODB_URI = process.env['MONGODB_URI'];
-if (!MONGODB_URI) {
-  console.error('❌  MONGODB_URI no definida en .env');
-  process.exit(1);
-}
+// Carga el .env y fija los DNS antes de conectar (ver `entorno.ts`).
+const MONGODB_URI = prepararEntorno();
 
 const APLICAR = process.argv.includes('--aplicar');
 const CON_GEO = process.argv.includes('--geo');
@@ -42,9 +39,18 @@ const HOJA = path.resolve(__dirname, '../../../../docs/municipios_final.xlsx');
 
 const PLACES_AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
 const PLACES_DETAILS_URL = 'https://places.googleapis.com/v1/places';
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
 /** Pausa entre llamadas a Google: no hay prisa y evita topar con el límite. */
 const PAUSA_MS = 120;
+
+/**
+ * Nominatim pide como máximo una consulta por segundo y un User-Agent que
+ * identifique a quien llama. Son 111 municipios: dos minutos largos, una sola
+ * vez. Respetarlo no es opcional, es su condición de uso.
+ */
+const PAUSA_OSM_MS = 1_100;
+const USER_AGENT = 'Doogking/1.0 (siembra de lugares; contacto: soporte@doogking.com)';
 
 const esperar = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -96,6 +102,32 @@ async function coordenadasDe(
   }
 }
 
+/**
+ * Alternativa gratuita cuando Google no responde. El proyecto ya usa
+ * OpenStreetMap como respaldo del mapa, así que la fuente no es nueva.
+ */
+async function coordenadasOsm(
+  municipio: string,
+  provincia: string | undefined,
+): Promise<[number, number] | null> {
+  const consulta = provincia ? `${municipio}, ${provincia}, España` : `${municipio}, España`;
+  const url = `${NOMINATIM_URL}?format=jsonv2&limit=1&countrycodes=es&q=${encodeURIComponent(consulta)}`;
+
+  try {
+    const respuesta = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+    if (!respuesta.ok) return null;
+
+    const datos = (await respuesta.json()) as Array<{ lat?: string; lon?: string }>;
+    const primero = datos[0];
+    if (!primero?.lat || !primero.lon) return null;
+
+    // GeoJSON guarda [lng, lat], no al revés.
+    return [Number(primero.lon), Number(primero.lat)];
+  } catch {
+    return null;
+  }
+}
+
 /** Lee la hoja y devuelve las fichas que produce, ya normalizadas. */
 function leerCenso(): { fichas: LugarSembrado[]; municipios: number } {
   const libro = XLSX.readFile(HOJA);
@@ -134,10 +166,6 @@ async function sembrar(): Promise<void> {
   }
 
   const apiKey = process.env['GOOGLE_MAPS_API_KEY'];
-  if (CON_GEO && !apiKey) {
-    console.error('❌  --geo necesita GOOGLE_MAPS_API_KEY en .env');
-    process.exit(1);
-  }
   if (!CON_GEO) {
     console.log('');
     console.log('ℹ️  Sin --geo: las fichas saldrán en el listado y los filtros, pero');
@@ -153,6 +181,24 @@ async function sembrar(): Promise<void> {
     console.log('');
     console.log('ℹ️  Simulación. Vuelve a ejecutarlo con --aplicar para guardar.');
     return;
+  }
+
+  /*
+   * Se decide la fuente una sola vez, con una consulta de prueba: si la clave de
+   * Google está caducada o suspendida, insistir 111 veces sólo alarga la espera
+   * y deja todas las fichas sin punto, que es justo lo que pasó la primera vez.
+   */
+  let usarGoogle = false;
+  if (CON_GEO && apiKey) {
+    usarGoogle = (await coordenadasDe('València', 'Valencia', apiKey)) !== null;
+    if (!usarGoogle) {
+      console.log('');
+      console.log('⚠️  Google no responde a la geocodificación (clave ausente, suspendida o sin');
+      console.log('   permisos). Se usa OpenStreetMap, el mismo respaldo que el mapa del frontend.');
+    }
+  } else if (CON_GEO) {
+    console.log('');
+    console.log('ℹ️  Sin GOOGLE_MAPS_API_KEY: se geocodifica con OpenStreetMap.');
   }
 
   await mongoose.connect(MONGODB_URI as string);
@@ -174,8 +220,13 @@ async function sembrar(): Promise<void> {
     if (CON_GEO) {
       const clave = `${ficha.ubicacion.ciudad}|${ficha.ubicacion.provincia ?? ''}`;
       if (!puntos.has(clave)) {
-        puntos.set(clave, await coordenadasDe(ficha.ubicacion.ciudad, ficha.ubicacion.provincia, apiKey as string));
-        await esperar(PAUSA_MS);
+        puntos.set(
+          clave,
+          usarGoogle
+            ? await coordenadasDe(ficha.ubicacion.ciudad, ficha.ubicacion.provincia, apiKey as string)
+            : await coordenadasOsm(ficha.ubicacion.ciudad, ficha.ubicacion.provincia),
+        );
+        await esperar(usarGoogle ? PAUSA_MS : PAUSA_OSM_MS);
       }
       const punto = puntos.get(clave);
       if (punto) {
@@ -211,7 +262,10 @@ async function sembrar(): Promise<void> {
   console.log('── Resumen ────────────────────────────────');
   console.log(`Fichas creadas        : ${creados}`);
   console.log(`Fichas actualizadas   : ${actualizados}`);
-  if (CON_GEO) console.log(`Con coordenadas       : ${geocodificados} de ${fichas.length}`);
+  if (CON_GEO) {
+    console.log(`Con coordenadas       : ${geocodificados} de ${fichas.length}`);
+    console.log(`Fuente                : ${usarGoogle ? 'Google Places (New)' : 'OpenStreetMap'}`);
+  }
 
   await mongoose.disconnect();
 }

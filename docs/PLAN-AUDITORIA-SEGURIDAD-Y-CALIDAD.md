@@ -628,6 +628,79 @@ que es la mitad del valor de `/explora`. Con el flag se geolocaliza cada
 municipio contra Places (New) —la misma API que usa `GeoService`— con una
 consulta por municipio (~111) y una pausa entre ellas.
 
+### Ejecución contra la base de datos (2026-08-18)
+
+Los tres scripts se ejecutaron contra el Atlas configurado en `apps/api/.env`.
+
+| Script | Resultado |
+|---|---|
+| `backfill:comercio-activo -- --aplicar` | 18 listados marcados; 0 visibles (ver abajo) |
+| `redondear:importes -- --aplicar` | 0 reservas en la base: no había nada que redondear |
+| `sembrar:lugares-cv -- --aplicar --geo` | **117 fichas creadas, 117 con coordenadas** |
+
+Estado de `/explora` tras la carga: 18 playas, 94 tramos de río y 5 zonas
+caninas, todas con punto en el mapa. Por provincia: Valencia 62, Alicante 34,
+Castellón 21.
+
+**Corregido de paso:** los scripts nuevos no fijaban los servidores DNS y morían
+con `querySrv ECONNREFUSED` al resolver `mongodb+srv://` — sólo `main.ts` y
+`seed-admin` lo hacían. Se extrajo a `scripts/entorno.ts`, que carga el `.env` y
+fija los DNS antes de conectar, y lo usan los tres.
+
+---
+
+## 6. Dos cosas que quedan en tus manos
+
+### 6.1 La clave de Google Maps está suspendida
+
+`GOOGLE_MAPS_API_KEY` devuelve `403 CONSUMER_SUSPENDED` (proyecto
+`788247983221`). No es un problema del código y no se puede arreglar desde aquí:
+es facturación o una suspensión en Google Cloud.
+
+**No afecta sólo a la siembra.** Con esa clave caída se quedan sin funcionar, en
+la aplicación en marcha:
+
+- el autocompletado de dirección del alta de comercio → los negocios nuevos se
+  publican **sin coordenadas** y no salen en el mapa del buscador;
+- el autocompletado de población del buscador;
+- el cálculo de trayecto del vertical de transporte, que cae a la estimación en
+  línea recta (marcada como tal, pero menos exacta).
+
+Para la siembra se resolvió cayendo a Nominatim (OpenStreetMap), el mismo
+respaldo que ya usa el mapa del frontend cuando falta la clave. `--geo` ahora
+prueba Google una sola vez y, si no responde, cambia de fuente y lo dice.
+
+### 6.2 El catálogo está vacío por datos huérfanos, no por la migración
+
+Estado real de la base hoy:
+
+- **1 comercio**: "Comercio Test", activo, **sin ningún listado**.
+- **18 servicios publicados** que apuntan a 5 comercios (`b00000000000000000000001`
+  … `0005`) que **no existen** en la colección. Son restos de una siembra
+  anterior; el seeder actual usa el prefijo `e0`.
+- **0 reservas.**
+
+Por eso el buscador devuelve 0: no es que la migración lo haya vaciado, es que no
+hay ni un listado con comercio detrás. Con el filtro anterior esos 18 se veían,
+pero eran irreservables de todos modos — la reserva se habría atribuido a un
+comercio inexistente.
+
+Para tener catálogo:
+
+```
+bun run --cwd apps/api seed:europe     # 6 comercios activos + sus listados
+```
+
+Es aditivo (sólo limpia y recrea lo suyo, con prefijo `e0`): no toca los 18
+huérfanos ni el comercio de prueba. Borrar los huérfanos es decisión tuya; se
+dejan porque nadie los ve y no estorban.
+
+Para comprobar cómo está la base en cualquier momento:
+
+```
+bun run --cwd apps/api diagnostico:catalogo   # sólo lectura
+```
+
 ### Estado por fase
 
 | Fase | Estado | Cerrada |

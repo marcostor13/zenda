@@ -14,16 +14,10 @@
  * por defecto y ningún listado existente lo tiene todavía.
  */
 import mongoose from 'mongoose';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
+import { prepararEntorno } from './entorno';
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
-const MONGODB_URI = process.env['MONGODB_URI'];
-if (!MONGODB_URI) {
-  console.error('❌  MONGODB_URI no definida en .env');
-  process.exit(1);
-}
+// Carga el .env y fija los DNS antes de conectar (ver `entorno.ts`).
+const MONGODB_URI = prepararEntorno();
 
 const APLICAR = process.argv.includes('--aplicar');
 
