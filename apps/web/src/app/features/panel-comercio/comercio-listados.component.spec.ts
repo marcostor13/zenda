@@ -103,4 +103,239 @@ describe('ComercioListadosComponent', () => {
     component.quitarEspacio(0);
     expect(component.espaciosEdit()).toHaveLength(1);
   });
+  describe('filtros del listado', () => {
+    it('no deberia filtrar nada por defecto', () => {
+      expect(component.serviciosFiltrados()).toHaveLength(2);
+    });
+
+    it('deberia filtrar por estado', () => {
+      component.filtroEstado.set('pausado');
+
+      expect(component.serviciosFiltrados()).toHaveLength(0);
+    });
+
+    it('deberia filtrar por categoria', () => {
+      component.categoria.set('transporte');
+
+      expect(component.serviciosFiltrados()).toHaveLength(1);
+      expect(component.serviciosFiltrados()[0].vertical).toBe('transporte');
+    });
+
+    it('deberia buscar por titulo sin distinguir mayusculas ni espacios', () => {
+      component.busqueda.set('  SUITE  ');
+
+      expect(component.serviciosFiltrados()).toHaveLength(1);
+      expect(component.serviciosFiltrados()[0].titulo).toBe('Suite Canina');
+    });
+
+    it('deberia combinar los tres filtros', () => {
+      component.filtroEstado.set('publicado');
+      component.categoria.set('alojamiento');
+      component.busqueda.set('suite');
+
+      expect(component.serviciosFiltrados()).toHaveLength(1);
+    });
+
+    it('deberia devolver las categorias sin repetir y ordenadas', () => {
+      expect(component.categorias()).toEqual(['alojamiento', 'transporte']);
+    });
+
+    it('deberia contar por estado, y "todos" como el total', () => {
+      expect(component.contarEstado('todos')).toBe(2);
+      expect(component.contarEstado('publicado')).toBe(2);
+      expect(component.contarEstado('pausado')).toBe(0);
+    });
+
+    it('deberia limpiar los tres filtros de una vez', () => {
+      component.filtroEstado.set('pausado');
+      component.categoria.set('transporte');
+      component.busqueda.set('x');
+
+      component.limpiarFiltros();
+
+      expect(component.serviciosFiltrados()).toHaveLength(2);
+    });
+  });
+
+  describe('etiquetas por vertical', () => {
+    it('deberia leer el precio en los terminos de cada vertical', () => {
+      // "45 / noche" y "20 base" no son lo mismo: el comercio tiene que ver como
+      // se le esta vendiendo.
+      expect(component.precioDe(servicioAlojamiento)).toBe('€45 / noche');
+      expect(component.precioDe(servicioTransporte)).toBe('€20 base');
+      expect(component.precioDe({ ...servicioTransporte, vertical: 'adiestramiento' })).toBe('€20 / sesión');
+      expect(component.precioDe({ ...servicioTransporte, vertical: 'veterinaria' })).toBe('€20 / cita');
+    });
+
+    it('deberia redondear el importe', () => {
+      expect(component.precioDe({ ...servicioTransporte, precioBase: 20.6 })).toBe('€21 base');
+    });
+
+    it('deberia colorear el badge segun el estado', () => {
+      expect(component.estadoBadge('publicado')).toContain('success');
+      expect(component.estadoBadge('pausado')).toContain('warning');
+      expect(component.estadoBadge('borrador')).toContain('neutral');
+    });
+
+    it('deberia devolver el estado en crudo si no tiene etiqueta conocida', () => {
+      expect(component.etiquetaEstado('inventado')).toBe('inventado');
+    });
+
+    it('deberia etiquetar la disponibilidad segun el vertical', () => {
+      expect(component.labelDisponibilidad('transporte')).toContain('Unidades');
+      expect(component.labelDisponibilidad('veterinaria')).toContain('Citas');
+      expect(component.labelDisponibilidad('desconocido')).toBe('Disponibilidad');
+    });
+  });
+
+  describe('resumen de disponibilidad', () => {
+    it('deberia contar tipos de espacio y plazas en alojamiento', () => {
+      expect(component.resumenDisponibilidad(servicioAlojamiento)).toBe('1 tipo de espacio · 3 plazas');
+    });
+
+    it('deberia concordar el plural con varios espacios', () => {
+      const conDos = {
+        ...servicioAlojamiento,
+        espacios: [
+          { tipo: 'estandar', tamanoMaxPerro: 'mediano', precioNoche: 45, cantidad: 1, disponible: true },
+          { tipo: 'suite', tamanoMaxPerro: 'grande', precioNoche: 80, cantidad: 2, disponible: true },
+        ],
+      };
+
+      expect(component.resumenDisponibilidad(conDos)).toBe('2 tipos de espacio · 3 plazas');
+    });
+
+    it('deberia avisar si el alojamiento no tiene espacios', () => {
+      expect(component.resumenDisponibilidad({ ...servicioAlojamiento, espacios: [] }))
+        .toBe('Sin espacios configurados');
+    });
+
+    it('deberia usar el vocabulario de cada vertical', () => {
+      expect(component.resumenDisponibilidad(servicioTransporte)).toBe('2 unidades disponibles');
+      expect(component.resumenDisponibilidad({ ...servicioTransporte, unidadesDisponibles: 1 }))
+        .toBe('1 unidad disponible');
+    });
+
+    it('deberia avisar cuando el vertical no tiene disponibilidad configurada', () => {
+      expect(component.resumenDisponibilidad({ ...servicioTransporte, unidadesDisponibles: undefined }))
+        .toBe('Sin disponibilidad configurada');
+    });
+  });
+
+  describe('publicar y pausar', () => {
+    it('deberia alternar a pausado y reflejarlo en la lista', async () => {
+      comercioApi.cambiarEstadoServicio.mockReturnValue(of({ ...servicioTransporte, estado: 'pausado' }) as never);
+
+      await component.toggleEstado(servicioTransporte);
+
+      expect(comercioApi.cambiarEstadoServicio).toHaveBeenCalledWith('serv-1', 'pausado');
+      expect(component.servicios().find((s) => s._id === 'serv-1')?.estado).toBe('pausado');
+      expect(component.toggling()).toBeNull();
+    });
+
+    it('deberia alternar de pausado a publicado', async () => {
+      const pausado = { ...servicioTransporte, estado: 'pausado' as const };
+      comercioApi.cambiarEstadoServicio.mockReturnValue(of({ ...pausado, estado: 'publicado' }) as never);
+
+      await component.toggleEstado(pausado);
+
+      expect(comercioApi.cambiarEstadoServicio).toHaveBeenCalledWith('serv-1', 'publicado');
+    });
+
+    it('deberia avisar y desbloquear el boton si el cambio falla', async () => {
+      comercioApi.cambiarEstadoServicio.mockReturnValue(throwError(() => new Error('500')));
+
+      await component.toggleEstado(servicioTransporte);
+
+      expect(component.errorMsg()).toContain('Error al cambiar');
+      expect(component.toggling()).toBeNull();
+    });
+  });
+
+  describe('edicion de espacios', () => {
+    beforeEach(() => {
+      component.toggleDisponibilidad(servicioAlojamiento);
+    });
+
+    it('deberia agregar un espacio con valores por defecto', () => {
+      component.agregarEspacio();
+
+      expect(component.espaciosEdit()).toHaveLength(2);
+      expect(component.espaciosEdit()[1]).toMatchObject({ tipo: 'estandar', cantidad: 1 });
+    });
+
+    it('deberia quitar el espacio de la posicion indicada', () => {
+      component.agregarEspacio();
+      component.quitarEspacio(0);
+
+      expect(component.espaciosEdit()).toHaveLength(1);
+      expect(component.espaciosEdit()[0].cantidad).toBe(1);
+    });
+
+    it('deberia actualizar cantidad y precio convirtiendo el texto del input', () => {
+      component.actualizarEspacio(0, 'cantidad', '7');
+      component.actualizarEspacio(0, 'precioNoche', '99.5');
+
+      expect(component.espaciosEdit()[0].cantidad).toBe(7);
+      expect(component.espaciosEdit()[0].precioNoche).toBe(99.5);
+    });
+
+    it('deberia caer a 0 si el input no es un numero, en vez de guardar NaN', () => {
+      component.actualizarEspacio(0, 'cantidad', 'muchos');
+
+      expect(component.espaciosEdit()[0].cantidad).toBe(0);
+    });
+
+    it('no deberia tocar los demas espacios al editar uno', () => {
+      component.agregarEspacio();
+      component.actualizarEspacio(1, 'cantidad', '5');
+
+      expect(component.espaciosEdit()[0].cantidad).toBe(3);
+      expect(component.espaciosEdit()[1].cantidad).toBe(5);
+    });
+  });
+
+  describe('guardar disponibilidad', () => {
+    it('deberia enviar los espacios en alojamiento', async () => {
+      comercioApi.actualizarDisponibilidad.mockReturnValue(of(servicioAlojamiento) as never);
+      component.toggleDisponibilidad(servicioAlojamiento);
+
+      await component.guardarDisponibilidad(servicioAlojamiento);
+
+      const [, payload] = comercioApi.actualizarDisponibilidad.mock.calls[0];
+      expect(payload).toHaveProperty('espacios');
+      expect(component.disponibilidadAbiertaId()).toBeNull();
+    });
+
+    it('deberia enviar el campo propio del vertical en los demas', async () => {
+      comercioApi.actualizarDisponibilidad.mockReturnValue(of(servicioTransporte) as never);
+      component.toggleDisponibilidad(servicioTransporte);
+      component.numeroCtrl.setValue(9);
+
+      await component.guardarDisponibilidad(servicioTransporte);
+
+      const [, payload] = comercioApi.actualizarDisponibilidad.mock.calls[0];
+      expect(payload).toEqual({ unidadesDisponibles: 9 });
+    });
+
+    it('deberia dejar el panel abierto y avisar si el guardado falla', async () => {
+      // Cerrarlo perderia lo que el comercio acababa de teclear.
+      comercioApi.actualizarDisponibilidad.mockReturnValue(throwError(() => new Error('500')));
+      component.toggleDisponibilidad(servicioTransporte);
+
+      await component.guardarDisponibilidad(servicioTransporte);
+
+      expect(component.disponibilidadError()).toContain('No se pudo guardar');
+      expect(component.disponibilidadAbiertaId()).toBe('serv-1');
+      expect(component.guardandoDisponibilidad()).toBe(false);
+    });
+  });
+
+  it('deberia cerrar el menu contextual al pulsar fuera', () => {
+    component.menuAbiertoId.set('serv-1');
+
+    component.cerrarMenu();
+
+    expect(component.menuAbiertoId()).toBeNull();
+  });
 });

@@ -520,6 +520,114 @@ tipos reales; ahora compilan contra ellos.
 garantiza el parámetro, y con S2 en su sitio un valor equivocado devuelve 409 en
 vez de crear una reserva mal atribuida. Tocarlo sería churn sin un fallo detrás.
 
+### F5 — Recuperación de contraseña (cerrada)
+
+- **S12** dos endpoints nuevos: `POST /auth/recuperar-password` (202 siempre,
+  exista o no la cuenta) y `POST /auth/restablecer-password`, que devuelve la
+  sesión ya iniciada.
+- El token se guarda **hasheado** (SHA-256) en `recuperacionTokenHash`: en claro,
+  cualquiera con lectura sobre la colección podría tomar la cuenta de otro. Se
+  consume en la misma escritura que fija la contraseña, así que el enlace del
+  correo sirve una sola vez. Caduca en 1 hora, no en 24 como la verificación:
+  este enlace da acceso, no sólo activa.
+- Las cuentas sólo sociales no reciben enlace: crearles contraseña por esta vía
+  permitiría entrar sin pasar por el proveedor que verificó el email.
+- Quien demuestra tener acceso al buzón queda con el email dado por verificado;
+  si no, se quedaría con la contraseña cambiada y sin poder entrar.
+- Frontend: `/auth/recuperar` y `/auth/restablecer` (+ specs, 14 casos). El login
+  **ya enlazaba a `/auth/recuperar`**, una ruta que no existía: el botón
+  "¿Olvidaste tu contraseña?" llevaba a una pantalla en blanco.
+
+### F6 — Cobertura (cerrada)
+
+Objetivo de CLAUDE.md §20 alcanzado en los dos workspaces, y umbrales subidos a
+80/80/80/80 (antes 70/56/58/70 en el API y 80/70/74/80 en la web).
+
+| | statements | branches | functions | lines |
+|---|---|---|---|---|
+| API — antes | 86,16 % | 75,08 % | 78,15 % | 86,66 % |
+| **API — ahora** | **93,06 %** | **80,40 %** | **90,20 %** | **93,59 %** |
+| Web — antes | 83,10 % | 71,01 % | 77,39 % | 85,28 % |
+| **Web — ahora** | **89,38 %** | **80,06 %** | **85,11 %** | **90,68 %** |
+
+Suites: API 83 → **103** (1.236 tests), Web 109 → **118** (1.721 tests), más el
+workspace `libs/shared`, que no tenía ninguna.
+
+Se cubrieron los 0 % críticos (`jwt.strategy`, `domain-exception.filter`,
+`stripe.gateway`, `ai-search.service`, `auth.interceptor`, `role.guard`,
+`rs-button`, `rs-input`), los 9 controllers del API sin test y los repositorios
+flojos, además de los mayores huecos de ramas del frontend.
+
+**Flakiness resuelta, no enmascarada.** La suite del API fallaba un `describe`
+distinto en cada ejecución y siempre pasaba aislada. La causa no era el código:
+Jest lanzaba un worker por CPU (19 aquí), cada uno con ts-jest, el grafo de
+NestJS y todos los schemas de Mongoose; el equipo se iba a swap y suites de 5 s
+pasaban de 130. Con `maxWorkers: '50%'` la suite bajó de **433 s estimados a
+33 s** y dejó de fallar. Mismo ajuste en la web.
+
+**Bug encontrado escribiendo los tests** (`comercio-reservas.component.ts`): la
+clave de cada celda del calendario se generaba con `toISOString()` —UTC— pero se
+comparaba contra medianoche **local**, así que sólo coincidían en UTC+0. En
+España pulsar un día del calendario filtraba las reservas de otro día, o de
+ninguno. Corregido con `claveDia`/`desdeClaveDia` y dos tests de regresión.
+
+### F7 — E2E del flujo crítico (cerrada)
+
+- **API** `test/reserva-pago.e2e-spec.ts` (16 casos): buscar → reservar → pagar →
+  confirmar, con Nest y Mongo en memoria reales. Stripe es lo único simulado (se
+  inyecta por `overrideProvider`, añadido a `crearAppE2E`). Cubre que el buscador
+  esconde los comercios suspendidos, que la reserva deriva comercio y vertical
+  del servicio (409 si el cliente miente), que el intent cobra el mismo importe
+  que la reserva, que el webhook confirma, que una firma falsa se rechaza y que
+  un webhook repetido no duplica nada.
+- **Web** `e2e/reserva.spec.ts` (8 casos × 2 dispositivos): el mismo recorrido en
+  navegador real, rellenando el formulario y los consentimientos como una
+  persona, y comprobando el encadenado reserva → cobro.
+- Total E2E: API 33 casos, web 24 (escritorio + móvil).
+
+### Extra — Censo de municipios en `/explora` (cerrado 2026-08-18)
+
+Fuera del plan de auditoría, a petición posterior: cargar
+`docs/municipios_final.xlsx` en `/explora`.
+
+La hoja censa los **542 municipios de la Comunitat Valenciana** (Alicante 141,
+Castellón 135, Valencia 266) con tres columnas de recursos caninos. De ahí salen
+**117 fichas** para la colección `lugares`, que es donde vive el contenido
+pet-friendly no reservable:
+
+| Columna del Excel | Tipo en `lugares` | Fichas |
+|---|---|---|
+| Playa canina | `playa` | 18 |
+| Rio | `rio` | 94 |
+| Pipican | `parque` | 5 |
+
+- `core/lugares/municipios-cv.ts` (+ spec, 24 casos) hace la conversión: es lo
+  que tiene la lógica y por eso vive fuera del script. Normaliza el nombre del
+  municipio del formato INE (`Campello, el` → `El Campello`), distingue cuándo el
+  paréntesis de la hoja es el **nombre** del sitio (`Cala Rocío`) y cuándo es una
+  **aclaración** (`junto a la playa canina`), y marca las playas de acceso
+  `Parcial` para que nadie conduzca hasta allí en agosto y se lo encuentre
+  cerrado.
+- `scripts/sembrar-lugares-cv.ts`: lee el fichero y guarda. Idempotente (upsert
+  por tipo + ciudad + nombre), simula por defecto.
+- Las fichas se publican directamente: la moderación existe para lo que aporta la
+  comunidad, y esto es un censo revisado que se carga desde el servidor.
+- **Filtro de provincia** en `/explora` (el backend ya lo soportaba, la UI no lo
+  exponía). Sin él, el listado devuelve las 24 primeras fichas y casi todas son
+  tramos del mismo río.
+
+```
+bun run --cwd apps/api sembrar:lugares-cv                  # simulación
+bun run --cwd apps/api sembrar:lugares-cv -- --aplicar
+bun run --cwd apps/api sembrar:lugares-cv -- --aplicar --geo
+```
+
+**El `--geo` importa.** El Excel no trae coordenadas, y sin ellas las fichas
+salen en el listado y en los filtros pero **no en el mapa ni en "cerca de mí"**,
+que es la mitad del valor de `/explora`. Con el flag se geolocaliza cada
+municipio contra Places (New) —la misma API que usa `GeoService`— con una
+consulta por municipio (~111) y una pausa entre ellas.
+
 ### Estado por fase
 
 | Fase | Estado | Cerrada |
@@ -529,6 +637,6 @@ vez de crear una reserva mal atribuida. Tocarlo sería churn sin un fallo detrá
 | F2 — Camino del dinero | **cerrada** | 2026-08-18 |
 | F3 — Entrada y consistencia | **cerrada** | 2026-08-18 |
 | F4 — Bugs funcionales | **cerrada** | 2026-08-18 |
-| F5 — Recuperación de contraseña | pendiente | — |
-| F6 — Cobertura | pendiente | — |
-| F7 — E2E del flujo crítico | pendiente | — |
+| F5 — Recuperación de contraseña | **cerrada** | 2026-08-18 |
+| F6 — Cobertura | **cerrada** | 2026-08-18 |
+| F7 — E2E del flujo crítico | **cerrada** | 2026-08-18 |

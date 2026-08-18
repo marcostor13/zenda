@@ -161,4 +161,149 @@ describe('ComercioEquipoComponent', () => {
       expect(componente.puestoLabel()).toBe('');
     });
   });
+  describe('estado de cada miembro', () => {
+    it('deberia dar por activo al miembro ya verificado', async () => {
+      await crear([miembro({ verificado: true })]);
+
+      expect(componente.badgeEstado(miembro({ verificado: true }))).toContain('success');
+      expect(componente.etiquetaEstado(miembro({ verificado: true }))).toBeTruthy();
+    });
+
+    it('deberia marcar como invitacion pendiente a quien no ha verificado el email', async () => {
+      await crear();
+      const pendiente = miembro({ requiereVerificacionEmail: true, verificado: false });
+
+      expect(componente.badgeEstado(pendiente)).toContain('warning');
+    });
+
+    it('deberia marcar como desactivado y ganar sobre la verificacion pendiente', async () => {
+      // Alguien desactivado no es "pendiente de aceptar la invitacion": no entra.
+      await crear();
+      const baja = miembro({ activo: false, requiereVerificacionEmail: true, verificado: false });
+
+      expect(componente.badgeEstado(baja)).toContain('neutral');
+    });
+  });
+
+  describe('resumen de acceso', () => {
+    it('deberia decir "todo el panel" cuando no hay permisos marcados', async () => {
+      // Es como funcionaba el panel antes de que existieran los permisos.
+      await crear();
+
+      expect(componente.resumenAcceso(miembro())).toBe('todo el panel');
+      expect(componente.resumenAcceso(miembro({ permisosComercio: [] }))).toBe('todo el panel');
+    });
+
+    it('deberia listar los permisos traducidos', async () => {
+      await crear();
+
+      const resumen = componente.resumenAcceso(miembro({ permisosComercio: ['reservas'] }));
+
+      expect(resumen).not.toBe('todo el panel');
+      expect(resumen.length).toBeGreaterThan(0);
+    });
+
+    it('deberia dejar en crudo un permiso desconocido en vez de romperse', async () => {
+      await crear();
+
+      expect(componente.resumenAcceso(miembro({ permisosComercio: ['inventado'] }))).toBe('inventado');
+    });
+  });
+
+  describe('edicion de permisos', () => {
+    it('deberia abrir el panel precargando permisos y puesto', async () => {
+      await crear();
+      const m = miembro({ permisosComercio: ['reservas'], puesto: 'gerente' });
+
+      componente.abrirPermisos(m);
+
+      expect(componente.editandoId()).toBe('u1');
+      expect(componente.tienePermiso('reservas')).toBe(true);
+      expect(componente.puestoEdit()).toBe('gerente');
+    });
+
+    it('deberia cerrar el panel al volver a pulsar el mismo miembro', async () => {
+      await crear();
+
+      componente.abrirPermisos(miembro());
+      componente.abrirPermisos(miembro());
+
+      expect(componente.editandoId()).toBe('');
+    });
+
+    it('deberia alternar un permiso en los dos sentidos', async () => {
+      await crear();
+      componente.abrirPermisos(miembro());
+
+      componente.alternarPermiso('reservas');
+      expect(componente.tienePermiso('reservas')).toBe(true);
+
+      componente.alternarPermiso('reservas');
+      expect(componente.tienePermiso('reservas')).toBe(false);
+    });
+
+    it('deberia guardar permisos y puesto y cerrar el panel', async () => {
+      const actualizar = jest.fn().mockReturnValue(of(miembro({ puesto: 'gerente' })));
+      await crear([miembro()], { actualizarMiembroEquipo: actualizar });
+      componente.abrirPermisos(miembro());
+      componente.puestoEdit.set('gerente');
+      componente.alternarPermiso('reservas');
+
+      await componente.guardarPermisos(miembro());
+
+      expect(actualizar).toHaveBeenCalledWith('u1', {
+        puesto: 'gerente',
+        permisosComercio: ['reservas'],
+      });
+      expect(componente.editandoId()).toBe('');
+    });
+
+    it('deberia enviar puesto indefinido si se deja en blanco', async () => {
+      const actualizar = jest.fn().mockReturnValue(of(miembro()));
+      await crear([miembro()], { actualizarMiembroEquipo: actualizar });
+      componente.abrirPermisos(miembro());
+      componente.puestoEdit.set('');
+
+      await componente.guardarPermisos(miembro());
+
+      expect(actualizar.mock.calls[0][1].puesto).toBeUndefined();
+    });
+  });
+
+  describe('activar y desactivar', () => {
+    it('deberia reactivar a quien estaba desactivado', async () => {
+      const actualizar = jest.fn().mockReturnValue(of(miembro({ activo: true })));
+      await crear([miembro({ activo: false })], { actualizarMiembroEquipo: actualizar });
+
+      await componente.alternarActivo(miembro({ activo: false }));
+
+      expect(actualizar).toHaveBeenCalledWith('u1', { activo: true });
+    });
+
+    it('deberia desactivar en vez de eliminar, para conservar el historial', async () => {
+      const actualizar = jest.fn().mockReturnValue(of(miembro({ activo: false })));
+      await crear([miembro({ activo: true })], { actualizarMiembroEquipo: actualizar });
+
+      await componente.alternarActivo(miembro({ activo: true }));
+
+      expect(actualizar).toHaveBeenCalledWith('u1', { activo: false });
+      expect(api['eliminarMiembroEquipo']).not.toHaveBeenCalled();
+    });
+
+    it('deberia avisar y desbloquear la fila si la actualizacion falla', async () => {
+      await crear([miembro()], { actualizarMiembroEquipo: fallo('500') });
+
+      await componente.alternarActivo(miembro());
+
+      expect(componente.errorMsg()).toContain('No se pudo actualizar');
+      expect(componente.guardandoMiembroId()).toBe('');
+    });
+  });
+
+  it('deberia traducir el puesto y devolver vacio si no lo conoce', async () => {
+    await crear();
+
+    expect(componente.puestoLabel('inventado')).toBe('');
+    expect(componente.puestoLabel(undefined)).toBe('');
+  });
 });

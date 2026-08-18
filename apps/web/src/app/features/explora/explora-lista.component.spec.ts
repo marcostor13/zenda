@@ -202,4 +202,61 @@ describe('ExploraListaComponent', () => {
       expect(navegar).toHaveBeenCalledWith(['/explora', 'l1']);
     });
   });
+  describe('filtro por provincia', () => {
+    it('debería empezar sin provincia acotada', async () => {
+      await crear();
+
+      expect(componente.provincia()).toBeNull();
+      expect(lugares['buscar']).toHaveBeenCalledWith(
+        expect.objectContaining({ provincia: undefined }),
+      );
+    });
+
+    it('debería acotar la búsqueda a la provincia elegida', async () => {
+      // Sin acotar, el censo devuelve las 24 primeras fichas y casi todas son
+      // tramos del mismo río.
+      await crear();
+
+      await componente.filtrarProvincia('Alicante');
+
+      expect(componente.provincia()).toBe('Alicante');
+      expect(lugares['buscar']).toHaveBeenLastCalledWith(
+        expect.objectContaining({ provincia: 'Alicante' }),
+      );
+    });
+
+    it('debería volver a todas las provincias al elegir la opción vacía', async () => {
+      await crear();
+      await componente.filtrarProvincia('Valencia');
+
+      await componente.filtrarProvincia('');
+
+      expect(componente.provincia()).toBeNull();
+      expect(lugares['buscar']).toHaveBeenLastCalledWith(
+        expect.objectContaining({ provincia: undefined }),
+      );
+    });
+
+    it('debería llevar la provincia a la URL para poder compartir el filtro', async () => {
+      await crear();
+
+      await componente.filtrarProvincia('Castellón');
+
+      expect(router.navigate).toHaveBeenCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { provincia: 'Castellón' } }),
+      );
+    });
+
+    it('debería mantener el tipo al cambiar de provincia', async () => {
+      await crear();
+      await componente.filtrar(TipoLugar.PLAYA);
+
+      await componente.filtrarProvincia('Alicante');
+
+      expect(lugares['buscar']).toHaveBeenLastCalledWith(
+        expect.objectContaining({ tipo: TipoLugar.PLAYA, provincia: 'Alicante' }),
+      );
+    });
+  });
 });

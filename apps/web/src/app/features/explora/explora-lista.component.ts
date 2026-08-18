@@ -57,6 +57,19 @@ const ICONOS: Record<TipoLugar, string> = {
         }
       </div>
 
+      <div class="ex-filtros" aria-label="Provincia">
+        <label class="ex-prov">
+          <span class="ex-prov__lbl">Provincia</span>
+          <select class="rs-inp ex-prov__sel" [value]="provincia() ?? ''"
+                  (change)="filtrarProvincia($any($event.target).value)">
+            <option value="">Todas</option>
+            @for (p of provincias; track p) {
+              <option [value]="p">{{ p }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
       <div class="ex-acciones">
         <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="buscarCerca()">
           <rs-icon name="map-pin" [size]="14" [stroke]="2"></rs-icon>
@@ -194,6 +207,10 @@ const ICONOS: Record<TipoLugar, string> = {
       img { width: 100%; height: 100%; object-fit: cover; }
     }
 
+    .ex-prov { display: inline-flex; align-items: center; gap: var(--sp-2); }
+    .ex-prov__lbl { font-size: var(--f-xs); color: var(--t-400); }
+    .ex-prov__sel { width: auto; min-width: 160px; }
+
     .ex-card__tipo {
       position: absolute; top: var(--sp-3); left: var(--sp-3);
       padding: 2px var(--sp-3); border-radius: var(--r-full);
@@ -228,6 +245,14 @@ export class ExploraListaComponent implements OnInit {
   readonly lugares = signal<LugarApi[]>([]);
   readonly cargando = signal(true);
   readonly tipo = signal<TipoLugar | null>(null);
+
+  /**
+   * Provincias con contenido cargado. El censo de la Comunitat Valenciana son
+   * 117 fichas repartidas en tres provincias: sin acotar, el listado devuelve
+   * las 24 primeras y casi todas son tramos de río del mismo sitio.
+   */
+  readonly provincias = ['Alicante', 'Castellón', 'Valencia'];
+  readonly provincia = signal<string | null>(null);
   readonly avisoUbicacion = signal('');
 
   private readonly coordenadas = signal<{ lat: number; lng: number } | null>(null);
@@ -262,6 +287,7 @@ export class ExploraListaComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     const params = this.route.snapshot.queryParamMap;
     this.tipo.set((params.get('tipo') as TipoLugar) ?? null);
+    this.provincia.set(params.get('provincia'));
     this.ciudad = params.get('ciudad') ?? undefined;
     await this.cargar();
   }
@@ -279,6 +305,17 @@ export class ExploraListaComponent implements OnInit {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { tipo: tipo ?? null },
+      queryParamsHandling: 'merge',
+    });
+    await this.cargar();
+  }
+
+  /** El filtro viaja en la URL para poder compartir "playas de Alicante". */
+  async filtrarProvincia(provincia: string): Promise<void> {
+    this.provincia.set(provincia || null);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { provincia: provincia || null },
       queryParamsHandling: 'merge',
     });
     await this.cargar();
@@ -313,6 +350,7 @@ export class ExploraListaComponent implements OnInit {
       this.lugares.set(
         await this.lugaresService.buscar({
           tipo: this.tipo() ?? undefined,
+          provincia: this.provincia() ?? undefined,
           ciudad: this.ciudad,
           lat: this.coordenadas()?.lat,
           lng: this.coordenadas()?.lng,

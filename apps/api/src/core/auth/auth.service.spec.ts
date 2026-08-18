@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -43,6 +44,9 @@ describe('AuthService', () => {
             establecerTokenVerificacion: jest.fn(),
             findByVerificacionToken: jest.fn(),
             confirmarVerificacion: jest.fn(),
+            establecerTokenRecuperacion: jest.fn(),
+            findByRecuperacionTokenHash: jest.fn(),
+            restablecerPassword: jest.fn(),
           },
         },
         {
@@ -58,7 +62,7 @@ describe('AuthService', () => {
         },
         {
           provide: NotificationsService,
-          useValue: { enviarVerificacionEmail: jest.fn() },
+          useValue: { enviarVerificacionEmail: jest.fn(), enviarRecuperacionPassword: jest.fn() },
         },
         {
           provide: ConfigService,
@@ -298,6 +302,129 @@ describe('AuthService', () => {
       usersRepository.findByEmail.mockResolvedValue(null);
       await service.reenviarVerificacion('desconocido@test.com');
       expect(notificationsService.enviarVerificacionEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recuperación de contraseña', () => {
+    const conToken = (): string => {
+      usersRepository.findByEmail.mockResolvedValue(usuarioMock as any);
+      return '';
+    };
+
+    describe('solicitarRecuperacionPassword', () => {
+      it('debería enviar el correo con un enlace a /auth/restablecer', async () => {
+        conToken();
+
+        await service.solicitarRecuperacionPassword('juan@test.com');
+
+        const [, , url] = notificationsService.enviarRecuperacionPassword.mock.calls[0];
+        expect(url).toContain('/auth/restablecer?token=');
+      });
+
+      it('debería guardar la HUELLA del token, nunca el token en claro', async () => {
+        conToken();
+
+        await service.solicitarRecuperacionPassword('juan@test.com');
+
+        const [, hashGuardado] = usersRepository.establecerTokenRecuperacion.mock.calls[0];
+        const [, , url] = notificationsService.enviarRecuperacionPassword.mock.calls[0];
+        const tokenDelCorreo = String(url).split('token=')[1];
+
+        // En claro, quien pudiera leer la colección tomaría cualquier cuenta.
+        expect(hashGuardado).not.toBe(tokenDelCorreo);
+        expect(hashGuardado).toBe(createHash('sha256').update(tokenDelCorreo).digest('hex'));
+      });
+
+      it('debería caducar el enlace en una hora', async () => {
+        conToken();
+        const antes = Date.now();
+
+        await service.solicitarRecuperacionPassword('juan@test.com');
+
+        const [, , expira] = usersRepository.establecerTokenRecuperacion.mock.calls[0];
+        const margen = (expira as Date).getTime() - antes;
+        expect(margen).toBeGreaterThan(59 * 60 * 1000);
+        expect(margen).toBeLessThanOrEqual(60 * 60 * 1000);
+      });
+
+      it('no debería revelar que el email no existe', async () => {
+        usersRepository.findByEmail.mockResolvedValue(null);
+
+        await expect(service.solicitarRecuperacionPassword('nadie@test.com')).resolves.toBeUndefined();
+        expect(notificationsService.enviarRecuperacionPassword).not.toHaveBeenCalled();
+      });
+
+      it('no debería crear contraseña a una cuenta que sólo entra con Google', async () => {
+        // Sería una vía para entrar sin pasar por el proveedor que verificó el email.
+        usersRepository.findByEmail.mockResolvedValue({ ...usuarioMock, passwordHash: undefined } as any);
+
+        await service.solicitarRecuperacionPassword('juan@test.com');
+
+        expect(usersRepository.establecerTokenRecuperacion).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('restablecerPassword', () => {
+      const enUnaHora = (): Date => new Date(Date.now() + 60 * 60 * 1000);
+
+      it('debería fijar la contraseña nueva hasheada y devolver la sesión', async () => {
+        usersRepository.findByRecuperacionTokenHash.mockResolvedValue({
+          ...usuarioMock, recuperacionExpira: enUnaHora(),
+        } as any);
+        usersRepository.restablecerPassword.mockResolvedValue(usuarioMock as any);
+
+        const resultado = await service.restablecerPassword('token-del-correo', 'nueva-clave-8');
+
+        expect(bcryptMock.hash).toHaveBeenCalledWith('nueva-clave-8', 10);
+        expect(resultado.accessToken).toBeDefined();
+      });
+
+      it('debería buscar por la huella del token, no por el token', async () => {
+        usersRepository.findByRecuperacionTokenHash.mockResolvedValue({
+          ...usuarioMock, recuperacionExpira: enUnaHora(),
+        } as any);
+        usersRepository.restablecerPassword.mockResolvedValue(usuarioMock as any);
+
+        await service.restablecerPassword('token-del-correo', 'nueva-clave-8');
+
+        expect(usersRepository.findByRecuperacionTokenHash).toHaveBeenCalledWith(
+          createHash('sha256').update('token-del-correo').digest('hex'),
+        );
+      });
+
+      it('debería rechazar un token que no existe', async () => {
+        usersRepository.findByRecuperacionTokenHash.mockResolvedValue(null);
+
+        await expect(
+          service.restablecerPassword('inventado', 'nueva-clave-8'),
+        ).rejects.toThrow(DomainException);
+      });
+
+      it('debería rechazar un token caducado', async () => {
+        usersRepository.findByRecuperacionTokenHash.mockResolvedValue({
+          ...usuarioMock, recuperacionExpira: new Date(Date.now() - 1000),
+        } as any);
+
+        await expect(
+          service.restablecerPassword('caducado', 'nueva-clave-8'),
+        ).rejects.toThrow(DomainException);
+      });
+
+      it('debería dar por verificado el email de quien demuestra tener acceso al buzón', async () => {
+        // Si no, se quedaría con la contraseña cambiada y sin poder entrar.
+        const pendiente = {
+          ...usuarioMock, recuperacionExpira: enUnaHora(),
+          requiereVerificacionEmail: true, verificado: false,
+        };
+        usersRepository.findByRecuperacionTokenHash.mockResolvedValue(pendiente as any);
+        usersRepository.restablecerPassword.mockResolvedValue(pendiente as any);
+        usersRepository.confirmarVerificacion.mockResolvedValue({ ...pendiente, verificado: true } as any);
+
+        const resultado = await service.restablecerPassword('token', 'nueva-clave-8');
+
+        expect(usersRepository.confirmarVerificacion).toHaveBeenCalled();
+        expect(resultado.usuario.verificado).toBe(true);
+      });
     });
   });
 });

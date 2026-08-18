@@ -1101,4 +1101,196 @@ describe('ReservaWizardComponent', () => {
       expect(componente.extraPrecio('inexistente')).toBe(0);
     });
   });
+  /**
+   * Cada vertical arma su propio payload. Un campo que no viaja no da error: el
+   * comercio recibe la reserva sin el dato y se entera al atender al perro.
+   */
+  describe('payload por vertical', () => {
+    /** Dispara el alta de la reserva y devuelve el payload que se envio. */
+    const payloadEnviado = async (): Promise<Record<string, unknown>> => {
+      // El alta se dispara al entrar en el paso de pago, igual que en la UI.
+      componente.irPaso(3);
+      await fixture.whenStable();
+      return dobles.reservas.crear.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    };
+
+    it('deberia enviar servicio, comercio y vertical del contexto de la ruta', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query);
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-05', perros: 2 });
+
+      const payload = await payloadEnviado();
+
+      expect(payload['servicioId']).toBe('s1');
+      expect(payload['comercioId']).toBe('c1');
+      expect(payload['vertical']).toBe(VerticalKey.ALOJAMIENTO);
+    });
+
+    it('deberia mandar las noches y el numero de perros en alojamiento', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query);
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-05', perros: 2 });
+
+      const payload = await payloadEnviado();
+
+      expect(payload['fechaInicio']).toBe('2026-09-01');
+      expect(payload['fechaFin']).toBe('2026-09-05');
+      expect(payload['cantidad']).toBe(2);
+    });
+
+    it('deberia componer fecha y hora en cuidadores', async () => {
+      // El backend espera un ISO completo, no la fecha por un lado y la hora por otro.
+      const ctx = contexto(VerticalKey.CUIDADORES);
+      await crear(ctx.params, ctx.query);
+      componente.paso1CuidadoresForm.patchValue({ fecha: '2026-09-01', hora: '10:30', modalidad: 'paseo' });
+
+      const payload = await payloadEnviado();
+
+      expect(payload['fechaInicio']).toBe('2026-09-01T10:30:00');
+      expect((payload['detalle'] as Record<string, unknown>)['modalidad']).toBe('paseo');
+    });
+
+    it('deberia mandar adultos, ninos y tamano en hoteles', async () => {
+      const ctx = contexto(VerticalKey.HOTELES);
+      await crear(ctx.params, ctx.query);
+      componente.paso1HotelesForm.patchValue({
+        checkIn: '2026-09-01', checkOut: '2026-09-03', mascotas: 1,
+        adultos: 2, ninos: 1, tamanoPerro: 'grande',
+      });
+
+      const detalle = (await payloadEnviado())['detalle'] as Record<string, unknown>;
+
+      expect(detalle).toMatchObject({ adultos: 2, ninos: 1, tamanoPerro: 'grande' });
+    });
+
+    it('deberia omitir los campos vacios de adiestramiento en vez de mandar cadenas vacias', async () => {
+      const ctx = contexto(VerticalKey.ADIESTRAMIENTO);
+      await crear(ctx.params, ctx.query);
+      componente.paso1AdiestramientoForm.patchValue({
+        fechaInicio: '2026-09-01', modalidad: 'sesion', edadMeses: 8, motivo: '',
+      });
+
+      const detalle = (await payloadEnviado())['detalle'] as Record<string, unknown>;
+
+      expect(detalle['edadMeses']).toBe(8);
+      expect(detalle['motivo']).toBeUndefined();
+    });
+
+    it('no deberia adjuntar la clave de videos si no se subio ninguno', async () => {
+      const ctx = contexto(VerticalKey.ADIESTRAMIENTO);
+      await crear(ctx.params, ctx.query);
+      componente.paso1AdiestramientoForm.patchValue({ fechaInicio: '2026-09-01', modalidad: 'sesion' });
+
+      const detalle = (await payloadEnviado())['detalle'] as Record<string, unknown>;
+
+      expect(detalle['videosUrl']).toBeUndefined();
+    });
+
+    it('deberia adjuntar el perro seleccionado', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query);
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-02' });
+      componente.seleccionarPerro('perro-1');
+
+      expect((await payloadEnviado())['perroId']).toBe('perro-1');
+    });
+  });
+
+  describe('catalogo enriquecido por vertical', () => {
+    it('deberia guardar las tarifas de transporte cuando el catalogo las trae', async () => {
+      const ctx = contexto(VerticalKey.TRANSPORTE);
+      await crear(ctx.params, ctx.query, {
+        catalog: { obtener: jest.fn().mockResolvedValue({ extra: { tarifaBase: 15, tarifaKm: 0.9 } }) },
+      });
+
+      expect(componente.tarifasTransporte()).toEqual({ tarifaBase: 15, tarifaKm: 0.9 });
+    });
+
+    it('no deberia fijar tarifas a medias si falta una de las dos', async () => {
+      // Con solo una, el resumen daria un precio inventado.
+      const ctx = contexto(VerticalKey.TRANSPORTE);
+      await crear(ctx.params, ctx.query, {
+        catalog: { obtener: jest.fn().mockResolvedValue({ extra: { tarifaBase: 15 } }) },
+      });
+
+      expect(componente.tarifasTransporte()).toBeNull();
+    });
+
+    it('deberia seguir funcionando si el catalogo detallado no responde', async () => {
+      const ctx = contexto(VerticalKey.TRANSPORTE);
+      await crear(ctx.params, ctx.query, {
+        catalog: { obtener: jest.fn().mockRejectedValue(new Error('500')) },
+      });
+
+      expect(componente.tarifasTransporte()).toBeNull();
+    });
+
+    it('deberia cargar los suplementos del hotel', async () => {
+      const ctx = contexto(VerticalKey.HOTELES);
+      await crear(ctx.params, ctx.query, {
+        catalog: {
+          obtener: jest.fn().mockResolvedValue({
+            extra: { suplementoSegundaMascotaPorNoche: 12, suplementoPorTamanoMascota: [] },
+          }),
+        },
+      });
+
+      expect(componente.hotelSuplementos()?.suplementoSegundaMascotaPorNoche).toBe(12);
+    });
+
+    it('deberia dejar los suplementos a cero si el hotel no los declara', async () => {
+      const ctx = contexto(VerticalKey.HOTELES);
+      await crear(ctx.params, ctx.query, {
+        catalog: { obtener: jest.fn().mockResolvedValue({ extra: {} }) },
+      });
+
+      expect(componente.hotelSuplementos()?.suplementoSegundaMascotaPorNoche).toBe(0);
+    });
+
+    it('deberia cargar los servicios adicionales de alojamiento', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query, {
+        catalog: {
+          obtener: jest.fn().mockResolvedValue({
+            extra: { serviciosAdicionales: [{ nombre: 'Paseo extra', precio: 8 }] },
+          }),
+        },
+      });
+
+      expect(componente.serviciosAdicionalesAlojamiento()).toHaveLength(1);
+    });
+
+    it('deberia dejar la lista vacia si el vertical no declara adicionales', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query);
+
+      expect(componente.serviciosAdicionalesAlojamiento()).toEqual([]);
+    });
+  });
+
+  describe('sincronizacion del servicio de peluqueria con el perro', () => {
+    const conGrooming = (servicios: unknown[]) => ({
+      catalog: { obtener: jest.fn().mockResolvedValue({ extra: { serviciosGrooming: servicios } }) },
+    });
+
+    it('deberia elegir el primer servicio compatible al cambiar de perro', async () => {
+      // Si el servicio elegido deja de estar disponible para ese perro, el
+      // formulario se quedaria apuntando a algo que el comercio no puede hacer.
+      const ctx = contexto(VerticalKey.PELUQUERIA);
+      await crear(ctx.params, ctx.query, conGrooming([{ nombre: 'Baño', precio: 25 }]));
+
+      componente.seleccionarPerro('perro-1');
+
+      expect(componente.perroSeleccionado()).toBe('perro-1');
+    });
+
+    it('no deberia tocar el servicio en otros verticales', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query);
+
+      componente.seleccionarPerro('perro-1');
+
+      expect(componente.perroSeleccionado()).toBe('perro-1');
+    });
+  });
 });

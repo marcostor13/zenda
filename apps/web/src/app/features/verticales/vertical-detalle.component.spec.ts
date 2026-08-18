@@ -162,4 +162,188 @@ describe('VerticalDetalleComponent', () => {
       expect(component.lightboxAbierto()).toBe(false);
     });
   });
+  /**
+   * Cada vertical arma su lista de "que incluye" con los campos que el comercio
+   * haya rellenado. Un `if` de mas convierte un campo vacio en una promesa al
+   * cliente que el negocio no ha hecho.
+   */
+  describe('puntos destacados por vertical', () => {
+    const puntos = (): string[] => component.cfg().puntos(component.servicio()!);
+
+    describe('transporte', () => {
+      it('no deberia prometer nada que el comercio no haya marcado', async () => {
+        await crearComponente('transporte', servicio({}));
+
+        expect(puntos()).toEqual([]);
+      });
+
+      it('deberia traducir el tipo de vehiculo conocido', async () => {
+        await crearComponente('transporte', servicio({ tipoVehiculo: 'van_acondicionada' }));
+
+        expect(puntos()).toContain('Van acondicionada');
+      });
+
+      it('deberia dejar en crudo un vehiculo desconocido en vez de omitirlo', async () => {
+        await crearComponente('transporte', servicio({ tipoVehiculo: 'nave' }));
+
+        expect(puntos()).toContain('nave');
+      });
+
+      it('deberia listar las ventajas marcadas', async () => {
+        await crearComponente('transporte', servicio({
+          jaulasIncluidas: true, acompananteHumano: true, soloPerros: true,
+          aceptaPPP: true, requisitoVacunas: true,
+        }));
+
+        expect(puntos()).toHaveLength(5);
+      });
+
+      it('deberia recortar la zona de cobertura a cuatro poblaciones', async () => {
+        // La ficha no es un listado de municipios: con cuatro se entiende.
+        await crearComponente('transporte', servicio({
+          zonaCobertura: ['Madrid', 'Toledo', 'Segovia', 'Ávila', 'Cuenca'],
+        }));
+
+        const cobertura = puntos().find((p) => p.startsWith('Cubre'))!;
+        expect(cobertura).toContain('Ávila');
+        expect(cobertura).not.toContain('Cuenca');
+      });
+
+      it('no deberia decir "Cubre" con la zona vacia', async () => {
+        await crearComponente('transporte', servicio({ zonaCobertura: [] }));
+
+        expect(puntos().some((p) => p.startsWith('Cubre'))).toBe(false);
+      });
+
+      it('deberia usar la tarifa base como precio', async () => {
+        await crearComponente('transporte', servicio({ tarifaBase: 15 }));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(15);
+      });
+
+      it('deberia caer al precio por noche si no hay tarifa base', async () => {
+        await crearComponente('transporte', servicio({}));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(25);
+      });
+    });
+
+    describe('adiestramiento', () => {
+      it('deberia anunciar el programa completo', async () => {
+        await crearComponente('adiestramiento', servicio({ modalidad: 'programa' }));
+
+        expect(puntos()[0]).toContain('Programa completo');
+      });
+
+      it('deberia anunciar sesion individual por defecto', async () => {
+        await crearComponente('adiestramiento', servicio({ modalidad: 'sesion' }));
+
+        expect(puntos()[0]).toContain('Sesión individual');
+      });
+
+      it('deberia admitir edad minima de 0 meses como dato valido', async () => {
+        // Con un `if (edadMin)` el 0 se perderia y no se diria que acepta recien
+        // nacidos, que es justo lo que diferencia a ese adiestrador.
+        await crearComponente('adiestramiento', servicio({ edadMinimaMeses: 0 }));
+
+        expect(puntos().some((p) => p.includes('desde 0 meses'))).toBe(true);
+      });
+
+      it('deberia concordar el singular con un perro por sesion', async () => {
+        await crearComponente('adiestramiento', servicio({ capacidadPorSesion: 1 }));
+
+        expect(puntos().some((p) => p.includes('1 perro por sesión'))).toBe(true);
+      });
+
+      it('deberia concordar el plural con varios perros por sesion', async () => {
+        await crearComponente('adiestramiento', servicio({ capacidadPorSesion: 6 }));
+
+        expect(puntos().some((p) => p.includes('6 perros por sesión'))).toBe(true);
+      });
+
+      it('deberia anunciar el servicio a domicilio', async () => {
+        await crearComponente('adiestramiento', servicio({ aDomicilio: true }));
+
+        expect(puntos()).toContain('Disponible a domicilio');
+      });
+
+      it('deberia usar el precio por sesion cuando existe', async () => {
+        await crearComponente('adiestramiento', servicio({ precioSesion: 40 }));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(40);
+      });
+
+      it('deberia listar los tipos de adiestramiento como chips', async () => {
+        await crearComponente('adiestramiento', servicio({ tiposAdiestramiento: ['obediencia'] }));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual(['obediencia']);
+      });
+    });
+
+    describe('hoteles', () => {
+      it('deberia dar por hecho que admite mascotas si no se dice lo contrario', async () => {
+        await crearComponente('hoteles', servicio({}));
+
+        expect(puntos()).toContain('Admite mascotas en la habitación');
+      });
+
+      it('no deberia anunciarlo si el hotel lo desmarca explicitamente', async () => {
+        await crearComponente('hoteles', servicio({ admiteMascotas: false }));
+
+        expect(puntos()).not.toContain('Admite mascotas en la habitación');
+      });
+
+      it('deberia anunciar los limites de peso y numero de mascotas', async () => {
+        await crearComponente('hoteles', servicio({ pesoMaximoMascotaKg: 20, maxMascotasPorReserva: 2 }));
+
+        expect(puntos().some((p) => p.includes('20 kg'))).toBe(true);
+        expect(puntos().some((p) => p.includes('2 mascota'))).toBe(true);
+      });
+
+      it('deberia anunciar la cancelacion gratuita cuando la ofrece', async () => {
+        await crearComponente('hoteles', servicio({}, { cancelacionGratis: true }));
+
+        expect(puntos()).toContain('Cancelación gratuita');
+      });
+
+      it('no deberia anunciarla si el hotel no la ofrece', async () => {
+        await crearComponente('hoteles', servicio({}, { cancelacionGratis: false }));
+
+        expect(puntos()).not.toContain('Cancelación gratuita');
+      });
+    });
+  });
+
+  describe('galeria de fotos', () => {
+    it('deberia avanzar y retroceder en bucle', async () => {
+      await crearComponente('transporte');
+
+      component.abrirLightbox('a.jpg');
+      component.siguienteFoto();
+      expect(component.lightboxImagen()).toBe('b.jpg');
+
+      component.siguienteFoto();
+      // Vuelve a la primera: la galeria es circular.
+      expect(component.lightboxImagen()).toBe('a.jpg');
+
+      component.fotoAnterior();
+      expect(component.lightboxImagen()).toBe('b.jpg');
+    });
+
+    it('no deberia romperse si el servicio no tiene fotos', async () => {
+      await crearComponente('transporte', servicio({}, { imagenes: [] }));
+
+      expect(() => component.siguienteFoto()).not.toThrow();
+      expect(() => component.fotoAnterior()).not.toThrow();
+    });
+
+    it('deberia cerrar el visor', async () => {
+      await crearComponente('transporte');
+      component.abrirLightbox('a.jpg');
+
+      component.cerrarLightbox();
+
+      expect(component.lightboxAbierto()).toBe(false);
+    });
+  });
 });

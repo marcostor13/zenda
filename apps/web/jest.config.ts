@@ -4,6 +4,12 @@ const config: Config = {
   preset: 'jest-preset-angular',
   setupFilesAfterEnv: ['<rootDir>/setup-jest.ts'],
   testEnvironment: 'jsdom',
+  /*
+   * Mismo motivo que en el API: un worker por CPU (aquí 19) con jsdom + el
+   * compilador de Angular en cada uno satura la memoria del equipo y vuelve la
+   * suite lenta e intermitente. Con la mitad va más rápida, no más lenta.
+   */
+  maxWorkers: '50%',
   transform: {
     '^.+\\.(ts|mjs|js|html)$': [
       'jest-preset-angular',
@@ -54,18 +60,14 @@ const config: Config = {
    */
   coverageReporters: ['json', 'lcov', 'text', 'clover', 'json-summary'],
   /*
-   * Suelo anti-regresión, no la meta, con el mismo criterio que el API. El
-   * objetivo sigue siendo el 80% de CLAUDE.md §20, pero ramas y funciones están
-   * hoy por debajo (70% y 74%) y el gate bloqueaba el despliegue entero de la
-   * web con la suite en verde. Estos valores son la cobertura real menos un
-   * margen mínimo: sirven para que no baje, y hay que subirlos por tramos según
-   * se añadan tests.
+   * El objetivo de CLAUDE.md §20, alcanzado el 2026-08-18. El suelo anterior
+   * (80/70/74/80) iba por detrás de la cobertura real en ramas y funciones.
    */
   coverageThreshold: {
     global: {
       statements: 80,
-      branches: 70,
-      functions: 74,
+      branches: 80,
+      functions: 80,
       lines: 80,
     },
   },

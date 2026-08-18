@@ -94,6 +94,35 @@ export class UsersRepository {
     return this.usuarioModel.findOne({ verificacionToken: token }).exec();
   }
 
+  /** Guarda la huella del token de recuperación y su caducidad. */
+  async establecerTokenRecuperacion(id: string, tokenHash: string, expira: Date): Promise<void> {
+    await this.usuarioModel
+      .findByIdAndUpdate(id, { recuperacionTokenHash: tokenHash, recuperacionExpira: expira })
+      .exec();
+  }
+
+  /** Busca por la huella del token, nunca por el token en claro. */
+  async findByRecuperacionTokenHash(tokenHash: string): Promise<UsuarioDocument | null> {
+    return this.usuarioModel.findOne({ recuperacionTokenHash: tokenHash }).exec();
+  }
+
+  /**
+   * Fija la contraseña nueva y consume el token en la misma escritura: dejarlo
+   * vivo permitiría reutilizar el enlace del correo para volver a entrar.
+   */
+  async restablecerPassword(id: string, passwordHash: string): Promise<UsuarioDocument | null> {
+    return this.usuarioModel
+      .findByIdAndUpdate(
+        id,
+        {
+          passwordHash,
+          $unset: { recuperacionTokenHash: 1, recuperacionExpira: 1 },
+        },
+        { new: true },
+      )
+      .exec();
+  }
+
   /** Confirma la verificación: marca verificado, libera el bloqueo y elimina el token. */
   async confirmarVerificacion(id: string): Promise<UsuarioDocument | null> {
     return this.usuarioModel

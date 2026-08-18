@@ -281,6 +281,150 @@ describe('CatalogService', () => {
     });
   });
 
+  /**
+   * El detalle esta lleno de valores por defecto (`??`) porque un comercio puede
+   * publicar sin rellenar casi nada. Estos dos casos cubren los dos extremos:
+   * ficha minima y ficha completa. Si algun defecto desaparece, el frontend
+   * empieza a recibir `undefined` en campos que pinta sin comprobar.
+   */
+  describe('obtenerServicio — valores por defecto de una ficha minima', () => {
+    /** Lo minimo que Mongoose garantiza: ni descripcion, ni horarios, ni espacios. */
+    const fichaMinima = {
+      _id: 'servicio-1',
+      titulo: 'Guarderia',
+      vertical: 'alojamiento',
+      precioBase: 30,
+      comercioId: 'comercio-1',
+    };
+
+    beforeEach(() => {
+      repo.obtenerPorId.mockResolvedValue(fichaMinima as never);
+    });
+
+    it('deberia rellenar los textos vacios en vez de dejar undefined', async () => {
+      const detalle = await service.obtenerServicio('servicio-1');
+
+      expect(detalle.descripcion).toBe('');
+      expect(detalle.politicaCancelacion).toContain('cancelación');
+    });
+
+    it('deberia dar horarios de check-in y check-out por defecto', async () => {
+      const detalle = await service.obtenerServicio('servicio-1');
+
+      expect(detalle.checkIn).toBe('12:00');
+      expect(detalle.checkOut).toBe('11:00');
+    });
+
+    it('deberia exigir vacunas por defecto y no dar por hecha ninguna otra facilidad', async () => {
+      // Fallar del lado seguro: mejor pedir la cartilla de mas que de menos.
+      const detalle = await service.obtenerServicio('servicio-1');
+
+      expect(detalle.requisitoVacunas).toBe(true);
+      expect(detalle.camaras24h).toBe(false);
+      expect(detalle.requisitoMicrochip).toBe(false);
+      expect(detalle.requiereDesparasitacionInterna).toBe(false);
+      expect(detalle.requiereDesparasitacionExterna).toBe(false);
+      expect(detalle.requiereVacunaTosPerreras).toBe(false);
+    });
+
+    it('deberia devolver listas vacias, nunca undefined', async () => {
+      const detalle = await service.obtenerServicio('servicio-1');
+
+      expect(detalle.espacios).toEqual([]);
+      expect(detalle.habitaciones).toEqual([]);
+      expect(detalle.compatibilidadSocialAdmitida).toEqual([]);
+      expect(detalle.serviciosAdicionales).toEqual([]);
+    });
+
+    it('deberia devolver comercioId vacio si el listado quedo huerfano', async () => {
+      repo.obtenerPorId.mockResolvedValue({ ...fichaMinima, comercioId: undefined } as never);
+
+      const detalle = await service.obtenerServicio('servicio-1');
+
+      expect(detalle.comercioId).toBe('');
+    });
+  });
+
+  describe('obtenerServicio — normalizacion de espacios a medio rellenar', () => {
+    it('deberia completar cada espacio con id, precio y banderas por defecto', async () => {
+      // Un espacio creado sin tocar los campos opcionales del formulario.
+      repo.obtenerPorId.mockResolvedValue({
+        _id: 'servicio-1',
+        titulo: 'Guarderia',
+        vertical: 'alojamiento',
+        precioBase: 30,
+        comercioId: 'comercio-1',
+        espacios: [{}],
+      } as never);
+
+      const [espacio] = (await service.obtenerServicio('servicio-1')).espacios as Record<string, unknown>[];
+
+      expect(espacio['id']).toBe('esp-0');
+      expect(espacio['tipo']).toBe('estandar');
+      expect(espacio['descripcion']).toBe('');
+      expect(espacio['precioNoche']).toBe(30);
+      expect(espacio['cantidad']).toBe(1);
+      expect(espacio['disponible']).toBe(true);
+      expect(espacio['cancelacionGratis']).toBe(true);
+      expect(espacio['amenities']).toEqual([]);
+      expect(espacio['imagenes']).toEqual([]);
+    });
+
+    it('deberia caer a 0 si el listado tampoco tiene precio base', async () => {
+      repo.obtenerPorId.mockResolvedValue({
+        _id: 'servicio-1', titulo: 'x', vertical: 'alojamiento', comercioId: 'c1', espacios: [{}],
+      } as never);
+
+      const [espacio] = (await service.obtenerServicio('servicio-1')).espacios as Record<string, unknown>[];
+
+      expect(espacio['precioNoche']).toBe(0);
+    });
+
+    it('deberia respetar el id propio del espacio cuando existe', async () => {
+      repo.obtenerPorId.mockResolvedValue({
+        _id: 'servicio-1', titulo: 'x', vertical: 'alojamiento', comercioId: 'c1', precioBase: 30,
+        espacios: [{ _id: 'mongo-id' }, { id: 'id-propio' }],
+      } as never);
+
+      const espacios = (await service.obtenerServicio('servicio-1')).espacios as Record<string, unknown>[];
+
+      expect(espacios[0]['id']).toBe('mongo-id');
+      expect(espacios[1]['id']).toBe('id-propio');
+    });
+
+    it('deberia proyectar los espacios como habitaciones cuando no hay habitaciones propias', async () => {
+      // Shape legacy: hay consumidores que siguen leyendo `habitaciones`.
+      repo.obtenerPorId.mockResolvedValue({
+        _id: 'servicio-1', titulo: 'x', vertical: 'alojamiento', comercioId: 'c1', precioBase: 30,
+        espacios: [{}],
+      } as never);
+
+      const [habitacion] = (await service.obtenerServicio('servicio-1')).habitaciones;
+
+      expect(habitacion.tipo).toBe('estandar');
+      expect(habitacion.capacidad).toBe(1);
+      expect(habitacion.disponible).toBe(true);
+      expect(habitacion.cancelacionGratis).toBe(true);
+      expect(habitacion.amenities).toEqual([]);
+    });
+
+    it('deberia completar una habitacion propia a la que le faltan campos', async () => {
+      repo.obtenerPorId.mockResolvedValue({
+        _id: 'servicio-1', titulo: 'x', vertical: 'alojamiento', comercioId: 'c1', precioBase: 30,
+        habitaciones: [{ tipo: 'Suite', capacidad: 2, precio: 120 }],
+      } as never);
+
+      const [habitacion] = (await service.obtenerServicio('servicio-1')).habitaciones;
+
+      expect(habitacion.id).toBe('hab-0');
+      expect(habitacion.descripcion).toBe('');
+      expect(habitacion.camas).toBe('');
+      expect(habitacion.tamano).toBe(0);
+      expect(habitacion.disponible).toBe(true);
+      expect(habitacion.imagenes).toEqual([]);
+    });
+  });
+
   describe('obtenerServicio', () => {
     it('debería devolver el detalle mapeado con sus habitaciones', async () => {
       repo.obtenerPorId.mockResolvedValue(hotelDoc as never);

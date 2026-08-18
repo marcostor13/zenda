@@ -70,6 +70,26 @@ function aDia(fecha: string | Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+/**
+ * Clave `YYYY-MM-DD` de un día del calendario, construida con las partes
+ * **locales** de la fecha.
+ *
+ * Con `toISOString()` la clave se calculaba en UTC mientras que `aDia()` trabaja
+ * en hora local, así que sólo coincidían en UTC+0: en España (UTC+1/+2) y en
+ * América la celda que ponía "3" filtraba las reservas del día 2, o de ninguno.
+ */
+function claveDia(fecha: Date): string {
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}
+
+/** Vuelta de `claveDia`: medianoche **local**, no UTC. */
+function desdeClaveDia(clave: string): number {
+  const [anio, mes, dia] = clave.split('-').map(Number);
+  return new Date(anio, mes - 1, dia).getTime();
+}
+
 @Component({
   selector: 'app-comercio-reservas',
   standalone: true,
@@ -994,7 +1014,7 @@ export class ComercioReservasComponent implements OnInit {
         if (!campos.includes(texto)) return false;
       }
       if (rango && !this.solapaRango(r, rango)) return false;
-      if (dia && !this.cubreElDia(r, new Date(dia).getTime())) return false;
+      if (dia && !this.cubreElDia(r, desdeClaveDia(dia))) return false;
       return true;
     });
   });
@@ -1014,7 +1034,7 @@ export class ComercioReservasComponent implements OnInit {
       const fecha = new Date(inicioSemana.getFullYear(), inicioSemana.getMonth(), inicioSemana.getDate() + i);
       const tiempo = fecha.getTime();
       return {
-        clave: fecha.toISOString().slice(0, 10),
+        clave: claveDia(fecha),
         dia: fecha.getDate(),
         delMes: fecha.getMonth() === primero.getMonth(),
         esHoy: tiempo === hoy,

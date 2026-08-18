@@ -20,6 +20,12 @@ const config: Config = {
   },
   transformIgnorePatterns: ['node_modules[\\\\/](?!(.*[\\\\/])?nanoid[\\\\/])'],
   testEnvironment: 'node',
+  /*
+   * Los decoradores de class-validator se evalúan al importar los DTOs de
+   * `shared`. Si el spec los importa antes que el AppModule (que arrastra
+   * reflect-metadata), el registro global aún no existe y el import revienta.
+   */
+  setupFiles: ['reflect-metadata'],
   moduleNameMapper: {
     '^shared$': '<rootDir>/../../libs/shared/src',
   },

@@ -70,6 +70,18 @@ export class Usuario {
   @Prop()
   verificacionExpira?: Date;
 
+  /**
+   * Token de restablecimiento de contraseña. Se guarda **hasheado** (SHA-256):
+   * en claro, cualquiera con lectura sobre la colección podría tomar la cuenta
+   * de otro sin conocer su contraseña. El correo lleva el token original y aquí
+   * sólo vive su huella, que no sirve para construir el enlace.
+   */
+  @Prop()
+  recuperacionTokenHash?: string;
+
+  @Prop()
+  recuperacionExpira?: Date;
+
   @Prop()
   avatarUrl?: string;
 

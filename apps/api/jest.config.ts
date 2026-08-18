@@ -55,22 +55,42 @@ const config: Config = {
    */
   coverageReporters: ['json', 'lcov', 'text', 'clover', 'json-summary'],
   testEnvironment: 'node',
+  /*
+   * Los decoradores de class-validator se evalúan al importar los DTOs de
+   * `shared`. Un spec que los importe antes que nada de NestJS (que arrastra
+   * reflect-metadata) reventaba con "Reflect.getMetadata is not a function".
+   */
+  setupFiles: ['reflect-metadata'],
+  /*
+   * La suite era intermitente: fallaba un `describe` distinto en cada ejecución
+   * y siempre pasaba al correrlo aislado. La causa no era el código sino la
+   * memoria: por defecto Jest lanza un worker por CPU menos una (aquí, 19), y
+   * cada worker carga ts-jest, el grafo de NestJS y todos los schemas de
+   * Mongoose. Con eso el equipo se va a swap y suites que tardan 5 s pasan de
+   * los 130. Con la mitad de workers hay CPU de sobra y memoria suficiente.
+   */
+  maxWorkers: '50%',
+  /*
+   * Margen sobre los 5 s por defecto para que un pico puntual de carga no
+   * convierta un test sano en un fallo. No enmascara nada: la suite unitaria no
+   * hace E/S real, así que un test que de verdad se cuelgue sigue fallando.
+   */
+  testTimeout: 20_000,
   moduleNameMapper: {
     '^shared$': '<rootDir>/../../../libs/shared/src',
   },
   /*
-   * Suelo anti-regresión, no la meta. El objetivo del proyecto sigue siendo el
-   * 80% de CLAUDE.md §20, pero el API está hoy por debajo y el gate bloqueaba
-   * el deploy entero (ningún despliegue del API desde el 29/07/2026). Estos
-   * valores son la cobertura real menos un margen mínimo: sirven para que no
-   * baje, y hay que subirlos por tramos según se añadan tests.
+   * El objetivo de CLAUDE.md §20. Se alcanzó el 2026-08-18; antes el suelo
+   * estaba en 70/56/58/70, entre 16 y 19 puntos POR DEBAJO de la cobertura real,
+   * así que no protegía de nada: se podían borrar cientos de tests sin que el
+   * gate protestara.
    */
   coverageThreshold: {
     global: {
-      statements: 70,
-      branches: 56,
-      functions: 58,
-      lines: 70,
+      statements: 80,
+      branches: 80,
+      functions: 80,
+      lines: 80,
     },
   },
 };

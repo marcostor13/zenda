@@ -11,7 +11,8 @@ export type TipoNotificacion =
   | 'verificacion_email'
   | 'ajuste_solicitado'
   | 'solicitud_valoracion'
-  | 'recuperacion_reserva';
+  | 'recuperacion_reserva'
+  | 'recuperacion_password';
 
 /** Outbox de notificaciones: cada intento de envío queda registrado. */
 @Schema({ timestamps: true, collection: 'notificaciones' })

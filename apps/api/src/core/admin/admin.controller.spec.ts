@@ -34,6 +34,27 @@ describe('AdminController', () => {
             listarNivelesAlpha: jest.fn().mockResolvedValue([]),
             actualizarNivelAlpha: jest.fn().mockResolvedValue({ nivel: 2 }),
             generarReporteFinanciero: jest.fn().mockResolvedValue(reporteMock),
+            obtenerDashboard: jest.fn().mockResolvedValue({}),
+            listarComercios: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+            resumenComercios: jest.fn().mockResolvedValue({}),
+            fichaComercio: jest.fn().mockResolvedValue({}),
+            crearComercio: jest.fn().mockResolvedValue({}),
+            actualizarComercio: jest.fn().mockResolvedValue({}),
+            cambiarVerificacionComercio: jest.fn().mockResolvedValue({}),
+            eliminarComercio: jest.fn().mockResolvedValue(undefined),
+            listarUsuarios: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+            resumenUsuarios: jest.fn().mockResolvedValue({}),
+            fichaUsuario: jest.fn().mockResolvedValue({}),
+            crearUsuario: jest.fn().mockResolvedValue({}),
+            actualizarUsuario: jest.fn().mockResolvedValue({}),
+            eliminarUsuario: jest.fn().mockResolvedValue(undefined),
+            listarPagos: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+            resumenPagos: jest.fn().mockResolvedValue({}),
+            evolucion: jest.fn().mockResolvedValue([]),
+            resumenReservas: jest.fn().mockResolvedValue({}),
+            listarReservas: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+            cambiarEstadoReserva: jest.fn().mockResolvedValue({}),
+            obtenerAnalitica: jest.fn().mockResolvedValue({}),
           },
         },
       ],
@@ -83,6 +104,160 @@ describe('AdminController', () => {
       await controller.actualizarNivelAlpha(dto, req);
 
       expect(adminService.actualizarNivelAlpha).toHaveBeenCalledWith(dto, 'admin-1');
+    });
+  });
+
+  const admin = { user: { sub: 'admin-1', rol: Rol.ADMIN } } as never;
+
+  describe('dashboard', () => {
+    it('deberia usar el rango por defecto del servicio si no se indican fechas', async () => {
+      await controller.obtenerDashboard();
+
+      expect(adminService.obtenerDashboard).toHaveBeenCalledWith(undefined);
+    });
+
+    it('deberia exigir ambas fechas para acotar el rango', async () => {
+      // Con solo una, el rango quedaria abierto por un lado y el KPI no
+      // significaria nada.
+      await controller.obtenerDashboard('2026-08-01');
+
+      expect(adminService.obtenerDashboard).toHaveBeenCalledWith(undefined);
+    });
+
+    it('deberia convertir a fecha el rango completo', async () => {
+      await controller.obtenerDashboard('2026-08-01', '2026-08-31');
+
+      expect(adminService.obtenerDashboard).toHaveBeenCalledWith({
+        desde: new Date('2026-08-01'),
+        hasta: new Date('2026-08-31'),
+      });
+    });
+  });
+
+  describe('comercios', () => {
+    it('no deberia filtrar por Alpha si no llega el parametro', async () => {
+      await controller.listarComercios(1, 20);
+
+      expect(adminService.listarComercios).toHaveBeenCalledWith(1, 20, undefined, undefined, undefined);
+    });
+
+    it('deberia traducir el filtro Alpha de texto a booleano', async () => {
+      await controller.listarComercios(1, 20, 'activo', 'perro', 'true');
+      expect(adminService.listarComercios).toHaveBeenCalledWith(1, 20, 'activo', 'perro', true);
+
+      await controller.listarComercios(1, 20, undefined, undefined, 'false');
+      expect(adminService.listarComercios).toHaveBeenLastCalledWith(1, 20, undefined, undefined, false);
+    });
+
+    it('deberia devolver el resumen y la ficha', async () => {
+      await controller.resumenComercios();
+      await controller.fichaComercio('comercio-1');
+
+      expect(adminService.resumenComercios).toHaveBeenCalled();
+      expect(adminService.fichaComercio).toHaveBeenCalledWith('comercio-1');
+    });
+
+    it('deberia crear y actualizar el comercio con el cuerpo recibido', async () => {
+      await controller.crearComercio({ razonSocial: 'X SL', vatNumber: 'B1', nombreComercial: 'X' });
+      await controller.actualizarComercio('comercio-1', { plan: 'pro' });
+
+      expect(adminService.crearComercio).toHaveBeenCalledWith(
+        expect.objectContaining({ vatNumber: 'B1' }),
+      );
+      expect(adminService.actualizarComercio).toHaveBeenCalledWith('comercio-1', { plan: 'pro' });
+    });
+
+    it('deberia registrar que admin verifica la documentacion', async () => {
+      await controller.cambiarVerificacionComercio(
+        'comercio-1', { estado: 'rechazado', motivo: 'licencia caducada' }, admin,
+      );
+
+      expect(adminService.cambiarVerificacionComercio).toHaveBeenCalledWith(
+        'comercio-1', 'rechazado', 'licencia caducada', 'admin-1',
+      );
+    });
+
+    it('deberia eliminar el comercio sin devolver cuerpo', async () => {
+      await expect(controller.eliminarComercio('comercio-1')).resolves.toBeUndefined();
+      expect(adminService.eliminarComercio).toHaveBeenCalledWith('comercio-1');
+    });
+  });
+
+  describe('usuarios', () => {
+    it('deberia traducir el filtro de verificacion a booleano', async () => {
+      await controller.listarUsuarios(1, 20, 'cliente', 'juan', 'true');
+      expect(adminService.listarUsuarios).toHaveBeenCalledWith(1, 20, 'cliente', 'juan', true);
+
+      await controller.listarUsuarios(1, 20);
+      expect(adminService.listarUsuarios).toHaveBeenLastCalledWith(1, 20, undefined, undefined, undefined);
+    });
+
+    it('deberia devolver el resumen y la ficha', async () => {
+      await controller.resumenUsuarios();
+      await controller.fichaUsuario('user-1');
+
+      expect(adminService.fichaUsuario).toHaveBeenCalledWith('user-1');
+    });
+
+    it('deberia registrar que admin edita o elimina una cuenta', async () => {
+      // Editar roles y borrar cuentas son las acciones mas sensibles del panel:
+      // sin actor no hay a quien pedir explicaciones.
+      await controller.actualizarUsuario('user-1', { rol: Rol.ADMIN }, admin);
+      await controller.eliminarUsuario('user-1', admin);
+
+      expect(adminService.actualizarUsuario).toHaveBeenCalledWith('user-1', { rol: Rol.ADMIN }, 'admin-1');
+      expect(adminService.eliminarUsuario).toHaveBeenCalledWith('user-1', 'admin-1');
+    });
+
+    it('deberia crear la cuenta con el cuerpo recibido', async () => {
+      const dto = { nombre: 'Ana', email: 'ana@test.com', password: 'secreta8' };
+
+      await controller.crearUsuario(dto);
+
+      expect(adminService.crearUsuario).toHaveBeenCalledWith(dto);
+    });
+  });
+
+  describe('pagos, reservas y analitica', () => {
+    it('deberia pasar los filtros de pagos agrupados', async () => {
+      await controller.listarPagos(2, 50, 'aprobado', 'comercio-1', 'RES-1');
+
+      expect(adminService.listarPagos).toHaveBeenCalledWith(2, 50, {
+        estado: 'aprobado', comercioId: 'comercio-1', buscar: 'RES-1',
+      });
+    });
+
+    it('deberia devolver los resumenes y la evolucion', async () => {
+      await controller.resumenPagos();
+      await controller.resumenReservas();
+      await controller.evolucion(7);
+      await controller.obtenerAnalitica();
+
+      expect(adminService.evolucion).toHaveBeenCalledWith(7);
+      expect(adminService.obtenerAnalitica).toHaveBeenCalled();
+    });
+
+    it('deberia convertir a numero los importes del filtro de reservas', async () => {
+      await controller.listarReservas(1, 20, { importeMin: '100', importeMax: '500', estado: 'confirmada' });
+
+      expect(adminService.listarReservas).toHaveBeenCalledWith(1, 20,
+        expect.objectContaining({ importeMin: 100, importeMax: 500, estado: 'confirmada' }));
+    });
+
+    it('deberia descartar importes vacios o no numericos en vez de mandar NaN', async () => {
+      // Un NaN en el filtro haria que Mongo no devolviera nada, sin error visible.
+      await controller.listarReservas(1, 20, { importeMin: '', importeMax: 'mucho' });
+
+      expect(adminService.listarReservas).toHaveBeenCalledWith(1, 20,
+        expect.objectContaining({ importeMin: undefined, importeMax: undefined }));
+    });
+
+    it('deberia registrar que admin cambia el estado de una reserva', async () => {
+      await controller.cambiarEstadoReserva('reserva-1', { estado: 'cancelada', motivo: 'fraude' }, admin);
+
+      expect(adminService.cambiarEstadoReserva).toHaveBeenCalledWith(
+        'reserva-1', 'cancelada', 'admin-1', 'fraude',
+      );
     });
   });
 

@@ -24,6 +24,7 @@ describe('ComercioConfigComponent', () => {
         datos instanceof Error ? throwError(() => datos) : of(datos),
       ),
       actualizarComercio: jest.fn().mockReturnValue(of(miComercio({ nombreComercial: 'Canes Premium' }))),
+      getMisServicios: jest.fn().mockReturnValue(of([{ _id: 's1' }, { _id: 's2' }])),
     };
 
     await TestBed.configureTestingModule({
@@ -389,6 +390,312 @@ describe('ComercioConfigComponent', () => {
 
       expect(componente.labelVertical(VerticalKey.ALOJAMIENTO)).not.toBe(VerticalKey.ALOJAMIENTO);
       expect(componente.labelVertical('inventado')).toBe('inventado');
+    });
+  });
+  describe('avisos de cambios sin guardar', () => {
+    it('no deberia avisar mientras no se toque nada', async () => {
+      await crear();
+
+      expect(componente.hayCambiosSinGuardar()).toBe(false);
+    });
+
+    it('deberia avisar al ensuciar el formulario de la pestana activa', async () => {
+      await crear();
+
+      componente.infoForm.markAsDirty();
+      componente.cambiarTab('perfil');
+
+      expect(componente.hayCambiosSinGuardar()).toBe(true);
+    });
+
+    it('no deberia avisar si lo sucio es otra pestana', async () => {
+      // El aviso tiene que referirse a lo que el comercio esta viendo.
+      await crear();
+      componente.infoForm.markAsDirty();
+
+      componente.cambiarTab('contacto');
+
+      expect(componente.hayCambiosSinGuardar()).toBe(false);
+    });
+
+    it('deberia seguir cada pestana con su propio formulario', async () => {
+      await crear();
+
+      for (const tab of ['ubicacion', 'contacto', 'redes', 'horarios', 'politicas', 'verificacion'] as const) {
+        componente.cambiarTab(tab);
+        expect(componente.hayCambiosSinGuardar()).toBe(false);
+      }
+    });
+  });
+
+  describe('punto en el mapa', () => {
+    it('no deberia pintar marcador si el negocio no tiene coordenadas', async () => {
+      await crear();
+
+      expect(componente.coordenadas()).toBeNull();
+      expect(componente.enlaceGoogleMaps()).toBeNull();
+    });
+
+    it('deberia pintar el punto guardado', async () => {
+      await crear(miComercio({
+        direccion: { ciudad: 'Valencia', lat: 39.47, lng: -0.37 },
+      } as Partial<MiComercio>));
+
+      expect(componente.coordenadas()).toMatchObject({ lat: 39.47, lng: -0.37 });
+      expect(componente.enlaceGoogleMaps()).toContain('39.47');
+    });
+
+    it('deberia mover el marcador al elegir direccion, sin esperar a guardar', async () => {
+      await crear();
+
+      componente.usarDireccionSugerida({
+        direccion: {
+          calle: 'Gran Via', numero: '1', codigoPostal: '46001', ciudad: 'Valencia',
+          provincia: 'Valencia', pais: 'Espana', formateada: 'Gran Via 1', lat: 39.47, lng: -0.37,
+        },
+      } as never);
+
+      expect(componente.coordenadas()).toMatchObject({ lat: 39.47, lng: -0.37 });
+      expect(componente.direccionForm.getRawValue().ciudad).toBe('Valencia');
+      expect(componente.direccionForm.dirty).toBe(true);
+    });
+
+    it('no deberia borrar lo que el comercio ya habia escrito', async () => {
+      // Google no conoce el "2oB": pisarlo con vacio perderia el dato.
+      await crear();
+      componente.direccionForm.patchValue({ numero: '2oB' });
+
+      componente.usarDireccionSugerida({
+        direccion: {
+          calle: 'Gran Via', numero: '', codigoPostal: '46001', ciudad: 'Valencia',
+          provincia: 'Valencia', pais: 'Espana', formateada: '', lat: 39.47, lng: -0.37,
+        },
+      } as never);
+
+      expect(componente.direccionForm.getRawValue().numero).toBe('2oB');
+    });
+
+    it('no deberia hacer nada si la sugerencia viene sin direccion', async () => {
+      await crear();
+
+      componente.usarDireccionSugerida({} as never);
+
+      expect(componente.direccionForm.dirty).toBe(false);
+    });
+  });
+
+  describe('plan y limite de listados', () => {
+    it('deberia proponer subir de basico a pro', async () => {
+      await crear();
+
+      expect(componente.planSiguiente()?.nombre).toBe('pro');
+      expect(componente.planBadgeClass()).toContain('neutral');
+    });
+
+    it('no deberia proponer nada por encima de premium', async () => {
+      await crear(miComercio({ plan: 'premium' }));
+
+      expect(componente.planSiguiente()).toBeNull();
+      expect(componente.planBadgeClass()).toContain('warning');
+      expect(componente.planFeatures()).toContain('Listados ilimitados');
+    });
+
+    it('deberia marcar el plan pro con su propio badge y ventajas', async () => {
+      await crear(miComercio({ plan: 'pro' }));
+
+      expect(componente.planBadgeClass()).toContain('accent');
+      expect(componente.planFeatures()).toContain('Hasta 20 listados');
+    });
+
+    it('deberia calcular el porcentaje de listados usados sobre el tope del plan', async () => {
+      await crear();
+      componente.serviciosPublicados.set(2);
+
+      // 2 de los 3 del plan basico.
+      expect(componente.pctServiciosUsados()).toBe(67);
+    });
+
+    it('deberia tapar el porcentaje al 100 aunque se supere el tope', async () => {
+      // Un comercio que bajo de plan puede tener mas listados que su tope: la
+      // barra no puede pasar del 100 %.
+      await crear();
+      componente.serviciosPublicados.set(9);
+
+      expect(componente.pctServiciosUsados()).toBe(100);
+    });
+
+    it('deberia devolver 0 % si el plan no tiene tope', async () => {
+      await crear(miComercio({ plan: 'premium' }));
+
+      expect(componente.pctServiciosUsados()).toBe(0);
+    });
+  });
+
+  describe('caducidad de la documentacion', () => {
+    const enDias = (dias: number): string =>
+      new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10);
+
+    it('no deberia decir nada de un documento sin fecha', async () => {
+      await crear();
+
+      expect(componente.estadoCaducidad(undefined)).toBeNull();
+      expect(componente.textoCaducidad(undefined)).toBe('');
+    });
+
+    it('deberia marcar como caducado lo que ya vencio', async () => {
+      await crear();
+
+      expect(componente.estadoCaducidad(enDias(-5))).toBe('caducado');
+      expect(componente.textoCaducidad(enDias(-5))).toBe('Caducado');
+    });
+
+    it('deberia avisar antes de que caduque, no el dia que caduca', async () => {
+      await crear();
+
+      expect(componente.estadoCaducidad(enDias(10))).toBe('pronto');
+      expect(componente.textoCaducidad(enDias(10))).toContain('Caduca en');
+    });
+
+    it('deberia concordar el singular a un dia vista', async () => {
+      await crear();
+
+      expect(componente.textoCaducidad(enDias(1))).toBe('Caduca en 1 día');
+    });
+
+    it('deberia dar por vigente lo que queda lejos', async () => {
+      await crear();
+
+      expect(componente.estadoCaducidad(enDias(365))).toBe('vigente');
+      expect(componente.textoCaducidad(enDias(365))).toContain('Vigente hasta');
+    });
+  });
+
+  describe('documentos adicionales', () => {
+    it('no deberia agregar el documento si el formulario es invalido', async () => {
+      await crear();
+      const antes = componente.docsAdicionales().length;
+
+      componente.agregarDoc();
+
+      expect(componente.docsAdicionales()).toHaveLength(antes);
+    });
+
+    it('deberia agregar el documento como pendiente de revision', async () => {
+      await crear();
+      componente.docForm.patchValue({ tipo: 'seguro_rc', url: 'https://x/doc.pdf', nombre: 'Seguro' });
+
+      componente.agregarDoc();
+
+      expect(componente.docsAdicionales().at(-1)).toMatchObject({
+        tipo: 'seguro_rc', estado: 'pendiente',
+      });
+    });
+
+    it('deberia quitar el documento de la posicion indicada', async () => {
+      await crear();
+      componente.docForm.patchValue({ tipo: 'seguro_rc', url: 'https://x/doc.pdf' });
+      componente.agregarDoc();
+
+      componente.quitarDoc(0);
+
+      expect(componente.docsAdicionales()).toHaveLength(0);
+    });
+
+    it('deberia etiquetar los tipos conocidos y dejar el resto en crudo', async () => {
+      await crear();
+
+      expect(componente.tipoDocLabel('seguro_rc')).toBe('Seguro RC');
+      expect(componente.tipoDocLabel('inventado')).toBe('inventado');
+    });
+
+    it('deberia colorear el badge segun el estado del documento', async () => {
+      await crear();
+
+      expect(componente.docBadge('verificado')).toContain('success');
+      expect(componente.docBadge('rechazado')).toContain('error');
+      expect(componente.docBadge('otro')).toContain('neutral');
+    });
+  });
+
+  describe('horarios y excepciones', () => {
+    it('deberia copiar el horario del lunes al resto de dias', async () => {
+      await crear();
+      componente.diasControls[0].patchValue({ abre: '08:00', cierra: '20:00', cerrado: false });
+
+      componente.copiarHorarioATodos();
+
+      expect(componente.diasControls[3].getRawValue().abre).toBe('08:00');
+      expect(componente.diasControls[6].getRawValue().cierra).toBe('20:00');
+    });
+
+    it('no deberia anadir una excepcion sin fecha', async () => {
+      await crear();
+
+      componente.anadirExcepcion();
+
+      expect(componente.excepciones()).toHaveLength(0);
+    });
+
+    it('deberia anadir un cierre completo sin horario', async () => {
+      await crear();
+      componente.nuevaExcepcionFecha.set('2026-12-25');
+      componente.nuevaExcepcionMotivo.set('Navidad');
+      componente.nuevaExcepcionCerrado.set(true);
+
+      componente.anadirExcepcion();
+
+      expect(componente.excepciones()[0]).toMatchObject({
+        fecha: '2026-12-25', motivo: 'Navidad', cerrado: true, abre: undefined,
+      });
+    });
+
+    it('deberia guardar el horario reducido de un dia abierto a medias', async () => {
+      await crear();
+      componente.nuevaExcepcionFecha.set('2026-12-24');
+      componente.nuevaExcepcionCerrado.set(false);
+      componente.nuevaExcepcionAbre.set('09:00');
+      componente.nuevaExcepcionCierra.set('14:00');
+
+      componente.anadirExcepcion();
+
+      expect(componente.excepciones()[0]).toMatchObject({ abre: '09:00', cierra: '14:00' });
+    });
+
+    it('deberia sustituir la excepcion si se repite la fecha, no duplicarla', async () => {
+      await crear();
+      componente.nuevaExcepcionFecha.set('2026-12-25');
+      componente.anadirExcepcion();
+      componente.nuevaExcepcionFecha.set('2026-12-25');
+      componente.nuevaExcepcionMotivo.set('Corregido');
+      componente.anadirExcepcion();
+
+      expect(componente.excepciones()).toHaveLength(1);
+      expect(componente.excepciones()[0].motivo).toBe('Corregido');
+    });
+
+    it('deberia mantener las excepciones ordenadas por fecha', async () => {
+      await crear();
+      componente.nuevaExcepcionFecha.set('2026-12-25');
+      componente.anadirExcepcion();
+      componente.nuevaExcepcionFecha.set('2026-01-06');
+      componente.anadirExcepcion();
+
+      expect(componente.excepciones().map((e) => e.fecha)).toEqual(['2026-01-06', '2026-12-25']);
+    });
+  });
+
+  describe('etiquetas', () => {
+    it('deberia traducir los verticales conocidos y dejar el resto en crudo', async () => {
+      await crear();
+
+      expect(componente.labelVertical('inventado')).toBe('inventado');
+      expect(componente.labelVertical(VerticalKey.ALOJAMIENTO)).not.toBe(VerticalKey.ALOJAMIENTO);
+    });
+
+    it('deberia tratar la falta de verificacion como sin verificar', async () => {
+      await crear();
+
+      expect(componente.verificacionBadge()).toBeDefined();
     });
   });
 });

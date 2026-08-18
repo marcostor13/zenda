@@ -1,7 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { LoginDto, RegistroDto, AuthResponseDto, RegistroPendienteDto, Rol } from 'shared';
 import { UsersRepository } from '../users/users.repository';
@@ -18,6 +18,12 @@ const VERIFICACION_VALIDEZ_MS = 24 * 60 * 60 * 1000;
  * "existe pero entra con Google" convierte el login en un buscador de cuentas.
  */
 const CREDENCIALES_INCORRECTAS = 'Email o contraseña incorrectos';
+
+/**
+ * Una hora. Más corto que la verificación de email (24 h) a propósito: este
+ * enlace da acceso a la cuenta, no sólo la activa.
+ */
+const RECUPERACION_VALIDEZ_MS = 60 * 60 * 1000;
 
 export interface JwtPayload {
   sub: string;
@@ -145,8 +151,7 @@ export class AuthService {
     await this.notificationsService.enviarVerificacionEmail(usuario.email, usuario.nombre, url, esComercio);
 
     // Sin email configurado el correo no llega: dejamos el enlace en el log para verificar en dev.
-    const emailConfigurado = this.config.get<string>('EMAIL_USER') || this.config.get<string>('SMTP_HOST');
-    if (!emailConfigurado) {
+    if (!this.hayEmailConfigurado()) {
       this.logger.warn(`Verificación (sin email configurado) para ${usuario.email}: ${url}`);
     }
   }
@@ -168,6 +173,72 @@ export class AuthService {
     if (usuario && usuario.requiereVerificacionEmail && !usuario.verificado) {
       await this.iniciarVerificacionEmail(usuario);
     }
+  }
+
+  /**
+   * Paso 1 de la recuperación: envía el enlace si la cuenta existe y tiene
+   * contraseña local.
+   *
+   * **Siempre devuelve void sin distinguir casos.** Responder distinto según si
+   * el email está registrado convertiría este endpoint en el mismo oráculo de
+   * enumeración que se acaba de cerrar en el login.
+   */
+  async solicitarRecuperacionPassword(email: string): Promise<void> {
+    const usuario = await this.usersRepository.findByEmail(email);
+
+    // Sin `passwordHash` la cuenta es sólo social: no hay contraseña que
+    // restablecer, y crear una por esta vía permitiría entrar sin pasar por el
+    // proveedor que verificó ese email.
+    if (!usuario || !usuario.passwordHash) return;
+
+    const token = randomBytes(32).toString('hex');
+    const expira = new Date(Date.now() + RECUPERACION_VALIDEZ_MS);
+    await this.usersRepository.establecerTokenRecuperacion(usuario.id, this.hashear(token), expira);
+
+    const url = `${this.urlFrontend()}/auth/restablecer?token=${token}`;
+    await this.notificationsService.enviarRecuperacionPassword(usuario.email, usuario.nombre, url);
+
+    if (!this.hayEmailConfigurado()) {
+      this.logger.warn(`Recuperación (sin email configurado) para ${usuario.email}: ${url}`);
+    }
+  }
+
+  /**
+   * Paso 2: valida el token, fija la contraseña nueva y devuelve la sesión ya
+   * iniciada, para que el usuario no tenga que escribirla otra vez acto seguido.
+   */
+  async restablecerPassword(token: string, nuevaPassword: string): Promise<AuthResponseDto> {
+    const usuario = await this.usersRepository.findByRecuperacionTokenHash(this.hashear(token));
+
+    if (!usuario || !usuario.recuperacionExpira || usuario.recuperacionExpira.getTime() < Date.now()) {
+      throw new DomainException('El enlace para restablecer la contraseña no es válido o ha caducado.', 400);
+    }
+
+    const passwordHash = await bcrypt.hash(nuevaPassword, 10);
+    const actualizado = await this.usersRepository.restablecerPassword(usuario.id, passwordHash);
+
+    // Quien demuestra tener acceso al correo ha verificado ese email de hecho:
+    // dejarlo bloqueado por "email sin verificar" no protege de nada y deja al
+    // usuario con la contraseña cambiada y sin poder entrar.
+    if (actualizado?.requiereVerificacionEmail && !actualizado.verificado) {
+      const confirmado = await this.usersRepository.confirmarVerificacion(actualizado.id);
+      return this.construirRespuesta(confirmado ?? actualizado);
+    }
+
+    return this.construirRespuesta(actualizado ?? usuario);
+  }
+
+  /**
+   * SHA-256 basta y sobra aquí: el token son 32 bytes aleatorios, no una
+   * contraseña, así que no hay diccionario que aplicarle y no hace falta el
+   * coste de bcrypt en un endpoint sin sesión.
+   */
+  private hashear(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private hayEmailConfigurado(): boolean {
+    return Boolean(this.config.get<string>('EMAIL_USER') || this.config.get<string>('SMTP_HOST'));
   }
 
   /** Emite un token fresco para un usuario ya existente (p. ej. tras vincularlo a un comercio). */

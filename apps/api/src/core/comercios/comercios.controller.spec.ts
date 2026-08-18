@@ -13,11 +13,29 @@ describe('ComerciosController', () => {
         {
           provide: ComerciosService,
           useValue: {
-            registrar: jest.fn(),
-            listar: jest.fn(),
-            obtener: jest.fn(),
-            cambiarEstado: jest.fn(),
-            solicitarAjusteReserva: jest.fn(),
+            registrar: jest.fn().mockResolvedValue({}),
+            registrarConCuenta: jest.fn().mockResolvedValue({}),
+            vincularNuevoComercio: jest.fn().mockResolvedValue({}),
+            listar: jest.fn().mockResolvedValue({}),
+            obtener: jest.fn().mockResolvedValue({}),
+            obtenerReservasComercio: jest.fn().mockResolvedValue({}),
+            obtenerFinanzasComercio: jest.fn().mockResolvedValue({}),
+            obtenerEquipo: jest.fn().mockResolvedValue({}),
+            crearMiembroEquipo: jest.fn().mockResolvedValue({}),
+            actualizarMiembroEquipo: jest.fn().mockResolvedValue({}),
+            eliminarMiembroEquipo: jest.fn().mockResolvedValue({}),
+            completarReserva: jest.fn().mockResolvedValue({}),
+            marcarSeguimiento: jest.fn().mockResolvedValue({}),
+            solicitarAjusteReserva: jest.fn().mockResolvedValue({}),
+            obtenerServiciosComercio: jest.fn().mockResolvedValue({}),
+            cambiarEstadoServicio: jest.fn().mockResolvedValue({}),
+            actualizarDisponibilidadServicio: jest.fn().mockResolvedValue({}),
+            obtenerResenasComercio: jest.fn().mockResolvedValue({}),
+            responderResena: jest.fn().mockResolvedValue({}),
+            actualizarComercio: jest.fn().mockResolvedValue({}),
+            cambiarEstado: jest.fn().mockResolvedValue({}),
+            fijarSocioFundador: jest.fn().mockResolvedValue({}),
+            fijarAlphaAdherido: jest.fn().mockResolvedValue({}),
           },
         },
       ],
@@ -64,5 +82,135 @@ describe('ComerciosController', () => {
     await controller.solicitarAjusteReserva(req, 'reserva-1', dto);
 
     expect(service.solicitarAjusteReserva).toHaveBeenCalledWith('reserva-1', 'comercio-1', dto);
+  });
+  /**
+   * El comercio SIEMPRE sale del token, nunca de la URL ni del cuerpo. Es la
+   * frontera del multi-tenant: si un solo endpoint lo tomara del cliente, ese
+   * comercio veria las reservas y las finanzas de otro.
+   */
+  describe('aislamiento entre comercios', () => {
+    const req = { user: { sub: 'user-1', comercioId: 'comercio-1' } } as never;
+
+    it('deberia leer el propio comercio del token', async () => {
+      await controller.miComercio(req);
+      expect(service.obtener).toHaveBeenCalledWith('comercio-1');
+    });
+
+    it('deberia acotar reservas, finanzas, equipo, servicios y resenas al comercio del token', async () => {
+      await controller.misReservas(req);
+      await controller.misFinanzas(req);
+      await controller.miEquipo(req);
+      await controller.misServicios(req);
+      await controller.misResenas(req);
+
+      expect(service.obtenerReservasComercio).toHaveBeenCalledWith('comercio-1', 200);
+      expect(service.obtenerFinanzasComercio).toHaveBeenCalledWith('comercio-1');
+      expect(service.obtenerEquipo).toHaveBeenCalledWith('comercio-1');
+      expect(service.obtenerServiciosComercio).toHaveBeenCalledWith('comercio-1');
+      expect(service.obtenerResenasComercio).toHaveBeenCalledWith('comercio-1');
+    });
+
+    it('deberia exigir el comercio del token al operar sobre una reserva ajena', async () => {
+      // El reservaId viaja en la URL: sin el comercio del token, cualquiera
+      // podria completar o ajustar la reserva de otro negocio.
+      await controller.completarReserva(req, 'reserva-1');
+      await controller.marcarSeguimiento(req, 'reserva-1', { hito: 'recogido' } as never);
+
+      expect(service.completarReserva).toHaveBeenCalledWith('reserva-1', 'comercio-1');
+      expect(service.marcarSeguimiento).toHaveBeenCalledWith('reserva-1', 'comercio-1', 'recogido', undefined);
+    });
+
+    it('deberia exigir el comercio del token al tocar un listado', async () => {
+      await controller.cambiarEstadoServicio(req, 'servicio-1', { estado: 'pausado' } as never);
+      await controller.actualizarDisponibilidad(req, 'servicio-1', { plazas: 3 } as never);
+
+      expect(service.cambiarEstadoServicio).toHaveBeenCalledWith('servicio-1', 'comercio-1', 'pausado');
+      expect(service.actualizarDisponibilidadServicio).toHaveBeenCalledWith(
+        'servicio-1', 'comercio-1', { plazas: 3 },
+      );
+    });
+
+    it('deberia exigir el comercio del token al responder una resena', async () => {
+      await controller.responderResena(req, 'resena-1', 'Gracias');
+
+      expect(service.responderResena).toHaveBeenCalledWith('resena-1', 'comercio-1', 'Gracias');
+    });
+
+    it('deberia actualizar solo el propio comercio', async () => {
+      await controller.actualizarMiComercio(req, { nombreComercial: 'Nuevo' } as never);
+
+      expect(service.actualizarComercio).toHaveBeenCalledWith('comercio-1', { nombreComercial: 'Nuevo' });
+    });
+  });
+
+  describe('equipo del comercio', () => {
+    const req = { user: { sub: 'user-1', comercioId: 'comercio-1' } } as never;
+
+    it('deberia crear el miembro dentro del comercio del token', async () => {
+      const dto = { nombre: 'Ana', email: 'ana@test.com' } as never;
+
+      await controller.crearMiembroEquipo(req, dto);
+
+      expect(service.crearMiembroEquipo).toHaveBeenCalledWith('comercio-1', dto);
+    });
+
+    it('deberia pasar tambien quien edita, para no dejarse editar a si mismo el rol', async () => {
+      const dto = { rol: 'comercio_staff' } as never;
+
+      await controller.actualizarMiembroEquipo(req, 'miembro-9', dto);
+
+      expect(service.actualizarMiembroEquipo).toHaveBeenCalledWith(
+        'comercio-1', 'miembro-9', 'user-1', dto,
+      );
+    });
+
+    it('deberia pasar quien elimina, para no dejarse borrar a si mismo', async () => {
+      await controller.eliminarMiembroEquipo(req, 'miembro-9');
+
+      expect(service.eliminarMiembroEquipo).toHaveBeenCalledWith('comercio-1', 'miembro-9', 'user-1');
+    });
+  });
+
+  describe('alta de comercios', () => {
+    it('deberia registrar cuenta y negocio en un solo paso', async () => {
+      const dto = { email: 'x@test.com', password: 'secreta8', nombreComercial: 'X' } as never;
+
+      await controller.registrarConCuenta(dto);
+
+      expect(service.registrarConCuenta).toHaveBeenCalledWith(dto);
+    });
+
+    it('deberia vincular el negocio a la cuenta que hace el onboarding', async () => {
+      const req = { user: { sub: 'user-1' } } as never;
+      const dto = { nombreComercial: 'X', vatNumber: 'B1', razonSocial: 'X SL' } as never;
+
+      await controller.onboarding(req, dto);
+
+      expect(service.vincularNuevoComercio).toHaveBeenCalledWith('user-1', dto);
+    });
+  });
+
+  describe('acciones de administracion', () => {
+    const admin = { user: { sub: 'admin-1' } } as never;
+
+    it('deberia registrar que admin cambia el estado y con que motivo', async () => {
+      await controller.cambiarEstado('comercio-1', { estado: 'suspendido', motivo: 'fraude' } as never, admin);
+
+      expect(service.cambiarEstado).toHaveBeenCalledWith('comercio-1', 'suspendido', 'fraude', 'admin-1');
+    });
+
+    it('deberia fijar socio fundador y adhesion a Alpha', async () => {
+      await controller.fijarSocioFundador('comercio-1', { socioFundador: true } as never);
+      await controller.fijarAlphaAdherido('comercio-1', { alphaAdherido: true } as never);
+
+      expect(service.fijarSocioFundador).toHaveBeenCalledWith('comercio-1', { socioFundador: true });
+      expect(service.fijarAlphaAdherido).toHaveBeenCalledWith('comercio-1', true);
+    });
+
+    it('deberia listar filtrando por estado cuando se indica', async () => {
+      await controller.listar('activo' as never);
+
+      expect(service.listar).toHaveBeenCalledWith('activo');
+    });
   });
 });

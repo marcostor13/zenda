@@ -315,4 +315,134 @@ describe('AlojamientoDetalleComponent', () => {
     expect(component.alojamiento()).toBeNull();
     expect(component.cargando()).toBe(false);
   });
+  describe('etiquetas y respaldos de la ficha', () => {
+    it('deberia traducir los tipos de espacio conocidos y dejar el resto en crudo', () => {
+      expect(component.tipoLabel('suite')).toBe('Suite individual');
+      expect(component.tipoLabel('climatizada')).toBe('Habitación climatizada');
+      expect(component.tipoLabel('inventado' as never)).toBe('inventado');
+    });
+
+    it('deberia traducir los tamanos y dejar el resto en crudo', () => {
+      expect(component.tamanoLabel('pequeno' as never)).toBe('pequeño');
+      expect(component.tamanoLabel('desconocido' as never)).toBe('desconocido');
+    });
+
+    it('deberia usar la foto del espacio si la tiene', () => {
+      component.alojamiento.set(detalleMock);
+
+      expect(component.imagenEspacio({ ...espacioMock, imagenes: ['propia.jpg'] })).toBe('propia.jpg');
+    });
+
+    it('deberia caer a la foto del alojamiento si el espacio no tiene', () => {
+      // Un espacio sin foto no puede salir con el hueco en blanco.
+      component.alojamiento.set(detalleMock);
+
+      expect(component.imagenEspacio({ ...espacioMock, imagenes: [] })).toBe('img1.jpg');
+    });
+
+    it('deberia caer al placeholder si no hay ninguna foto', () => {
+      component.alojamiento.set({ ...detalleMock, imagenes: [] });
+
+      expect(component.imagenEspacio({ ...espacioMock, imagenes: [] })).toBeTruthy();
+    });
+  });
+
+  describe('requisitos de desparasitacion', () => {
+    it('no deberia decir nada si el alojamiento no ha cargado', () => {
+      component.alojamiento.set(null);
+
+      expect(component.desparasitacionLabel()).toBe('');
+    });
+
+    it('no deberia decir nada si no exige ninguna', () => {
+      component.alojamiento.set({
+        ...detalleMock, requiereDesparasitacionInterna: false, requiereDesparasitacionExterna: false,
+      });
+
+      expect(component.desparasitacionLabel()).toBe('');
+    });
+
+    it('deberia nombrar solo la que exige', () => {
+      component.alojamiento.set({
+        ...detalleMock, requiereDesparasitacionInterna: true, requiereDesparasitacionExterna: false,
+      });
+
+      expect(component.desparasitacionLabel()).toBe('Interna');
+    });
+
+    it('deberia unir ambas cuando exige las dos', () => {
+      component.alojamiento.set({
+        ...detalleMock, requiereDesparasitacionInterna: true, requiereDesparasitacionExterna: true,
+      });
+
+      expect(component.desparasitacionLabel()).toBe('Interna y Externa');
+    });
+  });
+
+  describe('seleccion de espacio', () => {
+    it('deberia seleccionar y deseleccionar al pulsar dos veces', () => {
+      component.seleccionarEspacio(espacioMock);
+      expect(component.espacioSelec()?.id).toBe(espacioMock.id);
+
+      component.seleccionarEspacio(espacioMock);
+      expect(component.espacioSelec()).toBeNull();
+    });
+
+    it('deberia cambiar de espacio al pulsar otro distinto', () => {
+      component.seleccionarEspacio(espacioMock);
+
+      component.seleccionarEspacio({ ...espacioMock, id: 'otro' });
+
+      expect(component.espacioSelec()?.id).toBe('otro');
+    });
+
+    it('no deberia navegar a reserva sin espacio elegido', () => {
+      // Sin espacio no hay nada que reservar; el paso siguiente fallaría.
+      const router = TestBed.inject(Router);
+      const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+      component.espacioSelec.set(null);
+
+      component.irAReserva();
+
+      expect(navigateSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('compatibilidad por tamano', () => {
+    const perroGrande = {
+      _id: 'p1', nombre: 'Maya', tamano: 'grande', sociabilidadPerros: 'sociable',
+    } as never;
+
+    it('deberia admitir el tamano si hay un espacio sin limite declarado', () => {
+      component.alojamiento.set({
+        ...detalleMock, espacios: [{ ...espacioMock, tamanoMaxPerro: undefined }],
+      });
+      component.perroCompat.set(perroGrande);
+
+      expect(component.compatibilidad().some((p) => p.includes('su tamaño'))).toBe(true);
+    });
+
+    it('no deberia prometer espacio si ninguno admite ese tamano', () => {
+      component.alojamiento.set({
+        ...detalleMock, espacios: [{ ...espacioMock, tamanoMaxPerro: 'mini' }],
+      });
+      component.perroCompat.set(perroGrande);
+
+      expect(component.compatibilidad().some((p) => p.includes('su tamaño'))).toBe(false);
+    });
+
+    it('deberia admitir cualquier tamano si el alojamiento no declara espacios', () => {
+      component.alojamiento.set({ ...detalleMock, espacios: [] });
+      component.perroCompat.set(perroGrande);
+
+      expect(component.compatibilidad().some((p) => p.includes('su tamaño'))).toBe(true);
+    });
+
+    it('deberia mencionar el temperamento declarado', () => {
+      component.alojamiento.set(detalleMock);
+      component.perroCompat.set({ ...perroGrande, temperamento: 'tranquilo' } as never);
+
+      expect(component.compatibilidad()).toContain('Temperamento declarado: tranquilo');
+    });
+  });
 });

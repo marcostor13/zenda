@@ -19,5 +19,15 @@ export const authRoutes: Routes = [
     loadComponent: () =>
       import('./verificar/verificar-email.component').then((m) => m.VerificarEmailComponent),
   },
+  {
+    path: 'recuperar',
+    loadComponent: () =>
+      import('./recuperar/recuperar-password.component').then((m) => m.RecuperarPasswordComponent),
+  },
+  {
+    path: 'restablecer',
+    loadComponent: () =>
+      import('./recuperar/restablecer-password.component').then((m) => m.RestablecerPasswordComponent),
+  },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 ];

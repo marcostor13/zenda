@@ -24,7 +24,13 @@ export interface AppE2E {
   cerrar(): Promise<void>;
 }
 
-export async function crearAppE2E(): Promise<AppE2E> {
+/** Sustituciones de proveedores para la prueba (p. ej. la pasarela de pago). */
+export interface OverrideE2E {
+  token: unknown;
+  valor: unknown;
+}
+
+export async function crearAppE2E(overrides: OverrideE2E[] = []): Promise<AppE2E> {
   const mongo = await MongoMemoryServer.create();
 
   // El AppModule lee la cadena de conexión de la configuración, así que hay que
@@ -35,7 +41,15 @@ export async function crearAppE2E(): Promise<AppE2E> {
   process.env.STRIPE_SECRET_KEY ??= 'sk_test_e2e';
   process.env.STRIPE_WEBHOOK_SECRET ??= 'whsec_e2e';
 
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const constructor = Test.createTestingModule({ imports: [AppModule] });
+
+  // Stripe es el único servicio externo que un E2E no puede llamar de verdad:
+  // se sustituye por un doble para poder recorrer el flujo entero de cobro.
+  for (const { token, valor } of overrides) {
+    constructor.overrideProvider(token as never).useValue(valor);
+  }
+
+  const moduleRef = await constructor.compile();
 
   const app = moduleRef.createNestApplication({ rawBody: true });
   app.useGlobalPipes(

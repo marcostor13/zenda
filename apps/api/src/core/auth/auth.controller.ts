@@ -10,6 +10,8 @@ import {
   RegistroPendienteDto,
   VerificarEmailDto,
   ReenviarVerificacionDto,
+  RecuperarPasswordDto,
+  RestablecerPasswordDto,
 } from 'shared';
 import { AuthService } from './auth.service';
 
@@ -56,6 +58,26 @@ export class AuthController {
   async reenviarVerificacion(@Body() dto: ReenviarVerificacionDto): Promise<{ ok: true }> {
     await this.authService.reenviarVerificacion(dto.email);
     return { ok: true };
+  }
+
+  /**
+   * Responde 202 siempre, exista o no la cuenta: un 404 cuando el email no está
+   * registrado convertiría esto en un buscador de usuarios, igual que pasaba con
+   * el mensaje del login.
+   */
+  @Post('recuperar-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle(LIMITE_ENVIO_EMAIL)
+  @ApiOperation({ summary: 'Pedir el enlace para restablecer la contraseña' })
+  async recuperarPassword(@Body() dto: RecuperarPasswordDto): Promise<void> {
+    await this.authService.solicitarRecuperacionPassword(dto.email);
+  }
+
+  @Post('restablecer-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Fijar la contraseña nueva con el token del correo; devuelve la sesión' })
+  restablecerPassword(@Body() dto: RestablecerPasswordDto): Promise<AuthResponseDto> {
+    return this.authService.restablecerPassword(dto.token, dto.nuevaPassword);
   }
 
   @Post('google')

@@ -238,6 +238,47 @@ export class NotificationsService {
     );
   }
 
+  async enviarRecuperacionPassword(destinatario: string, nombre: string, url: string): Promise<void> {
+    await this.enviarYRegistrar(
+      {
+        tipo: 'recuperacion_password',
+        destinatario,
+        asunto: 'Restablece tu contraseña de Doogking',
+        cuerpo: this.plantillaRecuperacionPassword(nombre, url),
+      },
+      'Doogking | Seguridad de la cuenta',
+    );
+  }
+
+  private plantillaRecuperacionPassword(nombre: string, url: string): string {
+    return `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
+        <h2 style="color:#08258B;margin-bottom:4px">Hola ${nombre}, ¿has olvidado tu contraseña?</h2>
+        <p style="color:#334155">
+          Nos has pedido restablecerla. Pulsa el botón y elige una nueva; tu contraseña
+          actual sigue funcionando hasta que la cambies.
+        </p>
+        <p style="margin:28px 0;text-align:center">
+          <a href="${url}" style="background:#08258B;color:#fff;padding:14px 32px;border-radius:999px;text-decoration:none;font-weight:700;box-shadow:0 4px 12px rgba(8,37,139,.25)">
+            Elegir contraseña nueva
+          </a>
+        </p>
+        <!-- Igual que en el correo de verificación: el token nunca se muestra en
+             crudo. Se rompe al partirse en dos líneas y es exactamente lo que
+             hacen los correos de phishing. -->
+        <p style="color:#8B9BBC;font-size:12px;margin-top:24px">
+          ¿No te funciona el botón?
+          <a href="${url}" style="color:#08258B;font-weight:700">Restablece tu contraseña desde aquí</a>.
+        </p>
+        <p style="color:#8B9BBC;font-size:12px">
+          El enlace caduca en 1 hora y sólo se puede usar una vez. <strong>Si no has sido tú</strong>,
+          ignora este correo: tu contraseña no cambiará.
+        </p>
+        <p style="color:#8B9BBC;font-size:12px;margin-top:16px">Equipo Doogking · www.doogking.com</p>
+      </div>
+    `;
+  }
+
   private plantillaVerificacion(nombre: string, url: string, esComercio: boolean): string {
     const saludo = esComercio
       ? `¡Bienvenido a Doogking! ${nombre}, estás a un solo paso de empezar a recibir reservas desde nuestra plataforma.`

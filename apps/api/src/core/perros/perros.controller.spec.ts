@@ -17,6 +17,14 @@ describe('PerrosController', () => {
         {
           provide: PerrosService,
           useValue: {
+            editarHistorial: jest.fn().mockResolvedValue([]),
+            eliminarHistorial: jest.fn().mockResolvedValue([]),
+            parsearImportacion: jest.fn().mockResolvedValue([]),
+            importarHistorial: jest.fn().mockResolvedValue([]),
+            listarVersiones: jest.fn().mockResolvedValue([]),
+            listarConsentimientos: jest.fn().mockResolvedValue([]),
+            fijarConsentimiento: jest.fn().mockResolvedValue([]),
+            revocarTodosLosConsentimientos: jest.fn().mockResolvedValue([]),
             crear: jest.fn().mockResolvedValue({ _id: 'p1' }),
             listarPorPropietario: jest.fn().mockResolvedValue([]),
             obtenerPropio: jest.fn().mockResolvedValue({ _id: 'p1' }),
@@ -137,5 +145,67 @@ describe('PerrosController', () => {
 
   it('debería rechazar un precioBase no numérico con 400', async () => {
     expect(() => controller.estimacionPrecio('p1', 'no-es-un-numero')).toThrow();
+  });
+  describe('historial clinico', () => {
+    const req = { user: { sub: 'user-1', comercioId: 'comercio-1' } } as never;
+
+    it('deberia editar la nota exigiendo el usuario, no solo los ids', async () => {
+      await controller.editarHistorial('perro-1', 'hist-1', { nota: 'corregido' } as never, req);
+
+      expect(service.editarHistorial).toHaveBeenCalledWith(
+        'perro-1', 'hist-1', 'user-1', 'corregido',
+      );
+    });
+
+    it('deberia eliminar la entrada exigiendo el usuario', async () => {
+      await controller.eliminarHistorial('perro-1', 'hist-1', req);
+
+      expect(service.eliminarHistorial).toHaveBeenCalledWith('perro-1', 'hist-1', 'user-1');
+    });
+
+    it('deberia previsualizar la importacion sin escribir nada', async () => {
+      // Es el paso de "esto es lo que voy a importar": no debe tocar la ficha.
+      controller.previsualizarImportacion({ texto: 'linea 1' } as never);
+
+      expect(service.parsearImportacion).toHaveBeenCalledWith('linea 1');
+      expect(service.importarHistorial).not.toHaveBeenCalled();
+    });
+
+    it('deberia devolver cuantas entradas se importaron', async () => {
+      service.importarHistorial.mockResolvedValue(3 as never);
+
+      const resultado = await controller.importarHistorial(
+        'perro-1', { vertical: 'veterinaria', filas: [] } as never, req,
+      );
+
+      expect(resultado).toEqual({ importadas: 3 });
+    });
+  });
+
+  describe('versiones y consentimientos', () => {
+    const req = { user: { sub: 'user-1', comercioId: 'comercio-1' } } as never;
+
+    it('deberia listar versiones y consentimientos solo del propietario', async () => {
+      await controller.listarVersiones('perro-1', req);
+      await controller.listarConsentimientos('perro-1', req);
+
+      expect(service.listarVersiones).toHaveBeenCalledWith('perro-1', 'user-1');
+      expect(service.listarConsentimientos).toHaveBeenCalledWith('perro-1', 'user-1');
+    });
+
+    it('deberia fijar el consentimiento a nombre del propietario', async () => {
+      const dto = { comercioId: 'comercio-9', concedido: true } as never;
+
+      await controller.fijarConsentimiento('perro-1', dto, req);
+
+      expect(service.fijarConsentimiento).toHaveBeenCalledWith('perro-1', 'user-1', dto);
+    });
+
+    it('deberia devolver cuantos consentimientos se revocaron', async () => {
+      // El RGPD exige poder retirarlo todo de una vez y saber que se retiro.
+      service.revocarTodosLosConsentimientos.mockResolvedValue(4 as never);
+
+      await expect(controller.revocarConsentimientos('perro-1', req)).resolves.toEqual({ revocados: 4 });
+    });
   });
 });

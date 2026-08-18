@@ -243,4 +243,151 @@ describe('AdminReservasComponent', () => {
       expect(componente.meta('inventado')).toMatchObject({ label: 'inventado', badge: 'rs-badge--neutral' });
     });
   });
+  describe('filtros avanzados', () => {
+    it('no deberia contar ninguno al arrancar', async () => {
+      await crear();
+
+      expect(componente.filtrosAvanzadosActivos()).toBe(0);
+    });
+
+    it('deberia enviar solo los filtros que el admin ha rellenado', async () => {
+      await crear();
+      componente.fDesde = '2026-08-01';
+      componente.fCiudad = '  Valencia  ';
+      componente.fImporteMin = 50;
+
+      await componente.aplicarFiltrosAvanzados();
+
+      const [, filtros] = api['getReservas'].mock.calls.at(-1)!;
+      expect(filtros).toMatchObject({ fechaDesde: '2026-08-01', ciudad: 'Valencia', importeMin: 50 });
+      expect(filtros.fechaHasta).toBeUndefined();
+      expect(filtros.importeMax).toBeUndefined();
+    });
+
+    it('deberia contar cuantos filtros avanzados hay puestos', async () => {
+      await crear();
+      componente.fDesde = '2026-08-01';
+      componente.fVertical = 'alojamiento';
+
+      await componente.aplicarFiltrosAvanzados();
+
+      expect(componente.filtrosAvanzadosActivos()).toBe(2);
+    });
+
+    it('deberia volver a la primera pagina al filtrar', async () => {
+      // Quedarse en la pagina 5 de un filtro nuevo mostraria una tabla vacia.
+      await crear();
+      componente.paginaActual.set(5);
+
+      await componente.aplicarFiltrosAvanzados();
+
+      expect(componente.paginaActual()).toBe(1);
+    });
+
+    it('deberia dejar los campos en blanco al limpiar', async () => {
+      await crear();
+      componente.fDesde = '2026-08-01';
+      componente.fCiudad = 'Valencia';
+      componente.fImporteMin = 50;
+      await componente.aplicarFiltrosAvanzados();
+
+      await componente.limpiarFiltrosAvanzados();
+
+      expect(componente.fDesde).toBe('');
+      expect(componente.fCiudad).toBe('');
+      expect(componente.fImporteMin).toBeNull();
+      expect(componente.filtrosAvanzadosActivos()).toBe(0);
+    });
+
+    it('deberia admitir importe minimo cero como filtro real', async () => {
+      await crear();
+      componente.fImporteMin = 0;
+
+      await componente.aplicarFiltrosAvanzados();
+
+      const [, filtros] = api['getReservas'].mock.calls.at(-1)!;
+      expect(filtros.importeMin).toBe(0);
+    });
+  });
+
+  describe('etiquetas de estado de pago', () => {
+    it('deberia tratar la ausencia de pago como "sin pago"', async () => {
+      await crear();
+
+      expect(componente.badgePago(undefined)).toBeTruthy();
+      expect(componente.labelPago(undefined)).not.toBe('—');
+    });
+
+    it('deberia caer a neutral y al propio valor si el estado es desconocido', async () => {
+      await crear();
+
+      expect(componente.badgePago('inventado')).toContain('neutral');
+      expect(componente.labelPago('inventado')).toBe('inventado');
+    });
+  });
+
+  describe('politica de cancelacion', () => {
+    it('deberia avisar cuando el comercio no la declaro', async () => {
+      await crear();
+
+      expect(componente.politica(reserva())).toContain('Sin política');
+    });
+
+    it('deberia dejar el valor en crudo si no tiene etiqueta conocida', async () => {
+      await crear();
+
+      expect(componente.politica(reserva({ politicaCancelacion: 'a-medida' } as never))).toBe('a-medida');
+    });
+  });
+
+  describe('contadores del resumen', () => {
+    it('deberia devolver 0 si el resumen no cargo', async () => {
+      await crear();
+      componente.resumen.set(null);
+
+      expect(componente.contarEstado('confirmada')).toBe(0);
+    });
+
+    it('deberia usar el total para el filtro "todos"', async () => {
+      await crear();
+      componente.resumen.set({ total: 42, porEstado: { confirmada: 10 } } as never);
+
+      expect(componente.contarEstado('')).toBe(42);
+      expect(componente.contarEstado('confirmada')).toBe(10);
+      expect(componente.contarEstado('inexistente')).toBe(0);
+    });
+  });
+
+  it('deberia cerrar el menu de acciones al pulsar fuera', async () => {
+    await crear();
+    componente.menuAbiertoId.set('r1');
+
+    componente.cerrarMenu();
+
+    expect(componente.menuAbiertoId()).toBeNull();
+  });
+
+  describe('exportacion a CSV', () => {
+    it('deberia pedir todas las paginas del filtro actual, no solo la visible', async () => {
+      // Exportar solo la pagina daria un fichero que no cuadra con los totales.
+      await crear();
+      componente.filtroEstado.set(ReservaEstado.CONFIRMADA);
+
+      await componente.exportarCsv();
+
+      const [pagina, , limite] = api['getReservas'].mock.calls.at(-1)!;
+      expect(pagina).toBe(1);
+      expect(limite).toBeGreaterThan(100);
+      expect(componente.exportando()).toBe(false);
+    });
+
+    it('deberia avisar si la exportacion falla', async () => {
+      await crear([reserva()], 1, { getReservas: fallo('500') });
+
+      await componente.exportarCsv();
+
+      expect(componente.errorMsg()).toContain('No se pudo exportar');
+      expect(componente.exportando()).toBe(false);
+    });
+  });
 });

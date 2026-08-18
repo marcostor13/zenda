@@ -257,4 +257,106 @@ describe('CuponesAdminComponent', () => {
       expect(adminApi['eliminarCupon']).not.toHaveBeenCalled();
     });
   });
+  /**
+   * Cada casilla de "sin limite" esconde un 0 en el formulario. Confundir "0
+   * como sin tope" con "0 como tope real" es la diferencia entre un cupon sin
+   * limite y uno que no descuenta nada.
+   */
+  describe('casillas de sin limite', () => {
+    it('deberia arrancar con las tres opciones sin limite marcadas', async () => {
+      await crear();
+
+      expect(componente.sinTope()).toBe(true);
+      expect(componente.usosIlimitados()).toBe(true);
+      expect(componente.sinCaducidad()).toBe(true);
+      expect(componente.usosPorUsuarioIlimitado()).toBe(true);
+    });
+
+    it('deberia dejar teclear un tope al desmarcar "sin tope"', async () => {
+      await crear();
+
+      componente.alternarSinTope();
+      expect(componente.sinTope()).toBe(false);
+
+      componente.form.patchValue({ topeDescuento: 25 });
+      componente.alternarSinTope();
+
+      // Al volver a marcarla, el tope tecleado se descarta a 0.
+      expect(componente.sinTope()).toBe(true);
+      expect(componente.form.value.topeDescuento).toBe(0);
+    });
+
+    it('deberia borrar el maximo de usos al volver a "ilimitados"', async () => {
+      await crear();
+      componente.alternarUsosIlimitados();
+      componente.form.patchValue({ usoMaximo: 100 });
+
+      componente.alternarUsosIlimitados();
+
+      expect(componente.form.value.usoMaximo).toBe(0);
+    });
+
+    it('deberia borrar la caducidad al volver a "sin caducidad"', async () => {
+      await crear();
+      componente.alternarSinCaducidad();
+      componente.form.patchValue({ validoHasta: '2026-12-31' });
+
+      componente.alternarSinCaducidad();
+
+      expect(componente.form.value.validoHasta).toBe('');
+    });
+
+    it('deberia borrar los usos por usuario al volver a ilimitado', async () => {
+      await crear();
+      componente.alternarUsosPorUsuario();
+      componente.form.patchValue({ usosPorUsuario: 3 });
+
+      componente.alternarUsosPorUsuario();
+
+      expect(componente.form.value.usosPorUsuario).toBe(0);
+    });
+
+    it('no deberia tocar el valor mientras la casilla esta desmarcada', async () => {
+      await crear();
+
+      componente.alternarSinTope();
+      componente.form.patchValue({ topeDescuento: 25 });
+
+      expect(componente.form.value.topeDescuento).toBe(25);
+    });
+  });
+
+  describe('apertura del formulario', () => {
+    it('deberia empezar cerrado y abrirse al pulsar', async () => {
+      await crear();
+
+      expect(componente.formularioVisible()).toBe(false);
+
+      componente.alternarFormulario();
+
+      expect(componente.formularioVisible()).toBe(true);
+    });
+
+    it('deberia cancelar la edicion al cerrarlo', async () => {
+      // Si no, reabrirlo mostraria los datos del cupon anterior.
+      await crear();
+      componente.alternarFormulario();
+      componente.iniciarEdicion(cupon({ _id: 'cup1', codigo: 'INVIERNO' }));
+
+      componente.alternarFormulario();
+
+      expect(componente.formularioVisible()).toBe(false);
+      expect(componente.form.value.codigo).not.toBe('INVIERNO');
+    });
+  });
+
+  describe('carga de datos auxiliares', () => {
+    it('deberia seguir funcionando si no se pueden cargar los comercios', async () => {
+      // Sin la lista el cupon se queda con alcance global, que sigue siendo valido.
+      await crear([cupon()], { admin: { getComercios: fallo('500') } });
+
+      expect(componente.comercios()).toEqual([]);
+      expect(componente.cupones()).toHaveLength(1);
+    });
+  });
 });

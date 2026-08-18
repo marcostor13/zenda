@@ -782,4 +782,258 @@ describe('ComercioReservasComponent', () => {
       expect(component.gestionAbiertaId()).toBeNull();
     });
   });
+  describe('filtros del panel', () => {
+    it('deberia alternar el filtro de hoy y limpiar el dia elegido', async () => {
+      component.diaSeleccionado.set('2026-08-01');
+
+      component.verHoy();
+      expect(component.diaSeleccionado()).toBeNull();
+
+      component.verHoy();
+      // Volver a pulsar quita el filtro: es un interruptor, no un botón de ida.
+      expect(component.reservasFiltradas().length).toBe(component.reservas().length);
+    });
+
+    it('deberia alternar el filtro de pendientes', async () => {
+      component.verPendientes();
+      expect(component.reservasFiltradas()).toHaveLength(0);
+
+      component.verPendientes();
+      expect(component.reservasFiltradas()).toHaveLength(1);
+    });
+
+    it('deberia buscar por cliente, perro, codigo y servicio a la vez', async () => {
+      component.reservas.set([
+        { ...reservaConfirmada, clienteNombre: 'Ana', perroNombre: 'Nala', servicioTitulo: 'Suite' },
+      ]);
+
+      for (const termino of ['ana', 'NALA', 'RES-A1', 'suite']) {
+        component.busqueda.set(termino);
+        expect(component.reservasFiltradas()).toHaveLength(1);
+      }
+
+      component.busqueda.set('inexistente');
+      expect(component.reservasFiltradas()).toHaveLength(0);
+    });
+
+    it('deberia filtrar por servicio concreto', async () => {
+      component.reservas.set([
+        { ...reservaConfirmada, servicioTitulo: 'Suite' },
+        { ...reservaVeterinaria, servicioTitulo: 'Consulta' },
+      ]);
+
+      component.servicioFiltro.set('Suite');
+
+      expect(component.reservasFiltradas()).toHaveLength(1);
+    });
+
+    it('deberia listar los servicios distintos, ordenados y sin vacios', async () => {
+      component.reservas.set([
+        { ...reservaConfirmada, servicioTitulo: 'Suite' },
+        { ...reservaVeterinaria, servicioTitulo: 'Consulta' },
+        { ...reservaConfirmada, _id: 'x', servicioTitulo: undefined },
+      ]);
+
+      expect(component.servicios()).toEqual(['Consulta', 'Suite']);
+    });
+
+    it('deberia limpiar todos los filtros de una vez', async () => {
+      component.filtroActivo.set('pendiente');
+      component.busqueda.set('x');
+      component.periodo.set('hoy');
+      component.servicioFiltro.set('Suite');
+      component.diaSeleccionado.set('2026-08-01');
+
+      component.limpiarFiltros();
+
+      expect(component.reservasFiltradas()).toHaveLength(1);
+      expect(component.diaSeleccionado()).toBeNull();
+    });
+  });
+
+  describe('periodos', () => {
+    /** Reserva que cae exactamente hoy. */
+    const hoyISO = new Date().toISOString();
+
+    it('no deberia acotar nada con el periodo "todas"', async () => {
+      component.periodo.set('todas');
+
+      expect(component.reservasFiltradas()).toHaveLength(1);
+    });
+
+    it('deberia acotar al dia de hoy', async () => {
+      component.reservas.set([{ ...reservaConfirmada, fechaInicio: hoyISO }]);
+      component.periodo.set('hoy');
+
+      expect(component.reservasFiltradas()).toHaveLength(1);
+    });
+
+    it('deberia acotar a la semana y al mes en curso', async () => {
+      component.reservas.set([{ ...reservaConfirmada, fechaInicio: hoyISO }]);
+
+      component.periodo.set('semana');
+      expect(component.reservasFiltradas()).toHaveLength(1);
+
+      component.periodo.set('mes');
+      expect(component.reservasFiltradas()).toHaveLength(1);
+    });
+
+    it('no deberia acotar el rango si no se ha puesto ninguna fecha', async () => {
+      component.periodo.set('rango');
+
+      expect(component.reservasFiltradas()).toHaveLength(1);
+    });
+
+    it('deberia admitir un rango abierto por un extremo', async () => {
+      // "Desde el 1 de agosto" sin fecha final es un filtro legítimo.
+      component.periodo.set('rango');
+      component.desde.set('2026-07-01');
+
+      expect(component.reservasFiltradas()).toHaveLength(1);
+
+      component.desde.set('');
+      component.hasta.set('2026-07-01');
+      expect(component.reservasFiltradas()).toHaveLength(0);
+    });
+  });
+
+  describe('estancias de varios dias', () => {
+    it('deberia contar la reserva en todos los dias de la estancia, no solo la entrada', async () => {
+      // Un hotel ocupa plaza toda la estancia: en el calendario tiene que verse
+      // en cada dia, no solo el de check-in.
+      component.reservas.set([
+        { ...reservaConfirmada, fechaInicio: '2026-08-01T00:00:00.000Z', fechaFin: '2026-08-05T00:00:00.000Z' },
+      ]);
+
+      component.diaSeleccionado.set('2026-08-03');
+
+      expect(component.reservasFiltradas()).toHaveLength(1);
+    });
+
+    it('no deberia contarla fuera de la estancia', async () => {
+      component.reservas.set([
+        { ...reservaConfirmada, fechaInicio: '2026-08-01T00:00:00.000Z', fechaFin: '2026-08-05T00:00:00.000Z' },
+      ]);
+
+      component.diaSeleccionado.set('2026-08-09');
+
+      expect(component.reservasFiltradas()).toHaveLength(0);
+    });
+
+    it('deberia reconocer los verticales que son estancia', async () => {
+      expect(component.esEstancia('alojamiento')).toBe(true);
+      expect(component.esEstancia('veterinaria')).toBe(false);
+    });
+  });
+
+  describe('calendario', () => {
+    it('deberia pintar seis semanas completas', async () => {
+      expect(component.celdasCalendario()).toHaveLength(42);
+    });
+
+    it('deberia arrancar la rejilla en lunes', async () => {
+      const [anio, mes, dia] = component.celdasCalendario()[0].clave.split('-').map(Number);
+
+      expect(new Date(anio, mes - 1, dia).getDay()).toBe(1);
+    });
+
+    it('deberia filtrar el mismo dia que muestra la celda, sea cual sea la zona horaria', async () => {
+      // La clave se calculaba con toISOString (UTC) y se comparaba contra
+      // medianoche local: la celda que ponia "3" filtraba las reservas del 2.
+      const celda = component.celdasCalendario().find((c) => c.delMes)!;
+      const [anio, mes, dia] = celda.clave.split('-').map(Number);
+
+      expect(dia).toBe(celda.dia);
+      expect(new Date(anio, mes - 1, dia).getDate()).toBe(celda.dia);
+    });
+
+    it('deberia encontrar la reserva del dia que se pulsa', async () => {
+      const hoy = new Date();
+      component.reservas.set([{ ...reservaConfirmada, fechaInicio: hoy.toISOString() }]);
+      const celdaHoy = component.celdasCalendario().find((c) => c.esHoy)!;
+
+      component.seleccionarDia(celdaHoy.clave);
+
+      expect(component.reservasFiltradas()).toHaveLength(1);
+    });
+
+    it('deberia marcar que celdas son del mes visible', async () => {
+      const celdas = component.celdasCalendario();
+
+      expect(celdas.some((c) => c.delMes)).toBe(true);
+      expect(celdas.some((c) => !c.delMes)).toBe(true);
+    });
+
+    it('deberia moverse de mes hacia delante y hacia atras', async () => {
+      const inicial = component.mes().getMonth();
+
+      component.cambiarMes(1);
+      expect(component.mes().getMonth()).toBe((inicial + 1) % 12);
+
+      component.cambiarMes(-1);
+      expect(component.mes().getMonth()).toBe(inicial);
+    });
+
+    it('deberia alternar el dia seleccionado al pulsarlo dos veces', async () => {
+      component.seleccionarDia('2026-08-01');
+      expect(component.diaSeleccionado()).toBe('2026-08-01');
+
+      component.seleccionarDia('2026-08-01');
+      expect(component.diaSeleccionado()).toBeNull();
+    });
+  });
+
+  describe('incidencias', () => {
+    it('no deberia dejar enviar sin asunto ni descripcion suficientes', async () => {
+      // El backend los exige; avisar antes evita un 400 delante del cliente.
+      expect(component.puedeEnviarIncidencia()).toBe(false);
+
+      component.incidenciaAsunto.set('ab');
+      component.incidenciaDescripcion.set('corto');
+      expect(component.puedeEnviarIncidencia()).toBe(false);
+    });
+
+    it('deberia dejar enviar con asunto y descripcion suficientes', async () => {
+      component.incidenciaAsunto.set('Retraso');
+      component.incidenciaDescripcion.set('El cliente no aparecio a la hora acordada.');
+
+      expect(component.puedeEnviarIncidencia()).toBe(true);
+    });
+
+    it('deberia alternar el panel de incidencia', async () => {
+      component.toggleIncidencia('res-1');
+      expect(component.incidenciaAbiertaId()).toBe('res-1');
+
+      component.cerrarIncidencia();
+      expect(component.incidenciaAbiertaId()).toBeNull();
+    });
+  });
+
+  describe('acciones disponibles por reserva', () => {
+    it('deberia ofrecer gestion en reservas confirmadas y en curso', async () => {
+      expect(component.tieneGestion(reservaConfirmada)).toBe(true);
+      expect(component.tieneGestion({ ...reservaConfirmada, estado: 'en_curso' })).toBe(true);
+    });
+
+    it('deberia ofrecer gestion en completadas solo si hay perro asociado', async () => {
+      expect(component.tieneGestion(reservaVeterinaria)).toBe(true);
+      expect(component.tieneGestion({ ...reservaVeterinaria, perroId: undefined })).toBe(false);
+    });
+
+    it('no deberia ofrecer gestion en una cancelada sin perro', async () => {
+      expect(component.tieneGestion({ ...reservaConfirmada, estado: 'cancelada' })).toBe(false);
+    });
+
+    it('deberia alternar el panel de gestion', async () => {
+      component.toggleGestion('res-1');
+      expect(component.gestionAbiertaId()).toBe('res-1');
+
+      component.toggleGestion('res-1');
+      expect(component.gestionAbiertaId()).toBeNull();
+    });
+  });
+
+  it('deberia devolver un resumen vacio si la reserva no trae ficha del perro', async () => {
+    expect(component.resumenPerro(reservaConfirmada)).toEqual([]);
+  });
 });

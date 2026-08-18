@@ -714,4 +714,163 @@ describe('ComercioListadoFormComponent', () => {
       expect(componente.placeholderTitulo()).toContain('Residencia Canina');
     });
   });
+  /**
+   * Los selectores multiples del formulario (conductas, modalidades, tamanos,
+   * compatibilidad, tipos de pelo) siguen todos el mismo patron de alternar.
+   * Cada uno decide que perros acepta el negocio, asi que un fallo aqui no da
+   * error: simplemente el comercio recibe reservas que no puede atender.
+   */
+  describe('selectores multiples de aptitud', () => {
+    it('deberia alternar las conductas de riesgo no admitidas', async () => {
+      await crear();
+
+      expect(componente.tieneConductaNoAdmitida('agresividad')).toBe(false);
+
+      componente.toggleConductaNoAdmitida('agresividad');
+      expect(componente.tieneConductaNoAdmitida('agresividad')).toBe(true);
+
+      componente.toggleConductaNoAdmitida('agresividad');
+      expect(componente.tieneConductaNoAdmitida('agresividad')).toBe(false);
+    });
+
+    it('deberia acumular varias conductas', async () => {
+      await crear();
+
+      componente.toggleConductaNoAdmitida('agresividad');
+      componente.toggleConductaNoAdmitida('destructivo');
+
+      expect(componente.tieneConductaNoAdmitida('agresividad')).toBe(true);
+      expect(componente.tieneConductaNoAdmitida('destructivo')).toBe(true);
+    });
+
+    it('deberia alternar las modalidades de cuidado', async () => {
+      await crear();
+
+      componente.toggleModalidad('paseo');
+      expect(componente.tieneModalidad('paseo')).toBe(true);
+
+      componente.toggleModalidad('paseo');
+      expect(componente.tieneModalidad('paseo')).toBe(false);
+    });
+
+    it('deberia alternar los tamanos admitidos en cuidado', async () => {
+      await crear();
+
+      componente.toggleTamanoCuidado('grande');
+      expect(componente.tieneTamanoCuidado('grande')).toBe(true);
+
+      componente.toggleTamanoCuidado('grande');
+      expect(componente.tieneTamanoCuidado('grande')).toBe(false);
+    });
+
+    it('deberia alternar la compatibilidad social', async () => {
+      await crear();
+
+      componente.toggleCompatibilidad('sociable');
+      expect(componente.tieneCompatibilidad('sociable')).toBe(true);
+
+      componente.toggleCompatibilidad('sociable');
+      expect(componente.tieneCompatibilidad('sociable')).toBe(false);
+    });
+  });
+
+  describe('servicios clinicos y de grooming', () => {
+    it('deberia agregar y quitar filas de servicio clinico', async () => {
+      await crear();
+      const antes = componente.serviciosClinicos.length;
+
+      componente.agregarServicioClinico();
+      expect(componente.serviciosClinicos.length).toBe(antes + 1);
+
+      componente.quitarServicioClinico(antes);
+      expect(componente.serviciosClinicos.length).toBe(antes);
+    });
+
+    it('deberia agregar y quitar filas de grooming', async () => {
+      await crear();
+      const antes = componente.serviciosGrooming.length;
+
+      componente.agregarServicioGrooming();
+      expect(componente.serviciosGrooming.length).toBe(antes + 1);
+
+      componente.quitarServicioGrooming(antes);
+      expect(componente.serviciosGrooming.length).toBe(antes);
+    });
+
+    it('deberia agregar una fila de grooming con la duracion por defecto', async () => {
+      await crear();
+
+      componente.agregarServicioGrooming();
+
+      expect(componente.serviciosGrooming.at(0).getRawValue().duracionMin).toBe(45);
+    });
+  });
+
+  describe('precios por tamano de perro', () => {
+    it('deberia agregar y quitar tramos de precio dentro de un servicio', async () => {
+      await crear();
+      componente.agregarServicioGrooming();
+
+      componente.agregarPrecioPorTamano(0);
+      expect(componente.preciosPorTamano(0).length).toBe(1);
+
+      componente.agregarPrecioPorTamano(0);
+      expect(componente.preciosPorTamano(0).length).toBe(2);
+
+      componente.quitarPrecioPorTamano(0, 0);
+      expect(componente.preciosPorTamano(0).length).toBe(1);
+    });
+
+    it('deberia crear el tramo con tamano mediano por defecto', async () => {
+      await crear();
+      componente.agregarServicioGrooming();
+
+      componente.agregarPrecioPorTamano(0);
+
+      expect(componente.preciosPorTamano(0).at(0).getRawValue()).toMatchObject({
+        tamano: 'mediano', precio: 0, duracionMin: 45,
+      });
+    });
+  });
+
+  describe('tipos de pelo compatibles', () => {
+    it('deberia empezar sin ninguno marcado', async () => {
+      await crear();
+      componente.agregarServicioGrooming();
+
+      expect(componente.pelosCompatibles(0)).toEqual([]);
+      expect(componente.tienePeloCompatible(0, 'corto')).toBe(false);
+    });
+
+    it('deberia marcar y desmarcar un tipo de pelo', async () => {
+      await crear();
+      componente.agregarServicioGrooming();
+
+      componente.togglePeloCompatible(0, 'corto');
+      expect(componente.tienePeloCompatible(0, 'corto')).toBe(true);
+
+      componente.togglePeloCompatible(0, 'corto');
+      expect(componente.tienePeloCompatible(0, 'corto')).toBe(false);
+    });
+
+    it('deberia acumular varios tipos de pelo en el mismo servicio', async () => {
+      await crear();
+      componente.agregarServicioGrooming();
+
+      componente.togglePeloCompatible(0, 'corto');
+      componente.togglePeloCompatible(0, 'rizado');
+
+      expect(componente.pelosCompatibles(0)).toEqual(['corto', 'rizado']);
+    });
+
+    it('no deberia mezclar los pelos de dos servicios distintos', async () => {
+      await crear();
+      componente.agregarServicioGrooming();
+      componente.agregarServicioGrooming();
+
+      componente.togglePeloCompatible(0, 'corto');
+
+      expect(componente.tienePeloCompatible(1, 'corto')).toBe(false);
+    });
+  });
 });

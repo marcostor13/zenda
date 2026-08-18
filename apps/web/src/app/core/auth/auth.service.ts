@@ -78,6 +78,28 @@ export class AuthService {
     );
   }
 
+  /**
+   * Pide el enlace de recuperación. El API responde igual exista o no la cuenta,
+   * así que la pantalla no puede —ni debe— distinguir los dos casos.
+   */
+  async recuperarPassword(email: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post(`${environment.apiUrl}/auth/recuperar-password`, { email }),
+    );
+  }
+
+  /** Fija la contraseña nueva con el token del correo y deja la sesión iniciada. */
+  async restablecerPassword(token: string, nuevaPassword: string): Promise<void> {
+    const respuesta = await firstValueFrom(
+      this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/restablecer-password`, {
+        token,
+        nuevaPassword,
+      }),
+    );
+    this.guardarSesion(respuesta);
+    await this.redirigirPorRol(respuesta.usuario.rol);
+  }
+
   /** Login/registro con Google usando el ID token emitido por Google Identity Services. */
   async loginConGoogle(idToken: string): Promise<void> {
     const respuesta = await firstValueFrom(
