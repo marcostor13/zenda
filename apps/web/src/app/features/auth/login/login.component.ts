@@ -13,8 +13,15 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
     <div class="rs-auth">
       <div class="rs-auth__card">
 
+        <a routerLink="/" class="rs-auth__volver">
+          <rs-icon name="arrow-left" [size]="16" [stroke]="2" />
+          Volver al inicio
+        </a>
+
         <div class="rs-auth__brand">
-          <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
+          <a routerLink="/" aria-label="Ir a la Home de Doogking" style="display:inline-block;cursor:pointer">
+            <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
+          </a>
           <p>Bienvenido de vuelta</p>
         </div>
 

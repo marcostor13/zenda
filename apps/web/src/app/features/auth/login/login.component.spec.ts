@@ -66,4 +66,22 @@ describe('LoginComponent', () => {
     void component.onSubmit();
     expect(component.cargando()).toBe(true);
   });
+  describe('salida hacia la portada', () => {
+    it('debería ofrecer un enlace visible de vuelta al inicio', () => {
+      // Sin él, quien entra al login desde un enlace directo se queda encerrado:
+      // el logo enlaza a la portada, pero nadie adivina que una imagen es pulsable.
+      const volver: HTMLAnchorElement = fixture.nativeElement.querySelector('.rs-auth__volver');
+
+      expect(volver).not.toBeNull();
+      expect(volver.textContent?.trim()).toContain('Volver al inicio');
+      expect(volver.getAttribute('href')).toBe('/');
+    });
+
+    it('debería llevar también a la portada desde el logo', () => {
+      const logo: HTMLAnchorElement | null = fixture.nativeElement.querySelector('.rs-auth__brand a');
+
+      expect(logo?.getAttribute('href')).toBe('/');
+      expect(logo?.getAttribute('aria-label')).toContain('Home');
+    });
+  });
 });
