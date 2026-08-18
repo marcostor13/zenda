@@ -1,5 +1,4 @@
 import { origenesPermitidos } from './cors-origenes';
-import { URL_PUBLICA_POR_DEFECTO } from './url-publica';
 
 describe('origenesPermitidos', () => {
   it('debería incluir los orígenes declarados en CORS_ORIGINS', () => {
@@ -53,16 +52,32 @@ describe('origenesPermitidos', () => {
     expect(origenes).not.toContain('http://localhost:4200');
   });
 
-  it('debería caer al dominio de producción si no hay nada configurado', () => {
-    const origenes = origenesPermitidos(undefined, undefined, 'production');
+  describe('dominios propios', () => {
+    it('debería permitir los tres dominios de Doogking sin configurar nada', () => {
+      // Caída real: al cerrar el CORS, el despliegue no tenía CORS_ORIGINS ni un
+      // APP_URL con el dominio bueno y el API rechazó a su propia web.
+      const origenes = origenesPermitidos(undefined, undefined, 'production');
 
-    expect(origenes).toContain(URL_PUBLICA_POR_DEFECTO);
-  });
+      for (const dominio of ['doogking.com', 'doogking.eu', 'doogking.es']) {
+        expect(origenes).toContain(`https://${dominio}`);
+        expect(origenes).toContain(`https://www.${dominio}`);
+      }
+    });
 
-  it('no debería añadir el dominio por defecto si ya hay orígenes declarados', () => {
-    const origenes = origenesPermitidos('https://otro.com', undefined, 'production');
+    it('debería seguir permitiéndolos aunque se declaren otros orígenes', () => {
+      // Declarar un dominio de cliente no puede dejar fuera al propio.
+      const origenes = origenesPermitidos('https://otro.com', undefined, 'production');
 
-    expect(origenes).not.toContain(URL_PUBLICA_POR_DEFECTO);
+      expect(origenes).toContain('https://otro.com');
+      expect(origenes).toContain('https://doogking.com');
+    });
+
+    it('debería permitirlos también en desarrollo', () => {
+      const origenes = origenesPermitidos(undefined, undefined, 'development');
+
+      expect(origenes).toContain('https://doogking.com');
+      expect(origenes).toContain('http://localhost:4200');
+    });
   });
 
   it('debería devolver cada origen una sola vez', () => {

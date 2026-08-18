@@ -76,6 +76,27 @@ Añade también `API_URL` con el dominio público del API
 (`API_URL=https://apizenda.marcostorresalarcon.com`): es la base de los enlaces de
 los callbacks de calendario **y de las URLs de las imágenes subidas** (§2.3.1).
 
+#### 2.2.1 CORS y Swagger
+
+```
+CORS_ORIGINS=https://doogking.com,https://www.doogking.com,https://doogking.eu,https://doogking.es
+SWAGGER_ENABLED=false
+```
+
+| Variable | Para qué |
+|---|---|
+| `CORS_ORIGINS` | Orígenes a los que el API responde desde un navegador, separados por comas. Los tres dominios propios y los de Capacitor (app móvil) se permiten **siempre**, aunque no la declares; esta variable es para añadir otros (un dominio de cliente, un entorno de pruebas). |
+| `SWAGGER_ENABLED` | `/api/docs` publica el mapa completo de endpoints y DTOs. Sin esta variable no se monta en producción. Ponla a `true` sólo si necesitas exponerlo a propósito. |
+
+> **Si ves un error de CORS en el navegador, mira primero `WEB_API_URL` (§3.3).**
+> Cuando el frontend apunta a un host que no existe —`http://localhost:3051`, por
+> ejemplo—, el navegador informa del fallo como si fuera CORS aunque el API no
+> haya llegado a recibir la petición. Ya pasó: la web en producción tenía la URL
+> de desarrollo y el síntoma parecía un CORS del servidor.
+>
+> El API deja en el log de arranque la lista exacta que permite
+> (`CORS permitido para: …`): con eso se distingue un caso del otro en un vistazo.
+
 #### 2.3.0 Mapas: dos claves de Google distintas
 
 El mapa de resultados se pinta con **Google Maps** y necesita **dos** claves
@@ -197,7 +218,7 @@ una variable es **reiniciar el servicio**, no reconstruir la imagen. Lo escrito 
 
 | Variable | Para qué |
 |---|---|
-| `WEB_API_URL` | Base del API con el prefijo de versión: `https://apizenda.marcostorresalarcon.com/api/v1` |
+| `WEB_API_URL` | Base del API con el prefijo de versión: `https://apizenda.marcostorresalarcon.com/api/v1`. **Comprueba su valor real en `https://doogking.com/env.js`**: si ahí pone `localhost`, el navegador de cada visitante intenta llamar a su propia máquina y el error que ves es de CORS o de contenido mixto, no del API. |
 | `WEB_UNDER_CONSTRUCTION` | `true` mantiene la pantalla "muy pronto"; `false` abre la web |
 | `WEB_UNDER_CONSTRUCTION_KEY` | Clave del acceso anticipado (`?acceso=…`) |
 | `WEB_STRIPE_PUBLIC_KEY` | Clave **publicable** de Stripe (`pk_live_…`) |

@@ -6,8 +6,6 @@
  * API. Aquí se acota a los dominios propios.
  */
 
-import { URL_PUBLICA_POR_DEFECTO } from './url-publica';
-
 /**
  * Orígenes del contenedor de Capacitor. La app móvil (CLAUDE.md §3.1) comparte
  * el código de la web pero se sirve desde el propio dispositivo, así que su
@@ -23,6 +21,19 @@ const ORIGENES_DESARROLLO = [
   'http://127.0.0.1:4200',
   'http://localhost:8100',
 ];
+
+/**
+ * Dominios propios de Doogking (DEPLOY.md §3.4: los tres van por el mismo
+ * Cloudflare Tunnel). Se permiten **siempre**, aunque `CORS_ORIGINS` no esté
+ * declarada.
+ *
+ * Existe por una caída real: al pasar de `enableCors()` abierto a esta lista, el
+ * despliegue no tenía `CORS_ORIGINS` ni un `APP_URL` con el dominio bueno, así
+ * que el API rechazó a su propia web. Que la plataforma confíe en sus dominios
+ * no depende de que alguien se acuerde de una variable de entorno.
+ */
+const DOMINIOS_PROPIOS = ['doogking.com', 'doogking.eu', 'doogking.es']
+  .flatMap((dominio) => [`https://${dominio}`, `https://www.${dominio}`]);
 
 /** Quita la barra final para que `https://x.com/` y `https://x.com` sean el mismo origen. */
 const normalizar = (origen: string): string => origen.trim().replace(/\/+$/, '');
@@ -48,15 +59,10 @@ export function origenesPermitidos(
   const origenes = [
     ...declarados,
     ...(web ? [web] : []),
+    ...DOMINIOS_PROPIOS,
     ...ORIGENES_CAPACITOR,
     ...(enDesarrollo ? ORIGENES_DESARROLLO : []),
   ];
-
-  // En producción sin nada configurado, el dominio propio antes que abrir la
-  // puerta: dejar la lista vacía equivaldría a bloquear también a la web real.
-  if (!enDesarrollo && !declarados.length && !web) {
-    origenes.push(URL_PUBLICA_POR_DEFECTO);
-  }
 
   return [...new Set(origenes)];
 }
