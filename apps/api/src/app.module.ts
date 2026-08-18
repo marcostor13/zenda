@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './core/auth/auth.module';
 import { UsersModule } from './core/users/users.module';
 import { ComerciosModule } from './core/comercios/comercios.module';
@@ -40,9 +42,18 @@ import { PlanificadorModule } from './core/planificador/planificador.module';
 import { AgendaModule } from './core/agenda/agenda.module';
 import { ListaEsperaModule } from './core/lista-espera/lista-espera.module';
 
+/**
+ * Techo global de peticiones por IP. Es una red de seguridad contra floods, no
+ * el límite de los endpoints sensibles: el login, los proxies a APIs de pago
+ * (`/ai-search`, `/geo`) y los formularios públicos declaran el suyo, mucho más
+ * estrecho, con `@Throttle` en su propio controller.
+ */
+const LIMITE_GLOBAL = [{ name: 'global', ttl: 60_000, limit: 300 }];
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot(LIMITE_GLOBAL),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -88,5 +99,6 @@ import { ListaEsperaModule } from './core/lista-espera/lista-espera.module';
     AgendaModule,
     ListaEsperaModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

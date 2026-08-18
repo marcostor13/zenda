@@ -73,8 +73,24 @@ export class PushService {
   /**
    * Envía a todos los dispositivos activos del usuario. **Nunca lanza**: una
    * push fallida no puede tumbar el flujo que la originó.
+   *
+   * La promesa hay que devolverla ya resuelta de verdad, no sólo prometerlo en
+   * el comentario: se llama con `void` desde `GrowthService`, así que un rechazo
+   * aquí sería un *unhandled rejection* y, en Node ≥ 15, el proceso se cae.
+   * `new Types.ObjectId(usuarioId)` con un id mal formado y cualquier fallo de
+   * Mongo entran por esa puerta.
    */
   async enviarA(usuarioId: string, envio: EnvioPush): Promise<ResultadoPush> {
+    try {
+      return await this.enviarADispositivos(usuarioId, envio);
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'error desconocido';
+      this.logger.error(`Push no enviada a ${usuarioId}: ${mensaje}`);
+      return { enviados: 0, desactivados: 0, omitido: true };
+    }
+  }
+
+  private async enviarADispositivos(usuarioId: string, envio: EnvioPush): Promise<ResultadoPush> {
     const dispositivos = await this.dispositivoModel
       .find({ usuarioId: new Types.ObjectId(usuarioId), activo: true })
       .select('token')

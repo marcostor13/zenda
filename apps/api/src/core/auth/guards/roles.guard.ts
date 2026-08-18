@@ -20,7 +20,11 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest<{ user: { rol: Rol } }>();
+    // `user` es undefined si alguien pone @Roles sin JwtAuthGuard delante.
+    // Leer `user.rol` sin más daba un TypeError -> 500; lo correcto es negar.
+    const { user } = context.switchToHttp().getRequest<{ user?: { rol: Rol } }>();
+    if (!user) return false;
+
     return rolesRequeridos.includes(user.rol);
   }
 }

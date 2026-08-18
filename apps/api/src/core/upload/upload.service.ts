@@ -6,6 +6,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 import { Readable } from 'stream';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { coincideConDeclarado } from './firma-fichero';
 
 /** Colección GridFS donde caen las imágenes cuando no hay S3 configurado. */
 const BUCKET_GRIDFS = 'uploads';
@@ -39,7 +40,22 @@ export class UploadService {
    * de la mascota funcione en cualquier entorno (TCK-8012).
    */
   async uploadImage(file: Express.Multer.File): Promise<{ url: string }> {
+    this.validarContenido(file);
     return this.hayS3() ? this.subirAS3(file) : this.subirAGridFs(file);
+  }
+
+  /**
+   * El `Content-Type` del multipart lo escribe el cliente, y es el que se guarda
+   * y se devuelve luego en `GET /upload/:id` desde el origen del API. Sin mirar
+   * los bytes, cualquier contenido podía viajar etiquetado como imagen.
+   */
+  private validarContenido(file: Express.Multer.File): void {
+    if (!coincideConDeclarado(file.buffer, file.mimetype)) {
+      throw new DomainException(
+        'El archivo no es del tipo que dice ser. Sube una imagen, un PDF o un vídeo válidos.',
+        422,
+      );
+    }
   }
 
   /** Lee del almacén local. Solo aplica a las imágenes servidas por el API. */

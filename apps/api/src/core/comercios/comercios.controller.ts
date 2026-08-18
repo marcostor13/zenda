@@ -29,10 +29,18 @@ interface RequestConUser extends Request {
 export class ComerciosController {
   constructor(private readonly comerciosService: ComerciosService) {}
 
+  /**
+   * Alta de un comercio **sin cuenta asociada**, desde el panel de plataforma.
+   * Sólo admin: con `JwtAuthGuard` a secas cualquier cliente podía crear
+   * comercios sueltos, que quedaban huérfanos en la colección porque el alta no
+   * cambia el rol de quien la hace. El camino self-service son `POST
+   * /comercios/registro` (cuenta + negocio) y `POST /comercios/onboarding`.
+   */
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Registrar un comercio (queda pendiente de aprobación)' })
+  @ApiOperation({ summary: 'Registrar un comercio sin cuenta (admin); queda pendiente de aprobación' })
   registrar(@Body() dto: RegistrarComercioDto): Promise<ComercioDocument> {
     return this.comerciosService.registrar(dto);
   }

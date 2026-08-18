@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ListaEsperaItemDto,
@@ -19,6 +20,8 @@ export class ListaEsperaController {
   // sirve antes de que exista ninguna sesión.
   @Post()
   @HttpCode(HttpStatus.OK)
+  // Escribe en BD sin sesión: sin techo es una vía directa a llenar la colección.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Apuntarse a la lista de espera del lanzamiento' })
   suscribir(@Body() dto: SuscribirListaEsperaDto): Promise<SuscripcionListaEsperaDto> {
     return this.listaEsperaService.suscribir(dto);

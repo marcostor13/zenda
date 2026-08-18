@@ -1,4 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
   ConfigMapas, CoordenadasLugar, DireccionLugar, GeoService, SugerenciaLugar, TipoLugar,
@@ -14,8 +15,14 @@ function esTipoLugar(valor?: string): valor is TipoLugar {
  * Proxy público de mapas y divisas. Es público a propósito: el buscador lo usa
  * antes de que el visitante inicie sesión. La clave de Google se queda en el
  * servidor y las respuestas van cacheadas para acotar el coste por sesión.
+ *
+ * Places y Routes se facturan por llamada contra nuestra cuenta, así que la
+ * caché no basta: sin límite, un tercero puede generar la factura que quiera
+ * pidiendo términos nuevos. 60 por minuto y por IP dan margen al autocompletado
+ * que dispara letra a letra y siguen siendo un techo.
  */
 @ApiTags('geo')
+@Throttle({ default: { limit: 60, ttl: 60_000 } })
 @Controller('geo')
 export class GeoController {
   constructor(private readonly geoService: GeoService) {}

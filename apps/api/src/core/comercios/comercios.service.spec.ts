@@ -24,7 +24,9 @@ describe('ComerciosService', () => {
   let authService: jest.Mocked<AuthService>;
   let reservaModel: { find: jest.Mock };
   let pagoModel: { find: jest.Mock };
-  let servicioModel: { updateMany: jest.Mock };
+  let servicioModel: {
+    updateMany: jest.Mock; findOne?: jest.Mock; findOneAndUpdate?: jest.Mock; find?: jest.Mock;
+  };
 
   const dto = {
     razonSocial: 'Hoteles Ibéricos S.L.',
@@ -44,7 +46,16 @@ describe('ComerciosService', () => {
   beforeEach(async () => {
     reservaModel = { find: jest.fn() };
     pagoModel = { find: jest.fn() };
-    servicioModel = { updateMany: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) }) };
+    servicioModel = {
+      updateMany: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) }),
+      findOne: jest.fn(),
+      findOneAndUpdate: jest.fn(),
+      find: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -59,6 +70,8 @@ describe('ComerciosService', () => {
             actualizarEstado: jest.fn(),
             listar: jest.fn(),
             eliminar: jest.fn(),
+            actualizarCampos: jest.fn(),
+            actualizar: jest.fn(),
           },
         },
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
@@ -133,6 +146,30 @@ describe('ComerciosService', () => {
     it('debería lanzar 404 si el comercio no existe', async () => {
       repo.actualizarEstado.mockResolvedValue(null);
       await expect(service.cambiarEstado('x', 'suspendido')).rejects.toThrow(DomainException);
+    });
+
+    it('debería sacar del buscador los listados al suspender el comercio', async () => {
+      // El catálogo filtra por el flag denormalizado del listado; sin
+      // propagarlo, un comercio suspendido seguía siendo visible y reservable.
+      repo.actualizarEstado.mockResolvedValue({ _id: 'c1', id: 'c1', estado: 'suspendido' } as never);
+
+      await service.cambiarEstado('c1', 'suspendido', 'documentación caducada');
+
+      expect(servicioModel.updateMany).toHaveBeenCalledWith(
+        { comercioId: 'c1' },
+        { comercioActivo: false },
+      );
+    });
+
+    it('debería devolver los listados al buscador al reactivar el comercio', async () => {
+      repo.actualizarEstado.mockResolvedValue({ _id: 'c1', id: 'c1', estado: 'activo' } as never);
+
+      await service.cambiarEstado('c1', 'activo');
+
+      expect(servicioModel.updateMany).toHaveBeenCalledWith(
+        { comercioId: 'c1' },
+        { comercioActivo: true },
+      );
     });
   });
 
@@ -385,6 +422,320 @@ describe('ComerciosService', () => {
       await service.actualizarComercio(comercioId, { direccion: { calle: 'Calle Mayor' } });
 
       expect(servicioModel.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('fijarSocioFundador', () => {
+    it('debería lanzar 404 si el comercio no existe', async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(service.fijarSocioFundador('no-existe', { socioFundador: true } as never))
+        .rejects.toThrow(DomainException);
+    });
+
+    it('debería exigir la comisión que se congela al dar de alta', async () => {
+      repo.findById.mockResolvedValue({ _id: 'c1' } as never);
+
+      await expect(service.fijarSocioFundador('c1', { socioFundador: true } as never))
+        .rejects.toThrow('Indica la comisión');
+
+      expect(repo.actualizarCampos).not.toHaveBeenCalled();
+    });
+
+    it('debería congelar la comisión con los meses por defecto', async () => {
+      repo.findById.mockResolvedValue({ _id: 'c1' } as never);
+      repo.actualizarCampos.mockResolvedValue({ _id: 'c1' } as never);
+
+      await service.fijarSocioFundador('c1', {
+        socioFundador: true, comisionPctCongelada: 0.1,
+      } as never);
+
+      const campos = repo.actualizarCampos.mock.calls[0][1] as Record<string, unknown>;
+      expect(campos.socioFundador).toBe(true);
+      expect(campos.comisionPctCongelada).toBe(0.1);
+      // 24 meses por defecto: la congelación debe quedar en el futuro.
+      expect((campos.congelacionHasta as Date).getTime()).toBeGreaterThan(Date.now());
+      // La cohorte se calcula por trimestre cuando no se indica.
+      expect(campos.cohorte).toMatch(/^\d{4}-Q[1-4]$/);
+    });
+
+    it('debería respetar los meses y la cohorte indicados', async () => {
+      repo.findById.mockResolvedValue({ _id: 'c1' } as never);
+      repo.actualizarCampos.mockResolvedValue({ _id: 'c1' } as never);
+
+      await service.fijarSocioFundador('c1', {
+        socioFundador: true, comisionPctCongelada: 0.12, mesesCongelacion: 6, cohorte: '2026-Q1',
+      } as never);
+
+      expect(repo.actualizarCampos.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ cohorte: '2026-Q1' }),
+      );
+    });
+
+    it('debería limpiar comisión y caducidad al dar de baja, sin dejar valores huérfanos', async () => {
+      repo.findById.mockResolvedValue({ _id: 'c1' } as never);
+      repo.actualizarCampos.mockResolvedValue({ _id: 'c1' } as never);
+
+      await service.fijarSocioFundador('c1', { socioFundador: false } as never);
+
+      expect(repo.actualizarCampos).toHaveBeenCalledWith('c1', {
+        socioFundador: false,
+        comisionPctCongelada: undefined,
+        congelacionHasta: undefined,
+      });
+    });
+
+    it('debería lanzar 404 si el comercio desaparece entre la lectura y la escritura', async () => {
+      repo.findById.mockResolvedValue({ _id: 'c1' } as never);
+      repo.actualizarCampos.mockResolvedValue(null);
+
+      await expect(service.fijarSocioFundador('c1', { socioFundador: false } as never))
+        .rejects.toThrow('Comercio no encontrado');
+    });
+  });
+
+  describe('fijarAlphaAdherido', () => {
+    it('debería lanzar 404 si el comercio no existe', async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(service.fijarAlphaAdherido('no-existe', true)).rejects.toThrow(DomainException);
+    });
+
+    it('debería alternar la adhesión al programa', async () => {
+      repo.findById.mockResolvedValue({ _id: 'c1' } as never);
+      repo.actualizarCampos.mockResolvedValue({ _id: 'c1', alphaAdherido: true } as never);
+
+      await service.fijarAlphaAdherido('c1', true);
+
+      expect(repo.actualizarCampos).toHaveBeenCalledWith('c1', { alphaAdherido: true });
+    });
+  });
+
+  describe('equipo del comercio', () => {
+    const comercioId = new Types.ObjectId().toString();
+
+    it('debería negar el acceso a una cuenta sin comercio vinculado', async () => {
+      await expect(service.obtenerEquipo('')).rejects.toThrow('no está vinculada a ningún comercio');
+    });
+
+    it('debería rechazar dar de alta a alguien con un email ya usado', async () => {
+      usersRepo.findByEmail.mockResolvedValue({ _id: 'otro' } as never);
+
+      await expect(
+        service.crearMiembroEquipo(comercioId, { nombre: 'Eva', email: 'eva@c.com', password: 'Segura123!' }),
+      ).rejects.toThrow('Ya existe un usuario con ese email');
+
+      expect(usersRepo.crear).not.toHaveBeenCalled();
+    });
+
+    it('debería crear al miembro como staff, con la contraseña hasheada', async () => {
+      usersRepo.findByEmail.mockResolvedValue(null);
+      usersRepo.crear.mockResolvedValue({ _id: 'u1' } as never);
+
+      await service.crearMiembroEquipo(comercioId, {
+        nombre: 'Eva', email: 'eva@c.com', password: 'Segura123!', puesto: 'Recepción',
+      });
+
+      const datos = usersRepo.crear.mock.calls[0][0];
+      expect(datos.rol).toBe(Rol.COMERCIO_STAFF);
+      expect(datos.comercioId).toBe(comercioId);
+      expect(datos.passwordHash).not.toBe('Segura123!');
+      expect(datos).not.toHaveProperty('password');
+    });
+
+    it('no debería dejar tocar a un miembro de otro comercio', async () => {
+      usersRepo.findById.mockResolvedValue({ comercioId: new Types.ObjectId() } as never);
+
+      await expect(
+        service.actualizarMiembroEquipo(comercioId, 'u1', 'yo', { puesto: 'X' }),
+      ).rejects.toThrow('Miembro no encontrado en tu equipo');
+    });
+
+    it('no debería permitir que alguien se desactive a sí mismo', async () => {
+      usersRepo.findById.mockResolvedValue({ comercioId: { toString: () => comercioId } } as never);
+
+      await expect(
+        service.actualizarMiembroEquipo(comercioId, 'yo', 'yo', { activo: false }),
+      ).rejects.toThrow('No puedes desactivarte a ti mismo');
+    });
+
+    it('debería actualizar puesto y permisos de un miembro propio', async () => {
+      usersRepo.findById.mockResolvedValue({ comercioId: { toString: () => comercioId } } as never);
+      usersRepo.actualizarAdmin.mockResolvedValue({ _id: 'u1', puesto: 'Recepción' } as never);
+
+      const res = await service.actualizarMiembroEquipo(comercioId, 'u1', 'yo', {
+        puesto: 'Recepción', permisosComercio: ['reservas'],
+      });
+
+      expect(res).toEqual({ _id: 'u1', puesto: 'Recepción' });
+    });
+
+    it('no debería permitir que alguien se elimine a sí mismo', async () => {
+      await expect(service.eliminarMiembroEquipo(comercioId, 'yo', 'yo'))
+        .rejects.toThrow('No puedes eliminarte a ti mismo');
+    });
+
+    it('solo debería poder eliminar miembros con rol de staff', async () => {
+      usersRepo.findById.mockResolvedValue({
+        comercioId: { toString: () => comercioId }, rol: Rol.COMERCIO_ADMIN,
+      } as never);
+
+      await expect(service.eliminarMiembroEquipo(comercioId, 'u1', 'yo'))
+        .rejects.toThrow('Solo puedes eliminar miembros con rol de staff');
+
+      expect(usersRepo.eliminar).not.toHaveBeenCalled();
+    });
+
+    it('debería eliminar a un miembro staff del propio comercio', async () => {
+      usersRepo.findById.mockResolvedValue({
+        comercioId: { toString: () => comercioId }, rol: Rol.COMERCIO_STAFF,
+      } as never);
+
+      await service.eliminarMiembroEquipo(comercioId, 'u1', 'yo');
+
+      expect(usersRepo.eliminar).toHaveBeenCalledWith('u1');
+    });
+  });
+
+  describe('cambiarEstadoServicio', () => {
+    const comercioId = new Types.ObjectId().toString();
+    const servicioId = new Types.ObjectId().toString();
+
+    const mockServicioActual = (doc: unknown) => {
+      servicioModel.findOne = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(doc),
+      });
+    };
+
+    it('debería lanzar 404 si el servicio no es de ese comercio', async () => {
+      mockServicioActual(null);
+
+      await expect(service.cambiarEstadoServicio(servicioId, comercioId, 'publicado'))
+        .rejects.toThrow('Servicio no encontrado');
+    });
+
+    it('debería rellenar las plazas al publicar un listado con el contador a cero', async () => {
+      // Publicar con el contador a cero dejaba el listado invisible en la web
+      // pese a figurar como publicado en el panel.
+      mockServicioActual({
+        vertical: 'peluqueria', cuposDisponibles: 0, capacidadSimultanea: 3,
+      });
+      servicioModel.findOneAndUpdate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ _id: servicioId }),
+      });
+
+      await service.cambiarEstadoServicio(servicioId, comercioId, 'publicado');
+
+      const cambios = servicioModel.findOneAndUpdate!.mock.calls[0][1];
+      expect(cambios).toEqual({ estado: 'publicado', cuposDisponibles: 3 });
+    });
+
+    it('no debería tocar un contador que ya tiene plazas', async () => {
+      mockServicioActual({
+        vertical: 'peluqueria', cuposDisponibles: 5, capacidadSimultanea: 3,
+      });
+      servicioModel.findOneAndUpdate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ _id: servicioId }),
+      });
+
+      await service.cambiarEstadoServicio(servicioId, comercioId, 'publicado');
+
+      expect(servicioModel.findOneAndUpdate!.mock.calls[0][1]).toEqual({ estado: 'publicado' });
+    });
+
+    it('no debería deducir plazas al pausar', async () => {
+      mockServicioActual({ vertical: 'peluqueria', cuposDisponibles: 0, capacidadSimultanea: 3 });
+      servicioModel.findOneAndUpdate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ _id: servicioId }),
+      });
+
+      await service.cambiarEstadoServicio(servicioId, comercioId, 'pausado');
+
+      expect(servicioModel.findOneAndUpdate!.mock.calls[0][1]).toEqual({ estado: 'pausado' });
+    });
+
+    it('debería lanzar 404 si el servicio desaparece antes de escribir', async () => {
+      mockServicioActual({ vertical: 'peluqueria' });
+      servicioModel.findOneAndUpdate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(service.cambiarEstadoServicio(servicioId, comercioId, 'pausado'))
+        .rejects.toThrow('Servicio no encontrado');
+    });
+  });
+
+  describe('documentación para verificación', () => {
+    const comercioId = new Types.ObjectId().toString();
+
+    beforeEach(() => {
+      repo.actualizar.mockResolvedValue({ _id: comercioId } as never);
+    });
+
+    it('debería dejar los documentos como pendientes de revisión al subirlos', async () => {
+      repo.findById.mockResolvedValue({ verificacion: { estado: 'sin_verificar' } } as never);
+
+      await service.actualizarComercio(comercioId, {
+        documentos: [{ tipo: 'cif', url: 'https://x/cif.pdf' }],
+      } as never);
+
+      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
+      expect(datos.verificacion.documentos[0].estado).toBe('pendiente');
+      expect(datos.verificacion.documentos[0].subidoAt).toBeInstanceOf(Date);
+      // Con documentación aportada, la verificación pasa a pendiente de revisar.
+      expect(datos.verificacion.estado).toBe('pendiente');
+    });
+
+    it('debería marcar como caducado un documento cuya fecha ya pasó', async () => {
+      repo.findById.mockResolvedValue({ verificacion: { estado: 'sin_verificar' } } as never);
+
+      await service.actualizarComercio(comercioId, {
+        documentos: [{ tipo: 'seguro', url: 'https://x/s.pdf', fechaCaducidad: '2020-01-01' }],
+      } as never);
+
+      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
+      expect(datos.verificacion.documentos[0].estado).toBe('caducado');
+    });
+
+    it('debería pasar a pendiente cuando se completan identidad y licencia', async () => {
+      repo.findById.mockResolvedValue({
+        verificacion: { estado: 'sin_verificar', documentoIdentidadUrl: 'https://x/dni.pdf' },
+      } as never);
+
+      await service.actualizarComercio(comercioId, {
+        licenciaNegocioUrl: 'https://x/lic.pdf',
+      } as never);
+
+      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
+      expect(datos.verificacion.estado).toBe('pendiente');
+      // El documento que ya había no se pierde al subir solo el que faltaba.
+      expect(datos.verificacion.documentoIdentidadUrl).toBe('https://x/dni.pdf');
+    });
+
+    it('debería conservar el estado anterior si aún falta documentación', async () => {
+      repo.findById.mockResolvedValue({ verificacion: { estado: 'rechazado' } } as never);
+
+      await service.actualizarComercio(comercioId, {
+        documentoIdentidadUrl: 'https://x/dni.pdf',
+      } as never);
+
+      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
+      expect(datos.verificacion.estado).toBe('rechazado');
+    });
+
+    it('no debería tocar la verificación si no se envía ningún documento', async () => {
+      await service.actualizarComercio(comercioId, { nombreComercial: 'Otro' } as never);
+
+      expect(repo.findById).not.toHaveBeenCalled();
+      expect(repo.actualizar.mock.calls[0][1]).not.toHaveProperty('verificacion');
+    });
+
+    it('debería lanzar 404 si el comercio no existe al guardar', async () => {
+      repo.actualizar.mockResolvedValue(null);
+
+      await expect(service.actualizarComercio(comercioId, { nombreComercial: 'X' } as never))
+        .rejects.toThrow('Comercio no encontrado');
     });
   });
 });

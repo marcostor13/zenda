@@ -13,7 +13,7 @@ describe('CatalogService', () => {
   let repo: jest.Mocked<CatalogRepository>;
   let reviewsService: jest.Mocked<ReviewsService>;
   let perrosService: jest.Mocked<PerrosService>;
-  let comercioModel: { find: jest.Mock };
+  let comercioModel: { find: jest.Mock; findById: jest.Mock };
 
   const hotelDoc = {
     _id: 'hotel-1',
@@ -54,6 +54,12 @@ describe('CatalogService', () => {
       find: jest.fn().mockReturnValue({
         select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([]),
+      }),
+      // Al crear un listado se consulta el estado del comercio para saber si
+      // debe ser visible en el buscador (flag `comercioActivo`).
+      findById: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ estado: 'activo' }),
       }),
     };
 

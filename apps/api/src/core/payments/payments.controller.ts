@@ -11,6 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -62,6 +63,13 @@ export class PaymentsController {
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
+  /*
+   * Sin límite a propósito: quien llama es Stripe desde un puñado de IPs y en
+   * ráfagas (reintentos, backlog tras una caída). Bloquearle equivaldría a
+   * perder confirmaciones de pago. La autenticidad la da la firma del webhook,
+   * que se verifica en `procesarWebhook`, no el rate limit.
+   */
+  @SkipThrottle()
   @ApiOperation({ summary: 'Webhook de Stripe (raw body requerido)' })
   async webhook(
     @Req() req: RawBodyRequest<Request>,

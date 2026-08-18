@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
-import { EstadoModeracion, VerticalKey } from 'shared';
+import { EstadoModeracion, VerticalKey, regexLiteral } from 'shared';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Lugar, LugarDocument } from '../lugares/lugar.schema';
 import { PerrosService } from '../perros/perros.service';
@@ -134,8 +134,8 @@ export class PlanificadorService {
       .find({
         estado: EstadoModeracion.PUBLICADO,
         $or: [
-          { 'ubicacion.provincia': new RegExp(provincia, 'i') },
-          { 'ubicacion.ciudad': new RegExp(provincia, 'i') },
+          { 'ubicacion.provincia': regexLiteral(provincia) },
+          { 'ubicacion.ciudad': regexLiteral(provincia) },
         ],
       })
       .sort({ ratingPromedio: -1 })
@@ -148,7 +148,7 @@ export class PlanificadorService {
   private serviciosDe(provincia: string, presupuestoMax?: number): Promise<ServicioDocument[]> {
     const filtro: Record<string, unknown> = {
       estado: 'publicado',
-      'ubicacion.ciudad': new RegExp(provincia, 'i'),
+      'ubicacion.ciudad': regexLiteral(provincia),
     };
     if (presupuestoMax) filtro['precioBase'] = { $lte: presupuestoMax };
 

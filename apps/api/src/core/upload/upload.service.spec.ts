@@ -49,10 +49,13 @@ async function crearServicio(vars: Record<string, string>): Promise<UploadServic
   return module.get(UploadService);
 }
 
+/** Cabecera PNG real: la subida valida los bytes, no sólo el mimetype declarado. */
+const CABECERA_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 const ficheroDePrueba = {
   originalname: 'luna.PNG',
   mimetype: 'image/png',
-  buffer: Buffer.from('imagen'),
+  buffer: Buffer.concat([CABECERA_PNG, Buffer.from('imagen')]),
 } as Express.Multer.File;
 
 const VARS_S3 = {
@@ -89,6 +92,22 @@ describe('UploadService', () => {
       const { url } = await service.uploadImage(ficheroDePrueba);
 
       expect(url).toMatch(/^https:\/\/cdn\.doogking\.com\/uploads\/[\w-]+\.png$/);
+    });
+  });
+
+  describe('validación del contenido', () => {
+    it('debería rechazar un fichero que no es del tipo que declara', async () => {
+      // El mimetype del multipart lo escribe el cliente; sin mirar los bytes,
+      // cualquier contenido viajaba etiquetado como imagen y luego se servía
+      // desde el origen del API.
+      const service = await crearServicio({});
+      const disfrazado = {
+        originalname: 'inocente.png',
+        mimetype: 'image/png',
+        buffer: Buffer.from('<!doctype html><script>alert(1)</script>'),
+      } as Express.Multer.File;
+
+      await expect(service.uploadImage(disfrazado)).rejects.toThrow(DomainException);
     });
   });
 

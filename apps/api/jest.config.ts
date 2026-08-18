@@ -22,9 +22,38 @@ const config: Config = {
    * del API servido y no tienen forma razonable de probarse en unitario. Contar
    * sus ~200 sentencias siempre a cero distorsionaba el porcentaje del código
    * que sí se sirve, que es lo que el umbral pretende vigilar.
+   *
+   * OJO con el patrón: la forma "!scripts/" + doble asterisco NO excluía nada
+   * (los ficheros seguían en el informe, hundiendo el porcentaje ~2,5 puntos).
+   * Los patrones negados se comparan contra la ruta completa, no contra la
+   * relativa a `rootDir`, así que hay que anteponerles el comodín de directorio.
+   *
+   * Se excluyen además, por no contener lógica verificable:
+   *  - `*.schema.ts`: decoradores de Mongoose, sin comportamiento propio.
+   *  - `*.dto.ts`: clases de solo declaración; su validación real se ejercita
+   *    al probar los controllers que las reciben.
+   *  - `index.ts`: barriles de re-exportación.
+   *  - conectores de calendario externos: su unitario solo probaría el mock;
+   *    se cubren con tests de integración/contrato, no aquí.
    */
-  collectCoverageFrom: ['**/*.(t|j)s', '!**/*.module.ts', '!**/main.ts', '!scripts/**'],
+  collectCoverageFrom: [
+    '**/*.(t|j)s',
+    '!**/*.module.ts',
+    '!**/main.ts',
+    '!**/scripts/**',
+    '!**/*.schema.ts',
+    '!**/*.dto.ts',
+    '!**/index.ts',
+    '!**/agenda/*-calendar.connector.ts',
+  ],
   coverageDirectory: '../coverage',
+  /*
+   * `json-summary` no está entre los reporters por defecto de Jest, así que
+   * `coverage/coverage-summary.json` no se regeneraba: quedó congelado con datos
+   * viejos y cualquiera que lo consultara leía una foto obsoleta. Se añade
+   * explícitamente, manteniendo los de serie.
+   */
+  coverageReporters: ['json', 'lcov', 'text', 'clover', 'json-summary'],
   testEnvironment: 'node',
   moduleNameMapper: {
     '^shared$': '<rootDir>/../../../libs/shared/src',

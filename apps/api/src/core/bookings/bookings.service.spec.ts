@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import { BookingsService } from './bookings.service';
 import { Reserva, ReservaDocument } from './reserva.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
+import { CatalogRepository } from '../catalog/catalog.repository';
 import { AvailabilityStrategy } from '../availability/availability.strategy';
 import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
@@ -22,6 +23,7 @@ describe('BookingsService', () => {
   let perrosService: jest.Mocked<PerrosService>;
   let notificationsService: jest.Mocked<NotificationsService>;
   let eventosService: jest.Mocked<Pick<EventosService, 'registrar'>>;
+  let catalogRepository: jest.Mocked<Pick<CatalogRepository, 'obtenerPorId'>>;
 
   const parametrosBase = {
     usuarioId: 'user-1',
@@ -88,6 +90,16 @@ describe('BookingsService', () => {
           useValue: { obtener: jest.fn().mockReturnValue(estrategiaMock) },
         },
         {
+          provide: CatalogRepository,
+          useValue: {
+            // El servicio es la fuente de verdad del comercio y del vertical.
+            obtenerPorId: jest.fn().mockResolvedValue({
+              comercioId: 'comercio-1',
+              vertical: VerticalKey.ALOJAMIENTO,
+            }),
+          },
+        },
+        {
           provide: CuponesService,
           useValue: { validar: jest.fn(), aplicar: jest.fn().mockResolvedValue(undefined) },
         },
@@ -118,10 +130,112 @@ describe('BookingsService', () => {
     service = module.get<BookingsService>(BookingsService);
     reservaModel = module.get(getModelToken(Reserva.name));
     availabilityRegistry = module.get(AvailabilityRegistry);
+    catalogRepository = module.get(CatalogRepository);
     cuponesService = module.get(CuponesService);
     perrosService = module.get(PerrosService);
     notificationsService = module.get(NotificationsService);
     eventosService = module.get(EventosService);
+  });
+
+  /**
+   * El comercio y el vertical mandan sobre la comisión y sobre a quién se le
+   * liquida el dinero. Antes llegaban en el cuerpo de la petición sin
+   * contrastarse, así que un cliente podía elegirlos.
+   */
+  describe('crear — el servicio manda sobre el comercio y el vertical', () => {
+    it('debería tomar comercio y vertical del servicio, no de lo que envía el cliente', async () => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-real',
+        vertical: VerticalKey.PELUQUERIA,
+      } as never);
+
+      await service.crear({
+        ...parametrosBase,
+        comercioId: undefined,
+        vertical: undefined,
+      });
+
+      expect(availabilityRegistry.obtener).toHaveBeenCalledWith(VerticalKey.PELUQUERIA);
+      expect(reservaModel).toHaveBeenCalledWith(
+        expect.objectContaining({ comercioId: 'comercio-real', vertical: VerticalKey.PELUQUERIA }),
+      );
+    });
+
+    it('debería rechazar si el cliente declara un comercio distinto al del servicio', async () => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-real',
+        vertical: VerticalKey.ALOJAMIENTO,
+      } as never);
+
+      await expect(
+        service.crear({ ...parametrosBase, comercioId: 'comercio-del-atacante' }),
+      ).rejects.toThrow(DomainException);
+      expect(estrategiaMock.reserveSlot).not.toHaveBeenCalled();
+    });
+
+    it('debería rechazar si el cliente declara un vertical distinto al del servicio', async () => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-1',
+        vertical: VerticalKey.TRANSPORTE,
+      } as never);
+
+      // Elegir el vertical es elegir el porcentaje de comisión (CLAUDE.md §11.2).
+      await expect(
+        service.crear({ ...parametrosBase, vertical: VerticalKey.VETERINARIA }),
+      ).rejects.toThrow(DomainException);
+    });
+
+    it('debería resolver la comisión con el comercio y el vertical reales', async () => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-real',
+        vertical: VerticalKey.VETERINARIA,
+      } as never);
+
+      await service.crear({ ...parametrosBase, comercioId: undefined, vertical: undefined });
+
+      const resolver = (service as unknown as {
+        comisionResolver: { resolver: jest.Mock };
+      }).comisionResolver.resolver;
+      expect(resolver).toHaveBeenCalledWith(
+        expect.objectContaining({ comercioId: 'comercio-real', vertical: VerticalKey.VETERINARIA }),
+      );
+    });
+
+    it('debería lanzar 404 si el servicio no existe', async () => {
+      catalogRepository.obtenerPorId.mockResolvedValue(null);
+
+      await expect(service.crear(parametrosBase)).rejects.toThrow(DomainException);
+    });
+
+    it('debería rechazar un servicio sin comercio asociado', async () => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        vertical: VerticalKey.ALOJAMIENTO,
+      } as never);
+
+      await expect(service.crear(parametrosBase)).rejects.toThrow(DomainException);
+    });
+  });
+
+  describe('crear — importes', () => {
+    it('debería guardar comisión, IVA y total redondeados al céntimo', async () => {
+      // Un subtotal que en coma flotante da 21% = 25.410000000000004.
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true,
+        precioCalculado: 121,
+      } as never);
+
+      await service.crear(parametrosBase);
+
+      const guardado = reservaModel.mock.calls.at(-1)?.[0] as {
+        comisionMonto: number; montoTotal: number;
+      };
+
+      // Sin redondear se persistían valores tipo 146.41000000000003, que luego
+      // no cuadraban con lo que PaymentsService recalcula para cobrar.
+      expect(guardado.montoTotal).toBe(Number(guardado.montoTotal.toFixed(2)));
+      expect(guardado.comisionMonto).toBe(Number(guardado.comisionMonto.toFixed(2)));
+      expect(guardado.montoTotal).toBe(146.41);
+    });
   });
 
   describe('crear', () => {

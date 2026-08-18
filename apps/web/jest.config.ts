@@ -26,14 +26,33 @@ const config: Config = {
   moduleNameMapper: {
     '^shared$': '<rootDir>/../../libs/shared/src',
   },
+  /*
+   * `e2e/` es de Playwright, no de Jest. Sus ficheros también se llaman
+   * `*.spec.ts`, así que sin esto Jest los descubre, intenta ejecutarlos y la
+   * suite entera falla al importar `@playwright/test` (que no corre bajo jsdom).
+   */
+  testPathIgnorePatterns: ['<rootDir>/e2e/', '/node_modules/'],
+  /*
+   * Se excluyen, por no contener lógica verificable: los barriles de
+   * re-exportación (`index.ts`, p.ej. `shared/index.ts`, 59 sentencias que solo
+   * reexportan) y los ficheros de configuración declarativa. Todo lo que tenga
+   * comportamiento —componentes, servicios, guards, directivas, pipes— sí entra.
+   */
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/main.ts',
     '!src/**/*.module.ts',
     '!src/environments/**',
     '!src/**/*.routes.ts',
+    '!src/**/index.ts',
   ],
   coverageDirectory: 'coverage',
+  /*
+   * `json-summary` no está entre los reporters por defecto de Jest, así que
+   * `coverage/coverage-summary.json` no se regeneraba y quedaba congelado con
+   * datos viejos. Se añade explícitamente, manteniendo los de serie.
+   */
+  coverageReporters: ['json', 'lcov', 'text', 'clover', 'json-summary'],
   /*
    * Suelo anti-regresión, no la meta, con el mismo criterio que el API. El
    * objetivo sigue siendo el 80% de CLAUDE.md §20, pero ramas y funciones están

@@ -4,42 +4,45 @@
 > **Método:** cada historia se verificó **contra el código real** (schemas, servicios, componentes,
 > tests), no contra `docs/PLAN-IMPLEMENTACION-MEJORA-SERVICIOS.md`. Ese plan está fechado el
 > 2026-07-18 y quedó desactualizado: varias épicas que marca como "no iniciadas" (Seguros,
-> Comunidad, el carrito multi-vertical de Hotel) ya están completas en el código, construidas en
+> Comunidad, el carrito multi-vertical de Hotel) ya estaban completas en el código, construidas en
 > sesiones posteriores. Se señala cada caso donde el código contradice al plan.
-> **Fecha de esta auditoría:** 2026-08-17.
+> **Fecha de la auditoría inicial:** 2026-08-17 (52 hechas / 9 parciales / 8 pendientes).
+> **Actualizado:** 2026-08-17, tras ejecutar el plan de la sección final. **Estado actual: 69/69.**
+> El detalle de cómo se cerró cada una está en `docs/PLAN-INFORME-GERENCIAL-MEJORA-SERVICIOS.md`.
 
 ## Resumen ejecutivo
 
 | Épica | Historias | ✅ Hecho | 🟡 Parcial | ❌ Falta |
 |---|---|---|---|---|
-| N — Ficha Inteligente del Perro | 10 | 8 | 0 | 2 |
-| S — Precio estimado y suplementos | 11 | 7 | 2 | 2 |
+| N — Ficha Inteligente del Perro | 10 | 10 | 0 | 0 |
+| S — Precio estimado y suplementos | 11 | 11 | 0 | 0 |
 | CP — Compatibilidad y recomendación | 4 | 4 | 0 | 0 |
 | R — Reputación bidireccional | 2 | 2 | 0 | 0 |
 | PEL — Peluquería | 5 | 5 | 0 | 0 |
-| RES — Residencias | 5 | 4 | 0 | 1 |
-| ADI — Adiestramiento | 5 | 1 | 3 | 1 |
-| TRA — Transporte | 5 | 1 | 3 | 1 |
-| VET — Veterinaria | 6 | 5 | 1 | 0 |
+| RES — Residencias | 5 | 5 | 0 | 0 |
+| ADI — Adiestramiento | 5 | 5 | 0 | 0 |
+| TRA — Transporte | 5 | 5 | 0 | 0 |
+| VET — Veterinaria | 6 | 6 | 0 | 0 |
 | HOT — Hotel pet-friendly | 6 | 6 | 0 | 0 |
 | SEG — Seguros | 4 | 4 | 0 | 0 |
 | COM — Comunidad | 3 | 3 | 0 | 0 |
-| COMI — Comisiones | 3 | 2 | 0 | 1 |
-| **Total** | **69** | **52 (75%)** | **9 (13%)** | **8 (12%)** |
+| COMI — Comisiones | 3 | 3 | 0 | 0 |
+| **Total** | **69** | **69 (100%)** | **0** | **0** |
 
 **Lectura rápida:**
-- Los cimientos (Fase A/B del plan: Ficha del Perro, ciclo de suplementos, compatibilidad,
-  reputación) y los 6 verticales enriquecidos (peluquería, residencia, hotel, adiestramiento,
-  veterinaria, más transporte a medio construir) están **sólidos**.
-- Lo que el plan daba por "no iniciado" (Fase D: Seguros, Comunidad, comisión por tramos) está
-  **completo**, incluido el carrito multi-vertical que el plan decía expresamente que no existía.
-- El patrón que más se repite en lo pendiente: **el backend existe pero no hay interfaz** para
-  usarlo (recurrencia de transporte, importar historial veterinario desde Excel) — trabajo
-  "a medias" en el sentido de que falta la mitad visible, no la mitad difícil.
-- Una historia (COMI3, altar "cuidadores a domicilio") no solo está sin hacer: el vertical
-  equivalente más cercano ("Cuidadores") fue **eliminado explícitamente** por decisión del
-  cliente en otra ronda de tickets (TCK-8021). No es deuda pendiente, es una historia que el
-  negocio ya descartó.
+- **Las 69 historias están entregadas.** Las 17 que esta auditoría encontró abiertas (9 parciales
+  + 8 sin empezar) se cerraron en los 7 bloques descritos al final del documento.
+- Verificación: `tsc` (shared/api/web app + spec), `nest build` y `ng build --configuration
+  production` sin errores; **708 tests de backend** y **1364 de frontend**, todos en verde.
+- Lo que el plan daba por "no iniciado" (Fase D: Seguros, Comunidad, comisión por tramos) ya
+  estaba **completo** antes de esta auditoría, incluido el carrito multi-vertical que el plan
+  decía expresamente que no existía. El estado real solo se conoce mirando el código.
+- El patrón dominante en lo que faltaba no era funcionalidad ausente sino **motor sin interfaz**
+  (recurrencia de transporte, importar historial veterinario desde Excel): fue lo más rápido de
+  cerrar, porque faltaba la mitad visible, no la difícil.
+- COMI3 ("cuidadores a domicilio") contradecía una decisión previa —el vertical "Cuidadores" se
+  había eliminado en TCK-8021—, así que **se consultó antes de ejecutarla**. Con la confirmación
+  del cliente de que esa decisión ya no aplica, el vertical se construyó.
 
 ---
 
@@ -51,10 +54,10 @@
 | N2 | Editar y eliminar perros del perfil | ✅ | `apps/web/src/app/features/perros/perros-lista.component.ts` + `perro-form.component.ts` |
 | N3 | Elegir perro en el wizard de reserva | ✅ | `reserva-wizard.component.ts` — selector de perro paso 1, en los 6 verticales |
 | N4 | Congelar snapshot del perro al crear la reserva | ✅ | `bookings.service.ts` + `perro-snapshot.util.ts`, antes de tomar el slot |
-| N5 | Resumen legible por vertical para el comercio (ej. "miedo al secador") | ❌ | No existe generación de resumen; el comercio no ve un extracto curado del perfil salvo en la Historia Veterinaria (VET5) |
+| N5 | Resumen legible por vertical para el comercio (ej. "miedo al secador") | ✅ | `resumenPerro()` en `comercio-reservas.component.ts`: etiquetas automáticas con alergias, miedos, medicación y conductas, desde el `perroSnapshot`, visibles en cada fila sin abrir nada |
 | N6 | Comercio anota valoración/nota tras el servicio | ✅ | `perro_valoraciones` (colección nueva) + `PerroValoracionesService.crear()` |
 | N7 | Historial acumulado por vertical en la ficha | ✅ | `perros-lista.component.ts` muestra las últimas 3 entradas con `{{ h.vertical }} · {{ h.nota }}` — lista plana etiquetada por vertical, no en pestañas separadas |
-| N8 | Recalcular precio estimado con el historial real del perro | ❌ | Sin rastro en `bookings.service.ts` ni `catalog.service.ts` |
+| N8 | Recalcular precio estimado con el historial real del perro | ✅ | `PerrosService.estimarPrecioConHistorial()` + `GET /perros/:id/estimacion-precio`; banner informativo en el paso 2 del wizard. No altera el importe cobrado |
 | N9 | Elegir con qué verticales se comparte el historial sensible (RGPD) | ✅ | `perro-privacidad.component.ts` (HU-016): matriz tipo de historial × vertical, consentimientos granulares con revocación — **más completo que lo que documenta el plan** (que solo preveía un booleano) |
 | N10 | Nivel Doogking (1-5) tras seguimiento de adiestramiento | ✅ | `PerroValoracionesService.crear()` actualiza `Perro.nivelDoogking` cuando la reserva valorada es de adiestramiento |
 
@@ -64,8 +67,8 @@
 
 | # | Historia (resumen) | Estado | Evidencia |
 |---|---|---|---|
-| S1 | Ver precio estimado (no cerrado) donde el coste depende del perro | 🟡 | Avisos repartidos por vertical ("nudos importantes", "precio orientativo… se factura aparte"), no un mensaje centralizado de "esto es una estimación" |
-| S2 | Checkbox explícito "confirmo que la info de mi mascota es correcta" antes de pagar | ❌ | El wizard solo tiene un checkbox de Términos y condiciones (`reserva-wizard.component.ts:755`); no existe una declaración específica sobre la mascota |
+| S1 | Ver precio estimado (no cerrado) donde el coste depende del perro | ✅ | Aviso unificado en el paso 2 del wizard, idéntico en los 6 verticales, conviviendo con los avisos específicos de cada uno |
+| S2 | Checkbox explícito "confirmo que la info de mi mascota es correcta" antes de pagar | ✅ | Checkbox `confirmaDatosMascota` con `Validators.requiredTrue` en `paso2Form`, junto al de términos |
 | S3 | Comercio configura catálogo de suplementos con motivo y precio | ✅ | `apps/api/src/core/suplementos/` + `comercio-suplementos.component.ts` |
 | S4 | Comercio selecciona suplementos y ve el total recalculado | ✅ | Panel expandible en `comercio-reservas.component.ts` |
 | S5 | Adjuntar foto de evidencia al solicitar el ajuste | ✅ | `rs-image-upload` en el mismo panel |
@@ -73,8 +76,8 @@
 | S7 | Cobro automático de la diferencia al aceptar | ✅ | `PaymentsService.aceptarAjuste` — 2º PaymentIntent |
 | S8 | Reembolso + cancelación automática al rechazar | ✅ | `PaymentsService.rechazarAjuste` |
 | S9 | Comisión recalculada sobre el monto final ajustado | ✅ | `BookingsService.confirmarAjuste` |
-| S10 | Ver en el detalle de la reserva el desglose de suplementos con motivo y evidencia | 🟡 | El motivo se ve mientras el ajuste está *pendiente* (`mis-reservas.component.ts`); no hay un desglose permanente en `reserva-detalle.component.ts` una vez resuelto |
-| S11 | Admin ve en el reporte financiero cuántas reservas tuvieron ajuste y su impacto | ❌ | Sin rastro en `admin.service.ts` ni en el reporte financiero |
+| S10 | Ver en el detalle de la reserva el desglose de suplementos con motivo y evidencia | ✅ | Tarjeta "Cargos adicionales aplicados" en `reserva-detalle.component.ts`: concepto, importe, motivo y foto, de forma permanente |
+| S11 | Admin ve en el reporte financiero cuántas reservas tuvieron ajuste y su impacto | ✅ | `AdminService.generarReporteAjustes()` + sección "Ajustes de precio por comercio" en `admin-reportes.component.ts` (nº, % e importe por comercio, resaltando ≥30%) |
 
 ---
 
@@ -118,7 +121,7 @@
 | RES2 | Decidir si el tamaño del perro es un criterio relevante | ✅ | `tamanoMaxPerro` es opcional; sin él no hay restricción |
 | RES3 | Requisitos sanitarios opcionales de exigir, no bloqueantes | ✅ | `requisitoMicrochip`, `requiereDesparasitacion*`, informativos, no bloquean |
 | RES4 | Suplementos por día de cuidados especiales | ✅ | `serviciosAdicionales` (residencia) |
-| RES5 | Marcar conductas no admitidas (agresividad, escapista…) para rechazar reservas de riesgo | ❌ | `compatibilidadSocialAdmitida` cubre tamaño/sexo, no conducta de riesgo; `alojamiento-availability.strategy.ts` no valida `protectorRecursos`/`ansiedadSeparacion` del perro |
+| RES5 | Marcar conductas no admitidas (agresividad, escapista…) para rechazar reservas de riesgo | ✅ | `Alojamiento.conductasNoAdmitidas[]` + `AlojamientoAvailabilityStrategy.validarConductaRiesgo()` (409). Campo nuevo `Perro.tendenciaEscapar` y conductas propagadas al snapshot |
 
 ---
 
@@ -127,10 +130,10 @@
 | # | Historia | Estado | Evidencia |
 |---|---|---|---|
 | ADI1 | Elegir servicios de un catálogo con checkboxes | ✅ | `adiestramiento.schema.ts::serviciosAdiestramiento` |
-| ADI2 | Cuestionario de comportamiento estructurado al reservar valoración | 🟡 | No hay campos estructurados; se apoya en el campo libre de "peticiones especiales" (decisión de alcance documentada, no un olvido) |
-| ADI3 | Subir vídeos opcionales del comportamiento | ❌ | Sin rastro en el wizard ni en el schema |
-| ADI4 | Proponer plan personalizado (bono/curso) tras la valoración | 🟡 | No hay flujo propio; se aproxima con el ciclo de ajuste/suplemento genérico (S3-S9) |
-| ADI5 | Registrar objetivos, evolución y tareas tras cada sesión | 🟡 | El mecanismo genérico de notas (`perro_historial`) existe y puede usarse, pero no hay campos estructurados de "objetivos/evolución/tareas" específicos de adiestramiento |
+| ADI2 | Cuestionario de comportamiento estructurado al reservar valoración | ✅ | Campos `historialPrevio` y `vinculoPropietario` en el paso 1 del wizard, visibles para el centro en el detalle de la reserva |
+| ADI3 | Subir vídeos opcionales del comportamiento | ✅ | `POST /upload/video` (MP4/WebM/MOV, máx 50 MB) + subida en el wizard → `detalle.videosUrl[]`, enlazados en el panel del comercio |
+| ADI4 | Proponer plan personalizado (bono/curso) tras la valoración | ✅ | El centro compone el plan (nombre, sesiones, precio) y viaja por el ciclo de aprobación y cobro ya probado (S3-S9). **Matiz:** solo proponible mientras la reserva sigue `confirmada` |
+| ADI5 | Registrar objetivos, evolución y tareas tras cada sesión | ✅ | Panel "Registrar seguimiento de la sesión" con campos propios de objetivos, evolución y tareas para casa → `PerroHistorial.datosEstructurados` |
 
 ---
 
@@ -138,10 +141,10 @@
 
 | # | Historia | Estado | Evidencia |
 |---|---|---|---|
-| TRA1 | Marcar campos del formulario como obligatorios u opcionales | 🟡 | Los campos existen (`transporte.schema.ts`) pero sin una etiqueta explícita obligatorio/opcional visible al comercio |
-| TRA2 | Indicar comportamiento en desplazamientos (marea, ladra, ansiedad, transportín) | 🟡 | Los campos viven en `Perro` (`seMarea`, `requiereTransportin`, `toleraTrayectosLargos`) y viajan en el snapshot de la reserva, pero no hay un panel dedicado que se lo muestre claramente al transportista (a diferencia de la Historia Veterinaria) |
-| TRA3 | Programar transporte recurrente (ej. L y X a las 09:00) | 🟡 | Motor completo en el backend (`bookings.service.ts::calcularOcurrenciasRecurrentes`, `RecurrenciaParams` en el DTO), **sin ninguna UI**: no hay ningún control de recurrencia en `reserva-wizard.component.ts` |
-| TRA4 | Trayecto de ida y vuelta con espera, como un único servicio | ❌ | Sin rastro de "ida_vuelta" ni "espera" en schema, DTOs o wizard |
+| TRA1 | Marcar campos del formulario como obligatorios u opcionales | ✅ | Leyenda de obligatorios y etiquetas "(opcional)" en toda la sección de transporte del formulario de listado |
+| TRA2 | Indicar comportamiento en desplazamientos (marea, ladra, ansiedad, transportín) | ✅ | Cubierto por el resumen automático de N5: "Se marea en viajes" y "Requiere transportín" salen como etiqueta en la propia fila de la reserva |
+| TRA3 | Programar transporte recurrente (ej. L y X a las 09:00) | ✅ | Control de recurrencia en el paso 1 del wizard (días, hora, fecha fin) conectado al motor `calcularOcurrenciasRecurrentes` que ya existía |
+| TRA4 | Trayecto de ida y vuelta con espera, como un único servicio | ✅ | `tipoTrayecto: 'ida_vuelta'` + `esperaMinutos`; cobra (base + km)×2 + `tarifaEsperaPorHora`×horas, configurable por transportista (0 = no cobra espera) |
 | TRA5 | Cancelar y reembolsar automáticamente si se rechaza el ajuste | ✅ | Regla genérica (S8) aplica a transporte — solo veterinaria está explícitamente excluida |
 
 ---
@@ -154,7 +157,7 @@
 | VET2 | Cliente entiende que solo cubre la consulta inicial | ✅ | Mensaje explícito en el wizard (`reserva-wizard.component.ts:412`) |
 | VET3 | Comisionar solo sobre la consulta inicial | ✅ | `solicitarAjuste` lanza excepción si `vertical === VETERINARIA` |
 | VET4 | Recomendación de triaje automático | ✅ | `RecomendadorService.recomendarVeterinaria` |
-| VET5 | Volcar vacunas/medicación/historial (con autorización), incluyendo pegar Excel | 🟡 | Historia Veterinaria Compartida (`GET /perros/:id/historia-veterinaria`) ✅ completa; el endpoint de importar/previsualizar CSV-Excel (`POST /perros/:id/historial/previsualizar` + `importarHistorial`) existe **solo en el backend**, sin ningún componente frontend que lo use |
+| VET5 | Volcar vacunas/medicación/historial (con autorización), incluyendo pegar Excel | ✅ | Pantalla de importación en el panel "Historia veterinaria": pegar tabla/Excel → previsualizar → revisar → guardar, sobre los endpoints que ya existían |
 | VET6 | Atender especies distintas al perro | ✅ | `Veterinaria.especiesAtendidas` + bloqueo 409 si no coincide |
 
 ---
@@ -199,29 +202,49 @@
 |---|---|---|---|
 | COMI1 | Comisión por tramo de importe | ✅ | `comision-config.schema.ts::TramoComision` + `ComisionResolverService` |
 | COMI2 | Marcar comercio "Socio Fundador" con comisión congelada 24 meses | ✅ | Campo y lógica en `comercio.schema.ts` / `comercios.service.ts` |
-| COMI3 | Dar de alta verticales "paseadores" y "cuidadores a domicilio" | ❌ | No existen en `VerticalKey`. Más relevante aún: el vertical más próximo, **"Cuidadores", fue dado de baja explícitamente** por decisión del cliente (TCK-8021, "Cuidadores no es un servicio que queramos incorporar. Esa parte elimínala") — esta historia no es deuda técnica, es una decisión de negocio que va en sentido contrario |
+| COMI3 | Dar de alta verticales "paseadores" y "cuidadores a domicilio" | ✅ | Vertical `cuidadores` — "Paseadores y cuidado a domicilio" (paseo/visita/día completo/noche), alta autogestionada por el comercio y reserva desde el wizard. Mantiene la verificación de profesionales: exige alta de comercio y aprobación del admin |
 
 ---
 
-## Backlog de lo pendiente, priorizado
+## Cómo se cerró el backlog (7 bloques)
 
-**Falta real (❌), por prioridad del documento original:**
-- P0: ninguna — todos los ❌ son P1/P2.
-- P1: S2 (checkbox de veracidad del perro), S11 (reporte admin de ajustes), RES5 (bloqueo por conducta de riesgo), ADI3 (vídeos), TRA4 (ida+vuelta+espera), N5 (resumen por vertical), N8 (precio por historial).
-- P2: COMI3 (descartada por el cliente, no priorizar).
+El backlog que detectó esta auditoría —17 historias— se agrupó en 7 bloques por esfuerzo, riesgo
+y valor, y se ejecutó entero. Detalle técnico por bloque en
+`docs/PLAN-INFORME-GERENCIAL-MEJORA-SERVICIOS.md`.
 
-**Backend listo, falta solo la interfaz (🟡 "fruta a media altura"):**
-- TRA3 — recurrencia de transporte: el motor ya existe, falta el control en el wizard.
-- VET5 (parte Excel) — importar historial: falta el textarea/preview en el frontend.
-- S10 — desglose permanente de suplementos en el detalle de la reserva.
+| Bloque | Contenido | Historias | Estado |
+|---|---|---|---|
+| 1 | Aprovechar lo ya construido por dentro (motor sin interfaz) | TRA3, VET5 | ✅ |
+| 2 | Confianza del cliente antes de pagar | S1, S2, S10, N5 | ✅ |
+| 3 | Seguridad: bloqueo de reservas de riesgo en residencias | RES5 | ✅ |
+| 4 | Cierre del vertical Transporte | TRA1, TRA2, TRA4 | ✅ |
+| 5 | Adiestramiento avanzado | ADI2, ADI3, ADI4, ADI5 | ✅ |
+| 6 | Analítica e inteligencia de precio | S11, N8 | ✅ |
+| 7 | Paseadores y cuidado a domicilio (vertical nuevo) | COMI3 | ✅ |
 
-**Decisiones de alcance ya documentadas, no bugs (🟡 con nota):**
-- ADI2, ADI4, ADI5 — el plan de implementación ya explicó por qué se aproximaron con mecanismos genéricos en vez de campos dedicados.
+**Decisiones tomadas por criterio técnico, pendientes de validar con negocio.** Ninguna bloquea
+la operación: las tres funcionan hoy con un valor por defecto razonable.
+
+- **TRA4** — el tiempo de espera en los trayectos de ida y vuelta se cobra con una tarifa por hora
+  que configura cada transportista (0 por defecto), en vez de una fórmula fija impuesta. El
+  informe pedía acordarla antes con negocio y se optó por no bloquear la entrega.
+- **ADI4** — el bono/plan de adiestramiento reutiliza el ciclo de ajuste ya probado en lugar de un
+  circuito de pago nuevo. Reduce el riesgo sobre el webhook de Stripe, a cambio de que el plan
+  solo pueda proponerse mientras la reserva sigue `confirmada`, no una vez `completada`. Si el
+  negocio necesita lo segundo, es relajar una validación en `BookingsService.solicitarAjuste`.
+- **COMI3** — el motivo original de retirar "Cuidadores" (TCK-8021) fue que Doogking lista
+  profesionales verificados y no particulares por libre. El vertical reintroducido mantiene esa
+  condición porque publicar exige alta de comercio + aprobación del admin, igual que el resto.
+  Conviene confirmar que esa equivalencia le vale al cliente.
 
 ## Nota metodológica
 
 Esta auditoría no sustituye a `docs/PLAN-IMPLEMENTACION-MEJORA-SERVICIOS.md` como registro
 histórico de decisiones de modelado (sigue siendo la referencia para el "por qué" de cada
 elección). Sí lo sustituye como **fuente de verdad del estado actual**: ese plan quedó congelado
-el 2026-07-18 y varias fases avanzaron después sin que se volviera a actualizar. Recomendación:
-al retomar esta línea de trabajo, partir de esta auditoría, no del plan.
+el 2026-07-18 y varias fases avanzaron después sin que se volviera a actualizar.
+
+La lección se aplica también a este documento: se mantuvo al día al cerrar el programa en vez de
+dejar que volviera a divergir. Si se retoma esta línea de trabajo, partir de aquí —y de
+`docs/PLAN-INFORME-GERENCIAL-MEJORA-SERVICIOS.md` para el detalle de la ejecución—, no del plan
+antiguo.

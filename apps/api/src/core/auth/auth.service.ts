@@ -13,6 +13,12 @@ import { urlPublica } from '../../shared/url-publica';
 
 const VERIFICACION_VALIDEZ_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Mensaje único para cualquier fallo de credenciales. Distinguir "no existe" de
+ * "existe pero entra con Google" convierte el login en un buscador de cuentas.
+ */
+const CREDENCIALES_INCORRECTAS = 'Email o contraseña incorrectos';
+
 export interface JwtPayload {
   sub: string;
   email: string;
@@ -35,19 +41,24 @@ export class AuthService {
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const usuario = await this.usersRepository.findByEmail(dto.email);
 
-    if (!usuario) {
-      throw new UnauthorizedException('Credenciales incorrectas');
-    }
-
-    // Cuenta creada solo con Google/Meta: no tiene contraseña local que comparar.
-    if (!usuario.passwordHash) {
-      throw new UnauthorizedException('Esta cuenta usa acceso con Google o Meta. Entra con ese botón.');
+    /*
+     * Misma respuesta exista o no la cuenta. Antes el mensaje "Esta cuenta usa
+     * acceso con Google o Meta" sólo salía si el email estaba registrado, así
+     * que servía de oráculo para enumerar usuarios: se probaban correos y el
+     * que cambiaba de mensaje era uno de verdad.
+     *
+     * Quien se registró con Google pierde esa pista, sí; a cambio la pantalla de
+     * login muestra los botones sociales junto al formulario, que es donde toca
+     * resolverlo. Un mensaje de error no puede ser el sitio.
+     */
+    if (!usuario || !usuario.passwordHash) {
+      throw new UnauthorizedException(CREDENCIALES_INCORRECTAS);
     }
 
     const passwordValida = await bcrypt.compare(dto.password, usuario.passwordHash);
 
     if (!passwordValida) {
-      throw new UnauthorizedException('Credenciales incorrectas');
+      throw new UnauthorizedException(CREDENCIALES_INCORRECTAS);
     }
 
     // Desactivar a alguien del equipo sólo sirve si además no puede entrar.

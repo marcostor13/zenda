@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
 import {
-  ActualizarLugarDto, CrearLugarDto, CrearLugarReviewDto, EstadoModeracion, ModerarDto, TipoLugar,
+  ActualizarLugarDto, CrearLugarDto, CrearLugarReviewDto, EstadoModeracion, ModerarDto, regexLiteral,
+  TipoLugar,
 } from 'shared';
 import { Lugar, LugarDocument } from './lugar.schema';
 import { LugarReview, LugarReviewDocument } from './lugar-review.schema';
@@ -36,8 +37,8 @@ export class LugaresService {
     const filtro: FilterQuery<LugarDocument> = { estado: EstadoModeracion.PUBLICADO };
 
     if (params.tipo) filtro.tipo = params.tipo;
-    if (params.ciudad) filtro['ubicacion.ciudad'] = new RegExp(params.ciudad, 'i');
-    if (params.provincia) filtro['ubicacion.provincia'] = new RegExp(params.provincia, 'i');
+    if (params.ciudad) filtro['ubicacion.ciudad'] = regexLiteral(params.ciudad);
+    if (params.provincia) filtro['ubicacion.provincia'] = regexLiteral(params.provincia);
 
     if (params.lat != null && params.lng != null) {
       const radioMetros = (params.radioKm ?? RADIO_POR_DEFECTO_KM) * 1000;

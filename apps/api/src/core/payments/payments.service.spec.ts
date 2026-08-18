@@ -39,7 +39,8 @@ describe('PaymentsService', () => {
     id: 'pago-1',
     reservaId: 'reserva-1',
     usuarioId: 'user-1',
-    montoTotal: 590,
+    // 500 de subtotal + 21 % de IVA: el mismo total que devuelve calcularDesglose.
+    montoTotal: 605,
     moneda: 'EUR',
     estado: PagoEstado.INICIADO,
     stripePaymentIntentId: 'pi_test',
@@ -114,11 +115,27 @@ describe('PaymentsService', () => {
     });
 
     it('debería retornar el pago existente si ya hay uno en estado INICIADO', async () => {
-      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pagoMock) });
+      pagoModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ ...pagoMock, save: jest.fn() }),
+      });
       const resultado = await service.crearIntent('reserva-1', 'user-1');
 
       expect(paymentGateway.crearIntent).not.toHaveBeenCalled();
       expect(resultado.clientSecret).toBe('pi_test_secret');
+    });
+
+    it('debería descartar el intent pendiente si ya no cobra el importe correcto', async () => {
+      // Si entre medias cambió el importe (suplemento, cupón), reutilizar el
+      // clientSecret viejo cobraría de menos o de más.
+      const save = jest.fn();
+      const obsoleto = { ...pagoMock, montoTotal: 400, save };
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(obsoleto) });
+
+      await service.crearIntent('reserva-1', 'user-1');
+
+      expect(obsoleto.estado).toBe(PagoEstado.RECHAZADO);
+      expect(save).toHaveBeenCalled();
+      expect(paymentGateway.crearIntent).toHaveBeenCalled();
     });
   });
 
@@ -173,6 +190,19 @@ describe('PaymentsService', () => {
       );
       expect(pagoModel).toHaveBeenCalledWith(expect.objectContaining({ esSuplemento: true, montoTotal: 18.15 }));
       expect(resultado.clientSecret).toBe('pi_test_secret');
+    });
+  });
+
+  describe('aceptarAjuste — idempotencia', () => {
+    it('no debería crear un segundo cargo si ya hay un suplemento pendiente', async () => {
+      // Dos clics del cliente creaban dos PaymentIntents por la misma diferencia.
+      const pendiente = { ...pagoMock, esSuplemento: true, montoTotal: 30, save: jest.fn() };
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pendiente) });
+
+      const resultado = await service.aceptarAjuste('reserva-1', 'user-1');
+
+      expect(paymentGateway.crearIntent).not.toHaveBeenCalled();
+      expect(resultado.montoTotal).toBe(30);
     });
   });
 
@@ -248,6 +278,189 @@ describe('PaymentsService', () => {
       await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
 
       expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    /**
+     * El orden entre "marcar el pago" y "confirmar la reserva" decide si un
+     * fallo se puede reparar. Guardar el pago primero lo hacía irreparable: el
+     * reintento de Stripe chocaba contra el propio guard de idempotencia.
+     */
+    describe('orden de confirmación y reintentos', () => {
+      it('debería confirmar la reserva ANTES de marcar el pago como aprobado', async () => {
+        const orden: string[] = [];
+        const save = jest.fn().mockImplementation(() => { orden.push('pago-guardado'); });
+        bookingsService.confirmar.mockImplementation(async () => {
+          orden.push('reserva-confirmada');
+          return {} as never;
+        });
+        pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({ ...pagoMock, save }) });
+        paymentGateway.construirEvento.mockReturnValue({});
+        paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'succeeded' });
+
+        await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+        expect(orden).toEqual(['reserva-confirmada', 'pago-guardado']);
+      });
+
+      it('no debería dejar el pago como aprobado si la reserva no se pudo confirmar', async () => {
+        // Así el pago sigue en INICIADO y el reintento de Stripe puede rematarlo,
+        // en vez de quedarse cobrado y sin reserva para siempre.
+        const save = jest.fn();
+        bookingsService.confirmar.mockRejectedValue(new DomainException('sin plaza', 409));
+        pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({ ...pagoMock, save }) });
+        paymentGateway.construirEvento.mockReturnValue({});
+        paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'succeeded' });
+
+        await expect(service.procesarWebhook(Buffer.from('{}'), 'sig_test')).rejects.toThrow();
+        expect(save).not.toHaveBeenCalled();
+      });
+
+      it('debería confirmar todas las líneas del viaje antes de marcar el pago', async () => {
+        const orden: string[] = [];
+        const save = jest.fn().mockImplementation(() => { orden.push('pago-guardado'); });
+        bookingsService.confirmar.mockImplementation(async (id: string) => {
+          orden.push(id);
+          return {} as never;
+        });
+        pagoModel.findOne.mockReturnValue({
+          exec: jest.fn().mockResolvedValue({ ...pagoMock, reservaIds: ['r1', 'r2'], save }),
+        });
+        paymentGateway.construirEvento.mockReturnValue({});
+        paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'succeeded' });
+
+        await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+        expect(orden).toEqual(['r1', 'r2', 'pago-guardado']);
+      });
+    });
+  });
+
+  describe('crearIntentDeViaje', () => {
+    /** Reserva de un viaje, con su propio importe y comisión ya fijados. */
+    const linea = (id: string, subtotal: number, comision: number) => ({
+      ...reservaMock, id, reservaId: id, montoSubtotal: subtotal, comisionMonto: comision,
+    });
+
+    it('debería rechazar un viaje sin reservas', async () => {
+      await expect(service.crearIntentDeViaje([], 'user-1'))
+        .rejects.toThrow('no tiene reservas que cobrar');
+    });
+
+    it('debería lanzar 404 si alguna reserva del viaje no existe', async () => {
+      bookingsService.obtenerPorId.mockResolvedValue(null as never);
+
+      await expect(service.crearIntentDeViaje(['r1'], 'user-1'))
+        .rejects.toThrow('Reserva r1 no encontrada');
+    });
+
+    it('no debería dejar pagar el viaje de otro usuario', async () => {
+      bookingsService.obtenerPorId.mockResolvedValue(
+        { ...reservaMock, usuarioId: { toString: () => 'otro' } } as never,
+      );
+
+      await expect(service.crearIntentDeViaje(['r1'], 'user-1'))
+        .rejects.toThrow('No autorizado para pagar este viaje');
+    });
+
+    it('debería cobrar el fijo de Stripe una sola vez, no una por reserva', async () => {
+      // El viaje es una única transacción: cobrar el fijo por cada línea
+      // inflaría el coste de pasarela y falsearía la liquidación.
+      bookingsService.obtenerPorId
+        .mockResolvedValueOnce(linea('r1', 100, 15) as never)
+        .mockResolvedValueOnce(linea('r2', 100, 15) as never);
+
+      await service.crearIntentDeViaje(['r1', 'r2'], 'user-1');
+
+      const guardado = pagoModel.mock.calls[0][0];
+      // 2 líneas × (121 × 0,029) = 7,02 más UN fijo de 1,10 → 8,12
+      expect(guardado.stripeFee).toBeCloseTo(8.12, 2);
+    });
+
+    it('debería sumar los importes de todas las líneas del viaje', async () => {
+      bookingsService.obtenerPorId
+        .mockResolvedValueOnce(linea('r1', 100, 15) as never)
+        .mockResolvedValueOnce(linea('r2', 200, 30) as never);
+
+      await service.crearIntentDeViaje(['r1', 'r2'], 'user-1');
+
+      const guardado = pagoModel.mock.calls[0][0];
+      expect(guardado.montoSubtotal).toBeCloseTo(300, 2);
+      expect(guardado.comisionPlataforma).toBeCloseTo(45, 2);
+      // Con IVA del 21 %: 300 → 363
+      expect(guardado.montoTotal).toBeCloseTo(363, 2);
+    });
+
+    it('debería dejar la liquidación como total menos comisión y pasarela', async () => {
+      bookingsService.obtenerPorId.mockResolvedValue(linea('r1', 100, 15) as never);
+
+      await service.crearIntentDeViaje(['r1'], 'user-1');
+
+      const g = pagoModel.mock.calls[0][0];
+      expect(g.montoLiquidacion).toBeCloseTo(g.montoTotal - g.comisionPlataforma - g.stripeFee, 2);
+    });
+
+    it('debería guardar todas las reservas del viaje para confirmarlas luego', async () => {
+      bookingsService.obtenerPorId
+        .mockResolvedValueOnce(linea('r1', 100, 15) as never)
+        .mockResolvedValueOnce(linea('r2', 100, 15) as never);
+
+      await service.crearIntentDeViaje(['r1', 'r2'], 'user-1');
+
+      const guardado = pagoModel.mock.calls[0][0];
+      expect(guardado.reservaIds).toEqual(['r1', 'r2']);
+      // La primera hace de referencia principal del pago.
+      expect(guardado.reservaId).toBe('r1');
+    });
+
+    it('debería marcar el intent como viaje en los metadatos de la pasarela', async () => {
+      bookingsService.obtenerPorId.mockResolvedValue(linea('r1', 100, 15) as never);
+
+      await service.crearIntentDeViaje(['r1', 'r2'], 'user-1');
+
+      const intent = paymentGateway.crearIntent.mock.calls[0][0];
+      expect(intent.metadata).toEqual({ esViaje: 'true', reservaIds: 'r1,r2' });
+      expect(intent.montoEnCentavos).toBe(Math.round(intent.montoEnCentavos));
+    });
+  });
+
+  describe('webhook de un viaje', () => {
+    function mockPagoGuardado(pago: Record<string, unknown>) {
+      pagoModel.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(pago) });
+    }
+
+    beforeEach(() => {
+      paymentGateway.construirEvento.mockReturnValue({ type: 'payment_intent.succeeded' } as never);
+      paymentGateway.extraerIntentDeEvento.mockReturnValue(
+        { intentId: 'pi_test', estado: 'succeeded', chargeId: 'ch_1' } as never,
+      );
+    });
+
+    it('debería confirmar cada reserva del viaje por separado', async () => {
+      // Se paga de una vez pero se confirma línea a línea: cada comercio recibe
+      // su aviso y cada reserva conserva su propio estado.
+      mockPagoGuardado({
+        id: 'pago-1', estado: PagoEstado.INICIADO, reservaId: { toString: () => 'r1' },
+        reservaIds: [{ toString: () => 'r1' }, { toString: () => 'r2' }],
+        save: jest.fn().mockResolvedValue(undefined),
+      });
+
+      await service.procesarWebhook(Buffer.from('x'), 'firma');
+
+      expect(bookingsService.confirmar).toHaveBeenCalledTimes(2);
+      expect(bookingsService.confirmar).toHaveBeenCalledWith('r1');
+      expect(bookingsService.confirmar).toHaveBeenCalledWith('r2');
+    });
+
+    it('debería confirmar la única reserva cuando el pago no es de viaje', async () => {
+      mockPagoGuardado({
+        id: 'pago-1', estado: PagoEstado.INICIADO, reservaId: { toString: () => 'r1' },
+        reservaIds: [], save: jest.fn().mockResolvedValue(undefined),
+      });
+
+      await service.procesarWebhook(Buffer.from('x'), 'firma');
+
+      expect(bookingsService.confirmar).toHaveBeenCalledTimes(1);
+      expect(bookingsService.confirmar).toHaveBeenCalledWith('r1');
     });
   });
 });

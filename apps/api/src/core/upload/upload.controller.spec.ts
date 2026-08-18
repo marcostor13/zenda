@@ -56,7 +56,29 @@ describe('UploadController', () => {
       'Content-Type': 'image/png',
       'Content-Length': '6',
       'Cache-Control': 'public, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Disposition': 'inline',
     });
     expect(respuesta.getStream()).toBe(stream);
+  });
+
+  it('debería servir como descarga lo que no sea una imagen conocida', async () => {
+    // Un PDF servido en línea desde el origen del API puede ejecutar scripts en
+    // ese origen; como adjunto, no.
+    service.obtenerImagen.mockResolvedValue({
+      stream: Readable.from(['pdf']),
+      contentType: 'application/pdf',
+      length: 3,
+    });
+    const set = jest.fn();
+
+    await controller.obtenerImagen('507f1f77bcf86cd799439011', { set } as unknown as Response);
+
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        'Content-Disposition': 'attachment',
+        'X-Content-Type-Options': 'nosniff',
+      }),
+    );
   });
 });

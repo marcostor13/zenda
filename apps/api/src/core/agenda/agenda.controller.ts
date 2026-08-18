@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { AgendaDocument, BloqueoDocument, RecursoDocument } from './agenda.schema';
 import { AgendaService, HuecoDisponible } from './agenda.service';
+import { OauthStateService } from './oauth-state.service';
 import { ProveedorCalendario } from './calendar-connector.interface';
 
 interface RequestConUsuario extends Request {
@@ -77,6 +78,7 @@ export class AgendaController {
   constructor(
     private readonly agendaService: AgendaService,
     private readonly config: ConfigService,
+    private readonly oauthState: OauthStateService,
   ) {}
 
   // ── Agendas ──
@@ -189,17 +191,20 @@ export class AgendaController {
     @Param('proveedor') proveedor: ProveedorCalendario,
     @Req() req: RequestConUsuario,
   ): { url: string } {
-    // El `state` lleva agenda y comercio para saber a quién pertenece la vuelta.
-    const estado = Buffer
-      .from(JSON.stringify({ agendaId: id, comercioId: req.user.comercioId }))
-      .toString('base64url');
+    // El `state` lleva agenda y comercio para saber a quién pertenece la vuelta,
+    // y va **firmado**: es la única prueba de autoría que tendrá el callback.
+    const estado = this.oauthState.firmar({
+      agendaId: id,
+      comercioId: req.user.comercioId ?? '',
+    });
 
     return { url: this.agendaService.conector(proveedor).urlAutorizacion(estado) };
   }
 
   /**
    * Vuelta de OAuth. La invoca el proveedor, no el frontend, así que **no puede
-   * exigir el token de sesión**: la autoría viaja firmada en el `state`.
+   * exigir el token de sesión**: la autoría viaja firmada en el `state`, que se
+   * verifica antes de tocar nada (ver `OauthStateService`).
    */
   @Get('oauth/:proveedor')
   @ApiOperation({ summary: 'Callback de OAuth del proveedor de calendario' })
@@ -212,9 +217,7 @@ export class AgendaController {
     const destino = `${this.config.get<string>('APP_URL') ?? ''}/comercio/agenda`;
 
     try {
-      const { agendaId, comercioId } = JSON.parse(
-        Buffer.from(estado, 'base64url').toString('utf8'),
-      ) as { agendaId: string; comercioId: string };
+      const { agendaId, comercioId } = this.oauthState.verificar(estado);
 
       const conector = this.agendaService.conector(proveedor);
       const tokens = await conector.canjearCodigo(codigo);

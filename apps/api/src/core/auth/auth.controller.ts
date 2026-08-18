@@ -1,4 +1,5 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
   LoginDto,
@@ -12,7 +13,18 @@ import {
 } from 'shared';
 import { AuthService } from './auth.service';
 
+/**
+ * Todo `auth` es público y toca credenciales, así que es la superficie que hay
+ * que estrechar más: 10 intentos por minuto y por IP bastan para cualquier uso
+ * humano y dejan la fuerza bruta y el alta masiva de cuentas fuera de juego.
+ */
+const LIMITE_CREDENCIALES = { default: { limit: 10, ttl: 60_000 } };
+
+/** El reenvío manda correo de verdad: más estrecho todavía, para no ser un relay de spam. */
+const LIMITE_ENVIO_EMAIL = { default: { limit: 3, ttl: 60_000 } };
+
 @ApiTags('auth')
+@Throttle(LIMITE_CREDENCIALES)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -38,6 +50,7 @@ export class AuthController {
   }
 
   @Post('reenviar-verificacion')
+  @Throttle(LIMITE_ENVIO_EMAIL)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reenviar el correo de verificación' })
   async reenviarVerificacion(@Body() dto: ReenviarVerificacionDto): Promise<{ ok: true }> {

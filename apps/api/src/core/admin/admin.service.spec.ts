@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { Types } from 'mongoose';
 import { AdminService } from './admin.service';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { AlphaRepository } from '../alpha/alpha.repository';
@@ -28,6 +29,8 @@ describe('AdminService', () => {
   let usuarioModel: any;
   let servicioModel: any;
   let auditoria: { registrar: jest.Mock; listar: jest.Mock };
+  let comerciosRepo: any;
+  let usersRepo: any;
 
   const pagosMock = [
     {
@@ -115,6 +118,23 @@ describe('AdminService', () => {
 
     auditoria = { registrar: jest.fn(), listar: jest.fn() };
 
+    comerciosRepo = {
+      listar: jest.fn().mockResolvedValue([]),
+      listarPaginado: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+      findById: jest.fn(),
+      crear: jest.fn().mockImplementation((datos: unknown) => Promise.resolve(datos)),
+      actualizar: jest.fn(),
+      eliminar: jest.fn().mockResolvedValue(undefined),
+    };
+
+    usersRepo = {
+      contarTodos: jest.fn().mockResolvedValue(0),
+      findById: jest.fn(),
+      crear: jest.fn().mockImplementation((datos: unknown) => Promise.resolve(datos)),
+      actualizarAdmin: jest.fn(),
+      eliminar: jest.fn().mockResolvedValue(undefined),
+    };
+
     servicioModel = {
       countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
       find: jest.fn().mockReturnValue({
@@ -143,15 +163,11 @@ describe('AdminService', () => {
         },
         {
           provide: ComerciosRepository,
-          useValue: {
-            listar: jest.fn().mockResolvedValue([]),
-            findById: jest.fn(),
-            actualizar: jest.fn(),
-          },
+          useValue: comerciosRepo,
         },
         {
           provide: UsersRepository,
-          useValue: { contarTodos: jest.fn().mockResolvedValue(0) },
+          useValue: usersRepo,
         },
         { provide: AuditoriaService, useValue: auditoria },
         { provide: getModelToken(Pago.name), useValue: pagoModel },
@@ -527,6 +543,634 @@ describe('AdminService', () => {
     it('debería delegar en el repositorio Alpha', async () => {
       await service.listarNivelesAlpha();
       expect(alphaRepo.listarNiveles).toHaveBeenCalled();
+    });
+  });
+
+  // ── CRUD y fichas administrativas ──────────────────────────────────────────
+
+  describe('comercios', () => {
+    it('debería delegar el listado paginado con sus filtros', async () => {
+      await service.listarComercios(2, 50, 'activo', 'canina', true);
+
+      expect(comerciosRepo.listarPaginado).toHaveBeenCalledWith(
+        { estado: 'activo', buscar: 'canina', alphaAdherido: true },
+        2,
+        50,
+      );
+    });
+
+    it('debería usar la primera página y 20 elementos por defecto', async () => {
+      await service.listarComercios();
+
+      expect(comerciosRepo.listarPaginado).toHaveBeenCalledWith(
+        { estado: undefined, buscar: undefined, alphaAdherido: undefined },
+        1,
+        20,
+      );
+    });
+
+    it('debería contar los comercios por estado y los verificados', async () => {
+      comercioModel.countDocuments = jest.fn().mockImplementation((filtro: any = {}) => ({
+        exec: jest.fn().mockResolvedValue(
+          filtro.estado === 'activo' ? 7
+            : filtro.estado === 'pendiente' ? 3
+            : filtro.estado === 'suspendido' ? 1
+            : filtro['verificacion.estado'] === 'verificado' ? 5
+            : 11,
+        ),
+      }));
+
+      const resumen = await service.resumenComercios();
+
+      expect(resumen).toEqual({ total: 11, activos: 7, pendientes: 3, suspendidos: 1, verificados: 5 });
+    });
+
+    it('debería crear el comercio activo si no se indica estado', async () => {
+      await service.crearComercio({
+        razonSocial: 'Canina SL', vatNumber: 'ESB12345678', nombreComercial: 'Canina',
+      });
+
+      expect(comerciosRepo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({ nombreComercial: 'Canina', estado: 'activo' }),
+      );
+    });
+
+    it('debería respetar el estado indicado al crear', async () => {
+      await service.crearComercio({
+        razonSocial: 'Canina SL', vatNumber: 'ESB12345678', nombreComercial: 'Canina',
+        estado: 'pendiente' as never,
+      });
+
+      expect(comerciosRepo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({ estado: 'pendiente' }),
+      );
+    });
+
+    it('debería devolver el comercio actualizado', async () => {
+      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1', nombreComercial: 'Nuevo' });
+
+      const res = await service.actualizarComercio('c1', { nombreComercial: 'Nuevo' });
+
+      expect(res).toEqual({ _id: 'c1', nombreComercial: 'Nuevo' });
+    });
+
+    it('debería lanzar 404 al actualizar un comercio que no existe', async () => {
+      comerciosRepo.actualizar.mockResolvedValue(null);
+
+      await expect(service.actualizarComercio('no-existe', { plan: 'pro' as never }))
+        .rejects.toThrow('Comercio no encontrado');
+    });
+
+    it('debería eliminar delegando en el repositorio', async () => {
+      await service.eliminarComercio('c1');
+
+      expect(comerciosRepo.eliminar).toHaveBeenCalledWith('c1');
+    });
+  });
+
+  describe('usuarios', () => {
+    it('debería contar usuarios por rol y los altas del mes', async () => {
+      usuarioModel.countDocuments = jest.fn().mockImplementation((filtro: any = {}) => ({
+        exec: jest.fn().mockResolvedValue(
+          filtro.rol === 'cliente' ? 40
+            : filtro.rol?.$in ? 8
+            : filtro.rol === 'admin' ? 2
+            : filtro.createdAt ? 6
+            : 50,
+        ),
+      }));
+
+      const resumen = await service.resumenUsuarios();
+
+      expect(resumen).toEqual({ total: 50, clientes: 40, comercios: 8, administradores: 2, nuevosMes: 6 });
+    });
+
+    it('debería exigir comercioId al crear un usuario de comercio', async () => {
+      await expect(
+        service.crearUsuario({
+          nombre: 'Staff', email: 's@c.com', password: 'Segura123!', rol: 'comercio_admin' as never,
+        }),
+      ).rejects.toThrow('requiere un comercioId');
+
+      expect(usersRepo.crear).not.toHaveBeenCalled();
+    });
+
+    it('debería guardar la contraseña hasheada, nunca en claro', async () => {
+      await service.crearUsuario({ nombre: 'Ana', email: 'a@a.com', password: 'Segura123!' });
+
+      const datos = usersRepo.crear.mock.calls[0][0];
+      expect(datos.passwordHash).toEqual(expect.any(String));
+      expect(datos.passwordHash).not.toBe('Segura123!');
+      expect(datos).not.toHaveProperty('password');
+      expect(datos.rol).toBe('cliente');
+    });
+
+    it('debería lanzar 404 al actualizar un usuario que no existe', async () => {
+      usersRepo.findById.mockResolvedValue(null);
+      usersRepo.actualizarAdmin.mockResolvedValue(null);
+
+      await expect(service.actualizarUsuario('no-existe', { nombre: 'X' }))
+        .rejects.toThrow('Usuario no encontrado');
+    });
+
+    it('debería registrar en auditoría quién modificó la cuenta y qué cambió', async () => {
+      usersRepo.findById.mockResolvedValue({ nombre: 'Ana', rol: 'cliente', verificado: false });
+      usersRepo.actualizarAdmin.mockResolvedValue({ nombre: 'Ana', rol: 'admin' });
+
+      await service.actualizarUsuario('u1', { rol: 'admin' as never }, 'admin-1');
+
+      expect(auditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'admin-1',
+          entidadId: 'u1',
+          antes: { rol: 'cliente', verificado: false },
+          despues: { rol: 'admin' },
+        }),
+      );
+    });
+
+    it('no debería registrar auditoría si la acción no viene de un admin identificado', async () => {
+      usersRepo.findById.mockResolvedValue({ nombre: 'Ana' });
+      usersRepo.actualizarAdmin.mockResolvedValue({ nombre: 'Ana' });
+
+      await service.actualizarUsuario('u1', { nombre: 'Ana' });
+
+      expect(auditoria.registrar).not.toHaveBeenCalled();
+    });
+
+    it('debería conservar en auditoría los datos del usuario eliminado', async () => {
+      usersRepo.findById.mockResolvedValue({ nombre: 'Ana', email: 'a@a.com', rol: 'cliente' });
+
+      await service.eliminarUsuario('u1', 'admin-1');
+
+      expect(usersRepo.eliminar).toHaveBeenCalledWith('u1');
+      expect(auditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entidadId: 'u1',
+          antes: { nombre: 'Ana', email: 'a@a.com', rol: 'cliente' },
+        }),
+      );
+    });
+
+    it('debería eliminar aunque ya no queden datos previos que auditar', async () => {
+      usersRepo.findById.mockResolvedValue(null);
+
+      await service.eliminarUsuario('u1', 'admin-1');
+
+      expect(usersRepo.eliminar).toHaveBeenCalledWith('u1');
+      expect(auditoria.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ descripcion: expect.stringContaining('un usuario') }),
+      );
+    });
+  });
+
+  describe('fichaUsuario', () => {
+    it('debería lanzar 404 si la cuenta no existe', async () => {
+      usersRepo.findById.mockResolvedValue(null);
+
+      await expect(service.fichaUsuario(new Types.ObjectId().toString()))
+        .rejects.toThrow('Usuario no encontrado');
+    });
+
+    it('debería reunir mascotas, reservas y gasto de un cliente', async () => {
+      const id = new Types.ObjectId().toString();
+      usersRepo.findById.mockResolvedValue({
+        _id: id, nombre: 'Ana', email: 'a@a.com', rol: 'cliente', verificado: true,
+      });
+      perroModel.find = jest.fn().mockReturnValue({
+        select: () => ({ lean: () => ({ exec: () => Promise.resolve([{ nombre: 'Nala', raza: 'Border' }]) }) }),
+      });
+      reservaModel.find.mockReturnValue({
+        sort: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          { codigo: 'R1', estado: 'completada' }, { codigo: 'R2', estado: 'cancelada' },
+        ]),
+      });
+      pagoModel.aggregate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ total: 240.567, pagos: 3 }]),
+      });
+
+      const ficha: any = await service.fichaUsuario(id);
+
+      expect(ficha.mascotas).toEqual([{ nombre: 'Nala', raza: 'Border' }]);
+      expect(ficha.resumen.totalReservas).toBe(2);
+      // Las canceladas cuentan como actividad pero no como servicio disfrutado.
+      expect(ficha.resumen.canceladas).toBe(1);
+      expect(ficha.resumen.totalGastado).toBe(240.57);
+      expect(ficha.resumen.pagos).toBe(3);
+    });
+
+    it('no debería consultar mascotas ni reservas de una cuenta que no es cliente', async () => {
+      const id = new Types.ObjectId().toString();
+      usersRepo.findById.mockResolvedValue({ _id: id, nombre: 'Admin', rol: 'admin' });
+      perroModel.find = jest.fn();
+
+      const ficha: any = await service.fichaUsuario(id);
+
+      expect(perroModel.find).not.toHaveBeenCalled();
+      expect(ficha.mascotas).toEqual([]);
+      expect(ficha.resumen.totalGastado).toBe(0);
+    });
+
+    it('debería adjuntar el comercio cuando la cuenta pertenece a uno', async () => {
+      const id = new Types.ObjectId().toString();
+      usersRepo.findById.mockResolvedValue({
+        _id: id, nombre: 'Staff', rol: 'comercio_admin', comercioId: 'c1',
+      });
+      comerciosRepo.findById.mockResolvedValue({
+        _id: 'c1', nombreComercial: 'Canina', estado: 'activo', plan: 'pro',
+      });
+
+      const ficha: any = await service.fichaUsuario(id);
+
+      expect(ficha.comercio).toEqual({
+        _id: 'c1', nombreComercial: 'Canina', estado: 'activo', plan: 'pro',
+      });
+    });
+  });
+
+  describe('fichaComercio', () => {
+    it('debería lanzar 404 si el comercio no existe', async () => {
+      comerciosRepo.findById.mockResolvedValue(null);
+
+      await expect(service.fichaComercio(new Types.ObjectId().toString()))
+        .rejects.toThrow('Comercio no encontrado');
+    });
+
+    it('debería redondear facturación, comisión y valoración media', async () => {
+      const id = new Types.ObjectId().toString();
+      comerciosRepo.findById.mockResolvedValue({
+        _id: id, nombreComercial: 'Canina', razonSocial: 'Canina SL',
+        vatNumber: 'ESB1', estado: 'activo', plan: 'pro', verticales: [],
+      });
+      servicioModel.countDocuments = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(4) });
+      reservaModel.find.mockReturnValue({
+        sort: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ codigo: 'R1' }]),
+      });
+      pagoModel.aggregate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ total: 1234.567, comision: 185.185 }]),
+      });
+
+      const ficha: any = await service.fichaComercio(id);
+
+      expect(ficha.resumen.servicios).toBe(4);
+      expect(ficha.resumen.facturacion).toBe(1234.57);
+      expect(ficha.resumen.comision).toBe(185.19);
+    });
+
+    it('debería devolver ceros cuando el comercio no tiene actividad', async () => {
+      const id = new Types.ObjectId().toString();
+      comerciosRepo.findById.mockResolvedValue({ _id: id, nombreComercial: 'Nueva', verticales: [] });
+      servicioModel.countDocuments = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) });
+      reservaModel.find.mockReturnValue({
+        sort: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      });
+      pagoModel.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      const ficha: any = await service.fichaComercio(id);
+
+      expect(ficha.resumen).toEqual(
+        expect.objectContaining({ facturacion: 0, comision: 0, valoracion: 0, resenas: 0 }),
+      );
+    });
+  });
+
+  describe('cambiarVerificacionComercio', () => {
+    it('debería exigir motivo para rechazar la documentación', async () => {
+      comerciosRepo.findById.mockResolvedValue({ nombreComercial: 'Canina', verificacion: {} });
+
+      await expect(service.cambiarVerificacionComercio('c1', 'rechazado', '   '))
+        .rejects.toThrow('hay que indicar el motivo');
+
+      expect(comerciosRepo.actualizar).not.toHaveBeenCalled();
+    });
+
+    it('debería propagar el estado a los documentos al verificar', async () => {
+      comerciosRepo.findById.mockResolvedValue({
+        nombreComercial: 'Canina',
+        verificacion: { estado: 'pendiente', documentos: [{ tipo: 'cif', estado: 'pendiente' }] },
+      });
+      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
+
+      await service.cambiarVerificacionComercio('c1', 'verificado');
+
+      const cambios = comerciosRepo.actualizar.mock.calls[0][1];
+      expect(cambios.verificacion.estado).toBe('verificado');
+      expect(cambios.verificacion.documentos[0].estado).toBe('verificado');
+      // Sin rechazo no debe quedar un motivo colgado de una ronda anterior.
+      expect(cambios.verificacion.motivoRechazo).toBeUndefined();
+    });
+  });
+
+  describe('listarUsuarios', () => {
+    /** Filtro con el que se consultó la colección de usuarios. */
+    const filtroUsado = (): Record<string, any> => usuarioModel.find.mock.calls.at(-1)![0];
+
+    function mockUsuarios(items: any[]) {
+      usuarioModel.find = jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnThis(), skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(items),
+      });
+      usuarioModel.countDocuments = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(items.length),
+      });
+    }
+
+    it('debería consultar sin condiciones cuando no se filtra nada', async () => {
+      mockUsuarios([]);
+
+      await service.listarUsuarios();
+
+      expect(filtroUsado()).toEqual({});
+    });
+
+    it('debería filtrar por rol y por estado de verificación', async () => {
+      mockUsuarios([]);
+
+      await service.listarUsuarios(1, 20, 'admin', undefined, false);
+
+      expect(filtroUsado()).toEqual({ rol: 'admin', verificado: false });
+    });
+
+    it('debería buscar por nombre o email escapando la expresión regular', async () => {
+      mockUsuarios([]);
+
+      // Un punto sin escapar convertiría la búsqueda en un comodín.
+      await service.listarUsuarios(1, 20, undefined, 'a.b');
+
+      const filtro = filtroUsado();
+      expect(filtro['$or']).toHaveLength(2);
+      expect(filtro['$or'][0].nombre.source).toBe('a\\.b');
+    });
+
+    it('no debería calcular nivel Alpha si no hay ningún cliente en la página', async () => {
+      mockUsuarios([{ _id: 'u1', rol: 'admin' }]);
+
+      const res = await service.listarUsuarios();
+
+      expect(res.items).toEqual([{ _id: 'u1', rol: 'admin' }]);
+      // Alpha es fidelización de quien reserva: no se consulta para administración.
+      expect(alphaRepo.listarNiveles).not.toHaveBeenCalled();
+    });
+
+    it('debería asignar a cada cliente su nivel según las reservas completadas', async () => {
+      const cliente = new Types.ObjectId();
+      mockUsuarios([{ _id: cliente, rol: 'cliente' }]);
+      reservaModel.aggregate.mockResolvedValue([
+        { _id: cliente, total: 9, completadas: 6 },
+      ]);
+      alphaRepo.listarNiveles.mockResolvedValue([
+        { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 0 },
+        { nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5 },
+        { nivel: 3, nombre: 'Alpha 3', reservasRequeridas: 20 },
+      ] as never);
+
+      const res = await service.listarUsuarios();
+
+      expect(res.items[0]).toEqual(
+        expect.objectContaining({ reservas: 9, nivelAlpha: 'Alpha 2' }),
+      );
+    });
+
+    it('debería dar el nivel más bajo a un cliente sin reservas completadas', async () => {
+      const cliente = new Types.ObjectId();
+      mockUsuarios([{ _id: cliente, rol: 'cliente' }]);
+      reservaModel.aggregate.mockResolvedValue([]);
+      alphaRepo.listarNiveles.mockResolvedValue([
+        { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 0 },
+        { nivel: 2, nombre: 'Alpha 2', reservasRequeridas: 5 },
+      ] as never);
+
+      const res = await service.listarUsuarios();
+
+      expect(res.items[0]).toEqual(
+        expect.objectContaining({ reservas: 0, nivelAlpha: 'Alpha 1' }),
+      );
+    });
+
+    it('no debería poner nivel Alpha a las cuentas que no son de cliente', async () => {
+      const cliente = new Types.ObjectId();
+      mockUsuarios([{ _id: cliente, rol: 'cliente' }, { _id: new Types.ObjectId(), rol: 'admin' }]);
+      reservaModel.aggregate.mockResolvedValue([]);
+      alphaRepo.listarNiveles.mockResolvedValue([
+        { nivel: 1, nombre: 'Alpha 1', reservasRequeridas: 0 },
+      ] as never);
+
+      const res = await service.listarUsuarios();
+
+      expect(res.items[0]).toHaveProperty('nivelAlpha');
+      expect(res.items[1]).not.toHaveProperty('nivelAlpha');
+    });
+  });
+
+  describe('listarPagos', () => {
+    function mockPagos(items: any[]) {
+      pagoModel.find = jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnThis(), skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(), populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue(items),
+      });
+      pagoModel.countDocuments = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(items.length),
+      });
+      comercioModel.find = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      });
+    }
+
+    it('debería filtrar por estado del pago', async () => {
+      mockPagos([]);
+
+      await service.listarPagos(1, 20, { estado: 'aprobado' });
+
+      expect(pagoModel.find).toHaveBeenCalledWith({ estado: 'aprobado' });
+    });
+
+    it('debería llegar al comercio a través de la reserva, porque el pago no lo guarda', async () => {
+      mockPagos([]);
+      const comercioId = new Types.ObjectId().toString();
+      const reservaId = new Types.ObjectId();
+      reservaModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ _id: reservaId }]),
+      });
+
+      await service.listarPagos(1, 20, { comercioId });
+
+      expect(pagoModel.find).toHaveBeenCalledWith({ reservaId: { $in: [reservaId] } });
+    });
+
+    it('debería buscar por código de reserva escapando la expresión regular', async () => {
+      mockPagos([]);
+      reservaModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+      await service.listarPagos(1, 20, { buscar: 'RES-1.2' });
+
+      const filtroReserva = reservaModel.find.mock.calls.at(-1)![0];
+      expect(filtroReserva.codigo.source).toBe('RES-1\\.2');
+    });
+
+    it('debería aplanar el pago con el código y el comercio de su reserva', async () => {
+      const comercioId = new Types.ObjectId();
+      mockPagos([
+        {
+          _id: 'p1', montoTotal: 100, comisionPlataforma: 15, stripeFee: 3.15,
+          montoLiquidacion: 81.85, estado: 'aprobado',
+          reservaId: { codigo: 'RES-1', comercioId, vertical: 'alojamiento' },
+        },
+      ]);
+      comercioModel.find = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ _id: comercioId, nombreComercial: 'Canina' }]),
+      });
+
+      const res = await service.listarPagos();
+
+      expect(res.items[0]).toEqual(
+        expect.objectContaining({
+          codigoReserva: 'RES-1', comercio: 'Canina', vertical: 'alojamiento', montoTotal: 100,
+        }),
+      );
+    });
+
+    it('no debería romperse si el pago perdió su reserva asociada', async () => {
+      mockPagos([{ _id: 'p1', estado: 'aprobado', reservaId: undefined }]);
+
+      const res = await service.listarPagos();
+
+      expect(res.items[0]).toEqual(
+        expect.objectContaining({ codigoReserva: '—', comercio: 'Comercio', montoTotal: 0 }),
+      );
+    });
+  });
+
+  describe('resumenPagos', () => {
+    it('debería separar lo cobrado, lo reembolsado y lo pendiente de liquidar', async () => {
+      pagoModel.aggregate = jest.fn().mockImplementation((pipeline: any[]) => ({
+        exec: jest.fn().mockResolvedValue(
+          pipeline[0].$match.estado === 'aprobado'
+            ? [{ cobrado: 1000.555, comision: 150.111, stripe: 29.999, liquidacion: 820.4 }]
+            : [{ cobrado: 50, comision: 0, stripe: 0, liquidacion: 0 }],
+        ),
+      }));
+      reservaModel.aggregate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ monto: 300.456 }]),
+      });
+
+      const resumen = await service.resumenPagos();
+
+      expect(resumen).toEqual({
+        cobrado: 1000.56,
+        comisionDoogking: 150.11,
+        costePasarela: 30,
+        liquidadoComercios: 820.4,
+        pendienteLiquidar: 300.46,
+        reembolsado: 50,
+      });
+    });
+
+    it('debería devolver ceros cuando todavía no hay pagos', async () => {
+      pagoModel.aggregate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+      reservaModel.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      const resumen = await service.resumenPagos();
+
+      expect(resumen).toEqual({
+        cobrado: 0, comisionDoogking: 0, costePasarela: 0,
+        liquidadoComercios: 0, pendienteLiquidar: 0, reembolsado: 0,
+      });
+    });
+  });
+
+  describe('resumenReservas', () => {
+    it('debería agrupar por estado y sumar el total de todos ellos', async () => {
+      reservaModel.aggregate = jest.fn().mockImplementation((pipeline: any[]) => {
+        const agrupaPorEstado = pipeline[0].$group?._id === '$estado';
+        const totalGeneral = pipeline[0].$group?._id === null;
+        return {
+          exec: jest.fn().mockResolvedValue(
+            agrupaPorEstado
+              ? [{ _id: 'confirmada', total: 8 }, { _id: 'cancelada', total: 2 }]
+              : totalGeneral
+                ? [{ importe: 2500.789, comision: 375.123 }]
+                : [{ monto: 120.5 }],
+          ),
+        };
+      });
+
+      const resumen = await service.resumenReservas();
+
+      expect(resumen.porEstado).toEqual({ confirmada: 8, cancelada: 2 });
+      expect(resumen.total).toBe(10);
+      expect(resumen.importeReservado).toBe(2500.79);
+      expect(resumen.comisiones).toBe(375.12);
+    });
+
+    it('debería devolver ceros y ningún estado sin reservas todavía', async () => {
+      reservaModel.aggregate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      const resumen = await service.resumenReservas();
+
+      expect(resumen).toEqual({
+        porEstado: {}, total: 0, importeReservado: 0,
+        comisiones: 0, pagosRetenidos: 0, reembolsos: 0,
+      });
+    });
+  });
+
+  describe('evolucion', () => {
+    const clave = (desplazamiento: number): string => {
+      const hoy = new Date();
+      const dia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + desplazamiento);
+      return dia.toISOString().slice(0, 10);
+    };
+
+    it('debería devolver una fila por día, también los que no tuvieron actividad', async () => {
+      reservaModel.aggregate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+      pagoModel.aggregate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      const serie = await service.evolucion(7);
+
+      // Rellenar los huecos con ceros es deliberado: una línea con días
+      // ausentes miente sobre la tendencia.
+      expect(serie).toHaveLength(7);
+      expect(serie.every((d) => d.reservas === 0 && d.facturacion === 0)).toBe(true);
+      expect(serie.at(-1)!.fecha).toBe(clave(0));
+    });
+
+    it('debería usar 30 días cuando no se indica el rango', async () => {
+      reservaModel.aggregate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+      pagoModel.aggregate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      expect(await service.evolucion()).toHaveLength(30);
+    });
+
+    it('debería situar reservas y facturación en su día y redondear el importe', async () => {
+      const hoy = clave(0);
+      reservaModel.aggregate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ _id: hoy, total: 4 }]),
+      });
+      pagoModel.aggregate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ _id: hoy, total: 320.456 }]),
+      });
+
+      const serie = await service.evolucion(3);
+      const dia = serie.find((d) => d.fecha === hoy)!;
+
+      expect(dia.reservas).toBe(4);
+      expect(dia.facturacion).toBe(320.46);
+      // Los otros días siguen a cero, no heredan el valor del día con actividad.
+      expect(serie.filter((d) => d.reservas > 0)).toHaveLength(1);
     });
   });
 });

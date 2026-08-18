@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Reserva, ReservaDocument, SuplementoAplicado } from './reserva.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
+import { CatalogRepository } from '../catalog/catalog.repository';
 import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
 import { construirSnapshotPerro } from '../perros/perro-snapshot.util';
@@ -27,9 +28,14 @@ export interface RecurrenciaParams {
 
 export interface CrearReservaParams {
   usuarioId: string;
-  comercioId: string;
   servicioId: string;
-  vertical: VerticalKey;
+  /**
+   * Lo que declaró el cliente. **No es la fuente de verdad**: el comercio y el
+   * vertical se leen del servicio reservado y estos valores sólo se usan para
+   * detectar que la petición no cuadra. Ver `resolverServicio`.
+   */
+  comercioId?: string;
+  vertical?: VerticalKey;
   perroId?: string;
   fechaInicio: Date;
   fechaFin?: Date;
@@ -42,6 +48,9 @@ export interface CrearReservaParams {
 
 const MAX_OCURRENCIAS_RECURRENCIA = 52;
 
+/** Importes en euros con dos decimales: el céntimo es la unidad mínima de cobro. */
+const redondearEuros = (importe: number): number => Math.round(importe * 100) / 100;
+
 @Injectable()
 export class BookingsService {
   private readonly logger = new Logger(BookingsService.name);
@@ -49,6 +58,7 @@ export class BookingsService {
   constructor(
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     private readonly availabilityRegistry: AvailabilityRegistry,
+    private readonly catalogRepository: CatalogRepository,
     private readonly cuponesService: CuponesService,
     private readonly perrosService: PerrosService,
     private readonly notificationsService: NotificationsService,
@@ -57,6 +67,10 @@ export class BookingsService {
   ) {}
 
   async crear(params: CrearReservaParams): Promise<ReservaDocument> {
+    // El comercio y el vertical salen del servicio, nunca del cuerpo de la
+    // petición: de ellos dependen la comisión y a quién se liquida el dinero.
+    const { comercioId, vertical } = await this.resolverServicio(params);
+
     // Validar la recurrencia antes de tocar disponibilidad: falla rápido, no deja holds huérfanos.
     const ocurrenciasRecurrentes = params.recurrencia
       ? this.calcularOcurrenciasRecurrentes(params.fechaInicio, params.recurrencia)
@@ -66,7 +80,7 @@ export class BookingsService {
       ? construirSnapshotPerro(await this.perrosService.obtenerPropio(params.perroId, params.usuarioId))
       : undefined;
 
-    const estrategia = this.availabilityRegistry.obtener(params.vertical);
+    const estrategia = this.availabilityRegistry.obtener(vertical);
 
     const disponibilidad = await estrategia.checkAvailability(params.servicioId, {
       fechaInicio: params.fechaInicio,
@@ -91,9 +105,9 @@ export class BookingsService {
     let descuentoMonto = 0;
 
     if (params.cuponCodigo) {
-      const descuento = await this.cuponesService.validar(params.cuponCodigo, params.vertical, montoSubtotal);
+      const descuento = await this.cuponesService.validar(params.cuponCodigo, vertical, montoSubtotal);
       descuentoMonto = descuento.descuento;
-      montoSubtotal = Math.round((montoSubtotal - descuentoMonto) * 100) / 100;
+      montoSubtotal = redondearEuros(montoSubtotal - descuentoMonto);
     }
 
     // La jerarquía de comisiones vive entera en el resolver: socio fundador →
@@ -101,22 +115,26 @@ export class BookingsService {
     const comision = params.comisionPct != null
       ? { comisionPct: params.comisionPct, origen: 'override_comercio' as const }
       : await this.comisionResolver.resolver({
-          vertical: params.vertical,
+          vertical,
           montoSubtotal,
-          comercioId: params.comercioId,
+          comercioId,
         });
 
+    // Céntimos, no coma flotante: sin redondear se persistían importes como
+    // 121.34000000000002. `PaymentsService` recalcula el desglose redondeando,
+    // así que la reserva y lo que de verdad se cobra dejaban de cuadrar, y los
+    // agregados del reporte financiero del admin sumaban ese ruido.
     const comisionPct = comision.comisionPct;
-    const comisionMonto = montoSubtotal * comisionPct;
-    const iva = montoSubtotal * IVA_RATE;
-    const montoTotal = montoSubtotal + iva;
+    const comisionMonto = redondearEuros(montoSubtotal * comisionPct);
+    const iva = redondearEuros(montoSubtotal * IVA_RATE);
+    const montoTotal = redondearEuros(montoSubtotal + iva);
 
     const reserva = new this.reservaModel({
       codigo: this.generarCodigo(),
       usuarioId: params.usuarioId,
-      comercioId: params.comercioId,
+      comercioId,
       servicioId: params.servicioId,
-      vertical: params.vertical,
+      vertical,
       perroId: params.perroId,
       perroSnapshot,
       detalle: params.detalle ?? {},
@@ -141,9 +159,9 @@ export class BookingsService {
         ocurrenciasRecurrentes.map((fecha) => ({
           codigo: this.generarCodigo(),
           usuarioId: params.usuarioId,
-          comercioId: params.comercioId,
+          comercioId,
           servicioId: params.servicioId,
-          vertical: params.vertical,
+          vertical,
           perroId: params.perroId,
           perroSnapshot,
           detalle: params.detalle ?? {},
@@ -205,6 +223,17 @@ export class BookingsService {
   }
 
   async confirmar(reservaId: string): Promise<ReservaDocument> {
+    // Idempotencia: el webhook de Stripe puede reintentar, y en un viaje el
+    // reintento vuelve a recorrer reservas que ya se confirmaron en el intento
+    // anterior. Sin esta salida temprana se volvería a contar el uso del cupón.
+    const yaProcesada = await this.reservaModel.findById(reservaId).exec();
+    if (!yaProcesada) {
+      throw new DomainException('Reserva no encontrada', 404);
+    }
+    if (yaProcesada.estado !== ReservaEstado.PENDIENTE) {
+      return yaProcesada;
+    }
+
     // Revalidación anti-doble-reserva (DK-A04): entre tomar el SlotHold y
     // cobrar pueden pasar más de sus 15 minutos de vida. Si el hold caducó y la
     // plaza ya no está, confirmar sin más sería vender dos veces lo mismo.
@@ -416,8 +445,8 @@ export class BookingsService {
     }));
 
     const sumaSuplementos = suplementos.reduce((acc, s) => acc + s.monto, 0);
-    const nuevoMontoSubtotal = Math.round((reserva.montoSubtotal + sumaSuplementos) * 100) / 100;
-    const montoAjustado = Math.round(nuevoMontoSubtotal * (1 + IVA_RATE) * 100) / 100;
+    const nuevoMontoSubtotal = redondearEuros(reserva.montoSubtotal + sumaSuplementos);
+    const montoAjustado = redondearEuros(nuevoMontoSubtotal * (1 + IVA_RATE));
 
     reserva.suplementos.push(...nuevos);
     if (evidenciaUrl) {
@@ -461,10 +490,10 @@ export class BookingsService {
     }
 
     const comisionPctEfectivo = reserva.montoSubtotal > 0 ? reserva.comisionMonto / reserva.montoSubtotal : COMISION_PCT_DEFAULT;
-    const nuevoMontoSubtotal = Math.round((reserva.montoAjustado / (1 + IVA_RATE)) * 100) / 100;
+    const nuevoMontoSubtotal = redondearEuros(reserva.montoAjustado / (1 + IVA_RATE));
 
     reserva.montoSubtotal = nuevoMontoSubtotal;
-    reserva.comisionMonto = Math.round(nuevoMontoSubtotal * comisionPctEfectivo * 100) / 100;
+    reserva.comisionMonto = redondearEuros(nuevoMontoSubtotal * comisionPctEfectivo);
     reserva.montoTotal = reserva.montoAjustado;
     reserva.montoAjustado = undefined;
     reserva.estado = ReservaEstado.CONFIRMADA;
@@ -666,6 +695,51 @@ export class BookingsService {
    * para no pisar campos que algún vertical ya reciba explícitamente en
    * `detalle` (ej. `tamanoPerro` de alojamiento).
    */
+  /**
+   * Resuelve a qué comercio y a qué vertical pertenece de verdad el servicio.
+   *
+   * Antes ambos llegaban en el cuerpo de la petición y no se contrastaban nunca
+   * con el servicio. De ellos dependen dos cosas que son dinero: la comisión que
+   * cobra la plataforma (`ComisionResolverService` la resuelve por vertical y
+   * por comercio) y a quién se le liquida la reserva. Un cliente podía, por
+   * tanto, apuntar a un vertical o a un comercio con comisión más baja, o
+   * atribuir la reserva a un negocio que no era el que presta el servicio.
+   */
+  private async resolverServicio(
+    params: CrearReservaParams,
+  ): Promise<{ comercioId: string; vertical: VerticalKey }> {
+    const servicio = await this.catalogRepository.obtenerPorId(params.servicioId);
+
+    if (!servicio) {
+      throw new DomainException('El servicio que intentas reservar no existe', 404);
+    }
+
+    const comercioId = servicio.comercioId?.toString();
+    if (!comercioId) {
+      throw new DomainException('El servicio no tiene comercio asociado y no puede reservarse', 409);
+    }
+
+    const vertical = servicio.vertical as VerticalKey;
+
+    // Discrepancia = la petición viene de un cliente desactualizado o manipulado.
+    // Se rechaza en vez de corregir en silencio, para que el fallo se vea.
+    if (params.comercioId && params.comercioId !== comercioId) {
+      this.logger.warn(
+        `Reserva rechazada: el cliente declaró comercio ${params.comercioId} y el servicio ${params.servicioId} es de ${comercioId}.`,
+      );
+      throw new DomainException('Los datos del servicio no coinciden. Vuelve a cargar la ficha.', 409);
+    }
+
+    if (params.vertical && params.vertical !== vertical) {
+      this.logger.warn(
+        `Reserva rechazada: el cliente declaró vertical ${params.vertical} y el servicio ${params.servicioId} es de ${vertical}.`,
+      );
+      throw new DomainException('Los datos del servicio no coinciden. Vuelve a cargar la ficha.', 409);
+    }
+
+    return { comercioId, vertical };
+  }
+
   private construirParametrosExtra(
     detalle: Record<string, unknown> | undefined,
     perroSnapshot?: Record<string, unknown>,

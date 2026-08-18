@@ -85,9 +85,25 @@ export class Servicio {
 
   @Prop({ type: Object })
   aptitud?: AptitudPerro;
+
+  /**
+   * Copia del estado del comercio: `true` sólo si el comercio está `activo`.
+   *
+   * Está denormalizado a propósito. El buscador filtraba únicamente por
+   * `estado: 'publicado'` del listado, así que suspender un comercio (HU J1) no
+   * lo sacaba del catálogo ni impedía reservarlo. Cruzarlo en cada búsqueda con
+   * un `$in` sobre `comercios` rompería el índice ESR de CLAUDE.md §4.3, de modo
+   * que el flag viaja aquí y lo mantiene `ComerciosService.cambiarEstado`.
+   */
+  @Prop({ default: false })
+  comercioActivo!: boolean;
 }
 
 export const ServicioSchema = SchemaFactory.createForClass(Servicio);
 
-ServicioSchema.index({ vertical: 1, 'ubicacion.ciudad': 1, prioridadRanking: -1, precioBase: 1 });
+// `estado` y `comercioActivo` van primero: son las igualdades que aplica toda
+// búsqueda del catálogo (ESR, CLAUDE.md §4.3).
+ServicioSchema.index({
+  estado: 1, comercioActivo: 1, vertical: 1, 'ubicacion.ciudad': 1, prioridadRanking: -1, precioBase: 1,
+});
 ServicioSchema.index({ 'ubicacion.geo': '2dsphere' }, { sparse: true });

@@ -14,6 +14,9 @@ export * from './enums/evento.enum';
 // Constants
 export * from './constants';
 
+// Utilidades
+export * from './regex';
+
 // DTOs — Auth
 export * from './dtos/auth/login.dto';
 export * from './dtos/auth/registro.dto';

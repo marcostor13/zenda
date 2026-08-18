@@ -396,6 +396,11 @@ export class CatalogService {
     // toda su capacidad.
     const extra = this.conDisponibilidad(dto.vertical, filtrado);
 
+    // Un comercio pendiente de aprobación puede preparar sus listados, pero no
+    // aparecen en el buscador hasta que el admin lo activa (HU J1).
+    const comercio = await this.comercioModel
+      .findById(comercioId).select('estado').lean().exec();
+
     const doc = await this.repo.crear({
       vertical: dto.vertical,
       titulo: dto.titulo,
@@ -406,6 +411,7 @@ export class CatalogService {
       precioBase: dto.precioBase,
       imagenes: dto.imagenes ?? [],
       comercioId,
+      comercioActivo: comercio?.estado === 'activo',
       extra,
       aptitud: dto.aptitud,
     });

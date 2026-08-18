@@ -98,6 +98,14 @@ const TTL_COORDENADAS_MS = 30 * 24 * 60 * 60 * 1000; // una ciudad no se mueve
 const TTL_TRAYECTO_MS = 7 * 24 * 60 * 60 * 1000; // una ruta tampoco cambia
 const TTL_CAMBIO_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Tope de entradas por caché. Las alimentan endpoints públicos y sin sesión, y
+ * las entradas caducadas sólo se borraban si alguien volvía a pedir esa misma
+ * clave: bastaba pedir términos siempre distintos para hacer crecer los mapas
+ * sin límite hasta agotar la memoria del proceso.
+ */
+const MAX_ENTRADAS_CACHE = 5_000;
+
 interface Entrada<T> {
   valor: T;
   expiraEn: number;
@@ -436,7 +444,21 @@ export class GeoService {
   }
 
   private escribirCache<T>(cache: Map<string, Entrada<T>>, clave: string, valor: T, ttlMs: number): void {
+    if (cache.size >= MAX_ENTRADAS_CACHE) {
+      this.desalojarMasAntigua(cache);
+    }
+
     cache.set(clave, { valor, expiraEn: Date.now() + ttlMs });
+  }
+
+  /**
+   * Descarta la entrada insertada hace más tiempo. `Map` conserva el orden de
+   * inserción, así que la primera clave que devuelve el iterador es la más
+   * vieja: un LRU aproximado sin estructura adicional.
+   */
+  private desalojarMasAntigua<T>(cache: Map<string, Entrada<T>>): void {
+    const masAntigua = cache.keys().next();
+    if (!masAntigua.done) cache.delete(masAntigua.value);
   }
 
   private mensaje(error: unknown): string {

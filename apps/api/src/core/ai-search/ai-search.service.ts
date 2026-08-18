@@ -86,13 +86,67 @@ export class AiSearchService {
 
       const data = await response.json() as { choices: Array<{ message: { content: string } }> };
       const content = data.choices[0]?.message?.content ?? '{}';
-      return JSON.parse(content) as SearchParams;
+      return this.sanear(JSON.parse(content) as Record<string, unknown>);
     } catch (error) {
       this.logger.error('Error al interpretar búsqueda con IA', error);
       return this.busquedaNoInterpretada(
         'No se pudo interpretar la búsqueda. Usa el formulario manualmente.',
       );
     }
+  }
+
+  /**
+   * Normaliza lo que devuelve el modelo.
+   *
+   * Antes se hacía `JSON.parse(content) as SearchParams`, y un aserto de tipo no
+   * comprueba nada: si el modelo devolvía `ciudad` como objeto o
+   * `presupuestoMax` como texto, ese valor viajaba al frontend y de ahí al
+   * filtro del catálogo. Todo lo que no encaja se descarta a `null`, que es lo
+   * que el buscador ya sabe tratar.
+   */
+  private sanear(crudo: Record<string, unknown>): SearchParams {
+    return {
+      vertical: this.comoVertical(crudo['vertical']),
+      ciudad: this.comoTexto(crudo['ciudad']),
+      desde: this.comoFecha(crudo['desde']),
+      hasta: this.comoFecha(crudo['hasta']),
+      presupuestoMax: this.comoNumero(crudo['presupuestoMax']),
+      pasajeros: this.comoNumero(crudo['pasajeros']),
+      extras: this.comoExtras(crudo['extras']),
+      explicacion: this.comoTexto(crudo['explicacion']) ?? '',
+    };
+  }
+
+  private comoVertical(valor: unknown): SearchParams['vertical'] {
+    const validos = ['alojamiento', 'transporte', 'veterinaria', 'peluqueria', 'adiestramiento'];
+    return typeof valor === 'string' && validos.includes(valor)
+      ? (valor as SearchParams['vertical'])
+      : null;
+  }
+
+  private comoTexto(valor: unknown): string | null {
+    return typeof valor === 'string' && valor.trim() ? valor.trim() : null;
+  }
+
+  /** Sólo `YYYY-MM-DD`: es el formato que consume el buscador. */
+  private comoFecha(valor: unknown): string | null {
+    const texto = this.comoTexto(valor);
+    return texto && /^\d{4}-\d{2}-\d{2}$/.test(texto) ? texto : null;
+  }
+
+  private comoNumero(valor: unknown): number | null {
+    return typeof valor === 'number' && Number.isFinite(valor) && valor >= 0 ? valor : null;
+  }
+
+  /** `extras` es un diccionario de texto a texto; lo demás se descarta. */
+  private comoExtras(valor: unknown): Record<string, string> {
+    if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return {};
+
+    return Object.fromEntries(
+      Object.entries(valor as Record<string, unknown>)
+        .filter(([, v]) => typeof v === 'string' && v.trim())
+        .map(([k, v]) => [k, (v as string).trim()]),
+    );
   }
 
   /** Params vacíos para que el frontend siga mostrando el buscador manual. */

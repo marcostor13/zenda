@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
-import { MONEDA_DEFAULT, TamanoPerro, TipoPelo } from 'shared';
+import { MONEDA_DEFAULT, TamanoPerro, TipoPelo, regexLiteral } from 'shared';
 import { AptitudPerro, Servicio, ServicioDocument } from './servicio.schema';
 import { Alojamiento } from '../../verticals/alojamiento/alojamiento.schema';
 import { Transporte } from '../../verticals/transporte/transporte.schema';
@@ -177,6 +177,8 @@ export interface CrearServicioParams {
   precioBase: number;
   imagenes: string[];
   comercioId: string;
+  /** Copia del estado del comercio; el buscador filtra por ella (ver `Servicio.comercioActivo`). */
+  comercioActivo: boolean;
   extra?: Record<string, unknown>;
   aptitud?: AptitudPerro;
   /** Coordenadas del listado; sin ellas no aparece en la búsqueda por mapa. */
@@ -360,6 +362,7 @@ export class CatalogRepository {
       precioBase: data.precioBase,
       imagenes: data.imagenes,
       comercioId: new Types.ObjectId(data.comercioId),
+      comercioActivo: data.comercioActivo,
       estado: 'borrador',
       moneda: MONEDA_DEFAULT,
       aptitud: data.aptitud,
@@ -417,10 +420,13 @@ export class CatalogRepository {
   }
 
   private construirFiltro(params: BuscarServiciosParams): FilterQuery<ServicioDocument> {
-    const filtro: FilterQuery<ServicioDocument> = { estado: 'publicado' };
+    // Dos condiciones, no una: el listado tiene que estar publicado **y** su
+    // comercio activo. Sin la segunda, suspender un comercio no lo sacaba del
+    // buscador ni impedía que le siguieran entrando reservas.
+    const filtro: FilterQuery<ServicioDocument> = { estado: 'publicado', comercioActivo: true };
 
     if (params.vertical) filtro.vertical = params.vertical;
-    if (params.ciudad) filtro['ubicacion.ciudad'] = new RegExp(params.ciudad, 'i');
+    if (params.ciudad) filtro['ubicacion.ciudad'] = regexLiteral(params.ciudad);
 
     // La zona del mapa manda sobre la ciudad escrita: si el usuario arrastró el
     // mapa hasta otra comarca, quiere ver lo que hay ahí, no lo que casaba con

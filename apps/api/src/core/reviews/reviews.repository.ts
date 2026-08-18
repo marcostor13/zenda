@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Resena, ResenaDocument } from './resena.schema';
+import { regexLiteral } from 'shared';
 
 export interface CrearResenaData {
   reservaId: Types.ObjectId;
@@ -72,8 +73,7 @@ export class ReviewsRepository {
     if (filtros.ocultas !== undefined) query['eliminada'] = filtros.ocultas ? true : { $ne: true };
     if (filtros.puntuacion) query['puntuacion'] = filtros.puntuacion;
     if (filtros.buscar) {
-      const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escaped, 'i');
+      const regex = regexLiteral(filtros.buscar);
       query['$or'] = [{ usuarioNombre: regex }, { servicioTitulo: regex }, { comentario: regex }];
     }
 

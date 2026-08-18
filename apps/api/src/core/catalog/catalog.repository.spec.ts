@@ -13,6 +13,7 @@ describe('CatalogRepository', () => {
   let model: {
     find: jest.Mock; countDocuments: jest.Mock; findById: jest.Mock;
     estimatedDocumentCount: jest.Mock; aggregate: jest.Mock;
+    findOne: jest.Mock; findByIdAndUpdate: jest.Mock; findOneAndUpdate: jest.Mock;
   };
   let alojamientoModelCtor: jest.Mock;
   let transporteModelCtor: jest.Mock;
@@ -31,6 +32,9 @@ describe('CatalogRepository', () => {
       findById: jest.fn().mockReturnValue({ lean: () => ({ exec: jest.fn().mockResolvedValue(null) }) }),
       estimatedDocumentCount: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
       aggregate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+      findOne: jest.fn().mockReturnValue(chainable(null)),
+      findByIdAndUpdate: jest.fn().mockReturnValue(chainable(null)),
+      findOneAndUpdate: jest.fn().mockReturnValue(chainable(null)),
     };
 
     const mockDoc = (datos: Record<string, unknown>) => ({ ...datos, save: jest.fn().mockResolvedValue(datos) });
@@ -60,6 +64,33 @@ describe('CatalogRepository', () => {
     expect(filtro.vertical).toBe('alojamiento');
     expect(filtro['ubicacion.ciudad']).toBeInstanceOf(RegExp);
     expect(filtro.precioBase).toEqual({ $gte: 100, $lte: 500 });
+  });
+
+  it('debería exigir además que el comercio esté activo', async () => {
+    // Suspender un comercio (HU J1) no lo sacaba del buscador: el filtro sólo
+    // miraba el estado del listado, nunca el del negocio que lo presta.
+    await repository.buscar({ vertical: 'alojamiento', page: 1, limit: 10 });
+
+    expect(model.find.mock.calls[0][0].comercioActivo).toBe(true);
+  });
+
+  it('debería seguir exigiendo comercio activo al buscar por zona del mapa', async () => {
+    await repository.buscar({
+      page: 1, limit: 10,
+      bbox: { swLat: 40, swLng: -4, neLat: 41, neLng: -3 },
+    });
+
+    expect(model.find.mock.calls[0][0].comercioActivo).toBe(true);
+  });
+
+  it('debería tratar la ciudad como texto literal, no como patrón', () => {
+    // `?ciudad=(a+)+$` construía un RegExp con retroceso catastrófico desde un
+    // endpoint público y sin sesión.
+    return repository.buscar({ ciudad: '(a+)+$', page: 1, limit: 10 }).then(() => {
+      const regex = model.find.mock.calls[0][0]['ubicacion.ciudad'] as RegExp;
+      expect(regex.test(`${'a'.repeat(40)}!`)).toBe(false);
+      expect(regex.source).toContain('\(');
+    });
   });
 
   it('no debería añadir condiciones de compatibilidad si no se indica perfil de perro', async () => {
@@ -97,6 +128,7 @@ describe('CatalogRepository', () => {
     it('debería usar el modelo del discriminador correspondiente al vertical', async () => {
       await repository.crear({
         vertical: 'transporte', titulo: 'PetVan', descripcion: 'desc', ciudad: 'Madrid',
+        comercioActivo: true,
         precioBase: 20, imagenes: [], comercioId: '650000000000000000000001',
         extra: { tarifaBase: 15, tarifaKm: 0.9 },
       });
@@ -110,6 +142,7 @@ describe('CatalogRepository', () => {
     it('debería guardar las coordenadas como punto GeoJSON [lng, lat]', async () => {
       await repository.crear({
         vertical: 'alojamiento', titulo: 'Suite Canina', descripcion: 'desc', ciudad: 'Madrid',
+        comercioActivo: true,
         precioBase: 40, imagenes: [], comercioId: '650000000000000000000001',
         lat: 40.4168, lng: -3.7038,
       });
@@ -124,6 +157,7 @@ describe('CatalogRepository', () => {
         vertical: 'alojamiento', titulo: 'Suite Canina', descripcion: 'desc', ciudad: 'Cuenca',
         precioBase: 40, imagenes: [], comercioId: '650000000000000000000001',
         lat: 40.4168,
+        comercioActivo: true,
       });
 
       // Un punto a medias rompería el índice 2dsphere; mejor sin geolocalizar.
@@ -135,6 +169,7 @@ describe('CatalogRepository', () => {
     it('debería persistir los campos extra del vertical en el documento creado', async () => {
       await repository.crear({
         vertical: 'alojamiento', titulo: 'Suite Canina', descripcion: 'desc', ciudad: 'Madrid',
+        comercioActivo: true,
         precioBase: 40, imagenes: [], comercioId: '650000000000000000000001',
         extra: { espacios: [{ tipo: 'estandar', cantidad: 2, precioNoche: 40 }] },
       });
@@ -283,6 +318,227 @@ describe('CatalogRepository', () => {
       const facetas = await repository.facetas({ vertical: 'alojamiento', page: 1, limit: 1 });
 
       expect(facetas).toEqual({ precios: [], amenities: [], valoracion: [] });
+    });
+  });
+
+  describe('búsqueda por distancia', () => {
+    /** El `$geoNear` va dentro de un `aggregate`, no del `find` normal. */
+    const etapaGeoNear = () => model.aggregate.mock.calls.at(-1)![0][0].$geoNear;
+
+    it('debería ordenar por cercanía usando el índice geoespacial', async () => {
+      model.aggregate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ items: [{ _id: 's1' }], total: [{ n: 1 }] }]),
+      });
+
+      const res = await repository.buscar({ page: 1, limit: 10, orden: 'distancia', lat: 40.4, lng: -3.7 } as never);
+
+      // GeoJSON guarda [lng, lat], no al revés: invertirlo mandaría la búsqueda
+      // a otro punto del planeta.
+      expect(etapaGeoNear().near).toEqual({ type: 'Point', coordinates: [-3.7, 40.4] });
+      expect(res).toEqual({ items: [{ _id: 's1' }], total: 1 });
+    });
+
+    it('debería devolver vacío si la agregación no da resultados', async () => {
+      model.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      await expect(repository.buscar({ page: 1, limit: 10, orden: 'distancia', lat: 40.4, lng: -3.7 } as never))
+        .resolves.toEqual({ items: [], total: 0 });
+    });
+
+    it('debería devolver total 0 cuando la faceta de conteo viene vacía', async () => {
+      model.aggregate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ items: [], total: [] }]),
+      });
+
+      await expect(repository.buscar({ page: 1, limit: 10, orden: 'distancia', lat: 40.4, lng: -3.7 } as never))
+        .resolves.toEqual({ items: [], total: 0 });
+    });
+  });
+
+  describe('lectura puntual', () => {
+    it('debería obtener un servicio por id', async () => {
+      await repository.obtenerPorId('s1');
+
+      expect(model.findById).toHaveBeenCalledWith('s1');
+    });
+
+    it('debería exigir también el comercio al obtener un servicio propio', async () => {
+      // Sin el comercio, un comercio podría leer el listado de otro.
+      const id = '507f1f77bcf86cd799439011';
+      const comercioId = '507f1f77bcf86cd799439012';
+
+      await repository.obtenerPorIdYComercio(id, comercioId);
+
+      const filtro = model.findOne.mock.calls[0][0];
+      expect(String(filtro._id)).toBe(id);
+      expect(String(filtro.comercioId)).toBe(comercioId);
+    });
+
+    it('debería contar el total con la estimación rápida', async () => {
+      model.estimatedDocumentCount.mockReturnValue({ exec: jest.fn().mockResolvedValue(42) });
+
+      await expect(repository.contarTotal()).resolves.toBe(42);
+    });
+
+    it('debería actualizar solo los campos indicados, devolviendo el documento nuevo', async () => {
+      await repository.actualizarCampos('s1', { cuposDisponibles: 5 });
+
+      expect(model.findByIdAndUpdate)
+        .toHaveBeenCalledWith('s1', { cuposDisponibles: 5 }, { new: true });
+    });
+  });
+
+  describe('actualizar', () => {
+    const id = '507f1f77bcf86cd799439011';
+    const comercioId = '507f1f77bcf86cd799439012';
+    const cambios = () => model.findOneAndUpdate.mock.calls.at(-1)![1].$set;
+
+    it('debería aplanar la ciudad a su ruta anidada', async () => {
+      await repository.actualizar(id, comercioId, { ciudad: 'Madrid' } as never);
+
+      expect(cambios()['ubicacion.ciudad']).toBe('Madrid');
+    });
+
+    it('debería guardar el punto GeoJSON cuando llegan ambas coordenadas', async () => {
+      await repository.actualizar(id, comercioId, { lat: 40.4, lng: -3.7 } as never);
+
+      expect(cambios()['ubicacion.geo']).toEqual({ type: 'Point', coordinates: [-3.7, 40.4] });
+    });
+
+    it('no debería guardar un punto a medias con una sola coordenada', async () => {
+      // Un punto incompleto rompería el índice 2dsphere, y el servicio debe
+      // poder publicarse sin coordenadas.
+      await repository.actualizar(id, comercioId, { lat: 40.4 } as never);
+
+      expect(cambios()).not.toHaveProperty('ubicacion.geo');
+    });
+
+    it('debería fundir los campos propios del vertical con los comunes', async () => {
+      await repository.actualizar(id, comercioId, {
+        titulo: 'Suite', precioBase: 80, extra: { camaras24h: true },
+      } as never);
+
+      expect(cambios()).toEqual(
+        expect.objectContaining({ titulo: 'Suite', precioBase: 80, camaras24h: true }),
+      );
+    });
+
+    it('no debería incluir los campos que no se envían', async () => {
+      await repository.actualizar(id, comercioId, { titulo: 'Solo el título' } as never);
+
+      const set = cambios();
+      expect(set).toHaveProperty('titulo');
+      expect(set).not.toHaveProperty('descripcion');
+      expect(set).not.toHaveProperty('precioBase');
+      expect(set).not.toHaveProperty('imagenes');
+    });
+
+    it('debería permitir guardar la aptitud y una lista de imágenes vacía', async () => {
+      await repository.actualizar(id, comercioId, {
+        imagenes: [], aptitud: { tamanosAdmitidos: ['mini'] },
+      } as never);
+
+      const set = cambios();
+      expect(set.imagenes).toEqual([]);
+      expect(set.aptitud).toEqual({ tamanosAdmitidos: ['mini'] });
+    });
+
+    it('debería exigir id y comercio en el filtro de actualización', async () => {
+      await repository.actualizar(id, comercioId, { titulo: 'X' } as never);
+
+      const filtro = model.findOneAndUpdate.mock.calls.at(-1)![0];
+      expect(String(filtro._id)).toBe(id);
+      expect(String(filtro.comercioId)).toBe(comercioId);
+    });
+  });
+
+  describe('filtro de disponibilidad', () => {
+    const filtroUsado = () => model.find.mock.calls.at(-1)![0];
+
+    it('no debería filtrar por plazas si no se pide "solo disponibles"', async () => {
+      await repository.buscar({ page: 1, limit: 10 } as never);
+
+      expect(JSON.stringify(filtroUsado())).not.toContain('Disponibles');
+    });
+
+    it('debería aceptar los servicios sin contador declarado', async () => {
+      // Un listado antiguo sin el campo no puede desaparecer del buscador por
+      // no tener contador; solo se descarta el que declara cero.
+      await repository.buscar({ page: 1, limit: 10, vertical: 'peluqueria', soloDisponibles: true } as never);
+
+      const condiciones = JSON.stringify(filtroUsado());
+      expect(condiciones).toContain('$exists');
+      expect(condiciones).toContain('$gt');
+    });
+
+    it('debería mirar todos los contadores si no se acota el vertical', async () => {
+      await repository.buscar({ page: 1, limit: 10, soloDisponibles: true } as never);
+
+      expect(JSON.stringify(filtroUsado())).toContain('Disponibles');
+    });
+  });
+
+  describe('filtros propios del vertical', () => {
+    const filtroUsado = () => model.find.mock.calls.at(-1)![0];
+
+    it('debería traducir un booleano marcado a una condición verdadera', async () => {
+      await repository.buscar({
+        page: 1, limit: 10, vertical: 'peluqueria', filtrosVertical: { aDomicilio: true },
+      } as never);
+
+      expect(filtroUsado().aDomicilio).toBe(true);
+    });
+
+    it('debería ignorar un booleano sin marcar en vez de exigir false', async () => {
+      // Un interruptor apagado significa "me da igual", no "que NO lo tenga".
+      await repository.buscar({
+        page: 1, limit: 10, vertical: 'peluqueria', filtrosVertical: { aDomicilio: false },
+      } as never);
+
+      expect(filtroUsado()).not.toHaveProperty('aDomicilio');
+    });
+
+    it('debería exigir todos los valores de una lista marcada como "todos"', async () => {
+      await repository.buscar({
+        page: 1, limit: 10, vertical: 'adiestramiento',
+        filtrosVertical: { tiposAdiestramiento: ['obediencia', 'agility'] },
+      } as never);
+
+      expect(filtroUsado().tiposAdiestramiento).toEqual({ $all: ['obediencia', 'agility'] });
+    });
+
+    it('debería admitir cualquiera de los valores en un filtro de tipo "en"', async () => {
+      await repository.buscar({
+        page: 1, limit: 10, vertical: 'transporte',
+        filtrosVertical: { tipoVehiculo: ['coche', 'furgon_climatizado'] },
+      } as never);
+
+      expect(filtroUsado().tipoVehiculo).toEqual({ $in: ['coche', 'furgon_climatizado'] });
+    });
+
+    it('debería envolver un valor suelto como lista de un elemento', async () => {
+      await repository.buscar({
+        page: 1, limit: 10, vertical: 'transporte', filtrosVertical: { tipoVehiculo: 'coche' },
+      } as never);
+
+      expect(filtroUsado().tipoVehiculo).toEqual({ $in: ['coche'] });
+    });
+
+    it('debería descartar cadenas vacías dentro de una lista', async () => {
+      await repository.buscar({
+        page: 1, limit: 10, vertical: 'transporte', filtrosVertical: { tipoVehiculo: ['', ''] },
+      } as never);
+
+      expect(filtroUsado()).not.toHaveProperty('tipoVehiculo');
+    });
+
+    it('debería ignorar filtros que el vertical no declara permitidos', async () => {
+      // Lista blanca: un campo arbitrario en la query no puede llegar a Mongo.
+      await repository.buscar({
+        page: 1, limit: 10, vertical: 'peluqueria', filtrosVertical: { campoInventado: 'x' },
+      } as never);
+
+      expect(filtroUsado()).not.toHaveProperty('campoInventado');
     });
   });
 });

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { EntidadAuditada } from 'shared';
+import { EntidadAuditada, regexLiteral } from 'shared';
 import { UsersRepository } from '../users/users.repository';
 import { RegistroAuditoria, RegistroAuditoriaDocument } from './auditoria.schema';
 
@@ -56,8 +56,7 @@ export class AuditoriaService {
     if (filtros.entidad) query['entidad'] = filtros.entidad;
     if (filtros.entidadId) query['entidadId'] = filtros.entidadId;
     if (filtros.buscar) {
-      const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escaped, 'i');
+      const regex = regexLiteral(filtros.buscar);
       query['$or'] = [{ descripcion: regex }, { actorNombre: regex }, { motivo: regex }];
     }
 

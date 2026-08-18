@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { VerticalKey, regexLiteral } from 'shared';
 import { Comercio, ComercioDocument, EstadoComercio, PlanComercio } from './comercio.schema';
 
 export interface CrearComercioParams {
@@ -128,8 +128,7 @@ export class ComerciosRepository implements OnModuleInit {
     if (filtros.alphaAdherido === true) query['alphaAdherido'] = true;
     if (filtros.alphaAdherido === false) query['alphaAdherido'] = { $ne: true };
     if (filtros.buscar) {
-      const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escaped, 'i');
+      const regex = regexLiteral(filtros.buscar);
       query['$or'] = [{ nombreComercial: regex }, { razonSocial: regex }, { vatNumber: regex }];
     }
     const skip = (page - 1) * limite;

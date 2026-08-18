@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { EstadoIncidencia, TipoIncidencia } from 'shared';
+import { EstadoIncidencia, TipoIncidencia, regexLiteral } from 'shared';
 import { ActuacionIncidencia, Incidencia, IncidenciaDocument } from './incidencia.schema';
 
 export interface CrearIncidenciaData {
@@ -40,8 +40,7 @@ export class IncidenciasRepository {
     if (filtros.estado) query['estado'] = filtros.estado;
     if (filtros.tipo) query['tipo'] = filtros.tipo;
     if (filtros.buscar) {
-      const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escaped, 'i');
+      const regex = regexLiteral(filtros.buscar);
       query['$or'] = [{ asunto: regex }, { abiertaPorNombre: regex }, { codigoReserva: regex }];
     }
 

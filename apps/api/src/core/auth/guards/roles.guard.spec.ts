@@ -16,6 +16,14 @@ describe('RolesGuard', () => {
       }),
     }) as unknown as ExecutionContext;
 
+  /** Petición sin autenticar: es lo que llega si falta el JwtAuthGuard delante. */
+  const crearContextoSinUsuario = (): ExecutionContext =>
+    ({
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: () => ({ getRequest: () => ({}) }),
+    }) as unknown as ExecutionContext;
+
   beforeEach(() => {
     reflector = { getAllAndOverride: jest.fn() } as any;
     guard = new RolesGuard(reflector);
@@ -39,5 +47,18 @@ describe('RolesGuard', () => {
   it('debería permitir acceso a comercio_admin cuando se requiere comercio_admin o admin', () => {
     reflector.getAllAndOverride.mockReturnValue([Rol.ADMIN, Rol.COMERCIO_ADMIN]);
     expect(guard.canActivate(crearContexto(Rol.COMERCIO_ADMIN))).toBe(true);
+  });
+
+  it('debería denegar, sin reventar, si la petición no trae usuario', () => {
+    reflector.getAllAndOverride.mockReturnValue([Rol.ADMIN]);
+    // Antes lanzaba TypeError al leer `user.rol`, y eso se traduce en un 500
+    // donde debería haber un 401/403.
+    expect(() => guard.canActivate(crearContextoSinUsuario())).not.toThrow();
+    expect(guard.canActivate(crearContextoSinUsuario())).toBe(false);
+  });
+
+  it('debería seguir permitiendo el paso sin usuario si el endpoint no exige rol', () => {
+    reflector.getAllAndOverride.mockReturnValue([]);
+    expect(guard.canActivate(crearContextoSinUsuario())).toBe(true);
   });
 });

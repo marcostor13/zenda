@@ -114,6 +114,30 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
       expect(bcryptMock.compare).not.toHaveBeenCalled();
     });
+
+    it('no debería revelar si el email existe según el mensaje de error', async () => {
+      // El mensaje distinto para las cuentas sociales convertía el login en un
+      // buscador de usuarios: se probaban correos y el que cambiaba de texto era
+      // uno registrado.
+      usersRepository.findByEmail.mockResolvedValue(null);
+      const inexistente = await service
+        .login({ email: 'noexiste@test.com', password: 'password123' })
+        .catch((e: Error) => e.message);
+
+      usersRepository.findByEmail.mockResolvedValue({ ...usuarioMock, passwordHash: undefined } as any);
+      const soloSocial = await service
+        .login({ email: 'juan@test.com', password: 'password123' })
+        .catch((e: Error) => e.message);
+
+      (bcryptMock.compare as jest.Mock).mockResolvedValue(false);
+      usersRepository.findByEmail.mockResolvedValue(usuarioMock as any);
+      const passwordMala = await service
+        .login({ email: 'juan@test.com', password: 'wrong' })
+        .catch((e: Error) => e.message);
+
+      expect(soloSocial).toBe(inexistente);
+      expect(passwordMala).toBe(inexistente);
+    });
   });
 
   describe('loginConGoogle', () => {

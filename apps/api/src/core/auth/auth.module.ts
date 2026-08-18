@@ -7,6 +7,7 @@ import { SocialAuthService } from './social-auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtOpcionalGuard } from './guards/jwt-opcional.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PermisosAdminGuard } from './guards/permisos.guard';
 import { UsersModule } from '../users/users.module';
@@ -26,7 +27,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, SocialAuthService, JwtStrategy, JwtAuthGuard, RolesGuard, PermisosAdminGuard],
-  exports: [JwtAuthGuard, RolesGuard, PermisosAdminGuard, AuthService],
+  providers: [AuthService, SocialAuthService, JwtStrategy, JwtAuthGuard, JwtOpcionalGuard, RolesGuard, PermisosAdminGuard],
+  exports: [JwtAuthGuard, JwtOpcionalGuard, RolesGuard, PermisosAdminGuard, AuthService],
 })
 export class AuthModule {}

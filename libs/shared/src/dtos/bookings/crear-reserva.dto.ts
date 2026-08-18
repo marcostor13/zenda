@@ -7,11 +7,19 @@ export class CrearReservaDto {
   @IsString()
   servicioId!: string;
 
+  /**
+   * @deprecated El comercio se deduce del servicio. Se sigue aceptando por
+   * compatibilidad, y si no coincide con el del servicio la reserva se rechaza
+   * con 409 en vez de atribuirse a quien diga el cliente.
+   */
+  @IsOptional()
   @IsString()
-  comercioId!: string;
+  comercioId?: string;
 
+  /** @deprecated Igual que `comercioId`: manda el vertical del servicio. */
+  @IsOptional()
   @IsEnum(VerticalKey)
-  vertical!: VerticalKey;
+  vertical?: VerticalKey;
 
   @IsOptional()
   @IsString()

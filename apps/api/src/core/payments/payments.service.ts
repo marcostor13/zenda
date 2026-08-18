@@ -42,11 +42,16 @@ export class PaymentsService {
       throw new DomainException('No autorizado para pagar esta reserva', 403);
     }
 
+    const desglose = await this.calcularDesglose(reserva);
+
     const pagoExistente = await this.pagoModel
       .findOne({ reservaId, estado: PagoEstado.INICIADO })
       .exec();
 
-    if (pagoExistente) {
+    // Sólo se reutiliza el intent pendiente si sigue cobrando lo mismo. Si el
+    // importe cambió entre medias (suplemento, cupón), reutilizarlo cobraría el
+    // viejo; en ese caso se descarta y se crea uno nuevo.
+    if (pagoExistente && pagoExistente.montoTotal === desglose.montoTotal) {
       return {
         clientSecret: pagoExistente.stripeMetadata?.clientSecret as string,
         pagoId: pagoExistente.id,
@@ -55,7 +60,13 @@ export class PaymentsService {
       };
     }
 
-    const desglose = await this.calcularDesglose(reserva);
+    if (pagoExistente) {
+      pagoExistente.estado = PagoEstado.RECHAZADO;
+      await pagoExistente.save();
+      this.logger.log(
+        `Intent obsoleto descartado para la reserva ${reservaId}: cobraba ${pagoExistente.montoTotal} € y ahora son ${desglose.montoTotal} €.`,
+      );
+    }
 
     const montoEnCentavos = Math.round(desglose.montoTotal * 100);
 
@@ -185,6 +196,21 @@ export class PaymentsService {
   async aceptarAjuste(reservaId: string, usuarioId: string): Promise<PaymentIntentResponseDto> {
     const reserva = await this.bookingsService.validarAjustePendiente(reservaId, usuarioId);
 
+    // Mismo guard que `crearIntent`: sin él, dos clics del cliente creaban dos
+    // PaymentIntents por la misma diferencia, y se le cobraba dos veces.
+    const suplementoPendiente = await this.pagoModel
+      .findOne({ reservaId, estado: PagoEstado.INICIADO, esSuplemento: true })
+      .exec();
+
+    if (suplementoPendiente) {
+      return {
+        clientSecret: suplementoPendiente.stripeMetadata?.clientSecret as string,
+        pagoId: suplementoPendiente.id,
+        montoTotal: suplementoPendiente.montoTotal,
+        moneda: suplementoPendiente.moneda,
+      };
+    }
+
     const diferenciaTotal = Math.round((reserva.montoAjustado! - reserva.montoTotal) * 100) / 100;
     const diferenciaSubtotal = Math.round((diferenciaTotal / (1 + IVA_RATE)) * 100) / 100;
     const desglose = await this.calcularDesgloseDesdeSubtotal(diferenciaSubtotal, reserva.vertical);
@@ -268,33 +294,60 @@ export class PaymentsService {
     }
 
     if (resultado.estado === 'succeeded') {
-      pago.estado = PagoEstado.APROBADO;
-      pago.stripeChargeId = resultado.chargeId;
-      await pago.save();
-
-      if (pago.esSuplemento) {
-        await this.bookingsService.confirmarAjuste(pago.reservaId.toString());
-        this.logger.log(`Ajuste de precio confirmado para la reserva ${pago.reservaId}.`);
-      } else {
-        // Un viaje se paga de una vez pero se confirma reserva a reserva: cada
-        // comercio recibe su aviso y cada línea conserva su propio estado.
-        const aConfirmar = pago.reservaIds?.length
-          ? pago.reservaIds.map((id) => id.toString())
-          : [pago.reservaId.toString()];
-
-        for (const reservaId of aConfirmar) {
-          await this.bookingsService.confirmar(reservaId);
-          // No await: un fallo de email no debe demorar la respuesta al webhook.
-          void this.notificationsService.notificarReservaConfirmada(reservaId);
-        }
-        this.logger.log(`${aConfirmar.length} reserva(s) confirmada(s) tras pago exitoso.`);
-      }
+      await this.aplicarPagoAprobado(pago, resultado.chargeId);
     }
 
     if (resultado.estado === 'failed') {
       pago.estado = PagoEstado.RECHAZADO;
       await pago.save();
       this.logger.log(`Pago ${pago.id} fallido. SlotHold se liberará por TTL.`);
+    }
+  }
+
+  /**
+   * Confirma **primero** lo reservado y sólo después marca el pago como
+   * aprobado.
+   *
+   * El orden importa y antes estaba al revés: se guardaba `APROBADO` y luego se
+   * confirmaba. Si la confirmación fallaba —`confirmar()` revalida la
+   * disponibilidad y puede lanzar—, el webhook devolvía error, Stripe
+   * reintentaba, y en el reintento el guard de idempotencia (`estado !==
+   * INICIADO`) cortaba antes de tocar la reserva: cobro consumado, reserva sin
+   * confirmar y ningún reintento capaz de repararlo.
+   *
+   * Con el orden invertido, un fallo deja el pago en `INICIADO`, así que el
+   * reintento de Stripe vuelve a entrar y termina el trabajo. `confirmar` y
+   * `confirmarAjuste` ya son idempotentes, de modo que repetirlas no duplica
+   * nada.
+   */
+  private async aplicarPagoAprobado(pago: PagoDocument, chargeId?: string): Promise<void> {
+    const reservasConfirmadas: string[] = [];
+
+    if (pago.esSuplemento) {
+      await this.bookingsService.confirmarAjuste(pago.reservaId.toString());
+      this.logger.log(`Ajuste de precio confirmado para la reserva ${pago.reservaId}.`);
+    } else {
+      // Un viaje se paga de una vez pero se confirma reserva a reserva: cada
+      // comercio recibe su aviso y cada línea conserva su propio estado.
+      const aConfirmar = pago.reservaIds?.length
+        ? pago.reservaIds.map((id) => id.toString())
+        : [pago.reservaId.toString()];
+
+      for (const reservaId of aConfirmar) {
+        await this.bookingsService.confirmar(reservaId);
+        reservasConfirmadas.push(reservaId);
+      }
+      this.logger.log(`${aConfirmar.length} reserva(s) confirmada(s) tras pago exitoso.`);
+    }
+
+    pago.estado = PagoEstado.APROBADO;
+    pago.stripeChargeId = chargeId;
+    await pago.save();
+
+    // Los avisos van al final y sin `await`: ya no hay nada que deshacer si
+    // fallan, y un correo lento no debe demorar la respuesta a Stripe.
+    for (const reservaId of reservasConfirmadas) {
+      void this.notificationsService.notificarReservaConfirmada(reservaId);
     }
   }
 

@@ -17,7 +17,7 @@ import { Resena, ResenaDocument } from '../reviews/resena.schema';
 import { Incidencia, IncidenciaDocument } from '../incidencias/incidencia.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Evento, EventoDocument } from '../eventos/evento.schema';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey, regexLiteral } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
 import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
@@ -73,11 +73,6 @@ export interface FiltrosReservasAdmin {
   estadoPago?: string;
   importeMin?: number;
   importeMax?: number;
-}
-
-/** Un término de búsqueda con `.` o `(` no debe convertirse en comodín. */
-function escaparRegex(termino: string): string {
-  return termino.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export interface FiltrosReporte {
@@ -477,8 +472,7 @@ export class AdminService {
     if (rol) filtro['rol'] = rol;
     if (verificado !== undefined) filtro['verificado'] = verificado;
     if (buscar) {
-      const escaped = buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escaped, 'i');
+      const regex = regexLiteral(buscar);
       filtro['$or'] = [{ nombre: regex }, { email: regex }];
     }
     const [items, total] = await Promise.all([
@@ -744,7 +738,7 @@ export class AdminService {
     if (filtros.comercioId) filtro['comercioId'] = filtros.comercioId;
     if (filtros.vertical) filtro['vertical'] = filtros.vertical;
     if (filtros.buscar) {
-      const regex = new RegExp(escaparRegex(filtros.buscar), 'i');
+      const regex = regexLiteral(filtros.buscar);
       // Buscar sólo por código obligaba a conocer la reserva de antemano; ahora
       // vale también el cliente (nombre o email) o el comercio (TCK-8036).
       const [usuarios, comercios] = await Promise.all([
@@ -773,7 +767,7 @@ export class AdminService {
     // donde vive la ubicación (TCK-8036 §2).
     if (filtros.ciudad) {
       const servicios = await this.servicioModelAdmin
-        .find({ 'ubicacion.ciudad': new RegExp(escaparRegex(filtros.ciudad), 'i') })
+        .find({ 'ubicacion.ciudad': regexLiteral(filtros.ciudad) })
         .select('_id')
         .lean()
         .exec() as unknown as Array<{ _id: Types.ObjectId }>;
@@ -858,8 +852,7 @@ export class AdminService {
       const filtroReserva: Record<string, unknown> = {};
       if (filtros.comercioId) filtroReserva['comercioId'] = new Types.ObjectId(filtros.comercioId);
       if (filtros.buscar) {
-        const escaped = filtros.buscar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        filtroReserva['codigo'] = new RegExp(escaped, 'i');
+        filtroReserva['codigo'] = regexLiteral(filtros.buscar);
       }
       const reservas = await this.reservaModel.find(filtroReserva).select('_id').lean().exec() as unknown as Array<{ _id: Types.ObjectId }>;
       filtro['reservaId'] = { $in: reservas.map((r) => r._id) };

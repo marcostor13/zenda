@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 
@@ -10,6 +11,7 @@ const PIXEL_TRANSPARENTE = Buffer.from(
 import { IsEnum, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 import { PasoEmbudo, Rol, TipoEvento } from 'shared';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtOpcionalGuard } from '../auth/guards/jwt-opcional.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { EventosService, MetricaEmbudo } from './eventos.service';
 import { GrowthService, ResumenTanda, SeguimientoValoraciones } from './growth.service';
@@ -63,9 +65,16 @@ export class EventosController {
    * Registro de eventos del embudo. **Público a propósito**: la mitad del
    * embudo ocurre antes de iniciar sesión, y exigir token dejaría fuera
    * justamente los abandonos más tempranos.
+   *
+   * `JwtOpcionalGuard` es lo que rellena `req.user` cuando sí hay sesión. Sin
+   * él, `usuarioId` quedaba siempre vacío y la campaña de recuperación de
+   * abandonos descartaba el 100 % de los casos.
    */
   @Post()
+  @UseGuards(JwtOpcionalGuard)
   @HttpCode(HttpStatus.ACCEPTED)
+  // Telemetría: se dispara en cada paso del embudo, así que el techo va holgado.
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @ApiOperation({ summary: 'Registrar un evento del embudo (medición y abandonos)' })
   async registrar(@Body() dto: RegistrarEventoDto, @Req() req: RequestConUsuario): Promise<void> {
     await this.eventosService.registrar({ ...dto, usuarioId: req.user?.sub });

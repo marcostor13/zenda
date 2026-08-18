@@ -63,10 +63,16 @@ export class CarritoService {
     const fechaFin = dto.fechaFin ? new Date(dto.fechaFin) : undefined;
     const cantidad = dto.cantidad ?? 1;
 
+    // El vertical sale del servicio, no del cuerpo de la petición: de él dependen
+    // la estrategia de disponibilidad y el porcentaje de comisión. Si el cliente
+    // manda otro, `BookingsService.crear` rechazaría el checkout más tarde; se
+    // corrige aquí para no meter en el carrito algo que no se podrá pagar.
+    const vertical = (servicio.vertical as VerticalKey | undefined) ?? dto.vertical;
+
     // Se comprueba al añadir para no dejar meter algo que ya no existe, pero
     // NO se bloquea plaza: el hold se toma en el checkout.
     const disponibilidad = await this.comprobarDisponibilidad(
-      dto.vertical, dto.servicioId, fechaInicio, fechaFin, cantidad, dto.detalle,
+      vertical, dto.servicioId, fechaInicio, fechaFin, cantidad, dto.detalle,
     );
     if (!disponibilidad.disponible) {
       throw new DomainException(
@@ -85,7 +91,7 @@ export class CarritoService {
       itemId: nanoid(10),
       servicioId: new Types.ObjectId(dto.servicioId),
       comercioId: new Types.ObjectId(comercioId),
-      vertical: dto.vertical,
+      vertical,
       titulo: servicio.nombre,
       fechaInicio,
       fechaFin,

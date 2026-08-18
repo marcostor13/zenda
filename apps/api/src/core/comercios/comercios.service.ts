@@ -168,6 +168,14 @@ export class ComerciosService {
       throw new DomainException('Comercio no encontrado', 404);
     }
 
+    // El buscador filtra por el flag denormalizado del listado, no consulta el
+    // comercio: sin propagarlo, suspender un negocio lo dejaba igual de visible
+    // y de reservable (ver `Servicio.comercioActivo`).
+    await this.servicioModel.updateMany(
+      { comercioId: comercio._id },
+      { comercioActivo: estado === 'activo' },
+    ).exec();
+
     if (adminId) {
       await this.auditoria.registrar({
         actorId: adminId,
