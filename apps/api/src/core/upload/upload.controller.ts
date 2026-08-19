@@ -22,11 +22,32 @@ import { UploadService } from './upload.service';
 const CACHE_INMUTABLE = 'public, max-age=31536000, immutable';
 
 /**
- * Tipos que el navegador puede pintar en línea sin riesgo. El `Content-Type`
- * guardado viene del cliente que subió el fichero, así que un tipo inesperado se
- * sirve como descarga y no como documento del origen del API.
+ * Tipos que el navegador puede pintar en línea sin riesgo. El resto se sirve
+ * como descarga: un PDF o un SVG servidos en línea se ejecutarían como
+ * documento del origen del API.
+ *
+ * HEIC entra aquí aunque sólo lo pinte Safari: forzar la descarga de una foto
+ * garantiza que no se vea, y en línea al menos funciona en iOS, que es
+ * justamente de donde vienen esos ficheros.
  */
-const TIPOS_EN_LINEA = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const TIPOS_EN_LINEA = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+
+/*
+ * Formatos que acepta cada endpoint. Se comprueban contra el **contenido** del
+ * fichero (ver `firma-fichero.ts`), no contra el `Content-Type` que declara el
+ * cliente: iOS manda `application/octet-stream` —o nada— cuando la foto llega
+ * desde la app Archivos, y validar por ahí rechazaba fotos perfectamente
+ * válidas. Los pipes se quedan sólo con el límite de tamaño.
+ */
+const TIPOS_IMAGEN = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+const TIPOS_DOCUMENTO = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+const TIPOS_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime'];
+
+/** Pipe de subida: sólo tamaño; del formato se encarga el servicio. */
+const limitePeso = (megas: number): ReturnType<ParseFilePipeBuilder['build']> =>
+  new ParseFilePipeBuilder()
+    .addMaxSizeValidator({ maxSize: megas * 1024 * 1024 })
+    .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY });
 
 @ApiTags('upload')
 @Controller('upload')
@@ -47,20 +68,8 @@ export class UploadController {
   @ApiOperation({
     summary: 'Subir imagen (max 5 MB, JPEG / PNG / WebP / GIF / HEIC). Va a S3 si está configurado; si no, a GridFS',
   })
-  uploadImage(
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        // heic/heif: es el formato por defecto del carrete del iPhone desde
-        // iOS 11. El navegador convierte a JPEG antes de subir siempre que puede
-        // (ver `shared/media/heic.ts`), pero la app de Capacitor y los ficheros
-        // que llegan desde la app Archivos pueden entrar en crudo.
-        .addFileTypeValidator({ fileType: /image\/(jpeg|png|webp|gif|heic|heif)/ })
-        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
-        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
-    )
-    file: Express.Multer.File,
-  ) {
-    return this.uploadService.uploadImage(file);
+  uploadImage(@UploadedFile(limitePeso(5)) file: Express.Multer.File) {
+    return this.uploadService.uploadImage(file, TIPOS_IMAGEN);
   }
 
   @Post('documento')
@@ -77,19 +86,8 @@ export class UploadController {
   @ApiOperation({
     summary: 'Subir documentación (máx 10 MB, PDF o imagen, HEIC incluido). Mismo almacén que las imágenes',
   })
-  uploadDocumento(
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        // Los seguros y certificados llegan casi siempre en PDF; el móvil, en foto.
-        // Una foto del móvil es la forma más común de aportar un certificado, y
-        // en iPhone esa foto es HEIC.
-        .addFileTypeValidator({ fileType: /(application\/pdf|image\/(jpeg|png|webp|heic|heif))/ })
-        .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 })
-        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
-    )
-    file: Express.Multer.File,
-  ) {
-    return this.uploadService.uploadImage(file);
+  uploadDocumento(@UploadedFile(limitePeso(10)) file: Express.Multer.File) {
+    return this.uploadService.uploadImage(file, TIPOS_DOCUMENTO);
   }
 
   @Post('video')
@@ -106,16 +104,8 @@ export class UploadController {
   @ApiOperation({
     summary: 'Subir vídeo (máx 50 MB, MP4/WebM/MOV). Ref. ADI3: vídeo del comportamiento del perro',
   })
-  uploadVideo(
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({ fileType: /video\/(mp4|webm|quicktime)/ })
-        .addMaxSizeValidator({ maxSize: 50 * 1024 * 1024 })
-        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
-    )
-    file: Express.Multer.File,
-  ) {
-    return this.uploadService.uploadImage(file);
+  uploadVideo(@UploadedFile(limitePeso(50)) file: Express.Multer.File) {
+    return this.uploadService.uploadImage(file, TIPOS_VIDEO);
   }
 
   /**

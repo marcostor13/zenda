@@ -6,10 +6,23 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 import { Readable } from 'stream';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { coincideConDeclarado } from './firma-fichero';
+import { tipoAceptado } from './firma-fichero';
 
 /** Colección GridFS donde caen las imágenes cuando no hay S3 configurado. */
 const BUCKET_GRIDFS = 'uploads';
+
+/** Extensión del fichero almacenado, por tipo real. */
+const EXTENSIONES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/heic': 'heic',
+  'application/pdf': 'pdf',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/quicktime': 'mov',
+};
 
 /** Imagen servida desde GridFS por `GET /upload/:id`. */
 export interface ImagenAlmacenada {
@@ -35,27 +48,37 @@ export class UploadService {
   }
 
   /**
-   * Guarda la imagen y devuelve la URL con la que el navegador podrá pintarla.
+   * Guarda el fichero y devuelve la URL con la que el navegador podrá pintarlo.
    * Con S3 configurado va a S3; si no, a GridFS, para que la foto de la ficha
    * de la mascota funcione en cualquier entorno (TCK-8012).
+   *
+   * `permitidos` son los tipos que acepta el endpoint que llama, comprobados
+   * contra el contenido real del fichero.
    */
-  async uploadImage(file: Express.Multer.File): Promise<{ url: string }> {
-    this.validarContenido(file);
-    return this.hayS3() ? this.subirAS3(file) : this.subirAGridFs(file);
+  async uploadImage(
+    file: Express.Multer.File,
+    permitidos: readonly string[],
+  ): Promise<{ url: string }> {
+    const tipo = this.validarContenido(file, permitidos);
+    return this.hayS3() ? this.subirAS3(file, tipo) : this.subirAGridFs(file, tipo);
   }
 
   /**
-   * El `Content-Type` del multipart lo escribe el cliente, y es el que se guarda
-   * y se devuelve luego en `GET /upload/:id` desde el origen del API. Sin mirar
-   * los bytes, cualquier contenido podía viajar etiquetado como imagen.
+   * Determina qué es el fichero mirando sus bytes y comprueba que el endpoint lo
+   * acepte. Devuelve el tipo real, que es el que se almacena: guardar el que
+   * declara el cliente dejaba imágenes registradas como
+   * `application/octet-stream`, y `GET /upload/:id` las servía con ese tipo, así
+   * que el navegador no las pintaba.
    */
-  private validarContenido(file: Express.Multer.File): void {
-    if (!coincideConDeclarado(file.buffer, file.mimetype)) {
+  private validarContenido(file: Express.Multer.File, permitidos: readonly string[]): string {
+    const tipo = tipoAceptado(file.buffer, permitidos);
+    if (!tipo) {
       throw new DomainException(
-        'El archivo no es del tipo que dice ser. Sube una imagen, un PDF o un vídeo válidos.',
+        'El archivo no tiene un formato admitido. Sube una imagen, un PDF o un vídeo válidos.',
         422,
       );
     }
+    return tipo;
   }
 
   /** Lee del almacén local. Solo aplica a las imágenes servidas por el API. */
@@ -72,15 +95,15 @@ export class UploadService {
     };
   }
 
-  private async subirAS3(file: Express.Multer.File): Promise<{ url: string }> {
-    const key = `uploads/${randomUUID()}.${this.extensionDe(file)}`;
+  private async subirAS3(file: Express.Multer.File, tipo: string): Promise<{ url: string }> {
+    const key = `uploads/${randomUUID()}.${this.extensionDe(tipo)}`;
 
     await this.clienteS3().send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype,
+        ContentType: tipo,
         CacheControl: 'max-age=31536000',
       }),
     );
@@ -88,9 +111,9 @@ export class UploadService {
     return { url: `${this.baseS3()}/${key}` };
   }
 
-  private async subirAGridFs(file: Express.Multer.File): Promise<{ url: string }> {
-    const nombre = `${randomUUID()}.${this.extensionDe(file)}`;
-    const subida = this.gridFs().openUploadStream(nombre, { contentType: file.mimetype });
+  private async subirAGridFs(file: Express.Multer.File, tipo: string): Promise<{ url: string }> {
+    const nombre = `${randomUUID()}.${this.extensionDe(tipo)}`;
+    const subida = this.gridFs().openUploadStream(nombre, { contentType: tipo });
 
     await new Promise<void>((resolve, reject) => {
       subida.once('error', reject);
@@ -157,7 +180,12 @@ export class UploadService {
     return new mongo.ObjectId(id);
   }
 
-  private extensionDe(file: Express.Multer.File): string {
-    return file.originalname.split('.').pop()?.toLowerCase() ?? 'jpg';
+  /**
+   * Extensión derivada del tipo real, no del nombre que traía el fichero: iOS
+   * manda `.HEIC` para cosas que ya no lo son y nombres sin extensión desde la
+   * app Archivos.
+   */
+  private extensionDe(tipo: string): string {
+    return EXTENSIONES[tipo] ?? 'bin';
   }
 }

@@ -19,7 +19,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { environment } from '../../../../environments/environment';
-import { esHeic, normalizarImagen } from '../../media/heic';
+import { MAX_SUBIDA_BYTES, pareceImagen, prepararImagen } from '../../media/preparar-imagen';
 
 interface ImageSlot {
   id: string;
@@ -119,12 +119,17 @@ interface ImageSlot {
       </p>
     }
 
-    <!-- Las extensiones van además del tipo MIME: iOS no siempre rellena el
-         tipo del fichero, y sin ellas el selector deja en gris las fotos del carrete. -->
+    <!--
+      accept amplio a propósito. Con una lista cerrada de tipos MIME, el
+      selector de iOS deja en gris buena parte del carrete: Safari no siempre
+      sabe qué tipo tiene una foto hasta abrirla, y descarta lo que no encaja.
+      Un accept genérico más las extensiones deja elegir cualquier foto; del
+      formato ya se encarga el servidor, que mira los bytes de verdad.
+    -->
     <input
       #fileInput
       type="file"
-      accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
+      accept="image/*,.heic,.heif"
       style="display:none"
       [multiple]="multiple"
       (change)="onFileChange($event)" />
@@ -333,21 +338,8 @@ export class RsImageUploadComponent
     this.onTouched();
   }
 
-  /**
-   * ¿Se puede intentar subir este fichero?
-   *
-   * No basta con `type.startsWith('image/')`: iOS deja el tipo vacío cuando la
-   * foto llega desde la app Archivos, y esos ficheros se descartaban aquí sin
-   * subida y sin mensaje — el usuario elegía su foto y no pasaba nada.
-   */
-  private esImagen(fichero: File): boolean {
-    return fichero.type.startsWith('image/')
-      || esHeic(fichero)
-      || (!fichero.type && /\.(jpe?g|png|webp|gif)$/i.test(fichero.name));
-  }
-
   private async processFiles(files: File[]): Promise<void> {
-    const imagenes = files.filter(f => this.esImagen(f));
+    const imagenes = files.filter(f => pareceImagen(f));
 
     // Callar un descarte deja al usuario mirando una pantalla que no reacciona.
     if (files.length && !imagenes.length) {
@@ -368,15 +360,11 @@ export class RsImageUploadComponent
     if (!original) return;
 
     /*
-     * HEIC → JPEG antes de nada: subirlo en crudo lo dejaría almacenado en un
-     * formato que sólo Safari sabe pintar (ver `shared/media/heic.ts`). También
-     * arregla la vista previa, que en Chrome saldría rota.
-     *
-     * La conversión sólo se espera cuando hace falta: un `await` para el 99 % de
-     * las fotos, que ya son JPEG, retrasaría la petición un microtask sin ganar
-     * nada.
+     * Conversión y reescalado antes de nada (ver `shared/media/preparar-imagen.ts`):
+     * un HEIC en crudo sólo lo pinta Safari, y una foto de móvil sin reducir se
+     * pasa del límite de 5 MB del endpoint. Un JPEG que ya cabe no se toca.
      */
-    const file = esHeic(original) ? await normalizarImagen(original) : original;
+    const file = await prepararImagen(original, MAX_SUBIDA_BYTES);
 
     const id = this.uid();
     const previewUrl = URL.createObjectURL(file);

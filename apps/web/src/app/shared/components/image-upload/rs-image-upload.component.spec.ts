@@ -26,9 +26,17 @@ describe('RsImageUploadComponent', () => {
 
   afterEach(() => httpMock.verify());
 
-  function subirArchivo(): void {
+  /**
+   * Elige un fichero y espera a que la petición esté en vuelo.
+   *
+   * Hace falta esperar porque la imagen se prepara antes de subirla (convertir
+   * el HEIC del iPhone, reducirla si no cabe), y eso es asíncrono aunque no haya
+   * nada que preparar.
+   */
+  async function subirArchivo(): Promise<void> {
     const file = new File(['contenido'], 'foto.jpg', { type: 'image/jpeg' });
     component.onFileChange({ target: { files: [file], value: '' } } as unknown as Event);
+    await fixture.whenStable();
   }
 
   it('en modo single (multiple=false) debería emitir un string, no un array', async () => {
@@ -36,7 +44,7 @@ describe('RsImageUploadComponent', () => {
     const onChange = jest.fn();
     component.registerOnChange(onChange);
 
-    subirArchivo();
+    await subirArchivo();
     const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
     req.flush({ url: 'https://cdn.doogking.com/foto.jpg' });
     await fixture.whenStable();
@@ -49,7 +57,7 @@ describe('RsImageUploadComponent', () => {
     const onChange = jest.fn();
     component.registerOnChange(onChange);
 
-    subirArchivo();
+    await subirArchivo();
     const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
     req.flush({ url: 'https://cdn.doogking.com/foto.jpg' });
     await fixture.whenStable();
@@ -72,7 +80,7 @@ describe('RsImageUploadComponent', () => {
   describe('cuando la subida falla (TCK-8012)', () => {
     /** Provoca un fallo de subida con el estado HTTP indicado. */
     async function fallarConEstado(status: number, body: unknown = {}): Promise<void> {
-      subirArchivo();
+      await subirArchivo();
       const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
       req.flush(body, { status, statusText: 'Error' });
       await fixture.whenStable();
@@ -105,8 +113,8 @@ describe('RsImageUploadComponent', () => {
       expect(component.validate({} as never)).toEqual({ subidaFallida: true });
     });
 
-    it('debería invalidar el control mientras la subida está en curso', () => {
-      subirArchivo();
+    it('debería invalidar el control mientras la subida está en curso', async () => {
+      await subirArchivo();
 
       expect(component.validate({} as never)).toEqual({ subidaEnCurso: true });
 
@@ -118,6 +126,8 @@ describe('RsImageUploadComponent', () => {
       await fallarConEstado(500);
 
       component.reintentar();
+      await fixture.whenStable();
+
       const reintento = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
       reintento.flush({ url: 'https://cdn.doogking.com/foto.jpg' });
       await fixture.whenStable();
@@ -239,12 +249,17 @@ describe('RsImageUploadComponent', () => {
   });
 
   it('debería ofrecer las fotos del carrete en el selector del sistema', () => {
-    // Sin HEIC en el accept, iOS deja en gris las fotos del iPhone.
+    /*
+     * Con una lista cerrada de tipos MIME, iOS deja en gris buena parte del
+     * carrete: Safari no siempre sabe qué tipo tiene una foto hasta abrirla y
+     * descarta lo que no encaja. Un accept genérico más las extensiones de
+     * iPhone deja elegir cualquiera; del formato se encarga el servidor.
+     */
     fixture.detectChanges();
     const input: HTMLInputElement = fixture.nativeElement.querySelector('input[type="file"]');
 
-    expect(input.accept).toContain('image/heic');
+    expect(input.accept).toContain('image/*');
     expect(input.accept).toContain('.heic');
-    expect(input.accept).toContain('image/jpeg');
+    expect(input.accept).toContain('.heif');
   });
 });

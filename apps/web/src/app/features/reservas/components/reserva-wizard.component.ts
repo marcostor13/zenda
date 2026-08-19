@@ -669,7 +669,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <!-- Las extensiones acompañan al tipo MIME: iOS graba en .mov
                        y no siempre rellena el tipo del fichero. -->
                   <input type="file"
-                         accept="video/mp4,video/webm,video/quicktime,.mp4,.mov,.m4v,.webm"
+                         accept="video/*,.mp4,.mov,.m4v,.webm"
                          (change)="subirVideoComportamiento($any($event.target))" />
                   <span class="rs-field-hint">Máx. 50 MB por vídeo. Ayuda al adiestrador a preparar la sesión.</span>
                   @if (subiendoVideo()) {

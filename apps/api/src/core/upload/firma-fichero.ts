@@ -1,11 +1,12 @@
 /**
  * Detección del tipo real de un fichero por sus primeros bytes.
  *
- * `ParseFilePipeBuilder.addFileTypeValidator` valida el `Content-Type` que
- * **declara el cliente** en el multipart, no el contenido. Ese mismo valor se
- * guardaba y se devolvía luego en `GET /upload/:id`, servido desde el origen del
- * API: bastaba subir cualquier cosa etiquetada como `image/png`. Aquí se
- * comprueba la firma real y se rechaza lo que no coincide.
+ * Es la **única** autoridad sobre qué es un fichero subido. El `Content-Type`
+ * del multipart lo escribe el cliente: se guardaba y se devolvía luego en
+ * `GET /upload/:id` desde el origen del API, así que bastaba subir cualquier
+ * cosa etiquetada como `image/png`. Y en sentido contrario dejaba fuera fotos
+ * legítimas, porque iOS manda `application/octet-stream` —o nada— cuando el
+ * fichero viene de la app Archivos.
  *
  * La lista cubre exactamente los formatos que aceptan los tres endpoints de
  * subida; añadir uno nuevo pasa por añadirlo también aquí, a propósito.
@@ -87,28 +88,16 @@ export function detectarTipoReal(buffer: Buffer): string | null {
 }
 
 /**
- * true si el contenido corresponde al tipo declarado.
+ * Devuelve el tipo real si está entre los que acepta el endpoint; `null` si no.
  *
- * MP4 y MOV comparten contenedor ISO-BMFF y muchos móviles etiquetan uno como el
- * otro; se aceptan entre sí para no rechazar vídeos legítimos.
+ * Se decide **sólo por el contenido**. El `Content-Type` del multipart lo
+ * escribe el cliente y en iOS es directamente inservible: cuando la foto llega
+ * desde la app Archivos en vez del carrete, Safari manda
+ * `application/octet-stream` o nada. Validar contra ese valor rechazaba fotos
+ * perfectamente válidas —y, al revés, dejaba pasar cualquier contenido con la
+ * etiqueta correcta.
  */
-export function coincideConDeclarado(buffer: Buffer, declarado: string): boolean {
+export function tipoAceptado(buffer: Buffer, permitidos: readonly string[]): string | null {
   const real = detectarTipoReal(buffer);
-  if (!real) return false;
-  if (real === declarado) return true;
-
-  /*
-   * Familias cuyos miembros el navegador confunde entre sí. Rechazarlas dejaría
-   * fuera ficheros legítimos:
-   *  - MP4 y MOV comparten contenedor y muchos móviles etiquetan uno como el otro.
-   *  - HEIC y HEIF son el mismo formato con dos nombres; iOS usa ambos, y a
-   *    veces manda `application/octet-stream` porque el fichero viene de Ficheros
-   *    y no del carrete.
-   */
-  const familias = [
-    ['video/mp4', 'video/quicktime'],
-    ['image/heic', 'image/heif', 'application/octet-stream'],
-  ];
-
-  return familias.some((familia) => familia.includes(real) && familia.includes(declarado));
+  return real && permitidos.includes(real) ? real : null;
 }

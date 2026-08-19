@@ -49,8 +49,16 @@ async function crearServicio(vars: Record<string, string>): Promise<UploadServic
   return module.get(UploadService);
 }
 
-/** Cabecera PNG real: la subida valida los bytes, no sólo el mimetype declarado. */
+/** Cabecera PNG real: la subida decide por los bytes, no por lo que declare nadie. */
 const CABECERA_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Cabecera de una foto de iPhone: contenedor ISO-BMFF con marca `heic`. */
+const CABECERA_HEIC = Buffer.from([
+  0, 0, 0, 0x18, ...[...'ftyp'].map((c) => c.charCodeAt(0)), ...[...'heic'].map((c) => c.charCodeAt(0)),
+]);
+
+/** Tipos que acepta `POST /upload/image`, tal y como los pasa el controlador. */
+const IMAGENES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
 
 const ficheroDePrueba = {
   originalname: 'luna.PNG',
@@ -75,7 +83,7 @@ describe('UploadService', () => {
     it('debería subir a S3 y devolver la URL pública del bucket', async () => {
       const service = await crearServicio(VARS_S3);
 
-      const { url } = await service.uploadImage(ficheroDePrueba);
+      const { url } = await service.uploadImage(ficheroDePrueba, IMAGENES);
 
       expect(enviarS3).toHaveBeenCalledTimes(1);
       expect(url).toMatch(
@@ -89,17 +97,23 @@ describe('UploadService', () => {
         S3_PUBLIC_BASE_URL: 'https://cdn.doogking.com/',
       });
 
-      const { url } = await service.uploadImage(ficheroDePrueba);
+      const { url } = await service.uploadImage(ficheroDePrueba, IMAGENES);
 
       expect(url).toMatch(/^https:\/\/cdn\.doogking\.com\/uploads\/[\w-]+\.png$/);
     });
   });
 
   describe('validación del contenido', () => {
-    it('debería rechazar un fichero que no es del tipo que declara', async () => {
-      // El mimetype del multipart lo escribe el cliente; sin mirar los bytes,
-      // cualquier contenido viajaba etiquetado como imagen y luego se servía
-      // desde el origen del API.
+    /** Foto que llega desde la app Archivos: sin tipo declarado utilizable. */
+    const desdeArchivos = {
+      originalname: 'IMG_0042',
+      mimetype: 'application/octet-stream',
+      buffer: Buffer.concat([CABECERA_HEIC, Buffer.alloc(16)]),
+    } as Express.Multer.File;
+
+    it('debería rechazar contenido que no es una imagen de verdad', async () => {
+      // Sin mirar los bytes, cualquier contenido viajaba etiquetado como imagen
+      // y luego se servía desde el origen del API.
       const service = await crearServicio({});
       const disfrazado = {
         originalname: 'inocente.png',
@@ -107,7 +121,60 @@ describe('UploadService', () => {
         buffer: Buffer.from('<!doctype html><script>alert(1)</script>'),
       } as Express.Multer.File;
 
-      await expect(service.uploadImage(disfrazado)).rejects.toThrow(DomainException);
+      await expect(service.uploadImage(disfrazado, IMAGENES)).rejects.toThrow(DomainException);
+    });
+
+    it('debería rechazar un formato válido que este endpoint no acepta', async () => {
+      const service = await crearServicio({});
+      const pdf = {
+        originalname: 'seguro.pdf',
+        mimetype: 'application/pdf',
+        buffer: Buffer.from('%PDF-1.7 contenido'),
+      } as Express.Multer.File;
+
+      await expect(service.uploadImage(pdf, IMAGENES)).rejects.toThrow(DomainException);
+    });
+
+    it('debería aceptar la foto del iPhone aunque no declare tipo', async () => {
+      /*
+       * El caso que rompía las subidas desde iOS: cuando la foto llega desde la
+       * app Archivos, Safari manda `application/octet-stream`. Validar contra
+       * ese valor rechazaba fotos perfectamente válidas.
+       */
+      const service = await crearServicio({ API_URL: 'https://api.doogking.com' });
+
+      await expect(service.uploadImage(desdeArchivos, IMAGENES)).resolves.toBeDefined();
+    });
+
+    it('debería almacenar el tipo real, no el que declaró el cliente', async () => {
+      // Guardar `application/octet-stream` hacía que `GET /upload/:id` lo sirviera
+      // con ese tipo y el navegador no pintara nada.
+      const service = await crearServicio({ API_URL: 'https://api.doogking.com' });
+
+      await service.uploadImage(desdeArchivos, IMAGENES);
+
+      expect(gridFs.openUploadStream).toHaveBeenCalledWith(
+        expect.stringMatching(/\.heic$/),
+        { contentType: 'image/heic' },
+      );
+    });
+
+    it('debería nombrar el fichero por su tipo real, no por su extensión', async () => {
+      // iOS pone `.HEIC` a cosas que ya no lo son, y nada en absoluto a las que
+      // llegan desde la app Archivos.
+      const service = await crearServicio({ API_URL: 'https://api.doogking.com' });
+      const malNombrado = {
+        originalname: 'IMG_0042.HEIC',
+        mimetype: 'image/heic',
+        buffer: Buffer.concat([CABECERA_PNG, Buffer.from('imagen')]),
+      } as Express.Multer.File;
+
+      await service.uploadImage(malNombrado, IMAGENES);
+
+      expect(gridFs.openUploadStream).toHaveBeenCalledWith(
+        expect.stringMatching(/\.png$/),
+        { contentType: 'image/png' },
+      );
     });
   });
 
@@ -115,7 +182,7 @@ describe('UploadService', () => {
     it('debería guardar en GridFS y devolver una URL servida por el API (TCK-8012)', async () => {
       const service = await crearServicio({ API_URL: 'https://api.doogking.com' });
 
-      const { url } = await service.uploadImage(ficheroDePrueba);
+      const { url } = await service.uploadImage(ficheroDePrueba, IMAGENES);
 
       expect(enviarS3).not.toHaveBeenCalled();
       expect(gridFs.openUploadStream).toHaveBeenCalledWith(
@@ -128,7 +195,7 @@ describe('UploadService', () => {
     it('debería caer a S3 solo cuando están las cuatro variables', async () => {
       const service = await crearServicio({ S3_REGION: 'eu-west-1', S3_BUCKET: 'doogking-uploads' });
 
-      await service.uploadImage(ficheroDePrueba);
+      await service.uploadImage(ficheroDePrueba, IMAGENES);
 
       expect(enviarS3).not.toHaveBeenCalled();
     });
@@ -136,7 +203,7 @@ describe('UploadService', () => {
     it('no debería duplicar el prefijo si API_URL ya lo incluye', async () => {
       const service = await crearServicio({ API_URL: 'https://api.doogking.com/api/v1' });
 
-      const { url } = await service.uploadImage(ficheroDePrueba);
+      const { url } = await service.uploadImage(ficheroDePrueba, IMAGENES);
 
       expect(url).toBe(`https://api.doogking.com/api/v1/upload/${ID_VALIDO}`);
     });
@@ -146,7 +213,7 @@ describe('UploadService', () => {
       gridFs.openUploadStream.mockReturnValue(stream);
       const service = await crearServicio({});
 
-      await expect(service.uploadImage(ficheroDePrueba)).rejects.toThrow('disco lleno');
+      await expect(service.uploadImage(ficheroDePrueba, IMAGENES)).rejects.toThrow('disco lleno');
     });
   });
 

@@ -1,4 +1,4 @@
-import { coincideConDeclarado, detectarTipoReal } from './firma-fichero';
+import { detectarTipoReal, tipoAceptado } from './firma-fichero';
 
 /** Cabecera de un fichero, rellenada hasta `longitud` para simular contenido. */
 const conCabecera = (bytes: number[], longitud = 32): Buffer =>
@@ -50,42 +50,44 @@ describe('detectarTipoReal', () => {
   });
 });
 
-describe('coincideConDeclarado', () => {
-  it('debería aceptar un PNG declarado como PNG', () => {
-    expect(coincideConDeclarado(PNG, 'image/png')).toBe(true);
+describe('tipoAceptado', () => {
+  const IMAGENES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+  const DOCUMENTOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+  const VIDEOS = ['video/mp4', 'video/webm', 'video/quicktime'];
+
+  it('debería devolver el tipo real cuando el endpoint lo acepta', () => {
+    expect(tipoAceptado(PNG, IMAGENES)).toBe('image/png');
+    expect(tipoAceptado(PDF, DOCUMENTOS)).toBe('application/pdf');
+    expect(tipoAceptado(MOV, VIDEOS)).toBe('video/quicktime');
+  });
+
+  it('debería rechazar un formato válido pero de otro endpoint', () => {
+    expect(tipoAceptado(PDF, IMAGENES)).toBeNull();
+    expect(tipoAceptado(MP4, IMAGENES)).toBeNull();
+    expect(tipoAceptado(GIF, DOCUMENTOS)).toBeNull();
   });
 
   it('debería rechazar HTML disfrazado de imagen', () => {
     // Este es el caso que la validación por Content-Type dejaba pasar.
     const html = Buffer.from('<!doctype html><script>fetch("/api/v1/users/me")</script>');
 
-    expect(coincideConDeclarado(html, 'image/png')).toBe(false);
-  });
-
-  it('debería rechazar un PDF declarado como imagen', () => {
-    expect(coincideConDeclarado(PDF, 'image/jpeg')).toBe(false);
+    expect(tipoAceptado(html, IMAGENES)).toBeNull();
   });
 
   it('debería rechazar un SVG, que es texto y puede llevar scripts', () => {
     const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>');
 
-    expect(coincideConDeclarado(svg, 'image/png')).toBe(false);
+    expect(tipoAceptado(svg, IMAGENES)).toBeNull();
   });
 
-  it('debería tolerar que un móvil etiquete un MOV como MP4', () => {
-    // Comparten contenedor ISO-BMFF; rechazarlo dejaría fuera vídeos legítimos.
-    expect(coincideConDeclarado(MOV, 'video/mp4')).toBe(true);
-    expect(coincideConDeclarado(MP4, 'video/quicktime')).toBe(true);
+  it('debería rechazar contenido que no reconoce', () => {
+    expect(tipoAceptado(Buffer.alloc(0), IMAGENES)).toBeNull();
   });
 
-  it('no debería tolerar la mezcla entre vídeo e imagen', () => {
-    expect(coincideConDeclarado(MP4, 'image/png')).toBe(false);
-  });
   describe('fotos de iPhone', () => {
     it('no debería confundir una foto HEIC con un vídeo MP4', () => {
       // HEIC usa el mismo contenedor ISO-BMFF que el vídeo. Sin mirar la marca,
-      // una foto del carrete se detectaba como MP4 y la subida se rechazaba por
-      // no coincidir con lo que declaraba el navegador.
+      // una foto del carrete se detectaba como MP4 y la subida se rechazaba.
       expect(detectarTipoReal(HEIC)).toBe('image/heic');
       expect(detectarTipoReal(HEIC)).not.toBe('video/mp4');
     });
@@ -95,23 +97,24 @@ describe('coincideConDeclarado', () => {
       expect(detectarTipoReal(MOV)).toBe('video/quicktime');
     });
 
-    it('debería aceptar la foto tanto si iOS la llama heic como heif', () => {
-      expect(coincideConDeclarado(HEIC, 'image/heic')).toBe(true);
-      expect(coincideConDeclarado(HEIC, 'image/heif')).toBe(true);
-      expect(coincideConDeclarado(HEIF, 'image/heic')).toBe(true);
+    it('debería aceptar la foto tanto si iOS la escribe heic como heif', () => {
+      expect(tipoAceptado(HEIC, IMAGENES)).toBe('image/heic');
+      expect(tipoAceptado(HEIF, IMAGENES)).toBe('image/heic');
     });
 
-    it('debería aceptarla cuando iOS no sabe qué tipo poner', () => {
-      // Pasa con las fotos que llegan desde la app Archivos en vez del carrete.
-      expect(coincideConDeclarado(HEIC, 'application/octet-stream')).toBe(true);
+    it('debería aceptarla aunque iOS no sepa qué tipo declarar', () => {
+      // El caso de la app Archivos: Safari manda `application/octet-stream` o
+      // nada. Ya no importa: la decisión se toma sólo sobre el contenido.
+      expect(tipoAceptado(HEIC, IMAGENES)).toBe('image/heic');
     });
 
-    it('no debería dejar pasar un HEIC declarado como vídeo', () => {
-      expect(coincideConDeclarado(HEIC, 'video/mp4')).toBe(false);
+    it('no debería dejar pasar un vídeo por el endpoint de imágenes', () => {
+      expect(tipoAceptado(MP4, IMAGENES)).toBeNull();
     });
 
-    it('no debería dejar pasar un vídeo declarado como foto HEIC', () => {
-      expect(coincideConDeclarado(MP4, 'image/heic')).toBe(false);
+    it('debería aceptar la foto también como documentación', () => {
+      // Una foto del móvil es la forma más común de aportar un certificado.
+      expect(tipoAceptado(HEIC, DOCUMENTOS)).toBe('image/heic');
     });
   });
 });
