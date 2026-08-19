@@ -291,4 +291,80 @@ describe('RsPlaceAutocompleteComponent', () => {
       expect(componente.sugerencias().map((s) => s.principal)).toEqual(['Madrid']);
     }));
   });
+  /**
+   * Sin nada que sugerir, el campo se quedaba mudo: el usuario escribía y no
+   * pasaba absolutamente nada, indistinguible de un buscador averiado. Es justo
+   * lo que se veía en la ubicación del comercio cuando Places dejó de responder.
+   */
+  describe('cuando no hay nada que sugerir', () => {
+    const sinSugerencias = (): void => {
+      geoService.autocompletar.mockReturnValue(of([]));
+    };
+
+    const avisoVisible = (): string | null => {
+      const aviso: HTMLElement | null = fixture.nativeElement.querySelector('.pa__vacio');
+      return aviso?.textContent?.trim() ?? null;
+    };
+
+    it('debería decirlo en vez de callar', fakeAsync(() => {
+      sinSugerencias();
+      crear();
+      fixture.componentRef.setInput('tipo', 'direccion');
+
+      escribir('calle inventada 999');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(componente.sinResultados()).toBe(true);
+      expect(avisoVisible()).toContain('No encontramos esa dirección');
+    }));
+
+    it('debería explicar que se puede seguir a mano', fakeAsync(() => {
+      // En España hay más de 8.000 municipios: bloquear el campo impediría dar
+      // de alta un comercio en un pueblo pequeño.
+      sinSugerencias();
+      crear();
+
+      escribir('pueblo diminuto');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(avisoVisible()).toContain('escribirla tal cual');
+    }));
+
+    it('no debería avisar mientras aún está buscando', fakeAsync(() => {
+      // Decir "no hay nada" antes de que llegue la respuesta es mentir.
+      sinSugerencias();
+      crear();
+
+      escribir('calle mayor');
+      fixture.detectChanges();
+
+      expect(componente.sinResultados()).toBe(false);
+
+      tick(300);
+    }));
+
+    it('no debería avisar con el campo vacío', fakeAsync(() => {
+      sinSugerencias();
+      crear();
+
+      escribir('');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(componente.sinResultados()).toBe(false);
+    }));
+
+    it('no debería avisar cuando sí hay sugerencias', fakeAsync(() => {
+      crear();
+
+      escribir('val');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(componente.sinResultados()).toBe(false);
+      expect(avisoVisible()).toBeNull();
+    }));
+  });
 });

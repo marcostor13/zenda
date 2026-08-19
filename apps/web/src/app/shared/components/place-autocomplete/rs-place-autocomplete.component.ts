@@ -93,6 +93,14 @@ const normalizar = (texto: string): string =>
       }
     </ul>
   }
+
+  <!--
+    Sin esto, no encontrar nada deja el campo mudo: el usuario escribe y no pasa
+    absolutamente nada, que es indistinguible de que el buscador esté roto.
+  -->
+  @if (sinResultados()) {
+    <p class="pa__vacio" role="status">{{ textoSinResultados() }}</p>
+  }
 </div>
   `,
   styles: [`
@@ -109,6 +117,14 @@ const normalizar = (texto: string): string =>
       transition: border-color var(--d-2), box-shadow var(--d-2);
 
       &:focus-within { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-lo); }
+    }
+
+    .pa__vacio {
+      position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+      margin: 0; padding: var(--sp-3) var(--sp-4);
+      background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      box-shadow: var(--sh-2, 0 8px 24px rgba(0,0,0,.10));
+      font-size: var(--f-sm); color: var(--t-400);
     }
 
     .pa__inp {
@@ -249,6 +265,26 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
 
   hayLista(): boolean {
     return this.abierto() && this.sugerencias().length > 0;
+  }
+
+  /**
+   * Se ha buscado y no hay nada que ofrecer. Se dice en vez de callar: un campo
+   * que no reacciona al escribir parece averiado, y el usuario no sabe si puede
+   * seguir a mano o tiene que insistir.
+   */
+  sinResultados(): boolean {
+    return this.abierto()
+      && !this.cargando()
+      && this.texto().trim().length > 0
+      && this.sugerencias().length === 0;
+  }
+
+  textoSinResultados(): string {
+    return this.tipo() === 'direccion'
+      // Nominatim, el respaldo cuando Places no responde, busca direcciones
+      // completas y no prefijos: con media calle escrita no encuentra nada.
+      ? 'No encontramos esa dirección. Escríbela entera (calle y número) o sigue y completa el resto a mano.'
+      : 'No encontramos esa población. Puedes escribirla tal cual y continuar.';
   }
 
   activoId(): string | null {

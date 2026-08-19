@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ProveedorOsm, esIdOsm } from './nominatim';
 
 /** Sugerencia de población devuelta al buscador. */
 export interface SugerenciaLugar {
@@ -137,14 +138,19 @@ interface RespuestaDetalles {
  * **nunca** viaje al navegador y para cachear respuestas: Places factura por
  * sesión y las mismas ciudades se buscan una y otra vez.
  *
- * Degrada siempre en silencio: si falta la clave o el proveedor falla, devuelve
- * vacío y el buscador sigue funcionando con texto libre.
+ * Degrada en dos escalones: si Google no está disponible —sin clave, con la
+ * clave suspendida o con la cuota agotada— se pregunta a OpenStreetMap, que no
+ * necesita clave; y si tampoco responde, se devuelve vacío y el buscador sigue
+ * funcionando con texto libre.
  */
 @Injectable()
 export class GeoService {
   private readonly logger = new Logger(GeoService.name);
   private readonly apiKey?: string;
   private readonly browserKey?: string;
+
+  /** Respaldo sin clave para cuando Google no responde. */
+  private readonly osm = new ProveedorOsm();
 
   private readonly cacheSugerencias = new Map<string, Entrada<SugerenciaLugar[]>>();
   private readonly cacheCoordenadas = new Map<string, Entrada<CoordenadasLugar>>();
@@ -179,13 +185,32 @@ export class GeoService {
     tipo: TipoLugar = 'ciudad',
   ): Promise<SugerenciaLugar[]> {
     const consulta = termino.trim();
-    if (!consulta || !this.apiKey) return [];
+    if (!consulta) return [];
 
     // El tipo entra en la clave: "Calle Mayor" no devuelve lo mismo buscando
     // poblaciones que buscando portales.
     const clave = `${tipo}:${consulta.toLowerCase()}`;
     const cacheado = this.leerCache(this.cacheSugerencias, clave);
     if (cacheado) return cacheado;
+
+    const sugerencias = (await this.sugerenciasDeGoogle(consulta, sessionToken, tipo))
+      ?? (await this.sugerenciasDeOsm(consulta, tipo));
+
+    this.escribirCache(this.cacheSugerencias, clave, sugerencias, TTL_SUGERENCIAS_MS);
+    return sugerencias;
+  }
+
+  /**
+   * Sugerencias de Places. `null` = el proveedor no está disponible, y toca
+   * probar el respaldo; una lista vacía sí es una respuesta: Google contestó y
+   * no conoce ese sitio.
+   */
+  private async sugerenciasDeGoogle(
+    consulta: string,
+    sessionToken: string | undefined,
+    tipo: TipoLugar,
+  ): Promise<SugerenciaLugar[] | null> {
+    if (!this.apiKey) return null;
 
     try {
       const respuesta = await fetch(PLACES_AUTOCOMPLETE_URL, {
@@ -206,7 +231,7 @@ export class GeoService {
       if (!respuesta.ok) throw new Error(`Places autocomplete: ${respuesta.status}`);
 
       const datos = (await respuesta.json()) as RespuestaAutocomplete;
-      const sugerencias = (datos.suggestions ?? [])
+      return (datos.suggestions ?? [])
         .map((s) => s.placePrediction)
         .filter((p): p is NonNullable<typeof p> => Boolean(p?.placeId))
         .map((p) => ({
@@ -215,21 +240,46 @@ export class GeoService {
           principal: p.structuredFormat?.mainText?.text ?? p.text?.text ?? '',
           secundario: p.structuredFormat?.secondaryText?.text ?? '',
         }));
-
-      this.escribirCache(this.cacheSugerencias, clave, sugerencias, TTL_SUGERENCIAS_MS);
-      return sugerencias;
     } catch (error) {
-      this.logger.warn(`Autocompletado no disponible para "${consulta}": ${this.mensaje(error)}`);
-      return [];
+      this.logger.warn(`Places no disponible para "${consulta}": ${this.mensaje(error)}`);
+      return null;
     }
+  }
+
+  /**
+   * Respaldo con OpenStreetMap. Nominatim ya devuelve la dirección desmenuzada
+   * en la propia búsqueda, así que se guarda de paso: cuando el usuario elija
+   * una sugerencia, `direccion()` la encuentra en caché sin volver a la red —y
+   * sin gastar el turno de la siguiente búsqueda, que va a una por segundo.
+   */
+  private async sugerenciasDeOsm(consulta: string, tipo: TipoLugar): Promise<SugerenciaLugar[]> {
+    const resultados = await this.osm.sugerenciasConDireccion(consulta, tipo);
+
+    for (const { sugerencia, direccion } of resultados) {
+      if (direccion) {
+        this.escribirCache(this.cacheDirecciones, sugerencia.placeId, direccion, TTL_COORDENADAS_MS);
+        this.escribirCache(
+          this.cacheCoordenadas,
+          sugerencia.placeId,
+          { ciudad: direccion.ciudad, lat: direccion.lat, lng: direccion.lng },
+          TTL_COORDENADAS_MS,
+        );
+      }
+    }
+
+    return resultados.map((r) => r.sugerencia);
   }
 
   /** Coordenadas de una población ya elegida, para el orden por distancia. */
   async coordenadas(placeId: string): Promise<CoordenadasLugar | null> {
-    if (!placeId || !this.apiKey) return null;
+    if (!placeId) return null;
 
     const cacheado = this.leerCache(this.cacheCoordenadas, placeId);
     if (cacheado) return cacheado;
+
+    // Un id de OSM sólo lo entiende OSM: pedírselo a Places daría 404.
+    if (esIdOsm(placeId)) return this.guardar(this.cacheCoordenadas, placeId, await this.osm.coordenadas(placeId));
+    if (!this.apiKey) return null;
 
     try {
       const respuesta = await fetch(`${PLACES_DETAILS_URL}/${encodeURIComponent(placeId)}`, {
@@ -262,10 +312,13 @@ export class GeoService {
    * mapa del buscador.
    */
   async direccion(placeId: string): Promise<DireccionLugar | null> {
-    if (!placeId || !this.apiKey) return null;
+    if (!placeId) return null;
 
     const cacheado = this.leerCache(this.cacheDirecciones, placeId);
     if (cacheado) return cacheado;
+
+    if (esIdOsm(placeId)) return this.guardar(this.cacheDirecciones, placeId, await this.osm.direccion(placeId));
+    if (!this.apiKey) return null;
 
     try {
       const respuesta = await fetch(`${PLACES_DETAILS_URL}/${encodeURIComponent(placeId)}`, {
@@ -289,6 +342,12 @@ export class GeoService {
       this.logger.warn(`Sin dirección para ${placeId}: ${this.mensaje(error)}`);
       return null;
     }
+  }
+
+  /** Cachea el valor si lo hay y lo devuelve, para no repetir el patrón. */
+  private guardar<T>(cache: Map<string, Entrada<T>>, clave: string, valor: T | null): T | null {
+    if (valor) this.escribirCache(cache, clave, valor, TTL_COORDENADAS_MS);
+    return valor;
   }
 
   /**

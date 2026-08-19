@@ -39,6 +39,33 @@ describe('HomeComponent', () => {
     ]);
   });
 
+  describe('tarjeta de Explora', () => {
+    const tarjeta = (): HTMLAnchorElement | null =>
+      fixture.nativeElement.querySelector('.cat-card--explora');
+
+    it('debería enlazar al catálogo de sitios', () => {
+      expect(tarjeta()?.getAttribute('href')).toBe('/explora');
+    });
+
+    it('debería explicar qué se encuentra allí', () => {
+      const texto = tarjeta()?.textContent ?? '';
+
+      expect(texto).toContain('Explora con tu mascota');
+      expect(texto.toLowerCase()).toContain('parques');
+    });
+
+    it('debería ir al final de la parrilla, tras las categorías reservables', () => {
+      // Explora no se reserva: va con las demás porque se busca en el mismo
+      // momento, pero después de lo que sí tiene disponibilidad y precio.
+      const tarjetas = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('.cats-grid .cat-card'),
+      );
+
+      expect(tarjetas).toHaveLength(component.verticales.length + 1);
+      expect(tarjetas.at(-1)).toBe(tarjeta());
+    });
+  });
+
   it('no debería ofrecer las categorías fuera del escaparate', () => {
     // Cuidadores sigue existiendo —ruta, fichas y panel— pero no se anuncia.
     expect(component.verticales.map((v) => v.key)).not.toContain(VerticalKey.CUIDADORES);

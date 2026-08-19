@@ -136,18 +136,102 @@ describe('GeoService', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it('debería devolver vacío sin clave configurada, sin llamar al proveedor', async () => {
-      const sinClave = await crear(undefined);
-
-      expect(await sinClave.autocompletar('val')).toEqual([]);
-      expect(sinClave.estaConfigurado).toBe(false);
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it('debería devolver vacío si el proveedor falla, sin lanzar', async () => {
+    it('debería devolver vacío si ningún proveedor responde, sin lanzar', async () => {
       responder({}, false);
 
       await expect(service.autocompletar('val')).resolves.toEqual([]);
+    });
+
+    /**
+     * El campo de dirección no tenía respaldo: en cuanto Google dejaba de
+     * responder —clave suspendida, cuota agotada— devolvía lista vacía y el
+     * comercio se quedaba sin poder rellenar su ubicación. OpenStreetMap no
+     * necesita clave y quita ese único punto de fallo.
+     */
+    describe('respaldo con OpenStreetMap', () => {
+      const RESPUESTA_OSM = [{
+        osm_type: 'node',
+        osm_id: 42,
+        lat: '39.4699',
+        lon: '-0.3763',
+        display_name: 'Calle Mayor 1, Valencia, España',
+        address: { road: 'Calle Mayor', house_number: '1', city: 'Valencia', postcode: '46001' },
+      }];
+
+      /** Google falla y OSM contesta, que es el escenario de producción. */
+      const conGoogleCaido = (): void => {
+        fetchMock.mockImplementation((url: string) =>
+          String(url).includes('nominatim')
+            ? Promise.resolve({ ok: true, status: 200, json: async () => RESPUESTA_OSM })
+            : Promise.resolve({ ok: false, status: 403, json: async () => ({}) }));
+      };
+
+      it('debería sugerir direcciones cuando Places no responde', async () => {
+        conGoogleCaido();
+
+        const sugerencias = await service.autocompletar('Calle Mayor 1', undefined, 'direccion');
+
+        expect(sugerencias).toHaveLength(1);
+        expect(sugerencias[0].principal).toBe('Calle Mayor 1');
+      });
+
+      it('debería sugerir también sin ninguna clave configurada', async () => {
+        const sinClave = await crear(undefined);
+        conGoogleCaido();
+
+        const sugerencias = await sinClave.autocompletar('Calle Mayor 1', undefined, 'direccion');
+
+        expect(sugerencias).toHaveLength(1);
+      });
+
+      it('no debería molestar a OSM cuando Places sí contesta', async () => {
+        responder(respuestaAutocomplete);
+
+        await service.autocompletar('Valencia');
+
+        expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('nominatim'))).toBe(true);
+      });
+
+      it('no debería recurrir a OSM porque Places no conozca el sitio', async () => {
+        // Una lista vacía es una respuesta, no una avería: gastar el turno de
+        // Nominatim —uno por segundo— por eso retrasaría las búsquedas reales.
+        responder({ suggestions: [] });
+
+        await service.autocompletar('sitio inventado');
+
+        expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('nominatim'))).toBe(true);
+      });
+
+      it('debería resolver la dirección elegida sin volver a la red', async () => {
+        // Nominatim la manda ya desmenuzada en la búsqueda; se guarda de paso.
+        conGoogleCaido();
+        const [sugerencia] = await service.autocompletar('Calle Mayor 1', undefined, 'direccion');
+        const llamadas = fetchMock.mock.calls.length;
+
+        const direccion = await service.direccion(sugerencia.placeId);
+
+        expect(direccion?.calle).toBe('Calle Mayor');
+        expect(direccion?.codigoPostal).toBe('46001');
+        expect(fetchMock.mock.calls).toHaveLength(llamadas);
+      });
+
+      it('debería devolver también las coordenadas del portal elegido', async () => {
+        conGoogleCaido();
+        const [sugerencia] = await service.autocompletar('Calle Mayor 1', undefined, 'direccion');
+
+        await expect(service.coordenadas(sugerencia.placeId)).resolves.toEqual({
+          ciudad: 'Valencia', lat: 39.4699, lng: -0.3763,
+        });
+      });
+
+      it('no debería preguntar a Places por un identificador de OSM', async () => {
+        // Places devolvería 404: los identificadores no son intercambiables.
+        conGoogleCaido();
+
+        await service.direccion('osm:N42');
+
+        expect(fetchMock.mock.calls.every(([url]) => String(url).includes('nominatim'))).toBe(true);
+      });
     });
 
     it('debería ignorar un término vacío', async () => {

@@ -13,7 +13,7 @@ import { RsSocialIconComponent, type RedSocialKey } from '../../shared/component
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import {
-  BANDA_POR_QUE, BRAND, HOTEL_IMAGES, MOTIVOS_IMAGES, TRUST_ICONOS,
+  BANDA_POR_QUE, BRAND, CATEGORIA_ICONOS, HOTEL_IMAGES, MOTIVOS_IMAGES, TRUST_ICONOS,
 } from '../../shared/media/images';
 import { VERTICALES_PUBLICOS, rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
@@ -178,6 +178,23 @@ type SearchMode = 'filtros' | 'ia';
             <rs-icon name="arrow-right" [size]="18" [stroke]="2" class="cat-card__go"></rs-icon>
           </a>
         }
+
+        <!--
+          Explora no es una categoría reservable, es el catálogo de sitios donde
+          llevar al perro. Va con las demás porque es lo que el usuario busca en
+          el mismo momento, pero destacada para no prometer una reserva que aquí
+          no existe.
+        -->
+        <a class="cat-card cat-card--explora" routerLink="/explora">
+          <span class="cat-card__art">
+            <img [src]="iconoExplora" alt="" class="cat-card__icon" aria-hidden="true" />
+          </span>
+          <span class="cat-card__body">
+            <span class="cat-card__title" i18n="@@home.exploraTitulo">Explora con tu mascota</span>
+            <span class="cat-card__claim" i18n="@@home.exploraCardClaim">Playas, parques, rutas y restaurantes donde tu perro es bienvenido de verdad.</span>
+          </span>
+          <rs-icon name="arrow-right" [size]="18" [stroke]="2" class="cat-card__go"></rs-icon>
+        </a>
       </div>
     </div>
   </section>
@@ -994,6 +1011,15 @@ type SearchMode = 'filtros' | 'ia';
       }
     }
 
+    /* Borde dorado: se lee como parte de la parrilla, pero no como una
+       categoría reservable más. */
+    .cat-card--explora {
+      border-color: rgba(251,174,23,.45);
+
+      .cat-card__art { background: rgba(251,174,23,.12); }
+      &:hover { border-color: var(--dk-gold); }
+    }
+
     .cat-card__art {
       flex-shrink: 0;
       width: 72px;
@@ -1468,6 +1494,9 @@ export class HomeComponent implements OnInit {
 
   /** Categorías: misma configuración que el menú y el buscador. */
   readonly verticales = VERTICALES_PUBLICOS;
+
+  /** Explora no es un vertical, así que su icono se toma del catálogo a mano. */
+  readonly iconoExplora = CATEGORIA_ICONOS['explora'];
 
   /** Bloque de 3 valores bajo el buscador — textos aprobados por el cliente (PDF 27/07 §4). */
   readonly garantias = [
