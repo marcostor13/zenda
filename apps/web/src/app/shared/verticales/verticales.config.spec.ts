@@ -1,7 +1,7 @@
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import {
-  VERTICALES_PUBLICOS, VERTICALES_UI, rutaDeVertical, subtitularDeVertical,
-  titularDeVertical, verticalUi,
+  VERTICALES_PUBLICOS, VERTICALES_UI, enlaceAServicio, rutaDeVertical,
+  subtitularDeVertical, titularDeVertical, verticalUi,
 } from './verticales.config';
 
 describe('verticales.config', () => {
@@ -128,5 +128,23 @@ describe('verticales.config', () => {
     expect(verticalUi('inventado').key).toBe(VerticalKey.ALOJAMIENTO);
     expect(rutaDeVertical(null)).toBe('/alojamiento');
     expect(rutaDeVertical(undefined)).toBe('/alojamiento');
+  });
+});
+
+/**
+ * Todas las categorías tienen que comportarse igual. Veterinaria y peluquería
+ * se habían quedado sin ficha: sus tarjetas llevaban de vuelta al listado y no
+ * había forma de ver el detalle de un comercio.
+ */
+describe('enlaceAServicio', () => {
+  it('deberia llevar a la ficha en todas las categorias', () => {
+    for (const v of VERTICALES_UI) {
+      expect(enlaceAServicio(v.key, 's1')).toEqual([v.route, 's1']);
+    }
+  });
+
+  it('no deberia inventarse una ruta para una categoria desconocida', () => {
+    // Mejor el listado de alojamiento que un 404.
+    expect(enlaceAServicio('inventado', 's1')).toEqual(['/alojamiento']);
   });
 });

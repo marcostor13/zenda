@@ -232,11 +232,18 @@ describe('PerfilAlphaComponent', () => {
       expect(componente.enlaceAServicio('hoteles', 'h1')).toEqual(['/hoteles', 'h1']);
     });
 
-    it('debería enlazar al listado cuando el vertical no tiene ficha propia', async () => {
+    it('debería enlazar a la ficha también en veterinaria', async () => {
+      // Ya tiene ruta `:id`: todas las categorías se comportan igual.
       await crear(null, [ventaja]);
 
-      // Veterinaria no tiene ruta `:id`: enlazar al detalle daría un 404.
-      expect(componente.enlaceAServicio('veterinaria', 'v1')).toEqual(['/veterinaria']);
+      expect(componente.enlaceAServicio('veterinaria', 'v1')).toEqual(['/veterinaria', 'v1']);
+    });
+
+    it('debería enlazar al listado cuando el vertical no existe', async () => {
+      await crear(null, [ventaja]);
+
+      // Mejor el listado por defecto que una ruta inventada que daría un 404.
+      expect(componente.enlaceAServicio('inventado', 'x1')).toEqual(['/alojamiento']);
     });
   });
 });

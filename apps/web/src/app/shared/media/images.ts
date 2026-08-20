@@ -120,13 +120,13 @@ export const ALOJAMIENTO_IMAGES = HOTEL_IMAGES;
  * escritorio recortaba tanto que ninguna aguantaba; eso se arregló dándole alto
  * a la banda (ver `.why-banner`), así que ya no hace falta la doble versión.
  *
- * El encuadre está comprobado sobre el recorte real: a `center 32%` caben las
- * dos caras, el perro y el cachorro. Si algún día se cambia la foto, hay que
- * volver a mirar esa cifra.
+ * El encuadre está comprobado sobre el recorte real: a `center 12%` entran la
+ * cara entera y la cabeza del perro. Si algún día se cambia la foto, hay que
+ * volver a medir esa cifra —no vale a ojo: la banda recorta más de la mitad.
  */
 export const BANDA_POR_QUE = {
-  movil: pexels(5763545, 900),
-  escritorio: pexels(5763545, 1800),
+  movil: pexels(5257630, 900),
+  escritorio: pexels(5257630, 1800),
 } as const;
 
 /**

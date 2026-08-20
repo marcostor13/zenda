@@ -237,7 +237,7 @@ type SearchMode = 'filtros' | 'ia';
       <figure class="why-banner" rsAnim>
         <picture>
           <source media="(min-width: 641px)" [srcset]="bandaPorQueEscritorio" />
-          <img [src]="bandaPorQue" alt="Una familia en el parque con su perro y un cachorro"
+          <img [src]="bandaPorQue" alt="Una mujer abrazando a su perro en un banco del parque"
                loading="lazy" rsImg />
         </picture>
       </figure>
@@ -965,14 +965,14 @@ type SearchMode = 'filtros' | 'ia';
          que decide cuánto se recorta la foto. A 320px salía una tira de 4,4:1
          donde las personas se quedaban sin cabeza: ese formato sólo aguanta un
          paisaje. A 440px la proporción baja a ~3:1 y la escena se lee entera.
-         El 32% está medido sobre el recorte real de la foto actual; cambiarla
+         El 12% está medido sobre el recorte real de la foto actual; cambiarla
          obliga a revisarlo. */
       img {
         display: block;
         width: 100%;
         height: 440px;
         object-fit: cover;
-        object-position: center 32%;
+        object-position: center 12%;
       }
 
       @media (max-width: 1024px) { img { height: 340px; } }

@@ -240,6 +240,13 @@ const VERTICALES_CON_FICHA = new Set<string>([
   VerticalKey.TRANSPORTE,
   VerticalKey.ADIESTRAMIENTO,
   VerticalKey.HOTELES,
+  // Estas cuatro no estaban, y sin ficha sus tarjetas llevaban de vuelta al
+  // listado: no había forma de ver el detalle de una clínica ni de una
+  // peluquería. Ahora todas las categorías se comportan igual.
+  VerticalKey.VETERINARIA,
+  VerticalKey.PELUQUERIA,
+  VerticalKey.SEGUROS,
+  VerticalKey.CUIDADORES,
 ]);
 
 /**

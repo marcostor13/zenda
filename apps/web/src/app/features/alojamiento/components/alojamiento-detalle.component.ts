@@ -101,13 +101,20 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
       <div class="info-col">
 
         <!-- Header -->
+        <!--
+          Mismo orden que el resto de fichas: primero el nombre y después la
+          línea de datos. La nota iba encima del titular y era lo primero que se
+          leía de un alojamiento del que aún no se sabía ni el nombre.
+        -->
         <div class="info-header">
-          <div class="info-header__stars">
-            <rs-stars [score]="alojamiento()!.score" [size]="16" />
-            <strong>{{ alojamiento()!.score }}</strong>
-          </div>
           <h1 class="info-header__name">{{ alojamiento()!.nombre }}</h1>
-          <p class="info-header__loc"><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ alojamiento()!.direccion }}, {{ alojamiento()!.barrio }}, {{ alojamiento()!.ciudad }}</p>
+          <div class="info-header__meta">
+            <span class="info-header__stars">
+              <rs-stars [score]="alojamiento()!.score" [size]="16" />
+              <strong>{{ alojamiento()!.score }}</strong>
+            </span>
+            <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ alojamiento()!.direccion }}, {{ alojamiento()!.barrio }}, {{ alojamiento()!.ciudad }}</span>
+          </div>
 
           <div class="info-header__tags">
             @if (alojamiento()!.cancelacionGratis) {
@@ -430,7 +437,9 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
       grid-template-columns: 1fr 200px;
       gap: var(--sp-3);
       height: 480px;
-      margin-bottom: var(--sp-8);
+      /* 32px debajo de una foto de 480px dejaba el titular y el panel pegados a
+         la galería. Mismo valor que en el resto de fichas. */
+      margin-bottom: var(--sp-12);
 
       @media (max-width: 768px) { grid-template-columns: 1fr; height: auto; }
     }
@@ -524,17 +533,26 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     /* BODY LAYOUT */
     .detalle-body {
       display: grid;
-      grid-template-columns: 1fr 360px;
-      gap: var(--sp-8);
+      /* Misma anchura de panel y mismo hueco que la ficha genérica. */
+      grid-template-columns: 1fr 380px;
+      gap: var(--sp-10);
       align-items: start;
 
       @media (max-width: 1024px) { grid-template-columns: 1fr; }
     }
 
-    /* INFO COLUMN */
-    .info-header__stars { font-size: var(--f-md); color: var(--dk-gold); margin-bottom: var(--sp-2); strong { color: var(--t-100); } }
-    .info-header__name  { font-size: var(--f-4xl); font-weight: var(--w-8); color: var(--dk-blue); letter-spacing: -.03em; margin-bottom: var(--sp-3); }
-    .info-header__loc   { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); }
+    /* INFO COLUMN — mismo ritmo que la ficha genérica, para que cambiar de
+       categoría no cambie el aspecto de la pantalla. */
+    .info-header__stars {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      color: var(--dk-gold);
+      strong { color: var(--t-100); }
+    }
+    .info-header__name  { font-size: var(--f-3xl); font-weight: var(--w-8); color: var(--dk-blue); letter-spacing: -.03em; margin-bottom: var(--sp-3); }
+    .info-header__meta  {
+      display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4);
+      font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-5);
+    }
     .info-header__tags  { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
 
     .premium-pill {

@@ -46,10 +46,22 @@ export const routes: Routes = [
           import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
       },
       {
+        path: 'veterinaria/:id',
+        data: { vertical: 'veterinaria' },
+        loadComponent: () =>
+          import('./features/verticales/vertical-detalle.component').then((m) => m.VerticalDetalleComponent),
+      },
+      {
         path: 'peluqueria',
         data: { vertical: 'peluqueria' },
         loadComponent: () =>
           import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+      },
+      {
+        path: 'peluqueria/:id',
+        data: { vertical: 'peluqueria' },
+        loadComponent: () =>
+          import('./features/verticales/vertical-detalle.component').then((m) => m.VerticalDetalleComponent),
       },
       {
         path: 'adiestramiento',
@@ -82,10 +94,22 @@ export const routes: Routes = [
           import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
       },
       {
+        path: 'seguros/:id',
+        data: { vertical: 'seguros' },
+        loadComponent: () =>
+          import('./features/verticales/vertical-detalle.component').then((m) => m.VerticalDetalleComponent),
+      },
+      {
         path: 'cuidadores',
         data: { vertical: 'cuidadores' },
         loadComponent: () =>
           import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
+      },
+      {
+        path: 'cuidadores/:id',
+        data: { vertical: 'cuidadores' },
+        loadComponent: () =>
+          import('./features/verticales/vertical-detalle.component').then((m) => m.VerticalDetalleComponent),
       },
       {
         path: 'explora',

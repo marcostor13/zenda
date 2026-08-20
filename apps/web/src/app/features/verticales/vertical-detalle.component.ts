@@ -15,7 +15,7 @@ import { RsUbicacionComponent } from '../../shared/components/ubicacion/rs-ubica
 import { PuntoUbicacion } from '../../shared/mapas/google-maps';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 
-import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
 interface DetalleConfig {
   vertical: string;
   cta: string;
@@ -86,6 +86,95 @@ const CONFIGS: Record<string, DetalleConfig> = {
       return items;
     },
     price: (s) => s.precioPorNoche,
+  },
+  /*
+   * Veterinaria, peluquería, cuidadores y seguros no tenían ficha: sin entrada
+   * aquí no había ruta `:id` ni enlace desde el listado, así que sus tarjetas
+   * llevaban de vuelta al propio listado y no había forma de ver el detalle de
+   * un comercio. Los campos son los que declara cada vertical en el formulario
+   * del panel (ver `comercio-listado-form`).
+   */
+  veterinaria: {
+    vertical: 'veterinaria',
+    cta: 'Pedir cita',
+    priceLabel: 'la consulta',
+    tituloBloque: '¿Qué ofrece esta clínica?',
+    chips: (s) => (s.extra['especialidades'] as string[] | undefined) ?? [],
+    puntos: (s) => {
+      const items: string[] = [];
+      const servicios = s.extra['serviciosClinicos'] as Array<{ nombre?: string }> | undefined;
+      if (servicios?.length) {
+        items.push(`Servicios: ${servicios.map((v) => v.nombre).filter(Boolean).slice(0, 5).join(', ')}`);
+      }
+      if (s.extra['atiendeUrgencias']) items.push('Atiende urgencias');
+      const duracion = s.extra['duracionCitaMin'] as number | undefined;
+      if (duracion != null) items.push(`Citas de ${duracion} minutos`);
+      if (s.extra['teleconsulta']) items.push('Ofrece teleconsulta');
+      if (s.extra['aDomicilio']) items.push('Disponible a domicilio');
+      return items;
+    },
+    price: (s) => (s.extra['precioConsulta'] as number) ?? s.precioPorNoche,
+  },
+  peluqueria: {
+    vertical: 'peluqueria',
+    cta: 'Reservar cita',
+    priceLabel: 'desde',
+    tituloBloque: '¿Qué servicios ofrece?',
+    chips: (s) => {
+      const servicios = s.extra['serviciosGrooming'] as Array<{ nombre?: string }> | undefined;
+      return (servicios ?? []).map((v) => v.nombre).filter((n): n is string => Boolean(n));
+    },
+    puntos: (s) => {
+      const items: string[] = [];
+      const duracion = s.extra['duracionSlotMin'] as number | undefined;
+      if (duracion != null) items.push(`Cada cita dura unos ${duracion} minutos`);
+      if (s.extra['aDomicilio']) items.push('Disponible a domicilio');
+      const capacidad = s.extra['capacidadSimultanea'] as number | undefined;
+      if (capacidad != null) items.push(`Atiende hasta ${capacidad} ${capacidad === 1 ? 'perro' : 'perros'} a la vez`);
+      if (s.extra['requiereVacunasAlDia']) items.push('Requiere cartilla de vacunación al día');
+      return items;
+    },
+    price: (s) => s.precioPorNoche,
+  },
+  cuidadores: {
+    vertical: 'cuidadores',
+    cta: 'Reservar cuidado',
+    priceLabel: 'por servicio',
+    tituloBloque: '¿Qué ofrece este cuidador?',
+    chips: () => [],
+    puntos: (s) => {
+      const items: string[] = [];
+      const paseo = s.extra['precioPaseo'] as number | undefined;
+      if (paseo != null) items.push('Paseos sueltos');
+      const visita = s.extra['precioVisita'] as number | undefined;
+      if (visita != null) items.push('Visitas a domicilio');
+      const dia = s.extra['precioDiaCompleto'] as number | undefined;
+      if (dia != null) items.push('Cuidado de día completo');
+      const noche = s.extra['precioNoche'] as number | undefined;
+      if (noche != null) items.push('Se queda a dormir');
+      if (s.extra['aDomicilio'] ?? true) items.push('Va a tu casa, sin sacar al perro de su rutina');
+      return items;
+    },
+    price: (s) => (s.extra['precioPaseo'] as number) ?? s.precioPorNoche,
+  },
+  seguros: {
+    vertical: 'seguros',
+    cta: 'Ver la póliza',
+    priceLabel: 'al año',
+    tituloBloque: '¿Qué cubre esta póliza?',
+    chips: (s) => (s.extra['coberturas'] as string[] | undefined) ?? [],
+    puntos: (s) => {
+      const items: string[] = [];
+      const rc = s.extra['responsabilidadCivilEur'] as number | undefined;
+      if (rc != null) items.push(`Responsabilidad civil hasta ${euros(rc)}`);
+      const gastos = s.extra['gastosVeterinariosEur'] as number | undefined;
+      if (gastos != null) items.push(`Gastos veterinarios hasta ${euros(gastos)}`);
+      const carencia = s.extra['carenciaDias'] as number | undefined;
+      if (carencia != null) items.push(`Periodo de carencia de ${carencia} días`);
+      if (s.extra['cubrePPP']) items.push('Cubre perros potencialmente peligrosos (PPP)');
+      return items;
+    },
+    price: (s) => (s.extra['primaAnual'] as number) ?? s.precioPorNoche,
   },
 };
 
@@ -259,7 +348,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     .breadcrumb { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-5); a { color: var(--t-400); } }
 
-    .gallery { border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-8); }
+    .gallery { border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-12); }
     .gallery__main {
       position: relative; aspect-ratio: 21/9; cursor: pointer;
       img { width: 100%; height: 100%; object-fit: cover; }
@@ -309,7 +398,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       &.active, &:hover { opacity: 1; }
     }
 
-    .vd-body { display: grid; grid-template-columns: 1fr 380px; gap: var(--sp-10); align-items: start; @media (max-width: 960px) { grid-template-columns: 1fr; } }
+    .vd-body { display: grid; grid-template-columns: 1fr 380px; gap: var(--sp-10); align-items: start; @media (max-width: 1024px) { grid-template-columns: 1fr; } }
 
     .info-header__name { font-size: var(--f-3xl); color: var(--dk-blue); margin-bottom: var(--sp-3); }
     .info-header__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-5); }

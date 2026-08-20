@@ -5,7 +5,13 @@
   <path fill="#FBAE17" fill-rule="evenodd"
         d="M18 16 H31 A16 16 0 0 1 31 48 H18 Z
            M25 23 H31 A9 9 0 0 1 31 41 H25 Z"/>
-  <!-- Punto en la línea base, que hace leer la marca como "D.". Va separado
-       del trazo a propósito: pegado a la letra se empasta con ella a 16px. -->
-  <circle cx="46" cy="44" r="4.2" fill="#FBAE17"/>
+  <!--
+    Punto en la línea base, que hace leer la marca como "D.".
+
+    A la altura del punto el borde de la "D" cae en x≈40,3, así que empezarlo en
+    x=46 deja algo menos de 6 unidades de aire: a 16px es alrededor de un píxel
+    y medio, suficiente para que no se empaste con la letra. Antes iba en cx=46
+    con el punto más alto y la separación real era de dos décimas.
+  -->
+  <circle cx="50" cy="45" r="4" fill="#FBAE17"/>
 </svg>
