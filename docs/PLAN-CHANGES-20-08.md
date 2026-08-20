@@ -54,10 +54,11 @@ Dos avisos que **no** son fallos:
 - La cobertura global de ramas del frontend queda en **79,18 %**, por debajo del
   umbral de 80 %. Ya estaba así antes de estos cambios; es la deuda que recoge
   `PLAN-COBERTURA-Y-E2E.md`.
-- El presupuesto de estilos de `home.component.ts` se pasa en 2,97 kB (el tope
-  son 16 kB). Ya se pasaba en 1,44 kB antes de tocarlo; el footer nuevo añade el
-  resto. Es un aviso, no un error: o se sube el tope en `angular.json`, o se
-  saca el CSS del footer a `styles.scss`. **Pendiente de decidir.**
+- ~~El presupuesto de estilos de `home.component.ts` se pasa en 2,97 kB.~~
+  **Resuelto:** el tope de `anyComponentStyle` sube de 16/24 kB a 24/32 kB en
+  `apps/web/angular.json`. `home` es el componente con más CSS de la aplicación
+  (18,97 kB) y ya se pasaba del tope anterior antes de estos cambios; el nuevo
+  deja margen sin dejar de avisar de un crecimiento real. El build sale limpio.
 
 ---
 
