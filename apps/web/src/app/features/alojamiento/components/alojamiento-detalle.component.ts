@@ -21,6 +21,13 @@ import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
+/**
+ * Huecos de la fila de miniaturas. Son cuatro fijos, como en el resto de
+ * fichas: con un número variable de columnas, un alojamiento con dos fotos
+ * sacaba dos miniaturas de media pantalla cada una.
+ */
+const MINIATURAS_VISIBLES = 4;
+
 @Component({
   selector: 'app-alojamiento-detalle',
   standalone: true,
@@ -64,15 +71,15 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
         <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ alojamiento()!.imagenes.length }} fotografías</span>
       </div>
       <div class="gallery__thumbs">
-        @for (img of alojamiento()!.imagenes.slice(0,4); track img) {
+        @for (img of miniaturas(); track img) {
           <div class="gallery__thumb" [class.active]="imagenActiva() === img"
                (click)="imagenActiva.set(img)">
             <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
           </div>
         }
-        @if (alojamiento()!.imagenes.length > 4) {
-          <div class="gallery__thumb gallery__thumb--more" (click)="abrirLightbox(alojamiento()!.imagenes[4])">
-            +{{ alojamiento()!.imagenes.length - 4 }} fotos
+        @if (fotosOcultas()) {
+          <div class="gallery__thumb gallery__thumb--more" (click)="abrirLightbox(primeraFotoOculta())">
+            +{{ fotosOcultas() }} fotos
           </div>
         }
       </div>
@@ -511,13 +518,12 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
       .lightbox__nav--next { right: var(--sp-2); }
     }
 
-    /* Flujo por columnas y no un número fijo de ellas: la fila lleva cuatro
-       miniaturas, o cinco cuando además cabe la tarjeta de "+N fotos", y así
-       ninguna se cae a una segunda línea. */
+    /* Cuatro columnas fijas, como en el resto de fichas. Con las columnas
+       generadas a partir del contenido, una ficha con dos fotos repartía la
+       fila entre esas dos y las miniaturas salían enormes. */
     .gallery__thumbs {
       display: grid;
-      grid-auto-flow: column;
-      grid-auto-columns: 1fr;
+      grid-template-columns: repeat(4, 1fr);
       gap: var(--sp-2);
       margin-top: var(--sp-2);
     }
@@ -912,6 +918,28 @@ export class AlojamientoDetalleComponent implements OnInit {
   /** La condición explicada, que es lo que el cliente necesita antes de pagar. */
   readonly descripcionCancelacion = computed(() =>
     descripcionPolitica(this.alojamiento()?.politicaCancelacion),
+  );
+
+  /**
+   * Miniaturas que se pintan. Cuando hay más fotos de las que caben, la última
+   * casilla la ocupa la tarjeta de "+N", así que se muestra una miniatura menos:
+   * la fila siempre tiene el mismo número de huecos.
+   */
+  readonly miniaturas = computed(() => {
+    const imagenes = this.alojamiento()?.imagenes ?? [];
+    const cabenTodas = imagenes.length <= MINIATURAS_VISIBLES;
+    return imagenes.slice(0, cabenTodas ? MINIATURAS_VISIBLES : MINIATURAS_VISIBLES - 1);
+  });
+
+  /** Cuántas fotos quedan fuera de la fila; 0 = no hace falta la tarjeta de "+N". */
+  readonly fotosOcultas = computed(() => {
+    const total = this.alojamiento()?.imagenes.length ?? 0;
+    return total > MINIATURAS_VISIBLES ? total - (MINIATURAS_VISIBLES - 1) : 0;
+  });
+
+  /** Foto por la que se abre la galería completa al pulsar la tarjeta de "+N". */
+  readonly primeraFotoOculta = computed(
+    () => this.alojamiento()?.imagenes[MINIATURAS_VISIBLES - 1] ?? '',
   );
 
   seleccionarEspacio(esp: Espacio): void {

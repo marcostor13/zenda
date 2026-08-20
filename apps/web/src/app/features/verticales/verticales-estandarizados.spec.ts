@@ -94,7 +94,11 @@ describe('la ficha de alojamiento va al mismo ritmo que la genérica', () => {
 
     const bloque = fuente.slice(inicio, fin);
     const encontrado = new RegExp(`${propiedad}:\\s*([^;]+);`).exec(bloque);
-    return encontrado ? encontrado[1].trim() : null;
+    if (!encontrado) return null;
+
+    // `16 / 10` y `16/10` son el mismo valor: lo que se compara es la
+    // maquetación, no cómo la escribió cada uno.
+    return encontrado[1].trim().replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ');
   };
 
   it('debería dejar el mismo aire entre la galería y el contenido', () => {
@@ -118,6 +122,19 @@ describe('la ficha de alojamiento va al mismo ritmo que la genérica', () => {
     // En columna, la galería era una caja alta y todo lo de debajo subía.
     expect(valorDe(fichaAlojamiento, '.gallery__thumbs', 'margin-top')).not.toBeNull();
     expect(valorDe(fichaAlojamiento, '.gallery__thumbs', 'flex-direction')).toBeNull();
+  });
+
+  it('debería repartir la fila de miniaturas en las mismas columnas', () => {
+    // Generándolas a partir del contenido, una ficha con dos fotos sacaba dos
+    // miniaturas de media pantalla cada una.
+    expect(valorDe(fichaAlojamiento, '.gallery__thumbs', 'grid-template-columns'))
+      .toBe(valorDe(detalle, '.gallery__thumbs', 'grid-template-columns'));
+    expect(valorDe(fichaAlojamiento, '.gallery__thumbs', 'grid-auto-columns')).toBeNull();
+  });
+
+  it('debería dar a las miniaturas la misma proporción', () => {
+    expect(valorDe(fichaAlojamiento, '.gallery__thumb {', 'aspect-ratio'))
+      .toBe(valorDe(detalle, '.gallery__thumb {', 'aspect-ratio'));
   });
 
   it('debería separar la miga de pan de la barra de navegación', () => {

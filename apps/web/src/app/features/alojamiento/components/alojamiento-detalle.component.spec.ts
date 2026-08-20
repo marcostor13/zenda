@@ -446,4 +446,54 @@ describe('AlojamientoDetalleComponent', () => {
       expect(component.compatibilidad()).toContain('Temperamento declarado: tranquilo');
     });
   });
+  /**
+   * La fila de miniaturas tiene cuatro huecos fijos, igual que en el resto de
+   * fichas. Al generarlas a partir del contenido, un alojamiento con dos fotos
+   * sacaba dos miniaturas de media pantalla cada una.
+   */
+  describe('miniaturas de la galeria', () => {
+    const conFotos = (n: number) => {
+      component.alojamiento.set({
+        ...detalleMock,
+        imagenes: Array.from({ length: n }, (_, i) => `f${i + 1}.jpg`),
+      } as never);
+    };
+
+    it('deberia enseñarlas todas cuando caben', () => {
+      conFotos(3);
+
+      expect(component.miniaturas()).toEqual(['f1.jpg', 'f2.jpg', 'f3.jpg']);
+      expect(component.fotosOcultas()).toBe(0);
+    });
+
+    it('deberia llenar los cuatro huecos justos', () => {
+      conFotos(4);
+
+      expect(component.miniaturas()).toHaveLength(4);
+      expect(component.fotosOcultas()).toBe(0);
+    });
+
+    it('deberia dejar el ultimo hueco a la tarjeta de mas fotos', () => {
+      // Tres miniaturas + la tarjeta: cuatro huecos, no cinco. Con una quinta
+      // columna todas las miniaturas encogian.
+      conFotos(9);
+
+      expect(component.miniaturas()).toHaveLength(3);
+      expect(component.fotosOcultas()).toBe(6);
+    });
+
+    it('deberia abrir la galeria por la primera foto que no se ve', () => {
+      conFotos(9);
+
+      expect(component.primeraFotoOculta()).toBe('f4.jpg');
+    });
+
+    it('no deberia romperse sin alojamiento cargado', () => {
+      component.alojamiento.set(null);
+
+      expect(component.miniaturas()).toEqual([]);
+      expect(component.fotosOcultas()).toBe(0);
+      expect(component.primeraFotoOculta()).toBe('');
+    });
+  });
 });
