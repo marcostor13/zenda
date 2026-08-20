@@ -18,6 +18,7 @@ import { celdasDelMes, claveDia, desdeClaveDia, hoyLocal } from '../../shared/fe
 const MAX_DOCUMENTO_BYTES = 10 * 1024 * 1024;
 import { environment } from '../../../environments/environment';
 import { pareceImagen, prepararImagen, problemaDeSubida } from '../../shared/media/preparar-imagen';
+import { DiagnosticoSubidaService } from '../../core/diagnostico/diagnostico-subida.service';
 import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, ExcepcionHorario, DocumentoVerificacion } from './comercio-api.service';
 
 type TabConfig =
@@ -287,17 +288,17 @@ type UrlImagen = string | null;
         <div class="form-row">
           <div class="rs-field">
             <label class="rs-lbl">Logo</label>
-            <rs-image-upload [multiple]="false" [maxFiles]="1" formControlName="logoUrl"></rs-image-upload>
+            <rs-image-upload origen="comercio/logo" [multiple]="false" [maxFiles]="1" formControlName="logoUrl"></rs-image-upload>
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Imagen de portada</label>
-            <rs-image-upload [multiple]="false" [maxFiles]="1" formControlName="coverUrl"></rs-image-upload>
+            <rs-image-upload origen="comercio/portada" [multiple]="false" [maxFiles]="1" formControlName="coverUrl"></rs-image-upload>
           </div>
         </div>
 
         <div class="rs-field">
           <label class="rs-lbl">Galería de fotos</label>
-          <rs-image-upload [multiple]="true" [maxFiles]="10" formControlName="galeria"></rs-image-upload>
+          <rs-image-upload origen="comercio/galeria" [multiple]="true" [maxFiles]="10" formControlName="galeria"></rs-image-upload>
           <span class="rs-field-hint">Muestra tus instalaciones, equipo y trabajo realizado.</span>
         </div>
 
@@ -805,11 +806,11 @@ type UrlImagen = string | null;
         <div class="form-row">
           <div class="rs-field">
             <label class="rs-lbl">Documento de identidad del titular</label>
-            <rs-image-upload [multiple]="false" [maxFiles]="1" formControlName="documentoIdentidadUrl"></rs-image-upload>
+            <rs-image-upload origen="comercio/dni" [multiple]="false" [maxFiles]="1" formControlName="documentoIdentidadUrl"></rs-image-upload>
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Licencia o registro del negocio</label>
-            <rs-image-upload [multiple]="false" [maxFiles]="1" formControlName="licenciaNegocioUrl"></rs-image-upload>
+            <rs-image-upload origen="comercio/licencia" [multiple]="false" [maxFiles]="1" formControlName="licenciaNegocioUrl"></rs-image-upload>
           </div>
         </div>
         <p class="rs-field-hint">Nuestro equipo revisará tus documentos en un plazo de 24–48 horas.</p>
@@ -1387,6 +1388,7 @@ type UrlImagen = string | null;
 })
 export class ComercioConfigComponent implements OnInit {
   private readonly comercioApi = inject(ComercioApiService);
+  private readonly diagnostico = inject(DiagnosticoSubidaService);
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly http = inject(HttpClient);
@@ -1626,6 +1628,10 @@ export class ComercioConfigComponent implements OnInit {
       // en `rs-image-upload`).
       const problema = esImagen ? problemaDeSubida(fichero, MAX_DOCUMENTO_BYTES) : null;
       if (problema) {
+        this.diagnostico.registrar({
+          paso: problema, destino: 'documento', origen: 'comercio/documentacion',
+          fichero: elegido, resultado: fichero,
+        });
         this.errorDoc.set(this.textoDelProblemaDoc(problema));
         return;
       }
@@ -1636,7 +1642,13 @@ export class ComercioConfigComponent implements OnInit {
         this.http.post<{ url: string }>(`${environment.apiUrl}/upload/documento`, datos),
       );
       this.docForm.patchValue({ url, nombre: this.docForm.value.nombre || elegido.name });
-    } catch {
+      this.diagnostico.registrar({
+        paso: 'subida', destino: 'documento', origen: 'comercio/documentacion', fichero: elegido,
+      });
+    } catch (error) {
+      this.diagnostico.registrarFalloHttp(
+        { destino: 'documento', origen: 'comercio/documentacion', fichero: elegido }, error,
+      );
       this.errorDoc.set('No se pudo subir el fichero. Debe ser PDF o imagen y pesar menos de 10 MB.');
     } finally {
       this.subiendoDoc.set(false);

@@ -24,7 +24,22 @@ describe('RsImageUploadComponent', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  /**
+   * Partes de diagnóstico enviados. Son telemetría: se mandan sin esperar
+   * respuesta, así que aquí se drenan para que `verify()` no los cuente como
+   * peticiones sueltas.
+   */
+  const partes = (): Record<string, unknown>[] => {
+    const peticiones = httpMock.match((r) => r.url.endsWith('/upload/diagnostico'));
+    const cuerpos = peticiones.map((r) => r.request.body as Record<string, unknown>);
+    peticiones.forEach((r) => r.flush(null, { status: 204, statusText: 'No Content' }));
+    return cuerpos;
+  };
+
+  afterEach(() => {
+    partes();
+    httpMock.verify();
+  });
 
   /**
    * Elige un fichero y espera a que la petición esté en vuelo.
@@ -290,5 +305,80 @@ describe('RsImageUploadComponent', () => {
     const input: HTMLInputElement = fixture.nativeElement.querySelector('input[type="file"]');
 
     expect(input.accept).toBe('image/*');
+  });
+  /**
+   * Diagnóstico de subidas. Los fallos que importan pasan en el móvil de otra
+   * persona: sin parte no hay forma de distinguir una foto en iCloud de un HEIC
+   * que el navegador no supo abrir o de una sesión caducada.
+   */
+  describe('parte de diagnostico', () => {
+    it('deberia avisar de lo que se descarta por formato', async () => {
+      const hoja = new File(['x'], 'hoja.xlsx', { type: 'application/vnd.ms-excel' });
+      component.onFileChange({ target: { files: [hoja], value: '' } } as unknown as Event);
+      await fixture.whenStable();
+
+      const [parte] = partes();
+      expect(parte['paso']).toBe('descartado');
+      expect(parte['nombre']).toBe('hoja.xlsx');
+    });
+
+    it('deberia avisar de una foto que llega vacia', async () => {
+      /*
+       * Pasa con las fotos que viven en iCloud y no estan descargadas: iOS
+       * entrega un fichero de 0 bytes sin decir nada.
+       *
+       * Se usa un JPEG y no un HEIC a proposito: jsdom no implementa
+       * `createImageBitmap` ni dispara los eventos de `<img>`, asi que un HEIC
+       * se quedaria esperando la decodificacion hasta agotar el tiempo. El caso
+       * que se comprueba —fichero de 0 bytes— es el mismo.
+       */
+      const vacia = new File([], 'IMG_0001.jpg', { type: 'image/jpeg' });
+      component.onFileChange({ target: { files: [vacia], value: '' } } as unknown as Event);
+      await fixture.whenStable();
+
+      const [parte] = partes();
+      expect(parte['paso']).toBe('vacio');
+    });
+
+    it('deberia contar el codigo cuando el servidor rechaza la foto', async () => {
+      await subirArchivo();
+      httpMock.expectOne(`${environment.apiUrl}/upload/image`)
+        .flush({ message: 'no' }, { status: 422, statusText: 'Unprocessable Entity' });
+      await fixture.whenStable();
+
+      const parte = partes().find((c) => c['paso'] === 'error_http');
+      expect(parte).toBeDefined();
+      expect(parte!['estadoHttp']).toBe(422);
+    });
+
+    it('deberia decir desde que pantalla se subia', async () => {
+      // Sin esto, en el registro no se distingue el logotipo del comercio de
+      // la foto de un perro.
+      component.origen = 'perro/fotos';
+      const hoja = new File(['x'], 'hoja.xlsx', { type: 'application/vnd.ms-excel' });
+      component.onFileChange({ target: { files: [hoja], value: '' } } as unknown as Event);
+      await fixture.whenStable();
+
+      expect(partes()[0]['origen']).toBe('perro/fotos');
+    });
+
+    it('deberia registrar tambien las subidas que salen bien', async () => {
+      // Sin el denominador no se sabe si falla una de cada cien o la mitad.
+      await subirArchivo();
+      httpMock.expectOne(`${environment.apiUrl}/upload/image`)
+        .flush({ url: 'https://cdn.doogking.com/f.jpg' });
+      await fixture.whenStable();
+
+      expect(partes().some((c) => c['paso'] === 'subida')).toBe(true);
+    });
+
+    it('no deberia mandar el contenido del fichero', async () => {
+      // El parte viaja a los registros del servidor: sólo lleva metadatos.
+      const hoja = new File(['contenido secreto'], 'hoja.xlsx', { type: 'application/vnd.ms-excel' });
+      component.onFileChange({ target: { files: [hoja], value: '' } } as unknown as Event);
+      await fixture.whenStable();
+
+      expect(JSON.stringify(partes()[0])).not.toContain('contenido secreto');
+    });
   });
 });

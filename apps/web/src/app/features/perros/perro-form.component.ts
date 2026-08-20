@@ -91,7 +91,7 @@ const NIVELES_SOCIABILIDAD = [
           <div class="rs-field">
             <span class="rs-lbl">Foto de tu perro</span>
             <span class="rs-field-hint">Ayuda a los profesionales a identificar y preparar la visita de tu mascota.</span>
-            <rs-image-upload formControlName="fotos" [multiple]="true" [maxFiles]="4" />
+            <rs-image-upload origen="perro/fotos" formControlName="fotos" [multiple]="true" [maxFiles]="4" />
           </div>
           <div class="form-row">
             <div class="rs-field">
@@ -326,15 +326,15 @@ const NIVELES_SOCIABILIDAD = [
           </p>
           <div class="rs-field">
             <label class="rs-lbl">Cartilla sanitaria</label>
-            <rs-image-upload formControlName="cartillaSanitariaUrl" [multiple]="false" />
+            <rs-image-upload origen="perro/cartilla" formControlName="cartillaSanitariaUrl" [multiple]="false" />
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Pasaporte europeo para mascotas</label>
-            <rs-image-upload formControlName="pasaporteEuropeoUrl" [multiple]="false" />
+            <rs-image-upload origen="perro/pasaporte" formControlName="pasaporteEuropeoUrl" [multiple]="false" />
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Otros certificados (vacunación internacional, seguro…)</label>
-            <rs-image-upload formControlName="certificadosUrl" [multiple]="true" [maxFiles]="4" />
+            <rs-image-upload origen="perro/certificados" formControlName="certificadosUrl" [multiple]="true" [maxFiles]="4" />
           </div>
 
           <div class="resumen-final">

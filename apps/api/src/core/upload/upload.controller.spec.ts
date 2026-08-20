@@ -131,4 +131,62 @@ describe('UploadController', () => {
       }),
     );
   });
+  /**
+   * Parte de subida. Es lo único que permite saber por qué falla la foto de
+   * alguien a quien no se le puede pedir que abra la consola del móvil.
+   */
+  describe('registrarDiagnostico', () => {
+    /** El diario es privado; en el test se llega por índice, que es lo normal. */
+    const diario = () => controller['diario'];
+
+    const parte = (extra: Record<string, unknown> = {}) => ({
+      paso: 'sin_convertir',
+      destino: 'image',
+      origen: 'perro/fotos',
+      nombre: 'IMG_0001.HEIC',
+      tipo: '',
+      bytes: 4194304,
+      ...extra,
+    }) as never;
+
+    it('no debería devolver nada ni fallar', () => {
+      // Un diagnóstico que rompiera lo que intenta diagnosticar no serviría.
+      expect(() => controller.registrarDiagnostico(parte())).not.toThrow();
+    });
+
+    it('debería anotar los fallos como aviso', () => {
+      const aviso = jest.spyOn(diario(), 'warn').mockImplementation();
+
+      controller.registrarDiagnostico(parte());
+
+      expect(aviso).toHaveBeenCalledWith(expect.stringContaining('paso=sin_convertir'));
+      expect(aviso).toHaveBeenCalledWith(expect.stringContaining('origen=perro/fotos'));
+    });
+
+    it('debería dejar constancia de que iOS no declaró el tipo', () => {
+      // Es la pista que separa una foto del carrete de una de la app Archivos.
+      const aviso = jest.spyOn(diario(), 'warn').mockImplementation();
+
+      controller.registrarDiagnostico(parte({ tipo: '' }));
+
+      expect(aviso).toHaveBeenCalledWith(expect.stringContaining('tipo=(vacío)'));
+    });
+
+    it('debería anotar las subidas correctas en un nivel más bajo', () => {
+      // Interesan para el denominador, no para mirarlas una a una.
+      const registro = jest.spyOn(diario(), 'log').mockImplementation();
+
+      controller.registrarDiagnostico(parte({ paso: 'subida' }));
+
+      expect(registro).toHaveBeenCalled();
+    });
+
+    it('debería incluir el código HTTP cuando lo hay', () => {
+      const aviso = jest.spyOn(diario(), 'warn').mockImplementation();
+
+      controller.registrarDiagnostico(parte({ paso: 'error_http', estadoHttp: 422 }));
+
+      expect(aviso).toHaveBeenCalledWith(expect.stringContaining('http=422'));
+    });
+  });
 });

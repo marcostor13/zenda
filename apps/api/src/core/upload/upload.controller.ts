@@ -1,6 +1,9 @@
 import {
+  Body,
   Controller,
   Get,
+  HttpCode,
+  Logger,
   Param,
   Post,
   Res,
@@ -12,11 +15,12 @@ import {
   ParseFilePipeBuilder,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UploadService } from './upload.service';
+import { DiagnosticoSubidaDto } from './diagnostico-subida.dto';
 
 /** Un año: las imágenes son inmutables, cada subida genera una clave nueva. */
 const CACHE_INMUTABLE = 'public, max-age=31536000, immutable';
@@ -52,7 +56,53 @@ const limitePeso = (megas: number): ReturnType<ParseFilePipeBuilder['build']> =>
 @ApiTags('upload')
 @Controller('upload')
 export class UploadController {
+  /**
+   * Diario de las subidas que no salen. Se lee en los registros del contenedor:
+   * es la única forma de saber por qué falla la foto de alguien a quien no se
+   * le puede pedir que abra la consola del móvil.
+   */
+  private readonly diario = new Logger('SubidaDiagnostico');
+
   constructor(private readonly uploadService: UploadService) {}
+
+  /**
+   * Parte de subida enviado por el navegador.
+   *
+   * **Público a propósito**: uno de los fallos que se quiere cazar es que la
+   * petición de subida se rechace por sesión caducada, y exigir sesión aquí
+   * dejaría fuera justo ese caso. No recibe ficheros, sólo el relato de lo que
+   * pasó, así que abrirlo no añade superficie de ataque.
+   *
+   * Devuelve 204 y nunca falla: un diagnóstico que rompiera la pantalla que
+   * intenta diagnosticar no serviría de nada.
+   */
+  @Post('diagnostico')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Registrar por qué falló una subida (sin el fichero)' })
+  registrarDiagnostico(@Body() dto: DiagnosticoSubidaDto): void {
+    const partes = [
+      `paso=${dto.paso}`,
+      `destino=${dto.destino}`,
+      dto.origen ? `origen=${dto.origen}` : null,
+      dto.nombre ? `nombre=${dto.nombre}` : null,
+      `tipo=${dto.tipo || '(vacío)'}`,
+      dto.bytes !== undefined ? `bytes=${dto.bytes}` : null,
+      dto.tipoFinal ? `tipoFinal=${dto.tipoFinal}` : null,
+      dto.bytesFinales !== undefined ? `bytesFinales=${dto.bytesFinales}` : null,
+      dto.estadoHttp !== undefined ? `http=${dto.estadoHttp}` : null,
+      dto.detalle ? `detalle=${dto.detalle}` : null,
+      dto.userAgent ? `ua=${dto.userAgent}` : null,
+    ].filter(Boolean).join(' · ');
+
+    // Las subidas que salen bien se anotan en un nivel más bajo: interesan para
+    // saber qué proporción falla, no para mirarlas una a una.
+    if (dto.paso === 'subida' || dto.paso === 'elegido') {
+      this.diario.log(partes);
+    } else {
+      this.diario.warn(partes);
+    }
+  }
 
   @Post('image')
   @ApiBearerAuth()

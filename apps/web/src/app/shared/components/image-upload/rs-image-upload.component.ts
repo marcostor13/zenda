@@ -19,6 +19,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { environment } from '../../../../environments/environment';
+import { DiagnosticoSubidaService } from '../../../core/diagnostico/diagnostico-subida.service';
 import {
   MAX_SUBIDA_BYTES, ProblemaSubida, pareceImagen, prepararImagen, problemaDeSubida,
 } from '../../media/preparar-imagen';
@@ -243,6 +244,14 @@ export class RsImageUploadComponent
   implements ControlValueAccessor, Validator, OnInit, OnDestroy
 {
   private readonly http = inject(HttpClient);
+  private readonly diagnostico = inject(DiagnosticoSubidaService);
+
+  /**
+   * Pantalla desde la que se sube, para el parte de diagnóstico. Sin esto, en
+   * los registros del servidor no se distingue el logotipo del comercio de la
+   * foto de un perro.
+   */
+  @Input() origen = '';
 
   @Input() multiple = false;
   @Input() maxFiles = 6;
@@ -350,6 +359,9 @@ export class RsImageUploadComponent
     // Callar un descarte deja al usuario mirando una pantalla que no reacciona.
     if (files.length && !imagenes.length) {
       this.mensajeError.set('Ese archivo no es una imagen. Usa JPEG, PNG, WebP o GIF.');
+      for (const descartado of files) {
+        this.diagnostico.registrar({ paso: 'descartado', ...this.contexto(), fichero: descartado });
+      }
       return;
     }
 
@@ -404,14 +416,29 @@ export class RsImageUploadComponent
      * límite del endpoint. Un JPEG que ya cabe no se toca.
      */
     let file = original;
+    let falloConversion = '';
     try {
       file = await prepararImagen(original, MAX_SUBIDA_BYTES);
-    } catch {
+    } catch (error) {
       file = original;
+      falloConversion = String(error);
     }
 
     const problema = problemaDeSubida(file, MAX_SUBIDA_BYTES);
     if (problema) {
+      /*
+       * Aquí se decide el caso: `sin_convertir` con un fallo apuntado es que el
+       * navegador no supo abrir el HEIC; sin él, que la conversión terminó pero
+       * devolvió el original. Son dos causas distintas y hasta ahora las dos
+       * enseñaban el mismo mensaje.
+       */
+      this.diagnostico.registrar({
+        paso: problema === 'sin_convertir' && falloConversion ? 'sin_decodificar' : problema,
+        ...this.contexto(),
+        fichero: original,
+        resultado: file,
+        detalle: falloConversion || undefined,
+      });
       this.marcarFallo(id, original, this.textoDelProblema(problema));
       return null;
     }
@@ -439,12 +466,19 @@ export class RsImageUploadComponent
       this.slots.update(s =>
         s.map(sl => sl.id === id ? { ...sl, uploadedUrl: res.url, uploading: false } : sl),
       );
+      this.diagnostico.registrar({ paso: 'subida', ...this.contexto(), fichero: file });
       this.mensajeError.set('');
       this.emitValue();
       this.onTouched();
     } catch (error) {
+      this.diagnostico.registrarFalloHttp({ ...this.contexto(), fichero: file }, error);
       this.marcarFallo(id, file, this.textoDelError(error));
     }
+  }
+
+  /** Lo que sitúa el parte: a qué endpoint iba y desde qué pantalla. */
+  private contexto(): { destino: string; origen: string } {
+    return { destino: 'image', origen: this.origen };
   }
 
   /** Deja la casilla en error y guarda el fichero por si se reintenta. */

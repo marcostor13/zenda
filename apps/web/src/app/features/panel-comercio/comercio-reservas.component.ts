@@ -648,7 +648,7 @@ function desdeClaveDia(clave: string): number {
 
                     <div class="ajuste-panel__evidencia">
                       <label class="rs-lbl">Foto del estado del animal al llegar (opcional pero recomendado)</label>
-                      <rs-image-upload [(ngModel)]="evidenciaUrl"></rs-image-upload>
+                      <rs-image-upload origen="reserva/evidencia" [(ngModel)]="evidenciaUrl"></rs-image-upload>
                     </div>
 
                     <!-- Plan personalizado / bono de sesiones tras la valoración (Ref. ADI4) -->

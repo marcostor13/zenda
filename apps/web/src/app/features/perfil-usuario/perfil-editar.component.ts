@@ -56,6 +56,7 @@ interface PerfilUsuario {
           }
         </div>
         <rs-image-upload
+          origen="perfil/avatar"
           [multiple]="false"
           [formControl]="avatarControl"
           style="display:block;margin-top:var(--sp-4)">

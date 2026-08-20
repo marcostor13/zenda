@@ -264,7 +264,7 @@ const RECONOCIMIENTOS = [
 
           <div class="rs-form-group">
             <label class="rs-label">Fotos (opcional)</label>
-            <rs-image-upload [multiple]="true" [maxFiles]="6" [formControl]="fotosCtrl"></rs-image-upload>
+            <rs-image-upload origen="resena/fotos" [multiple]="true" [maxFiles]="6" [formControl]="fotosCtrl"></rs-image-upload>
           </div>
 
           @if (errorMsg()) {

@@ -1241,7 +1241,7 @@ function aCsv(v: string): string[] {
           @if (paso() === 'fotos') {
             <div class="rs-field">
               <label class="rs-lbl">Imágenes del servicio</label>
-              <rs-image-upload [multiple]="true" [maxFiles]="8" formControlName="imagenes"></rs-image-upload>
+              <rs-image-upload origen="servicio/imagenes" [multiple]="true" [maxFiles]="8" formControlName="imagenes"></rs-image-upload>
               <span class="rs-field-hint">Sube hasta 8 imágenes · JPEG, PNG, WebP · Max 5 MB cada una.</span>
             </div>
 

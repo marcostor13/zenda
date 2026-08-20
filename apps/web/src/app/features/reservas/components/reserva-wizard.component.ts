@@ -7,6 +7,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/auth/auth.service';
+import { DiagnosticoSubidaService } from '../../../core/diagnostico/diagnostico-subida.service';
 import { faqDeConfirmacion } from '../../../shared/catalogos/faq-confirmacion.catalogo';
 import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
@@ -1500,6 +1501,7 @@ export class ReservaWizardComponent implements OnInit {
   private readonly geoService = inject(GeoService);
   private readonly eventosService = inject(EventosService);
   private readonly auth = inject(AuthService);
+  private readonly diagnostico = inject(DiagnosticoSubidaService);
 
   // Navigation
   readonly paso       = signal<Paso>(1);
@@ -1778,7 +1780,18 @@ export class ReservaWizardComponent implements OnInit {
         this.http.post<{ url: string }>(`${environment.apiUrl}/upload/video`, formData),
       );
       this.videosComportamiento.update((v) => [...v, res.url]);
-    } catch {
+      this.diagnostico.registrar({
+        paso: 'subida', destino: 'video', origen: 'reserva/comportamiento', fichero: file,
+      });
+    } catch (error) {
+      /*
+       * El vídeo no pasa por ninguna conversión: un .mov de iPhone se sube tal
+       * cual y son fáciles de pasar de 50 MB. El parte dice cuál de las dos
+       * cosas fue.
+       */
+      this.diagnostico.registrarFalloHttp(
+        { destino: 'video', origen: 'reserva/comportamiento', fichero: file }, error,
+      );
       this.errorVideo.set('No se pudo subir el vídeo. Comprueba el formato (MP4/WebM/MOV) y que pese menos de 50 MB.');
     } finally {
       this.subiendoVideo.set(false);
