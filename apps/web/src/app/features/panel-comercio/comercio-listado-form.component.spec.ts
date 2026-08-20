@@ -275,6 +275,114 @@ describe('ComercioListadoFormComponent', () => {
     });
   });
 
+  describe('recorrido paso a paso', () => {
+    beforeAll(() => {
+      // jsdom no implementa el scroll suave que dispara cada cambio de paso.
+      window.scrollTo = jest.fn();
+    });
+
+    it('debería empezar en el primer paso', async () => {
+      await crear();
+
+      expect(componente.paso()).toBe('categoria');
+      expect(componente.esPrimerPaso()).toBe(true);
+      expect(componente.esUltimoPaso()).toBe(false);
+    });
+
+    it('NO debería avanzar sin lo obligatorio del paso, y debería señalarlo', async () => {
+      // Sin esto el fallo aparecía al pulsar "Crear", tres pantallas más abajo.
+      await crear();
+
+      componente.siguientePaso();
+
+      expect(componente.paso()).toBe('categoria');
+      expect(componente.hasError('titulo')).toBe(true);
+    });
+
+    it('debería avanzar cuando el paso está completo', async () => {
+      await crear();
+      componente.form.patchValue({
+        vertical: VerticalKey.ALOJAMIENTO,
+        titulo: 'Residencia Royal',
+        descripcion: 'Alojamiento canino con jardín y cámaras.',
+      });
+
+      componente.siguientePaso();
+
+      expect(componente.paso()).toBe('ubicacion');
+    });
+
+    it('debería poder retroceder', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.siguientePaso();
+
+      componente.pasoAnterior();
+
+      expect(componente.paso()).toBe('categoria');
+    });
+
+    it('no debería dejar saltar a un paso que aún no se ha alcanzado', async () => {
+      await crear();
+
+      componente.irAlPaso('fotos');
+
+      expect(componente.paso()).toBe('categoria');
+    });
+
+    it('debería dejar volver a un paso ya cerrado', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.siguientePaso();
+      componente.siguientePaso();
+
+      componente.irAlPaso('categoria');
+
+      expect(componente.paso()).toBe('categoria');
+    });
+
+    it('debería dejar ir a cualquier paso al editar, que ya está todo puesto', async () => {
+      await crear('serv-1', { vertical: VerticalKey.ALOJAMIENTO, titulo: 'X', descripcion: 'Y' });
+
+      componente.irAlPaso('fotos');
+
+      expect(componente.paso()).toBe('fotos');
+    });
+
+    it('debería frenar en detalles si la categoría no cumple su regla propia', async () => {
+      // Un alojamiento sin ningún espacio no se puede reservar.
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.irAlPaso('categoria');
+      componente.siguientePaso();
+      componente.siguientePaso();
+      expect(componente.paso()).toBe('detalles');
+
+      componente.siguientePaso();
+
+      expect(componente.paso()).toBe('detalles');
+      expect(componente.errorMsg()).toBeTruthy();
+    });
+
+    it('Enter a mitad del recorrido debería avanzar, nunca crear el servicio', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+
+      await componente.enviarFormulario();
+
+      expect(componente.paso()).toBe('ubicacion');
+      expect(api.crearServicio).not.toHaveBeenCalled();
+    });
+
+    it('debería nombrar el paso de detalles con la categoría elegida', async () => {
+      await crear();
+      componente.form.patchValue({ vertical: VerticalKey.PELUQUERIA });
+      componente.paso.set('detalles');
+
+      expect(componente.tituloPaso().toLowerCase()).toContain('peluquer');
+    });
+  });
+
   describe('política de cancelación', () => {
     const politicas = (): HTMLElement[] =>
       Array.from(fixture.nativeElement.querySelectorAll('.politica'));
@@ -284,6 +392,8 @@ describe('ComercioListadoFormComponent', () => {
       // cada una lleva a marcar la primera.
       await crear();
       componente.form.patchValue({ vertical: VerticalKey.ALOJAMIENTO });
+      // Los datos propios de la categoría viven en el paso de detalles.
+      componente.paso.set('detalles');
       fixture.detectChanges();
 
       const descripciones = politicas().map((p) => p.querySelector('.politica__desc')?.textContent?.trim());

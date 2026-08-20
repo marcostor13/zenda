@@ -50,6 +50,49 @@ const PLACEHOLDER_TITULO: Record<string, string> = {
   [VerticalKey.HOTELES]: 'Ej. Gran Hotel Pet Friendly Madrid',
 };
 
+/** Pasos del alta de un servicio; el orden es el del recorrido. */
+type PasoListado = 'categoria' | 'ubicacion' | 'detalles' | 'aptitud' | 'fotos';
+
+/**
+ * Un servicio pide entre veinte y sesenta datos según la categoría: en una sola
+ * página nadie llegaba al final. Se reparte en cinco pantallas cortas, el patrón
+ * de "crea tu anuncio" de Airbnb, con lo obligatorio delante.
+ */
+const PASOS: ReadonlyArray<{
+  readonly clave: PasoListado;
+  /** Etiqueta corta del indicador de pasos. */
+  readonly label: string;
+  readonly titulo: string;
+  readonly ayuda: string;
+}> = [
+  { clave: 'categoria', label: 'Categoría',
+    titulo: '¿Qué servicio ofreces?',
+    ayuda: 'Elige la categoría y ponle un nombre que se entienda de un vistazo.' },
+  { clave: 'ubicacion', label: 'Dónde y cuánto',
+    titulo: '¿Dónde lo ofreces y por cuánto?',
+    ayuda: 'La población sitúa tu anuncio en el mapa. El precio es el «desde» que verá el cliente.' },
+  { clave: 'detalles', label: 'Detalles',
+    titulo: 'Detalles del servicio',
+    ayuda: 'Lo propio de tu categoría: es lo que hace que el cliente reserve contigo.' },
+  { clave: 'aptitud', label: 'Para qué perros',
+    titulo: '¿Para qué perros es apto?',
+    ayuda: 'Déjalo sin marcar si vale para cualquier perro.' },
+  { clave: 'fotos', label: 'Fotos',
+    titulo: 'Fotos y publicación',
+    ayuda: 'Las fichas con fotos reales reciben muchas más reservas que las que no las tienen.' },
+];
+
+/** Campos obligatorios que cierra cada paso antes de dejar avanzar. */
+const CAMPOS_DEL_PASO: Record<PasoListado, ReadonlyArray<string>> = {
+  categoria: ['vertical', 'titulo', 'descripcion'],
+  ubicacion: ['ciudad', 'precioBase'],
+  // Lo específico del vertical se valida contra su propio grupo y su regla
+  // de negocio (`validarVertical`), no con una lista de campos fija.
+  detalles: [],
+  aptitud: [],
+  fotos: [],
+};
+
 function csvA(v?: string[]): string {
   return (v ?? []).join(', ');
 }
@@ -72,17 +115,53 @@ function aCsv(v: string): string[] {
           Volver a listados
         </a>
         <h1>{{ esEdicion() ? 'Editar servicio' : 'Nuevo servicio' }}</h1>
-        <p>{{ esEdicion() ? 'Actualiza los datos de tu servicio.' : 'Completa todos los datos de tu servicio: cuanta más información, más confianza generas.' }}</p>
+        <p>{{ esEdicion() ? 'Ve directamente al paso que quieras cambiar.' : 'Cinco pasos cortos. Puedes volver atrás en cualquier momento.' }}</p>
       </div>
 
       @if (cargando()) {
         <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">Cargando…</div>
       } @else {
-      <div class="form-card rs-card">
-        <form [formGroup]="form" (ngSubmit)="submit()">
+      <!--
+        Indicador de pasos. En escritorio cada punto lleva su etiqueta; en móvil
+        sólo los puntos, y el nombre del paso va en la línea de arriba, que es
+        donde se lee sin apretar la pantalla.
+      -->
+      <div class="pasos">
+        <p class="pasos__actual">
+          <strong>Paso {{ indicePaso() + 1 }} de {{ pasos.length }}</strong>
+          <span class="pasos__sep">·</span>{{ pasoUi().label }}
+        </p>
+        <ol class="pasos__lista">
+          @for (p of pasos; track p.clave; let i = $index) {
+            <li class="paso"
+                [class.paso--actual]="paso() === p.clave"
+                [class.paso--hecho]="i < indicePaso()">
+              <button type="button" class="paso__btn" [disabled]="!puedeIrAlPaso(i)"
+                      [attr.aria-current]="paso() === p.clave ? 'step' : null"
+                      (click)="irAlPaso(p.clave)">
+                <span class="paso__num">
+                  @if (i < indicePaso()) {
+                    <rs-icon name="check" [size]="12" [stroke]="3"></rs-icon>
+                  } @else {
+                    {{ i + 1 }}
+                  }
+                </span>
+                <span class="paso__label">{{ p.label }}</span>
+              </button>
+            </li>
+          }
+        </ol>
+      </div>
 
-          <!-- ═══ DATOS BÁSICOS ═══ -->
-          <h2 class="section-title">Datos básicos</h2>
+      <div class="form-card rs-card">
+        <form [formGroup]="form" (ngSubmit)="enviarFormulario()">
+
+          <header class="paso-head">
+            <h2 class="paso-head__titulo">{{ tituloPaso() }}</h2>
+            <p class="paso-head__ayuda">{{ pasoUi().ayuda }}</p>
+          </header>
+
+          @if (paso() === 'categoria') {
 
           <div class="rs-field">
             <label class="rs-lbl" for="vertical">Categoría *</label>
@@ -122,6 +201,9 @@ function aCsv(v: string): string[] {
             }
           </div>
 
+          }
+
+          @if (paso() === 'ubicacion') {
           <div class="form-row-2">
             <div class="rs-field">
               <label class="rs-lbl" for="ciudad">Ciudad *</label>
@@ -151,17 +233,12 @@ function aCsv(v: string): string[] {
             </div>
           </div>
 
-          <div class="rs-field">
-            <label class="rs-lbl">Imágenes del servicio</label>
-            <rs-image-upload [multiple]="true" [maxFiles]="8" formControlName="imagenes"></rs-image-upload>
-            <span class="rs-field-hint">Sube hasta 8 imágenes · JPEG, PNG, WebP · Max 5 MB cada una.</span>
-          </div>
+          }
 
           <!-- ═══ APTITUD (compatibilidad servicio↔perro) ═══ -->
-          <h2 class="section-title">¿Para qué perros es apto este servicio?</h2>
+          @if (paso() === 'aptitud') {
           <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
-            Déjalo todo sin marcar si vale para cualquier perro. Si marcas algo, Doogking solo mostrará este servicio
-            a clientes cuyo perro encaje.
+            Si marcas algo, Doogking solo mostrará este servicio a clientes cuyo perro encaje.
           </p>
           <div class="rs-field">
             <label class="rs-lbl">Tamaños admitidos</label>
@@ -182,8 +259,17 @@ function aCsv(v: string): string[] {
                            placeholder="Elige de la lista…" />
           </div>
 
+          }
+
           <!-- ═══ SECCIÓN POR VERTICAL ═══ -->
+          @if (paso() === 'detalles') {
           @switch (form.controls.vertical.value) {
+
+            @case ('') {
+              <p class="rs-field-hint">
+                Vuelve al primer paso y elige una categoría para ver aquí sus datos propios.
+              </p>
+            }
 
             @case ('alojamiento') {
               <div formGroupName="alojamiento" class="vertical-section">
@@ -1150,11 +1236,32 @@ function aCsv(v: string): string[] {
               </div>
             }
           }
+          }
 
-          @if (!esEdicion()) {
-            <div class="rs-alert rs-alert--info">
-              El listado se creará en estado <strong>Borrador</strong>. Revísalo y publícalo desde la sección de listados cuando esté listo.
+          @if (paso() === 'fotos') {
+            <div class="rs-field">
+              <label class="rs-lbl">Imágenes del servicio</label>
+              <rs-image-upload [multiple]="true" [maxFiles]="8" formControlName="imagenes"></rs-image-upload>
+              <span class="rs-field-hint">Sube hasta 8 imágenes · JPEG, PNG, WebP · Max 5 MB cada una.</span>
             </div>
+
+            <!-- Repaso antes de crear: lo que se va a publicar, en una línea. -->
+            <div class="repaso">
+              <p class="repaso__titulo">Esto es lo que vas a publicar</p>
+              <dl class="repaso__lista">
+                <div><dt>Categoría</dt><dd>{{ etiquetaVertical() || '—' }}</dd></div>
+                <div><dt>Nombre</dt><dd>{{ form.controls.titulo.value || '—' }}</dd></div>
+                <div><dt>Ciudad</dt><dd>{{ form.controls.ciudad.value || '—' }}</dd></div>
+                <div><dt>Precio desde</dt><dd>{{ form.controls.precioBase.value || 0 }} €</dd></div>
+                <div><dt>Fotos</dt><dd>{{ form.controls.imagenes.value.length }}</dd></div>
+              </dl>
+            </div>
+
+            @if (!esEdicion()) {
+              <div class="rs-alert rs-alert--info">
+                El listado se creará en estado <strong>Borrador</strong>. Revísalo y publícalo desde la sección de listados cuando esté listo.
+              </div>
+            }
           }
 
           @if (errorMsg()) {
@@ -1165,13 +1272,28 @@ function aCsv(v: string): string[] {
           }
 
           <div class="form-actions">
-            <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost">Cancelar</a>
-            <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
-              @if (guardando()) { Guardando… } @else {
-                <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-                {{ esEdicion() ? 'Guardar cambios' : 'Crear servicio' }}
-              }
-            </button>
+            @if (esPrimerPaso()) {
+              <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost">Cancelar</a>
+            } @else {
+              <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()">
+                <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+                Atrás
+              </button>
+            }
+
+            @if (esUltimoPaso()) {
+              <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
+                @if (guardando()) { Guardando… } @else {
+                  <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
+                  {{ esEdicion() ? 'Guardar cambios' : 'Crear servicio' }}
+                }
+              </button>
+            } @else {
+              <button type="button" class="rs-btn rs-btn--primary" (click)="siguientePaso()">
+                Continuar
+                <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
+              </button>
+            }
           </div>
 
         </form>
@@ -1255,9 +1377,102 @@ function aCsv(v: string): string[] {
     .rs-checkbox { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; }
     .rs-checkbox input { accent-color: var(--c-accent); width: 18px; height: 18px; }
 
+    /* ══ INDICADOR DE PASOS ═══════════════════════════════════════════ */
+    .pasos { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+    .pasos__actual { font-size: var(--f-sm); color: var(--t-300); }
+    .pasos__actual strong { color: var(--c-accent); font-weight: var(--w-7); }
+    .pasos__sep { margin-inline: var(--sp-2); opacity: .5; }
+    /* En escritorio cada punto lleva su etiqueta: esta línea sobraría. */
+    @media (min-width: 720px) { .pasos__actual { display: none; } }
+
+    .pasos__lista { display: flex; align-items: flex-start; list-style: none; }
+
+    .paso { flex: 1; min-width: 0; position: relative; }
+
+    /* Línea que une los puntos; nace del anterior para no salirse por la izquierda. */
+    .paso + .paso::before {
+      content: '';
+      position: absolute; top: 13px; right: 50%; left: -50%;
+      height: 2px; background: var(--b-1);
+    }
+    .paso--hecho::before,
+    .paso--actual::before { background: var(--c-accent); }
+
+    .paso__btn {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+      width: 100%; padding: 0; background: transparent; border: none;
+      color: var(--t-400); font-size: var(--f-xs); cursor: pointer;
+
+      &:disabled { cursor: default; opacity: .55; }
+    }
+
+    .paso__num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: var(--r-full);
+      background: var(--c-card); border: 2px solid var(--b-2);
+      color: var(--t-400); font-size: var(--f-xs); font-weight: var(--w-7);
+      transition: background var(--d-2), border-color var(--d-2), color var(--d-2);
+    }
+    .paso--hecho .paso__num { background: var(--c-accent); border-color: var(--c-accent); color: #fff; }
+    .paso--actual .paso__num {
+      border-color: var(--c-accent); color: var(--c-accent);
+      box-shadow: 0 0 0 4px var(--c-accent-lo);
+    }
+    .paso--actual .paso__label { color: var(--c-accent); font-weight: var(--w-6); }
+
+    /* Móvil: cinco etiquetas no caben sin partirse; el nombre del paso ya está
+       en la línea de arriba. */
+    .paso__label { display: none; text-align: center; line-height: 1.3; }
+    @media (min-width: 720px) { .paso__label { display: block; } }
+
+    /* ══ CABECERA DEL PASO ════════════════════════════════════════════ */
+    .paso-head { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .paso-head__titulo { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); }
+    .paso-head__ayuda { font-size: var(--f-sm); color: var(--t-400); max-width: 60ch; }
+
+    /* ══ REPASO PREVIO A PUBLICAR ═════════════════════════════════════ */
+    .repaso {
+      padding: var(--sp-4); background: var(--c-raised);
+      border: 1px solid var(--b-1); border-radius: var(--r-lg);
+    }
+    .repaso__titulo { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-3); }
+    .repaso__lista { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .repaso__lista > div {
+      display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4);
+      font-size: var(--f-sm);
+    }
+    .repaso__lista dt { color: var(--t-400); flex-shrink: 0; }
+    .repaso__lista dd { color: var(--t-100); font-weight: var(--w-6); text-align: right; min-width: 0; }
+
     .form-actions {
-      display: flex; justify-content: flex-end; gap: var(--sp-3);
-      padding-top: var(--sp-4); border-top: 1px solid var(--b-1); flex-wrap: wrap;
+      display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3);
+      padding-top: var(--sp-4); border-top: 1px solid var(--b-1);
+    }
+
+    /*
+     * Móvil: el pie del paso se queda pegado al fondo mientras se rellena, así
+     * "Continuar" está siempre a un pulgar de distancia.
+     *
+     * .rs-card recorta con overflow:hidden, y un ancestro que recorta anula el
+     * sticky de sus descendientes: por eso la tarjeta deja de recortar aquí.
+     */
+    @media (max-width: 719px) {
+      .form-card { overflow: visible; padding: var(--sp-5); }
+
+      .form-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        margin: var(--sp-2) calc(var(--sp-5) * -1) calc(var(--sp-5) * -1);
+        padding: var(--sp-3) var(--sp-5) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+        background: var(--c-card);
+        border-top: 1px solid var(--b-1);
+        border-radius: 0 0 var(--r-xl) var(--r-xl);
+      }
+      /* El avance manda: ocupa el ancho que sobra. */
+      .form-actions > .rs-btn--primary { flex: 1; }
     }
   `],
 })
@@ -1275,6 +1490,91 @@ export class ComercioListadoFormComponent implements OnInit {
   readonly verticales = VERTICALES;
   readonly servicioId = signal<string | null>(null);
   readonly esEdicion = computed(() => this.servicioId() !== null);
+
+  // ── Recorrido paso a paso ────────────────────────────────────────────────
+  readonly pasos = PASOS;
+  readonly paso = signal<PasoListado>('categoria');
+
+  /**
+   * Hasta dónde ha llegado el alta. No se salta hacia delante sin haber
+   * cerrado los pasos anteriores; al editar ya está todo puesto, así que se
+   * puede ir directamente al dato que se viene a cambiar.
+   */
+  private readonly pasoMaximo = signal(0);
+
+  readonly indicePaso = computed(() => PASOS.findIndex((p) => p.clave === this.paso()));
+  readonly pasoUi = computed(() => PASOS[this.indicePaso()] ?? PASOS[0]);
+  readonly esPrimerPaso = computed(() => this.indicePaso() === 0);
+  readonly esUltimoPaso = computed(() => this.indicePaso() === PASOS.length - 1);
+
+  /** Nombre legible de la categoría elegida, para el repaso y el titular. */
+  etiquetaVertical(): string {
+    const vertical = this.form.controls.vertical.value;
+    return VERTICALES.find((v) => v.valor === vertical)?.label ?? '';
+  }
+
+  /** El paso de detalles dice de qué categoría son, que es la duda real. */
+  tituloPaso(): string {
+    const etiqueta = this.etiquetaVertical();
+    if (this.paso() === 'detalles' && etiqueta) return `Detalles de ${etiqueta.toLowerCase()}`;
+    return this.pasoUi().titulo;
+  }
+
+  puedeIrAlPaso(indice: number): boolean {
+    return this.esEdicion() || indice <= this.pasoMaximo();
+  }
+
+  irAlPaso(clave: PasoListado): void {
+    const indice = PASOS.findIndex((p) => p.clave === clave);
+    if (indice < 0 || !this.puedeIrAlPaso(indice)) return;
+    this.paso.set(clave);
+    // Cada paso es una pantalla nueva: sin esto se cambia de paso y el
+    // formulario aparece a media altura, con los primeros campos arriba.
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  pasoAnterior(): void {
+    const anterior = PASOS[this.indicePaso() - 1];
+    if (anterior) this.irAlPaso(anterior.clave);
+  }
+
+  /**
+   * Avanza sólo si lo obligatorio de este paso está puesto. Validar aquí y no
+   * al final evita el clásico "crear" que falla por un campo tres pantallas
+   * más arriba y que nadie encuentra.
+   */
+  siguientePaso(): void {
+    if (!this.validarPaso()) return;
+
+    const siguiente = PASOS[this.indicePaso() + 1];
+    if (!siguiente) return;
+
+    this.errorMsg.set('');
+    this.pasoMaximo.update((max) => Math.max(max, this.indicePaso() + 1));
+    this.irAlPaso(siguiente.clave);
+  }
+
+  /** ¿Está cerrado el paso visible? Marca lo que falte para que se vea rojo. */
+  private validarPaso(): boolean {
+    const invalidos = CAMPOS_DEL_PASO[this.paso()]
+      .map((campo) => this.form.get(campo))
+      .filter((control) => control?.invalid);
+
+    for (const control of invalidos) control?.markAsTouched();
+    if (invalidos.length) return false;
+
+    if (this.paso() !== 'detalles') return true;
+
+    // Los detalles del vertical tienen su propio grupo y su regla de negocio.
+    const vertical = this.form.controls.vertical.value;
+    const grupo = vertical ? this.form.get(vertical) : null;
+    if (grupo?.invalid) { grupo.markAllAsTouched(); return false; }
+
+    const errorVertical = this.validarVertical(vertical);
+    if (errorVertical) { this.errorMsg.set(errorVertical); return false; }
+
+    return true;
+  }
 
   // Aptitud (compatibilidad servicio↔perro) — comunes a cualquier vertical.
   readonly tamanosPerro: ReadonlyArray<{ valor: string; label: string }> = [
@@ -1985,6 +2285,16 @@ export class ComercioListadoFormComponent implements OnInit {
       return 'Marca al menos una modalidad (paseo, visita, día completo o noche).';
     }
     return null;
+  }
+
+  /**
+   * Envío del formulario. Enter dentro de un campo lo dispara desde cualquier
+   * paso, y a mitad del recorrido eso crearía el servicio sin haber visto los
+   * pasos que quedan: ahí Enter avanza, que es lo que el usuario espera.
+   */
+  enviarFormulario(): Promise<void> | void {
+    if (!this.esUltimoPaso()) { this.siguientePaso(); return; }
+    return this.submit();
   }
 
   async submit(): Promise<void> {

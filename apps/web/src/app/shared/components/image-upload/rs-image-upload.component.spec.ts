@@ -203,30 +203,61 @@ describe('RsImageUploadComponent', () => {
       await fixture.whenStable();
     });
 
-    it('debería intentar subirla igualmente si no se puede convertir', async () => {
-      // El API acepta HEIC como último recurso: mejor eso que dejar al usuario
-      // sin poder subir su foto.
+    it('NO debería subir un HEIC sin convertir, y debería explicar por qué', async () => {
+      /*
+       * Antes se subía en crudo "por si acaso": el API lo aceptaba, la subida
+       * parecía ir bien y la ficha quedaba con una foto que sólo se ve desde
+       * Safari. Un anuncio con la imagen rota para el resto del mundo es peor
+       * que un aviso que se puede accionar.
+       */
       sinDecodificador();
 
       elegir('IMG_0042.HEIC', 'image/heic');
       await esperarConversion();
 
-      const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
-      expect((req.request.body as FormData).get('file')).toBeInstanceOf(File);
-      req.flush({ url: 'https://cdn.doogking.com/foto.heic' });
-      await fixture.whenStable();
+      httpMock.expectNone(`${environment.apiUrl}/upload/image`);
+      expect(component.mensajeError()).toContain('HEIC');
+      expect(component.validate({} as never)).toEqual({ subidaFallida: true });
     });
 
     it('debería aceptar la foto aunque iOS no rellene el tipo', async () => {
       // Pasa cuando llega desde la app Archivos. Antes se descartaba en silencio:
       // el usuario elegía su foto y no ocurría nada.
-      sinDecodificador();
+      conCanvasQueConvierte();
 
       elegir('IMG_0042.HEIC', '');
       await esperarConversion();
 
       const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
-      req.flush({ url: 'https://cdn.doogking.com/foto.heic' });
+      expect((req.request.body as FormData).get('file')).toBeInstanceOf(File);
+      req.flush({ url: 'https://cdn.doogking.com/foto.jpg' });
+      await fixture.whenStable();
+    });
+
+    it('debería avisar de la foto que iCloud no ha descargado, en vez de subir 0 bytes', async () => {
+      // iOS entrega un fichero vacío cuando la foto sólo está en la nube. El
+      // servidor respondía 422 y el usuario leía "formato no válido".
+      const vacia = new File([], 'IMG_0043.JPG', { type: 'image/jpeg' });
+      component.onFileChange({ target: { files: [vacia], value: '' } } as unknown as Event);
+      await esperarConversion();
+
+      httpMock.expectNone(`${environment.apiUrl}/upload/image`);
+      expect(component.mensajeError()).toContain('iCloud');
+    });
+
+    it('debería enseñar la casilla en cuanto se elige la foto, sin esperar a convertirla', async () => {
+      // Convertir una foto de 48 MP tarda segundos en un iPhone: sin la casilla
+      // con su indicador de carga parecía que elegir la foto no hacía nada.
+      conCanvasQueConvierte();
+
+      elegir('IMG_0042.HEIC', 'image/heic');
+
+      expect(component.slots()).toHaveLength(1);
+      expect(component.slots()[0].uploading).toBe(true);
+
+      await esperarConversion();
+      const req = httpMock.expectOne(`${environment.apiUrl}/upload/image`);
+      req.flush({ url: 'https://cdn.doogking.com/foto.jpg' });
       await fixture.whenStable();
     });
 
@@ -248,18 +279,16 @@ describe('RsImageUploadComponent', () => {
     });
   });
 
-  it('debería ofrecer las fotos del carrete en el selector del sistema', () => {
+  it('no debería pedir HEIC en el selector, para que iOS entregue la foto ya convertida', () => {
     /*
-     * Con una lista cerrada de tipos MIME, iOS deja en gris buena parte del
-     * carrete: Safari no siempre sabe qué tipo tiene una foto hasta abrirla y
-     * descarta lo que no encaja. Un accept genérico más las extensiones de
-     * iPhone deja elegir cualquiera; del formato se encarga el servidor.
+     * iOS convierte la foto del carrete a JPEG al entregarla salvo que la página
+     * declare que acepta HEIC. Declararlo hacía que Safari mandase el original y
+     * dejaba la conversión en manos del navegador, que es justo donde fallaba.
+     * El comodín no vacía el selector: eso pasa con listas cerradas de tipos.
      */
     fixture.detectChanges();
     const input: HTMLInputElement = fixture.nativeElement.querySelector('input[type="file"]');
 
-    expect(input.accept).toContain('image/*');
-    expect(input.accept).toContain('.heic');
-    expect(input.accept).toContain('.heif');
+    expect(input.accept).toBe('image/*');
   });
 });

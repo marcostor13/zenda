@@ -1,4 +1,6 @@
-import { MAX_SUBIDA_BYTES, esHeic, pareceImagen, prepararImagen } from './preparar-imagen';
+import {
+  MAX_SUBIDA_BYTES, esHeic, pareceImagen, prepararImagen, problemaDeSubida,
+} from './preparar-imagen';
 
 describe('preparar-imagen', () => {
   /** Fichero con el nombre, el tipo y el peso que indique cada caso. */
@@ -185,6 +187,56 @@ describe('preparar-imagen', () => {
       await expect(prepararImagen(original)).resolves.toBe(original);
     });
 
+    it('debería reintentar sin opciones si el navegador no conoce la orientación', async () => {
+      /*
+       * `imageOrientation: 'from-image'` sólo existe desde Safari 16, Chrome 112
+       * y Firefox 111: antes lanzan TypeError al validar el diccionario, no lo
+       * ignoran. En iOS 15 la conversión moría aquí y la foto de iPhone se subía
+       * en HEIC crudo.
+       */
+      const canvas = simularCanvas({ ancho: 100, alto: 80, tamano: 10 });
+      canvas.decodificar
+        .mockRejectedValueOnce(new TypeError('imageOrientation desconocida'))
+        .mockResolvedValue({ width: 100, height: 80, close: jest.fn() });
+
+      const convertido = await prepararImagen(fichero('IMG_0042.HEIC', 'image/heic'));
+
+      expect(canvas.decodificar).toHaveBeenCalledTimes(2);
+      expect(canvas.decodificar.mock.calls[1]).toHaveLength(1);
+      expect(convertido.type).toBe('image/jpeg');
+    });
+
+    it('debería dejar holgura por debajo del tope, que el servidor compara con <', async () => {
+      // `MaxFileSizeValidator` rechaza un fichero de exactamente 5 MB. Apuntar
+      // al filo devolvía un 422 que en pantalla se leía como "formato no válido".
+      const canvas = simularCanvas({ ancho: 4032, alto: 3024, tamano: MAX_SUBIDA_BYTES - 1 });
+
+      await prepararImagen(fichero('IMG_0042.HEIC', 'image/heic'));
+
+      expect(canvas.calidades.length).toBeGreaterThan(1);
+    });
+
+    it('debería procesar un JPEG que se queda justo en el tope', async () => {
+      simularCanvas({ ancho: 4032, alto: 3024, tamano: 1000 });
+      const alFilo = fichero('IMG_0100.jpg', 'image/jpeg', MAX_SUBIDA_BYTES);
+
+      const preparado = await prepararImagen(alFilo);
+
+      expect(preparado).not.toBe(alFilo);
+    });
+
+    it('debería tirar de una etiqueta img cuando el navegador no tiene createImageBitmap', async () => {
+      // Safari < 15 y las WebViews antiguas de Android no traen la API. Sin este
+      // respaldo, ahí no se convertía ni se reducía absolutamente nada.
+      const canvas = simularCanvas({ ancho: 4032, alto: 3024, tamano: 10 }, { conEtiquetaImg: true });
+      delete (global as unknown as Record<string, unknown>)['createImageBitmap'];
+
+      const convertido = await prepararImagen(fichero('IMG_0042.HEIC', 'image/heic'));
+
+      expect(convertido.type).toBe('image/jpeg');
+      expect(Math.max(...canvas.dimensiones[0])).toBeLessThanOrEqual(2560);
+    });
+
     it('debería liberar el bitmap siempre, aunque el volcado falle', async () => {
       // Un bitmap sin cerrar retiene la foto entera en memoria; en un móvil, con
       // varias fotos seguidas, eso acaba en pestaña recargada.
@@ -193,6 +245,31 @@ describe('preparar-imagen', () => {
       await prepararImagen(fichero('IMG_0042.HEIC', 'image/heic'));
 
       expect(canvas.cerrado).toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * Última verja antes de gastar una petición. Los tres casos son fallos reales
+   * de fotos de iPhone que hasta ahora acababan en un 422 del servidor o en una
+   * imagen que sólo se veía desde Safari.
+   */
+  describe('problemaDeSubida', () => {
+    it('debería dar por buena una imagen convertida y ligera', () => {
+      expect(problemaDeSubida(fichero('foto.jpg', 'image/jpeg', 1000))).toBeNull();
+    });
+
+    it('debería detectar la foto que iCloud no ha descargado', () => {
+      expect(problemaDeSubida(fichero('IMG_0043.JPG', 'image/jpeg', 0))).toBe('vacio');
+    });
+
+    it('debería detectar el HEIC que no se pudo convertir', () => {
+      // Subirlo dejaría la ficha con una imagen invisible fuera de Safari.
+      expect(problemaDeSubida(fichero('IMG_0042.HEIC', 'image/heic', 1000))).toBe('sin_convertir');
+    });
+
+    it('debería detectar lo que no cabe ni tras comprimirlo', () => {
+      const enorme = fichero('panoramica.jpg', 'image/jpeg', MAX_SUBIDA_BYTES);
+      expect(problemaDeSubida(enorme)).toBe('demasiado_grande');
     });
   });
 
@@ -213,6 +290,7 @@ describe('preparar-imagen', () => {
    */
   function simularCanvas(
     opciones: { ancho: number; alto: number; tamano: number | null },
+    extra: { conEtiquetaImg?: boolean } = {},
   ): CanvasSimulado {
     const registro: CanvasSimulado = {
       dimensiones: [],
@@ -228,7 +306,24 @@ describe('preparar-imagen', () => {
 
     global.createImageBitmap = registro.decodificar as never;
 
+    if (extra.conEtiquetaImg) {
+      // jsdom no carga imágenes: sin esto la promesa del respaldo no se resuelve.
+      URL.createObjectURL = jest.fn(() => 'blob:simulado');
+      URL.revokeObjectURL = jest.fn();
+    }
+
     jest.spyOn(document, 'createElement').mockImplementation((etiqueta: string) => {
+      if (etiqueta === 'img' && extra.conEtiquetaImg) {
+        const img = {
+          naturalWidth: opciones.ancho,
+          naturalHeight: opciones.alto,
+          onload: null as (() => void) | null,
+          onerror: null as (() => void) | null,
+          set src(_url: string) { setTimeout(() => img.onload?.(), 0); },
+        };
+        return img as unknown as HTMLElement;
+      }
+
       if (etiqueta !== 'canvas') {
         return Object.getPrototypeOf(document).createElement.call(document, etiqueta) as HTMLElement;
       }

@@ -17,13 +17,34 @@
  *     unos 16,7 Mpx: dibujar ahí una foto de 48 MP no da error, devuelve una
  *     imagen en blanco. Por eso hay que reducir *antes* de dibujar.
  *
- * Se procesa lo mínimo: un JPEG que ya cabe se sube tal cual. Si algo falla se
- * devuelve el fichero original —el servidor acepta HEIC como último recurso—
- * porque subir algo imperfecto es mejor que no poder subir.
+ *  4. **Orientación.** `imageOrientation: 'from-image'` sólo existe desde
+ *     Safari 16, Chrome 112 y Firefox 111. Antes de esas versiones el navegador
+ *     lanza un TypeError al validar el diccionario en vez de ignorar la opción,
+ *     así que en iOS 15 la conversión moría antes de empezar y la foto se subía
+ *     en HEIC crudo. Por eso hay un reintento sin opciones.
+ *
+ * Se procesa lo mínimo: un JPEG que ya cabe se sube tal cual. Si la conversión
+ * no sale, se devuelve el original y es `problemaDeSubida` quien decide: subir
+ * un HEIC sin convertir deja la foto rota para todo el que no entre desde un
+ * iPhone, que es peor que un aviso claro.
  */
 
 /** Tope de `POST /upload/image`. Debe seguir al del controlador del API. */
 export const MAX_SUBIDA_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Holgura que se deja por debajo del tope del endpoint.
+ *
+ * `MaxFileSizeValidator` de Nest compara con `<`, no con `<=`: un fichero de
+ * exactamente 5 MB se rechaza con un 422 que aquí se leía como "formato no
+ * válido". Apuntar por debajo evita quedarse justo en el filo.
+ */
+const MARGEN_BYTES = 128 * 1024;
+
+/** Peso al que se apunta al comprimir, dado el tope que acepta el endpoint. */
+function objetivoDe(limite: number): number {
+  return Math.max(1, limite - MARGEN_BYTES);
+}
 
 /**
  * Lado máximo del resultado. 2560 px cubre cualquier pantalla y un zoom
@@ -46,7 +67,12 @@ const AREA_MAX = 4096 * 4096;
 const INTENTOS: readonly { readonly escala: number; readonly calidad: number }[] = [
   { escala: 1, calidad: 0.9 },
   { escala: 1, calidad: 0.72 },
-  { escala: 0.6, calidad: 0.72 },
+  { escala: 0.75, calidad: 0.7 },
+  { escala: 0.55, calidad: 0.65 },
+  // Último recurso para panorámicas y capturas enormes: antes la lista se
+  // acababa antes de que la foto cupiera y se subía igual, para que el
+  // servidor la rechazara con un 422.
+  { escala: 0.4, calidad: 0.6 },
 ];
 
 /** Tipos que anuncia iOS para una foto del carrete, según versión y origen. */
@@ -92,8 +118,8 @@ function conExtension(nombre: string, extension: string): string {
  * calidad. Se interviene cuando el navegador de destino no sabría pintarlo
  * (HEIC) o cuando no cabría en la petición.
  */
-function necesitaProceso(fichero: File, maxBytes: number): boolean {
-  return esHeic(fichero) || fichero.size > maxBytes;
+function necesitaProceso(fichero: File, objetivo: number): boolean {
+  return esHeic(fichero) || fichero.size > objetivo;
 }
 
 /**
@@ -127,9 +153,18 @@ function extensionDe(tipo: string): string {
   return tipo === 'image/png' ? 'png' : 'jpg';
 }
 
-/** Dibuja el bitmap al tamaño pedido y lo vuelca al formato indicado. */
+/** Imagen ya decodificada, venga de donde venga, lista para pintar en el canvas. */
+interface Decodificada {
+  readonly fuente: CanvasImageSource;
+  readonly ancho: number;
+  readonly alto: number;
+  /** Libera la memoria del bitmap o el blob URL de la etiqueta img. */
+  liberar(): void;
+}
+
+/** Dibuja la imagen al tamaño pedido y la vuelca al formato indicado. */
 async function volcar(
-  bitmap: ImageBitmap,
+  imagen: Decodificada,
   ancho: number,
   alto: number,
   tipo: string,
@@ -142,20 +177,91 @@ async function volcar(
   const contexto = canvas.getContext('2d');
   if (!contexto) throw new Error('Canvas 2D no disponible');
 
-  contexto.drawImage(bitmap, 0, 0, ancho, alto);
+  contexto.drawImage(imagen.fuente, 0, 0, ancho, alto);
 
   return new Promise<Blob | null>((resolver) => canvas.toBlob(resolver, tipo, calidad));
 }
 
 /**
- * Decodifica respetando la orientación EXIF.
+ * Decodifica con `createImageBitmap`, pidiendo la orientación EXIF y
+ * reintentando sin ella si el navegador no la conoce.
  *
- * Sin `from-image`, una foto tomada en vertical con el móvil se dibuja tumbada:
- * el sensor la guarda apaisada y la rotación vive sólo en los metadatos, que el
- * canvas descarta.
+ * `imageOrientation: 'from-image'` sólo existe desde Safari 16, Chrome 112 y
+ * Firefox 111 (datos de MDN). Antes de esas versiones el navegador **lanza un
+ * TypeError** al validar el diccionario de opciones, no lo ignora: en iOS 15 la
+ * conversión moría aquí y la foto se subía en crudo. El reintento sin opciones
+ * pierde la rotación automática, que es mucho menos grave que no poder subir.
  */
-function decodificar(fichero: File): Promise<ImageBitmap> {
-  return createImageBitmap(fichero, { imageOrientation: 'from-image' });
+async function conCreateImageBitmap(fichero: File): Promise<Decodificada> {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(fichero, { imageOrientation: 'from-image' });
+  } catch {
+    bitmap = await createImageBitmap(fichero);
+  }
+
+  return {
+    fuente: bitmap,
+    ancho: bitmap.width,
+    alto: bitmap.height,
+    liberar: () => bitmap.close(),
+  };
+}
+
+/** Tope de espera de la decodificación por etiqueta: un `img` colgado no avisa. */
+const ESPERA_DECODIFICACION_MS = 15000;
+
+/**
+ * Respaldo para navegadores sin `createImageBitmap` (Safari < 15, WebViews
+ * antiguas de Android). Usa los mismos decodificadores del sistema, así que no
+ * sirve para rescatar un formato que `createImageBitmap` no supo abrir: sólo
+ * cubre la ausencia de la API.
+ */
+function conEtiquetaImagen(fichero: File): Promise<Decodificada> {
+  return new Promise<Decodificada>((resolver, rechazar) => {
+    if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+      rechazar(new Error('Sin URL.createObjectURL'));
+      return;
+    }
+
+    const url = URL.createObjectURL(fichero);
+    const imagen = document.createElement('img');
+
+    const temporizador = setTimeout(() => {
+      URL.revokeObjectURL(url);
+      rechazar(new Error('La decodificación tardó demasiado'));
+    }, ESPERA_DECODIFICACION_MS);
+
+    imagen.onload = () => {
+      clearTimeout(temporizador);
+      resolver({
+        fuente: imagen,
+        ancho: imagen.naturalWidth,
+        alto: imagen.naturalHeight,
+        liberar: () => URL.revokeObjectURL(url),
+      });
+    };
+    imagen.onerror = () => {
+      clearTimeout(temporizador);
+      URL.revokeObjectURL(url);
+      rechazar(new Error('El navegador no sabe pintar este formato'));
+    };
+
+    imagen.src = url;
+  });
+}
+
+/**
+ * Decodifica respetando la orientación EXIF cuando el navegador la entiende.
+ *
+ * Sin la orientación, una foto tomada en vertical con el móvil se dibuja
+ * tumbada: el sensor la guarda apaisada y la rotación vive sólo en los
+ * metadatos, que el canvas descarta.
+ */
+function decodificar(fichero: File): Promise<Decodificada> {
+  return typeof createImageBitmap === 'function'
+    ? conCreateImageBitmap(fichero)
+    : conEtiquetaImagen(fichero);
 }
 
 /**
@@ -166,19 +272,22 @@ export async function prepararImagen(
   fichero: File,
   maxBytes: number = MAX_SUBIDA_BYTES,
 ): Promise<File> {
-  if (!necesitaProceso(fichero, maxBytes)) return fichero;
+  const objetivo = objetivoDe(maxBytes);
+  if (!necesitaProceso(fichero, objetivo)) return fichero;
 
-  let bitmap: ImageBitmap;
+  let imagen: Decodificada;
   try {
-    bitmap = await decodificar(fichero);
+    imagen = await decodificar(fichero);
   } catch {
-    // Chrome y Firefox no decodifican HEIC. Que decida el servidor, que también
-    // lo acepta, en vez de dejar al usuario sin poder subir su foto.
+    // El navegador no sabe abrir este formato (un HEIC fuera de Safari). Se
+    // devuelve el original; quien llama decide qué hacer con él —ver
+    // `problemaDeSubida`—, porque subir un HEIC sin convertir deja la foto
+    // rota para todo el que no entre desde un iPhone.
     return fichero;
   }
 
   try {
-    const base = encajar(bitmap.width, bitmap.height);
+    const base = encajar(imagen.ancho, imagen.alto);
     let tipo = formatoDestino(fichero);
     let mejor: Blob | null = null;
 
@@ -186,11 +295,11 @@ export async function prepararImagen(
       const ancho = Math.max(1, Math.round(base.ancho * intento.escala));
       const alto = Math.max(1, Math.round(base.alto * intento.escala));
 
-      const blob = await volcar(bitmap, ancho, alto, tipo, intento.calidad);
+      const blob = await volcar(imagen, ancho, alto, tipo, intento.calidad);
       if (!blob) break;
 
       mejor = blob;
-      if (blob.size <= maxBytes) break;
+      if (blob.size <= objetivo) break;
 
       /*
        * Un PNG ignora la calidad, así que repetirla no sirve de nada: si sigue
@@ -209,6 +318,32 @@ export async function prepararImagen(
   } catch {
     return fichero;
   } finally {
-    bitmap.close();
+    imagen.liberar();
   }
+}
+
+/** Qué impide subir este fichero, o `null` si está listo. */
+export type ProblemaSubida = 'vacio' | 'sin_convertir' | 'demasiado_grande';
+
+/**
+ * Revisa el resultado de `prepararImagen` antes de gastar una petición.
+ *
+ * Los tres casos son fallos reales vistos con fotos de iPhone:
+ *
+ *  - **vacío**: la foto vive en iCloud y no está descargada en el dispositivo;
+ *    iOS entrega un fichero de 0 bytes sin avisar de nada.
+ *  - **sin convertir**: sigue siendo HEIC porque el navegador no supo abrirlo.
+ *    El servidor lo aceptaría, pero la ficha quedaría con una imagen que sólo
+ *    se ve desde Safari.
+ *  - **demasiado grande**: ni con la última pasada de compresión cabe. Subirlo
+ *    sólo sirve para recibir un 422 que el usuario lee como "formato no válido".
+ */
+export function problemaDeSubida(
+  fichero: File,
+  maxBytes: number = MAX_SUBIDA_BYTES,
+): ProblemaSubida | null {
+  if (fichero.size === 0) return 'vacio';
+  if (esHeic(fichero)) return 'sin_convertir';
+  if (fichero.size > objetivoDe(maxBytes)) return 'demasiado_grande';
+  return null;
 }

@@ -18,7 +18,7 @@ import { celdasDelMes, claveDia, desdeClaveDia, hoyLocal } from '../../shared/fe
 /** Tope de `POST /upload/documento`. Debe seguir al del controlador del API. */
 const MAX_DOCUMENTO_BYTES = 10 * 1024 * 1024;
 import { environment } from '../../../environments/environment';
-import { pareceImagen, prepararImagen } from '../../shared/media/preparar-imagen';
+import { pareceImagen, prepararImagen, problemaDeSubida } from '../../shared/media/preparar-imagen';
 import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, ExcepcionHorario, DocumentoVerificacion } from './comercio-api.service';
 
 type TabConfig =
@@ -915,7 +915,7 @@ type UrlImagen = string | null;
             <!-- Subida real del fichero: pegar una URL a mano no lo hacía nadie (TCK-8028) -->
             <label class="subir-doc">
               <input type="file"
-                     accept="application/pdf,image/*,.pdf,.heic,.heif"
+                     accept="application/pdf,image/*,.pdf"
                      (change)="subirDocumento($event)" />
               <span class="rs-btn rs-btn--outline rs-btn--sm">
                 <rs-icon name="download" [size]="13" [stroke]="2"></rs-icon>
@@ -1738,9 +1738,19 @@ export class ComercioConfigComponent implements OnInit {
        * Safari, y una del carrete de un modelo Pro se pasa de los 10 MB. Los PDF
        * pasan intactos: no son imágenes y no hay nada que convertir.
        */
-      const fichero = pareceImagen(elegido)
+      const esImagen = pareceImagen(elegido);
+      const fichero = esImagen
         ? await prepararImagen(elegido, MAX_DOCUMENTO_BYTES)
         : elegido;
+
+      // Un fichero vacío o un HEIC sin convertir sólo sirven para recibir un
+      // 422 que el comercio lee como "formato no válido" (ver el mismo control
+      // en `rs-image-upload`).
+      const problema = esImagen ? problemaDeSubida(fichero, MAX_DOCUMENTO_BYTES) : null;
+      if (problema) {
+        this.errorDoc.set(this.textoDelProblemaDoc(problema));
+        return;
+      }
 
       const datos = new FormData();
       datos.append('file', fichero);
@@ -1754,6 +1764,17 @@ export class ComercioConfigComponent implements OnInit {
       this.subiendoDoc.set(false);
       input.value = '';
     }
+  }
+
+  /** Por qué no se puede enviar la foto del documento, en cristiano. */
+  private textoDelProblemaDoc(problema: 'vacio' | 'sin_convertir' | 'demasiado_grande'): string {
+    if (problema === 'vacio') {
+      return 'Ese archivo llegó vacío. Si la foto está en iCloud, ábrela primero en la app Fotos para que se descargue al móvil.';
+    }
+    if (problema === 'sin_convertir') {
+      return 'No hemos podido convertir esa foto de iPhone (HEIC). Elígela desde la app Fotos, o cambia en Ajustes › Cámara › Formatos a «Más compatible».';
+    }
+    return 'El archivo pesa demasiado incluso después de reducirlo. Debe quedar por debajo de 10 MB.';
   }
   readonly caracteresDescripcion = signal(0);
 

@@ -19,7 +19,9 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { environment } from '../../../../environments/environment';
-import { MAX_SUBIDA_BYTES, pareceImagen, prepararImagen } from '../../media/preparar-imagen';
+import {
+  MAX_SUBIDA_BYTES, ProblemaSubida, pareceImagen, prepararImagen, problemaDeSubida,
+} from '../../media/preparar-imagen';
 
 interface ImageSlot {
   id: string;
@@ -66,7 +68,8 @@ interface ImageSlot {
             Arrastra {{ multiple ? 'imágenes' : 'una imagen' }} aquí o
             <button type="button" class="upload-link" (click)="fileInput.click()">haz clic para seleccionar</button>
           </p>
-          <p class="upload-meta">JPEG, PNG, WebP, HEIC · Max 5 MB{{ multiple ? ' · Hasta ' + maxFiles + ' imágenes' : '' }}</p>
+          <p class="upload-meta">JPEG, PNG o WebP · Máx 5 MB{{ multiple ? ' · Hasta ' + maxFiles + ' imágenes' : '' }}</p>
+          <p class="upload-meta">Las fotos de iPhone se convierten solas.</p>
         </div>
       } @else {
         <div class="image-grid" (click)="$event.stopPropagation()">
@@ -120,16 +123,22 @@ interface ImageSlot {
     }
 
     <!--
-      accept amplio a propósito. Con una lista cerrada de tipos MIME, el
-      selector de iOS deja en gris buena parte del carrete: Safari no siempre
-      sabe qué tipo tiene una foto hasta abrirla, y descarta lo que no encaja.
-      Un accept genérico más las extensiones deja elegir cualquier foto; del
-      formato ya se encarga el servidor, que mira los bytes de verdad.
+      Sólo el comodín de imagen, y esto es deliberado.
+
+      iOS convierte la foto del carrete a JPEG al entregarla SALVO que la página
+      declare que acepta HEIC. Al listar aquí las extensiones .heic y .heif le
+      estábamos diciendo justo eso, así que Safari entregaba el HEIC original y
+      toda la conversión quedaba en manos del navegador. Sin esas extensiones la
+      hace iOS, que es quien mejor sabe hacerlo.
+
+      El comodín no vacía el selector de iOS —eso pasa con listas cerradas de
+      tipos MIME, del estilo image/jpeg,image/png—, y quien tenga un HEIC en el
+      escritorio lo puede seguir arrastrando: el drop no mira accept.
     -->
     <input
       #fileInput
       type="file"
-      accept="image/*,.heic,.heif"
+      accept="image/*"
       style="display:none"
       [multiple]="multiple"
       (change)="onFileChange($event)" />
@@ -328,10 +337,7 @@ export class RsImageUploadComponent
 
   removeSlot(id: string): void {
     const slot = this.slots().find(s => s.id === id);
-    if (slot?.isBlob) {
-      URL.revokeObjectURL(slot.previewUrl);
-      this.blobUrls = this.blobUrls.filter(u => u !== slot.previewUrl);
-    }
+    if (slot) this.olvidarPreview(slot);
     this.slots.update(s => s.filter(sl => sl.id !== id));
     if (!this.slots().some(sl => sl.error)) this.mensajeError.set('');
     this.emitValue();
@@ -343,44 +349,87 @@ export class RsImageUploadComponent
 
     // Callar un descarte deja al usuario mirando una pantalla que no reacciona.
     if (files.length && !imagenes.length) {
-      this.mensajeError.set('Ese archivo no es una imagen. Usa JPEG, PNG, WebP, GIF o HEIC.');
+      this.mensajeError.set('Ese archivo no es una imagen. Usa JPEG, PNG, WebP o GIF.');
       return;
     }
 
-    if (!this.multiple) {
-      await this.uploadFile(imagenes[0]);
-    } else {
-      const remaining = this.maxFiles - this.slots().length;
-      const toUpload = imagenes.slice(0, remaining);
-      await Promise.all(toUpload.map(f => this.uploadFile(f)));
+    const restantes = this.multiple ? this.maxFiles - this.slots().length : 1;
+    const aSubir = imagenes.slice(0, Math.max(0, restantes));
+
+    const enVuelo: Promise<void>[] = [];
+    for (const original of aSubir) {
+      /*
+       * La preparación va de una en una. Decodificar varias fotos de 12 MP a la
+       * vez agota la memoria de un iPhone y Safari recarga la pestaña sin más;
+       * el envío, que no consume memoria, sí se solapa.
+       */
+      const listo = await this.prepararSlot(original);
+      if (listo) enVuelo.push(this.enviar(listo.id, listo.file));
     }
+
+    await Promise.all(enVuelo);
   }
 
-  private async uploadFile(original: File): Promise<void> {
-    if (!original) return;
-
-    /*
-     * Conversión y reescalado antes de nada (ver `shared/media/preparar-imagen.ts`):
-     * un HEIC en crudo sólo lo pinta Safari, y una foto de móvil sin reducir se
-     * pasa del límite de 5 MB del endpoint. Un JPEG que ya cabe no se toca.
-     */
-    const file = await prepararImagen(original, MAX_SUBIDA_BYTES);
+  /**
+   * Crea la casilla, prepara la imagen y comprueba que se puede subir.
+   *
+   * La casilla se crea **antes** de preparar: convertir una foto de 48 MP en un
+   * iPhone tarda varios segundos y hasta ahora no se veía nada durante ese rato,
+   * así que parecía que elegir la foto no hacía nada.
+   */
+  private async prepararSlot(original: File): Promise<{ id: string; file: File } | null> {
+    if (!original) return null;
 
     const id = this.uid();
-    const previewUrl = URL.createObjectURL(file);
-    this.blobUrls.push(previewUrl);
-
     const slot: ImageSlot = {
-      id, previewUrl, uploadedUrl: null, uploading: true, error: '', isBlob: true,
+      id,
+      previewUrl: this.registrarPreview(original),
+      uploadedUrl: null,
+      uploading: true,
+      error: '',
+      isBlob: true,
     };
 
     if (!this.multiple) {
+      this.slots().forEach(sl => this.olvidarPreview(sl));
       this.slots.set([slot]);
     } else {
       this.slots.update(s => [...s, slot]);
     }
     this.onValidatorChange();
 
+    /*
+     * Conversión y reescalado (ver `shared/media/preparar-imagen.ts`): un HEIC
+     * en crudo sólo lo pinta Safari, y una foto de móvil sin reducir se pasa del
+     * límite del endpoint. Un JPEG que ya cabe no se toca.
+     */
+    let file = original;
+    try {
+      file = await prepararImagen(original, MAX_SUBIDA_BYTES);
+    } catch {
+      file = original;
+    }
+
+    const problema = problemaDeSubida(file, MAX_SUBIDA_BYTES);
+    if (problema) {
+      this.marcarFallo(id, original, this.textoDelProblema(problema));
+      return null;
+    }
+
+    // La vista previa del original no se pinta fuera de Safari si era un HEIC:
+    // se cambia por la de la imagen ya convertida.
+    if (file !== original) {
+      this.slots.update(s => s.map(sl => {
+        if (sl.id !== id) return sl;
+        this.olvidarPreview(sl);
+        return { ...sl, previewUrl: this.registrarPreview(file) };
+      }));
+    }
+
+    return { id, file };
+  }
+
+  private async enviar(id: string, file: File): Promise<void> {
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -394,13 +443,43 @@ export class RsImageUploadComponent
       this.emitValue();
       this.onTouched();
     } catch (error) {
-      this.pendientes.set(id, file);
-      this.slots.update(s =>
-        s.map(sl => sl.id === id ? { ...sl, uploading: false, error: 'Error al subir' } : sl),
-      );
-      this.mensajeError.set(this.textoDelError(error));
-      this.emitValue();
+      this.marcarFallo(id, file, this.textoDelError(error));
     }
+  }
+
+  /** Deja la casilla en error y guarda el fichero por si se reintenta. */
+  private marcarFallo(id: string, fichero: File, mensaje: string): void {
+    this.pendientes.set(id, fichero);
+    this.slots.update(s =>
+      s.map(sl => sl.id === id ? { ...sl, uploading: false, error: 'Error al subir' } : sl),
+    );
+    this.mensajeError.set(mensaje);
+    this.emitValue();
+  }
+
+  /** Qué contarle al usuario cuando la foto no llega siquiera a enviarse. */
+  private textoDelProblema(problema: ProblemaSubida): string {
+    if (problema === 'vacio') {
+      return 'Esa foto llegó vacía. Si está guardada en iCloud, ábrela primero en la app Fotos para que se descargue al móvil y vuelve a intentarlo.';
+    }
+    if (problema === 'sin_convertir') {
+      return 'No hemos podido convertir esta foto de iPhone (HEIC). Elígela desde la app Fotos, o cambia en Ajustes › Cámara › Formatos a «Más compatible».';
+    }
+    return 'La foto pesa demasiado incluso después de reducirla. Prueba con otra o hazle una captura.';
+  }
+
+  /** Crea la vista previa y la anota para revocarla al destruir el componente. */
+  private registrarPreview(fichero: File): string {
+    const url = URL.createObjectURL(fichero);
+    this.blobUrls.push(url);
+    return url;
+  }
+
+  /** Libera la vista previa de una casilla que se sustituye o desaparece. */
+  private olvidarPreview(slot: ImageSlot): void {
+    if (!slot.isBlob) return;
+    URL.revokeObjectURL(slot.previewUrl);
+    this.blobUrls = this.blobUrls.filter(u => u !== slot.previewUrl);
   }
 
   /** Traduce el fallo HTTP a algo que el usuario pueda entender y accionar. */
