@@ -319,4 +319,18 @@ describe('VerticalBrowseComponent', () => {
       expect(component.itemsOrdenados().map((c) => c.id)).toEqual(['a', 'b']);
     });
   });
+  /**
+   * Sin enlace en la tarjeta no hay forma de llegar al detalle de un comercio.
+   * Pasó con veterinaria y peluquería: el componente llevaba su propia lista de
+   * categorías con ficha y se quedó desfasada.
+   */
+  describe('enlace a la ficha del comercio', () => {
+    for (const vertical of ['veterinaria', 'peluqueria', 'adiestramiento', 'hoteles', 'seguros', 'cuidadores']) {
+      it(`deberia enlazar la tarjeta a la ficha en ${vertical}`, async () => {
+        await crearComponente(vertical);
+
+        expect(component.enlaceAServicio(vertical, 's1')).toEqual([`/${vertical}`, 's1']);
+      });
+    }
+  });
 });

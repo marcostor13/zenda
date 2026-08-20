@@ -9,7 +9,7 @@ import { RsCardComponent, type CardAmenity, type CardBadge } from '../../shared/
 import { conIconos } from '../../shared/catalogos/amenity-iconos';
 import { RsChipComponent } from '../../shared/components/chip/rs-chip.component';
 import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
-import { VerticalUi, verticalUi } from '../../shared/verticales/verticales.config';
+import { VerticalUi, enlaceAServicio, verticalUi } from '../../shared/verticales/verticales.config';
 import {
   CatalogBrowseService, FacetasCatalogo, OpcionesBusqueda, OrdenServicios, PuntoServicio,
   ServicioCard, ZonaBusqueda,
@@ -56,8 +56,6 @@ interface VerticalConfig {
    * que cada listado pareciese otra pantalla.
    */
   incluye?: (c: ServicioCard) => string[];
-  /** true = la tarjeta enlaza a su ficha de detalle (Fase 4); false = sigue yendo directo a "solicitar". */
-  tieneFicha?: boolean;
 }
 
 /** Distintivos comunes a cualquier categoria, leidos del dato real. */
@@ -141,7 +139,6 @@ const CONFIGS: Record<string, VerticalConfig> = {
       `Desde ${(c.extra['edadMinimaMeses'] as number) ?? 3} meses`,
     ],
     price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
-    tieneFicha: true,
   },
   hoteles: {
     vertical: 'hoteles',
@@ -155,7 +152,6 @@ const CONFIGS: Record<string, VerticalConfig> = {
       `${((c.extra['serviciosPetfriendly'] as string[] | undefined) ?? [])[0] ?? 'Servicios pet-friendly'}`,
     ],
     price: (c) => c.precioPorNoche,
-    tieneFicha: true,
   },
   cuidadores: {
     vertical: 'cuidadores',
@@ -261,8 +257,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
           [amenities]="serviciosDe(c)"
           [destacados]="incluyeDe(c)"
           [favoritoServicioId]="c.id"
-          [routerLink]="cfg().tieneFicha ? [ui().route, c.id] : null"
-          [ctaLabel]="cfg().tieneFicha ? 'Ver ficha' : cfg().cta"
+          [routerLink]="enlaceAServicio(cfg().vertical, c.id)"
+          ctaLabel="Ver ficha"
           [mensaje]="solicitadoId() === c.id ? cfg().confirmMsg : ''"
           (ctaClick)="solicitar(c)">
         </rs-card>
@@ -362,6 +358,17 @@ export class VerticalBrowseComponent implements OnInit {
   private readonly filtros = signal<FiltrosSeleccionados>({ vertical: {} });
 
   readonly mapaAbierto = signal(false);
+  /**
+   * Enlace a la ficha del servicio.
+   *
+   * Sale de `verticales.config`, que es donde se sabe qué categorías tienen
+   * ficha. Este componente llevaba su propia lista (`tieneFicha`), y al añadir
+   * las fichas de veterinaria y peluquería se actualizó la del config pero no
+   * ésta: las tarjetas se quedaron sin enlace y no había forma de entrar al
+   * detalle de esos comercios.
+   */
+  readonly enlaceAServicio = enlaceAServicio;
+
   readonly cargandoMapa = signal(false);
   private readonly puntos = signal<PuntoServicio[]>([]);
   private readonly zona = signal<ZonaBusqueda | null>(null);

@@ -54,6 +54,24 @@ describe('estandarización de las categorías', () => {
     }
   });
 
+  it('el listado no debería llevar su propia lista de categorías con ficha', () => {
+    /*
+     * El listado tenía un flag `tieneFicha` en cada configuración, aparte del
+     * de `verticales.config`. Al dar ficha a veterinaria y peluquería se
+     * actualizó uno y no el otro, así que las rutas existían pero las tarjetas
+     * se quedaron sin enlace: seguía sin poder entrarse al detalle.
+     *
+     * La comprobación es sobre el texto a propósito: lo que hay que impedir es
+     * que vuelva a haber dos sitios donde saberlo.
+     */
+    const browse = readFileSync(join(__dirname, 'vertical-browse.component.ts'), 'utf-8');
+    // Sin comentarios: el porqué del cambio sí puede nombrar el flag retirado.
+    const codigo = browse.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+    expect(codigo).not.toContain('tieneFicha');
+    expect(codigo).toContain('enlaceAServicio(cfg().vertical');
+  });
+
   it('debería conservar la ficha propia de alojamiento', () => {
     // Tiene pantalla propia (espacios, políticas, reseñas): la genérica no la
     // sustituye, sólo cubre a las que no tienen una.
