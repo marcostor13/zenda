@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { fotoDeLugar } from '../../shared/media/images';
 import { LugarApi, LugaresService } from './lugares.service';
 
 /**
@@ -36,7 +37,7 @@ import { LugarApi, LugaresService } from './lugares.service';
         <li>
           <a class="ec__card" [routerLink]="['/explora', l._id]">
             <div class="ec__img">
-              <img [src]="l.fotos[0]" [alt]="l.nombre" loading="lazy" rsImg />
+              <img [src]="foto(l)" [alt]="l.nombre" loading="lazy" rsImg />
             </div>
             <span class="ec__tipo">{{ etiqueta(l.tipo) }}</span>
             <strong>{{ l.nombre }}</strong>
@@ -118,6 +119,11 @@ export class ExperienciasCercaComponent {
       const ciudad = this.ciudad();
       void this.cargar(ciudad);
     });
+  }
+
+  /** Foto propia si la hay; si no, una de ambiente de su tipo. */
+  foto(lugar: LugarApi): string {
+    return fotoDeLugar(lugar, 400);
   }
 
   etiqueta(tipo: TipoLugar): string {

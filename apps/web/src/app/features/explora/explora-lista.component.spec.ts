@@ -182,9 +182,26 @@ describe('ExploraListaComponent', () => {
 
       // GeoJSON guarda [lng, lat]; el mapa espera lat primero. Invertirlo mal
       // colocaría Valencia en mitad del Índico.
-      expect(componente.puntosMapa()).toEqual([
-        { id: 'l1', lat: 39.4699, lng: -0.3763, etiqueta: 'Playa canina', titulo: 'Playa canina' },
+      expect(componente.puntosMapa()[0]).toMatchObject({
+        id: 'l1', lat: 39.4699, lng: -0.3763, titulo: 'Playa canina',
+      });
+    });
+
+    it('deberia llevar al pin lo que se enseña al pasar el raton por encima', async () => {
+      // El pin es un icono: sin la tarjeta, recorrer el mapa obligaba a pulsar
+      // uno a uno para saber qué era cada sitio.
+      await crear({}, [
+        lugar({
+          _id: 'l1',
+          ubicacion: { ciudad: 'Valencia', geo: { type: 'Point', coordinates: [-0.3763, 39.4699] } },
+        }),
       ]);
+
+      const punto = componente.puntosMapa()[0];
+      expect(punto.subtitulo).toBe('Valencia');
+      expect(punto.etiqueta).toBe('Playa canina');
+      expect(punto.imagen).toBeTruthy();
+      expect(punto.vertical).toBe('explora');
     });
 
     it('debería descartar los lugares sin coordenadas', async () => {

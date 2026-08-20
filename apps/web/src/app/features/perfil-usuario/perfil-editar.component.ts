@@ -1,4 +1,4 @@
-import { Component, signal, inject, computed, OnInit, effect } from '@angular/core';
+import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators, FormControl } from '@angular/forms';
@@ -10,6 +10,14 @@ import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { environment } from '../../../environments/environment';
+
+/** Lo que devuelve `GET /users/me`; la sesión sólo trae una parte. */
+interface PerfilUsuario {
+  nombre: string;
+  email?: string;
+  telefono?: string;
+  avatarUrl?: string;
+}
 
 @Component({
   selector: 'app-perfil-editar',
@@ -164,44 +172,84 @@ export class PerfilEditarComponent implements OnInit {
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly usuario = this.auth.usuario;
+  readonly cargando = signal(true);
   readonly guardando = signal(false);
   readonly errorMsg = signal('');
   readonly exito = signal(false);
 
-  readonly avatarControl = new FormControl<string[]>([], { nonNullable: true });
+  /**
+   * Perfil completo, tal como lo guarda el API.
+   *
+   * Hace falta pedirlo: la sesión de `AuthService` sólo lleva nombre, email y
+   * rol, así que el teléfono y el avatar **no estaban en ninguna parte** y la
+   * pantalla abría siempre en blanco. El usuario rellenaba el teléfono, lo
+   * guardaba, volvía a entrar y lo veía vacío otra vez.
+   */
+  private readonly perfil = signal<PerfilUsuario | null>(null);
+
+  /**
+   * Con `[multiple]="false"`, `rs-image-upload` emite **la URL suelta**, no un
+   * array (ver su `emitValue`). Tipar esto como `string[]` hacía que
+   * `value[0]` devolviera la primera letra de la URL: el perfil se guardaba
+   * con un avatar que era literalmente la cadena "h".
+   */
+  readonly avatarControl = new FormControl<string | null>(null);
 
   readonly iniciales = computed(() => {
-    const nombre = this.usuario()?.nombre ?? '';
+    const nombre = this.perfil()?.nombre ?? this.usuario()?.nombre ?? '';
     return nombre.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
   });
 
   /** El `FormControl` no es una señal: sin esto la vista previa seguiría
    *  mostrando la foto antigua después de subir una nueva. */
-  private readonly avatarSubido = toSignal(this.avatarControl.valueChanges, { initialValue: [] as string[] });
+  private readonly avatarSubido = toSignal(this.avatarControl.valueChanges, { initialValue: null });
 
-  readonly avatarPreview = computed(() => {
-    const uploaded = this.avatarSubido()[0] ?? null;
-    return uploaded ?? (this.usuario() as unknown as { avatarUrl?: string })?.avatarUrl ?? null;
-  });
+  readonly avatarPreview = computed(() => this.avatarSubido() ?? this.perfil()?.avatarUrl ?? null);
 
   readonly form = this.fb.group({
     nombre:   ['', [Validators.required, Validators.minLength(2)]],
     telefono: [''],
   });
 
-  constructor() {
-    effect(() => {
-      const u = this.usuario();
-      if (u) {
-        this.form.patchValue({
-          nombre:   u.nombre,
-          telefono: (u as unknown as { telefono?: string }).telefono ?? '',
-        });
-      }
-    });
+  async ngOnInit(): Promise<void> {
+    await this.cargarPerfil();
   }
 
-  ngOnInit(): void {}
+  /**
+   * Trae el perfil guardado y rellena el formulario.
+   *
+   * No se hace en un `effect` sobre la sesión, como antes: `actualizarDatosLocales`
+   * la modifica al guardar, el efecto volvía a dispararse y machacaba el
+   * teléfono recién escrito con la cadena vacía. Parecía que no se guardaba.
+   */
+  private async cargarPerfil(): Promise<void> {
+    try {
+      const perfil = await firstValueFrom(
+        this.http.get<PerfilUsuario>(`${environment.apiUrl}/users/me`),
+      );
+      this.aplicarPerfil(perfil);
+    } catch {
+      // Sin el perfil se puede seguir editando: se parte de lo que hay en la
+      // sesión y se guarda igual.
+      const sesion = this.usuario();
+      if (sesion) this.form.patchValue({ nombre: sesion.nombre });
+      this.errorMsg.set('No hemos podido cargar tus datos. Revisa lo que hay antes de guardar.');
+    } finally {
+      this.cargando.set(false);
+    }
+  }
+
+  private aplicarPerfil(perfil: PerfilUsuario): void {
+    this.perfil.set(perfil);
+    this.form.patchValue({
+      nombre: perfil.nombre ?? '',
+      telefono: perfil.telefono ?? '',
+    });
+    // `emitEvent: false` para que la vista previa siga saliendo de `perfil()`:
+    // el control sólo debe avisar cuando el usuario sube una foto nueva.
+    this.avatarControl.setValue(perfil.avatarUrl ?? null, { emitEvent: false });
+    this.form.markAsPristine();
+  }
 
   hasErr(campo: string): boolean {
     const c = this.form.get(campo);
@@ -214,17 +262,27 @@ export class PerfilEditarComponent implements OnInit {
     this.errorMsg.set('');
     this.exito.set(false);
 
-    const payload: Record<string, unknown> = { ...this.form.getRawValue() };
-    const uploadedAvatar = this.avatarControl.value[0];
-    if (uploadedAvatar) payload['avatarUrl'] = uploadedAvatar;
+    const { nombre, telefono } = this.form.getRawValue();
+    const avatarUrl = this.avatarControl.value;
 
     try {
-      const updated = await firstValueFrom(
-        this.http.patch<{ nombre: string; telefono?: string; avatarUrl?: string }>(
-          `${environment.apiUrl}/users/me`, payload,
-        ),
+      const actualizado = await firstValueFrom(
+        this.http.patch<PerfilUsuario>(`${environment.apiUrl}/users/me`, {
+          nombre,
+          telefono,
+          // Sólo si hay foto: mandar `null` haría que el API la borrase.
+          ...(avatarUrl ? { avatarUrl } : {}),
+        }),
       );
-      this.auth.actualizarDatosLocales({ nombre: updated.nombre });
+
+      this.aplicarPerfil(actualizado);
+      /*
+       * La sesión también se pone al día: el nombre y el avatar salen en la
+       * barra de navegación, y sin esto seguían siendo los de antes hasta
+       * cerrar y volver a entrar.
+       */
+      this.auth.actualizarDatosLocales({ nombre: actualizado.nombre });
+
       this.exito.set(true);
       setTimeout(() => this.exito.set(false), 3000);
     } catch {

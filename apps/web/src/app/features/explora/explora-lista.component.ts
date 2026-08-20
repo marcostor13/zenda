@@ -4,6 +4,7 @@ import { TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { fotoDeLugar } from '../../shared/media/images';
 import { RsMapaComponent, type PuntoMapa } from '../../shared/components/mapa/rs-mapa.component';
 import { LugarApi, LugaresService } from './lugares.service';
 
@@ -117,7 +118,7 @@ const ICONOS: Record<TipoLugar, string> = {
           @for (l of lugares(); track l._id) {
             <a class="ex-card" [routerLink]="['/explora', l._id]">
               <div class="ex-card__img">
-                <img [src]="l.fotos[0]" [alt]="l.nombre" loading="lazy" rsImg />
+                <img [src]="foto(l)" [alt]="l.nombre" loading="lazy" rsImg />
                 <span class="ex-card__tipo">{{ etiqueta(l.tipo) }}</span>
               </div>
               <div class="ex-card__body">
@@ -270,7 +271,16 @@ export class ExploraListaComponent implements OnInit {
       .filter((l) => l.ubicacion.geo?.coordinates?.length === 2)
       .map((l) => {
         const [lng, lat] = l.ubicacion.geo!.coordinates;
-        return { id: l._id, lat, lng, etiqueta: l.nombre, titulo: l.nombre };
+        return {
+          id: l._id, lat, lng,
+          titulo: l.nombre,
+          // Lo que va bajo el titulo en la tarjeta del pin: donde esta y de que tipo.
+          etiqueta: this.etiqueta(l.tipo),
+          subtitulo: l.ubicacion.ciudad,
+          imagen: fotoDeLugar(l, 320),
+          rating: l.totalReviews ? l.ratingPromedio : undefined,
+          vertical: 'explora',
+        };
       }),
   );
 
@@ -294,6 +304,16 @@ export class ExploraListaComponent implements OnInit {
 
   etiqueta(tipo: TipoLugar): string {
     return TIPO_LUGAR_LABELS[tipo];
+  }
+
+  /**
+   * Foto de la ficha. La que haya subido la comunidad manda; si no, una de
+   * ambiente del tipo de sitio (ver `fotoDeLugar`). Antes se leía `fotos[0]`
+   * a pelo y, como el censo llega sin fotos, las cien tarjetas salían con la
+   * misma imagen de respaldo.
+   */
+  foto(lugar: LugarApi): string {
+    return fotoDeLugar(lugar);
   }
 
   icono(tipo: TipoLugar): string {

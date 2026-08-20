@@ -11,9 +11,19 @@ const marcadorFalso = () => {
     addTo: jest.fn(() => marcador),
     on: jest.fn(() => marcador),
     bindPopup: jest.fn(() => marcador),
+    openPopup: jest.fn(() => marcador),
+    closePopup: jest.fn(() => marcador),
+    getPopup: jest.fn(() => ({ getElement: () => null })),
     remove: jest.fn(),
   };
   return marcador;
+};
+
+/** Dispara el manejador que el motor registró para un evento del marcador. */
+const lanzar = (marcador: ReturnType<typeof marcadorFalso>, evento: string): void => {
+  for (const [nombre, manejador] of marcador.on.mock.calls) {
+    if (nombre === evento) (manejador as () => void)();
+  }
 };
 
 const mapaFalso = {
@@ -160,5 +170,70 @@ describe('crearMotorLeaflet', () => {
 
     expect(mapaFalso.invalidateSize).toHaveBeenCalled();
     expect(mapaFalso.remove).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Tarjeta al pasar el ratón. Con los pines convertidos en iconos, el nombre del
+ * sitio ya no se lee en el mapa: sin esto habría que pulsar uno a uno.
+ */
+describe('MotorLeaflet · tarjeta al pasar el raton', () => {
+  const opciones = (): OpcionesMotor => ({
+    lienzo: document.createElement('div'),
+    centro: [40.4, -3.7],
+    zoom: 12,
+    zoomConRueda: true,
+  });
+
+  const escuchas = (): EscuchasMotor => ({ alMoverse: jest.fn(), alElegirPunto: jest.fn() });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    marcadores.length = 0;
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  it('deberia abrir la tarjeta al entrar el puntero', async () => {
+    const motor = await crearMotorLeaflet(opciones(), escuchas());
+    motor.pintar(PUNTOS, null);
+
+    lanzar(marcadores[0], 'mouseover');
+
+    expect(marcadores[0].openPopup).toHaveBeenCalled();
+  });
+
+  it('deberia cerrarla al salir, pero no de golpe', async () => {
+    // Entre el pin y la tarjeta hay unos pixeles de mapa: cerrar al instante
+    // impedia llegar a leerla.
+    const motor = await crearMotorLeaflet(opciones(), escuchas());
+    motor.pintar(PUNTOS, null);
+
+    lanzar(marcadores[0], 'mouseout');
+    expect(marcadores[0].closePopup).not.toHaveBeenCalled();
+
+    jest.runAllTimers();
+    expect(marcadores[0].closePopup).toHaveBeenCalled();
+  });
+
+  it('no deberia cerrarla si el puntero vuelve antes de tiempo', async () => {
+    const motor = await crearMotorLeaflet(opciones(), escuchas());
+    motor.pintar(PUNTOS, null);
+
+    lanzar(marcadores[0], 'mouseout');
+    lanzar(marcadores[0], 'mouseover');
+    jest.runAllTimers();
+
+    expect(marcadores[0].closePopup).not.toHaveBeenCalled();
+  });
+
+  it('deberia seguir avisando al pulsar, que es lo que vale en tactil', async () => {
+    const oyentes = escuchas();
+    const motor = await crearMotorLeaflet(opciones(), oyentes);
+    motor.pintar(PUNTOS, null);
+
+    lanzar(marcadores[0], 'click');
+
+    expect(oyentes.alElegirPunto).toHaveBeenCalledWith('a1');
   });
 });

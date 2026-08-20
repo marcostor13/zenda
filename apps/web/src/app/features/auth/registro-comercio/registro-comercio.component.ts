@@ -465,6 +465,9 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
     }
     .rc__pitch {
       font-family: var(--font-display);
+      /* El color va explícito: sin él, el h2 hereda el azul de marca de la
+         regla global de encabezados y se perdía sobre el navy del panel. */
+      color: #fff;
       font-size: var(--f-xl); font-weight: var(--w-8); line-height: 1.3; letter-spacing: -.02em;
       margin: var(--sp-4) 0 var(--sp-6);
     }

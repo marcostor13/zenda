@@ -232,12 +232,13 @@ type SearchMode = 'filtros' | 'ia';
       </div>
 
       <!-- Banda fotográfica emocional entre el título y las tarjetas (PDF §6).
-           TODO(D-3): sustituir por la fotografía de "familia disfrutando con su
-           mascota" que aporte el cliente — basta con cambiar este fichero. -->
+           La foto vive en BANDA_POR_QUE: para cambiarla basta con tocar ese
+           fichero, no este. -->
       <figure class="why-banner" rsAnim>
         <picture>
           <source media="(min-width: 641px)" [srcset]="bandaPorQueEscritorio" />
-          <img [src]="bandaPorQue" alt="Momento de disfrute con una mascota" loading="lazy" rsImg />
+          <img [src]="bandaPorQue" alt="Una familia en el parque con su perro y un cachorro"
+               loading="lazy" rsImg />
         </picture>
       </figure>
 
@@ -960,22 +961,24 @@ type SearchMode = 'filtros' | 'ia';
 
       picture { display: block; }
 
-      /* La banda ocupa el ancho completo (~1.4k) y la foto es apaisada 1.75:1,
-         así que el alto decide cuánto se recorta. A 240px solo sobrevivía un
-         30% del original y el perro quedaba partido; 320px deja ver la figura
-         entera, y el encuadre se sube un poco para no cortarle la cabeza. */
+      /* La banda ocupa el ancho completo (~1.4k), así que el alto es lo único
+         que decide cuánto se recorta la foto. A 320px salía una tira de 4,4:1
+         donde las personas se quedaban sin cabeza: ese formato sólo aguanta un
+         paisaje. A 440px la proporción baja a ~3:1 y la escena se lee entera.
+         El 32% está medido sobre el recorte real de la foto actual; cambiarla
+         obliga a revisarlo. */
       img {
         display: block;
         width: 100%;
-        height: 320px;
+        height: 440px;
         object-fit: cover;
-        object-position: center 42%;
+        object-position: center 32%;
       }
 
-      @media (max-width: 1024px) { img { height: 260px; } }
-      /* En móvil la banda ya es casi tan apaisada como la foto: no hace falta
-         corregir el encuadre y se usa el hero de siempre. */
-      @media (max-width: 640px) { img { height: 160px; object-position: center; } }
+      @media (max-width: 1024px) { img { height: 340px; } }
+      /* En móvil el ancho baja mucho más que el alto, así que la banda deja de
+         ser una tira y la foto respira sola. */
+      @media (max-width: 640px) { img { height: 220px; } }
     }
 
     .why__eyebrow {
@@ -1634,12 +1637,10 @@ export class HomeComponent implements OnInit {
   readonly logoMark = BRAND.logoMark;
   readonly logoFooter = BRAND.logoFooter;
 
-  /* Placeholders a la espera del material del cliente (D-3): sustituir la
-     imagen equivale a cambiar la ruta aquí. */
   /**
-   * Banda del bloque "¿Por qué Doogking.com?". En escritorio se cambia la foto
-   * porque la banda es ahí mucho más apaisada: con el hero, el recorte dejaba
-   * al perro descolocado en lugar de centrado.
+   * Banda del bloque "¿Por qué Doogking.com?". Escritorio y móvil llevan tomas
+   * distintas porque la banda es ahí mucho más apaisada: con un mismo original,
+   * el recorte dejaba a los sujetos descolocados en vez de centrados.
    */
   readonly bandaPorQue = BANDA_POR_QUE.movil;
   readonly bandaPorQueEscritorio = BANDA_POR_QUE.escritorio;

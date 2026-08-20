@@ -61,7 +61,12 @@ export function htmlTarjeta(punto: PuntoMapa): string | null {
     ? `<span class="rs-mapa-pop__precio">${escapar(punto.etiqueta)}</span>`
     : '';
 
+  const subtitulo = punto.subtitulo
+    ? `<span class="rs-mapa-pop__sub">${escapar(punto.subtitulo)}</span>`
+    : '';
+
   return `<div class="rs-mapa-pop">${imagen}`
     + `<span class="rs-mapa-pop__titulo">${escapar(punto.titulo)}</span>`
+    + subtitulo
     + `<span class="rs-mapa-pop__meta">${nota}${precio}</span></div>`;
 }

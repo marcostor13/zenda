@@ -6,6 +6,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsStarsComponent } from '../../shared/components/stars/rs-stars.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { fotoDeLugar } from '../../shared/media/images';
 import { rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { LugarApi, LugarReviewApi, LugaresService } from './lugares.service';
 
@@ -67,12 +68,24 @@ const ATRIBUTO_LABELS: Record<string, string> = {
         }
       </header>
 
+      <!--
+        Con fotos propias se enseñan todas; sin ellas, una de ambiente del tipo
+        de sitio para que la ficha no abra con un hueco. No se hace pasar por
+        una foto del lugar: el pie lo dice.
+      -->
       @if (lugar()!.fotos.length) {
         <div class="ed-fotos">
           @for (f of lugar()!.fotos.slice(0, 4); track f) {
             <img [src]="f" [alt]="lugar()!.nombre" loading="lazy" rsImg />
           }
         </div>
+      } @else {
+        <figure class="ed-fotos ed-fotos--ambiente">
+          <img [src]="fotoAmbiente()" [alt]="" aria-hidden="true" loading="lazy" rsImg />
+          <figcaption>
+            Imagen de ambiente. ¿Has estado aquí? Sube tu foto y ayuda a los demás.
+          </figcaption>
+        </figure>
       }
 
       @if (lugar()!.descripcion) {
@@ -178,6 +191,18 @@ const ATRIBUTO_LABELS: Record<string, string> = {
       @media (max-width: 640px) { grid-template-columns: repeat(2, 1fr); }
     }
 
+    /* Sin fotos propias: una sola imagen apaisada, no una rejilla de cuadrados
+       repetidos, y con el pie que aclara que es de ambiente. */
+    .ed-fotos--ambiente {
+      display: block;
+
+      img { aspect-ratio: 21 / 9; }
+    }
+    .ed-fotos--ambiente figcaption {
+      margin-top: var(--sp-2);
+      font-size: var(--f-xs); color: var(--t-400);
+    }
+
     .ed-desc { color: var(--t-300); line-height: 1.7; max-width: 72ch; margin-bottom: var(--sp-6); }
 
     .ed-bloque { margin-block: var(--sp-8); }
@@ -225,6 +250,16 @@ export class ExploraDetalleComponent implements OnInit {
   private readonly lugaresService = inject(LugaresService);
 
   readonly lugar = signal<LugarApi | null>(null);
+
+  /**
+   * Foto de ambiente del tipo de sitio, para cuando el lugar no tiene ninguna
+   * propia. No es una foto del sitio y la ficha lo dice: el censo trae más de
+   * cien municipios que nadie ha fotografiado todavia.
+   */
+  readonly fotoAmbiente = computed(() => {
+    const l = this.lugar();
+    return l ? fotoDeLugar(l, 1200) : '';
+  });
   readonly reviews = signal<LugarReviewApi[]>([]);
   readonly cargando = signal(true);
 

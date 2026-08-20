@@ -110,13 +110,23 @@ export const ALOJAMIENTO_IMAGES = HOTEL_IMAGES;
 /**
  * Banda fotográfica del bloque "¿Por qué Doogking.com?".
  *
- * Dos encuadres a propósito: en escritorio la banda es muy apaisada y recorta
- * casi todo el alto del original, así que necesita una foto con el perro
- * centrado; en móvil la banda es casi cuadrada y admite el hero habitual.
+ * Una familia con su perro, no un perro solo: el bloque explica por qué elegir
+ * Doogking, y lo que se vende es la tranquilidad de quien deja a su animal en
+ * buenas manos. Un retrato canino ilustraba el producto; esto ilustra al
+ * cliente (feedback 2026-08-20).
+ *
+ * La misma toma en los dos tamaños, sólo que pedida al CDN con el ancho que
+ * cada uno necesita. Antes eran dos fotos distintas porque la banda de
+ * escritorio recortaba tanto que ninguna aguantaba; eso se arregló dándole alto
+ * a la banda (ver `.why-banner`), así que ya no hace falta la doble versión.
+ *
+ * El encuadre está comprobado sobre el recorte real: a `center 32%` caben las
+ * dos caras, el perro y el cachorro. Si algún día se cambia la foto, hay que
+ * volver a mirar esa cifra.
  */
 export const BANDA_POR_QUE = {
-  movil: '/images/hero-home.jpg',
-  escritorio: '/images/alojamiento-exterior.jpg',
+  movil: pexels(5763545, 900),
+  escritorio: pexels(5763545, 1800),
 } as const;
 
 /**
@@ -132,6 +142,64 @@ export const MOTIVOS_IMAGES = {
   verificados: '/images/alojamiento-interior.jpg',
   atencion: pexels(2607544, 640),
 } as const;
+
+/**
+ * Fotos de ambiente de `/explora`, agrupadas por tipo de lugar.
+ *
+ * **No son fotos del sitio concreto**, y es importante no venderlas como tal:
+ * el censo trae más de cien fichas municipales ("Zona canina de Bétera") de las
+ * que nadie ha hecho una foto todavía. Poner una playa cualquiera y llamarla
+ * "Playa canina de Dénia" engañaría a quien conduce hasta allí.
+ *
+ * Lo que hacen es dar identidad visual al tipo de sitio —agua, hierba, terraza,
+ * monte— para que la rejilla no sea la misma imagen de respaldo repetida cien
+ * veces. En cuanto alguien sube una foto de verdad, `fotos[0]` manda (ver
+ * `fotoDeLugar`).
+ *
+ * Ids del CDN de Pexels, cuya licencia permite el uso comercial sin atribución.
+ */
+export const EXPLORA_IMAGES: Record<string, readonly number[]> = {
+  playa: [29546033, 9157298, 6744288, 17551980, 14958840, 18868411],
+  rio: [32264343, 32264341, 24375044, 33145147, 24375033, 32320054],
+  parque: [12265349, 36275896, 6729124, 38478448, 15413574],
+  restaurante: [32544529, 21952862, 30070537, 144608],
+  ruta: [28593498, 9810766, 19880821, 32949053, 36192733],
+};
+
+/** Pool de respaldo para un tipo que todavía no tenga el suyo. */
+const EXPLORA_GENERICO = EXPLORA_IMAGES['parque'];
+
+/**
+ * Reparte los ids de un pool de forma estable a partir del identificador del
+ * lugar. Con un índice o un aleatorio, la misma ficha cambiaría de foto al
+ * reordenar la lista o al recargar; con el id, siempre le toca la misma.
+ */
+function indiceEstable(clave: string, total: number): number {
+  let suma = 0;
+  for (let i = 0; i < clave.length; i++) suma = (suma * 31 + clave.charCodeAt(i)) % 100000;
+  return suma % total;
+}
+
+/** Datos mínimos que hacen falta para elegir la foto de un lugar. */
+export interface LugarConFoto {
+  readonly _id: string;
+  readonly tipo: string;
+  readonly fotos?: readonly string[];
+}
+
+/**
+ * Foto con la que se pinta un lugar de `/explora`.
+ *
+ * La real gana siempre; si no la hay, una del pool de su tipo, elegida de forma
+ * estable para que cada ficha tenga la suya y no cambie entre visitas.
+ */
+export function fotoDeLugar(lugar: LugarConFoto, width = 800): string {
+  const propia = lugar.fotos?.[0];
+  if (propia) return propia;
+
+  const pool = EXPLORA_IMAGES[lugar.tipo] ?? EXPLORA_GENERICO;
+  return pexels(pool[indiceEstable(lugar._id, pool.length)], width);
+}
 
 /** Imágenes de fondo escénicas (perros / naturaleza). */
 export const BG_IMAGES = {

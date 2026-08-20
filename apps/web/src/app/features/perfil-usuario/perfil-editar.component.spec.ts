@@ -6,19 +6,37 @@ import { signal } from '@angular/core';
 import { PerfilEditarComponent } from './perfil-editar.component';
 import { AuthService } from '../../core/auth/auth.service';
 
+/**
+ * La sesión de `AuthService` sólo lleva nombre, email y rol: **no** el teléfono
+ * ni el avatar. El doble antiguo los incluía, y por eso los tests no vieron que
+ * la pantalla abría siempre en blanco.
+ */
+const SESION = { id: 'u1', nombre: 'Ana Ruiz', email: 'ana@doogking.com', rol: 'cliente' };
+
 describe('PerfilEditarComponent', () => {
   let fixture: ComponentFixture<PerfilEditarComponent>;
   let componente: PerfilEditarComponent;
   let httpMock: HttpTestingController;
   let auth: Record<string, unknown> & { actualizarDatosLocales: jest.Mock };
 
-  const crear = async (usuario: Record<string, unknown> | null = { nombre: 'Ana Ruiz', telefono: '600000000' }): Promise<void> => {
+  const peticionPerfil = () => httpMock.expectOne((r) => r.url.includes('/users/me'));
+
+  /**
+   * Monta el componente y responde a la carga del perfil.
+   *
+   * `perfil: null` deja fallar esa petición, para comprobar que la pantalla
+   * sigue siendo usable sin ella.
+   */
+  const crear = async (
+    perfil: Record<string, unknown> | null = { nombre: 'Ana Ruiz', telefono: '600000000' },
+    sesion: Record<string, unknown> | null = SESION,
+  ): Promise<void> => {
     auth = {
-      usuario: signal(usuario),
-      estaAutenticado: signal(usuario !== null),
+      usuario: signal(sesion),
+      estaAutenticado: signal(sesion !== null),
       esAdmin: signal(false),
       esComercio: signal(false),
-      esCliente: signal(usuario !== null),
+      esCliente: signal(sesion !== null),
       clienteVerificado: signal(false),
       actualizarDatosLocales: jest.fn(),
       logout: jest.fn(),
@@ -37,15 +55,22 @@ describe('PerfilEditarComponent', () => {
     fixture = TestBed.createComponent(PerfilEditarComponent);
     componente = fixture.componentInstance;
     fixture.detectChanges();
+
+    if (perfil) {
+      peticionPerfil().flush(perfil);
+    } else {
+      peticionPerfil().flush({ message: 'nope' }, { status: 500, statusText: 'Server Error' });
+    }
+
     await fixture.whenStable();
     fixture.detectChanges();
-    // El <rs-navbar> embebido pide sus propios contadores (mascotas, favoritos,
-    // próxima reserva, reseñas pendientes, nivel Alpha) cuando hay sesión; se
-    // drenan aquí para no interferir con las peticiones que sí le importan a este spec.
-    if (usuario !== null) {
+
+    // El <rs-navbar> embebido pide sus propios contadores cuando hay sesión; se
+    // drenan aquí para no interferir con lo que sí le importa a este spec.
+    if (sesion !== null) {
       const respuestas: Record<string, unknown[] | null> = {
         '/favoritos/ids': [], '/perros/mis': [], '/reservas/proxima': null,
-        '/reviews/pendientes': [], '/alpha/mi-estado': null,
+        '/reviews/pendientes': [], '/alpha/mi-estado': null, '/reviews?': [],
       };
       for (const [url, cuerpo] of Object.entries(respuestas)) {
         httpMock.match((r) => r.url.includes(url)).forEach((req) => req.flush(cuerpo));
@@ -53,24 +78,46 @@ describe('PerfilEditarComponent', () => {
     }
   };
 
-  const peticion = () => httpMock.expectOne((r) => r.url.includes('/users/me'));
-
   afterEach(() => {
     fixture?.destroy();
     httpMock.verify();
   });
 
   describe('carga del perfil', () => {
-    it('debería precargar el formulario con los datos actuales', async () => {
+    it('debería pedir el perfil guardado al abrir', async () => {
+      // La sesión no lleva teléfono ni avatar: sin esta petición no hay forma
+      // de saberlos y la pantalla abría vacía.
       await crear();
 
       expect(componente.form.getRawValue()).toEqual({ nombre: 'Ana Ruiz', telefono: '600000000' });
     });
 
-    it('debería dejar el formulario vacío sin usuario', async () => {
-      await crear(null);
+    it('debería traer el teléfono del API, no de la sesión', async () => {
+      await crear({ nombre: 'Ana Ruiz', telefono: '655444333' });
 
-      expect(componente.form.getRawValue().nombre).toBe('');
+      expect(componente.form.getRawValue().telefono).toBe('655444333');
+    });
+
+    it('debería mostrar el avatar guardado', async () => {
+      await crear({ nombre: 'Ana', avatarUrl: 'https://cdn.doogking.com/avatar.png' });
+
+      expect(componente.avatarPreview()).toBe('https://cdn.doogking.com/avatar.png');
+    });
+
+    it('debería dejar el control del avatar con la URL entera', async () => {
+      // Estaba tipado como string[] y `value[0]` devolvía la primera letra de
+      // la URL: el perfil se guardaba con un avatar que era la cadena "h".
+      await crear({ nombre: 'Ana', avatarUrl: 'https://cdn.doogking.com/avatar.png' });
+
+      expect(componente.avatarControl.value).toBe('https://cdn.doogking.com/avatar.png');
+    });
+
+    it('debería preferir la imagen recién subida sobre la guardada', async () => {
+      await crear({ nombre: 'Ana', avatarUrl: '/antiguo.png' });
+
+      componente.avatarControl.setValue('/nuevo.png');
+
+      expect(componente.avatarPreview()).toBe('/nuevo.png');
     });
 
     it('debería componer las iniciales del nombre', async () => {
@@ -79,18 +126,12 @@ describe('PerfilEditarComponent', () => {
       expect(componente.iniciales()).toBe('AR');
     });
 
-    it('debería mostrar el avatar guardado', async () => {
-      await crear({ nombre: 'Ana', avatarUrl: '/avatar.png' });
+    it('debería seguir siendo usable si el perfil no carga', async () => {
+      await crear(null);
 
-      expect(componente.avatarPreview()).toBe('/avatar.png');
-    });
-
-    it('debería preferir la imagen recién subida sobre la guardada', async () => {
-      await crear({ nombre: 'Ana', avatarUrl: '/antiguo.png' });
-
-      componente.avatarControl.setValue(['/nuevo.png']);
-
-      expect(componente.avatarPreview()).toBe('/nuevo.png');
+      expect(componente.form.getRawValue().nombre).toBe('Ana Ruiz');
+      expect(componente.errorMsg()).toContain('No hemos podido cargar');
+      expect(componente.cargando()).toBe(false);
     });
   });
 
@@ -121,25 +162,59 @@ describe('PerfilEditarComponent', () => {
       componente.form.patchValue({ nombre: 'Ana R.', telefono: '611111111' });
 
       const promesa = componente.guardar();
-      const req = peticion();
+      const req = peticionPerfil();
       expect(req.request.method).toBe('PATCH');
       expect(req.request.body).toEqual({ nombre: 'Ana R.', telefono: '611111111' });
-      req.flush({ nombre: 'Ana R.' });
+      req.flush({ nombre: 'Ana R.', telefono: '611111111' });
       await promesa;
 
       expect(componente.exito()).toBe(true);
       expect(componente.guardando()).toBe(false);
     });
 
-    it('debería adjuntar el avatar solo si se ha subido uno', async () => {
+    it('debería mandar la URL entera del avatar', async () => {
       await crear();
-      componente.avatarControl.setValue(['/nuevo.png']);
+      componente.avatarControl.setValue('https://cdn.doogking.com/nuevo.png');
 
       const promesa = componente.guardar();
-      const req = peticion();
-      expect(req.request.body.avatarUrl).toBe('/nuevo.png');
+      const req = peticionPerfil();
+      expect(req.request.body.avatarUrl).toBe('https://cdn.doogking.com/nuevo.png');
       req.flush({ nombre: 'Ana Ruiz' });
       await promesa;
+    });
+
+    it('no debería mandar avatarUrl si no hay foto', async () => {
+      // Un `null` haría que el API borrase la que hubiera.
+      await crear({ nombre: 'Ana Ruiz' });
+
+      const promesa = componente.guardar();
+      const req = peticionPerfil();
+      expect(req.request.body).not.toHaveProperty('avatarUrl');
+      req.flush({ nombre: 'Ana Ruiz' });
+      await promesa;
+    });
+
+    it('no debería borrar el teléfono recién guardado', async () => {
+      // Un effect sobre la sesión volvía a rellenar el formulario al guardar y
+      // dejaba el teléfono en blanco: parecía que no se había guardado.
+      await crear();
+      componente.form.patchValue({ telefono: '677888999' });
+
+      const promesa = componente.guardar();
+      peticionPerfil().flush({ nombre: 'Ana Ruiz', telefono: '677888999' });
+      await promesa;
+
+      expect(componente.form.getRawValue().telefono).toBe('677888999');
+    });
+
+    it('debería quedarse con lo que devuelve el API', async () => {
+      await crear();
+
+      const promesa = componente.guardar();
+      peticionPerfil().flush({ nombre: 'Ana Ruiz', telefono: '600000000', avatarUrl: '/a.png' });
+      await promesa;
+
+      expect(componente.avatarPreview()).toBe('/a.png');
     });
 
     it('debería refrescar el nombre en la sesión abierta', async () => {
@@ -147,7 +222,7 @@ describe('PerfilEditarComponent', () => {
       componente.form.patchValue({ nombre: 'Ana R.' });
 
       const promesa = componente.guardar();
-      peticion().flush({ nombre: 'Ana R.' });
+      peticionPerfil().flush({ nombre: 'Ana R.' });
       await promesa;
 
       // Sin esto, la barra superior seguiría mostrando el nombre antiguo.
@@ -158,7 +233,7 @@ describe('PerfilEditarComponent', () => {
       await crear();
 
       const promesa = componente.guardar();
-      peticion().flush({ message: 'error' }, { status: 500, statusText: 'Server Error' });
+      peticionPerfil().flush({ message: 'error' }, { status: 500, statusText: 'Server Error' });
       await promesa;
 
       expect(componente.errorMsg()).toContain('No se pudo actualizar');

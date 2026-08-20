@@ -5,6 +5,8 @@ export interface PuntoMapa {
   readonly lng: number;
   readonly etiqueta?: string;
   readonly titulo?: string;
+  /** Segunda línea de la tarjeta: la ciudad, la zona… Lo que sitúa al punto. */
+  readonly subtitulo?: string;
   /**
    * Categoría del servicio: decide qué icono lleva el pin. Sin ella el pin sale
    * con la huella genérica, que es preferible a disfrazarlo de otra categoría.

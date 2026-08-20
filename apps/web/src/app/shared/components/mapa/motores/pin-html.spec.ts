@@ -82,6 +82,23 @@ describe('htmlTarjeta', () => {
     expect(html).toContain('Residencia Las Rozas');
   });
 
+  it('debería situar el punto con su subtítulo cuando lo trae', () => {
+    // En /explora el nombre no basta: "Playa canina" hay en medio litoral.
+    const html = htmlTarjeta({ ...PUNTO, subtitulo: 'Dénia' }) ?? '';
+
+    expect(html).toContain('>Dénia<');
+  });
+
+  it('no debería dejar un hueco cuando no hay subtítulo', () => {
+    expect(htmlTarjeta(PUNTO) ?? '').not.toContain('rs-mapa-pop__sub');
+  });
+
+  it('debería escapar el subtítulo, que también viene del API', () => {
+    const html = htmlTarjeta({ ...PUNTO, subtitulo: '<script>x</script>' }) ?? '';
+
+    expect(html).not.toContain('<script>');
+  });
+
   it('debería omitir la nota cuando todavía no hay reseñas', () => {
     const html = htmlTarjeta({ ...PUNTO, rating: 0 }) ?? '';
 

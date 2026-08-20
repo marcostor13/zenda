@@ -96,7 +96,27 @@ class MotorLeaflet implements MotorMapa {
         .on('click', () => this.escuchas.alElegirPunto(punto.id));
 
       const tarjeta = htmlTarjeta(punto);
-      if (tarjeta) marcador.bindPopup(tarjeta, { closeButton: true, offset: [0, -6] });
+      if (tarjeta) {
+        marcador.bindPopup(tarjeta, { closeButton: true, offset: [0, -6] });
+
+        /*
+         * La tarjeta se abre al pasar por encima, no sólo al pulsar: con los
+         * pines convertidos en iconos, el nombre del sitio no se ve en el mapa
+         * y recorrerlo obligaba a pulsar uno a uno para saber qué era cada
+         * cosa.
+         *
+         * El cierre va con retardo para que el puntero pueda entrar en la
+         * propia tarjeta —a leer el texto o mirar la foto— sin que se le cierre
+         * a medio camino. En táctil no hay hover, así que el click sigue siendo
+         * el que manda.
+         */
+        marcador.on('mouseover', () => {
+          this.cancelarCierre();
+          marcador.openPopup();
+        });
+        marcador.on('mouseout', () => this.programarCierre(() => marcador.closePopup()));
+        marcador.on('popupopen', () => this.alAbrirTarjeta(marcador));
+      }
 
       this.marcadores.push(marcador);
     }
@@ -130,12 +150,47 @@ class MotorLeaflet implements MotorMapa {
   }
 
   destruir(): void {
+    this.cancelarCierre();
     this.limpiarMarcadores();
     this.mapa.remove();
   }
 
   private limpiarMarcadores(): void {
+    this.cancelarCierre();
     for (const marcador of this.marcadores) marcador.remove();
     this.marcadores = [];
+  }
+
+  /**
+   * Margen para llegar del pin a la tarjeta.
+   *
+   * Entre uno y otra hay unos píxeles de mapa: sin este respiro, la tarjeta se
+   * cierra justo cuando el usuario va a leerla.
+   */
+  private static readonly ESPERA_CIERRE_MS = 220;
+
+  private cierre: ReturnType<typeof setTimeout> | null = null;
+
+  private programarCierre(cerrar: () => void): void {
+    this.cancelarCierre();
+    this.cierre = setTimeout(cerrar, MotorLeaflet.ESPERA_CIERRE_MS);
+  }
+
+  private cancelarCierre(): void {
+    if (this.cierre === null) return;
+    clearTimeout(this.cierre);
+    this.cierre = null;
+  }
+
+  /**
+   * Mantiene la tarjeta abierta mientras el puntero esté dentro de ella y la
+   * cierra al salir, para que se pueda mirar la foto sin que desaparezca.
+   */
+  private alAbrirTarjeta(marcador: Marker): void {
+    const elemento = marcador.getPopup()?.getElement();
+    if (!elemento) return;
+
+    elemento.addEventListener('mouseenter', () => this.cancelarCierre());
+    elemento.addEventListener('mouseleave', () => this.programarCierre(() => marcador.closePopup()));
   }
 }

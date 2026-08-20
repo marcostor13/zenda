@@ -9,7 +9,11 @@ const MARGEN_ENCUADRE = 48;
 
 /** Pin colocado sobre el mapa; añade a la capa de Google la forma de retirarlo. */
 type Pin = google.maps.OverlayView & { destruir(): void };
-type ConstructorPin = new (punto: PuntoMapa, esActivo: boolean, alPulsar: () => void) => Pin;
+type ConstructorPin = new (
+  punto: PuntoMapa,
+  esActivo: boolean,
+  escuchas: { alPulsar: () => void; alEntrar: () => void; alSalir: () => void },
+) => Pin;
 
 /**
  * Mapa pintado con Google Maps JavaScript: es el proveedor que pide el cliente
@@ -69,7 +73,11 @@ class MotorGoogle implements MotorMapa {
     this.limpiarPines();
 
     for (const punto of puntosGeolocalizados(puntos)) {
-      const pin = new this.Pin(punto, punto.id === activo, () => this.alPulsarPin(punto));
+      const pin = new this.Pin(punto, punto.id === activo, {
+        alPulsar: () => this.alPulsarPin(punto),
+        alEntrar: () => this.mostrarTarjeta(punto),
+        alSalir: () => this.programarCierre(),
+      });
       pin.setMap(this.mapa);
       this.pines.push(pin);
     }
@@ -116,18 +124,48 @@ class MotorGoogle implements MotorMapa {
   }
 
   destruir(): void {
+    this.cancelarCierre();
     this.tarjeta.close();
     this.limpiarPines();
   }
 
   private alPulsarPin(punto: PuntoMapa): void {
     this.escuchas.alElegirPunto(punto.id);
+    this.mostrarTarjeta(punto);
+  }
+
+  /**
+   * Margen para llegar del pin a la tarjeta: entre uno y otra hay unos píxeles
+   * de mapa, y sin este respiro se cierra justo cuando se va a leer.
+   */
+  private static readonly ESPERA_CIERRE_MS = 220;
+
+  private cierre: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Abre la tarjeta del punto. La usan tanto el click como el paso del ratón:
+   * con los pines convertidos en iconos, el nombre del sitio no se ve en el
+   * mapa, y recorrerlo obligaba a pulsar uno a uno para saber qué era cada cosa.
+   */
+  private mostrarTarjeta(punto: PuntoMapa): void {
+    this.cancelarCierre();
 
     const contenido = htmlTarjeta(punto);
     if (!contenido) return;
     this.tarjeta.setContent(contenido);
     this.tarjeta.setPosition({ lat: punto.lat, lng: punto.lng });
     this.tarjeta.open({ map: this.mapa });
+  }
+
+  private programarCierre(): void {
+    this.cancelarCierre();
+    this.cierre = setTimeout(() => this.tarjeta.close(), MotorGoogle.ESPERA_CIERRE_MS);
+  }
+
+  private cancelarCierre(): void {
+    if (this.cierre === null) return;
+    clearTimeout(this.cierre);
+    this.cierre = null;
   }
 
   private limpiarPines(): void {
@@ -149,7 +187,7 @@ function definirPin(maps: typeof google.maps): ConstructorPin {
     constructor(
       private readonly punto: PuntoMapa,
       private readonly esActivo: boolean,
-      private readonly alPulsar: () => void,
+      private readonly escuchas: { alPulsar: () => void; alEntrar: () => void; alSalir: () => void },
     ) {
       super();
     }
@@ -160,8 +198,12 @@ function definirPin(maps: typeof google.maps): ConstructorPin {
       elemento.innerHTML = htmlPin(this.punto, this.esActivo);
       elemento.addEventListener('click', (evento) => {
         evento.stopPropagation();
-        this.alPulsar();
+        this.escuchas.alPulsar();
       });
+
+      // En táctil no hay hover, así que el click sigue siendo el que manda.
+      elemento.addEventListener('mouseenter', () => this.escuchas.alEntrar());
+      elemento.addEventListener('mouseleave', () => this.escuchas.alSalir());
 
       // `overlayMouseTarget` es la capa que recibe eventos de puntero; en las
       // de dibujo el pin se vería pero no se podría pulsar.

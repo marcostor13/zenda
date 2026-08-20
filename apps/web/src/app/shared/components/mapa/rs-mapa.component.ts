@@ -112,6 +112,10 @@ const ESPERA_MOVIMIENTO_MS = 400;
       display: block; font-size: 13px; font-weight: 700; color: var(--dk-blue);
       line-height: 1.3; margin-bottom: 2px;
     }
+    :host ::ng-deep .rs-mapa-pop__sub {
+      display: block; font-size: 12px; color: var(--t-400);
+      line-height: 1.3; margin-bottom: 3px;
+    }
     :host ::ng-deep .rs-mapa-pop__meta { font-size: 12px; color: var(--t-400); }
     :host ::ng-deep .rs-mapa-pop__nota {
       display: inline-block; padding: 1px 5px; margin-right: 2px;
