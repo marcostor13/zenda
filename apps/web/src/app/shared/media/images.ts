@@ -12,8 +12,14 @@ export const BRAND = {
   logo: '/images/logo-doogking.jpg',
   /** Logotipo sin la banda del eslogan — para heros donde el eslogan es texto. */
   logoMark: '/images/logo-doogking-mark.jpg',
-  /** Marca compacta: la inicial "D" (cabecera, favicon, avatares de marca). */
-  logoD: '/images/logo-doogking-d.svg',
+  /**
+   * Marca compacta: la inicial "D" (cabecera, favicon, avatares de marca).
+   *
+   * El ?v= es un rompe-cachés a mano: los ficheros de public/ conservan su
+   * nombre, así que cambiar el dibujo no cambia la URL y quien ya lo tuviera
+   * guardado seguía viendo el anterior. Al retocar la marca, sube el número.
+   */
+  logoD: '/images/logo-doogking-d.svg?v=2',
   /**
    * Logo del footer con el fondo ya recortado (PNG con alfa). Va aparte del
    * resto porque los huecos de las letras llevan pintado el navy del footer:

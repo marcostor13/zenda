@@ -75,7 +75,9 @@ describe('RsNavbarComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     const marca = el.querySelector('.rs-navbar__brand .rs-navbar__mark');
 
-    expect(marca?.getAttribute('src')).toBe('/images/logo-doogking-d.svg');
+    // Se comprueba el fichero, no la URL completa: lleva un ?v= que sube cada
+    // vez que se retoca el dibujo (ver BRAND.logoD).
+    expect(marca?.getAttribute('src')).toContain('/images/logo-doogking-d.svg');
     expect(el.querySelector('.rs-navbar__brand .rs-navbar__wordmark')).toBeTruthy();
   });
 

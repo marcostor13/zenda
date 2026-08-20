@@ -162,7 +162,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
           </div>
         } @else {
           <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm" i18n="@@navbar.ingresar">Ingresar</a>
-          <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm" i18n="@@navbar.comenzar">Comenzar</a>
+          <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm" i18n="@@navbar.comenzar">Hazte una cuenta</a>
         }
       </div>
 
@@ -221,7 +221,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
             </button>
           } @else {
             <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--block"   (click)="menuAbierto.set(false)">Ingresar</a>
-            <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Comenzar gratis</a>
+            <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Hazte una cuenta gratis</a>
           }
 
           <!-- El alta de comercio cierra el menú: es una acción secundaria para

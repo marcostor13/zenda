@@ -59,7 +59,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="navbar.comenzar" datatype="html">
-        <source>Comenzar</source>
+        <source>Hazte una cuenta</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/components/navbar/rs-navbar.component.ts</context>
           <context context-type="linenumber">92,94</context>

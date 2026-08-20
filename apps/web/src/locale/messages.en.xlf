@@ -35,8 +35,8 @@
         <target>Sign in</target>
       </trans-unit>
       <trans-unit id="navbar.comenzar" datatype="html">
-        <source>Comenzar</source>
-        <target>Get started</target>
+        <source>Hazte una cuenta</source>
+        <target>Create account</target>
       </trans-unit>
     </body>
   </file>
