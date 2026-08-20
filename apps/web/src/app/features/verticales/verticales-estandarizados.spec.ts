@@ -60,3 +60,69 @@ describe('estandarización de las categorías', () => {
     expect(alojamiento).toContain(':id');
   });
 });
+
+/**
+ * Alojamiento tiene su propia pantalla, así que su maquetación puede
+ * desincronizarse de la genérica sin que nada se rompa: es justo lo que pasó
+ * —la galería iba en una caja de 480px con las miniaturas en columna, y el
+ * titular y el panel de reserva arrancaban mucho más arriba que en el resto de
+ * categorías. Estas comprobaciones fijan lo que tiene que coincidir.
+ */
+describe('la ficha de alojamiento va al mismo ritmo que la genérica', () => {
+  const fichaAlojamiento = readFileSync(
+    join(RAIZ, 'features', 'alojamiento', 'components', 'alojamiento-detalle.component.ts'),
+    'utf-8',
+  );
+
+  /**
+   * Valor de una propiedad **dentro** del bloque de un selector.
+   *
+   * Se cuentan las llaves en vez de cortar por la primera: los bloques llevan
+   * media queries anidadas, y buscando a partir del selector sin más se acababa
+   * leyendo la regla de otro selector de más abajo.
+   */
+  const valorDe = (fuente: string, selector: string, propiedad: string): string | null => {
+    const inicio = fuente.indexOf(selector);
+    if (inicio === -1) return null;
+
+    let profundidad = 0;
+    let fin = inicio;
+    for (let i = fuente.indexOf('{', inicio); i < fuente.length; i++) {
+      if (fuente[i] === '{') profundidad++;
+      else if (fuente[i] === '}' && --profundidad === 0) { fin = i; break; }
+    }
+
+    const bloque = fuente.slice(inicio, fin);
+    const encontrado = new RegExp(`${propiedad}:\\s*([^;]+);`).exec(bloque);
+    return encontrado ? encontrado[1].trim() : null;
+  };
+
+  it('debería dejar el mismo aire entre la galería y el contenido', () => {
+    expect(valorDe(fichaAlojamiento, '.gallery {', 'margin-bottom'))
+      .toBe(valorDe(detalle, '.gallery {', 'margin-bottom'));
+  });
+
+  it('debería usar el mismo panel lateral y el mismo hueco', () => {
+    expect(valorDe(fichaAlojamiento, '.detalle-body {', 'grid-template-columns'))
+      .toBe(valorDe(detalle, '.vd-body {', 'grid-template-columns'));
+    expect(valorDe(fichaAlojamiento, '.detalle-body {', 'gap'))
+      .toBe(valorDe(detalle, '.vd-body {', 'gap'));
+  });
+
+  it('debería usar el mismo tamaño de titular', () => {
+    expect(valorDe(fichaAlojamiento, '.info-header__name', 'font-size'))
+      .toBe(valorDe(detalle, '.info-header__name', 'font-size'));
+  });
+
+  it('debería colocar las miniaturas debajo de la foto, no en una columna', () => {
+    // En columna, la galería era una caja alta y todo lo de debajo subía.
+    expect(valorDe(fichaAlojamiento, '.gallery__thumbs', 'margin-top')).not.toBeNull();
+    expect(valorDe(fichaAlojamiento, '.gallery__thumbs', 'flex-direction')).toBeNull();
+  });
+
+  it('debería separar la miga de pan de la barra de navegación', () => {
+    // `.vd-wrap` lo hace con padding-block; la ficha de alojamiento no tenía
+    // ninguno y arrancaba pegada.
+    expect(valorDe(fichaAlojamiento, '.detalle-wrap {', 'padding-block')).not.toBeNull();
+  });
+});

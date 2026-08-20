@@ -417,11 +417,13 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
   styles: [`
     :host { display: block; }
     .detalle-page { min-height: 100vh; background: var(--c-base); }
-    .detalle-wrap { padding-bottom: var(--sp-20); }
+    /* El padding superior es el que llevan las demás fichas: sin él la
+       miga de pan arrancaba pegada a la barra de navegación. */
+    .detalle-wrap { padding-block: var(--sp-6) var(--sp-20); }
 
     /* BREADCRUMB */
     .breadcrumb {
-      padding-block: var(--sp-5);
+      margin-bottom: var(--sp-5);
       font-size: var(--f-xs);
       color: var(--t-400);
       display: flex;
@@ -432,24 +434,27 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
     }
 
     /* GALLERY */
-    .gallery {
-      display: grid;
-      grid-template-columns: 1fr 200px;
-      gap: var(--sp-3);
-      height: 480px;
-      /* 32px debajo de una foto de 480px dejaba el titular y el panel pegados a
-         la galería. Mismo valor que en el resto de fichas. */
-      margin-bottom: var(--sp-12);
+    /*
+      Misma galería que el resto de fichas: la foto grande arriba y las
+      miniaturas en una fila debajo.
 
-      @media (max-width: 768px) { grid-template-columns: 1fr; height: auto; }
-    }
+      Antes las miniaturas iban en una columna a la derecha dentro de un bloque
+      de 480px fijos, y el titular y el panel de reserva arrancaban justo al
+      terminar esa caja: quedaban mucho más altos que en las demás categorías.
+      Con la fila debajo, la ficha respira igual en todas.
+    */
+    .gallery { margin-bottom: var(--sp-12); }
 
     .gallery__main {
       position: relative;
+      aspect-ratio: 21 / 9;
       border-radius: var(--r-xl);
       overflow: hidden;
       cursor: pointer;
       img { width: 100%; height: 100%; object-fit: cover; }
+
+      /* En móvil un 21:9 deja la foto en una tira: se le da más alto. */
+      @media (max-width: 768px) { aspect-ratio: 3 / 2; }
     }
     .gallery__contador {
       position: absolute;
@@ -506,19 +511,27 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
       .lightbox__nav--next { right: var(--sp-2); }
     }
 
-    .gallery__thumbs { display: flex; flex-direction: column; gap: var(--sp-3); }
+    /* Flujo por columnas y no un número fijo de ellas: la fila lleva cuatro
+       miniaturas, o cinco cuando además cabe la tarjeta de "+N fotos", y así
+       ninguna se cae a una segunda línea. */
+    .gallery__thumbs {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: var(--sp-2);
+      margin-top: var(--sp-2);
+    }
 
     .gallery__thumb {
-      flex: 1;
-      border-radius: var(--r-lg);
+      aspect-ratio: 16 / 10;
+      border-radius: var(--r-md);
       overflow: hidden;
       cursor: pointer;
-      border: 2px solid transparent;
-      transition: border-color var(--d-2);
+      opacity: .65;
+      transition: opacity var(--d-2);
 
       img { width: 100%; height: 100%; object-fit: cover; }
-      &.active { border-color: var(--c-accent); }
-      &:hover:not(.active) { border-color: var(--b-2); }
+      &.active, &:hover { opacity: 1; }
     }
     .gallery__thumb--more {
       display: flex;
@@ -528,6 +541,8 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
       font-size: var(--f-sm);
       color: var(--t-300);
       font-weight: var(--w-6);
+      /* No es una foto atenuada, es un botón: se lee entero desde el principio. */
+      opacity: 1;
     }
 
     /* BODY LAYOUT */
