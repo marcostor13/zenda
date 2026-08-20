@@ -1,5 +1,5 @@
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReservaAdmin, ResumenReservas, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
@@ -8,6 +8,7 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
 import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
 import { describirPolitica } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 /** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
 interface EstadoMeta { badge: string; icono: string; label: string; }
 
@@ -74,7 +75,7 @@ const MAX_EXPORTACION = 500;
 @Component({
   selector: 'app-admin-reservas',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, RsIconComponent],
+  imports: [DatePipe, FormsModule, RsIconComponent, EurosPipe],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -158,19 +159,19 @@ const MAX_EXPORTACION = 500;
     </div>
     <div class="resumen-dinero">
       <div class="rs-card dinero-tile">
-        <span class="dinero-tile__num">{{ resumen()?.importeReservado ?? 0 | number:'1.0-0' }} €</span>
+        <span class="dinero-tile__num">{{ resumen()?.importeReservado ?? 0 | euros:'1.0-0' }}</span>
         <span class="dinero-tile__lbl">Importe reservado</span>
       </div>
       <div class="rs-card dinero-tile">
-        <span class="dinero-tile__num">{{ resumen()?.comisiones ?? 0 | number:'1.0-0' }} €</span>
+        <span class="dinero-tile__num">{{ resumen()?.comisiones ?? 0 | euros:'1.0-0' }}</span>
         <span class="dinero-tile__lbl">Comisiones Doogking</span>
       </div>
       <div class="rs-card dinero-tile">
-        <span class="dinero-tile__num">{{ resumen()?.pagosRetenidos ?? 0 | number:'1.0-0' }} €</span>
+        <span class="dinero-tile__num">{{ resumen()?.pagosRetenidos ?? 0 | euros:'1.0-0' }}</span>
         <span class="dinero-tile__lbl">Pagos retenidos</span>
       </div>
       <div class="rs-card dinero-tile">
-        <span class="dinero-tile__num">{{ resumen()?.reembolsos ?? 0 | number:'1.0-0' }} €</span>
+        <span class="dinero-tile__num">{{ resumen()?.reembolsos ?? 0 | euros:'1.0-0' }}</span>
         <span class="dinero-tile__lbl">Reembolsos</span>
       </div>
     </div>
@@ -245,8 +246,8 @@ const MAX_EXPORTACION = 500;
               </span>
               <span class="cell-txt" data-col="Comercio">{{ r.comercio }}</span>
               <span class="cell-txt" data-col="Servicio">{{ r.servicio || r.vertical }}</span>
-              <span class="cell-amount" data-col="Importe">{{ r.montoTotal | number:'1.2-2' }} €</span>
-              <span class="cell-amount cell-green" data-col="Comisión">{{ r.comisionMonto | number:'1.2-2' }} €</span>
+              <span class="cell-amount" data-col="Importe">{{ r.montoTotal | euros:'1.2-2' }}</span>
+              <span class="cell-amount cell-green" data-col="Comisión">{{ r.comisionMonto | euros:'1.2-2' }}</span>
               <span data-col="Estado reserva">
                 <span class="rs-badge {{ meta(r.estado).badge }}">
                   <rs-icon [name]="meta(r.estado).icono" [size]="12" [stroke]="2"></rs-icon>
@@ -305,10 +306,10 @@ const MAX_EXPORTACION = 500;
                       @if (r.fechaFin) { → {{ r.fechaFin | date:'d MMM yyyy, HH:mm' }} }
                     </dd>
                   </div>
-                  <div><dt>Importe</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | number:'1.2-2' }} €</dd></div>
-                  <div><dt>Comisión Doogking</dt><dd>{{ r.comisionMonto | number:'1.2-2' }} €</dd></div>
-                  <div><dt>Coste de pasarela</dt><dd>{{ (r.stripeFee ?? 0) | number:'1.2-2' }} €</dd></div>
-                  <div><dt>Neto del comercio</dt><dd>{{ (r.montoLiquidacion ?? 0) | number:'1.2-2' }} €</dd></div>
+                  <div><dt>Importe</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</dd></div>
+                  <div><dt>Comisión Doogking</dt><dd>{{ r.comisionMonto | euros:'1.2-2' }}</dd></div>
+                  <div><dt>Coste de pasarela</dt><dd>{{ (r.stripeFee ?? 0) | euros:'1.2-2' }}</dd></div>
+                  <div><dt>Neto del comercio</dt><dd>{{ (r.montoLiquidacion ?? 0) | euros:'1.2-2' }}</dd></div>
                   <div><dt>Estado del pago</dt><dd>{{ labelPago(r.estadoPago) }}</dd></div>
                   <div class="ficha__ancho">
                     <dt>Política de cancelación</dt>
@@ -320,7 +321,7 @@ const MAX_EXPORTACION = 500;
                   <p class="ficha__extras">
                     <strong>Extras y suplementos:</strong>
                     @for (sup of r.suplementos; track $index) {
-                      {{ sup.concepto }} (+{{ sup.monto | number:'1.2-2' }} €){{ $last ? '' : ' · ' }}
+                      {{ sup.concepto }} (+{{ sup.monto | euros:'1.2-2' }}){{ $last ? '' : ' · ' }}
                     }
                   </p>
                 }
@@ -536,7 +537,6 @@ const MAX_EXPORTACION = 500;
         padding-inline: 0;
       }
     }
-
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 14px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 130px; }

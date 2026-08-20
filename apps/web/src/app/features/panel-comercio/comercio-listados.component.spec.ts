@@ -161,14 +161,14 @@ describe('ComercioListadosComponent', () => {
     it('deberia leer el precio en los terminos de cada vertical', () => {
       // "45 / noche" y "20 base" no son lo mismo: el comercio tiene que ver como
       // se le esta vendiendo.
-      expect(component.precioDe(servicioAlojamiento)).toBe('€45 / noche');
-      expect(component.precioDe(servicioTransporte)).toBe('€20 base');
-      expect(component.precioDe({ ...servicioTransporte, vertical: 'adiestramiento' })).toBe('€20 / sesión');
-      expect(component.precioDe({ ...servicioTransporte, vertical: 'veterinaria' })).toBe('€20 / cita');
+      expect(component.precioDe(servicioAlojamiento)).toBe('45 € / noche');
+      expect(component.precioDe(servicioTransporte)).toBe('20 € base');
+      expect(component.precioDe({ ...servicioTransporte, vertical: 'adiestramiento' })).toBe('20 € / sesión');
+      expect(component.precioDe({ ...servicioTransporte, vertical: 'veterinaria' })).toBe('20 € / cita');
     });
 
     it('deberia redondear el importe', () => {
-      expect(component.precioDe({ ...servicioTransporte, precioBase: 20.6 })).toBe('€21 base');
+      expect(component.precioDe({ ...servicioTransporte, precioBase: 20.6 })).toBe('21 € base');
     });
 
     it('deberia colorear el badge segun el estado', () => {

@@ -13,6 +13,13 @@ export enum TipoEvento {
   RESERVA_ABANDONADA = 'reserva_abandonada',
   CARRITO_ABANDONADO = 'carrito_abandonado',
   SERVICIO_COMPLETADO = 'servicio_completado',
+  /**
+   * Satisfacción con el **proceso de reserva**, recogida en la pantalla de
+   * confirmación. No confundir con la reseña del servicio (colección
+   * `reseñas`): ahí se valora al comercio, y para eso el servicio tiene que
+   * haberse prestado. Esto mide si reservar fue fácil.
+   */
+  EXPERIENCIA_VALORADA = 'experiencia_valorada',
 }
 
 /** Pasos del embudo de reserva, para saber dónde se cae la gente. */

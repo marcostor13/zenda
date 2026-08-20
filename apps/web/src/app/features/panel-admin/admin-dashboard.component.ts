@@ -22,6 +22,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success',
   pendiente: 'rs-badge--warning',
@@ -38,7 +39,7 @@ const ESTADO_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, DatePipe, RsIconComponent],
+  imports: [RouterLink, DecimalPipe, DatePipe, RsIconComponent, EurosPipe],
   template: `
       @if (cargando()) {
         <div style="text-align:center;padding:var(--sp-20);color:var(--t-400)">
@@ -113,7 +114,7 @@ const ESTADO_BADGE: Record<string, string> = {
               </span>
             }
           </div>
-          <div class="admin-kpi__value">{{ kpis().gmvMes | number:'1.0-0' }} €</div>
+          <div class="admin-kpi__value">{{ kpis().gmvMes | euros:'1.0-0' }}</div>
           <div class="admin-kpi__label">Facturación</div>
           <div class="admin-kpi__hint">Importe total gestionado en el periodo</div>
         </div>
@@ -128,7 +129,7 @@ const ESTADO_BADGE: Record<string, string> = {
               </span>
             }
           </div>
-          <div class="admin-kpi__value">{{ kpis().ingresosMes | number:'1.0-0' }} €</div>
+          <div class="admin-kpi__value">{{ kpis().ingresosMes | euros:'1.0-0' }}</div>
           <div class="admin-kpi__label">Comisión Doogking</div>
         </div>
         <div class="admin-kpi rs-card">
@@ -184,7 +185,7 @@ const ESTADO_BADGE: Record<string, string> = {
           <span class="kpi-mini__lbl">Cancelaciones</span>
         </div>
         <div class="kpi-mini rs-card">
-          <span class="kpi-mini__num">{{ kpis().pagosRetenidosMonto | number:'1.0-0' }} €</span>
+          <span class="kpi-mini__num">{{ kpis().pagosRetenidosMonto | euros:'1.0-0' }}</span>
           <span class="kpi-mini__lbl">Pagos retenidos ({{ kpis().pagosRetenidosCount }})</span>
         </div>
         <div class="kpi-mini rs-card">
@@ -255,8 +256,8 @@ const ESTADO_BADGE: Record<string, string> = {
                 <span data-col="Comercio">{{ r.comercio }}</span>
                 <span data-col="Servicio">{{ r.servicio }}</span>
                 <span data-col="Fecha">{{ (r.fechaServicio || r.createdAt) | date:'d MMM, HH:mm' }}</span>
-                <span data-col="Importe">{{ r.montoTotal | number:'1.0-2' }} €</span>
-                <span data-col="Comisión">{{ r.comisionMonto | number:'1.0-2' }} €</span>
+                <span data-col="Importe">{{ r.montoTotal | euros:'1.0-2' }}</span>
+                <span data-col="Comisión">{{ r.comisionMonto | euros:'1.0-2' }}</span>
                 <span data-col="Estado"><span class="{{ 'rs-badge ' + badgeEstado(r.estado) }}">{{ r.estado }}</span></span>
               </div>
             }

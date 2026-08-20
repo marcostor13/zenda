@@ -23,6 +23,7 @@ import {
 import { calcularBadgesAutomaticos, type BadgeAutomatico } from '../../../shared/badges/badges-automaticos';
 import { ExperienciasCercaComponent } from '../../explora/experiencias-cerca.component';
 
+import { euros } from '../../../shared/pipes/euros.pipe';
 /** Filtros comunes de búsqueda, tal y como llegan en la URL. */
 interface BusquedaUrl {
   ciudad?: string;
@@ -80,7 +81,7 @@ interface BusquedaUrl {
           [title]="a.nombre" [subtitle]="a.barrio ? a.barrio + ', ' + a.ciudad : a.ciudad"
           [badges]="badgesDe(a)"
           [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
-          [price]="{ amount: '€' + a.precioPorNoche, period: 'noche desde', oldAmount: a.precioAnterior ? '€' + a.precioAnterior : undefined }"
+          [price]="{ amount: euros(a.precioPorNoche), period: 'noche desde', oldAmount: a.precioAnterior ? euros(a.precioAnterior) : undefined }"
           notaPrecio="IVA incluido"
           [amenities]="serviciosDe(a)"
           [destacados]="incluyeDe(a)"
@@ -127,6 +128,9 @@ interface BusquedaUrl {
   `],
 })
 export class AlojamientoListaComponent implements OnInit {
+  /** Formato de los importes; la plantilla lo necesita como miembro. */
+  protected readonly euros = euros;
+
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly alojamientoService = inject(AlojamientoService);
@@ -158,7 +162,8 @@ export class AlojamientoListaComponent implements OnInit {
       id: p.id,
       lat: p.lat,
       lng: p.lng,
-      etiqueta: `€${p.precio}`,
+      etiqueta: euros(p.precio),
+      vertical: VerticalKey.ALOJAMIENTO,
       titulo: p.titulo,
       imagen: p.imagen,
       rating: p.rating,

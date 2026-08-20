@@ -159,7 +159,7 @@ describe('AdminAnaliticaComponent', () => {
       expect(componente.valorVertical(alojamiento)).toBe('75% · 30');
 
       componente.metricaVertical.set('facturacion');
-      expect(componente.valorVertical(alojamiento)).toBe('4000 €');
+      expect(componente.valorVertical(alojamiento)).toBe('4.000 €');
 
       componente.metricaVertical.set('comercios');
       expect(componente.valorVertical(alojamiento)).toBe('2 comercios');

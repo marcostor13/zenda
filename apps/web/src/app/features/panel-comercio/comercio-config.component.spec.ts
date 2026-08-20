@@ -384,7 +384,7 @@ describe('ComercioConfigComponent', () => {
       await crear();
 
       expect(componente.planBadgeClass()).toContain('neutral');
-      expect(componente.planFeatures()).toContain('Hasta 3 listados');
+      expect(componente.planFeatures()).toContain('Hasta 3 servicios');
     });
 
     it('debería traducir los verticales del comercio', async () => {
@@ -499,14 +499,14 @@ describe('ComercioConfigComponent', () => {
 
       expect(componente.planSiguiente()).toBeNull();
       expect(componente.planBadgeClass()).toContain('warning');
-      expect(componente.planFeatures()).toContain('Listados ilimitados');
+      expect(componente.planFeatures()).toContain('Servicios ilimitados');
     });
 
     it('deberia marcar el plan pro con su propio badge y ventajas', async () => {
       await crear(miComercio({ plan: 'pro' }));
 
       expect(componente.planBadgeClass()).toContain('accent');
-      expect(componente.planFeatures()).toContain('Hasta 20 listados');
+      expect(componente.planFeatures()).toContain('Hasta 20 servicios');
     });
 
     it('deberia calcular el porcentaje de listados usados sobre el tope del plan', async () => {

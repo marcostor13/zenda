@@ -53,8 +53,8 @@ const ESPERA_MOVIMIENTO_MS = 400;
       height: 0;
     }
 
-    /* Pin con el precio, al estilo Booking. Se centra sobre la coordenada en
-       lugar de colgar de ella por la esquina superior izquierda. */
+    /* Pin circular con el icono de la categoría. Se centra sobre la coordenada
+       en lugar de colgar de ella por la esquina superior izquierda. */
     :host ::ng-deep .rs-pin {
       position: absolute;
       left: 0;
@@ -63,21 +63,25 @@ const ESPERA_MOVIMIENTO_MS = 400;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      /* Alto mínimo de objetivo táctil: por debajo de esto, en móvil se falla
-         el pin y se acaba arrastrando el mapa. */
-      min-height: 32px;
-      padding: 4px 9px;
+      /* Objetivo táctil: por debajo de esto, en móvil se falla el pin y se
+         acaba arrastrando el mapa. Es cuadrado porque ya no hay texto que
+         ensanche unos pines más que otros. */
+      width: 34px;
+      height: 34px;
+      padding: 0;
       border-radius: var(--r-full);
       background: var(--c-card);
       border: 2px solid var(--c-accent);
-      color: var(--dk-blue);
-      font-family: var(--font);
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
       box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
       cursor: pointer;
-      transition: background .15s, color .15s, transform .15s;
+      transition: background .15s, border-color .15s, transform .15s;
+    }
+
+    :host ::ng-deep .rs-pin__icono {
+      width: 18px;
+      height: 18px;
+      display: block;
+      pointer-events: none;
     }
 
     :host ::ng-deep .rs-pin:hover,

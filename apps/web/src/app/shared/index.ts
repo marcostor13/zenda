@@ -39,3 +39,4 @@ export * from './catalogos/lugares.catalogo';
 export { AnimateOnScrollDirective } from './directives/animate-on-scroll.directive';
 export { ImgFallbackDirective } from './directives/img-fallback.directive';
 export * from './media/images';
+export { EurosPipe, euros } from './pipes/euros.pipe';

@@ -1,10 +1,11 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiReserva, FinanzasComercio } from './comercio-api.service';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 const COMISION_PCT = 0.15;
 const STRIPE_PCT = 0.015;
 const STRIPE_FIJO_EUR = 0.25;
@@ -17,7 +18,7 @@ const ESTADO_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-comercio-ingresos',
   standalone: true,
-  imports: [RouterLink, DatePipe, DecimalPipe, RsIconComponent],
+  imports: [RouterLink, DatePipe, RsIconComponent, EurosPipe],
   template: `
     <!-- HEADER -->
     <div class="page-header">
@@ -43,7 +44,7 @@ const ESTADO_BADGE: Record<string, string> = {
               <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
             </div>
           </div>
-          <div class="kpi-card__value">{{ totalIngresos() | number:'1.0-0' }} €</div>
+          <div class="kpi-card__value">{{ totalIngresos() | euros:'1.0-0' }}</div>
           <div class="kpi-card__sub">Suma de todas las reservas</div>
         </div>
 
@@ -66,7 +67,7 @@ const ESTADO_BADGE: Record<string, string> = {
             </div>
           </div>
           <div class="kpi-card__value kpi-card__value--danger">
-            − {{ comisionEstimada() | number:'1.0-0' }} €
+            − {{ comisionEstimada() | euros:'1.0-0' }}
           </div>
           <div class="kpi-card__sub">Fee del marketplace</div>
         </div>
@@ -79,7 +80,7 @@ const ESTADO_BADGE: Record<string, string> = {
             </div>
           </div>
           <div class="kpi-card__value kpi-card__value--teal">
-            {{ liquidacionEstimada() | number:'1.0-0' }} €
+            {{ liquidacionEstimada() | euros:'1.0-0' }}
           </div>
           <div class="kpi-card__sub">Ingresos − comisión − Stripe</div>
         </div>
@@ -90,26 +91,26 @@ const ESTADO_BADGE: Record<string, string> = {
         <h3 class="fin-card__title">Desglose financiero</h3>
         <div class="fin-row">
           <span>Ingresos brutos</span>
-          <strong>{{ totalIngresos() | number:'1.2-2' }} €</strong>
+          <strong>{{ totalIngresos() | euros:'1.2-2' }}</strong>
         </div>
         <div class="fin-row fin-row--minus">
           <span>Comisión Doogking (15%)</span>
-          <strong>− {{ comisionEstimada() | number:'1.2-2' }} €</strong>
+          <strong>− {{ comisionEstimada() | euros:'1.2-2' }}</strong>
         </div>
         <div class="fin-row fin-row--minus">
           <span>Gastos de procesamiento de pago</span>
-          <strong>− {{ feeStripeTotal() | number:'1.2-2' }} €</strong>
+          <strong>− {{ feeStripeTotal() | euros:'1.2-2' }}</strong>
         </div>
         @if (reembolsos() > 0) {
           <div class="fin-row fin-row--minus">
             <span>Reembolsos</span>
-            <strong>− {{ reembolsos() | number:'1.2-2' }} €</strong>
+            <strong>− {{ reembolsos() | euros:'1.2-2' }}</strong>
           </div>
         }
         <hr class="fin-divider">
         <div class="fin-row fin-row--total">
           <strong>Total a recibir</strong>
-          <strong class="fin-total">{{ liquidacionEstimada() | number:'1.2-2' }} €</strong>
+          <strong class="fin-total">{{ liquidacionEstimada() | euros:'1.2-2' }}</strong>
         </div>
         @if (proximaLiquidacion() > 0) {
           <div class="fin-row" style="margin-top:var(--sp-2)">
@@ -117,7 +118,7 @@ const ESTADO_BADGE: Record<string, string> = {
             <rs-icon name="banknote" [size]="15" [stroke]="2"></rs-icon>
             Próxima liquidación (servicios prestados pendientes de pago)
           </span>
-            <strong>{{ proximaLiquidacion() | number:'1.2-2' }} €</strong>
+            <strong>{{ proximaLiquidacion() | euros:'1.2-2' }}</strong>
           </div>
         }
       </div>
@@ -142,9 +143,9 @@ const ESTADO_BADGE: Record<string, string> = {
                   <td><code>{{ r.codigo }}</code></td>
                   <td style="text-transform:capitalize">{{ r.vertical }}</td>
                   <td>{{ r.fechaInicio | date:'d MMM yy' }}</td>
-                  <td>{{ r.montoTotal | number:'1.2-2' }} €</td>
-                  <td class="text-danger">− {{ comisionReserva(r) | number:'1.2-2' }} €</td>
-                  <td class="text-teal">{{ liquidacionReserva(r) | number:'1.2-2' }} €</td>
+                  <td>{{ r.montoTotal | euros:'1.2-2' }}</td>
+                  <td class="text-danger">− {{ comisionReserva(r) | euros:'1.2-2' }}</td>
+                  <td class="text-teal">{{ liquidacionReserva(r) | euros:'1.2-2' }}</td>
                   <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
                 </tr>
               }

@@ -9,6 +9,7 @@ import { CuponesAdminService, Cupon } from './services/cupones-admin.service';
 import { AdminApiService } from './admin-api.service';
 import { environment } from '../../../environments/environment';
 
+import { euros } from '../../shared/pipes/euros.pipe';
 @Component({
   selector: 'app-cupones-admin',
   standalone: true,
@@ -215,7 +216,7 @@ import { environment } from '../../../environments/environment';
               <div class="cupon-info">
                 <div class="cupon-codigo">{{ c.codigo }}</div>
                 <div class="cupon-meta">
-                  {{ c.tipo === 'porcentaje' ? (c.valor * 100).toFixed(0) + '%' : c.valor + ' €' }}
+                  {{ c.tipo === 'porcentaje' ? (c.valor * 100).toFixed(0) + '%' : euros(c.valor) }}
                   · {{ c.vertical }}
                   @if ((c.usoMaximo ?? 0) > 0) { · máx {{ c.usoMaximo }} usos }
                   · lo asume {{ c.asumeDescuento === 'comercio' ? 'el comercio' : 'Doogking' }}
@@ -311,6 +312,9 @@ import { environment } from '../../../environments/environment';
   `],
 })
 export class CuponesAdminComponent implements OnInit {
+  /** Formato de los importes; la plantilla lo necesita como miembro. */
+  protected readonly euros = euros;
+
   private readonly fb = inject(FormBuilder);
   private readonly service = inject(CuponesAdminService);
   private readonly adminApi = inject(AdminApiService);

@@ -7,6 +7,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ComercioApiService, MiReserva, MiServicio, MiComercio } from './comercio-api.service';
 import { iconoVertical } from './vertical-icon';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 interface PasoOnboarding {
   clave: string;
   label: string;
@@ -21,7 +22,7 @@ const ESTADO_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-panel-comercio-dashboard',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, DatePipe, RsIconComponent],
+  imports: [RouterLink, DecimalPipe, DatePipe, RsIconComponent, EurosPipe],
   template: `
     <!-- HEADER -->
     <div class="page-header">
@@ -71,7 +72,7 @@ const ESTADO_BADGE: Record<string, string> = {
             <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
           </div>
         </div>
-        <div class="kpi-card__value">{{ totalIngresos() | number:'1.0-0' }} €</div>
+        <div class="kpi-card__value">{{ totalIngresos() | euros:'1.0-0' }}</div>
         <div class="kpi-card__trend up">del total de reservas</div>
       </div>
       <div class="kpi-card rs-card">
@@ -132,7 +133,7 @@ const ESTADO_BADGE: Record<string, string> = {
                     {{ r.vertical }}
                   </td>
                   <td>{{ r.fechaInicio | date:'d MMM yy' }}</td>
-                  <td>{{ r.montoTotal | number:'1.0-0' }} €</td>
+                  <td>{{ r.montoTotal | euros:'1.0-0' }}</td>
                   <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
                 </tr>
               }
@@ -149,20 +150,20 @@ const ESTADO_BADGE: Record<string, string> = {
           </p>
         } @else {
           <div class="fin-row">
-            <span>Ingresos brutos</span><strong>{{ totalIngresos() | number:'1.0-0' }} €</strong>
+            <span>Ingresos brutos</span><strong>{{ totalIngresos() | euros:'1.0-0' }}</strong>
           </div>
           <div class="fin-row">
             <span>Comisión Doogking</span>
-            <strong style="color:#B91C1C">− {{ comisionEstimada() | number:'1.0-0' }} €</strong>
+            <strong style="color:#B91C1C">− {{ comisionEstimada() | euros:'1.0-0' }}</strong>
           </div>
           <div class="fin-row">
             <span>Gastos de procesamiento (est.)</span>
-            <strong style="color:#B91C1C">− {{ feeStripe() | number:'1.0-2' }} €</strong>
+            <strong style="color:#B91C1C">− {{ feeStripe() | euros:'1.0-2' }}</strong>
           </div>
           <hr style="border:none;border-top:1px solid var(--b-1);margin-block:var(--sp-4)">
           <div class="fin-row">
             <strong style="color:var(--t-100)">Total a recibir (est.)</strong>
-            <strong style="color:var(--c-teal)">{{ liquidacion() | number:'1.0-0' }} €</strong>
+            <strong style="color:var(--c-teal)">{{ liquidacion() | euros:'1.0-0' }}</strong>
           </div>
         }
       </div>
@@ -192,7 +193,7 @@ const ESTADO_BADGE: Record<string, string> = {
               </div>
               <div class="listado-item__info">
                 <strong>{{ l.titulo }}</strong>
-                <p>{{ l.precioBase | number:'1.0-0' }} € · {{ l.vertical }}</p>
+                <p>{{ l.precioBase | euros:'1.0-0' }} · {{ l.vertical }}</p>
                 <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
                   <span class="rs-badge {{ estadoServicioBadge(l.estado) }}">{{ l.estado }}</span>
                   @if (l.ratingPromedio) {

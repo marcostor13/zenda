@@ -2,10 +2,12 @@ import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
+
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import { AuthService } from '../../../core/auth/auth.service';
+import { faqDeConfirmacion } from '../../../shared/catalogos/faq-confirmacion.catalogo';
 import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsBrandIconComponent, type MarcaPagoKey } from '../../../shared/components/brand-icon/rs-brand-icon.component';
@@ -27,6 +29,7 @@ import { RecomendadorService, RecomendacionAdiestramiento, RecomendacionVeterina
 import { CatalogBrowseService } from '../../verticales/catalog-browse.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
+import { EurosPipe, euros } from '../../../shared/pipes/euros.pipe';
 type Paso = 1 | 2 | 3 | 4;
 
 /** Traducción del número de paso del wizard al paso del embudo medido. */
@@ -113,10 +116,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   selector: 'app-reserva-wizard',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, FormsModule, DecimalPipe,
-    RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
-    RsBrandIconComponent,
-  ],
+    RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+    RsBrandIconComponent, EurosPipe,],
   template: `
 <div class="wizard-page">
   <rs-navbar />
@@ -157,7 +158,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <img [src]="imagenServicio()" alt="Servicio" rsImg />
             <div>
               <h3>{{ nombreServicio() || 'Servicio seleccionado' }}</h3>
-              <p>€{{ precioBase() }} / {{ precioPorLabel() }}</p>
+              <p>{{ precioBase() | euros }} / {{ precioPorLabel() }}</p>
               <div class="reserva-summary__tags">
                 <span class="rs-badge rs-badge--accent"><rs-icon [name]="iconoVertical()" [size]="13" [stroke]="2" /> {{ verticaLabel() }}</span>
                 <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Profesional verificado</span>
@@ -219,11 +220,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <form [formGroup]="paso1AlojamientoForm">
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Check-in</label>
+                    <label class="rs-lbl">Entrada</label>
                     <input formControlName="checkIn" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Check-out</label>
+                    <label class="rs-lbl">Salida</label>
                     <input formControlName="checkOut" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                 </div>
@@ -270,7 +271,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                           <div class="extra-item__icon"><rs-icon name="sparkles" [size]="20" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
-                            <div class="extra-item__price">€{{ extra.precio }}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}</div>
                           </div>
                         </label>
                       }
@@ -377,7 +378,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                           <div class="extra-item__icon"><rs-icon name="sparkles" [size]="16" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
-                            <div class="extra-item__price">€{{ extra.precio }}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}</div>
                           </div>
                         </label>
                       }
@@ -454,7 +455,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     <select formControlName="servicio" class="rs-inp rs-inp--lg">
                       <option value="">— Consulta general —</option>
                       @for (s of serviciosClinicosDisponibles(); track s.nombre) {
-                        <option [value]="s.nombre">{{ s.nombre }} — €{{ s.precio }}</option>
+                        <option [value]="s.nombre">{{ s.nombre }} — {{ s.precio | euros }}</option>
                       }
                     </select>
                     @if (servicioClinicoSeleccionado(); as sc) {
@@ -528,7 +529,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   @if (serviciosGroomingOpciones().length) {
                     <select formControlName="servicio" class="rs-inp rs-inp--lg">
                       @for (s of serviciosGroomingOpciones(); track s.nombre) {
-                        <option [value]="s.nombre">{{ s.nombre }} — €{{ precioServicioGrooming(s) }}</option>
+                        <option [value]="s.nombre">{{ s.nombre }} — {{ precioServicioGrooming(s) | euros }}</option>
                       }
                     </select>
                     @if (perroSeleccionadoObj()?.tipoPelo?.length) {
@@ -602,7 +603,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     <select formControlName="servicio" class="rs-inp rs-inp--lg">
                       <option value="">— El centro propondrá el más adecuado —</option>
                       @for (s of serviciosAdiestramientoOpciones(); track s.nombre) {
-                        <option [value]="s.nombre">{{ s.nombre }} — €{{ s.precio }}</option>
+                        <option [value]="s.nombre">{{ s.nombre }} — {{ s.precio | euros }}</option>
                       }
                     </select>
                   </div>
@@ -727,11 +728,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <form [formGroup]="paso1HotelesForm">
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Check-in</label>
+                    <label class="rs-lbl">Entrada</label>
                     <input formControlName="checkIn" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Check-out</label>
+                    <label class="rs-lbl">Salida</label>
                     <input formControlName="checkOut" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                 </div>
@@ -889,9 +890,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <span>
                     Según el historial de {{ perroSeleccionadoObj()?.nombre }} ({{ est.basadoEnReservas }} reserva(s)
                     anteriores), el precio final suele rondar
-                    <strong>€{{ est.precioEstimado | number:'1.2-2' }}</strong>
+                    <strong>{{ est.precioEstimado | euros:'1.2-2' }}</strong>
                     ({{ est.promedioAjustePct > 0 ? '+' : '' }}{{ est.promedioAjustePct }}% sobre la estimación
-                    inicial de €{{ est.precioBase | number:'1.2-2' }}).
+                    inicial de {{ est.precioBase | euros:'1.2-2' }}).
                   </span>
                 </div>
               }
@@ -991,7 +992,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 } @else if (!stripeListo()) {
                   Preparando pago…
                 } @else {
-                  <rs-icon name="lock" [size]="16" [stroke]="2.25" /> Pagar €{{ total() }}
+                  <rs-icon name="lock" [size]="16" [stroke]="2.25" /> Pagar {{ total() | euros }}
                 }
               </button>
             </div>
@@ -1021,7 +1022,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </div>
               <div class="cd-row">
                 <span><rs-icon name="wallet" [size]="14" [stroke]="2" /> Total pagado</span>
-                <strong class="rs-gradient-text">€{{ total() }}</strong>
+                <strong class="rs-gradient-text">{{ total() | euros }}</strong>
               </div>
             </div>
 
@@ -1052,6 +1053,65 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 Seguir explorando
               </a>
             </div>
+
+            <!--
+              Valoración del proceso de reserva, no del servicio: éste todavía
+              no se ha prestado. La reseña del comercio se pide más tarde, por
+              correo, cuando ya hay algo que valorar.
+            -->
+            <div class="valoracion">
+              @if (valoracionEnviada()) {
+                <p class="valoracion__gracias">
+                  <rs-icon name="check-circle" [size]="18" [stroke]="2" />
+                  Gracias. Nos ayuda a que reservar sea cada vez más fácil.
+                </p>
+              } @else {
+                <p class="valoracion__pregunta">¿Qué tal ha ido la reserva?</p>
+                <div class="valoracion__estrellas" role="group" aria-label="Valora el proceso de reserva">
+                  @for (n of estrellas; track n) {
+                    <button type="button" class="valoracion__estrella"
+                            [class.valoracion__estrella--activa]="n <= (valoracion() ?? 0)"
+                            [attr.aria-label]="n + ' de 5'"
+                            (click)="valorarExperiencia(n)">
+                      <rs-icon name="star" [size]="26" [stroke]="1.75" />
+                    </button>
+                  }
+                </div>
+
+                <!-- Sólo si algo ha ido mal: es donde está el dato que sirve. -->
+                @if (pideMotivoValoracion()) {
+                  <div class="valoracion__motivo">
+                    <label class="rs-lbl" for="valoracion-motivo">¿Qué podríamos mejorar?</label>
+                    <textarea id="valoracion-motivo" class="rs-inp" rows="2"
+                              [value]="motivoValoracion()"
+                              (input)="motivoValoracion.set($any($event.target).value)"
+                              placeholder="Opcional, pero nos viene muy bien"></textarea>
+                    <button type="button" class="rs-btn rs-btn--secondary rs-btn--sm"
+                            (click)="enviarMotivoValoracion()">
+                      Enviar
+                    </button>
+                  </div>
+                }
+              }
+            </div>
+
+            <!-- Las dudas que llegan justo aquí, contestadas aquí (feedback 2026-08-20). -->
+            <div class="faq">
+              <h3 class="faq__titulo">Preguntas frecuentes</h3>
+              @for (p of faq(); track p.pregunta) {
+                <details class="faq__item">
+                  <summary class="faq__pregunta">
+                    {{ p.pregunta }}
+                    <rs-icon name="chevron-down" [size]="16" [stroke]="2" class="faq__chevron" />
+                  </summary>
+                  <p class="faq__respuesta">{{ p.respuesta }}</p>
+                </details>
+              }
+              <a routerLink="/ayuda" class="faq__mas">
+                Ver todas las preguntas en el centro de ayuda
+                <rs-icon name="arrow-right" [size]="14" [stroke]="2" />
+              </a>
+            </div>
           </div>
         }
       </div>
@@ -1064,13 +1124,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
             <div class="price-row">
               <span>{{ lineaResumen() }}</span>
-              <span>€{{ subtotal() }}</span>
+              <span>{{ subtotal() | euros }}</span>
             </div>
             @if (vertical() === 'alojamiento') {
               @for (extra of extrasSelec(); track extra) {
                 <div class="price-row">
                   <span>{{ extraNombre(extra) }}</span>
-                  <span>€{{ extraPrecio(extra) }}</span>
+                  <span>{{ extraPrecio(extra) | euros }}</span>
                 </div>
               }
             }
@@ -1078,45 +1138,45 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <!-- Desglose transparente del trayecto (HU-5.5.3) -->
               <div class="price-row price-row--sub">
                 <span>Servicio base</span>
-                <span>€{{ tarifaBaseTransporte() }}</span>
+                <span>{{ tarifaBaseTransporte() | euros }}</span>
               </div>
               @if (costeKmTransporte() > 0) {
                 <div class="price-row price-row--sub">
                   <span>Kilómetros</span>
-                  <span>€{{ costeKmTransporte() }}</span>
+                  <span>{{ costeKmTransporte() | euros }}</span>
                 </div>
               }
               @for (extra of extrasSelec(); track extra) {
                 <div class="price-row price-row--sub">
                   <span>{{ extra }}</span>
-                  <span>€{{ extraPrecioTransporte(extra) }}</span>
+                  <span>{{ extraPrecioTransporte(extra) | euros }}</span>
                 </div>
               }
             }
             @if (vertical() === 'hoteles' && suplementoHotel() > 0) {
               <div class="price-row">
                 <span>Suplemento por mascota</span>
-                <span>€{{ suplementoHotel() }}</span>
+                <span>{{ suplementoHotel() | euros }}</span>
               </div>
             }
             <hr class="rs-hr" style="margin-block:var(--sp-4)">
             <div class="price-row price-row--sub">
               <span>Subtotal</span>
-              <span>€{{ subtotal() }}</span>
+              <span>{{ subtotal() | euros }}</span>
             </div>
             @if (descuento() > 0) {
               <div class="price-row price-row--sub" style="color:#16A34A">
                 <span>Descuento ({{ cuponCodigo() }})</span>
-                <span>−€{{ descuento() }}</span>
+                <span>−{{ descuento() | euros }}</span>
               </div>
             }
             <div class="price-row price-row--sub">
               <span>IVA (21%)</span>
-              <span>€{{ iva() }}</span>
+              <span>{{ iva() | euros }}</span>
             </div>
             <div class="price-row price-row--total">
               <span>Total</span>
-              <span>€{{ total() }}</span>
+              <span>{{ total() | euros }}</span>
             </div>
 
             <!-- Cupón de descuento -->
@@ -1319,7 +1379,6 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .stripe-placeholder { background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-xl); padding: var(--sp-6); margin-bottom: var(--sp-5); }
     .stripe-placeholder__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-5); font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
 
-
     .confirmation { text-align: center; padding: var(--sp-16) var(--sp-8); }
     .confirmation__icon { font-size: 4rem; margin-bottom: var(--sp-4); animation: float 3s ease-in-out infinite; }
     .confirmation h2 { font-size: var(--f-4xl); font-weight: var(--w-9); color: var(--t-100); margin-bottom: var(--sp-4); }
@@ -1329,6 +1388,63 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .confirmation__details { padding: var(--sp-6); text-align: left; margin-bottom: var(--sp-8); }
     .cd-row { display: flex; justify-content: space-between; padding: var(--sp-3) 0; border-bottom: 1px solid var(--b-1); font-size: var(--f-sm); color: var(--t-300); strong { color: var(--t-100); } &:last-child { border: none; } }
     .confirmation__actions { display: flex; gap: var(--sp-4); justify-content: center; flex-wrap: wrap; }
+
+    /* ══ VALORACIÓN DEL PROCESO ═══════════════════════════════════════ */
+    .valoracion {
+      margin-top: var(--sp-8); padding-top: var(--sp-6);
+      border-top: 1px solid var(--b-1); text-align: center;
+    }
+    .valoracion__pregunta { font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-3); }
+    .valoracion__gracias {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-sm); color: var(--c-success, var(--dk-blue));
+    }
+    .valoracion__estrellas { display: flex; justify-content: center; gap: var(--sp-1); }
+    .valoracion__estrella {
+      /* 44px de objetivo táctil: las estrellas se fallan con el pulgar. */
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; padding: 0;
+      border: none; background: transparent; cursor: pointer;
+      color: var(--t-400); transition: color var(--d-1), transform var(--d-1);
+
+      &:hover { color: var(--dk-gold); transform: scale(1.1); }
+    }
+    /* Sin anidar: &--activa no es CSS nativo, y estos estilos no pasan por Sass. */
+    .valoracion__estrella--activa { color: var(--dk-gold); }
+    .valoracion__motivo {
+      max-width: 420px; margin: var(--sp-4) auto 0; text-align: left;
+      display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start;
+    }
+
+    /* ══ PREGUNTAS FRECUENTES ═════════════════════════════════════════ */
+    .faq {
+      margin-top: var(--sp-8); padding-top: var(--sp-6);
+      border-top: 1px solid var(--b-1); text-align: left;
+    }
+    .faq__titulo {
+      font-size: var(--f-md); font-weight: var(--w-7);
+      color: var(--t-100); margin-bottom: var(--sp-4);
+    }
+    /* details/summary nativos: accesibles y operables con teclado sin JS. */
+    .faq__item { border-bottom: 1px solid var(--b-1); }
+    .faq__pregunta {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+      padding: var(--sp-4) 0; cursor: pointer; list-style: none;
+      font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100);
+
+      &::-webkit-details-marker { display: none; }
+    }
+    .faq__chevron { flex-shrink: 0; color: var(--t-400); transition: transform var(--d-1); }
+    .faq__item[open] .faq__chevron { transform: rotate(180deg); }
+    .faq__respuesta {
+      padding-bottom: var(--sp-4);
+      font-size: var(--f-sm); color: var(--t-300); line-height: 1.6;
+    }
+    .faq__mas {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      margin-top: var(--sp-4);
+      font-size: var(--f-sm); font-weight: var(--w-6); color: var(--c-accent);
+    }
 
     .price-summary { position: sticky; top: 84px; }
     .price-summary__card { background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-2xl); padding: var(--sp-6); box-shadow: var(--sh-xl); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-6); } }
@@ -1383,6 +1499,7 @@ export class ReservaWizardComponent implements OnInit {
   private readonly catalogBrowseService = inject(CatalogBrowseService);
   private readonly geoService = inject(GeoService);
   private readonly eventosService = inject(EventosService);
+  private readonly auth = inject(AuthService);
 
   // Navigation
   readonly paso       = signal<Paso>(1);
@@ -1451,7 +1568,7 @@ export class ReservaWizardComponent implements OnInit {
   });
   readonly serviciosAdicionalesResumen = computed(() => {
     const lista = this.peluqueriaDetalle()?.serviciosAdicionales ?? [];
-    return lista.map((a) => `${a.nombre} (€${a.precio})`).join(' · ');
+    return lista.map((a) => `${a.nombre} (${euros(a.precio)})`).join(' · ');
   });
 
   // Enriquecimiento de veterinaria (Fase C): catálogo real de servicios clínicos.
@@ -1695,6 +1812,110 @@ export class ReservaWizardComponent implements OnInit {
   });
 
   // ─── Step 2 (shared) ───
+  // ─── Confirmación: valoración del proceso y preguntas frecuentes ───
+
+  readonly estrellas = [1, 2, 3, 4, 5] as const;
+  readonly valoracion = signal<number | null>(null);
+  readonly valoracionEnviada = signal(false);
+  readonly motivoValoracion = signal('');
+
+  /** Preguntas de la categoría reservada, para la pantalla de confirmación. */
+  readonly faq = computed(() => faqDeConfirmacion(this.vertical()));
+
+  /**
+   * Por debajo del aprobado se pregunta qué falló. Con cuatro o cinco estrellas
+   * no se pregunta nada: alargar el formulario a quien ha ido bien sólo sirve
+   * para que no vuelva a valorar la próxima vez.
+   */
+  readonly pideMotivoValoracion = computed(() => {
+    const nota = this.valoracion();
+    return nota !== null && nota <= 3;
+  });
+
+  /**
+   * Registra la nota del proceso de reserva.
+   *
+   * Con 4 o 5 estrellas se cierra al momento; con 3 o menos se deja abierto el
+   * campo del motivo, y el evento viaja igual —si el usuario se va sin
+   * escribir, la nota no se pierde.
+   */
+  valorarExperiencia(nota: number): void {
+    this.valoracion.set(nota);
+    this.registrarValoracion(nota);
+    if (nota > 3) this.valoracionEnviada.set(true);
+  }
+
+  /** Segundo envío, ya con el texto: la nota se mandó al pulsar la estrella. */
+  enviarMotivoValoracion(): void {
+    const nota = this.valoracion();
+    if (nota === null) return;
+
+    if (this.motivoValoracion().trim()) this.registrarValoracion(nota);
+    this.valoracionEnviada.set(true);
+  }
+
+  private registrarValoracion(nota: number): void {
+    /*
+     * Es telemetría sobre una reserva que ya está confirmada y pagada: si el
+     * envío falla no se le dice nada al usuario ni se reintenta. Un error aquí
+     * daría a entender que algo ha ido mal con la reserva, y no es el caso.
+     */
+    const motivo = this.motivoValoracion().trim();
+    try {
+      this.eventosService.registrar(TipoEvento.EXPERIENCIA_VALORADA, {
+        reservaId: this.reservaIdReal ?? undefined,
+        servicioId: this.servicioId,
+        vertical: this.vertical(),
+        paso: PasoEmbudo.CONFIRMACION,
+        payload: { puntuacion: nota, ...(motivo ? { motivo } : {}) },
+      });
+    } catch {
+      // Ver arriba: la valoración nunca puede estropear una reserva confirmada.
+    }
+  }
+
+  /**
+   * Rellena los datos de contacto de quien ya ha iniciado sesión.
+   *
+   * Se hace en el arranque y no al llegar al paso 2: la sesión está en memoria,
+   * así que el formulario aparece relleno de una vez en lugar de rellenarse
+   * delante del usuario. Todo sigue siendo editable —la reserva puede ir a
+   * nombre de otra persona— y sin sesión no se toca nada: el wizard admite
+   * invitados.
+   */
+  private precargarContacto(): void {
+    const usuario = this.auth.usuario();
+    if (!usuario) return;
+
+    const { nombre, apellidos } = this.partirNombre(usuario.nombre);
+    this.paso2Form.patchValue({ nombre, apellidos, email: usuario.email });
+
+    /*
+     * El teléfono no viaja en la sesión, sólo en el perfil. Llega tarde y por
+     * eso se aplica con `pristine`: si para entonces el usuario ya está
+     * escribiendo su número, no se le pisa lo tecleado.
+     */
+    void firstValueFrom(
+      this.http.get<{ telefono?: string }>(`${environment.apiUrl}/users/me`),
+    ).then(({ telefono }) => {
+      const control = this.paso2Form.controls.telefono;
+      if (telefono && control.pristine) control.setValue(telefono);
+    }).catch(() => {
+      // El perfil no es imprescindible: el usuario escribe su teléfono y sigue.
+    });
+  }
+
+  /**
+   * El usuario guarda un único `nombre` y el formulario pide nombre y
+   * apellidos por separado, así que se parte por el primer espacio. Un nombre
+   * de una sola palabra deja los apellidos vacíos, y el `required` obliga a
+   * completarlos, que es lo que se quiere.
+   */
+  private partirNombre(completo: string): { nombre: string; apellidos: string } {
+    const partes = completo.trim().split(/\s+/);
+    return { nombre: partes[0] ?? '', apellidos: partes.slice(1).join(' ') };
+  }
+
   readonly paso2Form = this.fb.group({
     nombre:         ['', Validators.required],
     apellidos:      ['', Validators.required],
@@ -1972,27 +2193,27 @@ export class ReservaWizardComponent implements OnInit {
         const { checkIn, checkOut, perros } = this.paso1AlojamientoForm.value;
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         const p = Number(perros ?? 1);
-        return `€${base} × ${n} noche${n !== 1 ? 's' : ''} · ${p} perro${p !== 1 ? 's' : ''}`;
+        return `${euros(base)} × ${n} noche${n !== 1 ? 's' : ''} · ${p} perro${p !== 1 ? 's' : ''}`;
       }
       case VerticalKey.TRANSPORTE:
-        return `Tarifa base €${base} + km`;
+        return `Tarifa base ${euros(base)} + km`;
       case VerticalKey.VETERINARIA:
-        return `Cita veterinaria · €${base}`;
+        return `Cita veterinaria · ${euros(base)}`;
       case VerticalKey.PELUQUERIA:
-        return `Cita de peluquería · €${base}`;
+        return `Cita de peluquería · ${euros(base)}`;
       case VerticalKey.ADIESTRAMIENTO:
         return this.paso1AdiestramientoForm.value.modalidad === 'programa'
-          ? `Programa de adiestramiento · €${base}`
-          : `Sesión de adiestramiento · €${base}`;
+          ? `Programa de adiestramiento · ${euros(base)}`
+          : `Sesión de adiestramiento · ${euros(base)}`;
       case VerticalKey.HOTELES: {
         const { checkIn, checkOut } = this.paso1HotelesForm.value;
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
-        return `€${base} × ${n} noche${n !== 1 ? 's' : ''}`;
+        return `${euros(base)} × ${n} noche${n !== 1 ? 's' : ''}`;
       }
       case VerticalKey.CUIDADORES:
-        return `Servicio · €${base}`;
+        return `Servicio · ${euros(base)}`;
       default:
-        return `€${base}`;
+        return euros(base);
     }
   });
 
@@ -2010,6 +2231,8 @@ export class ReservaWizardComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.precargarContacto();
+
     const routeParams = this.route.snapshot.paramMap;
     const queryParams = this.route.snapshot.queryParamMap;
 

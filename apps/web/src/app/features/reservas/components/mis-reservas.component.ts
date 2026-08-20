@@ -11,6 +11,7 @@ import { ReviewsService } from '../services/reviews.service';
 import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 import { AuthService } from '../../../core/auth/auth.service';
 
+import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'cancelada' | 'completada';
 
 interface ReservaCard {
@@ -41,7 +42,7 @@ interface ReservaCard {
 @Component({
   selector: 'app-mis-reservas',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
+  imports: [RouterLink, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, EurosPipe],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -75,7 +76,7 @@ interface ReservaCard {
           <div class="rs-card ajuste-banner">
             <div>
               <strong>El comercio solicitó un ajuste de precio</strong>
-              <p>{{ r.codigo }} · nuevo total propuesto: €{{ r.montoAjustado }} (antes €{{ r.total }}). Ningún cargo se aplicará sin tu aprobación.</p>
+              <p>{{ r.codigo }} · nuevo total propuesto: {{ r.montoAjustado | euros }} (antes {{ r.total | euros }}). Ningún cargo se aplicará sin tu aprobación.</p>
             </div>
             <a [routerLink]="['/reservas', r.codigo, 'ajuste']" class="rs-btn rs-btn--primary rs-btn--sm">Revisar y responder</a>
           </div>
@@ -116,7 +117,7 @@ interface ReservaCard {
 
           <div class="reserva-row__aside">
             <div class="reserva-row__codigo">{{ r.codigo }}</div>
-            <div class="reserva-row__precio">€{{ r.total }}</div>
+            <div class="reserva-row__precio">{{ r.total | euros }}</div>
             <div class="reserva-row__quick">
               <button type="button" class="quick-btn" title="Cómo llegar" aria-label="Cómo llegar" (click)="comoLlegar(r)">
                 <rs-icon name="navigation" [size]="16" [stroke]="2" />

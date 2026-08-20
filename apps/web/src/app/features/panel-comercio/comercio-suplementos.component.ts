@@ -1,10 +1,11 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
+
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, SuplementoConfig } from './comercio-api.service';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 const UNIDAD_LABEL: Record<string, string> = {
   fijo: 'Importe fijo',
   por_dia: '€ / día',
@@ -14,7 +15,7 @@ const UNIDAD_LABEL: Record<string, string> = {
 @Component({
   selector: 'app-comercio-suplementos',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, RsIconComponent],
+  imports: [FormsModule, RsIconComponent, EurosPipe],
   template: `
     <div class="page-header">
       <div>
@@ -70,7 +71,7 @@ const UNIDAD_LABEL: Record<string, string> = {
             @for (s of suplementos(); track s._id) {
               <tr>
                 <td>{{ s.concepto }}</td>
-                <td>€{{ s.monto | number:'1.2-2' }}</td>
+                <td>{{ s.monto | euros:'1.2-2' }}</td>
                 <td>{{ unidadLabel(s.unidad) }}</td>
                 <td>
                   <span class="rs-badge" [class.rs-badge--success]="s.activo" [class.rs-badge--neutral]="!s.activo">

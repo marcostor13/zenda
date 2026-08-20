@@ -20,6 +20,7 @@ import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catal
 import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 import { ComercioApiService, ServicioPayload } from './comercio-api.service';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 /** Catálogo cerrado de servicios veterinarios, para el desplegable del formulario. */
 const SERVICIOS_CLINICOS_CATALOGO = Object.values(ServicioClinicoTipo)
   .map((tipo) => ({ tipo, label: SERVICIO_CLINICO_LABELS[tipo] }));
@@ -105,14 +106,13 @@ function aCsv(v: string): string[] {
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule,
-    RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsPlaceAutocompleteComponent,
-  ],
+    RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsPlaceAutocompleteComponent, EurosPipe,],
   template: `
     <div class="page-wrap">
       <div class="page-header">
         <a routerLink="/comercio/listados" class="back-link">
           <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-          Volver a listados
+          Volver a mis servicios
         </a>
         <h1>{{ esEdicion() ? 'Editar servicio' : 'Nuevo servicio' }}</h1>
         <p>{{ esEdicion() ? 'Ve directamente al paso que quieras cambiar.' : 'Cinco pasos cortos. Puedes volver atrás en cualquier momento.' }}</p>
@@ -173,7 +173,7 @@ function aCsv(v: string): string[] {
               }
             </select>
             @if (esEdicion()) {
-              <span class="rs-field-hint">La categoría no se puede cambiar después de crear el listado.</span>
+              <span class="rs-field-hint">La categoría no se puede cambiar después de crear el servicio.</span>
             }
             @if (hasError('vertical')) {
               <span class="rs-field-err">Selecciona una categoría.</span>
@@ -1252,14 +1252,14 @@ function aCsv(v: string): string[] {
                 <div><dt>Categoría</dt><dd>{{ etiquetaVertical() || '—' }}</dd></div>
                 <div><dt>Nombre</dt><dd>{{ form.controls.titulo.value || '—' }}</dd></div>
                 <div><dt>Ciudad</dt><dd>{{ form.controls.ciudad.value || '—' }}</dd></div>
-                <div><dt>Precio desde</dt><dd>{{ form.controls.precioBase.value || 0 }} €</dd></div>
+                <div><dt>Precio desde</dt><dd>{{ form.controls.precioBase.value || 0 | euros }}</dd></div>
                 <div><dt>Fotos</dt><dd>{{ form.controls.imagenes.value.length }}</dd></div>
               </dl>
             </div>
 
             @if (!esEdicion()) {
               <div class="rs-alert rs-alert--info">
-                El listado se creará en estado <strong>Borrador</strong>. Revísalo y publícalo desde la sección de listados cuando esté listo.
+                El servicio se creará en estado <strong>Borrador</strong>. Revísalo y publícalo desde «Mis servicios» cuando esté listo.
               </div>
             }
           }
@@ -2053,7 +2053,7 @@ export class ComercioListadoFormComponent implements OnInit {
         this.temperamentosNoAdmitidos = s.aptitud.temperamentosNoAdmitidos ?? [];
       }
     } catch {
-      this.errorMsg.set('No se pudo cargar el listado.');
+      this.errorMsg.set('No se pudo cargar el servicio.');
     } finally {
       this.cargando.set(false);
     }
@@ -2331,11 +2331,11 @@ export class ComercioListadoFormComponent implements OnInit {
         this.exitoMsg.set('¡Cambios guardados!');
       } else {
         await firstValueFrom(this.comercioApi.crearServicio(payload));
-        this.exitoMsg.set('¡Listado creado en borrador! Redirigiendo…');
+        this.exitoMsg.set('¡Servicio creado en borrador! Redirigiendo…');
       }
       setTimeout(() => void this.router.navigate(['/comercio/listados']), 1200);
     } catch {
-      this.errorMsg.set('Error al guardar el listado. Verifica los datos e intenta de nuevo.');
+      this.errorMsg.set('Error al guardar el servicio. Verifica los datos e intenta de nuevo.');
     } finally {
       this.guardando.set(false);
     }

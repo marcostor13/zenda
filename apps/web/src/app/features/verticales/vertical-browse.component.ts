@@ -21,6 +21,7 @@ import type { PuntoMapa, ZonaMapa } from '../../shared/components/mapa/rs-mapa.c
 import type { BarraHistograma } from '../../shared/components/range-slider/rs-range-slider.component';
 import { calcularBadgesAutomaticos } from '../../shared/badges/badges-automaticos';
 
+import { euros } from '../../shared/pipes/euros.pipe';
 /** Filtros de búsqueda vigentes, tal y como llegan en la URL. */
 interface Busqueda {
   ciudad?: string;
@@ -255,7 +256,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
           [title]="cfg().titulo3(c)" [subtitle]="c.ciudad"
           [badges]="badgesDe(c)"
           [rating]="{ score: c.score, label: c.scoreLabel, count: c.numResenas }"
-          [price]="{ amount: '€' + cfg().price(c), period: cfg().priceLabel }"
+          [price]="{ amount: euros(cfg().price(c)), period: cfg().priceLabel }"
           notaPrecio="IVA incluido"
           [amenities]="serviciosDe(c)"
           [destacados]="incluyeDe(c)"
@@ -302,6 +303,9 @@ const CONFIGS: Record<string, VerticalConfig> = {
   `],
 })
 export class VerticalBrowseComponent implements OnInit {
+  /** Formato de los importes; la plantilla lo necesita como miembro. */
+  protected readonly euros = euros;
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -366,7 +370,8 @@ export class VerticalBrowseComponent implements OnInit {
   readonly puntosMapa = computed<PuntoMapa[]>(() =>
     this.puntos().map((p) => ({
       id: p.id, lat: p.lat, lng: p.lng,
-      etiqueta: `€${p.precio}`, titulo: p.titulo, imagen: p.imagen, rating: p.rating,
+      etiqueta: euros(p.precio), vertical: this.cfg().vertical,
+      titulo: p.titulo, imagen: p.imagen, rating: p.rating,
     })),
   );
 

@@ -39,6 +39,21 @@ export const POLITICAS_CANCELACION: ReadonlyArray<PoliticaCancelacion> = [
   },
 ];
 
+/**
+ * La condición completa, para la ficha que lee el cliente antes de reservar.
+ *
+ * `describirPolitica` da el rótulo corto de una tabla; esto es la frase que
+ * explica qué pasa si cancela. Sin ella la ficha pintaba la clave en crudo
+ * —"flexible"—, que no le dice nada a quien está a punto de pagar.
+ */
+export function descripcionPolitica(valor: string | undefined | null): string {
+  if (!valor) return 'Consulta las condiciones de cancelación con el alojamiento.';
+
+  const politica = POLITICAS_CANCELACION.find((p) => p.valor === valor);
+  // Un comercio antiguo pudo guardar texto libre; se muestra tal cual.
+  return politica ? politica.descripcion : valor;
+}
+
 /** La política en palabras: `Flexible · cancelación gratuita hasta 24 h antes`. */
 export function describirPolitica(valor: string | undefined | null): string {
   if (!valor) return '—';

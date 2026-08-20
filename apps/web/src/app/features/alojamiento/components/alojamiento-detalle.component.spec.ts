@@ -168,7 +168,8 @@ describe('AlojamientoDetalleComponent', () => {
 
     const html: string = fixture.nativeElement.innerHTML;
     expect(html).toContain('Tipos de espacio');
-    expect(html).toContain('€45');
+    // Sobre textContent: el espacio duro del importe se serializa como &nbsp;.
+    expect(fixture.nativeElement.textContent).toContain('45'+String.fromCharCode(160)+'€');
     expect(html).toContain('por noche');
   });
 

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { PasoEmbudo, TipoEvento, VerticalKey } from 'shared';
@@ -14,6 +14,7 @@ import { CatalogBrowseService } from '../../verticales/catalog-browse.service';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { GeoService } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 interface Dobles {
   reservas: { crear: jest.Mock };
@@ -25,7 +26,32 @@ interface Dobles {
   stripe: { getStripe: jest.Mock };
   geo: { trayecto: jest.Mock };
   eventos: { registrar: jest.Mock; cerrarEmbudo: jest.Mock };
+  auth: {
+    usuario: () => unknown;
+    estaAutenticado: () => boolean;
+    esAdmin: () => boolean;
+    esComercio: () => boolean;
+    esCliente: () => boolean;
+    clienteVerificado: () => boolean;
+    logout: jest.Mock;
+  };
 }
+
+/**
+ * Doble de `AuthService`. Cubre tambien lo que consume el navbar embebido, que
+ * de otro modo revienta el arranque del wizard entero.
+ */
+const autenticacion = (usuario: unknown) => ({
+  usuario: () => usuario,
+  estaAutenticado: () => usuario !== null,
+  esAdmin: () => false,
+  esComercio: () => false,
+  esCliente: () => usuario !== null,
+  clienteVerificado: () => usuario !== null,
+  logout: jest.fn(),
+});
+
+const sinSesion = () => autenticacion(null);
 
 const perro = (extra: Record<string, unknown> = {}) => ({
   _id: 'p1', nombre: 'Maya', tamano: 'mediano', tipoPelo: ['corto'],
@@ -65,6 +91,8 @@ describe('ReservaWizardComponent', () => {
       stripe: { getStripe: jest.fn().mockResolvedValue(stripeFake) },
       geo: { trayecto: jest.fn().mockResolvedValue({ km: 70, duracionMin: 55, esEstimacion: false }) },
       eventos: { registrar: jest.fn(), cerrarEmbudo: jest.fn() },
+      // Sin sesion por defecto: el wizard admite invitados.
+      auth: sinSesion(),
       ...ajustes,
     };
 
@@ -82,6 +110,7 @@ describe('ReservaWizardComponent', () => {
         { provide: StripeService, useValue: dobles.stripe },
         { provide: GeoService, useValue: dobles.geo },
         { provide: EventosService, useValue: dobles.eventos },
+        { provide: AuthService, useValue: dobles.auth },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -1032,7 +1061,7 @@ describe('ReservaWizardComponent', () => {
       await crear(params, query);
       componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-03', perros: 2 });
 
-      expect(componente.lineaResumen()).toBe('€50 × 2 noches · 2 perros');
+      expect(componente.lineaResumen()).toBe('50 € × 2 noches · 2 perros');
     });
 
     it('debería distinguir programa de sesión en adiestramiento', async () => {
@@ -1085,7 +1114,7 @@ describe('ReservaWizardComponent', () => {
       expect(componente.paso1Titulo()).toContain('Resumen');
       expect(componente.iconoVertical()).toBe('paw');
       expect(componente.precioPorLabel()).toBe('');
-      expect(componente.lineaResumen()).toBe('€50');
+      expect(componente.lineaResumen()).toBe('50 €');
       expect(componente.paso1Valido()).toBe(false);
       expect(componente.verticaLabel()).toBe('inventado');
     });
@@ -1291,6 +1320,175 @@ describe('ReservaWizardComponent', () => {
       componente.seleccionarPerro('perro-1');
 
       expect(componente.perroSeleccionado()).toBe('perro-1');
+    });
+  });
+  describe('datos de contacto del paso 2 (feedback 2026-08-20)', () => {
+    const sesion = (nombre: string, email = 'ana@doogking.com') => ({
+      auth: autenticacion({ id: 'u1', nombre, email, rol: 'cliente' }),
+    });
+
+    it('deberia llegar relleno para quien ya tiene sesion', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query, sesion('Ana Garcia Ruiz'));
+
+      expect(componente.paso2Form.value).toMatchObject({
+        nombre: 'Ana',
+        apellidos: 'Garcia Ruiz',
+        email: 'ana@doogking.com',
+      });
+    });
+
+    it('deberia dejar los apellidos vacios si el nombre es una sola palabra', async () => {
+      // El `required` obliga entonces a completarlos, que es lo que se quiere.
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query, sesion('Ana'));
+
+      expect(componente.paso2Form.value.nombre).toBe('Ana');
+      expect(componente.paso2Form.value.apellidos).toBe('');
+    });
+
+    it('no deberia rellenar nada sin sesion', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query);
+
+      expect(componente.paso2Form.value).toMatchObject({ nombre: '', apellidos: '', email: '' });
+    });
+
+    it('deberia completar el telefono que llega del perfil', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query, sesion('Ana Garcia'));
+
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne((r) => r.url.endsWith('/users/me')).flush({ telefono: '+34600111222' });
+      await fixture.whenStable();
+
+      expect(componente.paso2Form.value.telefono).toBe('+34600111222');
+    });
+
+    it('no deberia pisar el telefono que el usuario ya esta escribiendo', async () => {
+      // El perfil llega tarde; lo tecleado manda.
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query, sesion('Ana Garcia'));
+
+      componente.paso2Form.controls.telefono.setValue('+34699000111');
+      componente.paso2Form.controls.telefono.markAsDirty();
+
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne((r) => r.url.endsWith('/users/me')).flush({ telefono: '+34600111222' });
+      await fixture.whenStable();
+
+      expect(componente.paso2Form.value.telefono).toBe('+34699000111');
+    });
+
+    it('no deberia romper la reserva si el perfil falla', async () => {
+      const ctx = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(ctx.params, ctx.query, sesion('Ana Garcia'));
+
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne((r) => r.url.endsWith('/users/me'))
+        .flush('nope', { status: 500, statusText: 'Server Error' });
+
+      expect(componente.paso2Form.value.nombre).toBe('Ana');
+    });
+  });
+  describe('confirmacion: valoracion y preguntas frecuentes (feedback 2026-08-20)', () => {
+    const enConfirmacion = async (vertical = VerticalKey.ALOJAMIENTO) => {
+      const ctx = contexto(vertical);
+      await crear(ctx.params, ctx.query);
+      componente.paso.set(4);
+    };
+
+    it('deberia registrar la nota como evento del embudo', async () => {
+      await enConfirmacion();
+
+      componente.valorarExperiencia(5);
+
+      expect(dobles.eventos.registrar).toHaveBeenCalledWith(
+        TipoEvento.EXPERIENCIA_VALORADA,
+        expect.objectContaining({
+          paso: PasoEmbudo.CONFIRMACION,
+          payload: { puntuacion: 5 },
+        }),
+      );
+    });
+
+    it('deberia cerrarse al momento si la experiencia fue buena', async () => {
+      // Alargar el formulario a quien ha ido bien solo consigue que no vuelva.
+      await enConfirmacion();
+
+      componente.valorarExperiencia(4);
+
+      expect(componente.valoracionEnviada()).toBe(true);
+      expect(componente.pideMotivoValoracion()).toBe(false);
+    });
+
+    it('deberia preguntar que fallo cuando la nota es baja', async () => {
+      await enConfirmacion();
+
+      componente.valorarExperiencia(2);
+
+      expect(componente.pideMotivoValoracion()).toBe(true);
+      expect(componente.valoracionEnviada()).toBe(false);
+    });
+
+    it('no deberia perder la nota si el usuario se va sin escribir el motivo', async () => {
+      // La nota viaja al pulsar la estrella, no al enviar el texto.
+      await enConfirmacion();
+
+      componente.valorarExperiencia(1);
+
+      expect(dobles.eventos.registrar).toHaveBeenCalledTimes(1);
+    });
+
+    it('deberia mandar el motivo escrito junto a la nota', async () => {
+      await enConfirmacion();
+      componente.valorarExperiencia(2);
+      dobles.eventos.registrar.mockClear();
+
+      componente.motivoValoracion.set('  El pago tardo mucho  ');
+      componente.enviarMotivoValoracion();
+
+      expect(dobles.eventos.registrar).toHaveBeenCalledWith(
+        TipoEvento.EXPERIENCIA_VALORADA,
+        expect.objectContaining({
+          payload: { puntuacion: 2, motivo: 'El pago tardo mucho' },
+        }),
+      );
+      expect(componente.valoracionEnviada()).toBe(true);
+    });
+
+    it('no deberia mandar nada si el motivo se deja vacio', async () => {
+      await enConfirmacion();
+      componente.valorarExperiencia(3);
+      dobles.eventos.registrar.mockClear();
+
+      componente.enviarMotivoValoracion();
+
+      expect(dobles.eventos.registrar).not.toHaveBeenCalled();
+      expect(componente.valoracionEnviada()).toBe(true);
+    });
+
+    it('no deberia romper la confirmacion si la telemetria falla', async () => {
+      // La reserva ya esta pagada: un error aqui daria a entender lo contrario.
+      await enConfirmacion();
+      dobles.eventos.registrar.mockImplementation(() => { throw new Error('sin red'); });
+
+      expect(() => componente.valorarExperiencia(5)).not.toThrow();
+      expect(componente.valoracionEnviada()).toBe(true);
+    });
+
+    it('deberia ofrecer preguntas propias de la categoria reservada', async () => {
+      await enConfirmacion(VerticalKey.VETERINARIA);
+
+      expect(componente.faq()[0].pregunta).toContain('cita');
+    });
+
+    it('deberia incluir siempre las preguntas comunes', async () => {
+      await enConfirmacion(VerticalKey.TRANSPORTE);
+
+      const preguntas = componente.faq().map((p) => p.pregunta);
+      expect(preguntas.some((p) => p.includes('cobra el importe'))).toBe(true);
+      expect(preguntas.some((p) => p.includes('cancelo'))).toBe(true);
     });
   });
 });

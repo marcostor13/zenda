@@ -1,16 +1,17 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DecimalPipe } from '@angular/common';
+
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
+import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 @Component({
   selector: 'app-ajuste-pago',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent],
+  imports: [RouterLink, RsNavbarComponent, EurosPipe],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -39,15 +40,15 @@ import type { Stripe, StripeElements } from '@stripe/stripe-js';
           @for (s of reserva()?.suplementos; track s.concepto) {
             <div class="ajuste-linea">
               <span>{{ s.concepto }}</span>
-              <span>+€{{ s.monto | number:'1.2-2' }}</span>
+              <span>+{{ s.monto | euros:'1.2-2' }}</span>
             </div>
           }
         </div>
 
         <div class="ajuste-card__totales">
-          <div class="ajuste-linea"><span>Precio inicial</span><span>€{{ reserva()?.montoTotal | number:'1.2-2' }}</span></div>
-          <div class="ajuste-linea"><span>Nuevo precio</span><span>€{{ reserva()?.montoAjustado | number:'1.2-2' }}</span></div>
-          <div class="ajuste-linea ajuste-linea--total"><span>Diferencia a pagar</span><span>€{{ diferencia() | number:'1.2-2' }}</span></div>
+          <div class="ajuste-linea"><span>Precio inicial</span><span>{{ reserva()?.montoTotal | euros:'1.2-2' }}</span></div>
+          <div class="ajuste-linea"><span>Nuevo precio</span><span>{{ reserva()?.montoAjustado | euros:'1.2-2' }}</span></div>
+          <div class="ajuste-linea ajuste-linea--total"><span>Diferencia a pagar</span><span>{{ diferencia() | euros:'1.2-2' }}</span></div>
         </div>
 
         <p class="ajuste-card__legal">

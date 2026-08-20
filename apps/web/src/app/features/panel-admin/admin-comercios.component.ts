@@ -17,6 +17,7 @@ interface DocumentoFicha {
 }
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
@@ -30,7 +31,7 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-comercios',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RsIconComponent],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RsIconComponent, EurosPipe],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -353,8 +354,8 @@ const LIMITE = 20;
         <div class="ficha__kpis">
           <div class="ficha__kpi"><strong>{{ f.resumen.servicios }}</strong><span>Servicios</span></div>
           <div class="ficha__kpi"><strong>{{ f.resumen.reservas }}</strong><span>Reservas recientes</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.facturacion | number:'1.0-0' }} €</strong><span>Facturación</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.comision | number:'1.0-0' }} €</strong><span>Comisión Doogking</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.facturacion | euros:'1.0-0' }}</strong><span>Facturación</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.comision | euros:'1.0-0' }}</strong><span>Comisión Doogking</span></div>
           <div class="ficha__kpi">
             <strong>{{ f.resumen.valoracion ? (f.resumen.valoracion | number:'1.1-1') : '—' }}</strong>
             <span>Valoración ({{ f.resumen.resenas }})</span>
@@ -419,7 +420,7 @@ const LIMITE = 20;
                 <li>
                   <code>{{ r.codigo }}</code>
                   <span>{{ r.vertical }} · {{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy' }}</span>
-                  <span>{{ r.montoTotal | number:'1.2-2' }} €</span>
+                  <span>{{ r.montoTotal | euros:'1.2-2' }}</span>
                   <span class="rs-badge rs-badge--neutral">{{ r.estado }}</span>
                 </li>
               }

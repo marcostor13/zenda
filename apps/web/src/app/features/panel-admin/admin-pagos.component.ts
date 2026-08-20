@@ -1,9 +1,10 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, PagoAdmin, ResumenPagos, Liquidacion } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 const LIMITE = 20;
 
 const ESTADO_BADGE: Record<string, string> = {
@@ -36,7 +37,7 @@ const FILTROS = [
 @Component({
   selector: 'app-admin-pagos',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, RsIconComponent],
+  imports: [DatePipe, RsIconComponent, EurosPipe],
   template: `
     <div class="page-header">
       <div>
@@ -47,27 +48,27 @@ const FILTROS = [
 
     <div class="resumen">
       <div class="rs-card tile">
-        <span class="tile__num">{{ resumen()?.cobrado ?? 0 | number:'1.0-0' }} €</span>
+        <span class="tile__num">{{ resumen()?.cobrado ?? 0 | euros:'1.0-0' }}</span>
         <span class="tile__lbl">Cobrado a clientes</span>
       </div>
       <div class="rs-card tile">
-        <span class="tile__num">{{ resumen()?.comisionDoogking ?? 0 | number:'1.0-0' }} €</span>
+        <span class="tile__num">{{ resumen()?.comisionDoogking ?? 0 | euros:'1.0-0' }}</span>
         <span class="tile__lbl">Comisión Doogking</span>
       </div>
       <div class="rs-card tile">
-        <span class="tile__num">{{ resumen()?.costePasarela ?? 0 | number:'1.0-0' }} €</span>
+        <span class="tile__num">{{ resumen()?.costePasarela ?? 0 | euros:'1.0-0' }}</span>
         <span class="tile__lbl">Coste de pasarela</span>
       </div>
       <div class="rs-card tile">
-        <span class="tile__num">{{ resumen()?.liquidadoComercios ?? 0 | number:'1.0-0' }} €</span>
+        <span class="tile__num">{{ resumen()?.liquidadoComercios ?? 0 | euros:'1.0-0' }}</span>
         <span class="tile__lbl">Para los comercios</span>
       </div>
       <div class="rs-card tile">
-        <span class="tile__num">{{ resumen()?.pendienteLiquidar ?? 0 | number:'1.0-0' }} €</span>
+        <span class="tile__num">{{ resumen()?.pendienteLiquidar ?? 0 | euros:'1.0-0' }}</span>
         <span class="tile__lbl">Pendiente de liquidar</span>
       </div>
       <div class="rs-card tile">
-        <span class="tile__num">{{ resumen()?.reembolsado ?? 0 | number:'1.0-0' }} €</span>
+        <span class="tile__num">{{ resumen()?.reembolsado ?? 0 | euros:'1.0-0' }}</span>
         <span class="tile__lbl">Reembolsado</span>
       </div>
     </div>
@@ -141,12 +142,12 @@ const FILTROS = [
                   · {{ l.reservas }} pago(s)
                 </span>
                 <span class="liquidacion__desglose">
-                  Bruto {{ l.facturacionBruta | number:'1.2-2' }} € ·
-                  comisión {{ l.comisionPlataforma | number:'1.2-2' }} € ·
-                  pasarela {{ l.stripeFee | number:'1.2-2' }} €
+                  Bruto {{ l.facturacionBruta | euros:'1.2-2' }} ·
+                  comisión {{ l.comisionPlataforma | euros:'1.2-2' }} ·
+                  pasarela {{ l.stripeFee | euros:'1.2-2' }}
                 </span>
               </div>
-              <span class="liquidacion__neto">{{ l.importeNeto | number:'1.2-2' }} €</span>
+              <span class="liquidacion__neto">{{ l.importeNeto | euros:'1.2-2' }}</span>
               <span class="rs-badge {{ l.estado === 'pagada' ? 'rs-badge--success' : 'rs-badge--warning' }}">
                 {{ l.estado === 'pagada' ? 'Pagada' : 'Pendiente' }}
               </span>
@@ -200,10 +201,10 @@ const FILTROS = [
             <span class="cell-mono" data-col="Reserva">{{ p.codigoReserva }}</span>
             <span data-col="Comercio">{{ p.comercio }}</span>
             <span class="cell-muted" data-col="Fecha">{{ p.createdAt | date:'d MMM yyyy' }}</span>
-            <span class="cell-amount" data-col="Cobrado">{{ p.montoTotal | number:'1.2-2' }} €</span>
-            <span class="cell-amount cell-verde" data-col="Comisión">{{ p.comisionPlataforma | number:'1.2-2' }} €</span>
-            <span class="cell-amount cell-rojo" data-col="Pasarela">{{ p.stripeFee | number:'1.2-2' }} €</span>
-            <span class="cell-amount" data-col="Neto comercio">{{ p.montoLiquidacion | number:'1.2-2' }} €</span>
+            <span class="cell-amount" data-col="Cobrado">{{ p.montoTotal | euros:'1.2-2' }}</span>
+            <span class="cell-amount cell-verde" data-col="Comisión">{{ p.comisionPlataforma | euros:'1.2-2' }}</span>
+            <span class="cell-amount cell-rojo" data-col="Pasarela">{{ p.stripeFee | euros:'1.2-2' }}</span>
+            <span class="cell-amount" data-col="Neto comercio">{{ p.montoLiquidacion | euros:'1.2-2' }}</span>
             <span data-col="Estado">
               <span class="rs-badge {{ badge(p.estado) }}">{{ etiqueta(p.estado) }}</span>
             </span>

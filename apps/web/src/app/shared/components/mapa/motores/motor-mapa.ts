@@ -1,10 +1,15 @@
-/** Punto pintable en el mapa. `etiqueta` es lo que se ve en el pin (p. ej. "€24"). */
+/** Punto pintable en el mapa. `etiqueta` es el precio que se ve en su tarjeta. */
 export interface PuntoMapa {
   readonly id: string;
   readonly lat: number;
   readonly lng: number;
   readonly etiqueta?: string;
   readonly titulo?: string;
+  /**
+   * Categoría del servicio: decide qué icono lleva el pin. Sin ella el pin sale
+   * con la huella genérica, que es preferible a disfrazarlo de otra categoría.
+   */
+  readonly vertical?: string;
   /** Miniatura de la tarjeta emergente al pulsar el pin. */
   readonly imagen?: string;
   /** Nota media, para la tarjeta emergente. 0 = todavía sin reseñas. */

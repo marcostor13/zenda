@@ -7,12 +7,13 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AdminApiService } from '../panel-admin/admin-api.service';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
 
 @Component({
   selector: 'app-perfil-admin',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent],
+  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, EurosPipe],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -37,11 +38,11 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
     <!-- MÉTRICAS DE NEGOCIO -->
     <div class="metric-grid">
       <div class="rs-card metric">
-        <div class="metric__value">{{ kpis().gmvMes | number:'1.0-0' }} €</div>
+        <div class="metric__value">{{ kpis().gmvMes | euros:'1.0-0' }}</div>
         <div class="metric__label">Facturación gestionada (mes)</div>
       </div>
       <div class="rs-card metric">
-        <div class="metric__value">{{ kpis().ingresosMes | number:'1.0-0' }} €</div>
+        <div class="metric__value">{{ kpis().ingresosMes | euros:'1.0-0' }}</div>
         <div class="metric__label">Comisión Doogking (mes)</div>
       </div>
       <div class="rs-card metric">

@@ -1,6 +1,6 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -9,6 +9,7 @@ import { ComercioApiService, MiReserva, SuplementoConfig } from './comercio-api.
 import { PerrosService, HistoriaCompartidaApi, FilaHistorialApi } from '../perros/perros.service';
 import { iconoVertical } from './vertical-icon';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 /** Hito de seguimiento en tiempo real que el comercio va marcando. */
 interface Hito {
   readonly hito: string;
@@ -93,7 +94,7 @@ function desdeClaveDia(clave: string): number {
 @Component({
   selector: 'app-comercio-reservas',
   standalone: true,
-  imports: [RouterLink, DatePipe, DecimalPipe, FormsModule, RsIconComponent, RsImageUploadComponent],
+  imports: [RouterLink, DatePipe, FormsModule, RsIconComponent, RsImageUploadComponent, EurosPipe],
   template: `
     <!-- HEADER -->
     <div class="page-header">
@@ -296,7 +297,7 @@ function desdeClaveDia(clave: string): number {
                     <rs-icon [name]="iconoEstado(r.estado)" [size]="12" [stroke]="2"></rs-icon>
                     {{ etiquetaEstado(r.estado) }}
                   </span>
-                  <span class="reserva-card__importe">€{{ (r.montoAjustado ?? r.montoTotal) | number:'1.2-2' }}</span>
+                  <span class="reserva-card__importe">{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</span>
                   <code class="reserva-card__codigo">{{ r.codigo }}</code>
                 </div>
               </div>
@@ -344,14 +345,14 @@ function desdeClaveDia(clave: string): number {
                     @if (r.fechaFin) {
                       <div><dt>{{ esEstancia(r.vertical) ? 'Salida' : 'Fin' }}</dt><dd>{{ r.fechaFin | date:'d MMM yyyy, HH:mm' }}</dd></div>
                     }
-                    <div><dt>Importe</dt><dd>€{{ (r.montoAjustado ?? r.montoTotal) | number:'1.2-2' }}</dd></div>
+                    <div><dt>Importe</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</dd></div>
                     <div><dt>Reservada el</dt><dd>{{ r.createdAt | date:'d MMM yyyy' }}</dd></div>
                   </dl>
                   @if (r.suplementos?.length) {
                     <p class="detalle__suplementos">
                       <strong>Suplementos:</strong>
                       @for (s of r.suplementos; track $index) {
-                        {{ s.concepto }} (+€{{ s.monto | number:'1.2-2' }}){{ $last ? '' : ' · ' }}
+                        {{ s.concepto }} (+{{ s.monto | euros:'1.2-2' }}){{ $last ? '' : ' · ' }}
                       }
                     </p>
                   }
@@ -639,7 +640,7 @@ function desdeClaveDia(clave: string): number {
                           <label class="filter-check">
                             <input type="checkbox" [checked]="seleccionados().has(s._id)"
                                    (change)="toggleSuplemento(s._id)" />
-                            {{ s.concepto }} (+€{{ s.monto | number:'1.2-2' }})
+                            {{ s.concepto }} (+{{ s.monto | euros:'1.2-2' }})
                           </label>
                         }
                       </div>
@@ -676,7 +677,7 @@ function desdeClaveDia(clave: string): number {
                     }
 
                     @if (totalSuplementoSeleccionado() > 0) {
-                      <p class="ajuste-panel__total">Suplemento total: +€{{ totalSuplementoSeleccionado() | number:'1.2-2' }}</p>
+                      <p class="ajuste-panel__total">Suplemento total: +{{ totalSuplementoSeleccionado() | euros:'1.2-2' }}</p>
                     }
 
                     <div class="ajuste-panel__actions">

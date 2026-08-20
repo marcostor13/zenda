@@ -1,5 +1,5 @@
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -9,6 +9,7 @@ import { PERMISO_ADMIN_DESCRIPCIONES, PERMISO_ADMIN_LABELS, PermisoAdmin, nombre
 import { AdminApiService, UsuarioAdmin, ResumenUsuarios, FichaUsuario, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
 import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 const ROL_BADGE: Record<string, string> = {
   cliente: 'rs-badge--neutral',
   comercio_admin: 'rs-badge--accent',
@@ -40,7 +41,7 @@ function labelRolDe(rol: string): string {
 @Component({
   selector: 'app-admin-usuarios',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent],
+  imports: [DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent, EurosPipe],
   template: `
     <!-- Cabecera -->
     <div class="page-header">
@@ -337,7 +338,7 @@ function labelRolDe(rol: string): string {
         <div class="ficha__kpis">
           <div class="ficha__kpi"><strong>{{ f.resumen.totalReservas }}</strong><span>Reservas</span></div>
           <div class="ficha__kpi"><strong>{{ f.resumen.canceladas }}</strong><span>Canceladas</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.totalGastado | number:'1.0-0' }} €</strong><span>Gastado</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.totalGastado | euros:'1.0-0' }}</strong><span>Gastado</span></div>
           <div class="ficha__kpi"><strong>{{ f.resumen.resenas }}</strong><span>Reseñas</span></div>
           <div class="ficha__kpi"><strong>{{ f.resumen.incidencias }}</strong><span>Incidencias</span></div>
         </div>
@@ -375,7 +376,7 @@ function labelRolDe(rol: string): string {
                 <li>
                   <code>{{ r.codigo }}</code>
                   <span>{{ r.vertical }} · {{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy' }}</span>
-                  <span>{{ r.montoTotal | number:'1.2-2' }} €</span>
+                  <span>{{ r.montoTotal | euros:'1.2-2' }}</span>
                   <span class="rs-badge rs-badge--neutral">{{ r.estado }}</span>
                 </li>
               }
@@ -562,7 +563,6 @@ function labelRolDe(rol: string): string {
         padding-inline: 0;
       }
     }
-
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 14px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 120px; } .skel--lg { width: 150px; } .skel--xl { width: 200px; }

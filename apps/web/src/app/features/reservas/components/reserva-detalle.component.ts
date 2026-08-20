@@ -1,17 +1,18 @@
 import { Component, signal, inject, OnInit, OnDestroy, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
+import { DatePipe, TitleCasePipe } from '@angular/common';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 
+import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 type EstadoColor = 'success' | 'warning' | 'danger' | 'accent' | 'neutral';
 
 const HITO_LABEL: Record<string, string> = {
   recogida: 'Mascota recogida', en_ruta: 'En ruta', entregada: 'Mascota entregada',
-  entrada: 'Entrada / check-in', salida: 'Salida / check-out', finalizada: 'Servicio finalizado',
+  entrada: 'Entrada', salida: 'Salida', finalizada: 'Servicio finalizado',
 };
 
 const VERTICAL_META: Record<string, { label: string; icon: string; color: string }> = {
@@ -35,7 +36,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
 @Component({
   selector: 'app-reserva-detalle',
   standalone: true,
-  imports: [RouterLink, DatePipe, DecimalPipe, TitleCasePipe, RsNavbarComponent, RsIconComponent],
+  imports: [RouterLink, DatePipe, TitleCasePipe, RsNavbarComponent, RsIconComponent, EurosPipe],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -179,7 +180,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
                         <br /><a [href]="s.evidenciaUrl" target="_blank" rel="noopener" style="font-size:var(--f-xs);color:var(--c-accent)">Ver foto</a>
                       }
                     </span>
-                    <span class="info-row__val">€{{ s.monto | number:'1.2-2' }}</span>
+                    <span class="info-row__val">{{ s.monto | euros:'1.2-2' }}</span>
                   </div>
                 }
               </div>
@@ -198,7 +199,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
                   </div>
                 </div>
                 <span class="rs-badge rs-badge--success" style="margin-left:auto">
-                  −€{{ reserva()!.descuentoMonto | number:'1.2-2' }}
+                  −{{ reserva()!.descuentoMonto | euros:'1.2-2' }}
                 </span>
               </div>
             </div>
@@ -216,7 +217,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
             <div class="price-rows">
               <div class="price-row">
                 <span>Subtotal</span>
-                <span>€{{ reserva()!.montoSubtotal | number:'1.2-2' }}</span>
+                <span>{{ reserva()!.montoSubtotal | euros:'1.2-2' }}</span>
               </div>
               @if (reserva()!.descuentoMonto > 0) {
                 <div class="price-row price-row--discount">
@@ -226,16 +227,16 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
                       <span style="font-size:var(--f-xs);font-family:monospace"> ({{ reserva()!.cuponCodigo }})</span>
                     }
                   </span>
-                  <span>−€{{ reserva()!.descuentoMonto | number:'1.2-2' }}</span>
+                  <span>−{{ reserva()!.descuentoMonto | euros:'1.2-2' }}</span>
                 </div>
               }
               <div class="price-row">
                 <span>IVA (21%)</span>
-                <span>€{{ iva() | number:'1.2-2' }}</span>
+                <span>{{ iva() | euros:'1.2-2' }}</span>
               </div>
               <div class="price-row price-row--total">
                 <span>Total</span>
-                <span>€{{ reserva()!.montoTotal | number:'1.2-2' }}</span>
+                <span>{{ reserva()!.montoTotal | euros:'1.2-2' }}</span>
               </div>
             </div>
 
@@ -291,7 +292,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
                   <span class="rs-spin"></span> Procesando…
                 } @else {
                   <rs-icon name="credit-card" [size]="16" [stroke]="2"></rs-icon>
-                  Completar pago — €{{ reserva()!.montoTotal | number:'1.2-2' }}
+                  Completar pago — {{ reserva()!.montoTotal | euros:'1.2-2' }}
                 }
               </button>
             }

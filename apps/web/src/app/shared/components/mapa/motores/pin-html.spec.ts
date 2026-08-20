@@ -5,7 +5,8 @@ const PUNTO: PuntoMapa = {
   id: 'a1',
   lat: 40.4168,
   lng: -3.7038,
-  etiqueta: '€24',
+  etiqueta: '24 €',
+  vertical: 'alojamiento',
   titulo: 'Residencia Las Rozas',
   imagen: 'https://cdn.doogking.com/foto.jpg',
   rating: 4.62,
@@ -23,11 +24,28 @@ describe('escapar', () => {
 });
 
 describe('htmlPin', () => {
-  it('debería pintar la etiqueta dentro de un botón alcanzable con teclado', () => {
+  it('debería pintar el icono de la categoría, no el precio', () => {
+    // Veinte pastillas de precio tapan el mapa que se está enseñando.
+    const html = htmlPin(PUNTO, false);
+
+    expect(html).toContain('src="/icons/alojamiento.svg"');
+    expect(html).not.toContain('24 €<');
+  });
+
+  it('debería seguir siendo un botón alcanzable con teclado', () => {
     const html = htmlPin(PUNTO, false);
 
     expect(html).toContain('<button type="button"');
-    expect(html).toContain('>€24</button>');
+  });
+
+  it('debería anunciar nombre y precio a quien no ve el mapa', () => {
+    // El texto del pin ya no dice nada, así que carga la etiqueta accesible.
+    expect(htmlPin(PUNTO, false)).toContain('aria-label="Residencia Las Rozas, 24 €"');
+  });
+
+  it('debería anunciar solo el nombre cuando no hay precio', () => {
+    const html = htmlPin({ ...PUNTO, etiqueta: undefined }, false);
+
     expect(html).toContain('aria-label="Residencia Las Rozas"');
   });
 
@@ -38,18 +56,29 @@ describe('htmlPin', () => {
     expect(html).toContain('aria-current="true"');
   });
 
-  it('debería usar un punto medio cuando el servicio no trae etiqueta', () => {
-    expect(htmlPin({ id: 'x', lat: 1, lng: 2 }, false)).toContain('>·</button>');
+  it('debería usar el icono genérico si la categoría no se reconoce', () => {
+    // Disfrazarlo del icono de otra categoría sería peor que no decir nada.
+    const html = htmlPin({ id: 'x', lat: 1, lng: 2 }, false);
+
+    expect(html).toContain('src="/icons/mas-servicios.svg"');
+    expect(html).toContain('aria-label="Servicio"');
+  });
+
+  it('debería escapar el título antes de meterlo en el marcado', () => {
+    const html = htmlPin({ ...PUNTO, titulo: 'Can "Feliç" & Co' }, false);
+
+    expect(html).toContain('aria-label="Can &quot;Feliç&quot; &amp; Co, 24 €"');
   });
 });
 
 describe('htmlTarjeta', () => {
   it('debería componer imagen, nota y precio del punto', () => {
+    // El precio no desaparece del mapa: se lee aquí, a un toque del pin.
     const html = htmlTarjeta(PUNTO) ?? '';
 
     expect(html).toContain('src="https://cdn.doogking.com/foto.jpg"');
     expect(html).toContain('>4.6<');
-    expect(html).toContain('>€24<');
+    expect(html).toContain('>24 €<');
     expect(html).toContain('Residencia Las Rozas');
   });
 

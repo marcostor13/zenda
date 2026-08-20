@@ -9,6 +9,7 @@ import { IMG_FALLBACK } from '../../shared/media/images';
 import { enlaceAServicio, verticalUi } from '../../shared/verticales/verticales.config';
 import { AlphaService, AlphaEstadoApi, AlphaNivelApi, AlphaVentajaApi } from '../alpha/alpha.service';
 
+import { euros } from '../../shared/pipes/euros.pipe';
 /** Un escalón del club, ya resuelto para pintar (nombre romano, insignia, estado). */
 interface NivelVista {
   readonly nivel: number;
@@ -557,7 +558,7 @@ export class PerfilAlphaComponent implements OnInit {
 
     const condiciones: string[] = [];
     if (e.descuentoMaximoEur != null) {
-      condiciones.push(`Hasta ${e.descuentoMaximoEur} € de descuento por reserva`);
+      condiciones.push(`Hasta ${euros(e.descuentoMaximoEur)} de descuento por reserva`);
     }
     const verticales = e.verticalesAplicables ?? [];
     if (verticales.length) {

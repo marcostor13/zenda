@@ -1,4 +1,4 @@
-import { POLITICAS_CANCELACION, describirPolitica } from './politicas-cancelacion.catalogo';
+import { POLITICAS_CANCELACION, describirPolitica, descripcionPolitica } from './politicas-cancelacion.catalogo';
 
 describe('politicas-cancelacion.catalogo', () => {
   it('debería ofrecer las tres políticas que acepta la API', () => {
@@ -29,5 +29,21 @@ describe('politicas-cancelacion.catalogo', () => {
     // Antes de cerrar el catálogo se guardaban frases sueltas; se muestran tal
     // cual en vez de desaparecer de la ficha.
     expect(describirPolitica('Se avisa con una semana')).toBe('Se avisa con una semana');
+  });
+
+  describe('descripcionPolitica', () => {
+    it('debería devolver la condición completa, no el rótulo corto', () => {
+      expect(descripcionPolitica('flexible')).toBe(POLITICAS_CANCELACION[0].descripcion);
+    });
+
+    it('debería remitir al alojamiento cuando el servicio no declara política', () => {
+      // Un guion aquí dejaría al cliente sin saber qué pasa si cancela.
+      expect(descripcionPolitica(undefined)).toContain('Consulta las condiciones');
+      expect(descripcionPolitica('')).toContain('Consulta las condiciones');
+    });
+
+    it('debería respetar el texto libre de un comercio antiguo', () => {
+      expect(descripcionPolitica('Se avisa con una semana')).toBe('Se avisa con una semana');
+    });
   });
 });

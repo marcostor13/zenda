@@ -4,6 +4,7 @@ import { AdminApiService, ComisionConfig, RegistroAuditoria } from './admin-api.
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 /**
  * Comisiones por vertical en su propio apartado (TCK-8040 §5). Vivían dentro del
  * Dashboard, donde competían con los KPIs y quedaban escondidas pese a ser la
@@ -12,7 +13,7 @@ import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 @Component({
   selector: 'app-admin-comisiones',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [RsIconComponent, EurosPipe],
   template: `
     <div class="page-header">
       <div>
@@ -54,7 +55,7 @@ import { iconoDeVertical } from '../../shared/verticales/verticales.config';
                 <span style="color:var(--t-400)">%</span>
               </div>
               <span data-col="Fee Stripe" style="color:var(--t-400);font-size:var(--f-sm)">
-                {{ (c.stripePct * 100).toFixed(1) }}% + {{ c.stripeFijoEur.toFixed(2) }} €
+                {{ (c.stripePct * 100).toFixed(1) }}% + {{ c.stripeFijoEur.toFixed(2) | euros }}
               </span>
               <span data-col="Total" style="font-weight:var(--w-7);color:var(--t-100);font-size:var(--f-sm)">
                 {{ comisionTotal(c) }}%

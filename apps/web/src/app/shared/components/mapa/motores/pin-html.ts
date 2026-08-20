@@ -1,4 +1,8 @@
+import { CATEGORIA_ICONOS } from '../../../media/images';
 import type { PuntoMapa } from './motor-mapa';
+
+/** Pin de una categoría desconocida: la huella, nunca el icono de otra. */
+const ICONO_GENERICO = CATEGORIA_ICONOS['mas'];
 
 /**
  * Marcado de los pines y de sus tarjetas emergentes. Se compone a mano porque
@@ -15,15 +19,30 @@ export function escapar(texto: string): string {
 }
 
 /**
- * Pin con el precio. Es un `<button>` y no un `<span>` para que se pueda
- * alcanzar con el teclado y anunciarlo un lector de pantalla: los resultados
- * del mapa son los mismos que los de la lista y deben ser igual de accesibles.
+ * Pin con el icono de la categoría.
+ *
+ * Antes llevaba el precio, y un mapa con veinte pastillas de texto encima tapa
+ * el mapa que se supone que está enseñando (feedback 2026-08-20). El icono se
+ * reconoce de un vistazo y ocupa lo mismo pase lo que pase con la cifra; el
+ * precio sigue estando a un toque, en la tarjeta emergente.
+ *
+ * Es un `<button>` y no un `<span>` para que se pueda alcanzar con el teclado y
+ * lo anuncie un lector de pantalla: los resultados del mapa son los mismos que
+ * los de la lista y deben ser igual de accesibles. Como el texto ya no dice
+ * nada, la etiqueta accesible carga con el título y el precio.
  */
 export function htmlPin(punto: PuntoMapa, esActivo: boolean): string {
-  const etiqueta = escapar(punto.etiqueta ?? '·');
-  const titulo = punto.titulo ? escapar(punto.titulo) : etiqueta;
+  const icono = escapar(CATEGORIA_ICONOS[punto.vertical ?? ''] ?? ICONO_GENERICO);
   return `<button type="button" class="rs-pin${esActivo ? ' rs-pin--activo' : ''}"`
-    + ` aria-label="${titulo}"${esActivo ? ' aria-current="true"' : ''}>${etiqueta}</button>`;
+    + ` aria-label="${escapar(etiquetaAccesible(punto))}"`
+    + `${esActivo ? ' aria-current="true"' : ''}>`
+    + `<img class="rs-pin__icono" src="${icono}" alt="" aria-hidden="true"></button>`;
+}
+
+/** Lo que oye quien no ve el mapa: el nombre y, si lo hay, el precio. */
+function etiquetaAccesible(punto: PuntoMapa): string {
+  const nombre = punto.titulo ?? 'Servicio';
+  return punto.etiqueta ? `${nombre}, ${punto.etiqueta}` : nombre;
 }
 
 /** Tarjeta emergente del pin; `null` cuando el punto no tiene ni título. */

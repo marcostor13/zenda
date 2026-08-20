@@ -19,6 +19,7 @@ import { VERTICALES_PUBLICOS, rutaDeVertical } from '../../shared/verticales/ver
 import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
 import { environment } from '../../../environments/environment';
 
+import { euros } from '../../shared/pipes/euros.pipe';
 interface AlojamientoRecomendado {
   /** Presente solo cuando la tarjeta viene del catálogo real: habilita favorito y enlace a la ficha. */
   id?: string;
@@ -313,7 +314,7 @@ type SearchMode = 'filtros' | 'ia';
             [title]="a.nombre" [subtitle]="a.ciudad"
             [badges]="[{ icon: 'crown', label: 'Recomendado', variant: 'accent' }]"
             [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
-            [price]="{ amount: '€' + a.precioPorNoche, period: '/noche' }"
+            [price]="{ amount: euros(a.precioPorNoche), period: '/noche' }"
             [amenities]="a.tags"
             ctaLabel="Ver alojamiento"
             [favoritoServicioId]="a.id ?? null"
@@ -396,7 +397,7 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--lg pro-cta__inner" rsAnim>
       <div class="pro-cta__body">
         <p class="pro-cta__eyebrow">Para profesionales</p>
-        <h2 class="pro-cta__title">¿Tienes un negocio canino?</h2>
+        <h2 class="pro-cta__title">¿Ofreces servicios para mascotas?</h2>
         <p class="pro-cta__text">
           Publica tus servicios en Doogking, gestiona tu disponibilidad y recibe
           reservas pagadas online. Sin cuota de alta: solo comisión por reserva.
@@ -429,33 +430,40 @@ type SearchMode = 'filtros' | 'ia';
 
   <!-- ═══ FOOTER ═══════════════════════════════════════════════════ -->
   <footer class="rs-footer home-footer">
-    <div class="rs-footer__grid">
-      <div class="rs-footer__brand">
-        <img [src]="logoFooter" alt="Doogking · Todo para su rey, en un solo lugar"
-             class="home-footer__logo" />
-        <p class="home-footer__claim">La plataforma líder para reservar servicios para mascotas.</p>
-        <p>El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.</p>
-        <div class="home-footer__social" aria-label="Redes sociales de Doogking">
-          @for (red of redesSociales; track red.nombre) {
-            <a
-              [href]="red.url"
-              target="_blank"
-              rel="noopener"
-              class="home-footer__social-link"
-              [attr.title]="red.nombre">
-              <rs-social-icon [name]="red.icono" [size]="18" [etiqueta]="red.nombre" />
-            </a>
-          }
-        </div>
+    <!--
+      Estructura en bandas (feedback 2026-08-20): la marca y las redes centradas
+      arriba, los servicios en horizontal debajo y sólo entonces las columnas de
+      enlaces. Antes la marca era una columna más del grid y el logotipo se
+      perdía entre cuatro listas.
+    -->
+    <div class="home-footer__marca">
+      <img [src]="logoFooter" alt="Doogking · Todo para su rey, en un solo lugar"
+           class="home-footer__logo" />
+      <p class="home-footer__claim">La plataforma líder para reservar servicios para mascotas.</p>
+      <p class="home-footer__descripcion">El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.</p>
+      <div class="home-footer__social" aria-label="Redes sociales de Doogking">
+        @for (red of redesSociales; track red.nombre) {
+          <a
+            [href]="red.url"
+            target="_blank"
+            rel="noopener"
+            class="home-footer__social-link"
+            [attr.title]="red.nombre">
+            <rs-social-icon [name]="red.icono" [size]="18" [etiqueta]="red.nombre" />
+          </a>
+        }
       </div>
-      <div class="rs-footer__col">
-        <h4>Servicios</h4>
-        <ul>
-          @for (v of verticales; track v.key) {
-            <li><a [routerLink]="v.route">{{ v.label }}</a></li>
-          }
-        </ul>
-      </div>
+    </div>
+
+    <!-- Los servicios son lo que se busca: en una sola fila, no en una columna. -->
+    <nav class="home-footer__servicios" aria-label="Categorías de servicio">
+      @for (v of verticales; track v.key) {
+        <a [routerLink]="v.route">{{ v.label }}</a>
+      }
+      <a routerLink="/explora">Explora con tu mascota</a>
+    </nav>
+
+    <div class="rs-footer__grid rs-footer__grid--enlaces">
       <div class="rs-footer__col">
         <h4>Descubre</h4>
         <ul>
@@ -484,9 +492,33 @@ type SearchMode = 'filtros' | 'ia';
         </ul>
       </div>
     </div>
-    <div class="home-footer__stores">
-      <span class="home-footer__store-badge"><rs-icon name="smartphone" [size]="14" [stroke]="2" /> Próximamente en App Store</span>
-      <span class="home-footer__store-badge"><rs-icon name="play" [size]="14" [stroke]="2" /> Próximamente en Google Play</span>
+    <!--
+      TODO(D-4): sustituir estas pastillas por los badges oficiales de App Store
+      y Google Play cuando las apps estén publicadas. Los assets se descargan de
+      los kits de marca de Apple y Google y van a public/images/ como
+      badge-app-store.svg y badge-google-play.svg; sus condiciones de uso
+      obligan a respetar proporciones y márgenes, así que no se redibujan a mano.
+      Hasta entonces no se enlaza a ninguna tienda: mandar a una ficha que no
+      existe es peor que no ofrecer el enlace.
+    -->
+    <div class="home-footer__stores" aria-label="Aplicaciones móviles">
+      <p class="home-footer__stores-titulo">Muy pronto en tu móvil</p>
+      <div class="home-footer__stores-badges">
+        <span class="home-footer__store-badge">
+          <rs-icon name="smartphone" [size]="18" [stroke]="1.75" />
+          <span>
+            <small>Próximamente en</small>
+            App Store
+          </span>
+        </span>
+        <span class="home-footer__store-badge">
+          <rs-icon name="play" [size]="18" [stroke]="1.75" />
+          <span>
+            <small>Próximamente en</small>
+            Google Play
+          </span>
+        </span>
+      </div>
       <span class="home-footer__pay">
         @for (marca of marcasPago; track marca) {
           <rs-brand-icon [name]="marca" [size]="20" />
@@ -1391,16 +1423,56 @@ type SearchMode = 'filtros' | 'ia';
     /* El logo ya viene recortado sobre transparencia, así que no necesita
        redondeo: no hay recuadro que disimular. El ancho se limita al 100% para
        que en la columna estrecha del footer no desborde. */
+    /* ══ FOOTER EN BANDAS (feedback 2026-08-20) ═══════════════════════ */
+    .home-footer__marca {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--sp-3);
+      max-width: var(--w-2xl);
+      margin-inline: auto;
+      padding-bottom: var(--sp-8);
+    }
+
     .home-footer__logo {
       height: 116px;
       width: auto;
       max-width: 100%;
       object-fit: contain;
-      object-position: left center;
       display: block;
-      margin-bottom: var(--sp-4);
 
       @media (max-width: 768px) { height: 92px; }
+    }
+
+    /* Los servicios, en una fila: es lo que la gente viene a buscar aquí. */
+    .home-footer__servicios {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--sp-3) var(--sp-5);
+      max-width: var(--w-2xl);
+      margin-inline: auto;
+      padding-block: var(--sp-5);
+      border-block: 1px solid rgba(255,255,255,.15);
+
+      a {
+        font-size: var(--f-sm);
+        font-weight: var(--w-6);
+        color: rgba(255,255,255,.85);
+        transition: color var(--d-1);
+
+        &:hover { color: var(--dk-gold); }
+      }
+    }
+
+    /* Ya sin la columna de marca: las cuatro listas se reparten el ancho. */
+    .home-footer .rs-footer__grid--enlaces {
+      grid-template-columns: repeat(4, 1fr);
+      padding-top: var(--sp-8);
+
+      @media (max-width: 768px) { grid-template-columns: 1fr 1fr; }
+      @media (max-width: 480px) { grid-template-columns: 1fr; }
     }
 
     .home-footer__claim {
@@ -1410,7 +1482,12 @@ type SearchMode = 'filtros' | 'ia';
       margin-bottom: var(--sp-2);
     }
 
-    .home-footer .rs-footer__brand p { color: rgba(255,255,255,.72); }
+    .home-footer__descripcion {
+      max-width: 60ch;
+      font-size: var(--f-sm);
+      color: rgba(255,255,255,.72);
+      line-height: 1.7;
+    }
     .home-footer .rs-footer__col h4 { color: var(--dk-gold); }
 
     .home-footer .rs-footer__col a {
@@ -1421,8 +1498,9 @@ type SearchMode = 'filtros' | 'ia';
     .home-footer__social {
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
       gap: var(--sp-3);
-      margin-top: var(--sp-4);
+      margin-top: var(--sp-2);
     }
 
     /* El logo sustituye al nombre escrito (TCK-8008): el círculo de 40px
@@ -1443,17 +1521,47 @@ type SearchMode = 'filtros' | 'ia';
 
     .home-footer__stores {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       align-items: center;
       gap: var(--sp-4);
+      max-width: var(--w-2xl);
+      margin: var(--sp-8) auto 0;
       padding-block: var(--sp-6);
-      margin-top: var(--sp-6);
       border-top: 1px solid rgba(255,255,255,.15);
     }
 
-    .home-footer__store-badge {
+    .home-footer__stores-titulo {
+      font-family: var(--font-accent);
       font-size: var(--f-xs);
-      color: rgba(255,255,255,.65);
+      font-weight: var(--w-7);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--dk-gold);
+    }
+
+    .home-footer__stores-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-3); }
+
+    /*
+     * Pastilla provisional con la forma y el peso visual del badge oficial, para
+     * que sustituirlo por el asset real no mueva la maqueta. Sin enlace: las
+     * apps todavía no están publicadas (ver el TODO de la plantilla).
+     */
+    .home-footer__store-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-3);
+      min-width: 150px;
+      padding: var(--sp-2) var(--sp-4);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: var(--r-lg);
+      color: rgba(255,255,255,.55);
+      font-family: var(--font);
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
+      line-height: 1.2;
+
+      span { display: flex; flex-direction: column; }
+      small { font-size: 10px; font-weight: var(--w-4); opacity: .8; }
     }
     .home-footer__pay { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; }
 
@@ -1481,6 +1589,9 @@ type SearchMode = 'filtros' | 'ia';
   `],
 })
 export class HomeComponent implements OnInit {
+  /** Formato de los importes; la plantilla lo necesita como miembro. */
+  protected readonly euros = euros;
+
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
   private readonly alojamientoService = inject(AlojamientoService);

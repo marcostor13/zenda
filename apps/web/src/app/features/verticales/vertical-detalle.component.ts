@@ -15,6 +15,7 @@ import { RsUbicacionComponent } from '../../shared/components/ubicacion/rs-ubica
 import { PuntoUbicacion } from '../../shared/mapas/google-maps';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 interface DetalleConfig {
   vertical: string;
   cta: string;
@@ -94,8 +95,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
   imports: [
     RouterLink, DatePipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
     RsTrustBlockComponent, RsChipComponent, RsFavoritoBtnComponent, ImgFallbackDirective,
-    RsUbicacionComponent,
-  ],
+    RsUbicacionComponent, EurosPipe,],
   template: `
 <div class="vd-page">
   <rs-navbar />
@@ -229,7 +229,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
         <div class="side-panel rs-card">
           <div class="side-panel__price">
             <div class="bp-desde">Desde</div>
-            <div class="bp-amount">€{{ cfg().price(s) }}</div>
+            <div class="bp-amount">{{ cfg().price(s) | euros }}</div>
             <div class="bp-per">{{ cfg().priceLabel }}</div>
           </div>
 

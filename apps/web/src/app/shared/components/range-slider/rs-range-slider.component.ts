@@ -14,7 +14,7 @@ export interface RangoSeleccionado {
 
 /**
  * Slider de rango con doble asa al estilo del filtro "Tu presupuesto (por
- * noche)" de Booking (PDF 27/07 §3, captura WA0009): etiqueta "€ X – € Y+",
+ * noche)" de Booking (PDF 27/07 §3, captura WA0009): etiqueta "X € – Y €+",
  * histograma opcional de distribución encima y dos asas sobre un mismo raíl.
  *
  * Son dos `input[type=range]` nativos superpuestos (accesibles con teclado):
@@ -28,7 +28,7 @@ export interface RangoSeleccionado {
   template: `
     <div class="rrs">
       <p class="rrs__etiqueta" aria-live="polite">
-        {{ prefijo() }}{{ valorMin() }} – {{ prefijo() }}{{ valorMax() }}{{ valorMax() >= max() ? '+' : '' }}
+        {{ valorMin() }}{{ sufijo() }} – {{ valorMax() }}{{ sufijo() }}{{ valorMax() >= max() ? '+' : '' }}
       </p>
 
       @if (histograma().length > 0) {
@@ -156,7 +156,12 @@ export class RsRangeSliderComponent {
   readonly min = input(0);
   readonly max = input(500);
   readonly step = input(5);
-  readonly prefijo = input('€');
+  /**
+   * Unidad que acompaña a los dos extremos. Va detrás de la cifra, que es como
+   * se escribe el euro en español (feedback 2026-08-20). El espacio es duro
+   * —igual que en `EurosPipe`— para que la etiqueta no se parta por ahí.
+   */
+  readonly sufijo = input(' €');
   /** Distribución de precios para el histograma; vacío = no se pinta. */
   readonly histograma = input<BarraHistograma[]>([]);
 

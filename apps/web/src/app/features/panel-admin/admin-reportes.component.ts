@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReporteFinanciero, ReporteVertical } from './admin-api.service';
@@ -7,6 +7,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 import { descargarCsv } from '../../shared/exportacion/csv';
 
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 type AtajoClave = 'hoy' | '7d' | '30d' | 'mes' | 'ano' | 'personalizado';
 
 const ATAJOS: ReadonlyArray<{ clave: AtajoClave; label: string }> = [
@@ -31,7 +32,7 @@ const VERTICALES_OPCIONES = [
 @Component({
   selector: 'app-admin-reportes',
   standalone: true,
-  imports: [DecimalPipe, FormsModule, RsIconComponent],
+  imports: [FormsModule, RsIconComponent, EurosPipe],
   template: `
     <!-- Cabecera -->
     <div style="margin-bottom:var(--sp-8)">
@@ -149,35 +150,35 @@ const VERTICALES_OPCIONES = [
           <div class="kpi-icon" style="background:rgba(22,104,227,.15);color:#1668E3">
             <rs-icon name="trending-up" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
-          <div class="kpi-val">€ {{ reporte()!.gmv | number:'1.2-2' }}</div>
+          <div class="kpi-val">{{ reporte()!.gmv | euros:'1.2-2' }}</div>
           <div class="kpi-lbl">GMV total</div>
         </div>
         <div class="kpi-card rs-card">
           <div class="kpi-icon" style="background:rgba(0,161,224,.15);color:#00A1E0">
             <rs-icon name="euro" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
-          <div class="kpi-val">€ {{ reporte()!.ingresosPlataforma | number:'1.2-2' }}</div>
+          <div class="kpi-val">{{ reporte()!.ingresosPlataforma | euros:'1.2-2' }}</div>
           <div class="kpi-lbl">Ingresos plataforma</div>
         </div>
         <div class="kpi-card rs-card">
           <div class="kpi-icon" style="background:rgba(245,158,11,.15);color:#F59E0B">
             <rs-icon name="credit-card" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
-          <div class="kpi-val">€ {{ reporte()!.costoStripe | number:'1.2-2' }}</div>
+          <div class="kpi-val">{{ reporte()!.costoStripe | euros:'1.2-2' }}</div>
           <div class="kpi-lbl">Costos Stripe</div>
         </div>
         <div class="kpi-card rs-card kpi-highlight">
           <div class="kpi-icon" style="background:rgba(22,104,227,.15);color:#1668E3">
             <rs-icon name="sparkles" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
-          <div class="kpi-val">€ {{ reporte()!.margenNetoPlataforma | number:'1.2-2' }}</div>
+          <div class="kpi-val">{{ reporte()!.margenNetoPlataforma | euros:'1.2-2' }}</div>
           <div class="kpi-lbl">Margen neto</div>
         </div>
         <div class="kpi-card rs-card">
           <div class="kpi-icon" style="background:rgba(109,92,246,.15);color:#6D5CF6">
             <rs-icon name="building" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
-          <div class="kpi-val">€ {{ reporte()!.liquidacionesComercio | number:'1.2-2' }}</div>
+          <div class="kpi-val">{{ reporte()!.liquidacionesComercio | euros:'1.2-2' }}</div>
           <div class="kpi-lbl">Liquidaciones comercios</div>
         </div>
         <div class="kpi-card rs-card">
@@ -209,11 +210,11 @@ const VERTICALES_OPCIONES = [
                 <rs-icon [name]="iconVertical(v.vertical)" [size]="15" [stroke]="2"></rs-icon>
                 <span style="text-transform:capitalize">{{ v.vertical }}</span>
               </span>
-              <span class="cell-num">€ {{ v.gmv | number:'1.2-2' }}</span>
-              <span class="cell-num cell-green">€ {{ v.comision | number:'1.2-2' }}</span>
-              <span class="cell-num cell-amber">€ {{ v.costoStripe | number:'1.2-2' }}</span>
+              <span class="cell-num">{{ v.gmv | euros:'1.2-2' }}</span>
+              <span class="cell-num cell-green">{{ v.comision | euros:'1.2-2' }}</span>
+              <span class="cell-num cell-amber">{{ v.costoStripe | euros:'1.2-2' }}</span>
               <span class="cell-num" [class.cell-green]="v.margenNeto >= 0" [class.cell-red]="v.margenNeto < 0">
-                € {{ v.margenNeto | number:'1.2-2' }}
+                {{ v.margenNeto | euros:'1.2-2' }}
               </span>
               <span class="cell-num">{{ v.totalReservas }}</span>
             </div>
@@ -221,11 +222,11 @@ const VERTICALES_OPCIONES = [
           <!-- Totales -->
           <div class="vtbl-row vtbl-total">
             <span class="cell-bold">TOTAL</span>
-            <span class="cell-num cell-bold">€ {{ reporte()!.gmv | number:'1.2-2' }}</span>
-            <span class="cell-num cell-bold cell-green">€ {{ reporte()!.ingresosPlataforma | number:'1.2-2' }}</span>
-            <span class="cell-num cell-bold cell-amber">€ {{ reporte()!.costoStripe | number:'1.2-2' }}</span>
+            <span class="cell-num cell-bold">{{ reporte()!.gmv | euros:'1.2-2' }}</span>
+            <span class="cell-num cell-bold cell-green">{{ reporte()!.ingresosPlataforma | euros:'1.2-2' }}</span>
+            <span class="cell-num cell-bold cell-amber">{{ reporte()!.costoStripe | euros:'1.2-2' }}</span>
             <span class="cell-num cell-bold" [class.cell-green]="reporte()!.margenNetoPlataforma >= 0">
-              € {{ reporte()!.margenNetoPlataforma | number:'1.2-2' }}
+              {{ reporte()!.margenNetoPlataforma | euros:'1.2-2' }}
             </span>
             <span class="cell-num cell-bold">{{ reporte()!.totalReservas }}</span>
           </div>
@@ -238,7 +239,7 @@ const VERTICALES_OPCIONES = [
           <div class="tbl-header">
             <h3 class="section-title" style="margin:0">Ajustes de precio por comercio</h3>
             <span style="font-size:var(--f-sm);color:var(--t-400)">
-              {{ reporte()!.totalReservasConAjuste }} reserva(s) con ajuste · +€ {{ reporte()!.importeTotalAjustes | number:'1.2-2' }}
+              {{ reporte()!.totalReservasConAjuste }} reserva(s) con ajuste · +{{ reporte()!.importeTotalAjustes | euros:'1.2-2' }}
             </span>
           </div>
           <div class="ajustes-head">
@@ -254,7 +255,7 @@ const VERTICALES_OPCIONES = [
               <span class="cell-num">{{ c.totalReservas }}</span>
               <span class="cell-num">{{ c.reservasConAjuste }}</span>
               <span class="cell-num" [class.cell-amber]="c.porcentajeConAjuste >= 30">{{ c.porcentajeConAjuste }}%</span>
-              <span class="cell-num">€ {{ c.importeAjustes | number:'1.2-2' }}</span>
+              <span class="cell-num">{{ c.importeAjustes | euros:'1.2-2' }}</span>
             </div>
           }
         </div>

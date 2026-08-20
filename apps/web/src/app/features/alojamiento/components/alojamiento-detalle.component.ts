@@ -12,11 +12,13 @@ import { RsTrustBlockComponent, type TrustItem } from '../../../shared/component
 import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspacio } from '../services/alojamiento.service';
 import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
 import { aspectosDeVertical } from '../../../shared/verticales/resena-aspectos.config';
+import { describirPolitica, descripcionPolitica } from '../../../shared/catalogos/politicas-cancelacion.catalogo';
 import { VerticalKey } from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
 import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 
+import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
 @Component({
@@ -24,8 +26,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
   standalone: true,
   imports: [
     RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
-    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent,
-  ],
+    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent, EurosPipe,],
   template: `
 <div class="detalle-page">
   <rs-navbar />
@@ -226,9 +227,9 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
                 </div>
                 <div class="room-card__price">
                   @if (esp.precioAnterior) {
-                    <div class="rs-price__old">€{{ esp.precioAnterior }}</div>
+                    <div class="rs-price__old">{{ esp.precioAnterior | euros }}</div>
                   }
-                  <div class="room-price-amount">€{{ esp.precioNoche }}</div>
+                  <div class="room-price-amount">{{ esp.precioNoche | euros }}</div>
                   <div style="font-size:var(--f-xs);color:var(--t-400)">por noche</div>
                   @if (esp.disponible) {
                     <button class="rs-btn rs-btn--primary rs-btn--block"
@@ -263,7 +264,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
                 <rs-icon name="log-out" [size]="16" [stroke]="2" /> Entrada
               </summary>
               <div class="policy-acc__body">
-                <p><strong>Check-in:</strong> {{ alojamiento()!.checkIn }}</p>
+                <p><strong>Entrada:</strong> {{ alojamiento()!.checkIn }}</p>
                 @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
                   <p><strong>Compatibilidad social admitida:</strong>
                     {{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</p>
@@ -276,7 +277,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
                 <rs-icon name="clock" [size]="16" [stroke]="2" /> Salida
               </summary>
               <div class="policy-acc__body">
-                <p><strong>Check-out:</strong> {{ alojamiento()!.checkOut }}</p>
+                <p><strong>Salida:</strong> {{ alojamiento()!.checkOut }}</p>
               </div>
             </details>
 
@@ -285,7 +286,8 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
                 <rs-icon name="shield-check" [size]="16" [stroke]="2" /> Cancelación
               </summary>
               <div class="policy-acc__body">
-                <p>{{ alojamiento()!.politicaCancelacion }}</p>
+                <p><strong>{{ tituloCancelacion() }}</strong></p>
+                <p>{{ descripcionCancelacion() }}</p>
               </div>
             </details>
 
@@ -310,7 +312,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
               <h3>Servicios adicionales</h3>
               <div class="room-card__amenities">
                 @for (s of alojamiento()!.serviciosAdicionales; track s.nombre) {
-                  <span class="rs-amenity">{{ s.nombre }} (€{{ s.precio }})</span>
+                  <span class="rs-amenity">{{ s.nombre }} ({{ s.precio | euros }})</span>
                 }
               </div>
             </div>
@@ -376,7 +378,7 @@ const PLACEHOLDER_IMG = IMG_FALLBACK;
 
           <div class="booking-panel__price">
             <div class="bp-desde">Desde</div>
-            <div class="bp-amount">€{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche }}</div>
+            <div class="bp-amount">{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}</div>
             <div class="bp-per">por noche</div>
           </div>
 
@@ -868,6 +870,16 @@ export class AlojamientoDetalleComponent implements OnInit {
     const partes = [a.requiereDesparasitacionInterna ? 'Interna' : null, a.requiereDesparasitacionExterna ? 'Externa' : null];
     return partes.filter((p): p is string => p !== null).join(' y ');
   }
+
+  /** Rótulo corto de la política: `Flexible · cancelación gratuita hasta 24 h antes`. */
+  readonly tituloCancelacion = computed(() =>
+    describirPolitica(this.alojamiento()?.politicaCancelacion),
+  );
+
+  /** La condición explicada, que es lo que el cliente necesita antes de pagar. */
+  readonly descripcionCancelacion = computed(() =>
+    descripcionPolitica(this.alojamiento()?.politicaCancelacion),
+  );
 
   seleccionarEspacio(esp: Espacio): void {
     this.espacioSelec.set(this.espacioSelec()?.id === esp.id ? null : esp);

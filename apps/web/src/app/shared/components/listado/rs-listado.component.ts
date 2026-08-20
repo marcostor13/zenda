@@ -9,6 +9,7 @@ import {
 import type { BarraHistograma } from '../range-slider/rs-range-slider.component';
 import { filtrosDeVertical } from '../../verticales/filtros.config';
 
+import { euros } from '../../pipes/euros.pipe';
 /** Criterio de orden ofrecido en la barra de control. */
 export interface OpcionOrden {
   readonly valor: string;
@@ -646,7 +647,7 @@ export class RsListadoComponent {
     const f = this.filtros();
     const chips: ChipFiltro[] = [];
 
-    if (f.precioMax != null) chips.push({ id: 'precio', tipo: 'precio', etiqueta: `Hasta €${f.precioMax}` });
+    if (f.precioMax != null) chips.push({ id: 'precio', tipo: 'precio', etiqueta: `Hasta ${euros(f.precioMax)}` });
     if (f.ratingMin) chips.push({ id: 'rating', tipo: 'rating', etiqueta: `${f.ratingMin}.0 o más` });
     for (const valor of f.amenities ?? []) {
       chips.push({ id: `amenities:${valor}`, tipo: 'opcion', campo: 'amenities', valor, etiqueta: valor });

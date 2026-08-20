@@ -20,6 +20,7 @@ import type { PuntoMapa, ZonaMapa } from '../../../shared/components/mapa/rs-map
 import type { BarraHistograma } from '../../../shared/components/range-slider/rs-range-slider.component';
 import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automaticos';
 
+import { euros } from '../../../shared/pipes/euros.pipe';
 @Component({
   selector: 'app-transporte-lista',
   standalone: true,
@@ -60,7 +61,7 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
           [title]="t.nombre" [subtitle]="t.ciudad"
           [badges]="badgesDe(t)"
           [rating]="{ score: t.score, label: t.scoreLabel, count: t.numResenas }"
-          [price]="{ amount: '€' + t.tarifaBase, period: 'trayecto desde' }"
+          [price]="{ amount: euros(t.tarifaBase), period: 'trayecto desde' }"
           notaPrecio="IVA incluido"
           [amenities]="serviciosDe(t)"
           [destacados]="incluyeDe(t)"
@@ -90,6 +91,9 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
   `],
 })
 export class TransporteListaComponent implements OnInit {
+  /** Formato de los importes; la plantilla lo necesita como miembro. */
+  protected readonly euros = euros;
+
   private readonly transporteService = inject(TransporteService);
   private readonly browse = inject(CatalogBrowseService);
   private readonly route = inject(ActivatedRoute);
@@ -121,7 +125,8 @@ export class TransporteListaComponent implements OnInit {
   readonly puntosMapa = computed<PuntoMapa[]>(() =>
     this.puntos().map((p) => ({
       id: p.id, lat: p.lat, lng: p.lng,
-      etiqueta: `€${p.precio}`, titulo: p.titulo, imagen: p.imagen, rating: p.rating,
+      etiqueta: euros(p.precio), vertical: VerticalKey.TRANSPORTE,
+      titulo: p.titulo, imagen: p.imagen, rating: p.rating,
     })),
   );
 

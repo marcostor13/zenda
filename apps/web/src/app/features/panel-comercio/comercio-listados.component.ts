@@ -8,6 +8,7 @@ import { ComercioApiService, MiServicio, EspacioDisponibilidad } from './comerci
 import { iconoVertical } from './vertical-icon';
 import { verticalUi, enlaceAServicio } from '../../shared/verticales/verticales.config';
 
+import { euros } from '../../shared/pipes/euros.pipe';
 type FiltroEstadoServicio = 'todos' | 'publicado' | 'borrador' | 'pausado';
 
 const FILTROS_ESTADO: ReadonlyArray<{ valor: FiltroEstadoServicio; label: string }> = [
@@ -272,6 +273,14 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
       align-items: center;
       gap: var(--sp-4);
       padding: var(--sp-4) var(--sp-5);
+      /*
+       * El menú de los 3 puntos es un absoluto que cae por debajo del borde de
+       * la tarjeta. Con el overflow:hidden que .rs-card trae de serie quedaba
+       * recortado y no se veía ninguna opción (feedback 2026-08-20). Se abre
+       * aquí y no en .rs-card, que lo necesita para redondear las imágenes en
+       * el resto de la aplicación; la miniatura conserva el suyo.
+       */
+      overflow: visible;
       @media (max-width: 640px) { grid-template-columns: 48px 1fr; grid-template-rows: auto auto; }
     }
 
@@ -358,7 +367,7 @@ export class ComercioListadosComponent implements OnInit {
     try {
       this.servicios.set(await firstValueFrom(this.comercioApi.getMisServicios()));
     } catch {
-      this.errorMsg.set('Error al cargar los listados. Verifica que el API esté activo.');
+      this.errorMsg.set('Error al cargar tus servicios. Verifica que el API esté activo.');
     } finally {
       this.cargando.set(false);
     }
@@ -397,7 +406,7 @@ export class ComercioListadosComponent implements OnInit {
 
   /** El precio se lee distinto según cómo se venda el servicio (TCK-8022 §11). */
   precioDe(s: MiServicio): string {
-    const importe = `€${Math.round(s.precioBase)}`;
+    const importe = euros(Math.round(s.precioBase));
     if (s.vertical === 'alojamiento' || s.vertical === 'hoteles') return `${importe} / noche`;
     if (s.vertical === 'transporte') return `${importe} base`;
     if (s.vertical === 'adiestramiento') return `${importe} / sesión`;

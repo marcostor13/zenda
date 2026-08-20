@@ -9,8 +9,8 @@ jest.mock('./google-maps.loader', () => ({ cargarGoogleMaps: jest.fn() }));
 const cargar = cargarGoogleMaps as jest.MockedFunction<typeof cargarGoogleMaps>;
 
 const PUNTOS: PuntoMapa[] = [
-  { id: 'a1', lat: 40.4168, lng: -3.7038, etiqueta: '€24', titulo: 'Residencia Las Rozas' },
-  { id: 'a2', lat: 41.3874, lng: 2.1686, etiqueta: '€30', titulo: 'Can Feliç' },
+  { id: 'a1', lat: 40.4168, lng: -3.7038, etiqueta: '24 €', titulo: 'Residencia Las Rozas' },
+  { id: 'a2', lat: 41.3874, lng: 2.1686, etiqueta: '30 €', titulo: 'Can Feliç' },
   { id: 'sin-geo', lat: NaN, lng: NaN, etiqueta: '€19', titulo: 'Sin geocodificar' },
 ];
 

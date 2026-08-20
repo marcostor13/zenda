@@ -19,14 +19,15 @@ describe('RsRangeSliderComponent', () => {
   const asas = (): HTMLInputElement[] =>
     Array.from(fixture.nativeElement.querySelectorAll('input[type="range"]'));
 
-  it('debería mostrar la etiqueta "€ min – € max+" como en Booking (WA0009)', () => {
+  it('debería mostrar la etiqueta "min € – max €+" como en Booking (WA0009)', () => {
     componente.valorMin.set(10);
     fixture.detectChanges();
 
     const etiqueta = fixture.nativeElement.querySelector('.rrs__etiqueta')?.textContent ?? '';
-    expect(etiqueta).toContain('€10');
+    // El símbolo va detrás de la cifra (feedback 2026-08-20).
+    expect(etiqueta).toContain('10'+String.fromCharCode(160)+'€');
     // El techo del rango lleva "+" porque significa "o más".
-    expect(etiqueta).toContain('€500+');
+    expect(etiqueta).toContain('500'+String.fromCharCode(160)+'€+');
   });
 
   it('no debería dejar que el asa mínima cruce a la máxima', () => {

@@ -101,8 +101,10 @@ describe('AlojamientoListaComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
+    // Sobre textContent y no sobre innerHTML: el espacio duro del importe se
+    // serializa como &nbsp; y la comparación literal fallaría.
     const html: string = fixture.nativeElement.innerHTML;
-    expect(html).toContain('€45');
+    expect(fixture.nativeElement.textContent).toContain('45'+String.fromCharCode(160)+'€');
     expect(html).toContain('noche desde');
     expect(html).toContain('Premium');
   });
@@ -141,7 +143,7 @@ describe('AlojamientoListaComponent', () => {
 
       expect(component.puntosMapa()).toEqual([
         {
-          id: 'a1', lat: 40.4, lng: -3.7, etiqueta: '€24',
+          id: 'a1', lat: 40.4, lng: -3.7, etiqueta: '24 €', vertical: 'alojamiento',
           titulo: 'Royal Paws Retreat', imagen: 'img.jpg', rating: 4.8,
         },
       ]);

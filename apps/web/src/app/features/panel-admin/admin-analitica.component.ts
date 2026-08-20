@@ -5,13 +5,14 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 import { AdminApiService, AnaliticaAdmin, ComercioTop, PuntoEvolucion, VerticalAnalitica } from './admin-api.service';
 
+import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
 type MetricaVertical = 'reservas' | 'facturacion' | 'comision' | 'comercios';
 type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
 
 @Component({
   selector: 'app-admin-analitica',
   standalone: true,
-  imports: [DecimalPipe, RsIconComponent],
+  imports: [DecimalPipe, RsIconComponent, EurosPipe],
   template: `
     <div class="page-header">
       <div>
@@ -30,9 +31,9 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
         <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.usuariosNuevosMes }}</span><span class="kpi__lbl">Usuarios nuevos (mes)</span></div>
         <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.reservas }}</span><span class="kpi__lbl">Reservas</span></div>
         <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.conversionPct }} %</span><span class="kpi__lbl">Conversión</span></div>
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.facturacion | number:'1.0-0' }} €</span><span class="kpi__lbl">Facturación</span></div>
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.comision | number:'1.0-0' }} €</span><span class="kpi__lbl">Comisión Doogking</span></div>
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.ticketMedio | number:'1.0-0' }} €</span><span class="kpi__lbl">Ticket medio</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.facturacion | euros:'1.0-0' }}</span><span class="kpi__lbl">Facturación</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.comision | euros:'1.0-0' }}</span><span class="kpi__lbl">Comisión Doogking</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.ticketMedio | euros:'1.0-0' }}</span><span class="kpi__lbl">Ticket medio</span></div>
       </div>
 
       <!-- Evolución real, no barras estáticas (TCK-8031 §1) -->
@@ -133,7 +134,7 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
                   </span>
                   <span data-col="Comercios">{{ c.comercios }}</span>
                   <span data-col="Reservas">{{ c.reservas }}</span>
-                  <span data-col="Facturación">{{ c.facturacion | number:'1.0-0' }} €</span>
+                  <span data-col="Facturación">{{ c.facturacion | euros:'1.0-0' }}</span>
                 </div>
               }
             </div>
@@ -165,7 +166,7 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
                     · <rs-icon name="star" [size]="11" [stroke]="2" [filled]="true"></rs-icon> {{ t.valoracion | number:'1.1-1' }}
                   }
                 </span>
-                <strong class="top-item__fact">{{ t.facturacion | number:'1.0-0' }} €</strong>
+                <strong class="top-item__fact">{{ t.facturacion | euros:'1.0-0' }}</strong>
               </div>
             }
           </div>
@@ -355,7 +356,7 @@ export class AdminAnaliticaComponent implements OnInit {
     const valor = this.metricaDe(v, metrica);
     if (metrica === 'reservas') return `${v.porcentaje}% · ${valor}`;
     if (metrica === 'comercios') return `${valor} comercio${valor === 1 ? '' : 's'}`;
-    return `${Math.round(valor)} €`;
+    return euros(Math.round(valor));
   }
 
   async ngOnInit(): Promise<void> {

@@ -95,7 +95,7 @@ const PLANES: Record<string, { precio: string; maxServicios: number | null; vent
   pro: {
     precio: '29 € / mes',
     maxServicios: 15,
-    ventajas: ['Hasta 15 servicios', 'Listados destacados en el buscador', 'Analítica de tu negocio'],
+    ventajas: ['Hasta 15 servicios', 'Servicios destacados en el buscador', 'Analítica de tu negocio'],
   },
   premium: {
     precio: '79 € / mes',
@@ -277,7 +277,7 @@ type UrlImagen = string | null;
         </div>
         <div>
           <h2 class="config-section__title">Información del negocio</h2>
-          <p class="config-section__sub">Datos públicos de tu comercio, visibles en tus listados y en tu perfil.</p>
+          <p class="config-section__sub">Datos públicos de tu comercio, visibles en tus servicios y en tu perfil.</p>
         </div>
       </div>
 
@@ -452,7 +452,7 @@ type UrlImagen = string | null;
         </div>
         <div>
           <h2 class="config-section__title">Datos de contacto</h2>
-          <p class="config-section__sub">Información de contacto interna (no visible públicamente en los listados).</p>
+          <p class="config-section__sub">Información de contacto interna (no visible públicamente en tus servicios).</p>
         </div>
       </div>
 
@@ -1017,7 +1017,7 @@ type UrlImagen = string | null;
         </div>
         <div>
           <h2 class="config-section__title">Verticales activas</h2>
-          <p class="config-section__sub">Categorías de servicio en las que puedes publicar listados.</p>
+          <p class="config-section__sub">Categorías de servicio en las que puedes publicar.</p>
         </div>
       </div>
 
@@ -2157,9 +2157,9 @@ export class ComercioConfigComponent implements OnInit {
 
   planFeatures(): string[] {
     const p = this.comercio()?.plan ?? 'basico';
-    if (p === 'premium') return ['Listados ilimitados', 'Destacado en búsqueda', 'Analítica avanzada', 'Soporte prioritario 24/7', 'API de integración'];
-    if (p === 'pro') return ['Hasta 20 listados', 'Destacado básico', 'Analítica estándar', 'Soporte por email'];
-    return ['Hasta 3 listados', 'Sin destacados', 'Estadísticas básicas'];
+    if (p === 'premium') return ['Servicios ilimitados', 'Destacado en búsqueda', 'Analítica avanzada', 'Soporte prioritario 24/7', 'API de integración'];
+    if (p === 'pro') return ['Hasta 20 servicios', 'Destacado básico', 'Analítica estándar', 'Soporte por email'];
+    return ['Hasta 3 servicios', 'Sin destacados', 'Estadísticas básicas'];
   }
 
   verificacionBadge(): string {

@@ -11,6 +11,7 @@ import { ReservasService } from '../reservas/services/reservas.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CatalogBrowseService, type ServicioCard } from '../verticales/catalog-browse.service';
 
+import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
 type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
 
 /** Verticales con ficha de detalle propia (Fase 4); las demás solo tienen listado. */
@@ -21,7 +22,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
 @Component({
   selector: 'app-favoritos',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, RsFavoritoBtnComponent, ImgFallbackDirective],
+  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, RsFavoritoBtnComponent, ImgFallbackDirective, EurosPipe],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -79,7 +80,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
                 <div class="fav-card__placeholder"><rs-icon name="paw" [size]="28" [stroke]="1.5"></rs-icon></div>
               }
               @if (f.precioAnterior) {
-                <span class="fav-card__badge"><rs-icon name="flame" [size]="13" [stroke]="2"></rs-icon> Ha bajado {{ f.precioAnterior - f.precioBase | number:'1.0-0' }} € desde que lo guardaste</span>
+                <span class="fav-card__badge"><rs-icon name="flame" [size]="13" [stroke]="2"></rs-icon> Ha bajado {{ f.precioAnterior - f.precioBase | euros:'1.0-0' }} desde que lo guardaste</span>
               }
               @if (yaReservados().has(f.servicioId)) {
                 <span class="fav-card__reservado"><rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> Ya reservaste aquí</span>
@@ -96,7 +97,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
               <p class="fav-card__desde"><rs-icon name="heart" [size]="12" [stroke]="2"></rs-icon> {{ desdeHace(f.createdAt) }}</p>
               <div class="fav-card__footer">
                 <span class="fav-card__rating"><rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> {{ f.ratingPromedio | number:'1.1-1' }} · {{ f.totalResenas }} reseñas</span>
-                <span class="fav-card__price">{{ f.precioBase | number:'1.0-0' }} €</span>
+                <span class="fav-card__price">{{ f.precioBase | euros:'1.0-0' }}</span>
               </div>
               <div class="fav-card__acciones">
                 <a [routerLink]="rutaReservar(f)" class="rs-btn rs-btn--primary rs-btn--block rs-btn--sm">Reservar</a>
@@ -137,7 +138,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
                 </span>
                 <div class="fav-card__footer">
                   <span class="fav-card__rating">{{ s.score | number:'1.1-1' }} ({{ s.numResenas }})</span>
-                  <span class="fav-card__price">€{{ s.precioPorNoche }}</span>
+                  <span class="fav-card__price">{{ s.precioPorNoche | euros }}</span>
                 </div>
               </div>
             </article>
@@ -270,7 +271,7 @@ export class FavoritosComponent implements OnInit {
   }
 
   async compartir(f: FavoritoResumenDto): Promise<void> {
-    const texto = `Mira ${f.titulo} en Doogking: ${f.precioBase} € · ${f.ciudad || ''}`.trim();
+    const texto = `Mira ${f.titulo} en Doogking: ${euros(f.precioBase)} · ${f.ciudad || ''}`.trim();
     const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
     if (nav.share) {
       try {

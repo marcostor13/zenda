@@ -263,4 +263,35 @@ describe('HomeComponent', () => {
     expect(component.rutaAlojamiento).toBe('/alojamiento');
     expect(component.ciudades.map((c) => c.nombre)).toContain('Madrid');
   });
+  describe('feedback 2026-08-20', () => {
+    it('deberia dirigirse a cualquier negocio de mascotas, no solo canino', () => {
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('.pro-cta__title')?.textContent?.trim())
+        .toBe('¿Ofreces servicios para mascotas?');
+    });
+
+    it('deberia abrir el footer con el logo y las redes, en bandas', () => {
+      const el: HTMLElement = fixture.nativeElement;
+      const marca = el.querySelector('.home-footer__marca');
+
+      expect(marca?.querySelector('.home-footer__logo')).not.toBeNull();
+      expect(marca?.querySelector('.home-footer__social')).not.toBeNull();
+    });
+
+    it('deberia listar los servicios del footer en horizontal', () => {
+      const el: HTMLElement = fixture.nativeElement;
+      const servicios = el.querySelectorAll('.home-footer__servicios a');
+
+      // Las categorias publicas mas "Explora con tu mascota".
+      expect(servicios.length).toBe(component.verticales.length + 1);
+    });
+
+    it('deberia anunciar las dos tiendas sin enlazar a fichas que no existen', () => {
+      const el: HTMLElement = fixture.nativeElement;
+      const badges = el.querySelectorAll('.home-footer__store-badge');
+
+      expect(badges.length).toBe(2);
+      expect(el.querySelector('.home-footer__stores a')).toBeNull();
+    });
+  });
 });
