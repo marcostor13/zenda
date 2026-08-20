@@ -60,6 +60,17 @@ export class Pago {
    */
   @Prop({ type: [SchemaTypes.ObjectId], ref: 'Reserva', default: [] })
   reservaIds!: Types.ObjectId[];
+
+  /**
+   * Se dio por cobrado sin pasar por la pasarela, para poder probar el flujo de
+   * reserva de punta a punta (ver `PAGOS_BYPASS`).
+   *
+   * Queda marcado en el propio pago porque, sin esto, una reserva de prueba es
+   * indistinguible de una real: aparecería en las liquidaciones del comercio
+   * como dinero que hay que pagarle.
+   */
+  @Prop({ type: Boolean, default: false })
+  esPrueba!: boolean;
 }
 
 export const PagoSchema = SchemaFactory.createForClass(Pago);

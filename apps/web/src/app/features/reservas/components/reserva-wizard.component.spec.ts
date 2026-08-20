@@ -18,7 +18,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 
 interface Dobles {
   reservas: { crear: jest.Mock };
-  payments: { crearIntent: jest.Mock };
+  payments: { crearIntent: jest.Mock; configuracion: jest.Mock; confirmarSinCobro: jest.Mock };
   cupones: { validar: jest.Mock };
   recomendador: { adiestramiento: jest.Mock; veterinaria: jest.Mock };
   perros: { misPerros: jest.Mock };
@@ -80,7 +80,12 @@ describe('ReservaWizardComponent', () => {
   ): Promise<void> => {
     dobles = {
       reservas: { crear: jest.fn().mockResolvedValue({ _id: 'r1', codigo: 'RES-AAAA1111' }) },
-      payments: { crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }) },
+      payments: {
+        crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }),
+        // Sin bypass por defecto, igual que en produccion.
+        configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: false }),
+        confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+      },
       cupones: { validar: jest.fn().mockResolvedValue({ codigo: 'VERANO', descuento: 20 }) },
       recomendador: {
         adiestramiento: jest.fn().mockResolvedValue({ modalidad: 'sesion', bloqueaGrupales: false }),
@@ -700,7 +705,15 @@ describe('ReservaWizardComponent', () => {
 
     it('debería avisar si no se puede preparar el pago', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
-      await crear(params, query, { payments: { crearIntent: jest.fn().mockRejectedValue(new Error('stripe caído')) } });
+      // Se repone el doble entero: sustituir solo `crearIntent` dejaba al
+      // componente sin `configuracion()`, que consulta al arrancar.
+      await crear(params, query, {
+        payments: {
+          crearIntent: jest.fn().mockRejectedValue(new Error('stripe caído')),
+          configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: false }),
+          confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+        },
+      });
 
       componente.irPaso(3);
       await fixture.whenStable();
@@ -1489,6 +1502,99 @@ describe('ReservaWizardComponent', () => {
       const preguntas = componente.faq().map((p) => p.pregunta);
       expect(preguntas.some((p) => p.includes('cobra el importe'))).toBe(true);
       expect(preguntas.some((p) => p.includes('cancelo'))).toBe(true);
+    });
+  });
+  /**
+   * Omitir el pago es un atajo de pruebas. Quien decide si se permite es el
+   * API: si el cliente lo dedujese por su cuenta, el boton saldria donde el
+   * servidor lo va a rechazar.
+   */
+  describe('confirmar sin pagar', () => {
+    const conBypass = (habilitado: boolean) => ({
+      payments: {
+        crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }),
+        configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: habilitado }),
+        confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+      },
+    });
+
+    it('no deberia ofrecerlo si el entorno no lo permite', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, conBypass(false));
+
+      expect(componente.bypassDisponible()).toBe(false);
+    });
+
+    it('deberia ofrecerlo cuando el API lo permite', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, conBypass(true));
+
+      expect(componente.bypassDisponible()).toBe(true);
+    });
+
+    it('no deberia ofrecerlo si la consulta falla', async () => {
+      // Ante la duda, no se ensena un atajo de pruebas.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, {
+        payments: {
+          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }),
+          configuracion: jest.fn().mockRejectedValue(new Error('sin red')),
+          confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+        },
+      });
+
+      expect(componente.bypassDisponible()).toBe(false);
+    });
+
+    it('deberia llevar a la confirmacion como un pago normal', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, conBypass(true));
+      componente['reservaIdReal'] = 'r1';
+
+      await componente.confirmarSinPagar();
+
+      expect(dobles.payments.confirmarSinCobro).toHaveBeenCalledWith('r1');
+      expect(componente.paso()).toBe(4);
+    });
+
+    it('deberia cerrar el embudo igual que un pago real', async () => {
+      // Si no, las reservas de prueba falsearian la medida del recorrido.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, conBypass(true));
+      componente['reservaIdReal'] = 'r1';
+
+      await componente.confirmarSinPagar();
+
+      expect(dobles.eventos.cerrarEmbudo).toHaveBeenCalled();
+    });
+
+    it('no deberia intentarlo sin reserva creada', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, conBypass(true));
+      componente['reservaIdReal'] = null;
+
+      await componente.confirmarSinPagar();
+
+      expect(dobles.payments.confirmarSinCobro).not.toHaveBeenCalled();
+      expect(componente.errorPago()).toContain('todavía no está creada');
+    });
+
+    it('deberia avisar si el servidor lo rechaza', async () => {
+      // Pasa si alguien llega con el boton de otro entorno: el API responde 403.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, {
+        payments: {
+          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }),
+          configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: true }),
+          confirmarSinCobro: jest.fn().mockRejectedValue(new Error('403')),
+        },
+      });
+      componente['reservaIdReal'] = 'r1';
+
+      await componente.confirmarSinPagar();
+
+      expect(componente.errorPago()).toContain('No se pudo confirmar');
+      expect(componente.paso()).not.toBe(4);
     });
   });
 });

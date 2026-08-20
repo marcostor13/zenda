@@ -3,6 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
+/** Lo que el entorno permite hacer. Lo decide el API, no el build del cliente. */
+export interface ConfiguracionPagos {
+  /** true = se puede confirmar una reserva sin cobrar (entornos de prueba). */
+  bypassPagoHabilitado: boolean;
+}
+
 export interface PaymentIntentResponse {
   clientSecret: string;
   pagoId: string;
@@ -33,6 +39,29 @@ export class PaymentsService {
   rechazarAjuste(reservaId: string): Promise<{ ok: boolean }> {
     return firstValueFrom(
       this.http.post<{ ok: boolean }>(`${this.base}/reservas/${reservaId}/ajuste/rechazar`, {}),
+    );
+  }
+
+  /**
+   * Qué permite el entorno.
+   *
+   * Se pregunta al servidor en lugar de deducirlo del build: quien decide si se
+   * puede omitir el pago es el API, y si el cliente lo adivinara por su cuenta
+   * el botón saldría donde no funciona.
+   */
+  configuracion(): Promise<ConfiguracionPagos> {
+    return firstValueFrom(
+      this.http.get<ConfiguracionPagos>(`${this.base}/configuracion`),
+    );
+  }
+
+  /**
+   * Da la reserva por pagada sin cobrar, para recorrer el flujo en pruebas.
+   * El servidor responde 403 si el entorno no lo permite.
+   */
+  confirmarSinCobro(reservaId: string): Promise<void> {
+    return firstValueFrom(
+      this.http.post<void>(`${this.base}/reservas/${reservaId}/confirmar-sin-cobro`, {}),
     );
   }
 }

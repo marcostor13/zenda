@@ -997,6 +997,30 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 }
               </button>
             </div>
+
+            <!--
+              Atajo de pruebas. Sólo aparece si el API dice que este entorno lo
+              permite; no se decide aquí. Va aparte del botón de pagar y con el
+              aviso a la vista para que nadie lo pulse creyendo que paga.
+            -->
+            @if (bypassDisponible()) {
+              <div class="bypass">
+                <p class="bypass__aviso">
+                  <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
+                  Entorno de pruebas: puedes confirmar la reserva sin pagar. No se
+                  cobra nada y la reserva queda marcada como de prueba.
+                </p>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--block"
+                        [disabled]="procesando()"
+                        (click)="confirmarSinPagar()">
+                  @if (procesando()) {
+                    <span class="rs-spin"></span> Confirmando…
+                  } @else {
+                    Omitir el pago y confirmar la reserva
+                  }
+                </button>
+              </div>
+            }
           </div>
         }
 
@@ -1390,6 +1414,22 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .cd-row { display: flex; justify-content: space-between; padding: var(--sp-3) 0; border-bottom: 1px solid var(--b-1); font-size: var(--f-sm); color: var(--t-300); strong { color: var(--t-100); } &:last-child { border: none; } }
     .confirmation__actions { display: flex; gap: var(--sp-4); justify-content: center; flex-wrap: wrap; }
 
+    /* Atajo de pruebas: se distingue del pago de verdad a simple vista. */
+    .bypass {
+      margin-top: var(--sp-5);
+      padding: var(--sp-4);
+      border: 1px dashed var(--b-2);
+      border-radius: var(--r-xl);
+      background: var(--c-raised);
+    }
+    .bypass__aviso {
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      margin-bottom: var(--sp-3);
+      font-size: var(--f-xs); color: var(--t-400); line-height: 1.5;
+
+      rs-icon { flex-shrink: 0; margin-top: 1px; }
+    }
+
     /* ══ VALORACIÓN DEL PROCESO ═══════════════════════════════════════ */
     .valoracion {
       margin-top: var(--sp-8); padding-top: var(--sp-6);
@@ -1506,6 +1546,12 @@ export class ReservaWizardComponent implements OnInit {
   // Navigation
   readonly paso       = signal<Paso>(1);
   readonly procesando = signal(false);
+
+  /**
+   * ¿Deja este entorno confirmar sin pagar? Lo dice el API: decidirlo en el
+   * cliente sacaría el botón donde el servidor lo va a rechazar.
+   */
+  readonly bypassDisponible = signal(false);
   readonly metodoPago = signal<'card' | 'bizum'>('card');
   readonly codigoReserva = signal('');
 
@@ -2245,6 +2291,7 @@ export class ReservaWizardComponent implements OnInit {
 
   ngOnInit(): void {
     this.precargarContacto();
+    this.consultarBypass();
 
     const routeParams = this.route.snapshot.paramMap;
     const queryParams = this.route.snapshot.queryParamMap;
@@ -2675,6 +2722,43 @@ export class ReservaWizardComponent implements OnInit {
     this.descuento.set(0);
     this.cuponCodigo.set(null);
     this.cuponInput = '';
+  }
+
+  /**
+   * Confirma la reserva sin pasar por la pasarela.
+   *
+   * Termina en el mismo sitio que un pago de verdad —paso 4 y cierre del
+   * embudo— porque de eso se trata: probar el recorrido completo. Quien decide
+   * si se permite es el servidor, así que un 403 aquí es la respuesta correcta
+   * si alguien llega con el botón de otro entorno.
+   */
+  /**
+   * Pregunta al API si este entorno deja confirmar sin pagar. Si la consulta
+   * falla se queda en "no": ante la duda, no se enseña un atajo de pruebas.
+   */
+  private consultarBypass(): void {
+    void this.paymentsService.configuracion()
+      .then((config) => this.bypassDisponible.set(config.bypassPagoHabilitado))
+      .catch(() => this.bypassDisponible.set(false));
+  }
+
+  async confirmarSinPagar(): Promise<void> {
+    if (!this.reservaIdReal) {
+      this.errorPago.set('La reserva todavía no está creada. Vuelve atrás y repite el paso.');
+      return;
+    }
+
+    this.procesando.set(true);
+    this.errorPago.set(null);
+    try {
+      await this.paymentsService.confirmarSinCobro(this.reservaIdReal);
+      this.eventosService.cerrarEmbudo(this.reservaIdReal, this.vertical());
+      this.irPaso(4);
+    } catch {
+      this.errorPago.set('No se pudo confirmar la reserva sin pago en este entorno.');
+    } finally {
+      this.procesando.set(false);
+    }
   }
 
   async procesarPago(): Promise<void> {

@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Param,
   Body,
@@ -35,6 +36,34 @@ export class PaymentsController {
     @Req() req: RequestConUsuario,
   ): Promise<PaymentIntentResponseDto> {
     return this.paymentsService.crearIntent(dto.reservaId, req.user.sub);
+  }
+
+  /**
+   * Qué permite el entorno. Lo pregunta el frontend en vez de deducirlo: si el
+   * botón de omitir el pago se decidiera en el cliente, aparecería donde el
+   * servidor no lo acepta y desaparecería donde sí.
+   */
+  @Get('configuracion')
+  @ApiOperation({ summary: 'Capacidades de pago del entorno' })
+  configuracion(): { bypassPagoHabilitado: boolean } {
+    return { bypassPagoHabilitado: this.paymentsService.bypassHabilitado() };
+  }
+
+  /**
+   * Da una reserva por pagada sin cobrar, para poder recorrer el flujo entero
+   * en pruebas. Sólo funciona si el entorno lo permite (`PAGOS_BYPASS`); si no,
+   * responde 403 aunque alguien llame al endpoint a mano.
+   */
+  @Post('reservas/:id/confirmar-sin-cobro')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Confirmar la reserva sin cobrar (sólo en entornos de prueba)' })
+  confirmarSinCobro(
+    @Param('id') id: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<void> {
+    return this.paymentsService.confirmarSinCobro(id, req.user.sub);
   }
 
   @Post('reservas/:id/ajuste/aceptar')

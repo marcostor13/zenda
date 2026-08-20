@@ -1,6 +1,7 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 import { Pago, PagoDocument } from './pago.schema';
 import { PaymentGateway, PAYMENT_GATEWAY } from './payment-gateway.interface';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
@@ -29,7 +30,79 @@ export class PaymentsService {
     private readonly comisionConfigRepo: ComisionConfigRepository,
     private readonly bookingsService: BookingsService,
     private readonly notificationsService: NotificationsService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * ¿Se puede dar una reserva por pagada sin pasar por la pasarela?
+   *
+   * Apagado salvo que `PAGOS_BYPASS` valga exactamente `true`. Es una llave
+   * para poder recorrer el flujo de reserva de punta a punta en pruebas, y en
+   * producción significaría que cualquiera reserva sin pagar: por eso hay que
+   * encenderla a mano y por eso cada uso queda anotado.
+   */
+  bypassHabilitado(): boolean {
+    return this.config.get<string>('PAGOS_BYPASS') === 'true';
+  }
+
+  /**
+   * Da la reserva por pagada sin cobrar nada.
+   *
+   * Pasa por `aplicarPagoAprobado`, el mismo sitio por el que pasa un cobro de
+   * verdad: si el bypass siguiera otro camino, las pruebas no dirían nada sobre
+   * el flujo real. El pago queda marcado con `esPrueba` para que una reserva de
+   * prueba no se confunda luego con dinero que hay que liquidar al comercio.
+   */
+  async confirmarSinCobro(reservaId: string, usuarioId: string): Promise<void> {
+    if (!this.bypassHabilitado()) {
+      throw new DomainException('El pago no se puede omitir en este entorno', 403);
+    }
+
+    const reserva = await this.bookingsService.obtenerPorId(reservaId);
+    if (!reserva) {
+      throw new DomainException('Reserva no encontrada', 404);
+    }
+
+    // La misma comprobación que al pagar: nadie confirma la reserva de otro,
+    // ni siquiera con el bypass encendido.
+    if (reserva.usuarioId.toString() !== usuarioId) {
+      throw new DomainException('No autorizado para pagar esta reserva', 403);
+    }
+
+    const desglose = await this.calcularDesglose(reserva);
+
+    const pendiente = await this.pagoModel
+      .findOne({ reservaId, estado: PagoEstado.INICIADO })
+      .exec();
+
+    /*
+     * Si ya había un intent abierto se reaprovecha en vez de crear otro: así no
+     * quedan dos pagos vivos para la misma reserva, uno aprobado y otro
+     * esperando un webhook que ya no va a llegar.
+     */
+    const pago = pendiente ?? new this.pagoModel({
+      reservaId,
+      usuarioId,
+      montoTotal: desglose.montoTotal,
+      moneda: reserva.moneda,
+      montoSubtotal: desglose.montoSubtotal,
+      ivaMonto: desglose.ivaMonto,
+      comisionPlataforma: desglose.comisionPlataforma,
+      stripeFee: desglose.stripeFee,
+      montoLiquidacion: desglose.montoLiquidacion,
+      estado: PagoEstado.INICIADO,
+    });
+
+    pago.esPrueba = true;
+    await pago.save();
+
+    this.logger.warn(
+      `PAGO OMITIDO (bypass de pruebas): reserva ${reservaId}, usuario ${usuarioId}, `
+      + `importe ${desglose.montoTotal} ${reserva.moneda}. No se ha cobrado nada.`,
+    );
+
+    await this.aplicarPagoAprobado(pago);
+  }
 
   async crearIntent(reservaId: string, usuarioId: string): Promise<PaymentIntentResponseDto> {
     const reserva = await this.bookingsService.obtenerPorId(reservaId);

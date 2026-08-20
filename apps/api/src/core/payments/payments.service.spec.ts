@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { ConfigService } from '@nestjs/config';
 import { PaymentsService } from './payments.service';
 import { Pago } from './pago.schema';
 import { PAYMENT_GATEWAY, PaymentGateway } from './payment-gateway.interface';
@@ -15,6 +16,8 @@ describe('PaymentsService', () => {
   let paymentGateway: jest.Mocked<PaymentGateway>;
   let comisionConfigRepo: jest.Mocked<ComisionConfigRepository>;
   let bookingsService: jest.Mocked<BookingsService>;
+  let notificationsService: any;
+  let config: any;
 
   const reservaMock: any = {
     id: 'reserva-1',
@@ -85,10 +88,18 @@ describe('PaymentsService', () => {
           provide: NotificationsService,
           useValue: { notificarReservaConfirmada: jest.fn().mockResolvedValue(undefined) },
         },
+        {
+          // Apagado por defecto, igual que en producción: cada test que lo
+          // necesite lo enciende a propósito.
+          provide: ConfigService,
+          useValue: { get: jest.fn().mockReturnValue(undefined) },
+        },
       ],
     }).compile();
 
     service = module.get<PaymentsService>(PaymentsService);
+    config = module.get(ConfigService);
+    notificationsService = module.get(NotificationsService);
     paymentGateway = module.get(PAYMENT_GATEWAY);
     comisionConfigRepo = module.get(ComisionConfigRepository);
     bookingsService = module.get(BookingsService);
@@ -461,6 +472,99 @@ describe('PaymentsService', () => {
 
       expect(bookingsService.confirmar).toHaveBeenCalledTimes(1);
       expect(bookingsService.confirmar).toHaveBeenCalledWith('r1');
+    });
+  });
+  /**
+   * Omitir el pago es una llave peligrosa: en producción significaría que
+   * cualquiera reserva sin pagar. Estos tests fijan que está apagada salvo que
+   * se encienda a mano y que, encendida, no se salta ninguna otra comprobación.
+   */
+  describe('confirmarSinCobro', () => {
+    const encender = () => config.get.mockReturnValue('true');
+
+    it('debería estar apagado por defecto', () => {
+      expect(service.bypassHabilitado()).toBe(false);
+    });
+
+    it('debería rechazar la llamada si el entorno no lo permite', async () => {
+      await expect(service.confirmarSinCobro('reserva-1', 'user-1')).rejects.toThrow(DomainException);
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('no debería encenderse con cualquier valor', async () => {
+      // Un "1" o un "yes" en la variable no cuentan: sólo el "true" exacto.
+      for (const valor of ['1', 'yes', 'TRUE', 'si', '']) {
+        config.get.mockReturnValue(valor);
+        expect(service.bypassHabilitado()).toBe(false);
+      }
+    });
+
+    it('debería confirmar la reserva cuando está encendido', async () => {
+      encender();
+
+      await service.confirmarSinCobro('reserva-1', 'user-1');
+
+      expect(bookingsService.confirmar).toHaveBeenCalledWith('reserva-1');
+    });
+
+    it('debería seguir el mismo camino que un cobro real', async () => {
+      // Si el atajo confirmara por su cuenta, probar con él no diría nada del
+      // flujo de verdad.
+      encender();
+
+      await service.confirmarSinCobro('reserva-1', 'user-1');
+
+      expect(notificationsService.notificarReservaConfirmada).toHaveBeenCalledWith('reserva-1');
+    });
+
+    it('debería marcar el pago como de prueba', async () => {
+      // Sin la marca, una reserva de prueba entra en las liquidaciones del
+      // comercio como dinero que hay que pagarle.
+      encender();
+      const guardado = { ...pagoMock, esPrueba: false, save: jest.fn() };
+      pagoModel.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(guardado) });
+
+      await service.confirmarSinCobro('reserva-1', 'user-1');
+
+      expect(guardado.esPrueba).toBe(true);
+    });
+
+    it('no debería dejar reservar la reserva de otro', async () => {
+      // El atajo se salta el cobro, no los permisos.
+      encender();
+
+      await expect(service.confirmarSinCobro('reserva-1', 'otro-usuario'))
+        .rejects.toThrow(DomainException);
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('debería fallar si la reserva no existe', async () => {
+      encender();
+      bookingsService.obtenerPorId.mockResolvedValue(null);
+
+      await expect(service.confirmarSinCobro('no-existe', 'user-1')).rejects.toThrow(DomainException);
+    });
+
+    it('no debería pedirle nada a la pasarela', async () => {
+      // El sentido del atajo es poder probar sin Stripe configurado.
+      encender();
+
+      await service.confirmarSinCobro('reserva-1', 'user-1');
+
+      expect(paymentGateway.crearIntent).not.toHaveBeenCalled();
+    });
+
+    it('debería reaprovechar el intent que ya estuviera abierto', async () => {
+      // Si no, quedarían dos pagos vivos para la misma reserva: uno aprobado y
+      // otro esperando un webhook que ya no va a llegar.
+      encender();
+      const pendiente = { ...pagoMock, save: jest.fn() };
+      pagoModel.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(pendiente) });
+
+      await service.confirmarSinCobro('reserva-1', 'user-1');
+
+      expect(pagoModel).not.toHaveBeenCalled();
+      expect(pendiente.save).toHaveBeenCalled();
     });
   });
 });
