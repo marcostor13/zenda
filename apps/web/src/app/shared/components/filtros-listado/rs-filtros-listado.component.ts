@@ -194,6 +194,28 @@ export class RsFiltrosListadoComponent implements OnInit {
     this.emitir();
   }
 
+  /**
+   * Quita un filtro concreto desde fuera del panel. Lo usan los chips de
+   * "filtros aplicados" del listado: la selección vive aquí, así que el listado
+   * no puede deshacerla por su cuenta sin duplicar el estado.
+   */
+  quitar(tipo: 'precio' | 'rating' | 'opcion' | 'booleano', campo?: string, valor?: string): void {
+    if (tipo === 'precio') {
+      this.precioMin = 0;
+      this.precioMax = this.topePrecio();
+    } else if (tipo === 'rating') {
+      this.ratingMin.set(0);
+    } else if (tipo === 'booleano' && campo) {
+      this.booleanos.update((actual) => ({ ...actual, [campo]: false }));
+    } else if (tipo === 'opcion' && campo && valor) {
+      this.opciones.update((actual) => ({
+        ...actual,
+        [campo]: (actual[campo] ?? []).filter((v) => v !== valor),
+      }));
+    }
+    this.emitir();
+  }
+
   limpiar(): void {
     this.precioMin = 0;
     this.precioMax = this.topePrecio();

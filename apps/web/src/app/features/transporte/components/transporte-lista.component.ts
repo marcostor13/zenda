@@ -3,7 +3,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
-import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import {
@@ -12,11 +11,10 @@ import {
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import { TransporteService, TransporteCard, TipoVehiculoTransporte } from '../services/transporte.service';
 import {
-  CatalogBrowseService, FacetasCatalogo, OpcionesBusqueda, PuntoServicio, ZonaBusqueda,
+  CatalogBrowseService, FacetasCatalogo, OpcionesBusqueda, OrdenServicios, PuntoServicio, ZonaBusqueda,
 } from '../../verticales/catalog-browse.service';
-import {
-  RsFiltrosListadoComponent, type FiltrosSeleccionados,
-} from '../../../shared/components/filtros-listado/rs-filtros-listado.component';
+import type { FiltrosSeleccionados } from '../../../shared/components/filtros-listado/rs-filtros-listado.component';
+import { RsListadoComponent } from '../../../shared/components/listado/rs-listado.component';
 import { RsMapaBuscadorComponent } from '../../../shared/components/mapa-buscador/rs-mapa-buscador.component';
 import type { PuntoMapa, ZonaMapa } from '../../../shared/components/mapa/rs-mapa.component';
 import type { BarraHistograma } from '../../../shared/components/range-slider/rs-range-slider.component';
@@ -26,204 +24,69 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
   selector: 'app-transporte-lista',
   standalone: true,
   imports: [
-    RsNavbarComponent, RsIconComponent, RsSearchBarComponent,
-    AnimateOnScrollDirective, RsCardComponent,
-    RsFiltrosListadoComponent, RsMapaBuscadorComponent,
+    RsNavbarComponent, RsSearchBarComponent, RsListadoComponent,
+    AnimateOnScrollDirective, RsCardComponent, RsMapaBuscadorComponent,
   ],
   template: `
 <div class="transporte-page">
   <rs-navbar />
 
-  <!-- Buscador estándar: mismos campos y orden que en el home -->
-  <div class="transporte-searchbar">
-    <div class="rs-wrap">
-      <rs-search-bar variant="strip" [vertical]="ui.key" [buscarAlCambiar]="true" />
-    </div>
-  </div>
+  <rs-listado
+    [titulo]="titular" [subtitulo]="subtitular"
+    [vertical]="ui.key"
+    [total]="total()" [mostrados]="transportes().length"
+    [cargando]="cargando()" [cargandoMas]="cargandoMas()"
+    [error]="error()" [hayMas]="hayMas()"
+    [histograma]="histogramaPrecios()"
+    [conteos]="facetas()?.amenities ?? []"
+    [conteosValoracion]="facetas()?.valoracion ?? []"
+    [orden]="orden()"
+    [sufijoCiudad]="sufijoCiudad()" [ciudad]="ciudadBuscada()"
+    [mapaAbierto]="mapaAbierto()"
+    (filtrosCambio)="aplicarFiltros($event)"
+    (ordenCambio)="cambiarOrden($event)"
+    (verMas)="verMas()"
+    (reintentar)="recargar()"
+    (mapaAlternado)="alternarMapa()">
 
-  <section class="rs-section rs-section--sm">
-    <div class="rs-wrap transporte-body" [class.transporte-body--mapa]="mapaAbierto()">
+    <rs-search-bar listadoBuscador variant="strip" [vertical]="ui.key"
+                   [categorias]="false" [buscarAlCambiar]="true" />
 
-      <!-- ── FILTROS ─────────────────────────────────────────── -->
-      <aside class="transporte-filtros">
-        @if (!mapaAbierto()) {
-          <button type="button" class="transporte-mapa-teaser" (click)="alternarMapa()">
-            <rs-icon name="map-pin" [size]="15" [stroke]="2" /> Ver en el mapa
-          </button>
-        }
-        <rs-filtros-listado
-          [vertical]="ui.key"
-          [histograma]="histogramaPrecios()"
-          [conteos]="facetas()?.amenities ?? []"
-          [conteosValoracion]="facetas()?.valoracion ?? []"
-          (cambio)="aplicarFiltros($event)" />
-      </aside>
-
-      <!-- ── RESULTADOS ──────────────────────────────────────── -->
-      <section class="transporte-resultados">
-      <header class="transporte-head">
-        <h1>{{ titular }}</h1>
-        <p>{{ subtitular }}</p>
-      </header>
-
-      @if (cargando()) {
-        <div class="rs-result-grid">
-          @for (_ of [1,2,3,4]; track $index) {
-            <div class="rs-skeleton rs-result-skeleton"></div>
-          }
-        </div>
-      } @else {
-        <p class="transporte-count">{{ transportes().length }} servicios de transporte disponibles<span class="transporte-count__ciudad">{{ sufijoCiudad() }}</span></p>
-        <div class="rs-result-grid">
-          @for (t of transportes(); track t.id) {
-            <rs-card rsAnim
-              [horizontal]="true"
-              [imageUrl]="t.imagen" [imageAlt]="t.nombre"
-              [title]="t.nombre" [subtitle]="t.ciudad"
-              [badges]="badgesDe(t)"
-              [rating]="{ score: t.score, label: t.scoreLabel, count: t.numResenas }"
-              [price]="{ amount: 'desde €' + t.tarifaBase, period: '+ €' + t.tarifaKm + '/km' }"
-              notaPrecio="IVA incluido"
-              [amenities]="serviciosDe(t)"
-              [destacados]="incluyeDe(t)"
-              [favoritoServicioId]="t.id"
-              [routerLink]="['/transporte', t.id]"
-              ctaLabel="Ver ficha">
-            </rs-card>
-          }
-
-          @if (transportes().length === 0 && !error()) {
-            <div class="rs-result-empty">
-              <rs-icon name="paw" size="48" />
-              <h3>No hay transportes para esa búsqueda</h3>
-              <p>Prueba con otra ciudad.</p>
-            </div>
-          }
-          @if (error()) {
-            <div class="rs-result-empty">
-              <rs-icon name="paw" size="48" />
-              <h3>No se pudo cargar el catálogo</h3>
-              <p>Inténtalo de nuevo en unos momentos.</p>
-            </div>
-          }
-        </div>
-      }
-      </section>
-
-      <!-- ── MAPA ────────────────────────────────────────────── -->
-      @if (mapaAbierto()) {
-        <section class="transporte-mapa" aria-label="Buscar en el mapa">
-          <rs-mapa-buscador #mapaBuscador
-            [puntos]="puntosMapa()"
-            [cargando]="cargandoMapa()"
-            [total]="transportes().length"
-            ariaLabel="Mapa de servicios de transporte"
-            (cerrar)="alternarMapa()"
-            (zonaBuscada)="buscarEnZona($event)" />
-        </section>
+    <div listadoResultados class="rs-result-grid">
+      @for (t of transportes(); track t.id) {
+        <rs-card rsAnim
+          [horizontal]="true"
+          [imageUrl]="t.imagen" [imageAlt]="t.nombre"
+          [title]="t.nombre" [subtitle]="t.ciudad"
+          [badges]="badgesDe(t)"
+          [rating]="{ score: t.score, label: t.scoreLabel, count: t.numResenas }"
+          [price]="{ amount: '€' + t.tarifaBase, period: 'trayecto desde' }"
+          notaPrecio="IVA incluido"
+          [amenities]="serviciosDe(t)"
+          [destacados]="incluyeDe(t)"
+          [favoritoServicioId]="t.id"
+          [routerLink]="['/transporte', t.id]"
+          ctaLabel="Ver ficha">
+        </rs-card>
       }
     </div>
-  </section>
+
+    @if (mapaAbierto()) {
+      <rs-mapa-buscador listadoMapa #mapaBuscador
+        [puntos]="puntosMapa()"
+        [cargando]="cargandoMapa()"
+        [total]="total()"
+        ariaLabel="Mapa de servicios de transporte"
+        (cerrar)="alternarMapa()"
+        (zonaBuscada)="buscarEnZona($event)" />
+    }
+  </rs-listado>
 </div>
   `,
   styles: [`
     :host { display: block; }
-    .transporte-page { min-height: 100vh; background: var(--c-base); }
-    .transporte-searchbar {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      background: var(--c-card);
-      padding-block: var(--sp-5);
-      box-shadow: var(--sh-md);
-      border-radius: 0 0 var(--r-lg) var(--r-lg);
-    }
-    /* Misma disposición que el resto de listados: filtros · lista · mapa. */
-    .transporte-body {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: var(--sp-8);
-      align-items: start;
-
-      @media (max-width: 1024px) { grid-template-columns: 1fr; }
-    }
-
-    /* .rs-wrap limita el ancho a --w-xl para la lectura, pero aquí no hay
-       texto: es un plano partido en tres, y limitarlo deja el mapa mucho más
-       estrecho de lo que la pantalla permite. Se anula solo en este modo. */
-    .transporte-body--mapa {
-      max-width: none;
-      grid-template-columns: 240px minmax(360px, 520px) 1fr;
-      gap: var(--sp-6);
-
-      .transporte-resultados {
-        max-height: calc(100vh - 160px);
-        max-height: calc(100dvh - 160px);
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        padding-right: var(--sp-2);
-      }
-
-      @media (max-width: 1280px) { grid-template-columns: minmax(320px, 460px) 1fr; }
-      @media (max-width: 900px) {
-        grid-template-columns: 1fr;
-        .transporte-filtros, .transporte-resultados { display: none; }
-      }
-    }
-
-    .transporte-body--mapa .transporte-filtros { @media (max-width: 1280px) { display: none; } }
-
-    .transporte-filtros { position: sticky; top: 140px; }
-
-    .transporte-mapa-teaser {
-      display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
-      width: 100%; margin-bottom: var(--sp-4);
-      padding: var(--sp-3) var(--sp-4);
-      border: 1px solid var(--b-1); border-radius: var(--r-lg);
-      background: var(--c-accent); color: #fff;
-      font-family: var(--font); font-size: var(--f-sm); font-weight: var(--w-6);
-      cursor: pointer;
-
-      &:hover { background: var(--c-accent-h); }
-    }
-
-    .transporte-mapa {
-      position: sticky;
-      top: 140px;
-      /* Se mide en dvh y no en vh: en móvil la barra del navegador se retrae y
-         con vh el mapa queda más alto que la pantalla, cortado por abajo. */
-      height: calc(100vh - 160px);
-      height: calc(100dvh - 160px);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-xl);
-      overflow: hidden;
-      box-shadow: var(--sh-md);
-
-      /* En móvil el mapa pasa a ocupar la pantalla entera, como en Booking.
-         Colocado en el flujo quedaba por debajo de la cabecera y del buscador
-         y solo enseñaba un tercio de la pantalla hasta que se hacía scroll,
-         que es justo lo que no se puede hacer con el mapa abierto. */
-      @media (max-width: 900px) {
-        position: fixed;
-        inset: 0;
-        /* Por encima de la navbar (--z-3): el mapa a pantalla completa se
-           cierra con su propio botón, como en Booking. */
-        z-index: var(--z-4);
-        height: 100vh;
-        height: 100dvh;
-        border: none;
-        border-radius: 0;
-      }
-    }
-
-    .transporte-head { margin-bottom: var(--sp-6); }
-    .transporte-head h1 { font-size: var(--f-3xl); color: var(--dk-blue); letter-spacing: -.02em; }
-    .transporte-head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); font-size: var(--f-md); }
-    .transporte-count { color: var(--t-400); font-size: var(--f-sm); margin-bottom: var(--sp-5); }
-    .transporte-count__ciudad { color: var(--dk-blue); font-weight: var(--w-6); }
-    /* La tarjeta, la rejilla, el esqueleto y el estado vacío son comunes a
-       todos los verticales: .rs-hotel-card, .rs-result-grid,
-       .rs-result-skeleton y .rs-result-empty, en styles.scss. */
+    /* Toda la carcasa del listado vive en <rs-listado>; esta categoria no
+       necesita nada propio. */
   `],
 })
 export class TransporteListaComponent implements OnInit {
@@ -238,6 +101,11 @@ export class TransporteListaComponent implements OnInit {
   readonly cargando = signal(true);
   readonly error = signal(false);
   readonly transportes = signal<TransporteCard[]>([]);
+  readonly total = signal(0);
+  readonly pagina = signal(1);
+  readonly cargandoMas = signal(false);
+  readonly hayMas = computed(() => this.transportes().length < this.total());
+  readonly orden = signal<OrdenServicios>('relevancia');
 
   // ── Filtros, facetas y mapa (mismo esqueleto que el resto de listados) ──
   readonly facetas = signal<FacetasCatalogo | null>(null);
@@ -256,6 +124,15 @@ export class TransporteListaComponent implements OnInit {
       etiqueta: `€${p.precio}`, titulo: p.titulo, imagen: p.imagen, rating: p.rating,
     })),
   );
+
+  cambiarOrden(valor: string): void {
+    this.orden.set(valor as OrdenServicios);
+    void this.cargar();
+  }
+
+  recargar(): void {
+    void this.cargar();
+  }
 
   aplicarFiltros(seleccion: FiltrosSeleccionados): void {
     this.filtros.set(seleccion);
@@ -286,6 +163,9 @@ export class TransporteListaComponent implements OnInit {
   /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
   private readonly busqueda = signal<{ ciudad?: string; desde?: string; perros?: string }>({});
 
+  /** Ciudad buscada; encabeza el resumen plegado del buscador en móvil. */
+  readonly ciudadBuscada = computed(() => this.busqueda().ciudad ?? '');
+
   readonly sufijoCiudad = computed(() => {
     const ciudad = this.busqueda().ciudad;
     return ciudad ? ` desde ${ciudad}` : '';
@@ -307,30 +187,61 @@ export class TransporteListaComponent implements OnInit {
     this.cargando.set(true);
     this.error.set(false);
 
+    this.pagina.set(1);
+    const opciones = this.opcionesActuales();
+
+    try {
+      // Datos reales del catálogo; nunca mocks (evita ofrecer traslados inexistentes).
+      const res = await this.transporteService.buscarPaginado(opciones);
+      this.transportes.set(res.items);
+      this.total.set(res.total);
+      void this.cargarFacetas();
+      void this.cargarPuntosMapa(opciones);
+    } catch {
+      this.transportes.set([]);
+      this.total.set(0);
+      this.error.set(true);
+    } finally {
+      this.cargando.set(false);
+    }
+  }
+
+  /** Parámetros de la búsqueda actual, comunes a la lista y al mapa. */
+  private opcionesActuales(): OpcionesBusqueda {
     const filtros = this.filtros();
     const zona = this.zona();
-    const opciones: OpcionesBusqueda = {
+    return {
       // Con el mapa acotando la zona la ciudad sobra: el usuario ya ha dicho
       // por dónde quiere buscar arrastrando el mapa hasta ahí.
       ciudad: zona ? undefined : this.busqueda().ciudad,
       zona: zona ?? undefined,
+      orden: this.orden(),
       precioMin: filtros.precioMin,
       precioMax: filtros.precioMax,
       ratingMin: filtros.ratingMin,
       amenities: filtros.amenities,
       filtrosVertical: filtros.vertical,
     };
+  }
 
+  /** Página siguiente, añadida al final de la lista. */
+  async verMas(): Promise<void> {
+    if (this.cargandoMas() || !this.hayMas()) return;
+
+    this.cargandoMas.set(true);
+    const siguiente = this.pagina() + 1;
     try {
-      // Datos reales del catálogo; nunca mocks (evita ofrecer traslados inexistentes).
-      this.transportes.set(await this.transporteService.buscar(opciones));
-      void this.cargarFacetas();
-      void this.cargarPuntosMapa(opciones);
+      const res = await this.transporteService.buscarPaginado({
+        ...this.opcionesActuales(), page: siguiente,
+      });
+      const vistos = new Set(this.transportes().map((t) => t.id));
+      this.transportes.update((l) => [...l, ...res.items.filter((t) => !vistos.has(t.id))]);
+      this.total.set(res.total);
+      this.pagina.set(siguiente);
     } catch {
-      this.transportes.set([]);
-      this.error.set(true);
+      // Un fallo al ampliar no invalida lo que ya se está viendo.
     } finally {
-      this.cargando.set(false);
+      this.cargandoMas.set(false);
     }
   }
 

@@ -138,7 +138,7 @@ describe('VerticalBrowseComponent', () => {
     expect(component.subtitular()).toBe(
       'Encuentra y reserva el cuidado ideal para su pelo, su piel y bienestar.',
     );
-    expect(el.querySelector('.vb-head h1')?.textContent?.trim()).toBe('El cuidado que merece');
+    expect(el.querySelector('.ls__head h1')?.textContent?.trim()).toBe('El cuidado que merece');
   });
 
   it('debería situar la ciudad buscada junto al recuento de resultados', async () => {

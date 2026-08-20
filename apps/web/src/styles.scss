@@ -133,6 +133,18 @@
   --w-2xl: 1440px;
   --w-3xl: 1600px;
 
+  /* Alto de la navbar pegajosa. El buscador de los listados se pegaba tambien
+     a `top: 0` y, con menos z-index, sus primeros 64 px desaparecian debajo:
+     la fila de categorias no se veia en cuanto se hacia scroll. */
+  --dk-navbar-h: 64px;
+
+  /* Alto total de la cabecera fija de un listado (navbar + buscador). Los tres
+     listados lo repetian a mano como `top: 140px` cuando el valor real es 256,
+     asi que los filtros y el mapa se pegaban 116 px demasiado arriba y su
+     cabecera quedaba tapada. Cada listado puede redefinirlo si su cabecera
+     mide otra cosa. */
+  --dk-listado-top: 256px;
+
   /* Z-index */
   --z-1: 10;
   --z-2: 100;
@@ -146,10 +158,30 @@
 
 html {
   font-size: 16px;
-  scroll-behavior: smooth;
+  /*
+   * Red de seguridad contra el desplazamiento lateral. Puesto en el `body` no
+   * sirve: su overflow se propaga a la ventana y el propio body pasa a
+   * `visible`, asi que un absoluto que se sale —una franja decorativa del
+   * hero, por ejemplo— seguia ensanchando la pagina. `clip` y no `hidden`
+   * porque `hidden` convertiria a `html` en contenedor de scroll y las
+   * cabeceras `sticky` dejarian de pegarse a la ventana.
+   */
+  overflow-x: clip;
+  /* `scroll-behavior: smooth` global no: el router restaura la posicion con
+     `window.scrollTo`, asi que cada cambio de ruta se convertia en una
+     animacion larga de vuelta arriba. El desplazamiento suave se pide donde
+     hace falta con `.rs-scroll-smooth`. */
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
 }
+
+/* Anclas dentro de una misma pantalla, sin afectar a la navegacion. */
+.rs-scroll-smooth { scroll-behavior: smooth; }
+
+/* Ningun ancla debe quedar debajo de la navbar fija al saltar a ella. Se mide
+   sobre la navbar y no sobre la cabecera completa del listado: es lo unico
+   fijo en todas las pantallas. */
+[id] { scroll-margin-top: calc(var(--dk-navbar-h) + var(--sp-4)); }
 
 body {
   font-family: var(--font);
@@ -160,8 +192,16 @@ body {
   background: var(--c-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* `hidden` en el eje X obliga al navegador a calcular el eje Y como `auto`,
+     y eso convierte al body en contenedor de scroll: las cabeceras `sticky`
+     pasan a pegarse a el y no a la ventana. `clip` recorta igual sin crear
+     contenedor. La linea `hidden` queda de respaldo para navegadores viejos. */
   overflow-x: hidden;
+  overflow-x: clip;
 }
+
+/* Con el panel de filtros abierto el fondo no debe rodar detras. */
+body.rs-sin-scroll { overflow: hidden; }
 
 img, video, svg { display: block; max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -998,6 +1038,16 @@ h1, h2, h3, h4, h5, h6 {
   }
   &__meta-loc { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* Distintivo de servicio recien publicado, en lugar de una nota de 0. */
+  &__nuevo {
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-full);
+    background: var(--c-accent-lo);
+    color: var(--dk-blue);
+    font-size: var(--f-xs);
+    font-weight: var(--w-7);
+  }
+
   /* Lo que incluye la reserva, con marca de verificación. */
   &__destacados {
     list-style: none;
@@ -1035,7 +1085,20 @@ h1, h2, h3, h4, h5, h6 {
     flex: 0 0 270px;
     aspect-ratio: auto;
     align-self: stretch;
+
+    /* Y para que eso sea cierto hay que sacar la foto del flujo. Con
+       `height: 100%` dentro de un contenedor de alto indefinido, el navegador
+       cae al tamaño intrinseco de la imagen: una foto vertical de 1200x1600
+       estiraba la tarjeta a 362 px cuando el contenido solo pedia 166, y el
+       hueco sobrante quedaba entre el precio y el boton. Posicionada en
+       absoluto, el alto lo decide el cuerpo y todas las filas miden lo mismo
+       venga la foto apaisada o vertical. */
+    img { position: absolute; inset: 0; }
   }
+
+  /* Suelo de la tarjeta: sin el, un servicio con poco texto dejaria la foto
+     convertida en una franja. */
+  min-height: 196px;
 
   .rs-hotel-card__body {
     flex: 1;
@@ -1081,7 +1144,10 @@ h1, h2, h3, h4, h5, h6 {
   @media (max-width: 860px) {
     --rs-card-dir: column;
 
+    /* En columna la foto vuelve al flujo: aqui si debe marcar su propio alto
+       con la proporcion 16/9, que es lo que reserva el hueco. */
     .rs-hotel-card__img { width: 100%; flex: none; aspect-ratio: 16/9; }
+    .rs-hotel-card__img img { position: static; }
     .rs-hotel-card__body { padding: var(--sp-5); }
 
     .rs-hotel-card__aside {

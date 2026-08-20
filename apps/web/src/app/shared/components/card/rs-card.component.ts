@@ -91,7 +91,13 @@ export interface CardPrice {
                  alojamiento: las estrellas sitúan la nota de un vistazo y el
                  precio se lee aparte, en su propia columna. -->
             <p class="rs-hotel-card__meta">
-              @if (rating(); as r) {
+              @if (sinValorar()) {
+                <!-- Un servicio recien publicado no tiene nota: pintar "0" con
+                     cinco estrellas vacias lo hace parecer valorado y pesimo,
+                     que es lo contrario de lo que dice el dato. -->
+                <span class="rs-hotel-card__nuevo">Nuevo</span>
+                <span>Aún sin valoraciones</span>
+              } @else if (rating(); as r) {
                 <rs-stars [score]="+r.score" [size]="13" />
                 <strong>{{ r.score }}</strong>
                 @if (r.count) { <span>({{ r.count }} {{ r.count === 1 ? 'reseña' : 'reseñas' }})</span> }
@@ -280,6 +286,16 @@ export class RsCardComponent {
       ? RsCardComponent.MAX_AMENITIES_HORIZONTAL
       : RsCardComponent.MAX_AMENITIES_VERTICAL),
   );
+
+  /**
+   * Servicio sin ninguna resena. Se mira el contador y no la nota: un score de
+   * 0 con 12 resenas es un dato real que hay que ensenar, mientras que 0 de 0
+   * es simplemente que todavia no lo ha valorado nadie.
+   */
+  readonly sinValorar = computed(() => {
+    const r = this.rating();
+    return !!r && !r.count && !+r.score;
+  });
 
   get cardClasses(): string {
     const classes = ['rs-card'];

@@ -6,6 +6,7 @@ import {
   PAISES_EUROPA, PAIS_POR_DEFECTO, PaisTelefono, paisDelTelefono,
 } from '../../catalogos/paises.catalogo';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { RsBanderaComponent } from '../bandera/rs-bandera.component';
 
 /** Compara ignorando mayúsculas y tildes: "espana" encuentra "España". */
 const normalizar = (texto: string): string =>
@@ -24,7 +25,7 @@ const normalizar = (texto: string): string =>
 @Component({
   selector: 'rs-phone-input',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [RsIconComponent, RsBanderaComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => RsPhoneInputComponent), multi: true },
@@ -36,7 +37,7 @@ const normalizar = (texto: string): string =>
             [disabled]="deshabilitado()"
             [attr.aria-expanded]="desplegado()" aria-haspopup="listbox"
             [attr.aria-label]="'Prefijo: ' + pais().nombre + ' ' + pais().prefijo">
-      <span class="ph__bandera" aria-hidden="true">{{ pais().bandera }}</span>
+      <rs-bandera class="ph__bandera" [codigo]="pais().iso" [alto]="14" />
       <span class="ph__prefijo">{{ pais().prefijo }}</span>
       <rs-icon name="chevron-down" [size]="13" [stroke]="2.5"></rs-icon>
     </button>
@@ -66,7 +67,7 @@ const normalizar = (texto: string): string =>
             <li role="option" [attr.aria-selected]="p.iso === pais().iso">
               <button type="button" class="ph__opt" [class.is-on]="p.iso === pais().iso"
                       (click)="elegirPais(p)">
-                <span class="ph__bandera" aria-hidden="true">{{ p.bandera }}</span>
+                <rs-bandera class="ph__bandera" [codigo]="p.iso" [alto]="14" />
                 <span class="ph__nombre">{{ p.nombre }}</span>
                 <span class="ph__dial">{{ p.prefijo }}</span>
               </button>
@@ -106,7 +107,7 @@ const normalizar = (texto: string): string =>
       &:hover:not(:disabled) { background: var(--c-accent-lo); }
       &:disabled { cursor: not-allowed; }
     }
-    .ph__bandera { font-size: var(--f-md); line-height: 1; }
+    .ph__bandera { flex: none; }
     .ph__prefijo { font-weight: var(--w-6); }
 
     .ph__sep { width: 1px; align-self: stretch; margin-block: var(--sp-2); background: var(--b-2); }

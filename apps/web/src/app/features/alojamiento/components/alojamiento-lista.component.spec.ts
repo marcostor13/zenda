@@ -74,11 +74,11 @@ describe('AlojamientoListaComponent', () => {
     expect(component.totalItems()).toBe(1);
   });
 
-  it('debería mostrar el total como espacios encontrados', async () => {
+  it('debería exponer el total de resultados para el recuento común', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(component.totalLabel()).toBe('1 espacios encontrados');
+    expect(component.totalItems()).toBe(1);
   });
 
   it('debería mostrar estado de error (sin listados falsos) si la API falla', async () => {
@@ -103,7 +103,7 @@ describe('AlojamientoListaComponent', () => {
 
     const html: string = fixture.nativeElement.innerHTML;
     expect(html).toContain('€45');
-    expect(html).toContain('/ noche');
+    expect(html).toContain('noche desde');
     expect(html).toContain('Premium');
   });
 

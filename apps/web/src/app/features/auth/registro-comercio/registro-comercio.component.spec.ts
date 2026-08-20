@@ -52,11 +52,21 @@ describe('RegistroComercioComponent (wizard)', () => {
     expect(component.paso()).toBe(2);
   });
 
-  it('no debería avanzar del paso 2 con el negocio inválido', () => {
+  it('no debería avanzar más allá del último paso', () => {
     component.toggleVertical(VerticalKey.ALOJAMIENTO);
     component.siguiente();
     component.siguiente();
-    expect(component.paso()).toBe(2);
+    expect(component.paso()).toBe(component.pasos.length);
+  });
+
+  it('debería marcar los dos formularios si el negocio está incompleto al enviar', async () => {
+    component.toggleVertical(VerticalKey.ALOJAMIENTO);
+    rellenarCuenta();
+
+    await component.onSubmit();
+
+    expect(authService.registrarComercio).not.toHaveBeenCalled();
+    expect(component.negocioForm.get('nombreComercial')?.touched).toBe(true);
   });
 
   it('debería registrar el comercio con negocio, cuenta y categorías', async () => {
@@ -105,6 +115,7 @@ describe('RegistroComercioComponent (wizard)', () => {
     await component.onSubmit();
 
     expect(component.error()).toContain('ya está registrado');
+    expect(component.emailDuplicado()).toBe(true);
   });
 
   it('debería mostrar un error genérico ante cualquier otro fallo', async () => {

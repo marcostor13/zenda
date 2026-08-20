@@ -90,18 +90,31 @@ describe('verticales.config', () => {
   });
 
   it('debería exponer el copy de marca de los verticales revisados', () => {
-    expect(titularDeVertical(VerticalKey.TRANSPORTE)).toBe('MÁS QUE UN TRANSPORTE');
+    expect(titularDeVertical(VerticalKey.TRANSPORTE)).toBe('Más que un transporte');
     expect(subtitularDeVertical(VerticalKey.TRANSPORTE)).toBe('Su bienestar es el destino más importante.');
-    expect(titularDeVertical(VerticalKey.VETERINARIA)).toBe('VETERINARIOS DE CONFIANZA');
+    expect(titularDeVertical(VerticalKey.VETERINARIA)).toBe('Veterinarios de confianza');
     expect(titularDeVertical(VerticalKey.PELUQUERIA)).toBe('El cuidado que merece');
     expect(titularDeVertical(VerticalKey.ALOJAMIENTO)).toBe('Más que un alojamiento');
   });
 
-  it('debería caer en label y descripción cuando el vertical no tiene copy propio', () => {
-    const sinCopy = VERTICALES_UI.find((v) => !v.titular);
-    expect(sinCopy).toBeDefined();
-    expect(titularDeVertical(sinCopy!.key)).toBe(sinCopy!.label);
-    expect(subtitularDeVertical(sinCopy!.key)).toBe(sinCopy!.descripcion);
+  it('debería dar copy propio a todas las categorías, sin caer en la etiqueta', () => {
+    // Adiestramiento y hoteles no lo tenían y caían a `label`: entre titulares
+    // de marca aparecían dos que eran el nombre pelado de la categoría.
+    for (const v of VERTICALES_UI) {
+      expect(v.titular).toBeTruthy();
+      expect(titularDeVertical(v.key)).toBe(v.titular);
+      expect(subtitularDeVertical(v.key)).toBe(v.subtitular);
+    }
+  });
+
+  it('debería escribir los titulares en mayúscula inicial, nunca en versales', () => {
+    // Veterinaria y transporte iban en MAYÚSCULAS y el resto no, así que
+    // cambiar de servicio cambiaba el tono de la pantalla.
+    for (const v of VERTICALES_UI) {
+      const titular = v.titular!;
+      expect(titular).not.toBe(titular.toUpperCase());
+      expect(titular.charAt(0)).toBe(titular.charAt(0).toUpperCase());
+    }
   });
 
   it('no debería anunciar servicios que Doogking no intermedia', () => {

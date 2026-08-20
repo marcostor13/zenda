@@ -61,8 +61,19 @@ export class TransporteService {
    * exactamente igual que el resto de verticales.
    */
   async buscar(opciones: OpcionesBusqueda = {}): Promise<TransporteCard[]> {
-    const items = await this.browse.buscar(VerticalKey.TRANSPORTE, opciones);
-    return items.map((s) => this.toTransporte(s as ServicioCard));
+    return (await this.buscarPaginado(opciones)).items;
+  }
+
+  /**
+   * Igual que `buscar` pero conservando el total. El listado lo necesita para
+   * el recuento y para saber si quedan resultados por traer: con solo el array
+   * decia "N servicios" contando los de la pagina, no los que hay.
+   */
+  async buscarPaginado(
+    opciones: OpcionesBusqueda = {},
+  ): Promise<{ items: TransporteCard[]; total: number }> {
+    const res = await this.browse.buscarPaginado(VerticalKey.TRANSPORTE, opciones);
+    return { items: res.items.map((s) => this.toTransporte(s as ServicioCard)), total: res.total };
   }
 
   private toTransporte(s: ServicioCard): TransporteCard {

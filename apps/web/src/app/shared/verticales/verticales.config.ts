@@ -26,6 +26,11 @@ export interface VerticalUi {
    * Titular de la cabecera del listado. Si falta, la vista usa `label`.
    * Es el único sitio donde vive el copy de marca de cada categoría: ninguna
    * plantilla debe escribir estos textos a mano.
+   *
+   * Se escribe con mayúscula solo en la primera palabra y en los nombres
+   * propios, nunca en versales: dos categorías estaban en MAYÚSCULAS y las
+   * demás no, así que cambiar de servicio cambiaba el tono de la pantalla. El
+   * tamaño y el peso ya los pone `.ls__head h1`; el texto no tiene que gritar.
    */
   readonly titular?: string;
   /** Subtitular emocional bajo el titular. Si falta, la vista usa `descripcion`. */
@@ -61,7 +66,7 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     // No se nombran cirugía ni dermatología: Doogking no intermedia esos
     // servicios (regla de negocio, ver plan unificado §2.2).
     descripcion: 'Clínicas verificadas: consulta, vacunación, urgencias 24 h, higiene dental y teleconsulta.',
-    titular: 'VETERINARIOS DE CONFIANZA',
+    titular: 'Veterinarios de confianza',
     subtitular: 'Clínicas veterinarias para tu mascota: vacunación, citas, urgencias 24 h y más.',
     reservaPorNoches: false,
     pideHora: true,
@@ -111,7 +116,7 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     icon: 'truck',
     claim: 'Viajes seguros y cómodos para tu mascota.',
     descripcion: 'Vehículos acondicionados y conductores especializados, con tarifas transparentes.',
-    titular: 'MÁS QUE UN TRANSPORTE',
+    titular: 'Más que un transporte',
     subtitular: 'Su bienestar es el destino más importante.',
     reservaPorNoches: false,
     labelUbicacion: 'Recogida',
@@ -127,6 +132,8 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     icon: 'graduation-cap',
     claim: 'Mejora su comportamiento con profesionales especializados.',
     descripcion: 'Educadores certificados: obediencia, modificación de conducta y educación de cachorros.',
+    titular: 'Entenderse es cuestión de método',
+    subtitular: 'Educadores certificados para obediencia, conducta y cachorros.',
     reservaPorNoches: false,
     pideHora: true,
     labelUbicacion: '¿Dónde buscas el servicio?',
@@ -142,6 +149,8 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     icon: 'building',
     claim: 'Descubre alojamientos donde vuestra mascota también es bienvenida.',
     descripcion: 'Hoteles donde tú y tu perro os quedáis juntos, con servicios pensados para mascotas.',
+    titular: 'Viajad juntos, dormid juntos',
+    subtitular: 'Hoteles donde tu perro también es un huésped, no una excepción.',
     reservaPorNoches: true,
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad o destino',

@@ -4,6 +4,7 @@ import {
 import { MONEDA_SIMBOLOS, MonedaSoportada, PAISES_SOPORTADOS } from 'shared';
 import { MonedaService } from '../../../core/moneda/moneda.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { RsBanderaComponent } from '../bandera/rs-bandera.component';
 
 /**
  * País y moneda de la cabecera (R2 y R3). Son dos controles separados, como en
@@ -13,7 +14,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
 @Component({
   selector: 'rs-region-selector',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [RsIconComponent, RsBanderaComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="rg" [class.rg--block]="block()">
@@ -21,7 +22,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
     <button type="button" class="rg__trigger" (click)="abrir('pais')"
             [attr.aria-expanded]="panel() === 'pais'" aria-haspopup="true"
             [attr.aria-label]="'País: ' + paisActual().nombre">
-      <span class="rg__flag" aria-hidden="true">{{ paisActual().bandera }}</span>
+      <rs-bandera class="rg__flag" [codigo]="paisActual().codigo" [alto]="14" />
       <span class="rg__code">{{ paisActual().codigo }}</span>
     </button>
 
@@ -33,7 +34,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
                     [class.is-on]="p.codigo === moneda.pais()"
                     [attr.aria-checked]="p.codigo === moneda.pais()"
                     (click)="elegirPais(p.codigo)">
-              <span class="rg__flag" aria-hidden="true">{{ p.bandera }}</span>
+              <rs-bandera class="rg__flag" [codigo]="p.codigo" [alto]="14" />
               {{ p.nombre }}
             </button>
           </li>
@@ -89,7 +90,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
       transition: background var(--d-2), color var(--d-2);
       &:hover { background: rgba(5,26,102,.05); color: var(--t-100); }
     }
-    .rg__flag { font-size: 1.05rem; line-height: 1; }
+    .rg__flag { flex: none; }
     .rg__sym  { font-weight: var(--w-7); color: var(--dk-blue); }
     .rg__code { letter-spacing: .02em; }
 

@@ -20,11 +20,11 @@ export const MONEDA_SIMBOLOS: Record<MonedaSoportada, string> = {
 
 /** Países del mercado europeo con oferta activa; fija región e idioma del buscador. */
 export const PAISES_SOPORTADOS = [
-  { codigo: 'ES', nombre: 'España', bandera: '🇪🇸', moneda: 'EUR' },
-  { codigo: 'PT', nombre: 'Portugal', bandera: '🇵🇹', moneda: 'EUR' },
-  { codigo: 'FR', nombre: 'Francia', bandera: '🇫🇷', moneda: 'EUR' },
-  { codigo: 'IT', nombre: 'Italia', bandera: '🇮🇹', moneda: 'EUR' },
-  { codigo: 'DE', nombre: 'Alemania', bandera: '🇩🇪', moneda: 'EUR' },
+  { codigo: 'ES', nombre: 'España', moneda: 'EUR' },
+  { codigo: 'PT', nombre: 'Portugal', moneda: 'EUR' },
+  { codigo: 'FR', nombre: 'Francia', moneda: 'EUR' },
+  { codigo: 'IT', nombre: 'Italia', moneda: 'EUR' },
+  { codigo: 'DE', nombre: 'Alemania', moneda: 'EUR' },
 ] as const;
 export const SLOT_HOLD_TTL_MINUTOS = 15;
 export const COMISION_PCT_DEFAULT = 0.15;

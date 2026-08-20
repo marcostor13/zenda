@@ -65,7 +65,7 @@ type SearchMode = 'filtros' | 'ia';
 
   <!-- ═══ HERO + BUSCADOR ═════════════════════════════════════════ -->
   <section class="hero">
-    <div class="hero__navy" aria-hidden="true"></div>
+    <div class="hero__navy-clip" aria-hidden="true"><div class="hero__navy"></div></div>
 
     <div class="hero__inner rs-wrap rs-wrap--2xl">
       <div class="hero__brand">
@@ -502,9 +502,9 @@ type SearchMode = 'filtros' | 'ia';
      * son position:absolute dentro de este contenedor, y con overflow:hidden
      * cualquier lista que no cupiera en el resto del hero se cortaba a mitad
      * — literalmente desaparecían las últimas ciudades/mascotas de la lista.
-     * No hace falta para la franja navy: .hero__navy sangra un 160% de
-     * ancho, pero el body ya tiene overflow-x: hidden (styles.scss) y recorta
-     * ese desbordamiento horizontal a nivel de página.
+     * La franja navy sangra un 160% de ancho y se recorta en su propio
+     * contenedor (.hero__navy-clip), no en el hero: ver el comentario de esa
+     * regla.
      */
     .hero {
       position: relative;
@@ -512,18 +512,38 @@ type SearchMode = 'filtros' | 'ia';
       padding-block: var(--sp-8) 0;
     }
 
-    /* Franja navy curva que asoma por detrás del buscador */
+    /*
+     * Franja navy curva que asoma por detrás del buscador.
+     *
+     * Va dentro de su propio contenedor con overflow:hidden porque se creía
+     * que el overflow-x del body recortaba su 160% de ancho, y no lo hace:
+     * es un absoluto cuyo bloque contenedor es .hero, que no recorta a
+     * propósito, así que su desbordamiento llegaba hasta la ventana y el home
+     * rodaba 116 px de lado en móvil — con el menú abierto, que es fijo, el
+     * contenido se desplazaba por debajo y parecía desbordarse. Recortar aquí
+     * y no en .hero deja intactos los desplegables del buscador.
+     */
+    .hero__navy-clip {
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 300px;
+      overflow: hidden;
+      pointer-events: none;
+
+      @media (max-width: 900px) { height: 420px; }
+    }
+
     .hero__navy {
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
       bottom: 0;
       width: 160%;
-      height: 300px;
+      height: 100%;
       background: var(--dk-blue-deep);
       border-radius: 50% 50% 0 0 / 90px 90px 0 0;
 
-      @media (max-width: 900px) { height: 420px; border-radius: 50% 50% 0 0 / 50px 50px 0 0; }
+      @media (max-width: 900px) { border-radius: 50% 50% 0 0 / 50px 50px 0 0; }
     }
 
     .hero__inner { position: relative; z-index: 1; }

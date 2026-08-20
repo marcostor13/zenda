@@ -2,27 +2,25 @@ import { Component, DestroyRef, signal, computed, OnInit, inject, viewChild } fr
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { VerticalKey } from 'shared';
-import { FormBuilder, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
-import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
 import { RsCardComponent, type CardAmenity } from '../../../shared/components/card/rs-card.component';
 import { conIconos } from '../../../shared/catalogos/amenity-iconos';
 import type { BarraHistograma } from '../../../shared/components/range-slider/rs-range-slider.component';
-import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../../../shared/components/mapa/rs-mapa.component';
+import type { PuntoMapa, ZonaMapa } from '../../../shared/components/mapa/rs-mapa.component';
 import { RsMapaBuscadorComponent } from '../../../shared/components/mapa-buscador/rs-mapa-buscador.component';
+import type { FiltrosSeleccionados } from '../../../shared/components/filtros-listado/rs-filtros-listado.component';
 import {
-  RsFiltrosListadoComponent, type FiltrosSeleccionados,
-} from '../../../shared/components/filtros-listado/rs-filtros-listado.component';
+  RsListadoComponent, ORDENES_POR_DEFECTO, type OpcionOrden,
+} from '../../../shared/components/listado/rs-listado.component';
 import { subtitularDeVertical, titularDeVertical, verticalUi } from '../../../shared/verticales/verticales.config';
 import {
   AlojamientoService, AlojamientoCard, FacetasCatalogo, FiltrosAlojamiento, OrdenServicios,
   PuntoServicio, ZonaBusqueda,
 } from '../services/alojamiento.service';
 import { calcularBadgesAutomaticos, type BadgeAutomatico } from '../../../shared/badges/badges-automaticos';
-import { PerrosService, PerroApi } from '../../perros/perros.service';
 import { ExperienciasCercaComponent } from '../../explora/experiencias-cerca.component';
 
 /** Filtros comunes de búsqueda, tal y como llegan en la URL. */
@@ -37,420 +35,109 @@ interface BusquedaUrl {
   selector: 'app-alojamiento-lista',
   standalone: true,
   imports: [
-    ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent,
-    RsSearchBarComponent, AnimateOnScrollDirective, RsCardComponent,
-    ExperienciasCercaComponent, RsMapaComponent,
-    RsMapaBuscadorComponent, RsFiltrosListadoComponent,
+    RsNavbarComponent, RsIconComponent, RsSearchBarComponent, RsListadoComponent,
+    AnimateOnScrollDirective, RsCardComponent,
+    ExperienciasCercaComponent, RsMapaBuscadorComponent,
   ],
   template: `
 <div class="alojamiento-page">
   <rs-navbar />
 
-  <!-- Buscador estándar: mismos campos y orden que en el home -->
-  <div class="search-bar-strip">
-    <div class="rs-wrap">
-      <rs-search-bar variant="strip" [vertical]="ui.key" [buscarAlCambiar]="true" />
+  <rs-listado
+    [titulo]="titular" [subtitulo]="subtitular"
+    [vertical]="ui.key"
+    [total]="totalItems()" [mostrados]="alojamientos().length"
+    [cargando]="cargando()" [cargandoMas]="cargandoMas()"
+    [error]="error()" [hayMas]="hayMas()"
+    [histograma]="histogramaPrecios()"
+    [conteos]="facetas()?.amenities ?? []"
+    [conteosValoracion]="facetas()?.valoracion ?? []"
+    [orden]="ordenamiento()" [ordenes]="ORDENES"
+    [sufijoCiudad]="sufijoCiudad()" [ciudad]="busquedaCiudad() ?? ''"
+    [mapaAbierto]="mapaAbierto()"
+    (filtrosCambio)="aplicarFiltros($event)"
+    (ordenCambio)="cambiarOrden($event)"
+    (verMas)="verMas()"
+    (reintentar)="cargarAlojamientos()"
+    (mapaAlternado)="alternarMapa()">
 
-      @if (misPerros().length > 0) {
-        <form [formGroup]="searchForm" class="search-bar-strip__perro">
-          <label class="rs-lbl" for="alojamiento-perro">Compatible con</label>
-          <select id="alojamiento-perro" formControlName="perroId" class="rs-inp"
-                  (change)="aplicarFiltros()">
-            <option value="">Cualquier perro</option>
-            @for (p of misPerros(); track p._id) {
-              <option [value]="p._id">Solo apto para {{ p.nombre }}</option>
-            }
-          </select>
-        </form>
+    <rs-search-bar listadoBuscador variant="strip" [vertical]="ui.key"
+                   [categorias]="false" [buscarAlCambiar]="true" />
+
+    @if (avisoUbicacion()) {
+      <p listadoAntes class="al-geo">
+        <rs-icon name="navigation" [size]="13" [stroke]="2" /> {{ avisoUbicacion() }}
+      </p>
+    }
+
+    <div listadoResultados class="rs-result-grid">
+      @for (a of alojamientos(); track a.id) {
+        <rs-card rsAnim
+          [id]="'card-' + a.id"
+          [class.card--destacada]="destacadoId() === a.id"
+          [horizontal]="true"
+          [imageUrl]="a.imagenes[0]" [imageAlt]="a.nombre"
+          [title]="a.nombre" [subtitle]="a.barrio ? a.barrio + ', ' + a.ciudad : a.ciudad"
+          [badges]="badgesDe(a)"
+          [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
+          [price]="{ amount: '€' + a.precioPorNoche, period: 'noche desde', oldAmount: a.precioAnterior ? '€' + a.precioAnterior : undefined }"
+          notaPrecio="IVA incluido"
+          [amenities]="serviciosDe(a)"
+          [destacados]="incluyeDe(a)"
+          [favoritoServicioId]="a.id"
+          [routerLink]="['/alojamiento', a.id]"
+          [queryParams]="queryParamsDetalle()"
+          ctaLabel="Ver disponibilidad">
+        </rs-card>
       }
     </div>
-  </div>
 
-  <div class="rs-wrap alojamiento-body" [class.alojamiento-body--mapa]="mapaAbierto()">
-
-    <!-- ── SIDEBAR ─────────────────────────────────────────── -->
-    <aside class="filters-sidebar">
-      <!-- Miniatura del mapa sobre los filtros, como en Booking (PDF §3, WA0009) -->
-      @if (!mapaAbierto()) {
-        <button type="button" class="mapa-teaser" (click)="alternarMapa()"
-                [attr.aria-expanded]="false">
-          @if (puntosMapa().length > 0) {
-            <rs-mapa class="mapa-teaser__mini" [puntos]="puntosMapa()" ariaLabel="Vista previa del mapa" />
-          } @else {
-            <span class="mapa-teaser__vacio"></span>
-          }
-          <span class="mapa-teaser__cta">
-            <rs-icon name="map-pin" [size]="15" [stroke]="2" />
-            Ver en el mapa
-          </span>
-        </button>
-      }
-
-      <!-- Panel común a los ocho verticales; sus grupos salen de
-           filtros.config.ts según la categoría. -->
-      <rs-filtros-listado
-        [vertical]="ui.key"
-        [histograma]="histogramaPrecios()"
-        [conteos]="facetas()?.amenities ?? []"
-        [conteosValoracion]="facetas()?.valoracion ?? []"
-        (cambio)="aplicarFiltros($event)" />
-    </aside>
-
-    <!-- ── RESULTADOS ──────────────────────────────────────── -->
-    <section class="results-col">
-      <div class="results-header">
-        <div>
-          <p class="results-header__eyebrow">{{ claimVertical }}</p>
-          <h1 class="results-header__title">
-            {{ cargando() ? 'Buscando…' : ui.label + sufijoCiudad() }}
-          </h1>
-          <p class="results-header__sub">
-            @if (!cargando()) { <span class="results-header__count">{{ totalLabel() }}</span> · }
-            Precios en euros (€) · IVA incluido
-          </p>
-        </div>
-        <div class="results-header__sort">
-          <select [(ngModel)]="ordenamiento" class="rs-inp" style="width:auto"
-                  aria-label="Ordenar resultados"
-                  (change)="cambiarOrden()">
-            <option value="relevancia">Relevancia</option>
-            <option value="distancia">Distancia</option>
-            <option value="precio_asc">Precio: menor a mayor</option>
-            <option value="precio_desc">Precio: mayor a menor</option>
-            <option value="valoracion">Mejor valorados</option>
-          </select>
-          @if (avisoUbicacion()) {
-            <p class="results-header__geo">{{ avisoUbicacion() }}</p>
-          }
-        </div>
-      </div>
-
-      <!-- Skeleton loading -->
-      @if (cargando()) {
-        <div class="rs-result-grid">
-          @for (_ of [1,2,3,4]; track $index) {
-            <div class="rs-skeleton rs-result-skeleton"></div>
-          }
-        </div>
-      }
-
-      <!-- Lista de alojamientos -->
-      @if (!cargando()) {
-        <div class="rs-result-grid">
-          @for (a of alojamientos(); track a.id) {
-            <rs-card rsAnim
-              [id]="'card-' + a.id"
-              [class.card--destacada]="destacadoId() === a.id"
-              [horizontal]="true"
-              [imageUrl]="a.imagenes[0]" [imageAlt]="a.nombre"
-              [title]="a.nombre" [subtitle]="a.barrio + ', ' + a.ciudad"
-              [badges]="badgesDe(a)"
-              [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
-              [price]="{ amount: '€' + a.precioPorNoche, period: '/ noche', oldAmount: a.precioAnterior ? '€' + a.precioAnterior : undefined }"
-              notaPrecio="IVA incluido"
-              [amenities]="serviciosDe(a)"
-              [destacados]="incluyeDe(a)"
-              [favoritoServicioId]="a.id"
-              [routerLink]="['/alojamiento', a.id]"
-              [queryParams]="queryParamsDetalle()"
-              ctaLabel="Ver disponibilidad">
-            </rs-card>
-          }
-
-          @if (!cargando() && alojamientos().length === 0 && !error()) {
-            <div class="rs-result-empty">
-              <rs-icon name="paw" [size]="48" [stroke]="1.5" />
-              <h3>No encontramos alojamientos caninos</h3>
-              <p>Prueba cambiando los filtros o la ciudad.</p>
-            </div>
-          }
-          @if (!cargando() && error()) {
-            <div class="rs-result-empty">
-              <rs-icon name="paw" [size]="48" [stroke]="1.5" />
-              <h3>No se pudo cargar el catálogo</h3>
-              <p>Inténtalo de nuevo en unos momentos.</p>
-              <button class="rs-btn rs-btn--secondary" style="margin-top:var(--sp-6)"
-                      (click)="cargarAlojamientos()">Reintentar</button>
-            </div>
-          }
-        </div>
-
-        <!-- Paginación -->
-        @if (totalPaginas() > 1) {
-          <div class="pagination">
-            <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                    [disabled]="paginaActual() <= 1"
-                    (click)="cambiarPagina(paginaActual() - 1)">← Anterior</button>
-            <span class="pagination__info">Página {{ paginaActual() }} de {{ totalPaginas() }}</span>
-            <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                    [disabled]="paginaActual() >= totalPaginas()"
-                    (click)="cambiarPagina(paginaActual() + 1)">Siguiente →</button>
-          </div>
-        }
-      }
-
-      @if (!mapaAbierto()) {
-        <app-experiencias-cerca [ciudad]="busquedaCiudad()" />
-      }
-    </section>
-
-    <!-- ── MAPA (vista dividida estilo Booking) ─────────────── -->
-    @if (mapaAbierto()) {
-      <section class="mapa-col" aria-label="Buscar en el mapa">
-        <rs-mapa-buscador #mapaBuscador
-          [puntos]="puntosMapa()"
-          [activo]="destacadoId()"
-          [cargando]="cargandoMapa()"
-          [total]="totalItems()"
-          ariaLabel="Mapa de alojamientos caninos encontrados"
-          (cerrar)="alternarMapa()"
-          (puntoElegido)="destacarDesdeMapa($event)"
-          (zonaBuscada)="buscarEnZona($event)" />
-      </section>
+    @if (!mapaAbierto()) {
+      <app-experiencias-cerca listadoDespues [ciudad]="busquedaCiudad()" />
     }
-  </div>
+
+    @if (mapaAbierto()) {
+      <rs-mapa-buscador listadoMapa #mapaBuscador
+        [puntos]="puntosMapa()"
+        [activo]="destacadoId()"
+        [cargando]="cargandoMapa()"
+        [total]="totalItems()"
+        ariaLabel="Mapa de alojamientos caninos encontrados"
+        (cerrar)="alternarMapa()"
+        (puntoElegido)="destacarDesdeMapa($event)"
+        (zonaBuscada)="buscarEnZona($event)" />
+    }
+  </rs-listado>
 </div>
   `,
   styles: [`
     :host { display: block; }
 
-    .alojamiento-page { min-height: 100vh; background: var(--c-base); }
-
-    .search-bar-strip {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      background: var(--c-card);
-      padding: var(--sp-5) 0;
-      box-shadow: var(--sh-md);
-      border-radius: 0 0 var(--r-lg) var(--r-lg);
+    /* Aviso de desde dónde se mide la distancia al ordenar por cercanía. */
+    .al-geo {
+      display: flex; align-items: center; gap: var(--sp-2);
+      margin-bottom: var(--sp-4);
+      font-size: var(--f-xs); color: var(--t-400);
     }
 
-    .search-bar-strip__perro {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-3);
-      margin-top: var(--sp-3);
+    /* Tarjeta señalada al pulsar su pin en el mapa. */
+    .card--destacada { outline: 2px solid var(--dk-gold); outline-offset: 2px; border-radius: var(--r-xl); }
 
-      .rs-inp { width: auto; min-width: 220px; }
-    }
-
-    .alojamiento-body {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: var(--sp-8);
-      padding-block: var(--sp-8);
-      align-items: start;
-
-      @media (max-width: 1024px) { grid-template-columns: 1fr; }
-    }
-
-    /* Vista dividida al abrir el mapa: filtros · lista · mapa, como Booking.
-       La lista se estrecha a una columna de tarjetas porque comparte el ancho
-       con el mapa; a dos seguirían saliendo tarjetas de un palmo.
-       .rs-wrap limita el ancho a --w-xl para que la lectura no se estire de
-       borde a borde en pantallas grandes, pero aquí no hay texto que leer: es
-       un plano partido en tres, y limitarlo deja el mapa mucho más estrecho de
-       lo que la pantalla permite. Se anula solo en este modo. */
-    .alojamiento-body--mapa {
-      max-width: none;
-      grid-template-columns: 240px minmax(320px, 460px) 1fr;
-      gap: var(--sp-6);
-
-      .rs-result-grid { grid-template-columns: 1fr; }
-
-      /* El mapa ocupa el alto de la ventana y la lista rueda a su lado: sin
-         esto habría que bajar hasta el final del listado para volver a verlo.
-         Se mide en dvh y no en vh: en móvil la barra del navegador se retrae y
-         con vh el bloque queda más alto que la pantalla, cortado por abajo. */
-      .results-col {
-        max-height: calc(100vh - 160px);
-        max-height: calc(100dvh - 160px);
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        padding-right: var(--sp-2);
-      }
-
-      @media (max-width: 1280px) { grid-template-columns: minmax(300px, 420px) 1fr; }
-      /* En móvil no caben las dos cosas: el mapa se queda con la pantalla. */
-      @media (max-width: 900px) {
-        grid-template-columns: 1fr;
-        .filters-sidebar, .results-col { display: none; }
-      }
-    }
-
-    .alojamiento-body--mapa .filters-sidebar {
-      @media (max-width: 1280px) { display: none; }
-    }
-
-    .mapa-col {
-      position: sticky;
-      top: 140px;
-      height: calc(100vh - 160px);
-      height: calc(100dvh - 160px);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-xl);
-      overflow: hidden;
-      box-shadow: var(--sh-md);
-
-      /* En móvil el mapa pasa a ocupar la pantalla entera, como en Booking.
-         Colocado en el flujo quedaba por debajo de la cabecera y del buscador
-         y solo enseñaba un tercio de la pantalla hasta que se hacía scroll,
-         que es justo lo que no se puede hacer con el mapa abierto. */
-      @media (max-width: 900px) {
-        position: fixed;
-        inset: 0;
-        /* Por encima de la navbar (--z-3): el mapa a pantalla completa se
-           cierra con su propio botón, como en Booking. */
-        z-index: var(--z-4);
-        height: 100vh;
-        height: 100dvh;
-        border: none;
-        border-radius: 0;
-      }
-    }
-
-    /* SIDEBAR */
-    .filters-sidebar {
-      background: var(--c-card);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-xl);
-      padding: var(--sp-6);
-      position: sticky;
-      top: 140px;
-    }
-
-    /* Miniatura de mapa sobre los filtros con su CTA superpuesto (PDF §3, WA0009). */
-    .mapa-teaser {
-      position: relative;
-      display: block;
-      width: 100%;
-      height: 130px;
-      margin-bottom: var(--sp-5);
-      padding: 0;
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-lg);
-      overflow: hidden;
-      background: var(--c-raised);
-      cursor: pointer;
-    }
-
-    /* La miniatura es decorativa: el clic lo gestiona el botón que la envuelve. */
-    .mapa-teaser__mini { display: block; height: 100%; pointer-events: none; }
-
-    .mapa-teaser__cta {
-      position: absolute;
-      inset-inline: 0;
-      bottom: var(--sp-3);
-      margin-inline: auto;
-      width: max-content;
-      display: inline-flex;
-      align-items: center;
-      gap: var(--sp-2);
-      padding: var(--sp-2) var(--sp-4);
-      border-radius: var(--r-full);
-      background: var(--c-accent);
-      color: #fff;
-      font-size: var(--f-sm);
-      font-weight: var(--w-6);
-      box-shadow: var(--sh-md);
-    }
-
-    /* Sin resultados geolocalizados la miniatura queda vacía; se rellena para
-       que el botón "Ver en el mapa" siga siendo una superficie pulsable. */
-    .mapa-teaser__vacio {
-      display: block; height: 100%;
-      background: linear-gradient(135deg, var(--c-raised), var(--c-surface));
-    }
-
-    /* Contador por opción de filtro ("Parking 514"). */
-    .filter-count {
-      margin-left: var(--sp-2);
-      font-size: var(--f-xs);
-      font-weight: var(--w-6);
-      color: var(--t-400);
-    }
-
-    /* Tarjeta resaltada al pulsar su pin en el mapa. */
-    .card--destacada {
-      outline: 2px solid var(--dk-gold);
-      outline-offset: 3px;
-      border-radius: var(--r-xl);
-    }
-
-    .filters-sidebar__header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--sp-6);
-
-      h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--dk-blue); }
-    }
-
-    .filter-group {
-      border-top: 1px solid var(--b-1);
-      padding-block: var(--sp-5);
-
-      h4 { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); margin-bottom: var(--sp-4); }
-    }
-
-    /* Filtros como chips (HU-3.3): estado activo se ilumina en dorado — ver .rs-chip en styles.scss. */
-    .filter-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-
-    .price-range { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
-
-    /* RESULTS */
-    .results-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      margin-bottom: var(--sp-6);
-      flex-wrap: wrap;
-      gap: var(--sp-4);
-    }
-
-    .results-header__eyebrow {
-      font-family: var(--font-accent);
-      font-size: var(--f-xs);
-      font-weight: var(--w-7);
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      color: var(--dk-gold);
-      margin-bottom: var(--sp-1);
-    }
-    .results-header__title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--dk-blue); }
-    .results-header__sub { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); }
-    .results-header__count { color: var(--t-200); font-weight: var(--w-6); }
-    .results-header__geo { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); max-width: 32ch; }
-
-    /* La tarjeta, la rejilla, el esqueleto y el estado vacío son comunes a
-       todos los verticales: .rs-hotel-card, .rs-result-grid,
-       .rs-result-skeleton y .rs-result-empty, en styles.scss. */
-
-    /* PAGINATION */
-    .pagination {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--sp-4);
-      margin-top: var(--sp-10);
-    }
-
-    .pagination__info { font-size: var(--f-sm); color: var(--t-300); }
+    /* La carcasa del listado vive en <rs-listado>. */
   `],
 })
 export class AlojamientoListaComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly fb = inject(FormBuilder);
   private readonly alojamientoService = inject(AlojamientoService);
-  private readonly perrosService = inject(PerrosService);
 
   readonly cargando = signal(true);
   readonly error = signal(false);
   readonly alojamientos = signal<AlojamientoCard[]>([]);
   readonly paginaActual = signal(1);
   readonly totalPaginas = signal(1);
+  readonly cargandoMas = signal(false);
+  readonly hayMas = computed(() => this.alojamientos().length < this.totalItems());
 
   // ── Mapa y facetas (PDF 27/07 §3, captura WA0009) ──────────────────
   readonly mapaAbierto = signal(false);
@@ -551,7 +238,21 @@ export class AlojamientoListaComponent implements OnInit {
    * para que la misma etiqueta se vea igual en todos los listados.
    */
   serviciosDe(a: AlojamientoCard): CardAmenity[] {
-    return conIconos(a.amenities);
+    // `amenities` lo rellena el comercio y en la practica llega vacio casi
+    // siempre, asi que estas tarjetas se quedaban sin la fila de servicios que
+    // si tenian las de las demas categorias. Cuando falta, se describe el
+    // alojamiento con lo que si es dato seguro.
+    if (a.amenities.length) return conIconos(a.amenities);
+
+    const respaldo: CardAmenity[] = [];
+    if (a.espaciosDisponibles > 0) {
+      respaldo.push({
+        icon: 'paw',
+        label: `${a.espaciosDisponibles} ${a.espaciosDisponibles === 1 ? 'plaza libre' : 'plazas libres'}`,
+      });
+    }
+    respaldo.push({ icon: 'home', label: 'Estancia con pernocta' });
+    return respaldo;
   }
 
   /**
@@ -567,10 +268,6 @@ export class AlojamientoListaComponent implements OnInit {
   }
   readonly totalItems = signal(0);
 
-  readonly totalLabel = computed(() =>
-    `${this.totalItems()} espacios encontrados`
-  );
-
   readonly sufijoCiudad = computed(() => {
     const ciudad = this.busqueda().ciudad;
     return ciudad ? ` en ${ciudad}` : '';
@@ -578,12 +275,16 @@ export class AlojamientoListaComponent implements OnInit {
 
   readonly ui = verticalUi(VerticalKey.ALOJAMIENTO);
 
-  /** Claim de marca del vertical, sobre el título contextual de resultados. */
-  readonly claimVertical =
-    `${titularDeVertical(VerticalKey.ALOJAMIENTO)}. ${subtitularDeVertical(VerticalKey.ALOJAMIENTO)}`;
+  /** Copy de marca de la categoría, igual que en el resto de listados. */
+  readonly titular = titularDeVertical(VerticalKey.ALOJAMIENTO);
+  readonly subtitular = subtitularDeVertical(VerticalKey.ALOJAMIENTO);
 
-  /** Solo el filtro propio del listado: los campos comunes van en `<rs-search-bar>`. */
-  readonly searchForm = this.fb.group({ perroId: [''] });
+  /**
+   * Mascota elegida en el buscador (`perroIds` de la URL). Antes el listado
+   * repetia el selector en un `<select>` propio junto a la barra de busqueda:
+   * dos controles para lo mismo, y solo en esta categoria.
+   */
+  readonly perroId = signal('');
 
   /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
   private readonly busqueda = signal<BusquedaUrl>({});
@@ -591,11 +292,19 @@ export class AlojamientoListaComponent implements OnInit {
   /** Ciudad buscada; la consume el carrusel de experiencias de la comunidad. */
   readonly busquedaCiudad = computed(() => this.busqueda().ciudad);
 
-  readonly misPerros = signal<PerroApi[]>([]);
-
   /** Lo marcado en el panel común de filtros (`rs-filtros-listado`). */
   private readonly filtros = signal<FiltrosSeleccionados>({ vertical: {} });
-  ordenamiento: OrdenServicios = 'relevancia';
+  readonly ordenamiento = signal<OrdenServicios>('relevancia');
+
+  /**
+   * Alojamiento es el unico listado que sabe situar al usuario (coordenadas de
+   * la poblacion elegida o GPS), asi que es el unico que puede ofrecer el orden
+   * por cercania sin pedir permisos a destiempo.
+   */
+  readonly ORDENES: readonly OpcionOrden[] = [
+    ...ORDENES_POR_DEFECTO,
+    { valor: 'distancia', etiqueta: 'Más cercanos' },
+  ];
 
   /** Punto de referencia para el orden por distancia. */
   private readonly coordenadas = signal<{ lat: number; lng: number } | null>(null);
@@ -618,9 +327,7 @@ export class AlojamientoListaComponent implements OnInit {
       // La mascota elegida en el buscador filtra por compatibilidad sin que el
       // usuario tenga que volver a seleccionarla en el panel lateral.
       const [primerPerro] = (params['perroIds'] ?? '').split(',').filter(Boolean);
-      if (primerPerro && primerPerro !== this.searchForm.value.perroId) {
-        this.searchForm.patchValue({ perroId: primerPerro }, { emitEvent: false });
-      }
+      this.perroId.set(primerPerro ?? '');
 
       // Si el usuario eligió la población en el autocompletado, ya tenemos su
       // posición: ordenar por distancia no necesita pedirle permiso al navegador.
@@ -635,38 +342,14 @@ export class AlojamientoListaComponent implements OnInit {
       this.cargarAlojamientos();
     });
 
-    void this.perrosService.misPerros().then((perros) => this.misPerros.set(perros)).catch(() => {
-      // Sin sesión o sin perros registrados: el selector de compatibilidad no se muestra.
-    });
   }
 
   async cargarAlojamientos(): Promise<void> {
     this.cargando.set(true);
     this.error.set(false);
     try {
-      const busqueda = this.busqueda();
+      const filtros = this.filtrosDeBusqueda(this.paginaActual());
       const zona = this.zona();
-      const seleccion = this.filtros();
-      const filtros: FiltrosAlojamiento = {
-        // Con el mapa acotando la zona, la ciudad sobra: el usuario ya ha dicho
-        // por dónde quiere buscar arrastrando el mapa hasta ahí.
-        ciudad:   zona ? undefined : busqueda.ciudad,
-        zona:     zona ?? undefined,
-        desde:    busqueda.desde,
-        hasta:    busqueda.hasta,
-        perros:   busqueda.perros,
-        perroId:  this.searchForm.value.perroId || undefined,
-        precioMin: seleccion.precioMin,
-        precioMax: seleccion.precioMax,
-        ratingMin: seleccion.ratingMin,
-        amenities: seleccion.amenities,
-        filtrosVertical: seleccion.vertical,
-        orden: this.ordenamiento,
-        lat: this.coordenadas()?.lat,
-        lng: this.coordenadas()?.lng,
-        page: this.paginaActual(),
-        limit: 10,
-      };
       const result = await this.alojamientoService.buscar(filtros);
       this.alojamientos.set(result.items);
       this.totalItems.set(result.total);
@@ -684,6 +367,33 @@ export class AlojamientoListaComponent implements OnInit {
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /** Parametros de la busqueda actual; la lista, el mapa y "Ver mas" piden lo mismo. */
+  private filtrosDeBusqueda(page: number): FiltrosAlojamiento {
+    const busqueda = this.busqueda();
+    const zona = this.zona();
+    const seleccion = this.filtros();
+    return {
+      // Con el mapa acotando la zona, la ciudad sobra: el usuario ya ha dicho
+      // por dónde quiere buscar arrastrando el mapa hasta ahí.
+      ciudad:   zona ? undefined : busqueda.ciudad,
+      zona:     zona ?? undefined,
+      desde:    busqueda.desde,
+      hasta:    busqueda.hasta,
+      perros:   busqueda.perros,
+      perroId:  this.perroId() || undefined,
+      precioMin: seleccion.precioMin,
+      precioMax: seleccion.precioMax,
+      ratingMin: seleccion.ratingMin,
+      amenities: seleccion.amenities,
+      filtrosVertical: seleccion.vertical,
+      orden: this.ordenamiento(),
+      lat: this.coordenadas()?.lat,
+      lng: this.coordenadas()?.lng,
+      page,
+      limit: 10,
+    };
   }
 
   /**
@@ -730,8 +440,10 @@ export class AlojamientoListaComponent implements OnInit {
    * distancia, nunca al abrir la pantalla: pedirlo sin motivo hace que la gente
    * lo deniegue y ya no se pueda volver a preguntar.
    */
-  async cambiarOrden(): Promise<void> {
-    if (this.ordenamiento !== 'distancia') {
+  async cambiarOrden(valor: string): Promise<void> {
+    this.ordenamiento.set(valor as OrdenServicios);
+
+    if (valor !== 'distancia') {
       this.avisoUbicacion.set('');
       this.aplicarFiltros();
       return;
@@ -768,12 +480,34 @@ export class AlojamientoListaComponent implements OnInit {
     this.aplicarFiltros();
   }
 
-  cambiarPagina(n: number): void { this.paginaActual.set(n); this.cargarAlojamientos(); }
+  /**
+   * Pagina siguiente, anadida al final de la lista. Antes eran botones de
+   * "Anterior/Siguiente" que ademas dejaban el scroll a media pagina: el resto
+   * de listados ampliaba la lista sin moverse del sitio.
+   */
+  async verMas(): Promise<void> {
+    if (this.cargandoMas() || !this.hayMas()) return;
+
+    this.cargandoMas.set(true);
+    const siguiente = this.paginaActual() + 1;
+    try {
+      const res = await this.alojamientoService.buscar(this.filtrosDeBusqueda(siguiente));
+      const vistos = new Set(this.alojamientos().map((a) => a.id));
+      this.alojamientos.update((l) => [...l, ...res.items.filter((a) => !vistos.has(a.id))]);
+      this.totalItems.set(res.total);
+      this.totalPaginas.set(res.totalPages);
+      this.paginaActual.set(siguiente);
+    } catch {
+      // Un fallo al ampliar no invalida lo que ya se esta viendo.
+    } finally {
+      this.cargandoMas.set(false);
+    }
+  }
 
   /** Propaga fechas/perros buscados al detalle, para no pedirlos de nuevo antes de reservar. */
   queryParamsDetalle(): Record<string, string> {
     const { desde, hasta, perros } = this.busqueda();
-    const perroId = this.searchForm.value.perroId;
+    const perroId = this.perroId();
     const params: Record<string, string> = {};
     if (desde) params['desde'] = desde;
     if (hasta) params['hasta'] = hasta;

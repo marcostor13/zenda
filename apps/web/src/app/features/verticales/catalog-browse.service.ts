@@ -52,6 +52,10 @@ export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valo
 
 export interface OpcionesBusqueda {
   ciudad?: string;
+  /** Página pedida (1 = primera). El listado la usa para "Ver más resultados". */
+  page?: number;
+  /** Resultados por página; por defecto 20. */
+  limit?: number;
   /** Filtra por compatibilidad con esta mascota registrada. */
   perroId?: string;
   orden?: OrdenServicios;
@@ -112,7 +116,12 @@ export class CatalogBrowseService {
   async buscarPaginado(
     vertical: string, opciones: OpcionesBusqueda = {},
   ): Promise<PaginatedResult<ServicioCard>> {
-    const params: Record<string, string> = { vertical, limit: '20', ...this.paramsFiltros(opciones) };
+    const params: Record<string, string> = {
+      vertical,
+      limit: String(opciones.limit ?? 20),
+      ...this.paramsFiltros(opciones),
+    };
+    if (opciones.page && opciones.page > 1) params['page'] = String(opciones.page);
     if (opciones.orden) params['orden'] = opciones.orden;
     if (opciones.lat != null) params['lat'] = String(opciones.lat);
     if (opciones.lng != null) params['lng'] = String(opciones.lng);

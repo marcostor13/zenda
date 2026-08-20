@@ -28,10 +28,12 @@ describe('TransporteListaComponent', () => {
     resultado: TransporteCard[] | Error = [card()],
   ): Promise<void> => {
     queryParams = new BehaviorSubject(params);
+    // El listado pide la pagina con su total: sin el, el recuento contaria los
+    // de la pagina y "Ver mas" no sabria si quedan resultados.
     service = {
-      buscar: resultado instanceof Error
+      buscarPaginado: resultado instanceof Error
         ? jest.fn(() => { throw resultado; })
-        : jest.fn().mockResolvedValue(resultado),
+        : jest.fn().mockResolvedValue({ items: resultado, total: resultado.length }),
     };
 
     await TestBed.configureTestingModule({
@@ -67,8 +69,8 @@ describe('TransporteListaComponent', () => {
     it('debería cargar los traslados de la ciudad buscada', async () => {
       await crear({ ciudad: 'Madrid' });
 
-      // `buscar` recibe las opciones completas del listado, no la ciudad suelta.
-      expect(service['buscar']).toHaveBeenCalledWith(
+      // `buscarPaginado` recibe las opciones completas del listado, no la ciudad suelta.
+      expect(service['buscarPaginado']).toHaveBeenCalledWith(
         expect.objectContaining({ ciudad: 'Madrid' }),
       );
       expect(componente.transportes()).toHaveLength(1);
@@ -83,7 +85,7 @@ describe('TransporteListaComponent', () => {
       await fixture.whenStable();
 
       // La url es la fuente de verdad: el buscador y el listado no pueden divergir.
-      expect(service['buscar']).toHaveBeenLastCalledWith(
+      expect(service['buscarPaginado']).toHaveBeenLastCalledWith(
         expect.objectContaining({ ciudad: 'Toledo' }),
       );
     });

@@ -51,7 +51,8 @@ describe('RsPhoneInputComponent', () => {
     it('debería arrancar en España', () => {
       expect(telefono.pais().iso).toBe('ES');
       expect(botonPais().textContent).toContain('+34');
-      expect(botonPais().textContent).toContain('🇪🇸');
+      // La bandera es un SVG propio: en Windows el emoji se veia como "ES".
+      expect(botonPais().querySelector('rs-bandera svg')).toBeTruthy();
     });
 
     it('debería ofrecer España la primera de la lista', () => {

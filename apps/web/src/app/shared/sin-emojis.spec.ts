@@ -12,12 +12,15 @@ import { join } from 'path';
 const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{2705}\u{274C}\u{2B50}]/u;
 
 /**
- * Excepciones acordadas con la clienta:
- * - las banderas del selector de prefijo telefónico son la representación
- *   estándar de un país en ese control, y no hay equivalente en Lucide.
- * - este mismo fichero, que necesita nombrar los caracteres prohibidos.
+ * Única excepción: este mismo fichero, que necesita nombrar los caracteres
+ * prohibidos.
+ *
+ * El catálogo de países estaba exento porque las banderas emoji no tenían
+ * equivalente en Lucide. Ya lo tienen —`<rs-bandera>`, SVG propio— así que la
+ * excepción se retira: los emoji de bandera además no se veían en Windows, que
+ * los sustituye por las dos letras del código del país.
  */
-const PERMITIDOS = ['shared/catalogos/paises.catalogo.ts', 'shared/sin-emojis.spec.ts'];
+const PERMITIDOS = ['shared/sin-emojis.spec.ts'];
 
 const RAIZ = join(__dirname, '..');
 
