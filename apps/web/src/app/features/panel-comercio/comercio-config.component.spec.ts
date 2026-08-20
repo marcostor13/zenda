@@ -372,21 +372,7 @@ describe('ComercioConfigComponent', () => {
     });
   });
 
-  describe('plan contratado', () => {
-    it('debería distinguir visualmente cada plan', async () => {
-      await crear(miComercio({ plan: 'premium' }));
-
-      expect(componente.planBadgeClass()).toContain('warning');
-      expect(componente.planFeatures()).toContain('Soporte prioritario 24/7');
-    });
-
-    it('debería describir el plan básico por defecto', async () => {
-      await crear();
-
-      expect(componente.planBadgeClass()).toContain('neutral');
-      expect(componente.planFeatures()).toContain('Hasta 3 servicios');
-    });
-
+  describe('datos del comercio', () => {
     it('debería traducir los verticales del comercio', async () => {
       await crear();
 
@@ -486,52 +472,6 @@ describe('ComercioConfigComponent', () => {
     });
   });
 
-  describe('plan y limite de listados', () => {
-    it('deberia proponer subir de basico a pro', async () => {
-      await crear();
-
-      expect(componente.planSiguiente()?.nombre).toBe('pro');
-      expect(componente.planBadgeClass()).toContain('neutral');
-    });
-
-    it('no deberia proponer nada por encima de premium', async () => {
-      await crear(miComercio({ plan: 'premium' }));
-
-      expect(componente.planSiguiente()).toBeNull();
-      expect(componente.planBadgeClass()).toContain('warning');
-      expect(componente.planFeatures()).toContain('Servicios ilimitados');
-    });
-
-    it('deberia marcar el plan pro con su propio badge y ventajas', async () => {
-      await crear(miComercio({ plan: 'pro' }));
-
-      expect(componente.planBadgeClass()).toContain('accent');
-      expect(componente.planFeatures()).toContain('Hasta 20 servicios');
-    });
-
-    it('deberia calcular el porcentaje de listados usados sobre el tope del plan', async () => {
-      await crear();
-      componente.serviciosPublicados.set(2);
-
-      // 2 de los 3 del plan basico.
-      expect(componente.pctServiciosUsados()).toBe(67);
-    });
-
-    it('deberia tapar el porcentaje al 100 aunque se supere el tope', async () => {
-      // Un comercio que bajo de plan puede tener mas listados que su tope: la
-      // barra no puede pasar del 100 %.
-      await crear();
-      componente.serviciosPublicados.set(9);
-
-      expect(componente.pctServiciosUsados()).toBe(100);
-    });
-
-    it('deberia devolver 0 % si el plan no tiene tope', async () => {
-      await crear(miComercio({ plan: 'premium' }));
-
-      expect(componente.pctServiciosUsados()).toBe(0);
-    });
-  });
 
   describe('caducidad de la documentacion', () => {
     const enDias = (dias: number): string =>
@@ -861,17 +801,17 @@ describe('ComercioConfigComponent', () => {
 
     it('no debería avanzar más allá del último', async () => {
       await crear();
-      componente.cambiarTab('plan');
+      componente.cambiarTab('notificaciones');
       expect(componente.esUltimoPaso()).toBe(true);
 
       await componente.continuar(Promise.resolve(true));
 
-      expect(componente.tab()).toBe('plan');
+      expect(componente.tab()).toBe('notificaciones');
     });
 
     it('debería dejar saltar las secciones que no guardan nada', async () => {
       await crear();
-      componente.cambiarTab('notificaciones');
+      componente.cambiarTab('documentacion');
       const antes = componente.pasoActual();
 
       await componente.saltarPaso();

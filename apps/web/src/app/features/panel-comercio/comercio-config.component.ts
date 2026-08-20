@@ -1,5 +1,4 @@
 import { Component, signal, computed, inject, DestroyRef, OnInit, WritableSignal } from '@angular/core';
-import { UpperCasePipe, TitleCasePipe } from '@angular/common';
 import { AbstractControl, ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -23,7 +22,7 @@ import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, Horari
 
 type TabConfig =
   | 'perfil' | 'ubicacion' | 'contacto' | 'redes' | 'horarios' | 'politicas'
-  | 'verificacion' | 'documentacion' | 'notificaciones' | 'verticales' | 'plan';
+  | 'verificacion' | 'documentacion' | 'notificaciones' | 'verticales';
 
 interface PasoConfig {
   readonly clave: TabConfig;
@@ -47,7 +46,6 @@ const TABS: ReadonlyArray<PasoConfig> = [
   { clave: 'verificacion',   label: 'Verificación',      icono: 'badge-check' },
   { clave: 'documentacion',  label: 'Documentación',     icono: 'file-text' },
   { clave: 'notificaciones', label: 'Notificaciones',    icono: 'bell' },
-  { clave: 'plan',           label: 'Plan',              icono: 'sparkles' },
 ];
 
 /**
@@ -65,8 +63,8 @@ const FASES: ReadonlyArray<{
     pasos: ['perfil', 'ubicacion', 'contacto', 'redes'] as TabConfig[] },
   { numero: 2, titulo: 'Cómo trabajas',      resumen: 'Horarios, condiciones y servicios',
     pasos: ['horarios', 'politicas', 'verticales'] as TabConfig[] },
-  { numero: 3, titulo: 'Confianza y cuenta', resumen: 'Verificación, avisos y plan',
-    pasos: ['verificacion', 'documentacion', 'notificaciones', 'plan'] as TabConfig[] },
+  { numero: 3, titulo: 'Confianza y cuenta', resumen: 'Verificación y avisos',
+    pasos: ['verificacion', 'documentacion', 'notificaciones'] as TabConfig[] },
 ].map((f) => ({
   ...f,
   pasos: f.pasos.map((clave) => TABS.find((t) => t.clave === clave) as PasoConfig),
@@ -84,25 +82,6 @@ const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
 
 /** Con cuánta antelación se avisa de que un documento va a caducar. */
 const DIAS_AVISO_CADUCIDAD = 30;
-
-/** Lo que incluye cada plan; el precio se muestra tal cual, sin cálculos. */
-const PLANES: Record<string, { precio: string; maxServicios: number | null; ventajas: string[] }> = {
-  basico: {
-    precio: 'Gratis',
-    maxServicios: 3,
-    ventajas: ['Hasta 3 servicios publicados', 'Reservas y pagos online', 'Perfil público en Doogking'],
-  },
-  pro: {
-    precio: '29 € / mes',
-    maxServicios: 15,
-    ventajas: ['Hasta 15 servicios', 'Servicios destacados en el buscador', 'Analítica de tu negocio'],
-  },
-  premium: {
-    precio: '79 € / mes',
-    maxServicios: null,
-    ventajas: ['Servicios ilimitados', 'Máxima prioridad en el buscador', 'Soporte prioritario'],
-  },
-};
 
 const VERIFICACION_BADGE: Record<string, string> = {
   sin_verificar: 'rs-badge--neutral',
@@ -134,7 +113,7 @@ type UrlImagen = string | null;
   selector: 'app-comercio-config',
   standalone: true,
   imports: [
-    UpperCasePipe, TitleCasePipe, ReactiveFormsModule,
+    ReactiveFormsModule,
     RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent, RsMapaComponent,
   ],
   template: `
@@ -1054,107 +1033,11 @@ type UrlImagen = string | null;
       </div>
     </section>
     }
-
-    <!-- Plan actual -->
-@if (tab() === 'plan') {
-    <section class="config-section rs-card">
-      <div class="config-section__header">
-        <div class="config-section__icon" style="background:rgba(109,92,246,.12);color:var(--c-purple)">
-          <rs-icon name="sparkles" [size]="18" [stroke]="2"></rs-icon>
-        </div>
-        <div>
-          <h2 class="config-section__title">Plan actual</h2>
-          <p class="config-section__sub">Gestiona tu suscripción y beneficios.</p>
-        </div>
-      </div>
-
-      <div class="plan-display">
-        <div class="plan-badge-wrap">
-          <span class="rs-badge {{ planBadgeClass() }} plan-badge">Plan {{ comercio()?.plan ?? 'básico' | uppercase }}</span>
-          <span class="plan-precio">{{ planActual().precio }}</span>
-        </div>
-
-        <div class="plan-features">
-          @for (f of planFeatures(); track f) {
-            <div class="plan-feature">
-              <rs-icon name="check-circle" [size]="15" [stroke]="2" style="color:var(--c-teal)"></rs-icon>
-              <span>{{ f }}</span>
-            </div>
-          }
-        </div>
-
-        <!-- Límites de uso: sin esto el plan no dice nada útil (TCK-8028) -->
-        <div class="plan-limites">
-          <div class="plan-limite">
-            <span class="plan-limite__texto">
-              {{ serviciosPublicados() }} de
-              {{ planActual().maxServicios === null ? 'ilimitados' : planActual().maxServicios }} servicios usados
-            </span>
-            @if (planActual().maxServicios !== null) {
-              <div class="plan-barra">
-                <div class="plan-barra__fill" [style.width.%]="pctServiciosUsados()"></div>
-              </div>
-            }
-          </div>
-        </div>
-
-        @if (planSiguiente(); as siguiente) {
-          <div class="plan-siguiente">
-            <h3 class="plan-siguiente__titulo">Si pasas a Plan {{ siguiente.nombre | titlecase }}</h3>
-            <p class="plan-siguiente__precio">{{ siguiente.precio }}</p>
-            <ul class="plan-siguiente__lista">
-              @for (v of siguiente.ventajas; track v) {
-                <li><rs-icon name="check" [size]="13" [stroke]="2.5"></rs-icon> {{ v }}</li>
-              }
-            </ul>
-          </div>
-        }
-
-        <a href="mailto:soporte@doogking.com?subject=Quiero%20mejorar%20mi%20plan%20Doogking"
-           class="rs-btn rs-btn--primary" style="margin-top:var(--sp-4)">
-          Ver planes y mejorar mi plan
-        </a>
-      </div>
-          <!-- Sin formulario propio: estas secciones informan o se guardan solas al
-           tocarlas, pero el recorrido no puede terminar aquí sin salida. -->
-      <div class="form-actions">
-        <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
-                [disabled]="esPrimerPaso()">
-          <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-          Atrás
-        </button>
-        @if (esUltimoPaso()) {
-          <!-- El recorrido tiene final: sin esto el último paso sólo dejaba
-               retroceder y no se sabía que ya estaba todo. -->
-          <button type="button" class="rs-btn rs-btn--primary" (click)="terminar()">
-            <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-            Finalizar
-          </button>
-        } @else {
-          <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
-            Continuar
-            <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
-          </button>
-        }
-      </div>
-    </section>
-    }
       </div>
     </div>
   `,
   styles: [`
     :host { display: contents; }
-
-    .plan-precio { font-size: var(--f-sm); color: var(--t-400); margin-left: var(--sp-3); }
-    .plan-limites { margin-top: var(--sp-4); }
-    .plan-limite__texto { font-size: var(--f-sm); color: var(--t-300); }
-    .plan-barra { height: 8px; margin-top: var(--sp-2); border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; max-width: 320px; }
-    .plan-barra__fill { height: 100%; background: var(--g-accent); border-radius: var(--r-full); }
-    .plan-siguiente { margin-top: var(--sp-5); padding: var(--sp-4); background: var(--c-raised); border-radius: var(--r-xl); }
-    .plan-siguiente__titulo { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
-    .plan-siguiente__precio { font-family: var(--font-accent); font-size: var(--f-lg); color: var(--c-accent); margin-bottom: var(--sp-2); }
-    .plan-siguiente__lista { display: flex; flex-direction: column; gap: var(--sp-1); list-style: none; font-size: var(--f-sm); color: var(--t-300); }
-    .plan-siguiente__lista li { display: flex; align-items: center; gap: var(--sp-2); }
 
     .doc-caduca { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--f-xs); }
     .doc-caduca--pronto { color: #B45309; }
@@ -1500,11 +1383,6 @@ type UrlImagen = string | null;
     }
     .toggle-btn--on .toggle-btn__thumb { transform: translateX(20px); background: #fff; }
 
-    .plan-display { display: flex; flex-direction: column; gap: var(--sp-4); }
-    .plan-badge-wrap { display: flex; }
-    .plan-badge { font-size: var(--f-sm); padding: var(--sp-2) var(--sp-5); }
-    .plan-features { display: flex; flex-direction: column; gap: var(--sp-3); }
-    .plan-feature { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--f-sm); color: var(--t-200); }
   `],
 })
 export class ComercioConfigComponent implements OnInit {
@@ -1616,7 +1494,7 @@ export class ComercioConfigComponent implements OnInit {
 
   /**
    * Una fase está hecha cuando ninguno de sus pasos con campos obligatorios
-   * está pendiente. Los pasos informativos (redes, plan) no la bloquean.
+   * está pendiente. Los pasos informativos, como las redes, no la bloquean.
    */
   faseCompleta(fase: { pasos: ReadonlyArray<PasoConfig> }): boolean {
     return fase.pasos.every((p) => this.estadoSeccion(p.clave) !== false);
@@ -1659,7 +1537,7 @@ export class ComercioConfigComponent implements OnInit {
    * de perfil incompleto, para que la marca de la pestaña y el porcentaje de la
    * cabecera no puedan contradecirse.
    *
-   * `null` en las secciones que no tienen campos obligatorios (redes, plan…):
+   * `null` en las secciones que no tienen campos obligatorios (redes…):
    * no se marcan ni como hechas ni como pendientes.
    */
   estadoSeccion(clave: TabConfig): boolean | null {
@@ -1777,24 +1655,6 @@ export class ComercioConfigComponent implements OnInit {
     return 'El archivo pesa demasiado incluso después de reducirlo. Debe quedar por debajo de 10 MB.';
   }
   readonly caracteresDescripcion = signal(0);
-
-  /** Cuántos servicios tiene publicados, para el límite del plan (TCK-8028). */
-  readonly serviciosPublicados = signal(0);
-
-  readonly planActual = computed(() => PLANES[this.comercio()?.plan ?? 'basico'] ?? PLANES['basico']);
-
-  readonly planSiguiente = computed(() => {
-    const orden = ['basico', 'pro', 'premium'];
-    const actual = this.comercio()?.plan ?? 'basico';
-    const siguiente = orden[orden.indexOf(actual) + 1];
-    return siguiente ? { nombre: siguiente, ...PLANES[siguiente] } : null;
-  });
-
-  readonly pctServiciosUsados = computed(() => {
-    const maximo = this.planActual().maxServicios;
-    if (maximo === null) return 0;
-    return Math.min(100, Math.round((this.serviciosPublicados() / maximo) * 100));
-  });
 
   /** Festivos, vacaciones y cierres puntuales (TCK-8028). */
   readonly excepciones = signal<ExcepcionHorario[]>([]);
@@ -2048,12 +1908,6 @@ export class ComercioConfigComponent implements OnInit {
       this.aplicarDatos(data);
     } catch { /* usa formularios vacíos */ }
 
-    try {
-      const servicios = await firstValueFrom(this.comercioApi.getMisServicios());
-      this.serviciosPublicados.set(servicios.length);
-    } catch {
-      // Sin este dato el límite del plan no se pinta; el resto sigue igual.
-    }
   }
 
   /**
@@ -2146,20 +2000,6 @@ export class ComercioConfigComponent implements OnInit {
 
   labelVertical(v: string): string {
     return VERTICAL_LABELS[v as VerticalKey] ?? v;
-  }
-
-  planBadgeClass(): string {
-    const p = this.comercio()?.plan ?? 'basico';
-    if (p === 'premium') return 'rs-badge--warning';
-    if (p === 'pro') return 'rs-badge--accent';
-    return 'rs-badge--neutral';
-  }
-
-  planFeatures(): string[] {
-    const p = this.comercio()?.plan ?? 'basico';
-    if (p === 'premium') return ['Servicios ilimitados', 'Destacado en búsqueda', 'Analítica avanzada', 'Soporte prioritario 24/7', 'API de integración'];
-    if (p === 'pro') return ['Hasta 20 servicios', 'Destacado básico', 'Analítica estándar', 'Soporte por email'];
-    return ['Hasta 3 servicios', 'Sin destacados', 'Estadísticas básicas'];
   }
 
   verificacionBadge(): string {

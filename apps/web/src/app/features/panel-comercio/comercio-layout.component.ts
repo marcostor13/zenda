@@ -29,6 +29,7 @@ const NAV_ITEMS = [
   { icon: 'trending-up',   label: 'Ingresos y pagos',ruta: '/comercio/ingresos', exact: false },
   { icon: 'star',           label: 'Reseñas',         ruta: '/comercio/resenas',  exact: false },
   { icon: 'users',          label: 'Equipo',          ruta: '/comercio/equipo',   exact: false },
+  { icon: 'sparkles',       label: 'Suscripción',     ruta: '/comercio/suscripcion', exact: false },
   { icon: 'settings',       label: 'Configuración',   ruta: '/comercio/config',   exact: false },
 ];
 

@@ -166,4 +166,25 @@ describe('ComercioLayoutComponent', () => {
       expect(componente.navItems.length).toBeGreaterThan(0);
     });
   });
+  describe('menu del panel', () => {
+    it('deberia tener la suscripcion como entrada propia', async () => {
+      // Estaba escondida como ultimo paso del asistente de configuracion: para
+      // ver el plan habia que recorrer diez pantallas de ajustes.
+      await crear();
+
+      const suscripcion = componente.navItems.find((i) => i.ruta === '/comercio/suscripcion');
+
+      expect(suscripcion).toBeDefined();
+      expect(suscripcion?.label).toBe('Suscripción');
+    });
+
+    it('deberia dejar la suscripcion junto a configuracion, al final', async () => {
+      await crear();
+
+      const rutas = componente.navItems.map((i) => i.ruta);
+      const suscripcion = rutas.indexOf('/comercio/suscripcion');
+
+      expect(rutas[suscripcion + 1]).toBe('/comercio/config');
+    });
+  });
 });
