@@ -46,7 +46,8 @@ export interface BusquedaParams {
   template: `
 <div class="sb" [class.sb--strip]="variant() === 'strip'">
   @if (categorias()) {
-    <div class="sb__cats" role="tablist" aria-label="Categorías de servicio">
+    <div class="sb__cats" role="tablist" aria-label="Categorías de servicio"
+         [class.sb__cats--movil]="categoriasSoloMovil()">
       @for (v of verticales; track v.key) {
         <button type="button" class="sb__cat" role="tab"
                 [class.is-active]="activo().key === v.key"
@@ -138,6 +139,12 @@ export interface BusquedaParams {
       margin-bottom: var(--sp-4);
       border-bottom: 1px solid var(--b-1);
       scrollbar-width: thin;
+    }
+
+    /* 769px = el ancho al que la barra superior deja de estar plegada tras el
+       menú hamburguesa y muestra sus propias categorías. */
+    @media (min-width: 769px) {
+      .sb__cats--movil { display: none; }
     }
 
     .sb__cat {
@@ -334,6 +341,13 @@ export class RsSearchBarComponent {
   readonly variant = input<'card' | 'strip'>('card');
   /** Muestra la fila de categorías con iconos. */
   readonly categorias = input(true);
+  /**
+   * Deja la fila de categorías solo en móvil. En escritorio las categorías ya
+   * están en la barra superior con su icono, y repetirlas aquí obligaba a
+   * elegir dos veces lo mismo (feedback 2026-08-20). En móvil la barra se
+   * pliega tras el menú, así que la fila sigue siendo el único acceso rápido.
+   */
+  readonly categoriasSoloMovil = input(false);
   /** En los listados, cambiar de categoría lanza la búsqueda al momento. */
   readonly buscarAlCambiar = input(false);
 

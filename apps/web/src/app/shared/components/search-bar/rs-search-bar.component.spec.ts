@@ -12,12 +12,14 @@ import { RsSearchBarComponent } from './rs-search-bar.component';
 @Component({
   standalone: true,
   imports: [RsSearchBarComponent],
-  template: `<rs-search-bar [vertical]="vertical" [variant]="variant" [buscarAlCambiar]="buscarAlCambiar" />`,
+  template: `<rs-search-bar [vertical]="vertical" [variant]="variant" [buscarAlCambiar]="buscarAlCambiar"
+                            [categoriasSoloMovil]="categoriasSoloMovil" />`,
 })
 class HostComponent {
   vertical = VerticalKey.ALOJAMIENTO as string;
   variant: 'card' | 'strip' = 'card';
   buscarAlCambiar = false;
+  categoriasSoloMovil = false;
 }
 
 describe('RsSearchBarComponent', () => {
@@ -50,6 +52,25 @@ describe('RsSearchBarComponent', () => {
   it('debería crear el componente con alojamiento por defecto', async () => {
     await crear();
     expect(bar.activo().key).toBe(VerticalKey.ALOJAMIENTO);
+  });
+
+  it('debería mostrar la fila de categorías en todos los tamaños por defecto', async () => {
+    await crear();
+    const cats = (fixture.nativeElement as HTMLElement).querySelector('.sb__cats');
+
+    expect(cats).toBeTruthy();
+    expect(cats!.classList).not.toContain('sb__cats--movil');
+  });
+
+  it('debería reservar la fila de categorías para móvil cuando se le pide', async () => {
+    // En escritorio la barra superior ya ofrece las categorías con su icono:
+    // repetirlas aquí obligaba a elegir dos veces lo mismo.
+    await crear();
+    fixture.componentInstance.categoriasSoloMovil = true;
+    fixture.detectChanges();
+
+    const cats = (fixture.nativeElement as HTMLElement).querySelector('.sb__cats');
+    expect(cats!.classList).toContain('sb__cats--movil');
   });
 
   it('debería inicializarse con los filtros que llegan en la URL', async () => {

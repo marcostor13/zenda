@@ -97,7 +97,9 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelCorto: 'Alojamiento canino',
     route: '/alojamiento',
     icono: CATEGORIA_ICONOS['alojamiento'],
-    icon: 'hotel',
+    // Casa, no edificio: es la residencia canina. El icono de hotel queda
+    // para la categoría de hoteles pet friendly, que sí es un hotel.
+    icon: 'home',
     claim: 'Déjalo en las mejores manos mientras tú disfrutas con tranquilidad.',
     descripcion: 'Residencias caninas verificadas: suites, patio exterior, paseos diarios y cámaras 24/7.',
     titular: 'Más que un alojamiento',
@@ -146,7 +148,7 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelCorto: 'Hoteles',
     route: '/hoteles',
     icono: CATEGORIA_ICONOS['hoteles'],
-    icon: 'building',
+    icon: 'hotel',
     claim: 'Descubre alojamientos donde vuestra mascota también es bienvenida.',
     descripcion: 'Hoteles donde tú y tu perro os quedáis juntos, con servicios pensados para mascotas.',
     titular: 'Viajad juntos, dormid juntos',

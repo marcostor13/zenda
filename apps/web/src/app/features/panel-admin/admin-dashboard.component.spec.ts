@@ -147,8 +147,10 @@ describe('AdminDashboardComponent', () => {
     it('debería dar un icono Lucide por vertical con respaldo (TCK-8010)', async () => {
       await crear();
 
-      expect(componente.iconoVertical(VerticalKey.ALOJAMIENTO)).toBe('hotel');
-      expect(componente.iconoVertical('hoteles')).toBe('building');
+      // La residencia canina es una casa y el hotel pet friendly un hotel: con
+      // el mismo icono de edificio no se distinguían en la barra ni en el panel.
+      expect(componente.iconoVertical(VerticalKey.ALOJAMIENTO)).toBe('home');
+      expect(componente.iconoVertical('hoteles')).toBe('hotel');
       expect(componente.iconoVertical('inventado')).toBe('paw');
     });
 

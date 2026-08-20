@@ -34,6 +34,15 @@ describe('RsNavbarComponent', () => {
     );
   });
 
+  it('debería acompañar cada categoría de su icono', () => {
+    // El icono es lo que se reconoce de un vistazo en la barra: sin él, siete
+    // categorías son siete etiquetas de texto indistinguibles.
+    const el: HTMLElement = fixture.nativeElement;
+    const iconos = el.querySelectorAll('.rs-navbar__nav .rs-navbar__link rs-icon svg');
+
+    expect(iconos.length).toBe(VERTICALES_PUBLICOS.length);
+  });
+
   it('debería enlazar cada entrada a la ruta de su categoría', () => {
     const el: HTMLElement = fixture.nativeElement;
     const hrefs = Array.from(el.querySelectorAll('.rs-navbar__nav a')).map((a) =>

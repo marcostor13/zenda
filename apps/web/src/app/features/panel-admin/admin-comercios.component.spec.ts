@@ -360,7 +360,7 @@ describe('AdminComerciosComponent', () => {
     it('debería dar un icono Lucide por vertical y uno genérico si no lo conoce (TCK-8010)', async () => {
       await crear();
 
-      expect(componente.iconVertical(VerticalKey.ALOJAMIENTO)).toBe('hotel');
+      expect(componente.iconVertical(VerticalKey.ALOJAMIENTO)).toBe('home');
       expect(componente.iconVertical('inexistente')).toBe('paw');
     });
   });

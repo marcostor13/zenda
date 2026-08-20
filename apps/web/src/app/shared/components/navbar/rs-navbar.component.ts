@@ -29,10 +29,13 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
         }
       </a>
 
-      <!-- Desktop nav — una entrada por categoría (misma config que el buscador) -->
+      <!-- Desktop nav — una entrada por categoría (misma config que el buscador).
+           Cada una lleva su icono: en escritorio esta fila es el único selector
+           de categoría, porque el buscador del home ya no la duplica. -->
       <div class="rs-navbar__nav">
         @for (v of verticales; track v.key) {
           <a [routerLink]="v.route" routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">
+            <rs-icon [name]="v.icon" [size]="17" [stroke]="2"></rs-icon>
             {{ v.labelCorto }}
           </a>
         }

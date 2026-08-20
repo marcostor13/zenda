@@ -65,10 +65,10 @@ type SearchMode = 'filtros' | 'ia';
 
   <!-- ═══ HERO + BUSCADOR ═════════════════════════════════════════ -->
   <section class="hero">
-    <div class="hero__navy-clip" aria-hidden="true"><div class="hero__navy"></div></div>
-
-    <div class="hero__inner rs-wrap rs-wrap--2xl">
-      <div class="hero__brand">
+    <!-- Zona clara: la firma de marca. El logotipo es un JPG sobre blanco, así
+         que la marca vive aquí y no sobre el navy. -->
+    <div class="hero__top">
+      <div class="hero__brand rs-wrap rs-wrap--2xl">
         <img [src]="logoMark" alt="Doogking" class="hero__logo" fetchpriority="high" />
         <h1 class="hero__title">
           <span class="hero__title-line hero__title-line--blue">
@@ -81,76 +81,94 @@ type SearchMode = 'filtros' | 'ia';
         <p class="hero__subtitle" i18n="@@home.heroSubtitulo">
           Veterinarios, peluquerías, residencias, hoteles pet friendly, transporte, adiestramiento y mucho más.
         </p>
-        <p class="hero__slogan">Reserva en menos de un minuto con profesionales de confianza cerca de ti.</p>
       </div>
+    </div>
 
-      <!-- Panel de búsqueda (estilo Booking: categorías + filtros en una fila) -->
-      <div class="searchbox" role="search">
-        <div class="searchbox__head">
-          <p class="searchbox__question">Encuentra el servicio perfecto para tu mascota</p>
-          <div class="searchbox__modes" role="tablist" aria-label="Modo de búsqueda">
-            <button type="button" class="searchbox__mode" role="tab"
-                    [class.is-active]="searchMode() === 'filtros'"
-                    [attr.aria-selected]="searchMode() === 'filtros'"
-                    (click)="searchMode.set('filtros')">
-              <rs-icon name="search" [size]="14" [stroke]="2.25"></rs-icon>
-              Filtros
-            </button>
-            <button type="button" class="searchbox__mode" role="tab"
-                    [class.is-active]="searchMode() === 'ia'"
-                    [attr.aria-selected]="searchMode() === 'ia'"
-                    (click)="searchMode.set('ia')">
-              <rs-icon name="sparkles" [size]="14" [stroke]="2"></rs-icon>
-              Buscar con IA
-            </button>
+    <!-- Zona navy: buscador y garantías. El bloque de búsqueda es lo que
+         convierte, así que va sobre el fondo de mayor contraste de la página
+         (referencia Booking) en vez de blanco sobre blanco. -->
+    <div class="hero__main">
+      <div class="hero__cap" aria-hidden="true"><span></span></div>
+      <div class="hero__glow" aria-hidden="true"></div>
+
+      <div class="hero__inner rs-wrap rs-wrap--2xl">
+
+        <!-- Panel de búsqueda (estilo Booking: titular sobre el fondo y los
+             campos en una tarjeta blanca con marco dorado) -->
+        <div class="searchbox" role="search">
+          <div class="searchbox__head">
+            <div class="searchbox__copy">
+              <p class="searchbox__question">Encuentra el servicio perfecto para tu mascota</p>
+              <p class="searchbox__slogan">Reserva en menos de un minuto con profesionales de confianza cerca de ti.</p>
+            </div>
+            <div class="searchbox__modes" role="tablist" aria-label="Modo de búsqueda">
+              <button type="button" class="searchbox__mode" role="tab"
+                      [class.is-active]="searchMode() === 'filtros'"
+                      [attr.aria-selected]="searchMode() === 'filtros'"
+                      (click)="searchMode.set('filtros')">
+                <rs-icon name="search" [size]="14" [stroke]="2.25"></rs-icon>
+                Filtros
+              </button>
+              <button type="button" class="searchbox__mode" role="tab"
+                      [class.is-active]="searchMode() === 'ia'"
+                      [attr.aria-selected]="searchMode() === 'ia'"
+                      (click)="searchMode.set('ia')">
+                <rs-icon name="sparkles" [size]="14" [stroke]="2"></rs-icon>
+                Buscar con IA
+              </button>
+            </div>
+          </div>
+
+          <div class="searchbox__panel">
+            @if (searchMode() === 'filtros') {
+              <!-- En escritorio las categorías ya están en la barra superior: el
+                   buscador no las repite (feedback 2026-08-20). -->
+              <rs-search-bar [categoriasSoloMovil]="true" />
+            } @else {
+              <form class="ai" (ngSubmit)="buscarConIA()">
+                <div class="ai__bar" [class.is-loading]="aiLoading()">
+                  <rs-icon name="sparkles" [size]="20" [stroke]="1.75" class="ai__spark"></rs-icon>
+                  <input class="ai__input" [formControl]="aiQuery"
+                         placeholder="Describe lo que necesitas… «Alojamiento en Madrid para mi golden este finde»"
+                         aria-label="Búsqueda con inteligencia artificial" />
+                  <button type="submit" class="rs-btn rs-btn--gold ai__btn"
+                          aria-label="Buscar con IA"
+                          [disabled]="aiLoading() || !aiQuery.value.trim()">
+                    @if (aiLoading()) {
+                      <span class="ai__spinner"></span>
+                    } @else {
+                      <rs-icon name="arrow-right" [size]="18" [stroke]="2.5"></rs-icon>
+                    }
+                  </button>
+                </div>
+
+                <div class="ai__hints">
+                  <span class="ai__hint-label">Prueba:</span>
+                  @for (s of sugerenciasIA; track s) {
+                    <button type="button" class="ai__chip" (click)="usarSugerencia(s)">{{ s }}</button>
+                  }
+                </div>
+
+                @if (aiError()) {
+                  <p class="ai__error">{{ aiError() }}</p>
+                }
+              </form>
+            }
           </div>
         </div>
 
-        @if (searchMode() === 'filtros') {
-          <rs-search-bar />
-        } @else {
-          <form class="ai" (ngSubmit)="buscarConIA()">
-            <div class="ai__bar" [class.is-loading]="aiLoading()">
-              <rs-icon name="sparkles" [size]="20" [stroke]="1.75" class="ai__spark"></rs-icon>
-              <input class="ai__input" [formControl]="aiQuery"
-                     placeholder="Describe lo que necesitas… «Alojamiento en Madrid para mi golden este finde»"
-                     aria-label="Búsqueda con inteligencia artificial" />
-              <button type="submit" class="rs-btn rs-btn--gold ai__btn"
-                      aria-label="Buscar con IA"
-                      [disabled]="aiLoading() || !aiQuery.value.trim()">
-                @if (aiLoading()) {
-                  <span class="ai__spinner"></span>
-                } @else {
-                  <rs-icon name="arrow-right" [size]="18" [stroke]="2.5"></rs-icon>
-                }
-              </button>
+        <!-- Bloque de 3 valores sobre la franja navy (copys aprobados, PDF 27/07 §4) -->
+        <div class="trust">
+          @for (t of garantias; track t.titulo) {
+            <div class="trust__item">
+              <img [src]="t.icono" alt="" class="trust__icon" aria-hidden="true" />
+              <div class="trust__body">
+                <p class="trust__title">{{ t.titulo }}</p>
+                <p class="trust__desc">{{ t.descripcion }}</p>
+              </div>
             </div>
-
-            <div class="ai__hints">
-              <span class="ai__hint-label">Prueba:</span>
-              @for (s of sugerenciasIA; track s) {
-                <button type="button" class="ai__chip" (click)="usarSugerencia(s)">{{ s }}</button>
-              }
-            </div>
-
-            @if (aiError()) {
-              <p class="ai__error">{{ aiError() }}</p>
-            }
-          </form>
-        }
-      </div>
-
-      <!-- Bloque de 3 valores sobre la franja navy (copys aprobados, PDF 27/07 §4) -->
-      <div class="trust">
-        @for (t of garantias; track t.titulo) {
-          <div class="trust__item">
-            <img [src]="t.icono" alt="" class="trust__icon" aria-hidden="true" />
-            <div class="trust__body">
-              <p class="trust__title">{{ t.titulo }}</p>
-              <p class="trust__desc">{{ t.descripcion }}</p>
-            </div>
-          </div>
-        }
+          }
+        </div>
       </div>
     </div>
   </section>
@@ -494,56 +512,78 @@ type SearchMode = 'filtros' | 'ia';
 
     /*
      * ══ HERO ═══════════════════════════════════════════════════════
-     * Réplica de la línea gráfica de marca: bloque blanco con el logo y el
-     * eslogan, buscador flotante y franja navy curva con garantías.
+     * Dos zonas: arriba, blanca, la firma de marca (el logotipo es un JPG
+     * sobre blanco y solo funciona ahí); abajo, navy, el buscador y las
+     * garantías. Antes la tarjeta del buscador era blanca sobre blanco y se
+     * perdía; sobre el navy es el elemento de más contraste de la página, que
+     * es lo que se espera de lo que convierte (referencia Booking).
      *
-     * Sin overflow:hidden aquí a propósito (bug 2026-08-12): los desplegables
-     * del buscador (.pa__list de "Dónde", .pp__pop de "¿Para qué mascota?")
-     * son position:absolute dentro de este contenedor, y con overflow:hidden
-     * cualquier lista que no cupiera en el resto del hero se cortaba a mitad
-     * — literalmente desaparecían las últimas ciudades/mascotas de la lista.
-     * La franja navy sangra un 160% de ancho y se recorta en su propio
-     * contenedor (.hero__navy-clip), no en el hero: ver el comentario de esa
-     * regla.
+     * Sin overflow:hidden en .hero ni en .hero__main a propósito (bug
+     * 2026-08-12): los desplegables del buscador (.pa__list de "Dónde",
+     * .pp__pop de "¿Para qué mascota?") son position:absolute dentro de este
+     * contenedor, y con overflow:hidden cualquier lista que no cupiera se
+     * cortaba a mitad. Los elementos decorativos que sangran a lo ancho
+     * (.hero__cap) se recortan en su propio contenedor.
      */
-    .hero {
-      position: relative;
+    .hero { position: relative; }
+
+    /* El padding inferior deja libre la altura de la cúpula (.hero__cap), que
+       sube 80px sobre esta zona: sin él, la curva navy taparía el subtitular. */
+    .hero__top {
       background: var(--c-card);
-      padding-block: var(--sp-8) 0;
+      padding-block: var(--sp-8) var(--sp-20);
+
+      @media (max-width: 900px) { padding-bottom: var(--sp-16); }
+    }
+
+    .hero__main {
+      position: relative;
+      background: var(--dk-blue-deep);
+      padding-block: var(--sp-10) 0;
     }
 
     /*
-     * Franja navy curva que asoma por detrás del buscador.
-     *
-     * Va dentro de su propio contenedor con overflow:hidden porque se creía
-     * que el overflow-x del body recortaba su 160% de ancho, y no lo hace:
-     * es un absoluto cuyo bloque contenedor es .hero, que no recorta a
-     * propósito, así que su desbordamiento llegaba hasta la ventana y el home
-     * rodaba 116 px de lado en móvil — con el menú abierto, que es fijo, el
-     * contenido se desplazaba por debajo y parecía desbordarse. Recortar aquí
-     * y no en .hero deja intactos los desplegables del buscador.
+     * Cúpula navy que asoma sobre la zona clara: es la curva de la línea
+     * gráfica de marca. Sangra un 160% de ancho, así que va dentro de su
+     * propio contenedor con overflow:hidden — si desbordara hasta la ventana,
+     * el home rodaría de lado en móvil (bug 2026-08-12).
      */
-    .hero__navy-clip {
+    .hero__cap {
       position: absolute;
-      inset: auto 0 0 0;
-      height: 300px;
+      inset: auto 0 100% 0;
+      height: 80px;
       overflow: hidden;
       pointer-events: none;
 
-      @media (max-width: 900px) { height: 420px; }
+      span {
+        position: absolute;
+        left: 50%;
+        bottom: -1px;
+        transform: translateX(-50%);
+        width: 160%;
+        height: 100%;
+        background: var(--dk-blue-deep);
+        border-radius: 50% 50% 0 0 / 80px 80px 0 0;
+      }
+
+      @media (max-width: 900px) {
+        height: 50px;
+        span { border-radius: 50% 50% 0 0 / 50px 50px 0 0; }
+      }
     }
 
-    .hero__navy {
+    /*
+     * Profundidad del navy: los focos arrancan por debajo del borde superior
+     * para que la unión con la cúpula sea un único tono plano y no se vea la
+     * costura.
+     */
+    .hero__glow {
       position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 0;
-      width: 160%;
-      height: 100%;
-      background: var(--dk-blue-deep);
-      border-radius: 50% 50% 0 0 / 90px 90px 0 0;
-
-      @media (max-width: 900px) { border-radius: 50% 50% 0 0 / 50px 50px 0 0; }
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(90% 70% at 50% 118%, rgba(8,37,139,.95) 0%, rgba(8,37,139,0) 72%),
+        radial-gradient(45% 45% at 88% 82%, rgba(251,174,23,.14) 0%, rgba(251,174,23,0) 70%);
     }
 
     .hero__inner { position: relative; z-index: 1; }
@@ -555,7 +595,6 @@ type SearchMode = 'filtros' | 'ia';
     .hero__brand {
       text-align: center;
       animation: fadeUp .6s ease both;
-      margin-bottom: var(--sp-4);
     }
 
     .hero__logo {
@@ -606,48 +645,44 @@ type SearchMode = 'filtros' | 'ia';
       @media (max-width: 560px) { display: none; }
     }
 
-    .hero__slogan {
-      margin-top: var(--sp-1);
-      margin-inline: auto;
-      max-width: 48ch;
-      font-size: var(--f-xs);
-      font-weight: var(--w-6);
-      color: var(--dk-blue);
-
-      @media (max-width: 560px) { display: none; }
-    }
-
-    /* ══ BUSCADOR (tarjeta flotante estilo Booking) ═════════════════ */
+    /* ══ BUSCADOR (titular sobre navy + tarjeta blanca, estilo Booking) ══ */
     .searchbox {
-      background: var(--c-card);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-2xl);
-      box-shadow: var(--sh-xl);
-      padding: var(--sp-6) var(--sp-6) var(--sp-5);
       animation: fadeUp .6s .1s ease both;
     }
 
     .searchbox__head {
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: var(--sp-3);
-      margin-bottom: var(--sp-4);
+      margin-bottom: var(--sp-5);
     }
 
     .searchbox__question {
       font-family: var(--font-display);
-      font-size: var(--f-lg);
-      font-weight: var(--w-7);
-      color: var(--dk-blue);
+      font-size: var(--f-2xl);
+      font-weight: var(--w-8);
+      line-height: 1.2;
+      color: #fff;
+
+      @media (max-width: 560px) { font-size: var(--f-xl); }
     }
 
+    .searchbox__slogan {
+      margin-top: var(--sp-2);
+      max-width: 52ch;
+      font-size: var(--f-sm);
+      color: rgba(255,255,255,.78);
+    }
+
+    /* Pastillas sobre navy: el modo activo se lee en blanco sólido. */
     .searchbox__modes {
       display: inline-flex;
       gap: var(--sp-1);
       padding: 3px;
-      background: var(--c-surface);
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
       border-radius: var(--r-full);
     }
 
@@ -659,11 +694,26 @@ type SearchMode = 'filtros' | 'ia';
       border-radius: var(--r-full);
       font-size: var(--f-sm);
       font-weight: var(--w-6);
-      color: var(--t-400);
+      color: rgba(255,255,255,.78);
       transition: background var(--d-2), color var(--d-2);
 
-      &:hover { color: var(--dk-blue); }
-      &.is-active { background: var(--c-card); color: var(--dk-blue); box-shadow: var(--sh-sm); }
+      &:hover { color: #fff; }
+      &.is-active { background: #fff; color: var(--dk-blue); box-shadow: var(--sh-sm); }
+    }
+
+    /*
+     * Marco dorado sobre la tarjeta blanca: es el recurso con el que Booking
+     * separa el buscador del fondo, y aquí además es el color de marca del CTA.
+     */
+    .searchbox__panel {
+      background: var(--c-card);
+      border: 2px solid var(--dk-gold);
+      border-radius: var(--r-2xl);
+      box-shadow: 0 24px 56px -16px rgba(0,10,50,.55);
+      /* El padding lateral es --sp-6 en todos los tamaños: el carrusel de
+         categorías del buscador lo compensa con un margen negativo del mismo
+         valor para sangrar hasta el borde en móvil. */
+      padding: var(--sp-5) var(--sp-6);
     }
 
 

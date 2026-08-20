@@ -361,7 +361,9 @@ h1, h2, h3, h4, h5, h6 {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--b-1);
-  gap: var(--sp-8);
+  /* Con icono, cada categoría ocupa más: el aire entre marca, menú y acciones
+     se reduce para que las 7 entradas quepan sin activar el scroll lateral. */
+  gap: var(--sp-4);
   max-width: 100%;
 
   &__brand {
@@ -404,19 +406,39 @@ h1, h2, h3, h4, h5, h6 {
     flex: 1;
   }
 
+  /* Entrada de categoría: icono + etiqueta en pastilla, como las pestañas de
+     servicio de Booking. El icono es lo que se reconoce de un vistazo; la
+     etiqueta, lo que desambigua (alojamiento canino vs. hotel pet friendly). */
   &__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
     padding: var(--sp-2) var(--sp-3);
     font-size: var(--f-sm);
     font-weight: var(--w-5);
     color: var(--t-300);
-    border-radius: var(--r-md);
-    transition: color var(--d-1), background var(--d-1);
+    border: 1px solid transparent;
+    border-radius: var(--r-full);
+    transition: color var(--d-1), background var(--d-1), border-color var(--d-1);
     text-decoration: none;
     white-space: nowrap;
     flex-shrink: 0;
 
-    &:hover { color: var(--t-100); background: rgba(5,26,102,.05); }
-    &.active, &--active { color: var(--t-100); font-weight: var(--w-6); }
+    rs-icon { color: var(--dk-blue); opacity: .55; transition: opacity var(--d-1); }
+
+    &:hover {
+      color: var(--t-100);
+      background: rgba(5,26,102,.05);
+      rs-icon { opacity: 1; }
+    }
+
+    &.active, &--active {
+      color: var(--dk-blue);
+      font-weight: var(--w-6);
+      background: var(--c-accent-lo);
+      border-color: rgba(8,37,139,.22);
+      rs-icon { opacity: 1; }
+    }
   }
 
   &__actions {

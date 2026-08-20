@@ -179,6 +179,20 @@ describe('HomeComponent', () => {
     expect(iconos.length).toBe(component.verticales.length + 1);
   });
 
+  it('debería dejar las categorías del buscador solo para móvil (barra superior en escritorio)', () => {
+    // En escritorio la barra superior ya lista las categorías con su icono:
+    // el buscador no las repite (feedback 2026-08-20).
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.sb__cats--movil')).toBeTruthy();
+  });
+
+  it('debería colocar el buscador sobre la zona de contraste del hero', () => {
+    // La tarjeta era blanca sobre blanco y se perdía: ahora vive en el bloque
+    // navy, que es el fondo de más contraste de la página.
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.hero__main .searchbox .searchbox__panel')).toBeTruthy();
+  });
+
   it('debería usar un icono SVG propio por categoría', () => {
     const iconos = component.verticales.map((v) => v.icono);
     expect(iconos).toEqual([

@@ -2,6 +2,7 @@ import { Component, signal, computed, inject, DestroyRef, OnInit, WritableSignal
 import { UpperCasePipe, TitleCasePipe } from '@angular/common';
 import { AbstractControl, ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
@@ -24,19 +25,52 @@ type TabConfig =
   | 'perfil' | 'ubicacion' | 'contacto' | 'redes' | 'horarios' | 'politicas'
   | 'verificacion' | 'documentacion' | 'notificaciones' | 'verticales' | 'plan';
 
-const TABS: ReadonlyArray<{ clave: TabConfig; label: string; icono: string }> = [
+interface PasoConfig {
+  readonly clave: TabConfig;
+  readonly label: string;
+  readonly icono: string;
+}
+
+/**
+ * Orden del recorrido. Es también el orden en que los agrupa `FASES`: si los dos
+ * se separaran, "Guardar y continuar" saltaría a un paso que el índice pinta en
+ * otra fase (lo comprueba el test del recorrido).
+ */
+const TABS: ReadonlyArray<PasoConfig> = [
   { clave: 'perfil',         label: 'Perfil',            icono: 'building' },
   { clave: 'ubicacion',      label: 'Ubicación',         icono: 'map-pin' },
   { clave: 'contacto',       label: 'Contacto',          icono: 'phone' },
   { clave: 'redes',          label: 'Redes',             icono: 'globe' },
   { clave: 'horarios',       label: 'Horarios',          icono: 'clock' },
   { clave: 'politicas',      label: 'Políticas y cobros', icono: 'euro' },
+  { clave: 'verticales',     label: 'Servicios que ofreces', icono: 'tag' },
   { clave: 'verificacion',   label: 'Verificación',      icono: 'badge-check' },
   { clave: 'documentacion',  label: 'Documentación',     icono: 'file-text' },
   { clave: 'notificaciones', label: 'Notificaciones',    icono: 'bell' },
-  { clave: 'verticales',     label: 'Verticales',        icono: 'tag' },
   { clave: 'plan',           label: 'Plan',              icono: 'sparkles' },
 ];
+
+/**
+ * Once pasos seguidos son una lista que nadie termina. Se agrupan en tres fases
+ * con nombre —el patrón de alta de anfitrión de Airbnb y del extranet de
+ * Booking—: el comercio ve tres bloques cortos, no once casillas.
+ */
+const FASES: ReadonlyArray<{
+  readonly numero: number;
+  readonly titulo: string;
+  readonly resumen: string;
+  readonly pasos: ReadonlyArray<PasoConfig>;
+}> = [
+  { numero: 1, titulo: 'Tu negocio',         resumen: 'Quién eres y dónde te encuentran',
+    pasos: ['perfil', 'ubicacion', 'contacto', 'redes'] as TabConfig[] },
+  { numero: 2, titulo: 'Cómo trabajas',      resumen: 'Horarios, condiciones y servicios',
+    pasos: ['horarios', 'politicas', 'verticales'] as TabConfig[] },
+  { numero: 3, titulo: 'Confianza y cuenta', resumen: 'Verificación, avisos y plan',
+    pasos: ['verificacion', 'documentacion', 'notificaciones', 'plan'] as TabConfig[] },
+].map((f) => ({
+  ...f,
+  pasos: f.pasos.map((clave) => TABS.find((t) => t.clave === clave) as PasoConfig),
+}));
 
 const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
   { clave: 'lunes', label: 'Lunes' },
@@ -104,11 +138,13 @@ type UrlImagen = string | null;
     RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent, RsMapaComponent,
   ],
   template: `
-    <!-- Page header -->
+    <!-- Cabecera de la página -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Perfil del comercio</h1>
-        <p class="page-sub">Completa todos los datos de tu negocio: cuanta más información, más confianza generas ante los clientes.</p>
+        <h1 class="page-title">Configura tu negocio</h1>
+        <p class="page-sub">
+          Tres bloques cortos. Puedes guardar y seguir, o entrar directamente al dato que quieras cambiar.
+        </p>
       </div>
     </div>
 
@@ -122,72 +158,115 @@ type UrlImagen = string | null;
       <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
     }
 
-    <!-- Perfil completado: qué falta y dónde completarlo (TCK-8028) -->
-    <div class="rs-card progreso-card">
-      <div class="progreso-card__head">
-        <strong class="progreso-card__titulo">Perfil completado</strong>
-        <span class="progreso-card__pct">{{ progresoPerfil() }} %</span>
-      </div>
-      <div class="progreso-card__barra">
-        <div class="progreso-card__fill" [style.width.%]="progresoPerfil()"></div>
-      </div>
-      @if (faltantes().length) {
-        <p class="progreso-card__hint">Te falta por completar:</p>
-        <div class="progreso-card__chips">
-          @for (f of faltantes(); track f.label) {
-            <button class="progreso-chip" (click)="cambiarTab(f.tab)">
-              <rs-icon name="plus" [size]="12" [stroke]="2.5"></rs-icon> {{ f.label }}
-            </button>
+    <div class="cfg">
+      <!--
+        Índice del recorrido. En escritorio es un raíl fijo a la izquierda, como
+        el extranet de Booking; en móvil se pliega tras el paso actual, porque
+        once entradas antes del formulario son una pantalla entera de scroll.
+      -->
+      <aside class="cfg__indice">
+        <div class="cfg__resumen">
+          <div class="cfg__resumen-head">
+            <span class="cfg__resumen-pct">{{ progresoPerfil() }}%</span>
+            <div>
+              <p class="cfg__resumen-titulo">Perfil completado</p>
+              <p class="cfg__resumen-sub">
+                @if (faltantes().length === 1) {
+                  Te falta 1 dato
+                } @else if (faltantes().length) {
+                  Te faltan {{ faltantes().length }} datos
+                } @else {
+                  Tu ficha está completa
+                }
+              </p>
+            </div>
+          </div>
+          <div class="cfg__barra" role="progressbar"
+               [attr.aria-valuenow]="progresoPerfil()" [attr.aria-valuemin]="0" [attr.aria-valuemax]="100">
+            <span [style.width.%]="progresoPerfil()"></span>
+          </div>
+        </div>
+
+        <!-- Sólo móvil: abre el índice completo sin salir del paso. -->
+        <button type="button" class="cfg__abrir" (click)="indiceAbierto.set(!indiceAbierto())"
+                [attr.aria-expanded]="indiceAbierto()">
+          <span class="cfg__abrir-txt">
+            <strong>Paso {{ pasoActual() }} de {{ totalPasos }} · {{ faseActual().titulo }}</strong>
+            <span class="cfg__abrir-paso">{{ pasoUi().label }}</span>
+          </span>
+          <rs-icon name="chevron-down" [size]="18" [stroke]="2"
+                   class="cfg__abrir-chevron" [class.cfg__abrir-chevron--abierto]="indiceAbierto()"></rs-icon>
+        </button>
+
+        <div class="cfg__lista" [class.cfg__lista--abierta]="indiceAbierto()">
+          @for (f of fases; track f.numero) {
+            <div class="cfg__fase">
+              <p class="cfg__fase-titulo">
+                <span class="cfg__fase-num" [class.cfg__fase-num--ok]="faseCompleta(f)">
+                  @if (faseCompleta(f)) {
+                    <rs-icon name="check" [size]="12" [stroke]="3"></rs-icon>
+                  } @else {
+                    {{ f.numero }}
+                  }
+                </span>
+                {{ f.titulo }}
+              </p>
+              <p class="cfg__fase-sub">{{ f.resumen }}</p>
+
+              @for (p of f.pasos; track p.clave) {
+                <button type="button" class="cfg__paso"
+                        [class.cfg__paso--actual]="tab() === p.clave"
+                        [attr.aria-current]="tab() === p.clave ? 'step' : null"
+                        (click)="cambiarTab(p.clave)">
+                  <span class="cfg__paso-estado"
+                        [class.cfg__paso-estado--ok]="estadoSeccion(p.clave) === true"
+                        [class.cfg__paso-estado--falta]="estadoSeccion(p.clave) === false">
+                    @if (estadoSeccion(p.clave) === true) {
+                      <rs-icon name="check" [size]="11" [stroke]="3"></rs-icon>
+                    } @else {
+                      <rs-icon [name]="p.icono" [size]="13" [stroke]="2"></rs-icon>
+                    }
+                  </span>
+                  {{ p.label }}
+                </button>
+              }
+            </div>
+          }
+
+          <!-- Lo que falta, accionable: cada carencia lleva a su paso (TCK-8028).
+               Va dentro del índice para que en móvil no se interponga entre el
+               paso actual y su formulario. -->
+          @if (faltantes().length) {
+            <div class="cfg__faltan">
+              <p class="cfg__faltan-titulo">Te falta por completar</p>
+              <div class="cfg__faltan-chips">
+                @for (f of faltantes(); track f.label) {
+                  <button type="button" class="cfg__chip" (click)="cambiarTab(f.tab)">
+                    <rs-icon name="plus" [size]="11" [stroke]="2.5"></rs-icon> {{ f.label }}
+                  </button>
+                }
+              </div>
+            </div>
           }
         </div>
-      } @else {
-        <p class="progreso-card__hint">
-          <rs-icon name="check-circle" [size]="14" [stroke]="2"></rs-icon>
-          Tu ficha está completa. Así es como genera más confianza en los clientes.
+      </aside>
+
+      <div class="cfg__panel">
+        <!-- Sólo escritorio: en móvil este dato ya está en el botón del índice. -->
+        <p class="cfg__situacion">
+          Fase {{ faseActual().numero }} de {{ fases.length }} · {{ faseActual().titulo }}
+          <span class="cfg__situacion-sep">—</span>
+          Paso {{ pasoActual() }} de {{ totalPasos }}
         </p>
-      }
-    </div>
 
-    <!--
-      Paso a paso, pero con las pestañas navegables. Es una pantalla de ajustes a
-      la que se vuelve: obligar a recorrer once pasos para cambiar un teléfono
-      sería peor que no guiar nada. El recorrido guiado es el camino por defecto;
-      la pestaña, el atajo de quien ya sabe a qué viene.
-    -->
-    <div class="config-pasos">
-      <span class="config-pasos__num">Paso {{ pasoActual() }} de {{ totalPasos }}</span>
-      <div class="config-pasos__barra" role="progressbar"
-           [attr.aria-valuenow]="pasoActual()" [attr.aria-valuemin]="1"
-           [attr.aria-valuemax]="totalPasos">
-        <span [style.width.%]="(pasoActual() / totalPasos) * 100"></span>
-      </div>
-    </div>
-
-    <!-- Pestañas: la página era un scroll interminable (TCK-8028) -->
-    <div class="config-tabs" role="tablist">
-      @for (t of tabs; track t.clave) {
-        <button class="config-tab" role="tab" [attr.aria-selected]="tab() === t.clave"
-                [class.activa]="tab() === t.clave" (click)="cambiarTab(t.clave)">
-          <!-- La marca dice de un vistazo qué queda por rellenar, sin abrir
-               pestaña por pestaña a buscarlo. -->
-          @if (estadoSeccion(t.clave) === true) {
-            <rs-icon name="check" [size]="14" [stroke]="2.5" class="config-tab__ok"></rs-icon>
-          } @else {
-            <rs-icon [name]="t.icono" [size]="14" [stroke]="2"></rs-icon>
-          }
-          {{ t.label }}
-        </button>
-      }
-    </div>
-
-    <!-- Aviso de cambios sin guardar: guardar por sección es cómodo hasta que
-         te vas de pestaña y pierdes lo escrito (TCK-8028) -->
-    @if (hayCambiosSinGuardar()) {
-      <div class="rs-alert rs-alert--warning aviso-cambios">
-        <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
-        Tienes cambios sin guardar en esta pestaña. Pulsa el botón de guardar antes de salir.
-      </div>
-    }
+        <!-- Aviso de cambios sin guardar: guardar por sección es cómodo hasta que
+             te vas de pestaña y pierdes lo escrito (TCK-8028) -->
+        @if (hayCambiosSinGuardar()) {
+          <div class="rs-alert rs-alert--warning aviso-cambios">
+            <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+            Tienes cambios sin guardar en este paso. Pulsa el botón de guardar antes de salir.
+          </div>
+        }
 
     <!-- Información del negocio -->
 @if (tab() === 'perfil') {
@@ -527,17 +606,14 @@ type UrlImagen = string | null;
           }
         </div>
 
-        <div class="form-actions">
+        <!-- Atajo del horario semanal. El guardado del paso está al final de la
+             sección, después de los días especiales: si estuviera aquí, avanzar
+             saltaría por encima de ellos. -->
+        <div class="form-actions form-actions--suelta">
           <button type="button" class="rs-btn rs-btn--outline" (click)="copiarHorarioATodos()">
             <rs-icon name="copy" [size]="14" [stroke]="2"></rs-icon>
             <span class="solo-escritorio">Copiar el horario del lunes a todos los días</span>
             <span class="solo-movil">Copiar el lunes a todos</span>
-          </button>
-          <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoHorario()">
-            @if (guardandoHorario()) { Guardando… } @else {
-              <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              Guardar horario
-            }
           </button>
         </div>
       </form>
@@ -646,10 +722,24 @@ type UrlImagen = string | null;
         </div>
 
         <div class="form-actions">
-          <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoExcepciones()"
-                  (click)="guardarExcepciones()">
-            {{ guardandoExcepciones() ? 'Guardando…' : 'Guardar días especiales' }}
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
+                  [disabled]="esPrimerPaso()">
+            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+            Atrás
           </button>
+          <div class="form-actions__grupo">
+            <button type="button" class="rs-btn rs-btn--secondary" [disabled]="guardandoExcepciones()"
+                    (click)="guardarExcepciones()">
+              {{ guardandoExcepciones() ? 'Guardando…' : 'Guardar días especiales' }}
+            </button>
+            <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoHorario()"
+                    (click)="continuar(guardarHorario())">
+              @if (guardandoHorario()) { Guardando… } @else {
+                <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
+                {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
+              }
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -901,7 +991,14 @@ type UrlImagen = string | null;
           <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
           Atrás
         </button>
-        @if (!esUltimoPaso()) {
+        @if (esUltimoPaso()) {
+          <!-- El recorrido tiene final: sin esto el último paso sólo dejaba
+               retroceder y no se sabía que ya estaba todo. -->
+          <button type="button" class="rs-btn rs-btn--primary" (click)="terminar()">
+            <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
+            Finalizar
+          </button>
+        } @else {
           <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
             Continuar
             <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
@@ -941,7 +1038,14 @@ type UrlImagen = string | null;
           <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
           Atrás
         </button>
-        @if (!esUltimoPaso()) {
+        @if (esUltimoPaso()) {
+          <!-- El recorrido tiene final: sin esto el último paso sólo dejaba
+               retroceder y no se sabía que ya estaba todo. -->
+          <button type="button" class="rs-btn rs-btn--primary" (click)="terminar()">
+            <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
+            Finalizar
+          </button>
+        } @else {
           <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
             Continuar
             <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
@@ -1019,7 +1123,14 @@ type UrlImagen = string | null;
           <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
           Atrás
         </button>
-        @if (!esUltimoPaso()) {
+        @if (esUltimoPaso()) {
+          <!-- El recorrido tiene final: sin esto el último paso sólo dejaba
+               retroceder y no se sabía que ya estaba todo. -->
+          <button type="button" class="rs-btn rs-btn--primary" (click)="terminar()">
+            <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
+            Finalizar
+          </button>
+        } @else {
           <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
             Continuar
             <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
@@ -1028,6 +1139,8 @@ type UrlImagen = string | null;
       </div>
     </section>
     }
+      </div>
+    </div>
   `,
   styles: [`
     :host { display: contents; }
@@ -1075,36 +1188,127 @@ type UrlImagen = string | null;
     .excepcion__detalle { flex: 1; font-size: var(--f-sm); color: var(--t-300); }
     .excepcion-form { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; margin-top: var(--sp-3); }
 
-    /* Perfil completado */
-    .progreso-card { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
-    .progreso-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); }
-    .progreso-card__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); }
-    .progreso-card__pct { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--c-accent); }
-    .progreso-card__barra { height: 8px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; }
-    .progreso-card__fill { height: 100%; border-radius: var(--r-full); background: var(--g-accent); transition: width var(--d-3); }
-    .progreso-card__hint { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-400); }
-    .progreso-card__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-    .progreso-chip {
-      display: inline-flex; align-items: center; gap: var(--sp-2);
+    /*
+     * ══ RECORRIDO PASO A PASO ═══════════════════════════════════════
+     * Móvil primero: una sola columna con el resumen de avance, el paso actual
+     * plegable y el formulario. A partir de 900px el índice se convierte en un
+     * raíl fijo a la izquierda y el formulario ocupa el resto.
+     */
+    .cfg { display: grid; gap: var(--sp-5); align-items: start; }
+
+    @media (min-width: 900px) {
+      .cfg { grid-template-columns: 264px minmax(0, 1fr); gap: var(--sp-8); }
+      /* 64px = alto de la barra superior, que es sticky. */
+      .cfg__indice { position: sticky; top: calc(64px + var(--sp-4)); }
+    }
+
+    .cfg__indice { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+
+    /* Avance del perfil: el número que resume si la ficha vende o no. */
+    .cfg__resumen {
+      padding: var(--sp-4);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+      display: flex; flex-direction: column; gap: var(--sp-3);
+    }
+    .cfg__resumen-head { display: flex; align-items: center; gap: var(--sp-3); }
+    .cfg__resumen-pct {
+      font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8);
+      color: var(--c-accent); line-height: 1;
+    }
+    .cfg__resumen-titulo { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
+    .cfg__resumen-sub { font-size: var(--f-xs); color: var(--t-400); }
+    .cfg__barra { height: 6px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; }
+    .cfg__barra span { display: block; height: 100%; border-radius: var(--r-full); background: var(--g-accent); transition: width var(--d-3); }
+
+    /*
+     * El botón que despliega el índice sólo existe en móvil: en escritorio el
+     * raíl está siempre a la vista y un acordeón sería un clic de más.
+     */
+    .cfg__abrir {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+      width: 100%; padding: var(--sp-3) var(--sp-4);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+      color: var(--t-200); text-align: left; cursor: pointer;
+    }
+    .cfg__abrir-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .cfg__abrir-txt strong { font-size: var(--f-xs); font-weight: var(--w-7); color: var(--c-accent); text-transform: uppercase; letter-spacing: .06em; }
+    .cfg__abrir-paso { font-size: var(--f-base); font-weight: var(--w-6); color: var(--t-100); }
+    .cfg__abrir-chevron { flex-shrink: 0; transition: transform var(--d-2); }
+    .cfg__abrir-chevron--abierto { transform: rotate(180deg); }
+
+    .cfg__lista {
+      display: none;
+      flex-direction: column; gap: var(--sp-4);
+      padding: var(--sp-4);
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+    }
+    .cfg__lista--abierta { display: flex; }
+
+    @media (min-width: 900px) {
+      .cfg__abrir { display: none; }
+      .cfg__lista { display: flex; }
+    }
+
+    .cfg__fase { display: flex; flex-direction: column; gap: 2px; }
+    .cfg__fase-titulo {
+      display: flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100);
+    }
+    .cfg__fase-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: var(--r-full);
+      background: var(--c-raised); color: var(--t-400);
+      font-size: 11px; font-weight: var(--w-7); flex-shrink: 0;
+    }
+    .cfg__fase-num--ok { background: #16A34A; color: #fff; }
+    .cfg__fase-sub { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-2); padding-left: calc(20px + var(--sp-2)); }
+
+    /* Cada paso es un objetivo táctil de 44px: se pulsa con el pulgar. */
+    .cfg__paso {
+      display: flex; align-items: center; gap: var(--sp-3);
+      width: 100%; min-height: 44px; padding: var(--sp-2) var(--sp-3);
+      border: 1px solid transparent; border-radius: var(--r-lg);
+      background: transparent; color: var(--t-300);
+      font-size: var(--f-sm); text-align: left; cursor: pointer;
+      transition: background var(--d-2), color var(--d-2), border-color var(--d-2);
+
+      &:hover { background: var(--c-raised); color: var(--t-100); }
+    }
+    .cfg__paso--actual {
+      background: var(--c-accent-lo); border-color: rgba(8,37,139,.22);
+      color: var(--c-accent); font-weight: var(--w-6);
+    }
+    .cfg__paso-estado {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: var(--r-full); flex-shrink: 0;
+      background: var(--c-raised); color: var(--t-400);
+    }
+    .cfg__paso-estado--ok { background: rgba(22,163,74,.14); color: #16A34A; }
+    .cfg__paso-estado--falta { color: var(--c-amber); }
+
+    .cfg__faltan {
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      padding-top: var(--sp-4); border-top: 1px solid var(--b-1);
+    }
+    .cfg__faltan-titulo { font-size: var(--f-xs); font-weight: var(--w-7); color: var(--t-300); text-transform: uppercase; letter-spacing: .06em; }
+    .cfg__faltan-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .cfg__chip {
+      display: inline-flex; align-items: center; gap: var(--sp-1);
       padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full);
       border: 1px dashed var(--b-2); background: transparent;
       color: var(--t-300); font-size: var(--f-xs); cursor: pointer; transition: all var(--d-2);
       &:hover { border-color: var(--c-accent); color: var(--c-accent); border-style: solid; }
     }
 
-    /* Pestañas de configuración */
-    .config-tabs {
-      display: flex; gap: var(--sp-2); flex-wrap: wrap;
-      padding-bottom: var(--sp-1);
+    .cfg__panel { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+
+    .cfg__situacion {
+      display: none;
+      font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-400);
+      text-transform: uppercase; letter-spacing: .06em;
     }
-    .config-tab {
-      display: inline-flex; align-items: center; gap: var(--sp-2);
-      padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
-      border: 1px solid var(--b-2); background: var(--c-raised);
-      color: var(--t-300); font-size: var(--f-sm); cursor: pointer; transition: all var(--d-2);
-      &:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      &.activa { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); font-weight: var(--w-6); }
-    }
+    .cfg__situacion-sep { opacity: .5; }
+    @media (min-width: 900px) { .cfg__situacion { display: block; } }
 
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; }
     .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
@@ -1124,26 +1328,6 @@ type UrlImagen = string | null;
       display: flex; justify-content: space-between; align-items: center;
       gap: var(--sp-3); padding-top: var(--sp-2);
     }
-
-    .config-pasos {
-      display: flex; align-items: center; gap: var(--sp-3);
-      margin-bottom: var(--sp-3);
-    }
-    .config-pasos__num {
-      font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-400);
-      white-space: nowrap;
-    }
-    .config-pasos__barra {
-      flex: 1; height: 4px; border-radius: var(--r-full);
-      background: var(--c-raised); overflow: hidden;
-
-      span {
-        display: block; height: 100%;
-        background: var(--g-accent, var(--c-accent));
-        transition: width var(--d-3) ease;
-      }
-    }
-    .config-tab__ok { color: #16A34A; }
 
     .cal { margin: var(--sp-4) 0; max-width: 380px; }
     .cal__barra { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
@@ -1188,10 +1372,39 @@ type UrlImagen = string | null;
     }
     .form-actions__grupo { display: flex; gap: var(--sp-2); }
 
-    @media (max-width: 768px) {
-      /* En móvil el pie ocupa el ancho: los botones a tamaño de dedo. */
-      .form-actions { flex-direction: column-reverse; align-items: stretch; }
-      .form-actions__grupo { flex-direction: column-reverse; }
+    /* Filas de acciones que no cierran el paso: no compiten con su pie. */
+    .form-actions--suelta { justify-content: flex-start; }
+
+    /*
+     * Móvil: el pie del paso se queda pegado al fondo mientras se rellena el
+     * formulario, como el pie del alta de anfitrión de Airbnb. Sin esto había
+     * que recorrer toda la sección —los horarios son siete tarjetas— para
+     * encontrar el botón de guardar.
+     *
+     * .rs-card recorta con overflow:hidden, y un ancestro que recorta anula el
+     * sticky de sus descendientes: por eso la sección deja de recortar en este
+     * tamaño. No tiene hijos que se salgan de sus esquinas.
+     */
+    @media (max-width: 899px) {
+      .config-section { overflow: visible; }
+
+      .form-actions:not(.form-actions--suelta) {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        gap: var(--sp-2);
+        margin: var(--sp-2) calc(var(--sp-6) * -1) calc(var(--sp-6) * -1);
+        padding: var(--sp-3) var(--sp-6) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+        background: var(--c-card);
+        border-top: 1px solid var(--b-1);
+        border-radius: 0 0 var(--r-xl) var(--r-xl);
+      }
+
+      /* El avance manda: ocupa el ancho que sobra y "Atrás" se queda mínimo. */
+      .form-actions > .rs-btn--primary,
+      .form-actions__grupo { flex: 1; min-width: 0; }
+      .form-actions__grupo > .rs-btn { flex: 1; min-width: 0; }
+      .form-actions .rs-btn { padding-inline: var(--sp-4); }
     }
 
     .docs-list { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -1299,14 +1512,23 @@ export class ComercioConfigComponent implements OnInit {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
 
   readonly comercio = signal<MiComercio | null>(null);
   readonly guardado = signal(false);
   readonly errorMsg = signal('');
 
-  /** Pestaña visible; la configuración era una sola página kilométrica (TCK-8028). */
+  /** Paso visible; la configuración era una sola página kilométrica (TCK-8028). */
   readonly tabs = TABS;
+  readonly fases = FASES;
   readonly tab = signal<TabConfig>('perfil');
+
+  /**
+   * Índice desplegado. En escritorio el raíl está siempre a la vista y esta
+   * señal no pinta nada; en móvil arranca cerrado para que la primera pantalla
+   * sea el formulario y no la lista de once pasos.
+   */
+  readonly indiceAbierto = signal(false);
 
   /**
    * Qué falta por rellenar en la ficha. Cada carencia sabe a qué pestaña lleva,
@@ -1373,6 +1595,7 @@ export class ComercioConfigComponent implements OnInit {
 
   cambiarTab(clave: TabConfig): void {
     this.tab.set(clave);
+    this.indiceAbierto.set(false);
     this.vigilarCambios();
     // Cada sección es larga: sin esto se cambia de paso y la vista se queda a
     // mitad del anterior, con el formulario nuevo fuera de pantalla.
@@ -1382,6 +1605,22 @@ export class ComercioConfigComponent implements OnInit {
   /** Posición del paso actual, para el "Paso N de M" de la cabecera. */
   readonly pasoActual = computed(() => TABS.findIndex((t) => t.clave === this.tab()) + 1);
   readonly totalPasos = TABS.length;
+
+  /** Etiqueta e icono del paso visible, para la cabecera plegable de móvil. */
+  readonly pasoUi = computed(() => TABS[this.pasoActual() - 1] ?? TABS[0]);
+
+  /** Fase que contiene el paso visible; siempre hay una, TABS y FASES coinciden. */
+  readonly faseActual = computed(
+    () => FASES.find((f) => f.pasos.some((p) => p.clave === this.tab())) ?? FASES[0],
+  );
+
+  /**
+   * Una fase está hecha cuando ninguno de sus pasos con campos obligatorios
+   * está pendiente. Los pasos informativos (redes, plan) no la bloquean.
+   */
+  faseCompleta(fase: { pasos: ReadonlyArray<PasoConfig> }): boolean {
+    return fase.pasos.every((p) => this.estadoSeccion(p.clave) !== false);
+  }
   readonly esPrimerPaso = computed(() => this.pasoActual() <= 1);
   readonly esUltimoPaso = computed(() => this.pasoActual() >= this.totalPasos);
 
@@ -1400,6 +1639,11 @@ export class ComercioConfigComponent implements OnInit {
   /** Avanza sin guardar, para las secciones que no tienen nada que enviar. */
   saltarPaso(): Promise<void> {
     return this.continuar(Promise.resolve(true));
+  }
+
+  /** Cierra el recorrido y devuelve al panel: el último paso ya no es un callejón. */
+  terminar(): void {
+    void this.router.navigate(['/comercio']);
   }
 
   async continuar(guardado: Promise<boolean>): Promise<void> {

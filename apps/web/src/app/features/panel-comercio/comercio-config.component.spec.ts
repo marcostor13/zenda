@@ -899,6 +899,69 @@ describe('ComercioConfigComponent', () => {
     });
   });
 
+  describe('fases del recorrido', () => {
+    it('debería repartir los once pasos entre las tres fases, sin perder ninguno', async () => {
+      await crear();
+
+      const enFases = componente.fases.flatMap((f) => f.pasos.map((p) => p.clave));
+
+      expect(enFases).toHaveLength(componente.totalPasos);
+      expect(new Set(enFases).size).toBe(componente.totalPasos);
+    });
+
+    it('debería agrupar las fases en el mismo orden en que se recorren los pasos', async () => {
+      // Si divergieran, "Guardar y continuar" saltaría a un paso que el índice
+      // pinta en otra fase y el recorrido dejaría de leerse de arriba abajo.
+      await crear();
+
+      const enFases = componente.fases.flatMap((f) => f.pasos.map((p) => p.clave));
+
+      expect(enFases).toEqual(componente.tabs.map((t) => t.clave));
+    });
+
+    it('debería situar el paso visible en su fase', async () => {
+      await crear();
+      componente.cambiarTab('horarios');
+
+      expect(componente.faseActual().titulo).toBe('Cómo trabajas');
+      expect(componente.pasoUi().clave).toBe('horarios');
+    });
+
+    it('no debería dar por hecha una fase con un paso pendiente', async () => {
+      await crear();
+
+      const tuNegocio = componente.fases[0];
+      expect(componente.faseCompleta(tuNegocio)).toBe(false);
+    });
+
+    it('debería dar por hecha la fase cuyos pasos no tienen nada pendiente', async () => {
+      // Los pasos informativos (notificaciones, plan) no bloquean su fase.
+      await crear(miComercio({
+        verificacion: { estado: 'verificado' },
+      } as Partial<MiComercio>));
+
+      const confianza = componente.fases[2];
+      expect(componente.faseCompleta(confianza)).toBe(true);
+    });
+  });
+
+  describe('índice plegable', () => {
+    it('debería arrancar cerrado, para que lo primero que se vea sea el formulario', async () => {
+      await crear();
+
+      expect(componente.indiceAbierto()).toBe(false);
+    });
+
+    it('debería cerrarse al elegir un paso', async () => {
+      await crear();
+      componente.indiceAbierto.set(true);
+
+      componente.cambiarTab('politicas');
+
+      expect(componente.indiceAbierto()).toBe(false);
+    });
+  });
+
   describe('estado de cada sección', () => {
     it('debería marcar como completa la sección con todos sus campos puestos', async () => {
       await crear(miComercio({
