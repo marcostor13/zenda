@@ -109,14 +109,22 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
           Sólo cambia el envoltorio, que es lo que se ve.
         -->
         <label class="ls__orden">
-          <rs-icon class="ls__orden-estrella" name="star" [size]="17" [filled]="true" />
+          <rs-icon class="ls__orden-estrella" name="star" [size]="15" [filled]="true" />
+          <span class="ls__orden-txt">{{ etiquetaOrden() }}</span>
+          <rs-icon name="chevron-down" [size]="14" [stroke]="2.5" />
+          <!--
+            El select va encima, transparente y a toda la pastilla: sigue
+            siendo nativo (abre el selector del sistema, se recorre con el
+            teclado y lo lee un lector de pantalla), pero ya no es el que
+            decide cuanto mide el control. Antes reclamaba el ancho de su
+            opcion mas larga y descuadraba la fila de tres.
+          -->
           <select class="ls__orden-sel" [value]="orden()"
                   (change)="alCambiarOrden($event)" aria-label="Ordenar resultados">
             @for (o of ordenes(); track o.valor) {
               <option [value]="o.valor">{{ o.etiqueta }}</option>
             }
           </select>
-          <rs-icon name="chevron-down" [size]="14" [stroke]="2.5" />
         </label>
 
         <button type="button" class="ls__btn ls__btn--filtros"
@@ -365,11 +373,15 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
 
     .ls__orden-estrella { color: var(--dk-gold); flex: none; }
 
+    .ls__orden-txt {
+      min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-size: var(--f-sm); font-weight: var(--w-7); color: var(--dk-blue);
+    }
     .ls__orden-sel {
-      appearance: none; border: 0; background: transparent; outline: none; cursor: pointer;
-      padding-right: var(--sp-4); margin-right: calc(var(--sp-4) * -1);
-      font-family: var(--font); font-size: var(--f-sm); font-weight: var(--w-7);
-      color: var(--dk-blue);
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      appearance: none; border: 0; background: transparent; outline: none;
+      opacity: 0; cursor: pointer;
     }
     .ls__orden rs-icon { pointer-events: none; }
     .ls__orden > rs-icon:last-child { color: var(--dk-blue); }
@@ -402,24 +414,45 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
       .ls__count { font-size: var(--f-xs); }
       .ls__count strong { font-size: var(--f-sm); }
       /*
-        Los tres controles no se reparten el ancho a partes iguales: con un
-        tercio de pantalla no cabia "Recomendados" con su estrella y la regla
-        de entonces escondia los iconos. Ahora cada pastilla mide lo suyo y la
-        fila rueda en horizontal si no caben, que es preferible a quitarles el
-        icono.
+        Las tres pastillas van en una fila, alineadas y del mismo ancho. Que
+        sean iguales solo es posible porque ninguna la mide ya su contenido
+        nativo: el select va oculto encima de una etiqueta normal. Se sangra
+        hasta el borde de la pantalla porque los 24 px de margen a cada lado
+        son justo lo que le falta a "Recomendados" para caber con su estrella.
       */
+      /* Las tres pastillas, del mismo ancho y en la misma fila, alineadas con
+         el buscador y el reclamo de arriba (mismo margen del contenedor). */
       .ls__acciones {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        align-items: center;
         gap: var(--sp-2);
-        overflow-x: auto;
-        scrollbar-width: none;
-        /* Sangra hasta el borde: una pastilla cortada a media pantalla parece
-           un fallo; cortada en el borde se lee como "hay más, desliza". */
-        margin-inline: calc(var(--sp-6) * -1);
-        padding-inline: var(--sp-6);
       }
-      .ls__acciones::-webkit-scrollbar { display: none; }
-      .ls__orden, .ls__btn { flex: none; }
+
+      /* Los bocetos pintan las tres pastillas con un solo icono y su etiqueta.
+         La flecha del desplegable se queda para escritorio: en movil son los
+         16 px que le faltan a "Recomendados" para caber sin recortarse, y la
+         pastilla ya se abre tocandola en cualquier punto. */
+      .ls__orden > rs-icon:last-of-type { display: none; }
+
+      /*
+        Medido en el navegador: sin relleno lateral, la pastilla necesita 105 px
+        para "Recomendados" con su estrella, y a un tercio de pantalla los tiene
+        de sobra desde los 365 px de ancho. El contenido va centrado, asi que el
+        aire lo pone el hueco que sobra. Los criterios de nombre largo ("Precio:
+        de menor a mayor") se acortan con puntos suspensivos.
+      */
+      .ls__orden, .ls__btn {
+        width: 100%;
+        min-width: 0;
+        height: 42px;
+        padding-inline: 0;
+        gap: 2px;
+        justify-content: center;
+        font-size: var(--f-xs);
+        white-space: nowrap;
+      }
+      .ls__orden-txt { font-size: var(--f-xs); }
     }
 
     /* ── Filtros aplicados ────────────────────────────────────── */
@@ -658,6 +691,15 @@ export class RsListadoComponent {
   alEscape(): void {
     if (this.filtrosAbiertos()) this.cerrarFiltros();
   }
+
+  /**
+   * Lo que se pinta dentro de la pastilla. Se saca del catalogo y no del
+   * select porque el select esta oculto: es el que abre el selector nativo,
+   * pero el ancho del control lo marca este texto.
+   */
+  readonly etiquetaOrden = computed(
+    () => this.ordenes().find((o) => o.valor === this.orden())?.etiqueta ?? '',
+  );
 
   alCambiarOrden(evento: Event): void {
     this.ordenCambio.emit((evento.target as HTMLSelectElement).value);

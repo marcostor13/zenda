@@ -48,6 +48,17 @@ describe('tarjeta de resultado en móvil', () => {
     // línea propia: dos filas más de alto por tarjeta.
     const pie = hoja.slice(hoja.indexOf('.rs-hotel-card__pie .rs-hotel-card__cta'));
     expect(pie.slice(0, 260)).toContain('width: auto');
-    expect(bloqueMovil).toContain('flex-wrap: nowrap');
+  });
+
+  it('debería quitar el aire que el cuerpo hereda de escritorio', () => {
+    // `min-height` es lo que da el alto a `.rs-btn`: sin bajarlo, el botón
+    // seguía midiendo 44 px por mucho `height` que se le pusiera.
+    expect(bloqueMovil).toContain('min-height: 36px');
+    expect(bloqueMovil).toContain('margin-top: 0');
+    expect(bloqueMovil).toMatch(/__meta \{[^}]*margin-bottom: 0/);
+  });
+
+  it('debería esconder la acción que sólo repite el enlace de la tarjeta', () => {
+    expect(bloqueMovil).toMatch(/\.rs-hotel-card__cta--escritorio \{ display: none; \}/);
   });
 });

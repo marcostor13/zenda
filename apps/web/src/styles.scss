@@ -1205,7 +1205,8 @@ h1, h2, h3, h4, h5, h6 {
       top: var(--sp-2); left: var(--sp-2);
       gap: var(--sp-1);
       flex-wrap: nowrap;
-      max-width: calc(100% - var(--sp-4));
+      /* Lo que queda de la foto a la izquierda del corazon de favoritos. */
+      max-width: 58%;
 
       .rs-badge {
         font-size: 9px;
@@ -1218,7 +1219,7 @@ h1, h2, h3, h4, h5, h6 {
 
     .rs-hotel-card__wishlist { width: 28px; height: 28px; top: var(--sp-2); right: var(--sp-2); }
 
-    .rs-hotel-card__body { padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); gap: var(--sp-1); }
+    .rs-hotel-card__body { padding: var(--sp-2) var(--sp-3); gap: var(--sp-1); }
 
     .rs-hotel-card__name {
       font-size: var(--f-lg);
@@ -1229,7 +1230,14 @@ h1, h2, h3, h4, h5, h6 {
       overflow: hidden;
     }
 
-    .rs-hotel-card__meta { font-size: var(--f-xs); gap: var(--sp-1) var(--sp-2); }
+    /* Las separaciones de escritorio (el margen bajo la valoracion y el que
+       el boton arrastra de `&__cta`) sumaban 28 px de aire dentro de una
+       tarjeta que aqui mide 140. Las marca el `gap` del cuerpo. */
+    .rs-hotel-card__meta { font-size: var(--f-xs); gap: var(--sp-1) var(--sp-2); margin-bottom: 0; }
+    /* La ciudad se cae en movil: los resultados ya vienen filtrados por ella,
+       asi que repetirla en cada tarjeta costaba una linea entera. Los bocetos
+       tampoco la traen. En escritorio se queda. */
+    .rs-hotel-card__meta-loc { display: none; }
     .rs-hotel-card__amenities { margin-bottom: 0; gap: var(--sp-1); flex-wrap: nowrap; overflow: hidden; }
     .rs-hotel-card__amenities .rs-amenity {
       font-size: var(--f-xs);
@@ -1248,20 +1256,36 @@ h1, h2, h3, h4, h5, h6 {
     .rs-hotel-card__destacados { display: none; }
     .rs-hotel-card__nota { display: none; }
 
-    .rs-hotel-card__pie { padding-top: var(--sp-2); gap: var(--sp-2); flex-wrap: nowrap; }
-    .rs-hotel-card__pie .rs-price { min-width: 0; }
+    /*
+      El pie envuelve si no cabe. En 211 px de cuerpo entran el importe con su
+      unidad y una accion corta; una etiqueta larga como "Ver disponibilidad"
+      se lleva su propia linea antes que recortar el precio, que es el dato por
+      el que se compara.
+    */
+    .rs-hotel-card__pie { padding-top: var(--sp-2); gap: var(--sp-1) var(--sp-2); flex-wrap: wrap; }
+    /* El importe y su unidad, en la misma linea: partidos en dos ocupaban el
+       doble y eran la fila mas alta de la tarjeta. */
+    .rs-hotel-card__pie-precio { flex: 1 1 auto; flex-wrap: nowrap; }
+    .rs-hotel-card__pie .rs-price { flex-wrap: nowrap; }
+    .rs-hotel-card__pie .rs-hotel-card__cta { flex: none; }
+    .rs-hotel-card__cta--escritorio { display: none; }
     .rs-hotel-card__pie .rs-price__amount { font-size: var(--f-lg); }
-    .rs-hotel-card__pie .rs-price__period { font-size: var(--f-xs); }
+    .rs-hotel-card__pie .rs-price__period { font-size: var(--f-xs); white-space: nowrap; }
     .rs-hotel-card__pie .rs-hotel-card__cta {
       font-size: var(--f-xs);
       padding-inline: var(--sp-3);
-      height: 34px;
+      /* `min-height` es lo que da el alto a `.rs-btn`, asi que sin bajarlo el
+         boton seguia midiendo 44 px por mucho que se le pusiera `height`. */
+      height: 36px;
+      min-height: 36px;
+      margin-top: 0;
     }
   }
 
-  /* Pantallas muy estrechas: la foto encoge un poco mas para que el nombre no
-     se parta en tres lineas. */
-  @media (max-width: 400px) {
+  /* Pantallas muy estrechas de verdad (Android de 360 px): la foto encoge un
+     poco mas para que el nombre no se parta en tres lineas. El corte estaba en
+     400 px y se comia el caso normal, un movil de 390. */
+  @media (max-width: 365px) {
     .rs-hotel-card__img { width: 88px; flex: 0 0 88px; }
     .rs-hotel-card__body { padding: var(--sp-3); }
   }

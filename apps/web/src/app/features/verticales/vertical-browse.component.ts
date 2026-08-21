@@ -261,6 +261,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
           [favoritoServicioId]="c.id"
           [routerLink]="enlaceAServicio(cfg().vertical, c.id)"
           ctaLabel="Ver ficha"
+          [accionSoloEscritorio]="!!enlaceAServicio(cfg().vertical, c.id)"
           [mensaje]="solicitadoId() === c.id ? cfg().confirmMsg : ''"
           (ctaClick)="solicitar(c)">
         </rs-card>

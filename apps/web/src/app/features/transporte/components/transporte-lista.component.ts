@@ -69,7 +69,8 @@ import { euros } from '../../../shared/pipes/euros.pipe';
           [destacados]="incluyeDe(t)"
           [favoritoServicioId]="t.id"
           [routerLink]="['/transporte', t.id]"
-          ctaLabel="Ver ficha">
+          ctaLabel="Ver ficha"
+          [accionSoloEscritorio]="true">
         </rs-card>
       }
     </div>

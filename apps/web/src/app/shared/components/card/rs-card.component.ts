@@ -171,7 +171,9 @@ export interface CardPrice {
         @if (mensaje()) {
           <div class="rs-alert rs-alert--success rs-hotel-card__cta">{{ mensaje() }}</div>
         } @else if (ctaLabel()) {
-          <button type="button" class="rs-btn rs-btn--primary rs-btn--block rs-hotel-card__cta"
+          <button type="button"
+                  class="rs-btn rs-btn--primary rs-btn--block rs-hotel-card__cta"
+                  [class.rs-hotel-card__cta--escritorio]="accionSoloEscritorio()"
                   (click)="onCtaClick($event)">
             {{ ctaLabel() }}
           </button>
@@ -262,6 +264,16 @@ export class RsCardComponent {
 
   /** Letra pequeña bajo el precio ("IVA incluido"). Solo en horizontal. */
   readonly notaPrecio = input<string>('');
+
+  /**
+   * El botón sólo lleva a donde ya lleva la tarjeta entera. En móvil se
+   * esconde: el ancho del cuerpo no da para el precio con su unidad y una
+   * etiqueta larga a la vez, y de las dos cosas la que se puede quitar sin
+   * perder nada es el botón, porque tocar la tarjeta hace lo mismo. Los
+   * listados cuyo botón hace algo más (solicitar una cita, por ejemplo) lo
+   * dejan en false.
+   */
+  readonly accionSoloEscritorio = input(false);
   readonly favoritoServicioId = input<string | null>(null);
   /** Si se define, toda la tarjeta se renderiza como `<a routerLink>` (SEO, ctrl+click) en vez de `<article (click)>`. */
   readonly routerLink = input<string | unknown[] | null>(null);

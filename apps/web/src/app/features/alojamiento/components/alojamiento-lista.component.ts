@@ -90,7 +90,8 @@ interface BusquedaUrl {
           [favoritoServicioId]="a.id"
           [routerLink]="['/alojamiento', a.id]"
           [queryParams]="queryParamsDetalle()"
-          ctaLabel="Ver disponibilidad">
+          ctaLabel="Ver disponibilidad"
+          [accionSoloEscritorio]="true">
         </rs-card>
       }
     </div>
