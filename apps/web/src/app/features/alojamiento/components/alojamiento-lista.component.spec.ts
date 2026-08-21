@@ -232,4 +232,40 @@ describe('AlojamientoListaComponent', () => {
       expect(component.alojamientos()).toEqual([cardMock]);
     });
   });
+  /**
+   * En la pagina de resultados el buscador se ve siempre. Antes, en movil, los
+   * campos se plegaban tras una pastilla que habia que tocar para buscar otra
+   * cosa.
+   */
+  describe('buscador de la pagina de resultados', () => {
+    it('deberia mostrar los campos sin tener que desplegar nada', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('.ls__buscador-campos')).not.toBeNull();
+    });
+
+    it('no deberia quedar ni rastro del plegado', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('.ls__buscador-pill')).toBeNull();
+      expect(el.querySelector('.ls__buscador.is-plegado')).toBeNull();
+    });
+
+    it('deberia encabezar los resultados con el reclamo y su ilustracion', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('.ls__reclamo-txt h1')?.textContent?.trim())
+        .toBe('Un lugar seguro mientras tú no estás');
+      expect(el.querySelector('.ls__reclamo-art img')).not.toBeNull();
+    });
+  });
 });

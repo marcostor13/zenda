@@ -65,34 +65,28 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
        de pantalla en escritorio y 489 de los 915 en móvil. Lo que se queda
        fija es la barra de control, que es lo que se usa mientras se recorre
        la lista (mismo reparto que en Booking). -->
-  <div class="ls__buscador" [class.is-plegado]="!buscadorAbierto()">
+  <div class="ls__buscador">
     <div class="rs-wrap">
-      <!-- En móvil los cuatro campos apilados ocupaban 327 px del primer
-           pantallazo antes de enseñar un solo resultado. Se resumen en una
-           pastilla que se despliega al tocarla, como la barra de Airbnb sobre
-           sus resultados. En escritorio caben en una fila y no se pliega. -->
-      <button type="button" class="ls__buscador-pill" (click)="buscadorAbierto.set(true)"
-              [attr.aria-expanded]="buscadorAbierto()">
-        <rs-icon name="search" [size]="17" [stroke]="2.5" />
-        <span class="ls__buscador-pill-txt">
-          <strong>{{ ciudad() || 'Buscar' }}</strong>
-          @if (contexto().length) { <span>{{ contexto().join(' · ') }}</span> }
-          @else { <span>Cualquier fecha</span> }
-        </span>
-        <span class="ls__buscador-pill-editar" aria-hidden="true">
-          <rs-icon name="pencil" [size]="14" [stroke]="2" />
-        </span>
-      </button>
-
       <div class="ls__buscador-campos"><ng-content select="[listadoBuscador]" /></div>
     </div>
   </div>
 
+  <!--
+    Reclamo de la categoría. Ocupa el sitio del antiguo titular: decían casi lo
+    mismo, y con la ilustración al lado se entiende de un vistazo qué se está
+    buscando. El h1 sigue existiendo aquí dentro, que es lo que la página
+    necesita para tener un encabezado.
+  -->
   <div class="rs-wrap">
-    <header class="ls__head">
-      <h1>{{ titulo() }}</h1>
-      @if (subtitulo()) { <p>{{ subtitulo() }}</p> }
-    </header>
+    <section class="ls__reclamo">
+      <span class="ls__reclamo-art" aria-hidden="true">
+        <img [src]="reclamoIcono()" alt="" />
+      </span>
+      <div class="ls__reclamo-txt">
+        <h1>{{ reclamoTitulo() || titulo() }}</h1>
+        <p>{{ reclamoTexto() || subtitulo() }}</p>
+      </div>
+    </section>
   </div>
 
   <!-- ── BARRA DE CONTROL ─────────────────────────────────────── -->
@@ -264,56 +258,64 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
       box-shadow: var(--sh-sm);
       border-bottom: 1px solid var(--b-1);
     }
-    /* La pastilla solo existe en móvil. */
-    .ls__buscador-pill { display: none; }
-
     @media (max-width: 700px) {
       .ls__buscador { padding-block: var(--sp-3); }
-
-      .ls__buscador-pill {
-        display: flex; align-items: center; gap: var(--sp-3);
-        width: 100%; min-height: 52px;
-        padding: var(--sp-2) var(--sp-3);
-        border: 1px solid var(--b-2); border-radius: var(--r-full);
-        background: var(--c-card); box-shadow: var(--sh-sm);
-        text-align: left; cursor: pointer;
-        transition: box-shadow var(--d-2), border-color var(--d-2);
-      }
-      .ls__buscador-pill:hover { box-shadow: var(--sh-md); border-color: var(--b-a); }
-      .ls__buscador-pill > rs-icon { flex: none; color: var(--dk-blue); }
-      .ls__buscador-pill-txt {
-        flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25;
-
-        strong {
-          font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100);
-          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        span {
-          font-size: var(--f-xs); color: var(--t-400);
-          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-      }
-      .ls__buscador-pill-editar {
-        flex: none; display: grid; place-items: center;
-        width: 32px; height: 32px; border-radius: var(--r-full);
-        background: var(--c-raised); color: var(--t-300);
-      }
-
-      .ls__buscador.is-plegado .ls__buscador-campos { display: none; }
-      .ls__buscador:not(.is-plegado) .ls__buscador-pill { display: none; }
     }
 
-    .ls__head { padding-block: var(--sp-8) var(--sp-5); }
-    .ls__head h1 {
+    /* ══ RECLAMO DE LA CATEGORÍA ══════════════════════════════════════
+       Ilustración grande a la izquierda y el mensaje al lado. En móvil la
+       ilustración encoge pero no se quita: es lo que da carácter a la
+       pantalla y lo primero que se mira. */
+    .ls__reclamo {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-5);
+      margin-block: var(--sp-6);
+      padding: var(--sp-5) var(--sp-6);
+      background: rgba(251,174,23,.08);
+      border: 1px solid rgba(251,174,23,.28);
+      border-radius: var(--r-2xl);
+    }
+
+    .ls__reclamo-art {
+      flex: none;
+      display: grid; place-items: center;
+      width: 92px; height: 92px;
+      border-radius: var(--r-full);
+      background: var(--c-card);
+      box-shadow: var(--sh-sm);
+
+      img { width: 54px; height: 54px; display: block; }
+    }
+
+    .ls__reclamo-txt h1 {
       font-family: var(--font-display);
-      font-size: var(--f-3xl); color: var(--dk-blue);
-      letter-spacing: -.02em; line-height: 1.15;
+      font-size: var(--f-xl);
+      font-weight: var(--w-8);
+      color: var(--dk-blue);
+      line-height: 1.2;
+      letter-spacing: -.01em;
+      margin-bottom: var(--sp-2);
     }
-    .ls__head p { color: var(--t-400); max-width: 62ch; margin-top: var(--sp-2); font-size: var(--f-md); }
-    @media (max-width: 640px) {
-      .ls__head { padding-block: var(--sp-5) var(--sp-4); }
-      .ls__head h1 { font-size: var(--f-2xl); }
-      .ls__head p { font-size: var(--f-sm); }
+    .ls__reclamo-txt p {
+      font-size: var(--f-sm);
+      color: var(--t-300);
+      line-height: 1.6;
+      max-width: 62ch;
+    }
+
+    @media (max-width: 700px) {
+      .ls__reclamo {
+        gap: var(--sp-4);
+        margin-block: var(--sp-4);
+        padding: var(--sp-4);
+      }
+      .ls__reclamo-art {
+        width: 64px; height: 64px;
+        img { width: 38px; height: 38px; }
+      }
+      .ls__reclamo-txt h1 { font-size: var(--f-md); }
+      .ls__reclamo-txt p { font-size: var(--f-xs); }
     }
 
     /* ── Barra de control ─────────────────────────────────────── */
@@ -564,6 +566,15 @@ export class RsListadoComponent {
 
   readonly titulo = input.required<string>();
   readonly subtitulo = input('');
+
+  /**
+   * Reclamo de la categoría, bajo el buscador. Si no llega, se cae al
+   * titular y al subtitular de siempre, así que ninguna vista se queda sin
+   * encabezado por no pasarlo.
+   */
+  readonly reclamoTitulo = input('');
+  readonly reclamoTexto = input('');
+  readonly reclamoIcono = input('');
   /** Categoría; decide los grupos del panel de filtros. */
   readonly vertical = input.required<string>();
 
@@ -601,7 +612,6 @@ export class RsListadoComponent {
 
   readonly filtrosAbiertos = signal(false);
   /** Solo aplica en móvil: en escritorio el buscador está siempre desplegado. */
-  readonly buscadorAbierto = signal(false);
   private readonly filtros = signal<FiltrosSeleccionados>({ vertical: {} });
   private readonly panelFiltros = viewChild<RsFiltrosListadoComponent>('panelFiltros');
 

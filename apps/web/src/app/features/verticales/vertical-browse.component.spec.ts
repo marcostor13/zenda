@@ -132,13 +132,22 @@ describe('VerticalBrowseComponent', () => {
 
   it('debería titular la vista con el copy de marca de la categoría', async () => {
     await crearComponente('peluqueria', { ciudad: 'Sevilla' });
-    const el: HTMLElement = fixture.nativeElement;
 
     expect(component.titular()).toBe('El cuidado que merece');
     expect(component.subtitular()).toBe(
       'Encuentra y reserva el cuidado ideal para su pelo, su piel y bienestar.',
     );
-    expect(el.querySelector('.ls__head h1')?.textContent?.trim()).toBe('El cuidado que merece');
+  });
+
+  it('debería encabezar los resultados con el reclamo de la categoría', async () => {
+    // El reclamo ocupa el sitio del antiguo titular: dice lo mismo mejor y
+    // viene con la ilustración al lado.
+    await crearComponente('peluqueria', { ciudad: 'Sevilla' });
+    const el: HTMLElement = fixture.nativeElement;
+
+    expect(el.querySelector('.ls__reclamo-txt h1')?.textContent?.trim())
+      .toBe('Bienestar y belleza para tu mejor amigo');
+    expect(el.querySelector('.ls__reclamo-art img')).not.toBeNull();
   });
 
   it('debería situar la ciudad buscada junto al recuento de resultados', async () => {

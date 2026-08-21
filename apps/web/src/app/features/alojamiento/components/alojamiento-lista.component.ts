@@ -46,6 +46,8 @@ interface BusquedaUrl {
 
   <rs-listado
     [titulo]="titular" [subtitulo]="subtitular"
+    [reclamoTitulo]="ui.reclamo.titulo" [reclamoTexto]="ui.reclamo.texto"
+    [reclamoIcono]="ui.icono"
     [vertical]="ui.key"
     [total]="totalItems()" [mostrados]="alojamientos().length"
     [cargando]="cargando()" [cargandoMas]="cargandoMas()"

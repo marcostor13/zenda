@@ -197,6 +197,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
 
   <rs-listado
     [titulo]="titular()" [subtitulo]="subtitular()"
+    [reclamoTitulo]="ui().reclamo.titulo" [reclamoTexto]="ui().reclamo.texto"
+    [reclamoIcono]="ui().icono"
     [vertical]="cfg().vertical"
     [total]="total()" [mostrados]="items().length"
     [cargando]="cargando()" [cargandoMas]="cargandoMas()"

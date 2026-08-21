@@ -34,6 +34,8 @@ import { euros } from '../../../shared/pipes/euros.pipe';
 
   <rs-listado
     [titulo]="titular" [subtitulo]="subtitular"
+    [reclamoTitulo]="ui.reclamo.titulo" [reclamoTexto]="ui.reclamo.texto"
+    [reclamoIcono]="ui.icono"
     [vertical]="ui.key"
     [total]="total()" [mostrados]="transportes().length"
     [cargando]="cargando()" [cargandoMas]="cargandoMas()"

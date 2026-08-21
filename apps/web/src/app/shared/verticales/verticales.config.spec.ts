@@ -148,3 +148,43 @@ describe('enlaceAServicio', () => {
     expect(enlaceAServicio('inventado', 's1')).toEqual(['/alojamiento']);
   });
 });
+
+/**
+ * Reclamo de la página de resultados: la frase y el texto que van bajo el
+ * buscador, junto a la ilustración de la categoría.
+ */
+describe('reclamo de la categoria', () => {
+  it('deberia haber uno por categoria', () => {
+    for (const v of VERTICALES_UI) {
+      expect(v.reclamo.titulo).toBeTruthy();
+      expect(v.reclamo.texto).toBeTruthy();
+    }
+  });
+
+  it('deberia ser distinto en cada categoria', () => {
+    // Si dos compartieran reclamo, cambiar de servicio no cambiaria nada.
+    const titulos = new Set(VERTICALES_UI.map((v) => v.reclamo.titulo));
+
+    expect(titulos.size).toBe(VERTICALES_UI.length);
+  });
+
+  it('deberia explicar, no solo titular', () => {
+    for (const v of VERTICALES_UI) {
+      expect(v.reclamo.texto.length).toBeGreaterThan(50);
+    }
+  });
+
+  it('no deberia repetir el gancho de la portada', () => {
+    // `claim` es el gancho de las tarjetas del home; este habla a quien ya
+    // esta buscando. Son dos textos y dos sitios distintos.
+    for (const v of VERTICALES_UI) {
+      expect(v.reclamo.titulo).not.toBe(v.claim);
+    }
+  });
+
+  it('deberia tener ilustracion propia', () => {
+    for (const v of VERTICALES_UI) {
+      expect(v.icono).toContain('.svg');
+    }
+  });
+});

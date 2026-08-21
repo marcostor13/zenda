@@ -35,6 +35,14 @@ export interface VerticalUi {
   readonly titular?: string;
   /** Subtitular emocional bajo el titular. Si falta, la vista usa `descripcion`. */
   readonly subtitular?: string;
+  /**
+   * Reclamo que se pinta bajo el buscador en la página de resultados, con la
+   * ilustración de la categoría al lado.
+   *
+   * Va aparte de `titular`/`subtitular`, que encabezan la vista: este habla al
+   * que ya está buscando y le dice por qué merece la pena reservar aquí.
+   */
+  readonly reclamo: { readonly titulo: string; readonly texto: string };
   /** true = se reserva por noches (entrada/salida); false = cita puntual. */
   readonly reservaPorNoches: boolean;
   /**
@@ -73,6 +81,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad de la clínica',
     labelFecha: 'Fecha de la cita',
+    reclamo: {
+      titulo: 'Cuidar su salud es cuidar su felicidad',
+      texto: 'Encuentra clínicas y veterinarios certificados con atención profesional, cercana y de confianza para tu mejor amigo.',
+    },
   },
   {
     key: VerticalKey.PELUQUERIA,
@@ -90,6 +102,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
     labelFecha: 'Fecha de la cita',
+    reclamo: {
+      titulo: 'Bienestar y belleza para tu mejor amigo',
+      texto: 'Reserva con peluquerías caninas profesionales para mantener a tu perro limpio, cómodo y con el mejor estilo.',
+    },
   },
   {
     key: VerticalKey.ALOJAMIENTO,
@@ -108,6 +124,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
     labelFecha: 'Entrada',
+    reclamo: {
+      titulo: 'Un lugar seguro mientras tú no estás',
+      texto: 'Encuentra residencias y guarderías caninas con experiencia, atención personalizada y tranquilidad para tu mascota.',
+    },
   },
   {
     key: VerticalKey.TRANSPORTE,
@@ -124,6 +144,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: 'Recogida',
     placeholderUbicacion: 'Ciudad de recogida',
     labelFecha: 'Fecha del traslado',
+    reclamo: {
+      titulo: 'Traslados cómodos y seguros para tu mascota',
+      texto: 'Profesionales del transporte para que tu compañero viaje con tranquilidad, puntualidad y confianza.',
+    },
   },
   {
     key: VerticalKey.ADIESTRAMIENTO,
@@ -141,6 +165,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
     labelFecha: 'Fecha de la sesión',
+    reclamo: {
+      titulo: 'Cada perro tiene su camino',
+      texto: 'Educación, adiestramiento, socialización y modificación de conducta. Reserva tu cita y valora con el profesional el mejor camino para alcanzar tus objetivos.',
+    },
   },
   {
     key: VerticalKey.HOTELES,
@@ -157,6 +185,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad o destino',
     labelFecha: 'Entrada',
+    reclamo: {
+      titulo: 'Viajar juntos también es parte del plan',
+      texto: 'Descubre alojamientos pet-friendly cuidadosamente seleccionados para que disfrutéis juntos de cada destino.',
+    },
   },
   {
     key: VerticalKey.SEGUROS,
@@ -175,6 +207,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: '¿Dónde resides?',
     placeholderUbicacion: 'Ciudad de residencia',
     labelFecha: 'Inicio de la cobertura',
+    reclamo: {
+      titulo: 'Tranquilidad para lo que no se puede prever',
+      texto: 'Compara pólizas para tu mascota y protégela frente a imprevistos veterinarios y de responsabilidad civil.',
+    },
   },
   {
     key: VerticalKey.CUIDADORES,
@@ -192,6 +228,10 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
     labelFecha: 'Fecha del servicio',
+    reclamo: {
+      titulo: 'Su casa, su gente, su rutina',
+      texto: 'Paseadores y cuidadores verificados que van a tu domicilio para que tu perro no cambie de costumbres.',
+    },
   },
 ];
 
