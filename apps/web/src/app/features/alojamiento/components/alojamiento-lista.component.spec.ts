@@ -257,6 +257,19 @@ describe('AlojamientoListaComponent', () => {
       expect(el.querySelector('.ls__buscador.is-plegado')).toBeNull();
     });
 
+    it('deberia destacar en dorado el criterio de orden', async () => {
+      // Es con lo que se esta mirando la lista: los bocetos lo pintan con la
+      // estrella rellena y borde dorado, y los otros dos controles en gris.
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      const orden = el.querySelector('.ls__orden');
+      expect(orden?.querySelector('.ls__orden-estrella')).not.toBeNull();
+      expect(orden?.querySelector('select')).not.toBeNull();
+    });
+
     it('deberia encabezar los resultados con el reclamo y su ilustracion', async () => {
       fixture.detectChanges();
       await fixture.whenStable();

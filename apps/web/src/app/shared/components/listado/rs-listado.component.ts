@@ -103,8 +103,13 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
       </p>
 
       <div class="ls__acciones">
+        <!--
+          Sigue siendo un select nativo por debajo: abre el selector del
+          sistema, se recorre con el teclado y lo lee un lector de pantalla.
+          Sólo cambia el envoltorio, que es lo que se ve.
+        -->
         <label class="ls__orden">
-          <span class="ls__orden-lbl">Ordenar por</span>
+          <rs-icon class="ls__orden-estrella" name="star" [size]="17" [filled]="true" />
           <select class="ls__orden-sel" [value]="orden()"
                   (change)="alCambiarOrden($event)" aria-label="Ordenar resultados">
             @for (o of ordenes(); track o.valor) {
@@ -345,24 +350,29 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
 
     .ls__acciones { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 
+    /* El orden es el criterio con el que se está mirando la lista, así que va
+       destacado en dorado y los otros dos controles quedan en gris. */
     .ls__orden {
       position: relative;
       display: flex; align-items: center; gap: var(--sp-2);
-      height: 44px; padding-inline: var(--sp-3);
-      border: 1px solid var(--b-2); border-radius: var(--r-full);
+      height: 44px; padding-inline: var(--sp-4);
+      border: 2px solid var(--dk-gold); border-radius: var(--r-full);
       background: var(--c-card); cursor: pointer;
-      transition: border-color var(--d-2), background var(--d-2);
+      transition: box-shadow var(--d-2), background var(--d-2);
     }
-    .ls__orden:hover { border-color: var(--b-a); background: var(--c-raised); }
-    .ls__orden:focus-within { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-lo); }
-    .ls__orden-lbl { font-size: var(--f-xs); color: var(--t-400); font-weight: var(--w-5); white-space: nowrap; }
+    .ls__orden:hover { background: rgba(251,174,23,.08); }
+    .ls__orden:focus-within { box-shadow: 0 0 0 3px rgba(251,174,23,.28); }
+
+    .ls__orden-estrella { color: var(--dk-gold); flex: none; }
+
     .ls__orden-sel {
       appearance: none; border: 0; background: transparent; outline: none; cursor: pointer;
       padding-right: var(--sp-4); margin-right: calc(var(--sp-4) * -1);
-      font-family: var(--font); font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100);
+      font-family: var(--font); font-size: var(--f-sm); font-weight: var(--w-7);
+      color: var(--dk-blue);
     }
-    .ls__orden rs-icon { color: var(--t-400); pointer-events: none; }
-    @media (max-width: 520px) { .ls__orden-lbl { display: none; } }
+    .ls__orden rs-icon { pointer-events: none; }
+    .ls__orden > rs-icon:last-child { color: var(--dk-blue); }
 
     /* 44 px de alto: es el minimo comodo para el pulgar, y estos tres controles
        son los que mas se tocan de la pantalla. */

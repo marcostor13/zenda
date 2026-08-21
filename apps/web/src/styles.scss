@@ -1101,12 +1101,14 @@ h1, h2, h3, h4, h5, h6 {
   align-items: stretch;
 
   .rs-hotel-card__img {
-    /* Ancho fijo y alto completo: la foto no manda sobre el alto de la
-       tarjeta, que lo decide el contenido. */
-    width: 270px;
-    flex: 0 0 270px;
-    aspect-ratio: auto;
-    align-self: stretch;
+    /* Cuadrada y con margen dentro de la tarjeta, como en los bocetos: la foto
+       acompaña al nombre en vez de partir la tarjeta en dos mitades. */
+    width: 168px;
+    flex: 0 0 168px;
+    aspect-ratio: 1;
+    align-self: flex-start;
+    margin: var(--sp-4) 0 var(--sp-4) var(--sp-4);
+    border-radius: var(--r-xl);
 
     /* Y para que eso sea cierto hay que sacar la foto del flujo. Con
        `height: 100%` dentro de un contenedor de alto indefinido, el navegador
@@ -1125,7 +1127,9 @@ h1, h2, h3, h4, h5, h6 {
   .rs-hotel-card__body {
     flex: 1;
     min-width: 0;
-    padding: var(--sp-5) var(--sp-5) var(--sp-5) var(--sp-6);
+    display: flex;
+    flex-direction: column;
+    padding: var(--sp-4) var(--sp-5);
   }
 
   .rs-hotel-card__name {
@@ -1140,51 +1144,55 @@ h1, h2, h3, h4, h5, h6 {
      reservado de la tarjeta en columna solo dejaría un vacío raro. */
   .rs-hotel-card__amenities { min-height: 0; margin-bottom: var(--sp-2); }
 
-  .rs-hotel-card__aside {
-    flex: 0 0 200px;
+  /* Pie del cuerpo: el precio a la izquierda y la acción a la derecha, en la
+     misma línea. Se pega abajo para que todas las tarjetas de la fila lo
+     tengan a la misma altura aunque tengan distinto número de etiquetas. */
+  .rs-hotel-card__pie {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: flex-start;
-    gap: var(--sp-1);
-    padding: var(--sp-5);
-    border-left: 1px solid var(--b-1);
-    text-align: right;
-
-    .rs-price { flex-direction: column; align-items: flex-end; gap: 0; }
-    .rs-price__amount { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--dk-blue); }
-    .rs-price__period { font-size: var(--f-xs); color: var(--t-400); }
-
-    /* El botón se separa del precio y se pega abajo, de modo que todas las
-       tarjetas lo tengan a la misma distancia del borde inferior. */
-    .rs-hotel-card__cta { margin-top: auto; width: 100%; }
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    margin-top: auto;
+    padding-top: var(--sp-3);
   }
+
+  .rs-hotel-card__pie-precio { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+
+  .rs-hotel-card__pie .rs-price { align-items: baseline; gap: var(--sp-2); }
+  .rs-hotel-card__pie .rs-price__amount { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--dk-blue); }
+  .rs-hotel-card__pie .rs-price__period { font-size: var(--f-sm); color: var(--t-400); }
+  .rs-hotel-card__pie .rs-hotel-card__cta { width: auto; flex: none; }
 
   .rs-hotel-card__nota { font-size: var(--f-xs); color: var(--t-500); }
 
-  /* Móvil: no caben tres columnas, así que vuelve a apilarse. */
+  /* Móvil: la tarjeta NO se apila. Antes pasaba a columna con una foto 16/9
+     que ocupaba media pantalla y dejaba dos resultados por pantallazo; en
+     apaisado con la foto pequeña se ven cuatro, que es lo que enseñan los
+     bocetos. Sólo encoge la foto y baja el cuerpo de tamaño. */
   @media (max-width: 860px) {
-    --rs-card-dir: column;
+    min-height: 0;
 
-    /* En columna la foto vuelve al flujo: aqui si debe marcar su propio alto
-       con la proporcion 16/9, que es lo que reserva el hueco. */
-    .rs-hotel-card__img { width: 100%; flex: none; aspect-ratio: 16/9; }
-    .rs-hotel-card__img img { position: static; }
-    .rs-hotel-card__body { padding: var(--sp-5); }
-
-    .rs-hotel-card__aside {
-      flex: none;
-      flex-direction: row;
-      align-items: flex-end;
-      justify-content: space-between;
-      border-left: none;
-      border-top: 1px solid var(--b-1);
-      text-align: left;
-      padding-top: var(--sp-4);
-
-      .rs-price { align-items: flex-start; }
-      .rs-hotel-card__cta { margin-top: 0; width: auto; }
+    .rs-hotel-card__img {
+      width: 124px;
+      flex: 0 0 124px;
+      margin: var(--sp-3) 0 var(--sp-3) var(--sp-3);
+      border-radius: var(--r-lg);
     }
+
+    .rs-hotel-card__body { padding: var(--sp-3) var(--sp-4); }
+    .rs-hotel-card__name { font-size: var(--f-md); }
+
+    .rs-hotel-card__pie { padding-top: var(--sp-2); gap: var(--sp-2); }
+    .rs-hotel-card__pie .rs-price__amount { font-size: var(--f-lg); }
+    .rs-hotel-card__pie .rs-price__period { font-size: var(--f-xs); }
+  }
+
+  /* Pantallas muy estrechas: la foto encoge un poco más para que el nombre no
+     se parta en tres líneas. */
+  @media (max-width: 420px) {
+    .rs-hotel-card__img { width: 96px; flex: 0 0 96px; }
+    .rs-hotel-card__body { padding: var(--sp-3); }
   }
 }
 

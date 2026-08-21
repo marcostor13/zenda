@@ -137,19 +137,22 @@ export interface CardPrice {
             </div>
             <ng-container *ngTemplateOutlet="bloqueAccion" />
           }
+          <!--
+            En apaisado el precio cierra el cuerpo, no una columna aparte: es lo
+            último que se lee de cada tarjeta y así queda alineado con el nombre
+            en vez de contra el borde derecho de la pantalla.
+          -->
+          @if (horizontal()) {
+            <div class="rs-hotel-card__pie">
+              <div class="rs-hotel-card__pie-precio">
+                <ng-container *ngTemplateOutlet="bloquePrecio" />
+                @if (notaPrecio()) { <span class="rs-hotel-card__nota">{{ notaPrecio() }}</span> }
+              </div>
+              <ng-container *ngTemplateOutlet="bloqueAccion" />
+            </div>
+          }
           <ng-content select="[cardFooter]" />
         </div>
-
-        <!-- En horizontal el precio y el botón viven en su propia columna, a la
-             derecha y separados por una línea, para que la vista se pueda
-             recorrer comparando precios en vertical. -->
-        @if (horizontal()) {
-          <div class="rs-hotel-card__aside">
-            <ng-container *ngTemplateOutlet="bloquePrecio" />
-            @if (notaPrecio()) { <span class="rs-hotel-card__nota">{{ notaPrecio() }}</span> }
-            <ng-container *ngTemplateOutlet="bloqueAccion" />
-          </div>
-        }
       </ng-template>
 
       <ng-template #bloquePrecio>

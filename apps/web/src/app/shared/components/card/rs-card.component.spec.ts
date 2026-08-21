@@ -74,4 +74,44 @@ describe('RsCardComponent', () => {
     expect(link?.getAttribute('href')).toBe('/alojamiento/a1?ciudad=Madrid');
     expect(el.querySelector('article.rs-hotel-card')).toBeNull();
   });
+  /**
+   * Tarjeta apaisada, la de los listados de resultados. El precio cerraba una
+   * columna a la derecha; en los bocetos cierra el cuerpo, alineado con el
+   * nombre.
+   */
+  describe('tarjeta apaisada', () => {
+    const apaisada = () => {
+      fixture.componentRef.setInput('imageUrl', 'foto.jpg');
+      fixture.componentRef.setInput('title', 'Villa Canina El Bosque');
+      fixture.componentRef.setInput('horizontal', true);
+      fixture.componentRef.setInput('price', { amount: '24 €', period: '/ noche' });
+      fixture.detectChanges();
+    };
+
+    it('deberia cerrar el cuerpo con el precio', () => {
+      apaisada();
+
+      const el: HTMLElement = fixture.nativeElement;
+      const pie = el.querySelector('.rs-hotel-card__body .rs-hotel-card__pie');
+      expect(pie).not.toBeNull();
+      expect(pie?.textContent).toContain('24 €');
+    });
+
+    it('no deberia quedar la columna lateral', () => {
+      apaisada();
+
+      expect(fixture.nativeElement.querySelector('.rs-hotel-card__aside')).toBeNull();
+    });
+
+    it('deberia mantener el precio y la accion en la misma linea', () => {
+      // Precio a la izquierda, accion a la derecha: es lo que muestran los
+      // bocetos y lo que deja comparar de un vistazo.
+      fixture.componentRef.setInput('ctaLabel', 'Ver ficha');
+      apaisada();
+
+      const pie: HTMLElement | null = fixture.nativeElement.querySelector('.rs-hotel-card__pie');
+      expect(pie?.querySelector('.rs-price')).not.toBeNull();
+      expect(pie?.querySelector('.rs-hotel-card__cta')).not.toBeNull();
+    });
+  });
 });
