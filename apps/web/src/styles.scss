@@ -1162,7 +1162,15 @@ h1, h2, h3, h4, h5, h6 {
   .rs-hotel-card__pie .rs-price { align-items: baseline; gap: var(--sp-2); }
   .rs-hotel-card__pie .rs-price__amount { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--dk-blue); }
   .rs-hotel-card__pie .rs-price__period { font-size: var(--f-sm); color: var(--t-400); }
-  .rs-hotel-card__pie .rs-hotel-card__cta { width: auto; flex: none; }
+  .rs-hotel-card__pie .rs-hotel-card__cta {
+    width: auto;
+    flex: none;
+    /* Gana a `.rs-btn--block`, que lo estiraba al ancho del cuerpo y lo
+       empujaba a una línea propia: dos filas más de alto por tarjeta. */
+    min-width: 0;
+    padding-inline: var(--sp-4);
+    white-space: nowrap;
+  }
 
   .rs-hotel-card__nota { font-size: var(--f-xs); color: var(--t-500); }
 
@@ -1173,25 +1181,88 @@ h1, h2, h3, h4, h5, h6 {
   @media (max-width: 860px) {
     min-height: 0;
 
+    /* Medido sobre los bocetos: la foto ocupa el 26 % del ancho de pantalla
+       (102 px en un movil de 390) y su alto no lo marca ella sino el texto de
+       al lado, que es lo que deja la tarjeta en las cuatro filas del boceto.
+       Con `aspect-ratio` fijo la foto imponia su propio alto y sobraba hueco
+       en blanco bajo el precio. */
     .rs-hotel-card__img {
-      width: 124px;
-      flex: 0 0 124px;
+      width: 102px;
+      flex: 0 0 102px;
+      aspect-ratio: auto;
+      align-self: stretch;
       margin: var(--sp-3) 0 var(--sp-3) var(--sp-3);
       border-radius: var(--r-lg);
     }
 
-    .rs-hotel-card__body { padding: var(--sp-3) var(--sp-4); }
-    .rs-hotel-card__name { font-size: var(--f-md); }
+    /* Suelo para que la foto no quede como una tira si el servicio no trae
+       etiquetas ni valoraciones. */
+    min-height: 118px;
 
-    .rs-hotel-card__pie { padding-top: var(--sp-2); gap: var(--sp-2); }
+    /* En 102 px de ancho, los distintivos a tamano de escritorio se salian de
+       la foto (el "ULT. PLAZAS" de la captura). Encogen y no se apilan. */
+    .rs-hotel-card__img-badges {
+      top: var(--sp-2); left: var(--sp-2);
+      gap: var(--sp-1);
+      flex-wrap: nowrap;
+      max-width: calc(100% - var(--sp-4));
+
+      .rs-badge {
+        font-size: 9px;
+        padding: 2px var(--sp-2);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    .rs-hotel-card__wishlist { width: 28px; height: 28px; top: var(--sp-2); right: var(--sp-2); }
+
+    .rs-hotel-card__body { padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); gap: var(--sp-1); }
+
+    .rs-hotel-card__name {
+      font-size: var(--f-lg);
+      line-height: 1.2;
+      margin-bottom: 0;
+      /* Dos lineas como mucho: un nombre largo se comia la tarjeta entera. */
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .rs-hotel-card__meta { font-size: var(--f-xs); gap: var(--sp-1) var(--sp-2); }
+    .rs-hotel-card__amenities { margin-bottom: 0; gap: var(--sp-1); flex-wrap: nowrap; overflow: hidden; }
+    .rs-hotel-card__amenities .rs-amenity {
+      font-size: var(--f-xs);
+      padding: 2px var(--sp-2);
+      white-space: nowrap;
+    }
+    /* De las seis que caben en escritorio, en movil se ensenan dos: es lo que
+       pinta el boceto y lo que entra en una sola fila sin recortarse. */
+    .rs-hotel-card__amenities .rs-amenity:nth-child(n+3) { display: none; }
+
+    /*
+     * Fuera en movil, no en escritorio: los bocetos dejan la tarjeta en nombre,
+     * valoracion, dos etiquetas y precio. Estos dos anadian dos filas mas y son
+     * los que hacian que solo cupieran dos resultados por pantalla.
+     */
+    .rs-hotel-card__destacados { display: none; }
+    .rs-hotel-card__nota { display: none; }
+
+    .rs-hotel-card__pie { padding-top: var(--sp-2); gap: var(--sp-2); flex-wrap: nowrap; }
+    .rs-hotel-card__pie .rs-price { min-width: 0; }
     .rs-hotel-card__pie .rs-price__amount { font-size: var(--f-lg); }
     .rs-hotel-card__pie .rs-price__period { font-size: var(--f-xs); }
+    .rs-hotel-card__pie .rs-hotel-card__cta {
+      font-size: var(--f-xs);
+      padding-inline: var(--sp-3);
+      height: 34px;
+    }
   }
 
-  /* Pantallas muy estrechas: la foto encoge un poco más para que el nombre no
-     se parta en tres líneas. */
-  @media (max-width: 420px) {
-    .rs-hotel-card__img { width: 96px; flex: 0 0 96px; }
+  /* Pantallas muy estrechas: la foto encoge un poco mas para que el nombre no
+     se parta en tres lineas. */
+  @media (max-width: 400px) {
+    .rs-hotel-card__img { width: 88px; flex: 0 0 88px; }
     .rs-hotel-card__body { padding: var(--sp-3); }
   }
 }

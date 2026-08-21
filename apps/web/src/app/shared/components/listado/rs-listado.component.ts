@@ -396,19 +396,30 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
     /* En escritorio los filtros son una columna siempre visible. */
     @media (min-width: 1025px) { .ls__btn--filtros { display: none; } }
 
-    /* En movil los tres controles se reparten el ancho, como la barra de
-       Booking. Sueltos, el desplegable de orden reclamaba los 280 px de su
-       opcion mas larga y empujaba a los otros dos a una segunda fila. */
     @media (max-width: 700px) {
       .ls__toolbar { padding-block: var(--sp-2); }
       .ls__toolbar-fila { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
       .ls__count { font-size: var(--f-xs); }
       .ls__count strong { font-size: var(--f-sm); }
-      .ls__acciones { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
-      .ls__orden, .ls__btn { width: 100%; min-width: 0; padding-inline: var(--sp-2); }
-      .ls__orden { overflow: hidden; justify-content: center; }
-      .ls__orden-sel { width: 100%; min-width: 0; text-align: center; padding-right: 0; margin-right: 0; }
-      .ls__orden rs-icon { display: none; }
+      /*
+        Los tres controles no se reparten el ancho a partes iguales: con un
+        tercio de pantalla no cabia "Recomendados" con su estrella y la regla
+        de entonces escondia los iconos. Ahora cada pastilla mide lo suyo y la
+        fila rueda en horizontal si no caben, que es preferible a quitarles el
+        icono.
+      */
+      .ls__acciones {
+        display: flex;
+        gap: var(--sp-2);
+        overflow-x: auto;
+        scrollbar-width: none;
+        /* Sangra hasta el borde: una pastilla cortada a media pantalla parece
+           un fallo; cortada en el borde se lee como "hay más, desliza". */
+        margin-inline: calc(var(--sp-6) * -1);
+        padding-inline: var(--sp-6);
+      }
+      .ls__acciones::-webkit-scrollbar { display: none; }
+      .ls__orden, .ls__btn { flex: none; }
     }
 
     /* ── Filtros aplicados ────────────────────────────────────── */
