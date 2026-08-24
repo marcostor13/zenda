@@ -40,3 +40,4 @@ export { AnimateOnScrollDirective } from './directives/animate-on-scroll.directi
 export { ImgFallbackDirective } from './directives/img-fallback.directive';
 export * from './media/images';
 export { EurosPipe, euros } from './pipes/euros.pipe';
+export { mensajeDeError } from './mensaje-error';

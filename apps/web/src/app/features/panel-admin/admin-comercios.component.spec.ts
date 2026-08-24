@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
-import { VerticalKey } from 'shared';
+import { MotivoBajaComercio, VerticalKey } from 'shared';
 import { AdminComerciosComponent } from './admin-comercios.component';
 import { AdminApiService, ComercioAdmin } from './admin-api.service';
 
@@ -27,7 +27,12 @@ describe('AdminComerciosComponent', () => {
       cambiarVerificacionComercio: jest.fn().mockReturnValue(of(comercio())),
       crearComercio: jest.fn().mockReturnValue(of(comercio())),
       actualizarComercio: jest.fn().mockReturnValue(of(comercio())),
-      eliminarComercio: jest.fn().mockReturnValue(of(undefined)),
+      eliminarComercio: jest.fn().mockReturnValue(of({ comercioId: 'c1', purgado: false })),
+      getImpactoBaja: jest.fn().mockReturnValue(of({
+        servicios: 3, serviciosPublicados: 2, usuarios: 1, reservas: 8, reservasActivas: 0,
+        resenas: 4, puedeDarseDeBaja: true,
+      })),
+      restaurarComercio: jest.fn().mockReturnValue(of(comercio())),
     };
 
     await TestBed.configureTestingModule({
@@ -290,18 +295,19 @@ describe('AdminComerciosComponent', () => {
   });
 
   describe('eliminación', () => {
-    it('debería pedir confirmación antes de borrar', async () => {
+    it('debería pedir confirmación y enseñar el impacto antes de borrar', async () => {
       await crear();
 
-      componente.confirmarEliminar(comercio());
+      await componente.confirmarEliminar(comercio());
 
       expect(componente.eliminarComercio()?._id).toBe('c1');
+      expect(componente.impacto()?.servicios).toBe(3);
       expect(api['eliminarComercio']).not.toHaveBeenCalled();
     });
 
     it('debería cancelar sin borrar nada', async () => {
       await crear();
-      componente.confirmarEliminar(comercio());
+      await componente.confirmarEliminar(comercio());
 
       componente.cancelarEliminar();
 
@@ -309,14 +315,51 @@ describe('AdminComerciosComponent', () => {
       expect(api['eliminarComercio']).not.toHaveBeenCalled();
     });
 
-    it('debería borrar y recargar tras confirmar', async () => {
+    it('debería dar de baja con motivo y recargar tras confirmar', async () => {
       await crear();
-      componente.confirmarEliminar(comercio());
+      await componente.confirmarEliminar(comercio());
 
       await componente.ejecutarEliminar();
 
-      expect(api['eliminarComercio']).toHaveBeenCalledWith('c1');
+      expect(api['eliminarComercio']).toHaveBeenCalledWith('c1', {
+        motivo: MotivoBajaComercio.OTRO, comentario: undefined, purgar: false,
+      });
       expect(componente.eliminarComercio()).toBeNull();
+      expect(api['getComercios']).toHaveBeenCalledTimes(2);
+    });
+
+    it('debería exigir teclear el nombre del negocio para purgar', async () => {
+      await crear();
+      await componente.confirmarEliminar(comercio());
+      componente.purgar.set(true);
+
+      expect(componente.puedeConfirmarBaja()).toBe(false);
+      await componente.ejecutarEliminar();
+      expect(api['eliminarComercio']).not.toHaveBeenCalled();
+
+      componente.confirmacionBaja.set(comercio().nombreComercial);
+      await componente.ejecutarEliminar();
+      expect(api['eliminarComercio']).toHaveBeenCalledWith('c1', expect.objectContaining({ purgar: true }));
+    });
+
+    it('no debería dejar dar de baja un comercio con reservas vivas', async () => {
+      await crear();
+      api['getImpactoBaja'].mockReturnValue(of({
+        servicios: 1, serviciosPublicados: 1, usuarios: 1, reservas: 4, reservasActivas: 2,
+        resenas: 0, puedeDarseDeBaja: false,
+      }));
+
+      await componente.confirmarEliminar(comercio());
+
+      expect(componente.puedeConfirmarBaja()).toBe(false);
+    });
+
+    it('debería restaurar un comercio dado de baja', async () => {
+      await crear();
+
+      await componente.restaurar(comercio({ estado: 'eliminado' }));
+
+      expect(api['restaurarComercio']).toHaveBeenCalledWith('c1');
       expect(api['getComercios']).toHaveBeenCalledTimes(2);
     });
 
@@ -328,14 +371,16 @@ describe('AdminComerciosComponent', () => {
       expect(api['eliminarComercio']).not.toHaveBeenCalled();
     });
 
-    it('debería informar del fallo al eliminar', async () => {
+    it('debería enseñar el motivo real que devuelve el API al fallar la baja', async () => {
       await crear();
-      api['eliminarComercio'].mockReturnValue(throwError(() => new Error('500')));
-      componente.confirmarEliminar(comercio());
+      api['eliminarComercio'].mockReturnValue(
+        throwError(() => ({ error: { message: 'No se puede dar de baja: hay 2 reserva(s) en curso.' } })),
+      );
+      await componente.confirmarEliminar(comercio());
 
       await componente.ejecutarEliminar();
 
-      expect(componente.modalError()).toContain('Error eliminando');
+      expect(componente.modalError()).toContain('2 reserva(s) en curso');
       expect(componente.eliminarComercio()).not.toBeNull();
     });
   });

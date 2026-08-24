@@ -719,6 +719,13 @@ export class BookingsService {
       throw new DomainException('El servicio no tiene comercio asociado y no puede reservarse', 409);
     }
 
+    // El buscador ya filtra por estas dos condiciones, pero una ficha guardada
+    // en favoritos o un enlace compartido llegan aquí directamente: sin esta
+    // comprobación se podía reservar en un comercio pausado o dado de baja.
+    if (servicio.estado !== 'publicado' || servicio.comercioActivo === false) {
+      throw new DomainException('Este servicio ya no acepta reservas', 409);
+    }
+
     const vertical = servicio.vertical as VerticalKey;
 
     // Discrepancia = la petición viene de un cliente desactualizado o manipulado.

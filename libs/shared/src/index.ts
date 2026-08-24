@@ -58,6 +58,9 @@ export * from './dtos/bookings/recurrencia.dto';
 export * from './dtos/comercios/registrar-comercio.dto';
 export * from './dtos/comercios/registro-comercio.dto';
 export * from './dtos/comercios/cambiar-estado-comercio.dto';
+// Standby y baja de la cuenta del comercio
+export * from './enums/baja-comercio.enum';
+export * from './dtos/comercios/baja-comercio.dto';
 export * from './dtos/comercios/actualizar-perfil-comercio.dto';
 
 // DTOs — Cupones

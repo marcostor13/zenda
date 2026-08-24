@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { UsersRepository } from '../users/users.repository';
-import { VerticalKey, Rol } from 'shared';
+import { MotivoBajaComercio, VerticalKey, Rol } from 'shared';
 
 describe('AdminController', () => {
   let controller: AdminController;
@@ -41,7 +41,9 @@ describe('AdminController', () => {
             crearComercio: jest.fn().mockResolvedValue({}),
             actualizarComercio: jest.fn().mockResolvedValue({}),
             cambiarVerificacionComercio: jest.fn().mockResolvedValue({}),
-            eliminarComercio: jest.fn().mockResolvedValue(undefined),
+            eliminarComercio: jest.fn().mockResolvedValue({ comercioId: 'comercio-1', purgado: false }),
+            impactoBajaComercio: jest.fn().mockResolvedValue({ puedeDarseDeBaja: true }),
+            restaurarComercio: jest.fn().mockResolvedValue({ _id: 'comercio-1' }),
             listarUsuarios: jest.fn().mockResolvedValue({ items: [], total: 0 }),
             resumenUsuarios: jest.fn().mockResolvedValue({}),
             fichaUsuario: jest.fn().mockResolvedValue({}),
@@ -177,9 +179,23 @@ describe('AdminController', () => {
       );
     });
 
-    it('deberia eliminar el comercio sin devolver cuerpo', async () => {
-      await expect(controller.eliminarComercio('comercio-1')).resolves.toBeUndefined();
-      expect(adminService.eliminarComercio).toHaveBeenCalledWith('comercio-1');
+    it('deberia dar de baja el comercio pasando motivo, comentario y quien lo hace', async () => {
+      await controller.eliminarComercio(
+        'comercio-1',
+        { motivo: MotivoBajaComercio.CIERRE_NEGOCIO, comentario: 'cierra', purgar: false },
+        admin,
+      );
+
+      expect(adminService.eliminarComercio).toHaveBeenCalledWith(
+        'comercio-1',
+        { motivo: MotivoBajaComercio.CIERRE_NEGOCIO, comentario: 'cierra', purgar: false },
+        'admin-1',
+      );
+    });
+
+    it('deberia restaurar un comercio dado de baja', async () => {
+      await controller.restaurarComercio('comercio-1', admin);
+      expect(adminService.restaurarComercio).toHaveBeenCalledWith('comercio-1', 'admin-1');
     });
   });
 

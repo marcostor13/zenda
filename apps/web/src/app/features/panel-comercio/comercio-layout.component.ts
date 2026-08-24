@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { icon: 'users',          label: 'Equipo',          ruta: '/comercio/equipo',   exact: false },
   { icon: 'sparkles',       label: 'Suscripción',     ruta: '/comercio/suscripcion', exact: false },
   { icon: 'settings',       label: 'Configuración',   ruta: '/comercio/config',   exact: false },
+  { icon: 'alert-circle',   label: 'Estado de la cuenta', ruta: '/comercio/cuenta', exact: false },
 ];
 
 @Component({

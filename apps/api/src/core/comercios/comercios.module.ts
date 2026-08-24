@@ -5,6 +5,7 @@ import { Comercio, ComercioSchema } from './comercio.schema';
 import { Pago, PagoSchema } from '../payments/pago.schema';
 import { ComerciosRepository } from './comercios.repository';
 import { ComerciosService } from './comercios.service';
+import { ComercioCuentaService } from './comercio-cuenta.service';
 import { ComerciosController } from './comercios.controller';
 import { CatalogModule } from '../catalog/catalog.module';
 import { BookingsModule } from '../bookings/bookings.module';
@@ -26,7 +27,7 @@ import { UsersModule } from '../users/users.module';
     UsersModule,
   ],
   controllers: [ComerciosController],
-  providers: [ComerciosRepository, ComerciosService],
-  exports: [ComerciosRepository, ComerciosService],
+  providers: [ComerciosRepository, ComerciosService, ComercioCuentaService],
+  exports: [ComerciosRepository, ComerciosService, ComercioCuentaService],
 })
 export class ComerciosModule {}

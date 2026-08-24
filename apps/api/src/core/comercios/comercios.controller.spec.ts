@@ -1,10 +1,13 @@
 import { Test } from '@nestjs/testing';
+import { MotivoBajaComercio } from 'shared';
 import { ComerciosController } from './comercios.controller';
 import { ComerciosService } from './comercios.service';
+import { ComercioCuentaService } from './comercio-cuenta.service';
 
 describe('ComerciosController', () => {
   let controller: ComerciosController;
   let service: jest.Mocked<ComerciosService>;
+  let cuenta: jest.Mocked<ComercioCuentaService>;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -38,11 +41,65 @@ describe('ComerciosController', () => {
             fijarAlphaAdherido: jest.fn().mockResolvedValue({}),
           },
         },
+        {
+          provide: ComercioCuentaService,
+          useValue: {
+            impacto: jest.fn().mockResolvedValue({}),
+            pausar: jest.fn().mockResolvedValue({}),
+            reactivar: jest.fn().mockResolvedValue({}),
+            darDeBaja: jest.fn().mockResolvedValue({}),
+          },
+        },
       ],
     }).compile();
 
     controller = moduleRef.get(ComerciosController);
     service = moduleRef.get(ComerciosService);
+    cuenta = moduleRef.get(ComercioCuentaService);
+  });
+
+  describe('cuenta del comercio', () => {
+    const req = { user: { sub: 'u1', comercioId: 'c1' } } as never;
+
+    it('debería pausar la cuenta con el motivo indicado', async () => {
+      const dto = { motivo: MotivoBajaComercio.PAUSA_TEMPORADA } as never;
+      await controller.pausarMiCuenta(req, dto);
+      expect(cuenta.pausar).toHaveBeenCalledWith('c1', dto, 'u1', 'comercio');
+    });
+
+    it('debería reactivar la cuenta del comercio autenticado', async () => {
+      await controller.reactivarMiCuenta(req);
+      expect(cuenta.reactivar).toHaveBeenCalledWith('c1', 'u1');
+    });
+
+    it('debería rechazar la baja si el nombre escrito no coincide', async () => {
+      service.obtener.mockResolvedValue({ nombreComercial: 'Peluquería Luna' } as never);
+
+      await expect(
+        controller.darDeBajaMiCuenta(req, {
+          motivo: MotivoBajaComercio.CIERRE_NEGOCIO,
+          confirmacion: 'otra cosa',
+        } as never),
+      ).rejects.toThrow('Escribe el nombre del negocio tal cual para confirmar la baja');
+      expect(cuenta.darDeBaja).not.toHaveBeenCalled();
+    });
+
+    it('debería dar de baja cuando la confirmación coincide, ignorando mayúsculas', async () => {
+      service.obtener.mockResolvedValue({ nombreComercial: 'Peluquería Luna' } as never);
+
+      await controller.darDeBajaMiCuenta(req, {
+        motivo: MotivoBajaComercio.CIERRE_NEGOCIO,
+        confirmacion: '  peluquería luna ',
+      } as never);
+
+      expect(cuenta.darDeBaja).toHaveBeenCalledWith('c1', {
+        motivo: MotivoBajaComercio.CIERRE_NEGOCIO,
+        comentario: undefined,
+        aceptaContacto: undefined,
+        origen: 'comercio',
+        actorId: 'u1',
+      });
+    });
   });
 
   it('debería delegar el registro en el service', async () => {

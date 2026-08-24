@@ -21,7 +21,7 @@ import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { PermisosAdminGuard, PermisosAdmin } from '../auth/guards/permisos.guard';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, PermisoAdmin, ReporteFinancieroDto, Rol } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, EliminarComercioAdminDto, ImpactoBajaComercioDto, PermisoAdmin, ReporteFinancieroDto, ResultadoBajaComercioDto, Rol } from 'shared';
 
 interface RequestConAdmin extends Request {
   user: { sub: string; rol: Rol };
@@ -168,11 +168,38 @@ export class AdminController {
   }
 
   @PermisosAdmin(PermisoAdmin.COMERCIOS)
+  @Get('comercios/:id/impacto-baja')
+  @ApiOperation({ summary: 'Qué arrastraría dar de baja o purgar un comercio' })
+  impactoBajaComercio(@Param('id') id: string): Promise<ImpactoBajaComercioDto> {
+    return this.adminService.impactoBajaComercio(id);
+  }
+
+  /**
+   * Baja de un comercio. Por defecto es **lógica**: el negocio desaparece de la
+   * web y su equipo pierde el acceso, pero reservas y pagos se conservan por
+   * obligación contable. `purgar: true` borra de verdad y es irreversible; está
+   * pensado para limpiar datos de prueba.
+   */
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @Delete('comercios/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar un comercio (admin)' })
-  async eliminarComercio(@Param('id') id: string): Promise<void> {
-    await this.adminService.eliminarComercio(id);
+  @ApiOperation({ summary: 'Dar de baja (o purgar) un comercio y todo lo que cuelga de él' })
+  async eliminarComercio(
+    @Param('id') id: string,
+    @Body() dto: EliminarComercioAdminDto,
+    @Req() req: RequestConAdmin,
+  ): Promise<ResultadoBajaComercioDto> {
+    return this.adminService.eliminarComercio(
+      id,
+      { motivo: dto?.motivo, comentario: dto?.comentario, purgar: dto?.purgar },
+      req.user.sub,
+    );
+  }
+
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
+  @Post('comercios/:id/restaurar')
+  @ApiOperation({ summary: 'Deshacer la baja de un comercio (vuelve en pausa)' })
+  restaurarComercio(@Param('id') id: string, @Req() req: RequestConAdmin) {
+    return this.adminService.restaurarComercio(id, req.user.sub);
   }
 
   // ── Usuarios CRUD ────────────────────────────────────────────────────────────

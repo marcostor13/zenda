@@ -1,11 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { EstadoComercio, MotivoBajaComercio, OrigenBajaComercio, VerticalKey } from 'shared';
 
 export type ComercioDocument = HydratedDocument<Comercio>;
 
 export type PlanComercio = 'basico' | 'pro' | 'premium';
-export type EstadoComercio = 'pendiente' | 'activo' | 'suspendido';
+// El ciclo de vida vive en `shared` para que panel, API y DTOs no se separen.
+export type { EstadoComercio } from 'shared';
 export type ModoLiquidacion = 'merchant' | 'agencia';
 export type EstadoVerificacion = 'sin_verificar' | 'pendiente' | 'verificado' | 'rechazado';
 export type PoliticaCancelacion = 'flexible' | 'moderada' | 'estricta';
@@ -85,6 +86,26 @@ export interface VerificacionComercio {
   motivoRechazo?: string;
 }
 
+/**
+ * Por qué se pausó o se dio de baja la cuenta. Se conserva aunque el comercio
+ * vuelva: es la única fuente del reporte de churn, y al reactivarse queremos
+ * saber si el motivo anterior se resolvió.
+ */
+export interface BajaComercio {
+  motivo: MotivoBajaComercio;
+  comentario?: string;
+  fecha: Date;
+  origen: OrigenBajaComercio;
+  /** Usuario que la ejecutó (comercio_admin o admin de plataforma). */
+  actorId?: string;
+  /** Estado que tenía la cuenta justo antes, para poder restaurarla. */
+  estadoPrevio?: EstadoComercio;
+  /** Fecha ISO en la que el comercio dice que volverá (solo en standby). */
+  reactivarEl?: string;
+  /** El comercio autoriza que le contactemos por su marcha. */
+  aceptaContacto?: boolean;
+}
+
 export interface PreferenciasNotificacion {
   nuevaReserva: boolean;
   cancelacion: boolean;
@@ -162,8 +183,27 @@ export class Comercio {
   @Prop({ type: String, enum: ['basico', 'pro', 'premium'], default: 'basico' })
   plan!: PlanComercio;
 
-  @Prop({ type: String, enum: ['pendiente', 'activo', 'suspendido'], default: 'pendiente' })
+  @Prop({
+    type: String,
+    enum: ['pendiente', 'activo', 'suspendido', 'inactivo', 'eliminado'],
+    default: 'pendiente',
+  })
   estado!: EstadoComercio;
+
+  /**
+   * Motivo del último standby o baja. Nunca se borra al reactivar: el histórico
+   * de por qué se fue un comercio vale más que el hueco que deja limpiarlo.
+   */
+  @Prop({ type: Object })
+  baja?: BajaComercio;
+
+  /**
+   * Momento de la baja lógica. Marca el inicio del periodo de gracia en el que
+   * el admin todavía puede restaurar la cuenta; pasado ese plazo el purgador la
+   * borra de verdad.
+   */
+  @Prop({ type: Date })
+  eliminadoAt?: Date;
 
   @Prop({ type: Object })
   contacto?: ContactoComercio;
@@ -201,6 +241,10 @@ export const ComercioSchema = SchemaFactory.createForClass(Comercio);
 
 // Único solo cuando hay CIF: el filtro parcial excluye documentos sin vatNumber
 // (ausente o null), de modo que varios comercios sin CIF no colisionan.
+// Todo listado (admin, buscador, contadores) filtra primero por estado: sin
+// este índice, excluir los comercios dados de baja obligaba a un COLLSCAN.
+ComercioSchema.index({ estado: 1, createdAt: -1 });
+
 ComercioSchema.index(
   { vatNumber: 1 },
   { unique: true, partialFilterExpression: { vatNumber: { $type: 'string' } } },

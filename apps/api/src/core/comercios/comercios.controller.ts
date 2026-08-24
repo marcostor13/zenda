@@ -18,7 +18,9 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, FijarAlphaAdheridoDto, Rol } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, FijarAlphaAdheridoDto, BajaComercioDto, PausarComercioDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, Rol } from 'shared';
+import { ComercioCuentaService } from './comercio-cuenta.service';
+import { DomainException } from '../../shared/exceptions/domain.exception';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -27,7 +29,10 @@ interface RequestConUser extends Request {
 @ApiTags('comercios')
 @Controller('comercios')
 export class ComerciosController {
-  constructor(private readonly comerciosService: ComerciosService) {}
+  constructor(
+    private readonly comerciosService: ComerciosService,
+    private readonly cuentaService: ComercioCuentaService,
+  ) {}
 
   /**
    * Alta de un comercio **sin cuenta asociada**, desde el panel de plataforma.
@@ -65,7 +70,7 @@ export class ComerciosController {
   @Roles(Rol.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Listar comercios (admin), opcionalmente por estado' })
-  @ApiQuery({ name: 'estado', required: false, enum: ['pendiente', 'activo', 'suspendido'] })
+  @ApiQuery({ name: 'estado', required: false, enum: ['pendiente', 'activo', 'suspendido', 'inactivo', 'eliminado'] })
   listar(@Query('estado') estado?: EstadoComercio): Promise<ComercioDocument[]> {
     return this.comerciosService.listar(estado);
   }
@@ -245,6 +250,72 @@ export class ComerciosController {
     @Body() dto: ActualizarPerfilComercioDto,
   ) {
     return this.comerciosService.actualizarComercio(req.user.comercioId!, dto);
+  }
+
+  // -- Cuenta: pausa y baja (self-service) -----------------------------------
+
+  /**
+   * Qué arrastraría cerrar la cuenta. El panel lo pinta antes de pedir la
+   * confirmación: una baja a ciegas es la forma más rápida de generar un
+   * ticket de soporte al día siguiente.
+   */
+  @Get('mi-comercio/cuenta/impacto')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Resumen de lo que afectaría pausar o cerrar la cuenta' })
+  impactoCuenta(@Req() req: RequestConUser): Promise<ImpactoBajaComercioDto> {
+    return this.cuentaService.impacto(req.user.comercioId!);
+  }
+
+  @Post('mi-comercio/cuenta/pausar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Poner la cuenta en pausa (standby), reversible desde el panel' })
+  pausarMiCuenta(
+    @Req() req: RequestConUser,
+    @Body() dto: PausarComercioDto,
+  ): Promise<ComercioDocument> {
+    return this.cuentaService.pausar(req.user.comercioId!, dto, req.user.sub, 'comercio');
+  }
+
+  @Post('mi-comercio/cuenta/reactivar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Salir de la pausa y volver a aparecer en el buscador' })
+  reactivarMiCuenta(@Req() req: RequestConUser): Promise<ComercioDocument> {
+    return this.cuentaService.reactivar(req.user.comercioId!, req.user.sub);
+  }
+
+  /**
+   * Baja voluntaria. Pide escribir el nombre del negocio porque desde el panel
+   * la baja no se deshace: solo un administrador puede restaurarla, y únicamente
+   * dentro del periodo de gracia.
+   */
+  @Post('mi-comercio/cuenta/baja')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Rol.COMERCIO_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Dar de baja la cuenta del comercio indicando el motivo' })
+  async darDeBajaMiCuenta(
+    @Req() req: RequestConUser,
+    @Body() dto: BajaComercioDto,
+  ): Promise<ResultadoBajaComercioDto> {
+    const comercioId = req.user.comercioId!;
+    const comercio = await this.comerciosService.obtener(comercioId);
+    if (dto.confirmacion.trim().toLowerCase() !== comercio.nombreComercial.trim().toLowerCase()) {
+      throw new DomainException('Escribe el nombre del negocio tal cual para confirmar la baja', 400);
+    }
+
+    return this.cuentaService.darDeBaja(comercioId, {
+      motivo: dto.motivo,
+      comentario: dto.comentario,
+      aceptaContacto: dto.aceptaContacto,
+      origen: 'comercio',
+      actorId: req.user.sub,
+    });
   }
 
   @Get(':id')

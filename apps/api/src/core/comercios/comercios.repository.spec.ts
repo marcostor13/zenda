@@ -162,12 +162,20 @@ describe('ComerciosRepository', () => {
       expect(comercioModel.find).toHaveBeenCalledWith({ estado: 'activo' });
     });
 
-    it('debería paginar sin condiciones cuando no se filtra', async () => {
+    it('debería excluir los dados de baja cuando no se filtra por estado', async () => {
       mockFind([]);
 
       await repo.listarPaginado({});
 
-      expect(comercioModel.find).toHaveBeenCalledWith({});
+      expect(comercioModel.find).toHaveBeenCalledWith({ estado: { $ne: 'eliminado' } });
+    });
+
+    it('debería devolver los dados de baja sólo si se piden explícitamente', async () => {
+      mockFind([]);
+
+      await repo.listarPaginado({ estado: 'eliminado' as EstadoComercio });
+
+      expect(comercioModel.find).toHaveBeenCalledWith({ estado: 'eliminado' });
     });
 
     it('debería calcular el salto a partir de la página', async () => {

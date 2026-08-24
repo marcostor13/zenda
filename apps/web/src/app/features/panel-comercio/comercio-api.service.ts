@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { ImpactoBajaComercioDto, ResultadoBajaComercioDto } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface ContactoComercio {
@@ -98,6 +99,8 @@ export interface MiComercio {
   verificacion: VerificacionComercio;
   preferenciasNotificacion: PreferenciasNotificacion;
   excepcionesHorario?: ExcepcionHorario[];
+  /** Motivo del último standby o baja, si lo hubo. */
+  baja?: { motivo: string; comentario?: string; fecha: string; origen: string; reactivarEl?: string };
 }
 
 export type ActualizarPerfilComercioPayload = Partial<
@@ -309,6 +312,30 @@ export class ComercioApiService {
 
   getMiComercio(): Observable<MiComercio> {
     return this.http.get<MiComercio>(`${this.url}/mi-comercio`);
+  }
+
+  // -- Cuenta: pausa y baja ---------------------------------------------------
+
+  /** Qué arrastraría pausar o cerrar la cuenta. Se pinta antes de decidir. */
+  getImpactoCuenta(): Observable<ImpactoBajaComercioDto> {
+    return this.http.get<ImpactoBajaComercioDto>(`${this.url}/mi-comercio/cuenta/impacto`);
+  }
+
+  pausarCuenta(dto: { motivo: string; comentario?: string; reactivarEl?: string }): Observable<MiComercio> {
+    return this.http.post<MiComercio>(`${this.url}/mi-comercio/cuenta/pausar`, dto);
+  }
+
+  reactivarCuenta(): Observable<MiComercio> {
+    return this.http.post<MiComercio>(`${this.url}/mi-comercio/cuenta/reactivar`, {});
+  }
+
+  darDeBajaCuenta(dto: {
+    motivo: string;
+    comentario?: string;
+    confirmacion: string;
+    aceptaContacto?: boolean;
+  }): Observable<ResultadoBajaComercioDto> {
+    return this.http.post<ResultadoBajaComercioDto>(`${this.url}/mi-comercio/cuenta/baja`, dto);
   }
 
   onboarding(dto: { razonSocial: string; vatNumber: string; nombreComercial: string; verticales?: string[] }): Observable<{ accessToken: string; usuario: unknown }> {

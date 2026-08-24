@@ -3,7 +3,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { VerticalKey, VERTICAL_LABELS } from 'shared';
+import { ImpactoBajaComercioDto, MOTIVOS_BAJA_COMERCIO, MotivoBajaComercio, VerticalKey, VERTICAL_LABELS } from 'shared';
 import { AdminApiService, ComercioAdmin, ResumenComercios, FichaComercio, CrearComercioDto, ActualizarComercioDto, VerificacionComercio } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
@@ -18,11 +18,15 @@ interface DocumentoFicha {
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { mensajeDeError } from '../../shared/mensaje-error';
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
   { label: 'Activos', valor: 'activo' },
+  { label: 'En pausa', valor: 'inactivo' },
   { label: 'Suspendidos', valor: 'suspendido' },
+  // Los dados de baja no salen en "Todos": hay que pedirlos a propósito.
+  { label: 'Dados de baja', valor: 'eliminado' },
 ] as const;
 
 const VERTICALES_OPCIONES = Object.values(VerticalKey);
@@ -61,9 +65,19 @@ const LIMITE = 20;
         <span class="resumen-tile__lbl">Suspendidos</span>
       </div>
       <div class="rs-card resumen-tile">
+        <span class="resumen-tile__num">{{ resumen()?.enPausa ?? '—' }}</span>
+        <span class="resumen-tile__lbl">En pausa</span>
+      </div>
+      <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.verificados ?? '—' }}</span>
         <span class="resumen-tile__lbl">Verificados</span>
       </div>
+      @if ((resumen()?.dadosDeBaja ?? 0) > 0) {
+        <button class="rs-card resumen-tile resumen-tile--accion" (click)="setFiltro('eliminado')">
+          <span class="resumen-tile__num">{{ resumen()!.dadosDeBaja }}</span>
+          <span class="resumen-tile__lbl">Dados de baja</span>
+        </button>
+      }
     </div>
 
     <!-- Barra de filtros + búsqueda -->
@@ -205,22 +219,35 @@ const LIMITE = 20;
                       <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon> Rechazar documentación
                     </button>
                   }
-                  @if (c.estado !== 'activo') {
-                    <button class="acciones__item" [disabled]="accionando() === c._id" (click)="aprobar(c._id)">
-                      <rs-icon name="check" [size]="13" [stroke]="2.5"></rs-icon> Aprobar comercio
+                  @if (c.estado === 'eliminado') {
+                    <!-- Una baja lógica se deshace; la cuenta vuelve en pausa
+                         para que alguien la revise antes de republicarla. -->
+                    <button class="acciones__item" [disabled]="accionando() === c._id" (click)="restaurar(c)">
+                      <rs-icon name="check" [size]="13" [stroke]="2.5"></rs-icon> Restaurar comercio
                     </button>
-                  }
-                  @if (c.estado !== 'suspendido') {
                     <button class="acciones__item acciones__item--danger"
-                            [disabled]="accionando() === c._id" (click)="abrirSuspender(c)">
-                      <rs-icon name="alert-circle" [size]="13" [stroke]="2"></rs-icon>
-                      {{ c.estado === 'pendiente' ? 'Rechazar solicitud' : 'Suspender comercio' }}
+                            [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)">
+                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> Eliminar definitivamente
+                    </button>
+                  } @else {
+                    @if (c.estado !== 'activo') {
+                      <button class="acciones__item" [disabled]="accionando() === c._id" (click)="aprobar(c._id)">
+                        <rs-icon name="check" [size]="13" [stroke]="2.5"></rs-icon>
+                        {{ c.estado === 'inactivo' ? 'Reactivar comercio' : 'Aprobar comercio' }}
+                      </button>
+                    }
+                    @if (c.estado !== 'suspendido') {
+                      <button class="acciones__item acciones__item--danger"
+                              [disabled]="accionando() === c._id" (click)="abrirSuspender(c)">
+                        <rs-icon name="alert-circle" [size]="13" [stroke]="2"></rs-icon>
+                        {{ c.estado === 'pendiente' ? 'Rechazar solicitud' : 'Suspender comercio' }}
+                      </button>
+                    }
+                    <button class="acciones__item acciones__item--danger"
+                            [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)">
+                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> Dar de baja
                     </button>
                   }
-                  <button class="acciones__item acciones__item--danger"
-                          [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)">
-                    <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> Eliminar comercio
-                  </button>
                 </div>
               }
             </div>
@@ -464,20 +491,69 @@ const LIMITE = 20;
 
 @if (eliminarComercio()) {
   <div class="overlay" (click)="cancelarEliminar()">
-    <div class="modal modal--sm rs-card" (click)="$event.stopPropagation()">
-      <h2 class="modal-title">Eliminar comercio</h2>
-      <p style="color:var(--t-300);margin-bottom:var(--sp-5)">
-        ¿Estás seguro de que quieres eliminar
-        <strong style="color:var(--t-100)">{{ eliminarComercio()!.nombreComercial }}</strong>?
-        Esta acción no se puede deshacer.
-      </p>
+    <div class="modal rs-card" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Dar de baja {{ eliminarComercio()!.nombreComercial }}</h2>
+
+      <!-- Lo que se lleva por delante, antes de decidir. -->
+      @if (impacto(); as i) {
+        <ul class="impacto">
+          <li><strong>{{ i.servicios }}</strong> listados ({{ i.serviciosPublicados }} publicados) dejan de verse</li>
+          <li><strong>{{ i.usuarios }}</strong> cuentas del equipo pierden el acceso</li>
+          <li><strong>{{ i.reservas }}</strong> reservas y <strong>{{ i.resenas }}</strong> reseñas en el historial</li>
+        </ul>
+        @if (!i.puedeDarseDeBaja) {
+          <div class="rs-alert rs-alert--warning" style="margin-bottom:var(--sp-4)">
+            Hay {{ i.reservasActivas }} reserva(s) en curso. Complétalas o cancélalas antes de cerrar la cuenta.
+          </div>
+        }
+      } @else {
+        <p style="color:var(--t-400);margin-bottom:var(--sp-4)">Calculando el impacto…</p>
+      }
+
+      <div class="rs-form-group">
+        <label class="rs-label" for="baja-motivo">Motivo</label>
+        <select id="baja-motivo" class="rs-input" [value]="motivoBaja()"
+                (change)="motivoBaja.set($any($event.target).value)">
+          @for (m of motivosBaja; track m.valor) {
+            <option [value]="m.valor">{{ m.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="rs-form-group">
+        <label class="rs-label" for="baja-comentario">Comentario (opcional)</label>
+        <textarea id="baja-comentario" class="rs-input" rows="2" [value]="comentarioBaja()"
+                  (input)="comentarioBaja.set($any($event.target).value)"></textarea>
+      </div>
+
+      <!-- Dos operaciones distintas, no una casilla escondida: la baja es
+           reversible y conserva la contabilidad; la purga no. -->
+      <label class="purga">
+        <input type="checkbox" [checked]="purgar()" (change)="purgar.set($any($event.target).checked)" />
+        <span>
+          <strong>Eliminar definitivamente</strong> (borra listados, cuentas, reservas y pagos).
+          Irreversible: úsalo sólo con datos de prueba.
+        </span>
+      </label>
+
+      @if (purgar()) {
+        <div class="rs-form-group">
+          <label class="rs-label" for="baja-confirmacion">
+            Escribe <strong>{{ eliminarComercio()!.nombreComercial }}</strong> para confirmar
+          </label>
+          <input id="baja-confirmacion" class="rs-input" [value]="confirmacionBaja()"
+                 (input)="confirmacionBaja.set($any($event.target).value)" />
+        </div>
+      }
+
       @if (modalError()) {
         <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ modalError() }}</div>
       }
       <div class="modal-actions">
         <button class="rs-btn rs-btn--ghost" (click)="cancelarEliminar()">Cancelar</button>
-        <button class="rs-btn rs-btn--danger" [disabled]="guardando()" (click)="ejecutarEliminar()">
-          {{ guardando() ? 'Eliminando…' : 'Eliminar' }}
+        <button class="rs-btn rs-btn--danger" [disabled]="guardando() || !puedeConfirmarBaja()"
+                (click)="ejecutarEliminar()">
+          {{ guardando() ? 'Procesando…' : (purgar() ? 'Eliminar definitivamente' : 'Dar de baja') }}
         </button>
       </div>
     </div>
@@ -504,6 +580,8 @@ const LIMITE = 20;
     .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
     .resumen-tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
     .resumen-tile__lbl { font-size: var(--f-xs); color: var(--t-400); }
+    .resumen-tile--accion { cursor: pointer; text-align: left; border: none; font: inherit; }
+    .resumen-tile--accion:hover { box-shadow: var(--shadow-md); }
 
     .ficha {
       width: 100%; max-width: 720px; max-height: 86vh; overflow-y: auto;
@@ -686,6 +764,14 @@ const LIMITE = 20;
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
     @media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
     .modal-actions { display: flex; gap: var(--sp-3); justify-content: flex-end; margin-top: var(--sp-6); }
+    .impacto { list-style: none; padding: var(--sp-4); margin: 0 0 var(--sp-5); border-radius: var(--r-lg);
+      background: var(--c-surface); display: flex; flex-direction: column; gap: var(--sp-2);
+      font-size: var(--f-sm); color: var(--t-300); }
+    .impacto strong { color: var(--t-100); }
+    .purga { display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-4);
+      border: 1px solid var(--c-error, var(--dk-gold)); border-radius: var(--r-lg);
+      font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-4); cursor: pointer; }
+    .purga input { margin-top: 3px; }
 
     .verticales-check { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-2); }
     .check-item { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; }
@@ -712,6 +798,26 @@ export class AdminComerciosComponent implements OnInit {
   readonly filtroVertical = signal('');
   readonly filtroPlan = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
+
+  /** Estado del diálogo de baja: impacto calculado, motivo y modo de borrado. */
+  readonly impacto = signal<ImpactoBajaComercioDto | null>(null);
+  readonly motivoBaja = signal<string>(MotivoBajaComercio.OTRO);
+  readonly comentarioBaja = signal('');
+  readonly confirmacionBaja = signal('');
+  readonly purgar = signal(false);
+  readonly motivosBaja = MOTIVOS_BAJA_COMERCIO;
+
+  /**
+   * La purga exige teclear el nombre del negocio; la baja lógica no, porque se
+   * puede restaurar dentro del periodo de gracia.
+   */
+  readonly puedeConfirmarBaja = computed(() => {
+    const comercio = this.eliminarComercio();
+    if (!comercio) return false;
+    if (this.impacto()?.puedeDarseDeBaja === false) return false;
+    if (!this.purgar()) return true;
+    return this.confirmacionBaja().trim().toLowerCase() === comercio.nombreComercial.trim().toLowerCase();
+  });
 
   /** Etiquetas de los tipos del catálogo de documentos del comercio. */
   private readonly TIPO_DOC: Record<string, string> = {
@@ -1064,9 +1170,20 @@ export class AdminComerciosComponent implements OnInit {
     }
   }
 
-  confirmarEliminar(c: ComercioAdmin): void {
+  async confirmarEliminar(c: ComercioAdmin): Promise<void> {
     this.eliminarComercio.set(c);
     this.modalError.set('');
+    this.impacto.set(null);
+    this.motivoBaja.set(MotivoBajaComercio.OTRO);
+    this.comentarioBaja.set('');
+    this.confirmacionBaja.set('');
+    this.purgar.set(false);
+    this.menuAbiertoId.set(null);
+    try {
+      this.impacto.set(await firstValueFrom(this.adminApi.getImpactoBaja(c._id)));
+    } catch {
+      this.modalError.set('No se pudo calcular el impacto de la baja.');
+    }
   }
 
   cancelarEliminar(): void {
@@ -1075,17 +1192,39 @@ export class AdminComerciosComponent implements OnInit {
 
   async ejecutarEliminar(): Promise<void> {
     const c = this.eliminarComercio();
-    if (!c) return;
+    if (!c || !this.puedeConfirmarBaja()) return;
     this.guardando.set(true);
     this.modalError.set('');
     try {
-      await firstValueFrom(this.adminApi.eliminarComercio(c._id));
+      await firstValueFrom(
+        this.adminApi.eliminarComercio(c._id, {
+          motivo: this.motivoBaja(),
+          comentario: this.comentarioBaja().trim() || undefined,
+          purgar: this.purgar(),
+        }),
+      );
       this.eliminarComercio.set(null);
       await this.cargar();
-    } catch {
-      this.modalError.set('Error eliminando el comercio.');
+    } catch (error) {
+      // El backend bloquea la baja si quedan reservas vivas; su mensaje es más
+      // útil que un "error genérico".
+      this.modalError.set(mensajeDeError(error, 'Error dando de baja el comercio.'));
     } finally {
       this.guardando.set(false);
+    }
+  }
+
+  /** Deshace una baja lógica: la cuenta vuelve en pausa, no publicada. */
+  async restaurar(c: ComercioAdmin): Promise<void> {
+    this.accionando.set(c._id);
+    this.errorMsg.set('');
+    try {
+      await firstValueFrom(this.adminApi.restaurarComercio(c._id));
+      await this.cargar();
+    } catch (error) {
+      this.errorMsg.set(mensajeDeError(error, 'No se pudo restaurar el comercio.'));
+    } finally {
+      this.accionando.set(null);
     }
   }
 
@@ -1101,7 +1240,9 @@ export class AdminComerciosComponent implements OnInit {
     const map: Record<string, string> = {
       activo: 'rs-badge--success',
       pendiente: 'rs-badge--warning',
+      inactivo: 'rs-badge--neutral',
       suspendido: 'rs-badge--error',
+      eliminado: 'rs-badge--error',
     };
     return map[estado] ?? 'rs-badge--neutral';
   }

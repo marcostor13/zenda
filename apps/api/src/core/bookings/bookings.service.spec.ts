@@ -96,6 +96,8 @@ describe('BookingsService', () => {
             obtenerPorId: jest.fn().mockResolvedValue({
               comercioId: 'comercio-1',
               vertical: VerticalKey.ALOJAMIENTO,
+              estado: 'publicado',
+              comercioActivo: true,
             }),
           },
         },
@@ -147,6 +149,8 @@ describe('BookingsService', () => {
       catalogRepository.obtenerPorId.mockResolvedValue({
         comercioId: 'comercio-real',
         vertical: VerticalKey.PELUQUERIA,
+        estado: 'publicado',
+        comercioActivo: true,
       } as never);
 
       await service.crear({
@@ -161,10 +165,37 @@ describe('BookingsService', () => {
       );
     });
 
+    it('debería rechazar la reserva de un servicio cuyo comercio está pausado o dado de baja', async () => {
+      // Llega por un favorito o un enlace compartido: el buscador ya no lo lista,
+      // pero la ficha guardada sigue apuntando aquí.
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-1',
+        vertical: VerticalKey.ALOJAMIENTO,
+        estado: 'publicado',
+        comercioActivo: false,
+      } as never);
+
+      await expect(service.crear({ ...parametrosBase })).rejects.toThrow('ya no acepta reservas');
+      expect(estrategiaMock.reserveSlot).not.toHaveBeenCalled();
+    });
+
+    it('debería rechazar la reserva de un servicio despublicado', async () => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-1',
+        vertical: VerticalKey.ALOJAMIENTO,
+        estado: 'pausado',
+        comercioActivo: true,
+      } as never);
+
+      await expect(service.crear({ ...parametrosBase })).rejects.toThrow('ya no acepta reservas');
+    });
+
     it('debería rechazar si el cliente declara un comercio distinto al del servicio', async () => {
       catalogRepository.obtenerPorId.mockResolvedValue({
         comercioId: 'comercio-real',
         vertical: VerticalKey.ALOJAMIENTO,
+        estado: 'publicado',
+        comercioActivo: true,
       } as never);
 
       await expect(
@@ -177,6 +208,8 @@ describe('BookingsService', () => {
       catalogRepository.obtenerPorId.mockResolvedValue({
         comercioId: 'comercio-1',
         vertical: VerticalKey.TRANSPORTE,
+        estado: 'publicado',
+        comercioActivo: true,
       } as never);
 
       // Elegir el vertical es elegir el porcentaje de comisión (CLAUDE.md §11.2).
@@ -189,6 +222,8 @@ describe('BookingsService', () => {
       catalogRepository.obtenerPorId.mockResolvedValue({
         comercioId: 'comercio-real',
         vertical: VerticalKey.VETERINARIA,
+        estado: 'publicado',
+        comercioActivo: true,
       } as never);
 
       await service.crear({ ...parametrosBase, comercioId: undefined, vertical: undefined });

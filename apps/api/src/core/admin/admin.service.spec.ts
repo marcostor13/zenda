@@ -6,6 +6,7 @@ import { ComisionConfigRepository } from '../comision-configs/comision-config.re
 import { AlphaRepository } from '../alpha/alpha.repository';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ComerciosRepository } from '../comercios/comercios.repository';
+import { ComercioCuentaService } from '../comercios/comercio-cuenta.service';
 import { UsersRepository } from '../users/users.repository';
 import { Pago } from '../payments/pago.schema';
 import { Reserva } from '../bookings/reserva.schema';
@@ -16,7 +17,7 @@ import { Resena } from '../reviews/resena.schema';
 import { Incidencia } from '../incidencias/incidencia.schema';
 import { Servicio } from '../catalog/servicio.schema';
 import { Evento } from '../eventos/evento.schema';
-import { VerticalKey, PagoEstado, IVA_RATE, Rol } from 'shared';
+import { VerticalKey, PagoEstado, IVA_RATE, MotivoBajaComercio, Rol } from 'shared';
 
 describe('AdminService', () => {
   let service: AdminService;
@@ -30,6 +31,7 @@ describe('AdminService', () => {
   let servicioModel: any;
   let auditoria: { registrar: jest.Mock; listar: jest.Mock };
   let comerciosRepo: any;
+  let cuentaComercio: any;
   let usersRepo: any;
 
   const pagosMock = [
@@ -127,6 +129,12 @@ describe('AdminService', () => {
       eliminar: jest.fn().mockResolvedValue(undefined),
     };
 
+    cuentaComercio = {
+      darDeBaja: jest.fn().mockResolvedValue({ comercioId: 'c1', purgado: false }),
+      impacto: jest.fn().mockResolvedValue({ puedeDarseDeBaja: true }),
+      restaurar: jest.fn().mockResolvedValue({ _id: 'c1' }),
+    };
+
     usersRepo = {
       contarTodos: jest.fn().mockResolvedValue(0),
       findById: jest.fn(),
@@ -164,6 +172,10 @@ describe('AdminService', () => {
         {
           provide: ComerciosRepository,
           useValue: comerciosRepo,
+        },
+        {
+          provide: ComercioCuentaService,
+          useValue: cuentaComercio,
         },
         {
           provide: UsersRepository,
@@ -569,20 +581,26 @@ describe('AdminService', () => {
       );
     });
 
-    it('debería contar los comercios por estado y los verificados', async () => {
+    it('debería contar los comercios por estado, dejando los dados de baja fuera del total', async () => {
       comercioModel.countDocuments = jest.fn().mockImplementation((filtro: any = {}) => ({
         exec: jest.fn().mockResolvedValue(
-          filtro.estado === 'activo' ? 7
+          filtro['verificacion.estado'] === 'verificado' ? 5
+            : filtro.estado === 'activo' ? 7
             : filtro.estado === 'pendiente' ? 3
             : filtro.estado === 'suspendido' ? 1
-            : filtro['verificacion.estado'] === 'verificado' ? 5
+            : filtro.estado === 'inactivo' ? 2
+            : filtro.estado === 'eliminado' ? 4
             : 11,
         ),
       }));
 
       const resumen = await service.resumenComercios();
 
-      expect(resumen).toEqual({ total: 11, activos: 7, pendientes: 3, suspendidos: 1, verificados: 5 });
+      expect(resumen).toEqual({
+        total: 11, activos: 7, pendientes: 3, suspendidos: 1, enPausa: 2, dadosDeBaja: 4, verificados: 5,
+      });
+      // El total pide explícitamente los vivos, no la colección entera.
+      expect(comercioModel.countDocuments).toHaveBeenCalledWith({ estado: { $ne: 'eliminado' } });
     });
 
     it('debería crear el comercio activo si no se indica estado', async () => {
@@ -621,10 +639,33 @@ describe('AdminService', () => {
         .rejects.toThrow('Comercio no encontrado');
     });
 
-    it('debería eliminar delegando en el repositorio', async () => {
-      await service.eliminarComercio('c1');
+    it('debería dar de baja delegando la cascada en ComercioCuentaService', async () => {
+      await service.eliminarComercio('c1', { comentario: 'datos de prueba' }, 'admin1');
 
-      expect(comerciosRepo.eliminar).toHaveBeenCalledWith('c1');
+      expect(cuentaComercio.darDeBaja).toHaveBeenCalledWith('c1', {
+        motivo: MotivoBajaComercio.OTRO,
+        comentario: 'datos de prueba',
+        purgar: undefined,
+        origen: 'admin',
+        actorId: 'admin1',
+      });
+      // Nunca el borrado a pelo: dejaba vivos listados y cuentas del equipo.
+      expect(comerciosRepo.eliminar).not.toHaveBeenCalled();
+    });
+
+    it('debería propagar la purga cuando el admin la pide', async () => {
+      await service.eliminarComercio('c1', { purgar: true }, 'admin1');
+
+      expect(cuentaComercio.darDeBaja).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({ purgar: true }),
+      );
+    });
+
+    it('debería impedir fijar el estado eliminado desde la edición del comercio', async () => {
+      await expect(
+        service.actualizarComercio('c1', { estado: 'eliminado' as never }),
+      ).rejects.toThrow('DELETE /admin/comercios/:id');
     });
   });
 

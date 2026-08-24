@@ -12,12 +12,13 @@ import { Pago, PagoDocument } from '../payments/pago.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
+import { ComercioCuentaService } from '../comercios/comercio-cuenta.service';
 import { Perro, PerroDocument } from '../perros/perro.schema';
 import { Resena, ResenaDocument } from '../reviews/resena.schema';
 import { Incidencia, IncidenciaDocument } from '../incidencias/incidencia.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Evento, EventoDocument } from '../eventos/evento.schema';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey, regexLiteral } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ImpactoBajaComercioDto, MotivoBajaComercio, ResultadoBajaComercioDto, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey, regexLiteral } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
 import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
@@ -89,6 +90,7 @@ export class AdminService {
     private readonly alphaRepo: AlphaRepository,
     private readonly auditoria: AuditoriaService,
     private readonly comerciosRepo: ComerciosRepository,
+    private readonly cuentaComercio: ComercioCuentaService,
     private readonly usersRepo: UsersRepository,
     @InjectModel(Pago.name) private readonly pagoModel: Model<PagoDocument>,
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
@@ -362,16 +364,24 @@ export class AdminService {
     activos: number;
     pendientes: number;
     suspendidos: number;
+    enPausa: number;
+    dadosDeBaja: number;
     verificados: number;
   }> {
-    const [total, activos, pendientes, suspendidos, verificados] = await Promise.all([
-      this.comercioModel.countDocuments({}).exec(),
-      this.comercioModel.countDocuments({ estado: 'activo' }).exec(),
-      this.comercioModel.countDocuments({ estado: 'pendiente' }).exec(),
-      this.comercioModel.countDocuments({ estado: 'suspendido' }).exec(),
-      this.comercioModel.countDocuments({ 'verificacion.estado': 'verificado' }).exec(),
-    ]);
-    return { total, activos, pendientes, suspendidos, verificados };
+    // `total` cuenta el catálogo vivo: sumar los dados de baja inflaba la cifra
+    // con negocios que ya no existen para nadie.
+    const vivos = { estado: { $ne: 'eliminado' } };
+    const [total, activos, pendientes, suspendidos, enPausa, dadosDeBaja, verificados] =
+      await Promise.all([
+        this.comercioModel.countDocuments(vivos).exec(),
+        this.comercioModel.countDocuments({ estado: 'activo' }).exec(),
+        this.comercioModel.countDocuments({ estado: 'pendiente' }).exec(),
+        this.comercioModel.countDocuments({ estado: 'suspendido' }).exec(),
+        this.comercioModel.countDocuments({ estado: 'inactivo' }).exec(),
+        this.comercioModel.countDocuments({ estado: 'eliminado' }).exec(),
+        this.comercioModel.countDocuments({ ...vivos, 'verificacion.estado': 'verificado' }).exec(),
+      ]);
+    return { total, activos, pendientes, suspendidos, enPausa, dadosDeBaja, verificados };
   }
 
   async crearComercio(datos: {
@@ -398,13 +408,49 @@ export class AdminService {
       comisionPctOverride?: number;
     },
   ): Promise<ComercioDocument> {
+    // La baja tiene su propio endpoint porque arrastra una cascada; fijarla a
+    // mano desde aquí dejaría los listados y las cuentas del equipo vivos.
+    if (datos.estado === 'eliminado') {
+      throw new BadRequestException('Para dar de baja un comercio usa DELETE /admin/comercios/:id');
+    }
+
     const actualizado = await this.comerciosRepo.actualizar(id, datos);
     if (!actualizado) throw new NotFoundException('Comercio no encontrado');
     return actualizado;
   }
 
-  async eliminarComercio(id: string): Promise<void> {
-    await this.comerciosRepo.eliminar(id);
+  /**
+   * Baja de un comercio desde el panel de plataforma.
+   *
+   * Antes esto era un `findByIdAndDelete` a secas: borraba el documento del
+   * comercio y dejaba vivos sus listados (que el buscador filtra por el flag
+   * denormalizado `comercioActivo`, no por el comercio) y las cuentas de su
+   * equipo. De ahí que los comercios "eliminados" siguieran apareciendo en la
+   * web. Ahora la baja pasa por `ComercioCuentaService`, que arrastra la
+   * cascada completa.
+   */
+  async eliminarComercio(
+    id: string,
+    opciones: { motivo?: MotivoBajaComercio; comentario?: string; purgar?: boolean } = {},
+    adminId?: string,
+  ): Promise<ResultadoBajaComercioDto> {
+    return this.cuentaComercio.darDeBaja(id, {
+      motivo: opciones.motivo ?? MotivoBajaComercio.OTRO,
+      comentario: opciones.comentario,
+      purgar: opciones.purgar,
+      origen: 'admin',
+      actorId: adminId,
+    });
+  }
+
+  /** Qué arrastraría la baja. El panel lo pinta antes de pedir confirmación. */
+  async impactoBajaComercio(id: string): Promise<ImpactoBajaComercioDto> {
+    return this.cuentaComercio.impacto(id);
+  }
+
+  /** Deshace una baja lógica: la cuenta vuelve en pausa, no publicada. */
+  async restaurarComercio(id: string, adminId?: string): Promise<ComercioDocument> {
+    return this.cuentaComercio.restaurar(id, adminId);
   }
 
   /** El admin verifica o rechaza la documentación del comercio. */

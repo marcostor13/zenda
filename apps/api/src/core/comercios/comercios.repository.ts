@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model } from 'mongoose';
 import { VerticalKey, regexLiteral } from 'shared';
 import { Comercio, ComercioDocument, EstadoComercio, PlanComercio } from './comercio.schema';
 
@@ -69,8 +69,21 @@ export class ComerciosRepository implements OnModuleInit {
     return this.comercioModel.findByIdAndUpdate(id, { $set: datos }, { new: true }).exec();
   }
 
+  /**
+   * Borrado físico. Solo se usa desde la purga administrativa, que antes limpia
+   * las colecciones que apuntan a este comercio; la baja normal es lógica
+   * (`estado: 'eliminado'`) para no romper la trazabilidad contable.
+   */
   async eliminar(id: string): Promise<void> {
     await this.comercioModel.findByIdAndDelete(id).exec();
+  }
+
+  /** Comercios dados de baja hace más de `dias` (candidatos a purga). */
+  async listarBajasVencidas(dias: number): Promise<ComercioDocument[]> {
+    const limite = new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
+    return this.comercioModel
+      .find({ estado: 'eliminado', eliminadoAt: { $lte: limite } })
+      .exec();
   }
 
   async actualizarEstado(id: string, estado: EstadoComercio): Promise<ComercioDocument | null> {
@@ -113,8 +126,16 @@ export class ComerciosRepository implements OnModuleInit {
       .exec();
   }
 
+  /**
+   * Un comercio dado de baja no es parte del catálogo: si no se pide su estado
+   * de forma explícita, queda fuera de todo listado (era la causa de que los
+   * comercios "eliminados" siguieran apareciendo).
+   */
   async listar(filtros: { estado?: EstadoComercio } = {}): Promise<ComercioDocument[]> {
-    return this.comercioModel.find(filtros).sort({ createdAt: -1 }).lean().exec() as Promise<ComercioDocument[]>;
+    const query: FilterQuery<ComercioDocument> = filtros.estado
+      ? { estado: filtros.estado }
+      : { estado: { $ne: 'eliminado' } };
+    return this.comercioModel.find(query).sort({ createdAt: -1 }).lean().exec() as Promise<ComercioDocument[]>;
   }
 
   async listarPaginado(
@@ -124,6 +145,7 @@ export class ComerciosRepository implements OnModuleInit {
   ): Promise<{ items: ComercioDocument[]; total: number }> {
     const query: Record<string, unknown> = {};
     if (filtros.estado) query['estado'] = filtros.estado;
+    else query['estado'] = { $ne: 'eliminado' };
     // Los no adheridos incluyen los documentos antiguos sin el campo (HU-13.3).
     if (filtros.alphaAdherido === true) query['alphaAdherido'] = true;
     if (filtros.alphaAdherido === false) query['alphaAdherido'] = { $ne: true };

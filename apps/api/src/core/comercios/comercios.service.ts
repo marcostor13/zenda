@@ -158,6 +158,10 @@ export class ComerciosService {
    * que aquí es obligatorio (TCK-8034).
    */
   async cambiarEstado(id: string, estado: EstadoComercio, motivo?: string, adminId?: string): Promise<ComercioDocument> {
+    // La baja pasa por `ComercioCuentaService`: arrastra listados y cuentas.
+    if (estado === 'eliminado') {
+      throw new DomainException('La baja de un comercio no se fija cambiando su estado', 400);
+    }
     if (estado === 'suspendido' && !motivo?.trim()) {
       throw new DomainException('Para suspender o rechazar un comercio hay que indicar el motivo', 400);
     }

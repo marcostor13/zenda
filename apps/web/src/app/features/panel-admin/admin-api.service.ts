@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { ImpactoBajaComercioDto as ImpactoBajaComercio, ResultadoBajaComercioDto as ResultadoBajaComercio } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface DashboardKpis {
@@ -115,6 +116,9 @@ export interface ComercioAdmin {
   verificacion?: VerificacionComercio;
   /** Adherido al programa Doogking Alpha (HU-13.3). */
   alphaAdherido?: boolean;
+  /** Motivo del último standby o baja, si lo hubo. */
+  baja?: { motivo: string; comentario?: string; fecha: string; origen: string; reactivarEl?: string };
+  eliminadoAt?: string;
 }
 
 export interface ReservaAdmin {
@@ -296,6 +300,10 @@ export interface ResumenComercios {
   activos: number;
   pendientes: number;
   suspendidos: number;
+  /** Standby voluntario del propio comercio. */
+  enPausa: number;
+  /** Baja lógica: fuera de la web, conservados por trazabilidad. */
+  dadosDeBaja: number;
   verificados: number;
 }
 
@@ -503,8 +511,24 @@ export class AdminApiService {
     return this.http.patch<ComercioAdmin>(`${this.adminUrl}/comercios/${id}`, dto);
   }
 
-  eliminarComercio(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.adminUrl}/comercios/${id}`);
+  /** Qué arrastraría la baja. Se pinta antes de pedir confirmación. */
+  getImpactoBaja(id: string): Observable<ImpactoBajaComercio> {
+    return this.http.get<ImpactoBajaComercio>(`${this.adminUrl}/comercios/${id}/impacto-baja`);
+  }
+
+  /**
+   * Baja lógica por defecto; con `purgar` el borrado es físico e irreversible.
+   * `HttpClient.delete` sólo manda cuerpo si se pasa por `options.body`.
+   */
+  eliminarComercio(
+    id: string,
+    opciones: { motivo?: string; comentario?: string; purgar?: boolean } = {},
+  ): Observable<ResultadoBajaComercio> {
+    return this.http.delete<ResultadoBajaComercio>(`${this.adminUrl}/comercios/${id}`, { body: opciones });
+  }
+
+  restaurarComercio(id: string): Observable<ComercioAdmin> {
+    return this.http.post<ComercioAdmin>(`${this.adminUrl}/comercios/${id}/restaurar`, {});
   }
 
   // ── Usuarios CRUD ────────────────────────────────────────────────────────────
