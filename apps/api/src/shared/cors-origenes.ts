@@ -9,11 +9,21 @@
 /**
  * Orígenes del contenedor de Capacitor. La app móvil (CLAUDE.md §3.1) comparte
  * el código de la web pero se sirve desde el propio dispositivo, así que su
- * `Origin` no es el dominio de producción: iOS envía `capacitor://localhost` y
- * Android `http://localhost`. Van siempre en la lista —también en producción—
- * porque sin ellos la app móvil se queda sin API.
+ * `Origin` no es el dominio de producción. Van siempre en la lista —también en
+ * producción— porque sin ellos la app móvil se queda sin API.
+ *
+ * `https://localhost` es el que usan hoy Android e iOS: desde Capacitor 4 el
+ * esquema por defecto es `https`, y así lo declara `capacitor.config.ts`. Esta
+ * lista se escribió con los esquemas antiguos, de modo que la app instalada
+ * recibía un CORS bloqueado en **todas** las llamadas y se quedaba en blanco
+ * sin decir nada. Los antiguos se conservan por si algún build los usa.
  */
-const ORIGENES_CAPACITOR = ['capacitor://localhost', 'ionic://localhost', 'http://localhost'];
+const ORIGENES_CAPACITOR = [
+  'https://localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
+];
 
 /** Puertos del `ng serve` y del `ionic serve` en la máquina del desarrollador. */
 const ORIGENES_DESARROLLO = [

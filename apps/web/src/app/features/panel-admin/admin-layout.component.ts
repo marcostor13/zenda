@@ -29,6 +29,7 @@ const NAV_SECTIONS = [
       { icon: 'tag',         label: 'Cupones',    ruta: '/admin/cupones',   exact: false },
       { icon: 'percent',     label: 'Campañas',   ruta: '/admin/campanas',  exact: false },
       { icon: 'map-pin',     label: 'Comunidad',  ruta: '/admin/comunidad', exact: false },
+      { icon: 'bell',        label: 'Notificaciones', ruta: '/admin/avisos', exact: false },
     ],
   },
   {

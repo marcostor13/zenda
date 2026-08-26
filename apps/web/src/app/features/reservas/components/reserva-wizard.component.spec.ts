@@ -53,6 +53,13 @@ const autenticacion = (usuario: unknown) => ({
 
 const sinSesion = () => autenticacion(null);
 
+/** Espera a que se cumpla una condicion, con tope para no colgar el test. */
+const esperarA = async (condicion: () => boolean, intentos = 50): Promise<void> => {
+  for (let i = 0; i < intentos && !condicion(); i++) {
+    await new Promise((resolver) => setTimeout(resolver, 0));
+  }
+};
+
 const perro = (extra: Record<string, unknown> = {}) => ({
   _id: 'p1', nombre: 'Maya', tamano: 'mediano', tipoPelo: ['corto'],
   fotos: [], especie: 'perro', esMestizo: false, esterilizado: true,
@@ -1914,7 +1921,10 @@ describe('ReservaWizardComponent', () => {
       await crear(params, query, ajustes);
       componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-03' });
       componente.irPaso(3);
-      await fixture.whenStable();
+      // `irPaso(3)` lanza `prepararStripe()` sin await. Un solo `whenStable`
+      // puede resolverse antes de que termine, y entonces no hay `pagoId` que
+      // sincronizar: el test fallaba de forma intermitente bajo carga.
+      await esperarA(() => componente.stripeListo());
       await componente.procesarPago();
       fixture.detectChanges();
     };

@@ -36,6 +36,10 @@ describe('origenesPermitidos', () => {
     const origenes = origenesPermitidos('https://doogking.com', undefined, 'production');
 
     // Sin esto la app móvil se queda sin API: su Origin no es el dominio web.
+    // `https://localhost` es el esquema por defecto de Capacitor desde la v4 y
+    // el que declara capacitor.config.ts: faltaba, y el APK instalado recibía
+    // un CORS bloqueado en todas las llamadas.
+    expect(origenes).toContain('https://localhost');
     expect(origenes).toContain('capacitor://localhost');
     expect(origenes).toContain('http://localhost');
   });

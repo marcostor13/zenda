@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Doogking</string>
+    <string name="title_activity_main">Doogking</string>
+    <string name="package_name">com.doogking.app</string>
+    <string name="custom_url_scheme">com.doogking.app</string>
+</resources>

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './core/auth/auth.module';
@@ -13,6 +14,7 @@ import { PaymentsModule } from './core/payments/payments.module';
 import { ReviewsModule } from './core/reviews/reviews.module';
 import { NotificationsModule } from './core/notifications/notifications.module';
 import { AdminModule } from './core/admin/admin.module';
+import { AvisosModule } from './core/avisos/avisos.module';
 import { ComisionConfigsModule } from './core/comision-configs/comision-configs.module';
 import { AlphaModule } from './core/alpha/alpha.module';
 import { CuponesModule } from './core/cupones/cupones.module';
@@ -53,6 +55,8 @@ const LIMITE_GLOBAL = [{ name: 'global', ttl: 60_000, limit: 300 }];
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Motor de tareas periódicas: lo usa el barrido de avisos programados.
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot(LIMITE_GLOBAL),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
@@ -70,6 +74,7 @@ const LIMITE_GLOBAL = [{ name: 'global', ttl: 60_000, limit: 300 }];
     ReviewsModule,
     NotificationsModule,
     AdminModule,
+    AvisosModule,
     ComisionConfigsModule,
     AlphaModule,
     CuponesModule,

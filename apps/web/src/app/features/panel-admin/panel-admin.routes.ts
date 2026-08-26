@@ -86,6 +86,11 @@ export const panelAdminRoutes: Routes = [
         loadComponent: () =>
           import('./admin-analitica.component').then(m => m.AdminAnaliticaComponent),
       },
+      {
+        path: 'avisos',
+        loadComponent: () =>
+          import('./admin-avisos.component').then(m => m.AdminAvisosComponent),
+      },
     ],
   },
 ];

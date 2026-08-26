@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Royal King Blue, el azul de marca. El icono adaptativo lo usa de fondo. -->
+    <color name="ic_launcher_background">#08258B</color>
+</resources>

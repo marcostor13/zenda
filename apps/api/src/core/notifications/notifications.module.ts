@@ -9,6 +9,7 @@ import { NotificationsRepository } from './notifications.repository';
 import { NotificationsService } from './notifications.service';
 import { MailerService } from './mailer.service';
 import { PushService } from './push.service';
+import { FcmClient } from './fcm.client';
 import { PushController } from './push.controller';
 
 @Module({
@@ -22,7 +23,7 @@ import { PushController } from './push.controller';
     ]),
   ],
   controllers: [PushController],
-  providers: [NotificationsRepository, NotificationsService, MailerService, PushService],
+  providers: [NotificationsRepository, NotificationsService, MailerService, PushService, FcmClient],
   exports: [NotificationsService, PushService],
 })
 export class NotificationsModule {}

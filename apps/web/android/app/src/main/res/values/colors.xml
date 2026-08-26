@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tinte del icono de notificación en la barra de estado. -->
+    <color name="doogking_notificacion">#FBAE17</color>
+</resources>

@@ -1,0 +1,18 @@
+
+# --- Capacitor / Android ---
+# El proyecto nativo sí se versiona (lleva configuración a mano: manifiesto,
+# iconos, enlaces profundos). Lo que se ignora es lo que Gradle regenera.
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/google-services.json
+android/capacitor-cordova-android-plugins/build/
+
+# --- Capacitor / iOS ---
+ios/App/build/
+ios/App/Pods/
+ios/App/App/GoogleService-Info.plist
+ios/DerivedData/
+
+# Recursos fuente del icono: se versionan, lo generado por densidad no.
