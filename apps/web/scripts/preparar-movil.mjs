@@ -21,22 +21,38 @@ import { fileURLToPath } from 'node:url';
 
 const raizWeb = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+/**
+ * Con `--verificar` no genera nada: comprueba el `env.js` que ya está copiado
+ * dentro del proyecto Android, justo antes de compilar el APK.
+ *
+ * Hace falta porque generar bien al principio no basta. Cualquier `ng build` o
+ * `npm run build` intermedio reescribe `public/env.js` con la configuración de
+ * desarrollo, y el `cap sync` siguiente se la lleva al APK sin avisar. Pasó:
+ * un APK salió apuntando a localhost pese a existir ya esta comprobación.
+ */
+const soloVerificar = process.argv.includes('--verificar');
+
 /** API público de Doogking: lo que debe llevar dentro una app instalada. */
 const API_POR_DEFECTO = 'https://apizenda.marcostorresalarcon.com/api/v1';
 
 /** Direcciones que sólo resuelven dentro del equipo que compila. */
 const SOLO_LOCALES = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'];
 
-process.env.WEB_API_URL ||= API_POR_DEFECTO;
+if (!soloVerificar) {
+  process.env.WEB_API_URL ||= API_POR_DEFECTO;
 
-execFileSync(process.execPath, [join(raizWeb, 'scripts', 'generar-env.mjs')], {
-  stdio: 'inherit',
-  env: process.env,
-});
+  execFileSync(process.execPath, [join(raizWeb, 'scripts', 'generar-env.mjs')], {
+    stdio: 'inherit',
+    env: process.env,
+  });
+}
 
-// Se relee el fichero generado en vez de fiarse de la variable: lo que acaba
-// dentro del APK es esto, y es lo único que merece la pena comprobar.
-const generado = readFileSync(join(raizWeb, 'public', 'env.js'), 'utf8');
+// Se relee el fichero en vez de fiarse de la variable: lo que acaba dentro del
+// APK es esto, y es lo único que merece la pena comprobar.
+const fichero = soloVerificar
+  ? join(raizWeb, 'android', 'app', 'src', 'main', 'assets', 'public', 'env.js')
+  : join(raizWeb, 'public', 'env.js');
+const generado = readFileSync(fichero, 'utf8');
 const url = generado.match(/"WEB_API_URL":\s*"([^"]+)"/)?.[1];
 
 if (!url) {
@@ -56,4 +72,7 @@ if (SOLO_LOCALES.includes(anfitrion)) {
   process.exit(1);
 }
 
-console.log(`\n✓ La app apuntará a: ${url}\n`);
+const destino = soloVerificar ? 'El APK que se va a compilar apunta a' : 'La app apuntará a';
+console.log(`
+✓ ${destino}: ${url}
+`);

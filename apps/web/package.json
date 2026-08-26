@@ -15,8 +15,8 @@
     "movil:sync": "node scripts/preparar-movil.mjs && ng build && cap sync",
     "movil:android": "npm run movil:sync && cap open android",
     "movil:ios": "npm run movil:sync && cap open ios",
-    "apk:debug": "npm run movil:sync && cd android && gradlew.bat assembleDebug",
-    "apk:release": "npm run movil:sync && cd android && gradlew.bat assembleRelease"
+    "apk:debug": "npm run movil:sync && node scripts/preparar-movil.mjs --verificar && cd android && gradlew.bat assembleDebug",
+    "apk:release": "npm run movil:sync && node scripts/preparar-movil.mjs --verificar && cd android && gradlew.bat assembleRelease"
   },
   "dependencies": {
     "@angular/animations": "^20.0.0",
