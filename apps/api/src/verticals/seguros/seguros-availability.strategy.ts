@@ -71,6 +71,7 @@ export class SegurosAvailabilityStrategy implements AvailabilityStrategy {
     if (admision.resultado === ResultadoElegibilidad.NO_ELEGIBLE) {
       return {
         disponible: false,
+        motivo: admision.motivo,
         metadata: { elegibilidad: admision.resultado, motivo: admision.motivo },
       };
     }
@@ -79,6 +80,7 @@ export class SegurosAvailabilityStrategy implements AvailabilityStrategy {
     if (poliza.cupoPolizas > 0 && this.holds.size >= poliza.cupoPolizas) {
       return {
         disponible: false,
+        motivo: 'La aseguradora ha agotado su cupo de pólizas.',
         metadata: {
           elegibilidad: admision.resultado,
           motivo: 'La aseguradora ha agotado su cupo de pólizas.',

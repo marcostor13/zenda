@@ -74,7 +74,12 @@ export interface DocumentoVerificacion {
   nombre?: string;
   url: string;
   fechaCaducidad?: string;
-  estado: EstadoDocumento;
+  /**
+   * Sólo para los documentos que la plataforma revisa. La documentación
+   * adicional no se verifica, así que va sin estado; ahí el único valor posible
+   * es `caducado`, que es un hecho de la fecha y no un veredicto del admin.
+   */
+  estado?: EstadoDocumento;
   subidoAt?: Date;
 }
 

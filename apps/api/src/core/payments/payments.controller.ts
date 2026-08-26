@@ -14,7 +14,7 @@ import {
 import { Request } from 'express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { PaymentsService } from './payments.service';
+import { EstadoSincronizacion, PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CrearPaymentIntentDto, PaymentIntentResponseDto } from 'shared';
 
@@ -47,6 +47,26 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Capacidades de pago del entorno' })
   configuracion(): { bypassPagoHabilitado: boolean } {
     return { bypassPagoHabilitado: this.paymentsService.bypassHabilitado() };
+  }
+
+  /**
+   * El cliente vuelve de la pasarela y pregunta cómo quedó su cobro.
+   *
+   * No confirma nada por decirlo el cliente: sólo manda el id del pago y el
+   * servidor lee el estado en Stripe. Existe porque el webhook puede tardar
+   * —y en local no llega nunca—, así que sin esto la reserva se quedaba en
+   * "pendiente de pago" con el cobro ya hecho.
+   */
+  @Post(':pagoId/sincronizar')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Consultar en la pasarela cómo quedó un pago y confirmar si procede' })
+  sincronizar(
+    @Param('pagoId') pagoId: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<EstadoSincronizacion> {
+    return this.paymentsService.sincronizarConPasarela(pagoId, req.user.sub);
   }
 
   /**

@@ -16,6 +16,10 @@ export interface PaymentIntentResponse {
   moneda: string;
 }
 
+export interface EstadoPago {
+  estado: 'aprobado' | 'pendiente' | 'rechazado';
+}
+
 @Injectable({ providedIn: 'root' })
 export class PaymentsService {
   private readonly http = inject(HttpClient);
@@ -25,6 +29,20 @@ export class PaymentsService {
   crearIntent(reservaId: string): Promise<PaymentIntentResponse> {
     return firstValueFrom(
       this.http.post<PaymentIntentResponse>(`${this.base}/intent`, { reservaId }),
+    );
+  }
+
+  /**
+   * Pregunta al servidor cómo quedó el cobro tras volver de la pasarela.
+   *
+   * Se llama nada más confirmar el pago en el navegador. El servidor consulta a
+   * Stripe y confirma la reserva si procede: sin esto hay que esperar al
+   * webhook, que puede tardar y que en local no llega nunca, y la reserva se
+   * queda en "pendiente de pago" con el dinero ya cobrado.
+   */
+  sincronizar(pagoId: string): Promise<EstadoPago> {
+    return firstValueFrom(
+      this.http.post<EstadoPago>(`${this.base}/${pagoId}/sincronizar`, {}),
     );
   }
 

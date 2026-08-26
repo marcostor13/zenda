@@ -5,6 +5,7 @@ export * from './enums/reserva-estado.enum';
 export * from './enums/pago-estado.enum';
 export * from './enums/pago-pasarela.enum';
 export * from './enums/perro.enum';
+export * from './catalogos/tamanos-perro';
 export * from './enums/servicio-clinico.enum';
 export * from './enums/historial.enum';
 export * from './enums/lugar.enum';
@@ -53,6 +54,7 @@ export * from './dtos/incidencias/incidencia.dto';
 export * from './dtos/bookings/crear-reserva.dto';
 export * from './dtos/bookings/solicitar-ajuste.dto';
 export * from './dtos/bookings/recurrencia.dto';
+export * from './dtos/bookings/comprobar-disponibilidad.dto';
 
 // DTOs — Comercios
 export * from './dtos/comercios/registrar-comercio.dto';

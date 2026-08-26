@@ -493,14 +493,27 @@ export class ComerciosService {
     const { documentoIdentidadUrl, licenciaNegocioUrl, documentos, ...resto } = dto;
     const datos: Record<string, unknown> = { ...resto };
 
+    // Cambiar el CIF exige que siga siendo único: el índice de Mongo lo
+    // rechazaría con un E11000 que el panel no sabe traducir.
+    if (dto.vatNumber) {
+      const otro = await this.repo.findByVatNumber(dto.vatNumber);
+      if (otro && otro.id !== comercioId) {
+        throw new DomainException('Ya existe un comercio con ese identificador fiscal', 409);
+      }
+    }
+
     if (documentoIdentidadUrl !== undefined || licenciaNegocioUrl !== undefined || documentos !== undefined) {
       const actual = await this.repo.findById(comercioId);
       const verificacionActual = actual?.verificacion ?? { estado: 'sin_verificar' as EstadoVerificacion };
       const nuevoDocumentoIdentidad = documentoIdentidadUrl ?? verificacionActual.documentoIdentidadUrl;
       const nuevaLicencia = licenciaNegocioUrl ?? verificacionActual.licenciaNegocioUrl;
 
-      // Cada documento declarado por el comercio entra como 'pendiente' de revisión;
-      // se marca 'caducado' automáticamente si su fecha de caducidad ya pasó.
+      /*
+       * La documentación adicional (seguro de RC, certificados…) es un archivo
+       * del comercio, no algo que la plataforma revise: no lleva estado de
+       * revisión. Lo único que se conserva del servidor es cuándo se subió, y
+       * `caducado` cuando la fecha ya pasó, que es un hecho, no un veredicto.
+       */
       const ahora = new Date();
       const documentosNormalizados = documentos !== undefined
         ? documentos.map((d) => ({
@@ -508,15 +521,26 @@ export class ComerciosService {
             nombre: d.nombre,
             url: d.url,
             fechaCaducidad: d.fechaCaducidad,
-            estado: (d.fechaCaducidad && new Date(d.fechaCaducidad) < ahora ? 'caducado' : 'pendiente') as
-              'pendiente' | 'caducado',
+            estado: (d.fechaCaducidad && new Date(d.fechaCaducidad) < ahora ? 'caducado' : undefined) as
+              'caducado' | undefined,
             subidoAt: ahora,
           }))
         : verificacionActual.documentos;
 
-      const tieneDocumentacion = Boolean(nuevoDocumentoIdentidad && nuevaLicencia) || Boolean(documentosNormalizados?.length);
+      /*
+       * Sólo los dos documentos obligatorios abren la revisión de identidad.
+       * Antes bastaba con adjuntar un extra para devolver a 'pendiente' un
+       * comercio ya verificado: subir la póliza del seguro le borraba el sello
+       * de verificado y lo dejaba otra vez "En revisión".
+       */
+      const identidadCompleta = Boolean(nuevoDocumentoIdentidad && nuevaLicencia);
+      const tocaronIdentidad = documentoIdentidadUrl !== undefined || licenciaNegocioUrl !== undefined;
+      const estadoVerificacion = identidadCompleta && tocaronIdentidad && verificacionActual.estado !== 'verificado'
+        ? 'pendiente'
+        : verificacionActual.estado;
+
       datos.verificacion = {
-        estado: tieneDocumentacion ? 'pendiente' : verificacionActual.estado,
+        estado: estadoVerificacion,
         documentoIdentidadUrl: nuevoDocumentoIdentidad,
         licenciaNegocioUrl: nuevaLicencia,
         documentos: documentosNormalizados,

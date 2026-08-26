@@ -17,6 +17,8 @@ describe('BookingsController', () => {
           provide: BookingsService,
           useValue: {
             crear: jest.fn(),
+            comprobarDisponibilidad: jest.fn(),
+            calendarioDisponibilidad: jest.fn(),
             listarPorUsuario: jest.fn(),
             obtenerDeUsuario: jest.fn(),
             cancelar: jest.fn(),
@@ -50,6 +52,44 @@ describe('BookingsController', () => {
     expect(arg.fechaInicio).toBeInstanceOf(Date);
     expect(arg.fechaFin).toBeInstanceOf(Date);
     expect(arg.cantidad).toBe(2);
+  });
+
+  it('debería consultar disponibilidad con el usuario del token y fechas convertidas a Date', async () => {
+    service.comprobarDisponibilidad.mockResolvedValue({ disponible: true, precioEstimado: 90 });
+
+    const respuesta = await controller.comprobarDisponibilidad(
+      {
+        servicioId: 's1',
+        vertical: VerticalKey.ALOJAMIENTO,
+        fechaInicio: '2026-07-15',
+        fechaFin: '2026-07-17',
+        cantidad: 1,
+      },
+      req,
+    );
+
+    const arg = service.comprobarDisponibilidad.mock.calls[0][0];
+    expect(arg.usuarioId).toBe('user-1');
+    expect(arg.fechaInicio).toBeInstanceOf(Date);
+    expect(arg.fechaFin).toBeInstanceOf(Date);
+    expect(respuesta).toEqual({ disponible: true, precioEstimado: 90 });
+  });
+
+  it('debería pedir el calendario con las fechas del rango convertidas a Date', async () => {
+    const dias = [{ fecha: '2026-09-01', disponible: true, plazasLibres: 2 }];
+    service.calendarioDisponibilidad.mockResolvedValue({ soportado: true, dias });
+
+    const respuesta = await controller.calendarioDisponibilidad(
+      { servicioId: 's1', desde: '2026-09-01', hasta: '2026-09-30', espacioId: 'suite-1' },
+      req,
+    );
+
+    const arg = service.calendarioDisponibilidad.mock.calls[0][0];
+    expect(arg.usuarioId).toBe('user-1');
+    expect(arg.desde).toBeInstanceOf(Date);
+    expect(arg.hasta).toBeInstanceOf(Date);
+    expect(arg.espacioId).toBe('suite-1');
+    expect(respuesta).toEqual({ soportado: true, dias });
   });
 
   it('debería listar las reservas del usuario autenticado', async () => {

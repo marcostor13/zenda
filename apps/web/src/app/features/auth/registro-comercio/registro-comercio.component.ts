@@ -131,9 +131,9 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                 <h1 class="rc__title">Crea tu cuenta</h1>
                 <p class="rc__sub">Cinco datos y listo. La información fiscal y bancaria se completa después, desde tu panel.</p>
 
-                <form class="rc-form" (ngSubmit)="onSubmit()" novalidate>
+                <form class="rc-form" [formGroup]="registroForm" (ngSubmit)="onSubmit()" novalidate>
 
-                  <div class="rc-fs" role="group" aria-labelledby="rc-fs-negocio" [formGroup]="negocioForm">
+                  <div class="rc-fs" role="group" aria-labelledby="rc-fs-negocio" formGroupName="negocio">
                     <p class="rc-fs__legend" id="rc-fs-negocio">
                       <rs-icon name="store" [size]="14" [stroke]="2" /> Tu negocio
                     </p>
@@ -161,7 +161,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                     </div>
                   </div>
 
-                  <div class="rc-fs" role="group" aria-labelledby="rc-fs-acceso" [formGroup]="cuentaForm">
+                  <div class="rc-fs" role="group" aria-labelledby="rc-fs-acceso" formGroupName="cuenta">
                     <p class="rc-fs__legend" id="rc-fs-acceso">
                       <rs-icon name="user" [size]="14" [stroke]="2" /> Tu acceso
                     </p>
@@ -523,17 +523,30 @@ export class RegistroComercioComponent {
     icon: iconoVertical(key),
   }));
 
-  readonly negocioForm = this.fb.group({
-    nombreComercial: ['', [Validators.required, Validators.minLength(2)]],
-    ciudad: ['', [Validators.required, Validators.minLength(2)]],
+  /**
+   * Los dos bloques cuelgan de un grupo raíz que se enlaza en el `<form>`.
+   *
+   * No es cosmético: `(ngSubmit)` lo emite `FormGroupDirective`, y con los
+   * `formGroup` sólo en los `<div>` de dentro ningún directiva casaba con el
+   * `<form>`. El binding quedaba escuchando un evento DOM inexistente, el botón
+   * hacía un submit nativo del navegador y la página se recargaba entera: el
+   * alta parecía "volver al paso 1" cuando en realidad la SPA arrancaba de cero.
+   */
+  readonly registroForm = this.fb.group({
+    negocio: this.fb.group({
+      nombreComercial: ['', [Validators.required, Validators.minLength(2)]],
+      ciudad: ['', [Validators.required, Validators.minLength(2)]],
+    }),
+    cuenta: this.fb.group({
+      nombre: ['', [Validators.required, Validators.minLength(2)]],
+      email: ['', [Validators.required, Validators.email]],
+      telefono: [''],
+      password: ['', [Validators.required, Validators.minLength(8)]],
+    }),
   });
 
-  readonly cuentaForm = this.fb.group({
-    nombre: ['', [Validators.required, Validators.minLength(2)]],
-    email: ['', [Validators.required, Validators.email]],
-    telefono: [''],
-    password: ['', [Validators.required, Validators.minLength(8)]],
-  });
+  readonly negocioForm = this.registroForm.controls.negocio;
+  readonly cuentaForm = this.registroForm.controls.cuenta;
 
   readonly seleccionValida = computed(() => this.verticalesSel().length > 0);
   readonly pasoActual = computed(() => this.pasos[this.paso() - 1] ?? this.pasos[0]);

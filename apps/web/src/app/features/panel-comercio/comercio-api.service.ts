@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ImpactoBajaComercioDto, ResultadoBajaComercioDto } from 'shared';
+import { ImpactoBajaComercioDto, ResultadoBajaComercioDto, TamanoPerro } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface ContactoComercio {
@@ -59,7 +59,10 @@ export interface DocumentoVerificacion {
   nombre?: string;
   url: string;
   fechaCaducidad?: string;
+  /** Sólo lo llevan los documentos que la plataforma revisa, no los adicionales. */
   estado?: string;
+  /** La fija el servidor al guardar. */
+  subidoAt?: string;
 }
 
 export interface VerificacionComercio {
@@ -120,6 +123,9 @@ export type ActualizarPerfilComercioPayload = Partial<
     | 'preferenciasNotificacion'
     | 'horario'
     | 'excepcionesHorario'
+    | 'verticales'
+    | 'razonSocial'
+    | 'vatNumber'
   >
 > & { documentoIdentidadUrl?: string; licenciaNegocioUrl?: string; documentos?: DocumentoVerificacion[] };
 
@@ -219,7 +225,8 @@ export interface SolicitarAjustePayload {
 export interface EspacioDisponibilidad {
   id?: string;
   tipo: 'suite' | 'estandar' | 'compartido';
-  tamanoMaxPerro: 'pequeno' | 'mediano' | 'grande' | 'gigante';
+  /** Escala completa del dominio: dejar fuera `mini` hacía que un espacio guardado como mini no encajase en el tipo. */
+  tamanoMaxPerro: TamanoPerro | '';
   precioNoche: number;
   cantidad: number;
   disponible: boolean;

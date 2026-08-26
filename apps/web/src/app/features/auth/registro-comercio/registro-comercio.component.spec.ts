@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { VerticalKey } from 'shared';
 import { RegistroComercioComponent } from './registro-comercio.component';
@@ -28,7 +30,11 @@ describe('RegistroComercioComponent (wizard)', () => {
 
     await TestBed.configureTestingModule({
       imports: [RegistroComercioComponent, ReactiveFormsModule, RouterTestingModule],
-      providers: [{ provide: AuthService, useValue: authService }],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: authService },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(RegistroComercioComponent);
@@ -39,6 +45,42 @@ describe('RegistroComercioComponent (wizard)', () => {
   it('debería crear el componente e iniciar en el paso 1', () => {
     expect(component).toBeTruthy();
     expect(component.paso()).toBe(1);
+  });
+
+  /**
+   * Regresión: los `formGroup` colgaban de los `<div>` de dentro, no del
+   * `<form>`. Sin directiva en el `<form>`, `(ngSubmit)` no lo emitía nadie, el
+   * botón hacía un submit nativo y el navegador recargaba la página: el alta
+   * parecía volver al paso 1 justo al terminar el paso 2.
+   */
+  it('debería enviar por ngSubmit y no dejar que el navegador recargue la página', async () => {
+    authService.registrarComercio.mockResolvedValue({ email: 'ana@royaldog.eu' } as never);
+    component.toggleVertical(VerticalKey.ALOJAMIENTO);
+    component.siguiente();
+    rellenarNegocio();
+    rellenarCuenta();
+    fixture.detectChanges();
+
+    const form = fixture.nativeElement.querySelector('form.rc-form') as HTMLFormElement;
+    const evento = new Event('submit', { bubbles: true, cancelable: true });
+    form.dispatchEvent(evento);
+    await fixture.whenStable();
+
+    // Si el submit no se cancela, el navegador navega y la SPA se reinicia.
+    expect(evento.defaultPrevented).toBe(true);
+    expect(authService.registrarComercio).toHaveBeenCalled();
+    expect(component.pendiente()).toBe(true);
+  });
+
+  it('debería enlazar el formulario raíz al elemento <form>', () => {
+    component.toggleVertical(VerticalKey.ALOJAMIENTO);
+    component.siguiente();
+    fixture.detectChanges();
+
+    rellenarNegocio();
+    // Los dos bloques cuelgan del mismo grupo raíz: sin eso no hay ngSubmit.
+    expect(component.registroForm.controls.negocio.value.ciudad).toBe('Madrid');
+    expect(component.registroForm.get('cuenta.email')).toBe(component.cuentaForm.get('email'));
   });
 
   it('no debería avanzar del paso 1 sin categorías seleccionadas', () => {

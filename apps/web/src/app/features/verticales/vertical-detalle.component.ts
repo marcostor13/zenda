@@ -337,6 +337,21 @@ const CONFIGS: Record<string, DetalleConfig> = {
         </div>
       </div>
     </div>
+
+    <!--
+      BARRA FIJA DE MÓVIL — sólo por debajo de 1024px, donde .vd-body pasa a
+      una columna y el panel lateral queda al final de la página: sin esto, la
+      acción de reservar sólo aparecía tras bajar por la galería, la
+      descripción y las reseñas enteras.
+    -->
+    <div class="mobile-cta">
+      <div class="mobile-cta__precio">
+        <span class="mobile-cta__desde">Desde</span>
+        <strong>{{ cfg().price(s) | euros }}</strong>
+        <span class="mobile-cta__unidad">{{ cfg().priceLabel }}</span>
+      </div>
+      <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="solicitar(s)">{{ cfg().cta }}</button>
+    </div>
   </div>
   }
 </div>
@@ -345,6 +360,41 @@ const CONFIGS: Record<string, DetalleConfig> = {
     :host { display: block; }
     .vd-page { min-height: 100vh; background: var(--c-base); }
     .vd-wrap { padding-block: var(--sp-6) var(--sp-16); }
+
+    /*
+     * Barra fija de reserva en móvil. Aparece justo donde .vd-body pasa a una
+     * columna (1024px): a partir de ahí el panel lateral —aunque sea sticky—
+     * queda al final de la página, detrás de la galería, la descripción y las
+     * reseñas enteras, así que "sticky" no ayuda hasta que ya se ha bajado
+     * todo eso a pulso. En escritorio no hace falta: el panel lateral ya está
+     * siempre a la vista.
+     */
+    .mobile-cta { display: none; }
+
+    @media (max-width: 1024px) {
+      /* Sitio para que la barra fija no tape lo último de la página. */
+      .vd-wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+      .mobile-cta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        position: fixed;
+        inset: auto 0 0 0;
+        z-index: var(--z-2);
+        padding: var(--sp-3) var(--sp-5);
+        padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+        background: var(--c-card);
+        border-top: 1px solid var(--b-1);
+        box-shadow: 0 -8px 24px rgba(8, 37, 139, .10);
+      }
+      .mobile-cta__precio { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+      .mobile-cta__desde  { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
+      .mobile-cta__precio strong { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--dk-blue); }
+      .mobile-cta__unidad { font-size: var(--f-xs); color: var(--t-400); }
+      .mobile-cta .rs-btn { flex-shrink: 0; padding-inline: var(--sp-6); }
+    }
 
     .breadcrumb { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-5); a { color: var(--t-400); } }
 

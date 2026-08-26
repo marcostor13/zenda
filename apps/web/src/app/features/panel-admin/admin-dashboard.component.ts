@@ -21,7 +21,6 @@ const PERIODOS: ReadonlyArray<{ clave: PeriodoClave; label: string }> = [
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
-
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success',
@@ -551,7 +550,6 @@ export class AdminDashboardComponent implements OnInit {
     if (this.desde() && this.hasta()) await this.cargarDashboard();
   }
 
-
   totalAlertas(): number {
     return this.kpis().verificacionesPendientes + this.kpis().comerciosPendientesCount
       + this.kpis().pagosRetenidosCount + this.kpis().incidenciasAbiertas;
@@ -566,7 +564,6 @@ export class AdminDashboardComponent implements OnInit {
   badgeEstado(estado: string): string {
     return ESTADO_BADGE[estado] ?? 'rs-badge--neutral';
   }
-
 
   async aprobarComercio(id: string): Promise<void> {
     try {

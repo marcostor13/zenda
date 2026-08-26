@@ -343,8 +343,14 @@ describe('AuthService', () => {
 
         const [, , expira] = usersRepository.establecerTokenRecuperacion.mock.calls[0];
         const margen = (expira as Date).getTime() - antes;
+        /*
+         * La caducidad se calcula dentro del servicio, así que al margen se le
+         * suma lo que tarde la llamada. Con el tope clavado en 60 min el test
+         * sólo pasaba si tardaba menos de 1 ms: fallaba de forma intermitente
+         * cuando la suite corre en paralelo.
+         */
         expect(margen).toBeGreaterThan(59 * 60 * 1000);
-        expect(margen).toBeLessThanOrEqual(60 * 60 * 1000);
+        expect(margen).toBeLessThanOrEqual(61 * 60 * 1000);
       });
 
       it('no debería revelar que el email no existe', async () => {

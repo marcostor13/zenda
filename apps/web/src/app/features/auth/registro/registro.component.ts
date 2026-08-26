@@ -13,6 +13,13 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
     <div class="rs-auth">
       <div class="rs-auth__card">
 
+        <!-- Misma salida que en el login: sin ella, quien llega al registro no
+             tiene forma evidente de volver a la portada. -->
+        <a routerLink="/" class="rs-auth__volver">
+          <rs-icon name="arrow-left" [size]="16" [stroke]="2" />
+          Volver al inicio
+        </a>
+
         <div class="rs-auth__brand">
         <a routerLink="/" aria-label="Ir a la Home de Doogking" style="display:inline-block;cursor:pointer">
           <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
@@ -115,8 +122,8 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
         <app-social-buttons />
 
         <p style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-top:var(--sp-4);line-height:1.5">
-          Al registrarte aceptas nuestros <a routerLink="/terminos" style="color:#7AA3FF">Términos</a>
-          y <a routerLink="/privacidad" style="color:#7AA3FF">Política de privacidad</a>.
+          Al registrarte aceptas nuestros <a routerLink="/terminos" class="rs-auth__enlace">Términos</a>
+          y <a routerLink="/privacidad" class="rs-auth__enlace">Política de privacidad</a>.
         </p>
 
         <div class="rs-auth__footer">

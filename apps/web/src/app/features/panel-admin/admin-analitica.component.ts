@@ -14,10 +14,10 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
   standalone: true,
   imports: [DecimalPipe, RsIconComponent, EurosPipe],
   template: `
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Analítica</h1>
-        <p class="page-sub">Visión de negocio: dónde crece la plataforma y cómo convierte.</p>
+        <h1 class="rs-page-title">Analítica</h1>
+        <p class="rs-page-sub">Visión de negocio: dónde crece la plataforma y cómo convierte.</p>
       </div>
     </div>
 
@@ -176,9 +176,7 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
   `,
   styles: [`
     :host { display: contents; }
-    .page-header { margin-bottom: var(--sp-6); }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
+
     .evolucion { margin-bottom: var(--sp-5); }
     .evolucion__toggle { display: inline-flex; padding: 3px; gap: 2px; background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-lg); }
     .evolucion__btn {

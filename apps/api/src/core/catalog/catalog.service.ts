@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { UnidadReservable, idDeUnidad } from './unidad-reservable';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -734,7 +735,7 @@ export class CatalogService {
       | Array<Record<string, unknown>>
       | undefined;
     return (espacios ?? []).map((e, i) => ({
-      id: String(e['id'] ?? e['_id'] ?? `esp-${i}`),
+      id: idDeUnidad(e as unknown as UnidadReservable & { _id?: unknown }, i),
       tipo: (e['tipo'] as string) ?? 'estandar',
       descripcion: (e['descripcion'] as string) ?? '',
       tamanoMaxPerro: e['tamanoMaxPerro'] as string | undefined,

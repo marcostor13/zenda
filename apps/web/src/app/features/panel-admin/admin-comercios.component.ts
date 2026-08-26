@@ -19,6 +19,7 @@ import { iconoVertical } from '../panel-comercio/vertical-icon';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { mensajeDeError } from '../../shared/mensaje-error';
+import { RsAdminFiltrosComponent, GrupoFiltro, ValoresFiltro } from '../../shared/components/admin-filtros/rs-admin-filtros.component';
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
@@ -35,13 +36,13 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-comercios',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RsIconComponent, EurosPipe],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RsIconComponent, EurosPipe, RsAdminFiltrosComponent],
   template: `
     <!-- Cabecera -->
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Comercios</h1>
-        <p class="page-sub">Gestiona los comercios registrados en la plataforma.</p>
+        <h1 class="rs-page-title">Comercios</h1>
+        <p class="rs-page-sub">Gestiona los comercios registrados en la plataforma.</p>
       </div>
       <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo comercio</button>
     </div>
@@ -80,49 +81,24 @@ const LIMITE = 20;
       }
     </div>
 
-    <!-- Barra de filtros + búsqueda -->
-    <div class="toolbar">
-      <div class="filter-bar">
-        @for (f of filtros; track f.valor) {
-          <button
-            class="rs-btn rs-btn--sm"
-            [class.rs-btn--primary]="filtroEstado() === f.valor"
-            [class.rs-btn--ghost]="filtroEstado() !== f.valor"
-            (click)="setFiltro(f.valor)">
-            {{ f.label }}
-          </button>
-        }
-      </div>
-      <input
-        class="rs-inp search-input"
-        type="text"
-        placeholder="Buscar por nombre, razón social o CIF/NIF…"
-        [value]="buscar()"
-        (input)="onBuscar($event)" />
-      <!-- Filtros de la propia página: se aplican sobre lo ya cargado (TCK-8034) -->
-      <select class="rs-inp filtro-select" [value]="filtroVerificacion()"
-              (change)="filtroVerificacion.set($any($event.target).value)" aria-label="Verificación">
-        <option value="">Cualquier verificación</option>
-        <option value="verificado">Verificados</option>
-        <option value="pendiente">Verificación pendiente</option>
-        <option value="sin_verificar">Sin verificar</option>
-        <option value="rechazado">Rechazados</option>
-      </select>
-      <select class="rs-inp filtro-select" [value]="filtroVertical()"
-              (change)="filtroVertical.set($any($event.target).value)" aria-label="Vertical">
-        <option value="">Todos los verticales</option>
-        @for (v of verticalesDisponibles(); track v) {
-          <option [value]="v">{{ labelVertical(v) }}</option>
-        }
-      </select>
-      <select class="rs-inp filtro-select" [value]="filtroPlan()"
-              (change)="filtroPlan.set($any($event.target).value)" aria-label="Plan">
-        <option value="">Todos los planes</option>
-        <option value="basico">Plan Básico</option>
-        <option value="pro">Plan Pro</option>
-        <option value="premium">Plan Premium</option>
-      </select>
-    </div>
+    <!-- Barra de filtros + búsqueda (clases comunes .rs-toolbar) -->
+    <!--
+      Filtros plegados tras un botón, con el mismo lenguaje que el listado
+      público (rs-listado): seis pastillas de estado y tres desplegables
+      ocupaban media pantalla antes de la primera fila de la tabla. Lo aplicado
+      se ve como pastillas quitables y el recuento va al lado, que era lo que
+      faltaba para notar que el filtro había hecho algo.
+    -->
+    <rs-admin-filtros
+      [grupos]="gruposFiltro()"
+      [valores]="valoresFiltro()"
+      [total]="total()"
+      etiquetaSingular="comercio"
+      etiquetaPlural="comercios"
+      [buscar]="buscar()"
+      buscarPlaceholder="Nombre, razón social o CIF/NIF…"
+      (buscarCambio)="onBuscarTexto($event)"
+      (cambio)="aplicarFiltros($event)" />
 
     @if (errorMsg()) {
       <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ errorMsg() }}</div>
@@ -191,22 +167,18 @@ const LIMITE = 20;
             </span>
             <span class="cell-muted" data-col="Registro">{{ c.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones" (click)="$event.stopPropagation()">
-              <!-- En un comercio pendiente lo primero es revisar su solicitud,
-                   no aprobarla a ciegas (TCK-8034). -->
-              @if (c.estado === 'pendiente') {
-                <button class="rs-btn rs-btn--outline rs-btn--sm"
-                        [disabled]="accionando() === c._id" (click)="abrirFicha(c)">
-                  Revisar solicitud
-                </button>
-              }
               <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Acciones"
                       (click)="menuAbiertoId.set(menuAbiertoId() === c._id ? null : c._id)">
                 <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
               </button>
               @if (menuAbiertoId() === c._id) {
                 <div class="acciones__menu">
+                  <!-- En un comercio pendiente lo primero es revisar su solicitud,
+                       no aprobarla a ciegas (TCK-8034). Es la misma ficha, así que
+                       en vez de duplicar la entrada cambia el rótulo. -->
                   <button class="acciones__item" (click)="abrirFicha(c)">
-                    <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver ficha
+                    <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon>
+                    {{ c.estado === 'pendiente' ? 'Revisar solicitud' : 'Ver ficha' }}
                   </button>
                   <button class="acciones__item" (click)="abrirEditar(c)">
                     <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar datos
@@ -563,18 +535,11 @@ const LIMITE = 20;
   styles: [`
     :host { display: contents; }
 
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-6); margin-bottom: var(--sp-6); flex-wrap: wrap; }
     .back-link { font-size: var(--f-sm); color: var(--c-accent); text-decoration: none; display: inline-block; margin-bottom: var(--sp-2); }
     .back-link:hover { text-decoration: underline; }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
     .page-kpi { padding: var(--sp-4) var(--sp-6); text-align: center; min-width: 100px; }
     .kpi-num { display: block; font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); }
     .kpi-lbl { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
-
-    .toolbar { display: flex; gap: var(--sp-4); margin-bottom: var(--sp-5); flex-wrap: wrap; align-items: center; }
-    .filter-bar { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-    .search-input { flex: 1; min-width: 240px; max-width: 360px; }
 
     .resumen-comercios { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-4); }
     .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
@@ -615,8 +580,6 @@ const LIMITE = 20;
     .modal__texto { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); }
     .modal__acciones { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); }
 
-    .filtro-select { height: 40px; max-width: 220px; }
-
     .docs { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
     .docs__item {
       display: flex; align-items: center; gap: var(--sp-3);
@@ -635,6 +598,13 @@ const LIMITE = 20;
     }
 
     .acciones { position: relative; display: flex; align-items: center; gap: var(--sp-2); justify-content: flex-end; }
+
+    /*
+     * Las insignias de la tabla no se parten. "DOC. PENDIENTE" en mayúsculas y
+     * con su icono pide unos 140px: en la columna de 130 que había, caía a dos
+     * líneas y descuadraba el alto de la fila.
+     */
+    .tbl-row .rs-badge { white-space: nowrap; }
     .acciones__menu {
       position: absolute; right: 0; top: calc(100% + 4px);
       /*
@@ -667,8 +637,8 @@ const LIMITE = 20;
      * y la última fila, que es donde tocan el borde.
      */
     .tbl-card { overflow: visible; }
-    .tbl-head { display: grid; grid-template-columns: 2fr 120px 110px 110px 130px 110px 130px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); border-radius: var(--r-2xl) var(--r-2xl) 0 0; }
-    .tbl-row { display: grid; grid-template-columns: 2fr 120px 110px 110px 130px 110px 130px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
+    .tbl-head { display: grid; grid-template-columns: 2fr 120px 110px 110px 150px 110px 56px; column-gap: var(--sp-3); padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); border-radius: var(--r-2xl) var(--r-2xl) 0 0; }
+    .tbl-row { display: grid; grid-template-columns: 2fr 120px 110px 110px 150px 110px 56px; column-gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; border-radius: 0 0 var(--r-2xl) var(--r-2xl); }
     .tbl-row:hover { background: var(--c-raised); }
 
@@ -745,7 +715,6 @@ const LIMITE = 20;
         padding-inline: 0;
       }
     }
-
 
     .skel { background: var(--c-raised); border-radius: var(--r-sm); height: 16px; animation: pulse 1.4s ease-in-out infinite; }
     .skel--sm { width: 80px; } .skel--md { width: 120px; } .skel--lg { width: 180px; }
@@ -907,6 +876,56 @@ export class AdminComerciosComponent implements OnInit {
   readonly filtros = FILTROS;
   readonly verticalesOpciones = VERTICALES_OPCIONES;
 
+  /**
+   * Los cuatro filtros de la vista, en el formato que entiende
+   * `rs-admin-filtros`. El estado viaja al servidor (recarga la página de
+   * resultados); los otros tres se aplican sobre lo ya cargado (TCK-8034).
+   */
+  readonly gruposFiltro = computed<GrupoFiltro[]>(() => [
+    {
+      clave: 'estado',
+      label: 'Estado',
+      tipo: 'pastillas',
+      // La opción vacía la pinta el propio componente, así que aquí no va.
+      opciones: FILTROS.filter((f) => f.valor).map((f) => ({ valor: f.valor, label: f.label })),
+    },
+    {
+      clave: 'verificacion',
+      label: 'Verificación',
+      tipo: 'select',
+      vacio: 'Cualquiera',
+      opciones: [
+        { valor: 'verificado', label: 'Verificados' },
+        { valor: 'pendiente', label: 'Pendientes' },
+        { valor: 'sin_verificar', label: 'Sin verificar' },
+        { valor: 'rechazado', label: 'Rechazados' },
+      ],
+    },
+    {
+      clave: 'vertical',
+      label: 'Vertical',
+      tipo: 'select',
+      opciones: this.verticalesDisponibles().map((v) => ({ valor: v, label: this.labelVertical(v) })),
+    },
+    {
+      clave: 'plan',
+      label: 'Plan',
+      tipo: 'select',
+      opciones: [
+        { valor: 'basico', label: 'Básico' },
+        { valor: 'pro', label: 'Pro' },
+        { valor: 'premium', label: 'Premium' },
+      ],
+    },
+  ]);
+
+  readonly valoresFiltro = computed<ValoresFiltro>(() => ({
+    estado: this.filtroEstado(),
+    verificacion: this.filtroVerificacion(),
+    vertical: this.filtroVertical(),
+    plan: this.filtroPlan(),
+  }));
+
   readonly form = this.fb.group({
     nombreComercial: ['', Validators.required],
     razonSocial: ['', Validators.required],
@@ -971,6 +990,24 @@ export class AdminComerciosComponent implements OnInit {
 
   onBuscar(event: Event): void {
     this.buscarSubject.next((event.target as HTMLInputElement).value);
+  }
+
+  onBuscarTexto(texto: string): void {
+    this.buscarSubject.next(texto);
+  }
+
+  /**
+   * Aplica lo elegido en el panel. Sólo el estado obliga a volver al servidor;
+   * cambiarlo devuelve además a la primera página, porque el resultado anterior
+   * ya no tiene por qué tener tantas.
+   */
+  async aplicarFiltros(valores: ValoresFiltro): Promise<void> {
+    this.filtroVerificacion.set(valores['verificacion'] ?? '');
+    this.filtroVertical.set(valores['vertical'] ?? '');
+    this.filtroPlan.set(valores['plan'] ?? '');
+
+    const estado = valores['estado'] ?? '';
+    if (estado !== this.filtroEstado()) await this.setFiltro(estado);
   }
 
   async cambiarPagina(pagina: number): Promise<void> {

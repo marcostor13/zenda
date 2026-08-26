@@ -25,6 +25,7 @@ describe('PaymentsController', () => {
             procesarWebhook: jest.fn().mockResolvedValue(undefined),
             aceptarAjuste: jest.fn().mockResolvedValue(intentResponseMock),
             rechazarAjuste: jest.fn().mockResolvedValue(undefined),
+            sincronizarConPasarela: jest.fn().mockResolvedValue({ estado: 'aprobado' }),
           },
         },
       ],
@@ -71,6 +72,18 @@ describe('PaymentsController', () => {
 
       expect(paymentsService.procesarWebhook).toHaveBeenCalledWith(Buffer.from('{}'), 'sig_test');
       expect(resultado).toEqual({ received: true });
+    });
+  });
+  describe('sincronizar', () => {
+    it('debería delegar con el pago pedido y el usuario del token', async () => {
+      // El cliente sólo aporta el id del pago; el estado lo lee el servidor en
+      // la pasarela, así que nadie puede darse su reserva por pagada.
+      const req: any = { user: { sub: 'user-1' } };
+
+      const resultado = await controller.sincronizar('pago-1', req);
+
+      expect(paymentsService.sincronizarConPasarela).toHaveBeenCalledWith('pago-1', 'user-1');
+      expect(resultado).toEqual({ estado: 'aprobado' });
     });
   });
 });

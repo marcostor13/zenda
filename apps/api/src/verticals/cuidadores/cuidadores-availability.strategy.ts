@@ -49,6 +49,7 @@ export class CuidadoresAvailabilityStrategy implements AvailabilityStrategy {
     if ((cuidador.cuposDisponibles ?? 0) < visitas) {
       return {
         disponible: false,
+        motivo: 'Este cuidador no tiene huecos libres para las visitas que pides.',
         capacidadRestante: cuidador.cuposDisponibles ?? 0,
         metadata: { motivo: 'sin_cupos' },
       };
@@ -56,24 +57,40 @@ export class CuidadoresAvailabilityStrategy implements AvailabilityStrategy {
 
     const modalidad = this.modalidadPedida(params);
     if (!cuidador.modalidades?.includes(modalidad)) {
-      return { disponible: false, metadata: { motivo: 'modalidad_no_ofrecida' } };
+      return {
+        disponible: false,
+        motivo: 'Este cuidador no ofrece la modalidad que has elegido.',
+        metadata: { motivo: 'modalidad_no_ofrecida' },
+      };
     }
 
     const tamano = params.parametrosExtra?.['perroTamano'] ?? params.parametrosExtra?.['tamano'];
     // Lista vacía = sin restricción de tamaño.
     if (typeof tamano === 'string' && cuidador.tamanosAdmitidos?.length
         && !cuidador.tamanosAdmitidos.includes(tamano as TamanoPerro)) {
-      return { disponible: false, metadata: { motivo: 'tamano_no_admitido' } };
+      return {
+        disponible: false,
+        motivo: 'Este cuidador no admite perros del tamaño de tu perro.',
+        metadata: { motivo: 'tamano_no_admitido' },
+      };
     }
 
     const esPPP = params.parametrosExtra?.['perroEsPPP'] ?? params.parametrosExtra?.['esPPP'];
     if (esPPP === true && !cuidador.aceptaPPP) {
-      return { disponible: false, metadata: { motivo: 'no_acepta_ppp' } };
+      return {
+        disponible: false,
+        motivo: 'Este cuidador no acepta perros de raza potencialmente peligrosa.',
+        metadata: { motivo: 'no_acepta_ppp' },
+      };
     }
 
     const precioUnitario = this.precioDe(cuidador, modalidad);
     if (precioUnitario == null) {
-      return { disponible: false, metadata: { motivo: 'modalidad_sin_precio' } };
+      return {
+        disponible: false,
+        motivo: 'Este cuidador todavía no ha puesto precio a la modalidad que has elegido.',
+        metadata: { motivo: 'modalidad_sin_precio' },
+      };
     }
 
     return {

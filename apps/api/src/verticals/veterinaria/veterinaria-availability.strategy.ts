@@ -42,7 +42,11 @@ export class VeterinariaAvailabilityStrategy implements AvailabilityStrategy {
     const perros = Math.max(1, params.cantidad ?? 1);
 
     if ((clinica.citasDisponibles ?? 0) < perros) {
-      return { disponible: false, capacidadRestante: clinica.citasDisponibles ?? 0 };
+      return {
+        disponible: false,
+        motivo: 'No quedan citas libres en esta clínica para el número de mascotas indicado.',
+        capacidadRestante: clinica.citasDisponibles ?? 0,
+      };
     }
 
     this.validarEspecie(clinica, params);

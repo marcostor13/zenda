@@ -42,7 +42,11 @@ export class PeluqueriaAvailabilityStrategy implements AvailabilityStrategy {
     const perros = Math.max(1, params.cantidad ?? 1);
 
     if ((peluqueria.cuposDisponibles ?? 0) < perros) {
-      return { disponible: false, capacidadRestante: peluqueria.cuposDisponibles ?? 0 };
+      return {
+        disponible: false,
+        motivo: 'No quedan citas libres en esta peluquería para el número de perros indicado.',
+        capacidadRestante: peluqueria.cuposDisponibles ?? 0,
+      };
     }
 
     const servicio = this.servicioGroomingSolicitado(peluqueria, params);

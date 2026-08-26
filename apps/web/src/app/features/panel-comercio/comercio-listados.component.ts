@@ -1,4 +1,5 @@
 import { Component, signal, computed, inject, HostListener, OnInit } from '@angular/core';
+import { TamanoPerro } from 'shared';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
@@ -138,16 +139,10 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
               <span class="rs-badge {{ estadoBadge(s.estado) }}">{{ etiquetaEstado(s.estado) }}</span>
             </div>
 
+            <!-- Solo los 3 puntos a la vista; las 4 acciones viven dentro del
+                 desplegable (feedback: la fila de botones sueltos competía con
+                 el resto de la tarjeta). -->
             <div class="listado-card__actions">
-              <a class="rs-btn rs-btn--ghost rs-btn--sm" [routerLink]="['/comercio/listados', s._id, 'editar']">
-                <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
-              </a>
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleDisponibilidad(s)">
-                <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> Disponibilidad
-              </button>
-              <a class="rs-btn rs-btn--ghost rs-btn--sm" [routerLink]="enlacePublico(s)">
-                <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver en Doogking
-              </a>
               <div class="mas-opciones" (click)="$event.stopPropagation()">
                 <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Más opciones"
                         (click)="menuAbiertoId.set(menuAbiertoId() === s._id ? null : s._id)">
@@ -155,8 +150,17 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
                 </button>
                 @if (menuAbiertoId() === s._id) {
                   <div class="mas-opciones__menu">
+                    <a class="mas-opciones__item" [routerLink]="['/comercio/listados', s._id, 'editar']">
+                      <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
+                    </a>
+                    <button class="mas-opciones__item" (click)="toggleDisponibilidad(s); menuAbiertoId.set(null)">
+                      <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> Disponibilidad
+                    </button>
+                    <a class="mas-opciones__item" [routerLink]="enlacePublico(s)">
+                      <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver en Doogking
+                    </a>
                     <button class="mas-opciones__item" [disabled]="toggling() === s._id"
-                            (click)="toggleEstado(s)">
+                            (click)="toggleEstado(s); menuAbiertoId.set(null)">
                       @if (s.estado === 'publicado') {
                         <rs-icon name="pause" [size]="13" [stroke]="2"></rs-icon> Pausar servicio
                       } @else {
@@ -301,7 +305,8 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
     .mas-opciones { position: relative; }
     .mas-opciones__menu {
       position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
-      min-width: 190px; padding: var(--sp-2);
+      /* 200px: lo que pide "Publicar servicio" sin partir la línea (antes 190). */
+      min-width: 200px; padding: var(--sp-2);
       background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
       box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
     }
@@ -309,8 +314,9 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
       display: flex; align-items: center; gap: var(--sp-2); width: 100%;
       padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
       border-radius: var(--r-md); cursor: pointer; text-align: left;
-      font-size: var(--f-sm); color: var(--t-200);
+      font-size: var(--f-sm); color: var(--t-200); text-decoration: none;
       &:hover { background: var(--c-raised); }
+      &:disabled { opacity: .5; cursor: default; }
     }
 
     .listado-card__info { min-width: 0; }
@@ -321,7 +327,8 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
     .listado-card__meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
     .listado-card__precio { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--c-accent); }
     .listado-card__estado { @media (max-width: 640px) { display: none; } }
-    .listado-card__actions { display: flex; flex-direction: column; gap: var(--sp-2); @media (max-width: 640px) { grid-column: 2; } }
+    /* Un solo hijo ahora (los 3 puntos): ya no hace falta apilar botones. */
+    .listado-card__actions { @media (max-width: 640px) { grid-column: 2; } }
 
     .disponibilidad-panel { padding: var(--sp-5); margin-top: calc(-1 * var(--sp-2)); }
     .espacio-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
@@ -472,7 +479,7 @@ export class ComercioListadosComponent implements OnInit {
   agregarEspacio(): void {
     this.espaciosEdit.update((lista) => [
       ...lista,
-      { tipo: 'estandar', tamanoMaxPerro: 'mediano', precioNoche: 0, cantidad: 1, disponible: true },
+      { tipo: 'estandar', tamanoMaxPerro: TamanoPerro.MEDIANO, precioNoche: 0, cantidad: 1, disponible: true },
     ]);
   }
 

@@ -468,10 +468,13 @@ export class AdminService {
       throw new BadRequestException('Para rechazar la documentación hay que indicar el motivo');
     }
 
-    const documentos = (comercio.verificacion?.documentos ?? []).map((d) => ({
-      ...d,
-      estado: estado === 'verificado' ? 'verificado' : estado === 'rechazado' ? 'rechazado' : d.estado,
-    }));
+    /*
+     * Los documentos de la lista son la documentación **adicional** (seguro de
+     * RC, certificados…), que no se revisa: sellarlos junto al veredicto de
+     * identidad les ponía un estado que no significa nada. Se conservan tal
+     * cual; lo que cambia es el estado de verificación del comercio.
+     */
+    const documentos = comercio.verificacion?.documentos ?? [];
 
     const actualizado = await this.comerciosRepo.actualizar(id, {
       verificacion: {

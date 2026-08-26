@@ -1,5 +1,6 @@
 import { Component, signal, computed, inject, DestroyRef, OnInit, WritableSignal } from '@angular/core';
 import { AbstractControl, ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
+import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -13,6 +14,7 @@ import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-ph
 import { RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
 import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { celdasDelMes, claveDia, desdeClaveDia, hoyLocal } from '../../shared/fechas';
+import { iconoVertical } from './vertical-icon';
 
 /** Tope de `POST /upload/documento`. Debe seguir al del controlador del API. */
 const MAX_DOCUMENTO_BYTES = 10 * 1024 * 1024;
@@ -114,6 +116,7 @@ type UrlImagen = string | null;
   selector: 'app-comercio-config',
   standalone: true,
   imports: [
+    DatePipe,
     ReactiveFormsModule,
     RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent, RsMapaComponent,
   ],
@@ -269,6 +272,27 @@ type UrlImagen = string | null;
           @if (infoForm.get('nombreComercial')?.invalid && infoForm.get('nombreComercial')?.touched) {
             <span class="rs-field-error">Campo requerido</span>
           }
+        </div>
+
+        <!--
+          Datos fiscales. Se piden aquí y no en el alta (perfilado progresivo),
+          pero no había ningún sitio donde aportarlos: el paso "Datos fiscales
+          (CIF/NIF)" del panel se quedaba pendiente para siempre.
+        -->
+        <div class="form-row">
+          <div class="rs-field">
+            <label class="rs-lbl" for="razonSocial">Razón social</label>
+            <input id="razonSocial" class="rs-inp" formControlName="razonSocial"
+                   placeholder="Ej: Villa Perruna S.L." />
+          </div>
+          <div class="rs-field">
+            <label class="rs-lbl" for="vatNumber">CIF / NIF</label>
+            <input id="vatNumber" class="rs-inp" formControlName="vatNumber"
+                   placeholder="Ej: B12345678" />
+            <span class="rs-field-hint">
+              Necesario antes de tu primera liquidación: es lo que va en las facturas.
+            </span>
+          </div>
         </div>
 
         <div class="rs-field">
@@ -701,25 +725,36 @@ type UrlImagen = string | null;
           </button>
         </div>
 
+        <!--
+          Guardar los días especiales pertenece a este bloque, no al pie del
+          paso: es lo que acaba de rellenarse justo encima. En el pie eran tres
+          botones y en un móvil no caben — el del medio se derramaba sobre el de
+          continuar. Los pies de los otros nueve pasos son "Atrás" + avanzar;
+          éste ya también.
+        -->
+        <div class="form-actions form-actions--suelta">
+          <button type="button" class="rs-btn rs-btn--secondary" [disabled]="guardandoExcepciones()"
+                  (click)="guardarExcepciones()">
+            @if (guardandoExcepciones()) { Guardando… } @else {
+              <rs-icon name="check" [size]="14" [stroke]="2"></rs-icon>
+              Guardar días especiales
+            }
+          </button>
+        </div>
+
         <div class="form-actions">
           <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
                   [disabled]="esPrimerPaso()">
             <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
             Atrás
           </button>
-          <div class="form-actions__grupo">
-            <button type="button" class="rs-btn rs-btn--secondary" [disabled]="guardandoExcepciones()"
-                    (click)="guardarExcepciones()">
-              {{ guardandoExcepciones() ? 'Guardando…' : 'Guardar días especiales' }}
-            </button>
-            <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoHorario()"
-                    (click)="continuar(guardarHorario())">
-              @if (guardandoHorario()) { Guardando… } @else {
-                <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-                {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
-              }
-            </button>
-          </div>
+          <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoHorario()"
+                  (click)="continuar(guardarHorario())">
+            @if (guardandoHorario()) { Guardando… } @else {
+              <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
+              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
+            }
+          </button>
         </div>
       </div>
     </section>
@@ -848,22 +883,39 @@ type UrlImagen = string | null;
       @if (docsAdicionales().length) {
         <div class="docs-list">
           @for (d of docsAdicionales(); track $index) {
+            <!--
+              Sin insignia de revisión: la documentación adicional es el archivo
+              del comercio, no algo que la plataforma apruebe. Lo único que se
+              destaca es la caducidad, que sí le afecta.
+            -->
             <div class="doc-item">
               <span class="doc-item__tipo">{{ tipoDocLabel(d.tipo) }}</span>
-              <span class="doc-item__nombre">{{ d.nombre || d.url }}</span>
-              @if (d.fechaCaducidad) {
-                <!-- Avisa antes de caducar, no el día que ya ha caducado (TCK-8028) -->
-                <span class="doc-caduca"
-                      [class.doc-caduca--pronto]="estadoCaducidad(d.fechaCaducidad) === 'pronto'"
-                      [class.doc-caduca--caducado]="estadoCaducidad(d.fechaCaducidad) === 'caducado'">
-                  @if (estadoCaducidad(d.fechaCaducidad) !== 'vigente') {
-                    <rs-icon name="alert-circle" [size]="12" [stroke]="2"></rs-icon>
-                  }
-                  {{ textoCaducidad(d.fechaCaducidad) }}
-                </span>
-              }
-              @if (d.estado) { <span class="rs-badge {{ docBadge(d.estado) }}">{{ d.estado }}</span> }
-              <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="quitarDoc($index)" aria-label="Quitar documento">
+              <span class="doc-item__nombre">{{ d.nombre || 'Sin nombre' }}</span>
+
+              <div class="doc-item__datos">
+                @if (d.subidoAt) {
+                  <span class="doc-item__dato">Subido el {{ d.subidoAt | date: 'd MMM y' }}</span>
+                }
+                @if (d.fechaCaducidad) {
+                  <!-- Avisa antes de caducar, no el día que ya ha caducado (TCK-8028) -->
+                  <span class="doc-caduca"
+                        [class.doc-caduca--pronto]="estadoCaducidad(d.fechaCaducidad) === 'pronto'"
+                        [class.doc-caduca--caducado]="estadoCaducidad(d.fechaCaducidad) === 'caducado'">
+                    @if (estadoCaducidad(d.fechaCaducidad) !== 'vigente') {
+                      <rs-icon name="alert-circle" [size]="12" [stroke]="2"></rs-icon>
+                    }
+                    {{ textoCaducidad(d.fechaCaducidad) }}
+                  </span>
+                } @else {
+                  <span class="doc-item__dato">Sin caducidad</span>
+                }
+              </div>
+
+              <a class="rs-btn rs-btn--outline rs-btn--xs" [href]="d.url" target="_blank" rel="noopener">
+                <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver
+              </a>
+              <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" [disabled]="guardandoDocs()"
+                      (click)="quitarDoc($index)" aria-label="Quitar documento">
                 <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
               </button>
             </div>
@@ -889,24 +941,38 @@ type UrlImagen = string | null;
           </div>
         </div>
         <div class="form-row">
+          <!--
+            El fichero, no una URL: pegar un enlace a mano no lo hacía nadie y
+            además obligaba a tener el documento ya colgado en otro sitio.
+          -->
           <div class="rs-field">
-            <label class="rs-lbl">URL del documento</label>
-            <input type="text" formControlName="url" class="rs-inp" placeholder="https://…" />
-            <!-- Subida real del fichero: pegar una URL a mano no lo hacía nadie (TCK-8028) -->
-            <label class="subir-doc">
-              <input type="file"
-                     accept="application/pdf,image/*,.pdf"
-                     (change)="subirDocumento($event)" />
-              <span class="rs-btn rs-btn--outline rs-btn--sm">
-                <rs-icon name="download" [size]="13" [stroke]="2"></rs-icon>
-                {{ subiendoDoc() ? 'Subiendo…' : 'Subir PDF o foto' }}
-              </span>
-            </label>
+            <label class="rs-lbl">Documento</label>
+            @if (docForm.value.url) {
+              <div class="doc-subido">
+                <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon>
+                <span class="doc-subido__txt">{{ nombreFicheroSubido() }}</span>
+                <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs"
+                        (click)="quitarFicheroSubido()" aria-label="Quitar el archivo">
+                  <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon>
+                </button>
+              </div>
+            } @else {
+              <label class="subir-doc">
+                <input type="file"
+                       accept="application/pdf,image/*,.pdf"
+                       (change)="subirDocumento($event)" />
+                <span class="rs-btn rs-btn--outline rs-btn--block">
+                  <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon>
+                  {{ subiendoDoc() ? 'Subiendo…' : 'Elegir PDF o foto' }}
+                </span>
+              </label>
+            }
             @if (errorDoc()) { <span class="rs-field-error">{{ errorDoc() }}</span> }
           </div>
           <div class="rs-field">
             <label class="rs-lbl">Fecha de caducidad</label>
             <input type="date" formControlName="fechaCaducidad" class="rs-inp" />
+            <span class="rs-field-hint">Opcional. Te avisamos un mes antes.</span>
           </div>
         </div>
         <div class="form-actions">
@@ -916,9 +982,11 @@ type UrlImagen = string | null;
             Atrás
           </button>
           <div class="form-actions__grupo">
-            <!-- Añadir es lo que se repite; guardar y seguir cierra el paso. -->
-            <button type="submit" class="rs-btn rs-btn--secondary" [disabled]="docForm.invalid">
-              <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir documento
+            <!-- Añadir guarda al momento (no espera a "Guardar y continuar"). -->
+            <button type="submit" class="rs-btn rs-btn--secondary" [disabled]="docForm.invalid || guardandoDocs()">
+              @if (guardandoDocs()) { Guardando… } @else {
+                <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir documento
+              }
             </button>
             <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoDocs()"
                     (click)="continuar(guardarDocumentacion())">
@@ -996,41 +1064,55 @@ type UrlImagen = string | null;
           <rs-icon name="tag" [size]="18" [stroke]="2"></rs-icon>
         </div>
         <div>
-          <h2 class="config-section__title">Verticales activas</h2>
-          <p class="config-section__sub">Categorías de servicio en las que puedes publicar.</p>
+          <h2 class="config-section__title">Servicios que ofreces</h2>
+          <p class="config-section__sub">
+            Marca las categorías en las que trabaja tu negocio. Aparecen en tu ficha pública.
+          </p>
         </div>
       </div>
 
-      <div class="verticales-list">
-        @for (v of comercio()?.verticales ?? []; track v) {
-          <span class="rs-badge rs-badge--accent">{{ labelVertical(v) }}</span>
-        }
-        @if (!comercio()?.verticales?.length) {
-          <span class="rs-badge rs-badge--neutral">Sin verticales configuradas</span>
+      <!--
+        Antes esto era una lista de insignias y un "contacta al soporte": el
+        campo no estaba declarado en el DTO de actualización, así que el panel
+        no podía tocarlo. Un negocio que suma peluquería a su residencia ya
+        puede reflejarlo él mismo.
+      -->
+      <div class="vert-grid" role="group" aria-label="Categorías de servicio">
+        @for (v of verticalesDisponibles; track v.clave) {
+          <button type="button" class="vert-chip" [class.vert-chip--on]="tieneVertical(v.clave)"
+                  [attr.aria-pressed]="tieneVertical(v.clave)" (click)="alternarVertical(v.clave)">
+            <span class="vert-chip__ico"><rs-icon [name]="v.icono" [size]="18" [stroke]="1.75"></rs-icon></span>
+            <span class="vert-chip__txt">{{ v.label }}</span>
+            @if (tieneVertical(v.clave)) {
+              <rs-icon name="check" [size]="14" [stroke]="3" class="vert-chip__ok"></rs-icon>
+            }
+          </button>
         }
       </div>
-      <p class="rs-field-hint">Para añadir o quitar verticales contacta al soporte.</p>
-          <!-- Sin formulario propio: estas secciones informan o se guardan solas al
-           tocarlas, pero el recorrido no puede terminar aquí sin salida. -->
+
+      @if (!verticalesSel().length) {
+        <p class="rs-field-err">Marca al menos una categoría: sin ninguna, tu ficha no dice a qué te dedicas.</p>
+      } @else {
+        <p class="rs-field-hint">
+          {{ verticalesSel().length }}
+          {{ verticalesSel().length === 1 ? 'categoría marcada' : 'categorías marcadas' }}.
+        </p>
+      }
+
       <div class="form-actions">
         <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
                 [disabled]="esPrimerPaso()">
           <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
           Atrás
         </button>
-        @if (esUltimoPaso()) {
-          <!-- El recorrido tiene final: sin esto el último paso sólo dejaba
-               retroceder y no se sabía que ya estaba todo. -->
-          <button type="button" class="rs-btn rs-btn--primary" (click)="terminar()">
+        <button type="button" class="rs-btn rs-btn--primary"
+                [disabled]="guardandoVerticales() || !verticalesSel().length"
+                (click)="continuar(guardarVerticales())">
+          @if (guardandoVerticales()) { Guardando… } @else {
             <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-            Finalizar
-          </button>
-        } @else {
-          <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
-            Continuar
-            <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
-          </button>
-        }
+            {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
+          }
+        </button>
       </div>
     </section>
     }
@@ -1044,8 +1126,22 @@ type UrlImagen = string | null;
     .doc-caduca--pronto { color: #B45309; }
     .doc-caduca--caducado { color: var(--c-red, #B91C1C); font-weight: var(--w-6); }
 
-    .subir-doc { display: inline-block; margin-top: var(--sp-2); cursor: pointer; }
+    .subir-doc { display: block; cursor: pointer; }
     .subir-doc input[type="file"] { display: none; }
+
+    .doc-subido {
+      display: flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3); border-radius: var(--r-lg);
+      background: var(--c-raised); border: 1px solid var(--b-1);
+      color: var(--t-200); font-size: var(--f-sm);
+    }
+    .doc-subido__txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Lo que se guardó de cada documento: cuándo entró y hasta cuándo vale. */
+    .doc-item__datos {
+      display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
+      font-size: var(--f-xs); color: var(--t-400);
+    }
     .geo-estado {
       display: flex; align-items: flex-start; gap: var(--sp-2);
       padding: var(--sp-3) var(--sp-4);
@@ -1287,8 +1383,20 @@ type UrlImagen = string | null;
       /* El avance manda: ocupa el ancho que sobra y "Atrás" se queda mínimo. */
       .form-actions > .rs-btn--primary,
       .form-actions__grupo { flex: 1; min-width: 0; }
-      .form-actions__grupo > .rs-btn { flex: 1; min-width: 0; }
-      .form-actions .rs-btn { padding-inline: var(--sp-4); }
+      .form-actions__grupo > .rs-btn { flex: 1 1 0; min-width: 0; }
+
+      /*
+       * .rs-btn viene con white-space: nowrap. En el pie de horarios caben tres
+       * botones ("Atrás", "Guardar días especiales" y "Guardar y continuar") y a
+       * 390px el del medio necesitaba 122px en una caja de 114: el rótulo se
+       * derramaba fuera de su caja y el botón siguiente, opaco, lo tapaba —
+       * parecían superpuestos. Con min-width: 0 la caja encoge, así que el
+       * rótulo tiene que poder partirse en vez de desbordar.
+       */
+      .form-actions .rs-btn {
+        padding-inline: var(--sp-3);
+        white-space: normal; text-align: center; line-height: 1.25;
+      }
     }
 
     .docs-list { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -1307,6 +1415,34 @@ type UrlImagen = string | null;
     .rs-checkbox input { accent-color: var(--c-accent); width: 18px; height: 18px; }
 
     .verticales-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+    /* Rejilla de categorías: se toca con el dedo, no es una lista de insignias. */
+    .vert-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: var(--sp-3); margin-bottom: var(--sp-4);
+    }
+    .vert-chip {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4); min-height: 56px; text-align: left;
+      border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      background: var(--c-card); color: var(--t-200); cursor: pointer;
+      font-size: var(--f-sm); font-weight: var(--w-6);
+      transition: border-color var(--d-2), background var(--d-2), color var(--d-2);
+
+      &:hover { border-color: var(--c-accent); }
+    }
+    .vert-chip__ico { display: flex; flex-shrink: 0; color: var(--t-400); }
+    .vert-chip__txt { flex: 1; min-width: 0; }
+    .vert-chip__ok { flex-shrink: 0; }
+    .vert-chip--on {
+      border-color: var(--c-accent); background: var(--c-accent-lo); color: var(--t-100);
+    }
+    .vert-chip--on .vert-chip__ico,
+    .vert-chip--on .vert-chip__ok { color: var(--c-accent); }
+
+    @media (max-width: 480px) {
+      .vert-grid { grid-template-columns: 1fr; gap: var(--sp-2); }
+    }
 
     .horario-list { display: flex; flex-direction: column; gap: var(--sp-2); }
     .horario-row {
@@ -1348,11 +1484,35 @@ type UrlImagen = string | null;
 
       .horario-row--cerrado { background: transparent; }
 
-      .horario-row__tramos { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
-      .horario-tramo { gap: var(--sp-2); }
-      .horario-tramo__et { min-width: 56px; }
-      /* Los dos campos se reparten el ancho en vez de desbordar. */
-      .rs-inp--time { width: auto; flex: 1; min-width: 0; }
+      .horario-row__tramos { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+
+      /*
+       * input[type=time] no baja de ~92px en Chrome: los dígitos y el icono de
+       * reloj viven en su shadow DOM y fijan un mínimo intrínseco que
+       * min-width: 0 no rebaja. Con "Mañana"/"Tarde" en la misma línea, dos
+       * campos más el guion no cabían por debajo de 390px y la fila se salía de
+       * la tarjeta (a 320px llegaba a cortar el segundo campo). La etiqueta
+       * pasa a su propia línea y los dos campos se reparten el resto a partes
+       * iguales, con el guion tomando sólo lo que ocupa.
+       */
+      .horario-tramo {
+        display: grid; grid-template-columns: 1fr auto 1fr;
+        align-items: center; gap: 2px var(--sp-2);
+      }
+      .horario-tramo__et { grid-column: 1 / -1; min-width: 0; }
+      /* Acotado al tramo: excepcion-form comparte la clase y ahi los campos no
+         ocupan una columna del grid, sino una linea del flex. */
+      .horario-tramo .rs-inp--time {
+        width: 100%; min-width: 0; text-align: center;
+        /* El padding lateral de escritorio se come el hueco del icono. */
+        padding: var(--sp-2);
+      }
+
+      /* Días especiales: las dos horas comparten línea en vez de una por fila. */
+      .excepcion-form .rs-inp--time {
+        width: auto; flex: 1 1 calc(50% - var(--sp-2)); min-width: 0;
+        padding: var(--sp-2); text-align: center;
+      }
     }
 
     .notif-list { display: flex; flex-direction: column; gap: 0; }
@@ -1419,6 +1579,9 @@ export class ComercioConfigComponent implements OnInit {
     const horarioPuesto = (c?.horario ?? []).some((d) => d.cerrado || (d.abre && d.cierra));
     return [
       { label: 'Descripción del negocio', tab: 'perfil' as TabConfig, ok: !!c?.descripcion?.trim() },
+      // El panel daba el perfil por completo sin CIF mientras el escritorio lo
+      // seguía pidiendo: los dos contaban cosas distintas del mismo comercio.
+      { label: 'Datos fiscales (CIF/NIF)', tab: 'perfil' as TabConfig, ok: !!c?.vatNumber },
       { label: 'Logo', tab: 'perfil' as TabConfig, ok: !!c?.logoUrl },
       { label: 'Imagen de portada', tab: 'perfil' as TabConfig, ok: !!c?.coverUrl },
       { label: 'Galería de fotos', tab: 'perfil' as TabConfig, ok: (c?.galeria?.length ?? 0) > 0 },
@@ -1429,6 +1592,9 @@ export class ComercioConfigComponent implements OnInit {
       { label: 'Política de cancelación', tab: 'politicas' as TabConfig, ok: !!c?.politicaCancelacion },
       { label: 'Datos bancarios', tab: 'politicas' as TabConfig, ok: !!c?.datosBancarios?.iban },
       { label: 'Verificación de identidad', tab: 'verificacion' as TabConfig, ok: c?.verificacion?.estado === 'verificado' },
+      // Ya es un paso accionable, así que cuenta como los demás: antes devolvía
+      // `null` en `estadoSeccion` y el índice lo pintaba sin estado.
+      { label: 'Servicios que ofreces', tab: 'verticales' as TabConfig, ok: (c?.verticales?.length ?? 0) > 0 },
     ];
   });
 
@@ -1447,6 +1613,16 @@ export class ComercioConfigComponent implements OnInit {
   readonly guardandoPoliticas = signal(false);
   readonly guardandoVerificacion = signal(false);
   readonly guardandoExcepciones = signal(false);
+  readonly guardandoVerticales = signal(false);
+
+  /** Categorías marcadas en el paso "Servicios que ofreces". */
+  readonly verticalesSel = signal<VerticalKey[]>([]);
+
+  readonly verticalesDisponibles = Object.values(VerticalKey).map((clave) => ({
+    clave,
+    label: VERTICAL_LABELS[clave],
+    icono: iconoVertical(clave),
+  }));
 
   /** Longitud de la descripción, para el contador (TCK-8028). */
   readonly MAX_DESCRIPCION = 600;
@@ -1839,6 +2015,8 @@ export class ComercioConfigComponent implements OnInit {
 
   readonly infoForm = this.fb.group({
     nombreComercial: ['', Validators.required],
+    razonSocial: [''],
+    vatNumber: [''],
     descripcion: [''],
     logoUrl: [null as UrlImagen],
     coverUrl: [null as UrlImagen],
@@ -1946,10 +2124,13 @@ export class ComercioConfigComponent implements OnInit {
   private aplicarDatos(data: MiComercio): void {
     this.comercio.set(data);
     this.excepciones.set(data.excepcionesHorario ?? []);
+    this.verticalesSel.set((data.verticales ?? []) as VerticalKey[]);
     this.caracteresDescripcion.set((data.descripcion ?? '').length);
 
     this.infoForm.patchValue({
       nombreComercial: data.nombreComercial,
+      razonSocial: data.razonSocial ?? '',
+      vatNumber: data.vatNumber ?? '',
       descripcion: data.descripcion ?? '',
       logoUrl: data.logoUrl ?? null,
       coverUrl: data.coverUrl ?? null,
@@ -2066,6 +2247,10 @@ export class ComercioConfigComponent implements OnInit {
     const v = this.infoForm.getRawValue();
     return this.guardarSeccion({
       nombreComercial: v.nombreComercial,
+      // Vacíos van como `undefined`: mandar '' borraría el CIF ya guardado y
+      // además chocaría con el índice único de Mongo.
+      razonSocial: v.razonSocial?.trim() || undefined,
+      vatNumber: v.vatNumber?.trim().toUpperCase() || undefined,
       descripcion: v.descripcion,
       logoUrl: v.logoUrl ?? undefined,
       coverUrl: v.coverUrl ?? undefined,
@@ -2094,6 +2279,30 @@ export class ComercioConfigComponent implements OnInit {
     }, this.guardandoRedes);
   }
 
+  tieneVertical(clave: VerticalKey): boolean {
+    return this.verticalesSel().includes(clave);
+  }
+
+  alternarVertical(clave: VerticalKey): void {
+    this.verticalesSel.update((sel) =>
+      sel.includes(clave) ? sel.filter((v) => v !== clave) : [...sel, clave],
+    );
+    this.hayCambiosSinGuardar.set(true);
+  }
+
+  /**
+   * El API exige al menos una categoría; el botón ya está deshabilitado sin
+   * ninguna, pero la comprobación se repite aquí para no depender del estado
+   * del botón si el método se llama desde otro sitio.
+   */
+  async guardarVerticales(): Promise<boolean> {
+    const verticales = this.verticalesSel();
+    if (!verticales.length) return false;
+    const guardado = await this.guardarSeccion({ verticales }, this.guardandoVerticales);
+    if (guardado) this.hayCambiosSinGuardar.set(false);
+    return guardado;
+  }
+
   async guardarHorario(): Promise<boolean> {
     const horario: HorarioDia[] = this.diasControls.map(ctrl => ctrl.getRawValue());
     return this.guardarSeccion({ horario }, this.guardandoHorario);
@@ -2115,38 +2324,85 @@ export class ComercioConfigComponent implements OnInit {
     }, this.guardandoVerificacion);
   }
 
-  agregarDoc(): void {
-    if (this.docForm.invalid) return;
-    const v = this.docForm.getRawValue();
-    this.docsAdicionales.update((list) => [...list, {
-      tipo: v.tipo ?? 'otro',
-      nombre: v.nombre || undefined,
-      url: v.url ?? '',
-      fechaCaducidad: v.fechaCaducidad || undefined,
-      estado: 'pendiente',
-    }]);
-    this.docForm.reset({ tipo: 'seguro_rc', nombre: '', url: '', fechaCaducidad: '' });
+  /** Nombre legible del fichero ya subido, para no enseñar la URL cruda. */
+  nombreFicheroSubido(): string {
+    const nombre = this.docForm.value.nombre?.trim();
+    if (nombre) return nombre;
+    const url = this.docForm.value.url ?? '';
+    return url.split('/').pop() || 'Documento';
   }
 
-  quitarDoc(index: number): void {
-    this.docsAdicionales.update((list) => list.filter((_, i) => i !== index));
+  quitarFicheroSubido(): void {
+    this.docForm.patchValue({ url: '' });
+    this.errorDoc.set('');
   }
 
-  async guardarDocumentacion(): Promise<boolean> {
-    /*
-     * Se envía sólo lo que el comercio aporta. `estado` y `subidoAt` los fija el
-     * servidor —un comercio no puede marcar sus propios papeles como
-     * verificados— y llegan de vuelta al leer la ficha; devolvérselos hace que
-     * el API rechace la petición entera con 400.
-     */
-    const documentos = this.docsAdicionales().map((d) => ({
+  /**
+   * Envía la lista completa al servidor. La comparten añadir, quitar y
+   * "Guardar y continuar": el documento viaja siempre entero (no hay PATCH
+   * incremental de un solo elemento), así que cualquiera de las tres acciones
+   * hace exactamente el mismo guardado.
+   *
+   * Se envía sólo lo que el comercio aporta. `estado` y `subidoAt` los fija el
+   * servidor —un comercio no puede marcar sus propios papeles como
+   * verificados— y llegan de vuelta al leer la ficha; devolvérselos hace que
+   * el API rechace la petición entera con 400.
+   */
+  private async persistirDocumentos(lista: DocumentoVerificacion[]): Promise<boolean> {
+    const documentos = lista.map((d) => ({
       tipo: d.tipo,
       nombre: d.nombre,
       url: d.url,
       fechaCaducidad: d.fechaCaducidad,
     }));
 
-    return this.guardarSeccion({ documentos }, this.guardandoDocs);
+    const guardado = await this.guardarSeccion({ documentos }, this.guardandoDocs);
+    // El servidor añade la fecha de subida; sin recargar, la lista se quedaba
+    // sin ese dato hasta la siguiente visita a la pantalla.
+    if (guardado) this.docsAdicionales.set(this.comercio()?.verificacion?.documentos ?? lista);
+    return guardado;
+  }
+
+  /**
+   * Añade el documento **y lo guarda al momento**. Antes sólo se sumaba a una
+   * lista en memoria: quien subía el archivo, lo veía aparecer en la lista y
+   * se iba sin pulsar el botón separado "Guardar y continuar" lo perdía sin
+   * ningún aviso — de ahí "no guarda las documentaciones adicionales". Ahora
+   * añadir y guardar son la misma acción, como el resto del formulario.
+   *
+   * Sin `estado`: la documentación adicional no la revisa nadie. Ponerlo en
+   * 'pendiente' hacía que el paso de Verificación dijese "En revisión" a un
+   * comercio ya verificado en cuanto adjuntaba su póliza.
+   */
+  async agregarDoc(): Promise<void> {
+    if (this.docForm.invalid) return;
+    const v = this.docForm.getRawValue();
+    const nuevo: DocumentoVerificacion = {
+      tipo: v.tipo ?? 'otro',
+      nombre: v.nombre || undefined,
+      url: v.url ?? '',
+      fechaCaducidad: v.fechaCaducidad || undefined,
+    };
+
+    // Si el guardado falla, `persistirDocumentos` no toca `docsAdicionales`:
+    // no queda en la lista un documento que en realidad no se guardó.
+    const guardado = await this.persistirDocumentos([...this.docsAdicionales(), nuevo]);
+    if (guardado) this.docForm.reset({ tipo: 'seguro_rc', nombre: '', url: '', fechaCaducidad: '' });
+  }
+
+  /** Quitar también guarda al momento, por la misma razón que añadir. */
+  async quitarDoc(index: number): Promise<void> {
+    await this.persistirDocumentos(this.docsAdicionales().filter((_, i) => i !== index));
+  }
+
+  /**
+   * Con añadir/quitar guardando al momento, aquí normalmente no queda nada
+   * pendiente; se conserva para que "Guardar y continuar" avance el paso
+   * igual que en el resto de secciones, y como red de seguridad si algo
+   * dejó la lista local desincronizada.
+   */
+  async guardarDocumentacion(): Promise<boolean> {
+    return this.persistirDocumentos(this.docsAdicionales());
   }
 
   tipoDocLabel(tipo: string): string {
@@ -2157,11 +2413,4 @@ export class ComercioConfigComponent implements OnInit {
     return map[tipo] ?? tipo;
   }
 
-  docBadge(estado: string): string {
-    const map: Record<string, string> = {
-      verificado: 'rs-badge--success', pendiente: 'rs-badge--warning',
-      rechazado: 'rs-badge--error', caducado: 'rs-badge--error',
-    };
-    return map[estado] ?? 'rs-badge--neutral';
-  }
 }

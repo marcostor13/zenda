@@ -666,6 +666,49 @@ describe('ComerciosService', () => {
     });
   });
 
+  /**
+   * Los datos fiscales son opcionales al registrarse y se completan luego desde
+   * el panel, pero `vatNumber` no estaba declarado en el DTO: no había forma de
+   * aportarlos y el paso "Datos fiscales (CIF/NIF)" se quedaba pendiente.
+   */
+  describe('datos fiscales desde el panel', () => {
+    const comercioId = new Types.ObjectId().toString();
+
+    beforeEach(() => {
+      repo.actualizar.mockResolvedValue({ _id: comercioId } as never);
+      repo.findByVatNumber.mockResolvedValue(null);
+    });
+
+    it('debería guardar razón social y CIF', async () => {
+      await service.actualizarComercio(comercioId, {
+        razonSocial: 'Villa Perruna S.L.',
+        vatNumber: 'B12345678',
+      } as never);
+
+      expect(repo.actualizar).toHaveBeenCalledWith(
+        comercioId,
+        expect.objectContaining({ razonSocial: 'Villa Perruna S.L.', vatNumber: 'B12345678' }),
+      );
+    });
+
+    it('debería rechazar un CIF que ya usa otro comercio', async () => {
+      repo.findByVatNumber.mockResolvedValue({ id: 'otro-comercio' } as never);
+
+      await expect(
+        service.actualizarComercio(comercioId, { vatNumber: 'B12345678' } as never),
+      ).rejects.toThrow('Ya existe un comercio con ese identificador fiscal');
+      expect(repo.actualizar).not.toHaveBeenCalled();
+    });
+
+    it('debería dejar guardar su propio CIF sin cambios', async () => {
+      repo.findByVatNumber.mockResolvedValue({ id: comercioId } as never);
+
+      await service.actualizarComercio(comercioId, { vatNumber: 'B12345678' } as never);
+
+      expect(repo.actualizar).toHaveBeenCalled();
+    });
+  });
+
   describe('documentación para verificación', () => {
     const comercioId = new Types.ObjectId().toString();
 
@@ -673,20 +716,54 @@ describe('ComerciosService', () => {
       repo.actualizar.mockResolvedValue({ _id: comercioId } as never);
     });
 
-    it('debería dejar los documentos como pendientes de revisión al subirlos', async () => {
+    /**
+     * La documentación adicional (seguro de RC, certificados…) es el archivo del
+     * comercio, no algo que la plataforma apruebe.
+     */
+    it('debería guardar la documentación adicional sin estado de revisión', async () => {
       repo.findById.mockResolvedValue({ verificacion: { estado: 'sin_verificar' } } as never);
 
       await service.actualizarComercio(comercioId, {
-        documentos: [{ tipo: 'cif', url: 'https://x/cif.pdf' }],
+        documentos: [{ tipo: 'seguro_rc', url: 'https://x/poliza.pdf' }],
       } as never);
 
       const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
-      expect(datos.verificacion.documentos[0].estado).toBe('pendiente');
+      expect(datos.verificacion.documentos[0].estado).toBeUndefined();
+      // La fecha de subida sí la pone el servidor: es lo que ve el comercio.
       expect(datos.verificacion.documentos[0].subidoAt).toBeInstanceOf(Date);
-      // Con documentación aportada, la verificación pasa a pendiente de revisar.
-      expect(datos.verificacion.estado).toBe('pendiente');
     });
 
+    it('no debería reabrir la verificación de un comercio ya verificado al subir un extra', async () => {
+      // El caso reportado: adjuntar la póliza del seguro le borraba el sello de
+      // verificado y lo dejaba otra vez "En revisión".
+      repo.findById.mockResolvedValue({
+        verificacion: {
+          estado: 'verificado',
+          documentoIdentidadUrl: 'https://x/dni.pdf',
+          licenciaNegocioUrl: 'https://x/lic.pdf',
+        },
+      } as never);
+
+      await service.actualizarComercio(comercioId, {
+        documentos: [{ tipo: 'seguro_rc', url: 'https://x/poliza.pdf' }],
+      } as never);
+
+      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
+      expect(datos.verificacion.estado).toBe('verificado');
+    });
+
+    it('tampoco debería abrir revisión en un comercio sin verificar por un extra', async () => {
+      repo.findById.mockResolvedValue({ verificacion: { estado: 'sin_verificar' } } as never);
+
+      await service.actualizarComercio(comercioId, {
+        documentos: [{ tipo: 'certificado', url: 'https://x/cert.pdf' }],
+      } as never);
+
+      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
+      expect(datos.verificacion.estado).toBe('sin_verificar');
+    });
+
+    // `caducado` es lo único que se marca: es un hecho de la fecha, no un veredicto.
     it('debería marcar como caducado un documento cuya fecha ya pasó', async () => {
       repo.findById.mockResolvedValue({ verificacion: { estado: 'sin_verificar' } } as never);
 

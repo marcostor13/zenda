@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 
 /** Instancia de Stripe simulada; se comparte con el mock del constructor. */
 const stripeMock = {
-  paymentIntents: { create: jest.fn() },
+  paymentIntents: { create: jest.fn(), retrieve: jest.fn() },
   webhooks: { constructEvent: jest.fn() },
   refunds: { create: jest.fn() },
 };
@@ -154,6 +154,41 @@ describe('StripeGateway', () => {
     it('debería ignorar los eventos que no son de pago', () => {
       // Stripe manda decenas de tipos; procesar los demás sería ruido.
       expect(gateway.extraerIntentDeEvento(evento('customer.created', { id: 'cus_1' }))).toBeNull();
+    });
+  });
+  describe('consultarIntent', () => {
+    const conEstado = (status: string, latest_charge?: string) => {
+      stripeMock.paymentIntents.retrieve.mockResolvedValue({ id: 'pi_123', status, latest_charge });
+    };
+
+    it('deberia traducir succeeded y traer el cargo', async () => {
+      conEstado('succeeded', 'ch_1');
+
+      await expect(gateway.consultarIntent('pi_123'))
+        .resolves.toEqual({ estado: 'succeeded', chargeId: 'ch_1' });
+    });
+
+    it('deberia traducir canceled como fallido', async () => {
+      conEstado('canceled');
+
+      await expect(gateway.consultarIntent('pi_123'))
+        .resolves.toMatchObject({ estado: 'failed' });
+    });
+
+    it('no deberia dar por fallido un intento que aun se puede reintentar', async () => {
+      // `requires_payment_method` es el estado tras un rechazo recuperable: el
+      // cliente puede probar con otra tarjeta y el cobro sigue vivo.
+      conEstado('requires_payment_method');
+
+      await expect(gateway.consultarIntent('pi_123'))
+        .resolves.toMatchObject({ estado: 'other' });
+    });
+
+    it('deberia dejar en curso un pago que Stripe esta procesando', async () => {
+      conEstado('processing');
+
+      await expect(gateway.consultarIntent('pi_123'))
+        .resolves.toMatchObject({ estado: 'other' });
     });
   });
 });

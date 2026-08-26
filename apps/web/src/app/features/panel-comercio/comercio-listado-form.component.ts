@@ -4,8 +4,7 @@ import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, Fo
 import { firstValueFrom } from 'rxjs';
 import {
   VerticalKey, VERTICAL_LABELS, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
-  TipoSeguro, TIPO_SEGURO_LABELS,
-} from 'shared';
+  TipoSeguro, TIPO_SEGURO_LABELS, TAMANOS_PERRO } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
@@ -293,11 +292,9 @@ function aCsv(v: string): string[] {
                           <label class="rs-lbl">Tamaño máx. de perro (opcional)</label>
                           <select class="rs-inp" formControlName="tamanoMaxPerro">
                             <option value="">Sin restricción de tamaño</option>
-                            <option value="mini">Mini</option>
-                            <option value="pequeno">Pequeño</option>
-                            <option value="mediano">Mediano</option>
-                            <option value="grande">Grande</option>
-                            <option value="gigante">Gigante</option>
+                            @for (tamano of tamanosPerro; track tamano.valor) {
+                              <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
+                            }
                           </select>
                         </div>
                         <div class="rs-field">
@@ -677,10 +674,9 @@ function aCsv(v: string): string[] {
                           <label class="rs-lbl">Tamaño de perro (por defecto)</label>
                           <select class="rs-inp" formControlName="tamanoPerro">
                             <option value="">Todos</option>
-                            <option value="pequeno">Pequeño</option>
-                            <option value="mediano">Mediano</option>
-                            <option value="grande">Grande</option>
-                            <option value="gigante">Gigante</option>
+                            @for (tamano of tamanosPerro; track tamano.valor) {
+                              <option [value]="tamano.valor">{{ tamano.nombre }}</option>
+                            }
                           </select>
                         </div>
                       </div>
@@ -707,7 +703,7 @@ function aCsv(v: string): string[] {
                                   <label class="rs-lbl">Tamaño</label>
                                   <select class="rs-inp" formControlName="tamano">
                                     @for (tp of tamanosPerro; track tp.valor) {
-                                      <option [value]="tp.valor">{{ tp.label }}</option>
+                                      <option [value]="tp.valor">{{ tp.etiqueta }}</option>
                                     }
                                   </select>
                                 </div>
@@ -998,7 +994,7 @@ function aCsv(v: string): string[] {
                           <label class="rs-lbl">Tamaño</label>
                           <select class="rs-inp" formControlName="tamano">
                             @for (tp of tamanosPerro; track tp.valor) {
-                              <option [value]="tp.valor">{{ tp.label }}</option>
+                              <option [value]="tp.valor">{{ tp.etiqueta }}</option>
                             }
                           </select>
                         </div>
@@ -1223,7 +1219,7 @@ function aCsv(v: string): string[] {
                   @for (t of tamanosCuidado; track t.valor) {
                     <label class="filter-check">
                       <input type="checkbox" [checked]="tieneTamanoCuidado(t.valor)" (change)="toggleTamanoCuidado(t.valor)" />
-                      {{ t.label }}
+                      {{ t.nombre }}
                     </label>
                   }
                 </div>
@@ -1318,7 +1314,16 @@ function aCsv(v: string): string[] {
       p { color: var(--t-400); font-size: var(--f-sm); }
     }
 
-    .form-card { padding: var(--sp-8); }
+    /*
+     * .rs-card recorta con overflow:hidden para redondear las esquinas de su
+     * contenido. El desplegable de "Ciudad" (rs-place-autocomplete) es
+     * position:absolute y puede sobresalir bastante por debajo de la tarjeta
+     * cuando el paso es corto; con el recorte activo, la lista de sugerencias
+     * se cortaba a mitad y no se veia completa. Nada del contenido de este
+     * formulario depende de ese recorte para verse bien (las miniaturas de
+     * rs-image-upload ya redondean sus propias esquinas), asi que se desactiva.
+     */
+    .form-card { padding: var(--sp-8); overflow: visible; }
     form { display: flex; flex-direction: column; gap: var(--sp-5); }
 
     .section-title {
@@ -1459,7 +1464,7 @@ function aCsv(v: string): string[] {
      * sticky de sus descendientes: por eso la tarjeta deja de recortar aquí.
      */
     @media (max-width: 719px) {
-      .form-card { overflow: visible; padding: var(--sp-5); }
+      .form-card { padding: var(--sp-5); }
 
       .form-actions {
         position: sticky;
@@ -1577,13 +1582,9 @@ export class ComercioListadoFormComponent implements OnInit {
   }
 
   // Aptitud (compatibilidad servicio↔perro) — comunes a cualquier vertical.
-  readonly tamanosPerro: ReadonlyArray<{ valor: string; label: string }> = [
-    { valor: 'mini', label: 'Mini (0-5 kg)' },
-    { valor: 'pequeno', label: 'Pequeño (5-10 kg)' },
-    { valor: 'mediano', label: 'Mediano (10-25 kg)' },
-    { valor: 'grande', label: 'Grande (25-40 kg)' },
-    { valor: 'gigante', label: 'Gigante (+40 kg)' },
-  ];
+  // La escala es la del dominio: si aquí se declara un tamaño que el cliente no
+  // puede elegir al reservar, ese espacio no lo reserva nadie.
+  readonly tamanosPerro = TAMANOS_PERRO;
   /**
    * Los tamaños que el comercio declara aceptar. Lista más corta que
    * `tamanosPerro` a propósito: los tramos de precio de peluquería siguen
@@ -1891,13 +1892,7 @@ export class ComercioListadoFormComponent implements OnInit {
     { valor: 'dia_completo', label: 'Día completo' },
     { valor: 'noche', label: 'Noche' },
   ];
-  readonly tamanosCuidado: ReadonlyArray<{ valor: string; label: string }> = [
-    { valor: 'mini', label: 'Mini' },
-    { valor: 'pequeno', label: 'Pequeño' },
-    { valor: 'mediano', label: 'Mediano' },
-    { valor: 'grande', label: 'Grande' },
-    { valor: 'gigante', label: 'Gigante' },
-  ];
+  readonly tamanosCuidado = TAMANOS_PERRO;
   private readonly modalidadesSeleccionadas = signal<string[]>([]);
   private readonly tamanosCuidadoSeleccionados = signal<string[]>([]);
   tieneModalidad(v: string): boolean { return this.modalidadesSeleccionadas().includes(v); }

@@ -20,6 +20,11 @@ export interface DesglosePago {
   montoLiquidacion: number;
 }
 
+/** Cómo quedó el cobro tras preguntar a la pasarela. */
+export interface EstadoSincronizacion {
+  estado: 'aprobado' | 'pendiente' | 'rechazado';
+}
+
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
@@ -102,6 +107,55 @@ export class PaymentsService {
     );
 
     await this.aplicarPagoAprobado(pago);
+  }
+
+  /**
+   * Pregunta a Stripe cómo quedó un cobro y, si está pagado, confirma lo
+   * reservado. Es lo que llama el cliente nada más volver de la pasarela.
+   *
+   * El webhook sigue siendo la fuente de verdad y el respaldo; esto sólo cubre
+   * el hueco entre que el cliente ve "pagado" y el webhook llega. Ese hueco es
+   * de segundos en producción, pero **en local es infinito**: Stripe no puede
+   * alcanzar `localhost`, así que la reserva se quedaba en "pendiente de pago"
+   * para siempre aunque el cobro hubiera salido bien.
+   *
+   * No se cree lo que diga el cliente: sólo manda el id del pago, y el estado
+   * se lee de Stripe. Comparte `aplicarPagoAprobado` con el webhook, así que
+   * llamarlo dos veces no confirma nada dos veces.
+   */
+  async sincronizarConPasarela(pagoId: string, usuarioId: string): Promise<EstadoSincronizacion> {
+    const pago = await this.pagoModel.findById(pagoId).exec();
+
+    if (!pago) {
+      throw new DomainException('Pago no encontrado', 404);
+    }
+
+    if (pago.usuarioId.toString() !== usuarioId) {
+      throw new DomainException('No autorizado para consultar este pago', 403);
+    }
+
+    if (pago.estado === PagoEstado.APROBADO) return { estado: 'aprobado' };
+    if (pago.estado === PagoEstado.RECHAZADO) return { estado: 'rechazado' };
+
+    if (!pago.stripePaymentIntentId) {
+      return { estado: 'pendiente' };
+    }
+
+    const consulta = await this.paymentGateway.consultarIntent(pago.stripePaymentIntentId);
+
+    if (consulta.estado === 'succeeded') {
+      await this.aplicarPagoAprobado(pago, consulta.chargeId);
+      return { estado: 'aprobado' };
+    }
+
+    if (consulta.estado === 'failed') {
+      pago.estado = PagoEstado.RECHAZADO;
+      await pago.save();
+      return { estado: 'rechazado' };
+    }
+
+    // Aún en curso: el webhook lo terminará cuando Stripe lo resuelva.
+    return { estado: 'pendiente' };
   }
 
   async crearIntent(reservaId: string, usuarioId: string): Promise<PaymentIntentResponseDto> {

@@ -36,8 +36,8 @@ const VERTICALES_OPCIONES = [
   template: `
     <!-- Cabecera -->
     <div style="margin-bottom:var(--sp-8)">
-      <h1 class="page-title">Reportes financieros</h1>
-      <p class="page-sub">GMV, comisiones, costos Stripe y margen neto por período.</p>
+      <h1 class="rs-page-title">Reportes financieros</h1>
+      <p class="rs-page-sub">GMV, comisiones, costos Stripe y margen neto por período.</p>
     </div>
 
     <!-- Formulario de filtros -->
@@ -266,8 +266,6 @@ const VERTICALES_OPCIONES = [
   styles: [`
     :host { display: contents; }
 
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
     .section-title { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-5); }
 
     .comparativa { padding: var(--sp-4) var(--sp-5); margin-bottom: var(--sp-4); }

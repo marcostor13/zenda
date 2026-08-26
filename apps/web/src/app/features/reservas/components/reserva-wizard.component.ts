@@ -1,15 +1,15 @@
-import { Component, signal, computed, OnInit, inject } from '@angular/core';
+import { Component, signal, computed, effect, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/auth/auth.service';
 import { DiagnosticoSubidaService } from '../../../core/diagnostico/diagnostico-subida.service';
 import { faqDeConfirmacion } from '../../../shared/catalogos/faq-confirmacion.catalogo';
-import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento } from 'shared';
+import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento, TAMANOS_PERRO } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsBrandIconComponent, type MarcaPagoKey } from '../../../shared/components/brand-icon/rs-brand-icon.component';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
@@ -19,6 +19,9 @@ import {
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
 import { IMG_FALLBACK } from '../../../shared/media/images';
 import { RsPhoneInputComponent } from '../../../shared/components/phone-input/rs-phone-input.component';
+import {
+  RsCalendarioRangoComponent, type MesVisible, type RangoFechas,
+} from '../../../shared/components/calendario-rango/rs-calendario-rango.component';
 import { GeoService } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { StripeService } from '../../../core/stripe/stripe.service';
@@ -28,10 +31,27 @@ import { CuponesService } from '../services/cupones.service';
 import { PerrosService, PerroApi, EstimacionPrecioApi } from '../../perros/perros.service';
 import { RecomendadorService, RecomendacionAdiestramiento, RecomendacionVeterinaria } from '../services/recomendador.service';
 import { CatalogBrowseService } from '../../verticales/catalog-browse.service';
+import type { DiaCalendarioApi } from 'shared';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 import { EurosPipe, euros } from '../../../shared/pipes/euros.pipe';
 type Paso = 1 | 2 | 3 | 4;
+
+/**
+ * Disponibilidad del paso 1.
+ * `idle`: faltan datos o la consulta falló · `comprobando`: en curso ·
+ * `ok`: hay hueco · `sin_hueco`: el vertical dice que no, y por qué.
+ */
+interface EstadoDisponibilidad {
+  estado: 'idle' | 'comprobando' | 'ok' | 'sin_hueco';
+  motivo?: string;
+}
+
+/** Lo que se espera a que el cliente deje de teclear antes de consultar al API. */
+const ESPERA_DISPONIBILIDAD_MS = 400;
+
+/** Verticales que se reservan por rango de noches y por tanto tienen calendario. */
+const VERTICALES_CON_CALENDARIO: string[] = [VerticalKey.ALOJAMIENTO, VerticalKey.HOTELES];
 
 /** Traducción del número de paso del wizard al paso del embudo medido. */
 const PASO_EMBUDO: Record<number, PasoEmbudo> = {
@@ -118,7 +138,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
-    RsBrandIconComponent, EurosPipe,],
+    RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe,],
   template: `
 <div class="wizard-page">
   <rs-navbar />
@@ -219,15 +239,21 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <!-- ── ALOJAMIENTO CANINO ── -->
             @if (vertical() === 'alojamiento') {
               <form [formGroup]="paso1AlojamientoForm">
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Entrada</label>
-                    <input formControlName="checkIn" type="date" class="rs-inp rs-inp--lg" />
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Salida</label>
-                    <input formControlName="checkOut" type="date" class="rs-inp rs-inp--lg" />
-                  </div>
+                <!--
+                  Calendario con las noches sin plaza deshabilitadas. Los campos
+                  de fecha siguen ahí, ocultos pero vivos: son los que validan el
+                  formulario y los que lee el resto del asistente.
+                -->
+                <div class="rs-field">
+                  <label class="rs-lbl">Fechas de la estancia</label>
+                  <rs-calendario-rango
+                    [dias]="diasCalendario()"
+                    [cargando]="cargandoCalendario()"
+                    [entrada]="paso1AlojamientoForm.controls.checkIn.value"
+                    [salida]="paso1AlojamientoForm.controls.checkOut.value"
+                    (rangoElegido)="aplicarRango($event)"
+                    (mesCambiado)="cargarCalendario($event)" />
+                  <span class="rs-field-hint">{{ resumenEstancia() }}</span>
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
@@ -244,10 +270,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <div class="rs-field">
                     <label class="rs-lbl">Tamaño del perro</label>
                     <select formControlName="tamanoPerro" class="rs-inp rs-inp--lg">
-                      <option value="pequeno">Pequeño (hasta 10 kg)</option>
-                      <option value="mediano">Mediano (10–25 kg)</option>
-                      <option value="grande">Grande (25–45 kg)</option>
-                      <option value="gigante">Gigante (más de 45 kg)</option>
+                      @for (tamano of tamanosPerro; track tamano.valor) {
+                        <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
+                      }
                     </select>
                   </div>
                 </div>
@@ -727,15 +752,16 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <!-- ── HOTEL PET-FRIENDLY ── -->
             @if (vertical() === 'hoteles') {
               <form [formGroup]="paso1HotelesForm">
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Entrada</label>
-                    <input formControlName="checkIn" type="date" class="rs-inp rs-inp--lg" />
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Salida</label>
-                    <input formControlName="checkOut" type="date" class="rs-inp rs-inp--lg" />
-                  </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Fechas de la estancia</label>
+                  <rs-calendario-rango
+                    [dias]="diasCalendario()"
+                    [cargando]="cargandoCalendario()"
+                    [entrada]="paso1HotelesForm.controls.checkIn.value"
+                    [salida]="paso1HotelesForm.controls.checkOut.value"
+                    (rangoElegido)="aplicarRango($event)"
+                    (mesCambiado)="cargarCalendario($event)" />
+                  <span class="rs-field-hint">{{ resumenEstancia() }}</span>
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
@@ -767,11 +793,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <div class="rs-field">
                     <label class="rs-lbl">Tamaño de tu mascota</label>
                     <select formControlName="tamanoPerro" class="rs-inp rs-inp--lg">
-                      <option value="mini">Mini (hasta 5 kg)</option>
-                      <option value="pequeno">Pequeño (5–10 kg)</option>
-                      <option value="mediano">Mediano (10–25 kg)</option>
-                      <option value="grande">Grande (25–40 kg)</option>
-                      <option value="gigante">Gigante (más de 40 kg)</option>
+                      @for (tamano of tamanosPerro; track tamano.valor) {
+                        <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
+                      }
                     </select>
                   </div>
                 </div>
@@ -811,12 +835,30 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </form>
             }
 
-            <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
-                    style="margin-top:var(--sp-6)"
-                    [disabled]="!paso1Valido()"
-                    (click)="irPaso(2)">
-              Continuar → Tus datos
-            </button>
+            <!--
+              Disponibilidad en el propio paso donde se eligen las fechas: si no
+              hay hueco se dice aquí y no se deja avanzar, en vez de dejar que el
+              cliente rellene sus datos para toparse con el rechazo al pagar.
+            -->
+            @if (disponibilidad().estado === 'sin_hueco') {
+              <div class="rs-alert rs-alert--error" role="alert" style="margin-block:var(--sp-5)">
+                <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+                <span>{{ disponibilidad().motivo }}</span>
+              </div>
+            }
+
+            <div class="wizard-cta">
+              <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
+                      [disabled]="!paso1Valido() || disponibilidad().estado === 'sin_hueco'
+                                  || disponibilidad().estado === 'comprobando'"
+                      (click)="irPaso(2)">
+                @if (disponibilidad().estado === 'comprobando') {
+                  <span class="rs-spin"></span> Comprobando disponibilidad…
+                } @else {
+                  Continuar → Tus datos
+                }
+              </button>
+            </div>
           </div>
         }
 
@@ -945,10 +987,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </div>
                 </div>
                 <div class="payment-option__secure">
-                  <svg width="38" height="16" viewBox="0 0 468 222" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Stripe">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0 22.1C0 9.9 9.9 0 22.1 0h423.8c12.2 0 22.1 9.9 22.1 22.1v177.8c0 12.2-9.9 22.1-22.1 22.1H22.1C9.9 222 0 212.1 0 199.9V22.1z" fill="#635BFF"/>
-                    <path d="M224.4 88.6c0-4.1 3.4-5.7 9-5.7 8 0 18.2 2.4 26.2 6.7V63.7c-8.8-3.5-17.5-4.9-26.2-4.9-21.4 0-35.7 11.2-35.7 29.9 0 29.2 40.2 24.5 40.2 37.1 0 4.8-4.2 6.4-10.1 6.4-8.7 0-19.8-3.6-28.6-8.4v26.3c9.7 4.2 19.5 5.9 28.6 5.9 21.8 0 36.8-10.8 36.8-29.7-.1-31.5-40.2-25.9-40.2-37.7zM290 42.6l-26.8 5.7v21.5h-14.7v22.8h14.7v42.8c0 18.9 13.7 26.1 32.6 26.1 8 0 15.7-1.4 21-4.2v-22.5c-3.8 1.9-11.8 3.6-17.2 3.6-6.5 0-9.6-2.4-9.6-9.3V92.6h26.8V69.8H290V42.6zM339.4 78.5l-1.5-8.7h-24.1v89.7h27.8v-56.2c7.3-9.6 19.6-7.8 23.4-6.5V69.4c-4-1.4-18.3-4-25.6 9.1zM393.5 59.3c-8.9 0-14.7 5.8-14.7 14.5 0 8.6 5.8 14.5 14.7 14.5 8.9 0 14.7-5.9 14.7-14.5 0-8.7-5.8-14.5-14.7-14.5zm-13.9 100.2h27.8V69.8h-27.8v89.7zM131.7 113c0 15.2 10.4 25.6 23.9 25.6 13.6 0 22.1-7.9 24.4-19.7H153c-1.3 5-3.8 8-7.8 8-5.3 0-8.3-3.6-8.8-10.1h44.3c.2-2.1.3-4.2.3-6.2 0-22.8-12.5-35.6-31.2-35.6-18.6 0-29.4 12.3-29.4 29.3l-.1.1-.1.1.2 8.5zm12.3-11.8c1.3-6.2 4.7-10 9.3-10 5.2 0 8.3 3.7 8.6 10h-17.9zM108.3 78.1c-4.4-1.9-13.5-3.5-21.2 0-8.7 4-13.6 12.3-13.6 22.4v59h27.8v-55.4c0-6.4 4.2-10.1 9.4-10.1 2.9 0 5.3.8 7.1 2.2l.5-18.1z" fill="white"/>
-                  </svg>
+                  <rs-brand-icon name="stripe" [size]="16" />
                 </div>
               </label>
             </div>
@@ -976,10 +1015,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
             <div class="rs-alert rs-alert--info" style="margin-block:var(--sp-5);display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap">
               <span><rs-icon name="lock" [size]="14" [stroke]="2" /> Tu pago está protegido por</span>
-              <svg width="42" height="17" viewBox="0 0 468 222" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Stripe" style="flex-shrink:0">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M0 22.1C0 9.9 9.9 0 22.1 0h423.8c12.2 0 22.1 9.9 22.1 22.1v177.8c0 12.2-9.9 22.1-22.1 22.1H22.1C9.9 222 0 212.1 0 199.9V22.1z" fill="#635BFF"/>
-                <path d="M224.4 88.6c0-4.1 3.4-5.7 9-5.7 8 0 18.2 2.4 26.2 6.7V63.7c-8.8-3.5-17.5-4.9-26.2-4.9-21.4 0-35.7 11.2-35.7 29.9 0 29.2 40.2 24.5 40.2 37.1 0 4.8-4.2 6.4-10.1 6.4-8.7 0-19.8-3.6-28.6-8.4v26.3c9.7 4.2 19.5 5.9 28.6 5.9 21.8 0 36.8-10.8 36.8-29.7-.1-31.5-40.2-25.9-40.2-37.7zM290 42.6l-26.8 5.7v21.5h-14.7v22.8h14.7v42.8c0 18.9 13.7 26.1 32.6 26.1 8 0 15.7-1.4 21-4.2v-22.5c-3.8 1.9-11.8 3.6-17.2 3.6-6.5 0-9.6-2.4-9.6-9.3V92.6h26.8V69.8H290V42.6zM339.4 78.5l-1.5-8.7h-24.1v89.7h27.8v-56.2c7.3-9.6 19.6-7.8 23.4-6.5V69.4c-4-1.4-18.3-4-25.6 9.1zM393.5 59.3c-8.9 0-14.7 5.8-14.7 14.5 0 8.6 5.8 14.5 14.7 14.5 8.9 0 14.7-5.9 14.7-14.5 0-8.7-5.8-14.5-14.7-14.5zm-13.9 100.2h27.8V69.8h-27.8v89.7zM131.7 113c0 15.2 10.4 25.6 23.9 25.6 13.6 0 22.1-7.9 24.4-19.7H153c-1.3 5-3.8 8-7.8 8-5.3 0-8.3-3.6-8.8-10.1h44.3c.2-2.1.3-4.2.3-6.2 0-22.8-12.5-35.6-31.2-35.6-18.6 0-29.4 12.3-29.4 29.3l-.1.1-.1.1.2 8.5zm12.3-11.8c1.3-6.2 4.7-10 9.3-10 5.2 0 8.3 3.7 8.6 10h-17.9zM108.3 78.1c-4.4-1.9-13.5-3.5-21.2 0-8.7 4-13.6 12.3-13.6 22.4v59h27.8v-55.4c0-6.4 4.2-10.1 9.4-10.1 2.9 0 5.3.8 7.1 2.2l.5-18.1z" fill="white"/>
-              </svg>
+              <rs-brand-icon name="stripe" [size]="17" />
               <span>· Nunca almacenamos datos de tarjeta.</span>
             </div>
 
@@ -1010,8 +1046,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   Entorno de pruebas: puedes confirmar la reserva sin pagar. No se
                   cobra nada y la reserva queda marcada como de prueba.
                 </p>
+                <!--
+                  Sin reserva creada este botón no tenía nada que confirmar y al
+                  pulsarlo no pasaba nada visible. Ahora se deshabilita y se dice
+                  por qué: el motivo real lo trae errorPago.
+                -->
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--block"
-                        [disabled]="procesando()"
+                        [disabled]="procesando() || !reservaIdReal()"
                         (click)="confirmarSinPagar()">
                   @if (procesando()) {
                     <span class="rs-spin"></span> Confirmando…
@@ -1019,6 +1060,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     Omitir el pago y confirmar la reserva
                   }
                 </button>
+                @if (!reservaIdReal()) {
+                  <p class="bypass__aviso" style="margin:var(--sp-3) 0 0">
+                    <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
+                    Esta reserva no se ha podido crear, así que no hay nada que confirmar.
+                    Vuelve al primer paso y revisa las fechas.
+                  </p>
+                }
               </div>
             }
           </div>
@@ -1030,6 +1078,20 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <div class="confirmation__icon"><rs-icon name="party-popper" [size]="40" [stroke]="1.75" /></div>
             <h2>¡Reserva confirmada!</h2>
             <p>Tu reserva ha sido procesada exitosamente. Recibirás la confirmación en tu correo.</p>
+
+            @if (confirmacionPendiente()) {
+              <!-- El cobro salió bien pero el servidor aún no la ha dado por
+                   confirmada. Decirlo evita que el listado parezca contradecir
+                   a esta pantalla. -->
+              <div class="rs-alert rs-alert--info" style="text-align:left;margin-bottom:var(--sp-6)">
+                <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+                <span>
+                  El pago se ha realizado correctamente. Estamos terminando de confirmarla con
+                  el establecimiento: puede tardar un momento en aparecer como confirmada en
+                  <a routerLink="/reservas/mis-reservas">mis reservas</a>.
+                </span>
+              </div>
+            }
 
             <div class="confirmation__code">
               <span class="rs-label-caps">Código de reserva</span>
@@ -1074,7 +1136,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary rs-btn--lg">
                 Ver mis reservas
               </a>
-              <a routerLink="/" class="rs-btn rs-btn--secondary">
+              <a routerLink="/" class="rs-btn rs-btn--secondary rs-btn--lg">
                 Seguir explorando
               </a>
             </div>
@@ -1249,7 +1311,52 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .wizard-page { min-height: 100vh; background: var(--c-base); }
     .wizard-wrap { padding-block: var(--sp-8); }
 
+    .wizard-cta { margin-top: var(--sp-6); }
+
+    /*
+     * Barra fija de "Continuar/Pagar" en móvil. Mismo problema que en la
+     * ficha de detalle (ver alojamiento-detalle.component.ts): por debajo de
+     * 1024px el formulario de cada paso puede ser largo y el botón para
+     * avanzar queda al final, obligando a bajar toda la pantalla para verlo.
+     * En escritorio se deja tal cual, dentro del flujo normal de la tarjeta.
+     */
+    @media (max-width: 1024px) {
+      .wizard-wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+      .wizard-cta,
+      .wizard-nav {
+        position: fixed;
+        inset: auto 0 0 0;
+        z-index: var(--z-2);
+        margin-top: 0;
+        padding: var(--sp-3) var(--sp-5);
+        padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+        background: var(--c-card);
+        border-top: 1px solid var(--b-1);
+        box-shadow: 0 -8px 24px rgba(8, 37, 139, .10);
+        flex-wrap: nowrap;
+      }
+
+      /*
+       * flex:1 solo no basta: por defecto un flex item no encoge por debajo
+       * del ancho de su contenido (min-width:auto), así que "Continuar" se
+       * quedaba con casi todo el ancho y "Atrás" con una franja mínima.
+       * min-width:0 permite repartir el espacio a partes iguales de verdad;
+       * el ellipsis es red de seguridad si el texto no cabe ni así.
+       */
+      .wizard-cta .rs-btn,
+      .wizard-nav .rs-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
     .wizard-steps { justify-content: center; margin-bottom: var(--sp-10); padding: var(--sp-6); background: var(--c-raised); border-radius: var(--r-xl); border: 1px solid var(--b-1); }
+    @media (max-width: 640px) {
+      .wizard-steps { padding: var(--sp-4) var(--sp-3); margin-bottom: var(--sp-6); }
+    }
 
     /* Gancho para completar el viaje tras reservar alojamiento. */
     .completar-viaje {
@@ -1262,6 +1369,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
       h3 { font-size: var(--f-md); color: var(--dk-blue); margin-bottom: var(--sp-1); }
       p { font-size: var(--f-sm); color: var(--t-400); line-height: 1.55; max-width: 52ch; }
+
+      /* Sin esto el botón se queda con el ancho de su texto, alineado a la
+         izquierda, mientras el resto de la pantalla va centrado. */
+      @media (max-width: 640px) {
+        align-items: stretch;
+        .rs-btn { width: 100%; }
+      }
     }
 
     /* Envoltorio para que el autocompletado de direcciones se vea como un input. */
@@ -1290,12 +1404,18 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       output { min-width: 28px; text-align: center; font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); }
     }
 
+    /*
+     * minmax(0, 1fr) en lugar de 1fr: por defecto una celda de grid no encoge
+     * por debajo del min-content de lo que lleva dentro, así que cualquier
+     * elemento ancho del formulario (un input con su ancho intrínseco, una
+     * palabra larga) estiraba la columna y sacaba toda la página del móvil.
+     */
     .wizard-body {
       display: grid;
-      grid-template-columns: 1fr 360px;
+      grid-template-columns: minmax(0, 1fr) 360px;
       gap: var(--sp-8);
       align-items: start;
-      @media (max-width: 1024px) { grid-template-columns: 1fr; }
+      @media (max-width: 1024px) { grid-template-columns: minmax(0, 1fr); }
     }
 
     .wizard-card {
@@ -1304,6 +1424,10 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       border-radius: var(--r-2xl);
       padding: var(--sp-8);
       animation: scaleIn var(--d-3) ease;
+
+      /* 32px de margen interior a cada lado se comen un tercio de un móvil
+         estrecho y dejan los campos del formulario sin sitio. */
+      @media (max-width: 640px) { padding: var(--sp-5); }
     }
 
     .wizard-card__title {
@@ -1404,15 +1528,56 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .stripe-placeholder { background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-xl); padding: var(--sp-6); margin-bottom: var(--sp-5); }
     .stripe-placeholder__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-5); font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
 
-    .confirmation { text-align: center; padding: var(--sp-16) var(--sp-8); }
+    .confirmation {
+      text-align: center;
+      padding: var(--sp-16) var(--sp-8);
+
+      /* 32px a cada lado dejan el contenido en menos de 280px en un móvil
+         estrecho: el código de reserva se partía en dos líneas. */
+      @media (max-width: 640px) { padding: var(--sp-10) var(--sp-5); }
+    }
     .confirmation__icon { font-size: 4rem; margin-bottom: var(--sp-4); animation: float 3s ease-in-out infinite; }
     .confirmation h2 { font-size: var(--f-4xl); font-weight: var(--w-9); color: var(--t-100); margin-bottom: var(--sp-4); }
     .confirmation p  { color: var(--t-300); margin-bottom: var(--sp-8); }
     .confirmation__code { margin-bottom: var(--sp-6); }
-    .code-box { font-size: var(--f-3xl); font-weight: var(--w-9); letter-spacing: .1em; background: var(--g-accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-top: var(--sp-3); }
+    .code-box {
+      font-size: var(--f-3xl); font-weight: var(--w-9); letter-spacing: .1em;
+      background: var(--g-accent); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text;
+      margin-top: var(--sp-3);
+
+      /* El código es una unidad: partido en dos líneas deja de leerse como tal. */
+      @media (max-width: 640px) { font-size: var(--f-2xl); letter-spacing: .06em; }
+    }
     .confirmation__details { padding: var(--sp-6); text-align: left; margin-bottom: var(--sp-8); }
-    .cd-row { display: flex; justify-content: space-between; padding: var(--sp-3) 0; border-bottom: 1px solid var(--b-1); font-size: var(--f-sm); color: var(--t-300); strong { color: var(--t-100); } &:last-child { border: none; } }
-    .confirmation__actions { display: flex; gap: var(--sp-4); justify-content: center; flex-wrap: wrap; }
+    .cd-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: var(--sp-4);
+      padding: var(--sp-3) 0; border-bottom: 1px solid var(--b-1);
+      font-size: var(--f-sm); color: var(--t-300);
+
+      span { flex-shrink: 0; }
+      strong { color: var(--t-100); text-align: right; min-width: 0; }
+      &:last-child { border: none; }
+    }
+    /*
+     * Los dos botones de cierre tienen que leerse como un par.
+     * "Ver mis reservas" era --lg y "Seguir explorando" del tamaño por defecto:
+     * uno al lado del otro con distinto cuerpo de letra (16 vs 13 px) y distinto
+     * radio (20 vs 16 px). En móvil, además, cada uno se quedaba con el ancho de
+     * su texto y las dos cajas salían escalonadas.
+     */
+    .confirmation__actions {
+      display: flex; gap: var(--sp-4); justify-content: center; flex-wrap: wrap;
+      /* El gancho de viaje que va justo encima no trae margen inferior: sin
+         esto los botones quedaban pegados a su panel. */
+      margin-block: var(--sp-8);
+
+      @media (max-width: 640px) {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
 
     /* Atajo de pruebas: se distingue del pago de verdad a simple vista. */
     .bypass {
@@ -1454,7 +1619,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .valoracion__estrella--activa { color: var(--dk-gold); }
     .valoracion__motivo {
       max-width: 420px; margin: var(--sp-4) auto 0; text-align: left;
-      display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start;
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      /* stretch, no flex-start: la etiqueta y el campo ocupan el ancho y el
+         botón se quedaba solo, descolgado contra el margen izquierdo. */
+      align-items: stretch;
+
+      .rs-btn { align-self: flex-end; }
     }
 
     /* ══ PREGUNTAS FRECUENTES ═════════════════════════════════════════ */
@@ -1543,6 +1713,9 @@ export class ReservaWizardComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly diagnostico = inject(DiagnosticoSubidaService);
 
+  /** Escala de tamaños del dominio; ver `TAMANOS_PERRO` en shared. */
+  readonly tamanosPerro = TAMANOS_PERRO;
+
   // Navigation
   readonly paso       = signal<Paso>(1);
   readonly procesando = signal(false);
@@ -1565,15 +1738,52 @@ export class ReservaWizardComponent implements OnInit {
 
   // Stripe
   readonly stripeListo = signal(false);
+  /**
+   * El cobro se hizo pero el servidor todavía no ha podido dar la reserva por
+   * confirmada. Se dice en pantalla en vez de callarlo: si no, el cliente ve
+   * "confirmada" aquí y "pendiente de pago" en su listado.
+   */
+  readonly confirmacionPendiente = signal(false);
   readonly errorPago   = signal<string | null>(null);
   private stripe: Stripe | null = null;
   private elements: StripeElements | null = null;
   private clientSecret: string | null = null;
+  /** Pago abierto para esta reserva; con él se pregunta a la pasarela cómo quedó. */
+  private pagoId: string | null = null;
   private servicioId?: string;
   private comercioId?: string;
   private espacioId: string | null = null;
-  private reservaIdReal: string | null = null;
+  /**
+   * Id de la reserva creada al entrar en el paso 3. Es signal porque la
+   * plantilla lo necesita: sin reserva creada no hay nada que confirmar, ni
+   * pagando ni con el atajo de pruebas, y el botón tiene que decirlo.
+   */
+  readonly reservaIdReal = signal<string | null>(null);
   readonly totalFromApi = signal<number | null>(null);
+
+  /**
+   * ¿Se puede reservar con lo elegido en el paso 1?
+   *
+   * Antes esto sólo se sabía al entrar en el paso 3, cuando se creaba la
+   * reserva: el cliente rellenaba sus datos para chocar al final con un
+   * "no disponible" y con un botón de confirmar que ya no podía funcionar
+   * porque nunca hubo reserva. Se consulta aquí, donde se eligen las fechas.
+   */
+  readonly disponibilidad = signal<EstadoDisponibilidad>({ estado: 'idle' });
+  private temporizadorDisponibilidad?: ReturnType<typeof setTimeout>;
+  /** Descarta respuestas de consultas que ya no son la última. */
+  private consultaDisponibilidad = 0;
+
+  /**
+   * Noches con plaza del servicio, para el calendario del paso 1.
+   *
+   * Se acumulan por mes: al navegar el cliente va pidiendo meses nuevos y los
+   * ya cargados se quedan, para que volver atrás no vuelva a pedirlos ni deje
+   * el calendario en blanco un instante.
+   */
+  readonly diasCalendario = signal<DiaCalendarioApi[]>([]);
+  readonly cargandoCalendario = signal(false);
+  private readonly mesesCargados = new Set<string>();
 
   // Ficha Inteligente: perro para el que se reserva (opcional, filtra/precalcula en fases futuras).
   readonly perros = signal<PerroApi[]>([]);
@@ -1922,7 +2132,7 @@ export class ReservaWizardComponent implements OnInit {
     const motivo = this.motivoValoracion().trim();
     try {
       this.eventosService.registrar(TipoEvento.EXPERIENCIA_VALORADA, {
-        reservaId: this.reservaIdReal ?? undefined,
+        reservaId: this.reservaIdReal() ?? undefined,
         servicioId: this.servicioId,
         vertical: this.vertical(),
         paso: PasoEmbudo.CONFIRMACION,
@@ -2030,6 +2240,138 @@ export class ReservaWizardComponent implements OnInit {
       form.valueChanges
         .pipe(takeUntilDestroyed())
         .subscribe(() => this.revisionFormularios.update((v) => v + 1));
+    }
+
+    // Cada vez que cambia algo del paso 1 que afecte a la disponibilidad se
+    // vuelve a preguntar. Con espera, para no lanzar una consulta por tecla.
+    effect(() => {
+      const enPaso1 = this.paso() === 1;
+      const datosCompletos = this.paso1Valido();
+      // Dependencias explícitas: el efecto tiene que despertar con cada una.
+      this.revisionFormularios();
+      this.perroSeleccionado();
+      this.extrasSelec();
+
+      clearTimeout(this.temporizadorDisponibilidad);
+
+      if (!enPaso1 || !datosCompletos || !this.servicioId) {
+        this.consultaDisponibilidad++;
+        this.disponibilidad.set({ estado: 'idle' });
+        return;
+      }
+
+      this.disponibilidad.set({ estado: 'comprobando' });
+      this.temporizadorDisponibilidad = setTimeout(
+        () => void this.comprobarDisponibilidad(),
+        ESPERA_DISPONIBILIDAD_MS,
+      );
+    });
+  }
+
+  /** ¿Se reserva este vertical por rango de noches? Sólo esos tienen calendario. */
+  readonly usaCalendario = computed(() => VERTICALES_CON_CALENDARIO.includes(this.vertical()));
+
+  /**
+   * Lo que el cliente marca en el calendario pasa a los campos del formulario.
+   *
+   * Los dos grupos se tratan por separado a propósito: sus `FormGroup` tipados
+   * tienen controles distintos y no hay un supertipo común que valga para los
+   * dos sin recurrir a `any`.
+   */
+  aplicarRango(rango: RangoFechas): void {
+    const valores = { checkIn: rango.entrada, checkOut: rango.salida };
+    if (this.vertical() === VerticalKey.ALOJAMIENTO) this.paso1AlojamientoForm.patchValue(valores);
+    if (this.vertical() === VerticalKey.HOTELES) this.paso1HotelesForm.patchValue(valores);
+  }
+
+  /** Fechas elegidas del vertical en curso; null si no se reserva por rango. */
+  private fechasElegidas(): { checkIn: string | null; checkOut: string | null } | null {
+    if (this.vertical() === VerticalKey.ALOJAMIENTO) {
+      const { checkIn, checkOut } = this.paso1AlojamientoForm.value;
+      return { checkIn: checkIn ?? null, checkOut: checkOut ?? null };
+    }
+    if (this.vertical() === VerticalKey.HOTELES) {
+      const { checkIn, checkOut } = this.paso1HotelesForm.value;
+      return { checkIn: checkIn ?? null, checkOut: checkOut ?? null };
+    }
+    return null;
+  }
+
+  readonly resumenEstancia = computed(() => {
+    this.revisionFormularios();
+    const fechas = this.fechasElegidas();
+    if (!fechas?.checkIn || !fechas.checkOut) return 'Elige entrada y salida en el calendario.';
+    const noches = this.calcularNoches(fechas.checkIn, fechas.checkOut);
+    return noches === 1 ? '1 noche' : `${noches} noches`;
+  });
+
+  /**
+   * Trae del API los días reservables del mes pedido y de los dos siguientes.
+   *
+   * Se piden tres meses de golpe porque el calendario necesita saber qué pasa
+   * después del mes visible: una entrada a final de mes tiene su salida en el
+   * siguiente, y sin esos días el rango no se puede validar.
+   */
+  async cargarCalendario(mes: MesVisible): Promise<void> {
+    if (!this.usaCalendario() || !this.servicioId) return;
+
+    const clave = `${mes.anio}-${String(mes.mes).padStart(2, '0')}`;
+    if (this.mesesCargados.has(clave)) return;
+    this.mesesCargados.add(clave);
+
+    const desde = new Date(Date.UTC(mes.anio, mes.mes - 1, 1));
+    const hasta = new Date(Date.UTC(mes.anio, mes.mes + 2, 0));
+
+    this.cargandoCalendario.set(true);
+    try {
+      const respuesta = await this.reservasService.calendario({
+        servicioId: this.servicioId,
+        desde: desde.toISOString().slice(0, 10),
+        hasta: hasta.toISOString().slice(0, 10),
+        espacioId: this.espacioId ?? undefined,
+      });
+
+      if (!respuesta.soportado) return;
+
+      // Se fusiona por fecha: los meses ya cargados no se pierden al pedir otro.
+      const porFecha = new Map(this.diasCalendario().map((dia) => [dia.fecha, dia]));
+      for (const dia of respuesta.dias) porFecha.set(dia.fecha, dia);
+      this.diasCalendario.set([...porFecha.values()]);
+    } catch {
+      // Sin calendario el cliente no se queda bloqueado: la comprobación de
+      // disponibilidad del paso 1 sigue validando el rango contra el API.
+      this.mesesCargados.delete(clave);
+    } finally {
+      this.cargandoCalendario.set(false);
+    }
+  }
+
+  /**
+   * Consulta al API si lo elegido en el paso 1 se puede reservar.
+   *
+   * Si la consulta falla no se bloquea el avance: el API vuelve a validar al
+   * crear la reserva, y dejar a alguien atascado en el paso 1 por un fallo de
+   * red sería peor que dejarle seguir.
+   */
+  private async comprobarDisponibilidad(): Promise<void> {
+    const consulta = ++this.consultaDisponibilidad;
+    try {
+      const { cuponCodigo: _cupon, recurrencia: _recurrencia, ...payload } = this.buildPayload();
+      const resultado = await this.reservasService.comprobarDisponibilidad(payload);
+
+      if (consulta !== this.consultaDisponibilidad) return;
+
+      this.disponibilidad.set(
+        resultado.disponible
+          ? { estado: 'ok' }
+          : {
+              estado: 'sin_hueco',
+              motivo: resultado.motivo ?? 'El servicio no está disponible para las fechas seleccionadas.',
+            },
+      );
+    } catch {
+      if (consulta !== this.consultaDisponibilidad) return;
+      this.disponibilidad.set({ estado: 'idle' });
     }
   }
 
@@ -2334,6 +2676,15 @@ export class ReservaWizardComponent implements OnInit {
     const origen = queryParams.get('ciudad');
     if (origen) this.paso1TransporteForm.patchValue({ origen });
 
+    // Calendario del mes que se va a ver primero: el de las fechas que ya trae
+    // el cliente del buscador, o el actual si viene sin ellas.
+    if (this.usaCalendario()) {
+      const referencia = checkIn ? new Date(`${checkIn}T00:00:00Z`) : new Date();
+      void this.cargarCalendario({
+        anio: referencia.getUTCFullYear(), mes: referencia.getUTCMonth() + 1,
+      });
+    }
+
     const perroIdQP = queryParams.get('perroId');
 
     void this.perrosService.misPerros().then((perros) => {
@@ -2343,6 +2694,9 @@ export class ReservaWizardComponent implements OnInit {
       } else if (perros.length === 1) {
         this.perroSeleccionado.set(perros[0]._id);
       }
+      // Igual que al elegirlo a mano: el perro autoseleccionado también manda
+      // sobre el tamaño, que es contra lo que valida el API.
+      this.sincronizarTamanoPerro();
       this.sincronizarServicioPeluqueria();
     }).catch(() => {
       // Sin perros registrados o API no disponible: el selector queda vacío, no bloquea la reserva.
@@ -2442,7 +2796,24 @@ export class ReservaWizardComponent implements OnInit {
 
   seleccionarPerro(id: string): void {
     this.perroSeleccionado.set(id);
+    this.sincronizarTamanoPerro();
     this.sincronizarServicioPeluqueria();
+  }
+
+  /**
+   * El tamaño del desplegable pasa a ser el de la ficha del perro elegido.
+   *
+   * El API valida contra la ficha, no contra lo que diga el desplegable, así
+   * que si no se igualan el cliente ve "mediano" y le rechazan la reserva por
+   * un tamaño que nunca eligió. Sin tamaño en la ficha no se toca nada: lo que
+   * haya puesto a mano es entonces el mejor dato disponible.
+   */
+  private sincronizarTamanoPerro(): void {
+    const tamano = this.perroSeleccionadoObj()?.tamano;
+    if (!tamano) return;
+
+    this.paso1AlojamientoForm.patchValue({ tamanoPerro: tamano });
+    this.paso1HotelesForm.patchValue({ tamanoPerro: tamano });
   }
 
   irPaso(p: number): void {
@@ -2452,9 +2823,10 @@ export class ReservaWizardComponent implements OnInit {
       this.stripeListo.set(false);
       this.totalFromApi.set(null);
       this.clientSecret = null;
+      this.pagoId = null;
       this.stripe = null;
       this.elements = null;
-      this.reservaIdReal = null;
+      this.reservaIdReal.set(null);
     }
 
     this.paso.set(p as Paso);
@@ -2668,12 +3040,14 @@ export class ReservaWizardComponent implements OnInit {
     try {
       const payload = this.buildPayload();
       const reserva = await this.reservasService.crear(payload);
-      this.reservaIdReal = reserva._id ?? reserva.id ?? null;
+      const reservaId = reserva._id ?? reserva.id ?? null;
+      this.reservaIdReal.set(reservaId);
       this.codigoReserva.set(reserva.codigo);
-      if (!this.reservaIdReal) return;
+      if (!reservaId) return;
 
-      const intent = await this.paymentsService.crearIntent(this.reservaIdReal);
+      const intent = await this.paymentsService.crearIntent(reservaId);
       this.clientSecret = intent.clientSecret;
+      this.pagoId = intent.pagoId;
       this.totalFromApi.set(intent.montoTotal);
 
       this.stripe = await this.stripeService.getStripe();
@@ -2683,13 +3057,27 @@ export class ReservaWizardComponent implements OnInit {
       const paymentElement = this.elements.create('payment');
       setTimeout(() => paymentElement.mount('#stripe-payment-element'), 0);
       this.stripeListo.set(true);
-    } catch {
-      // No enmascarar: informar que no se pudo preparar el pago.
+    } catch (error) {
+      // No enmascarar: si el API rechaza la reserva (sin plazas, perro no
+      // admitido…) lo dice con un motivo concreto, y ese motivo es lo único
+      // que explica por qué el botón de confirmar no va a funcionar. El texto
+      // genérico sólo se usa cuando no viene nada aprovechable.
       this.stripeListo.set(false);
+      this.reservaIdReal.set(null);
       this.errorPago.set(
-        'No se pudo preparar el pago de esta reserva. Vuelve a intentarlo o elige otro servicio.',
+        this.mensajeDelApi(error)
+          ?? 'No se pudo preparar el pago de esta reserva. Vuelve a intentarlo o elige otro servicio.',
       );
     }
+  }
+
+  /** Mensaje de negocio que manda el API en un error HTTP; null si no trae ninguno. */
+  private mensajeDelApi(error: unknown): string | null {
+    if (!(error instanceof HttpErrorResponse)) return null;
+    const mensaje = (error.error as { message?: unknown } | null)?.message;
+    if (typeof mensaje === 'string') return mensaje;
+    if (Array.isArray(mensaje) && typeof mensaje[0] === 'string') return mensaje[0];
+    return null;
   }
 
   toggleExtra(id: string): void {
@@ -2743,7 +3131,8 @@ export class ReservaWizardComponent implements OnInit {
   }
 
   async confirmarSinPagar(): Promise<void> {
-    if (!this.reservaIdReal) {
+    const reservaId = this.reservaIdReal();
+    if (!reservaId) {
       this.errorPago.set('La reserva todavía no está creada. Vuelve atrás y repite el paso.');
       return;
     }
@@ -2751,8 +3140,8 @@ export class ReservaWizardComponent implements OnInit {
     this.procesando.set(true);
     this.errorPago.set(null);
     try {
-      await this.paymentsService.confirmarSinCobro(this.reservaIdReal);
-      this.eventosService.cerrarEmbudo(this.reservaIdReal, this.vertical());
+      await this.paymentsService.confirmarSinCobro(reservaId);
+      this.eventosService.cerrarEmbudo(reservaId, this.vertical());
       this.irPaso(4);
     } catch {
       this.errorPago.set('No se pudo confirmar la reserva sin pago en este entorno.');
@@ -2784,9 +3173,34 @@ export class ReservaWizardComponent implements OnInit {
       return;
     }
 
+    // El cobro ha salido bien en el navegador, pero la reserva sólo se confirma
+    // en el servidor. Antes se dejaba enteramente en manos del webhook de
+    // Stripe: en producción llega con retraso, y en local no llega nunca, así
+    // que la reserva se quedaba "pendiente de pago" con el dinero cobrado.
+    await this.confirmarEnServidor();
+
     // Cierra el cronómetro: aquí se sabe cuánto tardó la reserva de verdad.
-    this.eventosService.cerrarEmbudo(this.reservaIdReal ?? undefined, this.vertical());
+    this.eventosService.cerrarEmbudo(this.reservaIdReal() ?? undefined, this.vertical());
     this.irPaso(4);
+  }
+
+  /**
+   * Pide al servidor que consulte el cobro en la pasarela y confirme la reserva.
+   *
+   * Nunca bloquea el paso a la confirmación: el dinero ya está cobrado, y el
+   * webhook sigue de respaldo si esta consulta falla. Lo que sí hace es dejar
+   * dicho en pantalla que la confirmación va con retraso, en vez de prometer
+   * una reserva confirmada que el panel muestra como pendiente.
+   */
+  private async confirmarEnServidor(): Promise<void> {
+    if (!this.pagoId) return;
+
+    try {
+      const { estado } = await this.paymentsService.sincronizar(this.pagoId);
+      this.confirmacionPendiente.set(estado !== 'aprobado');
+    } catch {
+      this.confirmacionPendiente.set(true);
+    }
   }
 
   private calcularNoches(checkIn: string, checkOut: string): number {

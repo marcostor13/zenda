@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Param,
+  Query,
   Body,
   Req,
   UseGuards,
@@ -13,7 +14,11 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { BookingsService } from './bookings.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CrearReservaDto } from 'shared';
+import {
+  CrearReservaDto, ComprobarDisponibilidadDto, DisponibilidadRespuesta,
+  CalendarioDisponibilidadDto,
+} from 'shared';
+import { CalendarioDisponibilidadRespuesta } from './bookings.service';
 import { ReservaDocument } from './reserva.schema';
 
 interface RequestConUsuario extends Request {
@@ -44,6 +49,45 @@ export class BookingsController {
       recurrencia: dto.recurrencia
         ? { diasSemana: dto.recurrencia.diasSemana, hora: dto.recurrencia.hora, fechaFin: new Date(dto.recurrencia.fechaFin) }
         : undefined,
+    });
+  }
+
+  @Post('disponibilidad')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '¿Se puede reservar este servicio con estos datos? No crea nada ni bloquea cupo',
+  })
+  comprobarDisponibilidad(
+    @Body() dto: ComprobarDisponibilidadDto,
+    @Req() req: RequestConUsuario,
+  ): Promise<DisponibilidadRespuesta> {
+    return this.bookingsService.comprobarDisponibilidad({
+      usuarioId: req.user.sub,
+      comercioId: dto.comercioId,
+      servicioId: dto.servicioId,
+      vertical: dto.vertical,
+      perroId: dto.perroId,
+      fechaInicio: new Date(dto.fechaInicio),
+      fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
+      cantidad: dto.cantidad,
+      detalle: dto.detalle,
+    });
+  }
+
+  @Get('disponibilidad/calendario')
+  @ApiOperation({
+    summary: 'Días reservables de un servicio en un rango, para pintar el calendario',
+  })
+  calendarioDisponibilidad(
+    @Query() consulta: CalendarioDisponibilidadDto,
+    @Req() req: RequestConUsuario,
+  ): Promise<CalendarioDisponibilidadRespuesta> {
+    return this.bookingsService.calendarioDisponibilidad({
+      usuarioId: req.user.sub,
+      servicioId: consulta.servicioId,
+      desde: new Date(consulta.desde),
+      hasta: new Date(consulta.hasta),
+      espacioId: consulta.espacioId,
     });
   }
 

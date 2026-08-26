@@ -47,6 +47,152 @@ describe('ComercioConfigComponent', () => {
 
   afterEach(() => jest.clearAllMocks());
 
+  describe('datos fiscales y documentación adicional', () => {
+    it('debería cargar el CIF guardado en el formulario del perfil', async () => {
+      await crear(miComercio({ razonSocial: 'Canes SL', vatNumber: 'ESB12345678' }));
+
+      expect(componente.infoForm.value.vatNumber).toBe('ESB12345678');
+      expect(componente.infoForm.value.razonSocial).toBe('Canes SL');
+    });
+
+    it('debería normalizar el CIF y omitirlo cuando está vacío', async () => {
+      await crear();
+      componente.infoForm.patchValue({ vatNumber: '  b12345678 ', razonSocial: '   ' });
+
+      await componente.guardarInfo();
+
+      expect(ultimoPayload()).toMatchObject({ vatNumber: 'B12345678', razonSocial: undefined });
+    });
+
+    it('debería pedir los datos fiscales cuando faltan', async () => {
+      await crear(miComercio({ vatNumber: '' }));
+
+      expect(componente.faltantes().some((f) => f.label.includes('Datos fiscales'))).toBe(true);
+    });
+
+    it('debería dar los datos fiscales por hechos cuando hay CIF', async () => {
+      // El panel daba el perfil al 100% sin CIF mientras el escritorio lo seguía
+      // pidiendo: los dos contaban cosas distintas del mismo comercio.
+      await crear(miComercio({ vatNumber: 'ESB12345678' }));
+
+      expect(componente.faltantes().some((f) => f.label.includes('Datos fiscales'))).toBe(false);
+    });
+
+    it('debería añadir un documento adicional sin estado de revisión', async () => {
+      await crear();
+      componente.docForm.patchValue({
+        tipo: 'seguro_rc', nombre: 'Póliza AXA', url: 'https://x/p.pdf', fechaCaducidad: '',
+      });
+
+      await componente.agregarDoc();
+
+      // Con 'pendiente' el paso de Verificación decía "En revisión" a un
+      // comercio ya verificado en cuanto adjuntaba su póliza.
+      expect(componente.docsAdicionales()[0].estado).toBeUndefined();
+      expect(componente.docsAdicionales()[0].url).toBe('https://x/p.pdf');
+    });
+
+    it('debería limpiar el formulario tras añadir', async () => {
+      await crear();
+      componente.docForm.patchValue({ tipo: 'certificado', url: 'https://x/c.pdf' });
+
+      await componente.agregarDoc();
+
+      expect(componente.docForm.value.url).toBe('');
+      expect(componente.docForm.value.tipo).toBe('seguro_rc');
+    });
+
+    it('no debería añadir sin fichero subido', async () => {
+      await crear();
+      componente.docForm.patchValue({ tipo: 'otro', url: '' });
+
+      await componente.agregarDoc();
+
+      expect(componente.docsAdicionales()).toEqual([]);
+    });
+
+    it('debería enseñar el nombre del fichero, no la URL', async () => {
+      await crear();
+      componente.docForm.patchValue({ nombre: 'Póliza AXA', url: 'https://x/abc123.pdf' });
+      expect(componente.nombreFicheroSubido()).toBe('Póliza AXA');
+
+      componente.docForm.patchValue({ nombre: '' });
+      expect(componente.nombreFicheroSubido()).toBe('abc123.pdf');
+    });
+
+    it('quitar el fichero debería vaciar la URL para volver a elegirlo', async () => {
+      await crear();
+      componente.docForm.patchValue({ url: 'https://x/p.pdf' });
+
+      componente.quitarFicheroSubido();
+
+      expect(componente.docForm.value.url).toBe('');
+    });
+  });
+
+  describe('servicios que ofreces', () => {
+    it('debería partir de las categorías que ya tiene el comercio', async () => {
+      await crear(miComercio({ verticales: [VerticalKey.ALOJAMIENTO, VerticalKey.PELUQUERIA] }));
+
+      expect(componente.verticalesSel()).toEqual([VerticalKey.ALOJAMIENTO, VerticalKey.PELUQUERIA]);
+      expect(componente.tieneVertical(VerticalKey.ALOJAMIENTO)).toBe(true);
+      expect(componente.tieneVertical(VerticalKey.VETERINARIA)).toBe(false);
+    });
+
+    it('debería añadir y quitar categorías al pulsarlas', async () => {
+      await crear();
+
+      componente.alternarVertical(VerticalKey.VETERINARIA);
+      expect(componente.verticalesSel()).toEqual([VerticalKey.ALOJAMIENTO, VerticalKey.VETERINARIA]);
+
+      componente.alternarVertical(VerticalKey.ALOJAMIENTO);
+      expect(componente.verticalesSel()).toEqual([VerticalKey.VETERINARIA]);
+    });
+
+    it('debería avisar de que hay cambios sin guardar al tocar una categoría', async () => {
+      await crear();
+
+      componente.alternarVertical(VerticalKey.TRANSPORTE);
+
+      expect(componente.hayCambiosSinGuardar()).toBe(true);
+    });
+
+    it('debería guardar sólo las categorías y limpiar el aviso', async () => {
+      await crear();
+      componente.alternarVertical(VerticalKey.PELUQUERIA);
+
+      await expect(componente.guardarVerticales()).resolves.toBe(true);
+
+      expect(ultimoPayload()).toEqual({
+        verticales: [VerticalKey.ALOJAMIENTO, VerticalKey.PELUQUERIA],
+      });
+      expect(componente.hayCambiosSinGuardar()).toBe(false);
+    });
+
+    it('no debería guardar si el comercio se queda sin ninguna categoría', async () => {
+      await crear();
+      componente.alternarVertical(VerticalKey.ALOJAMIENTO);
+
+      await expect(componente.guardarVerticales()).resolves.toBe(false);
+
+      expect(api['actualizarComercio']).not.toHaveBeenCalled();
+    });
+
+    it('debería contar como paso completado en el progreso del perfil', async () => {
+      await crear();
+
+      // Antes devolvía null: el índice lo pintaba sin estado y no sumaba nunca.
+      expect(componente.estadoSeccion('verticales')).toBe(true);
+    });
+
+    it('debería marcarse como pendiente si el comercio no tiene categorías', async () => {
+      await crear(miComercio({ verticales: [] }));
+
+      expect(componente.estadoSeccion('verticales')).toBe(false);
+      expect(componente.faltantes().some((f) => f.tab === 'verticales')).toBe(true);
+    });
+  });
+
   describe('carga del perfil', () => {
     it('debería repartir los datos entre los formularios de cada sección', async () => {
       await crear(miComercio({
@@ -287,10 +433,12 @@ describe('ComercioConfigComponent', () => {
       await crear();
       componente.docForm.patchValue({ tipo: 'seguro_rc', url: '/seguro.pdf', fechaCaducidad: '2027-01-01' });
 
-      componente.agregarDoc();
+      await componente.agregarDoc();
 
       expect(componente.docsAdicionales()).toHaveLength(1);
-      expect(componente.docsAdicionales()[0]).toMatchObject({ url: '/seguro.pdf', estado: 'pendiente' });
+      // Sin estado: la documentación adicional no la revisa la plataforma.
+      expect(componente.docsAdicionales()[0]).toMatchObject({ url: '/seguro.pdf' });
+      expect(componente.docsAdicionales()[0].estado).toBeUndefined();
       expect(componente.docForm.getRawValue().url).toBe('');
     });
 
@@ -298,7 +446,7 @@ describe('ComercioConfigComponent', () => {
       await crear();
       componente.docForm.patchValue({ tipo: 'seguro_rc', url: '' });
 
-      componente.agregarDoc();
+      await componente.agregarDoc();
 
       expect(componente.docsAdicionales()).toHaveLength(0);
     });
@@ -306,11 +454,11 @@ describe('ComercioConfigComponent', () => {
     it('debería quitar el documento indicado', async () => {
       await crear();
       componente.docForm.patchValue({ url: '/a.pdf' });
-      componente.agregarDoc();
+      await componente.agregarDoc();
       componente.docForm.patchValue({ url: '/b.pdf' });
-      componente.agregarDoc();
+      await componente.agregarDoc();
 
-      componente.quitarDoc(0);
+      await componente.quitarDoc(0);
 
       expect(componente.docsAdicionales()).toHaveLength(1);
       expect(componente.docsAdicionales()[0].url).toBe('/b.pdf');
@@ -330,7 +478,7 @@ describe('ComercioConfigComponent', () => {
     it('debería guardar la lista completa de documentos', async () => {
       await crear();
       componente.docForm.patchValue({ url: '/seguro.pdf' });
-      componente.agregarDoc();
+      await componente.agregarDoc();
 
       await componente.guardarDocumentacion();
 
@@ -517,30 +665,80 @@ describe('ComercioConfigComponent', () => {
       await crear();
       const antes = componente.docsAdicionales().length;
 
-      componente.agregarDoc();
+      await componente.agregarDoc();
 
       expect(componente.docsAdicionales()).toHaveLength(antes);
     });
 
-    it('deberia agregar el documento como pendiente de revision', async () => {
+    it('deberia agregar el documento sin someterlo a revision', async () => {
       await crear();
       componente.docForm.patchValue({ tipo: 'seguro_rc', url: 'https://x/doc.pdf', nombre: 'Seguro' });
 
-      componente.agregarDoc();
+      await componente.agregarDoc();
 
-      expect(componente.docsAdicionales().at(-1)).toMatchObject({
-        tipo: 'seguro_rc', estado: 'pendiente',
-      });
+      expect(componente.docsAdicionales().at(-1)).toMatchObject({ tipo: 'seguro_rc', nombre: 'Seguro' });
+      expect(componente.docsAdicionales().at(-1)!.estado).toBeUndefined();
     });
 
     it('deberia quitar el documento de la posicion indicada', async () => {
       await crear();
       componente.docForm.patchValue({ tipo: 'seguro_rc', url: 'https://x/doc.pdf' });
-      componente.agregarDoc();
+      await componente.agregarDoc();
 
-      componente.quitarDoc(0);
+      await componente.quitarDoc(0);
 
       expect(componente.docsAdicionales()).toHaveLength(0);
+    });
+
+    /*
+     * Antes "Añadir documento" solo tocaba la lista en memoria: quien lo subía,
+     * lo veía en pantalla y se iba sin pulsar el botón aparte "Guardar y
+     * continuar" lo perdía sin ningún aviso. Añadir y quitar deben persistir
+     * en el servidor por sí solos, sin depender de ese segundo clic.
+     */
+    it('agregarDoc deberia guardar en el servidor, no solo en memoria', async () => {
+      await crear();
+      componente.docForm.patchValue({ tipo: 'seguro_rc', url: 'https://x/doc.pdf' });
+
+      await componente.agregarDoc();
+
+      expect(api['actualizarComercio']).toHaveBeenCalledWith(
+        expect.objectContaining({ documentos: [expect.objectContaining({ url: 'https://x/doc.pdf' })] }),
+      );
+    });
+
+    it('quitarDoc deberia guardar en el servidor la lista sin ese documento', async () => {
+      await crear();
+      componente.docForm.patchValue({ url: 'https://x/doc.pdf' });
+      await componente.agregarDoc();
+      api['actualizarComercio'].mockClear();
+
+      await componente.quitarDoc(0);
+
+      expect(api['actualizarComercio']).toHaveBeenCalledWith(
+        expect.objectContaining({ documentos: [] }),
+      );
+    });
+
+    it('si el guardado falla, no deberia quedar un documento fantasma en la lista', async () => {
+      await crear();
+      api['actualizarComercio'].mockReturnValue(throwError(() => new Error('500')));
+      componente.docForm.patchValue({ url: 'https://x/doc.pdf' });
+
+      await componente.agregarDoc();
+
+      expect(componente.docsAdicionales()).toHaveLength(0);
+      expect(componente.errorMsg()).toContain('Error al guardar');
+    });
+
+    it('si el guardado falla, no deberia limpiar el formulario (para poder reintentar)', async () => {
+      await crear();
+      api['actualizarComercio'].mockReturnValue(throwError(() => new Error('500')));
+      componente.docForm.patchValue({ url: 'https://x/doc.pdf' });
+
+      await componente.agregarDoc();
+
+      expect(componente.docForm.value.url).toBe('https://x/doc.pdf');
     });
 
     it('deberia etiquetar los tipos conocidos y dejar el resto en crudo', async () => {
@@ -550,13 +748,6 @@ describe('ComercioConfigComponent', () => {
       expect(componente.tipoDocLabel('inventado')).toBe('inventado');
     });
 
-    it('deberia colorear el badge segun el estado del documento', async () => {
-      await crear();
-
-      expect(componente.docBadge('verificado')).toContain('success');
-      expect(componente.docBadge('rechazado')).toContain('error');
-      expect(componente.docBadge('otro')).toContain('neutral');
-    });
   });
 
   describe('horarios y excepciones', () => {

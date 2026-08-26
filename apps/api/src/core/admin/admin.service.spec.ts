@@ -432,22 +432,22 @@ describe('AdminService', () => {
   });
 
   describe('cambiarVerificacionComercio', () => {
-    it('debería marcar el comercio y sus documentos como verificados', async () => {
+    it('debería marcar el comercio como verificado sin tocar la documentación adicional', async () => {
       const comerciosRepo = (service as unknown as { comerciosRepo: any }).comerciosRepo;
+      const extra = { tipo: 'seguro_rc', url: 'x' };
       comerciosRepo.findById.mockResolvedValue({
-        verificacion: { estado: 'pendiente', documentos: [{ tipo: 'cif', url: 'x', estado: 'pendiente' }] },
+        verificacion: { estado: 'pendiente', documentos: [extra] },
       });
       comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
 
       await service.cambiarVerificacionComercio('c1', 'verificado');
 
+      // La lista son documentos adicionales, que nadie revisa: sellarlos junto
+      // al veredicto de identidad les ponía un estado sin significado.
       expect(comerciosRepo.actualizar).toHaveBeenCalledWith(
         'c1',
         expect.objectContaining({
-          verificacion: expect.objectContaining({
-            estado: 'verificado',
-            documentos: [expect.objectContaining({ estado: 'verificado' })],
-          }),
+          verificacion: expect.objectContaining({ estado: 'verificado', documentos: [extra] }),
         }),
       );
     });
@@ -891,10 +891,10 @@ describe('AdminService', () => {
       expect(comerciosRepo.actualizar).not.toHaveBeenCalled();
     });
 
-    it('debería propagar el estado a los documentos al verificar', async () => {
+    it('debería verificar el comercio y dejar intactos sus documentos adicionales', async () => {
       comerciosRepo.findById.mockResolvedValue({
         nombreComercial: 'Canina',
-        verificacion: { estado: 'pendiente', documentos: [{ tipo: 'cif', estado: 'pendiente' }] },
+        verificacion: { estado: 'pendiente', documentos: [{ tipo: 'seguro_rc' }] },
       });
       comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
 
@@ -902,7 +902,7 @@ describe('AdminService', () => {
 
       const cambios = comerciosRepo.actualizar.mock.calls[0][1];
       expect(cambios.verificacion.estado).toBe('verificado');
-      expect(cambios.verificacion.documentos[0].estado).toBe('verificado');
+      expect(cambios.verificacion.documentos[0].estado).toBeUndefined();
       // Sin rechazo no debe quedar un motivo colgado de una ronda anterior.
       expect(cambios.verificacion.motivoRechazo).toBeUndefined();
     });

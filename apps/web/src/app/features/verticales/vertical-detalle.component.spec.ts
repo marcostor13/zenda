@@ -134,6 +134,35 @@ describe('VerticalDetalleComponent', () => {
     expect(component.cfg().vertical).toBe('transporte');
   });
 
+  /*
+   * Barra fija de móvil (HU: la acción de reservar quedaba fuera de la
+   * pantalla hasta bajar toda la ficha). Aquí no hay paso de selección previo
+   * —a diferencia de alojamiento—, así que el botón siempre solicita directo.
+   */
+  describe('barra fija de reserva en móvil', () => {
+    it('debería mostrar el precio y el CTA del vertical', async () => {
+      await crearComponente('transporte', servicio({ tarifaBase: 25 }));
+
+      const barra: HTMLElement = fixture.nativeElement.querySelector('.mobile-cta');
+      expect(barra.textContent).toContain('25');
+      expect(barra.textContent).toContain('Reservar transporte');
+    });
+
+    it('el botón debería solicitar el mismo servicio que el panel de escritorio', async () => {
+      await crearComponente('adiestramiento', servicio({ precioSesion: 40 }));
+      const router = TestBed.inject(Router);
+      const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      const boton: HTMLElement = fixture.nativeElement.querySelector('.mobile-cta .rs-btn');
+      boton.click();
+
+      expect(navigateSpy).toHaveBeenCalledWith(
+        ['/reservas', 'adiestramiento', 's1'],
+        expect.objectContaining({ queryParams: expect.objectContaining({ comercioId: 'c1' }) }),
+      );
+    });
+  });
+
   describe('galería a pantalla completa (HU-4.1.1)', () => {
     it('debería mostrar el contador de fotografías sobre la galería', async () => {
       await crearComponente('transporte');

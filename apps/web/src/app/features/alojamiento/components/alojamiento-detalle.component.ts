@@ -211,7 +211,9 @@ const MINIATURAS_VISIBLES = 4;
         </div>
 
         <!-- Espacios -->
-        <div class="section-block" rsAnim>
+        <!-- id de anclaje: la barra fija de móvil salta aquí cuando aún no hay
+             espacio elegido (ver .mobile-cta). -->
+        <div class="section-block" id="espacios" rsAnim>
           <h2>Tipos de espacio</h2>
           <div class="rooms-list">
             @for (esp of alojamiento()!.espacios; track esp.id) {
@@ -417,6 +419,30 @@ const MINIATURAS_VISIBLES = 4;
       </div>
 
     </div>
+
+    <!--
+      BARRA FIJA DE MÓVIL — sólo por debajo de 1024px, donde .detalle-body
+      pasa a una columna y el panel de reserva queda al final de todo: sin
+      esto, la acción de reservar sólo aparecía tras bajar por la galería, la
+      descripción, las amenidades y la lista de espacios enteras.
+
+      Repite el precio y el CTA del panel de escritorio, no lo sustituye: si
+      aún no hay espacio elegido, lleva a elegirlo en vez de intentar reservar
+      a ciegas (el botón del panel de escritorio se queda deshabilitado en ese
+      mismo caso).
+    -->
+    <div class="mobile-cta">
+      <div class="mobile-cta__precio">
+        <span class="mobile-cta__desde">Desde</span>
+        <strong>{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}</strong>
+        <span class="mobile-cta__unidad">/ noche</span>
+      </div>
+      @if (espacioSelec()) {
+        <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="irAReserva()">Reservar</button>
+      } @else {
+        <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="irAEspacios()">Elegir espacio</button>
+      }
+    </div>
   </div>
   }
 </div>
@@ -427,6 +453,41 @@ const MINIATURAS_VISIBLES = 4;
     /* El padding superior es el que llevan las demás fichas: sin él la
        miga de pan arrancaba pegada a la barra de navegación. */
     .detalle-wrap { padding-block: var(--sp-6) var(--sp-20); }
+
+    /*
+     * Barra fija de reserva en móvil. Aparece justo donde .detalle-body pasa a
+     * una columna (1024px): a partir de ahí el panel de reserva —aunque sea
+     * sticky— queda al final de la página, detrás de la galería, la
+     * descripción, las amenidades y la lista de espacios enteras, así que
+     * "sticky" no ayuda hasta que ya se ha bajado todo eso a pulso. En
+     * escritorio no hace falta: el panel lateral ya está siempre a la vista.
+     */
+    .mobile-cta { display: none; }
+
+    @media (max-width: 1024px) {
+      /* Sitio para que la barra fija no tape lo último de la página. */
+      .detalle-wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+      .mobile-cta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        position: fixed;
+        inset: auto 0 0 0;
+        z-index: var(--z-2);
+        padding: var(--sp-3) var(--sp-5);
+        padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+        background: var(--c-card);
+        border-top: 1px solid var(--b-1);
+        box-shadow: 0 -8px 24px rgba(8, 37, 139, .10);
+      }
+      .mobile-cta__precio { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+      .mobile-cta__desde  { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
+      .mobile-cta__precio strong { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--dk-blue); }
+      .mobile-cta__unidad { font-size: var(--f-xs); color: var(--t-400); }
+      .mobile-cta .rs-btn { flex-shrink: 0; padding-inline: var(--sp-6); }
+    }
 
     /* BREADCRUMB */
     .breadcrumb {
@@ -962,6 +1023,11 @@ export class AlojamientoDetalleComponent implements OnInit {
         perroId:    this.perroIdQP ?? undefined,
       },
     });
+  }
+
+  /** Lleva a la lista de espacios: lo usa la barra fija de móvil cuando aún no hay ninguno elegido. */
+  irAEspacios(): void {
+    document.getElementById('espacios')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   /**

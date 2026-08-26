@@ -34,6 +34,10 @@ const POR_DEFECTO: Rutas = {
   'GET /catalog/destacados': { cuerpo: [] },
   'GET /favoritos': { cuerpo: [] },
   'GET /reservas/mis': { cuerpo: [] },
+  // El wizard consulta disponibilidad al completar el paso 1; sin esto cae en el
+  // 200 vacío, lo lee como "no hay hueco" y no deja avanzar en ninguna prueba.
+  'POST /reservas/disponibilidad': { cuerpo: { disponible: true } },
+  'GET /reservas/disponibilidad/calendario': { cuerpo: { soportado: false, dias: [] } },
   'GET /reservas/recordatorios': { cuerpo: [] },
   'GET /reservas/proxima': { cuerpo: null },
   'GET /reservas/puntos': { cuerpo: { puntos: 0, proximoUmbral: 100, puntosFaltantes: 100, valorProximoDescuento: 0 } },

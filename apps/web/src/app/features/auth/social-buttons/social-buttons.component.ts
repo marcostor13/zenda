@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   inject,
   signal,
@@ -10,6 +11,9 @@ import {
 import { AuthService } from '../../../core/auth/auth.service';
 import { SocialSdkService } from '../../../core/auth/social-sdk.service';
 import { environment } from '../../../../environments/environment';
+
+/** Cambio de ancho a partir del cual merece la pena repintar el botón de Google. */
+const UMBRAL_REDIBUJADO = 8;
 
 /**
  * Botones de acceso con Google y Meta. Se muestran solo si hay credenciales
@@ -47,6 +51,17 @@ import { environment } from '../../../../environments/environment';
     .sb__divider { display:flex; align-items:center; gap:var(--sp-3); margin-bottom:var(--sp-4); color:var(--t-400); font-size:var(--f-xs); }
     .sb__divider::before, .sb__divider::after { content:''; flex:1; height:1px; background:var(--b-1); }
     .sb__google { display:flex; justify-content:center; min-height:44px; margin-bottom:var(--sp-3); }
+    /*
+     * Google inyecta su boton con un ancho fijo en linea y su minimo es 200px.
+     * En una tarjeta mas estrecha que eso no hay forma de pedirle menos, y aqui
+     * max-width lo encaja: como propiedad distinta, acota al width en linea.
+     *
+     * Va con ::ng-deep porque ese marcado lo crea el SDK de Google despues del
+     * render y no lleva el atributo de encapsulacion del componente, asi que una
+     * regla normal no llega a el (mismo caso que los pines de rs-mapa).
+     */
+    .sb__google ::ng-deep > div,
+    .sb__google ::ng-deep div { max-width:100%; }
     .sb__fb {
       width:100%; display:flex; align-items:center; justify-content:center; gap:var(--sp-2);
       height:44px; border-radius:var(--r-full); border:1px solid var(--b-1);
@@ -61,6 +76,7 @@ export class SocialButtonsComponent implements AfterViewInit {
   private readonly authService = inject(AuthService);
   private readonly sdk = inject(SocialSdkService);
 
+  private readonly destroyRef = inject(DestroyRef);
   private readonly googleBtn = viewChild<ElementRef<HTMLElement>>('googleBtn');
 
   readonly cargando = signal(false);
@@ -73,12 +89,40 @@ export class SocialButtonsComponent implements AfterViewInit {
     const contenedor = this.googleBtn()?.nativeElement;
     if (!contenedor || !this.hayGoogle()) return;
     try {
-      await this.sdk.renderizarBotonGoogle(contenedor, environment.googleClientId, (idToken) =>
-        this.entrarConGoogle(idToken),
+      const dibujar = await this.sdk.renderizarBotonGoogle(
+        contenedor,
+        environment.googleClientId,
+        (idToken) => this.entrarConGoogle(idToken),
       );
+      this.seguirElAncho(contenedor, dibujar);
     } catch {
       this.error.set('No se pudo cargar el acceso con Google.');
     }
+  }
+
+  /**
+   * Google fija el ancho del botón en píxeles al dibujarlo y no lo recalcula.
+   * Al girar el móvil o redimensionar la ventana se quedaba con el ancho viejo
+   * y se salía de la tarjeta, así que se vuelve a dibujar cuando el contenedor
+   * cambia de tamaño.
+   *
+   * Se ignoran las variaciones de menos de `UMBRAL_REDIBUJADO` px: redibujar
+   * dentro del propio observador vuelve a dispararlo, y sin margen el par
+   * entraría en bucle.
+   */
+  private seguirElAncho(contenedor: HTMLElement, dibujar: () => void): void {
+    if (typeof ResizeObserver === 'undefined') return;
+
+    let ultimoAncho = contenedor.clientWidth;
+    const observador = new ResizeObserver(() => {
+      const ancho = contenedor.clientWidth;
+      if (Math.abs(ancho - ultimoAncho) < UMBRAL_REDIBUJADO) return;
+      ultimoAncho = ancho;
+      dibujar();
+    });
+
+    observador.observe(contenedor);
+    this.destroyRef.onDestroy(() => observador.disconnect());
   }
 
   private async entrarConGoogle(idToken: string): Promise<void> {

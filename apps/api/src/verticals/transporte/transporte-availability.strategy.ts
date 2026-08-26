@@ -46,13 +46,14 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
     }
 
     if ((transporte.unidadesDisponibles ?? 0) <= 0) {
-      return { disponible: false };
+      return { disponible: false, motivo: 'Este transportista no tiene vehículos libres ahora mismo.' };
     }
 
     const perros = Math.max(1, params.cantidad ?? 1);
     if (perros > transporte.capacidadPerros) {
       return {
         disponible: false,
+        motivo: `Este vehículo admite como máximo ${transporte.capacidadPerros} perro(s) por trayecto.`,
         metadata: { motivo: 'capacidad_insuficiente', capacidadPerros: transporte.capacidadPerros, perros },
       };
     }

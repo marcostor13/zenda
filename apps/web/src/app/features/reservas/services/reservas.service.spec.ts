@@ -38,6 +38,43 @@ describe('ReservasService', () => {
     await expect(promesa).resolves.toMatchObject({ codigo: 'RES-AAAA1111' });
   });
 
+  it('debería consultar la disponibilidad en /reservas/disponibilidad', async () => {
+    const payload = {
+      servicioId: 's1', comercioId: 'c1', vertical: VerticalKey.ALOJAMIENTO,
+      fechaInicio: '2026-09-01', fechaFin: '2026-09-04',
+    };
+    const promesa = service.comprobarDisponibilidad(payload as never);
+
+    const req = resolver('/reservas/disponibilidad', { disponible: false, motivo: 'Sin plazas.' });
+    expect(req.method).toBe('POST');
+    expect(req.body).toEqual(payload);
+
+    await expect(promesa).resolves.toEqual({ disponible: false, motivo: 'Sin plazas.' });
+  });
+
+  it('debería pedir el calendario por query, con el espacio cuando se indica', async () => {
+    const promesa = service.calendario({
+      servicioId: 's1', desde: '2026-09-01', hasta: '2026-09-30', espacioId: 'suite-1',
+    });
+
+    const req = resolver('/reservas/disponibilidad/calendario', { soportado: true, dias: [] });
+    expect(req.method).toBe('GET');
+    expect(req.params.get('servicioId')).toBe('s1');
+    expect(req.params.get('desde')).toBe('2026-09-01');
+    expect(req.params.get('espacioId')).toBe('suite-1');
+
+    await expect(promesa).resolves.toEqual({ soportado: true, dias: [] });
+  });
+
+  it('no debería mandar espacioId cuando no hay espacio elegido', async () => {
+    const promesa = service.calendario({ servicioId: 's1', desde: '2026-09-01', hasta: '2026-09-30' });
+
+    const req = resolver('/reservas/disponibilidad/calendario', { soportado: true, dias: [] });
+    expect(req.params.has('espacioId')).toBe(false);
+
+    await promesa;
+  });
+
   it('debería pedir las reservas propias a /mis', async () => {
     const promesa = service.misReservas();
     resolver('/reservas/mis', []);

@@ -56,6 +56,7 @@ describe('PaymentsService', () => {
     const mockSave = jest.fn().mockResolvedValue(pagoMock);
     pagoModel = jest.fn().mockImplementation(() => ({ ...pagoMock, save: mockSave }));
     pagoModel.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+    pagoModel.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +68,7 @@ describe('PaymentsService', () => {
             crearIntent: jest.fn().mockResolvedValue({ intentId: 'pi_test', clientSecret: 'pi_test_secret' }),
             construirEvento: jest.fn(),
             extraerIntentDeEvento: jest.fn(),
+            consultarIntent: jest.fn().mockResolvedValue({ estado: 'other' }),
             reembolsar: jest.fn().mockResolvedValue(undefined),
           },
         },
@@ -565,6 +567,84 @@ describe('PaymentsService', () => {
 
       expect(pagoModel).not.toHaveBeenCalled();
       expect(pendiente.save).toHaveBeenCalled();
+    });
+  });
+  /**
+   * El webhook es la fuente de verdad, pero puede tardar — y en local no llega
+   * nunca, porque Stripe no alcanza `localhost`. Sin esta consulta la reserva
+   * se quedaba "pendiente de pago" con el dinero ya cobrado.
+   */
+  describe('sincronizarConPasarela', () => {
+    const conPago = (extra: Record<string, unknown> = {}) => {
+      const pago = { ...pagoMock, ...extra, save: jest.fn().mockResolvedValue(undefined) };
+      pagoModel.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(pago) });
+      return pago;
+    };
+
+    it('debería confirmar la reserva cuando la pasarela dice que está pagado', async () => {
+      conPago();
+      paymentGateway.consultarIntent.mockResolvedValue({ estado: 'succeeded', chargeId: 'ch_1' });
+
+      const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
+
+      expect(resultado).toEqual({ estado: 'aprobado' });
+      expect(bookingsService.confirmar).toHaveBeenCalledWith('reserva-1');
+    });
+
+    it('no debería confirmar nada si la pasarela aún lo tiene en curso', async () => {
+      conPago();
+      paymentGateway.consultarIntent.mockResolvedValue({ estado: 'other' });
+
+      const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
+
+      expect(resultado).toEqual({ estado: 'pendiente' });
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('debería marcar rechazado cuando la pasarela dice que falló', async () => {
+      const pago = conPago();
+      paymentGateway.consultarIntent.mockResolvedValue({ estado: 'failed' });
+
+      const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
+
+      expect(resultado).toEqual({ estado: 'rechazado' });
+      expect(pago.estado).toBe(PagoEstado.RECHAZADO);
+      expect(pago.save).toHaveBeenCalled();
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('no debería volver a confirmar un pago ya aprobado', async () => {
+      // Comparte el guard de idempotencia con el webhook: si los dos llegan,
+      // el segundo no puede duplicar la confirmación.
+      conPago({ estado: PagoEstado.APROBADO });
+
+      const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
+
+      expect(resultado).toEqual({ estado: 'aprobado' });
+      expect(paymentGateway.consultarIntent).not.toHaveBeenCalled();
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('no debería dejar consultar el pago de otro usuario', async () => {
+      conPago({ usuarioId: 'otro-usuario' });
+
+      await expect(service.sincronizarConPasarela('pago-1', 'user-1'))
+        .rejects.toThrow(DomainException);
+    });
+
+    it('debería fallar con 404 si el pago no existe', async () => {
+      pagoModel.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await expect(service.sincronizarConPasarela('no-existe', 'user-1'))
+        .rejects.toThrow('Pago no encontrado');
+    });
+
+    it('debería quedarse en pendiente si el pago no llegó a tener intent', async () => {
+      conPago({ stripePaymentIntentId: undefined });
+
+      const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
+
+      expect(resultado).toEqual({ estado: 'pendiente' });
     });
   });
 });

@@ -87,6 +87,24 @@ describe('ComercioConfigComponent — contrato con el API', () => {
     await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
   });
 
+  it('los datos fiscales', async () => {
+    // Faltaban en el DTO: el panel no tenía dónde ponerlos y el paso "Datos
+    // fiscales (CIF/NIF)" quedaba pendiente para siempre.
+    componente.infoForm.patchValue({
+      nombreComercial: 'Villa Perruna',
+      razonSocial: 'Villa Perruna S.L.',
+      vatNumber: 'B12345678',
+    });
+
+    await componente.guardarInfo();
+
+    await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
+    expect(api['actualizarComercio'].mock.calls.at(-1)![0]).toMatchObject({
+      razonSocial: 'Villa Perruna S.L.',
+      vatNumber: 'B12345678',
+    });
+  });
+
   it('la dirección', async () => {
     componente.direccionForm.patchValue({
       calle: 'Gran Via', numero: '1', codigoPostal: '46001',
@@ -129,6 +147,24 @@ describe('ComercioConfigComponent — contrato con el API', () => {
     await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
   });
 
+  it('las categorías de servicio', async () => {
+    // El caso que faltaba: el paso "Servicios que ofreces" no podía guardar
+    // porque `verticales` no estaba declarado en el DTO.
+    componente.alternarVertical(VerticalKey.PELUQUERIA);
+
+    await componente.guardarVerticales();
+
+    await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
+  });
+
+  it('debería rechazar quedarse sin ninguna categoría', async () => {
+    const dto = plainToInstance(ActualizarPerfilComercioDto, { verticales: [] });
+    const fallos = await validate(dto, { whitelist: true, forbidNonWhitelisted: true });
+
+    expect(fallos.flatMap((f) => Object.values(f.constraints ?? {})))
+      .toContain('Marca al menos una categoría de servicio');
+  });
+
   it('las excepciones del horario', async () => {
     componente.nuevaExcepcionFecha.set('2026-12-25');
     componente.nuevaExcepcionMotivo.set('Navidad');
@@ -166,7 +202,7 @@ describe('ComercioConfigComponent — contrato con el API', () => {
       tipo: 'seguro_rc', nombre: 'Póliza RC', url: 'https://cdn.doogking.com/rc.pdf',
       fechaCaducidad: '2027-01-31',
     });
-    componente.agregarDoc();
+    await componente.agregarDoc();
 
     await componente.guardarDocumentacion();
 

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import type { CalendarioDisponibilidadRespuestaApi } from 'shared';
 import { environment } from '../../../../environments/environment';
 
 export interface RecurrenciaPayload {
@@ -22,6 +23,27 @@ export interface CrearReservaPayload {
   /** Trayectos recurrentes (Ref. TRA3): genera reservas hijas para cada ocurrencia. */
   recurrencia?: RecurrenciaPayload;
 }
+
+/** Consulta de disponibilidad: los mismos datos de la reserva menos cupón y recurrencia. */
+export type ComprobarDisponibilidadPayload = Omit<CrearReservaPayload, 'cuponCodigo' | 'recurrencia'>;
+
+export interface DisponibilidadApi {
+  disponible: boolean;
+  /** Por qué no se puede reservar; sólo cuando `disponible` es false. */
+  motivo?: string;
+  precioEstimado?: number;
+  capacidadRestante?: number;
+}
+
+export interface ConsultaCalendario {
+  servicioId: string;
+  /** `YYYY-MM-DD`, ambos inclusive. */
+  desde: string;
+  hasta: string;
+  espacioId?: string;
+}
+
+export type CalendarioApi = CalendarioDisponibilidadRespuestaApi;
 
 export interface SuplementoAplicadoApi {
   concepto: string;
@@ -96,6 +118,31 @@ export class ReservasService {
 
   crear(payload: CrearReservaPayload): Promise<ReservaApi> {
     return firstValueFrom(this.http.post<ReservaApi>(this.base, payload));
+  }
+
+  /**
+   * Pregunta si el servicio admite estas fechas/datos antes de crear nada.
+   * Se usa en el primer paso del wizard para no dejar avanzar hacia el pago
+   * una reserva que el API va a rechazar al final.
+   */
+  comprobarDisponibilidad(payload: ComprobarDisponibilidadPayload): Promise<DisponibilidadApi> {
+    return firstValueFrom(
+      this.http.post<DisponibilidadApi>(`${this.base}/disponibilidad`, payload),
+    );
+  }
+
+  /**
+   * Días reservables de un servicio en un rango, para pintar el calendario.
+   * `soportado: false` = este vertical no se reserva por rango de fechas.
+   */
+  calendario(consulta: ConsultaCalendario): Promise<CalendarioApi> {
+    const params: Record<string, string> = {
+      servicioId: consulta.servicioId, desde: consulta.desde, hasta: consulta.hasta,
+      ...(consulta.espacioId ? { espacioId: consulta.espacioId } : {}),
+    };
+    return firstValueFrom(
+      this.http.get<CalendarioApi>(`${this.base}/disponibilidad/calendario`, { params }),
+    );
   }
 
   misReservas(): Promise<ReservaApi[]> {

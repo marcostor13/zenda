@@ -78,10 +78,10 @@ const MAX_EXPORTACION = 500;
   imports: [DatePipe, FormsModule, RsIconComponent, EurosPipe],
   template: `
     <!-- Cabecera -->
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Gestión de reservas</h1>
-        <p class="page-sub">Centro de operaciones del marketplace: supervisa y gestiona todas las reservas.</p>
+        <h1 class="rs-page-title">Gestión de reservas</h1>
+        <p class="rs-page-sub">Centro de operaciones del marketplace: supervisa y gestiona todas las reservas.</p>
       </div>
       <div class="page-header__acciones">
         <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="panelFiltros.set(!panelFiltros())">
@@ -189,7 +189,7 @@ const MAX_EXPORTACION = 500;
     </div>
 
     <!-- Filtros por estado (semáforo) -->
-    <div class="filter-bar">
+    <div class="rs-toolbar__grupo">
       @for (f of filtros; track f.valor) {
         <button
           class="rs-btn rs-btn--sm"
@@ -390,15 +390,12 @@ const MAX_EXPORTACION = 500;
   `,
   styles: [`
     :host { display: contents; }
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-6); margin-bottom: var(--sp-6); flex-wrap: wrap; }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
+
     .page-kpi { padding: var(--sp-4) var(--sp-6); text-align: center; min-width: 100px; }
     .kpi-num { display: block; font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); }
     .kpi-lbl { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
 
     .search-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-4); flex-wrap: wrap; .rs-inp { flex: 1; min-width: 220px; } }
-    .filter-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-5); flex-wrap: wrap; }
 
     .page-header__acciones { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
     .panel-filtros { padding: var(--sp-5); margin-bottom: var(--sp-5); }

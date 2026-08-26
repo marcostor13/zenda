@@ -58,6 +58,70 @@ describe('SocialSdkService', () => {
       expect(id.renderButton).toHaveBeenCalledWith(contenedor, expect.any(Object));
     });
 
+    /**
+     * Google sólo admite anchos entre 200 y 400: fuera de ese rango ignora el
+     * valor y dibuja el botón a su aire, que es lo que lo hacía desbordar.
+     */
+    describe('ancho del botón', () => {
+      const anchoPedido = (id: { renderButton: jest.Mock }): number =>
+        (id.renderButton.mock.calls[0][1] as { width: number }).width;
+
+      const conAncho = (ancho: number): HTMLElement => {
+        const el = document.createElement('div');
+        Object.defineProperty(el, 'clientWidth', { value: ancho, configurable: true });
+        return el;
+      };
+
+      it('debería pedir el ancho disponible cuando está dentro del rango', async () => {
+        autoResolverScripts();
+        const id = prepararGoogle();
+
+        await service.renderizarBotonGoogle(conAncho(319), 'cid', jest.fn());
+
+        expect(anchoPedido(id)).toBe(319);
+      });
+
+      it('debería subir al mínimo de Google en una tarjeta más estrecha', async () => {
+        autoResolverScripts();
+        const id = prepararGoogle();
+
+        await service.renderizarBotonGoogle(conAncho(150), 'cid', jest.fn());
+
+        expect(anchoPedido(id)).toBe(200);
+      });
+
+      it('debería topar en el máximo de Google en pantallas anchas', async () => {
+        autoResolverScripts();
+        const id = prepararGoogle();
+
+        await service.renderizarBotonGoogle(conAncho(900), 'cid', jest.fn());
+
+        expect(anchoPedido(id)).toBe(400);
+      });
+
+      it('debería usar el mínimo si el contenedor aún no tiene ancho medible', async () => {
+        autoResolverScripts();
+        const id = prepararGoogle();
+
+        // Antes caía a 320px fijos: en un móvil estrecho eso ya desbordaba.
+        await service.renderizarBotonGoogle(conAncho(0), 'cid', jest.fn());
+
+        expect(anchoPedido(id)).toBe(200);
+      });
+
+      it('debería devolver una función que vuelve a pintar con el ancho nuevo', async () => {
+        autoResolverScripts();
+        const id = prepararGoogle();
+        const contenedor = conAncho(380);
+
+        const dibujar = await service.renderizarBotonGoogle(contenedor, 'cid', jest.fn());
+        Object.defineProperty(contenedor, 'clientWidth', { value: 260, configurable: true });
+        dibujar();
+
+        expect((id.renderButton.mock.calls[1][1] as { width: number }).width).toBe(260);
+      });
+    });
+
     it('debería entregar el credential recibido de Google al callback', async () => {
       autoResolverScripts();
       const id = prepararGoogle();

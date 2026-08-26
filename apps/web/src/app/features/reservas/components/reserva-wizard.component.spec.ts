@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
@@ -17,8 +17,8 @@ import { EventosService } from '../../../core/eventos/eventos.service';
 import { AuthService } from '../../../core/auth/auth.service';
 
 interface Dobles {
-  reservas: { crear: jest.Mock };
-  payments: { crearIntent: jest.Mock; configuracion: jest.Mock; confirmarSinCobro: jest.Mock };
+  reservas: { crear: jest.Mock; comprobarDisponibilidad: jest.Mock; calendario: jest.Mock };
+  payments: { crearIntent: jest.Mock; configuracion: jest.Mock; confirmarSinCobro: jest.Mock; sincronizar: jest.Mock };
   cupones: { validar: jest.Mock };
   recomendador: { adiestramiento: jest.Mock; veterinaria: jest.Mock };
   perros: { misPerros: jest.Mock };
@@ -79,12 +79,20 @@ describe('ReservaWizardComponent', () => {
     ajustes: Partial<Dobles> = {},
   ): Promise<void> => {
     dobles = {
-      reservas: { crear: jest.fn().mockResolvedValue({ _id: 'r1', codigo: 'RES-AAAA1111' }) },
+      reservas: {
+        crear: jest.fn().mockResolvedValue({ _id: 'r1', codigo: 'RES-AAAA1111' }),
+        comprobarDisponibilidad: jest.fn().mockResolvedValue({ disponible: true, precioEstimado: 150 }),
+        calendario: jest.fn().mockResolvedValue({
+          soportado: true,
+          dias: [{ fecha: '2026-09-01', disponible: true, plazasLibres: 2 }],
+        }),
+      },
       payments: {
-        crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }),
+        crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 242 }),
         // Sin bypass por defecto, igual que en produccion.
         configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: false }),
         confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+        sincronizar: jest.fn().mockResolvedValue({ estado: 'aprobado' }),
       },
       cupones: { validar: jest.fn().mockResolvedValue({ codigo: 'VERANO', descuento: 20 }) },
       recomendador: {
@@ -1512,7 +1520,7 @@ describe('ReservaWizardComponent', () => {
   describe('confirmar sin pagar', () => {
     const conBypass = (habilitado: boolean) => ({
       payments: {
-        crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }),
+        crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 242 }),
         configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: habilitado }),
         confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
       },
@@ -1537,9 +1545,10 @@ describe('ReservaWizardComponent', () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query, {
         payments: {
-          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }),
+          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 242 }),
           configuracion: jest.fn().mockRejectedValue(new Error('sin red')),
           confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+          sincronizar: jest.fn().mockResolvedValue({ estado: 'aprobado' }),
         },
       });
 
@@ -1549,7 +1558,7 @@ describe('ReservaWizardComponent', () => {
     it('deberia llevar a la confirmacion como un pago normal', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query, conBypass(true));
-      componente['reservaIdReal'] = 'r1';
+      componente.reservaIdReal.set('r1');
 
       await componente.confirmarSinPagar();
 
@@ -1561,7 +1570,7 @@ describe('ReservaWizardComponent', () => {
       // Si no, las reservas de prueba falsearian la medida del recorrido.
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query, conBypass(true));
-      componente['reservaIdReal'] = 'r1';
+      componente.reservaIdReal.set('r1');
 
       await componente.confirmarSinPagar();
 
@@ -1571,7 +1580,7 @@ describe('ReservaWizardComponent', () => {
     it('no deberia intentarlo sin reserva creada', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query, conBypass(true));
-      componente['reservaIdReal'] = null;
+      componente.reservaIdReal.set(null);
 
       await componente.confirmarSinPagar();
 
@@ -1584,17 +1593,375 @@ describe('ReservaWizardComponent', () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query, {
         payments: {
-          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', montoTotal: 242 }),
+          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 242 }),
           configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: true }),
           confirmarSinCobro: jest.fn().mockRejectedValue(new Error('403')),
+          sincronizar: jest.fn().mockResolvedValue({ estado: 'aprobado' }),
         },
       });
-      componente['reservaIdReal'] = 'r1';
+      componente.reservaIdReal.set('r1');
 
       await componente.confirmarSinPagar();
 
       expect(componente.errorPago()).toContain('No se pudo confirmar');
       expect(componente.paso()).not.toBe(4);
+    });
+  });
+  /**
+   * El motivo por el que no se puede reservar tiene que salir aqui, al elegir
+   * las fechas. Antes solo aparecia al entrar en el paso 3, cuando se creaba la
+   * reserva: el cliente rellenaba sus datos para chocar al final con el rechazo.
+   */
+  describe('disponibilidad en el paso 1', () => {
+    const conFechas = async (respuesta: unknown) => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      dobles.reservas.comprobarDisponibilidad.mockResolvedValue(respuesta);
+
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-04' });
+      fixture.detectChanges();
+
+      // La consulta espera a que el cliente deje de teclear.
+      jest.advanceTimersByTime(500);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    beforeEach(() => jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask'] }));
+    afterEach(() => jest.useRealTimers());
+
+    it('deberia consultar al API en cuanto el paso 1 tiene fechas', async () => {
+      await conFechas({ disponible: true, precioEstimado: 150 });
+
+      expect(dobles.reservas.comprobarDisponibilidad).toHaveBeenCalledWith(
+        expect.objectContaining({ servicioId: 's1', fechaInicio: '2026-09-01', fechaFin: '2026-09-04' }),
+      );
+      expect(componente.disponibilidad().estado).toBe('ok');
+    });
+
+    it('no deberia mandar cupon ni recurrencia: no influyen en si hay hueco', async () => {
+      await conFechas({ disponible: true });
+
+      const payload = dobles.reservas.comprobarDisponibilidad.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('cuponCodigo');
+      expect(payload).not.toHaveProperty('recurrencia');
+    });
+
+    it('deberia mostrar el motivo que devuelve el API cuando no hay hueco', async () => {
+      await conFechas({ disponible: false, motivo: 'No quedan plazas libres.' });
+
+      expect(componente.disponibilidad()).toEqual({
+        estado: 'sin_hueco', motivo: 'No quedan plazas libres.',
+      });
+      expect(fixture.nativeElement.textContent).toContain('No quedan plazas libres.');
+    });
+
+    it('deberia impedir avanzar al paso 2 cuando no hay hueco', async () => {
+      await conFechas({ disponible: false, motivo: 'No quedan plazas libres.' });
+
+      const boton: HTMLButtonElement | null =
+        fixture.nativeElement.querySelector('.wizard-cta button');
+      expect(boton?.disabled).toBe(true);
+    });
+
+    it('no deberia bloquear el avance si la consulta falla', async () => {
+      // Un fallo de red no es un "no hay hueco": el API vuelve a validar al reservar.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      dobles.reservas.comprobarDisponibilidad.mockRejectedValue(new Error('sin red'));
+
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-04' });
+      fixture.detectChanges();
+      jest.advanceTimersByTime(500);
+      await fixture.whenStable();
+
+      expect(componente.disponibilidad().estado).toBe('idle');
+    });
+  });
+
+  describe('paso 3 — reserva que el API rechaza', () => {
+    it('deberia mostrar el motivo del API, no un texto generico', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      dobles.reservas.crear.mockRejectedValue(
+        new HttpErrorResponse({ status: 409, error: { message: 'No quedan plazas libres.' } }),
+      );
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-03' });
+
+      componente.irPaso(3);
+      await fixture.whenStable();
+
+      expect(componente.errorPago()).toBe('No quedan plazas libres.');
+      // Sin reserva creada no hay nada que confirmar, ni pagando ni con el atajo.
+      expect(componente.reservaIdReal()).toBeNull();
+    });
+
+    it('deberia caer en el texto generico si el error no trae mensaje', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      dobles.reservas.crear.mockRejectedValue(new Error('boom'));
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-03' });
+
+      componente.irPaso(3);
+      await fixture.whenStable();
+
+      expect(componente.errorPago()).toContain('No se pudo preparar el pago');
+    });
+  });
+  /**
+   * El calendario del paso 1: enseña qué noches tienen plaza y no deja marcar
+   * las que no. Vive en un componente aparte; aquí se comprueba el cableado.
+   */
+  describe('calendario de fechas', () => {
+    it('deberia pedir el calendario del servicio al abrir un alojamiento', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+
+      expect(dobles.reservas.calendario).toHaveBeenCalledWith(
+        expect.objectContaining({ servicioId: 's1' }),
+      );
+      expect(componente.diasCalendario()).toHaveLength(1);
+    });
+
+    it('deberia arrancar en el mes de las fechas que trae el buscador', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO, { checkIn: '2026-10-10' });
+      await crear(params, query);
+
+      const consulta = dobles.reservas.calendario.mock.calls[0][0];
+      expect(consulta.desde).toBe('2026-10-01');
+    });
+
+    it('no deberia pedirlo en un vertical que no se reserva por rango de fechas', async () => {
+      // Una peluqueria trabaja por huecos horarios: un calendario de noches
+      // libres no significaria nada.
+      const { params, query } = contexto(VerticalKey.PELUQUERIA);
+      await crear(params, query);
+
+      expect(dobles.reservas.calendario).not.toHaveBeenCalled();
+      expect(componente.usaCalendario()).toBe(false);
+    });
+
+    it('deberia pasar al formulario el rango elegido en el calendario', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+
+      componente.aplicarRango({ entrada: '2026-09-01', salida: '2026-09-04' });
+
+      expect(componente.paso1AlojamientoForm.value).toMatchObject({
+        checkIn: '2026-09-01', checkOut: '2026-09-04',
+      });
+    });
+
+    it('deberia acumular los meses en vez de reemplazarlos al navegar', async () => {
+      // Si cada mes borrase al anterior, volver atras dejaria el calendario en
+      // blanco y el rango a caballo entre dos meses no se podria validar.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      dobles.reservas.calendario.mockResolvedValue({
+        soportado: true, dias: [{ fecha: '2026-12-01', disponible: true, plazasLibres: 1 }],
+      });
+
+      await componente.cargarCalendario({ anio: 2026, mes: 12 });
+
+      expect(componente.diasCalendario().map((d) => d.fecha))
+        .toEqual(expect.arrayContaining(['2026-09-01', '2026-12-01']));
+    });
+
+    it('no deberia volver a pedir un mes ya cargado', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      const llamadas = dobles.reservas.calendario.mock.calls.length;
+
+      const hoy = new Date();
+      await componente.cargarCalendario({ anio: hoy.getUTCFullYear(), mes: hoy.getUTCMonth() + 1 });
+
+      expect(dobles.reservas.calendario).toHaveBeenCalledTimes(llamadas);
+    });
+
+    it('no deberia guardar dias si el vertical no soporta calendario', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, {
+        reservas: {
+          crear: jest.fn().mockResolvedValue({ _id: 'r1', codigo: 'RES-AAAA1111' }),
+          comprobarDisponibilidad: jest.fn().mockResolvedValue({ disponible: true }),
+          calendario: jest.fn().mockResolvedValue({ soportado: false, dias: [] }),
+        },
+      });
+
+      expect(componente.diasCalendario()).toEqual([]);
+    });
+
+    it('no deberia romper el paso 1 si el calendario falla', async () => {
+      // Se espera la llamada directamente en vez de dejarla en el ngOnInit: ahi
+      // sale sin await y su rechazo se le acababa achacando a otro test.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      const cargadosAntes = componente.diasCalendario().length;
+      dobles.reservas.calendario.mockImplementation(() => Promise.reject(new Error('sin red')));
+
+      await expect(componente.cargarCalendario({ anio: 2027, mes: 3 })).resolves.toBeUndefined();
+
+      expect(componente.diasCalendario()).toHaveLength(cargadosAntes);
+      expect(componente.cargandoCalendario()).toBe(false);
+      expect(componente.paso()).toBe(1);
+    });
+  });
+  /**
+   * El API valida el tamaño contra la ficha del perro, no contra lo que diga
+   * el desplegable. Si no se igualan, el cliente ve un tamaño y le rechazan la
+   * reserva por otro que nunca eligió.
+   */
+  describe('tamano del perro', () => {
+    it('deberia ofrecer la escala completa, incluido mini', async () => {
+      // Faltaba "mini": con un espacio que admite hasta mini no habia ninguna
+      // opcion elegible y la reserva se rechazaba siempre.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+
+      const opciones = [...fixture.nativeElement.querySelectorAll('select[formControlName=tamanoPerro] option')]
+        .map((o: HTMLOptionElement) => o.value);
+      expect(opciones).toEqual(['mini', 'pequeno', 'mediano', 'grande', 'gigante']);
+    });
+
+    it('deberia tomar el tamano de la ficha al elegir un perro', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, { perros: { misPerros: jest.fn().mockResolvedValue([]) } });
+
+      componente.perros.set([perro({ _id: 'p9', tamano: 'gigante' })]);
+      componente.seleccionarPerro('p9');
+
+      expect(componente.paso1AlojamientoForm.value.tamanoPerro).toBe('gigante');
+    });
+
+    it('deberia hacerlo tambien con el perro autoseleccionado', async () => {
+      // Con un solo perro registrado se elige solo: tiene que sincronizar igual.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, {
+        perros: { misPerros: jest.fn().mockResolvedValue([perro({ _id: 'p9', tamano: 'mini' })]) },
+      });
+
+      expect(componente.perroSeleccionado()).toBe('p9');
+      expect(componente.paso1AlojamientoForm.value.tamanoPerro).toBe('mini');
+    });
+
+    it('no deberia tocar el desplegable si la ficha no declara tamano', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, { perros: { misPerros: jest.fn().mockResolvedValue([]) } });
+
+      componente.perros.set([perro({ _id: 'p9', tamano: undefined })]);
+      componente.seleccionarPerro('p9');
+
+      expect(componente.paso1AlojamientoForm.value.tamanoPerro).toBe('mediano');
+    });
+
+    it('deberia enseñar el motivo tal cual, sin anadir consejos que no aplican', async () => {
+      // "Prueba con otras fechas" no arregla una incompatibilidad de tamano.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask'] });
+      dobles.reservas.comprobarDisponibilidad.mockResolvedValue({
+        disponible: false, motivo: 'Este espacio solo admite perros de tamano Mini (0-5 kg) o menor.',
+      });
+
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-04' });
+      fixture.detectChanges();
+      jest.advanceTimersByTime(500);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      jest.useRealTimers();
+
+      expect(fixture.nativeElement.textContent).not.toContain('Prueba con otras fechas o elige otro servicio');
+    });
+  });
+  /**
+   * Los botones de la pantalla de cierre se leen como un par. Estaban uno en
+   * --lg y otro por defecto: distinta altura, distinto cuerpo de letra y
+   * distinto radio, uno al lado del otro.
+   */
+  describe('pantalla de confirmacion', () => {
+    const enConfirmacion = async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      componente.irPaso(4);
+      fixture.detectChanges();
+    };
+
+    it('deberia dar el mismo tamano a los dos botones de cierre', async () => {
+      await enConfirmacion();
+
+      const botones = [...fixture.nativeElement.querySelectorAll('.confirmation__actions .rs-btn')];
+      expect(botones).toHaveLength(2);
+      expect(botones.every((b: HTMLElement) => b.classList.contains('rs-btn--lg'))).toBe(true);
+    });
+
+    it('deberia distinguirlos por variante, no por tamano', async () => {
+      await enConfirmacion();
+
+      const botones = [...fixture.nativeElement.querySelectorAll('.confirmation__actions .rs-btn')];
+      expect(botones[0].classList.contains('rs-btn--primary')).toBe(true);
+      expect(botones[1].classList.contains('rs-btn--secondary')).toBe(true);
+    });
+  });
+  /**
+   * El cobro sale bien en el navegador, pero la reserva solo se confirma en el
+   * servidor. Antes se dejaba entero al webhook de Stripe: llega con retraso en
+   * produccion y nunca en local, asi que la reserva se quedaba "pendiente de
+   * pago" con el dinero ya cobrado.
+   */
+  describe('confirmacion tras el pago', () => {
+    const pagar = async (ajustes: Partial<Dobles> = {}) => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, ajustes);
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-03' });
+      componente.irPaso(3);
+      await fixture.whenStable();
+      await componente.procesarPago();
+      fixture.detectChanges();
+    };
+
+    it('deberia avisar al servidor del pago en vez de esperar solo al webhook', async () => {
+      await pagar();
+
+      expect(dobles.payments.sincronizar).toHaveBeenCalledWith('pago-1');
+      expect(componente.paso()).toBe(4);
+    });
+
+    it('no deberia avisar de nada si el servidor ya la dio por confirmada', async () => {
+      await pagar();
+
+      expect(componente.confirmacionPendiente()).toBe(false);
+      expect(fixture.nativeElement.textContent).not.toContain('Estamos terminando de confirmarla');
+    });
+
+    it('deberia decirlo en pantalla si la confirmacion aun no ha llegado', async () => {
+      // El dinero esta cobrado: prometer "confirmada" cuando el listado dira
+      // "pendiente de pago" es justo lo que confunde al cliente.
+      await pagar({
+        payments: {
+          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 242 }),
+          configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: false }),
+          confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+          sincronizar: jest.fn().mockResolvedValue({ estado: 'pendiente' }),
+        },
+      });
+
+      expect(componente.confirmacionPendiente()).toBe(true);
+      expect(fixture.nativeElement.textContent).toContain('Estamos terminando de confirmarla');
+    });
+
+    it('no deberia bloquear la confirmacion si la consulta falla', async () => {
+      // El webhook sigue de respaldo: dejar al cliente atascado seria peor.
+      await pagar({
+        payments: {
+          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 242 }),
+          configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: false }),
+          confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+          sincronizar: jest.fn().mockImplementation(() => Promise.reject(new Error('sin red'))),
+        },
+      });
+
+      expect(componente.paso()).toBe(4);
+      expect(componente.confirmacionPendiente()).toBe(true);
     });
   });
 });

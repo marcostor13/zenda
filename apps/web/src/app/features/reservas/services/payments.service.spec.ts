@@ -70,4 +70,23 @@ describe('PaymentsService', () => {
 
     await expect(promesa).rejects.toBeDefined();
   });
+  describe('sincronizar', () => {
+    it('deberia preguntar por el pago al servidor, no afirmar que esta pagado', async () => {
+      const promesa = service.sincronizar('pago-1');
+
+      const req = resolver('/payments/pago-1/sincronizar', { estado: 'aprobado' });
+      expect(req.method).toBe('POST');
+      // El cuerpo va vacio a proposito: el estado lo lee el servidor en Stripe.
+      expect(req.body).toEqual({});
+
+      await expect(promesa).resolves.toEqual({ estado: 'aprobado' });
+    });
+
+    it('deberia devolver pendiente cuando el cobro sigue en curso', async () => {
+      const promesa = service.sincronizar('pago-1');
+      resolver('/payments/pago-1/sincronizar', { estado: 'pendiente' });
+
+      await expect(promesa).resolves.toEqual({ estado: 'pendiente' });
+    });
+  });
 });

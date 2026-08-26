@@ -1338,6 +1338,8 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: var(--sp-3);
 
+  @media (max-width: 640px) { gap: var(--sp-2); }
+
   &__item {
     display: flex;
     align-items: center;
@@ -1348,6 +1350,31 @@ h1, h2, h3, h4, h5, h6 {
     /* HU-5.1.2: completados en verde, paso actual en azul y más grande. */
     &.done   { color: var(--c-success); font-weight: var(--w-6); }
     &.active { color: var(--t-100); font-weight: var(--w-7); }
+
+    /* Con las 4 etiquetas completas el indicador no cabe en un móvil y se
+       desborda por ambos lados (se llegan a cortar la primera y la última).
+       Por debajo de 640px sólo se ve el círculo de cada paso y el texto
+       del paso en curso.
+
+       Ojo con el selector: `.active` lo llevan también los pasos ya
+       completados (se marca con `paso() >= n`), así que `.active span`
+       mostraba una etiqueta por cada paso superado. En el paso 2 eso son
+       dos textos, el indicador se pasa del ancho del móvil y arrastra a
+       toda la página a un scroll horizontal que descuadra las tarjetas.
+       El paso en curso es el único `.active` que aún no está `.done`. */
+    @media (max-width: 640px) {
+      min-width: 0;
+
+      span { display: none; }
+
+      &.active:not(.done) span {
+        display: block;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
   }
 
   &__num {
@@ -1372,6 +1399,8 @@ h1, h2, h3, h4, h5, h6 {
     height: 1px;
     background: var(--b-2);
     min-width: 32px;
+
+    @media (max-width: 640px) { min-width: var(--sp-3); }
   }
 }
 
@@ -1453,6 +1482,17 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   &__form { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+  /* Enlaces sueltos dentro de la tarjeta (recuperar contraseña, legales).
+     Antes iban con un hex claro pegado en el atributo `style`, pensado para un
+     tema oscuro: sobre la tarjeta blanca apenas se leían. */
+  &__enlace {
+    color: var(--c-accent);
+    font-weight: var(--w-6);
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+  }
 
   &__divider {
     display: flex;
@@ -1951,6 +1991,22 @@ h1, h2, h3, h4, h5, h6 {
   .rs-search-box { width: min(920px, 100%); margin-inline: auto; }
 }
 
+/*
+ * Móvil: la pantalla y la tarjeta aportaban 24px + 32px de relleno a cada lado,
+ * 112px de los 390 de un teléfono. La tarjeta se acerca al borde y respira por
+ * dentro, que es como se comporta una pantalla de acceso en el móvil.
+ */
+@media (max-width: 480px) {
+  .rs-auth {
+    padding: var(--sp-4) var(--sp-3) var(--sp-8);
+  }
+
+  .rs-auth__card {
+    padding: var(--sp-6) var(--sp-5);
+    border-radius: var(--r-xl);
+  }
+}
+
 /* ── AUTH LAYOUT (.rs-auth-layout / .rs-auth-card) ─────────────── */
 .rs-auth-layout {
   position: relative;
@@ -2068,5 +2124,142 @@ h1, h2, h3, h4, h5, h6 {
   input[type='radio'] {
     width: 20px;
     height: 20px;
+  }
+}
+
+/* ── PANEL DE ADMINISTRACIÓN: cabecera y barra de filtros ────────
+ *
+ * Fuente de verdad de las vistas de `/admin`. Antes cada componente redefinía
+ * `.toolbar`, `.filtros`, `.filtro-select` y `.page-title` por su cuenta y con
+ * valores distintos —el hueco entre filtros iba de 12 a 16px y el tope de los
+ * desplegables de 200 a 240, o no existía—, así que dos listas del mismo panel
+ * no se parecían entre sí.
+ *
+ * El desajuste más visible venía de la altura: el buscador heredaba el relleno
+ * de `.rs-inp` y medía 52px, mientras los desplegables llevaban un `height`
+ * suelto que los dejaba en 44. En una fila eso es un escalón.
+ */
+
+.rs-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-6);
+  margin-bottom: var(--sp-6);
+  flex-wrap: wrap;
+}
+
+.rs-page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--f-2xl);
+  font-weight: var(--w-8);
+  color: var(--t-100);
+  margin-bottom: var(--sp-1);
+}
+
+.rs-page-sub {
+  color: var(--t-400);
+  font-size: var(--f-sm);
+}
+
+/*
+ * Barra de filtros. `align-items: flex-end` alinea por la base del control, que
+ * es lo que hace que rótulos de una y dos líneas no descuadren la fila.
+ */
+.rs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+
+  /* Pastillas de estado: ocupan su propia línea, encima de los campos. */
+  &__grupo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    flex-basis: 100%;
+  }
+
+  &__campo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  /* El buscador se queda con el ancho que sobre, hasta un límite legible. */
+  &__campo--buscador {
+    flex: 1 1 240px;
+    max-width: 360px;
+  }
+
+  &__lbl {
+    font-family: var(--font-accent);
+    font-size: var(--f-xs);
+    font-weight: var(--w-7);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--t-400);
+    white-space: nowrap;
+  }
+
+  /*
+   * Se usa **junto a** `.rs-inp`, no en su lugar: de ahí salen el fondo, el
+   * borde, el radio y el foco. Aquí sólo se iguala lo que estaba descuadrado.
+   */
+  &__control {
+    height: 44px;
+    padding-block: 0;
+    min-width: 0;
+    /*
+     * Sin `font-size` a propósito: lo fija el design system, y en móvil hay una
+     * regla deliberada que sube los campos a 16px para que iOS no haga zoom al
+     * enfocarlos. Declararlo aquí ganaba a esa regla en los `select` (selector
+     * de tipo) pero no en los `input` (selector con `:not`), y dejaba el
+     * buscador a 16 y los desplegables a 13 en la misma fila.
+     */
+  }
+
+  /* Un `select` con `height` necesita el relleno lateral explícito para que la
+     flecha no se coma la última letra. */
+  select#{&}__control {
+    padding-right: var(--sp-8);
+  }
+
+  /* Acciones al final de la barra (exportar, limpiar filtros…). */
+  &__acciones {
+    display: flex;
+    gap: var(--sp-2);
+    margin-left: auto;
+    align-items: flex-end;
+  }
+}
+
+/*
+ * Móvil: en una columna. Los desplegables iban topados a 220px frente a un
+ * buscador a todo lo ancho, y la columna quedaba dentada.
+ */
+@media (max-width: 640px) {
+  .rs-toolbar {
+    gap: var(--sp-3);
+  }
+
+  .rs-toolbar__campo,
+  .rs-toolbar__campo--buscador {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .rs-toolbar__acciones {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .rs-toolbar__acciones > .rs-btn {
+    flex: 1;
   }
 }

@@ -39,10 +39,10 @@ const FILTROS = [
   standalone: true,
   imports: [DatePipe, RsIconComponent, EurosPipe],
   template: `
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Pagos y liquidaciones</h1>
-        <p class="page-sub">A dónde va cada euro que entra por Doogking.</p>
+        <h1 class="rs-page-title">Pagos y liquidaciones</h1>
+        <p class="rs-page-sub">A dónde va cada euro que entra por Doogking.</p>
       </div>
     </div>
 
@@ -80,8 +80,8 @@ const FILTROS = [
               (click)="cambiarALiquidaciones()">Liquidaciones a comercios</button>
     </div>
 
-    <div class="toolbar">
-      <div class="filtros">
+    <div class="rs-toolbar">
+      <div class="rs-toolbar__grupo">
         @for (f of filtros; track f.valor) {
           <button class="rs-btn rs-btn--sm"
                   [class.rs-btn--primary]="filtroEstado() === f.valor"
@@ -91,8 +91,12 @@ const FILTROS = [
           </button>
         }
       </div>
-      <input class="rs-inp buscador" type="search" placeholder="Buscar por código de reserva…"
-             [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
+      <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
+        <label class="rs-toolbar__lbl" for="fp-buscar">Buscar</label>
+        <input id="fp-buscar" class="rs-inp rs-toolbar__control" type="search"
+               placeholder="Código de reserva…"
+               [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
+      </div>
     </div>
 
     @if (errorMsg()) {
@@ -226,10 +230,6 @@ const FILTROS = [
   styles: [`
     :host { display: contents; }
 
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
-
     .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3); }
     .tile { padding: var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
     .tile__num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); line-height: 1.1; }
@@ -262,10 +262,6 @@ const FILTROS = [
     .liquidacion__ref { font-size: var(--f-xs); color: var(--t-400); }
     .liquidacion__pago { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; padding: 0 var(--sp-5) var(--sp-3); }
     .liquidacion__pago .rs-inp { flex: 1; min-width: 220px; height: 38px; }
-
-    .toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
-    .filtros { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-    .buscador { height: 40px; flex: 1; min-width: 240px; }
 
     .vacio { padding: var(--sp-12); text-align: center; color: var(--t-400); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
 

@@ -112,8 +112,16 @@ const normalizar = (texto: string): string =>
 
     .ph__sep { width: 1px; align-self: stretch; margin-block: var(--sp-2); background: var(--b-2); }
 
+    /*
+     * width:0 no es decorativo: un input arrastra un ancho intrínseco
+     * de su atributo size (20 caracteres ≈ 239px). Ese ancho se cuela en
+     * el min-content del campo entero, así que en pantallas estrechas el
+     * teléfono no dejaba encoger a la tarjeta que lo contiene y desbordaba
+     * la página por la derecha. Con width:0 + flex-grow ocupa lo mismo a la
+     * vista, pero deja de imponer un mínimo.
+     */
     .ph__num {
-      flex: 1; min-width: 0;
+      width: 0; flex: 1 1 auto; min-width: 0;
       padding: var(--sp-2) var(--sp-3);
       border: none; outline: none; background: transparent;
       font-family: var(--font); font-size: var(--f-base); color: var(--t-100);

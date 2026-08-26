@@ -26,6 +26,8 @@ export { RsBrandIconComponent } from './components/brand-icon/rs-brand-icon.comp
 export type { MarcaPagoKey } from './components/brand-icon/rs-brand-icon.component';
 export { RsStarsComponent } from './components/stars/rs-stars.component';
 export { RsSearchBarComponent } from './components/search-bar/rs-search-bar.component';
+export { RsCalendarioRangoComponent } from './components/calendario-rango/rs-calendario-rango.component';
+export type { MesVisible, RangoFechas } from './components/calendario-rango/rs-calendario-rango.component';
 export type { BusquedaParams } from './components/search-bar/rs-search-bar.component';
 export * from './verticales/verticales.config';
 export { RsImageUploadComponent } from './components/image-upload/rs-image-upload.component';
@@ -41,3 +43,5 @@ export { ImgFallbackDirective } from './directives/img-fallback.directive';
 export * from './media/images';
 export { EurosPipe, euros } from './pipes/euros.pipe';
 export { mensajeDeError } from './mensaje-error';
+export { RsAdminFiltrosComponent } from './components/admin-filtros/rs-admin-filtros.component';
+export type { GrupoFiltro, OpcionFiltro, ValoresFiltro } from './components/admin-filtros/rs-admin-filtros.component';

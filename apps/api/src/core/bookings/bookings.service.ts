@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Reserva, ReservaDocument, SuplementoAplicado } from './reserva.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
+import { DiaCalendario, implementaCalendario } from '../availability/availability.strategy';
 import { CatalogRepository } from '../catalog/catalog.repository';
 import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
@@ -11,7 +12,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ComisionResolverService } from '../comision-configs/comision-resolver.service';
 import { EventosService } from '../eventos/eventos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento } from 'shared';
+import {
+  VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento,
+  DisponibilidadRespuesta,
+} from 'shared';
 import { nanoid } from 'nanoid';
 
 export interface SuplementoSolicitado {
@@ -24,6 +28,22 @@ export interface RecurrenciaParams {
   diasSemana: number[];
   hora: string;
   fechaFin: Date;
+}
+
+/**
+ * Lo mínimo para preguntar por disponibilidad: sin cupón ni recurrencia, que
+ * sólo influyen en el importe y en cuántas reservas se generan al confirmar.
+ */
+export interface ComprobarDisponibilidadParams {
+  usuarioId: string;
+  servicioId: string;
+  comercioId?: string;
+  vertical?: VerticalKey;
+  perroId?: string;
+  fechaInicio: Date;
+  fechaFin?: Date;
+  cantidad?: number;
+  detalle?: Record<string, unknown>;
 }
 
 export interface CrearReservaParams {
@@ -48,6 +68,23 @@ export interface CrearReservaParams {
 
 const MAX_OCURRENCIAS_RECURRENCIA = 52;
 
+/** Días como mucho por consulta de calendario: el cliente pide de mes en mes. */
+const MAX_DIAS_CALENDARIO = 120;
+
+export interface CalendarioDisponibilidadParams {
+  usuarioId: string;
+  servicioId: string;
+  desde: Date;
+  hasta: Date;
+  espacioId?: string;
+}
+
+export interface CalendarioDisponibilidadRespuesta {
+  /** false = este vertical no se reserva por rango de fechas. */
+  soportado: boolean;
+  dias: DiaCalendario[];
+}
+
 /** Importes en euros con dos decimales: el céntimo es la unidad mínima de cobro. */
 const redondearEuros = (importe: number): number => Math.round(importe * 100) / 100;
 
@@ -65,6 +102,101 @@ export class BookingsService {
     private readonly comisionResolver: ComisionResolverService,
     private readonly eventosService: EventosService,
   ) {}
+
+  /**
+   * ¿Se puede reservar esto con estos datos? Sin crear nada ni bloquear cupo.
+   *
+   * Existe para que el cliente lo sepa en el primer paso, al elegir fechas, en
+   * lugar de chocar con el 409 al final del embudo —con los datos personales ya
+   * rellenados y el pago delante—, que es donde se descubría hasta ahora.
+   *
+   * Las estrategias señalan la incompatibilidad de dos formas: devolviendo
+   * `disponible: false` (no hay hueco) o lanzando una `DomainException` 409
+   * (este espacio no admite a ese perro). Las dos son la misma respuesta para
+   * quien pregunta, así que aquí se unifican: una consulta nunca falla, informa.
+   */
+  async comprobarDisponibilidad(
+    params: ComprobarDisponibilidadParams,
+  ): Promise<DisponibilidadRespuesta> {
+    const { vertical } = await this.resolverServicio(params);
+    const estrategia = this.availabilityRegistry.obtener(vertical);
+
+    const perroSnapshot = params.perroId
+      ? construirSnapshotPerro(await this.perrosService.obtenerPropio(params.perroId, params.usuarioId))
+      : undefined;
+
+    try {
+      const resultado = await estrategia.checkAvailability(params.servicioId, {
+        fechaInicio: params.fechaInicio,
+        fechaFin: params.fechaFin,
+        cantidad: params.cantidad ?? 1,
+        parametrosExtra: this.construirParametrosExtra(params.detalle, perroSnapshot),
+      });
+
+      if (resultado.disponible) {
+        return {
+          disponible: true,
+          precioEstimado: resultado.precioCalculado,
+          capacidadRestante: resultado.capacidadRestante,
+        };
+      }
+
+      return {
+        disponible: false,
+        motivo: resultado.motivo ?? 'El servicio no está disponible para las fechas seleccionadas',
+        capacidadRestante: resultado.capacidadRestante,
+      };
+    } catch (error) {
+      // Un 409 de la estrategia es una respuesta de negocio ("no admite este
+      // perro"), no un fallo: se devuelve como motivo. El resto —404, 400, un
+      // error de infraestructura— sí sube, porque no es algo que el cliente
+      // pueda arreglar cambiando las fechas.
+      if (error instanceof DomainException && error.statusCode === 409) {
+        return { disponible: false, motivo: error.message };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Días reservables de un servicio en un rango, para pintar el calendario.
+   *
+   * Sólo lo contestan los verticales que se reservan por rango de fechas. Para
+   * el resto se responde `soportado: false` y el cliente se queda con los
+   * campos de fecha de siempre, en vez de inventarse un calendario que no
+   * significa nada en una peluquería que trabaja por huecos horarios.
+   */
+  async calendarioDisponibilidad(
+    params: CalendarioDisponibilidadParams,
+  ): Promise<CalendarioDisponibilidadRespuesta> {
+    const { vertical } = await this.resolverServicio(params);
+    const estrategia = this.availabilityRegistry.obtener(vertical);
+
+    if (!implementaCalendario(estrategia)) {
+      return { soportado: false, dias: [] };
+    }
+
+    if (params.hasta.getTime() < params.desde.getTime()) {
+      throw new DomainException('El fin del rango no puede ser anterior al inicio', 400);
+    }
+
+    const dias = await estrategia.calendario(params.servicioId, {
+      desde: params.desde,
+      hasta: this.recortarRango(params.desde, params.hasta),
+      espacioId: params.espacioId,
+    });
+
+    return { soportado: true, dias };
+  }
+
+  /**
+   * Tope de días por consulta. El cliente pide de mes en mes; sin tope, una
+   * petición con un rango de años recorrería la colección entera de reservas.
+   */
+  private recortarRango(desde: Date, hasta: Date): Date {
+    const maximo = new Date(desde.getTime() + MAX_DIAS_CALENDARIO * 24 * 60 * 60 * 1000);
+    return hasta.getTime() > maximo.getTime() ? maximo : hasta;
+  }
 
   async crear(params: CrearReservaParams): Promise<ReservaDocument> {
     // El comercio y el vertical salen del servicio, nunca del cuerpo de la
@@ -90,7 +222,10 @@ export class BookingsService {
     });
 
     if (!disponibilidad.disponible) {
-      throw new DomainException('El servicio no está disponible para las fechas seleccionadas', 409);
+      throw new DomainException(
+        disponibilidad.motivo ?? 'El servicio no está disponible para las fechas seleccionadas',
+        409,
+      );
     }
 
     const hold = await estrategia.reserveSlot(params.servicioId, {
@@ -705,8 +840,9 @@ export class BookingsService {
    * tanto, apuntar a un vertical o a un comercio con comisión más baja, o
    * atribuir la reserva a un negocio que no era el que presta el servicio.
    */
+  /** Sólo necesita identificar el servicio; lo demás de la petición no le hace falta. */
   private async resolverServicio(
-    params: CrearReservaParams,
+    params: Pick<CrearReservaParams, 'servicioId' | 'comercioId' | 'vertical'>,
   ): Promise<{ comercioId: string; vertical: VerticalKey }> {
     const servicio = await this.catalogRepository.obtenerPorId(params.servicioId);
 

@@ -1,20 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { VerticalKey, TamanoPerro } from 'shared';
 import {
   AvailabilityStrategy,
   AvailabilityQuery,
   AvailabilityResult,
+  CalendarioStrategy,
+  DiaCalendario,
+  RangoCalendario,
   ReserveParams,
   SlotHold,
 } from '../../core/availability/availability.strategy';
+import {
+  OcupacionRepository, claveDia, inicioDelDia, nochesDe,
+} from '../../core/availability/ocupacion.repository';
 import { Servicio, ServicioDocument } from '../../core/catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { Hoteles, SuplementoPorTamanoMascota } from './hoteles.schema';
 
 const MINUTOS_TTL = 15;
-const ORDEN_TAMANO = ['mini', 'pequeno', 'mediano', 'grande', 'gigante'];
+const MS_POR_DIA = 24 * 60 * 60 * 1000;
 
 interface HoldEntry { holdId: string; servicioId: string; expiraEn: Date; }
 
@@ -25,14 +31,48 @@ interface HoldEntry { holdId: string; servicioId: string; expiraEn: Date; }
  * + suplemento por mascota adicional × noches × (mascotas - 1).
  */
 @Injectable()
-export class HotelesAvailabilityStrategy implements AvailabilityStrategy {
+export class HotelesAvailabilityStrategy implements AvailabilityStrategy, CalendarioStrategy {
   readonly vertical = VerticalKey.HOTELES;
 
   private readonly holds = new Map<string, HoldEntry>();
 
   constructor(
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
+    private readonly ocupacion: OcupacionRepository,
   ) {}
+
+  /**
+   * Noche a noche, cuántas habitaciones quedan libres. Misma cuenta que hace
+   * `checkAvailability`: el calendario no puede pintar libre una noche que
+   * luego la reserva rechace.
+   */
+  async calendario(servicioId: string, rango: RangoCalendario): Promise<DiaCalendario[]> {
+    const hotel = await this.servicioModel.findById(servicioId).lean().exec() as (Hoteles & { _id: unknown }) | null;
+
+    if (!hotel) {
+      throw new DomainException('Hotel pet-friendly no encontrado', 404);
+    }
+
+    const unidades = hotel.admiteMascotas ? (hotel.unidadesDisponibles ?? 0) : 0;
+    const ocupadas = await this.ocupacion.nochesOcupadas({
+      servicioId, desde: rango.desde, hasta: rango.hasta,
+    });
+
+    const hoy = claveDia(new Date());
+    const dias: DiaCalendario[] = [];
+
+    for (
+      let dia = inicioDelDia(rango.desde);
+      dia.getTime() <= inicioDelDia(rango.hasta).getTime();
+      dia = new Date(dia.getTime() + MS_POR_DIA)
+    ) {
+      const fecha = claveDia(dia);
+      const libres = Math.max(0, unidades - (ocupadas.get(fecha) ?? 0));
+      dias.push({ fecha, disponible: libres > 0 && fecha >= hoy, plazasLibres: libres });
+    }
+
+    return dias;
+  }
 
   async checkAvailability(servicioId: string, params: AvailabilityQuery): Promise<AvailabilityResult> {
     const hotel = await this.servicioModel.findById(servicioId).lean().exec() as (Hoteles & { _id: unknown }) | null;
@@ -46,12 +86,30 @@ export class HotelesAvailabilityStrategy implements AvailabilityStrategy {
     }
 
     if (!hotel.admiteMascotas || (hotel.unidadesDisponibles ?? 0) <= 0) {
-      return { disponible: false, capacidadRestante: hotel.unidadesDisponibles ?? 0 };
+      return {
+        disponible: false,
+        motivo: hotel.admiteMascotas
+          ? 'No quedan habitaciones libres en este hotel para las fechas elegidas.'
+          : 'Este hotel ya no admite mascotas.',
+        capacidadRestante: hotel.unidadesDisponibles ?? 0,
+      };
     }
 
     const noches = this.calcularNoches(params.fechaInicio, params.fechaFin);
     if (noches <= 0) {
-      return { disponible: false };
+      return { disponible: false, motivo: 'La fecha de salida tiene que ser posterior a la de entrada.' };
+    }
+
+    // `unidadesDisponibles` son las habitaciones del hotel, no las libres esas
+    // noches: sin esta comprobación se aceptaban dos reservas sobre la misma.
+    const nocheLlena = await this.primeraNocheLlena(servicioId, hotel, params);
+    if (nocheLlena) {
+      return {
+        disponible: false,
+        motivo: 'No quedan habitaciones libres en alguna de las noches elegidas. Prueba con otras fechas.',
+        capacidadRestante: 0,
+        metadata: { nocheLlena },
+      };
     }
 
     const mascotas = Math.max(1, params.cantidad ?? 1);
@@ -73,6 +131,23 @@ export class HotelesAvailabilityStrategy implements AvailabilityStrategy {
       precioCalculado: Math.round(precioCalculado * 100) / 100,
       metadata: { noches, mascotas },
     };
+  }
+
+  /** Primera noche del rango sin habitación libre, o null si caben todas. */
+  private async primeraNocheLlena(
+    servicioId: string,
+    hotel: Hoteles,
+    params: AvailabilityQuery,
+  ): Promise<string | null> {
+    if (!params.fechaFin) return null;
+
+    const unidades = hotel.unidadesDisponibles ?? 0;
+    const ocupadas = await this.ocupacion.nochesOcupadas({
+      servicioId, desde: params.fechaInicio, hasta: params.fechaFin,
+    });
+
+    return nochesDe(params.fechaInicio, params.fechaFin)
+      .find((noche) => (ocupadas.get(noche) ?? 0) >= unidades) ?? null;
   }
 
   async reserveSlot(servicioId: string, _params: ReserveParams): Promise<SlotHold> {
@@ -140,7 +215,7 @@ export class HotelesAvailabilityStrategy implements AvailabilityStrategy {
 
     if (hotel.razasRestringidas === 'razas_gigantes') {
       const tamano = params.parametrosExtra?.['perroTamano'];
-      if (typeof tamano === 'string' && ORDEN_TAMANO.indexOf(tamano) === ORDEN_TAMANO.indexOf('gigante')) {
+      if (typeof tamano === 'string' && tamano === TamanoPerro.GIGANTE) {
         throw new DomainException('Este hotel no admite razas gigantes', 409);
       }
       return;

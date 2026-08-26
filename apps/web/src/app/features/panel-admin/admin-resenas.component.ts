@@ -38,10 +38,10 @@ const FILTROS_VISIBILIDAD = [
   standalone: true,
   imports: [DatePipe, RsIconComponent],
   template: `
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Reseñas</h1>
-        <p class="page-sub">Consulta todas las opiniones publicadas y retira las que den problemas.</p>
+        <h1 class="rs-page-title">Reseñas</h1>
+        <p class="rs-page-sub">Consulta todas las opiniones publicadas y retira las que den problemas.</p>
       </div>
       <div class="rs-card page-kpi">
         <span class="kpi-num">{{ total() }}</span>
@@ -49,8 +49,8 @@ const FILTROS_VISIBILIDAD = [
       </div>
     </div>
 
-    <div class="toolbar">
-      <div class="filtros">
+    <div class="rs-toolbar">
+      <div class="rs-toolbar__grupo">
         @for (f of filtros; track f.valor) {
           <button class="rs-btn rs-btn--sm"
                   [class.rs-btn--primary]="visibilidad() === f.valor"
@@ -60,16 +60,23 @@ const FILTROS_VISIBILIDAD = [
           </button>
         }
       </div>
-      <select class="rs-inp filtro-select" [value]="puntuacion()"
-              (change)="cambiarPuntuacion($any($event.target).value)" aria-label="Puntuación">
-        <option value="">Cualquier puntuación</option>
-        @for (n of [5,4,3,2,1]; track n) {
-          <option [value]="n">{{ n }} estrellas</option>
-        }
-      </select>
-      <input class="rs-inp buscador" type="search"
-             placeholder="Buscar por cliente, servicio o texto…"
-             [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
+      <div class="rs-toolbar__campo">
+        <label class="rs-toolbar__lbl" for="fr-puntuacion">Puntuación</label>
+        <select id="fr-puntuacion" class="rs-inp rs-toolbar__control" [value]="puntuacion()"
+                (change)="cambiarPuntuacion($any($event.target).value)">
+          <option value="">Cualquiera</option>
+          @for (n of [5,4,3,2,1]; track n) {
+            <option [value]="n">{{ n }} estrellas</option>
+          }
+        </select>
+      </div>
+
+      <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
+        <label class="rs-toolbar__lbl" for="fr-buscar">Buscar</label>
+        <input id="fr-buscar" class="rs-inp rs-toolbar__control" type="search"
+               placeholder="Cliente, servicio o texto…"
+               [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
+      </div>
     </div>
 
     @if (errorMsg()) {
@@ -144,17 +151,9 @@ const FILTROS_VISIBILIDAD = [
   styles: [`
     :host { display: contents; }
 
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
     .page-kpi { padding: var(--sp-3) var(--sp-5); display: flex; flex-direction: column; }
     .kpi-num { font-family: var(--font-accent); font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); }
     .kpi-lbl { font-size: var(--f-xs); color: var(--t-400); }
-
-    .toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
-    .filtros { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-    .filtro-select { height: 40px; max-width: 200px; }
-    .buscador { height: 40px; flex: 1; min-width: 240px; }
 
     .vacio { padding: var(--sp-12); text-align: center; color: var(--t-400); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
 

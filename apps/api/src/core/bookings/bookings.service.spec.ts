@@ -5,7 +5,7 @@ import { BookingsService } from './bookings.service';
 import { Reserva, ReservaDocument } from './reserva.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
 import { CatalogRepository } from '../catalog/catalog.repository';
-import { AvailabilityStrategy } from '../availability/availability.strategy';
+import { AvailabilityStrategy, CalendarioStrategy } from '../availability/availability.strategy';
 import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -18,7 +18,7 @@ describe('BookingsService', () => {
   let service: BookingsService;
   let reservaModel: jest.Mocked<any>;
   let availabilityRegistry: jest.Mocked<AvailabilityRegistry>;
-  let estrategiaMock: jest.Mocked<AvailabilityStrategy>;
+  let estrategiaMock: jest.Mocked<AvailabilityStrategy & CalendarioStrategy>;
   let cuponesService: jest.Mocked<CuponesService>;
   let perrosService: jest.Mocked<PerrosService>;
   let notificationsService: jest.Mocked<NotificationsService>;
@@ -51,6 +51,9 @@ describe('BookingsService', () => {
   beforeEach(async () => {
     estrategiaMock = {
       vertical: VerticalKey.ALOJAMIENTO,
+      // El calendario es opcional en el contrato: sólo lo tienen los verticales
+      // que se reservan por rango de fechas.
+      calendario: jest.fn().mockResolvedValue([]),
       checkAvailability: jest.fn().mockResolvedValue({ disponible: true, precioCalculado: 500 }),
       reserveSlot: jest.fn().mockResolvedValue({ holdId: 'hold-1', servicioId: 'servicio-1', expiraEn: new Date() }),
       releaseSlot: jest.fn().mockResolvedValue(undefined),
@@ -137,6 +140,114 @@ describe('BookingsService', () => {
     perrosService = module.get(PerrosService);
     notificationsService = module.get(NotificationsService);
     eventosService = module.get(EventosService);
+  });
+
+  /**
+   * La consulta del paso 1: contesta si se puede reservar sin crear nada, y
+   * nunca falla por una incompatibilidad — la convierte en motivo.
+   */
+  describe('comprobarDisponibilidad', () => {
+    it('debería contestar que hay hueco con el precio estimado, sin retener plaza', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, precioCalculado: 500, capacidadRestante: 3,
+      });
+
+      const resultado = await service.comprobarDisponibilidad(parametrosBase);
+
+      expect(resultado).toEqual({ disponible: true, precioEstimado: 500, capacidadRestante: 3 });
+      expect(estrategiaMock.reserveSlot).not.toHaveBeenCalled();
+    });
+
+    it('debería devolver el motivo que da la estrategia cuando no hay hueco', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: false, motivo: 'No quedan plazas libres.', capacidadRestante: 0,
+      });
+
+      const resultado = await service.comprobarDisponibilidad(parametrosBase);
+
+      expect(resultado).toEqual({
+        disponible: false, motivo: 'No quedan plazas libres.', capacidadRestante: 0,
+      });
+    });
+
+    it('debería caer en un texto genérico si la estrategia no explica el motivo', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({ disponible: false });
+
+      const resultado = await service.comprobarDisponibilidad(parametrosBase);
+
+      expect(resultado.disponible).toBe(false);
+      expect(resultado.motivo).toBe('El servicio no está disponible para las fechas seleccionadas');
+    });
+
+    it('debería convertir un 409 de la estrategia en motivo, no en error', async () => {
+      estrategiaMock.checkAvailability.mockRejectedValue(
+        new DomainException('Este espacio admite perros hasta tamaño "mediano"', 409),
+      );
+
+      const resultado = await service.comprobarDisponibilidad(parametrosBase);
+
+      expect(resultado).toEqual({
+        disponible: false, motivo: 'Este espacio admite perros hasta tamaño "mediano"',
+      });
+    });
+
+    it('debería propagar los errores que no son de negocio, como un 404', async () => {
+      estrategiaMock.checkAvailability.mockRejectedValue(
+        new DomainException('Alojamiento no encontrado', 404),
+      );
+
+      await expect(service.comprobarDisponibilidad(parametrosBase))
+        .rejects.toThrow('Alojamiento no encontrado');
+    });
+  });
+
+  describe('calendarioDisponibilidad', () => {
+    it('debería devolver los días que da la estrategia del vertical', async () => {
+      const dias = [{ fecha: '2026-09-01', disponible: true, plazasLibres: 2 }];
+      estrategiaMock.calendario = jest.fn().mockResolvedValue(dias);
+
+      const resultado = await service.calendarioDisponibilidad({
+        usuarioId: 'user-1', servicioId: 'servicio-1',
+        desde: new Date('2026-09-01'), hasta: new Date('2026-09-30'),
+      });
+
+      expect(resultado).toEqual({ soportado: true, dias });
+    });
+
+    it('debería responder que no lo soporta si el vertical no se reserva por fechas', async () => {
+      // Una peluquería trabaja por huecos horarios: un calendario de noches
+      // libres no significaría nada ahí.
+      delete (estrategiaMock as { calendario?: unknown }).calendario;
+
+      const resultado = await service.calendarioDisponibilidad({
+        usuarioId: 'user-1', servicioId: 'servicio-1',
+        desde: new Date('2026-09-01'), hasta: new Date('2026-09-30'),
+      });
+
+      expect(resultado).toEqual({ soportado: false, dias: [] });
+    });
+
+    it('debería recortar el rango para no recorrer la colección entera', async () => {
+      estrategiaMock.calendario = jest.fn().mockResolvedValue([]);
+
+      await service.calendarioDisponibilidad({
+        usuarioId: 'user-1', servicioId: 'servicio-1',
+        desde: new Date('2026-01-01'), hasta: new Date('2030-01-01'),
+      });
+
+      const rango = estrategiaMock.calendario.mock.calls[0][1] as { hasta: Date };
+      const dias = (rango.hasta.getTime() - Date.parse('2026-01-01')) / (24 * 60 * 60 * 1000);
+      expect(dias).toBeLessThanOrEqual(120);
+    });
+
+    it('debería rechazar un rango del revés', async () => {
+      estrategiaMock.calendario = jest.fn().mockResolvedValue([]);
+
+      await expect(service.calendarioDisponibilidad({
+        usuarioId: 'user-1', servicioId: 'servicio-1',
+        desde: new Date('2026-09-30'), hasta: new Date('2026-09-01'),
+      })).rejects.toThrow(DomainException);
+    });
   });
 
   /**
@@ -279,6 +390,16 @@ describe('BookingsService', () => {
       expect(estrategiaMock.checkAvailability).toHaveBeenCalledWith('servicio-1', expect.any(Object));
       expect(estrategiaMock.reserveSlot).toHaveBeenCalled();
       expect(resultado).toBeTruthy();
+    });
+
+    it('debería rechazar con el motivo de la estrategia, no con el texto genérico', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: false, motivo: 'No quedan plazas libres en este alojamiento.',
+      });
+
+      await expect(service.crear(parametrosBase))
+        .rejects.toThrow('No quedan plazas libres en este alojamiento.');
+      expect(estrategiaMock.reserveSlot).not.toHaveBeenCalled();
     });
 
     it('debería validar el cupón con el subtotal cuando se indica cuponCodigo', async () => {

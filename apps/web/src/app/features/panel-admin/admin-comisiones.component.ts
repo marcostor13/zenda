@@ -15,10 +15,10 @@ import { EurosPipe } from '../../shared/pipes/euros.pipe';
   standalone: true,
   imports: [RsIconComponent, EurosPipe],
   template: `
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Comisiones</h1>
-        <p class="page-sub">Qué cobra Doogking por cada reserva y qué deja de ingresar el comercio.</p>
+        <h1 class="rs-page-title">Comisiones</h1>
+        <p class="rs-page-sub">Qué cobra Doogking por cada reserva y qué deja de ingresar el comercio.</p>
       </div>
       <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardar()">
         <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
@@ -111,10 +111,6 @@ import { EurosPipe } from '../../shared/pipes/euros.pipe';
   `,
   styles: [`
     :host { display: contents; }
-
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
 
     .admin-panel { padding: var(--sp-6); }
     .panel-titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }

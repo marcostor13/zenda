@@ -2,12 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { AlojamientoAvailabilityStrategy } from './alojamiento-availability.strategy';
 import { Servicio } from '../../core/catalog/servicio.schema';
+import { OcupacionRepository } from '../../core/availability/ocupacion.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { VerticalKey } from 'shared';
 
 describe('AlojamientoAvailabilityStrategy', () => {
   let strategy: AlojamientoAvailabilityStrategy;
   let servicioModel: { findById: jest.Mock };
+  let ocupacion: jest.Mocked<Pick<OcupacionRepository, 'nochesOcupadas'>>;
 
   const alojamientoMock = {
     _id: 'alojamiento-1',
@@ -23,17 +25,169 @@ describe('AlojamientoAvailabilityStrategy', () => {
       }),
     };
 
+    // Sin reservas vivas por defecto: las noches del rango están libres.
+    ocupacion = { nochesOcupadas: jest.fn().mockResolvedValue(new Map<string, number>()) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AlojamientoAvailabilityStrategy,
         { provide: getModelToken(Servicio.name), useValue: servicioModel },
+        { provide: OcupacionRepository, useValue: ocupacion },
       ],
     }).compile();
 
     strategy = module.get<AlojamientoAvailabilityStrategy>(AlojamientoAvailabilityStrategy);
   });
 
+  /**
+   * El catálogo reparte al cliente ids de posición ("esp-0") porque los
+   * subdocumentos se guardan sin `_id`. Si la reserva buscase por
+   * `espacio.id` no encontraría ninguno y el alojamiento parecería no tener
+   * espacios: ni calendario ni reserva posibles.
+   */
+  describe('tamaño del perro', () => {
+    const conEspacioMaximo = (tamanoMaxPerro: string) => {
+      servicioModel.findById = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          ...alojamientoMock,
+          espacios: [{ tipo: 'suite', tamanoMaxPerro, precioNoche: 45, cantidad: 6 }],
+        }),
+      });
+    };
+
+    const reservarCon = (perroTamano?: string) => strategy.checkAvailability('alojamiento-1', {
+      fechaInicio: new Date('2026-01-10'),
+      fechaFin: new Date('2026-01-12'),
+      parametrosExtra: perroTamano ? { perroTamano } : {},
+    });
+
+    it('debería admitir un perro mini en un espacio que admite hasta mini', async () => {
+      // El desplegable del paso 1 se dejaba fuera "mini": con un espacio así
+      // ninguna opción elegible pasaba y la reserva se rechazaba siempre.
+      conEspacioMaximo('mini');
+
+      await expect(reservarCon('mini')).resolves.toMatchObject({ disponible: true });
+    });
+
+    it('debería rechazar un perro mayor con un mensaje legible, no con la clave', async () => {
+      conEspacioMaximo('mini');
+
+      await expect(reservarCon('mediano')).rejects.toThrow(/Mini \(0-5 kg\)/);
+    });
+
+    it('debería decir qué hacer, y no que pruebe otras fechas', async () => {
+      conEspacioMaximo('mini');
+
+      await expect(reservarCon('mediano')).rejects.toThrow(/Elige otro espacio/);
+    });
+
+    it('no debería bloquear si el perro no declara tamaño', async () => {
+      conEspacioMaximo('mini');
+
+      await expect(reservarCon()).resolves.toMatchObject({ disponible: true });
+    });
+  });
+
+  describe('espacio elegido por el cliente', () => {
+    it('debería resolver el espacio por el id de posición del catálogo', async () => {
+      const resultado = await strategy.checkAvailability('alojamiento-1', {
+        fechaInicio: new Date('2026-01-10'),
+        fechaFin: new Date('2026-01-12'),
+        parametrosExtra: { espacioId: 'esp-0' },
+      });
+
+      expect(resultado.disponible).toBe(true);
+      expect(resultado.precioCalculado).toBe(45 * 2);
+    });
+
+    it('debería pintar el calendario del espacio pedido por posición', async () => {
+      const dias = await strategy.calendario('alojamiento-1', {
+        desde: new Date('2099-09-01'), hasta: new Date('2099-09-01'), espacioId: 'esp-0',
+      });
+
+      expect(dias[0]).toEqual({ fecha: '2099-09-01', disponible: true, plazasLibres: 6 });
+      // La ocupación se filtra por el mismo id que guardan las reservas.
+      expect(ocupacion.nochesOcupadas).toHaveBeenCalledWith(
+        expect.objectContaining({ espacioId: 'esp-0' }),
+      );
+    });
+
+    it('debería rechazar un espacio que no existe, en vez de coger otro', async () => {
+      const resultado = await strategy.checkAvailability('alojamiento-1', {
+        fechaInicio: new Date('2026-01-10'),
+        fechaFin: new Date('2026-01-12'),
+        parametrosExtra: { espacioId: 'no-existe' },
+      });
+
+      expect(resultado.disponible).toBe(false);
+      expect(resultado.motivo).toContain('no tiene ningún espacio publicado');
+    });
+  });
+
+  describe('calendario', () => {
+    it('debería marcar libre cada noche con plaza y llena la que se queda sin ellas', async () => {
+      // 6 plazas: la noche del 2 está completa, la del 3 tiene una libre.
+      ocupacion.nochesOcupadas.mockResolvedValue(new Map([['2099-09-02', 6], ['2099-09-03', 5]]));
+
+      const dias = await strategy.calendario('alojamiento-1', {
+        desde: new Date('2099-09-01'),
+        hasta: new Date('2099-09-03'),
+      });
+
+      expect(dias).toEqual([
+        { fecha: '2099-09-01', disponible: true,  plazasLibres: 6 },
+        { fecha: '2099-09-02', disponible: false, plazasLibres: 0 },
+        { fecha: '2099-09-03', disponible: true,  plazasLibres: 1 },
+      ]);
+    });
+
+    it('no debería ofrecer días ya pasados', async () => {
+      const dias = await strategy.calendario('alojamiento-1', {
+        desde: new Date('2020-01-01'),
+        hasta: new Date('2020-01-02'),
+      });
+
+      expect(dias.every((dia) => !dia.disponible)).toBe(true);
+    });
+
+    it('debería contar sólo la ocupación del espacio pedido', async () => {
+      await strategy.calendario('alojamiento-1', {
+        desde: new Date('2099-09-01'), hasta: new Date('2099-09-02'), espacioId: 'esp-0',
+      });
+
+      expect(ocupacion.nochesOcupadas).toHaveBeenCalledWith(
+        expect.objectContaining({ espacioId: 'esp-0' }),
+      );
+    });
+  });
+
   describe('checkAvailability', () => {
+    it('debería rechazar el rango si alguna noche está completa, diciendo cuál', async () => {
+      // Sin esto dos clientes reservaban la misma suite las mismas noches y el
+      // conflicto no aparecía hasta la llegada.
+      ocupacion.nochesOcupadas.mockResolvedValue(new Map([['2026-01-12', 6]]));
+
+      const resultado = await strategy.checkAvailability('alojamiento-1', {
+        fechaInicio: new Date('2026-01-10'),
+        fechaFin: new Date('2026-01-15'),
+      });
+
+      expect(resultado.disponible).toBe(false);
+      expect(resultado.motivo).toContain('12 de enero');
+    });
+
+    it('no debería mirar la noche de salida: esa mañana ya te has ido', async () => {
+      ocupacion.nochesOcupadas.mockResolvedValue(new Map([['2026-01-15', 6]]));
+
+      const resultado = await strategy.checkAvailability('alojamiento-1', {
+        fechaInicio: new Date('2026-01-10'),
+        fechaFin: new Date('2026-01-15'),
+      });
+
+      expect(resultado.disponible).toBe(true);
+    });
+
     it('debería retornar disponible=true con precio calculado por noches y perros', async () => {
       const resultado = await strategy.checkAvailability('alojamiento-1', {
         fechaInicio: new Date('2026-01-10'),

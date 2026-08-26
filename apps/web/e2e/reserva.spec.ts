@@ -164,6 +164,22 @@ test.describe('Flujo de reserva con sesión', () => {
     await expect(page.locator('body')).toBeVisible();
   });
 
+  test('debería avisar de que no hay hueco en el primer paso, al elegir las fechas', async ({ page }) => {
+    // El motivo tiene que salir donde se eligen las fechas, no al final del
+    // embudo con los datos personales ya rellenados y el pago delante.
+    await interceptarApi(page, {
+      ...CON_SERVICIO,
+      'POST /reservas/disponibilidad': {
+        cuerpo: { disponible: false, motivo: 'No quedan plazas libres en este alojamiento.' },
+      },
+    });
+
+    await page.goto('/reservas/alojamiento/s-e2e?comercioId=c-e2e&nombre=Suite&precioBase=100&checkIn=2026-09-01&checkOut=2026-09-03');
+
+    await expect(page.getByText('No quedan plazas libres en este alojamiento.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Continuar . Tus datos/i })).toBeDisabled();
+  });
+
   test('debería listar las reservas del usuario en su panel', async ({ page }) => {
     await interceptarApi(page, {
       'GET /reservas/mis': {

@@ -52,10 +52,10 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
   standalone: true,
   imports: [DatePipe, RsIconComponent],
   template: `
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Incidencias y disputas</h1>
-        <p class="page-sub">Reclamaciones y solicitudes de devolución de clientes y comercios.</p>
+        <h1 class="rs-page-title">Incidencias y disputas</h1>
+        <p class="rs-page-sub">Reclamaciones y solicitudes de devolución de clientes y comercios.</p>
       </div>
     </div>
 
@@ -69,17 +69,24 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
       }
     </div>
 
-    <div class="toolbar">
-      <select class="rs-inp filtro-select" [value]="filtroTipo()"
-              (change)="cambiarTipo($any($event.target).value)" aria-label="Tipo">
-        <option value="">Cualquier tipo</option>
-        @for (t of tipos; track t.valor) {
-          <option [value]="t.valor">{{ t.label }}</option>
-        }
-      </select>
-      <input class="rs-inp buscador" type="search"
-             placeholder="Buscar por asunto, persona o código de reserva…"
-             [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
+    <div class="rs-toolbar">
+      <div class="rs-toolbar__campo">
+        <label class="rs-toolbar__lbl" for="fi-tipo">Tipo</label>
+        <select id="fi-tipo" class="rs-inp rs-toolbar__control" [value]="filtroTipo()"
+                (change)="cambiarTipo($any($event.target).value)">
+          <option value="">Cualquiera</option>
+          @for (t of tipos; track t.valor) {
+            <option [value]="t.valor">{{ t.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
+        <label class="rs-toolbar__lbl" for="fi-buscar">Buscar</label>
+        <input id="fi-buscar" class="rs-inp rs-toolbar__control" type="search"
+               placeholder="Asunto, persona o código de reserva…"
+               [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
+      </div>
     </div>
 
     @if (errorMsg()) {
@@ -186,10 +193,6 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
   styles: [`
     :host { display: contents; }
 
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
-
     .tabs { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
     .tab {
       display: inline-flex; align-items: center; gap: var(--sp-2);
@@ -200,10 +203,6 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
     .tab:hover { border-color: var(--c-accent); color: var(--c-accent); }
     .tab.activa { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--c-accent); font-weight: var(--w-6); }
     .tab__num { padding: 1px var(--sp-2); border-radius: var(--r-full); background: var(--c-surface); font-size: var(--f-xs); color: var(--t-400); }
-
-    .toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
-    .filtro-select { height: 40px; max-width: 220px; }
-    .buscador { height: 40px; flex: 1; min-width: 240px; }
 
     .vacio { padding: var(--sp-12); text-align: center; color: var(--t-400); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
 

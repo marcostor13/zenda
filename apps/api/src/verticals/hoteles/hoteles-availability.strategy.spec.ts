@@ -2,12 +2,14 @@ import { Test } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { HotelesAvailabilityStrategy } from './hoteles-availability.strategy';
 import { Servicio } from '../../core/catalog/servicio.schema';
+import { OcupacionRepository } from '../../core/availability/ocupacion.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { VerticalKey } from 'shared';
 
 describe('HotelesAvailabilityStrategy', () => {
   let strategy: HotelesAvailabilityStrategy;
   let model: jest.Mocked<{ findById: jest.Mock }>;
+  let ocupacion: jest.Mocked<Pick<OcupacionRepository, 'nochesOcupadas'>>;
 
   const mock = {
     _id: 'h1', vertical: VerticalKey.HOTELES, precioBase: 100,
@@ -26,8 +28,14 @@ describe('HotelesAvailabilityStrategy', () => {
   beforeEach(async () => {
     model = { findById: jest.fn() };
     mockFindById(mock);
+    // Sin reservas vivas por defecto: las noches del rango están libres.
+    ocupacion = { nochesOcupadas: jest.fn().mockResolvedValue(new Map<string, number>()) };
     const ref = await Test.createTestingModule({
-      providers: [HotelesAvailabilityStrategy, { provide: getModelToken(Servicio.name), useValue: model }],
+      providers: [
+        HotelesAvailabilityStrategy,
+        { provide: getModelToken(Servicio.name), useValue: model },
+        { provide: OcupacionRepository, useValue: ocupacion },
+      ],
     }).compile();
     strategy = ref.get(HotelesAvailabilityStrategy);
   });

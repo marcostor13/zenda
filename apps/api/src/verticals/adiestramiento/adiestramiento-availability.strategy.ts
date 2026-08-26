@@ -47,6 +47,7 @@ export class AdiestramientoAvailabilityStrategy implements AvailabilityStrategy 
     if ((adiestramiento.cuposDisponibles ?? 0) < perros || perros > maxPerros) {
       return {
         disponible: false,
+        motivo: 'No quedan plazas libres en esta sesión para el número de perros indicado.',
         capacidadRestante: adiestramiento.cuposDisponibles ?? 0,
         metadata: { motivo: 'capacidad_insuficiente' },
       };
@@ -55,10 +56,18 @@ export class AdiestramientoAvailabilityStrategy implements AvailabilityStrategy 
     const edad = params.parametrosExtra?.['edadMeses'];
     const edadMinima = servicio?.edadMinimaMeses ?? adiestramiento.edadMinimaMeses ?? 0;
     if (edad !== undefined && Number(edad) < edadMinima) {
-      return { disponible: false, metadata: { motivo: 'edad_insuficiente' } };
+      return {
+        disponible: false,
+        motivo: `Este programa admite perros a partir de ${edadMinima} meses.`,
+        metadata: { motivo: 'edad_insuficiente' },
+      };
     }
     if (edad !== undefined && servicio?.edadMaximaMeses !== undefined && Number(edad) > servicio.edadMaximaMeses) {
-      return { disponible: false, metadata: { motivo: 'edad_excesiva' } };
+      return {
+        disponible: false,
+        motivo: `Este programa admite perros hasta ${servicio.edadMaximaMeses} meses.`,
+        metadata: { motivo: 'edad_excesiva' },
+      };
     }
 
     const modalidad = this.modalidadSolicitada(adiestramiento, params);

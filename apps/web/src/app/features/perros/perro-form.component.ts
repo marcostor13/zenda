@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
-import { Vacuna, VACUNA_LABELS } from 'shared';
+import { Vacuna, VACUNA_LABELS, TAMANOS_PERRO } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
@@ -149,11 +149,9 @@ const NIVELES_SOCIABILIDAD = [
               <label class="rs-lbl" for="tamano">Tamaño</label>
               <select id="tamano" class="rs-inp" formControlName="tamano">
                 <option value="">—</option>
-                <option value="mini">Mini (0-5 kg)</option>
-                <option value="pequeno">Pequeño (5-10 kg)</option>
-                <option value="mediano">Mediano (10-25 kg)</option>
-                <option value="grande">Grande (25-40 kg)</option>
-                <option value="gigante">Gigante (+40 kg)</option>
+                @for (tamano of tamanosPerro; track tamano.valor) {
+                  <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
+                }
               </select>
             </div>
             <div class="rs-field">
@@ -472,6 +470,9 @@ const NIVELES_SOCIABILIDAD = [
   `],
 })
 export class PerroFormComponent implements OnInit {
+  /** Escala de tamaños del dominio; ver `TAMANOS_PERRO` en shared. */
+  readonly tamanosPerro = TAMANOS_PERRO;
+
   private readonly perrosService = inject(PerrosService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);

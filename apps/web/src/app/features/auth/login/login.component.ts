@@ -46,7 +46,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
             <div style="display:flex;justify-content:space-between;align-items:center">
               <label for="password" class="rs-lbl">Contraseña</label>
               <a routerLink="/auth/recuperar"
-                 style="font-size:var(--f-xs);color:#7AA3FF;display:inline-flex;align-items:center;min-height:36px;padding-inline:var(--sp-1)">¿Olvidaste tu contraseña?</a>
+                 class="rs-auth__enlace" style="font-size:var(--f-xs);display:inline-flex;align-items:center;min-height:36px;padding-inline:var(--sp-1)">¿Olvidaste tu contraseña?</a>
             </div>
             <div style="position:relative">
               <input

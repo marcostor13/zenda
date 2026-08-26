@@ -6,6 +6,11 @@ import { AlojamientoDetalleComponent } from './alojamiento-detalle.component';
 import { AlojamientoService, AlojamientoDetalle, Espacio } from '../services/alojamiento.service';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
 
+// jsdom no implementa scrollIntoView; lo usa irAEspacios() de la barra fija de móvil.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = jest.fn();
+}
+
 describe('AlojamientoDetalleComponent', () => {
   let fixture: ComponentFixture<AlojamientoDetalleComponent>;
   let component: AlojamientoDetalleComponent;
@@ -193,6 +198,74 @@ describe('AlojamientoDetalleComponent', () => {
     component.irAReserva();
 
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  /*
+   * Barra fija de móvil (HU: la acción de reservar quedaba fuera de la
+   * pantalla hasta bajar toda la ficha). Se prueba por comportamiento, no por
+   * maquetación: qué hace el botón según haya o no un espacio elegido.
+   */
+  describe('barra fija de reserva en móvil', () => {
+    it('debería llevar a la lista de espacios cuando aún no hay ninguno elegido', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const espacios = document.createElement('div');
+      espacios.id = 'espacios';
+      document.body.appendChild(espacios);
+      const scrollSpy = jest.spyOn(espacios, 'scrollIntoView').mockImplementation(() => {});
+
+      component.irAEspacios();
+
+      expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      espacios.remove();
+    });
+
+    it('no debería fallar si el ancla de espacios no está en el DOM', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(() => component.irAEspacios()).not.toThrow();
+    });
+
+    it('debería mostrar "Elegir espacio" mientras no haya ninguno seleccionado', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const barra = fixture.nativeElement.querySelector('.mobile-cta');
+      expect(barra.textContent).toContain('Elegir espacio');
+      expect(barra.textContent).not.toContain('Reservar');
+    });
+
+    it('debería mostrar "Reservar" con el precio del espacio en cuanto se elige uno', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      component.seleccionarEspacio(espacioMock);
+      fixture.detectChanges();
+
+      const barra = fixture.nativeElement.querySelector('.mobile-cta');
+      expect(barra.textContent).toContain('Reservar');
+      expect(barra.textContent).not.toContain('Elegir espacio');
+    });
+
+    it('el botón "Reservar" de la barra fija debería navegar con el espacio elegido', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const router = TestBed.inject(Router);
+      const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+      component.seleccionarEspacio(espacioMock);
+      fixture.detectChanges();
+
+      const boton = [...fixture.nativeElement.querySelectorAll('.mobile-cta .rs-btn')]
+        .find((b: HTMLElement) => b.textContent?.trim() === 'Reservar') as HTMLElement;
+      boton.click();
+
+      expect(navigateSpy).toHaveBeenCalledWith(
+        ['/reservas', 'alojamiento', 'a1'],
+        expect.objectContaining({ queryParams: expect.objectContaining({ espacioId: 'e1' }) }),
+      );
+    });
   });
 
   describe('galería a pantalla completa (HU-4.1.1)', () => {

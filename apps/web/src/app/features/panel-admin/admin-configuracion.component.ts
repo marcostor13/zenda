@@ -40,10 +40,10 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
   standalone: true,
   imports: [RsIconComponent],
   template: `
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Configuración de la plataforma</h1>
-        <p class="page-sub">Avisos automáticos y parámetros generales de Doogking.</p>
+        <h1 class="rs-page-title">Configuración de la plataforma</h1>
+        <p class="rs-page-sub">Avisos automáticos y parámetros generales de Doogking.</p>
       </div>
       <button class="rs-btn rs-btn--primary rs-btn--sm" [disabled]="guardando()" (click)="guardar()">
         <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon>
@@ -157,10 +157,6 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
   `,
   styles: [`
     :host { display: contents; }
-
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
 
     .panel { padding: var(--sp-6); }
     .panel__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }

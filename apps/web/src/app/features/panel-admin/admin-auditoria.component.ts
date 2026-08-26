@@ -27,15 +27,15 @@ const ICONO_ENTIDAD: Record<string, string> = {
   standalone: true,
   imports: [DatePipe, RsIconComponent],
   template: `
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Historial administrativo</h1>
-        <p class="page-sub">Quién ha cambiado qué en el panel, y por qué.</p>
+        <h1 class="rs-page-title">Historial administrativo</h1>
+        <p class="rs-page-sub">Quién ha cambiado qué en el panel, y por qué.</p>
       </div>
     </div>
 
-    <div class="toolbar">
-      <div class="filtros">
+    <div class="rs-toolbar">
+      <div class="rs-toolbar__grupo">
         <button class="rs-btn rs-btn--sm"
                 [class.rs-btn--primary]="filtroEntidad() === ''"
                 [class.rs-btn--ghost]="filtroEntidad() !== ''"
@@ -47,9 +47,12 @@ const ICONO_ENTIDAD: Record<string, string> = {
                   (click)="cambiarEntidad(e.valor)">{{ e.label }}</button>
         }
       </div>
-      <input class="rs-inp buscador" type="search"
-             placeholder="Buscar por descripción, administrador o motivo…"
-             [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
+      <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
+        <label class="rs-toolbar__lbl" for="fa-buscar">Buscar</label>
+        <input id="fa-buscar" class="rs-inp rs-toolbar__control" type="search"
+               placeholder="Descripción, administrador o motivo…"
+               [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
+      </div>
     </div>
 
     @if (errorMsg()) {
@@ -99,14 +102,6 @@ const ICONO_ENTIDAD: Record<string, string> = {
   `,
   styles: [`
     :host { display: contents; }
-
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
-
-    .toolbar { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
-    .filtros { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-    .buscador { height: 40px; flex: 1; min-width: 240px; }
 
     .vacio { padding: var(--sp-12); text-align: center; color: var(--t-400); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
     .vacio p { max-width: 48ch; line-height: 1.6; }

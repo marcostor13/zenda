@@ -15,13 +15,13 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
   standalone: true,
   imports: [RsIconComponent],
   template: `
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">
+        <h1 class="rs-page-title">
           <rs-icon name="crown" [size]="22" [stroke]="2"></rs-icon>
           Programa Doogking Alpha
         </h1>
-        <p class="page-sub">
+        <p class="rs-page-sub">
           Fidelización de los clientes que reservan. Las empresas no tienen nivel Alpha:
           su escalera es el plan Básico / Pro / Premium.
         </p>
@@ -180,10 +180,6 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
   styles: [`
     :host { display: contents; }
 
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
-    .page-title { display: inline-flex; align-items: center; gap: var(--sp-3); font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); max-width: 70ch; }
-
     .admin-panel { padding: var(--sp-6); }
     .panel-titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }
     .panel-nota { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); max-width: 70ch; }
@@ -220,7 +216,6 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
     .beneficios__titulo { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
     .beneficio { display: flex; align-items: center; gap: var(--sp-2); width: 100%; max-width: 520px; }
 
-    .buscador { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); }
     .buscador .rs-inp { flex: 1; min-width: 240px; }
     .adheridos { display: flex; flex-direction: column; gap: var(--sp-2); }
     .adherido {

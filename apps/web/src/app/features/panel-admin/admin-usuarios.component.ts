@@ -44,10 +44,10 @@ function labelRolDe(rol: string): string {
   imports: [DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent, EurosPipe],
   template: `
     <!-- Cabecera -->
-    <div class="page-header">
+    <div class="rs-page-header">
       <div>
-        <h1 class="page-title">Usuarios</h1>
-        <p class="page-sub">Usuarios registrados en la plataforma.</p>
+        <h1 class="rs-page-title">Usuarios</h1>
+        <p class="rs-page-sub">Usuarios registrados en la plataforma.</p>
       </div>
       <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap">
         <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="exportarCsv()">
@@ -82,8 +82,8 @@ function labelRolDe(rol: string): string {
     </div>
 
     <!-- Barra de filtros + búsqueda -->
-    <div class="toolbar">
-      <div class="filter-bar">
+    <div class="rs-toolbar">
+      <div class="rs-toolbar__grupo">
         @for (f of filtros; track f.valor) {
           <button
             class="rs-btn rs-btn--sm"
@@ -94,19 +94,23 @@ function labelRolDe(rol: string): string {
           </button>
         }
       </div>
-      <input
-        class="rs-inp search-input"
-        type="text"
-        placeholder="Buscar por nombre o email…"
-        [value]="buscar()"
-        (input)="onBuscar($event)" />
+      <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
+        <label class="rs-toolbar__lbl" for="fu-buscar">Buscar</label>
+        <input id="fu-buscar" class="rs-inp rs-toolbar__control" type="text"
+               placeholder="Nombre o email…"
+               [value]="buscar()" (input)="onBuscar($event)" />
+      </div>
+
       <!-- Filtro por verificación (TCK-8035 §2) -->
-      <select class="rs-inp filtro-select" [value]="filtroVerificado()"
-              (change)="setVerificado($any($event.target).value)" aria-label="Verificación">
-        <option value="">Verificados y sin verificar</option>
-        <option value="true">Solo verificados</option>
-        <option value="false">Solo sin verificar</option>
-      </select>
+      <div class="rs-toolbar__campo">
+        <label class="rs-toolbar__lbl" for="fu-verificado">Verificación</label>
+        <select id="fu-verificado" class="rs-inp rs-toolbar__control" [value]="filtroVerificado()"
+                (change)="setVerificado($any($event.target).value)">
+          <option value="">Todos</option>
+          <option value="true">Solo verificados</option>
+          <option value="false">Solo sin verificar</option>
+        </select>
+      </div>
     </div>
 
     @if (errorMsg()) {
@@ -114,7 +118,10 @@ function labelRolDe(rol: string): string {
     }
 
     <!-- Tabla -->
-    <div class="rs-card" style="padding:0;overflow:hidden">
+    <!-- Sin overflow:hidden: recortaba el desplegable de acciones, que se
+         desborda de la tarjeta a propósito. Las esquinas se redondean en la
+         cabecera y en la última fila (ver .tbl-head / .tbl-row:last-child). -->
+    <div class="rs-card tbl-card" style="padding:0">
       <div class="tbl-head">
         <span>Usuario</span>
         <span>Email</span>
@@ -418,16 +425,9 @@ function labelRolDe(rol: string): string {
   styles: [`
     :host { display: contents; }
 
-    .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-6); margin-bottom: var(--sp-6); flex-wrap: wrap; }
-    .page-title { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .page-sub { color: var(--t-400); font-size: var(--f-sm); }
     .page-kpi { padding: var(--sp-4) var(--sp-6); text-align: center; min-width: 100px; }
     .kpi-num { display: block; font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); }
     .kpi-lbl { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
-
-    .toolbar { display: flex; gap: var(--sp-4); margin-bottom: var(--sp-5); flex-wrap: wrap; align-items: center; }
-    .filter-bar { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-    .search-input { flex: 1; min-width: 240px; max-width: 360px; }
 
     .resumen-usuarios { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-4); }
     .resumen-tile { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 2px; }
@@ -468,8 +468,6 @@ function labelRolDe(rol: string): string {
     .permiso strong { font-size: var(--f-sm); color: var(--t-100); }
     .permiso em { font-size: var(--f-xs); color: var(--t-400); font-style: normal; }
 
-    .filtro-select { height: 40px; max-width: 240px; }
-
     .acciones { position: relative; }
     .acciones__menu {
       position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
@@ -486,9 +484,15 @@ function labelRolDe(rol: string): string {
     }
     .acciones__item--danger { color: var(--c-red, #B91C1C); }
 
-    .tbl-head { display: grid; grid-template-columns: 1.1fr 1.3fr 150px 130px 130px 90px 110px 70px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
+    /*
+     * La tarjeta no recorta su contenido para que el menú de acciones pueda
+     * salirse; a cambio, las esquinas redondeadas se aplican aquí, en la primera
+     * y la última fila, que es donde tocan el borde.
+     */
+    .tbl-card { overflow: visible; }
+    .tbl-head { display: grid; grid-template-columns: 1.1fr 1.3fr 150px 130px 130px 90px 110px 70px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); border-radius: var(--r-2xl) var(--r-2xl) 0 0; }
     .tbl-row { display: grid; grid-template-columns: 1.1fr 1.3fr 150px 130px 130px 90px 110px 70px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
-    .tbl-row:last-child { border: none; }
+    .tbl-row:last-child { border: none; border-radius: 0 0 var(--r-2xl) var(--r-2xl); }
     .tbl-row:hover { background: var(--c-raised); }
 
     /*

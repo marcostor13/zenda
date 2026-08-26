@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsEmail, IsArray, IsIn, IsBoolean, IsNumber, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsArray, IsIn, IsBoolean, IsNumber, ValidateNested, IsEnum, ArrayNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
+import { VerticalKey } from '../../enums/vertical.enum';
 
 export class ContactoComercioDto {
   @IsOptional() @IsString() nombreContacto?: string;
@@ -83,6 +84,15 @@ export class ActualizarPerfilComercioDto {
   @IsArray()
   excepcionesHorario?: Array<{ fecha: string; motivo?: string; cerrado: boolean; abre?: string; cierra?: string }>;
 
+  /**
+   * Datos fiscales. Son opcionales al registrarse (perfilado progresivo,
+   * CLAUDE.md §4.2) y se completan después desde el panel — pero faltaban aquí,
+   * así que no había forma de aportarlos: el paso "Datos fiscales (CIF/NIF)"
+   * del panel del comercio se quedaba pendiente para siempre.
+   */
+  @IsOptional() @IsString() razonSocial?: string;
+  @IsOptional() @IsString() vatNumber?: string;
+
   @IsOptional() @IsString() nombreComercial?: string;
   @IsOptional() @IsString() descripcion?: string;
   @IsOptional() @IsString() logoUrl?: string;
@@ -144,4 +154,19 @@ export class ActualizarPerfilComercioDto {
   @ValidateNested({ each: true })
   @Type(() => HorarioDiaDto)
   horario?: HorarioDiaDto[];
+
+  /**
+   * Categorías en las que trabaja el negocio.
+   *
+   * Faltaba aquí, así que el paso "Servicios que ofreces" del panel era de sólo
+   * lectura y remitía a soporte: con `forbidNonWhitelisted`, mandarlas devolvía
+   * 400. Un negocio que añade peluquería a su residencia no tenía forma de
+   * reflejarlo. Se exige al menos una: sin ninguna, la ficha no dice a qué se
+   * dedica el comercio.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty({ message: 'Marca al menos una categoría de servicio' })
+  @IsEnum(VerticalKey, { each: true })
+  verticales?: VerticalKey[];
 }

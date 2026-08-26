@@ -3,9 +3,23 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import {
   PaymentGateway,
+  ConsultaIntent,
   CrearIntentParams,
+  EstadoIntent,
   PaymentIntentResult,
 } from './payment-gateway.interface';
+
+/**
+ * Traducción de los estados de Stripe.
+ *
+ * `requires_payment_method` no se da por fallido: es el estado en el que queda
+ * un intento tras un rechazo recuperable, y el cliente aún puede reintentar con
+ * otra tarjeta. Marcarlo como fallido cerraría un cobro que sigue vivo.
+ */
+const ESTADOS: Record<string, EstadoIntent> = {
+  succeeded: 'succeeded',
+  canceled: 'failed',
+};
 
 @Injectable()
 export class StripeGateway implements PaymentGateway {
@@ -35,6 +49,14 @@ export class StripeGateway implements PaymentGateway {
     return {
       intentId: intent.id,
       clientSecret: intent.client_secret!,
+    };
+  }
+
+  async consultarIntent(intentId: string): Promise<ConsultaIntent> {
+    const intent = await this.stripe.paymentIntents.retrieve(intentId);
+    return {
+      estado: ESTADOS[intent.status] ?? 'other',
+      chargeId: typeof intent.latest_charge === 'string' ? intent.latest_charge : undefined,
     };
   }
 

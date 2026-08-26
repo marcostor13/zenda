@@ -171,7 +171,7 @@ const ESTADO_BADGE: Record<string, string> = {
     </div>
 
     <!-- LISTADOS -->
-    <div class="rs-card">
+    <div class="rs-card dashboard-panel">
       <div class="panel-header" style="margin-bottom:var(--sp-5)">
         <h3>Mis servicios</h3>
         <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost rs-btn--xs">Ver todos</a>
