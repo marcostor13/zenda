@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
+import { Capacitor } from '@capacitor/core';
 import { environment } from '../../../environments/environment';
 
 /**
@@ -14,6 +15,16 @@ import { environment } from '../../../environments/environment';
 export class ConexionApiService {
   /** Última URL que no se pudo alcanzar; null mientras el API responda. */
   readonly fallo = signal<string | null>(null);
+
+  /**
+   * El aviso en pantalla es **sólo para la app instalada**.
+   *
+   * Ahí ganaba algo: sin él, un API inalcanzable dejaba una pantalla en blanco
+   * y la única salida era depurar el móvil por cable. En el navegador ese dato
+   * ya está en la consola y en la pestaña de red, así que la banda roja sobra
+   * y molesta durante el desarrollo.
+   */
+  readonly mostrarAviso = computed(() => this.fallo() !== null && Capacitor.isNativePlatform());
 
   /** La dirección a la que está llamando la app, para poder enseñarla. */
   readonly apiUrl = environment.apiUrl;

@@ -9,11 +9,12 @@ import { ConexionApiService } from './core/diagnostico/conexion-api.service';
   imports: [RouterOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-@if (conexion.fallo()) {
+@if (conexion.mostrarAviso()) {
   <!--
-    Aviso de "el servidor no contesta". No es decorativo: sin él, un API
-    inalcanzable deja la app en blanco y la única forma de saber a qué
-    dirección estaba llamando es depurar el móvil por cable.
+    Aviso de "el servidor no contesta". Sólo en la app instalada: sin él, un
+    API inalcanzable deja la pantalla en blanco y la única forma de saber a qué
+    dirección estaba llamando es depurar el móvil por cable. En el navegador el
+    dato ya está en la consola, así que ahí no se muestra.
   -->
   <div class="sin-conexion" role="alert">
     <strong>No se puede conectar con el servidor.</strong>
