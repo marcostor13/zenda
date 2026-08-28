@@ -107,7 +107,7 @@ FACEBOOK_APP_SECRET=<privado, sólo aquí>
 
 | Variable | Para qué |
 |---|---|
-| `GOOGLE_CLIENT_ID` | Client ID contra el que se valida el ID token que manda el navegador. **No es `GOOGLE_CALENDAR_CLIENT_ID`**: ése es otro cliente OAuth, el de la agenda. Admite varios separados por comas, para cuando la app móvil usa su propio cliente. |
+| `GOOGLE_CLIENT_ID` | Client ID contra el que se valida el ID token que manda el navegador, y que el propio API sirve al frontend por `GET /auth/social/config` para que dibuje el botón con él. **No es `GOOGLE_CALENDAR_CLIENT_ID`**: ése es otro cliente OAuth, el de la agenda. Admite varios separados por comas, para cuando la app móvil usa su propio cliente; el primero es el de la web. |
 | `FACEBOOK_APP_ID` · `FACEBOOK_APP_SECRET` | Validación del access token de Meta (`debug_token`). El secret nunca lleva prefijo `WEB_`. |
 
 > Si el login con Google responde
@@ -241,7 +241,7 @@ una variable es **reiniciar el servicio**, no reconstruir la imagen. Lo escrito 
 | `WEB_UNDER_CONSTRUCTION` | `true` mantiene la pantalla "muy pronto"; `false` abre la web |
 | `WEB_UNDER_CONSTRUCTION_KEY` | Clave del acceso anticipado (`?acceso=…`) |
 | `WEB_STRIPE_PUBLIC_KEY` | Clave **publicable** de Stripe (`pk_live_…`) |
-| `WEB_GOOGLE_CLIENT_ID` · `WEB_FACEBOOK_APP_ID` | Identificadores públicos del login social |
+| `WEB_GOOGLE_CLIENT_ID` · `WEB_FACEBOOK_APP_ID` | Respaldo del login social. Normalmente **no hacen falta**: el frontend pide los identificadores al API (`GET /auth/social/config`), que es lo que impide que los dos lados se configuren distinto. Sólo se usan si el API no responde. |
 
 > ⚠️ **Nada de esto es secreto.** La web es una SPA: el navegador se descarga `env.js` y
 > cualquiera puede leerlo. Sirve para no tener los valores escritos en el repositorio y para

@@ -1,4 +1,5 @@
 import {
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   ElementRef,
@@ -11,14 +12,14 @@ import {
 import { AuthService } from '../../../core/auth/auth.service';
 import { mensajeDeError } from '../../../shared/mensaje-error';
 import { SocialSdkService } from '../../../core/auth/social-sdk.service';
-import { environment } from '../../../../environments/environment';
+import { SocialConfigService } from '../../../core/auth/social-config.service';
 
 /** Cambio de ancho a partir del cual merece la pena repintar el botón de Google. */
 const UMBRAL_REDIBUJADO = 8;
 
 /**
- * Botones de acceso con Google y Meta. Se muestran solo si hay credenciales
- * configuradas en el environment; si no, el bloque queda oculto y la app sigue
+ * Botones de acceso con Google y Meta. Se muestran solo si el API devuelve
+ * credenciales configuradas; si no, el bloque queda oculto y la app sigue
  * funcionando con email/contraseña.
  */
 @Component({
@@ -76,23 +77,41 @@ const UMBRAL_REDIBUJADO = 8;
 export class SocialButtonsComponent implements AfterViewInit {
   private readonly authService = inject(AuthService);
   private readonly sdk = inject(SocialSdkService);
+  private readonly configSocial = inject(SocialConfigService);
 
   private readonly destroyRef = inject(DestroyRef);
+  private readonly cdr = inject(ChangeDetectorRef);
   private readonly googleBtn = viewChild<ElementRef<HTMLElement>>('googleBtn');
 
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
 
-  readonly hayGoogle = signal(!!environment.googleClientId);
-  readonly hayFacebook = signal(!!environment.facebookAppId);
+  /*
+   * Arrancan apagados y los enciende la configuración que manda el API. Antes
+   * salían de `environment`, y un client ID distinto al que valida el API
+   * dibujaba un botón que sólo servía para acabar en un 401.
+   */
+  readonly hayGoogle = signal(false);
+  readonly hayFacebook = signal(false);
+  private appIdFacebook = '';
 
   async ngAfterViewInit(): Promise<void> {
+    const { googleClientId, facebookAppId } = await this.configSocial.cargar();
+    this.appIdFacebook = facebookAppId;
+    this.hayGoogle.set(!!googleClientId);
+    this.hayFacebook.set(!!facebookAppId);
+
+    // El contenedor del botón vive dentro de un `@if`: hasta que la vista no se
+    // repinta con la configuración recién llegada, no existe en el DOM y no hay
+    // dónde dibujarlo.
+    this.cdr.detectChanges();
+
     const contenedor = this.googleBtn()?.nativeElement;
-    if (!contenedor || !this.hayGoogle()) return;
+    if (!contenedor || !googleClientId) return;
     try {
       const dibujar = await this.sdk.renderizarBotonGoogle(
         contenedor,
-        environment.googleClientId,
+        googleClientId,
         (idToken) => this.entrarConGoogle(idToken),
       );
       this.seguirElAncho(contenedor, dibujar);
@@ -144,7 +163,7 @@ export class SocialButtonsComponent implements AfterViewInit {
     this.cargando.set(true);
     this.error.set(null);
     try {
-      const accessToken = await this.sdk.loginFacebook(environment.facebookAppId);
+      const accessToken = await this.sdk.loginFacebook(this.appIdFacebook);
       await this.authService.loginConFacebook(accessToken);
     } catch (error) {
       const msg = (error as Error)?.message ?? '';

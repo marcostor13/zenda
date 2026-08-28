@@ -18,6 +18,38 @@ describe('SocialAuthService', () => {
   const respuestaOk = (body: unknown): Response =>
     ({ ok: true, json: () => Promise.resolve(body) }) as Response;
 
+  /*
+   * El navegador dibuja el botón con lo que devuelve esto y el API valida el
+   * `aud` contra lo mismo: mientras salgan de aquí no pueden divergir.
+   */
+  describe('configPublica', () => {
+    it('debería servir los identificadores públicos de los dos proveedores', () => {
+      config.get.mockImplementation((clave: string) =>
+        clave === 'GOOGLE_CLIENT_ID' ? 'client-web' : clave === 'FACEBOOK_APP_ID' ? 'app-1' : undefined);
+
+      expect(service.configPublica()).toEqual({ googleClientId: 'client-web', facebookAppId: 'app-1' });
+    });
+
+    /* La app móvil usa su propio cliente; el de la web es el primero. */
+    it('debería servir el primero de la lista, que es el de la web', () => {
+      config.get.mockReturnValue('client-web, client-android');
+
+      expect(service.configPublica().googleClientId).toBe('client-web');
+    });
+
+    it('debería devolver vacío lo que no esté configurado', () => {
+      config.get.mockReturnValue(undefined);
+
+      expect(service.configPublica()).toEqual({ googleClientId: '', facebookAppId: '' });
+    });
+
+    it('debería recortar los espacios del identificador de Meta', () => {
+      config.get.mockImplementation((clave: string) => (clave === 'FACEBOOK_APP_ID' ? '  app-1  ' : undefined));
+
+      expect(service.configPublica().facebookAppId).toBe('app-1');
+    });
+  });
+
   describe('verificarGoogle', () => {
     it('debería devolver el perfil cuando la audiencia y el email coinciden', async () => {
       config.get.mockReturnValue('client-123');
