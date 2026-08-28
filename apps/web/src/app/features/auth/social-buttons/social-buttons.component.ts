@@ -9,6 +9,7 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { AuthService } from '../../../core/auth/auth.service';
+import { mensajeDeError } from '../../../shared/mensaje-error';
 import { SocialSdkService } from '../../../core/auth/social-sdk.service';
 import { environment } from '../../../../environments/environment';
 
@@ -130,8 +131,10 @@ export class SocialButtonsComponent implements AfterViewInit {
     this.error.set(null);
     try {
       await this.authService.loginConGoogle(idToken);
-    } catch {
-      this.error.set('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
+    } catch (error) {
+      // El API distingue el email sin verificar de una mala configuración del
+      // cliente de Google; con el texto genérico las dos parecían lo mismo.
+      this.error.set(mensajeDeError(error, 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.'));
     } finally {
       this.cargando.set(false);
     }
@@ -143,9 +146,13 @@ export class SocialButtonsComponent implements AfterViewInit {
     try {
       const accessToken = await this.sdk.loginFacebook(environment.facebookAppId);
       await this.authService.loginConFacebook(accessToken);
-    } catch (e) {
-      const msg = (e as Error)?.message ?? '';
-      this.error.set(msg.includes('cancelado') ? null : 'No se pudo iniciar sesión con Meta. Inténtalo de nuevo.');
+    } catch (error) {
+      const msg = (error as Error)?.message ?? '';
+      this.error.set(
+        msg.includes('cancelado')
+          ? null
+          : mensajeDeError(error, 'No se pudo iniciar sesión con Meta. Inténtalo de nuevo.'),
+      );
     } finally {
       this.cargando.set(false);
     }

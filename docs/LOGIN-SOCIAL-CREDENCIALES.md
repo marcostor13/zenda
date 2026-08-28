@@ -118,3 +118,65 @@ Tras rellenarlas y redeployar, los botones **"Continuar con Google"** y
 
 Las cuentas creadas solo con Google/Meta no tienen contraseña: si intentan
 entrar por el formulario, el sistema les indica que usen el botón social.
+
+---
+
+## 5. Si el login con Google devuelve 401
+
+```json
+{
+  "statusCode": 401,
+  "message": "El acceso con Google no está bien configurado en este servidor: el token no corresponde a esta aplicación. No es un problema de tu cuenta."
+}
+```
+
+No es un fallo de código ni un token caducado: el ID token que emitió el
+navegador lleva en su campo `aud` el client ID con el que se dibujó el botón, y
+ese valor **no coincide** con el `GOOGLE_CLIENT_ID` del API.
+
+**No tiene que ver con la cuenta del usuario.** Si ya existe una cuenta con ese
+email —creada con contraseña o con Meta— el login con Google **no falla**: el
+API le vincula el proveedor y entra igual (`resolverCuentaSocial`). Además la
+comprobación del `aud` ocurre *antes* de tocar la base de datos, así que el 401
+sale exactamente igual con un email que nunca se ha registrado.
+
+> El caso simétrico sí existe y es a propósito: quien se registró **solo** con
+> Google o Meta y prueba el formulario de email recibe
+> `Email o contraseña incorrectos`, el mismo mensaje que un email inexistente.
+> Es deliberado —un mensaje distinto convertiría el login en un buscador de
+> cuentas registradas—; la salida es pulsar el botón social, que está en la
+> misma pantalla.
+
+Cómo localizarlo:
+
+1. **Qué client ID usa el navegador.** Abre `https://TU-DOMINIO/env.js` y mira
+   `WEB_GOOGLE_CLIENT_ID`. Si no aparece, se está usando el respaldo compilado
+   en `apps/web/src/environments/environment.prod.ts`.
+2. **Qué client ID espera el API.** Coolify → servicio del API → Environment
+   Variables → `GOOGLE_CLIENT_ID`.
+3. **Compáralos carácter a carácter.** Desde la versión que registra el aviso,
+   el log del API deja la línea al rechazar el token:
+   `Token de Google con aud "…"; configurados: …`, que da los dos valores de
+   una vez.
+
+Causas habituales, en orden de frecuencia:
+
+| Causa | Cómo se ve |
+|---|---|
+| El API tiene el client ID de **otro cliente OAuth** del mismo proyecto —típicamente `GOOGLE_CALENDAR_CLIENT_ID`, que es para la agenda | Los dos valores son `…apps.googleusercontent.com` pero con distinto prefijo numérico |
+| Se creó un cliente OAuth nuevo y sólo se actualizó un lado | Igual que el anterior |
+| El valor pegado en el panel arrastra espacios, comillas o un salto de línea | Los dos valores "parecen" iguales |
+| La app móvil (Capacitor) usa su propio cliente de Android/iOS | Falla sólo en móvil, en web entra bien |
+
+`GOOGLE_CLIENT_ID` admite **varios client IDs separados por comas**, que es como
+se resuelve el último caso:
+
+```
+GOOGLE_CLIENT_ID=123-web.apps.googleusercontent.com,456-android.apps.googleusercontent.com
+```
+
+Los espacios alrededor de cada valor se recortan. Tras cambiar la variable hay
+que **reiniciar el servicio del API** para que la lea.
+
+> Si en vez de 401 sale `503 El login con Google no está configurado`, es que
+> `GOOGLE_CLIENT_ID` no está declarada en el API.
