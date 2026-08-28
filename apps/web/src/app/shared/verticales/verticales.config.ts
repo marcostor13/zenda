@@ -123,7 +123,7 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     reservaPorNoches: true,
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
-    labelFecha: 'Entrada',
+    labelFecha: 'Ingreso',
     reclamo: {
       titulo: 'Un lugar seguro mientras tú no estás',
       texto: 'Encuentra residencias y guarderías caninas con experiencia, atención personalizada y tranquilidad para tu mascota.',
@@ -184,7 +184,7 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     reservaPorNoches: true,
     labelUbicacion: '¿Dónde buscas el servicio?',
     placeholderUbicacion: 'Ciudad o destino',
-    labelFecha: 'Entrada',
+    labelFecha: 'Ingreso',
     reclamo: {
       titulo: 'Viajar juntos también es parte del plan',
       texto: 'Descubre alojamientos pet-friendly cuidadosamente seleccionados para que disfrutéis juntos de cada destino.',

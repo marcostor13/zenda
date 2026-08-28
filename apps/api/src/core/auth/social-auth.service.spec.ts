@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SocialAuthService } from './social-auth.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
@@ -39,7 +40,40 @@ describe('SocialAuthService', () => {
       config.get.mockReturnValue('client-123');
       fetchMock.mockResolvedValue(respuestaOk({ aud: 'otro-cliente', email: 'ana@gmail.com', email_verified: 'true' }));
 
-      await expect(service.verificarGoogle('id-token')).rejects.toThrow('no pertenece a esta aplicación');
+      await expect(service.verificarGoogle('id-token')).rejects.toThrow('no está bien configurado en este servidor');
+    });
+
+    it('debería aceptar el token aunque el client ID configurado traiga espacios', async () => {
+      config.get.mockReturnValue('  client-123  ');
+      fetchMock.mockResolvedValue(respuestaOk({ aud: 'client-123', email: 'ana@gmail.com', email_verified: 'true' }));
+
+      await expect(service.verificarGoogle('id-token')).resolves.toMatchObject({ email: 'ana@gmail.com' });
+    });
+
+    it('debería aceptar cualquiera de los client IDs de la lista (web y móvil)', async () => {
+      config.get.mockReturnValue('client-web,client-android');
+      fetchMock.mockResolvedValue(respuestaOk({ aud: 'client-android', email: 'ana@gmail.com', email_verified: 'true' }));
+
+      await expect(service.verificarGoogle('id-token')).resolves.toMatchObject({ email: 'ana@gmail.com' });
+    });
+
+    it('debería rechazar un token sin audiencia', async () => {
+      config.get.mockReturnValue('client-123');
+      fetchMock.mockResolvedValue(respuestaOk({ email: 'ana@gmail.com', email_verified: 'true' }));
+
+      await expect(service.verificarGoogle('id-token')).rejects.toThrow('no está bien configurado en este servidor');
+    });
+
+    it('debería dejar en el log la audiencia recibida y la esperada al no coincidir', async () => {
+      const aviso = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      config.get.mockReturnValue('client-123');
+      fetchMock.mockResolvedValue(respuestaOk({ aud: 'otro-cliente', email: 'ana@gmail.com', email_verified: 'true' }));
+
+      await expect(service.verificarGoogle('id-token')).rejects.toThrow(DomainException);
+
+      expect(aviso).toHaveBeenCalledWith(expect.stringContaining('otro-cliente'));
+      expect(aviso).toHaveBeenCalledWith(expect.stringContaining('client-123'));
+      aviso.mockRestore();
     });
 
     it('debería rechazar un token inválido (respuesta no OK)', async () => {
@@ -70,7 +104,7 @@ describe('SocialAuthService', () => {
     it('debería rechazar un token que no pertenece a la app', async () => {
       fetchMock.mockResolvedValueOnce(respuestaOk({ data: { app_id: 'otra', is_valid: true } }));
 
-      await expect(service.verificarFacebook('access-token')).rejects.toThrow('no es válido para esta aplicación');
+      await expect(service.verificarFacebook('access-token')).rejects.toThrow('no está bien configurado en este servidor');
     });
 
     it('debería lanzar 422 si Meta no comparte email', async () => {

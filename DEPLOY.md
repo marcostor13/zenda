@@ -97,6 +97,25 @@ SWAGGER_ENABLED=false
 > El API deja en el log de arranque la lista exacta que permite
 > (`CORS permitido para: …`): con eso se distingue un caso del otro en un vistazo.
 
+#### 2.2.2 Login social (Google y Meta)
+
+```
+GOOGLE_CLIENT_ID=<el MISMO que WEB_GOOGLE_CLIENT_ID del servicio web>
+FACEBOOK_APP_ID=<el MISMO que WEB_FACEBOOK_APP_ID>
+FACEBOOK_APP_SECRET=<privado, sólo aquí>
+```
+
+| Variable | Para qué |
+|---|---|
+| `GOOGLE_CLIENT_ID` | Client ID contra el que se valida el ID token que manda el navegador. **No es `GOOGLE_CALENDAR_CLIENT_ID`**: ése es otro cliente OAuth, el de la agenda. Admite varios separados por comas, para cuando la app móvil usa su propio cliente. |
+| `FACEBOOK_APP_ID` · `FACEBOOK_APP_SECRET` | Validación del access token de Meta (`debug_token`). El secret nunca lleva prefijo `WEB_`. |
+
+> Si el login con Google responde
+> `401 El acceso con Google no está bien configurado en este servidor`, este valor y el
+> `WEB_GOOGLE_CLIENT_ID` del servicio web no coinciden. El API deja en el log la
+> línea `Token de Google con aud "…"; configurados: …` con los dos valores.
+> Guía completa: `docs/LOGIN-SOCIAL-CREDENCIALES.md` §5.
+
 #### 2.3.0 Mapas: dos claves de Google distintas
 
 El mapa de resultados se pinta con **Google Maps** y necesita **dos** claves

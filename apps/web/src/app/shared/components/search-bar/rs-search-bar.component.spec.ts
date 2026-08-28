@@ -177,7 +177,7 @@ describe('RsSearchBarComponent', () => {
   it('debería adaptar las etiquetas a la categoría activa', async () => {
     await crear();
     jest.spyOn(router, 'navigate').mockResolvedValue(true);
-    expect(bar.activo().labelFecha).toBe('Entrada');
+    expect(bar.activo().labelFecha).toBe('Ingreso');
     expect(bar.activo().labelUbicacion).toBe('¿Dónde buscas el servicio?');
 
     bar.seleccionarVertical(VerticalKey.TRANSPORTE);

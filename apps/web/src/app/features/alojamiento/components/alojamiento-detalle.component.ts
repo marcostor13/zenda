@@ -277,10 +277,10 @@ const MINIATURAS_VISIBLES = 4;
           <div class="policies-acc">
             <details class="policy-acc" open>
               <summary class="policy-acc__head">
-                <rs-icon name="log-out" [size]="16" [stroke]="2" /> Entrada
+                <rs-icon name="log-out" [size]="16" [stroke]="2" /> Ingreso
               </summary>
               <div class="policy-acc__body">
-                <p><strong>Entrada:</strong> {{ alojamiento()!.checkIn }}</p>
+                <p><strong>Ingreso:</strong> {{ alojamiento()!.checkIn }}</p>
                 @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
                   <p><strong>Compatibilidad social admitida:</strong>
                     {{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</p>

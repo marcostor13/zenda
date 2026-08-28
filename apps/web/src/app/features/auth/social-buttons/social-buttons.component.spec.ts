@@ -116,6 +116,56 @@ describe('SocialButtonsComponent', () => {
     });
   });
 
+  /**
+   * El texto genérico escondía la razón real: un 401 por el client ID mal
+   * configurado en el servidor se leía igual que un fallo pasajero, y no había
+   * forma de saber desde la pantalla que no era problema de la cuenta.
+   */
+  describe('el error del API llega a la pantalla', () => {
+    let montado: SocialButtonsComponent;
+
+    /** Monta el componente y devuelve el callback con el que Google entrega el token. */
+    const montarYObtenerCallback = async (): Promise<(idToken: string) => void> => {
+      sdk.renderizarBotonGoogle.mockResolvedValue(jest.fn());
+      const fixture = TestBed.createComponent(SocialButtonsComponent);
+      montado = fixture.componentInstance;
+      fixture.detectChanges();
+      await fixture.whenStable();
+      return sdk.renderizarBotonGoogle.mock.calls[0][2];
+    };
+
+    it('debería mostrar el mensaje del API cuando el login con Google falla', async () => {
+      const onToken = await montarYObtenerCallback();
+      authService.loginConGoogle.mockRejectedValue({
+        error: { message: 'El acceso con Google no está bien configurado en este servidor.' },
+      });
+
+      await onToken('id-token');
+
+      expect(montado.error()).toBe('El acceso con Google no está bien configurado en este servidor.');
+    });
+
+    it('debería caer al texto genérico si el fallo no trae mensaje', async () => {
+      const onToken = await montarYObtenerCallback();
+      authService.loginConGoogle.mockRejectedValue(new Error('sin red'));
+
+      await onToken('id-token');
+
+      expect(montado.error()).toContain('No se pudo iniciar sesión con Google');
+    });
+
+    it('debería mostrar el mensaje del API cuando el login con Meta falla', async () => {
+      sdk.loginFacebook.mockResolvedValue('fb-token');
+      authService.loginConFacebook.mockRejectedValue({
+        error: { message: 'Tu cuenta de Meta no comparte un email.' },
+      });
+
+      await component.entrarConFacebook();
+
+      expect(component.error()).toBe('Tu cuenta de Meta no comparte un email.');
+    });
+  });
+
   it('entrarConFacebook debería pedir el token al SDK y delegar al AuthService', async () => {
     sdk.loginFacebook.mockResolvedValue('fb-token');
     authService.loginConFacebook.mockResolvedValue(undefined);
