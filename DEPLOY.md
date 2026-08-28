@@ -307,6 +307,34 @@ En tu repositorio GitHub → **Settings** → **Secrets and variables** → **Ac
 > sola devuelve **401**. Hace falta llamarla con `Authorization: Bearer $COOLIFY_API_TOKEN` —
 > ya está así en `.github/workflows/ci.yml`.
 
+### 4.1 Qué URL vale y con qué método
+
+Coolify ofrece **dos** formas de lanzar el despliegue, y no aceptan el mismo verbo HTTP:
+
+| Forma | URL | Método |
+|---|---|---|
+| API de despliegue | `https://<coolify>/api/v1/deploy?uuid=<uuid>` | `GET` |
+| Webhook de la aplicación | `https://<coolify>/webhooks/deploy/<token>` | `POST` |
+
+`.github/scripts/desplegar-coolify.sh` elige el método por la forma de la URL y, si aun así
+recibe un **405**, reintenta con el otro: sirven las dos, se guarde la que se guarde en el
+secret. Un 405 sin ese reintento se veía en el log sólo como `curl: (22)`, sin decir qué URL
+ni qué método —así estuvo fallando el despliegue de la web—.
+
+El script nunca imprime la URL: la del webhook lleva un token en la ruta.
+
+### 4.2 Si el paso de deploy falla
+
+| Mensaje en el log | Qué pasa |
+|---|---|
+| `Falta la URL de despliegue de Coolify para …` | El secret no existe o está vacío en GitHub → Settings → Secrets and variables → Actions |
+| `Coolify rechazó las credenciales … (HTTP 401/403)` | `COOLIFY_API_TOKEN` caducado o sin permiso `deploy` |
+| `Coolify no encuentra el recurso … (HTTP 404)` | La URL apunta a un uuid o a un webhook que ya no existe |
+
+> Ojo con el orden de los pasos: `Deploy` va **después** de `Tests` dentro del mismo job, así
+> que unos tests en rojo (por ejemplo por el umbral de cobertura) abortan el job y el webhook
+> no se llega a llamar. Un `main` rojo es un `main` sin desplegar.
+
 ---
 
 ## 5. Verificar el flujo completo
