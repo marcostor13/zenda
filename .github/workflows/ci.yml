@@ -62,16 +62,7 @@ jobs:
         env:
           COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
-        run: |
-          if [ -z "$COOLIFY_WEBHOOK_URL" ]; then
-            echo "::error::El secret COOLIFY_WEBHOOK_URL no está configurado en GitHub (Settings > Secrets and variables > Actions)."
-            exit 1
-          fi
-          if [ -z "$COOLIFY_API_TOKEN" ]; then
-            echo "::error::El secret COOLIFY_API_TOKEN no está configurado en GitHub (Settings > Secrets and variables > Actions). Generarlo en Coolify → Keys & Tokens → API tokens (permiso 'deploy')."
-            exit 1
-          fi
-          curl -fsSL --request GET "$COOLIFY_WEBHOOK_URL" --header "Authorization: Bearer $COOLIFY_API_TOKEN"
+        run: .github/scripts/desplegar-coolify.sh "$COOLIFY_WEBHOOK_URL" "$COOLIFY_API_TOKEN" "API"
 
   web:
     name: Web — CI + Deploy
@@ -104,13 +95,4 @@ jobs:
         env:
           COOLIFY_WEBHOOK_URL_WEB: ${{ secrets.COOLIFY_WEBHOOK_URL_WEB }}
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
-        run: |
-          if [ -z "$COOLIFY_WEBHOOK_URL_WEB" ]; then
-            echo "::error::El secret COOLIFY_WEBHOOK_URL_WEB no está configurado en GitHub (Settings > Secrets and variables > Actions)."
-            exit 1
-          fi
-          if [ -z "$COOLIFY_API_TOKEN" ]; then
-            echo "::error::El secret COOLIFY_API_TOKEN no está configurado en GitHub (Settings > Secrets and variables > Actions). Generarlo en Coolify → Keys & Tokens → API tokens (permiso 'deploy')."
-            exit 1
-          fi
-          curl -fsSL --request GET "$COOLIFY_WEBHOOK_URL_WEB" --header "Authorization: Bearer $COOLIFY_API_TOKEN"
+        run: .github/scripts/desplegar-coolify.sh "$COOLIFY_WEBHOOK_URL_WEB" "$COOLIFY_API_TOKEN" "web"
