@@ -11,6 +11,22 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/proximamente/proximamente.component').then((m) => m.ProximamenteComponent),
   },
+  /*
+   * Documentos legales, fuera del guard de "muy pronto" a propósito: los revisa
+   * gente de fuera —Meta y Google no aprueban el inicio de sesión social sin
+   * poder leer la política de privacidad— y con la app cerrada al público
+   * acabarían en la pantalla de "muy pronto" en vez de en el documento.
+   */
+  {
+    path: 'privacidad',
+    loadComponent: () =>
+      import('./features/legal/privacidad.component').then((m) => m.PrivacidadComponent),
+  },
+  {
+    path: 'eliminar-datos',
+    loadComponent: () =>
+      import('./features/legal/eliminar-datos.component').then((m) => m.EliminarDatosComponent),
+  },
   {
     path: '',
     canActivate: [underConstructionGuard],

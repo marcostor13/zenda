@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8">
+<style>
+  html,body{margin:0;padding:0;width:1024px;height:1024px;overflow:hidden}
+  svg{display:block}
+</style>
+<!--
+  Fuente del icono de app de 1024x1024 (apps/web/public/images/doogking-icono-1024.png),
+  el que pide Meta para publicar la app y el que sirve para cualquier tienda.
+
+  Se rasteriza abriendo este fichero a 1024x1024 y capturando la ventana; con
+  Playwright, que ya es dependencia del proyecto:
+    node -e "..." o `bunx playwright screenshot --viewport-size=1024,1024 <fichero> salida.png`
+
+  No se genera en el build: es un asset de marca que cambia una vez cada mucho. Misma marca que apps/web/public/favicon.svg
+  (azul real #08258B + "D." en dorado corona #FBAE17), a sangre y recentrada:
+  el favicon lleva el conjunto desplazado a la izquierda porque allí compensa el
+  recorte a 16px; aquí el marco lo pone la plataforma.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="#08258B"/>
+  <g transform="translate(32,32) scale(1.05) translate(-36,-32.5)">
+    <path fill="#FBAE17" fill-rule="evenodd"
+          d="M18 16 H31 A16 16 0 0 1 31 48 H18 Z
+             M25 23 H31 A9 9 0 0 1 31 41 H25 Z"/>
+    <circle cx="50" cy="45" r="4" fill="#FBAE17"/>
+  </g>
+</svg>
