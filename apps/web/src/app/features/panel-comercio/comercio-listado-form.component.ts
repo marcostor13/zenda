@@ -311,9 +311,10 @@ function aCsv(v: string): string[] {
                         <input class="rs-inp" formControlName="descripcion" placeholder="Ej. Suite individual con jardín privado">
                       </div>
                       <div class="rs-field">
-                        <span class="rs-lbl">Amenities de este espacio</span>
-                        <rs-tags-input formControlName="amenities" etiqueta="Amenities de este espacio"
+                        <span class="rs-lbl">Servicios de este espacio</span>
+                        <rs-tags-input formControlName="amenities" etiqueta="Servicios de este espacio"
                                        [opciones]="catalogos.amenitiesEspacio" placeholder="Ej. cama ortopédica…" />
+                        <span class="rs-field-hint">Lo que incluye esta suite o habitación en concreto: cama, climatización, salida al jardín…</span>
                       </div>
                       <div class="checkbox-row">
                         <label class="rs-checkbox"><input type="checkbox" formControlName="disponible"> Disponible</label>
@@ -341,9 +342,10 @@ function aCsv(v: string): string[] {
                 </div>
 
                 <div class="rs-field">
-                  <span class="rs-lbl">Amenities generales</span>
-                  <rs-tags-input formControlName="amenities" etiqueta="Amenities generales del alojamiento"
+                  <span class="rs-lbl">Servicios del alojamiento</span>
+                  <rs-tags-input formControlName="amenities" etiqueta="Servicios del alojamiento"
                                  [opciones]="catalogos.amenitiesAlojamiento" placeholder="Ej. jardín vallado…" />
+                  <span class="rs-field-hint">Lo que ofrece el alojamiento en conjunto, se reserve el espacio que se reserve.</span>
                 </div>
 
                 <div class="form-row-2">
