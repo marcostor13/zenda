@@ -128,6 +128,19 @@ import { RESPONSABLE } from './legal.datos';
         las cláusulas contractuales tipo aprobadas por la Comisión Europea.
       </p>
 
+      <h3>Solicitudes de autoridades públicas</h3>
+      <p>
+        Podemos vernos obligados a facilitar datos a juzgados, fuerzas y cuerpos de seguridad o
+        autoridades administrativas. Cuando ocurre:
+      </p>
+      <ul>
+        <li>Comprobamos que la solicitud tiene amparo legal y viene de quien dice venir.</li>
+        <li>La recurrimos si la consideramos ilícita o desproporcionada.</li>
+        <li>Entregamos <strong>solo</strong> los datos concretos que la solicitud requiere, nunca más.</li>
+        <li>Dejamos constancia escrita de cada solicitud, de nuestra respuesta y de su base legal.</li>
+        <li>Te avisamos siempre que la ley nos lo permita.</li>
+      </ul>
+
       <h2>5. Cuánto tiempo los guardamos</h2>
       <ul>
         <li>Los datos de la cuenta y de tus mascotas, mientras la cuenta siga abierta.</li>
