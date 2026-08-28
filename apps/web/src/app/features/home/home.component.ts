@@ -488,6 +488,7 @@ type SearchMode = 'filtros' | 'ia';
         <h4>Legal</h4>
         <ul>
           <li><a routerLink="/privacidad">Privacidad</a></li>
+          <li><a routerLink="/eliminar-datos">Eliminación de datos</a></li>
           <li><a routerLink="/terminos">Términos</a></li>
           <li><a routerLink="/cookies">Cookies</a></li>
         </ul>
