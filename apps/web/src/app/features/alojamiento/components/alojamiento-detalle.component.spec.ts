@@ -87,7 +87,7 @@ describe('AlojamientoDetalleComponent', () => {
   });
 
   describe('políticas en acordeón (PDF 27/07 §13)', () => {
-    it('debería agrupar las políticas en Entrada, Salida, Cancelación y Vacunas', async () => {
+    it('debería agrupar las políticas en Ingreso, Salida, Cancelación y Vacunas', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
@@ -96,14 +96,14 @@ describe('AlojamientoDetalleComponent', () => {
       const titulos = acordeones.map((a) => a.querySelector('summary')?.textContent?.trim() ?? '');
 
       expect(titulos).toEqual([
-        'Entrada',
+        'Ingreso',
         'Salida',
         'Cancelación',
         'Vacunas y requisitos sanitarios',
       ]);
     });
 
-    it('debería dejar "Entrada" abierta y el resto plegadas al llegar', async () => {
+    it('debería dejar "Ingreso" abierta y el resto plegadas al llegar', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();

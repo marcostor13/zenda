@@ -900,7 +900,7 @@ describe('ComercioReservasComponent', () => {
   describe('estancias de varios dias', () => {
     it('deberia contar la reserva en todos los dias de la estancia, no solo la entrada', async () => {
       // Un hotel ocupa plaza toda la estancia: en el calendario tiene que verse
-      // en cada dia, no solo el de check-in.
+      // en cada dia, no solo el de ingreso.
       component.reservas.set([
         { ...reservaConfirmada, fechaInicio: '2026-08-01T00:00:00.000Z', fechaFin: '2026-08-05T00:00:00.000Z' },
       ]);

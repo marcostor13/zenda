@@ -331,11 +331,11 @@ function aCsv(v: string): string[] {
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Check-in</label>
+                    <label class="rs-lbl">Ingreso</label>
                     <input class="rs-inp" type="time" formControlName="checkIn">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Check-out</label>
+                    <label class="rs-lbl">Salida</label>
                     <input class="rs-inp" type="time" formControlName="checkOut">
                   </div>
                 </div>
@@ -1036,11 +1036,11 @@ function aCsv(v: string): string[] {
                 <h2 class="section-title">Info general</h2>
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Check-in</label>
+                    <label class="rs-lbl">Ingreso</label>
                     <input class="rs-inp" type="time" formControlName="checkIn">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Check-out</label>
+                    <label class="rs-lbl">Salida</label>
                     <input class="rs-inp" type="time" formControlName="checkOut">
                   </div>
                 </div>

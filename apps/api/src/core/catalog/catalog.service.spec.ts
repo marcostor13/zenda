@@ -308,7 +308,7 @@ describe('CatalogService', () => {
       expect(detalle.politicaCancelacion).toContain('cancelación');
     });
 
-    it('deberia dar horarios de check-in y check-out por defecto', async () => {
+    it('deberia dar horarios de ingreso y salida por defecto', async () => {
       const detalle = await service.obtenerServicio('servicio-1');
 
       expect(detalle.checkIn).toBe('12:00');

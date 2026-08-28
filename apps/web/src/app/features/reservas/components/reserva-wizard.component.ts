@@ -2300,7 +2300,7 @@ export class ReservaWizardComponent implements OnInit {
   readonly resumenEstancia = computed(() => {
     this.revisionFormularios();
     const fechas = this.fechasElegidas();
-    if (!fechas?.checkIn || !fechas.checkOut) return 'Elige entrada y salida en el calendario.';
+    if (!fechas?.checkIn || !fechas.checkOut) return 'Elige ingreso y salida en el calendario.';
     const noches = this.calcularNoches(fechas.checkIn, fechas.checkOut);
     return noches === 1 ? '1 noche' : `${noches} noches`;
   });

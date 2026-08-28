@@ -13,7 +13,7 @@ type EstadoColor = 'success' | 'warning' | 'danger' | 'accent' | 'neutral';
 
 const HITO_LABEL: Record<string, string> = {
   recogida: 'Mascota recogida', en_ruta: 'En ruta', entregada: 'Mascota entregada',
-  entrada: 'Entrada', salida: 'Salida', finalizada: 'Servicio finalizado',
+  entrada: 'Ingreso', salida: 'Salida', finalizada: 'Servicio finalizado',
 };
 
 const VERTICAL_META: Record<string, { label: string; icon: string; color: string }> = {

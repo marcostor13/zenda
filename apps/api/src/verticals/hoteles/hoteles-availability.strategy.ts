@@ -97,7 +97,7 @@ export class HotelesAvailabilityStrategy implements AvailabilityStrategy, Calend
 
     const noches = this.calcularNoches(params.fechaInicio, params.fechaFin);
     if (noches <= 0) {
-      return { disponible: false, motivo: 'La fecha de salida tiene que ser posterior a la de entrada.' };
+      return { disponible: false, motivo: 'La fecha de salida tiene que ser posterior a la de ingreso.' };
     }
 
     // `unidadesDisponibles` son las habitaciones del hotel, no las libres esas
