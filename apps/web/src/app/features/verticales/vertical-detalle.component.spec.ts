@@ -341,6 +341,249 @@ describe('VerticalDetalleComponent', () => {
         expect(puntos()).not.toContain('Cancelación gratuita');
       });
     });
+
+    /*
+     * Estos cuatro verticales se añadieron después y ninguno tenía ficha
+     * probada: sus `puntos` son los que deciden lo que se le promete al cliente.
+     */
+    describe('veterinaria', () => {
+      it('deberia listar las especialidades como chips', async () => {
+        await crearComponente('veterinaria', servicio({ especialidades: ['Cirugía', 'Dermatología'] }));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual(['Cirugía', 'Dermatología']);
+      });
+
+      it('no deberia inventar chips si la clinica no declaro especialidades', async () => {
+        await crearComponente('veterinaria', servicio({}));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual([]);
+      });
+
+      it('deberia resumir los cinco primeros servicios clinicos', async () => {
+        await crearComponente('veterinaria', servicio({
+          serviciosClinicos: [
+            { nombre: 'Consulta' }, { nombre: 'Vacunación' }, { nombre: 'Cirugía' },
+            { nombre: 'Urgencias' }, { nombre: 'Rayos X' }, { nombre: 'Ecografía' },
+          ],
+        }));
+
+        const resumen = puntos().find((p) => p.startsWith('Servicios:'))!;
+        expect(resumen).toBe('Servicios: Consulta, Vacunación, Cirugía, Urgencias, Rayos X');
+        expect(resumen).not.toContain('Ecografía');
+      });
+
+      it('deberia descartar los servicios sin nombre en vez de dejar huecos', async () => {
+        await crearComponente('veterinaria', servicio({
+          serviciosClinicos: [{ nombre: 'Consulta' }, {}],
+        }));
+
+        expect(puntos()).toContain('Servicios: Consulta');
+      });
+
+      it('no deberia hablar de servicios con la lista vacia', async () => {
+        await crearComponente('veterinaria', servicio({ serviciosClinicos: [] }));
+
+        expect(puntos().some((p) => p.startsWith('Servicios:'))).toBe(false);
+      });
+
+      it('deberia anunciar urgencias, teleconsulta, domicilio y duracion de cita', async () => {
+        await crearComponente('veterinaria', servicio({
+          atiendeUrgencias: true, teleconsulta: true, aDomicilio: true, duracionCitaMin: 20,
+        }));
+
+        expect(puntos()).toEqual(expect.arrayContaining([
+          'Atiende urgencias', 'Citas de 20 minutos', 'Ofrece teleconsulta', 'Disponible a domicilio',
+        ]));
+      });
+
+      it('no deberia prometer nada que la clinica no haya marcado', async () => {
+        await crearComponente('veterinaria', servicio({}));
+
+        expect(puntos()).toEqual([]);
+      });
+
+      it('deberia cobrar el precio de consulta cuando lo hay', async () => {
+        await crearComponente('veterinaria', servicio({ precioConsulta: 45 }));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(45);
+      });
+
+      it('deberia caer al precio base sin precio de consulta', async () => {
+        await crearComponente('veterinaria', servicio({}));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(25);
+      });
+    });
+
+    describe('peluqueria', () => {
+      it('deberia sacar los chips de los servicios de grooming con nombre', async () => {
+        await crearComponente('peluqueria', servicio({
+          serviciosGrooming: [{ nombre: 'Baño' }, {}, { nombre: 'Corte' }],
+        }));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual(['Baño', 'Corte']);
+      });
+
+      it('no deberia dar chips si no hay servicios declarados', async () => {
+        await crearComponente('peluqueria', servicio({}));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual([]);
+      });
+
+      it('deberia concordar el singular con un perro a la vez', async () => {
+        await crearComponente('peluqueria', servicio({ capacidadSimultanea: 1 }));
+
+        expect(puntos()).toContain('Atiende hasta 1 perro a la vez');
+      });
+
+      it('deberia concordar el plural con varios perros a la vez', async () => {
+        await crearComponente('peluqueria', servicio({ capacidadSimultanea: 3 }));
+
+        expect(puntos()).toContain('Atiende hasta 3 perros a la vez');
+      });
+
+      it('deberia anunciar duracion, domicilio y requisito de vacunas', async () => {
+        await crearComponente('peluqueria', servicio({
+          duracionSlotMin: 60, aDomicilio: true, requiereVacunasAlDia: true,
+        }));
+
+        expect(puntos()).toEqual(expect.arrayContaining([
+          'Cada cita dura unos 60 minutos', 'Disponible a domicilio',
+          'Requiere cartilla de vacunación al día',
+        ]));
+      });
+
+      it('no deberia prometer nada sin datos', async () => {
+        await crearComponente('peluqueria', servicio({}));
+
+        expect(puntos()).toEqual([]);
+      });
+
+      it('deberia usar el precio base de la peluqueria', async () => {
+        await crearComponente('peluqueria', servicio({ precioSesion: 99 }));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(25);
+      });
+    });
+
+    describe('cuidadores', () => {
+      it('deberia dar por hecho que va a domicilio si no se dice lo contrario', async () => {
+        await crearComponente('cuidadores', servicio({}));
+
+        expect(puntos()).toContain('Va a tu casa, sin sacar al perro de su rutina');
+      });
+
+      it('no deberia anunciarlo si el cuidador lo desmarca', async () => {
+        await crearComponente('cuidadores', servicio({ aDomicilio: false }));
+
+        expect(puntos()).not.toContain('Va a tu casa, sin sacar al perro de su rutina');
+      });
+
+      it('deberia listar cada modalidad que tenga precio', async () => {
+        await crearComponente('cuidadores', servicio({
+          precioPaseo: 12, precioVisita: 15, precioDiaCompleto: 30, precioNoche: 40,
+        }));
+
+        expect(puntos()).toEqual(expect.arrayContaining([
+          'Paseos sueltos', 'Visitas a domicilio', 'Cuidado de día completo', 'Se queda a dormir',
+        ]));
+      });
+
+      /* Un servicio gratuito es un dato válido, no un campo sin rellenar. */
+      it('deberia listar una modalidad que cuesta cero', async () => {
+        await crearComponente('cuidadores', servicio({ precioPaseo: 0 }));
+
+        expect(puntos()).toContain('Paseos sueltos');
+      });
+
+      it('deberia cobrar el paseo cuando tiene precio', async () => {
+        await crearComponente('cuidadores', servicio({ precioPaseo: 12 }));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(12);
+      });
+
+      it('deberia caer al precio base sin precio de paseo', async () => {
+        await crearComponente('cuidadores', servicio({}));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(25);
+      });
+
+      it('no deberia ofrecer chips: el cuidador no declara especialidades', async () => {
+        await crearComponente('cuidadores', servicio({}));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual([]);
+      });
+    });
+
+    describe('seguros', () => {
+      it('deberia listar las coberturas como chips', async () => {
+        await crearComponente('seguros', servicio({ coberturas: ['Responsabilidad civil'] }));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual(['Responsabilidad civil']);
+      });
+
+      it('no deberia inventar coberturas', async () => {
+        await crearComponente('seguros', servicio({}));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual([]);
+      });
+
+      it('deberia detallar limites, carencia y PPP', async () => {
+        await crearComponente('seguros', servicio({
+          responsabilidadCivilEur: 60000, gastosVeterinariosEur: 1200, carenciaDias: 15, cubrePPP: true,
+        }));
+
+        const lista = puntos();
+        expect(lista.some((p) => p.startsWith('Responsabilidad civil hasta'))).toBe(true);
+        expect(lista.some((p) => p.startsWith('Gastos veterinarios hasta'))).toBe(true);
+        expect(lista).toContain('Periodo de carencia de 15 días');
+        expect(lista).toContain('Cubre perros potencialmente peligrosos (PPP)');
+      });
+
+      /* Sin carencia es una ventaja de la póliza: hay que decirla, no callarla. */
+      it('deberia anunciar una carencia de cero dias', async () => {
+        await crearComponente('seguros', servicio({ carenciaDias: 0 }));
+
+        expect(puntos()).toContain('Periodo de carencia de 0 días');
+      });
+
+      it('no deberia prometer coberturas que la poliza no declara', async () => {
+        await crearComponente('seguros', servicio({}));
+
+        expect(puntos()).toEqual([]);
+      });
+
+      it('deberia cobrar la prima anual cuando la hay', async () => {
+        await crearComponente('seguros', servicio({ primaAnual: 180 }));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(180);
+      });
+
+      it('deberia caer al precio base sin prima anual', async () => {
+        await crearComponente('seguros', servicio({}));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(25);
+      });
+    });
+  });
+
+  describe('donde esta el negocio', () => {
+    it('deberia dar el punto exacto y la direccion legible', async () => {
+      await crearComponente('transporte', servicio({}, { lat: 39.47, lng: -0.37 }));
+
+      expect(component.ubicacion()).toEqual({
+        lat: 39.47, lng: -0.37, direccion: 'Calle Mayor 1', ciudad: 'Madrid', nombre: 'DogVan Madrid',
+      });
+    });
+
+    /* Mientras el comercio no fije su ubicación, el bloque se queda sin punto. */
+    it('deberia quedarse sin datos mientras no se carga el servicio', async () => {
+      await crearComponente('transporte', new Error('404'));
+
+      expect(component.ubicacion()).toEqual({
+        lat: undefined, lng: undefined, direccion: undefined, ciudad: undefined, nombre: undefined,
+      });
+    });
   });
 
   describe('galeria de fotos', () => {

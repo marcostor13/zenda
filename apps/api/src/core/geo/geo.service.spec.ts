@@ -388,6 +388,106 @@ describe('GeoService', () => {
     });
   });
 
+  /*
+   * Ninguna de estas caídas puede tumbar una búsqueda: el proxy de mapas es un
+   * adorno del formulario, no un paso obligatorio para reservar.
+   */
+  describe('caídas del proveedor', () => {
+    it('debería decir que no está configurado sin clave de servidor', async () => {
+      const sinClave = await crear(undefined);
+
+      expect(sinClave.estaConfigurado).toBe(false);
+    });
+
+    it('debería estar configurado con la clave puesta', () => {
+      expect(service.estaConfigurado).toBe(true);
+    });
+
+    it('debería devolver null si la red se cae pidiendo coordenadas', async () => {
+      fetchMock.mockRejectedValue(new Error('ECONNRESET'));
+
+      await expect(service.coordenadas('place-valencia')).resolves.toBeNull();
+    });
+
+    it('debería devolver null si Places responde con error a las coordenadas', async () => {
+      responder({}, false);
+
+      await expect(service.coordenadas('place-valencia')).resolves.toBeNull();
+    });
+
+    it('debería devolver null si la red se cae pidiendo la dirección', async () => {
+      fetchMock.mockRejectedValue(new Error('ECONNRESET'));
+
+      await expect(service.direccion('place-portal')).resolves.toBeNull();
+    });
+
+    it('debería devolver null si Places responde con error a la dirección', async () => {
+      responder({}, false);
+
+      await expect(service.direccion('place-portal')).resolves.toBeNull();
+    });
+
+    it('debería devolver null pidiendo la dirección sin clave configurada', async () => {
+      const sinClave = await crear(undefined);
+
+      await expect(sinClave.direccion('place-portal')).resolves.toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('debería ignorar un identificador de lugar vacío', async () => {
+      await expect(service.direccion('')).resolves.toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  /*
+   * La caché ahorra dinero: cada consulta a Places se factura. Pero una entrada
+   * caducada tiene que volver a pedirse, y el mapa no puede crecer sin fin.
+   */
+  describe('caché', () => {
+    /** Acceso a las cachés privadas: no hay API pública para inspeccionarlas. */
+    const cacheDe = (nombre: string): Map<string, { expiraEn: number }> =>
+      (service as unknown as Record<string, Map<string, { expiraEn: number }>>)[nombre];
+
+    it('debería volver a preguntar cuando la entrada ha caducado', async () => {
+      responder({ location: { latitude: 39.47, longitude: -0.376 }, displayName: { text: 'Valencia' } });
+      await service.coordenadas('place-valencia');
+
+      // Se caduca la entrada a mano en vez de esperar 30 días.
+      cacheDe('cacheCoordenadas').get('place-valencia')!.expiraEn = Date.now() - 1;
+      await service.coordenadas('place-valencia');
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('debería descartar la entrada caducada en vez de dejarla ocupando sitio', async () => {
+      responder({ location: { latitude: 39.47, longitude: -0.376 }, displayName: { text: 'Valencia' } });
+      await service.coordenadas('place-valencia');
+      cacheDe('cacheCoordenadas').get('place-valencia')!.expiraEn = Date.now() - 1;
+
+      // El reintento falla, así que nada vuelve a escribirse: lo que quede en la
+      // caché es lo que sobrevivió a la lectura caducada.
+      fetchMock.mockRejectedValue(new Error('ECONNRESET'));
+      await service.coordenadas('place-valencia');
+
+      expect(cacheDe('cacheCoordenadas').has('place-valencia')).toBe(false);
+    });
+
+    /* Sin tope, un bot pidiendo sugerencias distintas agotaría la memoria. */
+    it('debería desalojar la entrada más antigua al llegar al tope', async () => {
+      const cache = cacheDe('cacheCoordenadas');
+      const dentroDeUnMes = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      for (let i = 0; i < 5_000; i++) cache.set(`relleno-${i}`, { expiraEn: dentroDeUnMes });
+      responder({ location: { latitude: 39.47, longitude: -0.376 }, displayName: { text: 'Valencia' } });
+
+      await service.coordenadas('place-valencia');
+
+      expect(cache.size).toBe(5_000);
+      expect(cache.has('relleno-0')).toBe(false);
+      expect(cache.has('place-valencia')).toBe(true);
+    });
+  });
+
   describe('tiposDeCambio', () => {
     it('debería incluir siempre el euro como base a 1', async () => {
       responder({ date: '2026-07-24', rates: { GBP: 0.84, USD: 1.09 } });
@@ -397,6 +497,29 @@ describe('GeoService', () => {
       expect(cambio.base).toBe('EUR');
       expect(cambio.tasas['EUR']).toBe(1);
       expect(cambio.tasas['GBP']).toBe(0.84);
+    });
+
+    it('debería servir los tipos cacheados durante el día', async () => {
+      responder({ date: '2026-07-24', rates: { GBP: 0.84 } });
+
+      await service.tiposDeCambio();
+      await service.tiposDeCambio();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('debería fechar hoy los tipos si el proveedor no manda fecha', async () => {
+      responder({ rates: { GBP: 0.84 } });
+
+      const cambio = await service.tiposDeCambio();
+
+      expect(cambio.fecha).toBe(new Date().toISOString().slice(0, 10));
+    });
+
+    it('debería aguantar una respuesta sin tasas', async () => {
+      responder({ date: '2026-07-24' });
+
+      await expect(service.tiposDeCambio()).resolves.toMatchObject({ tasas: { EUR: 1 } });
     });
 
     it('debería caer al euro solo si el proveedor falla', async () => {

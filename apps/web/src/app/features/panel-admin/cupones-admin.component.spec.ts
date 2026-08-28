@@ -350,6 +350,151 @@ describe('CuponesAdminComponent', () => {
     });
   });
 
+  /*
+   * El admin escribe "20" para un 20 %, pero el backend guarda la fracción. Si
+   * se manda el entero, un cupón del 20 % descuenta el 2000 % de la reserva.
+   */
+  describe('valor del descuento', () => {
+    /** Datos con los que se llamó a crear. */
+    const creado = (): Record<string, unknown> => service['crear'].mock.calls.at(-1)![0];
+
+    it('deberia guardar el porcentaje como fraccion', async () => {
+      await crear();
+      componente.form.patchValue({ codigo: 'otoño', tipo: 'porcentaje', valor: 20 });
+
+      await componente.guardar();
+
+      expect(creado()['valor']).toBe(0.2);
+    });
+
+    it('deberia guardar el importe fijo tal cual, en euros', async () => {
+      await crear();
+      componente.form.patchValue({ codigo: 'otoño', tipo: 'fijo', valor: 15 });
+
+      await componente.guardar();
+
+      expect(creado()['valor']).toBe(15);
+    });
+
+    /* Un cupón a cero es un cupón sin descuento, no un formulario a medias. */
+    it('deberia guardar un descuento de cero sin convertirlo en NaN', async () => {
+      await crear();
+      componente.form.patchValue({ codigo: 'otoño', tipo: 'fijo', valor: 0 });
+
+      await componente.guardar();
+
+      expect(creado()['valor']).toBe(0);
+    });
+
+    it('deberia devolver el porcentaje a enteros al editarlo', async () => {
+      await crear();
+
+      componente.iniciarEdicion(cupon({ tipo: 'porcentaje', valor: 0.25 }));
+
+      expect(componente.form.value.valor).toBe(25);
+    });
+
+    it('no deberia reescalar un importe fijo al editarlo', async () => {
+      await crear();
+
+      componente.iniciarEdicion(cupon({ tipo: 'fijo', valor: 15 }));
+
+      expect(componente.form.value.valor).toBe(15);
+    });
+  });
+
+  describe('alcance del cupon', () => {
+    const creado = (): Record<string, unknown> => service['crear'].mock.calls.at(-1)![0];
+
+    it('deberia acotarlo a comercio, ciudad, nivel alpha y campana', async () => {
+      await crear();
+      rellenar();
+      componente.form.patchValue({
+        comercioId: 'com-1', ciudad: 'Valencia', nivelAlphaMinimo: 2, campanaId: 'camp-1',
+      });
+
+      await componente.guardar();
+
+      expect(creado()).toMatchObject({
+        comercioId: 'com-1', ciudad: 'Valencia', nivelAlphaMinimo: 2, campanaId: 'camp-1',
+      });
+    });
+
+    /* Un campo en blanco es "sin restricción", no una cadena vacía que no case con nada. */
+    it('no deberia mandar los campos de alcance vacios', async () => {
+      await crear();
+      rellenar();
+
+      await componente.guardar();
+
+      expect(creado()).toMatchObject({
+        comercioId: undefined, ciudad: undefined, campanaId: undefined, nivelAlphaMinimo: 0,
+      });
+    });
+
+    it('deberia mandar cero usos por usuario cuando es ilimitado', async () => {
+      await crear();
+      rellenar();
+      componente.form.patchValue({ usosPorUsuario: 3 });
+
+      await componente.guardar();
+
+      expect(creado()['usosPorUsuario']).toBe(0);
+    });
+
+    it('deberia respetar el limite por usuario al desmarcar ilimitado', async () => {
+      await crear();
+      rellenar();
+      componente.alternarUsosPorUsuario();
+      componente.form.patchValue({ usosPorUsuario: 3 });
+
+      await componente.guardar();
+
+      expect(creado()['usosPorUsuario']).toBe(3);
+    });
+  });
+
+  describe('edicion de un cupon incompleto', () => {
+    /* Los cupones antiguos no traen los campos nuevos: el formulario no puede
+     * quedarse con `undefined` en un control ni inventar restricciones. */
+    it('deberia rellenar con valores neutros lo que el cupon no trae', async () => {
+      await crear();
+
+      componente.iniciarEdicion(cupon({
+        topeDescuento: undefined, usoMaximo: undefined, validoHasta: undefined,
+        asumeDescuento: undefined, soloPrimeraReserva: undefined, usosPorUsuario: undefined,
+        comercioId: undefined, ciudad: undefined, nivelAlphaMinimo: undefined,
+        campanaId: undefined, descripcion: undefined,
+      }));
+
+      expect(componente.form.value).toMatchObject({
+        topeDescuento: 0, usoMaximo: 0, validoHasta: '', asumeDescuento: 'plataforma',
+        soloPrimeraReserva: false, usosPorUsuario: 1, comercioId: '', ciudad: '',
+        nivelAlphaMinimo: 0, campanaId: '', descripcion: '',
+      });
+      expect(componente.sinTope()).toBe(true);
+      expect(componente.usosIlimitados()).toBe(true);
+      expect(componente.sinCaducidad()).toBe(true);
+    });
+
+    it('deberia recortar la caducidad a la fecha, sin la hora', async () => {
+      await crear();
+
+      componente.iniciarEdicion(cupon({ validoHasta: '2026-12-31T23:59:59.000Z' }));
+
+      expect(componente.form.value.validoHasta).toBe('2026-12-31');
+      expect(componente.sinCaducidad()).toBe(false);
+    });
+
+    it('deberia identificar por codigo un cupon sin id', async () => {
+      await crear();
+
+      componente.iniciarEdicion(cupon({ _id: undefined }));
+
+      expect(componente.editandoId()).toBe('VERANO');
+    });
+  });
+
   describe('carga de datos auxiliares', () => {
     it('deberia seguir funcionando si no se pueden cargar los comercios', async () => {
       // Sin la lista el cupon se queda con alcance global, que sigue siendo valido.

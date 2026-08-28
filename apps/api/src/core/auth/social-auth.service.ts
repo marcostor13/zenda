@@ -2,6 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
+/**
+ * Identificadores públicos que el navegador necesita para dibujar los botones.
+ *
+ * Los sirve el API a propósito, igual que la clave de navegador de Google Maps
+ * (`GET /geo/config`): el `aud` del ID token es el cliente que dibujó el botón,
+ * así que si el navegador usa uno y el API valida contra otro, todo login
+ * termina en 401. Sirviéndolos desde aquí no pueden divergir.
+ */
+export interface ConfigSocial {
+  /** Cadena vacía = no configurado; el frontend oculta el botón. */
+  googleClientId: string;
+  facebookAppId: string;
+}
+
 /** Perfil normalizado extraído de un proveedor social tras verificar su token. */
 export interface PerfilSocial {
   email: string;
@@ -33,6 +47,18 @@ export class SocialAuthService {
   private readonly logger = new Logger(SocialAuthService.name);
 
   constructor(private readonly config: ConfigService) {}
+
+  /**
+   * Lo que puede viajar al navegador: identificadores de cliente, nunca
+   * secretos. El de Google es el primero de la lista, que es el de la web; los
+   * demás (Android, iOS) los usa la app nativa con sus propias credenciales.
+   */
+  configPublica(): ConfigSocial {
+    return {
+      googleClientId: this.clientesGoogle()[0] ?? '',
+      facebookAppId: this.config.get<string>('FACEBOOK_APP_ID')?.trim() ?? '',
+    };
+  }
 
   /**
    * Verifica un ID token de Google contra el endpoint oficial de tokeninfo

@@ -328,6 +328,217 @@ describe('VerticalBrowseComponent', () => {
       expect(component.itemsOrdenados().map((c) => c.id)).toEqual(['a', 'b']);
     });
   });
+  /*
+   * El listado pedía 20 resultados y ahí se quedaba: el recuento decía 43 y no
+   * había forma de llegar a los 23 restantes.
+   */
+  describe('ver más resultados', () => {
+    const pagina = (ids: string[], total: number) => ({
+      items: ids.map((id) => ({ ...tarjeta({}), id })), total, page: 1, totalPages: 2,
+    });
+
+    it('debería añadir la página siguiente al final de la lista', async () => {
+      await crearComponente('veterinaria');
+      browseService.buscarPaginado.mockResolvedValue(pagina(['a', 'b'], 4));
+      component.recargar();
+      await fixture.whenStable();
+      browseService.buscarPaginado.mockResolvedValue(pagina(['c', 'd'], 4));
+
+      await component.verMas();
+
+      expect(component.items().map((i) => i.id)).toEqual(['a', 'b', 'c', 'd']);
+      expect(component.pagina()).toBe(2);
+    });
+
+    /* Si algo cambió de sitio entre dos peticiones, mejor perder un resultado
+     * que pintarlo dos veces. */
+    it('debería descartar los que ya estaban en la lista', async () => {
+      await crearComponente('veterinaria');
+      browseService.buscarPaginado.mockResolvedValue(pagina(['a', 'b'], 4));
+      component.recargar();
+      await fixture.whenStable();
+      browseService.buscarPaginado.mockResolvedValue(pagina(['b', 'c'], 4));
+
+      await component.verMas();
+
+      expect(component.items().map((i) => i.id)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('no debería pedir más cuando ya están todos', async () => {
+      await crearComponente('veterinaria');
+      browseService.buscarPaginado.mockResolvedValue(pagina(['a', 'b'], 2));
+      component.recargar();
+      await fixture.whenStable();
+      const llamadas = browseService.buscarPaginado.mock.calls.length;
+
+      await component.verMas();
+
+      expect(component.hayMas()).toBe(false);
+      expect(browseService.buscarPaginado).toHaveBeenCalledTimes(llamadas);
+    });
+
+    it('no debería lanzar dos peticiones a la vez', async () => {
+      await crearComponente('veterinaria');
+      browseService.buscarPaginado.mockResolvedValue(pagina(['a'], 9));
+      component.recargar();
+      await fixture.whenStable();
+      component.cargandoMas.set(true);
+      const llamadas = browseService.buscarPaginado.mock.calls.length;
+
+      await component.verMas();
+
+      expect(browseService.buscarPaginado).toHaveBeenCalledTimes(llamadas);
+    });
+
+    it('debería conservar lo ya visible si la ampliación falla', async () => {
+      await crearComponente('veterinaria');
+      browseService.buscarPaginado.mockResolvedValue(pagina(['a', 'b'], 4));
+      component.recargar();
+      await fixture.whenStable();
+      browseService.buscarPaginado.mockRejectedValue(new Error('500'));
+
+      await component.verMas();
+
+      expect(component.items().map((i) => i.id)).toEqual(['a', 'b']);
+      expect(component.cargandoMas()).toBe(false);
+    });
+  });
+
+  describe('búsqueda por mapa', () => {
+    /** Opciones con las que se pidió la última búsqueda. */
+    const ultimasOpciones = () => browseService.buscarPaginado.mock.calls.at(-1)![1]!;
+
+    it('debería buscar en la zona arrastrada, ignorando la ciudad escrita', async () => {
+      await crearComponente('veterinaria', { ciudad: 'Madrid' });
+
+      await component.buscarEnZona({ swLat: 1, swLng: 2, neLat: 3, neLng: 4 } as never);
+
+      expect(ultimasOpciones().zona).toEqual({ swLat: 1, swLng: 2, neLat: 3, neLng: 4 });
+      expect(ultimasOpciones().ciudad).toBeUndefined();
+    });
+
+    /* Dejar activa una zona invisible haría que los filtros no cuadrasen con nada. */
+    it('debería volver a la ciudad escrita al cerrar el mapa', async () => {
+      await crearComponente('veterinaria', { ciudad: 'Madrid' });
+      component.alternarMapa();
+      await component.buscarEnZona({ swLat: 1, swLng: 2, neLat: 3, neLng: 4 } as never);
+
+      component.alternarMapa();
+      await fixture.whenStable();
+
+      expect(component.mapaAbierto()).toBe(false);
+      expect(ultimasOpciones().zona).toBeUndefined();
+      expect(ultimasOpciones().ciudad).toBe('Madrid');
+    });
+
+    it('no debería rebuscar al cerrar el mapa si nunca se movió', async () => {
+      await crearComponente('veterinaria', { ciudad: 'Madrid' });
+      component.alternarMapa();
+      const llamadas = browseService.buscarPaginado.mock.calls.length;
+
+      component.alternarMapa();
+
+      expect(browseService.buscarPaginado).toHaveBeenCalledTimes(llamadas);
+    });
+
+    it('debería convertir los pines del API en puntos del mapa', async () => {
+      await crearComponente('veterinaria');
+      browseService.puntosMapa.mockResolvedValue([
+        { id: 'p1', titulo: 'Clínica', precio: 30, lat: 40, lng: -3, rating: 4.5, imagen: 'a.jpg' },
+      ]);
+      component.recargar();
+      // Los pines y las facetas se piden sin esperarlas dentro de `cargar()`:
+      // hace falta ceder el turno para que resuelvan.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.puntosMapa()).toEqual([
+        expect.objectContaining({ id: 'p1', lat: 40, lng: -3, vertical: 'veterinaria', rating: 4.5 }),
+      ]);
+    });
+  });
+
+  describe('orden y filtros', () => {
+    const ultimasOpciones = () => browseService.buscarPaginado.mock.calls.at(-1)![1]!;
+
+    it('debería pedir al API el orden elegido', async () => {
+      await crearComponente('veterinaria');
+
+      component.cambiarOrden('precio_asc');
+      await fixture.whenStable();
+
+      expect(ultimasOpciones().orden).toBe('precio_asc');
+      expect(component.orden()).toBe('precio_asc');
+    });
+
+    it('debería trasladar los filtros del panel a la búsqueda', async () => {
+      await crearComponente('veterinaria');
+
+      component.aplicarFiltros({
+        vertical: { atiendeUrgencias: true }, precioMin: 10, precioMax: 90,
+        ratingMin: 4, amenities: ['Urgencias 24 h'],
+      });
+      await fixture.whenStable();
+
+      expect(ultimasOpciones()).toMatchObject({
+        precioMin: 10, precioMax: 90, ratingMin: 4,
+        amenities: ['Urgencias 24 h'], filtrosVertical: { atiendeUrgencias: true },
+      });
+    });
+
+    /* Si fallan las facetas los filtros siguen sirviendo: solo pierden el número. */
+    it('debería dejar el panel sin contadores si las facetas fallan', async () => {
+      await crearComponente('veterinaria');
+      browseService.facetas.mockRejectedValue(new Error('500'));
+
+      component.recargar();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.facetas()).toBeNull();
+      expect(component.histogramaPrecios()).toEqual([]);
+    });
+
+    it('debería pasar el histograma de precios al panel', async () => {
+      await crearComponente('veterinaria');
+      browseService.facetas.mockResolvedValue({
+        precios: [{ desde: 0, hasta: 50, n: 3 }], amenities: [], valoracion: [],
+      });
+
+      component.recargar();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.histogramaPrecios()).toEqual([{ desde: 0, hasta: 50, n: 3 }]);
+    });
+  });
+
+  describe('resumen de lo buscado', () => {
+    it('debería concordar el singular con un perro', async () => {
+      await crearComponente('veterinaria', { perros: '1' });
+
+      expect(component.contextoBusqueda()).toContain('1 perro');
+    });
+
+    it('debería concordar el plural con varios perros', async () => {
+      await crearComponente('veterinaria', { perros: '3' });
+
+      expect(component.contextoBusqueda()).toContain('3 perros');
+    });
+
+    it.each([
+      ['un número de perros ilegible', { perros: 'muchos' }],
+      ['cero perros', { perros: '0' }],
+    ])('no debería resumir %s', async (_caso, params) => {
+      await crearComponente('veterinaria', params);
+
+      expect(component.contextoBusqueda().some((c) => c.includes('perro'))).toBe(false);
+    });
+
+    it('no debería poner sufijo de ciudad si no se buscó ninguna', async () => {
+      await crearComponente('veterinaria');
+
+      expect(component.sufijoCiudad()).toBe('');
+    });
+  });
+
   /**
    * Sin enlace en la tarjeta no hay forma de llegar al detalle de un comercio.
    * Pasó con veterinaria y peluquería: el componente llevaba su propia lista de

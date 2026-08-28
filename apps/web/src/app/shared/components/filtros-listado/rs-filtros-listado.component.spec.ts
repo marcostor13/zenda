@@ -168,6 +168,81 @@ describe('RsFiltrosListadoComponent', () => {
     });
   });
 
+  /*
+   * Los chips de "filtros aplicados" viven en el listado pero la selección está
+   * aquí: sin este puente, quitar un chip no deshacía nada.
+   */
+  describe('quitar un filtro desde los chips del listado', () => {
+    it('debería devolver el precio a su rango completo', () => {
+      montar();
+      const tope = component.precioMax;
+      component.precioMin = 40;
+      component.precioMax = 90;
+
+      component.quitar('precio');
+
+      expect(component.precioMin).toBe(0);
+      expect(component.precioMax).toBe(tope);
+      expect(ultimo().precioMax).toBeUndefined();
+    });
+
+    it('debería quitar la valoración mínima', () => {
+      montar();
+      component.alternarRating(4);
+
+      component.quitar('rating');
+
+      expect(component.ratingMin()).toBe(0);
+      expect(ultimo().ratingMin).toBeUndefined();
+    });
+
+    it('debería apagar un interruptor', () => {
+      montar();
+      component.alternarBooleano('cancelacionGratis');
+
+      component.quitar('booleano', 'cancelacionGratis');
+
+      expect(component.booleanos()['cancelacionGratis']).toBe(false);
+      expect(ultimo().vertical['cancelacionGratis']).toBeUndefined();
+    });
+
+    it('debería quitar solo el valor indicado, dejando los demás del grupo', () => {
+      montar();
+      const grupo = grupoOpciones()!;
+      const [a, b] = grupo.opciones!.slice(0, 2);
+      component.alternarOpcion(grupo, a.valor);
+      component.alternarOpcion(grupo, b.valor);
+
+      component.quitar('opcion', grupo.campo, a.valor);
+
+      expect(component.estaMarcado(grupo, a.valor)).toBe(false);
+      expect(component.estaMarcado(grupo, b.valor)).toBe(true);
+    });
+
+    it('debería aguantar que se pida quitar un valor de un grupo sin marcar', () => {
+      montar();
+      const grupo = grupoOpciones()!;
+
+      component.quitar('opcion', grupo.campo, 'inventado');
+
+      expect(component.estaMarcado(grupo, 'inventado')).toBe(false);
+    });
+
+    it.each([
+      ['un booleano sin campo', 'booleano' as const, undefined, undefined],
+      ['una opción sin campo', 'opcion' as const, undefined, 'x'],
+      ['una opción sin valor', 'opcion' as const, 'amenities', undefined],
+    ])('no debería tocar nada al quitar %s, pero sí volver a emitir', (_caso, tipo, campo, valor) => {
+      montar();
+      component.alternarRating(5);
+      const antes = ultimo();
+
+      component.quitar(tipo, campo, valor);
+
+      expect(ultimo()).toEqual(antes);
+    });
+  });
+
   it('debería devolver todo al estado inicial al limpiar', () => {
     montar();
     component.precioMin = 50;

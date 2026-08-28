@@ -33,17 +33,21 @@ sigue funcionando con email/contraseña.
    El *client secret* de Google **no se usa** en este flujo.
 
 ### 1.3 Configurar
-- **Frontend** — `apps/web/src/environments/environment.ts` y
-  `environment.prod.ts`:
-  ```ts
-  googleClientId: 'XXXXXX.apps.googleusercontent.com',
-  ```
-- **Backend** — variable de entorno (Coolify → Environment Variables):
-  ```
-  GOOGLE_CLIENT_ID=XXXXXX.apps.googleusercontent.com
-  ```
-  Debe ser **exactamente el mismo** que el del frontend: el backend valida que
-  el token venga de este cliente.
+**Sólo hay que configurarlo en el backend** (Coolify → Environment Variables):
+
+```
+GOOGLE_CLIENT_ID=XXXXXX.apps.googleusercontent.com
+```
+
+El frontend lo pide con `GET /auth/social/config` y dibuja el botón con ese
+mismo valor, igual que hace con la clave de navegador del mapa. Así el `aud` del
+token que emite Google y el que valida el API son el mismo por construcción.
+
+`WEB_GOOGLE_CLIENT_ID` y lo escrito en `environment*.ts` quedan sólo como
+respaldo por si el API no responde; no hace falta mantenerlos al día.
+
+Admite **varios client IDs separados por comas** (el primero es el de la web; los
+siguientes, los de la app móvil de Capacitor).
 
 ---
 
@@ -71,11 +75,8 @@ sigue funcionando con email/contraseña.
    y pásala a **modo Activo** (interruptor superior).
 
 ### 2.3 Configurar
-- **Frontend** — `environment.ts` / `environment.prod.ts`:
-  ```ts
-  facebookAppId: '1234567890',
-  ```
-- **Backend** — variables de entorno (Coolify):
+- **Backend** — variables de entorno (Coolify). El App ID también viaja al
+  frontend por `GET /auth/social/config`:
   ```
   FACEBOOK_APP_ID=1234567890
   FACEBOOK_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -93,10 +94,9 @@ sigue funcionando con email/contraseña.
 
 | Dónde | Variable | Valor |
 |---|---|---|
-| Frontend (`environment*.ts`) | `googleClientId` | Client ID de Google (público) |
-| Frontend (`environment*.ts`) | `facebookAppId` | App ID de Meta (público) |
-| Backend (Coolify env) | `GOOGLE_CLIENT_ID` | Igual que el del frontend |
-| Backend (Coolify env) | `FACEBOOK_APP_ID` | Igual que el del frontend |
+| Backend (Coolify env) | `GOOGLE_CLIENT_ID` | Client ID de Google (público). Único sitio donde hay que ponerlo |
+| Backend (Coolify env) | `FACEBOOK_APP_ID` | App ID de Meta (público) |
+| Frontend (`environment*.ts`) | `googleClientId` · `facebookAppId` | Respaldo si el API no responde; no hay que mantenerlos |
 | Backend (Coolify env) | `FACEBOOK_APP_SECRET` | Secreto de Meta (**privado**) |
 
 Tras rellenarlas y redeployar, los botones **"Continuar con Google"** y
@@ -130,9 +130,8 @@ entrar por el formulario, el sistema les indica que usen el botón social.
 }
 ```
 
-No es un fallo de código ni un token caducado: el ID token que emitió el
-navegador lleva en su campo `aud` el client ID con el que se dibujó el botón, y
-ese valor **no coincide** con el `GOOGLE_CLIENT_ID` del API.
+Significa que el `aud` del ID token —el client ID con el que se dibujó el
+botón— no coincide con el `GOOGLE_CLIENT_ID` del API.
 
 **No tiene que ver con la cuenta del usuario.** Si ya existe una cuenta con ese
 email —creada con contraseña o con Meta— el login con Google **no falla**: el
@@ -147,36 +146,36 @@ sale exactamente igual con un email que nunca se ha registrado.
 > cuentas registradas—; la salida es pulsar el botón social, que está en la
 > misma pantalla.
 
-Cómo localizarlo:
+Desde que el frontend pide los client IDs al API (`GET /auth/social/config`),
+las dos partes no pueden divergir, así que sólo quedan dos causas:
 
-1. **Qué client ID usa el navegador.** Abre `https://TU-DOMINIO/env.js` y mira
-   `WEB_GOOGLE_CLIENT_ID`. Si no aparece, se está usando el respaldo compilado
-   en `apps/web/src/environments/environment.prod.ts`.
-2. **Qué client ID espera el API.** Coolify → servicio del API → Environment
-   Variables → `GOOGLE_CLIENT_ID`.
-3. **Compáralos carácter a carácter.** Desde la versión que registra el aviso,
-   el log del API deja la línea al rechazar el token:
-   `Token de Google con aud "…"; configurados: …`, que da los dos valores de
-   una vez.
+| Causa | Cómo se ve | Qué hacer |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` del API es de **otro cliente OAuth** del mismo proyecto —típicamente `GOOGLE_CALENDAR_CLIENT_ID`, que es el de la agenda— | El log del API dice `Token de Google con aud "…"; configurados: …` con dos valores `…apps.googleusercontent.com` de distinto prefijo numérico | Poner en `GOOGLE_CLIENT_ID` el cliente **web** del login y reiniciar el API |
+| Una pestaña abierta desde antes del cambio sigue usando el client ID viejo | Falla en esa pestaña y no en una recién abierta | Recargar |
 
-Causas habituales, en orden de frecuencia:
+Cómo confirmarlo en 30 segundos:
 
-| Causa | Cómo se ve |
-|---|---|
-| El API tiene el client ID de **otro cliente OAuth** del mismo proyecto —típicamente `GOOGLE_CALENDAR_CLIENT_ID`, que es para la agenda | Los dos valores son `…apps.googleusercontent.com` pero con distinto prefijo numérico |
-| Se creó un cliente OAuth nuevo y sólo se actualizó un lado | Igual que el anterior |
-| El valor pegado en el panel arrastra espacios, comillas o un salto de línea | Los dos valores "parecen" iguales |
-| La app móvil (Capacitor) usa su propio cliente de Android/iOS | Falla sólo en móvil, en web entra bien |
+1. `curl https://TU-API/api/v1/auth/social/config` → el client ID que el API
+   sirve y valida. Es el mismo con el que el navegador dibuja el botón.
+2. Si ahí no está el cliente web correcto, el arreglo está en Coolify →
+   servicio del API → `GOOGLE_CLIENT_ID`, y hay que **reiniciar el servicio**.
+3. El log del API deja la línea `Token de Google con aud "…"; configurados: …`
+   al rechazar un token: da el valor recibido y el esperado de una vez.
+
+Comprueba también, en Google Cloud → Credenciales → ese cliente OAuth, que
+**Orígenes autorizados de JavaScript** incluye tu dominio (`https://doogking.com`,
+`http://localhost:4200`). Sin eso el botón ni siquiera llega a dibujarse.
 
 `GOOGLE_CLIENT_ID` admite **varios client IDs separados por comas**, que es como
-se resuelve el último caso:
+convive la web con la app móvil de Capacitor:
 
 ```
 GOOGLE_CLIENT_ID=123-web.apps.googleusercontent.com,456-android.apps.googleusercontent.com
 ```
 
-Los espacios alrededor de cada valor se recortan. Tras cambiar la variable hay
-que **reiniciar el servicio del API** para que la lea.
+El primero es el que se sirve al navegador. Los espacios alrededor de cada valor
+se recortan. Tras cambiar la variable hay que **reiniciar el servicio del API**.
 
 > Si en vez de 401 sale `503 El login con Google no está configurado`, es que
 > `GOOGLE_CLIENT_ID` no está declarada en el API.
