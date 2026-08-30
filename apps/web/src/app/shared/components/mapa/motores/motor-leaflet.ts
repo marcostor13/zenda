@@ -75,8 +75,18 @@ class MotorLeaflet implements MotorMapa {
       maxZoom: 19,
     }).addTo(this.mapa);
 
+    this.sinTarjetas = opciones.permitePulsar === true;
     this.mapa.on('moveend', () => this.escuchas.alMoverse());
+
+    if (opciones.permitePulsar) {
+      this.mapa.on('click', (evento: { latlng: { lat: number; lng: number } }) => {
+        this.escuchas.alPulsarMapa?.(evento.latlng.lat, evento.latlng.lng);
+      });
+    }
   }
+
+  /** El mapa está colocando un punto, no enseñando resultados. */
+  private readonly sinTarjetas: boolean;
 
   pintar(puntos: readonly PuntoMapa[], activo: string | null): void {
     this.limpiarMarcadores();
@@ -95,7 +105,9 @@ class MotorLeaflet implements MotorMapa {
         .addTo(this.mapa)
         .on('click', () => this.escuchas.alElegirPunto(punto.id));
 
-      const tarjeta = htmlTarjeta(punto);
+      // Sin tarjetas cuando el mapa sirve para colocar el punto: taparían el
+      // sitio al que se apunta y no dirían nada que no esté ya en el formulario.
+      const tarjeta = this.sinTarjetas ? null : htmlTarjeta(punto);
       if (tarjeta) {
         marcador.bindPopup(tarjeta, { closeButton: true, offset: [0, -6] });
 

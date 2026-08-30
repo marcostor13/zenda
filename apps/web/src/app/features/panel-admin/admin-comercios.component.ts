@@ -1,20 +1,13 @@
+import { AdminApiService, ComercioAdmin, ResumenComercios, FichaComercio, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ImpactoBajaComercioDto, MOTIVOS_BAJA_COMERCIO, MotivoBajaComercio, VerticalKey, VERTICAL_LABELS } from 'shared';
-import { AdminApiService, ComercioAdmin, ResumenComercios, FichaComercio, CrearComercioDto, ActualizarComercioDto, VerificacionComercio } from './admin-api.service';
+
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
-/** Documento listo para pintar en la ficha, venga del campo fijo o de la lista. */
-interface DocumentoFicha {
-  titulo: string;
-  url: string;
-  nombre?: string;
-  fechaCaducidad?: string;
-  estado?: string;
-}
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
@@ -69,10 +62,6 @@ const LIMITE = 20;
         <span class="resumen-tile__num">{{ resumen()?.enPausa ?? '—' }}</span>
         <span class="resumen-tile__lbl">En pausa</span>
       </div>
-      <div class="rs-card resumen-tile">
-        <span class="resumen-tile__num">{{ resumen()?.verificados ?? '—' }}</span>
-        <span class="resumen-tile__lbl">Verificados</span>
-      </div>
       @if ((resumen()?.dadosDeBaja ?? 0) > 0) {
         <button class="rs-card resumen-tile resumen-tile--accion" (click)="setFiltro('eliminado')">
           <span class="resumen-tile__num">{{ resumen()!.dadosDeBaja }}</span>
@@ -114,7 +103,6 @@ const LIMITE = 20;
         <span>CIF/NIF</span>
         <span>Plan</span>
         <span>Estado</span>
-        <span>Verificación</span>
         <span>Registro</span>
         <span>Acciones</span>
       </div>
@@ -158,13 +146,6 @@ const LIMITE = 20;
             <span data-col="Estado">
               <span class="rs-badge {{ badgeEstado(c.estado) }}">{{ c.estado }}</span>
             </span>
-            <!-- Verificación en su propia columna: es otra cosa que el estado (TCK-8034) -->
-            <span data-col="Verificación">
-              <span class="rs-badge {{ badgeVerif(c.verificacion?.estado ?? 'sin_verificar') }}">
-                <rs-icon [name]="verifIcono(c.verificacion?.estado ?? 'sin_verificar')" [size]="12" [stroke]="2"></rs-icon>
-                {{ verifLabel(c.verificacion?.estado ?? 'sin_verificar') }}
-              </span>
-            </span>
             <span class="cell-muted" data-col="Registro">{{ c.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones" (click)="$event.stopPropagation()">
               <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Acciones"
@@ -183,14 +164,6 @@ const LIMITE = 20;
                   <button class="acciones__item" (click)="abrirEditar(c)">
                     <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar datos
                   </button>
-                  @if (c.verificacion?.estado === 'pendiente') {
-                    <button class="acciones__item" [disabled]="accionando() === c._id" (click)="verificar(c._id)">
-                      <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Verificar documentación
-                    </button>
-                    <button class="acciones__item" [disabled]="accionando() === c._id" (click)="rechazarVerif(c._id)">
-                      <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon> Rechazar documentación
-                    </button>
-                  }
                   @if (c.estado === 'eliminado') {
                     <!-- Una baja lógica se deshace; la cuenta vuelve en pausa
                          para que alguien la revise antes de republicarla. -->
@@ -264,16 +237,10 @@ const LIMITE = 20;
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="rs-form-group">
-            <label class="rs-label">RUC *</label>
-            <input formControlName="vatNumber" class="rs-input" placeholder="20123456789"
-              [attr.readonly]="editandoId() ? true : null" />
-          </div>
-          <div class="rs-form-group">
-            <label class="rs-label">Logo URL</label>
-            <input formControlName="logoUrl" class="rs-input" placeholder="https://..." />
-          </div>
+        <div class="rs-form-group">
+          <label class="rs-label">RUC *</label>
+          <input formControlName="vatNumber" class="rs-input" placeholder="20123456789"
+            [attr.readonly]="editandoId() ? true : null" />
         </div>
 
         <div class="form-row">
@@ -366,49 +333,6 @@ const LIMITE = 20;
         <div class="ficha__bloque">
           <h4>Verticales</h4>
           <p>@for (v of f.comercio.verticales; track v) { {{ labelVertical(v) }}{{ $last ? '' : ' · ' }} }</p>
-        </div>
-
-        <div class="ficha__bloque">
-          <h4>Verificación</h4>
-          <p>
-            <span class="rs-badge {{ badgeVerif(f.comercio.verificacion?.estado ?? 'sin_verificar') }}">
-              {{ verifLabel(f.comercio.verificacion?.estado ?? 'sin_verificar') }}
-            </span>
-            @if (f.comercio.verificacion?.motivoRechazo) {
-              · motivo del rechazo: {{ f.comercio.verificacion!.motivoRechazo }}
-            }
-          </p>
-
-          <!-- Sin poder abrir los papeles, verificar es firmar a ciegas: el admin
-               tiene que ver lo que el comercio subió antes de decidir. -->
-          @if (documentosDe(f.comercio.verificacion).length) {
-            <ul class="docs">
-              @for (d of documentosDe(f.comercio.verificacion); track d.url) {
-                <li class="docs__item">
-                  <rs-icon [name]="iconoDoc(d.url)" [size]="15" [stroke]="2"></rs-icon>
-                  <span class="docs__nombre">
-                    {{ d.titulo }}
-                    @if (d.nombre) { <em>· {{ d.nombre }}</em> }
-                  </span>
-                  @if (d.fechaCaducidad) {
-                    <span class="docs__caducidad" [class.docs__caducidad--vencida]="estaCaducado(d.fechaCaducidad)">
-                      {{ estaCaducado(d.fechaCaducidad) ? 'caducó el' : 'vence el' }}
-                      {{ d.fechaCaducidad | date:'d MMM yyyy' }}
-                    </span>
-                  }
-                  @if (d.estado) {
-                    <span class="rs-badge {{ badgeDoc(d.estado) }}">{{ d.estado }}</span>
-                  }
-                  <!-- Nueva pestaña: perder el modal a medio revisar obligaría a
-                       volver a abrir la ficha y buscar el comercio otra vez. -->
-                  <a [href]="d.url" target="_blank" rel="noopener"
-                     class="rs-btn rs-btn--outline rs-btn--sm">Abrir</a>
-                </li>
-              }
-            </ul>
-          } @else {
-            <p class="docs__vacio">Este comercio todavía no ha subido documentación.</p>
-          }
         </div>
 
         <div class="ficha__bloque">
@@ -763,7 +687,6 @@ export class AdminComerciosComponent implements OnInit {
 
   /** Resumen, filtros de página y menú de acciones (TCK-8034). */
   readonly resumen = signal<ResumenComercios | null>(null);
-  readonly filtroVerificacion = signal('');
   readonly filtroVertical = signal('');
   readonly filtroPlan = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
@@ -788,61 +711,6 @@ export class AdminComerciosComponent implements OnInit {
     return this.confirmacionBaja().trim().toLowerCase() === comercio.nombreComercial.trim().toLowerCase();
   });
 
-  /** Etiquetas de los tipos del catálogo de documentos del comercio. */
-  private readonly TIPO_DOC: Record<string, string> = {
-    dni: 'DNI', cif: 'CIF', licencia: 'Licencia',
-    seguro_rc: 'Seguro de responsabilidad civil', certificado: 'Certificado', otro: 'Documento',
-  };
-
-  /**
-   * Toda la documentación del comercio en una sola lista.
-   *
-   * El identidad y la licencia viven en campos propios de `verificacion` y el
-   * resto en `documentos[]`; para quien revisa son lo mismo —papeles que abrir—,
-   * así que se presentan juntos en vez de en dos bloques distintos.
-   */
-  documentosDe(verificacion?: VerificacionComercio): DocumentoFicha[] {
-    if (!verificacion) return [];
-
-    const fijos: DocumentoFicha[] = [
-      { titulo: 'Documento de identidad', url: verificacion.documentoIdentidadUrl },
-      { titulo: 'Licencia de actividad', url: verificacion.licenciaNegocioUrl },
-    ].filter((d): d is DocumentoFicha => Boolean(d.url));
-
-    const adicionales: DocumentoFicha[] = (verificacion.documentos ?? [])
-      .filter((d) => Boolean(d.url))
-      .map((d) => ({
-        titulo: this.TIPO_DOC[d.tipo] ?? d.tipo,
-        nombre: d.nombre,
-        url: d.url,
-        fechaCaducidad: d.fechaCaducidad,
-        estado: d.estado,
-      }));
-
-    return [...fijos, ...adicionales];
-  }
-
-  /** Un PDF y una foto no se revisan igual; el icono lo adelanta. */
-  iconoDoc(url: string): string {
-    return url.toLowerCase().split('?')[0].endsWith('.pdf') ? 'file-text' : 'image';
-  }
-
-  /**
-   * Un seguro vencido no vale para verificar, aunque el documento esté subido.
-   * Se calcula aquí y no se confía en el `estado` guardado porque ese sólo se
-   * recalcula al guardar la ficha, no con el paso del tiempo.
-   */
-  estaCaducado(fecha?: string): boolean {
-    return Boolean(fecha) && new Date(fecha as string).getTime() < Date.now();
-  }
-
-  badgeDoc(estado: string): string {
-    const mapa: Record<string, string> = {
-      verificado: 'rs-badge--success', pendiente: 'rs-badge--warning',
-      rechazado: 'rs-badge--error', caducado: 'rs-badge--error',
-    };
-    return mapa[estado] ?? 'rs-badge--neutral';
-  }
   readonly suspendiendo = signal<ComercioAdmin | null>(null);
   readonly fichaAbierta = signal(false);
   readonly cargandoFicha = signal(false);
@@ -854,11 +722,9 @@ export class AdminComerciosComponent implements OnInit {
   );
 
   readonly comerciosFiltrados = computed(() => {
-    const verificacion = this.filtroVerificacion();
     const vertical = this.filtroVertical();
     const plan = this.filtroPlan();
     return this.comercios().filter((c) => {
-      if (verificacion && (c.verificacion?.estado ?? 'sin_verificar') !== verificacion) return false;
       if (vertical && !c.verticales.includes(vertical)) return false;
       if (plan && c.plan !== plan) return false;
       return true;
@@ -921,7 +787,6 @@ export class AdminComerciosComponent implements OnInit {
 
   readonly valoresFiltro = computed<ValoresFiltro>(() => ({
     estado: this.filtroEstado(),
-    verificacion: this.filtroVerificacion(),
     vertical: this.filtroVertical(),
     plan: this.filtroPlan(),
   }));
@@ -930,7 +795,6 @@ export class AdminComerciosComponent implements OnInit {
     nombreComercial: ['', Validators.required],
     razonSocial: ['', Validators.required],
     vatNumber: ['', Validators.required],
-    logoUrl: [''],
     plan: ['basico'],
     estado: ['activo'],
     comisionPctOverride: [null as number | null],
@@ -1002,7 +866,6 @@ export class AdminComerciosComponent implements OnInit {
    * ya no tiene por qué tener tantas.
    */
   async aplicarFiltros(valores: ValoresFiltro): Promise<void> {
-    this.filtroVerificacion.set(valores['verificacion'] ?? '');
     this.filtroVertical.set(valores['vertical'] ?? '');
     this.filtroPlan.set(valores['plan'] ?? '');
 
@@ -1026,58 +889,6 @@ export class AdminComerciosComponent implements OnInit {
     } finally {
       this.accionando.set(null);
     }
-  }
-
-  async verificar(id: string): Promise<void> {
-    this.accionando.set(id);
-    try {
-      await firstValueFrom(this.adminApi.cambiarVerificacionComercio(id, 'verificado'));
-      await this.cargar();
-    } catch {
-      this.errorMsg.set('Error al verificar la documentación.');
-      setTimeout(() => this.errorMsg.set(''), 3000);
-    } finally {
-      this.accionando.set(null);
-    }
-  }
-
-  async rechazarVerif(id: string): Promise<void> {
-    const motivo = prompt('Motivo del rechazo de la documentación (opcional):') ?? undefined;
-    this.accionando.set(id);
-    try {
-      await firstValueFrom(this.adminApi.cambiarVerificacionComercio(id, 'rechazado', motivo));
-      await this.cargar();
-    } catch {
-      this.errorMsg.set('Error al rechazar la documentación.');
-      setTimeout(() => this.errorMsg.set(''), 3000);
-    } finally {
-      this.accionando.set(null);
-    }
-  }
-
-  badgeVerif(estado: string): string {
-    const map: Record<string, string> = {
-      verificado: 'rs-badge--success', pendiente: 'rs-badge--warning',
-      rechazado: 'rs-badge--error', caducado: 'rs-badge--error',
-    };
-    return map[estado] ?? 'rs-badge--neutral';
-  }
-
-  verifLabel(estado: string): string {
-    const map: Record<string, string> = {
-      verificado: 'Verificado', pendiente: 'Doc. pendiente',
-      rechazado: 'Doc. rechazada', caducado: 'Doc. caducada',
-    };
-    return map[estado] ?? estado;
-  }
-
-  /** Icono Lucide del estado de verificación documental (TCK-8010). */
-  verifIcono(estado: string): string {
-    const map: Record<string, string> = {
-      verificado: 'badge-check', pendiente: 'hourglass',
-      rechazado: 'x', caducado: 'alert-triangle',
-    };
-    return map[estado] ?? 'circle';
   }
 
   async suspender(id: string): Promise<void> {
@@ -1145,7 +956,6 @@ export class AdminComerciosComponent implements OnInit {
       nombreComercial: c.nombreComercial,
       razonSocial: c.razonSocial,
       vatNumber: c.vatNumber,
-      logoUrl: c.logoUrl ?? '',
       plan: c.plan,
       estado: c.estado,
       comisionPctOverride: c.comisionPctOverride ?? null,
@@ -1179,7 +989,6 @@ export class AdminComerciosComponent implements OnInit {
         const dto: ActualizarComercioDto = {
           nombreComercial: v.nombreComercial!,
           razonSocial: v.razonSocial!,
-          logoUrl: v.logoUrl || undefined,
           verticales: this.verticalesSeleccionadas(),
           plan: v.plan!,
           estado: v.estado!,
@@ -1191,7 +1000,6 @@ export class AdminComerciosComponent implements OnInit {
           nombreComercial: v.nombreComercial!,
           razonSocial: v.razonSocial!,
           vatNumber: v.vatNumber!,
-          logoUrl: v.logoUrl || undefined,
           verticales: this.verticalesSeleccionadas(),
           plan: v.plan!,
           estado: v.estado!,

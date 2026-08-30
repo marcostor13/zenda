@@ -8,7 +8,6 @@ export interface CrearComercioParams {
   razonSocial?: string;
   vatNumber?: string;
   nombreComercial: string;
-  logoUrl?: string;
   verticales?: VerticalKey[];
   plan?: PlanComercio;
   estado?: EstadoComercio;
@@ -18,7 +17,6 @@ export interface CrearComercioParams {
 export interface ActualizarComercioParams {
   razonSocial?: string;
   nombreComercial?: string;
-  logoUrl?: string;
   verticales?: VerticalKey[];
   plan?: PlanComercio;
   estado?: EstadoComercio;

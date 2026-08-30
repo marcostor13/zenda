@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import type { ExcepcionHorarioDto, HorarioDiaDto } from 'shared';
 import { environment } from '../../../environments/environment';
 
 /** Tarjeta genérica de servicio devuelta por el catálogo (cualquier vertical). */
@@ -41,6 +42,9 @@ export interface ResenaResumen {
 export interface ServicioDetalle extends ServicioCard {
   barrio: string;
   direccion: string;
+  /** Horario de atención de este servicio y sus festivos/cierres puntuales. */
+  horario?: HorarioDiaDto[];
+  excepcionesHorario?: ExcepcionHorarioDto[];
   amenities: string[];
   cancelacionGratis: boolean;
   descripcion: string;

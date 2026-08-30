@@ -88,11 +88,12 @@ describe('ReservaDetalleComponent', () => {
       expect(componente.iva()).toBe(21);
     });
 
-    it('debería contar el descuento al calcular el IVA', async () => {
-      await crear(reserva({ montoSubtotal: 100, descuentoMonto: 20, montoTotal: 96.8 }));
+    it('debería desglosar el IVA contenido en el total, no sumarlo', async () => {
+      // Los precios se anuncian con el impuesto incluido: `montoSubtotal` es la
+      // base imponible que ya viaja dentro de lo cobrado.
+      await crear(reserva({ montoSubtotal: 100, descuentoMonto: 20, montoTotal: 121 }));
 
-      // El IVA se aplica sobre el importe ya descontado, no sobre el bruto.
-      expect(componente.iva()).toBeCloseTo(16.8, 2);
+      expect(componente.iva()).toBeCloseTo(21, 2);
     });
   });
 

@@ -4,7 +4,6 @@ import { RouterLink } from '@angular/router';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
-import { RsPlaceAutocompleteComponent } from '../../../shared/components/place-autocomplete/rs-place-autocomplete.component';
 import { RsPhoneInputComponent } from '../../../shared/components/phone-input/rs-phone-input.component';
 import { iconoVertical } from '../../panel-comercio/vertical-icon';
 
@@ -25,7 +24,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
   standalone: true,
   imports: [
     ReactiveFormsModule, RouterLink, RsIconComponent,
-    RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+    RsPhoneInputComponent,
   ],
   template: `
     <div class="rc">
@@ -39,7 +38,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
           </a>
 
           <a routerLink="/" class="rc__logo" aria-label="Ir a la Home de Doogking">
-            <img src="/images/logo-doogking.jpg" alt="Doogking" />
+            <img src="/images/logo-doogking.png" alt="Doogking" />
           </a>
 
           @if (pendiente()) {
@@ -52,13 +51,13 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                 <path d="M97 80 L104 87 L119 71" fill="none" stroke="var(--dk-blue-deep)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
 
-              <h1 class="rc__ok-title">Tu negocio ya está creado</h1>
+              <h1 class="rc__ok-title">Tu cuenta ya está creada</h1>
               <p class="rc__ok-text">
                 Solo queda verificar tu correo. Hemos enviado un enlace a
                 <strong>{{ emailRegistrado() }}</strong>.
               </p>
               <p class="rc__ok-hint">
-                Ábrelo para activar la cuenta y entrar a tu panel. Si no lo ves, revisa el spam.
+                Ábrelo y te llevamos directo a publicar tu primer servicio. Si no lo ves, revisa el spam.
               </p>
 
               @if (reenviado()) {
@@ -129,37 +128,12 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
             @if (paso() === 2) {
               <section class="rc__panel">
                 <h1 class="rc__title">Crea tu cuenta</h1>
-                <p class="rc__sub">Cinco datos y listo. La información fiscal y bancaria se completa después, desde tu panel.</p>
+                <p class="rc__sub">
+                  Cuatro datos y listo. En cuanto verifiques tu correo te llevamos a publicar tu
+                  primer servicio; los datos del negocio se completan al final.
+                </p>
 
                 <form class="rc-form" [formGroup]="registroForm" (ngSubmit)="onSubmit()" novalidate>
-
-                  <div class="rc-fs" role="group" aria-labelledby="rc-fs-negocio" formGroupName="negocio">
-                    <p class="rc-fs__legend" id="rc-fs-negocio">
-                      <rs-icon name="store" [size]="14" [stroke]="2" /> Tu negocio
-                    </p>
-
-                    <div class="rs-field">
-                      <label for="nombreComercial" class="rs-lbl">Nombre del negocio</label>
-                      <input id="nombreComercial" type="text" formControlName="nombreComercial" class="rs-inp"
-                             autocomplete="organization" [placeholder]="placeholderNombreNegocio()"
-                             [class.rs-inp--error]="invalido(negocioForm, 'nombreComercial')"
-                             [attr.aria-invalid]="invalido(negocioForm, 'nombreComercial') || null" />
-                      @if (invalido(negocioForm, 'nombreComercial')) {
-                        <span class="rs-field-err">Escribe el nombre con el que te conocen tus clientes</span>
-                      } @else {
-                        <span class="rc-hint">Así aparecerá en tu ficha pública.</span>
-                      }
-                    </div>
-
-                    <div class="rs-field">
-                      <label for="ciudad" class="rs-lbl">¿Dónde prestas tus servicios?</label>
-                      <rs-place-autocomplete inputId="ciudad" formControlName="ciudad"
-                                             apariencia="campo" placeholder="Ciudad o zona" />
-                      @if (invalido(negocioForm, 'ciudad')) {
-                        <span class="rs-field-err">Indica tu ciudad o zona de trabajo</span>
-                      }
-                    </div>
-                  </div>
 
                   <div class="rc-fs" role="group" aria-labelledby="rc-fs-acceso" formGroupName="cuenta">
                     <p class="rc-fs__legend" id="rc-fs-acceso">
@@ -315,7 +289,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
     }
     .rc__back:hover { color: var(--dk-blue); background: var(--c-raised); }
 
-    .rc__logo { display: block; width: fit-content; margin: var(--sp-4) 0 var(--sp-8); }
+    .rc__logo { display: block; width: fit-content; margin: var(--sp-4) auto var(--sp-8); }
     .rc__logo img { height: 64px; width: auto; display: block; }
 
     /* ── Progreso ─────────────────────────────────────────────────────────── */
@@ -533,10 +507,6 @@ export class RegistroComercioComponent {
    * alta parecía "volver al paso 1" cuando en realidad la SPA arrancaba de cero.
    */
   readonly registroForm = this.fb.group({
-    negocio: this.fb.group({
-      nombreComercial: ['', [Validators.required, Validators.minLength(2)]],
-      ciudad: ['', [Validators.required, Validators.minLength(2)]],
-    }),
     cuenta: this.fb.group({
       nombre: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
@@ -545,28 +515,11 @@ export class RegistroComercioComponent {
     }),
   });
 
-  readonly negocioForm = this.registroForm.controls.negocio;
   readonly cuentaForm = this.registroForm.controls.cuenta;
 
   readonly seleccionValida = computed(() => this.verticalesSel().length > 0);
   readonly pasoActual = computed(() => this.pasos[this.paso() - 1] ?? this.pasos[0]);
   readonly progreso = computed(() => (this.paso() / this.pasos.length) * 100);
-
-  private readonly placeholdersPorVertical: Partial<Record<VerticalKey, string>> = {
-    [VerticalKey.VETERINARIA]: 'Ej. Veterinario Pérez',
-    [VerticalKey.PELUQUERIA]: 'Ej. Peluquería Canina Vila-Can',
-    [VerticalKey.ALOJAMIENTO]: 'Ej. Residencia Canina Vila-Can',
-    [VerticalKey.TRANSPORTE]: 'Ej. Transportes Caninos Madrid',
-    [VerticalKey.ADIESTRAMIENTO]: 'Ej. Adiestramiento Canino Vila-Can',
-    [VerticalKey.HOTELES]: 'Ej. Hotel Canino Luna',
-    [VerticalKey.CUIDADORES]: 'Ej. Paseos y Cuidado Canino Vila-Can',
-  };
-
-  /** Placeholder del nombre del negocio según el primer servicio elegido (HU-6.1.1). */
-  placeholderNombreNegocio(): string {
-    const primero = this.verticalesSel()[0];
-    return (primero && this.placeholdersPorVertical[primero]) || 'Ej. Royal Dog Resort';
-  }
 
   /** Fuerza de la contraseña (HU-6.1.4): sin validación de servidor, solo guía visual. */
   nivelFuerzaPassword(): 1 | 2 | 3 | 4 {
@@ -627,15 +580,12 @@ export class RegistroComercioComponent {
     this.emailDuplicado.set(false);
 
     try {
-      const negocio = this.negocioForm.getRawValue();
       const cuenta = this.cuentaForm.getRawValue();
       const respuesta = await this.authService.registrarComercio({
         nombre: cuenta.nombre!,
         email: cuenta.email!,
         password: cuenta.password!,
         telefono: cuenta.telefono || undefined,
-        nombreComercial: negocio.nombreComercial!,
-        ciudad: negocio.ciudad || undefined,
         verticales: this.verticalesSel().length ? this.verticalesSel() : undefined,
       });
       localStorage.removeItem(BORRADOR_KEY);
@@ -668,26 +618,19 @@ export class RegistroComercioComponent {
     }
   }
 
-  /**
-   * Negocio y acceso se envían juntos, así que hay que marcar los dos grupos:
-   * validando solo el de la cuenta, un negocio incompleto llegaría al servidor
-   * sin que ningún campo quedase señalado en pantalla.
-   */
   private formulariosValidos(): boolean {
-    const valido = this.negocioForm.valid && this.cuentaForm.valid;
-    if (!valido) {
-      this.negocioForm.markAllAsTouched();
-      this.cuentaForm.markAllAsTouched();
-    }
-    return valido;
+    if (this.cuentaForm.valid) return true;
+    this.cuentaForm.markAllAsTouched();
+    return false;
   }
 
+  /**
+   * Sólo se recuerdan las categorías marcadas. Los datos de acceso no se
+   * guardan en el dispositivo: entre ellos va la contraseña, y dejarla escrita
+   * en `localStorage` para ahorrar un campo no compensa.
+   */
   private guardarBorrador(): void {
-    const borrador = {
-      verticales: this.verticalesSel(),
-      negocio: this.negocioForm.getRawValue(),
-    };
-    localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
+    localStorage.setItem(BORRADOR_KEY, JSON.stringify({ verticales: this.verticalesSel() }));
     this.hayBorrador.set(true);
   }
 
@@ -695,12 +638,8 @@ export class RegistroComercioComponent {
     const raw = localStorage.getItem(BORRADOR_KEY);
     if (!raw) return;
     try {
-      const b = JSON.parse(raw) as {
-        verticales?: VerticalKey[];
-        negocio?: { nombreComercial?: string; ciudad?: string };
-      };
+      const b = JSON.parse(raw) as { verticales?: VerticalKey[] };
       if (Array.isArray(b.verticales)) this.verticalesSel.set(b.verticales);
-      if (b.negocio) this.negocioForm.patchValue(b.negocio);
       this.hayBorrador.set(true);
     } catch {
       localStorage.removeItem(BORRADOR_KEY);

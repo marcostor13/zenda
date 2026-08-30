@@ -9,20 +9,6 @@ import { ComercioApiService, MiComercio } from '../panel-comercio/comercio-api.s
 interface StatItem { icon: string; iconColor: string; iconBg: string; value: string; label: string; }
 interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
 
-/** Estado de verificación del comercio, con icono Lucide en vez de emoji (TCK-8010). */
-interface VerificacionBadge {
-  readonly clase: string;
-  readonly icono: string;
-  readonly texto: string;
-}
-
-const VERIFICACION_BADGE: Record<string, VerificacionBadge> = {
-  verificado:   { clase: 'rs-badge--success', icono: 'badge-check', texto: 'Comercio verificado' },
-  pendiente:    { clase: 'rs-badge--warning', icono: 'hourglass',   texto: 'Verificación pendiente' },
-  rechazado:    { clase: 'rs-badge--error',   icono: 'x',           texto: 'Verificación rechazada' },
-  sin_verificar:{ clase: 'rs-badge--neutral', icono: 'circle',      texto: 'Sin verificar' },
-};
-
 @Component({
   selector: 'app-perfil-comercio',
   standalone: true,
@@ -36,11 +22,7 @@ const VERIFICACION_BADGE: Record<string, VerificacionBadge> = {
     <!-- HEADER PERFIL PROFESIONAL -->
     <div class="perfil-header">
       <div class="avatar-ring">
-        @if (comercio()?.logoUrl) {
-          <img [src]="comercio()!.logoUrl" alt="Logo" class="avatar-photo" />
-        } @else {
-          <div class="avatar-inner">{{ inicial() }}</div>
-        }
+        <div class="avatar-inner">{{ inicial() }}</div>
       </div>
 
       <div class="perfil-header__info">
@@ -52,10 +34,6 @@ const VERIFICACION_BADGE: Record<string, VerificacionBadge> = {
           </p>
         }
         <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
-          <span class="rs-badge {{ verificacionBadge().clase }}">
-            <rs-icon [name]="verificacionBadge().icono" [size]="13" [stroke]="2"></rs-icon>
-            {{ verificacionBadge().texto }}
-          </span>
           <span class="rs-badge">Miembro desde 2026</span>
         </div>
       </div>
@@ -119,7 +97,6 @@ const VERIFICACION_BADGE: Record<string, VerificacionBadge> = {
     .perfil-header__actions { margin-left: auto; display: flex; gap: var(--sp-3); flex-wrap: wrap; }
     .avatar-ring { position: relative; flex-shrink: 0; }
     .avatar-inner { width: 80px; height: 80px; border-radius: 50%; background: var(--g-accent); display: flex; align-items: center; justify-content: center; font-size: var(--f-2xl); font-weight: var(--w-8); color: #fff; }
-    .avatar-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; display: block; }
     .perfil-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-8); @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); } }
     .rs-stat { padding: var(--sp-5); display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); }
     .rs-stat__icon { width: 40px; height: 40px; border-radius: var(--r-xl); display: flex; align-items: center; justify-content: center; }
@@ -159,10 +136,6 @@ export class PerfilComercioComponent implements OnInit {
   inicial(): string { return (this.comercio()?.nombreComercial?.[0] ?? 'C').toUpperCase(); }
   categorias(): string { return (this.comercio()?.verticales ?? []).join(' · ') || 'Comercio'; }
   ciudad(): string { return this.comercio()?.direccion?.ciudad ?? ''; }
-  verificacionBadge(): VerificacionBadge {
-    return VERIFICACION_BADGE[this.comercio()?.verificacion?.estado ?? 'sin_verificar'];
-  }
-
   async ngOnInit(): Promise<void> {
     try {
       const [comercio, reservas, servicios, resenas] = await Promise.all([

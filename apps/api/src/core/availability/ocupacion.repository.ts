@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ReservaEstado } from 'shared';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
+import { BloqueoServicio, BloqueoServicioDocument } from '../bloqueos/bloqueo-servicio.schema';
 
 /**
  * Estados en los que una reserva sigue ocupando la plaza.
@@ -29,6 +30,13 @@ export const inicioDelDia = (fecha: Date): Date =>
   new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate()));
 
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
+
+/**
+ * Ocupación que suma un cierre total. Agota cualquier inventario razonable sin
+ * llegar a `MAX_SAFE_INTEGER`, que al restarlo daría números absurdos en las
+ * plazas libres que se enseñan al comercio.
+ */
+const CIERRE_TOTAL = 9_999;
 
 /** Noches de una estancia: `[entrada, salida)`. La noche de salida no se ocupa. */
 export const nochesDe = (entrada: Date, salida: Date): string[] => {
@@ -66,6 +74,7 @@ interface ConsultaOcupacion {
 export class OcupacionRepository {
   constructor(
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
+    @InjectModel(BloqueoServicio.name) private readonly bloqueoModel: Model<BloqueoServicioDocument>,
   ) {}
 
   /** Mapa `YYYY-MM-DD` → reservas que ocupan esa noche, sólo con los días que tienen alguna. */
@@ -100,6 +109,58 @@ export class OcupacionRepository {
       }
     }
 
+    await this.sumarBloqueos(ocupacion, consulta);
     return ocupacion;
+  }
+
+  /**
+   * Añade a la ocupación lo que el comercio ha cerrado por su cuenta.
+   *
+   * Va aquí, y no en cada vertical, porque es el único sitio por el que pasan
+   * alojamiento y hoteles para saber qué noches están tomadas: si un negocio
+   * alquila dos suites por teléfono y no se descuentan, Doogking sigue
+   * vendiéndolas y acaba habiendo dos reservas para la misma cama.
+   *
+   * Un bloqueo sin `cantidad` cierra el servicio entero ese día. Se suma un
+   * número lo bastante grande para agotar cualquier inventario, porque desde
+   * aquí no hay una capacidad que consultar sin acoplarse a cada vertical.
+   */
+  private async sumarBloqueos(
+    ocupacion: Map<string, number>,
+    consulta: ConsultaOcupacion,
+  ): Promise<void> {
+    const desde = inicioDelDia(consulta.desde);
+    const hasta = inicioDelDia(consulta.hasta);
+
+    const filtro: Record<string, unknown> = {
+      servicioId: new Types.ObjectId(consulta.servicioId),
+      desde: { $lt: new Date(hasta.getTime() + MS_POR_DIA) },
+      hasta: { $gt: desde },
+    };
+    // Un bloqueo de un tipo de espacio concreto no cierra los demás.
+    if (consulta.espacioId) {
+      filtro['$or'] = [
+        { espacioTipo: consulta.espacioId },
+        { espacioTipo: { $in: [null, undefined] } },
+      ];
+    }
+
+    const bloqueos = await this.bloqueoModel
+      .find(filtro)
+      .select({ desde: 1, hasta: 1, cantidad: 1 })
+      .lean()
+      .exec();
+
+    for (const bloqueo of bloqueos) {
+      const unidades = bloqueo.cantidad ?? CIERRE_TOTAL;
+      const noches = nochesDe(bloqueo.desde, bloqueo.hasta);
+      // Un tramo dentro del mismo día no genera ninguna noche completa, pero sí
+      // cierra ese día: sin esto, bloquear "el martes de 9 a 14" no se notaba.
+      const dias = noches.length ? noches : [claveDia(bloqueo.desde)];
+
+      for (const dia of dias) {
+        ocupacion.set(dia, (ocupacion.get(dia) ?? 0) + unidades);
+      }
+    }
   }
 }

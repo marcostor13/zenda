@@ -69,6 +69,12 @@ export * from './dtos/comercios/actualizar-perfil-comercio.dto';
 export * from './dtos/cupones/cupon.dto';
 
 // DTOs — Catalog
+// DTOs — Comunes a varios dominios
+export * from './dtos/comunes/horario.dto';
+
+// DTOs — Agenda del comercio
+export * from './dtos/agenda/bloqueo.dto';
+
 export * from './dtos/catalog/aptitud-perro.dto';
 export * from './dtos/catalog/crear-servicio.dto';
 export * from './dtos/catalog/actualizar-servicio.dto';

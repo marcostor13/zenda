@@ -1,6 +1,16 @@
 import { Routes } from '@angular/router';
 
 export const panelComercioRoutes: Routes = [
+  /*
+   * El alta guiada va fuera del layout del panel a propósito: es una pantalla
+   * de recorrido, y el menú lateral del panel invita a saltárselo justo cuando
+   * lo que hace falta es terminar.
+   */
+  {
+    path: 'alta',
+    loadComponent: () =>
+      import('./comercio-alta.component').then(m => m.ComercioAltaComponent),
+  },
   {
     path: '',
     loadComponent: () =>
@@ -10,6 +20,11 @@ export const panelComercioRoutes: Routes = [
         path: '',
         loadComponent: () =>
           import('./panel-comercio-dashboard.component').then(m => m.PanelComercioDashboardComponent),
+      },
+      {
+        path: 'agenda',
+        loadComponent: () =>
+          import('./comercio-agenda.component').then(m => m.ComercioAgendaComponent),
       },
       {
         path: 'reservas',

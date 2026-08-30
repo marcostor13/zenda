@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
-import { VerticalKey, TamanoPerro, TipoPelo } from 'shared';
+import { VerticalKey, TamanoPerro, TipoPelo, HorarioDiaDto, ExcepcionHorarioDto } from 'shared';
 
 export type ServicioDocument = HydratedDocument<Servicio>;
 
@@ -36,9 +36,20 @@ export class Servicio {
   @Prop({ type: [String], default: [] })
   imagenes!: string[];
 
+  /**
+   * Dónde se presta ESTE servicio. La dirección completa cuelga del listado y no
+   * del comercio: un mismo negocio puede tener la residencia canina a las
+   * afueras y la peluquería en el centro, y con una única dirección de empresa
+   * la ficha enseñaba al cliente un sitio al que no tenía que ir.
+   */
   @Prop({
     type: {
       ciudad: { type: String, required: true },
+      calle: { type: String },
+      numero: { type: String },
+      provincia: { type: String },
+      codigoPostal: { type: String },
+      pais: { type: String },
       geo: {
         type: { type: String, enum: ['Point'] },
         coordinates: { type: [Number], default: undefined },
@@ -47,8 +58,25 @@ export class Servicio {
   })
   ubicacion!: {
     ciudad: string;
+    calle?: string;
+    numero?: string;
+    provincia?: string;
+    codigoPostal?: string;
+    pais?: string;
     geo?: { type: 'Point'; coordinates: [number, number] };
   };
+
+  /**
+   * Horario de atención del servicio, día a día, y sus excepciones (festivos,
+   * vacaciones, cierres puntuales). Antes vivían en el comercio, donde no podían
+   * distinguir una peluquería que abre de tarde de la residencia del mismo
+   * negocio que sólo admite entradas por la mañana.
+   */
+  @Prop({ type: [Object], default: [] })
+  horario!: HorarioDiaDto[];
+
+  @Prop({ type: [Object], default: [] })
+  excepcionesHorario!: ExcepcionHorarioDto[];
 
   /**
    * Dirección visible en la ficha. Vive en el documento base, no en un

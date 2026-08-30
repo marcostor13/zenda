@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { VerticalKey, horarioSemanal, DIAS_LABORABLES, HorarioDiaDto } from 'shared';
 import { Peluqueria, PeluqueriaDocument, ServicioGrooming } from './peluqueria.schema';
 import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
@@ -36,7 +36,7 @@ export class PeluqueriaSeeder implements OnModuleInit {
           { nombre: 'Spa premium', precio: 55, duracionMin: 90 },
         ],
         capacidad: 3, aDomicilio: false,
-        horario: 'L–S 10:00–20:00',
+        horario: horarioSemanal({ dias: [...DIAS_LABORABLES, 'sabado'], abre: '10:00', cierra: '20:00' }),
       }),
       this.p({
         titulo: 'Peluquería Guau Salamanca',
@@ -47,7 +47,10 @@ export class PeluqueriaSeeder implements OnModuleInit {
           { nombre: 'Spa premium', precio: 65, duracionMin: 90 },
         ],
         capacidad: 2, aDomicilio: true,
-        horario: 'L–V 09:30–19:30 · S 10:00–14:00',
+        horario: horarioSemanal(
+          { dias: DIAS_LABORABLES, abre: '09:30', cierra: '19:30' },
+          { dias: ['sabado'], abre: '10:00', cierra: '14:00' },
+        ),
       }),
       this.p({
         titulo: 'Dog Groom Chueca',
@@ -57,7 +60,7 @@ export class PeluqueriaSeeder implements OnModuleInit {
           { nombre: 'Higiene dental y oídos', precio: 18, duracionMin: 20 },
         ],
         capacidad: 2, aDomicilio: false,
-        horario: 'M–S 10:00–19:00',
+        horario: horarioSemanal({ dias: ['martes', 'miercoles', 'jueves', 'viernes', 'sabado'], abre: '10:00', cierra: '19:00' }),
       }),
     ]
       // Cada listado a su barrio: con todos en el mismo punto los pines se
@@ -70,7 +73,7 @@ export class PeluqueriaSeeder implements OnModuleInit {
 
   private p(d: {
     titulo: string; servicios: ServicioGrooming[]; capacidad: number;
-    aDomicilio: boolean; horario: string;
+    aDomicilio: boolean; horario: HorarioDiaDto[];
   }): Partial<Peluqueria> {
     const precioBase = Math.min(...d.servicios.map((s) => s.precio));
     return {

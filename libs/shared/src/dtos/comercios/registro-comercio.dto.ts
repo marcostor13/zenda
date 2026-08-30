@@ -27,13 +27,15 @@ export class RegistroComercioDto {
   @IsString()
   vatNumber?: string;
 
-  @IsString()
-  nombreComercial!: string;
-
-  /** Ciudad principal del negocio, capturada en el alta para el buscador. */
+  /**
+   * Nombre comercial. **Opcional en el alta rápida**: el registro sólo pide los
+   * datos de acceso, y el negocio se nombra en el alta guiada, junto al resto de
+   * sus datos. Hasta entonces se usa un provisional derivado del nombre de la
+   * persona, porque el documento no puede quedarse sin él.
+   */
   @IsOptional()
   @IsString()
-  ciudad?: string;
+  nombreComercial?: string;
 
   @IsOptional()
   @IsArray()

@@ -40,6 +40,15 @@ export interface OpcionesMotor {
    * rueda, secuestrar el gesto deja al usuario atrapado sobre el mapa.
    */
   readonly zoomConRueda: boolean;
+  /**
+   * Engancha la pulsación sobre el lienzo para recolocar un punto.
+   *
+   * Apaga además las tarjetas emergentes de los pines: cuando el mapa sirve
+   * para **colocar** un punto y no para explorar resultados, hay un solo pin,
+   * su tarjeta no dice nada que no esté ya en el formulario y tapa justo el
+   * trozo de mapa al que se está apuntando.
+   */
+  readonly permitePulsar?: boolean;
 }
 
 /** Avisos que el motor devuelve al componente que lo hospeda. */
@@ -47,6 +56,13 @@ export interface EscuchasMotor {
   /** El usuario ha movido o hecho zoom; el hospedador decide si rebuscar. */
   readonly alMoverse: () => void;
   readonly alElegirPunto: (id: string) => void;
+  /**
+   * Pulsación sobre el lienzo, con las coordenadas del punto tocado. Sólo se
+   * engancha si el hospedador la pide (`permitePulsar`): en el buscador, tocar
+   * el mapa no debe significar nada, y en el alta de un servicio significa
+   * "el sitio es este".
+   */
+  readonly alPulsarMapa?: (lat: number, lng: number) => void;
 }
 
 /**

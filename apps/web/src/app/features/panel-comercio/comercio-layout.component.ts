@@ -24,6 +24,7 @@ const PLAN_BADGE: Record<string, string> = {
 const NAV_ITEMS = [
   { icon: 'sparkles',       label: 'Inicio',         ruta: '/comercio',          exact: true  },
   { icon: 'calendar',       label: 'Reservas',        ruta: '/comercio/reservas', exact: false },
+  { icon: 'calendar',       label: 'Agenda',          ruta: '/comercio/agenda',   exact: false },
   { icon: 'tag',            label: 'Servicios',       ruta: '/comercio/listados', exact: false },
   { icon: 'euro',           label: 'Extras y suplementos', ruta: '/comercio/suplementos', exact: false },
   { icon: 'trending-up',   label: 'Ingresos y pagos',ruta: '/comercio/ingresos', exact: false },
@@ -96,16 +97,11 @@ const NAV_ITEMS = [
         <div class="cl-brand__icon">
           <rs-icon [name]="iconVertical(comercio()?.verticales?.[0] ?? '')" [size]="20" [stroke]="1.75"></rs-icon>
         </div>
-        <!-- Identidad profesional: nombre del negocio, verificación del comercio
-             y plan contratado. Aquí nunca aparece el nivel Alpha, que es
-             fidelización del cliente (TCK-8029). -->
+        <!-- Identidad profesional: nombre del negocio y plan contratado. Aquí
+             nunca aparece el nivel Alpha, que es fidelización del cliente
+             (TCK-8029). -->
         <div class="cl-brand__info">
           <div class="cl-brand__name">{{ comercio()?.nombreComercial ?? 'Mi comercio' }}</div>
-          @if (comercioVerificado()) {
-            <span class="rs-badge rs-badge--success cl-brand__verificado">
-              <rs-icon name="badge-check" [size]="12" [stroke]="2"></rs-icon> Comercio verificado
-            </span>
-          }
           <span class="rs-badge {{ planBadge(comercio()?.plan ?? 'basico') }}">
             Plan {{ (comercio()?.plan ?? 'básico') | titlecase }}
           </span>
@@ -243,7 +239,6 @@ export class ComercioLayoutComponent implements OnInit {
 
   readonly comercio = signal<MiComercio | null>(null);
   /** Verificación documental del negocio, la única que se afirma aquí (TCK-8029). */
-  readonly comercioVerificado = computed(() => this.comercio()?.verificacion?.estado === 'verificado');
   readonly navItems = NAV_ITEMS;
   readonly verticalesOpciones = VERTICALES_OPCIONES;
 

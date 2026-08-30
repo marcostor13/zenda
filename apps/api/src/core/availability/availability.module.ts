@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AvailabilityRegistry } from './availability.registry';
 import { OcupacionRepository } from './ocupacion.repository';
 import { Reserva, ReservaSchema } from '../bookings/reserva.schema';
+import { BloqueoServicio, BloqueoServicioSchema } from '../bloqueos/bloqueo-servicio.schema';
 
 /*
  * Registra el modelo de reservas aquí, y no lo toma de `BookingsModule`: el
@@ -11,7 +12,12 @@ import { Reserva, ReservaSchema } from '../bookings/reserva.schema';
  * schema, que no arrastra nada.
  */
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Reserva.name, schema: ReservaSchema }])],
+  imports: [
+    MongooseModule.forFeature([
+      { name: Reserva.name, schema: ReservaSchema },
+      { name: BloqueoServicio.name, schema: BloqueoServicioSchema },
+    ]),
+  ],
   providers: [AvailabilityRegistry, OcupacionRepository],
   exports: [AvailabilityRegistry, OcupacionRepository],
 })

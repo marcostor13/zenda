@@ -130,7 +130,6 @@ export class AdminController {
     razonSocial: string;
     vatNumber: string;
     nombreComercial: string;
-    logoUrl?: string;
     verticales?: string[];
     plan?: string;
     estado?: string;
@@ -146,7 +145,6 @@ export class AdminController {
     @Body() dto: {
       razonSocial?: string;
       nombreComercial?: string;
-      logoUrl?: string;
       verticales?: string[];
       plan?: string;
       estado?: string;
@@ -154,17 +152,6 @@ export class AdminController {
     },
   ) {
     return this.adminService.actualizarComercio(id, dto as Parameters<AdminService['actualizarComercio']>[1]);
-  }
-
-  @PermisosAdmin(PermisoAdmin.COMERCIOS)
-  @Patch('comercios/:id/verificacion')
-  @ApiOperation({ summary: 'Verificar o rechazar la documentación de un comercio' })
-  cambiarVerificacionComercio(
-    @Param('id') id: string,
-    @Body() dto: { estado: 'verificado' | 'rechazado' | 'pendiente'; motivo?: string },
-    @Req() req: RequestConAdmin,
-  ) {
-    return this.adminService.cambiarVerificacionComercio(id, dto.estado, dto.motivo, req.user.sub);
   }
 
   @PermisosAdmin(PermisoAdmin.COMERCIOS)

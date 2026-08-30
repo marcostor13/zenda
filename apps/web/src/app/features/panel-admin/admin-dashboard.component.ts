@@ -85,9 +85,6 @@ const ESTADO_BADGE: Record<string, string> = {
             <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
             Atención requerida ({{ totalAlertas() }})
           </span>
-          @if (kpis().verificacionesPendientes > 0) {
-            <a routerLink="/admin/comercios" class="admin-alertas__chip"><rs-icon name="bell" [size]="13" [stroke]="2"></rs-icon> {{ kpis().verificacionesPendientes }} verificaciones pendientes</a>
-          }
           @if (kpis().comerciosPendientesCount > 0) {
             <a routerLink="/admin/comercios" class="admin-alertas__chip"><rs-icon name="bell" [size]="13" [stroke]="2"></rs-icon> {{ kpis().comerciosPendientesCount }} comercios por aprobar</a>
           }
@@ -170,10 +167,6 @@ const ESTADO_BADGE: Record<string, string> = {
         <div class="kpi-mini rs-card">
           <span class="kpi-mini__num">{{ kpis().comerciosPendientesCount }}</span>
           <span class="kpi-mini__lbl">Comercios pendientes</span>
-        </div>
-        <div class="kpi-mini rs-card">
-          <span class="kpi-mini__num">{{ kpis().verificacionesPendientes }}</span>
-          <span class="kpi-mini__lbl">Verificaciones pendientes</span>
         </div>
         <div class="kpi-mini rs-card">
           <span class="kpi-mini__num">{{ kpis().nuevosComerciosMes }}</span>
@@ -476,7 +469,7 @@ export class AdminDashboardComponent implements OnInit {
   readonly kpis = signal({
     totalReservas: 0, gmvMes: 0, ingresosMes: 0,
     comerciosPendientesCount: 0, totalUsuarios: 0,
-    verificacionesPendientes: 0, nuevosComerciosMes: 0,
+nuevosComerciosMes: 0,
     mascotasRegistradas: 0, tasaCancelacionMes: 0,
     pagosRetenidosMonto: 0, pagosRetenidosCount: 0,
     incidenciasAbiertas: 0,
@@ -551,7 +544,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   totalAlertas(): number {
-    return this.kpis().verificacionesPendientes + this.kpis().comerciosPendientesCount
+    return this.kpis().comerciosPendientesCount
       + this.kpis().pagosRetenidosCount + this.kpis().incidenciasAbiertas;
   }
 

@@ -50,8 +50,6 @@ export class Peluqueria extends Servicio {
   @Prop({ default: false })
   aDomicilio!: boolean;
 
-  @Prop()
-  horario?: string;
 
   // --- Enriquecimiento Fase C (docs/mejora_servicios.md §1) ---
 

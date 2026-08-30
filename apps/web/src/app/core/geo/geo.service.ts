@@ -120,6 +120,25 @@ export class GeoService {
     }
   }
 
+  /**
+   * Dirección postal de un punto exacto (geocodificación inversa).
+   *
+   * La usa el mapa del alta de un servicio: al mover el pin hay que reescribir
+   * la calle, la población y el código postal, o el punto quedaría bien y la
+   * dirección escrita seguiría señalando al sitio anterior.
+   */
+  async direccionDePunto(lat: number, lng: number): Promise<DireccionLugar | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<DireccionLugar | null>(`${this.base}/direccion-punto`, {
+          params: { lat: String(lat), lng: String(lng) },
+        }),
+      );
+    } catch {
+      return null;
+    }
+  }
+
   /** Distancia y duración entre dos poblaciones, para tarificar un traslado. */
   async trayecto(placeIdOrigen: string, placeIdDestino: string): Promise<Trayecto | null> {
     try {

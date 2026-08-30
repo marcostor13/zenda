@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, IsArray, IsIn, IsBoolean, IsNumber, ValidateNested, IsEnum, ArrayNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsArray, IsIn, IsBoolean, ValidateNested, IsEnum, ArrayNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
 
@@ -7,55 +7,6 @@ export class ContactoComercioDto {
   @IsOptional() @IsEmail() email?: string;
   @IsOptional() @IsString() telefono?: string;
   @IsOptional() @IsString() whatsapp?: string;
-}
-
-export class DireccionComercioDto {
-  @IsOptional() @IsString() calle?: string;
-  @IsOptional() @IsString() numero?: string;
-  @IsOptional() @IsString() ciudad?: string;
-  @IsOptional() @IsString() provincia?: string;
-  @IsOptional() @IsString() codigoPostal?: string;
-  @IsOptional() @IsString() pais?: string;
-  @IsOptional() @IsNumber() @Type(() => Number) lat?: number;
-  @IsOptional() @IsNumber() @Type(() => Number) lng?: number;
-}
-
-export class HorarioDiaDto {
-  @IsIn(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'])
-  dia!: string;
-
-  /** Primer tramo del día. */
-  @IsOptional() @IsString() abre?: string;
-  @IsOptional() @IsString() cierra?: string;
-
-  /**
-   * Segundo tramo, para la jornada partida. El esquema y el formulario del panel
-   * ya lo contemplaban (TCK-8028: "muchos negocios cierran a mediodía"), pero
-   * faltaba declararlo aquí, así que guardar el horario devolvía siempre 400
-   * "property abre2 should not exist" — los catorce días de la semana a la vez.
-   */
-  @IsOptional() @IsString() abre2?: string;
-  @IsOptional() @IsString() cierra2?: string;
-
-  @IsBoolean()
-  cerrado!: boolean;
-}
-
-/**
- * Documento que el comercio adjunta para su verificación.
- *
- * Sólo declara lo que aporta el comercio. `estado` y `subidoAt` los fija el
- * servidor a propósito: si el cliente pudiera enviar `estado`, un comercio
- * marcaría sus propios papeles como `verificado` y se saltaría la revisión del
- * administrador (HU J1).
- */
-export class DocumentoVerificacionDto {
-  @IsIn(['dni', 'cif', 'licencia', 'seguro_rc', 'certificado', 'otro'])
-  tipo!: string;
-
-  @IsOptional() @IsString() nombre?: string;
-  @IsString() url!: string;
-  @IsOptional() @IsString() fechaCaducidad?: string;
 }
 
 export class DatosBancariosDto {
@@ -72,12 +23,22 @@ export class PreferenciasNotificacionDto {
   @IsOptional() @IsBoolean() pagos?: boolean;
 }
 
-export class ActualizarPerfilComercioDto {
-  /** Festivos, vacaciones y cierres puntuales (TCK-8028). */
-  @IsOptional()
-  @IsArray()
-  excepcionesHorario?: Array<{ fecha: string; motivo?: string; cerrado: boolean; abre?: string; cierra?: string }>;
+/**
+ * Aceptaciones que el comercio firma al terminar su alta.
+ *
+ * Sólo viaja el "sí" del comercio: la fecha y la versión del texto las sella el
+ * servidor. Si el cliente pudiera mandarlas, la prueba de consentimiento —que es
+ * justo para lo que sirve este bloque— no valdría nada.
+ */
+export class ConsentimientosComercioDto {
+  @IsBoolean()
+  operaLegalmente!: boolean;
 
+  @IsBoolean()
+  condicionesGenerales!: boolean;
+}
+
+export class ActualizarPerfilComercioDto {
   /**
    * Datos fiscales. Son opcionales al registrarse (perfilado progresivo,
    * CLAUDE.md §4.2) y se completan después desde el panel — pero faltaban aquí,
@@ -89,32 +50,9 @@ export class ActualizarPerfilComercioDto {
 
   @IsOptional() @IsString() nombreComercial?: string;
   @IsOptional() @IsString() descripcion?: string;
-  @IsOptional() @IsString() logoUrl?: string;
-  @IsOptional() @IsString() coverUrl?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  galeria?: string[];
-
   @IsOptional()
   @IsIn(['flexible', 'moderada', 'estricta'])
   politicaCancelacion?: string;
-
-  @IsOptional() @IsString() documentoIdentidadUrl?: string;
-  @IsOptional() @IsString() licenciaNegocioUrl?: string;
-
-  /**
-   * Documentación adicional (seguro de RC, certificados…). El servicio ya sabía
-   * tratarla, pero faltaba declararla aquí: con `forbidNonWhitelisted` el API
-   * devolvía 400 "property documentos should not exist" y la pantalla de
-   * verificación del panel no podía guardar nada.
-   */
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => DocumentoVerificacionDto)
-  documentos?: DocumentoVerificacionDto[];
 
   @IsOptional()
   @ValidateNested()
@@ -123,8 +61,18 @@ export class ActualizarPerfilComercioDto {
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => DireccionComercioDto)
-  direccion?: DireccionComercioDto;
+  @Type(() => ConsentimientosComercioDto)
+  consentimientos?: ConsentimientosComercioDto;
+
+  /**
+   * Cierra el alta guiada. El comercio puede dejarla a medias ("todavía no tengo
+   * los datos"), así que este flag es lo que distingue un alta terminada de una
+   * aparcada; no se deduce de tener los campos llenos porque los datos fiscales
+   * también se pueden completar más tarde desde el panel.
+   */
+  @IsOptional()
+  @IsBoolean()
+  altaCompletada?: boolean;
 
   @IsOptional()
   @ValidateNested()
@@ -135,12 +83,6 @@ export class ActualizarPerfilComercioDto {
   @ValidateNested()
   @Type(() => PreferenciasNotificacionDto)
   preferenciasNotificacion?: PreferenciasNotificacionDto;
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => HorarioDiaDto)
-  horario?: HorarioDiaDto[];
 
   /**
    * Categorías en las que trabaja el negocio.

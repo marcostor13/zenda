@@ -41,6 +41,7 @@ class MotorGoogle implements MotorMapa {
     opciones: OpcionesMotor,
     private readonly escuchas: EscuchasMotor,
   ) {
+    this.sinTarjetas = opciones.permitePulsar === true;
     const [lat, lng] = opciones.centro;
     this.mapa = new maps.Map(opciones.lienzo, {
       center: { lat, lng },
@@ -67,7 +68,17 @@ class MotorGoogle implements MotorMapa {
     maps.event.addListenerOnce(this.mapa, 'idle', () => {
       this.mapa.addListener('idle', () => this.escuchas.alMoverse());
     });
+
+    if (opciones.permitePulsar) {
+      this.mapa.addListener('click', (evento: google.maps.MapMouseEvent) => {
+        const punto = evento.latLng;
+        if (punto) this.escuchas.alPulsarMapa?.(punto.lat(), punto.lng());
+      });
+    }
   }
+
+  /** El mapa está colocando un punto, no enseñando resultados. */
+  private readonly sinTarjetas: boolean;
 
   pintar(puntos: readonly PuntoMapa[], activo: string | null): void {
     this.limpiarPines();
@@ -75,7 +86,9 @@ class MotorGoogle implements MotorMapa {
     for (const punto of puntosGeolocalizados(puntos)) {
       const pin = new this.Pin(punto, punto.id === activo, {
         alPulsar: () => this.alPulsarPin(punto),
-        alEntrar: () => this.mostrarTarjeta(punto),
+        // Sin tarjetas cuando el mapa sirve para colocar el punto: taparían el
+        // sitio al que se apunta y no dirían nada nuevo.
+        alEntrar: () => { if (!this.sinTarjetas) this.mostrarTarjeta(punto); },
         alSalir: () => this.programarCierre(),
       });
       pin.setMap(this.mapa);

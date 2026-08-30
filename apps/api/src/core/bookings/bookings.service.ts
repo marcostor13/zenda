@@ -11,6 +11,7 @@ import { construirSnapshotPerro } from '../perros/perro-snapshot.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ComisionResolverService } from '../comision-configs/comision-resolver.service';
 import { EventosService } from '../eventos/eventos.service';
+import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
   VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento,
@@ -101,6 +102,7 @@ export class BookingsService {
     private readonly notificationsService: NotificationsService,
     private readonly comisionResolver: ComisionResolverService,
     private readonly eventosService: EventosService,
+    private readonly bloqueosService: BloqueosService,
   ) {}
 
   /**
@@ -212,6 +214,22 @@ export class BookingsService {
       ? construirSnapshotPerro(await this.perrosService.obtenerPropio(params.perroId, params.usuarioId))
       : undefined;
 
+    /*
+     * Lo que el comercio ha cerrado a mano manda sobre cualquier cupo. Se mira
+     * aquí, antes de la estrategia del vertical, porque es una regla común: los
+     * verticales de cita sólo cuentan cupos y no saben nada de fechas, así que
+     * repartir la comprobación entre los cinco la habría dejado a medias.
+     *
+     * Sólo corta el cierre **total**; los parciales restan inventario y los
+     * resuelve el calendario de ocupación.
+     */
+    const cierre = await this.bloqueosService.cierreQueSolapa(
+      params.servicioId, params.fechaInicio, params.fechaFin,
+    );
+    if (cierre) {
+      throw new DomainException(`El comercio no atiende en esas fechas: ${cierre.motivo}`, 409);
+    }
+
     const estrategia = this.availabilityRegistry.obtener(vertical);
 
     const disponibilidad = await estrategia.checkAvailability(params.servicioId, {
@@ -235,15 +253,27 @@ export class BookingsService {
       cantidad: params.cantidad ?? 1,
     });
 
+    /*
+     * Los precios que declara el comercio **llevan el IVA incluido**: es lo que
+     * el cliente ve en el buscador y lo que va a pagar, sin sorpresas al llegar
+     * al último paso. La base imponible se obtiene dividiendo, no sumando.
+     */
     const precioBase = disponibilidad.precioCalculado ?? 0;
-    let montoSubtotal = precioBase;
+    let montoTotal = precioBase;
     let descuentoMonto = 0;
 
     if (params.cuponCodigo) {
-      const descuento = await this.cuponesService.validar(params.cuponCodigo, vertical, montoSubtotal);
+      const descuento = await this.cuponesService.validar(params.cuponCodigo, vertical, montoTotal);
       descuentoMonto = descuento.descuento;
-      montoSubtotal = redondearEuros(montoSubtotal - descuentoMonto);
+      montoTotal = redondearEuros(montoTotal - descuentoMonto);
     }
+
+    // Céntimos, no coma flotante: sin redondear se persistían importes como
+    // 121.34000000000002. `PaymentsService` recalcula el desglose redondeando,
+    // así que la reserva y lo que de verdad se cobra dejaban de cuadrar, y los
+    // agregados del reporte financiero del admin sumaban ese ruido.
+    montoTotal = redondearEuros(montoTotal);
+    const montoSubtotal = redondearEuros(montoTotal / (1 + IVA_RATE));
 
     // La jerarquía de comisiones vive entera en el resolver: socio fundador →
     // override del comercio → tramo por importe → vertical → defecto.
@@ -255,14 +285,11 @@ export class BookingsService {
           comercioId,
         });
 
-    // Céntimos, no coma flotante: sin redondear se persistían importes como
-    // 121.34000000000002. `PaymentsService` recalcula el desglose redondeando,
-    // así que la reserva y lo que de verdad se cobra dejaban de cuadrar, y los
-    // agregados del reporte financiero del admin sumaban ese ruido.
+    // La comisión va sobre la base imponible, no sobre el total: el IVA no es
+    // ingreso del comercio y cobrar comisión sobre él sería cobrar sobre un
+    // dinero que va a Hacienda.
     const comisionPct = comision.comisionPct;
     const comisionMonto = redondearEuros(montoSubtotal * comisionPct);
-    const iva = redondearEuros(montoSubtotal * IVA_RATE);
-    const montoTotal = redondearEuros(montoSubtotal + iva);
 
     const reserva = new this.reservaModel({
       codigo: this.generarCodigo(),
@@ -579,9 +606,11 @@ export class BookingsService {
       createdAt: ahora,
     }));
 
+    // Los suplementos los declara el comercio con el IVA incluido, igual que el
+    // resto de precios: se suman al total, no a la base. Grosarlos otra vez
+    // habría cobrado el impuesto dos veces sobre esa parte.
     const sumaSuplementos = suplementos.reduce((acc, s) => acc + s.monto, 0);
-    const nuevoMontoSubtotal = redondearEuros(reserva.montoSubtotal + sumaSuplementos);
-    const montoAjustado = redondearEuros(nuevoMontoSubtotal * (1 + IVA_RATE));
+    const montoAjustado = redondearEuros(reserva.montoTotal + sumaSuplementos);
 
     reserva.suplementos.push(...nuevos);
     if (evidenciaUrl) {

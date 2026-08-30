@@ -48,8 +48,6 @@ export class Veterinaria extends Servicio {
   @Prop({ default: false })
   atiendeUrgencias!: boolean;
 
-  @Prop()
-  horario?: string;
 
   @Prop({ required: true, type: Number })
   precioConsulta!: number;

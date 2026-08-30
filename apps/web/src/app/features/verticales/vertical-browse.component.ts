@@ -110,7 +110,9 @@ const CONFIGS: Record<string, VerticalConfig> = {
     loc: (c) => `${c.ciudad}`,
     meta: (c) => [
       `${resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).nombres || 'Consulta general'}`,
-      c.extra['atiendeUrgencias'] ? 'Urgencias 24h' : `${(c.extra['horario'] as string) ?? 'Consulta horario'}`,
+      // El horario dejó de ser un texto libre del vertical y pasó a ser la
+      // semana estructurada del servicio, que no cabe en una línea de tarjeta.
+      c.extra['atiendeUrgencias'] ? 'Urgencias 24h' : 'Consulta horario',
     ],
     price: (c) => (c.extra['precioConsulta'] as number) ?? c.precioPorNoche,
   },

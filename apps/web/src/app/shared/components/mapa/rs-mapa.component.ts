@@ -145,7 +145,16 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
   /** Vista impuesta desde fuera (al elegir una población en el buscador). */
   readonly centro = input<{ lat: number; lng: number; zoom?: number } | null>(null);
 
+  /**
+   * Pulsar el lienzo recoloca el punto. Sólo lo enciende quien está eligiendo
+   * **una** ubicación —el alta de un servicio—: en el buscador, tocar el mapa
+   * para pasar de un pin a otro no debe significar mover nada.
+   */
+  readonly permitePulsar = input(false);
+
   readonly puntoElegido = output<string>();
+  /** Coordenadas del lugar pulsado; sólo con `permitePulsar`. */
+  readonly mapaPulsado = output<{ lat: number; lng: number }>();
   /** Zona visible tras mover o hacer zoom; la dispara solo el usuario. */
   readonly zonaCambiada = output<ZonaMapa>();
 
@@ -230,10 +239,12 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
       centro: CENTRO_POR_DEFECTO,
       zoom: ZOOM_POR_DEFECTO,
       zoomConRueda: this.zoomConRueda(),
+      permitePulsar: this.permitePulsar(),
     };
     const escuchas = {
       alMoverse: (): void => this.anunciarZona(),
       alElegirPunto: (id: string): void => this.puntoElegido.emit(id),
+      alPulsarMapa: (lat: number, lng: number): void => this.mapaPulsado.emit({ lat, lng }),
     };
 
     const clave = await this.geoService.claveMapas().catch(() => '');

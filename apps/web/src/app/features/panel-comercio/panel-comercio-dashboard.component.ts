@@ -37,6 +37,30 @@ const ESTADO_BADGE: Record<string, string> = {
     </div>
 
     <!-- COMPLETA TU NEGOCIO -->
+    <!--
+      El alta aparcada manda sobre el resto del panel: es el único estado en el
+      que el negocio no puede publicar nada, así que va lo primero y con una
+      salida única, en vez de repartida entre las pestañas de configuración.
+    -->
+    @if (altaPendiente()) {
+      <div class="rs-card alta-pendiente">
+        <div class="alta-pendiente__ico">
+          <rs-icon name="clock" [size]="20" [stroke]="2"></rs-icon>
+        </div>
+        <div class="alta-pendiente__texto">
+          <h3>Te falta terminar tu alta</h3>
+          <p>
+            Tus servicios están guardados como borrador y todavía no se ven en Doogking.
+            Son dos minutos: los datos de tu negocio y las condiciones.
+          </p>
+        </div>
+        <a routerLink="/comercio/alta" class="rs-btn rs-btn--primary">
+          Retomar el alta
+          <rs-icon name="arrow-right" [size]="15" [stroke]="2.5"></rs-icon>
+        </a>
+      </div>
+    }
+
     @if (pasosPendientes() > 0) {
       <div class="rs-card onboarding-card">
         <div class="onboarding-card__head">
@@ -224,6 +248,20 @@ const ESTADO_BADGE: Record<string, string> = {
     }
   `,
   styles: [`
+    .alta-pendiente {
+      display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
+      padding: var(--sp-5); margin-bottom: var(--sp-5);
+      border-left: 3px solid var(--dk-gold);
+    }
+    .alta-pendiente__ico {
+      display: grid; place-items: center; flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: var(--r-lg);
+      background: rgba(251, 174, 23, .14); color: var(--dk-gold);
+    }
+    .alta-pendiente__texto { flex: 1; min-width: 220px; }
+    .alta-pendiente__texto h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); }
+    .alta-pendiente__texto p { font-size: var(--f-sm); color: var(--t-400); margin-top: var(--sp-1); line-height: 1.55; }
+
     :host { display: contents; }
 
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-4); }
@@ -273,39 +311,25 @@ export class PanelComercioDashboardComponent implements OnInit {
   readonly servicios = signal<MiServicio[]>([]);
   readonly comercio = signal<MiComercio | null>(null);
 
+  /**
+   * El alta guiada quedó a medias. No se deduce de tener los campos llenos: el
+   * comercio puede aparcarla a propósito, y sólo el cierre explícito del
+   * recorrido —o no haber pasado nunca por él— dice en qué estado está.
+   */
+  readonly altaPendiente = computed(() => {
+    const c = this.comercio();
+    return !!c && c.altaCompletada !== true;
+  });
+
   /** Checklist de perfilado progresivo: lo que faltó por pedir en el alta rápida. */
   readonly pasosOnboarding = computed<PasoOnboarding[]>(() => {
     const c = this.comercio();
     return [
       { clave: 'fiscal', label: 'Datos fiscales (CIF/NIF)', hecho: !!c?.vatNumber },
       { clave: 'banco', label: 'Cuenta bancaria (IBAN)', hecho: !!c?.datosBancarios?.iban },
-      { clave: 'logo', label: 'Logo del negocio', hecho: !!c?.logoUrl },
-      { clave: 'documentos', label: 'Documentos de verificación', hecho: this.tieneDocumentacion(c) },
       { clave: 'listado', label: 'Primer listado publicado', hecho: this.servicios().some((s) => s.estado === 'publicado') },
     ];
   });
-  /**
-   * El paso está hecho cuando el comercio ya ha aportado su documentación.
-   *
-   * Antes solo miraba `verificacion.documentos`, que es la lista de documentos
-   * ADICIONALES; los dos obligatorios (identidad y licencia) viajan en sus
-   * propios campos. Un comercio que subía los dos obligatorios —y al que el
-   * admin incluso había verificado— seguía viendo el paso pendiente para
-   * siempre, porque esa lista de extras estaba vacía.
-   *
-   * Exigir los dos obligatorios juntos, y no cualquiera de ellos, es la misma
-   * regla que aplica el API en `comercios.service.ts` para dar la
-   * documentación por entregada; si divergen, el panel y el backend dirían
-   * cosas distintas sobre el mismo comercio.
-   */
-  private tieneDocumentacion(c: MiComercio | null): boolean {
-    const v = c?.verificacion;
-    if (!v) return false;
-    // Si el admin ya lo validó, el paso está hecho pase lo que pase.
-    if (v.estado === 'verificado') return true;
-    return (!!v.documentoIdentidadUrl && !!v.licenciaNegocioUrl) || (v.documentos?.length ?? 0) > 0;
-  }
-
   readonly pasosHechos = computed(() => this.pasosOnboarding().filter((p) => p.hecho).length);
   readonly pasosPendientes = computed(() => this.pasosOnboarding().length - this.pasosHechos());
   readonly progresoPct = computed(() =>

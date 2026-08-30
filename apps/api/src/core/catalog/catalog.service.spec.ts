@@ -576,6 +576,32 @@ describe('CatalogService', () => {
       );
     });
 
+    it('debería guardar la dirección exacta y el horario del servicio', async () => {
+      // Cuelgan del listado, no del comercio: un mismo negocio puede tener la
+      // peluquería en el centro y la residencia a las afueras, con horarios
+      // distintos, y una sola dirección de empresa mentiría en una de las dos.
+      repo.crear.mockResolvedValue(hotelDoc as never);
+
+      await service.crearServicio(
+        {
+          ...base, vertical: 'veterinaria' as never,
+          extra: { precioConsulta: 35 },
+          calle: 'Calle Mayor', numero: '24', provincia: 'Madrid',
+          codigoPostal: '28013', pais: 'España',
+          horario: [{ dia: 'lunes', abre: '09:00', cierra: '20:00', cerrado: false }],
+          excepcionesHorario: [{ fecha: '2026-12-25', cerrado: true }],
+        } as never,
+        'comercio-1',
+      );
+
+      expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({
+        calle: 'Calle Mayor', numero: '24', provincia: 'Madrid',
+        codigoPostal: '28013', pais: 'España',
+        horario: [{ dia: 'lunes', abre: '09:00', cierra: '20:00', cerrado: false }],
+        excepcionesHorario: [{ fecha: '2026-12-25', cerrado: true }],
+      }));
+    });
+
     it('debería lanzar 400 si faltan los campos obligatorios de transporte', async () => {
       await expect(
         service.crearServicio({ ...base, vertical: 'transporte' as never, extra: {} }, 'comercio-1'),

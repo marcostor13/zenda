@@ -10,7 +10,7 @@ import { AdminApiService } from './admin-api.service';
 const kpis = (extra: Record<string, number> = {}) => ({
   totalReservas: 120, gmvMes: 5000, ingresosMes: 750,
   comerciosPendientesCount: 2, totalUsuarios: 300,
-  verificacionesPendientes: 1, nuevosComerciosMes: 4,
+  nuevosComerciosMes: 4,
   mascotasRegistradas: 210, tasaCancelacionMes: 0.05,
   pagosRetenidosMonto: 300, pagosRetenidosCount: 3,
   incidenciasAbiertas: 4,
@@ -89,14 +89,14 @@ describe('AdminDashboardComponent', () => {
     it('debería sumar todo lo que requiere intervención del admin', async () => {
       await crear();
 
-      // 1 verificación + 2 comercios + 3 pagos retenidos + 4 incidencias.
-      expect(componente.totalAlertas()).toBe(10);
+      // 2 comercios + 3 pagos retenidos + 4 incidencias.
+      expect(componente.totalAlertas()).toBe(9);
     });
 
     it('no debería mostrar alertas con todo al día', async () => {
       await crear({
         kpis: kpis({
-          verificacionesPendientes: 0, comerciosPendientesCount: 0,
+          comerciosPendientesCount: 0,
           pagosRetenidosCount: 0, incidenciasAbiertas: 0,
         }),
       });

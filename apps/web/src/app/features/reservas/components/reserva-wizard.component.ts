@@ -1247,24 +1247,25 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </div>
             }
             <hr class="rs-hr" style="margin-block:var(--sp-4)">
-            <div class="price-row price-row--sub">
-              <span>Subtotal</span>
-              <span>{{ subtotal() | euros }}</span>
-            </div>
             @if (descuento() > 0) {
+              <div class="price-row price-row--sub">
+                <span>Subtotal</span>
+                <span>{{ subtotal() | euros }}</span>
+              </div>
               <div class="price-row price-row--sub" style="color:#16A34A">
                 <span>Descuento ({{ cuponCodigo() }})</span>
                 <span>−{{ descuento() | euros }}</span>
               </div>
             }
-            <div class="price-row price-row--sub">
-              <span>IVA (21%)</span>
-              <span>{{ iva() | euros }}</span>
-            </div>
             <div class="price-row price-row--total">
               <span>Total</span>
               <span>{{ total() | euros }}</span>
             </div>
+            <!-- El IVA va desglosado como parte del total, no sumado debajo:
+                 el precio anunciado es el que se paga. -->
+            <p class="price-iva">
+              Incluye {{ iva() | euros }} de IVA (21%) · base {{ baseImponible() | euros }}
+            </p>
 
             <!-- Cupón de descuento -->
             <div class="cupon-box">
@@ -1661,6 +1662,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .price-summary__card { background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-2xl); padding: var(--sp-6); box-shadow: var(--sh-xl); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-6); } }
     .price-row { display: flex; justify-content: space-between; font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-3); }
     .price-row--sub { color: var(--t-400); }
+    .price-iva { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); }
     .price-row--total { color: var(--t-100); font-weight: var(--w-8); font-size: var(--f-md); }
     .price-trust { display: flex; flex-direction: column; gap: var(--sp-2); p { font-size: var(--f-xs); color: var(--t-400); } }
     .cupon-box { margin-top: var(--sp-4); }
@@ -2457,12 +2459,27 @@ export class ReservaWizardComponent implements OnInit {
     return suplementoTamano + suplementoAdicionales;
   });
 
-  readonly subtotalNeto = computed(() => Math.max(0, this.subtotal() - this.descuento()));
-  readonly iva          = computed(() => Math.round(this.subtotalNeto() * IVA_RATE * 100) / 100);
-  readonly total        = computed(() => {
+  /** Céntimos, no coma flotante: el desglose tiene que cuadrar con el cobro. */
+  private redondear(valor: number): number {
+    return Math.round(valor * 100) / 100;
+  }
+
+  /**
+   * Los precios del catálogo **llevan el IVA incluido**, que es lo que dicen las
+   * tarjetas del buscador. El desglose se obtiene dividiendo: sumarlo aquí
+   * encarecía en el último paso lo que se había anunciado, que es justo la
+   * sorpresa que nadie quiere al llegar al pago.
+   */
+  readonly total = computed(() => {
     const real = this.totalFromApi();
-    return real !== null ? real : Math.round((this.subtotalNeto() + this.iva()) * 100) / 100;
+    return real !== null ? real : Math.max(0, this.redondear(this.subtotal() - this.descuento()));
   });
+
+  /** Base imponible contenida en el total. */
+  readonly baseImponible = computed(() => this.redondear(this.total() / (1 + IVA_RATE)));
+
+  /** IVA ya contenido en el total; informativo, nunca se suma. */
+  readonly iva = computed(() => this.redondear(this.total() - this.baseImponible()));
 
   /**
    * HU-5.7.2 — Resumen del viaje visible durante todo el proceso de reserva de

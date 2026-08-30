@@ -83,6 +83,7 @@ export interface ConfigMapas {
 
 const PLACES_AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
 const PLACES_DETAILS_URL = 'https://places.googleapis.com/v1/places';
+const GEOCODE_INVERSO_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const FX_URL = 'https://api.frankfurter.app/latest?from=EUR';
 
@@ -131,6 +132,16 @@ interface RespuestaDetalles {
   displayName?: { text?: string };
   formattedAddress?: string;
   addressComponents?: ComponenteDireccion[];
+}
+
+/** Geocodificador clásico: nombra sus campos en snake_case, no como Places. */
+interface RespuestaGeocodeInverso {
+  /** Google señala aquí sus errores, con HTTP 200: `REQUEST_DENIED`, `OVER_QUERY_LIMIT`… */
+  status?: string;
+  results?: Array<{
+    formatted_address?: string;
+    address_components?: Array<{ long_name?: string; types?: string[] }>;
+  }>;
 }
 
 /**
@@ -340,6 +351,76 @@ export class GeoService {
       return direccion;
     } catch (error) {
       this.logger.warn(`Sin dirección para ${placeId}: ${this.mensaje(error)}`);
+      return null;
+    }
+  }
+
+  /**
+   * Dirección postal de un punto exacto (geocodificación inversa).
+   *
+   * La usa el mapa del alta de un servicio: al arrastrar el pin para corregir la
+   * ubicación hay que reescribir la calle, la población y el código postal, o el
+   * punto quedaría bien y la dirección escrita seguiría señalando al sitio
+   * anterior. Se cachea por coordenada redondeada —cinco decimales son ~1 m—
+   * porque arrastrar el pin dispara una consulta por cada suelta.
+   */
+  async direccionDePunto(lat: number, lng: number): Promise<DireccionLugar | null> {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+    const clave = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+    const cacheado = this.leerCache(this.cacheDirecciones, clave);
+    if (cacheado) return cacheado;
+
+    const deGoogle = await this.inversaDeGoogle(lat, lng);
+    // Sin Google —o con Google diciendo que no— contesta OpenStreetMap: el pin
+    // ya está movido y quedarse sin dirección dejaría la ficha contradiciéndose.
+    const direccion = deGoogle ?? (await this.osm.inversa(lat, lng));
+    return this.guardar(this.cacheDirecciones, clave, direccion);
+  }
+
+  /**
+   * Geocodificación inversa con Google. `null` si no hay clave o si no da un
+   * resultado utilizable, para que quien llame pueda recurrir a OpenStreetMap.
+   *
+   * Google avisa de sus errores **en el cuerpo, con HTTP 200**: una clave sin el
+   * API de Geocoding activado responde `REQUEST_DENIED` y cero resultados. Mirar
+   * sólo el código HTTP daba por buena esa respuesta y devolvía "sin dirección"
+   * en vez de pasar el relevo al respaldo.
+   */
+  private async inversaDeGoogle(lat: number, lng: number): Promise<DireccionLugar | null> {
+    if (!this.apiKey) return null;
+
+    try {
+      const parametros = new URLSearchParams({
+        latlng: `${lat},${lng}`,
+        key: this.apiKey,
+        language: 'es',
+      });
+      const respuesta = await fetch(`${GEOCODE_INVERSO_URL}?${parametros}`);
+      if (!respuesta.ok) throw new Error(`Geocoding inverso: ${respuesta.status}`);
+
+      const datos = (await respuesta.json()) as RespuestaGeocodeInverso;
+      const primero = datos.results?.[0];
+      if (!primero) {
+        if (datos.status && datos.status !== 'ZERO_RESULTS') {
+          this.logger.warn(`Geocoding inverso rechazado: ${datos.status}`);
+        }
+        return null;
+      }
+
+      // El geocodificador clásico nombra los campos en snake_case; se traducen
+      // al mismo formato que Places para reutilizar `componerDireccion`.
+      return this.componerDireccion(
+        {
+          formattedAddress: primero.formatted_address,
+          addressComponents: (primero.address_components ?? [])
+            .map((c) => ({ longText: c.long_name, types: c.types })),
+        },
+        lat,
+        lng,
+      );
+    } catch (error) {
+      this.logger.warn(`Sin dirección para ${lat},${lng}: ${this.mensaje(error)}`);
       return null;
     }
   }

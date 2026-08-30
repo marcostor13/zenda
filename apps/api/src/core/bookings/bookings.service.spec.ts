@@ -11,6 +11,7 @@ import { PerrosService } from '../perros/perros.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ComisionResolverService } from '../comision-configs/comision-resolver.service';
 import { EventosService } from '../eventos/eventos.service';
+import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { VerticalKey, ReservaEstado, COMISION_PCT_DEFAULT, TipoEvento } from 'shared';
 
@@ -23,6 +24,7 @@ describe('BookingsService', () => {
   let perrosService: jest.Mocked<PerrosService>;
   let notificationsService: jest.Mocked<NotificationsService>;
   let eventosService: jest.Mocked<Pick<EventosService, 'registrar'>>;
+  let bloqueosService: jest.Mocked<Pick<BloqueosService, 'cierreQueSolapa'>>;
   let catalogRepository: jest.Mocked<Pick<CatalogRepository, 'obtenerPorId'>>;
 
   const parametrosBase = {
@@ -121,6 +123,11 @@ describe('BookingsService', () => {
           useValue: { registrar: jest.fn().mockResolvedValue(undefined) },
         },
         {
+          // Por defecto no hay nada cerrado; los casos que lo necesiten lo fijan.
+          provide: BloqueosService,
+          useValue: { cierreQueSolapa: jest.fn().mockResolvedValue(null) },
+        },
+        {
           provide: ComisionResolverService,
           useValue: {
             resolver: jest.fn().mockResolvedValue({
@@ -140,6 +147,7 @@ describe('BookingsService', () => {
     perrosService = module.get(PerrosService);
     notificationsService = module.get(NotificationsService);
     eventosService = module.get(EventosService);
+    bloqueosService = module.get(BloqueosService);
   });
 
   /**
@@ -362,9 +370,47 @@ describe('BookingsService', () => {
     });
   });
 
+  /**
+   * Un comercio no vende sólo por Doogking: lo que cierra a mano tiene que
+   * cortar la reserva, o acabará con dos clientes para el mismo hueco.
+   */
+  describe('crear — tramos cerrados por el comercio', () => {
+    it('debería rechazar la reserva que cae en un cierre, diciendo el motivo', async () => {
+      bloqueosService.cierreQueSolapa.mockResolvedValue(
+        { motivo: 'Vacaciones de agosto' } as never,
+      );
+
+      await expect(service.crear(parametrosBase)).rejects.toThrow('Vacaciones de agosto');
+    });
+
+    it('no debería llegar a mirar el cupo del vertical si está cerrado', async () => {
+      // El cierre manda sobre cualquier disponibilidad declarada.
+      bloqueosService.cierreQueSolapa.mockResolvedValue({ motivo: 'Obras' } as never);
+
+      await expect(service.crear(parametrosBase)).rejects.toThrow(DomainException);
+      expect(estrategiaMock.checkAvailability).not.toHaveBeenCalled();
+    });
+
+    it('debería consultar el cierre con las fechas pedidas', async () => {
+      await service.crear(parametrosBase);
+
+      expect(bloqueosService.cierreQueSolapa).toHaveBeenCalledWith(
+        parametrosBase.servicioId, parametrosBase.fechaInicio, parametrosBase.fechaFin,
+      );
+    });
+
+    it('debería reservar con normalidad si no hay nada cerrado', async () => {
+      await expect(service.crear(parametrosBase)).resolves.toBeDefined();
+    });
+  });
+
   describe('crear — importes', () => {
-    it('debería guardar comisión, IVA y total redondeados al céntimo', async () => {
-      // Un subtotal que en coma flotante da 21% = 25.410000000000004.
+    /**
+     * Los precios del catálogo llevan el IVA incluido: lo que el comercio
+     * anuncia es lo que el cliente paga. La base imponible se obtiene
+     * dividiendo, no sumando por encima al llegar al pago.
+     */
+    it('debería cobrar el precio anunciado, con el IVA ya dentro', async () => {
       estrategiaMock.checkAvailability.mockResolvedValue({
         disponible: true,
         precioCalculado: 121,
@@ -373,14 +419,49 @@ describe('BookingsService', () => {
       await service.crear(parametrosBase);
 
       const guardado = reservaModel.mock.calls.at(-1)?.[0] as {
-        comisionMonto: number; montoTotal: number;
+        comisionMonto: number; montoTotal: number; montoSubtotal: number;
       };
 
+      expect(guardado.montoTotal).toBe(121);
+      // 121 / 1.21 = 100 de base, así que el IVA contenido son 21 €.
+      expect(guardado.montoSubtotal).toBe(100);
+    });
+
+    it('debería redondear al céntimo lo que persiste', async () => {
       // Sin redondear se persistían valores tipo 146.41000000000003, que luego
       // no cuadraban con lo que PaymentsService recalcula para cobrar.
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true,
+        precioCalculado: 146.41,
+      } as never);
+
+      await service.crear(parametrosBase);
+
+      const guardado = reservaModel.mock.calls.at(-1)?.[0] as {
+        comisionMonto: number; montoTotal: number; montoSubtotal: number;
+      };
+
       expect(guardado.montoTotal).toBe(Number(guardado.montoTotal.toFixed(2)));
+      expect(guardado.montoSubtotal).toBe(Number(guardado.montoSubtotal.toFixed(2)));
       expect(guardado.comisionMonto).toBe(Number(guardado.comisionMonto.toFixed(2)));
-      expect(guardado.montoTotal).toBe(146.41);
+    });
+
+    it('debería comisionar sobre la base, no sobre el IVA', async () => {
+      // El IVA no es ingreso del comercio: comisionarlo sería cobrar sobre un
+      // dinero que va a Hacienda.
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true,
+        precioCalculado: 121,
+      } as never);
+
+      await service.crear(parametrosBase);
+
+      const guardado = reservaModel.mock.calls.at(-1)?.[0] as {
+        comisionMonto: number; montoSubtotal: number;
+      };
+
+      const pct = guardado.comisionMonto / guardado.montoSubtotal;
+      expect(guardado.comisionMonto).toBeCloseTo(100 * pct, 2);
     });
   });
 
@@ -473,8 +554,9 @@ describe('BookingsService', () => {
         expect(reservaModel.insertMany).toHaveBeenCalledTimes(1);
         const hijas = reservaModel.insertMany.mock.calls[0][0];
         expect(hijas).toHaveLength(4);
+        // 500 anunciados con IVA dentro → 413,22 de base imponible.
         expect(hijas[0]).toEqual(expect.objectContaining({
-          reservaOrigenId: 'reserva-1', estado: ReservaEstado.PENDIENTE, montoSubtotal: 500,
+          reservaOrigenId: 'reserva-1', estado: ReservaEstado.PENDIENTE, montoTotal: 500,
         }));
       });
 
@@ -704,8 +786,8 @@ describe('BookingsService', () => {
       expect(resultado.estado).toBe(ReservaEstado.AJUSTE_SOLICITADO);
       expect(resultado.suplementos).toHaveLength(1);
       expect(resultado.evidencias).toHaveLength(1);
-      // (100 + 15) * 1.21 = 139.15
-      expect(resultado.montoAjustado).toBeCloseTo(139.15);
+      // El suplemento también viene con el IVA incluido: 121 + 15 = 136.
+      expect(resultado.montoAjustado).toBeCloseTo(136);
     });
 
     it('debería avisar al cliente del ajuste, que nunca se aplica sin su aprobación', async () => {

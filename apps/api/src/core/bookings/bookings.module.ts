@@ -10,6 +10,7 @@ import { PerrosModule } from '../perros/perros.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ComisionConfigsModule } from '../comision-configs/comision-configs.module';
 import { EventosModule } from '../eventos/eventos.module';
+import { BloqueosModule } from '../bloqueos/bloqueos.module';
 
 @Module({
   imports: [
@@ -22,6 +23,8 @@ import { EventosModule } from '../eventos/eventos.module';
     NotificationsModule,
     ComisionConfigsModule,
     EventosModule,
+    // Lo que el comercio cierra a mano manda sobre los cupos del vertical.
+    BloqueosModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

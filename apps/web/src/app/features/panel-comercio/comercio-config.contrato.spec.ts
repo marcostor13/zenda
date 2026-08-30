@@ -77,8 +77,6 @@ describe('ComercioConfigComponent — contrato con el API', () => {
     componente.infoForm.patchValue({
       nombreComercial: 'Residencia Royal',
       descripcion: 'Suites con jardín.',
-      logoUrl: 'https://cdn.doogking.com/logo.jpg',
-      coverUrl: 'https://cdn.doogking.com/portada.jpg',
     });
 
     await componente.guardarInfo();
@@ -104,36 +102,12 @@ describe('ComercioConfigComponent — contrato con el API', () => {
     });
   });
 
-  it('la dirección', async () => {
-    componente.direccionForm.patchValue({
-      calle: 'Gran Via', numero: '1', codigoPostal: '46001',
-      ciudad: 'Valencia', provincia: 'Valencia', pais: 'España',
-      lat: 39.47, lng: -0.37,
-    });
-
-    await componente.guardarDireccion();
-
-    await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
-  });
-
   it('el contacto', async () => {
     componente.contactoForm.patchValue({
       nombreContacto: 'Ana', email: 'ana@royal.test', telefono: '600000000', whatsapp: '600000000',
     });
 
     await componente.guardarContacto();
-
-    await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
-  });
-
-  it('el horario, incluida la jornada partida', async () => {
-    // El caso que fallaba: abre2/cierra2 existían en el formulario y en el
-    // esquema, pero no en el DTO, y el API rechazaba los siete días a la vez.
-    componente.diasControls[0].patchValue({
-      abre: '09:00', cierra: '14:00', abre2: '17:00', cierra2: '20:00', cerrado: false,
-    });
-
-    await componente.guardarHorario();
 
     await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
   });
@@ -156,34 +130,12 @@ describe('ComercioConfigComponent — contrato con el API', () => {
       .toContain('Marca al menos una categoría de servicio');
   });
 
-  it('las excepciones del horario', async () => {
-    componente.nuevaExcepcionFecha.set('2026-12-25');
-    componente.nuevaExcepcionMotivo.set('Navidad');
-    componente.anadirExcepcion();
-
-    await componente.guardarExcepciones();
-
-    await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
-  });
-
-  it('las políticas y los datos bancarios', async () => {
-    componente.politicasForm.patchValue({
-      politicaCancelacion: 'flexible',
+  it('los datos bancarios', async () => {
+    componente.datosBancariosForm.patchValue({
       titular: 'Canes SL', iban: 'ES9121000418450200051332', banco: 'CaixaBank', swift: 'CAIXESBB',
     });
 
-    await componente.guardarPoliticas();
-
-    await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
-  });
-
-  it('la verificación con sus dos documentos fijos', async () => {
-    componente.verificacionForm.patchValue({
-      documentoIdentidadUrl: 'https://cdn.doogking.com/dni.pdf',
-      licenciaNegocioUrl: 'https://cdn.doogking.com/licencia.pdf',
-    });
-
-    await componente.guardarVerificacion();
+    await componente.guardarDatosBancarios();
 
     await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
   });

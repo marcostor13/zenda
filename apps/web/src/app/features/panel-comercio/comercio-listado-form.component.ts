@@ -1,5 +1,6 @@
-import { Component, signal, inject, computed, OnInit } from '@angular/core';
+import { Component, signal, inject, computed, input, output, DestroyRef, OnInit } from '@angular/core';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -11,13 +12,19 @@ import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags
 import {
   RsPlaceAutocompleteComponent, type LugarElegido,
 } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
+import { RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
+import { GeoService, type DireccionLugar } from '../../core/geo/geo.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { RsHorarioComponent, semanaVacia } from '../../shared/components/horario/rs-horario.component';
 import {
-  AMENITIES_ALOJAMIENTO, AMENITIES_ESPACIO, ESPECIALIDADES_VETERINARIAS, ESPECIES_ATENDIDAS,
+  AMENITIES_ALOJAMIENTO, AMENITIES_ESPACIO, OTROS_SERVICIOS, ESPECIALIDADES_VETERINARIAS, ESPECIES_ATENDIDAS,
   RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS, TIPOS_ADIESTRAMIENTO,
 } from '../../shared/catalogos/tags.catalogo';
 import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
-import { ComercioApiService, ServicioPayload } from './comercio-api.service';
+import {
+  ComercioApiService, ServicioPayload, type ExcepcionHorario, type HorarioDia,
+} from './comercio-api.service';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 /** Catálogo cerrado de servicios veterinarios, para el desplegable del formulario. */
@@ -50,13 +57,18 @@ const PLACEHOLDER_TITULO: Record<string, string> = {
   [VerticalKey.HOTELES]: 'Ej. Gran Hotel Pet Friendly Madrid',
 };
 
+/** Zoom al enseñar un portal concreto: se distingue el número de la calle. */
+const ZOOM_PORTAL = 17;
+/** Zoom al enseñar una población: se ve el municipio entero, no una esquina. */
+const ZOOM_POBLACION = 13;
+
 /** Pasos del alta de un servicio; el orden es el del recorrido. */
-type PasoListado = 'categoria' | 'ubicacion' | 'detalles' | 'aptitud' | 'fotos';
+type PasoListado = 'categoria' | 'ubicacion' | 'horarios' | 'detalles' | 'aptitud' | 'fotos';
 
 /**
  * Un servicio pide entre veinte y sesenta datos según la categoría: en una sola
- * página nadie llegaba al final. Se reparte en cinco pantallas cortas, el patrón
- * de "crea tu anuncio" de Airbnb, con lo obligatorio delante.
+ * página nadie llegaba al final. Se reparte en pantallas cortas, el patrón de
+ * "crea tu anuncio" de Airbnb, con lo obligatorio delante.
  */
 const PASOS: ReadonlyArray<{
   readonly clave: PasoListado;
@@ -70,7 +82,10 @@ const PASOS: ReadonlyArray<{
     ayuda: 'Elige la categoría y ponle un nombre que se entienda de un vistazo.' },
   { clave: 'ubicacion', label: 'Dónde y cuánto',
     titulo: '¿Dónde lo ofreces y por cuánto?',
-    ayuda: 'La población sitúa tu anuncio en el mapa. El precio es el «desde» que verá el cliente.' },
+    ayuda: 'La dirección sitúa tu anuncio en el mapa. El precio es el «desde» que verá el cliente.' },
+  { clave: 'horarios', label: 'Horarios',
+    titulo: '¿Cuándo atiendes?',
+    ayuda: 'El horario es de este servicio, no del negocio: si tienes otro con horas distintas, cada uno lleva las suyas.' },
   { clave: 'detalles', label: 'Detalles',
     titulo: 'Detalles del servicio',
     ayuda: 'Lo propio de tu categoría: es lo que hace que el cliente reserve contigo.' },
@@ -86,6 +101,8 @@ const PASOS: ReadonlyArray<{
 const CAMPOS_DEL_PASO: Record<PasoListado, ReadonlyArray<string>> = {
   categoria: ['vertical', 'titulo', 'descripcion'],
   ubicacion: ['ciudad', 'precioBase'],
+  // El horario es opcional: un transporte a demanda no tiene puerta que abrir.
+  horarios: [],
   // Lo específico del vertical se valida contra su propio grupo y su regla
   // de negocio (`validarVertical`), no con una lista de campos fija.
   detalles: [],
@@ -105,17 +122,20 @@ function aCsv(v: string): string[] {
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule,
-    RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsPlaceAutocompleteComponent, EurosPipe,],
+    RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsPlaceAutocompleteComponent,
+    RsMapaComponent, RsHorarioComponent, EurosPipe,],
   template: `
     <div class="page-wrap">
-      <div class="page-header">
-        <a routerLink="/comercio/listados" class="back-link">
-          <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-          Volver a mis servicios
-        </a>
-        <h1>{{ esEdicion() ? 'Editar servicio' : 'Nuevo servicio' }}</h1>
-        <p>{{ esEdicion() ? 'Ve directamente al paso que quieras cambiar.' : 'Cinco pasos cortos. Puedes volver atrás en cualquier momento.' }}</p>
-      </div>
+      @if (!modoAlta()) {
+        <div class="page-header">
+          <a routerLink="/comercio/listados" class="back-link">
+            <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
+            Volver a mis servicios
+          </a>
+          <h1>{{ esEdicion() ? 'Editar servicio' : 'Nuevo servicio' }}</h1>
+          <p>{{ esEdicion() ? 'Ve directamente al paso que quieras cambiar.' : 'Pasos cortos. Puedes volver atrás en cualquier momento.' }}</p>
+        </div>
+      }
 
       @if (cargando()) {
         <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">Cargando…</div>
@@ -152,6 +172,17 @@ function aCsv(v: string): string[] {
         </ol>
       </div>
 
+      @if (borradorRestaurado()) {
+        <div class="rs-alert rs-alert--info borrador">
+          <span>
+            Hemos recuperado lo que tenías a medias en este dispositivo.
+          </span>
+          <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="empezarDeCero()">
+            Empezar de cero
+          </button>
+        </div>
+      }
+
       <div class="form-card rs-card">
         <form [formGroup]="form" (ngSubmit)="enviarFormulario()">
 
@@ -162,22 +193,24 @@ function aCsv(v: string): string[] {
 
           @if (paso() === 'categoria') {
 
-          <div class="rs-field">
-            <label class="rs-lbl" for="vertical">Categoría *</label>
-            <select id="vertical" class="rs-inp" formControlName="vertical"
-                    [class.rs-inp--error]="hasError('vertical')">
-              <option value="">— Selecciona una categoría —</option>
-              @for (v of verticales; track v.valor) {
-                <option [value]="v.valor">{{ v.label }}</option>
+          @if (!modoAlta()) {
+            <div class="rs-field">
+              <label class="rs-lbl" for="vertical">Categoría *</label>
+              <select id="vertical" class="rs-inp" formControlName="vertical"
+                      [class.rs-inp--error]="hasError('vertical')">
+                <option value="">— Selecciona una categoría —</option>
+                @for (v of verticales; track v.valor) {
+                  <option [value]="v.valor">{{ v.label }}</option>
+                }
+              </select>
+              @if (esEdicion()) {
+                <span class="rs-field-hint">La categoría no se puede cambiar después de crear el servicio.</span>
               }
-            </select>
-            @if (esEdicion()) {
-              <span class="rs-field-hint">La categoría no se puede cambiar después de crear el servicio.</span>
-            }
-            @if (hasError('vertical')) {
-              <span class="rs-field-err">Selecciona una categoría.</span>
-            }
-          </div>
+              @if (hasError('vertical')) {
+                <span class="rs-field-err">Selecciona una categoría.</span>
+              }
+            </div>
+          }
 
           <div class="rs-field">
             <label class="rs-lbl" for="titulo">Nombre del servicio *</label>
@@ -203,35 +236,135 @@ function aCsv(v: string): string[] {
           }
 
           @if (paso() === 'ubicacion') {
-          <div class="form-row-2">
-            <div class="rs-field">
-              <label class="rs-lbl" for="ciudad">Ciudad *</label>
-              <rs-place-autocomplete inputId="ciudad" formControlName="ciudad"
-                                     apariencia="campo" placeholder="Busca tu población…"
-                                     [catalogoLocal]="catalogos.ciudades"
-                                     (lugarElegido)="guardarCoordenadas($event)" />
-              @if (hasError('ciudad')) {
-                <span class="rs-field-err">La ciudad es obligatoria.</span>
-              }
-              @if (!tieneCoordenadas()) {
+          <!--
+            Formulario y mapa en paralelo, el patrón del extranet de Booking: el
+            mapa no es una comprobación posterior escondida al final de la
+            página, sino la mitad de la pantalla, y el pin se mueve a la vez que
+            se escribe. En móvil se apilan —el mapa flotando sobre el formulario
+            no cabe— con el mapa arriba, que es lo que da contexto a lo que se
+            va a rellenar debajo.
+          -->
+          <div class="ubi">
+            <div class="ubi__campos">
+              <div class="rs-field">
+                <label class="rs-lbl" for="calle">Busca tu dirección</label>
+                <rs-place-autocomplete inputId="calle" formControlName="calle" tipo="direccion"
+                                       apariencia="campo" placeholder="Calle y número…"
+                                       (lugarElegido)="usarDireccionSugerida($event)" />
                 <span class="rs-field-hint">
-                  Elige tu población en la lista para que tu anuncio salga en la búsqueda por mapa.
+                  Elígela de la lista y colocamos el pin en el punto exacto.
                 </span>
+              </div>
+
+              <div class="rs-field">
+                <label class="rs-lbl" for="numero">Número, piso o puerta <span class="opt">opcional</span></label>
+                <input id="numero" class="rs-inp" formControlName="numero" placeholder="Ej: 24, 2ºB">
+              </div>
+
+              <div class="form-row-2">
+                <div class="rs-field">
+                  <label class="rs-lbl" for="ciudad">Ciudad *</label>
+                  <rs-place-autocomplete inputId="ciudad" formControlName="ciudad"
+                                         apariencia="campo" placeholder="Busca tu población…"
+                                         [catalogoLocal]="catalogos.ciudades"
+                                         (lugarElegido)="guardarCoordenadas($event)" />
+                  @if (hasError('ciudad')) {
+                    <span class="rs-field-err">La ciudad es obligatoria.</span>
+                  }
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl" for="codigoPostal">Código postal</label>
+                  <input id="codigoPostal" class="rs-inp" formControlName="codigoPostal" placeholder="Ej: 28013">
+                </div>
+              </div>
+
+              <div class="form-row-2">
+                <div class="rs-field">
+                  <label class="rs-lbl" for="provincia">Provincia</label>
+                  <rs-place-autocomplete inputId="provincia" formControlName="provincia"
+                                         apariencia="campo" placeholder="Elige provincia…"
+                                         [catalogoLocal]="catalogos.provincias" [usaPlaces]="false"
+                                         [sugerenciasIniciales]="52" />
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl" for="pais">País</label>
+                  <input id="pais" class="rs-inp" formControlName="pais" placeholder="España">
+                </div>
+              </div>
+
+              <label class="ubi__sync" [class.ubi__sync--on]="sincronizarPin()">
+                <input type="checkbox" [checked]="sincronizarPin()"
+                       (change)="sincronizarPin.set(!sincronizarPin())" />
+                <span>Actualizar la dirección al mover el pin en el mapa.</span>
+              </label>
+
+              @if (avisoPin()) {
+                <div class="ubi__aviso" role="note">
+                  <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
+                  <p>
+                    ¿Está mal la ubicación del pin? Toca el mapa para llevarlo al sitio exacto.
+                    Si no quieres que eso reescriba lo que has escrito, desmarca la casilla de arriba.
+                  </p>
+                  <button type="button" class="ubi__aviso-x" (click)="avisoPin.set(false)"
+                          aria-label="Ocultar el aviso">
+                    <rs-icon name="x" [size]="14" [stroke]="2.5"></rs-icon>
+                  </button>
+                </div>
               }
+
+              <div class="rs-field">
+                <label class="rs-lbl" for="precioBase">Precio orientativo (€) *</label>
+                <input id="precioBase" class="rs-inp" type="number" formControlName="precioBase"
+                       placeholder="0.00" min="0" step="0.01"
+                       [class.rs-inp--error]="hasError('precioBase')">
+                <span class="rs-field-hint">Es el precio «desde» que se muestra en las tarjetas de búsqueda.</span>
+                @if (hasError('precioBase')) {
+                  <span class="rs-field-err">Ingresa un precio válido mayor a 0.</span>
+                }
+              </div>
             </div>
 
-            <div class="rs-field">
-              <label class="rs-lbl" for="precioBase">Precio orientativo (€) *</label>
-              <input id="precioBase" class="rs-inp" type="number" formControlName="precioBase"
-                     placeholder="0.00" min="0" step="0.01"
-                     [class.rs-inp--error]="hasError('precioBase')">
-              <span class="rs-field-hint">Es el precio "desde" que se muestra en las tarjetas de búsqueda.</span>
-              @if (hasError('precioBase')) {
-                <span class="rs-field-err">Ingresa un precio válido mayor a 0.</span>
-              }
+            <div class="ubi__mapa">
+              <div class="ubi__lienzo">
+                @if (punto(); as p) {
+                  <rs-mapa [puntos]="[p]" [centro]="centroMapa()"
+                           [permitePulsar]="true" [zoomConRueda]="true" [autoencuadre]="false"
+                           ariaLabel="Ubicación exacta del servicio; toca el mapa para mover el pin"
+                           (mapaPulsado)="moverPin($event)" />
+                } @else {
+                  <div class="ubi__vacio">
+                    <rs-icon name="map-pin" [size]="26" [stroke]="1.75"></rs-icon>
+                    <p>Busca tu dirección y el mapa te enseñará el punto exacto.</p>
+                  </div>
+                }
+
+                @if (buscandoDireccion()) {
+                  <div class="ubi__cargando" role="status">
+                    <span class="rs-spin"></span> Buscando la dirección…
+                  </div>
+                }
+              </div>
+
+              <!-- Sin coordenadas el anuncio no sale en el mapa del buscador, y
+                   eso hay que saberlo antes de guardar, no después. -->
+              <div class="geo" [class.geo--ok]="tieneCoordenadas()">
+                @if (tieneCoordenadas()) {
+                  <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon>
+                  <span>Ubicación exacta guardada: tu servicio saldrá en el mapa del buscador.</span>
+                } @else {
+                  <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
+                  <span>Sin ubicación exacta todavía: elige tu dirección o tu población de la lista.</span>
+                }
+              </div>
             </div>
           </div>
 
+          }
+
+          <!-- ═══ HORARIOS DEL SERVICIO ═══ -->
+          @if (paso() === 'horarios') {
+          <rs-horario [(horario)]="horario" [(excepciones)]="excepciones"
+                      (horarioChange)="guardarCambioSuelto()" (excepcionesChange)="guardarCambioSuelto()" />
           }
 
           <!-- ═══ APTITUD (compatibilidad servicio↔perro) ═══ -->
@@ -313,7 +446,9 @@ function aCsv(v: string): string[] {
                       <div class="rs-field">
                         <span class="rs-lbl">Servicios de este espacio</span>
                         <rs-tags-input formControlName="amenities" etiqueta="Servicios de este espacio"
-                                       [opciones]="catalogos.amenitiesEspacio" placeholder="Ej. cama ortopédica…" />
+                                       [opciones]="catalogos.amenitiesEspacio"
+                                       [opcionOtros]="OTROS_SERVICIOS"
+                                       placeholder="Ej. salida a jardín privado…" />
                         <span class="rs-field-hint">Lo que incluye esta suite o habitación en concreto: cama, climatización, salida al jardín…</span>
                       </div>
                       <div class="checkbox-row">
@@ -346,17 +481,6 @@ function aCsv(v: string): string[] {
                   <rs-tags-input formControlName="amenities" etiqueta="Servicios del alojamiento"
                                  [opciones]="catalogos.amenitiesAlojamiento" placeholder="Ej. jardín vallado…" />
                   <span class="rs-field-hint">Lo que ofrece el alojamiento en conjunto, se reserve el espacio que se reserve.</span>
-                </div>
-
-                <div class="form-row-2">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Barrio</label>
-                    <input class="rs-inp" formControlName="barrio">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Dirección</label>
-                    <input class="rs-inp" formControlName="direccion">
-                  </div>
                 </div>
 
                 <div class="rs-field">
@@ -634,10 +758,6 @@ function aCsv(v: string): string[] {
                     <label class="rs-lbl">Citas por día</label>
                     <input class="rs-inp" type="number" min="0" formControlName="citasPorDia">
                   </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Horario de atención</label>
-                    <input class="rs-inp" formControlName="horario" placeholder="Lun–Sáb 9:00–20:00">
-                  </div>
                 </div>
 
                 <div class="rs-field">
@@ -750,11 +870,6 @@ function aCsv(v: string): string[] {
                   </div>
                 </div>
 
-                <div class="rs-field">
-                  <label class="rs-lbl">Horario de atención</label>
-                  <input class="rs-inp" formControlName="horario" placeholder="Lun–Sáb 9:00–19:00">
-                </div>
-
                 <label class="rs-checkbox"><input type="checkbox" formControlName="aDomicilio"> Servicio a domicilio</label>
 
                 <h2 class="section-title">Perros con temperamento difícil</h2>
@@ -856,11 +971,6 @@ function aCsv(v: string): string[] {
                     <label class="rs-lbl">Capacidad por sesión</label>
                     <input class="rs-inp" type="number" min="0" formControlName="capacidadPorSesion">
                   </div>
-                </div>
-
-                <div class="rs-field">
-                  <label class="rs-lbl">Horario de atención</label>
-                  <input class="rs-inp" formControlName="horario" placeholder="Lun–Vie 16:00–20:00">
                 </div>
 
                 <label class="rs-checkbox"><input type="checkbox" formControlName="aDomicilio"> Servicio a domicilio</label>
@@ -1204,10 +1314,6 @@ function aCsv(v: string): string[] {
                     <input class="rs-inp" type="number" min="0" formControlName="cuposDisponibles">
                   </div>
                 </div>
-                <div class="rs-field">
-                  <label class="rs-lbl">Horario (opcional)</label>
-                  <input class="rs-inp" formControlName="horario" placeholder="Ej. L-V 9:00-19:00">
-                </div>
                 <div class="checkbox-row">
                   <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> Acepto razas PPP</label>
                   <label class="rs-checkbox"><input type="checkbox" formControlName="administraMedicacion"> Administro medicación</label>
@@ -1257,7 +1363,13 @@ function aCsv(v: string): string[] {
 
             @if (!esEdicion()) {
               <div class="rs-alert rs-alert--info">
-                El servicio se creará en estado <strong>Borrador</strong>. Revísalo y publícalo desde «Mis servicios» cuando esté listo.
+                @if (modoAlta()) {
+                  El servicio se creará en estado <strong>Borrador</strong>. Lo publicaremos en cuanto
+                  termines el alta y revisemos tu negocio.
+                } @else {
+                  El servicio se creará en estado <strong>Borrador</strong>. Revísalo y publícalo desde
+                  «Mis servicios» cuando esté listo.
+                }
               </div>
             }
           }
@@ -1271,7 +1383,14 @@ function aCsv(v: string): string[] {
 
           <div class="form-actions">
             @if (esPrimerPaso()) {
-              <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost">Cancelar</a>
+              @if (modoAlta()) {
+                <button type="button" class="rs-btn rs-btn--ghost" (click)="volverAtras.emit()">
+                  <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
+                  Cambiar de servicio
+                </button>
+              } @else {
+                <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost">Cancelar</a>
+              }
             } @else {
               <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()">
                 <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
@@ -1283,7 +1402,7 @@ function aCsv(v: string): string[] {
               <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
                 @if (guardando()) { Guardando… } @else {
                   <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-                  {{ esEdicion() ? 'Guardar cambios' : 'Crear servicio' }}
+                  {{ textoBotonFinal() }}
                 }
               </button>
             } @else {
@@ -1326,6 +1445,7 @@ function aCsv(v: string): string[] {
      * rs-image-upload ya redondean sus propias esquinas), asi que se desactiva.
      */
     .form-card { padding: var(--sp-8); overflow: visible; }
+    .borrador { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
     form { display: flex; flex-direction: column; gap: var(--sp-5); }
 
     .section-title {
@@ -1368,6 +1488,98 @@ function aCsv(v: string): string[] {
     .politica__desc { display: block; font-size: var(--f-xs); color: var(--t-400); margin-top: 2px; }
 
     .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); @media (max-width: 540px) { grid-template-columns: 1fr; } }
+    .form-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); @media (max-width: 720px) { grid-template-columns: 1fr; } }
+
+    /* Aviso de coordenadas: sin ellas el servicio no sale en el mapa del buscador. */
+    .geo {
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-4);
+      border-radius: var(--r-lg); background: var(--c-raised);
+      font-size: var(--f-sm); color: var(--t-300);
+    }
+    .geo rs-icon { flex-shrink: 0; color: var(--c-amber); }
+    .geo--ok rs-icon { color: var(--c-success, #10B981); }
+
+    /*
+     * ══ UBICACIÓN: FORMULARIO Y MAPA EN PARALELO ═══════════════════════
+     * El patrón del extranet de Booking. Móvil primero: una columna con el
+     * mapa arriba —da contexto a lo que se rellena debajo— y los campos
+     * después. A partir de 900px se parten en dos, con el mapa pegado
+     * mientras se rellena el formulario, que es más largo.
+     */
+    .ubi { display: flex; flex-direction: column-reverse; gap: var(--sp-5); }
+    .ubi__campos { display: flex; flex-direction: column; gap: var(--sp-4); }
+    .ubi__mapa { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+    .ubi__lienzo {
+      position: relative;
+      /* Alto suficiente para reconocer la manzana; por debajo el mapa no
+         resuelve la duda de si el pin cayó donde toca. */
+      height: 260px;
+      border: 1px solid var(--b-1); border-radius: var(--r-xl);
+      overflow: hidden; background: var(--c-raised);
+    }
+    .ubi__lienzo rs-mapa { display: block; height: 100%; }
+
+    .ubi__vacio {
+      height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: var(--sp-2); padding: var(--sp-6);
+      color: var(--t-400); font-size: var(--f-sm); text-align: center;
+    }
+
+    .ubi__cargando {
+      position: absolute; left: 50%; bottom: var(--sp-3); transform: translateX(-50%);
+      display: flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
+      background: var(--c-card); box-shadow: var(--sh-2);
+      font-size: var(--f-xs); color: var(--t-300); white-space: nowrap;
+    }
+
+    .ubi__sync {
+      display: flex; align-items: flex-start; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4);
+      border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      font-size: var(--f-sm); color: var(--t-300); cursor: pointer;
+      transition: border-color var(--d-2), background var(--d-2);
+
+      input { margin-top: 2px; flex-shrink: 0; }
+    }
+    .ubi__sync--on { border-color: var(--c-accent); background: var(--c-accent-lo); }
+
+    .ubi__aviso {
+      position: relative;
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-9) var(--sp-3) var(--sp-4);
+      border-radius: var(--r-lg); background: var(--c-raised);
+      font-size: var(--f-sm); color: var(--t-300); line-height: 1.55;
+
+      /* Acotado al primer icono: el aspa de cerrar tiene su propio color. */
+      > rs-icon { flex-shrink: 0; color: var(--c-amber); margin-top: 1px; }
+    }
+    .ubi__aviso-x {
+      position: absolute; top: var(--sp-2); right: var(--sp-2);
+      display: grid; place-items: center;
+      width: 28px; height: 28px; border: 0; border-radius: var(--r-full);
+      background: transparent; color: var(--t-400); cursor: pointer;
+      &:hover { background: var(--c-card); color: var(--t-100); }
+    }
+
+    .opt { font-weight: var(--w-4); color: var(--t-400); font-size: var(--f-xs); }
+
+    @media (min-width: 900px) {
+      .ubi {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: var(--sp-6);
+      }
+      .ubi__campos { flex: 1 1 58%; min-width: 0; }
+      .ubi__mapa {
+        flex: 1 1 42%; min-width: 0;
+        position: sticky; top: var(--sp-4);
+      }
+      .ubi__lienzo { height: 420px; }
+    }
 
     .rows { display: flex; flex-direction: column; gap: var(--sp-4); }
     .row-card {
@@ -1376,6 +1588,16 @@ function aCsv(v: string): string[] {
     }
     .row-card--sm { padding: var(--sp-3); background: var(--c-surface); }
     .row-card__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3); @media (max-width: 640px) { grid-template-columns: 1fr 1fr; } }
+
+    /*
+     * Las etiquetas de una misma fila no miden lo mismo —«Tipo *» frente a
+     * «Tamaño máx. de perro (opcional)»— y la larga saltaba a dos líneas,
+     * empujando su campo un renglón por debajo de los demás. La etiqueta se
+     * queda con el hueco sobrante y los campos se alinean abajo, así que la
+     * fila se lee recta tanto a cuatro columnas como a dos en móvil.
+     */
+    .row-card__grid > .rs-field { justify-content: flex-end; }
+    .row-card__grid > .rs-field > .rs-lbl { flex: 1; }
     .row-card__grid--2 { grid-template-columns: repeat(2, 1fr); @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .row-card__grid--3 { grid-template-columns: repeat(3, 1fr); @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .row-card__grid--4 { grid-template-columns: repeat(4, 1fr); @media (max-width: 640px) { grid-template-columns: 1fr 1fr; } }
@@ -1488,6 +1710,9 @@ export class ComercioListadoFormComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly geoService = inject(GeoService);
+  private readonly auth = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly cargando = signal(false);
   readonly guardando = signal(false);
@@ -1497,6 +1722,30 @@ export class ComercioListadoFormComponent implements OnInit {
   readonly verticales = VERTICALES;
   readonly servicioId = signal<string | null>(null);
   readonly esEdicion = computed(() => this.servicioId() !== null);
+
+  /**
+   * El formulario va empotrado en el alta guiada (`/comercio/alta`).
+   *
+   * Cambia el marco, no el contenido: el asistente ya pone su propia cabecera y
+   * su barra de avance, la categoría llega elegida del paso anterior y al
+   * terminar no se navega a «Mis servicios» —el alta sigue con los datos del
+   * negocio—, sino que se avisa al asistente.
+   */
+  readonly modoAlta = input(false);
+
+  /** Categoría con la que arranca el formulario en el alta guiada. */
+  readonly verticalInicial = input<string | null>(null);
+
+  /** Servicio creado; lo escucha el asistente para pasar al paso siguiente. */
+  readonly creado = output<void>();
+
+  /** Volver a elegir categoría, dentro del alta guiada. */
+  readonly volverAtras = output<void>();
+
+  textoBotonFinal(): string {
+    if (this.esEdicion()) return 'Guardar cambios';
+    return this.modoAlta() ? 'Guardar y continuar' : 'Crear servicio';
+  }
 
   // ── Recorrido paso a paso ────────────────────────────────────────────────
   readonly pasos = PASOS;
@@ -1535,6 +1784,9 @@ export class ComercioListadoFormComponent implements OnInit {
     const indice = PASOS.findIndex((p) => p.clave === clave);
     if (indice < 0 || !this.puedeIrAlPaso(indice)) return;
     this.paso.set(clave);
+    // El paso forma parte del borrador: cambiarlo no dispara `valueChanges`, así
+    // que recargar tras avanzar devolvía al primero con los campos ya llenos.
+    this.guardarBorrador();
     // Cada paso es una pantalla nueva: sin esto se cambia de paso y el
     // formulario aparece a media altura, con los primeros campos arriba.
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1618,6 +1870,9 @@ export class ComercioListadoFormComponent implements OnInit {
   temperamentosNoAdmitidos: string[] = [];
 
   /** Sugerencias de los campos de etiquetas, agrupadas para la plantilla. */
+  /** Etiqueta que abre el campo de texto libre en «Servicios de este espacio». */
+  readonly OTROS_SERVICIOS = OTROS_SERVICIOS;
+
   readonly catalogos = {
     amenitiesAlojamiento: AMENITIES_ALOJAMIENTO,
     amenitiesEspacio: AMENITIES_ESPACIO,
@@ -1645,11 +1900,100 @@ export class ComercioListadoFormComponent implements OnInit {
   /** Coordenadas de la población elegida; null mientras no se resuelvan. */
   private readonly coordenadas = signal<{ lat: number; lng: number } | null>(null);
 
+  /** Horario de atención de este servicio y sus días especiales. */
+  readonly horario = signal<HorarioDia[]>(semanaVacia());
+  readonly excepciones = signal<ExcepcionHorario[]>([]);
+
+  /** Punto que pinta el mapa de comprobación; null sin coordenadas. */
+  readonly punto = computed(() => {
+    const c = this.coordenadas();
+    if (!c) return null;
+    const { vertical, titulo } = this.form.getRawValue();
+    return { id: 'servicio', lat: c.lat, lng: c.lng, vertical, titulo: titulo || 'Tu servicio' };
+  });
+
+  /**
+   * Vista del mapa. Va aparte del pin a propósito: sólo se recentra al elegir
+   * una dirección o al cargar la ficha, **nunca** al tocar el mapa. Recentrar en
+   * cada toque haría saltar el mapa bajo el dedo justo cuando se está afinando
+   * el sitio, que es la sensación de que el mapa "se pelea" con el usuario.
+   */
+  readonly centroMapa = signal<{ lat: number; lng: number; zoom: number } | null>(null);
+
+  /**
+   * Al mover el pin, la dirección escrita se reescribe con la del punto nuevo.
+   *
+   * Es la casilla de Booking, y se puede apagar: un comercio en un polígono o en
+   * una finca sin portal necesita clavar el pin donde de verdad se entra sin que
+   * el geocodificador le sustituya la dirección por la de la nave de al lado.
+   */
+  readonly sincronizarPin = signal(true);
+
+  /** Aviso de "el pin está mal": se descarta y no vuelve durante la sesión. */
+  readonly avisoPin = signal(true);
+
+  /** Hay una geocodificación inversa en vuelo tras mover el pin. */
+  readonly buscandoDireccion = signal(false);
+
+  /**
+   * Recoloca el punto donde se ha tocado el mapa y, si la casilla está marcada,
+   * reescribe la dirección con la de ese sitio: dejar el pin movido y la calle
+   * antigua daría una ficha que se contradice a sí misma.
+   */
+  async moverPin({ lat, lng }: { lat: number; lng: number }): Promise<void> {
+    this.coordenadas.set({ lat, lng });
+    this.guardarBorrador();
+    if (!this.sincronizarPin()) return;
+
+    this.buscandoDireccion.set(true);
+    try {
+      const direccion = await this.geoService.direccionDePunto(lat, lng);
+      if (direccion) this.aplicarDireccion(direccion);
+    } finally {
+      this.buscandoDireccion.set(false);
+    }
+  }
+
+  /**
+   * Rellena la dirección con la sugerencia elegida. La calle escrita a mano no
+   * trae coordenadas, y sin ellas el servicio no sale en el mapa del buscador.
+   */
+  usarDireccionSugerida(lugar: LugarElegido): void {
+    this.guardarCoordenadas(lugar);
+
+    // Una calle escrita a mano no trae desglose: se respeta lo tecleado en vez
+    // de vaciar los campos que el comercio ya hubiera puesto.
+    const direccion = lugar.direccion;
+    if (direccion) this.aplicarDireccion(direccion);
+  }
+
+  /**
+   * Vuelca una dirección resuelta en el formulario **sin vaciar lo que ya
+   * hubiera**: el geocodificador no siempre devuelve el número, y borrar un
+   * "2ºB" que Google no conoce sería peor que dejarlo.
+   */
+  private aplicarDireccion(direccion: DireccionLugar): void {
+    const actual = this.form.getRawValue();
+    this.form.patchValue({
+      calle: direccion.calle || actual.calle,
+      numero: direccion.numero || actual.numero,
+      ciudad: direccion.ciudad || actual.ciudad,
+      provincia: direccion.provincia || actual.provincia,
+      codigoPostal: direccion.codigoPostal || actual.codigoPostal,
+      pais: direccion.pais || actual.pais,
+    });
+  }
+
   readonly form = this.fb.group({
     vertical:    ['', Validators.required],
     titulo:      ['', [Validators.required, Validators.minLength(3)]],
     descripcion: ['', [Validators.required, Validators.minLength(10)]],
     ciudad:      ['', Validators.required],
+    calle:        [''],
+    numero:       [''],
+    provincia:    [''],
+    codigoPostal: [''],
+    pais:         ['España'],
     precioBase:  [0, [Validators.required, Validators.min(1)]],
     imagenes:    [[] as string[]],
 
@@ -1663,8 +2007,6 @@ export class ComercioListadoFormComponent implements OnInit {
       paseosIncluidos: [false],
       camaras24h: [false],
       cancelacionGratis: [true],
-      barrio: [''],
-      direccion: [''],
       requisitoMicrochip: [false],
       requiereDesparasitacionInterna: [false],
       requiereDesparasitacionExterna: [false],
@@ -1697,7 +2039,6 @@ export class ComercioListadoFormComponent implements OnInit {
       duracionCitaMin: [30],
       citasPorDia: [16],
       atiendeUrgencias: [false],
-      horario: [''],
       precioConsulta: [0, [Validators.required, Validators.min(0)]],
       especiesAtendidas: [['Perro'] as string[]],
     }),
@@ -1707,7 +2048,6 @@ export class ComercioListadoFormComponent implements OnInit {
       duracionSlotMin: [60],
       capacidadSimultanea: [2],
       aDomicilio: [false],
-      horario: [''],
       politicaTemperamentoDificil: ['aceptar'],
       bozalObligatorioSiAgresivo: [true],
       serviciosAdicionales: this.fb.array<FormGroup>([]),
@@ -1725,7 +2065,6 @@ export class ComercioListadoFormComponent implements OnInit {
       edadMinimaMeses: [3],
       aDomicilio: [false],
       capacidadPorSesion: [6],
-      horario: [''],
       serviciosAdiestramiento: this.fb.array<FormGroup>([]),
       valoracionInicialModalidad: ['presencial'],
       valoracionInicialPrecio: [0],
@@ -1780,7 +2119,6 @@ export class ComercioListadoFormComponent implements OnInit {
       administraMedicacion: [false],
       radioDesplazamientoKm: [10, [Validators.min(0)]],
       cuposDisponibles: [1, [Validators.required, Validators.min(0)]],
-      horario: [''],
     }),
   });
 
@@ -2014,18 +2352,158 @@ export class ComercioListadoFormComponent implements OnInit {
    * (`NaN`): ahí se deja el listado sin geolocalizar en lugar de guardar un
    * punto falso, y se avisa al comercio con la pista bajo el campo.
    */
+  /** Persiste lo que cambia fuera del formulario reactivo: horario, pin, fotos. */
+  guardarCambioSuelto(): void {
+    this.guardarBorrador();
+  }
+
   guardarCoordenadas(lugar: LugarElegido): void {
     const valido = Number.isFinite(lugar.lat) && Number.isFinite(lugar.lng);
-    this.coordenadas.set(valido ? { lat: lugar.lat, lng: lugar.lng } : null);
+    if (!valido) { this.coordenadas.set(null); return; }
+
+    this.coordenadas.set({ lat: lugar.lat, lng: lugar.lng });
+    // Elegir del desplegable sí recentra: es el momento en que el usuario pide
+    // ver otro sitio. Una población se enseña más abierta que un portal.
+    const zoom = lugar.direccion ? ZOOM_PORTAL : ZOOM_POBLACION;
+    this.centroMapa.set({ lat: lugar.lat, lng: lugar.lng, zoom });
+    this.guardarBorrador();
   }
 
   tieneCoordenadas(): boolean {
     return this.coordenadas() !== null;
   }
 
+  /**
+   * Borrador del alta guardado en el dispositivo.
+   *
+   * Rellenar la ficha de un servicio lleva veinte campos y varias fotos: una
+   * recarga, un móvil que descarta la pestaña o un toque de «atrás» del
+   * navegador tiraban todo el trabajo. Va por usuario para que dos cuentas del
+   * mismo ordenador no se pisen el borrador.
+   *
+   * Sólo en el **alta**: al editar manda lo que hay guardado en el servidor, y
+   * restaurar un borrador encima sería resucitar cambios que se descartaron.
+   */
+  private claveBorrador(): string {
+    return `dk_borrador_servicio_${this.auth.usuario()?.id ?? 'anon'}`;
+  }
+
+  /** Todo lo que hace falta para reconstruir el formulario tal cual estaba. */
+  private instantanea(): Record<string, unknown> {
+    const vertical = this.form.getRawValue().vertical;
+    return {
+      ...this.form.getRawValue(),
+      paso: this.paso(),
+      coordenadas: this.coordenadas(),
+      horario: this.horario(),
+      excepciones: this.excepciones(),
+      aptitud: {
+        tamanosAdmitidos: this.tamanosSeleccionados(),
+        tipoPeloAdmitido: this.pelosSeleccionados(),
+        temperamentosNoAdmitidos: this.temperamentosNoAdmitidos,
+      },
+      // Se guarda ya en forma de payload: `precargarVertical` sabe leerlo, así
+      // que restaurar reutiliza el mismo camino que la edición.
+      extra: vertical ? this.construirDetalleVertical(vertical) : null,
+    };
+  }
+
+  private guardarBorrador(): void {
+    if (this.esEdicion()) return;
+    try {
+      localStorage.setItem(this.claveBorrador(), JSON.stringify(this.instantanea()));
+    } catch {
+      // Sin espacio o en modo privado: el borrador es una comodidad, no se
+      // interrumpe el alta por no poder guardarlo.
+    }
+  }
+
+  private descartarBorrador(): void {
+    try {
+      localStorage.removeItem(this.claveBorrador());
+    } catch { /* nada que descartar si no hay storage */ }
+  }
+
+  /** @returns `true` si había un borrador y se aplicó. */
+  private restaurarBorrador(): boolean {
+    let guardado: string | null = null;
+    try {
+      guardado = localStorage.getItem(this.claveBorrador());
+    } catch { return false; }
+    if (!guardado) return false;
+
+    try {
+      const b = JSON.parse(guardado) as Record<string, unknown>;
+      const vertical = (b['vertical'] as string) ?? '';
+      // El alta guiada llega con su categoría ya elegida; si el borrador es de
+      // otra, no es el mismo alta y arrancar mezclando las dos sería peor.
+      const fijada = this.verticalInicial();
+      if (fijada && vertical && vertical !== fijada) return false;
+
+      this.form.patchValue(b as never);
+      if (vertical) this.precargarVertical(vertical, (b['extra'] as Record<string, unknown>) ?? undefined);
+
+      const punto = b['coordenadas'] as { lat: number; lng: number } | null;
+      if (punto) {
+        this.coordenadas.set(punto);
+        this.centroMapa.set({ ...punto, zoom: ZOOM_PORTAL });
+      }
+      const horario = b['horario'] as HorarioDia[] | undefined;
+      if (horario?.length) this.horario.set(horario);
+      this.excepciones.set((b['excepciones'] as ExcepcionHorario[]) ?? []);
+
+      const aptitud = (b['aptitud'] ?? {}) as Record<string, string[] | undefined>;
+      this.tamanosSeleccionados.set(aptitud['tamanosAdmitidos'] ?? []);
+      this.pelosSeleccionados.set(aptitud['tipoPeloAdmitido'] ?? []);
+      this.temperamentosNoAdmitidos = aptitud['temperamentosNoAdmitidos'] ?? [];
+
+      const paso = b['paso'] as PasoListado | undefined;
+      if (paso) {
+        // Se abre el paso donde se quedó, y se dan por buenos los anteriores:
+        // ya los había pasado antes de recargar.
+        this.pasoMaximo.set(Math.max(0, PASOS.findIndex((p) => p.clave === paso)));
+        this.paso.set(paso);
+      }
+      this.borradorRestaurado.set(true);
+      return true;
+    } catch {
+      // Borrador de una versión anterior del formulario: se descarta antes de
+      // dejar el alta a medio construir.
+      this.descartarBorrador();
+      return false;
+    }
+  }
+
+  /** Se enseña una vez, para que nadie crea que el formulario se ha liado solo. */
+  readonly borradorRestaurado = signal(false);
+
+  /** Tira el borrador y deja el formulario en blanco. */
+  empezarDeCero(): void {
+    this.descartarBorrador();
+    window.location.reload();
+  }
+
   async ngOnInit(): Promise<void> {
+    const inicial = this.verticalInicial();
+    if (inicial) {
+      // Se eligió en el paso anterior del alta: enseñarla otra vez como un
+      // desplegable sería pedir dos veces la misma decisión.
+      this.form.controls.vertical.setValue(inicial);
+      this.form.controls.vertical.disable();
+    }
+
     const id = this.route.snapshot.paramMap.get('id');
-    if (!id) return;
+
+    if (!id) {
+      this.restaurarBorrador();
+      // A partir de aquí cualquier tecleo se guarda; los cambios que no pasan
+      // por el formulario (horario, fotos, pin) llaman a `guardarBorrador`
+      // desde su propio manejador.
+      this.form.valueChanges
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe(() => this.guardarBorrador());
+      return;
+    }
 
     this.servicioId.set(id);
     this.cargando.set(true);
@@ -2036,12 +2514,24 @@ export class ComercioListadoFormComponent implements OnInit {
         titulo: s.titulo,
         descripcion: s.descripcion,
         ciudad: s.ciudad,
+        calle: s.calle ?? '',
+        numero: s.numero ?? '',
+        provincia: s.provincia ?? '',
+        codigoPostal: s.codigoPostal ?? '',
+        pais: s.pais ?? 'España',
         precioBase: s.precioBase,
         imagenes: s.imagenes,
       });
+      // Un servicio de antes de que el horario colgara del listado llega sin
+      // semana: se le da una en blanco para que el editor tenga los siete días.
+      if (s.horario?.length) this.horario.set(s.horario);
+      this.excepciones.set(s.excepcionesHorario ?? []);
       // Un listado ya geolocalizado no debe pedir que se vuelva a elegir la
       // población: la pista solo tiene sentido cuando faltan coordenadas.
-      if (s.lat != null && s.lng != null) this.coordenadas.set({ lat: s.lat, lng: s.lng });
+      if (s.lat != null && s.lng != null) {
+        this.coordenadas.set({ lat: s.lat, lng: s.lng });
+        this.centroMapa.set({ lat: s.lat, lng: s.lng, zoom: ZOOM_PORTAL });
+      }
       this.form.controls.vertical.disable();
       this.precargarVertical(s.vertical, s.extra);
       if (s.aptitud) {
@@ -2069,8 +2559,6 @@ export class ComercioListadoFormComponent implements OnInit {
         paseosIncluidos: d['paseosIncluidos'] ?? false,
         camaras24h: d['camaras24h'] ?? false,
         cancelacionGratis: d['cancelacionGratis'] ?? true,
-        barrio: d['barrio'] ?? '',
-        direccion: d['direccion'] ?? '',
         requisitoMicrochip: d['requisitoMicrochip'] ?? false,
         requiereDesparasitacionInterna: d['requiereDesparasitacionInterna'] ?? false,
         requiereDesparasitacionExterna: d['requiereDesparasitacionExterna'] ?? false,
@@ -2166,8 +2654,6 @@ export class ComercioListadoFormComponent implements OnInit {
         paseosIncluidos: g.paseosIncluidos,
         camaras24h: g.camaras24h,
         cancelacionGratis: g.cancelacionGratis,
-        barrio: g.barrio || undefined,
-        direccion: g.direccion || undefined,
         requisitoMicrochip: g.requisitoMicrochip,
         requiereDesparasitacionInterna: g.requiereDesparasitacionInterna,
         requiereDesparasitacionExterna: g.requiereDesparasitacionExterna,
@@ -2259,7 +2745,6 @@ export class ComercioListadoFormComponent implements OnInit {
         precioVisita: g.precioVisita > 0 ? g.precioVisita : undefined,
         precioDiaCompleto: g.precioDiaCompleto > 0 ? g.precioDiaCompleto : undefined,
         precioNoche: g.precioNoche > 0 ? g.precioNoche : undefined,
-        horario: g.horario || undefined,
       };
     }
     return null;
@@ -2305,11 +2790,17 @@ export class ComercioListadoFormComponent implements OnInit {
     this.errorMsg.set('');
     this.exitoMsg.set('');
 
-    const { titulo, descripcion, ciudad, precioBase, imagenes } = this.form.getRawValue();
+    const {
+      titulo, descripcion, ciudad, calle, numero, provincia, codigoPostal, pais,
+      precioBase, imagenes,
+    } = this.form.getRawValue();
     const detalle = this.construirDetalleVertical(vertical);
     const payload: ServicioPayload = {
       ...(this.esEdicion() ? {} : { vertical }),
       titulo, descripcion, ciudad, precioBase, imagenes,
+      calle, numero, provincia, codigoPostal, pais,
+      horario: this.horario(),
+      excepcionesHorario: this.excepciones(),
       // Sin coordenadas no se envían las claves: así una edición que no toca la
       // ciudad no borra la geolocalización que el listado ya tuviera.
       ...(this.coordenadas() ?? {}),
@@ -2328,7 +2819,9 @@ export class ComercioListadoFormComponent implements OnInit {
         this.exitoMsg.set('¡Cambios guardados!');
       } else {
         await firstValueFrom(this.comercioApi.crearServicio(payload));
-        this.exitoMsg.set('¡Servicio creado en borrador! Redirigiendo…');
+        this.descartarBorrador();
+        this.exitoMsg.set('¡Servicio creado en borrador!');
+        if (this.modoAlta()) { this.creado.emit(); return; }
       }
       setTimeout(() => void this.router.navigate(['/comercio/listados']), 1200);
     } catch {

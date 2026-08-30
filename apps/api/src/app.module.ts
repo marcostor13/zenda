@@ -42,6 +42,7 @@ import { LugaresModule } from './core/lugares/lugares.module';
 import { EventosModule } from './core/eventos/eventos.module';
 import { PlanificadorModule } from './core/planificador/planificador.module';
 import { AgendaModule } from './core/agenda/agenda.module';
+import { BloqueosModule } from './core/bloqueos/bloqueos.module';
 import { ListaEsperaModule } from './core/lista-espera/lista-espera.module';
 
 /**
@@ -102,6 +103,7 @@ const LIMITE_GLOBAL = [{ name: 'global', ttl: 60_000, limit: 300 }];
     EventosModule,
     PlanificadorModule,
     AgendaModule,
+    BloqueosModule,
     ListaEsperaModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

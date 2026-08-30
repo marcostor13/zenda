@@ -97,3 +97,12 @@ export function nombreAlphaPresentacion(nombre: string, nivel: number): string {
   // admin haya elegido a mano se respeta tal cual.
   return /^alpha\s*\d+$/i.test(nombre.trim()) ? `ALPHA ${romano}` : nombre;
 }
+
+/**
+ * Versión vigente de las condiciones generales del servicio para comercios.
+ *
+ * Se sella junto a la aceptación: sin ella no se puede saber a qué texto dijo
+ * que sí un comercio que firmó hace seis meses, que es justo lo que hay que
+ * poder demostrar. Al publicar un texto nuevo, subir la fecha aquí.
+ */
+export const CONDICIONES_COMERCIO_VERSION = '2026-08-30';

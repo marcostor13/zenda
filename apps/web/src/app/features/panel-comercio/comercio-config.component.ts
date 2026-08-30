@@ -5,20 +5,23 @@ import { firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
-import { LugarElegido, RsPlaceAutocompleteComponent } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
-import { enlaceGoogleMaps } from '../../shared/mapas/google-maps';
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
-import { RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
-import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
-import { celdasDelMes, claveDia, desdeClaveDia, hoyLocal } from '../../shared/fechas';
 import { iconoVertical } from './vertical-icon';
 
-import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, ExcepcionHorario } from './comercio-api.service';
+import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload } from './comercio-api.service';
 
+/**
+ * Pasos de la configuración del negocio.
+ *
+ * Ubicación y horarios **ya no están aquí**: cuelgan de cada servicio
+ * (`/comercio/listados/:id/editar`). Un negocio puede tener la peluquería en el
+ * centro abriendo de tarde y la residencia canina a las afueras con entradas
+ * sólo por la mañana, y con una dirección y un horario de empresa la ficha
+ * enseñaba al cliente datos que no eran los del servicio que iba a reservar.
+ */
 type TabConfig =
-  | 'perfil' | 'ubicacion' | 'contacto' | 'horarios' | 'politicas'
-  | 'verificacion' | 'notificaciones' | 'verticales';
+  | 'perfil' | 'contacto' | 'datosBancarios'
+  | 'notificaciones' | 'verticales';
 
 interface PasoConfig {
   readonly clave: TabConfig;
@@ -33,12 +36,9 @@ interface PasoConfig {
  */
 const TABS: ReadonlyArray<PasoConfig> = [
   { clave: 'perfil',         label: 'Perfil',            icono: 'building' },
-  { clave: 'ubicacion',      label: 'Ubicación',         icono: 'map-pin' },
   { clave: 'contacto',       label: 'Contacto',          icono: 'phone' },
-  { clave: 'horarios',       label: 'Horarios',          icono: 'clock' },
-  { clave: 'politicas',      label: 'Políticas y cobros', icono: 'euro' },
   { clave: 'verticales',     label: 'Servicios que ofreces', icono: 'tag' },
-  { clave: 'verificacion',   label: 'Verificación',      icono: 'badge-check' },
+  { clave: 'datosBancarios', label: 'Datos bancarios',   icono: 'euro' },
   { clave: 'notificaciones', label: 'Notificaciones',    icono: 'bell' },
 ];
 
@@ -53,59 +53,24 @@ const FASES: ReadonlyArray<{
   readonly resumen: string;
   readonly pasos: ReadonlyArray<PasoConfig>;
 }> = [
-  { numero: 1, titulo: 'Tu negocio',         resumen: 'Quién eres y dónde te encuentran',
-    pasos: ['perfil', 'ubicacion', 'contacto'] as TabConfig[] },
-  { numero: 2, titulo: 'Cómo trabajas',      resumen: 'Horarios, condiciones y servicios',
-    pasos: ['horarios', 'politicas', 'verticales'] as TabConfig[] },
-  { numero: 3, titulo: 'Confianza y cuenta', resumen: 'Verificación y avisos',
-    pasos: ['verificacion', 'notificaciones'] as TabConfig[] },
+  { numero: 1, titulo: 'Tu negocio',         resumen: 'Quién eres y cómo te contactan',
+    pasos: ['perfil', 'contacto'] as TabConfig[] },
+  { numero: 2, titulo: 'Cómo cobras',        resumen: 'Servicios y liquidaciones',
+    pasos: ['verticales', 'datosBancarios'] as TabConfig[] },
+  { numero: 3, titulo: 'Avisos',             resumen: 'Qué te notificamos',
+    pasos: ['notificaciones'] as TabConfig[] },
 ].map((f) => ({
   ...f,
   pasos: f.pasos.map((clave) => TABS.find((t) => t.clave === clave) as PasoConfig),
 }));
 
-const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
-  { clave: 'lunes', label: 'Lunes' },
-  { clave: 'martes', label: 'Martes' },
-  { clave: 'miercoles', label: 'Miércoles' },
-  { clave: 'jueves', label: 'Jueves' },
-  { clave: 'viernes', label: 'Viernes' },
-  { clave: 'sabado', label: 'Sábado' },
-  { clave: 'domingo', label: 'Domingo' },
-];
-
-const VERIFICACION_BADGE: Record<string, string> = {
-  sin_verificar: 'rs-badge--neutral',
-  pendiente: 'rs-badge--warning',
-  verificado: 'rs-badge--success',
-  rechazado: 'rs-badge--error',
-};
-
-const VERIFICACION_LABEL: Record<string, string> = {
-  sin_verificar: 'Sin verificar',
-  pendiente: 'En revisión',
-  verificado: 'Verificado',
-  rechazado: 'Rechazado',
-};
-
-/**
- * `rs-image-upload` con `[multiple]="false"` emite **la URL suelta**, no un array
- * (ver `emitValue`). Los controles de imagen única guardan por tanto un `string`,
- * y `writeValue` ya acepta tanto la cadena como el array al cargar la ficha.
- *
- * Antes se declaraban como `string[]` y al guardar se hacía `arr[0]`: sobre la
- * cadena `"https://…"` eso devuelve `"h"`, que es lo que acabó escrito en la base
- * para el logo, la portada, el DNI y la licencia. La imagen salía rota al
- * recargar porque el `<img src="h">` no apunta a ninguna parte.
- */
-type UrlImagen = string | null;
 
 @Component({
   selector: 'app-comercio-config',
   standalone: true,
   imports: [
     ReactiveFormsModule,
-    RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent, RsMapaComponent,
+    RsIconComponent, RsPhoneInputComponent,
   ],
   template: `
     <!-- Cabecera de la página -->
@@ -149,6 +114,7 @@ type UrlImagen = string | null;
                   Tu ficha está completa
                 }
               </p>
+              <p class="cfg__resumen-nota">No hace falta el 100% para publicar</p>
             </div>
           </div>
           <div class="cfg__barra" role="progressbar"
@@ -296,23 +262,6 @@ type UrlImagen = string | null;
           </span>
         </div>
 
-        <div class="form-row">
-          <div class="rs-field">
-            <label class="rs-lbl">Logo</label>
-            <rs-image-upload origen="comercio/logo" [multiple]="false" [maxFiles]="1" formControlName="logoUrl"></rs-image-upload>
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Imagen de portada</label>
-            <rs-image-upload origen="comercio/portada" [multiple]="false" [maxFiles]="1" formControlName="coverUrl"></rs-image-upload>
-          </div>
-        </div>
-
-        <div class="rs-field">
-          <label class="rs-lbl">Galería de fotos</label>
-          <rs-image-upload origen="comercio/galeria" [multiple]="true" [maxFiles]="10" formControlName="galeria"></rs-image-upload>
-          <span class="rs-field-hint">Muestra tus instalaciones, equipo y trabajo realizado.</span>
-        </div>
-
         <div class="form-actions">
           <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
                   [disabled]="esPrimerPaso()">
@@ -331,109 +280,6 @@ type UrlImagen = string | null;
     }
 
     <!-- Ubicación -->
-@if (tab() === 'ubicacion') {
-    <section class="config-section rs-card">
-      <div class="config-section__header">
-        <div class="config-section__icon" style="background:rgba(16,185,129,.12);color:var(--c-success, #10B981)">
-          <rs-icon name="map-pin" [size]="18" [stroke]="2"></rs-icon>
-        </div>
-        <div>
-          <h2 class="config-section__title">Ubicación</h2>
-          <p class="config-section__sub">Dirección desde la que operas o atiendes a tus clientes.</p>
-        </div>
-      </div>
-
-      <form [formGroup]="direccionForm" (ngSubmit)="continuar(guardarDireccion())" class="config-form">
-        <div class="form-row">
-          <div class="rs-field">
-            <label class="rs-lbl">Calle</label>
-            <rs-place-autocomplete formControlName="calle" inputId="cfg-calle" tipo="direccion"
-                                   apariencia="campo" placeholder="Empieza a escribir tu dirección…"
-                                   (lugarElegido)="usarDireccionSugerida($event)" />
-            <span class="rs-field-hint">
-              Elige tu dirección de la lista y rellenaremos el resto con la ubicación exacta.
-            </span>
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Número</label>
-            <input class="rs-inp" formControlName="numero" placeholder="Ej: 24, 2ºB" />
-          </div>
-        </div>
-        <div class="form-row form-row--3">
-          <div class="rs-field">
-            <label class="rs-lbl">Ciudad</label>
-            <rs-place-autocomplete formControlName="ciudad" inputId="cfg-ciudad"
-                                   apariencia="campo" placeholder="Busca tu población…" />
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Provincia</label>
-            <rs-place-autocomplete formControlName="provincia" inputId="cfg-provincia"
-                                   apariencia="campo" placeholder="Elige provincia…"
-                                   [catalogoLocal]="provincias" [usaPlaces]="false"
-                                   [sugerenciasIniciales]="52" />
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Código postal</label>
-            <input class="rs-inp" formControlName="codigoPostal" placeholder="Ej: 28013" />
-          </div>
-        </div>
-        <div class="rs-field">
-          <label class="rs-lbl">País</label>
-          <input class="rs-inp" formControlName="pais" placeholder="España" />
-        </div>
-
-        <!-- Estado de las coordenadas: sin ellas el negocio no sale en el mapa
-             del buscador, y eso el comercio tiene que saberlo antes de guardar. -->
-        <div class="geo-estado" [class.geo-estado--ok]="coordenadas()">
-          @if (coordenadas()) {
-            <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon>
-            <span>Ubicación exacta guardada: tu negocio se puede situar en el mapa.</span>
-          } @else {
-            <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
-            <span>
-              Sin ubicación exacta. Elige tu dirección del desplegable para que aparezcas
-              en el mapa del buscador.
-            </span>
-          }
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
-                  [disabled]="esPrimerPaso()">
-            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-            Atrás
-          </button>
-          <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoDireccion()">
-            @if (guardandoDireccion()) { Guardando… } @else {
-              <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
-            }
-          </button>
-        </div>
-      </form>
-
-      <!-- Comprobar de un vistazo que la dirección cayó donde toca (TCK-8028) -->
-      @if (coordenadas(); as punto) {
-        <div class="mapa-ubicacion">
-          <rs-mapa [puntos]="[punto]" [centro]="{ lat: punto.lat, lng: punto.lng, zoom: 16 }" />
-          <p class="config-section__sub">
-            Si el marcador no cae donde está tu negocio, corrige la dirección y vuelve a guardar.
-          </p>
-          @if (enlaceGoogleMaps(); as url) {
-            <a class="rs-btn rs-btn--outline rs-btn--sm" [href]="url" target="_blank" rel="noopener">
-              <rs-icon name="map-pin" [size]="14" [stroke]="2"></rs-icon>
-              Comprobar en Google Maps
-            </a>
-          }
-        </div>
-      } @else {
-        <p class="config-section__sub">
-          Elige tu dirección del desplegable para ver el negocio situado en el mapa.
-        </p>
-      }
-    </section>
-    }
-
     <!-- Datos de contacto -->
 @if (tab() === 'contacto') {
     <section class="config-section rs-card">
@@ -491,238 +337,20 @@ type UrlImagen = string | null;
     }
 
     <!-- Horario de atención -->
-@if (tab() === 'horarios') {
-    <section class="config-section rs-card">
-      <div class="config-section__header">
-        <div class="config-section__icon" style="background:rgba(245,158,11,.12);color:var(--c-amber)">
-          <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
-        </div>
-        <div>
-          <h2 class="config-section__title">Horario de atención</h2>
-          <p class="config-section__sub">Indica tus horas de apertura por día, incluida la jornada partida.</p>
-        </div>
-      </div>
-
-      <form [formGroup]="horarioForm" (ngSubmit)="continuar(guardarHorario())" class="config-form">
-        <div formArrayName="dias" class="horario-list">
-          @for (dia of diasControls; track dia; let i = $index) {
-            <div [formGroupName]="i" class="horario-row" [class.horario-row--cerrado]="dia.get('cerrado')?.value">
-              <div class="horario-row__dia">
-                <span class="horario-row__label">{{ dias[i].label }}</span>
-                <label class="rs-checkbox">
-                  <input type="checkbox" formControlName="cerrado" (change)="onCerradoChange(i)"> Cerrado
-                </label>
-              </div>
-
-              <!--
-                Las horas desaparecen al marcar "Cerrado": no significan nada ese
-                día, y en el móvil son cuatro campos que estorban en una pantalla
-                donde el espacio es lo que falta.
-              -->
-              @if (!dia.get('cerrado')?.value) {
-                <div class="horario-row__tramos">
-                  <div class="horario-tramo">
-                    <span class="horario-tramo__et">Mañana</span>
-                    <input class="rs-inp rs-inp--time" type="time" formControlName="abre"
-                           aria-label="{{ dias[i].label }}: primer tramo, apertura">
-                    <span class="horario-row__sep">—</span>
-                    <input class="rs-inp rs-inp--time" type="time" formControlName="cierra"
-                           aria-label="{{ dias[i].label }}: primer tramo, cierre">
-                  </div>
-
-                  <!-- Segundo tramo: muchos negocios cierran a mediodía (TCK-8028) -->
-                  <div class="horario-tramo">
-                    <span class="horario-tramo__et">Tarde</span>
-                    <input class="rs-inp rs-inp--time" type="time" formControlName="abre2"
-                           aria-label="{{ dias[i].label }}: segundo tramo, apertura">
-                    <span class="horario-row__sep">—</span>
-                    <input class="rs-inp rs-inp--time" type="time" formControlName="cierra2"
-                           aria-label="{{ dias[i].label }}: segundo tramo, cierre">
-                  </div>
-                </div>
-              } @else {
-                <span class="horario-row__cerrado">Cerrado todo el día</span>
-              }
-            </div>
-          }
-        </div>
-
-        <!-- Atajo del horario semanal. El guardado del paso está al final de la
-             sección, después de los días especiales: si estuviera aquí, avanzar
-             saltaría por encima de ellos. -->
-        <div class="form-actions form-actions--suelta">
-          <button type="button" class="rs-btn rs-btn--outline" (click)="copiarHorarioATodos()">
-            <rs-icon name="copy" [size]="14" [stroke]="2"></rs-icon>
-            <span class="solo-escritorio">Copiar el horario del lunes a todos los días</span>
-            <span class="solo-movil">Copiar el lunes a todos</span>
-          </button>
-        </div>
-      </form>
-
-      <!-- Festivos, vacaciones y cierres puntuales (TCK-8028) -->
-      <div class="excepciones">
-        <h3 class="excepciones__titulo">Días especiales</h3>
-        <p class="config-section__sub">
-          Festivos, vacaciones o cierres puntuales. Mandan sobre el horario semanal.
-        </p>
-
-        @if (excepciones().length) {
-          <div class="excepciones__lista">
-            @for (e of excepciones(); track $index) {
-              <div class="excepcion">
-                <span class="excepcion__fecha">{{ fechaLarga(e.fecha) }}</span>
-                <span class="excepcion__detalle">
-                  {{ e.cerrado ? 'Cerrado' : (e.abre || '—') + ' — ' + (e.cierra || '—') }}
-                  @if (e.motivo) { · {{ e.motivo }} }
-                </span>
-                <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                        (click)="quitarExcepcion($index)" aria-label="Quitar día especial">
-                  <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon>
-                </button>
-              </div>
-            }
-          </div>
-        } @else {
-          <p class="config-section__sub">Todavía no has marcado ningún día especial.</p>
-        }
-
-        <!--
-          Calendario con selección múltiple. Antes era un campo de fecha y un
-          botón: un puente son cuatro días y agosto entero son treinta, y
-          añadirlos de uno en uno —con su motivo cada vez— era la parte que
-          nadie terminaba. Se marcan los que sean y se aplican de una vez.
-        -->
-        <div class="cal">
-          <div class="cal__barra">
-            <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                    (click)="cambiarMesExcepciones(-1)" aria-label="Mes anterior">
-              <rs-icon name="chevron-left" [size]="16" [stroke]="2.5"></rs-icon>
-            </button>
-            <strong class="cal__mes">{{ nombreMes() }}</strong>
-            <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                    (click)="cambiarMesExcepciones(1)" aria-label="Mes siguiente">
-              <rs-icon name="chevron-right" [size]="16" [stroke]="2.5"></rs-icon>
-            </button>
-          </div>
-
-          <div class="cal__semana" aria-hidden="true">
-            @for (d of diasSemanaCorto; track $index) { <span>{{ d }}</span> }
-          </div>
-
-          <div class="cal__rejilla" role="group" aria-label="Elige los días especiales">
-            @for (c of celdasExcepciones(); track c.clave) {
-              <button type="button" class="cal__dia"
-                      [class.cal__dia--fuera]="!c.delMes"
-                      [class.cal__dia--sel]="c.seleccionado"
-                      [class.cal__dia--puesto]="c.yaEsExcepcion"
-                      [disabled]="c.pasado || c.yaEsExcepcion"
-                      [attr.aria-pressed]="c.seleccionado"
-                      [attr.title]="c.yaEsExcepcion ? 'Ya marcado como día especial' : null"
-                      (click)="alternarDiaExcepcion(c)">
-                {{ c.dia }}
-              </button>
-            }
-          </div>
-
-          <div class="cal__atajos">
-            <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="seleccionarMesEntero()">
-              Marcar el mes entero
-            </button>
-            @if (totalSeleccionados()) {
-              <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarSeleccion()">
-                Quitar la selección
-              </button>
-            }
-          </div>
-        </div>
-
-        <!-- Lo que se aplica a TODOS los días marcados, para no repetirlo día a día. -->
-        <div class="excepcion-form">
-          <input class="rs-inp" type="text" [value]="nuevaExcepcionMotivo()"
-                 (input)="nuevaExcepcionMotivo.set($any($event.target).value)"
-                 placeholder="Motivo (ej. vacaciones de verano)" />
-          <label class="rs-checkbox">
-            <input type="checkbox" [checked]="nuevaExcepcionCerrado()"
-                   (change)="nuevaExcepcionCerrado.set(!nuevaExcepcionCerrado())" /> Cerrado todo el día
-          </label>
-          @if (!nuevaExcepcionCerrado()) {
-            <input class="rs-inp rs-inp--time" type="time" [value]="nuevaExcepcionAbre()"
-                   (input)="nuevaExcepcionAbre.set($any($event.target).value)" aria-label="Abre" />
-            <input class="rs-inp rs-inp--time" type="time" [value]="nuevaExcepcionCierra()"
-                   (input)="nuevaExcepcionCierra.set($any($event.target).value)" aria-label="Cierra" />
-          }
-          <button type="button" class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="!totalSeleccionados()" (click)="anadirSeleccionados()">
-            <rs-icon name="plus" [size]="14" [stroke]="2.5"></rs-icon>
-            @if (totalSeleccionados()) {
-              Añadir {{ totalSeleccionados() }} {{ totalSeleccionados() === 1 ? 'día' : 'días' }}
-            } @else {
-              Elige días en el calendario
-            }
-          </button>
-        </div>
-
-        <!--
-          Guardar los días especiales pertenece a este bloque, no al pie del
-          paso: es lo que acaba de rellenarse justo encima. En el pie eran tres
-          botones y en un móvil no caben — el del medio se derramaba sobre el de
-          continuar. Los pies de los otros nueve pasos son "Atrás" + avanzar;
-          éste ya también.
-        -->
-        <div class="form-actions form-actions--suelta">
-          <button type="button" class="rs-btn rs-btn--secondary" [disabled]="guardandoExcepciones()"
-                  (click)="guardarExcepciones()">
-            @if (guardandoExcepciones()) { Guardando… } @else {
-              <rs-icon name="check" [size]="14" [stroke]="2"></rs-icon>
-              Guardar días especiales
-            }
-          </button>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
-                  [disabled]="esPrimerPaso()">
-            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-            Atrás
-          </button>
-          <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoHorario()"
-                  (click)="continuar(guardarHorario())">
-            @if (guardandoHorario()) { Guardando… } @else {
-              <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
-            }
-          </button>
-        </div>
-      </div>
-    </section>
-    }
-
     <!-- Políticas y datos bancarios -->
-@if (tab() === 'politicas') {
+@if (tab() === 'datosBancarios') {
     <section class="config-section rs-card">
       <div class="config-section__header">
-        <div class="config-section__icon" style="background:rgba(239,68,68,.10);color:#B91C1C">
-          <rs-icon name="shield-check" [size]="18" [stroke]="2"></rs-icon>
+        <div class="config-section__icon" style="background:rgba(22,163,74,.12);color:#16A34A">
+          <rs-icon name="euro" [size]="18" [stroke]="2"></rs-icon>
         </div>
         <div>
-          <h2 class="config-section__title">Políticas y cobros</h2>
-          <p class="config-section__sub">Política de cancelación y cuenta donde recibirás tus liquidaciones.</p>
+          <h2 class="config-section__title">Datos bancarios</h2>
+          <p class="config-section__sub">La cuenta en la que recibirás tus liquidaciones.</p>
         </div>
       </div>
 
-      <form [formGroup]="politicasForm" (ngSubmit)="continuar(guardarPoliticas())" class="config-form">
-        <div class="rs-field">
-          <label class="rs-lbl">Política de cancelación por defecto</label>
-          <select class="rs-inp" formControlName="politicaCancelacion">
-            <option value="">— Sin especificar —</option>
-            <option value="flexible">Flexible</option>
-            <option value="moderada">Moderada</option>
-            <option value="estricta">Estricta</option>
-          </select>
-        </div>
-
-        <div class="rs-hr"></div>
-
+      <form [formGroup]="datosBancariosForm" (ngSubmit)="continuar(guardarDatosBancarios())" class="config-form">
         <div class="rs-field">
           <label class="rs-lbl">Titular de la cuenta</label>
           <input class="rs-inp" formControlName="titular" placeholder="Nombre del titular" />
@@ -749,52 +377,8 @@ type UrlImagen = string | null;
             <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
             Atrás
           </button>
-          <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoPoliticas()">
-            @if (guardandoPoliticas()) { Guardando… } @else {
-              <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
-            }
-          </button>
-        </div>
-      </form>
-    </section>
-    }
-
-    <!-- Verificación de identidad -->
-@if (tab() === 'verificacion') {
-    <section class="config-section rs-card">
-      <div class="config-section__header">
-        <div class="config-section__icon" style="background:rgba(22,163,74,.12);color:#16A34A">
-          <rs-icon name="badge-check" [size]="18" [stroke]="2"></rs-icon>
-        </div>
-        <div>
-          <h2 class="config-section__title">Verificación de identidad</h2>
-          <p class="config-section__sub">Sube tus documentos para obtener la insignia de comercio verificado.</p>
-        </div>
-        <span class="rs-badge {{ verificacionBadge() }}" style="margin-left:auto">{{ verificacionLabel() }}</span>
-      </div>
-
-      <form [formGroup]="verificacionForm" (ngSubmit)="continuar(guardarVerificacion())" class="config-form">
-        <div class="form-row">
-          <div class="rs-field">
-            <label class="rs-lbl">Documento de identidad del titular</label>
-            <rs-image-upload origen="comercio/dni" [multiple]="false" [maxFiles]="1" formControlName="documentoIdentidadUrl"></rs-image-upload>
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Licencia o registro del negocio</label>
-            <rs-image-upload origen="comercio/licencia" [multiple]="false" [maxFiles]="1" formControlName="licenciaNegocioUrl"></rs-image-upload>
-          </div>
-        </div>
-        <p class="rs-field-hint">Nuestro equipo revisará tus documentos en un plazo de 24–48 horas.</p>
-
-        <div class="form-actions">
-          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
-                  [disabled]="esPrimerPaso()">
-            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-            Atrás
-          </button>
-          <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoVerificacion()">
-            @if (guardandoVerificacion()) { Guardando… } @else {
+          <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoDatosBancarios()">
+            @if (guardandoDatosBancarios()) { Guardando… } @else {
               <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
               {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
             }
@@ -925,31 +509,10 @@ type UrlImagen = string | null;
   styles: [`
     :host { display: contents; }
 
-    .geo-estado {
-      display: flex; align-items: flex-start; gap: var(--sp-2);
-      padding: var(--sp-3) var(--sp-4);
-      border-radius: var(--r-lg);
-      background: var(--c-raised);
-      font-size: var(--f-sm); color: var(--t-300);
-    }
-    .geo-estado rs-icon { flex-shrink: 0; color: var(--c-amber); }
-    .geo-estado--ok rs-icon { color: var(--c-success, #10B981); }
-
-    .mapa-ubicacion { margin-top: var(--sp-5); }
-    .mapa-ubicacion rs-mapa { display: block; height: 260px; border-radius: var(--r-xl); overflow: hidden; }
-
     .aviso-cambios { display: flex; align-items: center; gap: var(--sp-2); }
 
     .contador { display: block; margin-top: var(--sp-1); }
     .contador--corta { color: #B45309; }
-
-    .excepciones { margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--b-1); }
-    .excepciones__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
-    .excepciones__lista { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-3) 0; }
-    .excepcion { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--c-raised); border-radius: var(--r-lg); flex-wrap: wrap; }
-    .excepcion__fecha { font-family: var(--font-accent); font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
-    .excepcion__detalle { flex: 1; font-size: var(--f-sm); color: var(--t-300); }
-    .excepcion-form { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; margin-top: var(--sp-3); }
 
     /*
      * ══ RECORRIDO PASO A PASO ═══════════════════════════════════════
@@ -979,6 +542,7 @@ type UrlImagen = string | null;
       color: var(--c-accent); line-height: 1;
     }
     .cfg__resumen-titulo { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
+    .cfg__resumen-nota { font-size: var(--f-xs); color: var(--t-400); margin-top: 2px; }
     .cfg__resumen-sub { font-size: var(--f-xs); color: var(--t-400); }
     .cfg__barra { height: 6px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; }
     .cfg__barra span { display: block; height: 100%; border-radius: var(--r-full); background: var(--g-accent); transition: width var(--d-3); }
@@ -1092,41 +656,6 @@ type UrlImagen = string | null;
       gap: var(--sp-3); padding-top: var(--sp-2);
     }
 
-    .cal { margin: var(--sp-4) 0; max-width: 380px; }
-    .cal__barra { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
-    .cal__mes { font-size: var(--f-sm); color: var(--t-100); text-transform: capitalize; }
-    .cal__semana,
-    .cal__rejilla { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--sp-1); }
-    .cal__semana span { text-align: center; font-size: var(--f-xs); color: var(--t-400); padding-bottom: var(--sp-1); }
-
-    .cal__dia {
-      /* 40px: el mínimo para acertar con el dedo sin apuntar. */
-      aspect-ratio: 1; min-height: 40px;
-      display: flex; align-items: center; justify-content: center;
-      border: 1px solid transparent; border-radius: var(--r-md);
-      background: transparent; cursor: pointer;
-      font-size: var(--f-sm); color: var(--t-200);
-      transition: background var(--d-1), color var(--d-1), border-color var(--d-1);
-
-      &:hover:not(:disabled) { background: var(--c-raised); }
-      &:disabled { cursor: default; opacity: .45; }
-    }
-    .cal__dia--fuera { color: var(--t-400); opacity: .5; }
-    .cal__dia--sel {
-      background: var(--c-accent); border-color: var(--c-accent);
-      color: #fff; font-weight: var(--w-7);
-    }
-    /* Los ya guardados se distinguen de los que se están marcando ahora. */
-    .cal__dia--puesto {
-      border-color: var(--c-amber); color: var(--c-amber);
-      font-weight: var(--w-6); opacity: 1;
-    }
-    .cal__atajos { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); flex-wrap: wrap; }
-
-    @media (max-width: 768px) {
-      .cal { max-width: none; }
-    }
-
     /* El texto largo del botón no cabe en un móvil; se acorta sin perder sentido. */
     .solo-movil { display: none; }
     @media (max-width: 768px) {
@@ -1221,77 +750,6 @@ type UrlImagen = string | null;
       .vert-grid { grid-template-columns: 1fr; gap: var(--sp-2); }
     }
 
-    .horario-list { display: flex; flex-direction: column; gap: var(--sp-2); }
-    .horario-row {
-      display: flex; align-items: center; gap: var(--sp-4);
-      padding: var(--sp-2) 0; border-bottom: 1px solid var(--b-1);
-      &:last-child { border: none; }
-    }
-    .horario-row__dia {
-      display: flex; align-items: center; gap: var(--sp-3);
-      width: 210px; flex-shrink: 0;
-    }
-    .horario-row__label { width: 90px; font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); flex-shrink: 0; }
-    .horario-row__tramos { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
-    .horario-tramo { display: flex; align-items: center; gap: var(--sp-2); }
-    .horario-tramo__et { font-size: var(--f-xs); color: var(--t-400); min-width: 48px; }
-    .horario-row__sep { color: var(--t-400); }
-    .horario-row__cerrado { font-size: var(--f-sm); color: var(--t-400); font-style: italic; }
-    .rs-inp--time { width: 130px; padding: var(--sp-2) var(--sp-3); }
-
-    /*
-     * Móvil: en una fila caben la etiqueta del día y cuatro campos de hora de
-     * 130px, o sea unos 700px. En 390 se salía de la pantalla y no había forma
-     * de llegar a los campos de la derecha. Cada día pasa a ser una tarjeta con
-     * sus tramos apilados y los campos a lo ancho.
-     */
-    @media (max-width: 768px) {
-      .horario-list { gap: var(--sp-3); }
-
-      .horario-row {
-        flex-direction: column; align-items: stretch; gap: var(--sp-3);
-        padding: var(--sp-4); border: 1px solid var(--b-1);
-        border-radius: var(--r-lg); background: var(--c-raised);
-      }
-      .horario-row:last-child { border: 1px solid var(--b-1); }
-
-      /* El día y su interruptor, en los extremos: se lee de un vistazo. */
-      .horario-row__dia { width: auto; justify-content: space-between; }
-      .horario-row__label { width: auto; font-size: var(--f-base); }
-
-      .horario-row--cerrado { background: transparent; }
-
-      .horario-row__tramos { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
-
-      /*
-       * input[type=time] no baja de ~92px en Chrome: los dígitos y el icono de
-       * reloj viven en su shadow DOM y fijan un mínimo intrínseco que
-       * min-width: 0 no rebaja. Con "Mañana"/"Tarde" en la misma línea, dos
-       * campos más el guion no cabían por debajo de 390px y la fila se salía de
-       * la tarjeta (a 320px llegaba a cortar el segundo campo). La etiqueta
-       * pasa a su propia línea y los dos campos se reparten el resto a partes
-       * iguales, con el guion tomando sólo lo que ocupa.
-       */
-      .horario-tramo {
-        display: grid; grid-template-columns: 1fr auto 1fr;
-        align-items: center; gap: 2px var(--sp-2);
-      }
-      .horario-tramo__et { grid-column: 1 / -1; min-width: 0; }
-      /* Acotado al tramo: excepcion-form comparte la clase y ahi los campos no
-         ocupan una columna del grid, sino una linea del flex. */
-      .horario-tramo .rs-inp--time {
-        width: 100%; min-width: 0; text-align: center;
-        /* El padding lateral de escritorio se come el hueco del icono. */
-        padding: var(--sp-2);
-      }
-
-      /* Días especiales: las dos horas comparten línea en vez de una por fila. */
-      .excepcion-form .rs-inp--time {
-        width: auto; flex: 1 1 calc(50% - var(--sp-2)); min-width: 0;
-        padding: var(--sp-2); text-align: center;
-      }
-    }
-
     .notif-list { display: flex; flex-direction: column; gap: 0; }
     .notif-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-4) 0; border-bottom: 1px solid var(--b-1); &:last-child { border: none; } }
     .notif-row__label { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
@@ -1348,25 +806,22 @@ export class ComercioConfigComponent implements OnInit {
   /**
    * Qué falta por rellenar en la ficha. Cada carencia sabe a qué pestaña lleva,
    * para que el aviso sea accionable y no un simple porcentaje.
+   *
+   * **No condiciona la publicación.** Lo que hace falta para salir en el
+   * buscador se pide en el alta guiada; esto son los datos que redondean la
+   * ficha, y un comercio con servicios publicados puede quedarse aquí al 70%
+   * sin que eso le quite nada de la web.
    */
   readonly camposPerfil = computed(() => {
     const c = this.comercio();
-    const horarioPuesto = (c?.horario ?? []).some((d) => d.cerrado || (d.abre && d.cierra));
     return [
       { label: 'Descripción del negocio', tab: 'perfil' as TabConfig, ok: !!c?.descripcion?.trim() },
       // El panel daba el perfil por completo sin CIF mientras el escritorio lo
       // seguía pidiendo: los dos contaban cosas distintas del mismo comercio.
       { label: 'Datos fiscales (CIF/NIF)', tab: 'perfil' as TabConfig, ok: !!c?.vatNumber },
-      { label: 'Logo', tab: 'perfil' as TabConfig, ok: !!c?.logoUrl },
-      { label: 'Imagen de portada', tab: 'perfil' as TabConfig, ok: !!c?.coverUrl },
-      { label: 'Galería de fotos', tab: 'perfil' as TabConfig, ok: (c?.galeria?.length ?? 0) > 0 },
-      { label: 'Dirección', tab: 'ubicacion' as TabConfig, ok: !!c?.direccion?.calle && !!c?.direccion?.ciudad },
       { label: 'Email de contacto', tab: 'contacto' as TabConfig, ok: !!c?.contacto?.email },
       { label: 'Teléfono', tab: 'contacto' as TabConfig, ok: !!c?.contacto?.telefono },
-      { label: 'Horario de atención', tab: 'horarios' as TabConfig, ok: horarioPuesto },
-      { label: 'Política de cancelación', tab: 'politicas' as TabConfig, ok: !!c?.politicaCancelacion },
-      { label: 'Datos bancarios', tab: 'politicas' as TabConfig, ok: !!c?.datosBancarios?.iban },
-      { label: 'Verificación de identidad', tab: 'verificacion' as TabConfig, ok: c?.verificacion?.estado === 'verificado' },
+      { label: 'Datos bancarios', tab: 'datosBancarios' as TabConfig, ok: !!c?.datosBancarios?.iban },
       // Ya es un paso accionable, así que cuenta como los demás: antes devolvía
       // `null` en `estadoSeccion` y el índice lo pintaba sin estado.
       { label: 'Servicios que ofreces', tab: 'verticales' as TabConfig, ok: (c?.verticales?.length ?? 0) > 0 },
@@ -1381,12 +836,8 @@ export class ComercioConfigComponent implements OnInit {
   readonly faltantes = computed(() => this.camposPerfil().filter((c) => !c.ok));
 
   readonly guardandoInfo = signal(false);
-  readonly guardandoDireccion = signal(false);
   readonly guardandoContacto = signal(false);
-  readonly guardandoHorario = signal(false);
-  readonly guardandoPoliticas = signal(false);
-  readonly guardandoVerificacion = signal(false);
-  readonly guardandoExcepciones = signal(false);
+  readonly guardandoDatosBancarios = signal(false);
   readonly guardandoVerticales = signal(false);
 
   /** Categorías marcadas en el paso "Servicios que ofreces". */
@@ -1405,11 +856,8 @@ export class ComercioConfigComponent implements OnInit {
   private formularioDeTab(): AbstractControl | null {
     switch (this.tab()) {
       case 'perfil': return this.infoForm;
-      case 'ubicacion': return this.direccionForm;
       case 'contacto': return this.contactoForm;
-      case 'horarios': return this.horarioForm;
-      case 'politicas': return this.politicasForm;
-      case 'verificacion': return this.verificacionForm;
+      case 'datosBancarios': return this.datosBancariosForm;
       default: return null;
     }
   }
@@ -1495,215 +943,8 @@ export class ComercioConfigComponent implements OnInit {
     return campos.length ? campos.every((c) => c.ok) : null;
   }
 
-  /**
-   * Punto del mapa. Manda lo que hay en el formulario —así el marcador salta al
-   * elegir la dirección, sin esperar a guardar— y si no, lo ya guardado.
-   */
-  readonly coordenadas = computed(() => {
-    const enFormulario = this.geoFormulario();
-    const guardada = this.comercio()?.direccion;
-    const lat = enFormulario?.lat ?? guardada?.lat;
-    const lng = enFormulario?.lng ?? guardada?.lng;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-
-    return {
-      id: 'negocio',
-      lat: lat as number,
-      lng: lng as number,
-      titulo: this.comercio()?.nombreComercial ?? 'Tu negocio',
-    };
-  });
-
-  /** Coordenadas tecleadas en esta sesión; se refresca en cada cambio del formulario. */
-  private readonly geoFormulario = signal<{ lat: number; lng: number } | null>(null);
-
-  /** Atajo para verificar el punto guardado en el mapa que usa todo el mundo. */
-  readonly enlaceGoogleMaps = computed(() => {
-    const punto = this.coordenadas();
-    return punto ? enlaceGoogleMaps({ lat: punto.lat, lng: punto.lng, nombre: punto.titulo }) : null;
-  });
-
-  /**
-   * Rellena la dirección con lo que devuelve Google y guarda el punto exacto.
-   * Sin coordenadas el negocio no se puede situar en el mapa del buscador, así
-   * que el desplegable es el camino recomendado, no un adorno.
-   */
-  usarDireccionSugerida(lugar: LugarElegido): void {
-    const direccion = lugar.direccion;
-    if (!direccion) return;
-
-    this.direccionForm.patchValue({
-      calle: direccion.calle || this.direccionForm.controls.calle.value,
-      // El número llega aparte y sólo si el portal lo tiene; no se borra lo
-      // que el comercio ya hubiera escrito (un "2ºB" que Google no conoce).
-      numero: direccion.numero || this.direccionForm.controls.numero.value,
-      codigoPostal: direccion.codigoPostal || this.direccionForm.controls.codigoPostal.value,
-      ciudad: direccion.ciudad || this.direccionForm.controls.ciudad.value,
-      provincia: direccion.provincia || this.direccionForm.controls.provincia.value,
-      pais: direccion.pais || this.direccionForm.controls.pais.value,
-      lat: direccion.lat,
-      lng: direccion.lng,
-    });
-    this.direccionForm.markAsDirty();
-    this.geoFormulario.set({ lat: direccion.lat, lng: direccion.lng });
-  }
-
   readonly caracteresDescripcion = signal(0);
 
-  /** Festivos, vacaciones y cierres puntuales (TCK-8028). */
-  readonly excepciones = signal<ExcepcionHorario[]>([]);
-  readonly nuevaExcepcionFecha = signal('');
-  readonly nuevaExcepcionMotivo = signal('');
-  readonly nuevaExcepcionCerrado = signal(true);
-  readonly nuevaExcepcionAbre = signal('');
-  readonly nuevaExcepcionCierra = signal('');
-
-  /** Evita teclear siete veces el mismo horario (TCK-8028). */
-  copiarHorarioATodos(): void {
-    const lunes = this.diasControls[0].getRawValue();
-    for (const control of this.diasControls.slice(1)) {
-      control.patchValue({
-        abre: lunes.abre, cierra: lunes.cierra,
-        abre2: lunes.abre2, cierra2: lunes.cierra2,
-        cerrado: lunes.cerrado,
-      });
-    }
-  }
-
-  /** Mes visible del calendario de días especiales. */
-  readonly mesExcepciones = signal(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-
-  /**
-   * Días marcados en el calendario, sin guardar todavía.
-   *
-   * Se marcan varios y se aplican de una vez: un puente son cuatro días y las
-   * vacaciones de agosto son treinta. Añadirlos de uno en uno, con su fecha y su
-   * motivo cada vez, era la parte que nadie completaba.
-   */
-  readonly diasSeleccionados = signal<ReadonlySet<string>>(new Set());
-
-  readonly nombreMes = computed(() =>
-    this.mesExcepciones().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }));
-
-  /** Cabecera de la rejilla; la semana empieza en lunes. */
-  readonly diasSemanaCorto = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-
-  readonly celdasExcepciones = computed(() => {
-    const mes = this.mesExcepciones();
-    const seleccionados = this.diasSeleccionados();
-    const yaPuestos = new Set(this.excepciones().map((e) => e.fecha));
-    const hoy = hoyLocal().getTime();
-
-    return celdasDelMes(mes).map((fecha) => {
-      const clave = claveDia(fecha);
-      return {
-        clave,
-        dia: fecha.getDate(),
-        delMes: fecha.getMonth() === mes.getMonth(),
-        // Marcar un festivo que ya pasó no cambia nada: se deja fuera para que
-        // el calendario no invite a hacer algo sin efecto.
-        pasado: fecha.getTime() < hoy,
-        yaEsExcepcion: yaPuestos.has(clave),
-        seleccionado: seleccionados.has(clave),
-      };
-    });
-  });
-
-  readonly totalSeleccionados = computed(() => this.diasSeleccionados().size);
-
-  cambiarMesExcepciones(delta: number): void {
-    const actual = this.mesExcepciones();
-    this.mesExcepciones.set(new Date(actual.getFullYear(), actual.getMonth() + delta, 1));
-  }
-
-  /** Alterna un día de la selección. Los pasados y los ya puestos no se tocan. */
-  alternarDiaExcepcion(celda: { clave: string; pasado: boolean; yaEsExcepcion: boolean }): void {
-    if (celda.pasado || celda.yaEsExcepcion) return;
-
-    this.diasSeleccionados.update((actuales) => {
-      const nuevos = new Set(actuales);
-      if (nuevos.has(celda.clave)) nuevos.delete(celda.clave);
-      else nuevos.add(celda.clave);
-      return nuevos;
-    });
-  }
-
-  /** Marca de golpe el resto del mes visible: el caso de las vacaciones. */
-  seleccionarMesEntero(): void {
-    const disponibles = this.celdasExcepciones()
-      .filter((c) => c.delMes && !c.pasado && !c.yaEsExcepcion)
-      .map((c) => c.clave);
-
-    this.diasSeleccionados.update((actuales) => new Set([...actuales, ...disponibles]));
-  }
-
-  limpiarSeleccion(): void {
-    this.diasSeleccionados.set(new Set());
-  }
-
-  /**
-   * Convierte la selección en días especiales, todos con el mismo motivo y el
-   * mismo horario. Reemplaza los que ya existieran con esa fecha, igual que al
-   * añadirlos de uno en uno.
-   */
-  anadirSeleccionados(): void {
-    const seleccionados = [...this.diasSeleccionados()];
-    if (!seleccionados.length) return;
-
-    const cerrado = this.nuevaExcepcionCerrado();
-    const motivo = this.nuevaExcepcionMotivo() || undefined;
-    const abre = cerrado ? undefined : this.nuevaExcepcionAbre() || undefined;
-    const cierra = cerrado ? undefined : this.nuevaExcepcionCierra() || undefined;
-
-    this.excepciones.update((lista) => [
-      ...lista.filter((e) => !seleccionados.includes(e.fecha)),
-      ...seleccionados.map((fecha) => ({ fecha, motivo, cerrado, abre, cierra })),
-    ].sort((a, b) => a.fecha.localeCompare(b.fecha)));
-
-    this.limpiarSeleccion();
-    this.nuevaExcepcionMotivo.set('');
-    this.nuevaExcepcionAbre.set('');
-    this.nuevaExcepcionCierra.set('');
-  }
-
-  /** Fecha larga y legible para la lista de días ya puestos. */
-  fechaLarga(clave: string): string {
-    return desdeClaveDia(clave).toLocaleDateString('es-ES', {
-      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-    });
-  }
-
-  anadirExcepcion(): void {
-    const fecha = this.nuevaExcepcionFecha();
-    if (!fecha) return;
-    const cerrado = this.nuevaExcepcionCerrado();
-    this.excepciones.update((lista) => [
-      ...lista.filter((e) => e.fecha !== fecha),
-      {
-        fecha,
-        motivo: this.nuevaExcepcionMotivo() || undefined,
-        cerrado,
-        abre: cerrado ? undefined : this.nuevaExcepcionAbre() || undefined,
-        cierra: cerrado ? undefined : this.nuevaExcepcionCierra() || undefined,
-      },
-    ].sort((a, b) => a.fecha.localeCompare(b.fecha)));
-
-    this.nuevaExcepcionFecha.set('');
-    this.nuevaExcepcionMotivo.set('');
-    this.nuevaExcepcionAbre.set('');
-    this.nuevaExcepcionCierra.set('');
-  }
-
-  quitarExcepcion(indice: number): void {
-    this.excepciones.update((lista) => lista.filter((_, i) => i !== indice));
-  }
-
-  async guardarExcepciones(): Promise<boolean> {
-    return this.guardarSeccion({ excepcionesHorario: this.excepciones() }, this.guardandoExcepciones);
-  }
-
-  readonly dias = DIAS;
-  readonly provincias = PROVINCIAS_ES;
 
   readonly notifState = signal<Record<string, boolean>>({
     nuevaReserva: true,
@@ -1724,16 +965,6 @@ export class ComercioConfigComponent implements OnInit {
     razonSocial: [''],
     vatNumber: [''],
     descripcion: [''],
-    logoUrl: [null as UrlImagen],
-    coverUrl: [null as UrlImagen],
-    galeria: [[] as string[]],
-  });
-
-  readonly direccionForm = this.fb.group({
-    calle: [''], numero: [''], ciudad: [''], provincia: [''], codigoPostal: [''], pais: ['España'],
-    // No se editan a mano: los rellena el desplegable de direcciones. Viven en
-    // el formulario para que el mapa reaccione antes de guardar.
-    lat: [null as number | null], lng: [null as number | null],
   });
 
   readonly contactoForm = this.fb.group({
@@ -1743,37 +974,15 @@ export class ComercioConfigComponent implements OnInit {
     whatsapp: [''],
   });
 
-  readonly horarioForm = this.fb.group({
-    dias: this.fb.array(DIAS.map(d => this.fb.group({
-      dia: [d.clave],
-      abre: ['09:00'],
-      cierra: ['18:00'],
-      abre2: [''],
-      cierra2: [''],
-      cerrado: [false],
-    }))),
-  });
-
-  readonly politicasForm = this.fb.group({
-    politicaCancelacion: [''],
+  readonly datosBancariosForm = this.fb.group({
     titular: [''], iban: [''], banco: [''], swift: [''],
   });
-
-  readonly verificacionForm = this.fb.group({
-    documentoIdentidadUrl: [null as UrlImagen],
-    licenciaNegocioUrl: [null as UrlImagen],
-  });
-
-  get diasControls() {
-    return this.horarioForm.controls.dias.controls;
-  }
 
   async ngOnInit(): Promise<void> {
     // Cualquier tecleo puede dejar el formulario sucio: se revisa en cada uno.
     // Los grupos tienen tipos distintos, así que se recorren como FormGroup suelto.
     const formularios: AbstractControl[] = [
-      this.infoForm, this.direccionForm, this.contactoForm,
-      this.horarioForm, this.politicasForm, this.verificacionForm,
+      this.infoForm, this.contactoForm, this.datosBancariosForm,
     ];
     for (const formulario of formularios) {
       formulario.valueChanges
@@ -1795,7 +1004,6 @@ export class ComercioConfigComponent implements OnInit {
 
   private aplicarDatos(data: MiComercio): void {
     this.comercio.set(data);
-    this.excepciones.set(data.excepcionesHorario ?? []);
     this.verticalesSel.set((data.verticales ?? []) as VerticalKey[]);
     this.caracteresDescripcion.set((data.descripcion ?? '').length);
 
@@ -1804,23 +1012,7 @@ export class ComercioConfigComponent implements OnInit {
       razonSocial: data.razonSocial ?? '',
       vatNumber: data.vatNumber ?? '',
       descripcion: data.descripcion ?? '',
-      logoUrl: data.logoUrl ?? null,
-      coverUrl: data.coverUrl ?? null,
-      galeria: data.galeria ?? [],
     });
-
-    this.direccionForm.patchValue({
-      calle: data.direccion?.calle ?? '',
-      numero: data.direccion?.numero ?? '',
-      ciudad: data.direccion?.ciudad ?? '',
-      provincia: data.direccion?.provincia ?? '',
-      codigoPostal: data.direccion?.codigoPostal ?? '',
-      pais: data.direccion?.pais ?? 'España',
-      // Se recargan para no perderlas al guardar un cambio de otro campo.
-      lat: data.direccion?.lat ?? null,
-      lng: data.direccion?.lng ?? null,
-    });
-    this.geoFormulario.set(null);
 
     this.contactoForm.patchValue({
       nombreContacto: data.contacto?.nombreContacto ?? '',
@@ -1829,25 +1021,11 @@ export class ComercioConfigComponent implements OnInit {
       whatsapp: data.contacto?.whatsapp ?? '',
     });
 
-    if (data.horario?.length) {
-      const porDia = new Map(data.horario.map(h => [h.dia, h]));
-      this.diasControls.forEach((ctrl, i) => {
-        const h = porDia.get(DIAS[i].clave);
-        if (h) ctrl.patchValue({ abre: h.abre ?? '09:00', cierra: h.cierra ?? '18:00', cerrado: h.cerrado });
-      });
-    }
-
-    this.politicasForm.patchValue({
-      politicaCancelacion: data.politicaCancelacion ?? '',
+    this.datosBancariosForm.patchValue({
       titular: data.datosBancarios?.titular ?? '',
       iban: data.datosBancarios?.iban ?? '',
       banco: data.datosBancarios?.banco ?? '',
       swift: data.datosBancarios?.swift ?? '',
-    });
-
-    this.verificacionForm.patchValue({
-      documentoIdentidadUrl: data.verificacion?.documentoIdentidadUrl ?? null,
-      licenciaNegocioUrl: data.verificacion?.licenciaNegocioUrl ?? null,
     });
 
     if (data.preferenciasNotificacion) {
@@ -1857,21 +1035,6 @@ export class ComercioConfigComponent implements OnInit {
 
   labelVertical(v: string): string {
     return VERTICAL_LABELS[v as VerticalKey] ?? v;
-  }
-
-  verificacionBadge(): string {
-    return VERIFICACION_BADGE[this.comercio()?.verificacion?.estado ?? 'sin_verificar'];
-  }
-
-  verificacionLabel(): string {
-    return VERIFICACION_LABEL[this.comercio()?.verificacion?.estado ?? 'sin_verificar'];
-  }
-
-  onCerradoChange(i: number): void {
-    const ctrl = this.diasControls[i];
-    if (ctrl.get('cerrado')?.value) {
-      ctrl.patchValue({ abre: '', cierra: '' });
-    }
   }
 
   toggleNotif(key: string): void {
@@ -1916,18 +1079,7 @@ export class ComercioConfigComponent implements OnInit {
       razonSocial: v.razonSocial?.trim() || undefined,
       vatNumber: v.vatNumber?.trim().toUpperCase() || undefined,
       descripcion: v.descripcion,
-      logoUrl: v.logoUrl ?? undefined,
-      coverUrl: v.coverUrl ?? undefined,
-      galeria: v.galeria,
     }, this.guardandoInfo);
-  }
-
-  async guardarDireccion(): Promise<boolean> {
-    const { lat, lng, ...campos } = this.direccionForm.getRawValue();
-    // Un `lat: null` sobrescribiría con basura unas coordenadas ya guardadas;
-    // si no hay punto, sencillamente no se envía el campo.
-    const geo = lat != null && lng != null ? { lat, lng } : {};
-    return this.guardarSeccion({ direccion: { ...campos, ...geo } }, this.guardandoDireccion);
   }
 
   async guardarContacto(): Promise<boolean> {
@@ -1959,25 +1111,9 @@ export class ComercioConfigComponent implements OnInit {
     return guardado;
   }
 
-  async guardarHorario(): Promise<boolean> {
-    const horario: HorarioDia[] = this.diasControls.map(ctrl => ctrl.getRawValue());
-    return this.guardarSeccion({ horario }, this.guardandoHorario);
-  }
-
-  async guardarPoliticas(): Promise<boolean> {
-    const v = this.politicasForm.getRawValue();
-    return this.guardarSeccion({
-      politicaCancelacion: (v.politicaCancelacion || undefined) as MiComercio['politicaCancelacion'],
-      datosBancarios: { titular: v.titular, iban: v.iban, banco: v.banco, swift: v.swift },
-    }, this.guardandoPoliticas);
-  }
-
-  async guardarVerificacion(): Promise<boolean> {
-    const v = this.verificacionForm.getRawValue();
-    return this.guardarSeccion({
-      documentoIdentidadUrl: v.documentoIdentidadUrl ?? undefined,
-      licenciaNegocioUrl: v.licenciaNegocioUrl ?? undefined,
-    }, this.guardandoVerificacion);
+  async guardarDatosBancarios(): Promise<boolean> {
+    const v = this.datosBancariosForm.getRawValue();
+    return this.guardarSeccion({ datosBancarios: v }, this.guardandoDatosBancarios);
   }
 
 }

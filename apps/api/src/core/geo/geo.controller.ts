@@ -65,6 +65,23 @@ export class GeoController {
     return this.geoService.direccion(placeId ?? '');
   }
 
+  @Get('direccion-punto')
+  @ApiOperation({
+    summary: 'Dirección postal de unas coordenadas (geocodificación inversa)',
+    description:
+      'La usa el mapa del alta de un servicio: al arrastrar el pin hay que reescribir la calle, '
+      + 'la población y el código postal, o el punto quedaría bien y la dirección seguiría '
+      + 'señalando al sitio anterior.',
+  })
+  @ApiQuery({ name: 'lat', required: true })
+  @ApiQuery({ name: 'lng', required: true })
+  direccionDePunto(
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+  ): Promise<DireccionLugar | null> {
+    return this.geoService.direccionDePunto(Number(lat), Number(lng));
+  }
+
   @Get('trayecto')
   @ApiOperation({ summary: 'Distancia y duración entre dos poblaciones (tarifa de transporte)' })
   @ApiQuery({ name: 'origen', required: true, description: 'placeId de recogida' })

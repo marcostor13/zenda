@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { ComerciosRepository } from './comercios.repository';
-import { ComercioDocument, EstadoComercio, EstadoVerificacion } from './comercio.schema';
+import { ComercioDocument, EstadoComercio, Consentimiento, ConsentimientosComercio } from './comercio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Pago, PagoDocument } from '../payments/pago.schema';
@@ -29,7 +29,7 @@ import { UsersRepository } from '../users/users.repository';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, RegistroPendienteDto, Rol, ActualizarPerfilComercioDto, SolicitarAjusteDto } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, RegistroPendienteDto, Rol, ActualizarPerfilComercioDto, ConsentimientosComercioDto, CONDICIONES_COMERCIO_VERSION, SolicitarAjusteDto } from 'shared';
 import { campoContador, plazasDeclaradas, sinPlazas } from '../catalog/disponibilidad';
 
 @Injectable()
@@ -57,7 +57,6 @@ export class ComerciosService {
       razonSocial: dto.razonSocial,
       vatNumber: dto.vatNumber,
       nombreComercial: dto.nombreComercial,
-      logoUrl: dto.logoUrl,
       verticales: dto.verticales,
     });
   }
@@ -77,13 +76,18 @@ export class ComerciosService {
       throw new DomainException('Ya existe un comercio con ese identificador fiscal', 409);
     }
 
+    // El alta rápida sólo pide los datos de acceso: el negocio se nombra en el
+    // alta guiada. `nombreComercial` es obligatorio en el documento, así que
+    // hasta entonces lleva un provisional con el nombre de quien lo crea —el
+    // comercio lo ve y lo cambia en el mismo paso en que aporta sus datos.
+    const nombreComercial = dto.nombreComercial?.trim() || `Negocio de ${dto.nombre}`;
+
     const comercio = await this.repo.crear({
       // Sin razón social todavía, se usa el nombre comercial como identidad legal provisional.
-      razonSocial: dto.razonSocial || dto.nombreComercial,
+      razonSocial: dto.razonSocial || nombreComercial,
       vatNumber: dto.vatNumber || undefined,
-      nombreComercial: dto.nombreComercial,
+      nombreComercial,
       verticales: dto.verticales,
-      direccion: dto.ciudad ? { ciudad: dto.ciudad } : undefined,
     });
 
     try {
@@ -136,7 +140,6 @@ export class ComerciosService {
       razonSocial: dto.razonSocial,
       vatNumber: dto.vatNumber,
       nombreComercial: dto.nombreComercial,
-      logoUrl: dto.logoUrl,
       verticales: dto.verticales,
     });
 
@@ -466,6 +469,19 @@ export class ComerciosService {
     ).lean().exec() as Record<string, unknown> | null;
     if (!actual) throw new DomainException('Servicio no encontrado', 404);
 
+    // El alta guiada se puede aparcar ("todavía no tengo los datos") y el
+    // servicio queda en borrador. Publicar antes de cerrarla pondría en el
+    // buscador una ficha sin datos de contacto ni condiciones aceptadas, que es
+    // justo lo que la pantalla del alta promete que no va a pasar.
+    if (estado === 'publicado') {
+      const comercio = await this.repo.findById(comercioId);
+      if (comercio && !comercio.altaCompletada) {
+        throw new DomainException(
+          'Termina el alta de tu negocio para poder publicar tus servicios.', 409,
+        );
+      }
+    }
+
     // Publicar con el contador de plazas a cero deja el listado invisible en la
     // web pese a aparecer como publicado en el panel, que es justo lo que el
     // comercio no entiende. Si nunca se fijó, se deduce aquí de la capacidad
@@ -490,8 +506,12 @@ export class ComerciosService {
     comercioId: string,
     dto: ActualizarPerfilComercioDto,
   ): Promise<ComercioDocument> {
-    const { documentoIdentidadUrl, licenciaNegocioUrl, documentos, ...resto } = dto;
+    const { consentimientos, ...resto } = dto;
     const datos: Record<string, unknown> = { ...resto };
+
+    if (consentimientos) {
+      datos.consentimientos = this.sellarConsentimientos(consentimientos);
+    }
 
     // Cambiar el CIF exige que siga siendo único: el índice de Mongo lo
     // rechazaría con un E11000 que el panel no sabe traducir.
@@ -502,82 +522,30 @@ export class ComerciosService {
       }
     }
 
-    if (documentoIdentidadUrl !== undefined || licenciaNegocioUrl !== undefined || documentos !== undefined) {
-      const actual = await this.repo.findById(comercioId);
-      const verificacionActual = actual?.verificacion ?? { estado: 'sin_verificar' as EstadoVerificacion };
-      const nuevoDocumentoIdentidad = documentoIdentidadUrl ?? verificacionActual.documentoIdentidadUrl;
-      const nuevaLicencia = licenciaNegocioUrl ?? verificacionActual.licenciaNegocioUrl;
-
-      /*
-       * La documentación adicional (seguro de RC, certificados…) es un archivo
-       * del comercio, no algo que la plataforma revise: no lleva estado de
-       * revisión. Lo único que se conserva del servidor es cuándo se subió, y
-       * `caducado` cuando la fecha ya pasó, que es un hecho, no un veredicto.
-       */
-      const ahora = new Date();
-      const documentosNormalizados = documentos !== undefined
-        ? documentos.map((d) => ({
-            tipo: d.tipo,
-            nombre: d.nombre,
-            url: d.url,
-            fechaCaducidad: d.fechaCaducidad,
-            estado: (d.fechaCaducidad && new Date(d.fechaCaducidad) < ahora ? 'caducado' : undefined) as
-              'caducado' | undefined,
-            subidoAt: ahora,
-          }))
-        : verificacionActual.documentos;
-
-      /*
-       * Sólo los dos documentos obligatorios abren la revisión de identidad.
-       * Antes bastaba con adjuntar un extra para devolver a 'pendiente' un
-       * comercio ya verificado: subir la póliza del seguro le borraba el sello
-       * de verificado y lo dejaba otra vez "En revisión".
-       */
-      const identidadCompleta = Boolean(nuevoDocumentoIdentidad && nuevaLicencia);
-      const tocaronIdentidad = documentoIdentidadUrl !== undefined || licenciaNegocioUrl !== undefined;
-      const estadoVerificacion = identidadCompleta && tocaronIdentidad && verificacionActual.estado !== 'verificado'
-        ? 'pendiente'
-        : verificacionActual.estado;
-
-      datos.verificacion = {
-        estado: estadoVerificacion,
-        documentoIdentidadUrl: nuevoDocumentoIdentidad,
-        licenciaNegocioUrl: nuevaLicencia,
-        documentos: documentosNormalizados,
-      };
-    }
-
     const actualizado = await this.repo.actualizar(comercioId, datos);
     if (!actualizado) throw new DomainException('Comercio no encontrado', 404);
 
-    await this.situarServiciosSinCoordenadas(comercioId, dto.direccion);
     return actualizado;
   }
 
   /**
-   * Da al catálogo del comercio el punto exacto que acaba de guardar en su
-   * ficha. Sin coordenadas un listado no sale en el mapa del buscador, y hasta
-   * ahora sólo las tenían los que se crearon eligiendo población en el
-   * desplegable (precisión de centro de ciudad).
+   * Sella las aceptaciones con la fecha y la versión del texto vigente.
    *
-   * **Sólo rellena los que no tienen ninguna**: si el comercio afinó a mano la
-   * ubicación de una sucursal, cambiar la dirección fiscal no debe moverla.
+   * La marca la pone el servidor a propósito: si el cliente pudiera mandarla, la
+   * prueba de consentimiento —que es para lo único que sirve guardar esto— no
+   * valdría nada. Desmarcar una casilla retira la aceptación y con ella su
+   * fecha; dejar la fecha de una aceptación revocada sería peor que no tenerla.
    */
-  private async situarServiciosSinCoordenadas(
-    comercioId: string,
-    direccion?: { lat?: number; lng?: number },
-  ): Promise<void> {
-    const { lat, lng } = direccion ?? {};
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  private sellarConsentimientos(dto: ConsentimientosComercioDto): ConsentimientosComercio {
+    const sellar = (aceptado: boolean): Consentimiento =>
+      aceptado
+        ? { aceptado: true, fecha: new Date(), version: CONDICIONES_COMERCIO_VERSION }
+        : { aceptado: false };
 
-    await this.servicioModel.updateMany(
-      {
-        comercioId: new Types.ObjectId(comercioId),
-        'ubicacion.geo.coordinates': { $exists: false },
-      },
-      // GeoJSON guarda [lng, lat], en ese orden.
-      { $set: { 'ubicacion.geo': { type: 'Point', coordinates: [lng, lat] } } },
-    ).exec();
+    return {
+      operaLegalmente: sellar(dto.operaLegalmente),
+      condicionesGenerales: sellar(dto.condicionesGenerales),
+    };
   }
 
   /** Reseñas recibidas por el comercio (delegado al módulo transversal de reviews). */

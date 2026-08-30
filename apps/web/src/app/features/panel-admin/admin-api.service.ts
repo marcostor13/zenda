@@ -10,7 +10,6 @@ export interface DashboardKpis {
   ingresosMes: number;
   comerciosPendientesCount: number;
   totalUsuarios: number;
-  verificacionesPendientes: number;
   nuevosComerciosMes: number;
   mascotasRegistradas: number;
   tasaCancelacionMes: number;
@@ -82,26 +81,6 @@ export interface AlphaNivel {
   vigenciaHasta?: string | null;
 }
 
-export interface DocumentoVerificacion {
-  tipo: string;
-  nombre?: string;
-  url: string;
-  fechaCaducidad?: string;
-  estado: string;
-  subidoAt?: string;
-}
-
-export interface VerificacionComercio {
-  estado: string;
-  /** Documento de identidad del titular; el comercio lo sube una sola vez. */
-  documentoIdentidadUrl?: string;
-  /** Licencia de actividad del negocio. */
-  licenciaNegocioUrl?: string;
-  /** Seguros, certificados y demás documentación adicional. */
-  documentos?: DocumentoVerificacion[];
-  motivoRechazo?: string;
-}
-
 export interface ComercioAdmin {
   _id: string;
   nombreComercial: string;
@@ -111,9 +90,7 @@ export interface ComercioAdmin {
   plan: string;
   estado: string;
   comisionPctOverride?: number;
-  logoUrl?: string;
   createdAt: string;
-  verificacion?: VerificacionComercio;
   /** Adherido al programa Doogking Alpha (HU-13.3). */
   alphaAdherido?: boolean;
   /** Motivo del último standby o baja, si lo hubo. */
@@ -304,7 +281,6 @@ export interface ResumenComercios {
   enPausa: number;
   /** Baja lógica: fuera de la web, conservados por trazabilidad. */
   dadosDeBaja: number;
-  verificados: number;
 }
 
 /** Reserva resumida tal y como sale en las fichas administrativas. */
@@ -337,8 +313,8 @@ export interface FichaUsuario {
 export interface FichaComercio {
   comercio: {
     _id: string; nombreComercial: string; razonSocial: string; vatNumber: string;
-    estado: string; plan: string; verticales: string[];
-    verificacion?: VerificacionComercio; createdAt?: string;
+    estado: string; plan: string; verticales: string[]; createdAt?: string;
+
   };
   reservas: ReservaFicha[];
   resumen: {
@@ -399,7 +375,6 @@ export interface CrearComercioDto {
   razonSocial: string;
   vatNumber: string;
   nombreComercial: string;
-  logoUrl?: string;
   verticales?: string[];
   plan?: string;
   estado?: string;
@@ -408,7 +383,6 @@ export interface CrearComercioDto {
 export interface ActualizarComercioDto {
   razonSocial?: string;
   nombreComercial?: string;
-  logoUrl?: string;
   verticales?: string[];
   plan?: string;
   estado?: string;
@@ -485,10 +459,6 @@ export class AdminApiService {
   /** Alta o baja del comercio en el programa Doogking Alpha (HU-13.3). */
   fijarAlphaAdherido(id: string, alphaAdherido: boolean): Observable<ComercioAdmin> {
     return this.http.patch<ComercioAdmin>(`${this.comerciosUrl}/${id}/alpha-adherido`, { alphaAdherido });
-  }
-
-  cambiarVerificacionComercio(id: string, estado: 'verificado' | 'rechazado' | 'pendiente', motivo?: string): Observable<ComercioAdmin> {
-    return this.http.patch<ComercioAdmin>(`${this.adminUrl}/comercios/${id}/verificacion`, { estado, motivo });
   }
 
   // ── Comercios CRUD ───────────────────────────────────────────────────────────

@@ -64,8 +64,6 @@ export class Adiestramiento extends Servicio {
   @Prop({ type: Number, default: 0 })
   cuposDisponibles!: number;
 
-  @Prop()
-  horario?: string;
 }
 
 export const AdiestramientoSchema = SchemaFactory.createForClass(Adiestramiento);

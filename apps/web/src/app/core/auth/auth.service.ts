@@ -63,13 +63,27 @@ export class AuthService {
     );
   }
 
-  /** Confirma el email con el token del enlace y arranca la sesión. */
+  /**
+   * Confirma el email con el token del enlace y arranca la sesión.
+   *
+   * Un comercio recién verificado no va al panel, sino al **alta guiada**: es el
+   * momento en que viene con la intención de publicar, y soltarlo en un panel
+   * vacío le obliga a averiguar por dónde empezar. Es el recorrido del extranet
+   * de Booking, donde el enlace del correo lleva directo a dar de alta el
+   * alojamiento.
+   */
   async verificarEmail(token: string): Promise<void> {
     const respuesta = await firstValueFrom(
       this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/verificar-email`, { token }),
     );
     this.guardarSesion(respuesta);
-    await this.redirigirPorRol(respuesta.usuario.rol);
+
+    const rol = respuesta.usuario.rol;
+    if (rol === Rol.COMERCIO_ADMIN || rol === Rol.COMERCIO_STAFF) {
+      await this.router.navigate(['/comercio/alta']);
+      return;
+    }
+    await this.redirigirPorRol(rol);
   }
 
   async reenviarVerificacion(email: string): Promise<void> {

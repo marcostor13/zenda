@@ -63,8 +63,6 @@ export class Cuidadores extends Servicio {
   @Prop({ type: Number, default: 0 })
   cuposDisponibles!: number;
 
-  @Prop()
-  horario?: string;
 }
 
 export const CuidadoresSchema = SchemaFactory.createForClass(Cuidadores);

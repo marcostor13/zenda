@@ -74,7 +74,6 @@ const img = {
   veterinaria: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=800&q=80',
   peluqueria: 'https://images.unsplash.com/photo-1591946614720-90a587da4a36?auto=format&fit=crop&w=800&q=80',
   adiestramiento: 'https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=800&q=80',
-  logo: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=200&q=80',
 };
 
 async function seed(): Promise<void> {
@@ -119,42 +118,42 @@ async function seed(): Promise<void> {
   await db.collection('comercios').insertMany([
     {
       _id: ids.comAloj, razonSocial: 'Royal Dog Resort S.L.', vatNumber: 'ES-B12345678',
-      nombreComercial: 'Royal Dog Resort Madrid', logoUrl: img.logo,
+      nombreComercial: 'Royal Dog Resort Madrid',
       direccion: { calle: 'Calle de Alfonso XII', numero: '40', ciudad: 'Madrid', provincia: 'Madrid', codigoPostal: '28014', pais: 'España', lat: 40.4148, lng: -3.6873 },
       verticales: ['alojamiento'], modoLiquidacion: 'merchant', plan: 'premium',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
     },
     {
       _id: ids.comAloj2, razonSocial: 'Boutique Barks Unipessoal Lda.', vatNumber: 'PT-501234567',
-      nombreComercial: 'Boutique Barks Lisboa', logoUrl: null,
+      nombreComercial: 'Boutique Barks Lisboa',
       direccion: { calle: 'Avenida de Roma', numero: '78', ciudad: 'Lisboa', provincia: 'Lisboa', codigoPostal: '1700-350', pais: 'Portugal', lat: 38.7462, lng: -9.1370 },
       verticales: ['alojamiento'], modoLiquidacion: 'merchant', plan: 'pro',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
     },
     {
       _id: ids.comTransp, razonSocial: 'PetTransfer Mobility S.L.', vatNumber: 'ES-B87654321',
-      nombreComercial: 'PetTransfer Barcelona', logoUrl: null,
+      nombreComercial: 'PetTransfer Barcelona',
       direccion: { calle: 'Gran Via de les Corts Catalanes', numero: '600', ciudad: 'Barcelona', provincia: 'Barcelona', codigoPostal: '08007', pais: 'España', lat: 41.3851, lng: 2.1734 },
       verticales: ['transporte'], modoLiquidacion: 'merchant', plan: 'pro',
       estado: 'activo', comisionPctOverride: 0.18, createdAt: now, updatedAt: now,
     },
     {
       _id: ids.comVet, razonSocial: 'Clínica Veterinaria Chamberí S.L.', vatNumber: 'ES-B11223344',
-      nombreComercial: 'Clínica Veterinaria Chamberí', logoUrl: null,
+      nombreComercial: 'Clínica Veterinaria Chamberí',
       direccion: { calle: 'Calle de Santa Engracia', numero: '108', ciudad: 'Madrid', provincia: 'Madrid', codigoPostal: '28003', pais: 'España', lat: 40.4300, lng: -3.7038 },
       verticales: ['veterinaria'], modoLiquidacion: 'merchant', plan: 'premium',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
     },
     {
       _id: ids.comPelu, razonSocial: 'The Royal Groomer S.L.', vatNumber: 'ES-B55667788',
-      nombreComercial: 'The Royal Groomer', logoUrl: null,
+      nombreComercial: 'The Royal Groomer',
       direccion: { calle: 'Calle de Alcalá', numero: '130', ciudad: 'Madrid', provincia: 'Madrid', codigoPostal: '28009', pais: 'España', lat: 40.4270, lng: -3.6795 },
       verticales: ['peluqueria'], modoLiquidacion: 'merchant', plan: 'basico',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,
     },
     {
       _id: ids.comAdies, razonSocial: 'Escuela Canina AlphaDog S.L.', vatNumber: 'ES-B99887766',
-      nombreComercial: 'Escuela Canina AlphaDog', logoUrl: null,
+      nombreComercial: 'Escuela Canina AlphaDog',
       direccion: { calle: 'Paseo del Embarcadero', numero: '12', ciudad: 'Madrid', provincia: 'Madrid', codigoPostal: '28011', pais: 'España', lat: 40.4192, lng: -3.7492 },
       verticales: ['adiestramiento'], modoLiquidacion: 'merchant', plan: 'pro',
       estado: 'activo', comisionPctOverride: null, createdAt: now, updatedAt: now,

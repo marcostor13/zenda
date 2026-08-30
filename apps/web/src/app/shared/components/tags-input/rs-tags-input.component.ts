@@ -54,6 +54,26 @@ const normalizar = (texto: string): string =>
            (keydown)="teclear($event)" />
   </div>
 
+  @if (escribiendoOtro()) {
+    <div class="tg__otro">
+      <label class="tg__otro-lbl" [for]="listaId + '-otro'">
+        Escribe el servicio que quieres añadir
+      </label>
+      <div class="tg__otro-fila">
+        <input #otro type="text" class="rs-inp" [id]="listaId + '-otro'"
+               placeholder="Ej. piscina climatizada"
+               (keydown.enter)="confirmarOtro(otro.value); otro.value = ''; $event.preventDefault()" />
+        <button type="button" class="rs-btn rs-btn--secondary rs-btn--sm"
+                (click)="confirmarOtro(otro.value); otro.value = ''">
+          Añadir
+        </button>
+        <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="escribiendoOtro.set(false)">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  }
+
   @if (desplegado() && (sugerencias().length || puedeCrearBorrador())) {
     <ul class="tg__pop" [id]="listaId" role="listbox">
       @for (opcion of sugerencias(); track opcion; let i = $index) {
@@ -117,6 +137,17 @@ const normalizar = (texto: string): string =>
       border: none; outline: none; background: transparent;
       font-family: var(--font); font-size: var(--f-base); color: var(--t-100);
       &::placeholder { color: var(--t-400); }
+    }
+
+    .tg__otro {
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      margin-top: var(--sp-2); padding: var(--sp-3);
+      border: 1px dashed var(--b-1); border-radius: var(--r-lg);
+      background: var(--c-raised);
+    }
+    .tg__otro-lbl { font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-300); }
+    .tg__otro-fila { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+    .tg__otro-fila .rs-inp { flex: 1; min-width: 160px;
       &:disabled { cursor: not-allowed; }
     }
 
@@ -152,6 +183,19 @@ export class RsTagsInputComponent implements ControlValueAccessor {
   readonly placeholder = input('Escribe o elige de la lista…');
   /** `false` para catálogos cerrados (especies, temperamentos…). */
   readonly permiteNuevos = input(true);
+
+  /**
+   * Opción del catálogo que en realidad significa «lo escribo yo».
+   *
+   * El campo ya admite texto libre, pero eso no se ve: quien abre la lista lee
+   * las opciones y da por hecho que son las únicas. Al elegirla no se añade
+   * como etiqueta —«Otros» no es un servicio— sino que abre un campo para
+   * escribir el de verdad.
+   */
+  readonly opcionOtros = input<string | null>(null);
+
+  /** Está abierto el campo de «Otros». */
+  readonly escribiendoOtro = signal(false);
   readonly etiqueta = input('');
   readonly maximo = input<number | null>(null);
 
@@ -177,10 +221,16 @@ export class RsTagsInputComponent implements ControlValueAccessor {
       .filter((o) => !filtro || normalizar(o).includes(filtro));
   });
 
+  /** «Otros» nunca cuenta como etiqueta ya elegida ni bloquea el texto libre. */
+  private esOpcionOtros(texto: string): boolean {
+    const otros = this.opcionOtros();
+    return !!otros && normalizar(texto) === normalizar(otros);
+  }
+
   /** El texto escrito se puede añadir si es nuevo y el campo admite libres. */
   readonly puedeCrearBorrador = computed(() => {
     const texto = this.borrador().trim();
-    if (!texto || !this.permiteNuevos()) return false;
+    if (!texto || !this.permiteNuevos() || this.esOpcionOtros(texto)) return false;
     const yaEsta = [...this.valor(), ...this.opciones()].some((v) => normalizar(v) === normalizar(texto));
     return !yaEsta;
   });
@@ -268,10 +318,24 @@ export class RsTagsInputComponent implements ControlValueAccessor {
 
   anadir(texto: string): void {
     if (this.deshabilitado()) return;
+
+    // «Otros» no es un servicio: abre el campo para escribir el que sí lo es.
+    if (this.opcionOtros() && normalizar(texto) === normalizar(this.opcionOtros() as string)) {
+      this.borrador.set('');
+      this.cerrar();
+      this.escribiendoOtro.set(true);
+      return;
+    }
+
     if (this.anadirSilencioso(texto)) this.emitir();
     this.borrador.set('');
     this.resaltada.set(-1);
     this.enfocar();
+  }
+
+  /** Añade lo tecleado en el campo de «Otros» y lo deja abierto para el siguiente. */
+  confirmarOtro(texto: string): void {
+    if (this.anadirSilencioso(texto)) this.emitir();
   }
 
   quitar(tag: string): void {

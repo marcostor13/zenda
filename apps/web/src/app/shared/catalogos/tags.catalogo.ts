@@ -15,11 +15,20 @@ export const AMENITIES_ALOJAMIENTO: readonly string[] = [
   'Espacios individuales', 'Informe diario con fotos',
 ];
 
-/** Servicios de un espacio o suite concreta. */
+/**
+ * Servicios de un espacio o suite concreta.
+ *
+ * `Otros` va al final y no es un servicio: `rs-tags-input` lo reconoce por
+ * `opcionOtros` y abre un campo para escribir el que sí lo es. Sin esa opción a
+ * la vista, nadie descubre que el campo admite texto libre.
+ */
+export const OTROS_SERVICIOS = 'Otros';
+
 export const AMENITIES_ESPACIO: readonly string[] = [
-  'Cama ortopédica', 'Manta propia', 'Cámara individual', 'Aire acondicionado',
+  'Manta propia', 'Cámara individual', 'Aire acondicionado',
   'Calefacción', 'Suelo radiante', 'Salida a jardín privado', 'Ventana exterior',
   'Aislamiento acústico', 'Bebedero automático', 'Juguetes',
+  OTROS_SERVICIOS,
 ];
 
 export const ESPECIALIDADES_VETERINARIAS: readonly string[] = [

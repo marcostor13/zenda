@@ -216,10 +216,6 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
             <h3 class="price-card__title">Resumen de pago</h3>
 
             <div class="price-rows">
-              <div class="price-row">
-                <span>Subtotal</span>
-                <span>{{ reserva()!.montoSubtotal | euros:'1.2-2' }}</span>
-              </div>
               @if (reserva()!.descuentoMonto > 0) {
                 <div class="price-row price-row--discount">
                   <span>
@@ -231,13 +227,18 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
                   <span>−{{ reserva()!.descuentoMonto | euros:'1.2-2' }}</span>
                 </div>
               }
-              <div class="price-row">
-                <span>IVA (21%)</span>
-                <span>{{ iva() | euros:'1.2-2' }}</span>
-              </div>
               <div class="price-row price-row--total">
                 <span>Total</span>
                 <span>{{ reserva()!.montoTotal | euros:'1.2-2' }}</span>
+              </div>
+              <!-- Desglose informativo: el IVA va dentro del total, no encima. -->
+              <div class="price-row price-row--nota">
+                <span>Incluye IVA (21%)</span>
+                <span>{{ iva() | euros:'1.2-2' }}</span>
+              </div>
+              <div class="price-row price-row--nota">
+                <span>Base imponible</span>
+                <span>{{ reserva()!.montoSubtotal | euros:'1.2-2' }}</span>
               </div>
             </div>
 
@@ -474,6 +475,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
       &:last-child { border-bottom: none; padding-bottom: 0; }
     }
     .price-row--discount { color: #10B981; font-weight: var(--w-5); }
+    .price-row--nota { font-size: var(--f-xs); color: var(--t-400); }
     .price-row--total {
       font-size: var(--f-base); font-weight: var(--w-8); color: var(--t-100);
       padding-top: var(--sp-3); border-top: 1px solid var(--b-2); border-bottom: none;
@@ -572,10 +574,15 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
       ?? `${this.verticalMeta().label} · ${r.servicioId.slice(-6)}`;
   });
 
+  /**
+   * IVA **contenido** en el total, no sumado a él: los precios del catálogo se
+   * anuncian con el impuesto incluido y `montoSubtotal` es la base imponible que
+   * ya lleva dentro el total cobrado.
+   */
   readonly iva = computed(() => {
     const r = this.reserva();
     if (!r) return 0;
-    return r.montoTotal - r.montoSubtotal + r.descuentoMonto;
+    return Math.round((r.montoTotal - r.montoSubtotal) * 100) / 100;
   });
 
   readonly puedeCancelar = computed(() => {

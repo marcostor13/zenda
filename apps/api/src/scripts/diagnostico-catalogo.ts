@@ -109,32 +109,7 @@ async function diagnosticar(): Promise<void> {
   console.log(`  Filtro nuevo (publicado + comercio activo): ${despues}`);
 
   console.log('');
-  console.log('── URLs de imágenes guardadas ─────────────');
-  /*
-   * Las imágenes subidas a GridFS se guardan con una URL absoluta construida a
-   * partir de `API_URL` (`upload.service.ts`). Si esa variable no está bien en el
-   * servidor, la URL queda escrita en la base apuntando a un host inalcanzable y
-   * la imagen sale rota para siempre, aunque el fichero esté bien guardado.
-   */
-  const conImagen = await comercios
-    .find(
-      { $or: [{ logoUrl: { $ne: null } }, { coverUrl: { $ne: null } }] },
-      { projection: { nombreComercial: 1, logoUrl: 1, coverUrl: 1 } },
-    )
-    .limit(10)
-    .toArray();
-
-  if (!conImagen.length) console.log('  (ningún comercio con logo o portada)');
-  for (const c of conImagen) {
-    const doc = c as Record<string, unknown>;
-    console.log(`  ${String(doc['nombreComercial'])}`);
-    for (const campo of ['logoUrl', 'coverUrl'] as const) {
-      const valor = doc[campo];
-      const texto = typeof valor === 'string' ? valor : JSON.stringify(valor);
-      console.log(`    ${campo.padEnd(9)}: (${typeof valor}, ${texto?.length ?? 0} car.) ${JSON.stringify(texto)?.slice(0, 160)}`);
-    }
-  }
-
+  console.log('── Imágenes en GridFS ─────────────────────');
   const ficheros = await db.collection('uploads.files').countDocuments({});
   console.log(`  ficheros en GridFS: ${ficheros}`);
 

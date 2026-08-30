@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { VerticalKey } from 'shared';
+import { VerticalKey, type ExcepcionHorarioDto, type HorarioDiaDto } from 'shared';
 import { environment } from '../../../../environments/environment';
 
 export interface FiltrosAlojamiento {
@@ -90,6 +90,9 @@ export interface ServicioAdicionalAlojamiento {
 
 export interface AlojamientoDetalle extends AlojamientoCard {
   descripcion: string;
+  /** Horario de atención de este servicio y sus festivos/cierres puntuales. */
+  horario?: HorarioDiaDto[];
+  excepcionesHorario?: ExcepcionHorarioDto[];
   politicaCancelacion: string;
   checkIn: string;
   checkOut: string;

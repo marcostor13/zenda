@@ -369,10 +369,9 @@ describe('AdminService', () => {
   });
 
   describe('obtenerDashboard', () => {
-    it('debería exponer las métricas nuevas (verificaciones, nuevos comercios, mascotas)', async () => {
+    it('debería exponer las métricas nuevas (nuevos comercios, mascotas)', async () => {
       const dashboard = await service.obtenerDashboard();
 
-      expect(dashboard.kpis.verificacionesPendientes).toBe(3);
       expect(dashboard.kpis.nuevosComerciosMes).toBe(3);
       expect(dashboard.kpis.mascotasRegistradas).toBe(42);
     });
@@ -428,43 +427,6 @@ describe('AdminService', () => {
       await expect(
         service.crearUsuario({ nombre: 'X', email: 'x@x.com', password: '123', rol: Rol.COMERCIO_ADMIN }),
       ).rejects.toThrow(/comercioId/i);
-    });
-  });
-
-  describe('cambiarVerificacionComercio', () => {
-    it('debería marcar el comercio como verificado sin tocar la documentación adicional', async () => {
-      const comerciosRepo = (service as unknown as { comerciosRepo: any }).comerciosRepo;
-      const extra = { tipo: 'seguro_rc', url: 'x' };
-      comerciosRepo.findById.mockResolvedValue({
-        verificacion: { estado: 'pendiente', documentos: [extra] },
-      });
-      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
-
-      await service.cambiarVerificacionComercio('c1', 'verificado');
-
-      // La lista son documentos adicionales, que nadie revisa: sellarlos junto
-      // al veredicto de identidad les ponía un estado sin significado.
-      expect(comerciosRepo.actualizar).toHaveBeenCalledWith(
-        'c1',
-        expect.objectContaining({
-          verificacion: expect.objectContaining({ estado: 'verificado', documentos: [extra] }),
-        }),
-      );
-    });
-
-    it('debería guardar el motivo al rechazar', async () => {
-      const comerciosRepo = (service as unknown as { comerciosRepo: any }).comerciosRepo;
-      comerciosRepo.findById.mockResolvedValue({ verificacion: { estado: 'pendiente', documentos: [] } });
-      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
-
-      await service.cambiarVerificacionComercio('c1', 'rechazado', 'CIF ilegible');
-
-      expect(comerciosRepo.actualizar).toHaveBeenCalledWith(
-        'c1',
-        expect.objectContaining({
-          verificacion: expect.objectContaining({ estado: 'rechazado', motivoRechazo: 'CIF ilegible' }),
-        }),
-      );
     });
   });
 
@@ -584,8 +546,7 @@ describe('AdminService', () => {
     it('debería contar los comercios por estado, dejando los dados de baja fuera del total', async () => {
       comercioModel.countDocuments = jest.fn().mockImplementation((filtro: any = {}) => ({
         exec: jest.fn().mockResolvedValue(
-          filtro['verificacion.estado'] === 'verificado' ? 5
-            : filtro.estado === 'activo' ? 7
+          filtro.estado === 'activo' ? 7
             : filtro.estado === 'pendiente' ? 3
             : filtro.estado === 'suspendido' ? 1
             : filtro.estado === 'inactivo' ? 2
@@ -597,7 +558,7 @@ describe('AdminService', () => {
       const resumen = await service.resumenComercios();
 
       expect(resumen).toEqual({
-        total: 11, activos: 7, pendientes: 3, suspendidos: 1, enPausa: 2, dadosDeBaja: 4, verificados: 5,
+        total: 11, activos: 7, pendientes: 3, suspendidos: 1, enPausa: 2, dadosDeBaja: 4,
       });
       // El total pide explícitamente los vivos, no la colección entera.
       expect(comercioModel.countDocuments).toHaveBeenCalledWith({ estado: { $ne: 'eliminado' } });
@@ -878,33 +839,6 @@ describe('AdminService', () => {
       expect(ficha.resumen).toEqual(
         expect.objectContaining({ facturacion: 0, comision: 0, valoracion: 0, resenas: 0 }),
       );
-    });
-  });
-
-  describe('cambiarVerificacionComercio', () => {
-    it('debería exigir motivo para rechazar la documentación', async () => {
-      comerciosRepo.findById.mockResolvedValue({ nombreComercial: 'Canina', verificacion: {} });
-
-      await expect(service.cambiarVerificacionComercio('c1', 'rechazado', '   '))
-        .rejects.toThrow('hay que indicar el motivo');
-
-      expect(comerciosRepo.actualizar).not.toHaveBeenCalled();
-    });
-
-    it('debería verificar el comercio y dejar intactos sus documentos adicionales', async () => {
-      comerciosRepo.findById.mockResolvedValue({
-        nombreComercial: 'Canina',
-        verificacion: { estado: 'pendiente', documentos: [{ tipo: 'seguro_rc' }] },
-      });
-      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
-
-      await service.cambiarVerificacionComercio('c1', 'verificado');
-
-      const cambios = comerciosRepo.actualizar.mock.calls[0][1];
-      expect(cambios.verificacion.estado).toBe('verificado');
-      expect(cambios.verificacion.documentos[0].estado).toBeUndefined();
-      // Sin rechazo no debe quedar un motivo colgado de una ronda anterior.
-      expect(cambios.verificacion.motivoRechazo).toBeUndefined();
     });
   });
 

@@ -14,7 +14,7 @@ import { DomainException } from '../../shared/exceptions/domain.exception';
 import { campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
 import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
-  ServicioClinicoTipo, SERVICIOS_CLINICOS_EXCLUIDOS,
+  ServicioClinicoTipo, SERVICIOS_CLINICOS_EXCLUIDOS, HorarioDiaDto, ExcepcionHorarioDto,
 } from 'shared';
 
 /** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
@@ -33,7 +33,6 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
   alojamiento: [
     'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
     'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis',
-    'barrio', 'direccion',
     'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
     'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
   ],
@@ -47,18 +46,18 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
   ],
   veterinaria: [
     'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia',
-    'citasDisponibles', 'atiendeUrgencias', 'horario', 'precioConsulta', 'especiesAtendidas',
+    'citasDisponibles', 'atiendeUrgencias', 'precioConsulta', 'especiesAtendidas',
   ],
   peluqueria: [
     'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea',
-    'cuposDisponibles', 'aDomicilio', 'horario',
+    'cuposDisponibles', 'aDomicilio',
     'politicaTemperamentoDificil', 'bozalObligatorioSiAgresivo', 'serviciosAdicionales',
     'razasEspecificas', 'requiereVacunasAlDia', 'requiereMicrochip',
   ],
   adiestramiento: [
     'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma',
     'sesionesPorPrograma', 'edadMinimaMeses', 'aDomicilio', 'capacidadPorSesion',
-    'cuposDisponibles', 'horario', 'serviciosAdiestramiento', 'valoracionInicial',
+    'cuposDisponibles', 'serviciosAdiestramiento', 'valoracionInicial',
   ],
   hoteles: [
     'admiteMascotas', 'maxMascotasPorReserva', 'pesoMaximoMascotaKg', 'razasRestringidas',
@@ -75,7 +74,7 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
   cuidadores: [
     'modalidades', 'precioPaseo', 'precioVisita', 'precioDiaCompleto', 'precioNoche',
     'duracionPaseoMin', 'duracionVisitaMin', 'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP',
-    'administraMedicacion', 'radioDesplazamientoKm', 'cuposDisponibles', 'horario',
+    'administraMedicacion', 'radioDesplazamientoKm', 'cuposDisponibles',
   ],
 };
 
@@ -118,6 +117,13 @@ export interface ServicioCardDto {
   alphaAdherido?: boolean;
   /** Campos propios del vertical (taxi, vuelo, etc.) para cualquier UI. */
   extra?: Record<string, unknown>;
+  /**
+   * Horario de atención del servicio y sus días especiales. Viajan aparte de
+   * `extra` porque son del Servicio base, no de un vertical: los tiene una
+   * clínica igual que una residencia canina.
+   */
+  horario?: HorarioDiaDto[];
+  excepcionesHorario?: ExcepcionHorarioDto[];
   /** Coordenadas del listado; ausentes mientras el comercio no las declare. */
   lat?: number;
   lng?: number;
@@ -185,6 +191,15 @@ export interface ServicioGestionDto {
   titulo: string;
   descripcion: string;
   ciudad: string;
+  /** Dirección exacta desde la que se presta el servicio. */
+  calle?: string;
+  numero?: string;
+  provincia?: string;
+  codigoPostal?: string;
+  pais?: string;
+  /** Horario de atención del servicio y sus festivos/cierres puntuales. */
+  horario: HorarioDiaDto[];
+  excepcionesHorario: ExcepcionHorarioDto[];
   /** Coordenadas ya guardadas del listado; ausentes si nunca se geolocalizó. */
   lat?: number;
   lng?: number;
@@ -202,7 +217,15 @@ interface ServicioLean {
   titulo: string;
   descripcion?: string;
   imagenes?: string[];
-  ubicacion?: { ciudad?: string; geo?: { coordinates?: number[] } };
+  ubicacion?: {
+    ciudad?: string;
+    calle?: string;
+    numero?: string;
+    provincia?: string;
+    codigoPostal?: string;
+    pais?: string;
+    geo?: { coordinates?: number[] };
+  };
   precioBase: number;
   precioAnterior?: number;
   descuentoPct?: number;
@@ -409,6 +432,13 @@ export class CatalogService {
       ciudad: dto.ciudad,
       lat: dto.lat,
       lng: dto.lng,
+      calle: dto.calle,
+      numero: dto.numero,
+      provincia: dto.provincia,
+      codigoPostal: dto.codigoPostal,
+      pais: dto.pais,
+      horario: dto.horario,
+      excepcionesHorario: dto.excepcionesHorario,
       precioBase: dto.precioBase,
       imagenes: dto.imagenes ?? [],
       comercioId,
@@ -446,6 +476,13 @@ export class CatalogService {
       ciudad: dto.ciudad,
       lat: dto.lat,
       lng: dto.lng,
+      calle: dto.calle,
+      numero: dto.numero,
+      provincia: dto.provincia,
+      codigoPostal: dto.codigoPostal,
+      pais: dto.pais,
+      horario: dto.horario,
+      excepcionesHorario: dto.excepcionesHorario,
       precioBase: dto.precioBase,
       imagenes: dto.imagenes,
       extra,
@@ -476,6 +513,13 @@ export class CatalogService {
       titulo: h.titulo,
       descripcion: h.descripcion ?? '',
       ciudad: h.ubicacion?.ciudad ?? '',
+      calle: h.ubicacion?.calle,
+      numero: h.ubicacion?.numero,
+      provincia: h.ubicacion?.provincia,
+      codigoPostal: h.ubicacion?.codigoPostal,
+      pais: h.ubicacion?.pais,
+      horario: (h['horario'] as ServicioGestionDto['horario']) ?? [],
+      excepcionesHorario: (h['excepcionesHorario'] as ServicioGestionDto['excepcionesHorario']) ?? [],
       // GeoJSON guarda [lng, lat]; el formulario del comercio necesita saber si
       // el listado ya está geolocalizado para no avisar de algo que ya cumple.
       lat: this.coordenada(h, 1),
@@ -640,7 +684,7 @@ export class CatalogService {
       nombre: h.titulo,
       ciudad: h.ubicacion?.ciudad ?? '',
       barrio: h.barrio ?? '',
-      direccion: h.direccion ?? '',
+      direccion: this.lineaDireccion(h),
       estrellas: h.estrellas ?? 3,
       score,
       scoreLabel: this.scoreLabel(score),
@@ -656,8 +700,24 @@ export class CatalogService {
       paseosIncluidos: h.paseosIncluidos ?? false,
       destacado: h.destacado ?? false,
       vertical: (h as unknown as Record<string, unknown>)['vertical'] as string | undefined,
+      horario: (h as unknown as Record<string, unknown>)['horario'] as HorarioDiaDto[] | undefined,
+      excepcionesHorario: (h as unknown as Record<string, unknown>)['excepcionesHorario'] as ExcepcionHorarioDto[] | undefined,
       extra: this.pickExtra(h as unknown as Record<string, unknown>),
     };
+  }
+
+  /**
+   * Línea de dirección de la ficha: calle y número de la ubicación del servicio.
+   *
+   * La dirección dejó de ser un texto libre del bloque de alojamiento —se pedía
+   * dos veces y podía contradecir al mapa— y pasó a la ubicación estructurada.
+   * Los listados creados antes de la mudanza conservan el campo antiguo, así que
+   * se sigue leyendo como respaldo para no vaciarles la ficha.
+   */
+  private lineaDireccion(h: ServicioLean): string {
+    const { calle, numero } = h.ubicacion ?? {};
+    if (calle) return numero ? `${calle}, ${numero}` : calle;
+    return h.direccion ?? '';
   }
 
   /** Extrae los campos propios de cada vertical canina (los que no son del Servicio base). */
@@ -693,7 +753,7 @@ export class CatalogService {
       'duracionPaseoMin', 'duracionVisitaMin', 'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP',
       'administraMedicacion', 'radioDesplazamientoKm',
       // comunes a citas/cupos
-      'cuposDisponibles', 'horario',
+      'cuposDisponibles',
     ];
     const extra: Record<string, unknown> = {};
     for (const k of claves) {

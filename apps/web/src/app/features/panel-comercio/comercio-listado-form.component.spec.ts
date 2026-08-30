@@ -7,6 +7,7 @@ import { of, throwError } from 'rxjs';
 import { ServicioClinicoTipo, SERVICIO_CLINICO_LABELS, TipoSeguro, VerticalKey } from 'shared';
 import { ComercioListadoFormComponent } from './comercio-listado-form.component';
 import { ComercioApiService, ServicioPayload } from './comercio-api.service';
+import { GeoService } from '../../core/geo/geo.service';
 
 interface ApiDoble {
   obtenerServicioGestion: jest.Mock;
@@ -14,13 +15,25 @@ interface ApiDoble {
   actualizarServicio: jest.Mock;
 }
 
+/** Dirección que devuelve la geocodificación inversa al mover el pin. */
+const DIRECCION_DEL_PUNTO = {
+  calle: 'Paseo del Prado', numero: '1', codigoPostal: '28014',
+  ciudad: 'Madrid', provincia: 'Madrid', pais: 'España',
+  formateada: 'Paseo del Prado, 1', lat: 40.4165, lng: -3.6935,
+};
+
 describe('ComercioListadoFormComponent', () => {
   let fixture: ComponentFixture<ComercioListadoFormComponent>;
   let componente: ComercioListadoFormComponent;
   let api: ApiDoble;
+  let geo: { direccionDePunto: jest.Mock };
   let router: Router;
 
   const crear = async (id: string | null = null, servicio?: Record<string, unknown>): Promise<void> => {
+    // El alta guarda borrador en el dispositivo: sin limpiar, una prueba
+    // empezaría con los campos que dejó escritos la anterior.
+    localStorage.clear();
+    geo = { direccionDePunto: jest.fn().mockResolvedValue(DIRECCION_DEL_PUNTO) };
     api = {
       obtenerServicioGestion: jest.fn().mockReturnValue(of(servicio ?? {})),
       crearServicio: jest.fn().mockReturnValue(of({ _id: 'nuevo' })),
@@ -33,6 +46,7 @@ describe('ComercioListadoFormComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ComercioApiService, useValue: api },
+        { provide: GeoService, useValue: geo },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap(id ? { id } : {}) } },
@@ -47,6 +61,19 @@ describe('ComercioListadoFormComponent', () => {
     componente = fixture.componentInstance;
     fixture.detectChanges();
     await fixture.whenStable();
+  };
+
+  /** Último payload enviado al API, sea alta o edición. */
+  const ultimoPayload = (): ServicioPayload =>
+    (api.crearServicio.mock.calls.at(-1)?.[0] ?? api.actualizarServicio.mock.calls.at(-1)?.[1]) as ServicioPayload;
+
+  /** Monta el formulario tal como lo empotra el alta guiada. */
+  const crearEnAlta = async (vertical: VerticalKey): Promise<void> => {
+    await crear();
+    fixture.componentRef.setInput('modoAlta', true);
+    fixture.componentRef.setInput('verticalInicial', vertical);
+    await componente.ngOnInit();
+    fixture.detectChanges();
   };
 
   /** Rellena los campos comunes obligatorios para poder llegar al guardado. */
@@ -354,6 +381,8 @@ describe('ComercioListadoFormComponent', () => {
       await crear();
       rellenarBase(VerticalKey.ALOJAMIENTO);
       componente.irAlPaso('categoria');
+      // categoría → ubicación → horarios → detalles.
+      componente.siguientePaso();
       componente.siguientePaso();
       componente.siguientePaso();
       expect(componente.paso()).toBe('detalles');
@@ -1050,6 +1079,283 @@ describe('ComercioListadoFormComponent', () => {
       componente.togglePeloCompatible(0, 'corto');
 
       expect(componente.tienePeloCompatible(1, 'corto')).toBe(false);
+    });
+  });
+  /**
+   * La dirección y el horario cuelgan del servicio, no del negocio: un mismo
+   * comercio puede tener la peluquería en el centro abriendo de tarde y la
+   * residencia a las afueras con entradas sólo por la mañana.
+   */
+  describe('dirección y horario del servicio', () => {
+    it('debería enviar la dirección completa, no sólo la ciudad', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+      componente.form.patchValue({
+        calle: 'Calle Mayor', numero: '24', provincia: 'Madrid',
+        codigoPostal: '28013', pais: 'España',
+      });
+
+      await componente.submit();
+
+      expect(ultimoPayload()).toMatchObject({
+        calle: 'Calle Mayor', numero: '24', provincia: 'Madrid',
+        codigoPostal: '28013', pais: 'España',
+      });
+    });
+
+    it('debería enviar la semana entera aunque no se toque', async () => {
+      // Un día ausente y un día cerrado no significan lo mismo para quien lee
+      // la ficha, así que el horario viaja siempre con sus siete días.
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+
+      await componente.submit();
+
+      expect(ultimoPayload().horario).toHaveLength(7);
+    });
+
+    it('debería enviar los días especiales marcados', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+      componente.excepciones.set([{ fecha: '2026-12-25', cerrado: true, motivo: 'Navidad' }]);
+
+      await componente.submit();
+
+      expect(ultimoPayload().excepcionesHorario)
+        .toEqual([{ fecha: '2026-12-25', cerrado: true, motivo: 'Navidad' }]);
+    });
+
+    it('debería recuperar el horario guardado al editar', async () => {
+      await crear('serv-1', {
+        vertical: VerticalKey.ALOJAMIENTO, titulo: 'X', descripcion: 'Y',
+        calle: 'Gran Vía', codigoPostal: '46001',
+        horario: [{ dia: 'lunes', abre: '08:00', cierra: '20:00', cerrado: false }],
+        excepcionesHorario: [{ fecha: '2026-08-15', cerrado: true }],
+      });
+
+      expect(componente.form.getRawValue().calle).toBe('Gran Vía');
+      expect(componente.horario()[0]).toMatchObject({ abre: '08:00' });
+      expect(componente.excepciones()).toHaveLength(1);
+    });
+
+    it('debería dar una semana en blanco a un servicio antiguo sin horario', async () => {
+      // Los listados creados antes de que el horario colgara del servicio llegan
+      // sin él; el editor necesita sus siete días igualmente.
+      await crear('serv-1', { vertical: VerticalKey.ALOJAMIENTO, titulo: 'X', descripcion: 'Y' });
+
+      expect(componente.horario()).toHaveLength(7);
+    });
+
+    it('debería rellenar la dirección al elegirla del desplegable', async () => {
+      await crear();
+
+      componente.usarDireccionSugerida({
+        placeId: 'p1', ciudad: 'Madrid', lat: 40.4169, lng: -3.7035,
+        direccion: {
+          calle: 'Calle Mayor', numero: '24', codigoPostal: '28013',
+          ciudad: 'Madrid', provincia: 'Madrid', pais: 'España',
+          formateada: 'C. Mayor, 24, 28013 Madrid', lat: 40.4169, lng: -3.7035,
+        },
+      });
+
+      expect(componente.form.getRawValue()).toMatchObject({
+        calle: 'Calle Mayor', numero: '24', codigoPostal: '28013',
+      });
+      expect(componente.tieneCoordenadas()).toBe(true);
+    });
+
+    it('debería recolocar el pin y reescribir la dirección al tocar el mapa', async () => {
+      await crear();
+      componente.form.patchValue({ calle: 'Calle de Alcalá', codigoPostal: '28009' });
+
+      await componente.moverPin({ lat: 40.4165, lng: -3.6935 });
+
+      expect(geo.direccionDePunto).toHaveBeenCalledWith(40.4165, -3.6935);
+      expect(componente.form.getRawValue()).toMatchObject({
+        calle: 'Paseo del Prado', codigoPostal: '28014',
+      });
+      expect(componente.tieneCoordenadas()).toBe(true);
+    });
+
+    it('no debería reescribir la dirección con la casilla desmarcada', async () => {
+      // Un negocio en un polígono clava el pin donde de verdad se entra y no
+      // quiere que el geocodificador le ponga la nave de al lado.
+      await crear();
+      componente.form.patchValue({ calle: 'Camino del Monte' });
+      componente.sincronizarPin.set(false);
+
+      await componente.moverPin({ lat: 40.4165, lng: -3.6935 });
+
+      expect(geo.direccionDePunto).not.toHaveBeenCalled();
+      expect(componente.form.getRawValue().calle).toBe('Camino del Monte');
+      // El punto sí se mueve: es lo que se acaba de pedir.
+      expect(componente.tieneCoordenadas()).toBe(true);
+    });
+
+    it('no debería recentrar el mapa al tocarlo', async () => {
+      // Recentrar en cada toque hace saltar el mapa bajo el dedo justo cuando
+      // se está afinando el sitio.
+      await crear();
+      componente.guardarCoordenadas({ placeId: 'p1', ciudad: 'Madrid', lat: 40.4, lng: -3.7 });
+      const centroInicial = componente.centroMapa();
+
+      await componente.moverPin({ lat: 40.4165, lng: -3.6935 });
+
+      expect(componente.centroMapa()).toBe(centroInicial);
+    });
+
+    it('debería dejar el pin puesto aunque la dirección no se resuelva', async () => {
+      await crear();
+      geo.direccionDePunto.mockResolvedValue(null);
+
+      await componente.moverPin({ lat: 40.4165, lng: -3.6935 });
+
+      expect(componente.tieneCoordenadas()).toBe(true);
+      expect(componente.buscandoDireccion()).toBe(false);
+    });
+
+    it('no debería borrar lo tecleado si la sugerencia viene sin desglose', async () => {
+      await crear();
+      componente.form.patchValue({ calle: 'Camino del Monte' });
+
+      componente.usarDireccionSugerida({ placeId: 'p2', ciudad: 'Soria', lat: 41.76, lng: -2.46 });
+
+      expect(componente.form.getRawValue().calle).toBe('Camino del Monte');
+    });
+  });
+
+  /**
+   * Rellenar la ficha lleva veinte campos y varias fotos: una recarga, un móvil
+   * que descarta la pestaña o un «atrás» del navegador tiraban todo el trabajo.
+   */
+  describe('borrador en el dispositivo', () => {
+    /** Vuelve a montar el componente como si se recargara la página. */
+    const recargar = async (): Promise<void> => {
+      fixture.destroy();
+      fixture = TestBed.createComponent(ComercioListadoFormComponent);
+      componente = fixture.componentInstance;
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    it('debería recuperar lo escrito tras recargar', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.form.patchValue({ calle: 'Calle Mayor', codigoPostal: '28013' });
+
+      await recargar();
+
+      expect(componente.form.getRawValue()).toMatchObject({
+        titulo: 'Residencia Royal', calle: 'Calle Mayor', codigoPostal: '28013',
+      });
+      expect(componente.borradorRestaurado()).toBe(true);
+    });
+
+    it('debería recuperar el horario y los días especiales', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.excepciones.set([{ fecha: '2026-12-25', cerrado: true, motivo: 'Navidad' }]);
+      componente.guardarCambioSuelto();
+
+      await recargar();
+
+      expect(componente.excepciones()).toEqual([{ fecha: '2026-12-25', cerrado: true, motivo: 'Navidad' }]);
+    });
+
+    it('debería recuperar el pin del mapa', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.guardarCoordenadas({ placeId: 'p1', ciudad: 'Madrid', lat: 40.4, lng: -3.7 });
+
+      await recargar();
+
+      expect(componente.tieneCoordenadas()).toBe(true);
+    });
+
+    it('debería devolver al paso donde se quedó', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.irAlPaso('categoria');
+      componente.siguientePaso();
+
+      await recargar();
+
+      expect(componente.paso()).toBe('ubicacion');
+    });
+
+    it('debería reconstruir los espacios del alojamiento', async () => {
+      // Los FormArray no se restauran con un patchValue: se rehacen desde el
+      // payload, el mismo camino que usa la edición.
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+
+      await recargar();
+
+      expect(componente.espacios.length).toBe(1);
+    });
+
+    it('debería tirar el borrador al crear el servicio', async () => {
+      // Si sobreviviera, el siguiente alta arrancaría con la ficha ya publicada.
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+
+      await componente.submit();
+      await recargar();
+
+      expect(componente.form.getRawValue().titulo).toBe('');
+      expect(componente.borradorRestaurado()).toBe(false);
+    });
+
+    it('NO debería restaurar nada al editar un servicio existente', async () => {
+      // Al editar manda lo guardado en el servidor; un borrador encima
+      // resucitaría cambios que se descartaron.
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+
+      fixture.destroy();
+      TestBed.resetTestingModule();
+      await crear('serv-1', { vertical: VerticalKey.PELUQUERIA, titulo: 'Del servidor', descripcion: 'X' });
+
+      expect(componente.form.getRawValue().titulo).toBe('Del servidor');
+      expect(componente.borradorRestaurado()).toBe(false);
+    });
+  });
+
+  /** Empotrado en el alta guiada (`/comercio/alta`). */
+  describe('modo alta', () => {
+    it('debería arrancar con la categoría que llega del paso anterior, ya fijada', async () => {
+      await crearEnAlta(VerticalKey.PELUQUERIA);
+
+      expect(componente.form.getRawValue().vertical).toBe(VerticalKey.PELUQUERIA);
+      expect(componente.form.controls.vertical.disabled).toBe(true);
+    });
+
+    it('debería avisar al asistente en vez de navegar al listado', async () => {
+      await crearEnAlta(VerticalKey.ALOJAMIENTO);
+      const creado = jest.fn();
+      componente.creado.subscribe(creado);
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+
+      await componente.submit();
+
+      expect(creado).toHaveBeenCalled();
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+
+    it('fuera del alta debería seguir llevando a «Mis servicios»', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+
+      await componente.submit();
+
+      expect(componente.exitoMsg()).toContain('borrador');
     });
   });
 });

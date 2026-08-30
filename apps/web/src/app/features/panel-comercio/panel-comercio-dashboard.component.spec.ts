@@ -175,7 +175,7 @@ describe('PanelComercioDashboardComponent', () => {
       await crear();
 
       expect(componente.pasosHechos()).toBe(0);
-      expect(componente.pasosPendientes()).toBe(5);
+      expect(componente.pasosPendientes()).toBe(3);
       expect(componente.progresoPct()).toBe(0);
     });
 
@@ -184,13 +184,11 @@ describe('PanelComercioDashboardComponent', () => {
         servicios: [miServicio()],
         comercio: {
           vatNumber: 'ESB12345678',
-          logoUrl: '/logo.png',
           datosBancarios: { iban: 'ES76' },
-          verificacion: { documentos: [{ tipo: 'seguro_rc', url: '/x.pdf', estado: 'pendiente' }] },
         } as MiComercio,
       });
 
-      expect(componente.pasosHechos()).toBe(5);
+      expect(componente.pasosHechos()).toBe(3);
       expect(componente.progresoPct()).toBe(100);
     });
 

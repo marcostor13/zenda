@@ -17,8 +17,11 @@
     "sembrar:lugares-cv": "ts-node -P tsconfig.json src/scripts/sembrar-lugares-cv.ts",
     "diagnostico:catalogo": "ts-node -P tsconfig.json src/scripts/diagnostico-catalogo.ts",
     "diagnostico:ubicaciones": "ts-node -P tsconfig.json src/scripts/diagnostico-ubicaciones.ts",
-    "limpiar:urls-imagen": "ts-node -P tsconfig.json src/scripts/limpiar-urls-imagen-rotas.ts",
     "limpiar:huerfanos": "ts-node -P tsconfig.json src/scripts/limpiar-comercios-huerfanos.ts",
+    "eliminar:imagenes-comercio": "ts-node -P tsconfig.json src/scripts/eliminar-imagenes-comercio.ts",
+    "mover:horario-servicios": "ts-node -P tsconfig.json src/scripts/mover-horario-a-servicios.ts",
+    "cerrar:altas-existentes": "ts-node -P tsconfig.json src/scripts/cerrar-altas-existentes.ts",
+    "eliminar:verificacion": "ts-node -P tsconfig.json src/scripts/eliminar-verificacion-comercio.ts",
     "test:e2e": "jest --config test/jest-e2e.config.ts"
   },
   "dependencies": {

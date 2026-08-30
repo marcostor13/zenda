@@ -341,15 +341,21 @@ describe('ReservaWizardComponent', () => {
       expect(componente.subtotal()).toBe(componente.precioBase());
     });
 
-    it('debería aplicar el IVA sobre el importe ya descontado', async () => {
+    /**
+     * Los precios del catálogo llevan el IVA incluido: el descuento se aplica
+     * sobre el total anunciado y el impuesto se desglosa dividiendo, no se
+     * suma encima al llegar al pago.
+     */
+    it('debería descontar del total anunciado, no añadir el IVA por encima', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO, { precioBase: '100' });
       await crear(params, query);
       componente.cuponInput = 'verano';
       await componente.aplicarCupon();
 
-      expect(componente.subtotalNeto()).toBe(80);
-      expect(componente.iva()).toBe(16.8);
-      expect(componente.total()).toBe(96.8);
+      expect(componente.total()).toBe(80);
+      // 80 / 1.21 = 66,12 de base; el resto es el IVA que ya iba dentro.
+      expect(componente.baseImponible()).toBeCloseTo(66.12, 2);
+      expect(componente.iva()).toBeCloseTo(13.88, 2);
     });
 
     it('debería usar el total del API en cuanto existe, no el estimado', async () => {
@@ -369,7 +375,7 @@ describe('ReservaWizardComponent', () => {
       componente.cuponInput = 'BIG';
       await componente.aplicarCupon();
 
-      expect(componente.subtotalNeto()).toBe(0);
+      expect(componente.total()).toBe(0);
     });
 
     it('debería mostrar un solo precio en los verticales de cita', async () => {

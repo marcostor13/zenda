@@ -32,6 +32,8 @@ export type { BusquedaParams } from './components/search-bar/rs-search-bar.compo
 export * from './verticales/verticales.config';
 export { RsImageUploadComponent } from './components/image-upload/rs-image-upload.component';
 export { RsTagsInputComponent } from './components/tags-input/rs-tags-input.component';
+export { RsHorarioComponent, semanaVacia } from './components/horario/rs-horario.component';
+export { RsHorarioPublicoComponent } from './components/horario/rs-horario-publico.component';
 export { RsPhoneInputComponent } from './components/phone-input/rs-phone-input.component';
 export * from './catalogos/paises.catalogo';
 export { RsPlaceAutocompleteComponent } from './components/place-autocomplete/rs-place-autocomplete.component';

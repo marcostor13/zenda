@@ -8,7 +8,6 @@ export type PlanComercio = 'basico' | 'pro' | 'premium';
 // El ciclo de vida vive en `shared` para que panel, API y DTOs no se separen.
 export type { EstadoComercio } from 'shared';
 export type ModoLiquidacion = 'merchant' | 'agencia';
-export type EstadoVerificacion = 'sin_verificar' | 'pendiente' | 'verificado' | 'rechazado';
 export type PoliticaCancelacion = 'flexible' | 'moderada' | 'estricta';
 
 export interface ContactoComercio {
@@ -29,28 +28,19 @@ export interface DireccionComercio {
   lng?: number;
 }
 
-export interface HorarioDia {
-  dia: string;
-  /** Primer tramo. Se mantienen `abre`/`cierra` sueltos por compatibilidad. */
-  abre?: string;
-  cierra?: string;
-  /**
-   * Segundo tramo del día. Muchos negocios cierran a mediodía y sin esto había
-   * que declarar la jornada partida como continua (TCK-8028).
-   */
-  abre2?: string;
-  cierra2?: string;
-  cerrado: boolean;
+/** Una aceptación concreta, con la prueba de cuándo y sobre qué texto se dio. */
+export interface Consentimiento {
+  aceptado: boolean;
+  fecha?: Date;
+  /** Versión del texto aceptado, para saber a qué se comprometió exactamente. */
+  version?: string;
 }
 
-/** Festivo, vacaciones o cierre puntual que se salta el horario semanal. */
-export interface ExcepcionHorario {
-  /** Fecha en formato ISO corto (YYYY-MM-DD). */
-  fecha: string;
-  motivo?: string;
-  cerrado: boolean;
-  abre?: string;
-  cierra?: string;
+export interface ConsentimientosComercio {
+  /** Declara que opera legalmente y con los permisos necesarios. */
+  operaLegalmente?: Consentimiento;
+  /** Acepta las condiciones generales del servicio. */
+  condicionesGenerales?: Consentimiento;
 }
 
 export interface DatosBancarios {
@@ -58,31 +48,6 @@ export interface DatosBancarios {
   iban?: string;
   banco?: string;
   swift?: string;
-}
-
-export type TipoDocumento = 'dni' | 'cif' | 'licencia' | 'seguro_rc' | 'certificado' | 'otro';
-export type EstadoDocumento = 'pendiente' | 'verificado' | 'rechazado' | 'caducado';
-
-export interface DocumentoVerificacion {
-  tipo: TipoDocumento;
-  nombre?: string;
-  url: string;
-  fechaCaducidad?: string;
-  /**
-   * Sólo para los documentos que la plataforma revisa. La documentación
-   * adicional no se verifica, así que va sin estado; ahí el único valor posible
-   * es `caducado`, que es un hecho de la fecha y no un veredicto del admin.
-   */
-  estado?: EstadoDocumento;
-  subidoAt?: Date;
-}
-
-export interface VerificacionComercio {
-  estado: EstadoVerificacion;
-  documentoIdentidadUrl?: string;
-  licenciaNegocioUrl?: string;
-  documentos?: DocumentoVerificacion[];
-  motivoRechazo?: string;
 }
 
 /**
@@ -127,15 +92,6 @@ export class Comercio {
 
   @Prop()
   descripcion?: string;
-
-  @Prop()
-  logoUrl?: string;
-
-  @Prop()
-  coverUrl?: string;
-
-  @Prop({ type: [String], default: [] })
-  galeria!: string[];
 
   @Prop({ type: [String], enum: VerticalKey, default: [] })
   verticales!: VerticalKey[];
@@ -204,15 +160,14 @@ export class Comercio {
   @Prop({ type: Object })
   contacto?: ContactoComercio;
 
+  /**
+   * Población principal, la que el comercio indica al registrarse. Es el punto
+   * de partida que rellena la ficha del primer servicio y la que sale en el
+   * comprobante de reserva; la dirección exacta de cada servicio vive en el
+   * propio servicio (`Servicio.ubicacion`).
+   */
   @Prop({ type: Object })
   direccion?: DireccionComercio;
-
-  @Prop({ type: [Object], default: [] })
-  horario!: HorarioDia[];
-
-  /** Festivos, vacaciones y cierres puntuales (TCK-8028). */
-  @Prop({ type: [Object], default: [] })
-  excepcionesHorario!: ExcepcionHorario[];
 
   @Prop({ type: String, enum: ['flexible', 'moderada', 'estricta'] })
   politicaCancelacion?: PoliticaCancelacion;
@@ -220,8 +175,21 @@ export class Comercio {
   @Prop({ type: Object })
   datosBancarios?: DatosBancarios;
 
-  @Prop({ type: Object, default: () => ({ estado: 'sin_verificar' }) })
-  verificacion!: VerificacionComercio;
+  /**
+   * Lo que el comercio declaró y aceptó al cerrar su alta. Guarda la fecha y la
+   * versión del texto vigente, no sólo el "sí": sin ellas no hay forma de
+   * demostrar qué aceptó ni cuándo, que es justo para lo que sirve el bloque.
+   */
+  @Prop({ type: Object })
+  consentimientos?: ConsentimientosComercio;
+
+  /**
+   * El alta guiada llegó al final. El comercio puede aparcarla ("todavía no
+   * tengo los datos"), así que esto no se deduce de tener los campos llenos: los
+   * datos fiscales también se pueden completar más tarde desde el panel.
+   */
+  @Prop({ type: Boolean, default: false })
+  altaCompletada!: boolean;
 
   @Prop({
     type: Object,

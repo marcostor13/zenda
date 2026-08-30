@@ -28,6 +28,13 @@ export const routes: Routes = [
       import('./features/legal/eliminar-datos.component').then((m) => m.EliminarDatosComponent),
   },
   {
+    // Fuera del guard de "muy pronto" como el resto de legales: es el texto que
+    // el comercio acepta al darse de alta y tiene que poder leerlo antes.
+    path: 'condiciones',
+    loadComponent: () =>
+      import('./features/legal/condiciones-comercio.component').then((m) => m.CondicionesComercioComponent),
+  },
+  {
     path: '',
     canActivate: [underConstructionGuard],
     children: [

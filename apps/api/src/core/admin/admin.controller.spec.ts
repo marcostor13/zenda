@@ -40,7 +40,6 @@ describe('AdminController', () => {
             fichaComercio: jest.fn().mockResolvedValue({}),
             crearComercio: jest.fn().mockResolvedValue({}),
             actualizarComercio: jest.fn().mockResolvedValue({}),
-            cambiarVerificacionComercio: jest.fn().mockResolvedValue({}),
             eliminarComercio: jest.fn().mockResolvedValue({ comercioId: 'comercio-1', purgado: false }),
             impactoBajaComercio: jest.fn().mockResolvedValue({ puedeDarseDeBaja: true }),
             restaurarComercio: jest.fn().mockResolvedValue({ _id: 'comercio-1' }),
@@ -167,16 +166,6 @@ describe('AdminController', () => {
         expect.objectContaining({ vatNumber: 'B1' }),
       );
       expect(adminService.actualizarComercio).toHaveBeenCalledWith('comercio-1', { plan: 'pro' });
-    });
-
-    it('deberia registrar que admin verifica la documentacion', async () => {
-      await controller.cambiarVerificacionComercio(
-        'comercio-1', { estado: 'rechazado', motivo: 'licencia caducada' }, admin,
-      );
-
-      expect(adminService.cambiarVerificacionComercio).toHaveBeenCalledWith(
-        'comercio-1', 'rechazado', 'licencia caducada', 'admin-1',
-      );
     });
 
     it('deberia dar de baja el comercio pasando motivo, comentario y quien lo hace', async () => {

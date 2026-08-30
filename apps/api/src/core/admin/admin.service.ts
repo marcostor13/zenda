@@ -112,7 +112,6 @@ export class AdminService {
       ingresosMes: number;
       comerciosPendientesCount: number;
       totalUsuarios: number;
-      verificacionesPendientes: number;
       nuevosComerciosMes: number;
       mascotasRegistradas: number;
       tasaCancelacionMes: number;
@@ -163,7 +162,6 @@ export class AdminService {
       ultimasReservas,
       pagosDelMes,
       comisiones,
-      verificacionesPendientes,
       nuevosComerciosMes,
       mascotasRegistradas,
       reservasDelMes,
@@ -192,7 +190,6 @@ export class AdminService {
         { $group: { _id: null, gmv: { $sum: '$montoTotal' }, ingresos: { $sum: '$comisionPlataforma' } } },
       ]).exec(),
       this.comisionConfigRepo.listarTodas(),
-      this.comercioModel.countDocuments({ 'verificacion.estado': 'pendiente' }).exec(),
       this.comercioModel.countDocuments({ createdAt: enPeriodo }).exec(),
       this.perroModel.countDocuments().exec(),
       this.reservaModel.countDocuments({ createdAt: enPeriodo }).exec(),
@@ -232,7 +229,6 @@ export class AdminService {
         ingresosMes,
         comerciosPendientesCount: comerciosPendientesList.length,
         totalUsuarios,
-        verificacionesPendientes,
         nuevosComerciosMes,
         mascotasRegistradas,
         tasaCancelacionMes,
@@ -366,12 +362,11 @@ export class AdminService {
     suspendidos: number;
     enPausa: number;
     dadosDeBaja: number;
-    verificados: number;
   }> {
     // `total` cuenta el catálogo vivo: sumar los dados de baja inflaba la cifra
     // con negocios que ya no existen para nadie.
     const vivos = { estado: { $ne: 'eliminado' } };
-    const [total, activos, pendientes, suspendidos, enPausa, dadosDeBaja, verificados] =
+    const [total, activos, pendientes, suspendidos, enPausa, dadosDeBaja] =
       await Promise.all([
         this.comercioModel.countDocuments(vivos).exec(),
         this.comercioModel.countDocuments({ estado: 'activo' }).exec(),
@@ -379,16 +374,14 @@ export class AdminService {
         this.comercioModel.countDocuments({ estado: 'suspendido' }).exec(),
         this.comercioModel.countDocuments({ estado: 'inactivo' }).exec(),
         this.comercioModel.countDocuments({ estado: 'eliminado' }).exec(),
-        this.comercioModel.countDocuments({ ...vivos, 'verificacion.estado': 'verificado' }).exec(),
       ]);
-    return { total, activos, pendientes, suspendidos, enPausa, dadosDeBaja, verificados };
+    return { total, activos, pendientes, suspendidos, enPausa, dadosDeBaja };
   }
 
   async crearComercio(datos: {
     razonSocial: string;
     vatNumber: string;
     nombreComercial: string;
-    logoUrl?: string;
     verticales?: VerticalKey[];
     plan?: PlanComercio;
     estado?: EstadoComercio;
@@ -401,7 +394,6 @@ export class AdminService {
     datos: {
       razonSocial?: string;
       nombreComercial?: string;
-      logoUrl?: string;
       verticales?: VerticalKey[];
       plan?: PlanComercio;
       estado?: EstadoComercio;
@@ -453,53 +445,6 @@ export class AdminService {
     return this.cuentaComercio.restaurar(id, adminId);
   }
 
-  /** El admin verifica o rechaza la documentación del comercio. */
-  async cambiarVerificacionComercio(
-    id: string,
-    estado: 'verificado' | 'rechazado' | 'pendiente',
-    motivo?: string,
-    adminId?: string,
-  ): Promise<ComercioDocument> {
-    const comercio = await this.comerciosRepo.findById(id);
-    if (!comercio) throw new NotFoundException('Comercio no encontrado');
-
-    // Rechazar sin decir por qué deja al comercio sin saber qué corregir.
-    if (estado === 'rechazado' && !motivo?.trim()) {
-      throw new BadRequestException('Para rechazar la documentación hay que indicar el motivo');
-    }
-
-    /*
-     * Los documentos de la lista son la documentación **adicional** (seguro de
-     * RC, certificados…), que no se revisa: sellarlos junto al veredicto de
-     * identidad les ponía un estado que no significa nada. Se conservan tal
-     * cual; lo que cambia es el estado de verificación del comercio.
-     */
-    const documentos = comercio.verificacion?.documentos ?? [];
-
-    const actualizado = await this.comerciosRepo.actualizar(id, {
-      verificacion: {
-        ...comercio.verificacion,
-        estado,
-        motivoRechazo: estado === 'rechazado' ? motivo : undefined,
-        documentos,
-      },
-    } as Parameters<ComerciosRepository['actualizar']>[1]);
-    if (!actualizado) throw new NotFoundException('Comercio no encontrado');
-
-    if (adminId) {
-      await this.auditoria.registrar({
-        actorId: adminId,
-        entidad: EntidadAuditada.COMERCIO,
-        entidadId: id,
-        descripcion: `Documentación de ${comercio.nombreComercial} marcada como ${estado}`,
-        motivo,
-        antes: { verificacion: comercio.verificacion?.estado },
-        despues: { verificacion: estado },
-      });
-    }
-
-    return actualizado;
-  }
 
   // ── Usuarios CRUD ────────────────────────────────────────────────────────────
 
@@ -695,7 +640,6 @@ export class AdminService {
         estado: comercio.estado,
         plan: comercio.plan,
         verticales: comercio.verticales,
-        verificacion: comercio.verificacion,
         createdAt: (comercio as unknown as { createdAt?: Date }).createdAt,
       },
       reservas,

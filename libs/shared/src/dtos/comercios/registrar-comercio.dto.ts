@@ -13,10 +13,6 @@ export class RegistrarComercioDto {
   nombreComercial!: string;
 
   @IsOptional()
-  @IsString()
-  logoUrl?: string;
-
-  @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsEnum(VerticalKey, { each: true })

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ImpactoBajaComercioDto, ResultadoBajaComercioDto, TamanoPerro } from 'shared';
+import { BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ExcepcionHorarioDto, HorarioDiaDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, TamanoPerro } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface ContactoComercio {
@@ -22,23 +22,24 @@ export interface DireccionComercio {
   lng?: number;
 }
 
-export interface HorarioDia {
-  dia: string;
-  abre?: string;
-  cierra?: string;
-  /** Segundo tramo, para jornadas partidas (TCK-8028). */
-  abre2?: string;
-  cierra2?: string;
-  cerrado: boolean;
+/**
+ * Horario y días especiales viven en `libs/shared`: los usan el formulario del
+ * servicio, la ficha pública y el API, y tener tres copias de la misma forma
+ * garantizaba que se separasen.
+ */
+export type HorarioDia = HorarioDiaDto;
+export type ExcepcionHorario = ExcepcionHorarioDto;
+
+/** Una aceptación del comercio, con la prueba de cuándo y sobre qué texto se dio. */
+export interface Consentimiento {
+  aceptado: boolean;
+  fecha?: string;
+  version?: string;
 }
 
-/** Festivo, vacaciones o cierre puntual que se salta el horario semanal. */
-export interface ExcepcionHorario {
-  fecha: string;
-  motivo?: string;
-  cerrado: boolean;
-  abre?: string;
-  cierra?: string;
+export interface ConsentimientosComercio {
+  operaLegalmente?: Consentimiento;
+  condicionesGenerales?: Consentimiento;
 }
 
 export interface DatosBancarios {
@@ -46,25 +47,6 @@ export interface DatosBancarios {
   iban?: string;
   banco?: string;
   swift?: string;
-}
-
-export interface DocumentoVerificacion {
-  tipo: string;
-  nombre?: string;
-  url: string;
-  fechaCaducidad?: string;
-  /** Sólo lo llevan los documentos que la plataforma revisa, no los adicionales. */
-  estado?: string;
-  /** La fija el servidor al guardar. */
-  subidoAt?: string;
-}
-
-export interface VerificacionComercio {
-  estado: 'sin_verificar' | 'pendiente' | 'verificado' | 'rechazado';
-  documentoIdentidadUrl?: string;
-  licenciaNegocioUrl?: string;
-  documentos?: DocumentoVerificacion[];
-  motivoRechazo?: string;
 }
 
 export interface PreferenciasNotificacion {
@@ -80,20 +62,22 @@ export interface MiComercio {
   razonSocial: string;
   vatNumber: string;
   descripcion?: string;
-  logoUrl?: string;
-  coverUrl?: string;
-  galeria: string[];
   verticales: string[];
   plan: string;
   estado: string;
   contacto?: ContactoComercio;
+  /**
+   * Población principal del negocio, la que indicó al registrarse. La dirección
+   * exacta vive en cada servicio; ésta sólo sirve de punto de partida al crear
+   * el primero.
+   */
   direccion?: DireccionComercio;
-  horario: HorarioDia[];
+  consentimientos?: ConsentimientosComercio;
+  /** El alta guiada llegó al final; si no, el panel ofrece retomarla. */
+  altaCompletada?: boolean;
   politicaCancelacion?: 'flexible' | 'moderada' | 'estricta';
   datosBancarios?: DatosBancarios;
-  verificacion: VerificacionComercio;
   preferenciasNotificacion: PreferenciasNotificacion;
-  excepcionesHorario?: ExcepcionHorario[];
   /** Motivo del último standby o baja, si lo hubo. */
   baja?: { motivo: string; comentario?: string; fecha: string; origen: string; reactivarEl?: string };
 }
@@ -103,21 +87,19 @@ export type ActualizarPerfilComercioPayload = Partial<
     MiComercio,
     | 'nombreComercial'
     | 'descripcion'
-    | 'logoUrl'
-    | 'coverUrl'
-    | 'galeria'
     | 'politicaCancelacion'
     | 'contacto'
-    | 'direccion'
     | 'datosBancarios'
     | 'preferenciasNotificacion'
-    | 'horario'
-    | 'excepcionesHorario'
     | 'verticales'
     | 'razonSocial'
     | 'vatNumber'
+    | 'altaCompletada'
   >
-> & { documentoIdentidadUrl?: string; licenciaNegocioUrl?: string; documentos?: DocumentoVerificacion[] };
+> & {
+  /** Sólo viaja el "sí"; la fecha y la versión del texto las sella el servidor. */
+  consentimientos?: { operaLegalmente: boolean; condicionesGenerales: boolean };
+};
 
 export interface SuplementoAplicado {
   concepto: string;
@@ -260,6 +242,14 @@ export interface ServicioPayload {
   /** Coordenadas del listado; sin ellas no aparece en la búsqueda por mapa. */
   lat?: number;
   lng?: number;
+  /** Dirección exacta desde la que se presta el servicio. */
+  calle?: string;
+  numero?: string;
+  provincia?: string;
+  codigoPostal?: string;
+  pais?: string;
+  horario?: HorarioDia[];
+  excepcionesHorario?: ExcepcionHorario[];
   precioBase?: number;
   imagenes?: string[];
   extra?: Record<string, unknown>;
@@ -275,6 +265,14 @@ export interface ServicioGestion {
   /** Coordenadas ya guardadas; ausentes si el listado nunca se geolocalizó. */
   lat?: number;
   lng?: number;
+  /** Dirección exacta desde la que se presta el servicio. */
+  calle?: string;
+  numero?: string;
+  provincia?: string;
+  codigoPostal?: string;
+  pais?: string;
+  horario: HorarioDia[];
+  excepcionesHorario: ExcepcionHorario[];
   precioBase: number;
   imagenes: string[];
   estado: string;
@@ -300,6 +298,7 @@ export class ComercioApiService {
   private readonly url = `${environment.apiUrl}/comercios`;
   private readonly incidenciasUrl = `${environment.apiUrl}/incidencias`;
   private readonly catalogUrl = `${environment.apiUrl}/catalog/servicios`;
+  private readonly agendaUrl = `${environment.apiUrl}/mi-agenda`;
   private readonly suplementosUrl = `${environment.apiUrl}/suplementos`;
 
   /** Abre una reclamación o incidencia sobre una reserva propia (TCK-8040 §2). */
@@ -389,6 +388,34 @@ export class ComercioApiService {
 
   eliminarSuplemento(id: string): Observable<void> {
     return this.http.delete<void>(`${this.suplementosUrl}/${id}`);
+  }
+
+  // ── Agenda: lo reservado por Doogking y lo que el comercio cierra aparte ──
+
+  /** Tramos cerrados, acotados al rango que la agenda tiene a la vista. */
+  getBloqueos(desde: Date, hasta: Date, servicioId?: string): Observable<BloqueoDto[]> {
+    let params = new HttpParams()
+      .set('desde', desde.toISOString())
+      .set('hasta', hasta.toISOString());
+    if (servicioId) params = params.set('servicioId', servicioId);
+    return this.http.get<BloqueoDto[]>(`${this.agendaUrl}/bloqueos`, { params });
+  }
+
+  crearBloqueo(dto: CrearBloqueoDto): Observable<BloqueoDto> {
+    return this.http.post<BloqueoDto>(`${this.agendaUrl}/bloqueos`, dto);
+  }
+
+  eliminarBloqueo(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.agendaUrl}/bloqueos/${id}`);
+  }
+
+  /** Reservas vivas del rango, para pintarlas junto a los bloqueos. */
+  getCitasAgenda(desde: Date, hasta: Date, servicioId?: string): Observable<CitaAgendaDto[]> {
+    let params = new HttpParams()
+      .set('desde', desde.toISOString())
+      .set('hasta', hasta.toISOString());
+    if (servicioId) params = params.set('servicioId', servicioId);
+    return this.http.get<CitaAgendaDto[]>(`${this.agendaUrl}/citas`, { params });
   }
 
   getMisServicios(): Observable<MiServicio[]> {

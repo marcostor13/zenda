@@ -442,9 +442,15 @@ export class ComercioListadosComponent implements OnInit {
     try {
       const actualizado = await firstValueFrom(this.comercioApi.cambiarEstadoServicio(servicio._id, nuevoEstado));
       this.servicios.update(list => list.map(s => s._id === servicio._id ? { ...s, estado: actualizado.estado } : s));
-    } catch {
-      this.errorMsg.set('Error al cambiar el estado del listado.');
-      setTimeout(() => this.errorMsg.set(''), 3000);
+    } catch (e) {
+      // El API rechaza publicar con el alta a medias, y el motivo importa: un
+      // "error al cambiar el estado" genérico dejaría al comercio sin saber que
+      // lo que falta es terminar su alta, ni dónde hacerlo.
+      const status = (e as { status?: number })?.status;
+      this.errorMsg.set(status === 409
+        ? 'Termina el alta de tu negocio para poder publicar. La retomas desde el panel, en «Retomar el alta».'
+        : 'Error al cambiar el estado del listado.');
+      setTimeout(() => this.errorMsg.set(''), 6000);
     } finally {
       this.toggling.set(null);
     }

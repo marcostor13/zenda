@@ -16,6 +16,7 @@ import { describirPolitica, descripcionPolitica } from '../../../shared/catalogo
 import { VerticalKey } from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
+import { RsHorarioPublicoComponent } from '../../../shared/components/horario/rs-horario-publico.component';
 import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
@@ -33,7 +34,7 @@ const MINIATURAS_VISIBLES = 4;
   standalone: true,
   imports: [
     RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
-    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent, EurosPipe,],
+    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,],
   template: `
 <div class="detalle-page">
   <rs-navbar />
@@ -196,6 +197,12 @@ const MINIATURAS_VISIBLES = 4;
         <!-- Dónde está: mapa del punto exacto + atajos a Google Maps -->
         <div class="section-block" rsAnim>
           <rs-ubicacion [lugar]="ubicacion()" />
+        </div>
+
+        <!-- Cuándo atienden: el horario es de este servicio, no del negocio. -->
+        <div class="section-block" rsAnim>
+          <rs-horario-publico [horario]="alojamiento()!.horario"
+                              [excepciones]="alojamiento()!.excepcionesHorario" />
         </div>
 
         <!-- Amenidades caninas -->

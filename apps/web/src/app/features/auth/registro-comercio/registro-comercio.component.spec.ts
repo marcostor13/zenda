@@ -12,9 +12,6 @@ describe('RegistroComercioComponent (wizard)', () => {
   let component: RegistroComercioComponent;
   let authService: jest.Mocked<AuthService>;
 
-  const rellenarNegocio = (): void => {
-    component.negocioForm.setValue({ nombreComercial: 'Royal Dog Resort', ciudad: 'Madrid' });
-  };
   const rellenarCuenta = (): void => {
     component.cuentaForm.setValue({
       nombre: 'Ana Torres',
@@ -57,7 +54,6 @@ describe('RegistroComercioComponent (wizard)', () => {
     authService.registrarComercio.mockResolvedValue({ email: 'ana@royaldog.eu' } as never);
     component.toggleVertical(VerticalKey.ALOJAMIENTO);
     component.siguiente();
-    rellenarNegocio();
     rellenarCuenta();
     fixture.detectChanges();
 
@@ -77,9 +73,7 @@ describe('RegistroComercioComponent (wizard)', () => {
     component.siguiente();
     fixture.detectChanges();
 
-    rellenarNegocio();
-    // Los dos bloques cuelgan del mismo grupo raíz: sin eso no hay ngSubmit.
-    expect(component.registroForm.controls.negocio.value.ciudad).toBe('Madrid');
+    // El bloque de acceso cuelga del grupo raíz: sin eso no hay ngSubmit.
     expect(component.registroForm.get('cuenta.email')).toBe(component.cuentaForm.get('email'));
   });
 
@@ -101,21 +95,33 @@ describe('RegistroComercioComponent (wizard)', () => {
     expect(component.paso()).toBe(component.pasos.length);
   });
 
-  it('debería marcar los dos formularios si el negocio está incompleto al enviar', async () => {
+  it('debería señalar los campos de acceso incompletos al enviar', async () => {
+    component.toggleVertical(VerticalKey.ALOJAMIENTO);
+
+    await component.onSubmit();
+
+    expect(authService.registrarComercio).not.toHaveBeenCalled();
+    expect(component.cuentaForm.get('email')?.touched).toBe(true);
+  });
+
+  it('NO debería pedir los datos del negocio', async () => {
+    // El nombre del negocio y sus datos se piden en el alta guiada, ya con la
+    // cuenta verificada: el registro sólo abre la puerta.
+    authService.registrarComercio.mockResolvedValue({ requiereVerificacion: true, email: 'ana@royaldog.eu' });
     component.toggleVertical(VerticalKey.ALOJAMIENTO);
     rellenarCuenta();
 
     await component.onSubmit();
 
-    expect(authService.registrarComercio).not.toHaveBeenCalled();
-    expect(component.negocioForm.get('nombreComercial')?.touched).toBe(true);
+    const enviado = authService.registrarComercio.mock.calls.at(-1)![0];
+    expect(enviado).not.toHaveProperty('nombreComercial');
+    expect(enviado).not.toHaveProperty('ciudad');
   });
 
-  it('debería registrar el comercio con negocio, cuenta y categorías', async () => {
+  it('debería registrar la cuenta con sus categorías', async () => {
     authService.registrarComercio.mockResolvedValue({ requiereVerificacion: true, email: 'ana@royaldog.eu' });
     component.toggleVertical(VerticalKey.ALOJAMIENTO);
     component.toggleVertical(VerticalKey.PELUQUERIA);
-    rellenarNegocio();
     rellenarCuenta();
 
     await component.onSubmit();
@@ -125,15 +131,12 @@ describe('RegistroComercioComponent (wizard)', () => {
       email: 'ana@royaldog.eu',
       password: 'password123',
       telefono: undefined,
-      nombreComercial: 'Royal Dog Resort',
-      ciudad: 'Madrid',
       verticales: [VerticalKey.ALOJAMIENTO, VerticalKey.PELUQUERIA],
     });
   });
 
   it('debería enviar verticales=undefined si no hay categorías', async () => {
     authService.registrarComercio.mockResolvedValue({ requiereVerificacion: true, email: 'ana@royaldog.eu' });
-    rellenarNegocio();
     rellenarCuenta();
 
     await component.onSubmit();
@@ -144,14 +147,12 @@ describe('RegistroComercioComponent (wizard)', () => {
   });
 
   it('no debería registrar si la cuenta es inválida', async () => {
-    rellenarNegocio();
     await component.onSubmit();
     expect(authService.registrarComercio).not.toHaveBeenCalled();
   });
 
   it('debería mostrar un error específico si el email ya existe (409)', async () => {
     authService.registrarComercio.mockRejectedValue({ status: 409 });
-    rellenarNegocio();
     rellenarCuenta();
 
     await component.onSubmit();
@@ -162,7 +163,6 @@ describe('RegistroComercioComponent (wizard)', () => {
 
   it('debería mostrar un error genérico ante cualquier otro fallo', async () => {
     authService.registrarComercio.mockRejectedValue(new Error('network error'));
-    rellenarNegocio();
     rellenarCuenta();
 
     await component.onSubmit();
@@ -185,21 +185,6 @@ describe('RegistroComercioComponent (wizard)', () => {
     component.atras();
     expect(component.paso()).toBe(1);
     expect(component.error()).toBeNull();
-  });
-
-  describe('placeholder del nombre del negocio (HU-6.1.1)', () => {
-    it('debería sugerir un ejemplo genérico sin categoría elegida', () => {
-      expect(component.placeholderNombreNegocio()).toBe('Ej. Royal Dog Resort');
-    });
-
-    it('debería adaptar el ejemplo a la primera categoría elegida', () => {
-      component.toggleVertical(VerticalKey.VETERINARIA);
-      expect(component.placeholderNombreNegocio()).toContain('Veterinario');
-
-      component.toggleVertical(VerticalKey.HOTELES);
-      component.toggleVertical(VerticalKey.VETERINARIA);
-      expect(component.placeholderNombreNegocio()).toContain('Hotel');
-    });
   });
 
   describe('fuerza de la contraseña (HU-6.1.4)', () => {

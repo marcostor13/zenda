@@ -418,7 +418,11 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 ## 9. Consideraciones del mercado europeo
 
 - **Moneda:** EUR (euros) en todo el sistema.
-- **Impuestos:** IVA 21% — separar `subtotal`, `iva`, `total` en reservas y comprobantes; preparar para facturación electrónica europea (con soporte de número de IVA del comercio) en fase posterior.
+- **Impuestos:** IVA 21%. **Los precios se declaran y se muestran con el IVA incluido**: lo
+  que el comercio pone en su ficha es lo que el cliente paga, y la base imponible se obtiene
+  dividiendo (`total / 1.21`), nunca sumando por encima al llegar al pago. En reservas y
+  comprobantes se guardan `montoSubtotal` (base), `iva` y `montoTotal`; preparar para
+  facturación electrónica europea (con soporte de número de IVA del comercio) en fase posterior.
 - **Pasarela:** **Stripe** como única pasarela (tarjeta europea/internacional). Diseñar `payments` con interfaz `PaymentGateway` para poder añadir otras en el futuro.
 - **Comprobantes:** dejar gancho para factura electrónica europea (no en MVP, pero el modelo de datos lo contempla).
 
@@ -473,11 +477,12 @@ Formato: `Como <rol>, quiero <acción>, para <beneficio>`. Prioridad: **P0** (MV
 3. `COMISION_PCT_DEFAULT` = 15% (fallback global en `constants.ts`)
 
 ```
+montoTotal         = precio anunciado (IVA YA INCLUIDO) - descuento
+montoSubtotal      = montoTotal / 1.21            (base imponible)
+iva                = montoTotal - montoSubtotal
 comisionPlataforma = montoSubtotal × comisionPct (15% default)
 stripeFee          = montoTotal × 0.029 + 0.25    (€)
 liquidacionComercio = montoTotal - comisionPlataforma - stripeFee
-iva                = montoSubtotal × 0.21
-montoTotal         = montoSubtotal + iva
 ```
 
 **Comisiones iniciales por vertical (configurables desde el admin):**

@@ -166,31 +166,6 @@ describe('AdminComerciosComponent', () => {
       expect(componente.accionando()).toBeNull();
     });
 
-    it('debería marcar la documentación como verificada', async () => {
-      await crear();
-
-      await componente.verificar('c1');
-
-      expect(api['cambiarVerificacionComercio']).toHaveBeenCalledWith('c1', 'verificado');
-    });
-
-    it('debería enviar el motivo al rechazar la documentación', async () => {
-      await crear();
-      jest.spyOn(window, 'prompt').mockReturnValue('Documento ilegible');
-
-      await componente.rechazarVerif('c1');
-
-      expect(api['cambiarVerificacionComercio']).toHaveBeenCalledWith('c1', 'rechazado', 'Documento ilegible');
-    });
-
-    it('debería permitir rechazar sin motivo', async () => {
-      await crear();
-      jest.spyOn(window, 'prompt').mockReturnValue(null);
-
-      await componente.rechazarVerif('c1');
-
-      expect(api['cambiarVerificacionComercio']).toHaveBeenCalledWith('c1', 'rechazado', undefined);
-    });
   });
 
   describe('alta y edición', () => {
@@ -386,22 +361,6 @@ describe('AdminComerciosComponent', () => {
   });
 
   describe('etiquetas', () => {
-    it('debería distinguir visualmente cada estado de verificación', async () => {
-      await crear();
-
-      expect(componente.badgeVerif('verificado')).toContain('success');
-      expect(componente.badgeVerif('pendiente')).toContain('warning');
-      expect(componente.badgeVerif('caducado')).toContain('error');
-      expect(componente.badgeVerif('desconocido')).toContain('neutral');
-    });
-
-    it('debería etiquetar los estados de documentación', async () => {
-      await crear();
-
-      expect(componente.verifLabel('verificado')).toContain('Verificado');
-      expect(componente.verifLabel('otro')).toBe('otro');
-    });
-
     it('debería dar un icono Lucide por vertical y uno genérico si no lo conoce (TCK-8010)', async () => {
       await crear();
 
@@ -409,92 +368,6 @@ describe('AdminComerciosComponent', () => {
       expect(componente.iconVertical('inexistente')).toBe('paw');
     });
   });
-  /**
-   * El admin no podía ver los papeles que subía el comercio: la ficha sólo
-   * pintaba un contador. Verificar así es firmar a ciegas.
-   */
-  describe('documentación en la ficha', () => {
-    const verificacion = {
-      estado: 'pendiente',
-      documentoIdentidadUrl: 'https://cdn.doogking.com/dni.pdf',
-      licenciaNegocioUrl: 'https://cdn.doogking.com/licencia.jpg',
-      documentos: [
-        { tipo: 'seguro_rc', nombre: 'Póliza 2026', url: 'https://cdn.doogking.com/rc.pdf', fechaCaducidad: '2027-01-31', estado: 'pendiente' },
-        { tipo: 'inventado', url: 'https://cdn.doogking.com/otro.pdf', estado: 'verificado' },
-      ],
-    };
-
-    it('debería listar los documentos fijos junto a los adicionales', async () => {
-      await crear();
-
-      const documentos = componente.documentosDe(verificacion as never);
-
-      expect(documentos).toHaveLength(4);
-      expect(documentos[0].titulo).toBe('Documento de identidad');
-      expect(documentos[1].titulo).toBe('Licencia de actividad');
-    });
-
-    it('debería traducir el tipo de los documentos adicionales', async () => {
-      await crear();
-
-      const documentos = componente.documentosDe(verificacion as never);
-
-      expect(documentos[2].titulo).toBe('Seguro de responsabilidad civil');
-      expect(documentos[2].nombre).toBe('Póliza 2026');
-    });
-
-    it('debería dejar en crudo un tipo que no está en el catálogo', async () => {
-      await crear();
-
-      expect(componente.documentosDe(verificacion as never)[3].titulo).toBe('inventado');
-    });
-
-    it('no debería listar nada si el comercio no ha subido documentación', async () => {
-      await crear();
-
-      expect(componente.documentosDe(undefined)).toEqual([]);
-      expect(componente.documentosDe({ estado: 'sin_verificar' } as never)).toEqual([]);
-    });
-
-    it('debería descartar los documentos sin URL, que no se pueden abrir', async () => {
-      await crear();
-
-      const documentos = componente.documentosDe({
-        estado: 'pendiente', documentos: [{ tipo: 'otro', url: '', estado: 'pendiente' }],
-      } as never);
-
-      expect(documentos).toEqual([]);
-    });
-
-    it('debería distinguir un PDF de una imagen por el icono', async () => {
-      // No se revisan igual; el icono lo adelanta antes de abrirlo.
-      await crear();
-
-      expect(componente.iconoDoc('https://cdn.doogking.com/dni.pdf')).toBe('file-text');
-      expect(componente.iconoDoc('https://cdn.doogking.com/DNI.PDF')).toBe('file-text');
-      expect(componente.iconoDoc('https://cdn.doogking.com/doc.pdf?v=2')).toBe('file-text');
-      expect(componente.iconoDoc('https://cdn.doogking.com/licencia.jpg')).toBe('image');
-    });
-
-    it('debería marcar como caducado un documento cuya fecha ya pasó', async () => {
-      // Un seguro vencido no sirve para verificar aunque esté subido.
-      await crear();
-
-      expect(componente.estaCaducado('2020-01-01')).toBe(true);
-      expect(componente.estaCaducado('2099-01-01')).toBe(false);
-      expect(componente.estaCaducado(undefined)).toBe(false);
-    });
-
-    it('debería colorear el estado de cada documento', async () => {
-      await crear();
-
-      expect(componente.badgeDoc('verificado')).toContain('success');
-      expect(componente.badgeDoc('pendiente')).toContain('warning');
-      expect(componente.badgeDoc('rechazado')).toContain('error');
-      expect(componente.badgeDoc('desconocido')).toContain('neutral');
-    });
-  });
-
   describe('menú de acciones de cada fila', () => {
     it('no debería quedar recortado por la tarjeta de la tabla', async () => {
       // La tarjeta llevaba overflow:hidden y escondía el desplegable dentro del div.

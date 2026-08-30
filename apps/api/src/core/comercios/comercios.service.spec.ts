@@ -13,7 +13,7 @@ import { Reserva } from '../bookings/reserva.schema';
 import { Servicio } from '../catalog/servicio.schema';
 import { Pago } from '../payments/pago.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { Rol, ReservaEstado } from 'shared';
+import { Rol, ReservaEstado, CONDICIONES_COMERCIO_VERSION } from 'shared';
 
 describe('ComerciosService', () => {
   let service: ComerciosService;
@@ -263,7 +263,6 @@ describe('ComerciosService', () => {
         email: 'ana@royaldog.eu',
         password: 'password123',
         nombreComercial: 'Royal Dog Resort',
-        ciudad: 'Madrid',
       });
 
       expect(repo.findByVatNumber).not.toHaveBeenCalled();
@@ -271,7 +270,28 @@ describe('ComerciosService', () => {
         expect.objectContaining({
           razonSocial: 'Royal Dog Resort',
           vatNumber: undefined,
-          direccion: { ciudad: 'Madrid' },
+        }),
+      );
+    });
+
+    it('debería nombrar el negocio provisionalmente cuando el alta no lo trae', async () => {
+      // El registro sólo pide los datos de acceso, pero `nombreComercial` es
+      // obligatorio en el documento: hasta el alta guiada lleva un provisional
+      // reconocible, no una cadena vacía.
+      usersRepo.findByEmail.mockResolvedValue(null);
+      repo.crear.mockResolvedValue({ id: 'comercio-1' } as never);
+      usersRepo.crear.mockResolvedValue({ id: 'user-1', email: 'ana@royaldog.eu' } as never);
+
+      await service.registrarConCuenta({
+        nombre: 'Ana Torres',
+        email: 'ana@royaldog.eu',
+        password: 'password123',
+      });
+
+      expect(repo.crear).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nombreComercial: 'Negocio de Ana Torres',
+          razonSocial: 'Negocio de Ana Torres',
         }),
       );
     });
@@ -406,22 +426,40 @@ describe('ComerciosService', () => {
       repo.actualizar = jest.fn().mockResolvedValue({ _id: comercioId } as never);
     });
 
-    it('debería situar en el mapa los listados que no tenían coordenadas', async () => {
-      await service.actualizarComercio(comercioId, {
-        direccion: { calle: 'Calle Mayor', lat: 40.4169, lng: -3.7035 },
-      });
-
-      expect(servicioModel.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ 'ubicacion.geo.coordinates': { $exists: false } }),
-        // GeoJSON invierte el orden: [lng, lat].
-        { $set: { 'ubicacion.geo': { type: 'Point', coordinates: [-3.7035, 40.4169] } } },
-      );
-    });
-
-    it('no debería tocar los listados si la dirección llega sin coordenadas', async () => {
-      await service.actualizarComercio(comercioId, { direccion: { calle: 'Calle Mayor' } });
+    /**
+     * La dirección salió de la ficha del negocio: ahora cada servicio guarda la
+     * suya, así que ya no hay ninguna coordenada del comercio que empujar a los
+     * listados.
+     */
+    it('no debería tocar los listados al guardar el perfil', async () => {
+      await service.actualizarComercio(comercioId, { nombreComercial: 'Canes Premium' });
 
       expect(servicioModel.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('debería sellar la fecha y la versión de los consentimientos', async () => {
+      // Si la marca la pusiera el cliente, la prueba de consentimiento —para lo
+      // único que sirve guardar esto— no valdría nada.
+      await service.actualizarComercio(comercioId, {
+        consentimientos: { operaLegalmente: true, condicionesGenerales: true },
+      });
+
+      const guardado = (repo.actualizar as jest.Mock).mock.calls.at(-1)![1] as Record<string, unknown>;
+      const sellados = guardado['consentimientos'] as Record<string, { aceptado: boolean; fecha?: Date; version?: string }>;
+      expect(sellados['operaLegalmente'].aceptado).toBe(true);
+      expect(sellados['operaLegalmente'].fecha).toBeInstanceOf(Date);
+      expect(sellados['operaLegalmente'].version).toBe(CONDICIONES_COMERCIO_VERSION);
+    });
+
+    it('no debería dejar fecha en un consentimiento retirado', async () => {
+      // Conservar la fecha de algo que se desmarcó es peor que no tenerla.
+      await service.actualizarComercio(comercioId, {
+        consentimientos: { operaLegalmente: false, condicionesGenerales: true },
+      });
+
+      const guardado = (repo.actualizar as jest.Mock).mock.calls.at(-1)![1] as Record<string, unknown>;
+      const sellados = guardado['consentimientos'] as Record<string, { aceptado: boolean; fecha?: Date }>;
+      expect(sellados['operaLegalmente']).toEqual({ aceptado: false });
     });
   });
 
@@ -608,6 +646,33 @@ describe('ComerciosService', () => {
       });
     };
 
+    beforeEach(() => {
+      // Publicar exige el alta cerrada; los casos de este bloque prueban otra
+      // cosa, así que parten de un comercio que ya la terminó.
+      repo.findById.mockResolvedValue({ altaCompletada: true } as never);
+    });
+
+    it('no debería dejar publicar con el alta guiada a medias', async () => {
+      // Publicaría en el buscador una ficha sin contacto ni condiciones
+      // aceptadas, que es justo lo que la pantalla del alta promete evitar.
+      mockServicioActual({ vertical: 'peluqueria' });
+      repo.findById.mockResolvedValue({ altaCompletada: false } as never);
+
+      await expect(service.cambiarEstadoServicio(servicioId, comercioId, 'publicado'))
+        .rejects.toThrow('Termina el alta de tu negocio');
+    });
+
+    it('debería dejar pausar aunque el alta esté a medias', async () => {
+      // Pausar sólo retira algo de la vista: bloquearlo no protege a nadie.
+      mockServicioActual({ vertical: 'peluqueria' });
+      repo.findById.mockResolvedValue({ altaCompletada: false } as never);
+      servicioModel.findOneAndUpdate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ _id: servicioId }),
+      });
+
+      await expect(service.cambiarEstadoServicio(servicioId, comercioId, 'pausado')).resolves.toBeDefined();
+    });
+
     it('debería lanzar 404 si el servicio no es de ese comercio', async () => {
       mockServicioActual(null);
 
@@ -709,110 +774,4 @@ describe('ComerciosService', () => {
     });
   });
 
-  describe('documentación para verificación', () => {
-    const comercioId = new Types.ObjectId().toString();
-
-    beforeEach(() => {
-      repo.actualizar.mockResolvedValue({ _id: comercioId } as never);
-    });
-
-    /**
-     * La documentación adicional (seguro de RC, certificados…) es el archivo del
-     * comercio, no algo que la plataforma apruebe.
-     */
-    it('debería guardar la documentación adicional sin estado de revisión', async () => {
-      repo.findById.mockResolvedValue({ verificacion: { estado: 'sin_verificar' } } as never);
-
-      await service.actualizarComercio(comercioId, {
-        documentos: [{ tipo: 'seguro_rc', url: 'https://x/poliza.pdf' }],
-      } as never);
-
-      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
-      expect(datos.verificacion.documentos[0].estado).toBeUndefined();
-      // La fecha de subida sí la pone el servidor: es lo que ve el comercio.
-      expect(datos.verificacion.documentos[0].subidoAt).toBeInstanceOf(Date);
-    });
-
-    it('no debería reabrir la verificación de un comercio ya verificado al subir un extra', async () => {
-      // El caso reportado: adjuntar la póliza del seguro le borraba el sello de
-      // verificado y lo dejaba otra vez "En revisión".
-      repo.findById.mockResolvedValue({
-        verificacion: {
-          estado: 'verificado',
-          documentoIdentidadUrl: 'https://x/dni.pdf',
-          licenciaNegocioUrl: 'https://x/lic.pdf',
-        },
-      } as never);
-
-      await service.actualizarComercio(comercioId, {
-        documentos: [{ tipo: 'seguro_rc', url: 'https://x/poliza.pdf' }],
-      } as never);
-
-      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
-      expect(datos.verificacion.estado).toBe('verificado');
-    });
-
-    it('tampoco debería abrir revisión en un comercio sin verificar por un extra', async () => {
-      repo.findById.mockResolvedValue({ verificacion: { estado: 'sin_verificar' } } as never);
-
-      await service.actualizarComercio(comercioId, {
-        documentos: [{ tipo: 'certificado', url: 'https://x/cert.pdf' }],
-      } as never);
-
-      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
-      expect(datos.verificacion.estado).toBe('sin_verificar');
-    });
-
-    // `caducado` es lo único que se marca: es un hecho de la fecha, no un veredicto.
-    it('debería marcar como caducado un documento cuya fecha ya pasó', async () => {
-      repo.findById.mockResolvedValue({ verificacion: { estado: 'sin_verificar' } } as never);
-
-      await service.actualizarComercio(comercioId, {
-        documentos: [{ tipo: 'seguro', url: 'https://x/s.pdf', fechaCaducidad: '2020-01-01' }],
-      } as never);
-
-      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
-      expect(datos.verificacion.documentos[0].estado).toBe('caducado');
-    });
-
-    it('debería pasar a pendiente cuando se completan identidad y licencia', async () => {
-      repo.findById.mockResolvedValue({
-        verificacion: { estado: 'sin_verificar', documentoIdentidadUrl: 'https://x/dni.pdf' },
-      } as never);
-
-      await service.actualizarComercio(comercioId, {
-        licenciaNegocioUrl: 'https://x/lic.pdf',
-      } as never);
-
-      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
-      expect(datos.verificacion.estado).toBe('pendiente');
-      // El documento que ya había no se pierde al subir solo el que faltaba.
-      expect(datos.verificacion.documentoIdentidadUrl).toBe('https://x/dni.pdf');
-    });
-
-    it('debería conservar el estado anterior si aún falta documentación', async () => {
-      repo.findById.mockResolvedValue({ verificacion: { estado: 'rechazado' } } as never);
-
-      await service.actualizarComercio(comercioId, {
-        documentoIdentidadUrl: 'https://x/dni.pdf',
-      } as never);
-
-      const datos = repo.actualizar.mock.calls[0][1] as { verificacion: any };
-      expect(datos.verificacion.estado).toBe('rechazado');
-    });
-
-    it('no debería tocar la verificación si no se envía ningún documento', async () => {
-      await service.actualizarComercio(comercioId, { nombreComercial: 'Otro' } as never);
-
-      expect(repo.findById).not.toHaveBeenCalled();
-      expect(repo.actualizar.mock.calls[0][1]).not.toHaveProperty('verificacion');
-    });
-
-    it('debería lanzar 404 si el comercio no existe al guardar', async () => {
-      repo.actualizar.mockResolvedValue(null);
-
-      await expect(service.actualizarComercio(comercioId, { nombreComercial: 'X' } as never))
-        .rejects.toThrow('Comercio no encontrado');
-    });
-  });
 });

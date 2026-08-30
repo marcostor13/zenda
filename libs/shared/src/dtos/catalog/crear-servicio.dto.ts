@@ -5,6 +5,7 @@ import {
 import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
 import { AptitudPerroDto } from './aptitud-perro.dto';
+import { ExcepcionHorarioDto, HorarioDiaDto } from '../comunes/horario.dto';
 
 export class CrearServicioDto {
   @IsEnum(VerticalKey)
@@ -33,6 +34,47 @@ export class CrearServicioDto {
   @IsLongitude()
   @Type(() => Number)
   lng?: number;
+
+
+  /**
+   * Dirección exacta del servicio. Vive aquí y no en el comercio: un mismo
+   * negocio puede tener la residencia canina a las afueras y la peluquería en el
+   * centro, y con una única dirección de empresa el cliente veía en la ficha un
+   * sitio al que no tenía que ir.
+   */
+  @IsOptional()
+  @IsString()
+  calle?: string;
+
+  @IsOptional()
+  @IsString()
+  numero?: string;
+
+  @IsOptional()
+  @IsString()
+  provincia?: string;
+
+  @IsOptional()
+  @IsString()
+  codigoPostal?: string;
+
+  @IsOptional()
+  @IsString()
+  pais?: string;
+
+  /** Horario de atención de este servicio, día a día. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HorarioDiaDto)
+  horario?: HorarioDiaDto[];
+
+  /** Festivos, vacaciones y cierres puntuales; mandan sobre el horario semanal. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ExcepcionHorarioDto)
+  excepcionesHorario?: ExcepcionHorarioDto[];
 
   @IsNumber()
   @Min(0)

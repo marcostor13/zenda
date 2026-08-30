@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { VerticalKey, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS } from 'shared';
+import { VerticalKey, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS, horarioSemanal, DIAS_LABORABLES, DIAS_SEMANA, HorarioDiaDto } from 'shared';
 import { Veterinaria, VeterinariaDocument, ServicioClinico } from './veterinaria.schema';
 import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
@@ -49,7 +49,7 @@ export class VeterinariaSeeder implements OnModuleInit {
           this.sc(ServicioClinicoTipo.CONSULTA_URGENTE, 60, 30),
         ],
         precioConsulta: 35, citasPorDia: 16, urgencias: true,
-        horario: 'L–D 24h (urgencias) · Consultas L–V 09:00–20:00',
+        horario: horarioSemanal({ dias: DIAS_SEMANA, abre: '00:00', cierra: '23:59' }),
         img: '/images/categoria-veterinaria.jpg',
       }),
       this.v({
@@ -62,7 +62,10 @@ export class VeterinariaSeeder implements OnModuleInit {
           this.sc(ServicioClinicoTipo.ESTERILIZACION, 320, 90, true),
         ],
         precioConsulta: 40, citasPorDia: 24, urgencias: false,
-        horario: 'L–V 09:00–21:00 · S 10:00–14:00',
+        horario: horarioSemanal(
+          { dias: DIAS_LABORABLES, abre: '09:00', cierra: '21:00' },
+          { dias: ['sabado'], abre: '10:00', cierra: '14:00' },
+        ),
         img: '/images/hero-detalle.jpg',
       }),
       this.v({
@@ -75,7 +78,7 @@ export class VeterinariaSeeder implements OnModuleInit {
           this.sc(ServicioClinicoTipo.TELECONSULTA, 15, 15, true),
         ],
         precioConsulta: 25, citasPorDia: 20, urgencias: false,
-        horario: 'L–S 10:00–20:00',
+        horario: horarioSemanal({ dias: [...DIAS_LABORABLES, 'sabado'], abre: '10:00', cierra: '20:00' }),
         img: '/images/categoria-veterinaria.jpg',
       }),
     ]
@@ -90,7 +93,7 @@ export class VeterinariaSeeder implements OnModuleInit {
   private v(d: {
     titulo: string; especialidades: string[]; servicios: ServicioClinico[];
     precioConsulta: number; citasPorDia: number; urgencias: boolean;
-    horario: string; img: string;
+    horario: HorarioDiaDto[]; img: string;
   }): Partial<Veterinaria> {
     return {
       comercioId: DEMO_COMERCIO_ID as unknown as Veterinaria['comercioId'],

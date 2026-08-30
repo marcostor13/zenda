@@ -39,14 +39,6 @@ describe('AdminApiService', () => {
       expect(peticion('/comercios/c1/estado').body).toEqual({ estado: 'suspendido' });
     });
 
-    it('debería enviar el motivo al rechazar la verificación', () => {
-      service.cambiarVerificacionComercio('c1', 'rechazado', 'Documentación ilegible').subscribe();
-
-      expect(peticion('/comercios/c1/verificacion').body).toEqual({
-        estado: 'rechazado', motivo: 'Documentación ilegible',
-      });
-    });
-
     it('no debería enviar filtros vacíos al listar', () => {
       service.getComercios().subscribe();
 
@@ -302,16 +294,6 @@ describe('AdminApiService', () => {
       service.fijarAlphaAdherido('c1', true).subscribe();
 
       expect(peticion('/alpha-adherido').body).toEqual({ alphaAdherido: true });
-    });
-
-    it('deberia permitir verificar sin motivo y rechazar con el', () => {
-      service.cambiarVerificacionComercio('c1', 'verificado').subscribe();
-      expect(peticion('/verificacion').body).toEqual({ estado: 'verificado', motivo: undefined });
-
-      service.cambiarVerificacionComercio('c1', 'rechazado', 'licencia caducada').subscribe();
-      expect(peticion('/verificacion').body).toEqual({
-        estado: 'rechazado', motivo: 'licencia caducada',
-      });
     });
 
     it('deberia crear, actualizar y eliminar comercios por su verbo HTTP', () => {

@@ -19,6 +19,7 @@ import type {
 
 const BUSQUEDA_URL = 'https://nominatim.openstreetmap.org/search';
 const CONSULTA_URL = 'https://nominatim.openstreetmap.org/lookup';
+const INVERSA_URL = 'https://nominatim.openstreetmap.org/reverse';
 
 /** Marca los identificadores que salen de OSM, para saber a quién preguntar. */
 export const PREFIJO_OSM = 'osm:';
@@ -100,6 +101,26 @@ export class ProveedorOsm {
     return resultado ? this.aDireccion(resultado) : null;
   }
 
+  /**
+   * Dirección postal del punto exacto: lo que hay en unas coordenadas.
+   *
+   * Lo pide el mapa del alta de un servicio cuando el comercio arrastra el pin
+   * para corregir la ubicación; sin esto el punto quedaría bien y la dirección
+   * escrita seguiría apuntando al sitio anterior.
+   */
+  async inversa(lat: number, lng: number): Promise<DireccionLugar | null> {
+    const parametros = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lng),
+      format: 'jsonv2',
+      addressdetails: '1',
+      'accept-language': 'es',
+    });
+
+    const resultado = await this.pedirUno(`${INVERSA_URL}?${parametros}`);
+    return resultado ? this.aDireccion(resultado) : null;
+  }
+
   async coordenadas(placeId: string): Promise<CoordenadasLugar | null> {
     const resultado = await this.consultar(placeId);
     if (!resultado) return null;
@@ -170,7 +191,19 @@ export class ProveedorOsm {
     return resultados?.[0] ?? null;
   }
 
+  /** Igual que `pedir`, para los endpoints que devuelven un objeto suelto. */
+  private async pedirUno(url: string): Promise<ResultadoOsm | null> {
+    const datos = await this.pedirJson(url);
+    return datos && !Array.isArray(datos) ? (datos as ResultadoOsm) : null;
+  }
+
   private async pedir(url: string): Promise<ResultadoOsm[] | null> {
+    const datos = await this.pedirJson(url);
+    if (datos === null) return null;
+    return Array.isArray(datos) ? (datos as ResultadoOsm[]) : [];
+  }
+
+  private async pedirJson(url: string): Promise<unknown> {
     if (!(await this.esperarTurno())) return null;
 
     try {
@@ -180,8 +213,7 @@ export class ProveedorOsm {
       });
       if (!respuesta.ok) throw new Error(`Nominatim: ${respuesta.status}`);
 
-      const datos: unknown = await respuesta.json();
-      return Array.isArray(datos) ? (datos as ResultadoOsm[]) : [];
+      return (await respuesta.json()) as unknown;
     } catch (error) {
       const motivo = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Nominatim no respondió: ${motivo}`);

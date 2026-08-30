@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { VerticalKey, horarioSemanal, DIAS_LABORABLES, HorarioDiaDto } from 'shared';
 import { Adiestramiento, AdiestramientoDocument, ModalidadAdiestramiento } from './adiestramiento.schema';
 import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
@@ -32,21 +32,27 @@ export class AdiestramientoSeeder implements OnModuleInit {
         tipos: ['obediencia básica', 'modificación de conducta'],
         modalidad: 'programa', sesion: 40, programa: 320, sesiones: 10,
         edadMin: 4, capacidad: 6, aDomicilio: false,
-        horario: 'L–V 10:00–19:00 · S 10:00–14:00',
+        horario: horarioSemanal(
+          { dias: DIAS_LABORABLES, abre: '10:00', cierra: '19:00' },
+          { dias: ['sabado'], abre: '10:00', cierra: '14:00' },
+        ),
       }),
       this.a({
         titulo: 'Adiestramiento Positivo Cachorros',
         tipos: ['cachorros', 'socialización', 'obediencia básica'],
         modalidad: 'sesion', sesion: 35, programa: 280, sesiones: 8,
         edadMin: 3, capacidad: 8, aDomicilio: true,
-        horario: 'L–S 09:00–20:00',
+        horario: horarioSemanal({ dias: [...DIAS_LABORABLES, 'sabado'], abre: '09:00', cierra: '20:00' }),
       }),
       this.a({
         titulo: 'Escuela Canina Casa de Campo',
         tipos: ['obediencia avanzada', 'deporte canino', 'guardia y protección'],
         modalidad: 'sesion', sesion: 50, programa: 450, sesiones: 12,
         edadMin: 6, capacidad: 4, aDomicilio: false,
-        horario: 'M–D 09:00–14:00 y 16:00–20:00',
+        horario: horarioSemanal({
+          dias: ['martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'],
+          abre: '09:00', cierra: '14:00', abre2: '16:00', cierra2: '20:00',
+        }),
       }),
     ]
       // Cada listado a su barrio: con todos en el mismo punto los pines se
@@ -60,7 +66,7 @@ export class AdiestramientoSeeder implements OnModuleInit {
   private a(d: {
     titulo: string; tipos: string[]; modalidad: ModalidadAdiestramiento;
     sesion: number; programa: number; sesiones: number; edadMin: number;
-    capacidad: number; aDomicilio: boolean; horario: string;
+    capacidad: number; aDomicilio: boolean; horario: HorarioDiaDto[];
   }): Partial<Adiestramiento> {
     return {
       comercioId: DEMO_COMERCIO_ID as unknown as Adiestramiento['comercioId'],

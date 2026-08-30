@@ -17,7 +17,6 @@ describe('PerfilComercioComponent', () => {
     nombreComercial: 'peluquería Nala',
     verticales: ['peluqueria', 'alojamiento'],
     direccion: { ciudad: 'Valencia' },
-    verificacion: { estado: 'verificado' },
   };
 
   /** Valor de la tarjeta de estadística por su etiqueta. */
@@ -91,19 +90,6 @@ describe('PerfilComercioComponent', () => {
       expect(component.categorias()).toBe('Comercio');
     });
 
-    it('debería reflejar el estado de verificación', async () => {
-      await montar();
-
-      expect(component.verificacionBadge()).toBeDefined();
-    });
-
-    it('debería tratar la falta de verificación como "sin verificar"', () => {
-      fixture = TestBed.createComponent(PerfilComercioComponent);
-      component = fixture.componentInstance;
-
-      // Sin dato no se puede afirmar que el negocio esté verificado.
-      expect(component.verificacionBadge()).toBeDefined();
-    });
   });
 
   describe('estadísticas', () => {

@@ -318,6 +318,96 @@ describe('GeoService', () => {
     });
   });
 
+  /**
+   * Geocodificación inversa: la usa el mapa del alta de un servicio al mover el
+   * pin, para reescribir la dirección con la del punto nuevo.
+   */
+  describe('direccionDePunto', () => {
+    const respuestaGoogle = {
+      status: 'OK',
+      results: [{
+        formatted_address: 'Paseo del Prado, 1, 28014 Madrid, España',
+        address_components: [
+          { long_name: '1', types: ['street_number'] },
+          { long_name: 'Paseo del Prado', types: ['route'] },
+          { long_name: 'Madrid', types: ['locality'] },
+          { long_name: 'Madrid', types: ['administrative_area_level_2'] },
+          { long_name: '28014', types: ['postal_code'] },
+          { long_name: 'España', types: ['country'] },
+        ],
+      }],
+    };
+
+    it('debería desmenuzar la dirección del punto', async () => {
+      responder(respuestaGoogle);
+
+      await expect(service.direccionDePunto(40.4165, -3.6985)).resolves.toEqual(
+        expect.objectContaining({
+          calle: 'Paseo del Prado', numero: '1', codigoPostal: '28014',
+          ciudad: 'Madrid', pais: 'España', lat: 40.4165, lng: -3.6985,
+        }),
+      );
+    });
+
+    it('debería descartar unas coordenadas que no son números', async () => {
+      await expect(service.direccionDePunto(Number.NaN, -3.6985)).resolves.toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('debería reutilizar la caché para el mismo punto', async () => {
+      responder(respuestaGoogle);
+
+      await service.direccionDePunto(40.4165, -3.6985);
+      await service.direccionDePunto(40.4165, -3.6985);
+
+      // Arrastrar el pin dispara una consulta por cada suelta: sin caché, cada
+      // ajuste fino de un metro se factura otra vez.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * Google avisa de sus errores **en el cuerpo, con HTTP 200**. Mirar sólo el
+     * código daba esa respuesta por buena y devolvía "sin dirección" en vez de
+     * pasar el relevo a OpenStreetMap: el pin quedaba movido y la dirección
+     * escrita seguía señalando al sitio anterior.
+     */
+    it('debería recurrir a OpenStreetMap cuando Google rechaza la petición', async () => {
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: true, status: 200,
+          json: async () => ({ status: 'REQUEST_DENIED', results: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true, status: 200,
+          json: async () => ({
+            lat: '40.4164', lon: '-3.6985',
+            display_name: 'Carrera de San Jerónimo, Madrid',
+            address: { road: 'Carrera de San Jerónimo', house_number: '34', postcode: '28014', city: 'Madrid', country: 'España' },
+          }),
+        });
+
+      await expect(service.direccionDePunto(40.4165, -3.6985)).resolves.toEqual(
+        expect.objectContaining({ calle: 'Carrera de San Jerónimo', ciudad: 'Madrid' }),
+      );
+    });
+
+    it('debería recurrir a OpenStreetMap cuando Google no contesta', async () => {
+      fetchMock
+        .mockRejectedValueOnce(new Error('red caída'))
+        .mockResolvedValueOnce({
+          ok: true, status: 200,
+          json: async () => ({
+            lat: '40.4164', lon: '-3.6985',
+            address: { road: 'Carrera de San Jerónimo', city: 'Madrid' },
+          }),
+        });
+
+      await expect(service.direccionDePunto(40.4165, -3.6985)).resolves.toEqual(
+        expect.objectContaining({ calle: 'Carrera de San Jerónimo' }),
+      );
+    });
+  });
+
   describe('trayecto', () => {
     const coords = (lat: number, lng: number, ciudad: string) => ({
       location: { latitude: lat, longitude: lng },

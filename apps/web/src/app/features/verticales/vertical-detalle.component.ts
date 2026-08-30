@@ -12,6 +12,7 @@ import { ImgFallbackDirective } from '../../shared/directives/img-fallback.direc
 import { verticalUi, VerticalUi } from '../../shared/verticales/verticales.config';
 import { EventosService } from '../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../shared/components/ubicacion/rs-ubicacion.component';
+import { RsHorarioPublicoComponent } from '../../shared/components/horario/rs-horario-publico.component';
 import { PuntoUbicacion } from '../../shared/mapas/google-maps';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 
@@ -184,7 +185,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
   imports: [
     RouterLink, DatePipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
     RsTrustBlockComponent, RsChipComponent, RsFavoritoBtnComponent, ImgFallbackDirective,
-    RsUbicacionComponent, EurosPipe,],
+    RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,],
   template: `
 <div class="vd-page">
   <rs-navbar />
@@ -291,6 +292,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
         <!-- Dónde está: mapa del punto exacto + atajos a Google Maps -->
         <div class="section-block">
           <rs-ubicacion [lugar]="ubicacion()" />
+        </div>
+
+        <!-- Cuándo atienden: el horario es de este servicio, no del negocio. -->
+        <div class="section-block">
+          <rs-horario-publico [horario]="s.horario" [excepciones]="s.excepcionesHorario" />
         </div>
 
         <div class="section-block">

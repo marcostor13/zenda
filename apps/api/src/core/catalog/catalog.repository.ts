@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
-import { MONEDA_DEFAULT, TamanoPerro, TipoPelo, regexLiteral } from 'shared';
+import { MONEDA_DEFAULT, TamanoPerro, TipoPelo, regexLiteral, HorarioDiaDto, ExcepcionHorarioDto } from 'shared';
 import { AptitudPerro, Servicio, ServicioDocument } from './servicio.schema';
 import { Alojamiento } from '../../verticals/alojamiento/alojamiento.schema';
 import { Transporte } from '../../verticals/transporte/transporte.schema';
@@ -184,6 +184,15 @@ export interface CrearServicioParams {
   /** Coordenadas del listado; sin ellas no aparece en la búsqueda por mapa. */
   lat?: number;
   lng?: number;
+  /** Dirección exacta del servicio; la ficha la enseña bajo el mapa. */
+  calle?: string;
+  numero?: string;
+  provincia?: string;
+  codigoPostal?: string;
+  pais?: string;
+  /** Horario de atención del servicio y sus festivos/cierres puntuales. */
+  horario?: HorarioDiaDto[];
+  excepcionesHorario?: ExcepcionHorarioDto[];
 }
 
 export interface ActualizarServicioParams {
@@ -196,6 +205,15 @@ export interface ActualizarServicioParams {
   aptitud?: AptitudPerro;
   lat?: number;
   lng?: number;
+  /** Dirección exacta del servicio; la ficha la enseña bajo el mapa. */
+  calle?: string;
+  numero?: string;
+  provincia?: string;
+  codigoPostal?: string;
+  pais?: string;
+  /** Horario de atención del servicio y sus festivos/cierres puntuales. */
+  horario?: HorarioDiaDto[];
+  excepcionesHorario?: ExcepcionHorarioDto[];
 }
 
 @Injectable()
@@ -358,7 +376,17 @@ export class CatalogRepository {
       vertical: data.vertical,
       titulo: data.titulo,
       descripcion: data.descripcion,
-      ubicacion: { ciudad: data.ciudad, geo: this.aGeoJson(data.lat, data.lng) },
+      ubicacion: {
+        ciudad: data.ciudad,
+        calle: data.calle,
+        numero: data.numero,
+        provincia: data.provincia,
+        codigoPostal: data.codigoPostal,
+        pais: data.pais,
+        geo: this.aGeoJson(data.lat, data.lng),
+      },
+      horario: data.horario ?? [],
+      excepcionesHorario: data.excepcionesHorario ?? [],
       precioBase: data.precioBase,
       imagenes: data.imagenes,
       comercioId: new Types.ObjectId(data.comercioId),
@@ -381,6 +409,11 @@ export class CatalogRepository {
     if (data.titulo !== undefined) set.titulo = data.titulo;
     if (data.descripcion !== undefined) set.descripcion = data.descripcion;
     if (data.ciudad !== undefined) set['ubicacion.ciudad'] = data.ciudad;
+    for (const campo of ['calle', 'numero', 'provincia', 'codigoPostal', 'pais'] as const) {
+      if (data[campo] !== undefined) set[`ubicacion.${campo}`] = data[campo];
+    }
+    if (data.horario !== undefined) set.horario = data.horario;
+    if (data.excepcionesHorario !== undefined) set.excepcionesHorario = data.excepcionesHorario;
 
     const geo = this.aGeoJson(data.lat, data.lng);
     if (geo) set['ubicacion.geo'] = geo;
