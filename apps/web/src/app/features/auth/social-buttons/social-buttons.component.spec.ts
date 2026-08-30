@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SocialButtonsComponent } from './social-buttons.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SocialSdkService } from '../../../core/auth/social-sdk.service';
+import { SocialConfigService } from '../../../core/auth/social-config.service';
 
 /** Doble de ResizeObserver: guarda el callback para dispararlo a mano. */
 class ResizeObserverFalso {
@@ -21,6 +22,7 @@ describe('SocialButtonsComponent', () => {
   let component: SocialButtonsComponent;
   let authService: jest.Mocked<AuthService>;
   let sdk: jest.Mocked<SocialSdkService>;
+  let configSocial: jest.Mocked<SocialConfigService>;
 
   beforeEach(async () => {
     authService = {
@@ -31,12 +33,18 @@ describe('SocialButtonsComponent', () => {
       renderizarBotonGoogle: jest.fn(),
       loginFacebook: jest.fn(),
     } as unknown as jest.Mocked<SocialSdkService>;
+    // Los client IDs los manda el API, no el environment: el componente no
+    // dibuja nada hasta tenerlos.
+    configSocial = {
+      cargar: jest.fn().mockResolvedValue({ googleClientId: 'client-api', facebookAppId: 'app-api' }),
+    } as unknown as jest.Mocked<SocialConfigService>;
 
     await TestBed.configureTestingModule({
       imports: [SocialButtonsComponent],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: SocialSdkService, useValue: sdk },
+        { provide: SocialConfigService, useValue: configSocial },
       ],
     }).compileComponents();
 
@@ -45,6 +53,71 @@ describe('SocialButtonsComponent', () => {
 
   it('debería crearse', () => {
     expect(component).toBeTruthy();
+  });
+
+  /*
+   * El `aud` del ID token es el cliente que dibujó el botón, y el API rechaza
+   * cualquier otro: por eso el client ID sale del API y no del environment. Con
+   * las dos fuentes, bastaba con que una estuviera sin actualizar para que todo
+   * acceso con Google acabara en 401.
+   */
+  describe('client IDs servidos por el API', () => {
+    const montarYEstabilizar = async (): Promise<ComponentFixture<SocialButtonsComponent>> => {
+      sdk.renderizarBotonGoogle.mockResolvedValue(jest.fn());
+      const f = TestBed.createComponent(SocialButtonsComponent);
+      f.detectChanges();
+      await f.whenStable();
+      f.detectChanges();
+      await f.whenStable();
+      return f;
+    };
+
+    it('debería dibujar el botón con el client ID que manda el API', async () => {
+      await montarYEstabilizar();
+
+      expect(sdk.renderizarBotonGoogle).toHaveBeenCalledWith(
+        expect.anything(), 'client-api', expect.any(Function),
+      );
+    });
+
+    it('debería abrir Meta con el app id que manda el API', async () => {
+      const f = await montarYEstabilizar();
+      sdk.loginFacebook.mockResolvedValue('fb-token');
+      authService.loginConFacebook.mockResolvedValue(undefined);
+
+      await f.componentInstance.entrarConFacebook();
+
+      expect(sdk.loginFacebook).toHaveBeenCalledWith('app-api');
+    });
+
+    it('no debería mostrar los botones mientras no llega la configuración', () => {
+      configSocial.cargar.mockReturnValue(new Promise(() => undefined));
+      const f = TestBed.createComponent(SocialButtonsComponent);
+
+      f.detectChanges();
+
+      expect(f.nativeElement.querySelector('.sb')).toBeNull();
+    });
+
+    it('debería ocultar el bloque entero si el API no tiene nada configurado', async () => {
+      configSocial.cargar.mockResolvedValue({ googleClientId: '', facebookAppId: '' });
+
+      const f = await montarYEstabilizar();
+
+      expect(f.componentInstance.hayGoogle()).toBe(false);
+      expect(f.componentInstance.hayFacebook()).toBe(false);
+      expect(f.nativeElement.querySelector('.sb')).toBeNull();
+      expect(sdk.renderizarBotonGoogle).not.toHaveBeenCalled();
+    });
+
+    it('debería enseñar solo Meta cuando Google no está configurado', async () => {
+      configSocial.cargar.mockResolvedValue({ googleClientId: '', facebookAppId: 'app-api' });
+
+      const f = await montarYEstabilizar();
+
+      expect(f.nativeElement.querySelector('.sb__fb')).not.toBeNull();
+      expect(f.nativeElement.querySelector('.sb__google')).toBeNull();
+    });
   });
 
   /**
@@ -57,13 +130,26 @@ describe('SocialButtonsComponent', () => {
     let dibujar: jest.Mock;
     let contenedor: HTMLElement;
 
+    /*
+     * El contenedor no existe hasta que llega la configuración del API, y el
+     * observador se queda con el ancho que haya al registrarse: por eso el
+     * dibujo se resuelve a mano, ya con el ancho puesto.
+     */
     const montar = async (ancho: number): Promise<void> => {
       dibujar = jest.fn();
-      sdk.renderizarBotonGoogle.mockResolvedValue(dibujar);
+      let resolverDibujo: (fn: () => void) => void = () => undefined;
+      sdk.renderizarBotonGoogle.mockReturnValue(
+        new Promise<() => void>((resolver) => { resolverDibujo = resolver; }),
+      );
       fixture = TestBed.createComponent(SocialButtonsComponent);
       fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
       contenedor = fixture.nativeElement.querySelector('.sb__google') as HTMLElement;
       Object.defineProperty(contenedor, 'clientWidth', { value: ancho, configurable: true });
+
+      resolverDibujo(dibujar);
       await fixture.whenStable();
     };
 
@@ -110,9 +196,63 @@ describe('SocialButtonsComponent', () => {
       sdk.renderizarBotonGoogle.mockRejectedValue(new Error('sin red'));
       const f = TestBed.createComponent(SocialButtonsComponent);
       f.detectChanges();
+      // Dos vueltas: primero llega la configuración del API y aparece el
+      // contenedor, y sólo entonces se intenta dibujar el botón.
+      await f.whenStable();
+      f.detectChanges();
       await f.whenStable();
 
       expect(f.componentInstance.error()).toContain('No se pudo cargar el acceso con Google');
+    });
+  });
+
+  /**
+   * El texto genérico escondía la razón real: un 401 por el client ID mal
+   * configurado en el servidor se leía igual que un fallo pasajero, y no había
+   * forma de saber desde la pantalla que no era problema de la cuenta.
+   */
+  describe('el error del API llega a la pantalla', () => {
+    let montado: SocialButtonsComponent;
+
+    /** Monta el componente y devuelve el callback con el que Google entrega el token. */
+    const montarYObtenerCallback = async (): Promise<(idToken: string) => void> => {
+      sdk.renderizarBotonGoogle.mockResolvedValue(jest.fn());
+      const fixture = TestBed.createComponent(SocialButtonsComponent);
+      montado = fixture.componentInstance;
+      fixture.detectChanges();
+      await fixture.whenStable();
+      return sdk.renderizarBotonGoogle.mock.calls[0][2];
+    };
+
+    it('debería mostrar el mensaje del API cuando el login con Google falla', async () => {
+      const onToken = await montarYObtenerCallback();
+      authService.loginConGoogle.mockRejectedValue({
+        error: { message: 'El acceso con Google no está bien configurado en este servidor.' },
+      });
+
+      await onToken('id-token');
+
+      expect(montado.error()).toBe('El acceso con Google no está bien configurado en este servidor.');
+    });
+
+    it('debería caer al texto genérico si el fallo no trae mensaje', async () => {
+      const onToken = await montarYObtenerCallback();
+      authService.loginConGoogle.mockRejectedValue(new Error('sin red'));
+
+      await onToken('id-token');
+
+      expect(montado.error()).toContain('No se pudo iniciar sesión con Google');
+    });
+
+    it('debería mostrar el mensaje del API cuando el login con Meta falla', async () => {
+      sdk.loginFacebook.mockResolvedValue('fb-token');
+      authService.loginConFacebook.mockRejectedValue({
+        error: { message: 'Tu cuenta de Meta no comparte un email.' },
+      });
+
+      await component.entrarConFacebook();
+
+      expect(component.error()).toBe('Tu cuenta de Meta no comparte un email.');
     });
   });
 

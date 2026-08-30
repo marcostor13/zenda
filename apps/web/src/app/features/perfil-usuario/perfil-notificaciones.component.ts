@@ -154,7 +154,7 @@ export class PerfilNotificacionesComponent implements OnInit {
       icon: 'mail',
       items: [
         { key: 'emailConfirmacion', label: 'Confirmaciones de reserva', sub: 'Recibe el comprobante en tu correo al confirmar.' },
-        { key: 'emailRecordatorio', label: 'Recordatorios', sub: 'Te avisamos 24h antes de tu check-in o servicio.' },
+        { key: 'emailRecordatorio', label: 'Recordatorios', sub: 'Te avisamos 24h antes de tu ingreso o servicio.' },
         { key: 'emailMarketing', label: 'Novedades y ofertas', sub: 'Promociones y recomendaciones personalizadas.' },
       ],
     },

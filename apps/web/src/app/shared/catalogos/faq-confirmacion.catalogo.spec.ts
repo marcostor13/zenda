@@ -6,7 +6,7 @@ describe('faq-confirmacion.catalogo', () => {
     // Las comunes ya se las sabe a la tercera reserva; lo específico, no.
     const preguntas = faqDeConfirmacion(VerticalKey.ALOJAMIENTO).map((p) => p.pregunta);
 
-    expect(preguntas[0]).toContain('el día de la entrada');
+    expect(preguntas[0]).toContain('el día del ingreso');
   });
 
   it('debería añadir las comunes a cualquier categoría', () => {

@@ -39,7 +39,7 @@ const COMUNES: ReadonlyArray<PreguntaFrecuente> = [
 const POR_VERTICAL: Partial<Record<VerticalKey, ReadonlyArray<PreguntaFrecuente>>> = {
   [VerticalKey.ALOJAMIENTO]: [
     {
-      pregunta: '¿Qué tengo que llevar el día de la entrada?',
+      pregunta: '¿Qué tengo que llevar el día del ingreso?',
       respuesta: 'La cartilla de vacunación al día y, si el alojamiento lo pide, el certificado de desparasitación. Llevar su comida habitual y algo con su olor le ayuda a adaptarse.',
     },
     {
@@ -94,7 +94,7 @@ const POR_VERTICAL: Partial<Record<VerticalKey, ReadonlyArray<PreguntaFrecuente>
     },
     {
       pregunta: '¿Puede quedarse solo en la habitación?',
-      respuesta: 'Cada hotel tiene su norma y muchos no lo permiten. Lo indica su ficha; confírmalo en recepción al hacer la entrada.',
+      respuesta: 'Cada hotel tiene su norma y muchos no lo permiten. Lo indica su ficha; confírmalo en recepción al hacer el ingreso.',
     },
   ],
 };

@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { SocialAuthService } from './social-auth.service';
 import { Rol } from 'shared';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let authService: jest.Mocked<AuthService>;
+  let socialAuthService: jest.Mocked<SocialAuthService>;
 
   const authResponseMock = {
     accessToken: 'jwt-token',
@@ -27,11 +29,29 @@ describe('AuthController', () => {
             reenviarVerificacion: jest.fn().mockResolvedValue(undefined),
           },
         },
+        {
+          provide: SocialAuthService,
+          useValue: {
+            configPublica: jest.fn().mockReturnValue({ googleClientId: 'client-web', facebookAppId: 'app-1' }),
+          },
+        },
       ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
     authService = module.get(AuthService);
+    socialAuthService = module.get(SocialAuthService);
+  });
+
+  /*
+   * El navegador dibuja los botones con lo que sale de aquí, y el API valida
+   * contra lo mismo: es lo que impide que las dos configuraciones se separen.
+   */
+  describe('configSocial', () => {
+    it('debería servir los client IDs públicos del login social', () => {
+      expect(controller.configSocial()).toEqual({ googleClientId: 'client-web', facebookAppId: 'app-1' });
+      expect(socialAuthService.configPublica).toHaveBeenCalled();
+    });
   });
 
   describe('login', () => {

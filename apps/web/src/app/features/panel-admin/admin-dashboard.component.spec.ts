@@ -143,6 +143,133 @@ describe('AdminDashboardComponent', () => {
     });
   });
 
+  /*
+   * El rango se calcula aquí y viaja al API: si el periodo elegido no se
+   * traduce bien, el panel enseña números de otras fechas sin avisar.
+   */
+  describe('periodo del panel', () => {
+    /** Rango con el que se pidió el dashboard la última vez. */
+    const ultimoRango = (): { desde: string; hasta: string } | undefined =>
+      api['getDashboard'].mock.calls.at(-1)![0];
+
+    it('debería dejar que el API use su rango por defecto en "este mes"', async () => {
+      await crear();
+
+      await componente.cambiarPeriodo('mes');
+
+      expect(ultimoRango()).toBeUndefined();
+    });
+
+    it.each([
+      ['hoy', 1],
+      ['7d', 7],
+      ['30d', 30],
+    ])('debería pedir el rango de %s', async (clave, dias) => {
+      await crear();
+
+      await componente.cambiarPeriodo(clave as 'hoy');
+
+      const rango = ultimoRango()!;
+      const abarcados = Math.round(
+        (Date.parse(rango.hasta) - Date.parse(rango.desde)) / 86_400_000,
+      );
+      expect(abarcados).toBe(dias);
+    });
+
+    it('debería arrancar el año en el 1 de enero', async () => {
+      await crear();
+
+      await componente.cambiarPeriodo('ano');
+
+      expect(new Date(ultimoRango()!.desde).getMonth()).toBe(0);
+      expect(new Date(ultimoRango()!.desde).getDate()).toBe(1);
+    });
+
+    /* Con medio rango escrito no se recarga: se esperaría a la otra fecha. */
+    it('no debería recargar al elegir "personalizado" sin fechas', async () => {
+      await crear();
+      const llamadas = api['getDashboard'].mock.calls.length;
+
+      await componente.cambiarPeriodo('personalizado');
+
+      expect(api['getDashboard'].mock.calls).toHaveLength(llamadas);
+      expect(componente.periodo()).toBe('personalizado');
+    });
+
+    it('debería recargar en cuanto están las dos fechas', async () => {
+      await crear();
+      componente.desde.set('2026-03-01');
+      componente.hasta.set('2026-03-31');
+
+      await componente.cambiarPeriodo('personalizado');
+
+      expect(ultimoRango()!.desde).toContain('2026-03-01');
+      expect(ultimoRango()!.hasta).toContain('2026-03-31');
+    });
+
+    it('debería cerrar el día final del rango personalizado a las 23:59:59', async () => {
+      await crear();
+      componente.desde.set('2026-03-01');
+      componente.hasta.set('2026-03-31');
+
+      await componente.cambiarPeriodo('personalizado');
+
+      expect(new Date(ultimoRango()!.hasta).getHours()).toBe(23);
+    });
+
+    it('no debería recargar con solo una de las dos fechas', async () => {
+      await crear();
+      const llamadas = api['getDashboard'].mock.calls.length;
+      componente.desde.set('2026-03-01');
+
+      await componente.recargarPeriodo();
+
+      expect(api['getDashboard'].mock.calls).toHaveLength(llamadas);
+    });
+
+    it('debería recargar con las dos fechas puestas', async () => {
+      await crear();
+      const llamadas = api['getDashboard'].mock.calls.length;
+      componente.desde.set('2026-03-01');
+      componente.hasta.set('2026-03-31');
+
+      await componente.recargarPeriodo();
+
+      expect(api['getDashboard'].mock.calls.length).toBe(llamadas + 1);
+    });
+  });
+
+  describe('comparativa con el periodo anterior', () => {
+    it('debería quedarse con los porcentajes que manda el API', async () => {
+      await crear();
+
+      expect(componente.comparativa()).toMatchObject({ gmvPct: 12.5, reservasPct: -4 });
+    });
+
+    /* Un API anterior a TCK-8030 no manda comparativa: no se pinta, no revienta. */
+    it('no debería pintar porcentajes si el API no los manda', async () => {
+      await crear({ comparativa: undefined });
+
+      expect(componente.comparativa()).toMatchObject({ gmvPct: null, reservasPct: null });
+    });
+  });
+
+  describe('comercios activos', () => {
+    it('debería contar los comercios activos', async () => {
+      await crear();
+
+      expect(componente.comerciosActivos()).toBe(3);
+    });
+
+    /* Sin ese dato la tarjeta enseña un guion; el resto del panel sigue vivo. */
+    it('debería dejar la tarjeta sin dato si el resumen falla', async () => {
+      await crear({}, { getResumenComercios: fallo('500') });
+
+      expect(componente.comerciosActivos()).toBeNull();
+      expect(componente.kpis().totalReservas).toBe(120);
+    });
+  });
+
   describe('etiquetas', () => {
     it('debería dar un icono Lucide por vertical con respaldo (TCK-8010)', async () => {
       await crear();

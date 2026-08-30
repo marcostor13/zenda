@@ -97,6 +97,25 @@ SWAGGER_ENABLED=false
 > El API deja en el log de arranque la lista exacta que permite
 > (`CORS permitido para: …`): con eso se distingue un caso del otro en un vistazo.
 
+#### 2.2.2 Login social (Google y Meta)
+
+```
+GOOGLE_CLIENT_ID=<el MISMO que WEB_GOOGLE_CLIENT_ID del servicio web>
+FACEBOOK_APP_ID=<el MISMO que WEB_FACEBOOK_APP_ID>
+FACEBOOK_APP_SECRET=<privado, sólo aquí>
+```
+
+| Variable | Para qué |
+|---|---|
+| `GOOGLE_CLIENT_ID` | Client ID contra el que se valida el ID token que manda el navegador, y que el propio API sirve al frontend por `GET /auth/social/config` para que dibuje el botón con él. **No es `GOOGLE_CALENDAR_CLIENT_ID`**: ése es otro cliente OAuth, el de la agenda. Admite varios separados por comas, para cuando la app móvil usa su propio cliente; el primero es el de la web. |
+| `FACEBOOK_APP_ID` · `FACEBOOK_APP_SECRET` | Validación del access token de Meta (`debug_token`). El secret nunca lleva prefijo `WEB_`. |
+
+> Si el login con Google responde
+> `401 El acceso con Google no está bien configurado en este servidor`, este valor y el
+> `WEB_GOOGLE_CLIENT_ID` del servicio web no coinciden. El API deja en el log la
+> línea `Token de Google con aud "…"; configurados: …` con los dos valores.
+> Guía completa: `docs/LOGIN-SOCIAL-CREDENCIALES.md` §5.
+
 #### 2.3.0 Mapas: dos claves de Google distintas
 
 El mapa de resultados se pinta con **Google Maps** y necesita **dos** claves
@@ -222,7 +241,7 @@ una variable es **reiniciar el servicio**, no reconstruir la imagen. Lo escrito 
 | `WEB_UNDER_CONSTRUCTION` | `true` mantiene la pantalla "muy pronto"; `false` abre la web |
 | `WEB_UNDER_CONSTRUCTION_KEY` | Clave del acceso anticipado (`?acceso=…`) |
 | `WEB_STRIPE_PUBLIC_KEY` | Clave **publicable** de Stripe (`pk_live_…`) |
-| `WEB_GOOGLE_CLIENT_ID` · `WEB_FACEBOOK_APP_ID` | Identificadores públicos del login social |
+| `WEB_GOOGLE_CLIENT_ID` · `WEB_FACEBOOK_APP_ID` | Respaldo del login social. Normalmente **no hacen falta**: el frontend pide los identificadores al API (`GET /auth/social/config`), que es lo que impide que los dos lados se configuren distinto. Sólo se usan si el API no responde. |
 
 > ⚠️ **Nada de esto es secreto.** La web es una SPA: el navegador se descarga `env.js` y
 > cualquiera puede leerlo. Sirve para no tener los valores escritos en el repositorio y para
@@ -287,6 +306,34 @@ En tu repositorio GitHub → **Settings** → **Secrets and variables** → **Ac
 > Los webhooks de Coolify en esta instancia requieren autenticación ("auth required"): la URL
 > sola devuelve **401**. Hace falta llamarla con `Authorization: Bearer $COOLIFY_API_TOKEN` —
 > ya está así en `.github/workflows/ci.yml`.
+
+### 4.1 Qué URL vale y con qué método
+
+Coolify ofrece **dos** formas de lanzar el despliegue, y no aceptan el mismo verbo HTTP:
+
+| Forma | URL | Método |
+|---|---|---|
+| API de despliegue | `https://<coolify>/api/v1/deploy?uuid=<uuid>` | `GET` |
+| Webhook de la aplicación | `https://<coolify>/webhooks/deploy/<token>` | `POST` |
+
+`.github/scripts/desplegar-coolify.sh` elige el método por la forma de la URL y, si aun así
+recibe un **405**, reintenta con el otro: sirven las dos, se guarde la que se guarde en el
+secret. Un 405 sin ese reintento se veía en el log sólo como `curl: (22)`, sin decir qué URL
+ni qué método —así estuvo fallando el despliegue de la web—.
+
+El script nunca imprime la URL: la del webhook lleva un token en la ruta.
+
+### 4.2 Si el paso de deploy falla
+
+| Mensaje en el log | Qué pasa |
+|---|---|
+| `Falta la URL de despliegue de Coolify para …` | El secret no existe o está vacío en GitHub → Settings → Secrets and variables → Actions |
+| `Coolify rechazó las credenciales … (HTTP 401/403)` | `COOLIFY_API_TOKEN` caducado o sin permiso `deploy` |
+| `Coolify no encuentra el recurso … (HTTP 404)` | La URL apunta a un uuid o a un webhook que ya no existe |
+
+> Ojo con el orden de los pasos: `Deploy` va **después** de `Tests` dentro del mismo job, así
+> que unos tests en rojo (por ejemplo por el umbral de cobertura) abortan el job y el webhook
+> no se llega a llamar. Un `main` rojo es un `main` sin desplegar.
 
 ---
 

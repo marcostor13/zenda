@@ -341,7 +341,7 @@ export class RsCalendarioRangoComponent {
 
     return this.entrada() && !this.salida()
       ? 'Ahora elige el día de salida.'
-      : 'Elige el día de entrada.';
+      : 'Elige el día de ingreso.';
   });
 
   /**

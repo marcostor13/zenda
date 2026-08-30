@@ -284,7 +284,7 @@ function desdeClaveDia(clave: string): number {
                   <div class="reserva-card__fecha">
                     <rs-icon [name]="esEstancia(r.vertical) ? 'hotel' : 'clock'" [size]="13" [stroke]="2"></rs-icon>
                     @if (esEstancia(r.vertical)) {
-                      Entrada {{ r.fechaInicio | date:'d MMM' }}
+                      Ingreso {{ r.fechaInicio | date:'d MMM' }}
                       @if (r.fechaFin) { · Salida {{ r.fechaFin | date:'d MMM' }} }
                     } @else {
                       {{ r.fechaInicio | date:'d MMM yyyy' }} · {{ r.fechaInicio | date:'HH:mm' }}
@@ -339,7 +339,7 @@ function desdeClaveDia(clave: string): number {
                     @if (r.clienteTelefono) { <div><dt>Teléfono</dt><dd>{{ r.clienteTelefono }}</dd></div> }
                     <div><dt>Mascota</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
                     <div>
-                      <dt>{{ esEstancia(r.vertical) ? 'Entrada' : 'Fecha y hora' }}</dt>
+                      <dt>{{ esEstancia(r.vertical) ? 'Ingreso' : 'Fecha y hora' }}</dt>
                       <dd>{{ r.fechaInicio | date:'d MMM yyyy, HH:mm' }}</dd>
                     </div>
                     @if (r.fechaFin) {
@@ -1460,7 +1460,7 @@ export class ComercioReservasComponent implements OnInit {
     }
     if (vertical === 'alojamiento' || vertical === 'hoteles') {
       return [
-        { hito: 'entrada', icono: 'hotel', label: 'Entrada' },
+        { hito: 'entrada', icono: 'hotel', label: 'Ingreso' },
         { hito: 'salida', icono: 'paw', label: 'Salida' },
         { hito: 'finalizada', icono: 'check-circle', label: 'Finalizar' },
       ];

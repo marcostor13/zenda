@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
@@ -14,6 +14,7 @@ import {
   RestablecerPasswordDto,
 } from 'shared';
 import { AuthService } from './auth.service';
+import { ConfigSocial, SocialAuthService } from './social-auth.service';
 
 /**
  * Todo `auth` es público y toca credenciales, así que es la superficie que hay
@@ -29,7 +30,23 @@ const LIMITE_ENVIO_EMAIL = { default: { limit: 3, ttl: 60_000 } };
 @Throttle(LIMITE_CREDENCIALES)
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly socialAuthService: SocialAuthService,
+  ) {}
+
+  /**
+   * Identificadores públicos con los que el navegador dibuja los botones
+   * sociales. Los sirve el API para que no puedan divergir de los que él mismo
+   * valida: cuando el botón se dibujaba con `WEB_GOOGLE_CLIENT_ID` y el API
+   * comprobaba `GOOGLE_CLIENT_ID`, un valor distinto en cualquiera de los dos
+   * lados tumbaba todos los accesos con un 401.
+   */
+  @Get('social/config')
+  @ApiOperation({ summary: 'Client IDs públicos del login social (Google y Meta)' })
+  configSocial(): ConfigSocial {
+    return this.socialAuthService.configPublica();
+  }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)

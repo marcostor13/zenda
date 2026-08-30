@@ -157,7 +157,7 @@ export class AlojamientoSeeder implements OnModuleInit {
       amenities: d.amenities,
       checkIn: '12:00',
       checkOut: '11:00',
-      politicaCancelacion: 'Cancelación gratuita hasta 48 horas antes del check-in.',
+      politicaCancelacion: 'Cancelación gratuita hasta 48 horas antes del ingreso.',
       requisitoVacunas: true,
       paseosIncluidos: d.paseosIncluidos,
       camaras24h: d.camaras24h,

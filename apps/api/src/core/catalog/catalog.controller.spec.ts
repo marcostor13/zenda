@@ -14,6 +14,8 @@ describe('CatalogController', () => {
           provide: CatalogService,
           useValue: {
             buscarServicios: jest.fn(), obtenerServicio: jest.fn(), obtenerPuntosMapa: jest.fn(),
+            obtenerFacetas: jest.fn(), crearServicio: jest.fn(), actualizarServicio: jest.fn(),
+            obtenerServicioParaGestion: jest.fn(),
           },
         },
       ],
@@ -103,6 +105,160 @@ describe('CatalogController', () => {
         bbox: { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 },
       });
       expect(result).toBe(puntos);
+    });
+  });
+
+  /*
+   * Los filtros propios de cada vertical llegan sueltos en el query string: el
+   * controlador tiene que separarlos de los comunes sin que el service sepa de
+   * verticales. Un fallo aquí filtra de más (resultados que desaparecen) o de
+   * menos (filtros que no hacen nada), y en los dos casos en silencio.
+   */
+  describe('filtros propios del vertical', () => {
+    /** Ejecuta una búsqueda con ese query y devuelve los filtros que llegaron al service. */
+    const filtrosDe = async (query: Record<string, string>): Promise<Record<string, unknown> | undefined> => {
+      service.buscarServicios.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
+      await controller.buscar(
+        'veterinaria', undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, query,
+      );
+      return service.buscarServicios.mock.calls.at(-1)![0].filtrosVertical;
+    };
+
+    it('debería convertir "true" y "false" en booleanos de verdad', async () => {
+      expect(await filtrosDe({ atiendeUrgencias: 'true', aDomicilio: 'false' }))
+        .toEqual({ atiendeUrgencias: true, aDomicilio: false });
+    });
+
+    it('debería partir en lista los valores separados por comas', async () => {
+      expect(await filtrosDe({ especialidades: 'Cirugía,Dermatología' }))
+        .toEqual({ especialidades: ['Cirugía', 'Dermatología'] });
+    });
+
+    it('debería dejar tal cual un valor suelto', async () => {
+      expect(await filtrosDe({ especialidades: 'Cirugía' })).toEqual({ especialidades: 'Cirugía' });
+    });
+
+    it('no debería colar los parámetros comunes entre los del vertical', async () => {
+      expect(await filtrosDe({ vertical: 'veterinaria', ciudad: 'Madrid', page: '2' })).toBeUndefined();
+    });
+
+    /* El buscador manda estos para conservar el contexto, no para filtrar aquí. */
+    it('no debería filtrar por el contexto de fechas del buscador', async () => {
+      expect(await filtrosDe({ desde: '2026-09-01', hasta: '2026-09-04', perros: '2', hora: '10:00' }))
+        .toBeUndefined();
+    });
+
+    it('debería ignorar un filtro vacío', async () => {
+      expect(await filtrosDe({ especialidades: '' })).toBeUndefined();
+    });
+
+    it('debería devolver undefined sin query', async () => {
+      expect(await filtrosDe(undefined as unknown as Record<string, string>)).toBeUndefined();
+    });
+  });
+
+  describe('lista de servicios (amenities)', () => {
+    const amenitiesDe = async (amenities?: string): Promise<string[] | undefined> => {
+      service.buscarServicios.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
+      await controller.buscar(
+        'alojamiento', undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, amenities,
+      );
+      return service.buscarServicios.mock.calls.at(-1)![0].amenities;
+    };
+
+    it('debería partir la lista y quitar los espacios sobrantes', async () => {
+      expect(await amenitiesDe('Jardín vallado, Paseos diarios')).toEqual(['Jardín vallado', 'Paseos diarios']);
+    });
+
+    it.each([
+      ['sin parámetro', undefined],
+      ['con la cadena vacía', ''],
+      ['con solo comas', ',,'],
+    ])('no debería filtrar %s', async (_caso, valor) => {
+      expect(await amenitiesDe(valor)).toBeUndefined();
+    });
+  });
+
+  /* Por defecto se descarta lo no reservable; "false" es la única forma de verlo. */
+  describe('soloDisponibles', () => {
+    const disponiblesDe = async (valor?: string): Promise<boolean | undefined> => {
+      service.buscarServicios.mockResolvedValue({ items: [], total: 0, page: 1, totalPages: 1 });
+      await controller.buscar(
+        'alojamiento', undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, valor,
+      );
+      return service.buscarServicios.mock.calls.at(-1)![0].soloDisponibles;
+    };
+
+    it('debería dejarlo sin decidir cuando no llega', async () => {
+      expect(await disponiblesDe(undefined)).toBeUndefined();
+    });
+
+    it('debería mostrar también lo no disponible solo con "false"', async () => {
+      expect(await disponiblesDe('false')).toBe(false);
+    });
+
+    it.each(['true', 'cualquier-cosa'])('debería descartar lo no disponible con "%s"', async (valor) => {
+      expect(await disponiblesDe(valor)).toBe(true);
+    });
+  });
+
+  describe('facetas', () => {
+    it('debería delegar el histograma con el rectángulo del mapa', async () => {
+      const facetas = { precios: [], amenities: [], valoracion: [] } as never;
+      service.obtenerFacetas.mockResolvedValue(facetas);
+
+      const resultado = await controller.facetas('alojamiento', 'Madrid', '40.3', '-3.8', '40.5', '-3.6');
+
+      expect(service.obtenerFacetas).toHaveBeenCalledWith({
+        vertical: 'alojamiento', ciudad: 'Madrid',
+        bbox: { swLat: 40.3, swLng: -3.8, neLat: 40.5, neLng: -3.6 },
+      });
+      expect(resultado).toBe(facetas);
+    });
+
+    it('no debería armar rectángulo con una esquina inválida', async () => {
+      service.obtenerFacetas.mockResolvedValue({ precios: [], amenities: [], valoracion: [] } as never);
+
+      await controller.facetas('alojamiento', 'Madrid', '40.3', 'no-es-un-numero', '40.5', '-3.6');
+
+      expect(service.obtenerFacetas).toHaveBeenCalledWith(
+        expect.objectContaining({ bbox: undefined }),
+      );
+    });
+  });
+
+  describe('gestión del comercio', () => {
+    const req = { user: { comercioId: 'com-1' } } as never;
+
+    it('debería crear el servicio contra el comercio del token, no contra uno del body', async () => {
+      const creado = { id: 's1' } as never;
+      service.crearServicio.mockResolvedValue(creado);
+
+      const resultado = await controller.crear({ titulo: 'Suite' } as never, req);
+
+      expect(service.crearServicio).toHaveBeenCalledWith({ titulo: 'Suite' }, 'com-1');
+      expect(resultado).toBe(creado);
+    });
+
+    it('debería actualizar solo dentro del comercio del token', async () => {
+      service.actualizarServicio.mockResolvedValue({ id: 's1' } as never);
+
+      await controller.actualizar('s1', { titulo: 'Suite XL' } as never, req);
+
+      expect(service.actualizarServicio).toHaveBeenCalledWith('s1', 'com-1', { titulo: 'Suite XL' });
+    });
+
+    it('debería pedir la ficha de gestión acotada al comercio del token', async () => {
+      service.obtenerServicioParaGestion.mockResolvedValue({ id: 's1' } as never);
+
+      await controller.obtenerParaGestion('s1', req);
+
+      expect(service.obtenerServicioParaGestion).toHaveBeenCalledWith('s1', 'com-1');
     });
   });
 

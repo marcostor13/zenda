@@ -2,6 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
+/**
+ * Identificadores públicos que el navegador necesita para dibujar los botones.
+ *
+ * Los sirve el API a propósito, igual que la clave de navegador de Google Maps
+ * (`GET /geo/config`): el `aud` del ID token es el cliente que dibujó el botón,
+ * así que si el navegador usa uno y el API valida contra otro, todo login
+ * termina en 401. Sirviéndolos desde aquí no pueden divergir.
+ */
+export interface ConfigSocial {
+  /** Cadena vacía = no configurado; el frontend oculta el botón. */
+  googleClientId: string;
+  facebookAppId: string;
+}
+
 /** Perfil normalizado extraído de un proveedor social tras verificar su token. */
 export interface PerfilSocial {
   email: string;
@@ -35,12 +49,24 @@ export class SocialAuthService {
   constructor(private readonly config: ConfigService) {}
 
   /**
+   * Lo que puede viajar al navegador: identificadores de cliente, nunca
+   * secretos. El de Google es el primero de la lista, que es el de la web; los
+   * demás (Android, iOS) los usa la app nativa con sus propias credenciales.
+   */
+  configPublica(): ConfigSocial {
+    return {
+      googleClientId: this.clientesGoogle()[0] ?? '',
+      facebookAppId: this.config.get<string>('FACEBOOK_APP_ID')?.trim() ?? '',
+    };
+  }
+
+  /**
    * Verifica un ID token de Google contra el endpoint oficial de tokeninfo
    * (comprueba firma y expiración) y valida que la audiencia sea nuestro cliente.
    */
   async verificarGoogle(idToken: string): Promise<PerfilSocial> {
-    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
-    if (!clientId) {
+    const clientes = this.clientesGoogle();
+    if (!clientes.length) {
       throw new DomainException('El login con Google no está configurado', 503);
     }
 
@@ -49,14 +75,38 @@ export class SocialAuthService {
       'Google',
     );
 
-    if (info.aud !== clientId) {
-      throw new DomainException('El token de Google no pertenece a esta aplicación', 401);
+    const audiencia = info.aud?.trim();
+    if (!audiencia || !clientes.includes(audiencia)) {
+      // Los client IDs son públicos (el navegador los lleva escritos), así que
+      // dejarlos en el log es la única forma de distinguir un token ajeno de un
+      // despliegue con GOOGLE_CLIENT_ID distinto al de la web.
+      this.logger.warn(
+        `Token de Google con aud "${audiencia ?? '(sin aud)'}"; configurados: ${clientes.join(', ')}`,
+      );
+      throw new DomainException(
+        'El acceso con Google no está bien configurado en este servidor: el token no ' +
+          'corresponde a esta aplicación. No es un problema de tu cuenta.',
+        401,
+      );
     }
     if (!info.email || info.email_verified === false || info.email_verified === 'false') {
       throw new DomainException('Tu email de Google no está verificado', 401);
     }
 
     return { email: info.email, nombre: info.name ?? info.email.split('@')[0], avatarUrl: info.picture };
+  }
+
+  /**
+   * Client IDs de Google que aceptamos, separados por comas.
+   *
+   * El `aud` del ID token es el cliente que lo emitió, y no hay uno solo: la web
+   * y la app móvil (Capacitor) usan credenciales distintas del mismo proyecto.
+   * Se recortan los espacios porque un valor pegado en el panel del hosting
+   * suele arrastrar alguno y la comparación es exacta.
+   */
+  private clientesGoogle(): string[] {
+    const configurado = this.config.get<string>('GOOGLE_CLIENT_ID') ?? '';
+    return configurado.split(',').map((cliente) => cliente.trim()).filter(Boolean);
   }
 
   /**
@@ -76,7 +126,11 @@ export class SocialAuthService {
       'Meta',
     );
     if (!debug.data?.is_valid || debug.data.app_id !== appId) {
-      throw new DomainException('El token de Meta no es válido para esta aplicación', 401);
+      throw new DomainException(
+        'El acceso con Meta no está bien configurado en este servidor: el token no ' +
+          'corresponde a esta aplicación. No es un problema de tu cuenta.',
+        401,
+      );
     }
 
     const perfil = await this.pedirJson<FacebookPerfil>(

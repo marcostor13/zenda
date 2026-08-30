@@ -103,7 +103,7 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
     const noches = this.calcularNoches(params.fechaInicio, params.fechaFin);
 
     if (noches <= 0) {
-      return { disponible: false, motivo: 'La fecha de salida tiene que ser posterior a la de entrada.' };
+      return { disponible: false, motivo: 'La fecha de salida tiene que ser posterior a la de ingreso.' };
     }
 
     const localizado = this.espacioSolicitado(alojamiento, params);
