@@ -166,6 +166,25 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
         }
       </div>
 
+      <!--
+        Acceso a la cuenta en móvil. En escritorio vive en __actions con su
+        desplegable; aquí, plegadas las acciones tras el menú, entrar en la
+        cuenta exigía abrir el hamburguesa y buscar la entrada en la lista.
+        Va antes del hamburguesa porque es lo que más se pulsa de los dos.
+      -->
+      <a class="rs-navbar__cuenta"
+         [routerLink]="estaAutenticado() ? '/perfil' : '/auth/login'"
+         [attr.aria-label]="estaAutenticado() ? nombreCuenta() : 'Entrar en mi cuenta'">
+        @if (estaAutenticado() && iniciales()) {
+          <span class="rs-navbar__cuenta-ini">{{ iniciales() }}</span>
+        } @else {
+          <rs-icon name="user" [size]="20" [stroke]="2"></rs-icon>
+        }
+        @if (tieneAvisoPendiente()) {
+          <span class="rs-navbar__cuenta-dot" aria-hidden="true"></span>
+        }
+      </a>
+
       <!-- Hamburger button (mobile only) -->
       <button class="rs-navbar__hamburger" (click)="menuAbierto.set(!menuAbierto())" [attr.aria-expanded]="menuAbierto()">
         @if (menuAbierto()) {
@@ -175,6 +194,24 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
         }
       </button>
     </nav>
+
+    <!--
+      Categorías en el propio encabezado, sólo en móvil: es donde las pone
+      Booking, y es donde el usuario las busca. En escritorio ya están en la
+      barra de arriba; en móvil esa fila se pliega tras el menú y las
+      categorías quedaban escondidas, así que vivían dentro de la tarjeta del
+      buscador y le robaban la primera pantalla.
+    -->
+    @if (categoriasMovil()) {
+      <nav class="rs-navbar__cats" aria-label="Categorías de servicio">
+        @for (v of verticales; track v.key) {
+          <a [routerLink]="v.route" routerLinkActive="is-active" class="rs-navbar__cat">
+            <img [src]="v.icono" alt="" aria-hidden="true" class="rs-navbar__cat-icon" />
+            <span class="rs-navbar__cat-label">{{ v.labelCorto }}</span>
+          </a>
+        }
+      </nav>
+    }
 
     <!-- Mobile menu drawer -->
     @if (menuAbierto()) {
@@ -237,6 +274,53 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     }
   `,
   styles: [`
+    /*
+     * Tira de categorías del encabezado (móvil). En escritorio no existe: esas
+     * mismas entradas están en .rs-navbar__nav.
+     */
+    .rs-navbar__cats { display: none; }
+
+    @media (max-width: 768px) {
+      .rs-navbar__cats {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        padding: var(--sp-2) var(--sp-4);
+        background: var(--c-card);
+        border-bottom: 1px solid var(--b-1);
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        &::-webkit-scrollbar { display: none; }
+      }
+    }
+
+    .rs-navbar__cat {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3);
+      border: 1px solid var(--b-2);
+      border-radius: var(--r-full);
+      background: var(--c-card);
+      color: var(--t-300);
+      text-decoration: none;
+      white-space: nowrap;
+      scroll-snap-align: center;
+      transition: background var(--d-2), border-color var(--d-2), color var(--d-2);
+
+      &.is-active {
+        color: var(--dk-blue);
+        background: var(--c-accent-lo);
+        border-color: var(--dk-gold);
+        box-shadow: inset 0 -2px 0 var(--dk-gold);
+      }
+    }
+    .rs-navbar__cat-icon { width: 22px; height: 22px; flex-shrink: 0; }
+    .rs-navbar__cat-label { font-size: var(--f-xs); font-weight: var(--w-6); }
+
     /* Marca: inicial "D" + logotipo */
     .rs-navbar__mark { height: 34px; width: 34px; display: block; flex-shrink: 0; }
     .rs-navbar__wordmark { height: 44px; width: auto; display: block; }
@@ -330,6 +414,35 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     .rs-navbar__dropdown-item--action { color: var(--c-accent); font-weight: var(--w-6); }
     .rs-navbar__dropdown-divider { height: 1px; background: var(--b-1); margin: var(--sp-1) 0; }
 
+    /* Cuenta y hamburguesa: sólo en móvil */
+    .rs-navbar__cuenta {
+      display: none;
+      position: relative;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-full);
+      color: var(--t-200);
+      text-decoration: none;
+      flex-shrink: 0;
+      transition: background var(--d-2), color var(--d-2), border-color var(--d-2);
+      &:hover { background: var(--c-accent-lo); border-color: var(--c-accent); color: var(--dk-blue); }
+    }
+    /* Con sesión, las iniciales sustituyen al icono, como en el botón de escritorio. */
+    .rs-navbar__cuenta-ini {
+      font-size: var(--f-xs); font-weight: var(--w-7); color: var(--dk-blue);
+    }
+    /* Sobre fondo claro el punto se recorta con el color de la barra, no con el del botón azul. */
+    .rs-navbar__cuenta-dot {
+      position: absolute; top: 1px; right: 1px;
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #EF4444; border: 1.5px solid var(--c-card);
+    }
+
     /* Hamburger: hidden on desktop */
     .rs-navbar__hamburger {
       display: none;
@@ -337,7 +450,6 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       justify-content: center;
       width: 40px;
       height: 40px;
-      margin-left: auto;
       background: transparent;
       border: 1px solid var(--b-1);
       border-radius: var(--r-lg);
@@ -349,6 +461,9 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     }
 
     @media (max-width: 768px) {
+      /* El margen automático lo lleva la cuenta, que es el primero de los
+         dos: así el par queda junto contra el borde derecho. */
+      .rs-navbar__cuenta { display: inline-flex; }
       .rs-navbar__hamburger { display: flex; }
     }
 
@@ -463,6 +578,13 @@ export class RsNavbarComponent implements OnInit {
    * logotipo grande ya está en el hero y el pequeño quedaba duplicado (PDF §1).
    */
   readonly soloMarcaD = input(false);
+
+  /**
+   * Fila de categorías bajo la barra, sólo en móvil. La activan las pantallas
+   * con buscador (home y listados); en el panel de comercio o el de admin no
+   * pinta nada elegir categoría de servicio.
+   */
+  readonly categoriasMovil = input(false);
 
   /**
    * El alta de comercio es la vía principal de captación de oferta: se muestra

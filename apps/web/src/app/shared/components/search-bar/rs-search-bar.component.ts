@@ -1,5 +1,5 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, HostListener, computed, inject, input, output, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
@@ -7,10 +7,16 @@ import { VerticalKey } from 'shared';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsPetPickerComponent } from '../pet-picker/rs-pet-picker.component';
 import { RsPlaceAutocompleteComponent } from '../place-autocomplete/rs-place-autocomplete.component';
+import { RsCalendarioRangoComponent, type RangoFechas } from '../calendario-rango/rs-calendario-rango.component';
 import { CoordenadasLugar } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { CATEGORIA_ICONOS } from '../../media/images';
 import { VERTICALES_PUBLICOS, VerticalUi, verticalUi } from '../../verticales/verticales.config';
+
+/** Para pintar la fecha elegida en el disparador: "12 sep", no "2026-09-12". */
+const MESES_CORTOS = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
 
 /** Parámetros de búsqueda: mismo contrato en toda la aplicación (URL incluida). */
 export interface BusquedaParams {
@@ -41,13 +47,12 @@ export interface BusquedaParams {
   standalone: true,
   imports: [
     ReactiveFormsModule, RouterLink, RsIconComponent,
-    RsPetPickerComponent, RsPlaceAutocompleteComponent,
+    RsPetPickerComponent, RsPlaceAutocompleteComponent, RsCalendarioRangoComponent,
   ],
   template: `
 <div class="sb" [class.sb--strip]="variant() === 'strip'">
   @if (categorias()) {
-    <div class="sb__cats" role="tablist" aria-label="Categorías de servicio"
-         [class.sb__cats--movil]="categoriasSoloMovil()">
+    <div class="sb__cats" role="tablist" aria-label="Categorías de servicio">
       @for (v of verticales; track v.key) {
         <button type="button" class="sb__cat" role="tab"
                 [class.is-active]="activo().key === v.key"
@@ -74,21 +79,60 @@ export interface BusquedaParams {
                              (confirmado)="buscar()" />
     </div>
 
-    <div class="sb__field">
+    <div class="sb__field sb__field--fechas">
       <label class="sb__lbl" [attr.for]="idDesde">{{ activo().labelFecha }}</label>
-      <div class="sb__ctrl">
+      <button type="button" [id]="idDesde" class="sb__ctrl sb__fecha"
+              (click)="abrirCalendario()"
+              [attr.aria-expanded]="calendarioAbierto()" aria-haspopup="dialog">
         <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
-        <input [id]="idDesde" formControlName="desde" type="date" class="sb__inp" />
-      </div>
+        <span class="sb__fecha-txt" [class.is-vacio]="!entradaSel()">
+          {{ entradaSel() ? etiquetaFecha(entradaSel()) : 'Añadir fecha' }}
+        </span>
+      </button>
+
+      @if (calendarioAbierto()) {
+        <!-- Sólo se ve en móvil, donde el panel pasa a ser una hoja inferior. -->
+        <div class="sb__velo" (click)="cerrarCalendario()" aria-hidden="true"></div>
+
+        <div class="sb__cal" role="dialog" [attr.aria-label]="tituloFechas()">
+          <div class="sb__cal-cab">
+            <strong class="sb__cal-titulo">{{ tituloFechas() }}</strong>
+            <button type="button" class="sb__cal-x" (click)="cerrarCalendario()"
+                    aria-label="Cerrar el calendario">
+              <rs-icon name="x" [size]="18" [stroke]="2.5"></rs-icon>
+            </button>
+          </div>
+
+          <rs-calendario-rango
+            [entrada]="entradaSel()" [salida]="salidaSel()"
+            [conDisponibilidad]="false" [plano]="true"
+            [soloUnDia]="!activo().reservaPorNoches"
+            (rangoElegido)="elegirFechas($event)" />
+
+          <div class="sb__cal-pie">
+            <button type="button" class="sb__cal-link" (click)="borrarFechas()">
+              Borrar fechas
+            </button>
+            <button type="button" class="rs-btn rs-btn--primary rs-btn--sm"
+                    (click)="cerrarCalendario()">
+              Listo
+            </button>
+          </div>
+        </div>
+      }
     </div>
 
     @if (activo().reservaPorNoches) {
-      <div class="sb__field">
+      <div class="sb__field sb__field--fechas">
         <label class="sb__lbl" [attr.for]="idHasta">Salida</label>
-        <div class="sb__ctrl">
+        <button type="button" [id]="idHasta" class="sb__ctrl sb__fecha"
+                (click)="abrirCalendario()"
+                [attr.aria-expanded]="calendarioAbierto()" aria-haspopup="dialog">
           <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
-          <input [id]="idHasta" formControlName="hasta" type="date" class="sb__inp" />
-        </div>
+          <span class="sb__fecha-txt" [class.is-vacio]="!salidaSel()">
+            {{ salidaSel() ? etiquetaFecha(salidaSel()) : 'Añadir salida' }}
+          </span>
+        </button>
       </div>
     }
 
@@ -139,12 +183,6 @@ export interface BusquedaParams {
       margin-bottom: var(--sp-4);
       border-bottom: 1px solid var(--b-1);
       scrollbar-width: thin;
-    }
-
-    /* 769px = el ancho al que la barra superior deja de estar plegada tras el
-       menú hamburguesa y muestra sus propias categorías. */
-    @media (min-width: 769px) {
-      .sb__cats--movil { display: none; }
     }
 
     .sb__cat {
@@ -237,6 +275,114 @@ export interface BusquedaParams {
 
     /* El desplegable de mascotas debe poder salirse de su campo. */
     .sb__field--pets { position: relative; overflow: visible; }
+
+    /* Ancla del calendario: cuelga del campo de entrada, no del formulario. */
+    .sb__field--fechas { position: relative; overflow: visible; }
+
+    /*
+     * El disparador imita al input al que sustituye (mismo alto, misma
+     * tipografía) para que la fila siga leyéndose como una sola barra y no
+     * como "tres cajas y dos botones".
+     */
+    .sb__fecha {
+      width: 100%;
+      border: none; background: transparent; padding: 0;
+      text-align: left; cursor: pointer;
+      font-family: var(--font); font-size: var(--f-base);
+    }
+    .sb__fecha-txt {
+      flex: 1; min-width: 0;
+      padding-block: 2px;
+      color: var(--t-100);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+      &.is-vacio { color: var(--t-500); }
+    }
+
+    .sb__cal {
+      position: absolute; z-index: var(--z-3); top: calc(100% + var(--sp-3)); left: 0;
+      /* Ancho fijo: colgando en absoluto encoge hasta el contenido, y la
+         rejilla del calendario se queda en celdas de 20 px. */
+      width: min(360px, 92vw);
+      padding: var(--sp-4);
+      background: var(--c-card);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+      box-shadow: var(--sh-xl);
+      animation: sb-cal-in .18s cubic-bezier(.22, .9, .3, 1) both;
+    }
+    @keyframes sb-cal-in {
+      from { opacity: 0; transform: translateY(-8px) scale(.97); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .sb__cal-pie {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--sp-3); margin-top: var(--sp-3);
+    }
+    .sb__cal-link {
+      border: none; background: none; padding: 0; cursor: pointer;
+      font-family: var(--font); font-size: var(--f-sm); font-weight: var(--w-6);
+      color: var(--t-400); text-decoration: underline;
+
+      &:hover { color: var(--dk-blue); }
+    }
+
+    /* La cabecera y el velo son de la hoja de móvil: en escritorio el panel
+       cuelga del campo y no necesita ni título ni fondo que lo aísle. */
+    .sb__cal-cab, .sb__velo { display: none; }
+
+    /*
+     * Móvil: colgando del campo, el calendario tapaba el resto del buscador y
+     * se salía de la pantalla por abajo —no había forma de llegar al pie—. Pasa
+     * a ser una hoja inferior, que es el patrón con el que se eligen fechas en
+     * el móvil de Booking y Airbnb: ocupa el ancho entero, sube desde abajo y
+     * el velo deja claro que el resto de la página está en pausa.
+     */
+    @media (max-width: 640px) {
+      .sb__velo {
+        display: block;
+        position: fixed; inset: 0; z-index: var(--z-3);
+        background: rgba(0, 5, 30, .48);
+        animation: sb-velo-in .2s ease both;
+      }
+
+      .sb__cal {
+        position: fixed; inset: auto 0 0 0;
+        width: 100%;
+        max-height: 88vh; overflow-y: auto; overscroll-behavior: contain;
+        z-index: var(--z-4);
+        border: none;
+        border-radius: var(--r-xl) var(--r-xl) 0 0;
+        /* El respiro de abajo cuenta con la barra de gestos del móvil. */
+        padding: var(--sp-4) var(--sp-5) calc(var(--sp-5) + env(safe-area-inset-bottom));
+        animation: sb-hoja-in .26s cubic-bezier(.22, .9, .3, 1) both;
+      }
+
+      .sb__cal-cab {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: var(--sp-3); margin-bottom: var(--sp-3);
+      }
+      .sb__cal-titulo {
+        font-family: var(--font-display, var(--font));
+        font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100);
+      }
+      .sb__cal-x {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; flex-shrink: 0;
+        border: 1px solid var(--b-2); border-radius: var(--r-full);
+        background: var(--c-card); color: var(--t-300); cursor: pointer;
+      }
+
+      /* Botones a lo ancho: en la hoja son la acción final, no un pie discreto. */
+      .sb__cal-pie { margin-top: var(--sp-4); }
+      .sb__cal-pie .rs-btn { flex: 1; max-width: 60%; }
+    }
+    @keyframes sb-velo-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes sb-hoja-in { from { transform: translateY(100%); } to { transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .sb__velo, .sb__cal { animation: none; }
+    }
 
     .sb__lbl {
       font-family: var(--font-accent);
@@ -339,15 +485,12 @@ export class RsSearchBarComponent {
   readonly vertical = input<string>(VerticalKey.ALOJAMIENTO);
   /** `card` en el home (tarjeta flotante), `strip` sobre los listados. */
   readonly variant = input<'card' | 'strip'>('card');
-  /** Muestra la fila de categorías con iconos. */
-  readonly categorias = input(true);
   /**
-   * Deja la fila de categorías solo en móvil. En escritorio las categorías ya
-   * están en la barra superior con su icono, y repetirlas aquí obligaba a
-   * elegir dos veces lo mismo (feedback 2026-08-20). En móvil la barra se
-   * pliega tras el menú, así que la fila sigue siendo el único acceso rápido.
+   * Muestra la fila de categorías con iconos dentro de la tarjeta. Las
+   * pantallas actuales la traen apagada: en escritorio las categorías están en
+   * la barra superior y en móvil, en la tira del encabezado (`rs-navbar`).
    */
-  readonly categoriasSoloMovil = input(false);
+  readonly categorias = input(true);
   /** En los listados, cambiar de categoría lanza la búsqueda al momento. */
   readonly buscarAlCambiar = input(false);
 
@@ -381,6 +524,20 @@ export class RsSearchBarComponent {
     hora: [''],
   });
 
+  /** Panel del calendario desplegado bajo el campo de entrada. */
+  readonly calendarioAbierto = signal(false);
+
+  /**
+   * Espejo en señales de lo que hay en el formulario: el calendario y los
+   * disparadores son plantilla con `OnPush` alrededor, y necesitan una señal
+   * de la que colgar, no un `FormControl`.
+   */
+  private readonly valoresFormulario = toSignal(this.formulario.valueChanges, {
+    initialValue: this.formulario.getRawValue(),
+  });
+  readonly entradaSel = computed(() => this.valoresFormulario().desde || null);
+  readonly salidaSel = computed(() => this.valoresFormulario().hasta || null);
+
   constructor() {
     const qp = this.route.snapshot.queryParamMap;
     this.formulario.patchValue({
@@ -411,18 +568,82 @@ export class RsSearchBarComponent {
   }
 
   /**
-   * Elegir una población es una acción de búsqueda, no solo de escritura:
-   * "pulsar la provincia debe llevarme al resultado" (P4). Además guarda las
-   * coordenadas, que alimentan el orden por distancia sin volver a pedir permiso
-   * de ubicación al navegador.
+   * Elegir una población solo rellena el campo y guarda las coordenadas —que
+   * alimentan el orden por distancia sin volver a pedir permiso de ubicación al
+   * navegador—. La búsqueda la lanza el botón "Buscar" o Enter: elegir la
+   * ciudad y salir disparado al listado dejaba fuera las fechas y las mascotas
+   * que el usuario aún no había puesto (feedback 2026-08-30).
+   *
+   * Sobre un listado no hay botón que pulsar, así que allí sigue buscando al
+   * momento, igual que cualquier otro cambio de la barra.
    */
   elegirPoblacion(lugar: CoordenadasLugar): void {
     this.coordenadas.set(Number.isFinite(lugar.lat) ? { lat: lugar.lat, lng: lugar.lng } : null);
-    this.buscar();
+
+    if (this.buscarAlCambiar()) {
+      this.buscar();
+      return;
+    }
+
+    // Elegido el dónde, lo siguiente es el cuándo: el calendario se abre solo
+    // para encadenar los dos campos sin un clic de más.
+    this.abrirCalendario();
+  }
+
+  abrirCalendario(): void {
+    this.calendarioAbierto.set(true);
+  }
+
+  cerrarCalendario(): void {
+    this.calendarioAbierto.set(false);
+  }
+
+  /**
+   * Un rango cerrado (o el día suelto de las categorías de cita) ya no necesita
+   * el panel: se guarda y se cierra, que es lo que espera quien acaba de pulsar
+   * el segundo día.
+   */
+  elegirFechas(rango: RangoFechas): void {
+    this.formulario.patchValue({ desde: rango.entrada ?? '', hasta: rango.salida ?? '' });
+    if (!this.activo().reservaPorNoches || rango.salida) this.cerrarCalendario();
+  }
+
+  borrarFechas(): void {
+    this.formulario.patchValue({ desde: '', hasta: '' });
+  }
+
+  /** Título de la hoja de fechas en móvil; también su etiqueta accesible. */
+  readonly tituloFechas = computed(() =>
+    this.activo().reservaPorNoches ? 'Entrada y salida' : 'Elige la fecha',
+  );
+
+  /** `2026-09-12` → `12 sep`, que es lo que cabe en el campo. */
+  etiquetaFecha(iso: string | null): string {
+    if (!iso) return '';
+    const [, mes, dia] = iso.split('-').map(Number);
+    return `${dia} ${MESES_CORTOS[mes - 1] ?? ''}`.trim();
+  }
+
+  /**
+   * `pointerdown` y no `click`: elegir una población dispara el autocompletado
+   * en `mousedown`, y con `click` el mismo gesto abría el calendario y lo
+   * cerraba acto seguido. `pointerdown` llega **antes** de que se abra.
+   */
+  @HostListener('document:pointerdown', ['$event'])
+  cerrarAlPulsarFuera(evento: Event): void {
+    if (!this.calendarioAbierto()) return;
+    const destino = evento.target as HTMLElement | null;
+    if (!destino?.closest('.sb__field--fechas')) this.cerrarCalendario();
+  }
+
+  @HostListener('document:keydown.escape')
+  cerrarConEscape(): void {
+    this.cerrarCalendario();
   }
 
   seleccionarVertical(key: string): void {
     this.seleccion.set(key);
+    this.cerrarCalendario();
     // Pulsar la categoría lleva directamente al resultado, esté donde esté el
     // buscador: es la acción que sustituye al botón "Buscar" (P4).
     this.buscar();

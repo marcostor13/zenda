@@ -22,12 +22,6 @@ export interface DireccionComercio {
   lng?: number;
 }
 
-export interface RedesSociales {
-  instagram?: string;
-  facebook?: string;
-  tiktok?: string;
-}
-
 export interface HorarioDia {
   dia: string;
   abre?: string;
@@ -89,13 +83,11 @@ export interface MiComercio {
   logoUrl?: string;
   coverUrl?: string;
   galeria: string[];
-  sitioWeb?: string;
   verticales: string[];
   plan: string;
   estado: string;
   contacto?: ContactoComercio;
   direccion?: DireccionComercio;
-  redesSociales?: RedesSociales;
   horario: HorarioDia[];
   politicaCancelacion?: 'flexible' | 'moderada' | 'estricta';
   datosBancarios?: DatosBancarios;
@@ -114,11 +106,9 @@ export type ActualizarPerfilComercioPayload = Partial<
     | 'logoUrl'
     | 'coverUrl'
     | 'galeria'
-    | 'sitioWeb'
     | 'politicaCancelacion'
     | 'contacto'
     | 'direccion'
-    | 'redesSociales'
     | 'datosBancarios'
     | 'preferenciasNotificacion'
     | 'horario'

@@ -29,12 +29,6 @@ export interface DireccionComercio {
   lng?: number;
 }
 
-export interface RedesSociales {
-  instagram?: string;
-  facebook?: string;
-  tiktok?: string;
-}
-
 export interface HorarioDia {
   dia: string;
   /** Primer tramo. Se mantienen `abre`/`cierra` sueltos por compatibilidad. */
@@ -143,9 +137,6 @@ export class Comercio {
   @Prop({ type: [String], default: [] })
   galeria!: string[];
 
-  @Prop()
-  sitioWeb?: string;
-
   @Prop({ type: [String], enum: VerticalKey, default: [] })
   verticales!: VerticalKey[];
 
@@ -215,9 +206,6 @@ export class Comercio {
 
   @Prop({ type: Object })
   direccion?: DireccionComercio;
-
-  @Prop({ type: Object })
-  redesSociales?: RedesSociales;
 
   @Prop({ type: [Object], default: [] })
   horario!: HorarioDia[];

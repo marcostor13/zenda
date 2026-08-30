@@ -60,7 +60,7 @@ interface Celda {
   imports: [RsIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-<div class="cal">
+<div class="cal" [class.cal--plano]="plano()" [class.cal--con-plazas]="conDisponibilidad()">
   <div class="cal__cabecera">
     <button type="button" class="cal__nav" (click)="mesAnterior()"
             [disabled]="!puedeRetroceder()" aria-label="Mes anterior">
@@ -103,10 +103,12 @@ interface Celda {
     <p class="cal__estado">{{ pista() }}</p>
   }
 
-  <p class="cal__leyenda">
-    <span class="cal__muestra cal__muestra--libre"></span> Con plaza
-    <span class="cal__muestra cal__muestra--lleno"></span> Sin plaza
-  </p>
+  @if (conDisponibilidad()) {
+    <p class="cal__leyenda">
+      <span class="cal__muestra cal__muestra--libre"></span> Con plaza
+      <span class="cal__muestra cal__muestra--lleno"></span> Sin plaza
+    </p>
+  }
 </div>
   `,
   styles: [`
@@ -123,6 +125,10 @@ interface Celda {
       max-width: 380px;
       border: 1px solid var(--b-2); border-radius: var(--r-xl);
       padding: var(--sp-4); background: var(--c-card);
+    }
+    .cal--plano {
+      max-width: none;
+      border: none; border-radius: 0; padding: 0; background: transparent;
     }
 
     .cal__cabecera {
@@ -174,9 +180,7 @@ interface Celda {
       cursor: not-allowed;
       transition: background var(--d-1), color var(--d-1);
 
-      /* Sin plaza: tachado, para que se lea como "esta noche no", no como
-         "este día no existe". */
-      &:disabled { text-decoration: line-through; opacity: .55; }
+      &:disabled { opacity: .55; }
 
       &.esta-libre {
         color: var(--t-100); cursor: pointer;
@@ -188,6 +192,13 @@ interface Celda {
         border-radius: var(--r-md);
       }
     }
+
+    /*
+     * Sin plaza: tachado, para que se lea como "esta noche no", no como "este
+     * día no existe". Solo donde hay plazas de las que hablar: en el buscador
+     * un día apagado es uno ya pasado, y tacharlo lo hacía parecer agotado.
+     */
+    .cal--con-plazas .cal__dia:disabled { text-decoration: line-through; }
 
     /* Mismo alto que una celda: si no, la primera semana se descuadra. */
     .cal__hueco { width: 100%; aspect-ratio: 1; min-height: 40px; }
@@ -227,6 +238,23 @@ export class RsCalendarioRangoComponent {
   readonly salida = input<string | null>(null);
   /** Mínimo de noches de una estancia. */
   readonly minNoches = input(1);
+  /**
+   * Si el calendario habla de plazas. En el buscador todavía no hay servicio
+   * elegido —no hay disponibilidad que consultar—, así que la leyenda y los
+   * avisos de "sin plazas" sobran: sólo confundirían.
+   */
+  readonly conDisponibilidad = input(true);
+  /**
+   * Sin tarjeta propia: el calendario ya va dentro de otra superficie (el
+   * desplegable del buscador) y su borde y su padding dibujarían un marco
+   * doble.
+   */
+  readonly plano = input(false);
+  /**
+   * Una sola fecha en vez de un rango, para las categorías que reservan por
+   * cita (peluquería, veterinaria…) en lugar de por noches.
+   */
+  readonly soloUnDia = input(false);
 
   readonly rangoElegido = output<RangoFechas>();
   readonly mesCambiado = output<MesVisible>();
@@ -297,13 +325,17 @@ export class RsCalendarioRangoComponent {
    * el servicio está lleno o si la disponibilidad no se pudo consultar.
    */
   readonly pista = computed(() => {
+    if (this.soloUnDia()) return 'Elige el día.';
+
     const futuras = this.celdas().filter((celda) => celda.fecha >= this.hoy);
 
-    if (futuras.length && futuras.every((c) => this.estadoDe(c.fecha) === 'lleno')) {
+    if (this.conDisponibilidad()
+        && futuras.length && futuras.every((c) => this.estadoDe(c.fecha) === 'lleno')) {
       return `Sin plazas libres en ${this.tituloMes()}. Prueba con otro mes.`;
     }
 
-    if (futuras.length && futuras.every((c) => this.estadoDe(c.fecha) === 'desconocido')) {
+    if (this.conDisponibilidad()
+        && futuras.length && futuras.every((c) => this.estadoDe(c.fecha) === 'desconocido')) {
       return 'No hemos podido cargar la disponibilidad de este mes; se comprobará al continuar.';
     }
 
@@ -318,7 +350,7 @@ export class RsCalendarioRangoComponent {
    */
   private topeDeSalida(): string | null {
     const entrada = this.entrada();
-    if (!entrada || this.salida()) return null;
+    if (this.soloUnDia() || !entrada || this.salida()) return null;
 
     // Como mucho se mira un año: más allá no hay calendario cargado.
     for (let salto = 0; salto < 366; salto++) {
@@ -350,7 +382,7 @@ export class RsCalendarioRangoComponent {
 
     // Eligiendo salida: vale cualquier día posterior a la entrada hasta el tope,
     // aunque ese día esté lleno — la noche de salida no se ocupa.
-    if (entrada && !salida) {
+    if (!this.soloUnDia() && entrada && !salida) {
       if (fecha <= entrada) return this.estadoDe(fecha) !== 'lleno';
       return !!tope && fecha <= tope && fecha >= sumarDias(entrada, this.minNoches());
     }
@@ -361,6 +393,11 @@ export class RsCalendarioRangoComponent {
   elegir(celda: Celda): void {
     if (!celda.seleccionable) return;
     this.aviso.set(null);
+
+    if (this.soloUnDia()) {
+      this.rangoElegido.emit({ entrada: celda.fecha, salida: null });
+      return;
+    }
 
     const entrada = this.entrada();
     const salida = this.salida();
@@ -377,7 +414,10 @@ export class RsCalendarioRangoComponent {
   etiquetaDia(celda: Celda): string {
     const [anio, mes, dia] = celda.fecha.split('-').map(Number);
     const fecha = `${dia} de ${MESES[mes - 1]} de ${anio}`;
-    return celda.seleccionable ? fecha : `${fecha}, sin plaza`;
+    // Sin disponibilidad que consultar, un día apagado es uno ya pasado: decir
+    // "sin plaza" ahí sería mentir al lector de pantalla.
+    if (celda.seleccionable || !this.conDisponibilidad()) return fecha;
+    return `${fecha}, sin plaza`;
   }
 
   mesAnterior(): void {

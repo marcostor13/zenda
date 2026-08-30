@@ -52,6 +52,42 @@ describe('RsNavbarComponent', () => {
     expect(hrefs).toEqual(VERTICALES_PUBLICOS.map((v) => v.route));
   });
 
+  it('debería llevar a iniciar sesión desde el icono de cuenta del encabezado', () => {
+    // En móvil las acciones se pliegan tras el hamburguesa, y entrar en la
+    // cuenta obligaba a abrirlo y buscar "Ingresar" en la lista.
+    const boton: HTMLAnchorElement | null =
+      (fixture.nativeElement as HTMLElement).querySelector('.rs-navbar__cuenta');
+
+    expect(boton).toBeTruthy();
+    expect(boton!.getAttribute('href')).toBe('/auth/login');
+    expect(boton!.querySelector('rs-icon svg')).toBeTruthy();
+  });
+
+  describe('categorías en el encabezado (móvil)', () => {
+    const tira = (): HTMLElement | null =>
+      (fixture.nativeElement as HTMLElement).querySelector('.rs-navbar__cats');
+
+    it('no debería pintarlas donde no se ha pedido', () => {
+      // El panel de comercio o el de admin llevan la misma barra y ahí elegir
+      // categoría de servicio no significa nada.
+      expect(tira()).toBeNull();
+    });
+
+    it('debería ofrecer todas las categorías con su icono y su ruta', () => {
+      fixture.componentRef.setInput('categoriasMovil', true);
+      fixture.detectChanges();
+
+      const enlaces = Array.from(tira()!.querySelectorAll('.rs-navbar__cat'));
+
+      expect(enlaces.map((a) => a.getAttribute('href')))
+        .toEqual(VERTICALES_PUBLICOS.map((v) => v.route));
+      expect(enlaces.map((a) => a.textContent?.trim()))
+        .toEqual(VERTICALES_PUBLICOS.map((v) => v.labelCorto));
+      expect(tira()!.querySelectorAll('.rs-navbar__cat-icon').length)
+        .toBe(VERTICALES_PUBLICOS.length);
+    });
+  });
+
   it('no debería anunciar las categorías fuera del escaparate', () => {
     // Cuidadores sigue existiendo y su ruta funciona; simplemente no se ofrece.
     const el: HTMLElement = fixture.nativeElement;
@@ -146,6 +182,16 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
     await fixture.whenStable();
     fixture.detectChanges();
   };
+
+  it('debería llevar al perfil desde el icono de cuenta, con las iniciales', async () => {
+    await crear();
+
+    const boton: HTMLAnchorElement | null =
+      (fixture.nativeElement as HTMLElement).querySelector('.rs-navbar__cuenta');
+
+    expect(boton!.getAttribute('href')).toBe('/perfil');
+    expect(boton!.querySelector('.rs-navbar__cuenta-ini')?.textContent?.trim()).toBe('AR');
+  });
 
   it('debería contar las mascotas del usuario en el desplegable', async () => {
     await crear({ mascotas: [{ _id: 'p1' }, { _id: 'p2' }] });

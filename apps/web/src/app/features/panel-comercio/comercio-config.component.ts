@@ -1,7 +1,5 @@
 import { Component, signal, computed, inject, DestroyRef, OnInit, WritableSignal } from '@angular/core';
 import { AbstractControl, ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
-import { DatePipe } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -16,16 +14,11 @@ import { PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { celdasDelMes, claveDia, desdeClaveDia, hoyLocal } from '../../shared/fechas';
 import { iconoVertical } from './vertical-icon';
 
-/** Tope de `POST /upload/documento`. Debe seguir al del controlador del API. */
-const MAX_DOCUMENTO_BYTES = 10 * 1024 * 1024;
-import { environment } from '../../../environments/environment';
-import { pareceImagen, prepararImagen, problemaDeSubida } from '../../shared/media/preparar-imagen';
-import { DiagnosticoSubidaService } from '../../core/diagnostico/diagnostico-subida.service';
-import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, ExcepcionHorario, DocumentoVerificacion } from './comercio-api.service';
+import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload, HorarioDia, ExcepcionHorario } from './comercio-api.service';
 
 type TabConfig =
-  | 'perfil' | 'ubicacion' | 'contacto' | 'redes' | 'horarios' | 'politicas'
-  | 'verificacion' | 'documentacion' | 'notificaciones' | 'verticales';
+  | 'perfil' | 'ubicacion' | 'contacto' | 'horarios' | 'politicas'
+  | 'verificacion' | 'notificaciones' | 'verticales';
 
 interface PasoConfig {
   readonly clave: TabConfig;
@@ -42,19 +35,17 @@ const TABS: ReadonlyArray<PasoConfig> = [
   { clave: 'perfil',         label: 'Perfil',            icono: 'building' },
   { clave: 'ubicacion',      label: 'Ubicación',         icono: 'map-pin' },
   { clave: 'contacto',       label: 'Contacto',          icono: 'phone' },
-  { clave: 'redes',          label: 'Redes',             icono: 'globe' },
   { clave: 'horarios',       label: 'Horarios',          icono: 'clock' },
   { clave: 'politicas',      label: 'Políticas y cobros', icono: 'euro' },
   { clave: 'verticales',     label: 'Servicios que ofreces', icono: 'tag' },
   { clave: 'verificacion',   label: 'Verificación',      icono: 'badge-check' },
-  { clave: 'documentacion',  label: 'Documentación',     icono: 'file-text' },
   { clave: 'notificaciones', label: 'Notificaciones',    icono: 'bell' },
 ];
 
 /**
- * Once pasos seguidos son una lista que nadie termina. Se agrupan en tres fases
+ * Una lista larga de pasos seguidos no la termina nadie. Se agrupan en tres fases
  * con nombre —el patrón de alta de anfitrión de Airbnb y del extranet de
- * Booking—: el comercio ve tres bloques cortos, no once casillas.
+ * Booking—: el comercio ve tres bloques cortos, no una fila de casillas.
  */
 const FASES: ReadonlyArray<{
   readonly numero: number;
@@ -63,11 +54,11 @@ const FASES: ReadonlyArray<{
   readonly pasos: ReadonlyArray<PasoConfig>;
 }> = [
   { numero: 1, titulo: 'Tu negocio',         resumen: 'Quién eres y dónde te encuentran',
-    pasos: ['perfil', 'ubicacion', 'contacto', 'redes'] as TabConfig[] },
+    pasos: ['perfil', 'ubicacion', 'contacto'] as TabConfig[] },
   { numero: 2, titulo: 'Cómo trabajas',      resumen: 'Horarios, condiciones y servicios',
     pasos: ['horarios', 'politicas', 'verticales'] as TabConfig[] },
   { numero: 3, titulo: 'Confianza y cuenta', resumen: 'Verificación y avisos',
-    pasos: ['verificacion', 'documentacion', 'notificaciones'] as TabConfig[] },
+    pasos: ['verificacion', 'notificaciones'] as TabConfig[] },
 ].map((f) => ({
   ...f,
   pasos: f.pasos.map((clave) => TABS.find((t) => t.clave === clave) as PasoConfig),
@@ -82,9 +73,6 @@ const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
   { clave: 'sabado', label: 'Sábado' },
   { clave: 'domingo', label: 'Domingo' },
 ];
-
-/** Con cuánta antelación se avisa de que un documento va a caducar. */
-const DIAS_AVISO_CADUCIDAD = 30;
 
 const VERIFICACION_BADGE: Record<string, string> = {
   sin_verificar: 'rs-badge--neutral',
@@ -116,7 +104,6 @@ type UrlImagen = string | null;
   selector: 'app-comercio-config',
   standalone: true,
   imports: [
-    DatePipe,
     ReactiveFormsModule,
     RsIconComponent, RsImageUploadComponent, RsPlaceAutocompleteComponent, RsPhoneInputComponent, RsMapaComponent,
   ],
@@ -503,56 +490,6 @@ type UrlImagen = string | null;
     </section>
     }
 
-    <!-- Redes y web -->
-@if (tab() === 'redes') {
-    <section class="config-section rs-card">
-      <div class="config-section__header">
-        <div class="config-section__icon" style="background:rgba(109,92,246,.12);color:var(--c-purple)">
-          <rs-icon name="globe" [size]="18" [stroke]="2"></rs-icon>
-        </div>
-        <div>
-          <h2 class="config-section__title">Redes sociales y web</h2>
-          <p class="config-section__sub">Enlaces visibles en tu perfil público.</p>
-        </div>
-      </div>
-
-      <form [formGroup]="redesForm" (ngSubmit)="continuar(guardarRedes())" class="config-form">
-        <div class="rs-field">
-          <label class="rs-lbl">Sitio web</label>
-          <input class="rs-inp" formControlName="sitioWeb" placeholder="https://miweb.com" />
-        </div>
-        <div class="form-row form-row--3">
-          <div class="rs-field">
-            <label class="rs-lbl">Instagram</label>
-            <input class="rs-inp" formControlName="instagram" placeholder="@usuario" />
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Facebook</label>
-            <input class="rs-inp" formControlName="facebook" placeholder="facebook.com/miempresa" />
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">TikTok</label>
-            <input class="rs-inp" formControlName="tiktok" placeholder="@usuario" />
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
-                  [disabled]="esPrimerPaso()">
-            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-            Atrás
-          </button>
-          <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoRedes()">
-            @if (guardandoRedes()) { Guardando… } @else {
-              <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-              {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
-            }
-          </button>
-        </div>
-      </form>
-    </section>
-    }
-
     <!-- Horario de atención -->
 @if (tab() === 'horarios') {
     <section class="config-section rs-card">
@@ -867,140 +804,6 @@ type UrlImagen = string | null;
     </section>
     }
 
-    <!-- Documentación adicional (seguro RC, certificados…) -->
-@if (tab() === 'documentacion') {
-    <section class="config-section rs-card">
-      <div class="config-section__header">
-        <div class="config-section__icon" style="background:rgba(22,163,74,.12);color:#16A34A">
-          <rs-icon name="shield-check" [size]="18" [stroke]="2"></rs-icon>
-        </div>
-        <div>
-          <h2 class="config-section__title">Documentación adicional</h2>
-          <p class="config-section__sub">Seguro de responsabilidad civil, certificados profesionales y sus caducidades.</p>
-        </div>
-      </div>
-
-      @if (docsAdicionales().length) {
-        <div class="docs-list">
-          @for (d of docsAdicionales(); track $index) {
-            <!--
-              Sin insignia de revisión: la documentación adicional es el archivo
-              del comercio, no algo que la plataforma apruebe. Lo único que se
-              destaca es la caducidad, que sí le afecta.
-            -->
-            <div class="doc-item">
-              <span class="doc-item__tipo">{{ tipoDocLabel(d.tipo) }}</span>
-              <span class="doc-item__nombre">{{ d.nombre || 'Sin nombre' }}</span>
-
-              <div class="doc-item__datos">
-                @if (d.subidoAt) {
-                  <span class="doc-item__dato">Subido el {{ d.subidoAt | date: 'd MMM y' }}</span>
-                }
-                @if (d.fechaCaducidad) {
-                  <!-- Avisa antes de caducar, no el día que ya ha caducado (TCK-8028) -->
-                  <span class="doc-caduca"
-                        [class.doc-caduca--pronto]="estadoCaducidad(d.fechaCaducidad) === 'pronto'"
-                        [class.doc-caduca--caducado]="estadoCaducidad(d.fechaCaducidad) === 'caducado'">
-                    @if (estadoCaducidad(d.fechaCaducidad) !== 'vigente') {
-                      <rs-icon name="alert-circle" [size]="12" [stroke]="2"></rs-icon>
-                    }
-                    {{ textoCaducidad(d.fechaCaducidad) }}
-                  </span>
-                } @else {
-                  <span class="doc-item__dato">Sin caducidad</span>
-                }
-              </div>
-
-              <a class="rs-btn rs-btn--outline rs-btn--xs" [href]="d.url" target="_blank" rel="noopener">
-                <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver
-              </a>
-              <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" [disabled]="guardandoDocs()"
-                      (click)="quitarDoc($index)" aria-label="Quitar documento">
-                <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
-              </button>
-            </div>
-          }
-        </div>
-      }
-
-      <form [formGroup]="docForm" (ngSubmit)="agregarDoc()" class="config-form" style="margin-top:var(--sp-4)">
-        <div class="form-row">
-          <div class="rs-field">
-            <label class="rs-lbl">Tipo</label>
-            <select formControlName="tipo" class="rs-inp">
-              <option value="seguro_rc">Seguro responsabilidad civil</option>
-              <option value="certificado">Certificado profesional</option>
-              <option value="cif">CIF</option>
-              <option value="licencia">Licencia</option>
-              <option value="otro">Otro</option>
-            </select>
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Nombre / referencia</label>
-            <input type="text" formControlName="nombre" class="rs-inp" placeholder="Ej. Póliza AXA 2026" />
-          </div>
-        </div>
-        <div class="form-row">
-          <!--
-            El fichero, no una URL: pegar un enlace a mano no lo hacía nadie y
-            además obligaba a tener el documento ya colgado en otro sitio.
-          -->
-          <div class="rs-field">
-            <label class="rs-lbl">Documento</label>
-            @if (docForm.value.url) {
-              <div class="doc-subido">
-                <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon>
-                <span class="doc-subido__txt">{{ nombreFicheroSubido() }}</span>
-                <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs"
-                        (click)="quitarFicheroSubido()" aria-label="Quitar el archivo">
-                  <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon>
-                </button>
-              </div>
-            } @else {
-              <label class="subir-doc">
-                <input type="file"
-                       accept="application/pdf,image/*,.pdf"
-                       (change)="subirDocumento($event)" />
-                <span class="rs-btn rs-btn--outline rs-btn--block">
-                  <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon>
-                  {{ subiendoDoc() ? 'Subiendo…' : 'Elegir PDF o foto' }}
-                </span>
-              </label>
-            }
-            @if (errorDoc()) { <span class="rs-field-error">{{ errorDoc() }}</span> }
-          </div>
-          <div class="rs-field">
-            <label class="rs-lbl">Fecha de caducidad</label>
-            <input type="date" formControlName="fechaCaducidad" class="rs-inp" />
-            <span class="rs-field-hint">Opcional. Te avisamos un mes antes.</span>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
-                  [disabled]="esPrimerPaso()">
-            <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-            Atrás
-          </button>
-          <div class="form-actions__grupo">
-            <!-- Añadir guarda al momento (no espera a "Guardar y continuar"). -->
-            <button type="submit" class="rs-btn rs-btn--secondary" [disabled]="docForm.invalid || guardandoDocs()">
-              @if (guardandoDocs()) { Guardando… } @else {
-                <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir documento
-              }
-            </button>
-            <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardandoDocs()"
-                    (click)="continuar(guardarDocumentacion())">
-              @if (guardandoDocs()) { Guardando… } @else {
-                <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-                {{ esUltimoPaso() ? 'Guardar y finalizar' : 'Guardar y continuar' }}
-              }
-            </button>
-          </div>
-        </div>
-      </form>
-    </section>
-    }
-
     <!-- Notificaciones -->
 @if (tab() === 'notificaciones') {
     <section class="config-section rs-card">
@@ -1122,26 +925,6 @@ type UrlImagen = string | null;
   styles: [`
     :host { display: contents; }
 
-    .doc-caduca { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--f-xs); }
-    .doc-caduca--pronto { color: #B45309; }
-    .doc-caduca--caducado { color: var(--c-red, #B91C1C); font-weight: var(--w-6); }
-
-    .subir-doc { display: block; cursor: pointer; }
-    .subir-doc input[type="file"] { display: none; }
-
-    .doc-subido {
-      display: flex; align-items: center; gap: var(--sp-2);
-      padding: var(--sp-2) var(--sp-3); border-radius: var(--r-lg);
-      background: var(--c-raised); border: 1px solid var(--b-1);
-      color: var(--t-200); font-size: var(--f-sm);
-    }
-    .doc-subido__txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* Lo que se guardó de cada documento: cuándo entró y hasta cuándo vale. */
-    .doc-item__datos {
-      display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
-      font-size: var(--f-xs); color: var(--t-400);
-    }
     .geo-estado {
       display: flex; align-items: flex-start; gap: var(--sp-2);
       padding: var(--sp-3) var(--sp-4);
@@ -1399,12 +1182,6 @@ type UrlImagen = string | null;
       }
     }
 
-    .docs-list { display: flex; flex-direction: column; gap: var(--sp-2); }
-    .doc-item { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-3); background: var(--c-raised); border-radius: var(--r-lg); }
-    .doc-item__tipo { font-size: var(--f-xs); font-weight: var(--w-7); color: var(--c-accent); }
-    .doc-item__nombre { font-size: var(--f-sm); color: var(--t-100); flex: 1; min-width: 120px; }
-    .doc-item__cad { font-size: var(--f-xs); color: var(--t-400); }
-
     .rs-field { display: flex; flex-direction: column; gap: var(--sp-2); }
     .rs-lbl { font-size: var(--f-xs); font-weight: var(--w-6); color: var(--t-300); text-transform: uppercase; letter-spacing: .06em; }
     .rs-field-error { font-size: var(--f-xs); color: #B91C1C; }
@@ -1548,10 +1325,8 @@ type UrlImagen = string | null;
 })
 export class ComercioConfigComponent implements OnInit {
   private readonly comercioApi = inject(ComercioApiService);
-  private readonly diagnostico = inject(DiagnosticoSubidaService);
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
 
   readonly comercio = signal<MiComercio | null>(null);
@@ -1566,7 +1341,7 @@ export class ComercioConfigComponent implements OnInit {
   /**
    * Índice desplegado. En escritorio el raíl está siempre a la vista y esta
    * señal no pinta nada; en móvil arranca cerrado para que la primera pantalla
-   * sea el formulario y no la lista de once pasos.
+   * sea el formulario y no la lista de pasos.
    */
   readonly indiceAbierto = signal(false);
 
@@ -1608,7 +1383,6 @@ export class ComercioConfigComponent implements OnInit {
   readonly guardandoInfo = signal(false);
   readonly guardandoDireccion = signal(false);
   readonly guardandoContacto = signal(false);
-  readonly guardandoRedes = signal(false);
   readonly guardandoHorario = signal(false);
   readonly guardandoPoliticas = signal(false);
   readonly guardandoVerificacion = signal(false);
@@ -1626,7 +1400,6 @@ export class ComercioConfigComponent implements OnInit {
 
   /** Longitud de la descripción, para el contador (TCK-8028). */
   readonly MAX_DESCRIPCION = 600;
-  readonly subiendoDoc = signal(false);
 
   /** Formulario que corresponde a cada pestaña, para avisar de lo no guardado. */
   private formularioDeTab(): AbstractControl | null {
@@ -1634,7 +1407,6 @@ export class ComercioConfigComponent implements OnInit {
       case 'perfil': return this.infoForm;
       case 'ubicacion': return this.direccionForm;
       case 'contacto': return this.contactoForm;
-      case 'redes': return this.redesForm;
       case 'horarios': return this.horarioForm;
       case 'politicas': return this.politicasForm;
       case 'verificacion': return this.verificacionForm;
@@ -1672,7 +1444,7 @@ export class ComercioConfigComponent implements OnInit {
 
   /**
    * Una fase está hecha cuando ninguno de sus pasos con campos obligatorios
-   * está pendiente. Los pasos informativos, como las redes, no la bloquean.
+   * está pendiente. Los pasos informativos, como los avisos, no la bloquean.
    */
   faseCompleta(fase: { pasos: ReadonlyArray<PasoConfig> }): boolean {
     return fase.pasos.every((p) => this.estadoSeccion(p.clave) !== false);
@@ -1715,14 +1487,13 @@ export class ComercioConfigComponent implements OnInit {
    * de perfil incompleto, para que la marca de la pestaña y el porcentaje de la
    * cabecera no puedan contradecirse.
    *
-   * `null` en las secciones que no tienen campos obligatorios (redes…):
+   * `null` en las secciones que no tienen campos obligatorios (notificaciones…):
    * no se marcan ni como hechas ni como pendientes.
    */
   estadoSeccion(clave: TabConfig): boolean | null {
     const campos = this.camposPerfil().filter((c) => c.tab === clave);
     return campos.length ? campos.every((c) => c.ok) : null;
   }
-  readonly errorDoc = signal('');
 
   /**
    * Punto del mapa. Manda lo que hay en el formulario —así el marcador salta al
@@ -1777,71 +1548,6 @@ export class ComercioConfigComponent implements OnInit {
     this.geoFormulario.set({ lat: direccion.lat, lng: direccion.lng });
   }
 
-  /**
-   * Sube el fichero y rellena la URL del documento. Se acepta PDF o foto: el
-   * seguro llega en PDF y el certificado, casi siempre, en foto del móvil.
-   */
-  async subirDocumento(evento: Event): Promise<void> {
-    const input = evento.target as HTMLInputElement;
-    const elegido = input.files?.[0];
-    if (!elegido) return;
-
-    this.subiendoDoc.set(true);
-    this.errorDoc.set('');
-    try {
-      /*
-       * Una foto de iPhone llega en HEIC y sin reducir: en crudo sólo la pinta
-       * Safari, y una del carrete de un modelo Pro se pasa de los 10 MB. Los PDF
-       * pasan intactos: no son imágenes y no hay nada que convertir.
-       */
-      const esImagen = pareceImagen(elegido);
-      const fichero = esImagen
-        ? await prepararImagen(elegido, MAX_DOCUMENTO_BYTES)
-        : elegido;
-
-      // Un fichero vacío o un HEIC sin convertir sólo sirven para recibir un
-      // 422 que el comercio lee como "formato no válido" (ver el mismo control
-      // en `rs-image-upload`).
-      const problema = esImagen ? problemaDeSubida(fichero, MAX_DOCUMENTO_BYTES) : null;
-      if (problema) {
-        this.diagnostico.registrar({
-          paso: problema, destino: 'documento', origen: 'comercio/documentacion',
-          fichero: elegido, resultado: fichero,
-        });
-        this.errorDoc.set(this.textoDelProblemaDoc(problema));
-        return;
-      }
-
-      const datos = new FormData();
-      datos.append('file', fichero);
-      const { url } = await firstValueFrom(
-        this.http.post<{ url: string }>(`${environment.apiUrl}/upload/documento`, datos),
-      );
-      this.docForm.patchValue({ url, nombre: this.docForm.value.nombre || elegido.name });
-      this.diagnostico.registrar({
-        paso: 'subida', destino: 'documento', origen: 'comercio/documentacion', fichero: elegido,
-      });
-    } catch (error) {
-      this.diagnostico.registrarFalloHttp(
-        { destino: 'documento', origen: 'comercio/documentacion', fichero: elegido }, error,
-      );
-      this.errorDoc.set('No se pudo subir el fichero. Debe ser PDF o imagen y pesar menos de 10 MB.');
-    } finally {
-      this.subiendoDoc.set(false);
-      input.value = '';
-    }
-  }
-
-  /** Por qué no se puede enviar la foto del documento, en cristiano. */
-  private textoDelProblemaDoc(problema: 'vacio' | 'sin_convertir' | 'demasiado_grande'): string {
-    if (problema === 'vacio') {
-      return 'Ese archivo llegó vacío. Si la foto está en iCloud, ábrela primero en la app Fotos para que se descargue al móvil.';
-    }
-    if (problema === 'sin_convertir') {
-      return 'No hemos podido convertir esa foto de iPhone (HEIC). Elígela desde la app Fotos, o cambia en Ajustes › Cámara › Formatos a «Más compatible».';
-    }
-    return 'El archivo pesa demasiado incluso después de reducirlo. Debe quedar por debajo de 10 MB.';
-  }
   readonly caracteresDescripcion = signal(0);
 
   /** Festivos, vacaciones y cierres puntuales (TCK-8028). */
@@ -2037,10 +1743,6 @@ export class ComercioConfigComponent implements OnInit {
     whatsapp: [''],
   });
 
-  readonly redesForm = this.fb.group({
-    sitioWeb: [''], instagram: [''], facebook: [''], tiktok: [''],
-  });
-
   readonly horarioForm = this.fb.group({
     dias: this.fb.array(DIAS.map(d => this.fb.group({
       dia: [d.clave],
@@ -2062,15 +1764,6 @@ export class ComercioConfigComponent implements OnInit {
     licenciaNegocioUrl: [null as UrlImagen],
   });
 
-  readonly guardandoDocs = signal(false);
-  readonly docsAdicionales = signal<DocumentoVerificacion[]>([]);
-  readonly docForm = this.fb.group({
-    tipo: ['seguro_rc', Validators.required],
-    nombre: [''],
-    url: ['', Validators.required],
-    fechaCaducidad: [''],
-  });
-
   get diasControls() {
     return this.horarioForm.controls.dias.controls;
   }
@@ -2079,7 +1772,7 @@ export class ComercioConfigComponent implements OnInit {
     // Cualquier tecleo puede dejar el formulario sucio: se revisa en cada uno.
     // Los grupos tienen tipos distintos, así que se recorren como FormGroup suelto.
     const formularios: AbstractControl[] = [
-      this.infoForm, this.direccionForm, this.contactoForm, this.redesForm,
+      this.infoForm, this.direccionForm, this.contactoForm,
       this.horarioForm, this.politicasForm, this.verificacionForm,
     ];
     for (const formulario of formularios) {
@@ -2098,27 +1791,6 @@ export class ComercioConfigComponent implements OnInit {
       this.aplicarDatos(data);
     } catch { /* usa formularios vacíos */ }
 
-  }
-
-  /**
-   * Avisa antes de que caduque un seguro o certificado: enterarse el día que
-   * expira ya es tarde (TCK-8028).
-   */
-  estadoCaducidad(fecha?: string): 'caducado' | 'pronto' | 'vigente' | null {
-    if (!fecha) return null;
-    const dias = Math.ceil((new Date(fecha).getTime() - Date.now()) / 86400000);
-    if (dias < 0) return 'caducado';
-    if (dias <= DIAS_AVISO_CADUCIDAD) return 'pronto';
-    return 'vigente';
-  }
-
-  textoCaducidad(fecha?: string): string {
-    const estado = this.estadoCaducidad(fecha);
-    if (!estado || !fecha) return '';
-    const dias = Math.ceil((new Date(fecha).getTime() - Date.now()) / 86400000);
-    if (estado === 'caducado') return 'Caducado';
-    if (estado === 'pronto') return `Caduca en ${dias} día${dias === 1 ? '' : 's'}`;
-    return `Vigente hasta ${fecha}`;
   }
 
   private aplicarDatos(data: MiComercio): void {
@@ -2157,13 +1829,6 @@ export class ComercioConfigComponent implements OnInit {
       whatsapp: data.contacto?.whatsapp ?? '',
     });
 
-    this.redesForm.patchValue({
-      sitioWeb: data.sitioWeb ?? '',
-      instagram: data.redesSociales?.instagram ?? '',
-      facebook: data.redesSociales?.facebook ?? '',
-      tiktok: data.redesSociales?.tiktok ?? '',
-    });
-
     if (data.horario?.length) {
       const porDia = new Map(data.horario.map(h => [h.dia, h]));
       this.diasControls.forEach((ctrl, i) => {
@@ -2180,7 +1845,6 @@ export class ComercioConfigComponent implements OnInit {
       swift: data.datosBancarios?.swift ?? '',
     });
 
-    this.docsAdicionales.set(data.verificacion?.documentos ?? []);
     this.verificacionForm.patchValue({
       documentoIdentidadUrl: data.verificacion?.documentoIdentidadUrl ?? null,
       licenciaNegocioUrl: data.verificacion?.licenciaNegocioUrl ?? null,
@@ -2271,14 +1935,6 @@ export class ComercioConfigComponent implements OnInit {
     return this.guardarSeccion({ contacto: this.contactoForm.getRawValue() }, this.guardandoContacto);
   }
 
-  async guardarRedes(): Promise<boolean> {
-    const v = this.redesForm.getRawValue();
-    return this.guardarSeccion({
-      sitioWeb: v.sitioWeb,
-      redesSociales: { instagram: v.instagram, facebook: v.facebook, tiktok: v.tiktok },
-    }, this.guardandoRedes);
-  }
-
   tieneVertical(clave: VerticalKey): boolean {
     return this.verticalesSel().includes(clave);
   }
@@ -2322,95 +1978,6 @@ export class ComercioConfigComponent implements OnInit {
       documentoIdentidadUrl: v.documentoIdentidadUrl ?? undefined,
       licenciaNegocioUrl: v.licenciaNegocioUrl ?? undefined,
     }, this.guardandoVerificacion);
-  }
-
-  /** Nombre legible del fichero ya subido, para no enseñar la URL cruda. */
-  nombreFicheroSubido(): string {
-    const nombre = this.docForm.value.nombre?.trim();
-    if (nombre) return nombre;
-    const url = this.docForm.value.url ?? '';
-    return url.split('/').pop() || 'Documento';
-  }
-
-  quitarFicheroSubido(): void {
-    this.docForm.patchValue({ url: '' });
-    this.errorDoc.set('');
-  }
-
-  /**
-   * Envía la lista completa al servidor. La comparten añadir, quitar y
-   * "Guardar y continuar": el documento viaja siempre entero (no hay PATCH
-   * incremental de un solo elemento), así que cualquiera de las tres acciones
-   * hace exactamente el mismo guardado.
-   *
-   * Se envía sólo lo que el comercio aporta. `estado` y `subidoAt` los fija el
-   * servidor —un comercio no puede marcar sus propios papeles como
-   * verificados— y llegan de vuelta al leer la ficha; devolvérselos hace que
-   * el API rechace la petición entera con 400.
-   */
-  private async persistirDocumentos(lista: DocumentoVerificacion[]): Promise<boolean> {
-    const documentos = lista.map((d) => ({
-      tipo: d.tipo,
-      nombre: d.nombre,
-      url: d.url,
-      fechaCaducidad: d.fechaCaducidad,
-    }));
-
-    const guardado = await this.guardarSeccion({ documentos }, this.guardandoDocs);
-    // El servidor añade la fecha de subida; sin recargar, la lista se quedaba
-    // sin ese dato hasta la siguiente visita a la pantalla.
-    if (guardado) this.docsAdicionales.set(this.comercio()?.verificacion?.documentos ?? lista);
-    return guardado;
-  }
-
-  /**
-   * Añade el documento **y lo guarda al momento**. Antes sólo se sumaba a una
-   * lista en memoria: quien subía el archivo, lo veía aparecer en la lista y
-   * se iba sin pulsar el botón separado "Guardar y continuar" lo perdía sin
-   * ningún aviso — de ahí "no guarda las documentaciones adicionales". Ahora
-   * añadir y guardar son la misma acción, como el resto del formulario.
-   *
-   * Sin `estado`: la documentación adicional no la revisa nadie. Ponerlo en
-   * 'pendiente' hacía que el paso de Verificación dijese "En revisión" a un
-   * comercio ya verificado en cuanto adjuntaba su póliza.
-   */
-  async agregarDoc(): Promise<void> {
-    if (this.docForm.invalid) return;
-    const v = this.docForm.getRawValue();
-    const nuevo: DocumentoVerificacion = {
-      tipo: v.tipo ?? 'otro',
-      nombre: v.nombre || undefined,
-      url: v.url ?? '',
-      fechaCaducidad: v.fechaCaducidad || undefined,
-    };
-
-    // Si el guardado falla, `persistirDocumentos` no toca `docsAdicionales`:
-    // no queda en la lista un documento que en realidad no se guardó.
-    const guardado = await this.persistirDocumentos([...this.docsAdicionales(), nuevo]);
-    if (guardado) this.docForm.reset({ tipo: 'seguro_rc', nombre: '', url: '', fechaCaducidad: '' });
-  }
-
-  /** Quitar también guarda al momento, por la misma razón que añadir. */
-  async quitarDoc(index: number): Promise<void> {
-    await this.persistirDocumentos(this.docsAdicionales().filter((_, i) => i !== index));
-  }
-
-  /**
-   * Con añadir/quitar guardando al momento, aquí normalmente no queda nada
-   * pendiente; se conserva para que "Guardar y continuar" avance el paso
-   * igual que en el resto de secciones, y como red de seguridad si algo
-   * dejó la lista local desincronizada.
-   */
-  async guardarDocumentacion(): Promise<boolean> {
-    return this.persistirDocumentos(this.docsAdicionales());
-  }
-
-  tipoDocLabel(tipo: string): string {
-    const map: Record<string, string> = {
-      dni: 'DNI', cif: 'CIF', licencia: 'Licencia',
-      seguro_rc: 'Seguro RC', certificado: 'Certificado', otro: 'Documento',
-    };
-    return map[tipo] ?? tipo;
   }
 
 }

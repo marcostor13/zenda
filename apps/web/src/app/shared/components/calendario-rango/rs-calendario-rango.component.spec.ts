@@ -174,6 +174,67 @@ describe('RsCalendarioRangoComponent', () => {
     });
   });
 
+  describe('fuera de una reserva concreta', () => {
+    /**
+     * El buscador usa el mismo calendario antes de haber elegido servicio: no
+     * hay plazas que consultar, así que hablar de disponibilidad sobra.
+     */
+    const montarSinDisponibilidad = async (soloUnDia = false) => {
+      await montar([]);
+      fixture.componentRef.setInput('conDisponibilidad', false);
+      fixture.componentRef.setInput('soloUnDia', soloUnDia);
+      fixture.detectChanges();
+    };
+
+    it('no debería hablar de plazas cuando no hay disponibilidad que consultar', async () => {
+      await montarSinDisponibilidad();
+
+      expect(componente.pista()).toBe('Elige el día de entrada.');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('.cal__leyenda')).toBeNull();
+    });
+
+    it('debería dejar elegir cualquier día futuro sin datos del API', async () => {
+      await montarSinDisponibilidad();
+
+      expect(celdaDe(diaDelMesProximo(9)).seleccionable).toBe(true);
+    });
+
+    it('debería etiquetar los días apagados sin inventarse una falta de plaza', async () => {
+      await montarSinDisponibilidad();
+      const celda = celdaDe(diaDelMesProximo(9));
+
+      expect(componente.etiquetaDia({ ...celda, seleccionable: false })).not.toContain('sin plaza');
+    });
+
+    it('debería emitir una sola fecha en las categorías de cita', async () => {
+      await montarSinDisponibilidad(true);
+      const emitido = jest.fn();
+      componente.rangoElegido.subscribe(emitido);
+
+      componente.elegir(celdaDe(diaDelMesProximo(9)));
+
+      expect(emitido).toHaveBeenCalledWith<[RangoFechas]>({
+        entrada: diaDelMesProximo(9), salida: null,
+      });
+      expect(componente.pista()).toBe('Elige el día.');
+    });
+
+    it('debería dejar cambiar de día suelto sin pedir un segundo extremo', async () => {
+      await montarSinDisponibilidad(true);
+      fixture.componentRef.setInput('entrada', diaDelMesProximo(9));
+      fixture.detectChanges();
+      const emitido = jest.fn();
+      componente.rangoElegido.subscribe(emitido);
+
+      componente.elegir(celdaDe(diaDelMesProximo(20)));
+
+      expect(emitido).toHaveBeenCalledWith<[RangoFechas]>({
+        entrada: diaDelMesProximo(20), salida: null,
+      });
+    });
+  });
+
   it('debería avisar cuando el mes entero está sin plazas, en vez de apagarlo sin más', async () => {
     const { anio, mes } = mesProximo();
     const dias = new Date(Date.UTC(anio, mes, 0)).getUTCDate();

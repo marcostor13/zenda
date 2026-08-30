@@ -20,12 +20,6 @@ export class DireccionComercioDto {
   @IsOptional() @IsNumber() @Type(() => Number) lng?: number;
 }
 
-export class RedesSocialesDto {
-  @IsOptional() @IsString() instagram?: string;
-  @IsOptional() @IsString() facebook?: string;
-  @IsOptional() @IsString() tiktok?: string;
-}
-
 export class HorarioDiaDto {
   @IsIn(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'])
   dia!: string;
@@ -103,8 +97,6 @@ export class ActualizarPerfilComercioDto {
   @IsString({ each: true })
   galeria?: string[];
 
-  @IsOptional() @IsString() sitioWeb?: string;
-
   @IsOptional()
   @IsIn(['flexible', 'moderada', 'estricta'])
   politicaCancelacion?: string;
@@ -133,11 +125,6 @@ export class ActualizarPerfilComercioDto {
   @ValidateNested()
   @Type(() => DireccionComercioDto)
   direccion?: DireccionComercioDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => RedesSocialesDto)
-  redesSociales?: RedesSocialesDto;
 
   @IsOptional()
   @ValidateNested()

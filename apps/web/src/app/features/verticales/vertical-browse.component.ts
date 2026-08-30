@@ -193,7 +193,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
   ],
   template: `
 <div class="vb-page">
-  <rs-navbar />
+  <rs-navbar [categoriasMovil]="true" />
 
   <rs-listado
     [titulo]="titular()" [subtitulo]="subtitular()"

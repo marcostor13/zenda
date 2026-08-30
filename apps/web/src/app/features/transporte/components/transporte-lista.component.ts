@@ -30,7 +30,7 @@ import { euros } from '../../../shared/pipes/euros.pipe';
   ],
   template: `
 <div class="transporte-page">
-  <rs-navbar />
+  <rs-navbar [categoriasMovil]="true" />
 
   <rs-listado
     [titulo]="titular" [subtitulo]="subtitular"

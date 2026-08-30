@@ -367,7 +367,7 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
     }
 
     const lugar = await this.geoService.coordenadas(sugerencia.placeId);
-    // Pulsar la población lleva al resultado (P4), tenga o no coordenadas.
+    // Se avisa tenga o no coordenadas: quien escucha decide qué hacer con ellas.
     this.lugarElegido.emit({
       placeId: sugerencia.placeId,
       ...(lugar ?? { ciudad: sugerencia.principal, lat: NaN, lng: NaN }),

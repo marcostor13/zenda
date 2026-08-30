@@ -172,18 +172,15 @@ describe('HomeComponent', () => {
     expect(el.querySelector('rs-search-bar')).toBeTruthy();
   });
 
-  it('debería renderizar la fila de categorías del buscador con sus iconos', () => {
+  it('debería ofrecer las categorías en el encabezado, no dentro del buscador', () => {
+    // En escritorio están en la barra superior y en móvil, en la tira del
+    // encabezado: repetirlas en la tarjeta obligaba a elegir dos veces lo
+    // mismo y se comía la primera pantalla del móvil.
     const el: HTMLElement = fixture.nativeElement;
-    const iconos = el.querySelectorAll('.sb__cat-icon');
-    // 6 categorías + el acceso «Más servicios»
-    expect(iconos.length).toBe(component.verticales.length + 1);
-  });
 
-  it('debería dejar las categorías del buscador solo para móvil (barra superior en escritorio)', () => {
-    // En escritorio la barra superior ya lista las categorías con su icono:
-    // el buscador no las repite (feedback 2026-08-20).
-    const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelector('.sb__cats--movil')).toBeTruthy();
+    expect(el.querySelector('.sb__cats')).toBeNull();
+    expect(el.querySelectorAll('.rs-navbar__cats .rs-navbar__cat').length)
+      .toBe(component.verticales.length);
   });
 
   it('debería colocar el buscador sobre la zona de contraste del hero', () => {

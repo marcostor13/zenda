@@ -79,7 +79,6 @@ describe('ComercioConfigComponent — contrato con el API', () => {
       descripcion: 'Suites con jardín.',
       logoUrl: 'https://cdn.doogking.com/logo.jpg',
       coverUrl: 'https://cdn.doogking.com/portada.jpg',
-      sitioWeb: 'https://royal.test',
     });
 
     await componente.guardarInfo();
@@ -123,14 +122,6 @@ describe('ComercioConfigComponent — contrato con el API', () => {
     });
 
     await componente.guardarContacto();
-
-    await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
-  });
-
-  it('las redes sociales', async () => {
-    componente.redesForm.patchValue({ instagram: '@royal' });
-
-    await componente.guardarRedes();
 
     await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
   });
@@ -197,15 +188,4 @@ describe('ComercioConfigComponent — contrato con el API', () => {
     await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
   });
 
-  it('la documentación adicional', async () => {
-    componente.docForm.patchValue({
-      tipo: 'seguro_rc', nombre: 'Póliza RC', url: 'https://cdn.doogking.com/rc.pdf',
-      fechaCaducidad: '2027-01-31',
-    });
-    await componente.agregarDoc();
-
-    await componente.guardarDocumentacion();
-
-    await expect(erroresDelUltimoEnvio()).resolves.toEqual([]);
-  });
 });
