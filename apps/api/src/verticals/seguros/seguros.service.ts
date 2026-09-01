@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { EstadoPoliza, ResultadoElegibilidad, TipoSeguro, VerticalKey } from 'shared';
+import {
+  EstadoPoliza, EstadoSolicitudSeguros, MAX_ASEGURADORAS, ResultadoElegibilidad, TipoSeguro, VerticalKey,
+} from 'shared';
 import { Servicio, ServicioDocument } from '../../core/catalog/servicio.schema';
 import { PerrosService } from '../../core/perros/perros.service';
 import { BienestarService } from '../../core/perros/bienestar.service';
@@ -13,6 +15,26 @@ import { SegurosAvailabilityStrategy } from './seguros-availability.strategy';
 
 const MESES_POR_ANIO = 12;
 const DIAS_POR_MES = 30;
+
+/** Solicitud de alta tal y como la ve el administrador que la revisa. */
+export interface SolicitudSegurosAdmin {
+  servicioId: string;
+  comercioId: string;
+  titulo: string;
+  estadoSolicitud: EstadoSolicitudSeguros;
+  motivoRechazo?: string;
+  revisadaEn?: Date;
+  creadaEn?: Date;
+  solicitud?: Record<string, unknown>;
+}
+
+/** Lo que ve el admin al abrir la sección: las solicitudes y cuántas plazas quedan. */
+export interface ListadoSolicitudesSeguros {
+  solicitudes: SolicitudSegurosAdmin[];
+  aprobadas: number;
+  plazasLibres: number;
+  maximo: number;
+}
 
 export interface PolizaRecomendada {
   servicioId: string;
@@ -224,4 +246,109 @@ export class SegurosService {
     }
     return new Types.ObjectId(id);
   }
+
+  // ── Alta de aseguradoras (solicitud revisada a mano) ───────────────
+
+  /**
+   * Todas las solicitudes, la más reciente primero, con el recuento de plazas.
+   *
+   * El cupo (`MAX_ASEGURADORAS`) no bloquea el envío de solicitudes —una
+   * compañía puede quedar en lista de espera—, pero sí la aprobación: es el
+   * momento en que de verdad entra en el catálogo.
+   */
+  async listarSolicitudes(): Promise<ListadoSolicitudesSeguros> {
+    const servicios = (await this.servicioModel
+      .find({ vertical: VerticalKey.SEGUROS })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec()) as unknown as Array<Seguros & { _id: Types.ObjectId; comercioId: Types.ObjectId; createdAt?: Date }>;
+
+    const solicitudes = servicios.map((sv) => ({
+      servicioId: sv._id.toString(),
+      comercioId: sv.comercioId?.toString() ?? '',
+      titulo: sv.titulo,
+      estadoSolicitud: sv.estadoSolicitud ?? EstadoSolicitudSeguros.PENDIENTE,
+      motivoRechazo: sv.motivoRechazoSolicitud,
+      revisadaEn: sv.revisadaEn,
+      creadaEn: sv.createdAt,
+      solicitud: sv.solicitud as unknown as Record<string, unknown> | undefined,
+    }));
+
+    const aprobadas = solicitudes.filter((s) => s.estadoSolicitud === EstadoSolicitudSeguros.APROBADA).length;
+
+    return {
+      solicitudes,
+      aprobadas,
+      plazasLibres: Math.max(0, MAX_ASEGURADORAS - aprobadas),
+      maximo: MAX_ASEGURADORAS,
+    };
+  }
+
+  /**
+   * Aprueba una solicitud y publica su ficha. Se niega a pasar del cupo: con
+   * las tres plazas ocupadas hay que dar de baja a una compañía antes de
+   * admitir otra, que es una decisión de negocio, no un descuido a corregir.
+   */
+  async aprobarSolicitud(servicioId: string): Promise<SolicitudSegurosAdmin> {
+    const servicio = await this.servicioModel.findById(servicioId).exec();
+    if (!servicio || servicio.vertical !== VerticalKey.SEGUROS) {
+      throw new DomainException('Solicitud no encontrada', 404);
+    }
+
+    const doc = servicio as unknown as SegurosDoc;
+    if (doc.estadoSolicitud !== EstadoSolicitudSeguros.APROBADA) {
+      const { aprobadas } = await this.listarSolicitudes();
+      if (aprobadas >= MAX_ASEGURADORAS) {
+        throw new DomainException(
+          `Ya hay ${MAX_ASEGURADORAS} aseguradoras activas. Da de baja a una antes de aprobar otra.`,
+          409,
+        );
+      }
+    }
+
+    doc.estadoSolicitud = EstadoSolicitudSeguros.APROBADA;
+    doc.motivoRechazoSolicitud = undefined;
+    doc.revisadaEn = new Date();
+    servicio.estado = 'publicado';
+    await servicio.save();
+
+    return this.aVistaAdmin(doc, servicio);
+  }
+
+  /** Rechaza la solicitud con un motivo; la ficha vuelve a borrador y no se ve. */
+  async rechazarSolicitud(servicioId: string, motivo: string): Promise<SolicitudSegurosAdmin> {
+    const servicio = await this.servicioModel.findById(servicioId).exec();
+    if (!servicio || servicio.vertical !== VerticalKey.SEGUROS) {
+      throw new DomainException('Solicitud no encontrada', 404);
+    }
+
+    const doc = servicio as unknown as SegurosDoc;
+    doc.estadoSolicitud = EstadoSolicitudSeguros.RECHAZADA;
+    doc.motivoRechazoSolicitud = motivo;
+    doc.revisadaEn = new Date();
+    servicio.estado = 'borrador';
+    await servicio.save();
+
+    return this.aVistaAdmin(doc, servicio);
+  }
+
+  private aVistaAdmin(doc: SegurosDoc, servicio: ServicioDocument): SolicitudSegurosAdmin {
+    return {
+      servicioId: servicio._id.toString(),
+      comercioId: servicio.comercioId?.toString() ?? '',
+      titulo: servicio.titulo,
+      estadoSolicitud: doc.estadoSolicitud,
+      motivoRechazo: doc.motivoRechazoSolicitud,
+      revisadaEn: doc.revisadaEn,
+      solicitud: doc.solicitud as unknown as Record<string, unknown> | undefined,
+    };
+  }
+}
+
+/** Campos del discriminador sobre el documento base, que Mongoose no tipa. */
+interface SegurosDoc {
+  estadoSolicitud: EstadoSolicitudSeguros;
+  motivoRechazoSolicitud?: string;
+  revisadaEn?: Date;
+  solicitud?: unknown;
 }

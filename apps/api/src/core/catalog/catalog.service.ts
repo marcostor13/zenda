@@ -14,7 +14,7 @@ import { DomainException } from '../../shared/exceptions/domain.exception';
 import { campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
 import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
-  ServicioClinicoTipo, SERVICIOS_CLINICOS_EXCLUIDOS, HorarioDiaDto, ExcepcionHorarioDto,
+  ServicioClinicoTipo, esEspecialidadSuelta, HorarioDiaDto, ExcepcionHorarioDto, MIN_FOTOS_SERVICIO,
 } from 'shared';
 
 /** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
@@ -25,7 +25,7 @@ const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarD
   peluqueria: ['cuposDisponibles'],
   adiestramiento: ['cuposDisponibles'],
   hoteles: ['unidadesDisponibles'],
-  cuidadores: ['cuposDisponibles'],
+  funerarios: ['cuposDisponibles'],
 };
 
 /** Todos los campos propios de cada vertical (más allá de los del Servicio base), aceptados al crear/editar un listado. */
@@ -41,7 +41,8 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
     'tiposTransporteOfrecidos', 'precioExclusivo', 'requisitoMicrochip', 'requisitoVacunas',
     'caracteristicasVehiculo', 'serviciosAdicionales',
-    'radioCoberturaKm', 'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
+    'radioCoberturaKm', 'trayecto',
+    'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
     'maxPerrosPorTrayecto', 'antelacionMinimaHoras',
   ],
   veterinaria: [
@@ -57,24 +58,30 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
   adiestramiento: [
     'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma',
     'sesionesPorPrograma', 'edadMinimaMeses', 'aDomicilio', 'capacidadPorSesion',
-    'cuposDisponibles', 'serviciosAdiestramiento', 'valoracionInicial',
+    'cuposDisponibles', 'serviciosAdiestramiento', 'valoracionesIniciales',
+    // Fichas anteriores a los precios por modalidad guardaban una sola valoración.
+    'valoracionInicial',
   ],
   hoteles: [
     'admiteMascotas', 'maxMascotasPorReserva', 'pesoMaximoMascotaKg', 'razasRestringidas',
     'razasEspecificasRestringidas', 'especiesPermitidas', 'suplementoPorTamanoMascota',
     'suplementoSegundaMascotaPorNoche', 'serviciosPetfriendly', 'puedeQuedarseSoloEnHabitacion',
     'accesoZonasComunes', 'debeIrConCorrea', 'debeLlevarBozalSiCorresponde',
-    'checkIn', 'checkOut', 'fianza', 'unidadesDisponibles',
+    'checkIn', 'checkOut', 'fianza', 'unidadesDisponibles', 'espacios',
   ],
   seguros: [
     'tiposSeguro', 'limitesCobertura', 'condicionesAdmision', 'primaAnualBase',
     'descuentoPagoAnualPct', 'duracionMeses', 'renovacionAutomatica', 'cupoPolizas',
     'documentoCondicionesUrl',
+    // Alta por solicitud revisada a mano (no es un listado como los demás).
+    'solicitud', 'estadoSolicitud',
   ],
-  cuidadores: [
-    'modalidades', 'precioPaseo', 'precioVisita', 'precioDiaCompleto', 'precioNoche',
-    'duracionPaseoMin', 'duracionVisitaMin', 'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP',
-    'administraMedicacion', 'radioDesplazamientoKm', 'cuposDisponibles',
+  funerarios: [
+    'serviciosFunerarios', 'tiposServicioFunerario', 'extras', 'ofreceRecogida', 'radioRecogidaKm', 'modoPrecioRecogida',
+    'precioRecogida', 'precioRecogidaPorKm', 'zonasRecogida', 'lugaresRecogida',
+    'servicioUrgente', 'atiende24h', 'suplementoUrgencia', 'franjasDisponibles',
+    'declaraAutorizaciones', 'cremacionPropia', 'terceroCrematorio',
+    'politicaCancelacionFunerario', 'cuposDisponibles',
   ],
 };
 
@@ -86,8 +93,10 @@ const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
   peluqueria: [],
   adiestramiento: ['precioSesion'],
   hoteles: [],
-  seguros: ['primaAnualBase', 'tiposSeguro'],
-  cuidadores: ['modalidades'],
+  // Seguros no exige nada al crear: lo que se entrega es una solicitud de alta
+  // con su documentación, y las coberturas y primas se configuran al aprobarla.
+  seguros: [],
+  funerarios: ['serviciosFunerarios'],
 };
 
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
@@ -423,7 +432,7 @@ export class CatalogService {
     // Un comercio pendiente de aprobación puede preparar sus listados, pero no
     // aparecen en el buscador hasta que el admin lo activa (HU J1).
     const comercio = await this.comercioModel
-      .findById(comercioId).select('estado').lean().exec();
+      .findById(comercioId).select('estado altaCompletada').lean().exec();
 
     const doc = await this.repo.crear({
       vertical: dto.vertical,
@@ -443,10 +452,30 @@ export class CatalogService {
       imagenes: dto.imagenes ?? [],
       comercioId,
       comercioActivo: comercio?.estado === 'activo',
+      estado: this.estadoInicial(dto.imagenes ?? [], comercio),
       extra,
       aptitud: dto.aptitud,
     });
     return this.toCard(doc as unknown as ServicioLean);
+  }
+
+  /**
+   * Una ficha nueva nace publicada, no aparcada en borrador.
+   *
+   * Dejarla en borrador obligaba a rematar el alta y volver a entrar por «Mis
+   * servicios» a darle a publicar, un paso que nadie asocia con «ya he
+   * terminado». Nace publicada sólo si de verdad se podría publicar a mano
+   * —mismas condiciones que {@link ComerciosService.cambiarEstadoServicio}—;
+   * si no, sigue en borrador y se publica sola al cerrar el alta.
+   *
+   * Salir publicada no la pone en el buscador todavía: eso lo decide
+   * `comercioActivo`, que sólo es cierto con el negocio ya aprobado.
+   */
+  private estadoInicial(
+    imagenes: string[], comercio: { altaCompletada?: boolean } | null,
+  ): 'borrador' | 'publicado' {
+    const cumple = comercio?.altaCompletada === true && imagenes.length >= MIN_FOTOS_SERVICIO;
+    return cumple ? 'publicado' : 'borrador';
   }
 
   async actualizarServicio(
@@ -596,16 +625,35 @@ export class CatalogService {
       // no bloquear al comercio, pero no se puede crear nada nuevo así.
       if (tipo === undefined) continue;
 
-      if (permitidos.includes(tipo)) continue;
+      if (!permitidos.includes(tipo)) {
+        throw new DomainException(
+          `"${tipo}" no está en el catálogo de servicios veterinarios reservables.`, 400,
+        );
+      }
 
-      const excluido = SERVICIOS_CLINICOS_EXCLUIDOS.some((e) => tipo.toLowerCase().includes(e));
-      throw new DomainException(
-        excluido
-          ? 'Doogking no intermedia reservas de dermatología ni cirugía: esos tratamientos se presupuestan y facturan directamente con el cliente.'
-          : `"${tipo}" no está en el catálogo de servicios veterinarios reservables.`,
-        400,
-      );
+      if (tipo === ServicioClinicoTipo.OTRO) {
+        this.validarServicioLibre(servicio['nombre'] as string | undefined);
+      }
     }
+  }
+
+  /**
+   * La regla de oro de `veterinarios.md`: si el cliente no puede saber cuánto
+   * va a pagar antes de acudir, eso no se publica como reserva directa. Una
+   * especialidad suelta —«cardiología»— describe a quién ves, no lo que cuesta.
+   */
+  private validarServicioLibre(nombre?: string): void {
+    if (!nombre?.trim()) {
+      throw new DomainException('Ponle nombre al servicio que has añadido.', 400);
+    }
+    if (!esEspecialidadSuelta(nombre)) return;
+
+    throw new DomainException(
+      `"${nombre.trim()}" es una especialidad, no un servicio con precio. Publica el acto concreto ` +
+      `—por ejemplo «Primera consulta de ${nombre.trim().toLowerCase()}» con su importe—, ` +
+      'que es lo que el cliente puede reservar y pagar.',
+      400,
+    );
   }
 
   /**
@@ -729,7 +777,8 @@ export class CatalogService {
       'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
       // transporte de animales
       'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'tarifaEsperaPorHora', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
-      'radioCoberturaKm', 'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
+      'radioCoberturaKm', 'trayecto',
+      'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
       'maxPerrosPorTrayecto', 'antelacionMinimaHoras',
       // veterinaria
       'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia', 'citasDisponibles', 'atiendeUrgencias', 'precioConsulta', 'especiesAtendidas',
@@ -739,19 +788,25 @@ export class CatalogService {
       'razasEspecificas', 'requiereVacunasAlDia', 'requiereMicrochip',
       // adiestramiento canino
       'tiposAdiestramiento', 'modalidad', 'precioSesion', 'precioPrograma', 'sesionesPorPrograma', 'edadMinimaMeses', 'capacidadPorSesion',
-      'serviciosAdiestramiento', 'valoracionInicial',
+      'serviciosAdiestramiento', 'valoracionesIniciales', 'valoracionInicial',
       // hotel pet-friendly
       'admiteMascotas', 'maxMascotasPorReserva', 'pesoMaximoMascotaKg', 'razasRestringidas',
       'razasEspecificasRestringidas', 'especiesPermitidas', 'suplementoPorTamanoMascota',
       'suplementoSegundaMascotaPorNoche', 'serviciosPetfriendly', 'puedeQuedarseSoloEnHabitacion',
       'accesoZonasComunes', 'debeIrConCorrea', 'debeLlevarBozalSiCorresponde', 'fianza', 'unidadesDisponibles',
+      // Los tipos de habitación del hotel viajan en `espacios`, igual que los
+      // de alojamiento: el detalle público ya sabe pintarlos con sus fotos.
       // seguros
       'tiposSeguro', 'limitesCobertura', 'condicionesAdmision', 'primaAnualBase',
       'descuentoPagoAnualPct', 'duracionMeses', 'renovacionAutomatica', 'documentoCondicionesUrl',
-      // paseadores y cuidado a domicilio
-      'modalidades', 'precioPaseo', 'precioVisita', 'precioDiaCompleto', 'precioNoche',
-      'duracionPaseoMin', 'duracionVisitaMin', 'tareasIncluidas', 'tamanosAdmitidos', 'aceptaPPP',
-      'administraMedicacion', 'radioDesplazamientoKm',
+      // La solicitud no se proyecta en el detalle público: son datos de contacto
+      // y documentación privada. Sólo viaja su estado.
+      'estadoSolicitud',
+      // servicios funerarios
+      'serviciosFunerarios', 'tiposServicioFunerario', 'extras', 'ofreceRecogida', 'radioRecogidaKm', 'modoPrecioRecogida',
+      'precioRecogida', 'precioRecogidaPorKm', 'zonasRecogida', 'lugaresRecogida',
+      'servicioUrgente', 'atiende24h', 'suplementoUrgencia', 'franjasDisponibles',
+      'cremacionPropia', 'terceroCrematorio', 'politicaCancelacionFunerario',
       // comunes a citas/cupos
       'cuposDisponibles',
     ];

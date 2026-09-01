@@ -26,11 +26,13 @@ interface ReglaDisponibilidad {
 /**
  * Añadir un vertical es añadir una entrada aquí; el core no cambia.
  *
- * Transporte y hoteles no aparecen porque su formulario ya pide el
- * contador directamente, así que no hay nada que deducir.
+ * Transporte no aparece porque su formulario ya pide el contador
+ * directamente, así que no hay nada que deducir.
  */
 export const CONTADOR_DISPONIBILIDAD: Record<string, ReglaDisponibilidad> = {
   alojamiento:    { contador: 'espaciosDisponibles', origen: 'espacios', sumaCantidades: true },
+  // El hotel declara sus tipos de habitación; las plazas son la suma de todos.
+  hoteles:        { contador: 'unidadesDisponibles',  origen: 'espacios', sumaCantidades: true },
   veterinaria:    { contador: 'citasDisponibles',    origen: 'citasPorDia' },
   peluqueria:     { contador: 'cuposDisponibles',    origen: 'capacidadSimultanea' },
   adiestramiento: { contador: 'cuposDisponibles',    origen: 'capacidadPorSesion' },

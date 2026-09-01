@@ -437,6 +437,29 @@ describe('ComerciosService', () => {
       expect(servicioModel.updateMany).not.toHaveBeenCalled();
     });
 
+    /**
+     * El alta guiada crea la ficha antes de pedir los datos del negocio, así que
+     * nace en borrador. Cerrar el alta es el momento en que ya cumple: dejarla
+     * igualmente en borrador obligaba a ir a «Mis servicios» a darle a publicar,
+     * un paso que nadie asocia con «ya he terminado».
+     */
+    it('debería publicar los servicios que esperaban al cerrar el alta', async () => {
+      await service.actualizarComercio(comercioId, { altaCompletada: true });
+
+      const [filtro, cambios] = servicioModel.updateMany!.mock.calls.at(-1)!;
+      expect(filtro).toMatchObject({ estado: 'borrador' });
+      // Sólo las que llegan al mínimo de fotos: es la otra condición de publicar.
+      expect(filtro['imagenes.4']).toEqual({ $exists: true });
+      expect(cambios).toEqual({ $set: { estado: 'publicado' } });
+    });
+
+    it('no debería publicar nada al aparcar el alta', async () => {
+      // «Todavía no tengo los datos»: la ficha sigue guardada, pero no sale.
+      await service.actualizarComercio(comercioId, { altaCompletada: false });
+
+      expect(servicioModel.updateMany).not.toHaveBeenCalled();
+    });
+
     it('debería sellar la fecha y la versión de los consentimientos', async () => {
       // Si la marca la pusiera el cliente, la prueba de consentimiento —para lo
       // único que sirve guardar esto— no valdría nada.
@@ -673,6 +696,29 @@ describe('ComerciosService', () => {
       await expect(service.cambiarEstadoServicio(servicioId, comercioId, 'pausado')).resolves.toBeDefined();
     });
 
+    /** Una ficha sin fotos ya no se publica; las pruebas de otra cosa las traen. */
+    const FOTOS_OK = ['/1.jpg', '/2.jpg', '/3.jpg', '/4.jpg', '/5.jpg'];
+
+    it('debería impedir publicar una ficha con menos de cinco fotos', async () => {
+      // En un marketplace de reservas la foto es el producto: con dos no se ve
+      // el sitio y la ficha no la reserva nadie.
+      mockServicioActual({ vertical: 'peluqueria', cuposDisponibles: 3, imagenes: ['/1.jpg', '/2.jpg'] });
+
+      await expect(service.cambiarEstadoServicio(servicioId, comercioId, 'publicado'))
+        .rejects.toThrow('al menos 5 fotos');
+    });
+
+    it('debería dejar pausar una ficha sin fotos suficientes', async () => {
+      // La regla es para salir al buscador; retirarse de él nunca se bloquea.
+      mockServicioActual({ vertical: 'peluqueria', cuposDisponibles: 3, imagenes: [] });
+      servicioModel.findOneAndUpdate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ _id: servicioId }),
+      });
+
+      await expect(service.cambiarEstadoServicio(servicioId, comercioId, 'pausado'))
+        .resolves.toBeDefined();
+    });
+
     it('debería lanzar 404 si el servicio no es de ese comercio', async () => {
       mockServicioActual(null);
 
@@ -684,7 +730,7 @@ describe('ComerciosService', () => {
       // Publicar con el contador a cero dejaba el listado invisible en la web
       // pese a figurar como publicado en el panel.
       mockServicioActual({
-        vertical: 'peluqueria', cuposDisponibles: 0, capacidadSimultanea: 3,
+        vertical: 'peluqueria', cuposDisponibles: 0, capacidadSimultanea: 3, imagenes: FOTOS_OK,
       });
       servicioModel.findOneAndUpdate = jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue({ _id: servicioId }),
@@ -698,7 +744,7 @@ describe('ComerciosService', () => {
 
     it('no debería tocar un contador que ya tiene plazas', async () => {
       mockServicioActual({
-        vertical: 'peluqueria', cuposDisponibles: 5, capacidadSimultanea: 3,
+        vertical: 'peluqueria', cuposDisponibles: 5, capacidadSimultanea: 3, imagenes: FOTOS_OK,
       });
       servicioModel.findOneAndUpdate = jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue({ _id: servicioId }),

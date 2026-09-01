@@ -4,6 +4,20 @@ import { Servicio } from '../../core/catalog/servicio.schema';
 
 export type HotelesDocument = HydratedDocument<Hoteles>;
 
+/** Un tipo de habitación pet-friendly del hotel, con sus fotos propias. */
+export interface EspacioHotel {
+  id?: string;
+  /** Nombre del tipo tal como lo vende el hotel: «Doble pet-friendly», «Suite». */
+  tipo: string;
+  descripcion?: string;
+  precioNoche: number;
+  cantidad: number;
+  amenities?: string[];
+  imagenes?: string[];
+  disponible?: boolean;
+  cancelacionGratis?: boolean;
+}
+
 export type RazasRestringidas = 'ninguna' | 'ppp' | 'razas_gigantes' | 'especificas';
 
 export interface SuplementoPorTamanoMascota {
@@ -19,6 +33,18 @@ export interface SuplementoPorTamanoMascota {
  */
 @Schema({ _id: false })
 export class Hoteles extends Servicio {
+  /**
+   * Tipos de habitación pet-friendly que el hotel ofrece, cada uno con sus
+   * fotos. Comparte forma y nombre con los `espacios` de alojamiento a
+   * propósito: el detalle público, la agenda y el contador de plazas ya saben
+   * leer esa lista, así que el hotel entra en todo eso sin tocar el core.
+   *
+   * `unidadesDisponibles` se deduce de la suma de sus `cantidad`
+   * (`CONTADOR_DISPONIBILIDAD`), y no se pide a mano.
+   */
+  @Prop({ type: [Object], default: [] })
+  espacios!: EspacioHotel[];
+
   @Prop({ type: Boolean, default: true })
   admiteMascotas!: boolean;
 

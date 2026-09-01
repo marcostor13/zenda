@@ -237,7 +237,8 @@ type SearchMode = 'filtros' | 'ia';
       <figure class="why-banner" rsAnim>
         <picture>
           <source media="(min-width: 641px)" [srcset]="bandaPorQueEscritorio" />
-          <img [src]="bandaPorQue" alt="Una mujer abrazando a su perro en un banco del parque"
+          <img [src]="bandaPorQue"
+               alt="Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano"
                loading="lazy" rsImg />
         </picture>
       </figure>
@@ -568,12 +569,22 @@ type SearchMode = 'filtros' | 'ia';
       padding-block: var(--sp-8) var(--sp-20);
 
       @media (max-width: 900px) { padding-bottom: var(--sp-16); }
+
+      /* En movil la primera pantalla es el buscador: la firma de marca arranca
+         casi pegada a la barra para que logotipo y titular suban y dejen sitio
+         al bloque navy (feedback 2026-08-31). */
+      @media (max-width: 640px) { padding-top: var(--sp-3); }
     }
 
     .hero__main {
       position: relative;
       background: var(--dk-blue-deep);
       padding-block: var(--sp-10) 0;
+
+      /* "Encuentra el servicio perfecto..." sube hasta el borde mismo del
+         navy: la cupula (.hero__cap) vive fuera de este bloque, asi que el
+         titular puede empezar donde empieza el azul (feedback 2026-08-31). */
+      @media (max-width: 640px) { padding-top: 0; }
     }
 
     /*
@@ -636,6 +647,13 @@ type SearchMode = 'filtros' | 'ia';
       height: auto;
       margin-inline: auto;
       margin-bottom: var(--sp-2);
+
+      /* El JPG del logotipo trae aire propio arriba: en movil se compensa con
+         un margen negativo para que quede justo bajo la barra. */
+      @media (max-width: 640px) {
+        margin-top: calc(var(--sp-3) * -1);
+        margin-bottom: 0;
+      }
     }
 
     .hero__title {
@@ -682,6 +700,11 @@ type SearchMode = 'filtros' | 'ia';
     /* ══ BUSCADOR (titular sobre navy + tarjeta blanca, estilo Booking) ══ */
     .searchbox {
       animation: fadeUp .6s .1s ease both;
+
+      /* En movil el titular monta sobre la cupula: ahi el fondo ya es navy
+         (la curva sube 50px sobre el bloque), asi que el texto blanco se lee
+         igual y gana altura la tarjeta del buscador. */
+      @media (max-width: 640px) { margin-top: calc(var(--sp-3) * -1); }
     }
 
     .searchbox__head {
@@ -691,6 +714,8 @@ type SearchMode = 'filtros' | 'ia';
       flex-wrap: wrap;
       gap: var(--sp-3);
       margin-bottom: var(--sp-5);
+
+      @media (max-width: 640px) { gap: var(--sp-2); margin-bottom: var(--sp-4); }
     }
 
     .searchbox__question {
@@ -966,14 +991,15 @@ type SearchMode = 'filtros' | 'ia';
          que decide cuánto se recorta la foto. A 320px salía una tira de 4,4:1
          donde las personas se quedaban sin cabeza: ese formato sólo aguanta un
          paisaje. A 440px la proporción baja a ~3:1 y la escena se lee entera.
-         El 12% está medido sobre el recorte real de la foto actual; cambiarla
-         obliga a revisarlo. */
+         El 20% está medido sobre el recorte real de la foto actual —la familia
+         de porque-familia.jpg— y es lo que hace que entren las cuatro caras y
+         la cabeza del perro; cambiar la foto obliga a revisarlo. */
       img {
         display: block;
         width: 100%;
         height: 440px;
         object-fit: cover;
-        object-position: center 12%;
+        object-position: center 20%;
       }
 
       @media (max-width: 1024px) { img { height: 340px; } }
@@ -1708,19 +1734,19 @@ export class HomeComponent implements OnInit {
   readonly motivos = [
     {
       imagen: MOTIVOS_IMAGES.rapidez,
-      alt: 'Perro esperando feliz una reserva confirmada al momento',
+      alt: 'Una mano reservando en el buscador de Doogking desde el móvil mientras el perro espera al lado',
       titulo: 'Reserva en menos de un minuto',
       texto: 'Encuentra y reserva el servicio perfecto sin llamadas, sin esperas y con confirmación inmediata.',
     },
     {
       imagen: MOTIVOS_IMAGES.verificados,
-      alt: 'Instalación de un profesional canino validado por Doogking',
+      alt: 'Profesional canina mostrando en una tablet el sello de verificación de Doogking junto a un border collie',
       titulo: 'Profesionales verificados',
       texto: 'Cada empresa es validada antes de unirse a Doogking para que reserves con total confianza. Reseñas reales de clientes completan cada perfil.',
     },
     {
       imagen: MOTIVOS_IMAGES.atencion,
-      alt: 'Perro descansando tranquilo a cualquier hora',
+      alt: 'Agente de atención al cliente de Doogking con auriculares atendiendo de noche acompañada de un perro',
       titulo: 'Atención 24/7',
       texto: 'Siempre disponibles para ayudarte antes, durante y después de cada reserva.',
     },

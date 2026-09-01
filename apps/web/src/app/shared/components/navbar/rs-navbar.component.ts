@@ -24,6 +24,9 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
            se oculta el pequeño para no duplicarlo (PDF 27/07 §1). -->
       <a routerLink="/" class="rs-navbar__brand" aria-label="Doogking — inicio">
         <img [src]="logoD" alt="" aria-hidden="true" class="rs-navbar__mark" />
+        <!-- Solo en movil: ahi la barra se queda con la "D" suelta y el nombre
+             no se lee. En escritorio manda el logotipo. -->
+        <span class="rs-navbar__brandword">Doogking</span>
         @if (!soloMarcaD()) {
           <img src="/images/logo-doogking.jpg" alt="Doogking" class="rs-navbar__wordmark" />
         }
@@ -34,8 +37,9 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
            de categoría, porque el buscador del home ya no la duplica. -->
       <div class="rs-navbar__nav">
         @for (v of verticales; track v.key) {
-          <a [routerLink]="v.route" routerLinkActive="rs-navbar__link--active" class="rs-navbar__link">
-            <rs-icon [name]="v.icon" [size]="17" [stroke]="2"></rs-icon>
+          <a [routerLink]="v.route" routerLinkActive="rs-navbar__link--active"
+             class="rs-navbar__link rs-navbar__link--cat">
+            <img [src]="v.icono" alt="" aria-hidden="true" class="rs-navbar__link-icon" />
             {{ v.labelCorto }}
           </a>
         }
@@ -302,7 +306,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       align-items: center;
       gap: var(--sp-2);
       padding: var(--sp-2) var(--sp-3);
-      border: 1px solid var(--b-2);
+      border: 1px solid var(--dk-gold);
       border-radius: var(--r-full);
       background: var(--c-card);
       color: var(--t-300);
@@ -321,10 +325,64 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     .rs-navbar__cat-icon { width: 22px; height: 22px; flex-shrink: 0; }
     .rs-navbar__cat-label { font-size: var(--f-xs); font-weight: var(--w-6); }
 
+    /*
+     * Categorias en escritorio: la misma pastilla que la tira movil
+     * (.rs-navbar__cat) — icono de marca y marco dorado — para que la
+     * categoria se reconozca igual en las dos pantallas (feedback 2026-08-31).
+     */
+    .rs-navbar__link--cat {
+      background: var(--c-card);
+      border-color: var(--dk-gold);
+      /* Siete categorias tienen que caber en una sola fila: la pastilla usa la
+         misma escala tipografica que la tira movil (--f-xs) y un icono de 18px,
+         si no la fila se desborda y aparece el scroll lateral. */
+      gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3);
+      font-size: var(--f-xs);
+      font-weight: var(--w-6);
+
+      &:hover {
+        color: var(--dk-blue);
+        background: var(--c-accent-lo);
+        border-color: var(--dk-gold);
+      }
+
+      &.rs-navbar__link--active,
+      &.active {
+        color: var(--dk-blue);
+        background: var(--c-accent-lo);
+        border-color: var(--dk-gold);
+        box-shadow: inset 0 -2px 0 var(--dk-gold);
+      }
+    }
+    .rs-navbar__link-icon { width: 18px; height: 18px; flex-shrink: 0; display: block; }
+
     /* Marca: inicial "D" + logotipo */
     .rs-navbar__mark { height: 34px; width: 34px; display: block; flex-shrink: 0; }
     .rs-navbar__wordmark { height: 44px; width: auto; display: block; }
     @media (max-width: 1180px) { .rs-navbar__wordmark { display: none; } }
+
+    /* La palabra "Doogking" junto al isotipo: solo en movil, donde la barra se
+       queda con la "D" suelta. En escritorio el nombre lo pone el logotipo y la
+       fila de categorias necesita todo el ancho. */
+    .rs-navbar__brand .rs-navbar__brandword {
+      display: none;
+      font-family: var(--font-display);
+      font-size: var(--f-lg);
+      font-weight: var(--w-8);
+      letter-spacing: -.02em;
+      line-height: 1;
+      color: var(--dk-blue);
+      background: none;
+      -webkit-text-fill-color: currentColor;
+      white-space: nowrap;
+    }
+    @media (max-width: 768px) {
+      .rs-navbar__brand .rs-navbar__brandword { display: inline; }
+    }
+    @media (max-width: 420px) {
+      .rs-navbar__brand .rs-navbar__brandword { font-size: var(--f-base); }
+    }
 
     /* Acceso a soporte: siempre visible, con o sin sesión */
     .rs-navbar__ayuda {

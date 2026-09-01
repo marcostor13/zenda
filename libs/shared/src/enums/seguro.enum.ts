@@ -1,4 +1,21 @@
 /** Coberturas que puede ofrecer una aseguradora en Doogking (HU-038). */
+/**
+ * Una aseguradora no se da de alta como los demás comercios: entrega una
+ * solicitud con su documentación y Doogking la revisa a mano antes de dejarla
+ * publicar nada. Estos son los tres estados de ese trámite.
+ */
+export enum EstadoSolicitudSeguros {
+  PENDIENTE = 'pendiente',
+  APROBADA = 'aprobada',
+  RECHAZADA = 'rechazada',
+}
+
+export const ESTADO_SOLICITUD_SEGUROS_LABELS: Record<EstadoSolicitudSeguros, string> = {
+  [EstadoSolicitudSeguros.PENDIENTE]: 'Pendiente de revisión',
+  [EstadoSolicitudSeguros.APROBADA]: 'Aprobada',
+  [EstadoSolicitudSeguros.RECHAZADA]: 'No aprobada',
+};
+
 export enum TipoSeguro {
   RC_OBLIGATORIA = 'rc_obligatoria',
   RC_AMPLIADA = 'rc_ampliada',

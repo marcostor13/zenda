@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { VerticalKey } from 'shared';
 import { ComercioAgendaComponent } from './comercio-agenda.component';
@@ -26,12 +27,14 @@ describe('ComercioAgendaComponent', () => {
       getBloqueos: jest.fn().mockReturnValue(of(datos.bloqueos ?? [])),
       getCitasAgenda: jest.fn().mockReturnValue(of(datos.citas ?? [])),
       crearBloqueo: jest.fn().mockReturnValue(of({ _id: 'b9' })),
+      actualizarBloqueo: jest.fn().mockReturnValue(of({ _id: 'b1' })),
       eliminarBloqueo: jest.fn().mockReturnValue(of(undefined)),
     };
 
     await TestBed.configureTestingModule({
       imports: [ComercioAgendaComponent],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ComercioApiService, useValue: api },
@@ -283,6 +286,213 @@ describe('ComercioAgendaComponent', () => {
       const tarjeta = componente.diasDeLaSemana()[0].tarjetas[0];
       expect(tarjeta.top).toBe(0);
       expect(tarjeta.alto).toBeLessThanOrEqual(15 * componente.ALTO_HORA);
+    });
+  });
+
+  describe('descripción de lo que ocupa cada día', () => {
+    /**
+     * En alojamiento la celda enseñaba sólo un recuento, y un «2» no dice si son
+     * reservas de Doogking o cierres propios: había que abrir el día para verlo.
+     */
+    it('debería describir el bloqueo en la celda del mes', async () => {
+      const desde = enDias(1);
+      await crear([servicio({ vertical: VerticalKey.ALOJAMIENTO })], {
+        bloqueos: [{
+          _id: 'b1', servicioId: 's1', motivo: 'Reservado por teléfono', cantidad: 2,
+          desde: desde.toISOString(), hasta: enDias(2).toISOString(),
+        }],
+      });
+
+      const dia = componente.diasDelMes().find((d) => d.clave === claveDe(desde))!;
+      expect(dia.items).toEqual([{
+        id: 'b1', tipo: 'bloqueo',
+        titulo: 'Reservado por teléfono', subtitulo: '2 plazas cerradas',
+      }]);
+    });
+
+    it('debería describir la reserva con su cliente, su perro y su estado', async () => {
+      const desde = enDias(1);
+      await crear([servicio({ vertical: VerticalKey.ALOJAMIENTO })], {
+        citas: [{
+          _id: 'r1', codigo: 'RES-1', servicioId: 's1', estado: 'confirmada',
+          cliente: 'Ana', perro: 'Toby',
+          desde: desde.toISOString(), hasta: enDias(2).toISOString(),
+        }],
+      });
+
+      const dia = componente.diasDelMes().find((d) => d.clave === claveDe(desde))!;
+      expect(dia.items[0].titulo).toBe('Ana · Toby');
+      expect(dia.items[0].subtitulo).toBe('Reserva RES-1 · Confirmada');
+    });
+
+    it('debería resumir en «+N» lo que no cabe en la celda', async () => {
+      const desde = enDias(1);
+      const hasta = enDias(2);
+      await crear([servicio({ vertical: VerticalKey.ALOJAMIENTO })], {
+        citas: [1, 2, 3].map((n) => ({
+          _id: `r${n}`, codigo: `RES-${n}`, servicioId: 's1', estado: 'confirmada',
+          cliente: `Cliente ${n}`,
+          desde: desde.toISOString(), hasta: hasta.toISOString(),
+        })),
+      });
+
+      const dia = componente.diasDelMes().find((d) => d.clave === claveDe(desde))!;
+      expect(dia.visibles).toHaveLength(2);
+      expect(dia.ocultos).toBe(1);
+      // El detalle del día sigue teniendo las tres, que es donde se consultan.
+      expect(dia.items).toHaveLength(3);
+    });
+
+    it('debería poner las reservas por delante de los cierres al resumir', async () => {
+      // Si el día se resume, lo que no puede faltar es lo que entró por la
+      // plataforma: es dinero comprometido con un cliente.
+      const desde = enDias(1);
+      const hasta = enDias(2);
+      await crear([servicio({ vertical: VerticalKey.ALOJAMIENTO })], {
+        bloqueos: [{
+          _id: 'b1', servicioId: 's1', motivo: 'Obras', cantidad: 1,
+          desde: desde.toISOString(), hasta: hasta.toISOString(),
+        }],
+        citas: [{
+          _id: 'r1', codigo: 'RES-1', servicioId: 's1', estado: 'pendiente', cliente: 'Ana',
+          desde: desde.toISOString(), hasta: hasta.toISOString(),
+        }],
+      });
+
+      const dia = componente.diasDelMes().find((d) => d.clave === claveDe(desde))!;
+      expect(dia.items.map((i) => i.tipo)).toEqual(['reserva', 'bloqueo']);
+    });
+  });
+
+  describe('abrir lo que hay en el calendario', () => {
+    const conBloqueoYCita = async (): Promise<Date> => {
+      const desde = enDias(1);
+      await crear([servicio({ vertical: VerticalKey.ALOJAMIENTO })], {
+        bloqueos: [{
+          _id: 'b1', servicioId: 's1', motivo: 'Reservado por teléfono', cantidad: 2,
+          desde: desde.toISOString(), hasta: enDias(3).toISOString(),
+        }],
+        citas: [{
+          _id: 'r1', codigo: 'RES-1', servicioId: 's1', estado: 'confirmada', cliente: 'Ana',
+          desde: desde.toISOString(), hasta: enDias(2).toISOString(),
+        }],
+      });
+      return desde;
+    };
+
+    it('debería abrir el detalle del día al pinchar una celda', async () => {
+      const desde = await conBloqueoYCita();
+      const dia = componente.diasDelMes().find((d) => d.clave === claveDe(desde))!;
+
+      componente.abrirDia(dia);
+
+      expect(componente.diaAbierto()?.items).toHaveLength(2);
+    });
+
+    it('debería abrir el bloqueo en modo edición, ya relleno', async () => {
+      await conBloqueoYCita();
+
+      componente.abrirItem('bloqueo', 'b1');
+
+      expect(componente.bloqueoEditando()?._id).toBe('b1');
+      expect(componente.cierreAbierto()).toBe(true);
+      expect(componente.formMotivo).toBe('Reservado por teléfono');
+      expect(componente.formCantidad).toBe(2);
+    });
+
+    /**
+     * Una reserva no se edita desde la agenda: cambiarla afecta al cliente y al
+     * cobro, así que se consulta y se gestiona desde su ficha.
+     */
+    it('debería abrir la reserva en sólo lectura', async () => {
+      await conBloqueoYCita();
+
+      componente.abrirItem('reserva', 'r1');
+
+      expect(componente.citaAbierta()?.codigo).toBe('RES-1');
+      expect(componente.cierreAbierto()).toBe(false);
+    });
+
+    it('debería precargar el día elegido al bloquearlo desde su detalle', async () => {
+      const desde = await conBloqueoYCita();
+      const dia = componente.diasDelMes().find((d) => d.clave === claveDe(desde))!;
+
+      componente.bloquearEsteDia(dia);
+
+      expect(componente.formDesde).toBe(claveDe(desde));
+      expect(componente.formHasta).toBe(claveDe(enDias(2)));
+    });
+  });
+
+  describe('editar un tramo cerrado', () => {
+    const abrirEdicion = async (): Promise<void> => {
+      const desde = enDias(1);
+      await crear([servicio({ vertical: VerticalKey.ALOJAMIENTO })], {
+        bloqueos: [{
+          _id: 'b1', servicioId: 's1', motivo: 'Reservado por teléfono', cantidad: 2,
+          desde: desde.toISOString(), hasta: enDias(3).toISOString(),
+        }],
+      });
+      componente.abrirCierre(componente.bloqueos()[0]);
+    };
+
+    it('debería guardar los cambios sobre el tramo existente', async () => {
+      await abrirEdicion();
+      componente.formMotivo = 'Reservado por WhatsApp';
+      componente.formCantidad = 3;
+
+      await componente.guardarCierre();
+
+      expect(api['crearBloqueo']).not.toHaveBeenCalled();
+      expect(api['actualizarBloqueo']).toHaveBeenCalledWith('b1', expect.objectContaining({
+        motivo: 'Reservado por WhatsApp', cantidad: 3,
+      }));
+      expect(componente.cierreAbierto()).toBe(false);
+    });
+
+    /**
+     * Vacío significa «cierro el servicio entero». Al editar hay que decirlo con
+     * `null`: omitir el campo dejaría puesta la cantidad anterior.
+     */
+    it('debería mandar null al pasar de cierre parcial a cierre entero', async () => {
+      await abrirEdicion();
+      componente.formCantidad = null;
+
+      await componente.guardarCierre();
+
+      expect(api['actualizarBloqueo']).toHaveBeenCalledWith('b1', expect.objectContaining({
+        cantidad: null,
+      }));
+    });
+
+    it('debería seguir creando cuando no se está editando nada', async () => {
+      await crear([servicio({ vertical: VerticalKey.ALOJAMIENTO })]);
+      componente.abrirCierre();
+      componente.formMotivo = 'Vacaciones';
+
+      await componente.guardarCierre();
+
+      expect(api['crearBloqueo']).toHaveBeenCalled();
+      expect(api['actualizarBloqueo']).not.toHaveBeenCalled();
+    });
+
+    it('debería avisar si la edición falla', async () => {
+      await abrirEdicion();
+      api['actualizarBloqueo'].mockReturnValue(throwError(() => new Error('500')));
+
+      await componente.guardarCierre();
+
+      expect(componente.errorModal()).toContain('No pudimos guardar');
+      expect(componente.cierreAbierto()).toBe(true);
+    });
+
+    it('debería cerrar el diálogo al reabrir el tramo que se estaba editando', async () => {
+      await abrirEdicion();
+
+      await componente.reabrir(componente.bloqueos()[0]);
+
+      expect(api['eliminarBloqueo']).toHaveBeenCalledWith('b1');
+      expect(componente.cierreAbierto()).toBe(false);
     });
   });
 

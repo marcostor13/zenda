@@ -123,14 +123,14 @@ export const routes: Routes = [
           import('./features/verticales/vertical-detalle.component').then((m) => m.VerticalDetalleComponent),
       },
       {
-        path: 'cuidadores',
-        data: { vertical: 'cuidadores' },
+        path: 'funerarios',
+        data: { vertical: 'funerarios' },
         loadComponent: () =>
           import('./features/verticales/vertical-browse.component').then((m) => m.VerticalBrowseComponent),
       },
       {
-        path: 'cuidadores/:id',
-        data: { vertical: 'cuidadores' },
+        path: 'funerarios/:id',
+        data: { vertical: 'funerarios' },
         loadComponent: () =>
           import('./features/verticales/vertical-detalle.component').then((m) => m.VerticalDetalleComponent),
       },

@@ -408,6 +408,31 @@ export interface ActualizarUsuarioDto {
   permisosAdmin?: string[];
 }
 
+/** Solicitud de alta de una aseguradora, con lo que declaró y sus documentos. */
+export interface SolicitudSeguros {
+  servicioId: string;
+  comercioId: string;
+  titulo: string;
+  estadoSolicitud: string;
+  motivoRechazo?: string;
+  revisadaEn?: string;
+  creadaEn?: string;
+  solicitud?: {
+    contacto?: { nombre?: string; cargo?: string; email?: string; telefono?: string };
+    aseguradora?: { razonSocial?: string; nifCif?: string; registroDgs?: string; web?: string; ambito?: string };
+    documentos?: Array<{ nombre: string; url: string }>;
+    notas?: string;
+    enviadaEn?: string;
+  };
+}
+
+export interface ListadoSolicitudesSeguros {
+  solicitudes: SolicitudSeguros[];
+  aprobadas: number;
+  plazasLibres: number;
+  maximo: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminApiService {
   private readonly http = inject(HttpClient);
@@ -616,6 +641,24 @@ export class AdminApiService {
 
   eliminarCupon(id: string): Observable<void> {
     return this.http.delete<void>(`${this.cuponesUrl}/${id}`);
+  }
+
+  // ── Aseguradoras (alta por solicitud revisada) ───────────────────────────────
+
+  solicitudesSeguros(): Observable<ListadoSolicitudesSeguros> {
+    return this.http.get<ListadoSolicitudesSeguros>(`${environment.apiUrl}/seguros/solicitudes`);
+  }
+
+  aprobarSolicitudSeguros(servicioId: string): Observable<SolicitudSeguros> {
+    return this.http.patch<SolicitudSeguros>(
+      `${environment.apiUrl}/seguros/solicitudes/${servicioId}/aprobar`, {},
+    );
+  }
+
+  rechazarSolicitudSeguros(servicioId: string, motivo: string): Observable<SolicitudSeguros> {
+    return this.http.patch<SolicitudSeguros>(
+      `${environment.apiUrl}/seguros/solicitudes/${servicioId}/rechazar`, { motivo },
+    );
   }
 
   // ── Reportes ─────────────────────────────────────────────────────────────────

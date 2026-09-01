@@ -5,16 +5,22 @@ import { Servicio } from '../../core/catalog/servicio.schema';
 export type AdiestramientoDocument = HydratedDocument<Adiestramiento>;
 
 export type ModalidadAdiestramiento = 'sesion' | 'programa';
-export type TipoServicioAdiestramiento = 'valoracion' | 'individual' | 'grupal' | 'curso' | 'especial';
+export type TipoServicioAdiestramiento = 'individual' | 'grupal' | 'curso' | 'especial';
 export type LugarAdiestramiento = 'centro' | 'domicilio' | 'online';
 export type ModalidadValoracion = 'presencial' | 'online' | 'domicilio';
+/** Un curso puede durar minutos, horas, días o meses: el centro elige la unidad. */
+export type UnidadDuracionAdiestramiento = 'minutos' | 'horas' | 'dias' | 'meses';
 
 /** Catálogo de servicios/técnicas configurable por checkbox (docs/mejora_servicios.md §3.1). */
 export interface ServicioAdiestramiento {
   nombre: string;
   tipo: TipoServicioAdiestramiento;
   precio: number;
+  /** Duración normalizada a minutos: es la que usan disponibilidad y agenda. */
   duracionMin?: number;
+  /** Duración tal y como la declara el centro (2 horas, 3 meses…). */
+  duracionValor?: number;
+  duracionUnidad?: UnidadDuracionAdiestramiento;
   maxPerros?: number;
   edadMinimaMeses?: number;
   edadMaximaMeses?: number;
@@ -37,8 +43,12 @@ export class Adiestramiento extends Servicio {
   @Prop({ type: [Object], default: [] })
   serviciosAdiestramiento!: ServicioAdiestramiento[];
 
-  @Prop({ type: Object })
-  valoracionInicial?: ValoracionInicial;
+  /**
+   * Valoración inicial por modalidad: el centro publica el precio de las que
+   * ofrece (una, dos o las tres) y omite las que no.
+   */
+  @Prop({ type: [Object], default: [] })
+  valoracionesIniciales!: ValoracionInicial[];
 
   @Prop({ type: String, default: 'sesion' })
   modalidad!: ModalidadAdiestramiento;

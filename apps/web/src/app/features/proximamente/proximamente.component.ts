@@ -482,6 +482,7 @@ export class ProximamenteComponent {
     { icono: CATEGORIA_ICONOS['transporte'], label: 'Transporte' },
     { icono: CATEGORIA_ICONOS['adiestramiento'], label: 'Adiestradores' },
     { icono: CATEGORIA_ICONOS['seguros'], label: 'Seguros' },
+    { icono: CATEGORIA_ICONOS['funerarios'], label: 'Servicios funerarios' },
     { icono: CATEGORIA_ICONOS['explora'], label: 'Explora con tu mascota' },
   ];
 

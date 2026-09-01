@@ -1,9 +1,10 @@
 import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { BloqueoDto, CitaAgendaDto, VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { claveDia, celdasDelMes, hoyLocal } from '../../shared/fechas';
+import { claveDia, celdasDelMes, desdeClaveDia, hoyLocal } from '../../shared/fechas';
 import { ComercioApiService, MiServicio } from './comercio-api.service';
 
 /**
@@ -19,6 +20,50 @@ const HORA_FIN = 22;
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
 const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
+/**
+ * Descripciones que caben en una celda del mes antes de resumir en «+N más».
+ * Con más, la celda deja de leerse de un vistazo, que es para lo que sirve.
+ */
+const MAX_DESCRIPCIONES = 2;
+
+/** Mismas etiquetas que el panel de reservas, para no llamar a lo mismo de dos formas. */
+const ESTADO_LABEL: Record<string, string> = {
+  pendiente: 'Pendiente', confirmada: 'Confirmada', en_curso: 'En curso',
+  completada: 'Completada', cancelada: 'Cancelada', no_show: 'No se presentó',
+  ajuste_solicitado: 'Ajuste solicitado', pago_retenido: 'Pago retenido',
+  pago_liberado: 'Pago liberado', en_disputa: 'En disputa', reembolsada: 'Reembolsada',
+};
+
+const ESTADO_BADGE: Record<string, string> = {
+  pendiente: 'rs-badge--warning', confirmada: 'rs-badge--success', en_curso: 'rs-badge--accent',
+  completada: 'rs-badge--accent', cancelada: 'rs-badge--error', no_show: 'rs-badge--neutral',
+  ajuste_solicitado: 'rs-badge--warning', pago_retenido: 'rs-badge--warning',
+  pago_liberado: 'rs-badge--success', en_disputa: 'rs-badge--error', reembolsada: 'rs-badge--neutral',
+};
+
+/**
+ * Lo que ocupa un día, ya redactado: quién ha reservado o por qué está cerrado.
+ *
+ * El recuento a secas («2») no distinguía una reserva de Doogking de un cierre
+ * propio, que es justo lo que el comercio necesita saber sin abrir nada.
+ */
+interface ItemAgenda {
+  id: string;
+  tipo: 'reserva' | 'bloqueo';
+  /** Primera línea: el cliente y su perro, o el motivo del cierre. */
+  titulo: string;
+  /** Segunda línea: código y estado de la reserva, o plazas cerradas. */
+  subtitulo: string;
+}
+
+/** Recuento y descripciones de un día concreto del inventario. */
+interface MarcasDia {
+  bloqueadas: number;
+  reservadas: number;
+  cerradoDelTodo: boolean;
+  items: ItemAgenda[];
+}
+
 /** Un día de la rejilla mensual del inventario. */
 interface DiaInventario {
   clave: string;
@@ -31,6 +76,11 @@ interface DiaInventario {
   /** Reservas de Doogking que ocupan ese día. */
   reservadas: number;
   cerradoDelTodo: boolean;
+  /** Todo lo que ocupa el día, descrito; lo que se lista al abrirlo. */
+  items: ItemAgenda[];
+  /** Las descripciones que caben en la celda, y cuántas quedan fuera. */
+  visibles: ItemAgenda[];
+  ocultos: number;
 }
 
 /** Una tarjeta de la rejilla semanal, ya situada en píxeles. */
@@ -63,7 +113,7 @@ interface TarjetaSemana {
 @Component({
   selector: 'app-comercio-agenda',
   standalone: true,
-  imports: [FormsModule, RsIconComponent],
+  imports: [FormsModule, RouterLink, RsIconComponent],
   template: `
     <div class="ag">
       <header class="ag__head">
@@ -139,27 +189,28 @@ interface TarjetaSemana {
 
             <div class="inv__rejilla">
               @for (c of diasDelMes(); track c.clave) {
-                <div class="inv-dia"
-                     [class.inv-dia--fuera]="!c.delMes"
-                     [class.inv-dia--pasado]="c.pasado"
-                     [class.inv-dia--hoy]="c.esHoy"
-                     [class.inv-dia--lleno]="c.cerradoDelTodo">
+                <button type="button" class="inv-dia"
+                        [class.inv-dia--fuera]="!c.delMes"
+                        [class.inv-dia--pasado]="c.pasado"
+                        [class.inv-dia--hoy]="c.esHoy"
+                        [class.inv-dia--lleno]="c.cerradoDelTodo"
+                        [attr.aria-label]="resumenDia(c)"
+                        (click)="abrirDia(c)">
                   <span class="inv-dia__num">{{ c.dia }}</span>
-                  @if (c.reservadas || c.bloqueadas) {
-                    <span class="inv-dia__marcas">
-                      @if (c.reservadas) {
-                        <span class="marca marca--reserva" [attr.title]="c.reservadas + ' reservadas'">
-                          {{ c.reservadas }}
-                        </span>
+                  <!-- Con el recuento a secas, un «2» no decía si eran reservas de
+                       Doogking o cierres propios: había que abrir el día para saberlo. -->
+                  @if (c.items.length) {
+                    <span class="inv-dia__items">
+                      @for (it of c.visibles; track it.tipo + it.id) {
+                        <span class="chip" [class.chip--bloqueo]="it.tipo === 'bloqueo'"
+                              [attr.title]="it.titulo + ' · ' + it.subtitulo">{{ it.titulo }}</span>
                       }
-                      @if (c.bloqueadas) {
-                        <span class="marca marca--bloqueo" [attr.title]="c.bloqueadas + ' bloqueadas por ti'">
-                          {{ c.cerradoDelTodo ? 'Cerrado' : c.bloqueadas }}
-                        </span>
+                      @if (c.ocultos) {
+                        <span class="chip chip--mas">+{{ c.ocultos }} más</span>
                       }
                     </span>
                   }
-                </div>
+                </button>
               }
             </div>
           </div>
@@ -185,12 +236,13 @@ interface TarjetaSemana {
                     <div class="sem-dia__lienzo">
                       @for (h of horas; track h) { <div class="sem-dia__linea"></div> }
                       @for (t of dia.tarjetas; track t.id) {
-                        <div class="cita" [class.cita--bloqueo]="t.esBloqueo"
-                             [style.top.px]="t.top" [style.height.px]="t.alto"
-                             [attr.title]="t.titulo + ' · ' + t.subtitulo">
+                        <button type="button" class="cita" [class.cita--bloqueo]="t.esBloqueo"
+                                [style.top.px]="t.top" [style.height.px]="t.alto"
+                                [attr.title]="t.titulo + ' · ' + t.subtitulo"
+                                (click)="abrirItem(t.esBloqueo ? 'bloqueo' : 'reserva', t.id)">
                           <span class="cita__titulo">{{ t.titulo }}</span>
                           <span class="cita__sub">{{ t.subtitulo }}</span>
-                        </div>
+                        </button>
                       }
                     </div>
                   </div>
@@ -213,6 +265,10 @@ interface TarjetaSemana {
                     {{ b.cantidad ? b.cantidad + ' plazas' : 'Cerrado del todo' }}
                   </span>
                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                          (click)="abrirCierre(b)" aria-label="Editar este tramo">
+                    <rs-icon name="pencil" [size]="13" [stroke]="2.5" />
+                  </button>
+                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                           [disabled]="borrando() === b._id" (click)="reabrir(b)"
                           aria-label="Reabrir este tramo">
                     <rs-icon name="x" [size]="13" [stroke]="2.5" />
@@ -229,11 +285,13 @@ interface TarjetaSemana {
         </div>
       }
 
-      <!-- ══ DIÁLOGO DE BLOQUEO ═════════════════════════════════════════ -->
+      <!-- ══ DIÁLOGO DE BLOQUEO (alta y edición) ════════════════════════ -->
       @if (cierreAbierto()) {
         <div class="capa" (click)="cierreAbierto.set(false)">
           <div class="modal rs-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-            <h2 class="modal__tit">Bloquear un tramo</h2>
+            <h2 class="modal__tit">
+              {{ bloqueoEditando() ? 'Editar este bloqueo' : 'Bloquear un tramo' }}
+            </h2>
             <p class="ag__nota">
               Lo que bloquees deja de ofrecerse en el buscador. Es lo que evita que te entre
               una reserva de Doogking sobre algo que ya has vendido por tu cuenta.
@@ -281,13 +339,91 @@ interface TarjetaSemana {
             }
 
             <div class="modal__pie">
+              @if (bloqueoEditando(); as b) {
+                <button type="button" class="rs-btn rs-btn--ghost modal__aparte"
+                        [disabled]="borrando() === b._id" (click)="reabrir(b)">
+                  <rs-icon name="trash" [size]="14" [stroke]="2" />
+                  Reabrir el tramo
+                </button>
+              }
               <button type="button" class="rs-btn rs-btn--ghost" (click)="cierreAbierto.set(false)">
                 Cancelar
               </button>
               <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardando()"
                       (click)="guardarCierre()">
-                {{ guardando() ? 'Bloqueando…' : 'Bloquear' }}
+                {{ textoGuardar() }}
               </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ══ DETALLE DE UN DÍA (inventario) ═════════════════════════════ -->
+      @if (diaAbierto(); as dia) {
+        <div class="capa" (click)="diaAbiertoClave.set(null)">
+          <div class="modal rs-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+            <h2 class="modal__tit modal__tit--fecha">{{ fechaLarga(dia.clave) }}</h2>
+
+            @if (dia.items.length) {
+              <ul class="items">
+                @for (it of dia.items; track it.tipo + it.id) {
+                  <li>
+                    <button type="button" class="item" (click)="abrirItem(it.tipo, it.id)">
+                      <span class="item__punto" [class.item__punto--bloqueo]="it.tipo === 'bloqueo'"></span>
+                      <span class="item__texto">
+                        <span class="item__tit">{{ it.titulo }}</span>
+                        <span class="item__sub">{{ it.subtitulo }}</span>
+                      </span>
+                      <rs-icon name="chevron-right" [size]="14" [stroke]="2.5" />
+                    </button>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="ag__nota">Ese día lo tienes libre entero.</p>
+            }
+
+            <div class="modal__pie">
+              <button type="button" class="rs-btn rs-btn--ghost" (click)="diaAbiertoClave.set(null)">
+                Cerrar
+              </button>
+              <button type="button" class="rs-btn rs-btn--primary" (click)="bloquearEsteDia(dia)">
+                Bloquear este día
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ══ DETALLE DE UNA RESERVA ═════════════════════════════════════ -->
+      @if (citaAbierta(); as c) {
+        <div class="capa" (click)="citaAbierta.set(null)">
+          <div class="modal rs-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+            <h2 class="modal__tit">Reserva {{ c.codigo }}</h2>
+            <span class="rs-badge modal__estado" [class]="badgeEstado(c.estado)">
+              {{ etiquetaEstado(c.estado) }}
+            </span>
+
+            <dl class="ficha">
+              <div><dt>Cliente</dt><dd>{{ c.cliente }}</dd></div>
+              @if (c.perro) { <div><dt>Perro</dt><dd>{{ c.perro }}</dd></div> }
+              <div><dt>{{ esInventario() ? 'Entrada' : 'Empieza' }}</dt><dd>{{ momentoLegible(c.desde) }}</dd></div>
+              <div><dt>{{ esInventario() ? 'Salida' : 'Termina' }}</dt><dd>{{ momentoLegible(c.hasta) }}</dd></div>
+            </dl>
+
+            <p class="ag__nota">
+              Una reserva de Doogking no se cambia desde la agenda: tocarla afecta al cliente
+              y al cobro, así que se gestiona desde su ficha en Reservas.
+            </p>
+
+            <div class="modal__pie">
+              <button type="button" class="rs-btn rs-btn--ghost" (click)="citaAbierta.set(null)">
+                Cerrar
+              </button>
+              <a class="rs-btn rs-btn--primary" [routerLink]="['/comercio/reservas']"
+                 [queryParams]="{ buscar: c.codigo }" (click)="citaAbierta.set(null)">
+                Ver la reserva
+              </a>
             </div>
           </div>
         </div>
@@ -353,23 +489,29 @@ interface TarjetaSemana {
 
     .inv-dia {
       display: flex; flex-direction: column; gap: var(--sp-1);
-      min-height: 76px; padding: var(--sp-2);
+      min-height: 92px; padding: var(--sp-2);
       border: 1px solid var(--b-1); border-radius: var(--r-md);
-      background: var(--c-card);
+      background: var(--c-card); font: inherit; text-align: left; cursor: pointer;
+      transition: border-color var(--d-2), box-shadow var(--d-2);
+      &:hover { border-color: var(--dk-blue); }
     }
     .inv-dia--fuera { opacity: .4; }
     .inv-dia--pasado { background: var(--c-raised); }
     .inv-dia--hoy { border-color: var(--dk-blue); box-shadow: inset 0 0 0 1px var(--dk-blue); }
     .inv-dia--lleno { background: rgba(251, 174, 23, .10); }
     .inv-dia__num { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
-    .inv-dia__marcas { display: flex; flex-direction: column; gap: 2px; }
+    .inv-dia__items { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
-    .marca {
-      font-size: var(--f-xs); font-weight: var(--w-6);
-      padding: 1px var(--sp-2); border-radius: var(--r-full); text-align: center;
+    /* La descripción se recorta, no parte la celda: el texto entero sale en el
+       tooltip y en el detalle del día. */
+    .chip {
+      font-size: 10px; font-weight: var(--w-6); line-height: 1.5;
+      padding: 1px var(--sp-2); border-radius: var(--r-full);
+      background: var(--dk-blue); color: #fff;
+      max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .marca--reserva { background: var(--dk-blue); color: #fff; }
-    .marca--bloqueo { background: var(--dk-gold); color: var(--dk-blue-deep); }
+    .chip--bloqueo { background: var(--dk-gold); color: var(--dk-blue-deep); }
+    .chip--mas { background: transparent; color: var(--t-400); padding-left: 2px; }
 
     /* ── Semana por horas ─────────────────────────────────────────────── */
     .sem { display: flex; gap: var(--sp-2); overflow-x: auto; }
@@ -400,9 +542,9 @@ interface TarjetaSemana {
     .cita {
       position: absolute; left: 2px; right: 2px;
       display: flex; flex-direction: column; gap: 1px; overflow: hidden;
-      padding: 2px var(--sp-2); border-radius: var(--r-sm);
-      background: var(--dk-blue); color: #fff;
-      font-size: var(--f-xs); line-height: 1.25;
+      padding: 2px var(--sp-2); border: none; border-radius: var(--r-sm);
+      background: var(--dk-blue); color: #fff; text-align: left; cursor: pointer;
+      font-family: inherit; font-size: var(--f-xs); line-height: 1.25;
     }
     /* Los bloqueos se distinguen del trabajo real de un vistazo. */
     .cita--bloqueo {
@@ -435,16 +577,42 @@ interface TarjetaSemana {
       padding: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-4);
     }
     .modal__tit { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--t-100); }
-    .modal__pie { display: flex; justify-content: flex-end; gap: var(--sp-3); }
+    /* Sólo la inicial: capitalizar la fecha entera daría "Lunes 1 De Septiembre". */
+    .modal__tit--fecha::first-letter { text-transform: uppercase; }
+    .modal__estado { align-self: flex-start; }
+    .modal__pie { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
+    /* Reabrir es destructivo: se separa del par cancelar/guardar para no pulsarlo por inercia. */
+    .modal__aparte { margin-right: auto; }
+
+    /* ── Detalle de un día ────────────────────────────────────────────── */
+    .items { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .item {
+      display: flex; align-items: center; gap: var(--sp-3); width: 100%;
+      padding: var(--sp-3); border: 1px solid transparent; border-radius: var(--r-md);
+      background: var(--c-raised); color: var(--t-100);
+      font: inherit; text-align: left; cursor: pointer;
+      transition: border-color var(--d-2);
+      &:hover { border-color: var(--dk-blue); }
+    }
+    .item__punto { width: 8px; height: 8px; border-radius: 50%; background: var(--dk-blue); flex-shrink: 0; }
+    .item__punto--bloqueo { background: var(--dk-gold); }
+    .item__texto { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+    .item__tit { font-size: var(--f-sm); font-weight: var(--w-6); }
+    .item__sub { font-size: var(--f-xs); color: var(--t-400); }
+
+    .ficha { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .ficha > div { display: flex; justify-content: space-between; gap: var(--sp-3); font-size: var(--f-sm); }
+    .ficha dt { color: var(--t-400); }
+    .ficha dd { color: var(--t-100); font-weight: var(--w-6); text-align: right; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
 
     @media (max-width: 719px) {
       .form-row { grid-template-columns: 1fr; }
       /* La rejilla de mes se aprieta, pero sigue cabiendo entera sin scroll
          lateral: partirla en dos pantallas rompería la lectura del mes. */
-      .inv-dia { min-height: 58px; padding: var(--sp-1); }
+      .inv-dia { min-height: 76px; padding: var(--sp-1); }
       .inv-dia__num { font-size: var(--f-xs); }
-      .marca { font-size: 10px; padding: 0 var(--sp-1); }
+      .chip { font-size: 9px; padding: 0 var(--sp-1); }
       /* La semana sí rueda en horizontal: siete columnas de horas no caben. */
       .sem__dias { grid-template-columns: repeat(7, 92px); }
       .ag__periodo { min-width: 0; }
@@ -538,7 +706,8 @@ export class ComercioAgendaComponent implements OnInit {
 
     return celdasDelMes(inicio).map((fecha) => {
       const clave = claveDia(fecha);
-      const marcas = porDia.get(clave) ?? { bloqueadas: 0, reservadas: 0, cerradoDelTodo: false };
+      const marcas = porDia.get(clave)
+        ?? { bloqueadas: 0, reservadas: 0, cerradoDelTodo: false, items: [] };
       return {
         clave,
         dia: fecha.getDate(),
@@ -546,6 +715,8 @@ export class ComercioAgendaComponent implements OnInit {
         pasado: fecha.getTime() < hoy,
         esHoy: fecha.getTime() === hoy,
         ...marcas,
+        visibles: marcas.items.slice(0, MAX_DESCRIPCIONES),
+        ocultos: Math.max(0, marcas.items.length - MAX_DESCRIPCIONES),
       };
     });
   });
@@ -557,29 +728,77 @@ export class ComercioAgendaComponent implements OnInit {
    * ha entrado por Doogking de lo que ha cerrado él, que es justo el motivo por
    * el que existe esta pantalla.
    */
-  private ocupacionPorDia(): Map<string, { bloqueadas: number; reservadas: number; cerradoDelTodo: boolean }> {
-    const porDia = new Map<string, { bloqueadas: number; reservadas: number; cerradoDelTodo: boolean }>();
-    const anota = (clave: string): { bloqueadas: number; reservadas: number; cerradoDelTodo: boolean } => {
-      const actual = porDia.get(clave) ?? { bloqueadas: 0, reservadas: 0, cerradoDelTodo: false };
+  private ocupacionPorDia(): Map<string, MarcasDia> {
+    const porDia = new Map<string, MarcasDia>();
+    const anota = (clave: string): MarcasDia => {
+      const actual = porDia.get(clave)
+        ?? { bloqueadas: 0, reservadas: 0, cerradoDelTodo: false, items: [] };
       porDia.set(clave, actual);
       return actual;
     };
+
+    // Las reservas van primero: si el día se resume, lo que no puede faltar es
+    // lo que ha entrado por la plataforma.
+    for (const c of this.citas()) {
+      for (const clave of this.diasEntre(new Date(c.desde), new Date(c.hasta))) {
+        const dia = anota(clave);
+        dia.reservadas += 1;
+        dia.items.push(this.itemDeCita(c));
+      }
+    }
 
     for (const b of this.bloqueos()) {
       for (const clave of this.diasEntre(new Date(b.desde), new Date(b.hasta))) {
         const dia = anota(clave);
         dia.bloqueadas += b.cantidad ?? 1;
         if (b.cantidad === undefined) dia.cerradoDelTodo = true;
-      }
-    }
-
-    for (const c of this.citas()) {
-      for (const clave of this.diasEntre(new Date(c.desde), new Date(c.hasta))) {
-        anota(clave).reservadas += 1;
+        dia.items.push(this.itemDeBloqueo(b));
       }
     }
 
     return porDia;
+  }
+
+  private itemDeCita(cita: CitaAgendaDto): ItemAgenda {
+    return {
+      id: cita._id,
+      tipo: 'reserva',
+      titulo: cita.perro ? `${cita.cliente} · ${cita.perro}` : cita.cliente,
+      subtitulo: `Reserva ${cita.codigo} · ${this.etiquetaEstado(cita.estado)}`,
+    };
+  }
+
+  private itemDeBloqueo(bloqueo: BloqueoDto): ItemAgenda {
+    return {
+      id: bloqueo._id,
+      tipo: 'bloqueo',
+      titulo: bloqueo.motivo,
+      subtitulo: bloqueo.cantidad ? `${bloqueo.cantidad} plazas cerradas` : 'Cerrado del todo',
+    };
+  }
+
+  etiquetaEstado(estado: string): string {
+    return ESTADO_LABEL[estado] ?? estado;
+  }
+
+  badgeEstado(estado: string): string {
+    return ESTADO_BADGE[estado] ?? 'rs-badge--neutral';
+  }
+
+  /** Lo que un lector de pantalla oye de una celda, sin depender del color. */
+  resumenDia(dia: DiaInventario): string {
+    if (!dia.items.length) return `Día ${dia.dia}, libre`;
+    return `Día ${dia.dia}: ${dia.items.map((i) => i.titulo).join(', ')}`;
+  }
+
+  fechaLarga(clave: string): string {
+    return desdeClaveDia(clave)
+      .toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  momentoLegible(iso: string): string {
+    return new Date(iso)
+      .toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   }
 
   /** Días `[desde, hasta)`; al menos el de inicio, para tramos de unas horas. */
@@ -697,48 +916,80 @@ export class ComercioAgendaComponent implements OnInit {
   // ── Cerrar y reabrir tramos ──────────────────────────────────────────
 
   readonly cierreAbierto = signal(false);
+  /** El bloqueo que se está editando; vacío significa que se está creando uno. */
+  readonly bloqueoEditando = signal<BloqueoDto | null>(null);
   formDesde = '';
   formHasta = '';
   formCantidad: number | null = null;
   formMotivo = '';
 
-  abrirCierre(): void {
+  readonly textoGuardar = computed(() => {
+    if (this.guardando()) return this.bloqueoEditando() ? 'Guardando…' : 'Bloqueando…';
+    return this.bloqueoEditando() ? 'Guardar cambios' : 'Bloquear';
+  });
+
+  /** Sin argumento abre un alta; con uno, la edición de ese tramo. */
+  abrirCierre(bloqueo?: BloqueoDto): void {
+    this.diaAbiertoClave.set(null);
+    this.citaAbierta.set(null);
+    this.bloqueoEditando.set(bloqueo ?? null);
+    this.errorModal.set('');
+
+    if (bloqueo) this.precargarDe(bloqueo);
+    else this.precargarTramoHabitual();
+
+    this.cierreAbierto.set(true);
+  }
+
+  private precargarDe(bloqueo: BloqueoDto): void {
+    this.formDesde = this.paraInput(new Date(bloqueo.desde));
+    this.formHasta = this.paraInput(new Date(bloqueo.hasta));
+    this.formCantidad = bloqueo.cantidad ?? null;
+    this.formMotivo = bloqueo.motivo;
+  }
+
+  /** Se propone el tramo más habitual —hoy— para no arrancar en blanco. */
+  private precargarTramoHabitual(): void {
     const hoy = hoyLocal();
     const manana = new Date(hoy.getTime() + MS_POR_DIA);
 
-    // Se propone el tramo más habitual —hoy— para no arrancar en blanco.
     this.formDesde = this.esInventario() ? claveDia(hoy) : `${claveDia(hoy)}T09:00`;
     this.formHasta = this.esInventario() ? claveDia(manana) : `${claveDia(hoy)}T14:00`;
     this.formCantidad = null;
     this.formMotivo = '';
-    this.errorModal.set('');
-    this.cierreAbierto.set(true);
+  }
+
+  /** Valor para el `date` o el `datetime-local` del formulario, en hora local. */
+  private paraInput(fecha: Date): string {
+    const dia = claveDia(fecha);
+    if (this.esInventario()) return dia;
+
+    const hora = String(fecha.getHours()).padStart(2, '0');
+    const minuto = String(fecha.getMinutes()).padStart(2, '0');
+    return `${dia}T${hora}:${minuto}`;
   }
 
   async guardarCierre(): Promise<void> {
     const servicioId = this.servicioId();
-    if (!servicioId) return;
-
-    if (this.formMotivo.trim().length < 3) {
-      this.errorModal.set('Explica brevemente por qué cierras este tramo.');
-      return;
-    }
-    if (!(new Date(this.formHasta).getTime() > new Date(this.formDesde).getTime())) {
-      this.errorModal.set('El fin tiene que ser posterior al inicio.');
-      return;
-    }
+    if (!servicioId || !this.cierreValido()) return;
 
     this.guardando.set(true);
     this.errorModal.set('');
     try {
-      await firstValueFrom(this.api.crearBloqueo({
-        servicioId,
+      // Vacío significa "cierro el servicio entero", no "cero plazas". Al editar
+      // hay que decirlo con `null`: omitir el campo dejaría la cantidad anterior.
+      const cantidad = this.formCantidad && this.formCantidad > 0 ? this.formCantidad : undefined;
+      const tramo = {
         desde: new Date(this.formDesde).toISOString(),
         hasta: new Date(this.formHasta).toISOString(),
         motivo: this.formMotivo.trim(),
-        // Vacío significa "cierro el servicio entero", no "cero plazas".
-        cantidad: this.formCantidad && this.formCantidad > 0 ? this.formCantidad : undefined,
-      }));
+      };
+      const editado = this.bloqueoEditando();
+
+      await firstValueFrom(editado
+        ? this.api.actualizarBloqueo(editado._id, { ...tramo, cantidad: cantidad ?? null })
+        : this.api.crearBloqueo({ servicioId, ...tramo, cantidad }));
+
       this.cierreAbierto.set(false);
       await this.cargarPeriodo();
     } catch {
@@ -748,16 +999,70 @@ export class ComercioAgendaComponent implements OnInit {
     }
   }
 
+  /** Valida el formulario y deja puesto el mensaje si algo no cuadra. */
+  private cierreValido(): boolean {
+    if (this.formMotivo.trim().length < 3) {
+      this.errorModal.set('Explica brevemente por qué cierras este tramo.');
+      return false;
+    }
+    if (!(new Date(this.formHasta).getTime() > new Date(this.formDesde).getTime())) {
+      this.errorModal.set('El fin tiene que ser posterior al inicio.');
+      return false;
+    }
+    return true;
+  }
+
   async reabrir(bloqueo: BloqueoDto): Promise<void> {
     this.borrando.set(bloqueo._id);
     try {
       await firstValueFrom(this.api.eliminarBloqueo(bloqueo._id));
+      this.cierreAbierto.set(false);
       await this.cargarPeriodo();
     } catch {
       this.errorMsg.set('No pudimos reabrir ese tramo. Inténtalo de nuevo.');
     } finally {
       this.borrando.set(null);
     }
+  }
+
+  // ── Abrir lo que hay en el calendario ────────────────────────────────
+
+  /** Día del inventario abierto, por clave: así sigue vivo tras recargar. */
+  readonly diaAbiertoClave = signal<string | null>(null);
+  readonly citaAbierta = signal<CitaAgendaDto | null>(null);
+
+  readonly diaAbierto = computed(() => {
+    const clave = this.diaAbiertoClave();
+    return clave ? this.diasDelMes().find((d) => d.clave === clave) ?? null : null;
+  });
+
+  abrirDia(dia: DiaInventario): void {
+    this.diaAbiertoClave.set(dia.clave);
+  }
+
+  /**
+   * Un bloqueo se edita aquí mismo; una reserva sólo se consulta, porque
+   * cambiarla afecta al cliente y al cobro y eso vive en su ficha.
+   */
+  abrirItem(tipo: 'reserva' | 'bloqueo', id: string): void {
+    if (tipo === 'bloqueo') {
+      const bloqueo = this.bloqueos().find((b) => b._id === id);
+      if (bloqueo) this.abrirCierre(bloqueo);
+      return;
+    }
+
+    const cita = this.citas().find((c) => c._id === id);
+    if (!cita) return;
+    this.diaAbiertoClave.set(null);
+    this.citaAbierta.set(cita);
+  }
+
+  /** Atajo del detalle del día: cierra esa noche sin volver a teclear la fecha. */
+  bloquearEsteDia(dia: DiaInventario): void {
+    const inicio = desdeClaveDia(dia.clave);
+    this.abrirCierre();
+    this.formDesde = claveDia(inicio);
+    this.formHasta = claveDia(new Date(inicio.getTime() + MS_POR_DIA));
   }
 
   /** Rango legible de un bloqueo, sin repetir el mes cuando es el mismo. */

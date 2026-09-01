@@ -6,11 +6,12 @@ import { GeoService } from '../../../core/geo/geo.service';
 import { crearMotorGoogle } from './motores/motor-google';
 import { crearMotorLeaflet } from './motores/motor-leaflet';
 import {
-  CENTRO_POR_DEFECTO, MotorMapa, OpcionesMotor, PuntoMapa, ZOOM_POR_DEFECTO, ZOOM_PUNTO_UNICO,
-  ZonaMapa, puntosGeolocalizados,
+  CENTRO_POR_DEFECTO, MotorMapa, OpcionesMotor, PuntoMapa, PuntoRuta, ResumenRuta,
+  ZOOM_POR_DEFECTO, ZOOM_PUNTO_UNICO, ZonaMapa, puntosGeolocalizados,
 } from './motores/motor-mapa';
 
-export type { PuntoMapa, ZonaMapa } from './motores/motor-mapa';
+export type { PuntoMapa, PuntoRuta, ResumenRuta, ZonaMapa } from './motores/motor-mapa';
+export { MAX_PARADAS_INTERMEDIAS } from './motores/motor-mapa';
 
 /**
  * Espera antes de anunciar la zona visible. Arrastrar el mapa dispara un aviso
@@ -128,6 +129,12 @@ const ESPERA_MOVIMIENTO_MS = 400;
 })
 export class RsMapaComponent implements AfterViewInit, OnDestroy {
   readonly puntos = input<PuntoMapa[]>([]);
+  /**
+   * Paradas de un trayecto, en orden. Se traza el camino que pasa por todas y
+   * entran en el encuadre igual que los pines: un trayecto que se sale de la
+   * vista no dice nada de por dónde pasa.
+   */
+  readonly ruta = input<PuntoRuta[]>([]);
   readonly ariaLabel = input('Mapa de resultados');
   /** Id del punto resaltado desde fuera (p. ej. la tarjeta con el ratón encima). */
   readonly activo = input<string | null>(null);
@@ -152,6 +159,8 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
    */
   readonly permitePulsar = input(false);
 
+  /** Lo que mide el trayecto una vez trazado; `null` si no hay recorrido. */
+  readonly rutaTrazada = output<ResumenRuta | null>();
   readonly puntoElegido = output<string>();
   /** Coordenadas del lugar pulsado; sólo con `permitePulsar`. */
   readonly mapaPulsado = output<{ lat: number; lng: number }>();
@@ -178,6 +187,9 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const puntos = this.puntos();
       const activo = this.activo();
+      // Se lee aquí para que el efecto también se dispare al cambiar el
+      // trayecto: es lo que reencuadra el mapa al añadir una parada.
+      this.ruta();
       if (this.motor) this.pintar(puntos, activo);
     });
 
@@ -269,9 +281,20 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
     const motor = this.motor;
     if (!motor) return;
 
+    const paradas = this.ruta();
     motor.pintar(puntos, activo);
+    // Trazar la ruta va a la red (Google Directions): no se espera aquí para no
+    // retrasar el pintado de los pines, que sí es inmediato.
+    void motor.pintarRuta(paradas)
+      .then((resumen) => { if (!this.destruido) this.rutaTrazada.emit(resumen); })
+      .catch(() => { /* sin ruta el mapa sigue enseñando sus pines */ });
 
-    const conCoordenadas = puntosGeolocalizados(puntos);
+    // El trayecto entra en el encuadre como un punto más: si no, añadir una
+    // parada fuera de la vista la dibujaría donde no se ve.
+    const conCoordenadas = puntosGeolocalizados([
+      ...puntos,
+      ...paradas.map((p, i) => ({ id: `ruta-${i}`, lat: p.lat, lng: p.lng })),
+    ]);
     if (conCoordenadas.length === 0 || !this.autoencuadre()) return;
     this.encuadrar(motor, conCoordenadas);
   }

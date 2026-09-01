@@ -7,12 +7,11 @@ export enum VerticalKey {
   HOTELES = 'hoteles',
   SEGUROS = 'seguros',
   /**
-   * Paseadores y cuidado a domicilio (Ref. COMI3). Se había retirado como "Cuidadores"
-   * (TCK-8021) porque Doogking solo lista profesionales verificados, no particulares por
-   * libre — se reintroduce exigiendo el mismo alta de comercio y aprobación del admin que
-   * cualquier otro vertical, que ya cubre esa condición.
+   * Servicios funerarios para mascotas: cremación individual o colectiva,
+   * recogida, entierro y despedida. Sustituye a "Paseadores y cuidado a
+   * domicilio" (2026-09-01), que se retira del catálogo.
    */
-  CUIDADORES = 'cuidadores',
+  FUNERARIOS = 'funerarios',
 }
 
 /** Etiquetas legibles de cada categoría canina de Doogking. */
@@ -24,5 +23,5 @@ export const VERTICAL_LABELS: Record<VerticalKey, string> = {
   [VerticalKey.ADIESTRAMIENTO]: 'Adiestramiento canino',
   [VerticalKey.HOTELES]: 'Hoteles pet-friendly',
   [VerticalKey.SEGUROS]: 'Seguros para mascotas',
-  [VerticalKey.CUIDADORES]: 'Paseadores y cuidado a domicilio',
+  [VerticalKey.FUNERARIOS]: 'Servicios funerarios',
 };

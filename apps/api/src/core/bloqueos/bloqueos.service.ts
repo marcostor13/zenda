@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ReservaEstado } from 'shared';
+import { ActualizarBloqueoDto, BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ReservaEstado } from 'shared';
 import { BloqueoServicio, BloqueoServicioDocument } from './bloqueo-servicio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
@@ -86,6 +86,38 @@ export class BloqueosService {
     });
 
     return this.aDto(creado);
+  }
+
+  /**
+   * Edita un tramo ya cerrado.
+   *
+   * Se edita en vez de borrar y volver a crear porque el caso real es corregir
+   * lo que ya estaba —la salida se retrasa un día, el motivo estaba mal escrito,
+   * eran tres suites y no dos— y borrar deja el hueco abierto en el buscador
+   * durante el rato que tarde el comercio en volver a cerrarlo.
+   */
+  async actualizar(comercioId: string, bloqueoId: string, dto: ActualizarBloqueoDto): Promise<BloqueoDto> {
+    const bloqueo = await this.bloqueoModel.findOne({
+      _id: new Types.ObjectId(bloqueoId),
+      comercioId: new Types.ObjectId(comercioId),
+    }).exec();
+    if (!bloqueo) throw new DomainException('Bloqueo no encontrado', 404);
+
+    const desde = dto.desde ? new Date(dto.desde) : bloqueo.desde;
+    const hasta = dto.hasta ? new Date(dto.hasta) : bloqueo.hasta;
+    if (!(hasta.getTime() > desde.getTime())) {
+      throw new DomainException('El fin del bloqueo tiene que ser posterior a su inicio', 400);
+    }
+
+    bloqueo.desde = desde;
+    bloqueo.hasta = hasta;
+    if (dto.motivo !== undefined) bloqueo.motivo = dto.motivo.trim();
+    if (dto.espacioTipo !== undefined) bloqueo.espacioTipo = dto.espacioTipo || undefined;
+    // `null` es una orden explícita ("ciérralo entero"); ausente no toca nada.
+    if (dto.cantidad !== undefined) bloqueo.cantidad = dto.cantidad ?? undefined;
+
+    await bloqueo.save();
+    return this.aDto(bloqueo);
   }
 
   async eliminar(comercioId: string, bloqueoId: string): Promise<void> {

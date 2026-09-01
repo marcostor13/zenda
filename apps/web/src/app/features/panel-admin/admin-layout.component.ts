@@ -17,6 +17,7 @@ const NAV_SECTIONS = [
     title: 'Gestión',
     items: [
       { icon: 'building',    label: 'Comercios',  ruta: '/admin/comercios', exact: false },
+      { icon: 'shield',      label: 'Aseguradoras', ruta: '/admin/seguros', exact: false },
       { icon: 'users',       label: 'Usuarios',   ruta: '/admin/usuarios',  exact: false },
       { icon: 'calendar',    label: 'Reservas',   ruta: '/admin/reservas',  exact: false },
       { icon: 'star',        label: 'Reseñas',    ruta: '/admin/resenas',   exact: false },

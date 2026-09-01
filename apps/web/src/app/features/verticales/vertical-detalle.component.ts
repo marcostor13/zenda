@@ -10,6 +10,7 @@ import { RsChipComponent } from '../../shared/components/chip/rs-chip.component'
 import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { verticalUi, VerticalUi } from '../../shared/verticales/verticales.config';
+import { precioDesdeFunerario } from '../../shared/verticales/funerarios.util';
 import { EventosService } from '../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../shared/components/ubicacion/rs-ubicacion.component';
 import { RsHorarioPublicoComponent } from '../../shared/components/horario/rs-horario-publico.component';
@@ -89,7 +90,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
     price: (s) => s.precioPorNoche,
   },
   /*
-   * Veterinaria, peluquería, cuidadores y seguros no tenían ficha: sin entrada
+   * Veterinaria, peluquería, funerarios y seguros no tenían ficha: sin entrada
    * aquí no había ruta `:id` ni enlace desde el listado, así que sus tarjetas
    * llevaban de vuelta al propio listado y no había forma de ver el detalle de
    * un comercio. Los campos son los que declara cada vertical en el formulario
@@ -137,26 +138,42 @@ const CONFIGS: Record<string, DetalleConfig> = {
     },
     price: (s) => s.precioPorNoche,
   },
-  cuidadores: {
-    vertical: 'cuidadores',
-    cta: 'Reservar cuidado',
-    priceLabel: 'por servicio',
-    tituloBloque: '¿Qué ofrece este cuidador?',
-    chips: () => [],
+  funerarios: {
+    vertical: 'funerarios',
+    cta: 'Contratar el servicio',
+    priceLabel: 'desde',
+    tituloBloque: '¿Qué ofrece esta empresa?',
+    chips: (s) => {
+      const servicios = (s.extra['serviciosFunerarios'] as Array<{ nombre?: string; activo?: boolean }> | undefined) ?? [];
+      return servicios.filter((v) => v.activo !== false).map((v) => v.nombre ?? '').filter(Boolean);
+    },
     puntos: (s) => {
       const items: string[] = [];
-      const paseo = s.extra['precioPaseo'] as number | undefined;
-      if (paseo != null) items.push('Paseos sueltos');
-      const visita = s.extra['precioVisita'] as number | undefined;
-      if (visita != null) items.push('Visitas a domicilio');
-      const dia = s.extra['precioDiaCompleto'] as number | undefined;
-      if (dia != null) items.push('Cuidado de día completo');
-      const noche = s.extra['precioNoche'] as number | undefined;
-      if (noche != null) items.push('Se queda a dormir');
-      if (s.extra['aDomicilio'] ?? true) items.push('Va a tu casa, sin sacar al perro de su rutina');
+      const servicios = (s.extra['serviciosFunerarios'] as Array<{ devuelveCenizas?: boolean; urnaIncluida?: boolean; certificadoIncluido?: boolean; activo?: boolean }> | undefined) ?? [];
+      const activos = servicios.filter((v) => v.activo !== false);
+
+      if (s.extra['ofreceRecogida']) {
+        items.push(`Recogida a domicilio, veterinario o residencia hasta ${(s.extra['radioRecogidaKm'] as number) ?? 0} km`);
+      }
+      if (s.extra['atiende24h']) items.push('Disponible 24 h, también de madrugada');
+      else if (s.extra['servicioUrgente']) items.push('Atiende servicios urgentes');
+
+      if (activos.some((v) => v.devuelveCenizas)) items.push('Devolución individual de las cenizas');
+      if (activos.some((v) => v.urnaIncluida)) items.push('Urna incluida');
+      if (activos.some((v) => v.certificadoIncluido)) items.push('Certificado incluido');
+
+      const extras = (s.extra['extras'] as Array<{ nombre?: string; activo?: boolean }> | undefined) ?? [];
+      const nombresExtra = extras.filter((e) => e.activo !== false).map((e) => e.nombre).filter(Boolean);
+      if (nombresExtra.length) items.push(`Extras: ${nombresExtra.slice(0, 5).join(', ')}`);
+
+      // Quién realiza la cremación es información que el cliente merece antes
+      // de contratar, no un dato interno del alta (§10 del brief).
+      if (s.extra['cremacionPropia'] === false && s.extra['terceroCrematorio']) {
+        items.push(`La cremación la realiza ${s.extra['terceroCrematorio']}`);
+      }
       return items;
     },
-    price: (s) => (s.extra['precioPaseo'] as number) ?? s.precioPorNoche,
+    price: (s) => precioDesdeFunerario(s) ?? s.precioPorNoche,
   },
   seguros: {
     vertical: 'seguros',

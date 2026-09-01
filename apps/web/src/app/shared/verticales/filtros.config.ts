@@ -1,4 +1,4 @@
-import { VerticalKey } from 'shared';
+import { TipoServicioFunerario, VerticalKey } from 'shared';
 import {
   AMENITIES_ALOJAMIENTO, ESPECIALIDADES_VETERINARIAS, SERVICIOS_PETFRIENDLY, TIPOS_ADIESTRAMIENTO,
 } from '../catalogos/tags.catalogo';
@@ -158,23 +158,30 @@ export const FILTROS_POR_VERTICAL: Record<string, readonly GrupoFiltro[]> = {
     },
   ],
 
-  [VerticalKey.CUIDADORES]: [
-    precio('por servicio', 100),
+  /*
+   * Lo que de verdad decide en esta categoría: si vienen a recoger, si atienden
+   * de madrugada y si el servicio devuelve las cenizas. El tipo de servicio se
+   * filtra por el catálogo declarado, no por un campo suelto.
+   */
+  [VerticalKey.FUNERARIOS]: [
+    precio('del servicio', 600),
     VALORACION,
     {
-      titulo: 'Modalidad', tipo: 'opciones', campo: 'modalidades',
+      titulo: 'Servicio', tipo: 'opciones', campo: 'tiposServicioFunerario',
       opciones: [
-        { valor: 'paseo', etiqueta: 'Paseo' },
-        { valor: 'visita', etiqueta: 'Visita suelta' },
-        { valor: 'dia_completo', etiqueta: 'Día completo' },
-        { valor: 'noche', etiqueta: 'Noche' },
+        { valor: TipoServicioFunerario.CREMACION_INDIVIDUAL, etiqueta: 'Cremación individual' },
+        { valor: TipoServicioFunerario.CREMACION_COLECTIVA, etiqueta: 'Cremación colectiva' },
+        { valor: TipoServicioFunerario.SERVICIO_COMPLETO, etiqueta: 'Servicio completo' },
+        { valor: TipoServicioFunerario.RECOGIDA, etiqueta: 'Recogida' },
+        { valor: TipoServicioFunerario.ENTIERRO, etiqueta: 'Entierro / cementerio' },
       ],
     },
     {
-      titulo: 'Extras', tipo: 'booleanos',
+      titulo: 'Disponibilidad', tipo: 'booleanos',
       opciones: [
-        { valor: 'aceptaPPP', etiqueta: 'Acepta razas PPP' },
-        { valor: 'administraMedicacion', etiqueta: 'Administra medicación' },
+        { valor: 'ofreceRecogida', etiqueta: 'Con recogida' },
+        { valor: 'servicioUrgente', etiqueta: 'Servicio urgente' },
+        { valor: 'atiende24h', etiqueta: 'Atiende 24 h' },
       ],
     },
   ],

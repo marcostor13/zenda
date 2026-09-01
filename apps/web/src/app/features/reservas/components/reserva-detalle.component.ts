@@ -1,7 +1,7 @@
 import { Component, signal, inject, OnInit, OnDestroy, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe, TitleCasePipe } from '@angular/common';
-import { VerticalKey, VERTICAL_LABELS } from 'shared';
+import { VerticalKey, VERTICAL_LABELS, HITO_FUNERARIO_LABELS } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsBrandIconComponent } from '../../../shared/components/brand-icon/rs-brand-icon.component';
@@ -12,6 +12,9 @@ import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 type EstadoColor = 'success' | 'warning' | 'danger' | 'accent' | 'neutral';
 
 const HITO_LABEL: Record<string, string> = {
+  // Seguimiento propio de los servicios funerarios; el resto de categorías
+  // comparten los hitos genéricos de abajo (y ambos usan 'finalizada').
+  ...HITO_FUNERARIO_LABELS,
   recogida: 'Mascota recogida', en_ruta: 'En ruta', entregada: 'Mascota entregada',
   entrada: 'Ingreso', salida: 'Salida', finalizada: 'Servicio finalizado',
 };
@@ -23,7 +26,7 @@ const VERTICAL_META: Record<string, { label: string; icon: string; color: string
   [VerticalKey.PELUQUERIA]:     { label: VERTICAL_LABELS[VerticalKey.PELUQUERIA],     icon: 'scissors',       color: '#EC4899' },
   [VerticalKey.ADIESTRAMIENTO]: { label: VERTICAL_LABELS[VerticalKey.ADIESTRAMIENTO], icon: 'graduation-cap', color: '#9B5CF6' },
   [VerticalKey.HOTELES]:        { label: VERTICAL_LABELS[VerticalKey.HOTELES],        icon: 'building',       color: '#0EA5E9' },
-  [VerticalKey.CUIDADORES]:     { label: VERTICAL_LABELS[VerticalKey.CUIDADORES],     icon: 'users',          color: '#10B981' },
+  [VerticalKey.FUNERARIOS]:     { label: VERTICAL_LABELS[VerticalKey.FUNERARIOS],     icon: 'heart',          color: '#64748B' },
 };
 
 const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: string; bg: string }> = {

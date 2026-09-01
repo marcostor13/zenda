@@ -9,7 +9,14 @@ import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/auth/auth.service';
 import { DiagnosticoSubidaService } from '../../../core/diagnostico/diagnostico-subida.service';
 import { faqDeConfirmacion } from '../../../shared/catalogos/faq-confirmacion.catalogo';
-import { VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento, TAMANOS_PERRO } from 'shared';
+import {
+  VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento, TAMANOS_PERRO,
+  ESPECIES_FUNERARIO, FranjaHoraria, FRANJA_HORARIA_LABELS, LugarRecogida, LUGAR_RECOGIDA_LABELS,
+  ModoPrecioRecogida, UrgenciaFunerario, URGENCIA_FUNERARIO_LABELS,
+} from 'shared';
+import {
+  extrasFunerarios, serviciosFunerarios,
+} from '../../../shared/verticales/funerarios.util';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsBrandIconComponent, type MarcaPagoKey } from '../../../shared/components/brand-icon/rs-brand-icon.component';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
@@ -809,29 +816,162 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </form>
             }
 
-            <!-- ── PASEADORES Y CUIDADO A DOMICILIO ── -->
-            @if (vertical() === 'cuidadores') {
-              <form [formGroup]="paso1CuidadoresForm">
+            <!-- ── SERVICIOS FUNERARIOS ── -->
+            @if (vertical() === 'funerarios') {
+              <form [formGroup]="paso1FunerariosForm">
+                <!--
+                  El orden lo pide el brief y tiene sentido: primero qué se
+                  contrata, luego el peso (que fija el precio), después la
+                  recogida, la fecha y por último los extras. Nada de hora
+                  exacta: aquí se trabaja por franjas.
+                -->
+                <div class="rs-field">
+                  <label class="rs-lbl">Qué necesitas</label>
+                  <select formControlName="servicioNombre" class="rs-inp rs-inp--lg">
+                    <option value="">— Elige un servicio —</option>
+                    @for (sv of serviciosFunerariosDisponibles(); track sv.nombre) {
+                      <option [value]="sv.nombre">{{ sv.nombre }}</option>
+                    }
+                  </select>
+                  @if (servicioFunerarioElegido(); as sv) {
+                    <span class="rs-field-hint">
+                      {{ sv.descripcion || (sv.devuelveCenizas ? 'Con devolución de cenizas.' : 'Sin devolución individual de cenizas.') }}
+                      @if (sv.tiempoEstimadoHoras) { · Aprox. {{ sv.tiempoEstimadoHoras }} h }
+                    </span>
+                  }
+                </div>
+
                 <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Tipo de animal</label>
+                    <select formControlName="especie" class="rs-inp rs-inp--lg">
+                      @for (e of especiesFunerario; track e) {
+                        <option [value]="e">{{ e }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Peso aproximado (kg)</label>
+                    <input formControlName="pesoKg" type="number" min="0" step="0.5" class="rs-inp rs-inp--lg" />
+                    <span class="rs-field-hint">Es lo que determina el precio del servicio.</span>
+                  </div>
+                </div>
+
+                <div class="rs-field">
+                  <label class="rs-checkbox">
+                    <input type="checkbox" formControlName="necesitaRecogida" />
+                    Necesito que vengan a recogerlo
+                  </label>
+                  @if (!ofreceRecogida()) {
+                    <span class="rs-field-hint">Esta empresa no ofrece recogida.</span>
+                  }
+                </div>
+
+                @if (paso1FunerariosForm.value.necesitaRecogida) {
+                  <div class="form-row">
+                    <div class="rs-field">
+                      <label class="rs-lbl">¿Desde dónde?</label>
+                      <select formControlName="lugarRecogida" class="rs-inp rs-inp--lg">
+                        @for (l of lugaresRecogidaDisponibles(); track l.valor) {
+                          <option [value]="l.valor">{{ l.label }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="rs-field">
+                      <label class="rs-lbl">Distancia aproximada (km)</label>
+                      <input formControlName="distanciaKm" type="number" min="0" class="rs-inp rs-inp--lg" />
+                      <span class="rs-field-hint">Radio máximo de esta empresa: {{ radioRecogidaKm() }} km.</span>
+                    </div>
+                  </div>
+
+                  @if (zonasRecogidaDisponibles().length) {
+                    <div class="rs-field">
+                      <label class="rs-lbl">Zona de recogida</label>
+                      <select formControlName="zonaRecogida" class="rs-inp rs-inp--lg">
+                        <option value="">— Elige tu zona —</option>
+                        @for (z of zonasRecogidaDisponibles(); track z.nombre) {
+                          <option [value]="z.nombre">{{ z.nombre }} · {{ z.precio | euros }}</option>
+                        }
+                      </select>
+                    </div>
+                  }
+
+                  <div class="rs-field">
+                    <label class="rs-lbl">Dirección y observaciones</label>
+                    <textarea formControlName="direccionRecogida" class="rs-inp rs-inp--lg" rows="2"
+                              placeholder="Calle, número, planta… y lo que debamos saber al llegar"></textarea>
+                  </div>
+                }
+
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl">¿Cuándo lo necesitas?</label>
+                    <select formControlName="urgencia" class="rs-inp rs-inp--lg">
+                      @for (u of urgenciasFunerario; track u.valor) {
+                        <option [value]="u.valor">{{ u.label }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Franja horaria</label>
+                    <select formControlName="franja" class="rs-inp rs-inp--lg">
+                      @for (f of franjasFunerarioDisponibles(); track f.valor) {
+                        <option [value]="f.valor">{{ f.label }}</option>
+                      }
+                    </select>
+                    <span class="rs-field-hint">No se pide hora exacta: la empresa trabaja por franjas.</span>
+                  </div>
+                </div>
+
+                @if (paso1FunerariosForm.value.urgencia === 'fecha') {
                   <div class="rs-field">
                     <label class="rs-lbl">Fecha</label>
                     <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
                   </div>
+                }
+
+                @if (extrasFunerariosDisponibles().length) {
                   <div class="rs-field">
-                    <label class="rs-lbl">Hora</label>
-                    <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
+                    <span class="rs-lbl">Extras (opcional)</span>
+                    <div class="extras-funerario">
+                      @for (e of extrasFunerariosDisponibles(); track e.nombre) {
+                        <label class="rs-checkbox">
+                          <input type="checkbox" [checked]="tieneExtraFunerario(e.nombre)"
+                                 (change)="toggleExtraFunerario(e.nombre)" />
+                          {{ e.nombre }} · {{ e.precio | euros }}
+                          @if (e.descripcion) { <span class="rs-field-hint">{{ e.descripcion }}</span> }
+                        </label>
+                      }
+                    </div>
                   </div>
-                </div>
-                <div class="rs-field">
-                  <label class="rs-lbl">Qué necesitas</label>
-                  <select formControlName="modalidad" class="rs-inp rs-inp--lg">
-                    <option value="paseo">Paseo</option>
-                    <option value="visita">Visita suelta</option>
-                    <option value="dia_completo">Día completo</option>
-                    <option value="noche">Noche</option>
-                  </select>
-                  <span class="rs-field-hint">Solo verás precio si el profesional ofrece esta modalidad.</span>
-                </div>
+                }
+
+                <!--
+                  §8 del brief: la cremación colectiva no devuelve las cenizas y
+                  eso no puede descubrirse después de pagar. Sin esta casilla la
+                  reserva no avanza, y el backend lo vuelve a comprobar.
+                -->
+                @if (servicioFunerarioElegido(); as sv) {
+                  @if (!sv.devuelveCenizas) {
+                    <div class="rs-alert rs-alert--warning" style="margin-block:var(--sp-4)">
+                      <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+                      <label class="rs-checkbox">
+                        <input type="checkbox" formControlName="aceptaSinCenizas" />
+                        Entiendo y acepto que este servicio <strong>no incluye la devolución
+                        individual de las cenizas</strong>.
+                      </label>
+                    </div>
+                  }
+                }
+
+                @if (politicaCancelacionFunerario(); as pol) {
+                  <div class="rs-card politica-funerario">
+                    <h3 class="politica-funerario__tit">Condiciones de cancelación</h3>
+                    <p>Antes de la recogida se reembolsa el {{ pol.reembolsoAntesRecogidaPct }} % del importe.</p>
+                    <p>Una vez iniciado el servicio, el reembolso es del {{ pol.reembolsoIniciadoPct }} %.</p>
+                    @if (pol.notas) { <p>{{ pol.notas }}</p> }
+                  </div>
+                }
               </form>
             }
 
@@ -1313,6 +1453,34 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .wizard-wrap { padding-block: var(--sp-8); }
 
     .wizard-cta { margin-top: var(--sp-6); }
+
+    /* Extras del servicio funerario: una columna de casillas con su precio, que
+       es lo que el cliente compara al decidir. */
+    .extras-funerario {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+      padding: var(--sp-4);
+      background: var(--c-raised);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+    }
+    .extras-funerario .rs-field-hint { display: block; }
+
+    /* Las condiciones de cancelación se leen antes de pagar, no después (§11). */
+    .politica-funerario {
+      margin-top: var(--sp-5);
+      padding: var(--sp-4);
+      font-size: var(--f-sm);
+      color: var(--t-300);
+      line-height: 1.6;
+    }
+    .politica-funerario__tit {
+      font-size: var(--f-sm);
+      font-weight: var(--w-7);
+      color: var(--t-100);
+      margin-bottom: var(--sp-2);
+    }
 
     /*
      * Barra fija de "Continuar/Pagar" en móvil. Mismo problema que en la
@@ -2076,11 +2244,122 @@ export class ReservaWizardComponent implements OnInit {
     observaciones: [''],
   });
 
-  readonly paso1CuidadoresForm = this.fb.group({
-    fecha:      ['', Validators.required],
-    hora:       ['', Validators.required],
-    modalidad:  ['paseo', Validators.required],
+  readonly paso1FunerariosForm = this.fb.group({
+    servicioNombre:    ['', Validators.required],
+    especie:           ['Perro', Validators.required],
+    pesoKg:            [0, [Validators.required, Validators.min(0.1)]],
+    necesitaRecogida:  [false],
+    lugarRecogida:     [LugarRecogida.DOMICILIO as string],
+    distanciaKm:       [0, [Validators.min(0)]],
+    zonaRecogida:      [''],
+    direccionRecogida: [''],
+    urgencia:          [UrgenciaFunerario.LO_ANTES_POSIBLE as string, Validators.required],
+    franja:            [FranjaHoraria.MANANA as string, Validators.required],
+    fecha:             [''],
+    aceptaSinCenizas:  [false],
   });
+
+  /** Extras marcados por el cliente; van por señal y no por control, son una lista. */
+  readonly extrasFunerarioElegidos = signal<string[]>([]);
+
+  /** Ficha de la empresa funeraria, tal y como la publica el panel del comercio. */
+  private readonly fichaFunerario = signal<Record<string, unknown>>({});
+
+  readonly especiesFunerario = ESPECIES_FUNERARIO;
+
+  readonly urgenciasFunerario = Object.values(UrgenciaFunerario)
+    .map((valor) => ({ valor: valor as string, label: URGENCIA_FUNERARIO_LABELS[valor] }));
+
+  readonly serviciosFunerariosDisponibles = computed(() => serviciosFunerarios(this.fichaFunerario()));
+  readonly extrasFunerariosDisponibles = computed(() => extrasFunerarios(this.fichaFunerario()));
+
+  readonly ofreceRecogida = computed(() => this.fichaFunerario()['ofreceRecogida'] === true);
+  readonly radioRecogidaKm = computed(() => (this.fichaFunerario()['radioRecogidaKm'] as number) ?? 0);
+
+  readonly zonasRecogidaDisponibles = computed(() => {
+    const modo = this.fichaFunerario()['modoPrecioRecogida'];
+    if (modo !== ModoPrecioRecogida.POR_ZONA) return [];
+    return (this.fichaFunerario()['zonasRecogida'] as Array<{ nombre: string; precio: number }> | undefined) ?? [];
+  });
+
+  /** Sólo los lugares desde los que esta empresa recoge; sin lista, todos. */
+  readonly lugaresRecogidaDisponibles = computed(() => {
+    const declarados = (this.fichaFunerario()['lugaresRecogida'] as string[] | undefined) ?? [];
+    const todos = Object.values(LugarRecogida)
+      .map((valor) => ({ valor: valor as string, label: LUGAR_RECOGIDA_LABELS[valor] }));
+    return declarados.length ? todos.filter((l) => declarados.includes(l.valor)) : todos;
+  });
+
+  readonly franjasFunerarioDisponibles = computed(() => {
+    const declaradas = (this.fichaFunerario()['franjasDisponibles'] as string[] | undefined) ?? [];
+    const todas = Object.values(FranjaHoraria)
+      .map((valor) => ({ valor: valor as string, label: FRANJA_HORARIA_LABELS[valor] }));
+    return declaradas.length ? todas.filter((f) => declaradas.includes(f.valor)) : todas;
+  });
+
+  readonly politicaCancelacionFunerario = computed(() =>
+    this.fichaFunerario()['politicaCancelacionFunerario'] as
+      { reembolsoAntesRecogidaPct: number; reembolsoIniciadoPct: number; notas?: string } | undefined,
+  );
+
+  /** Servicio elegido en el desplegable, con todo lo que declara la empresa. */
+  readonly servicioFunerarioElegido = computed(() => {
+    this.revisionFormularios();
+    const nombre = this.paso1FunerariosForm.value.servicioNombre;
+    return this.serviciosFunerariosDisponibles().find((sv) => sv.nombre === nombre);
+  });
+
+  tieneExtraFunerario(nombre: string): boolean { return this.extrasFunerarioElegidos().includes(nombre); }
+
+  toggleExtraFunerario(nombre: string): void {
+    this.extrasFunerarioElegidos.update((lista) =>
+      lista.includes(nombre) ? lista.filter((n) => n !== nombre) : [...lista, nombre],
+    );
+  }
+
+  /**
+   * Lo que el formulario no puede expresar con validadores: aceptar que no hay
+   * cenizas cuando el servicio no las devuelve, y no pedir una recogida a quien
+   * no la hace o fuera de su radio. El backend lo vuelve a comprobar; esto es
+   * para no dejar avanzar y que el rechazo llegue al pagar.
+   */
+  private funerarioListoParaSeguir(): boolean {
+    const f = this.paso1FunerariosForm.value;
+    const servicio = this.servicioFunerarioElegido();
+    if (!servicio) return false;
+    if (!servicio.devuelveCenizas && !f.aceptaSinCenizas) return false;
+
+    if (f.necesitaRecogida) {
+      if (!this.ofreceRecogida()) return false;
+      if (Number(f.distanciaKm ?? 0) > this.radioRecogidaKm()) return false;
+      if (this.zonasRecogidaDisponibles().length && !f.zonaRecogida) return false;
+    }
+    if (f.urgencia === UrgenciaFunerario.FECHA && !f.fecha) return false;
+    return true;
+  }
+
+  /**
+   * Fecha de inicio del servicio. "Lo antes posible" y "hoy" son ahora mismo;
+   * "mañana", el día siguiente; y sólo "elegir fecha" trae una del calendario.
+   * La hora sale de la franja, porque aquí no se promete una hora exacta.
+   */
+  private fechaInicioFunerario(): string {
+    const f = this.paso1FunerariosForm.value;
+    const horaDeFranja: Record<string, string> = {
+      [FranjaHoraria.MANANA]: '09:00',
+      [FranjaHoraria.TARDE]: '16:00',
+      [FranjaHoraria.NOCHE]: '21:00',
+    };
+    const hora = horaDeFranja[f.franja ?? FranjaHoraria.MANANA] ?? '09:00';
+
+    if (f.urgencia === UrgenciaFunerario.FECHA && f.fecha) return `${f.fecha}T${hora}:00`;
+
+    const dia = new Date();
+    if (f.urgencia === UrgenciaFunerario.MANANA) dia.setDate(dia.getDate() + 1);
+    if (f.urgencia === UrgenciaFunerario.LO_ANTES_POSIBLE) return dia.toISOString();
+
+    return `${dia.toISOString().slice(0, 10)}T${hora}:00`;
+  }
 
   // ─── Step 2 (shared) ───
   // ─── Confirmación: valoración del proceso y preguntas frecuentes ───
@@ -2236,7 +2515,7 @@ export class ReservaWizardComponent implements OnInit {
     const formularios: AbstractControl[] = [
       this.paso1AlojamientoForm, this.paso1TransporteForm, this.paso1VeterinariaForm,
       this.paso1PeluqueriaForm, this.paso1AdiestramientoForm, this.paso1HotelesForm,
-      this.paso1CuidadoresForm,
+      this.paso1FunerariosForm,
     ];
     for (const form of formularios) {
       form.valueChanges
@@ -2386,7 +2665,7 @@ export class ReservaWizardComponent implements OnInit {
       case VerticalKey.PELUQUERIA:     return this.paso1PeluqueriaForm.valid;
       case VerticalKey.ADIESTRAMIENTO: return this.paso1AdiestramientoForm.valid;
       case VerticalKey.HOTELES:        return this.paso1HotelesForm.valid;
-      case VerticalKey.CUIDADORES:     return this.paso1CuidadoresForm.valid;
+      case VerticalKey.FUNERARIOS:     return this.paso1FunerariosForm.valid && this.funerarioListoParaSeguir();
       default:                         return false;
     }
   });
@@ -2410,10 +2689,59 @@ export class ReservaWizardComponent implements OnInit {
         const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         return base * noches + this.suplementoHotel();
       }
+      case VerticalKey.FUNERARIOS:
+        return this.subtotalFunerario();
       default:
         return base;
     }
   });
+
+  /**
+   * Precio cerrado del servicio funerario, con el mismo desglose que aplica
+   * `FunerariosAvailabilityStrategy`: servicio según el peso + recogida +
+   * urgencia + extras. Se replica aquí —como en transporte y hoteles— para que
+   * el cliente vea el importe mientras rellena, no sólo al llegar al pago; el
+   * cobro lo sigue calculando el backend, que es la fuente de verdad.
+   */
+  readonly subtotalFunerario = computed(() => {
+    this.revisionFormularios();
+    const servicio = this.servicioFunerarioElegido();
+    if (!servicio) return 0;
+
+    const f = this.paso1FunerariosForm.value;
+    const peso = Number(f.pesoKg ?? 0);
+    const tramos = [...(servicio.tramosPeso ?? [])].sort((a, b) => a.hastaKg - b.hastaKg);
+    const tramo = peso > 0 ? tramos.find((t) => peso <= t.hastaKg) : undefined;
+    const precioServicio = tramo?.precio
+      ?? (tramos.length && peso > 0 ? tramos[tramos.length - 1].precio : servicio.precioBase);
+
+    const extras = this.extrasFunerarioElegidos().reduce(
+      (suma, nombre) => suma + (this.extrasFunerariosDisponibles().find((e) => e.nombre === nombre)?.precio ?? 0), 0,
+    );
+
+    const ficha = this.fichaFunerario();
+    const urgente = f.urgencia === UrgenciaFunerario.LO_ANTES_POSIBLE || f.urgencia === UrgenciaFunerario.HOY;
+    const suplemento = urgente ? ((ficha['suplementoUrgencia'] as number) ?? 0) : 0;
+
+    return this.redondear(precioServicio + this.precioRecogidaFunerario() + suplemento + extras);
+  });
+
+  /** Desplazamiento de recogida: fijo, por kilómetro o por zona, según declare la empresa. */
+  private precioRecogidaFunerario(): number {
+    const f = this.paso1FunerariosForm.value;
+    if (!f.necesitaRecogida) return 0;
+
+    const ficha = this.fichaFunerario();
+    const modo = ficha['modoPrecioRecogida'];
+
+    if (modo === ModoPrecioRecogida.POR_KM) {
+      return this.redondear(((ficha['precioRecogidaPorKm'] as number) ?? 0) * Number(f.distanciaKm ?? 0));
+    }
+    if (modo === ModoPrecioRecogida.POR_ZONA) {
+      return this.zonasRecogidaDisponibles().find((z) => z.nombre === f.zonaRecogida)?.precio ?? 0;
+    }
+    return (ficha['precioRecogida'] as number) ?? 0;
+  }
 
   /**
    * Desglose del trayecto (HU-5.5.3). Replica la fórmula de
@@ -2554,7 +2882,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'Tu cita',
       [VerticalKey.ADIESTRAMIENTO]: 'Tu sesión',
       [VerticalKey.HOTELES]: 'Tu viaje',
-      [VerticalKey.CUIDADORES]: 'Tu servicio',
+      [VerticalKey.FUNERARIOS]: 'El servicio',
     };
     return m[this.vertical()] ?? 'Selección';
   });
@@ -2567,7 +2895,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'Detalles de la cita de peluquería',
       [VerticalKey.ADIESTRAMIENTO]: 'Detalles del adiestramiento',
       [VerticalKey.HOTELES]: 'Detalles de tu viaje pet-friendly',
-      [VerticalKey.CUIDADORES]: 'Detalles del paseo o cuidado',
+      [VerticalKey.FUNERARIOS]: 'Detalles del servicio funerario',
     };
     return m[this.vertical()] ?? 'Resumen de tu reserva';
   });
@@ -2581,7 +2909,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'scissors',
       [VerticalKey.ADIESTRAMIENTO]: 'graduation-cap',
       [VerticalKey.HOTELES]: 'hotel',
-      [VerticalKey.CUIDADORES]: 'users',
+      [VerticalKey.FUNERARIOS]: 'heart',
     };
     return m[this.vertical()] ?? 'paw';
   });
@@ -2598,7 +2926,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'servicio',
       [VerticalKey.ADIESTRAMIENTO]: 'sesión',
       [VerticalKey.HOTELES]: 'noche',
-      [VerticalKey.CUIDADORES]: 'servicio',
+      [VerticalKey.FUNERARIOS]: 'servicio',
     };
     return m[this.vertical()] ?? '';
   });
@@ -2628,8 +2956,8 @@ export class ReservaWizardComponent implements OnInit {
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         return `${euros(base)} × ${n} noche${n !== 1 ? 's' : ''}`;
       }
-      case VerticalKey.CUIDADORES:
-        return `Servicio · ${euros(base)}`;
+      case VerticalKey.FUNERARIOS:
+        return `${this.paso1FunerariosForm.value.servicioNombre || 'Servicio funerario'} · ${euros(base)}`;
       default:
         return euros(base);
     }
@@ -2643,7 +2971,7 @@ export class ReservaWizardComponent implements OnInit {
       [VerticalKey.PELUQUERIA]: 'Piel sensible, nudos, corte preferido…',
       [VerticalKey.ADIESTRAMIENTO]: 'Conducta a trabajar, nivel de socialización…',
       [VerticalKey.HOTELES]: 'Necesidades especiales de tu mascota, movilidad reducida…',
-      [VerticalKey.CUIDADORES]: 'Rutina de paseo, dónde guardas la comida, dónde duerme…',
+      [VerticalKey.FUNERARIOS]: 'Cómo se llamaba, si queréis acompañarlo, algo que debamos saber…',
     };
     return m[this.vertical()] ?? 'Peticiones especiales…';
   });
@@ -2756,6 +3084,21 @@ export class ReservaWizardComponent implements OnInit {
         );
       }).catch(() => {
         // Catálogo detallado no disponible: se mantiene con el selector de modalidad genérico.
+      });
+    }
+
+    if (this.vertical() === VerticalKey.FUNERARIOS && this.servicioId) {
+      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+        this.fichaFunerario.set(s.extra ?? {});
+        // Con un solo servicio en catálogo no hay nada que elegir: se marca y
+        // el cliente pasa directamente al peso, que es lo que fija el precio.
+        const servicios = this.serviciosFunerariosDisponibles();
+        if (servicios.length === 1) {
+          this.paso1FunerariosForm.patchValue({ servicioNombre: servicios[0].nombre });
+        }
+      }).catch(() => {
+        // Sin ficha detallada no se puede ofrecer el catálogo; el paso 1 se
+        // queda sin opciones y el cliente no avanza, que es lo correcto aquí.
       });
     }
 
@@ -3031,14 +3374,29 @@ export class ReservaWizardComponent implements OnInit {
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }
-      case VerticalKey.CUIDADORES: {
-        const f = this.paso1CuidadoresForm.value;
+      case VerticalKey.FUNERARIOS: {
+        const f = this.paso1FunerariosForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
           perroId: this.perroSeleccionado() ?? undefined,
-          fechaInicio: `${f.fecha}T${f.hora}:00`,
+          fechaInicio: this.fechaInicioFunerario(),
           cantidad: 1,
-          detalle: { modalidad: f.modalidad },
+          // Todo esto llega a la estrategia como `parametrosExtra`: es con lo
+          // que se calcula el precio cerrado y se decide si hay cobertura.
+          detalle: {
+            servicioNombre: f.servicioNombre,
+            especie: f.especie,
+            pesoKg: Number(f.pesoKg ?? 0),
+            necesitaRecogida: !!f.necesitaRecogida,
+            lugarRecogida: f.necesitaRecogida ? f.lugarRecogida : undefined,
+            distanciaKm: f.necesitaRecogida ? Number(f.distanciaKm ?? 0) : undefined,
+            zonaRecogida: f.necesitaRecogida ? (f.zonaRecogida || undefined) : undefined,
+            direccionRecogida: f.necesitaRecogida ? (f.direccionRecogida || undefined) : undefined,
+            urgencia: f.urgencia,
+            franja: f.franja,
+            extras: this.extrasFunerarioElegidos(),
+            aceptaSinCenizas: !!f.aceptaSinCenizas,
+          },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
       }

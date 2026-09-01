@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { BloqueoDto, CitaAgendaDto, CrearBloqueoDto, Rol } from 'shared';
+import { ActualizarBloqueoDto, BloqueoDto, CitaAgendaDto, CrearBloqueoDto, Rol } from 'shared';
 import { BloqueosService } from './bloqueos.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles, RolesGuard } from '../auth/guards/roles.guard';
@@ -47,6 +47,16 @@ export class BloqueosController {
   @ApiOperation({ summary: 'Cerrar un tramo de la agenda de un servicio propio' })
   crearBloqueo(@Req() req: RequestConUsuario, @Body() dto: CrearBloqueoDto): Promise<BloqueoDto> {
     return this.bloqueosService.crear(req.user.comercioId!, dto, req.user.sub);
+  }
+
+  @Patch('bloqueos/:id')
+  @ApiOperation({ summary: 'Editar un tramo cerrado propio' })
+  actualizarBloqueo(
+    @Req() req: RequestConUsuario,
+    @Param('id') id: string,
+    @Body() dto: ActualizarBloqueoDto,
+  ): Promise<BloqueoDto> {
+    return this.bloqueosService.actualizar(req.user.comercioId!, id, dto);
   }
 
   @Delete('bloqueos/:id')

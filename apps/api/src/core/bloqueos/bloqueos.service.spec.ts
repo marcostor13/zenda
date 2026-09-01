@@ -151,6 +151,69 @@ describe('BloqueosService', () => {
     });
   });
 
+  describe('actualizar', () => {
+    /** Documento hidratado: `actualizar` lo modifica y lo guarda, no usa `lean`. */
+    const documento = (extra: Record<string, unknown> = {}) => ({
+      ...bloqueoGuardado({ cantidad: 2, ...extra }),
+      save: jest.fn().mockResolvedValue(undefined),
+    });
+
+    const conDocumento = (doc: Record<string, unknown>): void => {
+      bloqueoModel['findOne'].mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+    };
+
+    it('debería cambiar el motivo y las fechas del tramo', async () => {
+      const doc = documento();
+      conDocumento(doc);
+
+      const actualizado = await service.actualizar(COMERCIO, BLOQUEO, {
+        desde: '2026-09-05', hasta: '2026-09-08', motivo: '  Obras  ',
+      });
+
+      expect(doc.save).toHaveBeenCalled();
+      expect(actualizado.motivo).toBe('Obras');
+      expect(actualizado.hasta).toBe(new Date('2026-09-08').toISOString());
+    });
+
+    it('debería dejar como está lo que no viene en la petición', async () => {
+      const doc = documento();
+      conDocumento(doc);
+
+      const actualizado = await service.actualizar(COMERCIO, BLOQUEO, { motivo: 'Obras' });
+
+      expect(actualizado.cantidad).toBe(2);
+      expect(actualizado.desde).toBe(new Date('2026-09-01').toISOString());
+    });
+
+    /**
+     * `null` es la orden explícita de pasar a cerrar el servicio entero; sin esa
+     * distinción, un cierre parcial no se podría convertir nunca en uno total.
+     */
+    it('debería pasar a cierre total con cantidad null', async () => {
+      const doc = documento();
+      conDocumento(doc);
+
+      const actualizado = await service.actualizar(COMERCIO, BLOQUEO, { cantidad: null });
+
+      expect(actualizado.cantidad).toBeUndefined();
+    });
+
+    it('debería rechazar un tramo que termina antes de empezar', async () => {
+      conDocumento(documento());
+
+      await expect(service.actualizar(COMERCIO, BLOQUEO, { hasta: '2026-08-01' }))
+        .rejects.toThrow(DomainException);
+    });
+
+    it('debería lanzar 404 si el bloqueo no es de ese comercio', async () => {
+      // Multi-tenant: el filtro lleva el comercio de la sesión, nunca el del cuerpo.
+      bloqueoModel['findOne'].mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await expect(service.actualizar(COMERCIO, BLOQUEO, { motivo: 'Obras' }))
+        .rejects.toThrow(DomainException);
+    });
+  });
+
   describe('cierreQueSolapa', () => {
     it('debería mirar sólo los cierres totales', async () => {
       // Los parciales restan inventario; no cortan la reserva.

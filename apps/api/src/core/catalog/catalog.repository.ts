@@ -126,10 +126,11 @@ const FILTROS_VERTICAL: Record<string, Record<string, ComparadorFiltro>> = {
     tiposSeguro: 'todos',
     renovacionAutomatica: 'bool',
   },
-  cuidadores: {
-    administraMedicacion: 'bool',
-    aceptaPPP: 'bool',
-    modalidades: 'todos',
+  funerarios: {
+    tiposServicioFunerario: 'todos',
+    ofreceRecogida: 'bool',
+    servicioUrgente: 'bool',
+    atiende24h: 'bool',
   },
 };
 
@@ -144,7 +145,7 @@ const CAMPO_DISPONIBILIDAD: Record<string, string> = {
   veterinaria: 'citasDisponibles',
   peluqueria: 'cuposDisponibles',
   adiestramiento: 'cuposDisponibles',
-  cuidadores: 'cuposDisponibles',
+  funerarios: 'cuposDisponibles',
 };
 
 const ORDEN_SORT: Record<Exclude<OrdenServicios, 'distancia'>, Record<string, 1 | -1>> = {
@@ -176,6 +177,8 @@ export interface CrearServicioParams {
   ciudad: string;
   precioBase: number;
   imagenes: string[];
+  /** Estado inicial de la ficha. Sin valor nace en borrador. */
+  estado?: 'borrador' | 'publicado';
   comercioId: string;
   /** Copia del estado del comercio; el buscador filtra por ella (ver `Servicio.comercioActivo`). */
   comercioActivo: boolean;
@@ -391,7 +394,8 @@ export class CatalogRepository {
       imagenes: data.imagenes,
       comercioId: new Types.ObjectId(data.comercioId),
       comercioActivo: data.comercioActivo,
-      estado: 'borrador',
+      // Quien lo crea decide si nace publicado; sin decir nada, borrador.
+      estado: data.estado ?? 'borrador',
       moneda: MONEDA_DEFAULT,
       aptitud: data.aptitud,
       ...data.extra,

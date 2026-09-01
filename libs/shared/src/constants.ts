@@ -30,6 +30,13 @@ export const SLOT_HOLD_TTL_MINUTOS = 15;
 export const COMISION_PCT_DEFAULT = 0.15;
 
 /**
+ * Aseguradoras que Doogking admite a la vez. No es una limitación técnica: con
+ * pocas compañías se puede revisar de verdad su documentación y acompañar cada
+ * póliza, que es lo que el cliente espera de un seguro contratado aquí.
+ */
+export const MAX_ASEGURADORAS = 3;
+
+/**
  * Escalera de niveles del programa de fidelización Doogking Alpha (Bloque 13),
  * usada como valor efectivo mientras el admin no haya guardado su propia
  * configuración en `alpha_niveles` — "nada fijo en el código" (HU-13.4), pero
@@ -105,4 +112,13 @@ export function nombreAlphaPresentacion(nombre: string, nivel: number): string {
  * que sí un comercio que firmó hace seis meses, que es justo lo que hay que
  * poder demostrar. Al publicar un texto nuevo, subir la fecha aquí.
  */
+/**
+ * Fotos mínimas para que una ficha se pueda publicar.
+ *
+ * Cinco y no una: una ficha con una sola foto no deja ver el sitio, y en un
+ * marketplace de reservas la foto **es** el producto. Se comprueba al publicar
+ * —no al crear— para no bloquear un borrador a medias.
+ */
+export const MIN_FOTOS_SERVICIO = 5;
+
 export const CONDICIONES_COMERCIO_VERSION = '2026-08-30';

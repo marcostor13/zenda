@@ -68,6 +68,32 @@ export const TIPOS_ADIESTRAMIENTO: readonly string[] = [
   'Agility', 'Perro de asistencia', 'Perro de guarda', 'Adiestramiento deportivo',
 ];
 
+/**
+ * Cursos que un centro puede publicar en su catálogo, con el tipo de
+ * adiestramiento que declara cada uno. El buscador ordena por ese tipo
+ * (PROBLEMAS_ADIESTRAMIENTO en `vertical-browse`), así que el nombre comercial
+ * del curso no puede ser el dato que se compara: por eso van emparejados aquí.
+ */
+export const CURSOS_ADIESTRAMIENTO: ReadonlyArray<{ nombre: string; tipo: string }> = [
+  { nombre: 'Curso cachorro',                 tipo: 'Educación de cachorros' },
+  { nombre: 'Curso obediencia básica',        tipo: 'Obediencia básica' },
+  { nombre: 'Curso obediencia avanzada',      tipo: 'Obediencia avanzada' },
+  { nombre: 'Curso modificación de conducta', tipo: 'Modificación de conducta' },
+  { nombre: 'Curso de llamada',               tipo: 'Llamada' },
+  { nombre: 'Curso de paseo sin tirar',       tipo: 'Paseo con correa' },
+  { nombre: 'Curso de sociabilización',       tipo: 'Socialización' },
+  { nombre: 'Preparación perro de terapia',   tipo: 'Perro de asistencia' },
+  { nombre: 'Preparación perro deportivo',    tipo: 'Adiestramiento deportivo' },
+];
+
+/** Lo que suele incluir un servicio funerario; la empresa puede escribir otros. */
+export const INCLUYE_FUNERARIO: readonly string[] = [
+  'Recogida a domicilio', 'Recogida en clínica veterinaria', 'Traslado', 'Urna básica',
+  'Certificado de cremación', 'Huella conmemorativa', 'Mechón de pelo', 'Sala de despedida',
+  'Ceremonia de despedida', 'Entrega de cenizas a domicilio', 'Acompañamiento telefónico',
+  'Gestión de la documentación', 'Manta o sudario',
+];
+
 export const SERVICIOS_PETFRIENDLY: readonly string[] = [
   'Cama para mascota', 'Comedero y bebedero', 'Manta', 'Servicio de paseo',
   'Guardería en el hotel', 'Zona de esparcimiento', 'Menú para mascotas',

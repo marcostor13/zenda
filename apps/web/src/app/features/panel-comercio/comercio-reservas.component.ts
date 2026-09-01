@@ -1,5 +1,6 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { HitoFunerario, VerticalKey } from 'shared';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -901,6 +902,7 @@ function desdeClaveDia(clave: string): number {
 export class ComercioReservasComponent implements OnInit {
   private readonly comercioApi = inject(ComercioApiService);
   private readonly perrosService = inject(PerrosService);
+  private readonly ruta = inject(ActivatedRoute);
 
   readonly cargando = signal(true);
   readonly errorMsg = signal('');
@@ -1045,6 +1047,11 @@ export class ComercioReservasComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
+    // La agenda enlaza aquí con el código de la reserva que el comercio acaba de
+    // pinchar en el calendario; sin esto aterrizaría en la lista entera.
+    const buscado = this.ruta.snapshot.queryParamMap.get('buscar');
+    if (buscado) this.busqueda.set(buscado);
+
     try {
       const [reservas, suplementos] = await Promise.all([
         firstValueFrom(this.comercioApi.getMisReservas()),
@@ -1463,6 +1470,23 @@ export class ComercioReservasComponent implements OnInit {
         { hito: 'entrada', icono: 'hotel', label: 'Ingreso' },
         { hito: 'salida', icono: 'paw', label: 'Salida' },
         { hito: 'finalizada', icono: 'check-circle', label: 'Finalizar' },
+      ];
+    }
+    /*
+     * Servicios funerarios: la secuencia completa del brief. No es obligatorio
+     * marcarlos todos —un servicio sin recogida, o sin devolución de cenizas,
+     * se salta los suyos—; se marcan los que aplican y el cliente los ve en
+     * "Mis reservas" según van ocurriendo.
+     */
+    if (vertical === VerticalKey.FUNERARIOS) {
+      return [
+        { hito: HitoFunerario.RECOGIDA_PROGRAMADA, icono: 'calendar', label: 'Recogida programada' },
+        { hito: HitoFunerario.RECOGIDO, icono: 'truck', label: 'Recogido' },
+        { hito: HitoFunerario.EN_PROCESO, icono: 'clock', label: 'En proceso' },
+        { hito: HitoFunerario.CENIZAS_PREPARADAS, icono: 'gift', label: 'Cenizas preparadas' },
+        { hito: HitoFunerario.ENTREGA_PROGRAMADA, icono: 'calendar', label: 'Entrega programada' },
+        { hito: HitoFunerario.ENTREGADO, icono: 'map-pin', label: 'Entregado' },
+        { hito: HitoFunerario.FINALIZADA, icono: 'check-circle', label: 'Finalizar' },
       ];
     }
     return [];

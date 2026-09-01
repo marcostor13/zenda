@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ComercioReservasComponent } from './comercio-reservas.component';
 import { ComercioApiService, MiReserva } from './comercio-api.service';
@@ -33,6 +34,7 @@ describe('ComercioReservasComponent', () => {
     await TestBed.configureTestingModule({
       imports: [ComercioReservasComponent],
       providers: [
+        provideRouter([]),
         { provide: ComercioApiService, useValue: comercioApi },
         { provide: PerrosService, useValue: perrosService },
       ],

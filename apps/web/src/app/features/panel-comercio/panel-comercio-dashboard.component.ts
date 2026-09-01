@@ -50,8 +50,8 @@ const ESTADO_BADGE: Record<string, string> = {
         <div class="alta-pendiente__texto">
           <h3>Te falta terminar tu alta</h3>
           <p>
-            Tus servicios están guardados como borrador y todavía no se ven en Doogking.
-            Son dos minutos: los datos de tu negocio y las condiciones.
+            Tus servicios están guardados y todavía no se ven en Doogking. En cuanto termines
+            se publican solos. Son dos minutos: los datos de tu negocio y las condiciones.
           </p>
         </div>
         <a routerLink="/comercio/alta" class="rs-btn rs-btn--primary">

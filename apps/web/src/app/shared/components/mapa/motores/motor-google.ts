@@ -1,8 +1,24 @@
 import { cargarGoogleMaps } from './google-maps.loader';
 import {
-  EscuchasMotor, MotorMapa, OpcionesMotor, PuntoMapa, ZonaMapa, puntosGeolocalizados,
+  COLOR_RUTA, EscuchasMotor, MAX_PARADAS_INTERMEDIAS, MotorMapa, OpcionesMotor, PuntoMapa,
+  PuntoRuta, ResumenRuta, ZonaMapa, distanciaEnLineaRecta, puntosGeolocalizados,
 } from './motor-mapa';
 import { htmlPin, htmlTarjeta } from './pin-html';
+
+/** Suma los tramos que devuelve Directions: metros y segundos a km y minutos. */
+function resumirTramos(tramos: readonly google.maps.DirectionsLeg[]): ResumenRuta {
+  let metros = 0;
+  let segundos = 0;
+  for (const tramo of tramos) {
+    metros += tramo.distance?.value ?? 0;
+    segundos += tramo.duration?.value ?? 0;
+  }
+  return {
+    distanciaKm: Math.round(metros / 1000),
+    duracionMin: Math.round(segundos / 60),
+    porCarretera: true,
+  };
+}
 
 /** Margen en píxeles al encajar la vista a los resultados. */
 const MARGEN_ENCUADRE = 48;
@@ -80,6 +96,11 @@ class MotorGoogle implements MotorMapa {
   /** El mapa está colocando un punto, no enseñando resultados. */
   private readonly sinTarjetas: boolean;
 
+  /** Línea recta de respaldo, cuando no se ha podido pedir la ruta real. */
+  private ruta: google.maps.Polyline | null = null;
+  /** Capa que dibuja el camino por carretera que devuelve Directions. */
+  private trazado: google.maps.DirectionsRenderer | null = null;
+
   pintar(puntos: readonly PuntoMapa[], activo: string | null): void {
     this.limpiarPines();
 
@@ -94,6 +115,79 @@ class MotorGoogle implements MotorMapa {
       pin.setMap(this.mapa);
       this.pines.push(pin);
     }
+  }
+
+  /**
+   * Traza el trayecto por carretera con Directions, pasando por cada punto de
+   * recogida en orden.
+   *
+   * Se pide la ruta real y no una línea recta porque lo que se está enseñando
+   * es un viaje: la recta entre Madrid y Santander cruza la cordillera, y el
+   * transportista cobra por los kilómetros que hace de verdad. Si Directions no
+   * contesta —cuota, red, una parada donde no llega una carretera— se cae a la
+   * recta antes que dejar el mapa vacío, y se avisa de que lo es.
+   */
+  async pintarRuta(paradas: readonly PuntoRuta[]): Promise<ResumenRuta | null> {
+    this.limpiarRuta();
+    if (paradas.length < 2) return null;
+
+    const porCarretera = await this.trazarPorCarretera(paradas);
+    if (porCarretera) return porCarretera;
+
+    this.ruta = new this.maps.Polyline({
+      path: paradas.map((p) => ({ lat: p.lat, lng: p.lng })),
+      strokeColor: COLOR_RUTA,
+      strokeOpacity: 0.9,
+      strokeWeight: 4,
+      map: this.mapa,
+    });
+    return { distanciaKm: distanciaEnLineaRecta(paradas), duracionMin: 0, porCarretera: false };
+  }
+
+  /** La ruta real, o `null` si Directions no la puede dar. */
+  private async trazarPorCarretera(paradas: readonly PuntoRuta[]): Promise<ResumenRuta | null> {
+    // Directions admite un número limitado de paradas intermedias; pedir más
+    // devuelve un error y dejaría el trayecto sin dibujar.
+    const puntos = paradas.slice(0, MAX_PARADAS_INTERMEDIAS + 2);
+    const origen = puntos[0];
+    const destino = puntos[puntos.length - 1];
+
+    try {
+      const respuesta = await new this.maps.DirectionsService().route({
+        origin: { lat: origen.lat, lng: origen.lng },
+        destination: { lat: destino.lat, lng: destino.lng },
+        waypoints: puntos.slice(1, -1).map((p) => ({
+          location: { lat: p.lat, lng: p.lng }, stopover: true,
+        })),
+        travelMode: this.maps.TravelMode.DRIVING,
+        region: 'ES',
+      });
+
+      const tramos = respuesta.routes[0]?.legs;
+      if (!tramos?.length) return null;
+
+      this.trazado = new this.maps.DirectionsRenderer({
+        // Los pines numerados los pone el componente: los de Google saldrían
+        // encima con otra forma y otro orden.
+        suppressMarkers: true,
+        // El encuadre lo decide quien hospeda el mapa, que sabe qué más hay.
+        preserveViewport: true,
+        polylineOptions: { strokeColor: COLOR_RUTA, strokeOpacity: 0.9, strokeWeight: 5 },
+      });
+      this.trazado.setMap(this.mapa);
+      this.trazado.setDirections(respuesta);
+
+      return resumirTramos(tramos);
+    } catch {
+      return null;
+    }
+  }
+
+  private limpiarRuta(): void {
+    this.ruta?.setMap(null);
+    this.ruta = null;
+    this.trazado?.setMap(null);
+    this.trazado = null;
   }
 
   encuadrar(puntos: readonly PuntoMapa[]): void {
@@ -137,6 +231,7 @@ class MotorGoogle implements MotorMapa {
   }
 
   destruir(): void {
+    this.limpiarRuta();
     this.cancelarCierre();
     this.tarjeta.close();
     this.limpiarPines();

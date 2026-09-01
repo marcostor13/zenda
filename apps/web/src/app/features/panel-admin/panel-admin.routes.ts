@@ -72,6 +72,12 @@ export const panelAdminRoutes: Routes = [
           import('./admin-resenas.component').then(m => m.AdminResenasComponent),
       },
       {
+        // Las aseguradoras entran por solicitud revisada, no por el alta normal.
+        path: 'seguros',
+        loadComponent: () =>
+          import('./admin-seguros.component').then((m) => m.AdminSegurosComponent),
+      },
+      {
         path: 'comisiones',
         loadComponent: () =>
           import('./admin-comisiones.component').then(m => m.AdminComisionesComponent),

@@ -16,6 +16,16 @@ export interface ServicioAdicionalTransporte {
  * mascotas A→B con vehículo acondicionado. Precio por trayecto:
  * tarifaBase + tarifaKm × distancia (+ suplemento de exclusividad si se solicita).
  */
+/** Una parada del trayecto declarado, con su punto en el mapa. */
+export interface ParadaTrayecto {
+  /** Cómo se llama la parada: la población, el barrio, la clínica… */
+  nombre: string;
+  lat: number;
+  lng: number;
+  /** Identificador de Google Places, si la parada se eligió del buscador. */
+  placeId?: string;
+}
+
 @Schema({ _id: false })
 export class Transporte extends Servicio {
   @Prop({ type: String, default: 'van_acondicionada' })
@@ -78,8 +88,24 @@ export class Transporte extends Servicio {
   // --- Cierre de Fase C.6: condiciones configurables del transportista ---
 
   /**
+   * Trayecto declarado, parada a parada y en orden.
+   *
+   * Es la ruta habitual que el transportista quiere enseñar en su ficha —«hago
+   * Madrid–Guadalajara–Zaragoza»—, no el camino que calculará el GPS el día del
+   * viaje. Lleva coordenadas para poder pintarla en el mapa sin volver a
+   * resolver cada nombre.
+   */
+  @Prop({ type: [Object], default: [] })
+  trayecto!: ParadaTrayecto[];
+
+  /**
+   * @deprecated Ya no se pide en el alta: un radio en kilómetros mete dentro
+   * pueblos a los que no se sube y deja fuera el que sí se hace por la autovía.
+   * Se conserva para no borrar lo que declararon los transportistas antiguos.
+   * La zona se declara con `zonaCobertura` (provincias) y el recorrido concreto
+   * con `trayecto`.
+   *
    * Radio de cobertura desde la ciudad base, en km. 0 = sin límite declarado.
-   * Evita recibir solicitudes de trayectos que el transportista no puede hacer.
    */
   @Prop({ type: Number, default: 0 })
   radioCoberturaKm!: number;

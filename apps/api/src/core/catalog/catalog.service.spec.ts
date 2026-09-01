@@ -629,6 +629,58 @@ describe('CatalogService', () => {
       );
     });
 
+    describe('estado inicial de la ficha', () => {
+      /** Comercio con el alta ya cerrada, que es quien puede publicar. */
+      const conAlta = (altaCompletada: boolean): void => {
+        comercioModel.findById.mockReturnValue({
+          select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue({ estado: 'activo', altaCompletada }),
+        });
+      };
+
+      /**
+       * Nacer en borrador obligaba a rematar el alta y volver a entrar por «Mis
+       * servicios» a darle a publicar, un paso que nadie asocia con «ya he
+       * terminado»: ahí se quedaban fichas acabadas sin publicar.
+       */
+      it('debería publicar de salida una ficha que ya cumple', async () => {
+        conAlta(true);
+        repo.crear.mockResolvedValue(hotelDoc as never);
+
+        await service.crearServicio({ ...base, vertical: 'peluqueria' as never, imagenes: ['/1.jpg', '/2.jpg', '/3.jpg', '/4.jpg', '/5.jpg'] }, 'comercio-1');
+
+        expect(repo.crear).toHaveBeenCalledWith(
+          expect.objectContaining({ estado: 'publicado' }),
+        );
+      });
+
+      it('debería dejarla en borrador mientras el alta no esté cerrada', async () => {
+        // Sin datos de contacto ni consentimientos no hay ficha pública; se
+        // publica sola al terminar el alta.
+        conAlta(false);
+        repo.crear.mockResolvedValue(hotelDoc as never);
+
+        await service.crearServicio({ ...base, vertical: 'peluqueria' as never, imagenes: ['/1.jpg', '/2.jpg', '/3.jpg', '/4.jpg', '/5.jpg'] }, 'comercio-1');
+
+        expect(repo.crear).toHaveBeenCalledWith(
+          expect.objectContaining({ estado: 'borrador' }),
+        );
+      });
+
+      it('debería dejarla en borrador si no llega al mínimo de fotos', async () => {
+        // Las mismas condiciones que publicar a mano: si no se podría publicar
+        // desde el panel, tampoco puede nacer publicada.
+        conAlta(true);
+        repo.crear.mockResolvedValue(hotelDoc as never);
+
+        await service.crearServicio({ ...base, vertical: 'peluqueria' as never, imagenes: ['/1.jpg', '/2.jpg'] }, 'comercio-1');
+
+        expect(repo.crear).toHaveBeenCalledWith(
+          expect.objectContaining({ estado: 'borrador' }),
+        );
+      });
+    });
+
     describe('catálogo cerrado de servicios veterinarios', () => {
       const conServicios = (servicios: unknown[]) => ({
         ...base,
@@ -647,7 +699,7 @@ describe('CatalogService', () => {
         expect(repo.crear).toHaveBeenCalled();
       });
 
-      it('debería rechazar dermatología: Doogking no la intermedia', async () => {
+      it('debería rechazar dermatología: no está en el catálogo reservable', async () => {
         await expect(
           service.crearServicio(
             conServicios([{ tipo: 'dermatologia', nombre: 'Consulta dermatología', precio: 55 }]),
@@ -673,6 +725,60 @@ describe('CatalogService', () => {
             'comercio-1',
           ),
         ).rejects.toThrow(DomainException);
+      });
+
+      /**
+       * Regla de oro (`veterinarios.md`): si el cliente no puede saber cuánto va
+       * a pagar antes de acudir, eso no se publica como reserva directa. Una
+       * especialidad describe a quién ves, no lo que cuesta.
+       */
+      it('debería rechazar una especialidad suelta añadida a mano', async () => {
+        await expect(
+          service.crearServicio(
+            conServicios([{ tipo: ServicioClinicoTipo.OTRO, nombre: 'Cardiología', precio: 70 }]),
+            'comercio-1',
+          ),
+        ).rejects.toThrow('es una especialidad, no un servicio con precio');
+        expect(repo.crear).not.toHaveBeenCalled();
+      });
+
+      it('debería aceptar la consulta de esa especialidad, que sí tiene precio', async () => {
+        // Lo que se compra es la consulta, no el tratamiento cardiológico.
+        repo.crear.mockResolvedValue(hotelDoc as never);
+
+        await service.crearServicio(
+          conServicios([{
+            tipo: ServicioClinicoTipo.OTRO, nombre: 'Primera consulta de cardiología', precio: 70,
+          }]),
+          'comercio-1',
+        );
+
+        expect(repo.crear).toHaveBeenCalled();
+      });
+
+      it('debería exigir nombre al servicio añadido a mano', async () => {
+        await expect(
+          service.crearServicio(
+            conServicios([{ tipo: ServicioClinicoTipo.OTRO, nombre: '  ', precio: 70 }]),
+            'comercio-1',
+          ),
+        ).rejects.toThrow('Ponle nombre');
+      });
+
+      it('debería aceptar una vacunación con el precio de cada vacuna', async () => {
+        // El cliente no reserva «vacunación»: reserva «vacuna de la rabia, 32 €».
+        repo.crear.mockResolvedValue(hotelDoc as never);
+
+        await service.crearServicio(
+          conServicios([{
+            tipo: ServicioClinicoTipo.VACUNACION, nombre: 'Vacunación', precio: 32,
+            modoPrecio: 'por_variante',
+            variantes: [{ nombre: 'Rabia', precio: 32 }, { nombre: 'Polivalente', precio: 45 }],
+          }]),
+          'comercio-1',
+        );
+
+        expect(repo.crear).toHaveBeenCalled();
       });
 
       it('debería tolerar listados antiguos sin tipo, para no bloquear al comercio', async () => {

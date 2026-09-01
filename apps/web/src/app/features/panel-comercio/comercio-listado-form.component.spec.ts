@@ -87,6 +87,29 @@ describe('ComercioListadoFormComponent', () => {
     });
   };
 
+  const FOTOS = ['/f1.jpg', '/f2.jpg', '/f3.jpg', '/f4.jpg', '/f5.jpg'];
+
+  /**
+   * Deja puesto lo que ahora hace falta para publicar —una unidad reservable y
+   * las cinco fotos mínimas— para que cada prueba siga midiendo sólo lo suyo.
+   * En residencias y hoteles las fotos van dentro de la unidad; en el resto, en
+   * la galería del servicio.
+   */
+  const dejarListoParaPublicar = (): void => {
+    if (!componente.fotosPorUnidad()) {
+      componente.form.patchValue({ imagenes: FOTOS });
+      return;
+    }
+
+    const esHotel = componente.form.controls.vertical.value === VerticalKey.HOTELES;
+    const unidades = esHotel ? componente.habitacionesHotel : componente.espacios;
+    if (!unidades.length) {
+      if (esHotel) componente.agregarHabitacionHotel();
+      else componente.agregarEspacio();
+    }
+    unidades.at(0).patchValue({ imagenes: FOTOS });
+  };
+
   const payloadGuardado = (): ServicioPayload =>
     (api.crearServicio.mock.calls[0]?.[0] ?? api.actualizarServicio.mock.calls[0]?.[1]) as ServicioPayload;
 
@@ -142,6 +165,7 @@ describe('ComercioListadoFormComponent', () => {
         ciudad: 'Madrid', precioBase: 30, extra: {},
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(api.actualizarServicio).toHaveBeenCalled();
@@ -157,6 +181,7 @@ describe('ComercioListadoFormComponent', () => {
       });
 
       componente.guardarCoordenadas({ placeId: 'p1', ciudad: 'Madrid', lat: 40.4168, lng: -3.7038 });
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado()).toMatchObject({ lat: 40.4168, lng: -3.7038 });
@@ -172,6 +197,7 @@ describe('ComercioListadoFormComponent', () => {
       // El catálogo local sugiere poblaciones sin coordenadas reales; guardar un
       // punto inventado colocaría el anuncio en el sitio equivocado del mapa.
       componente.guardarCoordenadas({ placeId: '', ciudad: 'Cuenca', lat: NaN, lng: NaN });
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado()).not.toHaveProperty('lat');
@@ -216,7 +242,7 @@ describe('ComercioListadoFormComponent', () => {
 
       await componente.submit();
 
-      expect(componente.errorMsg()).toContain('servicio clínico');
+      expect(componente.errorMsg()).toContain('al menos un servicio veterinario');
     });
 
     it('debería exigir al menos un servicio de grooming en peluquería', async () => {
@@ -237,12 +263,190 @@ describe('ComercioListadoFormComponent', () => {
       expect(componente.errorMsg()).toContain('cobertura');
     });
 
+    it('debería exigir cinco fotos antes de guardar', async () => {
+      // En un marketplace de reservas la foto es el producto: una ficha con dos
+      // no deja ver el sitio y no la reserva nadie.
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.agregarServicioClinico();
+      componente.serviciosClinicos.at(0).patchValue({
+        tipo: ServicioClinicoTipo.VACUNACION, precio: 30,
+      });
+      componente.form.patchValue({ imagenes: ['/f1.jpg', '/f2.jpg'] });
+
+      await componente.submit();
+
+      expect(componente.errorMsg()).toContain('al menos 5 fotos');
+      expect(api.crearServicio).not.toHaveBeenCalled();
+    });
+
+    it('debería contar las fotos de los espacios en alojamiento', async () => {
+      // La residencia no tiene galería aparte: sus fotos son las de las suites.
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+      componente.agregarEspacio();
+      componente.espacios.at(0).patchValue({ imagenes: ['/a.jpg', '/b.jpg', '/c.jpg'] });
+      componente.espacios.at(1).patchValue({ imagenes: ['/d.jpg', '/e.jpg'] });
+
+      await componente.submit();
+
+      expect(componente.totalFotos()).toBe(5);
+      expect(payloadGuardado().imagenes).toEqual(['/a.jpg', '/b.jpg', '/c.jpg', '/d.jpg', '/e.jpg']);
+    });
+
+    it('no debería contar dos veces la misma foto en dos espacios', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      componente.agregarEspacio();
+      componente.agregarEspacio();
+      componente.espacios.at(0).patchValue({ imagenes: ['/a.jpg', '/b.jpg', '/c.jpg'] });
+      componente.espacios.at(1).patchValue({ imagenes: ['/a.jpg', '/b.jpg', '/c.jpg'] });
+
+      await componente.submit();
+
+      expect(componente.totalFotos()).toBe(3);
+      expect(componente.errorMsg()).toContain('al menos 5 fotos');
+    });
+
+    it('debería exigir un tipo de habitación en hoteles', async () => {
+      await crear();
+      rellenarBase(VerticalKey.HOTELES);
+
+      await componente.submit();
+
+      expect(componente.errorMsg()).toContain('tipo de habitación');
+    });
+
     it('debería marcar en rojo solo los campos ya tocados', async () => {
       await crear();
 
       expect(componente.hasError('titulo')).toBe(false);
       componente.form.controls.titulo.markAsTouched();
       expect(componente.hasError('titulo')).toBe(true);
+    });
+  });
+
+  describe('fotos por unidad reservable', () => {
+    /**
+     * Una residencia no vende «el sitio»: vende una suite concreta, y el cliente
+     * elige mirando esa foto. Con una galería común no se sabe cuál de las diez
+     * es la suite que se está reservando.
+     */
+    it('debería fotografiar por unidad en alojamiento y en hoteles', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ALOJAMIENTO);
+      expect(componente.fotosPorUnidad()).toBe(true);
+
+      componente.form.patchValue({ vertical: VerticalKey.HOTELES });
+      expect(componente.fotosPorUnidad()).toBe(true);
+    });
+
+    it('debería fotografiar el servicio entero en el resto de categorías', async () => {
+      await crear();
+      rellenarBase(VerticalKey.PELUQUERIA);
+
+      expect(componente.fotosPorUnidad()).toBe(false);
+    });
+
+    it('debería contar la galería suelta en las categorías sin unidad', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.form.patchValue({ imagenes: ['/a.jpg', '/b.jpg'] });
+
+      expect(componente.totalFotos()).toBe(2);
+      expect(componente.fotosSuficientes()).toBe(false);
+    });
+
+    it('debería decir cuántas fotos faltan', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.form.patchValue({ imagenes: ['/a.jpg', '/b.jpg', '/c.jpg', '/d.jpg'] });
+
+      expect(componente.mensajeFotos()).toContain('falta 1');
+    });
+
+    /**
+     * Las fichas publicadas antes de esto tienen la galería en el servicio y las
+     * unidades vacías: sin heredarla, guardar sin tocar nada las dejaría sin
+     * ninguna foto.
+     */
+    it('debería pasar la galería antigua a la primera suite al editar', async () => {
+      await crear('serv-1', {
+        vertical: VerticalKey.ALOJAMIENTO, titulo: 'X', descripcion: 'Y',
+        imagenes: ['/vieja-1.jpg', '/vieja-2.jpg'],
+        extra: { espacios: [{ tipo: 'suite', precioNoche: 60 }] },
+      });
+
+      expect(componente.espacios.at(0).getRawValue().imagenes)
+        .toEqual(['/vieja-1.jpg', '/vieja-2.jpg']);
+    });
+
+    it('no debería pisar las fotos que la unidad ya trae', async () => {
+      await crear('serv-1', {
+        vertical: VerticalKey.ALOJAMIENTO, titulo: 'X', descripcion: 'Y',
+        imagenes: ['/vieja.jpg'],
+        extra: { espacios: [{ tipo: 'suite', precioNoche: 60, imagenes: ['/suya.jpg'] }] },
+      });
+
+      expect(componente.espacios.at(0).getRawValue().imagenes).toEqual(['/suya.jpg']);
+    });
+  });
+
+  describe('habitaciones del hotel', () => {
+    it('debería añadir y quitar tipos de habitación', async () => {
+      await crear();
+      rellenarBase(VerticalKey.HOTELES);
+
+      componente.agregarHabitacionHotel();
+      componente.agregarHabitacionHotel();
+      expect(componente.habitacionesHotel.length).toBe(2);
+
+      componente.quitarHabitacionHotel(0);
+      expect(componente.habitacionesHotel.length).toBe(1);
+    });
+
+    it('debería guardar las habitaciones con sus fotos', async () => {
+      await crear();
+      rellenarBase(VerticalKey.HOTELES);
+      componente.agregarHabitacionHotel();
+      componente.habitacionesHotel.at(0).patchValue({
+        tipo: 'Doble pet-friendly', precioNoche: 90, cantidad: 4, imagenes: FOTOS,
+      });
+
+      await componente.submit();
+
+      const habitaciones = payloadGuardado().extra?.['espacios'] as Record<string, unknown>[];
+      expect(habitaciones[0]).toMatchObject({ tipo: 'Doble pet-friendly', precioNoche: 90, cantidad: 4 });
+      expect(habitaciones[0]['imagenes']).toEqual(FOTOS);
+    });
+
+    /**
+     * Las plazas del hotel salen de la suma de sus habitaciones
+     * (`CONTADOR_DISPONIBILIDAD` en el API): mandarlas a mano las duplicaría.
+     */
+    it('no debería mandar el contador de habitaciones a mano', async () => {
+      await crear();
+      rellenarBase(VerticalKey.HOTELES);
+      dejarListoParaPublicar();
+
+      await componente.submit();
+
+      expect(payloadGuardado().extra?.['unidadesDisponibles']).toBeUndefined();
+    });
+
+    it('debería convertir el contador antiguo en un tipo de habitación al editar', async () => {
+      // Un hotel de antes sólo declaraba cuántas habitaciones admitían mascota.
+      await crear('serv-1', {
+        vertical: VerticalKey.HOTELES, titulo: 'X', descripcion: 'Y', precioBase: 90,
+        imagenes: ['/hab.jpg'],
+        extra: { unidadesDisponibles: 6 },
+      });
+
+      const habitacion = componente.habitacionesHotel.at(0).getRawValue();
+      expect(habitacion.cantidad).toBe(6);
+      expect(habitacion.precioNoche).toBe(90);
+      expect(habitacion.imagenes).toEqual(['/hab.jpg']);
     });
   });
 
@@ -266,6 +470,7 @@ describe('ComercioListadoFormComponent', () => {
         tipo: 'suite', precioNoche: 60, cantidad: 2, amenities: ['cama', 'manta', 'música'],
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       const espacios = payloadGuardado().extra?.['espacios'] as Record<string, unknown>[];
@@ -278,6 +483,7 @@ describe('ComercioListadoFormComponent', () => {
       rellenarBase(VerticalKey.ALOJAMIENTO);
       componente.agregarEspacio();
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       const espacios = payloadGuardado().extra?.['espacios'] as Record<string, unknown>[];
@@ -371,9 +577,9 @@ describe('ComercioListadoFormComponent', () => {
     it('debería dejar ir a cualquier paso al editar, que ya está todo puesto', async () => {
       await crear('serv-1', { vertical: VerticalKey.ALOJAMIENTO, titulo: 'X', descripcion: 'Y' });
 
-      componente.irAlPaso('fotos');
+      componente.irAlPaso('aptitud');
 
-      expect(componente.paso()).toBe('fotos');
+      expect(componente.paso()).toBe('aptitud');
     });
 
     it('debería frenar en detalles si la categoría no cumple su regla propia', async () => {
@@ -451,6 +657,7 @@ describe('ComercioListadoFormComponent', () => {
       componente.agregarEspacio();
       componente.alojamientoGroup.patchValue({ politicaCancelacion: 'estricta' });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado().extra?.['politicaCancelacion']).toBe('estricta');
@@ -483,6 +690,7 @@ describe('ComercioListadoFormComponent', () => {
       componente.toggleTamano('mediano');
       componente.temperamentosNoAdmitidos = ['Agresivo con perros', 'Muy nervioso'];
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado().aptitud).toEqual({
@@ -505,6 +713,7 @@ describe('ComercioListadoFormComponent', () => {
         aptitud: { tipoPeloAdmitido: ['rizado', 'largo'], tamanosAdmitidos: ['mediano'] },
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado().aptitud).toMatchObject({
@@ -522,6 +731,7 @@ describe('ComercioListadoFormComponent', () => {
         tipo: ServicioClinicoTipo.VACUNACION, precio: 35,
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       const servicios = payloadGuardado().extra?.['serviciosClinicos'] as Record<string, unknown>[];
@@ -545,16 +755,179 @@ describe('ComercioListadoFormComponent', () => {
     it('debería guardar especialidades y especies como listas de etiquetas', async () => {
       await crear();
       rellenarBase(VerticalKey.VETERINARIA);
-      componente.agregarServicioClinico();
-      componente.serviciosClinicos.at(0).patchValue({ tipo: ServicioClinicoTipo.CONSULTA_GENERAL });
+      componente.alternarServicioClinico(ServicioClinicoTipo.CONSULTA_GENERAL);
+      componente.serviciosClinicos.at(0).patchValue({ precio: 35 });
       componente.veterinariaGroup.patchValue({
         especialidades: ['Traumatología', 'Dermatología'], especiesAtendidas: ['Perro', 'Gato'],
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado().extra?.['especialidades']).toEqual(['Traumatología', 'Dermatología']);
       expect(payloadGuardado().extra?.['especiesAtendidas']).toEqual(['Perro', 'Gato']);
+    });
+
+    /**
+     * `veterinarios.md`: la pantalla deja de pedir «especialidades» y pide actos
+     * concretos, porque una especialidad describe a quién ves, no lo que cuesta.
+     */
+    it('debería ofrecer el catálogo de servicios con su forma de cobrar', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+
+      const catalogo = componente.catalogoClinico();
+      const vacunacion = catalogo.find((c) => c.tipo === ServicioClinicoTipo.VACUNACION);
+      expect(vacunacion?.label).toBe('Vacunación');
+      expect(vacunacion?.base).toBe('Por tipo de vacuna');
+      expect(catalogo.some((c) => c.tipo === ServicioClinicoTipo.CHEQUEO_PREVENTIVO)).toBe(true);
+    });
+
+    it('debería marcar y desmarcar un servicio desde su tarjeta', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+
+      componente.alternarServicioClinico(ServicioClinicoTipo.MICROCHIP);
+      expect(componente.tieneServicioClinico(ServicioClinicoTipo.MICROCHIP)).toBe(true);
+      expect(componente.serviciosClinicos.length).toBe(1);
+
+      componente.alternarServicioClinico(ServicioClinicoTipo.MICROCHIP);
+      expect(componente.tieneServicioClinico(ServicioClinicoTipo.MICROCHIP)).toBe(false);
+      expect(componente.serviciosClinicos.length).toBe(0);
+    });
+
+    /**
+     * El cliente no reserva «vacunación»: reserva «vacuna de la rabia — 32 €»,
+     * y eso sí lo puede pagar por adelantado.
+     */
+    it('debería proponer las vacunas habituales al marcar vacunación', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+
+      componente.alternarServicioClinico(ServicioClinicoTipo.VACUNACION);
+
+      expect(componente.cobraPorVariantes(0)).toBe(true);
+      const nombres = componente.variantesDe(0).controls.map((c) => c.getRawValue().nombre);
+      expect(nombres).toEqual(['Rabia', 'Polivalente', 'Tos de las perreras', 'Leishmania']);
+    });
+
+    it('debería proponer los tramos de peso en una castración', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+
+      componente.alternarServicioClinico(ServicioClinicoTipo.CASTRACION);
+
+      expect(componente.cobraPorVariantes(0)).toBe(true);
+      expect(componente.detallaAlcance(0)).toBe(true);
+      const tramos = componente.variantesDe(0).controls.map((c) => c.getRawValue().nombre);
+      expect(tramos).toEqual(['Hasta 10 kg', '10–20 kg', '20–30 kg', 'Más de 30 kg']);
+    });
+
+    it('debería guardar cada vacuna con su precio y tomar la más barata como «desde»', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.alternarServicioClinico(ServicioClinicoTipo.VACUNACION);
+      componente.variantesDe(0).at(0).patchValue({ precio: 32 });
+      componente.variantesDe(0).at(1).patchValue({ precio: 45 });
+
+      dejarListoParaPublicar();
+      await componente.submit();
+
+      const servicios = payloadGuardado().extra?.['serviciosClinicos'] as Record<string, unknown>[];
+      // Las vacunas que la clínica no puso a precio no salen: publicarlas a 0 €
+      // pondría en el buscador algo que no ofrece.
+      expect(servicios[0]['variantes']).toEqual([
+        { nombre: 'Rabia', precio: 32 },
+        { nombre: 'Polivalente', precio: 45 },
+      ]);
+      expect(servicios[0]['precio']).toBe(32);
+    });
+
+    it('debería guardar qué incluye y qué no una cirugía, con sus extras', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.alternarServicioClinico(ServicioClinicoTipo.CASTRACION);
+      componente.variantesDe(0).at(0).patchValue({ precio: 120 });
+      componente.serviciosClinicos.at(0).patchValue({
+        incluye: 'anestesia, intervención y revisión',
+        noIncluye: 'analítica preoperatoria',
+      });
+      componente.agregarComplemento(0);
+      componente.complementosDe(0).at(0).patchValue({ nombre: 'Analítica preoperatoria', precio: 45 });
+
+      dejarListoParaPublicar();
+      await componente.submit();
+
+      const servicios = payloadGuardado().extra?.['serviciosClinicos'] as Record<string, unknown>[];
+      expect(servicios[0]['incluye']).toBe('anestesia, intervención y revisión');
+      expect(servicios[0]['noIncluye']).toBe('analítica preoperatoria');
+      expect(servicios[0]['complementos']).toEqual([{ nombre: 'Analítica preoperatoria', precio: 45 }]);
+    });
+
+    it('debería dejar añadir un servicio que el catálogo no contempla', async () => {
+      // Una clínica puede tener un procedimiento perfectamente tarifado que no
+      // esté en la lista; lo que se compra es el acto, no la especialidad.
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.agregarServicioLibre();
+      componente.serviciosClinicos.at(0).patchValue({
+        nombre: 'Primera consulta de cardiología', precio: 70,
+      });
+
+      dejarListoParaPublicar();
+      await componente.submit();
+
+      const servicios = payloadGuardado().extra?.['serviciosClinicos'] as Record<string, unknown>[];
+      expect(servicios[0]).toMatchObject({
+        tipo: ServicioClinicoTipo.OTRO, nombre: 'Primera consulta de cardiología', precio: 70,
+      });
+    });
+
+    it('debería exigir precio a cada servicio marcado', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.alternarServicioClinico(ServicioClinicoTipo.MICROCHIP);
+
+      await componente.submit();
+
+      expect(componente.errorMsg()).toContain('Ponle precio');
+      expect(api.crearServicio).not.toHaveBeenCalled();
+    });
+
+    it('debería exigir al menos un tipo con precio cuando se cobra por variantes', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.alternarServicioClinico(ServicioClinicoTipo.VACUNACION);
+
+      await componente.submit();
+
+      expect(componente.errorMsg()).toContain('al menos un tipo con su precio');
+    });
+
+    it('debería exigir nombre al servicio añadido a mano', async () => {
+      await crear();
+      rellenarBase(VerticalKey.VETERINARIA);
+      componente.agregarServicioLibre();
+
+      await componente.submit();
+
+      expect(componente.errorMsg()).toContain('nombre');
+    });
+
+    /**
+     * Un listado de antes del catálogo puede traer un servicio que ya no se
+     * ofrece; si desapareciera de la rejilla, el comercio lo perdería al
+     * guardar sin haberlo tocado.
+     */
+    it('debería seguir enseñando un servicio heredado que ya no está en el catálogo', async () => {
+      await crear('serv-1', {
+        vertical: VerticalKey.VETERINARIA, titulo: 'X', descripcion: 'Y',
+        extra: { serviciosClinicos: [{ tipo: ServicioClinicoTipo.TELECONSULTA, precio: 25 }] },
+      });
+
+      const catalogo = componente.catalogoClinico();
+      expect(catalogo.some((c) => c.tipo === ServicioClinicoTipo.TELECONSULTA)).toBe(true);
+      expect(componente.tieneServicioClinico(ServicioClinicoTipo.TELECONSULTA)).toBe(true);
     });
 
     it('debería empezar atendiendo perros, que es el caso habitual', async () => {
@@ -596,6 +969,7 @@ describe('ComercioListadoFormComponent', () => {
       componente.serviciosGrooming.at(0).patchValue({ nombre: 'Deslanado', precio: 40 });
       componente.togglePeloCompatible(0, 'largo');
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       const servicios = payloadGuardado().extra?.['serviciosGrooming'] as Record<string, unknown>[];
@@ -625,6 +999,7 @@ describe('ComercioListadoFormComponent', () => {
         modalidad: 'sesion', precioPrograma: 300, sesionesPorPrograma: 8,
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       // Guardar un precio de programa en modalidad sesión mostraría dos precios
@@ -640,6 +1015,7 @@ describe('ComercioListadoFormComponent', () => {
         modalidad: 'programa', precioPrograma: 300, sesionesPorPrograma: 8,
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado().extra?.['precioPrograma']).toBe(300);
@@ -650,6 +1026,7 @@ describe('ComercioListadoFormComponent', () => {
       await crear();
       rellenarBase(VerticalKey.ADIESTRAMIENTO);
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado().extra?.['valoracionInicial']).toBeUndefined();
@@ -662,6 +1039,7 @@ describe('ComercioListadoFormComponent', () => {
         valoracionInicialModalidad: 'online', valoracionInicialPrecio: 25,
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(payloadGuardado().extra?.['valoracionInicial']).toEqual({ modalidad: 'online', precio: 25 });
@@ -682,6 +1060,7 @@ describe('ComercioListadoFormComponent', () => {
       await crear();
       rellenarBase(VerticalKey.HOTELES);
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       // Un cero significa "sin límite": enviarlo prohibiría toda mascota.
@@ -699,6 +1078,7 @@ describe('ComercioListadoFormComponent', () => {
         especiesPermitidas: ['Perro', 'Gato'],
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       const extra = payloadGuardado().extra!;
@@ -724,6 +1104,7 @@ describe('ComercioListadoFormComponent', () => {
       componente.alternarCobertura(TipoSeguro.RC_OBLIGATORIA);
       componente.segurosGroup.patchValue({ descuentoPagoAnualPct: 10, recargoRiesgoPct: 25 });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       const extra = payloadGuardado().extra!;
@@ -736,6 +1117,7 @@ describe('ComercioListadoFormComponent', () => {
       rellenarBase(VerticalKey.SEGUROS);
       componente.alternarCobertura(TipoSeguro.RC_OBLIGATORIA);
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       const admision = payloadGuardado().extra!['condicionesAdmision'] as Record<string, unknown>;
@@ -778,6 +1160,7 @@ describe('ComercioListadoFormComponent', () => {
       rellenarBase(VerticalKey.TRANSPORTE);
       jest.useFakeTimers();
 
+      dejarListoParaPublicar();
       await componente.submit();
       jest.runAllTimers();
 
@@ -793,6 +1176,7 @@ describe('ComercioListadoFormComponent', () => {
         ciudad: 'Madrid', precioBase: 30, extra: {},
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(api.actualizarServicio).toHaveBeenCalledWith('s1', expect.any(Object));
@@ -804,6 +1188,7 @@ describe('ComercioListadoFormComponent', () => {
       api.crearServicio.mockReturnValue(throwError(() => new Error('500')));
       rellenarBase(VerticalKey.TRANSPORTE);
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(componente.errorMsg()).toContain('Error al guardar');
@@ -904,6 +1289,7 @@ describe('ComercioListadoFormComponent', () => {
       componente.agregarPrecioPorTamano(0);
       componente.preciosPorTamano(0).at(0).patchValue({ tamano: 'grande', precio: 35 });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       const servicios = payloadGuardado().extra?.['serviciosGrooming'] as Record<string, unknown>[];
@@ -1096,6 +1482,7 @@ describe('ComercioListadoFormComponent', () => {
         codigoPostal: '28013', pais: 'España',
       });
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(ultimoPayload()).toMatchObject({
@@ -1111,6 +1498,7 @@ describe('ComercioListadoFormComponent', () => {
       rellenarBase(VerticalKey.ALOJAMIENTO);
       componente.agregarEspacio();
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(ultimoPayload().horario).toHaveLength(7);
@@ -1122,6 +1510,7 @@ describe('ComercioListadoFormComponent', () => {
       componente.agregarEspacio();
       componente.excepciones.set([{ fecha: '2026-12-25', cerrado: true, motivo: 'Navidad' }]);
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(ultimoPayload().excepcionesHorario)
@@ -1304,6 +1693,7 @@ describe('ComercioListadoFormComponent', () => {
       rellenarBase(VerticalKey.ALOJAMIENTO);
       componente.agregarEspacio();
 
+      dejarListoParaPublicar();
       await componente.submit();
       await recargar();
 
@@ -1342,6 +1732,7 @@ describe('ComercioListadoFormComponent', () => {
       rellenarBase(VerticalKey.ALOJAMIENTO);
       componente.agregarEspacio();
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(creado).toHaveBeenCalled();
@@ -1353,6 +1744,7 @@ describe('ComercioListadoFormComponent', () => {
       rellenarBase(VerticalKey.ALOJAMIENTO);
       componente.agregarEspacio();
 
+      dejarListoParaPublicar();
       await componente.submit();
 
       expect(componente.exitoMsg()).toContain('borrador');

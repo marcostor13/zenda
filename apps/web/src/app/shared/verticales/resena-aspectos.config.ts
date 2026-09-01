@@ -60,10 +60,12 @@ export const ASPECTOS_POR_VERTICAL: Record<VerticalKey, readonly AspectoResenaUi
     { key: 'rapidezGestion', label: 'Rapidez de gestión' },
     { key: 'claridadCondiciones', label: 'Claridad de condiciones' },
   ],
-  [VerticalKey.CUIDADORES]: [
-    { key: 'tratoAlPerro', label: 'Trato al perro' },
-    { key: 'puntualidad', label: 'Puntualidad' },
+  [VerticalKey.FUNERARIOS]: [
+    { key: 'atencion', label: 'Atención' },
     { key: 'profesionalidad', label: 'Profesionalidad' },
+    { key: 'sensibilidad', label: 'Sensibilidad' },
+    { key: 'claridad', label: 'Claridad' },
+    { key: 'cumplimiento', label: 'Cumplimiento' },
   ],
 };
 

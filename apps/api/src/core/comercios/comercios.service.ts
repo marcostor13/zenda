@@ -29,7 +29,7 @@ import { UsersRepository } from '../users/users.repository';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, RegistroPendienteDto, Rol, ActualizarPerfilComercioDto, ConsentimientosComercioDto, CONDICIONES_COMERCIO_VERSION, SolicitarAjusteDto } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, RegistroPendienteDto, Rol, ActualizarPerfilComercioDto, ConsentimientosComercioDto, CONDICIONES_COMERCIO_VERSION, MIN_FOTOS_SERVICIO, SolicitarAjusteDto, VerticalKey } from 'shared';
 import { campoContador, plazasDeclaradas, sinPlazas } from '../catalog/disponibilidad';
 
 @Injectable()
@@ -480,6 +480,7 @@ export class ComerciosService {
           'Termina el alta de tu negocio para poder publicar tus servicios.', 409,
         );
       }
+      this.exigirFotosMinimas(actual);
     }
 
     // Publicar con el contador de plazas a cero deja el listado invisible en la
@@ -500,6 +501,25 @@ export class ComerciosService {
     ).exec();
     if (!servicio) throw new DomainException('Servicio no encontrado', 404);
     return servicio as unknown as ServicioDocument;
+  }
+
+  /**
+   * En un marketplace de reservas la foto **es** el producto: una ficha con una
+   * o dos no deja ver el sitio y no la reserva nadie. Se exige al publicar y no
+   * al crear para no bloquear un borrador a medias.
+   */
+  private exigirFotosMinimas(servicio: Record<string, unknown>): void {
+    // Una póliza no tiene sitio que enseñar: la aseguradora entrega documentación,
+    // no fotos, y exigírselas dejaría su ficha bloqueada en borrador para siempre.
+    if (servicio['vertical'] === VerticalKey.SEGUROS) return;
+
+    const fotos = (servicio['imagenes'] as string[] | undefined) ?? [];
+    if (fotos.length >= MIN_FOTOS_SERVICIO) return;
+
+    throw new DomainException(
+      `Sube al menos ${MIN_FOTOS_SERVICIO} fotos para publicar este servicio; ahora tiene ${fotos.length}.`,
+      409,
+    );
   }
 
   async actualizarComercio(
@@ -525,7 +545,33 @@ export class ComerciosService {
     const actualizado = await this.repo.actualizar(comercioId, datos);
     if (!actualizado) throw new DomainException('Comercio no encontrado', 404);
 
+    if (dto.altaCompletada === true) await this.publicarLoQueEsperaba(comercioId);
+
     return actualizado;
+  }
+
+  /**
+   * Publica los servicios que esperaban a que se cerrara el alta.
+   *
+   * El alta guiada crea la ficha antes de pedir los datos del negocio, así que
+   * en ese momento todavía no se puede publicar —sin contacto ni
+   * consentimientos no hay ficha pública— y nace en borrador. Cerrar el alta es
+   * el momento en que ya cumple: dejarla igualmente en borrador obligaba a ir a
+   * «Mis servicios» y darle a publicar, un paso que nadie asocia con «ya he
+   * terminado» y donde se quedaban fichas acabadas sin publicar.
+   *
+   * Sólo sube las que cumplen el mínimo de fotos, que es la otra condición para
+   * publicar a mano. Las que no, siguen en borrador y el panel las señala.
+   */
+  private async publicarLoQueEsperaba(comercioId: string): Promise<void> {
+    await this.servicioModel.updateMany(
+      {
+        comercioId: new Types.ObjectId(comercioId),
+        estado: 'borrador',
+        [`imagenes.${MIN_FOTOS_SERVICIO - 1}`]: { $exists: true },
+      },
+      { $set: { estado: 'publicado' } },
+    ).exec();
   }
 
   /**

@@ -55,7 +55,7 @@ export const CATEGORIA_ICONOS: Record<string, string> = {
   adiestramiento: '/icons/adiestramiento.svg',
   hoteles: '/icons/hoteles.svg',
   seguros: '/icons/seguros.svg',
-  cuidadores: '/icons/cuidadores.svg',
+  funerarios: '/icons/funerarios.svg',
   explora: '/icons/explora.svg',
   mas: '/icons/mas-servicios.svg',
 };
@@ -121,32 +121,34 @@ export const ALOJAMIENTO_IMAGES = HOTEL_IMAGES;
  * buenas manos. Un retrato canino ilustraba el producto; esto ilustra al
  * cliente (feedback 2026-08-20).
  *
- * La misma toma en los dos tamaños, sólo que pedida al CDN con el ancho que
- * cada uno necesita. Antes eran dos fotos distintas porque la banda de
- * escritorio recortaba tanto que ninguna aguantaba; eso se arregló dándole alto
- * a la banda (ver `.why-banner`), así que ya no hace falta la doble versión.
+ * Fotografía de marca del cliente (2026-08-31), ya no del CDN de stock. La
+ * misma toma en dos anchos: el original mide 1536×1024 y la versión de 900px
+ * ahorra ~90 KB en móvil, donde la banda nunca pasa de 640px de ancho.
  *
- * El encuadre está comprobado sobre el recorte real: a `center 12%` entran la
- * cara entera y la cabeza del perro. Si algún día se cambia la foto, hay que
+ * El encuadre está comprobado sobre el recorte real: a `center 20%` entran las
+ * cuatro caras y la cabeza del perro (la banda de escritorio se queda con algo
+ * menos de la mitad del alto original). Si algún día se cambia la foto, hay que
  * volver a medir esa cifra —no vale a ojo: la banda recorta más de la mitad.
  */
 export const BANDA_POR_QUE = {
-  movil: pexels(5257630, 900),
-  escritorio: pexels(5257630, 1800),
+  movil: '/images/porque-familia-movil.jpg',
+  escritorio: '/images/porque-familia.jpg',
 } as const;
 
 /**
  * Fotos del bloque "¿Por qué Doogking.com?" — una por cada uno de los tres
  * valores, en lugar de iconos.
  *
- * TODO(D-3): sustituir por la fotografía de marca que aporte el cliente; basta
- * con cambiar estas tres rutas. Mientras tanto se usan assets ya verificados
- * del pool canino para no depender de URLs sin comprobar.
+ * Fotografía de marca aportada por el cliente (2026-08-31), servida en local a
+ * 800px de ancho: la tarjeta nunca supera los ~440px, así que da para pantalla
+ * retina sin pagar el original de 1536px. Cada foto ilustra literalmente su
+ * valor —la app en la mano, el sello de verificación, la operadora de noche—
+ * para que la imagen refuerce el titular en lugar de decorarlo.
  */
 export const MOTIVOS_IMAGES = {
-  rapidez: pexels(1254140, 640),
-  verificados: '/images/alojamiento-interior.jpg',
-  atencion: pexels(2607544, 640),
+  rapidez: '/images/porque-reserva.jpg',
+  verificados: '/images/porque-verificados.jpg',
+  atencion: '/images/porque-atencion.jpg',
 } as const;
 
 /**

@@ -6,7 +6,9 @@ import { Rol } from 'shared';
 import { JwtAuthGuard } from '../../core/auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../../core/auth/guards/roles.guard';
 import { PolizaDocument } from './poliza.schema';
-import { PolizaRecomendada, SegurosService } from './seguros.service';
+import {
+  ListadoSolicitudesSeguros, PolizaRecomendada, SegurosService, SolicitudSegurosAdmin,
+} from './seguros.service';
 
 interface RequestConUsuario extends Request {
   user: { sub: string; comercioId?: string };
@@ -25,6 +27,11 @@ class ContratarPolizaDto {
 
   @IsBoolean()
   declaracionVeracidadAceptada!: boolean;
+}
+
+class RechazarSolicitudDto {
+  @IsString()
+  motivo!: string;
 }
 
 class ValidarPolizaDto {
@@ -65,6 +72,35 @@ export class SegurosController {
     @Req() req: RequestConUsuario,
   ): Promise<PolizaDocument> {
     return this.segurosService.contratar({ ...dto, usuarioId: req.user.sub });
+  }
+
+  // ── Alta de aseguradoras (solo administración) ─────────────────────
+
+  @Get('solicitudes')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Solicitudes de alta de aseguradoras, con su documentación y el cupo libre' })
+  solicitudes(): Promise<ListadoSolicitudesSeguros> {
+    return this.segurosService.listarSolicitudes();
+  }
+
+  @Patch('solicitudes/:id/aprobar')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Aprobar la solicitud y publicar la ficha de la aseguradora' })
+  aprobarSolicitud(@Param('id') id: string): Promise<SolicitudSegurosAdmin> {
+    return this.segurosService.aprobarSolicitud(id);
+  }
+
+  @Patch('solicitudes/:id/rechazar')
+  @UseGuards(RolesGuard)
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'No aprobar la solicitud, indicando el motivo' })
+  rechazarSolicitud(
+    @Param('id') id: string,
+    @Body() dto: RechazarSolicitudDto,
+  ): Promise<SolicitudSegurosAdmin> {
+    return this.segurosService.rechazarSolicitud(id, dto.motivo);
   }
 
   @Patch('polizas/:id/validar')

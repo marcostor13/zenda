@@ -1,6 +1,7 @@
-import type { Map as LeafletMap, Marker } from 'leaflet';
+import type { Map as LeafletMap, Marker, Polyline } from 'leaflet';
 import {
-  EscuchasMotor, MotorMapa, OpcionesMotor, PuntoMapa, ZonaMapa, puntosGeolocalizados,
+  COLOR_RUTA, EscuchasMotor, MotorMapa, OpcionesMotor, PuntoMapa, PuntoRuta, ResumenRuta,
+  ZonaMapa, distanciaEnLineaRecta, puntosGeolocalizados,
 } from './motor-mapa';
 import { htmlPin, htmlTarjeta } from './pin-html';
 
@@ -49,6 +50,8 @@ export async function crearMotorLeaflet(
 class MotorLeaflet implements MotorMapa {
   private readonly mapa: LeafletMap;
   private marcadores: Marker[] = [];
+  /** Línea del trayecto declarado; se rehace entera en cada pintado. */
+  private ruta: Polyline | null = null;
 
   constructor(
     private readonly L: typeof import('leaflet'),
@@ -161,7 +164,34 @@ class MotorLeaflet implements MotorMapa {
     this.mapa.invalidateSize();
   }
 
+  /**
+   * Une las paradas con líneas rectas.
+   *
+   * Este motor es el respaldo de Google, y el cálculo de rutas por carretera es
+   * suyo: OpenStreetMap no lo trae. Se devuelve `porCarretera: false` para que
+   * quien lo enseñe no presente una distancia a vuelo de pájaro como si fueran
+   * los kilómetros del viaje.
+   */
+  pintarRuta(paradas: readonly PuntoRuta[]): Promise<ResumenRuta | null> {
+    this.ruta?.remove();
+    this.ruta = null;
+    if (paradas.length < 2) return Promise.resolve(null);
+
+    this.ruta = this.L
+      .polyline(paradas.map((p) => [p.lat, p.lng] as [number, number]),
+        { color: COLOR_RUTA, weight: 4, opacity: 0.9 })
+      .addTo(this.mapa);
+
+    return Promise.resolve({
+      distanciaKm: distanciaEnLineaRecta(paradas),
+      duracionMin: 0,
+      porCarretera: false,
+    });
+  }
+
   destruir(): void {
+    this.ruta?.remove();
+    this.ruta = null;
     this.cancelarCierre();
     this.limpiarMarcadores();
     this.mapa.remove();

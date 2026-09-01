@@ -8,6 +8,7 @@ import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-ph
 import { verticalUi } from '../../shared/verticales/verticales.config';
 import { ComercioApiService, MiComercio } from './comercio-api.service';
 import { ComercioListadoFormComponent } from './comercio-listado-form.component';
+import { ComercioSolicitudSegurosComponent } from './comercio-solicitud-seguros.component';
 
 /** Pasos del alta guiada, en el orden del recorrido. */
 type PasoAlta = 'elegir' | 'servicio' | 'creado' | 'negocio' | 'fin';
@@ -36,7 +37,10 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
 @Component({
   selector: 'app-comercio-alta',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsIconComponent, RsPhoneInputComponent, ComercioListadoFormComponent],
+  imports: [
+    RouterLink, ReactiveFormsModule, RsIconComponent, RsPhoneInputComponent,
+    ComercioListadoFormComponent, ComercioSolicitudSegurosComponent,
+  ],
   template: `
     <div class="alta">
       @if (cargando()) {
@@ -97,7 +101,17 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
             </div>
           }
 
-          <div class="alta__pie">
+          <div class="alta__pie" [class.alta__pie--dos]="serviciosCreados() > 0">
+            <!-- Quien ya tiene un servicio creado llegó aquí desde el resumen:
+                 sin esta salida, cambiar de idea obligaba a elegir una categoría
+                 y crear una ficha para poder retroceder. -->
+            @if (serviciosCreados() > 0) {
+              <button type="button" class="rs-btn rs-btn--outline rs-btn--lg alta__volver"
+                      (click)="irA('creado')">
+                <rs-icon name="arrow-left" [size]="16" [stroke]="2.5" />
+                Volver
+              </button>
+            }
             <button type="button" class="rs-btn rs-btn--primary rs-btn--lg rs-btn--block"
                     [disabled]="!elegido()" (click)="irAlServicio()">
               Continuar
@@ -110,15 +124,31 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
       <!-- ══ PASO 2 · La ficha del servicio ═════════════════════════════ -->
       @if (paso() === 'servicio') {
         <section class="alta__panel alta__panel--anim">
-          <h1 class="alta__titulo">Cuéntanos cómo es tu {{ etiquetaElegido().toLowerCase() }}</h1>
-          <p class="alta__sub">
-            Esto es lo que verán tus clientes. Puedes volver atrás en cualquier momento;
-            nada se publica hasta que termines.
-          </p>
+          @if (esSeguros()) {
+            <!--
+              Una aseguradora no publica una ficha: entrega una solicitud que
+              revisamos a mano. Mismo recorrido, distinto formulario.
+            -->
+            <h1 class="alta__titulo">Solicita el alta de tu aseguradora</h1>
+            <p class="alta__sub">
+              No hace falta que montes una ficha: cuéntanos quién eres, sube las condiciones de
+              tus pólizas y las revisamos nosotros.
+            </p>
 
-          <app-comercio-listado-form
-            [modoAlta]="true" [verticalInicial]="elegido()"
-            (volverAtras)="irA('elegir')" (creado)="servicioCreado()" />
+            <app-comercio-solicitud-seguros
+              [mostrarVolver]="true"
+              (volverAtras)="irA('elegir')" (creado)="servicioCreado()" />
+          } @else {
+            <h1 class="alta__titulo">Cuéntanos cómo es tu {{ etiquetaElegido().toLowerCase() }}</h1>
+            <p class="alta__sub">
+              Esto es lo que verán tus clientes. Puedes volver atrás en cualquier momento;
+              nada se publica hasta que termines.
+            </p>
+
+            <app-comercio-listado-form
+              [modoAlta]="true" [verticalInicial]="elegido()"
+              (volverAtras)="irA('elegir')" (creado)="servicioCreado()" />
+          }
         </section>
       }
 
@@ -129,15 +159,24 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
             <rs-icon name="check" [size]="30" [stroke]="2.5" />
           </div>
 
-          <h1 class="alta__titulo">
-            {{ serviciosCreados() === 1 ? '¡Tu primer servicio está listo!' : '¡Servicio añadido!' }}
-          </h1>
-          <p class="alta__sub">
-            Llevas {{ serviciosCreados() }}
-            {{ serviciosCreados() === 1 ? 'servicio creado' : 'servicios creados' }}.
-            Puedes añadir otro ahora —se tarda menos que el primero, ya sabes cómo va— o
-            terminar con los datos de tu negocio.
-          </p>
+          @if (esSeguros()) {
+            <h1 class="alta__titulo">Tu solicitud está en revisión</h1>
+            <p class="alta__sub">
+              Nuestro equipo revisará tu documentación y te escribirá. Mientras tanto puedes
+              terminar con los datos de tu negocio: los necesitamos igualmente para poder
+              trabajar contigo.
+            </p>
+          } @else {
+            <h1 class="alta__titulo">
+              {{ serviciosCreados() === 1 ? '¡Tu primer servicio está listo!' : '¡Servicio añadido!' }}
+            </h1>
+            <p class="alta__sub">
+              Llevas {{ serviciosCreados() }}
+              {{ serviciosCreados() === 1 ? 'servicio creado' : 'servicios creados' }}.
+              Puedes añadir otro ahora —se tarda menos que el primero, ya sabes cómo va— o
+              terminar con los datos de tu negocio.
+            </p>
+          }
 
           <div class="creado__opciones">
             <button type="button" class="opcion" (click)="anadirOtroServicio()">
@@ -287,11 +326,22 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
             }
 
             <div class="alta__pie alta__pie--fila">
-              <button type="submit" class="rs-btn rs-btn--primary rs-btn--lg rs-btn--block"
-                      [disabled]="guardando()">
-                @if (guardando()) { <span class="rs-spin"></span> }
-                {{ guardando() ? 'Guardando…' : 'Terminar el alta' }}
-              </button>
+              <div class="alta__acciones">
+                <!-- Volver al resumen de servicios: hasta aquí sólo se salía
+                     terminando o aplazando el alta, y quien quería añadir otro
+                     servicio o revisar el anterior no tenía por dónde. Lo
+                     escrito en el formulario se conserva. -->
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--lg alta__volver"
+                        [disabled]="guardando()" (click)="volverDesdeNegocio()">
+                  <rs-icon name="arrow-left" [size]="16" [stroke]="2.5" />
+                  Volver
+                </button>
+                <button type="submit" class="rs-btn rs-btn--primary rs-btn--lg rs-btn--block"
+                        [disabled]="guardando()">
+                  @if (guardando()) { <span class="rs-spin"></span> }
+                  {{ guardando() ? 'Guardando…' : 'Terminar el alta' }}
+                </button>
+              </div>
 
               <!--
                 La salida honesta. Sin ella el comercio que no tiene el CIF a
@@ -381,6 +431,27 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
 
     .alta__pie { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-2); }
     .alta__pie--fila { align-items: stretch; }
+
+    /*
+     * Dos acciones en la misma línea: «Volver» ocupa lo justo a la izquierda y
+     * «Continuar» el resto, que es la que se espera pulsar. En móvil se apilan
+     * con la principal arriba —de ahí el column-reverse—, para no obligar a
+     * bajar hasta el final de la pantalla a por ella.
+     */
+    .alta__pie--dos, .alta__acciones {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: var(--sp-3);
+
+      .alta__volver { flex: 0 0 auto; }
+      .rs-btn--block { flex: 1; }
+
+      @media (max-width: 560px) {
+        flex-direction: column-reverse;
+        .alta__volver { width: 100%; }
+      }
+    }
     .alta__nota { font-size: var(--f-sm); color: var(--t-400); text-align: center; line-height: 1.6; }
 
     /* ── Rejilla de categorías ───────────────────────────────────────── */
@@ -657,8 +728,10 @@ export class ComercioAltaComponent implements OnInit {
 
   textoFin(): string {
     return this.aparcada()
-      ? 'Tu servicio está guardado como borrador. Cuando tengas los datos de tu negocio, retoma el alta desde tu panel y lo publicamos.'
-      : 'Revisamos tu ficha y la publicamos en cuanto esté verificada. Mientras tanto puedes añadir más servicios desde tu panel.';
+      ? 'Tu servicio está guardado como borrador. Cuando tengas los datos de tu negocio, retoma el alta desde tu panel y se publica solo.'
+      : this.serviciosCreados() === 1
+        ? 'Tu servicio ya está publicado. Aparecerá en el buscador en cuanto revisemos tu negocio, y mientras tanto puedes añadir más desde tu panel.'
+        : 'Tus servicios ya están publicados. Aparecerán en el buscador en cuanto revisemos tu negocio, y mientras tanto puedes añadir más desde tu panel.';
   }
 
   readonly negocioForm = this.fb.group({
@@ -692,6 +765,9 @@ export class ComercioAltaComponent implements OnInit {
     this.elegido.set(key);
   }
 
+  /** Seguros no rellena la ficha de listado: entrega una solicitud de alta. */
+  readonly esSeguros = computed(() => this.elegido() === VerticalKey.SEGUROS);
+
   /** Pasa a la ficha del servicio con la categoría ya elegida. */
   irAlServicio(): void {
     this.irA('servicio');
@@ -717,18 +793,25 @@ export class ComercioAltaComponent implements OnInit {
       // puerta abierta a añadir otro desde ahí.
       if (servicios.length) { this.paso.set('creado'); return; }
 
-      // Una sola categoría no es una elección: se da por hecha y el recorrido
-      // arranca directamente en la ficha del servicio.
+      // El recorrido siempre empieza por la bienvenida («Da de alta tu
+      // servicio…»): es la primera pantalla tras activar la cuenta y la que
+      // explica qué se va a hacer. Con una sola categoría no hay nada que
+      // elegir, así que se deja marcada y sólo queda pulsar «Continuar».
       const verticales = comercio.verticales ?? [];
-      if (verticales.length === 1) {
-        this.elegido.set(verticales[0]);
-        this.irA('servicio');
-      }
+      if (verticales.length === 1) this.elegido.set(verticales[0]);
     } catch {
       this.error.set('No pudimos cargar tu negocio. Vuelve a intentarlo.');
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /**
+   * Vuelve al resumen de servicios, que es de donde se llega a este paso. Si
+   * todavía no hay ninguno creado, al principio del recorrido.
+   */
+  volverDesdeNegocio(): void {
+    this.irA(this.serviciosCreados() > 0 ? 'creado' : 'elegir');
   }
 
   async finalizar(): Promise<void> {

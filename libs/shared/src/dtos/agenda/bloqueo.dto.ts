@@ -59,3 +59,36 @@ export interface CitaAgendaDto {
   /** Nombre del perro, cuando la reserva lo lleva. */
   perro?: string;
 }
+
+/**
+ * Edición de un tramo ya cerrado.
+ *
+ * Todos los campos son opcionales: lo que no viene, no se toca. `cantidad`
+ * distingue los dos «vacíos» a propósito — ausente es «déjala como está» y
+ * `null` es «pasa a cerrar el servicio entero», que es justo el cambio que hace
+ * un comercio cuando lo que había reservado por fuera acaba ocupándolo todo.
+ */
+export class ActualizarBloqueoDto {
+  @IsOptional()
+  @IsDateString()
+  desde?: string;
+
+  @IsOptional()
+  @IsDateString()
+  hasta?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(3, { message: 'Explica brevemente por qué cierras este tramo' })
+  motivo?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  cantidad?: number | null;
+
+  @IsOptional()
+  @IsString()
+  espacioTipo?: string;
+}

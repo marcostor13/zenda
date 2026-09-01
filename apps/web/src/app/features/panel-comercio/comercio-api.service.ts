@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ExcepcionHorarioDto, HorarioDiaDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, TamanoPerro } from 'shared';
+import { ActualizarBloqueoDto, BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ExcepcionHorarioDto, HorarioDiaDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, TamanoPerro } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface ContactoComercio {
@@ -403,6 +403,11 @@ export class ComercioApiService {
 
   crearBloqueo(dto: CrearBloqueoDto): Observable<BloqueoDto> {
     return this.http.post<BloqueoDto>(`${this.agendaUrl}/bloqueos`, dto);
+  }
+
+  /** Edita un tramo ya cerrado; `cantidad: null` pasa a cerrar el servicio entero. */
+  actualizarBloqueo(id: string, dto: ActualizarBloqueoDto): Observable<BloqueoDto> {
+    return this.http.patch<BloqueoDto>(`${this.agendaUrl}/bloqueos/${id}`, dto);
   }
 
   eliminarBloqueo(id: string): Observable<void> {

@@ -10,6 +10,7 @@ import { conIconos } from '../../shared/catalogos/amenity-iconos';
 import { RsChipComponent } from '../../shared/components/chip/rs-chip.component';
 import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
 import { VerticalUi, enlaceAServicio, verticalUi } from '../../shared/verticales/verticales.config';
+import { precioDesdeFunerario } from '../../shared/verticales/funerarios.util';
 import {
   CatalogBrowseService, FacetasCatalogo, OpcionesBusqueda, OrdenServicios, PuntoServicio,
   ServicioCard, ZonaBusqueda,
@@ -155,18 +156,28 @@ const CONFIGS: Record<string, VerticalConfig> = {
     ],
     price: (c) => c.precioPorNoche,
   },
-  cuidadores: {
-    vertical: 'cuidadores',
-    cta: 'Reservar cuidado', priceLabel: 'servicio desde',
+  /*
+   * Quien busca aquí no compara "desde X €": necesita saber si vienen a
+   * recoger, si atienden ya y qué servicios hacen. El precio de la tarjeta es
+   * el del servicio más barato del catálogo, y el cerrado se calcula en la
+   * reserva con el peso y la recogida reales.
+   */
+  funerarios: {
+    vertical: 'funerarios',
+    cta: 'Ver el servicio', priceLabel: 'servicio desde',
     confirmMsg: 'Servicio solicitado. Continúa al pago para confirmarlo.',
-    badge: (c) => `${((c.extra['modalidades'] as string[] | undefined) ?? [])[0] ?? 'Paseos'}`,
+    badge: (c) => (c.extra['atiende24h'] ? 'Atiende 24 h' : (c.extra['ofreceRecogida'] ? 'Con recogida' : 'Sin recogida')),
     titulo3: (c) => c.nombre,
     loc: (c) => `${c.ciudad}`,
-    meta: (c) => [
-      `${((c.extra['modalidades'] as string[] | undefined) ?? []).join(' · ') || 'Paseos y visitas'}`,
-      c.extra['administraMedicacion'] ? 'Administra medicación' : 'Cuidado a domicilio',
-    ],
-    price: (c) => (c.extra['precioPaseo'] as number) ?? c.precioPorNoche,
+    meta: (c) => {
+      const servicios = (c.extra['serviciosFunerarios'] as Array<{ nombre?: string; activo?: boolean }> | undefined) ?? [];
+      const nombres = servicios.filter((s) => s.activo !== false).map((s) => s.nombre).filter(Boolean);
+      return [
+        nombres.slice(0, 3).join(' · ') || 'Servicios funerarios',
+        c.extra['ofreceRecogida'] ? `Recogida hasta ${(c.extra['radioRecogidaKm'] as number) ?? 0} km` : 'Sin recogida',
+      ];
+    },
+    price: (c) => precioDesdeFunerario(c) ?? c.precioPorNoche,
   },
   seguros: {
     vertical: 'seguros',

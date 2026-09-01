@@ -38,6 +38,13 @@ export const panelComercioRoutes: Routes = [
           import('./comercio-listado-form.component').then(m => m.ComercioListadoFormComponent),
       },
       {
+        // Las aseguradoras no rellenan la ficha de listado: entregan una
+        // solicitud que revisa el equipo (ver `comercio-solicitud-seguros`).
+        path: 'listados/solicitud-seguros',
+        loadComponent: () =>
+          import('./comercio-solicitud-seguros.component').then(m => m.ComercioSolicitudSegurosComponent),
+      },
+      {
         path: 'listados/:id/editar',
         loadComponent: () =>
           import('./comercio-listado-form.component').then(m => m.ComercioListadoFormComponent),

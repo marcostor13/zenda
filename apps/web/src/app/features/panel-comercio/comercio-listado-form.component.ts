@@ -5,20 +5,31 @@ import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, Fo
 import { firstValueFrom } from 'rxjs';
 import {
   VerticalKey, VERTICAL_LABELS, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
-  TipoSeguro, TIPO_SEGURO_LABELS, TAMANOS_PERRO } from 'shared';
+  SERVICIO_CLINICO_CATALOGO, SERVICIO_CLINICO_SINONIMOS, ModoPrecioClinico,
+  type ServicioClinicoCatalogo,
+  TipoSeguro, TIPO_SEGURO_LABELS, TAMANOS_PERRO, MIN_FOTOS_SERVICIO,
+  TipoServicioFunerario, TIPO_SERVICIO_FUNERARIO_LABELS,
+  LugarRecogida, LUGAR_RECOGIDA_LABELS,
+  ModoPrecioRecogida, MODO_PRECIO_RECOGIDA_LABELS,
+  FranjaHoraria, FRANJA_HORARIA_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
+import { RsComboInputComponent } from '../../shared/components/combo-input/rs-combo-input.component';
 import {
   RsPlaceAutocompleteComponent, type LugarElegido,
 } from '../../shared/components/place-autocomplete/rs-place-autocomplete.component';
-import { RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
+import {
+  MAX_PARADAS_INTERMEDIAS, PuntoMapa, PuntoRuta, ResumenRuta, RsMapaComponent,
+} from '../../shared/components/mapa/rs-mapa.component';
 import { GeoService, type DireccionLugar } from '../../core/geo/geo.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { RsHorarioComponent, semanaVacia } from '../../shared/components/horario/rs-horario.component';
 import {
-  AMENITIES_ALOJAMIENTO, AMENITIES_ESPACIO, OTROS_SERVICIOS, ESPECIALIDADES_VETERINARIAS, ESPECIES_ATENDIDAS,
-  RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS, TIPOS_ADIESTRAMIENTO,
+  AMENITIES_ALOJAMIENTO, AMENITIES_ESPACIO, OTROS_SERVICIOS, ESPECIES_ATENDIDAS,
+  CURSOS_ADIESTRAMIENTO,
+  INCLUYE_FUNERARIO,
+  RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS,
 } from '../../shared/catalogos/tags.catalogo';
 import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
@@ -27,9 +38,26 @@ import {
 } from './comercio-api.service';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
-/** Catálogo cerrado de servicios veterinarios, para el desplegable del formulario. */
-const SERVICIOS_CLINICOS_CATALOGO = Object.values(ServicioClinicoTipo)
-  .map((tipo) => ({ tipo, label: SERVICIO_CLINICO_LABELS[tipo] }));
+/** Una parada del trayecto declarado por un transportista. */
+interface ParadaTrayecto {
+  nombre: string;
+  lat: number;
+  lng: number;
+  placeId?: string;
+}
+
+/** Entrada del catálogo de un servicio, si es uno de los que se ofrecen. */
+function catalogoClinicoDe(tipo: ServicioClinicoTipo): ServicioClinicoCatalogo | undefined {
+  return SERVICIO_CLINICO_CATALOGO.find((s) => s.tipo === tipo);
+}
+
+/** Cómo se le llama a cada forma de cobrar, en la propia pantalla. */
+const ETIQUETA_MODO_PRECIO: Record<string, string> = {
+  [ModoPrecioClinico.FIJO]: 'Un precio fijo',
+  [ModoPrecioClinico.POR_PESO]: 'Según el peso del animal',
+  [ModoPrecioClinico.POR_VARIANTE]: 'Un precio por cada tipo',
+  [ModoPrecioClinico.PACK]: 'Precio cerrado de pack',
+};
 
 /**
  * Reconoce el servicio del catálogo a partir del nombre escrito a mano en
@@ -38,10 +66,12 @@ const SERVICIOS_CLINICOS_CATALOGO = Object.values(ServicioClinicoTipo)
 function tipoDesdeNombre(nombre?: string): ServicioClinicoTipo | undefined {
   if (!nombre) return undefined;
   const sinTildes = (t: string): string =>
-    t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
   const buscado = sinTildes(nombre);
-  return SERVICIOS_CLINICOS_CATALOGO.find(({ label }) => sinTildes(label) === buscado)?.tipo;
+  const delCatalogo = SERVICIO_CLINICO_CATALOGO
+    .find(({ label }) => sinTildes(label) === buscado)?.tipo;
+  return delCatalogo ?? SERVICIO_CLINICO_SINONIMOS[buscado];
 }
 
 const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = Object.values(VerticalKey)
@@ -55,6 +85,7 @@ const PLACEHOLDER_TITULO: Record<string, string> = {
   [VerticalKey.PELUQUERIA]:     'Ej. Peluquería Canina Real Grooming',
   [VerticalKey.ADIESTRAMIENTO]: 'Ej. Escuela Canina Rey Adiestradores',
   [VerticalKey.HOTELES]: 'Ej. Gran Hotel Pet Friendly Madrid',
+  [VerticalKey.FUNERARIOS]: 'Ej. Tanatorio de Mascotas Descanso Animal',
 };
 
 /** Zoom al enseñar un portal concreto: se distingue el número de la calle. */
@@ -63,7 +94,25 @@ const ZOOM_PORTAL = 17;
 const ZOOM_POBLACION = 13;
 
 /** Pasos del alta de un servicio; el orden es el del recorrido. */
-type PasoListado = 'categoria' | 'ubicacion' | 'horarios' | 'detalles' | 'aptitud' | 'fotos';
+type PasoListado = 'categoria' | 'ubicacion' | 'horarios' | 'detalles' | 'aptitud';
+
+/**
+ * Fotos mínimas para poder publicar. La misma cifra que exige el API al
+ * publicar; aquí se comprueba antes para no dejar terminar el alta y avisar
+ * después, cuando ya no se está mirando el formulario.
+ */
+const MIN_FOTOS = MIN_FOTOS_SERVICIO;
+
+/**
+ * Verticales cuyas fotos van **por unidad reservable** y no sueltas.
+ *
+ * Una residencia o un hotel no venden «el sitio»: venden una suite concreta o
+ * una habitación concreta, y el cliente elige mirando esa foto. Con una galería
+ * común no se sabe cuál de las diez fotos es la suite que se está reservando.
+ * En el resto de categorías no hay unidad que fotografiar aparte, así que las
+ * fotos son del servicio entero.
+ */
+const FOTOS_POR_UNIDAD: readonly string[] = [VerticalKey.ALOJAMIENTO, VerticalKey.HOTELES];
 
 /**
  * Un servicio pide entre veinte y sesenta datos según la categoría: en una sola
@@ -91,10 +140,7 @@ const PASOS: ReadonlyArray<{
     ayuda: 'Lo propio de tu categoría: es lo que hace que el cliente reserve contigo.' },
   { clave: 'aptitud', label: 'Para qué perros',
     titulo: '¿Para qué perros es apto?',
-    ayuda: 'Déjalo sin marcar si vale para cualquier perro.' },
-  { clave: 'fotos', label: 'Fotos',
-    titulo: 'Fotos y publicación',
-    ayuda: 'Las fichas con fotos reales reciben muchas más reservas que las que no las tienen.' },
+    ayuda: 'Déjalo sin marcar si vale para cualquier perro. Es el último paso: repasa y publica.' },
 ];
 
 /** Campos obligatorios que cierra cada paso antes de dejar avanzar. */
@@ -107,8 +153,23 @@ const CAMPOS_DEL_PASO: Record<PasoListado, ReadonlyArray<string>> = {
   // de negocio (`validarVertical`), no con una lista de campos fija.
   detalles: [],
   aptitud: [],
-  fotos: [],
 };
+
+/** Unidades en las que un centro de adiestramiento declara la duración de un curso. */
+type UnidadDuracion = 'minutos' | 'horas' | 'dias' | 'meses';
+
+/** Un mes se cuenta como 30 días de calendario: es una duración comercial, no contable. */
+const MINUTOS_POR_UNIDAD: Record<UnidadDuracion, number> = {
+  minutos: 1,
+  horas: 60,
+  dias: 60 * 24,
+  meses: 60 * 24 * 30,
+};
+
+/** La agenda y la disponibilidad trabajan en minutos, sea cual sea la unidad declarada. */
+function enMinutos(valor: number, unidad: UnidadDuracion): number {
+  return Math.round((valor || 0) * (MINUTOS_POR_UNIDAD[unidad] ?? 1));
+}
 
 function csvA(v?: string[]): string {
   return (v ?? []).join(', ');
@@ -122,8 +183,9 @@ function aCsv(v: string): string[] {
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, FormsModule,
-    RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsPlaceAutocompleteComponent,
-    RsMapaComponent, RsHorarioComponent, EurosPipe,],
+    RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsComboInputComponent,
+  RsPlaceAutocompleteComponent,
+    RsMapaComponent, RsHorarioComponent, RsComboInputComponent, EurosPipe,],
   template: `
     <div class="page-wrap">
       @if (!modoAlta()) {
@@ -451,6 +513,15 @@ function aCsv(v: string): string[] {
                                        placeholder="Ej. salida a jardín privado…" />
                         <span class="rs-field-hint">Lo que incluye esta suite o habitación en concreto: cama, climatización, salida al jardín…</span>
                       </div>
+                      <div class="rs-field">
+                        <span class="rs-lbl">Fotos de este espacio</span>
+                        <rs-image-upload origen="servicio/imagenes" [multiple]="true" [maxFiles]="8"
+                                         formControlName="imagenes"></rs-image-upload>
+                        <span class="rs-field-hint">
+                          El cliente reserva <em>esta</em> suite, no «la residencia»: enséñale la que va a
+                          coger. JPEG, PNG o WebP · máx. 5 MB cada una.
+                        </span>
+                      </div>
                       <div class="checkbox-row">
                         <label class="rs-checkbox"><input type="checkbox" formControlName="disponible"> Disponible</label>
                         <label class="rs-checkbox"><input type="checkbox" formControlName="cancelacionGratis"> Cancelación gratis</label>
@@ -464,6 +535,11 @@ function aCsv(v: string): string[] {
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarEspacio()">
                   <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tipo de espacio
                 </button>
+
+                <div class="fotos-cuenta" [class.fotos-cuenta--ok]="fotosSuficientes()">
+                  <rs-icon [name]="fotosSuficientes() ? 'check-circle' : 'camera'" [size]="15" [stroke]="2" />
+                  <span>{{ mensajeFotos() }}</span>
+                </div>
 
                 <div class="form-row-2">
                   <div class="rs-field">
@@ -635,12 +711,7 @@ function aCsv(v: string): string[] {
                 <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
                   Cuanto más concretes, menos solicitudes recibirás que no puedas atender.
                 </span>
-                <div class="row-card__grid row-card__grid--3">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Radio de cobertura (km)</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="radioCoberturaKm">
-                    <span class="rs-field-hint">0 = sin límite</span>
-                  </div>
+                <div class="row-card__grid row-card__grid--2">
                   <div class="rs-field">
                     <label class="rs-lbl">Distancia mínima facturable (km)</label>
                     <input class="rs-inp" type="number" min="0" formControlName="distanciaMinimaKm">
@@ -659,6 +730,76 @@ function aCsv(v: string): string[] {
                   <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> Acepto perros de razas PPP</label>
                   <label class="rs-checkbox"><input type="checkbox" formControlName="requiereTransportinPropio"> El cliente aporta su transportín</label>
                 </div>
+
+                <h2 class="section-title">Tu trayecto habitual (opcional)</h2>
+                <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
+                  Si haces una ruta fija, marca sus puntos de recogida en orden: trazamos el
+                  recorrido por carretera y el cliente lo verá dibujado en tu ficha. Es lo que
+                  distingue «hago Madrid–Zaragoza» de «hago traslados».
+                </p>
+
+                <div class="rs-field">
+                  <!-- Busca direcciones y no propone nada de salida: el desplegable
+                       sale en blanco hasta que se escribe. Sugerir poblaciones al
+                       enfocar invitaba a marcar «Madrid» como punto de recogida, y
+                       una ciudad entera no es un sitio donde parar la furgoneta. -->
+                  <rs-place-autocomplete apariencia="campo" inputId="tr-parada"
+                                         [formControl]="direccionParada"
+                                         tipo="direccion" [sugerenciasIniciales]="0"
+                                         placeholder="Escribe la dirección de recogida…"
+                                         (lugarElegido)="anadirParada($event)" />
+                  <span class="rs-field-hint">
+                    Calle y número. Escríbela y elígela de la lista para que quede situada en el mapa.
+                  </span>
+                  @if (trayectoLleno()) {
+                    <span class="rs-field-hint">
+                      Has llegado al máximo de puntos que se pueden trazar de una vez.
+                    </span>
+                  }
+                </div>
+
+                @if (trayecto().length) {
+                  <ol class="paradas">
+                    @for (parada of trayecto(); track parada.nombre + $index; let i = $index) {
+                      <li class="parada">
+                        <span class="parada__orden">{{ i + 1 }}</span>
+                        <span class="parada__nombre">{{ parada.nombre }}</span>
+                        <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                                [disabled]="i === 0" (click)="subirParada(i)" aria-label="Subir">
+                          <rs-icon name="chevron-down" [size]="13" [stroke]="2.5" class="parada__subir"></rs-icon>
+                        </button>
+                        <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                                [disabled]="i === trayecto().length - 1" (click)="bajarParada(i)"
+                                aria-label="Bajar">
+                          <rs-icon name="chevron-down" [size]="13" [stroke]="2.5"></rs-icon>
+                        </button>
+                        <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                                (click)="quitarParada(i)" aria-label="Quitar parada">
+                          <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon>
+                        </button>
+                      </li>
+                    }
+                  </ol>
+
+                  <div class="mapa-trayecto">
+                    <rs-mapa [puntos]="pinesTrayecto()" [ruta]="lineaTrayecto()"
+                             (rutaTrazada)="rutaTrazada.set($event)"
+                             ariaLabel="Trayecto declarado" />
+                  </div>
+
+                  @if (rutaTrazada(); as r) {
+                    <p class="ruta-resumen">
+                      <rs-icon name="navigation" [size]="14" [stroke]="2"></rs-icon>
+                      @if (r.porCarretera) {
+                        <strong>{{ r.distanciaKm }} km</strong> por carretera
+                        <span>· {{ duracionLegible(r.duracionMin) }}</span>
+                      } @else {
+                        <strong>{{ r.distanciaKm }} km</strong> en línea recta
+                        <span>· no hemos podido trazar el recorrido real</span>
+                      }
+                    </p>
+                  }
+                }
 
                 <h2 class="section-title">Servicios adicionales</h2>
                 <p class="rs-field-hint">
@@ -691,61 +832,171 @@ function aCsv(v: string): string[] {
 
             @case ('veterinaria') {
               <div formGroupName="veterinaria" class="vertical-section">
-                <h2 class="section-title">Servicios clínicos</h2>
 
-                <div class="rs-field">
-                  <span class="rs-lbl">Especialidades</span>
-                  <rs-tags-input formControlName="especialidades" etiqueta="Especialidades de la clínica"
-                                 [opciones]="catalogos.especialidades" placeholder="Ej. traumatología…" />
-                </div>
+                <h2 class="section-title">1. Servicios veterinarios disponibles</h2>
+                <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
+                  Selecciona los servicios que tus clientes pueden reservar directamente.
+                  Podrás indicar el precio y las condiciones de cada uno.
+                </p>
 
-                <div formArrayName="serviciosClinicos" class="rows">
-                  @for (s of serviciosClinicos.controls; track $index; let i = $index) {
-                    <div [formGroupName]="i" class="row-card">
-                      <div class="row-card__grid row-card__grid--3">
-                        <div class="rs-field">
-                          <label class="rs-lbl">Servicio *</label>
-                          <select class="rs-inp" formControlName="tipo">
-                            <option value="">Elige un servicio…</option>
-                            @for (t of serviciosClinicosCatalogo; track t.tipo) {
-                              <option [value]="t.tipo">{{ t.label }}</option>
-                            }
-                          </select>
-                        </div>
-                        <div class="rs-field">
-                          <label class="rs-lbl">Precio (€) *</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
-                        </div>
-                        <div class="rs-field">
-                          <label class="rs-lbl">Duración (min)</label>
-                          <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
-                        </div>
-                      </div>
-                      <label class="rs-checkbox">
-                        <input type="checkbox" formControlName="esPrecioCerrado"> Precio cerrado (no orientativo)
-                      </label>
-                      <span class="rs-field-hint">
-                        Marca esto para vacunas, microchip o higiene dental, donde el importe es fijo. Déjalo sin marcar
-                        para consultas y urgencias, donde el precio final puede variar.
+                <!-- Rejilla de actos concretos, no de especialidades: lo que se
+                     elige aquí es lo que el cliente puede pagar por adelantado. -->
+                <div class="serv-grid" role="group" aria-label="Servicios veterinarios">
+                  @for (s of catalogoClinico(); track s.tipo) {
+                    <button type="button" class="serv" [class.serv--on]="tieneServicioClinico(s.tipo)"
+                            [attr.aria-pressed]="tieneServicioClinico(s.tipo)"
+                            (click)="alternarServicioClinico(s.tipo)">
+                      <span class="serv__ico"><rs-icon [name]="s.icono" [size]="20" [stroke]="1.75" /></span>
+                      <span class="serv__cuerpo">
+                        <span class="serv__label">{{ s.label }}</span>
+                        <span class="serv__base">{{ s.base }}</span>
                       </span>
-                      <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioClinico(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
-                      </button>
-                    </div>
+                      <span class="serv__check" aria-hidden="true">
+                        @if (tieneServicioClinico(s.tipo)) {
+                          <rs-icon name="check" [size]="12" [stroke]="3" />
+                        }
+                      </span>
+                    </button>
                   }
-                </div>
-                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioClinico()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio clínico
-                </button>
-                <span class="rs-field-hint" style="display:block;margin-top:var(--sp-2)">
-                  Doogking solo intermedia servicios de precio acotado. Dermatología, cirugía y cualquier tratamiento
-                  de precio abierto se presupuestan y facturan directamente con el cliente, fuera de la plataforma.
-                </span>
 
+                  <button type="button" class="serv serv--nuevo" (click)="agregarServicioLibre()">
+                    <rs-icon name="plus" [size]="16" [stroke]="2.5" />
+                    <span>Añadir otro servicio</span>
+                  </button>
+                </div>
+
+                <div class="rs-alert rs-alert--info" style="margin-top:var(--sp-4)">
+                  Solo puedes publicar servicios con precio cerrado o calculable (según peso, tipo de
+                  mascota, etc.). Los servicios de diagnóstico o tratamiento personalizado no se podrán
+                  reservar online: publica la consulta —«Primera consulta de cardiología, 70 €»—, no la
+                  especialidad.
+                </div>
+
+                <!-- Precio y condiciones de cada servicio elegido -->
+                @if (serviciosClinicos.length) {
+                  <h2 class="section-title">2. Precio y condiciones de cada servicio</h2>
+                  <div formArrayName="serviciosClinicos" class="rows">
+                    @for (s of serviciosClinicos.controls; track $index; let i = $index) {
+                      <div [formGroupName]="i" class="row-card">
+                        <div class="row-card__cab">
+                          <strong>{{ nombreServicioClinico(i) }}</strong>
+                          <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                                  (click)="quitarServicioClinico(i)" aria-label="Quitar este servicio">
+                            <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon>
+                          </button>
+                        </div>
+
+                        @if (esServicioLibre(i)) {
+                          <div class="rs-field">
+                            <label class="rs-lbl">Nombre del servicio *</label>
+                            <input class="rs-inp" formControlName="nombre"
+                                   placeholder="Ej. Primera consulta de cardiología">
+                            <span class="rs-field-hint">
+                              Tiene que ser un acto con precio, no una especialidad suelta.
+                            </span>
+                          </div>
+                        }
+
+                        @if (modosPrecioDe(i).length > 1) {
+                          <div class="rs-field">
+                            <label class="rs-lbl">¿Cómo lo cobras?</label>
+                            <select class="rs-inp" formControlName="modoPrecio"
+                                    (change)="modoPrecioCambiado(i)">
+                              @for (m of modosPrecioDe(i); track m) {
+                                <option [value]="m">{{ etiquetaModoPrecio(m) }}</option>
+                              }
+                            </select>
+                          </div>
+                        }
+
+                        @if (cobraPorVariantes(i)) {
+                          <!-- El cliente no reserva «vacunación»: reserva «vacuna de
+                               la rabia — 32 €», y eso sí lo puede pagar online. -->
+                          <div class="rs-field">
+                            <span class="rs-lbl">{{ tituloVariantes(i) }}</span>
+                            <div formArrayName="variantes" class="variantes">
+                              @for (v of variantesDe(i).controls; track $index; let j = $index) {
+                                <div [formGroupName]="j" class="variante">
+                                  <input class="rs-inp variante__nombre" formControlName="nombre"
+                                         placeholder="Ej. Rabia">
+                                  <input class="rs-inp variante__precio" type="number" min="0" step="0.01"
+                                         formControlName="precio" placeholder="€">
+                                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                                          (click)="quitarVariante(i, j)" aria-label="Quitar">
+                                    <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
+                                  </button>
+                                </div>
+                              }
+                            </div>
+                            <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
+                                    (click)="agregarVariante(i)">
+                              <rs-icon name="plus" [size]="13" [stroke]="2"></rs-icon>
+                              {{ textoAnadirVariante(i) }}
+                            </button>
+                            <span class="rs-field-hint">
+                              Lo que dejes sin precio no se publica: así marcas sólo lo que ofreces.
+                            </span>
+                          </div>
+                        } @else {
+                          <div class="row-card__grid row-card__grid--2">
+                            <div class="rs-field">
+                              <label class="rs-lbl">Precio (€) *</label>
+                              <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                            </div>
+                            <div class="rs-field">
+                              <label class="rs-lbl">Duración (min)</label>
+                              <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
+                            </div>
+                          </div>
+                        }
+
+                        @if (detallaAlcance(i)) {
+                          <div class="row-card__grid row-card__grid--2">
+                            <div class="rs-field">
+                              <label class="rs-lbl">Incluye</label>
+                              <input class="rs-inp" formControlName="incluye"
+                                     placeholder="Ej. anestesia, intervención y revisión">
+                            </div>
+                            <div class="rs-field">
+                              <label class="rs-lbl">No incluye</label>
+                              <input class="rs-inp" formControlName="noIncluye"
+                                     placeholder="Ej. analítica preoperatoria">
+                            </div>
+                          </div>
+
+                          <div class="rs-field">
+                            <span class="rs-lbl">Extras que el cliente puede añadir</span>
+                            <div formArrayName="complementos" class="variantes">
+                              @for (c of complementosDe(i).controls; track $index; let j = $index) {
+                                <div [formGroupName]="j" class="variante">
+                                  <input class="rs-inp variante__nombre" formControlName="nombre"
+                                         placeholder="Ej. Analítica preoperatoria">
+                                  <input class="rs-inp variante__precio" type="number" min="0" step="0.01"
+                                         formControlName="precio" placeholder="€">
+                                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                                          (click)="quitarComplemento(i, j)" aria-label="Quitar">
+                                    <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
+                                  </button>
+                                </div>
+                              }
+                            </div>
+                            <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
+                                    (click)="agregarComplemento(i)">
+                              <rs-icon name="plus" [size]="13" [stroke]="2"></rs-icon> Añadir extra
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+
+                <h2 class="section-title">3. Información básica de la clínica</h2>
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">Precio de consulta (€) *</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioConsulta">
+                    <span class="rs-field-hint">El «desde» que verá el cliente en el buscador.</span>
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">Duración de la cita (min)</label>
@@ -755,20 +1006,26 @@ function aCsv(v: string): string[] {
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Citas por día</label>
+                    <label class="rs-lbl">Citas disponibles por día</label>
                     <input class="rs-inp" type="number" min="0" formControlName="citasPorDia">
+                    <span class="rs-field-hint">Número máximo de reservas al día.</span>
+                  </div>
+                  <div class="rs-field">
+                    <span class="rs-lbl">Especies atendidas</span>
+                    <rs-tags-input formControlName="especiesAtendidas" etiqueta="Especies atendidas"
+                                   [opciones]="catalogos.especies" [permiteNuevos]="false"
+                                   placeholder="Elige de la lista…" />
+                    <span class="rs-field-hint">No es un vertical solo de perros.</span>
                   </div>
                 </div>
 
-                <div class="rs-field">
-                  <span class="rs-lbl">Especies atendidas</span>
-                  <rs-tags-input formControlName="especiesAtendidas" etiqueta="Especies atendidas"
-                                 [opciones]="catalogos.especies" [permiteNuevos]="false"
-                                 placeholder="Elige de la lista…" />
-                  <span class="rs-field-hint">No es un vertical solo de perros: indica todas las especies que atiendes.</span>
-                </div>
-
-                <label class="rs-checkbox"><input type="checkbox" formControlName="atiendeUrgencias"> Atiende urgencias</label>
+                <label class="rs-checkbox">
+                  <input type="checkbox" formControlName="atiendeUrgencias"> Atiende urgencias
+                </label>
+                <span class="rs-field-hint">
+                  Marca esto si además atiendes fuera de cita. El precio de una urgencia no se cierra por
+                  adelantado, así que no se reserva online: se avisa al cliente de que la atiendes.
+                </span>
               </div>
             }
 
@@ -926,84 +1183,42 @@ function aCsv(v: string): string[] {
 
             @case ('adiestramiento') {
               <div formGroupName="adiestramiento" class="vertical-section">
-                <h2 class="section-title">Detalles del adiestramiento</h2>
-
-                <div class="rs-field">
-                  <span class="rs-lbl">Tipos de adiestramiento</span>
-                  <rs-tags-input formControlName="tiposAdiestramiento" etiqueta="Tipos de adiestramiento"
-                                 [opciones]="catalogos.tiposAdiestramiento" placeholder="Ej. obediencia básica…" />
-                </div>
-
-                <div class="rs-field">
-                  <label class="rs-lbl">Modalidad</label>
-                  <select class="rs-inp" formControlName="modalidad">
-                    <option value="sesion">Sesión individual</option>
-                    <option value="programa">Programa</option>
-                  </select>
-                </div>
-
-                <div class="form-row-2">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Precio por sesión (€) *</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioSesion">
-                  </div>
-                  @if (adiestramientoGroup.get('modalidad')?.value === 'programa') {
-                    <div class="rs-field">
-                      <label class="rs-lbl">Precio del programa (€)</label>
-                      <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioPrograma">
-                    </div>
-                  }
-                </div>
-
-                @if (adiestramientoGroup.get('modalidad')?.value === 'programa') {
-                  <div class="rs-field">
-                    <label class="rs-lbl">Sesiones por programa</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="sesionesPorPrograma">
-                  </div>
-                }
-
-                <div class="form-row-2">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Edad mínima (meses)</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Capacidad por sesión</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="capacidadPorSesion">
-                  </div>
-                </div>
-
-                <label class="rs-checkbox"><input type="checkbox" formControlName="aDomicilio"> Servicio a domicilio</label>
-
                 <h2 class="section-title">Valoración inicial</h2>
-                <div class="form-row-2">
+                <p class="rs-field-hint">
+                  Pon el precio de las modalidades que ofrezcas: una, dos o las tres. Deja en 0 las
+                  que no hagas.
+                </p>
+                <div class="form-row-3">
                   <div class="rs-field">
-                    <label class="rs-lbl">Modalidad</label>
-                    <select class="rs-inp" formControlName="valoracionInicialModalidad">
-                      <option value="presencial">Presencial</option>
-                      <option value="online">Online (videollamada)</option>
-                      <option value="domicilio">A domicilio</option>
-                    </select>
+                    <label class="rs-lbl">Presencial (€)</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionPresencialPrecio">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Precio (€, 0 = no se ofrece)</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionInicialPrecio">
+                    <label class="rs-lbl">Online, videollamada (€)</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionOnlinePrecio">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">A domicilio (€)</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionDomicilioPrecio">
                   </div>
                 </div>
 
-                <h2 class="section-title">Catálogo de servicios y técnicas</h2>
+                <h2 class="section-title">Catálogo de servicios y cursos</h2>
                 <div formArrayName="serviciosAdiestramiento" class="rows">
                   @for (s of serviciosAdiestramiento.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card">
-                      <div class="row-card__grid row-card__grid--4">
+                      <div class="row-card__grid row-card__grid--curso">
                         <div class="rs-field">
-                          <label class="rs-lbl">Nombre *</label>
-                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Curso de cachorros">
+                          <label class="rs-lbl">
+                            Nombre * <span class="lbl-nota">(Escribe o selecciona)</span>
+                          </label>
+                          <rs-combo-input formControlName="nombre" [opciones]="nombresCursos"
+                                          etiqueta="Nombre del servicio o curso"
+                                          placeholder="Elige un curso o escribe el tuyo" />
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">Tipo</label>
                           <select class="rs-inp" formControlName="tipo">
-                            <option value="valoracion">Valoración</option>
                             <option value="individual">Sesión individual</option>
                             <option value="grupal">Sesión grupal</option>
                             <option value="curso">Curso completo</option>
@@ -1015,11 +1230,19 @@ function aCsv(v: string): string[] {
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Duración (min)</label>
-                          <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
+                          <label class="rs-lbl">Duración</label>
+                          <div class="campo-duracion">
+                            <input class="rs-inp" type="number" min="0" formControlName="duracionValor">
+                            <select class="rs-inp" formControlName="duracionUnidad" aria-label="Unidad de la duración">
+                              <option value="minutos">Minutos</option>
+                              <option value="horas">Horas</option>
+                              <option value="dias">Días</option>
+                              <option value="meses">Meses</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
-                      <div class="row-card__grid row-card__grid--4">
+                      <div class="row-card__grid row-card__grid--curso-datos">
                         <div class="rs-field">
                           <label class="rs-lbl">Máx. perros</label>
                           <input class="rs-inp" type="number" min="1" formControlName="maxPerros">
@@ -1029,7 +1252,7 @@ function aCsv(v: string): string[] {
                           <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Edad máx. (meses, 0 = sin límite)</label>
+                          <label class="rs-lbl">Edad máx. (0 = sin límite)</label>
                           <input class="rs-inp" type="number" min="0" formControlName="edadMaximaMeses">
                         </div>
                         <div class="rs-field">
@@ -1052,16 +1275,15 @@ function aCsv(v: string): string[] {
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioAdiestramiento()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio o técnica
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio o curso
                 </button>
+
               </div>
             }
 
             @case ('hoteles') {
               <div formGroupName="hoteles" class="vertical-section">
                 <h2 class="section-title">Política de mascotas</h2>
-                <label class="rs-checkbox"><input type="checkbox" formControlName="admiteMascotas"> Admite mascotas</label>
-
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">Máximo de mascotas por reserva (0 = sin límite)</label>
@@ -1125,11 +1347,6 @@ function aCsv(v: string): string[] {
                   <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tier de tamaño
                 </button>
 
-                <div class="rs-field">
-                  <label class="rs-lbl">Suplemento por mascota adicional (€/noche)</label>
-                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="suplementoSegundaMascotaPorNoche">
-                </div>
-
                 <h2 class="section-title">Servicios petfriendly</h2>
                 <div class="rs-field">
                   <span class="rs-lbl">Servicios disponibles</span>
@@ -1145,6 +1362,61 @@ function aCsv(v: string): string[] {
                   <label class="rs-checkbox"><input type="checkbox" formControlName="debeLlevarBozalSiCorresponde"> Debe llevar bozal si corresponde</label>
                 </div>
 
+                <h2 class="section-title">Habitaciones pet-friendly</h2>
+                <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
+                  Declara los tipos que admiten mascota, con sus fotos. Las plazas del hotel salen de
+                  la suma de sus cantidades, así que no hay que contarlas aparte.
+                </p>
+
+                <div formArrayName="espacios" class="rows">
+                  @for (hab of habitacionesHotel.controls; track $index; let i = $index) {
+                    <div [formGroupName]="i" class="row-card">
+                      <div class="row-card__grid row-card__grid--3">
+                        <div class="rs-field">
+                          <label class="rs-lbl">Tipo de habitación *</label>
+                          <input class="rs-inp" formControlName="tipo" placeholder="Ej. Doble pet-friendly">
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Precio/noche (€) *</label>
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche">
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Cantidad disponible *</label>
+                          <input class="rs-inp" type="number" min="1" formControlName="cantidad">
+                        </div>
+                      </div>
+                      <div class="rs-field">
+                        <label class="rs-lbl">Descripción de la habitación</label>
+                        <input class="rs-inp" formControlName="descripcion"
+                               placeholder="Ej. Doble con terraza y cama para mascota">
+                      </div>
+                      <div class="rs-field">
+                        <span class="rs-lbl">Fotos de esta habitación</span>
+                        <rs-image-upload origen="servicio/imagenes" [multiple]="true" [maxFiles]="8"
+                                         formControlName="imagenes"></rs-image-upload>
+                        <span class="rs-field-hint">
+                          El cliente reserva <em>esta</em> habitación: enséñale la que va a coger.
+                          JPEG, PNG o WebP · máx. 5 MB cada una.
+                        </span>
+                      </div>
+                      <div class="checkbox-row">
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="disponible"> Disponible</label>
+                        <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarHabitacionHotel(i)">
+                          <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarHabitacionHotel()">
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tipo de habitación
+                </button>
+
+                <div class="fotos-cuenta" [class.fotos-cuenta--ok]="fotosSuficientes()">
+                  <rs-icon [name]="fotosSuficientes() ? 'check-circle' : 'camera'" [size]="15" [stroke]="2" />
+                  <span>{{ mensajeFotos() }}</span>
+                </div>
+
                 <h2 class="section-title">Info general</h2>
                 <div class="form-row-2">
                   <div class="rs-field">
@@ -1156,21 +1428,20 @@ function aCsv(v: string): string[] {
                     <input class="rs-inp" type="time" formControlName="checkOut">
                   </div>
                 </div>
-                <div class="form-row-2">
-                  <div class="rs-field">
-                    <label class="rs-lbl">Fianza (€, 0 = sin fianza)</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="fianza">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Habitaciones pet-friendly disponibles *</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="unidadesDisponibles">
-                  </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Fianza (€, 0 = sin fianza)</label>
+                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="fianza">
                 </div>
               </div>
             }
 
             @case ('seguros') {
               <div formGroupName="seguros" class="vertical-section">
+                <!--
+                  Sólo se llega aquí editando: al crear, elegir "Seguros" lleva
+                  a la solicitud de alta. Estas coberturas y primas las configura
+                  el equipo con la documentación de la compañía delante.
+                -->
                 <h2 class="section-title">Coberturas de la póliza</h2>
                 <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
                   Marca todo lo que incluye. El cliente verá estas coberturas antes de contratar.
@@ -1257,98 +1528,312 @@ function aCsv(v: string): string[] {
               </div>
             }
 
-            @case ('cuidadores') {
-              <div formGroupName="cuidadores" class="vertical-section">
-                <h2 class="section-title">Qué servicios ofreces</h2>
-                <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
-                  Marca al menos una modalidad. Comparten el mismo cupo diario.
+            @case ('funerarios') {
+              <div formGroupName="funerarios" class="vertical-section">
+                <!--
+                  El catálogo manda: de él salen el precio cerrado, los filtros
+                  del buscador y lo que el cliente elige al contratar. Un
+                  servicio se desactiva sin borrarlo, porque las reservas
+                  antiguas siguen apuntando a su nombre.
+                -->
+                <h2 class="section-title">Servicios que ofreces</h2>
+                <p class="rs-field-hint">
+                  Añade cada servicio con su precio. Si cobras según el peso del animal, usa los
+                  tramos: el cliente verá el precio exacto de su caso, no un «desde».
                 </p>
-                <div class="checks-grid">
-                  @for (m of modalidadesCuidado; track m.valor) {
-                    <label class="filter-check">
-                      <input type="checkbox" [checked]="tieneModalidad(m.valor)" (change)="toggleModalidad(m.valor)" />
-                      {{ m.label }}
-                    </label>
+
+                <div formArrayName="serviciosFunerarios" class="rows">
+                  @for (sv of serviciosFunerarios.controls; track $index; let i = $index) {
+                    <div [formGroupName]="i" class="row-card">
+                      <div class="row-card__grid row-card__grid--curso-tres">
+                        <div class="rs-field">
+                          <label class="rs-lbl">
+                            Nombre * <span class="lbl-nota">(Escribe o selecciona)</span>
+                          </label>
+                          <rs-combo-input formControlName="nombre" [opciones]="nombresServiciosFunerarios"
+                                          etiqueta="Nombre del servicio funerario"
+                                          placeholder="Elige un servicio o escribe el tuyo" />
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Precio (€) *</label>
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioBase">
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Tiempo estimado (h)</label>
+                          <input class="rs-inp" type="number" min="0" formControlName="tiempoEstimadoHoras">
+                        </div>
+                      </div>
+
+                      <div class="rs-field">
+                        <label class="rs-lbl">Descripción</label>
+                        <input class="rs-inp" formControlName="descripcion"
+                               placeholder="Ej. Cremación individual con entrega de cenizas en 48 h">
+                      </div>
+
+                      <div class="rs-field">
+                        <span class="rs-lbl">
+                          Qué incluye <span class="lbl-nota">(Escribe o selecciona)</span>
+                        </span>
+                        <rs-tags-input formControlName="incluye" etiqueta="Qué incluye el servicio"
+                                       [opciones]="catalogos.incluyeFunerario"
+                                       placeholder="Elige de la lista o escribe lo tuyo…" />
+                      </div>
+
+                      <div class="rs-field">
+                        <label class="rs-lbl">Precio por tramos de peso (opcional, sustituye al precio de arriba)</label>
+                        <div formArrayName="tramosPeso" class="rows">
+                          @for (t of tramosPeso(i).controls; track $index; let ti = $index) {
+                            <div [formGroupName]="ti" class="row-card row-card--sm">
+                              <div class="row-card__grid row-card__grid--2">
+                                <div class="rs-field">
+                                  <label class="rs-lbl">Hasta (kg)</label>
+                                  <input class="rs-inp" type="number" min="0" step="0.5" formControlName="hastaKg">
+                                </div>
+                                <div class="rs-field">
+                                  <label class="rs-lbl">Precio (€)</label>
+                                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                                </div>
+                              </div>
+                              <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarTramoPeso(i, ti)">
+                                <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                              </button>
+                            </div>
+                          }
+                        </div>
+                        <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarTramoPeso(i)">
+                          <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tramo de peso
+                        </button>
+                      </div>
+
+                      <div class="checkbox-row">
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="devuelveCenizas"> Devuelve las cenizas</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="urnaIncluida"> Urna incluida</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="certificadoIncluido"> Certificado incluido</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="activo"> Activo</label>
+                      </div>
+
+                      <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioFunerario(i)">
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar servicio
+                      </button>
+                    </div>
                   }
                 </div>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioFunerario()">
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio
+                </button>
 
-                <h2 class="section-title">Precios</h2>
-                <div class="row-card__grid row-card__grid--2">
+                <h2 class="section-title">Recogida</h2>
+                <p class="rs-field-hint">
+                  Si no recoges, el cliente solo podrá llevarte al animal. Fuera del radio que
+                  declares, la plataforma no dejará contratar la recogida.
+                </p>
+                <label class="rs-checkbox"><input type="checkbox" formControlName="ofreceRecogida"> Ofrezco recogida</label>
+
+                @if (funerariosGroup.get('ofreceRecogida')?.value) {
                   <div class="rs-field">
-                    <label class="rs-lbl">Precio por paseo (€)</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioPaseo">
+                    <span class="rs-lbl">Desde dónde recoges</span>
+                    <div class="checks-grid">
+                      @for (l of lugaresRecogida; track l.valor) {
+                        <label class="filter-check">
+                          <input type="checkbox" [checked]="tieneLugarRecogida(l.valor)"
+                                 (change)="toggleLugarRecogida(l.valor)" />
+                          {{ l.label }}
+                        </label>
+                      }
+                    </div>
                   </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Duración del paseo (min)</label>
-                    <input class="rs-inp" type="number" min="1" formControlName="duracionPaseoMin">
+
+                  <div class="form-row-2">
+                    <div class="rs-field">
+                      <label class="rs-lbl">Radio máximo (km)</label>
+                      <input class="rs-inp" type="number" min="0" formControlName="radioRecogidaKm">
+                    </div>
+                    <div class="rs-field">
+                      <label class="rs-lbl">Cómo cobras el desplazamiento</label>
+                      <select class="rs-inp" formControlName="modoPrecioRecogida">
+                        @for (m of modosPrecioRecogida; track m.valor) {
+                          <option [value]="m.valor">{{ m.label }}</option>
+                        }
+                      </select>
+                    </div>
                   </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Precio por visita (€)</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioVisita">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Duración de la visita (min)</label>
-                    <input class="rs-inp" type="number" min="1" formControlName="duracionVisitaMin">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Precio día completo (€)</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioDiaCompleto">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">Precio noche (€)</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche">
-                  </div>
+
+                  @switch (funerariosGroup.get('modoPrecioRecogida')?.value) {
+                    @case ('fija') {
+                      <div class="rs-field">
+                        <label class="rs-lbl">Precio de la recogida (€)</label>
+                        <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioRecogida">
+                      </div>
+                    }
+                    @case ('por_km') {
+                      <div class="rs-field">
+                        <label class="rs-lbl">Precio por kilómetro (€)</label>
+                        <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioRecogidaPorKm">
+                      </div>
+                    }
+                    @case ('por_zona') {
+                      <div class="rs-field">
+                        <label class="rs-lbl">Zonas y su precio</label>
+                        <div formArrayName="zonasRecogida" class="rows">
+                          @for (z of zonasRecogida.controls; track $index; let zi = $index) {
+                            <div [formGroupName]="zi" class="row-card row-card--sm">
+                              <div class="row-card__grid row-card__grid--2">
+                                <div class="rs-field">
+                                  <label class="rs-lbl">Zona</label>
+                                  <input class="rs-inp" formControlName="nombre" placeholder="Ej. Área metropolitana">
+                                </div>
+                                <div class="rs-field">
+                                  <label class="rs-lbl">Precio (€)</label>
+                                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                                </div>
+                              </div>
+                              <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarZonaRecogida(zi)">
+                                <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                              </button>
+                            </div>
+                          }
+                        </div>
+                        <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarZonaRecogida()">
+                          <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir zona
+                        </button>
+                      </div>
+                    }
+                  }
+                }
+
+                <h2 class="section-title">Urgencias y disponibilidad</h2>
+                <div class="checkbox-row">
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="servicioUrgente"> Atiendo servicios urgentes</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="atiende24h"> Disponible 24 h</label>
                 </div>
-                <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-4)">
-                  Deja en 0 el precio de cualquier modalidad que no ofrezcas.
-                </span>
-
-                <h2 class="section-title">Condiciones</h2>
-                <div class="row-card__grid row-card__grid--2">
+                <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Radio de desplazamiento (km)</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="radioDesplazamientoKm">
+                    <label class="rs-lbl">Suplemento por urgencia (€)</label>
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="suplementoUrgencia">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Cupos disponibles al día</label>
+                    <label class="rs-lbl">Servicios que puedes atender al día</label>
                     <input class="rs-inp" type="number" min="0" formControlName="cuposDisponibles">
                   </div>
                 </div>
-                <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> Acepto razas PPP</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="administraMedicacion"> Administro medicación</label>
+                <div class="rs-field">
+                  <span class="rs-lbl">Franjas en las que recoges o entregas</span>
+                  <div class="checks-grid">
+                    @for (f of franjasHorarias; track f.valor) {
+                      <label class="filter-check">
+                        <input type="checkbox" [checked]="tieneFranja(f.valor)" (change)="toggleFranja(f.valor)" />
+                        {{ f.label }}
+                      </label>
+                    }
+                  </div>
+                  <span class="rs-field-hint">
+                    No se pide hora exacta al cliente: se reserva por franja.
+                  </span>
                 </div>
 
-                <h2 class="section-title">Tamaños de perro admitidos</h2>
-                <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
-                  Déjalo todo sin marcar si admites cualquier tamaño.
+                <h2 class="section-title">Extras opcionales</h2>
+                <p class="rs-field-hint">
+                  Lo que el cliente puede añadir al contratar: urnas, huellas, relicarios, grabados,
+                  sala de despedida, ceremonia…
                 </p>
-                <div class="checks-grid">
-                  @for (t of tamanosCuidado; track t.valor) {
-                    <label class="filter-check">
-                      <input type="checkbox" [checked]="tieneTamanoCuidado(t.valor)" (change)="toggleTamanoCuidado(t.valor)" />
-                      {{ t.nombre }}
-                    </label>
+                <div formArrayName="extras" class="rows">
+                  @for (e of extrasFunerarios.controls; track $index; let ei = $index) {
+                    <div [formGroupName]="ei" class="row-card">
+                      <div class="row-card__grid row-card__grid--curso">
+                        <div class="rs-field">
+                          <label class="rs-lbl">Nombre *</label>
+                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Urna de madera">
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Precio (€) *</label>
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Descripción</label>
+                          <input class="rs-inp" formControlName="descripcion" placeholder="Opcional">
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">Estado</label>
+                          <label class="rs-checkbox"><input type="checkbox" formControlName="activo"> Activo</label>
+                        </div>
+                      </div>
+                      <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarExtraFunerario(ei)">
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                      </button>
+                    </div>
                   }
                 </div>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarExtraFunerario()">
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir extra
+                </button>
 
-                <div class="rs-field">
-                  <span class="rs-lbl">Tareas incluidas</span>
-                  <rs-tags-input formControlName="tareasIncluidas" etiqueta="Tareas incluidas"
-                                 placeholder="Ej. Comida, agua, juego…" />
+                <h2 class="section-title">Cancelaciones</h2>
+                <p class="rs-field-hint">
+                  Esta categoría necesita dos condiciones distintas: antes de recoger todo es
+                  reversible; una vez iniciado el servicio, no. El cliente las ve antes de pagar.
+                </p>
+                <div class="form-row-2">
+                  <div class="rs-field">
+                    <label class="rs-lbl">Reembolso antes de la recogida (%)</label>
+                    <input class="rs-inp" type="number" min="0" max="100" formControlName="reembolsoAntesRecogidaPct">
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">Reembolso con el servicio iniciado (%)</label>
+                    <input class="rs-inp" type="number" min="0" max="100" formControlName="reembolsoIniciadoPct">
+                  </div>
                 </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">Notas de la política</label>
+                  <input class="rs-inp" formControlName="notasCancelacion"
+                         placeholder="Ej. Cancelaciones por teléfono hasta 2 h antes de la recogida">
+                </div>
+
+                <h2 class="section-title">Autorizaciones</h2>
+                <div class="rs-field">
+                  <label class="rs-checkbox">
+                    <input type="checkbox" formControlName="declaraAutorizaciones">
+                    Declaro disponer de las autorizaciones, registros, permisos o acuerdos necesarios
+                    para prestar legalmente los servicios que publico.
+                  </label>
+                  <span class="rs-field-hint">
+                    Obligatorio para publicar en esta categoría, además de la declaración
+                    responsable general de Doogking.
+                  </span>
+                </div>
+                <div class="rs-field">
+                  <label class="rs-lbl">¿Quién realiza la cremación?</label>
+                  <select class="rs-inp" formControlName="cremacionPropia">
+                    <option [ngValue]="true">La realiza mi empresa</option>
+                    <option [ngValue]="false">Trabajo con un tercero</option>
+                  </select>
+                </div>
+                @if (funerariosGroup.get('cremacionPropia')?.value === false) {
+                  <div class="rs-field">
+                    <label class="rs-lbl">Empresa que realiza la cremación</label>
+                    <input class="rs-inp" formControlName="terceroCrematorio" placeholder="Nombre del crematorio">
+                  </div>
+                }
               </div>
             }
           }
+
+          <!-- Las categorías sin unidad reservable propia enseñan el servicio
+               entero: no hay una suite concreta que fotografiar. -->
+          @if (!fotosPorUnidad() && form.controls.vertical.value) {
+            <div class="rs-field fotos-servicio">
+              <label class="rs-lbl">Fotos del servicio</label>
+              <rs-image-upload origen="servicio/imagenes" [multiple]="true" [maxFiles]="10"
+                               formControlName="imagenes"></rs-image-upload>
+              <span class="rs-field-hint">JPEG, PNG o WebP · máx. 5 MB cada una.</span>
+              <div class="fotos-cuenta" [class.fotos-cuenta--ok]="fotosSuficientes()">
+                <rs-icon [name]="fotosSuficientes() ? 'check-circle' : 'camera'" [size]="15" [stroke]="2" />
+                <span>{{ mensajeFotos() }}</span>
+              </div>
+            </div>
+          }
           }
 
-          @if (paso() === 'fotos') {
-            <div class="rs-field">
-              <label class="rs-lbl">Imágenes del servicio</label>
-              <rs-image-upload origen="servicio/imagenes" [multiple]="true" [maxFiles]="8" formControlName="imagenes"></rs-image-upload>
-              <span class="rs-field-hint">Sube hasta 8 imágenes · JPEG, PNG, WebP · Max 5 MB cada una.</span>
-            </div>
-
+          @if (paso() === 'aptitud') {
             <!-- Repaso antes de crear: lo que se va a publicar, en una línea. -->
             <div class="repaso">
               <p class="repaso__titulo">Esto es lo que vas a publicar</p>
@@ -1357,18 +1842,18 @@ function aCsv(v: string): string[] {
                 <div><dt>Nombre</dt><dd>{{ form.controls.titulo.value || '—' }}</dd></div>
                 <div><dt>Ciudad</dt><dd>{{ form.controls.ciudad.value || '—' }}</dd></div>
                 <div><dt>Precio desde</dt><dd>{{ form.controls.precioBase.value || 0 | euros }}</dd></div>
-                <div><dt>Fotos</dt><dd>{{ form.controls.imagenes.value.length }}</dd></div>
+                <div><dt>Fotos</dt><dd>{{ totalFotos() }}</dd></div>
               </dl>
             </div>
 
             @if (!esEdicion()) {
               <div class="rs-alert rs-alert--info">
                 @if (modoAlta()) {
-                  El servicio se creará en estado <strong>Borrador</strong>. Lo publicaremos en cuanto
-                  termines el alta y revisemos tu negocio.
+                  Tu servicio queda <strong>publicado</strong> al terminar el alta. Aparecerá en el
+                  buscador en cuanto revisemos tu negocio.
                 } @else {
-                  El servicio se creará en estado <strong>Borrador</strong>. Revísalo y publícalo desde
-                  «Mis servicios» cuando esté listo.
+                  Tu servicio queda <strong>publicado</strong>. Puedes pausarlo cuando quieras desde
+                  «Mis servicios».
                 }
               </div>
             }
@@ -1455,6 +1940,15 @@ function aCsv(v: string): string[] {
     }
 
     .vertical-section { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+    /* Aclaración dentro de una etiqueta: acompaña al nombre del campo sin
+       competir con él, y al vivir en la etiqueta no descuadra la fila. */
+    .lbl-nota { font-size: var(--f-xs); font-weight: var(--w-4); color: var(--t-400); }
+
+    /* La pista que explica una sección pertenece a su título: sin esto queda a
+       la misma distancia del título que del bloque de campos y no se sabe de
+       cuál de los dos habla. */
+    .section-title + .rs-field-hint { margin-top: calc(var(--sp-2) - var(--sp-5)); }
 
     .checks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--sp-2); }
     .filter-check { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size: var(--f-sm); color: var(--t-200); }
@@ -1602,6 +2096,43 @@ function aCsv(v: string): string[] {
     .row-card__grid--3 { grid-template-columns: repeat(3, 1fr); @media (max-width: 640px) { grid-template-columns: 1fr; } }
     .row-card__grid--4 { grid-template-columns: repeat(4, 1fr); @media (max-width: 640px) { grid-template-columns: 1fr 1fr; } }
 
+    /*
+     * Sin esto, una etiqueta larga o un input con contenido ancho ensancha su
+     * columna (el mínimo automático de una celda de rejilla es su contenido) y
+     * la fila deja de repartirse en partes iguales.
+     */
+    .row-card__grid > .rs-field { min-width: 0; }
+    .row-card__grid .rs-inp { min-width: 0; }
+
+    /*
+     * Catálogo de adiestramiento: los cuatro datos de la primera fila no piden
+     * el mismo ancho —el nombre del curso es texto largo y la duración son dos
+     * campos—, así que se reparte en proporción y no en cuartos iguales. En
+     * tablet baja a dos columnas y en móvil cada campo ocupa su propia línea:
+     * un desplegable y un número compartiendo 160 px no se pueden usar.
+     */
+    .row-card__grid--curso {
+      grid-template-columns: 1.7fr 1.1fr .9fr 1.3fr;
+      @media (max-width: 980px) { grid-template-columns: 1fr 1fr; }
+      @media (max-width: 560px) { grid-template-columns: 1fr; }
+    }
+
+    /* La misma fila sin el tipo: son tres datos y el nombre sigue mandando. */
+    .row-card__grid--curso-tres {
+      grid-template-columns: 1.9fr 1fr 1.1fr;
+      @media (max-width: 980px) { grid-template-columns: 1fr 1fr; }
+      @media (max-width: 560px) { grid-template-columns: 1fr; }
+    }
+
+    /* Segunda fila: cuatro cifras cortas, que sí caben emparejadas en móvil. */
+    .row-card__grid--curso-datos {
+      grid-template-columns: repeat(4, 1fr);
+      @media (max-width: 980px) { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* Duración: el número y su unidad son un solo dato, así que comparten fila. */
+    .campo-duracion { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: var(--sp-2); }
+
     .checkbox-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); }
     .rs-checkbox { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; }
     .rs-checkbox input { accent-color: var(--c-accent); width: 18px; height: 18px; }
@@ -1660,6 +2191,99 @@ function aCsv(v: string): string[] {
     .paso-head { display: flex; flex-direction: column; gap: var(--sp-2); }
     .paso-head__titulo { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); }
     .paso-head__ayuda { font-size: var(--f-sm); color: var(--t-400); max-width: 60ch; }
+
+    /* ══ TRAYECTO DEL TRANSPORTISTA ═══════════════════════════════════ */
+    /* El número lleva el orden: la línea del mapa no dice cuál es la primera. */
+    .paradas { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-3); }
+    .parada {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-2) var(--sp-3);
+      background: var(--c-raised); border-radius: var(--r-md);
+    }
+    .parada__orden {
+      display: grid; place-items: center; flex-shrink: 0;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--dk-blue); color: #fff;
+      font-size: var(--f-xs); font-weight: var(--w-7);
+    }
+    .parada__nombre { flex: 1; min-width: 0; font-size: var(--f-sm); color: var(--t-100); }
+    .parada__subir { transform: rotate(180deg); }
+
+    .ruta-resumen {
+      display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+      margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3);
+      border-radius: var(--r-md); background: var(--c-accent-lo);
+      color: var(--dk-blue); font-size: var(--f-sm);
+    }
+    .ruta-resumen span { color: var(--t-400); }
+
+    .mapa-trayecto {
+      height: 320px; margin-top: var(--sp-3);
+      border: 1px solid var(--b-1); border-radius: var(--r-lg); overflow: hidden;
+    }
+
+    /* ══ REJILLA DE SERVICIOS VETERINARIOS ════════════════════════════ */
+    /* Tarjetas y no un desplegable: una clínica marca de un vistazo los ocho o
+       diez actos que vende, y con un select los elegía de uno en uno. */
+    .serv-grid {
+      display: grid; gap: var(--sp-3);
+      grid-template-columns: repeat(4, 1fr);
+      @media (max-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
+      @media (max-width: 860px)  { grid-template-columns: repeat(2, 1fr); }
+      @media (max-width: 560px)  { grid-template-columns: 1fr; }
+    }
+
+    .serv {
+      display: flex; align-items: flex-start; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4); min-height: 74px;
+      border: 1.5px solid var(--b-1); border-radius: var(--r-lg);
+      background: var(--c-card); text-align: left; font: inherit; cursor: pointer;
+      transition: border-color var(--d-2), background var(--d-2);
+      &:hover { border-color: var(--dk-blue); }
+    }
+    .serv--on { border-color: var(--dk-blue); background: var(--c-accent-lo); }
+    .serv__ico { color: var(--dk-blue); flex-shrink: 0; display: flex; padding-top: 2px; }
+    .serv__cuerpo { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .serv__label { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); line-height: 1.3; }
+    .serv__base { font-size: var(--f-xs); color: var(--t-400); }
+
+    .serv__check {
+      width: 18px; height: 18px; flex-shrink: 0;
+      border: 1.5px solid var(--b-1); border-radius: var(--r-sm);
+      display: grid; place-items: center; color: #fff;
+    }
+    .serv--on .serv__check { background: var(--dk-blue); border-color: var(--dk-blue); }
+
+    .serv--nuevo {
+      align-items: center; justify-content: center; gap: var(--sp-2);
+      border-style: dashed; color: var(--dk-blue);
+      font-size: var(--f-sm); font-weight: var(--w-6);
+    }
+
+    .row-card__cab {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+      font-size: var(--f-sm); color: var(--t-100);
+    }
+
+    /* Cada vacuna y cada tramo de peso llevan su importe: el cliente reserva
+       «vacuna de la rabia — 32 €», no «vacunación». */
+    .variantes { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .variante { display: flex; align-items: center; gap: var(--sp-2); }
+    .variante__nombre { flex: 1; min-width: 0; }
+    .variante__precio { width: 110px; flex-shrink: 0; }
+
+    /* ══ CUENTA DE FOTOS ══════════════════════════════════════════════ */
+    /* El mínimo se dice mientras se suben, no al intentar publicar: enterarse
+       al final obliga a rehacer el recorrido. */
+    .fotos-cuenta {
+      display: flex; align-items: center; gap: var(--sp-2);
+      margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3);
+      border-radius: var(--r-md);
+      background: var(--c-raised); color: var(--t-400);
+      font-size: var(--f-sm); font-weight: var(--w-6);
+    }
+    .fotos-cuenta--ok { background: var(--c-accent-lo); color: var(--dk-blue); }
+    .fotos-servicio { margin-top: var(--sp-6); }
 
     /* ══ REPASO PREVIO A PUBLICAR ═════════════════════════════════════ */
     .repaso {
@@ -1762,6 +2386,65 @@ export class ComercioListadoFormComponent implements OnInit {
   readonly pasoUi = computed(() => PASOS[this.indicePaso()] ?? PASOS[0]);
   readonly esPrimerPaso = computed(() => this.indicePaso() === 0);
   readonly esUltimoPaso = computed(() => this.indicePaso() === PASOS.length - 1);
+
+  // ── Fotos ────────────────────────────────────────────────────────────
+
+  /**
+   * Cambia con cada tecleo del formulario. Los `FormArray` no son señales, así
+   * que sin este contador las cuentas de fotos se quedarían congeladas en el
+   * valor que tuvieran al pintar.
+   */
+  private readonly versionFormulario = signal(0);
+
+  /** Residencias y hoteles fotografían la unidad; el resto, el servicio. */
+  readonly fotosPorUnidad = computed(() => {
+    this.versionFormulario();
+    return FOTOS_POR_UNIDAD.includes(this.form.controls.vertical.value);
+  });
+
+  /** Las unidades reservables del vertical a la vista, sean suites o habitaciones. */
+  private unidadesConFotos(): FormArray {
+    return this.form.controls.vertical.value === VerticalKey.HOTELES
+      ? this.habitacionesHotel
+      : this.espacios;
+  }
+
+  /**
+   * Fotos de la ficha: sueltas en la mayoría de categorías, y la suma de las de
+   * cada unidad en residencias y hoteles, donde no hay galería aparte.
+   */
+  readonly totalFotos = computed(() => {
+    this.versionFormulario();
+    if (!this.fotosPorUnidad()) return this.fotosSueltas().length;
+    return this.fotosDeLasUnidades().length;
+  });
+
+  /** Galería del servicio. Un listado antiguo puede no traerla. */
+  private fotosSueltas(): string[] {
+    return this.form.controls.imagenes.value ?? [];
+  }
+
+  /** Todas las fotos de las unidades, en orden y sin repetir. */
+  private fotosDeLasUnidades(): string[] {
+    const vistas = new Set<string>();
+    for (const unidad of this.unidadesConFotos().controls) {
+      for (const url of (unidad.getRawValue() as { imagenes?: string[] }).imagenes ?? []) {
+        vistas.add(url);
+      }
+    }
+    return [...vistas];
+  }
+
+  readonly fotosSuficientes = computed(() => this.totalFotos() >= MIN_FOTOS);
+
+  mensajeFotos(): string {
+    const total = this.totalFotos();
+    if (total >= MIN_FOTOS) return `${total} fotos. Ya puedes publicar.`;
+
+    const faltan = MIN_FOTOS - total;
+    const sitio = this.fotosPorUnidad() ? ' repartidas entre tus unidades' : '';
+    return `${total} de ${MIN_FOTOS} fotos${sitio}: te ${faltan === 1 ? 'falta 1' : 'faltan ' + faltan}.`;
+  }
 
   /** Nombre legible de la categoría elegida, para el repaso y el titular. */
   etiquetaVertical(): string {
@@ -1878,13 +2561,15 @@ export class ComercioListadoFormComponent implements OnInit {
     amenitiesEspacio: AMENITIES_ESPACIO,
     provincias: PROVINCIAS_ES,
     ciudades: CIUDADES_ES,
-    especialidades: ESPECIALIDADES_VETERINARIAS,
     especies: ESPECIES_ATENDIDAS,
     razas: RAZAS_FRECUENTES,
     temperamentos: TEMPERAMENTOS,
-    tiposAdiestramiento: TIPOS_ADIESTRAMIENTO,
     serviciosPetfriendly: SERVICIOS_PETFRIENDLY,
+    incluyeFunerario: INCLUYE_FUNERARIO,
   };
+
+  /** Nombres sugeridos en el catálogo de adiestramiento; el campo admite otros. */
+  readonly nombresCursos = CURSOS_ADIESTRAMIENTO.map(c => c.nombre);
 
   tieneTamano(v: string): boolean { return this.tamanosSeleccionados().includes(v); }
   toggleTamano(v: string): void {
@@ -2024,7 +2709,6 @@ export class ComercioListadoFormComponent implements OnInit {
       jaulasIncluidas: [true],
       acompananteHumano: [false],
       soloPerros: [true],
-      radioCoberturaKm: [0],
       distanciaMinimaKm: [0],
       antelacionMinimaHoras: [0],
       maxPerrosPorTrayecto: [null as number | null],
@@ -2056,21 +2740,19 @@ export class ComercioListadoFormComponent implements OnInit {
       requiereMicrochip: [true],
     }),
 
+    // El catálogo de cursos es lo único que declara el centro: modalidad, precio
+    // por sesión, edad mínima, capacidad y servicio a domicilio se derivan de él
+    // al guardar (ver `detalleVertical`), así que no tienen control propio.
     adiestramiento: this.fb.group({
-      tiposAdiestramiento: [[] as string[]],
-      modalidad: ['sesion'],
-      precioSesion: [0, [Validators.required, Validators.min(0)]],
-      precioPrograma: [0],
-      sesionesPorPrograma: [0],
-      edadMinimaMeses: [3],
-      aDomicilio: [false],
-      capacidadPorSesion: [6],
       serviciosAdiestramiento: this.fb.array<FormGroup>([]),
-      valoracionInicialModalidad: ['presencial'],
-      valoracionInicialPrecio: [0],
+      valoracionPresencialPrecio: [0],
+      valoracionOnlinePrecio: [0],
+      valoracionDomicilioPrecio: [0],
     }),
 
     hoteles: this.fb.group({
+      // Sin campo en la ficha: en Doogking todo hotel es pet-friendly. El dato
+      // se sigue guardando porque la disponibilidad lo exige para reservar.
       admiteMascotas: [true],
       maxMascotasPorReserva: [0],
       pesoMaximoMascotaKg: [0],
@@ -2078,7 +2760,6 @@ export class ComercioListadoFormComponent implements OnInit {
       razasEspecificasRestringidas: [[] as string[]],
       especiesPermitidas: [[] as string[]],
       suplementoPorTamanoMascota: this.fb.array<FormGroup>([]),
-      suplementoSegundaMascotaPorNoche: [0],
       serviciosPetfriendly: [[] as string[]],
       puedeQuedarseSoloEnHabitacion: [true],
       accesoZonasComunes: [true],
@@ -2087,7 +2768,9 @@ export class ComercioListadoFormComponent implements OnInit {
       checkIn: [''],
       checkOut: [''],
       fianza: [0],
-      unidadesDisponibles: [1, [Validators.required, Validators.min(0)]],
+      // Las plazas del hotel salen de la suma de sus habitaciones; el comercio
+      // ya no las cuenta a mano (`CONTADOR_DISPONIBILIDAD` en el API).
+      espacios: this.fb.array<FormGroup>([]),
     }),
 
     seguros: this.fb.group({
@@ -2107,18 +2790,27 @@ export class ComercioListadoFormComponent implements OnInit {
       recargoRiesgoPct: [0],
     }),
 
-    cuidadores: this.fb.group({
-      tareasIncluidas: [[] as string[]],
-      precioPaseo: [0, [Validators.min(0)]],
-      precioVisita: [0, [Validators.min(0)]],
-      precioDiaCompleto: [0, [Validators.min(0)]],
-      precioNoche: [0, [Validators.min(0)]],
-      duracionPaseoMin: [30, [Validators.min(1)]],
-      duracionVisitaMin: [45, [Validators.min(1)]],
-      aceptaPPP: [false],
-      administraMedicacion: [false],
-      radioDesplazamientoKm: [10, [Validators.min(0)]],
+    funerarios: this.fb.group({
+      serviciosFunerarios: this.fb.array<FormGroup>([]),
+      extras: this.fb.array<FormGroup>([]),
+      zonasRecogida: this.fb.array<FormGroup>([]),
+      ofreceRecogida: [true],
+      lugaresRecogida: [[LugarRecogida.DOMICILIO, LugarRecogida.VETERINARIO] as string[]],
+      radioRecogidaKm: [25, [Validators.min(0)]],
+      modoPrecioRecogida: [ModoPrecioRecogida.FIJA as string],
+      precioRecogida: [0, [Validators.min(0)]],
+      precioRecogidaPorKm: [0, [Validators.min(0)]],
+      servicioUrgente: [false],
+      atiende24h: [false],
+      suplementoUrgencia: [0, [Validators.min(0)]],
+      franjasDisponibles: [[FranjaHoraria.MANANA, FranjaHoraria.TARDE] as string[]],
       cuposDisponibles: [1, [Validators.required, Validators.min(0)]],
+      reembolsoAntesRecogidaPct: [100, [Validators.min(0), Validators.max(100)]],
+      reembolsoIniciadoPct: [0, [Validators.min(0), Validators.max(100)]],
+      notasCancelacion: [''],
+      declaraAutorizaciones: [false],
+      cremacionPropia: [true],
+      terceroCrematorio: [''],
     }),
   });
 
@@ -2129,8 +2821,11 @@ export class ComercioListadoFormComponent implements OnInit {
   get adiestramientoGroup(): FormGroup { return this.form.controls.adiestramiento; }
   get hotelesGroup(): FormGroup { return this.form.controls.hoteles; }
   get segurosGroup(): FormGroup { return this.form.controls.seguros; }
-  get cuidadoresGroup(): FormGroup { return this.form.controls.cuidadores; }
+  get funerariosGroup(): FormGroup { return this.form.controls.funerarios; }
   get serviciosAdiestramiento(): FormArray { return this.adiestramientoGroup.get('serviciosAdiestramiento') as FormArray; }
+  get serviciosFunerarios(): FormArray { return this.funerariosGroup.get('serviciosFunerarios') as FormArray; }
+  get extrasFunerarios(): FormArray { return this.funerariosGroup.get('extras') as FormArray; }
+  get zonasRecogida(): FormArray { return this.funerariosGroup.get('zonasRecogida') as FormArray; }
 
   get espacios(): FormArray { return this.alojamientoGroup.get('espacios') as FormArray; }
   get serviciosAdicionalesAlojamiento(): FormArray { return this.alojamientoGroup.get('serviciosAdicionales') as FormArray; }
@@ -2148,6 +2843,7 @@ export class ComercioListadoFormComponent implements OnInit {
       precioNoche: [(e?.['precioNoche'] as number) ?? 0],
       cantidad: [(e?.['cantidad'] as number) ?? 1],
       amenities: [(e?.['amenities'] as string[] | undefined) ?? []],
+      imagenes: [(e?.['imagenes'] as string[] | undefined) ?? []],
       disponible: [(e?.['disponible'] as boolean) ?? true],
       cancelacionGratis: [(e?.['cancelacionGratis'] as boolean) ?? true],
     });
@@ -2155,6 +2851,24 @@ export class ComercioListadoFormComponent implements OnInit {
 
   agregarEspacio(): void { this.espacios.push(this.nuevoEspacio()); }
   quitarEspacio(i: number): void { this.espacios.removeAt(i); }
+
+  // ── Habitaciones del hotel ───────────────────────────────────────────
+
+  get habitacionesHotel(): FormArray { return this.hotelesGroup.get('espacios') as FormArray; }
+
+  private nuevaHabitacionHotel(e?: Record<string, unknown>) {
+    return this.fb.group({
+      tipo: [(e?.['tipo'] as string) ?? ''],
+      descripcion: [(e?.['descripcion'] as string) ?? ''],
+      precioNoche: [(e?.['precioNoche'] as number) ?? 0],
+      cantidad: [(e?.['cantidad'] as number) ?? 1],
+      imagenes: [(e?.['imagenes'] as string[] | undefined) ?? []],
+      disponible: [(e?.['disponible'] as boolean) ?? true],
+    });
+  }
+
+  agregarHabitacionHotel(): void { this.habitacionesHotel.push(this.nuevaHabitacionHotel()); }
+  quitarHabitacionHotel(i: number): void { this.habitacionesHotel.removeAt(i); }
 
   private nuevoServicioAdicionalAlojamiento(e?: Record<string, unknown>) {
     return this.fb.group({
@@ -2175,11 +2889,19 @@ export class ComercioListadoFormComponent implements OnInit {
   quitarServicioAdicionalTransporte(i: number): void { this.serviciosAdicionalesTransporte.removeAt(i); }
 
   private nuevoServicioAdiestramiento(e?: Record<string, unknown>) {
+    // Fichas anteriores solo guardaban minutos; y el tipo «valoración» vive
+    // ahora en su propia sección, así que esas filas pasan a «especial».
+    const unidad = (e?.['duracionUnidad'] as UnidadDuracion | undefined) ?? 'minutos';
+    const valor = (e?.['duracionValor'] as number | undefined)
+      ?? (e?.['duracionMin'] as number | undefined)
+      ?? 60;
+    const tipo = (e?.['tipo'] as string) ?? 'individual';
     return this.fb.group({
       nombre: [(e?.['nombre'] as string) ?? ''],
-      tipo: [(e?.['tipo'] as string) ?? 'individual'],
+      tipo: [tipo === 'valoracion' ? 'especial' : tipo],
       precio: [(e?.['precio'] as number) ?? 0],
-      duracionMin: [(e?.['duracionMin'] as number) ?? 60],
+      duracionValor: [valor],
+      duracionUnidad: [unidad],
       maxPerros: [(e?.['maxPerros'] as number) ?? 1],
       edadMinimaMeses: [(e?.['edadMinimaMeses'] as number) ?? 0],
       edadMaximaMeses: [(e?.['edadMaximaMeses'] as number) ?? 0],
@@ -2187,6 +2909,80 @@ export class ComercioListadoFormComponent implements OnInit {
       materialNecesario: [(e?.['materialNecesario'] as string) ?? ''],
     });
   }
+
+  /**
+   * Tipos de adiestramiento que declara la ficha. El buscador ordena por este
+   * vocabulario (TIPOS_ADIESTRAMIENTO), no por el nombre comercial del curso:
+   * los cursos del catálogo se traducen y los de nombre propio se dejan tal cual.
+   */
+  private tiposDesdeCatalogo(servicios: ReadonlyArray<{ nombre: string }>): string[] {
+    const tipos = servicios
+      .map(s => (s.nombre ?? '').trim())
+      .filter(nombre => nombre.length > 0)
+      .map(nombre => CURSOS_ADIESTRAMIENTO.find(c => c.nombre === nombre)?.tipo ?? nombre);
+    return [...new Set(tipos)];
+  }
+
+  private nuevoServicioFunerario(e?: Record<string, unknown>) {
+    return this.fb.group({
+      nombre: [(e?.['nombre'] as string) ?? ''],
+      // Sin campo en la ficha: se deduce del nombre al guardar
+      // (`tipoDesdeNombreFunerario`) y es lo que filtra el buscador.
+      tipo: [(e?.['tipo'] as string) ?? TipoServicioFunerario.OTROS],
+      descripcion: [(e?.['descripcion'] as string) ?? ''],
+      incluye: [(e?.['incluye'] as string[] | undefined) ?? []],
+      precioBase: [(e?.['precioBase'] as number) ?? 0],
+      tiempoEstimadoHoras: [(e?.['tiempoEstimadoHoras'] as number) ?? 48],
+      // La cremación individual devuelve cenizas; la colectiva, no. Se marca por
+      // defecto lo que es cierto en la mayoría de los casos, pero manda la empresa.
+      devuelveCenizas: [(e?.['devuelveCenizas'] as boolean) ?? true],
+      urnaIncluida: [(e?.['urnaIncluida'] as boolean) ?? false],
+      certificadoIncluido: [(e?.['certificadoIncluido'] as boolean) ?? false],
+      activo: [(e?.['activo'] as boolean) ?? true],
+      tramosPeso: this.fb.array<FormGroup>(
+        ((e?.['tramosPeso'] as Record<string, unknown>[] | undefined) ?? [])
+          .map((t) => this.nuevoTramoPeso(t)),
+      ),
+    });
+  }
+
+  agregarServicioFunerario(): void { this.serviciosFunerarios.push(this.nuevoServicioFunerario()); }
+  quitarServicioFunerario(i: number): void { this.serviciosFunerarios.removeAt(i); }
+
+  private nuevoTramoPeso(t?: Record<string, unknown>) {
+    return this.fb.group({
+      hastaKg: [(t?.['hastaKg'] as number) ?? 10],
+      precio: [(t?.['precio'] as number) ?? 0],
+    });
+  }
+
+  tramosPeso(rowIndex: number): FormArray {
+    return this.serviciosFunerarios.at(rowIndex).get('tramosPeso') as FormArray;
+  }
+  agregarTramoPeso(rowIndex: number): void { this.tramosPeso(rowIndex).push(this.nuevoTramoPeso()); }
+  quitarTramoPeso(rowIndex: number, i: number): void { this.tramosPeso(rowIndex).removeAt(i); }
+
+  private nuevoExtraFunerario(e?: Record<string, unknown>) {
+    return this.fb.group({
+      nombre: [(e?.['nombre'] as string) ?? ''],
+      precio: [(e?.['precio'] as number) ?? 0],
+      descripcion: [(e?.['descripcion'] as string) ?? ''],
+      activo: [(e?.['activo'] as boolean) ?? true],
+    });
+  }
+
+  agregarExtraFunerario(): void { this.extrasFunerarios.push(this.nuevoExtraFunerario()); }
+  quitarExtraFunerario(i: number): void { this.extrasFunerarios.removeAt(i); }
+
+  private nuevaZonaRecogida(z?: Record<string, unknown>) {
+    return this.fb.group({
+      nombre: [(z?.['nombre'] as string) ?? ''],
+      precio: [(z?.['precio'] as number) ?? 0],
+    });
+  }
+
+  agregarZonaRecogida(): void { this.zonasRecogida.push(this.nuevaZonaRecogida()); }
+  quitarZonaRecogida(i: number): void { this.zonasRecogida.removeAt(i); }
 
   agregarServicioAdiestramiento(): void { this.serviciosAdiestramiento.push(this.nuevoServicioAdiestramiento()); }
   quitarServicioAdiestramiento(i: number): void { this.serviciosAdiestramiento.removeAt(i); }
@@ -2225,23 +3021,47 @@ export class ComercioListadoFormComponent implements OnInit {
     this.conductasNoAdmitidasSeleccionadas.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
   }
 
-  // Modalidades y tamaños admitidos (paseadores/cuidado a domicilio, Ref. COMI3).
-  readonly modalidadesCuidado: ReadonlyArray<{ valor: string; label: string }> = [
-    { valor: 'paseo', label: 'Paseo' },
-    { valor: 'visita', label: 'Visita suelta' },
-    { valor: 'dia_completo', label: 'Día completo' },
-    { valor: 'noche', label: 'Noche' },
-  ];
-  readonly tamanosCuidado = TAMANOS_PERRO;
-  private readonly modalidadesSeleccionadas = signal<string[]>([]);
-  private readonly tamanosCuidadoSeleccionados = signal<string[]>([]);
-  tieneModalidad(v: string): boolean { return this.modalidadesSeleccionadas().includes(v); }
-  toggleModalidad(v: string): void {
-    this.modalidadesSeleccionadas.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
+  // ── Servicios funerarios ───────────────────────────────────────────
+  readonly lugaresRecogida = Object.values(LugarRecogida)
+    .map((valor) => ({ valor: valor as string, label: LUGAR_RECOGIDA_LABELS[valor] }));
+
+  readonly modosPrecioRecogida = Object.values(ModoPrecioRecogida)
+    .map((valor) => ({ valor: valor as string, label: MODO_PRECIO_RECOGIDA_LABELS[valor] }));
+
+  readonly franjasHorarias = Object.values(FranjaHoraria)
+    .map((valor) => ({ valor: valor as string, label: FRANJA_HORARIA_LABELS[valor] }));
+
+  /** Nombres sugeridos del sector; el campo admite escribir el propio. */
+  readonly nombresServiciosFunerarios: readonly string[] = Object.values(TipoServicioFunerario)
+    .filter((t) => t !== TipoServicioFunerario.OTROS)
+    .map((t) => TIPO_SERVICIO_FUNERARIO_LABELS[t]);
+
+  /**
+   * El tipo se deduce del nombre y no se pregunta: las opciones del
+   * desplegable de nombres **son** los tipos, así que pedir las dos cosas era
+   * pedir dos veces lo mismo. Un servicio con nombre propio cuenta como "otros".
+   */
+  private tipoDesdeNombreFunerario(nombre: string): TipoServicioFunerario {
+    const limpio = (nombre ?? '').trim().toLowerCase();
+    const encontrado = Object.values(TipoServicioFunerario)
+      .find((t) => TIPO_SERVICIO_FUNERARIO_LABELS[t].toLowerCase() === limpio);
+    return encontrado ?? TipoServicioFunerario.OTROS;
   }
-  tieneTamanoCuidado(v: string): boolean { return this.tamanosCuidadoSeleccionados().includes(v); }
-  toggleTamanoCuidado(v: string): void {
-    this.tamanosCuidadoSeleccionados.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
+
+  tieneLugarRecogida(v: string): boolean { return this.listaFunerario('lugaresRecogida').includes(v); }
+  toggleLugarRecogida(v: string): void { this.alternarEnLista('lugaresRecogida', v); }
+  tieneFranja(v: string): boolean { return this.listaFunerario('franjasDisponibles').includes(v); }
+  toggleFranja(v: string): void { this.alternarEnLista('franjasDisponibles', v); }
+
+  /** Lista de valores marcados de un control del grupo funerario. */
+  private listaFunerario(control: string): string[] {
+    return (this.funerariosGroup.get(control)?.value as string[] | undefined) ?? [];
+  }
+
+  private alternarEnLista(control: string, valor: string): void {
+    const actual = this.listaFunerario(control);
+    const siguiente = actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor];
+    this.funerariosGroup.get(control)?.setValue(siguiente);
   }
   private readonly compatibilidadesSeleccionadas = signal<string[]>([]);
   tieneCompatibilidad(v: string): boolean { return this.compatibilidadesSeleccionadas().includes(v); }
@@ -2255,16 +3075,32 @@ export class ComercioListadoFormComponent implements OnInit {
       // que el comercio no pierda lo que ya tenía publicado.
       ?? tipoDesdeNombre(e?.['nombre'] as string | undefined);
 
+    const entrada = tipo ? catalogoClinicoDe(tipo) : undefined;
+    const modo = (e?.['modoPrecio'] as ModoPrecioClinico | undefined)
+      ?? entrada?.modosPrecio[0] ?? ModoPrecioClinico.FIJO;
+
+    const variantes = (e?.['variantes'] as Record<string, unknown>[] | undefined)
+      ?? this.variantesPropuestas(entrada, modo);
+
     return this.fb.group({
       tipo: [tipo ?? '', Validators.required],
       nombre: [(e?.['nombre'] as string) ?? ''],
       precio: [(e?.['precio'] as number) ?? 0],
       duracionMin: [(e?.['duracionMin'] as number) ?? 30],
-      esPrecioCerrado: [(e?.['esPrecioCerrado'] as boolean) ?? false],
+      // Todo lo del catálogo tiene precio cerrado o calculable: es la condición
+      // para poder publicarlo (regla de oro de `veterinarios.md`).
+      esPrecioCerrado: [(e?.['esPrecioCerrado'] as boolean) ?? true],
+      modoPrecio: [modo],
+      variantes: this.fb.array(variantes.map((v) => this.nuevaVarianteClinica(v))),
+      incluye: [(e?.['incluye'] as string) ?? ''],
+      noIncluye: [(e?.['noIncluye'] as string) ?? ''],
+      complementos: this.fb.array(
+        ((e?.['complementos'] as Record<string, unknown>[] | undefined) ?? [])
+          .map((c) => this.nuevaVarianteClinica(c)),
+      ),
     });
   }
 
-  readonly serviciosClinicosCatalogo = SERVICIOS_CLINICOS_CATALOGO;
 
   readonly tiposSeguroCatalogo = Object.values(TipoSeguro)
     .map((tipo) => ({ tipo, label: TIPO_SEGURO_LABELS[tipo] }));
@@ -2284,6 +3120,256 @@ export class ComercioListadoFormComponent implements OnInit {
 
   agregarServicioClinico(): void { this.serviciosClinicos.push(this.nuevoServicioClinico()); }
   quitarServicioClinico(i: number): void { this.serviciosClinicos.removeAt(i); }
+
+  // ── Cobertura y trayecto del transportista ───────────────────────────
+
+  /**
+   * Paradas de la ruta habitual del transportista.
+   *
+   * Va en una señal y no en el formulario reactivo porque no son campos que se
+   * teclean: se eligen del buscador de lugares, que ya devuelve el nombre y las
+   * coordenadas resueltas.
+   */
+  readonly trayecto = signal<ParadaTrayecto[]>([]);
+
+  /** Lo que mide el trayecto ya trazado; lo rellena el mapa. */
+  readonly rutaTrazada = signal<ResumenRuta | null>(null);
+
+  /**
+   * Campo donde se escribe la siguiente dirección. Se vacía al añadirla: si se
+   * quedara la anterior escrita, teclear la siguiente obligaría a borrarla a
+   * mano cada vez.
+   */
+  readonly direccionParada = this.fb.control('');
+
+  /**
+   * El trazado de rutas admite un número limitado de puntos intermedios; pasarse
+   * devolvería un error y dejaría el trayecto sin dibujar, así que se corta antes.
+   */
+  readonly trayectoLleno = computed(() =>
+    this.trayecto().length >= MAX_PARADAS_INTERMEDIAS + 2);
+
+  duracionLegible(minutos: number): string {
+    if (minutos < 60) return `${minutos} min`;
+    const horas = Math.floor(minutos / 60);
+    const resto = minutos % 60;
+    return resto ? `${horas} h ${resto} min` : `${horas} h`;
+  }
+
+  anadirParada(lugar: LugarElegido): void {
+    const nombre = this.nombreDeParada(lugar);
+    // Sin coordenadas no se puede dibujar, y una parada que no sale en el mapa
+    // no es una parada: es una línea de texto que nadie mira.
+    if (!nombre || !Number.isFinite(lugar.lat) || !Number.isFinite(lugar.lng)) return;
+    if (this.trayectoLleno()) return;
+
+    this.trayecto.update((paradas) => [
+      ...paradas,
+      { nombre, lat: lugar.lat, lng: lugar.lng, placeId: lugar.placeId },
+    ]);
+    this.direccionParada.setValue('');
+    this.guardarCambioSuelto();
+  }
+
+  /**
+   * Cómo se llama la parada en la lista.
+   *
+   * Se prefiere la dirección formateada: entre dos recogidas de la misma ciudad
+   * la calle es lo único que las distingue. Si Places no devolvió el detalle se
+   * compone con lo que haya, y en último caso queda la población.
+   */
+  private nombreDeParada(lugar: LugarElegido): string {
+    const d = lugar.direccion;
+    if (d?.formateada?.trim()) return d.formateada.trim();
+
+    const compuesta = [[d?.calle, d?.numero].filter(Boolean).join(' '), d?.ciudad ?? lugar.ciudad]
+      .filter((parte) => parte?.trim())
+      .join(', ');
+    return compuesta.trim();
+  }
+
+  quitarParada(i: number): void {
+    this.trayecto.update((paradas) => paradas.filter((_, j) => j !== i));
+    this.guardarCambioSuelto();
+  }
+
+  /** El orden es el recorrido: mover una parada cambia por dónde se pasa antes. */
+  subirParada(i: number): void { this.moverParada(i, i - 1); }
+  bajarParada(i: number): void { this.moverParada(i, i + 1); }
+
+  private moverParada(desde: number, hasta: number): void {
+    this.trayecto.update((paradas) => {
+      if (hasta < 0 || hasta >= paradas.length) return paradas;
+      const movidas = [...paradas];
+      [movidas[desde], movidas[hasta]] = [movidas[hasta], movidas[desde]];
+      return movidas;
+    });
+    this.guardarCambioSuelto();
+  }
+
+  /** Pines numerados de las paradas, para saber cuál es cuál sobre la línea. */
+  readonly pinesTrayecto = computed<PuntoMapa[]>(() =>
+    this.trayecto().map((parada, i) => ({
+      id: `parada-${i}`,
+      lat: parada.lat,
+      lng: parada.lng,
+      titulo: parada.nombre,
+      etiqueta: String(i + 1),
+      vertical: VerticalKey.TRANSPORTE,
+    })));
+
+  readonly lineaTrayecto = computed<PuntoRuta[]>(() =>
+    this.trayecto().map(({ lat, lng }) => ({ lat, lng })));
+
+  // ── Rejilla de servicios veterinarios ────────────────────────────────
+
+  /**
+   * Lo que se ofrece marcar. Al final se añade lo que el listado ya tuviera y
+   * el catálogo no contemple —un servicio de una versión anterior—, para que al
+   * editar siga viéndose y no se pierda al guardar.
+   */
+  readonly catalogoClinico = computed<readonly ServicioClinicoCatalogo[]>(() => {
+    this.versionFormulario();
+    const enCatalogo = new Set(SERVICIO_CLINICO_CATALOGO.map((s) => s.tipo));
+    const heredados = this.serviciosClinicos.controls
+      .map((c) => (c.getRawValue() as { tipo?: ServicioClinicoTipo }).tipo)
+      .filter((tipo): tipo is ServicioClinicoTipo =>
+        !!tipo && tipo !== ServicioClinicoTipo.OTRO && !enCatalogo.has(tipo));
+
+    if (!heredados.length) return SERVICIO_CLINICO_CATALOGO;
+
+    return [
+      ...SERVICIO_CLINICO_CATALOGO,
+      ...[...new Set(heredados)].map((tipo) => ({
+        tipo, label: SERVICIO_CLINICO_LABELS[tipo], base: 'Servicio ya publicado',
+        icono: 'stethoscope', modosPrecio: [ModoPrecioClinico.FIJO],
+      })),
+    ];
+  });
+
+  private indiceDelTipo(tipo: ServicioClinicoTipo): number {
+    return this.serviciosClinicos.controls
+      .findIndex((c) => (c.getRawValue() as { tipo?: string }).tipo === tipo);
+  }
+
+  tieneServicioClinico(tipo: ServicioClinicoTipo): boolean {
+    this.versionFormulario();
+    return this.indiceDelTipo(tipo) >= 0;
+  }
+
+  /** Marcar la tarjeta añade su fila de precio; desmarcarla la quita. */
+  alternarServicioClinico(tipo: ServicioClinicoTipo): void {
+    const indice = this.indiceDelTipo(tipo);
+    if (indice >= 0) this.serviciosClinicos.removeAt(indice);
+    else this.serviciosClinicos.push(this.nuevoServicioClinico({ tipo }));
+    this.versionFormulario.update((v) => v + 1);
+  }
+
+  /** Una clínica puede tener un procedimiento tarifado que el catálogo no trae. */
+  agregarServicioLibre(): void {
+    this.serviciosClinicos.push(this.nuevoServicioClinico({ tipo: ServicioClinicoTipo.OTRO }));
+    this.versionFormulario.update((v) => v + 1);
+  }
+
+  esServicioLibre(i: number): boolean {
+    return this.tipoEnLaFila(i) === ServicioClinicoTipo.OTRO;
+  }
+
+  private tipoEnLaFila(i: number): ServicioClinicoTipo | undefined {
+    return (this.serviciosClinicos.at(i)?.getRawValue() as { tipo?: ServicioClinicoTipo }).tipo
+      || undefined;
+  }
+
+  private entradaDeLaFila(i: number): ServicioClinicoCatalogo | undefined {
+    const tipo = this.tipoEnLaFila(i);
+    return tipo ? catalogoClinicoDe(tipo) : undefined;
+  }
+
+  nombreServicioClinico(i: number): string {
+    const fila = this.serviciosClinicos.at(i).getRawValue() as { tipo?: ServicioClinicoTipo; nombre?: string };
+    if (fila.tipo === ServicioClinicoTipo.OTRO) return fila.nombre?.trim() || 'Otro servicio';
+    return fila.tipo ? SERVICIO_CLINICO_LABELS[fila.tipo] : 'Servicio';
+  }
+
+  modosPrecioDe(i: number): readonly ModoPrecioClinico[] {
+    return this.entradaDeLaFila(i)?.modosPrecio ?? [ModoPrecioClinico.FIJO];
+  }
+
+  etiquetaModoPrecio(modo: ModoPrecioClinico): string {
+    return ETIQUETA_MODO_PRECIO[modo] ?? modo;
+  }
+
+  private modoDeLaFila(i: number): ModoPrecioClinico {
+    return (this.serviciosClinicos.at(i).getRawValue() as { modoPrecio?: ModoPrecioClinico })
+      .modoPrecio ?? ModoPrecioClinico.FIJO;
+  }
+
+  cobraPorVariantes(i: number): boolean {
+    this.versionFormulario();
+    const modo = this.modoDeLaFila(i);
+    return modo === ModoPrecioClinico.POR_VARIANTE || modo === ModoPrecioClinico.POR_PESO;
+  }
+
+  detallaAlcance(i: number): boolean {
+    return this.entradaDeLaFila(i)?.detallaAlcance === true;
+  }
+
+  tituloVariantes(i: number): string {
+    return this.modoDeLaFila(i) === ModoPrecioClinico.POR_PESO
+      ? 'Precio por tramo de peso'
+      : '¿Qué tipos ofreces, y a qué precio?';
+  }
+
+  textoAnadirVariante(i: number): string {
+    return this.modoDeLaFila(i) === ModoPrecioClinico.POR_PESO ? 'Añadir tramo' : 'Añadir tipo';
+  }
+
+  variantesDe(i: number): FormArray {
+    return this.serviciosClinicos.at(i).get('variantes') as FormArray;
+  }
+
+  complementosDe(i: number): FormArray {
+    return this.serviciosClinicos.at(i).get('complementos') as FormArray;
+  }
+
+  agregarVariante(i: number): void { this.variantesDe(i).push(this.nuevaVarianteClinica()); }
+  quitarVariante(i: number, j: number): void { this.variantesDe(i).removeAt(j); }
+  agregarComplemento(i: number): void { this.complementosDe(i).push(this.nuevaVarianteClinica()); }
+  quitarComplemento(i: number, j: number): void { this.complementosDe(i).removeAt(j); }
+
+  /**
+   * Cambiar de forma de cobrar rehace la lista: pasar a tramos de peso con las
+   * vacunas escritas dentro no tendría sentido, y dejarla vacía obligaría a
+   * teclear los cuatro tramos a mano.
+   */
+  modoPrecioCambiado(i: number): void {
+    const variantes = this.variantesDe(i);
+    const escritas = variantes.controls
+      .some((v) => (v.getRawValue() as { nombre?: string }).nombre?.trim());
+    if (escritas) return;
+
+    variantes.clear();
+    for (const v of this.variantesPropuestas(this.entradaDeLaFila(i), this.modoDeLaFila(i))) {
+      variantes.push(this.nuevaVarianteClinica(v));
+    }
+    this.versionFormulario.update((n) => n + 1);
+  }
+
+  /** Nombres de partida para no arrancar con la lista en blanco. */
+  private variantesPropuestas(
+    entrada: ServicioClinicoCatalogo | undefined, modo: ModoPrecioClinico,
+  ): Record<string, unknown>[] {
+    const porVariantes = modo === ModoPrecioClinico.POR_VARIANTE || modo === ModoPrecioClinico.POR_PESO;
+    if (!porVariantes) return [];
+    return (entrada?.variantes ?? []).map((nombre) => ({ nombre, precio: 0 }));
+  }
+
+  private nuevaVarianteClinica(v?: Record<string, unknown>) {
+    return this.fb.group({
+      nombre: [(v?.['nombre'] as string) ?? ''],
+      precio: [(v?.['precio'] as number) ?? 0],
+    });
+  }
 
   private nuevoServicioGrooming(e?: Record<string, unknown>) {
     return this.fb.group({
@@ -2457,7 +3543,13 @@ export class ComercioListadoFormComponent implements OnInit {
       this.pelosSeleccionados.set(aptitud['tipoPeloAdmitido'] ?? []);
       this.temperamentosNoAdmitidos = aptitud['temperamentosNoAdmitidos'] ?? [];
 
-      const paso = b['paso'] as PasoListado | undefined;
+      // Un borrador guardado cuando las fotos eran un paso aparte trae un paso
+      // que ya no existe: se abre el último, que es donde estaba a punto de
+      // terminar.
+      const pasoBorrador = b['paso'] as PasoListado | undefined;
+      const paso = pasoBorrador && !PASOS.some((x) => x.clave === pasoBorrador)
+        ? PASOS[PASOS.length - 1].clave
+        : pasoBorrador;
       if (paso) {
         // Se abre el paso donde se quedó, y se dan por buenos los anteriores:
         // ya los había pasado antes de recargar.
@@ -2484,6 +3576,17 @@ export class ComercioListadoFormComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    // Las cuentas de fotos leen `FormArray`, que no son señales: sin esto se
+    // quedarían con el número que tuvieran al pintar el paso.
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.versionFormulario.update((v) => v + 1));
+
+    // Elegir "Seguros" en el desplegable de categoría no sigue por aquí.
+    this.form.controls.vertical.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((vertical) => this.desviarSiEsSeguros(vertical));
+
     const inicial = this.verticalInicial();
     if (inicial) {
       // Se eligió en el paso anterior del alta: enseñarla otra vez como un
@@ -2520,7 +3623,7 @@ export class ComercioListadoFormComponent implements OnInit {
         codigoPostal: s.codigoPostal ?? '',
         pais: s.pais ?? 'España',
         precioBase: s.precioBase,
-        imagenes: s.imagenes,
+        imagenes: s.imagenes ?? [],
       });
       // Un servicio de antes de que el horario colgara del listado llega sin
       // semana: se le da una en blanco para que el editor tenga los siete días.
@@ -2566,6 +3669,7 @@ export class ComercioListadoFormComponent implements OnInit {
       });
       const lista = (d['espacios'] as Record<string, unknown>[] | undefined) ?? [];
       lista.forEach(e => this.espacios.push(this.nuevoEspacio(e)));
+      this.heredarGaleriaEnLaPrimeraUnidad(this.espacios);
       this.compatibilidadesSeleccionadas.set((d['compatibilidadSocialAdmitida'] as string[] | undefined) ?? []);
       this.conductasNoAdmitidasSeleccionadas.set((d['conductasNoAdmitidas'] as string[] | undefined) ?? []);
       const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
@@ -2577,6 +3681,7 @@ export class ComercioListadoFormComponent implements OnInit {
       });
       const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
       adicionales.forEach(e => this.serviciosAdicionalesTransporte.push(this.nuevoServicioAdicionalAlojamiento(e)));
+      this.trayecto.set((d['trayecto'] as ParadaTrayecto[] | undefined) ?? []);
     } else if (vertical === VerticalKey.VETERINARIA) {
       this.veterinariaGroup.patchValue({
         ...d,
@@ -2595,12 +3700,16 @@ export class ComercioListadoFormComponent implements OnInit {
       const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
       adicionales.forEach(e => this.serviciosAdicionalesPeluqueria.push(this.nuevoServicioAdicionalPeluqueria(e)));
     } else if (vertical === VerticalKey.ADIESTRAMIENTO) {
-      const valoracionInicial = d['valoracionInicial'] as Record<string, unknown> | undefined;
+      // Fichas anteriores a los precios por modalidad guardaban una sola valoración.
+      const legado = d['valoracionInicial'] as Record<string, unknown> | undefined;
+      const valoraciones = (d['valoracionesIniciales'] as Record<string, unknown>[] | undefined)
+        ?? (legado ? [legado] : []);
+      const precioDe = (modalidad: string): number =>
+        (valoraciones.find(v => v['modalidad'] === modalidad)?.['precio'] as number | undefined) ?? 0;
       this.adiestramientoGroup.patchValue({
-        ...d,
-        tiposAdiestramiento: (d['tiposAdiestramiento'] as string[] | undefined) ?? [],
-        valoracionInicialModalidad: valoracionInicial?.['modalidad'] ?? 'presencial',
-        valoracionInicialPrecio: valoracionInicial?.['precio'] ?? 0,
+        valoracionPresencialPrecio: precioDe('presencial'),
+        valoracionOnlinePrecio: precioDe('online'),
+        valoracionDomicilioPrecio: precioDe('domicilio'),
       });
       const servicios = (d['serviciosAdiestramiento'] as Record<string, unknown>[] | undefined) ?? [];
       servicios.forEach(e => this.serviciosAdiestramiento.push(this.nuevoServicioAdiestramiento(e)));
@@ -2613,6 +3722,7 @@ export class ComercioListadoFormComponent implements OnInit {
       });
       const lista = (d['suplementoPorTamanoMascota'] as Record<string, unknown>[] | undefined) ?? [];
       lista.forEach(t => this.suplementoPorTamanoMascota.push(this.nuevoSuplementoPorTamanoMascota(t)));
+      this.cargarHabitacionesHotel(d);
     } else if (vertical === VerticalKey.SEGUROS) {
       const admision = (d['condicionesAdmision'] as Record<string, unknown> | undefined) ?? {};
       this.segurosGroup.patchValue({
@@ -2628,14 +3738,35 @@ export class ComercioListadoFormComponent implements OnInit {
         recargoRiesgoPct: Math.round(((admision['recargoRiesgoPct'] as number) ?? 0) * 100),
       });
       this.coberturas.set((d['tiposSeguro'] as TipoSeguro[] | undefined) ?? []);
-    } else if (vertical === VerticalKey.CUIDADORES) {
-      this.cuidadoresGroup.patchValue({
+    } else if (vertical === VerticalKey.FUNERARIOS) {
+      const politica = (d['politicaCancelacionFunerario'] as Record<string, unknown> | undefined) ?? {};
+      this.funerariosGroup.patchValue({
         ...d,
-        tareasIncluidas: (d['tareasIncluidas'] as string[] | undefined) ?? [],
+        lugaresRecogida: (d['lugaresRecogida'] as string[] | undefined) ?? [],
+        franjasDisponibles: (d['franjasDisponibles'] as string[] | undefined) ?? [],
+        reembolsoAntesRecogidaPct: politica['reembolsoAntesRecogidaPct'] ?? 100,
+        reembolsoIniciadoPct: politica['reembolsoIniciadoPct'] ?? 0,
+        notasCancelacion: politica['notas'] ?? '',
       });
-      this.modalidadesSeleccionadas.set((d['modalidades'] as string[] | undefined) ?? ['visita']);
-      this.tamanosCuidadoSeleccionados.set((d['tamanosAdmitidos'] as string[] | undefined) ?? []);
+      const servicios = (d['serviciosFunerarios'] as Record<string, unknown>[] | undefined) ?? [];
+      servicios.forEach((sv) => this.serviciosFunerarios.push(this.nuevoServicioFunerario(sv)));
+      const extras = (d['extras'] as Record<string, unknown>[] | undefined) ?? [];
+      extras.forEach((e) => this.extrasFunerarios.push(this.nuevoExtraFunerario(e)));
+      const zonas = (d['zonasRecogida'] as Record<string, unknown>[] | undefined) ?? [];
+      zonas.forEach((z) => this.zonasRecogida.push(this.nuevaZonaRecogida(z)));
     }
+  }
+
+  /**
+   * Una aseguradora no publica una ficha como las demás categorías: entrega una
+   * solicitud con su documentación y Doogking la revisa antes de dejarla entrar
+   * (máximo `MAX_ASEGURADORAS`). Por eso, al crear, elegir "Seguros" cambia de
+   * pantalla en vez de seguir por este formulario; editando sí se queda, que es
+   * cuando el equipo configura coberturas y primas.
+   */
+  private desviarSiEsSeguros(vertical: string): void {
+    if (this.esEdicion() || this.modoAlta() || vertical !== VerticalKey.SEGUROS) return;
+    void this.router.navigate(['/comercio/listados/solicitud-seguros']);
   }
 
   private construirDetalleVertical(vertical: string): Record<string, unknown> | null {
@@ -2664,18 +3795,16 @@ export class ComercioListadoFormComponent implements OnInit {
       };
     }
     if (vertical === VerticalKey.TRANSPORTE) {
-      return this.transporteGroup.getRawValue();
+      return {
+        ...this.transporteGroup.getRawValue(),
+        trayecto: this.trayecto(),
+      };
     }
     if (vertical === VerticalKey.VETERINARIA) {
       const g = this.veterinariaGroup.getRawValue();
       return {
         ...g,
-        // `nombre` se rellena desde el catálogo: el comercio ya no lo escribe,
-        // pero el resto de la aplicación sigue mostrándolo.
-        serviciosClinicos: this.serviciosClinicos.controls.map((c) => {
-          const v = c.getRawValue() as { tipo: ServicioClinicoTipo; nombre: string };
-          return { ...v, nombre: SERVICIO_CLINICO_LABELS[v.tipo] ?? v.nombre };
-        }),
+        serviciosClinicos: this.serviciosClinicos.controls.map((_, i) => this.servicioClinicoAGuardar(i)),
       };
     }
     if (vertical === VerticalKey.PELUQUERIA) {
@@ -2691,14 +3820,28 @@ export class ComercioListadoFormComponent implements OnInit {
     }
     if (vertical === VerticalKey.ADIESTRAMIENTO) {
       const g = this.adiestramientoGroup.getRawValue();
+      const servicios = this.serviciosAdiestramiento.controls.map(c => {
+        const v = c.getRawValue();
+        return { ...v, duracionMin: enMinutos(v.duracionValor, v.duracionUnidad as UnidadDuracion) };
+      });
+      const valoraciones = [
+        { modalidad: 'presencial', precio: g.valoracionPresencialPrecio },
+        { modalidad: 'online', precio: g.valoracionOnlinePrecio },
+        { modalidad: 'domicilio', precio: g.valoracionDomicilioPrecio },
+      ].filter(v => v.precio > 0);
+      const precios = servicios.map(s => s.precio).filter(p => p > 0);
+      const edades = servicios.map(s => s.edadMinimaMeses).filter(e => e > 0);
+      // La ficha ya no pide los datos sueltos del servicio: se derivan del
+      // catálogo de cursos, que es lo único que declara el centro.
       return {
-        ...g,
-        precioPrograma: g.modalidad === 'programa' && g.precioPrograma > 0 ? g.precioPrograma : undefined,
-        sesionesPorPrograma: g.modalidad === 'programa' && g.sesionesPorPrograma > 0 ? g.sesionesPorPrograma : undefined,
-        serviciosAdiestramiento: this.serviciosAdiestramiento.controls.map(c => c.getRawValue()),
-        valoracionInicial: g.valoracionInicialPrecio > 0
-          ? { modalidad: g.valoracionInicialModalidad, precio: g.valoracionInicialPrecio }
-          : undefined,
+        precioSesion: precios.length ? Math.min(...precios) : this.form.controls.precioBase.value,
+        modalidad: servicios.some(s => s.tipo === 'curso') ? 'programa' : 'sesion',
+        tiposAdiestramiento: this.tiposDesdeCatalogo(servicios),
+        edadMinimaMeses: edades.length ? Math.min(...edades) : 3,
+        capacidadPorSesion: Math.max(1, ...servicios.map(s => s.maxPerros || 1)),
+        aDomicilio: servicios.some(s => s.lugar === 'domicilio'),
+        serviciosAdiestramiento: servicios,
+        valoracionesIniciales: valoraciones,
       };
     }
     if (vertical === VerticalKey.HOTELES) {
@@ -2707,9 +3850,9 @@ export class ComercioListadoFormComponent implements OnInit {
         ...g,
         maxMascotasPorReserva: g.maxMascotasPorReserva > 0 ? g.maxMascotasPorReserva : undefined,
         pesoMaximoMascotaKg: g.pesoMaximoMascotaKg > 0 ? g.pesoMaximoMascotaKg : undefined,
-        suplementoSegundaMascotaPorNoche: g.suplementoSegundaMascotaPorNoche > 0 ? g.suplementoSegundaMascotaPorNoche : undefined,
         fianza: g.fianza > 0 ? g.fianza : undefined,
         suplementoPorTamanoMascota: this.suplementoPorTamanoMascota.controls.map(c => c.getRawValue()),
+        espacios: this.habitacionesHotel.controls.map(c => c.getRawValue()),
       };
     }
     if (vertical === VerticalKey.SEGUROS) {
@@ -2735,38 +3878,228 @@ export class ComercioListadoFormComponent implements OnInit {
         },
       };
     }
-    if (vertical === VerticalKey.CUIDADORES) {
-      const g = this.cuidadoresGroup.getRawValue();
+    if (vertical === VerticalKey.FUNERARIOS) {
+      const g = this.funerariosGroup.getRawValue();
+      const servicios = this.serviciosFunerarios.controls.map((c) => {
+        const v = c.getRawValue();
+        // Los tramos se guardan ordenados: la estrategia de precio busca el
+        // primero que cubre el peso, y desordenados cobraría el que no es.
+        const tramos = [...(v.tramosPeso ?? [])]
+          .filter((t: { hastaKg: number; precio: number }) => t.hastaKg > 0)
+          .sort((a: { hastaKg: number }, b: { hastaKg: number }) => a.hastaKg - b.hastaKg);
+        return { ...v, tipo: this.tipoDesdeNombreFunerario(v.nombre), tramosPeso: tramos };
+      });
+
       return {
-        ...g,
-        modalidades: this.modalidadesSeleccionadas(),
-        tamanosAdmitidos: this.tamanosCuidadoSeleccionados(),
-        precioPaseo: g.precioPaseo > 0 ? g.precioPaseo : undefined,
-        precioVisita: g.precioVisita > 0 ? g.precioVisita : undefined,
-        precioDiaCompleto: g.precioDiaCompleto > 0 ? g.precioDiaCompleto : undefined,
-        precioNoche: g.precioNoche > 0 ? g.precioNoche : undefined,
+        serviciosFunerarios: servicios,
+        extras: this.extrasFunerarios.controls.map((c) => c.getRawValue()),
+        // El buscador filtra por el tipo de servicio, y ese dato no se pide
+        // aparte: es el que ya declara cada línea del catálogo.
+        tiposServicioFunerario: [...new Set(servicios.map((sv) => sv.tipo as string))],
+        ofreceRecogida: g.ofreceRecogida,
+        lugaresRecogida: g.ofreceRecogida ? g.lugaresRecogida : [],
+        radioRecogidaKm: g.radioRecogidaKm,
+        modoPrecioRecogida: g.modoPrecioRecogida,
+        precioRecogida: g.precioRecogida,
+        precioRecogidaPorKm: g.precioRecogidaPorKm,
+        zonasRecogida: this.zonasRecogida.controls.map((c) => c.getRawValue()),
+        servicioUrgente: g.servicioUrgente,
+        atiende24h: g.atiende24h,
+        suplementoUrgencia: g.suplementoUrgencia,
+        franjasDisponibles: g.franjasDisponibles,
+        cuposDisponibles: g.cuposDisponibles,
+        declaraAutorizaciones: g.declaraAutorizaciones,
+        cremacionPropia: g.cremacionPropia,
+        terceroCrematorio: g.cremacionPropia ? undefined : (g.terceroCrematorio || undefined),
+        politicaCancelacionFunerario: {
+          reembolsoAntesRecogidaPct: g.reembolsoAntesRecogidaPct,
+          reembolsoIniciadoPct: g.reembolsoIniciadoPct,
+          notas: g.notasCancelacion || undefined,
+        },
       };
     }
     return null;
+  }
+
+  /**
+   * Los hoteles antiguos sólo tenían un contador de habitaciones libres. Al
+   * editarlos se convierte en un tipo de habitación con esa cantidad, para que
+   * el hotel no pierda su inventario ni aparezca de golpe sin plazas.
+   */
+  private cargarHabitacionesHotel(datos: Record<string, unknown>): void {
+    const habitaciones = (datos['espacios'] as Record<string, unknown>[] | undefined) ?? [];
+    if (habitaciones.length) {
+      habitaciones.forEach((h) => this.habitacionesHotel.push(this.nuevaHabitacionHotel(h)));
+      this.heredarGaleriaEnLaPrimeraUnidad(this.habitacionesHotel);
+      return;
+    }
+
+    const unidades = Number(datos['unidadesDisponibles']) || 0;
+    if (unidades <= 0) return;
+
+    this.habitacionesHotel.push(this.nuevaHabitacionHotel({
+      tipo: 'Habitación pet-friendly',
+      cantidad: unidades,
+      precioNoche: this.form.controls.precioBase.value,
+      imagenes: this.fotosSueltas(),
+    }));
+  }
+
+  /**
+   * Las fichas publicadas antes de esto tienen su galería en el servicio y las
+   * unidades vacías. Al editarlas, esas fotos pasan a la primera unidad: si no,
+   * al guardar se reemplazaría la galería por la suma de las unidades —vacía— y
+   * el comercio perdería todas sus fotos sin haber tocado nada.
+   */
+  private heredarGaleriaEnLaPrimeraUnidad(unidades: FormArray): void {
+    const galeria = this.fotosSueltas();
+    if (!galeria.length || !unidades.length) return;
+
+    const yaTienen = unidades.controls.some(
+      (u) => ((u.getRawValue() as { imagenes?: string[] }).imagenes ?? []).length > 0,
+    );
+    if (yaTienen) return;
+
+    unidades.at(0).patchValue({ imagenes: galeria });
+  }
+
+  /**
+   * Un servicio clínico tal como se guarda.
+   *
+   * El nombre sale del catálogo salvo en los añadidos a mano, donde es lo que
+   * el comercio escribió. Las filas de variante en blanco se tiran: una lista
+   * con «Leishmania — 0 €» que la clínica no ofrece acabaría en el buscador.
+   */
+  private servicioClinicoAGuardar(i: number): Record<string, unknown> {
+    const fila = this.serviciosClinicos.at(i).getRawValue() as Record<string, unknown>;
+    const tipo = fila['tipo'] as ServicioClinicoTipo;
+    const nombre = tipo === ServicioClinicoTipo.OTRO
+      ? String(fila['nombre'] ?? '').trim()
+      : SERVICIO_CLINICO_LABELS[tipo] ?? String(fila['nombre'] ?? '');
+
+    const limpiar = (lista: unknown): Array<{ nombre: string; precio: number }> =>
+      (lista as Array<{ nombre?: string; precio?: number }> ?? [])
+        .filter((v) => v.nombre?.trim())
+        .map((v) => ({ nombre: v.nombre!.trim(), precio: Number(v.precio) || 0 }));
+
+    // Las propuestas que la clínica deja a cero no se ofrece: publicar
+    // "Leishmania — 0 €" pondría en el buscador algo que no vende.
+    const variantes = this.cobraPorVariantes(i)
+      ? limpiar(fila['variantes']).filter((v) => v.precio > 0)
+      : [];
+    const complementos = this.detallaAlcance(i) ? limpiar(fila['complementos']) : [];
+
+    return {
+      tipo,
+      nombre,
+      // Con precio por variante, el «desde» del servicio es la variante más
+      // barata: es el número que el cliente compara en la ficha.
+      precio: variantes.length
+        ? Math.min(...variantes.map((v) => v.precio))
+        : Number(fila['precio']) || 0,
+      duracionMin: fila['duracionMin'],
+      esPrecioCerrado: fila['esPrecioCerrado'],
+      modoPrecio: fila['modoPrecio'],
+      ...(variantes.length ? { variantes } : {}),
+      ...(complementos.length ? { complementos } : {}),
+      ...(String(fila['incluye'] ?? '').trim() ? { incluye: String(fila['incluye']).trim() } : {}),
+      ...(String(fila['noIncluye'] ?? '').trim() ? { noIncluye: String(fila['noIncluye']).trim() } : {}),
+    };
   }
 
   private validarVertical(vertical: string): string | null {
     if (vertical === VerticalKey.ALOJAMIENTO && this.espacios.length === 0) {
       return 'Añade al menos un tipo de espacio para tu alojamiento.';
     }
+    if (vertical === VerticalKey.HOTELES && this.habitacionesHotel.length === 0) {
+      return 'Añade al menos un tipo de habitación pet-friendly.';
+    }
     if (vertical === VerticalKey.SEGUROS && this.coberturas().length === 0) {
       return 'Marca al menos una cobertura de la póliza.';
     }
-    if (vertical === VerticalKey.VETERINARIA && this.serviciosClinicos.length === 0) {
-      return 'Añade al menos un servicio clínico.';
+    if (vertical === VerticalKey.VETERINARIA) {
+      const error = this.validarServiciosClinicos();
+      if (error) return error;
     }
     if (vertical === VerticalKey.PELUQUERIA && this.serviciosGrooming.length === 0) {
       return 'Añade al menos un servicio de grooming.';
     }
-    if (vertical === VerticalKey.CUIDADORES && this.modalidadesSeleccionadas().length === 0) {
-      return 'Marca al menos una modalidad (paseo, visita, día completo o noche).';
+    if (vertical === VerticalKey.FUNERARIOS) {
+      const error = this.validarServiciosFunerarios();
+      if (error) return error;
+    }
+    // Lo último: si además falta un espacio o un servicio, eso es lo que hay
+    // que decir primero, porque es lo que estructura la ficha.
+    return this.validarFotos();
+  }
+
+  /**
+   * Sin catálogo no hay nada que contratar, y sin la declaración de
+   * autorizaciones no se puede publicar en esta categoría (§10 del brief).
+   */
+  private validarServiciosFunerarios(): string | null {
+    if (this.serviciosFunerarios.length === 0) {
+      return 'Añade al menos un servicio (cremación, recogida, entierro…).';
+    }
+    const sinNombre = this.serviciosFunerarios.controls
+      .some((c) => !String(c.get('nombre')?.value ?? '').trim());
+    if (sinNombre) return 'Todos los servicios necesitan un nombre.';
+
+    const sinPrecio = this.serviciosFunerarios.controls.some((c) => {
+      const tramos = (c.get('tramosPeso') as FormArray).controls;
+      const conTramos = tramos.some((t) => Number(t.get('precio')?.value ?? 0) > 0);
+      return Number(c.get('precioBase')?.value ?? 0) <= 0 && !conTramos;
+    });
+    if (sinPrecio) return 'Pon precio a cada servicio, o al menos un tramo de peso con precio.';
+
+    if (!this.funerariosGroup.get('declaraAutorizaciones')?.value) {
+      return 'Debes declarar que dispones de las autorizaciones necesarias para prestar estos servicios.';
+    }
+    if (this.funerariosGroup.get('cremacionPropia')?.value === false
+        && !String(this.funerariosGroup.get('terceroCrematorio')?.value ?? '').trim()) {
+      return 'Indica con qué empresa trabajas para la cremación.';
     }
     return null;
+  }
+
+  /**
+   * Regla de oro de la pantalla veterinaria: si el cliente no puede saber
+   * cuánto va a pagar antes de acudir, eso no se publica. De ahí que cada
+   * servicio elegido tenga que salir de aquí con un importe.
+   */
+  private validarServiciosClinicos(): string | null {
+    if (this.serviciosClinicos.length === 0) {
+      return 'Marca al menos un servicio veterinario que tus clientes puedan reservar.';
+    }
+
+    for (let i = 0; i < this.serviciosClinicos.length; i++) {
+      const servicio = this.servicioClinicoAGuardar(i);
+      const nombre = servicio['nombre'] as string;
+
+      if (!nombre) return 'Ponle nombre al servicio que has añadido.';
+
+      if (this.cobraPorVariantes(i) && !(servicio['variantes'] as unknown[] | undefined)?.length) {
+        return `Di al menos un tipo con su precio en «${nombre}».`;
+      }
+      if (!((servicio['precio'] as number) > 0)) {
+        return `Ponle precio a «${nombre}»: sin importe no se puede reservar online.`;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Sin fotos la ficha no se reserva, así que se corta aquí y no al publicar:
+   * enterarse tres pantallas después de que faltaban fotos obliga a rehacer el
+   * recorrido entero.
+   */
+  private validarFotos(): string | null {
+    if (this.fotosSuficientes()) return null;
+
+    const donde = this.fotosPorUnidad()
+      ? ' Cuentan todas las de tus unidades juntas.'
+      : '';
+    return `Sube al menos ${MIN_FOTOS} fotos; ahora tienes ${this.totalFotos()}.${donde}`;
   }
 
   /**
@@ -2792,8 +4125,11 @@ export class ComercioListadoFormComponent implements OnInit {
 
     const {
       titulo, descripcion, ciudad, calle, numero, provincia, codigoPostal, pais,
-      precioBase, imagenes,
+      precioBase,
     } = this.form.getRawValue();
+    // En residencias y hoteles no hay galería suelta: la portada y el carrusel
+    // de la ficha son las fotos de las unidades, sin repetir.
+    const imagenes = this.fotosPorUnidad() ? this.fotosDeLasUnidades() : this.fotosSueltas();
     const detalle = this.construirDetalleVertical(vertical);
     const payload: ServicioPayload = {
       ...(this.esEdicion() ? {} : { vertical }),

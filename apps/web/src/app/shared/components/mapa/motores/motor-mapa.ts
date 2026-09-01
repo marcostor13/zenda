@@ -18,6 +18,41 @@ export interface PuntoMapa {
   readonly rating?: number;
 }
 
+/**
+ * Parada de un trayecto dibujado sobre el mapa.
+ *
+ * Va aparte de {@link PuntoMapa} porque no es un resultado del buscador: no
+ * tiene ficha, ni precio, ni tarjeta emergente. Sólo dice por dónde se pasa.
+ */
+export interface PuntoRuta {
+  readonly lat: number;
+  readonly lng: number;
+}
+
+/** Color de la línea del trayecto: el azul de la marca. */
+export const COLOR_RUTA = '#08258B';
+
+/**
+ * Trayecto ya trazado: lo que mide y lo que se tarda.
+ *
+ * Interesa enseñarlo porque el transportista cobra por kilómetro: ver «312 km ·
+ * 3 h 10 min» al marcar la ruta es lo que le deja comprobar que su tarifa
+ * cuadra antes de publicarla.
+ */
+export interface ResumenRuta {
+  readonly distanciaKm: number;
+  readonly duracionMin: number;
+  /**
+   * `true` si es el camino real por carretera. `false` cuando sólo se ha podido
+   * unir las paradas con líneas rectas —sin Google, o si Directions falla—, y
+   * entonces la distancia es la del vuelo del pájaro, no la del viaje.
+   */
+  readonly porCarretera: boolean;
+}
+
+/** Paradas intermedias que admite una petición de Directions (origen y destino aparte). */
+export const MAX_PARADAS_INTERMEDIAS = 23;
+
 /** Rectángulo visible del mapa, en el mismo lenguaje que espera el API. */
 export interface ZonaMapa {
   readonly swLat: number;
@@ -74,6 +109,11 @@ export interface EscuchasMotor {
 export interface MotorMapa {
   /** Redibuja todos los pines; `activo` es el que va resaltado. */
   pintar(puntos: readonly PuntoMapa[], activo: string | null): void;
+  /**
+   * Traza el trayecto que pasa por las paradas dadas, en orden, y devuelve lo
+   * que mide. Con menos de dos no hay recorrido y se borra el anterior.
+   */
+  pintarRuta(paradas: readonly PuntoRuta[]): Promise<ResumenRuta | null>;
   /** Encaja la vista a los puntos dados. */
   encuadrar(puntos: readonly PuntoMapa[]): void;
   centrarEn(lat: number, lng: number, zoom: number): void;
@@ -88,6 +128,31 @@ export const CENTRO_POR_DEFECTO: readonly [number, number] = [40.4168, -3.7038];
 export const ZOOM_POR_DEFECTO = 11;
 /** Zoom al centrar sobre un único resultado; encuadrar daría uno absurdo. */
 export const ZOOM_PUNTO_UNICO = 14;
+
+/** Radio de la Tierra en km, para medir en línea recta cuando no hay carretera. */
+const RADIO_TIERRA_KM = 6371;
+
+/**
+ * Distancia en línea recta entre dos puntos (fórmula del semiverseno).
+ *
+ * Es el respaldo cuando no se puede pedir la ruta real: da un orden de magnitud
+ * honesto, y quien lo enseña avisa de que no es la distancia por carretera.
+ */
+export function distanciaEnLineaRecta(paradas: readonly PuntoRuta[]): number {
+  const aRadianes = (grados: number): number => (grados * Math.PI) / 180;
+
+  let total = 0;
+  for (let i = 1; i < paradas.length; i++) {
+    const a = paradas[i - 1];
+    const b = paradas[i];
+    const dLat = aRadianes(b.lat - a.lat);
+    const dLng = aRadianes(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2
+      + Math.cos(aRadianes(a.lat)) * Math.cos(aRadianes(b.lat)) * Math.sin(dLng / 2) ** 2;
+    total += 2 * RADIO_TIERRA_KM * Math.asin(Math.sqrt(h));
+  }
+  return Math.round(total);
+}
 
 /** Descarta los puntos sin coordenadas utilizables antes de pintarlos. */
 export function puntosGeolocalizados(puntos: readonly PuntoMapa[]): PuntoMapa[] {
