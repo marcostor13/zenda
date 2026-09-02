@@ -293,7 +293,6 @@ const publico: Diccionario = {
   'Ver sitio': 'Vedi il posto',
   'Ver todos': 'Vedi tutti',
   'Veterinarios de confianza': 'Veterinari di fiducia',
-  'Veterinarios, peluquerías, residencias, hoteles pet friendly, transporte, adiestramiento y mucho más.': 'Veterinari, toelettature, pensioni, hotel pet friendly, trasporto, addestramento e molto altro.',
   'Viajad juntos, dormid juntos': 'Viaggiate insieme, dormite insieme',
   'Viajar juntos también es parte del plan': 'Viaggiare insieme fa parte del piano',
   'Viajes seguros y cómodos para tu mascota.': 'Viaggi sicuri e comodi per il tuo animale.',

@@ -29,13 +29,15 @@ describe('HomeComponent', () => {
   it('debería tener las categorías de Doogking en su orden de uso', () => {
     const keys = component.verticales.map((v) => v.key);
     expect(keys).toEqual([
+      // Alojamiento abre la lista: es con lo que arrancó el marketplace.
+      VerticalKey.ALOJAMIENTO,
       VerticalKey.VETERINARIA,
       VerticalKey.PELUQUERIA,
-      VerticalKey.ALOJAMIENTO,
       VerticalKey.TRANSPORTE,
       VerticalKey.ADIESTRAMIENTO,
       VerticalKey.HOTELES,
       VerticalKey.SEGUROS,
+      VerticalKey.FUNERARIOS,
     ]);
   });
 
@@ -81,13 +83,14 @@ describe('HomeComponent', () => {
   it('debería enrutar cada categoría a su ruta propia', () => {
     const rutas = component.verticales.map((v) => v.route);
     expect(rutas).toEqual([
+      '/alojamiento',
       '/veterinaria',
       '/peluqueria',
-      '/alojamiento',
       '/transporte',
       '/adiestramiento',
       '/hoteles',
       '/seguros',
+      '/funerarios',
     ]);
   });
 
@@ -98,12 +101,12 @@ describe('HomeComponent', () => {
     expect(titulo.toLowerCase()).toContain('en un solo lugar');
   });
 
-  it('debería resumir la amplitud de servicios bajo el titular del hero (HU-1.1.1)', () => {
+  it('no debería repetir la lista de servicios bajo el titular del hero', () => {
+    // El subtitular "Veterinarios, peluquerías, residencias…" se retiró: la
+    // rejilla de categorías ya enumera lo mismo unas pantallas más abajo, y
+    // quitarlo sube el buscador, que es lo que convierte.
     const el: HTMLElement = fixture.nativeElement;
-    const sub = el.querySelector('.hero__subtitle')?.textContent ?? '';
-    expect(sub).toContain('Veterinarios');
-    expect(sub).toContain('peluquerías');
-    expect(sub).toContain('hoteles pet friendly');
+    expect(el.querySelector('.hero__subtitle')).toBeNull();
   });
 
   it('debería renderizar los tres valores del bloque "¿Por qué Doogking.com?"', () => {
@@ -199,13 +202,14 @@ describe('HomeComponent', () => {
   it('debería usar un icono SVG propio por categoría', () => {
     const iconos = component.verticales.map((v) => v.icono);
     expect(iconos).toEqual([
+      '/icons/alojamiento.svg',
       '/icons/veterinaria.svg',
       '/icons/peluqueria.svg',
-      '/icons/alojamiento.svg',
       '/icons/transporte.svg',
       '/icons/adiestramiento.svg',
       '/icons/hoteles.svg',
       '/icons/seguros.svg',
+      '/icons/funerarios.svg',
     ]);
   });
 

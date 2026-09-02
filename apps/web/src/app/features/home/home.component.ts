@@ -81,7 +81,6 @@ type SearchMode = 'filtros' | 'ia';
           </span>
           <span class="hero__title-line hero__title-line--gold">{{ 'en un solo lugar' | t }}</span>
         </h1>
-        <p class="hero__subtitle">{{ 'Veterinarios, peluquerías, residencias, hoteles pet friendly, transporte, adiestramiento y mucho más.' | t }}</p>
       </div>
     </div>
 
@@ -571,7 +570,7 @@ type SearchMode = 'filtros' | 'ia';
     .hero__main {
       position: relative;
       background: var(--dk-blue-deep);
-      padding-block: var(--sp-10) 0;
+      padding-block: var(--sp-5) 0;
 
       /* "Encuentra el servicio perfecto..." sube hasta el borde mismo del
          navy: la cupula (.hero__cap) vive fuera de este bloque, asi que el
@@ -677,18 +676,6 @@ type SearchMode = 'filtros' | 'ia';
       background: var(--dk-gold);
     }
 
-    .hero__subtitle {
-      margin-top: var(--sp-2);
-      margin-inline: auto;
-      max-width: 54ch;
-      font-size: var(--f-sm);
-      line-height: 1.5;
-      color: var(--t-300);
-
-      /* En pantallas bajas resta altura al buscador, que es lo que convierte. */
-      @media (max-width: 560px) { display: none; }
-    }
-
     /* ══ BUSCADOR (titular sobre navy + tarjeta blanca, estilo Booking) ══ */
     .searchbox {
       animation: fadeUp .6s .1s ease both;
@@ -699,15 +686,31 @@ type SearchMode = 'filtros' | 'ia';
       @media (max-width: 640px) { margin-top: calc(var(--sp-3) * -1); }
     }
 
+    /*
+     * El titular sube dentro del bloque navy, no con él: se tira hacia arriba
+     * y se devuelve lo mismo por abajo, así que la tarjeta del buscador y todo
+     * lo que va debajo se quedan donde estaban.
+     *
+     * Puede montar sobre la cúpula porque ahí el fondo ya es navy. Tiene
+     * techo, eso sí: la curva es una elipse del 160% de ancho, así que en las
+     * esquinas del contenido el azul empieza ~16px por debajo del borde de la
+     * banda; pasado ese punto el principio del texto caería sobre blanco.
+     */
     .searchbox__head {
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: var(--sp-3);
-      margin-bottom: var(--sp-5);
+      margin-top: calc(var(--sp-6) * -1);
+      margin-bottom: calc(var(--sp-5) + var(--sp-6));
 
-      @media (max-width: 640px) { gap: var(--sp-2); margin-bottom: var(--sp-4); }
+      /* En movil el titular ya arranca pegado al azul: no hay de dónde subir. */
+      @media (max-width: 640px) {
+        gap: var(--sp-2);
+        margin-top: 0;
+        margin-bottom: var(--sp-4);
+      }
     }
 
     .searchbox__question {

@@ -61,8 +61,36 @@ export interface VerticalUi {
   readonly fueraDelEscaparate?: boolean;
 }
 
-/** Orden de aparición en el menú y en el buscador (frecuencia de uso). */
+/**
+ * Orden de aparición en el menú, en el buscador y en la portada.
+ *
+ * Alojamiento canino abre la lista: es la categoría con la que arrancó el
+ * marketplace y la que más se busca. Ninguna vista mantiene su propio orden,
+ * así que cambiarlo aquí lo cambia en los cuatro sitios a la vez.
+ */
 export const VERTICALES_UI: readonly VerticalUi[] = [
+  {
+    key: VerticalKey.ALOJAMIENTO,
+    label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],
+    labelCorto: 'Alojamiento canino',
+    route: '/alojamiento',
+    icono: CATEGORIA_ICONOS['alojamiento'],
+    // Casa, no edificio: es la residencia canina. El icono de hotel queda
+    // para la categoría de hoteles pet friendly, que sí es un hotel.
+    icon: 'home',
+    claim: 'Déjalo en las mejores manos mientras tú disfrutas con tranquilidad.',
+    descripcion: 'Residencias caninas verificadas: suites, patio exterior, paseos diarios y cámaras 24/7.',
+    titular: 'Más que un alojamiento',
+    subtitular: 'Un lugar donde sentirse como en casa.',
+    reservaPorNoches: true,
+    labelUbicacion: '¿Dónde buscas el servicio?',
+    placeholderUbicacion: 'Ciudad, zona o dirección',
+    labelFecha: 'Ingreso',
+    reclamo: {
+      titulo: 'Un lugar seguro mientras tú no estás',
+      texto: 'Encuentra residencias y guarderías caninas con experiencia, atención personalizada y tranquilidad para tu mascota.',
+    },
+  },
   {
     key: VerticalKey.VETERINARIA,
     label: VERTICAL_LABELS[VerticalKey.VETERINARIA],
@@ -105,28 +133,6 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     reclamo: {
       titulo: 'Bienestar y belleza para tu mejor amigo',
       texto: 'Reserva con peluquerías caninas profesionales para mantener a tu perro limpio, cómodo y con el mejor estilo.',
-    },
-  },
-  {
-    key: VerticalKey.ALOJAMIENTO,
-    label: VERTICAL_LABELS[VerticalKey.ALOJAMIENTO],
-    labelCorto: 'Alojamiento canino',
-    route: '/alojamiento',
-    icono: CATEGORIA_ICONOS['alojamiento'],
-    // Casa, no edificio: es la residencia canina. El icono de hotel queda
-    // para la categoría de hoteles pet friendly, que sí es un hotel.
-    icon: 'home',
-    claim: 'Déjalo en las mejores manos mientras tú disfrutas con tranquilidad.',
-    descripcion: 'Residencias caninas verificadas: suites, patio exterior, paseos diarios y cámaras 24/7.',
-    titular: 'Más que un alojamiento',
-    subtitular: 'Un lugar donde sentirse como en casa.',
-    reservaPorNoches: true,
-    labelUbicacion: '¿Dónde buscas el servicio?',
-    placeholderUbicacion: 'Ciudad, zona o dirección',
-    labelFecha: 'Ingreso',
-    reclamo: {
-      titulo: 'Un lugar seguro mientras tú no estás',
-      texto: 'Encuentra residencias y guarderías caninas con experiencia, atención personalizada y tranquilidad para tu mascota.',
     },
   },
   {

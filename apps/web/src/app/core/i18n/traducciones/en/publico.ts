@@ -293,7 +293,6 @@ const publico: Diccionario = {
   'Ver sitio': 'View place',
   'Ver todos': 'See all',
   'Veterinarios de confianza': 'Vets you can trust',
-  'Veterinarios, peluquerías, residencias, hoteles pet friendly, transporte, adiestramiento y mucho más.': 'Vets, groomers, boarding kennels, pet friendly hotels, transport, training and much more.',
   'Viajad juntos, dormid juntos': 'Travel together, sleep together',
   'Viajar juntos también es parte del plan': 'Travelling together is part of the plan too',
   'Viajes seguros y cómodos para tu mascota.': 'Safe, comfortable journeys for your pet.',

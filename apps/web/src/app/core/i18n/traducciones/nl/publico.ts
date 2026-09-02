@@ -293,7 +293,6 @@ const publico: Diccionario = {
   'Ver sitio': 'Plek bekijken',
   'Ver todos': 'Alles bekijken',
   'Veterinarios de confianza': 'Dierenartsen die je vertrouwt',
-  'Veterinarios, peluquerías, residencias, hoteles pet friendly, transporte, adiestramiento y mucho más.': 'Dierenartsen, trimsalons, pensions, huisdiervriendelijke hotels, vervoer, training en nog veel meer.',
   'Viajad juntos, dormid juntos': 'Reis samen, slaap samen',
   'Viajar juntos también es parte del plan': 'Samen reizen hoort er ook bij',
   'Viajes seguros y cómodos para tu mascota.': 'Veilige en comfortabele ritten voor je huisdier.',

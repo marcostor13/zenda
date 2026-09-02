@@ -30,7 +30,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
         <img [src]="logoD" alt="" aria-hidden="true" class="rs-navbar__mark" />
         <!-- Solo en movil: ahi la barra se queda con la "D" suelta y el nombre
              no se lee. En escritorio manda el logotipo. -->
-        <span class="rs-navbar__brandword">Doogking</span>
+        <span class="rs-navbar__brandword">Doogking.com</span>
         @if (!soloMarcaD()) {
           <img src="/images/logo-doogking.jpg" alt="Doogking" class="rs-navbar__wordmark" />
         }
