@@ -4,6 +4,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Reseña tal y como la ve la administración, con su estado de visibilidad. */
 interface ResenaAdmin {
@@ -36,16 +37,18 @@ const FILTROS_VISIBILIDAD = [
 @Component({
   selector: 'app-admin-resenas',
   standalone: true,
-  imports: [DatePipe, RsIconComponent],
+  imports: [
+    TraducirPipe, DatePipe, RsIconComponent
+  ],
   template: `
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Reseñas</h1>
-        <p class="rs-page-sub">Consulta todas las opiniones publicadas y retira las que den problemas.</p>
+        <h1 class="rs-page-title">{{ 'Reseñas' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Consulta todas las opiniones publicadas y retira las que den problemas.' | t }}</p>
       </div>
       <div class="rs-card page-kpi">
         <span class="kpi-num">{{ total() }}</span>
-        <span class="kpi-lbl">reseñas</span>
+        <span class="kpi-lbl">{{ 'reseñas' | t }}</span>
       </div>
     </div>
 
@@ -56,15 +59,15 @@ const FILTROS_VISIBILIDAD = [
                   [class.rs-btn--primary]="visibilidad() === f.valor"
                   [class.rs-btn--ghost]="visibilidad() !== f.valor"
                   (click)="cambiarVisibilidad(f.valor)">
-            {{ f.label }}
+            {{ f.label | t }}
           </button>
         }
       </div>
       <div class="rs-toolbar__campo">
-        <label class="rs-toolbar__lbl" for="fr-puntuacion">Puntuación</label>
+        <label class="rs-toolbar__lbl" for="fr-puntuacion">{{ 'Puntuación' | t }}</label>
         <select id="fr-puntuacion" class="rs-inp rs-toolbar__control" [value]="puntuacion()"
                 (change)="cambiarPuntuacion($any($event.target).value)">
-          <option value="">Cualquiera</option>
+          <option value="">{{ 'Cualquiera' | t }}</option>
           @for (n of [5,4,3,2,1]; track n) {
             <option [value]="n">{{ n }} estrellas</option>
           }
@@ -72,9 +75,9 @@ const FILTROS_VISIBILIDAD = [
       </div>
 
       <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
-        <label class="rs-toolbar__lbl" for="fr-buscar">Buscar</label>
+        <label class="rs-toolbar__lbl" for="fr-buscar">{{ 'Buscar' | t }}</label>
         <input id="fr-buscar" class="rs-inp rs-toolbar__control" type="search"
-               placeholder="Cliente, servicio o texto…"
+               [placeholder]="'Cliente, servicio o texto…' | t"
                [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
       </div>
     </div>
@@ -84,7 +87,7 @@ const FILTROS_VISIBILIDAD = [
     }
 
     @if (cargando()) {
-      <p style="color:var(--t-400)">Cargando reseñas…</p>
+      <p style="color:var(--t-400)">{{ 'Cargando reseñas…' | t }}</p>
     } @else if (resenas().length === 0) {
       <div class="rs-card vacio">
         <rs-icon name="star" [size]="34" [stroke]="1.5"></rs-icon>
@@ -109,7 +112,7 @@ const FILTROS_VISIBILIDAD = [
               <span class="resena__servicio">sobre {{ r.servicioTitulo }}</span>
               <span class="resena__fecha">{{ r.createdAt | date:'d MMM yyyy' }}</span>
               @if (r.eliminada) {
-                <span class="rs-badge rs-badge--neutral">Oculta</span>
+                <span class="rs-badge rs-badge--neutral">{{ 'Oculta' | t }}</span>
               }
             </div>
 
@@ -118,7 +121,7 @@ const FILTROS_VISIBILIDAD = [
             @if (r.respuesta) {
               <p class="resena__respuesta">
                 <rs-icon name="message-square" [size]="13" [stroke]="2"></rs-icon>
-                Respuesta del comercio: {{ r.respuesta }}
+                Respuesta del comercio: {{ r.respuesta | t }}
               </p>
             }
 
@@ -140,10 +143,10 @@ const FILTROS_VISIBILIDAD = [
       @if (totalPaginas() > 1) {
         <div class="paginacion">
           <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="pagina() <= 1" (click)="cambiarPagina(pagina() - 1)">← Anterior</button>
+                  [disabled]="pagina() <= 1" (click)="cambiarPagina(pagina() - 1)">{{ '← Anterior' | t }}</button>
           <span>Página {{ pagina() }} de {{ totalPaginas() }} · {{ total() }} reseñas</span>
           <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="pagina() >= totalPaginas()" (click)="cambiarPagina(pagina() + 1)">Siguiente →</button>
+                  [disabled]="pagina() >= totalPaginas()" (click)="cambiarPagina(pagina() + 1)">{{ 'Siguiente →' | t }}</button>
         </div>
       }
     }

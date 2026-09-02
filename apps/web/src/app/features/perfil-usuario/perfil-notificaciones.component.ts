@@ -2,6 +2,7 @@ import { Component, signal, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 const STORAGE_KEY = 'zenda_notif_prefs';
 
@@ -30,7 +31,9 @@ interface NotifGroup {
 @Component({
   selector: 'app-perfil-notificaciones',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -39,12 +42,12 @@ interface NotifGroup {
 
     <a routerLink="/perfil" class="back-link">
       <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-      Volver al perfil
+      {{ 'Volver al perfil' | t }}
     </a>
 
     <div class="page-header">
-      <h1>Notificaciones</h1>
-      <p>Elige cómo y cuándo quieres recibir actualizaciones sobre tus reservas.</p>
+      <h1>{{ 'Notificaciones' | t }}</h1>
+      <p>{{ 'Elige cómo y cuándo quieres recibir actualizaciones sobre tus reservas.' | t }}</p>
     </div>
 
     <div class="notif-wrap">
@@ -60,11 +63,11 @@ interface NotifGroup {
           @for (item of grupo.items; track item.key) {
             <div class="notif-row" [class.notif-row--disabled]="item.comingSoon">
               <div class="notif-row__info">
-                <div class="notif-row__label">{{ item.label }}</div>
+                <div class="notif-row__label">{{ item.label | t }}</div>
                 <div class="notif-row__sub">
                   {{ item.sub }}
                   @if (item.comingSoon) {
-                    <span class="rs-badge rs-badge--neutral" style="margin-left:var(--sp-2);font-size:10px">Próximamente</span>
+                    <span class="rs-badge rs-badge--neutral" style="margin-left:var(--sp-2);font-size:10px">{{ 'Próximamente' | t }}</span>
                   }
                 </div>
               </div>
@@ -83,7 +86,7 @@ interface NotifGroup {
       }
 
       @if (guardado()) {
-        <div class="rs-alert rs-alert--success"><rs-icon name="check" [size]="15" [stroke]="3"></rs-icon> Preferencias guardadas.</div>
+        <div class="rs-alert rs-alert--success"><rs-icon name="check" [size]="15" [stroke]="3"></rs-icon> {{ 'Preferencias guardadas.' | t }}</div>
       }
     </div>
 

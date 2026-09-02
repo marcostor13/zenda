@@ -11,6 +11,7 @@ import { PerrosService, HistoriaCompartidaApi, FilaHistorialApi } from '../perro
 import { iconoVertical } from './vertical-icon';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 /** Hito de seguimiento en tiempo real que el comercio va marcando. */
 interface Hito {
   readonly hito: string;
@@ -95,13 +96,15 @@ function desdeClaveDia(clave: string): number {
 @Component({
   selector: 'app-comercio-reservas',
   standalone: true,
-  imports: [RouterLink, DatePipe, FormsModule, RsIconComponent, RsImageUploadComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, DatePipe, FormsModule, RsIconComponent, RsImageUploadComponent, EurosPipe
+  ],
   template: `
     <!-- HEADER -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Reservas</h1>
-        <p class="page-sub">Gestiona el día a día de tu negocio: quién viene, cuándo y con qué mascota.</p>
+        <h1 class="page-title">{{ 'Reservas' | t }}</h1>
+        <p class="page-sub">{{ 'Gestiona el día a día de tu negocio: quién viene, cuándo y con qué mascota.' | t }}</p>
       </div>
     </div>
 
@@ -111,21 +114,21 @@ function desdeClaveDia(clave: string): number {
         <span class="resumen__icon"><rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon></span>
         <span class="resumen__dato">
           <strong>{{ reservasDeHoy().length }}</strong>
-          <span>Reservas de hoy</span>
+          <span>{{ 'Reservas de hoy' | t }}</span>
         </span>
       </button>
       <button class="resumen__tile" [class.activa]="filtroActivo() === 'pendiente'" (click)="verPendientes()">
         <span class="resumen__icon resumen__icon--warning"><rs-icon name="clock" [size]="18" [stroke]="2"></rs-icon></span>
         <span class="resumen__dato">
           <strong>{{ contarEstado('pendiente') }}</strong>
-          <span>Pendientes de confirmar</span>
+          <span>{{ 'Pendientes de confirmar' | t }}</span>
         </span>
       </button>
       <div class="resumen__tile resumen__tile--estatica">
         <span class="resumen__icon resumen__icon--accent"><rs-icon name="arrow-right" [size]="18" [stroke]="2"></rs-icon></span>
         <span class="resumen__dato">
           <strong>{{ proximas().length }}</strong>
-          <span>Próximas (7 días)</span>
+          <span>{{ 'Próximas (7 días)' | t }}</span>
         </span>
       </div>
     </div>
@@ -135,45 +138,45 @@ function desdeClaveDia(clave: string): number {
       <label class="buscador">
         <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon>
         <input class="buscador__input" type="search"
-               placeholder="Buscar por cliente, mascota o nº de reserva"
+               [placeholder]="'Buscar por cliente, mascota o nº de reserva' | t"
                [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)"
                [ngModelOptions]="{standalone: true}" />
       </label>
 
       <select class="rs-inp control-select" [ngModel]="periodo()"
               (ngModelChange)="periodo.set($event)" [ngModelOptions]="{standalone: true}"
-              aria-label="Periodo">
+              [attr.aria-label]="'Periodo' | t">
         @for (p of periodos; track p.valor) {
-          <option [value]="p.valor">{{ p.label }}</option>
+          <option [value]="p.valor">{{ p.label | t }}</option>
         }
       </select>
 
       @if (periodo() === 'rango') {
         <input class="rs-inp control-fecha" type="date" [ngModel]="desde()"
                (ngModelChange)="desde.set($event)" [ngModelOptions]="{standalone: true}"
-               aria-label="Desde" />
+               [attr.aria-label]="'Desde' | t" />
         <input class="rs-inp control-fecha" type="date" [ngModel]="hasta()"
                (ngModelChange)="hasta.set($event)" [ngModelOptions]="{standalone: true}"
-               aria-label="Hasta" />
+               [attr.aria-label]="'Hasta' | t" />
       }
 
       @if (servicios().length > 1) {
         <select class="rs-inp control-select" [ngModel]="servicioFiltro()"
                 (ngModelChange)="servicioFiltro.set($event)" [ngModelOptions]="{standalone: true}"
-                aria-label="Servicio">
-          <option value="">Todos los servicios</option>
+                [attr.aria-label]="'Servicio' | t">
+          <option value="">{{ 'Todos los servicios' | t }}</option>
           @for (s of servicios(); track s) {
             <option [value]="s">{{ s }}</option>
           }
         </select>
       }
 
-      <div class="vista-toggle" role="group" aria-label="Visualización">
+      <div class="vista-toggle" role="group" [attr.aria-label]="'Visualización' | t">
         <button class="vista-toggle__btn" [class.activa]="vista() === 'lista'" (click)="vista.set('lista')">
-          <rs-icon name="list" [size]="14" [stroke]="2"></rs-icon> Lista
+          <rs-icon name="list" [size]="14" [stroke]="2"></rs-icon> {{ 'Lista' | t }}
         </button>
         <button class="vista-toggle__btn" [class.activa]="vista() === 'calendario'" (click)="vista.set('calendario')">
-          <rs-icon name="calendar" [size]="14" [stroke]="2"></rs-icon> Calendario
+          <rs-icon name="calendar" [size]="14" [stroke]="2"></rs-icon> {{ 'Calendario' | t }}
         </button>
       </div>
     </div>
@@ -185,7 +188,7 @@ function desdeClaveDia(clave: string): number {
           class="filter-pill"
           [class.active]="filtroActivo() === f.valor"
           (click)="filtroActivo.set(f.valor)">
-          {{ f.label }}
+          {{ f.label | t }}
           <span class="filter-pill__count">{{ contarEstado(f.valor) }}</span>
         </button>
       }
@@ -202,22 +205,21 @@ function desdeClaveDia(clave: string): number {
       <div class="rs-card empty-state">
         <rs-icon name="calendar" [size]="40" [stroke]="1.25" style="color:var(--t-400)"></rs-icon>
         <p>
-          Todavía no tienes reservas. Cuando recibas una reserva aparecerá aquí con toda la
-          información necesaria para gestionarla.
+          {{ 'Todavía no tienes reservas. Cuando recibas una reserva aparecerá aquí con toda la información necesaria para gestionarla.' | t }}
         </p>
         <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary">
-          <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon> Crear o publicar un servicio
+          <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon> {{ 'Crear o publicar un servicio' | t }}
         </a>
       </div>
     } @else {
       @if (vista() === 'calendario') {
         <div class="rs-card calendario">
           <div class="calendario__head">
-            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cambiarMes(-1)" aria-label="Mes anterior">
+            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cambiarMes(-1)" [attr.aria-label]="'Mes anterior' | t">
               <rs-icon name="chevron-left" [size]="15" [stroke]="2"></rs-icon>
             </button>
             <strong class="calendario__mes">{{ mes() | date:'LLLL yyyy' }}</strong>
-            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cambiarMes(1)" aria-label="Mes siguiente">
+            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cambiarMes(1)" [attr.aria-label]="'Mes siguiente' | t">
               <rs-icon name="chevron-right" [size]="15" [stroke]="2"></rs-icon>
             </button>
           </div>
@@ -243,7 +245,7 @@ function desdeClaveDia(clave: string): number {
                ? 'Reservas del día seleccionado.'
                : 'Elige un día para ver sus reservas; sin selección se listan todas las del filtro.' }}
             @if (diaSeleccionado()) {
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="diaSeleccionado.set(null)">Quitar el día</button>
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="diaSeleccionado.set(null)">{{ 'Quitar el día' | t }}</button>
             }
           </p>
         </div>
@@ -252,8 +254,8 @@ function desdeClaveDia(clave: string): number {
       @if (reservasFiltradas().length === 0) {
         <div class="rs-card empty-state">
           <rs-icon name="search" [size]="36" [stroke]="1.25" style="color:var(--t-400)"></rs-icon>
-          <p>Ninguna reserva coincide con lo que has buscado.</p>
-          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarFiltros()">Quitar los filtros</button>
+          <p>{{ 'Ninguna reserva coincide con lo que has buscado.' | t }}</p>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarFiltros()">{{ 'Quitar los filtros' | t }}</button>
         </div>
       } @else {
         <div class="reservas-lista">
@@ -311,11 +313,11 @@ function desdeClaveDia(clave: string): number {
                 </button>
                 @if (r.clienteTelefono) {
                   <a class="rs-btn rs-btn--ghost rs-btn--sm" [href]="'tel:' + r.clienteTelefono">
-                    <rs-icon name="phone" [size]="13" [stroke]="2"></rs-icon> Contactar
+                    <rs-icon name="phone" [size]="13" [stroke]="2"></rs-icon> {{ 'Contactar' | t }}
                   </a>
                 } @else if (r.clienteEmail) {
                   <a class="rs-btn rs-btn--ghost rs-btn--sm" [href]="'mailto:' + r.clienteEmail">
-                    <rs-icon name="mail" [size]="13" [stroke]="2"></rs-icon> Contactar
+                    <rs-icon name="mail" [size]="13" [stroke]="2"></rs-icon> {{ 'Contactar' | t }}
                   </a>
                 }
                 @if (tieneGestion(r)) {
@@ -333,12 +335,12 @@ function desdeClaveDia(clave: string): number {
               @if (detalleAbiertoId() === r._id) {
                 <div class="reserva-card__panel">
                   <dl class="detalle">
-                    <div><dt>Nº de reserva</dt><dd>{{ r.codigo }}</dd></div>
-                    <div><dt>Servicio</dt><dd>{{ r.servicioTitulo || r.vertical }}</dd></div>
-                    <div><dt>Cliente</dt><dd>{{ r.clienteNombre || '—' }}</dd></div>
-                    @if (r.clienteEmail) { <div><dt>Email</dt><dd>{{ r.clienteEmail }}</dd></div> }
-                    @if (r.clienteTelefono) { <div><dt>Teléfono</dt><dd>{{ r.clienteTelefono }}</dd></div> }
-                    <div><dt>Mascota</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
+                    <div><dt>{{ 'Nº de reserva' | t }}</dt><dd>{{ r.codigo }}</dd></div>
+                    <div><dt>{{ 'Servicio' | t }}</dt><dd>{{ r.servicioTitulo || r.vertical }}</dd></div>
+                    <div><dt>{{ 'Cliente' | t }}</dt><dd>{{ r.clienteNombre || '—' }}</dd></div>
+                    @if (r.clienteEmail) { <div><dt>{{ 'Email' | t }}</dt><dd>{{ r.clienteEmail }}</dd></div> }
+                    @if (r.clienteTelefono) { <div><dt>{{ 'Teléfono' | t }}</dt><dd>{{ r.clienteTelefono }}</dd></div> }
+                    <div><dt>{{ 'Mascota' | t }}</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
                     <div>
                       <dt>{{ esEstancia(r.vertical) ? 'Ingreso' : 'Fecha y hora' }}</dt>
                       <dd>{{ r.fechaInicio | date:'d MMM yyyy, HH:mm' }}</dd>
@@ -346,12 +348,12 @@ function desdeClaveDia(clave: string): number {
                     @if (r.fechaFin) {
                       <div><dt>{{ esEstancia(r.vertical) ? 'Salida' : 'Fin' }}</dt><dd>{{ r.fechaFin | date:'d MMM yyyy, HH:mm' }}</dd></div>
                     }
-                    <div><dt>Importe</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</dd></div>
-                    <div><dt>Reservada el</dt><dd>{{ r.createdAt | date:'d MMM yyyy' }}</dd></div>
+                    <div><dt>{{ 'Importe' | t }}</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</dd></div>
+                    <div><dt>{{ 'Reservada el' | t }}</dt><dd>{{ r.createdAt | date:'d MMM yyyy' }}</dd></div>
                   </dl>
                   @if (r.suplementos?.length) {
                     <p class="detalle__suplementos">
-                      <strong>Suplementos:</strong>
+                      <strong>{{ 'Suplementos:' | t }}</strong>
                       @for (s of r.suplementos; track $index) {
                         {{ s.concepto }} (+{{ s.monto | euros:'1.2-2' }}){{ $last ? '' : ' · ' }}
                       }
@@ -362,13 +364,13 @@ function desdeClaveDia(clave: string): number {
                   @if (r.vertical === 'adiestramiento' && (r.detalle?.['historialPrevio'] || r.detalle?.['vinculoPropietario'] || videosDe(r).length)) {
                     <div class="detalle__adiestramiento">
                       @if (r.detalle?.['historialPrevio']) {
-                        <p><strong>Historial previo:</strong> {{ r.detalle!['historialPrevio'] }}</p>
+                        <p><strong>{{ 'Historial previo:' | t }}</strong> {{ r.detalle!['historialPrevio'] }}</p>
                       }
                       @if (r.detalle?.['vinculoPropietario']) {
-                        <p><strong>Vínculo con el propietario:</strong> {{ r.detalle!['vinculoPropietario'] }}</p>
+                        <p><strong>{{ 'Vínculo con el propietario:' | t }}</strong> {{ r.detalle!['vinculoPropietario'] }}</p>
                       }
                       @if (videosDe(r).length) {
-                        <p><strong>Vídeos del comportamiento:</strong></p>
+                        <p><strong>{{ 'Vídeos del comportamiento:' | t }}</strong></p>
                         <ul class="videos-lista">
                           @for (url of videosDe(r); track url; let i = $index) {
                             <li><a [href]="url" target="_blank" rel="noopener">Vídeo {{ i + 1 }}</a></li>
@@ -388,17 +390,17 @@ function desdeClaveDia(clave: string): number {
                     @if (seguimientoAbiertoId() === r._id) {
                       <div class="ajuste-panel" style="margin-top:var(--sp-3)">
                         <div class="rs-field">
-                          <label class="rs-lbl">Objetivos trabajados</label>
+                          <label class="rs-lbl">{{ 'Objetivos trabajados' | t }}</label>
                           <textarea class="rs-inp" rows="2" [value]="seguimientoObjetivos()"
                                     (input)="seguimientoObjetivos.set($any($event.target).value)"></textarea>
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Evolución observada</label>
+                          <label class="rs-lbl">{{ 'Evolución observada' | t }}</label>
                           <textarea class="rs-inp" rows="2" [value]="seguimientoEvolucion()"
                                     (input)="seguimientoEvolucion.set($any($event.target).value)"></textarea>
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Tareas para casa</label>
+                          <label class="rs-lbl">{{ 'Tareas para casa' | t }}</label>
                           <textarea class="rs-inp" rows="2" [value]="seguimientoTareas()"
                                     (input)="seguimientoTareas.set($any($event.target).value)"></textarea>
                         </div>
@@ -423,28 +425,28 @@ function desdeClaveDia(clave: string): number {
                      admin con su historial (TCK-8040 §2). -->
                 <div class="reserva-card__panel">
                   <div class="rs-field">
-                    <label class="rs-lbl">Tipo</label>
+                    <label class="rs-lbl">{{ 'Tipo' | t }}</label>
                     <select class="rs-inp" [value]="incidenciaTipo()"
                             (change)="incidenciaTipo.set($any($event.target).value)">
-                      <option value="incidencia">Incidencia con el servicio</option>
-                      <option value="reclamacion">Reclamación</option>
-                      <option value="devolucion">Solicitud de devolución</option>
+                      <option value="incidencia">{{ 'Incidencia con el servicio' | t }}</option>
+                      <option value="reclamacion">{{ 'Reclamación' | t }}</option>
+                      <option value="devolucion">{{ 'Solicitud de devolución' | t }}</option>
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Asunto</label>
+                    <label class="rs-lbl">{{ 'Asunto' | t }}</label>
                     <input class="rs-inp" [value]="incidenciaAsunto()"
                            (input)="incidenciaAsunto.set($any($event.target).value)"
-                           placeholder="Ej. el cliente no se presentó" />
+                           [placeholder]="'Ej. el cliente no se presentó' | t" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Qué ha pasado</label>
+                    <label class="rs-lbl">{{ 'Qué ha pasado' | t }}</label>
                     <input class="rs-inp" [value]="incidenciaDescripcion()"
                            (input)="incidenciaDescripcion.set($any($event.target).value)"
-                           placeholder="Cuenta lo ocurrido con el detalle que puedas" />
+                           [placeholder]="'Cuenta lo ocurrido con el detalle que puedas' | t" />
                   </div>
                   <div class="ajuste-panel__actions">
-                    <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarIncidencia()">Cancelar</button>
+                    <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarIncidencia()">{{ 'Cancelar' | t }}</button>
                     <button class="rs-btn rs-btn--primary rs-btn--sm"
                             [disabled]="!puedeEnviarIncidencia() || enviandoIncidencia()"
                             (click)="enviarIncidencia(r)">
@@ -464,23 +466,23 @@ function desdeClaveDia(clave: string): number {
                     </button>
                     @if (r.vertical !== 'veterinaria') {
                       <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleAjuste(r._id)">
-                        Solicitar ajuste
+                        {{ 'Solicitar ajuste' | t }}
                       </button>
                     }
                   }
                   @if (r.estado === 'completada' && r.perroId && !valoradoId().has(r._id)) {
                     <button class="rs-btn rs-btn--outline rs-btn--sm" (click)="toggleValorar(r._id)">
-                      <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> Valorar perro
+                      <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> {{ 'Valorar perro' | t }}
                     </button>
                   }
                   @if (valoradoId().has(r._id)) {
                     <span class="rs-badge rs-badge--success">
-                      <rs-icon name="star" [size]="12" [stroke]="2.5" [filled]="true"></rs-icon> Valorado
+                      <rs-icon name="star" [size]="12" [stroke]="2.5" [filled]="true"></rs-icon> {{ 'Valorado' | t }}
                     </span>
                   }
                   @if (r.vertical === 'veterinaria' && r.perroId) {
                     <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleHistoriaVeterinaria(r)">
-                      <rs-icon name="stethoscope" [size]="13" [stroke]="2"></rs-icon> Historia veterinaria
+                      <rs-icon name="stethoscope" [size]="13" [stroke]="2"></rs-icon> {{ 'Historia veterinaria' | t }}
                     </button>
                   }
                   @if (hitosDe(r.vertical).length && (r.estado === 'confirmada' || r.estado === 'en_curso')) {
@@ -488,7 +490,7 @@ function desdeClaveDia(clave: string): number {
                       <button class="rs-btn rs-btn--ghost rs-btn--sm"
                               [disabled]="seguimientoId() === r._id"
                               (click)="marcarHito(r, h.hito)">
-                        <rs-icon [name]="h.icono" [size]="13" [stroke]="2"></rs-icon> {{ h.label }}
+                        <rs-icon [name]="h.icono" [size]="13" [stroke]="2"></rs-icon> {{ h.label | t }}
                       </button>
                     }
                   }
@@ -499,7 +501,7 @@ function desdeClaveDia(clave: string): number {
                 <div class="reserva-card__panel">
                   <div class="ajuste-panel">
                     @if (cargandoHistoria()) {
-                      <p class="ajuste-panel__hint">Cargando historia veterinaria compartida…</p>
+                      <p class="ajuste-panel__hint">{{ 'Cargando historia veterinaria compartida…' | t }}</p>
                     } @else if (errorHistoria()) {
                       <p class="ajuste-panel__hint">{{ errorHistoria() }}</p>
                     } @else if (historiaVeterinaria(); as h) {
@@ -507,13 +509,13 @@ function desdeClaveDia(clave: string): number {
                         {{ h.nombre }} · {{ h.especie }} @if (h.raza) { · {{ h.raza }} } @if (h.peso) { · {{ h.peso }} kg }
                         @if (h.esterilizado) { · Esterilizado/a }
                       </p>
-                      @if (h.alergias.length) { <p><strong>Alergias:</strong> {{ h.alergias.join(', ') }}</p> }
-                      @if (h.enfermedades.length) { <p><strong>Enfermedades:</strong> {{ h.enfermedades.join(', ') }}</p> }
-                      @if (h.medicacion.length) { <p><strong>Medicación:</strong> {{ h.medicacion.join(', ') }}</p> }
-                      @if (h.vacunas.length) { <p><strong>Vacunas:</strong> {{ h.vacunas.join(', ') }}</p> }
-                      @if (h.dieta) { <p><strong>Dieta:</strong> {{ h.dieta }}</p> }
+                      @if (h.alergias.length) { <p><strong>{{ 'Alergias:' | t }}</strong> {{ h.alergias.join(', ') }}</p> }
+                      @if (h.enfermedades.length) { <p><strong>{{ 'Enfermedades:' | t }}</strong> {{ h.enfermedades.join(', ') }}</p> }
+                      @if (h.medicacion.length) { <p><strong>{{ 'Medicación:' | t }}</strong> {{ h.medicacion.join(', ') }}</p> }
+                      @if (h.vacunas.length) { <p><strong>{{ 'Vacunas:' | t }}</strong> {{ h.vacunas.join(', ') }}</p> }
+                      @if (h.dieta) { <p><strong>{{ 'Dieta:' | t }}</strong> {{ h.dieta }}</p> }
                       @if (h.historial.length) {
-                        <p><strong>Historial de otros profesionales:</strong></p>
+                        <p><strong>{{ 'Historial de otros profesionales:' | t }}</strong></p>
                         @for (nota of h.historial; track $index) {
                           <p class="ajuste-panel__hint">· [{{ nota.vertical }}] {{ nota.nota }}</p>
                         }
@@ -521,14 +523,14 @@ function desdeClaveDia(clave: string): number {
 
                       <!-- Cargar historial clínico desde Excel/documento (Ref. VET5) -->
                       <div class="importar-historial">
-                        <p><strong>Añadir historial pegando una tabla o Excel</strong></p>
+                        <p><strong>{{ 'Añadir historial pegando una tabla o Excel' | t }}</strong></p>
                         <p class="ajuste-panel__hint">
-                          Copia y pega aquí las filas (fecha, concepto, detalle separados por tabulador o coma).
+                          {{ 'Copia y pega aquí las filas (fecha, concepto, detalle separados por tabulador o coma).' | t }}
                         </p>
                         <textarea class="rs-inp" rows="3"
                                   [value]="textoImportar()"
                                   (input)="textoImportar.set($any($event.target).value)"
-                                  placeholder="12/03/2026&#9;Vacuna rabia&#9;Refuerzo anual"></textarea>
+                                  [placeholder]="'12/03/2026&#9;Vacuna rabia&#9;Refuerzo anual' | t"></textarea>
                         <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
                                 [disabled]="!textoImportar().trim() || previsualizando()"
                                 (click)="previsualizarImportacion()">
@@ -538,7 +540,7 @@ function desdeClaveDia(clave: string): number {
                         @if (filasImportar().length) {
                           <table class="importar-tabla">
                             <thead>
-                              <tr><th>Fecha</th><th>Concepto</th><th>Detalle</th><th></th></tr>
+                              <tr><th>{{ 'Fecha' | t }}</th><th>{{ 'Concepto' | t }}</th><th>{{ 'Detalle' | t }}</th><th></th></tr>
                             </thead>
                             <tbody>
                               @for (fila of filasImportar(); track $index) {
@@ -567,7 +569,7 @@ function desdeClaveDia(clave: string): number {
                       </div>
                     }
                     <div class="ajuste-panel__actions">
-                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="historiaAbiertaId.set(null)">Cerrar</button>
+                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="historiaAbiertaId.set(null)">{{ 'Cerrar' | t }}</button>
                     </div>
                   </div>
                 </div>
@@ -577,8 +579,7 @@ function desdeClaveDia(clave: string): number {
                 <div class="reserva-card__panel">
                   <div class="ajuste-panel">
                     <p class="ajuste-panel__hint">
-                      Tu valoración se suma al pasaporte digital del perro y ayuda a otros profesionales de Doogking
-                      a adaptar el servicio.
+                      {{ 'Tu valoración se suma al pasaporte digital del perro y ayuda a otros profesionales de Doogking a adaptar el servicio.' | t }}
                     </p>
                     <div class="resena-form__estrellas">
                       @for (n of [1,2,3,4,5]; track n) {
@@ -591,27 +592,27 @@ function desdeClaveDia(clave: string): number {
                       }
                     </div>
                     <div class="rs-field">
-                      <label class="rs-lbl">Comentario (opcional)</label>
+                      <label class="rs-lbl">{{ 'Comentario (opcional)' | t }}</label>
                       <input class="rs-inp" [(ngModel)]="comentarioValoracion"
                              [ngModelOptions]="{standalone: true}"
-                             placeholder="Ej. muy tranquilo, excelente comportamiento" />
+                             [placeholder]="'Ej. muy tranquilo, excelente comportamiento' | t" />
                     </div>
                     @if (r.vertical === 'adiestramiento') {
                       <div class="rs-field">
-                        <label class="rs-lbl">Nivel Doogking (opcional)</label>
+                        <label class="rs-lbl">{{ 'Nivel Doogking (opcional)' | t }}</label>
                         <select class="rs-inp" [(ngModel)]="nivelDoogking" [ngModelOptions]="{standalone: true}">
-                          <option [ngValue]="null">— No actualizar —</option>
-                          <option [ngValue]="1">1 · Cachorro</option>
-                          <option [ngValue]="2">2 · Básico</option>
-                          <option [ngValue]="3">3 · Intermedio</option>
-                          <option [ngValue]="4">4 · Avanzado</option>
-                          <option [ngValue]="5">5 · Excelente sociabilidad</option>
+                          <option [ngValue]="null">{{ '— No actualizar —' | t }}</option>
+                          <option [ngValue]="1">{{ '1 · Cachorro' | t }}</option>
+                          <option [ngValue]="2">{{ '2 · Básico' | t }}</option>
+                          <option [ngValue]="3">{{ '3 · Intermedio' | t }}</option>
+                          <option [ngValue]="4">{{ '4 · Avanzado' | t }}</option>
+                          <option [ngValue]="5">{{ '5 · Excelente sociabilidad' | t }}</option>
                         </select>
-                        <span class="rs-field-hint">Se guarda en la ficha del perro y lo verá cualquier profesional de Doogking.</span>
+                        <span class="rs-field-hint">{{ 'Se guarda en la ficha del perro y lo verá cualquier profesional de Doogking.' | t }}</span>
                       </div>
                     }
                     <div class="ajuste-panel__actions">
-                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarValorar()">Cancelar</button>
+                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarValorar()">{{ 'Cancelar' | t }}</button>
                       <button class="rs-btn rs-btn--primary rs-btn--sm"
                               [disabled]="enviandoValoracion()"
                               (click)="enviarValoracion(r)">
@@ -626,14 +627,13 @@ function desdeClaveDia(clave: string): number {
                 <div class="reserva-card__panel">
                   <div class="ajuste-panel">
                     <p class="ajuste-panel__hint">
-                      Selecciona los suplementos detectados en recepción. El cliente recibirá una notificación y
-                      deberá aprobarlos antes de que se cobre nada.
+                      {{ 'Selecciona los suplementos detectados en recepción. El cliente recibirá una notificación y deberá aprobarlos antes de que se cobre nada.' | t }}
                     </p>
 
                     @if (suplementosCatalogo().length === 0) {
                       <p class="ajuste-panel__empty">
-                        No tienes suplementos preconfigurados.
-                        <a routerLink="/comercio/suplementos">Créalos aquí</a> para poder seleccionarlos con un click.
+                        {{ 'No tienes suplementos preconfigurados.' | t }}
+                        <a routerLink="/comercio/suplementos">{{ 'Créalos aquí' | t }}</a> {{ 'para poder seleccionarlos con un click.' | t }}
                       </p>
                     } @else {
                       <div class="ajuste-panel__checks">
@@ -648,29 +648,29 @@ function desdeClaveDia(clave: string): number {
                     }
 
                     <div class="ajuste-panel__evidencia">
-                      <label class="rs-lbl">Foto del estado del animal al llegar (opcional pero recomendado)</label>
+                      <label class="rs-lbl">{{ 'Foto del estado del animal al llegar (opcional pero recomendado)' | t }}</label>
                       <rs-image-upload origen="reserva/evidencia" [(ngModel)]="evidenciaUrl"></rs-image-upload>
                     </div>
 
                     <!-- Plan personalizado / bono de sesiones tras la valoración (Ref. ADI4) -->
                     @if (r.vertical === 'adiestramiento' && r.estado === 'confirmada') {
                       <div class="ajuste-panel__evidencia">
-                        <h3 class="section-title" style="font-size:var(--f-sm)">Proponer plan personalizado o bono de sesiones</h3>
+                        <h3 class="section-title" style="font-size:var(--f-sm)">{{ 'Proponer plan personalizado o bono de sesiones' | t }}</h3>
                         <p class="ajuste-panel__hint">
-                          Se envía como el resto de ajustes: el cliente lo aprueba y paga desde la plataforma, o lo rechaza sin cargo.
+                          {{ 'Se envía como el resto de ajustes: el cliente lo aprueba y paga desde la plataforma, o lo rechaza sin cargo.' | t }}
                         </p>
                         <div class="row-card__grid row-card__grid--3">
                           <div class="rs-field">
-                            <label class="rs-lbl">Nombre del plan</label>
+                            <label class="rs-lbl">{{ 'Nombre del plan' | t }}</label>
                             <input class="rs-inp" [(ngModel)]="planNombre" [ngModelOptions]="{standalone: true}"
-                                   placeholder="Ej. Bono modificación de conducta">
+                                   [placeholder]="'Ej. Bono modificación de conducta' | t">
                           </div>
                           <div class="rs-field">
-                            <label class="rs-lbl">Nº de sesiones</label>
+                            <label class="rs-lbl">{{ 'Nº de sesiones' | t }}</label>
                             <input class="rs-inp" type="number" min="1" [(ngModel)]="planSesiones" [ngModelOptions]="{standalone: true}">
                           </div>
                           <div class="rs-field">
-                            <label class="rs-lbl">Precio total (€)</label>
+                            <label class="rs-lbl">{{ 'Precio total (€)' | t }}</label>
                             <input class="rs-inp" type="number" min="0" step="0.01" [(ngModel)]="planPrecio" [ngModelOptions]="{standalone: true}">
                           </div>
                         </div>
@@ -682,7 +682,7 @@ function desdeClaveDia(clave: string): number {
                     }
 
                     <div class="ajuste-panel__actions">
-                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarAjuste()">Cancelar</button>
+                      <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarAjuste()">{{ 'Cancelar' | t }}</button>
                       <button class="rs-btn rs-btn--primary rs-btn--sm"
                               [disabled]="enviandoAjuste() || !puedeEnviarAjuste()"
                               (click)="enviarAjuste(r)">

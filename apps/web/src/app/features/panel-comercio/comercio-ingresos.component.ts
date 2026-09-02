@@ -6,6 +6,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ComercioApiService, MiReserva, FinanzasComercio } from './comercio-api.service';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 const COMISION_PCT = 0.15;
 const STRIPE_PCT = 0.015;
 const STRIPE_FIJO_EUR = 0.25;
@@ -18,13 +19,15 @@ const ESTADO_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-comercio-ingresos',
   standalone: true,
-  imports: [RouterLink, DatePipe, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, DatePipe, RsIconComponent, EurosPipe
+  ],
   template: `
     <!-- HEADER -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Ingresos</h1>
-        <p class="page-sub">Resumen financiero de tu comercio basado en reservas</p>
+        <h1 class="page-title">{{ 'Ingresos' | t }}</h1>
+        <p class="page-sub">{{ 'Resumen financiero de tu comercio basado en reservas' | t }}</p>
       </div>
     </div>
 
@@ -39,18 +42,18 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="kpi-grid">
         <div class="kpi-card rs-card">
           <div class="kpi-card__header">
-            <span class="kpi-card__label">Ingresos este mes</span>
+            <span class="kpi-card__label">{{ 'Ingresos este mes' | t }}</span>
             <div class="kpi-card__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
               <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
             </div>
           </div>
           <div class="kpi-card__value">{{ totalIngresos() | euros:'1.0-0' }}</div>
-          <div class="kpi-card__sub">Suma de todas las reservas</div>
+          <div class="kpi-card__sub">{{ 'Suma de todas las reservas' | t }}</div>
         </div>
 
         <div class="kpi-card rs-card">
           <div class="kpi-card__header">
-            <span class="kpi-card__label">Reservas completadas</span>
+            <span class="kpi-card__label">{{ 'Reservas completadas' | t }}</span>
             <div class="kpi-card__icon" style="background:rgba(16,185,129,.12);color:#047857">
               <rs-icon name="check-circle" [size]="17" [stroke]="2"></rs-icon>
             </div>
@@ -61,7 +64,7 @@ const ESTADO_BADGE: Record<string, string> = {
 
         <div class="kpi-card rs-card">
           <div class="kpi-card__header">
-            <span class="kpi-card__label">Comisión Doogking (15%)</span>
+            <span class="kpi-card__label">{{ 'Comisión Doogking (15%)' | t }}</span>
             <div class="kpi-card__icon" style="background:rgba(239,68,68,.10);color:#B91C1C">
               <rs-icon name="tag" [size]="17" [stroke]="2"></rs-icon>
             </div>
@@ -69,12 +72,12 @@ const ESTADO_BADGE: Record<string, string> = {
           <div class="kpi-card__value kpi-card__value--danger">
             − {{ comisionEstimada() | euros:'1.0-0' }}
           </div>
-          <div class="kpi-card__sub">Fee del marketplace</div>
+          <div class="kpi-card__sub">{{ 'Fee del marketplace' | t }}</div>
         </div>
 
         <div class="kpi-card rs-card kpi-card--highlight">
           <div class="kpi-card__header">
-            <span class="kpi-card__label">Liquidación estimada</span>
+            <span class="kpi-card__label">{{ 'Liquidación estimada' | t }}</span>
             <div class="kpi-card__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
               <rs-icon name="building" [size]="17" [stroke]="2"></rs-icon>
             </div>
@@ -82,41 +85,41 @@ const ESTADO_BADGE: Record<string, string> = {
           <div class="kpi-card__value kpi-card__value--teal">
             {{ liquidacionEstimada() | euros:'1.0-0' }}
           </div>
-          <div class="kpi-card__sub">Ingresos − comisión − Stripe</div>
+          <div class="kpi-card__sub">{{ 'Ingresos − comisión − Stripe' | t }}</div>
         </div>
       </div>
 
       <!-- DESGLOSE FINANCIERO -->
       <div class="rs-card fin-card">
-        <h3 class="fin-card__title">Desglose financiero</h3>
+        <h3 class="fin-card__title">{{ 'Desglose financiero' | t }}</h3>
         <div class="fin-row">
-          <span>Ingresos brutos</span>
+          <span>{{ 'Ingresos brutos' | t }}</span>
           <strong>{{ totalIngresos() | euros:'1.2-2' }}</strong>
         </div>
         <div class="fin-row fin-row--minus">
-          <span>Comisión Doogking (15%)</span>
+          <span>{{ 'Comisión Doogking (15%)' | t }}</span>
           <strong>− {{ comisionEstimada() | euros:'1.2-2' }}</strong>
         </div>
         <div class="fin-row fin-row--minus">
-          <span>Gastos de procesamiento de pago</span>
+          <span>{{ 'Gastos de procesamiento de pago' | t }}</span>
           <strong>− {{ feeStripeTotal() | euros:'1.2-2' }}</strong>
         </div>
         @if (reembolsos() > 0) {
           <div class="fin-row fin-row--minus">
-            <span>Reembolsos</span>
+            <span>{{ 'Reembolsos' | t }}</span>
             <strong>− {{ reembolsos() | euros:'1.2-2' }}</strong>
           </div>
         }
         <hr class="fin-divider">
         <div class="fin-row fin-row--total">
-          <strong>Total a recibir</strong>
+          <strong>{{ 'Total a recibir' | t }}</strong>
           <strong class="fin-total">{{ liquidacionEstimada() | euros:'1.2-2' }}</strong>
         </div>
         @if (proximaLiquidacion() > 0) {
           <div class="fin-row" style="margin-top:var(--sp-2)">
             <span>
             <rs-icon name="banknote" [size]="15" [stroke]="2"></rs-icon>
-            Próxima liquidación (servicios prestados pendientes de pago)
+            {{ 'Próxima liquidación (servicios prestados pendientes de pago)' | t }}
           </span>
             <strong>{{ proximaLiquidacion() | euros:'1.2-2' }}</strong>
           </div>
@@ -127,14 +130,14 @@ const ESTADO_BADGE: Record<string, string> = {
       @if (reservasRecientes().length > 0) {
         <div class="rs-card" style="overflow-x:auto">
           <div class="tabla-header">
-            <h3>Reservas recientes</h3>
-            <a routerLink="/comercio/reservas" class="rs-btn rs-btn--ghost rs-btn--sm">Ver todas</a>
+            <h3>{{ 'Reservas recientes' | t }}</h3>
+            <a routerLink="/comercio/reservas" class="rs-btn rs-btn--ghost rs-btn--sm">{{ 'Ver todas' | t }}</a>
           </div>
           <table class="rs-table">
             <thead>
               <tr>
-                <th>Código</th><th>Vertical</th><th>Fecha</th>
-                <th>Monto</th><th>Comisión est.</th><th>Liquidación est.</th><th>Estado</th>
+                <th>{{ 'Código' | t }}</th><th>{{ 'Vertical' | t }}</th><th>{{ 'Fecha' | t }}</th>
+                <th>{{ 'Monto' | t }}</th><th>{{ 'Comisión est.' | t }}</th><th>{{ 'Liquidación est.' | t }}</th><th>{{ 'Estado' | t }}</th>
               </tr>
             </thead>
             <tbody>

@@ -9,6 +9,7 @@ import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
 import { describirPolitica } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 /** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
 interface EstadoMeta { badge: string; icono: string; label: string; }
 
@@ -75,13 +76,15 @@ const MAX_EXPORTACION = 500;
 @Component({
   selector: 'app-admin-reservas',
   standalone: true,
-  imports: [DatePipe, FormsModule, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, DatePipe, FormsModule, RsIconComponent, EurosPipe
+  ],
   template: `
     <!-- Cabecera -->
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Gestión de reservas</h1>
-        <p class="rs-page-sub">Centro de operaciones del marketplace: supervisa y gestiona todas las reservas.</p>
+        <h1 class="rs-page-title">{{ 'Gestión de reservas' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Centro de operaciones del marketplace: supervisa y gestiona todas las reservas.' | t }}</p>
       </div>
       <div class="page-header__acciones">
         <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="panelFiltros.set(!panelFiltros())">
@@ -101,48 +104,48 @@ const MAX_EXPORTACION = 500;
       <div class="rs-card panel-filtros">
         <div class="panel-filtros__grid">
           <label class="campo">
-            <span>Desde</span>
+            <span>{{ 'Desde' | t }}</span>
             <input type="date" class="rs-inp" [(ngModel)]="fDesde" />
           </label>
           <label class="campo">
-            <span>Hasta</span>
+            <span>{{ 'Hasta' | t }}</span>
             <input type="date" class="rs-inp" [(ngModel)]="fHasta" />
           </label>
           <label class="campo">
-            <span>Tipo de servicio</span>
+            <span>{{ 'Tipo de servicio' | t }}</span>
             <select class="rs-inp" [(ngModel)]="fVertical">
-              <option value="">Todos</option>
+              <option value="">{{ 'Todos' | t }}</option>
               @for (v of verticales; track v.key) {
-                <option [value]="v.key">{{ v.labelCorto }}</option>
+                <option [value]="v.key">{{ v.labelCorto | t }}</option>
               }
             </select>
           </label>
           <label class="campo">
-            <span>Ciudad</span>
-            <input type="text" class="rs-inp" placeholder="Ej. Madrid" [(ngModel)]="fCiudad" />
+            <span>{{ 'Ciudad' | t }}</span>
+            <input type="text" class="rs-inp" [placeholder]="'Ej. Madrid' | t" [(ngModel)]="fCiudad" />
           </label>
           <label class="campo">
-            <span>Estado del pago</span>
+            <span>{{ 'Estado del pago' | t }}</span>
             <select class="rs-inp" [(ngModel)]="fEstadoPago">
-              <option value="">Todos</option>
-              <option value="aprobado">Pagado</option>
-              <option value="iniciado">Pago iniciado</option>
-              <option value="rechazado">Pago rechazado</option>
-              <option value="reembolsado">Reembolsado</option>
+              <option value="">{{ 'Todos' | t }}</option>
+              <option value="aprobado">{{ 'Pagado' | t }}</option>
+              <option value="iniciado">{{ 'Pago iniciado' | t }}</option>
+              <option value="rechazado">{{ 'Pago rechazado' | t }}</option>
+              <option value="reembolsado">{{ 'Reembolsado' | t }}</option>
             </select>
           </label>
           <label class="campo">
-            <span>Importe mínimo (€)</span>
-            <input type="number" min="0" class="rs-inp" placeholder="Sin mínimo" [(ngModel)]="fImporteMin" />
+            <span>{{ 'Importe mínimo (€)' | t }}</span>
+            <input type="number" min="0" class="rs-inp" [placeholder]="'Sin mínimo' | t" [(ngModel)]="fImporteMin" />
           </label>
           <label class="campo">
-            <span>Importe máximo (€)</span>
-            <input type="number" min="0" class="rs-inp" placeholder="Sin máximo" [(ngModel)]="fImporteMax" />
+            <span>{{ 'Importe máximo (€)' | t }}</span>
+            <input type="number" min="0" class="rs-inp" [placeholder]="'Sin máximo' | t" [(ngModel)]="fImporteMax" />
           </label>
         </div>
         <div class="panel-filtros__acciones">
-          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarFiltrosAvanzados()">Limpiar</button>
-          <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarFiltrosAvanzados()">Aplicar filtros</button>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarFiltrosAvanzados()">{{ 'Limpiar' | t }}</button>
+          <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarFiltrosAvanzados()">{{ 'Aplicar filtros' | t }}</button>
         </div>
       </div>
     }
@@ -153,37 +156,37 @@ const MAX_EXPORTACION = 500;
         <button class="resumen-tile" [class.activa]="filtroEstado() === e.estado"
                 (click)="setFiltro(filtroEstado() === e.estado ? '' : e.estado)">
           <span class="resumen-tile__num">{{ contarEstado(e.estado) }}</span>
-          <span class="resumen-tile__lbl">{{ e.label }}</span>
+          <span class="resumen-tile__lbl">{{ e.label | t }}</span>
         </button>
       }
     </div>
     <div class="resumen-dinero">
       <div class="rs-card dinero-tile">
         <span class="dinero-tile__num">{{ resumen()?.importeReservado ?? 0 | euros:'1.0-0' }}</span>
-        <span class="dinero-tile__lbl">Importe reservado</span>
+        <span class="dinero-tile__lbl">{{ 'Importe reservado' | t }}</span>
       </div>
       <div class="rs-card dinero-tile">
         <span class="dinero-tile__num">{{ resumen()?.comisiones ?? 0 | euros:'1.0-0' }}</span>
-        <span class="dinero-tile__lbl">Comisiones Doogking</span>
+        <span class="dinero-tile__lbl">{{ 'Comisiones Doogking' | t }}</span>
       </div>
       <div class="rs-card dinero-tile">
         <span class="dinero-tile__num">{{ resumen()?.pagosRetenidos ?? 0 | euros:'1.0-0' }}</span>
-        <span class="dinero-tile__lbl">Pagos retenidos</span>
+        <span class="dinero-tile__lbl">{{ 'Pagos retenidos' | t }}</span>
       </div>
       <div class="rs-card dinero-tile">
         <span class="dinero-tile__num">{{ resumen()?.reembolsos ?? 0 | euros:'1.0-0' }}</span>
-        <span class="dinero-tile__lbl">Reembolsos</span>
+        <span class="dinero-tile__lbl">{{ 'Reembolsos' | t }}</span>
       </div>
     </div>
 
     <!-- Buscador global -->
     <div class="search-bar">
-      <input type="text" class="rs-inp" placeholder="Buscar por código, cliente, comercio o email…"
+      <input type="text" class="rs-inp" [placeholder]="'Buscar por código, cliente, comercio o email…' | t"
              [(ngModel)]="buscarInput" (keyup.enter)="aplicarBusqueda()" />
-      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarBusqueda()">Buscar</button>
+      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="aplicarBusqueda()">{{ 'Buscar' | t }}</button>
       @if (buscarActivo()) {
         <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarBusqueda()">
-            <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon> Limpiar
+            <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon> {{ 'Limpiar' | t }}
           </button>
       }
     </div>
@@ -196,7 +199,7 @@ const MAX_EXPORTACION = 500;
           [class.rs-btn--primary]="filtroEstado() === f.valor"
           [class.rs-btn--ghost]="filtroEstado() !== f.valor"
           (click)="setFiltro(f.valor)">
-          {{ f.label }}
+          {{ f.label | t }}
         </button>
       }
     </div>
@@ -212,16 +215,16 @@ const MAX_EXPORTACION = 500;
     <div class="rs-card" style="padding:0;overflow-x:auto">
       <div class="tbl-wrap">
         <div class="tbl-head">
-          <span>Código</span>
-          <span>Fecha</span>
-          <span>Cliente</span>
-          <span>Comercio</span>
-          <span>Servicio</span>
-          <span style="text-align:right">Importe</span>
-          <span style="text-align:right">Comisión</span>
-          <span>Estado reserva</span>
-          <span>Estado pago</span>
-          <span>Acciones</span>
+          <span>{{ 'Código' | t }}</span>
+          <span>{{ 'Fecha' | t }}</span>
+          <span>{{ 'Cliente' | t }}</span>
+          <span>{{ 'Comercio' | t }}</span>
+          <span>{{ 'Servicio' | t }}</span>
+          <span style="text-align:right">{{ 'Importe' | t }}</span>
+          <span style="text-align:right">{{ 'Comisión' | t }}</span>
+          <span>{{ 'Estado reserva' | t }}</span>
+          <span>{{ 'Estado pago' | t }}</span>
+          <span>{{ 'Acciones' | t }}</span>
         </div>
 
         @if (cargando()) {
@@ -259,31 +262,31 @@ const MAX_EXPORTACION = 500;
                 <span class="rs-badge {{ badgePago(r.estadoPago) }}">{{ labelPago(r.estadoPago) }}</span>
               </span>
               <span class="cell-actions" (click)="$event.stopPropagation()">
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Acciones"
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Acciones' | t"
                         (click)="menuAbiertoId.set(menuAbiertoId() === r._id ? null : r._id)">
                   <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
                 </button>
                 @if (menuAbiertoId() === r._id) {
                   <div class="acciones__menu">
                     <button class="acciones__item" (click)="toggleTimeline(r._id)">
-                      <rs-icon name="clock" [size]="13" [stroke]="2"></rs-icon> Ver reserva e historial
+                      <rs-icon name="clock" [size]="13" [stroke]="2"></rs-icon> {{ 'Ver reserva e historial' | t }}
                     </button>
                     @if (r.estado !== 'pago_liberado' && r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
                       <button class="acciones__item" [disabled]="accionandoId() === r._id"
                               (click)="cambiar(r, 'pago_liberado')">
-                        <rs-icon name="banknote" [size]="13" [stroke]="2"></rs-icon> Liberar pago
+                        <rs-icon name="banknote" [size]="13" [stroke]="2"></rs-icon> {{ 'Liberar pago' | t }}
                       </button>
                     }
                     @if (r.estado !== 'reembolsada' && r.estado !== 'cancelada') {
                       <button class="acciones__item" [disabled]="accionandoId() === r._id"
                               (click)="pedirMotivo(r, 'reembolsada')">
-                        <rs-icon name="rotate-ccw" [size]="13" [stroke]="2"></rs-icon> Reembolsar
+                        <rs-icon name="rotate-ccw" [size]="13" [stroke]="2"></rs-icon> {{ 'Reembolsar' | t }}
                       </button>
                     }
                     @if (r.estado !== 'en_disputa') {
                       <button class="acciones__item acciones__item--danger" [disabled]="accionandoId() === r._id"
                               (click)="pedirMotivo(r, 'en_disputa')">
-                        <rs-icon name="siren" [size]="13" [stroke]="2"></rs-icon> Abrir incidencia
+                        <rs-icon name="siren" [size]="13" [stroke]="2"></rs-icon> {{ 'Abrir incidencia' | t }}
                       </button>
                     }
                   </div>
@@ -295,38 +298,38 @@ const MAX_EXPORTACION = 500;
                 <!-- Ficha administrativa completa (TCK-8036 §6) -->
                 <h4><rs-icon name="eye" [size]="15" [stroke]="2"></rs-icon> Reserva {{ r.codigo }}</h4>
                 <dl class="ficha">
-                  <div><dt>Cliente</dt><dd>{{ r.cliente }}@if (r.clienteEmail) { · {{ r.clienteEmail }} }</dd></div>
-                  <div><dt>Mascota</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
-                  <div><dt>Comercio</dt><dd>{{ r.comercio }}</dd></div>
-                  <div><dt>Servicio</dt><dd>{{ r.servicio || r.vertical }}</dd></div>
+                  <div><dt>{{ 'Cliente' | t }}</dt><dd>{{ r.cliente }}@if (r.clienteEmail) { · {{ r.clienteEmail }} }</dd></div>
+                  <div><dt>{{ 'Mascota' | t }}</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
+                  <div><dt>{{ 'Comercio' | t }}</dt><dd>{{ r.comercio }}</dd></div>
+                  <div><dt>{{ 'Servicio' | t }}</dt><dd>{{ r.servicio || r.vertical }}</dd></div>
                   <div>
-                    <dt>Fechas</dt>
+                    <dt>{{ 'Fechas' | t }}</dt>
                     <dd>
                       {{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy, HH:mm' }}
                       @if (r.fechaFin) { → {{ r.fechaFin | date:'d MMM yyyy, HH:mm' }} }
                     </dd>
                   </div>
-                  <div><dt>Importe</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</dd></div>
-                  <div><dt>Comisión Doogking</dt><dd>{{ r.comisionMonto | euros:'1.2-2' }}</dd></div>
-                  <div><dt>Coste de pasarela</dt><dd>{{ (r.stripeFee ?? 0) | euros:'1.2-2' }}</dd></div>
-                  <div><dt>Neto del comercio</dt><dd>{{ (r.montoLiquidacion ?? 0) | euros:'1.2-2' }}</dd></div>
-                  <div><dt>Estado del pago</dt><dd>{{ labelPago(r.estadoPago) }}</dd></div>
+                  <div><dt>{{ 'Importe' | t }}</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</dd></div>
+                  <div><dt>{{ 'Comisión Doogking' | t }}</dt><dd>{{ r.comisionMonto | euros:'1.2-2' }}</dd></div>
+                  <div><dt>{{ 'Coste de pasarela' | t }}</dt><dd>{{ (r.stripeFee ?? 0) | euros:'1.2-2' }}</dd></div>
+                  <div><dt>{{ 'Neto del comercio' | t }}</dt><dd>{{ (r.montoLiquidacion ?? 0) | euros:'1.2-2' }}</dd></div>
+                  <div><dt>{{ 'Estado del pago' | t }}</dt><dd>{{ labelPago(r.estadoPago) }}</dd></div>
                   <div class="ficha__ancho">
-                    <dt>Política de cancelación</dt>
+                    <dt>{{ 'Política de cancelación' | t }}</dt>
                     <dd>{{ politica(r) }}</dd>
                   </div>
                 </dl>
 
                 @if (r.suplementos?.length) {
                   <p class="ficha__extras">
-                    <strong>Extras y suplementos:</strong>
+                    <strong>{{ 'Extras y suplementos:' | t }}</strong>
                     @for (sup of r.suplementos; track $index) {
                       {{ sup.concepto }} (+{{ sup.monto | euros:'1.2-2' }}){{ $last ? '' : ' · ' }}
                     }
                   </p>
                 }
 
-                <h4><rs-icon name="clock" [size]="15" [stroke]="2"></rs-icon> Historial de la reserva</h4>
+                <h4><rs-icon name="clock" [size]="15" [stroke]="2"></rs-icon> {{ 'Historial de la reserva' | t }}</h4>
                 @if (r.historialEstados?.length) {
                   <ol class="timeline">
                     @for (h of r.historialEstados; track $index) {
@@ -341,7 +344,7 @@ const MAX_EXPORTACION = 500;
                     }
                   </ol>
                 } @else {
-                  <p style="color:var(--t-400);font-size:var(--f-sm)">Sin eventos registrados todavía.</p>
+                  <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Sin eventos registrados todavía.' | t }}</p>
                 }
               </div>
             }
@@ -360,10 +363,10 @@ const MAX_EXPORTACION = 500;
     @if (totalPaginas() > 1) {
       <div class="pagination">
         <button class="rs-btn rs-btn--secondary rs-btn--sm" [disabled]="paginaActual() <= 1"
-                (click)="cambiarPagina(paginaActual() - 1)">← Anterior</button>
+                (click)="cambiarPagina(paginaActual() - 1)">{{ '← Anterior' | t }}</button>
         <span class="page-info">Página {{ paginaActual() }} de {{ totalPaginas() }} · {{ total() }} reservas</span>
         <button class="rs-btn rs-btn--secondary rs-btn--sm" [disabled]="paginaActual() >= totalPaginas()"
-                (click)="cambiarPagina(paginaActual() + 1)">Siguiente →</button>
+                (click)="cambiarPagina(paginaActual() + 1)">{{ 'Siguiente →' | t }}</button>
       </div>
     }
 
@@ -376,13 +379,13 @@ const MAX_EXPORTACION = 500;
             {{ meta(modalEstado()).label }} · {{ modalReserva()!.codigo }}
           </h3>
           <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-3)">
-            Indica el motivo (quedará registrado en el timeline de la reserva).
+            {{ 'Indica el motivo (quedará registrado en el timeline de la reserva).' | t }}
           </p>
           <textarea class="rs-inp" rows="3" [(ngModel)]="modalMotivo"
-                    placeholder="Ej. Servicio no prestado / cliente no se presentó…"></textarea>
+                    [placeholder]="'Ej. Servicio no prestado / cliente no se presentó…' | t"></textarea>
           <div style="display:flex;gap:var(--sp-2);justify-content:flex-end;margin-top:var(--sp-4)">
-            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarModal()">Cancelar</button>
-            <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="confirmarMotivo()">Confirmar</button>
+            <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarModal()">{{ 'Cancelar' | t }}</button>
+            <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="confirmarMotivo()">{{ 'Confirmar' | t }}</button>
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsMapaComponent } from '../mapa/rs-mapa.component';
 import { PuntoUbicacion, enlaceComoLlegar, enlaceGoogleMaps, tieneCoordenadas } from '../../mapas/google-maps';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /**
  * "Dónde está" de la ficha de un servicio: el mapa con el punto exacto, la
@@ -19,7 +20,9 @@ import { PuntoUbicacion, enlaceComoLlegar, enlaceGoogleMaps, tieneCoordenadas } 
 @Component({
   selector: 'rs-ubicacion',
   standalone: true,
-  imports: [RsIconComponent, RsMapaComponent],
+  imports: [
+    TraducirPipe, RsIconComponent, RsMapaComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="ubi">
@@ -41,7 +44,7 @@ import { PuntoUbicacion, enlaceComoLlegar, enlaceGoogleMaps, tieneCoordenadas } 
         </div>
       } @else {
         <p class="ubi__sin-mapa">
-          Este negocio todavía no ha fijado su ubicación exacta.
+          {{ 'Este negocio todavía no ha fijado su ubicación exacta.' | t }}
         </p>
       }
 
@@ -50,13 +53,13 @@ import { PuntoUbicacion, enlaceComoLlegar, enlaceGoogleMaps, tieneCoordenadas } 
           @if (enlaceMapa(); as url) {
             <a class="rs-btn rs-btn--outline rs-btn--sm" [href]="url" target="_blank" rel="noopener">
               <rs-icon name="map-pin" [size]="14" [stroke]="2" />
-              Ver en Google Maps
+              {{ 'Ver en Google Maps' | t }}
             </a>
           }
           @if (enlaceRuta(); as url) {
             <a class="rs-btn rs-btn--secondary rs-btn--sm" [href]="url" target="_blank" rel="noopener">
               <rs-icon name="navigation" [size]="14" [stroke]="2" />
-              Cómo llegar
+              {{ 'Cómo llegar' | t }}
             </a>
           }
         </div>

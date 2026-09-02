@@ -9,6 +9,7 @@ import { verticalUi } from '../../shared/verticales/verticales.config';
 import { AspectoResenaUi, aspectosDeVertical } from '../../shared/verticales/resena-aspectos.config';
 import { AuthService } from '../../core/auth/auth.service';
 import { ReviewsService, ResenaApi, PendienteDeValorarApi } from '../reservas/services/reviews.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 type Filtro = 'todas' | 'pendientes' | 'publicadas' | 'conRespuesta' | 'eliminadas';
 
@@ -35,7 +36,9 @@ const RECONOCIMIENTOS = [
 @Component({
   selector: 'app-perfil-resenas',
   standalone: true,
-  imports: [RouterLink, DatePipe, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, RsImageUploadComponent],
+  imports: [
+    TraducirPipe, RouterLink, DatePipe, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, RsImageUploadComponent
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -44,12 +47,12 @@ const RECONOCIMIENTOS = [
 
     <a routerLink="/perfil" class="back-link">
       <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-      Volver al perfil
+      {{ 'Volver al perfil' | t }}
     </a>
 
     <div class="page-header">
-      <h1>Mis valoraciones</h1>
-      <p>Comparte tu experiencia y ayuda a otros propietarios a elegir el mejor servicio para su mascota.</p>
+      <h1>{{ 'Mis valoraciones' | t }}</h1>
+      <p>{{ 'Comparte tu experiencia y ayuda a otros propietarios a elegir el mejor servicio para su mascota.' | t }}</p>
     </div>
 
     @if (cargando()) {
@@ -66,7 +69,7 @@ const RECONOCIMIENTOS = [
             </span>
             <div>
               <strong>{{ rep.nivelLabel }}</strong>
-              <span class="reputacion__sub">Tu reputación en Doogking</span>
+              <span class="reputacion__sub">{{ 'Tu reputación en Doogking' | t }}</span>
             </div>
           </div>
           <div class="reputacion__datos">
@@ -76,23 +79,23 @@ const RECONOCIMIENTOS = [
             </div>
             <div class="reputacion__dato">
               <strong>{{ rep.media }}</strong>
-              <span>nota media que das</span>
+              <span>{{ 'nota media que das' | t }}</span>
             </div>
             <div class="reputacion__dato">
               <strong>{{ rep.conFotos }}</strong>
-              <span>con fotos</span>
+              <span>{{ 'con fotos' | t }}</span>
             </div>
           </div>
           @if (rep.siguiente; as sig) {
             <p class="reputacion__meta">
               <rs-icon name="trending-up" [size]="15" [stroke]="2"></rs-icon>
               Te {{ sig.falta === 1 ? 'falta' : 'faltan' }} {{ sig.falta }}
-              reseña{{ sig.falta === 1 ? '' : 's' }} para llegar a <strong>{{ sig.label }}</strong>.
+              reseña{{ sig.falta === 1 ? '' : 's' }} para llegar a <strong>{{ sig.label | t }}</strong>.
             </p>
           } @else {
             <p class="reputacion__meta">
               <rs-icon name="trophy" [size]="15" [stroke]="2"></rs-icon>
-              Has alcanzado el máximo reconocimiento. ¡Gracias por ayudar a la comunidad!
+              {{ 'Has alcanzado el máximo reconocimiento. ¡Gracias por ayudar a la comunidad!' | t }}
             </p>
           }
         </div>
@@ -101,7 +104,7 @@ const RECONOCIMIENTOS = [
       <div class="tabs">
         @for (t of tabs; track t.valor) {
           <button type="button" class="tab" [class.tab--activo]="filtro() === t.valor" (click)="filtro.set(t.valor)">
-            {{ t.label }}
+            {{ t.label | t }}
           </button>
         }
       </div>
@@ -127,7 +130,7 @@ const RECONOCIMIENTOS = [
                 <div class="resena-fecha">{{ p.fechaInicio | date:'d MMM yyyy' }}</div>
               </div>
               <button type="button" class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirFormularioCrear(p)">
-                Escribir reseña
+                {{ 'Escribir reseña' | t }}
               </button>
             </div>
           }
@@ -159,7 +162,7 @@ const RECONOCIMIENTOS = [
               </div>
 
               @if (r.eliminada) {
-                <span class="rs-badge rs-badge--neutral">Eliminada</span>
+                <span class="rs-badge rs-badge--neutral">{{ 'Eliminada' | t }}</span>
               }
 
               <p class="resena-texto">{{ r.comentario }}</p>
@@ -168,7 +171,7 @@ const RECONOCIMIENTOS = [
                 <div class="aspectos-chips">
                   @for (a of aspectosDeVertical(r.vertical); track a.key) {
                     @if (r.aspectos[a.key]) {
-                      <span class="rs-badge rs-badge--neutral">{{ a.label }}: {{ r.aspectos[a.key] }}/5</span>
+                      <span class="rs-badge rs-badge--neutral">{{ a.label | t }}: {{ r.aspectos[a.key] }}/5</span>
                     }
                   }
                 </div>
@@ -177,7 +180,7 @@ const RECONOCIMIENTOS = [
               @if (r.fotos && r.fotos.length > 1) {
                 <div class="fotos-grid">
                   @for (foto of r.fotos; track foto) {
-                    <img [src]="foto" alt="Foto de la reseña" />
+                    <img [src]="foto" [alt]="'Foto de la reseña' | t" />
                   }
                 </div>
               }
@@ -186,16 +189,16 @@ const RECONOCIMIENTOS = [
                 <div class="resena-respuesta">
                   <rs-icon name="message-square" [size]="13" [stroke]="2"></rs-icon>
                   <div>
-                    <span class="respuesta-label">Respuesta del comercio</span>
-                    <p>{{ r.respuesta }}</p>
+                    <span class="respuesta-label">{{ 'Respuesta del comercio' | t }}</span>
+                    <p>{{ r.respuesta | t }}</p>
                   </div>
                 </div>
               }
 
               @if (!r.eliminada) {
                 <div class="resena-acciones">
-                  <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="abrirFormularioEditar(r)">Editar</button>
-                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="eliminar(r)">Eliminar</button>
+                  <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="abrirFormularioEditar(r)">{{ 'Editar' | t }}</button>
+                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="eliminar(r)">{{ 'Eliminar' | t }}</button>
                 </div>
               }
             </div>
@@ -203,7 +206,7 @@ const RECONOCIMIENTOS = [
         </div>
       } @else if (!mostrarPendientes() || pendientes().length === 0) {
         <div class="rs-card" style="padding:var(--sp-8);text-align:center">
-          <p style="color:var(--t-400);font-size:var(--f-sm)">Ninguna reseña coincide con este filtro.</p>
+          <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Ninguna reseña coincide con este filtro.' | t }}</p>
         </div>
       }
     } @else {
@@ -211,10 +214,10 @@ const RECONOCIMIENTOS = [
         <div class="empty-icon">
           <rs-icon name="star" [size]="32" [stroke]="1.25"></rs-icon>
         </div>
-        <h2>Aún no has escrito ninguna reseña</h2>
-        <p>Cuando completes una reserva, podrás valorar el servicio para ayudar a otros propietarios a elegir el mejor servicio para su mascota.</p>
+        <h2>{{ 'Aún no has escrito ninguna reseña' | t }}</h2>
+        <p>{{ 'Cuando completes una reserva, podrás valorar el servicio para ayudar a otros propietarios a elegir el mejor servicio para su mascota.' | t }}</p>
         <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary" style="margin-top:var(--sp-5)">
-          Valorar mis reservas
+          {{ 'Valorar mis reservas' | t }}
         </a>
       </div>
     }
@@ -225,7 +228,7 @@ const RECONOCIMIENTOS = [
           <h2>{{ f.modo === 'crear' ? 'Valorar ' + f.servicioTitulo : 'Editar tu reseña' }}</h2>
 
           <div class="rs-form-group">
-            <label class="rs-label">Puntuación general</label>
+            <label class="rs-label">{{ 'Puntuación general' | t }}</label>
             <div class="stars stars--picker">
               @for (n of [1, 2, 3, 4, 5]; track n) {
                 <button type="button" (click)="puntuacion.set(n)" [attr.aria-label]="n + ' estrellas'">
@@ -237,10 +240,10 @@ const RECONOCIMIENTOS = [
 
           @if (aspectosDelFormulario().length > 0) {
             <div class="rs-form-group">
-              <label class="rs-label">Valora aspectos específicos</label>
+              <label class="rs-label">{{ 'Valora aspectos específicos' | t }}</label>
               @for (a of aspectosDelFormulario(); track a.key) {
                 <div class="aspecto-row">
-                  <span>{{ a.label }}</span>
+                  <span>{{ a.label | t }}</span>
                   <div class="stars stars--picker stars--picker-sm">
                     @for (n of [1, 2, 3, 4, 5]; track n) {
                       <button type="button" (click)="setAspecto(a.key, n)" [attr.aria-label]="a.label + ' ' + n + ' estrellas'">
@@ -254,16 +257,16 @@ const RECONOCIMIENTOS = [
           }
 
           <div class="rs-form-group">
-            <label class="rs-label" for="comentario">Tu opinión</label>
+            <label class="rs-label" for="comentario">{{ 'Tu opinión' | t }}</label>
             <textarea id="comentario" class="rs-input" rows="4" [formControl]="comentarioCtrl"
-              placeholder="Cuéntanos cómo fue tu experiencia (mínimo 10 caracteres)"></textarea>
+              [placeholder]="'Cuéntanos cómo fue tu experiencia (mínimo 10 caracteres)' | t"></textarea>
             @if (comentarioCtrl.touched && comentarioCtrl.invalid) {
               <span class="rs-field-error">Escribe al menos {{ comentarioMinimo }} caracteres.</span>
             }
           </div>
 
           <div class="rs-form-group">
-            <label class="rs-label">Fotos (opcional)</label>
+            <label class="rs-label">{{ 'Fotos (opcional)' | t }}</label>
             <rs-image-upload origen="resena/fotos" [multiple]="true" [maxFiles]="6" [formControl]="fotosCtrl"></rs-image-upload>
           </div>
 
@@ -272,7 +275,7 @@ const RECONOCIMIENTOS = [
           }
 
           <div class="modal-acciones">
-            <button type="button" class="rs-btn rs-btn--ghost" (click)="cerrarFormulario()">Cancelar</button>
+            <button type="button" class="rs-btn rs-btn--ghost" (click)="cerrarFormulario()">{{ 'Cancelar' | t }}</button>
             <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardando()" (click)="guardar()">
               {{ guardando() ? 'Guardando…' : 'Publicar reseña' }}
             </button>

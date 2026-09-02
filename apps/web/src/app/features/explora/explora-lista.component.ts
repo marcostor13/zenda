@@ -7,6 +7,7 @@ import { ImgFallbackDirective } from '../../shared/directives/img-fallback.direc
 import { fotoDeLugar } from '../../shared/media/images';
 import { RsMapaComponent, type PuntoMapa } from '../../shared/components/mapa/rs-mapa.component';
 import { LugarApi, LugaresService } from './lugares.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Icono de cada tipo de lugar, para reconocerlo de un vistazo. */
 const ICONOS: Record<TipoLugar, string> = {
@@ -27,7 +28,9 @@ const ICONOS: Record<TipoLugar, string> = {
 @Component({
   selector: 'app-explora-lista',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsMapaComponent],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsMapaComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ex-page">
@@ -36,18 +39,17 @@ const ICONOS: Record<TipoLugar, string> = {
   <section class="rs-section rs-section--sm">
     <div class="rs-wrap rs-wrap--2xl">
       <header class="ex-head">
-        <p class="ex-eyebrow">Comunidad Doogking</p>
-        <h1>Explora con tu mascota</h1>
+        <p class="ex-eyebrow">{{ 'Comunidad Doogking' | t }}</p>
+        <h1>{{ 'Explora con tu mascota' | t }}</h1>
         <p class="ex-sub">
-          Playas, parques, rutas y restaurantes donde tu perro es bienvenido de verdad.
-          Lo mantiene la comunidad; nosotros lo revisamos antes de publicarlo.
+          {{ 'Playas, parques, rutas y restaurantes donde tu perro es bienvenido de verdad. Lo mantiene la comunidad; nosotros lo revisamos antes de publicarlo.' | t }}
         </p>
       </header>
 
-      <div class="ex-filtros" role="tablist" aria-label="Tipo de lugar">
+      <div class="ex-filtros" role="tablist" [attr.aria-label]="'Tipo de lugar' | t">
         <button type="button" role="tab" class="ex-chip" [class.is-on]="!tipo()"
                 [attr.aria-selected]="!tipo()" (click)="filtrar(null)">
-          Todos
+          {{ 'Todos' | t }}
         </button>
         @for (t of tipos; track t) {
           <button type="button" role="tab" class="ex-chip" [class.is-on]="tipo() === t"
@@ -58,12 +60,12 @@ const ICONOS: Record<TipoLugar, string> = {
         }
       </div>
 
-      <div class="ex-filtros" aria-label="Provincia">
+      <div class="ex-filtros" [attr.aria-label]="'Provincia' | t">
         <label class="ex-prov">
-          <span class="ex-prov__lbl">Provincia</span>
+          <span class="ex-prov__lbl">{{ 'Provincia' | t }}</span>
           <select class="rs-inp ex-prov__sel" [value]="provincia() ?? ''"
                   (change)="filtrarProvincia($any($event.target).value)">
-            <option value="">Todas</option>
+            <option value="">{{ 'Todas' | t }}</option>
             @for (p of provincias; track p) {
               <option [value]="p">{{ p }}</option>
             }
@@ -78,7 +80,7 @@ const ICONOS: Record<TipoLugar, string> = {
         </button>
         <a routerLink="/explora/planificador" class="rs-btn rs-btn--gold rs-btn--sm">
           <rs-icon name="sparkles" [size]="14" [stroke]="2"></rs-icon>
-          Planificar un viaje
+          {{ 'Planificar un viaje' | t }}
         </a>
         @if (puntosMapa().length > 0) {
           <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
@@ -108,8 +110,8 @@ const ICONOS: Record<TipoLugar, string> = {
       } @else if (!lugares().length) {
         <div class="ex-vacio">
           <rs-icon name="paw" [size]="40" [stroke]="1.25"></rs-icon>
-          <p>Todavía no hay sitios publicados con este filtro.</p>
-          <p class="ex-vacio__sub">¿Conoces uno? Ayúdanos a construir el mapa pet-friendly de Europa.</p>
+          <p>{{ 'Todavía no hay sitios publicados con este filtro.' | t }}</p>
+          <p class="ex-vacio__sub">{{ '¿Conoces uno? Ayúdanos a construir el mapa pet-friendly de Europa.' | t }}</p>
         </div>
       } @else {
         <p class="ex-count">{{ lugares().length }} {{ lugares().length === 1 ? 'sitio' : 'sitios' }}</p>
@@ -133,7 +135,7 @@ const ICONOS: Record<TipoLugar, string> = {
                     {{ l.ratingPromedio }} · {{ l.totalReviews }} {{ l.totalReviews === 1 ? 'opinión' : 'opiniones' }}
                   </p>
                 } @else {
-                  <p class="ex-card__rating ex-card__rating--vacio">Sé el primero en opinar</p>
+                  <p class="ex-card__rating ex-card__rating--vacio">{{ 'Sé el primero en opinar' | t }}</p>
                 }
               </div>
             </a>

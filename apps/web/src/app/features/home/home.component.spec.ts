@@ -110,8 +110,10 @@ describe('HomeComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     const cards = el.querySelectorAll('.why-card');
     expect(cards.length).toBe(3);
-    // Copy exacto aprobado por el cliente: tres valores, ni uno más.
-    expect(component.motivos.map((m) => m.titulo)).toEqual([
+    // Copy exacto aprobado por el cliente: tres valores, ni uno más. Se lee de
+    // la pantalla y no de `motivos`, que desde el multiidioma guarda claves de
+    // traducción: lo que hay que garantizar es lo que acaba viendo el usuario.
+    expect([...cards].map((c) => c.querySelector('.why-card__title')?.textContent?.trim())).toEqual([
       'Reserva en menos de un minuto',
       'Profesionales verificados',
       'Atención 24/7',
@@ -152,13 +154,17 @@ describe('HomeComponent', () => {
   });
 
   it('debería mostrar los 3 valores aprobados bajo el buscador (PDF 27/07 §4)', () => {
-    expect(component.garantias.map((g) => g.titulo)).toEqual([
+    const el: HTMLElement = fixture.nativeElement;
+    const items = el.querySelectorAll('.trust__item');
+
+    expect([...items].map((i) => i.querySelector('.trust__title')?.textContent?.trim())).toEqual([
       'Reserva en menos de un minuto',
       'Profesionales verificados',
       'Atención 24/7',
     ]);
     // Cada valor lleva su descripción completa, no solo el titular.
-    expect(component.garantias.every((g) => g.descripcion.length > 20)).toBe(true);
+    expect([...items].every((i) => (i.querySelector('.trust__desc')?.textContent ?? '').length > 20))
+      .toBe(true);
   });
 
   it('debería dejar solo la "D" en la barra porque el logotipo grande ya está en el hero (PDF §1)', () => {

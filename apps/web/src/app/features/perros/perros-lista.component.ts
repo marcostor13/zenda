@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import {
   PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, PerroHistorialApi,
   porcentajeCompletitud,
@@ -18,7 +19,9 @@ interface EtiquetaEstado {
 @Component({
   selector: 'app-perros-lista',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -26,23 +29,22 @@ interface EtiquetaEstado {
   <div class="rs-wrap" style="padding-block:var(--sp-10)">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Mis perros</h1>
-        <p class="page-sub">Su Ficha Inteligente: regístralos una vez y las peluquerías, residencias, veterinarios y
-          adiestradores de Doogking adaptarán el servicio automáticamente a cada uno.</p>
+        <h1 class="page-title">{{ 'Mis perros' | t }}</h1>
+        <p class="page-sub">{{ 'Su Ficha Inteligente: regístralos una vez y las peluquerías, residencias, veterinarios y adiestradores de Doogking adaptarán el servicio automáticamente a cada uno.' | t }}</p>
       </div>
       <a routerLink="/perros/nuevo" class="rs-btn rs-btn--primary">
         <rs-icon name="plus" [size]="16" [stroke]="2"></rs-icon>
-        Añadir perro
+        {{ 'Añadir perro' | t }}
       </a>
     </div>
 
     @if (cargando()) {
-      <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">Cargando…</div>
+      <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">{{ 'Cargando…' | t }}</div>
     } @else if (perros().length === 0) {
       <div class="rs-card empty-state">
         <rs-icon name="paw" [size]="40" [stroke]="1.25" style="color:var(--t-400)"></rs-icon>
-        <p>Aún no has registrado ningún perro.</p>
-        <a routerLink="/perros/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">Registrar mi primer perro</a>
+        <p>{{ 'Aún no has registrado ningún perro.' | t }}</p>
+        <a routerLink="/perros/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">{{ 'Registrar mi primer perro' | t }}</a>
       </div>
     } @else {
       <div class="perros-grid">
@@ -69,7 +71,7 @@ interface EtiquetaEstado {
               <div class="perro-card__badges">
                 @for (t of etiquetasEstado(p); track t.label) {
                   <span class="rs-badge" [class]="'rs-badge--' + t.variante">
-                    <rs-icon [name]="t.icon" [size]="13" [stroke]="2.5"></rs-icon> {{ t.label }}
+                    <rs-icon [name]="t.icon" [size]="13" [stroke]="2.5"></rs-icon> {{ t.label | t }}
                   </span>
                 }
                 @if (p.tamano) { <span class="rs-badge">{{ p.tamano }}</span> }
@@ -102,34 +104,34 @@ interface EtiquetaEstado {
 
               @if (historialAbiertoId() === p._id) {
                 <div class="perro-card__resumen">
-                  <strong>Resumen de salud</strong>
+                  <strong>{{ 'Resumen de salud' | t }}</strong>
                   <div class="perro-card__salud">
                     <span [class.ok]="p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0">
                       <rs-icon [name]="(p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0) ? 'check' : 'alert-triangle'"
                                [size]="14" [stroke]="2.5"></rs-icon>
-                      Vacunas registradas
+                      {{ 'Vacunas registradas' | t }}
                     </span>
                     <span [class.ok]="!!p.microchip">
                       <rs-icon [name]="p.microchip ? 'check' : 'alert-triangle'" [size]="14" [stroke]="2.5"></rs-icon>
-                      Microchip registrado
+                      {{ 'Microchip registrado' | t }}
                     </span>
                     <span [class.ok]="p.esterilizado">
                       <rs-icon [name]="p.esterilizado ? 'check' : 'alert-triangle'" [size]="14" [stroke]="2.5"></rs-icon>
-                      Esterilizado
+                      {{ 'Esterilizado' | t }}
                     </span>
                   </div>
                   @if (indices()[p._id]; as ic) {
-                    <strong>Estadísticas</strong>
+                    <strong>{{ 'Estadísticas' | t }}</strong>
                     <p class="perro-card__stats">
                       <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon>
                       {{ ic.puntuacionPromedio }} valoración media de profesionales · {{ ic.totalValoraciones }} servicios valorados
                     </p>
                   }
-                  <strong>Historial reciente</strong>
+                  <strong>{{ 'Historial reciente' | t }}</strong>
                   @if (historialCargando()) {
-                    <p class="perro-card__stats">Cargando…</p>
+                    <p class="perro-card__stats">{{ 'Cargando…' | t }}</p>
                   } @else if ((historialPorPerro()[p._id] ?? []).length === 0) {
-                    <p class="perro-card__stats">Todavía no hay notas de profesionales en el historial.</p>
+                    <p class="perro-card__stats">{{ 'Todavía no hay notas de profesionales en el historial.' | t }}</p>
                   } @else {
                     @for (h of (historialPorPerro()[p._id] ?? []).slice(0, 3); track h._id) {
                       <p class="perro-card__stats">{{ h.vertical }} · {{ h.nota }}</p>
@@ -145,11 +147,11 @@ interface EtiquetaEstado {
               </button>
               <a [routerLink]="['/perros', p._id, 'editar']" class="rs-btn rs-btn--outline rs-btn--sm">
                 <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
-                Editar
+                {{ 'Editar' | t }}
               </a>
               <a [routerLink]="['/perros', p._id, 'privacidad']" class="rs-btn rs-btn--outline rs-btn--sm">
                 <rs-icon name="lock" [size]="13" [stroke]="2"></rs-icon>
-                Privacidad
+                {{ 'Privacidad' | t }}
               </a>
               <button class="rs-btn rs-btn--ghost rs-btn--sm" [disabled]="eliminandoId() === p._id"
                       (click)="eliminar(p)">

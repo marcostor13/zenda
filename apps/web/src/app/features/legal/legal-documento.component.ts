@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RESPONSABLE, ULTIMA_ACTUALIZACION, hayDatosPendientes } from './legal.datos';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
  * Marco común de los documentos legales (privacidad, eliminación de datos).
@@ -14,11 +15,13 @@ import { RESPONSABLE, ULTIMA_ACTUALIZACION, hayDatosPendientes } from './legal.d
   selector: 'app-legal-documento',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [
+    TraducirPipe, RouterLink
+  ],
   template: `
     <div class="lg">
       <header class="lg__cabecera">
-        <a routerLink="/" class="lg__marca" aria-label="Ir al inicio de Doogking">
+        <a routerLink="/" class="lg__marca" [attr.aria-label]="'Ir al inicio de Doogking' | t">
           <img src="/favicon.svg" alt="" class="lg__marca-icono" width="36" height="36" />
           <span class="lg__marca-texto">{{ marca }}</span>
         </a>
@@ -35,8 +38,7 @@ import { RESPONSABLE, ULTIMA_ACTUALIZACION, hayDatosPendientes } from './legal.d
             cuanto se rellenan los datos de legal.datos.ts.
           -->
           <div class="rs-alert rs-alert--warning lg__aviso">
-            <span><strong>Borrador sin publicar.</strong> Faltan los datos de identidad del
-              responsable del tratamiento en <code>legal.datos.ts</code>.</span>
+            <span><strong>{{ 'Borrador sin publicar.' | t }}</strong> {{ 'Faltan los datos de identidad del responsable del tratamiento en' | t }} <code>{{ 'legal.datos.ts' | t }}</code>.</span>
           </div>
         }
 
@@ -45,8 +47,8 @@ import { RESPONSABLE, ULTIMA_ACTUALIZACION, hayDatosPendientes } from './legal.d
         <footer class="lg__pie">
           <p>Última actualización: {{ ultimaActualizacion }}.</p>
           <p>
-            <a routerLink="/privacidad">Política de privacidad</a> ·
-            <a routerLink="/eliminar-datos">Eliminación de datos</a> ·
+            <a routerLink="/privacidad">{{ 'Política de privacidad' | t }}</a> ·
+            <a routerLink="/eliminar-datos">{{ 'Eliminación de datos' | t }}</a> ·
             <a [href]="'mailto:' + emailSoporte">{{ emailSoporte }}</a>
           </p>
         </footer>

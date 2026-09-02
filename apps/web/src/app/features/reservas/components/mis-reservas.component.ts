@@ -12,6 +12,7 @@ import { AlojamientoService } from '../../alojamiento/services/alojamiento.servi
 import { AuthService } from '../../../core/auth/auth.service';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'cancelada' | 'completada';
 
 interface ReservaCard {
@@ -42,7 +43,9 @@ interface ReservaCard {
 @Component({
   selector: 'app-mis-reservas',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, EurosPipe
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -50,8 +53,8 @@ interface ReservaCard {
   <div class="rs-wrap" style="padding-block:var(--sp-10)">
 
     <div style="margin-bottom:var(--sp-8)">
-      <h1 style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100);margin-bottom:var(--sp-2)">Mis reservas</h1>
-      <p style="color:var(--t-400)">Gestiona y consulta todas tus reservas</p>
+      <h1 style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100);margin-bottom:var(--sp-2)">{{ 'Mis reservas' | t }}</h1>
+      <p style="color:var(--t-400)">{{ 'Gestiona y consulta todas tus reservas' | t }}</p>
     </div>
 
     <!-- FILTROS -->
@@ -63,7 +66,7 @@ interface ReservaCard {
                 [style.border-color]="filtroActivo() === f.valor ? f.color : null"
                 (click)="filtroActivo.set(f.valor)">
           @if (f.dot) { <span aria-hidden="true">{{ f.dot }}</span> }
-          {{ f.label }}
+          {{ f.label | t }}
           <span class="filtro-pill__count">{{ conteo(f.valor) }}</span>
         </button>
       }
@@ -75,10 +78,10 @@ interface ReservaCard {
         @if (r.estado === 'ajuste_solicitado') {
           <div class="rs-card ajuste-banner">
             <div>
-              <strong>El comercio solicitó un ajuste de precio</strong>
+              <strong>{{ 'El comercio solicitó un ajuste de precio' | t }}</strong>
               <p>{{ r.codigo }} · nuevo total propuesto: {{ r.montoAjustado | euros }} (antes {{ r.total | euros }}). Ningún cargo se aplicará sin tu aprobación.</p>
             </div>
-            <a [routerLink]="['/reservas', r.codigo, 'ajuste']" class="rs-btn rs-btn--primary rs-btn--sm">Revisar y responder</a>
+            <a [routerLink]="['/reservas', r.codigo, 'ajuste']" class="rs-btn rs-btn--primary rs-btn--sm">{{ 'Revisar y responder' | t }}</a>
           </div>
         }
 
@@ -107,7 +110,7 @@ interface ReservaCard {
               <div class="timeline">
                 @for (paso of pasosTimeline(r); track paso.label; let last = $last) {
                   <span class="timeline__paso" [class.timeline__paso--hecho]="paso.hecho" [class.timeline__paso--actual]="paso.actual">
-                    <rs-icon [name]="paso.hecho ? 'check' : 'circle'" [size]="13" [stroke]="2.5" /> {{ paso.label }}
+                    <rs-icon [name]="paso.hecho ? 'check' : 'circle'" [size]="13" [stroke]="2.5" /> {{ paso.label | t }}
                   </span>
                   @if (!last) { <span class="timeline__linea" [class.timeline__linea--hecha]="paso.hecho"></span> }
                 }
@@ -119,18 +122,18 @@ interface ReservaCard {
             <div class="reserva-row__codigo">{{ r.codigo }}</div>
             <div class="reserva-row__precio">{{ r.total | euros }}</div>
             <div class="reserva-row__quick">
-              <button type="button" class="quick-btn" title="Cómo llegar" aria-label="Cómo llegar" (click)="comoLlegar(r)">
+              <button type="button" class="quick-btn" [title]="'Cómo llegar' | t" [attr.aria-label]="'Cómo llegar' | t" (click)="comoLlegar(r)">
                 <rs-icon name="navigation" [size]="16" [stroke]="2" />
               </button>
-              <button type="button" class="quick-btn" title="Añadir al calendario" aria-label="Añadir al calendario" (click)="anadirACalendario(r)">
+              <button type="button" class="quick-btn" [title]="'Añadir al calendario' | t" [attr.aria-label]="'Añadir al calendario' | t" (click)="anadirACalendario(r)">
                 <rs-icon name="calendar-plus" [size]="16" [stroke]="2" />
               </button>
-              <button type="button" class="quick-btn" title="Compartir" aria-label="Compartir" (click)="compartir(r)">
+              <button type="button" class="quick-btn" [title]="'Compartir' | t" [attr.aria-label]="'Compartir' | t" (click)="compartir(r)">
                 <rs-icon name="share" [size]="16" [stroke]="2" />
               </button>
             </div>
             <div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-3)">
-              <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--outline rs-btn--sm">Ver detalle</a>
+              <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--outline rs-btn--sm">{{ 'Ver detalle' | t }}</a>
               @if (r.estado === 'confirmada' || r.estado === 'pendiente') {
                 <button class="rs-btn rs-btn--danger rs-btn--sm"
                         [disabled]="cancelandoId() === r.id"
@@ -139,13 +142,13 @@ interface ReservaCard {
                 </button>
               }
               @if (r.estado === 'completada' && !r.yaResenada && resenandoId() !== r.id) {
-                <button class="rs-btn rs-btn--gold rs-btn--sm" (click)="abrirResena(r.id)">Dejar reseña</button>
+                <button class="rs-btn rs-btn--gold rs-btn--sm" (click)="abrirResena(r.id)">{{ 'Dejar reseña' | t }}</button>
               }
               @if (r.estado === 'completada' && r.yaResenada) {
-                <span class="rs-badge rs-badge--success" style="font-size:var(--f-xs)"><rs-icon name="check" [size]="12" [stroke]="3" /> Reseñada</span>
+                <span class="rs-badge rs-badge--success" style="font-size:var(--f-xs)"><rs-icon name="check" [size]="12" [stroke]="3" /> {{ 'Reseñada' | t }}</span>
               }
               @if (r.estado === 'completada') {
-                <a [routerLink]="rutaReservarDeNuevo(r)" class="rs-btn rs-btn--outline rs-btn--sm"><rs-icon name="refresh-cw" [size]="14" [stroke]="2" /> Reservar de nuevo</a>
+                <a [routerLink]="rutaReservarDeNuevo(r)" class="rs-btn rs-btn--outline rs-btn--sm"><rs-icon name="refresh-cw" [size]="14" [stroke]="2" /> {{ 'Reservar de nuevo' | t }}</a>
               }
             </div>
           </div>
@@ -153,17 +156,17 @@ interface ReservaCard {
 
         @if (necesitaChecklist(r)) {
           <div class="checklist-antes-de-ir">
-            <strong><rs-icon name="dog" [size]="16" [stroke]="2" /> Antes de ir recuerda llevar:</strong>
-            <span><rs-icon name="check" [size]="13" [stroke]="3" /> Cartilla sanitaria</span>
-            <span><rs-icon name="check" [size]="13" [stroke]="3" /> Su pienso habitual</span>
-            <span><rs-icon name="check" [size]="13" [stroke]="3" /> Medicación (si toma)</span>
-            <span><rs-icon name="check" [size]="13" [stroke]="3" /> Correa y collar</span>
+            <strong><rs-icon name="dog" [size]="16" [stroke]="2" /> {{ 'Antes de ir recuerda llevar:' | t }}</strong>
+            <span><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Cartilla sanitaria' | t }}</span>
+            <span><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Su pienso habitual' | t }}</span>
+            <span><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Medicación (si toma)' | t }}</span>
+            <span><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Correa y collar' | t }}</span>
           </div>
         }
 
         @if (resenandoId() === r.id) {
           <div class="rs-card resena-form">
-            <label class="rs-label">Tu puntuación</label>
+            <label class="rs-label">{{ 'Tu puntuación' | t }}</label>
             <div class="resena-form__estrellas">
               @for (n of [1,2,3,4,5]; track n) {
                 <button type="button" class="estrella-btn" [class.activa]="n <= puntuacionSel()"
@@ -172,9 +175,9 @@ interface ReservaCard {
                 </button>
               }
             </div>
-            <label class="rs-label" style="margin-top:var(--sp-3)">Tu comentario</label>
+            <label class="rs-label" style="margin-top:var(--sp-3)">{{ 'Tu comentario' | t }}</label>
             <textarea class="rs-input" rows="3" [formControl]="comentarioCtrl"
-                      placeholder="Cuéntanos cómo fue la experiencia con tu perro…"></textarea>
+                      [placeholder]="'Cuéntanos cómo fue la experiencia con tu perro…' | t"></textarea>
             @if (errorResena()) {
               <p class="rs-field-error">{{ errorResena() }}</p>
             }
@@ -182,7 +185,7 @@ interface ReservaCard {
               <button class="rs-btn rs-btn--primary rs-btn--sm" [disabled]="enviandoResena()" (click)="enviarResena(r)">
                 {{ enviandoResena() ? 'Enviando…' : 'Publicar reseña' }}
               </button>
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarResena()">Cancelar</button>
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarResena()">{{ 'Cancelar' | t }}</button>
             </div>
           </div>
         }
@@ -192,8 +195,8 @@ interface ReservaCard {
         <div class="empty-state">
           <rs-icon name="search" [size]="48" [stroke]="1.5" style="color:var(--t-400);margin-bottom:var(--sp-4)" />
           <h3>No hay reservas {{ filtroActivo() !== 'todas' ? 'con este estado' : '' }}</h3>
-          <p>Cuando hagas tu primera reserva aparecerá aquí.</p>
-          <a routerLink="/alojamiento" class="rs-btn rs-btn--gold" style="margin-top:var(--sp-5)">Explorar alojamientos</a>
+          <p>{{ 'Cuando hagas tu primera reserva aparecerá aquí.' | t }}</p>
+          <a routerLink="/alojamiento" class="rs-btn rs-btn--gold" style="margin-top:var(--sp-5)">{{ 'Explorar alojamientos' | t }}</a>
         </div>
       }
     </div>

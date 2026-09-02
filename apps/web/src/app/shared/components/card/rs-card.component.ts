@@ -7,6 +7,7 @@ import { RsStarsComponent } from '../stars/rs-stars.component';
 import { RsFavoritoBtnComponent } from '../favorito-btn/rs-favorito-btn.component';
 import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 export interface CardBadge {
   label: string;
@@ -44,7 +45,9 @@ export interface CardPrice {
 @Component({
   selector: 'rs-card',
   standalone: true,
-  imports: [CommonModule, RouterLink, RsBadgeComponent, RsRatingComponent, RsStarsComponent, RsFavoritoBtnComponent, ImgFallbackDirective, RsIconComponent],
+  imports: [
+    TraducirPipe, CommonModule, RouterLink, RsBadgeComponent, RsRatingComponent, RsStarsComponent, RsFavoritoBtnComponent, ImgFallbackDirective, RsIconComponent
+  ],
   template: `
     @if (imageUrl()) {
       @if (routerLink()) {
@@ -72,7 +75,7 @@ export interface CardPrice {
               @for (b of badges(); track b.label) {
                 <rs-badge [variant]="b.variant || 'accent'">
                   @if (b.icon) { <rs-icon [name]="b.icon" [size]="12" [stroke]="2.5" /> }
-                  {{ b.label }}
+                  {{ b.label | t }}
                 </rs-badge>
               }
             </div>
@@ -95,8 +98,8 @@ export interface CardPrice {
                 <!-- Un servicio recien publicado no tiene nota: pintar "0" con
                      cinco estrellas vacias lo hace parecer valorado y pesimo,
                      que es lo contrario de lo que dice el dato. -->
-                <span class="rs-hotel-card__nuevo">Nuevo</span>
-                <span>Aún sin valoraciones</span>
+                <span class="rs-hotel-card__nuevo">{{ 'Nuevo' | t }}</span>
+                <span>{{ 'Aún sin valoraciones' | t }}</span>
               } @else if (rating(); as r) {
                 <rs-stars [score]="+r.score" [size]="13" />
                 <strong>{{ r.score }}</strong>

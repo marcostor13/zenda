@@ -21,11 +21,12 @@ import type { BarraHistograma } from '../../../shared/components/range-slider/rs
 import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automaticos';
 
 import { euros } from '../../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 @Component({
   selector: 'app-transporte-lista',
   standalone: true,
   imports: [
-    RsNavbarComponent, RsSearchBarComponent, RsListadoComponent,
+    TraducirPipe, RsNavbarComponent, RsSearchBarComponent, RsListadoComponent,
     AnimateOnScrollDirective, RsCardComponent, RsMapaBuscadorComponent,
   ],
   template: `
@@ -69,7 +70,7 @@ import { euros } from '../../../shared/pipes/euros.pipe';
           [destacados]="incluyeDe(t)"
           [favoritoServicioId]="t.id"
           [routerLink]="['/transporte', t.id]"
-          ctaLabel="Ver ficha"
+          [ctaLabel]="'Ver ficha' | t"
           [accionSoloEscritorio]="true">
         </rs-card>
       }

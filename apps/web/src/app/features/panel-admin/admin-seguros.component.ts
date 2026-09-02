@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { EstadoSolicitudSeguros, ESTADO_SOLICITUD_SEGUROS_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AdminApiService, SolicitudSeguros } from './admin-api.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
  * Alta de aseguradoras.
@@ -17,11 +18,13 @@ import { AdminApiService, SolicitudSeguros } from './admin-api.service';
 @Component({
   selector: 'app-admin-seguros',
   standalone: true,
-  imports: [RsIconComponent, DatePipe],
+  imports: [
+    TraducirPipe, RsIconComponent, DatePipe
+  ],
   template: `
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Aseguradoras</h1>
+        <h1 class="rs-page-title">{{ 'Aseguradoras' | t }}</h1>
         <p class="rs-page-sub">
           Solicitudes de alta con su documentación. Doogking trabaja con
           {{ maximo() }} compañías como máximo.
@@ -38,10 +41,10 @@ import { AdminApiService, SolicitudSeguros } from './admin-api.service';
     }
 
     @if (cargando()) {
-      <p style="color:var(--t-400)">Cargando solicitudes…</p>
+      <p style="color:var(--t-400)">{{ 'Cargando solicitudes…' | t }}</p>
     } @else if (!solicitudes().length) {
       <div class="rs-card admin-panel">
-        <p style="color:var(--t-400)">Todavía no hay ninguna solicitud de aseguradora.</p>
+        <p style="color:var(--t-400)">{{ 'Todavía no hay ninguna solicitud de aseguradora.' | t }}</p>
       </div>
     } @else {
       <div class="sols">
@@ -62,30 +65,30 @@ import { AdminApiService, SolicitudSeguros } from './admin-api.service';
 
             <div class="sol__cols">
               <div>
-                <h3 class="sol__sub">Contacto</h3>
+                <h3 class="sol__sub">{{ 'Contacto' | t }}</h3>
                 <dl class="sol__datos">
-                  <div><dt>Persona</dt><dd>{{ s.solicitud?.contacto?.nombre || '—' }}</dd></div>
+                  <div><dt>{{ 'Persona' | t }}</dt><dd>{{ s.solicitud?.contacto?.nombre || '—' }}</dd></div>
                   @if (s.solicitud?.contacto?.cargo) {
-                    <div><dt>Cargo</dt><dd>{{ s.solicitud?.contacto?.cargo }}</dd></div>
+                    <div><dt>{{ 'Cargo' | t }}</dt><dd>{{ s.solicitud?.contacto?.cargo }}</dd></div>
                   }
                   <div>
-                    <dt>Correo</dt>
+                    <dt>{{ 'Correo' | t }}</dt>
                     <dd><a [href]="'mailto:' + s.solicitud?.contacto?.email">{{ s.solicitud?.contacto?.email || '—' }}</a></dd>
                   </div>
                   <div>
-                    <dt>Teléfono</dt>
+                    <dt>{{ 'Teléfono' | t }}</dt>
                     <dd><a [href]="'tel:' + s.solicitud?.contacto?.telefono">{{ s.solicitud?.contacto?.telefono || '—' }}</a></dd>
                   </div>
                 </dl>
               </div>
 
               <div>
-                <h3 class="sol__sub">Compañía</h3>
+                <h3 class="sol__sub">{{ 'Compañía' | t }}</h3>
                 <dl class="sol__datos">
-                  <div><dt>Registro DGSFP</dt><dd>{{ s.solicitud?.aseguradora?.registroDgs || '—' }}</dd></div>
-                  <div><dt>Ámbito</dt><dd>{{ s.solicitud?.aseguradora?.ambito || '—' }}</dd></div>
+                  <div><dt>{{ 'Registro DGSFP' | t }}</dt><dd>{{ s.solicitud?.aseguradora?.registroDgs || '—' }}</dd></div>
+                  <div><dt>{{ 'Ámbito' | t }}</dt><dd>{{ s.solicitud?.aseguradora?.ambito || '—' }}</dd></div>
                   <div>
-                    <dt>Web</dt>
+                    <dt>{{ 'Web' | t }}</dt>
                     <dd>
                       @if (s.solicitud?.aseguradora?.web) {
                         <a [href]="s.solicitud?.aseguradora?.web" target="_blank" rel="noopener">
@@ -98,7 +101,7 @@ import { AdminApiService, SolicitudSeguros } from './admin-api.service';
               </div>
             </div>
 
-            <h3 class="sol__sub">Documentación</h3>
+            <h3 class="sol__sub">{{ 'Documentación' | t }}</h3>
             @if (s.solicitud?.documentos?.length) {
               <ul class="docs">
                 @for (d of s.solicitud?.documentos ?? []; track d.url) {
@@ -109,11 +112,11 @@ import { AdminApiService, SolicitudSeguros } from './admin-api.service';
                 }
               </ul>
             } @else {
-              <p class="sol__vacio">La compañía no adjuntó documentos.</p>
+              <p class="sol__vacio">{{ 'La compañía no adjuntó documentos.' | t }}</p>
             }
 
             @if (s.solicitud?.notas) {
-              <h3 class="sol__sub">Notas de la compañía</h3>
+              <h3 class="sol__sub">{{ 'Notas de la compañía' | t }}</h3>
               <p class="sol__notas">{{ s.solicitud?.notas }}</p>
             }
 
@@ -127,28 +130,28 @@ import { AdminApiService, SolicitudSeguros } from './admin-api.service';
             <footer class="sol__pie">
               @if (rechazando() === s.servicioId) {
                 <!-- El motivo no es opcional: es lo que se le explica a la compañía. -->
-                <input class="rs-inp" [value]="motivo()" placeholder="¿Por qué no se aprueba?"
+                <input class="rs-inp" [value]="motivo()" [placeholder]="'¿Por qué no se aprueba?' | t"
                        (input)="motivo.set($any($event.target).value)" />
                 <button class="rs-btn rs-btn--danger rs-btn--sm" [disabled]="!motivo().trim() || guardando()"
-                        (click)="rechazar(s)">Confirmar</button>
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="rechazando.set(null)">Cancelar</button>
+                        (click)="rechazar(s)">{{ 'Confirmar' | t }}</button>
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="rechazando.set(null)">{{ 'Cancelar' | t }}</button>
               } @else {
                 @if (s.estadoSolicitud !== 'aprobada') {
                   <button class="rs-btn rs-btn--primary rs-btn--sm"
                           [disabled]="guardando() || (plazasLibres() === 0)"
                           (click)="aprobar(s)">
-                    <rs-icon name="check" [size]="14" [stroke]="2.5"></rs-icon> Aprobar y publicar
+                    <rs-icon name="check" [size]="14" [stroke]="2.5"></rs-icon> {{ 'Aprobar y publicar' | t }}
                   </button>
                 }
                 @if (s.estadoSolicitud !== 'rechazada') {
                   <button class="rs-btn rs-btn--outline rs-btn--sm" [disabled]="guardando()"
                           (click)="rechazando.set(s.servicioId); motivo.set('')">
-                    No aprobar
+                    {{ 'No aprobar' | t }}
                   </button>
                 }
                 @if (s.estadoSolicitud !== 'aprobada' && plazasLibres() === 0) {
                   <span class="sol__cupo">
-                    Sin plazas libres: da de baja a una aseguradora antes de aprobar otra.
+                    {{ 'Sin plazas libres: da de baja a una aseguradora antes de aprobar otra.' | t }}
                   </span>
                 }
               }

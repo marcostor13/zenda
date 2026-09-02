@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, model, output } from '@angular/core';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Barra del histograma de precios ya normalizada para pintar (PDF 27/07 §3, WA0009). */
 export interface BarraHistograma {
@@ -24,6 +25,7 @@ export interface RangoSeleccionado {
 @Component({
   selector: 'rs-range-slider',
   standalone: true,
+  imports: [TraducirPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="rrs">
@@ -48,13 +50,13 @@ export interface RangoSeleccionado {
         <input type="range" class="rrs__asa"
                [min]="min()" [max]="max()" [step]="step()"
                [value]="valorMin()"
-               aria-label="Precio mínimo"
+               [attr.aria-label]="'Precio mínimo' | t"
                (input)="moverMin($event)"
                (change)="emitir()" />
         <input type="range" class="rrs__asa"
                [min]="min()" [max]="max()" [step]="step()"
                [value]="valorMax()"
-               aria-label="Precio máximo"
+               [attr.aria-label]="'Precio máximo' | t"
                (input)="moverMax($event)"
                (change)="emitir()" />
       </div>

@@ -2,11 +2,14 @@ import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/cor
 import { RouterOutlet } from '@angular/router';
 import { MovilService } from './core/movil/movil.service';
 import { ConexionApiService } from './core/diagnostico/conexion-api.service';
+import { TraducirPipe } from './core/i18n/traducir.pipe';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [
+    TraducirPipe, RouterOutlet
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (conexion.mostrarAviso()) {
@@ -17,8 +20,8 @@ import { ConexionApiService } from './core/diagnostico/conexion-api.service';
     dato ya está en la consola, así que ahí no se muestra.
   -->
   <div class="sin-conexion" role="alert">
-    <strong>No se puede conectar con el servidor.</strong>
-    <span>Comprueba tu conexión. Si el problema sigue, avísanos.</span>
+    <strong>{{ 'No se puede conectar con el servidor.' | t }}</strong>
+    <span>{{ 'Comprueba tu conexión. Si el problema sigue, avísanos.' | t }}</span>
     <code>{{ conexion.apiUrl }}</code>
   </div>
 }

@@ -12,6 +12,7 @@ import { CoordenadasLugar } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { CATEGORIA_ICONOS } from '../../media/images';
 import { VERTICALES_PUBLICOS, VerticalUi, verticalUi } from '../../verticales/verticales.config';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Para pintar la fecha elegida en el disparador: "12 sep", no "2026-09-12". */
 const MESES_CORTOS = [
@@ -46,32 +47,32 @@ export interface BusquedaParams {
   selector: 'rs-search-bar',
   standalone: true,
   imports: [
-    ReactiveFormsModule, RouterLink, RsIconComponent,
+    TraducirPipe, ReactiveFormsModule, RouterLink, RsIconComponent,
     RsPetPickerComponent, RsPlaceAutocompleteComponent, RsCalendarioRangoComponent,
   ],
   template: `
 <div class="sb" [class.sb--strip]="variant() === 'strip'">
   @if (categorias()) {
-    <div class="sb__cats" role="tablist" aria-label="Categorías de servicio">
+    <div class="sb__cats" role="tablist" [attr.aria-label]="'Categorías de servicio' | t">
       @for (v of verticales; track v.key) {
         <button type="button" class="sb__cat" role="tab"
                 [class.is-active]="activo().key === v.key"
                 [attr.aria-selected]="activo().key === v.key"
                 (click)="seleccionarVertical(v.key)">
           <img [src]="v.icono" alt="" class="sb__cat-icon" aria-hidden="true" />
-          <span class="sb__cat-label">{{ v.labelCorto }}</span>
+          <span class="sb__cat-label">{{ v.labelCorto | t }}</span>
         </button>
       }
       <a class="sb__cat sb__cat--more" routerLink="/" fragment="categorias">
         <img [src]="iconoMas" alt="" class="sb__cat-icon" aria-hidden="true" />
-        <span class="sb__cat-label">Más servicios</span>
+        <span class="sb__cat-label">{{ 'Más servicios' | t }}</span>
       </a>
     </div>
   }
 
   <form class="sb__form" [formGroup]="formulario" (ngSubmit)="buscar()">
     <div class="sb__field sb__field--where">
-      <label class="sb__lbl" [attr.for]="idCiudad">{{ activo().labelUbicacion }}</label>
+      <label class="sb__lbl" [attr.for]="idCiudad">{{ activo().labelUbicacion | t }}</label>
       <rs-place-autocomplete formControlName="ciudad"
                              [inputId]="idCiudad"
                              [placeholder]="activo().placeholderUbicacion"
@@ -80,7 +81,7 @@ export interface BusquedaParams {
     </div>
 
     <div class="sb__field sb__field--fechas">
-      <label class="sb__lbl" [attr.for]="idDesde">{{ activo().labelFecha }}</label>
+      <label class="sb__lbl" [attr.for]="idDesde">{{ activo().labelFecha | t }}</label>
       <button type="button" [id]="idDesde" class="sb__ctrl sb__fecha"
               (click)="abrirCalendario()"
               [attr.aria-expanded]="calendarioAbierto()" aria-haspopup="dialog">
@@ -98,7 +99,7 @@ export interface BusquedaParams {
           <div class="sb__cal-cab">
             <strong class="sb__cal-titulo">{{ tituloFechas() }}</strong>
             <button type="button" class="sb__cal-x" (click)="cerrarCalendario()"
-                    aria-label="Cerrar el calendario">
+                    [attr.aria-label]="'Cerrar el calendario' | t">
               <rs-icon name="x" [size]="18" [stroke]="2.5"></rs-icon>
             </button>
           </div>
@@ -111,11 +112,11 @@ export interface BusquedaParams {
 
           <div class="sb__cal-pie">
             <button type="button" class="sb__cal-link" (click)="borrarFechas()">
-              Borrar fechas
+              {{ 'Borrar fechas' | t }}
             </button>
             <button type="button" class="rs-btn rs-btn--primary rs-btn--sm"
                     (click)="cerrarCalendario()">
-              Listo
+              {{ 'Listo' | t }}
             </button>
           </div>
         </div>
@@ -124,7 +125,7 @@ export interface BusquedaParams {
 
     @if (activo().reservaPorNoches) {
       <div class="sb__field sb__field--fechas">
-        <label class="sb__lbl" [attr.for]="idHasta">Salida</label>
+        <label class="sb__lbl" [attr.for]="idHasta">{{ 'Salida' | t }}</label>
         <button type="button" [id]="idHasta" class="sb__ctrl sb__fecha"
                 (click)="abrirCalendario()"
                 [attr.aria-expanded]="calendarioAbierto()" aria-haspopup="dialog">
@@ -138,7 +139,7 @@ export interface BusquedaParams {
 
     @if (activo().pideHora) {
       <div class="sb__field sb__field--hora">
-        <label class="sb__lbl" [attr.for]="idHora">Hora</label>
+        <label class="sb__lbl" [attr.for]="idHora">{{ 'Hora' | t }}</label>
         <div class="sb__ctrl">
           <rs-icon name="calendar" [size]="18" [stroke]="2"></rs-icon>
           <input [id]="idHora" formControlName="hora" type="time" class="sb__inp" />
@@ -147,7 +148,7 @@ export interface BusquedaParams {
     }
 
     <div class="sb__field sb__field--pets">
-      <span class="sb__lbl">¿Para qué mascota?</span>
+      <span class="sb__lbl">{{ '¿Para qué mascota?' | t }}</span>
       <rs-pet-picker [(perroIds)]="perroIds" [(numPerros)]="numPerros" />
     </div>
 
@@ -156,7 +157,7 @@ export interface BusquedaParams {
     @if (variant() === 'card') {
       <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg sb__cta">
         <rs-icon name="search" [size]="21" [stroke]="2.5"></rs-icon>
-        <span>Buscar</span>
+        <span>{{ 'Buscar' | t }}</span>
       </button>
     }
   </form>

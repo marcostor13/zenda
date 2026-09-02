@@ -4,6 +4,7 @@ import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angula
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiResena } from './comercio-api.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 const VERTICAL_ICON: Record<string, string> = {
   alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
@@ -12,28 +13,30 @@ const VERTICAL_ICON: Record<string, string> = {
 @Component({
   selector: 'app-comercio-resenas',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, RsIconComponent],
+  imports: [
+    TraducirPipe, DatePipe, ReactiveFormsModule, RsIconComponent
+  ],
   template: `
     <!-- Page header -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Reseñas</h1>
-        <p class="page-sub">Consulta y responde las opiniones de tus clientes.</p>
+        <h1 class="page-title">{{ 'Reseñas' | t }}</h1>
+        <p class="page-sub">{{ 'Consulta y responde las opiniones de tus clientes.' | t }}</p>
       </div>
       <div class="header-kpis">
         <div class="rs-card kpi-chip">
           <div class="kpi-chip__value">{{ promedioGeneral() || '—' }}</div>
-          <div class="kpi-chip__label">Promedio</div>
+          <div class="kpi-chip__label">{{ 'Promedio' | t }}</div>
         </div>
         <div class="rs-card kpi-chip">
           <div class="kpi-chip__value">{{ resenas().length }}</div>
-          <div class="kpi-chip__label">Total</div>
+          <div class="kpi-chip__label">{{ 'Total' | t }}</div>
         </div>
         <button type="button" class="rs-card kpi-chip kpi-chip--accion"
                 [class.is-activo]="filtro() === 'sinResponder'"
                 (click)="filtrarPor('sinResponder')">
           <div class="kpi-chip__value">{{ sinResponder() }}</div>
-          <div class="kpi-chip__label">Sin responder</div>
+          <div class="kpi-chip__label">{{ 'Sin responder' | t }}</div>
         </button>
       </div>
     </div>
@@ -67,15 +70,15 @@ const VERTICAL_ICON: Record<string, string> = {
     <!-- Orden de la lista (TCK-8025) -->
     @if (!cargando() && resenas().length > 1) {
       <div class="orden-barra">
-        <span class="orden-barra__label">Ordenar por</span>
-        <div class="orden-toggle" role="group" aria-label="Ordenar reseñas">
+        <span class="orden-barra__label">{{ 'Ordenar por' | t }}</span>
+        <div class="orden-toggle" role="group" [attr.aria-label]="'Ordenar reseñas' | t">
           <button class="orden-toggle__btn" [class.activa]="orden() === 'recientes'"
-                  (click)="orden.set('recientes')">Más recientes</button>
+                  (click)="orden.set('recientes')">{{ 'Más recientes' | t }}</button>
           <button class="orden-toggle__btn" [class.activa]="orden() === 'mejor'"
-                  (click)="orden.set('mejor')">Mejor valoradas</button>
+                  (click)="orden.set('mejor')">{{ 'Mejor valoradas' | t }}</button>
         </div>
         @if (filtro() !== 'todas') {
-          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="filtrarPor('todas')">Quitar el filtro</button>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="filtrarPor('todas')">{{ 'Quitar el filtro' | t }}</button>
         }
       </div>
     }
@@ -91,8 +94,8 @@ const VERTICAL_ICON: Record<string, string> = {
     } @else if (resenas().length === 0) {
       <div class="rs-card empty-state">
         <rs-icon name="star" [size]="40" [stroke]="1.5" style="color:var(--c-amber);margin-bottom:var(--sp-4)"></rs-icon>
-        <h3>Aún no tienes reseñas</h3>
-        <p>Las reseñas aparecerán aquí cuando tus clientes las dejen tras completar una reserva.</p>
+        <h3>{{ 'Aún no tienes reseñas' | t }}</h3>
+        <p>{{ 'Las reseñas aparecerán aquí cuando tus clientes las dejen tras completar una reserva.' | t }}</p>
       </div>
     } @else {
       @for (r of resenasFiltradas(); track r._id) {
@@ -127,14 +130,14 @@ const VERTICAL_ICON: Record<string, string> = {
             <div class="resena-respuesta">
               <div class="resena-respuesta__label">
                 <rs-icon name="message-square" [size]="13" [stroke]="2"></rs-icon>
-                Tu respuesta
+                {{ 'Tu respuesta' | t }}
               </div>
-              <p>{{ r.respuesta }}</p>
+              <p>{{ r.respuesta | t }}</p>
             </div>
           } @else if (respondiendoId() !== r._id) {
             <button class="rs-btn rs-btn--ghost rs-btn--sm" style="margin-top:var(--sp-3)" (click)="abrirRespuesta(r._id)">
               <rs-icon name="message-square" [size]="14" [stroke]="2"></rs-icon>
-              Responder
+              {{ 'Responder' | t }}
             </button>
           }
 
@@ -144,14 +147,14 @@ const VERTICAL_ICON: Record<string, string> = {
               <textarea
                 class="rs-inp"
                 rows="3"
-                placeholder="Escribe tu respuesta al cliente…"
+                [placeholder]="'Escribe tu respuesta al cliente…' | t"
                 [formControl]="respuestaCtrl"
                 style="resize:vertical"></textarea>
               @if (errorRespuesta()) {
                 <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-2)">{{ errorRespuesta() }}</div>
               }
               <div class="respuesta-form__actions">
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarRespuesta()">Cancelar</button>
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarRespuesta()">{{ 'Cancelar' | t }}</button>
                 <button class="rs-btn rs-btn--primary rs-btn--sm"
                         [disabled]="enviando()"
                         (click)="enviarRespuesta(r._id)">

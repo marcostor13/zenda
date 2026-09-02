@@ -12,6 +12,7 @@ import { BRAND, HOTEL_IMAGES } from '../../shared/media/images';
 import { CarritoService } from '../carrito/carrito.service';
 import { PerroApi, PerrosService } from '../perros/perros.service';
 import { environment } from '../../../environments/environment';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 interface ParadaApi {
   titulo: string;
@@ -64,7 +65,7 @@ const PROVINCIAS = [
   selector: 'app-planificador',
   standalone: true,
   imports: [
-    CurrencyPipe, FormsModule, RouterLink,
+    TraducirPipe, CurrencyPipe, FormsModule, RouterLink,
     RsNavbarComponent, RsIconComponent, ImgFallbackDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -75,11 +76,10 @@ const PROVINCIAS = [
   <section class="rs-section rs-section--sm">
     <div class="rs-wrap rs-wrap--2xl">
       <header class="pl-head">
-        <p class="pl-eyebrow">Planificador de viajes</p>
-        <h1>¿A dónde vais este año?</h1>
+        <p class="pl-eyebrow">{{ 'Planificador de viajes' | t }}</p>
+        <h1>{{ '¿A dónde vais este año?' | t }}</h1>
         <p class="pl-sub">
-          Elige provincia y te proponemos un viaje completo con tu perro: dónde dormir,
-          dónde pasear y qué reservar. Todo con sitios y profesionales que ya están en Doogking.
+          {{ 'Elige provincia y te proponemos un viaje completo con tu perro: dónde dormir, dónde pasear y qué reservar. Todo con sitios y profesionales que ya están en Doogking.' | t }}
         </p>
       </header>
 
@@ -98,28 +98,28 @@ const PROVINCIAS = [
           <div class="pl-form__cabecera">
             <h2>Tu viaje a {{ provincia() }}</h2>
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="volver()">
-              Cambiar provincia
+              {{ 'Cambiar provincia' | t }}
             </button>
           </div>
 
           <div class="pl-form__campos">
             <div class="rs-field">
-              <label class="rs-lbl" for="pl-desde">Desde</label>
+              <label class="rs-lbl" for="pl-desde">{{ 'Desde' | t }}</label>
               <input id="pl-desde" type="date" class="rs-inp" [(ngModel)]="desde" />
             </div>
             <div class="rs-field">
-              <label class="rs-lbl" for="pl-hasta">Hasta</label>
+              <label class="rs-lbl" for="pl-hasta">{{ 'Hasta' | t }}</label>
               <input id="pl-hasta" type="date" class="rs-inp" [(ngModel)]="hasta" />
             </div>
             <div class="rs-field">
-              <label class="rs-lbl" for="pl-presupuesto">Presupuesto (€)</label>
+              <label class="rs-lbl" for="pl-presupuesto">{{ 'Presupuesto (€)' | t }}</label>
               <input id="pl-presupuesto" type="number" min="0" class="rs-inp" [(ngModel)]="presupuesto" />
             </div>
             @if (perros().length) {
               <div class="rs-field">
-                <label class="rs-lbl" for="pl-perro">¿Con quién viajas?</label>
+                <label class="rs-lbl" for="pl-perro">{{ '¿Con quién viajas?' | t }}</label>
                 <select id="pl-perro" class="rs-inp" [(ngModel)]="perroId">
-                  <option value="">Sin especificar</option>
+                  <option value="">{{ 'Sin especificar' | t }}</option>
                   @for (p of perros(); track p._id) {
                     <option [value]="p._id">{{ p.nombre }}</option>
                   }
@@ -175,7 +175,7 @@ const PROVINCIAS = [
                             </button>
                           } @else if (p.lugarId) {
                             <a [routerLink]="['/explora', p.lugarId]" class="rs-btn rs-btn--ghost rs-btn--sm">
-                              Ver sitio
+                              {{ 'Ver sitio' | t }}
                             </a>
                           }
                         </li>

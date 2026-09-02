@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import {
   AdminAvisosService, AvisoProgramado, EstadoPush, ResultadoAviso,
 } from './services/admin-avisos.service';
@@ -25,14 +26,16 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 @Component({
   selector: 'app-admin-avisos',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePipe, RsIconComponent],
+  imports: [
+    TraducirPipe, ReactiveFormsModule, DatePipe, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="avisos">
   <header class="avisos__cabecera">
     <div>
-      <h1>Notificaciones push</h1>
-      <p>Envía un aviso ahora o prográmalo para que salga solo.</p>
+      <h1>{{ 'Notificaciones push' | t }}</h1>
+      <p>{{ 'Envía un aviso ahora o prográmalo para que salga solo.' | t }}</p>
     </div>
   </header>
 
@@ -47,8 +50,7 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
         <span>Envío operativo · {{ e.dispositivos.todos }} dispositivos registrados
           ({{ e.dispositivos.clientes }} clientes, {{ e.dispositivos.comercios }} comercios).</span>
       } @else {
-        <span>El envío está apagado: faltan las credenciales de Firebase en el servidor
-          (<code>FCM_PROJECT_ID</code>, <code>FCM_CLIENT_EMAIL</code>, <code>FCM_PRIVATE_KEY</code>).
+        <span>{{ 'El envío está apagado: faltan las credenciales de Firebase en el servidor (' | t }}<code>{{ 'FCM_PROJECT_ID' | t }}</code>, <code>{{ 'FCM_CLIENT_EMAIL' | t }}</code>, <code>{{ 'FCM_PRIVATE_KEY' | t }}</code>).
           Los dispositivos se siguen registrando: hay {{ e.dispositivos.todos }}.</span>
       }
     </div>
@@ -56,31 +58,31 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 
   <!-- ─── Envío inmediato ─── -->
   <section class="rs-card avisos__bloque">
-    <h2>Enviar ahora</h2>
+    <h2>{{ 'Enviar ahora' | t }}</h2>
 
     <form [formGroup]="formEnvio" (ngSubmit)="enviar()">
       <div class="avisos__fila">
         <div class="rs-field">
-          <label class="rs-lbl">Destinatarios</label>
+          <label class="rs-lbl">{{ 'Destinatarios' | t }}</label>
           <select class="rs-inp" formControlName="segmento">
-            @for (s of segmentos; track s.valor) { <option [value]="s.valor">{{ s.label }}</option> }
+            @for (s of segmentos; track s.valor) { <option [value]="s.valor">{{ s.label | t }}</option> }
           </select>
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">Al tocar, abrir</label>
+          <label class="rs-lbl">{{ 'Al tocar, abrir' | t }}</label>
           <input class="rs-inp" formControlName="ruta" placeholder="/reservas" />
         </div>
       </div>
 
       <div class="rs-field">
-        <label class="rs-lbl">Título</label>
-        <input class="rs-inp" formControlName="titulo" maxlength="80" placeholder="Tu reserva es mañana" />
+        <label class="rs-lbl">{{ 'Título' | t }}</label>
+        <input class="rs-inp" formControlName="titulo" maxlength="80" [placeholder]="'Tu reserva es mañana' | t" />
       </div>
 
       <div class="rs-field">
-        <label class="rs-lbl">Mensaje</label>
+        <label class="rs-lbl">{{ 'Mensaje' | t }}</label>
         <textarea class="rs-inp" formControlName="cuerpo" rows="3" maxlength="300"
-                  placeholder="Recuerda llevar la cartilla de vacunación al día."></textarea>
+                  [placeholder]="'Recuerda llevar la cartilla de vacunación al día.' | t"></textarea>
       </div>
 
       @if (resultado(); as r) {
@@ -104,7 +106,7 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
   <!-- ─── Avisos automáticos ─── -->
   <section class="rs-card avisos__bloque">
     <div class="avisos__bloque-cabecera">
-      <h2>Avisos automáticos</h2>
+      <h2>{{ 'Avisos automáticos' | t }}</h2>
       <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="alternarFormulario()">
         {{ mostrandoFormulario() ? 'Cancelar' : '+ Programar aviso' }}
       </button>
@@ -114,57 +116,57 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
       <form [formGroup]="formProgramado" (ngSubmit)="guardarProgramado()" class="avisos__form">
         <div class="avisos__fila">
           <div class="rs-field">
-            <label class="rs-lbl">Nombre interno</label>
-            <input class="rs-inp" formControlName="nombre" placeholder="Recordatorio de pago" />
+            <label class="rs-lbl">{{ 'Nombre interno' | t }}</label>
+            <input class="rs-inp" formControlName="nombre" [placeholder]="'Recordatorio de pago' | t" />
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Cuándo se dispara</label>
+            <label class="rs-lbl">{{ 'Cuándo se dispara' | t }}</label>
             <select class="rs-inp" formControlName="disparador">
-              @for (d of disparadores; track d.valor) { <option [value]="d.valor">{{ d.label }}</option> }
+              @for (d of disparadores; track d.valor) { <option [value]="d.valor">{{ d.label | t }}</option> }
             </select>
           </div>
         </div>
 
         <div class="avisos__fila">
           <div class="rs-field">
-            <label class="rs-lbl">Destinatarios</label>
+            <label class="rs-lbl">{{ 'Destinatarios' | t }}</label>
             <select class="rs-inp" formControlName="segmento">
-              @for (s of segmentos; track s.valor) { <option [value]="s.valor">{{ s.label }}</option> }
+              @for (s of segmentos; track s.valor) { <option [value]="s.valor">{{ s.label | t }}</option> }
             </select>
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Hora de envío</label>
+            <label class="rs-lbl">{{ 'Hora de envío' | t }}</label>
             <input class="rs-inp" type="time" formControlName="hora" />
           </div>
           @if (pideDias()) {
             <div class="rs-field">
-              <label class="rs-lbl">Días de antelación</label>
+              <label class="rs-lbl">{{ 'Días de antelación' | t }}</label>
               <input class="rs-inp" type="number" min="0" max="365" formControlName="diasAntelacion" />
             </div>
           }
         </div>
 
         <div class="rs-field">
-          <label class="rs-lbl">Días de la semana</label>
+          <label class="rs-lbl">{{ 'Días de la semana' | t }}</label>
           <div class="avisos__dias">
             @for (dia of dias; track $index) {
               <button type="button" class="avisos__dia" [class.activo]="tieneDia($index)"
                       [attr.aria-pressed]="tieneDia($index)" (click)="alternarDia($index)">{{ dia }}</button>
             }
           </div>
-          <span class="rs-field-hint">Sin ninguno marcado, sale todos los días.</span>
+          <span class="rs-field-hint">{{ 'Sin ninguno marcado, sale todos los días.' | t }}</span>
         </div>
 
         <div class="rs-field">
-          <label class="rs-lbl">Título</label>
+          <label class="rs-lbl">{{ 'Título' | t }}</label>
           <input class="rs-inp" formControlName="titulo" maxlength="80" />
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">Mensaje</label>
+          <label class="rs-lbl">{{ 'Mensaje' | t }}</label>
           <textarea class="rs-inp" formControlName="cuerpo" rows="2" maxlength="300"></textarea>
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">Al tocar, abrir</label>
+          <label class="rs-lbl">{{ 'Al tocar, abrir' | t }}</label>
           <input class="rs-inp" formControlName="ruta" placeholder="/reservas" />
         </div>
 
@@ -176,14 +178,14 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
     }
 
     @if (cargando()) {
-      <p class="avisos__vacio"><span class="rs-spin"></span> Cargando…</p>
+      <p class="avisos__vacio"><span class="rs-spin"></span> {{ 'Cargando…' | t }}</p>
     } @else if (!programados().length) {
-      <p class="avisos__vacio">Todavía no hay avisos automáticos.</p>
+      <p class="avisos__vacio">{{ 'Todavía no hay avisos automáticos.' | t }}</p>
     } @else {
       <div class="avisos__tabla-wrap">
         <table class="avisos__tabla">
           <thead>
-            <tr><th>Aviso</th><th>Cuándo</th><th>A quién</th><th>Última vez</th><th></th></tr>
+            <tr><th>{{ 'Aviso' | t }}</th><th>{{ 'Cuándo' | t }}</th><th>{{ 'A quién' | t }}</th><th>{{ 'Última vez' | t }}</th><th></th></tr>
           </thead>
           <tbody>
             @for (a of programados(); track a._id) {
@@ -201,15 +203,15 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
                   @if (a.ultimaEjecucion) {
                     {{ a.ultimaEjecucion | date:'dd/MM HH:mm' }}<br />
                     <span class="avisos__sub">{{ a.ultimoEnviados }} enviados</span>
-                  } @else { <span class="avisos__sub">Nunca</span> }
+                  } @else { <span class="avisos__sub">{{ 'Nunca' | t }}</span> }
                 </td>
                 <td class="avisos__acciones">
-                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="editar(a)">Editar</button>
-                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="probar(a)">Probar</button>
+                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="editar(a)">{{ 'Editar' | t }}</button>
+                  <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="probar(a)">{{ 'Probar' | t }}</button>
                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="alternarActivo(a)">
                     {{ a.activo ? 'Pausar' : 'Activar' }}
                   </button>
-                  <button type="button" class="rs-btn rs-btn--danger rs-btn--xs" (click)="eliminar(a)">Quitar</button>
+                  <button type="button" class="rs-btn rs-btn--danger rs-btn--xs" (click)="eliminar(a)">{{ 'Quitar' | t }}</button>
                 </td>
               </tr>
             }

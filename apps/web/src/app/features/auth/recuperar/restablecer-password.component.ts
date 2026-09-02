@@ -3,6 +3,7 @@ import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, Validati
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Las dos contraseñas tienen que coincidir; el error va en el grupo, no en un campo. */
 function contrasenasCoinciden(grupo: AbstractControl): ValidationErrors | null {
@@ -20,13 +21,15 @@ function contrasenasCoinciden(grupo: AbstractControl): ValidationErrors | null {
 @Component({
   selector: 'app-restablecer-password',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, RsIconComponent],
+  imports: [
+    TraducirPipe, ReactiveFormsModule, RouterLink, RsIconComponent
+  ],
   template: `
     <div class="rs-auth">
       <div class="rs-auth__card">
         <div class="rs-auth__brand">
           <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:96px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
-          <p>Elige tu contraseña nueva</p>
+          <p>{{ 'Elige tu contraseña nueva' | t }}</p>
         </div>
 
         @if (sinToken()) {
@@ -34,18 +37,18 @@ function contrasenasCoinciden(grupo: AbstractControl): ValidationErrors | null {
             <div style="width:64px;height:64px;border-radius:50%;background:rgba(185,28,28,.1);color:#B91C1C;display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)">
               <rs-icon name="x" [size]="30" [stroke]="2"></rs-icon>
             </div>
-            <h2 style="font-size:var(--f-lg);font-weight:var(--w-7);color:var(--t-100);margin-bottom:var(--sp-2)">Enlace no válido</h2>
+            <h2 style="font-size:var(--f-lg);font-weight:var(--w-7);color:var(--t-100);margin-bottom:var(--sp-2)">{{ 'Enlace no válido' | t }}</h2>
             <p style="color:var(--t-400);font-size:var(--f-sm);line-height:1.6">
-              Este enlace no es válido o ha caducado. Pide uno nuevo y vuelve a intentarlo.
+              {{ 'Este enlace no es válido o ha caducado. Pide uno nuevo y vuelve a intentarlo.' | t }}
             </p>
             <a routerLink="/auth/recuperar" class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-5)">
-              Pedir un enlace nuevo
+              {{ 'Pedir un enlace nuevo' | t }}
             </a>
           </div>
         } @else {
           <form [formGroup]="formulario" (ngSubmit)="onSubmit()" class="rs-auth__form">
             <div class="rs-field">
-              <label for="nueva" class="rs-lbl">Contraseña nueva</label>
+              <label for="nueva" class="rs-lbl">{{ 'Contraseña nueva' | t }}</label>
               <div style="position:relative">
                 <input
                   id="nueva"
@@ -55,7 +58,7 @@ function contrasenasCoinciden(grupo: AbstractControl): ValidationErrors | null {
                   style="padding-right:var(--sp-10)"
                   autocomplete="new-password"
                   [class.rs-inp--error]="formulario.get('nuevaPassword')?.invalid && formulario.get('nuevaPassword')?.touched"
-                  placeholder="Mínimo 8 caracteres" />
+                  [placeholder]="'Mínimo 8 caracteres' | t" />
                 <button
                   type="button"
                   (click)="mostrar.set(!mostrar())"
@@ -65,12 +68,12 @@ function contrasenasCoinciden(grupo: AbstractControl): ValidationErrors | null {
                 </button>
               </div>
               @if (formulario.get('nuevaPassword')?.invalid && formulario.get('nuevaPassword')?.touched) {
-                <span class="rs-field-err">La contraseña debe tener al menos 8 caracteres</span>
+                <span class="rs-field-err">{{ 'La contraseña debe tener al menos 8 caracteres' | t }}</span>
               }
             </div>
 
             <div class="rs-field">
-              <label for="repetir" class="rs-lbl">Repite la contraseña</label>
+              <label for="repetir" class="rs-lbl">{{ 'Repite la contraseña' | t }}</label>
               <input
                 id="repetir"
                 [type]="mostrar() ? 'text' : 'password'"
@@ -80,7 +83,7 @@ function contrasenasCoinciden(grupo: AbstractControl): ValidationErrors | null {
                 [class.rs-inp--error]="formulario.hasError('noCoinciden') && formulario.get('repetirPassword')?.touched"
                 placeholder="••••••••" />
               @if (formulario.hasError('noCoinciden') && formulario.get('repetirPassword')?.touched) {
-                <span class="rs-field-err">Las contraseñas no coinciden</span>
+                <span class="rs-field-err">{{ 'Las contraseñas no coinciden' | t }}</span>
               }
             </div>
 

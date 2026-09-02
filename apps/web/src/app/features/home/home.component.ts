@@ -11,6 +11,8 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components/brand-icon/rs-brand-icon.component';
 import { RsSocialIconComponent, type RedSocialKey } from '../../shared/components/social-icon/rs-social-icon.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import {
   BANDA_POR_QUE, BRAND, CATEGORIA_ICONOS, HOTEL_IMAGES, MOTIVOS_IMAGES, TRUST_ICONOS,
@@ -57,7 +59,7 @@ type SearchMode = 'filtros' | 'ia';
   imports: [
     RouterLink, ReactiveFormsModule, AnimateOnScrollDirective, ImgFallbackDirective,
     RsNavbarComponent, RsIconComponent, RsSocialIconComponent, RsSearchBarComponent, RsCardComponent,
-    RsBrandIconComponent,
+    RsBrandIconComponent, TraducirPipe,
   ],
   template: `
 <div class="home">
@@ -74,14 +76,12 @@ type SearchMode = 'filtros' | 'ia';
         <h1 class="hero__title">
           <span class="hero__title-line hero__title-line--blue">
             <i class="hero__dash" aria-hidden="true"></i>
-            Todo para tu mascota
+            {{ 'Todo para tu mascota' | t }}
             <i class="hero__dash" aria-hidden="true"></i>
           </span>
-          <span class="hero__title-line hero__title-line--gold">en un solo lugar</span>
+          <span class="hero__title-line hero__title-line--gold">{{ 'en un solo lugar' | t }}</span>
         </h1>
-        <p class="hero__subtitle" i18n="@@home.heroSubtitulo">
-          Veterinarios, peluquerías, residencias, hoteles pet friendly, transporte, adiestramiento y mucho más.
-        </p>
+        <p class="hero__subtitle">{{ 'Veterinarios, peluquerías, residencias, hoteles pet friendly, transporte, adiestramiento y mucho más.' | t }}</p>
       </div>
     </div>
 
@@ -99,23 +99,23 @@ type SearchMode = 'filtros' | 'ia';
         <div class="searchbox" role="search">
           <div class="searchbox__head">
             <div class="searchbox__copy">
-              <p class="searchbox__question">Encuentra el servicio perfecto para tu mascota</p>
-              <p class="searchbox__slogan">Reserva en menos de un minuto con profesionales de confianza cerca de ti.</p>
+              <p class="searchbox__question">{{ 'Encuentra el servicio perfecto para tu mascota' | t }}</p>
+              <p class="searchbox__slogan">{{ 'Reserva en menos de un minuto con profesionales de confianza cerca de ti.' | t }}</p>
             </div>
-            <div class="searchbox__modes" role="tablist" aria-label="Modo de búsqueda">
+            <div class="searchbox__modes" role="tablist" [attr.aria-label]="'Modo de búsqueda' | t">
               <button type="button" class="searchbox__mode" role="tab"
                       [class.is-active]="searchMode() === 'filtros'"
                       [attr.aria-selected]="searchMode() === 'filtros'"
                       (click)="searchMode.set('filtros')">
                 <rs-icon name="search" [size]="14" [stroke]="2.25"></rs-icon>
-                Filtros
+                {{ 'Filtros' | t }}
               </button>
               <button type="button" class="searchbox__mode" role="tab"
                       [class.is-active]="searchMode() === 'ia'"
                       [attr.aria-selected]="searchMode() === 'ia'"
                       (click)="searchMode.set('ia')">
                 <rs-icon name="sparkles" [size]="14" [stroke]="2"></rs-icon>
-                Buscar con IA
+                {{ 'Buscar con IA' | t }}
               </button>
             </div>
           </div>
@@ -130,10 +130,10 @@ type SearchMode = 'filtros' | 'ia';
                 <div class="ai__bar" [class.is-loading]="aiLoading()">
                   <rs-icon name="sparkles" [size]="20" [stroke]="1.75" class="ai__spark"></rs-icon>
                   <input class="ai__input" [formControl]="aiQuery"
-                         placeholder="Describe lo que necesitas… «Alojamiento en Madrid para mi golden este finde»"
-                         aria-label="Búsqueda con inteligencia artificial" />
+                         [placeholder]="'Describe lo que necesitas… «Alojamiento en Madrid para mi golden este finde»' | t"
+                         [attr.aria-label]="'Búsqueda con inteligencia artificial' | t" />
                   <button type="submit" class="rs-btn rs-btn--gold ai__btn"
-                          aria-label="Buscar con IA"
+                          [attr.aria-label]="'Buscar con IA' | t"
                           [disabled]="aiLoading() || !aiQuery.value.trim()">
                     @if (aiLoading()) {
                       <span class="ai__spinner"></span>
@@ -144,9 +144,9 @@ type SearchMode = 'filtros' | 'ia';
                 </div>
 
                 <div class="ai__hints">
-                  <span class="ai__hint-label">Prueba:</span>
+                  <span class="ai__hint-label">{{ 'Prueba:' | t }}</span>
                   @for (s of sugerenciasIA; track s) {
-                    <button type="button" class="ai__chip" (click)="usarSugerencia(s)">{{ s }}</button>
+                    <button type="button" class="ai__chip" (click)="usarSugerencia(s)">{{ s | t }}</button>
                   }
                 </div>
 
@@ -160,12 +160,12 @@ type SearchMode = 'filtros' | 'ia';
 
         <!-- Bloque de 3 valores sobre la franja navy (copys aprobados, PDF 27/07 §4) -->
         <div class="trust">
-          @for (t of garantias; track t.titulo) {
+          @for (g of garantias; track g.titulo) {
             <div class="trust__item">
-              <img [src]="t.icono" alt="" class="trust__icon" aria-hidden="true" />
+              <img [src]="g.icono" alt="" class="trust__icon" aria-hidden="true" />
               <div class="trust__body">
-                <p class="trust__title">{{ t.titulo }}</p>
-                <p class="trust__desc">{{ t.descripcion }}</p>
+                <p class="trust__title">{{ g.titulo | t }}</p>
+                <p class="trust__desc">{{ g.descripcion | t }}</p>
               </div>
             </div>
           }
@@ -179,8 +179,8 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
-          <h2 class="rs-h3" i18n="@@home.exploraServicios">Todo lo que tu mascota necesita, en un solo lugar.</h2>
-          <p i18n="@@home.exploraClaim">Reserva con profesionales verificados cerca de ti, de forma rápida, segura y sin complicaciones.</p>
+          <h2 class="rs-h3">{{ 'Todo lo que tu mascota necesita, en un solo lugar.' | t }}</h2>
+          <p>{{ 'Reserva con profesionales verificados cerca de ti, de forma rápida, segura y sin complicaciones.' | t }}</p>
         </div>
       </div>
 
@@ -191,8 +191,8 @@ type SearchMode = 'filtros' | 'ia';
               <img [src]="v.icono" alt="" class="cat-card__icon" aria-hidden="true" />
             </span>
             <span class="cat-card__body">
-              <span class="cat-card__title">{{ v.label }}</span>
-              <span class="cat-card__claim">{{ v.claim }}</span>
+              <span class="cat-card__title">{{ v.label | t }}</span>
+              <span class="cat-card__claim">{{ v.claim | t }}</span>
             </span>
             <rs-icon name="arrow-right" [size]="18" [stroke]="2" class="cat-card__go"></rs-icon>
           </a>
@@ -209,8 +209,8 @@ type SearchMode = 'filtros' | 'ia';
             <img [src]="iconoExplora" alt="" class="cat-card__icon" aria-hidden="true" />
           </span>
           <span class="cat-card__body">
-            <span class="cat-card__title" i18n="@@home.exploraTitulo">Explora con tu mascota</span>
-            <span class="cat-card__claim" i18n="@@home.exploraCardClaim">Playas, parques, rutas y restaurantes donde tu perro es bienvenido de verdad.</span>
+            <span class="cat-card__title">{{ 'Explora con tu mascota' | t }}</span>
+            <span class="cat-card__claim">{{ 'Playas, parques, rutas y restaurantes donde tu perro es bienvenido de verdad.' | t }}</span>
           </span>
           <rs-icon name="arrow-right" [size]="18" [stroke]="2" class="cat-card__go"></rs-icon>
         </a>
@@ -225,9 +225,9 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head sec-head--center" rsAnim>
         <div>
-          <p class="why__eyebrow" i18n="@@home.porQueEyebrow">La plataforma de tu mascota</p>
-          <h2 class="rs-h3" i18n="@@home.porQueTitulo">¿Por qué Doogking.com?</h2>
-          <p i18n="@@home.porQueSub">Todo lo que tu perro necesita a lo largo de su vida, en un único sitio y con un solo perfil.</p>
+          <p class="why__eyebrow">{{ 'La plataforma de tu mascota' | t }}</p>
+          <h2 class="rs-h3">{{ '¿Por qué Doogking.com?' | t }}</h2>
+          <p>{{ 'Todo lo que tu perro necesita a lo largo de su vida, en un único sitio y con un solo perfil.' | t }}</p>
         </div>
       </div>
 
@@ -237,9 +237,7 @@ type SearchMode = 'filtros' | 'ia';
       <figure class="why-banner" rsAnim>
         <picture>
           <source media="(min-width: 641px)" [srcset]="bandaPorQueEscritorio" />
-          <img [src]="bandaPorQue"
-               alt="Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano"
-               loading="lazy" rsImg />
+          <img [src]="bandaPorQue" [alt]="'Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano' | t" loading="lazy" rsImg />
         </picture>
       </figure>
 
@@ -247,10 +245,10 @@ type SearchMode = 'filtros' | 'ia';
         @for (m of motivos; track m.titulo) {
           <li class="why-card">
             <figure class="why-card__art">
-              <img [src]="m.imagen" [alt]="m.alt" loading="lazy" rsImg />
+              <img [src]="m.imagen" [alt]="m.alt | t" loading="lazy" rsImg />
             </figure>
-            <h3 class="why-card__title">{{ m.titulo }}</h3>
-            <p class="why-card__text">{{ m.texto }}</p>
+            <h3 class="why-card__title">{{ m.titulo | t }}</h3>
+            <p class="why-card__text">{{ m.texto | t }}</p>
           </li>
         }
       </ul>
@@ -262,15 +260,15 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
-          <h2 class="rs-h3">Servicios cerca de ti</h2>
-          <p>Las ciudades con más profesionales caninos verificados de Doogking.</p>
+          <h2 class="rs-h3">{{ 'Servicios cerca de ti' | t }}</h2>
+          <p>{{ 'Las ciudades con más profesionales caninos verificados de Doogking.' | t }}</p>
         </div>
       </div>
 
       <!-- Carrusel con flechas laterales, rueda y gesto táctil (PDF 27/07 §7). -->
       <div class="cities-carousel">
         <button type="button" class="cities-nav cities-nav--prev"
-                (click)="desplazarCiudades(-1)" aria-label="Ver ciudades anteriores">
+                (click)="desplazarCiudades(-1)" [attr.aria-label]="'Ver ciudades anteriores' | t">
           <rs-icon name="arrow-left" [size]="18" [stroke]="2"></rs-icon>
         </button>
 
@@ -281,14 +279,14 @@ type SearchMode = 'filtros' | 'ia';
               <span class="city-card__veil"></span>
               <span class="city-card__meta">
                 <strong>{{ c.nombre }}</strong>
-                <em>{{ c.servicios }} servicios</em>
+                <em>{{ '{n} servicios' | t: { n: c.servicios } }}</em>
               </span>
             </a>
           }
         </div>
 
         <button type="button" class="cities-nav cities-nav--next"
-                (click)="desplazarCiudades(1)" aria-label="Ver más ciudades">
+                (click)="desplazarCiudades(1)" [attr.aria-label]="'Ver más ciudades' | t">
           <rs-icon name="arrow-right" [size]="18" [stroke]="2"></rs-icon>
         </button>
       </div>
@@ -300,11 +298,11 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
-          <h2 class="rs-h3">Alojamientos recomendados</h2>
-          <p>Residencias caninas mejor valoradas por otros dueños este mes.</p>
+          <h2 class="rs-h3">{{ 'Alojamientos recomendados' | t }}</h2>
+          <p>{{ 'Residencias caninas mejor valoradas por otros dueños este mes.' | t }}</p>
         </div>
         <a routerLink="/alojamiento" class="sec-head__link">
-          Ver todos <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
+          {{ 'Ver todos' | t }} <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
         </a>
       </div>
 
@@ -314,11 +312,11 @@ type SearchMode = 'filtros' | 'ia';
             [rsAnim]="''" [rsAnimDelay]="$index * 70"
             [imageUrl]="a.imagen" [imageAlt]="a.nombre"
             [title]="a.nombre" [subtitle]="a.ciudad"
-            [badges]="[{ icon: 'crown', label: 'Recomendado', variant: 'accent' }]"
+            [badges]="[{ icon: 'crown', label: badgeRecomendado(), variant: 'accent' }]"
             [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
-            [price]="{ amount: euros(a.precioPorNoche), period: '/noche' }"
+            [price]="{ amount: euros(a.precioPorNoche), period: periodoNoche() }"
             [amenities]="a.tags"
-            ctaLabel="Ver alojamiento"
+            [ctaLabel]="'Ver alojamiento' | t"
             [favoritoServicioId]="a.id ?? null"
             [routerLink]="a.id ? ['/alojamiento', a.id] : null"
             (cardClick)="irAAlojamiento(a.ciudad)">
@@ -335,19 +333,19 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
         <div>
-          <h2 class="rs-h3">Explora con tu mascota</h2>
-          <p>Descubre playas caninas, parques caninos, rutas, restaurantes y otros lugares pet friendly recomendados por la comunidad Doogking.</p>
+          <h2 class="rs-h3">{{ 'Explora con tu mascota' | t }}</h2>
+          <p>{{ 'Descubre playas caninas, parques caninos, rutas, restaurantes y otros lugares pet friendly recomendados por la comunidad Doogking.' | t }}</p>
         </div>
       </div>
 
       <div class="explora-grid" rsAnim>
         @for (e of exploraDestacados; track e.titulo) {
           <a class="explora-card" [routerLink]="e.ruta" [queryParams]="e.tipo ? { tipo: e.tipo } : {}">
-            <img [src]="e.imagen" [alt]="e.titulo" loading="lazy" rsImg />
+            <img [src]="e.imagen" [alt]="e.titulo | t" loading="lazy" rsImg />
             <span class="explora-card__veil"></span>
             <span class="explora-card__meta">
-              <strong>{{ e.titulo }}</strong>
-              <em>{{ e.detalle }}</em>
+              <strong>{{ e.titulo | t }}</strong>
+              <em>{{ e.detalle | t }}</em>
             </span>
           </a>
         }
@@ -357,15 +355,15 @@ type SearchMode = 'filtros' | 'ia';
       <div class="explora-ctas" rsAnim>
         <a routerLink="/explora" class="rs-btn rs-btn--outline">
           <rs-icon name="map-pin" [size]="16" [stroke]="2"></rs-icon>
-          Ver lugares cercanos
+          {{ 'Ver lugares cercanos' | t }}
         </a>
         <a routerLink="/explora/planificador" class="rs-btn rs-btn--gold">
           <rs-icon name="sparkles" [size]="16" [stroke]="2"></rs-icon>
-          Planificar mi viaje con IA
+          {{ 'Planificar mi viaje con IA' | t }}
         </a>
       </div>
 
-      <p class="explora-nota">Todos los lugares son compartidos por la comunidad y revisados por el equipo Doogking antes de su publicación.</p>
+      <p class="explora-nota">{{ 'Todos los lugares son compartidos por la comunidad y revisados por el equipo Doogking antes de su publicación.' | t }}</p>
     </div>
   </section>
 
@@ -374,8 +372,8 @@ type SearchMode = 'filtros' | 'ia';
     <div class="rs-wrap rs-wrap--lg">
       <div class="sec-head sec-head--center" rsAnim>
         <div>
-          <h2 class="rs-h3">Reservar es así de fácil</h2>
-          <p>Tres pasos y tu perro tiene plaza. Sin llamadas ni esperas.</p>
+          <h2 class="rs-h3">{{ 'Reservar es así de fácil' | t }}</h2>
+          <p>{{ 'Tres pasos y tu perro tiene plaza. Sin llamadas ni esperas.' | t }}</p>
         </div>
       </div>
 
@@ -384,8 +382,8 @@ type SearchMode = 'filtros' | 'ia';
           <li class="how-step">
             <span class="how-step__num">{{ $index + 1 }}</span>
             <rs-icon [name]="p.icon" [size]="26" [stroke]="1.9" class="how-step__icon"></rs-icon>
-            <h3 class="how-step__title">{{ p.titulo }}</h3>
-            <p class="how-step__text">{{ p.texto }}</p>
+            <h3 class="how-step__title">{{ p.titulo | t }}</h3>
+            <p class="how-step__text">{{ p.texto | t }}</p>
           </li>
         }
       </ol>
@@ -398,26 +396,21 @@ type SearchMode = 'filtros' | 'ia';
   <section class="pro-cta">
     <div class="rs-wrap rs-wrap--lg pro-cta__inner" rsAnim>
       <div class="pro-cta__body">
-        <p class="pro-cta__eyebrow">Para profesionales</p>
-        <h2 class="pro-cta__title">¿Ofreces servicios para mascotas?</h2>
-        <p class="pro-cta__text">
-          Publica tus servicios en Doogking, gestiona tu disponibilidad y recibe
-          reservas pagadas online. Sin cuota de alta: solo comisión por reserva.
-        </p>
+        <p class="pro-cta__eyebrow">{{ 'Para profesionales' | t }}</p>
+        <h2 class="pro-cta__title">{{ '¿Ofreces servicios para mascotas?' | t }}</h2>
+        <p class="pro-cta__text">{{ 'Publica tus servicios en Doogking, gestiona tu disponibilidad y recibe reservas pagadas online. Sin cuota de alta: solo comisión por reserva.' | t }}</p>
 
         <!-- Tres beneficios con icono (PDF §10). -->
         <ul class="pro-cta__beneficios">
-          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> Sin cuota de alta</li>
-          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> Reservas 24/7</li>
-          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> Cobros seguros</li>
+          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> {{ 'Sin cuota de alta' | t }}</li>
+          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> {{ 'Reservas 24/7' | t }}</li>
+          <li><rs-icon name="check" [size]="15" [stroke]="2.5"></rs-icon> {{ 'Cobros seguros' | t }}</li>
         </ul>
 
-        <p class="pro-cta__cierre">
-          Únete a la plataforma que está transformando la forma de reservar servicios para mascotas.
-        </p>
+        <p class="pro-cta__cierre">{{ 'Únete a la plataforma que está transformando la forma de reservar servicios para mascotas.' | t }}</p>
 
         <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--gold rs-btn--lg">
-          Registrar mi negocio
+          {{ 'Registrar mi negocio' | t }}
           <rs-icon name="arrow-right" [size]="17" [stroke]="2.25"></rs-icon>
         </a>
       </div>
@@ -425,7 +418,7 @@ type SearchMode = 'filtros' | 'ia';
       <!-- TODO(D-3): sustituir por la foto real de un profesional trabajando
            (veterinario, peluquero, residencia…) cuando la aporte el cliente. -->
       <figure class="pro-cta__foto">
-        <img [src]="fotoProfesional" alt="Profesional atendiendo a una mascota" loading="lazy" rsImg />
+        <img [src]="fotoProfesional" [alt]="'Profesional atendiendo a una mascota' | t" loading="lazy" rsImg />
       </figure>
     </div>
   </section>
@@ -439,11 +432,10 @@ type SearchMode = 'filtros' | 'ia';
       perdía entre cuatro listas.
     -->
     <div class="home-footer__marca">
-      <img [src]="logoFooter" alt="Doogking · Todo para su rey, en un solo lugar"
-           class="home-footer__logo" />
-      <p class="home-footer__claim">La plataforma líder para reservar servicios para mascotas.</p>
-      <p class="home-footer__descripcion">El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.</p>
-      <div class="home-footer__social" aria-label="Redes sociales de Doogking">
+      <img [src]="logoFooter" [alt]="'Doogking · Todo para su rey, en un solo lugar' | t" class="home-footer__logo" />
+      <p class="home-footer__claim">{{ 'La plataforma líder para reservar servicios para mascotas.' | t }}</p>
+      <p class="home-footer__descripcion">{{ 'El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.' | t }}</p>
+      <div class="home-footer__social" [attr.aria-label]="'Redes sociales de Doogking' | t">
         @for (red of redesSociales; track red.nombre) {
           <a
             [href]="red.url"
@@ -458,40 +450,40 @@ type SearchMode = 'filtros' | 'ia';
     </div>
 
     <!-- Los servicios son lo que se busca: en una sola fila, no en una columna. -->
-    <nav class="home-footer__servicios" aria-label="Categorías de servicio">
+    <nav class="home-footer__servicios" [attr.aria-label]="'Categorías de servicio' | t">
       @for (v of verticales; track v.key) {
-        <a [routerLink]="v.route">{{ v.label }}</a>
+        <a [routerLink]="v.route">{{ v.label | t }}</a>
       }
-      <a routerLink="/explora">Explora con tu mascota</a>
+      <a routerLink="/explora">{{ 'Explora con tu mascota' | t }}</a>
     </nav>
 
     <div class="rs-footer__grid rs-footer__grid--enlaces">
       <div class="rs-footer__col">
-        <h4>Descubre</h4>
+        <h4>{{ 'Descubre' | t }}</h4>
         <ul>
-          <li><a routerLink="/" fragment="categorias">Todas las categorías</a></li>
-          <li><a routerLink="/" fragment="ciudades">Ciudades destacadas</a></li>
-          <li><a routerLink="/alojamiento">Alojamientos recomendados</a></li>
-          <li><a routerLink="/hoteles">Hoteles pet friendly</a></li>
+          <li><a routerLink="/" fragment="categorias">{{ 'Todas las categorías' | t }}</a></li>
+          <li><a routerLink="/" fragment="ciudades">{{ 'Ciudades destacadas' | t }}</a></li>
+          <li><a routerLink="/alojamiento">{{ 'Alojamientos recomendados' | t }}</a></li>
+          <li><a routerLink="/hoteles">{{ 'Hoteles pet friendly' | t }}</a></li>
         </ul>
       </div>
       <div class="rs-footer__col">
-        <h4>Empresas</h4>
+        <h4>{{ 'Empresas' | t }}</h4>
         <ul>
-          <li><a routerLink="/auth/registro-comercio">Registrar negocio</a></li>
-          <li><a routerLink="/auth/registro-comercio">Tarifas profesionales</a></li>
-          <li><a routerLink="/auth/registro-comercio">Ventajas de Doogking</a></li>
-          <li><a routerLink="/ayuda">Centro de ayuda</a></li>
-          <li><a routerLink="/contacto">Contacto</a></li>
+          <li><a routerLink="/auth/registro-comercio">{{ 'Registrar negocio' | t }}</a></li>
+          <li><a routerLink="/auth/registro-comercio">{{ 'Tarifas profesionales' | t }}</a></li>
+          <li><a routerLink="/auth/registro-comercio">{{ 'Ventajas de Doogking' | t }}</a></li>
+          <li><a routerLink="/ayuda">{{ 'Centro de ayuda' | t }}</a></li>
+          <li><a routerLink="/contacto">{{ 'Contacto' | t }}</a></li>
         </ul>
       </div>
       <div class="rs-footer__col">
-        <h4>Legal</h4>
+        <h4>{{ 'Legal' | t }}</h4>
         <ul>
-          <li><a routerLink="/privacidad">Privacidad</a></li>
-          <li><a routerLink="/eliminar-datos">Eliminación de datos</a></li>
-          <li><a routerLink="/terminos">Términos</a></li>
-          <li><a routerLink="/cookies">Cookies</a></li>
+          <li><a routerLink="/privacidad">{{ 'Privacidad' | t }}</a></li>
+          <li><a routerLink="/eliminar-datos">{{ 'Eliminación de datos' | t }}</a></li>
+          <li><a routerLink="/terminos">{{ 'Términos' | t }}</a></li>
+          <li><a routerLink="/cookies">{{ 'Cookies' | t }}</a></li>
         </ul>
       </div>
     </div>
@@ -504,20 +496,20 @@ type SearchMode = 'filtros' | 'ia';
       Hasta entonces no se enlaza a ninguna tienda: mandar a una ficha que no
       existe es peor que no ofrecer el enlace.
     -->
-    <div class="home-footer__stores" aria-label="Aplicaciones móviles">
-      <p class="home-footer__stores-titulo">Muy pronto en tu móvil</p>
+    <div class="home-footer__stores" [attr.aria-label]="'Aplicaciones móviles' | t">
+      <p class="home-footer__stores-titulo">{{ 'Muy pronto en tu móvil' | t }}</p>
       <div class="home-footer__stores-badges">
         <span class="home-footer__store-badge">
           <rs-icon name="smartphone" [size]="18" [stroke]="1.75" />
           <span>
-            <small>Próximamente en</small>
+            <small>{{ 'Próximamente en' | t }}</small>
             App Store
           </span>
         </span>
         <span class="home-footer__store-badge">
           <rs-icon name="play" [size]="18" [stroke]="1.75" />
           <span>
-            <small>Próximamente en</small>
+            <small>{{ 'Próximamente en' | t }}</small>
             Google Play
           </span>
         </span>
@@ -529,14 +521,14 @@ type SearchMode = 'filtros' | 'ia';
       </span>
     </div>
 
-    <p class="home-footer__closing">Todo lo que tu mascota necesita. En un solo lugar.<br />Gracias por confiar en Doogking.</p>
+    <p class="home-footer__closing">{{ 'Todo lo que tu mascota necesita. En un solo lugar.' | t }}<br />{{ 'Gracias por confiar en Doogking.' | t }}</p>
 
     <div class="rs-footer__bottom">
-      <p>© 2026 Doogking · Todos los derechos reservados · <a routerLink="/privacidad">Política de privacidad</a> · <a routerLink="/cookies">Cookies</a> · <a routerLink="/terminos">Aviso legal</a></p>
+      <p>{{ '© 2026 Doogking · Todos los derechos reservados' | t }} · <a routerLink="/privacidad">{{ 'Política de privacidad' | t }}</a> · <a routerLink="/cookies">{{ 'Cookies' | t }}</a> · <a routerLink="/terminos">{{ 'Aviso legal' | t }}</a></p>
       <div class="rs-flex rs-gap-4" style="flex-wrap:wrap">
-        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Empresas verificadas</span>
-        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="lock" [size]="13" [stroke]="2" /> Pago seguro con Stripe</span>
-        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="shield-check" [size]="13" [stroke]="2" /> Protección de reservas</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> {{ 'Empresas verificadas' | t }}</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="lock" [size]="13" [stroke]="2" /> {{ 'Pago seguro con Stripe' | t }}</span>
+        <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="shield-check" [size]="13" [stroke]="2" /> {{ 'Protección de reservas' | t }}</span>
       </div>
     </div>
   </footer>
@@ -1625,6 +1617,7 @@ export class HomeComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
   private readonly alojamientoService = inject(AlojamientoService);
+  private readonly i18n = inject(I18nService);
 
   private readonly ciudadesTrack = viewChild<ElementRef<HTMLElement>>('ciudadesTrack');
 
@@ -1695,6 +1688,10 @@ export class HomeComponent implements OnInit {
   readonly aiLoading = signal(false);
   readonly aiError = signal('');
 
+  /**
+   * Claves de traducción, no textos: la plantilla las pasa por `| t` y el
+   * asistente recibe la sugerencia ya en el idioma del usuario.
+   */
   readonly sugerenciasIA = [
     'Alojamiento en Madrid para mi golden este finde',
     'Veterinario en Barcelona para vacunación',
@@ -1707,7 +1704,11 @@ export class HomeComponent implements OnInit {
   /** Explora no es un vertical, así que su icono se toma del catálogo a mano. */
   readonly iconoExplora = CATEGORIA_ICONOS['explora'];
 
-  /** Bloque de 3 valores bajo el buscador — textos aprobados por el cliente (PDF 27/07 §4). */
+  /**
+   * Bloque de 3 valores bajo el buscador — copys aprobados por el cliente
+   * (PDF 27/07 §4). Aquí viven las claves; el texto español está en
+   * `core/i18n/traducciones/es.ts` y la plantilla lo resuelve con `| t`.
+   */
   readonly garantias = [
     {
       icono: TRUST_ICONOS.rapidez,
@@ -1823,8 +1824,22 @@ export class HomeComponent implements OnInit {
     void this.router.navigate([this.rutaAlojamiento], { queryParams: { ciudad } });
   }
 
-  usarSugerencia(sugerencia: string): void {
-    this.aiQuery.setValue(sugerencia);
+  /**
+   * Insignia y periodo de las tarjetas de recomendados. Son entradas de un
+   * objeto que se pasa por binding, no interpolación, así que no pueden ir
+   * por el pipe: se resuelven aquí leyendo la misma signal de idioma.
+   */
+  badgeRecomendado(): string {
+    return this.i18n.t('Recomendado');
+  }
+
+  periodoNoche(): string {
+    return this.i18n.t('/noche');
+  }
+
+  /** `clave` es la clave de la sugerencia; el asistente recibe el texto ya traducido. */
+  usarSugerencia(clave: string): void {
+    this.aiQuery.setValue(this.i18n.t(clave));
     void this.buscarConIA();
   }
 
@@ -1855,7 +1870,7 @@ export class HomeComponent implements OnInit {
         },
       });
     } catch {
-      this.aiError.set('No pudimos procesar tu búsqueda ahora mismo. Prueba con los filtros.');
+      this.aiError.set(this.i18n.t('No pudimos procesar tu búsqueda ahora mismo. Prueba con los filtros.'));
     } finally {
       this.aiLoading.set(false);
     }

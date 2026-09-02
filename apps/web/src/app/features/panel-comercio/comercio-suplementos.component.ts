@@ -6,6 +6,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ComercioApiService, SuplementoConfig } from './comercio-api.service';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 const UNIDAD_LABEL: Record<string, string> = {
   fijo: 'Importe fijo',
   por_dia: '€ / día',
@@ -15,35 +16,36 @@ const UNIDAD_LABEL: Record<string, string> = {
 @Component({
   selector: 'app-comercio-suplementos',
   standalone: true,
-  imports: [FormsModule, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, FormsModule, RsIconComponent, EurosPipe
+  ],
   template: `
     <div class="page-header">
       <div>
-        <h1 class="page-title">Extras y suplementos</h1>
+        <h1 class="page-title">{{ 'Extras y suplementos' | t }}</h1>
         <p class="page-sub">
-          Predefine los suplementos que puedes solicitar en recepción cuando el estado real del animal difiere de lo
-          reservado (nudos severos, segunda mascota, etc.). El cliente siempre debe aprobar el cargo antes de cobrarse.
+          {{ 'Predefine los suplementos que puedes solicitar en recepción cuando el estado real del animal difiere de lo reservado (nudos severos, segunda mascota, etc.). El cliente siempre debe aprobar el cargo antes de cobrarse.' | t }}
         </p>
       </div>
     </div>
 
     <div class="rs-card" style="padding:var(--sp-6);margin-bottom:var(--sp-6)">
-      <h2 class="section-title">Nuevo suplemento</h2>
+      <h2 class="section-title">{{ 'Nuevo suplemento' | t }}</h2>
       <div class="form-row">
         <div class="rs-field">
-          <label class="rs-lbl">Nombre del suplemento</label>
-          <input class="rs-inp" [(ngModel)]="nuevoConcepto" placeholder="Ej. Nudos severos" />
+          <label class="rs-lbl">{{ 'Nombre del suplemento' | t }}</label>
+          <input class="rs-inp" [(ngModel)]="nuevoConcepto" [placeholder]="'Ej. Nudos severos' | t" />
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">Precio</label>
+          <label class="rs-lbl">{{ 'Precio' | t }}</label>
           <input type="number" min="0.01" step="0.01" class="rs-inp" [(ngModel)]="nuevoMonto" />
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">Tipo de cobro</label>
+          <label class="rs-lbl">{{ 'Tipo de cobro' | t }}</label>
           <select class="rs-inp" [(ngModel)]="nuevaUnidad">
-            <option value="fijo">Importe fijo</option>
-            <option value="por_dia">€ / día</option>
-            <option value="por_noche">€ / noche</option>
+            <option value="fijo">{{ 'Importe fijo' | t }}</option>
+            <option value="por_dia">{{ '€ / día' | t }}</option>
+            <option value="por_noche">{{ '€ / noche' | t }}</option>
           </select>
         </div>
         <div class="rs-field" style="flex:0;align-self:flex-end">
@@ -55,17 +57,17 @@ const UNIDAD_LABEL: Record<string, string> = {
     </div>
 
     @if (cargando()) {
-      <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">Cargando…</div>
+      <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">{{ 'Cargando…' | t }}</div>
     } @else if (suplementos().length === 0) {
       <div class="rs-card empty-state">
         <rs-icon name="tag" [size]="36" [stroke]="1.25" style="color:var(--t-400)"></rs-icon>
-        <p>Aún no has configurado ningún suplemento.</p>
+        <p>{{ 'Aún no has configurado ningún suplemento.' | t }}</p>
       </div>
     } @else {
       <div class="rs-card" style="overflow-x:auto">
         <table class="rs-table">
           <thead>
-            <tr><th>Nombre del suplemento</th><th>Precio</th><th>Tipo de cobro</th><th>Estado</th><th></th></tr>
+            <tr><th>{{ 'Nombre del suplemento' | t }}</th><th>{{ 'Precio' | t }}</th><th>{{ 'Tipo de cobro' | t }}</th><th>{{ 'Estado' | t }}</th><th></th></tr>
           </thead>
           <tbody>
             @for (s of suplementos(); track s._id) {
@@ -83,7 +85,7 @@ const UNIDAD_LABEL: Record<string, string> = {
                     {{ s.activo ? 'Desactivar' : 'Activar' }}
                   </button>
                   <button class="rs-btn rs-btn--ghost rs-btn--sm" [disabled]="eliminandoId() === s._id" (click)="eliminar(s)">
-                    Eliminar
+                    {{ 'Eliminar' | t }}
                   </button>
                 </td>
               </tr>

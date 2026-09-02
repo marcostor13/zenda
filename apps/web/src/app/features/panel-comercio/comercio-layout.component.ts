@@ -8,6 +8,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { AuthService } from '../../core/auth/auth.service';
 import { ComercioApiService, MiComercio } from './comercio-api.service';
 import { iconoVertical } from './vertical-icon';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 const VERTICALES_OPCIONES = [
   { valor: 'alojamiento', label: 'Alojamiento' },
@@ -38,42 +39,44 @@ const NAV_ITEMS = [
 @Component({
   selector: 'app-comercio-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ReactiveFormsModule, TitleCasePipe, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterOutlet, RouterLink, RouterLinkActive, ReactiveFormsModule, TitleCasePipe, RsNavbarComponent, RsIconComponent
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
 
   @if (cargando()) {
-    <div style="text-align:center;padding:var(--sp-20);color:var(--t-400)">Cargando…</div>
+    <div style="text-align:center;padding:var(--sp-20);color:var(--t-400)">{{ 'Cargando…' | t }}</div>
   } @else if (sinNegocio()) {
     <!-- ONBOARDING: cuenta de comercio sin negocio vinculado -->
     <div class="rs-wrap" style="padding-block:var(--sp-12);max-width:560px">
       <div class="rs-card" style="padding:var(--sp-8)">
-        <h1 style="font-size:var(--f-2xl);font-weight:var(--w-8);color:var(--t-100);margin-bottom:var(--sp-2)">Configura tu negocio</h1>
+        <h1 style="font-size:var(--f-2xl);font-weight:var(--w-8);color:var(--t-100);margin-bottom:var(--sp-2)">{{ 'Configura tu negocio' | t }}</h1>
         <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-6)">
-          Tu cuenta aún no está vinculada a ningún negocio. Créalo para empezar a publicar servicios y recibir reservas.
+          {{ 'Tu cuenta aún no está vinculada a ningún negocio. Créalo para empezar a publicar servicios y recibir reservas.' | t }}
         </p>
         <form [formGroup]="onboardingForm" (ngSubmit)="crearNegocio()" style="display:flex;flex-direction:column;gap:var(--sp-4)">
           <div class="rs-form-group">
-            <label class="rs-label">Nombre comercial</label>
-            <input class="rs-input" formControlName="nombreComercial" placeholder="Ej. Centro Canino Vila-Can" />
+            <label class="rs-label">{{ 'Nombre comercial' | t }}</label>
+            <input class="rs-input" formControlName="nombreComercial" [placeholder]="'Ej. Centro Canino Vila-Can' | t" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Razón social</label>
-            <input class="rs-input" formControlName="razonSocial" placeholder="Ej. Vila-Can S.L." />
+            <label class="rs-label">{{ 'Razón social' | t }}</label>
+            <input class="rs-input" formControlName="razonSocial" [placeholder]="'Ej. Vila-Can S.L.' | t" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">CIF / NIF</label>
-            <input class="rs-input" formControlName="vatNumber" placeholder="Ej. B12345678" />
+            <label class="rs-label">{{ 'CIF / NIF' | t }}</label>
+            <input class="rs-input" formControlName="vatNumber" [placeholder]="'Ej. B12345678' | t" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">¿Qué servicios ofreces?</label>
+            <label class="rs-label">{{ '¿Qué servicios ofreces?' | t }}</label>
             <div style="display:flex;flex-wrap:wrap;gap:var(--sp-3);margin-top:var(--sp-2)">
               @for (v of verticalesOpciones; track v.valor) {
                 <label style="display:inline-flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-size:var(--f-sm)">
                   <input type="checkbox" [checked]="verticalesSel().has(v.valor)" (change)="toggleVertical(v.valor)"
                          style="accent-color:var(--c-accent);width:20px;height:20px" />
-                  {{ v.label }}
+                  {{ v.label | t }}
                 </label>
               }
             </div>
@@ -117,7 +120,7 @@ const NAV_ITEMS = [
             [routerLinkActiveOptions]="{ exact: item.exact }"
             class="cl-nav__item">
             <rs-icon [name]="item.icon" [size]="16" [stroke]="2"></rs-icon>
-            <span>{{ item.label }}</span>
+            <span>{{ item.label | t }}</span>
           </a>
         }
       </nav>
@@ -126,7 +129,7 @@ const NAV_ITEMS = [
       <div class="cl-sidebar__footer">
         <a routerLink="/" class="cl-nav__item" style="color:var(--t-400)">
           <rs-icon name="log-out" [size]="16" [stroke]="2"></rs-icon>
-          <span>Volver al inicio</span>
+          <span>{{ 'Volver al inicio' | t }}</span>
         </a>
       </div>
 

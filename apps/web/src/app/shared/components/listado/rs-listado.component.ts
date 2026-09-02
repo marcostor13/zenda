@@ -10,6 +10,7 @@ import type { BarraHistograma } from '../range-slider/rs-range-slider.component'
 import { filtrosDeVertical } from '../../verticales/filtros.config';
 
 import { euros } from '../../pipes/euros.pipe';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 /** Criterio de orden ofrecido en la barra de control. */
 export interface OpcionOrden {
   readonly valor: string;
@@ -56,7 +57,9 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
 @Component({
   selector: 'rs-listado',
   standalone: true,
-  imports: [RsIconComponent, RsFiltrosListadoComponent],
+  imports: [
+    TraducirPipe, RsIconComponent, RsFiltrosListadoComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ls">
@@ -120,7 +123,7 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
             opcion mas larga y descuadraba la fila de tres.
           -->
           <select class="ls__orden-sel" [value]="orden()"
-                  (change)="alCambiarOrden($event)" aria-label="Ordenar resultados">
+                  (change)="alCambiarOrden($event)" [attr.aria-label]="'Ordenar resultados' | t">
             @for (o of ordenes(); track o.valor) {
               <option [value]="o.valor">{{ o.etiqueta }}</option>
             }
@@ -157,9 +160,9 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
              [attr.aria-label]="filtrosAbiertos() ? 'Filtros de búsqueda' : null">
         <div class="ls__filtros-asa" aria-hidden="true"></div>
         <div class="ls__filtros-head">
-          <h2>Filtros</h2>
+          <h2>{{ 'Filtros' | t }}</h2>
           <button type="button" class="ls__filtros-cerrar" (click)="cerrarFiltros()"
-                  aria-label="Cerrar filtros">
+                  [attr.aria-label]="'Cerrar filtros' | t">
             <rs-icon name="x" [size]="18" [stroke]="2.5" />
           </button>
         </div>
@@ -195,7 +198,7 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
               </button>
             }
             <button type="button" class="ls__activo ls__activo--limpiar" (click)="limpiarFiltros()">
-              Limpiar todo
+              {{ 'Limpiar todo' | t }}
             </button>
           </div>
         }
@@ -211,23 +214,23 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
         } @else if (error()) {
           <div class="rs-result-empty">
             <rs-icon name="alert-triangle" [size]="48" [stroke]="1.5" />
-            <h3>No se pudo cargar el catálogo</h3>
-            <p>Inténtalo de nuevo en unos momentos.</p>
+            <h3>{{ 'No se pudo cargar el catálogo' | t }}</h3>
+            <p>{{ 'Inténtalo de nuevo en unos momentos.' | t }}</p>
             <button type="button" class="rs-btn rs-btn--outline" (click)="reintentar.emit()">
-              Reintentar
+              {{ 'Reintentar' | t }}
             </button>
           </div>
         } @else if (total() === 0) {
           <div class="rs-result-empty">
             <rs-icon name="search" [size]="48" [stroke]="1.5" />
-            <h3>Sin resultados</h3>
+            <h3>{{ 'Sin resultados' | t }}</h3>
             @if (numFiltrosActivos()) {
               <p>Ningún servicio cumple los {{ numFiltrosActivos() }} filtros activos.</p>
               <button type="button" class="rs-btn rs-btn--outline" (click)="limpiarFiltros()">
-                Quitar los filtros
+                {{ 'Quitar los filtros' | t }}
               </button>
             } @else {
-              <p>Prueba con otra ciudad o cambia las fechas.</p>
+              <p>{{ 'Prueba con otra ciudad o cambia las fechas.' | t }}</p>
             }
           </div>
         } @else {
@@ -250,7 +253,7 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
 
       <!-- ── MAPA ───────────────────────────────────────────── -->
       @if (mapaAbierto()) {
-        <section class="ls__mapa" aria-label="Buscar en el mapa">
+        <section class="ls__mapa" [attr.aria-label]="'Buscar en el mapa' | t">
           <ng-content select="[listadoMapa]" />
         </section>
       }

@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { EstadoModeracion, TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** 'reportados' no es un estado de moderación: es un corte transversal. */
 type FiltroComunidad = EstadoModeracion | 'reportados';
@@ -49,14 +50,16 @@ interface ReviewPendiente {
 @Component({
   selector: 'app-admin-comunidad',
   standalone: true,
-  imports: [DatePipe, RsIconComponent],
+  imports: [
+    TraducirPipe, DatePipe, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ac">
   <header class="ac__head">
     <div>
-      <h1>Comunidad</h1>
-      <p>Revisa y gestiona el contenido compartido por la comunidad de Doogking.</p>
+      <h1>{{ 'Comunidad' | t }}</h1>
+      <p>{{ 'Revisa y gestiona el contenido compartido por la comunidad de Doogking.' | t }}</p>
     </div>
     <span class="ac__contador">{{ conteo('pendiente') }} pendientes</span>
   </header>
@@ -68,7 +71,7 @@ interface ReviewPendiente {
               [attr.aria-selected]="estadoActivo() === t.estado"
               [class.activa]="estadoActivo() === t.estado"
               (click)="cambiarEstado(t.estado)">
-        {{ t.label }}
+        {{ t.label | t }}
         <span class="ac__tab-num">{{ conteo(t.estado) }}</span>
       </button>
     }
@@ -77,30 +80,30 @@ interface ReviewPendiente {
   <div class="ac__filtros">
     <label class="ac__buscador">
       <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon>
-      <input type="search" placeholder="Buscar por título, usuario o ciudad…"
+      <input type="search" [placeholder]="'Buscar por título, usuario o ciudad…' | t"
              [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
     </label>
 
     <!-- Filtros de contenido (TCK-8039 §3) -->
     <select class="rs-inp ac__select" [value]="filtroTipo()"
-            (change)="filtroTipo.set($any($event.target).value)" aria-label="Categoría">
-      <option value="">Todas las categorías</option>
+            (change)="filtroTipo.set($any($event.target).value)" [attr.aria-label]="'Categoría' | t">
+      <option value="">{{ 'Todas las categorías' | t }}</option>
       @for (t of tiposLugar; track t.valor) {
-        <option [value]="t.valor">{{ t.label }}</option>
+        <option [value]="t.valor">{{ t.label | t }}</option>
       }
     </select>
 
     <select class="rs-inp ac__select" [value]="filtroAntiguedad()"
-            (change)="filtroAntiguedad.set($any($event.target).value)" aria-label="Fecha">
-      <option value="">Cualquier fecha</option>
-      <option value="7">Última semana</option>
-      <option value="30">Último mes</option>
-      <option value="90">Últimos 3 meses</option>
+            (change)="filtroAntiguedad.set($any($event.target).value)" [attr.aria-label]="'Fecha' | t">
+      <option value="">{{ 'Cualquier fecha' | t }}</option>
+      <option value="7">{{ 'Última semana' | t }}</option>
+      <option value="30">{{ 'Último mes' | t }}</option>
+      <option value="90">{{ 'Últimos 3 meses' | t }}</option>
     </select>
   </div>
 
   @if (cargando()) {
-    <p class="ac__cargando">Cargando la cola de moderación…</p>
+    <p class="ac__cargando">{{ 'Cargando la cola de moderación…' | t }}</p>
   } @else if (!totalVisible()) {
     <div class="ac__vacio">
       <rs-icon name="check-circle" [size]="36" [stroke]="1.5"></rs-icon>
@@ -135,11 +138,11 @@ interface ReviewPendiente {
               <div class="ac__acciones">
                 <button type="button" class="rs-btn rs-btn--primary rs-btn--sm"
                         [disabled]="procesandoId() === l._id" (click)="moderarLugar(l, true)">
-                  Publicar
+                  {{ 'Publicar' | t }}
                 </button>
                 <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                         [disabled]="procesandoId() === l._id" (click)="moderarLugar(l, false)">
-                  Rechazar
+                  {{ 'Rechazar' | t }}
                 </button>
               </div>
             </li>
@@ -165,11 +168,11 @@ interface ReviewPendiente {
               <div class="ac__acciones">
                 <button type="button" class="rs-btn rs-btn--primary rs-btn--sm"
                         [disabled]="procesandoId() === r._id" (click)="moderarReview(r, true)">
-                  Publicar
+                  {{ 'Publicar' | t }}
                 </button>
                 <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                         [disabled]="procesandoId() === r._id" (click)="moderarReview(r, false)">
-                  Rechazar
+                  {{ 'Rechazar' | t }}
                 </button>
               </div>
             </li>

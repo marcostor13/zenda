@@ -12,6 +12,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { CatalogBrowseService, type ServicioCard } from '../verticales/catalog-browse.service';
 
 import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
 
 /** Verticales con ficha de detalle propia (Fase 4); las demás solo tienen listado. */
@@ -22,52 +23,54 @@ const VERTICALES_CON_FICHA = new Set<string>([
 @Component({
   selector: 'app-favoritos',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, RsFavoritoBtnComponent, ImgFallbackDirective, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, RsFavoritoBtnComponent, ImgFallbackDirective, EurosPipe
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
 
   <div class="rs-wrap" style="padding-block:var(--sp-10)">
     <div class="fav-header">
-      <h1><rs-icon name="heart" [size]="24" [stroke]="2"></rs-icon> Mis favoritos</h1>
-      <p>Los servicios que has guardado para reservar más rápido.</p>
+      <h1><rs-icon name="heart" [size]="24" [stroke]="2"></rs-icon> {{ 'Mis favoritos' | t }}</h1>
+      <p>{{ 'Los servicios que has guardado para reservar más rápido.' | t }}</p>
     </div>
 
     @if (!cargando() && favoritos().length > 0) {
       <div class="fav-toolbar">
         <div class="fav-toolbar__group">
-          <label for="fav-filtro">Categoría</label>
+          <label for="fav-filtro">{{ 'Categoría' | t }}</label>
           <select id="fav-filtro" class="rs-input" [value]="filtroVertical()" (change)="filtroVertical.set($any($event.target).value)">
-            <option value="">Todas</option>
+            <option value="">{{ 'Todas' | t }}</option>
             @for (v of verticalesDisponibles(); track v) {
               <option [value]="v">{{ etiquetaVertical(v) }}</option>
             }
           </select>
         </div>
         <div class="fav-toolbar__group">
-          <label for="fav-orden">Ordenar por</label>
+          <label for="fav-orden">{{ 'Ordenar por' | t }}</label>
           <select id="fav-orden" class="rs-input" [value]="orden()" (change)="orden.set($any($event.target).value)">
-            <option value="recientes">Más recientes</option>
-            <option value="valorados">Mejor valorados</option>
-            <option value="precio">Precio (menor a mayor)</option>
+            <option value="recientes">{{ 'Más recientes' | t }}</option>
+            <option value="valorados">{{ 'Mejor valorados' | t }}</option>
+            <option value="precio">{{ 'Precio (menor a mayor)' | t }}</option>
           </select>
         </div>
       </div>
     }
 
     @if (cargando()) {
-      <div style="text-align:center;padding:var(--sp-16);color:var(--t-400)">Cargando favoritos…</div>
+      <div style="text-align:center;padding:var(--sp-16);color:var(--t-400)">{{ 'Cargando favoritos…' | t }}</div>
     } @else if (favoritos().length === 0) {
       <div class="rs-card" style="padding:var(--sp-12);text-align:center">
         <rs-icon name="heart" [size]="36" [stroke]="1.25" style="color:var(--t-400);display:block;margin:0 auto var(--sp-4)"></rs-icon>
         <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-4)">
-          Todavía no tienes favoritos. Pulsa el corazón en cualquier servicio para guardarlo aquí.
+          {{ 'Todavía no tienes favoritos. Pulsa el corazón en cualquier servicio para guardarlo aquí.' | t }}
         </p>
-        <a routerLink="/" class="rs-btn rs-btn--primary rs-btn--sm">Explorar servicios</a>
+        <a routerLink="/" class="rs-btn rs-btn--primary rs-btn--sm">{{ 'Explorar servicios' | t }}</a>
       </div>
     } @else if (favoritosVisibles().length === 0) {
       <div class="rs-card" style="padding:var(--sp-12);text-align:center">
-        <p style="color:var(--t-400);font-size:var(--f-sm)">Ningún favorito coincide con este filtro.</p>
+        <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Ningún favorito coincide con este filtro.' | t }}</p>
       </div>
     } @else {
       <div class="fav-grid">
@@ -83,7 +86,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
                 <span class="fav-card__badge"><rs-icon name="flame" [size]="13" [stroke]="2"></rs-icon> Ha bajado {{ f.precioAnterior - f.precioBase | euros:'1.0-0' }} desde que lo guardaste</span>
               }
               @if (yaReservados().has(f.servicioId)) {
-                <span class="fav-card__reservado"><rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> Ya reservaste aquí</span>
+                <span class="fav-card__reservado"><rs-icon name="check" [size]="13" [stroke]="3"></rs-icon> {{ 'Ya reservaste aquí' | t }}</span>
               }
               <div class="fav-card__fav">
                 <rs-favorito-btn [servicioId]="f.servicioId" (click)="marcarPendiente(f.servicioId)"></rs-favorito-btn>
@@ -100,8 +103,8 @@ const VERTICALES_CON_FICHA = new Set<string>([
                 <span class="fav-card__price">{{ f.precioBase | euros:'1.0-0' }}</span>
               </div>
               <div class="fav-card__acciones">
-                <a [routerLink]="rutaReservar(f)" class="rs-btn rs-btn--primary rs-btn--block rs-btn--sm">Reservar</a>
-                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" title="Compartir" (click)="compartir(f)"><rs-icon name="share" [size]="14" [stroke]="2"></rs-icon></button>
+                <a [routerLink]="rutaReservar(f)" class="rs-btn rs-btn--primary rs-btn--block rs-btn--sm">{{ 'Reservar' | t }}</a>
+                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" [title]="'Compartir' | t" (click)="compartir(f)"><rs-icon name="share" [size]="14" [stroke]="2"></rs-icon></button>
               </div>
             </div>
           </article>
@@ -114,9 +117,9 @@ const VERTICALES_CON_FICHA = new Set<string>([
       <section class="fav-reco">
         <h2 class="fav-reco__titulo">
           <rs-icon name="sparkles" [size]="18" [stroke]="2"></rs-icon>
-          Recomendados para ti
+          {{ 'Recomendados para ti' | t }}
         </h2>
-        <p class="fav-reco__sub">Más opciones parecidas a las que sueles guardar.</p>
+        <p class="fav-reco__sub">{{ 'Más opciones parecidas a las que sueles guardar.' | t }}</p>
 
         <div class="fav-grid">
           @for (s of recomendados(); track s.id) {

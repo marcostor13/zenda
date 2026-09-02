@@ -5,6 +5,7 @@ import { ReservaEstado, VERTICAL_LABELS, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { ReservaApi, ReservasService } from '../services/reservas.service';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Cómo se muestra cada estado; el color comunica más rápido que el texto. */
 const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | 'neutro' }> = {
@@ -29,7 +30,9 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
 @Component({
   selector: 'app-mi-viaje',
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, RouterLink, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, CurrencyPipe, DatePipe, RouterLink, RsNavbarComponent, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="mv-page">
@@ -37,16 +40,16 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
 
   <div class="rs-wrap rs-wrap--lg mv-wrap">
     <a routerLink="/reservas" class="back-link">
-      <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon> Mis reservas
+      <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon> {{ 'Mis reservas' | t }}
     </a>
 
     @if (cargando()) {
-      <p class="mv-cargando">Cargando tu viaje…</p>
+      <p class="mv-cargando">{{ 'Cargando tu viaje…' | t }}</p>
     } @else if (error()) {
       <div class="rs-alert rs-alert--error">{{ error() }}</div>
     } @else {
       <header class="mv-head">
-        <p class="mv-eyebrow">Mi viaje con mi mascota</p>
+        <p class="mv-eyebrow">{{ 'Mi viaje con mi mascota' | t }}</p>
         <h1>{{ titulo() }}</h1>
         <p class="mv-sub">
           {{ reservas().length }} {{ reservas().length === 1 ? 'servicio' : 'servicios' }} ·
@@ -72,24 +75,24 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
 
               <dl class="mv-datos">
                 <div>
-                  <dt>Cuándo</dt>
+                  <dt>{{ 'Cuándo' | t }}</dt>
                   <dd>
                     {{ r.fechaInicio | date: 'd MMM, HH:mm' }}@if (r.fechaFin) { → {{ r.fechaFin | date: 'd MMM, HH:mm' }} }
                   </dd>
                 </div>
                 <div>
-                  <dt>Código</dt>
+                  <dt>{{ 'Código' | t }}</dt>
                   <dd>{{ r.codigo }}</dd>
                 </div>
                 <div>
-                  <dt>Importe</dt>
+                  <dt>{{ 'Importe' | t }}</dt>
                   <dd>{{ r.montoTotal | currency: 'EUR' }}</dd>
                 </div>
               </dl>
 
               <div class="mv-item__acciones">
                 <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--outline rs-btn--sm">
-                  Ver detalle
+                  {{ 'Ver detalle' | t }}
                 </a>
                 @if (puedeCancelar(r)) {
                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
@@ -105,7 +108,7 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
 
       <p class="mv-nota">
         <rs-icon name="alert-circle" [size]="14" [stroke]="2"></rs-icon>
-        Cancelar un servicio no afecta a los demás: cada uno tiene su propia política de cancelación.
+        {{ 'Cancelar un servicio no afecta a los demás: cada uno tiene su propia política de cancelación.' | t }}
       </p>
     }
   </div>

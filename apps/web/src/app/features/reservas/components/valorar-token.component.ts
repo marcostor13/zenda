@@ -7,6 +7,7 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { ReviewsService } from '../services/reviews.service';
 import { environment } from '../../../../environments/environment';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 const COMENTARIO_MINIMO = 10;
 
@@ -20,7 +21,9 @@ const COMENTARIO_MINIMO = 10;
 @Component({
   selector: 'app-valorar-token',
   standalone: true,
-  imports: [FormsModule, RouterLink, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, FormsModule, RouterLink, RsNavbarComponent, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="vt-page">
@@ -28,27 +31,27 @@ const COMENTARIO_MINIMO = 10;
 
   <div class="rs-wrap rs-wrap--sm vt-wrap">
     @if (cargando()) {
-      <p class="vt-cargando">Abriendo tu valoración…</p>
+      <p class="vt-cargando">{{ 'Abriendo tu valoración…' | t }}</p>
     } @else if (error()) {
       <div class="rs-card vt-card">
-        <h1>No hemos podido abrir la valoración</h1>
+        <h1>{{ 'No hemos podido abrir la valoración' | t }}</h1>
         <p>{{ error() }}</p>
-        <a routerLink="/reservas" class="rs-btn rs-btn--primary">Ir a mis reservas</a>
+        <a routerLink="/reservas" class="rs-btn rs-btn--primary">{{ 'Ir a mis reservas' | t }}</a>
       </div>
     } @else if (enviada()) {
       <div class="rs-card vt-card vt-card--ok">
         <div class="vt-icono"><rs-icon name="party-popper" [size]="40" [stroke]="1.5"></rs-icon></div>
-        <h1>¡Gracias por tu valoración!</h1>
-        <p>Tu opinión ayuda a otros dueños a elegir bien.</p>
-        <a routerLink="/explora" class="rs-btn rs-btn--gold">Descubre sitios para tu mascota</a>
+        <h1>{{ '¡Gracias por tu valoración!' | t }}</h1>
+        <p>{{ 'Tu opinión ayuda a otros dueños a elegir bien.' | t }}</p>
+        <a routerLink="/explora" class="rs-btn rs-btn--gold">{{ 'Descubre sitios para tu mascota' | t }}</a>
       </div>
     } @else {
       <div class="rs-card vt-card">
         <p class="vt-eyebrow">Reserva {{ codigo() }}</p>
-        <h1>¿Qué tal fue?</h1>
-        <p class="vt-sub">Te llevará menos de 30 segundos.</p>
+        <h1>{{ '¿Qué tal fue?' | t }}</h1>
+        <p class="vt-sub">{{ 'Te llevará menos de 30 segundos.' | t }}</p>
 
-        <div class="vt-estrellas" role="radiogroup" aria-label="Puntuación">
+        <div class="vt-estrellas" role="radiogroup" [attr.aria-label]="'Puntuación' | t">
           @for (n of [1,2,3,4,5]; track n) {
             <button type="button" role="radio" class="vt-estrella"
                     [class.is-on]="n <= puntuacion()"
@@ -61,9 +64,9 @@ const COMENTARIO_MINIMO = 10;
         </div>
 
         <div class="rs-field">
-          <label class="rs-lbl" for="vt-comentario">Cuéntanos un poco más</label>
+          <label class="rs-lbl" for="vt-comentario">{{ 'Cuéntanos un poco más' | t }}</label>
           <textarea id="vt-comentario" class="rs-inp" rows="4" [(ngModel)]="comentario"
-                    placeholder="¿Cómo trataron a tu perro? ¿Repetirías?"></textarea>
+                    [placeholder]="'¿Cómo trataron a tu perro? ¿Repetirías?' | t"></textarea>
           <span class="rs-field-hint">Mínimo {{ minimo }} caracteres.</span>
         </div>
 
@@ -76,7 +79,7 @@ const COMENTARIO_MINIMO = 10;
 
         <p class="vt-nota">
           <rs-icon name="lock" [size]="12" [stroke]="2"></rs-icon>
-          Solo se puede valorar una vez por reserva.
+          {{ 'Solo se puede valorar una vez por reserva.' | t }}
         </p>
       </div>
     }

@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 function passwordsMatch(group: AbstractControl): ValidationErrors | null {
   const nueva = group.get('nuevaPassword')?.value;
@@ -16,7 +17,9 @@ function passwordsMatch(group: AbstractControl): ValidationErrors | null {
 @Component({
   selector: 'app-perfil-seguridad',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, ReactiveFormsModule, RsNavbarComponent, RsIconComponent
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -25,12 +28,12 @@ function passwordsMatch(group: AbstractControl): ValidationErrors | null {
 
     <a routerLink="/perfil" class="back-link">
       <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-      Volver al perfil
+      {{ 'Volver al perfil' | t }}
     </a>
 
     <div class="page-header">
-      <h1>Seguridad</h1>
-      <p>Cambia tu contraseña para mantener tu cuenta segura.</p>
+      <h1>{{ 'Seguridad' | t }}</h1>
+      <p>{{ 'Cambia tu contraseña para mantener tu cuenta segura.' | t }}</p>
     </div>
 
     <div class="rs-card form-card">
@@ -42,56 +45,56 @@ function passwordsMatch(group: AbstractControl): ValidationErrors | null {
       <form [formGroup]="form" (ngSubmit)="cambiarPassword()">
 
         <div class="rs-field">
-          <label class="rs-lbl">Contraseña actual *</label>
+          <label class="rs-lbl">{{ 'Contraseña actual *' | t }}</label>
           <div class="input-wrap">
             <input
               class="rs-inp"
               [type]="verActual() ? 'text' : 'password'"
               formControlName="passwordActual"
-              placeholder="Tu contraseña actual"
+              [placeholder]="'Tu contraseña actual' | t"
               [class.rs-inp--error]="hasErr('passwordActual')">
             <button type="button" class="toggle-vis" (click)="verActual.set(!verActual())">
               <rs-icon [name]="verActual() ? 'eye-off' : 'eye'" [size]="16" [stroke]="1.75"></rs-icon>
             </button>
           </div>
           @if (hasErr('passwordActual')) {
-            <span class="rs-field-err">Introduce tu contraseña actual.</span>
+            <span class="rs-field-err">{{ 'Introduce tu contraseña actual.' | t }}</span>
           }
         </div>
 
         <div class="rs-field">
-          <label class="rs-lbl">Nueva contraseña *</label>
+          <label class="rs-lbl">{{ 'Nueva contraseña *' | t }}</label>
           <div class="input-wrap">
             <input
               class="rs-inp"
               [type]="verNueva() ? 'text' : 'password'"
               formControlName="nuevaPassword"
-              placeholder="Mínimo 8 caracteres"
+              [placeholder]="'Mínimo 8 caracteres' | t"
               [class.rs-inp--error]="hasErr('nuevaPassword')">
             <button type="button" class="toggle-vis" (click)="verNueva.set(!verNueva())">
               <rs-icon [name]="verNueva() ? 'eye-off' : 'eye'" [size]="16" [stroke]="1.75"></rs-icon>
             </button>
           </div>
           @if (hasErr('nuevaPassword')) {
-            <span class="rs-field-err">La nueva contraseña debe tener al menos 8 caracteres.</span>
+            <span class="rs-field-err">{{ 'La nueva contraseña debe tener al menos 8 caracteres.' | t }}</span>
           }
         </div>
 
         <div class="rs-field">
-          <label class="rs-lbl">Confirmar nueva contraseña *</label>
+          <label class="rs-lbl">{{ 'Confirmar nueva contraseña *' | t }}</label>
           <div class="input-wrap">
             <input
               class="rs-inp"
               [type]="verConfirmar() ? 'text' : 'password'"
               formControlName="confirmarPassword"
-              placeholder="Repite la nueva contraseña"
+              [placeholder]="'Repite la nueva contraseña' | t"
               [class.rs-inp--error]="hasErr('confirmarPassword') || form.hasError('noCoinciden')">
             <button type="button" class="toggle-vis" (click)="verConfirmar.set(!verConfirmar())">
               <rs-icon [name]="verConfirmar() ? 'eye-off' : 'eye'" [size]="16" [stroke]="1.75"></rs-icon>
             </button>
           </div>
           @if (form.hasError('noCoinciden') && form.get('confirmarPassword')?.touched) {
-            <span class="rs-field-err">Las contraseñas no coinciden.</span>
+            <span class="rs-field-err">{{ 'Las contraseñas no coinciden.' | t }}</span>
           }
         </div>
 
@@ -107,11 +110,11 @@ function passwordsMatch(group: AbstractControl): ValidationErrors | null {
           <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
         }
         @if (exito()) {
-          <div class="rs-alert rs-alert--success"><rs-icon name="check" [size]="15" [stroke]="3"></rs-icon> Contraseña cambiada correctamente.</div>
+          <div class="rs-alert rs-alert--success"><rs-icon name="check" [size]="15" [stroke]="3"></rs-icon> {{ 'Contraseña cambiada correctamente.' | t }}</div>
         }
 
         <div class="form-actions">
-          <a routerLink="/perfil" class="rs-btn rs-btn--ghost">Cancelar</a>
+          <a routerLink="/perfil" class="rs-btn rs-btn--ghost">{{ 'Cancelar' | t }}</a>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
             @if (guardando()) { Actualizando… } @else {
               <rs-icon name="lock" [size]="15" [stroke]="2"></rs-icon>

@@ -4,30 +4,33 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { SocialButtonsComponent } from '../social-buttons/social-buttons.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, RsIconComponent, SocialButtonsComponent],
+  imports: [
+    TraducirPipe, ReactiveFormsModule, RouterLink, RsIconComponent, SocialButtonsComponent
+  ],
   template: `
     <div class="rs-auth">
       <div class="rs-auth__card">
 
         <a routerLink="/" class="rs-auth__volver">
           <rs-icon name="arrow-left" [size]="16" [stroke]="2" />
-          Volver al inicio
+          {{ 'Volver al inicio' | t }}
         </a>
 
         <div class="rs-auth__brand">
-          <a routerLink="/" aria-label="Ir a la Home de Doogking" style="display:inline-block;cursor:pointer">
+          <a routerLink="/" [attr.aria-label]="'Ir a la Home de Doogking' | t" style="display:inline-block;cursor:pointer">
             <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
           </a>
-          <p>Bienvenido de vuelta</p>
+          <p>{{ 'Bienvenido de vuelta' | t }}</p>
         </div>
 
         <form [formGroup]="formulario" (ngSubmit)="onSubmit()" class="rs-auth__form">
           <div class="rs-field">
-            <label for="email" class="rs-lbl">Correo electrónico</label>
+            <label for="email" class="rs-lbl">{{ 'Correo electrónico' | t }}</label>
             <input
               id="email"
               type="email"
@@ -38,15 +41,15 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
               [class.rs-inp--error]="formulario.get('email')?.invalid && formulario.get('email')?.touched"
               placeholder="tu@email.com" />
             @if (formulario.get('email')?.invalid && formulario.get('email')?.touched) {
-              <span class="rs-field-err">Ingresa un email válido</span>
+              <span class="rs-field-err">{{ 'Ingresa un email válido' | t }}</span>
             }
           </div>
 
           <div class="rs-field">
             <div style="display:flex;justify-content:space-between;align-items:center">
-              <label for="password" class="rs-lbl">Contraseña</label>
+              <label for="password" class="rs-lbl">{{ 'Contraseña' | t }}</label>
               <a routerLink="/auth/recuperar"
-                 class="rs-auth__enlace" style="font-size:var(--f-xs);display:inline-flex;align-items:center;min-height:36px;padding-inline:var(--sp-1)">¿Olvidaste tu contraseña?</a>
+                 class="rs-auth__enlace" style="font-size:var(--f-xs);display:inline-flex;align-items:center;min-height:36px;padding-inline:var(--sp-1)">{{ '¿Olvidaste tu contraseña?' | t }}</a>
             </div>
             <div style="position:relative">
               <input
@@ -69,7 +72,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
           <label style="display:flex;align-items:center;gap:var(--sp-2);font-size:var(--f-sm);color:var(--t-300);cursor:pointer;user-select:none">
             <input type="checkbox" formControlName="recordar"
                    style="accent-color:var(--c-accent);width:20px;height:20px" />
-            Recordar mi correo
+            {{ 'Recordar mi correo' | t }}
           </label>
 
           @if (error()) {
@@ -78,9 +81,9 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
 
           @if (requiereVerificacion()) {
             <div class="rs-alert rs-alert--warning" style="display:flex;flex-direction:column;gap:var(--sp-2)">
-              <span>Tu email aún no está verificado. Revisa tu correo o reenvía el enlace.</span>
+              <span>{{ 'Tu email aún no está verificado. Revisa tu correo o reenvía el enlace.' | t }}</span>
               @if (reenviado()) {
-                <strong>Correo reenviado <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon></strong>
+                <strong>{{ 'Correo reenviado' | t }} <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon></strong>
               } @else {
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="reenviar()" [disabled]="reenviando()">
                   {{ reenviando() ? 'Reenviando…' : 'Reenviar verificación' }}
@@ -103,10 +106,10 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
         <app-social-buttons />
 
         <div class="rs-auth__footer">
-          ¿No tienes cuenta? <a routerLink="/auth/registro">Regístrate gratis</a>
+          {{ '¿No tienes cuenta?' | t }} <a routerLink="/auth/registro">{{ 'Regístrate gratis' | t }}</a>
         </div>
         <div class="rs-auth__footer" style="margin-top:var(--sp-2)">
-          ¿Tienes un negocio? <a routerLink="/auth/registro-comercio">Regístralo en Doogking</a>
+          {{ '¿Tienes un negocio?' | t }} <a routerLink="/auth/registro-comercio">{{ 'Regístralo en Doogking' | t }}</a>
         </div>
       </div>
     </div>

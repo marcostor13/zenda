@@ -23,6 +23,7 @@ import type { BarraHistograma } from '../../shared/components/range-slider/rs-ra
 import { calcularBadgesAutomaticos } from '../../shared/badges/badges-automaticos';
 
 import { euros } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 /** Filtros de búsqueda vigentes, tal y como llegan en la URL. */
 interface Busqueda {
   ciudad?: string;
@@ -200,7 +201,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
   selector: 'app-vertical-browse',
   standalone: true,
   imports: [
-    RsNavbarComponent, RsSearchBarComponent, RsListadoComponent,
+    TraducirPipe, RsNavbarComponent, RsSearchBarComponent, RsListadoComponent,
     AnimateOnScrollDirective, ExperienciasCercaComponent, RsCardComponent, RsChipComponent,
     RsMapaBuscadorComponent,
   ],
@@ -237,20 +238,20 @@ const CONFIGS: Record<string, VerticalConfig> = {
          primero a quien declara esa especialidad. -->
     @if (esAdiestramiento()) {
       <div listadoAntes class="vb-problema">
-        <p class="vb-problema__titulo">¿Qué problema quieres resolver?</p>
+        <p class="vb-problema__titulo">{{ '¿Qué problema quieres resolver?' | t }}</p>
         <div class="vb-problema__chips">
           <rs-chip [active]="problema() === null" [isAll]="true" (chipClick)="elegirProblema(null)">
-            Todos
+            {{ 'Todos' | t }}
           </rs-chip>
           @for (p of problemas; track p.label) {
             <rs-chip [active]="problema() === p.label" (chipClick)="elegirProblema(p.label)">
-              {{ p.label }}
+              {{ p.label | t }}
             </rs-chip>
           }
         </div>
         @if (problema()) {
           <p class="vb-problema__nota">
-            Primero los adiestradores que declaran esta especialidad en su ficha.
+            {{ 'Primero los adiestradores que declaran esta especialidad en su ficha.' | t }}
           </p>
         }
       </div>
@@ -273,7 +274,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
           [destacados]="incluyeDe(c)"
           [favoritoServicioId]="c.id"
           [routerLink]="enlaceAServicio(cfg().vertical, c.id)"
-          ctaLabel="Ver ficha"
+          [ctaLabel]="'Ver ficha' | t"
           [accionSoloEscritorio]="!!enlaceAServicio(cfg().vertical, c.id)"
           [mensaje]="solicitadoId() === c.id ? cfg().confirmMsg : ''"
           (ctaClick)="solicitar(c)">

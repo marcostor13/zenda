@@ -10,6 +10,7 @@ import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-
 import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-phone-input.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { environment } from '../../../environments/environment';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Lo que devuelve `GET /users/me`; la sesión sólo trae una parte. */
 interface PerfilUsuario {
@@ -23,7 +24,7 @@ interface PerfilUsuario {
   selector: 'app-perfil-editar',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, RsNavbarComponent,
+    TraducirPipe, RouterLink, ReactiveFormsModule, RsNavbarComponent,
     RsIconComponent, RsImageUploadComponent, RsPhoneInputComponent,
   ],
   template: `
@@ -35,22 +36,22 @@ interface PerfilUsuario {
     <!-- Breadcrumb -->
     <a routerLink="/perfil" class="back-link">
       <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-      Volver al perfil
+      {{ 'Volver al perfil' | t }}
     </a>
 
     <div class="page-header">
-      <h1>Datos personales</h1>
-      <p>Actualiza tu nombre, teléfono y foto de perfil.</p>
+      <h1>{{ 'Datos personales' | t }}</h1>
+      <p>{{ 'Actualiza tu nombre, teléfono y foto de perfil.' | t }}</p>
     </div>
 
     <div class="form-grid">
 
       <!-- Avatar section -->
       <div class="rs-card avatar-card">
-        <h2>Foto de perfil</h2>
+        <h2>{{ 'Foto de perfil' | t }}</h2>
         <div class="avatar-preview">
           @if (avatarPreview()) {
-            <img [src]="avatarPreview()" alt="Avatar" class="avatar-img" />
+            <img [src]="avatarPreview()" [alt]="'Avatar' | t" class="avatar-img" />
           } @else {
             <div class="avatar-initials">{{ iniciales() }}</div>
           }
@@ -62,46 +63,46 @@ interface PerfilUsuario {
           style="display:block;margin-top:var(--sp-4)">
         </rs-image-upload>
         <p style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-top:var(--sp-3)">
-          La foto se actualiza al guardar el perfil.
+          {{ 'La foto se actualiza al guardar el perfil.' | t }}
         </p>
       </div>
 
       <!-- Profile form -->
       <div class="rs-card form-card">
-        <h2>Información personal</h2>
+        <h2>{{ 'Información personal' | t }}</h2>
 
         <form [formGroup]="form" (ngSubmit)="guardar()">
 
           <div class="rs-field">
-            <label class="rs-lbl">Nombre completo *</label>
-            <input class="rs-inp" formControlName="nombre" placeholder="Tu nombre"
+            <label class="rs-lbl">{{ 'Nombre completo *' | t }}</label>
+            <input class="rs-inp" formControlName="nombre" [placeholder]="'Tu nombre' | t"
                    [class.rs-inp--error]="hasErr('nombre')">
             @if (hasErr('nombre')) {
-              <span class="rs-field-err">El nombre es obligatorio.</span>
+              <span class="rs-field-err">{{ 'El nombre es obligatorio.' | t }}</span>
             }
           </div>
 
           <div class="rs-field">
-            <label class="rs-lbl">Email</label>
+            <label class="rs-lbl">{{ 'Email' | t }}</label>
             <input class="rs-inp rs-inp--readonly" [value]="usuario()?.email ?? ''" readonly
-                   title="El email no se puede cambiar aquí.">
-            <span class="rs-field-hint">Para cambiar el email, contacta con soporte.</span>
+                   [title]="'El email no se puede cambiar aquí.' | t">
+            <span class="rs-field-hint">{{ 'Para cambiar el email, contacta con soporte.' | t }}</span>
           </div>
 
           <div class="rs-field">
-            <label class="rs-lbl">Teléfono</label>
-            <rs-phone-input formControlName="telefono" etiqueta="Teléfono" />
+            <label class="rs-lbl">{{ 'Teléfono' | t }}</label>
+            <rs-phone-input formControlName="telefono" [etiqueta]="'Teléfono' | t" />
           </div>
 
           @if (errorMsg()) {
             <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
           }
           @if (exito()) {
-            <div class="rs-alert rs-alert--success">¡Perfil actualizado correctamente.</div>
+            <div class="rs-alert rs-alert--success">{{ '¡Perfil actualizado correctamente.' | t }}</div>
           }
 
           <div class="form-actions">
-            <a routerLink="/perfil" class="rs-btn rs-btn--ghost">Cancelar</a>
+            <a routerLink="/perfil" class="rs-btn rs-btn--ghost">{{ 'Cancelar' | t }}</a>
             <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardando()">
               @if (guardando()) { Guardando… } @else {
                 <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>

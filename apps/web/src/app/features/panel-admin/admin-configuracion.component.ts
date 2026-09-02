@@ -7,6 +7,7 @@ import {
 } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 interface CanalesAviso {
   email: boolean;
@@ -38,12 +39,14 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
 @Component({
   selector: 'app-admin-configuracion',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   template: `
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Configuración de la plataforma</h1>
-        <p class="rs-page-sub">Avisos automáticos y parámetros generales de Doogking.</p>
+        <h1 class="rs-page-title">{{ 'Configuración de la plataforma' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Avisos automáticos y parámetros generales de Doogking.' | t }}</p>
       </div>
       <button class="rs-btn rs-btn--primary rs-btn--sm" [disabled]="guardando()" (click)="guardar()">
         <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon>
@@ -61,34 +64,33 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
     }
 
     @if (cargando()) {
-      <p style="color:var(--t-400)">Cargando la configuración…</p>
+      <p style="color:var(--t-400)">{{ 'Cargando la configuración…' | t }}</p>
     } @else if (config(); as c) {
       <!-- Avisos automáticos (TCK-8040 §6) -->
       <div class="rs-card panel">
-        <h3 class="panel__titulo">Avisos automáticos</h3>
+        <h3 class="panel__titulo">{{ 'Avisos automáticos' | t }}</h3>
         <p class="panel__nota">
-          Qué se comunica y por dónde. Desactivar un aviso deja de enviarlo a todos los
-          destinatarios de esa fila.
+          {{ 'Qué se comunica y por dónde. Desactivar un aviso deja de enviarlo a todos los destinatarios de esa fila.' | t }}
         </p>
 
         <div class="avisos">
           <div class="avisos__head">
-            <span>Aviso</span>
-            <span>A quién</span>
+            <span>{{ 'Aviso' | t }}</span>
+            <span>{{ 'A quién' | t }}</span>
             @for (canal of canales; track canal.clave) {
-              <span>{{ canal.label }}</span>
+              <span>{{ canal.label | t }}</span>
             }
           </div>
           @for (aviso of avisos; track aviso.tipo) {
             <div class="avisos__row">
-              <span class="avisos__nombre">{{ aviso.label }}</span>
+              <span class="avisos__nombre">{{ aviso.label | t }}</span>
               <span class="avisos__destino">{{ aviso.destinatario }}</span>
               @for (canal of canales; track canal.clave) {
                 <label class="avisos__check">
                   <input type="checkbox"
                          [checked]="canalActivo(aviso.tipo, canal.clave)"
                          (change)="alternarCanal(aviso.tipo, canal.clave)" />
-                  <span class="avisos__check-label">{{ canal.label }}</span>
+                  <span class="avisos__check-label">{{ canal.label | t }}</span>
                 </label>
               }
             </div>
@@ -98,40 +100,40 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
 
       <!-- Parámetros generales (TCK-8040 §8) -->
       <div class="rs-card panel">
-        <h3 class="panel__titulo">Parámetros generales</h3>
+        <h3 class="panel__titulo">{{ 'Parámetros generales' | t }}</h3>
 
         <div class="form-grid">
           <div class="rs-form-group">
-            <label class="rs-label">Nombre de la plataforma</label>
+            <label class="rs-label">{{ 'Nombre de la plataforma' | t }}</label>
             <input class="rs-inp" [value]="c.nombrePlataforma"
                    (input)="editar('nombrePlataforma', $any($event.target).value)" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Email de soporte</label>
+            <label class="rs-label">{{ 'Email de soporte' | t }}</label>
             <input class="rs-inp" type="email" [value]="c.emailSoporte"
                    (input)="editar('emailSoporte', $any($event.target).value)" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Teléfono de soporte</label>
+            <label class="rs-label">{{ 'Teléfono de soporte' | t }}</label>
             <input class="rs-inp" [value]="c.telefonoSoporte ?? ''"
                    (input)="editar('telefonoSoporte', $any($event.target).value)" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Avisar de documentación que caduca (días antes)</label>
+            <label class="rs-label">{{ 'Avisar de documentación que caduca (días antes)' | t }}</label>
             <input class="rs-inp" type="number" min="1" [value]="c.diasAvisoCaducidad"
                    (input)="editar('diasAvisoCaducidad', +$any($event.target).value)" />
           </div>
         </div>
 
         <div class="rs-form-group">
-          <label class="rs-label">Verticales abiertos al público</label>
-          <p class="panel__nota">Un vertical desactivado deja de ofrecerse, sin borrar nada.</p>
+          <label class="rs-label">{{ 'Verticales abiertos al público' | t }}</label>
+          <p class="panel__nota">{{ 'Un vertical desactivado deja de ofrecerse, sin borrar nada.' | t }}</p>
           <div class="verticales">
             @for (v of verticales; track v.valor) {
               <label class="vertical">
                 <input type="checkbox" [checked]="verticalActivo(v.valor)"
                        (change)="alternarVertical(v.valor)" />
-                {{ v.label }}
+                {{ v.label | t }}
               </label>
             }
           </div>
@@ -142,14 +144,14 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
             <input type="checkbox" [checked]="c.modoMantenimiento"
                    (change)="editar('modoMantenimiento', !c.modoMantenimiento)" />
             <span>
-              <strong>Modo mantenimiento</strong>
-              <em>El público ve un aviso; el panel de administración sigue accesible.</em>
+              <strong>{{ 'Modo mantenimiento' | t }}</strong>
+              <em>{{ 'El público ve un aviso; el panel de administración sigue accesible.' | t }}</em>
             </span>
           </label>
           @if (c.modoMantenimiento) {
             <input class="rs-inp" [value]="c.mensajeMantenimiento ?? ''"
                    (input)="editar('mensajeMantenimiento', $any($event.target).value)"
-                   placeholder="Mensaje que verá el público" />
+                   [placeholder]="'Mensaje que verá el público' | t" />
           }
         </div>
       </div>

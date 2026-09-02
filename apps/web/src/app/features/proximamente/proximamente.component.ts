@@ -4,6 +4,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { RsSocialIconComponent, type RedSocialKey } from '../../shared/components/social-icon/rs-social-icon.component';
 import { BRAND, CATEGORIA_ICONOS } from '../../shared/media/images';
 import { ListaEsperaService } from './lista-espera.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Servicio anunciado en la rejilla de alcance de la plataforma. */
 interface ServicioAnunciado {
@@ -32,7 +33,9 @@ interface RedSocial {
 @Component({
   selector: 'app-proximamente',
   standalone: true,
-  imports: [ReactiveFormsModule, RsIconComponent, RsSocialIconComponent],
+  imports: [
+    TraducirPipe, ReactiveFormsModule, RsIconComponent, RsSocialIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="pm">
@@ -40,18 +43,16 @@ interface RedSocial {
         <img [src]="logo" alt="Doogking" class="pm__logo" />
 
         <p class="pm__badge">
-          <rs-icon name="rocket" [size]="15" [stroke]="2.25" /> Estamos preparando algo muy grande
+          <rs-icon name="rocket" [size]="15" [stroke]="2.25" /> {{ 'Estamos preparando algo muy grande' | t }}
         </p>
 
         <h1 class="pm__title">
-          <span class="pm__title-line pm__title-line--blue">Todo para tu rey,</span>
-          <span class="pm__title-line pm__title-line--gold">en un solo lugar</span>
+          <span class="pm__title-line pm__title-line--blue">{{ 'Todo para tu rey,' | t }}</span>
+          <span class="pm__title-line pm__title-line--gold">{{ 'en un solo lugar' | t }}</span>
         </h1>
 
         <p class="pm__lead">
-          Estamos ultimando los detalles de Doogking, la plataforma que reunirá todo lo que tu
-          mascota necesita en un solo lugar. Muy pronto podrás reservar con profesionales de
-          confianza de forma rápida, sencilla y segura.
+          {{ 'Estamos ultimando los detalles de Doogking, la plataforma que reunirá todo lo que tu mascota necesita en un solo lugar. Muy pronto podrás reservar con profesionales de confianza de forma rápida, sencilla y segura.' | t }}
         </p>
 
         <ul class="pm__ventajas">
@@ -66,7 +67,7 @@ interface RedSocial {
 
       <section class="pm__servicios" aria-labelledby="pm-servicios-titulo">
         <h2 class="pm__servicios-titulo" id="pm-servicios-titulo">
-          Todo lo que encontrarás en Doogking
+          {{ 'Todo lo que encontrarás en Doogking' | t }}
         </h2>
         <ul class="pm__grid">
           @for (servicio of servicios; track servicio.label) {
@@ -74,23 +75,22 @@ interface RedSocial {
               <span class="pm__servicio-icono">
                 <img [src]="servicio.icono" alt="" aria-hidden="true" />
               </span>
-              <span class="pm__servicio-label">{{ servicio.label }}</span>
+              <span class="pm__servicio-label">{{ servicio.label | t }}</span>
             </li>
           }
         </ul>
         <p class="pm__confianza">
-          La plataforma donde propietarios y profesionales se encuentran con total confianza.
+          {{ 'La plataforma donde propietarios y profesionales se encuentran con total confianza.' | t }}
         </p>
       </section>
 
       <section class="pm__cta" aria-labelledby="pm-cta-titulo">
         <div class="pm__cta-inner">
           <h2 class="pm__cta-titulo" id="pm-cta-titulo">
-            ¿Quieres ser de los primeros en conocer Doogking?
+            {{ '¿Quieres ser de los primeros en conocer Doogking?' | t }}
           </h2>
           <p class="pm__cta-texto">
-            Déjanos tu email y te avisamos el día que abramos. Sin spam: solo el aviso de
-            lanzamiento.
+            {{ 'Déjanos tu email y te avisamos el día que abramos. Sin spam: solo el aviso de lanzamiento.' | t }}
           </p>
 
           @if (suscrito()) {
@@ -100,7 +100,7 @@ interface RedSocial {
           } @else {
             <form class="pm__cta-form" [formGroup]="formulario" (ngSubmit)="suscribir()">
               <label class="pm__cta-label" for="pm-email">
-                <rs-icon name="mail" [size]="13" [stroke]="2.25" /> Tu email
+                <rs-icon name="mail" [size]="13" [stroke]="2.25" /> {{ 'Tu email' | t }}
               </label>
               <div class="pm__cta-fila">
                 <input
@@ -127,7 +127,7 @@ interface RedSocial {
           }
 
           <p class="pm__cta-redes">
-            <span class="pm__cta-redes-label">Síguenos</span>
+            <span class="pm__cta-redes-label">{{ 'Síguenos' | t }}</span>
             @for (red of redes; track red.nombre) {
               <a
                 class="pm__cta-red"
@@ -141,7 +141,7 @@ interface RedSocial {
           </p>
 
           <p class="pm__cta-legal">
-            <rs-icon name="paw" [size]="14" [stroke]="2" /> Gracias por tu paciencia — © 2026 Doogking
+            <rs-icon name="paw" [size]="14" [stroke]="2" /> {{ 'Gracias por tu paciencia — © 2026 Doogking' | t }}
           </p>
         </div>
       </section>

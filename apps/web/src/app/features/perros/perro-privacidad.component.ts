@@ -6,6 +6,7 @@ import {
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ConsentimientoApi, PerroApi, PerrosService } from './perros.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
  * Matriz de privacidad de la ficha (HU-016): qué tipo de historial puede leer
@@ -18,7 +19,9 @@ import { ConsentimientoApi, PerroApi, PerrosService } from './perros.service';
 @Component({
   selector: 'app-perro-privacidad',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="priv-page">
@@ -26,26 +29,25 @@ import { ConsentimientoApi, PerroApi, PerrosService } from './perros.service';
 
   <div class="rs-wrap rs-wrap--lg priv-wrap">
     <a routerLink="/perros" class="back-link">
-      <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon> Mis mascotas
+      <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon> {{ 'Mis mascotas' | t }}
     </a>
 
     <header class="priv-head">
       <h1>Privacidad de {{ perro()?.nombre ?? 'tu mascota' }}</h1>
       <p>
-        Tú decides qué información ve cada tipo de servicio. Por defecto, lo que registra un
-        profesional <strong>no sale de su propia categoría</strong>.
+        {{ 'Tú decides qué información ve cada tipo de servicio. Por defecto, lo que registra un profesional' | t }} <strong>{{ 'no sale de su propia categoría' | t }}</strong>.
       </p>
     </header>
 
     @if (cargando()) {
-      <p class="priv-cargando">Cargando permisos…</p>
+      <p class="priv-cargando">{{ 'Cargando permisos…' | t }}</p>
     } @else {
       <div class="priv-tabla-wrap">
         <table class="priv-tabla">
-          <caption class="rs-sr-only">Permisos de compartición por tipo de historial y categoría</caption>
+          <caption class="rs-sr-only">{{ 'Permisos de compartición por tipo de historial y categoría' | t }}</caption>
           <thead>
             <tr>
-              <th scope="col">Historial</th>
+              <th scope="col">{{ 'Historial' | t }}</th>
               @for (v of verticales; track v) {
                 <th scope="col">{{ etiquetaVertical(v) }}</th>
               }
@@ -58,9 +60,9 @@ import { ConsentimientoApi, PerroApi, PerrosService } from './perros.service';
                 @for (v of verticales; track v) {
                   <td>
                     @if (esOrigen(t, v)) {
-                      <span class="priv-propio" title="Quien genera el historial siempre lo ve">
+                      <span class="priv-propio" [title]="'Quien genera el historial siempre lo ve' | t">
                         <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon>
-                        <span class="rs-sr-only">Siempre visible: es quien lo generó</span>
+                        <span class="rs-sr-only">{{ 'Siempre visible: es quien lo generó' | t }}</span>
                       </span>
                     } @else {
                       <label class="priv-check">
@@ -84,12 +86,12 @@ import { ConsentimientoApi, PerroApi, PerrosService } from './perros.service';
       <div class="priv-pie">
         <p>
           <rs-icon name="lock" [size]="14" [stroke]="2"></rs-icon>
-          Cada cambio queda registrado con su fecha. Puedes revocarlo cuando quieras.
+          {{ 'Cada cambio queda registrado con su fecha. Puedes revocarlo cuando quieras.' | t }}
         </p>
         <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
                 [disabled]="guardando() || !hayAlgunoConcedido()"
                 (click)="revocarTodo()">
-          Revocar todos los permisos
+          {{ 'Revocar todos los permisos' | t }}
         </button>
       </div>
 

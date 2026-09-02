@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LegalDocumentoComponent } from './legal-documento.component';
 import { RESPONSABLE } from './legal.datos';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Asunto prefijado del correo, para que la solicitud llegue identificada. */
 const ASUNTO = encodeURIComponent('Solicitud de eliminación de datos');
@@ -22,68 +23,61 @@ const ASUNTO = encodeURIComponent('Solicitud de eliminación de datos');
   selector: 'app-eliminar-datos',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LegalDocumentoComponent, RouterLink],
+  imports: [
+    TraducirPipe, LegalDocumentoComponent, RouterLink
+  ],
   template: `
     <app-legal-documento
       titulo="Eliminación de datos"
       entradilla="Cómo pedir que borremos tu cuenta y los datos asociados, qué se elimina y en cuánto tiempo.">
 
-      <h2>Cómo solicitarlo</h2>
+      <h2>{{ 'Cómo solicitarlo' | t }}</h2>
       <ol>
         <li>
-          Escribe a <a [href]="enlaceCorreo">{{ r.emailPrivacidad }}</a> desde la dirección de
-          correo con la que te registraste, con el asunto «Solicitud de eliminación de datos».
+          {{ 'Escribe a' | t }} <a [href]="enlaceCorreo">{{ r.emailPrivacidad }}</a> {{ 'desde la dirección de correo con la que te registraste, con el asunto «Solicitud de eliminación de datos».' | t }}
         </li>
         <li>
-          Indica si quieres borrar <strong>toda la cuenta</strong> o solo <strong>la vinculación
-          con Facebook o Google</strong>, para poder seguir entrando con tu correo.
+          {{ 'Indica si quieres borrar' | t }} <strong>{{ 'toda la cuenta' | t }}</strong> {{ 'o solo' | t }} <strong>{{ 'la vinculación con Facebook o Google' | t }}</strong>{{ ', para poder seguir entrando con tu correo.' | t }}
         </li>
         <li>
-          Te confirmamos la recepción y completamos el borrado en un plazo máximo de
-          <strong>30 días</strong>.
+          {{ 'Te confirmamos la recepción y completamos el borrado en un plazo máximo de' | t }}
+          <strong>{{ '30 días' | t }}</strong>.
         </li>
       </ol>
       <p>
-        Si tu cuenta es de un <strong>comercio</strong>, puedes hacerlo tú desde el panel:
-        <em>Panel → Mi cuenta → Cerrar cuenta</em>.
+        {{ 'Si tu cuenta es de un' | t }} <strong>{{ 'comercio' | t }}</strong>{{ ', puedes hacerlo tú desde el panel:' | t }}
+        <em>{{ 'Panel → Mi cuenta → Cerrar cuenta' | t }}</em>.
       </p>
 
-      <h2>Qué se elimina</h2>
+      <h2>{{ 'Qué se elimina' | t }}</h2>
       <ul>
-        <li>Tu perfil: nombre, correo, teléfono, contraseña y foto.</li>
-        <li>Las fichas de tus mascotas, con sus fotos y su información sanitaria.</li>
-        <li>Tus favoritos y las reseñas que hayas publicado.</li>
+        <li>{{ 'Tu perfil: nombre, correo, teléfono, contraseña y foto.' | t }}</li>
+        <li>{{ 'Las fichas de tus mascotas, con sus fotos y su información sanitaria.' | t }}</li>
+        <li>{{ 'Tus favoritos y las reseñas que hayas publicado.' | t }}</li>
         <li>
-          Los dispositivos registrados para notificaciones, de modo que dejas de recibir avisos
-          de inmediato.
+          {{ 'Los dispositivos registrados para notificaciones, de modo que dejas de recibir avisos de inmediato.' | t }}
         </li>
-        <li>La vinculación con Google y con Meta, si la tenías.</li>
+        <li>{{ 'La vinculación con Google y con Meta, si la tenías.' | t }}</li>
       </ul>
 
-      <h2>Qué conservamos, y por qué</h2>
+      <h2>{{ 'Qué conservamos, y por qué' | t }}</h2>
       <p>
-        Las <strong>reservas y sus pagos</strong> no se borran con la cuenta: la normativa fiscal
-        y mercantil obliga a conservar los justificantes de una operación económica durante seis
-        años. Lo que sí hacemos es <strong>disociarlos</strong>, de forma que dejan de estar
-        vinculados a tu identidad y quedan solo como el registro contable de la transacción.
+        {{ 'Las' | t }} <strong>{{ 'reservas y sus pagos' | t }}</strong> {{ 'no se borran con la cuenta: la normativa fiscal y mercantil obliga a conservar los justificantes de una operación económica durante seis años. Lo que sí hacemos es' | t }} <strong>{{ 'disociarlos' | t }}</strong>{{ ', de forma que dejan de estar vinculados a tu identidad y quedan solo como el registro contable de la transacción.' | t }}
       </p>
       <p>
-        Tampoco podemos borrar los datos que el comercio con el que reservaste conserve en sus
-        propios sistemas: para eso tienes que dirigirte a él directamente.
+        {{ 'Tampoco podemos borrar los datos que el comercio con el que reservaste conserve en sus propios sistemas: para eso tienes que dirigirte a él directamente.' | t }}
       </p>
 
-      <h2>Revocar el acceso desde Facebook</h2>
+      <h2>{{ 'Revocar el acceso desde Facebook' | t }}</h2>
       <p>
         Con independencia de lo anterior, puedes retirarle a {{ r.marca }} el permiso sobre tu
         cuenta de Facebook desde
-        <em>Configuración y privacidad → Configuración → Apps y sitios web</em>. Eso corta el
-        acceso, pero <strong>no borra</strong> los datos que ya tengamos: para eso, sigue los
-        pasos de arriba.
+        <em>{{ 'Configuración y privacidad → Configuración → Apps y sitios web' | t }}</em>{{ '. Eso corta el acceso, pero' | t }} <strong>{{ 'no borra' | t }}</strong> {{ 'los datos que ya tengamos: para eso, sigue los pasos de arriba.' | t }}
       </p>
 
       <p>
-        Más detalle sobre qué tratamos y durante cuánto tiempo, en la
-        <a routerLink="/privacidad">política de privacidad</a>.
+        {{ 'Más detalle sobre qué tratamos y durante cuánto tiempo, en la' | t }}
+        <a routerLink="/privacidad">{{ 'política de privacidad' | t }}</a>.
       </p>
     </app-legal-documento>
   `,

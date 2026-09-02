@@ -24,6 +24,7 @@ import { calcularBadgesAutomaticos, type BadgeAutomatico } from '../../../shared
 import { ExperienciasCercaComponent } from '../../explora/experiencias-cerca.component';
 
 import { euros } from '../../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 /** Filtros comunes de búsqueda, tal y como llegan en la URL. */
 interface BusquedaUrl {
   ciudad?: string;
@@ -36,7 +37,7 @@ interface BusquedaUrl {
   selector: 'app-alojamiento-lista',
   standalone: true,
   imports: [
-    RsNavbarComponent, RsIconComponent, RsSearchBarComponent, RsListadoComponent,
+    TraducirPipe, RsNavbarComponent, RsIconComponent, RsSearchBarComponent, RsListadoComponent,
     AnimateOnScrollDirective, RsCardComponent,
     ExperienciasCercaComponent, RsMapaBuscadorComponent,
   ],
@@ -90,7 +91,7 @@ interface BusquedaUrl {
           [favoritoServicioId]="a.id"
           [routerLink]="['/alojamiento', a.id]"
           [queryParams]="queryParamsDetalle()"
-          ctaLabel="Ver disponibilidad"
+          [ctaLabel]="'Ver disponibilidad' | t"
           [accionSoloEscritorio]="true">
         </rs-card>
       }

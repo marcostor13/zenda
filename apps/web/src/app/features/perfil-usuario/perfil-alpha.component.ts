@@ -10,6 +10,7 @@ import { enlaceAServicio, verticalUi } from '../../shared/verticales/verticales.
 import { AlphaService, AlphaEstadoApi, AlphaNivelApi, AlphaVentajaApi } from '../alpha/alpha.service';
 
 import { euros } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 /** Un escalón del club, ya resuelto para pintar (nombre romano, insignia, estado). */
 interface NivelVista {
   readonly nivel: number;
@@ -48,7 +49,9 @@ function iconoDeBeneficio(texto: string): string {
 @Component({
   selector: 'app-perfil-alpha',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
+  imports: [
+    TraducirPipe, RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, ImgFallbackDirective
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="alpha-page">
@@ -58,15 +61,15 @@ function iconoDeBeneficio(texto: string): string {
 
     <a routerLink="/perfil" class="back-link">
       <rs-icon name="arrow-left" [size]="14" [stroke]="2" />
-      Volver al perfil
+      {{ 'Volver al perfil' | t }}
     </a>
 
     <header class="page-header">
       <span class="page-header__eyebrow">
-        <rs-icon name="crown" [size]="14" [stroke]="2" /> Club exclusivo
+        <rs-icon name="crown" [size]="14" [stroke]="2" /> {{ 'Club exclusivo' | t }}
       </span>
-      <h1>Programa Doogking Alpha</h1>
-      <p>Cuantas más reservas completes, más ventajas exclusivas desbloquearás.</p>
+      <h1>{{ 'Programa Doogking Alpha' | t }}</h1>
+      <p>{{ 'Cuantas más reservas completes, más ventajas exclusivas desbloquearás.' | t }}</p>
     </header>
 
     @if (cargando()) {
@@ -84,7 +87,7 @@ function iconoDeBeneficio(texto: string): string {
               <span class="insignia__romano">{{ romanoActual() }}</span>
             </span>
             <div class="estado-card__texto">
-              <span class="estado-card__label">Tu nivel actual</span>
+              <span class="estado-card__label">{{ 'Tu nivel actual' | t }}</span>
               <h2 class="estado-card__nivel" id="alpha-estado-titulo">{{ nombreActual() }}</h2>
             </div>
             @if (e.descuentoPct > 0) {
@@ -147,7 +150,7 @@ function iconoDeBeneficio(texto: string): string {
       }
 
       <!-- La escalera completa, un nivel por tarjeta -->
-      <h2 class="seccion-titulo">La escalera Alpha</h2>
+      <h2 class="seccion-titulo">{{ 'La escalera Alpha' | t }}</h2>
       <div class="niveles-grid">
         @for (n of nivelesVista(); track n.nivel) {
           <article
@@ -166,9 +169,9 @@ function iconoDeBeneficio(texto: string): string {
             </div>
 
             @if (n.esActual) {
-              <span class="rs-badge rs-badge--accent nivel-card__chip">Tu nivel actual</span>
+              <span class="rs-badge rs-badge--accent nivel-card__chip">{{ 'Tu nivel actual' | t }}</span>
             } @else if (n.esSiguiente) {
-              <span class="rs-badge rs-badge--warning nivel-card__chip">Siguiente nivel</span>
+              <span class="rs-badge rs-badge--warning nivel-card__chip">{{ 'Siguiente nivel' | t }}</span>
             }
 
             @if (n.descuentoPct > 0) {
@@ -195,7 +198,7 @@ function iconoDeBeneficio(texto: string): string {
       <!-- Ventajas disponibles para ti (HU-13.3) -->
       @if (adheridos().length > 0) {
         <section class="ventajas">
-          <h2 class="seccion-titulo">Ventajas disponibles para ti</h2>
+          <h2 class="seccion-titulo">{{ 'Ventajas disponibles para ti' | t }}</h2>
           <p class="ventajas__sub">
             Estos negocios están adheridos al programa Alpha.
             @if (descuentoActual() > 0) {
@@ -208,7 +211,7 @@ function iconoDeBeneficio(texto: string): string {
                 <img [src]="s.imagenes[0] || fallbackImg" [alt]="s.nombre" rsImg />
                 <div class="ventaja-card__info">
                   <span class="rs-badge rs-badge--accent">
-                    <rs-icon name="crown" [size]="12" [stroke]="2" /> Ventajas Alpha
+                    <rs-icon name="crown" [size]="12" [stroke]="2" /> {{ 'Ventajas Alpha' | t }}
                   </span>
                   <strong>{{ s.nombre }}</strong>
                   <span class="ventaja-card__meta">

@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 const NAV_SECTIONS = [
   {
@@ -47,7 +48,9 @@ const NAV_SECTIONS = [
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterOutlet, RouterLink, RouterLinkActive, RsNavbarComponent, RsIconComponent
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -57,8 +60,8 @@ const NAV_SECTIONS = [
     <!-- SIDEBAR -->
     <aside class="admin-sidebar">
       <div class="admin-sidebar__title">
-        <span class="rs-badge rs-badge--danger">ADMIN</span>
-        Panel de control
+        <span class="rs-badge rs-badge--danger">{{ 'ADMIN' | t }}</span>
+        {{ 'Panel de control' | t }}
       </div>
 
       <nav>
@@ -72,7 +75,7 @@ const NAV_SECTIONS = [
                 [routerLinkActiveOptions]="{ exact: item.exact }"
                 class="admin-nav-item">
                 <rs-icon [name]="item.icon" [size]="16" [stroke]="2"></rs-icon>
-                <span>{{ item.label }}</span>
+                <span>{{ item.label | t }}</span>
               </a>
             }
           </div>

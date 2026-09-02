@@ -8,12 +8,15 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { AdminApiService } from '../panel-admin/admin-api.service';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
 
 @Component({
   selector: 'app-perfil-admin',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, EurosPipe
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -27,11 +30,11 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
         <h1>{{ usuario()?.nombre ?? 'Administrador' }}</h1>
         <p>{{ usuario()?.email }}</p>
         <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
-          <span class="rs-badge rs-badge--accent">Administrador de plataforma</span>
+          <span class="rs-badge rs-badge--accent">{{ 'Administrador de plataforma' | t }}</span>
         </div>
       </div>
       <a routerLink="/admin" class="rs-btn rs-btn--primary perfil-header__cta">
-        <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon> Ir al panel
+        <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon> {{ 'Ir al panel' | t }}
       </a>
     </div>
 
@@ -39,29 +42,29 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
     <div class="metric-grid">
       <div class="rs-card metric">
         <div class="metric__value">{{ kpis().gmvMes | euros:'1.0-0' }}</div>
-        <div class="metric__label">Facturación gestionada (mes)</div>
+        <div class="metric__label">{{ 'Facturación gestionada (mes)' | t }}</div>
       </div>
       <div class="rs-card metric">
         <div class="metric__value">{{ kpis().ingresosMes | euros:'1.0-0' }}</div>
-        <div class="metric__label">Comisión Doogking (mes)</div>
+        <div class="metric__label">{{ 'Comisión Doogking (mes)' | t }}</div>
       </div>
       <div class="rs-card metric">
         <div class="metric__value">{{ kpis().totalUsuarios | number:'1.0-0' }}</div>
-        <div class="metric__label">Usuarios registrados</div>
+        <div class="metric__label">{{ 'Usuarios registrados' | t }}</div>
       </div>
       <div class="rs-card metric">
         <div class="metric__value">{{ kpis().totalReservas | number:'1.0-0' }}</div>
-        <div class="metric__label">Reservas totales</div>
+        <div class="metric__label">{{ 'Reservas totales' | t }}</div>
       </div>
       <div class="rs-card metric">
         <div class="metric__value">{{ kpis().comerciosPendientesCount }}</div>
-        <div class="metric__label">Comercios pendientes</div>
+        <div class="metric__label">{{ 'Comercios pendientes' | t }}</div>
       </div>
     </div>
 
     <!-- CONFIGURACIÓN GLOBAL -->
     <div class="perfil-section">
-      <h2>Administración de la plataforma</h2>
+      <h2>{{ 'Administración de la plataforma' | t }}</h2>
       <div class="config-list">
         @for (item of configItems; track item.label) {
           <a [routerLink]="item.ruta" class="config-item rs-card">
@@ -69,7 +72,7 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
               <rs-icon [name]="item.icon" [size]="16" [stroke]="1.75"></rs-icon>
             </div>
             <div class="config-item__text">
-              <div class="config-item__label">{{ item.label }}</div>
+              <div class="config-item__label">{{ item.label | t }}</div>
               <div class="config-item__sub">{{ item.sub }}</div>
             </div>
             <rs-icon name="chevron-down" [size]="14" [stroke]="2" style="color:var(--t-400);transform:rotate(-90deg)"></rs-icon>
@@ -79,7 +82,7 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
 
       <div style="margin-top:var(--sp-6);max-width:360px">
         <button (click)="cerrarSesion()" class="rs-btn rs-btn--danger rs-btn--block">
-          <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> Cerrar sesión
+          <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> {{ 'Cerrar sesión' | t }}
         </button>
       </div>
     </div>

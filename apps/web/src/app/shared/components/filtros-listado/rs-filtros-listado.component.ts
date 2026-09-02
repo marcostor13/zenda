@@ -7,6 +7,7 @@ import {
   RsRangeSliderComponent, type BarraHistograma,
 } from '../range-slider/rs-range-slider.component';
 import { filtrosDeVertical, type GrupoFiltro } from '../../verticales/filtros.config';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Lo que el panel devuelve al listado, listo para enviarse al API. */
 export interface FiltrosSeleccionados {
@@ -28,13 +29,15 @@ export interface FiltrosSeleccionados {
 @Component({
   selector: 'rs-filtros-listado',
   standalone: true,
-  imports: [RsChipComponent, RsStarsComponent, RsRangeSliderComponent],
+  imports: [
+    TraducirPipe, RsChipComponent, RsStarsComponent, RsRangeSliderComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <aside class="rs-filtros">
   <div class="rs-filtros__head">
-    <h3>Filtros</h3>
-    <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="limpiar()">Limpiar</button>
+    <h3>{{ 'Filtros' | t }}</h3>
+    <button type="button" class="rs-btn rs-btn--ghost rs-btn--xs" (click)="limpiar()">{{ 'Limpiar' | t }}</button>
   </div>
 
   @for (g of grupos(); track g.titulo) {

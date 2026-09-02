@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 export interface TrustItem {
   /** Nombre de icono de `rs-icon` (Lucide). Nunca un emoji: TCK-8009 / TCK-8010. */
@@ -39,14 +40,16 @@ const ITEMS_PROTECCION: readonly TrustItem[] = [
 @Component({
   selector: 'rs-trust-block',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ul class="rs-trust-block">
       @for (item of itemsFinales(); track item.label) {
         <li class="rs-trust-block__item">
           <rs-icon class="rs-trust-block__icon" [name]="item.icon" [size]="16" [stroke]="2" />
-          <span>{{ item.label }}</span>
+          <span>{{ item.label | t }}</span>
         </li>
       }
     </ul>

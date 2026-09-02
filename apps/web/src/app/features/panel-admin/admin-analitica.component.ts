@@ -6,45 +6,48 @@ import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 import { AdminApiService, AnaliticaAdmin, ComercioTop, PuntoEvolucion, VerticalAnalitica } from './admin-api.service';
 
 import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 type MetricaVertical = 'reservas' | 'facturacion' | 'comision' | 'comercios';
 type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
 
 @Component({
   selector: 'app-admin-analitica',
   standalone: true,
-  imports: [DecimalPipe, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, DecimalPipe, RsIconComponent, EurosPipe
+  ],
   template: `
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Analítica</h1>
-        <p class="rs-page-sub">Visión de negocio: dónde crece la plataforma y cómo convierte.</p>
+        <h1 class="rs-page-title">{{ 'Analítica' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Visión de negocio: dónde crece la plataforma y cómo convierte.' | t }}</p>
       </div>
     </div>
 
     @if (cargando()) {
-      <div style="text-align:center;padding:var(--sp-16);color:var(--t-400)">Cargando analítica…</div>
+      <div style="text-align:center;padding:var(--sp-16);color:var(--t-400)">{{ 'Cargando analítica…' | t }}</div>
     } @else if (errorMsg()) {
       <div class="rs-alert rs-alert--error">{{ errorMsg() }}</div>
     } @else {
       <!-- Cabecera de KPIs: cómo va la plataforma en cinco segundos (TCK-8031) -->
       <div class="kpi-fila">
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.usuariosNuevosMes }}</span><span class="kpi__lbl">Usuarios nuevos (mes)</span></div>
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.reservas }}</span><span class="kpi__lbl">Reservas</span></div>
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.conversionPct }} %</span><span class="kpi__lbl">Conversión</span></div>
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.facturacion | euros:'1.0-0' }}</span><span class="kpi__lbl">Facturación</span></div>
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.comision | euros:'1.0-0' }}</span><span class="kpi__lbl">Comisión Doogking</span></div>
-        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.ticketMedio | euros:'1.0-0' }}</span><span class="kpi__lbl">Ticket medio</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.usuariosNuevosMes }}</span><span class="kpi__lbl">{{ 'Usuarios nuevos (mes)' | t }}</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.reservas }}</span><span class="kpi__lbl">{{ 'Reservas' | t }}</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.conversionPct }} %</span><span class="kpi__lbl">{{ 'Conversión' | t }}</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.facturacion | euros:'1.0-0' }}</span><span class="kpi__lbl">{{ 'Facturación' | t }}</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.comision | euros:'1.0-0' }}</span><span class="kpi__lbl">{{ 'Comisión Doogking' | t }}</span></div>
+        <div class="rs-card kpi"><span class="kpi__num">{{ analitica()!.kpis.ticketMedio | euros:'1.0-0' }}</span><span class="kpi__lbl">{{ 'Ticket medio' | t }}</span></div>
       </div>
 
       <!-- Evolución real, no barras estáticas (TCK-8031 §1) -->
       <div class="rs-card panel evolucion">
         <div class="panel__head">
-          <h3 class="panel__title">Evolución de los últimos 30 días</h3>
-          <div class="evolucion__toggle" role="group" aria-label="Métrica del gráfico">
+          <h3 class="panel__title">{{ 'Evolución de los últimos 30 días' | t }}</h3>
+          <div class="evolucion__toggle" role="group" [attr.aria-label]="'Métrica del gráfico' | t">
             <button class="evolucion__btn" [class.activa]="metricaEvolucion() === 'reservas'"
-                    (click)="metricaEvolucion.set('reservas')">Reservas</button>
+                    (click)="metricaEvolucion.set('reservas')">{{ 'Reservas' | t }}</button>
             <button class="evolucion__btn" [class.activa]="metricaEvolucion() === 'facturacion'"
-                    (click)="metricaEvolucion.set('facturacion')">Facturación</button>
+                    (click)="metricaEvolucion.set('facturacion')">{{ 'Facturación' | t }}</button>
           </div>
         </div>
 
@@ -65,7 +68,7 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
             <span>{{ evolucion()[evolucion().length - 1].fecha }}</span>
           </div>
         } @else {
-          <p class="empty">Todavía no hay actividad que representar.</p>
+          <p class="empty">{{ 'Todavía no hay actividad que representar.' | t }}</p>
         }
       </div>
 
@@ -73,11 +76,11 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
 
         <!-- Embudo de conversión -->
         <div class="rs-card panel">
-          <h3 class="panel__title">Embudo de conversión</h3>
+          <h3 class="panel__title">{{ 'Embudo de conversión' | t }}</h3>
           @for (paso of embudoPasos(); track paso.label) {
             <div class="funnel-row">
               <div class="funnel-row__head">
-                <span>{{ paso.label }}</span>
+                <span>{{ paso.label | t }}</span>
                 <strong>{{ paso.valor | number:'1.0-0' }}</strong>
               </div>
               <div class="funnel-bar"><div class="funnel-bar__fill" [style.width.%]="paso.pct"></div></div>
@@ -94,17 +97,17 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
         <!-- Ranking por vertical -->
         <div class="rs-card panel">
           <div class="panel__head">
-            <h3 class="panel__title">Distribución por categoría</h3>
+            <h3 class="panel__title">{{ 'Distribución por categoría' | t }}</h3>
             <select class="rs-inp panel__select" [value]="metricaVertical()"
-                    (change)="metricaVertical.set($any($event.target).value)" aria-label="Métrica">
-              <option value="reservas">Reservas</option>
-              <option value="facturacion">Facturación</option>
-              <option value="comision">Comisión Doogking</option>
-              <option value="comercios">Nº de comercios</option>
+                    (change)="metricaVertical.set($any($event.target).value)" [attr.aria-label]="'Métrica' | t">
+              <option value="reservas">{{ 'Reservas' | t }}</option>
+              <option value="facturacion">{{ 'Facturación' | t }}</option>
+              <option value="comision">{{ 'Comisión Doogking' | t }}</option>
+              <option value="comercios">{{ 'Nº de comercios' | t }}</option>
             </select>
           </div>
           @if (analitica()!.porVertical.length === 0) {
-            <p class="empty">Sin reservas todavía.</p>
+            <p class="empty">{{ 'Sin reservas todavía.' | t }}</p>
           }
           @for (v of verticalesOrdenados(); track v.vertical) {
             <div class="rank-row">
@@ -120,13 +123,13 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
 
         <!-- Distribución geográfica -->
         <div class="rs-card panel">
-          <h3 class="panel__title"><rs-icon name="globe" [size]="16" [stroke]="2"></rs-icon> Distribución geográfica</h3>
+          <h3 class="panel__title"><rs-icon name="globe" [size]="16" [stroke]="2"></rs-icon> {{ 'Distribución geográfica' | t }}</h3>
           @if (analitica()!.porCiudad.length === 0) {
-            <p class="empty">Sin datos de ciudad todavía.</p>
+            <p class="empty">{{ 'Sin datos de ciudad todavía.' | t }}</p>
           }
           @if (analitica()!.porCiudad.length) {
             <div class="ciudades">
-              <div class="ciudades__head"><span>Ciudad</span><span>Comercios</span><span>Reservas</span><span>Facturación</span></div>
+              <div class="ciudades__head"><span>{{ 'Ciudad' | t }}</span><span>{{ 'Comercios' | t }}</span><span>{{ 'Reservas' | t }}</span><span>{{ 'Facturación' | t }}</span></div>
               @for (c of analitica()!.porCiudad; track c.ciudad) {
                 <div class="ciudades__row">
                   <span class="ciudades__ciudad" data-col="Ciudad">
@@ -144,16 +147,16 @@ type OrdenTop = 'facturacion' | 'reservas' | 'valoracion';
         <!-- Top comercios -->
         <div class="rs-card panel">
           <div class="panel__head">
-            <h3 class="panel__title"><rs-icon name="trophy" [size]="16" [stroke]="2"></rs-icon> Top 5 comercios</h3>
+            <h3 class="panel__title"><rs-icon name="trophy" [size]="16" [stroke]="2"></rs-icon> {{ 'Top 5 comercios' | t }}</h3>
             <select class="rs-inp panel__select" [value]="ordenTop()"
-                    (change)="ordenTop.set($any($event.target).value)" aria-label="Ordenar top">
-              <option value="facturacion">Por facturación</option>
-              <option value="reservas">Por reservas</option>
-              <option value="valoracion">Por valoración</option>
+                    (change)="ordenTop.set($any($event.target).value)" [attr.aria-label]="'Ordenar top' | t">
+              <option value="facturacion">{{ 'Por facturación' | t }}</option>
+              <option value="reservas">{{ 'Por reservas' | t }}</option>
+              <option value="valoracion">{{ 'Por valoración' | t }}</option>
             </select>
           </div>
           @if (analitica()!.topComercios.length === 0) {
-            <p class="empty">Sin facturación todavía.</p>
+            <p class="empty">{{ 'Sin facturación todavía.' | t }}</p>
           }
           <div class="top-list">
             @for (t of topOrdenado(); track t.comercio; let i = $index) {

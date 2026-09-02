@@ -20,6 +20,7 @@ import { RsHorarioPublicoComponent } from '../../../shared/components/horario/rs
 import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
 /**
@@ -40,8 +41,9 @@ const SECUNDARIAS_VISIBLES = 2;
   selector: 'app-alojamiento-detalle',
   standalone: true,
   imports: [
-    RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
-    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,],
+    TraducirPipe, RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
+    RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,
+  ],
   template: `
 <div class="detalle-page">
   <rs-navbar />
@@ -55,9 +57,9 @@ const SECUNDARIAS_VISIBLES = 2;
   @if (!cargando() && !alojamiento()) {
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:var(--sp-4);text-align:center">
       <rs-icon name="paw" [size]="48" [stroke]="1.5" style="color:var(--t-400)" />
-      <h3>No se pudo cargar este alojamiento</h3>
-      <p style="color:var(--t-300)">Puede que ya no esté disponible.</p>
-      <a routerLink="/alojamiento" class="rs-btn rs-btn--secondary">Volver al listado</a>
+      <h3>{{ 'No se pudo cargar este alojamiento' | t }}</h3>
+      <p style="color:var(--t-300)">{{ 'Puede que ya no esté disponible.' | t }}</p>
+      <a routerLink="/alojamiento" class="rs-btn rs-btn--secondary">{{ 'Volver al listado' | t }}</a>
     </div>
   }
 
@@ -66,8 +68,8 @@ const SECUNDARIAS_VISIBLES = 2;
 
     <!-- BREADCRUMB -->
     <nav class="breadcrumb rs-wrap">
-      <a routerLink="/">Inicio</a> /
-      <a routerLink="/alojamiento">Alojamiento canino</a> /
+      <a routerLink="/">{{ 'Inicio' | t }}</a> /
+      <a routerLink="/alojamiento">{{ 'Alojamiento canino' | t }}</a> /
       <a routerLink="/alojamiento" [queryParams]="{ciudad: alojamiento()!.ciudad}">{{ alojamiento()!.ciudad }}</a> /
       <span>{{ alojamiento()!.nombre }}</span>
     </nav>
@@ -113,15 +115,15 @@ const SECUNDARIAS_VISIBLES = 2;
     </div>
 
     @if (lightboxAbierto()) {
-      <div class="lightbox" role="dialog" aria-label="Galería a pantalla completa" (click)="cerrarLightbox()">
-        <button type="button" class="lightbox__cerrar" (click)="cerrarLightbox()" aria-label="Cerrar galería">
+      <div class="lightbox" role="dialog" [attr.aria-label]="'Galería a pantalla completa' | t" (click)="cerrarLightbox()">
+        <button type="button" class="lightbox__cerrar" (click)="cerrarLightbox()" [attr.aria-label]="'Cerrar galería' | t">
           <rs-icon name="x" [size]="22" [stroke]="2"></rs-icon>
         </button>
-        <button type="button" class="lightbox__nav lightbox__nav--prev" (click)="fotoAnterior(); $event.stopPropagation()" aria-label="Foto anterior">
+        <button type="button" class="lightbox__nav lightbox__nav--prev" (click)="fotoAnterior(); $event.stopPropagation()" [attr.aria-label]="'Foto anterior' | t">
           <rs-icon name="arrow-left" [size]="22" [stroke]="2"></rs-icon>
         </button>
         <img [src]="lightboxImagen()" [alt]="alojamiento()!.nombre" (click)="$event.stopPropagation()" />
-        <button type="button" class="lightbox__nav lightbox__nav--next" (click)="siguienteFoto(); $event.stopPropagation()" aria-label="Foto siguiente">
+        <button type="button" class="lightbox__nav lightbox__nav--next" (click)="siguienteFoto(); $event.stopPropagation()" [attr.aria-label]="'Foto siguiente' | t">
           <rs-icon name="arrow-right" [size]="22" [stroke]="2"></rs-icon>
         </button>
         <span class="lightbox__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ lightboxIndice() + 1 }} / {{ alojamiento()!.imagenes.length }}</span>
@@ -152,23 +154,23 @@ const SECUNDARIAS_VISIBLES = 2;
 
           <div class="info-header__tags">
             @if (alojamiento()!.cancelacionGratis) {
-              <span class="rs-badge rs-badge--success"><rs-icon name="check" [size]="13" [stroke]="3" /> Cancelación gratis</span>
+              <span class="rs-badge rs-badge--success"><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Cancelación gratis' | t }}</span>
             }
             @if (alojamiento()!.paseosIncluidos) {
-              <span class="rs-badge rs-badge--teal"><rs-icon name="bone" [size]="13" [stroke]="2" /> Paseos diarios incluidos</span>
+              <span class="rs-badge rs-badge--teal"><rs-icon name="bone" [size]="13" [stroke]="2" /> {{ 'Paseos diarios incluidos' | t }}</span>
             }
             @if (alojamiento()!.camaras24h) {
-              <span class="rs-badge rs-badge--accent"><rs-icon name="video" [size]="13" [stroke]="2" /> Cámaras 24h</span>
+              <span class="rs-badge rs-badge--accent"><rs-icon name="video" [size]="13" [stroke]="2" /> {{ 'Cámaras 24h' | t }}</span>
             }
             @if (alojamiento()!.destacado) {
-              <span class="premium-pill"><rs-icon name="crown" size="14" /> Premium</span>
+              <span class="premium-pill"><rs-icon name="crown" size="14" /> {{ 'Premium' | t }}</span>
             }
           </div>
         </div>
 
         <!-- Garantía Doogking (HU-4.1.9 · TCK-8009) -->
         <div class="compromiso-block" rsAnim>
-          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> Garantía Doogking</h3>
+          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> {{ 'Garantía Doogking' | t }}</h3>
           <rs-trust-block></rs-trust-block>
         </div>
 
@@ -201,11 +203,11 @@ const SECUNDARIAS_VISIBLES = 2;
           @if (ratingItems().length > 0) {
             <div class="rating-breakdown">
               <p class="rating-breakdown__titulo">
-                <rs-icon name="crown" [size]="15" [stroke]="2" /> Índice Doogking
+                <rs-icon name="crown" [size]="15" [stroke]="2" /> {{ 'Índice Doogking' | t }}
               </p>
               @for (item of ratingItems(); track item.label) {
                 <div class="rating-bar">
-                  <span>{{ item.label }}</span>
+                  <span>{{ item.label | t }}</span>
                   <div class="rating-bar__track"><div class="rating-bar__fill" [style.width.%]="item.pct"></div></div>
                   <strong>{{ item.val }}</strong>
                 </div>
@@ -216,7 +218,7 @@ const SECUNDARIAS_VISIBLES = 2;
 
         <!-- Descripción -->
         <div class="section-block" rsAnim>
-          <h2>Sobre este alojamiento canino</h2>
+          <h2>{{ 'Sobre este alojamiento canino' | t }}</h2>
           <p>{{ alojamiento()!.descripcion }}</p>
         </div>
 
@@ -233,12 +235,12 @@ const SECUNDARIAS_VISIBLES = 2;
 
         <!-- Amenidades caninas -->
         <div class="section-block" rsAnim>
-          <h2>Servicios para tu perro</h2>
+          <h2>{{ 'Servicios para tu perro' | t }}</h2>
           <div class="amenities-grid">
             @for (a of alojamiento()!.amenities; track a) {
               <div class="amenity-item"><rs-icon name="paw" size="16" /> {{ a }}</div>
             } @empty {
-              <p style="color:var(--t-400);font-size:var(--f-sm)">Servicios no especificados.</p>
+              <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Servicios no especificados.' | t }}</p>
             }
           </div>
         </div>
@@ -247,7 +249,7 @@ const SECUNDARIAS_VISIBLES = 2;
         <!-- id de anclaje: la barra fija de móvil salta aquí cuando aún no hay
              espacio elegido (ver .mobile-cta). -->
         <div class="section-block" id="espacios" rsAnim>
-          <h2>Tipos de espacio</h2>
+          <h2>{{ 'Tipos de espacio' | t }}</h2>
           <div class="rooms-list">
             @for (esp of alojamiento()!.espacios; track esp.id) {
               <div class="room-card rs-card" [class.rs-card--glow]="espacioSelec()?.id === esp.id">
@@ -261,7 +263,7 @@ const SECUNDARIAS_VISIBLES = 2;
                     @if (esp.tamanoMaxPerro) {
                       <span><rs-icon name="paw" size="14" /> Hasta tamaño {{ tamanoLabel(esp.tamanoMaxPerro) }}</span>
                     } @else {
-                      <span><rs-icon name="paw" size="14" /> Cualquier tamaño</span>
+                      <span><rs-icon name="paw" size="14" /> {{ 'Cualquier tamaño' | t }}</span>
                     }
                     <span><rs-icon name="bone" size="14" /> {{ esp.cantidad }} {{ esp.cantidad === 1 ? 'espacio' : 'espacios' }}</span>
                   </div>
@@ -271,7 +273,7 @@ const SECUNDARIAS_VISIBLES = 2;
                     }
                   </div>
                   @if (esp.cancelacionGratis) {
-                    <p class="room-card__free-cancel"><rs-icon name="check" [size]="13" [stroke]="3" /> Cancelación gratis</p>
+                    <p class="room-card__free-cancel"><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Cancelación gratis' | t }}</p>
                   }
                 </div>
                 <div class="room-card__price">
@@ -279,7 +281,7 @@ const SECUNDARIAS_VISIBLES = 2;
                     <div class="rs-price__old">{{ esp.precioAnterior | euros }}</div>
                   }
                   <div class="room-price-amount">{{ esp.precioNoche | euros }}</div>
-                  <div style="font-size:var(--f-xs);color:var(--t-400)">por noche</div>
+                  <div style="font-size:var(--f-xs);color:var(--t-400)">{{ 'por noche' | t }}</div>
                   @if (esp.disponible) {
                     <button class="rs-btn rs-btn--primary rs-btn--block"
                             style="margin-top:var(--sp-4)"
@@ -291,13 +293,13 @@ const SECUNDARIAS_VISIBLES = 2;
                     </button>
                   } @else {
                     <button class="rs-btn rs-btn--ghost rs-btn--block" disabled
-                            style="margin-top:var(--sp-4)">No disponible</button>
+                            style="margin-top:var(--sp-4)">{{ 'No disponible' | t }}</button>
                   }
                 </div>
               </div>
             } @empty {
               <p style="color:var(--t-400);font-size:var(--f-sm)">
-                Este alojamiento aún no ha publicado sus tipos de espacio. Contacta con el comercio para más detalles.
+                {{ 'Este alojamiento aún no ha publicado sus tipos de espacio. Contacta con el comercio para más detalles.' | t }}
               </p>
             }
           </div>
@@ -306,7 +308,7 @@ const SECUNDARIAS_VISIBLES = 2;
         <!-- Políticas en acordeón (PDF 27/07 §13) con details/summary nativos:
              accesibles y operables con teclado sin JavaScript. -->
         <div class="section-block" rsAnim>
-          <h2>Políticas del alojamiento</h2>
+          <h2>{{ 'Políticas del alojamiento' | t }}</h2>
           <div class="policies-acc">
             <!--
               Entrada y salida en la misma tarjeta: son las dos mitades del
@@ -316,25 +318,25 @@ const SECUNDARIAS_VISIBLES = 2;
             -->
             <details class="policy-acc" open>
               <summary class="policy-acc__head">
-                <rs-icon name="clock" [size]="16" [stroke]="2" /> Horario de entrada y salida
+                <rs-icon name="clock" [size]="16" [stroke]="2" /> {{ 'Horario de entrada y salida' | t }}
               </summary>
               <div class="policy-acc__body">
                 <div class="policy-horas">
                   <div class="policy-horas__item">
                     <span class="policy-horas__label">
-                      <rs-icon name="home" [size]="14" [stroke]="2" /> Entrada
+                      <rs-icon name="home" [size]="14" [stroke]="2" /> {{ 'Entrada' | t }}
                     </span>
                     <strong class="policy-horas__hora">{{ alojamiento()!.checkIn }}</strong>
                   </div>
                   <div class="policy-horas__item">
                     <span class="policy-horas__label">
-                      <rs-icon name="log-out" [size]="14" [stroke]="2" /> Salida
+                      <rs-icon name="log-out" [size]="14" [stroke]="2" /> {{ 'Salida' | t }}
                     </span>
                     <strong class="policy-horas__hora">{{ alojamiento()!.checkOut }}</strong>
                   </div>
                 </div>
                 @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
-                  <p><strong>Compatibilidad social admitida:</strong>
+                  <p><strong>{{ 'Compatibilidad social admitida:' | t }}</strong>
                     {{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</p>
                 }
               </div>
@@ -342,7 +344,7 @@ const SECUNDARIAS_VISIBLES = 2;
 
             <details class="policy-acc">
               <summary class="policy-acc__head">
-                <rs-icon name="shield-check" [size]="16" [stroke]="2" /> Cancelación
+                <rs-icon name="shield-check" [size]="16" [stroke]="2" /> {{ 'Cancelación' | t }}
               </summary>
               <div class="policy-acc__body">
                 <p><strong>{{ tituloCancelacion() }}</strong></p>
@@ -352,23 +354,23 @@ const SECUNDARIAS_VISIBLES = 2;
 
             <details class="policy-acc">
               <summary class="policy-acc__head">
-                <rs-icon name="syringe" [size]="16" [stroke]="2" /> Vacunas y requisitos sanitarios
+                <rs-icon name="syringe" [size]="16" [stroke]="2" /> {{ 'Vacunas y requisitos sanitarios' | t }}
               </summary>
               <div class="policy-acc__body">
                 <p>{{ alojamiento()!.requisitoVacunas ? 'Cartilla de vacunación obligatoria' : 'Sin requisito de vacunas' }}</p>
-                @if (alojamiento()!.requisitoMicrochip) { <p><strong>Microchip:</strong> obligatorio</p> }
+                @if (alojamiento()!.requisitoMicrochip) { <p><strong>{{ 'Microchip:' | t }}</strong> {{ 'obligatorio' | t }}</p> }
                 @if (alojamiento()!.requiereDesparasitacionInterna || alojamiento()!.requiereDesparasitacionExterna) {
-                  <p><strong>Desparasitación:</strong> {{ desparasitacionLabel() }}</p>
+                  <p><strong>{{ 'Desparasitación:' | t }}</strong> {{ desparasitacionLabel() }}</p>
                 }
                 @if (alojamiento()!.requiereVacunaTosPerreras) {
-                  <p><strong>Vacuna tos de las perreras:</strong> requerida</p>
+                  <p><strong>{{ 'Vacuna tos de las perreras:' | t }}</strong> {{ 'requerida' | t }}</p>
                 }
               </div>
             </details>
           </div>
           @if (alojamiento()!.serviciosAdicionales.length) {
             <div class="section-block">
-              <h3>Servicios adicionales</h3>
+              <h3>{{ 'Servicios adicionales' | t }}</h3>
               <div class="room-card__amenities">
                 @for (s of alojamiento()!.serviciosAdicionales; track s.nombre) {
                   <span class="rs-amenity">{{ s.nombre }} ({{ s.precio | euros }})</span>
@@ -385,7 +387,7 @@ const SECUNDARIAS_VISIBLES = 2;
 
         <!-- Reseñas -->
         <div class="section-block" rsAnim>
-          <h2>Reseñas de dueños <span style="color:var(--t-400);font-weight:400">({{ alojamiento()!.resenas.length }})</span></h2>
+          <h2>{{ 'Reseñas de dueños' | t }} <span style="color:var(--t-400);font-weight:400">({{ alojamiento()!.resenas.length }})</span></h2>
           <div class="resenas-list">
             @for (r of alojamiento()!.resenas; track r.id) {
               <div class="resena-card rs-card" rsAnim>
@@ -407,14 +409,14 @@ const SECUNDARIAS_VISIBLES = 2;
                 }
                 @if (r.respuesta) {
                   <div class="resena-respuesta">
-                    <strong>Respuesta del alojamiento:</strong>
-                    <p>{{ r.respuesta }}</p>
+                    <strong>{{ 'Respuesta del alojamiento:' | t }}</strong>
+                    <p>{{ r.respuesta | t }}</p>
                   </div>
                 }
               </div>
             }
             @if (alojamiento()!.resenas.length === 0) {
-              <p style="color:var(--t-400)">Todavía no hay reseñas para este alojamiento.</p>
+              <p style="color:var(--t-400)">{{ 'Todavía no hay reseñas para este alojamiento.' | t }}</p>
             }
           </div>
         </div>
@@ -426,23 +428,23 @@ const SECUNDARIAS_VISIBLES = 2;
         <div class="booking-panel__card">
           @if (espacioSelec()) {
             <div class="booking-panel__selected">
-              <span class="rs-badge rs-badge--success"><rs-icon name="check" [size]="13" [stroke]="3" /> Espacio seleccionado</span>
+              <span class="rs-badge rs-badge--success"><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Espacio seleccionado' | t }}</span>
               <h4>{{ tipoLabel(espacioSelec()!.tipo) }}</h4>
             </div>
           } @else {
             <div style="text-align:center;color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-4)">
-              Selecciona un espacio para reservar
+              {{ 'Selecciona un espacio para reservar' | t }}
             </div>
           }
 
           <div class="booking-panel__price">
-            <div class="bp-desde">Desde</div>
+            <div class="bp-desde">{{ 'Desde' | t }}</div>
             <div class="bp-amount">{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}</div>
-            <div class="bp-per">por noche</div>
+            <div class="bp-per">{{ 'por noche' | t }}</div>
           </div>
 
           <div style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-bottom:var(--sp-5)">
-            Impuestos e IVA incluidos
+            {{ 'Impuestos e IVA incluidos' | t }}
           </div>
 
           <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
@@ -476,14 +478,14 @@ const SECUNDARIAS_VISIBLES = 2;
     -->
     <div class="mobile-cta">
       <div class="mobile-cta__precio">
-        <span class="mobile-cta__desde">Desde</span>
+        <span class="mobile-cta__desde">{{ 'Desde' | t }}</span>
         <strong>{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}</strong>
         <span class="mobile-cta__unidad">/ noche</span>
       </div>
       @if (espacioSelec()) {
-        <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="irAReserva()">Reservar</button>
+        <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="irAReserva()">{{ 'Reservar' | t }}</button>
       } @else {
-        <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="irAEspacios()">Elegir espacio</button>
+        <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="irAEspacios()">{{ 'Elegir espacio' | t }}</button>
       }
     </div>
   </div>

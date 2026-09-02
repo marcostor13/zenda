@@ -9,6 +9,7 @@ import {
   ALERGIAS_FRECUENTES, MEDICACION_FRECUENTE, MIEDOS_FRECUENTES,
 } from '../../shared/catalogos/tags.catalogo';
 import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 type Paso = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -41,20 +42,22 @@ const NIVELES_SOCIABILIDAD = [
 @Component({
   selector: 'app-perro-form',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, RsIconComponent, RsTagsInputComponent, RsImageUploadComponent],
+  imports: [
+    TraducirPipe, RouterLink, ReactiveFormsModule, RsIconComponent, RsTagsInputComponent, RsImageUploadComponent
+  ],
   template: `
     <div class="page-wrap">
       <div class="page-header">
         <a routerLink="/perros" class="back-link">
           <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-          Volver a mis perros
+          {{ 'Volver a mis perros' | t }}
         </a>
         <h1>{{ esEdicion() ? 'Editar ficha' : 'Crea la ficha inteligente de tu mascota' }}</h1>
-        <p>Complétala una sola vez: peluquerías, residencias, veterinarios y adiestradores de Doogking adaptarán el servicio automáticamente a tu perro, sin volver a rellenar formularios en cada reserva.</p>
+        <p>{{ 'Complétala una sola vez: peluquerías, residencias, veterinarios y adiestradores de Doogking adaptarán el servicio automáticamente a tu perro, sin volver a rellenar formularios en cada reserva.' | t }}</p>
       </div>
 
       @if (cargando()) {
-        <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">Cargando…</div>
+        <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">{{ 'Cargando…' | t }}</div>
       } @else {
       <div class="form-card rs-card">
 
@@ -80,73 +83,72 @@ const NIVELES_SOCIABILIDAD = [
 
         <div class="privacy-box">
           <rs-icon name="lock" [size]="15" [stroke]="2"></rs-icon>
-          <strong>Privacidad:</strong> Doogking solo compartirá la información necesaria con los
-          profesionales que tú autorices mediante una reserva.
+          <strong>{{ 'Privacidad:' | t }}</strong> {{ 'Doogking solo compartirá la información necesaria con los profesionales que tú autorices mediante una reserva.' | t }}
         </div>
 
         <form [formGroup]="form" (ngSubmit)="submit()">
 
           @if (paso() === 1) {
-          <h2 class="section-title">Datos básicos</h2>
+          <h2 class="section-title">{{ 'Datos básicos' | t }}</h2>
           <div class="rs-field">
-            <span class="rs-lbl">Foto de tu perro</span>
-            <span class="rs-field-hint">Ayuda a los profesionales a identificar y preparar la visita de tu mascota.</span>
+            <span class="rs-lbl">{{ 'Foto de tu perro' | t }}</span>
+            <span class="rs-field-hint">{{ 'Ayuda a los profesionales a identificar y preparar la visita de tu mascota.' | t }}</span>
             <rs-image-upload origen="perro/fotos" formControlName="fotos" [multiple]="true" [maxFiles]="4" />
           </div>
           <div class="form-row">
             <div class="rs-field">
-              <label class="rs-lbl" for="nombre">Nombre *</label>
+              <label class="rs-lbl" for="nombre">{{ 'Nombre *' | t }}</label>
               <input id="nombre" class="rs-inp" formControlName="nombre" [class.rs-inp--error]="hasError('nombre')" />
-              @if (hasError('nombre')) { <span class="rs-field-err">El nombre es obligatorio.</span> }
+              @if (hasError('nombre')) { <span class="rs-field-err">{{ 'El nombre es obligatorio.' | t }}</span> }
             </div>
             <div class="rs-field">
-              <label class="rs-lbl" for="raza">Raza</label>
-              <input id="raza" class="rs-inp" formControlName="raza" placeholder="Mestizo si no lo sabes" />
+              <label class="rs-lbl" for="raza">{{ 'Raza' | t }}</label>
+              <input id="raza" class="rs-inp" formControlName="raza" [placeholder]="'Mestizo si no lo sabes' | t" />
             </div>
           </div>
           <div class="form-row">
             <div class="rs-field">
-              <label class="rs-lbl" for="fechaNacimiento">Fecha de nacimiento</label>
+              <label class="rs-lbl" for="fechaNacimiento">{{ 'Fecha de nacimiento' | t }}</label>
               <input id="fechaNacimiento" type="date" class="rs-inp" formControlName="fechaNacimiento" />
             </div>
             <div class="rs-field">
-              <label class="rs-lbl" for="peso">Peso (kg)</label>
+              <label class="rs-lbl" for="peso">{{ 'Peso (kg)' | t }}</label>
               <input id="peso" type="number" min="0" max="120" step="0.1" class="rs-inp" formControlName="peso"
                      [class.rs-inp--error]="hasError('peso')" />
-              @if (hasError('peso')) { <span class="rs-field-err">Introduce un peso válido (0-120 kg).</span> }
+              @if (hasError('peso')) { <span class="rs-field-err">{{ 'Introduce un peso válido (0-120 kg).' | t }}</span> }
             </div>
             <div class="rs-field">
-              <label class="rs-lbl" for="sexo">Sexo</label>
+              <label class="rs-lbl" for="sexo">{{ 'Sexo' | t }}</label>
               <select id="sexo" class="rs-inp" formControlName="sexo">
                 <option value="">—</option>
-                <option value="macho">Macho</option>
-                <option value="hembra">Hembra</option>
+                <option value="macho">{{ 'Macho' | t }}</option>
+                <option value="hembra">{{ 'Hembra' | t }}</option>
               </select>
             </div>
           </div>
           <div class="form-row">
             <div class="rs-field">
-              <label class="rs-lbl" for="ciudad">Ciudad</label>
-              <input id="ciudad" class="rs-inp" formControlName="ciudad" placeholder="Madrid" />
+              <label class="rs-lbl" for="ciudad">{{ 'Ciudad' | t }}</label>
+              <input id="ciudad" class="rs-inp" formControlName="ciudad" [placeholder]="'Madrid' | t" />
             </div>
           </div>
           <div class="form-row">
             <label class="filter-check">
               <input type="checkbox" formControlName="esterilizado" />
-              Esterilizado/a
+              {{ 'Esterilizado/a' | t }}
             </label>
             <label class="filter-check">
               <input type="checkbox" formControlName="esMestizo" />
-              Es mestizo
+              {{ 'Es mestizo' | t }}
             </label>
           </div>
           }
 
           @if (paso() === 2) {
-          <h2 class="section-title">Físico y pelo</h2>
+          <h2 class="section-title">{{ 'Físico y pelo' | t }}</h2>
           <div class="form-row">
             <div class="rs-field">
-              <label class="rs-lbl" for="tamano">Tamaño</label>
+              <label class="rs-lbl" for="tamano">{{ 'Tamaño' | t }}</label>
               <select id="tamano" class="rs-inp" formControlName="tamano">
                 <option value="">—</option>
                 @for (tamano of tamanosPerro; track tamano.valor) {
@@ -155,14 +157,14 @@ const NIVELES_SOCIABILIDAD = [
               </select>
             </div>
             <div class="rs-field">
-              <label class="rs-lbl" for="estadoManto">Estado del manto</label>
+              <label class="rs-lbl" for="estadoManto">{{ 'Estado del manto' | t }}</label>
               <input id="estadoManto" class="rs-inp" formControlName="estadoManto"
-                     placeholder="Ej. mantenimiento habitual, nudos leves…" />
+                     [placeholder]="'Ej. mantenimiento habitual, nudos leves…' | t" />
             </div>
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Tipo de pelo</label>
-            <span class="rs-field-hint">Ayuda a las peluquerías a preparar tiempo y material para el corte.</span>
+            <label class="rs-lbl">{{ 'Tipo de pelo' | t }}</label>
+            <span class="rs-field-hint">{{ 'Ayuda a las peluquerías a preparar tiempo y material para el corte.' | t }}</span>
             <div class="checks-grid">
               @for (t of tiposPelo; track t) {
                 <label class="filter-check">
@@ -175,12 +177,12 @@ const NIVELES_SOCIABILIDAD = [
           }
 
           @if (paso() === 3) {
-          <h2 class="section-title">Comportamiento</h2>
+          <h2 class="section-title">{{ 'Comportamiento' | t }}</h2>
           <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
-            Permite recomendar el profesional más adecuado para tu perro.
+            {{ 'Permite recomendar el profesional más adecuado para tu perro.' | t }}
           </p>
           <div class="rs-field">
-            <label class="rs-lbl">Temperamento</label>
+            <label class="rs-lbl">{{ 'Temperamento' | t }}</label>
             <div class="chip-row">
               @for (t of catalogoTemperamentos; track t) {
                 <button type="button" class="chip" [class.chip--activo]="form.controls.temperamento.value === t"
@@ -191,27 +193,27 @@ const NIVELES_SOCIABILIDAD = [
             </div>
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Sociabilidad con perros</label>
+            <label class="rs-lbl">{{ 'Sociabilidad con perros' | t }}</label>
             <div class="nivel-row">
               @for (n of nivelesSociabilidad; track n.valor) {
                 <button type="button" class="nivel-btn"
                         [class.nivel-btn--activo]="form.controls.sociabilidadPerros.value === n.valor"
                         [attr.data-tono]="n.tono"
                         (click)="elegirNivel('sociabilidadPerros', n.valor)">
-                  <rs-icon [name]="n.icon" [size]="18" [stroke]="2"></rs-icon> {{ n.label }}
+                  <rs-icon [name]="n.icon" [size]="18" [stroke]="2"></rs-icon> {{ n.label | t }}
                 </button>
               }
             </div>
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Sociabilidad con personas</label>
+            <label class="rs-lbl">{{ 'Sociabilidad con personas' | t }}</label>
             <div class="nivel-row">
               @for (n of nivelesSociabilidad; track n.valor) {
                 <button type="button" class="nivel-btn"
                         [class.nivel-btn--activo]="form.controls.sociabilidadPersonas.value === n.valor"
                         [attr.data-tono]="n.tono"
                         (click)="elegirNivel('sociabilidadPersonas', n.valor)">
-                  <rs-icon [name]="n.icon" [size]="18" [stroke]="2"></rs-icon> {{ n.label }}
+                  <rs-icon [name]="n.icon" [size]="18" [stroke]="2"></rs-icon> {{ n.label | t }}
                 </button>
               }
             </div>
@@ -219,51 +221,51 @@ const NIVELES_SOCIABILIDAD = [
           <div class="form-row">
             <label class="filter-check">
               <input type="checkbox" formControlName="puedeQuedarseSolo" />
-              Puede quedarse solo
+              {{ 'Puede quedarse solo' | t }}
             </label>
             <label class="filter-check">
               <input type="checkbox" formControlName="ansiedadSeparacion" />
-              Ansiedad por separación
+              {{ 'Ansiedad por separación' | t }}
             </label>
             <label class="filter-check">
               <input type="checkbox" formControlName="seMarea" />
-              Se marea en coche
+              {{ 'Se marea en coche' | t }}
             </label>
             <label class="filter-check">
               <input type="checkbox" formControlName="requiereTransportin" />
-              Requiere transportín
+              {{ 'Requiere transportín' | t }}
             </label>
           </div>
           <div class="rs-field">
-            <span class="rs-lbl">Miedos</span>
-            <rs-tags-input formControlName="miedos" etiqueta="Miedos de tu perro"
-                           [opciones]="catalogoMiedos" placeholder="Ej. tormentas, petardos…" />
+            <span class="rs-lbl">{{ 'Miedos' | t }}</span>
+            <rs-tags-input formControlName="miedos" [etiqueta]="'Miedos de tu perro' | t"
+                           [opciones]="catalogoMiedos" [placeholder]="'Ej. tormentas, petardos…' | t" />
           </div>
           }
 
           @if (paso() === 4) {
-          <h2 class="section-title">Salud</h2>
+          <h2 class="section-title">{{ 'Salud' | t }}</h2>
           <div class="rs-field">
-            <span class="rs-lbl">Alergias</span>
-            <rs-tags-input formControlName="alergias" etiqueta="Alergias de tu perro"
-                           [opciones]="catalogoAlergias" placeholder="Ej. pollo, polen…" />
+            <span class="rs-lbl">{{ 'Alergias' | t }}</span>
+            <rs-tags-input formControlName="alergias" [etiqueta]="'Alergias de tu perro' | t"
+                           [opciones]="catalogoAlergias" [placeholder]="'Ej. pollo, polen…' | t" />
           </div>
           <div class="rs-field">
-            <span class="rs-lbl">Medicación actual</span>
-            <rs-tags-input formControlName="medicacion" etiqueta="Medicación actual"
-                           [opciones]="catalogoMedicacion" placeholder="Ej. antiinflamatorio…" />
+            <span class="rs-lbl">{{ 'Medicación actual' | t }}</span>
+            <rs-tags-input formControlName="medicacion" [etiqueta]="'Medicación actual' | t"
+                           [opciones]="catalogoMedicacion" [placeholder]="'Ej. antiinflamatorio…' | t" />
           </div>
           <div class="rs-field">
-            <span class="rs-lbl">Vacunas</span>
+            <span class="rs-lbl">{{ 'Vacunas' | t }}</span>
             <span class="rs-field-hint">
-              Marca las que tiene puestas. Muchas residencias y guarderías las exigen para admitir a tu perro.
+              {{ 'Marca las que tiene puestas. Muchas residencias y guarderías las exigen para admitir a tu perro.' | t }}
             </span>
             <ul class="vacunas">
               @for (v of vacunasCatalogo; track v.tipo) {
                 <li class="vacuna" [class.is-on]="tieneVacuna(v.tipo)">
                   <label class="vacuna__check">
                     <input type="checkbox" [checked]="tieneVacuna(v.tipo)" (change)="alternarVacuna(v.tipo)" />
-                    <span>{{ v.label }}</span>
+                    <span>{{ v.label | t }}</span>
                   </label>
                   @if (tieneVacuna(v.tipo)) {
                     <input type="date" class="rs-inp vacuna__fecha"
@@ -276,62 +278,61 @@ const NIVELES_SOCIABILIDAD = [
             </ul>
           </div>
           <div class="rs-field">
-            <label class="rs-lbl" for="dieta">Dieta especial</label>
+            <label class="rs-lbl" for="dieta">{{ 'Dieta especial' | t }}</label>
             <input id="dieta" class="rs-inp" formControlName="dieta" />
           </div>
           }
 
           @if (paso() === 5) {
-          <h2 class="section-title">En un alojamiento</h2>
+          <h2 class="section-title">{{ 'En un alojamiento' | t }}</h2>
           <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
-            Decirlo por adelantado evita sorpresas y suplementos en recepción: el alojamiento prepara la
-            estancia sabiendo qué esperar.
+            {{ 'Decirlo por adelantado evita sorpresas y suplementos en recepción: el alojamiento prepara la estancia sabiendo qué esperar.' | t }}
           </p>
           <div class="checks-grid">
             <label class="filter-check">
               <input type="checkbox" formControlName="orinaEnInterior" />
-              Se orina dentro de casa
+              {{ 'Se orina dentro de casa' | t }}
             </label>
             <label class="filter-check">
               <input type="checkbox" formControlName="ladraAlQuedarseSolo" />
-              Ladra al quedarse solo
+              {{ 'Ladra al quedarse solo' | t }}
             </label>
             <label class="filter-check">
               <input type="checkbox" formControlName="destructivoEnSoledad" />
-              Muerde o rompe cosas al quedarse solo
+              {{ 'Muerde o rompe cosas al quedarse solo' | t }}
             </label>
             <label class="filter-check">
               <input type="checkbox" formControlName="tendenciaEscapar" />
-              Tiene tendencia a escaparse
+              {{ 'Tiene tendencia a escaparse' | t }}
             </label>
           </div>
           <div class="rs-field" style="margin-top:var(--sp-4)">
-            <label class="rs-lbl" for="notasAlojamiento">Otras cosas que debería saber el alojamiento</label>
+            <label class="rs-lbl" for="notasAlojamiento">{{ 'Otras cosas que debería saber el alojamiento' | t }}</label>
             <input id="notasAlojamiento" class="rs-inp" formControlName="notasAlojamiento"
-                   placeholder="Ej. duerme en su propia cama, no sube a los sofás" />
+                   [placeholder]="'Ej. duerme en su propia cama, no sube a los sofás' | t" />
           </div>
 
           <label class="filter-check" style="margin-top:var(--sp-4)">
             <input type="checkbox" formControlName="autorizaCompartirHistorial" />
-            Autorizo compartir el historial de servicios de mi perro con los profesionales que reserve en Doogking
+            {{ 'Autorizo compartir el historial de servicios de mi perro con los profesionales que reserve en Doogking' | t }}
           </label>
           }
 
           @if (paso() === 6) {
-          <h2 class="section-title">Documentación</h2>
+          <h2 class="section-title">{{ 'Documentación' | t }}</h2>
           <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
-            Las residencias y hoteles podrán comprobar automáticamente si tu mascota cumple sus requisitos antes de la llegada. Todos estos documentos son opcionales.
+            {{ 'Las residencias y hoteles podrán comprobar automáticamente si tu mascota cumple sus requisitos antes de la llegada. Todos estos documentos son opcionales.' | t }}
           </p>
           <div class="rs-field">
-            <label class="rs-lbl">Cartilla sanitaria</label>
+            <label class="rs-lbl">{{ 'Cartilla sanitaria' | t }}</label>
             <rs-image-upload origen="perro/cartilla" formControlName="cartillaSanitariaUrl" [multiple]="false" />
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Pasaporte europeo para mascotas</label>
+            <label class="rs-lbl">{{ 'Pasaporte europeo para mascotas' | t }}</label>
             <rs-image-upload origen="perro/pasaporte" formControlName="pasaporteEuropeoUrl" [multiple]="false" />
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Otros certificados (vacunación internacional, seguro…)</label>
+            <label class="rs-lbl">{{ 'Otros certificados (vacunación internacional, seguro…)' | t }}</label>
             <rs-image-upload origen="perro/certificados" formControlName="certificadosUrl" [multiple]="true" [maxFiles]="4" />
           </div>
 
@@ -340,12 +341,12 @@ const NIVELES_SOCIABILIDAD = [
               <rs-icon name="clipboard-list" [size]="16" [stroke]="2"></rs-icon>
               Ficha Inteligente completada al {{ completitud() }}%
             </strong>
-            <p>Tu mascota ya está preparada para:</p>
+            <p>{{ 'Tu mascota ya está preparada para:' | t }}</p>
             <div class="resumen-final__chips">
               @for (d of disponibilidadPorVertical(); track d.label) {
                 <span class="rs-badge" [class]="d.lista ? 'rs-badge--success' : 'rs-badge--neutral'">
                   <rs-icon [name]="d.lista ? 'check-circle' : 'alert-triangle'" [size]="15" [stroke]="2"></rs-icon>
-                  {{ d.label }}
+                  {{ d.label | t }}
                 </span>
               }
             </div>
@@ -357,7 +358,7 @@ const NIVELES_SOCIABILIDAD = [
 
           <div class="form-actions">
             @if (paso() > 1) {
-              <button type="button" class="rs-btn rs-btn--ghost" (click)="atras()">← Atrás</button>
+              <button type="button" class="rs-btn rs-btn--ghost" (click)="atras()">{{ '← Atrás' | t }}</button>
             }
             <div class="form-actions__spacer"></div>
             @if (paso() < totalPasos) {

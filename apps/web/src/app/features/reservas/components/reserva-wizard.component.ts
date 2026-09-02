@@ -42,6 +42,7 @@ import type { DiaCalendarioApi } from 'shared';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 import { EurosPipe, euros } from '../../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 type Paso = 1 | 2 | 3 | 4;
 
 /**
@@ -144,8 +145,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   selector: 'app-reserva-wizard',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
-    RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe,],
+    TraducirPipe, RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
+    RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe,
+  ],
   template: `
 <div class="wizard-page">
   <rs-navbar />
@@ -161,17 +163,17 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       <div class="rs-steps__line"></div>
       <div class="rs-steps__item" [class.active]="paso() >= 2" [class.done]="paso() > 2">
         <div class="rs-steps__num">@if (paso() > 2) { <rs-icon name="check" [size]="14" [stroke]="3" /> } @else { 2 }</div>
-        <span>Tus datos</span>
+        <span>{{ 'Tus datos' | t }}</span>
       </div>
       <div class="rs-steps__line"></div>
       <div class="rs-steps__item" [class.active]="paso() >= 3" [class.done]="paso() > 3">
         <div class="rs-steps__num">@if (paso() > 3) { <rs-icon name="check" [size]="14" [stroke]="3" /> } @else { 3 }</div>
-        <span>Pago</span>
+        <span>{{ 'Pago' | t }}</span>
       </div>
       <div class="rs-steps__line"></div>
       <div class="rs-steps__item" [class.active]="paso() === 4">
         <div class="rs-steps__num">4</div>
-        <span>Confirmación</span>
+        <span>{{ 'Confirmación' | t }}</span>
       </div>
     </div>
 
@@ -183,13 +185,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
         <!-- Resumen del establecimiento: visible en los 4 pasos (HU-5.1.1) -->
         <div class="reserva-summary">
           <div class="reserva-summary__service">
-            <img [src]="imagenServicio()" alt="Servicio" rsImg />
+            <img [src]="imagenServicio()" [alt]="'Servicio' | t" rsImg />
             <div>
               <h3>{{ nombreServicio() || 'Servicio seleccionado' }}</h3>
               <p>{{ precioBase() | euros }} / {{ precioPorLabel() }}</p>
               <div class="reserva-summary__tags">
                 <span class="rs-badge rs-badge--accent"><rs-icon [name]="iconoVertical()" [size]="13" [stroke]="2" /> {{ verticaLabel() }}</span>
-                <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Profesional verificado</span>
+                <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> {{ 'Profesional verificado' | t }}</span>
               </div>
             </div>
           </div>
@@ -214,11 +216,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
             <!-- ── SELECCIÓN DE PERRO (Ficha Inteligente) ── -->
             <div class="rs-field perro-picker">
-              <label class="rs-lbl">¿Para qué perro es esta reserva?</label>
+              <label class="rs-lbl">{{ '¿Para qué perro es esta reserva?' | t }}</label>
               @if (perros().length === 0) {
                 <p class="perro-picker__empty">
-                  Aún no tienes perros registrados.
-                  <a routerLink="/perros/nuevo">Registra uno</a> para que el precio y los servicios se adapten a él.
+                  {{ 'Aún no tienes perros registrados.' | t }}
+                  <a routerLink="/perros/nuevo">{{ 'Registra uno' | t }}</a> {{ 'para que el precio y los servicios se adapten a él.' | t }}
                 </p>
               } @else {
                 <div class="perro-picker__list">
@@ -252,7 +254,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   formulario y los que lee el resto del asistente.
                 -->
                 <div class="rs-field">
-                  <label class="rs-lbl">Fechas de la estancia</label>
+                  <label class="rs-lbl">{{ 'Fechas de la estancia' | t }}</label>
                   <rs-calendario-rango
                     [dias]="diasCalendario()"
                     [cargando]="cargandoCalendario()"
@@ -264,18 +266,18 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl" [attr.for]="idPerrosAlojamiento">Número de perros</label>
+                    <label class="rs-lbl" [attr.for]="idPerrosAlojamiento">{{ 'Número de perros' | t }}</label>
                     <div class="contador">
                       <button type="button" (click)="cambiarPerros(paso1AlojamientoForm.controls.perros, -1)"
                               [disabled]="!puedeQuitarPerros(paso1AlojamientoForm.controls.perros)"
-                              aria-label="Quitar un perro">−</button>
+                              [attr.aria-label]="'Quitar un perro' | t">−</button>
                       <output [id]="idPerrosAlojamiento">{{ paso1AlojamientoForm.controls.perros.value }}</output>
                       <button type="button" (click)="cambiarPerros(paso1AlojamientoForm.controls.perros, 1)"
-                              aria-label="Añadir un perro">+</button>
+                              [attr.aria-label]="'Añadir un perro' | t">+</button>
                     </div>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Tamaño del perro</label>
+                    <label class="rs-lbl">{{ 'Tamaño del perro' | t }}</label>
                     <select formControlName="tamanoPerro" class="rs-inp rs-inp--lg">
                       @for (tamano of tamanosPerro; track tamano.valor) {
                         <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
@@ -284,19 +286,19 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Compatibilidad social de tu perro</label>
+                  <label class="rs-lbl">{{ 'Compatibilidad social de tu perro' | t }}</label>
                   <select formControlName="compatibilidadSocial" class="rs-inp rs-inp--lg">
-                    <option value="cualquiera">Se lleva bien con otros perros</option>
-                    <option value="solo_pequenos">Solo tolera perros pequeños</option>
-                    <option value="solo_machos">Solo tolera machos</option>
-                    <option value="solo_hembras">Solo tolera hembras</option>
-                    <option value="individual">Necesita alojamiento individual</option>
+                    <option value="cualquiera">{{ 'Se lleva bien con otros perros' | t }}</option>
+                    <option value="solo_pequenos">{{ 'Solo tolera perros pequeños' | t }}</option>
+                    <option value="solo_machos">{{ 'Solo tolera machos' | t }}</option>
+                    <option value="solo_hembras">{{ 'Solo tolera hembras' | t }}</option>
+                    <option value="individual">{{ 'Necesita alojamiento individual' | t }}</option>
                   </select>
-                  <span class="rs-field-hint">Ayuda a la residencia a alojarlo de forma segura junto a otros perros.</span>
+                  <span class="rs-field-hint">{{ 'Ayuda a la residencia a alojarlo de forma segura junto a otros perros.' | t }}</span>
                 </div>
                 @if (serviciosAdicionalesAlojamiento().length > 0) {
                   <div class="extras-section">
-                    <h3>Servicios adicionales</h3>
+                    <h3>{{ 'Servicios adicionales' | t }}</h3>
                     <div class="extras-grid">
                       @for (extra of serviciosAdicionalesAlojamiento(); track extra.nombre) {
                         <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
@@ -314,7 +316,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
                 <!-- Qué cubre el importe y qué pasa después (HU-5.4.3/5.4.4) -->
                 <div class="info-block">
-                  <h3>¿Qué incluye este precio?</h3>
+                  <h3>{{ '¿Qué incluye este precio?' | t }}</h3>
                   <ul class="info-block__checks">
                     @for (item of ['Paseos diarios', 'Alimentación', 'Supervisión', 'Limpieza', 'Atención 24 h']; track item) {
                       <li><rs-icon name="check" [size]="15" [stroke]="2.5" /> {{ item }}</li>
@@ -323,22 +325,22 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
 
                 <div class="info-block">
-                  <h3>Recomendaciones para esta estancia</h3>
+                  <h3>{{ 'Recomendaciones para esta estancia' | t }}</h3>
                   <ul class="info-block__iconos">
-                    <li><rs-icon name="clipboard-list" [size]="15" [stroke]="2" /> Trae la cartilla de vacunación al día.</li>
-                    <li><rs-icon name="utensils" [size]="15" [stroke]="2" /> Trae su comida habitual para no cambiarle la dieta.</li>
-                    <li><rs-icon name="bone" [size]="15" [stroke]="2" /> Un juguete o manta suyos le ayudarán a adaptarse.</li>
-                    <li><rs-icon name="pill" [size]="15" [stroke]="2" /> Indícanos cualquier medicación en el paso siguiente.</li>
+                    <li><rs-icon name="clipboard-list" [size]="15" [stroke]="2" /> {{ 'Trae la cartilla de vacunación al día.' | t }}</li>
+                    <li><rs-icon name="utensils" [size]="15" [stroke]="2" /> {{ 'Trae su comida habitual para no cambiarle la dieta.' | t }}</li>
+                    <li><rs-icon name="bone" [size]="15" [stroke]="2" /> {{ 'Un juguete o manta suyos le ayudarán a adaptarse.' | t }}</li>
+                    <li><rs-icon name="pill" [size]="15" [stroke]="2" /> {{ 'Indícanos cualquier medicación en el paso siguiente.' | t }}</li>
                   </ul>
                 </div>
 
                 <div class="info-block">
-                  <h3>¿Qué ocurrirá después de reservar?</h3>
+                  <h3>{{ '¿Qué ocurrirá después de reservar?' | t }}</h3>
                   <ol class="info-block__iconos">
-                    <li><rs-icon name="mail" [size]="15" [stroke]="2" /> Recibes la confirmación inmediata por email.</li>
-                    <li><rs-icon name="smartphone" [size]="15" [stroke]="2" /> El alojamiento recibe tu reserva.</li>
-                    <li><rs-icon name="check-circle" [size]="15" [stroke]="2" /> Te confirman los detalles definitivos.</li>
-                    <li><rs-icon name="dog" [size]="15" [stroke]="2" /> Empieza la estancia.</li>
+                    <li><rs-icon name="mail" [size]="15" [stroke]="2" /> {{ 'Recibes la confirmación inmediata por email.' | t }}</li>
+                    <li><rs-icon name="smartphone" [size]="15" [stroke]="2" /> {{ 'El alojamiento recibe tu reserva.' | t }}</li>
+                    <li><rs-icon name="check-circle" [size]="15" [stroke]="2" /> {{ 'Te confirman los detalles definitivos.' | t }}</li>
+                    <li><rs-icon name="dog" [size]="15" [stroke]="2" /> {{ 'Empieza la estancia.' | t }}</li>
                   </ol>
                 </div>
               </form>
@@ -349,53 +351,53 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <form [formGroup]="paso1TransporteForm">
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Fecha del trayecto</label>
+                    <label class="rs-lbl">{{ 'Fecha del trayecto' | t }}</label>
                     <input formControlName="fechaRecogida" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Hora de recogida</label>
+                    <label class="rs-lbl">{{ 'Hora de recogida' | t }}</label>
                     <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="wz-origen">Dirección de recogida (origen)</label>
+                  <label class="rs-lbl" for="wz-origen">{{ 'Dirección de recogida (origen)' | t }}</label>
                   <div class="rs-inp rs-inp--lg rs-inp--host">
                     <rs-place-autocomplete formControlName="origen" inputId="wz-origen"
-                                           placeholder="Ej. Madrid"
+                                           [placeholder]="'Ej. Madrid' | t"
                                            (lugarElegido)="fijarOrigen($event)" />
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="wz-destino">Destino</label>
+                  <label class="rs-lbl" for="wz-destino">{{ 'Destino' | t }}</label>
                   <div class="rs-inp rs-inp--lg rs-inp--host">
                     <rs-place-autocomplete formControlName="destino" inputId="wz-destino"
-                                           placeholder="Ej. Toledo"
+                                           [placeholder]="'Ej. Toledo' | t"
                                            (lugarElegido)="fijarDestino($event)" />
                   </div>
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Distancia del trayecto (km)</label>
+                    <label class="rs-lbl">{{ 'Distancia del trayecto (km)' | t }}</label>
                     <input formControlName="distanciaKm" type="number" class="rs-inp rs-inp--lg" min="1" />
                     @if (calculandoTrayecto()) {
-                      <span class="rs-field-hint">Calculando la distancia…</span>
+                      <span class="rs-field-hint">{{ 'Calculando la distancia…' | t }}</span>
                     } @else if (resumenTrayecto()) {
                       <span class="rs-field-hint">{{ resumenTrayecto() }}</span>
                     } @else {
                       <span class="rs-field-hint">
-                        Elige origen y destino y la calculamos por ti (tarifa base + km).
+                        {{ 'Elige origen y destino y la calculamos por ti (tarifa base + km).' | t }}
                       </span>
                     }
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl" [attr.for]="idPerrosTransporte">Número de perros</label>
+                    <label class="rs-lbl" [attr.for]="idPerrosTransporte">{{ 'Número de perros' | t }}</label>
                     <div class="contador">
                       <button type="button" (click)="cambiarPerros(paso1TransporteForm.controls.perros, -1)"
                               [disabled]="!puedeQuitarPerros(paso1TransporteForm.controls.perros)"
-                              aria-label="Quitar un perro">−</button>
+                              [attr.aria-label]="'Quitar un perro' | t">−</button>
                       <output [id]="idPerrosTransporte">{{ paso1TransporteForm.controls.perros.value }}</output>
                       <button type="button" (click)="cambiarPerros(paso1TransporteForm.controls.perros, 1)"
-                              aria-label="Añadir un perro">+</button>
+                              [attr.aria-label]="'Añadir un perro' | t">+</button>
                     </div>
                   </div>
                 </div>
@@ -403,7 +405,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <!-- Extras que ofrece este transportista (HU-5.5.2) -->
                 @if (serviciosAdicionalesTransporte().length > 0) {
                   <div class="extras-section">
-                    <h3>Servicios adicionales</h3>
+                    <h3>{{ 'Servicios adicionales' | t }}</h3>
                     <div class="extras-grid">
                       @for (extra of serviciosAdicionalesTransporte(); track extra.nombre) {
                         <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
@@ -424,15 +426,15 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <label class="filter-check">
                     <input type="checkbox" [checked]="esIdaVuelta()"
                            (change)="esIdaVuelta.set(!esIdaVuelta())" />
-                    Ida y vuelta con espera (ej. llevar y traer del veterinario)
+                    {{ 'Ida y vuelta con espera (ej. llevar y traer del veterinario)' | t }}
                   </label>
                   @if (esIdaVuelta()) {
                     <div class="rs-field" style="margin-top:var(--sp-3)">
-                      <label class="rs-lbl">Tiempo de espera estimado (minutos)</label>
+                      <label class="rs-lbl">{{ 'Tiempo de espera estimado (minutos)' | t }}</label>
                       <input type="number" min="0" step="5" class="rs-inp rs-inp--lg"
                              [value]="esperaMinutos()"
                              (input)="esperaMinutos.set(+$any($event.target).value)" />
-                      <span class="rs-field-hint">La tarifa base y los km se cobran ida + vuelta; la espera se cobra aparte, según la tarifa del transportista.</span>
+                      <span class="rs-field-hint">{{ 'La tarifa base y los km se cobran ida + vuelta; la espera se cobra aparte, según la tarifa del transportista.' | t }}</span>
                     </div>
                   }
                 </div>
@@ -442,27 +444,27 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <label class="filter-check">
                     <input type="checkbox" [checked]="esRecurrente()"
                            (change)="esRecurrente.set(!esRecurrente())" />
-                    Repetir este trayecto varios días a la semana
+                    {{ 'Repetir este trayecto varios días a la semana' | t }}
                   </label>
                   @if (esRecurrente()) {
                     <div class="rs-field" style="margin-top:var(--sp-3)">
-                      <label class="rs-lbl">Días de la semana</label>
+                      <label class="rs-lbl">{{ 'Días de la semana' | t }}</label>
                       <div class="checks-grid">
                         @for (d of diasSemanaOpciones; track d.valor) {
                           <label class="filter-check">
                             <input type="checkbox" [checked]="tieneDiaSemana(d.valor)"
                                    (change)="toggleDiaSemana(d.valor)" />
-                            {{ d.label }}
+                            {{ d.label | t }}
                           </label>
                         }
                       </div>
                     </div>
                     <div class="rs-field">
-                      <label class="rs-lbl">Repetir hasta</label>
+                      <label class="rs-lbl">{{ 'Repetir hasta' | t }}</label>
                       <input type="date" class="rs-inp rs-inp--lg"
                              [value]="fechaFinRecurrencia()"
                              (input)="fechaFinRecurrencia.set($any($event.target).value)" />
-                      <span class="rs-field-hint">Se crea una reserva por cada día elegido, con el mismo origen, destino y hora, hasta esta fecha (máx. 52 trayectos).</span>
+                      <span class="rs-field-hint">{{ 'Se crea una reserva por cada día elegido, con el mismo origen, destino y hora, hasta esta fecha (máx. 52 trayectos).' | t }}</span>
                     </div>
                   }
                 </div>
@@ -474,19 +476,19 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <form [formGroup]="paso1VeterinariaForm">
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Fecha de la cita</label>
+                    <label class="rs-lbl">{{ 'Fecha de la cita' | t }}</label>
                     <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Hora de la cita</label>
+                    <label class="rs-lbl">{{ 'Hora de la cita' | t }}</label>
                     <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Servicio (opcional)</label>
+                  <label class="rs-lbl">{{ 'Servicio (opcional)' | t }}</label>
                   @if (serviciosClinicosDisponibles().length) {
                     <select formControlName="servicio" class="rs-inp rs-inp--lg">
-                      <option value="">— Consulta general —</option>
+                      <option value="">{{ '— Consulta general —' | t }}</option>
                       @for (s of serviciosClinicosDisponibles(); track s.nombre) {
                         <option [value]="s.nombre">{{ s.nombre }} — {{ s.precio | euros }}</option>
                       }
@@ -500,37 +502,37 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     }
                   } @else {
                     <select formControlName="servicio" class="rs-inp rs-inp--lg">
-                      <option value="consulta">Consulta general</option>
-                      <option value="vacunacion">Vacunación</option>
-                      <option value="revision">Revisión / chequeo</option>
-                      <option value="dermatologia">Dermatología</option>
-                      <option value="urgencia">Urgencia</option>
+                      <option value="consulta">{{ 'Consulta general' | t }}</option>
+                      <option value="vacunacion">{{ 'Vacunación' | t }}</option>
+                      <option value="revision">{{ 'Revisión / chequeo' | t }}</option>
+                      <option value="dermatologia">{{ 'Dermatología' | t }}</option>
+                      <option value="urgencia">{{ 'Urgencia' | t }}</option>
                     </select>
-                    <span class="rs-field-hint">El precio final puede variar según el servicio clínico</span>
+                    <span class="rs-field-hint">{{ 'El precio final puede variar según el servicio clínico' | t }}</span>
                   }
                 </div>
 
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Motivo principal</label>
+                    <label class="rs-lbl">{{ 'Motivo principal' | t }}</label>
                     <select formControlName="motivoTriage" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionVeterinaria()">
-                      <option value="vacunacion">Vacunación</option>
-                      <option value="revision_general">Revisión general</option>
-                      <option value="problemas_digestivos">Problemas digestivos</option>
-                      <option value="problemas_dermatologicos">Problemas dermatológicos</option>
-                      <option value="cojera">Cojera</option>
-                      <option value="vomitos">Vómitos</option>
-                      <option value="diarrea">Diarrea</option>
-                      <option value="otro">Otro</option>
+                      <option value="vacunacion">{{ 'Vacunación' | t }}</option>
+                      <option value="revision_general">{{ 'Revisión general' | t }}</option>
+                      <option value="problemas_digestivos">{{ 'Problemas digestivos' | t }}</option>
+                      <option value="problemas_dermatologicos">{{ 'Problemas dermatológicos' | t }}</option>
+                      <option value="cojera">{{ 'Cojera' | t }}</option>
+                      <option value="vomitos">{{ 'Vómitos' | t }}</option>
+                      <option value="diarrea">{{ 'Diarrea' | t }}</option>
+                      <option value="otro">{{ 'Otro' | t }}</option>
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Gravedad percibida</label>
+                    <label class="rs-lbl">{{ 'Gravedad percibida' | t }}</label>
                     <select formControlName="gravedad" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionVeterinaria()">
-                      <option value="leve">Leve</option>
-                      <option value="moderada">Moderada</option>
-                      <option value="grave">Grave</option>
-                      <option value="emergencia">Emergencia</option>
+                      <option value="leve">{{ 'Leve' | t }}</option>
+                      <option value="moderada">{{ 'Moderada' | t }}</option>
+                      <option value="grave">{{ 'Grave' | t }}</option>
+                      <option value="emergencia">{{ 'Emergencia' | t }}</option>
                     </select>
                   </div>
                 </div>
@@ -549,16 +551,16 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <form [formGroup]="paso1PeluqueriaForm">
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Fecha de la cita</label>
+                    <label class="rs-lbl">{{ 'Fecha de la cita' | t }}</label>
                     <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Hora de la cita</label>
+                    <label class="rs-lbl">{{ 'Hora de la cita' | t }}</label>
                     <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Servicio de grooming</label>
+                  <label class="rs-lbl">{{ 'Servicio de grooming' | t }}</label>
                   @if (serviciosGroomingOpciones().length) {
                     <select formControlName="servicio" class="rs-inp rs-inp--lg">
                       @for (s of serviciosGroomingOpciones(); track s.nombre) {
@@ -570,11 +572,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     }
                   } @else {
                     <select formControlName="servicio" class="rs-inp rs-inp--lg">
-                      <option value="bano">Baño y secado</option>
-                      <option value="corte">Corte de pelo</option>
-                      <option value="deslanado">Deslanado</option>
-                      <option value="spa">Spa canino</option>
-                      <option value="unas">Corte de uñas</option>
+                      <option value="bano">{{ 'Baño y secado' | t }}</option>
+                      <option value="corte">{{ 'Corte de pelo' | t }}</option>
+                      <option value="deslanado">{{ 'Deslanado' | t }}</option>
+                      <option value="spa">{{ 'Spa canino' | t }}</option>
+                      <option value="unas">{{ 'Corte de uñas' | t }}</option>
                     </select>
                   }
                 </div>
@@ -587,22 +589,22 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   <div class="rs-alert rs-alert--info"><rs-icon name="paw" [size]="15" [stroke]="2" /> {{ texto }}</div>
                 }
                 @if (peluqueriaDetalle()?.bozalObligatorioSiAgresivo) {
-                  <div class="rs-alert rs-alert--info"><rs-icon name="alert-circle" [size]="15" [stroke]="2" /> Si tu perro es agresivo con la manipulación, deberás traerlo con bozal.</div>
+                  <div class="rs-alert rs-alert--info"><rs-icon name="alert-circle" [size]="15" [stroke]="2" /> {{ 'Si tu perro es agresivo con la manipulación, deberás traerlo con bozal.' | t }}</div>
                 }
                 @if (peluqueriaDetalle()?.serviciosAdicionales?.length) {
                   <div class="rs-field">
-                    <label class="rs-lbl">Servicios adicionales disponibles en el salón</label>
+                    <label class="rs-lbl">{{ 'Servicios adicionales disponibles en el salón' | t }}</label>
                     <p class="rs-field-hint">{{ serviciosAdicionalesResumen() }}</p>
                   </div>
                 }
 
                 <!-- Preparación previa a la cita (HU-5.3.4) -->
                 <div class="info-block">
-                  <h3>Antes de la cita</h3>
+                  <h3>{{ 'Antes de la cita' | t }}</h3>
                   <ul class="info-block__iconos">
-                    <li><rs-icon name="dog" [size]="15" [stroke]="2" /> Pasea a tu perro antes de venir.</li>
-                    <li><rs-icon name="utensils" [size]="15" [stroke]="2" /> Evita darle de comer justo antes si se pone nervioso.</li>
-                    <li><rs-icon name="scissors" [size]="15" [stroke]="2" /> Si tiene nudos importantes, el precio podría variar tras la valoración.</li>
+                    <li><rs-icon name="dog" [size]="15" [stroke]="2" /> {{ 'Pasea a tu perro antes de venir.' | t }}</li>
+                    <li><rs-icon name="utensils" [size]="15" [stroke]="2" /> {{ 'Evita darle de comer justo antes si se pone nervioso.' | t }}</li>
+                    <li><rs-icon name="scissors" [size]="15" [stroke]="2" /> {{ 'Si tiene nudos importantes, el precio podría variar tras la valoración.' | t }}</li>
                   </ul>
                 </div>
               </form>
@@ -613,28 +615,28 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <form [formGroup]="paso1AdiestramientoForm">
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Fecha de inicio</label>
+                    <label class="rs-lbl">{{ 'Fecha de inicio' | t }}</label>
                     <input formControlName="fechaInicio" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Modalidad</label>
+                    <label class="rs-lbl">{{ 'Modalidad' | t }}</label>
                     <select formControlName="modalidad" class="rs-inp rs-inp--lg">
-                      <option value="sesion">Sesión suelta</option>
-                      <option value="programa" [disabled]="recomendacionAdiestramiento()?.bloqueaGrupales">Programa completo</option>
+                      <option value="sesion">{{ 'Sesión suelta' | t }}</option>
+                      <option value="programa" [disabled]="recomendacionAdiestramiento()?.bloqueaGrupales">{{ 'Programa completo' | t }}</option>
                     </select>
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Edad del perro (meses)</label>
+                  <label class="rs-lbl">{{ 'Edad del perro (meses)' | t }}</label>
                   <input formControlName="edadMeses" type="number" class="rs-inp rs-inp--lg" min="0" max="240"
                          (change)="consultarRecomendacionAdiestramiento()" />
-                  <span class="rs-field-hint">Para verificar la edad mínima requerida por el adiestrador</span>
+                  <span class="rs-field-hint">{{ 'Para verificar la edad mínima requerida por el adiestrador' | t }}</span>
                 </div>
                 @if (serviciosAdiestramientoOpciones().length) {
                   <div class="rs-field">
-                    <label class="rs-lbl">Servicio o técnica (opcional)</label>
+                    <label class="rs-lbl">{{ 'Servicio o técnica (opcional)' | t }}</label>
                     <select formControlName="servicio" class="rs-inp rs-inp--lg">
-                      <option value="">— El centro propondrá el más adecuado —</option>
+                      <option value="">{{ '— El centro propondrá el más adecuado —' | t }}</option>
                       @for (s of serviciosAdiestramientoOpciones(); track s.nombre) {
                         <option [value]="s.nombre">{{ s.nombre }} — {{ s.precio | euros }}</option>
                       }
@@ -643,71 +645,71 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 }
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">¿Qué quieres trabajar?</label>
+                    <label class="rs-lbl">{{ '¿Qué quieres trabajar?' | t }}</label>
                     <select formControlName="motivo" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionAdiestramiento()">
-                      <option value="obediencia_basica">Obediencia básica</option>
-                      <option value="tirones_correa">Tirones de correa</option>
-                      <option value="no_acude_llamada">No acude a la llamada</option>
-                      <option value="ansiedad_separacion">Ansiedad por separación</option>
-                      <option value="destruccion_casa">Destrucción en casa</option>
-                      <option value="ladridos_excesivos">Ladridos excesivos</option>
-                      <option value="miedos">Miedos</option>
-                      <option value="agresividad_perros">Agresividad hacia perros</option>
-                      <option value="agresividad_personas">Agresividad hacia personas</option>
-                      <option value="proteccion_recursos">Protección de recursos</option>
-                      <option value="socializacion">Socialización</option>
-                      <option value="preparacion_cachorro">Preparación de cachorro</option>
-                      <option value="otro">Otro</option>
+                      <option value="obediencia_basica">{{ 'Obediencia básica' | t }}</option>
+                      <option value="tirones_correa">{{ 'Tirones de correa' | t }}</option>
+                      <option value="no_acude_llamada">{{ 'No acude a la llamada' | t }}</option>
+                      <option value="ansiedad_separacion">{{ 'Ansiedad por separación' | t }}</option>
+                      <option value="destruccion_casa">{{ 'Destrucción en casa' | t }}</option>
+                      <option value="ladridos_excesivos">{{ 'Ladridos excesivos' | t }}</option>
+                      <option value="miedos">{{ 'Miedos' | t }}</option>
+                      <option value="agresividad_perros">{{ 'Agresividad hacia perros' | t }}</option>
+                      <option value="agresividad_personas">{{ 'Agresividad hacia personas' | t }}</option>
+                      <option value="proteccion_recursos">{{ 'Protección de recursos' | t }}</option>
+                      <option value="socializacion">{{ 'Socialización' | t }}</option>
+                      <option value="preparacion_cachorro">{{ 'Preparación de cachorro' | t }}</option>
+                      <option value="otro">{{ 'Otro' | t }}</option>
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Intensidad del problema</label>
+                    <label class="rs-lbl">{{ 'Intensidad del problema' | t }}</label>
                     <select formControlName="intensidad" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionAdiestramiento()">
-                      <option value="leve">Leve</option>
-                      <option value="moderado">Moderado</option>
-                      <option value="grave">Grave</option>
+                      <option value="leve">{{ 'Leve' | t }}</option>
+                      <option value="moderado">{{ 'Moderado' | t }}</option>
+                      <option value="grave">{{ 'Grave' | t }}</option>
                     </select>
                   </div>
                 </div>
 
                 <!-- Contexto libre para que el adiestrador prepare la sesión (HU-5.6.2) -->
                 <div class="rs-field">
-                  <label class="rs-lbl">Cuéntanos un poco más</label>
+                  <label class="rs-lbl">{{ 'Cuéntanos un poco más' | t }}</label>
                   <textarea formControlName="descripcionComportamiento" rows="3" class="rs-inp"
-                            placeholder="¿Cuándo aparece la conducta? ¿Desde cuándo? ¿Qué habéis probado ya?"></textarea>
+                            [placeholder]="'¿Cuándo aparece la conducta? ¿Desde cuándo? ¿Qué habéis probado ya?' | t"></textarea>
                   <span class="rs-field-hint">
-                    Cuanta más información nos proporciones, mejor podrá preparar el adiestrador la primera sesión.
+                    {{ 'Cuanta más información nos proporciones, mejor podrá preparar el adiestrador la primera sesión.' | t }}
                   </span>
                 </div>
 
                 <!-- Cuestionario de comportamiento ampliado (Ref. ADI2) -->
                 <div class="rs-field">
-                  <label class="rs-lbl">Historial previo (opcional)</label>
+                  <label class="rs-lbl">{{ 'Historial previo (opcional)' | t }}</label>
                   <textarea formControlName="historialPrevio" rows="2" class="rs-inp"
-                            placeholder="¿Ha recibido adiestramiento antes? ¿Con qué resultado? ¿De dónde viene el perro?"></textarea>
+                            [placeholder]="'¿Ha recibido adiestramiento antes? ¿Con qué resultado? ¿De dónde viene el perro?' | t"></textarea>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Vínculo con el propietario (opcional)</label>
+                  <label class="rs-lbl">{{ 'Vínculo con el propietario (opcional)' | t }}</label>
                   <select formControlName="vinculoPropietario" class="rs-inp rs-inp--lg">
-                    <option value="">— Sin especificar —</option>
-                    <option value="desde_cachorro">Lo tengo desde cachorro</option>
-                    <option value="adoptado_reciente">Adoptado hace poco (menos de 6 meses)</option>
-                    <option value="adoptado_antiguo">Adoptado hace tiempo (más de 6 meses)</option>
-                    <option value="varios_convivientes">Varias personas conviven con él</option>
+                    <option value="">{{ '— Sin especificar —' | t }}</option>
+                    <option value="desde_cachorro">{{ 'Lo tengo desde cachorro' | t }}</option>
+                    <option value="adoptado_reciente">{{ 'Adoptado hace poco (menos de 6 meses)' | t }}</option>
+                    <option value="adoptado_antiguo">{{ 'Adoptado hace tiempo (más de 6 meses)' | t }}</option>
+                    <option value="varios_convivientes">{{ 'Varias personas conviven con él' | t }}</option>
                   </select>
                 </div>
 
                 <!-- Vídeos del comportamiento (Ref. ADI3) -->
                 <div class="rs-field">
-                  <label class="rs-lbl">Vídeos del comportamiento (opcional)</label>
+                  <label class="rs-lbl">{{ 'Vídeos del comportamiento (opcional)' | t }}</label>
                   <!-- Las extensiones acompañan al tipo MIME: iOS graba en .mov
                        y no siempre rellena el tipo del fichero. -->
                   <input type="file"
                          accept="video/*,.mp4,.mov,.m4v,.webm"
                          (change)="subirVideoComportamiento($any($event.target))" />
-                  <span class="rs-field-hint">Máx. 50 MB por vídeo. Ayuda al adiestrador a preparar la sesión.</span>
+                  <span class="rs-field-hint">{{ 'Máx. 50 MB por vídeo. Ayuda al adiestrador a preparar la sesión.' | t }}</span>
                   @if (subiendoVideo()) {
-                    <span class="rs-field-hint">Subiendo vídeo…</span>
+                    <span class="rs-field-hint">{{ 'Subiendo vídeo…' | t }}</span>
                   }
                   @if (errorVideo()) {
                     <span class="rs-field-err">{{ errorVideo() }}</span>
@@ -736,7 +738,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
                 <!-- Qué compra el cliente y qué se lleva (HU-5.6.1) -->
                 <div class="info-block">
-                  <h3>¿Qué incluye esta sesión?</h3>
+                  <h3>{{ '¿Qué incluye esta sesión?' | t }}</h3>
                   <ul class="info-block__checks">
                     @for (item of ['Valoración inicial de tu perro', 'Plan de trabajo personalizado', 'Recomendaciones para casa', 'Resolución de dudas']; track item) {
                       <li><rs-icon name="check" [size]="15" [stroke]="2.5" /> {{ item }}</li>
@@ -745,12 +747,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
 
                 <div class="info-block">
-                  <h3>¿Qué conseguirás con esta sesión?</h3>
+                  <h3>{{ '¿Qué conseguirás con esta sesión?' | t }}</h3>
                   <ul class="info-block__iconos">
-                    <li><rs-icon name="search" [size]="15" [stroke]="2" /> Evaluar el comportamiento de tu perro.</li>
-                    <li><rs-icon name="brain" [size]="15" [stroke]="2" /> Identificar la causa real de la conducta.</li>
-                    <li><rs-icon name="clipboard-list" [size]="15" [stroke]="2" /> Un plan personalizado para trabajarla.</li>
-                    <li><rs-icon name="home" [size]="15" [stroke]="2" /> Ejercicios concretos para hacer en casa.</li>
+                    <li><rs-icon name="search" [size]="15" [stroke]="2" /> {{ 'Evaluar el comportamiento de tu perro.' | t }}</li>
+                    <li><rs-icon name="brain" [size]="15" [stroke]="2" /> {{ 'Identificar la causa real de la conducta.' | t }}</li>
+                    <li><rs-icon name="clipboard-list" [size]="15" [stroke]="2" /> {{ 'Un plan personalizado para trabajarla.' | t }}</li>
+                    <li><rs-icon name="home" [size]="15" [stroke]="2" /> {{ 'Ejercicios concretos para hacer en casa.' | t }}</li>
                   </ul>
                 </div>
               </form>
@@ -760,7 +762,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             @if (vertical() === 'hoteles') {
               <form [formGroup]="paso1HotelesForm">
                 <div class="rs-field">
-                  <label class="rs-lbl">Fechas de la estancia</label>
+                  <label class="rs-lbl">{{ 'Fechas de la estancia' | t }}</label>
                   <rs-calendario-rango
                     [dias]="diasCalendario()"
                     [cargando]="cargandoCalendario()"
@@ -772,7 +774,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Adultos</label>
+                    <label class="rs-lbl">{{ 'Adultos' | t }}</label>
                     <select formControlName="adultos" class="rs-inp rs-inp--lg">
                       @for (n of [1,2,3,4,5,6,7,8,9,10]; track n) {
                         <option [value]="n">{{ n }} {{ n === 1 ? 'adulto' : 'adultos' }}</option>
@@ -780,7 +782,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Niños</label>
+                    <label class="rs-lbl">{{ 'Niños' | t }}</label>
                     <select formControlName="ninos" class="rs-inp rs-inp--lg">
                       @for (n of [0,1,2,3,4,5,6,7,8,9,10]; track n) {
                         <option [value]="n">{{ n }} {{ n === 1 ? 'niño' : 'niños' }}</option>
@@ -790,15 +792,15 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Número de mascotas</label>
+                    <label class="rs-lbl">{{ 'Número de mascotas' | t }}</label>
                     <select formControlName="mascotas" class="rs-inp rs-inp--lg">
-                      <option value="1">1 mascota</option>
-                      <option value="2">2 mascotas</option>
-                      <option value="3">3 mascotas</option>
+                      <option value="1">{{ '1 mascota' | t }}</option>
+                      <option value="2">{{ '2 mascotas' | t }}</option>
+                      <option value="3">{{ '3 mascotas' | t }}</option>
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Tamaño de tu mascota</label>
+                    <label class="rs-lbl">{{ 'Tamaño de tu mascota' | t }}</label>
                     <select formControlName="tamanoPerro" class="rs-inp rs-inp--lg">
                       @for (tamano of tamanosPerro; track tamano.valor) {
                         <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
@@ -807,12 +809,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Observaciones para el hotel</label>
+                  <label class="rs-lbl">{{ 'Observaciones para el hotel' | t }}</label>
                   <textarea formControlName="observaciones" rows="2" class="rs-inp"
-                            placeholder="Llegada tardía, cuna, planta baja…"></textarea>
-                  <span class="rs-field-hint">Opcional.</span>
+                            [placeholder]="'Llegada tardía, cuna, planta baja…' | t"></textarea>
+                  <span class="rs-field-hint">{{ 'Opcional.' | t }}</span>
                 </div>
-                <span class="rs-field-hint">El suplemento por mascota, si existe, se calculará automáticamente según las condiciones configuradas por el hotel.</span>
+                <span class="rs-field-hint">{{ 'El suplemento por mascota, si existe, se calculará automáticamente según las condiciones configuradas por el hotel.' | t }}</span>
               </form>
             }
 
@@ -826,9 +828,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   exacta: aquí se trabaja por franjas.
                 -->
                 <div class="rs-field">
-                  <label class="rs-lbl">Qué necesitas</label>
+                  <label class="rs-lbl">{{ 'Qué necesitas' | t }}</label>
                   <select formControlName="servicioNombre" class="rs-inp rs-inp--lg">
-                    <option value="">— Elige un servicio —</option>
+                    <option value="">{{ '— Elige un servicio —' | t }}</option>
                     @for (sv of serviciosFunerariosDisponibles(); track sv.nombre) {
                       <option [value]="sv.nombre">{{ sv.nombre }}</option>
                     }
@@ -843,7 +845,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">Tipo de animal</label>
+                    <label class="rs-lbl">{{ 'Tipo de animal' | t }}</label>
                     <select formControlName="especie" class="rs-inp rs-inp--lg">
                       @for (e of especiesFunerario; track e) {
                         <option [value]="e">{{ e }}</option>
@@ -851,34 +853,34 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Peso aproximado (kg)</label>
+                    <label class="rs-lbl">{{ 'Peso aproximado (kg)' | t }}</label>
                     <input formControlName="pesoKg" type="number" min="0" step="0.5" class="rs-inp rs-inp--lg" />
-                    <span class="rs-field-hint">Es lo que determina el precio del servicio.</span>
+                    <span class="rs-field-hint">{{ 'Es lo que determina el precio del servicio.' | t }}</span>
                   </div>
                 </div>
 
                 <div class="rs-field">
                   <label class="rs-checkbox">
                     <input type="checkbox" formControlName="necesitaRecogida" />
-                    Necesito que vengan a recogerlo
+                    {{ 'Necesito que vengan a recogerlo' | t }}
                   </label>
                   @if (!ofreceRecogida()) {
-                    <span class="rs-field-hint">Esta empresa no ofrece recogida.</span>
+                    <span class="rs-field-hint">{{ 'Esta empresa no ofrece recogida.' | t }}</span>
                   }
                 </div>
 
                 @if (paso1FunerariosForm.value.necesitaRecogida) {
                   <div class="form-row">
                     <div class="rs-field">
-                      <label class="rs-lbl">¿Desde dónde?</label>
+                      <label class="rs-lbl">{{ '¿Desde dónde?' | t }}</label>
                       <select formControlName="lugarRecogida" class="rs-inp rs-inp--lg">
                         @for (l of lugaresRecogidaDisponibles(); track l.valor) {
-                          <option [value]="l.valor">{{ l.label }}</option>
+                          <option [value]="l.valor">{{ l.label | t }}</option>
                         }
                       </select>
                     </div>
                     <div class="rs-field">
-                      <label class="rs-lbl">Distancia aproximada (km)</label>
+                      <label class="rs-lbl">{{ 'Distancia aproximada (km)' | t }}</label>
                       <input formControlName="distanciaKm" type="number" min="0" class="rs-inp rs-inp--lg" />
                       <span class="rs-field-hint">Radio máximo de esta empresa: {{ radioRecogidaKm() }} km.</span>
                     </div>
@@ -886,9 +888,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
                   @if (zonasRecogidaDisponibles().length) {
                     <div class="rs-field">
-                      <label class="rs-lbl">Zona de recogida</label>
+                      <label class="rs-lbl">{{ 'Zona de recogida' | t }}</label>
                       <select formControlName="zonaRecogida" class="rs-inp rs-inp--lg">
-                        <option value="">— Elige tu zona —</option>
+                        <option value="">{{ '— Elige tu zona —' | t }}</option>
                         @for (z of zonasRecogidaDisponibles(); track z.nombre) {
                           <option [value]="z.nombre">{{ z.nombre }} · {{ z.precio | euros }}</option>
                         }
@@ -897,42 +899,42 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   }
 
                   <div class="rs-field">
-                    <label class="rs-lbl">Dirección y observaciones</label>
+                    <label class="rs-lbl">{{ 'Dirección y observaciones' | t }}</label>
                     <textarea formControlName="direccionRecogida" class="rs-inp rs-inp--lg" rows="2"
-                              placeholder="Calle, número, planta… y lo que debamos saber al llegar"></textarea>
+                              [placeholder]="'Calle, número, planta… y lo que debamos saber al llegar' | t"></textarea>
                   </div>
                 }
 
                 <div class="form-row">
                   <div class="rs-field">
-                    <label class="rs-lbl">¿Cuándo lo necesitas?</label>
+                    <label class="rs-lbl">{{ '¿Cuándo lo necesitas?' | t }}</label>
                     <select formControlName="urgencia" class="rs-inp rs-inp--lg">
                       @for (u of urgenciasFunerario; track u.valor) {
-                        <option [value]="u.valor">{{ u.label }}</option>
+                        <option [value]="u.valor">{{ u.label | t }}</option>
                       }
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Franja horaria</label>
+                    <label class="rs-lbl">{{ 'Franja horaria' | t }}</label>
                     <select formControlName="franja" class="rs-inp rs-inp--lg">
                       @for (f of franjasFunerarioDisponibles(); track f.valor) {
-                        <option [value]="f.valor">{{ f.label }}</option>
+                        <option [value]="f.valor">{{ f.label | t }}</option>
                       }
                     </select>
-                    <span class="rs-field-hint">No se pide hora exacta: la empresa trabaja por franjas.</span>
+                    <span class="rs-field-hint">{{ 'No se pide hora exacta: la empresa trabaja por franjas.' | t }}</span>
                   </div>
                 </div>
 
                 @if (paso1FunerariosForm.value.urgencia === 'fecha') {
                   <div class="rs-field">
-                    <label class="rs-lbl">Fecha</label>
+                    <label class="rs-lbl">{{ 'Fecha' | t }}</label>
                     <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
                   </div>
                 }
 
                 @if (extrasFunerariosDisponibles().length) {
                   <div class="rs-field">
-                    <span class="rs-lbl">Extras (opcional)</span>
+                    <span class="rs-lbl">{{ 'Extras (opcional)' | t }}</span>
                     <div class="extras-funerario">
                       @for (e of extrasFunerariosDisponibles(); track e.nombre) {
                         <label class="rs-checkbox">
@@ -957,8 +959,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                       <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
                       <label class="rs-checkbox">
                         <input type="checkbox" formControlName="aceptaSinCenizas" />
-                        Entiendo y acepto que este servicio <strong>no incluye la devolución
-                        individual de las cenizas</strong>.
+                        {{ 'Entiendo y acepto que este servicio' | t }} <strong>{{ 'no incluye la devolución individual de las cenizas' | t }}</strong>.
                       </label>
                     </div>
                   }
@@ -966,7 +967,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
                 @if (politicaCancelacionFunerario(); as pol) {
                   <div class="rs-card politica-funerario">
-                    <h3 class="politica-funerario__tit">Condiciones de cancelación</h3>
+                    <h3 class="politica-funerario__tit">{{ 'Condiciones de cancelación' | t }}</h3>
                     <p>Antes de la recogida se reembolsa el {{ pol.reembolsoAntesRecogidaPct }} % del importe.</p>
                     <p>Una vez iniciado el servicio, el reembolso es del {{ pol.reembolsoIniciadoPct }} %.</p>
                     @if (pol.notas) { <p>{{ pol.notas }}</p> }
@@ -1005,65 +1006,63 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
         <!-- ═══════════ PASO 2 ═══════════ -->
         @if (paso() === 2) {
           <div class="wizard-card">
-            <h2 class="wizard-card__title">Datos del contacto principal</h2>
+            <h2 class="wizard-card__title">{{ 'Datos del contacto principal' | t }}</h2>
 
             <form [formGroup]="paso2Form">
               <div class="form-row">
                 <div class="rs-field">
-                  <label class="rs-lbl">Nombre</label>
-                  <input formControlName="nombre" class="rs-inp rs-inp--lg" placeholder="Tu nombre"
+                  <label class="rs-lbl">{{ 'Nombre' | t }}</label>
+                  <input formControlName="nombre" class="rs-inp rs-inp--lg" [placeholder]="'Tu nombre' | t"
                          [class.rs-inp--error]="p2Error('nombre')" />
-                  @if (p2Error('nombre')) { <span class="rs-field-err">Indica tu nombre.</span> }
+                  @if (p2Error('nombre')) { <span class="rs-field-err">{{ 'Indica tu nombre.' | t }}</span> }
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Apellidos</label>
-                  <input formControlName="apellidos" class="rs-inp rs-inp--lg" placeholder="Tus apellidos"
+                  <label class="rs-lbl">{{ 'Apellidos' | t }}</label>
+                  <input formControlName="apellidos" class="rs-inp rs-inp--lg" [placeholder]="'Tus apellidos' | t"
                          [class.rs-inp--error]="p2Error('apellidos')" />
-                  @if (p2Error('apellidos')) { <span class="rs-field-err">Indica tus apellidos.</span> }
+                  @if (p2Error('apellidos')) { <span class="rs-field-err">{{ 'Indica tus apellidos.' | t }}</span> }
                 </div>
               </div>
 
               <div class="rs-field">
-                <label class="rs-lbl">Correo electrónico</label>
+                <label class="rs-lbl">{{ 'Correo electrónico' | t }}</label>
                 <input formControlName="email" type="email" class="rs-inp rs-inp--lg" placeholder="tu@email.com"
                        [class.rs-inp--error]="p2Error('email')" />
                 @if (p2Error('email')) {
-                  <span class="rs-field-err">Indica un correo electrónico válido.</span>
+                  <span class="rs-field-err">{{ 'Indica un correo electrónico válido.' | t }}</span>
                 } @else {
-                  <span class="rs-field-hint">La confirmación se enviará a este correo</span>
+                  <span class="rs-field-hint">{{ 'La confirmación se enviará a este correo' | t }}</span>
                 }
               </div>
 
               <div class="rs-field">
-                <label class="rs-lbl">Teléfono</label>
-                <rs-phone-input formControlName="telefono" etiqueta="Teléfono de contacto"
+                <label class="rs-lbl">{{ 'Teléfono' | t }}</label>
+                <rs-phone-input formControlName="telefono" [etiqueta]="'Teléfono de contacto' | t"
                                 [error]="p2Error('telefono')" />
-                @if (p2Error('telefono')) { <span class="rs-field-err">Indica un teléfono de contacto.</span> }
+                @if (p2Error('telefono')) { <span class="rs-field-err">{{ 'Indica un teléfono de contacto.' | t }}</span> }
               </div>
 
               <div class="rs-field">
-                <label class="rs-lbl">País de residencia</label>
+                <label class="rs-lbl">{{ 'País de residencia' | t }}</label>
                 <select formControlName="pais" class="rs-inp rs-inp--lg">
-                  <option value="ES">España</option>
-                  <option value="PT">Portugal</option>
-                  <option value="FR">Francia</option>
-                  <option value="IT">Italia</option>
-                  <option value="DE">Alemania</option>
-                  <option value="other">Otro</option>
+                  <option value="ES">{{ 'España' | t }}</option>
+                  <option value="PT">{{ 'Portugal' | t }}</option>
+                  <option value="FR">{{ 'Francia' | t }}</option>
+                  <option value="IT">{{ 'Italia' | t }}</option>
+                  <option value="DE">{{ 'Alemania' | t }}</option>
+                  <option value="other">{{ 'Otro' | t }}</option>
                 </select>
               </div>
 
               <div class="rs-field">
-                <label class="rs-lbl">Peticiones especiales (opcional)</label>
+                <label class="rs-lbl">{{ 'Peticiones especiales (opcional)' | t }}</label>
                 <textarea formControlName="peticiones" class="rs-inp" rows="3"
                           placeholder="{{ peticionesPlaceholder() }}"></textarea>
               </div>
 
               <div class="rs-alert rs-alert--info" style="margin-block:var(--sp-4)">
                 <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
-                <span>El importe mostrado es una estimación. El precio final puede variar si el estado o las
-                  necesidades de tu mascota no coinciden con lo indicado al llegar al servicio (te avisaremos
-                  y podrás aceptar o rechazar cualquier ajuste antes de que se cobre nada de más).</span>
+                <span>{{ 'El importe mostrado es una estimación. El precio final puede variar si el estado o las necesidades de tu mascota no coinciden con lo indicado al llegar al servicio (te avisaremos y podrás aceptar o rechazar cualquier ajuste antes de que se cobre nada de más).' | t }}</span>
               </div>
 
               <!-- Presupuesto ajustado por el historial del perro (Ref. N8) -->
@@ -1083,26 +1082,26 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <div class="consent-box">
                 <label class="filter-check">
                   <input type="checkbox" formControlName="confirmaDatosMascota" />
-                  <span>Confirmo que la información de mi mascota es correcta y entiendo que el precio puede ajustarse si no coincide al llegar.</span>
+                  <span>{{ 'Confirmo que la información de mi mascota es correcta y entiendo que el precio puede ajustarse si no coincide al llegar.' | t }}</span>
                 </label>
                 @if (p2Error('confirmaDatosMascota')) {
-                  <span class="rs-field-err">Debes confirmar que los datos de tu mascota son correctos.</span>
+                  <span class="rs-field-err">{{ 'Debes confirmar que los datos de tu mascota son correctos.' | t }}</span>
                 }
 
                 <label class="filter-check">
                   <input type="checkbox" formControlName="aceptaTerminos" />
-                  <span>Acepto los <a routerLink="/terminos" style="color:var(--c-accent)">Términos y condiciones</a> y la <a routerLink="/privacidad" style="color:var(--c-accent)">Política de privacidad</a></span>
+                  <span>{{ 'Acepto los' | t }} <a routerLink="/terminos" style="color:var(--c-accent)">{{ 'Términos y condiciones' | t }}</a> {{ 'y la' | t }} <a routerLink="/privacidad" style="color:var(--c-accent)">{{ 'Política de privacidad' | t }}</a></span>
                 </label>
                 @if (p2Error('aceptaTerminos')) {
-                  <span class="rs-field-err">Debes aceptar los términos para continuar.</span>
+                  <span class="rs-field-err">{{ 'Debes aceptar los términos para continuar.' | t }}</span>
                 }
               </div>
             </form>
 
             <div class="wizard-nav">
-              <button class="rs-btn rs-btn--secondary" (click)="irPaso(1)">← Atrás</button>
+              <button class="rs-btn rs-btn--secondary" (click)="irPaso(1)">{{ '← Atrás' | t }}</button>
               <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="continuarPaso2()">
-                Continuar → Pago
+                {{ 'Continuar → Pago' | t }}
               </button>
             </div>
           </div>
@@ -1111,7 +1110,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
         <!-- ═══════════ PASO 3 ═══════════ -->
         @if (paso() === 3) {
           <div class="wizard-card">
-            <h2 class="wizard-card__title">Método de pago</h2>
+            <h2 class="wizard-card__title">{{ 'Método de pago' | t }}</h2>
 
             <div class="payment-options">
               <label class="payment-option" [class.selected]="metodoPago() === 'card'">
@@ -1119,7 +1118,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                        (change)="metodoPago.set('card')" />
                 <div class="payment-option__icon"><rs-icon name="credit-card" [size]="20" [stroke]="2" /></div>
                 <div>
-                  <div class="payment-option__name">Tarjeta de crédito / débito</div>
+                  <div class="payment-option__name">{{ 'Tarjeta de crédito / débito' | t }}</div>
                   <div class="payment-option__brands">
                     @for (marca of marcasTarjeta; track marca) {
                       <rs-brand-icon [name]="marca" [size]="20" />
@@ -1135,15 +1134,15 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             @if (metodoPago() === 'card') {
               <div class="stripe-placeholder">
                 <div class="stripe-placeholder__header">
-                  <span>Datos de tarjeta</span>
-                  <span class="rs-badge rs-badge--accent"><rs-icon name="lock" [size]="13" [stroke]="2" /> Stripe · Cifrado SSL</span>
+                  <span>{{ 'Datos de tarjeta' | t }}</span>
+                  <span class="rs-badge rs-badge--accent"><rs-icon name="lock" [size]="13" [stroke]="2" /> {{ 'Stripe · Cifrado SSL' | t }}</span>
                 </div>
 
                 <div id="stripe-payment-element"></div>
 
                 @if (!stripeListo() && !errorPago()) {
                   <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-3)">
-                    Cargando el formulario seguro de pago…
+                    {{ 'Cargando el formulario seguro de pago…' | t }}
                   </p>
                 }
 
@@ -1154,13 +1153,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             }
 
             <div class="rs-alert rs-alert--info" style="margin-block:var(--sp-5);display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap">
-              <span><rs-icon name="lock" [size]="14" [stroke]="2" /> Tu pago está protegido por</span>
+              <span><rs-icon name="lock" [size]="14" [stroke]="2" /> {{ 'Tu pago está protegido por' | t }}</span>
               <rs-brand-icon name="stripe" [size]="17" />
-              <span>· Nunca almacenamos datos de tarjeta.</span>
+              <span>{{ '· Nunca almacenamos datos de tarjeta.' | t }}</span>
             </div>
 
             <div class="wizard-nav">
-              <button class="rs-btn rs-btn--secondary" (click)="irPaso(2)">← Atrás</button>
+              <button class="rs-btn rs-btn--secondary" (click)="irPaso(2)">{{ '← Atrás' | t }}</button>
               <button class="rs-btn rs-btn--gold rs-btn--lg"
                       [disabled]="procesando() || !stripeListo()"
                       (click)="procesarPago()">
@@ -1183,8 +1182,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <div class="bypass">
                 <p class="bypass__aviso">
                   <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
-                  Entorno de pruebas: puedes confirmar la reserva sin pagar. No se
-                  cobra nada y la reserva queda marcada como de prueba.
+                  {{ 'Entorno de pruebas: puedes confirmar la reserva sin pagar. No se cobra nada y la reserva queda marcada como de prueba.' | t }}
                 </p>
                 <!--
                   Sin reserva creada este botón no tenía nada que confirmar y al
@@ -1203,8 +1201,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 @if (!reservaIdReal()) {
                   <p class="bypass__aviso" style="margin:var(--sp-3) 0 0">
                     <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
-                    Esta reserva no se ha podido crear, así que no hay nada que confirmar.
-                    Vuelve al primer paso y revisa las fechas.
+                    {{ 'Esta reserva no se ha podido crear, así que no hay nada que confirmar. Vuelve al primer paso y revisa las fechas.' | t }}
                   </p>
                 }
               </div>
@@ -1216,8 +1213,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
         @if (paso() === 4) {
           <div class="wizard-card confirmation">
             <div class="confirmation__icon"><rs-icon name="party-popper" [size]="40" [stroke]="1.75" /></div>
-            <h2>¡Reserva confirmada!</h2>
-            <p>Tu reserva ha sido procesada exitosamente. Recibirás la confirmación en tu correo.</p>
+            <h2>{{ '¡Reserva confirmada!' | t }}</h2>
+            <p>{{ 'Tu reserva ha sido procesada exitosamente. Recibirás la confirmación en tu correo.' | t }}</p>
 
             @if (confirmacionPendiente()) {
               <!-- El cobro salió bien pero el servidor aún no la ha dado por
@@ -1226,29 +1223,28 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <div class="rs-alert rs-alert--info" style="text-align:left;margin-bottom:var(--sp-6)">
                 <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
                 <span>
-                  El pago se ha realizado correctamente. Estamos terminando de confirmarla con
-                  el establecimiento: puede tardar un momento en aparecer como confirmada en
-                  <a routerLink="/reservas/mis-reservas">mis reservas</a>.
+                  {{ 'El pago se ha realizado correctamente. Estamos terminando de confirmarla con el establecimiento: puede tardar un momento en aparecer como confirmada en' | t }}
+                  <a routerLink="/reservas/mis-reservas">{{ 'mis reservas' | t }}</a>.
                 </span>
               </div>
             }
 
             <div class="confirmation__code">
-              <span class="rs-label-caps">Código de reserva</span>
+              <span class="rs-label-caps">{{ 'Código de reserva' | t }}</span>
               <div class="code-box">{{ codigoReserva() }}</div>
             </div>
 
             <div class="confirmation__details rs-card">
               <div class="cd-row">
-                <span><rs-icon [name]="iconoVertical()" [size]="14" [stroke]="2" /> Servicio</span>
+                <span><rs-icon [name]="iconoVertical()" [size]="14" [stroke]="2" /> {{ 'Servicio' | t }}</span>
                 <strong>{{ nombreServicio() || verticaLabel() }}</strong>
               </div>
               <div class="cd-row">
-                <span><rs-icon name="file-text" [size]="14" [stroke]="2" /> Detalle</span>
+                <span><rs-icon name="file-text" [size]="14" [stroke]="2" /> {{ 'Detalle' | t }}</span>
                 <strong>{{ lineaResumen() }}</strong>
               </div>
               <div class="cd-row">
-                <span><rs-icon name="wallet" [size]="14" [stroke]="2" /> Total pagado</span>
+                <span><rs-icon name="wallet" [size]="14" [stroke]="2" /> {{ 'Total pagado' | t }}</span>
                 <strong class="rs-gradient-text">{{ total() | euros }}</strong>
               </div>
             </div>
@@ -1258,7 +1254,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                    fechas y ciudad, así que completar el viaje cuesta un clic. -->
               <div class="completar-viaje">
                 <div>
-                  <h3>¿Completamos el viaje?</h3>
+                  <h3>{{ '¿Completamos el viaje?' | t }}</h3>
                   <p>
                     Peluquería, transporte o veterinario para esas mismas fechas en
                     {{ ciudadServicio() || 'tu destino' }}. Cada servicio se reserva por separado,
@@ -1267,17 +1263,17 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
                 <a [routerLink]="['/peluqueria']" [queryParams]="parametrosViaje()"
                    class="rs-btn rs-btn--gold">
-                  Añadir más servicios
+                  {{ 'Añadir más servicios' | t }}
                 </a>
               </div>
             }
 
             <div class="confirmation__actions">
               <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary rs-btn--lg">
-                Ver mis reservas
+                {{ 'Ver mis reservas' | t }}
               </a>
               <a routerLink="/" class="rs-btn rs-btn--secondary rs-btn--lg">
-                Seguir explorando
+                {{ 'Seguir explorando' | t }}
               </a>
             </div>
 
@@ -1290,11 +1286,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               @if (valoracionEnviada()) {
                 <p class="valoracion__gracias">
                   <rs-icon name="check-circle" [size]="18" [stroke]="2" />
-                  Gracias. Nos ayuda a que reservar sea cada vez más fácil.
+                  {{ 'Gracias. Nos ayuda a que reservar sea cada vez más fácil.' | t }}
                 </p>
               } @else {
-                <p class="valoracion__pregunta">¿Qué tal ha ido la reserva?</p>
-                <div class="valoracion__estrellas" role="group" aria-label="Valora el proceso de reserva">
+                <p class="valoracion__pregunta">{{ '¿Qué tal ha ido la reserva?' | t }}</p>
+                <div class="valoracion__estrellas" role="group" [attr.aria-label]="'Valora el proceso de reserva' | t">
                   @for (n of estrellas; track n) {
                     <button type="button" class="valoracion__estrella"
                             [class.valoracion__estrella--activa]="n <= (valoracion() ?? 0)"
@@ -1308,14 +1304,14 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <!-- Sólo si algo ha ido mal: es donde está el dato que sirve. -->
                 @if (pideMotivoValoracion()) {
                   <div class="valoracion__motivo">
-                    <label class="rs-lbl" for="valoracion-motivo">¿Qué podríamos mejorar?</label>
+                    <label class="rs-lbl" for="valoracion-motivo">{{ '¿Qué podríamos mejorar?' | t }}</label>
                     <textarea id="valoracion-motivo" class="rs-inp" rows="2"
                               [value]="motivoValoracion()"
                               (input)="motivoValoracion.set($any($event.target).value)"
-                              placeholder="Opcional, pero nos viene muy bien"></textarea>
+                              [placeholder]="'Opcional, pero nos viene muy bien' | t"></textarea>
                     <button type="button" class="rs-btn rs-btn--secondary rs-btn--sm"
                             (click)="enviarMotivoValoracion()">
-                      Enviar
+                      {{ 'Enviar' | t }}
                     </button>
                   </div>
                 }
@@ -1324,18 +1320,18 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
             <!-- Las dudas que llegan justo aquí, contestadas aquí (feedback 2026-08-20). -->
             <div class="faq">
-              <h3 class="faq__titulo">Preguntas frecuentes</h3>
+              <h3 class="faq__titulo">{{ 'Preguntas frecuentes' | t }}</h3>
               @for (p of faq(); track p.pregunta) {
                 <details class="faq__item">
                   <summary class="faq__pregunta">
-                    {{ p.pregunta }}
+                    {{ p.pregunta | t }}
                     <rs-icon name="chevron-down" [size]="16" [stroke]="2" class="faq__chevron" />
                   </summary>
-                  <p class="faq__respuesta">{{ p.respuesta }}</p>
+                  <p class="faq__respuesta">{{ p.respuesta | t }}</p>
                 </details>
               }
               <a routerLink="/ayuda" class="faq__mas">
-                Ver todas las preguntas en el centro de ayuda
+                {{ 'Ver todas las preguntas en el centro de ayuda' | t }}
                 <rs-icon name="arrow-right" [size]="14" [stroke]="2" />
               </a>
             </div>
@@ -1347,7 +1343,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       @if (paso() < 4) {
         <div class="price-summary">
           <div class="price-summary__card">
-            <h3>Resumen de precio</h3>
+            <h3>{{ 'Resumen de precio' | t }}</h3>
 
             <div class="price-row">
               <span>{{ lineaResumen() }}</span>
@@ -1364,12 +1360,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             @if (vertical() === 'transporte') {
               <!-- Desglose transparente del trayecto (HU-5.5.3) -->
               <div class="price-row price-row--sub">
-                <span>Servicio base</span>
+                <span>{{ 'Servicio base' | t }}</span>
                 <span>{{ tarifaBaseTransporte() | euros }}</span>
               </div>
               @if (costeKmTransporte() > 0) {
                 <div class="price-row price-row--sub">
-                  <span>Kilómetros</span>
+                  <span>{{ 'Kilómetros' | t }}</span>
                   <span>{{ costeKmTransporte() | euros }}</span>
                 </div>
               }
@@ -1382,14 +1378,14 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             }
             @if (vertical() === 'hoteles' && suplementoHotel() > 0) {
               <div class="price-row">
-                <span>Suplemento por mascota</span>
+                <span>{{ 'Suplemento por mascota' | t }}</span>
                 <span>{{ suplementoHotel() | euros }}</span>
               </div>
             }
             <hr class="rs-hr" style="margin-block:var(--sp-4)">
             @if (descuento() > 0) {
               <div class="price-row price-row--sub">
-                <span>Subtotal</span>
+                <span>{{ 'Subtotal' | t }}</span>
                 <span>{{ subtotal() | euros }}</span>
               </div>
               <div class="price-row price-row--sub" style="color:#16A34A">
@@ -1398,7 +1394,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </div>
             }
             <div class="price-row price-row--total">
-              <span>Total</span>
+              <span>{{ 'Total' | t }}</span>
               <span>{{ total() | euros }}</span>
             </div>
             <!-- El IVA va desglosado como parte del total, no sumado debajo:
@@ -1412,11 +1408,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               @if (descuento() > 0) {
                 <div class="rs-alert rs-alert--success" style="font-size:var(--f-xs)">
                   <rs-icon name="check" [size]="14" [stroke]="3" /> Cupón {{ cuponCodigo() }} aplicado
-                  <button class="cupon-box__quitar" (click)="quitarCupon()">Quitar</button>
+                  <button class="cupon-box__quitar" (click)="quitarCupon()">{{ 'Quitar' | t }}</button>
                 </div>
               } @else {
                 <div class="cupon-box__row">
-                  <input [(ngModel)]="cuponInput" name="cupon" class="rs-inp" placeholder="Código de descuento"
+                  <input [(ngModel)]="cuponInput" name="cupon" class="rs-inp" [placeholder]="'Código de descuento' | t"
                          style="text-transform:uppercase" />
                   <button class="rs-btn rs-btn--secondary" [disabled]="aplicandoCupon()" (click)="aplicarCupon()">
                     {{ aplicandoCupon() ? '…' : 'Aplicar' }}
@@ -1428,17 +1424,17 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               }
             </div>
             <p style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-4)">
-              Precio en euros (EUR). El cargo se realiza al confirmar.
+              {{ 'Precio en euros (EUR). El cargo se realiza al confirmar.' | t }}
             </p>
 
             <hr class="rs-hr" style="margin-block:var(--sp-5)">
 
             <div class="price-trust">
-              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Sin cargos ocultos</p>
-              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Pago 100% seguro vía Stripe</p>
-              <p><rs-icon name="check" [size]="13" [stroke]="3" /> Confirmación inmediata por correo</p>
-              <p><rs-icon name="lock" [size]="13" [stroke]="2" /> No se realizará ningún cargo hasta confirmar el siguiente paso</p>
-              <p><rs-icon name="shield-check" [size]="13" [stroke]="2" /> Protección Doogking: tu dinero está protegido hasta que el servicio se complete según la política de cancelación</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Sin cargos ocultos' | t }}</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Pago 100% seguro vía Stripe' | t }}</p>
+              <p><rs-icon name="check" [size]="13" [stroke]="3" /> {{ 'Confirmación inmediata por correo' | t }}</p>
+              <p><rs-icon name="lock" [size]="13" [stroke]="2" /> {{ 'No se realizará ningún cargo hasta confirmar el siguiente paso' | t }}</p>
+              <p><rs-icon name="shield-check" [size]="13" [stroke]="2" /> {{ 'Protección Doogking: tu dinero está protegido hasta que el servicio se complete según la política de cancelación' | t }}</p>
             </div>
           </div>
         </div>

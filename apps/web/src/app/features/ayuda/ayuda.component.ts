@@ -5,6 +5,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { ReservasService, ReservaApi } from '../reservas/services/reservas.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 interface Pregunta {
   readonly icon: string;
@@ -142,7 +143,9 @@ const APRENDIZAJE: readonly string[] = [
 @Component({
   selector: 'app-ayuda',
   standalone: true,
-  imports: [RouterLink, DatePipe, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, DatePipe, RsNavbarComponent, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ayuda-page">
@@ -151,10 +154,10 @@ const APRENDIZAJE: readonly string[] = [
   <section class="rs-section rs-section--sm">
     <div class="rs-wrap rs-wrap--lg">
       <header class="ay-head">
-        <p class="ay-head__eyebrow">Centro de ayuda</p>
-        <h1>¿En qué podemos ayudarte?</h1>
+        <p class="ay-head__eyebrow">{{ 'Centro de ayuda' | t }}</p>
+        <h1>{{ '¿En qué podemos ayudarte?' | t }}</h1>
         <p class="ay-head__sub">
-          Resolvemos la mayoría de dudas al instante. Busca tu pregunta o navega por categorías.
+          {{ 'Resolvemos la mayoría de dudas al instante. Busca tu pregunta o navega por categorías.' | t }}
         </p>
       </header>
 
@@ -169,8 +172,8 @@ const APRENDIZAJE: readonly string[] = [
                   <span>{{ r.fechaInicio | date:'d MMM yyyy' }} · {{ r.codigo }}</span>
                 </div>
                 <div class="ay-personal__acciones">
-                  <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--outline rs-btn--sm">Modificar o cancelar</a>
-                  <a class="rs-btn rs-btn--ghost rs-btn--sm" [href]="asuntoReserva(r)">Hablar con soporte</a>
+                  <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--outline rs-btn--sm">{{ 'Modificar o cancelar' | t }}</a>
+                  <a class="rs-btn rs-btn--ghost rs-btn--sm" [href]="asuntoReserva(r)">{{ 'Hablar con soporte' | t }}</a>
                 </div>
               </div>
             }
@@ -180,36 +183,36 @@ const APRENDIZAJE: readonly string[] = [
 
       <div class="ay-buscador">
         <rs-icon name="search" [size]="18" [stroke]="2"></rs-icon>
-        <input type="search" class="rs-input" placeholder="Buscar una pregunta…"
+        <input type="search" class="rs-input" [placeholder]="'Buscar una pregunta…' | t"
                [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
       </div>
 
-      <div class="ay-tabs" role="tablist" aria-label="Tipo de usuario">
+      <div class="ay-tabs" role="tablist" [attr.aria-label]="'Tipo de usuario' | t">
         <button type="button" role="tab" class="ay-tab" [class.is-on]="publico() === 'cliente'"
                 [attr.aria-selected]="publico() === 'cliente'" (click)="cambiarPublico('cliente')">
-          <rs-icon name="paw" [size]="16" [stroke]="2"></rs-icon> Tengo una mascota
+          <rs-icon name="paw" [size]="16" [stroke]="2"></rs-icon> {{ 'Tengo una mascota' | t }}
         </button>
         <button type="button" role="tab" class="ay-tab" [class.is-on]="publico() === 'comercio'"
                 [attr.aria-selected]="publico() === 'comercio'" (click)="cambiarPublico('comercio')">
-          <rs-icon name="building" [size]="16" [stroke]="2"></rs-icon> Tengo un negocio
+          <rs-icon name="building" [size]="16" [stroke]="2"></rs-icon> {{ 'Tengo un negocio' | t }}
         </button>
       </div>
 
       <div class="ay-categorias">
         <button type="button" class="ay-categoria" [class.is-on]="categoria() === null" (click)="categoria.set(null)">
-          Todas
+          {{ 'Todas' | t }}
         </button>
         @for (c of categorias(); track c.key) {
           <button type="button" class="ay-categoria" [class.is-on]="categoria() === c.key" (click)="categoria.set(c.key)">
-            <rs-icon [name]="c.icon" [size]="14" [stroke]="2"></rs-icon> {{ c.label }}
+            <rs-icon [name]="c.icon" [size]="14" [stroke]="2"></rs-icon> {{ c.label | t }}
           </button>
         }
       </div>
 
       @if (preguntasFiltradas().length === 0) {
         <div class="rs-card ay-vacio">
-          <p>No hay preguntas que coincidan con tu búsqueda todavía.</p>
-          <a class="rs-btn rs-btn--outline rs-btn--sm" href="mailto:soporte&#64;doogking.com">Pregúntanos directamente</a>
+          <p>{{ 'No hay preguntas que coincidan con tu búsqueda todavía.' | t }}</p>
+          <a class="rs-btn rs-btn--outline rs-btn--sm" href="mailto:soporte&#64;doogking.com">{{ 'Pregúntanos directamente' | t }}</a>
         </div>
       } @else {
         <ul class="ay-faq">
@@ -230,26 +233,26 @@ const APRENDIZAJE: readonly string[] = [
 
       @if (publico() === 'comercio') {
         <div class="ay-datos-rapidos">
-          <div class="rs-card ay-dato"><span class="ay-dato__label">Comisión</span><strong>Desde 10%</strong></div>
-          <div class="rs-card ay-dato"><span class="ay-dato__label">Pago</span><strong>Tras completar el servicio</strong></div>
-          <div class="rs-card ay-dato"><span class="ay-dato__label">Respuesta de soporte</span><strong>&lt; 24 h laborables</strong></div>
-          <div class="rs-card ay-dato"><span class="ay-dato__label">Estado de la plataforma</span><strong><rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Operativa</strong></div>
+          <div class="rs-card ay-dato"><span class="ay-dato__label">{{ 'Comisión' | t }}</span><strong>{{ 'Desde 10%' | t }}</strong></div>
+          <div class="rs-card ay-dato"><span class="ay-dato__label">{{ 'Pago' | t }}</span><strong>{{ 'Tras completar el servicio' | t }}</strong></div>
+          <div class="rs-card ay-dato"><span class="ay-dato__label">{{ 'Respuesta de soporte' | t }}</span><strong>{{ '&lt; 24 h laborables' | t }}</strong></div>
+          <div class="rs-card ay-dato"><span class="ay-dato__label">{{ 'Estado de la plataforma' | t }}</span><strong><rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> {{ 'Operativa' | t }}</strong></div>
         </div>
 
         <div class="ay-section">
-          <h2><rs-icon name="siren" [size]="18" [stroke]="2"></rs-icon> Incidencias rápidas</h2>
+          <h2><rs-icon name="siren" [size]="18" [stroke]="2"></rs-icon> {{ 'Incidencias rápidas' | t }}</h2>
           <div class="ay-incidencias">
             @for (i of incidencias; track i.label) {
               <a class="rs-card ay-incidencia" [href]="'mailto:soporte&#64;doogking.com?subject=' + i.asunto">
                 <rs-icon [name]="i.icon" [size]="18" [stroke]="2"></rs-icon>
-                {{ i.label }}
+                {{ i.label | t }}
               </a>
             }
           </div>
         </div>
 
         <div class="ay-section">
-          <h2><rs-icon name="graduation-cap" [size]="18" [stroke]="2"></rs-icon> Centro de aprendizaje Doogking</h2>
+          <h2><rs-icon name="graduation-cap" [size]="18" [stroke]="2"></rs-icon> {{ 'Centro de aprendizaje Doogking' | t }}</h2>
           <ul class="ay-aprendizaje">
             @for (tema of aprendizaje; track tema) {
               <li><rs-icon name="check" [size]="14" [stroke]="3"></rs-icon> {{ tema }}</li>
@@ -258,7 +261,7 @@ const APRENDIZAJE: readonly string[] = [
         </div>
 
         <div class="ay-section">
-          <h2><rs-icon name="flame" [size]="18" [stroke]="2"></rs-icon> Lo más consultado esta semana</h2>
+          <h2><rs-icon name="flame" [size]="18" [stroke]="2"></rs-icon> {{ 'Lo más consultado esta semana' | t }}</h2>
           <div class="ay-consultadas">
             @for (f of masConsultadas(); track f.p) {
               <button type="button" class="ay-consultada" (click)="busqueda.set(f.p)">{{ f.p }}</button>
@@ -269,22 +272,22 @@ const APRENDIZAJE: readonly string[] = [
 
       <div class="ay-contacto">
         <div>
-          <h2>¿No encuentras tu respuesta?</h2>
-          <p>Escríbenos y te contestamos en menos de 24 horas laborables.</p>
+          <h2>{{ '¿No encuentras tu respuesta?' | t }}</h2>
+          <p>{{ 'Escríbenos y te contestamos en menos de 24 horas laborables.' | t }}</p>
           <p class="ay-contacto__confianza">
-          <rs-icon name="clock" [size]="13" [stroke]="2"></rs-icon> Respuesta media: 4 h ·
-          <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> 4.8/5 satisfacción ·
-          <rs-icon name="globe" [size]="13" [stroke]="2"></rs-icon> Español, inglés, catalán
+          <rs-icon name="clock" [size]="13" [stroke]="2"></rs-icon> {{ 'Respuesta media: 4 h ·' | t }}
+          <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> {{ '4.8/5 satisfacción ·' | t }}
+          <rs-icon name="globe" [size]="13" [stroke]="2"></rs-icon> {{ 'Español, inglés, catalán' | t }}
         </p>
         </div>
         <div class="ay-contacto__acciones">
           <a class="rs-btn rs-btn--primary" href="mailto:soporte&#64;doogking.com">
             <rs-icon name="mail" [size]="16" [stroke]="2"></rs-icon>
-            Escribir a soporte
+            {{ 'Escribir a soporte' | t }}
           </a>
           <a class="rs-btn rs-btn--outline" routerLink="/reservas">
             <rs-icon name="calendar" [size]="16" [stroke]="2"></rs-icon>
-            Ver mis reservas
+            {{ 'Ver mis reservas' | t }}
           </a>
         </div>
       </div>

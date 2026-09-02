@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import type { DiaCalendarioApi } from 'shared';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Mes que se está viendo. `mes` es 1-12, no el 0-11 de `Date`. */
 export interface MesVisible {
@@ -57,17 +58,19 @@ interface Celda {
 @Component({
   selector: 'rs-calendario-rango',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="cal" [class.cal--plano]="plano()" [class.cal--con-plazas]="conDisponibilidad()">
   <div class="cal__cabecera">
     <button type="button" class="cal__nav" (click)="mesAnterior()"
-            [disabled]="!puedeRetroceder()" aria-label="Mes anterior">
+            [disabled]="!puedeRetroceder()" [attr.aria-label]="'Mes anterior' | t">
       <rs-icon name="chevron-left" [size]="18" [stroke]="2.25" />
     </button>
     <strong class="cal__mes">{{ tituloMes() }}</strong>
-    <button type="button" class="cal__nav" (click)="mesSiguiente()" aria-label="Mes siguiente">
+    <button type="button" class="cal__nav" (click)="mesSiguiente()" [attr.aria-label]="'Mes siguiente' | t">
       <rs-icon name="chevron-right" [size]="18" [stroke]="2.25" />
     </button>
   </div>
@@ -94,7 +97,7 @@ interface Celda {
   </div>
 
   @if (cargando()) {
-    <p class="cal__estado"><span class="rs-spin"></span> Cargando disponibilidad…</p>
+    <p class="cal__estado"><span class="rs-spin"></span> {{ 'Cargando disponibilidad…' | t }}</p>
   } @else if (aviso()) {
     <p class="cal__estado cal__estado--aviso">
       <rs-icon name="alert-circle" [size]="14" [stroke]="2" /> {{ aviso() }}
@@ -105,8 +108,8 @@ interface Celda {
 
   @if (conDisponibilidad()) {
     <p class="cal__leyenda">
-      <span class="cal__muestra cal__muestra--libre"></span> Con plaza
-      <span class="cal__muestra cal__muestra--lleno"></span> Sin plaza
+      <span class="cal__muestra cal__muestra--libre"></span> {{ 'Con plaza' | t }}
+      <span class="cal__muestra cal__muestra--lleno"></span> {{ 'Sin plaza' | t }}
     </p>
   }
 </div>

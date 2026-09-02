@@ -13,6 +13,7 @@ import { iconoVertical } from '../panel-comercio/vertical-icon';
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { mensajeDeError } from '../../shared/mensaje-error';
 import { RsAdminFiltrosComponent, GrupoFiltro, ValoresFiltro } from '../../shared/components/admin-filtros/rs-admin-filtros.component';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
@@ -29,43 +30,45 @@ const LIMITE = 20;
 @Component({
   selector: 'app-admin-comercios',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RsIconComponent, EurosPipe, RsAdminFiltrosComponent],
+  imports: [
+    TraducirPipe, DatePipe, DecimalPipe, ReactiveFormsModule, RsIconComponent, EurosPipe, RsAdminFiltrosComponent
+  ],
   template: `
     <!-- Cabecera -->
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Comercios</h1>
-        <p class="rs-page-sub">Gestiona los comercios registrados en la plataforma.</p>
+        <h1 class="rs-page-title">{{ 'Comercios' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Gestiona los comercios registrados en la plataforma.' | t }}</p>
       </div>
-      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo comercio</button>
+      <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">{{ '+ Nuevo comercio' | t }}</button>
     </div>
 
     <!-- Resumen superior (TCK-8034) -->
     <div class="resumen-comercios">
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.total ?? total() }}</span>
-        <span class="resumen-tile__lbl">Comercios totales</span>
+        <span class="resumen-tile__lbl">{{ 'Comercios totales' | t }}</span>
       </div>
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.activos ?? '—' }}</span>
-        <span class="resumen-tile__lbl">Activos</span>
+        <span class="resumen-tile__lbl">{{ 'Activos' | t }}</span>
       </div>
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.pendientes ?? '—' }}</span>
-        <span class="resumen-tile__lbl">Pendientes</span>
+        <span class="resumen-tile__lbl">{{ 'Pendientes' | t }}</span>
       </div>
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.suspendidos ?? '—' }}</span>
-        <span class="resumen-tile__lbl">Suspendidos</span>
+        <span class="resumen-tile__lbl">{{ 'Suspendidos' | t }}</span>
       </div>
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.enPausa ?? '—' }}</span>
-        <span class="resumen-tile__lbl">En pausa</span>
+        <span class="resumen-tile__lbl">{{ 'En pausa' | t }}</span>
       </div>
       @if ((resumen()?.dadosDeBaja ?? 0) > 0) {
         <button class="rs-card resumen-tile resumen-tile--accion" (click)="setFiltro('eliminado')">
           <span class="resumen-tile__num">{{ resumen()!.dadosDeBaja }}</span>
-          <span class="resumen-tile__lbl">Dados de baja</span>
+          <span class="resumen-tile__lbl">{{ 'Dados de baja' | t }}</span>
         </button>
       }
     </div>
@@ -99,12 +102,12 @@ const LIMITE = 20;
          cabecera y en la última fila (ver .tbl-head / .tbl-row:last-child). -->
     <div class="rs-card tbl-card" style="padding:0">
       <div class="tbl-head">
-        <span>Comercio</span>
-        <span>CIF/NIF</span>
-        <span>Plan</span>
-        <span>Estado</span>
-        <span>Registro</span>
-        <span>Acciones</span>
+        <span>{{ 'Comercio' | t }}</span>
+        <span>{{ 'CIF/NIF' | t }}</span>
+        <span>{{ 'Plan' | t }}</span>
+        <span>{{ 'Estado' | t }}</span>
+        <span>{{ 'Registro' | t }}</span>
+        <span>{{ 'Acciones' | t }}</span>
       </div>
 
       @if (cargando()) {
@@ -148,7 +151,7 @@ const LIMITE = 20;
             </span>
             <span class="cell-muted" data-col="Registro">{{ c.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones" (click)="$event.stopPropagation()">
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Acciones"
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Acciones' | t"
                       (click)="menuAbiertoId.set(menuAbiertoId() === c._id ? null : c._id)">
                 <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
               </button>
@@ -162,17 +165,17 @@ const LIMITE = 20;
                     {{ c.estado === 'pendiente' ? 'Revisar solicitud' : 'Ver ficha' }}
                   </button>
                   <button class="acciones__item" (click)="abrirEditar(c)">
-                    <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar datos
+                    <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> {{ 'Editar datos' | t }}
                   </button>
                   @if (c.estado === 'eliminado') {
                     <!-- Una baja lógica se deshace; la cuenta vuelve en pausa
                          para que alguien la revise antes de republicarla. -->
                     <button class="acciones__item" [disabled]="accionando() === c._id" (click)="restaurar(c)">
-                      <rs-icon name="check" [size]="13" [stroke]="2.5"></rs-icon> Restaurar comercio
+                      <rs-icon name="check" [size]="13" [stroke]="2.5"></rs-icon> {{ 'Restaurar comercio' | t }}
                     </button>
                     <button class="acciones__item acciones__item--danger"
                             [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)">
-                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> Eliminar definitivamente
+                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> {{ 'Eliminar definitivamente' | t }}
                     </button>
                   } @else {
                     @if (c.estado !== 'activo') {
@@ -190,7 +193,7 @@ const LIMITE = 20;
                     }
                     <button class="acciones__item acciones__item--danger"
                             [disabled]="accionando() === c._id" (click)="confirmarEliminar(c)">
-                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> Dar de baja
+                      <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> {{ 'Dar de baja' | t }}
                     </button>
                   }
                 </div>
@@ -211,10 +214,10 @@ const LIMITE = 20;
     @if (totalPaginas() > 1) {
       <div class="pagination">
         <button class="rs-btn rs-btn--secondary rs-btn--sm"
-          [disabled]="paginaActual() <= 1" (click)="cambiarPagina(paginaActual() - 1)">← Anterior</button>
+          [disabled]="paginaActual() <= 1" (click)="cambiarPagina(paginaActual() - 1)">{{ '← Anterior' | t }}</button>
         <span class="page-info">Página {{ paginaActual() }} de {{ totalPaginas() }} · {{ total() }} comercios</span>
         <button class="rs-btn rs-btn--secondary rs-btn--sm"
-          [disabled]="paginaActual() >= totalPaginas()" (click)="cambiarPagina(paginaActual() + 1)">Siguiente →</button>
+          [disabled]="paginaActual() >= totalPaginas()" (click)="cambiarPagina(paginaActual() + 1)">{{ 'Siguiente →' | t }}</button>
       </div>
     }
 
@@ -228,48 +231,48 @@ const LIMITE = 20;
 
         <div class="form-row">
           <div class="rs-form-group">
-            <label class="rs-label">Nombre comercial *</label>
-            <input formControlName="nombreComercial" class="rs-input" placeholder="Mi Hotel SA" />
+            <label class="rs-label">{{ 'Nombre comercial *' | t }}</label>
+            <input formControlName="nombreComercial" class="rs-input" [placeholder]="'Mi Hotel SA' | t" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Razón social *</label>
-            <input formControlName="razonSocial" class="rs-input" placeholder="Mi Hotel SAC" />
+            <label class="rs-label">{{ 'Razón social *' | t }}</label>
+            <input formControlName="razonSocial" class="rs-input" [placeholder]="'Mi Hotel SAC' | t" />
           </div>
         </div>
 
         <div class="rs-form-group">
-          <label class="rs-label">RUC *</label>
+          <label class="rs-label">{{ 'RUC *' | t }}</label>
           <input formControlName="vatNumber" class="rs-input" placeholder="20123456789"
             [attr.readonly]="editandoId() ? true : null" />
         </div>
 
         <div class="form-row">
           <div class="rs-form-group">
-            <label class="rs-label">Plan</label>
+            <label class="rs-label">{{ 'Plan' | t }}</label>
             <select formControlName="plan" class="rs-input">
-              <option value="basico">Básico</option>
-              <option value="pro">Pro</option>
-              <option value="premium">Premium</option>
+              <option value="basico">{{ 'Básico' | t }}</option>
+              <option value="pro">{{ 'Pro' | t }}</option>
+              <option value="premium">{{ 'Premium' | t }}</option>
             </select>
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Estado</label>
+            <label class="rs-label">{{ 'Estado' | t }}</label>
             <select formControlName="estado" class="rs-input">
-              <option value="pendiente">Pendiente</option>
-              <option value="activo">Activo</option>
-              <option value="suspendido">Suspendido</option>
+              <option value="pendiente">{{ 'Pendiente' | t }}</option>
+              <option value="activo">{{ 'Activo' | t }}</option>
+              <option value="suspendido">{{ 'Suspendido' | t }}</option>
             </select>
           </div>
         </div>
 
         <div class="rs-form-group">
-          <label class="rs-label">Comisión override (%)</label>
+          <label class="rs-label">{{ 'Comisión override (%)' | t }}</label>
           <input formControlName="comisionPctOverride" type="number" step="0.01" min="0" max="1" class="rs-input"
-            placeholder="Dejar en blanco para usar el default del vertical" />
+            [placeholder]="'Dejar en blanco para usar el default del vertical' | t" />
         </div>
 
         <div class="rs-form-group">
-          <label class="rs-label">Verticales</label>
+          <label class="rs-label">{{ 'Verticales' | t }}</label>
           <div class="verticales-check">
             @for (v of verticalesOpciones; track v) {
               <label class="check-item">
@@ -287,7 +290,7 @@ const LIMITE = 20;
         }
 
         <div class="modal-actions">
-          <button type="button" class="rs-btn rs-btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="cerrarModal()">{{ 'Cancelar' | t }}</button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="form.invalid || guardando()">
             {{ guardando() ? 'Guardando…' : (editandoId() ? 'Guardar cambios' : 'Crear comercio') }}
           </button>
@@ -303,7 +306,7 @@ const LIMITE = 20;
   <div class="modal-backdrop" (click)="cerrarFicha()">
     <div class="ficha" (click)="$event.stopPropagation()">
       @if (cargandoFicha()) {
-        <p style="color:var(--t-400)">Cargando la ficha…</p>
+        <p style="color:var(--t-400)">{{ 'Cargando la ficha…' | t }}</p>
       } @else if (ficha(); as f) {
         <div class="ficha__cabecera">
           <div>
@@ -314,29 +317,29 @@ const LIMITE = 20;
               @if (f.comercio.createdAt) { · alta {{ f.comercio.createdAt | date:'d MMM yyyy' }} }
             </p>
           </div>
-          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">Cerrar</button>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">{{ 'Cerrar' | t }}</button>
         </div>
 
         <div class="ficha__kpis">
-          <div class="ficha__kpi"><strong>{{ f.resumen.servicios }}</strong><span>Servicios</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.reservas }}</strong><span>Reservas recientes</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.facturacion | euros:'1.0-0' }}</strong><span>Facturación</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.comision | euros:'1.0-0' }}</strong><span>Comisión Doogking</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.servicios }}</strong><span>{{ 'Servicios' | t }}</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.reservas }}</strong><span>{{ 'Reservas recientes' | t }}</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.facturacion | euros:'1.0-0' }}</strong><span>{{ 'Facturación' | t }}</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.comision | euros:'1.0-0' }}</strong><span>{{ 'Comisión Doogking' | t }}</span></div>
           <div class="ficha__kpi">
             <strong>{{ f.resumen.valoracion ? (f.resumen.valoracion | number:'1.1-1') : '—' }}</strong>
             <span>Valoración ({{ f.resumen.resenas }})</span>
           </div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.equipo }}</strong><span>Equipo</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.incidencias }}</strong><span>Incidencias</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.equipo }}</strong><span>{{ 'Equipo' | t }}</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.incidencias }}</strong><span>{{ 'Incidencias' | t }}</span></div>
         </div>
 
         <div class="ficha__bloque">
-          <h4>Verticales</h4>
+          <h4>{{ 'Verticales' | t }}</h4>
           <p>@for (v of f.comercio.verticales; track v) { {{ labelVertical(v) }}{{ $last ? '' : ' · ' }} }</p>
         </div>
 
         <div class="ficha__bloque">
-          <h4>Últimas reservas</h4>
+          <h4>{{ 'Últimas reservas' | t }}</h4>
           @if (f.reservas.length) {
             <ul class="ficha__reservas">
               @for (r of f.reservas; track r._id) {
@@ -349,11 +352,11 @@ const LIMITE = 20;
               }
             </ul>
           } @else {
-            <p style="color:var(--t-400)">Todavía no ha recibido reservas.</p>
+            <p style="color:var(--t-400)">{{ 'Todavía no ha recibido reservas.' | t }}</p>
           }
         </div>
       } @else {
-        <p class="rs-alert rs-alert--error">No se pudo cargar la ficha.</p>
+        <p class="rs-alert rs-alert--error">{{ 'No se pudo cargar la ficha.' | t }}</p>
       }
     </div>
   </div>
@@ -367,14 +370,14 @@ const LIMITE = 20;
         {{ c.estado === 'pendiente' ? 'Rechazar la solicitud de' : 'Suspender a' }} {{ c.nombreComercial }}
       </h3>
       <p class="modal__texto">
-        Explica el motivo. Se guarda en el historial administrativo y permite justificar la decisión.
+        {{ 'Explica el motivo. Se guarda en el historial administrativo y permite justificar la decisión.' | t }}
       </p>
       <input class="rs-inp" [value]="motivoSuspension()"
              (input)="motivoSuspension.set($any($event.target).value)"
-             placeholder="Ej. documentación caducada y sin renovar tras dos avisos" />
+             [placeholder]="'Ej. documentación caducada y sin renovar tras dos avisos' | t" />
       @if (modalError()) { <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-3)">{{ modalError() }}</div> }
       <div class="modal__acciones">
-        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarSuspender()">Cancelar</button>
+        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarSuspender()">{{ 'Cancelar' | t }}</button>
         <button class="rs-btn rs-btn--danger rs-btn--sm"
                 [disabled]="!motivoSuspension().trim() || accionando() === c._id"
                 (click)="confirmarSuspender()">
@@ -394,8 +397,8 @@ const LIMITE = 20;
       @if (impacto(); as i) {
         <ul class="impacto">
           <li><strong>{{ i.servicios }}</strong> listados ({{ i.serviciosPublicados }} publicados) dejan de verse</li>
-          <li><strong>{{ i.usuarios }}</strong> cuentas del equipo pierden el acceso</li>
-          <li><strong>{{ i.reservas }}</strong> reservas y <strong>{{ i.resenas }}</strong> reseñas en el historial</li>
+          <li><strong>{{ i.usuarios }}</strong> {{ 'cuentas del equipo pierden el acceso' | t }}</li>
+          <li><strong>{{ i.reservas }}</strong> {{ 'reservas y' | t }} <strong>{{ i.resenas }}</strong> {{ 'reseñas en el historial' | t }}</li>
         </ul>
         @if (!i.puedeDarseDeBaja) {
           <div class="rs-alert rs-alert--warning" style="margin-bottom:var(--sp-4)">
@@ -403,21 +406,21 @@ const LIMITE = 20;
           </div>
         }
       } @else {
-        <p style="color:var(--t-400);margin-bottom:var(--sp-4)">Calculando el impacto…</p>
+        <p style="color:var(--t-400);margin-bottom:var(--sp-4)">{{ 'Calculando el impacto…' | t }}</p>
       }
 
       <div class="rs-form-group">
-        <label class="rs-label" for="baja-motivo">Motivo</label>
+        <label class="rs-label" for="baja-motivo">{{ 'Motivo' | t }}</label>
         <select id="baja-motivo" class="rs-input" [value]="motivoBaja()"
                 (change)="motivoBaja.set($any($event.target).value)">
           @for (m of motivosBaja; track m.valor) {
-            <option [value]="m.valor">{{ m.label }}</option>
+            <option [value]="m.valor">{{ m.label | t }}</option>
           }
         </select>
       </div>
 
       <div class="rs-form-group">
-        <label class="rs-label" for="baja-comentario">Comentario (opcional)</label>
+        <label class="rs-label" for="baja-comentario">{{ 'Comentario (opcional)' | t }}</label>
         <textarea id="baja-comentario" class="rs-input" rows="2" [value]="comentarioBaja()"
                   (input)="comentarioBaja.set($any($event.target).value)"></textarea>
       </div>
@@ -427,15 +430,14 @@ const LIMITE = 20;
       <label class="purga">
         <input type="checkbox" [checked]="purgar()" (change)="purgar.set($any($event.target).checked)" />
         <span>
-          <strong>Eliminar definitivamente</strong> (borra listados, cuentas, reservas y pagos).
-          Irreversible: úsalo sólo con datos de prueba.
+          <strong>{{ 'Eliminar definitivamente' | t }}</strong> {{ '(borra listados, cuentas, reservas y pagos). Irreversible: úsalo sólo con datos de prueba.' | t }}
         </span>
       </label>
 
       @if (purgar()) {
         <div class="rs-form-group">
           <label class="rs-label" for="baja-confirmacion">
-            Escribe <strong>{{ eliminarComercio()!.nombreComercial }}</strong> para confirmar
+            {{ 'Escribe' | t }} <strong>{{ eliminarComercio()!.nombreComercial }}</strong> {{ 'para confirmar' | t }}
           </label>
           <input id="baja-confirmacion" class="rs-input" [value]="confirmacionBaja()"
                  (input)="confirmacionBaja.set($any($event.target).value)" />
@@ -446,7 +448,7 @@ const LIMITE = 20;
         <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ modalError() }}</div>
       }
       <div class="modal-actions">
-        <button class="rs-btn rs-btn--ghost" (click)="cancelarEliminar()">Cancelar</button>
+        <button class="rs-btn rs-btn--ghost" (click)="cancelarEliminar()">{{ 'Cancelar' | t }}</button>
         <button class="rs-btn rs-btn--danger" [disabled]="guardando() || !puedeConfirmarBaja()"
                 (click)="ejecutarEliminar()">
           {{ guardando() ? 'Procesando…' : (purgar() ? 'Eliminar definitivamente' : 'Dar de baja') }}

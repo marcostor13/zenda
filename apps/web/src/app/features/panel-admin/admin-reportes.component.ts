@@ -8,6 +8,7 @@ import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 import { descargarCsv } from '../../shared/exportacion/csv';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 type AtajoClave = 'hoy' | '7d' | '30d' | 'mes' | 'ano' | 'personalizado';
 
 const ATAJOS: ReadonlyArray<{ clave: AtajoClave; label: string }> = [
@@ -32,30 +33,32 @@ const VERTICALES_OPCIONES = [
 @Component({
   selector: 'app-admin-reportes',
   standalone: true,
-  imports: [FormsModule, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, FormsModule, RsIconComponent, EurosPipe
+  ],
   template: `
     <!-- Cabecera -->
     <div style="margin-bottom:var(--sp-8)">
-      <h1 class="rs-page-title">Reportes financieros</h1>
-      <p class="rs-page-sub">GMV, comisiones, costos Stripe y margen neto por período.</p>
+      <h1 class="rs-page-title">{{ 'Reportes financieros' | t }}</h1>
+      <p class="rs-page-sub">{{ 'GMV, comisiones, costos Stripe y margen neto por período.' | t }}</p>
     </div>
 
     <!-- Formulario de filtros -->
     <div class="rs-card" style="padding:var(--sp-6);margin-bottom:var(--sp-6)">
-      <h3 class="section-title">Parámetros del reporte</h3>
+      <h3 class="section-title">{{ 'Parámetros del reporte' | t }}</h3>
 
       <!-- Atajos: la pantalla ya no arranca vacía esperando a que rellenes fechas (TCK-8032/8033) -->
       <div class="atajos">
         @for (a of atajos; track a.clave) {
           <button class="atajo" [class.activa]="atajoActivo() === a.clave" (click)="aplicarAtajo(a.clave)">
-            {{ a.label }}
+            {{ a.label | t }}
           </button>
         }
       </div>
 
       <div class="filtros-grid">
         <div class="rs-field">
-          <label class="rs-lbl">Desde</label>
+          <label class="rs-lbl">{{ 'Desde' | t }}</label>
           <input
             type="date"
             class="rs-inp"
@@ -63,7 +66,7 @@ const VERTICALES_OPCIONES = [
             [max]="fechaHasta || undefined" />
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">Hasta</label>
+          <label class="rs-lbl">{{ 'Hasta' | t }}</label>
           <input
             type="date"
             class="rs-inp"
@@ -71,17 +74,17 @@ const VERTICALES_OPCIONES = [
             [min]="fechaDesde || undefined" />
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">Vertical (opcional)</label>
+          <label class="rs-lbl">{{ 'Vertical (opcional)' | t }}</label>
           <select class="rs-inp" [(ngModel)]="filtroVertical" (ngModelChange)="generarReporte()">
             @for (v of verticalesOpciones; track v.valor) {
-              <option [value]="v.valor">{{ v.label }}</option>
+              <option [value]="v.valor">{{ v.label | t }}</option>
             }
           </select>
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">Comercio (opcional)</label>
+          <label class="rs-lbl">{{ 'Comercio (opcional)' | t }}</label>
           <select class="rs-inp" [(ngModel)]="filtroComercio" (ngModelChange)="generarReporte()">
-            <option value="">Todos los comercios</option>
+            <option value="">{{ 'Todos los comercios' | t }}</option>
             @for (c of comercios(); track c._id) {
               <option [value]="c._id">{{ c.nombreComercial }}</option>
             }
@@ -95,7 +98,7 @@ const VERTICALES_OPCIONES = [
 
       @if (reporte()) {
         <button class="rs-btn rs-btn--secondary" style="margin-right:var(--sp-3)" (click)="exportarCsv()">
-          <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon> Exportar CSV
+          <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon> {{ 'Exportar CSV' | t }}
         </button>
       }
       <button
@@ -103,9 +106,9 @@ const VERTICALES_OPCIONES = [
         [disabled]="!fechaDesde || !fechaHasta || cargando()"
         (click)="generarReporte()">
         @if (cargando()) {
-          <span>Generando…</span>
+          <span>{{ 'Generando…' | t }}</span>
         } @else {
-          <span><rs-icon name="bar-chart" [size]="14" [stroke]="2"></rs-icon> Generar reporte</span>
+          <span><rs-icon name="bar-chart" [size]="14" [stroke]="2"></rs-icon> {{ 'Generar reporte' | t }}</span>
         }
       </button>
     </div>
@@ -113,14 +116,14 @@ const VERTICALES_OPCIONES = [
     <!-- Resultados -->
     @if (cargando() && !reporte()) {
       <div class="rs-card" style="padding:var(--sp-10);text-align:center;color:var(--t-400)">
-        Calculando el reporte…
+        {{ 'Calculando el reporte…' | t }}
       </div>
     }
     @if (reporte()) {
       @if (comparativa(); as comp) {
         <!-- Cómo va frente al periodo anterior de la misma duración (TCK-8032/8033) -->
         <div class="rs-card comparativa">
-          <strong class="comparativa__titulo">Frente al periodo anterior</strong>
+          <strong class="comparativa__titulo">{{ 'Frente al periodo anterior' | t }}</strong>
           <div class="comparativa__datos">
             <span class="comparativa__dato">
               GMV
@@ -129,13 +132,13 @@ const VERTICALES_OPCIONES = [
               </b>
             </span>
             <span class="comparativa__dato">
-              Comisión Doogking
+              {{ 'Comisión Doogking' | t }}
               <b [class.baja]="comp.ingresos !== null && comp.ingresos < 0">
                 {{ comp.ingresos === null ? 'sin datos' : (comp.ingresos > 0 ? '+' : '') + comp.ingresos + ' %' }}
               </b>
             </span>
             <span class="comparativa__dato">
-              Reservas
+              {{ 'Reservas' | t }}
               <b [class.baja]="comp.reservas !== null && comp.reservas < 0">
                 {{ comp.reservas === null ? 'sin datos' : (comp.reservas > 0 ? '+' : '') + comp.reservas + ' %' }}
               </b>
@@ -151,42 +154,42 @@ const VERTICALES_OPCIONES = [
             <rs-icon name="trending-up" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
           <div class="kpi-val">{{ reporte()!.gmv | euros:'1.2-2' }}</div>
-          <div class="kpi-lbl">GMV total</div>
+          <div class="kpi-lbl">{{ 'GMV total' | t }}</div>
         </div>
         <div class="kpi-card rs-card">
           <div class="kpi-icon" style="background:rgba(0,161,224,.15);color:#00A1E0">
             <rs-icon name="euro" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
           <div class="kpi-val">{{ reporte()!.ingresosPlataforma | euros:'1.2-2' }}</div>
-          <div class="kpi-lbl">Ingresos plataforma</div>
+          <div class="kpi-lbl">{{ 'Ingresos plataforma' | t }}</div>
         </div>
         <div class="kpi-card rs-card">
           <div class="kpi-icon" style="background:rgba(245,158,11,.15);color:#F59E0B">
             <rs-icon name="credit-card" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
           <div class="kpi-val">{{ reporte()!.costoStripe | euros:'1.2-2' }}</div>
-          <div class="kpi-lbl">Costos Stripe</div>
+          <div class="kpi-lbl">{{ 'Costos Stripe' | t }}</div>
         </div>
         <div class="kpi-card rs-card kpi-highlight">
           <div class="kpi-icon" style="background:rgba(22,104,227,.15);color:#1668E3">
             <rs-icon name="sparkles" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
           <div class="kpi-val">{{ reporte()!.margenNetoPlataforma | euros:'1.2-2' }}</div>
-          <div class="kpi-lbl">Margen neto</div>
+          <div class="kpi-lbl">{{ 'Margen neto' | t }}</div>
         </div>
         <div class="kpi-card rs-card">
           <div class="kpi-icon" style="background:rgba(109,92,246,.15);color:#6D5CF6">
             <rs-icon name="building" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
           <div class="kpi-val">{{ reporte()!.liquidacionesComercio | euros:'1.2-2' }}</div>
-          <div class="kpi-lbl">Liquidaciones comercios</div>
+          <div class="kpi-lbl">{{ 'Liquidaciones comercios' | t }}</div>
         </div>
         <div class="kpi-card rs-card">
           <div class="kpi-icon" style="background:rgba(71,85,105,.15);color:#64748B">
             <rs-icon name="calendar" [size]="22" [stroke]="1.75"></rs-icon>
           </div>
           <div class="kpi-val">{{ reporte()!.totalReservas }}</div>
-          <div class="kpi-lbl">Reservas confirmadas</div>
+          <div class="kpi-lbl">{{ 'Reservas confirmadas' | t }}</div>
         </div>
       </div>
 
@@ -194,15 +197,15 @@ const VERTICALES_OPCIONES = [
       @if (reporte()!.porVertical.length > 0) {
         <div class="rs-card" style="padding:0;overflow:hidden">
           <div class="tbl-header">
-            <h3 class="section-title" style="margin:0">Desglose por vertical</h3>
+            <h3 class="section-title" style="margin:0">{{ 'Desglose por vertical' | t }}</h3>
           </div>
           <div class="vtbl-head">
-            <span>Vertical</span>
+            <span>{{ 'Vertical' | t }}</span>
             <span style="text-align:right">GMV</span>
-            <span style="text-align:right">Comisión</span>
-            <span style="text-align:right">Fee Stripe</span>
-            <span style="text-align:right">Margen neto</span>
-            <span style="text-align:right">Reservas</span>
+            <span style="text-align:right">{{ 'Comisión' | t }}</span>
+            <span style="text-align:right">{{ 'Fee Stripe' | t }}</span>
+            <span style="text-align:right">{{ 'Margen neto' | t }}</span>
+            <span style="text-align:right">{{ 'Reservas' | t }}</span>
           </div>
           @for (v of reporte()!.porVertical; track v.vertical) {
             <div class="vtbl-row">
@@ -221,7 +224,7 @@ const VERTICALES_OPCIONES = [
           }
           <!-- Totales -->
           <div class="vtbl-row vtbl-total">
-            <span class="cell-bold">TOTAL</span>
+            <span class="cell-bold">{{ 'TOTAL' | t }}</span>
             <span class="cell-num cell-bold">{{ reporte()!.gmv | euros:'1.2-2' }}</span>
             <span class="cell-num cell-bold cell-green">{{ reporte()!.ingresosPlataforma | euros:'1.2-2' }}</span>
             <span class="cell-num cell-bold cell-amber">{{ reporte()!.costoStripe | euros:'1.2-2' }}</span>
@@ -237,17 +240,17 @@ const VERTICALES_OPCIONES = [
       @if (reporte()!.ajustesPorComercio.length > 0) {
         <div class="rs-card" style="padding:0;overflow:hidden;margin-top:var(--sp-5)">
           <div class="tbl-header">
-            <h3 class="section-title" style="margin:0">Ajustes de precio por comercio</h3>
+            <h3 class="section-title" style="margin:0">{{ 'Ajustes de precio por comercio' | t }}</h3>
             <span style="font-size:var(--f-sm);color:var(--t-400)">
               {{ reporte()!.totalReservasConAjuste }} reserva(s) con ajuste · +{{ reporte()!.importeTotalAjustes | euros:'1.2-2' }}
             </span>
           </div>
           <div class="ajustes-head">
-            <span>Comercio</span>
-            <span style="text-align:right">Reservas</span>
-            <span style="text-align:right">Con ajuste</span>
-            <span style="text-align:right">% ajustadas</span>
-            <span style="text-align:right">Importe ajustes</span>
+            <span>{{ 'Comercio' | t }}</span>
+            <span style="text-align:right">{{ 'Reservas' | t }}</span>
+            <span style="text-align:right">{{ 'Con ajuste' | t }}</span>
+            <span style="text-align:right">{{ '% ajustadas' | t }}</span>
+            <span style="text-align:right">{{ 'Importe ajustes' | t }}</span>
           </div>
           @for (c of reporte()!.ajustesPorComercio; track c.comercioId) {
             <div class="ajustes-row">

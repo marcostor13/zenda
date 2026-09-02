@@ -6,6 +6,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsPhoneInputComponent } from '../../../shared/components/phone-input/rs-phone-input.component';
 import { iconoVertical } from '../../panel-comercio/vertical-icon';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
@@ -23,7 +24,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
   selector: 'app-registro-comercio',
   standalone: true,
   imports: [
-    ReactiveFormsModule, RouterLink, RsIconComponent,
+    TraducirPipe, ReactiveFormsModule, RouterLink, RsIconComponent,
     RsPhoneInputComponent,
   ],
   template: `
@@ -34,10 +35,10 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
           <a routerLink="/" class="rc__back">
             <rs-icon name="arrow-left" [size]="16" [stroke]="2" />
-            Volver al inicio
+            {{ 'Volver al inicio' | t }}
           </a>
 
-          <a routerLink="/" class="rc__logo" aria-label="Ir a la Home de Doogking">
+          <a routerLink="/" class="rc__logo" [attr.aria-label]="'Ir a la Home de Doogking' | t">
             <img src="/images/logo-doogking.png" alt="Doogking" />
           </a>
 
@@ -51,18 +52,18 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                 <path d="M97 80 L104 87 L119 71" fill="none" stroke="var(--dk-blue-deep)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
 
-              <h1 class="rc__ok-title">Tu cuenta ya está creada</h1>
+              <h1 class="rc__ok-title">{{ 'Tu cuenta ya está creada' | t }}</h1>
               <p class="rc__ok-text">
-                Solo queda verificar tu correo. Hemos enviado un enlace a
+                {{ 'Solo queda verificar tu correo. Hemos enviado un enlace a' | t }}
                 <strong>{{ emailRegistrado() }}</strong>.
               </p>
               <p class="rc__ok-hint">
-                Ábrelo y te llevamos directo a publicar tu primer servicio. Si no lo ves, revisa el spam.
+                {{ 'Ábrelo y te llevamos directo a publicar tu primer servicio. Si no lo ves, revisa el spam.' | t }}
               </p>
 
               @if (reenviado()) {
                 <div class="rs-alert rs-alert--success rc__gap" role="status">
-                  Correo reenviado <rs-icon name="check" [size]="14" [stroke]="3" />
+                  {{ 'Correo reenviado' | t }} <rs-icon name="check" [size]="14" [stroke]="3" />
                 </div>
               }
               @if (error()) {
@@ -74,14 +75,14 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                 {{ reenviando() ? 'Reenviando…' : 'Reenviar correo' }}
               </button>
 
-              <p class="rc__alt"><a routerLink="/auth/login">Volver a iniciar sesión</a></p>
+              <p class="rc__alt"><a routerLink="/auth/login">{{ 'Volver a iniciar sesión' | t }}</a></p>
             </section>
 
           } @else {
 
             <header class="rc__head">
-              <p class="rc__eyebrow">Paso {{ paso() }} de {{ pasos.length }} · {{ pasoActual().label }}</p>
-              <div class="rc__bar" role="progressbar" aria-label="Progreso del alta"
+              <p class="rc__eyebrow">Paso {{ paso() }} de {{ pasos.length }} · {{ pasoActual().label | t }}</p>
+              <div class="rc__bar" role="progressbar" [attr.aria-label]="'Progreso del alta' | t"
                    [attr.aria-valuenow]="paso()" aria-valuemin="1" [attr.aria-valuemax]="pasos.length">
                 <span class="rc__bar-fill" [style.width.%]="progreso()"></span>
               </div>
@@ -90,15 +91,15 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
             <!-- PASO 1 · Servicios -->
             @if (paso() === 1) {
               <section class="rc__panel">
-                <h1 id="rc-t1" class="rc__title">¿Qué servicios ofreces?</h1>
-                <p class="rc__sub">Marca todos los que quieras. Podrás cambiarlos más adelante.</p>
+                <h1 id="rc-t1" class="rc__title">{{ '¿Qué servicios ofreces?' | t }}</h1>
+                <p class="rc__sub">{{ 'Marca todos los que quieras. Podrás cambiarlos más adelante.' | t }}</p>
 
                 <div class="rc-cats" role="group" aria-labelledby="rc-t1">
                   @for (v of verticalesDisponibles; track v.key) {
                     <button type="button" class="rc-cat" [class.is-sel]="estaSeleccionada(v.key)"
                             [attr.aria-pressed]="estaSeleccionada(v.key)" (click)="toggleVertical(v.key)">
                       <span class="rc-cat__ico"><rs-icon [name]="v.icon" [size]="20" [stroke]="1.75" /></span>
-                      <span class="rc-cat__label">{{ v.label }}</span>
+                      <span class="rc-cat__label">{{ v.label | t }}</span>
                       <span class="rc-cat__mark" aria-hidden="true">
                         <rs-icon name="check" [size]="12" [stroke]="3" />
                       </span>
@@ -117,7 +118,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                   </p>
                   <button type="button" class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
                           [disabled]="!seleccionValida()" (click)="siguiente()">
-                    Continuar
+                    {{ 'Continuar' | t }}
                     <rs-icon name="arrow-right" [size]="16" [stroke]="2.5" />
                   </button>
                 </div>
@@ -127,50 +128,49 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
             <!-- PASO 2 · Negocio + acceso -->
             @if (paso() === 2) {
               <section class="rc__panel">
-                <h1 class="rc__title">Crea tu cuenta</h1>
+                <h1 class="rc__title">{{ 'Crea tu cuenta' | t }}</h1>
                 <p class="rc__sub">
-                  Cuatro datos y listo. En cuanto verifiques tu correo te llevamos a publicar tu
-                  primer servicio; los datos del negocio se completan al final.
+                  {{ 'Cuatro datos y listo. En cuanto verifiques tu correo te llevamos a publicar tu primer servicio; los datos del negocio se completan al final.' | t }}
                 </p>
 
                 <form class="rc-form" [formGroup]="registroForm" (ngSubmit)="onSubmit()" novalidate>
 
                   <div class="rc-fs" role="group" aria-labelledby="rc-fs-acceso" formGroupName="cuenta">
                     <p class="rc-fs__legend" id="rc-fs-acceso">
-                      <rs-icon name="user" [size]="14" [stroke]="2" /> Tu acceso
+                      <rs-icon name="user" [size]="14" [stroke]="2" /> {{ 'Tu acceso' | t }}
                     </p>
 
                     <div class="rs-field">
-                      <label for="nombre" class="rs-lbl">Tu nombre</label>
+                      <label for="nombre" class="rs-lbl">{{ 'Tu nombre' | t }}</label>
                       <input id="nombre" type="text" formControlName="nombre" class="rs-inp" autocomplete="name"
-                             placeholder="Nombre y apellidos"
+                             [placeholder]="'Nombre y apellidos' | t"
                              [class.rs-inp--error]="invalido(cuentaForm, 'nombre')"
                              [attr.aria-invalid]="invalido(cuentaForm, 'nombre') || null" />
-                      @if (invalido(cuentaForm, 'nombre')) { <span class="rs-field-err">Escribe tu nombre</span> }
+                      @if (invalido(cuentaForm, 'nombre')) { <span class="rs-field-err">{{ 'Escribe tu nombre' | t }}</span> }
                     </div>
 
                     <div class="rc-row">
                       <div class="rs-field">
-                        <label for="email" class="rs-lbl">Correo electrónico</label>
+                        <label for="email" class="rs-lbl">{{ 'Correo electrónico' | t }}</label>
                         <input id="email" type="email" formControlName="email" class="rs-inp" autocomplete="email"
                                placeholder="tu@negocio.com"
                                [class.rs-inp--error]="invalido(cuentaForm, 'email')"
                                [attr.aria-invalid]="invalido(cuentaForm, 'email') || null" />
-                        @if (invalido(cuentaForm, 'email')) { <span class="rs-field-err">Escribe un correo válido</span> }
+                        @if (invalido(cuentaForm, 'email')) { <span class="rs-field-err">{{ 'Escribe un correo válido' | t }}</span> }
                       </div>
 
                       <div class="rs-field">
-                        <label for="telefono" class="rs-lbl">Teléfono <span class="rc-opt">opcional</span></label>
-                        <rs-phone-input inputId="telefono" formControlName="telefono" etiqueta="Teléfono" />
+                        <label for="telefono" class="rs-lbl">{{ 'Teléfono' | t }} <span class="rc-opt">{{ 'opcional' | t }}</span></label>
+                        <rs-phone-input inputId="telefono" formControlName="telefono" [etiqueta]="'Teléfono' | t" />
                       </div>
                     </div>
 
                     <div class="rs-field">
-                      <label for="password" class="rs-lbl">Contraseña</label>
+                      <label for="password" class="rs-lbl">{{ 'Contraseña' | t }}</label>
                       <div class="rc-pw">
                         <input id="password" [type]="mostrarPassword() ? 'text' : 'password'"
                                formControlName="password" class="rs-inp" autocomplete="new-password"
-                               placeholder="Mínimo 8 caracteres"
+                               [placeholder]="'Mínimo 8 caracteres' | t"
                                [class.rs-inp--error]="invalido(cuentaForm, 'password')"
                                [attr.aria-invalid]="invalido(cuentaForm, 'password') || null" />
                         <button type="button" class="rc-pw__toggle"
@@ -181,7 +181,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                         </button>
                       </div>
                       @if (invalido(cuentaForm, 'password')) {
-                        <span class="rs-field-err">La contraseña debe tener al menos 8 caracteres</span>
+                        <span class="rs-field-err">{{ 'La contraseña debe tener al menos 8 caracteres' | t }}</span>
                       } @else if (cuentaForm.value.password) {
                         <div class="rc-pwf">
                           <div class="rc-pwf__track">
@@ -200,19 +200,19 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                     <div class="rs-alert rs-alert--error" role="alert">
                       {{ error() }}
                       @if (emailDuplicado()) {
-                        <a routerLink="/auth/login" class="rc-alert__link">Iniciar sesión</a>
+                        <a routerLink="/auth/login" class="rc-alert__link">{{ 'Iniciar sesión' | t }}</a>
                       }
                     </div>
                   }
 
                   <p class="rc-legal">
-                    Al crear tu negocio aceptas los <a routerLink="/terminos">Términos</a>
-                    y la <a routerLink="/privacidad">Política de privacidad</a>.
+                    {{ 'Al crear tu negocio aceptas los' | t }} <a routerLink="/terminos">{{ 'Términos' | t }}</a>
+                    {{ 'y la' | t }} <a routerLink="/privacidad">{{ 'Política de privacidad' | t }}</a>.
                   </p>
 
                   <div class="rc__acciones rc__acciones--fila">
                     <button type="button" class="rs-btn rs-btn--outline" (click)="atras()" [disabled]="cargando()">
-                      Atrás
+                      {{ 'Atrás' | t }}
                     </button>
                     <button type="submit" class="rs-btn rs-btn--primary rs-btn--block rs-btn--lg"
                             [disabled]="cargando()">
@@ -227,13 +227,13 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
             @if (hayBorrador()) {
               <p class="rc__autosave">
                 <rs-icon name="check-circle" [size]="13" [stroke]="2" />
-                Guardamos tu progreso en este dispositivo
+                {{ 'Guardamos tu progreso en este dispositivo' | t }}
               </p>
             }
 
             <p class="rc__alt">
-              ¿Buscas servicios para tu mascota?
-              <a routerLink="/auth/registro">Crear cuenta de cliente</a>
+              {{ '¿Buscas servicios para tu mascota?' | t }}
+              <a routerLink="/auth/registro">{{ 'Crear cuenta de cliente' | t }}</a>
             </p>
           }
         </div>
@@ -241,21 +241,21 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
       <aside class="rc__aside">
         <div class="rc__aside-inner">
-          <span class="rc__pill">Gratis · Sin cuota de alta</span>
-          <h2 class="rc__pitch">Llena tu agenda con clientes que ya están buscando tu servicio.</h2>
+          <span class="rc__pill">{{ 'Gratis · Sin cuota de alta' | t }}</span>
+          <h2 class="rc__pitch">{{ 'Llena tu agenda con clientes que ya están buscando tu servicio.' | t }}</h2>
 
           <ul class="rc__list">
-            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> Miles de usuarios buscando servicios como el tuyo</li>
-            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> Reservas online 24 h, sin llamadas ni agenda en papel</li>
-            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> Calendario, clientes y cobros en un solo panel</li>
-            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> Cobro seguro con Stripe y liquidaciones claras</li>
-            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> Sin permanencia: date de baja cuando quieras</li>
+            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> {{ 'Miles de usuarios buscando servicios como el tuyo' | t }}</li>
+            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> {{ 'Reservas online 24 h, sin llamadas ni agenda en papel' | t }}</li>
+            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> {{ 'Calendario, clientes y cobros en un solo panel' | t }}</li>
+            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> {{ 'Cobro seguro con Stripe y liquidaciones claras' | t }}</li>
+            <li><span><rs-icon name="check" [size]="12" [stroke]="3" /></span> {{ 'Sin permanencia: date de baja cuando quieras' | t }}</li>
           </ul>
 
           <div class="rc__trust">
-            <p><rs-icon name="clock" [size]="14" [stroke]="2" /> Menos de 2 minutos</p>
-            <p><rs-icon name="lock" [size]="14" [stroke]="2" /> Tus datos viajan cifrados</p>
-            <p><rs-icon name="file-text" [size]="14" [stroke]="2" /> Datos fiscales y bancarios, más tarde</p>
+            <p><rs-icon name="clock" [size]="14" [stroke]="2" /> {{ 'Menos de 2 minutos' | t }}</p>
+            <p><rs-icon name="lock" [size]="14" [stroke]="2" /> {{ 'Tus datos viajan cifrados' | t }}</p>
+            <p><rs-icon name="file-text" [size]="14" [stroke]="2" /> {{ 'Datos fiscales y bancarios, más tarde' | t }}</p>
           </div>
         </div>
       </aside>

@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /**
  * Procesa el enlace de verificación (`/auth/verificar?token=…`): confirma el
@@ -10,7 +11,9 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 @Component({
   selector: 'app-verificar-email',
   standalone: true,
-  imports: [RouterLink, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, RsIconComponent
+  ],
   template: `
     <div class="rs-auth">
       <div class="rs-auth__card" style="text-align:center">
@@ -20,17 +23,17 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 
         @if (estado() === 'verificando') {
           <span class="rs-spin" style="margin:var(--sp-6) auto"></span>
-          <p style="color:var(--t-300)">Verificando tu correo…</p>
+          <p style="color:var(--t-300)">{{ 'Verificando tu correo…' | t }}</p>
         } @else if (estado() === 'error') {
           <div style="width:64px;height:64px;border-radius:50%;background:rgba(185,28,28,.1);color:#B91C1C;display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)">
             <rs-icon name="x" [size]="30" [stroke]="2"></rs-icon>
           </div>
-          <h2 style="font-size:var(--f-lg);font-weight:var(--w-7);color:var(--t-100);margin-bottom:var(--sp-2)">Enlace no válido</h2>
+          <h2 style="font-size:var(--f-lg);font-weight:var(--w-7);color:var(--t-100);margin-bottom:var(--sp-2)">{{ 'Enlace no válido' | t }}</h2>
           <p style="color:var(--t-400);font-size:var(--f-sm);line-height:1.6">
-            El enlace de verificación no es válido o ha caducado. Inicia sesión para recibir uno nuevo.
+            {{ 'El enlace de verificación no es válido o ha caducado. Inicia sesión para recibir uno nuevo.' | t }}
           </p>
           <a routerLink="/auth/login" class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-5)">
-            Ir a iniciar sesión
+            {{ 'Ir a iniciar sesión' | t }}
           </a>
         }
       </div>

@@ -3,11 +3,14 @@ import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components/brand-icon/rs-brand-icon.component';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 @Component({
   selector: 'app-perfil-pagos',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent, RsBrandIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent, RsBrandIconComponent
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -16,18 +19,18 @@ import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components
 
     <a routerLink="/perfil" class="back-link">
       <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-      Volver al perfil
+      {{ 'Volver al perfil' | t }}
     </a>
 
     <div class="page-header">
-      <h1>Métodos de pago</h1>
-      <p>Gestiona las tarjetas asociadas a tu cuenta para reservar más rápido.</p>
+      <h1>{{ 'Métodos de pago' | t }}</h1>
+      <p>{{ 'Gestiona las tarjetas asociadas a tu cuenta para reservar más rápido.' | t }}</p>
     </div>
 
     <!-- Info about payment security -->
     <div class="rs-alert rs-alert--info" style="max-width:640px;margin-bottom:var(--sp-6)">
       <rs-icon name="shield-check" [size]="16" [stroke]="2"></rs-icon>
-      Tus datos de pago están protegidos por <strong>Stripe</strong>. Nunca almacenamos los números de tarjeta en nuestros servidores.
+      {{ 'Tus datos de pago están protegidos por' | t }} <strong>Stripe</strong>{{ '. Nunca almacenamos los números de tarjeta en nuestros servidores.' | t }}
     </div>
 
     <!-- Empty state -->
@@ -35,37 +38,37 @@ import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components
       <div class="empty-icon">
         <rs-icon name="credit-card" [size]="32" [stroke]="1.25"></rs-icon>
       </div>
-      <h2>No tienes métodos de pago guardados</h2>
-      <p>Añade una tarjeta para agilizar tus futuras reservas. Solo necesitarás confirmar el importe.</p>
+      <h2>{{ 'No tienes métodos de pago guardados' | t }}</h2>
+      <p>{{ 'Añade una tarjeta para agilizar tus futuras reservas. Solo necesitarás confirmar el importe.' | t }}</p>
       <div class="empty-actions">
         <button class="rs-btn rs-btn--primary" (click)="abrirPortalStripe()">
           <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon>
-          Añadir tarjeta
+          {{ 'Añadir tarjeta' | t }}
         </button>
       </div>
     </div>
 
     <!-- Accepted cards section -->
     <div class="rs-card accepted-card">
-      <h3>Métodos de pago aceptados</h3>
+      <h3>{{ 'Métodos de pago aceptados' | t }}</h3>
       <div class="card-logos">
         @for (marca of marcasPago; track marca) {
           <rs-brand-icon [name]="marca" [size]="26" />
         }
       </div>
       <p class="accepted-note">
-        Los pagos se procesan de forma segura mediante Stripe, con cifrado SSL de 256 bits.
+        {{ 'Los pagos se procesan de forma segura mediante Stripe, con cifrado SSL de 256 bits.' | t }}
       </p>
 
       <!-- Stripe trust badge -->
       <div class="stripe-block">
-        <span class="stripe-block__label">Procesado por</span>
+        <span class="stripe-block__label">{{ 'Procesado por' | t }}</span>
         <div class="stripe-block__logo">
           <rs-brand-icon name="stripe" [size]="22" />
         </div>
         <div class="stripe-block__chips">
-          <span class="stripe-chip"><rs-icon name="lock" [size]="12" [stroke]="2"></rs-icon> SSL 256-bit</span>
-          <span class="stripe-chip"><rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> PCI DSS Nivel 1</span>
+          <span class="stripe-chip"><rs-icon name="lock" [size]="12" [stroke]="2"></rs-icon> {{ 'SSL 256-bit' | t }}</span>
+          <span class="stripe-chip"><rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> {{ 'PCI DSS Nivel 1' | t }}</span>
         </div>
       </div>
     </div>

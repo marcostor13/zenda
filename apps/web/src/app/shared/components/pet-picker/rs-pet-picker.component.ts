@@ -6,6 +6,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { PerroApi, PerrosService } from '../../../features/perros/perros.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /**
  * Selector de mascotas de la reserva. Sustituye al antiguo desplegable
@@ -20,7 +21,9 @@ import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 @Component({
   selector: 'rs-pet-picker',
   standalone: true,
-  imports: [RouterLink, RsIconComponent, ImgFallbackDirective],
+  imports: [
+    TraducirPipe, RouterLink, RsIconComponent, ImgFallbackDirective
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="pp">
@@ -33,12 +36,12 @@ import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
   </button>
 
   @if (abierto()) {
-    <div class="pp__pop" role="dialog" aria-label="Elegir mascotas">
+    <div class="pp__pop" role="dialog" [attr.aria-label]="'Elegir mascotas' | t">
       @if (autenticado()) {
         @if (cargando()) {
-          <p class="pp__hint">Cargando tus mascotas…</p>
+          <p class="pp__hint">{{ 'Cargando tus mascotas…' | t }}</p>
         } @else if (perros().length) {
-          <p class="pp__title">Tus mascotas</p>
+          <p class="pp__title">{{ 'Tus mascotas' | t }}</p>
           <ul class="pp__list">
             @for (p of perros(); track p._id) {
               <li>
@@ -62,38 +65,38 @@ import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
             }
           </ul>
           <a routerLink="/perros/nuevo" class="pp__link" (click)="cerrar()">
-            <rs-icon name="plus" [size]="14" [stroke]="2.5"></rs-icon> Añadir otra mascota
+            <rs-icon name="plus" [size]="14" [stroke]="2.5"></rs-icon> {{ 'Añadir otra mascota' | t }}
           </a>
         } @else {
           <p class="pp__hint">
-            Aún no tienes mascotas registradas.
-            <a routerLink="/perros/nuevo" (click)="cerrar()">Registra la tuya</a>
-            y ajustaremos precios y resultados a su perfil.
+            {{ 'Aún no tienes mascotas registradas.' | t }}
+            <a routerLink="/perros/nuevo" (click)="cerrar()">{{ 'Registra la tuya' | t }}</a>
+            {{ 'y ajustaremos precios y resultados a su perfil.' | t }}
           </p>
         }
       } @else {
         <p class="pp__hint">
-          <a routerLink="/auth/login" (click)="cerrar()">Inicia sesión</a>
-          para reservar con la ficha de tu perro y ver precios ajustados.
+          <a routerLink="/auth/login" (click)="cerrar()">{{ 'Inicia sesión' | t }}</a>
+          {{ 'para reservar con la ficha de tu perro y ver precios ajustados.' | t }}
         </p>
       }
 
       <div class="pp__row">
         <span class="pp__row-text">
           <strong>{{ etiquetaSinFicha() }}</strong>
-          <em>Perros que aún no tienen ficha</em>
+          <em>{{ 'Perros que aún no tienen ficha' | t }}</em>
         </span>
         <span class="pp__stepper">
           <button type="button" (click)="quitarSinFicha()" [disabled]="!puedeQuitar()"
-                  aria-label="Quitar un perro">−</button>
+                  [attr.aria-label]="'Quitar un perro' | t">−</button>
           <output>{{ sinFicha() }}</output>
-          <button type="button" (click)="anadirSinFicha()" aria-label="Añadir un perro">+</button>
+          <button type="button" (click)="anadirSinFicha()" [attr.aria-label]="'Añadir un perro' | t">+</button>
         </span>
       </div>
 
       <div class="pp__foot">
         <span class="pp__total">{{ numPerros() }} {{ numPerros() === 1 ? 'perro' : 'perros' }} en total</span>
-        <button type="button" class="rs-btn rs-btn--primary rs-btn--sm" (click)="cerrar()">Listo</button>
+        <button type="button" class="rs-btn rs-btn--primary rs-btn--sm" (click)="cerrar()">{{ 'Listo' | t }}</button>
       </div>
     </div>
   }

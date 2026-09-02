@@ -4,6 +4,7 @@ import { etiquetaAlphaNivel } from 'shared';
 import { AdminApiService, AlphaNivel, ComercioAdmin } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
  * Programa Doogking Alpha en su propio apartado (TCK-8040 §4). Es fidelización
@@ -13,30 +14,31 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
 @Component({
   selector: 'app-admin-alpha',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   template: `
     <div class="rs-page-header">
       <div>
         <h1 class="rs-page-title">
           <rs-icon name="crown" [size]="22" [stroke]="2"></rs-icon>
-          Programa Doogking Alpha
+          {{ 'Programa Doogking Alpha' | t }}
         </h1>
         <p class="rs-page-sub">
-          Fidelización de los clientes que reservan. Las empresas no tienen nivel Alpha:
-          su escalera es el plan Básico / Pro / Premium.
+          {{ 'Fidelización de los clientes que reservan. Las empresas no tienen nivel Alpha: su escalera es el plan Básico / Pro / Premium.' | t }}
         </p>
       </div>
       <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardarNiveles()">
-        <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
+        <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> {{ 'Guardar cambios' | t }}
       </button>
     </div>
 
     <!-- Escalera de niveles -->
     <div class="rs-card admin-panel">
-      <h3 class="panel-titulo">La escalera de niveles</h3>
+      <h3 class="panel-titulo">{{ 'La escalera de niveles' | t }}</h3>
 
       @if (cargando()) {
-        <p style="color:var(--t-400)">Cargando la escalera…</p>
+        <p style="color:var(--t-400)">{{ 'Cargando la escalera…' | t }}</p>
       } @else {
         <div class="niveles">
           @for (n of niveles(); track n.nivel) {
@@ -44,17 +46,17 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
               <div class="nivel__cabecera">
                 <span class="nivel__insignia">{{ etiquetaNivel(n.nivel) }}</span>
                 <label class="campo campo--ancho">
-                  <span>Nombre visible</span>
+                  <span>{{ 'Nombre visible' | t }}</span>
                   <input type="text" class="rs-inp" [value]="n.nombre"
                          (input)="n.nombre = $any($event).target.value" />
                 </label>
                 <label class="campo">
-                  <span>Reservas requeridas</span>
+                  <span>{{ 'Reservas requeridas' | t }}</span>
                   <input type="number" class="rs-inp" [value]="n.reservasRequeridas"
                          (input)="n.reservasRequeridas = +$any($event).target.value" />
                 </label>
                 <label class="campo">
-                  <span>Descuento (%)</span>
+                  <span>{{ 'Descuento (%)' | t }}</span>
                   <input type="number" class="rs-inp" [value]="(n.descuentoPct * 100).toFixed(0)"
                          (input)="n.descuentoPct = +$any($event).target.value / 100" />
                 </label>
@@ -63,35 +65,35 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
               <!-- Tope, categorías y vigencia (TCK-8030 §10). -->
               <div class="nivel__limites">
                 <label class="campo">
-                  <span>Descuento máximo (€)</span>
-                  <input type="number" min="0" class="rs-inp" placeholder="Sin tope"
+                  <span>{{ 'Descuento máximo (€)' | t }}</span>
+                  <input type="number" min="0" class="rs-inp" [placeholder]="'Sin tope' | t"
                          [value]="n.descuentoMaximoEur ?? ''"
                          (input)="fijarTope(n, $any($event).target.value)" />
-                  <small class="ayuda">Vacío = sin tope.</small>
+                  <small class="ayuda">{{ 'Vacío = sin tope.' | t }}</small>
                 </label>
                 <label class="campo">
-                  <span>Vigente desde</span>
+                  <span>{{ 'Vigente desde' | t }}</span>
                   <input type="date" class="rs-inp" [value]="fecha(n.vigenciaDesde)"
                          (change)="n.vigenciaDesde = $any($event).target.value || null" />
                 </label>
                 <label class="campo">
-                  <span>Vigente hasta</span>
+                  <span>{{ 'Vigente hasta' | t }}</span>
                   <input type="date" class="rs-inp" [value]="fecha(n.vigenciaHasta)"
                          (change)="n.vigenciaHasta = $any($event).target.value || null" />
-                  <small class="ayuda">Vacío = sin caducidad.</small>
+                  <small class="ayuda">{{ 'Vacío = sin caducidad.' | t }}</small>
                 </label>
               </div>
 
               <div class="verticales">
-                <span class="verticales__titulo">Servicios donde aplica</span>
-                <p class="ayuda">Sin marcar ninguno, el descuento vale para todas las categorías.</p>
+                <span class="verticales__titulo">{{ 'Servicios donde aplica' | t }}</span>
+                <p class="ayuda">{{ 'Sin marcar ninguno, el descuento vale para todas las categorías.' | t }}</p>
                 <div class="verticales__lista">
                   @for (v of verticales; track v.key) {
                     <label class="vertical-chip" [class.activo]="aplicaEn(n, v.key)">
                       <input type="checkbox" [checked]="aplicaEn(n, v.key)"
                              (change)="alternarVertical(n, v.key)" />
                       <rs-icon [name]="v.icon" [size]="13" [stroke]="2"></rs-icon>
-                      {{ v.labelCorto }}
+                      {{ v.labelCorto | t }}
                     </label>
                   }
                 </div>
@@ -100,19 +102,19 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
               <!-- Beneficios uno a uno: en un campo con comas era imposible
                    escribir un beneficio que llevara coma (TCK-8030 §10). -->
               <div class="beneficios">
-                <span class="beneficios__titulo">Beneficios de este nivel</span>
+                <span class="beneficios__titulo">{{ 'Beneficios de este nivel' | t }}</span>
                 @for (b of n.beneficios; track $index) {
                   <div class="beneficio">
                     <input type="text" class="rs-inp" [value]="b"
                            (input)="editarBeneficio(n, $index, $any($event).target.value)" />
                     <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                            (click)="quitarBeneficio(n, $index)" aria-label="Quitar beneficio">
+                            (click)="quitarBeneficio(n, $index)" [attr.aria-label]="'Quitar beneficio' | t">
                       <rs-icon name="x" [size]="13" [stroke]="2.5"></rs-icon>
                     </button>
                   </div>
                 }
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="anadirBeneficio(n)">
-                  <rs-icon name="plus" [size]="13" [stroke]="2.5"></rs-icon> Añadir beneficio
+                  <rs-icon name="plus" [size]="13" [stroke]="2.5"></rs-icon> {{ 'Añadir beneficio' | t }}
                 </button>
               </div>
             </div>
@@ -122,7 +124,7 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
 
       @if (guardadoMsg()) {
         <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">
-          <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Programa Alpha actualizado exitosamente
+          <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> {{ 'Programa Alpha actualizado exitosamente' | t }}
         </div>
       }
       @if (errorMsg()) {
@@ -133,18 +135,17 @@ import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
     <!-- Empresas adheridas: se gestiona dentro del programa, no en la ficha del
          comercio, porque Alpha no es un atributo de la empresa (TCK-8034). -->
     <div class="rs-card admin-panel">
-      <h3 class="panel-titulo">Empresas que aplican descuentos Alpha</h3>
+      <h3 class="panel-titulo">{{ 'Empresas que aplican descuentos Alpha' | t }}</h3>
       <p class="panel-nota">
-        No es un nivel del comercio: sólo indica que acepta aplicar el descuento Alpha
-        a los clientes del programa.
+        {{ 'No es un nivel del comercio: sólo indica que acepta aplicar el descuento Alpha a los clientes del programa.' | t }}
       </p>
 
       <div class="buscador">
-        <input type="text" class="rs-inp" placeholder="Buscar una empresa por nombre o CIF…"
+        <input type="text" class="rs-inp" [placeholder]="'Buscar una empresa por nombre o CIF…' | t"
                [value]="busqueda()" (input)="busqueda.set($any($event).target.value)"
                (keyup.enter)="buscarComercios()" />
         <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="buscarComercios()">
-          <rs-icon name="search" [size]="14" [stroke]="2"></rs-icon> Buscar
+          <rs-icon name="search" [size]="14" [stroke]="2"></rs-icon> {{ 'Buscar' | t }}
         </button>
       </div>
 

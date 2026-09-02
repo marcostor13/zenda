@@ -6,6 +6,7 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { CarritoService } from '../../carrito/carrito.service';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /**
  * Pago único de un viaje multi-vertical. Las reservas **ya existen** en estado
@@ -15,7 +16,9 @@ import { CarritoService } from '../../carrito/carrito.service';
 @Component({
   selector: 'app-viaje-pago',
   standalone: true,
-  imports: [CurrencyPipe, RouterLink, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, CurrencyPipe, RouterLink, RsNavbarComponent, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="vp-page">
@@ -24,23 +27,22 @@ import { CarritoService } from '../../carrito/carrito.service';
   <div class="rs-wrap rs-wrap--sm vp-wrap">
     @if (!clientSecret()) {
       <div class="rs-card vp-card">
-        <h1>No hay ningún pago en curso</h1>
-        <p>Vuelve a tu viaje y pulsa «Reservar el viaje» para continuar.</p>
-        <a routerLink="/reservas" class="rs-btn rs-btn--primary">Ir a mis reservas</a>
+        <h1>{{ 'No hay ningún pago en curso' | t }}</h1>
+        <p>{{ 'Vuelve a tu viaje y pulsa «Reservar el viaje» para continuar.' | t }}</p>
+        <a routerLink="/reservas" class="rs-btn rs-btn--primary">{{ 'Ir a mis reservas' | t }}</a>
       </div>
     } @else {
       <div class="rs-card vp-card">
         <header class="vp-head">
-          <p class="vp-eyebrow">Último paso</p>
-          <h1>Confirma tu viaje</h1>
+          <p class="vp-eyebrow">{{ 'Último paso' | t }}</p>
+          <h1>{{ 'Confirma tu viaje' | t }}</h1>
           <p class="vp-sub">
-            Un solo pago para todo el viaje. Cada servicio queda como una reserva independiente,
-            con su propia política de cancelación.
+            {{ 'Un solo pago para todo el viaje. Cada servicio queda como una reserva independiente, con su propia política de cancelación.' | t }}
           </p>
         </header>
 
         <div class="vp-total">
-          <span>Total</span>
+          <span>{{ 'Total' | t }}</span>
           <strong>{{ montoTotal() | currency: 'EUR' }}</strong>
         </div>
 
@@ -57,7 +59,7 @@ import { CarritoService } from '../../carrito/carrito.service';
 
         <p class="vp-seguro">
           <rs-icon name="lock" [size]="13" [stroke]="2"></rs-icon>
-          Pago seguro con Stripe. El importe se retiene hasta que se preste el servicio.
+          {{ 'Pago seguro con Stripe. El importe se retiene hasta que se preste el servicio.' | t }}
         </p>
       </div>
     }

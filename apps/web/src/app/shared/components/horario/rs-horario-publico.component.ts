@@ -3,6 +3,7 @@ import { DIAS_SEMANA } from 'shared';
 import type { ExcepcionHorarioDto, HorarioDiaDto } from 'shared';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { desdeClaveDia, hoyLocal } from '../../fechas';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 const ETIQUETAS: Record<string, string> = {
   lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves',
@@ -42,16 +43,18 @@ interface BloqueHorario {
   selector: 'rs-horario-publico',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   template: `
     @if (hayHorario()) {
       <div class="hp">
-        <h2 class="hp__tit">Cuándo atienden</h2>
+        <h2 class="hp__tit">{{ 'Cuándo atienden' | t }}</h2>
 
         <ul class="hp__semana">
           @for (d of semana(); track d.clave) {
             <li class="hp__dia" [class.hp__dia--hoy]="d.esHoy" [class.hp__dia--cerrado]="d.cerrado">
-              <span class="hp__nombre">{{ d.label }}</span>
+              <span class="hp__nombre">{{ d.label | t }}</span>
               <span class="hp__horas">{{ d.horas }}</span>
             </li>
           }
@@ -61,7 +64,7 @@ interface BloqueHorario {
           <div class="hp__esp">
             <p class="hp__esp-tit">
               <rs-icon name="alert-circle" [size]="14" [stroke]="2" />
-              Días especiales
+              {{ 'Días especiales' | t }}
             </p>
             <ul>
               @for (e of especialesProximos(); track e.fecha) {

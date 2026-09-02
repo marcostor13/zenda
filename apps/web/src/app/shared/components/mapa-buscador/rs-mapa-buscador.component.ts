@@ -6,6 +6,7 @@ import {
   RsPlaceAutocompleteComponent, type LugarElegido,
 } from '../place-autocomplete/rs-place-autocomplete.component';
 import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /**
  * Buscador por mapa al estilo Booking: el mapa ocupa la pantalla, con la caja
@@ -18,7 +19,9 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
 @Component({
   selector: 'rs-mapa-buscador',
   standalone: true,
-  imports: [RsIconComponent, RsPlaceAutocompleteComponent, RsMapaComponent],
+  imports: [
+    TraducirPipe, RsIconComponent, RsPlaceAutocompleteComponent, RsMapaComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="mb">
@@ -39,12 +42,12 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
     <div class="mb__buscar">
       <rs-place-autocomplete
         inputId="mapa-buscar"
-        placeholder="Buscar en el mapa"
+        [placeholder]="'Buscar en el mapa' | t"
         (lugarElegido)="irALugar($event)" />
     </div>
 
-    <button type="button" class="mb__cerrar" aria-label="Cerrar el mapa" (click)="cerrar.emit()">
-      <span class="mb__cerrar-txt">Cerrar el mapa</span>
+    <button type="button" class="mb__cerrar" [attr.aria-label]="'Cerrar el mapa' | t" (click)="cerrar.emit()">
+      <span class="mb__cerrar-txt">{{ 'Cerrar el mapa' | t }}</span>
       <rs-icon name="x" [size]="18" [stroke]="2" />
     </button>
 
@@ -61,13 +64,13 @@ import { RsMapaComponent, type PuntoMapa, type ZonaMapa } from '../mapa/rs-mapa.
   <div class="mb__zona">
     <label class="mb__auto">
       <input type="checkbox" [checked]="buscarAlMover()" (change)="alternarAuto()" />
-      Buscar al mover el mapa
+      {{ 'Buscar al mover el mapa' | t }}
     </label>
 
     @if (!buscarAlMover() && zonaPendiente()) {
       <button type="button" class="mb__rebuscar" (click)="buscarEnEstaZona()">
         <rs-icon name="search" [size]="15" [stroke]="2" />
-        Buscar en esta zona
+        {{ 'Buscar en esta zona' | t }}
       </button>
     }
   </div>

@@ -7,6 +7,7 @@ import { MAX_ASEGURADORAS, VerticalKey } from 'shared';
 import { environment } from '../../../environments/environment';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService } from './comercio-api.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Documento ya subido, listo para viajar con la solicitud. */
 interface DocumentoSubido {
@@ -30,7 +31,9 @@ interface DocumentoSubido {
 @Component({
   selector: 'app-comercio-solicitud-seguros',
   standalone: true,
-  imports: [ReactiveFormsModule, RsIconComponent],
+  imports: [
+    TraducirPipe, ReactiveFormsModule, RsIconComponent
+  ],
   template: `
     <div class="sol">
       @if (enviada()) {
@@ -38,26 +41,25 @@ interface DocumentoSubido {
              está en nuestras manos y qué pasa a continuación. -->
         <div class="sol__ok">
           <div class="sol__sello"><rs-icon name="check" [size]="28" [stroke]="2.5" /></div>
-          <h2 class="sol__ok-tit">Hemos recibido tu solicitud</h2>
+          <h2 class="sol__ok-tit">{{ 'Hemos recibido tu solicitud' | t }}</h2>
           <p class="sol__ok-txt">
             Nuestro equipo va a revisar la documentación de {{ nombreCompania() }} y se pondrá en
             contacto contigo en el correo y el teléfono que nos has dejado. No tienes que hacer
             nada más por ahora.
           </p>
           <p class="sol__ok-txt sol__ok-txt--sec">
-            Mientras tanto, tu ficha queda guardada y sin publicar: nadie puede contratar tus
-            pólizas hasta que el alta esté aprobada.
+            {{ 'Mientras tanto, tu ficha queda guardada y sin publicar: nadie puede contratar tus pólizas hasta que el alta esté aprobada.' | t }}
           </p>
           @if (mostrarVolver()) {
             <!-- En el alta guiada, seguir al último paso lo decide quien lo lee:
                  saltar solo se llevaría por delante este mensaje. -->
             <button type="button" class="rs-btn rs-btn--primary rs-btn--lg" (click)="creado.emit()">
-              Continuar
+              {{ 'Continuar' | t }}
               <rs-icon name="arrow-right" [size]="16" [stroke]="2.5" />
             </button>
           } @else {
             <button type="button" class="rs-btn rs-btn--primary rs-btn--lg" (click)="irAlPanel()">
-              Ir a mi panel
+              {{ 'Ir a mi panel' | t }}
               <rs-icon name="arrow-right" [size]="16" [stroke]="2.5" />
             </button>
           }
@@ -67,81 +69,78 @@ interface DocumentoSubido {
           <rs-icon name="crown" [size]="18" [stroke]="2" />
           <div>
             <strong>Trabajamos con {{ maximo }} aseguradoras como máximo.</strong>
-            Preferimos pocas compañías y revisarlas de verdad, para poder acompañar cada póliza
-            que se contrata aquí. Si ahora mismo las plazas están cubiertas, guardamos tu
-            solicitud y te avisamos en cuanto quede una libre.
+            {{ 'Preferimos pocas compañías y revisarlas de verdad, para poder acompañar cada póliza que se contrata aquí. Si ahora mismo las plazas están cubiertas, guardamos tu solicitud y te avisamos en cuanto quede una libre.' | t }}
           </div>
         </div>
 
         <form [formGroup]="form" (ngSubmit)="enviar()" novalidate>
-          <h2 class="sol__tit">Tus datos de contacto</h2>
-          <p class="sol__ayuda">Con quién hablamos para revisar el alta.</p>
+          <h2 class="sol__tit">{{ 'Tus datos de contacto' | t }}</h2>
+          <p class="sol__ayuda">{{ 'Con quién hablamos para revisar el alta.' | t }}</p>
 
           <div class="sol__fila">
             <div class="rs-field">
-              <label class="rs-lbl">Nombre y apellidos *</label>
-              <input class="rs-inp" formControlName="contactoNombre" placeholder="Nombre de la persona de contacto"
+              <label class="rs-lbl">{{ 'Nombre y apellidos *' | t }}</label>
+              <input class="rs-inp" formControlName="contactoNombre" [placeholder]="'Nombre de la persona de contacto' | t"
                      [class.rs-inp--error]="malo('contactoNombre')">
-              @if (malo('contactoNombre')) { <span class="rs-field-err">Indica un nombre de contacto.</span> }
+              @if (malo('contactoNombre')) { <span class="rs-field-err">{{ 'Indica un nombre de contacto.' | t }}</span> }
             </div>
             <div class="rs-field">
-              <label class="rs-lbl">Cargo</label>
-              <input class="rs-inp" formControlName="contactoCargo" placeholder="Ej. Responsable de alianzas">
+              <label class="rs-lbl">{{ 'Cargo' | t }}</label>
+              <input class="rs-inp" formControlName="contactoCargo" [placeholder]="'Ej. Responsable de alianzas' | t">
             </div>
           </div>
 
           <div class="sol__fila">
             <div class="rs-field">
-              <label class="rs-lbl">Correo electrónico *</label>
+              <label class="rs-lbl">{{ 'Correo electrónico *' | t }}</label>
               <input class="rs-inp" type="email" formControlName="contactoEmail" placeholder="nombre@aseguradora.com"
                      [class.rs-inp--error]="malo('contactoEmail')">
-              @if (malo('contactoEmail')) { <span class="rs-field-err">Indica un correo válido.</span> }
+              @if (malo('contactoEmail')) { <span class="rs-field-err">{{ 'Indica un correo válido.' | t }}</span> }
             </div>
             <div class="rs-field">
-              <label class="rs-lbl">Teléfono *</label>
+              <label class="rs-lbl">{{ 'Teléfono *' | t }}</label>
               <input class="rs-inp" formControlName="contactoTelefono" placeholder="+34 600 000 000"
                      [class.rs-inp--error]="malo('contactoTelefono')">
-              @if (malo('contactoTelefono')) { <span class="rs-field-err">Indica un teléfono.</span> }
+              @if (malo('contactoTelefono')) { <span class="rs-field-err">{{ 'Indica un teléfono.' | t }}</span> }
             </div>
           </div>
 
-          <h2 class="sol__tit">La aseguradora</h2>
+          <h2 class="sol__tit">{{ 'La aseguradora' | t }}</h2>
           <div class="sol__fila">
             <div class="rs-field">
-              <label class="rs-lbl">Razón social *</label>
-              <input class="rs-inp" formControlName="razonSocial" placeholder="Ej. Seguros Doogking, S.A."
+              <label class="rs-lbl">{{ 'Razón social *' | t }}</label>
+              <input class="rs-inp" formControlName="razonSocial" [placeholder]="'Ej. Seguros Doogking, S.A.' | t"
                      [class.rs-inp--error]="malo('razonSocial')">
-              @if (malo('razonSocial')) { <span class="rs-field-err">Indica la razón social.</span> }
+              @if (malo('razonSocial')) { <span class="rs-field-err">{{ 'Indica la razón social.' | t }}</span> }
             </div>
             <div class="rs-field">
-              <label class="rs-lbl">NIF / CIF *</label>
-              <input class="rs-inp" formControlName="nifCif" placeholder="A00000000"
+              <label class="rs-lbl">{{ 'NIF / CIF *' | t }}</label>
+              <input class="rs-inp" formControlName="nifCif" [placeholder]="'A00000000' | t"
                      [class.rs-inp--error]="malo('nifCif')">
-              @if (malo('nifCif')) { <span class="rs-field-err">Indica el NIF o CIF.</span> }
+              @if (malo('nifCif')) { <span class="rs-field-err">{{ 'Indica el NIF o CIF.' | t }}</span> }
             </div>
           </div>
 
           <div class="sol__fila">
             <div class="rs-field">
-              <label class="rs-lbl">Clave de registro (DGSFP)</label>
-              <input class="rs-inp" formControlName="registroDgs" placeholder="Ej. C0000">
-              <span class="rs-field-hint">Nos permite comprobar que la compañía está autorizada.</span>
+              <label class="rs-lbl">{{ 'Clave de registro (DGSFP)' | t }}</label>
+              <input class="rs-inp" formControlName="registroDgs" [placeholder]="'Ej. C0000' | t">
+              <span class="rs-field-hint">{{ 'Nos permite comprobar que la compañía está autorizada.' | t }}</span>
             </div>
             <div class="rs-field">
-              <label class="rs-lbl">Web</label>
+              <label class="rs-lbl">{{ 'Web' | t }}</label>
               <input class="rs-inp" formControlName="web" placeholder="https://…">
             </div>
           </div>
 
           <div class="rs-field">
-            <label class="rs-lbl">Ámbito de actuación</label>
-            <input class="rs-inp" formControlName="ambito" placeholder="Ej. Toda España, o comunidades concretas">
+            <label class="rs-lbl">{{ 'Ámbito de actuación' | t }}</label>
+            <input class="rs-inp" formControlName="ambito" [placeholder]="'Ej. Toda España, o comunidades concretas' | t">
           </div>
 
-          <h2 class="sol__tit">Documentación de tus pólizas</h2>
+          <h2 class="sol__tit">{{ 'Documentación de tus pólizas' | t }}</h2>
           <p class="sol__ayuda">
-            Sube las condiciones generales de cada póliza que quieras ofrecer, y cualquier
-            documento que acredite a la compañía. PDF o imagen, hasta 10 MB por archivo.
+            {{ 'Sube las condiciones generales de cada póliza que quieras ofrecer, y cualquier documento que acredite a la compañía. PDF o imagen, hasta 10 MB por archivo.' | t }}
           </p>
 
           <div class="docs">
@@ -170,15 +169,15 @@ interface DocumentoSubido {
                 }
               </ul>
             } @else {
-              <p class="rs-field-hint">Todavía no has subido ningún documento.</p>
+              <p class="rs-field-hint">{{ 'Todavía no has subido ningún documento.' | t }}</p>
             }
             @if (errorDocs()) { <p class="rs-field-err">{{ errorDocs() }}</p> }
           </div>
 
           <div class="rs-field">
-            <label class="rs-lbl">¿Algo que debamos saber?</label>
+            <label class="rs-lbl">{{ '¿Algo que debamos saber?' | t }}</label>
             <textarea class="rs-inp" rows="3" formControlName="notas"
-                      placeholder="Coberturas que te interesa ofrecer, plazos, condiciones especiales…"></textarea>
+                      [placeholder]="'Coberturas que te interesa ofrecer, plazos, condiciones especiales…' | t"></textarea>
           </div>
 
           @if (error()) { <div class="rs-alert rs-alert--error" role="alert">{{ error() }}</div> }
@@ -188,7 +187,7 @@ interface DocumentoSubido {
               <button type="button" class="rs-btn rs-btn--outline rs-btn--lg sol__volver"
                       [disabled]="enviando()" (click)="volverAtras.emit()">
                 <rs-icon name="arrow-left" [size]="16" [stroke]="2.5" />
-                Volver
+                {{ 'Volver' | t }}
               </button>
             }
             <button type="submit" class="rs-btn rs-btn--primary rs-btn--lg rs-btn--block"

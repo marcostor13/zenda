@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { VERTICAL_LABELS, VerticalKey } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { CarritoService, ItemCarritoApi } from './carrito.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 interface GrupoComercio {
   comercioId: string;
@@ -20,27 +21,28 @@ interface GrupoComercio {
 @Component({
   selector: 'app-carrito-panel',
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, RsIconComponent],
+  imports: [
+    TraducirPipe, CurrencyPipe, DatePipe, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (abierto()) {
   <div class="cp__veil" (click)="cerrar()" aria-hidden="true"></div>
 
-  <aside class="cp" role="dialog" aria-label="Tu viaje con tu mascota">
+  <aside class="cp" role="dialog" [attr.aria-label]="'Tu viaje con tu mascota' | t">
     <header class="cp__head">
       <div>
-        <h2>Tu viaje</h2>
+        <h2>{{ 'Tu viaje' | t }}</h2>
         <p>{{ carritoService.numItems() }} {{ carritoService.numItems() === 1 ? 'servicio' : 'servicios' }}</p>
       </div>
-      <button type="button" class="cp__cerrar" (click)="cerrar()" aria-label="Cerrar el panel">
+      <button type="button" class="cp__cerrar" (click)="cerrar()" [attr.aria-label]="'Cerrar el panel' | t">
         <rs-icon name="x" [size]="18" [stroke]="2"></rs-icon>
       </button>
     </header>
 
     @if (!carritoService.numItems()) {
       <p class="cp__vacio">
-        Aún no has añadido nada. Reserva un alojamiento y te propondremos peluquería o
-        transporte para esas mismas fechas.
+        {{ 'Aún no has añadido nada. Reserva un alojamiento y te propondremos peluquería o transporte para esas mismas fechas.' | t }}
       </p>
     } @else {
       <ul class="cp__grupos">
@@ -52,7 +54,7 @@ interface GrupoComercio {
                   <span class="cp__vertical">{{ etiquetaVertical(i.vertical) }}</span>
                   <strong>{{ i.titulo }}</strong>
                   <em>{{ i.fechaInicio | date: 'd MMM' }}@if (i.fechaFin) { – {{ i.fechaFin | date: 'd MMM' }} }</em>
-                  @if (i.esReservaMadre) { <span class="cp__madre">Eje del viaje</span> }
+                  @if (i.esReservaMadre) { <span class="cp__madre">{{ 'Eje del viaje' | t }}</span> }
                 </div>
                 <div class="cp__item-precio">
                   <span>{{ i.precioEstimado | currency: 'EUR' }}</span>
@@ -70,11 +72,11 @@ interface GrupoComercio {
       <div class="cp__pie">
         <p class="cp__nota">
           <rs-icon name="alert-circle" [size]="13" [stroke]="2"></rs-icon>
-          Cada servicio es una reserva independiente: puedes cancelar uno sin perder el resto.
+          {{ 'Cada servicio es una reserva independiente: puedes cancelar uno sin perder el resto.' | t }}
         </p>
 
         <div class="cp__total">
-          <span>Total estimado</span>
+          <span>{{ 'Total estimado' | t }}</span>
           <strong>{{ carritoService.totalEstimado() | currency: 'EUR' }}</strong>
         </div>
 

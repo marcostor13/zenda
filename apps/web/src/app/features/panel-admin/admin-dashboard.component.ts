@@ -22,6 +22,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success',
   pendiente: 'rs-badge--warning',
@@ -38,43 +39,45 @@ const ESTADO_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, DatePipe, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, DecimalPipe, DatePipe, RsIconComponent, EurosPipe
+  ],
   template: `
       @if (cargando()) {
         <div style="text-align:center;padding:var(--sp-20);color:var(--t-400)">
-          Cargando panel…
+          {{ 'Cargando panel…' | t }}
         </div>
       } @else {
 
       <div class="admin-header">
         <div>
-          <h1>Panel Administrativo</h1>
-          <p>Doogking · Panel de Control</p>
+          <h1>{{ 'Panel Administrativo' | t }}</h1>
+          <p>{{ 'Doogking · Panel de Control' | t }}</p>
         </div>
         <div style="display:flex;gap:var(--sp-3)">
           <a routerLink="/admin/cupones" class="rs-btn rs-btn--secondary rs-btn--sm">
-            <rs-icon name="ticket" [size]="14" [stroke]="2"></rs-icon> Cupones
+            <rs-icon name="ticket" [size]="14" [stroke]="2"></rs-icon> {{ 'Cupones' | t }}
           </a>
           <a routerLink="/admin/reportes" class="rs-btn rs-btn--primary rs-btn--sm">
-            <rs-icon name="bar-chart" [size]="14" [stroke]="2"></rs-icon> Reportes
+            <rs-icon name="bar-chart" [size]="14" [stroke]="2"></rs-icon> {{ 'Reportes' | t }}
           </a>
         </div>
       </div>
 
       <!-- PERIODO: todo el panel se lee sobre el rango elegido (TCK-8030) -->
       <div class="periodo-barra">
-        <span class="periodo-barra__label">Periodo</span>
-        <div class="periodo-toggle" role="group" aria-label="Periodo">
+        <span class="periodo-barra__label">{{ 'Periodo' | t }}</span>
+        <div class="periodo-toggle" role="group" [attr.aria-label]="'Periodo' | t">
           @for (p of periodos; track p.clave) {
             <button class="periodo-toggle__btn" [class.activa]="periodo() === p.clave"
-                    (click)="cambiarPeriodo(p.clave)">{{ p.label }}</button>
+                    (click)="cambiarPeriodo(p.clave)">{{ p.label | t }}</button>
           }
         </div>
         @if (periodo() === 'personalizado') {
           <input class="rs-inp periodo-fecha" type="date" [value]="desde()"
-                 (change)="desde.set($any($event.target).value); recargarPeriodo()" aria-label="Desde" />
+                 (change)="desde.set($any($event.target).value); recargarPeriodo()" [attr.aria-label]="'Desde' | t" />
           <input class="rs-inp periodo-fecha" type="date" [value]="hasta()"
-                 (change)="hasta.set($any($event.target).value); recargarPeriodo()" aria-label="Hasta" />
+                 (change)="hasta.set($any($event.target).value); recargarPeriodo()" [attr.aria-label]="'Hasta' | t" />
         }
       </div>
 
@@ -111,8 +114,8 @@ const ESTADO_BADGE: Record<string, string> = {
             }
           </div>
           <div class="admin-kpi__value">{{ kpis().gmvMes | euros:'1.0-0' }}</div>
-          <div class="admin-kpi__label">Facturación</div>
-          <div class="admin-kpi__hint">Importe total gestionado en el periodo</div>
+          <div class="admin-kpi__label">{{ 'Facturación' | t }}</div>
+          <div class="admin-kpi__hint">{{ 'Importe total gestionado en el periodo' | t }}</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
@@ -126,7 +129,7 @@ const ESTADO_BADGE: Record<string, string> = {
             }
           </div>
           <div class="admin-kpi__value">{{ kpis().ingresosMes | euros:'1.0-0' }}</div>
-          <div class="admin-kpi__label">Comisión Doogking</div>
+          <div class="admin-kpi__label">{{ 'Comisión Doogking' | t }}</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
@@ -140,7 +143,7 @@ const ESTADO_BADGE: Record<string, string> = {
             }
           </div>
           <div class="admin-kpi__value">{{ kpis().totalReservas }}</div>
-          <div class="admin-kpi__label">Reservas totales</div>
+          <div class="admin-kpi__label">{{ 'Reservas totales' | t }}</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
@@ -149,7 +152,7 @@ const ESTADO_BADGE: Record<string, string> = {
             </span>
           </div>
           <div class="admin-kpi__value">{{ comerciosActivos() ?? '—' }}</div>
-          <div class="admin-kpi__label">Comercios activos</div>
+          <div class="admin-kpi__label">{{ 'Comercios activos' | t }}</div>
         </div>
         <div class="admin-kpi rs-card">
           <div class="admin-kpi__top">
@@ -158,7 +161,7 @@ const ESTADO_BADGE: Record<string, string> = {
             </span>
           </div>
           <div class="admin-kpi__value">{{ kpis().totalUsuarios }}</div>
-          <div class="admin-kpi__label">Usuarios registrados</div>
+          <div class="admin-kpi__label">{{ 'Usuarios registrados' | t }}</div>
         </div>
       </div>
 
@@ -166,15 +169,15 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="kpi-secundarios">
         <div class="kpi-mini rs-card">
           <span class="kpi-mini__num">{{ kpis().comerciosPendientesCount }}</span>
-          <span class="kpi-mini__lbl">Comercios pendientes</span>
+          <span class="kpi-mini__lbl">{{ 'Comercios pendientes' | t }}</span>
         </div>
         <div class="kpi-mini rs-card">
           <span class="kpi-mini__num">{{ kpis().nuevosComerciosMes }}</span>
-          <span class="kpi-mini__lbl">Nuevos comercios</span>
+          <span class="kpi-mini__lbl">{{ 'Nuevos comercios' | t }}</span>
         </div>
         <div class="kpi-mini rs-card">
           <span class="kpi-mini__num">{{ kpis().tasaCancelacionMes }} %</span>
-          <span class="kpi-mini__lbl">Cancelaciones</span>
+          <span class="kpi-mini__lbl">{{ 'Cancelaciones' | t }}</span>
         </div>
         <div class="kpi-mini rs-card">
           <span class="kpi-mini__num">{{ kpis().pagosRetenidosMonto | euros:'1.0-0' }}</span>
@@ -182,11 +185,11 @@ const ESTADO_BADGE: Record<string, string> = {
         </div>
         <div class="kpi-mini rs-card">
           <span class="kpi-mini__num">{{ kpis().incidenciasAbiertas }}</span>
-          <span class="kpi-mini__lbl">Incidencias abiertas</span>
+          <span class="kpi-mini__lbl">{{ 'Incidencias abiertas' | t }}</span>
         </div>
         <div class="kpi-mini rs-card">
           <span class="kpi-mini__num">{{ kpis().mascotasRegistradas | number:'1.0-0' }}</span>
-          <span class="kpi-mini__lbl">Mascotas registradas</span>
+          <span class="kpi-mini__lbl">{{ 'Mascotas registradas' | t }}</span>
         </div>
       </div>
 
@@ -196,7 +199,7 @@ const ESTADO_BADGE: Record<string, string> = {
         <!-- COMERCIOS PENDIENTES -->
         <div class="rs-card admin-panel">
           <div class="panel-header">
-            <h3>Comercios pendientes de aprobación</h3>
+            <h3>{{ 'Comercios pendientes de aprobación' | t }}</h3>
             <span class="rs-badge rs-badge--danger">{{ comerciosPendientes().length }}</span>
           </div>
 
@@ -216,14 +219,14 @@ const ESTADO_BADGE: Record<string, string> = {
                 </div>
                 <!-- Sin aprobar a ciegas: primero se revisa la ficha (TCK-8030) -->
                 <a routerLink="/admin/comercios" class="rs-btn rs-btn--outline rs-btn--sm">
-                  Revisar comercio
+                  {{ 'Revisar comercio' | t }}
                 </a>
               </div>
             }
 
             @if (comerciosPendientes().length === 0) {
               <div style="text-align:center;padding:var(--sp-10);color:var(--t-400)">
-                <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Sin comercios pendientes
+                <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> {{ 'Sin comercios pendientes' | t }}
               </div>
             }
           </div>
@@ -232,14 +235,14 @@ const ESTADO_BADGE: Record<string, string> = {
         <!-- RESERVAS RECIENTES (GLOBAL) -->
         <div class="rs-card admin-panel">
           <div class="panel-header">
-            <h3>Últimas reservas</h3>
-            <a routerLink="/admin/reservas" class="rs-btn rs-btn--ghost rs-btn--sm">Ver todas</a>
+            <h3>{{ 'Últimas reservas' | t }}</h3>
+            <a routerLink="/admin/reservas" class="rs-btn rs-btn--ghost rs-btn--sm">{{ 'Ver todas' | t }}</a>
           </div>
 
           <div class="ultimas-tabla">
             <div class="ultimas-tabla__head">
-              <span>Nº</span><span>Cliente</span><span>Comercio</span><span>Servicio</span>
-              <span>Fecha</span><span>Importe</span><span>Comisión</span><span>Estado</span>
+              <span>{{ 'Nº' | t }}</span><span>{{ 'Cliente' | t }}</span><span>{{ 'Comercio' | t }}</span><span>{{ 'Servicio' | t }}</span>
+              <span>{{ 'Fecha' | t }}</span><span>{{ 'Importe' | t }}</span><span>{{ 'Comisión' | t }}</span><span>{{ 'Estado' | t }}</span>
             </div>
             @for (r of ultimasReservas(); track r.id) {
               <div class="ultimas-tabla__row">
@@ -255,7 +258,7 @@ const ESTADO_BADGE: Record<string, string> = {
             }
             @if (ultimasReservas().length === 0) {
               <div style="text-align:center;padding:var(--sp-6);color:var(--t-400)">
-                Todavía no hay reservas en Doogking.
+                {{ 'Todavía no hay reservas en Doogking.' | t }}
               </div>
             }
           </div>
@@ -268,16 +271,16 @@ const ESTADO_BADGE: Record<string, string> = {
         <a routerLink="/admin/comisiones" class="acceso">
           <span class="acceso__icono"><rs-icon name="percent" [size]="18" [stroke]="2"></rs-icon></span>
           <span class="acceso__texto">
-            <strong>Comisiones por vertical</strong>
-            <span>Qué cobra Doogking y qué deja de ingresar el comercio.</span>
+            <strong>{{ 'Comisiones por vertical' | t }}</strong>
+            <span>{{ 'Qué cobra Doogking y qué deja de ingresar el comercio.' | t }}</span>
           </span>
           <rs-icon name="arrow-right" [size]="16" [stroke]="2"></rs-icon>
         </a>
         <a routerLink="/admin/alpha" class="acceso">
           <span class="acceso__icono"><rs-icon name="crown" [size]="18" [stroke]="2"></rs-icon></span>
           <span class="acceso__texto">
-            <strong>Programa Doogking Alpha</strong>
-            <span>Niveles, beneficios y empresas adheridas del club de clientes.</span>
+            <strong>{{ 'Programa Doogking Alpha' | t }}</strong>
+            <span>{{ 'Niveles, beneficios y empresas adheridas del club de clientes.' | t }}</span>
           </span>
           <rs-icon name="arrow-right" [size]="16" [stroke]="2"></rs-icon>
         </a>

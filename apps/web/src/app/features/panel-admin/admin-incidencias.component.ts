@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ESTADO_INCIDENCIA_LABELS, EstadoIncidencia, TIPO_INCIDENCIA_LABELS, TipoIncidencia } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 interface ActuacionIncidencia {
   estado: EstadoIncidencia;
@@ -50,12 +51,14 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
 @Component({
   selector: 'app-admin-incidencias',
   standalone: true,
-  imports: [DatePipe, RsIconComponent],
+  imports: [
+    TraducirPipe, DatePipe, RsIconComponent
+  ],
   template: `
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Incidencias y disputas</h1>
-        <p class="rs-page-sub">Reclamaciones y solicitudes de devolución de clientes y comercios.</p>
+        <h1 class="rs-page-title">{{ 'Incidencias y disputas' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Reclamaciones y solicitudes de devolución de clientes y comercios.' | t }}</p>
       </div>
     </div>
 
@@ -63,7 +66,7 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
       @for (t of tabs; track t.estado) {
         <button class="tab" role="tab" [attr.aria-selected]="filtroEstado() === t.estado"
                 [class.activa]="filtroEstado() === t.estado" (click)="cambiarEstado(t.estado)">
-          {{ t.label }}
+          {{ t.label | t }}
           <span class="tab__num">{{ conteo(t.estado) }}</span>
         </button>
       }
@@ -71,20 +74,20 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
 
     <div class="rs-toolbar">
       <div class="rs-toolbar__campo">
-        <label class="rs-toolbar__lbl" for="fi-tipo">Tipo</label>
+        <label class="rs-toolbar__lbl" for="fi-tipo">{{ 'Tipo' | t }}</label>
         <select id="fi-tipo" class="rs-inp rs-toolbar__control" [value]="filtroTipo()"
                 (change)="cambiarTipo($any($event.target).value)">
-          <option value="">Cualquiera</option>
+          <option value="">{{ 'Cualquiera' | t }}</option>
           @for (t of tipos; track t.valor) {
-            <option [value]="t.valor">{{ t.label }}</option>
+            <option [value]="t.valor">{{ t.label | t }}</option>
           }
         </select>
       </div>
 
       <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
-        <label class="rs-toolbar__lbl" for="fi-buscar">Buscar</label>
+        <label class="rs-toolbar__lbl" for="fi-buscar">{{ 'Buscar' | t }}</label>
         <input id="fi-buscar" class="rs-inp rs-toolbar__control" type="search"
-               placeholder="Asunto, persona o código de reserva…"
+               [placeholder]="'Asunto, persona o código de reserva…' | t"
                [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
       </div>
     </div>
@@ -94,7 +97,7 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
     }
 
     @if (cargando()) {
-      <p style="color:var(--t-400)">Cargando incidencias…</p>
+      <p style="color:var(--t-400)">{{ 'Cargando incidencias…' | t }}</p>
     } @else if (incidencias().length === 0) {
       <div class="rs-card vacio">
         <rs-icon name="check-circle" [size]="34" [stroke]="1.5"></rs-icon>
@@ -132,13 +135,13 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
               @if (i.estado !== 'en_revision' && i.estado !== 'resuelta') {
                 <button class="rs-btn rs-btn--outline rs-btn--sm"
                         [disabled]="accionando() === i._id" (click)="tomar(i)">
-                  Tomar en revisión
+                  {{ 'Tomar en revisión' | t }}
                 </button>
               }
               @if (i.estado !== 'resuelta') {
                 <button class="rs-btn rs-btn--primary rs-btn--sm"
                         [disabled]="accionando() === i._id" (click)="abrirResolver(i._id)">
-                  Resolver
+                  {{ 'Resolver' | t }}
                 </button>
               }
               <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleHistorial(i._id)">
@@ -150,16 +153,16 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
             @if (resolviendoId() === i._id) {
               <div class="resolver">
                 <label class="rs-lbl" [attr.for]="'res-' + i._id">
-                  ¿Cómo se ha resuelto? Queda registrado en el historial.
+                  {{ '¿Cómo se ha resuelto? Queda registrado en el historial.' | t }}
                 </label>
                 <input class="rs-inp" [id]="'res-' + i._id" [value]="resolucion()"
                        (input)="resolucion.set($any($event.target).value)"
-                       placeholder="Ej. reembolso emitido el 12/08 por 45 €" />
+                       [placeholder]="'Ej. reembolso emitido el 12/08 por 45 €' | t" />
                 <div class="resolver__acciones">
-                  <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarResolver()">Cancelar</button>
+                  <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarResolver()">{{ 'Cancelar' | t }}</button>
                   <button class="rs-btn rs-btn--primary rs-btn--sm"
                           [disabled]="!resolucion().trim() || accionando() === i._id"
-                          (click)="resolver(i)">Marcar como resuelta</button>
+                          (click)="resolver(i)">{{ 'Marcar como resuelta' | t }}</button>
                 </div>
               </div>
             }
@@ -182,10 +185,10 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
       @if (totalPaginas() > 1) {
         <div class="paginacion">
           <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="pagina() <= 1" (click)="cambiarPagina(pagina() - 1)">← Anterior</button>
+                  [disabled]="pagina() <= 1" (click)="cambiarPagina(pagina() - 1)">{{ '← Anterior' | t }}</button>
           <span>Página {{ pagina() }} de {{ totalPaginas() }} · {{ total() }} incidencias</span>
           <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="pagina() >= totalPaginas()" (click)="cambiarPagina(pagina() + 1)">Siguiente →</button>
+                  [disabled]="pagina() >= totalPaginas()" (click)="cambiarPagina(pagina() + 1)">{{ 'Siguiente →' | t }}</button>
         </div>
       }
     }

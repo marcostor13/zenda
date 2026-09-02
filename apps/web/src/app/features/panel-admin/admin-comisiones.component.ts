@@ -5,6 +5,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 /**
  * Comisiones por vertical en su propio apartado (TCK-8040 §5). Vivían dentro del
  * Dashboard, donde competían con los KPIs y quedaban escondidas pese a ser la
@@ -13,34 +14,35 @@ import { EurosPipe } from '../../shared/pipes/euros.pipe';
 @Component({
   selector: 'app-admin-comisiones',
   standalone: true,
-  imports: [RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RsIconComponent, EurosPipe
+  ],
   template: `
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Comisiones</h1>
-        <p class="rs-page-sub">Qué cobra Doogking por cada reserva y qué deja de ingresar el comercio.</p>
+        <h1 class="rs-page-title">{{ 'Comisiones' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Qué cobra Doogking por cada reserva y qué deja de ingresar el comercio.' | t }}</p>
       </div>
       <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="guardar()">
-        <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> Guardar cambios
+        <rs-icon name="save" [size]="14" [stroke]="2"></rs-icon> {{ 'Guardar cambios' | t }}
       </button>
     </div>
 
     <div class="rs-card admin-panel">
       <p class="panel-nota">
-        La columna <strong>Comisión total</strong> es lo que el comercio deja de cobrar por cada
-        reserva: comisión de Doogking más el coste de la pasarela de pago.
+        {{ 'La columna' | t }} <strong>{{ 'Comisión total' | t }}</strong> {{ 'es lo que el comercio deja de cobrar por cada reserva: comisión de Doogking más el coste de la pasarela de pago.' | t }}
       </p>
 
       @if (cargando()) {
-        <p style="color:var(--t-400)">Cargando comisiones…</p>
+        <p style="color:var(--t-400)">{{ 'Cargando comisiones…' | t }}</p>
       } @else {
         <div class="comisiones-table">
           <div class="comisiones-head">
-            <span>Vertical</span>
-            <span>Comisión (%)</span>
-            <span>Fee Stripe</span>
-            <span>Comisión total</span>
-            <span>Estado</span>
+            <span>{{ 'Vertical' | t }}</span>
+            <span>{{ 'Comisión (%)' | t }}</span>
+            <span>{{ 'Fee Stripe' | t }}</span>
+            <span>{{ 'Comisión total' | t }}</span>
+            <span>{{ 'Estado' | t }}</span>
           </div>
           @for (c of comisiones(); track c.vertical) {
             <div class="comisiones-row">
@@ -74,7 +76,7 @@ import { EurosPipe } from '../../shared/pipes/euros.pipe';
 
       @if (guardadoMsg()) {
         <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">
-          <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> Comisiones actualizadas exitosamente
+          <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon> {{ 'Comisiones actualizadas exitosamente' | t }}
         </div>
       }
       @if (errorMsg()) {
@@ -85,14 +87,14 @@ import { EurosPipe } from '../../shared/pipes/euros.pipe';
     <!-- Historial: una comisión que cambia sin dejar rastro es un cargo que
          nadie puede justificar ante el comercio (TCK-8030). -->
     <div class="rs-card admin-panel">
-      <h3 class="panel-titulo">Historial de cambios</h3>
-      <p class="panel-nota">Quién cambió qué comisión y cuándo. El registro no se puede editar.</p>
+      <h3 class="panel-titulo">{{ 'Historial de cambios' | t }}</h3>
+      <p class="panel-nota">{{ 'Quién cambió qué comisión y cuándo. El registro no se puede editar.' | t }}</p>
 
       @if (cargandoHistorial()) {
-        <p style="color:var(--t-400)">Cargando el historial…</p>
+        <p style="color:var(--t-400)">{{ 'Cargando el historial…' | t }}</p>
       } @else if (historial().length === 0) {
         <p style="color:var(--t-400)">
-          Todavía no se ha modificado ninguna comisión. Los cambios que hagas aquí quedarán registrados.
+          {{ 'Todavía no se ha modificado ninguna comisión. Los cambios que hagas aquí quedarán registrados.' | t }}
         </p>
       } @else {
         <ul class="historial">

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Métodos de pago que Doogking acepta a través de Stripe. */
 export type MarcaPagoKey =
@@ -36,6 +37,7 @@ const ETIQUETAS: Record<MarcaPagoKey, string> = {
 @Component({
   selector: 'rs-brand-icon',
   standalone: true,
+  imports: [TraducirPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <svg
@@ -62,19 +64,19 @@ const ETIQUETAS: Record<MarcaPagoKey, string> = {
         }
         @case ('amex') {
           <text x="24" y="14" text-anchor="middle" fill="#FFFFFF"
-                font-family="Arial, Helvetica, sans-serif" font-size="7" font-weight="700">AMERICAN</text>
+                font-family="Arial, Helvetica, sans-serif" font-size="7" font-weight="700">{{ 'AMERICAN' | t }}</text>
           <text x="24" y="23" text-anchor="middle" fill="#FFFFFF"
-                font-family="Arial, Helvetica, sans-serif" font-size="7" font-weight="700">EXPRESS</text>
+                font-family="Arial, Helvetica, sans-serif" font-size="7" font-weight="700">{{ 'EXPRESS' | t }}</text>
         }
         @case ('stripe') {
           <text x="24" y="21" text-anchor="middle" fill="#FFFFFF"
                 font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700"
-                letter-spacing="-.3">stripe</text>
+                letter-spacing="-.3">{{ 'stripe' | t }}</text>
         }
         @case ('apple-pay') {
           <text x="24" y="21" text-anchor="middle" fill="#FFFFFF"
                 font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">
-            <tspan font-size="13"></tspan><tspan> Pay</tspan>
+            <tspan font-size="13"></tspan><tspan> {{ 'Pay' | t }}</tspan>
           </text>
         }
         @case ('google-pay') {
@@ -83,7 +85,7 @@ const ETIQUETAS: Record<MarcaPagoKey, string> = {
             <tspan fill="#4285F4">G</tspan><tspan fill="#EA4335">o</tspan><tspan
               fill="#FBBC04">o</tspan><tspan fill="#4285F4">g</tspan><tspan
               fill="#34A853">l</tspan><tspan fill="#EA4335">e</tspan><tspan
-              fill="#5F6368" font-weight="500"> Pay</tspan>
+              fill="#5F6368" font-weight="500"> {{ 'Pay' | t }}</tspan>
           </text>
         }
       }

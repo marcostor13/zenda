@@ -5,6 +5,7 @@ import { AdminApiService, PagoAdmin, ResumenPagos, Liquidacion } from './admin-a
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 const LIMITE = 20;
 
 const ESTADO_BADGE: Record<string, string> = {
@@ -37,47 +38,49 @@ const FILTROS = [
 @Component({
   selector: 'app-admin-pagos',
   standalone: true,
-  imports: [DatePipe, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, DatePipe, RsIconComponent, EurosPipe
+  ],
   template: `
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Pagos y liquidaciones</h1>
-        <p class="rs-page-sub">A dónde va cada euro que entra por Doogking.</p>
+        <h1 class="rs-page-title">{{ 'Pagos y liquidaciones' | t }}</h1>
+        <p class="rs-page-sub">{{ 'A dónde va cada euro que entra por Doogking.' | t }}</p>
       </div>
     </div>
 
     <div class="resumen">
       <div class="rs-card tile">
         <span class="tile__num">{{ resumen()?.cobrado ?? 0 | euros:'1.0-0' }}</span>
-        <span class="tile__lbl">Cobrado a clientes</span>
+        <span class="tile__lbl">{{ 'Cobrado a clientes' | t }}</span>
       </div>
       <div class="rs-card tile">
         <span class="tile__num">{{ resumen()?.comisionDoogking ?? 0 | euros:'1.0-0' }}</span>
-        <span class="tile__lbl">Comisión Doogking</span>
+        <span class="tile__lbl">{{ 'Comisión Doogking' | t }}</span>
       </div>
       <div class="rs-card tile">
         <span class="tile__num">{{ resumen()?.costePasarela ?? 0 | euros:'1.0-0' }}</span>
-        <span class="tile__lbl">Coste de pasarela</span>
+        <span class="tile__lbl">{{ 'Coste de pasarela' | t }}</span>
       </div>
       <div class="rs-card tile">
         <span class="tile__num">{{ resumen()?.liquidadoComercios ?? 0 | euros:'1.0-0' }}</span>
-        <span class="tile__lbl">Para los comercios</span>
+        <span class="tile__lbl">{{ 'Para los comercios' | t }}</span>
       </div>
       <div class="rs-card tile">
         <span class="tile__num">{{ resumen()?.pendienteLiquidar ?? 0 | euros:'1.0-0' }}</span>
-        <span class="tile__lbl">Pendiente de liquidar</span>
+        <span class="tile__lbl">{{ 'Pendiente de liquidar' | t }}</span>
       </div>
       <div class="rs-card tile">
         <span class="tile__num">{{ resumen()?.reembolsado ?? 0 | euros:'1.0-0' }}</span>
-        <span class="tile__lbl">Reembolsado</span>
+        <span class="tile__lbl">{{ 'Reembolsado' | t }}</span>
       </div>
     </div>
 
     <div class="vista-tabs" role="tablist">
       <button class="vista-tab" role="tab" [class.activa]="vista() === 'pagos'"
-              (click)="vista.set('pagos')">Pagos recibidos</button>
+              (click)="vista.set('pagos')">{{ 'Pagos recibidos' | t }}</button>
       <button class="vista-tab" role="tab" [class.activa]="vista() === 'liquidaciones'"
-              (click)="cambiarALiquidaciones()">Liquidaciones a comercios</button>
+              (click)="cambiarALiquidaciones()">{{ 'Liquidaciones a comercios' | t }}</button>
     </div>
 
     <div class="rs-toolbar">
@@ -87,14 +90,14 @@ const FILTROS = [
                   [class.rs-btn--primary]="filtroEstado() === f.valor"
                   [class.rs-btn--ghost]="filtroEstado() !== f.valor"
                   (click)="cambiarFiltro(f.valor)">
-            {{ f.label }}
+            {{ f.label | t }}
           </button>
         }
       </div>
       <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
-        <label class="rs-toolbar__lbl" for="fp-buscar">Buscar</label>
+        <label class="rs-toolbar__lbl" for="fp-buscar">{{ 'Buscar' | t }}</label>
         <input id="fp-buscar" class="rs-inp rs-toolbar__control" type="search"
-               placeholder="Código de reserva…"
+               [placeholder]="'Código de reserva…' | t"
                [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
       </div>
     </div>
@@ -106,23 +109,22 @@ const FILTROS = [
     @if (vista() === 'liquidaciones') {
       <!-- Historial de liquidaciones: qué se pagó, cuándo y con qué referencia -->
       <div class="rs-card panel-generar">
-        <h3 class="panel-generar__titulo">Generar una liquidación</h3>
+        <h3 class="panel-generar__titulo">{{ 'Generar una liquidación' | t }}</h3>
         <p class="panel-generar__nota">
-          Calcula lo cobrado de ese comercio en el periodo y lo deja registrado.
-          No mueve dinero: la transferencia se marca después.
+          {{ 'Calcula lo cobrado de ese comercio en el periodo y lo deja registrado. No mueve dinero: la transferencia se marca después.' | t }}
         </p>
         <div class="panel-generar__form">
           <select class="rs-inp" [value]="comercioSel()"
-                  (change)="comercioSel.set($any($event.target).value)" aria-label="Comercio">
-            <option value="">Elige un comercio</option>
+                  (change)="comercioSel.set($any($event.target).value)" [attr.aria-label]="'Comercio' | t">
+            <option value="">{{ 'Elige un comercio' | t }}</option>
             @for (c of comercios(); track c._id) {
               <option [value]="c._id">{{ c.nombreComercial }}</option>
             }
           </select>
           <input class="rs-inp" type="date" [value]="desdeSel()"
-                 (input)="desdeSel.set($any($event.target).value)" aria-label="Desde" />
+                 (input)="desdeSel.set($any($event.target).value)" [attr.aria-label]="'Desde' | t" />
           <input class="rs-inp" type="date" [value]="hastaSel()"
-                 (input)="hastaSel.set($any($event.target).value)" aria-label="Hasta" />
+                 (input)="hastaSel.set($any($event.target).value)" [attr.aria-label]="'Hasta' | t" />
           <button class="rs-btn rs-btn--primary rs-btn--sm"
                   [disabled]="!puedeGenerar() || generando()" (click)="generarLiquidacion()">
             {{ generando() ? 'Calculando…' : 'Generar liquidación' }}
@@ -133,7 +135,7 @@ const FILTROS = [
       @if (liquidaciones().length === 0) {
         <div class="rs-card vacio">
           <rs-icon name="banknote" [size]="34" [stroke]="1.5"></rs-icon>
-          <p>Todavía no has registrado ninguna liquidación.</p>
+          <p>{{ 'Todavía no has registrado ninguna liquidación.' | t }}</p>
         </div>
       } @else {
         <div class="lista-liquidaciones">
@@ -161,7 +163,7 @@ const FILTROS = [
                 </span>
               } @else {
                 <button class="rs-btn rs-btn--outline rs-btn--sm" (click)="abrirPago(l._id)">
-                  Marcar como pagada
+                  {{ 'Marcar como pagada' | t }}
                 </button>
               }
             </div>
@@ -170,11 +172,11 @@ const FILTROS = [
               <div class="liquidacion__pago">
                 <input class="rs-inp" [value]="referencia()"
                        (input)="referencia.set($any($event.target).value)"
-                       placeholder="Referencia de la transferencia" />
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarPago()">Cancelar</button>
+                       [placeholder]="'Referencia de la transferencia' | t" />
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cancelarPago()">{{ 'Cancelar' | t }}</button>
                 <button class="rs-btn rs-btn--primary rs-btn--sm"
                         [disabled]="!referencia().trim()" (click)="confirmarPago(l)">
-                  Confirmar pago
+                  {{ 'Confirmar pago' | t }}
                 </button>
               </div>
             }
@@ -182,7 +184,7 @@ const FILTROS = [
         </div>
       }
     } @else if (cargando()) {
-      <p style="color:var(--t-400)">Cargando pagos…</p>
+      <p style="color:var(--t-400)">{{ 'Cargando pagos…' | t }}</p>
     } @else if (pagos().length === 0) {
       <div class="rs-card vacio">
         <rs-icon name="euro" [size]="34" [stroke]="1.5"></rs-icon>
@@ -191,14 +193,14 @@ const FILTROS = [
     } @else {
       <div class="rs-card" style="padding:0;overflow-x:auto">
         <div class="tbl-head">
-          <span>Reserva</span>
-          <span>Comercio</span>
-          <span>Fecha</span>
-          <span style="text-align:right">Cobrado</span>
-          <span style="text-align:right">Comisión</span>
-          <span style="text-align:right">Pasarela</span>
-          <span style="text-align:right">Neto comercio</span>
-          <span>Estado</span>
+          <span>{{ 'Reserva' | t }}</span>
+          <span>{{ 'Comercio' | t }}</span>
+          <span>{{ 'Fecha' | t }}</span>
+          <span style="text-align:right">{{ 'Cobrado' | t }}</span>
+          <span style="text-align:right">{{ 'Comisión' | t }}</span>
+          <span style="text-align:right">{{ 'Pasarela' | t }}</span>
+          <span style="text-align:right">{{ 'Neto comercio' | t }}</span>
+          <span>{{ 'Estado' | t }}</span>
         </div>
         @for (p of pagos(); track p._id) {
           <div class="tbl-row">
@@ -219,10 +221,10 @@ const FILTROS = [
       @if (totalPaginas() > 1) {
         <div class="paginacion">
           <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="pagina() <= 1" (click)="cambiarPagina(pagina() - 1)">← Anterior</button>
+                  [disabled]="pagina() <= 1" (click)="cambiarPagina(pagina() - 1)">{{ '← Anterior' | t }}</button>
           <span>Página {{ pagina() }} de {{ totalPaginas() }} · {{ total() }} pagos</span>
           <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="pagina() >= totalPaginas()" (click)="cambiarPagina(pagina() + 1)">Siguiente →</button>
+                  [disabled]="pagina() >= totalPaginas()" (click)="cambiarPagina(pagina() + 1)">{{ 'Siguiente →' | t }}</button>
         </div>
       }
     }

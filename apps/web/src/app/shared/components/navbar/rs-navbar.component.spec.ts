@@ -38,7 +38,7 @@ describe('RsNavbarComponent', () => {
     // El icono es lo que se reconoce de un vistazo en la barra: sin él, siete
     // categorías son siete etiquetas de texto indistinguibles.
     const el: HTMLElement = fixture.nativeElement;
-    const iconos = el.querySelectorAll('.rs-navbar__nav .rs-navbar__link rs-icon svg');
+    const iconos = el.querySelectorAll('.rs-navbar__nav .rs-navbar__link .rs-navbar__link-icon');
 
     expect(iconos.length).toBe(VERTICALES_PUBLICOS.length);
   });
@@ -251,4 +251,72 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
     expect(fixture.componentInstance.tienePendientesResena()).toBe(true);
     expect(fixture.componentInstance.tieneAvisoPendiente()).toBe(true);
   });
+});
+
+describe('RsNavbarComponent (cuentas profesionales)', () => {
+  const crearComo = async (rol: 'comercio' | 'admin'): Promise<ComponentFixture<RsNavbarComponent>> => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [RsNavbarComponent, RouterTestingModule],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(),
+        {
+          provide: AuthService,
+          useValue: {
+            usuario: signal({ id: 'u1', nombre: 'Ana Ruiz', verificado: true }),
+            estaAutenticado: signal(true),
+            esAdmin: signal(rol === 'admin'),
+            esComercio: signal(rol === 'comercio'),
+            esCliente: signal(false),
+            clienteVerificado: signal(false),
+          },
+        },
+        { provide: PerrosService, useValue: { misPerros: jest.fn().mockResolvedValue([]) } },
+        { provide: ReservasService, useValue: { proximaReserva: jest.fn().mockResolvedValue(null) } },
+        {
+          provide: ReviewsService,
+          useValue: {
+            misResenas: jest.fn().mockResolvedValue([]),
+            pendientesDeValorar: jest.fn().mockResolvedValue([]),
+          },
+        },
+        { provide: AlphaService, useValue: { miEstado: jest.fn().mockResolvedValue(null) } },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(RsNavbarComponent);
+    fixture.componentRef.setInput('categoriasMovil', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture;
+  };
+
+  // Un comercio o un administrador gestiona su panel; las categorías de
+  // servicio son navegación de cliente y sólo le ensucian la barra.
+  it.each(['comercio', 'admin'] as const)(
+    'no debería mostrar las categorías de servicio a un %s',
+    async (rol) => {
+      const fixture = await crearComo(rol);
+      const el: HTMLElement = fixture.nativeElement;
+
+      expect(fixture.componentInstance.muestraCategorias()).toBe(false);
+      expect(el.querySelector('.rs-navbar__nav')).toBeNull();
+      expect(el.querySelector('.rs-navbar__cats')).toBeNull();
+    },
+  );
+
+  it.each(['comercio', 'admin'] as const)(
+    'no debería mostrar las categorías en el menú móvil a un %s',
+    async (rol) => {
+      const fixture = await crearComo(rol);
+      fixture.componentInstance.menuAbierto.set(true);
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+
+      expect(el.querySelectorAll('.rs-mobile-menu__nav .rs-mobile-menu__link').length).toBe(0);
+      // El acceso a su panel sí sigue estando en el menú.
+      expect(el.querySelector('.rs-mobile-menu__actions')).toBeTruthy();
+    },
+  );
 });

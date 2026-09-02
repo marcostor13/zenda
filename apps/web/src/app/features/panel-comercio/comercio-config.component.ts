@@ -9,6 +9,7 @@ import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-ph
 import { iconoVertical } from './vertical-icon';
 
 import { ComercioApiService, MiComercio, ActualizarPerfilComercioPayload } from './comercio-api.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
  * Pasos de la configuración del negocio.
@@ -69,16 +70,16 @@ const FASES: ReadonlyArray<{
   selector: 'app-comercio-config',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
+    TraducirPipe, ReactiveFormsModule,
     RsIconComponent, RsPhoneInputComponent,
   ],
   template: `
     <!-- Cabecera de la página -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Configura tu negocio</h1>
+        <h1 class="page-title">{{ 'Configura tu negocio' | t }}</h1>
         <p class="page-sub">
-          Tres bloques cortos. Puedes guardar y seguir, o entrar directamente al dato que quieras cambiar.
+          {{ 'Tres bloques cortos. Puedes guardar y seguir, o entrar directamente al dato que quieras cambiar.' | t }}
         </p>
       </div>
     </div>
@@ -86,7 +87,7 @@ const FASES: ReadonlyArray<{
     @if (guardado()) {
       <div class="rs-alert rs-alert--success">
         <rs-icon name="check-circle" [size]="18" [stroke]="2"></rs-icon>
-        Cambios guardados correctamente.
+        {{ 'Cambios guardados correctamente.' | t }}
       </div>
     }
     @if (errorMsg()) {
@@ -104,7 +105,7 @@ const FASES: ReadonlyArray<{
           <div class="cfg__resumen-head">
             <span class="cfg__resumen-pct">{{ progresoPerfil() }}%</span>
             <div>
-              <p class="cfg__resumen-titulo">Perfil completado</p>
+              <p class="cfg__resumen-titulo">{{ 'Perfil completado' | t }}</p>
               <p class="cfg__resumen-sub">
                 @if (faltantes().length === 1) {
                   Te falta 1 dato
@@ -114,7 +115,7 @@ const FASES: ReadonlyArray<{
                   Tu ficha está completa
                 }
               </p>
-              <p class="cfg__resumen-nota">No hace falta el 100% para publicar</p>
+              <p class="cfg__resumen-nota">{{ 'No hace falta el 100% para publicar' | t }}</p>
             </div>
           </div>
           <div class="cfg__barra" role="progressbar"
@@ -128,7 +129,7 @@ const FASES: ReadonlyArray<{
                 [attr.aria-expanded]="indiceAbierto()">
           <span class="cfg__abrir-txt">
             <strong>Paso {{ pasoActual() }} de {{ totalPasos }} · {{ faseActual().titulo }}</strong>
-            <span class="cfg__abrir-paso">{{ pasoUi().label }}</span>
+            <span class="cfg__abrir-paso">{{ pasoUi().label | t }}</span>
           </span>
           <rs-icon name="chevron-down" [size]="18" [stroke]="2"
                    class="cfg__abrir-chevron" [class.cfg__abrir-chevron--abierto]="indiceAbierto()"></rs-icon>
@@ -163,7 +164,7 @@ const FASES: ReadonlyArray<{
                       <rs-icon [name]="p.icono" [size]="13" [stroke]="2"></rs-icon>
                     }
                   </span>
-                  {{ p.label }}
+                  {{ p.label | t }}
                 </button>
               }
             </div>
@@ -174,11 +175,11 @@ const FASES: ReadonlyArray<{
                paso actual y su formulario. -->
           @if (faltantes().length) {
             <div class="cfg__faltan">
-              <p class="cfg__faltan-titulo">Te falta por completar</p>
+              <p class="cfg__faltan-titulo">{{ 'Te falta por completar' | t }}</p>
               <div class="cfg__faltan-chips">
                 @for (f of faltantes(); track f.label) {
                   <button type="button" class="cfg__chip" (click)="cambiarTab(f.tab)">
-                    <rs-icon name="plus" [size]="11" [stroke]="2.5"></rs-icon> {{ f.label }}
+                    <rs-icon name="plus" [size]="11" [stroke]="2.5"></rs-icon> {{ f.label | t }}
                   </button>
                 }
               </div>
@@ -200,7 +201,7 @@ const FASES: ReadonlyArray<{
         @if (hayCambiosSinGuardar()) {
           <div class="rs-alert rs-alert--warning aviso-cambios">
             <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
-            Tienes cambios sin guardar en este paso. Pulsa el botón de guardar antes de salir.
+            {{ 'Tienes cambios sin guardar en este paso. Pulsa el botón de guardar antes de salir.' | t }}
           </div>
         }
 
@@ -212,18 +213,18 @@ const FASES: ReadonlyArray<{
           <rs-icon name="building" [size]="18" [stroke]="2"></rs-icon>
         </div>
         <div>
-          <h2 class="config-section__title">Información del negocio</h2>
-          <p class="config-section__sub">Datos públicos de tu comercio, visibles en tus servicios y en tu perfil.</p>
+          <h2 class="config-section__title">{{ 'Información del negocio' | t }}</h2>
+          <p class="config-section__sub">{{ 'Datos públicos de tu comercio, visibles en tus servicios y en tu perfil.' | t }}</p>
         </div>
       </div>
 
       <form [formGroup]="infoForm" (ngSubmit)="continuar(guardarInfo())" class="config-form">
         <div class="rs-field">
-          <label class="rs-lbl">Nombre comercial *</label>
-          <input class="rs-inp" formControlName="nombreComercial" placeholder="Ej: Residencia Canina Villa Perruna"
+          <label class="rs-lbl">{{ 'Nombre comercial *' | t }}</label>
+          <input class="rs-inp" formControlName="nombreComercial" [placeholder]="'Ej: Residencia Canina Villa Perruna' | t"
                  [class.rs-inp--error]="infoForm.get('nombreComercial')?.invalid && infoForm.get('nombreComercial')?.touched" />
           @if (infoForm.get('nombreComercial')?.invalid && infoForm.get('nombreComercial')?.touched) {
-            <span class="rs-field-error">Campo requerido</span>
+            <span class="rs-field-error">{{ 'Campo requerido' | t }}</span>
           }
         </div>
 
@@ -234,24 +235,24 @@ const FASES: ReadonlyArray<{
         -->
         <div class="form-row">
           <div class="rs-field">
-            <label class="rs-lbl" for="razonSocial">Razón social</label>
+            <label class="rs-lbl" for="razonSocial">{{ 'Razón social' | t }}</label>
             <input id="razonSocial" class="rs-inp" formControlName="razonSocial"
-                   placeholder="Ej: Villa Perruna S.L." />
+                   [placeholder]="'Ej: Villa Perruna S.L.' | t" />
           </div>
           <div class="rs-field">
-            <label class="rs-lbl" for="vatNumber">CIF / NIF</label>
+            <label class="rs-lbl" for="vatNumber">{{ 'CIF / NIF' | t }}</label>
             <input id="vatNumber" class="rs-inp" formControlName="vatNumber"
-                   placeholder="Ej: B12345678" />
+                   [placeholder]="'Ej: B12345678' | t" />
             <span class="rs-field-hint">
-              Necesario antes de tu primera liquidación: es lo que va en las facturas.
+              {{ 'Necesario antes de tu primera liquidación: es lo que va en las facturas.' | t }}
             </span>
           </div>
         </div>
 
         <div class="rs-field">
-          <label class="rs-lbl">Descripción del negocio</label>
+          <label class="rs-lbl">{{ 'Descripción del negocio' | t }}</label>
           <textarea class="rs-inp" formControlName="descripcion" rows="3"
-                    placeholder="Describe tu negocio, tu experiencia y lo que lo hace especial…" style="resize:vertical"></textarea>
+                    [placeholder]="'Describe tu negocio, tu experiencia y lo que lo hace especial…' | t" style="resize:vertical"></textarea>
           <!-- Contador y guía de qué contar (TCK-8028) -->
           <span class="rs-field-hint contador" [class.contador--corta]="caracteresDescripcion() < 120">
             {{ caracteresDescripcion() }} / {{ MAX_DESCRIPCION }} caracteres.
@@ -266,7 +267,7 @@ const FASES: ReadonlyArray<{
           <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
                   [disabled]="esPrimerPaso()">
             <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-            Atrás
+            {{ 'Atrás' | t }}
           </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoInfo()">
             @if (guardandoInfo()) { Guardando… } @else {
@@ -288,34 +289,34 @@ const FASES: ReadonlyArray<{
           <rs-icon name="phone" [size]="18" [stroke]="2"></rs-icon>
         </div>
         <div>
-          <h2 class="config-section__title">Datos de contacto</h2>
-          <p class="config-section__sub">Información de contacto interna (no visible públicamente en tus servicios).</p>
+          <h2 class="config-section__title">{{ 'Datos de contacto' | t }}</h2>
+          <p class="config-section__sub">{{ 'Información de contacto interna (no visible públicamente en tus servicios).' | t }}</p>
         </div>
       </div>
 
       <form [formGroup]="contactoForm" (ngSubmit)="continuar(guardarContacto())" class="config-form">
         <div class="form-row">
           <div class="rs-field">
-            <label class="rs-lbl">Persona de contacto</label>
-            <input class="rs-inp" formControlName="nombreContacto" placeholder="Nombre y apellidos" />
+            <label class="rs-lbl">{{ 'Persona de contacto' | t }}</label>
+            <input class="rs-inp" formControlName="nombreContacto" [placeholder]="'Nombre y apellidos' | t" />
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Correo electrónico *</label>
+            <label class="rs-lbl">{{ 'Correo electrónico *' | t }}</label>
             <input class="rs-inp" type="email" formControlName="email" placeholder="contacto@micomercio.com"
                    [class.rs-inp--error]="contactoForm.get('email')?.invalid && contactoForm.get('email')?.touched" />
             @if (contactoForm.get('email')?.hasError('email') && contactoForm.get('email')?.touched) {
-              <span class="rs-field-error">Email no válido</span>
+              <span class="rs-field-error">{{ 'Email no válido' | t }}</span>
             }
           </div>
         </div>
         <div class="form-row">
           <div class="rs-field">
-            <label class="rs-lbl">Teléfono</label>
-            <rs-phone-input formControlName="telefono" etiqueta="Teléfono del comercio" />
+            <label class="rs-lbl">{{ 'Teléfono' | t }}</label>
+            <rs-phone-input formControlName="telefono" [etiqueta]="'Teléfono del comercio' | t" />
           </div>
           <div class="rs-field">
             <label class="rs-lbl">WhatsApp</label>
-            <rs-phone-input formControlName="whatsapp" etiqueta="WhatsApp del comercio" />
+            <rs-phone-input formControlName="whatsapp" [etiqueta]="'WhatsApp del comercio' | t" />
           </div>
         </div>
 
@@ -323,7 +324,7 @@ const FASES: ReadonlyArray<{
           <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
                   [disabled]="esPrimerPaso()">
             <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-            Atrás
+            {{ 'Atrás' | t }}
           </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoContacto()">
             @if (guardandoContacto()) { Guardando… } @else {
@@ -345,37 +346,37 @@ const FASES: ReadonlyArray<{
           <rs-icon name="euro" [size]="18" [stroke]="2"></rs-icon>
         </div>
         <div>
-          <h2 class="config-section__title">Datos bancarios</h2>
-          <p class="config-section__sub">La cuenta en la que recibirás tus liquidaciones.</p>
+          <h2 class="config-section__title">{{ 'Datos bancarios' | t }}</h2>
+          <p class="config-section__sub">{{ 'La cuenta en la que recibirás tus liquidaciones.' | t }}</p>
         </div>
       </div>
 
       <form [formGroup]="datosBancariosForm" (ngSubmit)="continuar(guardarDatosBancarios())" class="config-form">
         <div class="rs-field">
-          <label class="rs-lbl">Titular de la cuenta</label>
-          <input class="rs-inp" formControlName="titular" placeholder="Nombre del titular" />
+          <label class="rs-lbl">{{ 'Titular de la cuenta' | t }}</label>
+          <input class="rs-inp" formControlName="titular" [placeholder]="'Nombre del titular' | t" />
         </div>
         <div class="form-row">
           <div class="rs-field">
             <label class="rs-lbl">IBAN</label>
-            <input class="rs-inp" formControlName="iban" placeholder="ES00 0000 0000 0000 0000 0000" />
+            <input class="rs-inp" formControlName="iban" [placeholder]="'ES00 0000 0000 0000 0000 0000' | t" />
           </div>
           <div class="rs-field">
-            <label class="rs-lbl">Banco</label>
-            <input class="rs-inp" formControlName="banco" placeholder="Nombre del banco" />
+            <label class="rs-lbl">{{ 'Banco' | t }}</label>
+            <input class="rs-inp" formControlName="banco" [placeholder]="'Nombre del banco' | t" />
           </div>
         </div>
         <div class="rs-field">
-          <label class="rs-lbl">SWIFT / BIC</label>
-          <input class="rs-inp" formControlName="swift" placeholder="Opcional" />
+          <label class="rs-lbl">{{ 'SWIFT / BIC' | t }}</label>
+          <input class="rs-inp" formControlName="swift" [placeholder]="'Opcional' | t" />
         </div>
-        <p class="rs-field-hint">Estos datos sólo se usan para tus liquidaciones y nunca se muestran públicamente.</p>
+        <p class="rs-field-hint">{{ 'Estos datos sólo se usan para tus liquidaciones y nunca se muestran públicamente.' | t }}</p>
 
         <div class="form-actions">
           <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
                   [disabled]="esPrimerPaso()">
             <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-            Atrás
+            {{ 'Atrás' | t }}
           </button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="guardandoDatosBancarios()">
             @if (guardandoDatosBancarios()) { Guardando… } @else {
@@ -396,8 +397,8 @@ const FASES: ReadonlyArray<{
           <rs-icon name="bell" [size]="18" [stroke]="2"></rs-icon>
         </div>
         <div>
-          <h2 class="config-section__title">Notificaciones</h2>
-          <p class="config-section__sub">Elige qué alertas quieres recibir por email.</p>
+          <h2 class="config-section__title">{{ 'Notificaciones' | t }}</h2>
+          <p class="config-section__sub">{{ 'Elige qué alertas quieres recibir por email.' | t }}</p>
         </div>
       </div>
 
@@ -405,7 +406,7 @@ const FASES: ReadonlyArray<{
         @for (n of notifItems; track n.key) {
           <div class="notif-row">
             <div class="notif-row__text">
-              <div class="notif-row__label">{{ n.label }}</div>
+              <div class="notif-row__label">{{ n.label | t }}</div>
               <div class="notif-row__desc">{{ n.desc }}</div>
             </div>
             <button
@@ -424,18 +425,18 @@ const FASES: ReadonlyArray<{
         <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
                 [disabled]="esPrimerPaso()">
           <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-          Atrás
+          {{ 'Atrás' | t }}
         </button>
         @if (esUltimoPaso()) {
           <!-- El recorrido tiene final: sin esto el último paso sólo dejaba
                retroceder y no se sabía que ya estaba todo. -->
           <button type="button" class="rs-btn rs-btn--primary" (click)="terminar()">
             <rs-icon name="check" [size]="15" [stroke]="2"></rs-icon>
-            Finalizar
+            {{ 'Finalizar' | t }}
           </button>
         } @else {
           <button type="button" class="rs-btn rs-btn--primary" (click)="saltarPaso()">
-            Continuar
+            {{ 'Continuar' | t }}
             <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
           </button>
         }
@@ -451,9 +452,9 @@ const FASES: ReadonlyArray<{
           <rs-icon name="tag" [size]="18" [stroke]="2"></rs-icon>
         </div>
         <div>
-          <h2 class="config-section__title">Servicios que ofreces</h2>
+          <h2 class="config-section__title">{{ 'Servicios que ofreces' | t }}</h2>
           <p class="config-section__sub">
-            Marca las categorías en las que trabaja tu negocio. Aparecen en tu ficha pública.
+            {{ 'Marca las categorías en las que trabaja tu negocio. Aparecen en tu ficha pública.' | t }}
           </p>
         </div>
       </div>
@@ -464,12 +465,12 @@ const FASES: ReadonlyArray<{
         no podía tocarlo. Un negocio que suma peluquería a su residencia ya
         puede reflejarlo él mismo.
       -->
-      <div class="vert-grid" role="group" aria-label="Categorías de servicio">
+      <div class="vert-grid" role="group" [attr.aria-label]="'Categorías de servicio' | t">
         @for (v of verticalesDisponibles; track v.clave) {
           <button type="button" class="vert-chip" [class.vert-chip--on]="tieneVertical(v.clave)"
                   [attr.aria-pressed]="tieneVertical(v.clave)" (click)="alternarVertical(v.clave)">
             <span class="vert-chip__ico"><rs-icon [name]="v.icono" [size]="18" [stroke]="1.75"></rs-icon></span>
-            <span class="vert-chip__txt">{{ v.label }}</span>
+            <span class="vert-chip__txt">{{ v.label | t }}</span>
             @if (tieneVertical(v.clave)) {
               <rs-icon name="check" [size]="14" [stroke]="3" class="vert-chip__ok"></rs-icon>
             }
@@ -478,7 +479,7 @@ const FASES: ReadonlyArray<{
       </div>
 
       @if (!verticalesSel().length) {
-        <p class="rs-field-err">Marca al menos una categoría: sin ninguna, tu ficha no dice a qué te dedicas.</p>
+        <p class="rs-field-err">{{ 'Marca al menos una categoría: sin ninguna, tu ficha no dice a qué te dedicas.' | t }}</p>
       } @else {
         <p class="rs-field-hint">
           {{ verticalesSel().length }}
@@ -490,7 +491,7 @@ const FASES: ReadonlyArray<{
         <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()"
                 [disabled]="esPrimerPaso()">
           <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-          Atrás
+          {{ 'Atrás' | t }}
         </button>
         <button type="button" class="rs-btn rs-btn--primary"
                 [disabled]="guardandoVerticales() || !verticalesSel().length"

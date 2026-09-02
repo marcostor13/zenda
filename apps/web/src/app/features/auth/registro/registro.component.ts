@@ -4,11 +4,14 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { SocialButtonsComponent } from '../social-buttons/social-buttons.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 @Component({
   selector: 'app-registro',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, RsIconComponent, SocialButtonsComponent],
+  imports: [
+    TraducirPipe, ReactiveFormsModule, RouterLink, RsIconComponent, SocialButtonsComponent
+  ],
   template: `
     <div class="rs-auth">
       <div class="rs-auth__card">
@@ -17,11 +20,11 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
              tiene forma evidente de volver a la portada. -->
         <a routerLink="/" class="rs-auth__volver">
           <rs-icon name="arrow-left" [size]="16" [stroke]="2" />
-          Volver al inicio
+          {{ 'Volver al inicio' | t }}
         </a>
 
         <div class="rs-auth__brand">
-        <a routerLink="/" aria-label="Ir a la Home de Doogking" style="display:inline-block;cursor:pointer">
+        <a routerLink="/" [attr.aria-label]="'Ir a la Home de Doogking' | t" style="display:inline-block;cursor:pointer">
           <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:120px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
         </a>
           <p>{{ pendiente() ? 'Verifica tu correo' : 'Crea tu cuenta gratis' }}</p>
@@ -33,41 +36,41 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
               <rs-icon name="mail" [size]="30" [stroke]="1.75"></rs-icon>
             </div>
             <p style="color:var(--t-200);font-size:var(--f-base);line-height:1.6">
-              Te enviamos un enlace de verificación a<br><strong>{{ emailRegistrado() }}</strong>.
+              {{ 'Te enviamos un enlace de verificación a' | t }}<br><strong>{{ emailRegistrado() }}</strong>.
             </p>
             <p style="color:var(--t-400);font-size:var(--f-sm);margin-top:var(--sp-3)">
-              Ábrelo para activar tu cuenta y continuar. Revisa también la carpeta de spam.
+              {{ 'Ábrelo para activar tu cuenta y continuar. Revisa también la carpeta de spam.' | t }}
             </p>
             @if (reenviado()) {
-              <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">Correo reenviado <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon></div>
+              <div class="rs-alert rs-alert--success" style="margin-top:var(--sp-4)">{{ 'Correo reenviado' | t }} <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon></div>
             }
             <button type="button" class="rs-btn rs-btn--outline rs-btn--block" style="margin-top:var(--sp-5)"
                     (click)="reenviar()" [disabled]="reenviando()">
               {{ reenviando() ? 'Reenviando…' : 'Reenviar correo' }}
             </button>
             <div class="rs-auth__footer" style="margin-top:var(--sp-4)">
-              <a routerLink="/auth/login">Volver a iniciar sesión</a>
+              <a routerLink="/auth/login">{{ 'Volver a iniciar sesión' | t }}</a>
             </div>
           </div>
         } @else {
 
         <form [formGroup]="formulario" (ngSubmit)="onSubmit()" class="rs-auth__form">
           <div class="rs-field">
-            <label for="nombre" class="rs-lbl">Nombre completo</label>
+            <label for="nombre" class="rs-lbl">{{ 'Nombre completo' | t }}</label>
             <input
               id="nombre"
               type="text"
               formControlName="nombre"
               class="rs-inp"
               [class.rs-inp--error]="formulario.get('nombre')?.invalid && formulario.get('nombre')?.touched"
-              placeholder="Tu nombre" />
+              [placeholder]="'Tu nombre' | t" />
             @if (formulario.get('nombre')?.invalid && formulario.get('nombre')?.touched) {
-              <span class="rs-field-err">Ingresa tu nombre (mínimo 2 caracteres)</span>
+              <span class="rs-field-err">{{ 'Ingresa tu nombre (mínimo 2 caracteres)' | t }}</span>
             }
           </div>
 
           <div class="rs-field">
-            <label for="email" class="rs-lbl">Correo electrónico</label>
+            <label for="email" class="rs-lbl">{{ 'Correo electrónico' | t }}</label>
             <input
               id="email"
               type="email"
@@ -76,12 +79,12 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
               [class.rs-inp--error]="formulario.get('email')?.invalid && formulario.get('email')?.touched"
               placeholder="tu@email.com" />
             @if (formulario.get('email')?.invalid && formulario.get('email')?.touched) {
-              <span class="rs-field-err">Ingresa un email válido</span>
+              <span class="rs-field-err">{{ 'Ingresa un email válido' | t }}</span>
             }
           </div>
 
           <div class="rs-field">
-            <label for="password" class="rs-lbl">Contraseña</label>
+            <label for="password" class="rs-lbl">{{ 'Contraseña' | t }}</label>
             <div style="position:relative">
               <input
                 id="password"
@@ -90,7 +93,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
                 class="rs-inp"
                 [class.rs-inp--error]="formulario.get('password')?.invalid && formulario.get('password')?.touched"
                 style="padding-right:var(--sp-10)"
-                placeholder="Mínimo 8 caracteres" />
+                [placeholder]="'Mínimo 8 caracteres' | t" />
               <button
                 type="button"
                 (click)="mostrarPassword.set(!mostrarPassword())"
@@ -100,7 +103,7 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
               </button>
             </div>
             @if (formulario.get('password')?.invalid && formulario.get('password')?.touched) {
-              <span class="rs-field-err">La contraseña debe tener al menos 8 caracteres</span>
+              <span class="rs-field-err">{{ 'La contraseña debe tener al menos 8 caracteres' | t }}</span>
             }
           </div>
 
@@ -122,15 +125,15 @@ import { SocialButtonsComponent } from '../social-buttons/social-buttons.compone
         <app-social-buttons />
 
         <p style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-top:var(--sp-4);line-height:1.5">
-          Al registrarte aceptas nuestros <a routerLink="/terminos" class="rs-auth__enlace">Términos</a>
-          y <a routerLink="/privacidad" class="rs-auth__enlace">Política de privacidad</a>.
+          {{ 'Al registrarte aceptas nuestros' | t }} <a routerLink="/terminos" class="rs-auth__enlace">{{ 'Términos' | t }}</a>
+          y <a routerLink="/privacidad" class="rs-auth__enlace">{{ 'Política de privacidad' | t }}</a>.
         </p>
 
         <div class="rs-auth__footer">
-          ¿Ya tienes cuenta? <a routerLink="/auth/login">Inicia sesión</a>
+          {{ '¿Ya tienes cuenta?' | t }} <a routerLink="/auth/login">{{ 'Inicia sesión' | t }}</a>
         </div>
         <div class="rs-auth__footer" style="margin-top:var(--sp-2)">
-          ¿Tienes un negocio? <a routerLink="/auth/registro-comercio">Regístralo en Doogking</a>
+          {{ '¿Tienes un negocio?' | t }} <a routerLink="/auth/registro-comercio">{{ 'Regístralo en Doogking' | t }}</a>
         </div>
         }
       </div>

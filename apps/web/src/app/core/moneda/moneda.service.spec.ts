@@ -61,12 +61,4 @@ describe('MonedaService', () => {
     expect(service.convertir(100)).toBe(100);
   });
 
-  it('debería recordar el país elegido', () => {
-    const service = crear();
-
-    service.elegirPais('PT');
-
-    expect(service.pais()).toBe('PT');
-    expect(crear().pais()).toBe('PT');
-  });
 });

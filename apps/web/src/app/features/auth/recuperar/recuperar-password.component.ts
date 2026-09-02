@@ -3,6 +3,7 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /**
  * Paso 1 de la recuperación: pedir el enlace por correo.
@@ -14,13 +15,15 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 @Component({
   selector: 'app-recuperar-password',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, RsIconComponent],
+  imports: [
+    TraducirPipe, ReactiveFormsModule, RouterLink, RsIconComponent
+  ],
   template: `
     <div class="rs-auth">
       <div class="rs-auth__card">
         <div class="rs-auth__brand">
           <img src="/images/logo-doogking.jpg" alt="Doogking" style="height:96px;width:auto;display:block;margin-inline:auto;margin-bottom:var(--sp-3)" />
-          <p>Recupera el acceso a tu cuenta</p>
+          <p>{{ 'Recupera el acceso a tu cuenta' | t }}</p>
         </div>
 
         @if (enviado()) {
@@ -28,23 +31,22 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
             <div style="width:64px;height:64px;border-radius:50%;background:rgba(22,163,74,.12);color:#16A34A;display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)">
               <rs-icon name="check" [size]="30" [stroke]="2"></rs-icon>
             </div>
-            <h2 style="font-size:var(--f-lg);font-weight:var(--w-7);color:var(--t-100);margin-bottom:var(--sp-2)">Revisa tu correo</h2>
+            <h2 style="font-size:var(--f-lg);font-weight:var(--w-7);color:var(--t-100);margin-bottom:var(--sp-2)">{{ 'Revisa tu correo' | t }}</h2>
             <p style="color:var(--t-400);font-size:var(--f-sm);line-height:1.6">
-              Si <strong>{{ emailEnviado() }}</strong> está registrado, te hemos enviado un enlace
-              para elegir una contraseña nueva. Caduca en una hora.
+              {{ 'Si' | t }} <strong>{{ emailEnviado() }}</strong> {{ 'está registrado, te hemos enviado un enlace para elegir una contraseña nueva. Caduca en una hora.' | t }}
             </p>
             <a routerLink="/auth/login" class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-5)">
-              Volver a iniciar sesión
+              {{ 'Volver a iniciar sesión' | t }}
             </a>
           </div>
         } @else {
           <form [formGroup]="formulario" (ngSubmit)="onSubmit()" class="rs-auth__form">
             <p style="color:var(--t-400);font-size:var(--f-sm);line-height:1.6;margin-bottom:var(--sp-2)">
-              Escribe tu correo y te enviamos un enlace para elegir una contraseña nueva.
+              {{ 'Escribe tu correo y te enviamos un enlace para elegir una contraseña nueva.' | t }}
             </p>
 
             <div class="rs-field">
-              <label for="email" class="rs-lbl">Correo electrónico</label>
+              <label for="email" class="rs-lbl">{{ 'Correo electrónico' | t }}</label>
               <input
                 id="email"
                 type="email"
@@ -54,7 +56,7 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
                 [class.rs-inp--error]="formulario.get('email')?.invalid && formulario.get('email')?.touched"
                 placeholder="tu@email.com" />
               @if (formulario.get('email')?.invalid && formulario.get('email')?.touched) {
-                <span class="rs-field-err">Ingresa un email válido</span>
+                <span class="rs-field-err">{{ 'Ingresa un email válido' | t }}</span>
               }
             </div>
 
@@ -74,7 +76,7 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
           </form>
 
           <div class="rs-auth__footer">
-            ¿Te has acordado? <a routerLink="/auth/login">Inicia sesión</a>
+            {{ '¿Te has acordado?' | t }} <a routerLink="/auth/login">{{ 'Inicia sesión' | t }}</a>
           </div>
         }
       </div>

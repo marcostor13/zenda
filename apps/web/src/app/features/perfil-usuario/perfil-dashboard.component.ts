@@ -11,6 +11,7 @@ import { PerrosService, PerroApi } from '../perros/perros.service';
 import { FavoritosService } from '../favoritos/favoritos.service';
 import { AlphaService, AlphaEstadoApi } from '../alpha/alpha.service';
 import { ReviewsService, ResenaApi } from '../reservas/services/reviews.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 interface MiniReserva {
   codigo: string;
@@ -58,7 +59,9 @@ interface LogroItem {
 @Component({
   selector: 'app-perfil-dashboard',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -69,7 +72,7 @@ interface LogroItem {
     <div class="perfil-header">
       <div class="avatar-ring">
         @if (avatarUrl()) {
-          <img [src]="avatarUrl()" alt="Avatar" class="avatar-photo" rsImg />
+          <img [src]="avatarUrl()" [alt]="'Avatar' | t" class="avatar-photo" rsImg />
         } @else {
           <div class="avatar-inner">{{ iniciales() }}</div>
         }
@@ -78,20 +81,20 @@ interface LogroItem {
 
       <div class="perfil-header__info">
         <h1>Hola, {{ primerNombre() }}</h1>
-        <p>Bienvenido de nuevo a Doogking</p>
+        <p>{{ 'Bienvenido de nuevo a Doogking' | t }}</p>
         <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
           <!-- Sólo si la cuenta personal está realmente verificada: no es la
                verificación documental del comercio (TCK-8029). -->
           @if (clienteVerificado()) {
-            <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Cliente verificado</span>
+            <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> {{ 'Cliente verificado' | t }}</span>
           }
-          <span class="rs-badge">Miembro desde 2026</span>
+          <span class="rs-badge">{{ 'Miembro desde 2026' | t }}</span>
         </div>
       </div>
 
       <a routerLink="/perfil/editar" class="rs-btn rs-btn--secondary edit-btn">
         <rs-icon name="pencil" [size]="14" [stroke]="2"></rs-icon>
-        Editar perfil
+        {{ 'Editar perfil' | t }}
       </a>
     </div>
 
@@ -111,23 +114,23 @@ interface LogroItem {
       <a [routerLink]="['/reservas', pr.codigo]" class="rs-card proxima-reserva">
         <img [src]="pr.imagen || fallbackImg" [alt]="pr.titulo" rsImg />
         <div class="proxima-reserva__info">
-          <span class="proxima-reserva__eyebrow"><rs-icon name="calendar" [size]="13" [stroke]="2" /> Tu próxima reserva</span>
+          <span class="proxima-reserva__eyebrow"><rs-icon name="calendar" [size]="13" [stroke]="2" /> {{ 'Tu próxima reserva' | t }}</span>
           <strong>{{ pr.titulo }}</strong>
           <span class="proxima-reserva__meta">
             @if (pr.ciudad) { <rs-icon name="map-pin" [size]="13" [stroke]="2" /> {{ pr.ciudad }} · }
             Dentro de {{ diasFaltantes(pr.fechaInicio) }} {{ diasFaltantes(pr.fechaInicio) === 1 ? 'día' : 'días' }}
           </span>
         </div>
-        <span class="rs-btn rs-btn--primary rs-btn--sm">Ver reserva</span>
+        <span class="rs-btn rs-btn--primary rs-btn--sm">{{ 'Ver reserva' | t }}</span>
       </a>
     }
 
     <!-- ACCESOS RÁPIDOS (HU-7.6) -->
-    <nav class="accesos-rapidos" aria-label="Accesos rápidos">
+    <nav class="accesos-rapidos" [attr.aria-label]="'Accesos rápidos' | t">
       @for (a of accesosRapidos; track a.ruta) {
         <a [routerLink]="a.ruta" class="acceso-rapido">
           <rs-icon [name]="a.icon" [size]="18" [stroke]="2"></rs-icon>
-          <span>{{ a.label }}</span>
+          <span>{{ a.label | t }}</span>
         </a>
       }
       <!-- Invitar a un amigo (PDF 27/07 §16): comparte el enlace de Doogking.
@@ -141,18 +144,18 @@ interface LogroItem {
     <!-- MIS MASCOTAS -->
     <div class="perfil-section" style="margin-bottom:var(--sp-8)">
       <div class="section-row-header">
-        <h2><rs-icon name="paw" [size]="18" [stroke]="2" /> Mis mascotas</h2>
-        <a routerLink="/perros" class="rs-link">Gestionar →</a>
+        <h2><rs-icon name="paw" [size]="18" [stroke]="2" /> {{ 'Mis mascotas' | t }}</h2>
+        <a routerLink="/perros" class="rs-link">{{ 'Gestionar →' | t }}</a>
       </div>
 
       @if (mascotas().length === 0) {
         <div class="rs-card" style="padding:var(--sp-8);text-align:center">
           <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-4)">
-            Todavía no has registrado ninguna mascota. Toda la información de tu perro, en un solo lugar.
+            {{ 'Todavía no has registrado ninguna mascota. Toda la información de tu perro, en un solo lugar.' | t }}
           </p>
           <a routerLink="/perros/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">
             <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon>
-            Añadir mascota
+            {{ 'Añadir mascota' | t }}
           </a>
         </div>
       } @else {
@@ -174,7 +177,7 @@ interface LogroItem {
           }
           <a routerLink="/perros/nuevo" class="mascota-card mascota-card--add rs-card">
             <rs-icon name="plus" [size]="20" [stroke]="2"></rs-icon>
-            <span>Añadir mascota</span>
+            <span>{{ 'Añadir mascota' | t }}</span>
           </a>
         </div>
       }
@@ -188,7 +191,7 @@ interface LogroItem {
             <rs-icon name="crown" [size]="20" [stroke]="2" />
           </span>
           <div class="alpha-card__texto">
-            <span class="alpha-card__club">Programa Doogking Alpha</span>
+            <span class="alpha-card__club">{{ 'Programa Doogking Alpha' | t }}</span>
             <span class="alpha-card__nivel">{{ nombreAlpha() }}</span>
             <span class="alpha-card__estado">
               @if (a.esMaximoNivel) {
@@ -199,7 +202,7 @@ interface LogroItem {
             </span>
           </div>
           <a routerLink="/perfil/alpha" class="alpha-card__cta">
-            Ver ventajas Alpha
+            {{ 'Ver ventajas Alpha' | t }}
             <rs-icon name="arrow-right" [size]="14" [stroke]="2" />
           </a>
         </div>
@@ -221,13 +224,13 @@ interface LogroItem {
     <!-- PRÓXIMOS RECORDATORIOS -->
     @if (recordatorios().length) {
       <div class="perfil-section" style="margin-bottom:var(--sp-8)">
-        <h2><rs-icon name="bell" [size]="18" [stroke]="2" /> Próximos recordatorios</h2>
+        <h2><rs-icon name="bell" [size]="18" [stroke]="2" /> {{ 'Próximos recordatorios' | t }}</h2>
         <div class="recordatorios-list">
           @for (r of recordatorios(); track r.mensaje) {
             <a [routerLink]="r.ruta" class="recordatorio rs-card">
               <span class="recordatorio__icon">{{ r.icono }}</span>
               <span class="recordatorio__msg">{{ r.mensaje }}</span>
-              <span class="recordatorio__cta">Reservar →</span>
+              <span class="recordatorio__cta">{{ 'Reservar →' | t }}</span>
             </a>
           }
         </div>
@@ -242,7 +245,7 @@ interface LogroItem {
             <rs-icon [name]="s.icon" [size]="18" [stroke]="1.75"></rs-icon>
           </div>
           <div class="rs-stat__value">{{ s.value }}</div>
-          <div class="rs-stat__label">{{ s.label }}</div>
+          <div class="rs-stat__label">{{ s.label | t }}</div>
         </div>
       }
     </div>
@@ -251,13 +254,13 @@ interface LogroItem {
     <div class="perfil-grid" style="margin-bottom:var(--sp-8)">
       @if (actividad().length) {
         <div class="perfil-section">
-          <div class="section-row-header"><h2>Mi actividad</h2></div>
+          <div class="section-row-header"><h2>{{ 'Mi actividad' | t }}</h2></div>
           <div class="actividad-list">
             @for (a of actividad(); track a.label) {
               <div class="actividad-item">
                 <rs-icon [name]="a.icon" [size]="16" [stroke]="2"></rs-icon>
                 <div class="actividad-item__texto">
-                  <span class="actividad-item__label">{{ a.label }}</span>
+                  <span class="actividad-item__label">{{ a.label | t }}</span>
                   <strong>{{ a.valor }}</strong>
                 </div>
                 @if (a.fecha) { <span class="actividad-item__fecha">{{ a.fecha }}</span> }
@@ -268,14 +271,14 @@ interface LogroItem {
       }
 
       <div class="perfil-section">
-        <div class="section-row-header"><h2>Logros</h2></div>
+        <div class="section-row-header"><h2>{{ 'Logros' | t }}</h2></div>
         <div class="logros-grid">
           @for (l of logros(); track l.label) {
             <div class="logro" [class.logro--pendiente]="!l.conseguido">
               <span class="logro__icono" aria-hidden="true">
                 <rs-icon [name]="l.icono" [size]="16" [stroke]="2"></rs-icon>
               </span>
-              <span class="logro__label">{{ l.label }}</span>
+              <span class="logro__label">{{ l.label | t }}</span>
             </div>
           }
         </div>
@@ -288,16 +291,16 @@ interface LogroItem {
       <!-- RESERVAS RECIENTES -->
       <div class="perfil-section">
         <div class="section-row-header">
-          <h2>Reservas recientes</h2>
-          <a routerLink="/reservas/mis-reservas" class="rs-link">Ver todas →</a>
+          <h2>{{ 'Reservas recientes' | t }}</h2>
+          <a routerLink="/reservas/mis-reservas" class="rs-link">{{ 'Ver todas →' | t }}</a>
         </div>
 
         @if (reservasRecientes().length === 0) {
           <div class="rs-card" style="padding:var(--sp-8);text-align:center">
             <rs-icon name="calendar" [size]="32" [stroke]="1.25" style="color:var(--t-400);display:block;margin:0 auto var(--sp-4)"></rs-icon>
-            <p style="color:var(--t-400);font-size:var(--f-sm)">No tienes reservas aún.</p>
+            <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'No tienes reservas aún.' | t }}</p>
             <a routerLink="/" class="rs-btn rs-btn--primary rs-btn--sm" style="margin-top:var(--sp-4)">
-              Buscar servicios
+              {{ 'Buscar servicios' | t }}
             </a>
           </div>
         } @else {
@@ -310,7 +313,7 @@ interface LogroItem {
                   <span>{{ r.fecha }}</span>
                 </div>
                 <span class="{{ 'rs-badge ' + r.badgeClass }}">{{ r.estado }}</span>
-                <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--ghost rs-btn--sm">Ver</a>
+                <a [routerLink]="['/reservas', r.codigo]" class="rs-btn rs-btn--ghost rs-btn--sm">{{ 'Ver' | t }}</a>
               </div>
             }
           </div>
@@ -319,7 +322,7 @@ interface LogroItem {
 
       <!-- CONFIGURACIÓN -->
       <div class="perfil-section">
-        <h2>Configuración</h2>
+        <h2>{{ 'Configuración' | t }}</h2>
 
         <div class="config-list">
           @for (item of configItems; track item.label) {
@@ -328,7 +331,7 @@ interface LogroItem {
                 <rs-icon [name]="item.icon" [size]="16" [stroke]="1.75"></rs-icon>
               </div>
               <div class="config-item__text">
-                <div class="config-item__label">{{ item.label }}</div>
+                <div class="config-item__label">{{ item.label | t }}</div>
                 <div class="config-item__sub">{{ item.sub }}</div>
               </div>
               <rs-icon name="chevron-down" [size]="14" [stroke]="2" style="color:var(--t-400);transform:rotate(-90deg)"></rs-icon>
@@ -339,7 +342,7 @@ interface LogroItem {
         <div style="margin-top:var(--sp-6)">
           <button (click)="cerrarSesion()" class="rs-btn rs-btn--danger rs-btn--block">
             <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon>
-            Cerrar sesión
+            {{ 'Cerrar sesión' | t }}
           </button>
         </div>
       </div>

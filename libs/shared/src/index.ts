@@ -6,6 +6,7 @@ export * from './enums/pago-estado.enum';
 export * from './enums/pago-pasarela.enum';
 export * from './enums/perro.enum';
 export * from './catalogos/tamanos-perro';
+export * from './catalogos/idiomas';
 export * from './enums/servicio-clinico.enum';
 export * from './enums/historial.enum';
 export * from './enums/lugar.enum';

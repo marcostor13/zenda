@@ -10,10 +10,13 @@ import { AdminApiService } from './admin-api.service';
 import { environment } from '../../../environments/environment';
 
 import { euros } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 @Component({
   selector: 'app-cupones-admin',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, ReactiveFormsModule, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, ReactiveFormsModule, RsIconComponent
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -21,13 +24,13 @@ import { euros } from '../../shared/pipes/euros.pipe';
 
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-4);margin-bottom:var(--sp-8);flex-wrap:wrap">
       <div>
-        <a routerLink="/admin" class="back-link">← Panel admin</a>
-        <h1 style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100)"><rs-icon name="ticket" [size]="26" [stroke]="2"></rs-icon> Cupones</h1>
-        <p style="color:var(--t-400)">Crea y gestiona promociones de descuento.</p>
+        <a routerLink="/admin" class="back-link">{{ '← Panel admin' | t }}</a>
+        <h1 style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100)"><rs-icon name="ticket" [size]="26" [stroke]="2"></rs-icon> {{ 'Cupones' | t }}</h1>
+        <p style="color:var(--t-400)">{{ 'Crea y gestiona promociones de descuento.' | t }}</p>
       </div>
       <div class="page-kpi rs-card">
         <span class="kpi-num">{{ cupones().length }}</span>
-        <span class="kpi-lbl">cupones</span>
+        <span class="kpi-lbl">{{ 'cupones' | t }}</span>
       </div>
     </div>
 
@@ -48,16 +51,16 @@ import { euros } from '../../shared/pipes/euros.pipe';
         </h3>
         <form [formGroup]="form" (ngSubmit)="guardar()">
           <div class="rs-form-group">
-            <label class="rs-label">Código</label>
-            <input formControlName="codigo" class="rs-input" placeholder="VERANO20" style="text-transform:uppercase"
+            <label class="rs-label">{{ 'Código' | t }}</label>
+            <input formControlName="codigo" class="rs-input" [placeholder]="'VERANO20' | t" style="text-transform:uppercase"
               [attr.readonly]="editandoId() ? true : null" />
           </div>
           <div class="form-2">
             <div class="rs-form-group">
-              <label class="rs-label">Tipo</label>
+              <label class="rs-label">{{ 'Tipo' | t }}</label>
               <select formControlName="tipo" class="rs-input">
-                <option value="porcentaje">Porcentaje</option>
-                <option value="fijo">Importe fijo</option>
+                <option value="porcentaje">{{ 'Porcentaje' | t }}</option>
+                <option value="fijo">{{ 'Importe fijo' | t }}</option>
               </select>
             </div>
             <!-- Un 20 % se escribe "20", no "0.2" (TCK-8037) -->
@@ -69,66 +72,66 @@ import { euros } from '../../shared/pipes/euros.pipe';
           </div>
           <div class="form-2">
             <div class="rs-form-group">
-              <label class="rs-label">Vertical</label>
+              <label class="rs-label">{{ 'Vertical' | t }}</label>
               <select formControlName="vertical" class="rs-input">
-                <option value="global">Todas</option>
-                <option value="alojamiento">Alojamiento canino</option>
-                <option value="transporte">Transporte de animales</option>
-                <option value="veterinaria">Veterinarios</option>
-                <option value="peluqueria">Peluquerías caninas</option>
-                <option value="adiestramiento">Adiestramiento canino</option>
+                <option value="global">{{ 'Todas' | t }}</option>
+                <option value="alojamiento">{{ 'Alojamiento canino' | t }}</option>
+                <option value="transporte">{{ 'Transporte de animales' | t }}</option>
+                <option value="veterinaria">{{ 'Veterinarios' | t }}</option>
+                <option value="peluqueria">{{ 'Peluquerías caninas' | t }}</option>
+                <option value="adiestramiento">{{ 'Adiestramiento canino' | t }}</option>
               </select>
             </div>
             <div class="rs-form-group">
-              <label class="rs-label">Importe mínimo de reserva (€)</label>
+              <label class="rs-label">{{ 'Importe mínimo de reserva (€)' | t }}</label>
               <input formControlName="montoMinimo" type="number" class="rs-input" placeholder="0" />
             </div>
           </div>
           <!-- Nada de "0 = sin límite": se marca la casilla y el campo desaparece -->
           <div class="form-2">
             <div class="rs-form-group">
-              <label class="rs-label">Descuento máximo (€)</label>
+              <label class="rs-label">{{ 'Descuento máximo (€)' | t }}</label>
               @if (!sinTope()) {
                 <input formControlName="topeDescuento" type="number" class="rs-input" placeholder="0" />
               }
               <label class="casilla">
-                <input type="checkbox" [checked]="sinTope()" (change)="alternarSinTope()" /> Sin límite
+                <input type="checkbox" [checked]="sinTope()" (change)="alternarSinTope()" /> {{ 'Sin límite' | t }}
               </label>
             </div>
             <div class="rs-form-group">
-              <label class="rs-label">Límite total de usos</label>
+              <label class="rs-label">{{ 'Límite total de usos' | t }}</label>
               @if (!usosIlimitados()) {
                 <input formControlName="usoMaximo" type="number" class="rs-input" placeholder="0" />
               }
               <label class="casilla">
-                <input type="checkbox" [checked]="usosIlimitados()" (change)="alternarUsosIlimitados()" /> Ilimitado
+                <input type="checkbox" [checked]="usosIlimitados()" (change)="alternarUsosIlimitados()" /> {{ 'Ilimitado' | t }}
               </label>
             </div>
           </div>
 
           <div class="rs-form-group">
-            <label class="rs-label">Fecha de finalización</label>
+            <label class="rs-label">{{ 'Fecha de finalización' | t }}</label>
             @if (!sinCaducidad()) {
               <input formControlName="validoHasta" type="date" class="rs-input" />
             }
             <label class="casilla">
               <input type="checkbox" [checked]="sinCaducidad()" (change)="alternarSinCaducidad()" />
-              Sin fecha de caducidad
+              {{ 'Sin fecha de caducidad' | t }}
             </label>
           </div>
           <div class="form-2">
             <div class="rs-form-group">
-              <label class="rs-label">Quién asume el descuento</label>
+              <label class="rs-label">{{ 'Quién asume el descuento' | t }}</label>
               <select formControlName="asumeDescuento" class="rs-input">
                 <option value="plataforma">Doogking</option>
-                <option value="comercio">El comercio</option>
+                <option value="comercio">{{ 'El comercio' | t }}</option>
               </select>
             </div>
             <div class="rs-form-group">
-              <label class="rs-label">Quién puede usarlo</label>
+              <label class="rs-label">{{ 'Quién puede usarlo' | t }}</label>
               <label class="casilla">
                 <input type="checkbox" formControlName="soloPrimeraReserva" />
-                Sólo clientes nuevos (primera reserva)
+                {{ 'Sólo clientes nuevos (primera reserva)' | t }}
               </label>
             </div>
           </div>
@@ -136,38 +139,38 @@ import { euros } from '../../shared/pipes/euros.pipe';
           <!-- Alcance y límite por persona (TCK-8037 §5 y §6) -->
           <div class="form-2">
             <div class="rs-form-group">
-              <label class="rs-label">Dónde funciona</label>
+              <label class="rs-label">{{ 'Dónde funciona' | t }}</label>
               <select formControlName="comercioId" class="rs-input">
-                <option value="">Toda la plataforma</option>
+                <option value="">{{ 'Toda la plataforma' | t }}</option>
                 @for (c of comercios(); track c._id) {
                   <option [value]="c._id">Solo {{ c.nombreComercial }}</option>
                 }
               </select>
             </div>
             <div class="rs-form-group">
-              <label class="rs-label">Ciudad (opcional)</label>
-              <input formControlName="ciudad" class="rs-input" placeholder="Ej. Valencia" />
+              <label class="rs-label">{{ 'Ciudad (opcional)' | t }}</label>
+              <input formControlName="ciudad" class="rs-input" [placeholder]="'Ej. Valencia' | t" />
             </div>
           </div>
 
           <div class="form-2">
             <div class="rs-form-group">
-              <label class="rs-label">Usos por persona</label>
+              <label class="rs-label">{{ 'Usos por persona' | t }}</label>
               @if (!usosPorUsuarioIlimitado()) {
                 <input formControlName="usosPorUsuario" type="number" min="1" class="rs-input" />
               }
               <label class="casilla">
                 <input type="checkbox" [checked]="usosPorUsuarioIlimitado()"
-                       (change)="alternarUsosPorUsuario()" /> Sin límite por persona
+                       (change)="alternarUsosPorUsuario()" /> {{ 'Sin límite por persona' | t }}
               </label>
             </div>
             <div class="rs-form-group">
-              <label class="rs-label">Nivel Alpha mínimo</label>
+              <label class="rs-label">{{ 'Nivel Alpha mínimo' | t }}</label>
               <select formControlName="nivelAlphaMinimo" class="rs-input">
-                <option [value]="0">Cualquier cliente</option>
-                <option [value]="1">ALPHA I o superior</option>
-                <option [value]="2">ALPHA II o superior</option>
-                <option [value]="3">ALPHA III</option>
+                <option [value]="0">{{ 'Cualquier cliente' | t }}</option>
+                <option [value]="1">{{ 'ALPHA I o superior' | t }}</option>
+                <option [value]="2">{{ 'ALPHA II o superior' | t }}</option>
+                <option [value]="3">{{ 'ALPHA III' | t }}</option>
               </select>
             </div>
           </div>
@@ -175,9 +178,9 @@ import { euros } from '../../shared/pipes/euros.pipe';
           <!-- Cupón y campaña dejan de ser dos apartados sueltos (TCK-8038 §5) -->
           @if (campanas().length) {
             <div class="rs-form-group">
-              <label class="rs-label">Campaña asociada</label>
+              <label class="rs-label">{{ 'Campaña asociada' | t }}</label>
               <select formControlName="campanaId" class="rs-input">
-                <option value="">Sin campaña</option>
+                <option value="">{{ 'Sin campaña' | t }}</option>
                 @for (c of campanas(); track c._id) {
                   <option [value]="c._id">{{ c.nombre }}</option>
                 }
@@ -186,8 +189,8 @@ import { euros } from '../../shared/pipes/euros.pipe';
           }
 
           <div class="rs-form-group">
-            <label class="rs-label">Descripción</label>
-            <input formControlName="descripcion" class="rs-input" placeholder="Descripción opcional" />
+            <label class="rs-label">{{ 'Descripción' | t }}</label>
+            <input formControlName="descripcion" class="rs-input" [placeholder]="'Descripción opcional' | t" />
           </div>
           @if (formError()) { <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ formError() }}</div> }
           @if (formOk()) { <div class="rs-alert rs-alert--success" style="margin-bottom:var(--sp-4)">
@@ -195,7 +198,7 @@ import { euros } from '../../shared/pipes/euros.pipe';
         </div> }
           <div style="display:flex;gap:var(--sp-3)">
             @if (editandoId()) {
-              <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cancelarEdicion()">Cancelar</button>
+              <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cancelarEdicion()">{{ 'Cancelar' | t }}</button>
             }
             <button type="submit" class="rs-btn rs-btn--primary rs-btn--block" [disabled]="form.invalid || guardando()">
               {{ guardando() ? 'Guardando…' : (editandoId() ? 'Guardar cambios' : 'Crear cupón') }}
@@ -207,9 +210,9 @@ import { euros } from '../../shared/pipes/euros.pipe';
 
       <!-- LISTA -->
       <div class="rs-card" style="padding:var(--sp-6)">
-        <h3 class="section-title">Cupones registrados</h3>
-        @if (cargando()) { <p style="color:var(--t-400)">Cargando…</p> }
-        @else if (cupones().length === 0) { <p style="color:var(--t-400)">Aún no hay cupones.</p> }
+        <h3 class="section-title">{{ 'Cupones registrados' | t }}</h3>
+        @if (cargando()) { <p style="color:var(--t-400)">{{ 'Cargando…' | t }}</p> }
+        @else if (cupones().length === 0) { <p style="color:var(--t-400)">{{ 'Aún no hay cupones.' | t }}</p> }
         @else {
           @for (c of cupones(); track c._id ?? c.codigo) {
             <div class="cupon-row" [class.cupon-row--inactivo]="!c.activo">
@@ -235,8 +238,8 @@ import { euros } from '../../shared/pipes/euros.pipe';
                 <span class="rs-badge" [class]="c.activo ? 'rs-badge--success' : 'rs-badge--neutral'">
                   {{ c.activo ? 'Activo' : 'Inactivo' }}
                 </span>
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" title="Editar"
-                  (click)="iniciarEdicion(c)" aria-label="Editar cupón">
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" [title]="'Editar' | t"
+                  (click)="iniciarEdicion(c)" [attr.aria-label]="'Editar cupón' | t">
                   <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
                 </button>
                 <button class="rs-btn rs-btn--ghost rs-btn--sm"
@@ -244,8 +247,8 @@ import { euros } from '../../shared/pipes/euros.pipe';
                   (click)="toggleActivo(c)" [attr.aria-label]="c.activo ? 'Pausar cupón' : 'Activar cupón'">
                   <rs-icon [name]="c.activo ? 'pause' : 'play'" [size]="13" [stroke]="2"></rs-icon>
                 </button>
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171" title="Eliminar"
-                  (click)="confirmarEliminar(c)" aria-label="Eliminar cupón">
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" style="color:#F87171" [title]="'Eliminar' | t"
+                  (click)="confirmarEliminar(c)" [attr.aria-label]="'Eliminar cupón' | t">
                   <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
                 </button>
               </div>
@@ -261,17 +264,16 @@ import { euros } from '../../shared/pipes/euros.pipe';
 @if (eliminarCupon()) {
   <div class="overlay" (click)="cancelarEliminar()">
     <div class="modal rs-card" (click)="$event.stopPropagation()">
-      <h2 class="modal-title">Eliminar cupón</h2>
+      <h2 class="modal-title">{{ 'Eliminar cupón' | t }}</h2>
       <p style="color:var(--t-300);margin-bottom:var(--sp-5)">
-        ¿Estás seguro de que quieres eliminar el cupón
-        <strong style="color:var(--t-100);font-family:monospace">{{ eliminarCupon()!.codigo }}</strong>?
-        Esta acción no se puede deshacer.
+        {{ '¿Estás seguro de que quieres eliminar el cupón' | t }}
+        <strong style="color:var(--t-100);font-family:monospace">{{ eliminarCupon()!.codigo }}</strong>{{ '? Esta acción no se puede deshacer.' | t }}
       </p>
       @if (deleteError()) {
         <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ deleteError() }}</div>
       }
       <div class="modal-actions">
-        <button class="rs-btn rs-btn--ghost" (click)="cancelarEliminar()">Cancelar</button>
+        <button class="rs-btn rs-btn--ghost" (click)="cancelarEliminar()">{{ 'Cancelar' | t }}</button>
         <button class="rs-btn rs-btn--danger" [disabled]="guardando()" (click)="ejecutarEliminar()">
           {{ guardando() ? 'Eliminando…' : 'Eliminar' }}
         </button>

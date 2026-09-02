@@ -3,6 +3,7 @@ import { RsIconComponent } from '../icon/rs-icon.component';
 import { celdasDelMes, claveDia, desdeClaveDia, hoyLocal } from '../../fechas';
 import { festivosNacionalesProximos } from '../../catalogos/festivos-es';
 import type { ExcepcionHorarioDto as ExcepcionHorario, HorarioDiaDto as HorarioDia } from 'shared';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 const DIAS: ReadonlyArray<{ clave: string; label: string }> = [
   { clave: 'lunes', label: 'Lunes' },
@@ -32,7 +33,9 @@ export function semanaVacia(): HorarioDia[] {
   selector: 'rs-horario',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   template: `
     <div class="hr">
       <!--
@@ -44,20 +47,20 @@ export function semanaVacia(): HorarioDia[] {
       <div class="hr__atajos">
         <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="copiarLunesATodos()">
           <rs-icon name="copy" [size]="14" [stroke]="2" />
-          Copiar el lunes a todos los días
+          {{ 'Copiar el lunes a todos los días' | t }}
         </button>
-        <span class="hr__atajos-pista">Rellena el lunes y aplícalo al resto de la semana.</span>
+        <span class="hr__atajos-pista">{{ 'Rellena el lunes y aplícalo al resto de la semana.' | t }}</span>
       </div>
 
       <div class="hr__semana">
         @for (d of dias; track d.clave; let i = $index) {
           <div class="hr-dia" [class.hr-dia--cerrado]="diaDe(i).cerrado">
             <div class="hr-dia__cab">
-              <span class="hr-dia__nombre">{{ d.label }}</span>
+              <span class="hr-dia__nombre">{{ d.label | t }}</span>
               <label class="hr-check">
                 <input type="checkbox" [checked]="diaDe(i).cerrado"
                        (change)="alternarCerrado(i)" />
-                Cerrado
+                {{ 'Cerrado' | t }}
               </label>
             </div>
 
@@ -69,7 +72,7 @@ export function semanaVacia(): HorarioDia[] {
             @if (!diaDe(i).cerrado) {
               <div class="hr-dia__tramos">
                 <div class="hr-tramo">
-                  <span class="hr-tramo__et">Mañana</span>
+                  <span class="hr-tramo__et">{{ 'Mañana' | t }}</span>
                   <input class="rs-inp rs-inp--time" type="time" [value]="diaDe(i).abre ?? ''"
                          (input)="fijarHora(i, 'abre', $event)"
                          [attr.aria-label]="d.label + ': primer tramo, apertura'" />
@@ -81,7 +84,7 @@ export function semanaVacia(): HorarioDia[] {
 
                 <!-- Segundo tramo: muchos negocios cierran a mediodía. -->
                 <div class="hr-tramo">
-                  <span class="hr-tramo__et">Tarde</span>
+                  <span class="hr-tramo__et">{{ 'Tarde' | t }}</span>
                   <input class="rs-inp rs-inp--time" type="time" [value]="diaDe(i).abre2 ?? ''"
                          (input)="fijarHora(i, 'abre2', $event)"
                          [attr.aria-label]="d.label + ': segundo tramo, apertura'" />
@@ -92,7 +95,7 @@ export function semanaVacia(): HorarioDia[] {
                 </div>
               </div>
             } @else {
-              <span class="hr-dia__off">Cerrado todo el día</span>
+              <span class="hr-dia__off">{{ 'Cerrado todo el día' | t }}</span>
             }
           </div>
         }
@@ -100,8 +103,8 @@ export function semanaVacia(): HorarioDia[] {
 
       <!-- ── Festivos, vacaciones y cierres puntuales ─────────────────── -->
       <div class="hr__esp">
-        <h3 class="hr__esp-tit">Días especiales</h3>
-        <p class="hr__ayuda">Festivos, vacaciones o cierres puntuales. Mandan sobre el horario semanal.</p>
+        <h3 class="hr__esp-tit">{{ 'Días especiales' | t }}</h3>
+        <p class="hr__ayuda">{{ 'Festivos, vacaciones o cierres puntuales. Mandan sobre el horario semanal.' | t }}</p>
 
         @if (excepciones().length) {
           <div class="hr__esp-lista">
@@ -113,14 +116,14 @@ export function semanaVacia(): HorarioDia[] {
                   @if (e.motivo) { · {{ e.motivo }} }
                 </span>
                 <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                        (click)="quitar(e.fecha)" aria-label="Quitar día especial">
+                        (click)="quitar(e.fecha)" [attr.aria-label]="'Quitar día especial' | t">
                   <rs-icon name="x" [size]="13" [stroke]="2.5" />
                 </button>
               </div>
             }
           </div>
         } @else {
-          <p class="hr__ayuda">Todavía no has marcado ningún día especial.</p>
+          <p class="hr__ayuda">{{ 'Todavía no has marcado ningún día especial.' | t }}</p>
         }
 
         <!--
@@ -141,7 +144,7 @@ export function semanaVacia(): HorarioDia[] {
             }
           </button>
           <span class="hr__festivos-pista">
-            Sólo los de ámbito estatal. Los de tu comunidad y tu municipio los añades abajo.
+            {{ 'Sólo los de ámbito estatal. Los de tu comunidad y tu municipio los añades abajo.' | t }}
           </span>
         </div>
 
@@ -153,12 +156,12 @@ export function semanaVacia(): HorarioDia[] {
         <div class="cal">
           <div class="cal__barra">
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                    (click)="cambiarMes(-1)" aria-label="Mes anterior">
+                    (click)="cambiarMes(-1)" [attr.aria-label]="'Mes anterior' | t">
               <rs-icon name="chevron-left" [size]="16" [stroke]="2.5" />
             </button>
             <strong class="cal__mes">{{ nombreMes() }}</strong>
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                    (click)="cambiarMes(1)" aria-label="Mes siguiente">
+                    (click)="cambiarMes(1)" [attr.aria-label]="'Mes siguiente' | t">
               <rs-icon name="chevron-right" [size]="16" [stroke]="2.5" />
             </button>
           </div>
@@ -167,7 +170,7 @@ export function semanaVacia(): HorarioDia[] {
             @for (d of diasSemanaCorto; track $index) { <span>{{ d }}</span> }
           </div>
 
-          <div class="cal__rejilla" role="group" aria-label="Elige los días especiales">
+          <div class="cal__rejilla" role="group" [attr.aria-label]="'Elige los días especiales' | t">
             @for (c of celdas(); track c.clave) {
               <button type="button" class="cal__dia"
                       [class.cal__dia--fuera]="!c.delMes"
@@ -184,11 +187,11 @@ export function semanaVacia(): HorarioDia[] {
 
           <div class="cal__atajos">
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="marcarMesEntero()">
-              Marcar el mes entero
+              {{ 'Marcar el mes entero' | t }}
             </button>
             @if (totalSeleccionados()) {
               <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarSeleccion()">
-                Quitar la selección
+                {{ 'Quitar la selección' | t }}
               </button>
             }
           </div>
@@ -198,16 +201,16 @@ export function semanaVacia(): HorarioDia[] {
         <div class="hr__esp-form">
           <input class="rs-inp" type="text" [value]="motivo()"
                  (input)="motivo.set($any($event.target).value)"
-                 placeholder="Motivo (ej. vacaciones de verano)" />
+                 [placeholder]="'Motivo (ej. vacaciones de verano)' | t" />
           <label class="hr-check">
             <input type="checkbox" [checked]="cerradoTodoElDia()"
-                   (change)="cerradoTodoElDia.set(!cerradoTodoElDia())" /> Cerrado todo el día
+                   (change)="cerradoTodoElDia.set(!cerradoTodoElDia())" /> {{ 'Cerrado todo el día' | t }}
           </label>
           @if (!cerradoTodoElDia()) {
             <input class="rs-inp rs-inp--time" type="time" [value]="abre()"
-                   (input)="abre.set($any($event.target).value)" aria-label="Abre" />
+                   (input)="abre.set($any($event.target).value)" [attr.aria-label]="'Abre' | t" />
             <input class="rs-inp rs-inp--time" type="time" [value]="cierra()"
-                   (input)="cierra.set($any($event.target).value)" aria-label="Cierra" />
+                   (input)="cierra.set($any($event.target).value)" [attr.aria-label]="'Cierra' | t" />
           }
           <button type="button" class="rs-btn rs-btn--secondary rs-btn--sm"
                   [disabled]="!totalSeleccionados()" (click)="anadirSeleccionados()">

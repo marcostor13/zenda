@@ -20,6 +20,7 @@ import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { environment } from '../../../../environments/environment';
 import { DiagnosticoSubidaService } from '../../../core/diagnostico/diagnostico-subida.service';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import {
   MAX_SUBIDA_BYTES, ProblemaSubida, pareceImagen, prepararImagen, problemaDeSubida,
 } from '../../media/preparar-imagen';
@@ -36,7 +37,9 @@ interface ImageSlot {
 @Component({
   selector: 'rs-image-upload',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -67,16 +70,16 @@ interface ImageSlot {
           </div>
           <p class="upload-hint">
             Arrastra {{ multiple ? 'imágenes' : 'una imagen' }} aquí o
-            <button type="button" class="upload-link" (click)="fileInput.click()">haz clic para seleccionar</button>
+            <button type="button" class="upload-link" (click)="fileInput.click()">{{ 'haz clic para seleccionar' | t }}</button>
           </p>
           <p class="upload-meta">JPEG, PNG o WebP · Máx 5 MB{{ multiple ? ' · Hasta ' + maxFiles + ' imágenes' : '' }}</p>
-          <p class="upload-meta">Las fotos de iPhone se convierten solas.</p>
+          <p class="upload-meta">{{ 'Las fotos de iPhone se convierten solas.' | t }}</p>
         </div>
       } @else {
         <div class="image-grid" (click)="$event.stopPropagation()">
           @for (slot of slots(); track slot.id) {
             <div class="image-tile" [class.image-tile--error]="slot.error">
-              <img [src]="slot.previewUrl" alt="Imagen subida" class="image-tile__img" />
+              <img [src]="slot.previewUrl" [alt]="'Imagen subida' | t" class="image-tile__img" />
 
               @if (slot.uploading) {
                 <div class="image-tile__overlay">
@@ -94,7 +97,7 @@ interface ImageSlot {
                 <button
                   type="button"
                   class="image-tile__remove"
-                  title="Eliminar imagen"
+                  [title]="'Eliminar imagen' | t"
                   (click)="removeSlot(slot.id)">
                   <rs-icon name="x" [size]="10" [stroke]="3"></rs-icon>
                 </button>
@@ -106,7 +109,7 @@ interface ImageSlot {
             <button
               type="button"
               class="image-tile image-tile--add"
-              title="Añadir imagen"
+              [title]="'Añadir imagen' | t"
               (click)="fileInput.click()">
               <rs-icon name="plus" [size]="22" [stroke]="1.5" style="color:var(--t-400)"></rs-icon>
             </button>
@@ -119,7 +122,7 @@ interface ImageSlot {
       <p class="upload-error" role="alert">
         <rs-icon name="alert-circle" [size]="15" [stroke]="2" />
         <span>{{ error }}</span>
-        <button type="button" class="upload-error__retry" (click)="reintentar()">Reintentar</button>
+        <button type="button" class="upload-error__retry" (click)="reintentar()">{{ 'Reintentar' | t }}</button>
       </p>
     }
 

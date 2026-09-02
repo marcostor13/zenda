@@ -8,6 +8,7 @@ import { ComercioApiService, MiReserva, MiServicio, MiComercio } from './comerci
 import { iconoVertical } from './vertical-icon';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 interface PasoOnboarding {
   clave: string;
   label: string;
@@ -22,17 +23,19 @@ const ESTADO_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-panel-comercio-dashboard',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, DatePipe, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, DecimalPipe, DatePipe, RsIconComponent, EurosPipe
+  ],
   template: `
     <!-- HEADER -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Inicio</h1>
+        <h1 class="page-title">{{ 'Inicio' | t }}</h1>
         <p class="page-sub">{{ nombreComercio() }} — aquí tienes un resumen de la actividad de tu negocio.</p>
       </div>
       <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary rs-btn--sm">
         <rs-icon name="plus" [size]="15" [stroke]="2"></rs-icon>
-        Nuevo servicio
+        {{ 'Nuevo servicio' | t }}
       </a>
     </div>
 
@@ -48,14 +51,13 @@ const ESTADO_BADGE: Record<string, string> = {
           <rs-icon name="clock" [size]="20" [stroke]="2"></rs-icon>
         </div>
         <div class="alta-pendiente__texto">
-          <h3>Te falta terminar tu alta</h3>
+          <h3>{{ 'Te falta terminar tu alta' | t }}</h3>
           <p>
-            Tus servicios están guardados y todavía no se ven en Doogking. En cuanto termines
-            se publican solos. Son dos minutos: los datos de tu negocio y las condiciones.
+            {{ 'Tus servicios están guardados y todavía no se ven en Doogking. En cuanto termines se publican solos. Son dos minutos: los datos de tu negocio y las condiciones.' | t }}
           </p>
         </div>
         <a routerLink="/comercio/alta" class="rs-btn rs-btn--primary">
-          Retomar el alta
+          {{ 'Retomar el alta' | t }}
           <rs-icon name="arrow-right" [size]="15" [stroke]="2.5"></rs-icon>
         </a>
       </div>
@@ -65,7 +67,7 @@ const ESTADO_BADGE: Record<string, string> = {
       <div class="rs-card onboarding-card">
         <div class="onboarding-card__head">
           <div>
-            <h3>Completa tu perfil de empresa</h3>
+            <h3>{{ 'Completa tu perfil de empresa' | t }}</h3>
             <p>{{ pasosHechos() }} de {{ pasosOnboarding().length }} pasos · te faltan {{ pasosPendientes() }} para vender sin límites</p>
           </div>
           <div class="onboarding-card__pct">{{ progresoPct() }}%</div>
@@ -77,12 +79,12 @@ const ESTADO_BADGE: Record<string, string> = {
               <span class="onboarding-list__dot">
                 @if (p.hecho) { <rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> }
               </span>
-              {{ p.label }}
+              {{ p.label | t }}
             </li>
           }
         </ul>
         <a routerLink="/comercio/config" class="rs-btn rs-btn--primary rs-btn--sm" style="margin-top:var(--sp-4)">
-          Completar datos
+          {{ 'Completar datos' | t }}
         </a>
       </div>
     }
@@ -91,17 +93,17 @@ const ESTADO_BADGE: Record<string, string> = {
     <div class="kpi-grid">
       <div class="kpi-card rs-card">
         <div class="kpi-card__header">
-          <span class="kpi-card__label">Ingresos este mes</span>
+          <span class="kpi-card__label">{{ 'Ingresos este mes' | t }}</span>
           <div class="kpi-card__icon" style="background:rgba(0,161,224,.12);color:var(--c-teal)">
             <rs-icon name="trending-up" [size]="17" [stroke]="2"></rs-icon>
           </div>
         </div>
         <div class="kpi-card__value">{{ totalIngresos() | euros:'1.0-0' }}</div>
-        <div class="kpi-card__trend up">del total de reservas</div>
+        <div class="kpi-card__trend up">{{ 'del total de reservas' | t }}</div>
       </div>
       <div class="kpi-card rs-card">
         <div class="kpi-card__header">
-          <span class="kpi-card__label">Reservas</span>
+          <span class="kpi-card__label">{{ 'Reservas' | t }}</span>
           <div class="kpi-card__icon" style="background:rgba(22,104,227,.12);color:var(--c-accent)">
             <rs-icon name="calendar" [size]="17" [stroke]="2"></rs-icon>
           </div>
@@ -111,7 +113,7 @@ const ESTADO_BADGE: Record<string, string> = {
       </div>
       <div class="kpi-card rs-card">
         <div class="kpi-card__header">
-          <span class="kpi-card__label">Servicios activos</span>
+          <span class="kpi-card__label">{{ 'Servicios activos' | t }}</span>
           <div class="kpi-card__icon" style="background:rgba(109,92,246,.12);color:var(--c-purple)">
             <rs-icon name="tag" [size]="17" [stroke]="2"></rs-icon>
           </div>
@@ -121,13 +123,13 @@ const ESTADO_BADGE: Record<string, string> = {
       </div>
       <div class="kpi-card rs-card">
         <div class="kpi-card__header">
-          <span class="kpi-card__label">Valoración media</span>
+          <span class="kpi-card__label">{{ 'Valoración media' | t }}</span>
           <div class="kpi-card__icon" style="background:rgba(245,158,11,.12);color:var(--c-amber)">
             <rs-icon name="star" [size]="17" [stroke]="2"></rs-icon>
           </div>
         </div>
         <div class="kpi-card__value">{{ ratingPromedio() || '—' }}</div>
-        <div class="kpi-card__trend">entre tus servicios</div>
+        <div class="kpi-card__trend">{{ 'entre tus servicios' | t }}</div>
       </div>
     </div>
 
@@ -136,16 +138,16 @@ const ESTADO_BADGE: Record<string, string> = {
 
       <div class="rs-card dashboard-panel">
         <div class="panel-header">
-          <h3>Reservas recientes</h3>
-          <a routerLink="/comercio/reservas" class="rs-btn rs-btn--ghost rs-btn--xs">Ver todas</a>
+          <h3>{{ 'Reservas recientes' | t }}</h3>
+          <a routerLink="/comercio/reservas" class="rs-btn rs-btn--ghost rs-btn--xs">{{ 'Ver todas' | t }}</a>
         </div>
         @if (reservas().length === 0) {
-          <p style="text-align:center;padding:var(--sp-10);color:var(--t-400)">Sin reservas aún</p>
+          <p style="text-align:center;padding:var(--sp-10);color:var(--t-400)">{{ 'Sin reservas aún' | t }}</p>
         } @else {
           <table class="rs-table">
             <thead>
               <tr>
-                <th>Código</th><th>Vertical</th><th>Fecha</th><th>Total</th><th>Estado</th>
+                <th>{{ 'Código' | t }}</th><th>{{ 'Vertical' | t }}</th><th>{{ 'Fecha' | t }}</th><th>{{ 'Total' | t }}</th><th>{{ 'Estado' | t }}</th>
               </tr>
             </thead>
             <tbody>
@@ -167,26 +169,26 @@ const ESTADO_BADGE: Record<string, string> = {
       </div>
 
       <div class="rs-card dashboard-panel">
-        <div class="panel-header"><h3>Resumen financiero</h3></div>
+        <div class="panel-header"><h3>{{ 'Resumen financiero' | t }}</h3></div>
         @if (totalIngresos() === 0) {
           <p style="text-align:center;padding:var(--sp-8) var(--sp-4);color:var(--t-400);font-size:var(--f-sm)">
-            Todavía no tienes ingresos suficientes para calcular una liquidación.
+            {{ 'Todavía no tienes ingresos suficientes para calcular una liquidación.' | t }}
           </p>
         } @else {
           <div class="fin-row">
-            <span>Ingresos brutos</span><strong>{{ totalIngresos() | euros:'1.0-0' }}</strong>
+            <span>{{ 'Ingresos brutos' | t }}</span><strong>{{ totalIngresos() | euros:'1.0-0' }}</strong>
           </div>
           <div class="fin-row">
-            <span>Comisión Doogking</span>
+            <span>{{ 'Comisión Doogking' | t }}</span>
             <strong style="color:#B91C1C">− {{ comisionEstimada() | euros:'1.0-0' }}</strong>
           </div>
           <div class="fin-row">
-            <span>Gastos de procesamiento (est.)</span>
+            <span>{{ 'Gastos de procesamiento (est.)' | t }}</span>
             <strong style="color:#B91C1C">− {{ feeStripe() | euros:'1.0-2' }}</strong>
           </div>
           <hr style="border:none;border-top:1px solid var(--b-1);margin-block:var(--sp-4)">
           <div class="fin-row">
-            <strong style="color:var(--t-100)">Total a recibir (est.)</strong>
+            <strong style="color:var(--t-100)">{{ 'Total a recibir (est.)' | t }}</strong>
             <strong style="color:var(--c-teal)">{{ liquidacion() | euros:'1.0-0' }}</strong>
           </div>
         }
@@ -197,15 +199,15 @@ const ESTADO_BADGE: Record<string, string> = {
     <!-- LISTADOS -->
     <div class="rs-card dashboard-panel">
       <div class="panel-header" style="margin-bottom:var(--sp-5)">
-        <h3>Mis servicios</h3>
-        <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost rs-btn--xs">Ver todos</a>
+        <h3>{{ 'Mis servicios' | t }}</h3>
+        <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost rs-btn--xs">{{ 'Ver todos' | t }}</a>
       </div>
       @if (servicios().length === 0) {
         <div style="text-align:center;padding:var(--sp-10);color:var(--t-400)">
-          Todavía no tienes servicios publicados.<br>
+          {{ 'Todavía no tienes servicios publicados.' | t }}<br>
           <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary rs-btn--sm" style="margin-top:var(--sp-4)">
             <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon>
-            Crear primer listado
+            {{ 'Crear primer listado' | t }}
           </a>
         </div>
       } @else {

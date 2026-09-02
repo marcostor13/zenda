@@ -38,6 +38,7 @@ import {
 } from './comercio-api.service';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 /** Una parada del trayecto declarado por un transportista. */
 interface ParadaTrayecto {
   nombre: string;
@@ -182,17 +183,18 @@ function aCsv(v: string): string[] {
   selector: 'app-comercio-listado-form',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, FormsModule,
+    TraducirPipe, RouterLink, ReactiveFormsModule, FormsModule,
     RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsComboInputComponent,
   RsPlaceAutocompleteComponent,
-    RsMapaComponent, RsHorarioComponent, RsComboInputComponent, EurosPipe,],
+    RsMapaComponent, RsHorarioComponent, RsComboInputComponent, EurosPipe,
+  ],
   template: `
     <div class="page-wrap">
       @if (!modoAlta()) {
         <div class="page-header">
           <a routerLink="/comercio/listados" class="back-link">
             <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon>
-            Volver a mis servicios
+            {{ 'Volver a mis servicios' | t }}
           </a>
           <h1>{{ esEdicion() ? 'Editar servicio' : 'Nuevo servicio' }}</h1>
           <p>{{ esEdicion() ? 'Ve directamente al paso que quieras cambiar.' : 'Pasos cortos. Puedes volver atrás en cualquier momento.' }}</p>
@@ -200,7 +202,7 @@ function aCsv(v: string): string[] {
       }
 
       @if (cargando()) {
-        <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">Cargando…</div>
+        <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">{{ 'Cargando…' | t }}</div>
       } @else {
       <!--
         Indicador de pasos. En escritorio cada punto lleva su etiqueta; en móvil
@@ -210,7 +212,7 @@ function aCsv(v: string): string[] {
       <div class="pasos">
         <p class="pasos__actual">
           <strong>Paso {{ indicePaso() + 1 }} de {{ pasos.length }}</strong>
-          <span class="pasos__sep">·</span>{{ pasoUi().label }}
+          <span class="pasos__sep">·</span>{{ pasoUi().label | t }}
         </p>
         <ol class="pasos__lista">
           @for (p of pasos; track p.clave; let i = $index) {
@@ -227,7 +229,7 @@ function aCsv(v: string): string[] {
                     {{ i + 1 }}
                   }
                 </span>
-                <span class="paso__label">{{ p.label }}</span>
+                <span class="paso__label">{{ p.label | t }}</span>
               </button>
             </li>
           }
@@ -237,10 +239,10 @@ function aCsv(v: string): string[] {
       @if (borradorRestaurado()) {
         <div class="rs-alert rs-alert--info borrador">
           <span>
-            Hemos recuperado lo que tenías a medias en este dispositivo.
+            {{ 'Hemos recuperado lo que tenías a medias en este dispositivo.' | t }}
           </span>
           <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="empezarDeCero()">
-            Empezar de cero
+            {{ 'Empezar de cero' | t }}
           </button>
         </div>
       }
@@ -257,41 +259,41 @@ function aCsv(v: string): string[] {
 
           @if (!modoAlta()) {
             <div class="rs-field">
-              <label class="rs-lbl" for="vertical">Categoría *</label>
+              <label class="rs-lbl" for="vertical">{{ 'Categoría *' | t }}</label>
               <select id="vertical" class="rs-inp" formControlName="vertical"
                       [class.rs-inp--error]="hasError('vertical')">
-                <option value="">— Selecciona una categoría —</option>
+                <option value="">{{ '— Selecciona una categoría —' | t }}</option>
                 @for (v of verticales; track v.valor) {
-                  <option [value]="v.valor">{{ v.label }}</option>
+                  <option [value]="v.valor">{{ v.label | t }}</option>
                 }
               </select>
               @if (esEdicion()) {
-                <span class="rs-field-hint">La categoría no se puede cambiar después de crear el servicio.</span>
+                <span class="rs-field-hint">{{ 'La categoría no se puede cambiar después de crear el servicio.' | t }}</span>
               }
               @if (hasError('vertical')) {
-                <span class="rs-field-err">Selecciona una categoría.</span>
+                <span class="rs-field-err">{{ 'Selecciona una categoría.' | t }}</span>
               }
             </div>
           }
 
           <div class="rs-field">
-            <label class="rs-lbl" for="titulo">Nombre del servicio *</label>
+            <label class="rs-lbl" for="titulo">{{ 'Nombre del servicio *' | t }}</label>
             <input id="titulo" class="rs-inp" formControlName="titulo"
                    [placeholder]="placeholderTitulo()"
                    [class.rs-inp--error]="hasError('titulo')">
             @if (hasError('titulo')) {
-              <span class="rs-field-err">El nombre es obligatorio.</span>
+              <span class="rs-field-err">{{ 'El nombre es obligatorio.' | t }}</span>
             }
           </div>
 
           <div class="rs-field">
-            <label class="rs-lbl" for="descripcion">Descripción *</label>
+            <label class="rs-lbl" for="descripcion">{{ 'Descripción *' | t }}</label>
             <textarea id="descripcion" class="rs-inp rs-textarea" formControlName="descripcion"
                       rows="4"
-                      placeholder="Describe tu servicio: características, lo que incluye, qué lo hace especial…"
+                      [placeholder]="'Describe tu servicio: características, lo que incluye, qué lo hace especial…' | t"
                       [class.rs-inp--error]="hasError('descripcion')"></textarea>
             @if (hasError('descripcion')) {
-              <span class="rs-field-err">La descripción es obligatoria.</span>
+              <span class="rs-field-err">{{ 'La descripción es obligatoria.' | t }}</span>
             }
           </div>
 
@@ -309,79 +311,78 @@ function aCsv(v: string): string[] {
           <div class="ubi">
             <div class="ubi__campos">
               <div class="rs-field">
-                <label class="rs-lbl" for="calle">Busca tu dirección</label>
+                <label class="rs-lbl" for="calle">{{ 'Busca tu dirección' | t }}</label>
                 <rs-place-autocomplete inputId="calle" formControlName="calle" tipo="direccion"
-                                       apariencia="campo" placeholder="Calle y número…"
+                                       apariencia="campo" [placeholder]="'Calle y número…' | t"
                                        (lugarElegido)="usarDireccionSugerida($event)" />
                 <span class="rs-field-hint">
-                  Elígela de la lista y colocamos el pin en el punto exacto.
+                  {{ 'Elígela de la lista y colocamos el pin en el punto exacto.' | t }}
                 </span>
               </div>
 
               <div class="rs-field">
-                <label class="rs-lbl" for="numero">Número, piso o puerta <span class="opt">opcional</span></label>
-                <input id="numero" class="rs-inp" formControlName="numero" placeholder="Ej: 24, 2ºB">
+                <label class="rs-lbl" for="numero">{{ 'Número, piso o puerta' | t }} <span class="opt">{{ 'opcional' | t }}</span></label>
+                <input id="numero" class="rs-inp" formControlName="numero" [placeholder]="'Ej: 24, 2ºB' | t">
               </div>
 
               <div class="form-row-2">
                 <div class="rs-field">
-                  <label class="rs-lbl" for="ciudad">Ciudad *</label>
+                  <label class="rs-lbl" for="ciudad">{{ 'Ciudad *' | t }}</label>
                   <rs-place-autocomplete inputId="ciudad" formControlName="ciudad"
-                                         apariencia="campo" placeholder="Busca tu población…"
+                                         apariencia="campo" [placeholder]="'Busca tu población…' | t"
                                          [catalogoLocal]="catalogos.ciudades"
                                          (lugarElegido)="guardarCoordenadas($event)" />
                   @if (hasError('ciudad')) {
-                    <span class="rs-field-err">La ciudad es obligatoria.</span>
+                    <span class="rs-field-err">{{ 'La ciudad es obligatoria.' | t }}</span>
                   }
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="codigoPostal">Código postal</label>
-                  <input id="codigoPostal" class="rs-inp" formControlName="codigoPostal" placeholder="Ej: 28013">
+                  <label class="rs-lbl" for="codigoPostal">{{ 'Código postal' | t }}</label>
+                  <input id="codigoPostal" class="rs-inp" formControlName="codigoPostal" [placeholder]="'Ej: 28013' | t">
                 </div>
               </div>
 
               <div class="form-row-2">
                 <div class="rs-field">
-                  <label class="rs-lbl" for="provincia">Provincia</label>
+                  <label class="rs-lbl" for="provincia">{{ 'Provincia' | t }}</label>
                   <rs-place-autocomplete inputId="provincia" formControlName="provincia"
-                                         apariencia="campo" placeholder="Elige provincia…"
+                                         apariencia="campo" [placeholder]="'Elige provincia…' | t"
                                          [catalogoLocal]="catalogos.provincias" [usaPlaces]="false"
                                          [sugerenciasIniciales]="52" />
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="pais">País</label>
-                  <input id="pais" class="rs-inp" formControlName="pais" placeholder="España">
+                  <label class="rs-lbl" for="pais">{{ 'País' | t }}</label>
+                  <input id="pais" class="rs-inp" formControlName="pais" [placeholder]="'España' | t">
                 </div>
               </div>
 
               <label class="ubi__sync" [class.ubi__sync--on]="sincronizarPin()">
                 <input type="checkbox" [checked]="sincronizarPin()"
                        (change)="sincronizarPin.set(!sincronizarPin())" />
-                <span>Actualizar la dirección al mover el pin en el mapa.</span>
+                <span>{{ 'Actualizar la dirección al mover el pin en el mapa.' | t }}</span>
               </label>
 
               @if (avisoPin()) {
                 <div class="ubi__aviso" role="note">
                   <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
                   <p>
-                    ¿Está mal la ubicación del pin? Toca el mapa para llevarlo al sitio exacto.
-                    Si no quieres que eso reescriba lo que has escrito, desmarca la casilla de arriba.
+                    {{ '¿Está mal la ubicación del pin? Toca el mapa para llevarlo al sitio exacto. Si no quieres que eso reescriba lo que has escrito, desmarca la casilla de arriba.' | t }}
                   </p>
                   <button type="button" class="ubi__aviso-x" (click)="avisoPin.set(false)"
-                          aria-label="Ocultar el aviso">
+                          [attr.aria-label]="'Ocultar el aviso' | t">
                     <rs-icon name="x" [size]="14" [stroke]="2.5"></rs-icon>
                   </button>
                 </div>
               }
 
               <div class="rs-field">
-                <label class="rs-lbl" for="precioBase">Precio orientativo (€) *</label>
+                <label class="rs-lbl" for="precioBase">{{ 'Precio orientativo (€) *' | t }}</label>
                 <input id="precioBase" class="rs-inp" type="number" formControlName="precioBase"
                        placeholder="0.00" min="0" step="0.01"
                        [class.rs-inp--error]="hasError('precioBase')">
-                <span class="rs-field-hint">Es el precio «desde» que se muestra en las tarjetas de búsqueda.</span>
+                <span class="rs-field-hint">{{ 'Es el precio «desde» que se muestra en las tarjetas de búsqueda.' | t }}</span>
                 @if (hasError('precioBase')) {
-                  <span class="rs-field-err">Ingresa un precio válido mayor a 0.</span>
+                  <span class="rs-field-err">{{ 'Ingresa un precio válido mayor a 0.' | t }}</span>
                 }
               </div>
             </div>
@@ -396,13 +397,13 @@ function aCsv(v: string): string[] {
                 } @else {
                   <div class="ubi__vacio">
                     <rs-icon name="map-pin" [size]="26" [stroke]="1.75"></rs-icon>
-                    <p>Busca tu dirección y el mapa te enseñará el punto exacto.</p>
+                    <p>{{ 'Busca tu dirección y el mapa te enseñará el punto exacto.' | t }}</p>
                   </div>
                 }
 
                 @if (buscandoDireccion()) {
                   <div class="ubi__cargando" role="status">
-                    <span class="rs-spin"></span> Buscando la dirección…
+                    <span class="rs-spin"></span> {{ 'Buscando la dirección…' | t }}
                   </div>
                 }
               </div>
@@ -412,10 +413,10 @@ function aCsv(v: string): string[] {
               <div class="geo" [class.geo--ok]="tieneCoordenadas()">
                 @if (tieneCoordenadas()) {
                   <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon>
-                  <span>Ubicación exacta guardada: tu servicio saldrá en el mapa del buscador.</span>
+                  <span>{{ 'Ubicación exacta guardada: tu servicio saldrá en el mapa del buscador.' | t }}</span>
                 } @else {
                   <rs-icon name="alert-circle" [size]="15" [stroke]="2"></rs-icon>
-                  <span>Sin ubicación exacta todavía: elige tu dirección o tu población de la lista.</span>
+                  <span>{{ 'Sin ubicación exacta todavía: elige tu dirección o tu población de la lista.' | t }}</span>
                 }
               </div>
             </div>
@@ -432,25 +433,25 @@ function aCsv(v: string): string[] {
           <!-- ═══ APTITUD (compatibilidad servicio↔perro) ═══ -->
           @if (paso() === 'aptitud') {
           <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
-            Si marcas algo, Doogking solo mostrará este servicio a clientes cuyo perro encaje.
+            {{ 'Si marcas algo, Doogking solo mostrará este servicio a clientes cuyo perro encaje.' | t }}
           </p>
           <div class="rs-field">
-            <label class="rs-lbl">Tamaños admitidos</label>
+            <label class="rs-lbl">{{ 'Tamaños admitidos' | t }}</label>
             <div class="checks-grid">
               @for (t of tamanosAdmitidos; track t.valor) {
                 <label class="filter-check">
                   <input type="checkbox" [checked]="tieneTamano(t.valor)" (change)="toggleTamano(t.valor)" />
-                  {{ t.label }}
+                  {{ t.label | t }}
                 </label>
               }
             </div>
           </div>
           <div class="rs-field">
-            <span class="rs-lbl">Temperamentos que no admites</span>
+            <span class="rs-lbl">{{ 'Temperamentos que no admites' | t }}</span>
             <rs-tags-input [(ngModel)]="temperamentosNoAdmitidos" [ngModelOptions]="{standalone: true}"
-                           etiqueta="Temperamentos que no admites"
+                           [etiqueta]="'Temperamentos que no admites' | t"
                            [opciones]="catalogos.temperamentos" [permiteNuevos]="false"
-                           placeholder="Elige de la lista…" />
+                           [placeholder]="'Elige de la lista…' | t" />
           </div>
 
           }
@@ -461,79 +462,78 @@ function aCsv(v: string): string[] {
 
             @case ('') {
               <p class="rs-field-hint">
-                Vuelve al primer paso y elige una categoría para ver aquí sus datos propios.
+                {{ 'Vuelve al primer paso y elige una categoría para ver aquí sus datos propios.' | t }}
               </p>
             }
 
             @case ('alojamiento') {
               <div formGroupName="alojamiento" class="vertical-section">
-                <h2 class="section-title">Espacios y detalles del alojamiento</h2>
+                <h2 class="section-title">{{ 'Espacios y detalles del alojamiento' | t }}</h2>
 
                 <div formArrayName="espacios" class="rows">
                   @for (esp of espacios.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card">
                       <div class="row-card__grid">
                         <div class="rs-field">
-                          <label class="rs-lbl">Tipo *</label>
+                          <label class="rs-lbl">{{ 'Tipo *' | t }}</label>
                           <select class="rs-inp" formControlName="tipo">
-                            <option value="estandar">Individual / estándar</option>
-                            <option value="compartido">Compartido</option>
-                            <option value="premium">Zona premium</option>
-                            <option value="climatizada">Habitación climatizada</option>
-                            <option value="suite">Suite familiar (varios perros)</option>
+                            <option value="estandar">{{ 'Individual / estándar' | t }}</option>
+                            <option value="compartido">{{ 'Compartido' | t }}</option>
+                            <option value="premium">{{ 'Zona premium' | t }}</option>
+                            <option value="climatizada">{{ 'Habitación climatizada' | t }}</option>
+                            <option value="suite">{{ 'Suite familiar (varios perros)' | t }}</option>
                           </select>
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Tamaño máx. de perro (opcional)</label>
+                          <label class="rs-lbl">{{ 'Tamaño máx. de perro (opcional)' | t }}</label>
                           <select class="rs-inp" formControlName="tamanoMaxPerro">
-                            <option value="">Sin restricción de tamaño</option>
+                            <option value="">{{ 'Sin restricción de tamaño' | t }}</option>
                             @for (tamano of tamanosPerro; track tamano.valor) {
                               <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
                             }
                           </select>
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio/noche (€) *</label>
+                          <label class="rs-lbl">{{ 'Precio/noche (€) *' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Cantidad disponible *</label>
+                          <label class="rs-lbl">{{ 'Cantidad disponible *' | t }}</label>
                           <input class="rs-inp" type="number" min="1" formControlName="cantidad">
                         </div>
                       </div>
                       <div class="rs-field">
-                        <label class="rs-lbl">Descripción del espacio</label>
-                        <input class="rs-inp" formControlName="descripcion" placeholder="Ej. Suite individual con jardín privado">
+                        <label class="rs-lbl">{{ 'Descripción del espacio' | t }}</label>
+                        <input class="rs-inp" formControlName="descripcion" [placeholder]="'Ej. Suite individual con jardín privado' | t">
                       </div>
                       <div class="rs-field">
-                        <span class="rs-lbl">Servicios de este espacio</span>
-                        <rs-tags-input formControlName="amenities" etiqueta="Servicios de este espacio"
+                        <span class="rs-lbl">{{ 'Servicios de este espacio' | t }}</span>
+                        <rs-tags-input formControlName="amenities" [etiqueta]="'Servicios de este espacio' | t"
                                        [opciones]="catalogos.amenitiesEspacio"
                                        [opcionOtros]="OTROS_SERVICIOS"
-                                       placeholder="Ej. salida a jardín privado…" />
-                        <span class="rs-field-hint">Lo que incluye esta suite o habitación en concreto: cama, climatización, salida al jardín…</span>
+                                       [placeholder]="'Ej. salida a jardín privado…' | t" />
+                        <span class="rs-field-hint">{{ 'Lo que incluye esta suite o habitación en concreto: cama, climatización, salida al jardín…' | t }}</span>
                       </div>
                       <div class="rs-field">
-                        <span class="rs-lbl">Fotos de este espacio</span>
+                        <span class="rs-lbl">{{ 'Fotos de este espacio' | t }}</span>
                         <rs-image-upload origen="servicio/imagenes" [multiple]="true" [maxFiles]="8"
                                          formControlName="imagenes"></rs-image-upload>
                         <span class="rs-field-hint">
-                          El cliente reserva <em>esta</em> suite, no «la residencia»: enséñale la que va a
-                          coger. JPEG, PNG o WebP · máx. 5 MB cada una.
+                          {{ 'El cliente reserva' | t }} <em>{{ 'esta' | t }}</em> {{ 'suite, no «la residencia»: enséñale la que va a coger. JPEG, PNG o WebP · máx. 5 MB cada una.' | t }}
                         </span>
                       </div>
                       <div class="checkbox-row">
-                        <label class="rs-checkbox"><input type="checkbox" formControlName="disponible"> Disponible</label>
-                        <label class="rs-checkbox"><input type="checkbox" formControlName="cancelacionGratis"> Cancelación gratis</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="disponible"> {{ 'Disponible' | t }}</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="cancelacionGratis"> {{ 'Cancelación gratis' | t }}</label>
                         <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarEspacio(i)">
-                          <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                          <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                         </button>
                       </div>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarEspacio()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tipo de espacio
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir tipo de espacio' | t }}
                 </button>
 
                 <div class="fotos-cuenta" [class.fotos-cuenta--ok]="fotosSuficientes()">
@@ -543,24 +543,24 @@ function aCsv(v: string): string[] {
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Ingreso</label>
+                    <label class="rs-lbl">{{ 'Ingreso' | t }}</label>
                     <input class="rs-inp" type="time" formControlName="checkIn">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Salida</label>
+                    <label class="rs-lbl">{{ 'Salida' | t }}</label>
                     <input class="rs-inp" type="time" formControlName="checkOut">
                   </div>
                 </div>
 
                 <div class="rs-field">
-                  <span class="rs-lbl">Servicios del alojamiento</span>
-                  <rs-tags-input formControlName="amenities" etiqueta="Servicios del alojamiento"
-                                 [opciones]="catalogos.amenitiesAlojamiento" placeholder="Ej. jardín vallado…" />
-                  <span class="rs-field-hint">Lo que ofrece el alojamiento en conjunto, se reserve el espacio que se reserve.</span>
+                  <span class="rs-lbl">{{ 'Servicios del alojamiento' | t }}</span>
+                  <rs-tags-input formControlName="amenities" [etiqueta]="'Servicios del alojamiento' | t"
+                                 [opciones]="catalogos.amenitiesAlojamiento" [placeholder]="'Ej. jardín vallado…' | t" />
+                  <span class="rs-field-hint">{{ 'Lo que ofrece el alojamiento en conjunto, se reserve el espacio que se reserve.' | t }}</span>
                 </div>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Política de cancelación</label>
+                  <label class="rs-lbl">{{ 'Política de cancelación' | t }}</label>
                   <!--
                     Tarjetas en vez de un desplegable: elegir entre "flexible",
                     "moderada" y "estricta" sin saber qué significa cada una
@@ -572,7 +572,7 @@ function aCsv(v: string): string[] {
                       <label class="politica" [class.politica--sel]="politicaElegida() === p.valor">
                         <input type="radio" formControlName="politicaCancelacion" [value]="p.valor" />
                         <span>
-                          <span class="politica__nombre">{{ p.label }}</span>
+                          <span class="politica__nombre">{{ p.label | t }}</span>
                           <span class="politica__desc">{{ p.descripcion }}</span>
                         </span>
                       </label>
@@ -580,162 +580,158 @@ function aCsv(v: string): string[] {
                     <label class="politica" [class.politica--sel]="!politicaElegida()">
                       <input type="radio" formControlName="politicaCancelacion" value="" />
                       <span>
-                        <span class="politica__nombre">Sin especificar</span>
-                        <span class="politica__desc">Acuerdas las condiciones con cada cliente.</span>
+                        <span class="politica__nombre">{{ 'Sin especificar' | t }}</span>
+                        <span class="politica__desc">{{ 'Acuerdas las condiciones con cada cliente.' | t }}</span>
                       </span>
                     </label>
                   </div>
                 </div>
 
                 <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requisitoVacunas"> Exige cartilla de vacunas</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="paseosIncluidos"> Paseos incluidos</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="camaras24h"> Cámaras 24h</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="cancelacionGratis"> Cancelación gratuita</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requisitoVacunas"> {{ 'Exige cartilla de vacunas' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="paseosIncluidos"> {{ 'Paseos incluidos' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="camaras24h"> {{ 'Cámaras 24h' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="cancelacionGratis"> {{ 'Cancelación gratuita' | t }}</label>
                 </div>
 
-                <h2 class="section-title">Requisitos sanitarios adicionales (opcionales)</h2>
+                <h2 class="section-title">{{ 'Requisitos sanitarios adicionales (opcionales)' | t }}</h2>
                 <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requisitoMicrochip"> Microchip obligatorio</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereDesparasitacionInterna"> Desparasitación interna</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereDesparasitacionExterna"> Desparasitación externa</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereVacunaTosPerreras"> Vacuna tos de las perreras</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requisitoMicrochip"> {{ 'Microchip obligatorio' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereDesparasitacionInterna"> {{ 'Desparasitación interna' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereDesparasitacionExterna"> {{ 'Desparasitación externa' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereVacunaTosPerreras"> {{ 'Vacuna tos de las perreras' | t }}</label>
                 </div>
 
-                <h2 class="section-title">Compatibilidad social que admites</h2>
+                <h2 class="section-title">{{ 'Compatibilidad social que admites' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
-                  Déjalo todo sin marcar si admites cualquier perfil social.
+                  {{ 'Déjalo todo sin marcar si admites cualquier perfil social.' | t }}
                 </p>
                 <div class="checks-grid">
                   @for (c of compatibilidadesSociales; track c.valor) {
                     <label class="filter-check">
                       <input type="checkbox" [checked]="tieneCompatibilidad(c.valor)" (change)="toggleCompatibilidad(c.valor)" />
-                      {{ c.label }}
+                      {{ c.label | t }}
                     </label>
                   }
                 </div>
 
-                <h2 class="section-title">Conductas de riesgo que no admites (Ref. RES5)</h2>
+                <h2 class="section-title">{{ 'Conductas de riesgo que no admites (Ref. RES5)' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
-                  Si un perro con esta conducta intenta reservar, se le avisará antes de completar la reserva.
-                  Déjalo todo sin marcar si admites cualquier conducta.
+                  {{ 'Si un perro con esta conducta intenta reservar, se le avisará antes de completar la reserva. Déjalo todo sin marcar si admites cualquier conducta.' | t }}
                 </p>
                 <div class="checks-grid">
                   @for (c of conductasRiesgo; track c.valor) {
                     <label class="filter-check">
                       <input type="checkbox" [checked]="tieneConductaNoAdmitida(c.valor)" (change)="toggleConductaNoAdmitida(c.valor)" />
-                      {{ c.label }}
+                      {{ c.label | t }}
                     </label>
                   }
                 </div>
 
-                <h2 class="section-title">Servicios adicionales</h2>
+                <h2 class="section-title">{{ 'Servicios adicionales' | t }}</h2>
                 <div formArrayName="serviciosAdicionales" class="rows">
                   @for (s of serviciosAdicionalesAlojamiento.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card row-card--sm">
                       <div class="row-card__grid row-card__grid--2">
                         <div class="rs-field">
-                          <label class="rs-lbl">Nombre</label>
-                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Paseo individual diario">
+                          <label class="rs-lbl">{{ 'Nombre' | t }}</label>
+                          <input class="rs-inp" formControlName="nombre" [placeholder]="'Ej. Paseo individual diario' | t">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio (€)</label>
+                          <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalAlojamiento(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                       </button>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioAdicionalAlojamiento()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio adicional
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir servicio adicional' | t }}
                 </button>
               </div>
             }
 
             @case ('transporte') {
               <div formGroupName="transporte" class="vertical-section">
-                <h2 class="section-title">Detalles del transporte</h2>
+                <h2 class="section-title">{{ 'Detalles del transporte' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
-                  Los campos marcados con <strong>*</strong> son obligatorios; el resto son
-                  opcionales y solo ayudan a que recibas solicitudes que sí puedas atender.
+                  {{ 'Los campos marcados con' | t }} <strong>*</strong> {{ 'son obligatorios; el resto son opcionales y solo ayudan a que recibas solicitudes que sí puedas atender.' | t }}
                 </p>
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Tipo de vehículo <span class="rs-field-hint">(opcional)</span></label>
+                    <label class="rs-lbl">{{ 'Tipo de vehículo' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
                     <select class="rs-inp" formControlName="tipoVehiculo">
-                      <option value="van_acondicionada">Van acondicionada</option>
-                      <option value="coche">Coche</option>
-                      <option value="furgon_climatizado">Furgón climatizado</option>
+                      <option value="van_acondicionada">{{ 'Van acondicionada' | t }}</option>
+                      <option value="coche">{{ 'Coche' | t }}</option>
+                      <option value="furgon_climatizado">{{ 'Furgón climatizado' | t }}</option>
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Capacidad (perros) <span class="rs-field-hint">(opcional)</span></label>
+                    <label class="rs-lbl">{{ 'Capacidad (perros)' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
                     <input class="rs-inp" type="number" min="1" formControlName="capacidadPerros">
                   </div>
                 </div>
 
                 <div class="rs-field">
-                  <span class="rs-lbl">Zona de cobertura <span class="rs-field-hint">(opcional)</span></span>
-                  <rs-tags-input formControlName="zonaCobertura" etiqueta="Zona de cobertura"
-                                 [opciones]="catalogos.provincias" placeholder="Ej. Madrid, Toledo…" />
+                  <span class="rs-lbl">{{ 'Zona de cobertura' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></span>
+                  <rs-tags-input formControlName="zonaCobertura" [etiqueta]="'Zona de cobertura' | t"
+                                 [opciones]="catalogos.provincias" [placeholder]="'Ej. Madrid, Toledo…' | t" />
                 </div>
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Tarifa base (€) *</label>
+                    <label class="rs-lbl">{{ 'Tarifa base (€) *' | t }}</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaBase">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Tarifa por km (€) *</label>
+                    <label class="rs-lbl">{{ 'Tarifa por km (€) *' | t }}</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaKm">
                   </div>
                 </div>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Tarifa de espera, por hora (€) <span class="rs-field-hint">(opcional)</span></label>
+                  <label class="rs-lbl">{{ 'Tarifa de espera, por hora (€)' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
                   <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaEsperaPorHora">
-                  <span class="rs-field-hint">Se cobra en trayectos de "ida y vuelta con espera" (Ref. TRA4). Déjalo en 0 si no cobras el tiempo de espera.</span>
+                  <span class="rs-field-hint">{{ 'Se cobra en trayectos de "ida y vuelta con espera" (Ref. TRA4). Déjalo en 0 si no cobras el tiempo de espera.' | t }}</span>
                 </div>
 
                 <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="jaulasIncluidas"> Jaulas incluidas</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="acompananteHumano"> Acompañante humano opcional</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="soloPerros"> Sólo perros</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="jaulasIncluidas"> {{ 'Jaulas incluidas' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="acompananteHumano"> {{ 'Acompañante humano opcional' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="soloPerros"> {{ 'Sólo perros' | t }}</label>
                 </div>
 
-                <h2 class="section-title">Condiciones del servicio (todas opcionales)</h2>
+                <h2 class="section-title">{{ 'Condiciones del servicio (todas opcionales)' | t }}</h2>
                 <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
-                  Cuanto más concretes, menos solicitudes recibirás que no puedas atender.
+                  {{ 'Cuanto más concretes, menos solicitudes recibirás que no puedas atender.' | t }}
                 </span>
                 <div class="row-card__grid row-card__grid--2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Distancia mínima facturable (km)</label>
+                    <label class="rs-lbl">{{ 'Distancia mínima facturable (km)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="distanciaMinimaKm">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Antelación mínima (horas)</label>
+                    <label class="rs-lbl">{{ 'Antelación mínima (horas)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="antelacionMinimaHoras">
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Máximo de perros por trayecto</label>
+                  <label class="rs-lbl">{{ 'Máximo de perros por trayecto' | t }}</label>
                   <input class="rs-inp" type="number" min="1" formControlName="maxPerrosPorTrayecto">
-                  <span class="rs-field-hint">Déjalo vacío para usar la capacidad del vehículo.</span>
+                  <span class="rs-field-hint">{{ 'Déjalo vacío para usar la capacidad del vehículo.' | t }}</span>
                 </div>
                 <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> Acepto perros de razas PPP</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereTransportinPropio"> El cliente aporta su transportín</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> {{ 'Acepto perros de razas PPP' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereTransportinPropio"> {{ 'El cliente aporta su transportín' | t }}</label>
                 </div>
 
-                <h2 class="section-title">Tu trayecto habitual (opcional)</h2>
+                <h2 class="section-title">{{ 'Tu trayecto habitual (opcional)' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
-                  Si haces una ruta fija, marca sus puntos de recogida en orden: trazamos el
-                  recorrido por carretera y el cliente lo verá dibujado en tu ficha. Es lo que
-                  distingue «hago Madrid–Zaragoza» de «hago traslados».
+                  {{ 'Si haces una ruta fija, marca sus puntos de recogida en orden: trazamos el recorrido por carretera y el cliente lo verá dibujado en tu ficha. Es lo que distingue «hago Madrid–Zaragoza» de «hago traslados».' | t }}
                 </p>
 
                 <div class="rs-field">
@@ -746,14 +742,14 @@ function aCsv(v: string): string[] {
                   <rs-place-autocomplete apariencia="campo" inputId="tr-parada"
                                          [formControl]="direccionParada"
                                          tipo="direccion" [sugerenciasIniciales]="0"
-                                         placeholder="Escribe la dirección de recogida…"
+                                         [placeholder]="'Escribe la dirección de recogida…' | t"
                                          (lugarElegido)="anadirParada($event)" />
                   <span class="rs-field-hint">
-                    Calle y número. Escríbela y elígela de la lista para que quede situada en el mapa.
+                    {{ 'Calle y número. Escríbela y elígela de la lista para que quede situada en el mapa.' | t }}
                   </span>
                   @if (trayectoLleno()) {
                     <span class="rs-field-hint">
-                      Has llegado al máximo de puntos que se pueden trazar de una vez.
+                      {{ 'Has llegado al máximo de puntos que se pueden trazar de una vez.' | t }}
                     </span>
                   }
                 </div>
@@ -765,16 +761,16 @@ function aCsv(v: string): string[] {
                         <span class="parada__orden">{{ i + 1 }}</span>
                         <span class="parada__nombre">{{ parada.nombre }}</span>
                         <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                                [disabled]="i === 0" (click)="subirParada(i)" aria-label="Subir">
+                                [disabled]="i === 0" (click)="subirParada(i)" [attr.aria-label]="'Subir' | t">
                           <rs-icon name="chevron-down" [size]="13" [stroke]="2.5" class="parada__subir"></rs-icon>
                         </button>
                         <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                                 [disabled]="i === trayecto().length - 1" (click)="bajarParada(i)"
-                                aria-label="Bajar">
+                                [attr.aria-label]="'Bajar' | t">
                           <rs-icon name="chevron-down" [size]="13" [stroke]="2.5"></rs-icon>
                         </button>
                         <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                                (click)="quitarParada(i)" aria-label="Quitar parada">
+                                (click)="quitarParada(i)" [attr.aria-label]="'Quitar parada' | t">
                           <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon>
                         </button>
                       </li>
@@ -791,41 +787,41 @@ function aCsv(v: string): string[] {
                     <p class="ruta-resumen">
                       <rs-icon name="navigation" [size]="14" [stroke]="2"></rs-icon>
                       @if (r.porCarretera) {
-                        <strong>{{ r.distanciaKm }} km</strong> por carretera
+                        <strong>{{ r.distanciaKm }} km</strong> {{ 'por carretera' | t }}
                         <span>· {{ duracionLegible(r.duracionMin) }}</span>
                       } @else {
-                        <strong>{{ r.distanciaKm }} km</strong> en línea recta
-                        <span>· no hemos podido trazar el recorrido real</span>
+                        <strong>{{ r.distanciaKm }} km</strong> {{ 'en línea recta' | t }}
+                        <span>{{ '· no hemos podido trazar el recorrido real' | t }}</span>
                       }
                     </p>
                   }
                 }
 
-                <h2 class="section-title">Servicios adicionales</h2>
+                <h2 class="section-title">{{ 'Servicios adicionales' | t }}</h2>
                 <p class="rs-field-hint">
-                  Se muestran al cliente en el paso 1 de la reserva y se suman al precio del trayecto.
+                  {{ 'Se muestran al cliente en el paso 1 de la reserva y se suman al precio del trayecto.' | t }}
                 </p>
                 <div formArrayName="serviciosAdicionales" class="rows">
                   @for (s of serviciosAdicionalesTransporte.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card row-card--sm">
                       <div class="row-card__grid row-card__grid--2">
                         <div class="rs-field">
-                          <label class="rs-lbl">Nombre</label>
-                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Recogida a domicilio">
+                          <label class="rs-lbl">{{ 'Nombre' | t }}</label>
+                          <input class="rs-inp" formControlName="nombre" [placeholder]="'Ej. Recogida a domicilio' | t">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio (€)</label>
+                          <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalTransporte(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                       </button>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioAdicionalTransporte()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio adicional
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir servicio adicional' | t }}
                 </button>
               </div>
             }
@@ -833,22 +829,21 @@ function aCsv(v: string): string[] {
             @case ('veterinaria') {
               <div formGroupName="veterinaria" class="vertical-section">
 
-                <h2 class="section-title">1. Servicios veterinarios disponibles</h2>
+                <h2 class="section-title">{{ '1. Servicios veterinarios disponibles' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
-                  Selecciona los servicios que tus clientes pueden reservar directamente.
-                  Podrás indicar el precio y las condiciones de cada uno.
+                  {{ 'Selecciona los servicios que tus clientes pueden reservar directamente. Podrás indicar el precio y las condiciones de cada uno.' | t }}
                 </p>
 
                 <!-- Rejilla de actos concretos, no de especialidades: lo que se
                      elige aquí es lo que el cliente puede pagar por adelantado. -->
-                <div class="serv-grid" role="group" aria-label="Servicios veterinarios">
+                <div class="serv-grid" role="group" [attr.aria-label]="'Servicios veterinarios' | t">
                   @for (s of catalogoClinico(); track s.tipo) {
                     <button type="button" class="serv" [class.serv--on]="tieneServicioClinico(s.tipo)"
                             [attr.aria-pressed]="tieneServicioClinico(s.tipo)"
                             (click)="alternarServicioClinico(s.tipo)">
                       <span class="serv__ico"><rs-icon [name]="s.icono" [size]="20" [stroke]="1.75" /></span>
                       <span class="serv__cuerpo">
-                        <span class="serv__label">{{ s.label }}</span>
+                        <span class="serv__label">{{ s.label | t }}</span>
                         <span class="serv__base">{{ s.base }}</span>
                       </span>
                       <span class="serv__check" aria-hidden="true">
@@ -861,45 +856,42 @@ function aCsv(v: string): string[] {
 
                   <button type="button" class="serv serv--nuevo" (click)="agregarServicioLibre()">
                     <rs-icon name="plus" [size]="16" [stroke]="2.5" />
-                    <span>Añadir otro servicio</span>
+                    <span>{{ 'Añadir otro servicio' | t }}</span>
                   </button>
                 </div>
 
                 <div class="rs-alert rs-alert--info" style="margin-top:var(--sp-4)">
-                  Solo puedes publicar servicios con precio cerrado o calculable (según peso, tipo de
-                  mascota, etc.). Los servicios de diagnóstico o tratamiento personalizado no se podrán
-                  reservar online: publica la consulta —«Primera consulta de cardiología, 70 €»—, no la
-                  especialidad.
+                  {{ 'Solo puedes publicar servicios con precio cerrado o calculable (según peso, tipo de mascota, etc.). Los servicios de diagnóstico o tratamiento personalizado no se podrán reservar online: publica la consulta —«Primera consulta de cardiología, 70 €»—, no la especialidad.' | t }}
                 </div>
 
                 <!-- Precio y condiciones de cada servicio elegido -->
                 @if (serviciosClinicos.length) {
-                  <h2 class="section-title">2. Precio y condiciones de cada servicio</h2>
+                  <h2 class="section-title">{{ '2. Precio y condiciones de cada servicio' | t }}</h2>
                   <div formArrayName="serviciosClinicos" class="rows">
                     @for (s of serviciosClinicos.controls; track $index; let i = $index) {
                       <div [formGroupName]="i" class="row-card">
                         <div class="row-card__cab">
                           <strong>{{ nombreServicioClinico(i) }}</strong>
                           <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                                  (click)="quitarServicioClinico(i)" aria-label="Quitar este servicio">
+                                  (click)="quitarServicioClinico(i)" [attr.aria-label]="'Quitar este servicio' | t">
                             <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon>
                           </button>
                         </div>
 
                         @if (esServicioLibre(i)) {
                           <div class="rs-field">
-                            <label class="rs-lbl">Nombre del servicio *</label>
+                            <label class="rs-lbl">{{ 'Nombre del servicio *' | t }}</label>
                             <input class="rs-inp" formControlName="nombre"
-                                   placeholder="Ej. Primera consulta de cardiología">
+                                   [placeholder]="'Ej. Primera consulta de cardiología' | t">
                             <span class="rs-field-hint">
-                              Tiene que ser un acto con precio, no una especialidad suelta.
+                              {{ 'Tiene que ser un acto con precio, no una especialidad suelta.' | t }}
                             </span>
                           </div>
                         }
 
                         @if (modosPrecioDe(i).length > 1) {
                           <div class="rs-field">
-                            <label class="rs-lbl">¿Cómo lo cobras?</label>
+                            <label class="rs-lbl">{{ '¿Cómo lo cobras?' | t }}</label>
                             <select class="rs-inp" formControlName="modoPrecio"
                                     (change)="modoPrecioCambiado(i)">
                               @for (m of modosPrecioDe(i); track m) {
@@ -918,11 +910,11 @@ function aCsv(v: string): string[] {
                               @for (v of variantesDe(i).controls; track $index; let j = $index) {
                                 <div [formGroupName]="j" class="variante">
                                   <input class="rs-inp variante__nombre" formControlName="nombre"
-                                         placeholder="Ej. Rabia">
+                                         [placeholder]="'Ej. Rabia' | t">
                                   <input class="rs-inp variante__precio" type="number" min="0" step="0.01"
                                          formControlName="precio" placeholder="€">
                                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                                          (click)="quitarVariante(i, j)" aria-label="Quitar">
+                                          (click)="quitarVariante(i, j)" [attr.aria-label]="'Quitar' | t">
                                     <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
                                   </button>
                                 </div>
@@ -934,17 +926,17 @@ function aCsv(v: string): string[] {
                               {{ textoAnadirVariante(i) }}
                             </button>
                             <span class="rs-field-hint">
-                              Lo que dejes sin precio no se publica: así marcas sólo lo que ofreces.
+                              {{ 'Lo que dejes sin precio no se publica: así marcas sólo lo que ofreces.' | t }}
                             </span>
                           </div>
                         } @else {
                           <div class="row-card__grid row-card__grid--2">
                             <div class="rs-field">
-                              <label class="rs-lbl">Precio (€) *</label>
+                              <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
                               <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                             </div>
                             <div class="rs-field">
-                              <label class="rs-lbl">Duración (min)</label>
+                              <label class="rs-lbl">{{ 'Duración (min)' | t }}</label>
                               <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
                             </div>
                           </div>
@@ -953,28 +945,28 @@ function aCsv(v: string): string[] {
                         @if (detallaAlcance(i)) {
                           <div class="row-card__grid row-card__grid--2">
                             <div class="rs-field">
-                              <label class="rs-lbl">Incluye</label>
+                              <label class="rs-lbl">{{ 'Incluye' | t }}</label>
                               <input class="rs-inp" formControlName="incluye"
-                                     placeholder="Ej. anestesia, intervención y revisión">
+                                     [placeholder]="'Ej. anestesia, intervención y revisión' | t">
                             </div>
                             <div class="rs-field">
-                              <label class="rs-lbl">No incluye</label>
+                              <label class="rs-lbl">{{ 'No incluye' | t }}</label>
                               <input class="rs-inp" formControlName="noIncluye"
-                                     placeholder="Ej. analítica preoperatoria">
+                                     [placeholder]="'Ej. analítica preoperatoria' | t">
                             </div>
                           </div>
 
                           <div class="rs-field">
-                            <span class="rs-lbl">Extras que el cliente puede añadir</span>
+                            <span class="rs-lbl">{{ 'Extras que el cliente puede añadir' | t }}</span>
                             <div formArrayName="complementos" class="variantes">
                               @for (c of complementosDe(i).controls; track $index; let j = $index) {
                                 <div [formGroupName]="j" class="variante">
                                   <input class="rs-inp variante__nombre" formControlName="nombre"
-                                         placeholder="Ej. Analítica preoperatoria">
+                                         [placeholder]="'Ej. Analítica preoperatoria' | t">
                                   <input class="rs-inp variante__precio" type="number" min="0" step="0.01"
                                          formControlName="precio" placeholder="€">
                                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                                          (click)="quitarComplemento(i, j)" aria-label="Quitar">
+                                          (click)="quitarComplemento(i, j)" [attr.aria-label]="'Quitar' | t">
                                     <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
                                   </button>
                                 </div>
@@ -982,7 +974,7 @@ function aCsv(v: string): string[] {
                             </div>
                             <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
                                     (click)="agregarComplemento(i)">
-                              <rs-icon name="plus" [size]="13" [stroke]="2"></rs-icon> Añadir extra
+                              <rs-icon name="plus" [size]="13" [stroke]="2"></rs-icon> {{ 'Añadir extra' | t }}
                             </button>
                           </div>
                         }
@@ -991,68 +983,67 @@ function aCsv(v: string): string[] {
                   </div>
                 }
 
-                <h2 class="section-title">3. Información básica de la clínica</h2>
+                <h2 class="section-title">{{ '3. Información básica de la clínica' | t }}</h2>
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Precio de consulta (€) *</label>
+                    <label class="rs-lbl">{{ 'Precio de consulta (€) *' | t }}</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioConsulta">
-                    <span class="rs-field-hint">El «desde» que verá el cliente en el buscador.</span>
+                    <span class="rs-field-hint">{{ 'El «desde» que verá el cliente en el buscador.' | t }}</span>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Duración de la cita (min)</label>
+                    <label class="rs-lbl">{{ 'Duración de la cita (min)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="duracionCitaMin">
                   </div>
                 </div>
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Citas disponibles por día</label>
+                    <label class="rs-lbl">{{ 'Citas disponibles por día' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="citasPorDia">
-                    <span class="rs-field-hint">Número máximo de reservas al día.</span>
+                    <span class="rs-field-hint">{{ 'Número máximo de reservas al día.' | t }}</span>
                   </div>
                   <div class="rs-field">
-                    <span class="rs-lbl">Especies atendidas</span>
-                    <rs-tags-input formControlName="especiesAtendidas" etiqueta="Especies atendidas"
+                    <span class="rs-lbl">{{ 'Especies atendidas' | t }}</span>
+                    <rs-tags-input formControlName="especiesAtendidas" [etiqueta]="'Especies atendidas' | t"
                                    [opciones]="catalogos.especies" [permiteNuevos]="false"
-                                   placeholder="Elige de la lista…" />
-                    <span class="rs-field-hint">No es un vertical solo de perros.</span>
+                                   [placeholder]="'Elige de la lista…' | t" />
+                    <span class="rs-field-hint">{{ 'No es un vertical solo de perros.' | t }}</span>
                   </div>
                 </div>
 
                 <label class="rs-checkbox">
-                  <input type="checkbox" formControlName="atiendeUrgencias"> Atiende urgencias
+                  <input type="checkbox" formControlName="atiendeUrgencias"> {{ 'Atiende urgencias' | t }}
                 </label>
                 <span class="rs-field-hint">
-                  Marca esto si además atiendes fuera de cita. El precio de una urgencia no se cierra por
-                  adelantado, así que no se reserva online: se avisa al cliente de que la atiendes.
+                  {{ 'Marca esto si además atiendes fuera de cita. El precio de una urgencia no se cierra por adelantado, así que no se reserva online: se avisa al cliente de que la atiendes.' | t }}
                 </span>
               </div>
             }
 
             @case ('peluqueria') {
               <div formGroupName="peluqueria" class="vertical-section">
-                <h2 class="section-title">Servicios de grooming</h2>
+                <h2 class="section-title">{{ 'Servicios de grooming' | t }}</h2>
 
                 <div formArrayName="serviciosGrooming" class="rows">
                   @for (s of serviciosGrooming.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card">
                       <div class="row-card__grid row-card__grid--4">
                         <div class="rs-field">
-                          <label class="rs-lbl">Servicio *</label>
-                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Baño y corte">
+                          <label class="rs-lbl">{{ 'Servicio *' | t }}</label>
+                          <input class="rs-inp" formControlName="nombre" [placeholder]="'Ej. Baño y corte' | t">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio (€) *</label>
+                          <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Duración (min)</label>
+                          <label class="rs-lbl">{{ 'Duración (min)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Tamaño de perro (por defecto)</label>
+                          <label class="rs-lbl">{{ 'Tamaño de perro (por defecto)' | t }}</label>
                           <select class="rs-inp" formControlName="tamanoPerro">
-                            <option value="">Todos</option>
+                            <option value="">{{ 'Todos' | t }}</option>
                             @for (tamano of tamanosPerro; track tamano.valor) {
                               <option [value]="tamano.valor">{{ tamano.nombre }}</option>
                             }
@@ -1061,7 +1052,7 @@ function aCsv(v: string): string[] {
                       </div>
 
                       <div class="rs-field">
-                        <label class="rs-lbl">Tipo de pelo compatible (vacío = cualquiera)</label>
+                        <label class="rs-lbl">{{ 'Tipo de pelo compatible (vacío = cualquiera)' | t }}</label>
                         <div class="checks-grid">
                           @for (t of tiposPelo; track t) {
                             <label class="filter-check">
@@ -1073,13 +1064,13 @@ function aCsv(v: string): string[] {
                       </div>
 
                       <div class="rs-field">
-                        <label class="rs-lbl">Precio y duración por tamaño (opcional, sustituye al precio por defecto)</label>
+                        <label class="rs-lbl">{{ 'Precio y duración por tamaño (opcional, sustituye al precio por defecto)' | t }}</label>
                         <div formArrayName="preciosPorTamano" class="rows">
                           @for (t of preciosPorTamano(i).controls; track $index; let ti = $index) {
                             <div [formGroupName]="ti" class="row-card row-card--sm">
                               <div class="row-card__grid row-card__grid--3">
                                 <div class="rs-field">
-                                  <label class="rs-lbl">Tamaño</label>
+                                  <label class="rs-lbl">{{ 'Tamaño' | t }}</label>
                                   <select class="rs-inp" formControlName="tamano">
                                     @for (tp of tamanosPerro; track tp.valor) {
                                       <option [value]="tp.valor">{{ tp.etiqueta }}</option>
@@ -1087,195 +1078,194 @@ function aCsv(v: string): string[] {
                                   </select>
                                 </div>
                                 <div class="rs-field">
-                                  <label class="rs-lbl">Precio (€)</label>
+                                  <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
                                   <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                                 </div>
                                 <div class="rs-field">
-                                  <label class="rs-lbl">Duración (min)</label>
+                                  <label class="rs-lbl">{{ 'Duración (min)' | t }}</label>
                                   <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
                                 </div>
                               </div>
                               <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarPrecioPorTamano(i, ti)">
-                                <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                                <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                               </button>
                             </div>
                           }
                         </div>
                         <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarPrecioPorTamano(i)">
-                          <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tier de tamaño
+                          <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir tier de tamaño' | t }}
                         </button>
                       </div>
 
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioGrooming(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar servicio
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar servicio' | t }}
                       </button>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioGrooming()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio de grooming
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir servicio de grooming' | t }}
                 </button>
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Duración por turno (min)</label>
+                    <label class="rs-lbl">{{ 'Duración por turno (min)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="duracionSlotMin">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Capacidad simultánea</label>
+                    <label class="rs-lbl">{{ 'Capacidad simultánea' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="capacidadSimultanea">
                   </div>
                 </div>
 
-                <label class="rs-checkbox"><input type="checkbox" formControlName="aDomicilio"> Servicio a domicilio</label>
+                <label class="rs-checkbox"><input type="checkbox" formControlName="aDomicilio"> {{ 'Servicio a domicilio' | t }}</label>
 
-                <h2 class="section-title">Perros con temperamento difícil</h2>
+                <h2 class="section-title">{{ 'Perros con temperamento difícil' | t }}</h2>
                 <div class="rs-field">
-                  <label class="rs-lbl">Política ante perros nerviosos/agresivos</label>
+                  <label class="rs-lbl">{{ 'Política ante perros nerviosos/agresivos' | t }}</label>
                   <select class="rs-inp" formControlName="politicaTemperamentoDificil">
-                    <option value="aceptar">Aceptar igual</option>
-                    <option value="suplemento">Aceptar con suplemento</option>
-                    <option value="valoracion_previa">Requiere valoración previa</option>
-                    <option value="rechazar">Rechazar</option>
+                    <option value="aceptar">{{ 'Aceptar igual' | t }}</option>
+                    <option value="suplemento">{{ 'Aceptar con suplemento' | t }}</option>
+                    <option value="valoracion_previa">{{ 'Requiere valoración previa' | t }}</option>
+                    <option value="rechazar">{{ 'Rechazar' | t }}</option>
                   </select>
-                  <span class="rs-field-hint">El importe del suplemento se define en tu catálogo de suplementos, no aquí.</span>
+                  <span class="rs-field-hint">{{ 'El importe del suplemento se define en tu catálogo de suplementos, no aquí.' | t }}</span>
                 </div>
                 <label class="rs-checkbox">
-                  <input type="checkbox" formControlName="bozalObligatorioSiAgresivo"> Bozal obligatorio si el perro es agresivo con la manipulación
+                  <input type="checkbox" formControlName="bozalObligatorioSiAgresivo"> {{ 'Bozal obligatorio si el perro es agresivo con la manipulación' | t }}
                 </label>
 
-                <h2 class="section-title">Servicios adicionales</h2>
+                <h2 class="section-title">{{ 'Servicios adicionales' | t }}</h2>
                 <div formArrayName="serviciosAdicionales" class="rows">
                   @for (s of serviciosAdicionalesPeluqueria.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card row-card--sm">
                       <div class="row-card__grid row-card__grid--2">
                         <div class="rs-field">
-                          <label class="rs-lbl">Nombre</label>
-                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Corte de uñas">
+                          <label class="rs-lbl">{{ 'Nombre' | t }}</label>
+                          <input class="rs-inp" formControlName="nombre" [placeholder]="'Ej. Corte de uñas' | t">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio (€)</label>
+                          <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalPeluqueria(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                       </button>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioAdicionalPeluqueria()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio adicional
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir servicio adicional' | t }}
                 </button>
 
-                <h2 class="section-title">Requisitos</h2>
+                <h2 class="section-title">{{ 'Requisitos' | t }}</h2>
                 <div class="rs-field">
-                  <span class="rs-lbl">Razas específicas atendidas (opcional)</span>
-                  <rs-tags-input formControlName="razasEspecificas" etiqueta="Razas específicas atendidas"
-                                 [opciones]="catalogos.razas" placeholder="Ej. Caniche…" />
+                  <span class="rs-lbl">{{ 'Razas específicas atendidas (opcional)' | t }}</span>
+                  <rs-tags-input formControlName="razasEspecificas" [etiqueta]="'Razas específicas atendidas' | t"
+                                 [opciones]="catalogos.razas" [placeholder]="'Ej. Caniche…' | t" />
                 </div>
                 <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereVacunasAlDia"> Exige vacunas al día</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereMicrochip"> Exige microchip</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereVacunasAlDia"> {{ 'Exige vacunas al día' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereMicrochip"> {{ 'Exige microchip' | t }}</label>
                 </div>
               </div>
             }
 
             @case ('adiestramiento') {
               <div formGroupName="adiestramiento" class="vertical-section">
-                <h2 class="section-title">Valoración inicial</h2>
+                <h2 class="section-title">{{ 'Valoración inicial' | t }}</h2>
                 <p class="rs-field-hint">
-                  Pon el precio de las modalidades que ofrezcas: una, dos o las tres. Deja en 0 las
-                  que no hagas.
+                  {{ 'Pon el precio de las modalidades que ofrezcas: una, dos o las tres. Deja en 0 las que no hagas.' | t }}
                 </p>
                 <div class="form-row-3">
                   <div class="rs-field">
-                    <label class="rs-lbl">Presencial (€)</label>
+                    <label class="rs-lbl">{{ 'Presencial (€)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionPresencialPrecio">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Online, videollamada (€)</label>
+                    <label class="rs-lbl">{{ 'Online, videollamada (€)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionOnlinePrecio">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">A domicilio (€)</label>
+                    <label class="rs-lbl">{{ 'A domicilio (€)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionDomicilioPrecio">
                   </div>
                 </div>
 
-                <h2 class="section-title">Catálogo de servicios y cursos</h2>
+                <h2 class="section-title">{{ 'Catálogo de servicios y cursos' | t }}</h2>
                 <div formArrayName="serviciosAdiestramiento" class="rows">
                   @for (s of serviciosAdiestramiento.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card">
                       <div class="row-card__grid row-card__grid--curso">
                         <div class="rs-field">
                           <label class="rs-lbl">
-                            Nombre * <span class="lbl-nota">(Escribe o selecciona)</span>
+                            {{ 'Nombre *' | t }} <span class="lbl-nota">{{ '(Escribe o selecciona)' | t }}</span>
                           </label>
                           <rs-combo-input formControlName="nombre" [opciones]="nombresCursos"
-                                          etiqueta="Nombre del servicio o curso"
-                                          placeholder="Elige un curso o escribe el tuyo" />
+                                          [etiqueta]="'Nombre del servicio o curso' | t"
+                                          [placeholder]="'Elige un curso o escribe el tuyo' | t" />
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Tipo</label>
+                          <label class="rs-lbl">{{ 'Tipo' | t }}</label>
                           <select class="rs-inp" formControlName="tipo">
-                            <option value="individual">Sesión individual</option>
-                            <option value="grupal">Sesión grupal</option>
-                            <option value="curso">Curso completo</option>
-                            <option value="especial">Servicio especial</option>
+                            <option value="individual">{{ 'Sesión individual' | t }}</option>
+                            <option value="grupal">{{ 'Sesión grupal' | t }}</option>
+                            <option value="curso">{{ 'Curso completo' | t }}</option>
+                            <option value="especial">{{ 'Servicio especial' | t }}</option>
                           </select>
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio (€) *</label>
+                          <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Duración</label>
+                          <label class="rs-lbl">{{ 'Duración' | t }}</label>
                           <div class="campo-duracion">
                             <input class="rs-inp" type="number" min="0" formControlName="duracionValor">
-                            <select class="rs-inp" formControlName="duracionUnidad" aria-label="Unidad de la duración">
-                              <option value="minutos">Minutos</option>
-                              <option value="horas">Horas</option>
-                              <option value="dias">Días</option>
-                              <option value="meses">Meses</option>
+                            <select class="rs-inp" formControlName="duracionUnidad" [attr.aria-label]="'Unidad de la duración' | t">
+                              <option value="minutos">{{ 'Minutos' | t }}</option>
+                              <option value="horas">{{ 'Horas' | t }}</option>
+                              <option value="dias">{{ 'Días' | t }}</option>
+                              <option value="meses">{{ 'Meses' | t }}</option>
                             </select>
                           </div>
                         </div>
                       </div>
                       <div class="row-card__grid row-card__grid--curso-datos">
                         <div class="rs-field">
-                          <label class="rs-lbl">Máx. perros</label>
+                          <label class="rs-lbl">{{ 'Máx. perros' | t }}</label>
                           <input class="rs-inp" type="number" min="1" formControlName="maxPerros">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Edad mín. (meses)</label>
+                          <label class="rs-lbl">{{ 'Edad mín. (meses)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Edad máx. (0 = sin límite)</label>
+                          <label class="rs-lbl">{{ 'Edad máx. (0 = sin límite)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" formControlName="edadMaximaMeses">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Lugar</label>
+                          <label class="rs-lbl">{{ 'Lugar' | t }}</label>
                           <select class="rs-inp" formControlName="lugar">
-                            <option value="centro">En el centro</option>
-                            <option value="domicilio">A domicilio</option>
-                            <option value="online">Online</option>
+                            <option value="centro">{{ 'En el centro' | t }}</option>
+                            <option value="domicilio">{{ 'A domicilio' | t }}</option>
+                            <option value="online">{{ 'Online' | t }}</option>
                           </select>
                         </div>
                       </div>
                       <div class="rs-field">
-                        <label class="rs-lbl">Material necesario (opcional)</label>
-                        <input class="rs-inp" formControlName="materialNecesario" placeholder="Ej. correa larga, arnés antitirón">
+                        <label class="rs-lbl">{{ 'Material necesario (opcional)' | t }}</label>
+                        <input class="rs-inp" formControlName="materialNecesario" [placeholder]="'Ej. correa larga, arnés antitirón' | t">
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdiestramiento(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                       </button>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioAdiestramiento()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio o curso
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir servicio o curso' | t }}
                 </button>
 
               </div>
@@ -1283,49 +1273,49 @@ function aCsv(v: string): string[] {
 
             @case ('hoteles') {
               <div formGroupName="hoteles" class="vertical-section">
-                <h2 class="section-title">Política de mascotas</h2>
+                <h2 class="section-title">{{ 'Política de mascotas' | t }}</h2>
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Máximo de mascotas por reserva (0 = sin límite)</label>
+                    <label class="rs-lbl">{{ 'Máximo de mascotas por reserva (0 = sin límite)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="maxMascotasPorReserva">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Peso máximo por mascota, kg (0 = sin límite)</label>
+                    <label class="rs-lbl">{{ 'Peso máximo por mascota, kg (0 = sin límite)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="pesoMaximoMascotaKg">
                   </div>
                 </div>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Razas restringidas</label>
+                  <label class="rs-lbl">{{ 'Razas restringidas' | t }}</label>
                   <select class="rs-inp" formControlName="razasRestringidas">
-                    <option value="ninguna">Ninguna restricción</option>
-                    <option value="ppp">Razas potencialmente peligrosas (PPP)</option>
-                    <option value="razas_gigantes">Razas gigantes</option>
-                    <option value="especificas">Razas específicas</option>
+                    <option value="ninguna">{{ 'Ninguna restricción' | t }}</option>
+                    <option value="ppp">{{ 'Razas potencialmente peligrosas (PPP)' | t }}</option>
+                    <option value="razas_gigantes">{{ 'Razas gigantes' | t }}</option>
+                    <option value="especificas">{{ 'Razas específicas' | t }}</option>
                   </select>
                 </div>
                 @if (hotelesGroup.get('razasRestringidas')?.value === 'especificas') {
                   <div class="rs-field">
-                    <span class="rs-lbl">Razas restringidas</span>
-                    <rs-tags-input formControlName="razasEspecificasRestringidas" etiqueta="Razas restringidas"
-                                   [opciones]="catalogos.razas" placeholder="Ej. Pit Bull Terrier…" />
+                    <span class="rs-lbl">{{ 'Razas restringidas' | t }}</span>
+                    <rs-tags-input formControlName="razasEspecificasRestringidas" [etiqueta]="'Razas restringidas' | t"
+                                   [opciones]="catalogos.razas" [placeholder]="'Ej. Pit Bull Terrier…' | t" />
                   </div>
                 }
 
                 <div class="rs-field">
-                  <span class="rs-lbl">Especies permitidas</span>
-                  <rs-tags-input formControlName="especiesPermitidas" etiqueta="Especies permitidas"
+                  <span class="rs-lbl">{{ 'Especies permitidas' | t }}</span>
+                  <rs-tags-input formControlName="especiesPermitidas" [etiqueta]="'Especies permitidas' | t"
                                  [opciones]="catalogos.especies" [permiteNuevos]="false"
-                                 placeholder="Elige de la lista…" />
+                                 [placeholder]="'Elige de la lista…' | t" />
                 </div>
 
-                <h2 class="section-title">Suplemento por tamaño de mascota (€/noche)</h2>
+                <h2 class="section-title">{{ 'Suplemento por tamaño de mascota (€/noche)' | t }}</h2>
                 <div formArrayName="suplementoPorTamanoMascota" class="rows">
                   @for (t of suplementoPorTamanoMascota.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card row-card--sm">
                       <div class="row-card__grid row-card__grid--2">
                         <div class="rs-field">
-                          <label class="rs-lbl">Tamaño</label>
+                          <label class="rs-lbl">{{ 'Tamaño' | t }}</label>
                           <select class="rs-inp" formControlName="tamano">
                             @for (tp of tamanosPerro; track tp.valor) {
                               <option [value]="tp.valor">{{ tp.etiqueta }}</option>
@@ -1333,39 +1323,38 @@ function aCsv(v: string): string[] {
                           </select>
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Suplemento (€/noche)</label>
+                          <label class="rs-lbl">{{ 'Suplemento (€/noche)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioPorNoche">
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarSuplementoPorTamanoMascota(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                       </button>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarSuplementoPorTamanoMascota()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tier de tamaño
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir tier de tamaño' | t }}
                 </button>
 
-                <h2 class="section-title">Servicios petfriendly</h2>
+                <h2 class="section-title">{{ 'Servicios petfriendly' | t }}</h2>
                 <div class="rs-field">
-                  <span class="rs-lbl">Servicios disponibles</span>
-                  <rs-tags-input formControlName="serviciosPetfriendly" etiqueta="Servicios pet-friendly del hotel"
-                                 [opciones]="catalogos.serviciosPetfriendly" placeholder="Ej. cama para mascota…" />
+                  <span class="rs-lbl">{{ 'Servicios disponibles' | t }}</span>
+                  <rs-tags-input formControlName="serviciosPetfriendly" [etiqueta]="'Servicios pet-friendly del hotel' | t"
+                                 [opciones]="catalogos.serviciosPetfriendly" [placeholder]="'Ej. cama para mascota…' | t" />
                 </div>
 
-                <h2 class="section-title">Normas del alojamiento</h2>
+                <h2 class="section-title">{{ 'Normas del alojamiento' | t }}</h2>
                 <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="puedeQuedarseSoloEnHabitacion"> Puede quedarse solo en la habitación</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="accesoZonasComunes"> Acceso a zonas comunes</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="debeIrConCorrea"> Debe ir con correa</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="debeLlevarBozalSiCorresponde"> Debe llevar bozal si corresponde</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="puedeQuedarseSoloEnHabitacion"> {{ 'Puede quedarse solo en la habitación' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="accesoZonasComunes"> {{ 'Acceso a zonas comunes' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="debeIrConCorrea"> {{ 'Debe ir con correa' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="debeLlevarBozalSiCorresponde"> {{ 'Debe llevar bozal si corresponde' | t }}</label>
                 </div>
 
-                <h2 class="section-title">Habitaciones pet-friendly</h2>
+                <h2 class="section-title">{{ 'Habitaciones pet-friendly' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
-                  Declara los tipos que admiten mascota, con sus fotos. Las plazas del hotel salen de
-                  la suma de sus cantidades, así que no hay que contarlas aparte.
+                  {{ 'Declara los tipos que admiten mascota, con sus fotos. Las plazas del hotel salen de la suma de sus cantidades, así que no hay que contarlas aparte.' | t }}
                 </p>
 
                 <div formArrayName="espacios" class="rows">
@@ -1373,43 +1362,42 @@ function aCsv(v: string): string[] {
                     <div [formGroupName]="i" class="row-card">
                       <div class="row-card__grid row-card__grid--3">
                         <div class="rs-field">
-                          <label class="rs-lbl">Tipo de habitación *</label>
-                          <input class="rs-inp" formControlName="tipo" placeholder="Ej. Doble pet-friendly">
+                          <label class="rs-lbl">{{ 'Tipo de habitación *' | t }}</label>
+                          <input class="rs-inp" formControlName="tipo" [placeholder]="'Ej. Doble pet-friendly' | t">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio/noche (€) *</label>
+                          <label class="rs-lbl">{{ 'Precio/noche (€) *' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Cantidad disponible *</label>
+                          <label class="rs-lbl">{{ 'Cantidad disponible *' | t }}</label>
                           <input class="rs-inp" type="number" min="1" formControlName="cantidad">
                         </div>
                       </div>
                       <div class="rs-field">
-                        <label class="rs-lbl">Descripción de la habitación</label>
+                        <label class="rs-lbl">{{ 'Descripción de la habitación' | t }}</label>
                         <input class="rs-inp" formControlName="descripcion"
-                               placeholder="Ej. Doble con terraza y cama para mascota">
+                               [placeholder]="'Ej. Doble con terraza y cama para mascota' | t">
                       </div>
                       <div class="rs-field">
-                        <span class="rs-lbl">Fotos de esta habitación</span>
+                        <span class="rs-lbl">{{ 'Fotos de esta habitación' | t }}</span>
                         <rs-image-upload origen="servicio/imagenes" [multiple]="true" [maxFiles]="8"
                                          formControlName="imagenes"></rs-image-upload>
                         <span class="rs-field-hint">
-                          El cliente reserva <em>esta</em> habitación: enséñale la que va a coger.
-                          JPEG, PNG o WebP · máx. 5 MB cada una.
+                          {{ 'El cliente reserva' | t }} <em>{{ 'esta' | t }}</em> {{ 'habitación: enséñale la que va a coger. JPEG, PNG o WebP · máx. 5 MB cada una.' | t }}
                         </span>
                       </div>
                       <div class="checkbox-row">
-                        <label class="rs-checkbox"><input type="checkbox" formControlName="disponible"> Disponible</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="disponible"> {{ 'Disponible' | t }}</label>
                         <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarHabitacionHotel(i)">
-                          <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                          <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                         </button>
                       </div>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarHabitacionHotel()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tipo de habitación
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir tipo de habitación' | t }}
                 </button>
 
                 <div class="fotos-cuenta" [class.fotos-cuenta--ok]="fotosSuficientes()">
@@ -1417,19 +1405,19 @@ function aCsv(v: string): string[] {
                   <span>{{ mensajeFotos() }}</span>
                 </div>
 
-                <h2 class="section-title">Info general</h2>
+                <h2 class="section-title">{{ 'Info general' | t }}</h2>
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Ingreso</label>
+                    <label class="rs-lbl">{{ 'Ingreso' | t }}</label>
                     <input class="rs-inp" type="time" formControlName="checkIn">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Salida</label>
+                    <label class="rs-lbl">{{ 'Salida' | t }}</label>
                     <input class="rs-inp" type="time" formControlName="checkOut">
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Fianza (€, 0 = sin fianza)</label>
+                  <label class="rs-lbl">{{ 'Fianza (€, 0 = sin fianza)' | t }}</label>
                   <input class="rs-inp" type="number" min="0" step="0.01" formControlName="fianza">
                 </div>
               </div>
@@ -1442,87 +1430,86 @@ function aCsv(v: string): string[] {
                   a la solicitud de alta. Estas coberturas y primas las configura
                   el equipo con la documentación de la compañía delante.
                 -->
-                <h2 class="section-title">Coberturas de la póliza</h2>
+                <h2 class="section-title">{{ 'Coberturas de la póliza' | t }}</h2>
                 <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
-                  Marca todo lo que incluye. El cliente verá estas coberturas antes de contratar.
+                  {{ 'Marca todo lo que incluye. El cliente verá estas coberturas antes de contratar.' | t }}
                 </span>
                 <div class="checks-grid">
                   @for (t of tiposSeguroCatalogo; track t.tipo) {
                     <label class="rs-checkbox">
                       <input type="checkbox" [checked]="tieneCobertura(t.tipo)"
                              (change)="alternarCobertura(t.tipo)">
-                      {{ t.label }}
+                      {{ t.label | t }}
                     </label>
                   }
                 </div>
 
-                <h2 class="section-title">Prima y vigencia</h2>
+                <h2 class="section-title">{{ 'Prima y vigencia' | t }}</h2>
                 <div class="row-card__grid row-card__grid--3">
                   <div class="rs-field">
-                    <label class="rs-lbl">Prima anual de referencia (€) *</label>
+                    <label class="rs-lbl">{{ 'Prima anual de referencia (€) *' | t }}</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="primaAnualBase">
-                    <span class="rs-field-hint">Orientativa: la validas tú antes de emitir.</span>
+                    <span class="rs-field-hint">{{ 'Orientativa: la validas tú antes de emitir.' | t }}</span>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Duración (meses)</label>
+                    <label class="rs-lbl">{{ 'Duración (meses)' | t }}</label>
                     <input class="rs-inp" type="number" min="1" formControlName="duracionMeses">
-                    <span class="rs-field-hint">12 = anual · menos = temporal (viajes, eventos)</span>
+                    <span class="rs-field-hint">{{ '12 = anual · menos = temporal (viajes, eventos)' | t }}</span>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Descuento por pago anual (%)</label>
+                    <label class="rs-lbl">{{ 'Descuento por pago anual (%)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" max="100" formControlName="descuentoPagoAnualPct">
                   </div>
                 </div>
                 <label class="rs-checkbox">
-                  <input type="checkbox" formControlName="renovacionAutomatica"> Renovación automática al vencimiento
+                  <input type="checkbox" formControlName="renovacionAutomatica"> {{ 'Renovación automática al vencimiento' | t }}
                 </label>
 
-                <h2 class="section-title">Condiciones de admisión</h2>
+                <h2 class="section-title">{{ 'Condiciones de admisión' | t }}</h2>
                 <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
-                  Determinan qué mascotas pueden contratar. Doogking las comprueba antes de dejar
-                  contratar, así que no recibirás solicitudes que no puedas aceptar.
+                  {{ 'Determinan qué mascotas pueden contratar. Doogking las comprueba antes de dejar contratar, así que no recibirás solicitudes que no puedas aceptar.' | t }}
                 </span>
                 <div class="row-card__grid row-card__grid--3">
                   <div class="rs-field">
-                    <label class="rs-lbl">Edad mínima (meses)</label>
+                    <label class="rs-lbl">{{ 'Edad mínima (meses)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Edad máxima (años)</label>
+                    <label class="rs-lbl">{{ 'Edad máxima (años)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="edadMaximaAnios">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Peso máximo (kg)</label>
+                    <label class="rs-lbl">{{ 'Peso máximo (kg)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="pesoMaximoKg">
                   </div>
                 </div>
                 <div class="rs-field">
-                  <span class="rs-lbl">Razas excluidas</span>
-                  <rs-tags-input formControlName="razasExcluidas" etiqueta="Razas excluidas de la póliza"
-                                 [opciones]="catalogos.razas" placeholder="Ej. Pit Bull Terrier…" />
+                  <span class="rs-lbl">{{ 'Razas excluidas' | t }}</span>
+                  <rs-tags-input formControlName="razasExcluidas" [etiqueta]="'Razas excluidas de la póliza' | t"
+                                 [opciones]="catalogos.razas" [placeholder]="'Ej. Pit Bull Terrier…' | t" />
                 </div>
                 <div class="row-card__grid row-card__grid--2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Recargo por riesgo (%)</label>
+                    <label class="rs-lbl">{{ 'Recargo por riesgo (%)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" max="200" formControlName="recargoRiesgoPct">
-                    <span class="rs-field-hint">Se aplica en vez de rechazar a perfiles de mayor riesgo.</span>
+                    <span class="rs-field-hint">{{ 'Se aplica en vez de rechazar a perfiles de mayor riesgo.' | t }}</span>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Cupo de pólizas (0 = sin límite)</label>
+                    <label class="rs-lbl">{{ 'Cupo de pólizas (0 = sin límite)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="cupoPolizas">
                   </div>
                 </div>
                 <div class="checkbox-row">
                   <label class="rs-checkbox">
-                    <input type="checkbox" formControlName="excluyePPP"> No cubre razas PPP
+                    <input type="checkbox" formControlName="excluyePPP"> {{ 'No cubre razas PPP' | t }}
                   </label>
                   <label class="rs-checkbox">
-                    <input type="checkbox" formControlName="requiereVacunasAlDia"> Exige vacunación al día
+                    <input type="checkbox" formControlName="requiereVacunasAlDia"> {{ 'Exige vacunación al día' | t }}
                   </label>
                 </div>
 
                 <div class="rs-field">
-                  <label class="rs-lbl">Condiciones generales (URL del PDF)</label>
+                  <label class="rs-lbl">{{ 'Condiciones generales (URL del PDF)' | t }}</label>
                   <input class="rs-inp" formControlName="documentoCondicionesUrl" placeholder="https://…">
                 </div>
               </div>
@@ -1536,10 +1523,9 @@ function aCsv(v: string): string[] {
                   servicio se desactiva sin borrarlo, porque las reservas
                   antiguas siguen apuntando a su nombre.
                 -->
-                <h2 class="section-title">Servicios que ofreces</h2>
+                <h2 class="section-title">{{ 'Servicios que ofreces' | t }}</h2>
                 <p class="rs-field-hint">
-                  Añade cada servicio con su precio. Si cobras según el peso del animal, usa los
-                  tramos: el cliente verá el precio exacto de su caso, no un «desde».
+                  {{ 'Añade cada servicio con su precio. Si cobras según el peso del animal, usa los tramos: el cliente verá el precio exacto de su caso, no un «desde».' | t }}
                 </p>
 
                 <div formArrayName="serviciosFunerarios" class="rows">
@@ -1548,96 +1534,95 @@ function aCsv(v: string): string[] {
                       <div class="row-card__grid row-card__grid--curso-tres">
                         <div class="rs-field">
                           <label class="rs-lbl">
-                            Nombre * <span class="lbl-nota">(Escribe o selecciona)</span>
+                            {{ 'Nombre *' | t }} <span class="lbl-nota">{{ '(Escribe o selecciona)' | t }}</span>
                           </label>
                           <rs-combo-input formControlName="nombre" [opciones]="nombresServiciosFunerarios"
-                                          etiqueta="Nombre del servicio funerario"
-                                          placeholder="Elige un servicio o escribe el tuyo" />
+                                          [etiqueta]="'Nombre del servicio funerario' | t"
+                                          [placeholder]="'Elige un servicio o escribe el tuyo' | t" />
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio (€) *</label>
+                          <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioBase">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Tiempo estimado (h)</label>
+                          <label class="rs-lbl">{{ 'Tiempo estimado (h)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" formControlName="tiempoEstimadoHoras">
                         </div>
                       </div>
 
                       <div class="rs-field">
-                        <label class="rs-lbl">Descripción</label>
+                        <label class="rs-lbl">{{ 'Descripción' | t }}</label>
                         <input class="rs-inp" formControlName="descripcion"
-                               placeholder="Ej. Cremación individual con entrega de cenizas en 48 h">
+                               [placeholder]="'Ej. Cremación individual con entrega de cenizas en 48 h' | t">
                       </div>
 
                       <div class="rs-field">
                         <span class="rs-lbl">
-                          Qué incluye <span class="lbl-nota">(Escribe o selecciona)</span>
+                          {{ 'Qué incluye' | t }} <span class="lbl-nota">{{ '(Escribe o selecciona)' | t }}</span>
                         </span>
-                        <rs-tags-input formControlName="incluye" etiqueta="Qué incluye el servicio"
+                        <rs-tags-input formControlName="incluye" [etiqueta]="'Qué incluye el servicio' | t"
                                        [opciones]="catalogos.incluyeFunerario"
-                                       placeholder="Elige de la lista o escribe lo tuyo…" />
+                                       [placeholder]="'Elige de la lista o escribe lo tuyo…' | t" />
                       </div>
 
                       <div class="rs-field">
-                        <label class="rs-lbl">Precio por tramos de peso (opcional, sustituye al precio de arriba)</label>
+                        <label class="rs-lbl">{{ 'Precio por tramos de peso (opcional, sustituye al precio de arriba)' | t }}</label>
                         <div formArrayName="tramosPeso" class="rows">
                           @for (t of tramosPeso(i).controls; track $index; let ti = $index) {
                             <div [formGroupName]="ti" class="row-card row-card--sm">
                               <div class="row-card__grid row-card__grid--2">
                                 <div class="rs-field">
-                                  <label class="rs-lbl">Hasta (kg)</label>
+                                  <label class="rs-lbl">{{ 'Hasta (kg)' | t }}</label>
                                   <input class="rs-inp" type="number" min="0" step="0.5" formControlName="hastaKg">
                                 </div>
                                 <div class="rs-field">
-                                  <label class="rs-lbl">Precio (€)</label>
+                                  <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
                                   <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                                 </div>
                               </div>
                               <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarTramoPeso(i, ti)">
-                                <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                                <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                               </button>
                             </div>
                           }
                         </div>
                         <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarTramoPeso(i)">
-                          <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir tramo de peso
+                          <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir tramo de peso' | t }}
                         </button>
                       </div>
 
                       <div class="checkbox-row">
-                        <label class="rs-checkbox"><input type="checkbox" formControlName="devuelveCenizas"> Devuelve las cenizas</label>
-                        <label class="rs-checkbox"><input type="checkbox" formControlName="urnaIncluida"> Urna incluida</label>
-                        <label class="rs-checkbox"><input type="checkbox" formControlName="certificadoIncluido"> Certificado incluido</label>
-                        <label class="rs-checkbox"><input type="checkbox" formControlName="activo"> Activo</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="devuelveCenizas"> {{ 'Devuelve las cenizas' | t }}</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="urnaIncluida"> {{ 'Urna incluida' | t }}</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="certificadoIncluido"> {{ 'Certificado incluido' | t }}</label>
+                        <label class="rs-checkbox"><input type="checkbox" formControlName="activo"> {{ 'Activo' | t }}</label>
                       </div>
 
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioFunerario(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar servicio
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar servicio' | t }}
                       </button>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioFunerario()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir servicio
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir servicio' | t }}
                 </button>
 
-                <h2 class="section-title">Recogida</h2>
+                <h2 class="section-title">{{ 'Recogida' | t }}</h2>
                 <p class="rs-field-hint">
-                  Si no recoges, el cliente solo podrá llevarte al animal. Fuera del radio que
-                  declares, la plataforma no dejará contratar la recogida.
+                  {{ 'Si no recoges, el cliente solo podrá llevarte al animal. Fuera del radio que declares, la plataforma no dejará contratar la recogida.' | t }}
                 </p>
-                <label class="rs-checkbox"><input type="checkbox" formControlName="ofreceRecogida"> Ofrezco recogida</label>
+                <label class="rs-checkbox"><input type="checkbox" formControlName="ofreceRecogida"> {{ 'Ofrezco recogida' | t }}</label>
 
                 @if (funerariosGroup.get('ofreceRecogida')?.value) {
                   <div class="rs-field">
-                    <span class="rs-lbl">Desde dónde recoges</span>
+                    <span class="rs-lbl">{{ 'Desde dónde recoges' | t }}</span>
                     <div class="checks-grid">
                       @for (l of lugaresRecogida; track l.valor) {
                         <label class="filter-check">
                           <input type="checkbox" [checked]="tieneLugarRecogida(l.valor)"
                                  (change)="toggleLugarRecogida(l.valor)" />
-                          {{ l.label }}
+                          {{ l.label | t }}
                         </label>
                       }
                     </div>
@@ -1645,14 +1630,14 @@ function aCsv(v: string): string[] {
 
                   <div class="form-row-2">
                     <div class="rs-field">
-                      <label class="rs-lbl">Radio máximo (km)</label>
+                      <label class="rs-lbl">{{ 'Radio máximo (km)' | t }}</label>
                       <input class="rs-inp" type="number" min="0" formControlName="radioRecogidaKm">
                     </div>
                     <div class="rs-field">
-                      <label class="rs-lbl">Cómo cobras el desplazamiento</label>
+                      <label class="rs-lbl">{{ 'Cómo cobras el desplazamiento' | t }}</label>
                       <select class="rs-inp" formControlName="modoPrecioRecogida">
                         @for (m of modosPrecioRecogida; track m.valor) {
-                          <option [value]="m.valor">{{ m.label }}</option>
+                          <option [value]="m.valor">{{ m.label | t }}</option>
                         }
                       </select>
                     </div>
@@ -1661,156 +1646,152 @@ function aCsv(v: string): string[] {
                   @switch (funerariosGroup.get('modoPrecioRecogida')?.value) {
                     @case ('fija') {
                       <div class="rs-field">
-                        <label class="rs-lbl">Precio de la recogida (€)</label>
+                        <label class="rs-lbl">{{ 'Precio de la recogida (€)' | t }}</label>
                         <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioRecogida">
                       </div>
                     }
                     @case ('por_km') {
                       <div class="rs-field">
-                        <label class="rs-lbl">Precio por kilómetro (€)</label>
+                        <label class="rs-lbl">{{ 'Precio por kilómetro (€)' | t }}</label>
                         <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioRecogidaPorKm">
                       </div>
                     }
                     @case ('por_zona') {
                       <div class="rs-field">
-                        <label class="rs-lbl">Zonas y su precio</label>
+                        <label class="rs-lbl">{{ 'Zonas y su precio' | t }}</label>
                         <div formArrayName="zonasRecogida" class="rows">
                           @for (z of zonasRecogida.controls; track $index; let zi = $index) {
                             <div [formGroupName]="zi" class="row-card row-card--sm">
                               <div class="row-card__grid row-card__grid--2">
                                 <div class="rs-field">
-                                  <label class="rs-lbl">Zona</label>
-                                  <input class="rs-inp" formControlName="nombre" placeholder="Ej. Área metropolitana">
+                                  <label class="rs-lbl">{{ 'Zona' | t }}</label>
+                                  <input class="rs-inp" formControlName="nombre" [placeholder]="'Ej. Área metropolitana' | t">
                                 </div>
                                 <div class="rs-field">
-                                  <label class="rs-lbl">Precio (€)</label>
+                                  <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
                                   <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                                 </div>
                               </div>
                               <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarZonaRecogida(zi)">
-                                <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                                <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                               </button>
                             </div>
                           }
                         </div>
                         <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarZonaRecogida()">
-                          <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir zona
+                          <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir zona' | t }}
                         </button>
                       </div>
                     }
                   }
                 }
 
-                <h2 class="section-title">Urgencias y disponibilidad</h2>
+                <h2 class="section-title">{{ 'Urgencias y disponibilidad' | t }}</h2>
                 <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="servicioUrgente"> Atiendo servicios urgentes</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="atiende24h"> Disponible 24 h</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="servicioUrgente"> {{ 'Atiendo servicios urgentes' | t }}</label>
+                  <label class="rs-checkbox"><input type="checkbox" formControlName="atiende24h"> {{ 'Disponible 24 h' | t }}</label>
                 </div>
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Suplemento por urgencia (€)</label>
+                    <label class="rs-lbl">{{ 'Suplemento por urgencia (€)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" step="0.01" formControlName="suplementoUrgencia">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Servicios que puedes atender al día</label>
+                    <label class="rs-lbl">{{ 'Servicios que puedes atender al día' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="cuposDisponibles">
                   </div>
                 </div>
                 <div class="rs-field">
-                  <span class="rs-lbl">Franjas en las que recoges o entregas</span>
+                  <span class="rs-lbl">{{ 'Franjas en las que recoges o entregas' | t }}</span>
                   <div class="checks-grid">
                     @for (f of franjasHorarias; track f.valor) {
                       <label class="filter-check">
                         <input type="checkbox" [checked]="tieneFranja(f.valor)" (change)="toggleFranja(f.valor)" />
-                        {{ f.label }}
+                        {{ f.label | t }}
                       </label>
                     }
                   </div>
                   <span class="rs-field-hint">
-                    No se pide hora exacta al cliente: se reserva por franja.
+                    {{ 'No se pide hora exacta al cliente: se reserva por franja.' | t }}
                   </span>
                 </div>
 
-                <h2 class="section-title">Extras opcionales</h2>
+                <h2 class="section-title">{{ 'Extras opcionales' | t }}</h2>
                 <p class="rs-field-hint">
-                  Lo que el cliente puede añadir al contratar: urnas, huellas, relicarios, grabados,
-                  sala de despedida, ceremonia…
+                  {{ 'Lo que el cliente puede añadir al contratar: urnas, huellas, relicarios, grabados, sala de despedida, ceremonia…' | t }}
                 </p>
                 <div formArrayName="extras" class="rows">
                   @for (e of extrasFunerarios.controls; track $index; let ei = $index) {
                     <div [formGroupName]="ei" class="row-card">
                       <div class="row-card__grid row-card__grid--curso">
                         <div class="rs-field">
-                          <label class="rs-lbl">Nombre *</label>
-                          <input class="rs-inp" formControlName="nombre" placeholder="Ej. Urna de madera">
+                          <label class="rs-lbl">{{ 'Nombre *' | t }}</label>
+                          <input class="rs-inp" formControlName="nombre" [placeholder]="'Ej. Urna de madera' | t">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Precio (€) *</label>
+                          <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Descripción</label>
-                          <input class="rs-inp" formControlName="descripcion" placeholder="Opcional">
+                          <label class="rs-lbl">{{ 'Descripción' | t }}</label>
+                          <input class="rs-inp" formControlName="descripcion" [placeholder]="'Opcional' | t">
                         </div>
                         <div class="rs-field">
-                          <label class="rs-lbl">Estado</label>
-                          <label class="rs-checkbox"><input type="checkbox" formControlName="activo"> Activo</label>
+                          <label class="rs-lbl">{{ 'Estado' | t }}</label>
+                          <label class="rs-checkbox"><input type="checkbox" formControlName="activo"> {{ 'Activo' | t }}</label>
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarExtraFunerario(ei)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> Quitar
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
                       </button>
                     </div>
                   }
                 </div>
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarExtraFunerario()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> Añadir extra
+                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir extra' | t }}
                 </button>
 
-                <h2 class="section-title">Cancelaciones</h2>
+                <h2 class="section-title">{{ 'Cancelaciones' | t }}</h2>
                 <p class="rs-field-hint">
-                  Esta categoría necesita dos condiciones distintas: antes de recoger todo es
-                  reversible; una vez iniciado el servicio, no. El cliente las ve antes de pagar.
+                  {{ 'Esta categoría necesita dos condiciones distintas: antes de recoger todo es reversible; una vez iniciado el servicio, no. El cliente las ve antes de pagar.' | t }}
                 </p>
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">Reembolso antes de la recogida (%)</label>
+                    <label class="rs-lbl">{{ 'Reembolso antes de la recogida (%)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" max="100" formControlName="reembolsoAntesRecogidaPct">
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">Reembolso con el servicio iniciado (%)</label>
+                    <label class="rs-lbl">{{ 'Reembolso con el servicio iniciado (%)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" max="100" formControlName="reembolsoIniciadoPct">
                   </div>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">Notas de la política</label>
+                  <label class="rs-lbl">{{ 'Notas de la política' | t }}</label>
                   <input class="rs-inp" formControlName="notasCancelacion"
-                         placeholder="Ej. Cancelaciones por teléfono hasta 2 h antes de la recogida">
+                         [placeholder]="'Ej. Cancelaciones por teléfono hasta 2 h antes de la recogida' | t">
                 </div>
 
-                <h2 class="section-title">Autorizaciones</h2>
+                <h2 class="section-title">{{ 'Autorizaciones' | t }}</h2>
                 <div class="rs-field">
                   <label class="rs-checkbox">
                     <input type="checkbox" formControlName="declaraAutorizaciones">
-                    Declaro disponer de las autorizaciones, registros, permisos o acuerdos necesarios
-                    para prestar legalmente los servicios que publico.
+                    {{ 'Declaro disponer de las autorizaciones, registros, permisos o acuerdos necesarios para prestar legalmente los servicios que publico.' | t }}
                   </label>
                   <span class="rs-field-hint">
-                    Obligatorio para publicar en esta categoría, además de la declaración
-                    responsable general de Doogking.
+                    {{ 'Obligatorio para publicar en esta categoría, además de la declaración responsable general de Doogking.' | t }}
                   </span>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl">¿Quién realiza la cremación?</label>
+                  <label class="rs-lbl">{{ '¿Quién realiza la cremación?' | t }}</label>
                   <select class="rs-inp" formControlName="cremacionPropia">
-                    <option [ngValue]="true">La realiza mi empresa</option>
-                    <option [ngValue]="false">Trabajo con un tercero</option>
+                    <option [ngValue]="true">{{ 'La realiza mi empresa' | t }}</option>
+                    <option [ngValue]="false">{{ 'Trabajo con un tercero' | t }}</option>
                   </select>
                 </div>
                 @if (funerariosGroup.get('cremacionPropia')?.value === false) {
                   <div class="rs-field">
-                    <label class="rs-lbl">Empresa que realiza la cremación</label>
-                    <input class="rs-inp" formControlName="terceroCrematorio" placeholder="Nombre del crematorio">
+                    <label class="rs-lbl">{{ 'Empresa que realiza la cremación' | t }}</label>
+                    <input class="rs-inp" formControlName="terceroCrematorio" [placeholder]="'Nombre del crematorio' | t">
                   </div>
                 }
               </div>
@@ -1821,10 +1802,10 @@ function aCsv(v: string): string[] {
                entero: no hay una suite concreta que fotografiar. -->
           @if (!fotosPorUnidad() && form.controls.vertical.value) {
             <div class="rs-field fotos-servicio">
-              <label class="rs-lbl">Fotos del servicio</label>
+              <label class="rs-lbl">{{ 'Fotos del servicio' | t }}</label>
               <rs-image-upload origen="servicio/imagenes" [multiple]="true" [maxFiles]="10"
                                formControlName="imagenes"></rs-image-upload>
-              <span class="rs-field-hint">JPEG, PNG o WebP · máx. 5 MB cada una.</span>
+              <span class="rs-field-hint">{{ 'JPEG, PNG o WebP · máx. 5 MB cada una.' | t }}</span>
               <div class="fotos-cuenta" [class.fotos-cuenta--ok]="fotosSuficientes()">
                 <rs-icon [name]="fotosSuficientes() ? 'check-circle' : 'camera'" [size]="15" [stroke]="2" />
                 <span>{{ mensajeFotos() }}</span>
@@ -1836,23 +1817,23 @@ function aCsv(v: string): string[] {
           @if (paso() === 'aptitud') {
             <!-- Repaso antes de crear: lo que se va a publicar, en una línea. -->
             <div class="repaso">
-              <p class="repaso__titulo">Esto es lo que vas a publicar</p>
+              <p class="repaso__titulo">{{ 'Esto es lo que vas a publicar' | t }}</p>
               <dl class="repaso__lista">
-                <div><dt>Categoría</dt><dd>{{ etiquetaVertical() || '—' }}</dd></div>
-                <div><dt>Nombre</dt><dd>{{ form.controls.titulo.value || '—' }}</dd></div>
-                <div><dt>Ciudad</dt><dd>{{ form.controls.ciudad.value || '—' }}</dd></div>
-                <div><dt>Precio desde</dt><dd>{{ form.controls.precioBase.value || 0 | euros }}</dd></div>
-                <div><dt>Fotos</dt><dd>{{ totalFotos() }}</dd></div>
+                <div><dt>{{ 'Categoría' | t }}</dt><dd>{{ etiquetaVertical() || '—' }}</dd></div>
+                <div><dt>{{ 'Nombre' | t }}</dt><dd>{{ form.controls.titulo.value || '—' }}</dd></div>
+                <div><dt>{{ 'Ciudad' | t }}</dt><dd>{{ form.controls.ciudad.value || '—' }}</dd></div>
+                <div><dt>{{ 'Precio desde' | t }}</dt><dd>{{ form.controls.precioBase.value || 0 | euros }}</dd></div>
+                <div><dt>{{ 'Fotos' | t }}</dt><dd>{{ totalFotos() }}</dd></div>
               </dl>
             </div>
 
             @if (!esEdicion()) {
               <div class="rs-alert rs-alert--info">
                 @if (modoAlta()) {
-                  Tu servicio queda <strong>publicado</strong> al terminar el alta. Aparecerá en el
+                  Tu servicio queda <strong>{{ 'publicado' | t }}</strong> al terminar el alta. Aparecerá en el
                   buscador en cuanto revisemos tu negocio.
                 } @else {
-                  Tu servicio queda <strong>publicado</strong>. Puedes pausarlo cuando quieras desde
+                  Tu servicio queda <strong>{{ 'publicado' | t }}</strong>. Puedes pausarlo cuando quieras desde
                   «Mis servicios».
                 }
               </div>
@@ -1871,15 +1852,15 @@ function aCsv(v: string): string[] {
               @if (modoAlta()) {
                 <button type="button" class="rs-btn rs-btn--ghost" (click)="volverAtras.emit()">
                   <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-                  Cambiar de servicio
+                  {{ 'Cambiar de servicio' | t }}
                 </button>
               } @else {
-                <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost">Cancelar</a>
+                <a routerLink="/comercio/listados" class="rs-btn rs-btn--ghost">{{ 'Cancelar' | t }}</a>
               }
             } @else {
               <button type="button" class="rs-btn rs-btn--ghost" (click)="pasoAnterior()">
                 <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-                Atrás
+                {{ 'Atrás' | t }}
               </button>
             }
 
@@ -1892,7 +1873,7 @@ function aCsv(v: string): string[] {
               </button>
             } @else {
               <button type="button" class="rs-btn rs-btn--primary" (click)="siguientePaso()">
-                Continuar
+                {{ 'Continuar' | t }}
                 <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
               </button>
             }

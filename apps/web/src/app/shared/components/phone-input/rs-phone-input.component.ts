@@ -7,6 +7,7 @@ import {
 } from '../../catalogos/paises.catalogo';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsBanderaComponent } from '../bandera/rs-bandera.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Compara ignorando mayúsculas y tildes: "espana" encuentra "España". */
 const normalizar = (texto: string): string =>
@@ -25,7 +26,9 @@ const normalizar = (texto: string): string =>
 @Component({
   selector: 'rs-phone-input',
   standalone: true,
-  imports: [RsIconComponent, RsBanderaComponent],
+  imports: [
+    TraducirPipe, RsIconComponent, RsBanderaComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => RsPhoneInputComponent), multi: true },
@@ -55,9 +58,9 @@ const normalizar = (texto: string): string =>
   </div>
 
   @if (desplegado()) {
-    <div class="ph__pop" role="dialog" aria-label="Elegir prefijo de país">
+    <div class="ph__pop" role="dialog" [attr.aria-label]="'Elegir prefijo de país' | t">
       <input #buscador type="text" class="ph__buscar" autocomplete="off"
-             placeholder="Busca un país o prefijo…"
+             [placeholder]="'Busca un país o prefijo…' | t"
              [value]="filtro()"
              (input)="filtrar($event)" />
 

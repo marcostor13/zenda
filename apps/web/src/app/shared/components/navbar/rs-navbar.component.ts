@@ -4,6 +4,7 @@ import { nombreAlphaPresentacion } from 'shared';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsRegionSelectorComponent } from '../region/rs-region-selector.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { VERTICALES_PUBLICOS } from '../../verticales/verticales.config';
 import { BRAND } from '../../media/images';
 import { FavoritosService } from '../../../features/favoritos/favoritos.service';
@@ -15,14 +16,17 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
 @Component({
   selector: 'rs-navbar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RsIconComponent, RsRegionSelectorComponent],
+  imports: [
+    RouterLink, RouterLinkActive, RsIconComponent, RsRegionSelectorComponent,
+    TraducirPipe,
+  ],
   template: `
     <nav class="rs-navbar">
       <!-- Marca: la inicial "D" siempre visible (patrón Booking) y el logotipo
            completo solo cuando hay espacio, para que la barra nunca se rompa.
            En la home el logotipo ya aparece en grande en el hero, así que ahí
            se oculta el pequeño para no duplicarlo (PDF 27/07 §1). -->
-      <a routerLink="/" class="rs-navbar__brand" aria-label="Doogking — inicio">
+      <a routerLink="/" class="rs-navbar__brand" [attr.aria-label]="'Doogking — inicio' | t">
         <img [src]="logoD" alt="" aria-hidden="true" class="rs-navbar__mark" />
         <!-- Solo en movil: ahi la barra se queda con la "D" suelta y el nombre
              no se lee. En escritorio manda el logotipo. -->
@@ -35,36 +39,38 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       <!-- Desktop nav — una entrada por categoría (misma config que el buscador).
            Cada una lleva su icono: en escritorio esta fila es el único selector
            de categoría, porque el buscador del home ya no la duplica. -->
-      <div class="rs-navbar__nav">
-        @for (v of verticales; track v.key) {
-          <a [routerLink]="v.route" routerLinkActive="rs-navbar__link--active"
-             class="rs-navbar__link rs-navbar__link--cat">
-            <img [src]="v.icono" alt="" aria-hidden="true" class="rs-navbar__link-icon" />
-            {{ v.labelCorto }}
-          </a>
-        }
-      </div>
+      @if (muestraCategorias()) {
+        <div class="rs-navbar__nav">
+          @for (v of verticales; track v.key) {
+            <a [routerLink]="v.route" routerLinkActive="rs-navbar__link--active"
+               class="rs-navbar__link rs-navbar__link--cat">
+              <img [src]="v.icono" alt="" aria-hidden="true" class="rs-navbar__link-icon" />
+              {{ v.labelCorto | t }}
+            </a>
+          }
+        </div>
+      }
 
       <!-- Desktop actions -->
       <div class="rs-navbar__actions">
         <rs-region-selector />
 
         <a routerLink="/ayuda" class="rs-navbar__ayuda"
-           aria-label="Ayuda y atención al cliente" title="Ayuda y atención al cliente">
+           [attr.aria-label]="'Ayuda y atención al cliente' | t" [attr.title]="'Ayuda y atención al cliente' | t">
           <rs-icon name="message-square" [size]="16" [stroke]="2"></rs-icon>
         </a>
 
         @if (muestraAltaComercio()) {
           <a routerLink="/auth/registro-comercio" class="rs-navbar__link rs-navbar__link--pro">
             <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
-            <span i18n="@@navbar.altaEmpresa">Registra tu empresa</span>
+            <span>{{ 'Registra tu empresa' | t }}</span>
           </a>
         }
         @if (estaAutenticado()) {
           @if (esAdmin()) {
             <a routerLink="/admin" class="rs-btn rs-btn--primary rs-btn--sm">
               <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
-              Panel Admin
+              {{ 'Panel Admin' | t }}
             </a>
           }
           @if (esComercio()) {
@@ -73,7 +79,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                  (TCK-8029). -->
             <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--sm">
               <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
-              Panel de mi comercio
+              {{ 'Panel de mi comercio' | t }}
             </a>
           }
           <div class="rs-navbar__account" (click)="$event.stopPropagation()">
@@ -87,7 +93,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                 }
                 @if (tieneAvisoPendiente()) { <span class="rs-navbar__dot" aria-hidden="true"></span> }
               </span>
-              Mi cuenta
+              {{ 'Mi cuenta' | t }}
               <rs-icon name="chevron-down" [size]="14" [stroke]="2"></rs-icon>
             </button>
             @if (cuentaAbierto()) {
@@ -98,14 +104,15 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                   <span class="rs-navbar__dropdown-name">{{ nombreCuenta() }}</span>
                   @if (clienteVerificado()) {
                     <span class="rs-badge rs-badge--success rs-navbar__verificado">
-                      <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> Cliente verificado
+                      <rs-icon name="badge-check" [size]="13" [stroke]="2"></rs-icon> {{ 'Cliente verificado' | t }}
                     </span>
                   }
                   @if (alpha(); as a) {
                     <span class="rs-navbar__dropdown-alpha">
                       <rs-icon name="crown" [size]="13" [stroke]="2"></rs-icon>
-                      Nivel {{ nombreAlpha(a) }} · {{ a.reservasCompletadas }}
-                      {{ a.reservasCompletadas === 1 ? 'reserva' : 'reservas' }}
+                      {{ 'Nivel {nivel}' | t: { nivel: nombreAlpha(a) } }} ·
+                      {{ (a.reservasCompletadas === 1 ? '{n} reserva' : '{n} reservas')
+                          | t: { n: a.reservasCompletadas } }}
                     </span>
                   }
                 </div>
@@ -113,45 +120,45 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                 <div class="rs-navbar__dropdown-divider"></div>
 
                 <a routerLink="/perfil" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="user" [size]="15" [stroke]="2"></rs-icon> Mi perfil
+                  <rs-icon name="user" [size]="15" [stroke]="2"></rs-icon> {{ 'Mi perfil' | t }}
                 </a>
                 <a routerLink="/perros" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="paw" [size]="15" [stroke]="2"></rs-icon> Mis mascotas
+                  <rs-icon name="paw" [size]="15" [stroke]="2"></rs-icon> {{ 'Mis mascotas' | t }}
                   @if (numMascotas() > 0) { <span class="rs-navbar__count">{{ numMascotas() }}</span> }
                 </a>
                 <a routerLink="/reservas" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--highlight" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="calendar" [size]="15" [stroke]="2"></rs-icon> Mis reservas
+                  <rs-icon name="calendar" [size]="15" [stroke]="2"></rs-icon> {{ 'Mis reservas' | t }}
                   @if (tieneReservaProxima()) {
                     <span class="rs-navbar__pill">
-                      <rs-icon name="clock" [size]="12" [stroke]="2.5"></rs-icon> Próxima reserva
+                      <rs-icon name="clock" [size]="12" [stroke]="2.5"></rs-icon> {{ 'Próxima reserva' | t }}
                     </span>
                   }
                 </a>
                 <a routerLink="/favoritos" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="heart" [size]="15" [stroke]="2"></rs-icon> Favoritos
+                  <rs-icon name="heart" [size]="15" [stroke]="2"></rs-icon> {{ 'Favoritos' | t }}
                   @if (favoritosService.count() > 0) { <span class="rs-navbar__count">{{ favoritosService.count() }}</span> }
                 </a>
                 <a routerLink="/perfil/resenas" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="star" [size]="15" [stroke]="2"></rs-icon> Mis reseñas
+                  <rs-icon name="star" [size]="15" [stroke]="2"></rs-icon> {{ 'Mis reseñas' | t }}
                   @if (numResenas() > 0) { <span class="rs-navbar__count">{{ numResenas() }}</span> }
-                  @if (tienePendientesResena()) { <span class="rs-navbar__pill">Pendiente</span> }
+                  @if (tienePendientesResena()) { <span class="rs-navbar__pill">{{ 'Pendiente' | t }}</span> }
                 </a>
 
                 @if (esCliente()) {
                   <div class="rs-navbar__dropdown-divider"></div>
 
                   <a routerLink="/perfil/alpha" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
-                    <rs-icon name="crown" [size]="15" [stroke]="2"></rs-icon> Nivel Alpha y recompensas
+                    <rs-icon name="crown" [size]="15" [stroke]="2"></rs-icon> {{ 'Nivel Alpha y recompensas' | t }}
                   </a>
                 }
 
                 <div class="rs-navbar__dropdown-divider"></div>
 
                 <a routerLink="/perfil" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="settings" [size]="15" [stroke]="2"></rs-icon> Configuración
+                  <rs-icon name="settings" [size]="15" [stroke]="2"></rs-icon> {{ 'Configuración' | t }}
                 </a>
                 <a routerLink="/ayuda" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
-                  <rs-icon name="message-square" [size]="15" [stroke]="2"></rs-icon> Ayuda
+                  <rs-icon name="message-square" [size]="15" [stroke]="2"></rs-icon> {{ 'Ayuda' | t }}
                 </a>
 
                 <!-- Buscar servicios vive en la navegación principal, no en la
@@ -159,14 +166,14 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                 <div class="rs-navbar__dropdown-divider"></div>
 
                 <button type="button" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--danger" (click)="cerrarSesion()">
-                  <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> Cerrar sesión
+                  <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> {{ 'Cerrar sesión' | t }}
                 </button>
               </div>
             }
           </div>
         } @else {
-          <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm" i18n="@@navbar.ingresar">Ingresar</a>
-          <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm" i18n="@@navbar.comenzar">Hazte una cuenta</a>
+          <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm">{{ 'Ingresar' | t }}</a>
+          <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm">{{ 'Hazte una cuenta' | t }}</a>
         }
       </div>
 
@@ -178,7 +185,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       -->
       <a class="rs-navbar__cuenta"
          [routerLink]="estaAutenticado() ? '/perfil' : '/auth/login'"
-         [attr.aria-label]="estaAutenticado() ? nombreCuenta() : 'Entrar en mi cuenta'">
+         [attr.aria-label]="estaAutenticado() ? nombreCuenta() : ('Entrar en mi cuenta' | t)">
         @if (estaAutenticado() && iniciales()) {
           <span class="rs-navbar__cuenta-ini">{{ iniciales() }}</span>
         } @else {
@@ -206,12 +213,12 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       categorías quedaban escondidas, así que vivían dentro de la tarjeta del
       buscador y le robaban la primera pantalla.
     -->
-    @if (categoriasMovil()) {
-      <nav class="rs-navbar__cats" aria-label="Categorías de servicio">
+    @if (categoriasMovil() && muestraCategorias()) {
+      <nav class="rs-navbar__cats" [attr.aria-label]="'Categorías de servicio' | t">
         @for (v of verticales; track v.key) {
           <a [routerLink]="v.route" routerLinkActive="is-active" class="rs-navbar__cat">
             <img [src]="v.icono" alt="" aria-hidden="true" class="rs-navbar__cat-icon" />
-            <span class="rs-navbar__cat-label">{{ v.labelCorto }}</span>
+            <span class="rs-navbar__cat-label">{{ v.labelCorto | t }}</span>
           </a>
         }
       </nav>
@@ -220,49 +227,51 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     <!-- Mobile menu drawer -->
     @if (menuAbierto()) {
       <div class="rs-mobile-menu">
-        <nav class="rs-mobile-menu__nav">
-          @for (v of verticales; track v.key) {
-            <a [routerLink]="v.route" routerLinkActive="rs-mobile-menu__link--active"
-               class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
-              <rs-icon [name]="v.icon" [size]="17" [stroke]="2"></rs-icon> {{ v.label }}
-            </a>
-          }
-        </nav>
+        @if (muestraCategorias()) {
+          <nav class="rs-mobile-menu__nav">
+            @for (v of verticales; track v.key) {
+              <a [routerLink]="v.route" routerLinkActive="rs-mobile-menu__link--active"
+                 class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+                <rs-icon [name]="v.icon" [size]="17" [stroke]="2"></rs-icon> {{ v.label | t }}
+              </a>
+            }
+          </nav>
 
-        <div class="rs-mobile-menu__divider"></div>
+          <div class="rs-mobile-menu__divider"></div>
+        }
 
         <div class="rs-mobile-menu__actions">
           <rs-region-selector [block]="true" />
 
           <a routerLink="/ayuda" class="rs-btn rs-btn--ghost rs-btn--block" (click)="menuAbierto.set(false)">
             <rs-icon name="message-square" [size]="15" [stroke]="2"></rs-icon>
-            Ayuda y atención al cliente
+            {{ 'Ayuda y atención al cliente' | t }}
           </a>
 
           @if (estaAutenticado()) {
             @if (esAdmin()) {
               <a routerLink="/admin" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">
                 <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
-                Panel Admin
+                {{ 'Panel Admin' | t }}
               </a>
             }
             @if (esComercio()) {
               <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">
                 <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
-                Panel de mi comercio
+                {{ 'Panel de mi comercio' | t }}
               </a>
             }
-            <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mi perfil</a>
-            <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis mascotas</a>
-            <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Mis reservas</a>
-            <a routerLink="/favoritos" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Favoritos</a>
+            <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mi perfil' | t }}</a>
+            <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis mascotas' | t }}</a>
+            <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis reservas' | t }}</a>
+            <a routerLink="/favoritos" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Favoritos' | t }}</a>
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cerrarSesion()">
               <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon>
-              Cerrar sesión
+              {{ 'Cerrar sesión' | t }}
             </button>
           } @else {
-            <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--block"   (click)="menuAbierto.set(false)">Ingresar</a>
-            <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">Hazte una cuenta gratis</a>
+            <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--block"   (click)="menuAbierto.set(false)">{{ 'Ingresar' | t }}</a>
+            <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Hazte una cuenta gratis' | t }}</a>
           }
 
           <!-- El alta de comercio cierra el menú: es una acción secundaria para
@@ -270,7 +279,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
           @if (muestraAltaComercio()) {
             <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--outline rs-btn--block" (click)="menuAbierto.set(false)">
               <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
-              Registra tu empresa
+              {{ 'Registra tu empresa' | t }}
             </a>
           }
         </div>
@@ -649,6 +658,13 @@ export class RsNavbarComponent implements OnInit {
    * a quien no ha entrado y también al cliente logueado, no solo a los visitantes.
    */
   readonly muestraAltaComercio = computed(() => !this.esComercio() && !this.esAdmin());
+
+  /**
+   * Las categorias de servicio son navegacion de cliente: quien entra como
+   * comercio o como administrador gestiona su panel, no reserva servicios, y
+   * esas entradas solo le ensucian la barra (escritorio y movil).
+   */
+  readonly muestraCategorias = computed(() => !this.esComercio() && !this.esAdmin());
 
   readonly iniciales = computed(() => {
     const nombre = this.authService.usuario()?.nombre ?? '';

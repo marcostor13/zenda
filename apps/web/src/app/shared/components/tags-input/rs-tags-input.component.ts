@@ -3,6 +3,7 @@ import {
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /** Compara ignorando mayúsculas y tildes: "Alergia" y "alergía" son lo mismo. */
 const normalizar = (texto: string): string =>
@@ -22,7 +23,9 @@ const normalizar = (texto: string): string =>
 @Component({
   selector: 'rs-tags-input',
   standalone: true,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => RsTagsInputComponent), multi: true },
@@ -57,18 +60,18 @@ const normalizar = (texto: string): string =>
   @if (escribiendoOtro()) {
     <div class="tg__otro">
       <label class="tg__otro-lbl" [for]="listaId + '-otro'">
-        Escribe el servicio que quieres añadir
+        {{ 'Escribe el servicio que quieres añadir' | t }}
       </label>
       <div class="tg__otro-fila">
         <input #otro type="text" class="rs-inp" [id]="listaId + '-otro'"
-               placeholder="Ej. piscina climatizada"
+               [placeholder]="'Ej. piscina climatizada' | t"
                (keydown.enter)="confirmarOtro(otro.value); otro.value = ''; $event.preventDefault()" />
         <button type="button" class="rs-btn rs-btn--secondary rs-btn--sm"
                 (click)="confirmarOtro(otro.value); otro.value = ''">
-          Añadir
+          {{ 'Añadir' | t }}
         </button>
         <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="escribiendoOtro.set(false)">
-          Cancelar
+          {{ 'Cancelar' | t }}
         </button>
       </div>
     </div>

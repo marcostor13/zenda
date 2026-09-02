@@ -9,6 +9,7 @@ import { ImgFallbackDirective } from '../../shared/directives/img-fallback.direc
 import { fotoDeLugar } from '../../shared/media/images';
 import { rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { LugarApi, LugarReviewApi, LugaresService } from './lugares.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Cómo se lee cada atributo en la ficha; el resto se muestran tal cual. */
 const ATRIBUTO_LABELS: Record<string, string> = {
@@ -37,7 +38,9 @@ const ATRIBUTO_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-explora-detalle',
   standalone: true,
-  imports: [DatePipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsStarsComponent],
+  imports: [
+    TraducirPipe, DatePipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsStarsComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ed-page">
@@ -45,13 +48,13 @@ const ATRIBUTO_LABELS: Record<string, string> = {
 
   <div class="rs-wrap rs-wrap--lg ed-wrap">
     <a routerLink="/explora" class="back-link">
-      <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon> Explora con tu mascota
+      <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon> {{ 'Explora con tu mascota' | t }}
     </a>
 
     @if (cargando()) {
-      <p class="ed-cargando">Cargando…</p>
+      <p class="ed-cargando">{{ 'Cargando…' | t }}</p>
     } @else if (!lugar()) {
-      <div class="rs-alert rs-alert--error">No hemos encontrado este sitio.</div>
+      <div class="rs-alert rs-alert--error">{{ 'No hemos encontrado este sitio.' | t }}</div>
     } @else {
       <header class="ed-head">
         <p class="ed-tipo">{{ etiquetaTipo() }}</p>
@@ -83,7 +86,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
         <figure class="ed-fotos ed-fotos--ambiente">
           <img [src]="fotoAmbiente()" [alt]="" aria-hidden="true" loading="lazy" rsImg />
           <figcaption>
-            Imagen de ambiente. ¿Has estado aquí? Sube tu foto y ayuda a los demás.
+            {{ 'Imagen de ambiente. ¿Has estado aquí? Sube tu foto y ayuda a los demás.' | t }}
           </figcaption>
         </figure>
       }
@@ -94,7 +97,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
 
       @if (atributos().length) {
         <section class="ed-bloque">
-          <h2>Qué vas a encontrar</h2>
+          <h2>{{ 'Qué vas a encontrar' | t }}</h2>
           <dl class="ed-atributos">
             @for (a of atributos(); track a.clave) {
               <div>
@@ -109,14 +112,14 @@ const ATRIBUTO_LABELS: Record<string, string> = {
       @if (comoLlegar()) {
         <a class="rs-btn rs-btn--outline" [href]="comoLlegar()" target="_blank" rel="noopener">
           <rs-icon name="map-pin" [size]="15" [stroke]="2"></rs-icon>
-          Cómo llegar
+          {{ 'Cómo llegar' | t }}
         </a>
       }
 
       <section class="ed-bloque">
-        <h2>Opiniones de la comunidad</h2>
+        <h2>{{ 'Opiniones de la comunidad' | t }}</h2>
         @if (!reviews().length) {
-          <p class="ed-vacio">Aún no hay opiniones publicadas de este sitio.</p>
+          <p class="ed-vacio">{{ 'Aún no hay opiniones publicadas de este sitio.' | t }}</p>
         } @else {
           <ul class="ed-reviews">
             @for (r of reviews(); track r._id) {
@@ -125,7 +128,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
                   <strong>{{ r.usuarioNombre }}</strong>
                   @if (r.esIncidencia) {
                     <span class="ed-incidencia">
-                      <rs-icon name="alert-circle" [size]="12" [stroke]="2"></rs-icon> Incidencia
+                      <rs-icon name="alert-circle" [size]="12" [stroke]="2"></rs-icon> {{ 'Incidencia' | t }}
                     </span>
                   } @else {
                     <rs-stars class="ed-estrellas" [score]="r.puntuacion" />
@@ -143,16 +146,16 @@ const ATRIBUTO_LABELS: Record<string, string> = {
       <section class="ed-servicios">
         <div>
           <h2>Servicios de Doogking en {{ lugar()!.ubicacion.ciudad }}</h2>
-          <p>¿Vas a pasar el día por la zona? Reserva peluquería, veterinario o alojamiento cerca.</p>
+          <p>{{ '¿Vas a pasar el día por la zona? Reserva peluquería, veterinario o alojamiento cerca.' | t }}</p>
         </div>
         <div class="ed-servicios__acciones">
           <a class="rs-btn rs-btn--gold" [routerLink]="rutaAlojamiento"
              [queryParams]="{ ciudad: lugar()!.ubicacion.ciudad }">
-            Ver alojamientos
+            {{ 'Ver alojamientos' | t }}
           </a>
           <a class="rs-btn rs-btn--outline" [routerLink]="rutaPeluqueria"
              [queryParams]="{ ciudad: lugar()!.ubicacion.ciudad }">
-            Ver peluquerías
+            {{ 'Ver peluquerías' | t }}
           </a>
         </div>
       </section>

@@ -10,6 +10,7 @@ import { iconoVertical } from './vertical-icon';
 import { verticalUi, enlaceAServicio } from '../../shared/verticales/verticales.config';
 
 import { euros } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 type FiltroEstadoServicio = 'todos' | 'publicado' | 'borrador' | 'pausado';
 
 const FILTROS_ESTADO: ReadonlyArray<{ valor: FiltroEstadoServicio; label: string }> = [
@@ -34,17 +35,19 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
 @Component({
   selector: 'app-comercio-listados',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, ReactiveFormsModule, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, DecimalPipe, ReactiveFormsModule, RsIconComponent
+  ],
   template: `
     <!-- HEADER -->
     <div class="page-header">
       <div>
-        <h1 class="page-title">Mis servicios</h1>
-        <p class="page-sub">Crea, publica y gestiona los servicios que ofreces en Doogking.</p>
+        <h1 class="page-title">{{ 'Mis servicios' | t }}</h1>
+        <p class="page-sub">{{ 'Crea, publica y gestiona los servicios que ofreces en Doogking.' | t }}</p>
       </div>
       <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary">
         <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon>
-        Nuevo servicio
+        {{ 'Nuevo servicio' | t }}
       </a>
     </div>
 
@@ -54,7 +57,7 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
         @for (f of filtros; track f.valor) {
           <button class="filter-pill" [class.active]="filtroEstado() === f.valor"
                   (click)="filtroEstado.set(f.valor)">
-            {{ f.label }}
+            {{ f.label | t }}
             <span class="filter-pill__count">{{ contarEstado(f.valor) }}</span>
           </button>
         }
@@ -65,13 +68,13 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
         <div class="controles">
           <label class="buscador">
             <rs-icon name="search" [size]="15" [stroke]="2"></rs-icon>
-            <input class="buscador__input" type="search" placeholder="Buscar un servicio por nombre"
+            <input class="buscador__input" type="search" [placeholder]="'Buscar un servicio por nombre' | t"
                    [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
           </label>
           @if (categorias().length > 1) {
             <select class="rs-inp control-select" [value]="categoria()"
-                    (change)="categoria.set($any($event.target).value)" aria-label="Categoría">
-              <option value="">Todas las categorías</option>
+                    (change)="categoria.set($any($event.target).value)" [attr.aria-label]="'Categoría' | t">
+              <option value="">{{ 'Todas las categorías' | t }}</option>
               @for (c of categorias(); track c) {
                 <option [value]="c">{{ etiquetaVertical(c) }}</option>
               }
@@ -91,19 +94,18 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
       <div class="rs-card empty-state">
         <rs-icon name="tag" [size]="40" [stroke]="1.25" style="color:var(--t-400)"></rs-icon>
         <p>
-          Publica tu primer servicio. Configura el servicio, precio, disponibilidad y condiciones
-          para empezar a recibir reservas.
+          {{ 'Publica tu primer servicio. Configura el servicio, precio, disponibilidad y condiciones para empezar a recibir reservas.' | t }}
         </p>
         <a routerLink="/comercio/listados/nuevo" class="rs-btn rs-btn--primary">
           <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon>
-          Crear mi primer servicio
+          {{ 'Crear mi primer servicio' | t }}
         </a>
       </div>
     } @else if (serviciosFiltrados().length === 0) {
       <div class="rs-card empty-state">
         <rs-icon name="search" [size]="36" [stroke]="1.25" style="color:var(--t-400)"></rs-icon>
-        <p>Ningún servicio coincide con la búsqueda.</p>
-        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarFiltros()">Quitar los filtros</button>
+        <p>{{ 'Ningún servicio coincide con la búsqueda.' | t }}</p>
+        <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="limpiarFiltros()">{{ 'Quitar los filtros' | t }}</button>
       </div>
     } @else {
       <div class="listados-list">
@@ -144,20 +146,20 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
                  el resto de la tarjeta). -->
             <div class="listado-card__actions">
               <div class="mas-opciones" (click)="$event.stopPropagation()">
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Más opciones"
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Más opciones' | t"
                         (click)="menuAbiertoId.set(menuAbiertoId() === s._id ? null : s._id)">
                   <rs-icon name="more-horizontal" [size]="14" [stroke]="2"></rs-icon>
                 </button>
                 @if (menuAbiertoId() === s._id) {
                   <div class="mas-opciones__menu">
                     <a class="mas-opciones__item" [routerLink]="['/comercio/listados', s._id, 'editar']">
-                      <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
+                      <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> {{ 'Editar' | t }}
                     </a>
                     <button class="mas-opciones__item" (click)="toggleDisponibilidad(s); menuAbiertoId.set(null)">
-                      <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> Disponibilidad
+                      <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> {{ 'Disponibilidad' | t }}
                     </button>
                     <a class="mas-opciones__item" [routerLink]="enlacePublico(s)">
-                      <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver en Doogking
+                      <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> {{ 'Ver en Doogking' | t }}
                     </a>
                     <button class="mas-opciones__item" [disabled]="toggling() === s._id"
                             (click)="toggleEstado(s); menuAbiertoId.set(null)">
@@ -176,23 +178,23 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
           @if (disponibilidadAbiertaId() === s._id) {
             <div class="rs-card disponibilidad-panel">
               @if (s.vertical === 'alojamiento') {
-                <label class="rs-label">Espacios reservables</label>
+                <label class="rs-label">{{ 'Espacios reservables' | t }}</label>
                 @for (e of espaciosEdit(); track $index) {
                   <div class="espacio-row">
                     <input class="rs-input" type="number" min="0" [value]="e.cantidad"
                            (input)="actualizarEspacio($index, 'cantidad', $any($event.target).value)"
-                           placeholder="Cantidad" />
+                           [placeholder]="'Cantidad' | t" />
                     <input class="rs-input" type="number" min="0" step="0.01" [value]="e.precioNoche"
                            (input)="actualizarEspacio($index, 'precioNoche', $any($event.target).value)"
-                           placeholder="Precio/noche" />
+                           [placeholder]="'Precio/noche' | t" />
                     <span class="rs-badge rs-badge--neutral">{{ e.tipo }}</span>
-                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarEspacio($index)" aria-label="Quitar espacio">
+                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarEspacio($index)" [attr.aria-label]="'Quitar espacio' | t">
                   <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon>
                 </button>
                   </div>
                 }
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarEspacio()">
-                  + Añadir espacio
+                  {{ '+ Añadir espacio' | t }}
                 </button>
               } @else {
                 <label class="rs-label">{{ labelDisponibilidad(s.vertical) }}</label>
@@ -206,7 +208,7 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
                         (click)="guardarDisponibilidad(s)">
                   {{ guardandoDisponibilidad() ? 'Guardando…' : 'Guardar disponibilidad' }}
                 </button>
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarDisponibilidad()">Cancelar</button>
+                <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarDisponibilidad()">{{ 'Cancelar' | t }}</button>
               </div>
             </div>
           }

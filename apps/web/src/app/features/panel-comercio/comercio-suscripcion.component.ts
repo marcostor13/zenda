@@ -6,6 +6,7 @@ import {
   COMPARATIVA, PLANES, Plan, esPlanActual, planDeComercio,
 } from '../../shared/catalogos/planes.catalogo';
 import { ComercioApiService, MiComercio } from './comercio-api.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Cuántos beneficios se ven en el móvil antes de pedir "ver todos". */
 const BENEFICIOS_EN_MOVIL = 4;
@@ -17,24 +18,26 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
   selector: 'app-comercio-suscripcion',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RsIconComponent, EurosPipe
+  ],
   template: `
     <div class="page-header">
       <div>
-        <h1 class="page-title">Tu plan Doogking</h1>
-        <p class="page-sub">Publica tu negocio gratis y mejora tu visibilidad cuando estés listo.</p>
+        <h1 class="page-title">{{ 'Tu plan Doogking' | t }}</h1>
+        <p class="page-sub">{{ 'Publica tu negocio gratis y mejora tu visibilidad cuando estés listo.' | t }}</p>
       </div>
     </div>
 
     @if (cargando()) {
-      <div class="rs-card" style="padding:var(--sp-8);text-align:center;color:var(--t-400)">Cargando…</div>
+      <div class="rs-card" style="padding:var(--sp-8);text-align:center;color:var(--t-400)">{{ 'Cargando…' | t }}</div>
     } @else {
 
     <div class="planes">
       @for (plan of planes; track plan.clave) {
         <section class="plan" [class.plan--destacado]="plan.recomendado">
           @if (plan.recomendado) {
-            <span class="plan__cinta"><rs-icon name="star" [size]="12" [stroke]="2.5"></rs-icon> Recomendado</span>
+            <span class="plan__cinta"><rs-icon name="star" [size]="12" [stroke]="2.5"></rs-icon> {{ 'Recomendado' | t }}</span>
           }
 
           <header class="plan__head">
@@ -53,7 +56,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
 
             @if (esActual(plan)) {
               <span class="plan__actual">
-                Tu plan actual <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon>
+                {{ 'Tu plan actual' | t }} <rs-icon name="check" [size]="13" [stroke]="3"></rs-icon>
               </span>
             }
           </p>
@@ -74,7 +77,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
                y se despliega a petición para no alargar la pantalla. -->
           @if (tieneMasBeneficios(plan)) {
             <button type="button" class="plan__mas" (click)="verTodos.set(true)">
-              Ver todos los beneficios
+              {{ 'Ver todos los beneficios' | t }}
               <rs-icon name="arrow-right" [size]="14" [stroke]="2"></rs-icon>
             </button>
           }
@@ -85,7 +88,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
             </a>
             <p class="plan__nota">
               <rs-icon name="shield-check" [size]="13" [stroke]="2"></rs-icon>
-              Cancela o cambia tu plan cuando quieras.
+              {{ 'Cancela o cambia tu plan cuando quieras.' | t }}
             </p>
           }
         </section>
@@ -93,13 +96,13 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
     </div>
 
     <section class="cmp">
-      <h2 class="cmp__titulo">Compara todos los beneficios</h2>
+      <h2 class="cmp__titulo">{{ 'Compara todos los beneficios' | t }}</h2>
 
       <div class="cmp__caja" [class.cmp__caja--abierta]="comparativaAbierta()">
         <table class="cmp__tabla">
           <thead>
             <tr>
-              <th scope="col">Beneficios</th>
+              <th scope="col">{{ 'Beneficios' | t }}</th>
               @for (plan of planes; track plan.clave) {
                 <th scope="col" [class.cmp__col--pro]="plan.recomendado">
                   <span class="cmp__plan">
@@ -122,7 +125,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
                   @if (fila.basico === true) {
                     <rs-icon name="check" [size]="15" [stroke]="2.5" class="cmp__si"></rs-icon>
                   } @else if (fila.basico === false) {
-                    <span class="cmp__no" aria-label="No incluido">—</span>
+                    <span class="cmp__no" [attr.aria-label]="'No incluido' | t">—</span>
                   } @else {
                     {{ fila.basico }}
                   }
@@ -131,7 +134,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
                   @if (fila.pro === true) {
                     <rs-icon name="check" [size]="15" [stroke]="2.5" class="cmp__si"></rs-icon>
                   } @else if (fila.pro === false) {
-                    <span class="cmp__no" aria-label="No incluido">—</span>
+                    <span class="cmp__no" [attr.aria-label]="'No incluido' | t">—</span>
                   } @else {
                     {{ fila.pro }}
                   }

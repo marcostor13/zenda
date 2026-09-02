@@ -10,6 +10,7 @@ import { AdminApiService, UsuarioAdmin, ResumenUsuarios, FichaUsuario, CrearUsua
 import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 const ROL_BADGE: Record<string, string> = {
   cliente: 'rs-badge--neutral',
   comercio_admin: 'rs-badge--accent',
@@ -41,19 +42,21 @@ function labelRolDe(rol: string): string {
 @Component({
   selector: 'app-admin-usuarios',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent, EurosPipe
+  ],
   template: `
     <!-- Cabecera -->
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Usuarios</h1>
-        <p class="rs-page-sub">Usuarios registrados en la plataforma.</p>
+        <h1 class="rs-page-title">{{ 'Usuarios' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Usuarios registrados en la plataforma.' | t }}</p>
       </div>
       <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap">
         <button class="rs-btn rs-btn--secondary rs-btn--sm" (click)="exportarCsv()">
-          <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon> Exportar CSV
+          <rs-icon name="download" [size]="14" [stroke]="2"></rs-icon> {{ 'Exportar CSV' | t }}
         </button>
-        <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">+ Nuevo usuario</button>
+        <button class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCrear()">{{ '+ Nuevo usuario' | t }}</button>
       </div>
     </div>
 
@@ -61,23 +64,23 @@ function labelRolDe(rol: string): string {
     <div class="resumen-usuarios">
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.total ?? total() }}</span>
-        <span class="resumen-tile__lbl">Usuarios totales</span>
+        <span class="resumen-tile__lbl">{{ 'Usuarios totales' | t }}</span>
       </div>
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.clientes ?? '—' }}</span>
-        <span class="resumen-tile__lbl">Clientes</span>
+        <span class="resumen-tile__lbl">{{ 'Clientes' | t }}</span>
       </div>
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.comercios ?? '—' }}</span>
-        <span class="resumen-tile__lbl">Usuarios de comercios</span>
+        <span class="resumen-tile__lbl">{{ 'Usuarios de comercios' | t }}</span>
       </div>
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.administradores ?? '—' }}</span>
-        <span class="resumen-tile__lbl">Administradores Doogking</span>
+        <span class="resumen-tile__lbl">{{ 'Administradores Doogking' | t }}</span>
       </div>
       <div class="rs-card resumen-tile">
         <span class="resumen-tile__num">{{ resumen()?.nuevosMes ?? '—' }}</span>
-        <span class="resumen-tile__lbl">Nuevos este mes</span>
+        <span class="resumen-tile__lbl">{{ 'Nuevos este mes' | t }}</span>
       </div>
     </div>
 
@@ -90,25 +93,25 @@ function labelRolDe(rol: string): string {
             [class.rs-btn--primary]="filtroRol() === f.valor"
             [class.rs-btn--ghost]="filtroRol() !== f.valor"
             (click)="setFiltro(f.valor)">
-            {{ f.label }}
+            {{ f.label | t }}
           </button>
         }
       </div>
       <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
-        <label class="rs-toolbar__lbl" for="fu-buscar">Buscar</label>
+        <label class="rs-toolbar__lbl" for="fu-buscar">{{ 'Buscar' | t }}</label>
         <input id="fu-buscar" class="rs-inp rs-toolbar__control" type="text"
-               placeholder="Nombre o email…"
+               [placeholder]="'Nombre o email…' | t"
                [value]="buscar()" (input)="onBuscar($event)" />
       </div>
 
       <!-- Filtro por verificación (TCK-8035 §2) -->
       <div class="rs-toolbar__campo">
-        <label class="rs-toolbar__lbl" for="fu-verificado">Verificación</label>
+        <label class="rs-toolbar__lbl" for="fu-verificado">{{ 'Verificación' | t }}</label>
         <select id="fu-verificado" class="rs-inp rs-toolbar__control" [value]="filtroVerificado()"
                 (change)="setVerificado($any($event.target).value)">
-          <option value="">Todos</option>
-          <option value="true">Solo verificados</option>
-          <option value="false">Solo sin verificar</option>
+          <option value="">{{ 'Todos' | t }}</option>
+          <option value="true">{{ 'Solo verificados' | t }}</option>
+          <option value="false">{{ 'Solo sin verificar' | t }}</option>
         </select>
       </div>
     </div>
@@ -123,14 +126,14 @@ function labelRolDe(rol: string): string {
          cabecera y en la última fila (ver .tbl-head / .tbl-row:last-child). -->
     <div class="rs-card tbl-card" style="padding:0">
       <div class="tbl-head">
-        <span>Usuario</span>
-        <span>Email</span>
-        <span>Rol</span>
-        <span>Verificación</span>
+        <span>{{ 'Usuario' | t }}</span>
+        <span>{{ 'Email' | t }}</span>
+        <span>{{ 'Rol' | t }}</span>
+        <span>{{ 'Verificación' | t }}</span>
         <span>Alpha</span>
-        <span>Reservas</span>
-        <span>Registro</span>
-        <span>Acciones</span>
+        <span>{{ 'Reservas' | t }}</span>
+        <span>{{ 'Registro' | t }}</span>
+        <span>{{ 'Acciones' | t }}</span>
       </div>
 
       @if (cargando()) {
@@ -158,10 +161,10 @@ function labelRolDe(rol: string): string {
             <span data-col="Verificado">
               @if (u.verificado) {
                 <span class="rs-badge rs-badge--success">
-                  <rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> Verificado
+                  <rs-icon name="check" [size]="12" [stroke]="3"></rs-icon> {{ 'Verificado' | t }}
                 </span>
               } @else {
-                <span class="rs-badge rs-badge--neutral">Pendiente</span>
+                <span class="rs-badge rs-badge--neutral">{{ 'Pendiente' | t }}</span>
               }
             </span>
             <!-- Alpha sólo aplica a clientes; el resto muestra "—" (TCK-8035) -->
@@ -178,20 +181,20 @@ function labelRolDe(rol: string): string {
             <span class="cell-muted" data-col="Registro">{{ u.createdAt | date:'d MMM yyyy' }}</span>
             <!-- Acciones dentro de ⋯ para no dejar la papelera al descubierto (TCK-8035 §8) -->
             <div class="acciones" (click)="$event.stopPropagation()">
-              <button class="rs-btn rs-btn--ghost rs-btn--sm" aria-label="Acciones"
+              <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Acciones' | t"
                       (click)="menuAbiertoId.set(menuAbiertoId() === u._id ? null : u._id)">
                 <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
               </button>
               @if (menuAbiertoId() === u._id) {
                 <div class="acciones__menu">
                   <button class="acciones__item" (click)="abrirFicha(u)">
-                    <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> Ver ficha
+                    <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> {{ 'Ver ficha' | t }}
                   </button>
                   <button class="acciones__item" (click)="abrirEditar(u)">
-                    <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> Editar
+                    <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> {{ 'Editar' | t }}
                   </button>
                   <button class="acciones__item acciones__item--danger" (click)="confirmarEliminar(u)">
-                    <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> Eliminar usuario
+                    <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> {{ 'Eliminar usuario' | t }}
                   </button>
                 </div>
               }
@@ -211,10 +214,10 @@ function labelRolDe(rol: string): string {
     @if (totalPaginas() > 1) {
       <div class="pagination">
         <button class="rs-btn rs-btn--secondary rs-btn--sm"
-          [disabled]="paginaActual() <= 1" (click)="cambiarPagina(paginaActual() - 1)">← Anterior</button>
+          [disabled]="paginaActual() <= 1" (click)="cambiarPagina(paginaActual() - 1)">{{ '← Anterior' | t }}</button>
         <span class="page-info">Página {{ paginaActual() }} de {{ totalPaginas() }} · {{ total() }} usuarios</span>
         <button class="rs-btn rs-btn--secondary rs-btn--sm"
-          [disabled]="paginaActual() >= totalPaginas()" (click)="cambiarPagina(paginaActual() + 1)">Siguiente →</button>
+          [disabled]="paginaActual() >= totalPaginas()" (click)="cambiarPagina(paginaActual() + 1)">{{ 'Siguiente →' | t }}</button>
       </div>
     }
 
@@ -227,49 +230,49 @@ function labelRolDe(rol: string): string {
       <form [formGroup]="form" (ngSubmit)="guardar()">
         <div class="form-row">
           <div class="rs-form-group">
-            <label class="rs-label">Nombre *</label>
-            <input formControlName="nombre" class="rs-input" placeholder="Juan Pérez" />
+            <label class="rs-label">{{ 'Nombre *' | t }}</label>
+            <input formControlName="nombre" class="rs-input" [placeholder]="'Juan Pérez' | t" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Email *</label>
+            <label class="rs-label">{{ 'Email *' | t }}</label>
             <input formControlName="email" type="email" class="rs-input" placeholder="juan@example.com" />
           </div>
         </div>
 
         @if (!editandoId()) {
           <div class="rs-form-group">
-            <label class="rs-label">Contraseña *</label>
-            <input formControlName="password" type="password" class="rs-input" placeholder="Mínimo 6 caracteres" />
+            <label class="rs-label">{{ 'Contraseña *' | t }}</label>
+            <input formControlName="password" type="password" class="rs-input" [placeholder]="'Mínimo 6 caracteres' | t" />
           </div>
         }
 
         <div class="form-row">
           <div class="rs-form-group">
-            <label class="rs-label">Teléfono</label>
-            <rs-phone-input formControlName="telefono" etiqueta="Teléfono del usuario" />
+            <label class="rs-label">{{ 'Teléfono' | t }}</label>
+            <rs-phone-input formControlName="telefono" [etiqueta]="'Teléfono del usuario' | t" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Rol</label>
+            <label class="rs-label">{{ 'Rol' | t }}</label>
             <select formControlName="rol" class="rs-input">
-              <option value="cliente">Cliente</option>
-              <option value="comercio_admin">Admin comercio</option>
-              <option value="comercio_staff">Staff comercio</option>
-              <option value="admin">Admin plataforma</option>
+              <option value="cliente">{{ 'Cliente' | t }}</option>
+              <option value="comercio_admin">{{ 'Admin comercio' | t }}</option>
+              <option value="comercio_staff">{{ 'Staff comercio' | t }}</option>
+              <option value="admin">{{ 'Admin plataforma' | t }}</option>
             </select>
           </div>
         </div>
 
         @if (esRolComercio()) {
           <div class="rs-form-group">
-            <label class="rs-label">Comercio asociado</label>
+            <label class="rs-label">{{ 'Comercio asociado' | t }}</label>
             <select formControlName="comercioId" class="rs-input">
-              <option value="">— Selecciona un comercio —</option>
+              <option value="">{{ '— Selecciona un comercio —' | t }}</option>
               @for (c of comercios(); track c._id) {
                 <option [value]="c._id">{{ c.nombreComercial }}</option>
               }
             </select>
             <p class="rs-field-hint" style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-1)">
-              Obligatorio para cuentas de comercio; sin él no podrán ver sus listados ni reservas.
+              {{ 'Obligatorio para cuentas de comercio; sin él no podrán ver sus listados ni reservas.' | t }}
             </p>
           </div>
         }
@@ -278,21 +281,21 @@ function labelRolDe(rol: string): string {
              comisiones ni liquidaciones (TCK-8040 §7). -->
         @if (esRolAdmin()) {
           <div class="rs-form-group">
-            <label class="rs-label">Acceso del administrador</label>
+            <label class="rs-label">{{ 'Acceso del administrador' | t }}</label>
             <div class="permisos">
               @for (p of permisosDisponibles; track p.valor) {
                 <label class="permiso">
                   <input type="checkbox" [checked]="tienePermiso(p.valor)"
                          (change)="alternarPermiso(p.valor)" />
                   <span>
-                    <strong>{{ p.label }}</strong>
+                    <strong>{{ p.label | t }}</strong>
                     <em>{{ p.descripcion }}</em>
                   </span>
                 </label>
               }
             </div>
             <p class="rs-field-hint" style="font-size:var(--f-xs);color:var(--t-400);margin-top:var(--sp-2)">
-              Sin marcar nada, la cuenta es superadministradora y ve todo el panel.
+              {{ 'Sin marcar nada, la cuenta es superadministradora y ve todo el panel.' | t }}
             </p>
           </div>
         }
@@ -301,7 +304,7 @@ function labelRolDe(rol: string): string {
           <div class="rs-form-group">
             <label class="check-item" style="cursor:pointer">
               <input type="checkbox" formControlName="verificado" style="accent-color:var(--c-accent);width:20px;height:20px" />
-              <span style="font-size:var(--f-sm);color:var(--t-200)">Cuenta verificada</span>
+              <span style="font-size:var(--f-sm);color:var(--t-200)">{{ 'Cuenta verificada' | t }}</span>
             </label>
           </div>
         }
@@ -311,7 +314,7 @@ function labelRolDe(rol: string): string {
         }
 
         <div class="modal-actions">
-          <button type="button" class="rs-btn rs-btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="cerrarModal()">{{ 'Cancelar' | t }}</button>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="form.invalid || guardando()">
             {{ guardando() ? 'Guardando…' : (editandoId() ? 'Guardar cambios' : 'Crear usuario') }}
           </button>
@@ -327,7 +330,7 @@ function labelRolDe(rol: string): string {
   <div class="modal-backdrop" (click)="cerrarFicha()">
     <div class="ficha" (click)="$event.stopPropagation()">
       @if (cargandoFicha()) {
-        <p style="color:var(--t-400)">Cargando la ficha…</p>
+        <p style="color:var(--t-400)">{{ 'Cargando la ficha…' | t }}</p>
       } @else if (ficha(); as f) {
         <div class="ficha__cabecera">
           <div>
@@ -339,27 +342,27 @@ function labelRolDe(rol: string): string {
               @if (f.usuario.createdAt) { · alta {{ f.usuario.createdAt | date:'d MMM yyyy' }} }
             </p>
           </div>
-          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">Cerrar</button>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">{{ 'Cerrar' | t }}</button>
         </div>
 
         <div class="ficha__kpis">
-          <div class="ficha__kpi"><strong>{{ f.resumen.totalReservas }}</strong><span>Reservas</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.canceladas }}</strong><span>Canceladas</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.totalGastado | euros:'1.0-0' }}</strong><span>Gastado</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.resenas }}</strong><span>Reseñas</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.incidencias }}</strong><span>Incidencias</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.totalReservas }}</strong><span>{{ 'Reservas' | t }}</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.canceladas }}</strong><span>{{ 'Canceladas' | t }}</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.totalGastado | euros:'1.0-0' }}</strong><span>{{ 'Gastado' | t }}</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.resenas }}</strong><span>{{ 'Reseñas' | t }}</span></div>
+          <div class="ficha__kpi"><strong>{{ f.resumen.incidencias }}</strong><span>{{ 'Incidencias' | t }}</span></div>
         </div>
 
         @if (f.comercio) {
           <div class="ficha__bloque">
-            <h4>Comercio asociado</h4>
+            <h4>{{ 'Comercio asociado' | t }}</h4>
             <p>{{ f.comercio.nombreComercial }} · {{ f.comercio.estado }} · plan {{ f.comercio.plan }}</p>
           </div>
         }
 
         @if (f.usuario.rol === 'admin') {
           <div class="ficha__bloque">
-            <h4>Acceso al panel</h4>
+            <h4>{{ 'Acceso al panel' | t }}</h4>
             <p>
               {{ f.usuario.permisosAdmin.length
                  ? f.usuario.permisosAdmin.join(' · ')
@@ -370,13 +373,13 @@ function labelRolDe(rol: string): string {
 
         @if (f.mascotas.length) {
           <div class="ficha__bloque">
-            <h4>Mascotas</h4>
+            <h4>{{ 'Mascotas' | t }}</h4>
             <p>@for (m of f.mascotas; track m.nombre) { {{ m.nombre }}@if (m.raza) { ({{ m.raza }}) }{{ $last ? '' : ' · ' }} }</p>
           </div>
         }
 
         <div class="ficha__bloque">
-          <h4>Últimas reservas</h4>
+          <h4>{{ 'Últimas reservas' | t }}</h4>
           @if (f.reservas.length) {
             <ul class="ficha__reservas">
               @for (r of f.reservas; track r._id) {
@@ -389,11 +392,11 @@ function labelRolDe(rol: string): string {
               }
             </ul>
           } @else {
-            <p style="color:var(--t-400)">Sin reservas todavía.</p>
+            <p style="color:var(--t-400)">{{ 'Sin reservas todavía.' | t }}</p>
           }
         </div>
       } @else {
-        <p class="rs-alert rs-alert--error">No se pudo cargar la ficha.</p>
+        <p class="rs-alert rs-alert--error">{{ 'No se pudo cargar la ficha.' | t }}</p>
       }
     </div>
   </div>
@@ -402,9 +405,9 @@ function labelRolDe(rol: string): string {
 @if (eliminarUsuario()) {
   <div class="overlay" (click)="cancelarEliminar()">
     <div class="modal modal--sm rs-card" (click)="$event.stopPropagation()">
-      <h2 class="modal-title">Eliminar usuario</h2>
+      <h2 class="modal-title">{{ 'Eliminar usuario' | t }}</h2>
       <p style="color:var(--t-300);margin-bottom:var(--sp-5)">
-        ¿Estás seguro de que quieres eliminar a
+        {{ '¿Estás seguro de que quieres eliminar a' | t }}
         <strong style="color:var(--t-100)">{{ eliminarUsuario()!.nombre }}</strong>
         ({{ eliminarUsuario()!.email }})?
         Esta acción no se puede deshacer.
@@ -413,7 +416,7 @@ function labelRolDe(rol: string): string {
         <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ modalError() }}</div>
       }
       <div class="modal-actions">
-        <button class="rs-btn rs-btn--ghost" (click)="cancelarEliminar()">Cancelar</button>
+        <button class="rs-btn rs-btn--ghost" (click)="cancelarEliminar()">{{ 'Cancelar' | t }}</button>
         <button class="rs-btn rs-btn--danger" [disabled]="guardando()" (click)="ejecutarEliminar()">
           {{ guardando() ? 'Eliminando…' : 'Eliminar' }}
         </button>

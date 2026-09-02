@@ -13,6 +13,7 @@ import { ComercioApiService, MiComercio } from './comercio-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { mensajeDeError } from '../../shared/mensaje-error';
 import { AuthService } from '../../core/auth/auth.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 type Dialogo = 'pausar' | 'baja' | null;
 
@@ -26,15 +27,17 @@ type Dialogo = 'pausar' | 'baja' | null;
 @Component({
   selector: 'app-comercio-cuenta',
   standalone: true,
-  imports: [DatePipe, RsIconComponent],
+  imports: [
+    TraducirPipe, DatePipe, RsIconComponent
+  ],
   template: `
     <header class="cabecera">
-      <h1 class="titulo">Estado de la cuenta</h1>
-      <p class="sub">Pausa tu negocio cuando lo necesites o cierra la cuenta definitivamente.</p>
+      <h1 class="titulo">{{ 'Estado de la cuenta' | t }}</h1>
+      <p class="sub">{{ 'Pausa tu negocio cuando lo necesites o cierra la cuenta definitivamente.' | t }}</p>
     </header>
 
     @if (cargando()) {
-      <div class="cargando">Cargando…</div>
+      <div class="cargando">{{ 'Cargando…' | t }}</div>
     } @else if (comercio(); as c) {
 
       <!-- Estado actual -->
@@ -46,7 +49,7 @@ type Dialogo = 'pausar' | 'baja' | null;
 
         @if (c.baja; as b) {
           <p class="motivo-previo">
-            Último motivo registrado: <strong>{{ etiqueta(b.motivo) }}</strong>
+            {{ 'Último motivo registrado:' | t }} <strong>{{ etiqueta(b.motivo) }}</strong>
             @if (b.comentario) { — “{{ b.comentario }}” }
             <span class="motivo-previo__fecha">({{ b.fecha | date: 'd MMM y' }})</span>
           </p>
@@ -63,11 +66,10 @@ type Dialogo = 'pausar' | 'baja' | null;
       <!-- Pausa / reactivación -->
       <section class="rs-card bloque">
         <h2 class="bloque__titulo">
-          <rs-icon name="clock" [size]="18" [stroke]="2"></rs-icon> Pausar temporalmente
+          <rs-icon name="clock" [size]="18" [stroke]="2"></rs-icon> {{ 'Pausar temporalmente' | t }}
         </h2>
         <p class="bloque__texto">
-          Tu negocio deja de aparecer en el buscador y de recibir reservas nuevas. Conservas tus
-          servicios, tu equipo, tus reseñas y todo tu historial. Puedes volver cuando quieras.
+          {{ 'Tu negocio deja de aparecer en el buscador y de recibir reservas nuevas. Conservas tus servicios, tu equipo, tus reseñas y todo tu historial. Puedes volver cuando quieras.' | t }}
         </p>
 
         @if (c.estado === 'inactivo') {
@@ -77,7 +79,7 @@ type Dialogo = 'pausar' | 'baja' | null;
         } @else {
           <button class="rs-btn rs-btn--outline" [disabled]="guardando() || c.estado === 'suspendido'"
                   (click)="abrir('pausar')">
-            Poner la cuenta en pausa
+            {{ 'Poner la cuenta en pausa' | t }}
           </button>
         }
       </section>
@@ -85,18 +87,16 @@ type Dialogo = 'pausar' | 'baja' | null;
       <!-- Baja -->
       <section class="rs-card bloque bloque--peligro">
         <h2 class="bloque__titulo">
-          <rs-icon name="alert-circle" [size]="18" [stroke]="2"></rs-icon> Cerrar la cuenta
+          <rs-icon name="alert-circle" [size]="18" [stroke]="2"></rs-icon> {{ 'Cerrar la cuenta' | t }}
         </h2>
         <p class="bloque__texto">
-          Tu negocio desaparece de Doogking y tu equipo pierde el acceso al panel. Conservamos las
-          reservas y las facturas ya emitidas porque la ley nos obliga a guardarlas, pero nadie
-          podrá encontrarte ni reservar contigo.
+          {{ 'Tu negocio desaparece de Doogking y tu equipo pierde el acceso al panel. Conservamos las reservas y las facturas ya emitidas porque la ley nos obliga a guardarlas, pero nadie podrá encontrarte ni reservar contigo.' | t }}
         </p>
         @if (impacto(); as i) {
           <ul class="impacto">
             <li><strong>{{ i.servicios }}</strong> servicios ({{ i.serviciosPublicados }} publicados)</li>
-            <li><strong>{{ i.usuarios }}</strong> cuentas de tu equipo</li>
-            <li><strong>{{ i.reservas }}</strong> reservas y <strong>{{ i.resenas }}</strong> reseñas en tu historial</li>
+            <li><strong>{{ i.usuarios }}</strong> {{ 'cuentas de tu equipo' | t }}</li>
+            <li><strong>{{ i.reservas }}</strong> {{ 'reservas y' | t }} <strong>{{ i.resenas }}</strong> {{ 'reseñas en tu historial' | t }}</li>
           </ul>
           @if (!i.puedeDarseDeBaja) {
             <div class="rs-alert rs-alert--warning">
@@ -108,7 +108,7 @@ type Dialogo = 'pausar' | 'baja' | null;
         <button class="rs-btn rs-btn--danger"
                 [disabled]="guardando() || impacto()?.puedeDarseDeBaja === false"
                 (click)="abrir('baja')">
-          Quiero darme de baja
+          {{ 'Quiero darme de baja' | t }}
         </button>
       </section>
     }
@@ -121,7 +121,7 @@ type Dialogo = 'pausar' | 'baja' | null;
             {{ dialogo() === 'pausar' ? '¿Por qué pausas tu cuenta?' : '¿Por qué te vas?' }}
           </h2>
           <p class="modal__sub">
-            Nos ayuda a mejorar y a saber si podemos hacer algo por ti antes de que te marches.
+            {{ 'Nos ayuda a mejorar y a saber si podemos hacer algo por ti antes de que te marches.' | t }}
           </p>
 
           <div class="opciones">
@@ -129,7 +129,7 @@ type Dialogo = 'pausar' | 'baja' | null;
               <label class="opcion" [class.opcion--activa]="motivo() === m.valor">
                 <input type="radio" name="motivo" [value]="m.valor" [checked]="motivo() === m.valor"
                        (change)="motivo.set(m.valor)" />
-                <span>{{ m.label }}</span>
+                <span>{{ m.label | t }}</span>
               </label>
             }
           </div>
@@ -145,7 +145,7 @@ type Dialogo = 'pausar' | 'baja' | null;
 
           @if (dialogo() === 'pausar') {
             <div class="rs-form-group">
-              <label class="rs-label" for="volver">¿Cuándo piensas volver? (opcional)</label>
+              <label class="rs-label" for="volver">{{ '¿Cuándo piensas volver? (opcional)' | t }}</label>
               <input id="volver" type="date" class="rs-input" [value]="reactivarEl()"
                      (input)="reactivarEl.set($any($event.target).value)" />
             </div>
@@ -153,12 +153,12 @@ type Dialogo = 'pausar' | 'baja' | null;
             <label class="contacto">
               <input type="checkbox" [checked]="aceptaContacto()"
                      (change)="aceptaContacto.set($any($event.target).checked)" />
-              <span>Podéis escribirme para entender mejor mi decisión</span>
+              <span>{{ 'Podéis escribirme para entender mejor mi decisión' | t }}</span>
             </label>
 
             <div class="rs-form-group">
               <label class="rs-label" for="confirmacion">
-                Escribe <strong>{{ comercio()?.nombreComercial }}</strong> para confirmar
+                {{ 'Escribe' | t }} <strong>{{ comercio()?.nombreComercial }}</strong> {{ 'para confirmar' | t }}
               </label>
               <input id="confirmacion" class="rs-input" [value]="confirmacion()"
                      (input)="confirmacion.set($any($event.target).value)" />
@@ -170,7 +170,7 @@ type Dialogo = 'pausar' | 'baja' | null;
           }
 
           <div class="modal__acciones">
-            <button class="rs-btn rs-btn--ghost" (click)="cerrar()">Volver</button>
+            <button class="rs-btn rs-btn--ghost" (click)="cerrar()">{{ 'Volver' | t }}</button>
             <button class="rs-btn" [class.rs-btn--primary]="dialogo() === 'pausar'"
                     [class.rs-btn--danger]="dialogo() === 'baja'"
                     [disabled]="guardando() || !puedeConfirmar()" (click)="confirmar()">

@@ -7,6 +7,7 @@ import {
   PERMISO_COMERCIO_DESCRIPCIONES, PERMISO_COMERCIO_LABELS, PermisoComercio,
 } from 'shared';
 import { ComercioApiService, MiembroEquipo, ActualizarMiembroEquipoPayload } from './comercio-api.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 const PUESTOS = [
   { valor: 'gerente', label: 'Gerente' },
@@ -20,12 +21,14 @@ const PUESTOS = [
 @Component({
   selector: 'app-comercio-equipo',
   standalone: true,
-  imports: [ReactiveFormsModule, RsIconComponent],
+  imports: [
+    TraducirPipe, ReactiveFormsModule, RsIconComponent
+  ],
   template: `
     <div class="page-header">
       <div>
-        <h1 class="page-title">Equipo</h1>
-        <p class="page-sub">Gestiona tu equipo, asigna roles y controla los accesos al panel de tu negocio.</p>
+        <h1 class="page-title">{{ 'Equipo' | t }}</h1>
+        <p class="page-sub">{{ 'Gestiona tu equipo, asigna roles y controla los accesos al panel de tu negocio.' | t }}</p>
       </div>
     </div>
 
@@ -35,11 +38,11 @@ const PUESTOS = [
     <div class="equipo-grid">
       <!-- Lista -->
       <div class="rs-card panel">
-        <h3 class="panel__title">Miembros del equipo</h3>
+        <h3 class="panel__title">{{ 'Miembros del equipo' | t }}</h3>
         @if (cargando()) {
-          <p class="muted">Cargando…</p>
+          <p class="muted">{{ 'Cargando…' | t }}</p>
         } @else if (miembros().length === 0) {
-          <p class="muted">Todavía no has añadido a nadie a tu equipo.</p>
+          <p class="muted">{{ 'Todavía no has añadido a nadie a tu equipo.' | t }}</p>
         } @else {
           <div class="miembros">
             @for (m of miembros(); track m._id) {
@@ -60,7 +63,7 @@ const PUESTOS = [
                 @if (m.rol === 'comercio_staff') {
                   <div class="miembro__acciones">
                     <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="abrirPermisos(m)">
-                      <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> Permisos
+                      <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> {{ 'Permisos' | t }}
                     </button>
                     <button class="rs-btn rs-btn--ghost rs-btn--sm"
                             [disabled]="guardandoMiembroId() === m._id" (click)="alternarActivo(m)">
@@ -71,7 +74,7 @@ const PUESTOS = [
                       }
                     </button>
                     <button class="rs-btn rs-btn--ghost rs-btn--sm" [disabled]="eliminandoId() === m._id"
-                            (click)="eliminar(m)" aria-label="Eliminar miembro del equipo">
+                            (click)="eliminar(m)" [attr.aria-label]="'Eliminar miembro del equipo' | t">
                       <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon>
                     </button>
                   </div>
@@ -81,32 +84,32 @@ const PUESTOS = [
               @if (editandoId() === m._id) {
                 <div class="permisos-panel">
                   <div class="rs-form-group">
-                    <label class="rs-label">Puesto</label>
+                    <label class="rs-label">{{ 'Puesto' | t }}</label>
                     <select class="rs-input" [value]="puestoEdit()"
                             (change)="puestoEdit.set($any($event.target).value)">
-                      @for (p of puestos; track p.valor) { <option [value]="p.valor">{{ p.label }}</option> }
+                      @for (p of puestos; track p.valor) { <option [value]="p.valor">{{ p.label | t }}</option> }
                     </select>
                   </div>
 
-                  <label class="rs-label">Qué puede ver y gestionar</label>
+                  <label class="rs-label">{{ 'Qué puede ver y gestionar' | t }}</label>
                   <div class="permisos">
                     @for (p of permisosDisponibles; track p.valor) {
                       <label class="permiso">
                         <input type="checkbox" [checked]="tienePermiso(p.valor)" (change)="alternarPermiso(p.valor)" />
                         <span>
-                          <strong>{{ p.label }}</strong>
+                          <strong>{{ p.label | t }}</strong>
                           <em>{{ p.descripcion }}</em>
                         </span>
                       </label>
                     }
                   </div>
-                  <p class="muted">Sin marcar nada, el miembro ve todo el panel del negocio.</p>
+                  <p class="muted">{{ 'Sin marcar nada, el miembro ve todo el panel del negocio.' | t }}</p>
 
                   <div class="permisos-panel__acciones">
-                    <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarPermisos()">Cancelar</button>
+                    <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarPermisos()">{{ 'Cancelar' | t }}</button>
                     <button class="rs-btn rs-btn--primary rs-btn--sm"
                             [disabled]="guardandoMiembroId() === m._id" (click)="guardarPermisos(m)">
-                      Guardar cambios
+                      {{ 'Guardar cambios' | t }}
                     </button>
                   </div>
                 </div>
@@ -118,24 +121,24 @@ const PUESTOS = [
 
       <!-- Alta -->
       <div class="rs-card panel">
-        <h3 class="panel__title">Añadir miembro</h3>
+        <h3 class="panel__title">{{ 'Añadir miembro' | t }}</h3>
         <form [formGroup]="form" (ngSubmit)="crear()" class="form">
           <div class="rs-form-group">
-            <label class="rs-label">Nombre</label>
-            <input class="rs-input" formControlName="nombre" placeholder="Nombre y apellidos" />
+            <label class="rs-label">{{ 'Nombre' | t }}</label>
+            <input class="rs-input" formControlName="nombre" [placeholder]="'Nombre y apellidos' | t" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Email</label>
+            <label class="rs-label">{{ 'Email' | t }}</label>
             <input class="rs-input" type="email" formControlName="email" placeholder="persona@negocio.com" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Contraseña temporal</label>
-            <input class="rs-input" type="text" formControlName="password" placeholder="mínimo 8 caracteres" />
+            <label class="rs-label">{{ 'Contraseña temporal' | t }}</label>
+            <input class="rs-input" type="text" formControlName="password" [placeholder]="'mínimo 8 caracteres' | t" />
           </div>
           <div class="rs-form-group">
-            <label class="rs-label">Puesto</label>
+            <label class="rs-label">{{ 'Puesto' | t }}</label>
             <select class="rs-input" formControlName="puesto">
-              @for (p of puestos; track p.valor) { <option [value]="p.valor">{{ p.label }}</option> }
+              @for (p of puestos; track p.valor) { <option [value]="p.valor">{{ p.label | t }}</option> }
             </select>
           </div>
           <button type="submit" class="rs-btn rs-btn--primary" [disabled]="form.invalid || guardando()">

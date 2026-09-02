@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { ENTIDAD_AUDITADA_LABELS, EntidadAuditada } from 'shared';
 import { AdminApiService, RegistroAuditoria } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 const LIMITE = 30;
 
@@ -25,12 +26,14 @@ const ICONO_ENTIDAD: Record<string, string> = {
 @Component({
   selector: 'app-admin-auditoria',
   standalone: true,
-  imports: [DatePipe, RsIconComponent],
+  imports: [
+    TraducirPipe, DatePipe, RsIconComponent
+  ],
   template: `
     <div class="rs-page-header">
       <div>
-        <h1 class="rs-page-title">Historial administrativo</h1>
-        <p class="rs-page-sub">Quién ha cambiado qué en el panel, y por qué.</p>
+        <h1 class="rs-page-title">{{ 'Historial administrativo' | t }}</h1>
+        <p class="rs-page-sub">{{ 'Quién ha cambiado qué en el panel, y por qué.' | t }}</p>
       </div>
     </div>
 
@@ -39,18 +42,18 @@ const ICONO_ENTIDAD: Record<string, string> = {
         <button class="rs-btn rs-btn--sm"
                 [class.rs-btn--primary]="filtroEntidad() === ''"
                 [class.rs-btn--ghost]="filtroEntidad() !== ''"
-                (click)="cambiarEntidad('')">Todo</button>
+                (click)="cambiarEntidad('')">{{ 'Todo' | t }}</button>
         @for (e of entidades; track e.valor) {
           <button class="rs-btn rs-btn--sm"
                   [class.rs-btn--primary]="filtroEntidad() === e.valor"
                   [class.rs-btn--ghost]="filtroEntidad() !== e.valor"
-                  (click)="cambiarEntidad(e.valor)">{{ e.label }}</button>
+                  (click)="cambiarEntidad(e.valor)">{{ e.label | t }}</button>
         }
       </div>
       <div class="rs-toolbar__campo rs-toolbar__campo--buscador">
-        <label class="rs-toolbar__lbl" for="fa-buscar">Buscar</label>
+        <label class="rs-toolbar__lbl" for="fa-buscar">{{ 'Buscar' | t }}</label>
         <input id="fa-buscar" class="rs-inp rs-toolbar__control" type="search"
-               placeholder="Descripción, administrador o motivo…"
+               [placeholder]="'Descripción, administrador o motivo…' | t"
                [value]="buscar()" (keyup.enter)="aplicarBusqueda($any($event.target).value)" />
       </div>
     </div>
@@ -60,7 +63,7 @@ const ICONO_ENTIDAD: Record<string, string> = {
     }
 
     @if (cargando()) {
-      <p style="color:var(--t-400)">Cargando el historial…</p>
+      <p style="color:var(--t-400)">{{ 'Cargando el historial…' | t }}</p>
     } @else if (registros().length === 0) {
       <div class="rs-card vacio">
         <rs-icon name="clock" [size]="34" [stroke]="1.5"></rs-icon>
@@ -92,10 +95,10 @@ const ICONO_ENTIDAD: Record<string, string> = {
       @if (totalPaginas() > 1) {
         <div class="paginacion">
           <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="pagina() <= 1" (click)="cambiarPagina(pagina() - 1)">← Anterior</button>
+                  [disabled]="pagina() <= 1" (click)="cambiarPagina(pagina() - 1)">{{ '← Anterior' | t }}</button>
           <span>Página {{ pagina() }} de {{ totalPaginas() }} · {{ total() }} acciones</span>
           <button class="rs-btn rs-btn--secondary rs-btn--sm"
-                  [disabled]="pagina() >= totalPaginas()" (click)="cambiarPagina(pagina() + 1)">Siguiente →</button>
+                  [disabled]="pagina() >= totalPaginas()" (click)="cambiarPagina(pagina() + 1)">{{ 'Siguiente →' | t }}</button>
         </div>
       }
     }

@@ -6,6 +6,7 @@ import { BloqueoDto, CitaAgendaDto, VerticalKey, VERTICAL_LABELS } from 'shared'
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { claveDia, celdasDelMes, desdeClaveDia, hoyLocal } from '../../shared/fechas';
 import { ComercioApiService, MiServicio } from './comercio-api.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
  * Verticales que se venden por **noches y unidades**: su agenda es un
@@ -113,15 +114,16 @@ interface TarjetaSemana {
 @Component({
   selector: 'app-comercio-agenda',
   standalone: true,
-  imports: [FormsModule, RouterLink, RsIconComponent],
+  imports: [
+    TraducirPipe, FormsModule, RouterLink, RsIconComponent
+  ],
   template: `
     <div class="ag">
       <header class="ag__head">
         <div>
-          <h1>Agenda</h1>
+          <h1>{{ 'Agenda' | t }}</h1>
           <p>
-            Lo que tienes reservado en Doogking y lo que cierras por tu cuenta, en un solo sitio.
-            Lo que bloquees aquí deja de ofrecerse en el buscador.
+            {{ 'Lo que tienes reservado en Doogking y lo que cierras por tu cuenta, en un solo sitio. Lo que bloquees aquí deja de ofrecerse en el buscador.' | t }}
           </p>
         </div>
       </header>
@@ -131,13 +133,13 @@ interface TarjetaSemana {
       } @else if (!servicios().length) {
         <div class="rs-card ag__vacio">
           <rs-icon name="calendar" [size]="28" [stroke]="1.75" />
-          <h2>Todavía no tienes servicios</h2>
-          <p>Crea tu primer servicio y aquí verás su agenda.</p>
+          <h2>{{ 'Todavía no tienes servicios' | t }}</h2>
+          <p>{{ 'Crea tu primer servicio y aquí verás su agenda.' | t }}</p>
         </div>
       } @else {
 
         <!-- Selector de servicio: cada uno lleva su propia agenda. -->
-        <div class="ag__servicios" role="tablist" aria-label="Elige el servicio">
+        <div class="ag__servicios" role="tablist" [attr.aria-label]="'Elige el servicio' | t">
           @for (s of servicios(); track s._id) {
             <button type="button" class="ag-serv" role="tab"
                     [class.ag-serv--on]="servicioId() === s._id"
@@ -161,12 +163,12 @@ interface TarjetaSemana {
                     (click)="mover(1)" [attr.aria-label]="esInventario() ? 'Mes siguiente' : 'Semana siguiente'">
               <rs-icon name="chevron-right" [size]="16" [stroke]="2.5" />
             </button>
-            <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="irAHoy()">Hoy</button>
+            <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="irAHoy()">{{ 'Hoy' | t }}</button>
           </div>
 
           <button type="button" class="rs-btn rs-btn--primary rs-btn--sm" (click)="abrirCierre()">
             <rs-icon name="plus" [size]="14" [stroke]="2.5" />
-            Bloquear un tramo
+            {{ 'Bloquear un tramo' | t }}
           </button>
         </div>
 
@@ -178,9 +180,9 @@ interface TarjetaSemana {
         @if (esInventario()) {
           <div class="rs-card ag__panel">
             <div class="inv__leyenda">
-              <span><i class="punto punto--libre"></i> Libres</span>
-              <span><i class="punto punto--reserva"></i> Reservado en Doogking</span>
-              <span><i class="punto punto--bloqueo"></i> Bloqueado por ti</span>
+              <span><i class="punto punto--libre"></i> {{ 'Libres' | t }}</span>
+              <span><i class="punto punto--reserva"></i> {{ 'Reservado en Doogking' | t }}</span>
+              <span><i class="punto punto--bloqueo"></i> {{ 'Bloqueado por ti' | t }}</span>
             </div>
 
             <div class="inv__semana" aria-hidden="true">
@@ -254,7 +256,7 @@ interface TarjetaSemana {
 
         <!-- ══ LO QUE HAY CERRADO ═══════════════════════════════════════ -->
         <div class="rs-card ag__panel">
-          <h2 class="ag__tit">Tramos que has bloqueado</h2>
+          <h2 class="ag__tit">{{ 'Tramos que has bloqueado' | t }}</h2>
           @if (bloqueos().length) {
             <ul class="bloqueos">
               @for (b of bloqueos(); track b._id) {
@@ -265,12 +267,12 @@ interface TarjetaSemana {
                     {{ b.cantidad ? b.cantidad + ' plazas' : 'Cerrado del todo' }}
                   </span>
                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
-                          (click)="abrirCierre(b)" aria-label="Editar este tramo">
+                          (click)="abrirCierre(b)" [attr.aria-label]="'Editar este tramo' | t">
                     <rs-icon name="pencil" [size]="13" [stroke]="2.5" />
                   </button>
                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                           [disabled]="borrando() === b._id" (click)="reabrir(b)"
-                          aria-label="Reabrir este tramo">
+                          [attr.aria-label]="'Reabrir este tramo' | t">
                     <rs-icon name="x" [size]="13" [stroke]="2.5" />
                   </button>
                 </li>
@@ -278,8 +280,7 @@ interface TarjetaSemana {
             </ul>
           } @else {
             <p class="ag__nota">
-              Todavía no has bloqueado nada en este periodo. Usa «Bloquear un tramo» cuando
-              alquiles por fuera de Doogking o cierres por vacaciones.
+              {{ 'Todavía no has bloqueado nada en este periodo. Usa «Bloquear un tramo» cuando alquiles por fuera de Doogking o cierres por vacaciones.' | t }}
             </p>
           }
         </div>
@@ -293,8 +294,7 @@ interface TarjetaSemana {
               {{ bloqueoEditando() ? 'Editar este bloqueo' : 'Bloquear un tramo' }}
             </h2>
             <p class="ag__nota">
-              Lo que bloquees deja de ofrecerse en el buscador. Es lo que evita que te entre
-              una reserva de Doogking sobre algo que ya has vendido por tu cuenta.
+              {{ 'Lo que bloquees deja de ofrecerse en el buscador. Es lo que evita que te entre una reserva de Doogking sobre algo que ya has vendido por tu cuenta.' | t }}
             </p>
 
             <div class="form-row">
@@ -308,29 +308,28 @@ interface TarjetaSemana {
                 <input id="bl-hasta" class="rs-inp" [type]="esInventario() ? 'date' : 'datetime-local'"
                        [(ngModel)]="formHasta" />
                 @if (esInventario()) {
-                  <span class="rs-field-hint">La última noche bloqueada es la anterior a este día.</span>
+                  <span class="rs-field-hint">{{ 'La última noche bloqueada es la anterior a este día.' | t }}</span>
                 }
               </div>
             </div>
 
             @if (esInventario()) {
               <div class="rs-field">
-                <label class="rs-lbl" for="bl-cantidad">¿Cuántas plazas cierras?</label>
+                <label class="rs-lbl" for="bl-cantidad">{{ '¿Cuántas plazas cierras?' | t }}</label>
                 <input id="bl-cantidad" class="rs-inp" type="number" min="0"
-                       [(ngModel)]="formCantidad" placeholder="Déjalo vacío para cerrar del todo" />
+                       [(ngModel)]="formCantidad" [placeholder]="'Déjalo vacío para cerrar del todo' | t" />
                 <span class="rs-field-hint">
-                  Pon un número para cerrar sólo esa parte (dos de tus cinco suites).
-                  Vacío cierra el servicio entero esos días.
+                  {{ 'Pon un número para cerrar sólo esa parte (dos de tus cinco suites). Vacío cierra el servicio entero esos días.' | t }}
                 </span>
               </div>
             }
 
             <div class="rs-field">
-              <label class="rs-lbl" for="bl-motivo">¿Por qué lo cierras? *</label>
+              <label class="rs-lbl" for="bl-motivo">{{ '¿Por qué lo cierras? *' | t }}</label>
               <input id="bl-motivo" class="rs-inp" [(ngModel)]="formMotivo"
-                     placeholder="Ej. reservado por teléfono, vacaciones, obras" />
+                     [placeholder]="'Ej. reservado por teléfono, vacaciones, obras' | t" />
               <span class="rs-field-hint">
-                Dentro de tres semanas nadie recuerda por qué estaba bloqueado ese hueco.
+                {{ 'Dentro de tres semanas nadie recuerda por qué estaba bloqueado ese hueco.' | t }}
               </span>
             </div>
 
@@ -343,11 +342,11 @@ interface TarjetaSemana {
                 <button type="button" class="rs-btn rs-btn--ghost modal__aparte"
                         [disabled]="borrando() === b._id" (click)="reabrir(b)">
                   <rs-icon name="trash" [size]="14" [stroke]="2" />
-                  Reabrir el tramo
+                  {{ 'Reabrir el tramo' | t }}
                 </button>
               }
               <button type="button" class="rs-btn rs-btn--ghost" (click)="cierreAbierto.set(false)">
-                Cancelar
+                {{ 'Cancelar' | t }}
               </button>
               <button type="button" class="rs-btn rs-btn--primary" [disabled]="guardando()"
                       (click)="guardarCierre()">
@@ -380,15 +379,15 @@ interface TarjetaSemana {
                 }
               </ul>
             } @else {
-              <p class="ag__nota">Ese día lo tienes libre entero.</p>
+              <p class="ag__nota">{{ 'Ese día lo tienes libre entero.' | t }}</p>
             }
 
             <div class="modal__pie">
               <button type="button" class="rs-btn rs-btn--ghost" (click)="diaAbiertoClave.set(null)">
-                Cerrar
+                {{ 'Cerrar' | t }}
               </button>
               <button type="button" class="rs-btn rs-btn--primary" (click)="bloquearEsteDia(dia)">
-                Bloquear este día
+                {{ 'Bloquear este día' | t }}
               </button>
             </div>
           </div>
@@ -405,24 +404,23 @@ interface TarjetaSemana {
             </span>
 
             <dl class="ficha">
-              <div><dt>Cliente</dt><dd>{{ c.cliente }}</dd></div>
-              @if (c.perro) { <div><dt>Perro</dt><dd>{{ c.perro }}</dd></div> }
+              <div><dt>{{ 'Cliente' | t }}</dt><dd>{{ c.cliente }}</dd></div>
+              @if (c.perro) { <div><dt>{{ 'Perro' | t }}</dt><dd>{{ c.perro }}</dd></div> }
               <div><dt>{{ esInventario() ? 'Entrada' : 'Empieza' }}</dt><dd>{{ momentoLegible(c.desde) }}</dd></div>
               <div><dt>{{ esInventario() ? 'Salida' : 'Termina' }}</dt><dd>{{ momentoLegible(c.hasta) }}</dd></div>
             </dl>
 
             <p class="ag__nota">
-              Una reserva de Doogking no se cambia desde la agenda: tocarla afecta al cliente
-              y al cobro, así que se gestiona desde su ficha en Reservas.
+              {{ 'Una reserva de Doogking no se cambia desde la agenda: tocarla afecta al cliente y al cobro, así que se gestiona desde su ficha en Reservas.' | t }}
             </p>
 
             <div class="modal__pie">
               <button type="button" class="rs-btn rs-btn--ghost" (click)="citaAbierta.set(null)">
-                Cerrar
+                {{ 'Cerrar' | t }}
               </button>
               <a class="rs-btn rs-btn--primary" [routerLink]="['/comercio/reservas']"
                  [queryParams]="{ buscar: c.codigo }" (click)="citaAbierta.set(null)">
-                Ver la reserva
+                {{ 'Ver la reserva' | t }}
               </a>
             </div>
           </div>

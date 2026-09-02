@@ -9,6 +9,7 @@ import { verticalUi } from '../../shared/verticales/verticales.config';
 import { ComercioApiService, MiComercio } from './comercio-api.service';
 import { ComercioListadoFormComponent } from './comercio-listado-form.component';
 import { ComercioSolicitudSegurosComponent } from './comercio-solicitud-seguros.component';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /** Pasos del alta guiada, en el orden del recorrido. */
 type PasoAlta = 'elegir' | 'servicio' | 'creado' | 'negocio' | 'fin';
@@ -38,7 +39,7 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
   selector: 'app-comercio-alta',
   standalone: true,
   imports: [
-    RouterLink, ReactiveFormsModule, RsIconComponent, RsPhoneInputComponent,
+    TraducirPipe, RouterLink, ReactiveFormsModule, RsIconComponent, RsPhoneInputComponent,
     ComercioListadoFormComponent, ComercioSolicitudSegurosComponent,
   ],
   template: `
@@ -50,14 +51,14 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
       <header class="alta__cab">
         <a routerLink="/comercio" class="alta__salir">
           <rs-icon name="arrow-left" [size]="14" [stroke]="2" />
-          Ir a mi panel
+          {{ 'Ir a mi panel' | t }}
         </a>
 
         @if (paso() !== 'fin') {
           <p class="alta__eyebrow">
             Paso {{ indicePaso() + 1 }} de {{ pasos.length }} · {{ pasos[indicePaso()].label }}
           </p>
-          <div class="alta__barra" role="progressbar" aria-label="Progreso del alta"
+          <div class="alta__barra" role="progressbar" [attr.aria-label]="'Progreso del alta' | t"
                [attr.aria-valuenow]="indicePaso() + 1" aria-valuemin="1"
                [attr.aria-valuemax]="pasos.length">
             <span class="alta__barra-fill" [style.width.%]="progreso()"></span>
@@ -69,14 +70,13 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
       @if (paso() === 'elegir') {
         <section class="alta__panel alta__panel--anim">
           <h1 class="alta__titulo">
-            ¡Da de alta tu servicio en Doogking y empieza a recibir clientes cuanto antes!
+            {{ '¡Da de alta tu servicio en Doogking y empieza a recibir clientes cuanto antes!' | t }}
           </h1>
           <p class="alta__sub">
-            Para empezar, elige el tipo de servicio que quieres dar de alta en Doogking.
-            Podrás añadir los demás cuando termines este.
+            {{ 'Para empezar, elige el tipo de servicio que quieres dar de alta en Doogking. Podrás añadir los demás cuando termines este.' | t }}
           </p>
 
-          <div class="cats" role="group" aria-label="Tipos de servicio">
+          <div class="cats" role="group" [attr.aria-label]="'Tipos de servicio' | t">
             @for (v of opciones(); track v.key; let i = $index) {
               <button type="button" class="cat" [class.cat--sel]="elegido() === v.key"
                       [style.animation-delay.ms]="i * 60"
@@ -84,8 +84,8 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
                       (click)="elegir(v.key)">
                 <span class="cat__ico"><rs-icon [name]="v.icon" [size]="26" [stroke]="1.5" /></span>
                 <span class="cat__cuerpo">
-                  <span class="cat__label">{{ v.label }}</span>
-                  <span class="cat__claim">{{ v.claim }}</span>
+                  <span class="cat__label">{{ v.label | t }}</span>
+                  <span class="cat__claim">{{ v.claim | t }}</span>
                 </span>
                 <span class="cat__marca" aria-hidden="true">
                   <rs-icon name="check" [size]="13" [stroke]="3" />
@@ -96,8 +96,8 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
 
           @if (!opciones().length) {
             <div class="rs-alert rs-alert--warning">
-              No hay categorías asociadas a tu negocio. Elige las tuyas en
-              <a routerLink="/comercio/config">la configuración</a> y vuelve aquí.
+              {{ 'No hay categorías asociadas a tu negocio. Elige las tuyas en' | t }}
+              <a routerLink="/comercio/config">{{ 'la configuración' | t }}</a> {{ 'y vuelve aquí.' | t }}
             </div>
           }
 
@@ -109,12 +109,12 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
               <button type="button" class="rs-btn rs-btn--outline rs-btn--lg alta__volver"
                       (click)="irA('creado')">
                 <rs-icon name="arrow-left" [size]="16" [stroke]="2.5" />
-                Volver
+                {{ 'Volver' | t }}
               </button>
             }
             <button type="button" class="rs-btn rs-btn--primary rs-btn--lg rs-btn--block"
                     [disabled]="!elegido()" (click)="irAlServicio()">
-              Continuar
+              {{ 'Continuar' | t }}
               <rs-icon name="arrow-right" [size]="16" [stroke]="2.5" />
             </button>
           </div>
@@ -129,10 +129,9 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
               Una aseguradora no publica una ficha: entrega una solicitud que
               revisamos a mano. Mismo recorrido, distinto formulario.
             -->
-            <h1 class="alta__titulo">Solicita el alta de tu aseguradora</h1>
+            <h1 class="alta__titulo">{{ 'Solicita el alta de tu aseguradora' | t }}</h1>
             <p class="alta__sub">
-              No hace falta que montes una ficha: cuéntanos quién eres, sube las condiciones de
-              tus pólizas y las revisamos nosotros.
+              {{ 'No hace falta que montes una ficha: cuéntanos quién eres, sube las condiciones de tus pólizas y las revisamos nosotros.' | t }}
             </p>
 
             <app-comercio-solicitud-seguros
@@ -141,8 +140,7 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
           } @else {
             <h1 class="alta__titulo">Cuéntanos cómo es tu {{ etiquetaElegido().toLowerCase() }}</h1>
             <p class="alta__sub">
-              Esto es lo que verán tus clientes. Puedes volver atrás en cualquier momento;
-              nada se publica hasta que termines.
+              {{ 'Esto es lo que verán tus clientes. Puedes volver atrás en cualquier momento; nada se publica hasta que termines.' | t }}
             </p>
 
             <app-comercio-listado-form
@@ -160,11 +158,9 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
           </div>
 
           @if (esSeguros()) {
-            <h1 class="alta__titulo">Tu solicitud está en revisión</h1>
+            <h1 class="alta__titulo">{{ 'Tu solicitud está en revisión' | t }}</h1>
             <p class="alta__sub">
-              Nuestro equipo revisará tu documentación y te escribirá. Mientras tanto puedes
-              terminar con los datos de tu negocio: los necesitamos igualmente para poder
-              trabajar contigo.
+              {{ 'Nuestro equipo revisará tu documentación y te escribirá. Mientras tanto puedes terminar con los datos de tu negocio: los necesitamos igualmente para poder trabajar contigo.' | t }}
             </p>
           } @else {
             <h1 class="alta__titulo">
@@ -182,9 +178,9 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
             <button type="button" class="opcion" (click)="anadirOtroServicio()">
               <span class="opcion__ico"><rs-icon name="plus" [size]="22" [stroke]="2" /></span>
               <span class="opcion__cuerpo">
-                <span class="opcion__titulo">Añadir otro servicio</span>
+                <span class="opcion__titulo">{{ 'Añadir otro servicio' | t }}</span>
                 <span class="opcion__texto">
-                  Otra categoría, u otro local de la misma. Cada uno lleva su dirección y su horario.
+                  {{ 'Otra categoría, u otro local de la misma. Cada uno lleva su dirección y su horario.' | t }}
                 </span>
               </span>
               <rs-icon name="arrow-right" [size]="16" [stroke]="2.5" class="opcion__flecha" />
@@ -193,10 +189,9 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
             <button type="button" class="opcion opcion--principal" (click)="irA('negocio')">
               <span class="opcion__ico"><rs-icon name="building" [size]="22" [stroke]="2" /></span>
               <span class="opcion__cuerpo">
-                <span class="opcion__titulo">Continuar con mi negocio</span>
+                <span class="opcion__titulo">{{ 'Continuar con mi negocio' | t }}</span>
                 <span class="opcion__texto">
-                  El último paso: datos fiscales, contacto y condiciones. Podrás añadir más
-                  servicios cuando quieras desde tu panel.
+                  {{ 'El último paso: datos fiscales, contacto y condiciones. Podrás añadir más servicios cuando quieras desde tu panel.' | t }}
                 </span>
               </span>
               <rs-icon name="arrow-right" [size]="16" [stroke]="2.5" class="opcion__flecha" />
@@ -208,82 +203,81 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
       <!-- ══ PASO 3 · Los datos del negocio ═════════════════════════════ -->
       @if (paso() === 'negocio') {
         <section class="alta__panel alta__panel--anim">
-          <h1 class="alta__titulo">Ya casi está: los datos de tu negocio</h1>
+          <h1 class="alta__titulo">{{ 'Ya casi está: los datos de tu negocio' | t }}</h1>
           <p class="alta__sub">
-            Con esto emitimos tus facturas y tus clientes saben con quién hablan.
-            Es el último paso.
+            {{ 'Con esto emitimos tus facturas y tus clientes saben con quién hablan. Es el último paso.' | t }}
           </p>
 
           <form class="alta__form" [formGroup]="negocioForm" (ngSubmit)="finalizar()" novalidate>
 
             <fieldset class="bloque">
               <legend class="bloque__tit">
-                <rs-icon name="building" [size]="14" [stroke]="2" /> Datos fiscales
+                <rs-icon name="building" [size]="14" [stroke]="2" /> {{ 'Datos fiscales' | t }}
               </legend>
 
               <div class="rs-field">
-                <label class="rs-lbl" for="nombreComercial">Nombre del negocio *</label>
+                <label class="rs-lbl" for="nombreComercial">{{ 'Nombre del negocio *' | t }}</label>
                 <input id="nombreComercial" class="rs-inp" formControlName="nombreComercial"
                        [placeholder]="placeholderNombre()" autocomplete="organization"
                        [class.rs-inp--error]="invalido('nombreComercial')" />
                 @if (invalido('nombreComercial')) {
-                  <span class="rs-field-err">Escribe el nombre con el que te conocen tus clientes.</span>
+                  <span class="rs-field-err">{{ 'Escribe el nombre con el que te conocen tus clientes.' | t }}</span>
                 } @else {
-                  <span class="rs-field-hint">Así aparecerá en tu ficha pública.</span>
+                  <span class="rs-field-hint">{{ 'Así aparecerá en tu ficha pública.' | t }}</span>
                 }
               </div>
 
               <div class="fila">
                 <div class="rs-field">
-                  <label class="rs-lbl" for="razonSocial">Razón social</label>
+                  <label class="rs-lbl" for="razonSocial">{{ 'Razón social' | t }}</label>
                   <input id="razonSocial" class="rs-inp" formControlName="razonSocial"
-                         placeholder="Ej: Villa Perruna S.L." autocomplete="organization" />
-                  <span class="rs-field-hint">El nombre legal, el que va en las facturas.</span>
+                         [placeholder]="'Ej: Villa Perruna S.L.' | t" autocomplete="organization" />
+                  <span class="rs-field-hint">{{ 'El nombre legal, el que va en las facturas.' | t }}</span>
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="vatNumber">CIF / NIF</label>
+                  <label class="rs-lbl" for="vatNumber">{{ 'CIF / NIF' | t }}</label>
                   <input id="vatNumber" class="rs-inp" formControlName="vatNumber"
-                         placeholder="Ej: B12345678" />
+                         [placeholder]="'Ej: B12345678' | t" />
                 </div>
               </div>
 
               <div class="rs-field">
-                <label class="rs-lbl" for="descripcion">Descripción del negocio</label>
+                <label class="rs-lbl" for="descripcion">{{ 'Descripción del negocio' | t }}</label>
                 <textarea id="descripcion" class="rs-inp" formControlName="descripcion" rows="3"
-                          placeholder="Cuenta qué te diferencia, con quién trabajas y qué incluye tu servicio…"
+                          [placeholder]="'Cuenta qué te diferencia, con quién trabajas y qué incluye tu servicio…' | t"
                           style="resize:vertical"></textarea>
               </div>
             </fieldset>
 
             <fieldset class="bloque">
               <legend class="bloque__tit">
-                <rs-icon name="phone" [size]="14" [stroke]="2" /> Contacto
+                <rs-icon name="phone" [size]="14" [stroke]="2" /> {{ 'Contacto' | t }}
               </legend>
 
               <div class="fila">
                 <div class="rs-field">
-                  <label class="rs-lbl" for="nombreContacto">Persona de contacto</label>
+                  <label class="rs-lbl" for="nombreContacto">{{ 'Persona de contacto' | t }}</label>
                   <input id="nombreContacto" class="rs-inp" formControlName="nombreContacto"
-                         placeholder="Nombre y apellidos" autocomplete="name" />
+                         [placeholder]="'Nombre y apellidos' | t" autocomplete="name" />
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="email">Email de contacto</label>
+                  <label class="rs-lbl" for="email">{{ 'Email de contacto' | t }}</label>
                   <input id="email" class="rs-inp" type="email" formControlName="email"
                          placeholder="reservas@tunegocio.com" autocomplete="email"
                          [class.rs-inp--error]="invalido('email')" />
                   @if (invalido('email')) {
-                    <span class="rs-field-err">Escribe un correo válido.</span>
+                    <span class="rs-field-err">{{ 'Escribe un correo válido.' | t }}</span>
                   }
                 </div>
               </div>
 
               <div class="fila">
                 <div class="rs-field">
-                  <label class="rs-lbl" for="telefono">Teléfono</label>
-                  <rs-phone-input inputId="telefono" formControlName="telefono" etiqueta="Teléfono" />
+                  <label class="rs-lbl" for="telefono">{{ 'Teléfono' | t }}</label>
+                  <rs-phone-input inputId="telefono" formControlName="telefono" [etiqueta]="'Teléfono' | t" />
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="whatsapp">WhatsApp <span class="opt">opcional</span></label>
+                  <label class="rs-lbl" for="whatsapp">WhatsApp <span class="opt">{{ 'opcional' | t }}</span></label>
                   <rs-phone-input inputId="whatsapp" formControlName="whatsapp" etiqueta="WhatsApp" />
                 </div>
               </div>
@@ -291,32 +285,28 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
 
             <fieldset class="bloque">
               <legend class="bloque__tit">
-                <rs-icon name="badge-check" [size]="14" [stroke]="2" /> Declaraciones
+                <rs-icon name="badge-check" [size]="14" [stroke]="2" /> {{ 'Declaraciones' | t }}
               </legend>
 
               <label class="acuerdo" [class.acuerdo--on]="negocioForm.controls.operaLegalmente.value">
                 <input type="checkbox" formControlName="operaLegalmente" />
                 <span>
-                  Declaro que mi empresa o actividad profesional opera legalmente y cumple con los
-                  permisos, licencias y requisitos necesarios para prestar los servicios ofrecidos.
-                  DOOGKING podrá solicitar documentación acreditativa y verificar los datos
-                  proporcionados en cualquier momento.
+                  {{ 'Declaro que mi empresa o actividad profesional opera legalmente y cumple con los permisos, licencias y requisitos necesarios para prestar los servicios ofrecidos. DOOGKING podrá solicitar documentación acreditativa y verificar los datos proporcionados en cualquier momento.' | t }}
                 </span>
               </label>
 
               <label class="acuerdo" [class.acuerdo--on]="negocioForm.controls.condicionesGenerales.value">
                 <input type="checkbox" formControlName="condicionesGenerales" />
                 <span>
-                  He leído, acepto y estoy de acuerdo con las
+                  {{ 'He leído, acepto y estoy de acuerdo con las' | t }}
                   <a routerLink="/condiciones" target="_blank" rel="noopener">
-                    Condiciones generales del servicio</a>.
+                    {{ 'Condiciones generales del servicio' | t }}</a>.
                 </span>
               </label>
 
               @if (faltanAcuerdos()) {
                 <p class="rs-field-err">
-                  Marca las dos casillas para terminar el alta. Si prefieres leerlas con calma,
-                  puedes continuar más tarde.
+                  {{ 'Marca las dos casillas para terminar el alta. Si prefieres leerlas con calma, puedes continuar más tarde.' | t }}
                 </p>
               }
             </fieldset>
@@ -334,7 +324,7 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
                 <button type="button" class="rs-btn rs-btn--outline rs-btn--lg alta__volver"
                         [disabled]="guardando()" (click)="volverDesdeNegocio()">
                   <rs-icon name="arrow-left" [size]="16" [stroke]="2.5" />
-                  Volver
+                  {{ 'Volver' | t }}
                 </button>
                 <button type="submit" class="rs-btn rs-btn--primary rs-btn--lg rs-btn--block"
                         [disabled]="guardando()">
@@ -350,13 +340,12 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
               -->
               <button type="button" class="rs-btn rs-btn--ghost" [disabled]="guardando()"
                       (click)="continuarMasTarde()">
-                Todavía no tengo estos datos
+                {{ 'Todavía no tengo estos datos' | t }}
               </button>
             </div>
 
             <p class="alta__nota">
-              Tu servicio ya está guardado como borrador. Si lo dejas aquí, lo encontrarás en tu
-              panel y podrás terminar cuando quieras: <strong>hasta entonces no se publica</strong>.
+              {{ 'Tu servicio ya está guardado como borrador. Si lo dejas aquí, lo encontrarás en tu panel y podrás terminar cuando quieras:' | t }} <strong>{{ 'hasta entonces no se publica' | t }}</strong>.
             </p>
           </form>
         </section>
@@ -373,11 +362,11 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
 
           <div class="alta__pie">
             <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--lg rs-btn--block">
-              Ir a mi panel
+              {{ 'Ir a mi panel' | t }}
               <rs-icon name="arrow-right" [size]="16" [stroke]="2.5" />
             </a>
             <a routerLink="/comercio/listados" class="rs-btn rs-btn--outline rs-btn--block">
-              Ver mis servicios
+              {{ 'Ver mis servicios' | t }}
             </a>
           </div>
         </section>

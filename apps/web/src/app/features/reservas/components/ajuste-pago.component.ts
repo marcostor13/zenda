@@ -8,30 +8,33 @@ import { PaymentsService } from '../services/payments.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 @Component({
   selector: 'app-ajuste-pago',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, EurosPipe
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
 
   <div class="rs-wrap" style="max-width:520px;padding-block:var(--sp-10)">
-    <a routerLink="/reservas/mis-reservas" class="back-link">← Volver a mis reservas</a>
+    <a routerLink="/reservas/mis-reservas" class="back-link">{{ '← Volver a mis reservas' | t }}</a>
 
     @if (cargando()) {
-      <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">Cargando…</div>
+      <div class="rs-card" style="padding:var(--sp-16);text-align:center;color:var(--t-400)">{{ 'Cargando…' | t }}</div>
     } @else if (pagado()) {
       <div class="rs-card" style="padding:var(--sp-10);text-align:center">
-        <h2 style="color:var(--t-100);margin-bottom:var(--sp-2)">¡Suplemento pagado!</h2>
+        <h2 style="color:var(--t-100);margin-bottom:var(--sp-2)">{{ '¡Suplemento pagado!' | t }}</h2>
         <p style="color:var(--t-400);margin-bottom:var(--sp-6)">Tu reserva {{ reserva()?.codigo }} vuelve a estar confirmada.</p>
-        <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary">Volver a mis reservas</a>
+        <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary">{{ 'Volver a mis reservas' | t }}</a>
       </div>
     } @else if (errorCarga()) {
       <div class="rs-alert rs-alert--error">{{ errorCarga() }}</div>
     } @else {
       <div class="rs-card ajuste-card">
-        <h1>Ajuste de precio solicitado</h1>
+        <h1>{{ 'Ajuste de precio solicitado' | t }}</h1>
         <p class="ajuste-card__sub">
           {{ reserva()?.codigo }} · el comercio ha detectado circunstancias no indicadas en la reserva.
         </p>
@@ -46,14 +49,13 @@ import { EurosPipe } from '../../../shared/pipes/euros.pipe';
         </div>
 
         <div class="ajuste-card__totales">
-          <div class="ajuste-linea"><span>Precio inicial</span><span>{{ reserva()?.montoTotal | euros:'1.2-2' }}</span></div>
-          <div class="ajuste-linea"><span>Nuevo precio</span><span>{{ reserva()?.montoAjustado | euros:'1.2-2' }}</span></div>
-          <div class="ajuste-linea ajuste-linea--total"><span>Diferencia a pagar</span><span>{{ diferencia() | euros:'1.2-2' }}</span></div>
+          <div class="ajuste-linea"><span>{{ 'Precio inicial' | t }}</span><span>{{ reserva()?.montoTotal | euros:'1.2-2' }}</span></div>
+          <div class="ajuste-linea"><span>{{ 'Nuevo precio' | t }}</span><span>{{ reserva()?.montoAjustado | euros:'1.2-2' }}</span></div>
+          <div class="ajuste-linea ajuste-linea--total"><span>{{ 'Diferencia a pagar' | t }}</span><span>{{ diferencia() | euros:'1.2-2' }}</span></div>
         </div>
 
         <p class="ajuste-card__legal">
-          Ningún coste adicional se aplicará sin tu aprobación. Si prefieres no continuar, puedes rechazar el ajuste:
-          se te reembolsará el importe original y la reserva se cancelará.
+          {{ 'Ningún coste adicional se aplicará sin tu aprobación. Si prefieres no continuar, puedes rechazar el ajuste: se te reembolsará el importe original y la reserva se cancelará.' | t }}
         </p>
 
         @if (errorPago()) {

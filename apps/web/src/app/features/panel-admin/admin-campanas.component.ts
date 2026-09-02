@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import {
   OBJETIVO_CAMPANA_LABELS, ObjetivoCampana,
   SEGMENTO_CAMPANA_LABELS, SegmentoCampana,
@@ -43,14 +44,16 @@ interface MetricaApi {
 @Component({
   selector: 'app-admin-campanas',
   standalone: true,
-  imports: [CurrencyPipe, FormsModule, RsIconComponent],
+  imports: [
+    TraducirPipe, CurrencyPipe, FormsModule, RsIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="ac">
   <header class="ac__head">
     <div>
-      <h1>Campañas</h1>
-      <p>Gestiona, segmenta y analiza las campañas promocionales de Doogking.</p>
+      <h1>{{ 'Campañas' | t }}</h1>
+      <p>{{ 'Gestiona, segmenta y analiza las campañas promocionales de Doogking.' | t }}</p>
     </div>
     <button type="button" class="rs-btn rs-btn--primary" (click)="alternarFormulario()">
       <rs-icon name="plus" [size]="15" [stroke]="2"></rs-icon>
@@ -62,46 +65,46 @@ interface MetricaApi {
     <div class="rs-card ac__form">
       <div class="ac__form-campos">
         <div class="rs-field">
-          <label class="rs-lbl" for="ca-nombre">Nombre *</label>
-          <input id="ca-nombre" class="rs-inp" [(ngModel)]="nombre" placeholder="Ej. Vuelta al cole 2026" />
+          <label class="rs-lbl" for="ca-nombre">{{ 'Nombre *' | t }}</label>
+          <input id="ca-nombre" class="rs-inp" [(ngModel)]="nombre" [placeholder]="'Ej. Vuelta al cole 2026' | t" />
         </div>
         <div class="rs-field">
-          <label class="rs-lbl" for="ca-desde">Desde *</label>
+          <label class="rs-lbl" for="ca-desde">{{ 'Desde *' | t }}</label>
           <input id="ca-desde" type="date" class="rs-inp" [(ngModel)]="desde" />
         </div>
         <div class="rs-field">
-          <label class="rs-lbl" for="ca-hasta">Hasta *</label>
+          <label class="rs-lbl" for="ca-hasta">{{ 'Hasta *' | t }}</label>
           <input id="ca-hasta" type="date" class="rs-inp" [(ngModel)]="hasta" />
         </div>
       </div>
       <!-- Objetivo y segmento: sin esto no se puede comparar qué funciona (TCK-8038) -->
       <div class="ac__form-campos">
         <div class="rs-field">
-          <label class="rs-lbl" for="ca-objetivo">Objetivo</label>
+          <label class="rs-lbl" for="ca-objetivo">{{ 'Objetivo' | t }}</label>
           <select id="ca-objetivo" class="rs-inp" [(ngModel)]="objetivo">
-            <option value="">Sin definir</option>
+            <option value="">{{ 'Sin definir' | t }}</option>
             @for (o of objetivos; track o.valor) {
-              <option [value]="o.valor">{{ o.label }}</option>
+              <option [value]="o.valor">{{ o.label | t }}</option>
             }
           </select>
         </div>
         <div class="rs-field">
-          <label class="rs-lbl" for="ca-segmento">A quién se dirige</label>
+          <label class="rs-lbl" for="ca-segmento">{{ 'A quién se dirige' | t }}</label>
           <select id="ca-segmento" class="rs-inp" [(ngModel)]="segmento">
             @for (sg of segmentos; track sg.valor) {
-              <option [value]="sg.valor">{{ sg.label }}</option>
+              <option [value]="sg.valor">{{ sg.label | t }}</option>
             }
           </select>
         </div>
         <div class="rs-field">
-          <label class="rs-lbl" for="ca-detalle">Ciudad o categoría (opcional)</label>
+          <label class="rs-lbl" for="ca-detalle">{{ 'Ciudad o categoría (opcional)' | t }}</label>
           <input id="ca-detalle" class="rs-inp" [(ngModel)]="segmentoDetalle"
-                 placeholder="Ej. Valencia o peluquería" />
+                 [placeholder]="'Ej. Valencia o peluquería' | t" />
         </div>
       </div>
 
       <div class="rs-field">
-        <label class="rs-lbl" for="ca-desc">Descripción</label>
+        <label class="rs-lbl" for="ca-desc">{{ 'Descripción' | t }}</label>
         <input id="ca-desc" class="rs-inp" [(ngModel)]="descripcion" />
       </div>
 
@@ -114,37 +117,36 @@ interface MetricaApi {
   }
 
   @if (cargando()) {
-    <p class="ac__cargando">Cargando campañas…</p>
+    <p class="ac__cargando">{{ 'Cargando campañas…' | t }}</p>
   } @else if (!metricas().length) {
     <!-- Estado vacío trabajado: qué es una campaña y para qué sirve (TCK-8038) -->
     <div class="ac__vacio">
       <rs-icon name="tag" [size]="36" [stroke]="1.5"></rs-icon>
-      <p class="ac__vacio-titulo">Aún no has creado ninguna campaña</p>
+      <p class="ac__vacio-titulo">{{ 'Aún no has creado ninguna campaña' | t }}</p>
       <p class="ac__vacio-texto">
-        Crea tu primera campaña para captar nuevos usuarios, aumentar las reservas
-        o reactivar clientes.
+        {{ 'Crea tu primera campaña para captar nuevos usuarios, aumentar las reservas o reactivar clientes.' | t }}
       </p>
       <button type="button" class="rs-btn rs-btn--primary" (click)="formularioAbierto.set(true)">
-        <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon> Crear primera campaña
+        <rs-icon name="plus" [size]="15" [stroke]="2.5"></rs-icon> {{ 'Crear primera campaña' | t }}
       </button>
       <div class="ac__ejemplos">
-        <span class="ac__ejemplo">Captar nuevos clientes</span>
-        <span class="ac__ejemplo">Aumentar reservas</span>
-        <span class="ac__ejemplo">Reactivar usuarios</span>
+        <span class="ac__ejemplo">{{ 'Captar nuevos clientes' | t }}</span>
+        <span class="ac__ejemplo">{{ 'Aumentar reservas' | t }}</span>
+        <span class="ac__ejemplo">{{ 'Reactivar usuarios' | t }}</span>
       </div>
     </div>
   } @else {
     <div class="ac__resumen">
       <div class="ac__kpi">
-        <span>Coste asumido por Doogking</span>
+        <span>{{ 'Coste asumido por Doogking' | t }}</span>
         <strong>{{ totalPlataforma() | currency: 'EUR' }}</strong>
       </div>
       <div class="ac__kpi">
-        <span>Coste asumido por comercios</span>
+        <span>{{ 'Coste asumido por comercios' | t }}</span>
         <strong>{{ totalComercios() | currency: 'EUR' }}</strong>
       </div>
       <div class="ac__kpi">
-        <span>Cupones canjeados</span>
+        <span>{{ 'Cupones canjeados' | t }}</span>
         <strong>{{ totalUsos() }}</strong>
       </div>
     </div>
@@ -153,14 +155,14 @@ interface MetricaApi {
       <table class="ac__tabla">
         <thead>
           <tr>
-            <th scope="col">Campaña</th>
-            <th scope="col">Vigencia</th>
-            <th scope="col">Envíos</th>
-            <th scope="col">Cupones</th>
-            <th scope="col">Usos</th>
-            <th scope="col">Conversión</th>
-            <th scope="col">Coste plataforma</th>
-            <th scope="col">Coste comercios</th>
+            <th scope="col">{{ 'Campaña' | t }}</th>
+            <th scope="col">{{ 'Vigencia' | t }}</th>
+            <th scope="col">{{ 'Envíos' | t }}</th>
+            <th scope="col">{{ 'Cupones' | t }}</th>
+            <th scope="col">{{ 'Usos' | t }}</th>
+            <th scope="col">{{ 'Conversión' | t }}</th>
+            <th scope="col">{{ 'Coste plataforma' | t }}</th>
+            <th scope="col">{{ 'Coste comercios' | t }}</th>
             <th scope="col"></th>
           </tr>
         </thead>

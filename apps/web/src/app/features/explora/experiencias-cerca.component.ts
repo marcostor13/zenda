@@ -5,6 +5,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { fotoDeLugar } from '../../shared/media/images';
 import { LugarApi, LugaresService } from './lugares.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
  * Carrusel "Descubre experiencias cerca de ti" bajo los resultados de búsqueda
@@ -16,18 +17,20 @@ import { LugarApi, LugaresService } from './lugares.service';
 @Component({
   selector: 'app-experiencias-cerca',
   standalone: true,
-  imports: [RouterLink, RsIconComponent, ImgFallbackDirective],
+  imports: [
+    TraducirPipe, RouterLink, RsIconComponent, ImgFallbackDirective
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (lugares().length) {
   <section class="ec">
     <div class="ec__head">
       <div>
-        <h2>Descubre experiencias cerca de ti</h2>
+        <h2>{{ 'Descubre experiencias cerca de ti' | t }}</h2>
         <p>Sitios donde llevar a tu perro{{ ciudad() ? ' en ' + ciudad() : '' }}, aportados por la comunidad.</p>
       </div>
       <a routerLink="/explora" [queryParams]="{ ciudad: ciudad() || null }" class="ec__link">
-        Ver todos
+        {{ 'Ver todos' | t }}
         <rs-icon name="arrow-right" [size]="15" [stroke]="2"></rs-icon>
       </a>
     </div>

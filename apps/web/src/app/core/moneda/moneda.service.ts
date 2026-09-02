@@ -3,7 +3,6 @@ import { MONEDAS_SOPORTADAS, MONEDA_DEFAULT, MONEDA_SIMBOLOS, MonedaSoportada } 
 import { GeoService, TiposDeCambio } from '../geo/geo.service';
 
 const CLAVE_MONEDA = 'doogking_moneda';
-const CLAVE_PAIS = 'doogking_pais';
 
 const SIN_CAMBIO: TiposDeCambio = { base: 'EUR', fecha: '', tasas: { EUR: 1 } };
 
@@ -19,7 +18,6 @@ export class MonedaService {
   readonly monedas = MONEDAS_SOPORTADAS;
 
   readonly moneda = signal<MonedaSoportada>(this.leerMoneda());
-  readonly pais = signal<string>(localStorage.getItem(CLAVE_PAIS) ?? 'ES');
 
   /**
    * Tipos de cambio bajo demanda: la inmensa mayoría de usuarios paga en euros
@@ -41,11 +39,6 @@ export class MonedaService {
     this.moneda.set(moneda);
     localStorage.setItem(CLAVE_MONEDA, moneda);
     if (moneda !== MONEDA_DEFAULT) this.cargarCambio();
-  }
-
-  elegirPais(codigo: string): void {
-    this.pais.set(codigo);
-    localStorage.setItem(CLAVE_PAIS, codigo);
   }
 
   simbolo(): string {

@@ -9,6 +9,7 @@ import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 type EstadoColor = 'success' | 'warning' | 'danger' | 'accent' | 'neutral';
 
 const HITO_LABEL: Record<string, string> = {
@@ -40,7 +41,9 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
 @Component({
   selector: 'app-reserva-detalle',
   standalone: true,
-  imports: [RouterLink, DatePipe, TitleCasePipe, RsNavbarComponent, RsIconComponent, RsBrandIconComponent, EurosPipe],
+  imports: [
+    TraducirPipe, RouterLink, DatePipe, TitleCasePipe, RsNavbarComponent, RsIconComponent, RsBrandIconComponent, EurosPipe
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -58,7 +61,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
         {{ error() }}
       </div>
       <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--secondary" style="margin-top:var(--sp-5)">
-        ← Volver a mis reservas
+        {{ '← Volver a mis reservas' | t }}
       </a>
     </div>
   }
@@ -72,7 +75,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
             <rs-icon [name]="estadoMeta().icon" [size]="16" [stroke]="2"></rs-icon>
           </div>
           <div>
-            <div class="status-bar__estado">{{ estadoMeta().label }}</div>
+            <div class="status-bar__estado">{{ estadoMeta().label | t }}</div>
             <div class="status-bar__code">{{ reserva()!.codigo }}</div>
           </div>
         </div>
@@ -85,9 +88,9 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
     <div class="rs-wrap" style="padding-block:var(--sp-8)">
 
       <nav class="breadcrumb">
-        <a routerLink="/perfil">Mi perfil</a>
+        <a routerLink="/perfil">{{ 'Mi perfil' | t }}</a>
         <rs-icon name="chevron-right" [size]="12" [stroke]="2"></rs-icon>
-        <a routerLink="/reservas/mis-reservas">Mis reservas</a>
+        <a routerLink="/reservas/mis-reservas">{{ 'Mis reservas' | t }}</a>
         <rs-icon name="chevron-right" [size]="12" [stroke]="2"></rs-icon>
         <span>{{ reserva()!.codigo }}</span>
       </nav>
@@ -104,7 +107,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
                 <rs-icon [name]="verticalMeta().icon" [size]="22" [stroke]="1.75" [style.color]="verticalMeta().color"></rs-icon>
               </div>
               <div>
-                <div class="service-vertical">{{ verticalMeta().label }}</div>
+                <div class="service-vertical">{{ verticalMeta().label | t }}</div>
                 <h2 class="service-name">{{ servicioTitulo() }}</h2>
               </div>
             </div>
@@ -115,7 +118,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
             <div class="rs-card seguimiento-card">
               <h3 class="seguimiento-card__title">
                 <rs-icon name="radio-tower" [size]="16" [stroke]="2" /> Seguimiento en vivo
-                @if (esActiva()) { <span class="live-dot" title="Actualizando en tiempo real"></span> }
+                @if (esActiva()) { <span class="live-dot" [title]="'Actualizando en tiempo real' | t"></span> }
               </h3>
               <ol class="seg-timeline">
                 @for (h of seguimiento(); track $index) {
@@ -134,26 +137,26 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
           <div class="rs-card info-card">
             <h3 class="info-card__title">
               <rs-icon name="calendar" [size]="15" [stroke]="2"></rs-icon>
-              Fechas y detalles
+              {{ 'Fechas y detalles' | t }}
             </h3>
 
             <div class="info-rows">
               <div class="info-row">
-                <span class="info-row__label">Fecha de inicio</span>
+                <span class="info-row__label">{{ 'Fecha de inicio' | t }}</span>
                 <span class="info-row__val">{{ reserva()!.fechaInicio | date:'EEEE, d MMMM y':'':'es' | titlecase }}</span>
               </div>
               @if (reserva()!.fechaFin) {
                 <div class="info-row">
-                  <span class="info-row__label">Fecha de fin</span>
+                  <span class="info-row__label">{{ 'Fecha de fin' | t }}</span>
                   <span class="info-row__val">{{ reserva()!.fechaFin | date:'EEEE, d MMMM y':'':'es' | titlecase }}</span>
                 </div>
                 <div class="info-row">
-                  <span class="info-row__label">Duración</span>
+                  <span class="info-row__label">{{ 'Duración' | t }}</span>
                   <span class="info-row__val">{{ duracion() }}</span>
                 </div>
               }
               <div class="info-row">
-                <span class="info-row__label">Cantidad</span>
+                <span class="info-row__label">{{ 'Cantidad' | t }}</span>
                 <span class="info-row__val">{{ reserva()!.cantidad }} {{ reserva()!.cantidad === 1 ? 'unidad' : 'unidades' }}</span>
               </div>
             </div>
@@ -161,7 +164,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
             <!-- Extra detalle fields -->
             @for (campo of detalleExtra(); track campo.key) {
               <div class="info-row" style="margin-top:var(--sp-1)">
-                <span class="info-row__label">{{ campo.label }}</span>
+                <span class="info-row__label">{{ campo.label | t }}</span>
                 <span class="info-row__val">{{ campo.valor }}</span>
               </div>
             }
@@ -172,7 +175,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
             <div class="rs-card info-card">
               <h3 class="info-card__title">
                 <rs-icon name="plus" [size]="15" [stroke]="2"></rs-icon>
-                Cargos adicionales aplicados
+                {{ 'Cargos adicionales aplicados' | t }}
               </h3>
               <div class="info-rows">
                 @for (s of reserva()!.suplementos!; track $index) {
@@ -181,7 +184,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
                       {{ s.concepto }}
                       @if (s.motivo) { <br /><span style="font-size:var(--f-xs)">{{ s.motivo }}</span> }
                       @if (s.evidenciaUrl) {
-                        <br /><a [href]="s.evidenciaUrl" target="_blank" rel="noopener" style="font-size:var(--f-xs);color:var(--c-accent)">Ver foto</a>
+                        <br /><a [href]="s.evidenciaUrl" target="_blank" rel="noopener" style="font-size:var(--f-xs);color:var(--c-accent)">{{ 'Ver foto' | t }}</a>
                       }
                     </span>
                     <span class="info-row__val">{{ s.monto | euros:'1.2-2' }}</span>
@@ -197,7 +200,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
               <div style="display:flex;align-items:center;gap:var(--sp-3)">
                 <rs-icon name="tag" [size]="16" [stroke]="2" style="color:var(--c-accent)"></rs-icon>
                 <div>
-                  <div style="font-size:var(--f-xs);color:var(--t-400)">Cupón aplicado</div>
+                  <div style="font-size:var(--f-xs);color:var(--t-400)">{{ 'Cupón aplicado' | t }}</div>
                   <div style="font-size:var(--f-sm);font-weight:var(--w-7);color:var(--t-100);font-family:monospace">
                     {{ reserva()!.cuponCodigo }}
                   </div>
@@ -216,7 +219,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
 
           <!-- Price breakdown -->
           <div class="rs-card price-card">
-            <h3 class="price-card__title">Resumen de pago</h3>
+            <h3 class="price-card__title">{{ 'Resumen de pago' | t }}</h3>
 
             <div class="price-rows">
               @if (reserva()!.descuentoMonto > 0) {
@@ -231,23 +234,23 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
                 </div>
               }
               <div class="price-row price-row--total">
-                <span>Total</span>
+                <span>{{ 'Total' | t }}</span>
                 <span>{{ reserva()!.montoTotal | euros:'1.2-2' }}</span>
               </div>
               <!-- Desglose informativo: el IVA va dentro del total, no encima. -->
               <div class="price-row price-row--nota">
-                <span>Incluye IVA (21%)</span>
+                <span>{{ 'Incluye IVA (21%)' | t }}</span>
                 <span>{{ iva() | euros:'1.2-2' }}</span>
               </div>
               <div class="price-row price-row--nota">
-                <span>Base imponible</span>
+                <span>{{ 'Base imponible' | t }}</span>
                 <span>{{ reserva()!.montoSubtotal | euros:'1.2-2' }}</span>
               </div>
             </div>
 
             <div class="price-currency">
               <rs-icon name="euro" [size]="12" [stroke]="2"></rs-icon>
-              EUR · Precios con IVA incluido
+              {{ 'EUR · Precios con IVA incluido' | t }}
             </div>
           </div>
 
@@ -255,7 +258,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
           <div class="rs-card payment-card">
             <h3 class="payment-card__title">
               <rs-icon name="credit-card" [size]="15" [stroke]="2"></rs-icon>
-              Estado del pago
+              {{ 'Estado del pago' | t }}
             </h3>
 
             <div class="payment-status" [class]="'payment-status--' + estadoMeta().color">
@@ -265,18 +268,18 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
 
             <!-- Stripe badge -->
             <div class="stripe-trust">
-              <span class="stripe-trust__label">Procesado de forma segura por</span>
+              <span class="stripe-trust__label">{{ 'Procesado de forma segura por' | t }}</span>
               <div class="stripe-logo">
                 <rs-brand-icon name="stripe" [size]="20" />
               </div>
               <div class="stripe-trust__chips">
                 <span class="stripe-chip">
                   <rs-icon name="shield-check" [size]="11" [stroke]="2.5"></rs-icon>
-                  SSL 256-bit
+                  {{ 'SSL 256-bit' | t }}
                 </span>
                 <span class="stripe-chip">
                   <rs-icon name="lock" [size]="11" [stroke]="2.5"></rs-icon>
-                  PCI DSS Nivel 1
+                  {{ 'PCI DSS Nivel 1' | t }}
                 </span>
               </div>
             </div>
@@ -322,28 +325,28 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
 
             @if (incidenciaAbierta()) {
               <div class="incidencia">
-                <label class="rs-lbl" for="inc-tipo">Qué necesitas</label>
+                <label class="rs-lbl" for="inc-tipo">{{ 'Qué necesitas' | t }}</label>
                 <select id="inc-tipo" class="rs-inp" [value]="incidenciaTipo()"
                         (change)="incidenciaTipo.set($any($event.target).value)">
-                  <option value="incidencia">Contar una incidencia</option>
-                  <option value="reclamacion">Poner una reclamación</option>
-                  <option value="devolucion">Pedir la devolución</option>
+                  <option value="incidencia">{{ 'Contar una incidencia' | t }}</option>
+                  <option value="reclamacion">{{ 'Poner una reclamación' | t }}</option>
+                  <option value="devolucion">{{ 'Pedir la devolución' | t }}</option>
                 </select>
 
-                <label class="rs-lbl" for="inc-asunto">Asunto</label>
+                <label class="rs-lbl" for="inc-asunto">{{ 'Asunto' | t }}</label>
                 <input id="inc-asunto" class="rs-inp" [value]="incidenciaAsunto()"
                        (input)="incidenciaAsunto.set($any($event.target).value)"
-                       placeholder="Ej. el servicio no fue el contratado" />
+                       [placeholder]="'Ej. el servicio no fue el contratado' | t" />
 
-                <label class="rs-lbl" for="inc-desc">Qué ha pasado</label>
+                <label class="rs-lbl" for="inc-desc">{{ 'Qué ha pasado' | t }}</label>
                 <input id="inc-desc" class="rs-inp" [value]="incidenciaDescripcion()"
                        (input)="incidenciaDescripcion.set($any($event.target).value)"
-                       placeholder="Cuéntanoslo con el detalle que puedas" />
+                       [placeholder]="'Cuéntanoslo con el detalle que puedas' | t" />
 
                 @if (incidenciaEnviada()) {
                   <p class="incidencia__ok">
                     <rs-icon name="check-circle" [size]="14" [stroke]="2"></rs-icon>
-                    Hemos recibido tu incidencia. El equipo de Doogking la revisará.
+                    {{ 'Hemos recibido tu incidencia. El equipo de Doogking la revisará.' | t }}
                   </p>
                 } @else {
                   <button type="button" class="rs-btn rs-btn--primary rs-btn--block"
@@ -358,7 +361,7 @@ const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: str
             <a routerLink="/reservas/mis-reservas"
                class="rs-btn rs-btn--ghost rs-btn--block">
               <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon>
-              Volver a mis reservas
+              {{ 'Volver a mis reservas' | t }}
             </a>
 
             @if (errorAccion()) {

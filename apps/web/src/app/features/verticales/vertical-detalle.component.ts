@@ -18,6 +18,7 @@ import { PuntoUbicacion } from '../../shared/mapas/google-maps';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 
 import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
  * Huecos de la fila de miniaturas y fotos del costado del mosaico. Mismos
@@ -208,9 +209,10 @@ const CONFIGS: Record<string, DetalleConfig> = {
   selector: 'app-vertical-detalle',
   standalone: true,
   imports: [
-    RouterLink, DatePipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
+    TraducirPipe, RouterLink, DatePipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
     RsTrustBlockComponent, RsChipComponent, RsFavoritoBtnComponent, ImgFallbackDirective,
-    RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,],
+    RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,
+  ],
   template: `
 <div class="vd-page">
   <rs-navbar />
@@ -224,9 +226,9 @@ const CONFIGS: Record<string, DetalleConfig> = {
   @if (!cargando() && !servicio()) {
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:var(--sp-4);text-align:center">
       <rs-icon name="paw" [size]="48" [stroke]="1.5" style="color:var(--t-400)" />
-      <h3>No se pudo cargar esta ficha</h3>
-      <p style="color:var(--t-300)">Puede que ya no esté disponible.</p>
-      <a [routerLink]="ui.route" class="rs-btn rs-btn--secondary">Volver al listado</a>
+      <h3>{{ 'No se pudo cargar esta ficha' | t }}</h3>
+      <p style="color:var(--t-300)">{{ 'Puede que ya no esté disponible.' | t }}</p>
+      <a [routerLink]="ui.route" class="rs-btn rs-btn--secondary">{{ 'Volver al listado' | t }}</a>
     </div>
   }
 
@@ -234,8 +236,8 @@ const CONFIGS: Record<string, DetalleConfig> = {
   <div class="vd-wrap rs-wrap">
 
     <nav class="breadcrumb">
-      <a routerLink="/">Inicio</a> /
-      <a [routerLink]="ui.route">{{ ui.label }}</a> /
+      <a routerLink="/">{{ 'Inicio' | t }}</a> /
+      <a [routerLink]="ui.route">{{ ui.label | t }}</a> /
       <span>{{ s.nombre }}</span>
     </nav>
 
@@ -275,15 +277,15 @@ const CONFIGS: Record<string, DetalleConfig> = {
     </div>
 
     @if (lightboxAbierto()) {
-      <div class="lightbox" role="dialog" aria-label="Galería a pantalla completa" (click)="cerrarLightbox()">
-        <button type="button" class="lightbox__cerrar" (click)="cerrarLightbox()" aria-label="Cerrar galería">
+      <div class="lightbox" role="dialog" [attr.aria-label]="'Galería a pantalla completa' | t" (click)="cerrarLightbox()">
+        <button type="button" class="lightbox__cerrar" (click)="cerrarLightbox()" [attr.aria-label]="'Cerrar galería' | t">
           <rs-icon name="x" [size]="22" [stroke]="2"></rs-icon>
         </button>
-        <button type="button" class="lightbox__nav lightbox__nav--prev" (click)="fotoAnterior(); $event.stopPropagation()" aria-label="Foto anterior">
+        <button type="button" class="lightbox__nav lightbox__nav--prev" (click)="fotoAnterior(); $event.stopPropagation()" [attr.aria-label]="'Foto anterior' | t">
           <rs-icon name="arrow-left" [size]="22" [stroke]="2"></rs-icon>
         </button>
         <img [src]="lightboxImagen()" [alt]="s.nombre" (click)="$event.stopPropagation()" />
-        <button type="button" class="lightbox__nav lightbox__nav--next" (click)="siguienteFoto(); $event.stopPropagation()" aria-label="Foto siguiente">
+        <button type="button" class="lightbox__nav lightbox__nav--next" (click)="siguienteFoto(); $event.stopPropagation()" [attr.aria-label]="'Foto siguiente' | t">
           <rs-icon name="arrow-right" [size]="22" [stroke]="2"></rs-icon>
         </button>
         <span class="lightbox__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ lightboxIndice() + 1 }} / {{ s.imagenes.length }}</span>
@@ -297,18 +299,18 @@ const CONFIGS: Record<string, DetalleConfig> = {
           <div class="info-header__meta">
             <rs-rating [score]="s.score" [label]="s.scoreLabel" [count]="s.numResenas" size="sm"></rs-rating>
             <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ s.direccion ? s.direccion + ', ' : '' }}{{ s.ciudad }}</span>
-            <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> Profesional verificado</span>
+            <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> {{ 'Profesional verificado' | t }}</span>
           </div>
         </div>
 
         <div class="compromiso-block">
-          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> Garantía Doogking</h3>
+          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> {{ 'Garantía Doogking' | t }}</h3>
           <rs-trust-block></rs-trust-block>
         </div>
 
         @if (cfg().chips(s).length) {
           <div class="section-block">
-            <h2>Especialidades</h2>
+            <h2>{{ 'Especialidades' | t }}</h2>
             <div class="chips-row">
               @for (c of cfg().chips(s); track c) { <rs-chip [active]="true">{{ c }}</rs-chip> }
             </div>
@@ -317,7 +319,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
         @if (s.descripcion) {
           <div class="section-block">
-            <h2>Sobre este servicio</h2>
+            <h2>{{ 'Sobre este servicio' | t }}</h2>
             <p>{{ s.descripcion }}</p>
           </div>
         }
@@ -328,7 +330,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
             @for (p of cfg().puntos(s); track p) {
               <li><rs-icon name="check" [size]="15" [stroke]="2.5" /> {{ p }}</li>
             }
-            @empty { <p style="color:var(--t-400);font-size:var(--f-sm)">Sin datos adicionales de este profesional.</p> }
+            @empty { <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Sin datos adicionales de este profesional.' | t }}</p> }
           </ul>
         </div>
 
@@ -353,11 +355,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
               </div>
               <p>{{ r.comentario }}</p>
               @if (r.respuesta) {
-                <p class="resena-card__respuesta">↳ {{ r.respuesta }}</p>
+                <p class="resena-card__respuesta">↳ {{ r.respuesta | t }}</p>
               }
             </div>
           } @empty {
-            <p style="color:var(--t-400);font-size:var(--f-sm)">Aún no hay reseñas de este profesional.</p>
+            <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Aún no hay reseñas de este profesional.' | t }}</p>
           }
         </div>
       </div>
@@ -366,7 +368,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       <div class="side-col rs-sticky-panel">
         <div class="side-panel rs-card">
           <div class="side-panel__price">
-            <div class="bp-desde">Desde</div>
+            <div class="bp-desde">{{ 'Desde' | t }}</div>
             <div class="bp-amount">{{ cfg().price(s) | euros }}</div>
             <div class="bp-per">{{ cfg().priceLabel }}</div>
           </div>
@@ -377,7 +379,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
           <div class="side-panel__fav">
             <rs-favorito-btn [servicioId]="s.id" [tamano]="18"></rs-favorito-btn>
-            <span>Guardar en favoritos</span>
+            <span>{{ 'Guardar en favoritos' | t }}</span>
           </div>
 
           <hr class="rs-hr" style="margin-block:var(--sp-5)">
@@ -395,7 +397,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
     -->
     <div class="mobile-cta">
       <div class="mobile-cta__precio">
-        <span class="mobile-cta__desde">Desde</span>
+        <span class="mobile-cta__desde">{{ 'Desde' | t }}</span>
         <strong>{{ cfg().price(s) | euros }}</strong>
         <span class="mobile-cta__unidad">{{ cfg().priceLabel }}</span>
       </div>

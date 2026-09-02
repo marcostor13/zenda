@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { RsIconComponent } from '../icon/rs-icon.component';
+import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 export interface OpcionFiltro {
   readonly valor: string;
@@ -52,7 +53,9 @@ interface ChipActivo {
   selector: 'rs-admin-filtros',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RsIconComponent],
+  imports: [
+    TraducirPipe, RsIconComponent
+  ],
   template: `
     <div class="af">
       <div class="af__barra">
@@ -89,7 +92,7 @@ interface ChipActivo {
             </button>
           }
           <button type="button" class="af__activo af__activo--limpiar" (click)="limpiar()">
-            Limpiar filtros
+            {{ 'Limpiar filtros' | t }}
           </button>
         </div>
       }
@@ -105,8 +108,8 @@ interface ChipActivo {
            [attr.aria-label]="abierto() ? 'Filtros' : null">
       <div class="af__asa" aria-hidden="true"></div>
       <div class="af__head">
-        <h2>Filtros</h2>
-        <button type="button" class="af__cerrar" (click)="cerrar()" aria-label="Cerrar filtros">
+        <h2>{{ 'Filtros' | t }}</h2>
+        <button type="button" class="af__cerrar" (click)="cerrar()" [attr.aria-label]="'Cerrar filtros' | t">
           <rs-icon name="x" [size]="18" [stroke]="2.5" />
         </button>
       </div>
@@ -114,7 +117,7 @@ interface ChipActivo {
       <div class="af__cuerpo">
         @for (g of grupos(); track g.clave) {
           <div class="af__grupo">
-            <h3 class="af__grupo-tit">{{ g.label }}</h3>
+            <h3 class="af__grupo-tit">{{ g.label | t }}</h3>
 
             @if (g.tipo === 'pastillas') {
               <div class="af__opciones">
@@ -124,7 +127,7 @@ interface ChipActivo {
                 @for (o of g.opciones; track o.valor) {
                   <button type="button" class="af__op" [class.is-sel]="valorDe(g.clave) === o.valor"
                           [attr.aria-pressed]="valorDe(g.clave) === o.valor"
-                          (click)="fijar(g.clave, o.valor)">{{ o.label }}</button>
+                          (click)="fijar(g.clave, o.valor)">{{ o.label | t }}</button>
                 }
               </div>
             } @else {
@@ -133,7 +136,7 @@ interface ChipActivo {
                       (change)="fijar(g.clave, $any($event.target).value)">
                 <option value="">{{ g.vacio ?? 'Todos' }}</option>
                 @for (o of g.opciones; track o.valor) {
-                  <option [value]="o.valor">{{ o.label }}</option>
+                  <option [value]="o.valor">{{ o.label | t }}</option>
                 }
               </select>
             }
@@ -143,7 +146,7 @@ interface ChipActivo {
 
       <div class="af__pie">
         @if (numActivos()) {
-          <button type="button" class="rs-btn rs-btn--ghost" (click)="limpiar()">Limpiar</button>
+          <button type="button" class="rs-btn rs-btn--ghost" (click)="limpiar()">{{ 'Limpiar' | t }}</button>
         }
         <button type="button" class="rs-btn rs-btn--primary rs-btn--block" (click)="cerrar()">
           Ver {{ total() }} {{ total() === 1 ? etiquetaSingular() : etiquetaPlural() }}

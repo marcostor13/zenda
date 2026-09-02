@@ -5,6 +5,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiComercio } from '../panel-comercio/comercio-api.service';
+import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 interface StatItem { icon: string; iconColor: string; iconBg: string; value: string; label: string; }
 interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
@@ -12,7 +13,9 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
 @Component({
   selector: 'app-perfil-comercio',
   standalone: true,
-  imports: [RouterLink, RsNavbarComponent, RsIconComponent],
+  imports: [
+    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent
+  ],
   template: `
 <div style="min-height:100vh;background:var(--c-base)">
   <rs-navbar />
@@ -34,16 +37,16 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
           </p>
         }
         <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
-          <span class="rs-badge">Miembro desde 2026</span>
+          <span class="rs-badge">{{ 'Miembro desde 2026' | t }}</span>
         </div>
       </div>
 
       <div class="perfil-header__actions">
         <a routerLink="/comercio/config" class="rs-btn rs-btn--secondary">
-          <rs-icon name="pencil" [size]="14" [stroke]="2"></rs-icon> Editar perfil
+          <rs-icon name="pencil" [size]="14" [stroke]="2"></rs-icon> {{ 'Editar perfil' | t }}
         </a>
         <a routerLink="/comercio" class="rs-btn rs-btn--primary">
-          <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon> Gestionar negocio
+          <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon> {{ 'Gestionar negocio' | t }}
         </a>
       </div>
     </div>
@@ -56,14 +59,14 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
             <rs-icon [name]="s.icon" [size]="18" [stroke]="1.75"></rs-icon>
           </div>
           <div class="rs-stat__value">{{ s.value }}</div>
-          <div class="rs-stat__label">{{ s.label }}</div>
+          <div class="rs-stat__label">{{ s.label | t }}</div>
         </div>
       }
     </div>
 
     <!-- GESTIÓN DEL NEGOCIO -->
     <div class="perfil-section">
-      <h2>Gestión del negocio</h2>
+      <h2>{{ 'Gestión del negocio' | t }}</h2>
       <div class="config-list">
         @for (item of configItems; track item.label) {
           <a [routerLink]="item.ruta" class="config-item rs-card">
@@ -71,7 +74,7 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
               <rs-icon [name]="item.icon" [size]="16" [stroke]="1.75"></rs-icon>
             </div>
             <div class="config-item__text">
-              <div class="config-item__label">{{ item.label }}</div>
+              <div class="config-item__label">{{ item.label | t }}</div>
               <div class="config-item__sub">{{ item.sub }}</div>
             </div>
             <rs-icon name="chevron-down" [size]="14" [stroke]="2" style="color:var(--t-400);transform:rotate(-90deg)"></rs-icon>
@@ -81,7 +84,7 @@ interface ConfigItem { icon: string; label: string; sub: string; ruta: string; }
 
       <div style="margin-top:var(--sp-6);max-width:360px">
         <button (click)="cerrarSesion()" class="rs-btn rs-btn--danger rs-btn--block">
-          <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> Cerrar sesión
+          <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> {{ 'Cerrar sesión' | t }}
         </button>
       </div>
     </div>
