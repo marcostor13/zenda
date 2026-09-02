@@ -32,27 +32,32 @@ describe('verticales.config', () => {
     expect(seguros.reservaPorNoches).toBe(false);
   });
 
-  it('debería incluir Paseadores y cuidado a domicilio como vertical (Ref. COMI3)', () => {
-    // Retirado como "Cuidadores" (TCK-8021); reintroducido con paseo + cuidado a domicilio
-    // tras confirmar con el cliente que esa decisión ya no aplica.
-    const cuidadores = verticalUi(VerticalKey.CUIDADORES);
+  it('debería incluir Servicios funerarios como vertical', () => {
+    // Sustituye a "Paseadores y cuidado a domicilio" (2026-09-01), que se
+    // retiró del catálogo: ni la clave ni la ruta de aquél deben sobrevivir.
+    const funerarios = verticalUi(VerticalKey.FUNERARIOS);
 
-    expect(cuidadores.key).toBe(VerticalKey.CUIDADORES);
-    expect(cuidadores.route).toBe('/cuidadores');
-    // "Paseadores" no es un vertical propio: es una modalidad dentro de este.
+    expect(funerarios.key).toBe(VerticalKey.FUNERARIOS);
+    expect(funerarios.route).toBe('/funerarios');
+
     const claves: string[] = VERTICALES_UI.map((v) => v.key);
+    expect(claves).not.toContain('cuidadores');
+    // "Paseadores" tampoco es un vertical propio.
     expect(claves).not.toContain('paseadores');
   });
 
   describe('escaparate público', () => {
-    it('no debería ofrecer Cuidadores en el menú ni en el buscador', () => {
-      expect(VERTICALES_PUBLICOS.map((v) => v.key)).not.toContain(VerticalKey.CUIDADORES);
+    it('no debería ofrecer las categorías retiradas del catálogo', () => {
+      const rutas = VERTICALES_PUBLICOS.map((v) => v.route);
+
+      expect(rutas).not.toContain('/cuidadores');
+      expect(rutas).not.toContain('/paseadores');
     });
 
-    it('debería seguir resolviendo Cuidadores para quien llegue por su ruta', () => {
-      // Retirarlo del escaparate no borra el vertical: la ficha, el panel del
-      // comercio y los enlaces guardados siguen funcionando.
-      expect(verticalUi(VerticalKey.CUIDADORES).key).toBe(VerticalKey.CUIDADORES);
+    it('debería caer en la categoría por defecto ante una clave que ya no existe', () => {
+      // Un enlace guardado a un vertical retirado no debe reventar la vista:
+      // se resuelve al vertical por defecto, no a `undefined`.
+      expect(verticalUi('cuidadores').key).toBe(VerticalKey.ALOJAMIENTO);
     });
 
     it('debería ofrecer todo lo demás', () => {

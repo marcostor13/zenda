@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { ProximamenteComponent } from './proximamente.component';
+import { REDES_SOCIALES_DESTACADAS } from '../../shared/catalogos/redes-sociales.catalogo';
 import { ListaEsperaService } from './lista-espera.service';
 
 describe('ProximamenteComponent', () => {
@@ -45,9 +46,9 @@ describe('ProximamenteComponent', () => {
     expect(html()).toContain('Profesionales verificados');
   });
 
-  it('debería mostrar los ocho servicios con su etiqueta bajo el icono', () => {
+  it('debería mostrar todos los servicios anunciados con su etiqueta bajo el icono', () => {
     const servicios = fixture.nativeElement.querySelectorAll('.pm__servicio');
-    expect(servicios.length).toBe(8);
+    expect(servicios.length).toBe(componente.servicios.length);
 
     const etiquetas = Array.from(
       fixture.nativeElement.querySelectorAll('.pm__servicio-label'),
@@ -61,6 +62,7 @@ describe('ProximamenteComponent', () => {
       'Transporte',
       'Adiestradores',
       'Seguros',
+      'Servicios funerarios',
       'Explora con tu mascota',
     ]);
   });
@@ -72,9 +74,14 @@ describe('ProximamenteComponent', () => {
   });
 
   it('debería ofrecer las redes sociales de la marca', () => {
-    const enlaces = fixture.nativeElement.querySelectorAll('.pm__cta-red');
-    expect(enlaces.length).toBe(3);
-    expect(enlaces[0].getAttribute('href')).toBe('https://instagram.com/doogking');
+    const enlaces: HTMLAnchorElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('.pm__cta-red'),
+    );
+
+    // Los perfiles salen del catálogo compartido: esta pantalla ya no mantiene
+    // su propia copia, que había dejado de coincidir con la de la portada.
+    expect(enlaces.map((a) => a.getAttribute('href')))
+      .toEqual(REDES_SOCIALES_DESTACADAS.map((red) => red.url));
   });
 
   describe('lista de espera', () => {

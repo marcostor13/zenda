@@ -11,8 +11,9 @@ import { ReservasService } from '../reservas/services/reservas.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CatalogBrowseService, type ServicioCard } from '../verticales/catalog-browse.service';
 
-import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { MonedaService } from '../../core/moneda/moneda.service';
 type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
 
 /** Verticales con ficha de detalle propia (Fase 4); las demás solo tienen listado. */
@@ -184,6 +185,14 @@ const VERTICALES_CON_FICHA = new Set<string>([
 })
 
 export class FavoritosComponent implements OnInit {
+  /**
+   * Divisa de visualización. Se lee para formatear los precios que van dentro
+   * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
+   * pueden pasar por el pipe: al leer la señal, la vista se refresca sola en
+   * cuanto el usuario cambia de divisa en la cabecera.
+   */
+  readonly moneda = inject(MonedaService);
+
   private readonly favoritosService = inject(FavoritosService);
   private readonly reservasService = inject(ReservasService);
   private readonly auth = inject(AuthService);
@@ -274,7 +283,7 @@ export class FavoritosComponent implements OnInit {
   }
 
   async compartir(f: FavoritoResumenDto): Promise<void> {
-    const texto = `Mira ${f.titulo} en Doogking: ${euros(f.precioBase)} · ${f.ciudad || ''}`.trim();
+    const texto = `Mira ${f.titulo} en Doogking: ${this.moneda.formatear(f.precioBase)} · ${f.ciudad || ''}`.trim();
     const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
     if (nav.share) {
       try {

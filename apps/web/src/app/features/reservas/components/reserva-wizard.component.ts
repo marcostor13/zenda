@@ -34,6 +34,7 @@ import { EventosService } from '../../../core/eventos/eventos.service';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
+import { PagoEnCursoService } from '../services/pago-en-curso.service';
 import { CuponesService } from '../services/cupones.service';
 import { PerrosService, PerroApi, EstimacionPrecioApi } from '../../perros/perros.service';
 import { RecomendadorService, RecomendacionAdiestramiento, RecomendacionVeterinaria } from '../services/recomendador.service';
@@ -41,8 +42,9 @@ import { CatalogBrowseService } from '../../verticales/catalog-browse.service';
 import type { DiaCalendarioApi } from 'shared';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
-import { EurosPipe, euros } from '../../../shared/pipes/euros.pipe';
+import { EurosFijosPipe, EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { MonedaService } from '../../../core/moneda/moneda.service';
 type Paso = 1 | 2 | 3 | 4;
 
 /**
@@ -146,7 +148,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   standalone: true,
   imports: [
     TraducirPipe, RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
-    RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe,
+    RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe, EurosFijosPipe,
   ],
   template: `
 <div class="wizard-page">
@@ -1158,6 +1160,23 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <span>{{ '· Nunca almacenamos datos de tarjeta.' | t }}</span>
             </div>
 
+            <!--
+              Los precios se enseñan en la divisa que el usuario haya elegido en
+              la cabecera, pero el cargo va en euros. Decirlo aquí, justo encima
+              del botón, evita que el importe del extracto le sorprenda: es el
+              único sitio del recorrido donde el dato ya no es informativo.
+            -->
+            @if (moneda.esConvertida()) {
+              <div class="rs-alert rs-alert--warning" style="margin-block:var(--sp-5)" role="status">
+                <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+                <span>
+                  {{ 'Los importes se muestran convertidos a título orientativo. El cargo se hará en euros por' | t }}
+                  <strong>{{ total() | eurosFijos }}</strong>{{ '; el importe final en' | t }}
+                  {{ moneda.moneda() }} {{ 'dependerá del cambio que aplique tu banco.' | t }}
+                </span>
+              </div>
+            }
+
             <div class="wizard-nav">
               <button class="rs-btn rs-btn--secondary" (click)="irPaso(2)">{{ '← Atrás' | t }}</button>
               <button class="rs-btn rs-btn--gold rs-btn--lg"
@@ -1863,6 +1882,14 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   `],
 })
 export class ReservaWizardComponent implements OnInit {
+  /**
+   * Divisa de visualización. Se lee para formatear los precios que van dentro
+   * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
+   * pueden pasar por el pipe: al leer la señal, la vista se refresca sola en
+   * cuanto el usuario cambia de divisa en la cabecera.
+   */
+  readonly moneda = inject(MonedaService);
+
   private readonly route          = inject(ActivatedRoute);
   private readonly router         = inject(Router);
   private readonly fb             = inject(FormBuilder);
@@ -1870,6 +1897,7 @@ export class ReservaWizardComponent implements OnInit {
   private readonly reservasService = inject(ReservasService);
   private readonly http = inject(HttpClient);
   private readonly paymentsService = inject(PaymentsService);
+  private readonly pagoEnCurso    = inject(PagoEnCursoService);
   private readonly cuponesService  = inject(CuponesService);
   private readonly perrosService   = inject(PerrosService);
   private readonly recomendadorService = inject(RecomendadorService);
@@ -1992,7 +2020,7 @@ export class ReservaWizardComponent implements OnInit {
   });
   readonly serviciosAdicionalesResumen = computed(() => {
     const lista = this.peluqueriaDetalle()?.serviciosAdicionales ?? [];
-    return lista.map((a) => `${a.nombre} (${euros(a.precio)})`).join(' · ');
+    return lista.map((a) => `${a.nombre} (${this.moneda.formatear(a.precio)})`).join(' · ');
   });
 
   // Enriquecimiento de veterinaria (Fase C): catálogo real de servicios clínicos.
@@ -2935,27 +2963,27 @@ export class ReservaWizardComponent implements OnInit {
         const { checkIn, checkOut, perros } = this.paso1AlojamientoForm.value;
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         const p = Number(perros ?? 1);
-        return `${euros(base)} × ${n} noche${n !== 1 ? 's' : ''} · ${p} perro${p !== 1 ? 's' : ''}`;
+        return `${this.moneda.formatear(base)} × ${n} noche${n !== 1 ? 's' : ''} · ${p} perro${p !== 1 ? 's' : ''}`;
       }
       case VerticalKey.TRANSPORTE:
-        return `Tarifa base ${euros(base)} + km`;
+        return `Tarifa base ${this.moneda.formatear(base)} + km`;
       case VerticalKey.VETERINARIA:
-        return `Cita veterinaria · ${euros(base)}`;
+        return `Cita veterinaria · ${this.moneda.formatear(base)}`;
       case VerticalKey.PELUQUERIA:
-        return `Cita de peluquería · ${euros(base)}`;
+        return `Cita de peluquería · ${this.moneda.formatear(base)}`;
       case VerticalKey.ADIESTRAMIENTO:
         return this.paso1AdiestramientoForm.value.modalidad === 'programa'
-          ? `Programa de adiestramiento · ${euros(base)}`
-          : `Sesión de adiestramiento · ${euros(base)}`;
+          ? `Programa de adiestramiento · ${this.moneda.formatear(base)}`
+          : `Sesión de adiestramiento · ${this.moneda.formatear(base)}`;
       case VerticalKey.HOTELES: {
         const { checkIn, checkOut } = this.paso1HotelesForm.value;
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
-        return `${euros(base)} × ${n} noche${n !== 1 ? 's' : ''}`;
+        return `${this.moneda.formatear(base)} × ${n} noche${n !== 1 ? 's' : ''}`;
       }
       case VerticalKey.FUNERARIOS:
-        return `${this.paso1FunerariosForm.value.servicioNombre || 'Servicio funerario'} · ${euros(base)}`;
+        return `${this.paso1FunerariosForm.value.servicioNombre || 'Servicio funerario'} · ${this.moneda.formatear(base)}`;
       default:
-        return euros(base);
+        return this.moneda.formatear(base);
     }
   });
 
@@ -3533,13 +3561,30 @@ export class ReservaWizardComponent implements OnInit {
     this.procesando.set(true);
     this.errorPago.set(null);
 
+    /*
+     * El apunte va antes de confirmar: si la tarjeta pide autenticación,
+     * Stripe se lleva el navegador fuera y este componente —con el `pagoId` y
+     * los cuatro pasos dentro— deja de existir. `return_url` trae al usuario a
+     * su listado de reservas, que cierra el cobro contra el servidor.
+     *
+     * Antes no había `return_url` ninguna: con `redirect: 'if_required'`,
+     * Stripe devuelve error en lugar de autenticar, así que las tarjetas con
+     * 3-D Secure —obligatorio en la mayoría de emisores europeos— no tenían
+     * forma de completar el pago.
+     */
+    if (this.pagoId) this.pagoEnCurso.anotar(this.pagoId);
+
     const { error } = await this.stripe.confirmPayment({
       elements: this.elements,
+      confirmParams: { return_url: `${window.location.origin}/reservas/mis-reservas` },
       redirect: 'if_required',
     });
     this.procesando.set(false);
 
     if (error) {
+      // La reserva sigue en pendiente y su retención caduca sola por TTL: se
+      // puede reintentar con otra tarjeta sin volver a crearla.
+      this.pagoEnCurso.olvidar();
       this.errorPago.set(error.message ?? 'No se pudo procesar el pago. Revisa los datos de la tarjeta.');
       return;
     }
@@ -3566,12 +3611,14 @@ export class ReservaWizardComponent implements OnInit {
   private async confirmarEnServidor(): Promise<void> {
     if (!this.pagoId) return;
 
-    try {
-      const { estado } = await this.paymentsService.sincronizar(this.pagoId);
-      this.confirmacionPendiente.set(estado !== 'aprobado');
-    } catch {
-      this.confirmacionPendiente.set(true);
-    }
+    /*
+     * Se pregunta por `pagoId`, que aquí seguimos teniendo, y no por el apunte
+     * de sesión: en navegación privada `anotar` no guarda nada, y confiar en él
+     * daría por retrasada una confirmación que sí se ha podido cerrar.
+     */
+    const confirmado = await this.pagoEnCurso.sincronizar(this.pagoId);
+    this.pagoEnCurso.olvidar();
+    this.confirmacionPendiente.set(!confirmado);
   }
 
   private calcularNoches(checkIn: string, checkOut: string): number {

@@ -189,7 +189,7 @@ describe('RsCalendarioRangoComponent', () => {
     it('no debería hablar de plazas cuando no hay disponibilidad que consultar', async () => {
       await montarSinDisponibilidad();
 
-      expect(componente.pista()).toBe('Elige el día de entrada.');
+      expect(componente.pista()).toBe('Elige el día de ingreso.');
       const el: HTMLElement = fixture.nativeElement;
       expect(el.querySelector('.cal__leyenda')).toBeNull();
     });

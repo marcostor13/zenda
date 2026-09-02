@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { VERTICAL_LABELS, VerticalKey } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { CarritoService, ItemCarritoApi } from './carrito.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 
 interface GrupoComercio {
   comercioId: string;
@@ -22,7 +23,7 @@ interface GrupoComercio {
   selector: 'app-carrito-panel',
   standalone: true,
   imports: [
-    TraducirPipe, CurrencyPipe, DatePipe, RsIconComponent
+    TraducirPipe, EurosPipe, DatePipe, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -57,7 +58,7 @@ interface GrupoComercio {
                   @if (i.esReservaMadre) { <span class="cp__madre">{{ 'Eje del viaje' | t }}</span> }
                 </div>
                 <div class="cp__item-precio">
-                  <span>{{ i.precioEstimado | currency: 'EUR' }}</span>
+                  <span>{{ i.precioEstimado | euros }}</span>
                   <button type="button" (click)="quitar(i)"
                           [attr.aria-label]="'Quitar ' + i.titulo + ' del viaje'">
                     <rs-icon name="x" [size]="14" [stroke]="2.5"></rs-icon>
@@ -77,7 +78,7 @@ interface GrupoComercio {
 
         <div class="cp__total">
           <span>{{ 'Total estimado' | t }}</span>
-          <strong>{{ carritoService.totalEstimado() | currency: 'EUR' }}</strong>
+          <strong>{{ carritoService.totalEstimado() | euros }}</strong>
         </div>
 
         @if (error()) { <p class="cp__error">{{ error() }}</p> }
@@ -235,7 +236,14 @@ export class CarritoPanelComponent {
       const pago = await this.carritoService.checkout();
       this.cerrar();
       await this.router.navigate(['/reservas/viaje-pago'], {
-        state: { clientSecret: pago.clientSecret, montoTotal: pago.montoTotal },
+        // `pagoId` viaja con el resto: sin él la pantalla de pago no podía
+        // preguntarle al servidor cómo quedó el cobro, y el viaje se quedaba
+        // pendiente aunque estuviera pagado.
+        state: {
+          clientSecret: pago.clientSecret,
+          montoTotal: pago.montoTotal,
+          pagoId: pago.pagoId,
+        },
       });
     } catch (e) {
       // El backend nombra el servicio que se ha quedado sin plaza: se muestra

@@ -4,7 +4,10 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
-import { ServicioClinicoTipo, SERVICIO_CLINICO_LABELS, TipoSeguro, VerticalKey } from 'shared';
+import {
+  FranjaHoraria, LugarRecogida, ModoPrecioRecogida, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
+  TipoSeguro, TipoServicioFunerario, VerticalKey,
+} from 'shared';
 import { ComercioListadoFormComponent } from './comercio-listado-form.component';
 import { ComercioApiService, ServicioPayload } from './comercio-api.service';
 import { GeoService } from '../../core/geo/geo.service';
@@ -992,57 +995,76 @@ describe('ComercioListadoFormComponent', () => {
   });
 
   describe('adiestramiento', () => {
-    it('debería omitir el programa cuando la modalidad es por sesión', async () => {
+    /* El centro ya no declara la modalidad a mano: se deduce del catálogo. */
+    it('debería reservar por sesión cuando el catálogo no tiene ningún curso', async () => {
       await crear();
       rellenarBase(VerticalKey.ADIESTRAMIENTO);
-      componente.adiestramientoGroup.patchValue({
-        modalidad: 'sesion', precioPrograma: 300, sesionesPorPrograma: 8,
+      componente.agregarServicioAdiestramiento();
+      componente.serviciosAdiestramiento.at(0).patchValue({
+        nombre: 'Obediencia básica', tipo: 'individual', precio: 40,
       });
 
       dejarListoParaPublicar();
       await componente.submit();
 
-      // Guardar un precio de programa en modalidad sesión mostraría dos precios
-      // distintos en la ficha pública.
-      expect(payloadGuardado().extra?.['precioPrograma']).toBeUndefined();
-      expect(payloadGuardado().extra?.['sesionesPorPrograma']).toBeUndefined();
+      expect(payloadGuardado().extra?.['modalidad']).toBe('sesion');
+      expect(payloadGuardado().extra?.['precioSesion']).toBe(40);
     });
 
-    it('debería guardar el programa completo cuando esa es la modalidad', async () => {
+    it('debería reservar por programa en cuanto el catálogo ofrece un curso', async () => {
       await crear();
       rellenarBase(VerticalKey.ADIESTRAMIENTO);
-      componente.adiestramientoGroup.patchValue({
-        modalidad: 'programa', precioPrograma: 300, sesionesPorPrograma: 8,
+      componente.agregarServicioAdiestramiento();
+      componente.serviciosAdiestramiento.at(0).patchValue({
+        nombre: 'Curso de cachorros', tipo: 'curso', precio: 300,
       });
 
       dejarListoParaPublicar();
       await componente.submit();
 
-      expect(payloadGuardado().extra?.['precioPrograma']).toBe(300);
-      expect(payloadGuardado().extra?.['sesionesPorPrograma']).toBe(8);
+      expect(payloadGuardado().extra?.['modalidad']).toBe('programa');
     });
 
-    it('debería omitir la valoración inicial si es gratuita', async () => {
+    it('debería tomar como precio de sesión el más barato del catálogo', async () => {
+      await crear();
+      rellenarBase(VerticalKey.ADIESTRAMIENTO);
+      componente.agregarServicioAdiestramiento();
+      componente.agregarServicioAdiestramiento();
+      componente.serviciosAdiestramiento.at(0).patchValue({ nombre: 'Intensivo', precio: 90 });
+      componente.serviciosAdiestramiento.at(1).patchValue({ nombre: 'Paseo educativo', precio: 35 });
+
+      dejarListoParaPublicar();
+      await componente.submit();
+
+      expect(payloadGuardado().extra?.['precioSesion']).toBe(35);
+    });
+
+    it('debería omitir las valoraciones iniciales que son gratuitas', async () => {
       await crear();
       rellenarBase(VerticalKey.ADIESTRAMIENTO);
 
       dejarListoParaPublicar();
       await componente.submit();
 
-      expect(payloadGuardado().extra?.['valoracionInicial']).toBeUndefined();
+      // Un cero no es un precio: es "no la cobro". Guardarlo llenaría la ficha
+      // pública de líneas a 0 €.
+      expect(payloadGuardado().extra?.['valoracionesIniciales']).toEqual([]);
     });
 
-    it('debería anidar la valoración inicial cuando tiene precio', async () => {
+    it('debería guardar solo las valoraciones iniciales que tienen precio', async () => {
       await crear();
       rellenarBase(VerticalKey.ADIESTRAMIENTO);
       componente.adiestramientoGroup.patchValue({
-        valoracionInicialModalidad: 'online', valoracionInicialPrecio: 25,
+        valoracionOnlinePrecio: 25, valoracionDomicilioPrecio: 40,
       });
 
       dejarListoParaPublicar();
       await componente.submit();
 
-      expect(payloadGuardado().extra?.['valoracionInicial']).toEqual({ modalidad: 'online', precio: 25 });
+      expect(payloadGuardado().extra?.['valoracionesIniciales']).toEqual([
+        { modalidad: 'online', precio: 25 },
+        { modalidad: 'domicilio', precio: 40 },
+      ]);
     });
 
     it('debería añadir y quitar servicios del catálogo', async () => {
@@ -1154,6 +1176,407 @@ describe('ComercioListadoFormComponent', () => {
     });
   });
 
+  /**
+   * Funerarios sustituyó a «cuidadores» en el catálogo (2026-09-01) y llegó sin
+   * ninguna prueba de formulario, pese a ser el vertical con más reglas de alta:
+   * catálogo obligatorio, tramos de peso ordenados, declaración de
+   * autorizaciones y crematorio de un tercero.
+   */
+  describe('funerarios', () => {
+    const conServicio = (nombre = 'Cremación individual', precioBase = 180): void => {
+      componente.agregarServicioFunerario();
+      componente.serviciosFunerarios.at(componente.serviciosFunerarios.length - 1)
+        .patchValue({ nombre, precioBase });
+    };
+
+    /** Deja el alta en condiciones de publicar, salvo lo que pruebe cada test. */
+    const listoParaPublicar = (): void => {
+      rellenarBase(VerticalKey.FUNERARIOS);
+      conServicio();
+      componente.funerariosGroup.patchValue({ declaraAutorizaciones: true });
+      dejarListoParaPublicar();
+    };
+
+    describe('validación previa a publicar', () => {
+      it('debería exigir al menos un servicio en el catálogo', async () => {
+        await crear();
+        rellenarBase(VerticalKey.FUNERARIOS);
+        dejarListoParaPublicar();
+
+        await componente.submit();
+
+        expect(componente.errorMsg()).toContain('Añade al menos un servicio');
+        expect(api.crearServicio).not.toHaveBeenCalled();
+      });
+
+      it('debería exigir nombre en cada servicio', async () => {
+        await crear();
+        rellenarBase(VerticalKey.FUNERARIOS);
+        conServicio('   ');
+        componente.funerariosGroup.patchValue({ declaraAutorizaciones: true });
+        dejarListoParaPublicar();
+
+        await componente.submit();
+
+        expect(componente.errorMsg()).toContain('necesitan un nombre');
+      });
+
+      it('debería exigir un precio, base o por tramo', async () => {
+        await crear();
+        rellenarBase(VerticalKey.FUNERARIOS);
+        conServicio('Cremación individual', 0);
+        componente.funerariosGroup.patchValue({ declaraAutorizaciones: true });
+        dejarListoParaPublicar();
+
+        await componente.submit();
+
+        expect(componente.errorMsg()).toContain('Pon precio a cada servicio');
+      });
+
+      it('debería dar por bueno un servicio sin precio base pero con tramos', async () => {
+        await crear();
+        rellenarBase(VerticalKey.FUNERARIOS);
+        conServicio('Cremación individual', 0);
+        componente.agregarTramoPeso(0);
+        componente.tramosPeso(0).at(0).patchValue({ hastaKg: 10, precio: 120 });
+        componente.funerariosGroup.patchValue({ declaraAutorizaciones: true });
+        dejarListoParaPublicar();
+
+        await componente.submit();
+
+        expect(componente.errorMsg()).toBe('');
+        expect(api.crearServicio).toHaveBeenCalled();
+      });
+
+      /* §10 del brief: la declaración es la prueba del consentimiento. */
+      it('no debería publicar sin declarar las autorizaciones', async () => {
+        await crear();
+        rellenarBase(VerticalKey.FUNERARIOS);
+        conServicio();
+        dejarListoParaPublicar();
+
+        await componente.submit();
+
+        expect(componente.errorMsg()).toContain('autorizaciones necesarias');
+      });
+
+      it('debería exigir el nombre del crematorio cuando la cremación no es propia', async () => {
+        await crear();
+        listoParaPublicar();
+        componente.funerariosGroup.patchValue({ cremacionPropia: false, terceroCrematorio: '  ' });
+
+        await componente.submit();
+
+        expect(componente.errorMsg()).toContain('con qué empresa trabajas');
+      });
+
+      it('debería publicar nombrando al tercero que crema', async () => {
+        await crear();
+        listoParaPublicar();
+        componente.funerariosGroup.patchValue({
+          cremacionPropia: false, terceroCrematorio: 'Crematorio Norte',
+        });
+
+        await componente.submit();
+
+        expect(payloadGuardado().extra?.['terceroCrematorio']).toBe('Crematorio Norte');
+      });
+
+      it('no debería guardar un crematorio ajeno si crema ella misma', async () => {
+        // Dejarlo publicaría en la ficha a una empresa que no interviene.
+        await crear();
+        listoParaPublicar();
+        componente.funerariosGroup.patchValue({
+          cremacionPropia: true, terceroCrematorio: 'Crematorio Norte',
+        });
+
+        await componente.submit();
+
+        expect(payloadGuardado().extra?.['terceroCrematorio']).toBeUndefined();
+      });
+    });
+
+    describe('catálogo de servicios', () => {
+      it('debería deducir el tipo del nombre, que es por lo que filtra el buscador', async () => {
+        await crear();
+        listoParaPublicar();
+
+        await componente.submit();
+
+        const servicios = payloadGuardado().extra?.['serviciosFunerarios'] as Record<string, unknown>[];
+        expect(servicios[0]['tipo']).toBe(TipoServicioFunerario.CREMACION_INDIVIDUAL);
+      });
+
+      it('debería marcar como «otros» un nombre que no está en el catálogo del dominio', async () => {
+        await crear();
+        rellenarBase(VerticalKey.FUNERARIOS);
+        conServicio('Despedida en el mar');
+        componente.funerariosGroup.patchValue({ declaraAutorizaciones: true });
+        dejarListoParaPublicar();
+
+        await componente.submit();
+
+        const servicios = payloadGuardado().extra?.['serviciosFunerarios'] as Record<string, unknown>[];
+        expect(servicios[0]['tipo']).toBe(TipoServicioFunerario.OTROS);
+      });
+
+      it('debería derivar los tipos filtrables del catálogo, sin repetirlos', async () => {
+        await crear();
+        rellenarBase(VerticalKey.FUNERARIOS);
+        conServicio('Cremación individual');
+        conServicio('Cremación individual', 200);
+        conServicio('Entierro / cementerio', 300);
+        componente.funerariosGroup.patchValue({ declaraAutorizaciones: true });
+        dejarListoParaPublicar();
+
+        await componente.submit();
+
+        expect(payloadGuardado().extra?.['tiposServicioFunerario']).toEqual([
+          TipoServicioFunerario.CREMACION_INDIVIDUAL,
+          TipoServicioFunerario.ENTIERRO,
+        ]);
+      });
+
+      /* La estrategia de precio busca el primer tramo que cubre el peso. */
+      it('debería guardar los tramos de peso ordenados de menor a mayor', async () => {
+        await crear();
+        listoParaPublicar();
+        componente.agregarTramoPeso(0);
+        componente.agregarTramoPeso(0);
+        componente.tramosPeso(0).at(0).patchValue({ hastaKg: 30, precio: 260 });
+        componente.tramosPeso(0).at(1).patchValue({ hastaKg: 10, precio: 150 });
+
+        await componente.submit();
+
+        const servicios = payloadGuardado().extra?.['serviciosFunerarios'] as Record<string, unknown>[];
+        expect(servicios[0]['tramosPeso']).toEqual([
+          { hastaKg: 10, precio: 150 },
+          { hastaKg: 30, precio: 260 },
+        ]);
+      });
+
+      it('debería descartar un tramo sin límite de peso', async () => {
+        // Un tramo «hasta 0 kg» no cubre a ningún animal: guardarlo dejaría en
+        // el catálogo una fila que nunca se aplica.
+        await crear();
+        listoParaPublicar();
+        componente.agregarTramoPeso(0);
+        componente.agregarTramoPeso(0);
+        componente.tramosPeso(0).at(0).patchValue({ hastaKg: 0, precio: 90 });
+        componente.tramosPeso(0).at(1).patchValue({ hastaKg: 10, precio: 150 });
+
+        await componente.submit();
+
+        const servicios = payloadGuardado().extra?.['serviciosFunerarios'] as Record<string, unknown>[];
+        expect(servicios[0]['tramosPeso']).toEqual([{ hastaKg: 10, precio: 150 }]);
+      });
+
+      it('debería poder quitar un servicio del catálogo', async () => {
+        await crear();
+        conServicio();
+        conServicio('Entierro / cementerio', 300);
+
+        componente.quitarServicioFunerario(0);
+
+        expect(componente.serviciosFunerarios.length).toBe(1);
+        expect(componente.serviciosFunerarios.at(0).value.nombre).toBe('Entierro / cementerio');
+      });
+    });
+
+    describe('recogida', () => {
+      it('debería guardar la recogida con sus lugares y su radio', async () => {
+        await crear();
+        listoParaPublicar();
+        componente.funerariosGroup.patchValue({ ofreceRecogida: true, radioRecogidaKm: 40 });
+
+        await componente.submit();
+
+        const extra = payloadGuardado().extra!;
+        expect(extra['ofreceRecogida']).toBe(true);
+        expect(extra['radioRecogidaKm']).toBe(40);
+        expect(extra['lugaresRecogida']).toEqual([LugarRecogida.DOMICILIO, LugarRecogida.VETERINARIO]);
+      });
+
+      it('no debería guardar lugares de recogida si no la ofrece', async () => {
+        // Publicarlos anunciaría una recogida que la empresa no hace.
+        await crear();
+        listoParaPublicar();
+        componente.funerariosGroup.patchValue({ ofreceRecogida: false });
+
+        await componente.submit();
+
+        expect(payloadGuardado().extra?.['lugaresRecogida']).toEqual([]);
+      });
+
+      it('debería alternar los lugares de recogida marcados', async () => {
+        await crear();
+
+        expect(componente.tieneLugarRecogida(LugarRecogida.DOMICILIO)).toBe(true);
+
+        componente.toggleLugarRecogida(LugarRecogida.DOMICILIO);
+        expect(componente.tieneLugarRecogida(LugarRecogida.DOMICILIO)).toBe(false);
+
+        componente.toggleLugarRecogida(LugarRecogida.RESIDENCIA);
+        expect(componente.tieneLugarRecogida(LugarRecogida.RESIDENCIA)).toBe(true);
+      });
+
+      it('debería guardar las zonas con su precio cuando tarifica por zona', async () => {
+        await crear();
+        listoParaPublicar();
+        componente.funerariosGroup.patchValue({ modoPrecioRecogida: ModoPrecioRecogida.POR_ZONA });
+        componente.agregarZonaRecogida();
+        componente.zonasRecogida.at(0).patchValue({ nombre: 'Norte', precio: 30 });
+
+        await componente.submit();
+
+        expect(payloadGuardado().extra?.['modoPrecioRecogida']).toBe(ModoPrecioRecogida.POR_ZONA);
+        expect(payloadGuardado().extra?.['zonasRecogida']).toEqual([{ nombre: 'Norte', precio: 30 }]);
+      });
+
+      it('debería poder quitar una zona de recogida', async () => {
+        await crear();
+        componente.agregarZonaRecogida();
+
+        componente.quitarZonaRecogida(0);
+
+        expect(componente.zonasRecogida.length).toBe(0);
+      });
+    });
+
+    describe('urgencia y franjas', () => {
+      it('debería alternar las franjas en las que atiende', async () => {
+        await crear();
+
+        expect(componente.tieneFranja(FranjaHoraria.MANANA)).toBe(true);
+
+        componente.toggleFranja(FranjaHoraria.MANANA);
+        expect(componente.tieneFranja(FranjaHoraria.MANANA)).toBe(false);
+
+        componente.toggleFranja(FranjaHoraria.NOCHE);
+        expect(componente.tieneFranja(FranjaHoraria.NOCHE)).toBe(true);
+      });
+
+      it('debería guardar el suplemento de urgencia declarado', async () => {
+        await crear();
+        listoParaPublicar();
+        componente.funerariosGroup.patchValue({
+          servicioUrgente: true, atiende24h: true, suplementoUrgencia: 60,
+        });
+
+        await componente.submit();
+
+        const extra = payloadGuardado().extra!;
+        expect(extra['servicioUrgente']).toBe(true);
+        expect(extra['atiende24h']).toBe(true);
+        expect(extra['suplementoUrgencia']).toBe(60);
+      });
+    });
+
+    describe('extras y cancelación', () => {
+      it('debería guardar los extras del catálogo', async () => {
+        await crear();
+        listoParaPublicar();
+        componente.agregarExtraFunerario();
+        componente.extrasFunerarios.at(0).patchValue({ nombre: 'Urna de madera', precio: 45 });
+
+        await componente.submit();
+
+        const extras = payloadGuardado().extra?.['extras'] as Record<string, unknown>[];
+        expect(extras[0]).toMatchObject({ nombre: 'Urna de madera', precio: 45 });
+      });
+
+      it('debería poder quitar un extra', async () => {
+        await crear();
+        componente.agregarExtraFunerario();
+
+        componente.quitarExtraFunerario(0);
+
+        expect(componente.extrasFunerarios.length).toBe(0);
+      });
+
+      /* §11: antes de la recogida todo es reversible; después, ya no. */
+      it('debería guardar los dos momentos de la política de cancelación', async () => {
+        await crear();
+        listoParaPublicar();
+        componente.funerariosGroup.patchValue({
+          reembolsoAntesRecogidaPct: 80,
+          reembolsoIniciadoPct: 0,
+          notasCancelacion: 'Una vez iniciada la cremación no hay devolución.',
+        });
+
+        await componente.submit();
+
+        expect(payloadGuardado().extra?.['politicaCancelacionFunerario']).toEqual({
+          reembolsoAntesRecogidaPct: 80,
+          reembolsoIniciadoPct: 0,
+          notas: 'Una vez iniciada la cremación no hay devolución.',
+        });
+      });
+
+      it('debería omitir las notas de cancelación cuando se dejan en blanco', async () => {
+        await crear();
+        listoParaPublicar();
+
+        await componente.submit();
+
+        const politica = payloadGuardado().extra?.['politicaCancelacionFunerario'] as Record<string, unknown>;
+        expect(politica['notas']).toBeUndefined();
+      });
+    });
+
+    describe('precarga al editar', () => {
+      it('debería devolver al formulario el catálogo, los extras y las zonas', async () => {
+        await crear('s1', {
+          vertical: VerticalKey.FUNERARIOS, titulo: 'Descanso Animal',
+          descripcion: 'Servicios funerarios para mascotas', ciudad: 'Madrid', precioBase: 180,
+          extra: {
+            serviciosFunerarios: [{ nombre: 'Cremación individual', precioBase: 180 }],
+            extras: [{ nombre: 'Urna de madera', precio: 45 }],
+            zonasRecogida: [{ nombre: 'Norte', precio: 30 }],
+            lugaresRecogida: [LugarRecogida.DOMICILIO],
+            franjasDisponibles: [FranjaHoraria.MANANA],
+            radioRecogidaKm: 40,
+          },
+        });
+
+        expect(componente.serviciosFunerarios.length).toBe(1);
+        expect(componente.extrasFunerarios.length).toBe(1);
+        expect(componente.zonasRecogida.length).toBe(1);
+        expect(componente.funerariosGroup.value.radioRecogidaKm).toBe(40);
+        expect(componente.tieneLugarRecogida(LugarRecogida.DOMICILIO)).toBe(true);
+        expect(componente.tieneFranja(FranjaHoraria.TARDE)).toBe(false);
+      });
+
+      it('debería asumir reembolso íntegro antes de la recogida si no lo declararon', async () => {
+        await crear('s1', {
+          vertical: VerticalKey.FUNERARIOS, titulo: 'Descanso Animal',
+          descripcion: 'Servicios funerarios para mascotas', ciudad: 'Madrid', precioBase: 180,
+          extra: {},
+        });
+
+        expect(componente.funerariosGroup.value).toMatchObject({
+          reembolsoAntesRecogidaPct: 100, reembolsoIniciadoPct: 0, notasCancelacion: '',
+        });
+      });
+
+      it('debería devolver la política de cancelación guardada', async () => {
+        await crear('s1', {
+          vertical: VerticalKey.FUNERARIOS, titulo: 'Descanso Animal',
+          descripcion: 'Servicios funerarios para mascotas', ciudad: 'Madrid', precioBase: 180,
+          extra: {
+            politicaCancelacionFunerario: {
+              reembolsoAntesRecogidaPct: 80, reembolsoIniciadoPct: 10, notas: 'Consultar casos.',
+            },
+          },
+        });
+
+        expect(componente.funerariosGroup.value).toMatchObject({
+          reembolsoAntesRecogidaPct: 80, reembolsoIniciadoPct: 10, notasCancelacion: 'Consultar casos.',
+        });
+      });
+    });
+  });
+
   describe('guardado', () => {
     it('debería crear el listado y volver al panel', async () => {
       await crear();
@@ -1226,32 +1649,47 @@ describe('ComercioListadoFormComponent', () => {
       expect(componente.peluqueriaGroup.value.razasEspecificas).toEqual(['Caniche']);
     });
 
-    it('debería precargar el adiestramiento con su valoración inicial', async () => {
+    it('debería precargar el adiestramiento con el precio de cada valoración', async () => {
       await crear('s1', {
         vertical: VerticalKey.ADIESTRAMIENTO, titulo: 'Escuela Canina', descripcion: 'Obediencia básica',
         ciudad: 'Madrid', precioBase: 50,
         extra: {
-          tiposAdiestramiento: ['obediencia', 'conducta'],
           serviciosAdiestramiento: [{ nombre: 'Obediencia', tipo: 'individual', precio: 50 }],
-          valoracionInicial: { modalidad: 'online', precio: 25 },
+          valoracionesIniciales: [
+            { modalidad: 'online', precio: 25 },
+            { modalidad: 'domicilio', precio: 40 },
+          ],
         },
       });
 
-      expect(componente.adiestramientoGroup.value.tiposAdiestramiento).toEqual(['obediencia', 'conducta']);
       expect(componente.adiestramientoGroup.value).toMatchObject({
-        valoracionInicialModalidad: 'online', valoracionInicialPrecio: 25,
+        valoracionPresencialPrecio: 0, valoracionOnlinePrecio: 25, valoracionDomicilioPrecio: 40,
       });
       expect(componente.serviciosAdiestramiento.length).toBe(1);
     });
 
-    it('debería asumir valoración presencial gratuita si no la declararon', async () => {
+    it('debería leer las fichas antiguas con una única valoración', async () => {
+      // Antes de los precios por modalidad se guardaba `valoracionInicial`
+      // suelta; esas fichas siguen vivas y tienen que abrirse igual.
+      await crear('s1', {
+        vertical: VerticalKey.ADIESTRAMIENTO, titulo: 'Escuela Canina', descripcion: 'Obediencia básica',
+        ciudad: 'Madrid', precioBase: 50,
+        extra: { valoracionInicial: { modalidad: 'online', precio: 25 } },
+      });
+
+      expect(componente.adiestramientoGroup.value).toMatchObject({
+        valoracionOnlinePrecio: 25, valoracionPresencialPrecio: 0, valoracionDomicilioPrecio: 0,
+      });
+    });
+
+    it('debería asumir todas las valoraciones gratuitas si no las declararon', async () => {
       await crear('s1', {
         vertical: VerticalKey.ADIESTRAMIENTO, titulo: 'Escuela Canina', descripcion: 'Obediencia básica',
         ciudad: 'Madrid', precioBase: 50, extra: {},
       });
 
       expect(componente.adiestramientoGroup.value).toMatchObject({
-        valoracionInicialModalidad: 'presencial', valoracionInicialPrecio: 0,
+        valoracionPresencialPrecio: 0, valoracionOnlinePrecio: 0, valoracionDomicilioPrecio: 0,
       });
     });
 
@@ -1335,26 +1773,6 @@ describe('ComercioListadoFormComponent', () => {
 
       expect(componente.tieneConductaNoAdmitida('agresividad')).toBe(true);
       expect(componente.tieneConductaNoAdmitida('destructivo')).toBe(true);
-    });
-
-    it('deberia alternar las modalidades de cuidado', async () => {
-      await crear();
-
-      componente.toggleModalidad('paseo');
-      expect(componente.tieneModalidad('paseo')).toBe(true);
-
-      componente.toggleModalidad('paseo');
-      expect(componente.tieneModalidad('paseo')).toBe(false);
-    });
-
-    it('deberia alternar los tamanos admitidos en cuidado', async () => {
-      await crear();
-
-      componente.toggleTamanoCuidado('grande');
-      expect(componente.tieneTamanoCuidado('grande')).toBe(true);
-
-      componente.toggleTamanoCuidado('grande');
-      expect(componente.tieneTamanoCuidado('grande')).toBe(false);
     });
 
     it('deberia alternar la compatibilidad social', async () => {

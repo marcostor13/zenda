@@ -5,6 +5,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { VerticalKey } from 'shared';
 import { HomeComponent } from './home.component';
+import { VERTICALES_PUBLICOS } from '../../shared/verticales/verticales.config';
 import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
 
 describe('HomeComponent', () => {
@@ -69,8 +70,10 @@ describe('HomeComponent', () => {
   });
 
   it('no debería ofrecer las categorías fuera del escaparate', () => {
-    // Cuidadores sigue existiendo —ruta, fichas y panel— pero no se anuncia.
-    expect(component.verticales.map((v) => v.key)).not.toContain(VerticalKey.CUIDADORES);
+    // La portada anuncia exactamente el escaparate público, ni una más: las
+    // categorías retiradas del catálogo no deben reaparecer aquí.
+    expect(component.verticales.map((v) => v.key)).toEqual(VERTICALES_PUBLICOS.map((v) => v.key));
+    expect(component.verticales.map((v) => v.route)).not.toContain('/cuidadores');
   });
 
   it('debería usar las etiquetas caninas en las categorías', () => {

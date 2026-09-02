@@ -3,7 +3,11 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
-import { PasoEmbudo, TipoEvento, VerticalKey } from 'shared';
+import { of } from 'rxjs';
+import {
+  FranjaHoraria, LugarRecogida, ModoPrecioRecogida, MonedaSoportada, PasoEmbudo, TipoEvento,
+  UrgenciaFunerario, VerticalKey,
+} from 'shared';
 import { ReservaWizardComponent } from './reserva-wizard.component';
 import { ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
@@ -15,6 +19,7 @@ import { StripeService } from '../../../core/stripe/stripe.service';
 import { GeoService } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { MonedaService } from '../../../core/moneda/moneda.service';
 
 interface Dobles {
   reservas: { crear: jest.Mock; comprobarDisponibilidad: jest.Mock; calendario: jest.Mock };
@@ -109,7 +114,11 @@ describe('ReservaWizardComponent', () => {
       perros: { misPerros: jest.fn().mockResolvedValue([]) },
       catalog: { obtener: jest.fn().mockResolvedValue({ extra: {} }) },
       stripe: { getStripe: jest.fn().mockResolvedValue(stripeFake) },
-      geo: { trayecto: jest.fn().mockResolvedValue({ km: 70, duracionMin: 55, esEstimacion: false }) },
+      geo: {
+        trayecto: jest.fn().mockResolvedValue({ km: 70, duracionMin: 55, esEstimacion: false }),
+        // Lo pide `MonedaService` en cuanto se elige una divisa distinta al euro.
+        tiposDeCambio: jest.fn().mockReturnValue(of({ base: 'EUR', fecha: '', tasas: { EUR: 1, GBP: 0.84 } })),
+      },
       eventos: { registrar: jest.fn(), cerrarEmbudo: jest.fn() },
       // Sin sesion por defecto: el wizard admite invitados.
       auth: sinSesion(),
@@ -494,6 +503,47 @@ describe('ReservaWizardComponent', () => {
     });
   });
 
+  /**
+   * El selector de divisa de la cabecera es de **visualización**: el cargo va
+   * siempre en euros. En el último paso conviven las dos cifras y hay que
+   * distinguirlas, o el importe del extracto sorprende al cliente.
+   */
+  describe('divisa de visualización', () => {
+    const enPasoDePago = async (moneda?: MonedaSoportada): Promise<string> => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      if (moneda) TestBed.inject(MonedaService).elegirMoneda(moneda);
+
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-09-01', checkOut: '2026-09-03' });
+      componente.irPaso(3);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      return (fixture.nativeElement as HTMLElement).textContent ?? '';
+    };
+
+    afterEach(() => localStorage.removeItem('doogking_moneda'));
+
+    it('no debería avisar de nada mientras se paga en euros', async () => {
+      expect(await enPasoDePago()).not.toContain('El cargo se hará en euros');
+    });
+
+    it('debería avisar de que el cargo va en euros al elegir otra divisa', async () => {
+      const texto = await enPasoDePago('GBP');
+
+      expect(texto).toContain('El cargo se hará en euros');
+      // 242 es el total que devuelve el intent del API; el convertido, 203,28.
+      expect(texto).toContain('242');
+      expect(texto).toContain('GBP');
+    });
+
+    it('debería enseñar el total convertido en el botón de pagar', async () => {
+      const texto = await enPasoDePago('GBP');
+
+      expect(texto).toContain('203,28');
+    });
+  });
+
   describe('preparación del pago', () => {
     it('debería crear reserva e intent al entrar en el paso de pago', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
@@ -787,6 +837,53 @@ describe('ReservaWizardComponent', () => {
       expect(componente.errorPago()).toBe('Tarjeta rechazada');
       expect(componente.paso()).toBe(3);
     });
+
+    /*
+     * La autenticación de la tarjeta (3-D Secure) es obligatoria en la mayoría
+     * de emisores europeos, y sin `return_url` Stripe devuelve error en lugar
+     * de autenticar: esas tarjetas no tenían forma de completar el pago.
+     */
+    it('debería dar a Stripe una url de retorno para el 3-D Secure', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      await irAPago();
+
+      await componente.procesarPago();
+
+      const opciones = stripeFake.confirmPayment.mock.calls[0][0];
+      expect(opciones.confirmParams.return_url).toContain('/reservas/mis-reservas');
+      expect(opciones.redirect).toBe('if_required');
+    });
+
+    it('debería avisar de que la confirmación va con retraso si el servidor no la cierra', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, {
+        payments: {
+          crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 242 }),
+          configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: false }),
+          confirmarSinCobro: jest.fn().mockResolvedValue(undefined),
+          sincronizar: jest.fn().mockResolvedValue({ estado: 'pendiente' }),
+        },
+      });
+      await irAPago();
+
+      await componente.procesarPago();
+
+      // Se llega igual a la confirmación —el dinero está cobrado—, pero sin
+      // prometer una reserva que el listado enseña como pendiente.
+      expect(componente.paso()).toBe(4);
+      expect(componente.confirmacionPendiente()).toBe(true);
+    });
+
+    it('no debería avisar de retraso cuando el servidor confirma en el acto', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      await irAPago();
+
+      await componente.procesarPago();
+
+      expect(componente.confirmacionPendiente()).toBe(false);
+    });
   });
 
   describe('trayecto de transporte', () => {
@@ -1009,6 +1106,339 @@ describe('ReservaWizardComponent', () => {
     });
   });
 
+  /**
+   * Funerarios sustituyó a «cuidadores» en el catálogo (2026-09-01) y llegó sin
+   * ninguna prueba de reserva, siendo el vertical con el paso 1 más exigente:
+   * el precio se compone de cuatro cosas y la ficha decide qué se puede pedir.
+   */
+  describe('funerarios', () => {
+    const CATALOGO = {
+      serviciosFunerarios: [
+        {
+          nombre: 'Cremación individual', tipo: 'cremacion_individual', precioBase: 180,
+          devuelveCenizas: true, urnaIncluida: true, certificadoIncluido: true, activo: true,
+          tramosPeso: [{ hastaKg: 10, precio: 150 }, { hastaKg: 30, precio: 260 }],
+        },
+        {
+          nombre: 'Cremación colectiva', tipo: 'cremacion_colectiva', precioBase: 90,
+          devuelveCenizas: false, urnaIncluida: false, certificadoIncluido: false, activo: true,
+        },
+        { nombre: 'Retirado', tipo: 'otros', precioBase: 50, devuelveCenizas: true, activo: false },
+      ],
+      extras: [
+        { nombre: 'Urna de madera', precio: 45, activo: true },
+        { nombre: 'Ceremonia', precio: 120, activo: false },
+      ],
+      ofreceRecogida: true,
+      radioRecogidaKm: 25,
+      modoPrecioRecogida: 'fija',
+      precioRecogida: 40,
+      lugaresRecogida: ['domicilio'],
+      franjasDisponibles: ['manana'],
+      suplementoUrgencia: 60,
+    };
+
+    const conCatalogo = async (extra: Record<string, unknown> = CATALOGO) => {
+      const ctx = contexto(VerticalKey.FUNERARIOS);
+      await crear(ctx.params, ctx.query, {
+        catalog: { obtener: jest.fn().mockResolvedValue({ extra }) },
+      });
+    };
+
+    describe('catálogo de la empresa', () => {
+      it('debería ofrecer sólo los servicios activos', async () => {
+        await conCatalogo();
+
+        expect(componente.serviciosFunerariosDisponibles().map((s) => s.nombre))
+          .toEqual(['Cremación individual', 'Cremación colectiva']);
+      });
+
+      it('debería ofrecer sólo los extras activos', async () => {
+        await conCatalogo();
+
+        expect(componente.extrasFunerariosDisponibles().map((e) => e.nombre))
+          .toEqual(['Urna de madera']);
+      });
+
+      it('debería ofrecer sólo los lugares desde los que recoge', async () => {
+        await conCatalogo();
+
+        expect(componente.lugaresRecogidaDisponibles().map((l) => l.valor)).toEqual(['domicilio']);
+      });
+
+      it('debería ofrecer todos los lugares si la empresa no declara ninguno', async () => {
+        await conCatalogo({ ...CATALOGO, lugaresRecogida: [] });
+
+        expect(componente.lugaresRecogidaDisponibles().length)
+          .toBe(Object.values(LugarRecogida).length);
+      });
+
+      it('debería ofrecer sólo las franjas declaradas', async () => {
+        await conCatalogo();
+
+        expect(componente.franjasFunerarioDisponibles().map((f) => f.valor)).toEqual(['manana']);
+      });
+
+      it('debería ofrecer todas las franjas si la empresa no declara ninguna', async () => {
+        await conCatalogo({ ...CATALOGO, franjasDisponibles: [] });
+
+        expect(componente.franjasFunerarioDisponibles().length)
+          .toBe(Object.values(FranjaHoraria).length);
+      });
+
+      it('no debería pedir zona si la empresa no tarifica por zonas', async () => {
+        await conCatalogo();
+
+        expect(componente.zonasRecogidaDisponibles()).toEqual([]);
+      });
+
+      it('debería pedir zona cuando la empresa tarifica por zonas', async () => {
+        await conCatalogo({
+          ...CATALOGO,
+          modoPrecioRecogida: ModoPrecioRecogida.POR_ZONA,
+          zonasRecogida: [{ nombre: 'Norte', precio: 30 }],
+        });
+
+        expect(componente.zonasRecogidaDisponibles()).toEqual([{ nombre: 'Norte', precio: 30 }]);
+      });
+    });
+
+    describe('precio cerrado del paso 1', () => {
+      /*
+       * La urgencia por defecto del formulario es «lo antes posible», que sí
+       * lleva suplemento. Estas pruebas miden las otras partes del precio, así
+       * que parten de una fecha elegida, que no lo lleva.
+       */
+      const elegir = (patch: Record<string, unknown>): void => {
+        componente.paso1FunerariosForm.patchValue({
+          servicioNombre: 'Cremación individual', pesoKg: 8,
+          urgencia: UrgenciaFunerario.FECHA, fecha: '2026-09-10',
+          ...patch,
+        });
+      };
+
+      it('debería cobrar el tramo de peso que corresponde', async () => {
+        await conCatalogo();
+
+        elegir({ pesoKg: 8 });
+        expect(componente.subtotal()).toBe(150);
+
+        elegir({ pesoKg: 25 });
+        expect(componente.subtotal()).toBe(260);
+      });
+
+      it('debería cobrar el tramo más alto por encima del último', async () => {
+        await conCatalogo();
+
+        elegir({ pesoKg: 60 });
+
+        expect(componente.subtotal()).toBe(260);
+      });
+
+      it('debería usar el precio base de un servicio sin tramos', async () => {
+        await conCatalogo();
+
+        elegir({ servicioNombre: 'Cremación colectiva', aceptaSinCenizas: true });
+
+        expect(componente.subtotal()).toBe(90);
+      });
+
+      it('debería sumar la recogida a precio fijo', async () => {
+        await conCatalogo();
+
+        elegir({ necesitaRecogida: true });
+
+        expect(componente.subtotal()).toBe(190);
+      });
+
+      it('debería sumar la recogida por kilómetro', async () => {
+        await conCatalogo({
+          ...CATALOGO, modoPrecioRecogida: ModoPrecioRecogida.POR_KM, precioRecogidaPorKm: 1.5,
+        });
+
+        elegir({ necesitaRecogida: true, distanciaKm: 20 });
+
+        expect(componente.subtotal()).toBe(180);
+      });
+
+      it('debería sumar la recogida por zona', async () => {
+        await conCatalogo({
+          ...CATALOGO,
+          modoPrecioRecogida: ModoPrecioRecogida.POR_ZONA,
+          zonasRecogida: [{ nombre: 'Norte', precio: 30 }],
+        });
+
+        elegir({ necesitaRecogida: true, zonaRecogida: 'Norte' });
+
+        expect(componente.subtotal()).toBe(180);
+      });
+
+      it('no debería cobrar recogida si el cliente no la pide', async () => {
+        await conCatalogo();
+
+        elegir({ necesitaRecogida: false });
+
+        expect(componente.subtotal()).toBe(150);
+      });
+
+      it('debería sumar el suplemento sólo en una urgencia real', async () => {
+        await conCatalogo();
+
+        elegir({ urgencia: UrgenciaFunerario.LO_ANTES_POSIBLE });
+        expect(componente.subtotal()).toBe(210);
+
+        // Elegir una fecha no es una urgencia: no se cobra el suplemento.
+        elegir({ urgencia: UrgenciaFunerario.FECHA, fecha: '2026-09-10' });
+        expect(componente.subtotal()).toBe(150);
+      });
+
+      it('debería sumar los extras marcados', async () => {
+        await conCatalogo();
+        elegir({});
+
+        componente.toggleExtraFunerario('Urna de madera');
+
+        expect(componente.subtotal()).toBe(195);
+      });
+
+      it('debería poder desmarcar un extra', async () => {
+        await conCatalogo();
+        elegir({});
+        componente.toggleExtraFunerario('Urna de madera');
+
+        componente.toggleExtraFunerario('Urna de madera');
+
+        expect(componente.tieneExtraFunerario('Urna de madera')).toBe(false);
+        expect(componente.subtotal()).toBe(150);
+      });
+
+      it('no debería poner precio mientras no se elija servicio', async () => {
+        await conCatalogo();
+
+        expect(componente.subtotal()).toBe(0);
+      });
+    });
+
+    describe('lo que el formulario no puede validar solo', () => {
+      const rellenarMinimo = (patch: Record<string, unknown> = {}): void => {
+        componente.paso1FunerariosForm.patchValue({
+          servicioNombre: 'Cremación individual', pesoKg: 8, ...patch,
+        });
+      };
+
+      it('debería dejar seguir con el mínimo relleno', async () => {
+        await conCatalogo();
+
+        rellenarMinimo();
+
+        expect(componente.paso1Valido()).toBe(true);
+      });
+
+      it('no debería dejar seguir sin elegir servicio', async () => {
+        await conCatalogo();
+
+        expect(componente.paso1Valido()).toBe(false);
+      });
+
+      /* Ningún cobro sin consentimiento explícito. */
+      it('no debería dejar seguir sin aceptar que no hay cenizas', async () => {
+        await conCatalogo();
+
+        rellenarMinimo({ servicioNombre: 'Cremación colectiva' });
+        expect(componente.paso1Valido()).toBe(false);
+
+        rellenarMinimo({ servicioNombre: 'Cremación colectiva', aceptaSinCenizas: true });
+        expect(componente.paso1Valido()).toBe(true);
+      });
+
+      it('no debería dejar pedir recogida a quien no la hace', async () => {
+        await conCatalogo({ ...CATALOGO, ofreceRecogida: false });
+
+        rellenarMinimo({ necesitaRecogida: true });
+
+        expect(componente.paso1Valido()).toBe(false);
+      });
+
+      it('no debería dejar seguir fuera del radio de recogida', async () => {
+        await conCatalogo();
+
+        rellenarMinimo({ necesitaRecogida: true, distanciaKm: 40 });
+        expect(componente.paso1Valido()).toBe(false);
+
+        rellenarMinimo({ necesitaRecogida: true, distanciaKm: 25 });
+        expect(componente.paso1Valido()).toBe(true);
+      });
+
+      it('debería exigir la zona cuando la empresa tarifica por zonas', async () => {
+        await conCatalogo({
+          ...CATALOGO,
+          modoPrecioRecogida: ModoPrecioRecogida.POR_ZONA,
+          zonasRecogida: [{ nombre: 'Norte', precio: 30 }],
+        });
+
+        rellenarMinimo({ necesitaRecogida: true });
+        expect(componente.paso1Valido()).toBe(false);
+
+        rellenarMinimo({ necesitaRecogida: true, zonaRecogida: 'Norte' });
+        expect(componente.paso1Valido()).toBe(true);
+      });
+
+      it('debería exigir la fecha cuando el cliente elige una', async () => {
+        await conCatalogo();
+
+        rellenarMinimo({ urgencia: UrgenciaFunerario.FECHA });
+        expect(componente.paso1Valido()).toBe(false);
+
+        rellenarMinimo({ urgencia: UrgenciaFunerario.FECHA, fecha: '2026-09-10' });
+        expect(componente.paso1Valido()).toBe(true);
+      });
+    });
+
+    describe('fecha de inicio según la urgencia', () => {
+      const fechaEnviada = async (patch: Record<string, unknown>): Promise<string> => {
+        await conCatalogo();
+        componente.paso1FunerariosForm.patchValue({
+          servicioNombre: 'Cremación individual', pesoKg: 8, ...patch,
+        });
+        // El alta se dispara al entrar en el paso de pago, igual que en la UI.
+        componente.irPaso(3);
+        await fixture.whenStable();
+        const payload = dobles.reservas.crear.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+        return payload['fechaInicio'] as string;
+      };
+
+      it('debería mandar el momento actual con «lo antes posible»', async () => {
+        const fecha = await fechaEnviada({ urgencia: UrgenciaFunerario.LO_ANTES_POSIBLE });
+
+        // ISO completo con milisegundos: es "ahora", no una franja del día.
+        expect(fecha).toMatch(/\dT\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+      });
+
+      it('debería mandar el día siguiente con «mañana», en la franja elegida', async () => {
+        const fecha = await fechaEnviada({
+          urgencia: UrgenciaFunerario.MANANA, franja: FranjaHoraria.NOCHE,
+        });
+
+        const manana = new Date();
+        manana.setDate(manana.getDate() + 1);
+        expect(fecha).toBe(`${manana.toISOString().slice(0, 10)}T21:00:00`);
+      });
+
+      it('debería llevar la mañana a las 09:00', async () => {
+        // Aquí no se promete una hora exacta: la franja es lo que se acuerda.
+        expect(await fechaEnviada({
+          urgencia: UrgenciaFunerario.FECHA, fecha: '2026-09-10', franja: FranjaHoraria.MANANA,
+        })).toBe('2026-09-10T09:00:00');
+      });
+
+      it('debería llevar la tarde a las 16:00', async () => {
+        expect(await fechaEnviada({
+          urgencia: UrgenciaFunerario.FECHA, fecha: '2026-09-10', franja: FranjaHoraria.TARDE,
+        })).toBe('2026-09-10T16:00:00');
+      });
+    });
+  });
+
   describe('recomendador', () => {
     it('debería forzar sesión individual si el caso bloquea las grupales', async () => {
       const { params, query } = contexto(VerticalKey.ADIESTRAMIENTO);
@@ -1201,16 +1631,38 @@ describe('ReservaWizardComponent', () => {
       expect(payload['cantidad']).toBe(2);
     });
 
-    it('deberia componer fecha y hora en cuidadores', async () => {
-      // El backend espera un ISO completo, no la fecha por un lado y la hora por otro.
-      const ctx = contexto(VerticalKey.CUIDADORES);
+    it('deberia componer fecha y franja en funerarios', async () => {
+      // El backend espera un ISO completo: la franja elegida se traduce a hora.
+      const ctx = contexto(VerticalKey.FUNERARIOS);
       await crear(ctx.params, ctx.query);
-      componente.paso1CuidadoresForm.patchValue({ fecha: '2026-09-01', hora: '10:30', modalidad: 'paseo' });
+      componente.paso1FunerariosForm.patchValue({
+        servicioNombre: 'Cremación individual', pesoKg: 12,
+        urgencia: UrgenciaFunerario.FECHA, fecha: '2026-09-01', franja: FranjaHoraria.TARDE,
+      });
 
       const payload = await payloadEnviado();
 
-      expect(payload['fechaInicio']).toBe('2026-09-01T10:30:00');
-      expect((payload['detalle'] as Record<string, unknown>)['modalidad']).toBe('paseo');
+      expect(payload['fechaInicio']).toBe('2026-09-01T16:00:00');
+      const detalle = payload['detalle'] as Record<string, unknown>;
+      expect(detalle['servicioNombre']).toBe('Cremación individual');
+      expect(detalle['pesoKg']).toBe(12);
+    });
+
+    it('no deberia mandar los datos de recogida si el cliente no la pide', async () => {
+      // Mandarlos igualmente haría que la estrategia cobrara un desplazamiento
+      // que nadie ha pedido, o que rechazara la reserva por cobertura.
+      const ctx = contexto(VerticalKey.FUNERARIOS);
+      await crear(ctx.params, ctx.query);
+      componente.paso1FunerariosForm.patchValue({
+        servicioNombre: 'Cremación individual', pesoKg: 12,
+        necesitaRecogida: false, distanciaKm: 30, zonaRecogida: 'Norte',
+      });
+
+      const detalle = (await payloadEnviado())['detalle'] as Record<string, unknown>;
+
+      expect(detalle['necesitaRecogida']).toBe(false);
+      expect(detalle['distanciaKm']).toBeUndefined();
+      expect(detalle['zonaRecogida']).toBeUndefined();
     });
 
     it('deberia mandar adultos, ninos y tamano en hoteles', async () => {

@@ -61,4 +61,52 @@ describe('MonedaService', () => {
     expect(service.convertir(100)).toBe(100);
   });
 
+  it('no debería anunciar una conversión que no ha podido hacer', () => {
+    // Sin tasa se siguen pintando euros: avisar de una conversión que no ha
+    // ocurrido confunde más que callar.
+    const service = crear({ base: 'EUR', fecha: '', tasas: { EUR: 1 } });
+
+    service.elegirMoneda('CHF');
+
+    expect(service.esConvertida()).toBe(false);
+  });
+
+  describe('conversion()', () => {
+    it('debería llevar divisa y tasa juntas, para que no se descuadren', () => {
+      const service = crear();
+
+      service.elegirMoneda('GBP');
+
+      expect(service.conversion()).toEqual({ moneda: 'GBP', tasa: 0.84 });
+    });
+
+    it('debería marcar la tasa como desconocida si el cambio no trae la divisa', () => {
+      // No vale caer a 1: pintaría los euros con el símbolo del franco.
+      const service = crear();
+
+      service.elegirMoneda('CHF');
+
+      expect(service.conversion().moneda).toBe('CHF');
+      expect(Number.isNaN(service.conversion().tasa)).toBe(true);
+    });
+  });
+
+  describe('formatear()', () => {
+    it('debería formatear en euros mientras no se cambie de divisa', () => {
+      expect(crear().formatear(1234.5)).toBe('1.234,5\u00a0€');
+    });
+
+    it('debería formatear ya convertido en la divisa elegida', () => {
+      const service = crear();
+
+      service.elegirMoneda('GBP');
+
+      expect(service.formatear(100)).toBe('84,00\u00a0£');
+    });
+
+    it('debería devolver un guion cuando no hay importe', () => {
+      expect(crear().formatear(null)).toBe('—');
+    });
+  });
+
 });

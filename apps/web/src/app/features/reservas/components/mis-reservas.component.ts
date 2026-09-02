@@ -1,5 +1,5 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
@@ -8,6 +8,7 @@ import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.di
 import { alojamientoImage } from '../../../shared/media/images';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { ReviewsService } from '../services/reviews.service';
+import { PagoEnCursoService } from '../services/pago-en-curso.service';
 import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 import { AuthService } from '../../../core/auth/auth.service';
 
@@ -56,6 +57,17 @@ interface ReservaCard {
       <h1 style="font-size:var(--f-3xl);font-weight:var(--w-9);color:var(--t-100);margin-bottom:var(--sp-2)">{{ 'Mis reservas' | t }}</h1>
       <p style="color:var(--t-400)">{{ 'Gestiona y consulta todas tus reservas' | t }}</p>
     </div>
+
+    <!--
+      Se vuelve del pago y la reserva todavía aparece pendiente. Decirlo evita
+      que el cliente crea que el cobro no ha entrado y vuelva a pagar.
+    -->
+    @if (confirmacionPendiente()) {
+      <div class="rs-alert rs-alert--info" role="status" style="margin-bottom:var(--sp-6)">
+        <rs-icon name="alert-circle" [size]="16" [stroke]="2" />
+        <span>{{ 'Tu pago se ha realizado correctamente. Estamos terminando de confirmar la reserva con el establecimiento: puede tardar un momento en aparecer como confirmada.' | t }}</span>
+      </div>
+    }
 
     <!-- FILTROS -->
     <div class="filtros-bar">
@@ -317,6 +329,12 @@ interface ReservaCard {
 })
 export class MisReservasComponent implements OnInit {
   private readonly reservasService = inject(ReservasService);
+  private readonly pagoEnCurso = inject(PagoEnCursoService);
+  private readonly route = inject(ActivatedRoute);
+
+  /** El cobro entró pero el servidor aún no ha dado la reserva por confirmada. */
+  readonly confirmacionPendiente = signal(false);
+
   private readonly alojamientoService = inject(AlojamientoService);
   private readonly reviewsService = inject(ReviewsService);
   private readonly auth = inject(AuthService);
@@ -435,8 +453,24 @@ export class MisReservasComponent implements OnInit {
     return map[estado] ?? estado;
   }
 
+  /**
+   * Cierra el pago que quedó a medias antes de pedir el listado.
+   *
+   * Es la pantalla a la que Stripe devuelve al usuario tras autenticar la
+   * tarjeta: si no se consultara aquí, la reserva recién pagada se enseñaría
+   * como «pendiente» hasta que llegara el webhook —en local, nunca—, que es
+   * justo el momento en el que el cliente teme que su dinero se haya perdido.
+   */
   async ngOnInit(): Promise<void> {
     if (this.useMock) return;
+
+    if (this.pagoEnCurso.pendiente()) {
+      this.confirmacionPendiente.set(!await this.pagoEnCurso.cerrarPendiente());
+    } else if (this.route.snapshot.queryParamMap.has('confirmacionPendiente')) {
+      // Lo dice quien nos ha traído aquí (el pago del viaje), que ya consultó.
+      this.confirmacionPendiente.set(true);
+    }
+
     try {
       const apiReservas = await this.reservasService.misReservas();
       const resenadasIds = await this.reservaIdsYaResenadas();

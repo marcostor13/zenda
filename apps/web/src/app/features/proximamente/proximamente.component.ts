@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { RsSocialIconComponent, type RedSocialKey } from '../../shared/components/social-icon/rs-social-icon.component';
+import { RsSocialIconComponent } from '../../shared/components/social-icon/rs-social-icon.component';
+import { REDES_SOCIALES_DESTACADAS } from '../../shared/catalogos/redes-sociales.catalogo';
 import { BRAND, CATEGORIA_ICONOS } from '../../shared/media/images';
 import { ListaEsperaService } from './lista-espera.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
@@ -17,12 +18,6 @@ interface VentajaAnunciada {
   readonly texto: string;
 }
 
-/** Perfil social de Doogking mostrado en el bloque de comunidad. */
-interface RedSocial {
-  readonly nombre: string;
-  readonly icono: RedSocialKey;
-  readonly url: string;
-}
 
 /**
  * Pantalla pública "muy pronto" servida mientras `environment.underConstruction`
@@ -486,11 +481,7 @@ export class ProximamenteComponent {
     { icono: CATEGORIA_ICONOS['explora'], label: 'Explora con tu mascota' },
   ];
 
-  readonly redes: readonly RedSocial[] = [
-    { nombre: 'Instagram', icono: 'instagram', url: 'https://instagram.com/doogking' },
-    { nombre: 'Facebook', icono: 'facebook', url: 'https://facebook.com/doogking' },
-    { nombre: 'TikTok', icono: 'tiktok', url: 'https://tiktok.com/@doogking' },
-  ];
+  readonly redes = REDES_SOCIALES_DESTACADAS;
 
   readonly formulario = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

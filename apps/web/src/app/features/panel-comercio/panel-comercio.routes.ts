@@ -1,4 +1,13 @@
 import { Routes } from '@angular/router';
+import { CONVERSION_DE_MONEDA } from '../../core/moneda/conversion-de-moneda.token';
+
+/*
+ * Los importes del panel no se traducen a la divisa de la cabecera: son
+ * contabilidad en euros (GMV, comisiones, comisiones de Stripe, liquidaciones,
+ * facturas). Bastaba con que el usuario hubiera tocado el selector navegando
+ * por la parte pública para que su panel dejara de cuadrar con sus extractos.
+ */
+const SIN_CONVERSION_DE_MONEDA = [{ provide: CONVERSION_DE_MONEDA, useValue: false }];
 
 export const panelComercioRoutes: Routes = [
   /*
@@ -8,11 +17,13 @@ export const panelComercioRoutes: Routes = [
    */
   {
     path: 'alta',
+    providers: SIN_CONVERSION_DE_MONEDA,
     loadComponent: () =>
       import('./comercio-alta.component').then(m => m.ComercioAltaComponent),
   },
   {
     path: '',
+    providers: SIN_CONVERSION_DE_MONEDA,
     loadComponent: () =>
       import('./comercio-layout.component').then(m => m.ComercioLayoutComponent),
     children: [

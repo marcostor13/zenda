@@ -89,7 +89,7 @@ describe('RsNavbarComponent', () => {
   });
 
   it('no debería anunciar las categorías fuera del escaparate', () => {
-    // Cuidadores sigue existiendo y su ruta funciona; simplemente no se ofrece.
+    // Las categorías retiradas del catálogo (p. ej. cuidadores) no se anuncian.
     const el: HTMLElement = fixture.nativeElement;
     const hrefs = Array.from(el.querySelectorAll('.rs-navbar__nav a')).map((a) =>
       a.getAttribute('href'),

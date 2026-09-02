@@ -22,8 +22,8 @@ import type { PuntoMapa, ZonaMapa } from '../../shared/components/mapa/rs-mapa.c
 import type { BarraHistograma } from '../../shared/components/range-slider/rs-range-slider.component';
 import { calcularBadgesAutomaticos } from '../../shared/badges/badges-automaticos';
 
-import { euros } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { MonedaService } from '../../core/moneda/moneda.service';
 /** Filtros de búsqueda vigentes, tal y como llegan en la URL. */
 interface Busqueda {
   ciudad?: string;
@@ -268,7 +268,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
           [title]="cfg().titulo3(c)" [subtitle]="c.ciudad"
           [badges]="badgesDe(c)"
           [rating]="{ score: c.score, label: c.scoreLabel, count: c.numResenas }"
-          [price]="{ amount: euros(cfg().price(c)), period: cfg().priceLabel }"
+          [price]="{ amount: moneda.formatear(cfg().price(c)), period: cfg().priceLabel }"
           notaPrecio="IVA incluido"
           [amenities]="serviciosDe(c)"
           [destacados]="incluyeDe(c)"
@@ -316,8 +316,13 @@ const CONFIGS: Record<string, VerticalConfig> = {
   `],
 })
 export class VerticalBrowseComponent implements OnInit {
-  /** Formato de los importes; la plantilla lo necesita como miembro. */
-  protected readonly euros = euros;
+  /**
+   * Divisa de visualización. Se lee para formatear los precios que van dentro
+   * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
+   * pueden pasar por el pipe: al leer la señal, la vista se refresca sola en
+   * cuanto el usuario cambia de divisa en la cabecera.
+   */
+  readonly moneda = inject(MonedaService);
 
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -394,7 +399,7 @@ export class VerticalBrowseComponent implements OnInit {
   readonly puntosMapa = computed<PuntoMapa[]>(() =>
     this.puntos().map((p) => ({
       id: p.id, lat: p.lat, lng: p.lng,
-      etiqueta: euros(p.precio), vertical: this.cfg().vertical,
+      etiqueta: this.moneda.formatear(p.precio), vertical: this.cfg().vertical,
       titulo: p.titulo, imagen: p.imagen, rating: p.rating,
     })),
   );

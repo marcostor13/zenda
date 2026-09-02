@@ -192,6 +192,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
     chips: (s) => (s.extra['coberturas'] as string[] | undefined) ?? [],
     puntos: (s) => {
       const items: string[] = [];
+      /*
+       * Estos dos no se traducen a la divisa de la cabecera, y es a propósito:
+       * no son un precio sino los límites que la póliza cubre, y la póliza los
+       * fija en euros. Verlos en libras haría creer que se cobra esa cantidad.
+       */
       const rc = s.extra['responsabilidadCivilEur'] as number | undefined;
       if (rc != null) items.push(`Responsabilidad civil hasta ${euros(rc)}`);
       const gastos = s.extra['gastosVeterinariosEur'] as number | undefined;

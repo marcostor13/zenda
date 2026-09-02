@@ -491,52 +491,119 @@ describe('VerticalDetalleComponent', () => {
       });
     });
 
-    describe('cuidadores', () => {
-      it('deberia dar por hecho que va a domicilio si no se dice lo contrario', async () => {
-        await crearComponente('cuidadores', servicio({}));
-
-        expect(puntos()).toContain('Va a tu casa, sin sacar al perro de su rutina');
+    /*
+     * Funerarios sustituyó a "cuidadores" en el catálogo (2026-09-01) y llegó
+     * sin ninguna prueba de ficha: es el vertical con más lógica de lectura
+     * (catálogo de servicios, recogida, extras, crematorio de un tercero).
+     */
+    describe('funerarios', () => {
+      const empresa = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+        serviciosFunerarios: [
+          { nombre: 'Cremación individual', tipo: 'cremacion_individual', precioBase: 180,
+            devuelveCenizas: true, urnaIncluida: true, certificadoIncluido: true, activo: true },
+        ],
+        ...extra,
       });
 
-      it('no deberia anunciarlo si el cuidador lo desmarca', async () => {
-        await crearComponente('cuidadores', servicio({ aDomicilio: false }));
+      it('deberia listar como chips solo los servicios activos del catalogo', async () => {
+        await crearComponente('funerarios', servicio(empresa({
+          serviciosFunerarios: [
+            { nombre: 'Cremación individual', precioBase: 180, activo: true },
+            { nombre: 'Cremación colectiva', precioBase: 90, activo: false },
+          ],
+        })));
 
-        expect(puntos()).not.toContain('Va a tu casa, sin sacar al perro de su rutina');
+        expect(component.cfg().chips(component.servicio()!)).toEqual(['Cremación individual']);
       });
 
-      it('deberia listar cada modalidad que tenga precio', async () => {
-        await crearComponente('cuidadores', servicio({
-          precioPaseo: 12, precioVisita: 15, precioDiaCompleto: 30, precioNoche: 40,
-        }));
+      it('deberia anunciar el radio de recogida cuando la empresa la ofrece', async () => {
+        await crearComponente('funerarios', servicio(empresa({
+          ofreceRecogida: true, radioRecogidaKm: 40,
+        })));
+
+        expect(puntos()).toContain(
+          'Recogida a domicilio, veterinario o residencia hasta 40 km',
+        );
+      });
+
+      /* Atender 24 h ya implica atender urgencias: decir las dos cosas sobra. */
+      it('deberia preferir el aviso de 24 h al de urgencias', async () => {
+        await crearComponente('funerarios', servicio(empresa({
+          atiende24h: true, servicioUrgente: true,
+        })));
+
+        expect(puntos()).toContain('Disponible 24 h, también de madrugada');
+        expect(puntos()).not.toContain('Atiende servicios urgentes');
+      });
+
+      it('deberia anunciar las urgencias cuando no atiende 24 h', async () => {
+        await crearComponente('funerarios', servicio(empresa({ servicioUrgente: true })));
+
+        expect(puntos()).toContain('Atiende servicios urgentes');
+      });
+
+      it('deberia destacar cenizas, urna y certificado del catalogo activo', async () => {
+        await crearComponente('funerarios', servicio(empresa()));
 
         expect(puntos()).toEqual(expect.arrayContaining([
-          'Paseos sueltos', 'Visitas a domicilio', 'Cuidado de día completo', 'Se queda a dormir',
+          'Devolución individual de las cenizas', 'Urna incluida', 'Certificado incluido',
         ]));
       });
 
-      /* Un servicio gratuito es un dato válido, no un campo sin rellenar. */
-      it('deberia listar una modalidad que cuesta cero', async () => {
-        await crearComponente('cuidadores', servicio({ precioPaseo: 0 }));
+      it('no deberia prometer cenizas si el unico servicio que las devuelve esta desactivado', async () => {
+        await crearComponente('funerarios', servicio(empresa({
+          serviciosFunerarios: [
+            { nombre: 'Cremación individual', precioBase: 180, devuelveCenizas: true, activo: false },
+            { nombre: 'Cremación colectiva', precioBase: 90, devuelveCenizas: false, activo: true },
+          ],
+        })));
 
-        expect(puntos()).toContain('Paseos sueltos');
+        expect(puntos()).not.toContain('Devolución individual de las cenizas');
       });
 
-      it('deberia cobrar el paseo cuando tiene precio', async () => {
-        await crearComponente('cuidadores', servicio({ precioPaseo: 12 }));
+      it('deberia listar los extras activos', async () => {
+        await crearComponente('funerarios', servicio(empresa({
+          extras: [
+            { nombre: 'Huella en arcilla', precio: 20, activo: true },
+            { nombre: 'Ceremonia', precio: 90, activo: false },
+          ],
+        })));
 
-        expect(component.cfg().price(component.servicio()!)).toBe(12);
+        expect(puntos()).toContain('Extras: Huella en arcilla');
       });
 
-      it('deberia caer al precio base sin precio de paseo', async () => {
-        await crearComponente('cuidadores', servicio({}));
+      /* Quién crema es información que el cliente merece antes de contratar. */
+      it('deberia decir quien realiza la cremacion cuando la subcontrata', async () => {
+        await crearComponente('funerarios', servicio(empresa({
+          cremacionPropia: false, terceroCrematorio: 'Crematorio Norte',
+        })));
+
+        expect(puntos()).toContain('La cremación la realiza Crematorio Norte');
+      });
+
+      it('no deberia nombrar a un tercero cuando la cremacion es propia', async () => {
+        await crearComponente('funerarios', servicio(empresa({
+          cremacionPropia: true, terceroCrematorio: 'Crematorio Norte',
+        })));
+
+        expect(puntos()).not.toContain('La cremación la realiza Crematorio Norte');
+      });
+
+      it('deberia mostrar como precio el mas barato del catalogo, tramos incluidos', async () => {
+        await crearComponente('funerarios', servicio(empresa({
+          serviciosFunerarios: [
+            { nombre: 'Cremación individual', precioBase: 180,
+              tramosPeso: [{ hastaKg: 10, precio: 120 }, { hastaKg: 30, precio: 200 }], activo: true },
+          ],
+        })));
+
+        expect(component.cfg().price(component.servicio()!)).toBe(120);
+      });
+
+      it('deberia caer al precio base si la empresa aun no ha puesto precios', async () => {
+        await crearComponente('funerarios', servicio({ serviciosFunerarios: [] }));
 
         expect(component.cfg().price(component.servicio()!)).toBe(25);
-      });
-
-      it('no deberia ofrecer chips: el cuidador no declara especialidades', async () => {
-        await crearComponente('cuidadores', servicio({}));
-
-        expect(component.cfg().chips(component.servicio()!)).toEqual([]);
       });
     });
 

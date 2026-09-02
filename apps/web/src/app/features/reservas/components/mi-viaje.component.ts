@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ReservaEstado, VERTICAL_LABELS, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { ReservaApi, ReservasService } from '../services/reservas.service';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 
 /** Cómo se muestra cada estado; el color comunica más rápido que el texto. */
 const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | 'neutro' }> = {
@@ -31,7 +32,7 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
   selector: 'app-mi-viaje',
   standalone: true,
   imports: [
-    TraducirPipe, CurrencyPipe, DatePipe, RouterLink, RsNavbarComponent, RsIconComponent
+    TraducirPipe, EurosPipe, DatePipe, RouterLink, RsNavbarComponent, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -53,7 +54,7 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
         <h1>{{ titulo() }}</h1>
         <p class="mv-sub">
           {{ reservas().length }} {{ reservas().length === 1 ? 'servicio' : 'servicios' }} ·
-          {{ totalConfirmado() | currency: 'EUR' }} en reservas activas
+          {{ totalConfirmado() | euros }} en reservas activas
         </p>
       </header>
 
@@ -86,7 +87,7 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
                 </div>
                 <div>
                   <dt>{{ 'Importe' | t }}</dt>
-                  <dd>{{ r.montoTotal | currency: 'EUR' }}</dd>
+                  <dd>{{ r.montoTotal | euros }}</dd>
                 </div>
               </dl>
 

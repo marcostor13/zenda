@@ -32,6 +32,9 @@ const EURO_DETRAS_A_MANO = /(\}\}|\})\s*€/;
 const PERMITIDOS = [
   'shared/formato-euros.spec.ts',
   'shared/pipes/euros.pipe.ts',
+  // La implementación del formato vive aquí desde que el pipe pasó a respetar
+  // la divisa elegida en la cabecera: el pipe la reexporta y no la duplica.
+  'core/moneda/importe.ts',
 ];
 
 const RAIZ = join(__dirname, '..');

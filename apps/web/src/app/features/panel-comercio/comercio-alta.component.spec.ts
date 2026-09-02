@@ -78,9 +78,22 @@ describe('ComercioAltaComponent', () => {
       expect(componente.paso()).toBe('elegir');
     });
 
-    it('debería saltarse la elección si el negocio sólo tiene una categoría', async () => {
-      // Una sola opción no es una elección: preguntarla es un paso de más.
+    it('debería dejar marcada la única categoría, sin saltarse la bienvenida', async () => {
+      // El recorrido siempre empieza por la pantalla que explica qué se va a
+      // hacer; con una sola categoría no hay nada que elegir, así que se deja
+      // marcada y sólo queda pulsar «Continuar».
       await crear(miComercio({ verticales: [VerticalKey.VETERINARIA] }));
+
+      expect(componente.paso()).toBe('elegir');
+      expect(componente.elegido()).toBe(VerticalKey.VETERINARIA);
+    });
+
+    it('debería llevar al alta del servicio sin volver a preguntar la categoría', async () => {
+      // Al añadir otro servicio, con una sola categoría, preguntarla sería un
+      // paso de más: se va directo a la ficha.
+      await crear(miComercio({ verticales: [VerticalKey.VETERINARIA] }));
+
+      componente.anadirOtroServicio();
 
       expect(componente.paso()).toBe('servicio');
       expect(componente.elegido()).toBe(VerticalKey.VETERINARIA);

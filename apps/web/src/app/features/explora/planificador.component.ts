@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
@@ -13,6 +12,7 @@ import { CarritoService } from '../carrito/carrito.service';
 import { PerroApi, PerrosService } from '../perros/perros.service';
 import { environment } from '../../../environments/environment';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 
 interface ParadaApi {
   titulo: string;
@@ -65,7 +65,7 @@ const PROVINCIAS = [
   selector: 'app-planificador',
   standalone: true,
   imports: [
-    TraducirPipe, CurrencyPipe, FormsModule, RouterLink,
+    TraducirPipe, EurosPipe, FormsModule, RouterLink,
     RsNavbarComponent, RsIconComponent, ImgFallbackDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -151,7 +151,7 @@ const PROVINCIAS = [
                   <h3>{{ o.nombre }}</h3>
                   <p>{{ o.resumen }}</p>
                   @if (o.presupuestoEstimado) {
-                    <span class="pl-presupuesto">Desde {{ o.presupuestoEstimado | currency: 'EUR' }}</span>
+                    <span class="pl-presupuesto">Desde {{ o.presupuestoEstimado | euros }}</span>
                   }
                 </header>
 

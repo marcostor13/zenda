@@ -2,11 +2,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { MisReservasComponent } from './mis-reservas.component';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { ReviewsService } from '../services/reviews.service';
 import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { PagoEnCursoService } from '../services/pago-en-curso.service';
 
 describe('MisReservasComponent', () => {
   let fixture: ComponentFixture<MisReservasComponent>;
@@ -349,6 +351,79 @@ describe('MisReservasComponent', () => {
       await component.compartir(reserva);
 
       expect(writeText).toHaveBeenCalledWith(expect.stringContaining('RES-CONF01'));
+    });
+  });
+  /**
+   * Es la pantalla a la que Stripe devuelve al cliente tras autenticar la
+   * tarjeta: si no se cerrara el cobro aquí, la reserva recién pagada se
+   * enseñaría como «pendiente» hasta que llegara el webhook, que es justo
+   * cuando el cliente teme haber perdido el dinero.
+   */
+  describe('vuelta del pago', () => {
+    const montarConPagoPendiente = async (
+      pendiente: string | null,
+      cerrado: boolean,
+      queryParams: Record<string, string> = {},
+    ): Promise<{ cerrarPendiente: jest.Mock }> => {
+      const pagoEnCurso = {
+        pendiente: jest.fn().mockReturnValue(pendiente),
+        cerrarPendiente: jest.fn().mockResolvedValue(cerrado),
+        anotar: jest.fn(),
+        olvidar: jest.fn(),
+        sincronizar: jest.fn(),
+      };
+
+      TestBed.resetTestingModule();
+      await TestBed.configureTestingModule({
+        imports: [MisReservasComponent, RouterTestingModule],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          { provide: ReservasService, useValue: reservasService },
+          { provide: ReviewsService, useValue: reviewsService },
+          { provide: AlojamientoService, useValue: { obtener: jest.fn().mockRejectedValue(new Error('n/a')) } },
+          { provide: AuthService, useValue: { usuario: () => ({ id: 'user-1' }), estaAutenticado: () => true, esAdmin: () => false, esComercio: () => false, esCliente: () => true, clienteVerificado: () => false } },
+          { provide: PagoEnCursoService, useValue: pagoEnCurso },
+          { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } } },
+        ],
+      }).compileComponents();
+
+      fixture = TestBed.createComponent(MisReservasComponent);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      return pagoEnCurso;
+    };
+
+    it('debería cerrar contra el servidor el pago que quedó a medias', async () => {
+      const pagoEnCurso = await montarConPagoPendiente('pago-1', true);
+
+      expect(pagoEnCurso.cerrarPendiente).toHaveBeenCalled();
+      expect(component.confirmacionPendiente()).toBe(false);
+    });
+
+    it('debería avisar de que la confirmación va con retraso si el servidor no la cierra', async () => {
+      await montarConPagoPendiente('pago-1', false);
+
+      expect(component.confirmacionPendiente()).toBe(true);
+      expect((fixture.nativeElement as HTMLElement).textContent)
+        .toContain('Estamos terminando de confirmar la reserva');
+    });
+
+    it('debería avisar también cuando lo dice quien nos ha traído aquí', async () => {
+      // El pago del viaje ya consultó al servidor y navega con la marca puesta.
+      await montarConPagoPendiente(null, false, { confirmacionPendiente: '1' });
+
+      expect(component.confirmacionPendiente()).toBe(true);
+    });
+
+    it('no debería llamar al servidor cuando no se viene de pagar', async () => {
+      const pagoEnCurso = await montarConPagoPendiente(null, false);
+
+      expect(pagoEnCurso.cerrarPendiente).not.toHaveBeenCalled();
+      expect(component.confirmacionPendiente()).toBe(false);
     });
   });
 });

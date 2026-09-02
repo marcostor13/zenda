@@ -545,7 +545,7 @@ describe('VerticalBrowseComponent', () => {
    * categorías con ficha y se quedó desfasada.
    */
   describe('enlace a la ficha del comercio', () => {
-    for (const vertical of ['veterinaria', 'peluqueria', 'adiestramiento', 'hoteles', 'seguros', 'cuidadores']) {
+    for (const vertical of ['veterinaria', 'peluqueria', 'adiestramiento', 'hoteles', 'seguros', 'funerarios']) {
       it(`deberia enlazar la tarjeta a la ficha en ${vertical}`, async () => {
         await crearComponente(vertical);
 

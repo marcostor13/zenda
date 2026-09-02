@@ -1,58 +1,51 @@
-import { Pipe, PipeTransform } from '@angular/core';
-import { formatNumber, registerLocaleData } from '@angular/common';
-import localeEs from '@angular/common/locales/es';
+import { Pipe, PipeTransform, inject } from '@angular/core';
+import { MonedaService } from '../../core/moneda/moneda.service';
+import { CONVERSION_DE_MONEDA } from '../../core/moneda/conversion-de-moneda.token';
+import { ConversionImporte, formatearImporte } from '../../core/moneda/importe';
 
-/*
- * Los datos de `es` se registran aquí, al importar el pipe, y no en el arranque
- * de la aplicación: así el formato de los importes no depende de que alguien se
- * acuerde de configurarlo, y los tests que usan el pipe sueltos también lo
- * tienen. `registerLocaleData` es idempotente, así que repetirlo no cuesta.
- */
-registerLocaleData(localeEs);
+export type { ConversionImporte } from '../../core/moneda/importe';
 
 /**
- * Formato único de los importes en euros de toda la aplicación.
+ * Formato único de los importes de toda la aplicación.
  *
- * Existe porque hasta ahora cada plantilla lo decidía por su cuenta: unas
- * escribían `€24`, otras `24 €` y otras `€ 24,00`, así que la misma pantalla
- * podía contradecirse consigo misma. El cliente pidió el símbolo detrás
- * (feedback 2026-08-20), que además es como se escribe en España.
+ * Se mantiene exportada como función además de como pipe porque hay pantallas
+ * que componen textos con precios dentro («50 € × 3 noches», los chips de
+ * filtro) y no pueden pasar por el pipe. Sin `conversion` formatea en euros:
+ * es lo que quieren los tests y las pantallas de contabilidad. Para que respete
+ * la divisa elegida en la cabecera, usa `MonedaService.formatear`.
  */
+export { formatearImporte as euros } from '../../core/moneda/importe';
 
 /**
- * Los importes se formatean siempre en español, sin tocar el `LOCALE_ID` de la
- * aplicación: cambiarlo afectaría a cualquier número (cantidades, valoraciones,
- * kilómetros) y aquí sólo se trata del dinero.
- */
-const LOCALE_IMPORTES = 'es';
-
-/**
- * Espacio duro entre la cifra y el símbolo. Con un espacio normal, un importe
- * al final de una línea estrecha puede partirse y dejar el «€» solo en la
- * siguiente.
- */
-const ESPACIO_DURO = ' ';
-
-/** Lo que se pinta cuando no hay importe: `NaN €` no es una respuesta. */
-const SIN_IMPORTE = '—';
-
-/**
- * Convierte un importe en su representación en euros: `24 €`, `1.234,50 €`.
+ * Formatea un importe en euros con la divisa que el usuario haya elegido en la
+ * cabecera.
  *
- * `null`, `undefined` y lo que no sea un número devuelven un guion: un precio
- * que todavía no ha llegado del API no debe pintarse como si valiera cero.
+ * **Es impuro a propósito.** Un pipe puro memoiza por sus argumentos, así que
+ * al cambiar la moneda —que no es un argumento sino una señal— los 130 y pico
+ * importes de la aplicación seguían pintando el valor cacheado en euros: el
+ * selector de la cabecera cambiaba el símbolo del propio selector y nada más.
+ * El coste de la impureza lo acota la memoria de una entrada que hay debajo: si
+ * ni el importe ni la divisa han cambiado, no se vuelve a formatear.
  */
-export function euros(valor: number | string | null | undefined, digitos = '1.0-2'): string {
-  if (valor === null || valor === undefined || valor === '') return SIN_IMPORTE;
-
-  const numero = typeof valor === 'number' ? valor : Number(valor);
-  if (!Number.isFinite(numero)) return SIN_IMPORTE;
-
-  return `${formatNumber(numero, LOCALE_IMPORTES, digitos)}${ESPACIO_DURO}€`;
-}
-
-@Pipe({ name: 'euros', standalone: true })
+@Pipe({ name: 'euros', standalone: true, pure: false })
 export class EurosPipe implements PipeTransform {
+  private readonly moneda = inject(MonedaService);
+
+  /**
+   * false en el panel de administración y en el del comercio: ahí los importes
+   * son contabilidad —GMV, comisiones, liquidaciones, facturas—, y esas cifras
+   * son en euros por definición. Enseñarlas convertidas invitaría a cuadrar
+   * cuentas con un número que no aparece en ningún extracto, y bastaba con que
+   * el usuario hubiera tocado el selector navegando por la parte pública.
+   */
+  private readonly conversionActiva = inject(CONVERSION_DE_MONEDA);
+
+  private ultimoValor: number | string | null | undefined;
+  private ultimosDigitos = '';
+  private ultimaConversion: ConversionImporte | undefined;
+  private ultimoTexto = '';
+  private hayMemoria = false;
+
   /**
    * @param digitos Formato de `DecimalPipe`. Por defecto `1.0-2`: los importes
    * redondos se ven limpios (`24 €`) y los que tienen céntimos los conservan
@@ -60,6 +53,36 @@ export class EurosPipe implements PipeTransform {
    * como en las tablas de facturación.
    */
   transform(valor: number | string | null | undefined, digitos = '1.0-2'): string {
-    return euros(valor, digitos);
+    const conversion = this.conversionActiva ? this.moneda.conversion() : undefined;
+
+    if (this.hayMemoria
+        && valor === this.ultimoValor
+        && digitos === this.ultimosDigitos
+        && conversion?.moneda === this.ultimaConversion?.moneda
+        && conversion?.tasa === this.ultimaConversion?.tasa) {
+      return this.ultimoTexto;
+    }
+
+    this.hayMemoria = true;
+    this.ultimoValor = valor;
+    this.ultimosDigitos = digitos;
+    this.ultimaConversion = conversion;
+    this.ultimoTexto = formatearImporte(valor, digitos, conversion);
+    return this.ultimoTexto;
+  }
+}
+
+/**
+ * Importe **siempre en euros**, ignorando la divisa elegida en la cabecera.
+ *
+ * Para las cifras que no son una orientación sino el dato exacto: lo que se va
+ * a cargar en la tarjeta. En el último paso de la reserva conviven las dos, y
+ * tienen que distinguirse: el resto de la pantalla habla en la divisa del
+ * usuario y esta línea dice cuánto se cobra de verdad.
+ */
+@Pipe({ name: 'eurosFijos', standalone: true })
+export class EurosFijosPipe implements PipeTransform {
+  transform(valor: number | string | null | undefined, digitos = '1.0-2'): string {
+    return formatearImporte(valor, digitos);
   }
 }

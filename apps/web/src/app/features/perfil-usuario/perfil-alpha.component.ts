@@ -9,8 +9,8 @@ import { IMG_FALLBACK } from '../../shared/media/images';
 import { enlaceAServicio, verticalUi } from '../../shared/verticales/verticales.config';
 import { AlphaService, AlphaEstadoApi, AlphaNivelApi, AlphaVentajaApi } from '../alpha/alpha.service';
 
-import { euros } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { MonedaService } from '../../core/moneda/moneda.service';
 /** Un escalón del club, ya resuelto para pintar (nombre romano, insignia, estado). */
 interface NivelVista {
   readonly nivel: number;
@@ -483,6 +483,14 @@ function iconoDeBeneficio(texto: string): string {
   `],
 })
 export class PerfilAlphaComponent implements OnInit {
+  /**
+   * Divisa de visualización. Se lee para formatear los precios que van dentro
+   * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
+   * pueden pasar por el pipe: al leer la señal, la vista se refresca sola en
+   * cuanto el usuario cambia de divisa en la cabecera.
+   */
+  readonly moneda = inject(MonedaService);
+
   private readonly alphaService = inject(AlphaService);
 
   readonly cargando = signal(true);
@@ -561,7 +569,7 @@ export class PerfilAlphaComponent implements OnInit {
 
     const condiciones: string[] = [];
     if (e.descuentoMaximoEur != null) {
-      condiciones.push(`Hasta ${euros(e.descuentoMaximoEur)} de descuento por reserva`);
+      condiciones.push(`Hasta ${this.moneda.formatear(e.descuentoMaximoEur)} de descuento por reserva`);
     }
     const verticales = e.verticalesAplicables ?? [];
     if (verticales.length) {

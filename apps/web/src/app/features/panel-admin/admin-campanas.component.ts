@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -10,6 +9,7 @@ import {
   OBJETIVO_CAMPANA_LABELS, ObjetivoCampana,
   SEGMENTO_CAMPANA_LABELS, SegmentoCampana,
 } from 'shared';
+import { EurosPipe } from '../../shared/pipes/euros.pipe';
 
 interface CampanaApi {
   _id: string;
@@ -45,7 +45,7 @@ interface MetricaApi {
   selector: 'app-admin-campanas',
   standalone: true,
   imports: [
-    TraducirPipe, CurrencyPipe, FormsModule, RsIconComponent
+    TraducirPipe, EurosPipe, FormsModule, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -139,11 +139,11 @@ interface MetricaApi {
     <div class="ac__resumen">
       <div class="ac__kpi">
         <span>{{ 'Coste asumido por Doogking' | t }}</span>
-        <strong>{{ totalPlataforma() | currency: 'EUR' }}</strong>
+        <strong>{{ totalPlataforma() | euros }}</strong>
       </div>
       <div class="ac__kpi">
         <span>{{ 'Coste asumido por comercios' | t }}</span>
-        <strong>{{ totalComercios() | currency: 'EUR' }}</strong>
+        <strong>{{ totalComercios() | euros }}</strong>
       </div>
       <div class="ac__kpi">
         <span>{{ 'Cupones canjeados' | t }}</span>
@@ -175,8 +175,8 @@ interface MetricaApi {
               <td>{{ m.cupones }}</td>
               <td>{{ m.usos }}</td>
               <td>{{ m.tasaConversion }}%</td>
-              <td class="ac__coste">{{ m.costePlataforma | currency: 'EUR' }}</td>
-              <td>{{ m.costeComercios | currency: 'EUR' }}</td>
+              <td class="ac__coste">{{ m.costePlataforma | euros }}</td>
+              <td>{{ m.costeComercios | euros }}</td>
               <td>
                 <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                         [disabled]="guardando()" (click)="alternarActiva(m)">

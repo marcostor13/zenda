@@ -44,7 +44,7 @@ export * from './catalogos/lugares.catalogo';
 export { AnimateOnScrollDirective } from './directives/animate-on-scroll.directive';
 export { ImgFallbackDirective } from './directives/img-fallback.directive';
 export * from './media/images';
-export { EurosPipe, euros } from './pipes/euros.pipe';
+export { EurosPipe, EurosFijosPipe, euros } from './pipes/euros.pipe';
 export { mensajeDeError } from './mensaje-error';
 export { RsAdminFiltrosComponent } from './components/admin-filtros/rs-admin-filtros.component';
 export type { GrupoFiltro, OpcionFiltro, ValoresFiltro } from './components/admin-filtros/rs-admin-filtros.component';

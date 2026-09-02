@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { CarritoService } from '../../carrito/carrito.service';
+import { PagoEnCursoService } from '../services/pago-en-curso.service';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { EurosFijosPipe, EurosPipe } from '../../../shared/pipes/euros.pipe';
+import { MonedaService } from '../../../core/moneda/moneda.service';
 
 /**
  * Pago único de un viaje multi-vertical. Las reservas **ya existen** en estado
@@ -17,7 +19,7 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
   selector: 'app-viaje-pago',
   standalone: true,
   imports: [
-    TraducirPipe, CurrencyPipe, RouterLink, RsNavbarComponent, RsIconComponent
+    TraducirPipe, EurosPipe, EurosFijosPipe, RouterLink, RsNavbarComponent, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -43,8 +45,17 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
         <div class="vp-total">
           <span>{{ 'Total' | t }}</span>
-          <strong>{{ montoTotal() | currency: 'EUR' }}</strong>
+          <strong>{{ montoTotal() | euros }}</strong>
         </div>
+
+        <!-- Mismo aviso que en la reserva simple: el cargo va en euros. -->
+        @if (moneda.esConvertida()) {
+          <p class="vp-divisa" role="status">
+            <rs-icon name="alert-circle" [size]="13" [stroke]="2"></rs-icon>
+            {{ 'Importe orientativo. El cargo se hará en euros por' | t }}
+            <strong>{{ montoTotal() | eurosFijos }}</strong>.
+          </p>
+        }
 
         <div id="vp-stripe" class="vp-stripe"></div>
 
@@ -54,7 +65,7 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
                 [disabled]="!listo() || procesando()" (click)="pagar()">
           @if (procesando()) { Procesando el pago… }
           @else if (!listo()) { Preparando el pago… }
-          @else { Pagar {{ montoTotal() | currency: 'EUR' }} }
+          @else { Pagar {{ montoTotal() | euros }} }
         </button>
 
         <p class="vp-seguro">
@@ -95,12 +106,23 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
       display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
       margin-top: var(--sp-4); font-size: var(--f-xs); color: var(--t-400);
     }
+
+    .vp-divisa {
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      margin-bottom: var(--sp-5); font-size: var(--f-xs); line-height: 1.45; color: var(--t-400);
+      rs-icon { flex-shrink: 0; margin-top: 2px; }
+      strong { color: var(--t-200); }
+    }
   `],
 })
 export class ViajePagoComponent implements OnInit {
+  /** Divisa de visualización; el cobro sigue siendo en euros. */
+  readonly moneda = inject(MonedaService);
+
   private readonly router = inject(Router);
   private readonly stripeService = inject(StripeService);
   private readonly carritoService = inject(CarritoService);
+  private readonly pagoEnCurso = inject(PagoEnCursoService);
 
   readonly clientSecret = signal('');
   readonly montoTotal = signal(0);
@@ -108,10 +130,19 @@ export class ViajePagoComponent implements OnInit {
   readonly procesando = signal(false);
   readonly error = signal('');
 
+  private pagoId = '';
   private stripe: Stripe | null = null;
   private elements?: StripeElements;
 
   async ngOnInit(): Promise<void> {
+    // Vuelta de la autenticación de la tarjeta: la página se ha recargado y lo
+    // único que queda del pago es el apunte de sesión. Se cierra ahí mismo, sin
+    // volver a montar el formulario de una tarjeta que ya se ha cobrado.
+    if (this.vuelveDeLaPasarela()) {
+      await this.terminar();
+      return;
+    }
+
     const estado = this.router.getCurrentNavigation()?.extras.state
       ?? (history.state as Record<string, unknown> | undefined);
 
@@ -120,7 +151,13 @@ export class ViajePagoComponent implements OnInit {
 
     this.clientSecret.set(secret);
     this.montoTotal.set((estado?.['montoTotal'] as number) ?? 0);
+    this.pagoId = (estado?.['pagoId'] as string) ?? '';
     await this.montarStripe(secret);
+  }
+
+  /** Stripe devuelve al usuario con el resultado en la barra de direcciones. */
+  private vuelveDeLaPasarela(): boolean {
+    return new URLSearchParams(window.location.search).has('payment_intent');
   }
 
   private async montarStripe(clientSecret: string): Promise<void> {
@@ -142,19 +179,49 @@ export class ViajePagoComponent implements OnInit {
     this.procesando.set(true);
     this.error.set('');
 
+    /*
+     * El apunte va **antes** de confirmar: si la tarjeta pide autenticación,
+     * Stripe se lleva al navegador fuera y esta instancia deja de existir con
+     * el `pagoId` dentro. `return_url` trae al usuario de vuelta a esta misma
+     * pantalla, que en `ngOnInit` cierra el pago contra el servidor.
+     */
+    if (this.pagoId) this.pagoEnCurso.anotar(this.pagoId);
+
     const { error } = await this.stripe.confirmPayment({
       elements: this.elements,
-      confirmParams: { return_url: `${window.location.origin}/reservas` },
+      confirmParams: { return_url: window.location.href },
+      // Sin esto todo pago se iba por recarga completa, incluso los que no la
+      // necesitan, y se perdía el resultado que Stripe ya había devuelto.
+      redirect: 'if_required',
     });
 
     if (error) {
+      // El viaje sigue reservado en estado pendiente y sus retenciones caducan
+      // solas por TTL: se puede reintentar sin volver a montar el carrito.
+      this.pagoEnCurso.olvidar();
       this.error.set(error.message ?? 'No se pudo completar el pago.');
       this.procesando.set(false);
       return;
     }
 
-    // Si Stripe no redirige (pagos sin 3-D Secure), se navega a mano.
+    await this.terminar();
+  }
+
+  /**
+   * Cierra el cobro contra el servidor y lleva al listado.
+   *
+   * El paso que faltaba: hasta ahora se navegaba a `/reservas` nada más
+   * confirmar en el navegador y las reservas del viaje se quedaban
+   * «pendientes» hasta que llegara el webhook de Stripe —en local, nunca—,
+   * aunque el dinero ya estuviera cobrado.
+   */
+  private async terminar(): Promise<void> {
+    const confirmado = await this.pagoEnCurso.cerrarPendiente();
     await this.carritoService.cargar();
-    await this.router.navigate(['/reservas']);
+    await this.router.navigate(['/reservas'], {
+      // El listado avisa de que la confirmación va con retraso en vez de
+      // enseñar «pendiente» sin explicación.
+      queryParams: confirmado ? {} : { confirmacionPendiente: 1 },
+    });
   }
 }

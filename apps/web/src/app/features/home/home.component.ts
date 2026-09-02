@@ -9,7 +9,8 @@ import { ImgFallbackDirective } from '../../shared/directives/img-fallback.direc
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsBrandIconComponent, type MarcaPagoKey } from '../../shared/components/brand-icon/rs-brand-icon.component';
-import { RsSocialIconComponent, type RedSocialKey } from '../../shared/components/social-icon/rs-social-icon.component';
+import { RsSocialIconComponent } from '../../shared/components/social-icon/rs-social-icon.component';
+import { REDES_SOCIALES } from '../../shared/catalogos/redes-sociales.catalogo';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
@@ -20,8 +21,8 @@ import {
 import { VERTICALES_PUBLICOS, rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
 import { environment } from '../../../environments/environment';
+import { MonedaService } from '../../core/moneda/moneda.service';
 
-import { euros } from '../../shared/pipes/euros.pipe';
 interface AlojamientoRecomendado {
   /** Presente solo cuando la tarjeta viene del catálogo real: habilita favorito y enlace a la ficha. */
   id?: string;
@@ -313,7 +314,7 @@ type SearchMode = 'filtros' | 'ia';
             [title]="a.nombre" [subtitle]="a.ciudad"
             [badges]="[{ icon: 'crown', label: badgeRecomendado(), variant: 'accent' }]"
             [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
-            [price]="{ amount: euros(a.precioPorNoche), period: periodoNoche() }"
+            [price]="{ amount: moneda.formatear(a.precioPorNoche), period: periodoNoche() }"
             [amenities]="a.tags"
             [ctaLabel]="'Ver alojamiento' | t"
             [favoritoServicioId]="a.id ?? null"
@@ -1614,8 +1615,13 @@ type SearchMode = 'filtros' | 'ia';
   `],
 })
 export class HomeComponent implements OnInit {
-  /** Formato de los importes; la plantilla lo necesita como miembro. */
-  protected readonly euros = euros;
+  /**
+   * Divisa de visualización. Se lee para formatear los precios que van dentro
+   * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
+   * pueden pasar por el pipe: al leer la señal, la vista se refresca sola en
+   * cuanto el usuario cambia de divisa en la cabecera.
+   */
+  readonly moneda = inject(MonedaService);
 
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
@@ -1676,13 +1682,7 @@ export class HomeComponent implements OnInit {
   ];
 
   /** Perfiles sociales del footer; se muestran con su logo oficial (TCK-8008). */
-  readonly redesSociales: readonly { nombre: string; icono: RedSocialKey; url: string }[] = [
-    { nombre: 'Instagram', icono: 'instagram', url: 'https://www.instagram.com/doogkingcom' },
-    { nombre: 'Facebook', icono: 'facebook', url: 'https://facebook.com/doogking' },
-    { nombre: 'TikTok', icono: 'tiktok', url: 'https://tiktok.com/@doogking' },
-    { nombre: 'LinkedIn', icono: 'linkedin', url: 'https://linkedin.com/company/doogking' },
-    { nombre: 'YouTube', icono: 'youtube', url: 'https://youtube.com/@doogking' },
-  ];
+  readonly redesSociales = REDES_SOCIALES;
 
   /** Modo del buscador del hero: formulario clásico o asistente con IA. */
   readonly searchMode = signal<SearchMode>('filtros');

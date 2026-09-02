@@ -20,8 +20,8 @@ import type { PuntoMapa, ZonaMapa } from '../../../shared/components/mapa/rs-map
 import type { BarraHistograma } from '../../../shared/components/range-slider/rs-range-slider.component';
 import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automaticos';
 
-import { euros } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { MonedaService } from '../../../core/moneda/moneda.service';
 @Component({
   selector: 'app-transporte-lista',
   standalone: true,
@@ -64,7 +64,7 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
           [title]="t.nombre" [subtitle]="t.ciudad"
           [badges]="badgesDe(t)"
           [rating]="{ score: t.score, label: t.scoreLabel, count: t.numResenas }"
-          [price]="{ amount: euros(t.tarifaBase), period: 'trayecto desde' }"
+          [price]="{ amount: moneda.formatear(t.tarifaBase), period: 'trayecto desde' }"
           notaPrecio="IVA incluido"
           [amenities]="serviciosDe(t)"
           [destacados]="incluyeDe(t)"
@@ -95,8 +95,13 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
   `],
 })
 export class TransporteListaComponent implements OnInit {
-  /** Formato de los importes; la plantilla lo necesita como miembro. */
-  protected readonly euros = euros;
+  /**
+   * Divisa de visualización. Se lee para formatear los precios que van dentro
+   * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
+   * pueden pasar por el pipe: al leer la señal, la vista se refresca sola en
+   * cuanto el usuario cambia de divisa en la cabecera.
+   */
+  readonly moneda = inject(MonedaService);
 
   private readonly transporteService = inject(TransporteService);
   private readonly browse = inject(CatalogBrowseService);
@@ -129,7 +134,7 @@ export class TransporteListaComponent implements OnInit {
   readonly puntosMapa = computed<PuntoMapa[]>(() =>
     this.puntos().map((p) => ({
       id: p.id, lat: p.lat, lng: p.lng,
-      etiqueta: euros(p.precio), vertical: VerticalKey.TRANSPORTE,
+      etiqueta: this.moneda.formatear(p.precio), vertical: VerticalKey.TRANSPORTE,
       titulo: p.titulo, imagen: p.imagen, rating: p.rating,
     })),
   );
