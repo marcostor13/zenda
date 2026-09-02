@@ -275,14 +275,16 @@ describe('MisReservasComponent', () => {
   });
 
   describe('línea temporal (HU-9.4)', () => {
-    it('debería marcar solo "Reserva realizada" como paso actual para una reserva pendiente', () => {
+    it('debería señalar el pago como el paso en curso de una reserva pendiente', () => {
+      // El primer hito es el pago y no se da por hecho hasta que lo está: antes
+      // daba «Reserva realizada» por cumplida sin haber cobrado nada.
       const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
       reserva.estado = 'pendiente';
 
       const pasos = component.pasosTimeline(reserva);
 
-      expect(pasos[0]).toEqual({ label: 'Reserva realizada', hecho: true, actual: false });
-      expect(pasos[1]).toEqual({ label: 'Confirmada', hecho: false, actual: true });
+      expect(pasos[0]).toEqual({ label: 'Pago', hecho: false, actual: true });
+      expect(pasos[1]).toEqual({ label: 'Confirmada', hecho: false, actual: false });
     });
 
     it('debería marcar todos los pasos hechos para una reserva completada y ya valorada', () => {
@@ -353,6 +355,128 @@ describe('MisReservasComponent', () => {
       expect(writeText).toHaveBeenCalledWith(expect.stringContaining('RES-CONF01'));
     });
   });
+  describe('estado de una reserva sin pagar', () => {
+    const sinPagar = {
+      _id: 'res-3', codigo: 'RES-PEND03', vertical: 'alojamiento', servicioId: 'serv-3',
+      comercioId: 'com-3', montoSubtotal: 50, comisionMonto: 7.5, descuentoMonto: 0,
+      montoTotal: 60, moneda: 'EUR', fechaInicio: '2026-10-01T00:00:00.000Z',
+      cantidad: 1, estado: 'pendiente',
+    } as ReservaApi;
+
+    it('debería decir de qué está pendiente', () => {
+      // «Pendiente» a secas no distinguía una reserva que espera al comercio de
+      // una que se dejó a medias en el pago, que es lo que significa el estado.
+      expect(component.estadoLabel('pendiente')).toBe('Pendiente de pago');
+    });
+
+    it('no debería dar el pago por hecho mientras no se haya cobrado', async () => {
+      reservasService.misReservas.mockResolvedValue([sinPagar]);
+      await component.ngOnInit();
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-PEND03')!;
+
+      const [pago, confirmada] = component.pasosTimeline(reserva);
+
+      expect(pago).toEqual({ label: 'Pago', hecho: false, actual: true });
+      expect(confirmada.hecho).toBe(false);
+    });
+
+    it('debería dar por hecho el pago de una reserva confirmada', () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
+
+      const [pago] = component.pasosTimeline(reserva);
+
+      expect(pago).toEqual({ label: 'Pago', hecho: true, actual: false });
+    });
+
+    it('debería dejar cancelar una reserva que se quedó sin pagar', async () => {
+      // Es la salida del cliente que abandonó el pago: sin ella la reserva se
+      // queda en el listado para siempre.
+      reservasService.misReservas.mockResolvedValue([sinPagar]);
+      await component.ngOnInit();
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-PEND03')!;
+
+      await component.cancelar(reserva);
+
+      expect(reservasService.cancelar).toHaveBeenCalledWith('res-3');
+    });
+  });
+
+  describe('recordatorio de qué llevar (HU-9.7)', () => {
+    it('debería ofrecerlo en una estancia confirmada', () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
+
+      expect(component.necesitaChecklist(reserva)).toBe(true);
+    });
+
+    it('no debería ofrecerlo en una reserva sin pagar', () => {
+      // Decirle a alguien qué meter en la bolsa da por hecha una estancia que
+      // todavía no está cobrada.
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-CONF01')!;
+      reserva.estado = 'pendiente';
+
+      expect(component.necesitaChecklist(reserva)).toBe(false);
+    });
+
+    it('no debería ofrecerlo en una categoría que no es de estancia', () => {
+      const reserva = component.reservas().find((r) => r.codigo === 'RES-COMP02')!;
+
+      expect(component.necesitaChecklist(reserva)).toBe(false);
+    });
+  });
+
+  /**
+   * El API tiene más estados de los que esta pantalla distingue, y el fallback
+   * era «pendiente» para todo lo desconocido: a quien ya había pagado se le
+   * decía que no había pagado.
+   */
+  describe('estados operativos del API', () => {
+    const conEstado = async (estado: string) => {
+      reservasService.misReservas.mockResolvedValue([{ ...reservaConfirmada, estado } as ReservaApi]);
+      await component.ngOnInit();
+      return component.reservas()[0];
+    };
+
+    it('debería enseñar «En revisión» una reserva cobrada que se quedó sin plaza', async () => {
+      const reserva = await conEstado('en_disputa');
+
+      expect(reserva.estado).toBe('en_disputa');
+      expect(component.estadoLabel('en_disputa')).toBe('En revisión');
+      expect(component.estadoBadge('en_disputa')).toBe('rs-badge--warning');
+    });
+
+    it('debería dar el pago por hecho en una reserva en revisión', async () => {
+      const reserva = await conEstado('en_disputa');
+
+      const [pago, confirmada] = component.pasosTimeline(reserva);
+
+      expect(pago.hecho).toBe(true);
+      expect(confirmada).toEqual({ label: 'Confirmada', hecho: false, actual: true });
+    });
+
+    it('debería tratar como confirmadas las reservas ya cobradas', async () => {
+      expect((await conEstado('en_curso')).estado).toBe('confirmada');
+      expect((await conEstado('pago_retenido')).estado).toBe('confirmada');
+    });
+
+    it('debería tratar como completadas las que ya se liquidaron o no se presentaron', async () => {
+      expect((await conEstado('pago_liberado')).estado).toBe('completada');
+      expect((await conEstado('no_show')).estado).toBe('completada');
+    });
+
+    it('debería tratar un reembolso como una cancelación', async () => {
+      expect((await conEstado('reembolsada')).estado).toBe('cancelada');
+    });
+
+    it('debería caer en pendiente sólo ante un estado que no existe', async () => {
+      expect((await conEstado('inventado')).estado).toBe('pendiente');
+    });
+
+    it('debería ofrecer el filtro de las reservas en revisión', () => {
+      expect(component.filtros.map((f) => f.valor)).toContain('en_disputa');
+    });
+  });
+
   /**
    * Es la pantalla a la que Stripe devuelve al cliente tras autenticar la
    * tarjeta: si no se cerrara el cobro aquí, la reserva recién pagada se

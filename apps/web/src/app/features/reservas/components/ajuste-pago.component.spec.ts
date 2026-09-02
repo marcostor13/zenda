@@ -8,6 +8,7 @@ import { AjustePagoComponent } from './ajuste-pago.component';
 import { ReservaApi, ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 import { StripeService } from '../../../core/stripe/stripe.service';
+import { PagoEnCursoService } from '../services/pago-en-curso.service';
 
 const reserva = (extra: Partial<ReservaApi> = {}): ReservaApi => ({
   _id: 'r1', codigo: 'RES-AAAA1111', vertical: VerticalKey.ALOJAMIENTO,
@@ -25,6 +26,7 @@ describe('AjustePagoComponent', () => {
   let reservasService: Record<string, jest.Mock>;
   let paymentsService: Record<string, jest.Mock>;
   let stripeService: Record<string, jest.Mock>;
+  let pagoEnCurso: Record<string, jest.Mock>;
 
   const elementoStripe = { mount: jest.fn() };
   const stripeFake = {
@@ -45,10 +47,17 @@ describe('AjustePagoComponent', () => {
         : jest.fn().mockResolvedValue(datos),
     };
     paymentsService = ajustes.payments ?? {
-      aceptarAjuste: jest.fn().mockResolvedValue({ clientSecret: 'cs_1' }),
+      aceptarAjuste: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 30 }),
       rechazarAjuste: jest.fn().mockResolvedValue(undefined),
     };
     stripeService = ajustes.stripe ?? { getStripe: jest.fn().mockResolvedValue(stripeFake) };
+    pagoEnCurso = {
+      anotar: jest.fn(),
+      olvidar: jest.fn(),
+      pendiente: jest.fn().mockReturnValue(null),
+      sincronizar: jest.fn().mockResolvedValue(true),
+      cerrarPendiente: jest.fn().mockResolvedValue(true),
+    };
 
     await TestBed.configureTestingModule({
       imports: [AjustePagoComponent, RouterTestingModule],
@@ -58,6 +67,7 @@ describe('AjustePagoComponent', () => {
         { provide: ReservasService, useValue: reservasService },
         { provide: PaymentsService, useValue: paymentsService },
         { provide: StripeService, useValue: stripeService },
+        { provide: PagoEnCursoService, useValue: pagoEnCurso },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap(codigo ? { codigo } : {}) } },
@@ -221,6 +231,62 @@ describe('AjustePagoComponent', () => {
       await componente.rechazar();
 
       expect(paymentsService['rechazarAjuste']).not.toHaveBeenCalled();
+    });
+  });
+  /**
+   * El suplemento arrastraba los dos mismos fallos que el resto de cobros: sin
+   * `return_url` el 3-D Secure no podía completarse, y sin consultar al
+   * servidor el ajuste quedaba aprobado sólo en el navegador.
+   */
+  describe('cierre del cobro del suplemento', () => {
+    it('debería dar a Stripe una url de retorno para el 3-D Secure', async () => {
+      await crear();
+
+      await componente.confirmarPago();
+
+      const opciones = stripeFake.confirmPayment.mock.calls[0][0];
+      expect(opciones.confirmParams.return_url).toBe(window.location.href);
+      expect(opciones.redirect).toBe('if_required');
+    });
+
+    it('debería anotar el pago antes de confirmar', async () => {
+      await crear();
+
+      await componente.confirmarPago();
+
+      expect(pagoEnCurso['anotar']).toHaveBeenCalledWith('pago-1');
+    });
+
+    it('debería cerrar el cobro contra el servidor', async () => {
+      await crear();
+
+      await componente.confirmarPago();
+
+      expect(pagoEnCurso['sincronizar']).toHaveBeenCalledWith('pago-1');
+      expect(componente.pagado()).toBe(true);
+      expect(componente.confirmacionPendiente()).toBe(false);
+    });
+
+    it('debería avisar de que el ajuste va con retraso si el servidor no lo cierra', async () => {
+      await crear();
+      pagoEnCurso['sincronizar'].mockResolvedValue(false);
+
+      await componente.confirmarPago();
+      fixture.detectChanges();
+
+      expect(componente.confirmacionPendiente()).toBe(true);
+      expect((fixture.nativeElement as HTMLElement).textContent)
+        .toContain('Estamos terminando de aplicar el ajuste');
+    });
+
+    it('debería borrar el apunte cuando la tarjeta se rechaza', async () => {
+      await crear();
+      stripeFake.confirmPayment.mockResolvedValue({ error: { message: 'Tarjeta rechazada' } });
+
+      await componente.confirmarPago();
+
+      expect(pagoEnCurso['olvidar']).toHaveBeenCalled();
+      expect(componente.pagado()).toBe(false);
     });
   });
 });

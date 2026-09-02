@@ -14,7 +14,8 @@ import { AuthService } from '../../../core/auth/auth.service';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
-type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'cancelada' | 'completada';
+type EstadoFiltro = 'todas' | 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'en_disputa'
+  | 'cancelada' | 'completada';
 
 interface ReservaCard {
   id: string;
@@ -33,7 +34,7 @@ interface ReservaCard {
   fechaInicioIso: string;
   fechaFinIso: string;
   total: number;
-  estado: 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'cancelada' | 'completada';
+  estado: 'confirmada' | 'pendiente' | 'ajuste_solicitado' | 'en_disputa' | 'cancelada' | 'completada';
   montoAjustado?: number;
   suplementosMotivo?: string;
   yaResenada: boolean;
@@ -404,8 +405,9 @@ export class MisReservasComponent implements OnInit {
   readonly filtros: { valor: EstadoFiltro; label: string; dot: string; color: string }[] = [
     { valor: 'todas',             label: 'Todas',       dot: '',   color: 'var(--c-accent)' },
     { valor: 'confirmada',        label: 'Confirmadas', dot: '●', color: 'var(--c-success, #16A34A)' },
-    { valor: 'pendiente',         label: 'Pendientes',  dot: '●', color: 'var(--c-warning, #CA8A04)' },
+    { valor: 'pendiente',         label: 'Sin pagar',   dot: '●', color: 'var(--c-warning, #CA8A04)' },
     { valor: 'ajuste_solicitado', label: 'Con ajuste',  dot: '●', color: 'var(--c-warning, #EA580C)' },
+    { valor: 'en_disputa',        label: 'En revisión', dot: '●', color: 'var(--c-warning, #EA580C)' },
     { valor: 'completada',        label: 'Completadas', dot: '●', color: 'var(--c-accent)' },
     { valor: 'cancelada',         label: 'Canceladas',  dot: '●', color: 'var(--c-red, #DC2626)' },
   ];
@@ -436,6 +438,7 @@ export class MisReservasComponent implements OnInit {
       confirmada: 'rs-badge--success',
       pendiente:  'rs-badge--warning',
       ajuste_solicitado: 'rs-badge--warning',
+      en_disputa: 'rs-badge--warning',
       cancelada:  'rs-badge--danger',
       completada: 'rs-badge--accent',
     };
@@ -445,8 +448,20 @@ export class MisReservasComponent implements OnInit {
   estadoLabel(estado: string): string {
     const map: Record<string, string> = {
       confirmada: 'Confirmada',
-      pendiente:  'Pendiente',
+      /*
+       * «Pendiente» a secas no decía de qué: el cliente no distinguía una
+       * reserva que espera al comercio de una que dejó a medias en el pago, que
+       * es lo que de verdad significa este estado —la reserva nace así y sólo
+       * pasa a confirmada cuando el cobro entra—.
+       */
+      pendiente:  'Pendiente de pago',
       ajuste_solicitado: 'Ajuste pendiente',
+      /*
+       * El cobro entró pero el comercio se quedó sin plaza (`confirmar()` la
+       * pone así). El cliente ya ha pagado, así que no puede leer «pendiente»:
+       * lo que le toca saber es que alguien lo está resolviendo.
+       */
+      en_disputa: 'En revisión',
       cancelada:  'Cancelada',
       completada: 'Completada',
     };
@@ -582,20 +597,34 @@ export class MisReservasComponent implements OnInit {
     return [`/${r.verticalKey}`];
   }
 
-  /** HU-9.7: recordatorio de qué llevar, solo para estancias (alojamiento/hoteles) próximas. */
+  /**
+   * HU-9.7: recordatorio de qué llevar, solo para estancias (alojamiento y
+   * hoteles) que de verdad van a ocurrir.
+   *
+   * Una reserva sin pagar no lo lleva: decirle a alguien lo que tiene que meter
+   * en la bolsa da por hecha una estancia que todavía no está cobrada.
+   */
   necesitaChecklist(r: ReservaCard): boolean {
     return (r.verticalKey === VerticalKey.ALOJAMIENTO || r.verticalKey === VerticalKey.HOTELES)
-      && (r.estado === 'confirmada' || r.estado === 'pendiente');
+      && r.estado === 'confirmada';
   }
 
   /** HU-9.4: línea temporal simplificada, aplicable a cualquier vertical (no solo estancias). */
   pasosTimeline(r: ReservaCard): { label: string; hecho: boolean; actual: boolean }[] {
-    const confirmada = r.estado === 'confirmada' || r.estado === 'completada';
     const completada = r.estado === 'completada';
+    // «En revisión» es una reserva **ya cobrada**: el pago está hecho aunque la
+    // confirmación con el comercio esté en el aire.
+    const pagada = r.estado === 'confirmada' || completada || r.estado === 'en_disputa';
+    const confirmada = r.estado === 'confirmada' || completada;
     const valorada = completada && r.yaResenada;
     return [
-      { label: 'Reserva realizada', hecho: true, actual: false },
-      { label: 'Confirmada', hecho: confirmada, actual: !confirmada },
+      /*
+       * El pago es el primer hito, y no se da por hecho hasta que lo está: una
+       * reserva abandonada en el último paso enseñaba «Reserva realizada» ya
+       * marcada como hecha, y parecía cerrada sin haberse cobrado nada.
+       */
+      { label: 'Pago', hecho: pagada, actual: !pagada },
+      { label: 'Confirmada', hecho: confirmada, actual: pagada && !confirmada },
       { label: 'Servicio', hecho: completada, actual: confirmada && !completada },
       { label: 'Valorada', hecho: valorada, actual: completada && !valorada },
     ];
@@ -652,9 +681,29 @@ export class MisReservasComponent implements OnInit {
     }
   }
 
+  /**
+   * Estados del API que esta pantalla no distingue, traducidos al más cercano
+   * que el cliente sí entiende.
+   *
+   * El fallback era «pendiente» para todo lo desconocido, y eso le decía a
+   * quien ya había pagado que no había pagado: `en_curso`, `pago_retenido` y
+   * `pago_liberado` son reservas cobradas, y `reembolsada` es una cancelación
+   * con el dinero devuelto.
+   */
+  private static readonly EQUIVALENCIAS: Record<string, ReservaCard['estado']> = {
+    en_curso: 'confirmada',
+    pago_retenido: 'confirmada',
+    pago_liberado: 'completada',
+    reembolsada: 'cancelada',
+    no_show: 'completada',
+  };
+
   private normalizarEstado(estado: string): ReservaCard['estado'] {
-    const validos: ReservaCard['estado'][] = ['confirmada', 'pendiente', 'ajuste_solicitado', 'cancelada', 'completada'];
-    return (validos as string[]).includes(estado) ? (estado as ReservaCard['estado']) : 'pendiente';
+    const validos: ReservaCard['estado'][] = [
+      'confirmada', 'pendiente', 'ajuste_solicitado', 'en_disputa', 'cancelada', 'completada',
+    ];
+    if ((validos as string[]).includes(estado)) return estado as ReservaCard['estado'];
+    return MisReservasComponent.EQUIVALENCIAS[estado] ?? 'pendiente';
   }
 
   private formatearFecha(iso: string): string {

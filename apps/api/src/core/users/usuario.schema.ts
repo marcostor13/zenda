@@ -9,7 +9,9 @@ export class Usuario {
   @Prop({ required: true })
   nombre!: string;
 
-  @Prop({ required: true, unique: true, lowercase: true })
+  // La unicidad la declara el índice del final del fichero, no aquí: con las
+  // dos, Mongoose avisa de un índice duplicado en cada arranque.
+  @Prop({ required: true, lowercase: true })
   email!: string;
 
   // Opcional: las cuentas creadas solo con Google/Meta no tienen contraseña local.

@@ -5,6 +5,7 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
+import { PagoEnCursoService } from '../services/pago-en-curso.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
@@ -27,7 +28,15 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
     } @else if (pagado()) {
       <div class="rs-card" style="padding:var(--sp-10);text-align:center">
         <h2 style="color:var(--t-100);margin-bottom:var(--sp-2)">{{ '¡Suplemento pagado!' | t }}</h2>
-        <p style="color:var(--t-400);margin-bottom:var(--sp-6)">Tu reserva {{ reserva()?.codigo }} vuelve a estar confirmada.</p>
+        @if (confirmacionPendiente()) {
+          <!-- El cobro entró pero el servidor aún no ha aplicado el ajuste:
+               decirlo evita que el listado parezca contradecir esta pantalla. -->
+          <p style="color:var(--t-400);margin-bottom:var(--sp-6)">
+            {{ 'El pago se ha realizado correctamente. Estamos terminando de aplicar el ajuste: puede tardar un momento en verse en tus reservas.' | t }}
+          </p>
+        } @else {
+          <p style="color:var(--t-400);margin-bottom:var(--sp-6)">Tu reserva {{ reserva()?.codigo }} vuelve a estar confirmada.</p>
+        }
         <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary">{{ 'Volver a mis reservas' | t }}</a>
       </div>
     } @else if (errorCarga()) {
@@ -100,6 +109,7 @@ export class AjustePagoComponent implements OnInit {
   private readonly reservasService = inject(ReservasService);
   private readonly paymentsService = inject(PaymentsService);
   private readonly stripeService = inject(StripeService);
+  private readonly pagoEnCurso = inject(PagoEnCursoService);
 
   readonly cargando = signal(true);
   readonly reserva = signal<ReservaApi | null>(null);
@@ -110,9 +120,13 @@ export class AjustePagoComponent implements OnInit {
   readonly rechazando = signal(false);
   readonly pagado = signal(false);
 
+  /** El cobro entró pero el servidor aún no ha aplicado el ajuste. */
+  readonly confirmacionPendiente = signal(false);
+
   private stripe: Stripe | null = null;
   private elements: StripeElements | null = null;
   private reservaId: string | null = null;
+  private pagoId: string | null = null;
 
   readonly diferencia = computed(() => {
     const r = this.reserva();
@@ -121,6 +135,16 @@ export class AjustePagoComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
+    // Vuelta de la autenticación de la tarjeta: la página se ha recargado y lo
+    // único que queda del cobro es el apunte de sesión.
+    if (new URLSearchParams(window.location.search).has('payment_intent')
+        && this.pagoEnCurso.pendiente()) {
+      this.confirmacionPendiente.set(!await this.pagoEnCurso.cerrarPendiente());
+      this.pagado.set(true);
+      this.cargando.set(false);
+      return;
+    }
+
     const codigo = this.route.snapshot.paramMap.get('codigo');
     if (!codigo) { this.cargando.set(false); return; }
 
@@ -145,6 +169,7 @@ export class AjustePagoComponent implements OnInit {
     if (!this.reservaId) return;
     try {
       const intent = await this.paymentsService.aceptarAjuste(this.reservaId);
+      this.pagoId = intent.pagoId;
       this.stripe = await this.stripeService.getStripe();
       if (!this.stripe) return;
 
@@ -165,13 +190,42 @@ export class AjustePagoComponent implements OnInit {
     this.procesando.set(true);
     this.errorPago.set(null);
 
-    const { error } = await this.stripe.confirmPayment({ elements: this.elements, redirect: 'if_required' });
+    /*
+     * El apunte va antes de confirmar, y `return_url` trae al cliente a esta
+     * misma pantalla: si la tarjeta pide autenticación, Stripe se lleva el
+     * navegador fuera y esta instancia deja de existir con el `pagoId` dentro.
+     * Sin `return_url`, además, `redirect: 'if_required'` devuelve error en vez
+     * de autenticar, así que el 3-D Secure —obligatorio en la mayoría de
+     * emisores europeos— no tenía forma de completarse.
+     */
+    if (this.pagoId) this.pagoEnCurso.anotar(this.pagoId);
+
+    const { error } = await this.stripe.confirmPayment({
+      elements: this.elements,
+      confirmParams: { return_url: window.location.href },
+      redirect: 'if_required',
+    });
     this.procesando.set(false);
 
     if (error) {
+      this.pagoEnCurso.olvidar();
       this.errorPago.set(error.message ?? 'No se pudo procesar el pago. Revisa los datos de la tarjeta.');
       return;
     }
+
+    await this.cerrarCobro();
+  }
+
+  /**
+   * Cierra el cobro del suplemento contra el servidor.
+   *
+   * Sin esto el ajuste quedaba aprobado sólo en el navegador y la reserva
+   * seguía en «ajuste solicitado» hasta que llegara el webhook —en local,
+   * nunca—, con la diferencia ya cobrada.
+   */
+  private async cerrarCobro(): Promise<void> {
+    this.confirmacionPendiente.set(!await this.pagoEnCurso.sincronizar(this.pagoId ?? ''));
+    this.pagoEnCurso.olvidar();
     this.pagado.set(true);
   }
 

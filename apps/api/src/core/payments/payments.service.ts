@@ -135,10 +135,14 @@ export class PaymentsService {
     }
 
     if (pago.estado === PagoEstado.APROBADO) return { estado: 'aprobado' };
-    if (pago.estado === PagoEstado.RECHAZADO) return { estado: 'rechazado' };
 
+    /*
+     * Un `RECHAZADO` **no** corta aquí: el rechazo era de un intento, y el
+     * cliente ha podido pagar después con otra tarjeta sobre el mismo intent.
+     * Quien manda es lo que diga Stripe, no el último webhook que llegó.
+     */
     if (!pago.stripePaymentIntentId) {
-      return { estado: 'pendiente' };
+      return { estado: pago.estado === PagoEstado.RECHAZADO ? 'rechazado' : 'pendiente' };
     }
 
     const consulta = await this.paymentGateway.consultarIntent(pago.stripePaymentIntentId);
@@ -414,8 +418,19 @@ export class PaymentsService {
       return;
     }
 
-    // Idempotencia: ignorar si ya fue procesado
-    if (pago.estado !== PagoEstado.INICIADO) {
+    /*
+     * Idempotencia: sólo `APROBADO` y `REEMBOLSADO` son estados finales.
+     *
+     * `RECHAZADO` no lo es, y darlo por tal costaba cobros sin reserva. Un
+     * `payment_intent.payment_failed` es **un intento** declinado, no el final
+     * del PaymentIntent: Stripe lo devuelve a `requires_payment_method` y el
+     * cliente reintenta con otra tarjeta en el mismo formulario. Ese segundo
+     * intento llega como `payment_intent.succeeded` sobre el mismo intent, y
+     * con el guard anterior se descartaba por "ya procesado": dinero cobrado,
+     * reserva sin confirmar y ningún reintento capaz de repararlo. Reintentar
+     * tras un rechazo es, además, el camino más transitado de todos los fallos.
+     */
+    if (pago.estado === PagoEstado.APROBADO || pago.estado === PagoEstado.REEMBOLSADO) {
       this.logger.log(`Pago ${pago.id} ya procesado (estado: ${pago.estado}). Ignorando.`);
       return;
     }
@@ -425,6 +440,8 @@ export class PaymentsService {
     }
 
     if (resultado.estado === 'failed') {
+      // Un rechazo que llega después de otro no cambia nada, pero tampoco
+      // estorba: el pago ya estaba en `RECHAZADO`.
       pago.estado = PagoEstado.RECHAZADO;
       await pago.save();
       this.logger.log(`Pago ${pago.id} fallido. SlotHold se liberará por TTL.`);

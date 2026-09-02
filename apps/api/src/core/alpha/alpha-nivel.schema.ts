@@ -12,7 +12,8 @@ export type AlphaNivelConfigDocument = HydratedDocument<AlphaNivelConfig>;
  */
 @Schema({ timestamps: true, collection: 'alpha_niveles' })
 export class AlphaNivelConfig {
-  @Prop({ required: true, unique: true, type: Number })
+  // La unicidad la declara el índice del final del fichero.
+  @Prop({ required: true, type: Number })
   nivel!: number;
 
   @Prop({ required: true })

@@ -260,6 +260,53 @@ describe('PaymentsService', () => {
       expect(bookingsService.confirmar).toHaveBeenCalledWith('reserva-1');
     });
 
+    /**
+     * Reintentar con otra tarjeta tras un rechazo es el camino más transitado
+     * de todos los fallos de pago, y era el que se perdía: un
+     * `payment_intent.payment_failed` es **un intento** declinado, no el final
+     * del PaymentIntent. Stripe lo devuelve a `requires_payment_method`, el
+     * cliente paga con otra tarjeta y el `succeeded` llega sobre el mismo
+     * intent. Con el guard viejo se descartaba por "ya procesado": dinero
+     * cobrado y reserva sin confirmar.
+     */
+    it('debería confirmar la reserva si el cliente reintenta con otra tarjeta tras un rechazo', async () => {
+      const pago = { ...pagoMock, estado: PagoEstado.RECHAZADO, save: jest.fn() };
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pago) });
+      paymentGateway.construirEvento.mockReturnValue({ type: 'payment_intent.succeeded' });
+      paymentGateway.extraerIntentDeEvento.mockReturnValue({
+        intentId: 'pi_test', estado: 'succeeded', chargeId: 'ch_2',
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(bookingsService.confirmar).toHaveBeenCalledWith('reserva-1');
+      expect(pago.estado).toBe(PagoEstado.APROBADO);
+    });
+
+    it('no debería volver a confirmar un pago ya aprobado', async () => {
+      const pago = { ...pagoMock, estado: PagoEstado.APROBADO, save: jest.fn() };
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pago) });
+      paymentGateway.construirEvento.mockReturnValue({ type: 'payment_intent.succeeded' });
+      paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'succeeded' });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('no debería resucitar un pago ya reembolsado', async () => {
+      // Un reembolso sí es final: volver a confirmar dejaría la reserva viva
+      // con el dinero ya devuelto.
+      const pago = { ...pagoMock, estado: PagoEstado.REEMBOLSADO, save: jest.fn() };
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pago) });
+      paymentGateway.construirEvento.mockReturnValue({ type: 'payment_intent.succeeded' });
+      paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'succeeded' });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
     it('debería lanzar DomainException si la firma del webhook es inválida', async () => {
       paymentGateway.construirEvento.mockImplementation(() => {
         throw new Error('Invalid signature');
@@ -623,6 +670,35 @@ describe('PaymentsService', () => {
       expect(resultado).toEqual({ estado: 'aprobado' });
       expect(paymentGateway.consultarIntent).not.toHaveBeenCalled();
       expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('debería preguntar a la pasarela aunque el último webhook fuera un rechazo', async () => {
+      // El rechazo era de un intento; el cliente ha podido pagar después con
+      // otra tarjeta sobre el mismo intent. Manda Stripe, no el último webhook.
+      conPago({ estado: PagoEstado.RECHAZADO });
+      paymentGateway.consultarIntent.mockResolvedValue({ estado: 'succeeded', chargeId: 'ch_2' });
+
+      const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
+
+      expect(resultado).toEqual({ estado: 'aprobado' });
+      expect(bookingsService.confirmar).toHaveBeenCalledWith('reserva-1');
+    });
+
+    it('debería seguir diciendo rechazado si la pasarela lo confirma', async () => {
+      conPago({ estado: PagoEstado.RECHAZADO });
+      paymentGateway.consultarIntent.mockResolvedValue({ estado: 'failed' });
+
+      const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
+
+      expect(resultado).toEqual({ estado: 'rechazado' });
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('debería decir rechazado sin intent que consultar', async () => {
+      conPago({ estado: PagoEstado.RECHAZADO, stripePaymentIntentId: undefined });
+
+      expect(await service.sincronizarConPasarela('pago-1', 'user-1'))
+        .toEqual({ estado: 'rechazado' });
     });
 
     it('no debería dejar consultar el pago de otro usuario', async () => {

@@ -8,7 +8,9 @@ export type TipoCupon = 'porcentaje' | 'fijo';
 
 @Schema({ timestamps: true, collection: 'cupones' })
 export class Cupon {
-  @Prop({ required: true, unique: true, uppercase: true, trim: true })
+  // La unicidad la declara el índice del final del fichero: con las dos,
+  // Mongoose avisa de un índice duplicado en cada arranque.
+  @Prop({ required: true, uppercase: true, trim: true })
   codigo!: string;
 
   @Prop({ type: String, enum: ['porcentaje', 'fijo'], required: true })

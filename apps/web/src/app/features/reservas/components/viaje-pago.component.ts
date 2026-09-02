@@ -10,6 +10,10 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { EurosFijosPipe, EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { MonedaService } from '../../../core/moneda/moneda.service';
 
+const TITULO_VIAJE = 'Confirma tu viaje';
+const DESCRIPCION_VIAJE =
+  'Un solo pago para todo el viaje. Cada servicio queda como una reserva independiente, con su propia política de cancelación.';
+
 /**
  * Pago único de un viaje multi-vertical. Las reservas **ya existen** en estado
  * pendiente cuando se llega aquí: este paso solo cobra. Si el pago falla, las
@@ -30,17 +34,15 @@ import { MonedaService } from '../../../core/moneda/moneda.service';
     @if (!clientSecret()) {
       <div class="rs-card vp-card">
         <h1>{{ 'No hay ningún pago en curso' | t }}</h1>
-        <p>{{ 'Vuelve a tu viaje y pulsa «Reservar el viaje» para continuar.' | t }}</p>
+        <p>{{ 'Vuelve a tus reservas y retoma desde ahí el pago que dejaste a medias.' | t }}</p>
         <a routerLink="/reservas" class="rs-btn rs-btn--primary">{{ 'Ir a mis reservas' | t }}</a>
       </div>
     } @else {
       <div class="rs-card vp-card">
         <header class="vp-head">
           <p class="vp-eyebrow">{{ 'Último paso' | t }}</p>
-          <h1>{{ 'Confirma tu viaje' | t }}</h1>
-          <p class="vp-sub">
-            {{ 'Un solo pago para todo el viaje. Cada servicio queda como una reserva independiente, con su propia política de cancelación.' | t }}
-          </p>
+          <h1>{{ titulo() | t }}</h1>
+          <p class="vp-sub">{{ descripcion() | t }}</p>
         </header>
 
         <div class="vp-total">
@@ -126,6 +128,16 @@ export class ViajePagoComponent implements OnInit {
 
   readonly clientSecret = signal('');
   readonly montoTotal = signal(0);
+
+  /*
+   * La pantalla cobra algo que **ya está reservado**, y eso vale igual para un
+   * viaje entero que para una reserva suelta que se quedó sin pagar. Sólo
+   * cambia el texto, así que lo trae quien navega en vez de duplicar el
+   * componente: el formulario de pago, el aviso de divisa y el cierre contra el
+   * servidor son los mismos.
+   */
+  readonly titulo = signal(TITULO_VIAJE);
+  readonly descripcion = signal(DESCRIPCION_VIAJE);
   readonly listo = signal(false);
   readonly procesando = signal(false);
   readonly error = signal('');
@@ -152,6 +164,8 @@ export class ViajePagoComponent implements OnInit {
     this.clientSecret.set(secret);
     this.montoTotal.set((estado?.['montoTotal'] as number) ?? 0);
     this.pagoId = (estado?.['pagoId'] as string) ?? '';
+    this.titulo.set((estado?.['titulo'] as string) || TITULO_VIAJE);
+    this.descripcion.set((estado?.['descripcion'] as string) || DESCRIPCION_VIAJE);
     await this.montarStripe(secret);
   }
 

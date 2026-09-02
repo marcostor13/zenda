@@ -10,8 +10,8 @@ export type ResenaDocument = HydratedDocument<Resena>;
  */
 @Schema({ timestamps: true, collection: 'resenas' })
 export class Resena {
-  // Una reseña por reserva.
-  @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva', required: true, unique: true })
+  // Una reseña por reserva; lo garantiza el índice del final del fichero.
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva', required: true })
   reservaId!: Types.ObjectId;
 
   @Prop({ type: SchemaTypes.ObjectId, required: true })

@@ -225,4 +225,39 @@ describe('ViajePagoComponent', () => {
       expect(stripeService['getStripe']).not.toHaveBeenCalled();
     });
   });
+  /**
+   * La misma pantalla cobra una reserva suelta que se quedó sin pagar: cambia
+   * el texto, no el mecanismo.
+   */
+  describe('reserva suelta pendiente de pago', () => {
+    it('debería usar el texto que trae quien navega', async () => {
+      await crear({
+        clientSecret: 'cs_1', montoTotal: 121, pagoId: 'pago-1',
+        titulo: 'Completa el pago de tu reserva',
+        descripcion: 'Tu reserva está guardada y se confirmará en cuanto entre el pago.',
+      });
+
+      const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(texto).toContain('Completa el pago de tu reserva');
+      expect(texto).not.toContain('Confirma tu viaje');
+    });
+
+    it('debería hablar del viaje cuando no se le dice otra cosa', async () => {
+      await crear();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Confirma tu viaje');
+    });
+
+    it('debería cobrar y cerrar igual que el viaje', async () => {
+      await crear({
+        clientSecret: 'cs_1', montoTotal: 121, pagoId: 'pago-1',
+        titulo: 'Completa el pago de tu reserva',
+      });
+
+      await componente.pagar();
+
+      expect(pagoEnCurso['anotar']).toHaveBeenCalledWith('pago-1');
+      expect(pagoEnCurso['cerrarPendiente']).toHaveBeenCalled();
+    });
+  });
 });

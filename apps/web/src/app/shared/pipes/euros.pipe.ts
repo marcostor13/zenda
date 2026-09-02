@@ -55,11 +55,14 @@ export class EurosPipe implements PipeTransform {
   transform(valor: number | string | null | undefined, digitos = '1.0-2'): string {
     const conversion = this.conversionActiva ? this.moneda.conversion() : undefined;
 
+    // `Object.is` y no `===` para la tasa: sin cambio vigente vale `NaN`, y
+    // `NaN === NaN` es falso, así que la memoria nunca acertaría y se volvería
+    // a formatear en cada ciclo de detección de cambios.
     if (this.hayMemoria
-        && valor === this.ultimoValor
+        && Object.is(valor, this.ultimoValor)
         && digitos === this.ultimosDigitos
         && conversion?.moneda === this.ultimaConversion?.moneda
-        && conversion?.tasa === this.ultimaConversion?.tasa) {
+        && Object.is(conversion?.tasa, this.ultimaConversion?.tasa)) {
       return this.ultimoTexto;
     }
 

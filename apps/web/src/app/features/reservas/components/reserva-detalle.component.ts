@@ -30,12 +30,30 @@ const VERTICAL_META: Record<string, { label: string; icon: string; color: string
   [VerticalKey.FUNERARIOS]:     { label: VERTICAL_LABELS[VerticalKey.FUNERARIOS],     icon: 'heart',          color: '#64748B' },
 };
 
+/*
+ * Faltaban los estados operativos que el API sí usa, y el fallback era
+ * «Pendiente»: a quien había pagado y se había quedado sin plaza (`en_disputa`)
+ * se le decía que no había pagado. El estado desconocido cae ahora en el neutro.
+ */
 const ESTADO_META: Record<string, { label: string; color: EstadoColor; icon: string; bg: string }> = {
   confirmada: { label: 'Confirmada',  color: 'success', icon: 'check-circle', bg: 'rgba(16,185,129,.12)' },
-  pendiente:  { label: 'Pendiente',   color: 'warning', icon: 'clock',        bg: 'rgba(245,158,11,.12)' },
+  pendiente:  { label: 'Pendiente de pago', color: 'warning', icon: 'clock',  bg: 'rgba(245,158,11,.12)' },
+  ajuste_solicitado: { label: 'Ajuste pendiente', color: 'warning', icon: 'clock', bg: 'rgba(245,158,11,.12)' },
+  en_curso:   { label: 'En curso',    color: 'success', icon: 'check-circle', bg: 'rgba(16,185,129,.12)' },
+  // Cobrada pero sin plaza: alguien de Doogking la está resolviendo.
+  en_disputa: { label: 'En revisión', color: 'warning', icon: 'alert-circle', bg: 'rgba(245,158,11,.12)' },
+  pago_retenido: { label: 'Confirmada', color: 'success', icon: 'check-circle', bg: 'rgba(16,185,129,.12)' },
+  pago_liberado: { label: 'Completada', color: 'accent', icon: 'star',        bg: 'rgba(79,114,248,.12)' },
+  reembolsada: { label: 'Reembolsada', color: 'neutral', icon: 'x-circle',    bg: 'rgba(107,114,128,.12)' },
   cancelada:  { label: 'Cancelada',   color: 'danger',  icon: 'x-circle',     bg: 'rgba(239,68,68,.12)'  },
   completada: { label: 'Completada',  color: 'accent',  icon: 'star',         bg: 'rgba(79,114,248,.12)' },
   no_show:    { label: 'No presentado', color: 'neutral', icon: 'alert-circle', bg: 'rgba(107,114,128,.12)' },
+};
+
+/** Lo que se pinta ante un estado que esta pantalla no conoce todavía. */
+const ESTADO_DESCONOCIDO = {
+  label: 'En revisión', color: 'neutral' as EstadoColor, icon: 'alert-circle',
+  bg: 'rgba(107,114,128,.12)',
 };
 
 @Component({
@@ -564,7 +582,7 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
 
   readonly estadoMeta = computed(() => {
     const estado = this.reserva()?.estado ?? 'pendiente';
-    return ESTADO_META[estado] ?? ESTADO_META['pendiente'];
+    return ESTADO_META[estado] ?? ESTADO_DESCONOCIDO;
   });
 
   readonly verticalMeta = computed(() => {
@@ -693,16 +711,34 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Retoma el pago de esta reserva.
+   *
+   * Antes creaba el PaymentIntent, **tiraba la respuesta** y mandaba al
+   * asistente de reserva con `reservaId` y `paso` en la query, dos parámetros
+   * que el asistente no lee: el cliente aterrizaba en el paso 1 sin comercio ni
+   * precio, tenía que rellenarlo todo otra vez y al llegar al pago se creaba
+   * una **segunda** reserva. La original se quedaba sin pagar y el intent, sin
+   * usar. Ahora se cobra la reserva que hay, con el secreto que acaba de
+   * devolver el API.
+   */
   async irAPagar(): Promise<void> {
     const r = this.reserva();
-    if (!r) return;
+    const reservaId = r?._id ?? r?.id;
+    if (!r || !reservaId) return;
+
     this.procesando.set(true);
     this.errorAccion.set('');
     try {
-      await this.paymentsService.crearIntent(r._id ?? r.id ?? '');
-      // Redirect to the wizard checkout flow with existing reservation context
-      void this.router.navigate(['/reservas', r.vertical, r.servicioId], {
-        queryParams: { reservaId: r._id ?? r.id, paso: 3 },
+      const intent = await this.paymentsService.crearIntent(reservaId);
+      void this.router.navigate(['/reservas', 'pagar'], {
+        state: {
+          clientSecret: intent.clientSecret,
+          montoTotal: intent.montoTotal,
+          pagoId: intent.pagoId,
+          titulo: 'Completa el pago de tu reserva',
+          descripcion: 'Tu reserva está guardada y se confirmará en cuanto entre el pago.',
+        },
       });
     } catch {
       this.errorAccion.set('No se pudo iniciar el pago. Inténtalo de nuevo.');

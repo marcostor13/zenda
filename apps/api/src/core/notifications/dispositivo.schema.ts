@@ -17,8 +17,9 @@ export class Dispositivo {
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Usuario', required: true })
   usuarioId!: Types.ObjectId;
 
-  /** Token del proveedor (FCM o APNs). Único por dispositivo. */
-  @Prop({ required: true, unique: true })
+  /** Token del proveedor (FCM o APNs). Único por dispositivo, según el
+   *  índice del final del fichero: declararlo también aquí lo duplica. */
+  @Prop({ required: true })
   token!: string;
 
   @Prop({ type: String, enum: ['android', 'ios', 'web'], required: true })

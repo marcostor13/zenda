@@ -12,6 +12,16 @@ export const reservasRoutes: Routes = [
     loadComponent: () =>
       import('./components/viaje-pago.component').then(m => m.ViajePagoComponent),
   },
+  /*
+   * Retomar el pago de una reserva que se quedó sin pagar. Es la misma pantalla
+   * que la del viaje —cobra algo ya reservado— con otro texto, así que comparte
+   * componente en vez de duplicarlo.
+   */
+  {
+    path: 'pagar',
+    loadComponent: () =>
+      import('./components/viaje-pago.component').then(m => m.ViajePagoComponent),
+  },
   {
     path: 'viaje/:reservaMadreId',
     loadComponent: () =>

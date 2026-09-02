@@ -32,7 +32,11 @@ describe('ReservaDetalleComponent', () => {
         : jest.fn().mockResolvedValue(datos),
       cancelar: jest.fn().mockResolvedValue(reserva({ estado: ReservaEstado.CANCELADA })),
     };
-    paymentsService = { crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1' }) };
+    paymentsService = {
+      crearIntent: jest.fn().mockResolvedValue({
+        clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 121, moneda: 'EUR',
+      }),
+    };
 
     await TestBed.configureTestingModule({
       imports: [ReservaDetalleComponent, RouterTestingModule],
@@ -237,16 +241,36 @@ describe('ReservaDetalleComponent', () => {
   });
 
   describe('pago pendiente', () => {
-    it('debería llevar al paso de pago del wizard', async () => {
+    /*
+     * Antes se creaba el intent, se tiraba la respuesta y se mandaba al
+     * asistente de reserva con `reservaId` y `paso` en la query —dos parámetros
+     * que el asistente no lee—: el cliente aterrizaba en el paso 1 y, al llegar
+     * al pago, se creaba una segunda reserva. La original nunca se cobraba.
+     */
+    it('debería llevar a cobrar esta misma reserva, con el secreto del intent', async () => {
       await crear(reserva({ estado: ReservaEstado.PENDIENTE }));
 
       await componente.irAPagar();
 
       expect(paymentsService['crearIntent']).toHaveBeenCalledWith('r1');
       expect(router.navigate).toHaveBeenCalledWith(
-        ['/reservas', VerticalKey.ALOJAMIENTO, 'abcdef123456'],
-        { queryParams: { reservaId: 'r1', paso: 3 } },
+        ['/reservas', 'pagar'],
+        expect.objectContaining({
+          state: expect.objectContaining({
+            clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 121,
+          }),
+        }),
       );
+    });
+
+    it('no debería volver a pasar por el asistente de reserva', async () => {
+      // Repetirlo crearía una segunda reserva por la misma estancia.
+      await crear(reserva({ estado: ReservaEstado.PENDIENTE }));
+
+      await componente.irAPagar();
+
+      const destino = (router.navigate as jest.Mock).mock.calls[0][0] as string[];
+      expect(destino).not.toContain(VerticalKey.ALOJAMIENTO);
     });
 
     it('debería avisar sin navegar si el intent falla', async () => {

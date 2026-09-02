@@ -17,7 +17,8 @@ export class PerroValoracion {
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Comercio', required: true })
   comercioId!: Types.ObjectId;
 
-  @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva', required: true, unique: true })
+  // Una valoración por reserva; lo garantiza el índice del final del fichero.
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva', required: true })
   reservaId!: Types.ObjectId;
 
   @Prop({ type: String, enum: VerticalKey, required: true })
