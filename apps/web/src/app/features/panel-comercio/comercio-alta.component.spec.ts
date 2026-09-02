@@ -112,6 +112,26 @@ describe('ComercioAltaComponent', () => {
       expect(componente.negocioForm.getRawValue().nombreComercial).toBe('');
     });
 
+    it('debería dejar vacía la razón social provisional', async () => {
+      // Las altas antiguas copiaron el provisional también aquí; enseñarlo
+      // escrito lo daba por bueno de vuelta al guardar.
+      await crear(miComercio({
+        nombreComercial: 'Negocio de Ana Torres',
+        razonSocial: 'Negocio de Ana Torres',
+      } as Partial<MiComercio>), [{ _id: 's1' }]);
+
+      expect(componente.negocioForm.getRawValue().razonSocial).toBe('');
+    });
+
+    it('debería conservar la razón social que el comercio ya declaró', async () => {
+      await crear(miComercio({
+        nombreComercial: 'Canes Premium',
+        razonSocial: 'Canes Premium S.L.',
+      } as Partial<MiComercio>), [{ _id: 's1' }]);
+
+      expect(componente.negocioForm.getRawValue().razonSocial).toBe('Canes Premium S.L.');
+    });
+
     it('debería conservar el nombre que el comercio ya eligió', async () => {
       await crear(miComercio({ nombreComercial: 'Canes Premium' }), [{ _id: 's1' }]);
 

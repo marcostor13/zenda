@@ -83,8 +83,11 @@ export class ComerciosService {
     const nombreComercial = dto.nombreComercial?.trim() || `Negocio de ${dto.nombre}`;
 
     const comercio = await this.repo.crear({
-      // Sin razón social todavía, se usa el nombre comercial como identidad legal provisional.
-      razonSocial: dto.razonSocial || nombreComercial,
+      // La razón social se queda vacía si el alta no la trae: rellenarla con el
+      // provisional («Negocio de Ana Torres») dejaba al negocio con una identidad
+      // legal inventada que luego nadie corregía, porque el paso final del alta
+      // sólo la pide como opcional y el panel de admin la enseñaba como buena.
+      razonSocial: dto.razonSocial?.trim() || undefined,
       vatNumber: dto.vatNumber || undefined,
       nombreComercial,
       verticales: dto.verticales,
@@ -533,6 +536,10 @@ export class ComerciosService {
       datos.consentimientos = this.sellarConsentimientos(consentimientos);
     }
 
+    if (dto.nombreComercial && !dto.razonSocial) {
+      await this.arrastrarRazonSocialProvisional(comercioId, dto.nombreComercial, datos);
+    }
+
     // Cambiar el CIF exige que siga siendo único: el índice de Mongo lo
     // rechazaría con un E11000 que el panel no sabe traducir.
     if (dto.vatNumber) {
@@ -548,6 +555,29 @@ export class ComerciosService {
     if (dto.altaCompletada === true) await this.publicarLoQueEsperaba(comercioId);
 
     return actualizado;
+  }
+
+  /**
+   * El negocio que aún no ha distinguido su razón social de su nombre comercial
+   * la lleva pegada al nombre.
+   *
+   * El alta rápida nombra el comercio con un provisional («Negocio de Ana
+   * Torres») y el paso final del alta guiada es donde el comercio escribe el
+   * nombre de verdad; la razón social ahí es opcional, así que quien la deja en
+   * blanco se quedaba con el provisional de identidad legal para siempre. Sólo
+   * arrastra el nombre mientras las dos coinciden o la razón social está vacía:
+   * una razón social distinta la puso el comercio a propósito y no se toca.
+   */
+  private async arrastrarRazonSocialProvisional(
+    comercioId: string,
+    nombreComercial: string,
+    datos: Record<string, unknown>,
+  ): Promise<void> {
+    const actual = await this.repo.findById(comercioId);
+    if (!actual) return;
+    if (actual.razonSocial && actual.razonSocial !== actual.nombreComercial) return;
+
+    datos['razonSocial'] = nombreComercial;
   }
 
   /**

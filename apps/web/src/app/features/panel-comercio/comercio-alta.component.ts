@@ -708,7 +708,20 @@ export class ComercioAltaComponent implements OnInit {
    * el comercio escriba el suyo, no para que dé por bueno el de relleno.
    */
   private esProvisional(c: MiComercio): boolean {
-    return c.nombreComercial.startsWith('Negocio de ');
+    return this.esNombreProvisional(c.nombreComercial);
+  }
+
+  /**
+   * Las altas antiguas copiaron el provisional también en la razón social, y
+   * verlo escrito en el campo lo daba por bueno de vuelta al guardar.
+   */
+  private esRazonSocialProvisional(c: MiComercio): boolean {
+    const razon = c.razonSocial ?? '';
+    return this.esNombreProvisional(razon) || razon === c.nombreComercial;
+  }
+
+  private esNombreProvisional(nombre: string): boolean {
+    return nombre.startsWith('Negocio de ');
   }
 
   /** Ejemplo acorde a la categoría que acaba de dar de alta. */
@@ -872,7 +885,7 @@ export class ComercioAltaComponent implements OnInit {
   private precargar(c: MiComercio): void {
     this.negocioForm.patchValue({
       nombreComercial: this.esProvisional(c) ? '' : c.nombreComercial,
-      razonSocial: c.razonSocial ?? '',
+      razonSocial: this.esRazonSocialProvisional(c) ? '' : (c.razonSocial ?? ''),
       vatNumber: c.vatNumber ?? '',
       descripcion: c.descripcion ?? '',
       nombreContacto: c.contacto?.nombreContacto ?? '',

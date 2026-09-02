@@ -60,7 +60,7 @@ describe('RsHorarioPublicoComponent', () => {
       await crear();
       fixture.componentRef.setInput('horario', semana());
 
-      expect(componente.semana().find((d) => d.dia === 'domingo')!.horas).toBe('Cerrado');
+      expect(componente.semana().find((d) => d.clave === 'domingo')!.horas).toBe('Cerrado');
     });
 
     it('debería juntar los dos tramos de la jornada partida', async () => {
@@ -81,9 +81,106 @@ describe('RsHorarioPublicoComponent', () => {
       await crear();
       const dias = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
       const hoy = dias[new Date().getDay()];
-      fixture.componentRef.setInput('horario', dias.map((dia) => ({ dia, cerrado: true })));
+      // Cada día con su hora para que no se agrupen y quede una línea por día.
+      fixture.componentRef.setInput('horario',
+        dias.map((dia, i) => ({ dia, cerrado: false, abre: `0${i}:00`, cierra: '20:00' })));
 
-      expect(componente.semana().filter((d) => d.esHoy).map((d) => d.dia)).toEqual([hoy]);
+      expect(componente.semana().filter((d) => d.esHoy).map((d) => d.clave)).toEqual([hoy]);
+    });
+  });
+
+  /**
+   * Siete líneas repitiendo la misma hora obligan a leerlas todas para
+   * descubrir que sólo cambia el sábado.
+   */
+  describe('agrupación de días seguidos', () => {
+    const dia = (d: string, abre?: string, cierra?: string): HorarioDiaDto =>
+      (abre ? { dia: d, abre, cierra, cerrado: false } : { dia: d, cerrado: true });
+
+    const laborables = (abre: string, cierra: string): HorarioDiaDto[] =>
+      ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map((d) => dia(d, abre, cierra));
+
+    it('debería juntar en un rango los días seguidos con el mismo horario', async () => {
+      await crear();
+      fixture.componentRef.setInput('horario', [
+        ...laborables('10:00', '12:00'),
+        dia('sabado', '10:00', '16:00'),
+        dia('domingo'),
+      ]);
+
+      expect(componente.semana().map((b) => `${b.label}: ${b.horas}`)).toEqual([
+        'Lunes a viernes: 10:00 – 12:00',
+        'Sábado: 10:00 – 16:00',
+        'Domingo: Cerrado',
+      ]);
+    });
+
+    it('debería unir dos días seguidos con «y», que se lee mejor que un rango de dos', async () => {
+      await crear();
+      fixture.componentRef.setInput('horario', [
+        dia('lunes', '10:00', '14:00'),
+        dia('martes', '10:00', '14:00'),
+        dia('miercoles', '09:00', '14:00'),
+      ]);
+
+      expect(componente.semana().map((b) => b.label)).toEqual(['Lunes y martes', 'Miércoles']);
+    });
+
+    it('no debería agrupar días que no van seguidos aunque coincida el horario', async () => {
+      await crear();
+      fixture.componentRef.setInput('horario', [
+        dia('lunes', '10:00', '14:00'),
+        dia('miercoles', '10:00', '14:00'),
+      ]);
+
+      expect(componente.semana().map((b) => b.label)).toEqual(['Lunes', 'Miércoles']);
+    });
+
+    it('debería cortar el bloque cuando cambia el segundo tramo', async () => {
+      // Misma mañana pero distinta tarde no es el mismo horario.
+      await crear();
+      fixture.componentRef.setInput('horario', [
+        { dia: 'lunes', abre: '10:00', cierra: '14:00', abre2: '17:00', cierra2: '20:00', cerrado: false },
+        { dia: 'martes', abre: '10:00', cierra: '14:00', cerrado: false },
+      ]);
+
+      expect(componente.semana().map((b) => b.label)).toEqual(['Lunes', 'Martes']);
+    });
+
+    it('no debería cerrar la semana uniendo domingo con lunes', async () => {
+      // «Domingo a lunes» se leería al revés de como abre el negocio.
+      await crear();
+      fixture.componentRef.setInput('horario', [
+        dia('lunes', '10:00', '14:00'),
+        dia('domingo', '10:00', '14:00'),
+      ]);
+
+      expect(componente.semana().map((b) => b.label)).toEqual(['Lunes', 'Domingo']);
+    });
+
+    it('debería ordenar la semana aunque los días lleguen desordenados', async () => {
+      await crear();
+      fixture.componentRef.setInput('horario', [
+        dia('miercoles', '10:00', '14:00'),
+        dia('lunes', '10:00', '14:00'),
+        dia('martes', '10:00', '14:00'),
+      ]);
+
+      expect(componente.semana().map((b) => b.label)).toEqual(['Lunes a miércoles']);
+    });
+
+    it('debería agrupar también los días cerrados seguidos', async () => {
+      await crear();
+      fixture.componentRef.setInput('horario', [
+        dia('viernes', '10:00', '14:00'),
+        dia('sabado'),
+        dia('domingo'),
+      ]);
+
+      expect(componente.semana().map((b) => `${b.label}: ${b.horas}`)).toEqual([
+        'Viernes: 10:00 – 14:00',
+        'Sábado y domingo: Cerrado',
+      ]);
     });
   });
 

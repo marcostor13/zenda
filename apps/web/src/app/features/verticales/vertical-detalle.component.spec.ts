@@ -112,6 +112,31 @@ describe('VerticalDetalleComponent', () => {
     expect(component.imagenActiva()).toBe('b.jpg');
   });
 
+  /**
+   * Mosaico de cabecera al estilo Booking: la foto grande y dos apiladas al
+   * costado, para enseñar tres fotos en vez de una.
+   */
+  describe('mosaico de la galería', () => {
+    it('debería acompañar la foto grande con las siguientes', async () => {
+      await crearComponente('transporte', servicio({}, { imagenes: ['a.jpg', 'b.jpg', 'c.jpg', 'd.jpg'] }));
+
+      expect(component.secundarias()).toEqual(['b.jpg', 'c.jpg']);
+    });
+
+    it('debería dar la vuelta al llegar al final, para no dejar el costado a medias', async () => {
+      await crearComponente('transporte', servicio({}, { imagenes: ['a.jpg', 'b.jpg', 'c.jpg'] }));
+      component.imagenActiva.set('c.jpg');
+
+      expect(component.secundarias()).toEqual(['a.jpg', 'b.jpg']);
+    });
+
+    it('no debería repetir la foto grande cuando es la única', async () => {
+      await crearComponente('transporte', servicio({}, { imagenes: ['a.jpg'] }));
+
+      expect(component.secundarias()).toEqual([]);
+    });
+  });
+
   it('debería navegar al wizard de reserva con los datos del servicio', async () => {
     await crearComponente('transporte', servicio({ tarifaBase: 25 }));
     const router = TestBed.inject(Router);

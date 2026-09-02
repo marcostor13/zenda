@@ -18,6 +18,14 @@ import { PuntoUbicacion } from '../../shared/mapas/google-maps';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 
 import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
+
+/**
+ * Huecos de la fila de miniaturas y fotos del costado del mosaico. Mismos
+ * números que en la ficha de alojamiento: las fichas se ven iguales.
+ */
+const MINIATURAS_VISIBLES = 6;
+const SECUNDARIAS_VISIBLES = 2;
+
 interface DetalleConfig {
   vertical: string;
   cta: string;
@@ -233,14 +241,25 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     <!-- GALERÍA -->
     <div class="gallery">
-      <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
-        <img [src]="imagenActiva()" [alt]="s.nombre" rsImg />
-        @if (s.imagenes.length) {
-          <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ s.imagenes.length }} fotografías</span>
+      <div class="gallery__hero" [class.gallery__hero--solo]="!secundarias().length">
+        <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
+          <img [src]="imagenActiva()" [alt]="s.nombre" rsImg />
+          @if (s.imagenes.length) {
+            <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ s.imagenes.length }} fotografías</span>
+          }
+        </div>
+        @if (secundarias().length) {
+          <div class="gallery__side">
+            @for (img of secundarias(); track img) {
+              <div class="gallery__side-foto" (click)="imagenActiva.set(img)">
+                <img [src]="img" [alt]="s.nombre" rsImg />
+              </div>
+            }
+          </div>
         }
       </div>
       <div class="gallery__thumbs">
-        @for (img of s.imagenes.slice(0,4); track img) {
+        @for (img of s.imagenes.slice(0, MINIATURAS_VISIBLES); track img) {
           <div class="gallery__thumb" [class.active]="imagenActiva() === img" (click)="imagenActiva.set(img)">
             <img [src]="img" [alt]="s.nombre" rsImg />
           </div>
@@ -421,9 +440,30 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     .breadcrumb { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-5); a { color: var(--t-400); } }
 
-    .gallery { border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-12); }
+    /*
+      Mosaico al estilo Booking: una foto grande y dos apiladas al costado. Con
+      una sola panorámica arriba, la ficha enseñaba una imagen de siete y el
+      resto quedaba en miniaturas del tamaño de un sello.
+    */
+    .gallery { margin-bottom: var(--sp-12); }
+    .gallery__hero {
+      display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-2); aspect-ratio: 21/9;
+      &.gallery__hero--solo { grid-template-columns: 1fr; }
+      /* En móvil las secundarias se ceden a la fila de miniaturas. */
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr; aspect-ratio: 3/2;
+        .gallery__side { display: none; }
+      }
+    }
+    /* Filas automáticas: con una sola foto de costado llenaría media columna. */
+    .gallery__side { display: grid; grid-auto-rows: minmax(0, 1fr); gap: var(--sp-2); }
+    .gallery__side-foto {
+      height: 100%; border-radius: var(--r-lg); overflow: hidden; cursor: pointer;
+      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-2); }
+      &:hover img { transform: scale(1.04); }
+    }
     .gallery__main {
-      position: relative; aspect-ratio: 21/9; cursor: pointer;
+      position: relative; height: 100%; border-radius: var(--r-xl); overflow: hidden; cursor: pointer;
       img { width: 100%; height: 100%; object-fit: cover; }
     }
     .gallery__contador {
@@ -464,7 +504,12 @@ const CONFIGS: Record<string, DetalleConfig> = {
       background: rgba(255,255,255,.12); padding: var(--sp-1) var(--sp-4); border-radius: var(--r-full);
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .gallery__thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); margin-top: var(--sp-2); }
+    /* Seis miniaturas y más pequeñas: con tres fotos grandes arriba, la
+       miniatura ya no tiene que hacer de foto y caben más en la misma fila. */
+    .gallery__thumbs {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-2); margin-top: var(--sp-2);
+      @media (max-width: 768px) { grid-template-columns: repeat(4, 1fr); }
+    }
     .gallery__thumb {
       aspect-ratio: 16/10; border-radius: var(--r-md); overflow: hidden; cursor: pointer; opacity: .65; transition: opacity var(--d-2);
       img { width: 100%; height: 100%; object-fit: cover; }
@@ -525,6 +570,25 @@ export class VerticalDetalleComponent implements OnInit {
     };
   });
   readonly imagenActiva = signal('');
+
+  /** Huecos de la fila de miniaturas; el template los necesita para el slice. */
+  readonly MINIATURAS_VISIBLES = MINIATURAS_VISIBLES;
+
+  /**
+   * Las dos fotos que acompañan a la grande en el mosaico: las que siguen a la
+   * activa, dando la vuelta al final para que las últimas fotos del listado
+   * también tengan compañía. Con una sola foto no hay columna que enseñar.
+   */
+  readonly secundarias = computed(() => {
+    const imagenes = this.servicio()?.imagenes ?? [];
+    if (imagenes.length < 2) return [];
+
+    const desde = Math.max(0, imagenes.indexOf(this.imagenActiva()));
+    return Array.from(
+      { length: Math.min(SECUNDARIAS_VISIBLES, imagenes.length - 1) },
+      (_, i) => imagenes[(desde + i + 1) % imagenes.length],
+    );
+  });
 
   /** Galería a pantalla completa (HU-4.1.1). */
   readonly lightboxAbierto = signal(false);

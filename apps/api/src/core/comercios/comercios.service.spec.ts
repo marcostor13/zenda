@@ -253,7 +253,7 @@ describe('ComerciosService', () => {
       expect(repo.eliminar).toHaveBeenCalledWith('comercio-1');
     });
 
-    it('debería registrar sin CIF: usa nombreComercial como razón social y no valida el vat', async () => {
+    it('debería registrar sin CIF: deja la razón social vacía y no valida el vat', async () => {
       usersRepo.findByEmail.mockResolvedValue(null);
       repo.crear.mockResolvedValue({ id: 'comercio-1' } as never);
       usersRepo.crear.mockResolvedValue({ id: 'user-1', email: 'ana@royaldog.eu' } as never);
@@ -268,7 +268,8 @@ describe('ComerciosService', () => {
       expect(repo.findByVatNumber).not.toHaveBeenCalled();
       expect(repo.crear).toHaveBeenCalledWith(
         expect.objectContaining({
-          razonSocial: 'Royal Dog Resort',
+          nombreComercial: 'Royal Dog Resort',
+          razonSocial: undefined,
           vatNumber: undefined,
         }),
       );
@@ -291,7 +292,9 @@ describe('ComerciosService', () => {
       expect(repo.crear).toHaveBeenCalledWith(
         expect.objectContaining({
           nombreComercial: 'Negocio de Ana Torres',
-          razonSocial: 'Negocio de Ana Torres',
+          // El provisional nombra el negocio, pero no le inventa una identidad
+          // legal: la razón social la escribe el comercio al cerrar el alta.
+          razonSocial: undefined,
         }),
       );
     });
@@ -472,6 +475,60 @@ describe('ComerciosService', () => {
       expect(sellados['operaLegalmente'].aceptado).toBe(true);
       expect(sellados['operaLegalmente'].fecha).toBeInstanceOf(Date);
       expect(sellados['operaLegalmente'].version).toBe(CONDICIONES_COMERCIO_VERSION);
+    });
+
+    /**
+     * El paso final del alta es donde el comercio escribe cómo se llama de
+     * verdad; la razón social ahí es opcional, así que quien la deja en blanco
+     * se quedaba con el «Negocio de Ana Torres» del registro como identidad
+     * legal, que es justo lo que veía el panel de admin.
+     */
+    it('debería llevarse la razón social provisional al nombre que puso el comercio', async () => {
+      repo.findById.mockResolvedValue({
+        nombreComercial: 'Negocio de Ana Torres',
+        razonSocial: 'Negocio de Ana Torres',
+      } as never);
+
+      await service.actualizarComercio(comercioId, { nombreComercial: 'Canes Premium' });
+
+      const guardado = (repo.actualizar as jest.Mock).mock.calls.at(-1)![1] as Record<string, unknown>;
+      expect(guardado['razonSocial']).toBe('Canes Premium');
+    });
+
+    it('debería rellenar la razón social vacía con el nombre del negocio', async () => {
+      repo.findById.mockResolvedValue({ nombreComercial: 'Negocio de Ana Torres' } as never);
+
+      await service.actualizarComercio(comercioId, { nombreComercial: 'Canes Premium' });
+
+      const guardado = (repo.actualizar as jest.Mock).mock.calls.at(-1)![1] as Record<string, unknown>;
+      expect(guardado['razonSocial']).toBe('Canes Premium');
+    });
+
+    it('no debería tocar una razón social que el comercio puso a propósito', async () => {
+      repo.findById.mockResolvedValue({
+        nombreComercial: 'Canes Premium',
+        razonSocial: 'Canes Premium S.L.',
+      } as never);
+
+      await service.actualizarComercio(comercioId, { nombreComercial: 'Canes Royal' });
+
+      const guardado = (repo.actualizar as jest.Mock).mock.calls.at(-1)![1] as Record<string, unknown>;
+      expect(guardado['razonSocial']).toBeUndefined();
+    });
+
+    it('debería respetar la razón social que llega en el mismo guardado', async () => {
+      repo.findById.mockResolvedValue({
+        nombreComercial: 'Negocio de Ana Torres',
+        razonSocial: 'Negocio de Ana Torres',
+      } as never);
+
+      await service.actualizarComercio(comercioId, {
+        nombreComercial: 'Canes Premium',
+        razonSocial: 'Canes Premium S.L.',
+      });
+
+      const guardado = (repo.actualizar as jest.Mock).mock.calls.at(-1)![1] as Record<string, unknown>;
+      expect(guardado['razonSocial']).toBe('Canes Premium S.L.');
     });
 
     it('no debería dejar fecha en un consentimiento retirado', async () => {

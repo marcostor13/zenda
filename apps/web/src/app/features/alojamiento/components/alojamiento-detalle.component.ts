@@ -23,11 +23,18 @@ import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
 /**
- * Huecos de la fila de miniaturas. Son cuatro fijos, como en el resto de
+ * Huecos de la fila de miniaturas. Son seis fijos, como en el resto de
  * fichas: con un número variable de columnas, un alojamiento con dos fotos
  * sacaba dos miniaturas de media pantalla cada una.
+ *
+ * Eran cuatro cuando la miniatura era la única forma de ver el resto de fotos.
+ * Con el mosaico de tres grandes arriba puede ser más pequeña, y en la misma
+ * fila caben seis.
  */
-const MINIATURAS_VISIBLES = 4;
+const MINIATURAS_VISIBLES = 6;
+
+/** Fotos que acompañan a la grande en el mosaico, apiladas a su derecha. */
+const SECUNDARIAS_VISIBLES = 2;
 
 @Component({
   selector: 'app-alojamiento-detalle',
@@ -67,9 +74,20 @@ const MINIATURAS_VISIBLES = 4;
 
     <!-- GALERÍA -->
     <div class="gallery rs-wrap">
-      <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
-        <img [src]="imagenActiva()" [alt]="alojamiento()!.nombre" rsImg />
-        <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ alojamiento()!.imagenes.length }} fotografías</span>
+      <div class="gallery__hero" [class.gallery__hero--solo]="!secundarias().length">
+        <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
+          <img [src]="imagenActiva()" [alt]="alojamiento()!.nombre" rsImg />
+          <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ alojamiento()!.imagenes.length }} fotografías</span>
+        </div>
+        @if (secundarias().length) {
+          <div class="gallery__side">
+            @for (img of secundarias(); track img) {
+              <div class="gallery__side-foto" (click)="imagenActiva.set(img)">
+                <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
+              </div>
+            }
+          </div>
+        }
       </div>
       <div class="gallery__thumbs">
         @for (img of miniaturas(); track img) {
@@ -282,25 +300,35 @@ const MINIATURAS_VISIBLES = 4;
         <div class="section-block" rsAnim>
           <h2>Políticas del alojamiento</h2>
           <div class="policies-acc">
+            <!--
+              Entrada y salida en la misma tarjeta: son las dos mitades del
+              mismo dato («de qué hora a qué hora») y separadas en dos
+              acordeones obligaban a abrir uno para saber la mitad de la
+              respuesta, con la salida además plegada por defecto.
+            -->
             <details class="policy-acc" open>
               <summary class="policy-acc__head">
-                <rs-icon name="log-out" [size]="16" [stroke]="2" /> Ingreso
+                <rs-icon name="clock" [size]="16" [stroke]="2" /> Horario de entrada y salida
               </summary>
               <div class="policy-acc__body">
-                <p><strong>Ingreso:</strong> {{ alojamiento()!.checkIn }}</p>
+                <div class="policy-horas">
+                  <div class="policy-horas__item">
+                    <span class="policy-horas__label">
+                      <rs-icon name="home" [size]="14" [stroke]="2" /> Entrada
+                    </span>
+                    <strong class="policy-horas__hora">{{ alojamiento()!.checkIn }}</strong>
+                  </div>
+                  <div class="policy-horas__item">
+                    <span class="policy-horas__label">
+                      <rs-icon name="log-out" [size]="14" [stroke]="2" /> Salida
+                    </span>
+                    <strong class="policy-horas__hora">{{ alojamiento()!.checkOut }}</strong>
+                  </div>
+                </div>
                 @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
                   <p><strong>Compatibilidad social admitida:</strong>
                     {{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</p>
                 }
-              </div>
-            </details>
-
-            <details class="policy-acc">
-              <summary class="policy-acc__head">
-                <rs-icon name="clock" [size]="16" [stroke]="2" /> Salida
-              </summary>
-              <div class="policy-acc__body">
-                <p><strong>Salida:</strong> {{ alojamiento()!.checkOut }}</p>
               </div>
             </details>
 
@@ -510,26 +538,59 @@ const MINIATURAS_VISIBLES = 4;
 
     /* GALLERY */
     /*
-      Misma galería que el resto de fichas: la foto grande arriba y las
-      miniaturas en una fila debajo.
+      Mosaico al estilo Booking: una foto grande y dos apiladas al costado, con
+      la fila de miniaturas debajo.
 
-      Antes las miniaturas iban en una columna a la derecha dentro de un bloque
-      de 480px fijos, y el titular y el panel de reserva arrancaban justo al
-      terminar esa caja: quedaban mucho más altos que en las demás categorías.
-      Con la fila debajo, la ficha respira igual en todas.
+      Con una sola foto panorámica arriba, la ficha enseñaba una imagen de siete
+      y las demás quedaban en miniaturas del tamaño de un sello. Tres fotos
+      grandes de entrada dan una idea real del sitio, que es lo que decide la
+      reserva, y las miniaturas pueden ser más pequeñas porque ya no cargan solas
+      con enseñar el alojamiento: caben más en la misma fila.
     */
     .gallery { margin-bottom: var(--sp-12); }
 
+    .gallery__hero {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--sp-2);
+      aspect-ratio: 21 / 9;
+
+      /* Sin fotos de sobra la grande ocupa todo, en vez de dejar un hueco. */
+      &.gallery__hero--solo { grid-template-columns: 1fr; }
+
+      /* En móvil un 21:9 deja la foto en una tira: se le da más alto y las
+         secundarias se ceden a la fila de miniaturas, que ya están ahí. */
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+        aspect-ratio: 3 / 2;
+        .gallery__side { display: none; }
+      }
+    }
+
+    /* Filas automáticas y no dos fijas: con una sola foto de costado (ficha de
+       dos fotos) llenaba media columna y dejaba el otro medio en blanco. */
+    .gallery__side {
+      display: grid;
+      grid-auto-rows: minmax(0, 1fr);
+      gap: var(--sp-2);
+    }
+    .gallery__side-foto {
+      position: relative;
+      height: 100%;
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      cursor: pointer;
+      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-2); }
+      &:hover img { transform: scale(1.04); }
+    }
+
     .gallery__main {
       position: relative;
-      aspect-ratio: 21 / 9;
+      height: 100%;
       border-radius: var(--r-xl);
       overflow: hidden;
       cursor: pointer;
       img { width: 100%; height: 100%; object-fit: cover; }
-
-      /* En móvil un 21:9 deja la foto en una tira: se le da más alto. */
-      @media (max-width: 768px) { aspect-ratio: 3 / 2; }
     }
     .gallery__contador {
       position: absolute;
@@ -586,14 +647,19 @@ const MINIATURAS_VISIBLES = 4;
       .lightbox__nav--next { right: var(--sp-2); }
     }
 
-    /* Cuatro columnas fijas, como en el resto de fichas. Con las columnas
+    /* Seis columnas fijas, como en el resto de fichas. Con las columnas
        generadas a partir del contenido, una ficha con dos fotos repartía la
-       fila entre esas dos y las miniaturas salían enormes. */
+       fila entre esas dos y las miniaturas salían enormes. Son seis y no cuatro
+       desde que el mosaico enseña tres fotos grandes: la miniatura ya no tiene
+       que hacer de foto, así que cabe más pequeña y se ven más. */
     .gallery__thumbs {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: var(--sp-2);
       margin-top: var(--sp-2);
+
+      /* En móvil seis miniaturas serían sellos: se reparten en cuatro. */
+      @media (max-width: 768px) { grid-template-columns: repeat(4, 1fr); }
     }
 
     .gallery__thumb {
@@ -612,7 +678,9 @@ const MINIATURAS_VISIBLES = 4;
       align-items: center;
       justify-content: center;
       background: var(--c-surface);
-      font-size: var(--f-sm);
+      /* Con seis columnas la casilla es estrecha: «+7 fotos» no debe partirse. */
+      font-size: var(--f-xs);
+      text-align: center;
       color: var(--t-300);
       font-weight: var(--w-6);
       /* No es una foto atenuada, es un botón: se lee entero desde el principio. */
@@ -772,6 +840,38 @@ const MINIATURAS_VISIBLES = 4;
       p { margin: 0 0 var(--sp-2); &:last-child { margin-bottom: 0; } }
       strong { color: var(--t-200); }
     }
+    /* Entrada y salida, las dos mitades del mismo dato, una al lado de la otra. */
+    .policy-horas {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--sp-2);
+      margin-bottom: var(--sp-3);
+      &:last-child { margin-bottom: 0; }
+    }
+    .policy-horas__item {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-1);
+      padding: var(--sp-3);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-md);
+      background: var(--c-raised);
+    }
+    .policy-horas__label {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: var(--f-xs);
+      color: var(--t-300);
+      rs-icon { color: var(--dk-blue); }
+    }
+    /* Con la clase sola ganaba el "strong" del cuerpo del acordeón. */
+    .policy-acc__body .policy-horas__hora {
+      font-size: var(--f-lg);
+      font-weight: var(--w-7);
+      color: var(--t-100);
+    }
+
     .rules-list { display: flex; flex-direction: column; gap: var(--sp-2); }
     .rule-item { font-size: var(--f-sm); color: var(--t-300); }
 
@@ -997,6 +1097,22 @@ export class AlojamientoDetalleComponent implements OnInit {
     const imagenes = this.alojamiento()?.imagenes ?? [];
     const cabenTodas = imagenes.length <= MINIATURAS_VISIBLES;
     return imagenes.slice(0, cabenTodas ? MINIATURAS_VISIBLES : MINIATURAS_VISIBLES - 1);
+  });
+
+  /**
+   * Las dos fotos que acompañan a la grande en el mosaico: las que siguen a la
+   * activa, dando la vuelta al final para que las últimas fotos del listado
+   * también tengan compañía. Con una sola foto no hay columna que enseñar.
+   */
+  readonly secundarias = computed(() => {
+    const imagenes = this.alojamiento()?.imagenes ?? [];
+    if (imagenes.length < 2) return [];
+
+    const desde = Math.max(0, imagenes.indexOf(this.imagenActiva()));
+    return Array.from(
+      { length: Math.min(SECUNDARIAS_VISIBLES, imagenes.length - 1) },
+      (_, i) => imagenes[(desde + i + 1) % imagenes.length],
+    );
   });
 
   /** Cuántas fotos quedan fuera de la fila; 0 = no hace falta la tarjeta de "+N". */

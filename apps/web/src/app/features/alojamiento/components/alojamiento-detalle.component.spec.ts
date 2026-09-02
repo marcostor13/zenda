@@ -87,7 +87,7 @@ describe('AlojamientoDetalleComponent', () => {
   });
 
   describe('políticas en acordeón (PDF 27/07 §13)', () => {
-    it('debería agrupar las políticas en Ingreso, Salida, Cancelación y Vacunas', async () => {
+    it('debería agrupar las políticas en Horario, Cancelación y Vacunas', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
@@ -96,14 +96,13 @@ describe('AlojamientoDetalleComponent', () => {
       const titulos = acordeones.map((a) => a.querySelector('summary')?.textContent?.trim() ?? '');
 
       expect(titulos).toEqual([
-        'Ingreso',
-        'Salida',
+        'Horario de entrada y salida',
         'Cancelación',
         'Vacunas y requisitos sanitarios',
       ]);
     });
 
-    it('debería dejar "Ingreso" abierta y el resto plegadas al llegar', async () => {
+    it('debería dejar el horario abierto y el resto plegadas al llegar', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
@@ -111,7 +110,25 @@ describe('AlojamientoDetalleComponent', () => {
       const acordeones: HTMLDetailsElement[] =
         Array.from(fixture.nativeElement.querySelectorAll('.policy-acc'));
 
-      expect(acordeones.map((a) => a.open)).toEqual([true, false, false, false]);
+      expect(acordeones.map((a) => a.open)).toEqual([true, false, false]);
+    });
+
+    /**
+     * Entrada y salida son las dos mitades del mismo dato. En acordeones
+     * separados había que abrir el de abajo para saber la otra mitad, y salía
+     * plegado.
+     */
+    it('debería enseñar la entrada y la salida en la misma tarjeta', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const tarjetas: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('details.policy-acc'));
+      const conHoras = tarjetas.filter((t) => t.textContent?.includes('10:00') || t.textContent?.includes('19:00'));
+
+      expect(conHoras).toHaveLength(1);
+      expect(conHoras[0].textContent).toContain('Entrada');
+      expect(conHoras[0].textContent).toContain('Salida');
     });
   });
 
@@ -520,7 +537,7 @@ describe('AlojamientoDetalleComponent', () => {
     });
   });
   /**
-   * La fila de miniaturas tiene cuatro huecos fijos, igual que en el resto de
+   * La fila de miniaturas tiene seis huecos fijos, igual que en el resto de
    * fichas. Al generarlas a partir del contenido, un alojamiento con dos fotos
    * sacaba dos miniaturas de media pantalla cada una.
    */
@@ -539,26 +556,26 @@ describe('AlojamientoDetalleComponent', () => {
       expect(component.fotosOcultas()).toBe(0);
     });
 
-    it('deberia llenar los cuatro huecos justos', () => {
-      conFotos(4);
+    it('deberia llenar los seis huecos justos', () => {
+      conFotos(6);
 
-      expect(component.miniaturas()).toHaveLength(4);
+      expect(component.miniaturas()).toHaveLength(6);
       expect(component.fotosOcultas()).toBe(0);
     });
 
     it('deberia dejar el ultimo hueco a la tarjeta de mas fotos', () => {
-      // Tres miniaturas + la tarjeta: cuatro huecos, no cinco. Con una quinta
-      // columna todas las miniaturas encogian.
+      // Cinco miniaturas + la tarjeta: seis huecos, no siete. Con una columna
+      // de mas todas las miniaturas encogian.
       conFotos(9);
 
-      expect(component.miniaturas()).toHaveLength(3);
-      expect(component.fotosOcultas()).toBe(6);
+      expect(component.miniaturas()).toHaveLength(5);
+      expect(component.fotosOcultas()).toBe(4);
     });
 
     it('deberia abrir la galeria por la primera foto que no se ve', () => {
       conFotos(9);
 
-      expect(component.primeraFotoOculta()).toBe('f4.jpg');
+      expect(component.primeraFotoOculta()).toBe('f6.jpg');
     });
 
     it('no deberia romperse sin alojamiento cargado', () => {
@@ -567,6 +584,61 @@ describe('AlojamientoDetalleComponent', () => {
       expect(component.miniaturas()).toEqual([]);
       expect(component.fotosOcultas()).toBe(0);
       expect(component.primeraFotoOculta()).toBe('');
+    });
+  });
+
+  /**
+   * El mosaico de la cabecera: una foto grande y dos apiladas al costado, como
+   * en Booking. Con una sola panorámica arriba se enseñaba una foto de siete.
+   */
+  describe('mosaico de la galeria', () => {
+    const conFotos = (n: number) => {
+      component.alojamiento.set({
+        ...detalleMock,
+        imagenes: Array.from({ length: n }, (_, i) => `f${i + 1}.jpg`),
+      } as never);
+    };
+
+    it('deberia acompañar la grande con las dos siguientes', () => {
+      conFotos(5);
+      component.imagenActiva.set('f1.jpg');
+
+      expect(component.secundarias()).toEqual(['f2.jpg', 'f3.jpg']);
+    });
+
+    it('deberia seguir la foto que el visitante eligio', () => {
+      conFotos(5);
+      component.imagenActiva.set('f3.jpg');
+
+      expect(component.secundarias()).toEqual(['f4.jpg', 'f5.jpg']);
+    });
+
+    it('deberia dar la vuelta al llegar al final, para no dejar el costado a medias', () => {
+      conFotos(4);
+      component.imagenActiva.set('f4.jpg');
+
+      expect(component.secundarias()).toEqual(['f1.jpg', 'f2.jpg']);
+    });
+
+    it('no deberia repetir la foto grande cuando solo hay dos', () => {
+      conFotos(2);
+      component.imagenActiva.set('f1.jpg');
+
+      expect(component.secundarias()).toEqual(['f2.jpg']);
+    });
+
+    it('deberia dejar la grande sola con una unica foto', () => {
+      // Sin columna que enseñar, la foto ocupa todo el ancho.
+      conFotos(1);
+      component.imagenActiva.set('f1.jpg');
+
+      expect(component.secundarias()).toEqual([]);
+    });
+
+    it('no deberia romperse sin alojamiento cargado', () => {
+      component.alojamiento.set(null);
+
+      expect(component.secundarias()).toEqual([]);
     });
   });
 });
