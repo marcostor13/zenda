@@ -75,14 +75,22 @@ const SECUNDARIAS_VISIBLES = 2;
     <!-- GALERÍA -->
     <div class="gallery rs-wrap">
       <div class="gallery__hero" [class.gallery__hero--solo]="!secundarias().length">
-        <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
-          <img [src]="imagenActiva()" [alt]="alojamiento()!.nombre" rsImg />
+        <div class="gallery__foto gallery__main" (click)="abrirLightbox(imagenActiva())">
+          <!--
+            El bucle sobre una sola foto es lo que hace el fundido: al cambiar
+            la imagen activa cambia la clave de seguimiento, Angular recrea el
+            <img> y la animación de entrada vuelve a arrancar. Con un [src]
+            atado a un nodo fijo, la foto se sustituye de golpe.
+          -->
+          @for (img of [imagenActiva()]; track img) {
+            <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
+          }
           <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ alojamiento()!.imagenes.length }} fotografías</span>
         </div>
         @if (secundarias().length) {
           <div class="gallery__side">
             @for (img of secundarias(); track img) {
-              <div class="gallery__side-foto" (click)="imagenActiva.set(img)">
+              <div class="gallery__foto gallery__side-foto" (click)="imagenActiva.set(img)">
                 <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
               </div>
             }
@@ -549,20 +557,35 @@ const SECUNDARIAS_VISIBLES = 2;
     */
     .gallery { margin-bottom: var(--sp-12); }
 
+    /*
+      La altura del mosaico la manda el contenedor, nunca la foto.
+
+      Las fotos van fuera del flujo ("position: absolute") y las casillas llevan
+      "min-height: 0": un elemento de rejilla arranca en "min-height: auto", así
+      que la altura natural de la imagen contaba como mínimo de la fila y se
+      comía el "aspect-ratio". Se notaba en dos sitios: el bloque salía mucho
+      más alto de lo pedido, y al pulsar una miniatura la ficha daba un salto,
+      porque cada foto tiene su propio alto natural.
+    */
     .gallery__hero {
       display: grid;
       grid-template-columns: 2fr 1fr;
       gap: var(--sp-2);
       aspect-ratio: 21 / 9;
+      /* En pantallas anchas un 21:9 se comía media pantalla antes del titular. */
+      max-height: 400px;
 
       /* Sin fotos de sobra la grande ocupa todo, en vez de dejar un hueco. */
       &.gallery__hero--solo { grid-template-columns: 1fr; }
+
+      > * { min-width: 0; min-height: 0; }
 
       /* En móvil un 21:9 deja la foto en una tira: se le da más alto y las
          secundarias se ceden a la fila de miniaturas, que ya están ahí. */
       @media (max-width: 768px) {
         grid-template-columns: 1fr;
         aspect-ratio: 3 / 2;
+        max-height: 300px;
         .gallery__side { display: none; }
       }
     }
@@ -573,25 +596,32 @@ const SECUNDARIAS_VISIBLES = 2;
       display: grid;
       grid-auto-rows: minmax(0, 1fr);
       gap: var(--sp-2);
-    }
-    .gallery__side-foto {
-      position: relative;
-      height: 100%;
-      border-radius: var(--r-lg);
-      overflow: hidden;
-      cursor: pointer;
-      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-2); }
-      &:hover img { transform: scale(1.04); }
+      > * { min-height: 0; }
     }
 
-    .gallery__main {
+    .gallery__foto {
       position: relative;
-      height: 100%;
-      border-radius: var(--r-xl);
       overflow: hidden;
       cursor: pointer;
-      img { width: 100%; height: 100%; object-fit: cover; }
+
+      img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* Cada foto entra con un fundido; el nodo se recrea al cambiar. */
+        animation: fadeFoto var(--d-3) both;
+      }
     }
+    .gallery__side-foto {
+      border-radius: var(--r-lg);
+      img { transition: transform var(--d-2); }
+      &:hover img { transform: scale(1.04); }
+    }
+    .gallery__main { border-radius: var(--r-xl); }
+
+    @keyframes fadeFoto { from { opacity: 0; } to { opacity: 1; } }
     .gallery__contador {
       position: absolute;
       right: var(--sp-3);
@@ -663,14 +693,19 @@ const SECUNDARIAS_VISIBLES = 2;
     }
 
     .gallery__thumb {
+      position: relative;
       aspect-ratio: 16 / 10;
+      /* Con seis columnas anchas la miniatura crecía a más de 100px de alto. */
+      max-height: 84px;
       border-radius: var(--r-md);
       overflow: hidden;
       cursor: pointer;
       opacity: .65;
       transition: opacity var(--d-2);
 
-      img { width: 100%; height: 100%; object-fit: cover; }
+      /* Fuera del flujo, como en el mosaico: si no, el alto natural de la foto
+         estiraba la fila entera. */
+      img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
       &.active, &:hover { opacity: 1; }
     }
     .gallery__thumb--more {

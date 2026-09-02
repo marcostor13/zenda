@@ -242,8 +242,15 @@ const CONFIGS: Record<string, DetalleConfig> = {
     <!-- GALERÍA -->
     <div class="gallery">
       <div class="gallery__hero" [class.gallery__hero--solo]="!secundarias().length">
-        <div class="gallery__main" (click)="abrirLightbox(imagenActiva())">
-          <img [src]="imagenActiva()" [alt]="s.nombre" rsImg />
+        <div class="gallery__foto gallery__main" (click)="abrirLightbox(imagenActiva())">
+          <!--
+            El bucle sobre una sola foto es lo que hace el fundido: al cambiar
+            la imagen activa cambia la clave de seguimiento, Angular recrea el
+            <img> y la animación de entrada vuelve a arrancar.
+          -->
+          @for (img of [imagenActiva()]; track img) {
+            <img [src]="img" [alt]="s.nombre" rsImg />
+          }
           @if (s.imagenes.length) {
             <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ s.imagenes.length }} fotografías</span>
           }
@@ -251,7 +258,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
         @if (secundarias().length) {
           <div class="gallery__side">
             @for (img of secundarias(); track img) {
-              <div class="gallery__side-foto" (click)="imagenActiva.set(img)">
+              <div class="gallery__foto gallery__side-foto" (click)="imagenActiva.set(img)">
                 <img [src]="img" [alt]="s.nombre" rsImg />
               </div>
             }
@@ -445,27 +452,45 @@ const CONFIGS: Record<string, DetalleConfig> = {
       una sola panorámica arriba, la ficha enseñaba una imagen de siete y el
       resto quedaba en miniaturas del tamaño de un sello.
     */
+    /*
+      La altura la manda el contenedor, nunca la foto: las imágenes van fuera
+      del flujo y las casillas llevan "min-height: 0", porque un elemento de
+      rejilla arranca en "min-height: auto" y el alto natural de la foto se
+      comía el "aspect-ratio" —el bloque salía altísimo y daba un salto al
+      cambiar de imagen, que cada foto trae su propio alto.
+    */
     .gallery { margin-bottom: var(--sp-12); }
     .gallery__hero {
       display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-2); aspect-ratio: 21/9;
+      max-height: 400px;
       &.gallery__hero--solo { grid-template-columns: 1fr; }
+      > * { min-width: 0; min-height: 0; }
       /* En móvil las secundarias se ceden a la fila de miniaturas. */
       @media (max-width: 768px) {
-        grid-template-columns: 1fr; aspect-ratio: 3/2;
+        grid-template-columns: 1fr; aspect-ratio: 3/2; max-height: 300px;
         .gallery__side { display: none; }
       }
     }
     /* Filas automáticas: con una sola foto de costado llenaría media columna. */
-    .gallery__side { display: grid; grid-auto-rows: minmax(0, 1fr); gap: var(--sp-2); }
+    .gallery__side {
+      display: grid; grid-auto-rows: minmax(0, 1fr); gap: var(--sp-2);
+      > * { min-height: 0; }
+    }
+    .gallery__foto {
+      position: relative; overflow: hidden; cursor: pointer;
+      img {
+        position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+        /* Cada foto entra con un fundido; el nodo se recrea al cambiar. */
+        animation: fadeFoto var(--d-3) both;
+      }
+    }
     .gallery__side-foto {
-      height: 100%; border-radius: var(--r-lg); overflow: hidden; cursor: pointer;
-      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-2); }
+      border-radius: var(--r-lg);
+      img { transition: transform var(--d-2); }
       &:hover img { transform: scale(1.04); }
     }
-    .gallery__main {
-      position: relative; height: 100%; border-radius: var(--r-xl); overflow: hidden; cursor: pointer;
-      img { width: 100%; height: 100%; object-fit: cover; }
-    }
+    .gallery__main { border-radius: var(--r-xl); }
+    @keyframes fadeFoto { from { opacity: 0; } to { opacity: 1; } }
     .gallery__contador {
       position: absolute; right: var(--sp-3); bottom: var(--sp-3);
       background: rgba(0,0,0,.6); color: #fff; font-size: var(--f-xs); font-weight: var(--w-6);
@@ -511,8 +536,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
       @media (max-width: 768px) { grid-template-columns: repeat(4, 1fr); }
     }
     .gallery__thumb {
-      aspect-ratio: 16/10; border-radius: var(--r-md); overflow: hidden; cursor: pointer; opacity: .65; transition: opacity var(--d-2);
-      img { width: 100%; height: 100%; object-fit: cover; }
+      position: relative;
+      aspect-ratio: 16/10; max-height: 84px;
+      border-radius: var(--r-md); overflow: hidden; cursor: pointer; opacity: .65; transition: opacity var(--d-2);
+      /* Fuera del flujo: si no, el alto natural de la foto estira la fila. */
+      img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
       &.active, &:hover { opacity: 1; }
     }
 
