@@ -32,7 +32,7 @@ describe('verticales.config', () => {
     expect(seguros.reservaPorNoches).toBe(false);
   });
 
-  it('debería incluir Servicios funerarios como vertical', () => {
+  it('debería incluir Crematorios como vertical', () => {
     // Sustituye a "Paseadores y cuidado a domicilio" (2026-09-01), que se
     // retiró del catálogo: ni la clave ni la ruta de aquél deben sobrevivir.
     const funerarios = verticalUi(VerticalKey.FUNERARIOS);

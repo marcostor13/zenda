@@ -23,5 +23,5 @@ export const VERTICAL_LABELS: Record<VerticalKey, string> = {
   [VerticalKey.ADIESTRAMIENTO]: 'Adiestramiento canino',
   [VerticalKey.HOTELES]: 'Hoteles pet-friendly',
   [VerticalKey.SEGUROS]: 'Seguros para mascotas',
-  [VerticalKey.FUNERARIOS]: 'Servicios funerarios',
+  [VerticalKey.FUNERARIOS]: 'Crematorios',
 };

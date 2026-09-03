@@ -174,7 +174,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
       const servicios = (c.extra['serviciosFunerarios'] as Array<{ nombre?: string; activo?: boolean }> | undefined) ?? [];
       const nombres = servicios.filter((s) => s.activo !== false).map((s) => s.nombre).filter(Boolean);
       return [
-        nombres.slice(0, 3).join(' · ') || 'Servicios funerarios',
+        nombres.slice(0, 3).join(' · ') || 'Crematorios',
         c.extra['ofreceRecogida'] ? `Recogida hasta ${(c.extra['radioRecogidaKm'] as number) ?? 0} km` : 'Sin recogida',
       ];
     },

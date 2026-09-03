@@ -62,7 +62,7 @@ describe('ProximamenteComponent', () => {
       'Transporte',
       'Adiestradores',
       'Seguros',
-      'Servicios funerarios',
+      'Crematorios',
       'Explora con tu mascota',
     ]);
   });

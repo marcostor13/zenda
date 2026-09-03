@@ -65,8 +65,10 @@ export interface VerticalUi {
  * Orden de aparición en el menú, en el buscador y en la portada.
  *
  * Alojamiento canino abre la lista: es la categoría con la que arrancó el
- * marketplace y la que más se busca. Ninguna vista mantiene su propio orden,
- * así que cambiarlo aquí lo cambia en los cuatro sitios a la vez.
+ * marketplace y la que más se busca. Detrás van seguros, peluquería y
+ * veterinarios, que son las que el negocio quiere empujar primero; el resto
+ * sigue en su orden anterior. Ninguna vista mantiene su propio orden, así que
+ * cambiarlo aquí lo cambia en los cuatro sitios a la vez.
  */
 export const VERTICALES_UI: readonly VerticalUi[] = [
   {
@@ -92,26 +94,25 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     },
   },
   {
-    key: VerticalKey.VETERINARIA,
-    label: VERTICAL_LABELS[VerticalKey.VETERINARIA],
-    labelCorto: 'Veterinarios',
-    route: '/veterinaria',
-    icono: CATEGORIA_ICONOS['veterinaria'],
-    icon: 'stethoscope',
-    claim: 'Cuida su salud con veterinarios de confianza.',
-    // No se nombran cirugía ni dermatología: Doogking no intermedia esos
-    // servicios (regla de negocio, ver plan unificado §2.2).
-    descripcion: 'Clínicas verificadas: consulta, vacunación, urgencias 24 h, higiene dental y teleconsulta.',
-    titular: 'Veterinarios de confianza',
-    subtitular: 'Clínicas veterinarias para tu mascota: vacunación, citas, urgencias 24 h y más.',
+    key: VerticalKey.SEGUROS,
+    label: VERTICAL_LABELS[VerticalKey.SEGUROS],
+    labelCorto: 'Seguros',
+    route: '/seguros',
+    icono: CATEGORIA_ICONOS['seguros'],
+    icon: 'shield-check',
+    claim: 'Protege a quien más quieres frente a cualquier imprevisto.',
+    descripcion: 'Pólizas para tu mascota: responsabilidad civil, gastos veterinarios y asistencia.',
+    titular: 'Protege a tu rey',
+    subtitular: 'La tranquilidad de saber que, pase lo que pase, está cubierto.',
+    // No se reserva por fechas: se contrata cuando el perro cumple las
+    // condiciones de admisión de la póliza.
     reservaPorNoches: false,
-    pideHora: true,
-    labelUbicacion: '¿Dónde buscas el servicio?',
-    placeholderUbicacion: 'Ciudad de la clínica',
-    labelFecha: 'Fecha de la cita',
+    labelUbicacion: '¿Dónde resides?',
+    placeholderUbicacion: 'Ciudad de residencia',
+    labelFecha: 'Inicio de la cobertura',
     reclamo: {
-      titulo: 'Cuidar su salud es cuidar su felicidad',
-      texto: 'Encuentra clínicas y veterinarios certificados con atención profesional, cercana y de confianza para tu mejor amigo.',
+      titulo: 'Tranquilidad para lo que no se puede prever',
+      texto: 'Compara pólizas para tu mascota y protégela frente a imprevistos veterinarios y de responsabilidad civil.',
     },
   },
   {
@@ -133,6 +134,29 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     reclamo: {
       titulo: 'Bienestar y belleza para tu mejor amigo',
       texto: 'Reserva con peluquerías caninas profesionales para mantener a tu perro limpio, cómodo y con el mejor estilo.',
+    },
+  },
+  {
+    key: VerticalKey.VETERINARIA,
+    label: VERTICAL_LABELS[VerticalKey.VETERINARIA],
+    labelCorto: 'Veterinarios',
+    route: '/veterinaria',
+    icono: CATEGORIA_ICONOS['veterinaria'],
+    icon: 'stethoscope',
+    claim: 'Cuida su salud con veterinarios de confianza.',
+    // No se nombran cirugía ni dermatología: Doogking no intermedia esos
+    // servicios (regla de negocio, ver plan unificado §2.2).
+    descripcion: 'Clínicas verificadas: consulta, vacunación, urgencias 24 h, higiene dental y teleconsulta.',
+    titular: 'Veterinarios de confianza',
+    subtitular: 'Clínicas veterinarias para tu mascota: vacunación, citas, urgencias 24 h y más.',
+    reservaPorNoches: false,
+    pideHora: true,
+    labelUbicacion: '¿Dónde buscas el servicio?',
+    placeholderUbicacion: 'Ciudad de la clínica',
+    labelFecha: 'Fecha de la cita',
+    reclamo: {
+      titulo: 'Cuidar su salud es cuidar su felicidad',
+      texto: 'Encuentra clínicas y veterinarios certificados con atención profesional, cercana y de confianza para tu mejor amigo.',
     },
   },
   {
@@ -197,31 +221,9 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     },
   },
   {
-    key: VerticalKey.SEGUROS,
-    label: VERTICAL_LABELS[VerticalKey.SEGUROS],
-    labelCorto: 'Seguros',
-    route: '/seguros',
-    icono: CATEGORIA_ICONOS['seguros'],
-    icon: 'shield-check',
-    claim: 'Protege a quien más quieres frente a cualquier imprevisto.',
-    descripcion: 'Pólizas para tu mascota: responsabilidad civil, gastos veterinarios y asistencia.',
-    titular: 'Protege a tu rey',
-    subtitular: 'La tranquilidad de saber que, pase lo que pase, está cubierto.',
-    // No se reserva por fechas: se contrata cuando el perro cumple las
-    // condiciones de admisión de la póliza.
-    reservaPorNoches: false,
-    labelUbicacion: '¿Dónde resides?',
-    placeholderUbicacion: 'Ciudad de residencia',
-    labelFecha: 'Inicio de la cobertura',
-    reclamo: {
-      titulo: 'Tranquilidad para lo que no se puede prever',
-      texto: 'Compara pólizas para tu mascota y protégela frente a imprevistos veterinarios y de responsabilidad civil.',
-    },
-  },
-  {
     key: VerticalKey.FUNERARIOS,
     label: VERTICAL_LABELS[VerticalKey.FUNERARIOS],
-    labelCorto: 'Funerarios',
+    labelCorto: 'Crematorios',
     route: '/funerarios',
     icono: CATEGORIA_ICONOS['funerarios'],
     icon: 'heart',

@@ -31,13 +31,14 @@ describe('HomeComponent', () => {
     const keys = component.verticales.map((v) => v.key);
     expect(keys).toEqual([
       // Alojamiento abre la lista: es con lo que arrancó el marketplace.
+      // Seguros, peluquería y veterinarios van detrás por prioridad comercial.
       VerticalKey.ALOJAMIENTO,
-      VerticalKey.VETERINARIA,
+      VerticalKey.SEGUROS,
       VerticalKey.PELUQUERIA,
+      VerticalKey.VETERINARIA,
       VerticalKey.TRANSPORTE,
       VerticalKey.ADIESTRAMIENTO,
       VerticalKey.HOTELES,
-      VerticalKey.SEGUROS,
       VerticalKey.FUNERARIOS,
     ]);
   });
@@ -87,12 +88,12 @@ describe('HomeComponent', () => {
     const rutas = component.verticales.map((v) => v.route);
     expect(rutas).toEqual([
       '/alojamiento',
-      '/veterinaria',
+      '/seguros',
       '/peluqueria',
+      '/veterinaria',
       '/transporte',
       '/adiestramiento',
       '/hoteles',
-      '/seguros',
       '/funerarios',
     ]);
   });
@@ -206,12 +207,12 @@ describe('HomeComponent', () => {
     const iconos = component.verticales.map((v) => v.icono);
     expect(iconos).toEqual([
       '/icons/alojamiento.svg',
-      '/icons/veterinaria.svg',
+      '/icons/seguros.svg',
       '/icons/peluqueria.svg',
+      '/icons/veterinaria.svg',
       '/icons/transporte.svg',
       '/icons/adiestramiento.svg',
       '/icons/hoteles.svg',
-      '/icons/seguros.svg',
       '/icons/funerarios.svg',
     ]);
   });
