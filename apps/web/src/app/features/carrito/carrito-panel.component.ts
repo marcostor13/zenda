@@ -107,6 +107,13 @@ interface GrupoComercio {
       background: var(--c-card);
       box-shadow: var(--sh-xl);
       animation: cp-in .18s ease both;
+      /* El cajón ocupa la pantalla entera de arriba abajo, así que en la app
+         su cabecera cae bajo el reloj y la cámara, y el pie bajo el indicador
+         de inicio del iPhone. El relleno va en el contenedor y no en la
+         cabecera para que el fondo siga llegando a los bordes. En el navegador
+         env() es 0 y no cambia nada. */
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
     @keyframes cp-in { from { transform: translateX(100%); } to { transform: none; } }
     @media (prefers-reduced-motion: reduce) { .cp { animation: none; } }

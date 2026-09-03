@@ -136,7 +136,12 @@
   /* Alto de la navbar pegajosa. El buscador de los listados se pegaba tambien
      a `top: 0` y, con menos z-index, sus primeros 64 px desaparecian debajo:
      la fila de categorias no se veia en cuanto se hacia scroll. */
-  --dk-navbar-h: 64px;
+  /* Alto de la navbar, hueco del sistema incluido. En el navegador
+     `env(safe-area-inset-top)` es 0 y esto vale 64px; dentro de la app crece lo
+     que ocupen la barra de estado y la cámara. Lo usan la cabecera pegajosa de
+     los listados y el `scroll-margin` de las anclas, que deben moverse con la
+     barra. */
+  --dk-navbar-h: calc(64px + env(safe-area-inset-top, 0px));
 
   /* Alto total de la cabecera fija de un listado (navbar + buscador). Los tres
      listados lo repetian a mano como `top: 140px` cuando el valor real es 256,
@@ -202,6 +207,80 @@ body {
 
 /* Con el panel de filtros abierto el fondo no debe rodar detras. */
 body.rs-sin-scroll { overflow: hidden; }
+
+/* ── 2b. APP NATIVA ────────────────────────────────────────────────
+   Sólo dentro del envoltorio Android/iOS: `MovilService` pone la clase
+   `dk-nativo` en <html> al arrancar. En el navegador nada de esto se aplica,
+   porque en la web estos comportamientos sí son los correctos.
+
+   Son los detalles por los que una web metida en un WebView se nota que es una
+   web: el rebote elástico al llegar al final del scroll, el destello azul al
+   tocar un botón, y el menú de "copiar/compartir" al mantener pulsado
+   cualquier texto. Ninguna app nativa hace eso.
+   ──────────────────────────────────────────────────────────────── */
+.dk-nativo {
+  /* Corta el rebote elástico y el "tirar para recargar" del WebView: la app no
+     tiene nada que recargar y el gesto sólo despega el contenido de la pantalla. */
+  overscroll-behavior-y: none;
+
+  /* El doble toque para hacer zoom introduce ~300 ms de espera antes de
+     disparar el click. `manipulation` lo quita y conserva el zoom de pellizco,
+     que es el que de verdad necesita quien tiene problemas de vista. */
+  touch-action: manipulation;
+
+  /* El rectángulo azul translúcido al tocar es de navegador. El estado
+     :active de cada componente ya da la respuesta táctil. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dk-nativo body {
+  overscroll-behavior-y: none;
+
+  /* Mantener pulsado no debe sacar la lupa de selección de texto ni el menú de
+     copiar. Se reactiva abajo donde el usuario sí querría copiar algo. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Excepciones: los datos que alguien copia de verdad —el código de reserva, un
+   importe, una dirección, un teléfono— y todo lo que se escribe. */
+.dk-nativo input,
+.dk-nativo textarea,
+.dk-nativo [contenteditable],
+.dk-nativo .rs-seleccionable {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/*
+ * En iOS, enfocar un campo con `font-size` menor de 16px hace que Safari amplíe
+ * la página entera y no la devuelva a su sitio al salir. Es la causa habitual
+ * de "el formulario se descoloca al escribir".
+ */
+.dk-nativo input,
+.dk-nativo select,
+.dk-nativo textarea { font-size: max(16px, 1em); }
+
+/*
+ * Hueco para la barra inferior. Sin esto, el último elemento de cualquier
+ * listado —y el botón de "Reservar" de las fichas— queda tapado por la barra y
+ * no hay forma de llegar a él por mucho que se baje.
+ *
+ * Se aplica al <body> y no a cada pantalla para que valga también para las que
+ * se añadan después. Las pantallas que ya reservan sitio para su propia barra
+ * fija (ficha de alojamiento, wizard de reserva) lo suman a esto, que es lo
+ * correcto: ahí hay dos barras superpuestas.
+ */
+.dk-con-nav-inferior body { padding-bottom: var(--dk-nav-inferior-h); }
+
+.dk-nativo {
+  /* Alto de la barra (48px de objetivo táctil + relleno) más el indicador de
+     inicio del iPhone. Es un token para que las pantallas con barra propia
+     puedan apilarse encima sin repetir el cálculo. */
+  --dk-nav-inferior-h: calc(58px + env(safe-area-inset-bottom, 0px));
+}
 
 img, video, svg { display: block; max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -353,7 +432,21 @@ h1, h2, h3, h4, h5, h6 {
   position: sticky;
   top: 0;
   z-index: var(--z-3);
-  height: 64px;
+  /*
+   * El relleno superior es la barra de estado y el recorte de la cámara.
+   *
+   * Hace falta porque la app se dibuja de borde a borde: en iOS por
+   * `viewport-fit=cover`, y en Android porque desde la 15 (API 35) el sistema
+   * lo impone a toda app que apunte a ese SDK — y aquí `targetSdk` es 36. Sin
+   * este hueco la barra empieza en el píxel 0 y el logo y los iconos quedan
+   * debajo del reloj y de la cámara.
+   *
+   * Con `box-sizing: border-box` (reset global), el contenido se sigue
+   * centrando en los 64px de siempre; sólo se añade el hueco por arriba. En el
+   * navegador `env()` vale 0 y la barra queda exactamente como estaba.
+   */
+  padding-top: env(safe-area-inset-top, 0px);
+  height: var(--dk-navbar-h);
   display: flex;
   align-items: center;
   padding-inline: var(--sp-8);

@@ -49,6 +49,8 @@ const cuenta: Diccionario = {
   'Configuración': 'Settings',
   'Confirmar nueva contraseña *': 'Confirm new password *',
   'Continuar': 'Continue',
+  '/noche': '/night',
+  'Continuar con Google': 'Continue with Google',
   'Continuar con Meta': 'Continue with Meta',
   'Contraseña': 'Password',
   'Contraseña actual *': 'Current password *',

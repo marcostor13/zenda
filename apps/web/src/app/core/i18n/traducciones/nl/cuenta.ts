@@ -49,6 +49,8 @@ const cuenta: Diccionario = {
   'Configuración': 'Instellingen',
   'Confirmar nueva contraseña *': 'Nieuw wachtwoord bevestigen *',
   'Continuar': 'Doorgaan',
+  '/noche': '/nacht',
+  'Continuar con Google': 'Doorgaan met Google',
   'Continuar con Meta': 'Doorgaan met Meta',
   'Contraseña': 'Wachtwoord',
   'Contraseña actual *': 'Huidig wachtwoord *',

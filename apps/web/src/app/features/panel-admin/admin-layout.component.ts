@@ -112,8 +112,51 @@ const NAV_SECTIONS = [
       height: calc(100vh - 64px);
       overflow-y: auto;
     }
+    /*
+     * Mismo problema y misma solución que en el panel de comercio: este aside
+     * es la única vía a las 18 secciones del panel, y ocultarlo por debajo de
+     * 1024px dejaba al administrador encerrado en el dashboard, sin poder
+     * llegar a comercios, reservas, comisiones ni ajustes.
+     *
+     * Pasa a ser una tira horizontal desplazable. Los títulos de sección se
+     * quitan: en una sola fila no agrupan nada y sólo gastan ancho.
+     */
     @media (max-width: 1024px) {
-      .admin-sidebar { display: none; }
+      .admin-sidebar {
+        position: sticky;
+        top: var(--dk-navbar-h);
+        z-index: var(--z-2, 20);
+        height: auto;
+        overflow: visible;
+        padding: var(--sp-2) var(--sp-3);
+        border-right: none;
+        border-bottom: 1px solid var(--b-1);
+      }
+
+      .admin-sidebar__title,
+      .nav-section__title { display: none; }
+
+      .admin-sidebar nav {
+        display: flex;
+        gap: var(--sp-2);
+        overflow-x: auto;
+        scrollbar-width: none;
+        &::-webkit-scrollbar { display: none; }
+      }
+
+      .nav-section {
+        display: flex;
+        gap: var(--sp-2);
+        margin-bottom: 0;
+      }
+
+      .admin-nav-item {
+        flex-shrink: 0;
+        padding: var(--sp-2) var(--sp-3);
+        border-radius: var(--r-full);
+        background: var(--c-raised);
+        white-space: nowrap;
+      }
     }
 
     .admin-sidebar__title {

@@ -153,14 +153,14 @@ const ESTADO_BADGE: Record<string, string> = {
             <tbody>
               @for (r of reservasRecientes(); track r._id) {
                 <tr>
-                  <td><code>{{ r.codigo }}</code></td>
-                  <td class="vertical-cell">
+                  <td [attr.data-col]="'Código' | t"><code>{{ r.codigo }}</code></td>
+                  <td class="vertical-cell" [attr.data-col]="'Vertical' | t">
                     <rs-icon [name]="iconVertical(r.vertical)" [size]="14" [stroke]="2"></rs-icon>
                     {{ r.vertical }}
                   </td>
-                  <td>{{ r.fechaInicio | date:'d MMM yy' }}</td>
-                  <td>{{ r.montoTotal | euros:'1.0-0' }}</td>
-                  <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
+                  <td [attr.data-col]="'Fecha' | t">{{ r.fechaInicio | date:'d MMM yy' }}</td>
+                  <td [attr.data-col]="'Total' | t">{{ r.montoTotal | euros:'1.0-0' }}</td>
+                  <td [attr.data-col]="'Estado' | t"><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
                 </tr>
               }
             </tbody>
@@ -279,6 +279,50 @@ const ESTADO_BADGE: Record<string, string> = {
     .kpi-card__trend { font-size: var(--f-xs); color: var(--t-400); &.up { color: var(--c-teal); } }
 
     .dashboard-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--sp-5); @media (max-width:1024px) { grid-template-columns: 1fr; } }
+
+    /*
+     * Móvil: cinco columnas no caben en 360px. La tabla se convierte en una
+     * tarjeta por reserva, con cada dato junto a su etiqueta — es el mismo
+     * patrón que ya usan las tablas del panel de administración.
+     */
+    @media (max-width: 768px) {
+      .rs-table thead { display: none; }
+      .rs-table, .rs-table tbody, .rs-table tr, .rs-table td { display: block; width: 100%; }
+
+      .rs-table tr {
+        padding: var(--sp-2) 0;
+        border-bottom: 6px solid var(--c-base);
+        &:last-child { border-bottom: none; }
+      }
+
+      .rs-table td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        padding: var(--sp-2) var(--sp-3);
+        border-bottom: none;
+      }
+
+      .rs-table td::before {
+        content: attr(data-col);
+        flex: 0 0 auto;
+        font-family: var(--font-accent);
+        font-size: var(--f-xs);
+        font-weight: var(--w-7);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--t-400);
+      }
+    }
+
+    /* El nombre del listado se queda con el ancho que sobre; sin esto, un
+       título largo empujaba la columna de acciones fuera de la tarjeta. */
+    .listado-item > *:nth-child(2) { min-width: 0; }
+    @media (max-width: 480px) {
+      .listado-item { grid-template-columns: 40px 1fr; row-gap: var(--sp-2); }
+      .listado-item > *:last-child { grid-column: 2; }
+    }
     .dashboard-panel { padding: var(--sp-5); }
     .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-4); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
 

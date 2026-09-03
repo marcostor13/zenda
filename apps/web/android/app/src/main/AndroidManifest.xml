@@ -74,4 +74,62 @@
         hay forma de saber por qué no llegan.
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+        "Cerca de mí" del buscador (alojamiento y explora) llama a
+        `navigator.geolocation`. El WebView no puede concederlo por su cuenta:
+        sin estos permisos la llamada falla en silencio y el botón no hace nada.
+        Coarse basta para ordenar resultados por distancia; Fine se pide porque
+        Android exige declararlo para que Coarse ofrezca "ubicación precisa".
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!--
+        Subida de fotos (ficha de comercio, incidencias de reserva, seguros). El
+        selector del WebView ofrece "hacer foto", y sin CAMERA esa opción se
+        cierra sola al elegirla.
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!--
+        Lectura de la galería. Desde Android 13 el permiso de imágenes es
+        granular; en versiones anteriores sigue siendo READ_EXTERNAL_STORAGE, de
+        ahí el `maxSdkVersion` (declararlo sin tope lo rechaza Play).
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!--
+        La cámara es opcional: sin esto Play oculta la app en tablets y
+        dispositivos sin cámara, que pueden usarla perfectamente.
+    -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+
+    <!--
+        Android 11+ filtra qué otras apps se pueden ver. Sin declararlo, abrir
+        un enlace externo, el correo de soporte o el marcador desde la ficha de
+        un comercio no encuentra ninguna app y no ocurre nada.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <data android:mimeType="image/*" />
+        </intent>
+    </queries>
 </manifest>

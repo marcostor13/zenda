@@ -5,7 +5,24 @@
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
+	<string>es</string>
+	<!--
+		Idiomas que la app declara soportar. Sin esta lista iOS la considera
+		monolingüe en inglés: el App Store la muestra sólo como inglesa y
+		`Locale.preferredLanguages` nunca devuelve el idioma del usuario, así que
+		la app arrancaría siempre en el idioma equivocado.
+	-->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>es</string>
+		<string>en</string>
+		<string>fr</string>
+		<string>de</string>
+		<string>it</string>
+		<string>pt</string>
+		<string>nl</string>
+		<string>pl</string>
+	</array>
 	<key>CFBundleDisplayName</key>
         <string>Doogking</string>
 	<key>CFBundleExecutable</key>
@@ -49,7 +66,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
@@ -71,5 +88,44 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+
+	<!--
+		Textos de permiso. iOS no los trata como documentación: si la app pide
+		ubicación, cámara o galería y falta la clave correspondiente, el sistema
+		mata el proceso en el acto (no es un error recuperable). Cada texto dice
+		para qué se usa, que es lo que Apple revisa antes de aprobar.
+	-->
+
+	<!-- Botón "cerca de mí" del buscador (alojamiento y explora). -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Doogking usa tu ubicación para mostrarte los servicios para tu perro más cercanos.</string>
+
+	<!-- Selector de fotos del WebView: opción "hacer foto". -->
+	<key>NSCameraUsageDescription</key>
+	<string>Doogking necesita la cámara para que puedas hacer fotos de tu perro o de tu negocio y adjuntarlas.</string>
+
+	<!-- Selector de fotos del WebView: opción "fototeca". -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Doogking accede a tus fotos para que puedas subir imágenes de tu perro, de tu negocio o de una reserva.</string>
+
+	<!--
+		Sólo aplica al guardar (por ejemplo, descargar un comprobante de reserva
+		al carrete). Se declara aparte porque iOS pide un permiso distinto para
+		escribir que para leer.
+	-->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Doogking guarda en tus fotos los comprobantes y documentos de tus reservas.</string>
+
+	<!--
+		El WebView carga desde el propio paquete y llama al API por HTTPS, así
+		que no se abre ninguna excepción de transporte. Declararlo explícito
+		evita que un `cap sync` o un ajuste de Xcode reintroduzca
+		`NSAllowsArbitraryLoads`, que Apple exige justificar en la revisión.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
 </dict>
 </plist>

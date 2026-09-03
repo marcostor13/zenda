@@ -1,5 +1,23 @@
 apply plugin: 'com.android.application'
 
+/*
+ * Credenciales de firma. Viven fuera del repositorio (android/keystore.properties,
+ * ignorado por git) porque quien tenga el keystore y su contrasena puede publicar
+ * actualizaciones de la app en nombre de Doogking.
+ *
+ * Si el fichero no esta, el build sigue: `assembleDebug` funciona igual y
+ * `assembleRelease` cae a la firma de depuracion en vez de romperse. Se avisa
+ * por consola para que nadie suba a Play un APK firmado con la clave de debug,
+ * que Google rechaza.
+ */
+def ficheroFirma = rootProject.file('keystore.properties')
+def firma = new Properties()
+if (ficheroFirma.exists()) {
+    ficheroFirma.withInputStream { firma.load(it) }
+} else {
+    logger.warn('AVISO: no hay keystore.properties; el APK de release NO ira firmado para publicacion.')
+}
+
 android {
     namespace = "com.doogking.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +34,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (firma['storeFile']) {
+                storeFile rootProject.file(firma['storeFile'])
+                storePassword firma['storePassword']
+                keyAlias firma['keyAlias']
+                keyPassword firma['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Sin esto Gradle genera `app-release-unsigned.apk`, que ningun
+            // movil instala y Play no acepta.
+            if (firma['storeFile']) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

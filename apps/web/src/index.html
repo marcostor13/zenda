@@ -8,7 +8,19 @@
        del bundle (script clásico, se ejecuta al momento) para que la app ya la
        encuentre. Si falta, la web usa los valores compilados por defecto. -->
   <script src="env.js"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--
+    `viewport-fit=cover` lleva la web hasta los bordes físicos de la pantalla y
+    es lo único que hace que `env(safe-area-inset-*)` devuelva algo distinto de
+    cero en iOS. Sin él, las barras fijas de la app (el pie de reserva, la barra
+    inferior, el aviso de sin conexión) quedaban debajo del notch y del
+    indicador de inicio del iPhone, aunque el CSS ya las contemplaba.
+
+    No se bloquea el zoom (`user-scalable=no`): quien necesita ampliar para leer
+    debe poder hacerlo. El doble toque accidental se neutraliza en `styles.scss`
+    con `touch-action: manipulation`, que quita el zoom por doble toque y deja
+    intacto el de pellizco.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Doogking: reserva alojamiento canino, transporte de animales, veterinarios, peluquerías caninas y adiestramiento. Gestiona toda la vida de tu mascota desde un solo lugar.">
   <meta name="theme-color" content="#08258B">
   <!--

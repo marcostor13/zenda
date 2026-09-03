@@ -3,12 +3,13 @@ import { RouterOutlet } from '@angular/router';
 import { MovilService } from './core/movil/movil.service';
 import { ConexionApiService } from './core/diagnostico/conexion-api.service';
 import { TraducirPipe } from './core/i18n/traducir.pipe';
+import { RsNavInferiorComponent } from './shared/components/nav-inferior/rs-nav-inferior.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
-    TraducirPipe, RouterOutlet
+    TraducirPipe, RouterOutlet, RsNavInferiorComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -26,6 +27,8 @@ import { TraducirPipe } from './core/i18n/traducir.pipe';
   </div>
 }
 <router-outlet />
+<!-- Sólo se pinta dentro de la app instalada; en la web no existe. -->
+<rs-nav-inferior />
   `,
   styles: [`
     .sin-conexion {

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Capacidad de notificaciones push. Sin esta clave APNs rechaza el registro
+		del dispositivo, así que los handlers del AppDelegate nunca reciben token.
+		`development` vale para compilar y probar; Xcode la reemplaza por
+		`production` al archivar para el App Store.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+
+	<!--
+		Universal links. Es el equivalente iOS del intent-filter `autoVerify` que
+		ya tiene Android: un enlace a doogking.com abre la app en la pantalla
+		correspondiente en lugar de Safari.
+
+		Requiere publicar https://doogking.com/.well-known/apple-app-site-association
+		(JSON, servido como application/json, sin redirecciones) con el appID
+		"<TEAM_ID>.com.doogking.app". Mientras ese fichero no exista, iOS
+		simplemente abre el enlace en Safari: no rompe nada.
+	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:doogking.com</string>
+		<string>applinks:www.doogking.com</string>
+	</array>
+</dict>
+</plist>

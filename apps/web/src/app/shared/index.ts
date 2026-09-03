@@ -19,6 +19,7 @@ export { RsFavoritoBtnComponent } from './components/favorito-btn/rs-favorito-bt
 export { calcularBadgesAutomaticos } from './badges/badges-automaticos';
 export type { BadgeAutomatico, ServicioParaBadges } from './badges/badges-automaticos';
 export { RsNavbarComponent } from './components/navbar/rs-navbar.component';
+export { RsNavInferiorComponent } from './components/nav-inferior/rs-nav-inferior.component';
 export { RsIconComponent } from './components/icon/rs-icon.component';
 export { RsSocialIconComponent } from './components/social-icon/rs-social-icon.component';
 export type { RedSocialKey } from './components/social-icon/rs-social-icon.component';

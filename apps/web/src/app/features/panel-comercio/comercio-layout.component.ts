@@ -166,7 +166,55 @@ const NAV_ITEMS = [
       flex-direction: column;
       gap: var(--sp-2);
     }
-    @media (max-width: 1024px) { .cl-sidebar { display: none; } }
+    /*
+     * Por debajo de 1024px el panel deja de tener columna lateral, pero la
+     * navegación no puede desaparecer con ella: este aside es el único sitio
+     * desde el que se llega a reservas, listados, agenda, ingresos y ajustes.
+     * Ocultarlo dejaba el panel sin salida en móvil y en tablet — se veía el
+     * dashboard y no había forma de ir a ninguna otra sección.
+     *
+     * En lugar de esconderlo se convierte en una tira horizontal que se
+     * desplaza, encima del contenido. Es el mismo marcado: sólo cambia cómo
+     * fluye.
+     */
+    @media (max-width: 1024px) {
+      .cl-sidebar {
+        position: sticky;
+        top: var(--dk-navbar-h);
+        z-index: var(--z-2, 20);
+        height: auto;
+        overflow: visible;
+        flex-direction: row;
+        align-items: center;
+        gap: var(--sp-2);
+        padding: var(--sp-2) var(--sp-3);
+        border-right: none;
+        border-bottom: 1px solid var(--b-1);
+      }
+
+      /* La marca ya está en la navbar de arriba, y "volver al inicio" en su
+         menú: repetirlas aquí robaría el ancho que necesitan las secciones. */
+      .cl-brand,
+      .cl-sidebar__footer { display: none; }
+
+      .cl-nav {
+        flex-direction: row;
+        gap: var(--sp-2);
+        overflow-x: auto;
+        /* La barra de desplazamiento nativa taparía media fila de pastillas. */
+        scrollbar-width: none;
+        &::-webkit-scrollbar { display: none; }
+      }
+
+      .cl-nav__item {
+        flex-shrink: 0;
+        padding: var(--sp-2) var(--sp-3);
+        border-radius: var(--r-full);
+        background: var(--c-raised);
+        white-space: nowrap;
+      }
+      .cl-nav__item--active { background: var(--c-accent-lo); }
+    }
 
     .cl-brand {
       display: flex;

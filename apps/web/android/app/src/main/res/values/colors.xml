@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+        Colores base del tema. `styles.xml` los referencia desde `AppTheme`, así
+        que sin ellos el empaquetado de recursos falla y no se genera ningún APK.
+        Son los de la marca (ver §21.2 de CLAUDE.md), no los grises del andamiaje
+        de Capacitor.
+    -->
+    <color name="colorPrimary">#08258B</color>
+    <color name="colorPrimaryDark">#00135D</color>
+    <color name="colorAccent">#FBAE17</color>
+
+    <!-- Fondo de la splash: debe ser el mismo que `backgroundColor` en
+         capacitor.config.ts, o se ve un cambio de color al arrancar. -->
+    <color name="doogking_splash">#08258B</color>
+
     <!-- Tinte del icono de notificación en la barra de estado. -->
     <color name="doogking_notificacion">#FBAE17</color>
 </resources>

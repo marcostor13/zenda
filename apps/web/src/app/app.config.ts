@@ -6,6 +6,7 @@ import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { conexionInterceptor } from './core/interceptors/conexion.interceptor';
 import { idiomaInterceptor } from './core/interceptors/idioma.interceptor';
 import { I18nService } from './core/i18n/i18n.service';
+import { proveerLocaleAngular } from './core/i18n/locale-angular';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -18,6 +19,11 @@ export const appConfig: ApplicationConfig = {
      * arranque de la aplicación.
      */
     provideAppInitializer(() => inject(I18nService).iniciar()),
+    /*
+     * Fechas en el idioma del usuario. Sin esto Angular usa `en-US` y los
+     * `| date` escribían el mes en inglés dentro de una pantalla en español.
+     */
+    proveerLocaleAngular(),
     /**
      * Sin esto Angular deja el scroll donde estaba al cambiar de ruta: se
      * abria una ficha desde la mitad del listado y la ficha aparecia empezada

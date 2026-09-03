@@ -32,6 +32,10 @@ describe('SocialButtonsComponent', () => {
     sdk = {
       renderizarBotonGoogle: jest.fn(),
       loginFacebook: jest.fn(),
+      entrarConGoogleNativo: jest.fn(),
+      // Por defecto, navegador. Las pruebas de la app lo cambian antes de crear
+      // el componente, porque la bandera se lee al construirlo.
+      usaSdkNativo: false,
     } as unknown as jest.Mocked<SocialSdkService>;
     // Los client IDs los manda el API, no el environment: el componente no
     // dibuja nada hasta tenerlos.
@@ -283,5 +287,86 @@ describe('SocialButtonsComponent', () => {
     await component.entrarConFacebook();
 
     expect(component.error()).toContain('No se pudo iniciar sesión con Meta');
+  });
+});
+
+describe('SocialButtonsComponent dentro de la app', () => {
+  let authService: jest.Mocked<AuthService>;
+  let sdk: jest.Mocked<SocialSdkService>;
+
+  const montar = async () => {
+    await TestBed.configureTestingModule({
+      imports: [SocialButtonsComponent],
+      providers: [
+        { provide: AuthService, useValue: authService },
+        { provide: SocialSdkService, useValue: sdk },
+        {
+          provide: SocialConfigService,
+          useValue: {
+            cargar: jest.fn().mockResolvedValue({
+              googleClientId: 'client-web',
+              facebookAppId: '',
+            }),
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SocialButtonsComponent);
+    await fixture.componentInstance.ngAfterViewInit();
+    fixture.detectChanges();
+    return fixture;
+  };
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    authService = { loginConGoogle: jest.fn(), loginConFacebook: jest.fn() } as unknown as jest.Mocked<AuthService>;
+    sdk = {
+      renderizarBotonGoogle: jest.fn(),
+      loginFacebook: jest.fn(),
+      entrarConGoogleNativo: jest.fn(),
+      usaSdkNativo: true,
+    } as unknown as jest.Mocked<SocialSdkService>;
+  });
+
+  it('no debería intentar dibujar el botón web de Google, que no funciona en un WebView', async () => {
+    await montar();
+    expect(sdk.renderizarBotonGoogle).not.toHaveBeenCalled();
+  });
+
+  it('debería pintar su propio botón de Google', async () => {
+    const fixture = await montar();
+    expect(fixture.nativeElement.querySelector('.sb__google-nativo')).toBeTruthy();
+  });
+
+  it('debería iniciar sesión con el token que devuelve el SDK nativo', async () => {
+    sdk.entrarConGoogleNativo.mockResolvedValue('id-token-nativo');
+    const fixture = await montar();
+
+    await fixture.componentInstance.entrarConGoogleNativo();
+
+    // El cliente que se pasa es el de web, también en Android: es el `aud` que
+    // el API tiene configurado.
+    expect(sdk.entrarConGoogleNativo).toHaveBeenCalledWith('client-web');
+    expect(authService.loginConGoogle).toHaveBeenCalledWith('id-token-nativo');
+  });
+
+  it('no debería enseñar error si el usuario cierra el selector de cuentas', async () => {
+    sdk.entrarConGoogleNativo.mockRejectedValue(new Error('The user canceled the sign-in flow'));
+    const fixture = await montar();
+
+    await fixture.componentInstance.entrarConGoogleNativo();
+
+    expect(fixture.componentInstance.error()).toBeNull();
+    expect(authService.loginConGoogle).not.toHaveBeenCalled();
+  });
+
+  it('debería enseñar error si Google falla de verdad', async () => {
+    sdk.entrarConGoogleNativo.mockRejectedValue(new Error('[28444] Developer console is not set up correctly'));
+    const fixture = await montar();
+
+    await fixture.componentInstance.entrarConGoogleNativo();
+
+    expect(fixture.componentInstance.error()).toBeTruthy();
   });
 });

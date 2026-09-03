@@ -19,3 +19,6 @@ project(':capacitor-splash-screen').projectDir = new File('../../../node_modules
 
 include ':capacitor-status-bar'
 project(':capacitor-status-bar').projectDir = new File('../../../node_modules/.bun/@capacitor+status-bar@8.0.3+6139e07751574bda/node_modules/@capacitor/status-bar/android')
+
+include ':capgo-capacitor-social-login'
+project(':capgo-capacitor-social-login').projectDir = new File('../../../node_modules/.bun/@capgo+capacitor-social-login@8.5.5+6139e07751574bda/node_modules/@capgo/capacitor-social-login/android')

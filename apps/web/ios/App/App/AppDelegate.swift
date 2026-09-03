@@ -33,6 +33,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    // MARK: - Notificaciones push
+    //
+    // APNs entrega el token del dispositivo a estos dos métodos y a ningún otro
+    // sitio. Sin ellos el plugin de Capacitor se queda esperando para siempre:
+    // `PushNotifications.register()` no falla ni avisa, simplemente nunca emite
+    // el evento `registration`, así que el móvil jamás se da de alta en el API y
+    // las push no llegan. Era el estado de la app antes de esto.
+
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(
+            name: .capacitorDidRegisterForRemoteNotifications,
+            object: deviceToken
+        )
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(
+            name: .capacitorDidFailToRegisterForRemoteNotifications,
+            object: error
+        )
+    }
+
     func application(_ application: UIApplication,
                      configurationForConnecting connectingSceneSession: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {

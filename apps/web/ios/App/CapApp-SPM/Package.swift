@@ -17,7 +17,8 @@ let package = Package(
         .package(name: "CapacitorPreferences", path: "..\..\..\..\..\node_modules\.bun\@capacitor+preferences@8.0.1+6139e07751574bda\node_modules\@capacitor\preferences"),
         .package(name: "CapacitorPushNotifications", path: "..\..\..\..\..\node_modules\.bun\@capacitor+push-notifications@8.1.2+6139e07751574bda\node_modules\@capacitor\push-notifications"),
         .package(name: "CapacitorSplashScreen", path: "..\..\..\..\..\node_modules\.bun\@capacitor+splash-screen@8.0.2+6139e07751574bda\node_modules\@capacitor\splash-screen"),
-        .package(name: "CapacitorStatusBar", path: "..\..\..\..\..\node_modules\.bun\@capacitor+status-bar@8.0.3+6139e07751574bda\node_modules\@capacitor\status-bar")
+        .package(name: "CapacitorStatusBar", path: "..\..\..\..\..\node_modules\.bun\@capacitor+status-bar@8.0.3+6139e07751574bda\node_modules\@capacitor\status-bar"),
+        .package(name: "CapgoCapacitorSocialLogin", path: "..\..\..\..\..\node_modules\.bun\@capgo+capacitor-social-login@8.5.5+6139e07751574bda\node_modules\@capgo\capacitor-social-login")
     ],
     targets: [
         .target(
@@ -30,7 +31,8 @@ let package = Package(
                 .product(name: "CapacitorPreferences", package: "CapacitorPreferences"),
                 .product(name: "CapacitorPushNotifications", package: "CapacitorPushNotifications"),
                 .product(name: "CapacitorSplashScreen", package: "CapacitorSplashScreen"),
-                .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar")
+                .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar"),
+                .product(name: "CapgoCapacitorSocialLogin", package: "CapgoCapacitorSocialLogin")
             ]
         )
     ]

@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { SocialSdkService } from './social-sdk.service';
+import { I18nService } from '../i18n/i18n.service';
 
 type Ventana = typeof globalThis & { google?: unknown; FB?: unknown };
 
@@ -200,5 +201,70 @@ describe('SocialSdkService', () => {
 
       expect(FB.login.mock.calls[0][1]).toEqual({ scope: 'public_profile,email' });
     });
+  });
+});
+
+/**
+ * El idioma de estos dos SDK no lo controla el diccionario: lo deciden Google
+ * y Meta por la URL con la que se descargan. Se comprueba aquí porque es
+ * justamente lo que se había escapado — la interfaz en español y el botón de
+ * Google en inglés, porque GIS caía al idioma del navegador.
+ */
+describe('SocialSdkService y el idioma de la interfaz', () => {
+  let scripts: HTMLScriptElement[];
+
+  /** FB.login sólo resuelve cuando invoca su callback; el mock debe hacerlo. */
+  const loginQueResponde = () =>
+    jest.fn((cb: (r: { authResponse?: { accessToken?: string } }) => void) =>
+      cb({ authResponse: { accessToken: 'token' } }));
+
+  const montar = (idioma: string) => {
+    scripts = [];
+    jest.spyOn(document.head, 'appendChild').mockImplementation(((nodo: HTMLScriptElement) => {
+      scripts.push(nodo);
+      queueMicrotask(() => nodo.onload?.(new Event('load')));
+      return nodo;
+    }) as never);
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: I18nService, useValue: { idioma: () => idioma } }],
+    });
+    return TestBed.inject(SocialSdkService);
+  };
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    delete (window as Ventana).google;
+    delete (window as Ventana).FB;
+  });
+
+  it('debería pedir el botón de Google en el idioma de la aplicación', async () => {
+    const servicio = montar('de');
+    (window as Ventana).google = {
+      accounts: { id: { initialize: jest.fn(), renderButton: jest.fn() } },
+    };
+
+    await servicio.renderizarBotonGoogle(document.createElement('div'), 'client', () => {});
+
+    expect(scripts[0].src).toContain('hl=de');
+  });
+
+  it('debería cargar el SDK de Meta en el idioma de la aplicación', async () => {
+    const servicio = montar('pl');
+    (window as Ventana).FB = { init: jest.fn(), login: loginQueResponde() };
+
+    await servicio.loginFacebook('app-id').catch(() => undefined);
+
+    expect(scripts[0].src).toContain('/pl_PL/sdk.js');
+  });
+
+  it('debería caer al español si el idioma no tiene locale en Meta', async () => {
+    const servicio = montar('xx');
+    (window as Ventana).FB = { init: jest.fn(), login: loginQueResponde() };
+
+    await servicio.loginFacebook('app-id').catch(() => undefined);
+
+    expect(scripts[0].src).toContain('/es_ES/sdk.js');
   });
 });

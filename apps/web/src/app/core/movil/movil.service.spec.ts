@@ -20,7 +20,7 @@ jest.mock('@capacitor/app', () => ({ App: { addListener: jest.fn(), exitApp: jes
 jest.mock('@capacitor/splash-screen', () => ({ SplashScreen: { hide: jest.fn() } }));
 jest.mock('@capacitor/status-bar', () => ({
   StatusBar: { setStyle: jest.fn(), setBackgroundColor: jest.fn() },
-  Style: { Dark: 'DARK' },
+  Style: { Dark: 'DARK', Light: 'LIGHT' },
 }));
 
 const capacitor = Capacitor as jest.Mocked<typeof Capacitor>;
@@ -74,8 +74,10 @@ describe('MovilService', () => {
       await service.iniciar();
 
       expect(splash.hide).toHaveBeenCalledWith({ fadeOutDuration: 200 });
-      expect(barra.setStyle).toHaveBeenCalledWith({ style: Style.Dark });
-      expect(barra.setBackgroundColor).toHaveBeenCalledWith({ color: '#08258B' });
+      // `Light` = texto oscuro sobre fondo claro. La navbar es blanca, así que
+      // con `Dark` el reloj y la batería quedaban blancos sobre blanco.
+      expect(barra.setStyle).toHaveBeenCalledWith({ style: Style.Light });
+      expect(barra.setBackgroundColor).toHaveBeenCalledWith({ color: '#FFFFFF' });
       expect(pushRegistro.iniciar).toHaveBeenCalled();
     });
 
