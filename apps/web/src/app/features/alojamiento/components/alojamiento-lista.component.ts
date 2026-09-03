@@ -43,7 +43,7 @@ interface BusquedaUrl {
   ],
   template: `
 <div class="alojamiento-page">
-  <rs-navbar [categoriasMovil]="true" />
+  <rs-navbar />
 
   <rs-listado
     [titulo]="titular" [subtitulo]="subtitular"

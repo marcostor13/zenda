@@ -478,18 +478,9 @@ h1, h2, h3, h4, h5, h6 {
     }
   }
 
-  &__nav {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-1);
-    flex: 1;
-    /* Las etiquetas de categoría no se parten nunca: si no caben, la fila se
-       desplaza en horizontal en vez de romper la altura de la barra. */
-    min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    &::-webkit-scrollbar { display: none; }
-  }
+  /* Las categorías de servicio NO viven en esta fila: tienen su propia tira a
+     ancho completo bajo la barra (.rs-navbar__cats). Aquí sólo disponían del
+     hueco sobrante y se recortaban a dos de ocho. */
 
   /* Alias __links → kept for backward compat */
   &__links {
@@ -499,9 +490,8 @@ h1, h2, h3, h4, h5, h6 {
     flex: 1;
   }
 
-  /* Entrada de categoría: icono + etiqueta en pastilla, como las pestañas de
-     servicio de Booking. El icono es lo que se reconoce de un vistazo; la
-     etiqueta, lo que desambigua (alojamiento canino vs. hotel pet friendly). */
+  /* Entrada de la barra en forma de pastilla (hoy, "Registra tu empresa"). Las
+     categorías usan .rs-navbar__cat, que es la misma pastilla en su tira. */
   &__link {
     display: inline-flex;
     align-items: center;
@@ -548,7 +538,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   @media (max-width: 768px) {
-    &__nav, &__actions { display: none; }
+    &__actions { display: none; }
   }
 }
 

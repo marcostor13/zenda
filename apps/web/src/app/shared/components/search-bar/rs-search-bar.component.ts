@@ -488,8 +488,8 @@ export class RsSearchBarComponent {
   readonly variant = input<'card' | 'strip'>('card');
   /**
    * Muestra la fila de categorías con iconos dentro de la tarjeta. Las
-   * pantallas actuales la traen apagada: en escritorio las categorías están en
-   * la barra superior y en móvil, en la tira del encabezado (`rs-navbar`).
+   * pantallas actuales la traen apagada: las categorías viven en la tira del
+   * encabezado (`rs-navbar`), en cualquier resolución.
    */
   readonly categorias = input(true);
   /** En los listados, cambiar de categoría lanza la búsqueda al momento. */

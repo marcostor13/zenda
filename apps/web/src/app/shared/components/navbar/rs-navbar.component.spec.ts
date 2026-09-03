@@ -26,7 +26,7 @@ describe('RsNavbarComponent', () => {
 
   it('debería mostrar una entrada de menú por categoría', () => {
     const el: HTMLElement = fixture.nativeElement;
-    const enlaces = Array.from(el.querySelectorAll('.rs-navbar__nav .rs-navbar__link'));
+    const enlaces = Array.from(el.querySelectorAll('.rs-navbar__cats .rs-navbar__cat'));
 
     expect(enlaces.length).toBe(VERTICALES_PUBLICOS.length);
     expect(enlaces.map((a) => a.textContent?.trim())).toEqual(
@@ -35,17 +35,17 @@ describe('RsNavbarComponent', () => {
   });
 
   it('debería acompañar cada categoría de su icono', () => {
-    // El icono es lo que se reconoce de un vistazo en la barra: sin él, siete
-    // categorías son siete etiquetas de texto indistinguibles.
+    // El icono es lo que se reconoce de un vistazo en la barra: sin él, ocho
+    // categorías son ocho etiquetas de texto indistinguibles.
     const el: HTMLElement = fixture.nativeElement;
-    const iconos = el.querySelectorAll('.rs-navbar__nav .rs-navbar__link .rs-navbar__link-icon');
+    const iconos = el.querySelectorAll('.rs-navbar__cats .rs-navbar__cat .rs-navbar__cat-icon');
 
     expect(iconos.length).toBe(VERTICALES_PUBLICOS.length);
   });
 
   it('debería enlazar cada entrada a la ruta de su categoría', () => {
     const el: HTMLElement = fixture.nativeElement;
-    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__nav a')).map((a) =>
+    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__cats a')).map((a) =>
       a.getAttribute('href'),
     );
 
@@ -63,20 +63,18 @@ describe('RsNavbarComponent', () => {
     expect(boton!.querySelector('rs-icon svg')).toBeTruthy();
   });
 
-  describe('categorías en el encabezado (móvil)', () => {
+  describe('tira de categorías del encabezado', () => {
     const tira = (): HTMLElement | null =>
       (fixture.nativeElement as HTMLElement).querySelector('.rs-navbar__cats');
 
-    it('no debería pintarlas donde no se ha pedido', () => {
-      // El panel de comercio o el de admin llevan la misma barra y ahí elegir
-      // categoría de servicio no significa nada.
-      expect(tira()).toBeNull();
+    it('debería pintarla sin que la pantalla tenga que pedirla', () => {
+      // La ficha de un servicio, favoritos o "explora" embeben la barra sin
+      // configurarla: en móvil se quedaban sin ninguna forma de cambiar de
+      // categoría mientras que en escritorio la barra sí la ofrecía.
+      expect(tira()).toBeTruthy();
     });
 
     it('debería ofrecer todas las categorías con su icono y su ruta', () => {
-      fixture.componentRef.setInput('categoriasMovil', true);
-      fixture.detectChanges();
-
       const enlaces = Array.from(tira()!.querySelectorAll('.rs-navbar__cat'));
 
       expect(enlaces.map((a) => a.getAttribute('href')))
@@ -91,7 +89,7 @@ describe('RsNavbarComponent', () => {
   it('no debería anunciar las categorías fuera del escaparate', () => {
     // Las categorías retiradas del catálogo (p. ej. cuidadores) no se anuncian.
     const el: HTMLElement = fixture.nativeElement;
-    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__nav a')).map((a) =>
+    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__cats a')).map((a) =>
       a.getAttribute('href'),
     );
 
@@ -100,7 +98,7 @@ describe('RsNavbarComponent', () => {
 
   it('debería incluir hoteles pet-friendly en el menú', () => {
     const el: HTMLElement = fixture.nativeElement;
-    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__nav a')).map((a) =>
+    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__cats a')).map((a) =>
       a.getAttribute('href'),
     );
 
@@ -285,7 +283,6 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
     }).compileComponents();
 
     const fixture = TestBed.createComponent(RsNavbarComponent);
-    fixture.componentRef.setInput('categoriasMovil', true);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -301,7 +298,6 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
       const el: HTMLElement = fixture.nativeElement;
 
       expect(fixture.componentInstance.muestraCategorias()).toBe(false);
-      expect(el.querySelector('.rs-navbar__nav')).toBeNull();
       expect(el.querySelector('.rs-navbar__cats')).toBeNull();
     },
   );

@@ -31,7 +31,7 @@ import { MonedaService } from '../../../core/moneda/moneda.service';
   ],
   template: `
 <div class="transporte-page">
-  <rs-navbar [categoriasMovil]="true" />
+  <rs-navbar />
 
   <rs-listado
     [titulo]="titular" [subtitulo]="subtitular"

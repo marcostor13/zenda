@@ -65,7 +65,7 @@ type SearchMode = 'filtros' | 'ia';
   template: `
 <div class="home">
   <!-- El logotipo grande ya está en el hero: la barra deja solo la "D" (PDF §1). -->
-  <rs-navbar [soloMarcaD]="true" [categoriasMovil]="true" />
+  <rs-navbar [soloMarcaD]="true" />
 
   <!-- ═══ HERO + BUSCADOR ═════════════════════════════════════════ -->
   <section class="hero">
@@ -122,8 +122,8 @@ type SearchMode = 'filtros' | 'ia';
 
           <div class="searchbox__panel">
             @if (searchMode() === 'filtros') {
-              <!-- En escritorio las categorías ya están en la barra superior: el
-                   buscador no las repite (feedback 2026-08-20). -->
+              <!-- Las categorías están en la tira del encabezado, en cualquier
+                   pantalla: el buscador no las repite (feedback 2026-08-20). -->
               <rs-search-bar [categorias]="false" />
             } @else {
               <form class="ai" (ngSubmit)="buscarConIA()">

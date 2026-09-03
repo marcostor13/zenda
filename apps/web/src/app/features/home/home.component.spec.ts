@@ -185,9 +185,9 @@ describe('HomeComponent', () => {
   });
 
   it('debería ofrecer las categorías en el encabezado, no dentro del buscador', () => {
-    // En escritorio están en la barra superior y en móvil, en la tira del
-    // encabezado: repetirlas en la tarjeta obligaba a elegir dos veces lo
-    // mismo y se comía la primera pantalla del móvil.
+    // Están en la tira del encabezado, en cualquier pantalla: repetirlas en la
+    // tarjeta obligaba a elegir dos veces lo mismo y se comía la primera
+    // pantalla del móvil.
     const el: HTMLElement = fixture.nativeElement;
 
     expect(el.querySelector('.sb__cats')).toBeNull();

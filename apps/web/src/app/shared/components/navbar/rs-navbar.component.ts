@@ -36,20 +36,11 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
         }
       </a>
 
-      <!-- Desktop nav — una entrada por categoría (misma config que el buscador).
-           Cada una lleva su icono: en escritorio esta fila es el único selector
-           de categoría, porque el buscador del home ya no la duplica. -->
-      @if (muestraCategorias()) {
-        <div class="rs-navbar__nav">
-          @for (v of verticales; track v.key) {
-            <a [routerLink]="v.route" routerLinkActive="rs-navbar__link--active"
-               class="rs-navbar__link rs-navbar__link--cat">
-              <img [src]="v.icono" alt="" aria-hidden="true" class="rs-navbar__link-icon" />
-              {{ v.labelCorto | t }}
-            </a>
-          }
-        </div>
-      }
+      <!-- Las categorías no van dentro de esta fila: viven en su propia tira,
+           justo debajo (.rs-navbar__cats). Aquí sólo caben con el ancho que
+           sobra tras la marca y las acciones —193 px en una tablet de 769,
+           412 en un portátil de 1280— y las ocho pastillas necesitan 943, así
+           que se veían dos y el resto quedaba recortado sin barra de scroll. -->
 
       <!-- Desktop actions -->
       <div class="rs-navbar__actions">
@@ -207,13 +198,17 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     </nav>
 
     <!--
-      Categorías en el propio encabezado, sólo en móvil: es donde las pone
-      Booking, y es donde el usuario las busca. En escritorio ya están en la
-      barra de arriba; en móvil esa fila se pliega tras el menú y las
-      categorías quedaban escondidas, así que vivían dentro de la tarjeta del
-      buscador y le robaban la primera pantalla.
+      Categorías en el propio encabezado, en todas las pantallas: es donde las
+      pone Booking y es donde el usuario las busca. Al ocupar una fila entera
+      —y no el hueco que sobra en la barra— las ocho caben desde 1100 px y por
+      debajo se recorren de lado, que es como funcionan en el móvil.
+
+      No depende de la pantalla que la embeba: antes era opcional y sólo cuatro
+      vistas la pedían, así que en el móvil la ficha de un servicio, favoritos o
+      "explora" se quedaban sin ninguna forma de cambiar de categoría mientras
+      que en escritorio la barra sí la ofrecía.
     -->
-    @if (categoriasMovil() && muestraCategorias()) {
+    @if (muestraCategorias()) {
       <nav class="rs-navbar__cats" [attr.aria-label]="'Categorías de servicio' | t">
         @for (v of verticales; track v.key) {
           <a [routerLink]="v.route" routerLinkActive="is-active" class="rs-navbar__cat">
@@ -288,25 +283,29 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
   `,
   styles: [`
     /*
-     * Tira de categorías del encabezado (móvil). En escritorio no existe: esas
-     * mismas entradas están en .rs-navbar__nav.
+     * Tira de categorías del encabezado. Es la única: la barra de arriba no
+     * puede alojarlas porque sólo les cede el ancho sobrante y las ocho piden
+     * 943 px. Aquí disponen de la fila entera, así que a partir de 1100 px se
+     * ven todas y por debajo se recorren de lado con el dedo.
      */
-    .rs-navbar__cats { display: none; }
+    .rs-navbar__cats {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      /* Mismo margen lateral que la barra de arriba: las dos filas del
+         encabezado tienen que arrancar en la misma vertical. */
+      padding: var(--sp-2) var(--sp-8);
+      background: var(--c-card);
+      border-bottom: 1px solid var(--b-1);
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      &::-webkit-scrollbar { display: none; }
+    }
 
     @media (max-width: 768px) {
-      .rs-navbar__cats {
-        display: flex;
-        align-items: center;
-        gap: var(--sp-2);
-        padding: var(--sp-2) var(--sp-4);
-        background: var(--c-card);
-        border-bottom: 1px solid var(--b-1);
-        overflow-x: auto;
-        scroll-snap-type: x proximity;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        &::-webkit-scrollbar { display: none; }
-      }
+      .rs-navbar__cats { padding-inline: var(--sp-4); }
     }
 
     .rs-navbar__cat {
@@ -334,42 +333,13 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     .rs-navbar__cat-icon { width: 22px; height: 22px; flex-shrink: 0; }
     .rs-navbar__cat-label { font-size: var(--f-xs); font-weight: var(--w-6); }
 
-    /*
-     * Categorias en escritorio: la misma pastilla que la tira movil
-     * (.rs-navbar__cat) — icono de marca y marco dorado — para que la
-     * categoria se reconozca igual en las dos pantallas (feedback 2026-08-31).
-     */
-    .rs-navbar__link--cat {
-      background: var(--c-card);
-      border-color: var(--dk-gold);
-      /* Siete categorias tienen que caber en una sola fila: la pastilla usa la
-         misma escala tipografica que la tira movil (--f-xs) y un icono de 18px,
-         si no la fila se desborda y aparece el scroll lateral. */
-      gap: var(--sp-2);
-      padding: var(--sp-2) var(--sp-3);
-      font-size: var(--f-xs);
-      font-weight: var(--w-6);
-
-      &:hover {
-        color: var(--dk-blue);
-        background: var(--c-accent-lo);
-        border-color: var(--dk-gold);
-      }
-
-      &.rs-navbar__link--active,
-      &.active {
-        color: var(--dk-blue);
-        background: var(--c-accent-lo);
-        border-color: var(--dk-gold);
-        box-shadow: inset 0 -2px 0 var(--dk-gold);
-      }
-    }
-    .rs-navbar__link-icon { width: 18px; height: 18px; flex-shrink: 0; display: block; }
-
     /* Marca: inicial "D" + logotipo */
     .rs-navbar__mark { height: 34px; width: 34px; display: block; flex-shrink: 0; }
     .rs-navbar__wordmark { height: 44px; width: auto; display: block; }
-    @media (max-width: 1180px) { .rs-navbar__wordmark { display: none; } }
+    /* Se ocultaba desde 1180 px porque las categorías le disputaban el sitio en
+       la barra. Ahora que viven en su propia tira, el logotipo cabe hasta donde
+       empieza el móvil, que es donde toma el relevo .rs-navbar__brandword. */
+    @media (max-width: 768px) { .rs-navbar__wordmark { display: none; } }
 
     /* La palabra "Doogking" junto al isotipo: solo en movil, donde la barra se
        queda con la "D" suelta. En escritorio el nombre lo pone el logotipo y la
@@ -537,7 +507,10 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     /* Mobile drawer */
     .rs-mobile-menu {
       position: fixed;
-      top: 64px;
+      /* El alto real de la barra, no 64 px pelados: dentro de la app la barra
+         crece lo que ocupe la barra de estado del sistema, y con el valor fijo
+         el panel arrancaba por encima de ella y le tapaba el borde. */
+      top: var(--dk-navbar-h);
       left: 0;
       right: 0;
       z-index: calc(var(--z-3) - 1);
@@ -553,7 +526,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
        * entradas quedaban fuera de pantalla y no había forma de llegar a ellas.
        * La unidad dvh además descuenta la barra del navegador móvil.
        */
-      max-height: calc(100dvh - 64px);
+      max-height: calc(100dvh - var(--dk-navbar-h));
       overflow-y: auto;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
@@ -645,13 +618,6 @@ export class RsNavbarComponent implements OnInit {
    * logotipo grande ya está en el hero y el pequeño quedaba duplicado (PDF §1).
    */
   readonly soloMarcaD = input(false);
-
-  /**
-   * Fila de categorías bajo la barra, sólo en móvil. La activan las pantallas
-   * con buscador (home y listados); en el panel de comercio o el de admin no
-   * pinta nada elegir categoría de servicio.
-   */
-  readonly categoriasMovil = input(false);
 
   /**
    * El alta de comercio es la vía principal de captación de oferta: se muestra
