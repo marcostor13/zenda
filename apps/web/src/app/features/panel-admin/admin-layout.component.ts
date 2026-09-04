@@ -3,47 +3,8 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { NAV_ADMIN } from '../../shared/navegacion-paneles';
 
-const NAV_SECTIONS = [
-  {
-    title: 'Visión general',
-    items: [
-      { icon: 'sparkles',    label: 'Dashboard',  ruta: '/admin',           exact: true  },
-      { icon: 'trending-up', label: 'Analítica',  ruta: '/admin/analitica', exact: false },
-      { icon: 'euro',        label: 'Reportes',   ruta: '/admin/reportes',  exact: false },
-      { icon: 'banknote',    label: 'Pagos',      ruta: '/admin/pagos',     exact: false },
-    ],
-  },
-  {
-    title: 'Gestión',
-    items: [
-      { icon: 'building',    label: 'Comercios',  ruta: '/admin/comercios', exact: false },
-      { icon: 'shield',      label: 'Aseguradoras', ruta: '/admin/seguros', exact: false },
-      { icon: 'users',       label: 'Usuarios',   ruta: '/admin/usuarios',  exact: false },
-      { icon: 'calendar',    label: 'Reservas',   ruta: '/admin/reservas',  exact: false },
-      { icon: 'star',        label: 'Reseñas',    ruta: '/admin/resenas',   exact: false },
-      { icon: 'alert-circle', label: 'Incidencias', ruta: '/admin/incidencias', exact: false },
-    ],
-  },
-  {
-    title: 'Plataforma',
-    items: [
-      { icon: 'tag',         label: 'Cupones',    ruta: '/admin/cupones',   exact: false },
-      { icon: 'percent',     label: 'Campañas',   ruta: '/admin/campanas',  exact: false },
-      { icon: 'map-pin',     label: 'Comunidad',  ruta: '/admin/comunidad', exact: false },
-      { icon: 'bell',        label: 'Notificaciones', ruta: '/admin/avisos', exact: false },
-    ],
-  },
-  {
-    title: 'Configuración',
-    items: [
-      { icon: 'percent',     label: 'Comisiones', ruta: '/admin/comisiones', exact: false },
-      { icon: 'crown',       label: 'Doogking Alpha', ruta: '/admin/alpha',  exact: false },
-      { icon: 'clock',       label: 'Historial',  ruta: '/admin/auditoria', exact: false },
-      { icon: 'settings',    label: 'Ajustes',    ruta: '/admin/configuracion', exact: false },
-    ],
-  },
-];
 
 @Component({
   selector: 'app-admin-layout',
@@ -100,7 +61,11 @@ const NAV_SECTIONS = [
       min-height: calc(100vh - 64px);
       min-height: calc(100dvh - 64px);
     }
-    @media (max-width: 1024px) {
+        /* 768px y no 1024: es el ancho al que aparece el boton de hamburguesa, que
+       es donde van a parar las secciones. Separar los dos breakpoints dejaba la
+       franja de tablet (769-1024px) sin columna lateral y sin hamburguesa, o
+       sea sin ninguna forma de navegar el panel. */
+    @media (max-width: 768px) {
       .admin-layout { grid-template-columns: 1fr; }
     }
 
@@ -115,50 +80,18 @@ const NAV_SECTIONS = [
       overflow-y: auto;
     }
     /*
-     * Mismo problema y misma solución que en el panel de comercio: este aside
-     * es la única vía a las 18 secciones del panel, y ocultarlo por debajo de
-     * 1024px dejaba al administrador encerrado en el dashboard, sin poder
-     * llegar a comercios, reservas, comisiones ni ajustes.
+     * Mismo caso que el panel de comercio: por debajo de 1024px la columna
+     * lateral se oculta y sus dieciocho secciones —con sus cuatro grupos— pasan
+     * al menu hamburguesa de la navbar (ver navegacion-paneles.ts).
      *
-     * Pasa a ser una tira horizontal desplazable. Los títulos de sección se
-     * quitan: en una sola fila no agrupan nada y sólo gastan ancho.
+     * La tira horizontal que habia aqui antes nunca se aplico: las mismas
+     * reglas se redefinian mas abajo para escritorio, con igual especificidad,
+     * y ganaban por ir despues. Se veia la columna entera en vertical tapando
+     * el panel. En el menu, ademas, los titulos de grupo se conservan; en una
+     * tira habia que quitarlos y dieciocho pastillas sueltas no se navegan.
      */
-    @media (max-width: 1024px) {
-      .admin-sidebar {
-        position: sticky;
-        top: var(--dk-navbar-h);
-        z-index: var(--z-2, 20);
-        height: auto;
-        overflow: visible;
-        padding: var(--sp-2) var(--sp-3);
-        border-right: none;
-        border-bottom: 1px solid var(--b-1);
-      }
-
-      .admin-sidebar__title,
-      .nav-section__title { display: none; }
-
-      .admin-sidebar nav {
-        display: flex;
-        gap: var(--sp-2);
-        overflow-x: auto;
-        scrollbar-width: none;
-        &::-webkit-scrollbar { display: none; }
-      }
-
-      .nav-section {
-        display: flex;
-        gap: var(--sp-2);
-        margin-bottom: 0;
-      }
-
-      .admin-nav-item {
-        flex-shrink: 0;
-        padding: var(--sp-2) var(--sp-3);
-        border-radius: var(--r-full);
-        background: var(--c-raised);
-        white-space: nowrap;
-      }
+    @media (max-width: 768px) {
+      .admin-sidebar { display: none; }
     }
 
     .admin-sidebar__title {
@@ -210,5 +143,5 @@ const NAV_SECTIONS = [
   `],
 })
 export class AdminLayoutComponent {
-  readonly navSections = NAV_SECTIONS;
+  readonly navSections = NAV_ADMIN;
 }

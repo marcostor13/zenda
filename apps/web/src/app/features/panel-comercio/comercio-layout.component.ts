@@ -9,6 +9,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ComercioApiService, MiComercio } from './comercio-api.service';
 import { iconoVertical } from './vertical-icon';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { NAV_COMERCIO } from '../../shared/navegacion-paneles';
 
 const VERTICALES_OPCIONES = [
   { valor: 'alojamiento', label: 'Alojamiento' },
@@ -22,19 +23,6 @@ const PLAN_BADGE: Record<string, string> = {
   basico: 'rs-badge--neutral', pro: 'rs-badge--accent', premium: 'rs-badge--warning',
 };
 
-const NAV_ITEMS = [
-  { icon: 'sparkles',       label: 'Inicio',         ruta: '/comercio',          exact: true  },
-  { icon: 'calendar',       label: 'Reservas',        ruta: '/comercio/reservas', exact: false },
-  { icon: 'calendar',       label: 'Agenda',          ruta: '/comercio/agenda',   exact: false },
-  { icon: 'tag',            label: 'Servicios',       ruta: '/comercio/listados', exact: false },
-  { icon: 'euro',           label: 'Extras y suplementos', ruta: '/comercio/suplementos', exact: false },
-  { icon: 'trending-up',   label: 'Ingresos y pagos',ruta: '/comercio/ingresos', exact: false },
-  { icon: 'star',           label: 'Reseñas',         ruta: '/comercio/resenas',  exact: false },
-  { icon: 'users',          label: 'Equipo',          ruta: '/comercio/equipo',   exact: false },
-  { icon: 'sparkles',       label: 'Suscripción',     ruta: '/comercio/suscripcion', exact: false },
-  { icon: 'settings',       label: 'Configuración',   ruta: '/comercio/config',   exact: false },
-  { icon: 'alert-circle',   label: 'Estado de la cuenta', ruta: '/comercio/cuenta', exact: false },
-];
 
 @Component({
   selector: 'app-comercio-layout',
@@ -153,7 +141,11 @@ const NAV_ITEMS = [
       min-height: calc(100vh - 64px);
       min-height: calc(100dvh - 64px);
     }
-    @media (max-width: 1024px) { .cl-layout { grid-template-columns: 1fr; } }
+        /* 768px y no 1024: es el ancho al que aparece el boton de hamburguesa, que
+       es donde van a parar las secciones. Separar los dos breakpoints dejaba la
+       franja de tablet (769-1024px) sin columna lateral y sin hamburguesa, o
+       sea sin ninguna forma de navegar el panel. */
+    @media (max-width: 768px) { .cl-layout { grid-template-columns: 1fr; } }
 
     .cl-sidebar {
       background: var(--c-card);
@@ -169,53 +161,19 @@ const NAV_ITEMS = [
       gap: var(--sp-2);
     }
     /*
-     * Por debajo de 1024px el panel deja de tener columna lateral, pero la
-     * navegación no puede desaparecer con ella: este aside es el único sitio
-     * desde el que se llega a reservas, listados, agenda, ingresos y ajustes.
-     * Ocultarlo dejaba el panel sin salida en móvil y en tablet — se veía el
-     * dashboard y no había forma de ir a ninguna otra sección.
+     * Por debajo de 1024px la columna lateral desaparece y sus once secciones
+     * pasan al menu hamburguesa de la navbar (ver navegacion-paneles.ts).
      *
-     * En lugar de esconderlo se convierte en una tira horizontal que se
-     * desplaza, encima del contenido. Es el mismo marcado: sólo cambia cómo
-     * fluye.
+     * Antes se intentaba convertirla en una tira horizontal de pastillas, pero
+     * ese bloque nunca llego a aplicarse: las mismas reglas se redefinian mas
+     * abajo en el fichero para escritorio, con identica especificidad, y al ir
+     * despues ganaban en cualquier ancho. El resultado era la columna entera
+     * apilada en vertical, empujando el contenido del panel una pantalla
+     * completa hacia abajo. Aunque hubiera funcionado, once pastillas en una
+     * tira que rueda esconden la mitad de las secciones detras de un gesto.
      */
-    @media (max-width: 1024px) {
-      .cl-sidebar {
-        position: sticky;
-        top: var(--dk-navbar-h);
-        z-index: var(--z-2, 20);
-        height: auto;
-        overflow: visible;
-        flex-direction: row;
-        align-items: center;
-        gap: var(--sp-2);
-        padding: var(--sp-2) var(--sp-3);
-        border-right: none;
-        border-bottom: 1px solid var(--b-1);
-      }
-
-      /* La marca ya está en la navbar de arriba, y "volver al inicio" en su
-         menú: repetirlas aquí robaría el ancho que necesitan las secciones. */
-      .cl-brand,
-      .cl-sidebar__footer { display: none; }
-
-      .cl-nav {
-        flex-direction: row;
-        gap: var(--sp-2);
-        overflow-x: auto;
-        /* La barra de desplazamiento nativa taparía media fila de pastillas. */
-        scrollbar-width: none;
-        &::-webkit-scrollbar { display: none; }
-      }
-
-      .cl-nav__item {
-        flex-shrink: 0;
-        padding: var(--sp-2) var(--sp-3);
-        border-radius: var(--r-full);
-        background: var(--c-raised);
-        white-space: nowrap;
-      }
-      .cl-nav__item--active { background: var(--c-accent-lo); }
+    @media (max-width: 768px) {
+      .cl-sidebar { display: none; }
     }
 
     .cl-brand {
@@ -292,7 +250,7 @@ export class ComercioLayoutComponent implements OnInit {
 
   readonly comercio = signal<MiComercio | null>(null);
   /** Verificación documental del negocio, la única que se afirma aquí (TCK-8029). */
-  readonly navItems = NAV_ITEMS;
+  readonly navItems = NAV_COMERCIO;
   readonly verticalesOpciones = VERTICALES_OPCIONES;
 
   readonly cargando = signal(true);

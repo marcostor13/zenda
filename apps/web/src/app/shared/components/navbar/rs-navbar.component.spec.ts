@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { Router } from '@angular/router';
+import { NAV_COMERCIO, NAV_ADMIN } from '../../navegacion-paneles';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { signal } from '@angular/core';
+import { signal, Component } from '@angular/core';
 import { VERTICALES_PUBLICOS } from '../../verticales/verticales.config';
 import { RsNavbarComponent } from './rs-navbar.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -315,4 +317,72 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
       expect(el.querySelector('.rs-mobile-menu__actions')).toBeTruthy();
     },
   );
+});
+
+describe('RsNavbarComponent · secciones del panel en el menú móvil', () => {
+  /**
+   * En móvil la columna lateral de los paneles no se pinta, así que estas
+   * secciones son la única vía a reservas, agenda, ingresos o comisiones. Si el
+   * menú deja de listarlas, el panel se queda sin salida en el teléfono.
+   */
+  // Un destino cualquiera: al router de pruebas hay que darle rutas que casen,
+  // si no `navigateByUrl` falla y la señal de URL nunca cambia.
+  @Component({ standalone: true, template: '' })
+  class DestinoDePrueba {}
+
+  async function montar(url: string): Promise<ComponentFixture<RsNavbarComponent>> {
+    await TestBed.configureTestingModule({
+      imports: [
+        RsNavbarComponent,
+        RouterTestingModule.withRoutes([{ path: '**', component: DestinoDePrueba }]),
+      ],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(RsNavbarComponent);
+    const router = TestBed.inject(Router);
+    // `url` es una señal derivada de los eventos del router; sin navegar de
+    // verdad se queda en la ruta inicial y el computed no se entera.
+    await router.navigateByUrl(url);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('debería listar las secciones de comercio dentro del panel de comercio', async () => {
+    const fixture = await montar('/comercio/reservas');
+    const grupos = fixture.componentInstance.seccionesPanel();
+
+    expect(grupos.length).toBe(1);
+    expect(grupos[0].items).toEqual(NAV_COMERCIO);
+    expect(fixture.componentInstance.tituloPanel()).toBe('Mi negocio');
+  });
+
+  it('debería listar las secciones de administración, con sus grupos, en el panel admin', async () => {
+    const fixture = await montar('/admin/comisiones');
+    const grupos = fixture.componentInstance.seccionesPanel();
+
+    expect(grupos).toEqual(NAV_ADMIN);
+    // Los títulos de grupo son lo que hace legibles dieciocho entradas seguidas.
+    expect(grupos.every((g) => !!g.title)).toBe(true);
+    expect(fixture.componentInstance.tituloPanel()).toBe('Administración');
+  });
+
+  it('no debería mostrar secciones de panel fuera de los paneles', async () => {
+    const fixture = await montar('/alojamiento');
+
+    expect(fixture.componentInstance.seccionesPanel()).toEqual([]);
+  });
+
+  it('debería pintar en el menú una entrada por sección del panel', async () => {
+    const fixture = await montar('/comercio');
+    fixture.componentInstance.menuAbierto.set(true);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const enlaces = el.querySelectorAll('.rs-mobile-menu__panel .rs-mobile-menu__link');
+
+    expect(enlaces.length).toBe(NAV_COMERCIO.length);
+  });
 });

@@ -56,7 +56,16 @@ export class SocialSdkService {
 
     const { result } = await SocialLogin.login({
       provider: 'google',
-      options: { scopes: ['profile', 'email'] },
+      /*
+       * Sin `scopes` a propósito. El plugin ya añade siempre `userinfo.email`,
+       * `userinfo.profile` y `openid`, que es todo lo que necesitamos —de la
+       * respuesta sólo usamos el ID token—, y en Android rechaza la llamada con
+       * "You CANNOT use scopes without modifying the main activity" en cuanto
+       * recibe un array de scopes, aunque pida justo los de por defecto. Pedir
+       * permisos extra obligaría a implementar
+       * `ModifiedMainActivityForSocialLoginPlugin` en MainActivity.
+       */
+      options: {},
     });
 
     const idToken = 'idToken' in result ? result.idToken : null;

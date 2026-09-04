@@ -1,5 +1,8 @@
 import { Component, OnInit, inject, input, signal, computed, HostListener } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map, startWith } from 'rxjs/operators';
+import { NAV_COMERCIO, NAV_ADMIN, GrupoPanel } from '../../navegacion-paneles';
 import { nombreAlphaPresentacion } from 'shared';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
@@ -222,6 +225,32 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
     <!-- Mobile menu drawer -->
     @if (menuAbierto()) {
       <div class="rs-mobile-menu">
+        <!--
+          Secciones del panel primero: si el usuario abre el menú estando dentro
+          de su panel, es a lo que viene. En escritorio esto no se pinta —lo
+          cubre la columna lateral—, así que no hay duplicidad.
+        -->
+        @if (seccionesPanel().length) {
+          <nav class="rs-mobile-menu__panel" [attr.aria-label]="tituloPanel() | t">
+            <p class="rs-mobile-menu__titulo">{{ tituloPanel() | t }}</p>
+            @for (grupo of seccionesPanel(); track grupo.title) {
+              @if (grupo.title) {
+                <p class="rs-mobile-menu__grupo">{{ grupo.title | t }}</p>
+              }
+              @for (item of grupo.items; track item.ruta) {
+                <a [routerLink]="item.ruta"
+                   routerLinkActive="rs-mobile-menu__link--active"
+                   [routerLinkActiveOptions]="{ exact: item.exact }"
+                   class="rs-mobile-menu__link" (click)="menuAbierto.set(false)">
+                  <rs-icon [name]="item.icon" [size]="17" [stroke]="2"></rs-icon> {{ item.label | t }}
+                </a>
+              }
+            }
+          </nav>
+
+          <div class="rs-mobile-menu__divider"></div>
+        }
+
         @if (muestraCategorias()) {
           <nav class="rs-mobile-menu__nav">
             @for (v of verticales; track v.key) {
@@ -543,6 +572,34 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       gap: var(--sp-1);
     }
 
+    /* Secciones del panel (comercio o administración) dentro del menú. */
+    .rs-mobile-menu__panel {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-1);
+    }
+
+    .rs-mobile-menu__titulo {
+      font-family: var(--font-accent);
+      font-size: var(--f-xs);
+      font-weight: var(--w-7);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--dk-gold);
+      padding: 0 var(--sp-3) var(--sp-2);
+    }
+
+    /* Los cuatro grupos del panel de administración. Sin ellos, dieciocho
+       entradas seguidas son una lista que no se puede recorrer con la vista. */
+    .rs-mobile-menu__grupo {
+      font-size: var(--f-xs);
+      font-weight: var(--w-6);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--t-400);
+      padding: var(--sp-3) var(--sp-3) var(--sp-1);
+    }
+
     .rs-mobile-menu__link {
       display: flex;
       align-items: center;
@@ -595,6 +652,39 @@ export class RsNavbarComponent implements OnInit {
   readonly nombreCuenta = computed(() => this.authService.usuario()?.nombre?.trim() || 'Mi cuenta');
   readonly menuAbierto = signal(false);
   readonly cuentaAbierto = signal(false);
+
+  private readonly router = inject(Router);
+
+  /** Ruta actual, para saber si se está dentro de un panel y cuál. */
+  private readonly url = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+      startWith(this.router.url),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  /**
+   * Secciones del panel en el que se está, para pintarlas dentro del menú
+   * hamburguesa: en móvil la columna lateral no se muestra y sin esto el panel
+   * se quedaba sin forma de llegar a ninguna otra sección.
+   *
+   * Las de comercio no tienen grupos, así que se envuelven en uno sin título
+   * para que la plantilla recorra una sola forma. Fuera de los paneles devuelve
+   * lista vacía y el bloque no se pinta.
+   */
+  readonly seccionesPanel = computed<readonly GrupoPanel[]>(() => {
+    const url = this.url();
+    if (url.startsWith('/comercio')) return [{ title: '', items: NAV_COMERCIO }];
+    if (url.startsWith('/admin')) return NAV_ADMIN;
+    return [];
+  });
+
+  /** Rótulo del bloque de secciones, para que se sepa de qué panel son. */
+  readonly tituloPanel = computed(() =>
+    this.url().startsWith('/comercio') ? 'Mi negocio' : 'Administración',
+  );
 
   /** Contadores del desplegable "Mi cuenta" (HU-12.3). */
   readonly numMascotas = signal(0);
