@@ -94,7 +94,7 @@ interface DocumentoSubido {
             <div class="rs-field">
               <label class="rs-lbl">{{ 'Correo electrónico *' | t }}</label>
               <input class="rs-inp" type="email" formControlName="contactoEmail" placeholder="nombre@aseguradora.com"
-                     [class.rs-inp--error]="malo('contactoEmail')">
+                     [class.rs-inp--error]="malo('contactoEmail')" inputmode="email">
               @if (malo('contactoEmail')) { <span class="rs-field-err">{{ 'Indica un correo válido.' | t }}</span> }
             </div>
             <div class="rs-field">

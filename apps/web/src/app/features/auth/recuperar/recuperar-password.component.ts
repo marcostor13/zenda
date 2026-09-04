@@ -54,7 +54,7 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
                 class="rs-inp"
                 autocomplete="email"
                 [class.rs-inp--error]="formulario.get('email')?.invalid && formulario.get('email')?.touched"
-                placeholder="tu@email.com" />
+                placeholder="tu@email.com" inputmode="email" />
               @if (formulario.get('email')?.invalid && formulario.get('email')?.touched) {
                 <span class="rs-field-err">{{ 'Ingresa un email válido' | t }}</span>
               }

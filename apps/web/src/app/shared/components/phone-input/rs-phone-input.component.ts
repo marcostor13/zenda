@@ -54,7 +54,7 @@ const normalizar = (texto: string): string =>
            [disabled]="deshabilitado()"
            [value]="numero()"
            (input)="escribirNumero($event)"
-           (blur)="alTocar()" />
+           (blur)="alTocar()" inputmode="tel" />
   </div>
 
   @if (desplegado()) {

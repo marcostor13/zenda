@@ -52,7 +52,7 @@ const NAV_SECTIONS = [
     TraducirPipe, RouterOutlet, RouterLink, RouterLinkActive, RsNavbarComponent, RsIconComponent
   ],
   template: `
-<div style="min-height:100vh;background:var(--c-base)">
+<div class="dk-pagina">
   <rs-navbar />
 
   <div class="admin-layout">
@@ -98,6 +98,7 @@ const NAV_SECTIONS = [
       display: grid;
       grid-template-columns: 240px 1fr;
       min-height: calc(100vh - 64px);
+      min-height: calc(100dvh - 64px);
     }
     @media (max-width: 1024px) {
       .admin-layout { grid-template-columns: 1fr; }
@@ -110,6 +111,7 @@ const NAV_SECTIONS = [
       position: sticky;
       top: 64px;
       height: calc(100vh - 64px);
+      height: calc(100dvh - 64px);
       overflow-y: auto;
     }
     /*

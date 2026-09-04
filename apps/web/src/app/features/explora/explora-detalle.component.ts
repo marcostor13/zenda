@@ -165,7 +165,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
   `,
   styles: [`
     :host { display: block; }
-    .ed-page { min-height: 100vh; background: var(--c-base); }
+    .ed-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .ed-wrap { padding-block: var(--sp-8); }
 
     .back-link {
@@ -212,7 +212,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
     .ed-bloque h2 { font-size: var(--f-xl); color: var(--dk-blue); margin-bottom: var(--sp-4); }
 
     .ed-atributos {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-4);
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: var(--sp-4);
       dt { font-size: var(--f-xs); color: var(--t-400); margin-bottom: 2px; }
       dd { font-size: var(--f-sm); color: var(--t-200); font-weight: var(--w-6); }
     }

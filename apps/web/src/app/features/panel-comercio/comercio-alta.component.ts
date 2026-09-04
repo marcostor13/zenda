@@ -264,7 +264,7 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
                   <label class="rs-lbl" for="email">{{ 'Email de contacto' | t }}</label>
                   <input id="email" class="rs-inp" type="email" formControlName="email"
                          placeholder="reservas@tunegocio.com" autocomplete="email"
-                         [class.rs-inp--error]="invalido('email')" />
+                         [class.rs-inp--error]="invalido('email')" inputmode="email" />
                   @if (invalido('email')) {
                     <span class="rs-field-err">{{ 'Escribe un correo válido.' | t }}</span>
                   }
@@ -446,7 +446,7 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
     /* ── Rejilla de categorías ───────────────────────────────────────── */
     .cats {
       display: grid; gap: var(--sp-3);
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
       margin-top: var(--sp-2);
     }
 

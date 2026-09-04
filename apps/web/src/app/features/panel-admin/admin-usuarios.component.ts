@@ -235,7 +235,7 @@ function labelRolDe(rol: string): string {
           </div>
           <div class="rs-form-group">
             <label class="rs-label">{{ 'Email *' | t }}</label>
-            <input formControlName="email" type="email" class="rs-input" placeholder="juan@example.com" />
+            <input formControlName="email" type="email" class="rs-input" placeholder="juan@example.com" inputmode="email" />
           </div>
         </div>
 
@@ -461,7 +461,7 @@ function labelRolDe(rol: string): string {
     .ficha__reservas li { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; font-size: var(--f-sm); color: var(--t-300); }
     .ficha__reservas code { font-family: monospace; font-size: var(--f-xs); color: var(--c-accent); }
 
-    .permisos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-2); }
+    .permisos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--sp-2); }
     .permiso {
       display: flex; align-items: flex-start; gap: var(--sp-2);
       padding: var(--sp-3); cursor: pointer;

@@ -183,10 +183,10 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
                   <div class="espacio-row">
                     <input class="rs-input" type="number" min="0" [value]="e.cantidad"
                            (input)="actualizarEspacio($index, 'cantidad', $any($event.target).value)"
-                           [placeholder]="'Cantidad' | t" />
+                           [placeholder]="'Cantidad' | t" inputmode="numeric" />
                     <input class="rs-input" type="number" min="0" step="0.01" [value]="e.precioNoche"
                            (input)="actualizarEspacio($index, 'precioNoche', $any($event.target).value)"
-                           [placeholder]="'Precio/noche' | t" />
+                           [placeholder]="'Precio/noche' | t" inputmode="decimal" />
                     <span class="rs-badge rs-badge--neutral">{{ e.tipo }}</span>
                     <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarEspacio($index)" [attr.aria-label]="'Quitar espacio' | t">
                   <rs-icon name="x" [size]="13" [stroke]="3"></rs-icon>
@@ -198,7 +198,7 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
                 </button>
               } @else {
                 <label class="rs-label">{{ labelDisponibilidad(s.vertical) }}</label>
-                <input class="rs-input" type="number" min="0" [formControl]="numeroCtrl" style="max-width:160px" />
+                <input class="rs-input" type="number" min="0" [formControl]="numeroCtrl" style="max-width:160px" inputmode="numeric" />
               }
               @if (disponibilidadError()) {
                 <p class="rs-field-error">{{ disponibilidadError() }}</p>

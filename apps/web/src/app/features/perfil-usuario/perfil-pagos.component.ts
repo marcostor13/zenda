@@ -12,7 +12,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
     TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent, RsBrandIconComponent
   ],
   template: `
-<div style="min-height:100vh;background:var(--c-base)">
+<div class="dk-pagina">
   <rs-navbar />
 
   <div class="rs-wrap" style="padding-block:var(--sp-10)">

@@ -141,7 +141,7 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
           @if (pideDias()) {
             <div class="rs-field">
               <label class="rs-lbl">{{ 'Días de antelación' | t }}</label>
-              <input class="rs-inp" type="number" min="0" max="365" formControlName="diasAntelacion" />
+              <input class="rs-inp" type="number" min="0" max="365" formControlName="diasAntelacion" inputmode="numeric" />
             </div>
           }
         </div>
@@ -183,23 +183,23 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
       <p class="avisos__vacio">{{ 'Todavía no hay avisos automáticos.' | t }}</p>
     } @else {
       <div class="avisos__tabla-wrap">
-        <table class="avisos__tabla">
+        <table class="avisos__tabla rs-tabla">
           <thead>
             <tr><th>{{ 'Aviso' | t }}</th><th>{{ 'Cuándo' | t }}</th><th>{{ 'A quién' | t }}</th><th>{{ 'Última vez' | t }}</th><th></th></tr>
           </thead>
           <tbody>
             @for (a of programados(); track a._id) {
               <tr [class.inactivo]="!a.activo">
-                <td>
+                <td [attr.data-label]="'Aviso' | t">
                   <strong>{{ a.nombre }}</strong>
                   <span class="avisos__sub">{{ a.titulo }}</span>
                 </td>
-                <td>
+                <td [attr.data-label]="'Cuándo' | t">
                   {{ etiquetaDisparador(a.disparador) }}<br />
                   <span class="avisos__sub">{{ a.hora }} · {{ etiquetaDias(a.diasSemana) }}</span>
                 </td>
-                <td>{{ etiquetaSegmento(a.segmento) }}</td>
-                <td>
+                <td [attr.data-label]="'A quién' | t">{{ etiquetaSegmento(a.segmento) }}</td>
+                <td [attr.data-label]="'Última vez' | t">
                   @if (a.ultimaEjecucion) {
                     {{ a.ultimaEjecucion | date:'dd/MM HH:mm' }}<br />
                     <span class="avisos__sub">{{ a.ultimoEnviados }} enviados</span>
@@ -256,7 +256,8 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
     .avisos__dia.activo { background: var(--c-accent); border-color: var(--c-accent); color: #fff; }
 
     /* La tabla se desplaza dentro de su caja: el panel no puede crecer a lo ancho. */
-    .avisos__tabla-wrap { overflow-x: auto; }
+    /* En movil la tabla es una lista de tarjetas y ya no rueda en horizontal. */
+    .avisos__tabla-wrap { @media (min-width: 769px) { overflow-x: auto; } }
     .avisos__tabla { width: 100%; border-collapse: collapse; font-size: var(--f-sm); }
     .avisos__tabla th {
       text-align: left; padding: var(--sp-2) var(--sp-3);

@@ -88,7 +88,7 @@ const COMENTARIO_MINIMO = 10;
   `,
   styles: [`
     :host { display: block; }
-    .vt-page { min-height: 100vh; background: var(--c-base); }
+    .vt-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .vt-wrap { padding-block: var(--sp-10); }
     .vt-card { padding: var(--sp-8); }
     .vt-card--ok { text-align: center; }

@@ -494,7 +494,7 @@ const SECUNDARIAS_VISIBLES = 2;
   `,
   styles: [`
     :host { display: block; }
-    .detalle-page { min-height: 100vh; background: var(--c-base); }
+    .detalle-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     /* El padding superior es el que llevan las demás fichas: sin él la
        miga de pan arrancaba pegada a la barra de navegación. */
     .detalle-wrap { padding-block: var(--sp-6) var(--sp-20); }

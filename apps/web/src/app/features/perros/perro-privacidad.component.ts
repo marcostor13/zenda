@@ -43,7 +43,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       <p class="priv-cargando">{{ 'Cargando permisos…' | t }}</p>
     } @else {
       <div class="priv-tabla-wrap">
-        <table class="priv-tabla">
+        <table class="priv-tabla rs-tabla">
           <caption class="rs-sr-only">{{ 'Permisos de compartición por tipo de historial y categoría' | t }}</caption>
           <thead>
             <tr>
@@ -58,7 +58,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
               <tr>
                 <th scope="row">{{ etiquetaHistorial(t) }}</th>
                 @for (v of verticales; track v) {
-                  <td>
+                  <td [attr.data-label]="etiquetaVertical(v)">
                     @if (esOrigen(t, v)) {
                       <span class="priv-propio" [title]="'Quien genera el historial siempre lo ve' | t">
                         <rs-icon name="check" [size]="14" [stroke]="3"></rs-icon>
@@ -102,7 +102,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
   `,
   styles: [`
     :host { display: block; }
-    .priv-page { min-height: 100vh; background: var(--c-base); }
+    .priv-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .priv-wrap { padding-block: var(--sp-8); }
 
     .back-link {
@@ -121,7 +121,10 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
     .priv-tabla-wrap { overflow-x: auto; background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg); }
 
     .priv-tabla {
-      width: 100%; border-collapse: collapse; min-width: 640px;
+      width: 100%; border-collapse: collapse;
+      /* En movil la matriz se lee como lista y el ancho minimo sobra: era lo
+         que sacaba la tabla de la pantalla. */
+      @media (min-width: 769px) { min-width: 640px; }
 
       th, td { padding: var(--sp-3) var(--sp-4); text-align: center; font-size: var(--f-sm); }
       thead th { color: var(--dk-blue); font-weight: var(--w-7); border-bottom: 1px solid var(--b-1); }

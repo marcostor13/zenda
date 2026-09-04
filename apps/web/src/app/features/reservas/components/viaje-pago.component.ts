@@ -81,7 +81,7 @@ const DESCRIPCION_VIAJE =
   `,
   styles: [`
     :host { display: block; }
-    .vp-page { min-height: 100vh; background: var(--c-base); }
+    .vp-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .vp-wrap { padding-block: var(--sp-10); }
     .vp-card { padding: var(--sp-8); }
 

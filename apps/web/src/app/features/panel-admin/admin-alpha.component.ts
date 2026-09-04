@@ -53,12 +53,12 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
                 <label class="campo">
                   <span>{{ 'Reservas requeridas' | t }}</span>
                   <input type="number" class="rs-inp" [value]="n.reservasRequeridas"
-                         (input)="n.reservasRequeridas = +$any($event).target.value" />
+                         (input)="n.reservasRequeridas = +$any($event).target.value" inputmode="numeric" />
                 </label>
                 <label class="campo">
                   <span>{{ 'Descuento (%)' | t }}</span>
                   <input type="number" class="rs-inp" [value]="(n.descuentoPct * 100).toFixed(0)"
-                         (input)="n.descuentoPct = +$any($event).target.value / 100" />
+                         (input)="n.descuentoPct = +$any($event).target.value / 100" inputmode="numeric" />
                 </label>
               </div>
 
@@ -68,7 +68,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
                   <span>{{ 'Descuento máximo (€)' | t }}</span>
                   <input type="number" min="0" class="rs-inp" [placeholder]="'Sin tope' | t"
                          [value]="n.descuentoMaximoEur ?? ''"
-                         (input)="fijarTope(n, $any($event).target.value)" />
+                         (input)="fijarTope(n, $any($event).target.value)" inputmode="numeric" />
                   <small class="ayuda">{{ 'Vacío = sin tope.' | t }}</small>
                 </label>
                 <label class="campo">

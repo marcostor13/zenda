@@ -266,7 +266,7 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
 
     /* Cabecera fija de un listado: navbar + barra de control. Los filtros y el
        mapa se pegan justo debajo. */
-    .ls { --dk-listado-top: 128px; min-height: 100vh; background: var(--c-base); }
+    .ls { --dk-listado-top: 128px; min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
 
     .ls__buscador {
       background: var(--c-card);

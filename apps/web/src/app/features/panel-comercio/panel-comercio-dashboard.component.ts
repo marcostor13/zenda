@@ -341,7 +341,7 @@ const ESTADO_BADGE: Record<string, string> = {
     .onboarding-card__pct { font-size:var(--f-xl); font-weight:var(--w-8); color:var(--c-accent); }
     .onboarding-bar { height:6px; border-radius:var(--r-full); background:var(--c-raised); overflow:hidden; margin-bottom:var(--sp-4); }
     .onboarding-bar__fill { height:100%; background:var(--g-accent); transition:width var(--d-3); }
-    .onboarding-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:var(--sp-2); list-style:none; }
+    .onboarding-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px, 100%),1fr)); gap:var(--sp-2); list-style:none; }
     .onboarding-list li { display:flex; align-items:center; gap:var(--sp-2); font-size:var(--f-sm); color:var(--t-300); &.hecho { color:var(--t-400); text-decoration:line-through; } }
     .onboarding-list__dot { width:18px; height:18px; border-radius:var(--r-full); border:1.5px solid var(--b-1); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .onboarding-list li.hecho .onboarding-list__dot { background:var(--g-accent); border-color:transparent; color:#fff; }

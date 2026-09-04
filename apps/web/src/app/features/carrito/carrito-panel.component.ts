@@ -102,7 +102,10 @@ interface GrupoComercio {
 
     .cp {
       position: fixed; top: 0; right: 0; bottom: 0; z-index: var(--z-4, 60);
-      width: min(420px, 100vw);
+      /* La unidad vw incluye el ancho de la barra de scroll, así que el cajón
+         asomaba unos píxeles por el borde y desplazaba la página en horizontal.
+         El 100% mide el hueco real. */
+      width: min(420px, 100%);
       display: flex; flex-direction: column;
       background: var(--c-card);
       box-shadow: var(--sh-xl);

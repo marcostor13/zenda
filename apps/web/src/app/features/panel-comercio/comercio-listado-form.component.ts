@@ -379,7 +379,7 @@ function aCsv(v: string): string[] {
                 <label class="rs-lbl" for="precioBase">{{ 'Precio orientativo (€) *' | t }}</label>
                 <input id="precioBase" class="rs-inp" type="number" formControlName="precioBase"
                        placeholder="0.00" min="0" step="0.01"
-                       [class.rs-inp--error]="hasError('precioBase')">
+                       [class.rs-inp--error]="hasError('precioBase')" inputmode="decimal">
                 <span class="rs-field-hint">{{ 'Es el precio «desde» que se muestra en las tarjetas de búsqueda.' | t }}</span>
                 @if (hasError('precioBase')) {
                   <span class="rs-field-err">{{ 'Ingresa un precio válido mayor a 0.' | t }}</span>
@@ -495,11 +495,11 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio/noche (€) *' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche" inputmode="decimal">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Cantidad disponible *' | t }}</label>
-                          <input class="rs-inp" type="number" min="1" formControlName="cantidad">
+                          <input class="rs-inp" type="number" min="1" formControlName="cantidad" inputmode="numeric">
                         </div>
                       </div>
                       <div class="rs-field">
@@ -639,7 +639,7 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalAlojamiento(i)">
@@ -672,7 +672,7 @@ function aCsv(v: string): string[] {
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Capacidad (perros)' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
-                    <input class="rs-inp" type="number" min="1" formControlName="capacidadPerros">
+                    <input class="rs-inp" type="number" min="1" formControlName="capacidadPerros" inputmode="numeric">
                   </div>
                 </div>
 
@@ -685,17 +685,17 @@ function aCsv(v: string): string[] {
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Tarifa base (€) *' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaBase">
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaBase" inputmode="decimal">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Tarifa por km (€) *' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaKm">
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaKm" inputmode="decimal">
                   </div>
                 </div>
 
                 <div class="rs-field">
                   <label class="rs-lbl">{{ 'Tarifa de espera, por hora (€)' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
-                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaEsperaPorHora">
+                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaEsperaPorHora" inputmode="decimal">
                   <span class="rs-field-hint">{{ 'Se cobra en trayectos de "ida y vuelta con espera" (Ref. TRA4). Déjalo en 0 si no cobras el tiempo de espera.' | t }}</span>
                 </div>
 
@@ -712,16 +712,16 @@ function aCsv(v: string): string[] {
                 <div class="row-card__grid row-card__grid--2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Distancia mínima facturable (km)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="distanciaMinimaKm">
+                    <input class="rs-inp" type="number" min="0" formControlName="distanciaMinimaKm" inputmode="numeric">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Antelación mínima (horas)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="antelacionMinimaHoras">
+                    <input class="rs-inp" type="number" min="0" formControlName="antelacionMinimaHoras" inputmode="numeric">
                   </div>
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">{{ 'Máximo de perros por trayecto' | t }}</label>
-                  <input class="rs-inp" type="number" min="1" formControlName="maxPerrosPorTrayecto">
+                  <input class="rs-inp" type="number" min="1" formControlName="maxPerrosPorTrayecto" inputmode="numeric">
                   <span class="rs-field-hint">{{ 'Déjalo vacío para usar la capacidad del vehículo.' | t }}</span>
                 </div>
                 <div class="checkbox-row">
@@ -811,7 +811,7 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalTransporte(i)">
@@ -912,7 +912,7 @@ function aCsv(v: string): string[] {
                                   <input class="rs-inp variante__nombre" formControlName="nombre"
                                          [placeholder]="'Ej. Rabia' | t">
                                   <input class="rs-inp variante__precio" type="number" min="0" step="0.01"
-                                         formControlName="precio" placeholder="€">
+                                         formControlName="precio" placeholder="€" inputmode="decimal">
                                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                                           (click)="quitarVariante(i, j)" [attr.aria-label]="'Quitar' | t">
                                     <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
@@ -933,11 +933,11 @@ function aCsv(v: string): string[] {
                           <div class="row-card__grid row-card__grid--2">
                             <div class="rs-field">
                               <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
-                              <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                              <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                             </div>
                             <div class="rs-field">
                               <label class="rs-lbl">{{ 'Duración (min)' | t }}</label>
-                              <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
+                              <input class="rs-inp" type="number" min="0" formControlName="duracionMin" inputmode="numeric">
                             </div>
                           </div>
                         }
@@ -964,7 +964,7 @@ function aCsv(v: string): string[] {
                                   <input class="rs-inp variante__nombre" formControlName="nombre"
                                          [placeholder]="'Ej. Analítica preoperatoria' | t">
                                   <input class="rs-inp variante__precio" type="number" min="0" step="0.01"
-                                         formControlName="precio" placeholder="€">
+                                         formControlName="precio" placeholder="€" inputmode="decimal">
                                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                                           (click)="quitarComplemento(i, j)" [attr.aria-label]="'Quitar' | t">
                                     <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
@@ -987,19 +987,19 @@ function aCsv(v: string): string[] {
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Precio de consulta (€) *' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioConsulta">
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioConsulta" inputmode="decimal">
                     <span class="rs-field-hint">{{ 'El «desde» que verá el cliente en el buscador.' | t }}</span>
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Duración de la cita (min)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="duracionCitaMin">
+                    <input class="rs-inp" type="number" min="0" formControlName="duracionCitaMin" inputmode="numeric">
                   </div>
                 </div>
 
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Citas disponibles por día' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="citasPorDia">
+                    <input class="rs-inp" type="number" min="0" formControlName="citasPorDia" inputmode="numeric">
                     <span class="rs-field-hint">{{ 'Número máximo de reservas al día.' | t }}</span>
                   </div>
                   <div class="rs-field">
@@ -1034,11 +1034,11 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Duración (min)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
+                          <input class="rs-inp" type="number" min="0" formControlName="duracionMin" inputmode="numeric">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Tamaño de perro (por defecto)' | t }}</label>
@@ -1079,11 +1079,11 @@ function aCsv(v: string): string[] {
                                 </div>
                                 <div class="rs-field">
                                   <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
-                                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                                 </div>
                                 <div class="rs-field">
                                   <label class="rs-lbl">{{ 'Duración (min)' | t }}</label>
-                                  <input class="rs-inp" type="number" min="0" formControlName="duracionMin">
+                                  <input class="rs-inp" type="number" min="0" formControlName="duracionMin" inputmode="numeric">
                                 </div>
                               </div>
                               <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarPrecioPorTamano(i, ti)">
@@ -1110,11 +1110,11 @@ function aCsv(v: string): string[] {
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Duración por turno (min)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="duracionSlotMin">
+                    <input class="rs-inp" type="number" min="0" formControlName="duracionSlotMin" inputmode="numeric">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Capacidad simultánea' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="capacidadSimultanea">
+                    <input class="rs-inp" type="number" min="0" formControlName="capacidadSimultanea" inputmode="numeric">
                   </div>
                 </div>
 
@@ -1146,7 +1146,7 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalPeluqueria(i)">
@@ -1181,15 +1181,15 @@ function aCsv(v: string): string[] {
                 <div class="form-row-3">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Presencial (€)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionPresencialPrecio">
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionPresencialPrecio" inputmode="decimal">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Online, videollamada (€)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionOnlinePrecio">
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionOnlinePrecio" inputmode="decimal">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'A domicilio (€)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionDomicilioPrecio">
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="valoracionDomicilioPrecio" inputmode="decimal">
                   </div>
                 </div>
 
@@ -1217,12 +1217,12 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Duración' | t }}</label>
                           <div class="campo-duracion">
-                            <input class="rs-inp" type="number" min="0" formControlName="duracionValor">
+                            <input class="rs-inp" type="number" min="0" formControlName="duracionValor" inputmode="numeric">
                             <select class="rs-inp" formControlName="duracionUnidad" [attr.aria-label]="'Unidad de la duración' | t">
                               <option value="minutos">{{ 'Minutos' | t }}</option>
                               <option value="horas">{{ 'Horas' | t }}</option>
@@ -1235,15 +1235,15 @@ function aCsv(v: string): string[] {
                       <div class="row-card__grid row-card__grid--curso-datos">
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Máx. perros' | t }}</label>
-                          <input class="rs-inp" type="number" min="1" formControlName="maxPerros">
+                          <input class="rs-inp" type="number" min="1" formControlName="maxPerros" inputmode="numeric">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Edad mín. (meses)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses">
+                          <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses" inputmode="numeric">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Edad máx. (0 = sin límite)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" formControlName="edadMaximaMeses">
+                          <input class="rs-inp" type="number" min="0" formControlName="edadMaximaMeses" inputmode="numeric">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Lugar' | t }}</label>
@@ -1277,11 +1277,11 @@ function aCsv(v: string): string[] {
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Máximo de mascotas por reserva (0 = sin límite)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="maxMascotasPorReserva">
+                    <input class="rs-inp" type="number" min="0" formControlName="maxMascotasPorReserva" inputmode="numeric">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Peso máximo por mascota, kg (0 = sin límite)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="pesoMaximoMascotaKg">
+                    <input class="rs-inp" type="number" min="0" formControlName="pesoMaximoMascotaKg" inputmode="numeric">
                   </div>
                 </div>
 
@@ -1324,7 +1324,7 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Suplemento (€/noche)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioPorNoche">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioPorNoche" inputmode="decimal">
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarSuplementoPorTamanoMascota(i)">
@@ -1367,11 +1367,11 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio/noche (€) *' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioNoche" inputmode="decimal">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Cantidad disponible *' | t }}</label>
-                          <input class="rs-inp" type="number" min="1" formControlName="cantidad">
+                          <input class="rs-inp" type="number" min="1" formControlName="cantidad" inputmode="numeric">
                         </div>
                       </div>
                       <div class="rs-field">
@@ -1418,7 +1418,7 @@ function aCsv(v: string): string[] {
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">{{ 'Fianza (€, 0 = sin fianza)' | t }}</label>
-                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="fianza">
+                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="fianza" inputmode="decimal">
                 </div>
               </div>
             }
@@ -1448,17 +1448,17 @@ function aCsv(v: string): string[] {
                 <div class="row-card__grid row-card__grid--3">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Prima anual de referencia (€) *' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="primaAnualBase">
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="primaAnualBase" inputmode="decimal">
                     <span class="rs-field-hint">{{ 'Orientativa: la validas tú antes de emitir.' | t }}</span>
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Duración (meses)' | t }}</label>
-                    <input class="rs-inp" type="number" min="1" formControlName="duracionMeses">
+                    <input class="rs-inp" type="number" min="1" formControlName="duracionMeses" inputmode="numeric">
                     <span class="rs-field-hint">{{ '12 = anual · menos = temporal (viajes, eventos)' | t }}</span>
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Descuento por pago anual (%)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" max="100" formControlName="descuentoPagoAnualPct">
+                    <input class="rs-inp" type="number" min="0" max="100" formControlName="descuentoPagoAnualPct" inputmode="numeric">
                   </div>
                 </div>
                 <label class="rs-checkbox">
@@ -1472,15 +1472,15 @@ function aCsv(v: string): string[] {
                 <div class="row-card__grid row-card__grid--3">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Edad mínima (meses)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses">
+                    <input class="rs-inp" type="number" min="0" formControlName="edadMinimaMeses" inputmode="numeric">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Edad máxima (años)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="edadMaximaAnios">
+                    <input class="rs-inp" type="number" min="0" formControlName="edadMaximaAnios" inputmode="numeric">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Peso máximo (kg)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="pesoMaximoKg">
+                    <input class="rs-inp" type="number" min="0" formControlName="pesoMaximoKg" inputmode="numeric">
                   </div>
                 </div>
                 <div class="rs-field">
@@ -1491,12 +1491,12 @@ function aCsv(v: string): string[] {
                 <div class="row-card__grid row-card__grid--2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Recargo por riesgo (%)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" max="200" formControlName="recargoRiesgoPct">
+                    <input class="rs-inp" type="number" min="0" max="200" formControlName="recargoRiesgoPct" inputmode="numeric">
                     <span class="rs-field-hint">{{ 'Se aplica en vez de rechazar a perfiles de mayor riesgo.' | t }}</span>
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Cupo de pólizas (0 = sin límite)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="cupoPolizas">
+                    <input class="rs-inp" type="number" min="0" formControlName="cupoPolizas" inputmode="numeric">
                   </div>
                 </div>
                 <div class="checkbox-row">
@@ -1542,11 +1542,11 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioBase">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioBase" inputmode="decimal">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Tiempo estimado (h)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" formControlName="tiempoEstimadoHoras">
+                          <input class="rs-inp" type="number" min="0" formControlName="tiempoEstimadoHoras" inputmode="numeric">
                         </div>
                       </div>
 
@@ -1573,11 +1573,11 @@ function aCsv(v: string): string[] {
                               <div class="row-card__grid row-card__grid--2">
                                 <div class="rs-field">
                                   <label class="rs-lbl">{{ 'Hasta (kg)' | t }}</label>
-                                  <input class="rs-inp" type="number" min="0" step="0.5" formControlName="hastaKg">
+                                  <input class="rs-inp" type="number" min="0" step="0.5" formControlName="hastaKg" inputmode="decimal">
                                 </div>
                                 <div class="rs-field">
                                   <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
-                                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                                 </div>
                               </div>
                               <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarTramoPeso(i, ti)">
@@ -1631,7 +1631,7 @@ function aCsv(v: string): string[] {
                   <div class="form-row-2">
                     <div class="rs-field">
                       <label class="rs-lbl">{{ 'Radio máximo (km)' | t }}</label>
-                      <input class="rs-inp" type="number" min="0" formControlName="radioRecogidaKm">
+                      <input class="rs-inp" type="number" min="0" formControlName="radioRecogidaKm" inputmode="numeric">
                     </div>
                     <div class="rs-field">
                       <label class="rs-lbl">{{ 'Cómo cobras el desplazamiento' | t }}</label>
@@ -1647,13 +1647,13 @@ function aCsv(v: string): string[] {
                     @case ('fija') {
                       <div class="rs-field">
                         <label class="rs-lbl">{{ 'Precio de la recogida (€)' | t }}</label>
-                        <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioRecogida">
+                        <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioRecogida" inputmode="decimal">
                       </div>
                     }
                     @case ('por_km') {
                       <div class="rs-field">
                         <label class="rs-lbl">{{ 'Precio por kilómetro (€)' | t }}</label>
-                        <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioRecogidaPorKm">
+                        <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precioRecogidaPorKm" inputmode="decimal">
                       </div>
                     }
                     @case ('por_zona') {
@@ -1669,7 +1669,7 @@ function aCsv(v: string): string[] {
                                 </div>
                                 <div class="rs-field">
                                   <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
-                                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                                 </div>
                               </div>
                               <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarZonaRecogida(zi)">
@@ -1694,11 +1694,11 @@ function aCsv(v: string): string[] {
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Suplemento por urgencia (€)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="suplementoUrgencia">
+                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="suplementoUrgencia" inputmode="decimal">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Servicios que puedes atender al día' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="cuposDisponibles">
+                    <input class="rs-inp" type="number" min="0" formControlName="cuposDisponibles" inputmode="numeric">
                   </div>
                 </div>
                 <div class="rs-field">
@@ -1730,7 +1730,7 @@ function aCsv(v: string): string[] {
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio (€) *' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio">
+                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
                         </div>
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Descripción' | t }}</label>
@@ -1758,11 +1758,11 @@ function aCsv(v: string): string[] {
                 <div class="form-row-2">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Reembolso antes de la recogida (%)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" max="100" formControlName="reembolsoAntesRecogidaPct">
+                    <input class="rs-inp" type="number" min="0" max="100" formControlName="reembolsoAntesRecogidaPct" inputmode="numeric">
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Reembolso con el servicio iniciado (%)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" max="100" formControlName="reembolsoIniciadoPct">
+                    <input class="rs-inp" type="number" min="0" max="100" formControlName="reembolsoIniciadoPct" inputmode="numeric">
                   </div>
                 </div>
                 <div class="rs-field">

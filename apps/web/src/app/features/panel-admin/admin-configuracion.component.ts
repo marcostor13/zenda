@@ -111,7 +111,7 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
           <div class="rs-form-group">
             <label class="rs-label">{{ 'Email de soporte' | t }}</label>
             <input class="rs-inp" type="email" [value]="c.emailSoporte"
-                   (input)="editar('emailSoporte', $any($event.target).value)" />
+                   (input)="editar('emailSoporte', $any($event.target).value)" inputmode="email" />
           </div>
           <div class="rs-form-group">
             <label class="rs-label">{{ 'Teléfono de soporte' | t }}</label>
@@ -121,7 +121,7 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
           <div class="rs-form-group">
             <label class="rs-label">{{ 'Avisar de documentación que caduca (días antes)' | t }}</label>
             <input class="rs-inp" type="number" min="1" [value]="c.diasAvisoCaducidad"
-                   (input)="editar('diasAvisoCaducidad', +$any($event.target).value)" />
+                   (input)="editar('diasAvisoCaducidad', +$any($event.target).value)" inputmode="numeric" />
           </div>
         </div>
 
@@ -182,7 +182,7 @@ const CANALES: ReadonlyArray<{ clave: keyof CanalesAviso; label: string; nota?: 
       .avisos__check-label { display: inline; }
     }
 
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-4); }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-4); }
     .verticales { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
     .vertical { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--f-sm); color: var(--t-200); cursor: pointer; }
     .mantenimiento { display: flex; align-items: flex-start; gap: var(--sp-3); cursor: pointer; margin-bottom: var(--sp-3); }

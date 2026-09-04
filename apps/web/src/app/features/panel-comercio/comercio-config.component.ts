@@ -303,7 +303,7 @@ const FASES: ReadonlyArray<{
           <div class="rs-field">
             <label class="rs-lbl">{{ 'Correo electrónico *' | t }}</label>
             <input class="rs-inp" type="email" formControlName="email" placeholder="contacto@micomercio.com"
-                   [class.rs-inp--error]="contactoForm.get('email')?.invalid && contactoForm.get('email')?.touched" />
+                   [class.rs-inp--error]="contactoForm.get('email')?.invalid && contactoForm.get('email')?.touched" inputmode="email" />
             @if (contactoForm.get('email')?.hasError('email') && contactoForm.get('email')?.touched) {
               <span class="rs-field-error">{{ 'Email no válido' | t }}</span>
             }

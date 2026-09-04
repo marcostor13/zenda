@@ -53,7 +53,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
               <div data-col="Comisión" style="display:flex;align-items:center;gap:var(--sp-2)">
                 <input type="number" class="rs-inp" style="width:80px;text-align:center"
                        [value]="(c.comisionPct * 100).toFixed(0)"
-                       (input)="actualizarPct(c, +$any($event).target.value)" />
+                       (input)="actualizarPct(c, +$any($event).target.value)" inputmode="numeric" />
                 <span style="color:var(--t-400)">%</span>
               </div>
               <span data-col="Fee Stripe" style="color:var(--t-400);font-size:var(--f-sm)">

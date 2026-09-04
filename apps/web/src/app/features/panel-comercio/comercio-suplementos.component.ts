@@ -38,7 +38,7 @@ const UNIDAD_LABEL: Record<string, string> = {
         </div>
         <div class="rs-field">
           <label class="rs-lbl">{{ 'Precio' | t }}</label>
-          <input type="number" min="0.01" step="0.01" class="rs-inp" [(ngModel)]="nuevoMonto" />
+          <input type="number" min="0.01" step="0.01" class="rs-inp" [(ngModel)]="nuevoMonto" inputmode="decimal" />
         </div>
         <div class="rs-field">
           <label class="rs-lbl">{{ 'Tipo de cobro' | t }}</label>
@@ -65,17 +65,17 @@ const UNIDAD_LABEL: Record<string, string> = {
       </div>
     } @else {
       <div class="rs-card" style="overflow-x:auto">
-        <table class="rs-table">
+        <table class="rs-table rs-tabla">
           <thead>
             <tr><th>{{ 'Nombre del suplemento' | t }}</th><th>{{ 'Precio' | t }}</th><th>{{ 'Tipo de cobro' | t }}</th><th>{{ 'Estado' | t }}</th><th></th></tr>
           </thead>
           <tbody>
             @for (s of suplementos(); track s._id) {
               <tr>
-                <td>{{ s.concepto }}</td>
-                <td>{{ s.monto | euros:'1.2-2' }}</td>
-                <td>{{ unidadLabel(s.unidad) }}</td>
-                <td>
+                <td [attr.data-label]="'Nombre del suplemento' | t">{{ s.concepto }}</td>
+                <td [attr.data-label]="'Precio' | t">{{ s.monto | euros:'1.2-2' }}</td>
+                <td [attr.data-label]="'Tipo de cobro' | t">{{ unidadLabel(s.unidad) }}</td>
+                <td [attr.data-label]="'Estado' | t">
                   <span class="rs-badge" [class.rs-badge--success]="s.activo" [class.rs-badge--neutral]="!s.activo">
                     {{ s.activo ? 'Activo' : 'Inactivo' }}
                   </span>
@@ -111,6 +111,7 @@ const UNIDAD_LABEL: Record<string, string> = {
     .rs-table { width: 100%; border-collapse: collapse; font-size: var(--f-sm);
       th { color: var(--t-400); text-align: left; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--b-1); font-size: var(--f-xs); text-transform: uppercase; letter-spacing: .06em; }
       td { padding: var(--sp-4); border-bottom: 1px solid var(--b-1); color: var(--t-200); white-space: nowrap; }
+      @media (max-width: 768px) { td { white-space: normal; } }
       tr:last-child td { border-bottom: none; }
     }
   `],

@@ -28,7 +28,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
     TraducirPipe, RouterLink, DecimalPipe, RsNavbarComponent, RsIconComponent, RsFavoritoBtnComponent, ImgFallbackDirective, EurosPipe
   ],
   template: `
-<div style="min-height:100vh;background:var(--c-base)">
+<div class="dk-pagina">
   <rs-navbar />
 
   <div class="rs-wrap" style="padding-block:var(--sp-10)">
@@ -158,7 +158,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
     .fav-header { margin-bottom: var(--sp-6); h1 { font-size: var(--f-2xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-1); } p { color: var(--t-400); font-size: var(--f-sm); } }
     .fav-toolbar { display: flex; gap: var(--sp-5); flex-wrap: wrap; margin-bottom: var(--sp-6); }
     .fav-toolbar__group { display: flex; flex-direction: column; gap: var(--sp-1); label { font-size: var(--f-xs); color: var(--t-400); } }
-    .fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--sp-5); }
+    .fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: var(--sp-5); }
     .fav-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
     .fav-card__img { position: relative; display: block; aspect-ratio: 16/10; background: var(--c-raised); img { width: 100%; height: 100%; object-fit: cover; } }
     .fav-card__placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px; }

@@ -56,7 +56,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
     </div>
   `,
   styles: [`
-    :host { display: block; background: var(--c-base); min-height: 100vh; }
+    :host { display: block; background: var(--c-base); min-height: 100vh; min-height: 100dvh; }
 
     .lg__cabecera {
       padding: var(--sp-5) var(--sp-6);

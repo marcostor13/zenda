@@ -113,7 +113,7 @@ const PROVINCIAS = [
             </div>
             <div class="rs-field">
               <label class="rs-lbl" for="pl-presupuesto">{{ 'Presupuesto (€)' | t }}</label>
-              <input id="pl-presupuesto" type="number" min="0" class="rs-inp" [(ngModel)]="presupuesto" />
+              <input id="pl-presupuesto" type="number" min="0" class="rs-inp" [(ngModel)]="presupuesto" inputmode="numeric" />
             </div>
             @if (perros().length) {
               <div class="rs-field">
@@ -194,7 +194,7 @@ const PROVINCIAS = [
   `,
   styles: [`
     :host { display: block; }
-    .pl-page { min-height: 100vh; background: var(--c-base); }
+    .pl-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
 
     .pl-head { margin-bottom: var(--sp-6); max-width: 64ch; }
     .pl-eyebrow {
@@ -244,7 +244,7 @@ const PROVINCIAS = [
     }
 
     .pl-opciones {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--sp-5);
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: var(--sp-5);
     }
     .pl-opcion {
       padding: var(--sp-6);

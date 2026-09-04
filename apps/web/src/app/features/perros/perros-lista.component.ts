@@ -23,7 +23,7 @@ interface EtiquetaEstado {
     TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective
   ],
   template: `
-<div style="min-height:100vh;background:var(--c-base)">
+<div class="dk-pagina">
   <rs-navbar />
 
   <div class="rs-wrap" style="padding-block:var(--sp-10)">
@@ -180,7 +180,7 @@ interface EtiquetaEstado {
       p { color: var(--t-400); font-size: var(--f-md); }
     }
 
-    .perros-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-4); }
+    .perros-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: var(--sp-4); }
     .perro-card { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); }
     .perro-card__avatar {
       width: 56px; height: 56px; border-radius: 50%; background: var(--c-raised);

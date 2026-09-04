@@ -317,7 +317,7 @@ interface TarjetaSemana {
               <div class="rs-field">
                 <label class="rs-lbl" for="bl-cantidad">{{ '¿Cuántas plazas cierras?' | t }}</label>
                 <input id="bl-cantidad" class="rs-inp" type="number" min="0"
-                       [(ngModel)]="formCantidad" [placeholder]="'Déjalo vacío para cerrar del todo' | t" />
+                       [(ngModel)]="formCantidad" [placeholder]="'Déjalo vacío para cerrar del todo' | t" inputmode="numeric" />
                 <span class="rs-field-hint">
                   {{ 'Pon un número para cerrar sólo esa parte (dos de tus cinco suites). Vacío cierra el servicio entero esos días.' | t }}
                 </span>

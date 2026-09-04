@@ -117,7 +117,7 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
   `,
   styles: [`
     :host { display: block; }
-    .mv-page { min-height: 100vh; background: var(--c-base); }
+    .mv-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .mv-wrap { padding-block: var(--sp-8); }
 
     .back-link {

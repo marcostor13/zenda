@@ -379,7 +379,7 @@ const ESTADO_BADGE: Record<string, string> = {
     .alpha-beneficios { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; }
     .alpha-beneficio { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
 
-    .accesos-config { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--sp-4); }
+    .accesos-config { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--sp-4); }
     .acceso {
       display: flex; align-items: center; gap: var(--sp-4);
       padding: var(--sp-5); text-decoration: none;

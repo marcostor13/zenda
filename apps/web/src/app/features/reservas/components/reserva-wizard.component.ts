@@ -380,7 +380,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <div class="form-row">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Distancia del trayecto (km)' | t }}</label>
-                    <input formControlName="distanciaKm" type="number" class="rs-inp rs-inp--lg" min="1" />
+                    <input formControlName="distanciaKm" type="number" class="rs-inp rs-inp--lg" min="1" inputmode="numeric" />
                     @if (calculandoTrayecto()) {
                       <span class="rs-field-hint">{{ 'Calculando la distancia…' | t }}</span>
                     } @else if (resumenTrayecto()) {
@@ -435,7 +435,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                       <label class="rs-lbl">{{ 'Tiempo de espera estimado (minutos)' | t }}</label>
                       <input type="number" min="0" step="5" class="rs-inp rs-inp--lg"
                              [value]="esperaMinutos()"
-                             (input)="esperaMinutos.set(+$any($event.target).value)" />
+                             (input)="esperaMinutos.set(+$any($event.target).value)" inputmode="numeric" />
                       <span class="rs-field-hint">{{ 'La tarifa base y los km se cobran ida + vuelta; la espera se cobra aparte, según la tarifa del transportista.' | t }}</span>
                     </div>
                   }
@@ -631,7 +631,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <div class="rs-field">
                   <label class="rs-lbl">{{ 'Edad del perro (meses)' | t }}</label>
                   <input formControlName="edadMeses" type="number" class="rs-inp rs-inp--lg" min="0" max="240"
-                         (change)="consultarRecomendacionAdiestramiento()" />
+                         (change)="consultarRecomendacionAdiestramiento()" inputmode="numeric" />
                   <span class="rs-field-hint">{{ 'Para verificar la edad mínima requerida por el adiestrador' | t }}</span>
                 </div>
                 @if (serviciosAdiestramientoOpciones().length) {
@@ -856,7 +856,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Peso aproximado (kg)' | t }}</label>
-                    <input formControlName="pesoKg" type="number" min="0" step="0.5" class="rs-inp rs-inp--lg" />
+                    <input formControlName="pesoKg" type="number" min="0" step="0.5" class="rs-inp rs-inp--lg" inputmode="decimal" />
                     <span class="rs-field-hint">{{ 'Es lo que determina el precio del servicio.' | t }}</span>
                   </div>
                 </div>
@@ -883,7 +883,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </div>
                     <div class="rs-field">
                       <label class="rs-lbl">{{ 'Distancia aproximada (km)' | t }}</label>
-                      <input formControlName="distanciaKm" type="number" min="0" class="rs-inp rs-inp--lg" />
+                      <input formControlName="distanciaKm" type="number" min="0" class="rs-inp rs-inp--lg" inputmode="numeric" />
                       <span class="rs-field-hint">Radio máximo de esta empresa: {{ radioRecogidaKm() }} km.</span>
                     </div>
                   </div>
@@ -1029,7 +1029,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               <div class="rs-field">
                 <label class="rs-lbl">{{ 'Correo electrónico' | t }}</label>
                 <input formControlName="email" type="email" class="rs-inp rs-inp--lg" placeholder="tu@email.com"
-                       [class.rs-inp--error]="p2Error('email')" />
+                       [class.rs-inp--error]="p2Error('email')" inputmode="email" />
                 @if (p2Error('email')) {
                   <span class="rs-field-err">{{ 'Indica un correo electrónico válido.' | t }}</span>
                 } @else {
@@ -1464,7 +1464,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   `,
   styles: [`
     :host { display: block; }
-    .wizard-page { min-height: 100vh; background: var(--c-base); }
+    .wizard-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .wizard-wrap { padding-block: var(--sp-8); }
 
     .wizard-cta { margin-top: var(--sp-6); }

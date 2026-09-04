@@ -18,7 +18,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
     TraducirPipe, RouterLink, RsNavbarComponent, ReactiveFormsModule, RsIconComponent
   ],
   template: `
-<div style="min-height:100vh;background:var(--c-base)">
+<div class="dk-pagina">
   <rs-navbar />
   <div class="rs-wrap" style="padding-block:var(--sp-10);max-width:1100px">
 
@@ -67,7 +67,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
             <div class="rs-form-group">
               <label class="rs-label">{{ form.value.tipo === 'porcentaje' ? 'Descuento (%)' : 'Importe del descuento (€)' }}</label>
               <input formControlName="valor" type="number" step="1" class="rs-input"
-                     [placeholder]="form.value.tipo === 'porcentaje' ? '20' : '10'" />
+                     [placeholder]="form.value.tipo === 'porcentaje' ? '20' : '10'" inputmode="numeric" />
             </div>
           </div>
           <div class="form-2">
@@ -84,7 +84,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
             </div>
             <div class="rs-form-group">
               <label class="rs-label">{{ 'Importe mínimo de reserva (€)' | t }}</label>
-              <input formControlName="montoMinimo" type="number" class="rs-input" placeholder="0" />
+              <input formControlName="montoMinimo" type="number" class="rs-input" placeholder="0" inputmode="numeric" />
             </div>
           </div>
           <!-- Nada de "0 = sin límite": se marca la casilla y el campo desaparece -->
@@ -92,7 +92,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
             <div class="rs-form-group">
               <label class="rs-label">{{ 'Descuento máximo (€)' | t }}</label>
               @if (!sinTope()) {
-                <input formControlName="topeDescuento" type="number" class="rs-input" placeholder="0" />
+                <input formControlName="topeDescuento" type="number" class="rs-input" placeholder="0" inputmode="numeric" />
               }
               <label class="casilla">
                 <input type="checkbox" [checked]="sinTope()" (change)="alternarSinTope()" /> {{ 'Sin límite' | t }}
@@ -101,7 +101,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
             <div class="rs-form-group">
               <label class="rs-label">{{ 'Límite total de usos' | t }}</label>
               @if (!usosIlimitados()) {
-                <input formControlName="usoMaximo" type="number" class="rs-input" placeholder="0" />
+                <input formControlName="usoMaximo" type="number" class="rs-input" placeholder="0" inputmode="numeric" />
               }
               <label class="casilla">
                 <input type="checkbox" [checked]="usosIlimitados()" (change)="alternarUsosIlimitados()" /> {{ 'Ilimitado' | t }}
@@ -157,7 +157,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
             <div class="rs-form-group">
               <label class="rs-label">{{ 'Usos por persona' | t }}</label>
               @if (!usosPorUsuarioIlimitado()) {
-                <input formControlName="usosPorUsuario" type="number" min="1" class="rs-input" />
+                <input formControlName="usosPorUsuario" type="number" min="1" class="rs-input" inputmode="numeric" />
               }
               <label class="casilla">
                 <input type="checkbox" [checked]="usosPorUsuarioIlimitado()"
@@ -308,7 +308,15 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
     .cupon-acciones { display: flex; align-items: center; gap: var(--sp-1); flex-shrink: 0; }
 
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: var(--sp-4); }
-    .modal { width: 100%; max-width: 420px; padding: var(--sp-8); }
+    .modal {
+      width: 100%; max-width: 420px; padding: var(--sp-8);
+      /* El backdrop centra el modal en la ventana, asi que un formulario mas
+         alto que la pantalla se salia por arriba y por abajo sin scroll: en un
+         movil los botones de guardar quedaban fuera de alcance. */
+      max-height: calc(100dvh - var(--sp-8));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
     .modal-title { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-6); }
     .modal-actions { display: flex; gap: var(--sp-3); justify-content: flex-end; }
   `],

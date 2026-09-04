@@ -231,7 +231,7 @@ function iconoDeBeneficio(texto: string): string {
   styles: [`
     :host { display: block; }
 
-    .alpha-page { min-height: 100vh; background: var(--c-base); }
+    .alpha-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .alpha-page__wrap { padding-block: var(--sp-10); }
 
     .back-link {
@@ -392,7 +392,7 @@ function iconoDeBeneficio(texto: string): string {
 
     .niveles-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
       gap: var(--sp-4);
       align-items: start;
     }

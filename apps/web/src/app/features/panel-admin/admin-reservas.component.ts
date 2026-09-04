@@ -136,11 +136,11 @@ const MAX_EXPORTACION = 500;
           </label>
           <label class="campo">
             <span>{{ 'Importe mínimo (€)' | t }}</span>
-            <input type="number" min="0" class="rs-inp" [placeholder]="'Sin mínimo' | t" [(ngModel)]="fImporteMin" />
+            <input type="number" min="0" class="rs-inp" [placeholder]="'Sin mínimo' | t" [(ngModel)]="fImporteMin" inputmode="numeric" />
           </label>
           <label class="campo">
             <span>{{ 'Importe máximo (€)' | t }}</span>
-            <input type="number" min="0" class="rs-inp" [placeholder]="'Sin máximo' | t" [(ngModel)]="fImporteMax" />
+            <input type="number" min="0" class="rs-inp" [placeholder]="'Sin máximo' | t" [(ngModel)]="fImporteMax" inputmode="numeric" />
           </label>
         </div>
         <div class="panel-filtros__acciones">
@@ -437,7 +437,7 @@ const MAX_EXPORTACION = 500;
     .cell-sub { display: block; font-size: var(--f-xs); color: var(--t-400); }
 
     .ficha {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
       gap: var(--sp-3); margin: var(--sp-3) 0 var(--sp-4);
     }
     .ficha dt { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
@@ -557,7 +557,14 @@ const MAX_EXPORTACION = 500;
     .timeline__motivo { font-size: var(--f-xs); color: var(--t-300); font-style: italic; }
 
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; padding: var(--sp-4); }
-    .modal { width: 100%; max-width: 440px; padding: var(--sp-6); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); } textarea { width: 100%; resize: vertical; } }
+    .modal {
+      width: 100%; max-width: 440px; padding: var(--sp-6);
+      /* El backdrop centra el modal en la ventana, asi que un formulario mas
+         alto que la pantalla se salia por arriba y por abajo sin scroll: en un
+         movil los botones de guardar quedaban fuera de alcance. */
+      max-height: calc(100dvh - var(--sp-8));
+      overflow-y: auto;
+      overscroll-behavior: contain; h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); } textarea { width: 100%; resize: vertical; } }
   `],
 })
 export class AdminReservasComponent implements OnInit {

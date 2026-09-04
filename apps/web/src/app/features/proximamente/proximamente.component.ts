@@ -105,8 +105,7 @@ interface VentajaAnunciada {
                   formControlName="email"
                   placeholder="tu@email.com"
                   autocomplete="email"
-                  [attr.aria-invalid]="hayError() ? 'true' : null"
-                />
+                  [attr.aria-invalid]="hayError() ? 'true' : null" inputmode="email" />
                 <button
                   type="submit"
                   class="rs-btn rs-btn--gold rs-btn--lg"
@@ -147,6 +146,7 @@ interface VentajaAnunciada {
 
     .pm {
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       background: var(--c-card);

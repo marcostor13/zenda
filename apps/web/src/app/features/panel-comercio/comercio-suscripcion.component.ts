@@ -99,7 +99,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
       <h2 class="cmp__titulo">{{ 'Compara todos los beneficios' | t }}</h2>
 
       <div class="cmp__caja" [class.cmp__caja--abierta]="comparativaAbierta()">
-        <table class="cmp__tabla">
+        <table class="cmp__tabla rs-tabla">
           <thead>
             <tr>
               <th scope="col">{{ 'Beneficios' | t }}</th>
@@ -121,7 +121,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
                   <rs-icon [name]="fila.icono" [size]="15" [stroke]="2"></rs-icon>
                   {{ fila.concepto }}
                 </th>
-                <td>
+                <td [attr.data-label]="'Básico' | t">
                   @if (fila.basico === true) {
                     <rs-icon name="check" [size]="15" [stroke]="2.5" class="cmp__si"></rs-icon>
                   } @else if (fila.basico === false) {
@@ -130,7 +130,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
                     {{ fila.basico }}
                   }
                 </td>
-                <td class="cmp__col--pro">
+                <td class="cmp__col--pro" [attr.data-label]="'Pro' | t">
                   @if (fila.pro === true) {
                     <rs-icon name="check" [size]="15" [stroke]="2.5" class="cmp__si"></rs-icon>
                   } @else if (fila.pro === false) {
@@ -268,7 +268,10 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
 
     .cmp__tabla th, .cmp__tabla td {
       padding: var(--sp-3) var(--sp-4);
+      /* Centrado sólo mientras hay columnas que alinear. Como lista, cada valor
+         va pegado a su etiqueta y el centrado lo dejaba flotando en medio. */
       text-align: center;
+      @media (max-width: 768px) { text-align: left; }
       border-bottom: 1px solid var(--b-1);
       color: var(--t-300);
     }
@@ -292,6 +295,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
     .cmp__tabla thead small { display: block; font-weight: var(--w-4); color: var(--t-400); font-size: 11px; }
 
     .cmp__col--pro { background: rgba(251,174,23,.06); }
+    @media (max-width: 768px) { td.cmp__col--pro { background: transparent; } }
     .cmp__tabla thead .cmp__col--pro rs-icon { color: var(--dk-gold); }
 
     .cmp__si { color: var(--c-teal, var(--dk-blue)); }

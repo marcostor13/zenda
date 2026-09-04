@@ -43,7 +43,7 @@ const NAV_ITEMS = [
     TraducirPipe, RouterOutlet, RouterLink, RouterLinkActive, ReactiveFormsModule, TitleCasePipe, RsNavbarComponent, RsIconComponent
   ],
   template: `
-<div style="min-height:100vh;background:var(--c-base)">
+<div class="dk-pagina">
   <rs-navbar />
 
   @if (cargando()) {
@@ -151,6 +151,7 @@ const NAV_ITEMS = [
       display: grid;
       grid-template-columns: 260px 1fr;
       min-height: calc(100vh - 64px);
+      min-height: calc(100dvh - 64px);
     }
     @media (max-width: 1024px) { .cl-layout { grid-template-columns: 1fr; } }
 
@@ -161,6 +162,7 @@ const NAV_ITEMS = [
       position: sticky;
       top: 64px;
       height: calc(100vh - 64px);
+      height: calc(100dvh - 64px);
       overflow-y: auto;
       display: flex;
       flex-direction: column;

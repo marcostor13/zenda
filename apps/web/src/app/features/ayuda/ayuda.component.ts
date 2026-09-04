@@ -297,7 +297,7 @@ const APRENDIZAJE: readonly string[] = [
   `,
   styles: [`
     :host { display: block; }
-    .ayuda-page { min-height: 100vh; background: var(--c-base); }
+    .ayuda-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
 
     .ay-head { margin-bottom: var(--sp-6); max-width: 60ch; }
     .ay-head__eyebrow {
@@ -382,7 +382,7 @@ const APRENDIZAJE: readonly string[] = [
     .ay-dato strong { font-size: var(--f-md); color: var(--t-100); }
 
     .ay-section { margin-top: var(--sp-8); h2 { font-size: var(--f-lg); color: var(--dk-blue); margin-bottom: var(--sp-4); } }
-    .ay-incidencias { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-3); }
+    .ay-incidencias { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: var(--sp-3); }
     .ay-incidencia {
       display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4);
       color: var(--t-100); font-size: var(--f-sm); text-decoration: none;

@@ -155,7 +155,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                         <input id="email" type="email" formControlName="email" class="rs-inp" autocomplete="email"
                                placeholder="tu@negocio.com"
                                [class.rs-inp--error]="invalido(cuentaForm, 'email')"
-                               [attr.aria-invalid]="invalido(cuentaForm, 'email') || null" />
+                               [attr.aria-invalid]="invalido(cuentaForm, 'email') || null" inputmode="email" />
                         @if (invalido(cuentaForm, 'email')) { <span class="rs-field-err">{{ 'Escribe un correo válido' | t }}</span> }
                       </div>
 
@@ -265,6 +265,7 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
     /* ── Layout: formulario a la izquierda, propuesta de valor al lado ────── */
     .rc {
       min-height: 100vh;
+      min-height: 100dvh;
       display: grid;
       grid-template-columns: 1fr;
       background:

@@ -129,7 +129,7 @@ const PUESTOS = [
           </div>
           <div class="rs-form-group">
             <label class="rs-label">{{ 'Email' | t }}</label>
-            <input class="rs-input" type="email" formControlName="email" placeholder="persona@negocio.com" />
+            <input class="rs-input" type="email" formControlName="email" placeholder="persona@negocio.com" inputmode="email" />
           </div>
           <div class="rs-form-group">
             <label class="rs-label">{{ 'Contraseña temporal' | t }}</label>
@@ -173,7 +173,7 @@ const PUESTOS = [
       display: flex; flex-direction: column; gap: var(--sp-3);
     }
     .permisos-panel__acciones { display: flex; justify-content: flex-end; gap: var(--sp-2); }
-    .permisos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-2); }
+    .permisos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--sp-2); }
     .permiso { display: flex; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-2); background: var(--c-raised); border-radius: var(--r-md); cursor: pointer; }
     .permiso span { display: flex; flex-direction: column; gap: 2px; }
     .permiso strong { font-size: var(--f-sm); color: var(--t-100); }

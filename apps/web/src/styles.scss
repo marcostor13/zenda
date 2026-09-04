@@ -1503,6 +1503,7 @@ h1, h2, h3, h4, h5, h6 {
 /* ── 20. AUTH LAYOUT ───────────────────────────────────────────── */
 .rs-auth {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1601,6 +1602,7 @@ h1, h2, h3, h4, h5, h6 {
 /* ── 21. DASHBOARD ─────────────────────────────────────────────── */
 .rs-dash {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--c-base);
@@ -2009,6 +2011,7 @@ h1, h2, h3, h4, h5, h6 {
 .rs-buscador-hero {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--g-hero);
   overflow: hidden;
 
@@ -2094,6 +2097,7 @@ h1, h2, h3, h4, h5, h6 {
 .rs-auth-layout {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2344,5 +2348,175 @@ h1, h2, h3, h4, h5, h6 {
 
   .rs-toolbar__acciones > .rs-btn {
     flex: 1;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   22. RESPONSIVE — utilidades transversales
+   Reglas globales (no encapsuladas) que aplican dentro de cualquier
+   componente. Viven aquí y no en cada componente porque el mismo
+   problema se repetia en ocho pantallas distintas.
+   ════════════════════════════════════════════════════════════════ */
+
+/*
+ * Alto de pantalla completa.
+ *
+ * `100vh` en movil mide la ventana CON la barra del navegador retraida, asi que
+ * una pagina con `min-height: 100vh` siempre es mas alta que lo que se ve y
+ * aparece un scroll vertical que no lleva a ningun sitio — el efecto de "la
+ * pantalla se alarga". `100dvh` mide lo que de verdad hay visible en cada
+ * momento. La linea `vh` queda debajo como reserva para navegadores viejos que
+ * no entienden `dvh` y descartarian la declaracion entera.
+ */
+.dk-pagina {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--c-base);
+}
+
+/*
+ * Tablas que se leen como lista en movil.
+ *
+ * Una tabla de cinco o mas columnas no cabe en 360px: o se sale de la pantalla o
+ * se resuelve con scroll lateral, que esconde la mitad de los datos detras de un
+ * gesto que nadie descubre. Por debajo de 768px cada fila pasa a ser una tarjeta
+ * y cada celda una linea "etiqueta: valor", con la etiqueta sacada del
+ * `data-label` de la propia celda. Los datos siguen estando todos, y se leen
+ * hacia abajo, que es como se lee un movil.
+ *
+ * Uso: `<table class="rs-tabla">` y `data-label="Titulo de la columna"` en cada
+ * `<td>`. Sin `data-label` la celda se ve igual, solo sin su etiqueta.
+ */
+.rs-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--f-sm);
+
+  /* En escritorio las celdas no se parten: una fecha o un importe cortado a la
+     mitad dentella la columna. El ancho que eso pide lo absorbe el envoltorio
+     con su `overflow-x`. En movil se anula mas abajo, donde ya no hay columnas
+     que cuadrar y ese mismo `nowrap` seria justo lo que desborda. */
+  th, td { white-space: nowrap; }
+
+  th {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--b-1);
+    color: var(--t-400);
+    font-size: var(--f-xs);
+    font-weight: var(--w-6);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  td {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--b-1);
+    color: var(--t-200);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+}
+
+@media (max-width: 768px) {
+  .rs-tabla {
+    /* El envoltorio de la tabla suele traer `min-width` y `overflow-x` para el
+       scroll lateral de escritorio. En modo lista sobran los dos: si no se
+       anulan, la tarjeta hereda el ancho minimo y vuelve el desbordamiento. */
+    min-width: 0;
+
+    &,
+    thead,
+    tbody,
+    tr,
+    td,
+    tbody th {
+      display: block;
+      width: 100%;
+    }
+
+    /* La cabecera no se traduce a la lista: su informacion pasa a cada celda
+       via `data-label`. Se oculta con `position` y no con `display: none` para
+       que los lectores de pantalla la sigan anunciando. */
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    tr {
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+      padding: var(--sp-2) var(--sp-3);
+      margin-bottom: var(--sp-3);
+      background: var(--c-card);
+
+      &:last-child { margin-bottom: 0; }
+    }
+
+    td {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--sp-4);
+      padding: var(--sp-2) 0;
+      border-bottom: 1px solid var(--b-1);
+      /* En tabla se usa `nowrap` para que las columnas no se dentelleen. En
+         tarjeta ese mismo `nowrap` es justo lo que desborda: un codigo de
+         reserva o un correo largo empujan la tarjeta fuera de la pantalla. */
+      white-space: normal;
+      overflow-wrap: anywhere;
+
+      &:last-child { border-bottom: none; }
+    }
+
+    td::before {
+      content: attr(data-label);
+      flex: 0 0 auto;
+      max-width: 45%;
+      color: var(--t-400);
+      font-size: var(--f-xs);
+      font-weight: var(--w-6);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    /* Una celda sin etiqueta (la de acciones, normalmente) ocupa la fila
+       entera en vez de dejar un hueco a la izquierda. */
+    td:not([data-label])::before { content: none; }
+
+    /*
+     * `<th scope="row">` es la cabecera de la fila, no una columna mas: en las
+     * tablas comparativas es el nombre del beneficio y en las de campanas el de
+     * la campana. Como tarjeta, es el titulo — va arriba, a todo lo ancho y sin
+     * etiqueta delante.
+     */
+    tbody th {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      text-align: left;
+      padding: 0 0 var(--sp-2);
+      border-bottom: 1px solid var(--b-1);
+      color: var(--t-100);
+      font-size: var(--f-sm);
+      font-weight: var(--w-7);
+      text-transform: none;
+      letter-spacing: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    /* Los botones de la celda de acciones se reparten el ancho de la tarjeta en
+       vez de amontonarse contra el borde derecho. */
+    td[class*='accion'],
+    td[class*='acciones'] {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: var(--sp-2);
+    }
   }
 }

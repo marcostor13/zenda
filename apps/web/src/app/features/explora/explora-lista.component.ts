@@ -148,7 +148,7 @@ const ICONOS: Record<TipoLugar, string> = {
   `,
   styles: [`
     :host { display: block; }
-    .ex-page { min-height: 100vh; background: var(--c-base); }
+    .ex-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
 
     .ex-head { margin-bottom: var(--sp-6); max-width: 64ch; }
     .ex-eyebrow {

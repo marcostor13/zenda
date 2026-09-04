@@ -152,7 +152,7 @@ interface MetricaApi {
     </div>
 
     <div class="ac__tabla-wrap">
-      <table class="ac__tabla">
+      <table class="ac__tabla rs-tabla">
         <thead>
           <tr>
             <th scope="col">{{ 'Campaña' | t }}</th>
@@ -170,13 +170,13 @@ interface MetricaApi {
           @for (m of metricas(); track m.campanaId) {
             <tr [class.is-inactiva]="!m.activa">
               <th scope="row">{{ m.nombre }}</th>
-              <td>{{ vigenciaDe(m.campanaId) }}</td>
-              <td>{{ m.enviados }}</td>
-              <td>{{ m.cupones }}</td>
-              <td>{{ m.usos }}</td>
-              <td>{{ m.tasaConversion }}%</td>
-              <td class="ac__coste">{{ m.costePlataforma | euros }}</td>
-              <td>{{ m.costeComercios | euros }}</td>
+              <td [attr.data-label]="'Vigencia' | t">{{ vigenciaDe(m.campanaId) }}</td>
+              <td [attr.data-label]="'Envíos' | t">{{ m.enviados }}</td>
+              <td [attr.data-label]="'Cupones' | t">{{ m.cupones }}</td>
+              <td [attr.data-label]="'Usos' | t">{{ m.usos }}</td>
+              <td [attr.data-label]="'Conversión' | t">{{ m.tasaConversion }}%</td>
+              <td class="ac__coste" [attr.data-label]="'Coste plataforma' | t">{{ m.costePlataforma | euros }}</td>
+              <td [attr.data-label]="'Coste comercios' | t">{{ m.costeComercios | euros }}</td>
               <td>
                 <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                         [disabled]="guardando()" (click)="alternarActiva(m)">
@@ -221,7 +221,7 @@ interface MetricaApi {
     }
 
     .ac__resumen {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
       gap: var(--sp-4); margin-bottom: var(--sp-5);
     }
     .ac__kpi {
@@ -237,9 +237,13 @@ interface MetricaApi {
       background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
     }
     .ac__tabla {
-      width: 100%; border-collapse: collapse; min-width: 860px;
+      width: 100%; border-collapse: collapse;
+      /* En modo lista (movil) no hay columnas que cuadrar: el ancho minimo
+         volveria a sacar la tabla de la pantalla. */
+      @media (min-width: 769px) { min-width: 860px; }
       th, td { padding: var(--sp-3) var(--sp-4); text-align: left; font-size: var(--f-sm); }
       thead th { color: var(--dk-blue); font-weight: var(--w-7); border-bottom: 1px solid var(--b-1); white-space: nowrap; }
+      @media (max-width: 768px) { tbody td { white-space: normal; } }
       tbody th { color: var(--t-100); font-weight: var(--w-6); }
       tbody td { color: var(--t-300); }
       tbody tr + tr { border-top: 1px solid var(--b-1); }

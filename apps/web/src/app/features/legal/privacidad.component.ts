@@ -70,34 +70,34 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       </ul>
 
       <h2>{{ '3. Para qué los usamos y con qué base legal' | t }}</h2>
-      <table>
+      <table class="rs-tabla">
         <thead>
           <tr><th>{{ 'Finalidad' | t }}</th><th>{{ 'Base legal' | t }}</th></tr>
         </thead>
         <tbody>
           <tr>
-            <td>{{ 'Crear y mantener tu cuenta, y darte acceso a la plataforma.' | t }}</td>
-            <td>{{ 'Ejecución del contrato.' | t }}</td>
+            <td [attr.data-label]="'Finalidad' | t">{{ 'Crear y mantener tu cuenta, y darte acceso a la plataforma.' | t }}</td>
+            <td [attr.data-label]="'Base legal' | t">{{ 'Ejecución del contrato.' | t }}</td>
           </tr>
           <tr>
-            <td>{{ 'Gestionar tus reservas y ponerte en contacto con el comercio.' | t }}</td>
-            <td>{{ 'Ejecución del contrato.' | t }}</td>
+            <td [attr.data-label]="'Finalidad' | t">{{ 'Gestionar tus reservas y ponerte en contacto con el comercio.' | t }}</td>
+            <td [attr.data-label]="'Base legal' | t">{{ 'Ejecución del contrato.' | t }}</td>
           </tr>
           <tr>
-            <td>{{ 'Cobrar la reserva y liquidar al comercio.' | t }}</td>
-            <td>{{ 'Ejecución del contrato y obligación legal (contabilidad y facturación).' | t }}</td>
+            <td [attr.data-label]="'Finalidad' | t">{{ 'Cobrar la reserva y liquidar al comercio.' | t }}</td>
+            <td [attr.data-label]="'Base legal' | t">{{ 'Ejecución del contrato y obligación legal (contabilidad y facturación).' | t }}</td>
           </tr>
           <tr>
-            <td>{{ 'Avisarte del estado de tu reserva por correo o notificación.' | t }}</td>
-            <td>{{ 'Ejecución del contrato.' | t }}</td>
+            <td [attr.data-label]="'Finalidad' | t">{{ 'Avisarte del estado de tu reserva por correo o notificación.' | t }}</td>
+            <td [attr.data-label]="'Base legal' | t">{{ 'Ejecución del contrato.' | t }}</td>
           </tr>
           <tr>
-            <td>{{ 'Prevenir usos fraudulentos y mantener la seguridad del servicio.' | t }}</td>
-            <td>{{ 'Interés legítimo.' | t }}</td>
+            <td [attr.data-label]="'Finalidad' | t">{{ 'Prevenir usos fraudulentos y mantener la seguridad del servicio.' | t }}</td>
+            <td [attr.data-label]="'Base legal' | t">{{ 'Interés legítimo.' | t }}</td>
           </tr>
           <tr>
-            <td>{{ 'Conservar reseñas publicadas.' | t }}</td>
-            <td>{{ 'Consentimiento, que puedes retirar retirando la reseña.' | t }}</td>
+            <td [attr.data-label]="'Finalidad' | t">{{ 'Conservar reseñas publicadas.' | t }}</td>
+            <td [attr.data-label]="'Base legal' | t">{{ 'Consentimiento, que puedes retirar retirando la reseña.' | t }}</td>
           </tr>
         </tbody>
       </table>

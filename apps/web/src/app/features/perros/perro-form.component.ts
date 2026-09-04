@@ -114,7 +114,7 @@ const NIVELES_SOCIABILIDAD = [
             <div class="rs-field">
               <label class="rs-lbl" for="peso">{{ 'Peso (kg)' | t }}</label>
               <input id="peso" type="number" min="0" max="120" step="0.1" class="rs-inp" formControlName="peso"
-                     [class.rs-inp--error]="hasError('peso')" />
+                     [class.rs-inp--error]="hasError('peso')" inputmode="decimal" />
               @if (hasError('peso')) { <span class="rs-field-err">{{ 'Introduce un peso válido (0-120 kg).' | t }}</span> }
             </div>
             <div class="rs-field">
@@ -399,7 +399,7 @@ const NIVELES_SOCIABILIDAD = [
     .filter-check { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size: var(--f-sm); color: var(--t-200); }
 
     /* Vacunas: casillas en vez de texto libre, con fecha opcional al marcarlas. */
-    .vacunas { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--sp-2); margin-top: var(--sp-2); }
+    .vacunas { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: var(--sp-2); margin-top: var(--sp-2); }
     .vacuna {
       display: flex; align-items: center; gap: var(--sp-2);
       padding: var(--sp-2) var(--sp-3);

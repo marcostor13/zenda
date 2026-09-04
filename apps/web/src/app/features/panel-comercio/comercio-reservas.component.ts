@@ -538,16 +538,16 @@ function desdeClaveDia(clave: string): number {
                         </button>
 
                         @if (filasImportar().length) {
-                          <table class="importar-tabla">
+                          <table class="importar-tabla rs-tabla">
                             <thead>
                               <tr><th>{{ 'Fecha' | t }}</th><th>{{ 'Concepto' | t }}</th><th>{{ 'Detalle' | t }}</th><th></th></tr>
                             </thead>
                             <tbody>
                               @for (fila of filasImportar(); track $index) {
                                 <tr>
-                                  <td>{{ fila.fecha || '—' }}</td>
-                                  <td>{{ fila.concepto }}</td>
-                                  <td>{{ fila.detalle || '—' }}</td>
+                                  <td [attr.data-label]="'Fecha' | t">{{ fila.fecha || '—' }}</td>
+                                  <td [attr.data-label]="'Concepto' | t">{{ fila.concepto }}</td>
+                                  <td [attr.data-label]="'Detalle' | t">{{ fila.detalle || '—' }}</td>
                                   <td>
                                     <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarFilaImportar($index)">
                                       <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
@@ -667,11 +667,11 @@ function desdeClaveDia(clave: string): number {
                           </div>
                           <div class="rs-field">
                             <label class="rs-lbl">{{ 'Nº de sesiones' | t }}</label>
-                            <input class="rs-inp" type="number" min="1" [(ngModel)]="planSesiones" [ngModelOptions]="{standalone: true}">
+                            <input class="rs-inp" type="number" min="1" [(ngModel)]="planSesiones" [ngModelOptions]="{standalone: true}" inputmode="numeric">
                           </div>
                           <div class="rs-field">
                             <label class="rs-lbl">{{ 'Precio total (€)' | t }}</label>
-                            <input class="rs-inp" type="number" min="0" step="0.01" [(ngModel)]="planPrecio" [ngModelOptions]="{standalone: true}">
+                            <input class="rs-inp" type="number" min="0" step="0.01" [(ngModel)]="planPrecio" [ngModelOptions]="{standalone: true}" inputmode="decimal">
                           </div>
                         </div>
                       </div>
@@ -710,7 +710,7 @@ function desdeClaveDia(clave: string): number {
     .page-sub { color: var(--t-400); font-size: var(--f-sm); }
 
     /* Resumen del día: lo primero que mira el profesional al entrar */
-    .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-4); }
+    .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--sp-4); }
     .resumen__tile {
       display: flex; align-items: center; gap: var(--sp-4);
       padding: var(--sp-4) var(--sp-5); text-align: left;

@@ -133,7 +133,7 @@ const ESTADO_BADGE: Record<string, string> = {
             <h3>{{ 'Reservas recientes' | t }}</h3>
             <a routerLink="/comercio/reservas" class="rs-btn rs-btn--ghost rs-btn--sm">{{ 'Ver todas' | t }}</a>
           </div>
-          <table class="rs-table">
+          <table class="rs-table rs-tabla">
             <thead>
               <tr>
                 <th>{{ 'Código' | t }}</th><th>{{ 'Vertical' | t }}</th><th>{{ 'Fecha' | t }}</th>
@@ -143,13 +143,13 @@ const ESTADO_BADGE: Record<string, string> = {
             <tbody>
               @for (r of reservasRecientes(); track r._id) {
                 <tr>
-                  <td><code>{{ r.codigo }}</code></td>
-                  <td style="text-transform:capitalize">{{ r.vertical }}</td>
-                  <td>{{ r.fechaInicio | date:'d MMM yy' }}</td>
-                  <td>{{ r.montoTotal | euros:'1.2-2' }}</td>
-                  <td class="text-danger">− {{ comisionReserva(r) | euros:'1.2-2' }}</td>
-                  <td class="text-teal">{{ liquidacionReserva(r) | euros:'1.2-2' }}</td>
-                  <td><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
+                  <td [attr.data-label]="'Código' | t"><code>{{ r.codigo }}</code></td>
+                  <td [attr.data-label]="'Vertical' | t" style="text-transform:capitalize">{{ r.vertical }}</td>
+                  <td [attr.data-label]="'Fecha' | t">{{ r.fechaInicio | date:'d MMM yy' }}</td>
+                  <td [attr.data-label]="'Monto' | t">{{ r.montoTotal | euros:'1.2-2' }}</td>
+                  <td [attr.data-label]="'Comisión est.' | t" class="text-danger">− {{ comisionReserva(r) | euros:'1.2-2' }}</td>
+                  <td [attr.data-label]="'Liquidación est.' | t" class="text-teal">{{ liquidacionReserva(r) | euros:'1.2-2' }}</td>
+                  <td [attr.data-label]="'Estado' | t"><span class="rs-badge {{ badgeEstado(r.estado) }}">{{ r.estado }}</span></td>
                 </tr>
               }
             </tbody>
@@ -192,7 +192,7 @@ const ESTADO_BADGE: Record<string, string> = {
 
     .tabla-header { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--b-1); h3 { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); } }
 
-    .rs-table { width: 100%; border-collapse: collapse; font-size: var(--f-sm); th { color: var(--t-400); text-align: left; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--b-1); font-size: var(--f-xs); text-transform: uppercase; letter-spacing: .06em; font-weight: var(--w-6); white-space: nowrap; } td { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--b-1); color: var(--t-200); white-space: nowrap; } tr:last-child td { border-bottom: none; } tr:hover td { background: var(--c-raised); } code { font-family: monospace; color: var(--c-accent); background: var(--c-accent-lo); padding: 2px var(--sp-2); border-radius: var(--r-sm); font-size: var(--f-xs); } }
+    .rs-table { width: 100%; border-collapse: collapse; font-size: var(--f-sm); th { color: var(--t-400); text-align: left; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--b-1); font-size: var(--f-xs); text-transform: uppercase; letter-spacing: .06em; font-weight: var(--w-6); } td { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--b-1); color: var(--t-200); } tr:last-child td { border-bottom: none; } tr:hover td { background: var(--c-raised); } code { font-family: monospace; color: var(--c-accent); background: var(--c-accent-lo); padding: 2px var(--sp-2); border-radius: var(--r-sm); font-size: var(--f-xs); } }
     .text-danger { color: #B91C1C; }
     .text-teal { color: var(--c-teal); }
   `],

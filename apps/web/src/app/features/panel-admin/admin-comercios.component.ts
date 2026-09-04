@@ -268,7 +268,7 @@ const LIMITE = 20;
         <div class="rs-form-group">
           <label class="rs-label">{{ 'Comisión override (%)' | t }}</label>
           <input formControlName="comisionPctOverride" type="number" step="0.01" min="0" max="1" class="rs-input"
-            [placeholder]="'Dejar en blanco para usar el default del vertical' | t" />
+            [placeholder]="'Dejar en blanco para usar el default del vertical' | t" inputmode="decimal" />
         </div>
 
         <div class="rs-form-group">
@@ -500,6 +500,12 @@ const LIMITE = 20;
     }
     .modal {
       width: 100%; max-width: 460px; padding: var(--sp-6);
+      /* El backdrop centra el modal en la ventana, asi que un formulario mas
+         alto que la pantalla se salia por arriba y por abajo sin scroll: en un
+         movil los botones de guardar quedaban fuera de alcance. */
+      max-height: calc(100dvh - var(--sp-10));
+      overflow-y: auto;
+      overscroll-behavior: contain;
       background: var(--c-card); border-radius: var(--r-xl); box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.18));
     }
     .modal__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }

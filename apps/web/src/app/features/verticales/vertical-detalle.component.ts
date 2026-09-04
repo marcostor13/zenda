@@ -414,7 +414,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
   `,
   styles: [`
     :host { display: block; }
-    .vd-page { min-height: 100vh; background: var(--c-base); }
+    .vd-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .vd-wrap { padding-block: var(--sp-6) var(--sp-16); }
 
     /*

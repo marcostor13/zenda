@@ -63,7 +63,7 @@ const ESTADO_DESCONOCIDO = {
     TraducirPipe, RouterLink, DatePipe, TitleCasePipe, RsNavbarComponent, RsIconComponent, RsBrandIconComponent, EurosPipe
   ],
   template: `
-<div style="min-height:100vh;background:var(--c-base)">
+<div class="dk-pagina">
   <rs-navbar />
 
   @if (cargando()) {
