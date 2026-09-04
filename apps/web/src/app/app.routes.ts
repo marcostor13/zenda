@@ -35,6 +35,18 @@ export const routes: Routes = [
       import('./features/legal/condiciones-comercio.component').then((m) => m.CondicionesComercioComponent),
   },
   {
+    /*
+     * Landing de captación de comercios. Fuera del guard de "muy pronto" por
+     * el mismo motivo que los legales: es la página a la que llevan las
+     * campañas y los enlaces de redes, y su público —el profesional que se
+     * plantea darse de alta— no es el que espera a que la app abra. Detrás de
+     * la pantalla de "muy pronto" no captaría a nadie.
+     */
+    path: 'para-comercios',
+    loadComponent: () =>
+      import('./features/comercios/para-comercios.component').then((m) => m.ParaComerciosComponent),
+  },
+  {
     path: '',
     canActivate: [underConstructionGuard],
     children: [

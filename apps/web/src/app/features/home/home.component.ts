@@ -409,10 +409,19 @@ type SearchMode = 'filtros' | 'ia';
 
         <p class="pro-cta__cierre">{{ 'Únete a la plataforma que está transformando la forma de reservar servicios para mascotas.' | t }}</p>
 
-        <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--gold rs-btn--lg">
-          {{ 'Registrar mi negocio' | t }}
-          <rs-icon name="arrow-right" [size]="17" [stroke]="2.25"></rs-icon>
-        </a>
+        <div class="pro-cta__acciones">
+          <a routerLink="/auth/registro-comercio" class="rs-btn rs-btn--gold rs-btn--lg">
+            {{ 'Registrar mi negocio' | t }}
+            <rs-icon name="arrow-right" [size]="17" [stroke]="2.25"></rs-icon>
+          </a>
+          <!-- La landing de comercios es donde se argumenta entero; aquí sólo
+               cabe el resumen, así que se ofrece la salida a quien quiere leer
+               antes de dar sus datos. -->
+          <a routerLink="/para-comercios" class="pro-cta__mas">
+            {{ 'Ver todas las ventajas' | t }}
+            <rs-icon name="arrow-right" [size]="15" [stroke]="2.25"></rs-icon>
+          </a>
+        </div>
       </div>
 
       <!-- TODO(D-3): sustituir por la foto real de un profesional trabajando
@@ -471,8 +480,8 @@ type SearchMode = 'filtros' | 'ia';
         <h4>{{ 'Empresas' | t }}</h4>
         <ul>
           <li><a routerLink="/auth/registro-comercio">{{ 'Registrar negocio' | t }}</a></li>
-          <li><a routerLink="/auth/registro-comercio">{{ 'Tarifas profesionales' | t }}</a></li>
-          <li><a routerLink="/auth/registro-comercio">{{ 'Ventajas de Doogking' | t }}</a></li>
+          <li><a routerLink="/para-comercios" fragment="planes">{{ 'Tarifas profesionales' | t }}</a></li>
+          <li><a routerLink="/para-comercios" fragment="ventajas">{{ 'Ventajas de Doogking' | t }}</a></li>
           <li><a routerLink="/ayuda">{{ 'Centro de ayuda' | t }}</a></li>
           <li><a routerLink="/contacto">{{ 'Contacto' | t }}</a></li>
         </ul>
@@ -1410,6 +1419,27 @@ type SearchMode = 'filtros' | 'ia';
       font-size: var(--f-sm);
       color: rgba(255, 255, 255, .78);
       max-width: 52ch;
+    }
+
+    .pro-cta__acciones {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--sp-4) var(--sp-6);
+    }
+
+    .pro-cta__mas {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: var(--f-sm);
+      font-weight: var(--w-6);
+      color: rgba(255, 255, 255, .88);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      transition: color var(--d-2), gap var(--d-2);
+
+      &:hover { color: var(--dk-gold); gap: var(--sp-3); }
     }
 
     /* Hueco de fotografía del profesional (PDF §10) — placeholder hasta D-3. */
