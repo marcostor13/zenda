@@ -21,7 +21,7 @@ import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { PermisosAdminGuard, PermisosAdmin } from '../auth/guards/permisos.guard';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, EliminarComercioAdminDto, ImpactoBajaComercioDto, PermisoAdmin, ReporteFinancieroDto, ResultadoBajaComercioDto, Rol } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, EliminarComercioAdminDto, EliminarUsuarioAdminDto, ImpactoBajaComercioDto, PermisoAdmin, ReporteFinancieroDto, ResultadoBajaComercioDto, ResultadoBajaUsuarioDto, Rol } from 'shared';
 
 interface RequestConAdmin extends Request {
   user: { sub: string; rol: Rol };
@@ -198,15 +198,17 @@ export class AdminController {
   @ApiQuery({ name: 'rol', required: false })
   @ApiQuery({ name: 'buscar', required: false })
   @ApiQuery({ name: 'verificado', required: false, type: Boolean })
+  @ApiQuery({ name: 'bajas', required: false, type: Boolean, description: 'Sólo cuentas dadas de baja' })
   listarUsuarios(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limite', new DefaultValuePipe(20), ParseIntPipe) limite: number,
     @Query('rol') rol?: string,
     @Query('buscar') buscar?: string,
     @Query('verificado') verificado?: string,
+    @Query('bajas') bajas?: string,
   ) {
     const verificacion = verificado === undefined ? undefined : verificado === 'true';
-    return this.adminService.listarUsuarios(page, limite, rol, buscar, verificacion);
+    return this.adminService.listarUsuarios(page, limite, rol, buscar, verificacion, bajas === 'true');
   }
 
   @Get('usuarios/resumen')
@@ -215,7 +217,6 @@ export class AdminController {
     return this.adminService.resumenUsuarios();
   }
 
-  @PermisosAdmin(PermisoAdmin.USUARIOS)
   @Get('usuarios/:id/ficha')
   @PermisosAdmin(PermisoAdmin.USUARIOS, PermisoAdmin.SOPORTE)
   @ApiOperation({ summary: 'Ficha administrativa completa de una cuenta' })
@@ -247,12 +248,31 @@ export class AdminController {
     return this.adminService.actualizarUsuario(id, dto, req.user.sub);
   }
 
+  /**
+   * Baja de una cuenta. Por defecto es **lógica**: pierde el acceso y se puede
+   * restaurar dentro del periodo de gracia, pero conserva su historial, que es
+   * de quien atendió cada reserva. `purgar: true` borra de verdad y sólo se
+   * admite en cuentas sin historial.
+   */
   @PermisosAdmin(PermisoAdmin.USUARIOS)
   @Delete('usuarios/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar un usuario (admin)' })
-  async eliminarUsuario(@Param('id') id: string, @Req() req: RequestConAdmin): Promise<void> {
-    await this.adminService.eliminarUsuario(id, req.user.sub);
+  @ApiOperation({ summary: 'Dar de baja (o purgar) una cuenta de usuario' })
+  async eliminarUsuario(
+    @Param('id') id: string,
+    @Body() dto: EliminarUsuarioAdminDto,
+    @Req() req: RequestConAdmin,
+  ): Promise<ResultadoBajaUsuarioDto> {
+    return this.adminService.eliminarUsuario(id, req.user.sub, {
+      motivo: dto?.motivo,
+      purgar: dto?.purgar,
+    });
+  }
+
+  @PermisosAdmin(PermisoAdmin.USUARIOS)
+  @Post('usuarios/:id/restaurar')
+  @ApiOperation({ summary: 'Deshacer la baja de una cuenta de usuario' })
+  restaurarUsuario(@Param('id') id: string, @Req() req: RequestConAdmin) {
+    return this.adminService.restaurarUsuario(id, req.user.sub);
   }
 
   // ── Pagos y liquidaciones ────────────────────────────────────────────────────

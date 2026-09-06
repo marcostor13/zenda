@@ -58,6 +58,20 @@ export class Usuario {
   @Prop({ default: true })
   activo!: boolean;
 
+  /**
+   * Momento de la baja. Marca el inicio del periodo de gracia en el que el
+   * admin todavía puede restaurar la cuenta; el borrado físico se reserva a
+   * datos de prueba, igual que en los comercios. Va junto a `activo: false`,
+   * que es lo que corta el acceso; separarlos permite distinguir una cuenta
+   * dada de baja de una suspendida a mano.
+   */
+  @Prop({ type: Date })
+  eliminadoAt?: Date;
+
+  /** Por qué se cerró la cuenta y quién lo hizo, para el histórico. */
+  @Prop({ type: Object })
+  baja?: { motivo?: string; fecha: Date; actorId?: string };
+
   @Prop({ default: false })
   verificado!: boolean;
 

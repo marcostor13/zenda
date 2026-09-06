@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Reserva, ReservaSchema } from './reserva.schema';
+import { Pago, PagoSchema } from '../payments/pago.schema';
 import { BookingsService } from './bookings.service';
+import { ReservasCaducidadService } from './reservas-caducidad.service';
 import { BookingsController } from './bookings.controller';
 import { AvailabilityModule } from '../availability/availability.module';
 import { CatalogModule } from '../catalog/catalog.module';
@@ -14,7 +16,12 @@ import { BloqueosModule } from '../bloqueos/bloqueos.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Reserva.name, schema: ReservaSchema }]),
+    MongooseModule.forFeature([
+      { name: Reserva.name, schema: ReservaSchema },
+      // Sólo para el caducador: antes de cancelar una reserva sin pagar hay que
+      // descartar que tenga un cobro aprobado cuyo webhook no llegó.
+      { name: Pago.name, schema: PagoSchema },
+    ]),
     AvailabilityModule,
     // Para leer el servicio y derivar de él comercio y vertical (no del cliente).
     CatalogModule,
@@ -27,7 +34,7 @@ import { BloqueosModule } from '../bloqueos/bloqueos.module';
     BloqueosModule,
   ],
   controllers: [BookingsController],
-  providers: [BookingsService],
-  exports: [BookingsService, MongooseModule],
+  providers: [BookingsService, ReservasCaducidadService],
+  exports: [BookingsService, ReservasCaducidadService, MongooseModule],
 })
 export class BookingsModule {}

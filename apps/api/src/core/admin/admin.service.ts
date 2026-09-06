@@ -12,13 +12,20 @@ import { Pago, PagoDocument } from '../payments/pago.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
-import { ComercioCuentaService } from '../comercios/comercio-cuenta.service';
+import { ComercioCuentaService, DIAS_GRACIA_BAJA_COMERCIO } from '../comercios/comercio-cuenta.service';
+
+/**
+ * Ventana para deshacer la baja de una cuenta. Se toma la misma que la de un
+ * comercio a propósito: es la misma decisión —cerrar una cuenta y poder
+ * arrepentirse— y dos plazos distintos sólo confundirían a quien opera.
+ */
+const DIAS_GRACIA_BAJA_USUARIO = DIAS_GRACIA_BAJA_COMERCIO;
 import { Perro, PerroDocument } from '../perros/perro.schema';
 import { Resena, ResenaDocument } from '../reviews/resena.schema';
 import { Incidencia, IncidenciaDocument } from '../incidencias/incidencia.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Evento, EventoDocument } from '../eventos/evento.schema';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ImpactoBajaComercioDto, MotivoBajaComercio, ResultadoBajaComercioDto, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey, regexLiteral } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ImpactoBajaComercioDto, MotivoBajaComercio, ResultadoBajaComercioDto, ResultadoBajaUsuarioDto, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey, regexLiteral } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
 import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
@@ -460,9 +467,15 @@ export class AdminService {
     rol?: string,
     buscar?: string,
     verificado?: boolean,
+    incluirBajas = false,
   ): Promise<{ items: UsuarioAdminDto[]; total: number }> {
     const skip = (page - 1) * limite;
-    const filtro: Record<string, unknown> = {};
+    // Las cuentas dadas de baja no salen en el listado normal: siguen ahí por
+    // su historial, no para operar con ellas. Hay que pedirlas a propósito,
+    // igual que en el listado de comercios.
+    const filtro: Record<string, unknown> = incluirBajas
+      ? { eliminadoAt: { $exists: true } }
+      : { eliminadoAt: { $exists: false } };
     if (rol) filtro['rol'] = rol;
     if (verificado !== undefined) filtro['verificado'] = verificado;
     if (buscar) {
@@ -731,11 +744,21 @@ export class AdminService {
   }
 
   /**
-   * Borrado de una cuenta. Es físico, así que antes hay que descartar las tres
-   * formas de dejar la plataforma peor de lo que estaba: quedarse fuera uno
-   * mismo, quedarse sin administradores y dejar reservas sin cliente.
+   * Cierra una cuenta. Por defecto es **lógica**, igual que la de un comercio:
+   * pierde el acceso pero conserva su historial, porque borrarla dejaría sin
+   * autor las reservas que hizo y las reseñas que escribió, y se puede deshacer
+   * dentro del periodo de gracia. Con `purgar` el borrado es físico y sólo vale
+   * para datos de prueba.
+   *
+   * Antes de cualquiera de las dos hay que descartar las tres formas de dejar
+   * la plataforma peor de lo que estaba: quedarse fuera uno mismo, quedarse sin
+   * administradores y dejar reservas vivas sin cliente.
    */
-  async eliminarUsuario(id: string, adminId?: string): Promise<void> {
+  async eliminarUsuario(
+    id: string,
+    adminId?: string,
+    opciones: { motivo?: string; purgar?: boolean } = {},
+  ): Promise<ResultadoBajaUsuarioDto> {
     const previo = await this.usersRepo.findById(id);
     if (!previo) throw new NotFoundException('Usuario no encontrado');
 
@@ -758,21 +781,76 @@ export class AdminService {
     if (reservasVivas > 0) {
       throw new ConflictException(
         `No se puede eliminar: la cuenta tiene ${reservasVivas} reserva(s) en curso. ` +
-          'Resuélvelas antes de borrarla.',
+          'Resuélvelas antes de cerrarla.',
       );
     }
 
-    await this.usersRepo.eliminar(id);
+    if (opciones.purgar) {
+      // Al revés que en un comercio, la purga no arrastra las reservas: son
+      // facturación del comercio, que no puede evaporarse porque su cliente
+      // borre la cuenta. Sin dueño quedarían huérfanas, así que con historial
+      // el único camino es la baja lógica.
+      const reservas = await this.reservaModel.countDocuments({ usuarioId: previo._id }).exec();
+      if (reservas > 0) {
+        throw new ConflictException(
+          `No se puede borrar definitivamente: la cuenta tiene ${reservas} reserva(s) en el ` +
+            'historial del comercio. Da de baja la cuenta en su lugar.',
+        );
+      }
+      await this.usersRepo.eliminar(id);
+    } else {
+      await this.usersRepo.darDeBaja(id, { motivo: opciones.motivo, actorId: adminId });
+    }
 
     if (adminId) {
       await this.auditoria.registrar({
         actorId: adminId,
         entidad: EntidadAuditada.USUARIO,
         entidadId: id,
-        descripcion: `Cuenta de ${previo?.nombre ?? 'un usuario'} eliminada`,
-        antes: previo ? { nombre: previo.nombre, email: previo.email, rol: previo.rol } : undefined,
+        descripcion: opciones.purgar
+          ? `Cuenta de ${previo.nombre} eliminada definitivamente`
+          : `Cuenta de ${previo.nombre} dada de baja`,
+        motivo: opciones.motivo,
+        antes: { nombre: previo.nombre, email: previo.email, rol: previo.rol },
       });
     }
+
+    return {
+      usuarioId: id,
+      nombre: previo.nombre,
+      purgado: !!opciones.purgar,
+      restaurableHasta: opciones.purgar
+        ? undefined
+        : new Date(Date.now() + DIAS_GRACIA_BAJA_USUARIO * 86_400_000).toISOString(),
+    };
+  }
+
+  /**
+   * Deshace una baja lógica. La cuenta vuelve activa con su historial intacto;
+   * el `activo: true` es lo que le devuelve el acceso.
+   */
+  async restaurarUsuario(id: string, adminId?: string): Promise<UsuarioDocument> {
+    const previo = await this.usersRepo.findById(id);
+    if (!previo) throw new NotFoundException('Usuario no encontrado');
+    if (!previo.eliminadoAt) {
+      throw new ConflictException('La cuenta no está dada de baja.');
+    }
+
+    const restaurado = await this.usersRepo.restaurar(id);
+    if (!restaurado) throw new NotFoundException('Usuario no encontrado');
+
+    if (adminId) {
+      await this.auditoria.registrar({
+        actorId: adminId,
+        entidad: EntidadAuditada.USUARIO,
+        entidadId: id,
+        descripcion: `Cuenta de ${previo.nombre} restaurada tras su baja`,
+        antes: { estado: 'dada de baja' },
+        despues: { estado: 'activa' },
+      });
+    }
+
+    return restaurado;
   }
 
   // ── Listados admin ───────────────────────────────────────────────────────────
@@ -1081,9 +1159,14 @@ export class AdminService {
    * depende del formato con el que llegó el identificador.
    */
   private async exigirQueQuedeOtroAdmin(excluyendo: unknown): Promise<void> {
+    // Sólo cuentan los que pueden entrar: una cuenta dada de baja o desactivada
+    // sigue teniendo `rol: admin` en la colección pero no abre sesión, así que
+    // contarla dejaría la plataforma sin nadie que la administre.
     const otros = await this.usuarioModel.countDocuments({
       rol: Rol.ADMIN,
       _id: { $ne: excluyendo },
+      activo: { $ne: false },
+      eliminadoAt: { $exists: false },
     }).exec();
 
     if (otros === 0) {

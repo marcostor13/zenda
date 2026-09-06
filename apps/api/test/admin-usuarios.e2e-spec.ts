@@ -142,22 +142,103 @@ describe('Gestión de usuarios desde el panel admin (e2e)', () => {
   });
 
   describe('baja de cuentas', () => {
-    it('debería borrar una cuenta sin historial', async () => {
+    it('debería dar de baja sin borrar, dejando la cuenta restaurable', async () => {
+      const cuenta = await sembrarCuenta(e2e, Rol.CLIENTE);
+
+      const { body } = await api(e2e)
+        .delete(ruta(`/admin/usuarios/${cuenta.id.toString()}`))
+        .set(como(superadmin.token))
+        .send({ motivo: 'lo pidió el cliente' })
+        .expect(200);
+
+      expect(body.purgado).toBe(false);
+      expect(body.restaurableHasta).toBeDefined();
+
+      const enBd = await e2e.conexion.collection('usuarios').findOne({ _id: cuenta.id });
+      expect(enBd!['activo']).toBe(false);
+      expect(enBd!['eliminadoAt']).toBeDefined();
+    });
+
+    it('debería cortar la sesión abierta de la cuenta dada de baja', async () => {
+      // El token sigue siendo válido criptográficamente: si nadie mira el flag,
+      // la cuenta cerrada sigue operando con la sesión que ya tenía.
+      const cuenta = await sembrarCuenta(e2e, Rol.CLIENTE);
+
+      await api(e2e)
+        .delete(ruta(`/admin/usuarios/${cuenta.id.toString()}`))
+        .set(como(superadmin.token)).send({}).expect(200);
+
+      await api(e2e).get(ruta('/reservas/mis')).set(como(cuenta.token)).expect(401);
+    });
+
+    it('debería devolver el acceso al restaurarla dentro del periodo de gracia', async () => {
+      const cuenta = await sembrarCuenta(e2e, Rol.CLIENTE);
+      await api(e2e)
+        .delete(ruta(`/admin/usuarios/${cuenta.id.toString()}`))
+        .set(como(superadmin.token)).send({}).expect(200);
+
+      await api(e2e)
+        .post(ruta(`/admin/usuarios/${cuenta.id.toString()}/restaurar`))
+        .set(como(superadmin.token)).expect(201);
+
+      const enBd = await e2e.conexion.collection('usuarios').findOne({ _id: cuenta.id });
+      expect(enBd!['activo']).toBe(true);
+      expect(enBd!['eliminadoAt']).toBeUndefined();
+    });
+
+    it('debería sacar del listado normal las cuentas dadas de baja', async () => {
+      const cuenta = await sembrarCuenta(e2e, Rol.CLIENTE);
+      await api(e2e)
+        .delete(ruta(`/admin/usuarios/${cuenta.id.toString()}`))
+        .set(como(superadmin.token)).send({}).expect(200);
+
+      const normal = await api(e2e)
+        .get(ruta('/admin/usuarios')).set(como(superadmin.token)).expect(200);
+      expect(normal.body.items.map((u: { _id: string }) => u._id))
+        .not.toContain(cuenta.id.toString());
+
+      const bajas = await api(e2e)
+        .get(ruta('/admin/usuarios?bajas=true')).set(como(superadmin.token)).expect(200);
+      expect(bajas.body.items.map((u: { _id: string }) => u._id))
+        .toContain(cuenta.id.toString());
+    });
+
+    it('debería borrar de verdad al purgar una cuenta sin historial', async () => {
       const cuenta = await sembrarCuenta(e2e, Rol.CLIENTE);
 
       await api(e2e)
         .delete(ruta(`/admin/usuarios/${cuenta.id.toString()}`))
         .set(como(superadmin.token))
-        .expect(204);
+        .send({ purgar: true })
+        .expect(200);
 
       expect(await e2e.conexion.collection('usuarios').countDocuments({ _id: cuenta.id })).toBe(0);
+    });
+
+    it('no debería purgar una cuenta con reservas en el historial del comercio', async () => {
+      // Son facturación del comercio: no pueden evaporarse ni quedarse sin dueño.
+      const cliente = await sembrarCuenta(e2e, Rol.CLIENTE);
+      await sembrarReserva(e2e, {
+        comercio, usuarioId: cliente.id, codigo: 'DK-USR-4', estado: ReservaEstado.COMPLETADA,
+      });
+
+      await api(e2e)
+        .delete(ruta(`/admin/usuarios/${cliente.id.toString()}`))
+        .set(como(superadmin.token))
+        .send({ purgar: true })
+        .expect(409);
+
+      // La baja lógica sí, que es lo que conserva el historial.
+      await api(e2e)
+        .delete(ruta(`/admin/usuarios/${cliente.id.toString()}`))
+        .set(como(superadmin.token)).send({}).expect(200);
     });
 
     it('no debería dejar a un admin borrarse a sí mismo', async () => {
       // Es la forma más fácil de quedarse fuera del panel sin poder volver.
       await api(e2e)
         .delete(ruta(`/admin/usuarios/${superadmin.id.toString()}`))
-        .set(como(superadmin.token))
+        .set(como(superadmin.token)).send({})
         .expect(409);
 
       expect(await e2e.conexion.collection('usuarios').countDocuments({ _id: superadmin.id })).toBe(1);
@@ -169,8 +250,8 @@ describe('Gestión de usuarios desde el panel admin (e2e)', () => {
       // Borrar al segundo se puede: queda uno.
       await api(e2e)
         .delete(ruta(`/admin/usuarios/${otro.id.toString()}`))
-        .set(como(superadmin.token))
-        .expect(204);
+        .set(como(superadmin.token)).send({})
+        .expect(200);
 
       // Bajarle el rol al último, no: dejaría el panel sin dueño.
       await api(e2e)
@@ -193,10 +274,11 @@ describe('Gestión de usuarios desde el panel admin (e2e)', () => {
 
       await api(e2e)
         .delete(ruta(`/admin/usuarios/${cliente.id.toString()}`))
-        .set(como(superadmin.token))
+        .set(como(superadmin.token)).send({})
         .expect(409);
 
-      expect(await e2e.conexion.collection('usuarios').countDocuments({ _id: cliente.id })).toBe(1);
+      const enBd = await e2e.conexion.collection('usuarios').findOne({ _id: cliente.id });
+      expect(enBd!['activo']).toBe(true);
     });
 
     it('debería dejar borrar a un cliente cuyo historial está cerrado', async () => {
@@ -210,8 +292,8 @@ describe('Gestión de usuarios desde el panel admin (e2e)', () => {
 
       await api(e2e)
         .delete(ruta(`/admin/usuarios/${cliente.id.toString()}`))
-        .set(como(superadmin.token))
-        .expect(204);
+        .set(como(superadmin.token)).send({})
+        .expect(200);
     });
   });
 

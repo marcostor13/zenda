@@ -141,6 +141,8 @@ describe('AdminService', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       crear: jest.fn().mockImplementation((datos: unknown) => Promise.resolve(datos)),
       actualizarAdmin: jest.fn(),
+      darDeBaja: jest.fn().mockResolvedValue({}),
+      restaurar: jest.fn().mockResolvedValue({}),
       eliminar: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -701,22 +703,70 @@ describe('AdminService', () => {
       expect(auditoria.registrar).not.toHaveBeenCalled();
     });
 
-    it('debería conservar en auditoría los datos del usuario eliminado', async () => {
+    it('debería dar de baja sin borrar, conservando el historial y el rastro', async () => {
+      // Borrarla dejaría sin autor sus reservas y sus reseñas: la baja normal
+      // es lógica, igual que la de un comercio.
       usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana', email: 'a@a.com', rol: 'cliente' });
-      // Sin reservas vivas: el borrado sólo se permite con el historial cerrado.
       reservaModel.countDocuments = jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue(0),
       });
 
-      await service.eliminarUsuario('u1', 'admin-1');
+      const resultado = await service.eliminarUsuario('u1', 'admin-1', { motivo: 'lo pidió ella' });
 
-      expect(usersRepo.eliminar).toHaveBeenCalledWith('u1');
+      expect(usersRepo.darDeBaja).toHaveBeenCalledWith('u1', {
+        motivo: 'lo pidió ella', actorId: 'admin-1',
+      });
+      expect(usersRepo.eliminar).not.toHaveBeenCalled();
+      expect(resultado.purgado).toBe(false);
+      expect(resultado.restaurableHasta).toBeDefined();
       expect(auditoria.registrar).toHaveBeenCalledWith(
         expect.objectContaining({
           entidadId: 'u1',
           antes: { nombre: 'Ana', email: 'a@a.com', rol: 'cliente' },
         }),
       );
+    });
+
+    it('debería borrar de verdad al purgar una cuenta sin historial', async () => {
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana', email: 'a@a.com', rol: 'cliente' });
+      reservaModel.countDocuments = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(0),
+      });
+
+      const resultado = await service.eliminarUsuario('u1', 'admin-1', { purgar: true });
+
+      expect(usersRepo.eliminar).toHaveBeenCalledWith('u1');
+      expect(resultado.purgado).toBe(true);
+      expect(resultado.restaurableHasta).toBeUndefined();
+    });
+
+    it('no debería purgar una cuenta con reservas: son facturación del comercio', async () => {
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana', rol: 'cliente' });
+      // Ninguna viva, pero sí historial cerrado: la baja lógica vale, la purga no.
+      reservaModel.countDocuments = jest.fn()
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(0) })
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(4) });
+
+      await expect(service.eliminarUsuario('u1', 'admin-1', { purgar: true }))
+        .rejects.toThrow('historial del comercio');
+      expect(usersRepo.eliminar).not.toHaveBeenCalled();
+    });
+
+    it('debería devolver el acceso al restaurar una cuenta dada de baja', async () => {
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana', eliminadoAt: new Date() });
+      usersRepo.restaurar.mockResolvedValue({ _id: 'u1', nombre: 'Ana', activo: true });
+
+      const restaurado = await service.restaurarUsuario('u1', 'admin-1');
+
+      expect(usersRepo.restaurar).toHaveBeenCalledWith('u1');
+      expect(restaurado.activo).toBe(true);
+    });
+
+    it('no debería restaurar una cuenta que nunca se dio de baja', async () => {
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana' });
+
+      await expect(service.restaurarUsuario('u1', 'admin-1'))
+        .rejects.toThrow('no está dada de baja');
     });
 
     it('debería lanzar 404 al eliminar una cuenta que ya no existe', async () => {
@@ -904,12 +954,21 @@ describe('AdminService', () => {
       });
     }
 
-    it('debería consultar sin condiciones cuando no se filtra nada', async () => {
+    it('debería dejar fuera las cuentas dadas de baja cuando no se filtra nada', async () => {
+      // Siguen en la colección por su historial, no para operar con ellas.
       mockUsuarios([]);
 
       await service.listarUsuarios();
 
-      expect(filtroUsado()).toEqual({});
+      expect(filtroUsado()).toEqual({ eliminadoAt: { $exists: false } });
+    });
+
+    it('debería enseñar sólo las bajas cuando se piden a propósito', async () => {
+      mockUsuarios([]);
+
+      await service.listarUsuarios(1, 20, undefined, undefined, undefined, true);
+
+      expect(filtroUsado()).toEqual({ eliminadoAt: { $exists: true } });
     });
 
     it('debería filtrar por rol y por estado de verificación', async () => {
@@ -917,7 +976,9 @@ describe('AdminService', () => {
 
       await service.listarUsuarios(1, 20, 'admin', undefined, false);
 
-      expect(filtroUsado()).toEqual({ rol: 'admin', verificado: false });
+      expect(filtroUsado()).toEqual({
+        eliminadoAt: { $exists: false }, rol: 'admin', verificado: false,
+      });
     });
 
     it('debería buscar por nombre o email escapando la expresión regular', async () => {

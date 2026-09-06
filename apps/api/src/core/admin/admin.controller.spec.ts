@@ -48,7 +48,8 @@ describe('AdminController', () => {
             fichaUsuario: jest.fn().mockResolvedValue({}),
             crearUsuario: jest.fn().mockResolvedValue({}),
             actualizarUsuario: jest.fn().mockResolvedValue({}),
-            eliminarUsuario: jest.fn().mockResolvedValue(undefined),
+            eliminarUsuario: jest.fn().mockResolvedValue({}),
+            restaurarUsuario: jest.fn().mockResolvedValue({}),
             listarPagos: jest.fn().mockResolvedValue({ items: [], total: 0 }),
             resumenPagos: jest.fn().mockResolvedValue({}),
             evolucion: jest.fn().mockResolvedValue([]),
@@ -191,10 +192,18 @@ describe('AdminController', () => {
   describe('usuarios', () => {
     it('deberia traducir el filtro de verificacion a booleano', async () => {
       await controller.listarUsuarios(1, 20, 'cliente', 'juan', 'true');
-      expect(adminService.listarUsuarios).toHaveBeenCalledWith(1, 20, 'cliente', 'juan', true);
+      expect(adminService.listarUsuarios).toHaveBeenCalledWith(1, 20, 'cliente', 'juan', true, false);
 
       await controller.listarUsuarios(1, 20);
-      expect(adminService.listarUsuarios).toHaveBeenLastCalledWith(1, 20, undefined, undefined, undefined);
+      expect(adminService.listarUsuarios)
+        .toHaveBeenLastCalledWith(1, 20, undefined, undefined, undefined, false);
+    });
+
+    it('deberia pedir las cuentas dadas de baja sólo cuando se marcan', async () => {
+      await controller.listarUsuarios(1, 20, undefined, undefined, undefined, 'true');
+
+      expect(adminService.listarUsuarios)
+        .toHaveBeenLastCalledWith(1, 20, undefined, undefined, undefined, true);
     });
 
     it('deberia devolver el resumen y la ficha', async () => {
@@ -208,10 +217,18 @@ describe('AdminController', () => {
       // Editar roles y borrar cuentas son las acciones mas sensibles del panel:
       // sin actor no hay a quien pedir explicaciones.
       await controller.actualizarUsuario('user-1', { rol: Rol.ADMIN }, admin);
-      await controller.eliminarUsuario('user-1', admin);
+      await controller.eliminarUsuario('user-1', { motivo: 'lo pidió' }, admin);
 
       expect(adminService.actualizarUsuario).toHaveBeenCalledWith('user-1', { rol: Rol.ADMIN }, 'admin-1');
-      expect(adminService.eliminarUsuario).toHaveBeenCalledWith('user-1', 'admin-1');
+      expect(adminService.eliminarUsuario).toHaveBeenCalledWith('user-1', 'admin-1', {
+        motivo: 'lo pidió', purgar: undefined,
+      });
+    });
+
+    it('deberia registrar quien restaura una cuenta dada de baja', async () => {
+      await controller.restaurarUsuario('user-1', admin);
+
+      expect(adminService.restaurarUsuario).toHaveBeenCalledWith('user-1', 'admin-1');
     });
 
     it('deberia crear la cuenta con el cuerpo recibido', async () => {

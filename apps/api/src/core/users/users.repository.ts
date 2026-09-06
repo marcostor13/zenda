@@ -147,6 +147,33 @@ export class UsersRepository {
     return this.usuarioModel.findByIdAndUpdate(id, update, { new: true }).exec();
   }
 
+  /**
+   * Baja lógica: la cuenta pierde el acceso pero conserva su historial. Es la
+   * forma normal de cerrar una cuenta —borrarla dejaría sin autor las reservas
+   * que hizo y las reseñas que escribió— y se puede deshacer con `restaurar`.
+   */
+  async darDeBaja(id: string, baja: { motivo?: string; actorId?: string }): Promise<UsuarioDocument | null> {
+    return this.usuarioModel
+      .findByIdAndUpdate(
+        id,
+        {
+          activo: false,
+          eliminadoAt: new Date(),
+          baja: { motivo: baja.motivo, fecha: new Date(), actorId: baja.actorId },
+        },
+        { new: true },
+      )
+      .exec();
+  }
+
+  /** Deshace la baja dentro del periodo de gracia. */
+  async restaurar(id: string): Promise<UsuarioDocument | null> {
+    return this.usuarioModel
+      .findByIdAndUpdate(id, { activo: true, $unset: { eliminadoAt: 1, baja: 1 } }, { new: true })
+      .exec();
+  }
+
+  /** Borrado físico. Reservado a datos de prueba: ver `AdminService.purgarUsuario`. */
   async eliminar(id: string): Promise<void> {
     await this.usuarioModel.findByIdAndDelete(id).exec();
   }
