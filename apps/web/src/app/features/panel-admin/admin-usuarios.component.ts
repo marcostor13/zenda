@@ -12,6 +12,7 @@ import { mensajeDeError } from '../../shared/mensaje-error';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { MenuAncladoDirective } from '../../shared/directives/menu-anclado.directive';
 const ROL_BADGE: Record<string, string> = {
   cliente: 'rs-badge--neutral',
   comercio_admin: 'rs-badge--accent',
@@ -44,7 +45,7 @@ function labelRolDe(rol: string): string {
   selector: 'app-admin-usuarios',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent, EurosPipe
+    TraducirPipe, DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent, EurosPipe, MenuAncladoDirective
   ],
   template: `
     <!-- Cabecera -->
@@ -125,7 +126,7 @@ function labelRolDe(rol: string): string {
     <!-- Sin overflow:hidden: recortaba el desplegable de acciones, que se
          desborda de la tarjeta a propósito. Las esquinas se redondean en la
          cabecera y en la última fila (ver .tbl-head / .tbl-row:last-child). -->
-    <div class="rs-card tbl-card" style="padding:0">
+    <div class="rs-card tbl-card" style="padding:0;overflow-x:auto">
       <div class="tbl-head">
         <span>{{ 'Usuario' | t }}</span>
         <span>{{ 'Email' | t }}</span>
@@ -143,6 +144,8 @@ function labelRolDe(rol: string): string {
             <div class="skel skel--lg"></div>
             <div class="skel skel--xl"></div>
             <div class="skel skel--md"></div>
+            <div class="skel skel--sm"></div>
+            <div class="skel skel--sm"></div>
             <div class="skel skel--sm"></div>
             <div class="skel skel--sm"></div>
             <div class="skel skel--md"></div>
@@ -183,11 +186,14 @@ function labelRolDe(rol: string): string {
             <!-- Acciones dentro de ⋯ para no dejar la papelera al descubierto (TCK-8035 §8) -->
             <div class="acciones" (click)="$event.stopPropagation()">
               <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Acciones' | t"
+                      [rsMenuAlto]="ALTO_MENU" [rsMenuAncho]="ANCHO_MENU"
+                      (rsMenuAnclado)="menuPos.set($event)"
                       (click)="menuAbiertoId.set(menuAbiertoId() === u._id ? null : u._id)">
                 <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
               </button>
               @if (menuAbiertoId() === u._id) {
-                <div class="acciones__menu">
+                <div class="acciones__menu" role="menu"
+                     [style.top.px]="menuPos().top" [style.left.px]="menuPos().left">
                   <button class="acciones__item" (click)="abrirFicha(u)">
                     <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> {{ 'Ver ficha' | t }}
                   </button>
@@ -473,8 +479,13 @@ function labelRolDe(rol: string): string {
     .permiso em { font-size: var(--f-xs); color: var(--t-400); font-style: normal; }
 
     .acciones { position: relative; }
+    /*
+     * Fijo al viewport: la tarjeta de la tabla recorta a sus hijos, y el menú
+     * de las últimas filas perdía sus opciones por debajo del borde. Las
+     * coordenadas las pone la directiva rsMenuAnclado desde el botón.
+     */
     .acciones__menu {
-      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
+      position: fixed; z-index: var(--z-4, 300);
       min-width: 190px; padding: var(--sp-2);
       background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
       box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
@@ -494,6 +505,21 @@ function labelRolDe(rol: string): string {
      * y la última fila, que es donde tocan el borde.
      */
     .tbl-card { overflow: visible; }
+    /*
+     * Suelo de ancho para la tabla.
+     *
+     * .rs-card lleva overflow hidden (lo necesita para que el border-radius
+     * recorte a sus hijos), asi que cuando las columnas no
+     * cabian no habia desbordamiento visible ni scroll: las de la derecha
+     * simplemente desaparecian, y las columnas flexibles se estrujaban hasta
+     * pintar el texto en vertical, una letra por linea. Medido en un portatil
+     * de 1024px la columna de email quedaba en 12px de ancho y 645px de alto.
+     *
+     * Con un minimo la rejilla conserva sus proporciones y la tarjeta ofrece
+     * scroll lateral. Por debajo de la version apilada de movil no aplica.
+     */
+    .tbl-head, .tbl-row { min-width: 1080px; }
+
     .tbl-head { display: grid; grid-template-columns: 1.1fr 1.3fr 150px 130px 130px 90px 110px 70px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); border-radius: var(--r-2xl) var(--r-2xl) 0 0; }
     .tbl-row { display: grid; grid-template-columns: 1.1fr 1.3fr 150px 130px 130px 90px 110px 70px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; border-radius: 0 0 var(--r-2xl) var(--r-2xl); }
@@ -505,6 +531,7 @@ function labelRolDe(rol: string): string {
      * en una tarjeta y cada celda muestra su etiqueta (data-col) junto al dato.
      */
     @media (max-width: 768px) {
+      .tbl-head, .tbl-row { min-width: 0; }
       .tbl-head { display: none; }
 
       .tbl-row {
@@ -608,6 +635,9 @@ export class AdminUsuariosComponent implements OnInit {
   readonly resumen = signal<ResumenUsuarios | null>(null);
   readonly filtroVerificado = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
+  readonly menuPos = signal<{ top: number; left: number }>({ top: 0, left: 0 });
+  readonly ALTO_MENU = 200;
+  readonly ANCHO_MENU = 190;
   readonly fichaAbierta = signal(false);
   readonly cargandoFicha = signal(false);
   readonly ficha = signal<FichaUsuario | null>(null);

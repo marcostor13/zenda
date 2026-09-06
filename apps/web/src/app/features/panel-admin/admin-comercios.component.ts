@@ -15,6 +15,7 @@ import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { mensajeDeError } from '../../shared/mensaje-error';
 import { RsAdminFiltrosComponent, GrupoFiltro, ValoresFiltro } from '../../shared/components/admin-filtros/rs-admin-filtros.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { MenuAncladoDirective } from '../../shared/directives/menu-anclado.directive';
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
@@ -32,7 +33,7 @@ const LIMITE = 20;
   selector: 'app-admin-comercios',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, DecimalPipe, ReactiveFormsModule, RouterLink, RsIconComponent, EurosPipe, RsAdminFiltrosComponent
+    TraducirPipe, DatePipe, DecimalPipe, ReactiveFormsModule, RouterLink, RsIconComponent, EurosPipe, RsAdminFiltrosComponent, MenuAncladoDirective
   ],
   template: `
     <!-- Cabecera -->
@@ -101,7 +102,7 @@ const LIMITE = 20;
     <!-- Sin overflow:hidden: recortaba el desplegable de acciones, que se
          desborda de la tarjeta a propósito. Las esquinas se redondean en la
          cabecera y en la última fila (ver .tbl-head / .tbl-row:last-child). -->
-    <div class="rs-card tbl-card" style="padding:0">
+    <div class="rs-card tbl-card" style="padding:0;overflow-x:auto">
       <div class="tbl-head">
         <span>{{ 'Comercio' | t }}</span>
         <span>{{ 'CIF/NIF' | t }}</span>
@@ -153,11 +154,14 @@ const LIMITE = 20;
             <span class="cell-muted" data-col="Registro">{{ c.createdAt | date:'d MMM yyyy' }}</span>
             <div class="acciones" (click)="$event.stopPropagation()">
               <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Acciones' | t"
+                      [rsMenuAlto]="ALTO_MENU" [rsMenuAncho]="ANCHO_MENU"
+                      (rsMenuAnclado)="menuPos.set($event)"
                       (click)="menuAbiertoId.set(menuAbiertoId() === c._id ? null : c._id)">
                 <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
               </button>
               @if (menuAbiertoId() === c._id) {
-                <div class="acciones__menu">
+                <div class="acciones__menu" role="menu"
+                     [style.top.px]="menuPos().top" [style.left.px]="menuPos().left">
                   <!-- En un comercio pendiente lo primero es revisar su solicitud,
                        no aprobarla a ciegas (TCK-8034). Es la misma ficha, así que
                        en vez de duplicar la entrada cambia el rótulo. -->
@@ -563,8 +567,13 @@ const LIMITE = 20;
      * líneas y descuadraba el alto de la fila.
      */
     .tbl-row .rs-badge { white-space: nowrap; }
+    /*
+     * Fijo al viewport: con el scroll lateral de la tabla, la tarjeta pasa a
+     * recortar también en vertical y el menú de las últimas filas se cortaba.
+     * Sustituye al apaño de abrirlo hacia arriba, que sólo cubría dos filas.
+     */
     .acciones__menu {
-      position: absolute; right: 0; top: calc(100% + 4px);
+      position: fixed;
       /*
        * Por encima de las filas siguientes: sin esto, el menú de una fila queda
        * por debajo de la de abajo y sus opciones no se pueden pulsar.
@@ -575,11 +584,6 @@ const LIMITE = 20;
       box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
     }
 
-    /* En las últimas filas se abre hacia arriba para no salirse de la pantalla. */
-    .tbl-row:nth-last-child(-n + 2) .acciones__menu {
-      top: auto;
-      bottom: calc(100% + 4px);
-    }
     .acciones__item {
       display: flex; align-items: center; gap: var(--sp-2); width: 100%;
       padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
@@ -590,13 +594,28 @@ const LIMITE = 20;
     .acciones__item--danger { color: var(--c-red, #B91C1C); }
 
     /*
-     * La tarjeta no recorta su contenido para que el menú de acciones pueda
-     * salirse; a cambio, las esquinas redondeadas se aplican aquí, en la primera
-     * y la última fila, que es donde tocan el borde.
+     * La tarjeta ya no necesita dejar salir al menú de acciones —va fijo al
+     * viewport—, pero conserva el redondeo repartido entre la primera y la
+     * última fila, que es donde tocan el borde. El scroll lateral lo pone el
+     * estilo en línea de la plantilla.
      */
-    .tbl-card { overflow: visible; }
-    .tbl-head { display: grid; grid-template-columns: 2fr 120px 110px 110px 150px 110px 56px; column-gap: var(--sp-3); padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); border-radius: var(--r-2xl) var(--r-2xl) 0 0; }
-    .tbl-row { display: grid; grid-template-columns: 2fr 120px 110px 110px 150px 110px 56px; column-gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
+    /*
+     * Suelo de ancho para la tabla.
+     *
+     * .rs-card lleva overflow hidden (lo necesita para que el border-radius
+     * recorte a sus hijos), asi que cuando las columnas no
+     * cabian no habia desbordamiento visible ni scroll: las de la derecha
+     * simplemente desaparecian, y las columnas flexibles se estrujaban hasta
+     * pintar el texto en vertical, una letra por linea. Medido en un portatil
+     * de 1024px la columna de email quedaba en 12px de ancho y 645px de alto.
+     *
+     * Con un minimo la rejilla conserva sus proporciones y la tarjeta ofrece
+     * scroll lateral. Por debajo de la version apilada de movil no aplica.
+     */
+    .tbl-head, .tbl-row { min-width: 980px; }
+
+    .tbl-head { display: grid; grid-template-columns: 2fr 120px 110px 110px 150px 56px; column-gap: var(--sp-3); padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); border-radius: var(--r-2xl) var(--r-2xl) 0 0; }
+    .tbl-row { display: grid; grid-template-columns: 2fr 120px 110px 110px 150px 56px; column-gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; border-radius: 0 0 var(--r-2xl) var(--r-2xl); }
     .tbl-row:hover { background: var(--c-raised); }
 
@@ -606,6 +625,7 @@ const LIMITE = 20;
      * en una tarjeta y cada celda muestra su etiqueta (data-col) junto al dato.
      */
     @media (max-width: 768px) {
+      .tbl-head, .tbl-row { min-width: 0; }
       .tbl-head { display: none; }
 
       .tbl-row {
@@ -724,6 +744,9 @@ export class AdminComerciosComponent implements OnInit {
   readonly filtroVertical = signal('');
   readonly filtroPlan = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
+  readonly menuPos = signal<{ top: number; left: number }>({ top: 0, left: 0 });
+  readonly ALTO_MENU = 260;
+  readonly ANCHO_MENU = 210;
 
   /** Estado del diálogo de baja: impacto calculado, motivo y modo de borrado. */
   readonly impacto = signal<ImpactoBajaComercioDto | null>(null);

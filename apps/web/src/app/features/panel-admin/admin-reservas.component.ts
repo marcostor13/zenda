@@ -11,6 +11,7 @@ import { describirPolitica } from '../../shared/catalogos/politicas-cancelacion.
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { MenuAncladoDirective } from '../../shared/directives/menu-anclado.directive';
 /** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
 interface EstadoMeta { badge: string; icono: string; label: string; }
 
@@ -74,16 +75,14 @@ const LIMITE = 20;
 /** Tope de filas de la exportación: un CSV es un informe, no un volcado de la BD. */
 const MAX_EXPORTACION = 500;
 
-/* Medidas del desplegable de acciones, para decidir si cabe por debajo del botón. */
-const ANCHO_MENU_ACCIONES = 210;
+/* Alto aproximado del desplegable, para decidir si cabe por debajo del botón. */
 const ALTO_MENU_ACCIONES = 210;
-const MARGEN_MENU = 4;
 
 @Component({
   selector: 'app-admin-reservas',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, FormsModule, RsIconComponent, EurosPipe
+    TraducirPipe, DatePipe, FormsModule, RsIconComponent, EurosPipe, MenuAncladoDirective
   ],
   template: `
     <!-- Cabecera -->
@@ -237,9 +236,10 @@ const MARGEN_MENU = 4;
           @for (i of [1,2,3,4,5]; track i) {
             <div class="tbl-row tbl-skeleton">
               <div class="skel skel--md"></div><div class="skel skel--sm"></div>
+              <div class="skel skel--lg"></div><div class="skel skel--md"></div>
+              <div class="skel skel--md"></div><div class="skel skel--sm"></div>
               <div class="skel skel--sm"></div><div class="skel skel--sm"></div>
               <div class="skel skel--sm"></div><div class="skel skel--sm"></div>
-              <div class="skel skel--sm"></div>
             </div>
           }
         } @else {
@@ -270,7 +270,9 @@ const MARGEN_MENU = 4;
               <span class="cell-actions" (click)="$event.stopPropagation()">
                 <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Acciones' | t"
                         [attr.aria-expanded]="menuAbiertoId() === r._id"
-                        (click)="alternarMenu(r._id, $event)">
+                        [rsMenuAlto]="ALTO_MENU"
+                        (rsMenuAnclado)="menuPos.set($event)"
+                        (click)="alternarMenu(r._id)">
                   <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
                 </button>
                 @if (menuAbiertoId() === r._id) {
@@ -479,7 +481,7 @@ const MARGEN_MENU = 4;
      * también (la especificación no permite un eje auto y el otro visible). El
      * desplegable de las últimas filas quedaba cortado por el borde de la
      * tarjeta y sus dos o tres últimas opciones no se veían. Fijo se escapa del
-     * recorte; las coordenadas las pone alternarMenu() desde el botón.
+     * recorte; las coordenadas las pone la directiva rsMenuAnclado.
      */
     .acciones__menu {
       position: fixed; z-index: var(--z-4, 300);
@@ -676,6 +678,7 @@ export class AdminReservasComponent implements OnInit {
   readonly resumen = signal<ResumenReservas | null>(null);
   readonly menuAbiertoId = signal<string | null>(null);
   readonly menuPos = signal<{ top: number; left: number }>({ top: 0, left: 0 });
+  readonly ALTO_MENU = ALTO_MENU_ACCIONES;
 
   async ngOnInit(): Promise<void> {
     // El diálogo de baja de un comercio enlaza aquí con su id para que las
@@ -850,27 +853,9 @@ export class AdminReservasComponent implements OnInit {
     }
   }
 
-  /**
-   * Abre el desplegable anclado al botón. Al ir fijo al viewport necesita
-   * coordenadas explícitas; si no cabe por debajo, se despliega hacia arriba
-   * para no salirse de la pantalla en las últimas filas.
-   */
-  alternarMenu(id: string, evento: MouseEvent): void {
-    if (this.menuAbiertoId() === id) {
-      this.menuAbiertoId.set(null);
-      return;
-    }
-
-    const boton = (evento.currentTarget as HTMLElement).getBoundingClientRect();
-    const cabeSurgiendoAbajo = window.innerHeight - boton.bottom > ALTO_MENU_ACCIONES + MARGEN_MENU;
-    this.menuPos.set({
-      top: Math.round(cabeSurgiendoAbajo
-        ? boton.bottom + MARGEN_MENU
-        : Math.max(MARGEN_MENU, boton.top - ALTO_MENU_ACCIONES - MARGEN_MENU)),
-      // Alineado a la derecha del botón, sin salirse por el borde izquierdo.
-      left: Math.round(Math.max(MARGEN_MENU, boton.right - ANCHO_MENU_ACCIONES)),
-    });
-    this.menuAbiertoId.set(id);
+  /** Abre o cierra el desplegable; dónde se dibuja lo calcula la directiva. */
+  alternarMenu(id: string): void {
+    this.menuAbiertoId.update((actual) => (actual === id ? null : id));
   }
 
   /** El menu de acciones se cierra al pulsar fuera. */

@@ -549,7 +549,9 @@ function desdeClaveDia(clave: string): number {
                                   <td [attr.data-label]="'Concepto' | t">{{ fila.concepto }}</td>
                                   <td [attr.data-label]="'Detalle' | t">{{ fila.detalle || '—' }}</td>
                                   <td>
-                                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarFilaImportar($index)">
+                                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                                            [attr.aria-label]="'Quitar esta fila' | t"
+                                            (click)="quitarFilaImportar($index)">
                                       <rs-icon name="x" [size]="12" [stroke]="2"></rs-icon>
                                     </button>
                                   </td>
