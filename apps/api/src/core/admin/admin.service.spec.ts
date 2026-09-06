@@ -138,6 +138,7 @@ describe('AdminService', () => {
     usersRepo = {
       contarTodos: jest.fn().mockResolvedValue(0),
       findById: jest.fn(),
+      findByEmail: jest.fn().mockResolvedValue(null),
       crear: jest.fn().mockImplementation((datos: unknown) => Promise.resolve(datos)),
       actualizarAdmin: jest.fn(),
       eliminar: jest.fn().mockResolvedValue(undefined),
@@ -701,7 +702,11 @@ describe('AdminService', () => {
     });
 
     it('debería conservar en auditoría los datos del usuario eliminado', async () => {
-      usersRepo.findById.mockResolvedValue({ nombre: 'Ana', email: 'a@a.com', rol: 'cliente' });
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana', email: 'a@a.com', rol: 'cliente' });
+      // Sin reservas vivas: el borrado sólo se permite con el historial cerrado.
+      reservaModel.countDocuments = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(0),
+      });
 
       await service.eliminarUsuario('u1', 'admin-1');
 
@@ -714,15 +719,57 @@ describe('AdminService', () => {
       );
     });
 
-    it('debería eliminar aunque ya no queden datos previos que auditar', async () => {
+    it('debería lanzar 404 al eliminar una cuenta que ya no existe', async () => {
       usersRepo.findById.mockResolvedValue(null);
 
-      await service.eliminarUsuario('u1', 'admin-1');
+      await expect(service.eliminarUsuario('u1', 'admin-1')).rejects.toThrow('Usuario no encontrado');
+      expect(usersRepo.eliminar).not.toHaveBeenCalled();
+    });
 
-      expect(usersRepo.eliminar).toHaveBeenCalledWith('u1');
-      expect(auditoria.registrar).toHaveBeenCalledWith(
-        expect.objectContaining({ descripcion: expect.stringContaining('un usuario') }),
-      );
+    it('no debería dejar que un admin borre su propia cuenta', async () => {
+      // Se quedaría fuera del panel sin forma de volver a entrar.
+      usersRepo.findById.mockResolvedValue({ _id: 'admin-1', nombre: 'Jefe', rol: 'admin' });
+
+      await expect(service.eliminarUsuario('admin-1', 'admin-1'))
+        .rejects.toThrow('No puedes eliminar tu propia cuenta');
+      expect(usersRepo.eliminar).not.toHaveBeenCalled();
+    });
+
+    it('no debería dejar la plataforma sin ningún administrador', async () => {
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Otro', rol: 'admin' });
+      usuarioModel.countDocuments = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(0),
+      });
+
+      await expect(service.eliminarUsuario('u1', 'admin-1'))
+        .rejects.toThrow('único administrador');
+      expect(usersRepo.eliminar).not.toHaveBeenCalled();
+    });
+
+    it('no debería borrar a un cliente que tiene reservas vivas', async () => {
+      // La reserva se quedaría sin cliente al que atender ni al que contactar.
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana', rol: 'cliente' });
+
+      await expect(service.eliminarUsuario('u1', 'admin-1')).rejects.toThrow('reserva(s) en curso');
+      expect(usersRepo.eliminar).not.toHaveBeenCalled();
+    });
+
+    it('no debería dejar que un admin se cambie sus propias áreas', async () => {
+      // Ampliárselas convertiría cualquier permiso acotado en todos los permisos.
+      usersRepo.findById.mockResolvedValue({ _id: 'admin-1', nombre: 'Jefe', rol: 'admin' });
+
+      await expect(service.actualizarUsuario('admin-1', { permisosAdmin: [] }, 'admin-1'))
+        .rejects.toThrow('tus propias áreas');
+      expect(usersRepo.actualizarAdmin).not.toHaveBeenCalled();
+    });
+
+    it('debería rechazar un alta con un email que ya está dado de alta', async () => {
+      // Sin esto el índice único reventaba con un E11000 sin traducir (500).
+      usersRepo.findByEmail.mockResolvedValue({ _id: 'existente' });
+
+      await expect(service.crearUsuario({ nombre: 'Ana', email: 'a@a.com', password: 'Segura123!' }))
+        .rejects.toThrow('Ya existe una cuenta con ese email');
+      expect(usersRepo.crear).not.toHaveBeenCalled();
     });
   });
 

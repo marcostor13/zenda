@@ -223,6 +223,11 @@ export class AdminController {
     return this.adminService.fichaUsuario(id);
   }
 
+  // Crear cuentas es el área de usuarios como lo son editarlas y borrarlas.
+  // Sin declararlo, cualquier administrador —por acotada que fuera su área—
+  // podía darse de alta un `rol: admin` sin permisos, que es un
+  // superadministrador: la escalada de privilegios completa.
+  @PermisosAdmin(PermisoAdmin.USUARIOS)
   @Post('usuarios')
   @ApiOperation({ summary: 'Crear un usuario (admin)' })
   crearUsuario(
@@ -325,6 +330,10 @@ export class AdminController {
     });
   }
 
+  // Reembolsar y liberar el pago mueven dinero, y abrir una disputa lo retiene:
+  // es finanzas. Soporte también entra porque es quien gestiona el caso del
+  // cliente (cancelar una reserva que se quedó a medias, por ejemplo).
+  @PermisosAdmin(PermisoAdmin.FINANZAS, PermisoAdmin.SOPORTE)
   @Patch('reservas/:id/estado')
   @ApiOperation({ summary: 'Cambiar el estado operativo de una reserva (reembolsar, liberar pago, disputa…)' })
   cambiarEstadoReserva(

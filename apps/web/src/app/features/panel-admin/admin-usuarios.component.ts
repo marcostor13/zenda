@@ -8,6 +8,7 @@ import { RsPhoneInputComponent } from '../../shared/components/phone-input/rs-ph
 import { PERMISO_ADMIN_DESCRIPCIONES, PERMISO_ADMIN_LABELS, PermisoAdmin, nombreAlphaPresentacion } from 'shared';
 import { AdminApiService, UsuarioAdmin, ResumenUsuarios, FichaUsuario, CrearUsuarioDto, ActualizarUsuarioDto } from './admin-api.service';
 import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
+import { mensajeDeError } from '../../shared/mensaje-error';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
@@ -848,8 +849,10 @@ export class AdminUsuariosComponent implements OnInit {
       }
       this.cerrarModal();
       await this.cargar();
-    } catch {
-      this.modalError.set('Error guardando el usuario. Verifica que el email no esté en uso.');
+    } catch (error) {
+      // El API dice el motivo exacto (email en uso, último administrador…); el
+      // texto genérico lo escondía y dejaba al operador sin saber qué hacer.
+      this.modalError.set(mensajeDeError(error, 'Error guardando el usuario.'));
     } finally {
       this.guardando.set(false);
     }
@@ -873,8 +876,8 @@ export class AdminUsuariosComponent implements OnInit {
       await firstValueFrom(this.adminApi.eliminarUsuario(u._id));
       this.eliminarUsuario.set(null);
       await this.cargar();
-    } catch {
-      this.modalError.set('Error eliminando el usuario.');
+    } catch (error) {
+      this.modalError.set(mensajeDeError(error, 'Error eliminando el usuario.'));
     } finally {
       this.guardando.set(false);
     }

@@ -64,6 +64,16 @@ describe('ComercioCuentaService', () => {
     colecciones['reservas'].countDocuments.mockImplementation((filtro: Record<string, unknown>) =>
       Promise.resolve((filtro['estado'] as { $in?: string[] })?.$in ? activas : totales),
     );
+    const vivas = Array.from({ length: activas }, (_, i) => ({
+      _id: new Types.ObjectId(),
+      codigo: `DK-${i + 1}`,
+      estado: ReservaEstado.PENDIENTE,
+    }));
+    colecciones['reservas'].find.mockImplementation((filtro: Record<string, unknown>) => ({
+      toArray: jest.fn().mockResolvedValue(
+        (filtro['estado'] as { $in?: string[] })?.$in ? vivas : [],
+      ),
+    }));
   }
 
   describe('impacto', () => {
@@ -75,6 +85,16 @@ describe('ComercioCuentaService', () => {
       expect(impacto.reservasActivas).toBe(2);
       expect(impacto.reservas).toBe(9);
       expect(impacto.puedeDarseDeBaja).toBe(false);
+    });
+
+    it('debería decir cuáles son las reservas que bloquean, no sólo cuántas', async () => {
+      // Con el contador a secas no había forma de dar con ellas para resolverlas.
+      conReservasActivas(2, 9);
+
+      const impacto = await service.impacto(String(comercioId));
+
+      expect(impacto.reservasBloqueantes.map((r) => r.codigo)).toEqual(['DK-1', 'DK-2']);
+      expect(impacto.reservasBloqueantes[0].estado).toBe(ReservaEstado.PENDIENTE);
     });
 
     it('debería contar como vivas las reservas con dinero retenido', async () => {
@@ -164,6 +184,23 @@ describe('ComercioCuentaService', () => {
 
       await expect(service.darDeBaja(String(comercioId), params)).rejects.toThrow('3 reserva(s) en curso');
       expect(repo.actualizarCampos).not.toHaveBeenCalled();
+    });
+
+    it('debería nombrar las reservas que bloquean en el mensaje del error', async () => {
+      conReservasActivas(2);
+
+      await expect(service.darDeBaja(String(comercioId), params)).rejects.toThrow('DK-1, DK-2');
+    });
+
+    it('no debería bloquear la purga por reservas vivas: la purga se las lleva', async () => {
+      // El bloqueo protege la baja lógica, que las conserva. Aplicárselo también
+      // a la purga la dejaba atrapada por una reserva que nadie podía resolver.
+      conReservasActivas(3);
+
+      await service.darDeBaja(String(comercioId), { ...params, purgar: true });
+
+      expect(colecciones['reservas'].deleteMany).toHaveBeenCalledWith({ comercioId });
+      expect(repo.eliminar).toHaveBeenCalledWith(String(comercioId));
     });
 
     it('debería despublicar los listados además de bajar el flag del buscador', async () => {

@@ -222,16 +222,30 @@ describe('AdminUsuariosComponent', () => {
       expect(dto).not.toHaveProperty('password');
     });
 
-    it('debería mantener el modal abierto si el email ya existe', async () => {
+    it('debería mantener el modal abierto y enseñar el motivo que da el API', async () => {
+      // El API sabe por qué rechaza (email en uso, último administrador…): ese
+      // texto es el que le dice al operador qué hacer, no uno genérico.
       await crear();
-      api['actualizarUsuario'].mockReturnValue(throwError(() => new Error('409')));
+      api['actualizarUsuario'].mockReturnValue(
+        throwError(() => ({ status: 409, error: { message: 'Ya existe una cuenta con ese email.' } })),
+      );
       componente.abrirEditar(usuario());
 
       await componente.guardar();
 
       expect(componente.modalVisible()).toBe(true);
-      expect(componente.modalError()).toContain('email no esté en uso');
+      expect(componente.modalError()).toBe('Ya existe una cuenta con ese email.');
       expect(componente.guardando()).toBe(false);
+    });
+
+    it('debería caer a un texto propio si el API no explica el fallo', async () => {
+      await crear();
+      api['actualizarUsuario'].mockReturnValue(throwError(() => new Error('boom')));
+      componente.abrirEditar(usuario());
+
+      await componente.guardar();
+
+      expect(componente.modalError()).toBe('Error guardando el usuario.');
     });
 
     it('debería cerrar el modal descartando la edición', async () => {

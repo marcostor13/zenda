@@ -21,7 +21,7 @@ const config: CapacitorConfig = {
    * La app carga desde el propio paquete, no de un servidor. Se declara
    * `cleartext: false` porque el API va por HTTPS: dejar tráfico en claro
    * abierto sería una puerta que nadie necesita. Para probar contra un API
-   * local, ver `WEB_API_URL` en `public/env.js` y la nota de DEPLOY-MOVIL.md.
+   * local, ver `WEB_API_URL` en `public/env.js` y la nota de android/DEPLOY-MOVIL.md.
    */
   server: {
     androidScheme: 'https',

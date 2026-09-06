@@ -53,12 +53,24 @@ volver a publicar una actualización de esa app nunca más. Luego se declara en
 
 ## 3. La URL del API
 
-La app no habla con `localhost`: ahí no hay nada desde un móvil. La dirección
-del API sale de `apps/web/public/env.js`, que se genera antes del build:
+La app no habla con `localhost`: ahí no hay nada desde un móvil. Por eso
+`movil:sync` escribe la URL pública **después de `cap sync`**, directamente en
+`android/app/src/main/assets/public/env.js` (y en el equivalente de iOS), que es
+lo único que acaba dentro del paquete:
 
-```bash
-WEB_API_URL=https://apizenda.marcostorresalarcon.com/api/v1 bun run --cwd apps/web movil:sync
 ```
+ng build  →  cap sync  →  preparar-movil.mjs  →  gradlew assembleRelease
+```
+
+Ese orden no es un detalle. `public/env.js` y `dist/` se regeneran desde
+`apps/web/.env` en cualquier build de desarrollo; si la configuración de la app
+se escribiera antes, el siguiente `ng build` la pisaría con `localhost` y el
+`cap sync` se la llevaría al APK sin avisar. Ya pasó dos veces. Escribiéndola al
+final, ningún paso posterior puede colarla.
+
+No hay que pasar nada para la app real: la URL pública es el valor por defecto.
+`preparar-movil.mjs --verificar` vuelve a leer el fichero empaquetado justo
+antes de compilar y **aborta el build** si apunta a una dirección local.
 
 Para probar contra un API local desde un móvil de la misma red, usar la IP del
 equipo (`http://192.168.1.50:3051/api/v1`) y poner `cleartext: true` en

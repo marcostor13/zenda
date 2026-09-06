@@ -102,6 +102,18 @@ type Dialogo = 'pausar' | 'baja' | null;
             <div class="rs-alert rs-alert--warning">
               Tienes {{ i.reservasActivas }} reserva(s) en curso. Complétalas o cancélalas antes de
               cerrar la cuenta: no podemos dejar a esos clientes sin servicio.
+              <!-- Con el código a la vista se puede ir a la reserva concreta; el
+                   contador solo dejaba al comercio sin saber cuál era. -->
+              @if (i.reservasBloqueantes?.length) {
+                <ul class="bloqueantes">
+                  @for (r of i.reservasBloqueantes; track r.id) {
+                    <li><code>{{ r.codigo }}</code> · {{ r.estado }}</li>
+                  }
+                </ul>
+                <p class="bloqueantes__ayuda">
+                  {{ 'Si alguna se quedó a medias y no puedes resolverla desde tus reservas, escríbenos y la cerramos nosotros.' | t }}
+                </p>
+              }
             </div>
           }
         }
@@ -204,6 +216,10 @@ type Dialogo = 'pausar' | 'baja' | null;
       background: var(--c-surface); display: flex; flex-direction: column; gap: var(--s-2);
       font-size: var(--text-sm); color: var(--text-secondary); }
     .impacto strong { color: var(--text-primary); }
+
+    .bloqueantes { list-style: none; margin: var(--s-2) 0 0; padding: 0; display: grid; gap: 2px; font-size: var(--text-xs); }
+    .bloqueantes code { font-family: monospace; }
+    .bloqueantes__ayuda { margin-top: var(--s-2); font-size: var(--text-xs); }
 
     .overlay { position: fixed; inset: 0; background: rgba(0, 19, 93, .45); display: flex;
       align-items: center; justify-content: center; padding: var(--s-4); z-index: 100; overflow-y: auto; }

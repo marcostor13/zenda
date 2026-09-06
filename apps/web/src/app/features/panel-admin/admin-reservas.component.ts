@@ -1,6 +1,7 @@
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ReservaAdmin, ResumenReservas, FiltrosReservasAdmin, CambioEstadoReserva } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -289,6 +290,16 @@ const MAX_EXPORTACION = 500;
                         <rs-icon name="siren" [size]="13" [stroke]="2"></rs-icon> {{ 'Abrir incidencia' | t }}
                       </button>
                     }
+                    <!-- Sin esta acción una reserva viva (una pendiente que el
+                         cliente abandonó, por ejemplo) no había forma de
+                         resolverla: sólo la cancela su dueño, y eso dejaba
+                         bloqueada la baja de la cuenta del comercio. -->
+                    @if (r.estado !== 'cancelada' && r.estado !== 'completada' && r.estado !== 'reembolsada') {
+                      <button class="acciones__item acciones__item--danger" [disabled]="accionandoId() === r._id"
+                              (click)="pedirMotivo(r, 'cancelada')">
+                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Cancelar reserva' | t }}
+                      </button>
+                    }
                   </div>
                 }
               </span>
@@ -370,7 +381,7 @@ const MAX_EXPORTACION = 500;
       </div>
     }
 
-    <!-- Modal de motivo (disputa / reembolso) -->
+    <!-- Modal de motivo (disputa / reembolso / cancelacion) -->
     @if (modalReserva()) {
       <div class="modal-backdrop" (click)="cerrarModal()">
         <div class="modal rs-card" (click)="$event.stopPropagation()">
@@ -569,6 +580,7 @@ const MAX_EXPORTACION = 500;
 })
 export class AdminReservasComponent implements OnInit {
   private readonly adminApi = inject(AdminApiService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly cargando = signal(true);
   readonly reservas = signal<ReservaAdmin[]>([]);
@@ -611,6 +623,11 @@ export class AdminReservasComponent implements OnInit {
   readonly menuAbiertoId = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
+    // El diálogo de baja de un comercio enlaza aquí con su id para que las
+    // reservas que bloquean el cierre se puedan resolver de verdad.
+    const comercioId = this.route.snapshot.queryParamMap.get('comercioId');
+    if (comercioId) this.avanzados.set({ comercioId });
+
     await this.cargar();
     try {
       this.resumen.set(await firstValueFrom(this.adminApi.getResumenReservas()));

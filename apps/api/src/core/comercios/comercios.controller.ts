@@ -18,7 +18,8 @@ import { ComerciosService } from './comercios.service';
 import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
-import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, FijarAlphaAdheridoDto, BajaComercioDto, PausarComercioDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, Rol } from 'shared';
+import { PermisosAdminGuard, PermisosAdmin } from '../auth/guards/permisos.guard';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, FijarAlphaAdheridoDto, BajaComercioDto, PausarComercioDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, PermisoAdmin, Rol } from 'shared';
 import { ComercioCuentaService } from './comercio-cuenta.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
@@ -26,6 +27,13 @@ interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
 }
 
+/*
+ * Las rutas de administración de este controlador (alta manual, listado,
+ * aprobación/suspensión y los programas comerciales) llevan `PermisosAdminGuard`
+ * y el área `COMERCIOS`, igual que sus equivalentes en `/admin/comercios`.
+ * Faltaba: hacían lo mismo sin exigir el área, así que el permiso del panel no
+ * protegía nada —bastaba con llamar a la ruta antigua.
+ */
 @ApiTags('comercios')
 @Controller('comercios')
 export class ComerciosController {
@@ -42,8 +50,9 @@ export class ComerciosController {
    * /comercios/registro` (cuenta + negocio) y `POST /comercios/onboarding`.
    */
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermisosAdminGuard)
   @Roles(Rol.ADMIN)
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Registrar un comercio sin cuenta (admin); queda pendiente de aprobación' })
   registrar(@Body() dto: RegistrarComercioDto): Promise<ComercioDocument> {
@@ -66,8 +75,9 @@ export class ComerciosController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermisosAdminGuard)
   @Roles(Rol.ADMIN)
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Listar comercios (admin), opcionalmente por estado' })
   @ApiQuery({ name: 'estado', required: false, enum: ['pendiente', 'activo', 'suspendido', 'inactivo', 'eliminado'] })
@@ -327,8 +337,9 @@ export class ComerciosController {
   }
 
   @Patch(':id/estado')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermisosAdminGuard)
   @Roles(Rol.ADMIN)
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Aprobar/suspender un comercio (admin)' })
   cambiarEstado(
@@ -340,8 +351,9 @@ export class ComerciosController {
   }
 
   @Patch(':id/socio-fundador')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermisosAdminGuard)
   @Roles(Rol.ADMIN)
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Alta o baja en el programa Socios Fundadores, con la comisión congelada',
@@ -354,8 +366,9 @@ export class ComerciosController {
   }
 
   @Patch(':id/alpha-adherido')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermisosAdminGuard)
   @Roles(Rol.ADMIN)
+  @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Alta o baja del comercio en el programa Doogking Alpha (HU-13.3)',

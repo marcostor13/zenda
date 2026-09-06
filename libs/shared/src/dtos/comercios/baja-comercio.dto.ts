@@ -80,6 +80,14 @@ export interface ResultadoBajaComercioDto {
   readonly restaurableHasta?: string;
 }
 
+/** Reserva viva que impide cerrar la cuenta, identificable para ir a resolverla. */
+export interface ReservaBloqueanteDto {
+  readonly id: string;
+  readonly codigo: string;
+  readonly estado: string;
+  readonly fechaInicio?: string;
+}
+
 /** Contadores que se enseñan ANTES de confirmar una baja o una purga. */
 export interface ImpactoBajaComercioDto {
   readonly servicios: number;
@@ -88,6 +96,11 @@ export interface ImpactoBajaComercioDto {
   readonly reservas: number;
   readonly reservasActivas: number;
   readonly resenas: number;
+  /**
+   * Cuáles son esas reservas vivas. Sin el detalle, el panel decía "hay 1
+   * reserva en curso" y no había forma de dar con ella para resolverla.
+   */
+  readonly reservasBloqueantes: ReservaBloqueanteDto[];
   /** Si es false, hay reservas vivas y hay que resolverlas antes de la baja. */
   readonly puedeDarseDeBaja: boolean;
 }

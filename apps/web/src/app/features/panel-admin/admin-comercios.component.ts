@@ -2,6 +2,7 @@ import { AdminApiService, ComercioAdmin, ResumenComercios, FichaComercio, CrearC
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ImpactoBajaComercioDto, MOTIVOS_BAJA_COMERCIO, MotivoBajaComercio, VerticalKey, VERTICAL_LABELS } from 'shared';
@@ -31,7 +32,7 @@ const LIMITE = 20;
   selector: 'app-admin-comercios',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, DecimalPipe, ReactiveFormsModule, RsIconComponent, EurosPipe, RsAdminFiltrosComponent
+    TraducirPipe, DatePipe, DecimalPipe, ReactiveFormsModule, RouterLink, RsIconComponent, EurosPipe, RsAdminFiltrosComponent
   ],
   template: `
     <!-- Cabecera -->
@@ -356,7 +357,11 @@ const LIMITE = 20;
           }
         </div>
       } @else {
-        <p class="rs-alert rs-alert--error">{{ 'No se pudo cargar la ficha.' | t }}</p>
+        <div class="rs-alert rs-alert--error">{{ fichaError() || ('No se pudo cargar la ficha.' | t) }}</div>
+        <div class="ficha__cabecera">
+          <button class="rs-btn rs-btn--outline rs-btn--sm" (click)="reintentarFicha()">{{ 'Reintentar' | t }}</button>
+          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">{{ 'Cerrar' | t }}</button>
+        </div>
       }
     </div>
   </div>
@@ -402,7 +407,24 @@ const LIMITE = 20;
         </ul>
         @if (!i.puedeDarseDeBaja) {
           <div class="rs-alert rs-alert--warning" style="margin-bottom:var(--sp-4)">
-            Hay {{ i.reservasActivas }} reserva(s) en curso. Complétalas o cancélalas antes de cerrar la cuenta.
+            @if (purgar()) {
+              {{ 'Se borrarán también las' | t }} {{ i.reservasActivas }} {{ 'reserva(s) en curso y sus pagos.' | t }}
+            } @else {
+              Hay {{ i.reservasActivas }} reserva(s) en curso. Complétalas o cancélalas antes de cerrar la cuenta.
+            }
+            <!-- Con el código a la vista se puede ir a buscarlas al centro de
+                 reservas; el contador solo no decía cuáles eran. -->
+            @if (i.reservasBloqueantes?.length) {
+              <ul class="bloqueantes">
+                @for (r of i.reservasBloqueantes; track r.id) {
+                  <li><code>{{ r.codigo }}</code> · {{ r.estado }}</li>
+                }
+              </ul>
+              <a class="bloqueantes__enlace" routerLink="/admin/reservas"
+                 [queryParams]="{ comercioId: eliminarComercio()!._id }" (click)="cancelarEliminar()">
+                {{ 'Ver estas reservas' | t }} →
+              </a>
+            }
           </div>
         }
       } @else {
@@ -492,6 +514,10 @@ const LIMITE = 20;
     .ficha__reservas { display: flex; flex-direction: column; gap: var(--sp-2); list-style: none; }
     .ficha__reservas li { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; font-size: var(--f-sm); color: var(--t-300); }
     .ficha__reservas code { font-family: monospace; font-size: var(--f-xs); color: var(--c-accent); }
+
+    .bloqueantes { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: 2px; font-size: var(--f-xs); }
+    .bloqueantes code { font-family: monospace; }
+    .bloqueantes__enlace { display: inline-block; margin-top: var(--sp-2); font-size: var(--f-xs); font-weight: var(--w-6); color: var(--c-accent); }
 
     .modal-backdrop {
       position: fixed; inset: 0; z-index: var(--z-4, 100);
@@ -714,15 +740,21 @@ export class AdminComerciosComponent implements OnInit {
   readonly puedeConfirmarBaja = computed(() => {
     const comercio = this.eliminarComercio();
     if (!comercio) return false;
-    if (this.impacto()?.puedeDarseDeBaja === false) return false;
-    if (!this.purgar()) return true;
-    return this.confirmacionBaja().trim().toLowerCase() === comercio.nombreComercial.trim().toLowerCase();
+    // La purga borra también las reservas, así que las vivas no la bloquean:
+    // sólo bloquean la baja lógica, que las conserva y dejaría al cliente
+    // esperando un servicio de un negocio que ya no existe.
+    if (this.purgar()) {
+      return this.confirmacionBaja().trim().toLowerCase() === comercio.nombreComercial.trim().toLowerCase();
+    }
+    return this.impacto()?.puedeDarseDeBaja !== false;
   });
 
   readonly suspendiendo = signal<ComercioAdmin | null>(null);
   readonly fichaAbierta = signal(false);
   readonly cargandoFicha = signal(false);
   readonly ficha = signal<FichaComercio | null>(null);
+  readonly fichaError = signal('');
+  private readonly fichaComercioId = signal('');
   readonly motivoSuspension = signal('');
 
   readonly verticalesDisponibles = computed(() =>
@@ -912,22 +944,46 @@ export class AdminComerciosComponent implements OnInit {
     }
   }
 
+  /**
+   * Abre la ficha administrativa. El error se enseña tal cual llega del API: un
+   * "No se pudo cargar la ficha" a secas no dejaba distinguir un permiso que
+   * falta de un comercio borrado o de un fallo del servidor, y sin ese dato no
+   * había por dónde empezar a mirar.
+   */
   async abrirFicha(comercio: ComercioAdmin): Promise<void> {
     this.fichaAbierta.set(true);
+    this.fichaComercioId.set(comercio._id);
     this.cargandoFicha.set(true);
+    this.fichaError.set('');
     this.ficha.set(null);
     try {
       this.ficha.set(await firstValueFrom(this.adminApi.getFichaComercio(comercio._id)));
-    } catch {
+    } catch (error) {
       this.ficha.set(null);
+      const estado = (error as { status?: number } | null)?.status;
+      // `status: 0` es lo que devuelve el navegador cuando la petición ni
+      // siquiera llegó (CORS, red o API caído); sin decirlo, la ficha "no
+      // cargaba" y no había forma de distinguirlo de un fallo del servidor.
+      const porDefecto = estado === 0
+        ? 'No se pudo contactar con el API (red o CORS).'
+        : `No se pudo cargar la ficha${estado ? ` (HTTP ${estado})` : ''}.`;
+      this.fichaError.set(mensajeDeError(error, porDefecto));
     } finally {
       this.cargandoFicha.set(false);
     }
   }
 
+  /** Reintenta la carga sin obligar a cerrar y volver a abrir el diálogo. */
+  async reintentarFicha(): Promise<void> {
+    const id = this.fichaComercioId();
+    const comercio = this.comercios().find((c) => c._id === id);
+    if (comercio) await this.abrirFicha(comercio);
+  }
+
   cerrarFicha(): void {
     this.fichaAbierta.set(false);
     this.ficha.set(null);
+    this.fichaError.set('');
   }
 
   abrirSuspender(comercio: ComercioAdmin): void {

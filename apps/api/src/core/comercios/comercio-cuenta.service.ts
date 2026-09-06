@@ -37,6 +37,9 @@ const ESTADOS_RESERVA_VIVOS: ReadonlyArray<string> = [
  */
 export const DIAS_GRACIA_BAJA_COMERCIO = 30;
 
+/** Cuántas reservas bloqueantes se enumeran en el diálogo antes de resumir. */
+const MUESTRA_BLOQUEANTES = 10;
+
 /** Cuentas del equipo de un comercio (no clientes que además tengan reservas). */
 const ROLES_DE_COMERCIO: ReadonlyArray<string> = [Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF];
 
@@ -90,16 +93,23 @@ export class ComercioCuentaService {
     const comercio = await this.obtenerVivo(comercioId);
     const id = comercio._id as Types.ObjectId;
 
-    const [servicios, serviciosPublicados, usuarios, reservas, reservasActivas, resenas] =
+    const filtroVivas = { comercioId: id, estado: { $in: ESTADOS_RESERVA_VIVOS } };
+    const [servicios, serviciosPublicados, usuarios, reservas, reservasActivas, bloqueantes, resenas] =
       await Promise.all([
         this.coleccion('servicios').countDocuments({ comercioId: id }),
         this.coleccion('servicios').countDocuments({ comercioId: id, estado: 'publicado' }),
         this.coleccion('usuarios').countDocuments({ comercioId: id }),
         this.coleccion('reservas').countDocuments({ comercioId: id }),
-        this.coleccion('reservas').countDocuments({
-          comercioId: id,
-          estado: { $in: ESTADOS_RESERVA_VIVOS },
-        }),
+        this.coleccion('reservas').countDocuments(filtroVivas),
+        // No basta con contarlas: quien cierra la cuenta necesita saber cuáles
+        // son para poder ir a resolverlas. Se enseña una muestra, no la lista
+        // entera, porque el diálogo no es un listado de reservas.
+        this.coleccion('reservas')
+          .find(filtroVivas, {
+            projection: { codigo: 1, estado: 1, fechaInicio: 1 },
+            limit: MUESTRA_BLOQUEANTES,
+          })
+          .toArray(),
         this.coleccion('resenas').countDocuments({ comercioId: id }),
       ]);
 
@@ -110,6 +120,12 @@ export class ComercioCuentaService {
       reservas,
       reservasActivas,
       resenas,
+      reservasBloqueantes: bloqueantes.map((r) => ({
+        id: String(r['_id']),
+        codigo: (r['codigo'] as string) ?? '',
+        estado: (r['estado'] as string) ?? '',
+        fechaInicio: r['fechaInicio'] ? new Date(r['fechaInicio'] as Date).toISOString() : undefined,
+      })),
       puedeDarseDeBaja: reservasActivas === 0,
     };
   }
@@ -195,10 +211,17 @@ export class ComercioCuentaService {
     const id = comercio._id as Types.ObjectId;
     const impacto = await this.impacto(comercioId);
 
-    if (!impacto.puedeDarseDeBaja) {
+    // El bloqueo protege la baja **lógica**, que conserva las reservas: cerrar
+    // la cuenta dejando a un cliente esperando el servicio no puede pasar. La
+    // purga las borra junto con el resto del rastro del comercio, así que
+    // aplicarle el mismo bloqueo la dejaba inservible —era justo la vía para
+    // limpiar datos de prueba, y quedaba atrapada por una reserva `pendiente`
+    // que nadie podía resolver.
+    if (!params.purgar && !impacto.puedeDarseDeBaja) {
+      const codigos = impacto.reservasBloqueantes.map((r) => r.codigo).filter(Boolean).join(', ');
       throw new DomainException(
-        `No se puede dar de baja: hay ${impacto.reservasActivas} reserva(s) en curso. ` +
-          'Complétalas o cancélalas antes de cerrar la cuenta.',
+        `No se puede dar de baja: hay ${impacto.reservasActivas} reserva(s) en curso` +
+          `${codigos ? ` (${codigos})` : ''}. Complétalas o cancélalas antes de cerrar la cuenta.`,
         409,
       );
     }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -669,10 +669,19 @@ export class AdminService {
     if ((rol === Rol.COMERCIO_ADMIN || rol === Rol.COMERCIO_STAFF) && !datos.comercioId) {
       throw new BadRequestException('Un usuario de comercio requiere un comercioId asociado.');
     }
+
+    // Sin esta comprobación el índice único de `email` reventaba con un E11000
+    // que nadie traduce, y el panel enseñaba un fallo del servidor en lugar de
+    // decir lo único que pasaba: que esa dirección ya está dada de alta.
+    const email = datos.email.trim().toLowerCase();
+    if (await this.usersRepo.findByEmail(email)) {
+      throw new ConflictException('Ya existe una cuenta con ese email.');
+    }
+
     const passwordHash = await bcrypt.hash(datos.password, 10);
     return this.usersRepo.crear({
       nombre: datos.nombre,
-      email: datos.email,
+      email,
       passwordHash,
       telefono: datos.telefono,
       rol,
@@ -686,6 +695,24 @@ export class AdminService {
     adminId?: string,
   ): Promise<UsuarioDocument> {
     const previo = await this.usersRepo.findById(id);
+    if (!previo) throw new NotFoundException('Usuario no encontrado');
+
+    // Ampliarse las áreas propias convierte cualquier permiso en todos: quien
+    // tiene el área de usuarios la usa para gestionar cuentas ajenas, no la
+    // suya. Que se las cambie otro administrador sí vale.
+    const esSuPropiaCuenta = !!adminId && adminId === String(previo._id);
+    if (esSuPropiaCuenta && datos.permisosAdmin !== undefined) {
+      throw new ForbiddenException(
+        'No puedes cambiar tus propias áreas de administración; pídeselo a otro administrador.',
+      );
+    }
+
+    // Bajarle el rol al último administrador deja el panel sin dueño y sin
+    // forma de recuperarlo desde la propia aplicación.
+    if (datos.rol && datos.rol !== Rol.ADMIN && previo.rol === Rol.ADMIN) {
+      await this.exigirQueQuedeOtroAdmin(previo._id);
+    }
+
     const actualizado = await this.usersRepo.actualizarAdmin(id, datos);
     if (!actualizado) throw new NotFoundException('Usuario no encontrado');
 
@@ -703,8 +730,38 @@ export class AdminService {
     return actualizado;
   }
 
+  /**
+   * Borrado de una cuenta. Es físico, así que antes hay que descartar las tres
+   * formas de dejar la plataforma peor de lo que estaba: quedarse fuera uno
+   * mismo, quedarse sin administradores y dejar reservas sin cliente.
+   */
   async eliminarUsuario(id: string, adminId?: string): Promise<void> {
     const previo = await this.usersRepo.findById(id);
+    if (!previo) throw new NotFoundException('Usuario no encontrado');
+
+    if (adminId && adminId === String(previo._id)) {
+      throw new ConflictException(
+        'No puedes eliminar tu propia cuenta: te quedarías sin acceso al panel.',
+      );
+    }
+
+    if (previo.rol === Rol.ADMIN) {
+      await this.exigirQueQuedeOtroAdmin(previo._id);
+    }
+
+    // Una reserva viva sin cliente deja al comercio con alguien a quien
+    // atender y sin forma de contactarle, y descuadra el panel de reservas.
+    const reservasVivas = await this.reservaModel.countDocuments({
+      usuarioId: previo._id,
+      estado: { $in: AdminService.ESTADOS_RESERVA_VIVOS },
+    }).exec();
+    if (reservasVivas > 0) {
+      throw new ConflictException(
+        `No se puede eliminar: la cuenta tiene ${reservasVivas} reserva(s) en curso. ` +
+          'Resuélvelas antes de borrarla.',
+      );
+    }
+
     await this.usersRepo.eliminar(id);
 
     if (adminId) {
@@ -985,6 +1042,57 @@ export class AdminService {
     };
   }
 
+  /**
+   * Reservas que cuentan como facturación. Antes el informe miraba sólo
+   * `confirmada`, y eso hacía **desaparecer** el dinero ya cobrado en cuanto la
+   * reserva avanzaba: al completar el servicio o liberar el pago, su GMV, su
+   * comisión y su liquidación salían del informe con el que se factura al
+   * comercio, así que el periodo se vaciaba solo con el paso de los días.
+   *
+   * Quedan fuera las que no llegaron a cobrarse (`pendiente`) y aquellas cuyo
+   * dinero se devolvió (`cancelada`, `reembolsada`). Las que están en disputa
+   * siguen dentro hasta que se resuelvan: el cobro existe.
+   */
+  private static readonly ESTADOS_FACTURABLES = [
+    ReservaEstado.CONFIRMADA,
+    ReservaEstado.AJUSTE_SOLICITADO,
+    ReservaEstado.EN_CURSO,
+    ReservaEstado.COMPLETADA,
+    ReservaEstado.NO_SHOW,
+    ReservaEstado.PAGO_RETENIDO,
+    ReservaEstado.PAGO_LIBERADO,
+    ReservaEstado.EN_DISPUTA,
+  ];
+
+  /** Reservas que aún esperan algo: no pueden quedarse sin cliente ni sin comercio. */
+  private static readonly ESTADOS_RESERVA_VIVOS = [
+    ReservaEstado.PENDIENTE,
+    ReservaEstado.CONFIRMADA,
+    ReservaEstado.AJUSTE_SOLICITADO,
+    ReservaEstado.EN_CURSO,
+    ReservaEstado.PAGO_RETENIDO,
+    ReservaEstado.EN_DISPUTA,
+  ];
+
+  /**
+   * Ningún camino del panel puede dejar la plataforma sin administradores.
+   * Se excluye por el `_id` del propio documento, sin reconstruirlo desde la
+   * cadena de la ruta: Mongoose ya lo entrega tipado y así la comprobación no
+   * depende del formato con el que llegó el identificador.
+   */
+  private async exigirQueQuedeOtroAdmin(excluyendo: unknown): Promise<void> {
+    const otros = await this.usuarioModel.countDocuments({
+      rol: Rol.ADMIN,
+      _id: { $ne: excluyendo },
+    }).exec();
+
+    if (otros === 0) {
+      throw new ConflictException(
+        'Es el único administrador de la plataforma: crea otro antes de quitarle el acceso.',
+      );
+    }
+  }
+
   // Estados que un admin puede fijar manualmente desde el centro de reservas.
   private static readonly ESTADOS_ADMIN = [
     ReservaEstado.PAGO_RETENIDO,
@@ -1187,7 +1295,7 @@ export class AdminService {
 
   async generarReporteFinanciero(filtros: FiltrosReporte): Promise<ReporteFinancieroDto> {
     const matchReservas: Record<string, unknown> = {
-      estado: ReservaEstado.CONFIRMADA,
+      estado: { $in: AdminService.ESTADOS_FACTURABLES },
       createdAt: { $gte: filtros.fechaDesde, $lte: filtros.fechaHasta },
     };
 

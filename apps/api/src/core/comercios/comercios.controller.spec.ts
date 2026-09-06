@@ -3,6 +3,7 @@ import { MotivoBajaComercio } from 'shared';
 import { ComerciosController } from './comercios.controller';
 import { ComerciosService } from './comercios.service';
 import { ComercioCuentaService } from './comercio-cuenta.service';
+import { UsersRepository } from '../users/users.repository';
 
 describe('ComerciosController', () => {
   let controller: ComerciosController;
@@ -50,6 +51,10 @@ describe('ComerciosController', () => {
             darDeBaja: jest.fn().mockResolvedValue({}),
           },
         },
+        // Las rutas de admin de este controlador llevan `PermisosAdminGuard`,
+        // que Nest instancia al montar el módulo aunque el test llame al
+        // método directamente y no pase por la cadena de guards.
+        { provide: UsersRepository, useValue: { findById: jest.fn() } },
       ],
     }).compile();
 
