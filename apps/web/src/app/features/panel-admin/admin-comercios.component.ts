@@ -497,7 +497,7 @@ const LIMITE = 20;
     .resumen-tile--accion:hover { box-shadow: var(--shadow-md); }
 
     .ficha {
-      width: 100%; max-width: 720px; max-height: 86vh; overflow-y: auto;
+      width: 100%; max-width: 720px; max-height: 86vh; max-height: 86dvh; overflow-y: auto;
       padding: var(--sp-6); background: var(--c-card); border-radius: var(--r-xl);
       box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.18));
       display: flex; flex-direction: column; gap: var(--sp-5);
@@ -685,7 +685,7 @@ const LIMITE = 20;
     .page-info { font-size: var(--f-sm); color: var(--t-400); }
 
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: var(--sp-4); }
-    .modal { width: 100%; max-width: 640px; padding: var(--sp-8); max-height: 90vh; overflow-y: auto; }
+    .modal { width: 100%; max-width: 640px; padding: var(--sp-8); max-height: 90vh; max-height: 90dvh; overflow-y: auto; }
     .modal--sm { max-width: 420px; }
     .modal-title { font-size: var(--f-xl); font-weight: var(--w-8); color: var(--t-100); margin-bottom: var(--sp-6); }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }

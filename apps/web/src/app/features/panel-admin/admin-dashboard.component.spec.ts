@@ -203,8 +203,12 @@ describe('AdminDashboardComponent', () => {
 
       await componente.cambiarPeriodo('personalizado');
 
-      expect(ultimoRango()!.desde).toContain('2026-03-01');
-      expect(ultimoRango()!.hasta).toContain('2026-03-31');
+      // Se comprueba el instante, no el texto ISO: el rango se ancla a la hora
+      // local de quien mira el panel, así que al pasarlo a UTC la fecha del
+      // texto cambia en cualquier huso que no sea el de Greenwich.
+      const rango = ultimoRango()!;
+      expect(new Date(rango.desde)).toEqual(new Date(2026, 2, 1, 0, 0, 0, 0));
+      expect(new Date(rango.hasta)).toEqual(new Date(2026, 2, 31, 23, 59, 59, 999));
     });
 
     it('debería cerrar el día final del rango personalizado a las 23:59:59', async () => {

@@ -351,7 +351,7 @@ export interface BusquedaParams {
       .sb__cal {
         position: fixed; inset: auto 0 0 0;
         width: 100%;
-        max-height: 88vh; overflow-y: auto; overscroll-behavior: contain;
+        max-height: 88vh; max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain;
         z-index: var(--z-4);
         border: none;
         border-radius: var(--r-xl) var(--r-xl) 0 0;

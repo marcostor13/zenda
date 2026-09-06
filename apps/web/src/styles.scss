@@ -2262,11 +2262,24 @@ h1, h2, h3, h4, h5, h6 {
   gap: var(--sp-4);
   margin-bottom: var(--sp-5);
 
-  /* Pastillas de estado: ocupan su propia línea, encima de los campos. */
+  /*
+   * Pastillas de estado. `align-content: flex-start` es imprescindible: sin él
+   * las líneas envueltas se reparten TODA la altura disponible y cada pastilla
+   * se estira. Y `flex-basis: 100%` sólo vale dentro de la barra —ahí el eje
+   * principal es horizontal y significa "una línea para mí"—; suelto dentro de
+   * una columna flex (como el panel de admin) el eje es vertical y pedía el
+   * 100% de la ALTURA: las diez pastillas de /admin/reservas medían 160 px de
+   * alto cada una y aplastaban la tabla de debajo hasta recortarla.
+   */
   &__grupo {
     display: flex;
     flex-wrap: wrap;
+    align-content: flex-start;
+    align-items: flex-start;
     gap: var(--sp-2);
+  }
+
+  > &__grupo {
     flex-basis: 100%;
   }
 

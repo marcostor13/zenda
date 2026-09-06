@@ -1,0 +1,25 @@
+# Navegadores a los que se compila la web (lo leen autoprefixer y el compilador
+# de Angular para decidir prefijos CSS y hasta dónde bajar el JavaScript).
+#
+# Sin este fichero se aplicaba el valor por defecto de browserslist
+# ("> 0.5%, last 2 versions, not dead"), que en la práctica sólo incluía Safari
+# 26 e iOS 18.5+: cualquier iPhone que no pueda actualizarse quedaba fuera del
+# prefijado y de la transpilación, aunque Angular 20 sí lo soporta. En un
+# marketplace de consumo europeo esa franja es de gente real, no de bots.
+#
+# El suelo es Safari/iOS 16.4, que es donde Angular 20 pone el suyo, y Firefox
+# ESR, que es lo que corre en las instalaciones gestionadas.
+> 0.3%
+last 3 versions
+Firefox ESR
+safari >= 16.4
+ios_saf >= 16.4
+chrome >= 111
+edge >= 111
+firefox >= 115
+not dead
+# Ni Opera Mini ni IE ejecutan una SPA de Angular; incluirlos sólo añadía
+# prefijos muertos al CSS.
+not op_mini all
+not ie > 0
+not ie_mob > 0

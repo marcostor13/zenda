@@ -644,7 +644,7 @@ const SECUNDARIAS_VISIBLES = 2;
       animation: fadeIn 160ms ease both;
 
       img {
-        max-width: min(92vw, 1100px); max-height: 86vh;
+        max-width: min(92vw, 1100px); max-height: 86vh; max-height: 86dvh;
         object-fit: contain; border-radius: var(--r-lg);
         cursor: default;
       }

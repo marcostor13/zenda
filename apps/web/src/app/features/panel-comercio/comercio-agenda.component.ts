@@ -571,7 +571,7 @@ interface TarjetaSemana {
       background: rgba(0, 19, 93, .35);
     }
     .modal {
-      width: min(520px, 100%); max-height: 90vh; overflow: auto;
+      width: min(520px, 100%); max-height: 90vh; max-height: 90dvh; overflow: auto;
       padding: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-4);
     }
     .modal__tit { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--t-100); }

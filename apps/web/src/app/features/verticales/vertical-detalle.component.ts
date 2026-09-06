@@ -510,7 +510,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       background: rgba(0,0,0,.92);
       display: flex; align-items: center; justify-content: center;
       animation: fadeIn 160ms ease both;
-      img { max-width: min(92vw, 1100px); max-height: 86vh; object-fit: contain; border-radius: var(--r-lg); cursor: default; }
+      img { max-width: min(92vw, 1100px); max-height: 86vh; max-height: 86dvh; object-fit: contain; border-radius: var(--r-lg); cursor: default; }
     }
     .lightbox__cerrar {
       position: absolute; top: var(--sp-5); right: var(--sp-5);

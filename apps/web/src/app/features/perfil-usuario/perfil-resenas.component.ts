@@ -402,7 +402,7 @@ const RECONOCIMIENTOS = [
       display: flex; align-items: center; justify-content: center; padding: var(--sp-5); z-index: 100;
     }
     .modal-card {
-      max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; padding: var(--sp-6);
+      max-width: 520px; width: 100%; max-height: 90vh; max-height: 90dvh; overflow-y: auto; padding: var(--sp-6);
       h2 { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-5); }
     }
     .modal-acciones { display: flex; justify-content: flex-end; gap: var(--sp-3); margin-top: var(--sp-5); }

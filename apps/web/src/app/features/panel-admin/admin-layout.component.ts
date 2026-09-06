@@ -137,6 +137,15 @@ import { NAV_ADMIN } from '../../shared/navegacion-paneles';
       gap: var(--sp-6);
       min-width: 0;
     }
+
+    /*
+     * Las secciones de la página no se encogen. En una columna flex, cualquier
+     * hijo que pida altura (un flex-basis del 100% heredado de otro contexto,
+     * por ejemplo) se la quita a los demás, y una tarjeta con overflow deja de
+     * crecer y **recorta** su contenido en vez de alargar la página. Aquí el
+     * flex es sólo para el gap; el alto siempre lo manda el contenido.
+     */
+    .admin-main > * { flex-shrink: 0; }
     @media (max-width: 768px) {
       .admin-main { padding: var(--sp-4); }
     }

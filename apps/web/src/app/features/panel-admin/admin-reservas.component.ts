@@ -74,6 +74,11 @@ const LIMITE = 20;
 /** Tope de filas de la exportación: un CSV es un informe, no un volcado de la BD. */
 const MAX_EXPORTACION = 500;
 
+/* Medidas del desplegable de acciones, para decidir si cabe por debajo del botón. */
+const ANCHO_MENU_ACCIONES = 210;
+const ALTO_MENU_ACCIONES = 210;
+const MARGEN_MENU = 4;
+
 @Component({
   selector: 'app-admin-reservas',
   standalone: true,
@@ -244,12 +249,12 @@ const MAX_EXPORTACION = 500;
                 {{ r.codigo }}
               </button>
               <span class="cell-txt" data-col="Fecha">{{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy' }}</span>
-              <span class="cell-txt" data-col="Cliente">
+              <span class="cell-txt" data-col="Cliente" [title]="r.cliente + (r.clienteEmail ? ' · ' + r.clienteEmail : '')">
                 {{ r.cliente }}
                 @if (r.clienteEmail) { <span class="cell-sub">{{ r.clienteEmail }}</span> }
               </span>
-              <span class="cell-txt" data-col="Comercio">{{ r.comercio }}</span>
-              <span class="cell-txt" data-col="Servicio">{{ r.servicio || r.vertical }}</span>
+              <span class="cell-txt" data-col="Comercio" [title]="r.comercio">{{ r.comercio }}</span>
+              <span class="cell-txt" data-col="Servicio" [title]="r.servicio || r.vertical">{{ r.servicio || r.vertical }}</span>
               <span class="cell-amount" data-col="Importe">{{ r.montoTotal | euros:'1.2-2' }}</span>
               <span class="cell-amount cell-green" data-col="Comisión">{{ r.comisionMonto | euros:'1.2-2' }}</span>
               <span data-col="Estado reserva">
@@ -264,11 +269,13 @@ const MAX_EXPORTACION = 500;
               </span>
               <span class="cell-actions" (click)="$event.stopPropagation()">
                 <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Acciones' | t"
-                        (click)="menuAbiertoId.set(menuAbiertoId() === r._id ? null : r._id)">
+                        [attr.aria-expanded]="menuAbiertoId() === r._id"
+                        (click)="alternarMenu(r._id, $event)">
                   <rs-icon name="more-horizontal" [size]="15" [stroke]="2"></rs-icon>
                 </button>
                 @if (menuAbiertoId() === r._id) {
-                  <div class="acciones__menu">
+                  <div class="acciones__menu" role="menu"
+                       [style.top.px]="menuPos().top" [style.left.px]="menuPos().left">
                     <button class="acciones__item" (click)="toggleTimeline(r._id)">
                       <rs-icon name="clock" [size]="13" [stroke]="2"></rs-icon> {{ 'Ver reserva e historial' | t }}
                     </button>
@@ -422,7 +429,16 @@ const MAX_EXPORTACION = 500;
     .campo > span { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .05em; }
     .panel-filtros__acciones { display: flex; gap: var(--sp-2); justify-content: flex-end; }
 
-    .tbl-wrap { min-width: 920px; }
+    /*
+     * Diez columnas con 820 px fijos entre ellas no dejaban sitio a los textos:
+     * cliente, comercio y servicio se cortaban con puntos suspensivos ya en un
+     * portátil de 1440. Recortando lo fijo a 732 px, los tres textos ganan
+     * ~120 px sin quitar ninguna columna ni tocar el scroll lateral.
+     */
+    .tbl-wrap {
+      min-width: 1040px;
+      --cols-reservas: 120px 100px 2fr 1.1fr 1.1fr 104px 104px 132px 116px 56px;
+    }
 
     .resumen-reservas { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-3); }
     .resumen-tile {
@@ -457,8 +473,16 @@ const MAX_EXPORTACION = 500;
     .ficha__extras { font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-4); }
 
     .cell-actions { position: relative; }
+    /*
+     * Fijo al viewport y no absoluto: la tarjeta de la tabla lleva overflow-x
+     * auto para el scroll lateral, y eso obliga al eje vertical a recortar
+     * también (la especificación no permite un eje auto y el otro visible). El
+     * desplegable de las últimas filas quedaba cortado por el borde de la
+     * tarjeta y sus dos o tres últimas opciones no se veían. Fijo se escapa del
+     * recorte; las coordenadas las pone alternarMenu() desde el botón.
+     */
     .acciones__menu {
-      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
+      position: fixed; z-index: var(--z-4, 300);
       min-width: 210px; padding: var(--sp-2);
       background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
       box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
@@ -472,16 +496,36 @@ const MAX_EXPORTACION = 500;
     .acciones__item:hover { background: var(--c-raised); }
     .acciones__item--danger { color: var(--c-red, #B91C1C); }
 
-    .tbl-head { display: grid; grid-template-columns: 140px 110px 1.2fr 1fr 1fr 110px 110px 150px 130px 70px; padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
-    .tbl-row { display: grid; grid-template-columns: 140px 110px 1.2fr 1fr 1fr 110px 110px 150px 130px 70px; padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } }
+    .tbl-head { display: grid; grid-template-columns: var(--cols-reservas); padding: var(--sp-3) var(--sp-5); font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--b-1); background: var(--c-raised); }
+    .tbl-row { display: grid; grid-template-columns: var(--cols-reservas); padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; &:last-child { border: none; } &:hover { background: var(--c-raised); } }
 
     /*
      * Móvil: la tabla deja de serlo. Sin esto la única salida era el scroll
      * lateral, que obliga a arrastrar para leer una sola reserva.
      */
     @media (max-width: 768px) {
-      .tbl-wrap { min-width: 0; }
+      .tbl-wrap { min-width: 0; --cols-reservas: 1fr; }
       .tbl-head { display: none; }
+
+      /*
+       * En la ficha apilada no hay columna que respetar: el recorte a una línea
+       * que sirve en la tabla dejaba el email del cliente cortado a la mitad.
+       */
+      .tbl-row .cell-txt { display: block; -webkit-line-clamp: none; overflow: visible; }
+
+      /*
+       * Diez pastillas de estado envueltas ocupaban 200 px —media pantalla—
+       * antes de la primera reserva. En una tira que se desliza caben en una
+       * línea y se llega antes a lo que se viene a ver.
+       */
+      .rs-toolbar__grupo {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: var(--sp-1);
+      }
+      .rs-toolbar__grupo > .rs-btn { flex: 0 0 auto; scroll-snap-align: start; }
 
       .tbl-row {
         grid-template-columns: 1fr;
@@ -517,7 +561,17 @@ const MAX_EXPORTACION = 500;
     .tbl-skeleton { pointer-events: none; }
 
     .cell-mono { font-family: monospace; font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); }
-    .cell-txt { font-size: var(--f-sm); color: var(--t-200); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /*
+     * Dos líneas en vez de una. Recortado a una línea, un email o una razón
+     * social no se leían nunca en la tabla; con dos, entran casi todos y la
+     * fila sigue midiendo lo mismo para todas. El resto se ve en el title y
+     * en la ficha que se despliega al pulsar el código.
+     */
+    .cell-txt {
+      font-size: var(--f-sm); color: var(--t-200);
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+      overflow: hidden; overflow-wrap: anywhere;
+    }
     .cell-amount { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); text-align: right; }
     .cell-green { color: #047857; }
     .cell-actions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
@@ -621,6 +675,7 @@ export class AdminReservasComponent implements OnInit {
   readonly resumenEstados = RESUMEN_ESTADOS;
   readonly resumen = signal<ResumenReservas | null>(null);
   readonly menuAbiertoId = signal<string | null>(null);
+  readonly menuPos = signal<{ top: number; left: number }>({ top: 0, left: 0 });
 
   async ngOnInit(): Promise<void> {
     // El diálogo de baja de un comercio enlaza aquí con su id para que las
@@ -795,10 +850,40 @@ export class AdminReservasComponent implements OnInit {
     }
   }
 
+  /**
+   * Abre el desplegable anclado al botón. Al ir fijo al viewport necesita
+   * coordenadas explícitas; si no cabe por debajo, se despliega hacia arriba
+   * para no salirse de la pantalla en las últimas filas.
+   */
+  alternarMenu(id: string, evento: MouseEvent): void {
+    if (this.menuAbiertoId() === id) {
+      this.menuAbiertoId.set(null);
+      return;
+    }
+
+    const boton = (evento.currentTarget as HTMLElement).getBoundingClientRect();
+    const cabeSurgiendoAbajo = window.innerHeight - boton.bottom > ALTO_MENU_ACCIONES + MARGEN_MENU;
+    this.menuPos.set({
+      top: Math.round(cabeSurgiendoAbajo
+        ? boton.bottom + MARGEN_MENU
+        : Math.max(MARGEN_MENU, boton.top - ALTO_MENU_ACCIONES - MARGEN_MENU)),
+      // Alineado a la derecha del botón, sin salirse por el borde izquierdo.
+      left: Math.round(Math.max(MARGEN_MENU, boton.right - ANCHO_MENU_ACCIONES)),
+    });
+    this.menuAbiertoId.set(id);
+  }
+
   /** El menu de acciones se cierra al pulsar fuera. */
   @HostListener('document:click')
   cerrarMenu(): void {
     this.menuAbiertoId.set(null);
+  }
+
+  /** Al ir fijo al viewport, el menú se quedaría flotando si la página se mueve. */
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
+  cerrarMenuAlMover(): void {
+    if (this.menuAbiertoId()) this.menuAbiertoId.set(null);
   }
 
   contarEstado(estado: string): number {

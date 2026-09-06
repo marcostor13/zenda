@@ -223,7 +223,7 @@ type Dialogo = 'pausar' | 'baja' | null;
 
     .overlay { position: fixed; inset: 0; background: rgba(0, 19, 93, .45); display: flex;
       align-items: center; justify-content: center; padding: var(--s-4); z-index: 100; overflow-y: auto; }
-    .modal { width: 100%; max-width: 520px; padding: var(--s-7); max-height: 90vh; overflow-y: auto; }
+    .modal { width: 100%; max-width: 520px; padding: var(--s-7); max-height: 90vh; max-height: 90dvh; overflow-y: auto; }
     .modal__titulo { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--fw-bold);
       color: var(--text-primary); }
     .modal__sub { color: var(--text-secondary); font-size: var(--text-sm); margin: var(--s-2) 0 var(--s-5); }

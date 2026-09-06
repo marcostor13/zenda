@@ -36,6 +36,25 @@ const ESTADO_BADGE: Record<string, string> = {
   no_show: 'rs-badge--neutral',
 };
 
+/*
+ * Los dos extremos del rango se anclan a la hora LOCAL de quien mira el panel.
+ *
+ * Antes no coincidían: `new Date('2026-03-01')` —una fecha sin hora— la
+ * interpreta el navegador como medianoche UTC, mientras que
+ * `new Date('2026-03-31T23:59:59')` la interpreta como hora local. En cualquier
+ * huso distinto de UTC el rango empezaba desplazado y podía dejar fuera (o
+ * colar) unas horas de reservas, que en un informe de facturación se nota.
+ */
+function inicioDelDia(iso: string): Date {
+  const [anio, mes, dia] = iso.split('-').map(Number);
+  return new Date(anio, mes - 1, dia);
+}
+
+function finDelDia(iso: string): Date {
+  const [anio, mes, dia] = iso.split('-').map(Number);
+  return new Date(anio, mes - 1, dia, 23, 59, 59, 999);
+}
+
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
@@ -532,7 +551,7 @@ nuevosComerciosMes: 0,
       case 'ano': return { desde: new Date(hoy.getFullYear(), 0, 1).toISOString(), hasta: fin.toISOString() };
       case 'personalizado':
         if (!this.desde() || !this.hasta()) return undefined;
-        return { desde: new Date(this.desde()).toISOString(), hasta: new Date(this.hasta() + 'T23:59:59').toISOString() };
+        return { desde: inicioDelDia(this.desde()).toISOString(), hasta: finDelDia(this.hasta()).toISOString() };
     }
   }
 
