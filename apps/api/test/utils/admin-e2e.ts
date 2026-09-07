@@ -127,6 +127,8 @@ export async function sembrarReserva(
     readonly montoTotal?: number;
     readonly vertical?: VerticalKey;
     readonly conPagoAprobado?: boolean;
+    /** Momento del pago: lo necesitan las suites que liquidan por periodo. */
+    readonly cobradoEn?: Date;
   },
 ): Promise<Types.ObjectId> {
   const reservaId = new Types.ObjectId();
@@ -172,7 +174,7 @@ export async function sembrarReserva(
       estado: PagoEstado.APROBADO,
       esSuplemento: false,
       esPrueba: false,
-      createdAt: new Date(),
+      createdAt: datos.cobradoEn ?? new Date(),
     });
   }
 

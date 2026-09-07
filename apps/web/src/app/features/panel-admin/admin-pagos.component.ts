@@ -5,6 +5,7 @@ import { AdminApiService, PagoAdmin, ResumenPagos, Liquidacion } from './admin-a
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { mensajeDeError } from '../../shared/mensaje-error';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 const LIMITE = 20;
 
@@ -114,18 +115,27 @@ const FILTROS = [
           {{ 'Calcula lo cobrado de ese comercio en el periodo y lo deja registrado. No mueve dinero: la transferencia se marca después.' | t }}
         </p>
         <div class="panel-generar__form">
-          <select class="rs-inp" [value]="comercioSel()"
-                  (change)="comercioSel.set($any($event.target).value)" [attr.aria-label]="'Comercio' | t">
-            <option value="">{{ 'Elige un comercio' | t }}</option>
-            @for (c of comercios(); track c._id) {
-              <option [value]="c._id">{{ c.nombreComercial }}</option>
-            }
-          </select>
-          <input class="rs-inp" type="date" [value]="desdeSel()"
-                 (input)="desdeSel.set($any($event.target).value)" [attr.aria-label]="'Desde' | t" />
-          <input class="rs-inp" type="date" [value]="hastaSel()"
-                 (input)="hastaSel.set($any($event.target).value)" [attr.aria-label]="'Hasta' | t" />
-          <button class="rs-btn rs-btn--primary rs-btn--sm"
+          <div class="panel-generar__campo">
+            <label class="panel-generar__lbl" for="lq-comercio">{{ 'Comercio' | t }}</label>
+            <select id="lq-comercio" class="rs-inp" [value]="comercioSel()"
+                    (change)="comercioSel.set($any($event.target).value)">
+              <option value="">{{ 'Elige un comercio' | t }}</option>
+              @for (c of comercios(); track c._id) {
+                <option [value]="c._id">{{ c.nombreComercial }}</option>
+              }
+            </select>
+          </div>
+          <div class="panel-generar__campo">
+            <label class="panel-generar__lbl" for="lq-desde">{{ 'Desde' | t }}</label>
+            <input id="lq-desde" class="rs-inp" type="date" [value]="desdeSel()"
+                   (input)="desdeSel.set($any($event.target).value)" />
+          </div>
+          <div class="panel-generar__campo">
+            <label class="panel-generar__lbl" for="lq-hasta">{{ 'Hasta' | t }}</label>
+            <input id="lq-hasta" class="rs-inp" type="date" [value]="hastaSel()"
+                   (input)="hastaSel.set($any($event.target).value)" />
+          </div>
+          <button class="rs-btn rs-btn--primary panel-generar__accion"
                   [disabled]="!puedeGenerar() || generando()" (click)="generarLiquidacion()">
             {{ generando() ? 'Calculando…' : 'Generar liquidación' }}
           </button>
@@ -248,8 +258,29 @@ const FILTROS = [
     .panel-generar { padding: var(--sp-5); }
     .panel-generar__titulo { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
     .panel-generar__nota { font-size: var(--f-sm); color: var(--t-400); margin-bottom: var(--sp-4); max-width: 70ch; }
-    .panel-generar__form { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
-    .panel-generar__form .rs-inp { height: 40px; min-width: 180px; }
+    /*
+     * Rejilla y no flex: los .rs-inp llevan width:100% del design system, y en
+     * una fila flex eso significa "una línea para mí", así que los tres campos
+     * se apilaban a todo lo ancho en vez de formar una fila. Tampoco se les
+     * impone height: lo hacía a 40px y al select le cortaba las letras por
+     * abajo (ver la nota de select.rs-inp en styles.scss).
+     */
+    .panel-generar__form {
+      display: grid;
+      grid-template-columns: minmax(200px, 1.6fr) repeat(2, minmax(150px, 1fr)) auto;
+      gap: var(--sp-3);
+      align-items: end;
+    }
+    .panel-generar__campo { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+    .panel-generar__lbl {
+      font-family: var(--font-accent); font-size: var(--f-xs); font-weight: var(--w-7);
+      letter-spacing: .08em; text-transform: uppercase; color: var(--t-400); white-space: nowrap;
+    }
+    .panel-generar__accion { min-height: 46px; }
+
+    @media (max-width: 760px) {
+      .panel-generar__form { grid-template-columns: 1fr; }
+    }
 
     .lista-liquidaciones { display: flex; flex-direction: column; gap: var(--sp-2); }
     .liquidacion {
@@ -352,15 +383,21 @@ export class AdminPagosComponent implements OnInit {
     this.generando.set(true);
     this.errorMsg.set('');
     try {
+      // Las fechas se mandan tal cual salen del campo (2026-09-30). Convertirlas
+      // aquí con `new Date(... + 'T23:59:59')` las pasaba por el huso del
+      // navegador y corría el periodo un día en cuanto el admin no estaba en
+      // UTC; quien decide dónde empieza y acaba el día es el API.
       await firstValueFrom(this.adminApi.generarLiquidacion({
         comercioId: this.comercioSel(),
-        desde: new Date(this.desdeSel()).toISOString(),
-        hasta: new Date(this.hastaSel() + 'T23:59:59').toISOString(),
+        desde: this.desdeSel(),
+        hasta: this.hastaSel(),
       }));
       await this.cargarLiquidaciones();
-    } catch {
-      this.errorMsg.set('No se pudo generar: revisa que haya pagos cobrados en ese periodo.');
-      setTimeout(() => this.errorMsg.set(''), 4000);
+    } catch (error) {
+      // El motivo real importa: "ese periodo ya está liquidado" y "no hay pagos
+      // cobrados" piden cosas distintas del admin.
+      this.errorMsg.set(mensajeDeError(error, 'No se pudo generar la liquidación.'));
+      setTimeout(() => this.errorMsg.set(''), 6000);
     } finally {
       this.generando.set(false);
     }
@@ -387,9 +424,9 @@ export class AdminPagosComponent implements OnInit {
         lista.map((l) => (l._id === liquidacion._id ? { ...l, ...actualizada } : l)),
       );
       this.cancelarPago();
-    } catch {
-      this.errorMsg.set('No se pudo marcar la liquidación como pagada.');
-      setTimeout(() => this.errorMsg.set(''), 3000);
+    } catch (error) {
+      this.errorMsg.set(mensajeDeError(error, 'No se pudo marcar la liquidación como pagada.'));
+      setTimeout(() => this.errorMsg.set(''), 6000);
     }
   }
   readonly filtroEstado = signal('');

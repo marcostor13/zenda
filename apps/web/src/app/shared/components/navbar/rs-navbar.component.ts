@@ -166,7 +166,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
             }
           </div>
         } @else {
-          <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--sm">{{ 'Ingresar' | t }}</a>
+          <a routerLink="/auth/login"    class="rs-btn rs-btn--outline-gold rs-btn--sm">{{ 'Ingresar' | t }}</a>
           <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--sm">{{ 'Hazte una cuenta' | t }}</a>
         }
       </div>
@@ -294,7 +294,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
               {{ 'Cerrar sesión' | t }}
             </button>
           } @else {
-            <a routerLink="/auth/login"    class="rs-btn rs-btn--ghost rs-btn--block"   (click)="menuAbierto.set(false)">{{ 'Ingresar' | t }}</a>
+            <a routerLink="/auth/login"    class="rs-btn rs-btn--outline-gold rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Ingresar' | t }}</a>
             <a routerLink="/auth/registro" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Hazte una cuenta gratis' | t }}</a>
           }
 

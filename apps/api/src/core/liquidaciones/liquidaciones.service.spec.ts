@@ -26,6 +26,16 @@ describe('LiquidacionesService', () => {
         exec: jest.fn().mockResolvedValue([]),
       }),
       countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
+      // Guardia de solape: por defecto no hay ninguna liquidación previa.
+      findOne: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      }),
+      // Estado actual antes de marcar como pagada.
+      findById: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ estado: 'pendiente' }),
+      }),
       findByIdAndUpdate: jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue({ comercioId: COMERCIO_ID, comercioNombre: 'VilaCan', importeNeto: 400 }),
       }),
@@ -84,6 +94,46 @@ describe('LiquidacionesService', () => {
 
   it('debería exigir referencia para marcar una liquidación como pagada', async () => {
     await expect(service.marcarPagada('l1', '   ', ADMIN_ID)).rejects.toThrow(/referencia/i);
+    expect(liquidacionModel.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('debería liquidar el último día completo del periodo', async () => {
+    // Las fechas llegan sin hora: sin extender `hasta`, lo cobrado ese día
+    // quedaba fuera. Se cierra en UTC para no depender del huso del servidor.
+    await service.generar(COMERCIO_ID, periodo.desde, periodo.hasta, ADMIN_ID);
+
+    const [pipeline] = pagoModel.aggregate.mock.calls[0];
+    const rango = pipeline[0].$match.createdAt;
+    expect(rango.$gte.toISOString()).toBe('2026-07-01T00:00:00.000Z');
+    expect(rango.$lte.toISOString()).toBe('2026-07-31T23:59:59.999Z');
+  });
+
+  it('debería rechazar un periodo que se solapa con otra liquidación', async () => {
+    liquidacionModel.findOne.mockReturnValue({
+      select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue({
+        desde: new Date('2026-07-15'), hasta: new Date('2026-08-15'),
+      }),
+    });
+
+    await expect(service.generar(COMERCIO_ID, periodo.desde, periodo.hasta, ADMIN_ID))
+      .rejects.toThrow(/ya está liquidado/i);
+    expect(liquidacionModel.create).not.toHaveBeenCalled();
+  });
+
+  it('debería rechazar fechas que no son fechas', async () => {
+    await expect(service.generar(COMERCIO_ID, new Date('vaya'), periodo.hasta, ADMIN_ID))
+      .rejects.toThrow(/no son válidas/i);
+  });
+
+  it('no debería volver a marcar como pagada una liquidación ya pagada', async () => {
+    liquidacionModel.findById.mockReturnValue({
+      select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue({ estado: 'pagada', referencia: 'TRF-BUENA' }),
+    });
+
+    await expect(service.marcarPagada('l1', 'TRF-OTRA', ADMIN_ID))
+      .rejects.toThrow(/ya se marcó como pagada/i);
     expect(liquidacionModel.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 

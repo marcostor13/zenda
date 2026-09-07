@@ -7,6 +7,7 @@ import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { PermisosAdminGuard, PermisosAdmin } from '../auth/guards/permisos.guard';
 import { LiquidacionDocument } from './liquidacion.schema';
 import { LiquidacionesService } from './liquidaciones.service';
+import { GenerarLiquidacionDto, MarcarPagadaDto } from './dto/liquidaciones.dto';
 
 interface RequestConAdmin extends Request {
   user: { sub: string; rol: Rol };
@@ -39,7 +40,7 @@ export class LiquidacionesController {
   @Post()
   @ApiOperation({ summary: 'Generar la liquidación de un comercio para un periodo' })
   generar(
-    @Body() dto: { comercioId: string; desde: string; hasta: string },
+    @Body() dto: GenerarLiquidacionDto,
     @Req() req: RequestConAdmin,
   ): Promise<LiquidacionDocument> {
     return this.liquidacionesService.generar(
@@ -54,7 +55,7 @@ export class LiquidacionesController {
   @ApiOperation({ summary: 'Marcar una liquidación como pagada' })
   marcarPagada(
     @Param('id') id: string,
-    @Body() dto: { referencia: string },
+    @Body() dto: MarcarPagadaDto,
     @Req() req: RequestConAdmin,
   ): Promise<LiquidacionDocument> {
     return this.liquidacionesService.marcarPagada(id, dto.referencia, req.user.sub);

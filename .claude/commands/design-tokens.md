@@ -101,9 +101,13 @@ Muestra la referencia completa de tokens y clases disponibles, o busca un token 
 TIPOGRAFÍA: .rs-display .rs-h1 .rs-h2 .rs-h3 .rs-h4 .rs-gradient-text .rs-label-caps
 LAYOUT:    .rs-wrap [--lg|--2xl|--3xl]  .rs-section [--sm|--lg]
 NAVBAR:    .rs-navbar (__brand __nav __link __link--active __actions __hamburger)
-BUTTONS:   .rs-btn .rs-btn--{primary|gold|secondary|outline|ghost|teal|danger}
+BUTTONS:   .rs-btn .rs-btn--{primary|gold|secondary|outline|outline-gold|ghost|teal|danger}
            tamaños: .rs-btn--{xs|sm|lg|xl|block}
            → primary = azul real sólido · gold = CTA Crown Gold (texto navy)
+           → outline = contorno azul · outline-gold = contorno Crown Gold con
+             texto navy, para la acción secundaria que aun así lleva la línea
+             gráfica (el "Ingresar" de la barra). El dorado NO vale como color
+             de texto sobre fondo claro: se queda en ~2:1 de contraste.
 FORMS:     .rs-field > .rs-lbl + .rs-inp (+ .rs-field-err / .rs-field-hint)
            legacy: .rs-form-group .rs-label .rs-input .rs-field-error
            listas → <rs-tags-input> (nunca un .rs-inp de valores con comas)
@@ -111,6 +115,11 @@ FORMS:     .rs-field > .rs-lbl + .rs-inp (+ .rs-field-err / .rs-field-hint)
                               (nunca un .rs-inp de texto libre)
            teléfono → <rs-phone-input> (prefijo europeo + bandera, ES por
                       defecto; emite E.164 como exige el API)
+           <select class="rs-inp"> ya trae su propio ajuste global (sitio para
+                      la flecha + relleno vertical a 0 + min-height 46px). NO le
+                      pongas `height`: le corta las letras. Y ojo con meterlo en
+                      una fila flex: .rs-inp lleva width:100% y se apila; usa
+                      grid o dale flex-basis.
 CARDS:     .rs-card  .rs-hotel-card (card de listado)
 BADGES:    .rs-badge --{accent|success|warning|error|neutral|purple|teal}
 ALERTS:    .rs-alert --{error|success|warning}

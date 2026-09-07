@@ -610,6 +610,24 @@ h1, h2, h3, h4, h5, h6 {
     &:hover:not(:disabled) { background: var(--c-accent-lo); }
   }
 
+  /*
+   * Contorneado en Crown Gold. Para acciones secundarias que aun así tienen que
+   * llevar la línea gráfica de marca —el "Ingresar" de la barra, junto al CTA
+   * azul sólido—: el borde pone el dorado y el texto se queda en navy, que es
+   * el mismo emparejamiento de `--gold` al revés. El dorado como color de texto
+   * sobre fondo claro se queda en ~2:1 de contraste y no es legible.
+   */
+  &--outline-gold {
+    background: transparent;
+    color: var(--dk-blue-deep);
+    border-color: var(--dk-gold);
+
+    &:hover:not(:disabled) {
+      background: rgba(251,174,23,.12);
+      border-color: var(--dk-gold-light);
+    }
+  }
+
   /* Ghost */
   &--ghost {
     background: transparent;
@@ -687,6 +705,29 @@ h1, h2, h3, h4, h5, h6 {
     font-size: var(--f-md);
     border-radius: var(--r-xl);
   }
+}
+
+/*
+ * Un `select` no se comporta como un `input` aunque comparta la clase, y el
+ * design system no lo contemplaba: los ~90 desplegables de la app heredaban un
+ * estilo pensado para campos de texto.
+ *
+ *  - El navegador dibuja la flecha DENTRO de la caja de relleno, así que sin
+ *    reservarle sitio se come la última letra de la opción más larga.
+ *  - El relleno vertical de `.rs-inp` no lo reparte igual: en cuanto un
+ *    componente le impone `height` (el panel de /admin/pagos lo hacía a 40px),
+ *    el texto desborda la caja y se ve cortado por abajo. Con el relleno
+ *    vertical a cero y un alto mínimo, la altura la decide quien lo use y el
+ *    texto queda centrado en cualquier caso.
+ *
+ * `.rs-toolbar__control` ya arreglaba lo mismo, pero sólo dentro de la barra de
+ * filtros; esto lo sube al design system para que valga en toda la app.
+ */
+select.rs-inp {
+  padding-right: var(--sp-8);
+  padding-block: 0;
+  min-height: 46px;
+  cursor: pointer;
 }
 
 .rs-inp-wrap {
