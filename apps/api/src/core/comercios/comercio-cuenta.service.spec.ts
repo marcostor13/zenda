@@ -20,7 +20,9 @@ function coleccionFalsa() {
 describe('ComercioCuentaService', () => {
   const comercioId = new Types.ObjectId();
   let service: ComercioCuentaService;
-  let repo: jest.Mocked<Pick<ComerciosRepository, 'findById' | 'actualizarCampos' | 'eliminar'>>;
+  let repo: jest.Mocked<
+    Pick<ComerciosRepository, 'findById' | 'actualizarCampos' | 'eliminar' | 'findByVatNumber'>
+  >;
   let colecciones: Record<string, ReturnType<typeof coleccionFalsa>>;
 
   const comercioActivo = {
@@ -37,6 +39,7 @@ describe('ComercioCuentaService', () => {
         Promise.resolve({ ...comercioActivo, ...campos }),
       ),
       eliminar: jest.fn().mockResolvedValue(undefined),
+      findByVatNumber: jest.fn().mockResolvedValue(null),
     };
 
     const conexion = {
@@ -268,6 +271,39 @@ describe('ComercioCuentaService', () => {
         expect.objectContaining({ comercioId }),
         { $set: { activo: true } },
       );
+    });
+
+    it('debería recuperar el CIF archivado si sigue libre', async () => {
+      repo.findById.mockResolvedValue({
+        ...comercioActivo,
+        estado: 'eliminado',
+        vatNumberBaja: 'ESB123',
+      } as never);
+
+      await service.restaurar(String(comercioId), 'admin-1');
+
+      expect(repo.actualizarCampos).toHaveBeenCalledWith(String(comercioId), {
+        estado: 'inactivo',
+        eliminadoAt: undefined,
+        vatNumber: 'ESB123',
+        vatNumberBaja: undefined,
+      });
+    });
+
+    it('debería volver sin CIF si otro comercio reclamó el suyo durante la baja', async () => {
+      repo.findById.mockResolvedValue({
+        ...comercioActivo,
+        estado: 'eliminado',
+        vatNumberBaja: 'ESB123',
+      } as never);
+      repo.findByVatNumber.mockResolvedValue({ id: 'otro' } as never);
+
+      await service.restaurar(String(comercioId), 'admin-1');
+
+      expect(repo.actualizarCampos).toHaveBeenCalledWith(String(comercioId), {
+        estado: 'inactivo',
+        eliminadoAt: undefined,
+      });
     });
 
     it('debería rechazar restaurar un comercio que no está dado de baja', async () => {

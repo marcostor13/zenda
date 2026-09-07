@@ -174,6 +174,25 @@ export const EXPLORA_IMAGES: Record<string, readonly number[]> = {
   ruta: [28593498, 9810766, 19880821, 32949053, 36192733],
 };
 
+/**
+ * Fotos de las tarjetas destacadas de "Explora con tu mascota" en la home.
+ *
+ * Van aparte de `EXPLORA_IMAGES` (el pool de respaldo de las fichas de
+ * `/explora`) a propósito: aquí no se ilustra un lugar concreto sino la
+ * categoría entera, y son fotografía de marca del cliente (2026-09-07), no
+ * stock. Servidas a 700px de ancho porque la tarjeta nunca supera los ~330px:
+ * da para pantalla retina sin arrastrar el original de 1024px.
+ *
+ * Todas verticales, que es lo que pide el `aspect-ratio: 3/4` de la tarjeta;
+ * una foto apaisada aquí se recorta hasta perder el sujeto.
+ */
+export const EXPLORA_DESTACADOS_IMAGES = {
+  playa: '/images/explora-playas.jpg',
+  ruta: '/images/explora-rios-rutas.jpg',
+  parque: '/images/explora-parques.jpg',
+  restaurante: '/images/explora-restaurantes.jpg',
+} as const;
+
 /** Pool de respaldo para un tipo que todavía no tenga el suyo. */
 const EXPLORA_GENERICO = EXPLORA_IMAGES['parque'];
 

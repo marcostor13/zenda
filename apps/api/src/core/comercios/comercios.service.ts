@@ -47,11 +47,27 @@ export class ComerciosService {
     private readonly auditoria: AuditoriaService,
   ) {}
 
-  async registrar(dto: RegistrarComercioDto): Promise<ComercioDocument> {
-    const existente = await this.repo.findByVatNumber(dto.vatNumber);
-    if (existente) {
+  /**
+   * Deja el CIF listo para asignárselo a `comercioIdActual` (o a un comercio
+   * nuevo si no se pasa ninguno): falla si lo tiene otro negocio **vivo** y, si
+   * quien lo ocupaba está dado de baja, se lo archiva para que el índice único
+   * de Mongo no rechace el alta.
+   *
+   * Sin esto, borrar un comercio dejaba su CIF secuestrado para siempre: la
+   * baja es lógica —el documento sigue en la colección por trazabilidad
+   * contable— y el mismo negocio no podía volver a registrarse con su propio
+   * identificador fiscal.
+   */
+  private async reservarCif(vatNumber: string, comercioIdActual?: string): Promise<void> {
+    const otro = await this.repo.findByVatNumber(vatNumber);
+    if (otro && otro.id !== comercioIdActual) {
       throw new DomainException('Ya existe un comercio con ese identificador fiscal', 409);
     }
+    await this.repo.liberarVatNumberDeBajas(vatNumber);
+  }
+
+  async registrar(dto: RegistrarComercioDto): Promise<ComercioDocument> {
+    await this.reservarCif(dto.vatNumber);
 
     return this.repo.crear({
       razonSocial: dto.razonSocial,
@@ -72,9 +88,7 @@ export class ComerciosService {
     }
     // El CIF es opcional en el alta (perfilado progresivo): solo se valida su
     // unicidad cuando el comercio lo aporta ya en el registro.
-    if (dto.vatNumber && (await this.repo.findByVatNumber(dto.vatNumber))) {
-      throw new DomainException('Ya existe un comercio con ese identificador fiscal', 409);
-    }
+    if (dto.vatNumber) await this.reservarCif(dto.vatNumber);
 
     // El alta rápida sólo pide los datos de acceso: el negocio se nombra en el
     // alta guiada. `nombreComercial` es obligatorio en el documento, así que
@@ -135,9 +149,7 @@ export class ComerciosService {
     if (usuario.comercioId) {
       throw new DomainException('Tu cuenta ya está vinculada a un comercio', 409);
     }
-    if (await this.repo.findByVatNumber(dto.vatNumber)) {
-      throw new DomainException('Ya existe un comercio con ese identificador fiscal', 409);
-    }
+    await this.reservarCif(dto.vatNumber);
 
     const comercio = await this.repo.crear({
       razonSocial: dto.razonSocial,
@@ -542,12 +554,7 @@ export class ComerciosService {
 
     // Cambiar el CIF exige que siga siendo único: el índice de Mongo lo
     // rechazaría con un E11000 que el panel no sabe traducir.
-    if (dto.vatNumber) {
-      const otro = await this.repo.findByVatNumber(dto.vatNumber);
-      if (otro && otro.id !== comercioId) {
-        throw new DomainException('Ya existe un comercio con ese identificador fiscal', 409);
-      }
-    }
+    if (dto.vatNumber) await this.reservarCif(dto.vatNumber, comercioId);
 
     const actualizado = await this.repo.actualizar(comercioId, datos);
     if (!actualizado) throw new DomainException('Comercio no encontrado', 404);

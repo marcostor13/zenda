@@ -16,7 +16,8 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import {
-  BANDA_POR_QUE, BRAND, CATEGORIA_ICONOS, HOTEL_IMAGES, MOTIVOS_IMAGES, TRUST_ICONOS,
+  BANDA_POR_QUE, BRAND, CATEGORIA_ICONOS, EXPLORA_DESTACADOS_IMAGES, HOTEL_IMAGES, MOTIVOS_IMAGES,
+  TRUST_ICONOS,
 } from '../../shared/media/images';
 import { VERTICALES_PUBLICOS, rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
@@ -995,14 +996,16 @@ type SearchMode = 'filtros' | 'ia';
       /* La banda ocupa el ancho completo (~1.4k), así que el alto es lo único
          que decide cuánto se recorta la foto. A 320px salía una tira de 4,4:1
          donde las personas se quedaban sin cabeza: ese formato sólo aguanta un
-         paisaje. A 440px la proporción baja a ~3:1 y la escena se lee entera.
+         paisaje. En escritorio son 640px (~2:1) para que la escena se vea casi
+         completa; por debajo de 1024px la banda se estrecha y con ese alto
+         pasaría a ser un cuadrado, así que ahí se queda en 340px.
          El 20% está medido sobre el recorte real de la foto actual —la familia
          de porque-familia.jpg— y es lo que hace que entren las cuatro caras y
          la cabeza del perro; cambiar la foto obliga a revisarlo. */
       img {
         display: block;
         width: 100%;
-        height: 440px;
+        height: 640px;
         object-fit: cover;
         object-position: center 20%;
       }
@@ -1788,10 +1791,10 @@ export class HomeComponent implements OnInit {
 
   /** Puertas de entrada a la comunidad; cada una filtra `/explora` por tipo. */
   readonly exploraDestacados = [
-    { tipo: TipoLugar.PLAYA as TipoLugar | null, ruta: '/explora', titulo: 'Playas caninas', detalle: 'Disfrutad juntos del mar durante todo el año', imagen: HOTEL_IMAGES[2] },
-    { tipo: TipoLugar.PARQUE as TipoLugar | null, ruta: '/explora', titulo: 'Parques caninos', detalle: 'Espacios seguros para correr, jugar y socializar', imagen: BRAND.heroHome },
-    { tipo: TipoLugar.RUTA as TipoLugar | null, ruta: '/explora', titulo: 'Rutas y ríos', detalle: 'Naturaleza para descubrir juntos', imagen: HOTEL_IMAGES[4] },
-    { tipo: TipoLugar.RESTAURANTE as TipoLugar | null, ruta: '/explora', titulo: 'Restaurantes', detalle: 'Sitios donde tu mascota también es bienvenida', imagen: HOTEL_IMAGES[1] },
+    { tipo: TipoLugar.PLAYA as TipoLugar | null, ruta: '/explora', titulo: 'Playas caninas', detalle: 'Disfrutad juntos del mar durante todo el año', imagen: EXPLORA_DESTACADOS_IMAGES.playa },
+    { tipo: TipoLugar.PARQUE as TipoLugar | null, ruta: '/explora', titulo: 'Parques caninos', detalle: 'Espacios seguros para correr, jugar y socializar', imagen: EXPLORA_DESTACADOS_IMAGES.parque },
+    { tipo: TipoLugar.RUTA as TipoLugar | null, ruta: '/explora', titulo: 'Rutas y ríos', detalle: 'Naturaleza para descubrir juntos', imagen: EXPLORA_DESTACADOS_IMAGES.ruta },
+    { tipo: TipoLugar.RESTAURANTE as TipoLugar | null, ruta: '/explora', titulo: 'Restaurantes', detalle: 'Sitios donde tu mascota también es bienvenida', imagen: EXPLORA_DESTACADOS_IMAGES.restaurante },
     // No es un TipoLugar de la comunidad (decisión D-5): es el vertical reservable
     // Hoteles, así que enlaza directo a su listado en vez de a /explora.
     { tipo: null as TipoLugar | null, ruta: '/hoteles', titulo: 'Hoteles pet friendly', detalle: 'Descubre alojamientos donde vuestra mascota también es bienvenida', imagen: HOTEL_IMAGES[0] },

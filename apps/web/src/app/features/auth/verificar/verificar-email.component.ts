@@ -24,6 +24,17 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
         @if (estado() === 'verificando') {
           <span class="rs-spin" style="margin:var(--sp-6) auto"></span>
           <p style="color:var(--t-300)">{{ 'Verificando tu correo…' | t }}</p>
+        } @else if (estado() === 'verificado') {
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(21,128,61,.1);color:#15803D;display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)">
+            <rs-icon name="check" [size]="30" [stroke]="2"></rs-icon>
+          </div>
+          <h2 style="font-size:var(--f-lg);font-weight:var(--w-7);color:var(--t-100);margin-bottom:var(--sp-2)">{{ 'Cuenta verificada' | t }}</h2>
+          <p style="color:var(--t-400);font-size:var(--f-sm);line-height:1.6">
+            {{ 'Tu correo ya está confirmado. Doogking todavía no ha abierto al público: te avisaremos en cuanto puedas empezar a reservar.' | t }}
+          </p>
+          <a routerLink="/proximamente" class="rs-btn rs-btn--primary rs-btn--block" style="margin-top:var(--sp-5)">
+            {{ 'Entendido' | t }}
+          </a>
         } @else if (estado() === 'error') {
           <div style="width:64px;height:64px;border-radius:50%;background:rgba(185,28,28,.1);color:#B91C1C;display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)">
             <rs-icon name="x" [size]="30" [stroke]="2"></rs-icon>
@@ -44,7 +55,7 @@ export class VerificarEmailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
 
-  readonly estado = signal<'verificando' | 'error'>('verificando');
+  readonly estado = signal<'verificando' | 'verificado' | 'error'>('verificando');
 
   async ngOnInit(): Promise<void> {
     const token = this.route.snapshot.queryParamMap.get('token');
@@ -53,8 +64,10 @@ export class VerificarEmailComponent implements OnInit {
       return;
     }
     try {
-      // En éxito, verificarEmail guarda la sesión y redirige por rol.
-      await this.authService.verificarEmail(token);
+      // En éxito, verificarEmail guarda la sesión y redirige por rol; el cliente
+      // que verifica con la app aún cerrada no tiene a dónde ir y se queda aquí.
+      const { redirigido } = await this.authService.verificarEmail(token);
+      if (!redirigido) this.estado.set('verificado');
     } catch {
       this.estado.set('error');
     }

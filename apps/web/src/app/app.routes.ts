@@ -47,16 +47,23 @@ export const routes: Routes = [
       import('./features/comercios/para-comercios.component').then((m) => m.ParaComerciosComponent),
   },
   {
+    /*
+     * Autenticación fuera del guard de "muy pronto". Los enlaces de los correos
+     * (verificar cuenta, restablecer contraseña) y los CTA de /para-comercios
+     * apuntan aquí: detrás de la pantalla de "muy pronto" el comercio recibía el
+     * correo pero no podía terminar de verificarse. El alta de cliente sí queda
+     * cerrada: la gatea `underConstructionGuard` dentro de `auth.routes.ts`.
+     */
+    path: 'auth',
+    loadChildren: () => import('./features/auth/auth.routes').then((m) => m.authRoutes),
+  },
+  {
     path: '',
     canActivate: [underConstructionGuard],
     children: [
       {
         path: '',
         loadChildren: () => import('./features/home/home.routes').then(m => m.homeRoutes),
-      },
-      {
-        path: 'auth',
-        loadChildren: () => import('./features/auth/auth.routes').then((m) => m.authRoutes),
       },
       {
         // Ruta heredada: redirige al listado del vertical con sus filtros.

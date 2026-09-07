@@ -1,23 +1,31 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { Rol } from 'shared';
 import { underConstructionGuard } from './under-construction.guard';
 import { environment } from '../../../environments/environment';
+import { AuthService } from '../auth/auth.service';
 
 describe('underConstructionGuard', () => {
   let router: jest.Mocked<Router>;
+  let usuario: ReturnType<typeof signal<{ rol: Rol } | null>>;
 
   const parseUrlDevolviendo = (queryParams: Record<string, string>) =>
     ({ queryParams }) as ReturnType<Router['parseUrl']>;
 
   beforeEach(() => {
     localStorage.clear();
+    usuario = signal<{ rol: Rol } | null>(null);
     router = {
       parseUrl: jest.fn().mockReturnValue(parseUrlDevolviendo({})),
       createUrlTree: jest.fn().mockReturnValue('/proximamente'),
     } as any;
 
     TestBed.configureTestingModule({
-      providers: [{ provide: Router, useValue: router }],
+      providers: [
+        { provide: Router, useValue: router },
+        { provide: AuthService, useValue: { usuario } },
+      ],
     });
   });
 
@@ -65,5 +73,26 @@ describe('underConstructionGuard', () => {
     localStorage.setItem('dk_acceso_anticipado', '1');
 
     expect(ejecutarGuard()).toBe(true);
+  });
+
+  it('debería dejar pasar al comercio autenticado aunque no tenga la clave', () => {
+    environment.underConstruction = true;
+    usuario.set({ rol: Rol.COMERCIO_ADMIN });
+
+    expect(ejecutarGuard('/comercio/alta')).toBe(true);
+  });
+
+  it('debería dejar pasar al administrador autenticado', () => {
+    environment.underConstruction = true;
+    usuario.set({ rol: Rol.ADMIN });
+
+    expect(ejecutarGuard('/admin')).toBe(true);
+  });
+
+  it('debería redirigir a /proximamente al cliente autenticado sin clave', () => {
+    environment.underConstruction = true;
+    usuario.set({ rol: Rol.CLIENTE });
+
+    expect(ejecutarGuard('/reservas')).toBe('/proximamente');
   });
 });

@@ -28,6 +28,7 @@ describe('ComerciosRepository', () => {
       findByIdAndDelete: jest.fn().mockReturnValue(conExec(null)),
       find: jest.fn(),
       countDocuments: jest.fn().mockReturnValue(conExec(0)),
+      updateMany: jest.fn().mockReturnValue(conExec({ modifiedCount: 0 })),
     });
 
     const moduleRef = await Test.createTestingModule({
@@ -63,10 +64,23 @@ describe('ComerciosRepository', () => {
       expect(comercioModel.findById).toHaveBeenCalledWith('c1');
     });
 
-    it('debería buscar por número de IVA', async () => {
+    it('debería buscar por número de IVA dejando fuera a los dados de baja', async () => {
       await repo.findByVatNumber('ESB123');
 
-      expect(comercioModel.findOne).toHaveBeenCalledWith({ vatNumber: 'ESB123' });
+      expect(comercioModel.findOne).toHaveBeenCalledWith({
+        vatNumber: 'ESB123',
+        estado: { $ne: 'eliminado' },
+      });
+    });
+
+    it('debería archivar el CIF de los dados de baja que aún lo ocupan', async () => {
+      comercioModel.updateMany.mockReturnValue(conExec({ modifiedCount: 1 }));
+
+      await expect(repo.liberarVatNumberDeBajas('ESB123')).resolves.toBe(1);
+      expect(comercioModel.updateMany).toHaveBeenCalledWith(
+        { vatNumber: 'ESB123', estado: 'eliminado' },
+        { $set: { vatNumberBaja: 'ESB123' }, $unset: { vatNumber: '' } },
+      );
     });
 
     it('debería crear guardando el documento', async () => {

@@ -135,13 +135,28 @@ describe('ComercioLayoutComponent', () => {
       expect(componente.comercio()).not.toBeNull();
     });
 
-    it('debería avisar si el CIF ya está registrado', async () => {
-      await crear({ onboarding: fallo('409') });
+    it('debería enseñar el motivo que devuelve el API, no una conjetura', async () => {
+      // El texto fijo culpaba siempre al CIF y escondía la razón real.
+      await crear({
+        onboarding: jest.fn(() => {
+          throw { error: { message: 'Tu cuenta ya está vinculada a un comercio' } };
+        }),
+      });
       rellenar();
 
       await componente.crearNegocio();
 
-      expect(componente.onboardingError()).toContain('ya está registrado');
+      expect(componente.onboardingError()).toBe('Tu cuenta ya está vinculada a un comercio');
+      expect(componente.creando()).toBe(false);
+    });
+
+    it('debería caer en un aviso genérico si el error no trae mensaje', async () => {
+      await crear({ onboarding: fallo('500') });
+      rellenar();
+
+      await componente.crearNegocio();
+
+      expect(componente.onboardingError()).toBe('No se pudo crear el negocio. Inténtalo de nuevo.');
       expect(componente.creando()).toBe(false);
     });
   });

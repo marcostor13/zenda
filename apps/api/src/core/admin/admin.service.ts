@@ -649,7 +649,9 @@ export class AdminService {
         _id: String(comercio._id),
         nombreComercial: comercio.nombreComercial,
         razonSocial: comercio.razonSocial,
-        vatNumber: comercio.vatNumber,
+        // El CIF de un comercio dado de baja se archiva cuando otro alta lo
+        // reclama; la ficha sigue enseñándolo, que es para lo que se guarda.
+        vatNumber: comercio.vatNumber ?? comercio.vatNumberBaja,
         estado: comercio.estado,
         plan: comercio.plan,
         verticales: comercio.verticales,

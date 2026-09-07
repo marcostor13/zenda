@@ -54,8 +54,29 @@ export class ComerciosRepository implements OnModuleInit {
     return this.comercioModel.findById(id).exec();
   }
 
+  /**
+   * Busca por CIF **entre los comercios vivos**. Un negocio dado de baja no
+   * ocupa su identificador fiscal: si lo contara, quien se borró no podría
+   * volver a registrarse nunca con su propio CIF.
+   */
   async findByVatNumber(vatNumber: string): Promise<ComercioDocument | null> {
-    return this.comercioModel.findOne({ vatNumber }).exec();
+    return this.comercioModel.findOne({ vatNumber, estado: { $ne: 'eliminado' } }).exec();
+  }
+
+  /**
+   * Archiva el CIF de los comercios dados de baja que aún lo ocupan, para que
+   * un alta nueva pueda reclamarlo. El índice único de Mongo no distingue
+   * estados, así que sin esto la comprobación de arriba daría el CIF por libre
+   * y el `save()` moriría con un E11000 que el panel no sabe traducir.
+   */
+  async liberarVatNumberDeBajas(vatNumber: string): Promise<number> {
+    const resultado = await this.comercioModel
+      .updateMany(
+        { vatNumber, estado: 'eliminado' },
+        { $set: { vatNumberBaja: vatNumber }, $unset: { vatNumber: '' } },
+      )
+      .exec();
+    return resultado.modifiedCount;
   }
 
   async crear(params: CrearComercioParams): Promise<ComercioDocument> {

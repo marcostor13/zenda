@@ -87,6 +87,17 @@ export class Comercio {
   @Prop()
   vatNumber?: string;
 
+  /**
+   * CIF archivado de un comercio dado de baja cuyo identificador ha vuelto a
+   * darse de alta. El índice único no admite dos documentos con el mismo
+   * `vatNumber`, así que al reclamarlo se mueve aquí: el negocio de baja
+   * conserva su dato fiscal para la trazabilidad contable sin bloquear a quien
+   * se registra después con el mismo CIF (por ejemplo, el mismo comercio que
+   * vuelve tras haberse borrado).
+   */
+  @Prop()
+  vatNumberBaja?: string;
+
   @Prop({ required: true })
   nombreComercial!: string;
 

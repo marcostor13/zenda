@@ -19,6 +19,11 @@ export interface UsuarioAutenticado {
   verificado?: boolean;
 }
 
+/** Resultado de confirmar el email: dice si la pantalla ya no tiene nada que mostrar. */
+export interface VerificacionResultado {
+  readonly redirigido: boolean;
+}
+
 const TOKEN_KEY = 'zenda_token';
 
 @Injectable({ providedIn: 'root' })
@@ -72,7 +77,7 @@ export class AuthService {
    * de Booking, donde el enlace del correo lleva directo a dar de alta el
    * alojamiento.
    */
-  async verificarEmail(token: string): Promise<void> {
+  async verificarEmail(token: string): Promise<VerificacionResultado> {
     const respuesta = await firstValueFrom(
       this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/verificar-email`, { token }),
     );
@@ -81,9 +86,17 @@ export class AuthService {
     const rol = respuesta.usuario.rol;
     if (rol === Rol.COMERCIO_ADMIN || rol === Rol.COMERCIO_STAFF) {
       await this.router.navigate(['/comercio/alta']);
-      return;
+      return { redirigido: true };
     }
+
+    // Con la app aún cerrada, al cliente no le sirve rebotar contra "muy pronto":
+    // la cuenta ya quedó verificada y la pantalla se lo confirma ahí mismo.
+    if (environment.underConstruction && rol === Rol.CLIENTE) {
+      return { redirigido: false };
+    }
+
     await this.redirigirPorRol(rol);
+    return { redirigido: true };
   }
 
   async reenviarVerificacion(email: string): Promise<void> {

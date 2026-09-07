@@ -3,6 +3,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { Rol, AuthResponseDto } from 'shared';
+import { environment } from '../../../environments/environment';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -92,6 +93,33 @@ describe('AuthService', () => {
 
       expect(service.estaAutenticado()).toBe(true);
       expect(routerMock.navigate).toHaveBeenCalledWith(['/']);
+    });
+
+    it('debería llevar al comercio al alta guiada', async () => {
+      const promesa = service.verificarEmail('token-123');
+      httpMock
+        .expectOne((r) => r.url.includes('/auth/verificar-email'))
+        .flush({
+          ...authResponseMock,
+          usuario: { ...authResponseMock.usuario, rol: Rol.COMERCIO_ADMIN },
+        });
+
+      await expect(promesa).resolves.toEqual({ redirigido: true });
+      expect(routerMock.navigate).toHaveBeenCalledWith(['/comercio/alta']);
+    });
+
+    it('no debería redirigir al cliente si la app sigue en modo "muy pronto"', async () => {
+      environment.underConstruction = true;
+      try {
+        const promesa = service.verificarEmail('token-123');
+        httpMock.expectOne((r) => r.url.includes('/auth/verificar-email')).flush(authResponseMock);
+
+        await expect(promesa).resolves.toEqual({ redirigido: false });
+        expect(service.estaAutenticado()).toBe(true);
+        expect(routerMock.navigate).not.toHaveBeenCalled();
+      } finally {
+        environment.underConstruction = false;
+      }
     });
   });
 

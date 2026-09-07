@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { underConstructionGuard } from '../../core/guards/under-construction.guard';
 
 export const authRoutes: Routes = [
   {
@@ -6,7 +7,13 @@ export const authRoutes: Routes = [
     loadComponent: () => import('./login/login.component').then((m) => m.LoginComponent),
   },
   {
+    /*
+     * El resto de `auth` queda fuera del modo "muy pronto" para que funcionen los
+     * enlaces de los correos y la captación de comercios; el alta de cliente no,
+     * porque abrir el registro al público es justo lo que la pantalla retiene.
+     */
     path: 'registro',
+    canActivate: [underConstructionGuard],
     loadComponent: () => import('./registro/registro.component').then((m) => m.RegistroComponent),
   },
   {

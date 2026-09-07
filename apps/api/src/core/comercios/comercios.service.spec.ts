@@ -65,6 +65,7 @@ describe('ComerciosService', () => {
           provide: ComerciosRepository,
           useValue: {
             findByVatNumber: jest.fn(),
+            liberarVatNumberDeBajas: jest.fn().mockResolvedValue(0),
             findById: jest.fn(),
             crear: jest.fn(),
             actualizarEstado: jest.fn(),
@@ -121,11 +122,22 @@ describe('ComerciosService', () => {
       expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ vatNumber: 'B-12345678' }));
     });
 
+    it('debería liberar el CIF que aún ocupa un comercio dado de baja', async () => {
+      repo.findByVatNumber.mockResolvedValue(null);
+      repo.crear.mockResolvedValue({ id: 'c1' } as never);
+
+      await service.registrar(dto);
+
+      expect(repo.liberarVatNumberDeBajas).toHaveBeenCalledWith(dto.vatNumber);
+      expect(repo.crear).toHaveBeenCalled();
+    });
+
     it('debería lanzar 409 si ya existe un comercio con ese identificador fiscal', async () => {
       repo.findByVatNumber.mockResolvedValue({ id: 'existente' } as never);
 
       await expect(service.registrar(dto)).rejects.toThrow(DomainException);
       expect(repo.crear).not.toHaveBeenCalled();
+      expect(repo.liberarVatNumberDeBajas).not.toHaveBeenCalled();
     });
   });
 

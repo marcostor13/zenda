@@ -10,6 +10,7 @@ import { ComercioApiService, MiComercio } from './comercio-api.service';
 import { iconoVertical } from './vertical-icon';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { NAV_COMERCIO } from '../../shared/navegacion-paneles';
+import { mensajeDeError } from '../../shared/mensaje-error';
 
 const VERTICALES_OPCIONES = [
   { valor: 'alojamiento', label: 'Alojamiento' },
@@ -309,8 +310,11 @@ export class ComercioLayoutComponent implements OnInit {
       this.authService.aplicarSesion(resp as never);
       this.sinNegocio.set(false);
       this.comercio.set(await firstValueFrom(this.comercioApi.getMiComercio()));
-    } catch {
-      this.onboardingError.set('No se pudo crear el negocio. ¿El CIF/NIF ya está registrado?');
+    } catch (error) {
+      // El texto anterior era una conjetura fija ("¿El CIF/NIF ya está
+      // registrado?") que tapaba la razón real —cuenta ya vinculada, sesión
+      // caducada, red— y mandaba a revisar un CIF que muchas veces estaba bien.
+      this.onboardingError.set(mensajeDeError(error, 'No se pudo crear el negocio. Inténtalo de nuevo.'));
     } finally {
       this.creando.set(false);
     }

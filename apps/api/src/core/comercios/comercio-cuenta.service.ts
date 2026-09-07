@@ -272,6 +272,7 @@ export class ComercioCuentaService {
     const actualizado = await this.repo.actualizarCampos(comercioId, {
       estado: 'inactivo',
       eliminadoAt: undefined,
+      ...(await this.cifRecuperable(comercio)),
     });
     await this.coleccion('usuarios').updateMany(
       { comercioId: comercio._id as Types.ObjectId, rol: { $in: ROLES_DE_COMERCIO } },
@@ -286,6 +287,19 @@ export class ComercioCuentaService {
   }
 
   // -- Interno ----------------------------------------------------------------
+
+  /**
+   * Devuelve el CIF archivado si sigue libre. Mientras el comercio estaba de
+   * baja, un alta nueva pudo reclamar su identificador fiscal (ahí es donde se
+   * archiva); en ese caso la cuenta vuelve sin CIF —el índice único no admite
+   * dos— y queda pendiente de que su dueño ponga uno al completar el perfil.
+   */
+  private async cifRecuperable(comercio: ComercioDocument): Promise<Record<string, unknown>> {
+    const archivado = comercio.vatNumberBaja;
+    if (!archivado || comercio.vatNumber) return {};
+    if (await this.repo.findByVatNumber(archivado)) return {};
+    return { vatNumber: archivado, vatNumberBaja: undefined };
+  }
 
   /**
    * Baja lógica con su cascada. Despublicar los listados **además** de bajar el
