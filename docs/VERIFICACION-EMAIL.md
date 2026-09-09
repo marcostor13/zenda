@@ -28,46 +28,59 @@ recuperación de reservas) — no una variable aparte:
 APP_URL=https://TU-DOMINIO-WEB      # base del enlace de verificación y del resto de correos
 ```
 
-Y una de estas dos opciones de envío:
-
-### Opción A — Gmail (recomendada, la que estás usando)
-
-```
-EMAIL_USER=tu-cuenta@gmail.com
-EMAIL_PASSWORD=xxxxxxxxxxxxxxxx          # CONTRASEÑA DE APLICACIÓN de Google (16 caracteres)
-EMAIL_FROM=Doogking <tu-cuenta@gmail.com>   # opcional; por defecto usa EMAIL_USER
-```
-
-> **Importante:** `EMAIL_PASSWORD` NO es la contraseña normal de tu Gmail. Es
-> una **contraseña de aplicación**:
-> 1. Activa la **verificación en 2 pasos** en tu cuenta de Google
->    (myaccount.google.com → Seguridad).
-> 2. Entra en **Contraseñas de aplicaciones**
->    (myaccount.google.com/apppasswords), crea una nueva (nombre: "Doogking").
-> 3. Copia los 16 caracteres que te da y ponlos en `EMAIL_PASSWORD` (sin
->    espacios).
->
-> Gmail gratuito permite ~500 correos/día, suficiente para empezar. Para más
-> volumen, usa la opción B con un proveedor transaccional (Mailgun, Resend,
-> SendGrid…).
-
-### Opción B — SMTP genérico
+Y la configuración de **Resend**, que es por donde sale todo el correo
+transaccional de la plataforma:
 
 ```
-SMTP_HOST=smtp.tu-proveedor.com
-SMTP_PORT=587
-SMTP_SECURE=false                        # true si usas puerto 465
-SMTP_USER=usuario-smtp
-SMTP_PASS=contraseña-smtp
-SMTP_FROM=Doogking <no-reply@tu-dominio.com>
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx   # resend.com → API Keys
+EMAIL_FROM=hola@doogking.com             # opcional; es el valor por defecto
+EMAIL_FROM_NOMBRE=Doogking               # opcional; nombre que ve el destinatario
 ```
 
-Si están las dos, **Gmail (EMAIL_USER) tiene prioridad**.
+### Verificar el dominio (obligatorio)
 
-> **Sin ninguna configurada** el API no se cae: el registro funciona, pero el
-> correo no se envía. En ese caso el enlace de verificación se escribe en los
-> **logs** del backend (`Verificación (sin email configurado) para …: https://…`)
-> para poder probar el flujo en desarrollo.
+Sin esto Resend **sólo acepta envíos a la dirección de la propia cuenta** y
+responde 403 a cualquier otro destinatario, así que ningún cliente recibiría su
+correo de verificación.
+
+1. En resend.com → **Domains** → *Add Domain* → `doogking.com`.
+2. Publicar en el DNS del dominio los registros que indique: un **TXT de SPF** y
+   los **CNAME de DKIM**. Conviene añadir también el de DMARC que sugiere.
+3. Esperar a que la ficha del dominio quede en **Verified** (suele ser minutos;
+   la propagación de DNS puede tardar más).
+
+El buzón `hola@doogking.com` no necesita existir como cuenta de correo para
+*enviar* — Resend firma con el dominio —, pero conviene que exista y esté
+atendido: es la dirección a la que responderá quien conteste al correo.
+
+> **Sin `RESEND_API_KEY`** el API no se cae: el registro funciona, pero el correo
+> no se envía. El intento queda como `fallido` en la colección `notificaciones`,
+> con el motivo que devolvió Resend, y el enlace de verificación se escribe en
+> los **logs** del backend (`Verificación (sin email configurado) para …:
+> https://…`) para poder probar el flujo en desarrollo.
+
+### Por qué Resend y no SMTP
+
+Antes se enviaba con nodemailer contra Gmail o un SMTP genérico. El problema no
+era el protocolo sino la entregabilidad: un correo de verificación que acaba en
+spam es una cuenta que no se activa, y una cuenta de Gmail con contraseña de
+aplicación no tiene SPF/DKIM del dominio propio, ni reputación, ni forma de
+saber si el mensaje llegó. Resend firma con el dominio verificado y deja
+registro de cada envío.
+
+## Comprobarlo sin adivinar
+
+```bash
+# Sólo lectura: clave, dominios de la cuenta y si el remitente puede enviar
+bun run --cwd apps/api diagnostico:email
+
+# Envío real de prueba, cuando el dominio ya esté verificado
+bun run --cwd apps/api diagnostico:email -- --enviar tu@correo.com
+```
+
+Es lo primero que hay que mirar cuando «no llegan los correos»: el motivo casi
+nunca está en el código, sino en que el dominio del remitente no está verificado
+en la cuenta de Resend que corresponde a la clave configurada.
 
 ## Notas
 

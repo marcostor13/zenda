@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
 
 export interface EnvioEmail {
   to: string;
@@ -10,63 +9,102 @@ export interface EnvioEmail {
   nombreRemitente?: string;
 }
 
+const API_RESEND = 'https://api.resend.com/emails';
+
+/** Buzón desde el que sale todo el correo transaccional de la plataforma. */
+export const REMITENTE_POR_DEFECTO = 'hola@doogking.com';
+const NOMBRE_POR_DEFECTO = 'Doogking';
+
 /**
- * Envío de email. Soporta dos configuraciones (lectura no-eager: si no hay
- * ninguna, el API arranca igual y el envío falla con un mensaje claro):
- *   1. Gmail — `EMAIL_USER` + `EMAIL_PASSWORD` (contraseña de aplicación).
- *   2. SMTP genérico — `SMTP_HOST` (+ SMTP_PORT/SMTP_USER/SMTP_PASS…).
+ * Envío de email transaccional a través de **Resend**.
+ *
+ * Sustituye al envío por SMTP/Gmail con nodemailer. El motivo no es el
+ * protocolo sino la entregabilidad: un correo de verificación que acaba en spam
+ * es una cuenta que no se activa, y una cuenta de Gmail con contraseña de
+ * aplicación no tiene ni SPF/DKIM propios del dominio, ni reputación, ni forma
+ * de saber si el mensaje llegó. Resend firma con el dominio verificado y deja
+ * el registro de cada envío.
+ *
+ * Se llama a la API con `fetch`, sin SDK: es un único POST con cuatro campos, y
+ * es como se integran aquí el resto de servicios externos por HTTP (ver
+ * `core/ai-search` y `core/planificador`).
+ *
+ * **Requisito de despliegue**: el dominio `doogking.com` tiene que estar
+ * verificado en Resend (registros DNS de SPF y DKIM). Sin eso Resend sólo
+ * acepta envíos a la dirección de la cuenta, y el resto responde 403.
+ *
+ * Lectura no-eager de la clave: sin `RESEND_API_KEY` el API arranca igual y el
+ * envío falla con un mensaje claro, que `NotificationsService` registra como
+ * 'fallido' en el outbox en vez de perderlo.
  */
 @Injectable()
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
-  private transporter?: nodemailer.Transporter;
-  private readonly from: string;
-  private readonly fromEmail: string;
+  private readonly apiKey?: string;
+  private readonly emailRemitente: string;
+  private readonly nombreRemitente: string;
 
-  constructor(private readonly config: ConfigService) {
-    const emailUser = config.get<string>('EMAIL_USER');
-    const emailPassword = config.get<string>('EMAIL_PASSWORD');
-    const smtpHost = config.get<string>('SMTP_HOST');
+  constructor(config: ConfigService) {
+    this.apiKey = config.get<string>('RESEND_API_KEY');
+    this.emailRemitente = config.get<string>('EMAIL_FROM') ?? REMITENTE_POR_DEFECTO;
+    this.nombreRemitente = config.get<string>('EMAIL_FROM_NOMBRE') ?? NOMBRE_POR_DEFECTO;
 
-    if (emailUser && emailPassword) {
-      // Gmail con contraseña de aplicación (requiere verificación en 2 pasos activa).
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: emailUser, pass: emailPassword },
-      });
-      this.fromEmail = emailUser;
-      this.from = config.get<string>('EMAIL_FROM') ?? `Doogking <${emailUser}>`;
-      return;
+    if (!this.apiKey) {
+      this.logger.warn(
+        'Resend sin configurar (falta RESEND_API_KEY): no saldrá ningún correo. '
+        + 'Los intentos quedan registrados como fallidos en la colección de notificaciones.',
+      );
     }
+  }
 
-    if (smtpHost) {
-      this.transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: config.get<number>('SMTP_PORT') ?? 587,
-        secure: config.get<string>('SMTP_SECURE') === 'true',
-        auth: {
-          user: config.get<string>('SMTP_USER'),
-          pass: config.get<string>('SMTP_PASS'),
-        },
-      });
-      this.fromEmail = config.get<string>('SMTP_USER') ?? 'no-reply@doogking.eu';
-      this.from = config.get<string>('SMTP_FROM') ?? 'Doogking <no-reply@doogking.eu>';
-      return;
-    }
-
-    this.fromEmail = 'no-reply@doogking.eu';
-    this.from = 'Doogking <no-reply@doogking.eu>';
+  get estaConfigurado(): boolean {
+    return Boolean(this.apiKey);
   }
 
   async enviar(email: EnvioEmail): Promise<void> {
-    if (!this.transporter) {
-      throw new Error('Email no configurado (falta EMAIL_USER/EMAIL_PASSWORD o SMTP_HOST): no se envió.');
+    if (!this.apiKey) {
+      throw new Error('Email no configurado (falta RESEND_API_KEY): no se envió.');
     }
-    await this.transporter.sendMail({
-      from: email.nombreRemitente ? `${email.nombreRemitente} <${this.fromEmail}>` : this.from,
-      to: email.to,
-      subject: email.subject,
-      html: email.html,
+
+    const respuesta = await fetch(API_RESEND, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        from: this.remitente(email.nombreRemitente),
+        to: [email.to],
+        subject: email.subject,
+        html: email.html,
+      }),
     });
+
+    if (!respuesta.ok) {
+      throw new Error(`Resend rechazó el envío (${respuesta.status}): ${await this.motivo(respuesta)}`);
+    }
+  }
+
+  /**
+   * `Nombre <correo>`. El nombre se puede cambiar por envío —«Doogking | Equipo
+   * de verificación»— pero la dirección no: es la del dominio verificado, y
+   * mandar desde otra haría que Resend rechazara el correo.
+   */
+  private remitente(nombre?: string): string {
+    return `${nombre ?? this.nombreRemitente} <${this.emailRemitente}>`;
+  }
+
+  /**
+   * Resend explica el rechazo en el cuerpo, y ahí está lo único accionable: si
+   * el dominio no está verificado, si la clave no vale o si se ha superado la
+   * cuota. Sin esto, en el outbox sólo quedaba un número de estado.
+   */
+  private async motivo(respuesta: Response): Promise<string> {
+    try {
+      const cuerpo = await respuesta.json() as { message?: string; name?: string };
+      return cuerpo.message ?? cuerpo.name ?? respuesta.statusText;
+    } catch {
+      return respuesta.statusText;
+    }
   }
 }

@@ -237,8 +237,13 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  /**
+   * Mira la misma clave que `MailerService`. Si se comprueba otra cosa, el log
+   * de respaldo miente: diría que hay correo configurado cuando el envío está
+   * fallando, y el enlace de verificación no quedaría en ninguna parte.
+   */
   private hayEmailConfigurado(): boolean {
-    return Boolean(this.config.get<string>('EMAIL_USER') || this.config.get<string>('SMTP_HOST'));
+    return Boolean(this.config.get<string>('RESEND_API_KEY'));
   }
 
   /** Emite un token fresco para un usuario ya existente (p. ej. tras vincularlo a un comercio). */
