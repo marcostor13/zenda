@@ -153,3 +153,45 @@ información interna ni ofrezca hoteles.
 bun run test:api && bun run test:web    # unitarias
 bun run --cwd apps/web e2e              # Playwright (levanta ng serve solo)
 ```
+
+---
+
+## Anexo · Cobertura del alta de comercio
+
+El alta es el recorrido que trae la oferta a la plataforma y de donde salió la
+observación O1, así que se cubrió entera, en las dos capas.
+
+**`apps/api/test/comercio-alta.e2e-spec.ts`** — 38 pruebas contra el API
+ensamblado y una Mongo en memoria:
+
+| Bloque | Qué comprueba |
+|---|---|
+| Alta rápida | Cuenta pendiente sin token; negocio con sus categorías; nace `pendiente` y plan `basico`; rol `comercio_admin` vinculado; contraseña sólo como hash bcrypt; nombre comercial provisional; no se inventa la razón social; alta sin categorías |
+| Validación | **Categoría retirada del catálogo → 400 sin dejar rastro** (la regresión de O1); las ocho vigentes; categorías repetidas; email y contraseña; campos no declarados (`rol: admin`, `estado: activo`) |
+| Colisiones | Email duplicado → 409 sin dejar un negocio huérfano; identificador fiscal repetido → 409; dos negocios distintos conviven |
+| Verificación | Sesión con rol y `comercioId`; login posterior; **no se entra sin confirmar el correo**; token inventado |
+| Primer acceso | Lee su comercio; empieza sin reservas ni servicios; es la única persona del equipo; completa el perfil; **no puede cambiar su estado ni su plan**; no alcanza el panel de plataforma; no vincula un segundo negocio |
+| Onboarding | Crea el negocio y devuelve **token nuevo** (el viejo no lleva `comercioId`); nace pendiente; exige los datos fiscales; sin sesión → 401 |
+| Aprobación | La plataforma lo pasa a activo; aparece en el listado de pendientes |
+
+**`apps/web/e2e/alta-comercio.spec.ts`** — 24 pruebas en navegador: las ocho
+categorías, no se sigue sin marcar ninguna, contador y desmarcado, el borrador
+(recuperado, depurado, vaciado e ilegible), validación de campos sin llamar al
+API, ver la contraseña, enlaces legales, el envío con las categorías correctas,
+**que no se recargue la página**, limpieza del borrador, reenvío del correo,
+y los tres errores del API (409 con enlace a entrar, 400 que devuelve al paso 1,
+500 conservando lo escrito).
+
+### Dos fallos que aparecieron al probarlo
+
+1. **El botón de la búsqueda con IA no buscaba** (O2). Sólo se veía en navegador.
+2. **El aviso de error desaparecía al volver al paso 1.** Lo introdujo el propio
+   arreglo de O1: el alerta vivía dentro del formulario del paso 2, así que al
+   rebotar al paso 1 se iba con él y el comercio se encontraba de vuelta en la
+   primera pantalla sin explicación. El aviso pasa a estar por encima de los dos
+   pasos.
+
+```bash
+bun run --cwd apps/api test:e2e   # incluye comercio-alta.e2e-spec.ts
+bun run --cwd apps/web e2e        # incluye alta-comercio.spec.ts
+```

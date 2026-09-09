@@ -88,6 +88,22 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
               </div>
             </header>
 
+            <!--
+              El aviso vive fuera de los dos pasos a propósito.
+              Estaba dentro del formulario del paso 2, y cuando un error
+              devuelve al paso 1 —el API rechaza una categoría retirada— el
+              mensaje desaparecía con él: el comercio se encontraba de vuelta en
+              la primera pantalla sin saber por qué.
+            -->
+            @if (error()) {
+              <div class="rs-alert rs-alert--error rc__aviso" role="alert">
+                {{ error() }}
+                @if (emailDuplicado()) {
+                  <a routerLink="/auth/login" class="rc-alert__link">{{ 'Iniciar sesión' | t }}</a>
+                }
+              </div>
+            }
+
             <!-- PASO 1 · Servicios -->
             @if (paso() === 1) {
               <section class="rc__panel">
@@ -195,15 +211,6 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
                       }
                     </div>
                   </div>
-
-                  @if (error()) {
-                    <div class="rs-alert rs-alert--error" role="alert">
-                      {{ error() }}
-                      @if (emailDuplicado()) {
-                        <a routerLink="/auth/login" class="rc-alert__link">{{ 'Iniciar sesión' | t }}</a>
-                      }
-                    </div>
-                  }
 
                   <p class="rc-legal">
                     {{ 'Al crear tu negocio aceptas los' | t }} <a routerLink="/terminos">{{ 'Términos' | t }}</a>
@@ -401,6 +408,8 @@ const BORRADOR_KEY = 'dk_registro_comercio_borrador';
     .rc-legal a { color: var(--c-accent); font-weight: var(--w-6); }
 
     /* ── Pie ──────────────────────────────────────────────────────────────── */
+    .rc__aviso { margin-bottom: var(--sp-4); }
+
     .rc__autosave {
       display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
       margin-top: var(--sp-6); font-size: var(--f-xs); color: var(--t-400);

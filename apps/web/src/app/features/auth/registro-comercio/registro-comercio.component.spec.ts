@@ -254,6 +254,25 @@ describe('RegistroComercioComponent (wizard)', () => {
       expect(component.error()).toContain('categorías');
     });
 
+    /**
+     * Regresión: el aviso vivía dentro del formulario del paso 2, así que al
+     * devolver al paso 1 desaparecía con él y el comercio se encontraba de
+     * vuelta en la primera pantalla sin saber por qué.
+     */
+    it('debería seguir viéndose el aviso después de volver al paso 1', async () => {
+      component.toggleVertical(VerticalKey.ALOJAMIENTO);
+      component.siguiente();
+      rellenarCuenta();
+      authService.registrarComercio.mockRejectedValue({ status: 400 });
+
+      await component.onSubmit();
+      fixture.detectChanges();
+
+      const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(component.paso()).toBe(1);
+      expect(texto).toContain('categorías elegidas ya no está disponible');
+    });
+
     it('debería avisar de email duplicado ante un 409', async () => {
       component.toggleVertical(VerticalKey.ALOJAMIENTO);
       component.siguiente();
