@@ -164,7 +164,7 @@ async function seed(): Promise<void> {
   // ── 3. SERVICIOS (discriminator: vertical field) ────────────────────────────
   const baseServicio = (overrides: Record<string, unknown>) => ({
     createdAt: now, updatedAt: now, moneda: 'EUR',
-    destacado: false, prioridadRanking: 0, estado: 'publicado',
+    destacado: false, prioridadRanking: 0, estado: 'publicado', comercioActivo: true,
     ratingPromedio: 0, totalReseñas: 0, imagenes: [],
     ...overrides,
   });

@@ -7,6 +7,7 @@ import { AlphaRepository } from '../alpha/alpha.repository';
 import { datosDeNivel } from '../alpha/alpha.service';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ComerciosRepository } from '../comercios/comercios.repository';
+import { ComerciosService } from '../comercios/comercios.service';
 import { UsersRepository } from '../users/users.repository';
 import { Pago, PagoDocument } from '../payments/pago.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
@@ -97,6 +98,7 @@ export class AdminService {
     private readonly alphaRepo: AlphaRepository,
     private readonly auditoria: AuditoriaService,
     private readonly comerciosRepo: ComerciosRepository,
+    private readonly comerciosService: ComerciosService,
     private readonly cuentaComercio: ComercioCuentaService,
     private readonly usersRepo: UsersRepository,
     @InjectModel(Pago.name) private readonly pagoModel: Model<PagoDocument>,
@@ -396,6 +398,19 @@ export class AdminService {
     return this.comerciosRepo.crear({ ...datos, estado: datos.estado ?? 'activo' });
   }
 
+  /**
+   * Edición de la ficha desde el panel de plataforma.
+   *
+   * El estado **no se escribe aquí**, aunque el formulario lo mande: se delega
+   * en `ComerciosService.cambiarEstado`. Escribirlo con el resto de los campos
+   * era un `$set` a secas sobre `comercios`, y el buscador no mira ese estado
+   * sino la copia denormalizada `comercioActivo` que cada listado lleva encima
+   * (ver `Servicio.comercioActivo`). El resultado era el que reportó el cliente
+   * el 10-09-2026: **negocios aprobados desde el editor que no aparecían en la
+   * búsqueda**, porque sus listados seguían marcados como inactivos. Al revés
+   * era peor: suspender desde aquí dejaba los listados visibles y reservables,
+   * y además sin la nota de auditoría ni el motivo que exige TCK-8034.
+   */
   async actualizarComercio(
     id: string,
     datos: {
@@ -405,7 +420,10 @@ export class AdminService {
       plan?: PlanComercio;
       estado?: EstadoComercio;
       comisionPctOverride?: number;
+      /** Obligatorio para suspender, como en la acción dedicada (TCK-8034). */
+      motivo?: string;
     },
+    adminId?: string,
   ): Promise<ComercioDocument> {
     // La baja tiene su propio endpoint porque arrastra una cascada; fijarla a
     // mano desde aquí dejaría los listados y las cuentas del equipo vivos.
@@ -413,8 +431,16 @@ export class AdminService {
       throw new BadRequestException('Para dar de baja un comercio usa DELETE /admin/comercios/:id');
     }
 
-    const actualizado = await this.comerciosRepo.actualizar(id, datos);
+    const { estado, motivo, ...campos } = datos;
+
+    const actualizado = await this.comerciosRepo.actualizar(id, campos);
     if (!actualizado) throw new NotFoundException('Comercio no encontrado');
+
+    // Sólo si de verdad cambia: guardar la ficha sin tocar el desplegable no
+    // debe dejar una entrada de auditoría por cada edición.
+    if (estado && estado !== actualizado.estado) {
+      return this.comerciosService.cambiarEstado(id, estado, motivo, adminId);
+    }
     return actualizado;
   }
 

@@ -258,6 +258,48 @@ describe('AdminComerciosComponent', () => {
       expect(componente.guardando()).toBe(false);
     });
 
+    /**
+     * Cambiar el estado desde esta ficha pasa por la misma puerta que el botón
+     * de suspender, y ésa exige el motivo (TCK-8034). Con el mensaje genérico el
+     * administrador leía «verifica los datos» y no tenía forma de saber cuál.
+     */
+    it('debería enseñar el motivo que da el servidor cuando lo hay', async () => {
+      await crear();
+      api['actualizarComercio'].mockReturnValue(throwError(() => ({
+        status: 400,
+        error: { message: 'Para suspender o rechazar un comercio hay que indicar el motivo' },
+      })));
+      componente.abrirEditar(comercio());
+
+      await componente.guardar();
+
+      expect(componente.modalError()).toBe('Para suspender o rechazar un comercio hay que indicar el motivo');
+      expect(componente.modalVisible()).toBe(true);
+    });
+
+    it('debería quedarse con el primer mensaje si el API manda una lista', async () => {
+      await crear();
+      api['actualizarComercio'].mockReturnValue(throwError(() => ({
+        status: 400,
+        error: { message: ['estado must be a valid enum value', 'otro aviso'] },
+      })));
+      componente.abrirEditar(comercio());
+
+      await componente.guardar();
+
+      expect(componente.modalError()).toBe('estado must be a valid enum value');
+    });
+
+    it('debería caer al mensaje genérico si el error no trae ninguno', async () => {
+      await crear();
+      api['actualizarComercio'].mockReturnValue(throwError(() => new Error('Network')));
+      componente.abrirEditar(comercio());
+
+      await componente.guardar();
+
+      expect(componente.modalError()).toContain('Error guardando');
+    });
+
     it('debería cerrar el modal y olvidar la edición en curso', async () => {
       await crear();
       componente.abrirEditar(comercio());

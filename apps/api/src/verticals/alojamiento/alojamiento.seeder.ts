@@ -151,6 +151,11 @@ export class AlojamientoSeeder implements OnModuleInit {
       precioBase: d.precioBase,
       moneda: 'EUR',
       estado: 'publicado',
+      // El buscador no mira el estado del comercio, sino esta copia que cada
+      // listado lleva encima (ver `Servicio.comercioActivo`). Sin ponerla, el
+      // esquema la deja en `false` por defecto y los datos de demostración
+      // existen pero no salen en ninguna búsqueda.
+      comercioActivo: true,
       ratingPromedio: 4.8,
       totalReseñas: 96,
       espacios: d.espacios,

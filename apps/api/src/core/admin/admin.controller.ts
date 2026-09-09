@@ -149,9 +149,15 @@ export class AdminController {
       plan?: string;
       estado?: string;
       comisionPctOverride?: number;
+      motivo?: string;
     },
+    @Req() req: RequestConAdmin,
   ) {
-    return this.adminService.actualizarComercio(id, dto as Parameters<AdminService['actualizarComercio']>[1]);
+    return this.adminService.actualizarComercio(
+      id,
+      dto as Parameters<AdminService['actualizarComercio']>[1],
+      req.user.sub,
+    );
   }
 
   @PermisosAdmin(PermisoAdmin.COMERCIOS)

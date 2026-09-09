@@ -1095,11 +1095,28 @@ export class AdminComerciosComponent implements OnInit {
       }
       this.cerrarModal();
       await this.cargar();
-    } catch {
-      this.modalError.set('Error guardando el comercio. Verifica los datos e inténtalo de nuevo.');
+    } catch (e) {
+      /*
+       * Se enseña el motivo del servidor cuando lo hay. El más frecuente es el
+       * de suspender sin explicar por qué: cambiar el estado desde esta ficha
+       * pasa por la misma puerta que el botón de suspender, que exige el motivo
+       * (TCK-8034). Con el mensaje genérico, el admin veía «verifica los datos»
+       * y no tenía forma de saber qué dato faltaba.
+       */
+      this.modalError.set(
+        this.mensajeDeError(e) ?? 'Error guardando el comercio. Verifica los datos e inténtalo de nuevo.',
+      );
     } finally {
       this.guardando.set(false);
     }
+  }
+
+  /** Mensaje que manda el API, si viene en el formato del filtro de dominio. */
+  private mensajeDeError(error: unknown): string | null {
+    const cuerpo = (error as { error?: { message?: string | string[] } })?.error;
+    const mensaje = cuerpo?.message;
+    if (Array.isArray(mensaje)) return mensaje[0] ?? null;
+    return typeof mensaje === 'string' && mensaje.trim() ? mensaje : null;
   }
 
   async confirmarEliminar(c: ComercioAdmin): Promise<void> {

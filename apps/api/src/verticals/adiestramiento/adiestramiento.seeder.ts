@@ -77,6 +77,11 @@ export class AdiestramientoSeeder implements OnModuleInit {
       precioBase: d.sesion,
       moneda: 'EUR',
       estado: 'publicado',
+      // El buscador no mira el estado del comercio, sino esta copia que cada
+      // listado lleva encima (ver `Servicio.comercioActivo`). Sin ponerla, el
+      // esquema la deja en `false` por defecto y los datos de demostración
+      // existen pero no salen en ninguna búsqueda.
+      comercioActivo: true,
       ratingPromedio: 4.9,
       totalReseñas: 72,
       tiposAdiestramiento: d.tipos,

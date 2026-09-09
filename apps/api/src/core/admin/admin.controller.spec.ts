@@ -161,12 +161,15 @@ describe('AdminController', () => {
 
     it('deberia crear y actualizar el comercio con el cuerpo recibido', async () => {
       await controller.crearComercio({ razonSocial: 'X SL', vatNumber: 'B1', nombreComercial: 'X' });
-      await controller.actualizarComercio('comercio-1', { plan: 'pro' });
+      await controller.actualizarComercio('comercio-1', { plan: 'pro' }, admin);
 
       expect(adminService.crearComercio).toHaveBeenCalledWith(
         expect.objectContaining({ vatNumber: 'B1' }),
       );
-      expect(adminService.actualizarComercio).toHaveBeenCalledWith('comercio-1', { plan: 'pro' });
+      // Quién edita viaja al servicio: un cambio de estado desde esta ficha se
+      // audita igual que el botón de aprobar.
+      expect(adminService.actualizarComercio)
+        .toHaveBeenCalledWith('comercio-1', { plan: 'pro' }, 'admin-1');
     });
 
     it('deberia dar de baja el comercio pasando motivo, comentario y quien lo hace', async () => {

@@ -468,16 +468,23 @@ describe('FunerariosAvailabilityStrategy', () => {
       expect(hold.metadata?.['servicio']).toBe('Cremación individual');
     });
 
+    /**
+     * La caducidad se calcula dentro de `reserveSlot`, en un instante posterior
+     * a `antes`, así que `expiraEn - antes` son siempre 15 minutos **más** lo
+     * que tarde la llamada. Comparado contra un `<= 15` exacto, el test sólo
+     * podía pasar si la operación tardaba 0 ms: fallaba de vez en cuando por
+     * unas micras de milisegundo. Se mide contra la ventana real.
+     */
     it('debería caducar la retención a los 15 minutos', async () => {
       const antes = Date.now();
 
       const hold = await strategy.reserveSlot('f1', {
         usuarioId: 'u1', fechaInicio: new Date('2026-09-01'), cantidad: 1,
       });
+      const despues = Date.now();
 
-      const minutos = (hold.expiraEn.getTime() - antes) / 60_000;
-      expect(minutos).toBeGreaterThan(14.9);
-      expect(minutos).toBeLessThanOrEqual(15);
+      expect(hold.expiraEn.getTime()).toBeGreaterThanOrEqual(antes + 15 * 60_000);
+      expect(hold.expiraEn.getTime()).toBeLessThanOrEqual(despues + 15 * 60_000);
     });
 
     it('debería dar un identificador distinto a cada retención', async () => {

@@ -6,6 +6,7 @@ import { ComisionConfigRepository } from '../comision-configs/comision-config.re
 import { AlphaRepository } from '../alpha/alpha.repository';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ComerciosRepository } from '../comercios/comercios.repository';
+import { ComerciosService } from '../comercios/comercios.service';
 import { ComercioCuentaService } from '../comercios/comercio-cuenta.service';
 import { UsersRepository } from '../users/users.repository';
 import { Pago } from '../payments/pago.schema';
@@ -31,6 +32,7 @@ describe('AdminService', () => {
   let servicioModel: any;
   let auditoria: { registrar: jest.Mock; listar: jest.Mock };
   let comerciosRepo: any;
+  let comerciosService: any;
   let cuentaComercio: any;
   let usersRepo: any;
 
@@ -129,6 +131,12 @@ describe('AdminService', () => {
       eliminar: jest.fn().mockResolvedValue(undefined),
     };
 
+    comerciosService = {
+      cambiarEstado: jest.fn().mockImplementation((id: string, estado: string) =>
+        Promise.resolve({ _id: id, estado }),
+      ),
+    };
+
     cuentaComercio = {
       darDeBaja: jest.fn().mockResolvedValue({ comercioId: 'c1', purgado: false }),
       impacto: jest.fn().mockResolvedValue({ puedeDarseDeBaja: true }),
@@ -175,6 +183,10 @@ describe('AdminService', () => {
         {
           provide: ComerciosRepository,
           useValue: comerciosRepo,
+        },
+        {
+          provide: ComerciosService,
+          useValue: comerciosService,
         },
         {
           provide: ComercioCuentaService,
@@ -624,6 +636,56 @@ describe('AdminService', () => {
         'c1',
         expect.objectContaining({ purgar: true }),
       );
+    });
+
+    /**
+     * Regresión (reporte del cliente del 10-09-2026: «negocios aprobados que no
+     * aparecen en la búsqueda»). El estado se escribía aquí con un `$set` junto
+     * al resto de los campos, y el buscador no mira ese estado sino la copia
+     * `comercioActivo` que cada listado lleva encima. Aprobar desde el editor
+     * dejaba al negocio activo y a sus listados invisibles.
+     */
+    describe('cambio de estado desde la edición', () => {
+      beforeEach(() => {
+        comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1', estado: 'pendiente' });
+      });
+
+      it('debería delegarlo en quien propaga el flag y lo audita', async () => {
+        const res = await service.actualizarComercio('c1', { estado: 'activo' as never }, 'admin1');
+
+        expect(comerciosService.cambiarEstado).toHaveBeenCalledWith('c1', 'activo', undefined, 'admin1');
+        expect(res).toEqual({ _id: 'c1', estado: 'activo' });
+      });
+
+      it('no debería escribir el estado con el resto de los campos', async () => {
+        await service.actualizarComercio('c1', { nombreComercial: 'Nuevo', estado: 'activo' as never });
+
+        expect(comerciosRepo.actualizar).toHaveBeenCalledWith('c1', { nombreComercial: 'Nuevo' });
+      });
+
+      it('debería llevar el motivo cuando se suspende', async () => {
+        await service.actualizarComercio(
+          'c1',
+          { estado: 'suspendido' as never, motivo: 'Documentación caducada' },
+          'admin1',
+        );
+
+        expect(comerciosService.cambiarEstado)
+          .toHaveBeenCalledWith('c1', 'suspendido', 'Documentación caducada', 'admin1');
+      });
+
+      /** Guardar la ficha sin tocar el desplegable no es un cambio de estado. */
+      it('no debería tocar el estado si llega el que ya tenía', async () => {
+        await service.actualizarComercio('c1', { nombreComercial: 'Nuevo', estado: 'pendiente' as never });
+
+        expect(comerciosService.cambiarEstado).not.toHaveBeenCalled();
+      });
+
+      it('no debería tocar el estado si la edición no lo trae', async () => {
+        await service.actualizarComercio('c1', { plan: 'pro' as never });
+
+        expect(comerciosService.cambiarEstado).not.toHaveBeenCalled();
+      });
     });
 
     it('debería impedir fijar el estado eliminado desde la edición del comercio', async () => {

@@ -35,6 +35,21 @@ describe('TransporteSeeder', () => {
     expect(sembrados.every((s) => s.ubicacion?.ciudad === 'Madrid')).toBe(true);
   });
 
+  /**
+   * Regresión (reporte del cliente del 10-09-2026). Ningún seeder fijaba
+   * `comercioActivo` y el esquema lo deja en `false`: los datos de demostración
+   * existían en la base y no salían en ninguna búsqueda, porque el buscador
+   * filtra por esa copia y no por el estado del comercio.
+   */
+  it('debería sembrarlos visibles para el buscador', async () => {
+    setCount(0);
+    await seeder.onModuleInit();
+
+    const sembrados = model.insertMany.mock.calls[0][0] as Partial<Transporte>[];
+    expect(sembrados.every((s) => s.estado === 'publicado')).toBe(true);
+    expect(sembrados.every((s) => s.comercioActivo === true)).toBe(true);
+  });
+
   it('no debería sembrar si ya existen transportes', async () => {
     setCount(3);
     await seeder.onModuleInit();
