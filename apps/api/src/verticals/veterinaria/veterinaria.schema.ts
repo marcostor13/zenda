@@ -58,11 +58,27 @@ export interface ServicioClinico {
 /** Discriminador del vertical Veterinaria: citas clínicas, no solo para perros (docs §5.1). */
 @Schema({ _id: false })
 export class Veterinaria extends Servicio {
+  /**
+   * Especialidades declaradas por la clínica. **No se publican en el listado ni
+   * en la ficha**: dicen a quién ves, no lo que cuesta, y la regla del producto
+   * (`veterinarios.md`) es que sólo se ofrece lo que tiene precio cerrado. Se
+   * conservan porque siguen siendo útiles internamente y para no perder lo que
+   * los comercios ya habían rellenado.
+   */
   @Prop({ type: [String], default: [] })
   especialidades!: string[];
 
   @Prop({ type: [Object], default: [] })
   serviciosClinicos!: ServicioClinico[];
+
+  /**
+   * Tipos del catálogo que cubre `serviciosClinicos`, derivados al guardar.
+   * El buscador filtra por aquí igual que en funerarios: una faceta no puede
+   * mirar dentro de un array de objetos, y sin este campo «vacunación» o
+   * «castración» no serían filtrables.
+   */
+  @Prop({ type: [String], default: [] })
+  tiposServicioClinico!: string[];
 
   /** Especies que atiende la clínica; ['perro'] por defecto. Vacío = cualquier especie. */
   @Prop({ type: [String], default: ['perro'] })

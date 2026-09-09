@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { LoginComponent } from './login.component';
 import { AuthService } from '../../../core/auth/auth.service';
 
@@ -43,9 +44,70 @@ describe('LoginComponent', () => {
     component.formulario.setValue({ email: 'juan@test.com', password: 'password123', recordar: false });
     await component.onSubmit();
 
-    expect(authService.login).toHaveBeenCalledWith({
-      email: 'juan@test.com',
-      password: 'password123',
+    expect(authService.login).toHaveBeenCalledWith(
+      { email: 'juan@test.com', password: 'password123' },
+      // Sin `volverA` en la URL no hay destino que conservar.
+      null,
+    );
+  });
+
+  /**
+   * Llega aquí desde el interceptor de 401: sin este aviso el usuario aparecía
+   * en el acceso sin saber por qué le habían echado (observación 09-09-2026).
+   */
+  describe('vuelta desde una sesión caducada', () => {
+    const crearCon = async (queryParams: Record<string, string>): Promise<LoginComponent> => {
+      TestBed.resetTestingModule();
+      authService = { login: jest.fn() } as any;
+
+      await TestBed.configureTestingModule({
+        imports: [LoginComponent, ReactiveFormsModule, RouterTestingModule],
+        providers: [
+          { provide: AuthService, useValue: authService },
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          {
+            provide: ActivatedRoute,
+            useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } },
+          },
+        ],
+      }).compileComponents();
+
+      const nuevo = TestBed.createComponent(LoginComponent);
+      nuevo.detectChanges();
+      return nuevo.componentInstance;
+    };
+
+    it('debería explicar por qué se ha cerrado la sesión', async () => {
+      const componente = await crearCon({ motivo: 'sesion' });
+
+      expect(componente.sesionCaducada()).toBe(true);
+    });
+
+    it('no debería avisar de nada en un acceso normal', async () => {
+      const componente = await crearCon({});
+
+      expect(componente.sesionCaducada()).toBe(false);
+    });
+
+    it('debería devolver al usuario a donde estaba tras entrar', async () => {
+      const componente = await crearCon({ motivo: 'sesion', volverA: '/reservas/abc' });
+      authService.login.mockResolvedValue(undefined);
+
+      componente.formulario.setValue({ email: 'juan@test.com', password: 'password123', recordar: false });
+      await componente.onSubmit();
+
+      expect(authService.login).toHaveBeenCalledWith(expect.anything(), '/reservas/abc');
+    });
+
+    it('debería retirar el aviso al reintentar', async () => {
+      const componente = await crearCon({ motivo: 'sesion' });
+      authService.login.mockResolvedValue(undefined);
+
+      componente.formulario.setValue({ email: 'juan@test.com', password: 'password123', recordar: false });
+      await componente.onSubmit();
+
+      expect(componente.sesionCaducada()).toBe(false);
     });
   });
 

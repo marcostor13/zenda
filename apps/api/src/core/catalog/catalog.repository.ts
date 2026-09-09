@@ -100,7 +100,12 @@ const FILTROS_VERTICAL: Record<string, Record<string, ComparadorFiltro>> = {
   },
   veterinaria: {
     atiendeUrgencias: 'bool',
-    especialidades: 'todos',
+    /*
+     * Se filtra por servicio contratable, no por especialidad. «Cardiología» no
+     * es filtrable como oferta: describe a quién ves, no un acto con precio, y
+     * la ficha ya no la publica (ver `veterinaria.schema.ts`).
+     */
+    tiposServicioClinico: 'todos',
   },
   peluqueria: {
     aDomicilio: 'bool',

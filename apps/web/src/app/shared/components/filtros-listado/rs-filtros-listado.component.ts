@@ -42,7 +42,12 @@ export interface FiltrosSeleccionados {
 
   @for (g of grupos(); track g.titulo) {
     <div class="rs-filtros__grupo">
-      <h4>{{ g.titulo }}@if (g.unidad) { <span class="rs-filtros__unidad"> ({{ g.unidad }})</span> }</h4>
+      <!--
+        Titulares y etiquetas pasan por el pipe: no son texto del comercio, son
+        el vocabulario del propio buscador (declarado en filtros.config.ts). Sin
+        esto el panel entero seguía en castellano al cambiar de idioma.
+      -->
+      <h4>{{ g.titulo | t }}@if (g.unidad) { <span class="rs-filtros__unidad"> ({{ g.unidad | t }})</span> }</h4>
 
       @switch (g.tipo) {
         @case ('precio') {
@@ -69,7 +74,7 @@ export interface FiltrosSeleccionados {
           <div class="rs-filtros__chips">
             @for (o of g.opciones ?? []; track o.valor) {
               <rs-chip [active]="estaMarcado(g, o.valor)" (chipClick)="alternarOpcion(g, o.valor)">
-                {{ o.etiqueta }}
+                {{ o.etiqueta | t }}
                 @if (conteoOpcion(o.valor); as n) { <span class="rs-filtros__n">{{ n }}</span> }
               </rs-chip>
             }
@@ -80,7 +85,7 @@ export interface FiltrosSeleccionados {
           <div class="rs-filtros__chips">
             @for (o of g.opciones ?? []; track o.valor) {
               <rs-chip [active]="booleanos()[o.valor] === true" (chipClick)="alternarBooleano(o.valor)">
-                {{ o.etiqueta }}
+                {{ o.etiqueta | t }}
               </rs-chip>
             }
           </div>

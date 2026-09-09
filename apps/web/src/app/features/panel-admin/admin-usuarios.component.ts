@@ -296,7 +296,7 @@ function labelRolDe(rol: string): string {
                          (change)="alternarPermiso(p.valor)" />
                   <span>
                     <strong>{{ p.label | t }}</strong>
-                    <em>{{ p.descripcion }}</em>
+                    <em>{{ p.descripcion | t }}</em>
                   </span>
                 </label>
               }

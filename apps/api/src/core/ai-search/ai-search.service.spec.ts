@@ -20,14 +20,27 @@ describe('AiSearchService', () => {
   });
 
   describe('sin clave configurada', () => {
-    it('no debería llamar al proveedor y debería devolver params vacíos', async () => {
+    /**
+     * Antes devolvía todo a `null` y el buscador acababa en alojamiento sin
+     * ciudad. La interpretación local es ahora el suelo del servicio: el modelo
+     * externo afina, pero la frase se entiende con o sin él.
+     */
+    it('no debería llamar al proveedor y debería interpretar la frase por su cuenta', async () => {
       global.fetch = jest.fn() as unknown as typeof fetch;
 
-      const resultado = await conClave(undefined).interpretSearch('hotel para mi perro');
+      const resultado = await conClave(undefined).interpretSearch('Peluquería canina en Valencia');
 
       expect(global.fetch).not.toHaveBeenCalled();
+      expect(resultado.vertical).toBe('peluqueria');
+      expect(resultado.ciudad).toBe('Valencia');
+      expect(resultado.explicacion).toContain('Valencia');
+    });
+
+    it('debería admitir que no ha entendido una frase sin categoría ni ciudad', async () => {
+      const resultado = await conClave(undefined).interpretSearch('algo bonito');
+
       expect(resultado.vertical).toBeNull();
-      expect(resultado.explicacion).toContain('formulario');
+      expect(resultado.explicacion).toContain('filtros');
     });
   });
 
@@ -114,40 +127,64 @@ describe('AiSearchService', () => {
       expect((await conClave('sk-test').interpretSearch('x')).extras).toEqual({});
     });
 
-    it('debería devolver explicación vacía, no undefined, si falta', async () => {
+    it('debería redactar la explicación si el modelo no la manda', async () => {
       respondeCon({ vertical: 'veterinaria' });
 
-      expect((await conClave('sk-test').interpretSearch('x')).explicacion).toBe('');
+      expect((await conClave('sk-test').interpretSearch('x')).explicacion)
+        .toBe('Veterinarios.');
     });
   });
 
   describe('degradación ante fallos', () => {
-    it('debería caer al formulario manual si el proveedor responde con error', async () => {
+    const FRASE = 'Peluquería canina en Valencia';
+
+    it('debería seguir interpretando la frase si el proveedor responde con error', async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 429 }) as unknown as typeof fetch;
 
-      const resultado = await conClave('sk-test').interpretSearch('x');
+      const resultado = await conClave('sk-test').interpretSearch(FRASE);
 
-      expect(resultado.vertical).toBeNull();
-      expect(resultado.explicacion).toContain('formulario');
+      expect(resultado.vertical).toBe('peluqueria');
+      expect(resultado.ciudad).toBe('Valencia');
     });
 
-    it('debería caer al formulario manual si el contenido no es JSON válido', async () => {
+    it('debería seguir interpretando la frase si el contenido no es JSON válido', async () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: jest.fn().mockResolvedValue({ choices: [{ message: { content: 'no soy json' } }] }),
       }) as unknown as typeof fetch;
 
-      const resultado = await conClave('sk-test').interpretSearch('x');
-
-      expect(resultado.explicacion).toContain('formulario');
+      expect((await conClave('sk-test').interpretSearch(FRASE)).vertical).toBe('peluqueria');
     });
 
-    it('debería caer al formulario manual si la red falla', async () => {
+    it('debería seguir interpretando la frase si la red falla', async () => {
       global.fetch = jest.fn().mockRejectedValue(new Error('ECONNRESET')) as unknown as typeof fetch;
 
-      const resultado = await conClave('sk-test').interpretSearch('x');
+      expect((await conClave('sk-test').interpretSearch(FRASE)).ciudad).toBe('Valencia');
+    });
+  });
 
-      expect(resultado.explicacion).toContain('formulario');
+  /**
+   * El modelo manda donde dice algo; lo que se deja en blanco lo rellena la
+   * interpretación local. Nunca al revés: un dato del modelo no se pisa.
+   */
+  describe('combinación de modelo e interpretación local', () => {
+    it('debería conservar la ciudad de la frase si el modelo la deja vacía', async () => {
+      respondeCon({ vertical: 'peluqueria', ciudad: null, explicacion: 'Peluquerías' });
+
+      const resultado = await conClave('sk-test').interpretSearch('Peluquería canina en Valencia');
+
+      expect(resultado.ciudad).toBe('Valencia');
+      expect(resultado.explicacion).toBe('Peluquerías');
+    });
+
+    it('debería respetar lo que sí concreta el modelo', async () => {
+      respondeCon({ vertical: 'veterinaria', ciudad: 'Sevilla', desde: '2027-01-04' });
+
+      const resultado = await conClave('sk-test').interpretSearch('peluquería en Valencia mañana');
+
+      expect(resultado.vertical).toBe('veterinaria');
+      expect(resultado.ciudad).toBe('Sevilla');
+      expect(resultado.desde).toBe('2027-01-04');
     });
   });
 });

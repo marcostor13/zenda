@@ -139,8 +139,14 @@ const PROVINCIAS = [
 
         @if (itinerario(); as it) {
           @if (it.aviso) {
+            <!--
+              Nota informativa, no advertencia. El icono era el de alerta y el
+              texto anunciaba una avería del asistente: el usuario leía que el
+              planificador no funcionaba mientras tenía debajo el itinerario
+              completo. Lo que dice ahora es de dónde salen las paradas.
+            -->
             <p class="pl-aviso">
-              <rs-icon name="alert-circle" [size]="14" [stroke]="2"></rs-icon> {{ it.aviso }}
+              <rs-icon name="badge-check" [size]="14" [stroke]="2"></rs-icon> {{ it.aviso }}
             </p>
           }
 

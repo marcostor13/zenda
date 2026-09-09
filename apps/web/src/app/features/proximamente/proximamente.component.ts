@@ -54,7 +54,7 @@ interface VentajaAnunciada {
           @for (ventaja of ventajas; track ventaja.texto) {
             <li class="pm__ventaja">
               <rs-icon class="pm__ventaja-check" name="check" [size]="16" [stroke]="3" />
-              {{ ventaja.texto }}
+              {{ ventaja.texto | t }}
             </li>
           }
         </ul>

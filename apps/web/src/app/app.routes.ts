@@ -28,6 +28,28 @@ export const routes: Routes = [
       import('./features/legal/eliminar-datos.component').then((m) => m.EliminarDatosComponent),
   },
   {
+    /*
+     * Términos, cookies y contacto: el pie de la portada llevaba a estas tres
+     * rutas desde el primer día, pero no existían y el comodín `**` devolvía a
+     * la portada, así que los enlaces parecían rotos. Van con el resto de
+     * legales —fuera del guard de «muy pronto»— porque se consultan desde
+     * fuera: antes de registrarse, y desde las tiendas de aplicaciones.
+     */
+    path: 'terminos',
+    loadComponent: () =>
+      import('./features/legal/terminos.component').then((m) => m.TerminosComponent),
+  },
+  {
+    path: 'cookies',
+    loadComponent: () =>
+      import('./features/legal/cookies.component').then((m) => m.CookiesComponent),
+  },
+  {
+    path: 'contacto',
+    loadComponent: () =>
+      import('./features/legal/contacto.component').then((m) => m.ContactoComponent),
+  },
+  {
     // Fuera del guard de "muy pronto" como el resto de legales: es el texto que
     // el comercio acepta al darse de alta y tiene que poder leerlo antes.
     path: 'condiciones',

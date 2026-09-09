@@ -489,7 +489,7 @@ function aCsv(v: string): string[] {
                           <select class="rs-inp" formControlName="tamanoMaxPerro">
                             <option value="">{{ 'Sin restricción de tamaño' | t }}</option>
                             @for (tamano of tamanosPerro; track tamano.valor) {
-                              <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
+                              <option [value]="tamano.valor">{{ tamano.etiqueta | t }}</option>
                             }
                           </select>
                         </div>
@@ -844,7 +844,7 @@ function aCsv(v: string): string[] {
                       <span class="serv__ico"><rs-icon [name]="s.icono" [size]="20" [stroke]="1.75" /></span>
                       <span class="serv__cuerpo">
                         <span class="serv__label">{{ s.label | t }}</span>
-                        <span class="serv__base">{{ s.base }}</span>
+                        <span class="serv__base">{{ s.base | t }}</span>
                       </span>
                       <span class="serv__check" aria-hidden="true">
                         @if (tieneServicioClinico(s.tipo)) {
@@ -1045,7 +1045,7 @@ function aCsv(v: string): string[] {
                           <select class="rs-inp" formControlName="tamanoPerro">
                             <option value="">{{ 'Todos' | t }}</option>
                             @for (tamano of tamanosPerro; track tamano.valor) {
-                              <option [value]="tamano.valor">{{ tamano.nombre }}</option>
+                              <option [value]="tamano.valor">{{ tamano.nombre | t }}</option>
                             }
                           </select>
                         </div>
@@ -1073,7 +1073,7 @@ function aCsv(v: string): string[] {
                                   <label class="rs-lbl">{{ 'Tamaño' | t }}</label>
                                   <select class="rs-inp" formControlName="tamano">
                                     @for (tp of tamanosPerro; track tp.valor) {
-                                      <option [value]="tp.valor">{{ tp.etiqueta }}</option>
+                                      <option [value]="tp.valor">{{ tp.etiqueta | t }}</option>
                                     }
                                   </select>
                                 </div>
@@ -1318,7 +1318,7 @@ function aCsv(v: string): string[] {
                           <label class="rs-lbl">{{ 'Tamaño' | t }}</label>
                           <select class="rs-inp" formControlName="tamano">
                             @for (tp of tamanosPerro; track tp.valor) {
-                              <option [value]="tp.valor">{{ tp.etiqueta }}</option>
+                              <option [value]="tp.valor">{{ tp.etiqueta | t }}</option>
                             }
                           </select>
                         </div>
@@ -3783,9 +3783,15 @@ export class ComercioListadoFormComponent implements OnInit {
     }
     if (vertical === VerticalKey.VETERINARIA) {
       const g = this.veterinariaGroup.getRawValue();
+      const servicios = this.serviciosClinicos.controls.map((_, i) => this.servicioClinicoAGuardar(i));
       return {
         ...g,
-        serviciosClinicos: this.serviciosClinicos.controls.map((_, i) => this.servicioClinicoAGuardar(i)),
+        serviciosClinicos: servicios,
+        // El buscador filtra por el tipo de servicio contratable, y ese dato no
+        // se pide aparte: lo declara ya cada línea del catálogo clínico.
+        tiposServicioClinico: [...new Set(
+          servicios.map((sv) => (sv as { tipo?: string }).tipo).filter((t): t is string => Boolean(t)),
+        )],
       };
     }
     if (vertical === VerticalKey.PELUQUERIA) {

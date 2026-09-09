@@ -5,6 +5,7 @@ import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { conexionInterceptor } from './core/interceptors/conexion.interceptor';
 import { idiomaInterceptor } from './core/interceptors/idioma.interceptor';
+import { sesionInterceptor } from './core/interceptors/sesion.interceptor';
 import { I18nService } from './core/i18n/i18n.service';
 import { proveerLocaleAngular } from './core/i18n/locale-angular';
 
@@ -35,6 +36,13 @@ export const appConfig: ApplicationConfig = {
       scrollPositionRestoration: 'enabled',
       anchorScrolling: 'enabled',
     })),
-    provideHttpClient(withInterceptors([authInterceptor, idiomaInterceptor, conexionInterceptor])),
+    /*
+     * `sesionInterceptor` va el último: así ve el error después de que
+     * `conexionInterceptor` haya descartado los fallos de red (status 0), que
+     * no son una sesión caducada.
+     */
+    provideHttpClient(withInterceptors([
+      authInterceptor, idiomaInterceptor, conexionInterceptor, sesionInterceptor,
+    ])),
   ],
 };

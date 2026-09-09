@@ -53,11 +53,22 @@ export class AuthService {
     () => this.esCliente() && this._usuario()?.verificado === true,
   );
 
-  async login(dto: LoginDto): Promise<void> {
+  /**
+   * @param volverA ruta interna a la que regresar tras entrar. La usa el aviso
+   *   de sesión caducada para devolver al usuario a donde estaba; se ignora si
+   *   no es una ruta de la propia aplicación, para que un enlace preparado
+   *   desde fuera no pueda usar el login como redirector a otro dominio.
+   */
+  async login(dto: LoginDto, volverA?: string | null): Promise<void> {
     const respuesta = await firstValueFrom(
       this.http.post<AuthResponseDto>(`${environment.apiUrl}/auth/login`, dto),
     );
     this.guardarSesion(respuesta);
+
+    if (volverA && /^\/(?!\/)/.test(volverA)) {
+      await this.router.navigateByUrl(volverA);
+      return;
+    }
     await this.redirigirPorRol(respuesta.usuario.rol);
   }
 
@@ -153,11 +164,22 @@ export class AuthService {
   }
 
   logout(): void {
+    this.cerrarSesionLocal();
+    void this.router.navigate(['/auth/login']);
+  }
+
+  /**
+   * Borra la sesión del dispositivo sin decidir a dónde va el usuario.
+   *
+   * Lo usa el interceptor de 401: allí el destino depende de dónde estaba el
+   * usuario cuando el token dejó de valer, y esa decisión no le corresponde al
+   * servicio de autenticación.
+   */
+  cerrarSesionLocal(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('zenda_usuario');
     this._usuario.set(null);
     this._token.set(null);
-    void this.router.navigate(['/auth/login']);
   }
 
   /** Aplica una sesión ya emitida por el backend (p. ej. tras vincular un comercio). */

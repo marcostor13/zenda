@@ -45,11 +45,18 @@ import { RESPONSABLE } from '../legal/legal.datos';
         <img [src]="logoD" alt="Doogking" />
         <span>Doogking</span>
       </a>
+      <!--
+        Los saltos de sección van por routerLink + fragment, y no por un href
+        con almohadilla. El index declara una etiqueta base apuntando a la
+        raíz, así que un href relativo se resuelve contra ella y no contra la
+        URL actual: "Planes" llevaba a la portada en vez de bajar a su sección.
+        Es además la forma que entiende anchorScrolling, activado en app.config.
+      -->
       <nav class="pc-bar__nav" [attr.aria-label]="'Secciones de la página' | t">
-        <a href="#ventajas">{{ 'Ventajas' | t }}</a>
-        <a href="#como-empezar">{{ 'Cómo empezar' | t }}</a>
-        <a href="#planes">{{ 'Planes' | t }}</a>
-        <a href="#preguntas">{{ 'Preguntas' | t }}</a>
+        <a routerLink="/para-comercios" fragment="ventajas">{{ 'Ventajas' | t }}</a>
+        <a routerLink="/para-comercios" fragment="como-empezar">{{ 'Cómo empezar' | t }}</a>
+        <a routerLink="/para-comercios" fragment="planes">{{ 'Planes' | t }}</a>
+        <a routerLink="/para-comercios" fragment="preguntas">{{ 'Preguntas' | t }}</a>
       </nav>
       <div class="pc-bar__acciones">
         <a routerLink="/auth/login" class="pc-bar__login">{{ 'Iniciar sesión' | t }}</a>
@@ -87,7 +94,7 @@ import { RESPONSABLE } from '../legal/legal.datos';
             {{ 'Registrar mi negocio gratis' | t }}
             <rs-icon name="arrow-right" [size]="17" [stroke]="2.25" />
           </a>
-          <a href="#planes" class="pc-hero__cta-alt">
+          <a routerLink="/para-comercios" fragment="planes" class="pc-hero__cta-alt">
             {{ 'Ver planes y comisiones' | t }}
             <rs-icon name="chevron-down" [size]="16" [stroke]="2.25" />
           </a>

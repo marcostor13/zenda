@@ -260,7 +260,7 @@ const ALTO_MENU_ACCIONES = 210;
               <span data-col="Estado reserva">
                 <span class="rs-badge {{ meta(r.estado).badge }}">
                   <rs-icon [name]="meta(r.estado).icono" [size]="12" [stroke]="2"></rs-icon>
-                  {{ meta(r.estado).label }}
+                  {{ meta(r.estado).label | t }}
                 </span>
               </span>
               <!-- Estado del pago aparte: cancelada y reembolsada no son lo mismo (TCK-8036) -->
@@ -357,7 +357,7 @@ const ALTO_MENU_ACCIONES = 210;
                         <span class="timeline__dot">
                           <rs-icon [name]="meta(h.estado).icono" [size]="13" [stroke]="2"></rs-icon>
                         </span>
-                        <span class="timeline__estado">{{ meta(h.estado).label }}</span>
+                        <span class="timeline__estado">{{ meta(h.estado).label | t }}</span>
                         <span class="timeline__meta">{{ h.at | date:'d MMM yyyy, HH:mm' }} · {{ h.por }}</span>
                         @if (h.motivo) { <span class="timeline__motivo">"{{ h.motivo }}"</span> }
                       </li>
@@ -396,7 +396,7 @@ const ALTO_MENU_ACCIONES = 210;
         <div class="modal rs-card" (click)="$event.stopPropagation()">
           <h3>
             <rs-icon [name]="meta(modalEstado()).icono" [size]="16" [stroke]="2"></rs-icon>
-            {{ meta(modalEstado()).label }} · {{ modalReserva()!.codigo }}
+            {{ meta(modalEstado()).label | t }} · {{ modalReserva()!.codigo }}
           </h3>
           <p style="color:var(--t-400);font-size:var(--f-sm);margin-bottom:var(--sp-3)">
             {{ 'Indica el motivo (quedará registrado en el timeline de la reserva).' | t }}

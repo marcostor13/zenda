@@ -11,6 +11,17 @@ import { rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { LugarApi, LugarReviewApi, LugaresService } from './lugares.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
+/**
+ * Atributos de uso interno que nunca se pintan.
+ *
+ * El censo de municipios guardaba en `atributos` la hoja de la que salió cada
+ * ficha, y como aquí se enumeran todos, en pantalla se leía «Fuente:
+ * municipios_final.xlsx» junto a las duchas y el aparcamiento. El API ya no los
+ * envía; esta lista es la red por debajo, para las fichas antiguas que siguen
+ * teniéndolos guardados y para cualquier dato de trazabilidad que se añada.
+ */
+const ATRIBUTOS_INTERNOS = new Set(['fuente', 'origen', 'origenDatos', 'importadoDe']);
+
 /** Cómo se lee cada atributo en la ficha; el resto se muestran tal cual. */
 const ATRIBUTO_LABELS: Record<string, string> = {
   vallado: 'Vallado',
@@ -101,7 +112,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
           <dl class="ed-atributos">
             @for (a of atributos(); track a.clave) {
               <div>
-                <dt>{{ a.etiqueta }}</dt>
+                <dt>{{ a.etiqueta | t }}</dt>
                 <dd>{{ a.valor }}</dd>
               </div>
             }
@@ -271,6 +282,7 @@ export class ExploraDetalleComponent implements OnInit {
 
   readonly atributos = computed(() =>
     Object.entries(this.lugar()?.atributos ?? {})
+      .filter(([clave]) => !ATRIBUTOS_INTERNOS.has(clave))
       // Un `false` no aporta nada en una ficha de descubrimiento: solo se listan
       // las cosas que el sitio SÍ tiene.
       .filter(([, valor]) => valor !== false && valor !== null && valor !== '')

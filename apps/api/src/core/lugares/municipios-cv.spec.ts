@@ -3,6 +3,7 @@ import {
   detalleEntreParentesis,
   lugaresDeMunicipio,
   normalizarMunicipio,
+  ORIGEN_MUNICIPIOS_CV,
   pareceNombrePropio,
   type FilaMunicipio,
 } from './municipios-cv';
@@ -94,12 +95,24 @@ describe('municipios-cv', () => {
       expect(playa.estado).toBe(EstadoModeracion.PUBLICADO);
     });
 
-    it('debería conservar provincia, comarca y la procedencia del dato', () => {
+    it('debería conservar provincia y comarca', () => {
       const [playa] = lugaresDeMunicipio(fila({ playaCanina: 'Sí' }));
 
       expect(playa.ubicacion.provincia).toBe('Alicante');
       expect(playa.atributos['comarca']).toBe("Alacantí, L'");
-      expect(playa.atributos['fuente']).toBe('municipios_final.xlsx');
+    });
+
+    /**
+     * Regresión: la procedencia vivía en `atributos`, que la ficha de /explora
+     * pinta entera, y el visitante leía «Fuente: municipios_final.xlsx» entre
+     * las duchas y el aparcamiento.
+     */
+    it('debería anotar la procedencia fuera de los atributos públicos', () => {
+      const [playa] = lugaresDeMunicipio(fila({ playaCanina: 'Sí' }));
+
+      expect(playa.origenDatos).toBe(ORIGEN_MUNICIPIOS_CV);
+      expect(playa.atributos['fuente']).toBeUndefined();
+      expect(Object.keys(playa.atributos)).not.toContain('fuente');
     });
 
     describe('playa canina', () => {

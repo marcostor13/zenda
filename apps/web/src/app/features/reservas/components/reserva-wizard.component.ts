@@ -44,6 +44,7 @@ import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 import { EurosFijosPipe, EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { MonedaService } from '../../../core/moneda/moneda.service';
 type Paso = 1 | 2 | 3 | 4;
 
@@ -282,7 +283,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     <label class="rs-lbl">{{ 'Tamaño del perro' | t }}</label>
                     <select formControlName="tamanoPerro" class="rs-inp rs-inp--lg">
                       @for (tamano of tamanosPerro; track tamano.valor) {
-                        <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
+                        <option [value]="tamano.valor">{{ tamano.etiqueta | t }}</option>
                       }
                     </select>
                   </div>
@@ -805,7 +806,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     <label class="rs-lbl">{{ 'Tamaño de tu mascota' | t }}</label>
                     <select formControlName="tamanoPerro" class="rs-inp rs-inp--lg">
                       @for (tamano of tamanosPerro; track tamano.valor) {
-                        <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
+                        <option [value]="tamano.valor">{{ tamano.etiqueta | t }}</option>
                       }
                     </select>
                   </div>
@@ -1890,6 +1891,7 @@ export class ReservaWizardComponent implements OnInit {
    */
   readonly moneda = inject(MonedaService);
 
+  private readonly i18n           = inject(I18nService);
   private readonly route          = inject(ActivatedRoute);
   private readonly router         = inject(Router);
   private readonly fb             = inject(FormBuilder);
@@ -2847,12 +2849,12 @@ export class ReservaWizardComponent implements OnInit {
 
     const numAdultos = Number(adultos ?? 0);
     if (numAdultos > 0) {
-      partes.push({ icono: 'user', texto: `${numAdultos} ${numAdultos === 1 ? 'adulto' : 'adultos'}` });
+      partes.push({ icono: 'user', texto: this.recuento(numAdultos, '{n} adulto', '{n} adultos') });
     }
 
     const numNinos = Number(ninos ?? 0);
     if (numNinos > 0) {
-      partes.push({ icono: 'baby', texto: `${numNinos} ${numNinos === 1 ? 'niño' : 'niños'}` });
+      partes.push({ icono: 'baby', texto: this.recuento(numNinos, '{n} niño', '{n} niños') });
     }
 
     // Si hay una mascota elegida en la Ficha Inteligente mostramos su nombre;
@@ -2862,7 +2864,7 @@ export class ReservaWizardComponent implements OnInit {
     if (numMascotas === 1 && nombrePerro) {
       partes.push({ icono: 'dog', texto: nombrePerro });
     } else if (numMascotas > 0) {
-      partes.push({ icono: 'dog', texto: `${numMascotas} ${numMascotas === 1 ? 'mascota' : 'mascotas'}` });
+      partes.push({ icono: 'dog', texto: this.recuento(numMascotas, '{n} mascota', '{n} mascotas') });
     }
 
     const rango = this.rangoFechasCorto(checkIn, checkOut);
@@ -2870,6 +2872,14 @@ export class ReservaWizardComponent implements OnInit {
 
     return partes;
   });
+
+  /**
+   * Recuento traducido. Se resuelve aquí y no en la plantilla porque el resumen
+   * del viaje es un array de datos que se pasa por binding, no interpolación.
+   */
+  private recuento(n: number, singular: string, plural: string): string {
+    return this.i18n.t(n === 1 ? singular : plural, { n });
+  }
 
   /**
    * "28–30 julio" a partir de dos fechas `YYYY-MM-DD`. Vacío si falta alguna.

@@ -100,8 +100,21 @@ describe('PlanificadorService', () => {
 
       expect(respuesta.esFallback).toBe(true);
       expect(respuesta.opciones).toHaveLength(1);
-      expect(respuesta.aviso).toContain('IA no está disponible');
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Regresión (observación del cliente 09-09-2026): el aviso decía «el
+     * asistente con IA no está disponible ahora mismo» y el cliente lo leía
+     * como que el planificador estaba roto, aunque debajo tuviera el plan
+     * entero. Sin clave configurada esto es el camino normal, no una avería.
+     */
+    it('no debería anunciar el itinerario propio como una avería', async () => {
+      const respuesta = await service.generar({ provincia: 'Cádiz' });
+
+      expect(respuesta.aviso).not.toMatch(/no est[áa] disponible/i);
+      expect(respuesta.aviso).toContain('Cádiz');
+      expect(respuesta.aviso).toMatch(/verificad/i);
     });
 
     it('debería abrir el plan con el alojamiento disponible', async () => {
@@ -110,6 +123,25 @@ describe('PlanificadorService', () => {
       const primera = respuesta.opciones[0].dias[0].paradas[0];
       expect(primera.tipo).toBe('servicio');
       expect(primera.servicioId).toBe(String(SERVICIO_ID));
+    });
+
+    it('debería titular cada día por el tipo de sitio que lo domina', async () => {
+      const respuesta = await service.generar({ provincia: 'Cádiz' });
+
+      // El único lugar del contexto es una playa.
+      expect(respuesta.opciones[0].dias[0].titulo).toBe('Día 1 · Playas y costa');
+    });
+
+    it('debería estimar el presupuesto con el precio del alojamiento', async () => {
+      const respuesta = await service.generar({ provincia: 'Cádiz' });
+
+      expect(respuesta.opciones[0].presupuestoEstimado).toBe(45);
+    });
+
+    it('debería resumir el plan diciendo cuántos días y cuántos sitios trae', async () => {
+      const respuesta = await service.generar({ provincia: 'Cádiz' });
+
+      expect(respuesta.opciones[0].resumen).toContain('1 sitio');
     });
   });
 

@@ -128,7 +128,7 @@ const FASES: ReadonlyArray<{
         <button type="button" class="cfg__abrir" (click)="indiceAbierto.set(!indiceAbierto())"
                 [attr.aria-expanded]="indiceAbierto()">
           <span class="cfg__abrir-txt">
-            <strong>Paso {{ pasoActual() }} de {{ totalPasos }} · {{ faseActual().titulo }}</strong>
+            <strong>Paso {{ pasoActual() }} de {{ totalPasos }} · {{ faseActual().titulo | t }}</strong>
             <span class="cfg__abrir-paso">{{ pasoUi().label | t }}</span>
           </span>
           <rs-icon name="chevron-down" [size]="18" [stroke]="2"
@@ -146,9 +146,9 @@ const FASES: ReadonlyArray<{
                     {{ f.numero }}
                   }
                 </span>
-                {{ f.titulo }}
+                {{ f.titulo | t }}
               </p>
-              <p class="cfg__fase-sub">{{ f.resumen }}</p>
+              <p class="cfg__fase-sub">{{ f.resumen | t }}</p>
 
               @for (p of f.pasos; track p.clave) {
                 <button type="button" class="cfg__paso"
@@ -191,7 +191,7 @@ const FASES: ReadonlyArray<{
       <div class="cfg__panel">
         <!-- Sólo escritorio: en móvil este dato ya está en el botón del índice. -->
         <p class="cfg__situacion">
-          Fase {{ faseActual().numero }} de {{ fases.length }} · {{ faseActual().titulo }}
+          Fase {{ faseActual().numero }} de {{ fases.length }} · {{ faseActual().titulo | t }}
           <span class="cfg__situacion-sep">—</span>
           Paso {{ pasoActual() }} de {{ totalPasos }}
         </p>

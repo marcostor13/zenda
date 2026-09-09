@@ -6,11 +6,13 @@ import reservas from './de/reservas';
 import comercio from './de/comercio';
 import admin from './de/admin';
 import legal from './de/legal';
+import catalogos from './de/catalogos';
+import paginas from './de/paginas';
 
 /**
  * Diccionario de de, repartido por zona de la aplicacion para que cada
  * fichero se pueda revisar entero de una sentada.
  */
-const de: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal };
+const de: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas };
 
 export default de;

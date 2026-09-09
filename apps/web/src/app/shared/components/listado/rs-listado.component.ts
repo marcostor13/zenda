@@ -125,7 +125,7 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
           <select class="ls__orden-sel" [value]="orden()"
                   (change)="alCambiarOrden($event)" [attr.aria-label]="'Ordenar resultados' | t">
             @for (o of ordenes(); track o.valor) {
-              <option [value]="o.valor">{{ o.etiqueta }}</option>
+              <option [value]="o.valor">{{ o.etiqueta | t }}</option>
             }
           </select>
         </label>
@@ -194,7 +194,7 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
             @for (c of chipsActivos(); track c.id) {
               <button type="button" class="ls__activo" (click)="quitarChip(c)"
                       [attr.aria-label]="'Quitar filtro ' + c.etiqueta">
-                {{ c.etiqueta }} <rs-icon name="x" [size]="11" [stroke]="3" />
+                {{ c.etiqueta | t }} <rs-icon name="x" [size]="11" [stroke]="3" />
               </button>
             }
             <button type="button" class="ls__activo ls__activo--limpiar" (click)="limpiarFiltros()">

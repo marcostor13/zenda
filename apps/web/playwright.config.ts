@@ -29,6 +29,17 @@ export default defineConfig({
 
   use: {
     baseURL: 'http://localhost:4200',
+    /*
+     * Idioma fijo en castellano.
+     *
+     * Sin esto el navegador arranca en `en-US`, la aplicación detecta el idioma
+     * y se pinta traducida: las pruebas fallaban buscando «Política de cookies»
+     * contra un «Cookie policy» perfectamente correcto. El castellano es el
+     * idioma fuente —la clave de traducción es el propio texto español—, así que
+     * fijarlo mantiene las aserciones legibles y deterministas. La traducción se
+     * comprueba aparte, en los tests de los diccionarios.
+     */
+    locale: 'es-ES',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

@@ -14,3 +14,7 @@ coverage/
 .cache/
 # Added by code-review-graph
 .code-review-graph/
+
+# Artefactos de las pruebas E2E: capturas, vídeos y trazas de cada ejecución.
+apps/web/test-results/
+apps/web/playwright-report/

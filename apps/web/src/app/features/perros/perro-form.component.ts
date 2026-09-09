@@ -67,7 +67,7 @@ const NIVELES_SOCIABILIDAD = [
             <span class="wizard-progress__paso">
               Paso {{ paso() }} de {{ totalPasos }} ·
               <rs-icon [name]="pasos[paso()].icono" [size]="14" [stroke]="2"></rs-icon>
-              {{ pasos[paso()].texto }}
+              {{ pasos[paso()].texto | t }}
             </span>
             <span>{{ completitud() }}% completada</span>
           </div>
@@ -152,7 +152,7 @@ const NIVELES_SOCIABILIDAD = [
               <select id="tamano" class="rs-inp" formControlName="tamano">
                 <option value="">—</option>
                 @for (tamano of tamanosPerro; track tamano.valor) {
-                  <option [value]="tamano.valor">{{ tamano.etiqueta }}</option>
+                  <option [value]="tamano.valor">{{ tamano.etiqueta | t }}</option>
                 }
               </select>
             </div>

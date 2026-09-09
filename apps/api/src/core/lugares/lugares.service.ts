@@ -20,6 +20,19 @@ export interface BuscarLugaresParams {
   limit?: number;
 }
 
+/**
+ * Atributos que existen para nosotros y no para quien lee la ficha.
+ *
+ * `fuente` guardaba de qué hoja de cálculo salió el municipio, y como la ficha
+ * pinta todos los atributos, en Explora se leía «Fuente: municipios_final.xlsx»
+ * junto a las duchas y el aparcamiento. El dato sigue siendo útil para saber de
+ * dónde vino un registro, así que se conserva en la base y se filtra al salir.
+ */
+export const ATRIBUTOS_INTERNOS: readonly string[] = ['fuente', 'origen', 'importadoDe'];
+
+/** Proyección que deja fuera los atributos internos en las lecturas públicas. */
+const SIN_ATRIBUTOS_INTERNOS = ATRIBUTOS_INTERNOS.map((clave) => `-atributos.${clave}`).join(' ');
+
 const LIMITE_POR_DEFECTO = 24;
 const LIMITE_MAXIMO = 60;
 const RADIO_POR_DEFECTO_KM = 25;
@@ -49,18 +62,22 @@ export class LugaresService {
         },
       };
       // `$nearSphere` ya devuelve ordenado por distancia: añadir `sort` lo rompería.
-      return this.lugarModel.find(filtro).limit(limit).exec();
+      return this.lugarModel.find(filtro).select(SIN_ATRIBUTOS_INTERNOS).limit(limit).exec();
     }
 
     return this.lugarModel
       .find(filtro)
+      .select(SIN_ATRIBUTOS_INTERNOS)
       .sort({ ratingPromedio: -1, totalReviews: -1 })
       .limit(limit)
       .exec();
   }
 
   async obtener(id: string): Promise<LugarDocument> {
-    const lugar = await this.lugarModel.findById(this.aObjectId(id)).exec();
+    const lugar = await this.lugarModel
+      .findById(this.aObjectId(id))
+      .select(SIN_ATRIBUTOS_INTERNOS)
+      .exec();
 
     if (!lugar || lugar.estado !== EstadoModeracion.PUBLICADO) {
       throw new DomainException('Lugar no encontrado', 404);

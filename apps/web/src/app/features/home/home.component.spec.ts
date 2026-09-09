@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { VerticalKey } from 'shared';
 import { HomeComponent } from './home.component';
 import { VERTICALES_PUBLICOS } from '../../shared/verticales/verticales.config';
@@ -41,6 +41,120 @@ describe('HomeComponent', () => {
       VerticalKey.HOTELES,
       VerticalKey.FUNERARIOS,
     ]);
+  });
+
+  /**
+   * Regresión (observación del cliente 09-09-2026): «Peluquería canina en
+   * Valencia» acababa en alojamiento y sin ciudad. La causa era doble: el API
+   * devolvía todo vacío sin asistente configurado, y aquí `rutaDeVertical(null)`
+   * cae en alojamiento, así que una frase no entendida se convertía en un
+   * listado de residencias caninas que parecía una respuesta.
+   */
+  describe('búsqueda con IA', () => {
+    let http: HttpTestingController;
+    let navigate: jest.SpyInstance;
+
+    const responder = (cuerpo: Record<string, unknown>): void => {
+      http.expectOne((r) => r.url.endsWith('/ai-search')).flush({
+        vertical: null, ciudad: null, desde: null, hasta: null, extras: {},
+        explicacion: '', ...cuerpo,
+      });
+    };
+
+    beforeEach(() => {
+      http = TestBed.inject(HttpTestingController);
+      navigate = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    });
+
+    /**
+     * Regresión: el `<form>` escuchaba `(ngSubmit)`, que emite una directiva de
+     * formulario. Aquí no hay ninguna —un `[formControl]` suelto y sólo
+     * `ReactiveFormsModule`—, así que nadie emitía ese evento: el botón hacía un
+     * submit del navegador y la portada se recargaba sin buscar nada.
+     */
+    it('debería buscar al enviar el formulario, sin recargar la página', () => {
+      component.searchMode.set('ia');
+      fixture.detectChanges();
+
+      const buscar = jest.spyOn(component, 'buscarConIA').mockResolvedValue();
+      const formulario = fixture.nativeElement.querySelector('form.ai') as HTMLFormElement;
+      const envio = new Event('submit', { cancelable: true });
+
+      formulario.dispatchEvent(envio);
+
+      expect(buscar).toHaveBeenCalled();
+      // Sin `preventDefault` el navegador recarga la portada y pierde la frase.
+      expect(envio.defaultPrevented).toBe(true);
+    });
+
+    it('debería llevar a la categoría y la ciudad que devuelve el asistente', async () => {
+      component.aiQuery.setValue('Peluquería canina en Valencia');
+      const busqueda = component.buscarConIA();
+      responder({ vertical: 'peluqueria', ciudad: 'Valencia' });
+      await busqueda;
+
+      expect(navigate).toHaveBeenCalledWith(['/peluqueria'], expect.objectContaining({
+        queryParams: expect.objectContaining({ ciudad: 'Valencia' }),
+      }));
+    });
+
+    it('no debería caer en alojamiento cuando el asistente no reconoce la categoría', async () => {
+      component.aiQuery.setValue('algo bonito para mi perro');
+      const busqueda = component.buscarConIA();
+      responder({ vertical: null });
+      await busqueda;
+
+      expect(navigate).not.toHaveBeenCalled();
+      expect(component.aiError()).toContain('categoría');
+    });
+
+    it('debería avisar sin navegar si la petición falla', async () => {
+      component.aiQuery.setValue('peluquería en Valencia');
+      const busqueda = component.buscarConIA();
+      http.expectOne((r) => r.url.endsWith('/ai-search')).error(new ProgressEvent('error'));
+      await busqueda;
+
+      expect(navigate).not.toHaveBeenCalled();
+      expect(component.aiError()).not.toBe('');
+    });
+
+    it('no debería lanzar una búsqueda vacía', async () => {
+      component.aiQuery.setValue('   ');
+      await component.buscarConIA();
+
+      http.expectNone((r) => r.url.endsWith('/ai-search'));
+    });
+  });
+
+  /**
+   * Regresión (observación del cliente 09-09-2026): el bloque tenía una quinta
+   * tarjeta, «Hoteles pet friendly», que salía de Explora hacia `/hoteles`.
+   * Explora es el mapa de sitios de la comunidad —lugares a los que se va,
+   * gratis y sin reservar—; un hotel pet-friendly es un servicio que se
+   * contrata, y mezclarlo hacía creer que la playa canina también se reservaba.
+   */
+  describe('bloque «Explora» de la portada', () => {
+    const tarjetas = (): HTMLAnchorElement[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('.explora-section .explora-card'));
+
+    it('no debería ofrecer un vertical de contratación entre los sitios', () => {
+      const textos = tarjetas().map((a) => a.textContent ?? '').join(' ');
+
+      expect(textos).not.toMatch(/hoteles pet friendly/i);
+      expect(component.exploraDestacados.some((e) => e.ruta !== '/explora')).toBe(false);
+    });
+
+    it('debería llevar cada tarjeta a Explora filtrada por su tipo de sitio', () => {
+      expect(component.exploraDestacados.length).toBe(4);
+      for (const destacado of component.exploraDestacados) {
+        expect(destacado.ruta).toBe('/explora');
+        expect(destacado.tipo).not.toBeNull();
+      }
+    });
+
+    it('debería pintar las cuatro tarjetas que quedan', () => {
+      expect(tarjetas().length).toBe(4);
+    });
   });
 
   describe('tarjeta de Explora', () => {

@@ -6,11 +6,13 @@ import reservas from './nl/reservas';
 import comercio from './nl/comercio';
 import admin from './nl/admin';
 import legal from './nl/legal';
+import catalogos from './nl/catalogos';
+import paginas from './nl/paginas';
 
 /**
  * Diccionario de nl, repartido por zona de la aplicacion para que cada
  * fichero se pueda revisar entero de una sentada.
  */
-const nl: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal };
+const nl: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas };
 
 export default nl;

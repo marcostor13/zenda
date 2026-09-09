@@ -16,8 +16,13 @@ test.describe('Portada', () => {
     await expect(page.locator('.hero__title')).toContainText(/todo para tu mascota/i);
     await expect(page.locator('.hero__title')).toContainText(/en un solo lugar/i);
 
-    // Ocho categorías + el acceso a "más servicios".
-    await expect(page.locator('.sb__cat-icon')).toHaveCount(9);
+    /*
+     * Las ocho categorías viven en la tira del encabezado, no dentro del
+     * buscador: la portada monta `<rs-search-bar [categorias]="false">` desde el
+     * feedback del 2026-08-20 para no repetirlas. Esta prueba seguía contando
+     * los iconos del buscador, que ya no existen.
+     */
+    await expect(page.locator('.rs-navbar__cats .rs-navbar__cat')).toHaveCount(8);
   });
 
   test('debería explicar la propuesta de valor con tres bloques', async ({ page }) => {

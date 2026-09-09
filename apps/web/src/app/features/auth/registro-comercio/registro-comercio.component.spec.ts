@@ -187,6 +187,86 @@ describe('RegistroComercioComponent (wizard)', () => {
     expect(component.error()).toBeNull();
   });
 
+  describe('borrador guardado en el dispositivo', () => {
+    const CLAVE = 'dk_registro_comercio_borrador';
+
+    /** Recrea el componente: el borrador se lee en el constructor. */
+    const recrear = (): RegistroComercioComponent => {
+      const nuevo = TestBed.createComponent(RegistroComercioComponent);
+      nuevo.detectChanges();
+      return nuevo.componentInstance;
+    };
+
+    it('debería recuperar las categorías marcadas la vez anterior', () => {
+      localStorage.setItem(CLAVE, JSON.stringify({ verticales: [VerticalKey.PELUQUERIA] }));
+
+      expect(recrear().verticalesSel()).toEqual([VerticalKey.PELUQUERIA]);
+    });
+
+    /**
+     * Regresión: un borrador de antes del 1-09-2026 guarda «cuidadores», que ya
+     * no existe. Se restauraba tal cual y el alta moría con «each value in
+     * verticales must be one of…», un mensaje sin relación con nada visible.
+     */
+    it('debería descartar las categorías que ya no están en el catálogo', () => {
+      localStorage.setItem(CLAVE, JSON.stringify({
+        verticales: ['cuidadores', VerticalKey.ALOJAMIENTO, 'paseadores'],
+      }));
+
+      const componente = recrear();
+
+      expect(componente.verticalesSel()).toEqual([VerticalKey.ALOJAMIENTO]);
+      expect(JSON.parse(localStorage.getItem(CLAVE)!)).toEqual({
+        verticales: [VerticalKey.ALOJAMIENTO],
+      });
+    });
+
+    it('debería borrar el borrador si ninguna categoría sigue vigente', () => {
+      localStorage.setItem(CLAVE, JSON.stringify({ verticales: ['cuidadores'] }));
+
+      const componente = recrear();
+
+      expect(componente.verticalesSel()).toEqual([]);
+      expect(componente.hayBorrador()).toBe(false);
+      expect(localStorage.getItem(CLAVE)).toBeNull();
+    });
+
+    it('debería sobrevivir a un borrador ilegible', () => {
+      localStorage.setItem(CLAVE, 'no-es-json');
+
+      expect(recrear().verticalesSel()).toEqual([]);
+      expect(localStorage.getItem(CLAVE)).toBeNull();
+    });
+  });
+
+  describe('errores del alta', () => {
+    it('debería devolver al paso 1 y limpiar el borrador si el API rechaza las categorías', async () => {
+      component.toggleVertical(VerticalKey.ALOJAMIENTO);
+      component.siguiente();
+      rellenarCuenta();
+      authService.registrarComercio.mockRejectedValue({ status: 400 });
+
+      await component.onSubmit();
+
+      expect(component.paso()).toBe(1);
+      expect(component.verticalesSel()).toEqual([]);
+      expect(localStorage.getItem('dk_registro_comercio_borrador')).toBeNull();
+      expect(component.error()).toContain('categorías');
+    });
+
+    it('debería avisar de email duplicado ante un 409', async () => {
+      component.toggleVertical(VerticalKey.ALOJAMIENTO);
+      component.siguiente();
+      rellenarCuenta();
+      authService.registrarComercio.mockRejectedValue({ status: 409 });
+
+      await component.onSubmit();
+
+      expect(component.emailDuplicado()).toBe(true);
+      expect(component.paso()).toBe(2);
+    });
+  });
+
   describe('fuerza de la contraseña (HU-6.1.4)', () => {
     it('debería marcar como débil una contraseña corta y simple', () => {
       component.cuentaForm.patchValue({ password: 'abcdefgh' });

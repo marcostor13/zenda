@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import { EstadoModeracion, TipoLugar } from 'shared';
-import { LugaresService } from './lugares.service';
+import { ATRIBUTOS_INTERNOS, LugaresService } from './lugares.service';
 import { Lugar } from './lugar.schema';
 import { LugarReview } from './lugar-review.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
@@ -18,6 +18,12 @@ describe('LugaresService', () => {
   };
   let reviewModel: { find: jest.Mock; findByIdAndUpdate: jest.Mock; create: jest.Mock };
 
+  /** Cadena `findById().select().exec()` con el documento indicado. */
+  const cadenaFicha = (documento: unknown) => ({
+    select: jest.fn().mockReturnThis(),
+    exec: jest.fn().mockResolvedValue(documento),
+  });
+
   /** Cadena `find().sort().limit().exec()` con el resultado indicado. */
   const cadenaBusqueda = (resultado: unknown[]) => ({
     sort: jest.fn().mockReturnThis(),
@@ -30,7 +36,7 @@ describe('LugaresService', () => {
   beforeEach(async () => {
     lugarModel = {
       find: jest.fn().mockReturnValue(cadenaBusqueda([])),
-      findById: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+      findById: jest.fn().mockReturnValue(cadenaFicha(null)),
       findByIdAndUpdate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
       create: jest.fn().mockImplementation((d) => Promise.resolve(d)),
       updateOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) }),
@@ -101,15 +107,51 @@ describe('LugaresService', () => {
     });
 
     it('no debería exponer un lugar pendiente de moderación', async () => {
-      lugarModel.findById.mockReturnValue({
-        exec: jest.fn().mockResolvedValue({ estado: EstadoModeracion.PENDIENTE }),
-      });
+      lugarModel.findById.mockReturnValue(cadenaFicha({ estado: EstadoModeracion.PENDIENTE }));
 
       await expect(service.obtener(LUGAR_ID)).rejects.toThrow(DomainException);
     });
 
     it('debería rechazar un identificador malformado con 400', async () => {
       await expect(service.obtener('no-es-un-id')).rejects.toThrow(DomainException);
+    });
+  });
+
+  /**
+   * Regresión (observación del cliente 09-09-2026): la ficha de Explora
+   * enumera todos los atributos, y el sembrado del censo guardaba ahí la hoja
+   * de origen. En pantalla se leía «Fuente: municipios_final.xlsx» entre las
+   * duchas y el aparcamiento.
+   */
+  describe('atributos internos', () => {
+    it('no debería enviar la procedencia del dato al buscar', async () => {
+      const cadena = cadenaBusqueda([]);
+      lugarModel.find.mockReturnValue(cadena);
+
+      await service.buscar({});
+
+      expect(cadena.select).toHaveBeenCalledWith(expect.stringContaining('-atributos.fuente'));
+    });
+
+    it('no debería enviarla tampoco en la ficha', async () => {
+      const cadena = cadenaFicha({ estado: EstadoModeracion.PUBLICADO });
+      lugarModel.findById.mockReturnValue(cadena);
+
+      await service.obtener(LUGAR_ID);
+
+      expect(cadena.select).toHaveBeenCalledWith(expect.stringContaining('-atributos.fuente'));
+    });
+
+    it('debería excluir todos los atributos de trazabilidad, no solo uno', async () => {
+      const cadena = cadenaBusqueda([]);
+      lugarModel.find.mockReturnValue(cadena);
+
+      await service.buscar({});
+
+      const proyeccion = cadena.select.mock.calls[0][0] as string;
+      for (const clave of ATRIBUTOS_INTERNOS) {
+        expect(proyeccion).toContain(`-atributos.${clave}`);
+      }
     });
   });
 
@@ -175,7 +217,7 @@ describe('LugaresService', () => {
     const lugarPublicado = { estado: EstadoModeracion.PUBLICADO };
 
     beforeEach(() => {
-      lugarModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(lugarPublicado) });
+      lugarModel.findById.mockReturnValue(cadenaFicha(lugarPublicado));
     });
 
     it('debería entrar en moderación, no publicarse sola', async () => {

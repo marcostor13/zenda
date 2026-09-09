@@ -19,8 +19,8 @@ describe('authGuard', () => {
     });
   });
 
-  const ejecutarGuard = (): ReturnType<typeof authGuard> =>
-    TestBed.runInInjectionContext(() => authGuard({} as any, {} as any));
+  const ejecutarGuard = (url = '/reservas'): ReturnType<typeof authGuard> =>
+    TestBed.runInInjectionContext(() => authGuard({} as any, { url } as any));
 
   it('debería permitir acceso si el usuario está autenticado', () => {
     (authService.estaAutenticado as jest.Mock).mockReturnValue(true);
@@ -31,6 +31,16 @@ describe('authGuard', () => {
   it('debería redirigir a /auth/login si el usuario no está autenticado', () => {
     (authService.estaAutenticado as jest.Mock).mockReturnValue(false);
     ejecutarGuard();
-    expect(router.createUrlTree).toHaveBeenCalledWith(['/auth/login']);
+    expect(router.createUrlTree).toHaveBeenCalledWith(['/auth/login'], {
+      queryParams: { volverA: '/reservas' },
+    });
+  });
+
+  it('debería conservar la ruta pedida para volver a ella tras entrar', () => {
+    (authService.estaAutenticado as jest.Mock).mockReturnValue(false);
+    ejecutarGuard('/reservas/abc123');
+    expect(router.createUrlTree).toHaveBeenCalledWith(['/auth/login'], {
+      queryParams: { volverA: '/reservas/abc123' },
+    });
   });
 });

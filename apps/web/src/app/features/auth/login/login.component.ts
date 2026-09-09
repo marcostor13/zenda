@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { SocialButtonsComponent } from '../social-buttons/social-buttons.component';
@@ -27,6 +27,14 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
           </a>
           <p>{{ 'Bienvenido de vuelta' | t }}</p>
         </div>
+
+        @if (sesionCaducada()) {
+          <!-- Llega aquí desde el interceptor de sesión: sin este aviso, el
+               usuario aparece en el login sin saber por qué le han echado. -->
+          <div class="rs-alert rs-alert--warning">
+            {{ 'Tu sesión ha caducado por seguridad. Vuelve a entrar para seguir donde lo dejaste.' | t }}
+          </div>
+        }
 
         <form [formGroup]="formulario" (ngSubmit)="onSubmit()" class="rs-auth__form">
           <div class="rs-field">
@@ -118,6 +126,11 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 export class LoginComponent {
   private readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly ruta = inject(ActivatedRoute);
+
+  /** `?motivo=sesion` lo pone el interceptor al expulsar por token caducado. */
+  readonly sesionCaducada = signal(this.ruta.snapshot.queryParamMap.get('motivo') === 'sesion');
+  private readonly volverA = this.ruta.snapshot.queryParamMap.get('volverA');
 
   private static readonly EMAIL_KEY = 'dk_login_email';
 
@@ -142,12 +155,16 @@ export class LoginComponent {
 
     this.cargando.set(true);
     this.error.set(null);
+    this.sesionCaducada.set(false);
     this.requiereVerificacion.set(false);
     this.reenviado.set(false);
 
     try {
       const email = this.formulario.value.email!;
-      await this.authService.login({ email, password: this.formulario.value.password! });
+      await this.authService.login(
+        { email, password: this.formulario.value.password! },
+        this.volverA,
+      );
       if (this.formulario.value.recordar) {
         localStorage.setItem(LoginComponent.EMAIL_KEY, email);
       } else {

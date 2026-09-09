@@ -598,6 +598,18 @@ export class RegistroComercioComponent {
       if (status === 409) {
         this.emailDuplicado.set(true);
         this.error.set('Ese email ya está registrado.');
+      } else if (status === 400) {
+        /*
+         * Un 400 aquí significa que lo enviado no encaja con lo que el API
+         * admite, y casi siempre es la selección de categorías. Se limpia el
+         * borrador y se devuelve al paso 1: repetir el envío con lo mismo sólo
+         * daría el mismo error.
+         */
+        localStorage.removeItem(BORRADOR_KEY);
+        this.hayBorrador.set(false);
+        this.verticalesSel.set([]);
+        this.paso.set(1);
+        this.error.set('Alguna de las categorías elegidas ya no está disponible. Vuelve a marcarlas y reintenta.');
       } else {
         this.error.set('No pudimos crear tu negocio. Inténtalo de nuevo.');
       }
@@ -635,12 +647,37 @@ export class RegistroComercioComponent {
     this.hayBorrador.set(true);
   }
 
+  /**
+   * El borrador se filtra contra el catálogo vigente antes de aplicarlo.
+   *
+   * El catálogo de categorías cambia —«Paseadores» salió del producto el
+   * 1-09-2026 y entraron «Funerarios»—, y un borrador guardado antes seguía
+   * ofreciendo la categoría retirada. El alta se enviaba con ella y el API la
+   * rechazaba con «each value in verticales must be one of…», un mensaje que
+   * el comercio no podía relacionar con nada de lo que veía en pantalla.
+   */
   private restaurarBorrador(): void {
     const raw = localStorage.getItem(BORRADOR_KEY);
     if (!raw) return;
     try {
-      const b = JSON.parse(raw) as { verticales?: VerticalKey[] };
-      if (Array.isArray(b.verticales)) this.verticalesSel.set(b.verticales);
+      const b = JSON.parse(raw) as { verticales?: unknown };
+      const vigentes = new Set<string>(Object.values(VerticalKey));
+      const guardadas = Array.isArray(b.verticales) ? (b.verticales as unknown[]) : [];
+      const validas = guardadas.filter(
+        (v): v is VerticalKey => typeof v === 'string' && vigentes.has(v),
+      );
+
+      if (validas.length !== guardadas.length) {
+        // Se reescribe ya: si no, el borrador caducado sobrevive a la sesión y
+        // vuelve a colarse en el siguiente intento.
+        localStorage.setItem(BORRADOR_KEY, JSON.stringify({ verticales: validas }));
+      }
+      if (!validas.length) {
+        localStorage.removeItem(BORRADOR_KEY);
+        return;
+      }
+
+      this.verticalesSel.set(validas);
       this.hayBorrador.set(true);
     } catch {
       localStorage.removeItem(BORRADOR_KEY);

@@ -127,7 +127,18 @@ type SearchMode = 'filtros' | 'ia';
                    pantalla: el buscador no las repite (feedback 2026-08-20). -->
               <rs-search-bar [categorias]="false" />
             } @else {
-              <form class="ai" (ngSubmit)="buscarConIA()">
+              <!--
+                Se escucha el submit nativo, no (ngSubmit).
+                (ngSubmit) lo emite una directiva de formulario, y aquí no hay
+                ninguna: el bloque usa un [formControl] suelto y el componente
+                sólo importa ReactiveFormsModule, así que ningún selector casa
+                con este <form>. El binding quedaba a la escucha de un evento
+                que no existe, el botón hacía un submit del navegador y la
+                portada se recargaba con "?" al final: pulsar "buscar" no
+                buscaba nada. Es el mismo fallo que ya se corrigió en el alta de
+                comercio.
+              -->
+              <form class="ai" (submit)="alEnviarIA($event)">
                 <div class="ai__bar" [class.is-loading]="aiLoading()">
                   <rs-icon name="sparkles" [size]="20" [stroke]="1.75" class="ai__spark"></rs-icon>
                   <input class="ai__input" [formControl]="aiQuery"
@@ -1795,9 +1806,14 @@ export class HomeComponent implements OnInit {
     { tipo: TipoLugar.PARQUE as TipoLugar | null, ruta: '/explora', titulo: 'Parques caninos', detalle: 'Espacios seguros para correr, jugar y socializar', imagen: EXPLORA_DESTACADOS_IMAGES.parque },
     { tipo: TipoLugar.RUTA as TipoLugar | null, ruta: '/explora', titulo: 'Rutas y ríos', detalle: 'Naturaleza para descubrir juntos', imagen: EXPLORA_DESTACADOS_IMAGES.ruta },
     { tipo: TipoLugar.RESTAURANTE as TipoLugar | null, ruta: '/explora', titulo: 'Restaurantes', detalle: 'Sitios donde tu mascota también es bienvenida', imagen: EXPLORA_DESTACADOS_IMAGES.restaurante },
-    // No es un TipoLugar de la comunidad (decisión D-5): es el vertical reservable
-    // Hoteles, así que enlaza directo a su listado en vez de a /explora.
-    { tipo: null as TipoLugar | null, ruta: '/hoteles', titulo: 'Hoteles pet friendly', detalle: 'Descubre alojamientos donde vuestra mascota también es bienvenida', imagen: HOTEL_IMAGES[0] },
+    /*
+     * Aquí había una quinta tarjeta, «Hoteles pet friendly», que salía de este
+     * bloque hacia `/hoteles`. Explora es el mapa de sitios de la comunidad: son
+     * lugares a los que se va, gratis y sin reservar. Un hotel pet-friendly es
+     * un servicio que se contrata, con su ficha, su precio y su pago, y
+     * mezclarlo aquí hacía creer que la playa canina también se reservaba. La
+     * categoría sigue estando en la tira de categorías y en su propio listado.
+     */
   ];
 
   readonly pasos = [
@@ -1884,6 +1900,12 @@ export class HomeComponent implements OnInit {
    * vertical y filtros; navegamos directamente a los resultados. Si falla,
    * mostramos un aviso y el usuario puede volver a los filtros.
    */
+  /** Evita la recarga del navegador y lanza la búsqueda. */
+  alEnviarIA(evento: Event): void {
+    evento.preventDefault();
+    void this.buscarConIA();
+  }
+
   async buscarConIA(): Promise<void> {
     const query = this.aiQuery.value.trim();
     if (!query || this.aiLoading()) return;
@@ -1896,7 +1918,17 @@ export class HomeComponent implements OnInit {
         this.http.post<AiSearchResult>(`${environment.apiUrl}/ai-search`, { query }),
       );
 
-      // Si la IA no reconoce el vertical, `rutaDeVertical` cae en alojamiento.
+      /*
+       * Sin categoría no se navega. `rutaDeVertical(null)` cae en alojamiento, y
+       * eso convertía una frase no entendida en un listado de residencias
+       * caninas: el usuario creía que el buscador le había contestado. Es mejor
+       * decir que no se ha entendido y dejarle los filtros.
+       */
+      if (!resultado.vertical) {
+        this.aiError.set(this.i18n.t('No hemos sabido a qué categoría te refieres. Prueba con los filtros o nombra el servicio (peluquería, veterinario, alojamiento…).'));
+        return;
+      }
+
       void this.router.navigate([rutaDeVertical(resultado.vertical)], {
         queryParams: {
           ciudad: resultado.ciudad ?? resultado.extras?.['origen'] ?? null,

@@ -45,8 +45,8 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
               <rs-icon [name]="plan.icono" [size]="26" [stroke]="1.75"></rs-icon>
             </span>
             <div>
-              <h2 class="plan__nombre">{{ plan.nombre }}</h2>
-              <p class="plan__gancho">{{ plan.gancho }}</p>
+              <h2 class="plan__nombre">{{ plan.nombre | t }}</h2>
+              <p class="plan__gancho">{{ plan.gancho | t }}</p>
             </div>
           </header>
 
@@ -63,12 +63,12 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
 
           <ul class="plan__lista">
             @if (plan.incluye) {
-              <li class="plan__hereda">Todo lo incluido en el {{ nombreDe(plan.incluye) }}, más:</li>
+              <li class="plan__hereda">{{ 'Todo lo incluido en el' | t }} {{ nombreDe(plan.incluye) | t }}{{ ', más:' | t }}</li>
             }
             @for (b of beneficiosDe(plan); track b) {
               <li>
                 <rs-icon name="check-circle" [size]="15" [stroke]="2"></rs-icon>
-                <span>{{ b }}</span>
+                <span>{{ b | t }}</span>
               </li>
             }
           </ul>
@@ -84,7 +84,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
 
           @if (!esActual(plan)) {
             <a class="rs-btn rs-btn--primary rs-btn--block plan__cta" [href]="enlaceMejora(plan)">
-              Mejorar a {{ plan.nombre }}
+              {{ 'Mejorar a' | t }} {{ plan.nombre | t }}
             </a>
             <p class="plan__nota">
               <rs-icon name="shield-check" [size]="13" [stroke]="2"></rs-icon>
@@ -119,7 +119,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
               <tr>
                 <th scope="row">
                   <rs-icon [name]="fila.icono" [size]="15" [stroke]="2"></rs-icon>
-                  {{ fila.concepto }}
+                  {{ fila.concepto | t }}
                 </th>
                 <td [attr.data-label]="'Básico' | t">
                   @if (fila.basico === true) {
@@ -127,7 +127,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
                   } @else if (fila.basico === false) {
                     <span class="cmp__no" [attr.aria-label]="'No incluido' | t">—</span>
                   } @else {
-                    {{ fila.basico }}
+                    {{ fila.basico | t }}
                   }
                 </td>
                 <td class="cmp__col--pro" [attr.data-label]="'Pro' | t">
@@ -136,7 +136,7 @@ const CORREO_SUSCRIPCIONES = 'soporte@doogking.com';
                   } @else if (fila.pro === false) {
                     <span class="cmp__no" [attr.aria-label]="'No incluido' | t">—</span>
                   } @else {
-                    {{ fila.pro }}
+                    {{ fila.pro | t }}
                   }
                 </td>
               </tr>

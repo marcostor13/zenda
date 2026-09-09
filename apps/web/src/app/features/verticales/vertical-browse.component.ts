@@ -107,11 +107,22 @@ const CONFIGS: Record<string, VerticalConfig> = {
     vertical: 'veterinaria',
     cta: 'Pedir cita', priceLabel: 'consulta desde',
     confirmMsg: 'Cita solicitada. Continúa al pago para confirmarla.',
-    badge: (c) => `${(c.extra['especialidades'] as string[] | undefined)?.[0] ?? 'Medicina general'}`,
+    /*
+     * La insignia enseña el primer servicio contratable, no una especialidad.
+     *
+     * Regla de `veterinarios.md`: si el cliente no puede saber lo que va a pagar
+     * antes de ir, no se publica. «Medicina general» o «Cirugía» dicen a quién
+     * ves, no lo que cuesta, y como insignia prometían algo que no se podía
+     * reservar. Sin servicios declarados no se inventa ninguno: se dice que se
+     * pide cita.
+     */
+    badge: (c) =>
+      resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).primero
+      ?? 'Cita veterinaria',
     titulo3: (c) => c.nombre,
     loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `${resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).nombres || 'Consulta general'}`,
+      `${resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).nombres || 'Consulta la disponibilidad'}`,
       // El horario dejó de ser un texto libre del vertical y pasó a ser la
       // semana estructurada del servicio, que no cabe en una línea de tarjeta.
       c.extra['atiendeUrgencias'] ? 'Urgencias 24h' : 'Consulta horario',

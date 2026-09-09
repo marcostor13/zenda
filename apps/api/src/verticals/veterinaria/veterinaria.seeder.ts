@@ -108,6 +108,10 @@ export class VeterinariaSeeder implements OnModuleInit {
       totalReseñas: 96,
       especialidades: d.especialidades,
       serviciosClinicos: d.servicios,
+      // El buscador filtra por el tipo de servicio contratable; sin derivarlo
+      // aquí, las clínicas de demostración no aparecerían con ningún filtro
+      // marcado y el panel parecería roto.
+      tiposServicioClinico: [...new Set(d.servicios.map((sv) => sv.tipo as string))],
       duracionCitaMin: 30,
       citasPorDia: d.citasPorDia,
       citasDisponibles: Math.floor(d.citasPorDia * 0.5),

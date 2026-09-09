@@ -46,7 +46,7 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'maxPerrosPorTrayecto', 'antelacionMinimaHoras',
   ],
   veterinaria: [
-    'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia',
+    'especialidades', 'serviciosClinicos', 'tiposServicioClinico', 'duracionCitaMin', 'citasPorDia',
     'citasDisponibles', 'atiendeUrgencias', 'precioConsulta', 'especiesAtendidas',
   ],
   peluqueria: [
@@ -781,7 +781,7 @@ export class CatalogService {
       'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
       'maxPerrosPorTrayecto', 'antelacionMinimaHoras',
       // veterinaria
-      'especialidades', 'serviciosClinicos', 'duracionCitaMin', 'citasPorDia', 'citasDisponibles', 'atiendeUrgencias', 'precioConsulta', 'especiesAtendidas',
+      'especialidades', 'serviciosClinicos', 'tiposServicioClinico', 'duracionCitaMin', 'citasPorDia', 'citasDisponibles', 'atiendeUrgencias', 'precioConsulta', 'especiesAtendidas',
       // peluquería canina
       'serviciosGrooming', 'duracionSlotMin', 'capacidadSimultanea', 'aDomicilio',
       'politicaTemperamentoDificil', 'bozalObligatorioSiAgresivo', 'serviciosAdicionales',

@@ -53,7 +53,13 @@ describe('VerticalBrowseComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('veterinaria: debería leer especialidades[] y serviciosClinicos[] reales (no placeholders)', async () => {
+  /**
+   * Regla de `veterinarios.md` (observación del cliente 09-09-2026): la
+   * insignia enseña el primer servicio contratable, nunca una especialidad.
+   * «Medicina general» o «Cirugía» dicen a quién ves, no lo que cuesta, y como
+   * insignia prometían algo que el cliente no podía reservar.
+   */
+  it('veterinaria: debería anunciar el primer servicio contratable, no la especialidad', async () => {
     await crearComponente('veterinaria');
     const c = tarjeta({
       especialidades: ['Dermatología'],
@@ -62,17 +68,25 @@ describe('VerticalBrowseComponent', () => {
       precioConsulta: 35,
     });
 
-    expect(component.cfg().badge(c)).toBe('Dermatología');
+    expect(component.cfg().badge(c)).toBe('Vacunación');
     expect(component.cfg().meta(c)).toEqual(['Vacunación · Cirugía', 'Urgencias 24h']);
     expect(component.cfg().price(c)).toBe(35);
+  });
+
+  it('veterinaria: no debería usar la especialidad ni aunque no haya servicios', async () => {
+    await crearComponente('veterinaria');
+    const c = tarjeta({ especialidades: ['Cardiología'] });
+
+    expect(component.cfg().badge(c)).toBe('Cita veterinaria');
+    expect(component.cfg().badge(c)).not.toBe('Cardiología');
   });
 
   it('veterinaria: debería usar los valores por defecto cuando no hay datos propios del vertical', async () => {
     await crearComponente('veterinaria');
     const c = tarjeta({});
 
-    expect(component.cfg().badge(c)).toBe('Medicina general');
-    expect(component.cfg().meta(c)).toEqual(['Consulta general', 'Consulta horario']);
+    expect(component.cfg().badge(c)).toBe('Cita veterinaria');
+    expect(component.cfg().meta(c)).toEqual(['Consulta la disponibilidad', 'Consulta horario']);
     expect(component.cfg().price(c)).toBe(20);
   });
 
@@ -259,14 +273,14 @@ describe('VerticalBrowseComponent', () => {
 
   it('HU-3.2: debería calcular badges automáticos reales, no solo la categoría', async () => {
     await crearComponente('veterinaria');
-    const c = tarjeta({ especialidades: ['Dermatología'] });
+    const c = tarjeta({ serviciosClinicos: [{ nombre: 'Vacunación', precio: 20 }] });
     c.score = 4.9;
     c.numResenas = 30;
 
     const badges = component.badgesDe(c);
 
     expect(badges).toEqual([
-      { label: 'Dermatología' },
+      { label: 'Vacunación' },
       { icon: 'trophy', label: 'Mejor valorado', variant: 'warning' },
     ]);
   });

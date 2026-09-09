@@ -232,7 +232,7 @@ interface TarjetaSemana {
                 @for (dia of diasDeLaSemana(); track dia.clave) {
                   <div class="sem-dia">
                     <div class="sem-dia__cab" [class.sem-dia__cab--hoy]="dia.esHoy">
-                      <span class="sem-dia__nombre">{{ dia.nombre }}</span>
+                      <span class="sem-dia__nombre">{{ dia.nombre | t }}</span>
                       <span class="sem-dia__num">{{ dia.numero }}</span>
                     </div>
                     <div class="sem-dia__lienzo">

@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { VERTICAL_LABELS, VerticalKey } from 'shared';
+import { InterpretacionLocal, interpretarLocalmente } from './interpretacion-local';
 
 export interface SearchParams {
-  vertical: 'alojamiento' | 'transporte' | 'veterinaria' | 'peluqueria' | 'adiestramiento' | null;
+  vertical: VerticalKey | null;
   ciudad: string | null;
   desde: string | null;
   hasta: string | null;
@@ -16,15 +18,18 @@ const SYSTEM_PROMPT = `Eres el asistente de búsqueda de Doogking, un marketplac
 Tu tarea es interpretar consultas en lenguaje natural y extraer parámetros de búsqueda estructurados.
 
 Verticales disponibles:
-- alojamiento: alojamiento canino / residencias / hoteles para perros (reserva por noches, ingreso/salida)
+- alojamiento: alojamiento canino / residencias / guarderías / hoteles PARA perros (reserva por noches, ingreso/salida)
 - transporte: transporte de animales / traslados de mascotas de un punto A a un punto B
-- veterinaria: clínicas veterinarias, consultas, vacunas, urgencias (cita con fecha)
-- peluqueria: peluquerías caninas, baño, corte, grooming (cita con fecha)
+- veterinaria: clínicas veterinarias, consultas, vacunas, castración, analíticas, urgencias (cita con fecha)
+- peluqueria: peluquerías caninas, baño, corte, deslanado, grooming (cita con fecha)
 - adiestramiento: adiestramiento y educación canina (sesiones o programas)
+- hoteles: hoteles y apartamentos pet-friendly PARA PERSONAS que viajan con su perro
+- seguros: seguros para mascotas, pólizas, responsabilidad civil
+- funerarios: servicios funerarios, cremación, entierro y despedida
 
 Responde SIEMPRE con un objeto JSON válido con esta estructura exacta (sin markdown, sin explicaciones fuera del JSON):
 {
-  "vertical": "alojamiento" | "transporte" | "veterinaria" | "peluqueria" | "adiestramiento" | null,
+  "vertical": "alojamiento" | "transporte" | "veterinaria" | "peluqueria" | "adiestramiento" | "hoteles" | "seguros" | "funerarios" | null,
   "ciudad": "nombre de ciudad" | null,
   "desde": "YYYY-MM-DD" | null,
   "hasta": "YYYY-MM-DD" | null,
@@ -41,6 +46,7 @@ Reglas:
 - Para adiestramiento, extrae edad del perro si se menciona: { "edadMeses": "..." }.
 - Para alojamiento, extrae tamaño del perro si se menciona: { "tamanoPerro": "pequeno|mediano|grande|gigante" }.
 - Para veterinaria/peluqueria, extrae el servicio pedido si se menciona: { "servicio": "..." }.
+- Distingue "hotel para perros" (alojamiento: el perro se queda) de "hotel pet-friendly" (hoteles: viaja la persona con el perro).
 - Si la ciudad no es clara, pon null.
 - Si el vertical no es claro, pon null.
 - La explicacion debe estar en español.`;
@@ -57,10 +63,21 @@ export class AiSearchService {
     this.apiKey = config.get<string>('DEEPSEEK_API_KEY');
   }
 
+  /**
+   * Interpreta la frase del buscador.
+   *
+   * El intérprete local se ejecuta **siempre** y es el suelo del resultado: el
+   * modelo es un servicio externo y opcional, y cuando no está —o falla— antes
+   * se devolvía todo a `null`. Con eso «Peluquería canina en Valencia» llegaba
+   * al frontend sin categoría ni ciudad, y el buscador acababa enseñando
+   * residencias caninas de cualquier sitio. Ahora el modelo sólo puede afinar
+   * lo que el intérprete no supo deducir, nunca vaciarlo.
+   */
   async interpretSearch(query: string): Promise<SearchParams> {
-    if (!this.apiKey) {
-      return this.busquedaNoInterpretada('DEEPSEEK_API_KEY no configurada; usa el formulario.');
-    }
+    const local = interpretarLocalmente(query);
+
+    if (!this.apiKey) return this.desdeLocal(local);
+
     try {
       const response = await fetch(this.apiUrl, {
         method: 'POST',
@@ -86,13 +103,50 @@ export class AiSearchService {
 
       const data = await response.json() as { choices: Array<{ message: { content: string } }> };
       const content = data.choices[0]?.message?.content ?? '{}';
-      return this.sanear(JSON.parse(content) as Record<string, unknown>);
+      return this.combinar(this.sanear(JSON.parse(content) as Record<string, unknown>), local);
     } catch (error) {
       this.logger.error('Error al interpretar búsqueda con IA', error);
-      return this.busquedaNoInterpretada(
-        'No se pudo interpretar la búsqueda. Usa el formulario manualmente.',
-      );
+      return this.desdeLocal(local);
     }
+  }
+
+  /** Resultado con lo único que hay: lo deducido de la propia frase. */
+  private desdeLocal(local: InterpretacionLocal): SearchParams {
+    return { ...local, explicacion: this.explicar(local) };
+  }
+
+  /**
+   * El modelo manda donde dice algo; el intérprete local rellena sus huecos.
+   *
+   * Nunca al revés: si el modelo acierta una fecha concreta que el intérprete no
+   * sabe leer, esa fecha se conserva. Y si el modelo se deja la ciudad, la
+   * ciudad que estaba escrita en la frase no se pierde.
+   */
+  private combinar(modelo: SearchParams, local: InterpretacionLocal): SearchParams {
+    const combinado: SearchParams = {
+      vertical: modelo.vertical ?? local.vertical,
+      ciudad: modelo.ciudad ?? local.ciudad,
+      desde: modelo.desde ?? local.desde,
+      hasta: modelo.hasta ?? local.hasta,
+      presupuestoMax: modelo.presupuestoMax ?? local.presupuestoMax,
+      pasajeros: modelo.pasajeros ?? local.pasajeros,
+      extras: { ...local.extras, ...modelo.extras },
+      explicacion: modelo.explicacion,
+    };
+    if (!combinado.explicacion) combinado.explicacion = this.explicar(combinado);
+    return combinado;
+  }
+
+  /** Frase corta de confirmación cuando no hay modelo que la redacte. */
+  private explicar(datos: Pick<SearchParams, 'vertical' | 'ciudad' | 'desde'>): string {
+    if (!datos.vertical && !datos.ciudad) {
+      return 'No hemos sabido concretar la búsqueda; ajusta los filtros.';
+    }
+
+    const categoria = datos.vertical ? VERTICAL_LABELS[datos.vertical] : 'Servicios';
+    const donde = datos.ciudad ? ` en ${datos.ciudad}` : '';
+    const cuando = datos.desde ? ` a partir del ${datos.desde}` : '';
+    return `${categoria}${donde}${cuando}.`;
   }
 
   /**
@@ -117,11 +171,9 @@ export class AiSearchService {
     };
   }
 
-  private comoVertical(valor: unknown): SearchParams['vertical'] {
-    const validos = ['alojamiento', 'transporte', 'veterinaria', 'peluqueria', 'adiestramiento'];
-    return typeof valor === 'string' && validos.includes(valor)
-      ? (valor as SearchParams['vertical'])
-      : null;
+  private comoVertical(valor: unknown): VerticalKey | null {
+    const validos = Object.values(VerticalKey) as string[];
+    return typeof valor === 'string' && validos.includes(valor) ? (valor as VerticalKey) : null;
   }
 
   private comoTexto(valor: unknown): string | null {
@@ -149,12 +201,4 @@ export class AiSearchService {
     );
   }
 
-  /** Params vacíos para que el frontend siga mostrando el buscador manual. */
-  private busquedaNoInterpretada(explicacion: string): SearchParams {
-    return {
-      vertical: null, ciudad: null, desde: null, hasta: null,
-      presupuestoMax: null, pasajeros: null, extras: {},
-      explicacion,
-    };
-  }
 }

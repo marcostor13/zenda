@@ -1,7 +1,30 @@
-import { TipoServicioFunerario, VerticalKey } from 'shared';
 import {
-  AMENITIES_ALOJAMIENTO, ESPECIALIDADES_VETERINARIAS, SERVICIOS_PETFRIENDLY, TIPOS_ADIESTRAMIENTO,
+  SERVICIO_CLINICO_CATALOGO, ServicioClinicoTipo, TipoServicioFunerario, VerticalKey,
+} from 'shared';
+import {
+  AMENITIES_ALOJAMIENTO, SERVICIOS_PETFRIENDLY, TIPOS_ADIESTRAMIENTO,
 } from '../catalogos/tags.catalogo';
+
+/**
+ * Servicios veterinarios que se ofrecen como filtro.
+ *
+ * Salen del catálogo cerrado, que es lo que una clínica puede publicar con
+ * precio. Antes el filtro era «Especialidades» y listaba «Medicina general»,
+ * «Cirugía», «Cardiología»…: cosas que describen a quién ves pero que el
+ * cliente no puede contratar ni saber lo que cuestan (regla de
+ * `veterinarios.md`). Se muestran los ocho más habituales; el resto se alcanza
+ * desde la ficha de cada clínica.
+ */
+const SERVICIOS_VETERINARIOS_FILTRABLES: readonly ServicioClinicoTipo[] = [
+  ServicioClinicoTipo.CONSULTA_GENERAL,
+  ServicioClinicoTipo.VACUNACION,
+  ServicioClinicoTipo.DESPARASITACION_INTERNA,
+  ServicioClinicoTipo.MICROCHIP,
+  ServicioClinicoTipo.ANALITICA_BASICA,
+  ServicioClinicoTipo.HIGIENE_DENTAL,
+  ServicioClinicoTipo.CASTRACION,
+  ServicioClinicoTipo.ESTERILIZACION,
+];
 
 /**
  * Filtros del panel lateral de los listados, declarados por vertical.
@@ -73,7 +96,13 @@ export const FILTROS_POR_VERTICAL: Record<string, readonly GrupoFiltro[]> = {
   [VerticalKey.VETERINARIA]: [
     precio('por consulta', 200),
     VALORACION,
-    { titulo: 'Especialidades', tipo: 'opciones', campo: 'especialidades', opciones: desdeTextos(ESPECIALIDADES_VETERINARIAS.slice(0, 8)) },
+    {
+      titulo: 'Servicios', tipo: 'opciones', campo: 'tiposServicioClinico',
+      opciones: SERVICIOS_VETERINARIOS_FILTRABLES.map((tipo) => ({
+        valor: tipo,
+        etiqueta: SERVICIO_CLINICO_CATALOGO.find((s) => s.tipo === tipo)?.label ?? tipo,
+      })),
+    },
     {
       titulo: 'Extras', tipo: 'booleanos',
       opciones: [{ valor: 'atiendeUrgencias', etiqueta: 'Urgencias 24 h' }],

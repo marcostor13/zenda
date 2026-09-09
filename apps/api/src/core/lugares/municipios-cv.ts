@@ -30,8 +30,13 @@ export interface LugarSembrado {
   fotos: string[];
   ubicacion: { ciudad: string; provincia?: string };
   atributos: Record<string, unknown>;
+  /** De dónde salió el registro. Interno: no se publica en la ficha. */
+  origenDatos: string;
   estado: EstadoModeracion;
 }
+
+/** Hoja de la que provienen estas fichas; queda anotada en `origenDatos`. */
+export const ORIGEN_MUNICIPIOS_CV = 'municipios_final.xlsx';
 
 /**
  * Un nombre más largo que esto no cabe en la tarjeta de `/explora` y se corta a
@@ -78,7 +83,7 @@ const capitalizar = (texto: string): string =>
 /** true si la celda declara el recurso; vacía o ausente significa que no lo hay. */
 const declarado = (celda?: string | null): celda is string => Boolean(celda?.trim());
 
-function base(fila: FilaMunicipio, municipio: string): Pick<LugarSembrado, 'fotos' | 'ubicacion' | 'atributos' | 'estado'> {
+function base(fila: FilaMunicipio, municipio: string): Pick<LugarSembrado, 'fotos' | 'ubicacion' | 'atributos' | 'origenDatos' | 'estado'> {
   return {
     fotos: [],
     ubicacion: {
@@ -87,10 +92,17 @@ function base(fila: FilaMunicipio, municipio: string): Pick<LugarSembrado, 'foto
     },
     atributos: {
       comarca: fila.comarca?.trim() || undefined,
-      // Deja constancia de que el dato es del censo, no de una aportación de la
-      // comunidad: si mañana hay que revisarlo, se sabe de dónde salió.
-      fuente: 'municipios_final.xlsx',
     },
+    /*
+     * La procedencia va en su propio campo, no en `atributos`.
+     *
+     * `atributos` es lo que la ficha de /explora enumera bajo "Qué vas a
+     * encontrar", así que meter ahí la hoja de origen hacía que el visitante
+     * leyera «Fuente: municipios_final.xlsx» entre las duchas y el
+     * aparcamiento. Saber de dónde vino un registro sigue siendo útil para
+     * revisarlo; simplemente no es información para el público.
+     */
+    origenDatos: ORIGEN_MUNICIPIOS_CV,
     /*
      * Publicado directamente. La moderación existe para lo que aporta la
      * comunidad (HU-045); esto es un censo revisado que se carga desde el

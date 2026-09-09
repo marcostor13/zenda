@@ -74,7 +74,7 @@ const UNIDAD_LABEL: Record<string, string> = {
               <tr>
                 <td [attr.data-label]="'Nombre del suplemento' | t">{{ s.concepto }}</td>
                 <td [attr.data-label]="'Precio' | t">{{ s.monto | euros:'1.2-2' }}</td>
-                <td [attr.data-label]="'Tipo de cobro' | t">{{ unidadLabel(s.unidad) }}</td>
+                <td [attr.data-label]="'Tipo de cobro' | t">{{ unidadLabel(s.unidad) | t }}</td>
                 <td [attr.data-label]="'Estado' | t">
                   <span class="rs-badge" [class.rs-badge--success]="s.activo" [class.rs-badge--neutral]="!s.activo">
                     {{ s.activo ? 'Activo' : 'Inactivo' }}

@@ -56,6 +56,18 @@ const MAX_POR_USUARIO_DIA = 10;
 const MAX_LUGARES_CONTEXTO = 25;
 const MAX_SERVICIOS_CONTEXTO = 25;
 
+/** Días que arma el itinerario sin modelo. Más de tres deja de ser una escapada. */
+const MAX_DIAS_SIN_IA = 3;
+
+/** Cómo se titula un día según el tipo de sitio que lo domina. */
+const TEMA_POR_TIPO: Readonly<Record<string, string>> = {
+  playa: 'Playas y costa',
+  parque: 'Parques caninos',
+  ruta: 'Rutas y naturaleza',
+  rio: 'Ríos y baños',
+  restaurante: 'Comer con tu perro',
+};
+
 interface EntradaCache {
   valor: RespuestaItinerario;
   expiraEn: number;
@@ -234,42 +246,105 @@ export class PlanificadorService {
   }
 
   /**
-   * Itinerario armado solo con datos propios, sin modelo. No es un mensaje de
-   * error: el usuario recibe un plan real aunque la IA no esté disponible.
+   * Itinerario armado solo con datos propios, sin modelo.
+   *
+   * Este es el camino normal, no una avería: la clave del modelo es opcional y
+   * en la mayoría de los despliegues no está puesta. Antes el aviso decía «el
+   * asistente con IA no está disponible ahora mismo», y el cliente lo leía como
+   * que el planificador estaba roto —aunque debajo tuviera un plan completo—.
+   * Ahora se cuenta lo que de verdad ha pasado: el plan está hecho con los
+   * sitios y servicios verificados de la zona.
    */
   private generarSinIA(
     peticion: PeticionItinerario,
     lugares: LugarDocument[],
     servicios: ServicioDocument[],
   ): RespuestaItinerario {
-    const alojamiento = servicios.find((s) => s.vertical === VerticalKey.ALOJAMIENTO)
-      ?? servicios.find((s) => s.vertical === VerticalKey.HOTELES);
-    const porDia = 3;
-
-    const dias: DiaItinerario[] = [];
-    for (let i = 0; i < Math.min(3, Math.ceil(lugares.length / porDia)); i++) {
-      dias.push({
-        dia: i + 1,
-        titulo: `Día ${i + 1} en ${peticion.provincia}`,
-        paradas: lugares.slice(i * porDia, (i + 1) * porDia).map((l) => this.paradaDeLugar(l)),
-      });
-    }
-
-    if (alojamiento && dias.length) {
-      dias[0].paradas.unshift(this.paradaDeServicio(alojamiento));
-    }
+    const dias = this.diasDe(peticion, lugares, servicios);
+    const alojamiento = this.alojamientoDe(servicios);
 
     return {
       provincia: peticion.provincia,
       opciones: [{
         nombre: `Escapada por ${peticion.provincia}`,
-        resumen: 'Ruta armada con los sitios mejor valorados por la comunidad y los servicios disponibles en la zona.',
-        presupuestoEstimado: alojamiento?.precioBase ?? 0,
+        resumen: this.resumenSinIA(dias, lugares.length),
+        presupuestoEstimado: this.presupuestoDe(dias, alojamiento),
         dias,
       }],
       esFallback: true,
-      aviso: 'Itinerario generado con nuestros propios datos; el asistente con IA no está disponible ahora mismo.',
+      aviso: `Plan hecho con los sitios y servicios verificados de ${peticion.provincia}.`,
     };
+  }
+
+  /** Alojamiento canino y, si no lo hay, hotel pet-friendly: es la base del viaje. */
+  private alojamientoDe(servicios: ServicioDocument[]): ServicioDocument | undefined {
+    return servicios.find((s) => s.vertical === VerticalKey.ALOJAMIENTO)
+      ?? servicios.find((s) => s.vertical === VerticalKey.HOTELES);
+  }
+
+  /**
+   * Reparte los lugares en días y encabeza cada uno con lo que lo caracteriza.
+   *
+   * El título deja de ser «Día 1 en Valencia», que no dice nada, y nombra el
+   * tipo de sitio que domina la jornada: «Día 1 · Playas y costa». Es la
+   * diferencia entre una lista y algo que se parece a un plan.
+   */
+  private diasDe(
+    peticion: PeticionItinerario,
+    lugares: LugarDocument[],
+    servicios: ServicioDocument[],
+  ): DiaItinerario[] {
+    const porDia = 3;
+    const total = Math.min(MAX_DIAS_SIN_IA, Math.ceil(lugares.length / porDia)) || 1;
+    const dias: DiaItinerario[] = [];
+
+    for (let i = 0; i < total; i++) {
+      const delDia = lugares.slice(i * porDia, (i + 1) * porDia);
+      dias.push({
+        dia: i + 1,
+        titulo: `Día ${i + 1} · ${this.temaDe(delDia) ?? peticion.provincia}`,
+        paradas: delDia.map((l) => this.paradaDeLugar(l)),
+      });
+    }
+
+    const alojamiento = this.alojamientoDe(servicios);
+    if (alojamiento) dias[0].paradas.unshift(this.paradaDeServicio(alojamiento));
+
+    // Un servicio reservable por día, repartido: la peluquería del último día no
+    // sirve de nada si el viaje termina esa mañana.
+    const reservables = servicios.filter((s) => s !== alojamiento).slice(0, dias.length);
+    reservables.forEach((servicio, i) => dias[i].paradas.push(this.paradaDeServicio(servicio)));
+
+    return dias;
+  }
+
+  /** Tipo de lugar más repetido del día, en la forma en que se lee en pantalla. */
+  private temaDe(lugares: LugarDocument[]): string | null {
+    if (!lugares.length) return null;
+
+    const cuenta = new Map<string, number>();
+    for (const lugar of lugares) cuenta.set(lugar.tipo, (cuenta.get(lugar.tipo) ?? 0) + 1);
+
+    const dominante = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    return TEMA_POR_TIPO[dominante] ?? null;
+  }
+
+  /** Lo que costaría el viaje con lo que hay en él: alojamiento más servicios. */
+  private presupuestoDe(dias: DiaItinerario[], alojamiento?: ServicioDocument): number {
+    const servicios = dias
+      .flatMap((d) => d.paradas)
+      .filter((p) => p.tipo === 'servicio' && p.servicioId !== String(alojamiento?._id));
+    const extras = servicios.reduce((suma, p) => suma + (p.precioEstimado ?? 0), 0);
+
+    // El alojamiento se cuenta por noche, y las noches son los días menos uno.
+    const noches = Math.max(1, dias.length - 1);
+    return Math.round((alojamiento?.precioBase ?? 0) * noches + extras);
+  }
+
+  private resumenSinIA(dias: DiaItinerario[], totalLugares: number): string {
+    const jornadas = dias.length === 1 ? 'una jornada' : `${dias.length} días`;
+    return `Ruta de ${jornadas} con ${totalLugares} ${totalLugares === 1 ? 'sitio' : 'sitios'} `
+      + 'mejor valorados por la comunidad y los servicios que se pueden reservar en la zona.';
   }
 
   /** Solo sobreviven las paradas que apuntan a algo real del catálogo. */

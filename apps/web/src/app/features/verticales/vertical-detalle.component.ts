@@ -32,7 +32,15 @@ interface DetalleConfig {
   cta: string;
   priceLabel: string;
   tituloBloque: string;
-  /** Chips destacados (p. ej. especialidades del adiestrador); vacío = no se muestra la sección. */
+  /**
+   * Encabezado de la fila de chips.
+   *
+   * Antes estaba escrito «Especialidades» en la plantilla, fijo para todas las
+   * categorías, y sólo era cierto en veterinaria: en hoteles esos chips son
+   * ventajas, en seguros coberturas y en funerarios servicios contratables.
+   */
+  tituloChips: string;
+  /** Chips destacados; vacío = no se muestra la sección. */
   chips: (s: ServicioDetalle) => string[];
   /** Puntos reales del servicio (nunca inventados) para el bloque "¿Qué ofrece?". */
   puntos: (s: ServicioDetalle) => string[];
@@ -45,6 +53,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
     cta: 'Reservar transporte',
     priceLabel: '+ tarifa por km',
     tituloBloque: '¿Qué ofrece este transportista?',
+    tituloChips: 'Servicios',
     chips: () => [],
     puntos: (s) => {
       const items: string[] = [];
@@ -66,6 +75,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
     cta: 'Reservar sesión',
     priceLabel: 'por sesión',
     tituloBloque: '¿Qué incluye esta sesión?',
+    tituloChips: 'Tipos de adiestramiento',
     chips: (s) => (s.extra['tiposAdiestramiento'] as string[] | undefined) ?? [],
     puntos: (s) => {
       const items: string[] = [];
@@ -85,6 +95,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
     cta: 'Ver disponibilidad',
     priceLabel: '/ noche',
     tituloBloque: 'Ventajas de este hotel',
+    tituloChips: 'Servicios pet-friendly',
     chips: (s) => (s.extra['serviciosPetfriendly'] as string[] | undefined) ?? [],
     puntos: (s) => {
       const items: string[] = [];
@@ -110,7 +121,22 @@ const CONFIGS: Record<string, DetalleConfig> = {
     cta: 'Pedir cita',
     priceLabel: 'la consulta',
     tituloBloque: '¿Qué ofrece esta clínica?',
-    chips: (s) => (s.extra['especialidades'] as string[] | undefined) ?? [],
+    tituloChips: 'Servicios con precio cerrado',
+    /*
+     * Sólo servicios contratables, con su importe. Antes se pintaban las
+     * `especialidades` («Medicina general», «Cirugía», «Cardiología»), que
+     * describen a quién ves pero no lo que cuesta: el cliente no podía saber el
+     * precio antes de ir, que es justo lo que la regla de `veterinarios.md`
+     * prohíbe publicar. Una especialidad sí puede llegar aquí si la clínica la
+     * ha tarifado —«Primera consulta de cardiología — 70 €»—, porque entonces
+     * viene como servicio y trae precio.
+     */
+    chips: (s) => {
+      const servicios = (s.extra['serviciosClinicos'] as Array<{ nombre?: string; precio?: number }> | undefined) ?? [];
+      return servicios
+        .filter((v) => Boolean(v.nombre))
+        .map((v) => (v.precio ? `${v.nombre} · ${euros(v.precio)}` : v.nombre!));
+    },
     puntos: (s) => {
       const items: string[] = [];
       const servicios = s.extra['serviciosClinicos'] as Array<{ nombre?: string }> | undefined;
@@ -131,6 +157,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
     cta: 'Reservar cita',
     priceLabel: 'desde',
     tituloBloque: '¿Qué servicios ofrece?',
+    tituloChips: 'Servicios de peluquería',
     chips: (s) => {
       const servicios = s.extra['serviciosGrooming'] as Array<{ nombre?: string }> | undefined;
       return (servicios ?? []).map((v) => v.nombre).filter((n): n is string => Boolean(n));
@@ -152,6 +179,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
     cta: 'Contratar el servicio',
     priceLabel: 'desde',
     tituloBloque: '¿Qué ofrece esta empresa?',
+    tituloChips: 'Servicios disponibles',
     chips: (s) => {
       const servicios = (s.extra['serviciosFunerarios'] as Array<{ nombre?: string; activo?: boolean }> | undefined) ?? [];
       return servicios.filter((v) => v.activo !== false).map((v) => v.nombre ?? '').filter(Boolean);
@@ -189,6 +217,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
     cta: 'Ver la póliza',
     priceLabel: 'al año',
     tituloBloque: '¿Qué cubre esta póliza?',
+    tituloChips: 'Coberturas',
     chips: (s) => (s.extra['coberturas'] as string[] | undefined) ?? [],
     puntos: (s) => {
       const items: string[] = [];
@@ -315,7 +344,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
         @if (cfg().chips(s).length) {
           <div class="section-block">
-            <h2>{{ 'Especialidades' | t }}</h2>
+            <h2>{{ cfg().tituloChips | t }}</h2>
             <div class="chips-row">
               @for (c of cfg().chips(s); track c) { <rs-chip [active]="true">{{ c }}</rs-chip> }
             </div>

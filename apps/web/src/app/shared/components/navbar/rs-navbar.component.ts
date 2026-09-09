@@ -710,10 +710,14 @@ export class RsNavbarComponent implements OnInit {
   readonly soloMarcaD = input(false);
 
   /**
-   * El alta de comercio es la vía principal de captación de oferta: se muestra
-   * a quien no ha entrado y también al cliente logueado, no solo a los visitantes.
+   * El alta de comercio es captación: se ofrece a quien todavía no tiene cuenta.
+   *
+   * Antes se mostraba también al cliente ya logueado, y pulsarlo abría un alta
+   * que crea una cuenta nueva desde cero: con su email daba «ya registrado» y
+   * con otro se quedaba con dos cuentas. Quien ya está dentro y quiere vender
+   * tiene la vía correcta en su perfil, no en un formulario de registro.
    */
-  readonly muestraAltaComercio = computed(() => !this.esComercio() && !this.esAdmin());
+  readonly muestraAltaComercio = computed(() => !this.estaAutenticado());
 
   /**
    * Las categorias de servicio son navegacion de cliente: quien entra como

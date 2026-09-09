@@ -56,7 +56,7 @@ const PASOS: ReadonlyArray<{ clave: PasoAlta; label: string }> = [
 
         @if (paso() !== 'fin') {
           <p class="alta__eyebrow">
-            Paso {{ indicePaso() + 1 }} de {{ pasos.length }} · {{ pasos[indicePaso()].label }}
+            Paso {{ indicePaso() + 1 }} de {{ pasos.length }} · {{ pasos[indicePaso()].label | t }}
           </p>
           <div class="alta__barra" role="progressbar" [attr.aria-label]="'Progreso del alta' | t"
                [attr.aria-valuenow]="indicePaso() + 1" aria-valuemin="1"

@@ -6,11 +6,13 @@ import reservas from './it/reservas';
 import comercio from './it/comercio';
 import admin from './it/admin';
 import legal from './it/legal';
+import catalogos from './it/catalogos';
+import paginas from './it/paginas';
 
 /**
  * Diccionario de it, repartido por zona de la aplicacion para que cada
  * fichero se pueda revisar entero de una sentada.
  */
-const it: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal };
+const it: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas };
 
 export default it;

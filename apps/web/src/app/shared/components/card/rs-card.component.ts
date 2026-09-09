@@ -117,7 +117,12 @@ export interface CardPrice {
             @for (a of amenidadesVisibles(); track etiquetaAmenity(a)) {
               <span class="rs-amenity">
                 @if (iconoAmenity(a); as icono) { <rs-icon [name]="icono" [size]="12" [stroke]="2" /> }
-                {{ etiquetaAmenity(a) }}
+                <!--
+                  Por el pipe: casi todas estas etiquetas salen del catálogo de
+                  la categoría («Urgencias 24 h», «A domicilio»), no del texto
+                  del comercio. Lo que no esté en el diccionario sale tal cual.
+                -->
+                {{ etiquetaAmenity(a) | t }}
               </span>
             }
           </div>
@@ -126,7 +131,7 @@ export interface CardPrice {
           @if (destacados().length) {
             <ul class="rs-hotel-card__destacados">
               @for (d of destacados(); track d) {
-                <li><rs-icon name="check" [size]="13" [stroke]="2.5" /> {{ d }}</li>
+                <li><rs-icon name="check" [size]="13" [stroke]="2.5" /> {{ d | t }}</li>
               }
             </ul>
           }

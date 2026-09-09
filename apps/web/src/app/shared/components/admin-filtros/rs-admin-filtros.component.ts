@@ -87,7 +87,7 @@ interface ChipActivo {
         <div class="af__activos">
           @for (c of chips(); track c.clave) {
             <button type="button" class="af__activo" (click)="quitar(c.clave)">
-              {{ c.texto }}
+              {{ c.texto | t }}
               <rs-icon name="x" [size]="12" [stroke]="2.5" />
             </button>
           }

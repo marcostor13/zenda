@@ -31,12 +31,14 @@ export const AMENITIES_ESPACIO: readonly string[] = [
   OTROS_SERVICIOS,
 ];
 
-export const ESPECIALIDADES_VETERINARIAS: readonly string[] = [
-  'Medicina general', 'Cirugía', 'Traumatología', 'Dermatología', 'Oftalmología',
-  'Odontología', 'Cardiología', 'Neurología', 'Oncología', 'Endocrinología',
-  'Reproducción', 'Etología', 'Fisioterapia', 'Rehabilitación', 'Diagnóstico por imagen',
-  'Análisis clínicos', 'Urgencias 24 h', 'Animales exóticos', 'Nutrición',
-];
+/*
+ * Aquí vivía `ESPECIALIDADES_VETERINARIAS` («Medicina general», «Cirugía»,
+ * «Cardiología»…). Se retiró al dejar de publicarse las especialidades: lo que
+ * se ofrece en veterinaria es el catálogo cerrado de actos con precio
+ * (`SERVICIO_CLINICO_CATALOGO` en `libs/shared`), según la regla de
+ * `veterinarios.md`. Si hace falta un vocabulario de especialidades para uso
+ * interno, no es este fichero: éste alimenta filtros de cara al público.
+ */
 
 /** Catálogo cerrado: el buscador filtra por especie y no admite variantes libres. */
 export const ESPECIES_ATENDIDAS: readonly string[] = [

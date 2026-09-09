@@ -221,6 +221,28 @@ describe('VerticalDetalleComponent', () => {
    * haya rellenado. Un `if` de mas convierte un campo vacio en una promesa al
    * cliente que el negocio no ha hecho.
    */
+  /**
+   * El encabezado de la fila de chips estaba escrito «Especialidades» en la
+   * plantilla, fijo para todas las categorías, y solo era cierto en veterinaria:
+   * en hoteles son ventajas, en seguros coberturas y en funerarios servicios.
+   */
+  describe('encabezado de los chips', () => {
+    it.each([
+      ['veterinaria', 'Servicios con precio cerrado'],
+      ['hoteles', 'Servicios pet-friendly'],
+      ['seguros', 'Coberturas'],
+      ['funerarios', 'Servicios disponibles'],
+      ['adiestramiento', 'Tipos de adiestramiento'],
+      ['peluqueria', 'Servicios de peluquería'],
+      ['transporte', 'Servicios'],
+    ])('deberia rotular %s como "%s", y nunca como "Especialidades"', async (vertical, titulo) => {
+      await crearComponente(vertical, servicio({}));
+
+      expect(component.cfg().tituloChips).toBe(titulo);
+      expect(component.cfg().tituloChips).not.toBe('Especialidades');
+    });
+  });
+
   describe('puntos destacados por vertical', () => {
     const puntos = (): string[] => component.cfg().puntos(component.servicio()!);
 
@@ -372,13 +394,53 @@ describe('VerticalDetalleComponent', () => {
      * probada: sus `puntos` son los que deciden lo que se le promete al cliente.
      */
     describe('veterinaria', () => {
-      it('deberia listar las especialidades como chips', async () => {
-        await crearComponente('veterinaria', servicio({ especialidades: ['Cirugía', 'Dermatología'] }));
+      /**
+       * Regla de `veterinarios.md` (observación del cliente 09-09-2026): si el
+       * cliente no puede saber lo que va a pagar antes de ir, no se publica.
+       * Los chips pasaron de las especialidades («Medicina general», «Cirugía»)
+       * a los servicios contratables con su importe.
+       */
+      it('deberia listar los servicios contratables con su precio', async () => {
+        await crearComponente('veterinaria', servicio({
+          serviciosClinicos: [
+            { nombre: 'Consulta veterinaria', precio: 35 },
+            { nombre: 'Vacuna de la rabia', precio: 32 },
+          ],
+        }));
 
-        expect(component.cfg().chips(component.servicio()!)).toEqual(['Cirugía', 'Dermatología']);
+        expect(component.cfg().chips(component.servicio()!)).toEqual([
+          expect.stringContaining('Consulta veterinaria'),
+          expect.stringContaining('Vacuna de la rabia'),
+        ]);
+        expect(component.cfg().chips(component.servicio()!)[0]).toContain('35');
       });
 
-      it('no deberia inventar chips si la clinica no declaro especialidades', async () => {
+      it('no deberia publicar las especialidades declaradas por la clinica', async () => {
+        await crearComponente('veterinaria', servicio({
+          especialidades: ['Medicina general', 'Cirugía', 'Cardiología'],
+          serviciosClinicos: [{ nombre: 'Consulta veterinaria', precio: 35 }],
+        }));
+
+        const chips = component.cfg().chips(component.servicio()!);
+        expect(chips.join(' ')).not.toContain('Medicina general');
+        expect(chips.join(' ')).not.toContain('Cardiología');
+      });
+
+      it('deberia nombrar el bloque por lo que de verdad enseña', async () => {
+        await crearComponente('veterinaria', servicio({}));
+
+        expect(component.cfg().tituloChips).toBe('Servicios con precio cerrado');
+      });
+
+      it('deberia enseñar el servicio sin importe si la clinica no lo puso', async () => {
+        await crearComponente('veterinaria', servicio({
+          serviciosClinicos: [{ nombre: 'Consulta veterinaria' }],
+        }));
+
+        expect(component.cfg().chips(component.servicio()!)).toEqual(['Consulta veterinaria']);
+      });
+
+      it('no deberia inventar chips si la clinica no declaro servicios', async () => {
         await crearComponente('veterinaria', servicio({}));
 
         expect(component.cfg().chips(component.servicio()!)).toEqual([]);

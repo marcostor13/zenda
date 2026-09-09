@@ -117,14 +117,12 @@ describe('RsNavbarComponent', () => {
     expect(el.querySelector('.rs-navbar__brand .rs-navbar__wordmark')).toBeTruthy();
   });
 
-  it('debería ofrecer el alta de empresa al visitante y al cliente', () => {
+  it('debería ofrecer el alta de empresa al visitante', () => {
     const el: HTMLElement = fixture.nativeElement;
     const alta = el.querySelector('.rs-navbar__link--pro');
 
-    // Sin sesión (visitante) el enlace está presente…
     expect(alta?.getAttribute('href')).toBe('/auth/registro-comercio');
     expect(alta?.textContent?.trim()).toBe('Registra tu empresa');
-    // …y la regla que lo gobierna solo lo oculta a comercios y admin.
     expect(fixture.componentInstance.muestraAltaComercio()).toBe(true);
   });
 
@@ -191,6 +189,15 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
 
     expect(boton!.getAttribute('href')).toBe('/perfil');
     expect(boton!.querySelector('.rs-navbar__cuenta-ini')?.textContent?.trim()).toBe('AR');
+  });
+
+  it('no debería ofrecer el alta de empresa a un cliente ya identificado', async () => {
+    await crear();
+
+    // Ese enlace abre un alta que crea una cuenta nueva: a quien ya tiene sesión
+    // solo le sirve para acabar con dos cuentas o con un "email ya registrado".
+    expect(fixture.componentInstance.muestraAltaComercio()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.rs-navbar__link--pro')).toBeNull();
   });
 
   it('debería contar las mascotas del usuario en el desplegable', async () => {
@@ -301,6 +308,16 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
 
       expect(fixture.componentInstance.muestraCategorias()).toBe(false);
       expect(el.querySelector('.rs-navbar__cats')).toBeNull();
+    },
+  );
+
+  it.each(['comercio', 'admin'] as const)(
+    'no debería ofrecer el alta de empresa a un %s',
+    async (rol) => {
+      const fixture = await crearComo(rol);
+
+      expect(fixture.componentInstance.muestraAltaComercio()).toBe(false);
+      expect((fixture.nativeElement as HTMLElement).querySelector('.rs-navbar__link--pro')).toBeNull();
     },
   );
 

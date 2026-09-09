@@ -53,6 +53,14 @@ export class Lugar {
   @Prop({ type: Object, default: {} })
   atributos!: Record<string, unknown>;
 
+  /**
+   * De dónde salió la ficha (una hoja de censo, una importación…). Es un dato
+   * de trazabilidad interno: no se enseña en `/explora`, y por eso no vive
+   * dentro de `atributos`, que la ficha pinta entero.
+   */
+  @Prop({ type: String })
+  origenDatos?: string;
+
   @Prop({ type: Number, default: 0 })
   ratingPromedio!: number;
 
