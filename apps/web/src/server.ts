@@ -20,6 +20,15 @@ const raizNavegador = resolve(raizServidor, '../browser');
 
 const app = express();
 
+/*
+ * Detrás del proxy de Coolify, Express ve la conexión interna: sin esto,
+ * `peticion.protocol` dice «http» aunque el visitante haya entrado por HTTPS, y
+ * el sitemap salía declarando `http://doogking.com/…`. Para Google `http` y
+ * `https` son dos sitios distintos, así que un sitemap con el esquema
+ * equivocado le está señalando páginas que no son las que quiere indexar.
+ */
+app.set('trust proxy', true);
+
 /**
  * Dominios desde los que se acepta servir la web.
  *
@@ -134,6 +143,20 @@ if (isMainModule(import.meta.url)) {
   const puerto = Number(process.env['PORT'] ?? 4000);
   app.listen(puerto, () => {
     console.log(`Doogking web (SSR) escuchando en http://localhost:${puerto}`);
+    /*
+     * Se escribe al arrancar porque el síntoma de tenerlo mal es silencioso y
+     * desconcierta: Angular no falla, responde 200 con el HTML de arranque y la
+     * web «funciona», sólo que sin renderizar en servidor —sin título propio,
+     * sin etiquetas sociales y sin 404 real—, que es justo lo que se quería
+     * arreglar. Con esta línea en el log se ve en dos segundos.
+     */
+    console.log(`Hosts permitidos: ${hostsPermitidos.join(', ')}`);
+    if (!process.env['WEB_HOSTS_PERMITIDOS']) {
+      console.warn(
+        'AVISO: falta WEB_HOSTS_PERMITIDOS. Sin el dominio público en esa variable, '
+        + 'Angular rechaza el Host y sirve la web sin renderizar en el servidor.',
+      );
+    }
   });
 }
 

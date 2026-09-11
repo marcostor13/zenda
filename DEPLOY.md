@@ -435,10 +435,41 @@ resuelve y sólo devuelve 404 si tampoco existe para el router.
   y en `app.routes.server.ts`: una ruta declarada en el servidor que no case con ninguna del
   router hace fallar el propio build con un mensaje explícito.
 
-### La web responde 400 «Host no permitido»
+### La web carga bien pero sin render de servidor
 
-Falta el dominio en `WEB_HOSTS_PERMITIDOS` (§3.3). Angular rechaza cualquier `Host` que no
-reconozca. Si hay un proxy por delante, el dominio que llega es el de `X-Forwarded-Host`.
+**Es el fallo más traicionero de todos, porque no parece un fallo.** La web funciona, los
+enlaces van, todo se ve… pero el título es el mismo en todas las páginas, las vistas previas
+al compartir salen genéricas y una dirección inventada devuelve 200 en vez de 404. Es decir,
+exactamente lo que se quería arreglar sigue sin arreglar.
+
+La causa casi siempre es que falta el dominio en `WEB_HOSTS_PERMITIDOS` (§3.3). Angular
+rechaza el `Host` que no reconoce y, en vez de fallar, **cae a render de cliente y responde
+200**. Cómo confirmarlo en diez segundos:
+
+```bash
+# Un HTML de ~40 KB es el de arranque sin renderizar; uno de ~170 KB sí está renderizado.
+curl -s https://doogking.com | wc -c
+curl -s https://doogking.com | grep -c '<path'      # 0 = los iconos no se han dibujado
+curl -s https://doogking.com/alojamiento | grep -o '<title>[^<]*'
+```
+
+El propio contenedor lo dice al arrancar. En los logs de Coolify, la segunda línea es:
+
+```
+Hosts permitidos: doogking.com, www.doogking.com, localhost, 127.0.0.1
+```
+
+Si ahí sólo salen `localhost` y `127.0.0.1`, la variable no está llegando: revisa que se
+llame exactamente `WEB_HOSTS_PERMITIDOS` y que esté en el servicio **de la web**, no en el
+del API. Con un proxy por delante, el dominio que cuenta es el de `X-Forwarded-Host`.
+
+### El sitemap declara `http://` en vez de `https://`
+
+Google trata `http` y `https` como sitios distintos, así que un sitemap con el esquema
+equivocado le señala páginas que no son las que quieres indexar. Lo resuelve
+`app.set('trust proxy', true)` en `server.ts`, que hace que Express lea `X-Forwarded-Proto`
+en lugar de mirar la conexión interna. Si vuelve a aparecer, es que el proxy no está
+mandando esa cabecera.
 
 ### Las vistas previas al compartir salen genéricas
 
