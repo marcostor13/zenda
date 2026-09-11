@@ -13,6 +13,8 @@ import { PerroApi, PerrosService } from '../perros/perros.service';
 import { environment } from '../../../environments/environment';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { SeoService } from '../../core/seo/seo.service';
+import { seoCategoria } from '../../core/seo/plantillas-seo';
 
 interface ParadaApi {
   titulo: string;
@@ -290,6 +292,7 @@ export class PlanificadorComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly carritoService = inject(CarritoService);
   private readonly perrosService = inject(PerrosService);
+  private readonly seo = inject(SeoService);
 
   readonly provincias = PROVINCIAS;
 
@@ -307,6 +310,15 @@ export class PlanificadorComponent implements OnInit {
   perroId = '';
 
   async ngOnInit(): Promise<void> {
+    // Es una página pública más: sin esto se quedaba con el título y la
+    // descripción genéricos de la portada, que es justo lo que corrige SEO-1.
+    this.seo.aplicar(seoCategoria({
+      label: 'Planifica una escapada con tu perro',
+      descripcion: 'Arma el viaje de principio a fin: dónde dormir, dónde parar y qué servicios '
+        + 'necesita tu perro por el camino.',
+      ruta: '/explora/planificador',
+    }));
+
     try {
       this.perros.set(await this.perrosService.misPerros());
     } catch {
