@@ -4,7 +4,7 @@ import { TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { fotoDeLugar } from '../../shared/media/images';
-import { LugarApi, LugaresService } from './lugares.service';
+import { LugarApi, LugaresService, rutaDeLugar } from './lugares.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
@@ -38,7 +38,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
     <ul class="ec__lista">
       @for (l of lugares(); track l._id) {
         <li>
-          <a class="ec__card" [routerLink]="['/explora', l._id]">
+          <a class="ec__card" [routerLink]="rutaDeLugar(l)">
             <div class="ec__img">
               <img [src]="foto(l)" [alt]="l.nombre" loading="lazy" rsImg />
             </div>
@@ -110,6 +110,9 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 })
 export class ExperienciasCercaComponent {
   private readonly lugaresService = inject(LugaresService);
+
+  /** Enlace a la ficha: la dirección legible si la tiene, el id si todavía no. */
+  protected readonly rutaDeLugar = rutaDeLugar;
 
   /** Ciudad de la búsqueda en curso; sin ella se muestran los mejor valorados. */
   readonly ciudad = input<string | undefined>(undefined);

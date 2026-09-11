@@ -2,6 +2,7 @@ import { Injectable, Injector, computed, inject, signal } from '@angular/core';
 import { MONEDAS_SOPORTADAS, MONEDA_DEFAULT, MONEDA_SIMBOLOS, MonedaSoportada } from 'shared';
 import { GeoService, TiposDeCambio } from '../geo/geo.service';
 import { ConversionImporte, convertirImporte, formatearImporte } from './importe';
+import { almacenLocal } from '../plataforma/almacen';
 
 const CLAVE_MONEDA = 'doogking_moneda';
 
@@ -67,7 +68,7 @@ export class MonedaService {
 
   elegirMoneda(moneda: MonedaSoportada): void {
     this.moneda.set(moneda);
-    localStorage.setItem(CLAVE_MONEDA, moneda);
+    almacenLocal().setItem(CLAVE_MONEDA, moneda);
     if (moneda !== MONEDA_DEFAULT) this.cargarCambio();
   }
 
@@ -103,7 +104,7 @@ export class MonedaService {
   }
 
   private leerMoneda(): MonedaSoportada {
-    const guardada = localStorage.getItem(CLAVE_MONEDA) as MonedaSoportada | null;
+    const guardada = almacenLocal().getItem(CLAVE_MONEDA) as MonedaSoportada | null;
     return guardada && MONEDAS_SOPORTADAS.includes(guardada) ? guardada : MONEDA_DEFAULT;
   }
 }

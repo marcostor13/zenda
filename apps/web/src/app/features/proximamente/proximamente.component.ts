@@ -128,7 +128,8 @@ interface VentajaAnunciada {
                 [href]="red.url"
                 target="_blank"
                 rel="noopener"
-                [attr.title]="red.nombre">
+                [attr.title]="red.nombre"
+                [attr.aria-label]="red.nombre + ' de Doogking'">
                 <rs-social-icon [name]="red.icono" [size]="20" [etiqueta]="red.nombre" />
               </a>
             }

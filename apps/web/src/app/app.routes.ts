@@ -224,7 +224,20 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/panel-admin/panel-admin.routes').then((m) => m.panelAdminRoutes),
       },
-      { path: '**', redirectTo: '' },
+      /*
+       * Página 404 de verdad, no un desvío a la portada.
+       *
+       * Con `redirectTo: ''` quien escribía mal una dirección acababa en el
+       * inicio sin entender por qué, y el servidor respondía 200 con la portada
+       * dentro: para Google, esa dirección inexistente parecía una página
+       * legítima que merecía estar en el índice. El componente fija el 404 real
+       * de la respuesta (`SeoService.noEncontrado`).
+       */
+      {
+        path: '**',
+        loadComponent: () =>
+          import('./features/errores/no-encontrado.component').then((m) => m.NoEncontradoComponent),
+      },
     ],
   },
 ];

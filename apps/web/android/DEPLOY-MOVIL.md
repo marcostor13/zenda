@@ -4,7 +4,10 @@ La app móvil es la **misma web de Angular** empaquetada con Capacitor. No hay
 un segundo código base: lo que se arregla en la web se arregla en la app.
 
 - `appId`: `com.doogking.app` — **no se puede cambiar** una vez publicada.
-- `webDir`: `dist/web/browser` (salida del *application builder* de Angular).
+- `webDir`: `dist/web-movil/browser` (salida de `ng build --configuration movil`).
+  **No es la misma que la de la web**: desde que la web se renderiza en servidor,
+  `ng build` a secas deja un `index.csr.html` y un servidor de Node que la app no
+  puede ejecutar. `bun run movil:sync` ya usa la configuración correcta.
 - Configuración: `apps/web/capacitor.config.ts`.
 
 ---

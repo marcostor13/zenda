@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { PasoEmbudo, TipoEvento } from 'shared';
 import { environment } from '../../../environments/environment';
+import { almacenLocal, almacenSesion } from '../plataforma/almacen';
 
 const CLAVE_SESION = 'doogking_sesion';
 const CLAVE_INICIO = 'doogking_embudo_inicio';
@@ -40,7 +41,7 @@ export class EventosService {
   iniciarEmbudo(vertical?: string): void {
     const inicio = this.leerInicio();
     if (!inicio || Date.now() - inicio >= VIDA_EMBUDO_MS) {
-      sessionStorage.setItem(CLAVE_INICIO, String(Date.now()));
+      almacenSesion().setItem(CLAVE_INICIO, String(Date.now()));
     }
     this.registrar(TipoEvento.BUSQUEDA_INICIADA, { vertical, paso: PasoEmbudo.BUSQUEDA });
   }
@@ -70,7 +71,7 @@ export class EventosService {
     this.registrar(TipoEvento.RESERVA_CONFIRMADA, {
       reservaId, vertical, paso: PasoEmbudo.CONFIRMACION,
     });
-    sessionStorage.removeItem(CLAVE_INICIO);
+    almacenSesion().removeItem(CLAVE_INICIO);
   }
 
   private msDesdeInicio(): number | undefined {
@@ -79,7 +80,7 @@ export class EventosService {
   }
 
   private leerInicio(): number | null {
-    const guardado = Number(sessionStorage.getItem(CLAVE_INICIO));
+    const guardado = Number(almacenSesion().getItem(CLAVE_INICIO));
     return Number.isFinite(guardado) && guardado > 0 ? guardado : null;
   }
 
@@ -88,11 +89,11 @@ export class EventosService {
    * producen los abandonos más tempranos. No contiene datos personales.
    */
   private sesionId(): string {
-    const guardado = localStorage.getItem(CLAVE_SESION);
+    const guardado = almacenLocal().getItem(CLAVE_SESION);
     if (guardado) return guardado;
 
     const nuevo = `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-    localStorage.setItem(CLAVE_SESION, nuevo);
+    almacenLocal().setItem(CLAVE_SESION, nuevo);
     return nuevo;
   }
 }

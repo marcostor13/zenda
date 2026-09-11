@@ -5,6 +5,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { SocialButtonsComponent } from '../social-buttons/social-buttons.component';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { almacenLocal } from '../../../core/plataforma/almacen';
 
 @Component({
   selector: 'app-login',
@@ -138,7 +139,7 @@ export class LoginComponent {
   readonly error = signal<string | null>(null);
   readonly mostrarPassword = signal(false);
 
-  private readonly emailGuardado = localStorage.getItem(LoginComponent.EMAIL_KEY);
+  private readonly emailGuardado = almacenLocal().getItem(LoginComponent.EMAIL_KEY);
   readonly emailRecordado = signal(!!this.emailGuardado);
   readonly requiereVerificacion = signal(false);
   readonly reenviando = signal(false);
@@ -166,9 +167,9 @@ export class LoginComponent {
         this.volverA,
       );
       if (this.formulario.value.recordar) {
-        localStorage.setItem(LoginComponent.EMAIL_KEY, email);
+        almacenLocal().setItem(LoginComponent.EMAIL_KEY, email);
       } else {
-        localStorage.removeItem(LoginComponent.EMAIL_KEY);
+        almacenLocal().removeItem(LoginComponent.EMAIL_KEY);
       }
     } catch (e) {
       if ((e as { status?: number })?.status === 403) {

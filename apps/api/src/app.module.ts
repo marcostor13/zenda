@@ -39,6 +39,7 @@ import { AiSearchModule } from './core/ai-search/ai-search.module';
 import { GeoModule } from './core/geo/geo.module';
 import { CarritoModule } from './core/carrito/carrito.module';
 import { LugaresModule } from './core/lugares/lugares.module';
+import { SeoModule } from './core/seo/seo.module';
 import { EventosModule } from './core/eventos/eventos.module';
 import { PlanificadorModule } from './core/planificador/planificador.module';
 import { AgendaModule } from './core/agenda/agenda.module';
@@ -100,6 +101,7 @@ const LIMITE_GLOBAL = [{ name: 'global', ttl: 60_000, limit: 300 }];
     GeoModule,
     CarritoModule,
     LugaresModule,
+    SeoModule,
     EventosModule,
     PlanificadorModule,
     AgendaModule,

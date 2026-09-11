@@ -381,7 +381,8 @@ import { RESPONSABLE } from '../legal/legal.datos';
         <p>{{ 'El marketplace de servicios para mascotas en Europa.' | t }}</p>
         <div class="pc-pie__social" [attr.aria-label]="'Redes sociales de Doogking' | t">
           @for (red of redesSociales; track red.nombre) {
-            <a [href]="red.url" target="_blank" rel="noopener" [attr.title]="red.nombre">
+            <a [href]="red.url" target="_blank" rel="noopener" [attr.title]="red.nombre"
+               [attr.aria-label]="red.nombre + ' de Doogking'">
               <rs-social-icon [name]="red.icono" [size]="17" [etiqueta]="red.nombre" />
             </a>
           }

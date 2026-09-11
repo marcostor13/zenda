@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { almacenLocal } from '../../core/plataforma/almacen';
 
 const STORAGE_KEY = 'zenda_notif_prefs';
 
@@ -178,7 +179,7 @@ export class PerfilNotificacionesComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = almacenLocal().getItem(STORAGE_KEY);
     if (stored) {
       try {
         this.prefs.set({ ...DEFAULT_PREFS, ...JSON.parse(stored) as Partial<NotifPrefs> });
@@ -188,7 +189,7 @@ export class PerfilNotificacionesComponent implements OnInit {
 
   toggle(key: keyof NotifPrefs): void {
     this.prefs.update(p => ({ ...p, [key]: !p[key] }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.prefs()));
+    almacenLocal().setItem(STORAGE_KEY, JSON.stringify(this.prefs()));
     this.guardado.set(true);
     setTimeout(() => this.guardado.set(false), 2000);
   }

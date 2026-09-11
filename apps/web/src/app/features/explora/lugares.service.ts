@@ -6,6 +6,13 @@ import { environment } from '../../../environments/environment';
 
 export interface LugarApi {
   _id: string;
+  /**
+   * Dirección legible de la ficha (`rio-jucar-riola`).
+   *
+   * Opcional porque las fichas anteriores a este campo siguen siendo válidas y
+   * se abren por id mientras la migración no haya pasado por ellas.
+   */
+  slug?: string;
   tipo: TipoLugar;
   nombre: string;
   descripcion: string;
@@ -19,6 +26,17 @@ export interface LugarApi {
   atributos: Record<string, unknown>;
   ratingPromedio: number;
   totalReviews: number;
+}
+
+/**
+ * Dirección pública de una ficha: la legible si la tiene, el id si todavía no.
+ *
+ * Vive aquí y no en cada plantilla para que ningún enlace nuevo vuelva a
+ * escribir el id a mano: si lo hiciera, Google seguiría viendo las dos
+ * direcciones de la misma ficha.
+ */
+export function rutaDeLugar(lugar: Pick<LugarApi, '_id' | 'slug'>): string[] {
+  return ['/explora', lugar.slug || lugar._id];
 }
 
 export interface LugarReviewApi {

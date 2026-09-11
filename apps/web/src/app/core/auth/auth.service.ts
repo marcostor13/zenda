@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { LoginDto, RegistroDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, Rol } from 'shared';
 import { environment } from '../../../environments/environment';
+import { almacenLocal } from '../plataforma/almacen';
 
 export interface UsuarioAutenticado {
   id: string;
@@ -32,7 +33,7 @@ export class AuthService {
   private readonly router = inject(Router);
 
   private readonly _usuario = signal<UsuarioAutenticado | null>(this.cargarUsuarioDelStorage());
-  private readonly _token = signal<string | null>(localStorage.getItem(TOKEN_KEY));
+  private readonly _token = signal<string | null>(almacenLocal().getItem(TOKEN_KEY));
 
   readonly usuario = this._usuario.asReadonly();
   readonly token = this._token.asReadonly();
@@ -176,8 +177,8 @@ export class AuthService {
    * servicio de autenticación.
    */
   cerrarSesionLocal(): void {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem('zenda_usuario');
+    almacenLocal().removeItem(TOKEN_KEY);
+    almacenLocal().removeItem('zenda_usuario');
     this._usuario.set(null);
     this._token.set(null);
   }
@@ -191,7 +192,7 @@ export class AuthService {
     const actual = this._usuario();
     if (!actual) return;
     const actualizado = { ...actual, ...datos };
-    localStorage.setItem('zenda_usuario', JSON.stringify(actualizado));
+    almacenLocal().setItem('zenda_usuario', JSON.stringify(actualizado));
     this._usuario.set(actualizado);
   }
 
@@ -206,14 +207,14 @@ export class AuthService {
   }
 
   private guardarSesion(respuesta: AuthResponseDto): void {
-    localStorage.setItem(TOKEN_KEY, respuesta.accessToken);
-    localStorage.setItem('zenda_usuario', JSON.stringify(respuesta.usuario));
+    almacenLocal().setItem(TOKEN_KEY, respuesta.accessToken);
+    almacenLocal().setItem('zenda_usuario', JSON.stringify(respuesta.usuario));
     this._token.set(respuesta.accessToken);
     this._usuario.set(respuesta.usuario as UsuarioAutenticado);
   }
 
   private cargarUsuarioDelStorage(): UsuarioAutenticado | null {
-    const datos = localStorage.getItem('zenda_usuario');
+    const datos = almacenLocal().getItem('zenda_usuario');
     return datos ? (JSON.parse(datos) as UsuarioAutenticado) : null;
   }
 }

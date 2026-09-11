@@ -21,6 +21,10 @@ import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { SeoService } from '../../../core/seo/seo.service';
+import { seoFichaServicio, seoPrivada } from '../../../core/seo/plantillas-seo';
+import { migasDePan, negocioLocal } from '../../../core/seo/json-ld';
+import { verticalUi } from '../../../shared/verticales/verticales.config';
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
 /**
@@ -952,6 +956,10 @@ export class AlojamientoDetalleComponent implements OnInit {
   private readonly alojamientoService = inject(AlojamientoService);
   private readonly perrosService = inject(PerrosService);
   private readonly eventosService = inject(EventosService);
+  private readonly seo = inject(SeoService);
+
+  /** Copy de la categoría (etiqueta, descripción, ruta): única fuente, `verticales.config`. */
+  private readonly ui = verticalUi(VerticalKey.ALOJAMIENTO);
 
   readonly cargando = signal(true);
   readonly alojamiento = signal<AlojamientoDetalle | null>(null);
@@ -1070,15 +1078,64 @@ export class AlojamientoDetalleComponent implements OnInit {
       const data = await this.alojamientoService.obtener(id);
       this.alojamiento.set(data);
       this.imagenActiva.set(data.imagenes[0] ?? PLACEHOLDER_IMG);
+      this.aplicarSeo(data);
       // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
       this.eventosService.registrarVistaServicio(id, VerticalKey.ALOJAMIENTO);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado"
       // en vez de un detalle falso que llevaría a una reserva imposible.
       this.alojamiento.set(null);
+      this.seo.aplicar(seoPrivada('Alojamiento no disponible',
+        'Este alojamiento ya no está publicado en Doogking.'));
+      this.seo.noEncontrado();
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /**
+   * La ficha de un alojamiento es de las páginas que más se comparten por
+   * mensajería. Declara además `LocalBusiness`, que es lo que permite a Google
+   * enseñar la valoración con estrellas y la dirección en el propio resultado.
+   */
+  private aplicarSeo(data: AlojamientoDetalle): void {
+    const origen = this.seo.origenPublico();
+    const ruta = `/alojamiento/${data.id}`;
+    const descripcion = data.descripcion || this.ui.descripcion;
+
+    this.seo.aplicar(seoFichaServicio({
+      titulo: data.nombre,
+      descripcion,
+      ciudad: data.ciudad,
+      categoria: this.ui.label,
+      ruta,
+      imagen: data.imagenes[0],
+      precioDesde: data.precioPorNoche || undefined,
+      publicado: true,
+    }));
+
+    this.seo.datosEstructurados([
+      negocioLocal({
+        nombre: data.nombre,
+        descripcion,
+        url: `${origen}${ruta}`,
+        imagenes: data.imagenes.map((imagen) => (
+          /^https?:\/\//i.test(imagen) ? imagen : `${origen}${imagen.startsWith('/') ? '' : '/'}${imagen}`
+        )),
+        ciudad: data.ciudad,
+        direccion: data.direccion,
+        coordenadas: data.lat !== undefined && data.lng !== undefined
+          ? { lat: data.lat, lng: data.lng }
+          : undefined,
+        precioDesde: data.precioPorNoche || undefined,
+        valoracion: { media: data.score, total: data.numResenas },
+      }),
+      migasDePan([
+        { nombre: 'Inicio', url: `${origen}/` },
+        { nombre: this.ui.label, url: `${origen}${this.ui.route}` },
+        { nombre: data.nombre, url: `${origen}${ruta}` },
+      ]),
+    ]);
   }
 
   /** Foto del espacio con respaldo: la del espacio, si no la del alojamiento, si no un placeholder. */

@@ -25,6 +25,9 @@ import { ExperienciasCercaComponent } from '../../explora/experiencias-cerca.com
 
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { MonedaService } from '../../../core/moneda/moneda.service';
+import { SeoService } from '../../../core/seo/seo.service';
+import { seoCategoria } from '../../../core/seo/plantillas-seo';
+import { migasDePan } from '../../../core/seo/json-ld';
 /** Filtros comunes de búsqueda, tal y como llegan en la URL. */
 interface BusquedaUrl {
   ciudad?: string;
@@ -143,6 +146,7 @@ export class AlojamientoListaComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly alojamientoService = inject(AlojamientoService);
+  private readonly seo = inject(SeoService);
 
   readonly cargando = signal(true);
   readonly error = signal(false);
@@ -303,6 +307,26 @@ export class AlojamientoListaComponent implements OnInit {
   /** Búsqueda activa, leída de la URL (fuente de verdad compartida). */
   private readonly busqueda = signal<BusquedaUrl>({});
 
+  /**
+   * Título, descripción y migas propios de la categoría, con la ciudad buscada
+   * dentro cuando la hay. El copy sale de `verticales.config`, igual que en el
+   * resto de listados: este tiene componente propio, pero no copy propio.
+   */
+  private aplicarSeo(): void {
+    this.seo.aplicar(seoCategoria({
+      label: this.ui.label,
+      descripcion: this.ui.descripcion,
+      ruta: this.ui.route,
+      ciudad: this.busqueda().ciudad,
+    }));
+
+    const origen = this.seo.origenPublico();
+    this.seo.datosEstructurados([migasDePan([
+      { nombre: 'Inicio', url: `${origen}/` },
+      { nombre: this.ui.label, url: `${origen}${this.ui.route}` },
+    ])]);
+  }
+
   /** Ciudad buscada; la consume el carrusel de experiencias de la comunidad. */
   readonly busquedaCiudad = computed(() => this.busqueda().ciudad);
 
@@ -342,6 +366,8 @@ export class AlojamientoListaComponent implements OnInit {
       // usuario tenga que volver a seleccionarla en el panel lateral.
       const [primerPerro] = (params['perroIds'] ?? '').split(',').filter(Boolean);
       this.perroId.set(primerPerro ?? '');
+
+      this.aplicarSeo();
 
       // Si el usuario eligió la población en el autocompletado, ya tenemos su
       // posición: ordenar por distancia no necesita pedirle permiso al navegador.

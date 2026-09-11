@@ -7,6 +7,7 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 import { RsPhoneInputComponent } from '../../../shared/components/phone-input/rs-phone-input.component';
 import { iconoVertical } from '../../panel-comercio/vertical-icon';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { almacenLocal } from '../../../core/plataforma/almacen';
 
 const BORRADOR_KEY = 'dk_registro_comercio_borrador';
 
@@ -598,7 +599,7 @@ export class RegistroComercioComponent {
         telefono: cuenta.telefono || undefined,
         verticales: this.verticalesSel().length ? this.verticalesSel() : undefined,
       });
-      localStorage.removeItem(BORRADOR_KEY);
+      almacenLocal().removeItem(BORRADOR_KEY);
       this.hayBorrador.set(false);
       this.emailRegistrado.set(respuesta.email);
       this.pendiente.set(true);
@@ -614,7 +615,7 @@ export class RegistroComercioComponent {
          * borrador y se devuelve al paso 1: repetir el envío con lo mismo sólo
          * daría el mismo error.
          */
-        localStorage.removeItem(BORRADOR_KEY);
+        almacenLocal().removeItem(BORRADOR_KEY);
         this.hayBorrador.set(false);
         this.verticalesSel.set([]);
         this.paso.set(1);
@@ -652,7 +653,7 @@ export class RegistroComercioComponent {
    * en `localStorage` para ahorrar un campo no compensa.
    */
   private guardarBorrador(): void {
-    localStorage.setItem(BORRADOR_KEY, JSON.stringify({ verticales: this.verticalesSel() }));
+    almacenLocal().setItem(BORRADOR_KEY, JSON.stringify({ verticales: this.verticalesSel() }));
     this.hayBorrador.set(true);
   }
 
@@ -666,7 +667,7 @@ export class RegistroComercioComponent {
    * el comercio no podía relacionar con nada de lo que veía en pantalla.
    */
   private restaurarBorrador(): void {
-    const raw = localStorage.getItem(BORRADOR_KEY);
+    const raw = almacenLocal().getItem(BORRADOR_KEY);
     if (!raw) return;
     try {
       const b = JSON.parse(raw) as { verticales?: unknown };
@@ -679,17 +680,17 @@ export class RegistroComercioComponent {
       if (validas.length !== guardadas.length) {
         // Se reescribe ya: si no, el borrador caducado sobrevive a la sesión y
         // vuelve a colarse en el siguiente intento.
-        localStorage.setItem(BORRADOR_KEY, JSON.stringify({ verticales: validas }));
+        almacenLocal().setItem(BORRADOR_KEY, JSON.stringify({ verticales: validas }));
       }
       if (!validas.length) {
-        localStorage.removeItem(BORRADOR_KEY);
+        almacenLocal().removeItem(BORRADOR_KEY);
         return;
       }
 
       this.verticalesSel.set(validas);
       this.hayBorrador.set(true);
     } catch {
-      localStorage.removeItem(BORRADOR_KEY);
+      almacenLocal().removeItem(BORRADOR_KEY);
     }
   }
 }

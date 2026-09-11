@@ -78,7 +78,7 @@ Booking.com es un **marketplace de dos lados** (oferta = proveedores / demanda =
 | Backend API | **NestJS** (modular monolith) | REST + JWT; módulos por dominio y por vertical |
 | Base de datos | **MongoDB Atlas** (Mongoose) | Discriminadores para verticales; índices ESR |
 | Repositorio | **GitHub** (monorepo) | `nx` o workspace de carpetas `apps/` + `libs/` |
-| Hosting Frontend | **Coolify** (self-hosted, Docker + nginx) | Deploy automático del build de Angular |
+| Hosting Frontend | **Coolify** (self-hosted, Docker + Node) | Angular con **render de servidor** (`@angular/ssr`); el build de móvil sigue siendo estático |
 | Hosting Backend | **Coolify** (self-hosted, EC2) | Contenedor del API NestJS |
 | CI/CD | **GitHub Actions** | Lint + test + build + deploy automático |
 
@@ -269,8 +269,8 @@ comercios:    { vatNumber:1 } (unique)
 - Trigger: push a `main` que toque `apps/web/**` o `libs/shared/**`.
 - Pasos: `install → test → build (ng build)`.
 - Deploy: **webhook de Coolify** con `COOLIFY_WEBHOOK_URL_WEB` en secrets. Coolify construye
-  `apps/web/Dockerfile` (build Node + Angular, servido con nginx a partir de `apps/web/nginx.conf`)
-  y lo levanta. Ver `DEPLOY.md` §3 para la guía completa.
+  `apps/web/Dockerfile` (build Node + Angular) y arranca el servidor de render
+  (`node dist/web/server/server.mjs`, puerto 4000). Ver `DEPLOY.md` §3 para la guía completa.
 
 ### 6.2 Backend → Coolify (EC2)
 - Trigger: push a `main` que toque `apps/api/**`.

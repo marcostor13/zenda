@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DOCUMENT, computed, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter, map, startWith } from 'rxjs/operators';
@@ -121,13 +121,19 @@ export class RsNavInferiorComponent {
     () => this.movil.esNativo && !esPantallaDeFlujo(this.url()),
   );
 
+  /*
+   * `DOCUMENT` en vez del global: el efecto de abajo se ejecuta también en el
+   * render de servidor, donde no hay ningún `document` global que tocar.
+   */
+  private readonly documento = inject(DOCUMENT);
+
   constructor() {
     // El hueco que deja el contenido por debajo tiene que aparecer y
     // desaparecer con la barra. Si el relleno fuera fijo, las fichas y el
     // proceso de reserva —donde la barra no está— arrastrarían 58px de vacío
     // al final de la página.
     effect(() => {
-      document.documentElement.classList.toggle('dk-con-nav-inferior', this.visible());
+      this.documento.documentElement.classList.toggle('dk-con-nav-inferior', this.visible());
     });
   }
 

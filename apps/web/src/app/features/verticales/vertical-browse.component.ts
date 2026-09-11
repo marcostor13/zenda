@@ -24,6 +24,9 @@ import { calcularBadgesAutomaticos } from '../../shared/badges/badges-automatico
 
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { MonedaService } from '../../core/moneda/moneda.service';
+import { SeoService } from '../../core/seo/seo.service';
+import { seoCategoria } from '../../core/seo/plantillas-seo';
+import { migasDePan } from '../../core/seo/json-ld';
 /** Filtros de búsqueda vigentes, tal y como llegan en la URL. */
 interface Busqueda {
   ciudad?: string;
@@ -339,6 +342,7 @@ export class VerticalBrowseComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly browseService = inject(CatalogBrowseService);
+  private readonly seo = inject(SeoService);
 
   readonly cfg = signal<VerticalConfig>(CONFIGS['veterinaria']);
   readonly ui = signal<VerticalUi>(verticalUi(VerticalKey.VETERINARIA));
@@ -498,8 +502,32 @@ export class VerticalBrowseComponent implements OnInit {
         perros: params['perros'] || undefined,
         perroId: (params['perroIds'] ?? '').split(',').filter(Boolean)[0] || undefined,
       });
+      this.aplicarSeo();
       void this.cargar();
     });
+  }
+
+  /**
+   * Título y descripción propios de la categoría, con la ciudad buscada dentro:
+   * «Peluquería canina en Valencia» es lo que la gente escribe en Google.
+   *
+   * Se recalcula en cada cambio de la URL porque la ciudad viaja en los
+   * parámetros de búsqueda, no en la ruta.
+   */
+  private aplicarSeo(): void {
+    const ui = this.ui();
+    this.seo.aplicar(seoCategoria({
+      label: ui.label,
+      descripcion: ui.descripcion,
+      ruta: ui.route,
+      ciudad: this.busqueda().ciudad,
+    }));
+
+    const origen = this.seo.origenPublico();
+    this.seo.datosEstructurados([migasDePan([
+      { nombre: 'Inicio', url: `${origen}/` },
+      { nombre: ui.label, url: `${origen}${ui.route}` },
+    ])]);
   }
 
   /** Parámetros de la búsqueda actual, comunes a la lista y al mapa. */

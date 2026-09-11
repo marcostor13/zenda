@@ -1,8 +1,10 @@
+import { WritableSignal, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SocialButtonsComponent } from './social-buttons.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SocialSdkService } from '../../../core/auth/social-sdk.service';
 import { SocialConfigService } from '../../../core/auth/social-config.service';
+import { ConsentimientoService } from '../../../core/cookies/consentimiento.service';
 
 /** Doble de ResizeObserver: guarda el callback para dispararlo a mano. */
 class ResizeObserverFalso {
@@ -23,6 +25,13 @@ describe('SocialButtonsComponent', () => {
   let authService: jest.Mocked<AuthService>;
   let sdk: jest.Mocked<SocialSdkService>;
   let configSocial: jest.Mocked<SocialConfigService>;
+  /*
+   * El doble se apoya en una señal de verdad, no en un `jest.fn` que devuelve
+   * siempre lo mismo: el componente decide qué botón pinta con un `computed`, y
+   * un valor que no es reactivo se quedaría cacheado para siempre.
+   */
+  let consentido: WritableSignal<boolean>;
+  let consentimiento: { permite: () => boolean; decision: () => unknown; guardar: jest.Mock };
 
   beforeEach(async () => {
     authService = {
@@ -43,12 +52,26 @@ describe('SocialButtonsComponent', () => {
       cargar: jest.fn().mockResolvedValue({ googleClientId: 'client-api', facebookAppId: 'app-api' }),
     } as unknown as jest.Mocked<SocialConfigService>;
 
+    /*
+     * Consentimiento ya dado: es el camino que ejercitan casi todas las pruebas,
+     * y el único en el que Google llega a dibujar su propio botón. El caso
+     * contrario —el script no se descarga hasta que el visitante lo pide— tiene
+     * su propio bloque más abajo.
+     */
+    consentido = signal(true);
+    consentimiento = {
+      permite: () => consentido(),
+      decision: () => ({ preferencias: consentido(), analitica: false, marketing: false }),
+      guardar: jest.fn(() => consentido.set(true)),
+    };
+
     await TestBed.configureTestingModule({
       imports: [SocialButtonsComponent],
       providers: [
         { provide: AuthService, useValue: authService },
         { provide: SocialSdkService, useValue: sdk },
         { provide: SocialConfigService, useValue: configSocial },
+        { provide: ConsentimientoService, useValue: consentimiento },
       ],
     }).compileComponents();
 
@@ -288,6 +311,66 @@ describe('SocialButtonsComponent', () => {
 
     expect(component.error()).toContain('No se pudo iniciar sesión con Meta');
   });
+
+  /**
+   * Los SDK de Google y Meta ponen cookies suyas en cuanto se cargan, así que no
+   * pueden descargarse antes de que el visitante lo pida. Pulsar el botón **es**
+   * esa petición, y el aviso de debajo dice qué implica antes de pulsarlo.
+   */
+  describe('sin consentimiento de cookies', () => {
+    let fixture: ComponentFixture<SocialButtonsComponent>;
+
+    const html = () => fixture.nativeElement as HTMLElement;
+
+    beforeEach(async () => {
+      consentido.set(false);
+      sdk.renderizarBotonGoogle.mockResolvedValue(jest.fn());
+
+      fixture = TestBed.createComponent(SocialButtonsComponent);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    });
+
+    it('no debería descargar el SDK de Google al abrir la pantalla', () => {
+      expect(sdk.renderizarBotonGoogle).not.toHaveBeenCalled();
+    });
+
+    it('debería pintar un botón propio en lugar del de Google', () => {
+      expect(html().querySelector('.sb__google-nativo')).not.toBeNull();
+      expect(html().querySelector('.sb__google')).toBeNull();
+    });
+
+    it('debería avisar de lo que implica continuar', () => {
+      expect(html().querySelector('.sb__aviso')?.textContent)
+        .toContain('cookies propias');
+    });
+
+    /** Pulsar anota el consentimiento y, con él, carga y dibuja el botón real. */
+    it('debería cargar el SDK al pulsar', async () => {
+      await component['pulsarGoogle']();
+
+      expect(consentimiento.guardar).toHaveBeenCalled();
+      expect(sdk.renderizarBotonGoogle).toHaveBeenCalled();
+    });
+
+    it('debería guardar el consentimiento cuando todavía no lo había', async () => {
+      await component['pulsarGoogle']();
+
+      expect(consentimiento.guardar).toHaveBeenCalledWith(
+        expect.objectContaining({ preferencias: true }),
+      );
+    });
+
+    it('no debería tocar el resto de familias de cookies al consentir', async () => {
+      await component['pulsarGoogle']();
+
+      expect(consentimiento.guardar).toHaveBeenCalledWith(
+        expect.objectContaining({ analitica: false, marketing: false }),
+      );
+    });
+  });
 });
 
 describe('SocialButtonsComponent dentro de la app', () => {
@@ -369,4 +452,5 @@ describe('SocialButtonsComponent dentro de la app', () => {
 
     expect(fixture.componentInstance.error()).toBeTruthy();
   });
+
 });

@@ -15,7 +15,7 @@ GitHub (monorepo)
 │
 └── push a main (apps/web/** o libs/shared/**)
     └── GitHub Actions → tests + build → webhook Coolify (Web)
-                                              └── Coolify builds Docker (nginx) → despliega Angular SPA
+                                              └── Coolify builds Docker → despliega Angular con render de servidor
 ```
 
 Ambas apps son **recursos Docker separados** dentro de la misma instancia de Coolify
@@ -203,8 +203,18 @@ Desde Coolify, haz clic en **Deploy** para verificar que el Docker build funcion
 ## 3. Frontend en Coolify
 
 El frontend Angular se sirve como un **Docker build multi-stage**: `apps/web/Dockerfile`
-instala con **Bun** (`bun install --frozen-lockfile`), compila la SPA con Node y la sirve con **nginx** (`apps/web/nginx.conf`), que además resuelve
-el ruteo de Angular Router (fallback a `index.html` en cualquier ruta que no sea un archivo real).
+instala con **Bun** (`bun install --frozen-lockfile`), compila con Node y arranca el
+**servidor de render de Angular** (`apps/web/src/server.ts`, sobre Express) con
+`node dist/web/server/server.mjs`.
+
+> **Desde septiembre de 2026 la web se renderiza en el servidor (SSR), no es ya una SPA
+> servida por nginx.** El motivo es concreto: los rastreadores de WhatsApp, Facebook,
+> LinkedIn y X no ejecutan JavaScript, así que con la SPA compartir la ficha de una
+> residencia enseñaba el título y la descripción genéricos de la portada, y cualquier
+> dirección inventada devolvía un **200** con la portada dentro en lugar de un 404.
+> Lo que hacía `nginx.conf` —cabeceras de caché, `env.js` sin guardar, el reparto de
+> estáticos, el fallback de rutas— lo hace ahora `server.ts`, y el fichero se ha
+> eliminado.
 
 ### 3.1 Crear un nuevo Resource en Coolify
 
@@ -221,8 +231,8 @@ En la pestaña **Build**:
 | Build Pack | **Dockerfile** |
 | Dockerfile location | `apps/web/Dockerfile` |
 | Docker build context | `/` (raíz del repo — necesario para incluir `libs/shared`) |
-| Port expuesto (contenedor) | `80` |
-| Ports Mapping (host) | `8085:80` — ver §3.4, es el puerto que espera el Cloudflare Tunnel |
+| Port expuesto (contenedor) | `4000` — el de `server.ts`, antes era el 80 de nginx |
+| Ports Mapping (host) | `8085:4000` — ver §3.4, es el puerto que espera el Cloudflare Tunnel |
 
 > Igual que la API: el Dockerfile vive en `apps/web/` pero el build context debe ser la raíz
 > `/` para que Docker pueda copiar `libs/shared/`.
@@ -230,10 +240,15 @@ En la pestaña **Build**:
 ### 3.3 Variables de entorno
 
 El frontend se configura **en runtime** con variables del servicio en Coolify. Al arrancar, el
-contenedor ejecuta `apps/web/docker-entrypoint.sh`, que escribe `/usr/share/nginx/html/env.js`
-con todas las variables que empiecen por `WEB_`; `index.html` lo carga antes del bundle. Cambiar
-una variable es **reiniciar el servicio**, no reconstruir la imagen. Lo escrito en
-`environment.prod.ts` queda sólo como respaldo si la variable no está declarada.
+contenedor ejecuta `apps/web/docker-entrypoint.sh`, que escribe
+`/app/dist/web/browser/env.js` con todas las variables que empiecen por `WEB_`;
+`index.html` lo carga antes del bundle. Cambiar una variable es **reiniciar el
+servicio**, no reconstruir la imagen. Lo escrito en `environment.prod.ts` queda sólo
+como respaldo si la variable no está declarada.
+
+El render de servidor **no lee ese fichero**: toma las mismas variables de
+`process.env` directamente (`apps/web/src/entorno-servidor.ts`). Así el HTML que se
+genera en el servidor y el que se hidrata en el navegador hablan con el mismo API.
 
 | Variable | Para qué |
 |---|---|
@@ -242,9 +257,11 @@ una variable es **reiniciar el servicio**, no reconstruir la imagen. Lo escrito 
 | `WEB_UNDER_CONSTRUCTION_KEY` | Clave del acceso anticipado (`?acceso=…`) |
 | `WEB_STRIPE_PUBLIC_KEY` | Clave **publicable** de Stripe (`pk_live_…`) |
 | `WEB_GOOGLE_CLIENT_ID` · `WEB_FACEBOOK_APP_ID` | Respaldo del login social. Normalmente **no hacen falta**: el frontend pide los identificadores al API (`GET /auth/social/config`), que es lo que impide que los dos lados se configuren distinto. Sólo se usan si el API no responde. |
+| `WEB_HOSTS_PERMITIDOS` | **Obligatoria con SSR.** Dominios desde los que se acepta servir la web, separados por comas: `doogking.com,www.doogking.com`. Angular rechaza cualquier `Host` que no reconozca, y es la defensa contra el envenenamiento de cabecera: sin ella, un atacante pide la página con su propio `Host` y consigue que el canonical y las etiquetas `og:` del HTML apunten a su dominio. `localhost` y `127.0.0.1` van siempre incluidos. |
+| `PORT` | Puerto del servidor de render. Por defecto `4000`, que es lo que declara la imagen; sólo se toca si Coolify necesita otro. |
 
-> ⚠️ **Nada de esto es secreto.** La web es una SPA: el navegador se descarga `env.js` y
-> cualquiera puede leerlo. Sirve para no tener los valores escritos en el repositorio y para
+> ⚠️ **Nada de esto es secreto.** El navegador se descarga `env.js` y cualquiera puede
+> leerlo. Sirve para no tener los valores escritos en el repositorio y para
 > cambiarlos por entorno, **no** para ocultarlos.
 >
 > El prefijo `WEB_` es la barrera: una variable sin él nunca llega al navegador. Por eso
@@ -286,10 +303,16 @@ responda en ese puerto.
 ### 3.6 Primer deploy manual
 
 Desde Coolify, haz clic en **Deploy** para verificar que el Docker build (Node → Angular →
-nginx) funciona antes de conectar GitHub Actions. Verifica que al abrir la URL:
+servidor de render) funciona antes de conectar GitHub Actions. Verifica que al abrir la URL:
 - Cargue el home.
-- Navegar a una ruta interna (ej. `/perfil`) y refrescar la página **no** dé 404 (confirma que
-  `nginx.conf` está resolviendo el fallback a `index.html`).
+- Navegar a una ruta interna (ej. `/perfil`) y refrescar la página **no** dé 404.
+- `curl -s https://doogking.com/alojamiento | grep '<title>'` devuelva el título **de la
+  categoría**, no el de la portada: es lo que prueba que el SSR está funcionando y no se
+  está sirviendo el HTML de arranque.
+- `curl -o /dev/null -w '%{http_code}' https://doogking.com/ruta-inventada` devuelva
+  **404**, no 200.
+- `https://doogking.com/robots.txt` y `https://doogking.com/sitemap.xml` respondan con
+  contenido (el segundo lo genera el API; si el API está caído, devuelve 404).
 
 ---
 
@@ -379,7 +402,7 @@ Developer → git push origin main
 │
 └── Cambios en apps/web/** o libs/shared/**
     ├── GitHub Actions: bun run test:web + bun run build:web
-    └── Si pasan: POST webhook → Coolify redeploy Web (Docker: Node build + nginx)
+    └── Si pasan: POST webhook → Coolify redeploy Web (Docker: Node build + servidor de render)
 ```
 
 **Pull Requests:** el workflow corre igualmente (sin el paso de deploy) para validar que los tests y el build pasan antes de mergear a `main`.
@@ -402,9 +425,28 @@ Developer → git push origin main
 
 ### Angular Router devuelve 404 al refrescar (frontend en Coolify)
 
-- Revisa `apps/web/nginx.conf` — la directiva `try_files $uri $uri/ /index.html;` dentro de
-  `location /` es la que resuelve el fallback. Si la editaste, confirma que sigue ahí.
-- Verifica que el Dockerfile copie `nginx.conf` a `/etc/nginx/conf.d/default.conf` (no a otra ruta).
+Con el render de servidor, una ruta real nunca debería dar 404: el motor de Angular la
+resuelve y sólo devuelve 404 si tampoco existe para el router.
+
+- Si **todas** las rutas dan 404, el contenedor no está sirviendo desde el servidor de
+  render: comprueba que el `CMD` sea `node dist/web/server/server.mjs` y que el puerto
+  publicado sea el `4000` de la imagen, no el 80 de la antigua imagen de nginx.
+- Si el 404 es de una ruta concreta que sí existe, mírala en `apps/web/src/app/app.routes.ts`
+  y en `app.routes.server.ts`: una ruta declarada en el servidor que no case con ninguna del
+  router hace fallar el propio build con un mensaje explícito.
+
+### La web responde 400 «Host no permitido»
+
+Falta el dominio en `WEB_HOSTS_PERMITIDOS` (§3.3). Angular rechaza cualquier `Host` que no
+reconozca. Si hay un proxy por delante, el dominio que llega es el de `X-Forwarded-Host`.
+
+### Las vistas previas al compartir salen genéricas
+
+- Comprueba con `curl -s https://doogking.com/alojamiento | grep 'og:title'` que la etiqueta
+  ya viene **en el HTML**, no puesta después por JavaScript: los rastreadores de WhatsApp y
+  Facebook no ejecutan JavaScript.
+- Si el HTML la trae bien pero la vista previa sigue vieja, es la caché del rastreador:
+  Facebook la refresca desde su depurador de enlaces, WhatsApp tarda unas horas.
 
 ### El webhook de Coolify no dispara el deploy
 

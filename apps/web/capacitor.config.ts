@@ -8,14 +8,20 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * usuarios pierden la suya. Se fija aquí a propósito, no se deja al azar del
  * scaffolding.
  *
- * `webDir` apunta al build de Angular. Con el `application builder` de Angular
- * 17+ los ficheros del navegador quedan bajo `browser/`, no en la raíz de
- * `dist`, y apuntar a `dist/web` daría una app en blanco.
+ * `webDir` apunta al build **de móvil**, no al de la web.
+ *
+ * Desde que la web se renderiza en servidor, `ng build` deja en `dist/web` un
+ * `index.csr.html` y un servidor de Node: la app no tiene ningún Node dentro,
+ * así que empaquetar eso daría una pantalla en blanco. La configuración `movil`
+ * hace un build estático clásico y deja el `index.html` de siempre.
+ *
+ * Con el `application builder` de Angular 17+ los ficheros del navegador quedan
+ * bajo `browser/`, no en la raíz de `dist`.
  */
 const config: CapacitorConfig = {
   appId: 'com.doogking.app',
   appName: 'Doogking',
-  webDir: 'dist/web/browser',
+  webDir: 'dist/web-movil/browser',
 
   /*
    * La app carga desde el propio paquete, no de un servidor. Se declara

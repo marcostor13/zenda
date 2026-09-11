@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { PaymentsService } from './payments.service';
+import { almacenSesion } from '../../../core/plataforma/almacen';
 
 const CLAVE = 'doogking_pago_en_curso';
 
@@ -24,7 +25,7 @@ export class PagoEnCursoService {
   /** Deja anotado el pago justo antes de confirmar con la pasarela. */
   anotar(pagoId: string): void {
     try {
-      sessionStorage.setItem(CLAVE, pagoId);
+      almacenSesion().setItem(CLAVE, pagoId);
     } catch {
       // Navegación privada o almacenamiento lleno: el pago sigue su curso y el
       // webhook confirma igual, sólo que sin el atajo.
@@ -33,7 +34,7 @@ export class PagoEnCursoService {
 
   olvidar(): void {
     try {
-      sessionStorage.removeItem(CLAVE);
+      almacenSesion().removeItem(CLAVE);
     } catch {
       // Nada que hacer: el apunte caduca solo al cerrar la pestaña.
     }
@@ -41,7 +42,7 @@ export class PagoEnCursoService {
 
   pendiente(): string | null {
     try {
-      return sessionStorage.getItem(CLAVE);
+      return almacenSesion().getItem(CLAVE);
     } catch {
       return null;
     }

@@ -775,9 +775,12 @@ export class RsListadoComponent {
    * obligar a recorrer otra vez el buscador.
    */
   volverArribaDeLaLista(): void {
+    // `defaultView` es null en el render de servidor: allí no hay scroll que mover.
+    const ventana = this.document.defaultView;
     const barra = (this.document.querySelector('.ls__toolbar') as HTMLElement | null);
-    if (!barra) return;
-    const y = barra.getBoundingClientRect().top + this.document.defaultView!.scrollY - 64;
-    this.document.defaultView?.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+    if (!barra || !ventana) return;
+
+    const y = barra.getBoundingClientRect().top + ventana.scrollY - 64;
+    ventana.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
   }
 }

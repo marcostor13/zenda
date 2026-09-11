@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TIPO_LUGAR_LABELS, TipoLugar, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -10,6 +10,9 @@ import { fotoDeLugar } from '../../shared/media/images';
 import { rutaDeVertical } from '../../shared/verticales/verticales.config';
 import { LugarApi, LugarReviewApi, LugaresService } from './lugares.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { SeoService } from '../../core/seo/seo.service';
+import { seoLugar, seoPrivada } from '../../core/seo/plantillas-seo';
+import { lugar as lugarJsonLd, migasDePan } from '../../core/seo/json-ld';
 
 /**
  * Atributos de uso interno que nunca se pintan.
@@ -90,12 +93,18 @@ const ATRIBUTO_LABELS: Record<string, string> = {
       @if (lugar()!.fotos.length) {
         <div class="ed-fotos">
           @for (f of lugar()!.fotos.slice(0, 4); track f) {
-            <img [src]="f" [alt]="lugar()!.nombre" loading="lazy" rsImg />
+            <img [src]="f" [alt]="textoAlternativo()" loading="lazy" rsImg />
           }
         </div>
       } @else {
         <figure class="ed-fotos ed-fotos--ambiente">
-          <img [src]="fotoAmbiente()" [alt]="" aria-hidden="true" loading="lazy" rsImg />
+          <!--
+            Decorativa a propósito, con alt vacío y aria-hidden. No es una foto
+            de este sitio sino de banco, y el pie que va debajo ya lo dice en
+            voz alta: describirla como si fuera del lugar engañaría a quien usa
+            un lector de pantalla.
+          -->
+          <img [src]="fotoAmbiente()" alt="" aria-hidden="true" loading="lazy" rsImg />
           <figcaption>
             {{ 'Imagen de ambiente. ¿Has estado aquí? Sube tu foto y ayuda a los demás.' | t }}
           </figcaption>
@@ -261,7 +270,9 @@ const ATRIBUTO_LABELS: Record<string, string> = {
 })
 export class ExploraDetalleComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly lugaresService = inject(LugaresService);
+  private readonly seo = inject(SeoService);
 
   readonly lugar = signal<LugarApi | null>(null);
 
@@ -309,11 +320,92 @@ export class ExploraDetalleComponent implements OnInit {
       ]);
       this.lugar.set(lugar);
       this.reviews.set(reviews);
+      this.aplicarSeo(lugar);
+      this.corregirUrl(id, lugar);
     } catch {
       this.lugar.set(null);
+      this.seo.aplicar(seoPrivada('Sitio no encontrado',
+        'Este sitio ya no está publicado en Doogking.'));
+      this.seo.noEncontrado();
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /**
+   * Texto alternativo de las fotos del sitio: nombre y dónde está.
+   *
+   * «Río Júcar» a secas no sitúa nada; «Río Júcar, Riola, Valencia» sí, y es lo
+   * que oye quien navega con lector de pantalla y lo que se lee si la imagen no
+   * llega a cargar.
+   */
+  readonly textoAlternativo = computed(() => {
+    const ficha = this.lugar();
+    if (!ficha) return '';
+
+    const donde = [ficha.ubicacion.ciudad, ficha.ubicacion.provincia].filter(Boolean).join(', ');
+    return donde ? `${ficha.nombre}, ${donde}` : ficha.nombre;
+  });
+
+  /**
+   * Lleva la barra de direcciones a la dirección legible.
+   *
+   * Los enlaces por id siguen circulando en marcadores, mensajes y en el índice
+   * de Google, y se aceptan para siempre. Lo que no puede quedarse es la
+   * dirección fea en pantalla: se sustituye **sin añadir entrada al historial**,
+   * para que el botón «atrás» siga volviendo al listado y no a esta misma ficha.
+   *
+   * El canonical ya apunta al slug (`aplicarSeo`), así que para Google las dos
+   * direcciones son la misma página y no hay contenido duplicado.
+   */
+  private corregirUrl(pedido: string, ficha: LugarApi): void {
+    if (!ficha.slug || pedido === ficha.slug) return;
+
+    void this.router.navigate(['/explora', ficha.slug], {
+      replaceUrl: true,
+      queryParamsHandling: 'preserve',
+    });
+  }
+
+  /**
+   * Las fichas de Explora son contenido editorial: es lo que trae tráfico de
+   * Google y lo que la gente comparte en grupos de dueños de perros. Sin foto
+   * ni descripción propias salían todas con la vista previa de la portada.
+   */
+  private aplicarSeo(ficha: LugarApi): void {
+    const origen = this.seo.origenPublico();
+    // La canónica siempre con la dirección legible: es la que debe indexarse.
+    const ruta = `/explora/${ficha.slug || ficha._id}`;
+
+    this.seo.aplicar(seoLugar({
+      nombre: ficha.nombre,
+      descripcion: ficha.descripcion,
+      municipio: ficha.ubicacion.ciudad,
+      provincia: ficha.ubicacion.provincia,
+      ruta,
+      // Sólo la foto real: la de ambiente es de banco y repetida entre fichas,
+      // así que como vista previa dice menos que la imagen de la marca.
+      imagen: ficha.fotos[0],
+    }));
+
+    const coordenadas = ficha.ubicacion.geo?.coordinates;
+    this.seo.datosEstructurados([
+      lugarJsonLd({
+        nombre: ficha.nombre,
+        descripcion: ficha.descripcion,
+        url: `${origen}${ruta}`,
+        imagenes: ficha.fotos,
+        municipio: ficha.ubicacion.ciudad,
+        provincia: ficha.ubicacion.provincia,
+        // GeoJSON guarda [longitud, latitud]; schema.org las quiere al revés.
+        coordenadas: coordenadas ? { lat: coordenadas[1], lng: coordenadas[0] } : undefined,
+      }),
+      migasDePan([
+        { nombre: 'Inicio', url: `${origen}/` },
+        { nombre: 'Explora', url: `${origen}/explora` },
+        { nombre: ficha.nombre, url: `${origen}${ruta}` },
+      ]),
+    ]);
   }
 
   etiquetaTipo(): string {

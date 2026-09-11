@@ -71,6 +71,30 @@ export interface BusquedaParams {
   }
 
   <form class="sb__form" [formGroup]="formulario" (ngSubmit)="buscar()">
+    @if (pedirCategoria()) {
+      <!--
+        El servicio va primero, antes que la ubicación y las fechas.
+        Antes el buscador de la portada arrancaba en alojamiento, así que a
+        quien venía a por un veterinario se le pedían fecha de ingreso y de
+        salida de una residencia. Hasta que no se elige categoría no se sabe
+        qué preguntar, así que no se pregunta nada más.
+      -->
+      <div class="sb__field sb__field--que">
+        <label class="sb__lbl" [attr.for]="idVertical">{{ '¿Qué servicio necesitas?' | t }}</label>
+        <div class="sb__ctrl">
+          <rs-icon name="search" [size]="18" [stroke]="2"></rs-icon>
+          <select [id]="idVertical" class="sb__inp sb__select"
+                  [value]="seleccion() ?? ''"
+                  (change)="elegirDelDesplegable($event)">
+            <option value="" disabled>{{ 'Elige una categoría' | t }}</option>
+            @for (v of verticales; track v.key) {
+              <option [value]="v.key">{{ v.labelCorto | t }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    }
+
     <div class="sb__field sb__field--where">
       <label class="sb__lbl" [attr.for]="idCiudad">{{ activo().labelUbicacion | t }}</label>
       <rs-place-autocomplete formControlName="ciudad"
@@ -80,6 +104,7 @@ export interface BusquedaParams {
                              (confirmado)="buscar()" />
     </div>
 
+    @if (categoriaResuelta()) {
     <div class="sb__field sb__field--fechas">
       <label class="sb__lbl" [attr.for]="idDesde">{{ activo().labelFecha | t }}</label>
       <button type="button" [id]="idDesde" class="sb__ctrl sb__fecha"
@@ -148,14 +173,17 @@ export interface BusquedaParams {
     }
 
     <div class="sb__field sb__field--pets">
-      <span class="sb__lbl">{{ '¿Para qué mascota?' | t }}</span>
-      <rs-pet-picker [(perroIds)]="perroIds" [(numPerros)]="numPerros" />
+      <span class="sb__lbl">{{ (activo().labelMascota ?? '¿Para qué mascota?') | t }}</span>
+      <rs-pet-picker [(perroIds)]="perroIds" [(numPerros)]="numPerros"
+                     [sinContador]="!!activo().mascotaSinContador" />
     </div>
+    }
 
     <!-- El botón solo vive en el home: sobre un listado cualquier cambio ya
          relanza la búsqueda, así que un "Buscar" aparte sería un paso de más. -->
     @if (variant() === 'card') {
-      <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg sb__cta">
+      <button type="submit" class="rs-btn rs-btn--gold rs-btn--lg sb__cta"
+              [disabled]="!categoriaResuelta()">
         <rs-icon name="search" [size]="21" [stroke]="2.5"></rs-icon>
         <span>{{ 'Buscar' | t }}</span>
       </button>
@@ -270,6 +298,11 @@ export interface BusquedaParams {
     .sb__form > :last-child  { border-radius: 0 calc(var(--r-lg) - 3px) calc(var(--r-lg) - 3px) 0; }
     .sb__form > :first-child:last-child { border-radius: calc(var(--r-lg) - 3px); }
 
+    /*
+     * El servicio va primero y ocupa como la ubicación: es la pregunta que
+     * ordena todas las demás, no un filtro secundario.
+     */
+    .sb__field--que   { flex: 1.4 1 220px; }
     .sb__field--where { flex: 2 1 240px; }
     .sb__field--pets  { flex: 1.1 1 190px; }
     .sb__field--hora  { flex: .7 1 120px; }
@@ -420,6 +453,13 @@ export interface BusquedaParams {
 
     .sb__inp--select { cursor: pointer; }
 
+    /* Quita el estilo nativo del select para que se lea como el resto de campos. */
+    .sb__select {
+      cursor: pointer;
+      appearance: none;
+      font-weight: var(--w-6);
+    }
+
     .sb__cta {
       flex: 0 0 auto;
       min-width: 170px;
@@ -484,6 +524,13 @@ export class RsSearchBarComponent {
 
   /** Categoría inicial del buscador. */
   readonly vertical = input<string>(VerticalKey.ALOJAMIENTO);
+  /**
+   * Pregunta la categoría antes que nada y no asume ninguna.
+   *
+   * Lo usa la portada, donde el visitante todavía no ha dicho a qué viene. En
+   * un listado no hace falta: estar en `/veterinaria` ya es haberlo dicho.
+   */
+  readonly pedirCategoria = input(false);
   /** `card` en el home (tarjeta flotante), `strip` sobre los listados. */
   readonly variant = input<'card' | 'strip'>('card');
   /**
@@ -505,6 +552,7 @@ export class RsSearchBarComponent {
   readonly idDesde = 'sb-desde';
   readonly idHasta = 'sb-hasta';
   readonly idHora = 'sb-hora';
+  readonly idVertical = 'sb-vertical';
 
   /** Mascotas de la reserva: viven fuera del formulario porque el selector es un componente propio. */
   readonly perroIds = signal<string[]>([]);
@@ -514,9 +562,15 @@ export class RsSearchBarComponent {
   private readonly coordenadas = signal<{ lat: number; lng: number } | null>(null);
 
   /** Categoría elegida por el usuario; si no ha tocado nada, manda el input. */
-  private readonly seleccion = signal<string | null>(null);
+  readonly seleccion = signal<string | null>(null);
 
   readonly activo = computed<VerticalUi>(() => verticalUi(this.seleccion() ?? this.vertical()));
+
+  /**
+   * `true` cuando ya se sabe de qué categoría se está hablando: siempre, salvo
+   * en la portada mientras el visitante no haya elegido una.
+   */
+  readonly categoriaResuelta = computed(() => !this.pedirCategoria() || this.seleccion() !== null);
 
   readonly formulario = this.fb.nonNullable.group({
     ciudad: [''],
@@ -642,6 +696,22 @@ export class RsSearchBarComponent {
     this.cerrarCalendario();
   }
 
+  /**
+   * Elegir categoría en el desplegable de la portada.
+   *
+   * A diferencia de pulsar una pastilla, aquí **no** se busca al momento: el
+   * visitante acaba de decir a qué viene y todavía no ha dicho ni dónde ni
+   * cuándo. Saltar al listado en ese instante le quitaría el buscador de
+   * delante justo cuando iba a rellenarlo.
+   */
+  elegirDelDesplegable(evento: Event): void {
+    const key = (evento.target as HTMLSelectElement).value;
+    if (!key) return;
+
+    this.seleccion.set(key);
+    this.cerrarCalendario();
+  }
+
   seleccionarVertical(key: string): void {
     this.seleccion.set(key);
     this.cerrarCalendario();
@@ -652,6 +722,11 @@ export class RsSearchBarComponent {
 
   /** Enter en cualquier campo confirma la búsqueda, también sin botón. */
   buscar(): void {
+    // En la portada, sin categoría no hay listado al que ir: el `submit` del
+    // navegador llega igual aunque el botón esté deshabilitado (Enter en un
+    // campo), así que la comprobación va aquí y no sólo en la plantilla.
+    if (!this.categoriaResuelta()) return;
+
     const params = this.valores();
     // Arranca el cronómetro del embudo: es el punto donde empieza a contar
     // la meta de reservar en menos de 30 segundos (T4).

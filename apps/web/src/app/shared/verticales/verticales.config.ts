@@ -54,6 +54,20 @@ export interface VerticalUi {
   readonly placeholderUbicacion: string;
   readonly labelFecha: string;
   /**
+   * Cómo se pregunta por la mascota en el buscador. Por defecto «¿Para qué
+   * mascota?», que sirve para reservar una peluquería o una residencia.
+   */
+  readonly labelMascota?: string;
+  /**
+   * `true` esconde el contador de perros y deja elegir una sola mascota.
+   *
+   * Existe por los servicios funerarios: un contador con botones «−» y «+» para
+   * decidir cuántos perros lleva el servicio es el tono de un carrito de la
+   * compra, y ahí se está despidiendo a un animal. La auditoría de septiembre lo
+   * señaló como el punto donde la categoría se salía del tono del resto.
+   */
+  readonly mascotaSinContador?: boolean;
+  /**
    * true = la categoría existe (ruta, fichas, panel de comercio) pero no se
    * anuncia todavía en la navegación pública. Se retira del escaparate sin
    * borrar el vertical ni romper los enlaces de quien ya la tenga guardada.
@@ -235,6 +249,8 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelUbicacion: '¿Dónde necesitas el servicio?',
     placeholderUbicacion: 'Ciudad, zona o dirección',
     labelFecha: '¿Cuándo lo necesitas?',
+    labelMascota: '¿Para qué mascota necesitas el servicio?',
+    mascotaSinContador: true,
     reclamo: {
       titulo: 'Acompañamiento en el peor momento',
       texto: 'Empresas verificadas que recogen, informan y entregan con respeto, y te dicen el precio cerrado antes de contratar.',

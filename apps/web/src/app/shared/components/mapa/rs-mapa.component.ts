@@ -3,6 +3,7 @@ import {
   effect, inject, input, output, viewChild,
 } from '@angular/core';
 import { GeoService } from '../../../core/geo/geo.service';
+import { ConsentimientoService } from '../../../core/cookies/consentimiento.service';
 import { crearMotorGoogle } from './motores/motor-google';
 import { crearMotorLeaflet } from './motores/motor-leaflet';
 import {
@@ -169,6 +170,7 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
 
   private readonly lienzo = viewChild.required<ElementRef<HTMLElement>>('lienzo');
   private readonly geoService = inject(GeoService);
+  private readonly consentimiento = inject(ConsentimientoService);
 
   private motor: MotorMapa | null = null;
   private temporizadorMovimiento: ReturnType<typeof setTimeout> | null = null;
@@ -259,7 +261,16 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
       alPulsarMapa: (lat: number, lng: number): void => this.mapaPulsado.emit({ lat, lng }),
     };
 
-    const clave = await this.geoService.claveMapas().catch(() => '');
+    /*
+     * Google Maps pone cookies de terceros en cuanto se carga, así que necesita
+     * consentimiento. Sin él no se deja al visitante sin mapa: se usa el motor
+     * de OpenStreetMap, que sirve las teselas sin cookies. El mapa se ve y se
+     * usa igual; lo que cambia es el proveedor.
+     */
+    const clave = this.consentimiento.permite('preferencias')
+      ? await this.geoService.claveMapas().catch(() => '')
+      : '';
+
     if (clave && !this.destruido) {
       try {
         return await crearMotorGoogle(clave, opciones, escuchas);

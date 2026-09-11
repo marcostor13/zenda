@@ -261,10 +261,25 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
 });
 
 describe('RsNavbarComponent (cuentas profesionales)', () => {
-  const crearComo = async (rol: 'comercio' | 'admin'): Promise<ComponentFixture<RsNavbarComponent>> => {
+  // Al router de pruebas hay que darle rutas que casen, si no `navigateByUrl`
+  // falla y la señal de URL de la barra nunca cambia.
+  @Component({ standalone: true, template: '' })
+  class DestinoProfesional {}
+
+  /**
+   * `ruta` decide si la barra se pinta dentro de un panel o en la web pública,
+   * que es de lo que depende la tira de categorías. Por defecto, la portada.
+   */
+  const crearComo = async (
+    rol: 'comercio' | 'admin',
+    ruta = '/',
+  ): Promise<ComponentFixture<RsNavbarComponent>> => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      imports: [RsNavbarComponent, RouterTestingModule],
+      imports: [
+        RsNavbarComponent,
+        RouterTestingModule.withRoutes([{ path: '**', component: DestinoProfesional }]),
+      ],
       providers: [
         provideHttpClient(), provideHttpClientTesting(),
         {
@@ -291,6 +306,10 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
       ],
     }).compileComponents();
 
+    // La barra lee la ruta actual del Router, así que hay que situarla antes de
+    // crear el componente: la señal arranca con `router.url`.
+    await TestBed.inject(Router).navigateByUrl(ruta);
+
     const fixture = TestBed.createComponent(RsNavbarComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -298,12 +317,33 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
     return fixture;
   };
 
-  // Un comercio o un administrador gestiona su panel; las categorías de
-  // servicio son navegación de cliente y sólo le ensucian la barra.
+  /*
+   * La tira de categorías depende de **dónde** se está, no de quién mira.
+   *
+   * Antes dependía del rol, y eso dejaba a las cuentas de administrador y de
+   * comercio sin menú de categorías en toda la web pública: no podían pasar de
+   * veterinarios a peluquerías sin volver a la portada. Fue además lo que hizo
+   * que la auditoría de septiembre de 2026 concluyera que la cabecera no tenía
+   * menú de categorías, porque el revisor entró como administrador (SEO-11).
+   */
   it.each(['comercio', 'admin'] as const)(
-    'no debería mostrar las categorías de servicio a un %s',
+    'debería mostrar las categorías a un %s que navega por la web pública',
     async (rol) => {
       const fixture = await crearComo(rol);
+      const el: HTMLElement = fixture.nativeElement;
+
+      expect(fixture.componentInstance.muestraCategorias()).toBe(true);
+      expect(el.querySelector('.rs-navbar__cats')).not.toBeNull();
+    },
+  );
+
+  it.each([
+    ['comercio', '/comercio/listados'],
+    ['admin', '/admin/comercios'],
+  ] as const)(
+    'no debería mostrar las categorías a un %s dentro de su panel',
+    async (rol, ruta) => {
+      const fixture = await crearComo(rol, ruta);
       const el: HTMLElement = fixture.nativeElement;
 
       expect(fixture.componentInstance.muestraCategorias()).toBe(false);
@@ -321,10 +361,13 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
     },
   );
 
-  it.each(['comercio', 'admin'] as const)(
-    'no debería mostrar las categorías en el menú móvil a un %s',
-    async (rol) => {
-      const fixture = await crearComo(rol);
+  it.each([
+    ['comercio', '/comercio/listados'],
+    ['admin', '/admin/comercios'],
+  ] as const)(
+    'no debería mostrar las categorías en el menú móvil a un %s dentro de su panel',
+    async (rol, ruta) => {
+      const fixture = await crearComo(rol, ruta);
       fixture.componentInstance.menuAbierto.set(true);
       fixture.detectChanges();
       const el: HTMLElement = fixture.nativeElement;

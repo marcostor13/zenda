@@ -1,500 +1,82 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostBinding, computed, inject, input } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DIBUJOS_ICONO } from './iconos';
 
+/**
+ * Icono de trazo del sistema de diseño.
+ *
+ * El dibujo se busca en `DIBUJOS_ICONO` y se inserta de una vez, en lugar del
+ * `@switch` de 105 ramas que había antes. El motivo es medible: Angular crea un
+ * nodo comentario de anclaje por cada rama de un bloque de control, así que cada
+ * icono pintado dejaba casi cien `<!---->` en el HTML. La portada llegaba a
+ * 5.114 comentarios vacíos —unos 36 KB que no dibujan nada— y fue el hallazgo
+ * SEO-13 de la auditoría de septiembre de 2026.
+ *
+ * El `<svg>` entero se compone como texto y se inserta en el propio anfitrión.
+ * No vale poner el `innerHTML` **dentro** de un `<svg>` de la plantilla: el DOM
+ * que usa el render de servidor no lo implementa para elementos SVG y los
+ * iconos salían vacíos justo en el HTML que ven los buscadores.
+ *
+ * La API del componente (`name`, `size`, `stroke`, `filled`) no cambia, así que
+ * ninguna de sus más de mil apariciones se toca.
+ */
 @Component({
   selector: 'rs-icon',
   standalone: true,
-  template: `
-    <svg
-      viewBox="0 0 24 24"
-      [attr.fill]="filled ? 'currentColor' : 'none'"
-      stroke="currentColor"
-      [attr.width]="size"
-      [attr.height]="size"
-      [attr.stroke-width]="stroke"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      [attr.aria-hidden]="true">
-      @switch (name) {
-        @case ('hotel') {
-          <rect x="4" y="2" width="16" height="20" rx="2"/>
-          <path d="M9 22V12h6v10"/>
-          <path d="M8 7h.01M12 7h.01M16 7h.01M8 11h.01M12 11h.01M16 11h.01"/>
-        }
-        @case ('plane') {
-          <path d="m22 2-7 20-4-9-9-4Z"/>
-          <path d="M22 2 11 13"/>
-        }
-        @case ('car') {
-          <path d="M19 17H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2l2-3h6l2 3h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2Z"/>
-          <circle cx="7.5" cy="17" r="2"/>
-          <circle cx="16.5" cy="17" r="2"/>
-        }
-        @case ('truck') {
-          <rect x="1" y="3" width="15" height="13" rx="1"/>
-          <path d="M16 8h4l3 3v5h-7V8Z"/>
-          <circle cx="5.5" cy="18.5" r="2.5"/>
-          <circle cx="18.5" cy="18.5" r="2.5"/>
-        }
-        @case ('users') {
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-        }
-        @case ('search') {
-          <circle cx="11" cy="11" r="8"/>
-          <path d="m21 21-4.35-4.35"/>
-        }
-        @case ('heart') {
-          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-        }
-        @case ('calendar') {
-          <rect x="3" y="4" width="18" height="18" rx="2"/>
-          <path d="M16 2v4M8 2v4M3 10h18"/>
-        }
-        @case ('sparkles') {
-          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-          <path d="M5 3v4M19 17v4M3 5h4M17 19h4"/>
-        }
-        @case ('shield-check') {
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          <path d="m9 12 2 2 4-4"/>
-        }
-        @case ('badge-check') {
-          <circle cx="12" cy="12" r="10"/>
-          <path d="m9 12 2 2 4-4"/>
-        }
-        @case ('tag') {
-          <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
-          <circle cx="7.5" cy="7.5" r="1.5"/>
-        }
-        @case ('rotate-ccw') {
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-          <path d="M3 3v5h5"/>
-        }
-        @case ('map-pin') {
-          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-          <circle cx="12" cy="10" r="3"/>
-        }
-        @case ('chevron-down') {
-          <path d="m6 9 6 6 6-6"/>
-        }
-        @case ('download') {
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" x2="12" y1="15" y2="3"/>
-        }
-        @case ('more-horizontal') {
-          <circle cx="12" cy="12" r="1"/>
-          <circle cx="19" cy="12" r="1"/>
-          <circle cx="5" cy="12" r="1"/>
-        }
-        @case ('chevron-left') {
-          <path d="m15 18-6-6 6-6"/>
-        }
-        @case ('chevron-right') {
-          <path d="m9 18 6-6-6-6"/>
-        }
-        @case ('list') {
-          <path d="M8 6h13"/>
-          <path d="M8 12h13"/>
-          <path d="M8 18h13"/>
-          <path d="M3 6h.01"/>
-          <path d="M3 12h.01"/>
-          <path d="M3 18h.01"/>
-        }
-        @case ('arrow-right') {
-          <path d="M5 12h14"/>
-          <path d="m12 5 7 7-7 7"/>
-        }
-        @case ('star') {
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        }
-        @case ('globe') {
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-          <path d="M2 12h20"/>
-        }
-        @case ('euro') {
-          <path d="M4 10h12M4 14h12"/>
-          <path d="M19.5 7a9 9 0 1 0 0 10"/>
-        }
-        @case ('lock') {
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        }
-        @case ('credit-card') {
-          <rect x="1" y="4" width="22" height="16" rx="2"/>
-          <path d="M1 10h22"/>
-        }
-        @case ('zap') {
-          <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
-        }
-        @case ('trending-up') {
-          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
-          <polyline points="16 7 22 7 22 13"/>
-        }
-        @case ('check') {
-          <path d="M20 6 9 17l-5-5"/>
-        }
-        @case ('x') {
-          <path d="M18 6 6 18M6 6l12 12"/>
-        }
-        @case ('building') {
-          <rect x="4" y="2" width="16" height="20" rx="2"/>
-          <path d="M9 22V12h6v10M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01"/>
-        }
-        @case ('percent') {
-          <line x1="19" y1="5" x2="5" y2="19"/>
-          <circle cx="6.5" cy="6.5" r="2.5"/>
-          <circle cx="17.5" cy="17.5" r="2.5"/>
-        }
-        @case ('mail') {
-          <rect x="2" y="4" width="20" height="16" rx="2"/>
-          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-        }
-        @case ('phone') {
-          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-        }
-        @case ('eye') {
-          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-          <circle cx="12" cy="12" r="3"/>
-        }
-        @case ('eye-off') {
-          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
-          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
-          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
-          <line x1="2" x2="22" y1="2" y2="22"/>
-        }
-        @case ('menu') {
-          <line x1="4" y1="6" x2="20" y2="6"/>
-          <line x1="4" y1="12" x2="20" y2="12"/>
-          <line x1="4" y1="18" x2="20" y2="18"/>
-        }
-        @case ('settings') {
-          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-          <circle cx="12" cy="12" r="3"/>
-        }
-        @case ('pause') {
-          <rect x="6" y="4" width="4" height="16"/>
-          <rect x="14" y="4" width="4" height="16"/>
-        }
-        @case ('play') {
-          <polygon points="5 3 19 12 5 21 5 3"/>
-        }
-        @case ('message-square') {
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        }
-        @case ('bell') {
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
-        }
-        @case ('pencil') {
-          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-        }
-        @case ('check-circle') {
-          <circle cx="12" cy="12" r="10"/>
-          <path d="m9 12 2 2 4-4"/>
-        }
-        @case ('log-out') {
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        }
-        @case ('plus') {
-          <path d="M12 5v14M5 12h14"/>
-        }
-        @case ('arrow-left') {
-          <path d="M19 12H5"/>
-          <path d="m12 19-7-7 7-7"/>
-        }
-        @case ('upload') {
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        }
-        @case ('alert-circle') {
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
-        }
-        @case ('user') {
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        }
-        @case ('camera') {
-          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
-          <circle cx="12" cy="13" r="3"/>
-        }
-        @case ('image') {
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21 15 16 10 5 21"/>
-        }
-        @case ('wifi') {
-          <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
-          <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
-          <path d="M8.53 16.11a6 16 0 0 1 6.95 0"/>
-          <line x1="12" y1="20" x2="12.01" y2="20"/>
-        }
-        @case ('smartphone') {
-          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-          <line x1="12" y1="18" x2="12.01" y2="18"/>
-        }
-        @case ('paw') {
-          <circle cx="11" cy="4" r="2"/>
-          <circle cx="18" cy="8" r="2"/>
-          <circle cx="4" cy="8" r="2"/>
-          <circle cx="20" cy="16" r="2"/>
-          <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"/>
-        }
-        @case ('scissors') {
-          <circle cx="6" cy="6" r="3"/>
-          <circle cx="6" cy="18" r="3"/>
-          <line x1="20" y1="4" x2="8.12" y2="15.88"/>
-          <line x1="14.47" y1="14.48" x2="20" y2="20"/>
-          <line x1="8.12" y1="8.12" x2="12" y2="12"/>
-        }
-        @case ('stethoscope') {
-          <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
-          <path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/>
-          <circle cx="20" cy="10" r="2"/>
-        }
-        @case ('graduation-cap') {
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-          <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-        }
-        @case ('bone') {
-          <path d="M17 10c.7-.7 1.69 0 2.5 0a2.5 2.5 0 1 0 0-5 .5.5 0 0 1-.5-.5 2.5 2.5 0 1 0-5 0c0 .81.7 1.8 0 2.5l-7 7c-.7.7-1.69 0-2.5 0a2.5 2.5 0 0 0 0 5c.28 0 .5.22.5.5a2.5 2.5 0 1 0 5 0c0-.81-.7-1.8 0-2.5Z"/>
-        }
-        @case ('crown') {
-          <path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.735H5.81a1 1 0 0 1-.957-.735L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/>
-        }
-        @case ('headphones') {
-          <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>
-        }
-        @case ('handshake') {
-          <path d="m11 17 2 2a1 1 0 1 0 3-3"/>
-          <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/>
-          <path d="m21 3 1 11h-2"/>
-          <path d="M3 4h8"/>
-          <path d="M3 15h2l3.5 3.5a1 1 0 1 0 3-3L9 13"/>
-        }
-        @case ('rocket') {
-          <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
-          <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
-          <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
-          <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-        }
-        @case ('video') {
-          <path d="m22 8-6 4 6 4V8Z"/>
-          <rect x="2" y="6" width="14" height="12" rx="2" ry="2"/>
-        }
-        @case ('trophy') {
-          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-          <path d="M4 22h16"/>
-          <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-          <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-          <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-        }
-        @case ('gift') {
-          <rect x="3" y="8" width="18" height="4" rx="1"/>
-          <path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/>
-          <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>
-        }
-        @case ('award') {
-          <path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/>
-          <circle cx="12" cy="8" r="6"/>
-        }
-        @case ('droplet') {
-          <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
-        }
-        @case ('syringe') {
-          <path d="m18 2 4 4"/>
-          <path d="m17 7 3-3"/>
-          <path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/>
-          <path d="m9 11 4 4"/>
-          <path d="m5 19-3 3"/>
-          <path d="m14 4 6 6"/>
-        }
-        @case ('clipboard-list') {
-          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-          <path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/>
-        }
-        @case ('clock') {
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12 6 12 12 16 14"/>
-        }
-        @case ('siren') {
-          <path d="M7 18v-6a5 5 0 1 1 10 0v6"/>
-          <path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/>
-          <path d="M21 12h1M18.5 4.5 18 5M2 12h1M12 2v1M4.929 4.929l.707.707"/>
-        }
-        @case ('home') {
-          <path d="M3 9.5 12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <path d="M9 22V12h6v10"/>
-        }
-        @case ('wallet') {
-          <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/>
-          <path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>
-        }
-        @case ('scale') {
-          <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-          <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-          <path d="M7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
-        }
-        @case ('share') {
-          <circle cx="18" cy="5" r="3"/>
-          <circle cx="6" cy="12" r="3"/>
-          <circle cx="18" cy="19" r="3"/>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-        }
-        @case ('navigation') {
-          <polygon points="3 11 22 2 13 21 11 13 3 11"/>
-        }
-        @case ('calendar-plus') {
-          <rect x="3" y="4" width="18" height="18" rx="2"/>
-          <path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/>
-        }
-        @case ('party-popper') {
-          <path d="M5.8 11.3 2 22l10.7-3.79"/>
-          <path d="M4 3h.01M22 8h.01M15 2h.01M22 20h.01"/>
-          <path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"/>
-          <path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17"/>
-          <path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7"/>
-          <path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z"/>
-        }
-        @case ('alert-triangle') {
-          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-          <path d="M12 9v4M12 17h.01"/>
-        }
-        @case ('hourglass') {
-          <path d="M5 22h14M5 2h14"/>
-          <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/>
-          <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
-        }
-        @case ('circle') {
-          <circle cx="12" cy="12" r="10"/>
-        }
-        @case ('file-text') {
-          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
-          <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-          <path d="M16 13H8M16 17H8M10 9H8"/>
-        }
-        @case ('shield') {
-          <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
-        }
-        @case ('waves') {
-          <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 1.3 0 1.9-.5 2.5-1"/>
-          <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 1.3 0 1.9-.5 2.5-1"/>
-          <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 1.3 0 1.9-.5 2.5-1"/>
-        }
-        @case ('leaf') {
-          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
-          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-        }
-        @case ('utensils') {
-          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
-          <path d="M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
-        }
-        @case ('radio-tower') {
-          <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/>
-          <circle cx="12" cy="9" r="2"/>
-          <path d="M16.2 4.8c2 2 2.26 5.11.8 7.47M19.1 1.9a9.96 9.96 0 0 1 0 14.2M12 22v-8"/>
-        }
-        @case ('ruler') {
-          <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/>
-          <path d="m14.5 12.5 2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2"/>
-        }
-        @case ('pill') {
-          <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/>
-          <path d="m8.5 8.5 7 7"/>
-        }
-        @case ('refresh-cw') {
-          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-          <path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-          <path d="M8 16H3v5"/>
-        }
-        @case ('smile') {
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>
-        }
-        @case ('dog') {
-          <path d="M11.25 16.25h1.5L12 17z"/>
-          <path d="M16 14v.5M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444a11.702 11.702 0 0 0-.493-3.309"/>
-          <path d="M8 14v.5"/>
-          <path d="M8.5 8.5c-.384 1.05-1.083 2.028-2.344 2.5-1.931.722-3.576-.297-3.656-1-.113-.994 1.177-6.53 4-7 1.923-.321 3.651.845 3.651 2.235A7.497 7.497 0 0 1 14 5.277c0-1.39 1.844-2.598 3.767-2.277 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.96-1.45-2.344-2.5"/>
-        }
-        @case ('meh') {
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M8 15h8M9 9h.01M15 9h.01"/>
-        }
-        @case ('frown') {
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M16 16s-1.5-2-4-2-4 2-4 2M9 9h.01M15 9h.01"/>
-        }
-        @case ('angry') {
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M16 16s-1.5-2-4-2-4 2-4 2"/>
-          <path d="M7.5 8 10 9M16.5 8 14 9"/>
-          <path d="M9 11.5h.01M15 11.5h.01"/>
-        }
-        @case ('flame') {
-          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/>
-        }
-        @case ('brain') {
-          <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
-          <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
-        }
-        @case ('trash') {
-          <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-          <path d="M10 11v6M14 11v6"/>
-        }
-        @case ('save') {
-          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-          <polyline points="17 21 17 13 7 13 7 21"/>
-          <polyline points="7 3 7 8 15 8"/>
-        }
-        @case ('ticket') {
-          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
-          <path d="M13 5v2M13 17v2M13 11v2"/>
-        }
-        @case ('bar-chart') {
-          <line x1="12" y1="20" x2="12" y2="10"/>
-          <line x1="18" y1="20" x2="18" y2="4"/>
-          <line x1="6" y1="20" x2="6" y2="16"/>
-        }
-        @case ('store') {
-          <path d="m2 7 1.5-4h17L22 7"/>
-          <path d="M2 7h20v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0Z"/>
-          <path d="M4 12v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8"/>
-        }
-        @case ('baby') {
-          <path d="M9 12h.01M15 12h.01"/>
-          <path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/>
-          <path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5.5 5 2"/>
-        }
-        @case ('banknote') {
-          <rect x="2" y="6" width="20" height="12" rx="2"/>
-          <circle cx="12" cy="12" r="2"/>
-          <path d="M6 12h.01M18 12h.01"/>
-        }
-        @default {}
-      }
-    </svg>
-  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: '',
   // `vertical-align` sólo lo lee un contexto inline, así que en un padre flex se
   // ignora sin efectos: sirve para centrar el icono junto al texto cuando va
   // suelto dentro de un <p>/<li>, sin romper los usos dentro de .rs-badge.
   styles: [`:host { display: inline-flex; align-items: center; justify-content: center; line-height: 1; vertical-align: -.15em; }`],
 })
 export class RsIconComponent {
-  @Input() name = '';
-  @Input() size: number | string = 24;
-  @Input() stroke: number | string = 1.75;
+  private readonly sanitizer = inject(DomSanitizer);
+
+  readonly name = input<string>('');
+  readonly size = input<number | string>(24);
+  readonly stroke = input<number | string>(1.75);
   /** Rellena el trazo con el color actual (estrellas de valoración, corazones). */
-  @Input() filled = false;
+  readonly filled = input(false);
+
+  /**
+   * El `<svg>` completo, listo para insertar.
+   *
+   * Se salta el saneador de Angular, que borra `<path>`, `<circle>` y compañía
+   * al insertarlos como HTML y dejaría el icono vacío. Es seguro **aquí y sólo
+   * aquí**: lo que se inserta son constantes del propio código, y de las
+   * entradas sólo se usa `name` para elegir una clave del mapa; los números van
+   * forzados a número antes de escribirse. Nada de lo que llega se copia tal
+   * cual al marcado.
+   */
+  private readonly svg = computed<SafeHtml>(() => {
+    const dibujo = DIBUJOS_ICONO[this.name()];
+    if (!dibujo) return '';
+
+    const lado = numero(this.size(), 24);
+    const grosor = numero(this.stroke(), 1.75);
+    const relleno = this.filled() ? 'currentColor' : 'none';
+
+    return this.sanitizer.bypassSecurityTrustHtml(
+      `<svg viewBox="0 0 24 24" width="${lado}" height="${lado}" fill="${relleno}"`
+      + ` stroke="currentColor" stroke-width="${grosor}" stroke-linecap="round"`
+      + ` stroke-linejoin="round" aria-hidden="true">${dibujo}</svg>`,
+    );
+  });
+
+  /** Se pinta en el propio `<rs-icon>`: sin envoltorio, sin nodos de anclaje. */
+  @HostBinding('innerHTML')
+  get contenido(): SafeHtml {
+    return this.svg();
+  }
+}
+
+/**
+ * Fuerza el valor a número. Las medidas llegan como número o como cadena
+ * (`[size]="14"` y `size="14"` son las dos formas que hay en el código), y lo
+ * que se escribe en el marcado tiene que ser siempre un número.
+ */
+function numero(valor: number | string, porDefecto: number): number {
+  const convertido = typeof valor === 'number' ? valor : Number.parseFloat(valor);
+  return Number.isFinite(convertido) ? convertido : porDefecto;
 }

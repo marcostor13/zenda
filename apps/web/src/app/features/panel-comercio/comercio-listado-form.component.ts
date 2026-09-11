@@ -39,6 +39,7 @@ import {
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { almacenLocal } from '../../core/plataforma/almacen';
 /** Una parada del trayecto declarado por un transportista. */
 interface ParadaTrayecto {
   nombre: string;
@@ -3478,7 +3479,7 @@ export class ComercioListadoFormComponent implements OnInit {
   private guardarBorrador(): void {
     if (this.esEdicion()) return;
     try {
-      localStorage.setItem(this.claveBorrador(), JSON.stringify(this.instantanea()));
+      almacenLocal().setItem(this.claveBorrador(), JSON.stringify(this.instantanea()));
     } catch {
       // Sin espacio o en modo privado: el borrador es una comodidad, no se
       // interrumpe el alta por no poder guardarlo.
@@ -3487,7 +3488,7 @@ export class ComercioListadoFormComponent implements OnInit {
 
   private descartarBorrador(): void {
     try {
-      localStorage.removeItem(this.claveBorrador());
+      almacenLocal().removeItem(this.claveBorrador());
     } catch { /* nada que descartar si no hay storage */ }
   }
 
@@ -3495,7 +3496,7 @@ export class ComercioListadoFormComponent implements OnInit {
   private restaurarBorrador(): boolean {
     let guardado: string | null = null;
     try {
-      guardado = localStorage.getItem(this.claveBorrador());
+      guardado = almacenLocal().getItem(this.claveBorrador());
     } catch { return false; }
     if (!guardado) return false;
 

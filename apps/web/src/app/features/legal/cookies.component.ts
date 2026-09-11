@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LegalDocumentoComponent } from './legal-documento.component';
 import { RESPONSABLE } from './legal.datos';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { ConsentimientoService } from '../../core/cookies/consentimiento.service';
 
 /** Una entrada de la tabla de almacenamiento del navegador. */
 interface EntradaAlmacen {
@@ -76,7 +77,17 @@ interface EntradaAlmacen {
 
       <h2>{{ '4. ¿Hace falta tu consentimiento?' | t }}</h2>
       <p>
-        {{ 'Lo que guarda Doogking por su cuenta es estrictamente necesario para prestarte el servicio que pides —mantener la sesión, recordar tu idioma—, así que la normativa no exige consentimiento previo. Como no hay cookies de análisis ni de publicidad, tampoco hay nada que aceptar o rechazar.' | t }}
+        {{ 'Lo que guarda Doogking por su cuenta es estrictamente necesario para prestarte el servicio que pides —mantener la sesión, recordar tu idioma—, así que la normativa no exige consentimiento previo para eso.' | t }}
+      </p>
+      <p>
+        {{ 'Para todo lo demás sí lo pedimos, y no cargamos nada hasta que decides. Al entrar por primera vez verás un aviso con tres opciones al mismo nivel: aceptar todas, rechazar todas o configurar por familias. Rechazar cuesta un solo clic, igual que aceptar.' | t }}
+      </p>
+      <p>
+        {{ 'Mientras no aceptes, el mapa de las fichas se dibuja con OpenStreetMap en vez de con Google Maps —se ve y se usa igual, pero sin cookies de terceros— y los servicios de acceso de Google y Meta no se descargan hasta que pulsas su botón.' | t }}
+      </p>
+      <p>
+        {{ 'Puedes cambiar de opinión cuando quieras desde' | t }}
+        <button type="button" class="ck-reabrir" (click)="reabrirPreferencias()">{{ 'Configuración de cookies' | t }}</button>{{ ', al pie de cualquier página. Guardamos tu decisión durante un año; pasado ese plazo, o si cambiamos las herramientas que usamos, volvemos a preguntarte.' | t }}
       </p>
 
       <h2>{{ '5. Cómo borrarlo' | t }}</h2>
@@ -107,10 +118,37 @@ interface EntradaAlmacen {
     @media (max-width: 640px) {
       .lg-tabla { display: block; overflow-x: auto; white-space: nowrap; }
     }
+
+    /*
+     * Es un botón, no un enlace: no lleva a ninguna parte, vuelve a abrir el
+     * aviso. Se le da aspecto de enlace para que se lea como parte del párrafo.
+     */
+    .ck-reabrir {
+      padding: 0;
+      border: 0;
+      background: none;
+      font: inherit;
+      color: var(--c-accent);
+      font-weight: var(--fw-semibold);
+      text-decoration: underline;
+      cursor: pointer;
+    }
   `],
 })
 export class CookiesComponent {
+  private readonly consentimiento = inject(ConsentimientoService);
+
   readonly r = RESPONSABLE;
+
+  /**
+   * Vuelve a enseñar el aviso de cookies.
+   *
+   * Retirar el consentimiento tiene que ser tan fácil como darlo, y para eso
+   * hace falta una forma de volver atrás desde el propio documento.
+   */
+  reabrirPreferencias(): void {
+    this.consentimiento.reabrir();
+  }
 
   /** Cada clave existe en el código; ver la nota de clase antes de tocar la lista. */
   readonly entradas: readonly EntradaAlmacen[] = [

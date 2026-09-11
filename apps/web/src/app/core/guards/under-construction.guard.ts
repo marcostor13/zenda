@@ -3,8 +3,20 @@ import { CanActivateFn, Router } from '@angular/router';
 import { Rol } from 'shared';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
+import { almacenLocal } from '../plataforma/almacen';
+import { CookiesService } from '../plataforma/cookies.service';
 
 const STORAGE_KEY = 'dk_acceso_anticipado';
+
+/**
+ * El mismo permiso, en cookie. `localStorage` no viaja en la petición, así que
+ * en el render de servidor todo el mundo parecía no tener acceso y acababa en
+ * la pantalla de espera aunque ya hubiera entrado con la clave; la página sólo
+ * se corregía al hidratar, con un salto visible. Se escriben las dos: la cookie
+ * para que el servidor decida bien, y `localStorage` para no romper el acceso
+ * de quien ya lo tenía guardado antes de este cambio.
+ */
+const DIAS_DE_ACCESO = 180;
 
 /**
  * Roles que operan la plataforma mientras sigue cerrada al público. El comercio
@@ -25,22 +37,23 @@ export const underConstructionGuard: CanActivateFn = (_route, state) => {
 
   const router = inject(Router);
   const authService = inject(AuthService);
+  const cookies = inject(CookiesService);
   const urlTree = router.parseUrl(state.url);
   const clave = urlTree.queryParams['acceso'];
 
   if (clave && clave === environment.underConstructionKey) {
-    try {
-      localStorage.setItem(STORAGE_KEY, '1');
-    } catch {
-      // Storage no disponible (modo privado, etc.): igual deja pasar esta navegación.
-    }
+    cookies.escribir(STORAGE_KEY, '1', DIAS_DE_ACCESO);
+    almacenLocal().setItem(STORAGE_KEY, '1');
     return true;
   }
 
-  try {
-    if (localStorage.getItem(STORAGE_KEY) === '1') return true;
-  } catch {
-    // Sin acceso a localStorage no hay forma de recordar el acceso previo.
+  if (cookies.leer(STORAGE_KEY) === '1') return true;
+
+  // Respaldo para quien entró con la clave antes de que esto fuera una cookie:
+  // se le reconoce el acceso y se le pone la cookie para que el servidor lo vea.
+  if (almacenLocal().getItem(STORAGE_KEY) === '1') {
+    cookies.escribir(STORAGE_KEY, '1', DIAS_DE_ACCESO);
+    return true;
   }
 
   const rol = authService.usuario()?.rol;

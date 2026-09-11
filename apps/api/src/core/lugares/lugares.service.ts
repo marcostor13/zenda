@@ -8,6 +8,7 @@ import {
 import { Lugar, LugarDocument } from './lugar.schema';
 import { LugarReview, LugarReviewDocument } from './lugar-review.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { pareceObjectId, slugDeLugar, slugLibre } from './slug.util';
 
 export interface BuscarLugaresParams {
   tipo?: TipoLugar;
@@ -73,9 +74,21 @@ export class LugaresService {
       .exec();
   }
 
-  async obtener(id: string): Promise<LugarDocument> {
+  /**
+   * Ficha por slug (`rio-jucar-riola`) **o** por id.
+   *
+   * Acepta las dos formas a propósito y para siempre: cuando las direcciones
+   * pasaron a ser legibles, los enlaces por id ya circulaban en marcadores,
+   * mensajes y en el índice de Google. Romperlos habría convertido una mejora de
+   * SEO en una pérdida de tráfico.
+   */
+  async obtener(idOSlug: string): Promise<LugarDocument> {
+    const consulta = pareceObjectId(idOSlug)
+      ? { _id: this.aObjectId(idOSlug) }
+      : { slug: idOSlug.toLowerCase() };
+
     const lugar = await this.lugarModel
-      .findById(this.aObjectId(id))
+      .findOne(consulta)
       .select(SIN_ATRIBUTOS_INTERNOS)
       .exec();
 
@@ -83,6 +96,23 @@ export class LugaresService {
       throw new DomainException('Lugar no encontrado', 404);
     }
     return lugar;
+  }
+
+  /**
+   * Asigna el slug si la ficha aún no lo tiene.
+   *
+   * Se llama al crear y al publicar: una ficha pendiente de moderación puede
+   * acabar rechazada, y reservarle una dirección antes de saberlo dejaría slugs
+   * ocupados por contenido que nunca se publicó.
+   */
+  private async asignarSlug(lugar: LugarDocument): Promise<void> {
+    if (lugar.slug) return;
+
+    const base = slugDeLugar(lugar.nombre, lugar.ubicacion?.ciudad);
+    lugar.slug = await slugLibre(base, async (candidato) => {
+      const existe = await this.lugarModel.exists({ slug: candidato, _id: { $ne: lugar._id } });
+      return existe !== null;
+    });
   }
 
   /**
@@ -238,6 +268,17 @@ export class LugaresService {
     if (!lugar) {
       throw new DomainException('Lugar no encontrado', 404);
     }
+
+    /*
+     * La dirección legible se reserva al publicar, no al crear: una ficha
+     * pendiente puede acabar rechazada, y darle slug antes de saberlo dejaría
+     * direcciones ocupadas por contenido que nunca llegó a verse.
+     */
+    if (lugar.estado === EstadoModeracion.PUBLICADO && !lugar.slug) {
+      await this.asignarSlug(lugar);
+      await lugar.save();
+    }
+
     return lugar;
   }
 

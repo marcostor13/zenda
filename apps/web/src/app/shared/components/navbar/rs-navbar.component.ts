@@ -681,6 +681,12 @@ export class RsNavbarComponent implements OnInit {
     return [];
   });
 
+  /** `true` sólo dentro de los paneles de gestión, no por el rol de quien mira. */
+  private readonly dentroDeUnPanel = computed(() => {
+    const url = this.url();
+    return url.startsWith('/comercio') || url.startsWith('/admin');
+  });
+
   /** Rótulo del bloque de secciones, para que se sepa de qué panel son. */
   readonly tituloPanel = computed(() =>
     this.url().startsWith('/comercio') ? 'Mi negocio' : 'Administración',
@@ -724,7 +730,18 @@ export class RsNavbarComponent implements OnInit {
    * comercio o como administrador gestiona su panel, no reserva servicios, y
    * esas entradas solo le ensucian la barra (escritorio y movil).
    */
-  readonly muestraCategorias = computed(() => !this.esComercio() && !this.esAdmin());
+  /**
+   * La tira de categorías se enseña en toda la web pública, sea quien sea el
+   * que mira, y se esconde sólo dentro de los paneles de gestión.
+   *
+   * Antes dependía del rol: quien entraba como administrador o como comercio no
+   * la veía **en ninguna pantalla**, ni siquiera navegando por la web como un
+   * cliente más. Eso fue lo que hizo que la auditoría de septiembre concluyera
+   * que la cabecera no tenía menú de categorías —el revisor entró con cuenta de
+   * administrador— y, sobre todo, dejaba a esas cuentas sin forma de pasar de
+   * veterinarios a peluquerías sin volver a la portada.
+   */
+  readonly muestraCategorias = computed(() => !this.dentroDeUnPanel());
 
   readonly iniciales = computed(() => {
     const nombre = this.authService.usuario()?.nombre ?? '';

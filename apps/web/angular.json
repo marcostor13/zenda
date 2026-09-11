@@ -10,8 +10,12 @@
           "style": "scss",
           "standalone": true
         },
-        "@schematics/angular:directive": { "standalone": true },
-        "@schematics/angular:pipe": { "standalone": true }
+        "@schematics/angular:directive": {
+          "standalone": true
+        },
+        "@schematics/angular:pipe": {
+          "standalone": true
+        }
       },
       "root": "",
       "sourceRoot": "src",
@@ -19,7 +23,9 @@
       "i18n": {
         "sourceLocale": "es",
         "locales": {
-          "en": { "translation": "src/locale/messages.en.xlf" }
+          "en": {
+            "translation": "src/locale/messages.en.xlf"
+          }
         }
       },
       "architect": {
@@ -30,19 +36,41 @@
             "index": "src/index.html",
             "browser": "src/main.ts",
             "localize": false,
-            "polyfills": ["@angular/localize/init", "reflect-metadata", "zone.js"],
+            "polyfills": [
+              "@angular/localize/init",
+              "reflect-metadata",
+              "zone.js"
+            ],
             "tsConfig": "tsconfig.app.json",
             "assets": [
-              { "glob": "**/*", "input": "public" }
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
             ],
-            "styles": ["src/styles.scss"],
-            "scripts": []
+            "styles": [
+              "src/styles.scss"
+            ],
+            "scripts": [],
+            "server": "src/main.server.ts",
+            "outputMode": "server",
+            "ssr": {
+              "entry": "src/server.ts"
+            }
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "700kB", "maximumError": "1.5MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "24kB", "maximumError": "32kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "700kB",
+                  "maximumError": "1.5MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "24kB",
+                  "maximumError": "32kB"
+                }
               ],
               "outputHashing": "all",
               "fileReplacements": [
@@ -58,8 +86,17 @@
               "sourceMap": true
             },
             "en": {
-              "localize": ["en"],
+              "localize": [
+                "en"
+              ],
               "outputPath": "dist/web-en"
+            },
+            "movil": {
+              "outputMode": "static",
+              "ssr": false,
+              "server": false,
+              "prerender": false,
+              "outputPath": "dist/web-movil"
             }
           },
           "defaultConfiguration": "production"
@@ -67,8 +104,12 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
-            "production": { "buildTarget": "web:build:production" },
-            "development": { "buildTarget": "web:build:development" }
+            "production": {
+              "buildTarget": "web:build:production"
+            },
+            "development": {
+              "buildTarget": "web:build:development"
+            }
           },
           "defaultConfiguration": "development"
         },
@@ -83,18 +124,34 @@
         "test": {
           "builder": "@angular-devkit/build-angular:karma",
           "options": {
-            "polyfills": ["reflect-metadata", "zone.js", "zone.js/testing"],
+            "polyfills": [
+              "reflect-metadata",
+              "zone.js",
+              "zone.js/testing"
+            ],
             "tsConfig": "tsconfig.spec.json",
-            "assets": [{ "glob": "**/*", "input": "public" }],
-            "styles": ["src/styles.scss"],
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
+            ],
+            "styles": [
+              "src/styles.scss"
+            ],
             "scripts": [],
-            "include": ["src/**/*.spec.ts"]
+            "include": [
+              "src/**/*.spec.ts"
+            ]
           }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
-            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
+            "lintFilePatterns": [
+              "src/**/*.ts",
+              "src/**/*.html"
+            ]
           }
         }
       }

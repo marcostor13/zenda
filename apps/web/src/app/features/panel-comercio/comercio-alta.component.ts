@@ -10,6 +10,7 @@ import { ComercioApiService, MiComercio } from './comercio-api.service';
 import { ComercioListadoFormComponent } from './comercio-listado-form.component';
 import { ComercioSolicitudSegurosComponent } from './comercio-solicitud-seguros.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { almacenLocal } from '../../core/plataforma/almacen';
 
 /** Pasos del alta guiada, en el orden del recorrido. */
 type PasoAlta = 'elegir' | 'servicio' | 'creado' | 'negocio' | 'fin';
@@ -633,13 +634,13 @@ export class ComercioAltaComponent implements OnInit {
   irA(paso: PasoAlta): void {
     this.paso.set(paso);
     try {
-      localStorage.setItem(this.claveRecorrido(), JSON.stringify({ paso, elegido: this.elegido() }));
+      almacenLocal().setItem(this.claveRecorrido(), JSON.stringify({ paso, elegido: this.elegido() }));
     } catch { /* el recorrido es una comodidad; sin storage se sigue igual */ }
   }
 
   private olvidarRecorrido(): void {
     try {
-      localStorage.removeItem(this.claveRecorrido());
+      almacenLocal().removeItem(this.claveRecorrido());
     } catch { /* nada que olvidar sin storage */ }
   }
 
@@ -647,7 +648,7 @@ export class ComercioAltaComponent implements OnInit {
   private retomarRecorrido(): boolean {
     let guardado: string | null = null;
     try {
-      guardado = localStorage.getItem(this.claveRecorrido());
+      guardado = almacenLocal().getItem(this.claveRecorrido());
     } catch { return false; }
     if (!guardado) return false;
 

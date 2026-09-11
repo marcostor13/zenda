@@ -81,21 +81,27 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
         </p>
       }
 
-      <div class="pp__row">
-        <span class="pp__row-text">
-          <strong>{{ etiquetaSinFicha() }}</strong>
-          <em>{{ 'Perros que aún no tienen ficha' | t }}</em>
-        </span>
-        <span class="pp__stepper">
-          <button type="button" (click)="quitarSinFicha()" [disabled]="!puedeQuitar()"
-                  [attr.aria-label]="'Quitar un perro' | t">−</button>
-          <output>{{ sinFicha() }}</output>
-          <button type="button" (click)="anadirSinFicha()" [attr.aria-label]="'Añadir un perro' | t">+</button>
-        </span>
-      </div>
+      @if (!sinContador()) {
+        <div class="pp__row">
+          <span class="pp__row-text">
+            <strong>{{ etiquetaSinFicha() }}</strong>
+            <em>{{ 'Perros que aún no tienen ficha' | t }}</em>
+          </span>
+          <span class="pp__stepper">
+            <button type="button" (click)="quitarSinFicha()" [disabled]="!puedeQuitar()"
+                    [attr.aria-label]="'Quitar un perro' | t">−</button>
+            <output>{{ sinFicha() }}</output>
+            <button type="button" (click)="anadirSinFicha()" [attr.aria-label]="'Añadir un perro' | t">+</button>
+          </span>
+        </div>
+      }
 
       <div class="pp__foot">
-        <span class="pp__total">{{ numPerros() }} {{ numPerros() === 1 ? 'perro' : 'perros' }} en total</span>
+        @if (sinContador()) {
+          <span class="pp__total"></span>
+        } @else {
+          <span class="pp__total">{{ numPerros() }} {{ numPerros() === 1 ? 'perro' : 'perros' }} en total</span>
+        }
         <button type="button" class="rs-btn rs-btn--primary rs-btn--sm" (click)="cerrar()">{{ 'Listo' | t }}</button>
       </div>
     </div>
@@ -235,6 +241,15 @@ export class RsPetPickerComponent {
   /** Texto del disparador cuando no hay nada elegido. */
   readonly placeholder = input('Cualquier perro');
 
+  /**
+   * `true` esconde el contador y deja elegir una sola mascota.
+   *
+   * Lo pide la categoría de servicios funerarios: unos botones «−» y «+» para
+   * decidir cuántos perros lleva el servicio es el tono de un carrito de la
+   * compra, y ahí se está despidiendo a un animal.
+   */
+  readonly sinContador = input(false);
+
   readonly abierto = signal(false);
   readonly cargando = signal(false);
   readonly perros = signal<PerroApi[]>([]);
@@ -255,6 +270,9 @@ export class RsPetPickerComponent {
     const extra = this.sinFicha();
 
     if (!elegidos.length) {
+      // Sin contador no se cuenta: se nombra. «1 perro» sobre una despedida
+      // suena a unidades de pedido.
+      if (this.sinContador()) return this.placeholder();
       return extra === 0 ? this.placeholder() : `${extra} ${extra === 1 ? 'perro' : 'perros'}`;
     }
 

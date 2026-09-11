@@ -6,8 +6,10 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { fotoDeLugar } from '../../shared/media/images';
 import { RsMapaComponent, type PuntoMapa } from '../../shared/components/mapa/rs-mapa.component';
-import { LugarApi, LugaresService } from './lugares.service';
+import { LugarApi, LugaresService, rutaDeLugar } from './lugares.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { SeoService } from '../../core/seo/seo.service';
+import { seoCategoria } from '../../core/seo/plantillas-seo';
 
 /** Icono de cada tipo de lugar, para reconocerlo de un vistazo. */
 const ICONOS: Record<TipoLugar, string> = {
@@ -118,7 +120,7 @@ const ICONOS: Record<TipoLugar, string> = {
 
         <div class="ex-grid">
           @for (l of lugares(); track l._id) {
-            <a class="ex-card" [routerLink]="['/explora', l._id]">
+            <a class="ex-card" [routerLink]="rutaDeLugar(l)">
               <div class="ex-card__img">
                 <img [src]="foto(l)" [alt]="l.nombre" loading="lazy" rsImg />
                 <span class="ex-card__tipo">{{ etiqueta(l.tipo) }}</span>
@@ -240,6 +242,10 @@ const ICONOS: Record<TipoLugar, string> = {
 })
 export class ExploraListaComponent implements OnInit {
   private readonly lugaresService = inject(LugaresService);
+
+  /** Enlace a la ficha: la dirección legible si la tiene, el id si todavía no. */
+  protected readonly rutaDeLugar = rutaDeLugar;
+  private readonly seo = inject(SeoService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -301,6 +307,15 @@ export class ExploraListaComponent implements OnInit {
     this.tipo.set((params.get('tipo') as TipoLugar) ?? null);
     this.provincia.set(params.get('provincia'));
     this.ciudad = params.get('ciudad') ?? undefined;
+
+    this.seo.aplicar(seoCategoria({
+      label: 'Explora con tu mascota',
+      descripcion: 'Playas, parques, rutas y restaurantes donde tu perro es bienvenido. '
+        + 'Fichas con acceso, normas locales y opiniones de la comunidad.',
+      ruta: '/explora',
+      ciudad: this.ciudad,
+    }));
+
     await this.cargar();
   }
 

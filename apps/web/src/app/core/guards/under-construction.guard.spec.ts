@@ -13,8 +13,17 @@ describe('underConstructionGuard', () => {
   const parseUrlDevolviendo = (queryParams: Record<string, string>) =>
     ({ queryParams }) as ReturnType<Router['parseUrl']>;
 
-  beforeEach(() => {
+  /**
+   * jsdom comparte las cookies entre pruebas del mismo fichero: sin borrarla, el
+   * acceso que deja una prueba hace pasar a la siguiente por la puerta buena.
+   */
+  const olvidarAcceso = () => {
     localStorage.clear();
+    document.cookie = 'dk_acceso_anticipado=; Path=/; Max-Age=0';
+  };
+
+  beforeEach(() => {
+    olvidarAcceso();
     usuario = signal<{ rol: Rol } | null>(null);
     router = {
       parseUrl: jest.fn().mockReturnValue(parseUrlDevolviendo({})),
@@ -31,7 +40,7 @@ describe('underConstructionGuard', () => {
 
   afterEach(() => {
     environment.underConstruction = false;
-    localStorage.clear();
+    olvidarAcceso();
   });
 
   const ejecutarGuard = (url = '/'): ReturnType<typeof underConstructionGuard> =>
@@ -50,6 +59,21 @@ describe('underConstructionGuard', () => {
 
     expect(resultado).toBe(true);
     expect(localStorage.getItem('dk_acceso_anticipado')).toBe('1');
+    // También en cookie: es lo único que el render de servidor puede leer.
+    expect(document.cookie).toContain('dk_acceso_anticipado=1');
+  });
+
+  /**
+   * Quien entró con la clave antes de que esto fuera una cookie sólo lo tiene en
+   * `localStorage`. Se le sigue reconociendo, y se le pone la cookie para que el
+   * servidor deje de mandarle a la pantalla de espera.
+   */
+  it('debería reconocer el acceso guardado sólo en localStorage y ponerlo en cookie', () => {
+    environment.underConstruction = true;
+    localStorage.setItem('dk_acceso_anticipado', '1');
+
+    expect(ejecutarGuard()).toBe(true);
+    expect(document.cookie).toContain('dk_acceso_anticipado=1');
   });
 
   it('debería redirigir a /proximamente si no hay clave ni acceso guardado', () => {

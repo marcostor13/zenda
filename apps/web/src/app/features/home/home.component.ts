@@ -23,6 +23,10 @@ import { VERTICALES_PUBLICOS, rutaDeVertical } from '../../shared/verticales/ver
 import { AlojamientoService } from '../alojamiento/services/alojamiento.service';
 import { environment } from '../../../environments/environment';
 import { MonedaService } from '../../core/moneda/moneda.service';
+import { SeoService } from '../../core/seo/seo.service';
+import { ConsentimientoService } from '../../core/cookies/consentimiento.service';
+import { seoPortada } from '../../core/seo/plantillas-seo';
+import { organizacion, sitioWeb } from '../../core/seo/json-ld';
 
 interface AlojamientoRecomendado {
   /** Presente solo cuando la tarjeta viene del catálogo real: habilita favorito y enlace a la ficha. */
@@ -125,7 +129,7 @@ type SearchMode = 'filtros' | 'ia';
             @if (searchMode() === 'filtros') {
               <!-- Las categorías están en la tira del encabezado, en cualquier
                    pantalla: el buscador no las repite (feedback 2026-08-20). -->
-              <rs-search-bar [categorias]="false" />
+              <rs-search-bar [categorias]="false" [pedirCategoria]="true" />
             } @else {
               <!--
                 Se escucha el submit nativo, no (ngSubmit).
@@ -463,7 +467,8 @@ type SearchMode = 'filtros' | 'ia';
             target="_blank"
             rel="noopener"
             class="home-footer__social-link"
-            [attr.title]="red.nombre">
+            [attr.title]="red.nombre"
+            [attr.aria-label]="red.nombre + ' de Doogking'">
             <rs-social-icon [name]="red.icono" [size]="18" [etiqueta]="red.nombre" />
           </a>
         }
@@ -545,7 +550,12 @@ type SearchMode = 'filtros' | 'ia';
     <p class="home-footer__closing">{{ 'Todo lo que tu mascota necesita. En un solo lugar.' | t }}<br />{{ 'Gracias por confiar en Doogking.' | t }}</p>
 
     <div class="rs-footer__bottom">
-      <p>{{ '© 2026 Doogking · Todos los derechos reservados' | t }} · <a routerLink="/privacidad">{{ 'Política de privacidad' | t }}</a> · <a routerLink="/cookies">{{ 'Cookies' | t }}</a> · <a routerLink="/terminos">{{ 'Aviso legal' | t }}</a></p>
+      <p>{{ '© 2026 Doogking · Todos los derechos reservados' | t }} · <a routerLink="/privacidad">{{ 'Política de privacidad' | t }}</a> · <a routerLink="/cookies">{{ 'Cookies' | t }}</a> ·
+        <!--
+          Retirar el consentimiento tiene que ser tan fácil como darlo, así que
+          el aviso se puede reabrir desde el pie de cualquier página.
+        -->
+        <button type="button" class="home-footer__cookies" (click)="reabrirCookies()">{{ 'Configuración de cookies' | t }}</button> · <a routerLink="/terminos">{{ 'Aviso legal' | t }}</a></p>
       <div class="rs-flex rs-gap-4" style="flex-wrap:wrap">
         <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> {{ 'Empresas verificadas' | t }}</span>
         <span class="rs-badge rs-badge--neutral home-footer__badge"><rs-icon name="lock" [size]="13" [stroke]="2" /> {{ 'Pago seguro con Stripe' | t }}</span>
@@ -1649,6 +1659,21 @@ type SearchMode = 'filtros' | 'ia';
       border-top-color: rgba(255,255,255,.15);
       p { color: rgba(255,255,255,.55); }
       a { color: rgba(255,255,255,.65); &:hover { color: var(--dk-gold); } }
+
+      /*
+       * Es un botón, no un enlace: no lleva a ninguna parte, vuelve a abrir el
+       * aviso de cookies. Se disfraza de enlace para que se lea como uno más de
+       * la fila legal.
+       */
+      .home-footer__cookies {
+        padding: 0;
+        border: 0;
+        background: none;
+        font: inherit;
+        color: rgba(255,255,255,.65);
+        cursor: pointer;
+        &:hover { color: var(--dk-gold); }
+      }
     }
 
     .home-footer__badge {
@@ -1671,10 +1696,14 @@ export class HomeComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly alojamientoService = inject(AlojamientoService);
   private readonly i18n = inject(I18nService);
+  private readonly seo = inject(SeoService);
+  private readonly consentimiento = inject(ConsentimientoService);
 
   private readonly ciudadesTrack = viewChild<ElementRef<HTMLElement>>('ciudadesTrack');
 
   async ngOnInit(): Promise<void> {
+    this.aplicarSeo();
+
     // "Recomendados" reales: los alojamientos mejor valorados del catálogo
     // (PDF 27/07 §8). Si el API no responde, se queda el escaparate estático.
     try {
@@ -1695,6 +1724,31 @@ export class HomeComponent implements OnInit {
     } catch {
       // Catálogo no disponible: el escaparate por defecto sigue siendo válido.
     }
+  }
+
+  /**
+   * La portada es la página que más se comparte y la que Google usa para
+   * entender de qué va la marca, así que además de sus propias etiquetas
+   * declara `Organization` —lo que alimenta el panel de marca— y `WebSite` con
+   * el buscador.
+   */
+  /** Vuelve a abrir el aviso de cookies para cambiar o retirar el consentimiento. */
+  reabrirCookies(): void {
+    this.consentimiento.reabrir();
+  }
+
+  private aplicarSeo(): void {
+    this.seo.aplicar(seoPortada());
+
+    const origen = this.seo.origenPublico();
+    this.seo.datosEstructurados([
+      organizacion({
+        url: origen,
+        logo: `${origen}${BRAND.logo}`,
+        redes: REDES_SOCIALES.map((red) => red.url),
+      }),
+      sitioWeb(origen),
+    ]);
   }
 
   /**

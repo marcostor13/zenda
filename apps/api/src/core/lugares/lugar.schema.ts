@@ -20,6 +20,19 @@ export class Lugar {
   @Prop({ required: true, trim: true })
   nombre!: string;
 
+  /**
+   * Dirección legible de la ficha: `rio-jucar-riola` en vez del ObjectId.
+   *
+   * **No cambia al renombrar la ficha.** Un slug que se mueve rompe todos los
+   * enlaces que ya circulan —marcadores, mensajes, el índice de Google— a cambio
+   * de nada: lo que se ve en la página es el nombre, no la URL.
+   *
+   * Es opcional porque las fichas anteriores a este campo siguen siendo válidas
+   * y se resuelven por id mientras la migración no haya pasado por ellas.
+   */
+  @Prop({ type: String, trim: true, lowercase: true })
+  slug?: string;
+
   @Prop({ default: '' })
   descripcion!: string;
 
@@ -94,3 +107,10 @@ export const LugarSchema = SchemaFactory.createForClass(Lugar);
 LugarSchema.index({ 'ubicacion.geo': '2dsphere' }, { sparse: true });
 LugarSchema.index({ estado: 1, tipo: 1, 'ubicacion.provincia': 1, ratingPromedio: -1 });
 LugarSchema.index({ estado: 1, createdAt: -1 });
+
+/*
+ * `unique` con `sparse`: dos fichas no pueden compartir slug, pero las que
+ * todavía no lo tienen no cuentan como duplicadas entre sí. Sin `sparse`, la
+ * segunda ficha sin slug chocaría con la primera por tener las dos `null`.
+ */
+LugarSchema.index({ slug: 1 }, { unique: true, sparse: true });

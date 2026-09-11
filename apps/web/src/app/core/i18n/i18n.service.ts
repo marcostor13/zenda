@@ -1,8 +1,9 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { DOCUMENT, Injectable, computed, inject, signal } from '@angular/core';
 import {
   IDIOMAS_SOPORTADOS, IDIOMA_DEFAULT, IdiomaSoportado, idiomaUi, normalizarIdioma,
 } from 'shared';
 import type { Diccionario, ParametrosTraduccion } from './diccionario';
+import { almacenLocal, esNavegador } from '../plataforma/almacen';
 
 const CLAVE_IDIOMA = 'doogking_idioma';
 
@@ -37,6 +38,14 @@ const CARGADORES: Record<Exclude<IdiomaSoportado, 'es'>, () => Promise<{ default
  */
 @Injectable({ providedIn: 'root' })
 export class I18nService {
+  /*
+   * `DOCUMENT` en vez del global `document`: en el render de servidor no existe
+   * ningún `document` global, pero Angular sí provee uno simulado, y `<html
+   * lang>` tiene que salir bien en el HTML que se envía —es lo que leen los
+   * buscadores para saber en qué idioma está la página—.
+   */
+  private readonly documento = inject(DOCUMENT);
+
   readonly idiomas = IDIOMAS_SOPORTADOS;
 
   readonly idioma = signal<IdiomaSoportado>(this.leerIdioma());
@@ -88,7 +97,7 @@ export class I18nService {
     this.idioma.set(codigo);
     this.aplicarLangDelDocumento(codigo);
     try {
-      localStorage.setItem(CLAVE_IDIOMA, codigo);
+      almacenLocal().setItem(CLAVE_IDIOMA, codigo);
     } catch {
       // Navegación privada o almacenamiento lleno: el idioma vale para esta
       // sesión aunque no se pueda recordar para la siguiente.
@@ -117,7 +126,7 @@ export class I18nService {
    * navegador y los buscadores para saber en qué idioma está la página.
    */
   private aplicarLangDelDocumento(codigo: IdiomaSoportado): void {
-    document.documentElement.setAttribute('lang', codigo);
+    this.documento.documentElement.setAttribute('lang', codigo);
   }
 
   /**
@@ -128,14 +137,14 @@ export class I18nService {
   private leerIdioma(): IdiomaSoportado {
     let guardado: string | null = null;
     try {
-      guardado = localStorage.getItem(CLAVE_IDIOMA);
+      guardado = almacenLocal().getItem(CLAVE_IDIOMA);
     } catch {
       guardado = null;
     }
 
-    return normalizarIdioma(guardado)
-      ?? normalizarIdioma(navigator.language)
-      ?? IDIOMA_DEFAULT;
+    const delNavegador = esNavegador() ? normalizarIdioma(navigator.language) : null;
+
+    return normalizarIdioma(guardado) ?? delNavegador ?? IDIOMA_DEFAULT;
   }
 }
 

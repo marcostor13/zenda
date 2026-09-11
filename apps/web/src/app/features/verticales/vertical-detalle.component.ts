@@ -19,6 +19,9 @@ import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service'
 
 import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { SeoService } from '../../core/seo/seo.service';
+import { seoFichaServicio, seoPrivada } from '../../core/seo/plantillas-seo';
+import { migasDePan, negocioLocal } from '../../core/seo/json-ld';
 
 /**
  * Huecos de la fila de miniaturas y fotos del costado del mosaico. Mismos
@@ -621,6 +624,7 @@ export class VerticalDetalleComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly browseService = inject(CatalogBrowseService);
   private readonly eventosService = inject(EventosService);
+  private readonly seo = inject(SeoService);
 
   readonly cargando = signal(true);
   readonly servicio = signal<ServicioDetalle | null>(null);
@@ -706,14 +710,68 @@ export class VerticalDetalleComponent implements OnInit {
       const data = await this.browseService.obtener(id);
       this.servicio.set(data);
       this.imagenActiva.set(data.imagenes[0] ?? '');
+      this.aplicarSeo(data);
       // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
       this.eventosService.registrarVistaServicio(id, this.cfg().vertical);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado".
       this.servicio.set(null);
+      this.seo.aplicar(seoPrivada('Servicio no disponible',
+        'Este servicio ya no está publicado en Doogking.'));
+      this.seo.noEncontrado();
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /**
+   * La ficha es la página que más se comparte por mensajería, así que es donde
+   * más se nota tener título, descripción e imagen propios. Además declara
+   * `LocalBusiness`, que es lo que permite a Google enseñar la valoración con
+   * estrellas y la dirección en el propio resultado.
+   */
+  private aplicarSeo(servicio: ServicioDetalle): void {
+    const origen = this.seo.origenPublico();
+    const ruta = `${this.ui.route}/${servicio.id}`;
+
+    this.seo.aplicar(seoFichaServicio({
+      titulo: servicio.nombre,
+      descripcion: servicio.descripcion || this.ui.descripcion,
+      ciudad: servicio.ciudad,
+      categoria: this.ui.label,
+      ruta,
+      imagen: servicio.imagenes[0],
+      precioDesde: servicio.precioPorNoche || undefined,
+      // El catálogo público sólo devuelve fichas publicadas: si ha llegado
+      // hasta aquí, se puede indexar.
+      publicado: true,
+    }));
+
+    this.seo.datosEstructurados([
+      negocioLocal({
+        nombre: servicio.nombre,
+        descripcion: servicio.descripcion || this.ui.descripcion,
+        url: `${origen}${ruta}`,
+        imagenes: servicio.imagenes.map((imagen) => this.absoluta(origen, imagen)),
+        ciudad: servicio.ciudad,
+        direccion: servicio.direccion,
+        coordenadas: servicio.lat !== undefined && servicio.lng !== undefined
+          ? { lat: servicio.lat, lng: servicio.lng }
+          : undefined,
+        precioDesde: servicio.precioPorNoche || undefined,
+        valoracion: { media: servicio.score, total: servicio.numResenas },
+      }),
+      migasDePan([
+        { nombre: 'Inicio', url: `${origen}/` },
+        { nombre: this.ui.label, url: `${origen}${this.ui.route}` },
+        { nombre: servicio.nombre, url: `${origen}${ruta}` },
+      ]),
+    ]);
+  }
+
+  /** Las imágenes de los datos estructurados tienen que ser URL absolutas. */
+  private absoluta(origen: string, imagen: string): string {
+    return /^https?:\/\//i.test(imagen) ? imagen : `${origen}${imagen.startsWith('/') ? '' : '/'}${imagen}`;
   }
 
   solicitar(s: ServicioDetalle): void {

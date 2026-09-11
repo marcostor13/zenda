@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GeoService } from '../../../core/geo/geo.service';
+import { ConsentimientoService } from '../../../core/cookies/consentimiento.service';
 import { RsMapaComponent, PuntoMapa } from './rs-mapa.component';
 
 /**
@@ -13,6 +14,7 @@ describe('RsMapaComponent', () => {
   let fixture: ComponentFixture<RsMapaComponent>;
   let componente: RsMapaComponent;
   let geoService: jest.Mocked<Pick<GeoService, 'claveMapas'>>;
+  let permite: jest.Mock;
 
   const puntos: PuntoMapa[] = [
     { id: 'a1', lat: 40.4168, lng: -3.7038, etiqueta: '€24', titulo: 'Residencia Las Rozas' },
@@ -21,10 +23,15 @@ describe('RsMapaComponent', () => {
 
   beforeEach(async () => {
     geoService = { claveMapas: jest.fn().mockResolvedValue('') };
+    // Consentimiento dado: es el camino normal. El caso contrario se prueba aparte.
+    permite = jest.fn().mockReturnValue(true);
 
     await TestBed.configureTestingModule({
       imports: [RsMapaComponent],
-      providers: [{ provide: GeoService, useValue: geoService }],
+      providers: [
+        { provide: GeoService, useValue: geoService },
+        { provide: ConsentimientoService, useValue: { permite } },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(RsMapaComponent);
@@ -48,6 +55,20 @@ describe('RsMapaComponent', () => {
     await componente.ngAfterViewInit();
 
     expect(geoService.claveMapas).toHaveBeenCalled();
+  });
+
+  /**
+   * Google Maps pone cookies de terceros en cuanto se carga. Sin consentimiento
+   * no se deja al visitante sin mapa: se dibuja con OpenStreetMap, que sirve las
+   * teselas sin cookies. Ni siquiera se pide la clave, que ya sería una llamada
+   * al API para algo que no se va a usar.
+   */
+  it('no debería pedir la clave de Google Maps sin consentimiento de cookies', async () => {
+    permite.mockReturnValue(false);
+    fixture.detectChanges();
+    await componente.ngAfterViewInit();
+
+    expect(geoService.claveMapas).not.toHaveBeenCalled();
   });
 
   it('no debería romper si el API no responde con la clave', async () => {

@@ -1,6 +1,7 @@
 import {
   ChangeDetectorRef,
   Component,
+  computed,
   DestroyRef,
   ElementRef,
   inject,
@@ -14,6 +15,7 @@ import { mensajeDeError } from '../../../shared/mensaje-error';
 import { SocialSdkService } from '../../../core/auth/social-sdk.service';
 import { SocialConfigService } from '../../../core/auth/social-config.service';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { ConsentimientoService } from '../../../core/cookies/consentimiento.service';
 
 /** Cambio de ancho a partir del cual merece la pena repintar el botón de Google. */
 const UMBRAL_REDIBUJADO = 8;
@@ -34,13 +36,13 @@ const UMBRAL_REDIBUJADO = 8;
         <div class="sb__divider"><span>{{ 'o continúa con' | t }}</span></div>
 
         @if (hayGoogle()) {
-          @if (esNativo) {
+          @if (botonPropio()) {
             <!--
               En la app se pinta un botón nuestro: el de Google Identity
               Services no funciona dentro de un WebView. Sigue las pautas de
               marca de Google (logo a color sobre fondo blanco y borde).
             -->
-            <button type="button" class="sb__google-nativo" (click)="entrarConGoogleNativo()" [disabled]="cargando()">
+            <button type="button" class="sb__google-nativo" (click)="pulsarGoogle()" [disabled]="cargando()">
               <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                 <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -55,12 +57,24 @@ const UMBRAL_REDIBUJADO = 8;
         }
 
         @if (hayFacebook()) {
-          <button type="button" class="sb__fb" (click)="entrarConFacebook()" [disabled]="cargando()">
+          <button type="button" class="sb__fb" (click)="pulsarFacebook()" [disabled]="cargando()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07Z"/>
             </svg>
             {{ 'Continuar con Meta' | t }}
           </button>
+        }
+
+        @if (pideConsentimiento()) {
+          <!--
+            Los SDK de Google y Meta ponen cookies suyas en cuanto se cargan, así
+            que no se descargan hasta que el visitante pide usarlos. Pulsar el
+            botón es esa petición, y el aviso deja claro qué implica antes de
+            pulsarlo: no se carga nada a su espalda.
+          -->
+          <p class="sb__aviso">
+            {{ 'Al continuar con Google o Meta se cargará su servicio, que usa cookies propias. Puedes entrar con tu correo si prefieres evitarlo.' | t }}
+          </p>
         }
 
         @if (error()) { <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-3)">{{ error() }}</div> }
@@ -100,6 +114,13 @@ const UMBRAL_REDIBUJADO = 8;
     }
     .sb__fb:hover { opacity:.92; }
     .sb__fb:disabled { opacity:.6; cursor:default; }
+    .sb__aviso {
+      margin: var(--sp-3) 0 0;
+      font-size: var(--f-xs);
+      line-height: 1.5;
+      color: var(--t-400);
+      text-align: center;
+    }
   `],
 })
 export class SocialButtonsComponent implements AfterViewInit {
@@ -127,6 +148,54 @@ export class SocialButtonsComponent implements AfterViewInit {
   /** Fijo durante toda la vida del componente: la plataforma no cambia. */
   protected readonly esNativo = this.sdk.usaSdkNativo;
 
+  private readonly consentimiento = inject(ConsentimientoService);
+
+  /**
+   * `true` mientras no se pueda cargar el SDK de Google en el navegador.
+   *
+   * Dos motivos distintos que llevan al mismo botón nuestro:
+   * - en la app instalada, porque Google Identity Services no funciona dentro
+   *   de un WebView;
+   * - en el navegador sin consentimiento, porque su script pone cookies de
+   *   terceros y no puede descargarse antes de que el visitante lo pida.
+   */
+  protected readonly botonPropio = computed(
+    () => this.esNativo || !this.consentimiento.permite('preferencias'),
+  );
+
+  /** Se avisa de lo que implica pulsar, sólo cuando todavía no se ha consentido. */
+  protected readonly pideConsentimiento = computed(
+    () => !this.esNativo && !this.consentimiento.permite('preferencias'),
+  );
+
+  /**
+   * Pulsar el botón **es** la petición de usar el servicio de Google, así que
+   * se anota el consentimiento para esa familia de cookies y se sigue. En la
+   * app el flujo es nativo y no hay script de terceros que cargar.
+   */
+  protected async pulsarGoogle(): Promise<void> {
+    if (this.esNativo) return this.entrarConGoogleNativo();
+
+    this.consentirTerceros();
+    this.cdr.detectChanges();
+    await this.dibujarBotonGoogle();
+  }
+
+  /** Igual que `pulsarGoogle`: el clic es la petición de cargar el SDK de Meta. */
+  protected async pulsarFacebook(): Promise<void> {
+    if (!this.esNativo) this.consentirTerceros();
+    await this.entrarConFacebook();
+  }
+
+  private consentirTerceros(): void {
+    if (this.consentimiento.permite('preferencias')) return;
+
+    this.consentimiento.guardar({
+      ...this.consentimiento.decision(),
+      preferencias: true,
+    });
+  }
+
   async ngAfterViewInit(): Promise<void> {
     const { googleClientId, facebookAppId } = await this.configSocial.cargar();
     this.appIdFacebook = facebookAppId;
@@ -139,16 +208,26 @@ export class SocialButtonsComponent implements AfterViewInit {
     // dónde dibujarlo.
     this.cdr.detectChanges();
 
-    // En la app no hay contenedor que rellenar: el botón es nuestro y el flujo
-    // lo dispara `entrarConGoogleNativo()`.
-    if (this.esNativo) return;
+    // Ni en la app —el botón es nuestro y el flujo es nativo— ni sin
+    // consentimiento, porque el script de Google pone cookies al cargarse.
+    if (this.botonPropio()) return;
 
+    await this.dibujarBotonGoogle();
+  }
+
+  /**
+   * Pide a Google que dibuje su propio botón en el hueco reservado. Descarga su
+   * SDK, así que sólo se llama cuando ya se puede: al arrancar si había
+   * consentimiento, o tras pulsar el botón provisional si no lo había.
+   */
+  private async dibujarBotonGoogle(): Promise<void> {
     const contenedor = this.googleBtn()?.nativeElement;
-    if (!contenedor || !googleClientId) return;
+    if (!contenedor || !this.clientIdGoogle) return;
+
     try {
       const dibujar = await this.sdk.renderizarBotonGoogle(
         contenedor,
-        googleClientId,
+        this.clientIdGoogle,
         (idToken) => this.entrarConGoogle(idToken),
       );
       this.seguirElAncho(contenedor, dibujar);

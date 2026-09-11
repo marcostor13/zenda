@@ -7,9 +7,14 @@
 # Sólo se publican las variables `WEB_*`. Es la barrera que impide que una clave
 # de servidor (GOOGLE_MAPS_API_KEY, MONGODB_URI, la secreta de Stripe) acabe
 # descargándose en el navegador por estar declarada en el mismo sitio.
+#
+# El render de servidor **no** lee este fichero: lo suyo lo toma de `process.env`
+# directamente (`src/entorno-servidor.ts`). Este `env.js` es sólo para el
+# navegador, que no tiene acceso al entorno del contenedor.
 set -e
 
-DESTINO="/usr/share/nginx/html/env.js"
+# El navegador lo descarga desde la raíz; el bundle del navegador vive aquí.
+DESTINO="/app/dist/web/browser/env.js"
 
 # Las comillas y las barras invertidas se escapan: un valor con comillas rompería
 # el fichero y dejaría la web sin arrancar.

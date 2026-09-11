@@ -13,12 +13,12 @@ const USUARIO_ID = new Types.ObjectId().toString();
 describe('LugaresService', () => {
   let service: LugaresService;
   let lugarModel: {
-    find: jest.Mock; findById: jest.Mock; findByIdAndUpdate: jest.Mock;
-    create: jest.Mock; updateOne: jest.Mock;
+    find: jest.Mock; findById: jest.Mock; findOne: jest.Mock; findByIdAndUpdate: jest.Mock;
+    create: jest.Mock; updateOne: jest.Mock; exists: jest.Mock;
   };
   let reviewModel: { find: jest.Mock; findByIdAndUpdate: jest.Mock; create: jest.Mock };
 
-  /** Cadena `findById().select().exec()` con el documento indicado. */
+  /** Cadena `findOne().select().exec()` con el documento indicado. */
   const cadenaFicha = (documento: unknown) => ({
     select: jest.fn().mockReturnThis(),
     exec: jest.fn().mockResolvedValue(documento),
@@ -37,9 +37,11 @@ describe('LugaresService', () => {
     lugarModel = {
       find: jest.fn().mockReturnValue(cadenaBusqueda([])),
       findById: jest.fn().mockReturnValue(cadenaFicha(null)),
+      findOne: jest.fn().mockReturnValue(cadenaFicha(null)),
       findByIdAndUpdate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
       create: jest.fn().mockImplementation((d) => Promise.resolve(d)),
       updateOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) }),
+      exists: jest.fn().mockResolvedValue(null),
     };
     reviewModel = {
       find: jest.fn().mockReturnValue(cadenaBusqueda([])),
@@ -107,13 +109,38 @@ describe('LugaresService', () => {
     });
 
     it('no debería exponer un lugar pendiente de moderación', async () => {
-      lugarModel.findById.mockReturnValue(cadenaFicha({ estado: EstadoModeracion.PENDIENTE }));
+      lugarModel.findOne.mockReturnValue(cadenaFicha({ estado: EstadoModeracion.PENDIENTE }));
 
       await expect(service.obtener(LUGAR_ID)).rejects.toThrow(DomainException);
     });
 
-    it('debería rechazar un identificador malformado con 400', async () => {
-      await expect(service.obtener('no-es-un-id')).rejects.toThrow(DomainException);
+    /**
+     * Las direcciones legibles (`/explora/rio-jucar-riola`) conviven con los
+     * enlaces antiguos por id, que siguen circulando en marcadores y en el
+     * índice de Google: romperlos habría convertido una mejora de SEO en una
+     * pérdida de tráfico.
+     */
+    it('debería buscar por id cuando le llega un ObjectId', async () => {
+      lugarModel.findOne.mockReturnValue(cadenaFicha({ estado: EstadoModeracion.PUBLICADO }));
+
+      await service.obtener(LUGAR_ID);
+
+      expect(lugarModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: expect.anything() }),
+      );
+    });
+
+    it('debería buscar por slug cuando le llega una dirección legible', async () => {
+      lugarModel.findOne.mockReturnValue(cadenaFicha({ estado: EstadoModeracion.PUBLICADO }));
+
+      await service.obtener('Rio-Jucar-Riola');
+
+      // En minúsculas: el slug se guarda así y la URL puede llegar como sea.
+      expect(lugarModel.findOne).toHaveBeenCalledWith({ slug: 'rio-jucar-riola' });
+    });
+
+    it('debería responder 404 ante un slug que no existe', async () => {
+      await expect(service.obtener('no-existe-este-sitio')).rejects.toThrow(DomainException);
     });
   });
 
@@ -135,7 +162,7 @@ describe('LugaresService', () => {
 
     it('no debería enviarla tampoco en la ficha', async () => {
       const cadena = cadenaFicha({ estado: EstadoModeracion.PUBLICADO });
-      lugarModel.findById.mockReturnValue(cadena);
+      lugarModel.findOne.mockReturnValue(cadena);
 
       await service.obtener(LUGAR_ID);
 
@@ -213,11 +240,88 @@ describe('LugaresService', () => {
     });
   });
 
+  describe('moderarLugar', () => {
+    const conSave = (documento: Record<string, unknown>): Record<string, unknown> & { save: jest.Mock } => ({
+      ...documento,
+      save: jest.fn().mockResolvedValue(undefined),
+    });
+
+    /**
+     * La dirección legible se reserva al publicar, no al crear: una ficha
+     * pendiente puede acabar rechazada, y darle slug antes de saberlo dejaría
+     * direcciones ocupadas por contenido que nunca llegó a verse.
+     */
+    it('debería asignar la dirección legible al publicar', async () => {
+      const doc = conSave({
+        _id: LUGAR_ID,
+        estado: EstadoModeracion.PUBLICADO,
+        nombre: 'Río Júcar',
+        ubicacion: { ciudad: 'Riola' },
+      });
+      lugarModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+
+      await service.moderarLugar(LUGAR_ID, { estado: EstadoModeracion.PUBLICADO });
+
+      expect(doc['slug']).toBe('rio-jucar-riola');
+      expect(doc.save).toHaveBeenCalled();
+    });
+
+    it('no debería dar dirección legible a una ficha rechazada', async () => {
+      const doc = conSave({
+        _id: LUGAR_ID,
+        estado: EstadoModeracion.RECHAZADO,
+        nombre: 'Río Júcar',
+        ubicacion: { ciudad: 'Riola' },
+      });
+      lugarModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+
+      await service.moderarLugar(LUGAR_ID, { estado: EstadoModeracion.RECHAZADO });
+
+      expect(doc['slug']).toBeUndefined();
+    });
+
+    /**
+     * Un slug que se mueve rompe todos los enlaces que ya circulan a cambio de
+     * nada: lo que se ve en la página es el nombre, no la URL.
+     */
+    it('no debería cambiar la dirección de una ficha que ya la tiene', async () => {
+      const doc = conSave({
+        _id: LUGAR_ID,
+        estado: EstadoModeracion.PUBLICADO,
+        slug: 'nombre-viejo',
+        nombre: 'Nombre nuevo',
+        ubicacion: { ciudad: 'Riola' },
+      });
+      lugarModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+
+      await service.moderarLugar(LUGAR_ID, { estado: EstadoModeracion.PUBLICADO });
+
+      expect(doc['slug']).toBe('nombre-viejo');
+      expect(doc.save).not.toHaveBeenCalled();
+    });
+
+    it('debería numerar la dirección si otra ficha ya la ocupa', async () => {
+      const doc = conSave({
+        _id: LUGAR_ID,
+        estado: EstadoModeracion.PUBLICADO,
+        nombre: 'Parque Central',
+        ubicacion: { ciudad: 'Riola' },
+      });
+      lugarModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+      lugarModel.exists.mockImplementation(async ({ slug }: { slug: string }) =>
+        (slug === 'parque-central-riola' ? { _id: 'otro' } : null));
+
+      await service.moderarLugar(LUGAR_ID, { estado: EstadoModeracion.PUBLICADO });
+
+      expect(doc['slug']).toBe('parque-central-riola-2');
+    });
+  });
+
   describe('crearReview', () => {
     const lugarPublicado = { estado: EstadoModeracion.PUBLICADO };
 
     beforeEach(() => {
-      lugarModel.findById.mockReturnValue(cadenaFicha(lugarPublicado));
+      lugarModel.findOne.mockReturnValue(cadenaFicha(lugarPublicado));
     });
 
     it('debería entrar en moderación, no publicarse sola', async () => {

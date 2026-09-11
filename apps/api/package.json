@@ -15,6 +15,7 @@
     "redondear:importes": "ts-node -P tsconfig.json src/scripts/redondear-importes-reservas.ts",
     "backfill:comercio-activo": "ts-node -P tsconfig.json src/scripts/backfill-comercio-activo.ts",
     "sembrar:lugares-cv": "ts-node -P tsconfig.json src/scripts/sembrar-lugares-cv.ts",
+    "migrar:slugs-lugares": "ts-node -P tsconfig.json src/scripts/migrar-slugs-lugares.ts",
     "diagnostico:email": "ts-node -P tsconfig.json src/scripts/diagnostico-email.ts",
     "diagnostico:visibilidad": "ts-node -P tsconfig.json src/scripts/diagnostico-visibilidad.ts",
     "diagnostico:catalogo": "ts-node -P tsconfig.json src/scripts/diagnostico-catalogo.ts",

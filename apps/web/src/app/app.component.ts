@@ -4,12 +4,13 @@ import { MovilService } from './core/movil/movil.service';
 import { ConexionApiService } from './core/diagnostico/conexion-api.service';
 import { TraducirPipe } from './core/i18n/traducir.pipe';
 import { RsNavInferiorComponent } from './shared/components/nav-inferior/rs-nav-inferior.component';
+import { RsCookiesComponent } from './shared/components/cookies/rs-cookies.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
-    TraducirPipe, RouterOutlet, RsNavInferiorComponent
+    TraducirPipe, RouterOutlet, RsNavInferiorComponent, RsCookiesComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -29,6 +30,13 @@ import { RsNavInferiorComponent } from './shared/components/nav-inferior/rs-nav-
 <router-outlet />
 <!-- Sólo se pinta dentro de la app instalada; en la web no existe. -->
 <rs-nav-inferior />
+
+<!--
+  Aviso de cookies. Va en la raíz, no en cada página: tiene que aparecer se
+  entre por donde se entre, incluida una ficha compartida por WhatsApp. Se
+  pinta solo si el visitante todavía no ha decidido.
+-->
+<rs-cookies />
   `,
   styles: [`
     .sin-conexion {

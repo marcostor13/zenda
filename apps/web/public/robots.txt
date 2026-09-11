@@ -1,0 +1,30 @@
+# Doogking — reglas de rastreo
+#
+# Lo que se bloquea no es secreto: es todo lo que no aporta nada en un buscador
+# y que, de indexarse, sólo genera resultados inútiles o duplicados. Las páginas
+# privadas de verdad ya van con `noindex` desde la aplicación; esto evita además
+# el gasto de rastreo.
+
+User-agent: *
+
+# Detrás de la sesión: no hay nada que enseñar a quien no ha entrado.
+Disallow: /admin
+Disallow: /comercio
+Disallow: /perfil
+Disallow: /perros
+Disallow: /reservas
+Disallow: /favoritos
+Disallow: /auth
+Disallow: /carrito
+
+# Enlaces de un solo uso que llegan por correo.
+Disallow: /valorar
+
+# Resultados de búsqueda: cada combinación de filtros es una URL distinta con el
+# mismo contenido. Los listados de categoría (/alojamiento, /veterinaria…) sí se
+# indexan; lo que sobra es la búsqueda libre.
+Disallow: /buscador
+
+Allow: /
+
+Sitemap: https://doogking.com/sitemap.xml

@@ -22,6 +22,9 @@ import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automat
 
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { MonedaService } from '../../../core/moneda/moneda.service';
+import { SeoService } from '../../../core/seo/seo.service';
+import { seoCategoria } from '../../../core/seo/plantillas-seo';
+import { migasDePan } from '../../../core/seo/json-ld';
 @Component({
   selector: 'app-transporte-lista',
   standalone: true,
@@ -107,6 +110,7 @@ export class TransporteListaComponent implements OnInit {
   private readonly browse = inject(CatalogBrowseService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly seo = inject(SeoService);
 
   readonly ui = verticalUi(VerticalKey.TRANSPORTE);
   readonly titular = titularDeVertical(VerticalKey.TRANSPORTE);
@@ -193,8 +197,31 @@ export class TransporteListaComponent implements OnInit {
         desde: params['desde'] || undefined,
         perros: params['perros'] || undefined,
       });
+      this.aplicarSeo();
       void this.cargar();
     });
+  }
+
+  /**
+   * Título, descripción y migas propios de la categoría, con la ciudad buscada
+   * dentro cuando la hay. Es el mismo criterio que aplica `VerticalBrowse` al
+   * resto de verticales: este listado tiene componente propio, pero el copy de
+   * SEO sale de la misma configuración para que no se separen.
+   */
+  private aplicarSeo(): void {
+    const ui = this.ui;
+    this.seo.aplicar(seoCategoria({
+      label: ui.label,
+      descripcion: ui.descripcion,
+      ruta: ui.route,
+      ciudad: this.busqueda().ciudad,
+    }));
+
+    const origen = this.seo.origenPublico();
+    this.seo.datosEstructurados([migasDePan([
+      { nombre: 'Inicio', url: `${origen}/` },
+      { nombre: ui.label, url: `${origen}${ui.route}` },
+    ])]);
   }
 
   private async cargar(): Promise<void> {
