@@ -479,6 +479,39 @@ mandando esa cabecera.
 - Si el HTML la trae bien pero la vista previa sigue vieja, es la caché del rastreador:
   Facebook la refresca desde su depurador de enlaces, WhatsApp tarda unas horas.
 
+### A algunos usuarios no les salen los cambios tras un deploy (sobre todo en móvil)
+
+Casi siempre es el **HTML cacheado**, no el deploy. Los bundles llevan el hash del contenido
+en el nombre, así que los antiguos siguen existiendo y sirviéndose; lo que decide qué versión
+ve alguien es qué `index.html` tiene guardado, porque ahí están las etiquetas `<script>`.
+
+Lo que hace el servidor (`apps/web/src/server.ts`):
+
+| Recurso | `Cache-Control` | Por qué |
+|---|---|---|
+| HTML renderizado (cualquier ruta) | `no-cache, must-revalidate` | Sin esta cabecera el navegador se inventa una caducidad (regla heurística de HTTP) y en móvil puede quedarse días con el HTML viejo |
+| `env.js` | `no-store` | Lo reescribe el contenedor en cada arranque |
+| `/version.json` | `no-store` | Tiene que decir la verdad siempre |
+| Ficheros con hash (`chunk-XXXXXXXX.js`, `media/`) | `public, max-age=31536000, immutable` | La URL cambia si cambia el contenido |
+| Todo lo demás (`public/`: logos, iconos, `robots.txt`) | `public, no-cache` | Nombre fijo, contenido que sí cambia |
+
+Y `VersionService` (`apps/web/src/app/core/version/version.service.ts`) cubre el caso de la
+pestaña que lleva días abierta sin recargarse: consulta `/version.json` al arrancar y cada vez
+que se vuelve a la pestaña, y si el contenedor sirve un build distinto del que cargó, **recarga
+en la siguiente navegación** (no en el momento: nadie pierde un formulario a medias). Dentro de
+la app nativa no hace nada, ahí el código viene del paquete instalado.
+
+Cómo comprobarlo en producción:
+
+```bash
+curl -sI https://doogking.com/ | grep -i cache-control      # no-cache, must-revalidate
+curl -s  https://doogking.com/version.json                  # {"version":"..."} y cambia en cada deploy
+```
+
+> **Si el HTML sale con otra cabecera, mira Cloudflare** (§3.4). Por defecto no cachea HTML,
+> pero una regla de *Cache Everything* sobre `doogking.com/*` lo haría por encima de lo que
+> diga el servidor. En ese caso, purga la caché de la zona y excluye el HTML de la regla.
+
 ### El webhook de Coolify no dispara el deploy
 
 - Verifica que `COOLIFY_WEBHOOK_URL` (API) o `COOLIFY_WEBHOOK_URL_WEB` (Web) estén

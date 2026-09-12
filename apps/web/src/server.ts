@@ -11,6 +11,8 @@ import {
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
 import express from 'express';
+import { createHash } from 'node:crypto';
+import { readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { environment } from './environments/environment';
@@ -71,10 +73,55 @@ const motorAngular = new AngularNodeAppEngine({
  * - Los bundles llevan el hash del contenido en el nombre (`outputHashing:
  *   all`), así que su URL cambia en cuanto cambia el contenido: se pueden
  *   guardar para siempre.
- * - Lo de `public/` (la marca, los iconos de categoría, el favicon) se copia
- *   con su nombre tal cual y su URL no cambia nunca. Con una caché larga,
- *   retocar el logotipo no lo veía nadie durante semanas.
+ * - Todo lo demás —`public/` (la marca, los iconos de categoría, el favicon) y
+ *   el HTML renderizado— se sirve con su nombre o su ruta tal cual, así que la
+ *   URL no cambia nunca aunque cambie el contenido. Va con `no-cache`: el
+ *   navegador puede guardarlo, pero tiene que preguntar antes de reusarlo.
+ *
+ * `no-cache` no es `no-store`: la copia se conserva y la revalidación se
+ * resuelve con un 304 de unos pocos bytes cuando nada ha cambiado. Cuesta un
+ * viaje de ida y vuelta, no una descarga.
  */
+
+/** Ficheros cuyo nombre incluye el hash del contenido (`main-5KJ2X9QA.js`). */
+const RUTA_INMUTABLE = /(?:-[A-Z0-9]{8}\.[a-z0-9]+|\/media\/)/;
+
+/**
+ * Identifica el build que está sirviendo este contenedor.
+ *
+ * Sale de los nombres de los bundles, que llevan el hash del contenido: si
+ * cambia una línea de la aplicación, cambia el nombre del fichero y cambia
+ * esto. El navegador lo consulta en `/version.json` para enterarse de que hay
+ * un despliegue nuevo sin tener que recargar a ciegas (ver `VersionService`).
+ */
+function calcularVersionBuild(): string {
+  try {
+    const ficheros = readdirSync(raizNavegador)
+      .filter((nombre) => /\.(js|css)$/.test(nombre))
+      .sort();
+    return createHash('sha1').update(ficheros.join('|')).digest('hex').slice(0, 12);
+  } catch {
+    // Sin carpeta de navegador la web no arranca igualmente; no vale la pena
+    // tumbar el proceso por el identificador de versión.
+    return 'desconocida';
+  }
+}
+
+const versionBuild = calcularVersionBuild();
+
+/**
+ * Versión del build en marcha. La pide el navegador cada pocos minutos para
+ * saber si la pestaña que tiene abierta se quedó en un despliegue anterior.
+ *
+ * En móvil es lo que arregla el caso de "a mí no me salen los cambios": la
+ * pestaña o la app llevan días abiertas, el HTML se cargó una vez y nada obliga
+ * a volver a pedirlo.
+ */
+app.get('/version.json', (_peticion, respuesta) => {
+  respuesta.setHeader('Cache-Control', 'no-store');
+  respuesta.json({ version: versionBuild });
+});
+
 app.get('/env.js', (_peticion, respuesta, siguiente) => {
   respuesta.setHeader('Cache-Control', 'no-store');
   respuesta.sendFile(join(raizNavegador, 'env.js'), (error) => {
@@ -110,15 +157,18 @@ app.get('/sitemap.xml', async (peticion, respuesta, siguiente) => {
 
 app.use(
   express.static(raizNavegador, {
-    maxAge: '1y',
     index: false,
     redirect: false,
     setHeaders: (respuesta, ruta) => {
-      if (/\.(svg|png|jpe?g|gif|ico|webp|avif)$/i.test(ruta)) {
-        respuesta.setHeader('Cache-Control', 'public, no-cache');
-      } else if (/\/media\/|-[A-Z0-9]{8}\./i.test(ruta)) {
-        respuesta.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      }
+      // Por defecto `no-cache`: sólo se guarda para siempre lo que lleva el
+      // hash del contenido en el nombre. Al revés —cachear largo por defecto y
+      // exceptuar— cada fichero nuevo sin hash nace con el fallo puesto.
+      respuesta.setHeader(
+        'Cache-Control',
+        RUTA_INMUTABLE.test(ruta)
+          ? 'public, max-age=31536000, immutable'
+          : 'public, no-cache',
+      );
     },
   }),
 );
@@ -129,8 +179,19 @@ app.use(
  * Si el motor devuelve `null` la ruta no existe para Angular tampoco, así que se
  * responde un 404 de verdad en vez del `index.html` con estado 200 que servía
  * nginx: era justo el hallazgo SEO-3 de la auditoría.
+ *
+ * El HTML sale con `no-cache` y es la cabecera más importante de este fichero.
+ * Sin ella el documento no declara nada sobre su caducidad, y entonces el
+ * navegador se inventa una: la regla heurística del estándar HTTP le permite
+ * dar por fresca una respuesta sin `Cache-Control` durante un buen rato. En
+ * escritorio casi no se nota; en móvil, donde la pestaña vive días y nadie
+ * recarga a mano, el visitante se queda con el HTML antiguo —y por tanto con
+ * los `<script>` del despliegue anterior, que siguen existiendo porque llevan
+ * hash— y jura que los cambios no están. De ahí que "a algunos sí y a otros
+ * no": depende de qué tuviera cada uno guardado.
  */
 app.use((peticion, respuesta, siguiente) => {
+  respuesta.setHeader('Cache-Control', 'no-cache, must-revalidate');
   motorAngular
     .handle(peticion, { peticionOriginal: peticion.originalUrl })
     .then((respuestaAngular) =>

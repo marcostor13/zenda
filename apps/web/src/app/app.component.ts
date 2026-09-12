@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/cor
 import { RouterOutlet } from '@angular/router';
 import { MovilService } from './core/movil/movil.service';
 import { ConexionApiService } from './core/diagnostico/conexion-api.service';
+import { VersionService } from './core/version/version.service';
 import { TraducirPipe } from './core/i18n/traducir.pipe';
 import { RsNavInferiorComponent } from './shared/components/nav-inferior/rs-nav-inferior.component';
 import { RsCookiesComponent } from './shared/components/cookies/rs-cookies.component';
@@ -55,6 +56,7 @@ import { RsCookiesComponent } from './shared/components/cookies/rs-cookies.compo
 })
 export class AppComponent implements OnInit {
   private readonly movil = inject(MovilService);
+  private readonly version = inject(VersionService);
   protected readonly conexion = inject(ConexionApiService);
 
   ngOnInit(): void {
@@ -62,5 +64,9 @@ export class AppComponent implements OnInit {
     // En el navegador no hace nada. `void` porque nada de la web debe esperar
     // a que termine: si algo nativo falla, la aplicación tiene que seguir.
     void this.movil.iniciar();
+
+    // Vigila que la pestaña no se quede en un despliegue anterior. Sólo en el
+    // navegador; dentro de la app instalada no hace nada.
+    this.version.iniciar();
   }
 }
