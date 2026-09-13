@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ImpactoBajaComercioDto as ImpactoBajaComercio, ResultadoBajaComercioDto as ResultadoBajaComercio } from 'shared';
+import { DetalleComercioDto, ImpactoBajaComercioDto as ImpactoBajaComercio, ResultadoBajaComercioDto as ResultadoBajaComercio } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface DashboardKpis {
@@ -243,6 +243,8 @@ export interface AnaliticaAdmin {
 export interface FiltrosReservasAdmin {
   estado?: string;
   comercioId?: string;
+  /** Reservas de un listado concreto: lo usa la ficha del comercio. */
+  servicioId?: string;
   buscar?: string;
   fechaDesde?: string;
   fechaHasta?: string;
@@ -591,6 +593,11 @@ export class AdminApiService {
     return this.http.get<FichaComercio>(`${this.adminUrl}/comercios/${id}/ficha`);
   }
 
+  /** Ficha completa del comercio: la página `/admin/comercios/:id`. */
+  getDetalleComercio(id: string): Observable<DetalleComercioDto> {
+    return this.http.get<DetalleComercioDto>(`${this.adminUrl}/comercios/${id}/detalle`);
+  }
+
   getResumenUsuarios(): Observable<ResumenUsuarios> {
     return this.http.get<ResumenUsuarios>(`${this.adminUrl}/usuarios/resumen`);
   }
@@ -618,6 +625,7 @@ export class AdminApiService {
     if (limite) params = params.set('limite', String(limite));
     if (filtros.estado) params = params.set('estado', filtros.estado);
     if (filtros.comercioId) params = params.set('comercioId', filtros.comercioId);
+    if (filtros.servicioId) params = params.set('servicioId', filtros.servicioId);
     if (filtros.buscar) params = params.set('buscar', filtros.buscar);
     if (filtros.fechaDesde) params = params.set('fechaDesde', filtros.fechaDesde);
     if (filtros.fechaHasta) params = params.set('fechaHasta', filtros.fechaHasta);

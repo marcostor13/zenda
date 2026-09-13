@@ -30,6 +30,8 @@ describe('AdminService', () => {
   let perroModel: any;
   let usuarioModel: any;
   let servicioModel: any;
+  let resenaModel: any;
+  let incidenciaModel: any;
   let auditoria: { registrar: jest.Mock; listar: jest.Mock };
   let comerciosRepo: any;
   let comerciosService: any;
@@ -163,6 +165,25 @@ describe('AdminService', () => {
       }),
     };
 
+    resenaModel = {
+      countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
+      aggregate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+      find: jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      }),
+    };
+
+    incidenciaModel = {
+      countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
+      find: jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
@@ -171,6 +192,9 @@ describe('AdminService', () => {
           useValue: {
             listarTodas: jest.fn().mockResolvedValue([]),
             upsert: jest.fn().mockResolvedValue({ vertical: VerticalKey.ALOJAMIENTO, comisionPct: 0.18 }),
+            obtenerComisionEfectiva: jest.fn().mockResolvedValue({
+              vertical: VerticalKey.ALOJAMIENTO, comisionPct: 0.15, stripePct: 0.015, stripeFijoEur: 0.25,
+            }),
           },
         },
         {
@@ -203,8 +227,8 @@ describe('AdminService', () => {
         { provide: getModelToken(Comercio.name), useValue: comercioModel },
         { provide: getModelToken(Perro.name), useValue: perroModel },
         // Las fichas administrativas consultan reseñas, incidencias y servicios.
-        { provide: getModelToken(Resena.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }), aggregate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) } },
-        { provide: getModelToken(Incidencia.name), useValue: { countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }) } },
+        { provide: getModelToken(Resena.name), useValue: resenaModel },
+        { provide: getModelToken(Incidencia.name), useValue: incidenciaModel },
         { provide: getModelToken(Servicio.name), useValue: servicioModel },
         // El embudo de la analítica cuenta sesiones en la colección de eventos.
         { provide: getModelToken(Evento.name), useValue: { distinct: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) } },
@@ -998,6 +1022,207 @@ describe('AdminService', () => {
       expect(ficha.resumen).toEqual(
         expect.objectContaining({ facturacion: 0, comision: 0, valoracion: 0, resenas: 0 }),
       );
+    });
+  });
+
+  describe('detalleComercio', () => {
+    const AHORA = new Date('2026-03-15T10:00:00.000Z');
+
+    /** Qué agrupa el pipeline, para que cada mock responda a lo suyo. */
+    const agrupaPor = (pipeline: any[]): string => {
+      const id = pipeline.find((etapa) => etapa.$group)?.$group?._id;
+      return typeof id === 'string' ? id : JSON.stringify(id);
+    };
+
+    const cadena = (valor: any) => ({
+      sort: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(), select: jest.fn().mockReturnThis(),
+      populate: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(valor),
+    });
+
+    const comercio = (extra: Record<string, any> = {}) => ({
+      _id: new Types.ObjectId(),
+      nombreComercial: 'Canina Real', razonSocial: 'Canina Real SL', vatNumber: 'ESB12345678',
+      verticales: [VerticalKey.ALOJAMIENTO], plan: 'pro', estado: 'activo', modoLiquidacion: 'merchant',
+      ...extra,
+    });
+
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(AHORA);
+
+      servicioModel.aggregate = jest.fn().mockImplementation((pipeline: any[]) => ({
+        exec: jest.fn().mockResolvedValue(
+          agrupaPor(pipeline) === '$estado'
+            ? [{ _id: 'publicado', total: 2, destacados: 1 }, { _id: 'borrador', total: 1, destacados: 0 }]
+            : [{ _id: VerticalKey.ALOJAMIENTO, total: 3 }],
+        ),
+      }));
+      servicioModel.find = jest.fn().mockReturnValue(cadena([
+        {
+          _id: 'srv-1', titulo: 'Suite Royal', vertical: VerticalKey.ALOJAMIENTO, estado: 'publicado',
+          destacado: true, precioBase: 42, moneda: 'EUR', ubicacion: { ciudad: 'Valencia' },
+          imagenes: ['suite.jpg'], ratingPromedio: 4.5, 'totalReseñas': 8, createdAt: new Date('2026-01-02'),
+        },
+      ]));
+
+      reservaModel.aggregate = jest.fn().mockImplementation((pipeline: any[]) => {
+        const porGrupo: Record<string, any[]> = {
+          $estado: [{ _id: 'confirmada', total: 3 }, { _id: 'completada', total: 2 }],
+          $vertical: [{ _id: VerticalKey.ALOJAMIENTO, reservas: 5, gmv: 1000, comision: 150 }],
+          $servicioId: [{ _id: 'srv-1', reservas: 4, gmv: 820.456, ultima: new Date('2026-03-01') }],
+        };
+        const clave = agrupaPor(pipeline);
+        return { exec: jest.fn().mockResolvedValue(
+          porGrupo[clave] ?? [{ _id: '2026-03', reservas: 2, gmv: 400, comision: 60 }],
+        ) };
+      });
+      reservaModel.countDocuments = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(3) });
+      reservaModel.find = jest.fn().mockReturnValue(cadena([]));
+
+      pagoModel.aggregate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([
+          { gmv: 1000.456, comision: 150.123, stripeFee: 29.456, liquidacion: 820.877, pagos: 4, reembolsado: 50 },
+        ]),
+      });
+      pagoModel.find = jest.fn().mockReturnValue(cadena([]));
+
+      resenaModel.aggregate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([
+          { _id: 5, total: 3, sinResponder: 1 }, { _id: 4, total: 1, sinResponder: 0 },
+        ]),
+      });
+      usuarioModel.aggregate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ _id: 'comercio_admin', total: 1 }, { _id: 'comercio_staff', total: 2 }]),
+      });
+      usuarioModel.find = jest.fn().mockReturnValue(cadena([
+        { _id: 'u-1', nombre: 'Ana', email: 'ana@canina.es', rol: 'comercio_admin', verificado: true },
+      ]));
+    });
+
+    afterEach(() => jest.useRealTimers());
+
+    it('debería lanzar 404 si el comercio no existe', async () => {
+      comerciosRepo.findById.mockResolvedValue(null);
+
+      await expect(service.detalleComercio(new Types.ObjectId().toString()))
+        .rejects.toThrow('Comercio no encontrado');
+    });
+
+    it('debería resumir el catálogo por estado', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio());
+
+      const detalle = await service.detalleComercio(new Types.ObjectId().toString());
+
+      expect(detalle.metricas.servicios).toEqual({
+        total: 3, publicados: 2, borradores: 1, pausados: 0, destacados: 1,
+      });
+    });
+
+    it('debería sacar el dinero de los pagos, con el ticket medio y dos decimales', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio());
+
+      const { economia } = (await service.detalleComercio(new Types.ObjectId().toString())).metricas;
+
+      expect(economia.gmv).toBe(1000.46);
+      expect(economia.comision).toBe(150.12);
+      expect(economia.stripeFee).toBe(29.46);
+      expect(economia.liquidacion).toBe(820.88);
+      expect(economia.ticketMedio).toBe(250.11); // 1000.456 / 4 pagos
+      expect(economia.reembolsado).toBe(50);
+    });
+
+    it('debería calcular la media y el reparto de las reseñas', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio());
+
+      const { resenas } = (await service.detalleComercio(new Types.ObjectId().toString())).metricas;
+
+      expect(resenas.total).toBe(4);
+      expect(resenas.media).toBe(4.8); // (5×3 + 4×1) / 4
+      expect(resenas.distribucion).toEqual({ '5': 3, '4': 1 });
+      expect(resenas.sinResponder).toBe(1);
+    });
+
+    it('debería adjuntar a cada listado sus reservas y lo que ha facturado', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio());
+
+      const [servicio] = (await service.detalleComercio(new Types.ObjectId().toString())).servicios;
+
+      expect(servicio).toEqual(expect.objectContaining({
+        _id: 'srv-1', titulo: 'Suite Royal', ciudad: 'Valencia', imagen: 'suite.jpg',
+        totalResenas: 8, reservas: 4, gmv: 820.46,
+      }));
+    });
+
+    it('debería devolver doce meses seguidos aunque sólo haya actividad en uno', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio());
+
+      const { mensual } = (await service.detalleComercio(new Types.ObjectId().toString())).metricas;
+
+      expect(mensual).toHaveLength(12);
+      expect(mensual[0].mes).toBe('2025-04');
+      expect(mensual[11]).toEqual({ mes: '2026-03', reservas: 2, gmv: 400, comision: 60 });
+    });
+
+    it('no debería sacar el IBAN completo del API', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio({
+        datosBancarios: { titular: 'Canina Real SL', iban: 'ES9121000418450200051332', banco: 'Caixa' },
+      }));
+
+      const detalle = await service.detalleComercio(new Types.ObjectId().toString());
+
+      expect(detalle.comercio.datosBancarios?.iban).toBe(`ES91${'•'.repeat(16)}1332`);
+      expect(detalle.comercio.datosBancarios?.banco).toBe('Caixa');
+    });
+
+    it('debería aplicar el override del comercio por encima de la comisión del vertical', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio({ comisionPctOverride: 0.22 }));
+
+      const [comision] = (await service.detalleComercio(new Types.ObjectId().toString())).comisiones;
+
+      expect(comision).toEqual(expect.objectContaining({ comisionPct: 0.22, origen: 'override_comercio' }));
+    });
+
+    it('debería respetar la comisión congelada de un socio fundador vigente', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio({
+        comisionPctOverride: 0.22,
+        socioFundador: true,
+        comisionPctCongelada: 0.1,
+        congelacionHasta: new Date('2027-01-01'),
+      }));
+
+      const [comision] = (await service.detalleComercio(new Types.ObjectId().toString())).comisiones;
+
+      expect(comision).toEqual(expect.objectContaining({ comisionPct: 0.1, origen: 'socio_fundador' }));
+    });
+
+    it('debería volver a la tarifa vigente cuando la congelación ya venció', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio({
+        socioFundador: true,
+        comisionPctCongelada: 0.1,
+        congelacionHasta: new Date('2026-01-01'),
+      }));
+
+      const [comision] = (await service.detalleComercio(new Types.ObjectId().toString())).comisiones;
+
+      expect(comision).toEqual(expect.objectContaining({ comisionPct: 0.15, origen: 'vertical' }));
+    });
+
+    it('debería devolver el equipo, las reseñas y las incidencias del comercio', async () => {
+      comerciosRepo.findById.mockResolvedValue(comercio());
+      resenaModel.find = jest.fn().mockReturnValue(cadena([
+        { _id: 'rs-1', usuarioNombre: 'Ana', servicioTitulo: 'Suite', puntuacion: 5, comentario: 'Genial' },
+      ]));
+      incidenciaModel.find = jest.fn().mockReturnValue(cadena([
+        { _id: 'in-1', asunto: 'Retraso', tipo: 'servicio', estado: 'abierta', origen: 'cliente', abiertaPorNombre: 'Ana' },
+      ]));
+
+      const detalle = await service.detalleComercio(new Types.ObjectId().toString());
+
+      expect(detalle.equipo).toEqual([expect.objectContaining({ nombre: 'Ana', rol: 'comercio_admin' })]);
+      expect(detalle.resenas).toEqual([expect.objectContaining({ puntuacion: 5, respuesta: null })]);
+      expect(detalle.incidencias).toEqual([expect.objectContaining({ asunto: 'Retraso', estado: 'abierta' })]);
+      expect(detalle.metricas.equipo).toEqual({ total: 3, porRol: { comercio_admin: 1, comercio_staff: 2 } });
     });
   });
 
