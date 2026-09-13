@@ -155,3 +155,5 @@ ReservaSchema.index({ comercioId: 1, estado: 1, fechaInicio: 1 });
 // Vista "Mi viaje": todas las reservas de un mismo viaje, en orden cronológico.
 ReservaSchema.index({ reservaMadreId: 1, fechaInicio: 1 }, { sparse: true });
 ReservaSchema.index({ carritoId: 1 }, { sparse: true });
+// Expediente de la mascota: qué comercios la han atendido y con qué reservas.
+ReservaSchema.index({ perroId: 1, comercioId: 1, fechaInicio: -1 }, { sparse: true });

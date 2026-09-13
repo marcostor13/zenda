@@ -11,6 +11,8 @@ import { DomainException } from '../../shared/exceptions/domain.exception';
 import { TipoHistorial, VerticalKey } from 'shared';
 
 const PROPIETARIO_ID = new Types.ObjectId().toString();
+const COMERCIO_ID = new Types.ObjectId().toString();
+const PERRO_ID = new Types.ObjectId().toString();
 
 function perroDocMock(propietarioId: string) {
   return {
@@ -119,7 +121,7 @@ describe('PerrosService', () => {
   it('debería lanzar 404 al agregar historial de un perro inexistente', async () => {
     perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(null) });
     await expect(
-      service.agregarHistorial('x', 'comercio-1', { vertical: 'peluqueria' as never, nota: 'Nudos severos' }),
+      service.agregarHistorial(PERRO_ID, COMERCIO_ID, { vertical: 'peluqueria' as never, nota: 'Nudos severos' }),
     ).rejects.toThrow(DomainException);
   });
 
@@ -173,6 +175,21 @@ describe('PerrosService', () => {
     expect(historialModel.insertMany).not.toHaveBeenCalled();
   });
 
+  describe('asegurarRelacionComercio', () => {
+    it('debería rechazar a una cuenta sin negocio vinculado', async () => {
+      await expect(service.asegurarRelacionComercio(PERRO_ID, undefined)).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it('debería rechazar un comercio que nunca ha atendido al perro', async () => {
+      reservaModel.exists.mockReturnValue({ exec: () => Promise.resolve(null) });
+      await expect(service.asegurarRelacionComercio(PERRO_ID, COMERCIO_ID)).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it('debería rechazar ids mal formados con 400', async () => {
+      await expect(service.asegurarRelacionComercio('x', COMERCIO_ID)).rejects.toMatchObject({ statusCode: 400 });
+    });
+  });
+
   it('debería listar el historial de un perro propio', async () => {
     const perroId = new Types.ObjectId().toString();
     perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
@@ -218,7 +235,7 @@ describe('PerrosService', () => {
       perroModel.findById.mockReturnValue({ select });
       historialModel.find.mockReturnValue({ sort: () => ({ lean: () => ({ exec: () => Promise.resolve([{ nota: 'Vacuna anual' }]) }) }) });
 
-      const resultado = await service.obtenerHistoriaCompartida(new Types.ObjectId().toString());
+      const resultado = await service.obtenerHistoriaCompartida(PERRO_ID, COMERCIO_ID);
 
       expect(resultado.nombre).toBe('Nala');
       expect(resultado.alergias).toEqual(['pollo']);
@@ -229,7 +246,7 @@ describe('PerrosService', () => {
       const select = jest.fn().mockReturnValue({ lean: () => ({ exec: () => Promise.resolve(null) }) });
       perroModel.findById.mockReturnValue({ select });
 
-      await expect(service.obtenerHistoriaCompartida('no-existe')).rejects.toThrow(DomainException);
+      await expect(service.obtenerHistoriaCompartida(PERRO_ID, COMERCIO_ID)).rejects.toThrow(DomainException);
     });
 
     it('debería lanzar 403 si el propietario no autorizó compartir el historial', async () => {
@@ -238,7 +255,7 @@ describe('PerrosService', () => {
       });
       perroModel.findById.mockReturnValue({ select });
 
-      await expect(service.obtenerHistoriaCompartida('perro-1')).rejects.toThrow(DomainException);
+      await expect(service.obtenerHistoriaCompartida(PERRO_ID, COMERCIO_ID)).rejects.toThrow(DomainException);
     });
   });
 

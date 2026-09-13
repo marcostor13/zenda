@@ -8,11 +8,12 @@ import admin from './it/admin';
 import legal from './it/legal';
 import catalogos from './it/catalogos';
 import paginas from './it/paginas';
+import historial from './it/historial';
 
 /**
  * Diccionario de it, repartido por zona de la aplicacion para que cada
  * fichero se pueda revisar entero de una sentada.
  */
-const it: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas };
+const it: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas, ...historial };
 
 export default it;

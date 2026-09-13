@@ -1,5 +1,5 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
-import { HitoFunerario, VerticalKey } from 'shared';
+import { HitoFunerario, VerticalKey, tieneHistorialDeServicio } from 'shared';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -340,7 +340,14 @@ function desdeClaveDia(clave: string): number {
                     <div><dt>{{ 'Cliente' | t }}</dt><dd>{{ r.clienteNombre || '—' }}</dd></div>
                     @if (r.clienteEmail) { <div><dt>{{ 'Email' | t }}</dt><dd>{{ r.clienteEmail }}</dd></div> }
                     @if (r.clienteTelefono) { <div><dt>{{ 'Teléfono' | t }}</dt><dd>{{ r.clienteTelefono }}</dd></div> }
-                    <div><dt>{{ 'Mascota' | t }}</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
+                    <div>
+                      <dt>{{ 'Mascota' | t }}</dt>
+                      <dd>
+                        @if (r.perroId) {
+                          <a [routerLink]="['/comercio/mascotas', r.perroId]">{{ r.perroNombre || ('Ver ficha' | t) }}</a>
+                        } @else { {{ r.perroNombre || '—' }} }
+                      </dd>
+                    </div>
                     <div>
                       <dt>{{ esEstancia(r.vertical) ? 'Ingreso' : 'Fecha y hora' }}</dt>
                       <dd>{{ r.fechaInicio | date:'d MMM yyyy, HH:mm' }}</dd>
@@ -479,6 +486,13 @@ function desdeClaveDia(clave: string): number {
                     <span class="rs-badge rs-badge--success">
                       <rs-icon name="star" [size]="12" [stroke]="2.5" [filled]="true"></rs-icon> {{ 'Valorado' | t }}
                     </span>
+                  }
+                  @if (r.perroId) {
+                    <a class="rs-btn rs-btn--outline rs-btn--sm" [routerLink]="['/comercio/mascotas', r.perroId]"
+                       [queryParams]="parametrosRegistro(r)">
+                      <rs-icon name="clipboard-list" [size]="13" [stroke]="2"></rs-icon>
+                      {{ (puedeRegistrarServicio(r) ? 'Registrar servicio' : 'Ficha e historial') | t }}
+                    </a>
                   }
                   @if (r.vertical === 'veterinaria' && r.perroId) {
                     <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="toggleHistoriaVeterinaria(r)">
@@ -1186,8 +1200,19 @@ export class ComercioReservasComponent implements OnInit {
   /** Si no hay ninguna acción posible, el botón "Gestionar" no se pinta. */
   tieneGestion(r: MiReserva): boolean {
     if (r.estado === 'confirmada' || r.estado === 'en_curso') return true;
-    if (r.estado === 'completada' && r.perroId) return true;
-    return r.vertical === 'veterinaria' && !!r.perroId;
+    // Con ficha de perro siempre hay algo que hacer: abrir su expediente.
+    return !!r.perroId;
+  }
+
+  /** Veterinaria, peluquería y adiestramiento anotan lo que hicieron en cada servicio. */
+  puedeRegistrarServicio(r: MiReserva): boolean {
+    return !!r.perroId && tieneHistorialDeServicio(r.vertical)
+      && ['confirmada', 'en_curso', 'completada'].includes(r.estado);
+  }
+
+  /** Abre el expediente con el formulario ya apuntando a esta reserva. */
+  parametrosRegistro(r: MiReserva): Record<string, string> {
+    return this.puedeRegistrarServicio(r) ? { registrar: r.vertical, reserva: r._id } : {};
   }
 
   esEstancia(vertical: string): boolean {

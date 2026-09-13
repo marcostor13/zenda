@@ -40,6 +40,25 @@ export class PerroHistorial {
   @Prop({ type: Object, default: {} })
   datosEstructurados!: Record<string, unknown>;
 
+  // --- Registro de servicio estructurado (docs/PLAN-HISTORIAL-MASCOTAS.md) ---
+  /** Encabezado corto del registro ("Revisión anual", "Baño y corte"). */
+  @Prop({ trim: true })
+  titulo?: string;
+
+  /** Cuándo se prestó el servicio; puede no coincidir con cuándo se anotó. */
+  @Prop()
+  fechaServicio?: Date;
+
+  @Prop({ trim: true })
+  profesional?: string;
+
+  @Prop()
+  proximaCita?: Date;
+
+  /** Usuario del comercio que escribió el registro. */
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Usuario' })
+  autorId?: Types.ObjectId;
+
   /** Fecha en que el propietario editó la entrada, si lo hizo. */
   @Prop()
   editadaAt?: Date;
@@ -47,3 +66,4 @@ export class PerroHistorial {
 
 export const PerroHistorialSchema = SchemaFactory.createForClass(PerroHistorial);
 PerroHistorialSchema.index({ perroId: 1, createdAt: -1 });
+PerroHistorialSchema.index({ comercioId: 1, perroId: 1, createdAt: -1 });

@@ -155,9 +155,10 @@ describe('PerrosController', () => {
     expect(service.agregarHistorial).toHaveBeenCalledWith('p1', 'comercio-1', dto);
   });
 
-  it('debería obtener la historia veterinaria compartida sin exigir propietario', async () => {
-    await controller.obtenerHistoriaCompartida('p1');
-    expect(service.obtenerHistoriaCompartida).toHaveBeenCalledWith('p1');
+  it('debería pedir la historia veterinaria compartida en nombre del comercio que consulta', async () => {
+    const req = { user: { sub: 'user-1', comercioId: 'c1' } } as never;
+    await controller.obtenerHistoriaCompartida('p1', req);
+    expect(service.obtenerHistoriaCompartida).toHaveBeenCalledWith('p1', 'c1');
   });
 
   it('debería obtener el índice de comportamiento sin exigir propietario', async () => {

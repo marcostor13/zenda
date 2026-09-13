@@ -6,7 +6,7 @@ import { ImgFallbackDirective } from '../../shared/directives/img-fallback.direc
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { descargarFichero } from '../../shared/exportacion/descarga';
 import {
-  PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, PerroHistorialApi,
+  PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi,
   porcentajeCompletitud,
 } from './perros.service';
 
@@ -59,7 +59,7 @@ interface EtiquetaEstado {
               }
             </div>
             <div class="perro-card__info">
-              <h3>{{ p.nombre }}</h3>
+              <h3><a [routerLink]="['/perros', p._id]" class="perro-card__nombre">{{ p.nombre }}</a></h3>
               <p class="perro-card__linea">
                 {{ p.raza || 'Mestizo' }}
                 @if (p.peso) { · {{ p.peso }} kg }
@@ -103,49 +103,12 @@ interface EtiquetaEstado {
                 <span>Ficha inteligente: {{ porcentajeCompletitud(p) }}% completada</span>
               </div>
 
-              @if (historialAbiertoId() === p._id) {
-                <div class="perro-card__resumen">
-                  <strong>{{ 'Resumen de salud' | t }}</strong>
-                  <div class="perro-card__salud">
-                    <span [class.ok]="p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0">
-                      <rs-icon [name]="(p.vacunas.length > 0 || (p.vacunasDetalle?.length ?? 0) > 0) ? 'check' : 'alert-triangle'"
-                               [size]="14" [stroke]="2.5"></rs-icon>
-                      {{ 'Vacunas registradas' | t }}
-                    </span>
-                    <span [class.ok]="!!p.microchip">
-                      <rs-icon [name]="p.microchip ? 'check' : 'alert-triangle'" [size]="14" [stroke]="2.5"></rs-icon>
-                      {{ 'Microchip registrado' | t }}
-                    </span>
-                    <span [class.ok]="p.esterilizado">
-                      <rs-icon [name]="p.esterilizado ? 'check' : 'alert-triangle'" [size]="14" [stroke]="2.5"></rs-icon>
-                      {{ 'Esterilizado' | t }}
-                    </span>
-                  </div>
-                  @if (indices()[p._id]; as ic) {
-                    <strong>{{ 'Estadísticas' | t }}</strong>
-                    <p class="perro-card__stats">
-                      <rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon>
-                      {{ ic.puntuacionPromedio }} valoración media de profesionales · {{ ic.totalValoraciones }} servicios valorados
-                    </p>
-                  }
-                  <strong>{{ 'Historial reciente' | t }}</strong>
-                  @if (historialCargando()) {
-                    <p class="perro-card__stats">{{ 'Cargando…' | t }}</p>
-                  } @else if ((historialPorPerro()[p._id] ?? []).length === 0) {
-                    <p class="perro-card__stats">{{ 'Todavía no hay notas de profesionales en el historial.' | t }}</p>
-                  } @else {
-                    @for (h of (historialPorPerro()[p._id] ?? []).slice(0, 3); track h._id) {
-                      <p class="perro-card__stats">{{ h.vertical }} · {{ h.nota }}</p>
-                    }
-                  }
-                </div>
-              }
             </div>
             <div class="perro-card__actions">
-              <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="toggleHistorial(p)">
-                <rs-icon name="check-circle" [size]="13" [stroke]="2"></rs-icon>
-                {{ historialAbiertoId() === p._id ? 'Ocultar resumen' : 'Ver ficha completa' }}
-              </button>
+              <a [routerLink]="['/perros', p._id]" class="rs-btn rs-btn--primary rs-btn--sm">
+                <rs-icon name="clipboard-list" [size]="13" [stroke]="2"></rs-icon>
+                {{ 'Ver ficha completa' | t }}
+              </a>
               <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
                       [disabled]="descargandoId() === p._id"
                       (click)="descargarInforme(p)">
@@ -195,6 +158,7 @@ interface EtiquetaEstado {
       img { width: 100%; height: 100%; object-fit: cover; }
     }
     .perro-card__info h3 { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); }
+    .perro-card__nombre { color: inherit; text-decoration: none; &:hover { color: var(--c-accent); } }
     .perro-card__info p { font-size: var(--f-sm); color: var(--t-400); margin-top: 2px; }
     .perro-card__linea { display: block; }
     .perro-card__badges { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
@@ -202,15 +166,6 @@ interface EtiquetaEstado {
     .perro-card__completitud-track { height: 4px; border-radius: var(--r-full); background: var(--c-raised); overflow: hidden; margin-bottom: var(--sp-1); }
     .perro-card__completitud-fill { height: 100%; background: var(--dk-gold); border-radius: var(--r-full); transition: width var(--d-3); }
     .perro-card__actions { display: flex; gap: var(--sp-2); margin-top: auto; flex-wrap: wrap; }
-    .perro-card__resumen {
-      margin-top: var(--sp-3); padding: var(--sp-3); border-radius: var(--r-lg); background: var(--c-raised);
-      display: flex; flex-direction: column; gap: var(--sp-1);
-      strong { font-size: var(--f-xs); color: var(--t-200); margin-top: var(--sp-2); &:first-child { margin-top: 0; } }
-    }
-    .perro-card__salud { display: flex; flex-direction: column; gap: 2px; font-size: var(--f-xs); color: var(--t-400);
-      span.ok { color: var(--c-success, #16A34A); }
-    }
-    .perro-card__stats { font-size: var(--f-xs); color: var(--t-400); margin: 0; }
   `],
 })
 export class PerrosListaComponent implements OnInit {
@@ -223,19 +178,6 @@ export class PerrosListaComponent implements OnInit {
   readonly indices = signal<Record<string, IndiceComportamientoApi>>({});
   readonly bienestar = signal<Record<string, IndiceBienestarApi>>({});
   readonly porcentajeCompletitud = porcentajeCompletitud;
-
-  /** HU-8.1.3/8.1.4: resumen de salud/historial expandible por mascota. */
-  readonly historialAbiertoId = signal<string | null>(null);
-  /*
-   * `Partial<...>` en vez de `Record<string, PerroHistorialApi[]>`: el mapa
-   * arranca vacío y solo gana una entrada por perro cuando `toggleHistorial`
-   * termina de cargarla, así que leer una clave todavía no cargada es
-   * `undefined` en tiempo de ejecución. Con `Record<string, X>` a secas TS no
-   * lo refleja y sugiere quitar el `?? []` del template — que sí hace falta:
-   * sin él, `.length`/`.slice` sobre `undefined` rompería.
-   */
-  readonly historialPorPerro = signal<Partial<Record<string, PerroHistorialApi[]>>>({});
-  readonly historialCargando = signal(false);
 
   /** Ficha cuyo informe se está preparando; el PDF se arma en el servidor. */
   readonly descargandoId = signal<string | null>(null);
@@ -308,25 +250,6 @@ export class PerrosListaComponent implements OnInit {
     }
     if (p.microchip) tags.push({ icon: 'radio-tower', variante: 'success', label: 'Microchip' });
     return tags;
-  }
-
-  /** HU-8.1.3/8.1.4: abre/cierra el resumen de salud e historial, con carga perezosa. */
-  async toggleHistorial(p: PerroApi): Promise<void> {
-    if (this.historialAbiertoId() === p._id) {
-      this.historialAbiertoId.set(null);
-      return;
-    }
-    this.historialAbiertoId.set(p._id);
-    if (this.historialPorPerro()[p._id]) return;
-    this.historialCargando.set(true);
-    try {
-      const historial = await this.perrosService.historial(p._id);
-      this.historialPorPerro.update((mapa) => ({ ...mapa, [p._id]: historial }));
-    } catch {
-      this.historialPorPerro.update((mapa) => ({ ...mapa, [p._id]: [] }));
-    } finally {
-      this.historialCargando.set(false);
-    }
   }
 
   /**

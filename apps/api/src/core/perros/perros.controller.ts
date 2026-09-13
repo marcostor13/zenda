@@ -213,8 +213,11 @@ export class PerrosController {
   @UseGuards(RolesGuard)
   @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
   @ApiOperation({ summary: 'Historia Veterinaria Compartida: salud e historial del perro, con autorización del propietario' })
-  obtenerHistoriaCompartida(@Param('id') id: string): Promise<HistoriaCompartida> {
-    return this.perrosService.obtenerHistoriaCompartida(id);
+  obtenerHistoriaCompartida(
+    @Param('id') id: string,
+    @Req() req: RequestConUsuario,
+  ): Promise<HistoriaCompartida> {
+    return this.perrosService.obtenerHistoriaCompartida(id, req.user.comercioId);
   }
 
   @Get(':id/estimacion-precio')

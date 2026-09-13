@@ -46,6 +46,11 @@ Muestra la referencia completa de tokens y clases disponibles, o busca un token 
 | `--c-accent-h` | `#00135D` — hover |
 | `--c-accent-lo` | `rgba(8,37,139,.08)` — fondos suaves azules |
 | `--c-amber` | `#FBAE17` — igual a --dk-gold |
+| `--c-success` / `--c-success-lo` | `#047857` / fondo verde suave — chips de salud "ok" |
+| `--c-error` / `--c-error-lo` | `#B91C1C` / fondo rojo suave — alergias, avisos de salud |
+| `--c-warning` / `--c-warning-lo` | `#B45309` / fondo ámbar suave — patologías, rasgos a tener en cuenta |
+| `--dk-gold-lo` | dorado suave — icono de peluquería en el historial |
+| `--c-purple-lo` | morado suave — icono de adiestramiento en el historial |
 | `--c-pink` | `#FFC533` — gold light (legacy alias) |
 | `--c-purple` / `--c-teal` | `#4156B9` — azul secundario (legacy alias) |
 

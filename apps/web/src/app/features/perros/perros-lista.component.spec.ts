@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { PerrosListaComponent } from './perros-lista.component';
-import { PerrosService, PerroApi, IndiceBienestarApi, PerroHistorialApi } from './perros.service';
+import { PerrosService, PerroApi, IndiceBienestarApi } from './perros.service';
 import * as descarga from '../../shared/exportacion/descarga';
 
 describe('PerrosListaComponent', () => {
@@ -126,41 +126,12 @@ describe('PerrosListaComponent', () => {
     });
   });
 
-  describe('resumen de salud e historial (HU-8.1.3/8.1.4)', () => {
-    it('debería mostrar el resumen al pulsar "Ver ficha completa" y cargar el historial', async () => {
-      await crear([perro()]);
-      const historial: PerroHistorialApi[] = [
-        { _id: 'h1', vertical: 'peluqueria', nota: 'Baño y corte', createdAt: '2026-01-01' },
-      ];
-      perrosService.historial.mockResolvedValue(historial);
+  it('debería enlazar cada tarjeta con la ficha completa del perro', async () => {
+    await crear([perro()]);
 
-      await component.toggleHistorial(component.perros()[0]);
-      fixture.detectChanges();
-
-      expect(component.historialAbiertoId()).toBe('p1');
-      expect(perrosService.historial).toHaveBeenCalledWith('p1');
-      const el: HTMLElement = fixture.nativeElement;
-      expect(el.textContent).toContain('Baño y corte');
-    });
-
-    it('debería ocultar el resumen al pulsar de nuevo', async () => {
-      await crear([perro()]);
-
-      await component.toggleHistorial(component.perros()[0]);
-      await component.toggleHistorial(component.perros()[0]);
-
-      expect(component.historialAbiertoId()).toBeNull();
-    });
-
-    it('no debería volver a pedir el historial si ya está en caché', async () => {
-      await crear([perro()]);
-
-      await component.toggleHistorial(component.perros()[0]);
-      await component.toggleHistorial(component.perros()[0]);
-      await component.toggleHistorial(component.perros()[0]);
-
-      expect(perrosService.historial).toHaveBeenCalledTimes(1);
-    });
+    const enlaces = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a'))
+      .map((a) => a.getAttribute('href'));
+    expect(enlaces).toContain('/perros/p1');
   });
 
   describe('informe de salud en PDF', () => {

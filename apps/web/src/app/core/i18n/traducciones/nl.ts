@@ -8,11 +8,12 @@ import admin from './nl/admin';
 import legal from './nl/legal';
 import catalogos from './nl/catalogos';
 import paginas from './nl/paginas';
+import historial from './nl/historial';
 
 /**
  * Diccionario de nl, repartido por zona de la aplicacion para que cada
  * fichero se pueda revisar entero de una sentada.
  */
-const nl: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas };
+const nl: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas, ...historial };
 
 export default nl;

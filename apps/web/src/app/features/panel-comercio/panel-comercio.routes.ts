@@ -42,6 +42,16 @@ export const panelComercioRoutes: Routes = [
         loadComponent: () =>
           import('./comercio-reservas.component').then(m => m.ComercioReservasComponent),
       },
+      {
+        path: 'mascotas/:perroId',
+        loadComponent: () =>
+          import('./comercio-mascota-expediente.component').then(m => m.ComercioMascotaExpedienteComponent),
+      },
+      {
+        path: 'mascotas',
+        loadComponent: () =>
+          import('./comercio-mascotas.component').then(m => m.ComercioMascotasComponent),
+      },
       // listados/nuevo y listados/:id/editar deben declararse antes de listados
       {
         path: 'listados/nuevo',

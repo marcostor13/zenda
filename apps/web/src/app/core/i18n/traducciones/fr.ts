@@ -8,11 +8,12 @@ import admin from './fr/admin';
 import legal from './fr/legal';
 import catalogos from './fr/catalogos';
 import paginas from './fr/paginas';
+import historial from './fr/historial';
 
 /**
  * Diccionario de fr, repartido por zona de la aplicacion para que cada
  * fichero se pueda revisar entero de una sentada.
  */
-const fr: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas };
+const fr: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas, ...historial };
 
 export default fr;

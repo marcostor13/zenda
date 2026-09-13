@@ -184,7 +184,8 @@ export class PerrosService {
    * salud del perro antes de una consulta, sin exigir propiedad de la ficha (a diferencia
    * de `obtenerPropio`). Si el propietario no autorizó compartir, se rechaza.
    */
-  async obtenerHistoriaCompartida(perroId: string): Promise<HistoriaCompartida> {
+  async obtenerHistoriaCompartida(perroId: string, comercioId?: string): Promise<HistoriaCompartida> {
+    await this.asegurarRelacionComercio(perroId, comercioId);
     const perro = await this.perroModel
       .findById(perroId)
       .select('nombre especie raza fechaNacimiento sexo esterilizado peso vacunas alergias enfermedades medicacion dieta cartillaSanitariaUrl pasaporteEuropeoUrl certificadosUrl autorizaCompartirHistorial')
@@ -243,20 +244,25 @@ export class PerrosService {
     if (!perro) {
       throw new DomainException('Perro no encontrado', 404);
     }
-
-    await this.exigirReservaCon(perroId, comercioId);
+    await this.asegurarRelacionComercio(perroId, comercioId);
 
     return this.historialModel.create({ ...dto, perroId, comercioId });
   }
 
   /**
-   * Falla si el comercio no ha tenido nunca una reserva con ese perro.
+   * Un comercio sólo lee o escribe en la ficha de un perro que ha atendido: se
+   * exige una reserva previa entre ese comercio y ese perro. Sin la comprobación
+   * bastaba con conocer el identificador de una ficha para escribir en el
+   * historial médico —o leer la salud— de cualquier perro de la plataforma.
    *
    * Vale cualquier estado salvo la cancelada: una reserva pendiente de pago ya
    * puede necesitar una nota (la llamada previa a una urgencia veterinaria), y
    * una cancelada nunca llegó a ser un servicio.
    */
-  private async exigirReservaCon(perroId: string, comercioId: string): Promise<void> {
+  async asegurarRelacionComercio(perroId: string, comercioId?: string): Promise<void> {
+    if (!comercioId) {
+      throw new DomainException('Tu cuenta no está vinculada a ningún negocio', 403);
+    }
     const atendido = await this.reservaModel
       .exists({
         perroId: aObjectId(perroId, 'Identificador de perro'),
@@ -460,10 +466,9 @@ export class PerrosService {
     if (!filas.length) {
       throw new DomainException('No hay nada que importar', 400);
     }
-
     // Mismo límite que en la nota suelta: sólo escribe quien ha atendido al
     // animal. Aquí pesa más, porque de una vez entran decenas de filas.
-    await this.exigirReservaCon(perroId, comercioId);
+    await this.asegurarRelacionComercio(perroId, comercioId);
 
     await this.historialModel.insertMany(
       filas.map((fila) => ({

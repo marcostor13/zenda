@@ -22,4 +22,9 @@ export const perrosRoutes: Routes = [
     loadComponent: () =>
       import('./perro-privacidad.component').then((m) => m.PerroPrivacidadComponent),
   },
+  {
+    path: ':id',
+    loadComponent: () =>
+      import('./perro-ficha.component').then((m) => m.PerroFichaComponent),
+  },
 ];

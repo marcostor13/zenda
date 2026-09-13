@@ -38,6 +38,14 @@
   --c-amber:     #FBAE17;
   --c-pink:      #FFC533;
   --c-success:   #047857;
+  /* Estados suaves (fondos de chips de salud y del historial de la mascota) */
+  --c-success-lo: rgba(16,185,129,.12);
+  --c-error:      #B91C1C;
+  --c-error-lo:   rgba(239,68,68,.10);
+  --c-warning:    #B45309;
+  --c-warning-lo: rgba(245,158,11,.12);
+  --dk-gold-lo:   rgba(251,174,23,.16);
+  --c-purple-lo:  rgba(65,86,185,.12);
 
   /* Gradientes */
   --g-accent:   linear-gradient(135deg, #08258B 0%, #4156B9 100%);

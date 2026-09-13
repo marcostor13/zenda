@@ -40,6 +40,9 @@ export interface PerroApi {
   temperamento?: string;
   seMarea: boolean;
   requiereTransportin: boolean;
+  toleraTrayectosLargos?: boolean;
+  reactividadCorrea?: boolean;
+  protectorRecursos?: boolean;
   orinaEnInterior?: boolean;
   ladraAlQuedarseSolo?: boolean;
   destructivoEnSoledad?: boolean;

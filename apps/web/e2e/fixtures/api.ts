@@ -122,5 +122,23 @@ export async function sesionIniciada(
   }, datos);
 }
 
-export const test = base;
+/**
+ * Visitante que ya ha decidido sobre las cookies (todo rechazado).
+ *
+ * El banner (commit 7fec988) se superpone al contenido y tapa los botones: en
+ * móvil ocupa media pantalla y en escritorio cubre los "Continuar" del pie de
+ * los formularios. Pulsarlo no es fiable —si el clic llega antes de hidratar,
+ * el banner sigue ahí—, así que se deja la decisión guardada en la misma cookie
+ * que escribe `ConsentimientoService`, igual que la tendría quien vuelve a la web.
+ * Si sube `VERSION_CONSENTIMIENTO`, hay que subirla aquí.
+ */
+export const test = base.extend({
+  context: async ({ context, baseURL }, use) => {
+    const decision = { preferencias: false, analitica: false, marketing: false, fecha: new Date().toISOString(), version: 1 };
+    await context.addCookies([
+      { name: 'dk_consentimiento', value: encodeURIComponent(JSON.stringify(decision)), url: baseURL ?? 'http://localhost:4200' },
+    ]);
+    await use(context);
+  },
+});
 export { expect } from '@playwright/test';

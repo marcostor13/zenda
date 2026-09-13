@@ -8,11 +8,12 @@ import admin from './pt/admin';
 import legal from './pt/legal';
 import catalogos from './pt/catalogos';
 import paginas from './pt/paginas';
+import historial from './pt/historial';
 
 /**
  * Diccionario de pt, repartido por zona de la aplicacion para que cada
  * fichero se pueda revisar entero de una sentada.
  */
-const pt: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas };
+const pt: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas, ...historial };
 
 export default pt;
