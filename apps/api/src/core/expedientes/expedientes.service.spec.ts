@@ -10,6 +10,7 @@ import { Comercio } from '../comercios/comercio.schema';
 import { Servicio } from '../catalog/servicio.schema';
 import { UsersRepository } from '../users/users.repository';
 import { PerrosService } from '../perros/perros.service';
+import { InformePerroService } from '../perros/informe/informe-perro.service';
 
 /** Consulta encadenable de Mongoose que resuelve con `valor` al hacer `exec()`. */
 function consulta<TValor>(valor: TValor) {
@@ -27,6 +28,7 @@ describe('ExpedientesService', () => {
   let comercioModel: Record<string, jest.Mock>;
   let servicioModel: Record<string, jest.Mock>;
   let usersRepo: { findContactosByIds: jest.Mock };
+  let informes: { componer: jest.Mock };
   let perrosService: { asegurarRelacionComercio: jest.Mock; historialVisiblePara: jest.Mock; obtenerPropio: jest.Mock };
 
   const COMERCIO = new Types.ObjectId();
@@ -60,6 +62,8 @@ describe('ExpedientesService', () => {
       obtenerPropio: jest.fn().mockResolvedValue({}),
     };
 
+    informes = { componer: jest.fn().mockResolvedValue({ nombreFichero: 'x.pdf', pdf: Buffer.from('%PDF') }) };
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         ExpedientesService,
@@ -70,6 +74,7 @@ describe('ExpedientesService', () => {
         { provide: getModelToken(Servicio.name), useValue: servicioModel },
         { provide: UsersRepository, useValue: usersRepo },
         { provide: PerrosService, useValue: perrosService },
+        { provide: InformePerroService, useValue: informes },
       ],
     }).compile();
     service = moduleRef.get(ExpedientesService);
@@ -238,6 +243,26 @@ describe('ExpedientesService', () => {
       historialModel['deleteOne'].mockReturnValueOnce(consulta({ deletedCount: 1 })).mockReturnValueOnce(consulta({ deletedCount: 0 }));
       await expect(service.eliminarRegistro(COMERCIO.toString(), PERRO.toString(), registroId)).resolves.toBeUndefined();
       await expect(service.eliminarRegistro(COMERCIO.toString(), PERRO.toString(), registroId)).rejects.toMatchObject({ statusCode: 404 });
+    });
+  });
+
+  describe('informeParaComercio', () => {
+    it('debería componer el informe con el negocio como emisor y el contacto del dueño', async () => {
+      const propio = historial({ titulo: 'Vacunación' });
+      perroModel['findById'].mockReturnValue(consulta(perro));
+      reservaModel['find'].mockReturnValue(consulta([]));
+      historialModel['find'].mockReturnValue(consulta([propio]));
+      comercioModel['findById'].mockReturnValue(consulta({ verticales: ['veterinaria'], nombreComercial: 'Clínica Royal' }));
+      comercioModel['find'].mockReturnValue(consulta([{ _id: COMERCIO, nombreComercial: 'Clínica Royal' }]));
+
+      const informe = await service.informeParaComercio(COMERCIO.toString(), PERRO.toString());
+
+      expect(informe.nombreFichero).toBe('x.pdf');
+      const origen = informes.componer.mock.calls[0][0];
+      expect(origen.emisor).toBe('Clínica Royal');
+      expect(origen.propietario).toMatchObject({ nombre: 'Ana Ruiz' });
+      expect(origen.perro.nombre).toBe('Nala');
+      expect(origen.entradas[0]).toMatchObject({ titulo: 'Vacunación', comercioNombre: 'Clínica Royal' });
     });
   });
 

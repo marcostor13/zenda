@@ -1,20 +1,15 @@
 import { StreamableFile } from '@nestjs/common';
+import { InformeDescargable } from '../perros/informe/informe-perro.service';
 
-/** Envuelve el PDF como descarga, con un nombre de archivo legible y seguro. */
-export function archivoPdf(pdf: Buffer, nombreMascota: unknown): StreamableFile {
-  return new StreamableFile(pdf, {
+/**
+ * Envuelve el informe como descarga. Mismas cabeceras que el informe del dueño:
+ * `attachment` porque es un documento para guardar, y `no-store` porque es una
+ * historia clínica que no debe quedarse en ninguna caché intermedia.
+ */
+export function archivoPdf(informe: InformeDescargable): StreamableFile {
+  return new StreamableFile(informe.pdf, {
     type: 'application/pdf',
-    disposition: `attachment; filename="${nombreArchivo(nombreMascota)}"`,
-    length: pdf.length,
+    disposition: `attachment; filename="${informe.nombreFichero}"`,
+    length: informe.pdf.length,
   });
-}
-
-export function nombreArchivo(nombreMascota: unknown): string {
-  const base = String(nombreMascota ?? 'mascota')
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
-  return `historial-${base || 'mascota'}.pdf`;
 }

@@ -20,10 +20,10 @@ describe('descargarBlob', () => {
 
 describe('nombreInforme', () => {
   it('debería quitar tildes y espacios del nombre de la mascota', () => {
-    expect(nombreInforme('Toby Ñandú')).toBe('historial-toby-nandu.pdf');
+    expect(nombreInforme('Toby Ñandú', new Date('2026-09-13T10:00:00Z'))).toBe('doogking-informe-toby-nandu-2026-09-13.pdf');
   });
 
   it('debería usar un nombre genérico si no queda nada', () => {
-    expect(nombreInforme('***')).toBe('historial-mascota.pdf');
+    expect(nombreInforme('***', new Date('2026-09-13T10:00:00Z'))).toBe('doogking-informe-mascota-2026-09-13.pdf');
   });
 });

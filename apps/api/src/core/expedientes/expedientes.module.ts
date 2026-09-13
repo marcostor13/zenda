@@ -8,7 +8,6 @@ import { Servicio, ServicioSchema } from '../catalog/servicio.schema';
 import { PerrosModule } from '../perros/perros.module';
 import { UsersModule } from '../users/users.module';
 import { ExpedientesService } from './expedientes.service';
-import { InformePdfService } from './informe-pdf.service';
 import { MascotasComercioController } from './mascotas-comercio.controller';
 import { ExpedientePropietarioController } from './expediente-propietario.controller';
 
@@ -33,6 +32,6 @@ import { ExpedientePropietarioController } from './expediente-propietario.contro
     UsersModule,
   ],
   controllers: [MascotasComercioController, ExpedientePropietarioController],
-  providers: [ExpedientesService, InformePdfService],
+  providers: [ExpedientesService],
 })
 export class ExpedientesModule {}

@@ -16,13 +16,17 @@ export function descargarBlob(blob: Blob, nombreFichero: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Mismo criterio que el API: sin tildes ni espacios, para cualquier sistema. */
-export function nombreInforme(nombreMascota: string): string {
+/**
+ * Nombre del informe de salud, el mismo que pone el API: sin tildes ni
+ * espacios (un «Lúa / Sol» rompería el nombre del fichero) y con la fecha, para
+ * que dos descargas de días distintos no se pisen.
+ */
+export function nombreInforme(nombreMascota: string, hoy = new Date()): string {
   const base = nombreMascota
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
-  return `historial-${base || 'mascota'}.pdf`;
+  return `doogking-informe-${base || 'mascota'}-${hoy.toISOString().slice(0, 10)}.pdf`;
 }

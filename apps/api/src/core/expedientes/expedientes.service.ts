@@ -12,6 +12,7 @@ import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Comercio, ComercioDocument } from '../comercios/comercio.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { UsersRepository } from '../users/users.repository';
+import { InformeDescargable, InformePerroService } from '../perros/informe/informe-perro.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
   ContactoPropietario, ExpedienteMascota, MascotaComercioResumen, RegistroExpediente,
@@ -57,6 +58,7 @@ export class ExpedientesService {
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
     private readonly usersRepo: UsersRepository,
     private readonly perrosService: PerrosService,
+    private readonly informes: InformePerroService,
   ) {}
 
   // ── Panel del comercio ─────────────────────────────────────────────────────
@@ -153,6 +155,24 @@ export class ExpedientesService {
       .deleteOne(filtroRegistroPropio(comercioId, perroId, registroId))
       .exec();
     if (!resultado.deletedCount) throw new DomainException('Registro no encontrado', 404);
+  }
+
+  /**
+   * Informe PDF de la mascota emitido por el comercio: el mismo documento que se
+   * descarga el dueño, con el nombre del negocio y el contacto del propietario, y
+   * sólo con el historial que este comercio puede ver.
+   */
+  async informeParaComercio(comercioId: string, perroId: string): Promise<InformeDescargable> {
+    const [expediente, emisor] = await Promise.all([
+      this.expedienteParaComercio(comercioId, perroId),
+      this.nombreComercio(comercioId),
+    ]);
+    return this.informes.componer({
+      perro: expediente.perro as unknown as Perro,
+      entradas: expediente.registros.map((r) => ({ ...r, tipoHistorial: r.tipoHistorial as TipoHistorial | undefined })),
+      emisor,
+      propietario: expediente.propietario,
+    });
   }
 
   async nombreComercio(comercioId: string): Promise<string> {

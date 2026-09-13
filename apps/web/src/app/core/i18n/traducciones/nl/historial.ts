@@ -158,7 +158,7 @@ const historial: Diccionario = {
   'Última visita': 'Laatste bezoek',
   'Última visita al veterinario': 'Laatste bezoek aan de dierenarts',
   'Vacunas aplicadas': 'Toegediende vaccins',
-  'Ver ficha e historial': 'Profiel en geschiedenis bekijken',
+  'Ver ficha completa': 'Volledig profiel bekijken',
   'Ver todo el historial': 'Volledige geschiedenis bekijken',
 };
 

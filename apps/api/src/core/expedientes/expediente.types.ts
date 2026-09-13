@@ -71,10 +71,3 @@ export interface MascotaComercioResumen {
   verticales: string[];
   totalRegistros: number;
 }
-
-/** Datos con los que se compone el informe PDF. */
-export interface DatosInforme {
-  emisor: string;
-  destinatario: 'comercio' | 'propietario';
-  expediente: ExpedienteMascota;
-}

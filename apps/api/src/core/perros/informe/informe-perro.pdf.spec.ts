@@ -7,6 +7,7 @@ const informe = (cambios: Partial<InformePerro> = {}): InformePerro => ({
   subtitulo: 'Mestiza · Hembra · 4 años',
   emitidoEl: '13 de septiembre de 2026',
   identidad: [{ etiqueta: 'Especie', valor: 'Perro' }],
+  propietario: [],
   salud: [{ titulo: 'Alergias', items: ['Pollo'], acento: 'alerta' }],
   historial: [{
     fecha: '12 mar 2026',

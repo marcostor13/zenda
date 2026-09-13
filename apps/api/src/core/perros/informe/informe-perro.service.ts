@@ -3,11 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
   HISTORIAL_ORIGEN, TIPO_HISTORIAL_LABELS, TipoHistorial, VACUNA_LABELS, Vacuna,
-  nombreTamanoPerro,
+  camposDeRegistro, nombreTamanoPerro,
 } from 'shared';
 import { Comercio, ComercioDocument } from '../../comercios/comercio.schema';
-import { PerroDocument } from '../perro.schema';
-import { PerroHistorialDocument } from '../perro-historial.schema';
+import { Perro } from '../perro.schema';
 import { PerrosService } from '../perros.service';
 import { construirInformePdf } from './informe-perro.pdf';
 import { DatoIdentidad, EntradaHistorial, InformePerro, SeccionSalud } from './informe-perro.tipos';
@@ -19,12 +18,43 @@ export interface InformeDescargable {
 }
 
 /**
- * Reúne el informe de salud que el propietario se descarga en PDF.
+ * Una anotación del historial tal y como llega a este servicio. Vale igual un
+ * documento de Mongoose que un objeto plano del expediente del comercio: sólo
+ * se leen propiedades.
+ */
+export interface EntradaFuente {
+  readonly vertical: string;
+  readonly tipoHistorial?: TipoHistorial;
+  readonly origen?: 'comercio' | 'propietario';
+  readonly titulo?: string;
+  readonly nota: string;
+  readonly datosEstructurados?: Record<string, unknown>;
+  readonly fechaServicio?: Date;
+  readonly createdAt?: Date;
+  readonly profesional?: string;
+  readonly proximaCita?: Date;
+  readonly comercioNombre?: string;
+  readonly editadaAt?: Date;
+}
+
+/** Todo lo necesario para componer un informe, venga del dueño o del comercio. */
+export interface OrigenInforme {
+  readonly perro: Perro;
+  readonly entradas: ReadonlyArray<EntradaFuente>;
+  /** Negocio que lo descarga desde su panel. */
+  readonly emisor?: string;
+  readonly propietario?: { readonly nombre?: string; readonly email?: string; readonly telefono?: string };
+}
+
+/**
+ * Reúne el informe de salud de la mascota en PDF.
  *
  * Traduce la ficha y el historial a textos legibles —enums, fechas, nombres de
- * los profesionales— y se los pasa al dibujante. El permiso no se comprueba
- * aquí: se reutiliza el de `PerrosService`, que es el único sitio donde se
- * decide de quién es una ficha.
+ * los profesionales— y se los pasa al dibujante. Hay un solo informe para los
+ * dos públicos: el dueño lo descarga desde su ficha y el comercio desde el
+ * expediente de la mascota; cambian el emisor y el contacto del dueño, no el
+ * documento. Los permisos se deciden fuera (`PerrosService` para el dueño,
+ * `ExpedientesService` para el comercio).
  */
 @Injectable()
 export class InformePerroService {
@@ -36,15 +66,40 @@ export class InformePerroService {
   async generar(perroId: string, propietarioId: string): Promise<InformeDescargable> {
     const perro = await this.perrosService.obtenerPropio(perroId, propietarioId);
     const historial = await this.perrosService.listarHistorial(perroId, propietarioId);
-    const nombres = await this.nombresDeComercios(historial);
+    const nombres = await this.nombresDeComercios(historial.map((e) => e.comercioId?.toString()));
 
+    const entradas: EntradaFuente[] = historial.map((entrada) => ({
+      vertical: entrada.vertical,
+      tipoHistorial: entrada.tipoHistorial,
+      origen: entrada.origen,
+      titulo: entrada.titulo,
+      nota: entrada.nota,
+      datosEstructurados: entrada.datosEstructurados,
+      fechaServicio: entrada.fechaServicio,
+      createdAt: entrada.get('createdAt') as Date | undefined,
+      profesional: entrada.profesional,
+      proximaCita: entrada.proximaCita,
+      editadaAt: entrada.editadaAt,
+      comercioNombre: nombres.get(entrada.comercioId?.toString() ?? ''),
+    }));
+
+    return this.componer({ perro, entradas });
+  }
+
+  /** Compone el PDF a partir de datos ya autorizados. */
+  async componer(origen: OrigenInforme): Promise<InformeDescargable> {
+    const { perro } = origen;
     const datos: InformePerro = {
       nombrePerro: perro.nombre,
       subtitulo: subtitulo(perro),
       emitidoEl: fechaLarga(new Date()),
+      emisor: origen.emisor,
       identidad: identidad(perro),
+      propietario: contactoPropietario(origen.propietario),
       salud: salud(perro),
-      historial: historial.map((entrada) => entradaDeHistorial(entrada, nombres)),
+      historial: [...origen.entradas]
+        .sort((a, b) => fechaDe(b).getTime() - fechaDe(a).getTime())
+        .map(entradaDeHistorial),
     };
 
     return {
@@ -54,14 +109,12 @@ export class InformePerroService {
   }
 
   /** Nombre comercial de cada profesional que anotó algo, en una sola consulta. */
-  private async nombresDeComercios(
-    historial: ReadonlyArray<PerroHistorialDocument>,
-  ): Promise<Map<string, string>> {
-    const ids = [...new Set(historial.map((entrada) => entrada.comercioId?.toString()).filter(Boolean))];
-    if (!ids.length) return new Map();
+  private async nombresDeComercios(ids: ReadonlyArray<string | undefined>): Promise<Map<string, string>> {
+    const unicos = [...new Set(ids.filter((id): id is string => !!id))];
+    if (!unicos.length) return new Map();
 
     const comercios = await this.comercioModel
-      .find({ _id: { $in: ids.map((id) => new Types.ObjectId(id)) } })
+      .find({ _id: { $in: unicos.map((id) => new Types.ObjectId(id)) } })
       .select('nombreComercial')
       .lean()
       .exec();
@@ -73,7 +126,7 @@ export class InformePerroService {
 // ── Traducción de la ficha a textos del informe ──────────────────────────────
 
 /** Línea de identificación bajo el nombre: raza, sexo y edad. */
-function subtitulo(perro: PerroDocument): string {
+function subtitulo(perro: Perro): string {
   const raza = perro.esMestizo && perro.raza ? `Mestizo de ${perro.raza}` : perro.raza;
   const partes = [raza, perro.sexo === 'hembra' ? 'Hembra' : perro.sexo ? 'Macho' : null, edad(perro)];
 
@@ -81,10 +134,10 @@ function subtitulo(perro: PerroDocument): string {
 }
 
 /** «4 años y 2 meses». Sin fecha de nacimiento no se inventa una edad. */
-function edad(perro: PerroDocument): string | null {
+function edad(perro: Perro): string | null {
   if (!perro.fechaNacimiento) return null;
 
-  const meses = mesesCumplidos(perro.fechaNacimiento, new Date());
+  const meses = mesesCumplidos(new Date(perro.fechaNacimiento), new Date());
   const anos = Math.floor(meses / 12);
   const resto = meses % 12;
 
@@ -107,7 +160,7 @@ function mesesCumplidos(desde: Date, hasta: Date): number {
   return Math.max(0, hasta.getDate() < desde.getDate() ? meses - 1 : meses);
 }
 
-function identidad(perro: PerroDocument): DatoIdentidad[] {
+function identidad(perro: Perro): DatoIdentidad[] {
   const hembra = perro.sexo === 'hembra';
   const posibles: Array<[string, string | null]> = [
     ['Especie', capitalizar(perro.especie)],
@@ -121,7 +174,20 @@ function identidad(perro: PerroDocument): DatoIdentidad[] {
     ['Perro de raza potencialmente peligrosa', perro.esPPP ? 'Sí' : null],
   ];
 
-  return posibles
+  return conValor(posibles);
+}
+
+function contactoPropietario(propietario: OrigenInforme['propietario']): DatoIdentidad[] {
+  if (!propietario) return [];
+  return conValor([
+    ['Nombre', propietario.nombre ?? null],
+    ['Teléfono', propietario.telefono ?? null],
+    ['Email', propietario.email ?? null],
+  ]);
+}
+
+function conValor(pares: Array<[string, string | null]>): DatoIdentidad[] {
+  return pares
     .filter((par): par is [string, string] => par[1] !== null)
     .map(([etiqueta, valor]) => ({ etiqueta, valor }));
 }
@@ -132,11 +198,11 @@ function identidad(perro: PerroDocument): DatoIdentidad[] {
  * Alergias y medicación van primero y marcadas: son lo que hay que leer antes
  * de tocar al animal si llega de urgencia a una clínica que no lo conoce.
  */
-function salud(perro: PerroDocument): SeccionSalud[] {
+function salud(perro: Perro): SeccionSalud[] {
   const posibles: SeccionSalud[] = [
-    { titulo: 'Alergias', items: perro.alergias, acento: 'alerta' },
-    { titulo: 'Medicación actual', items: perro.medicacion, acento: 'alerta' },
-    { titulo: 'Enfermedades', items: perro.enfermedades, acento: 'aviso' },
+    { titulo: 'Alergias', items: perro.alergias ?? [], acento: 'alerta' },
+    { titulo: 'Medicación actual', items: perro.medicacion ?? [], acento: 'alerta' },
+    { titulo: 'Enfermedades', items: perro.enfermedades ?? [], acento: 'aviso' },
     { titulo: 'Vacunas', items: vacunas(perro), acento: 'neutro' },
     { titulo: 'Dieta', items: perro.dieta ? [perro.dieta] : [], acento: 'neutro' },
   ];
@@ -149,45 +215,53 @@ function salud(perro: PerroDocument): SeccionSalud[] {
  * antiguo se añade detrás para no perder lo que se registró antes de la lista
  * cerrada, sin repetir lo que ya está en la lista.
  */
-function vacunas(perro: PerroDocument): string[] {
-  const deLaLista = perro.vacunasDetalle.map((v) => {
+function vacunas(perro: Perro): string[] {
+  const deLaLista = (perro.vacunasDetalle ?? []).map((v) => {
     const nombre = VACUNA_LABELS[v.tipo as Vacuna] ?? v.tipo;
     return v.fecha ? `${nombre} (${fechaCorta(v.fecha)})` : nombre;
   });
   const yaEstan = new Set(deLaLista.map((texto) => texto.toLowerCase()));
 
-  return [...deLaLista, ...perro.vacunas.filter((texto) => !yaEstan.has(texto.toLowerCase()))];
+  return [...deLaLista, ...(perro.vacunas ?? []).filter((texto) => !yaEstan.has(texto.toLowerCase()))];
 }
 
 // ── Traducción del historial ─────────────────────────────────────────────────
 
-function entradaDeHistorial(
-  entrada: PerroHistorialDocument,
-  nombres: ReadonlyMap<string, string>,
-): EntradaHistorial {
+function entradaDeHistorial(entrada: EntradaFuente): EntradaHistorial {
   const tipo = entrada.tipoHistorial ?? tipoPorVertical(entrada.vertical);
+  const titulo = entrada.titulo?.trim();
 
   return {
-    fecha: fechaCorta(entrada.get('createdAt') as Date | undefined),
+    fecha: fechaCorta(entrada.fechaServicio ?? entrada.createdAt),
     categoria: tipo ? TIPO_HISTORIAL_LABELS[tipo] : capitalizar(entrada.vertical),
     vertical: entrada.vertical,
-    profesional: profesional(entrada, nombres),
-    nota: entrada.nota,
-    detalles: detalles(entrada.datosEstructurados),
+    titulo,
+    profesional: profesional(entrada),
+    // La nota hereda el título cuando el profesional no escribió observaciones:
+    // repetirla debajo del título sólo duplica la línea.
+    nota: entrada.nota === titulo ? '' : entrada.nota,
+    detalles: [
+      ...detalles(entrada.vertical, entrada.datosEstructurados ?? {}),
+      ...(entrada.proximaCita ? [{ etiqueta: 'Próxima cita', valor: fechaCorta(entrada.proximaCita) }] : []),
+    ],
   };
 }
 
+/** Cuándo se prestó el servicio; si no se indicó, cuándo se anotó. */
+function fechaDe(entrada: EntradaFuente): Date {
+  return new Date(entrada.fechaServicio ?? entrada.createdAt ?? 0);
+}
+
 /** Quién lo escribió. Lo que anotó el propietario se marca como suyo. */
-function profesional(
-  entrada: PerroHistorialDocument,
-  nombres: ReadonlyMap<string, string>,
-): string {
+function profesional(entrada: EntradaFuente): string {
   if (entrada.origen === 'propietario') return 'Anotación del propietario';
 
-  const nombre = nombres.get(entrada.comercioId?.toString() ?? '');
+  const firma = [entrada.comercioNombre ?? 'Profesional dado de baja', entrada.profesional]
+    .filter(Boolean)
+    .join(' · ');
   const editada = entrada.editadaAt ? ' · editada por el propietario' : '';
 
-  return `${nombre ?? 'Profesional dado de baja'}${editada}`;
+  return `${firma}${editada}`;
 }
 
 /** Categoría de una entrada antigua, anterior a que se guardase `tipoHistorial`. */
@@ -197,15 +271,33 @@ function tipoPorVertical(vertical: string): TipoHistorial | undefined {
 }
 
 /**
- * Los datos estructurados que dejó el profesional (objetivos de la sesión,
- * evolución, tareas). Se descartan los vacíos y los que no son texto plano: el
- * campo es libre y no hay forma de pintar un objeto anidado en una línea.
+ * Los datos estructurados que dejó el profesional. Los campos conocidos de la
+ * categoría salen con su etiqueta y unidad (las mismas del formulario del
+ * panel) y en su orden; el resto, con el nombre del campo hecho legible. Se
+ * descartan los vacíos y los que no son texto plano: no hay forma de pintar un
+ * objeto anidado en una línea.
  */
-function detalles(datos: Record<string, unknown>): DatoIdentidad[] {
-  return Object.entries(datos ?? {})
-    .filter(([, valor]) => typeof valor === 'string' || typeof valor === 'number')
-    .filter(([, valor]) => String(valor).trim())
-    .map(([clave, valor]) => ({ etiqueta: etiquetaDeClave(clave), valor: String(valor).trim() }));
+function detalles(vertical: string, datos: Record<string, unknown>): DatoIdentidad[] {
+  const campos = camposDeRegistro(vertical);
+  const conocidos = new Set(campos.map((c) => c.clave));
+  const legible = (valor: unknown) => (typeof valor === 'number' ? formatearNumero(valor) : String(valor).trim());
+  const utiles = ([, valor]: [string, unknown]) =>
+    (typeof valor === 'string' || typeof valor === 'number') && String(valor).trim() !== '';
+
+  const deLaCategoria = campos
+    .map((campo) => [campo, datos[campo.clave]] as const)
+    .filter(([campo, valor]) => utiles([campo.clave, valor]))
+    .map(([campo, valor]) => ({
+      etiqueta: campo.etiqueta,
+      valor: campo.unidad ? `${legible(valor)} ${campo.unidad}` : legible(valor),
+    }));
+
+  const otros = Object.entries(datos)
+    .filter(([clave]) => !conocidos.has(clave))
+    .filter(utiles)
+    .map(([clave, valor]) => ({ etiqueta: etiquetaDeClave(clave), valor: legible(valor) }));
+
+  return [...deLaCategoria, ...otros];
 }
 
 /** `tareasCasa` → `Tareas casa`. Nombres de campo pensados para código, leídos por una persona. */
@@ -220,14 +312,36 @@ const MESES = [
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ];
 
-/** `12 mar 2026`. Se formatea a mano: el contenedor no lleva datos de locale. */
-function fechaCorta(fecha?: Date | null): string {
-  if (!fecha) return '—';
-  return `${fecha.getDate()} ${MESES[fecha.getMonth()].slice(0, 3)} ${fecha.getFullYear()}`;
+/**
+ * Día, mes y año del calendario de España.
+ *
+ * Con `getDate()` salía el día de la zona horaria del servidor: una vacuna
+ * guardada el 12 de marzo a las 00:00 UTC se imprimía "11 mar" en cualquier
+ * máquina al oeste de Greenwich, y una cita a las 23:30 de Madrid, con el día
+ * siguiente en UTC. Los nombres de los meses se ponen a mano porque la imagen
+ * del contenedor no garantiza los textos del locale, pero sí la zona horaria.
+ */
+const PARTES_MADRID = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Europe/Madrid', day: 'numeric', month: 'numeric', year: 'numeric',
+});
+
+function enMadrid(fecha: Date): { dia: number; mes: number; ano: number } {
+  const partes = Object.fromEntries(PARTES_MADRID.formatToParts(fecha).map((p) => [p.type, p.value]));
+  return { dia: Number(partes['day']), mes: Number(partes['month']) - 1, ano: Number(partes['year']) };
+}
+
+/** `12 mar 2026`. */
+function fechaCorta(valor?: Date | string | null): string {
+  if (!valor) return '—';
+  const fecha = new Date(valor);
+  if (Number.isNaN(fecha.getTime())) return '—';
+  const { dia, mes, ano } = enMadrid(fecha);
+  return `${dia} ${MESES[mes].slice(0, 3)} ${ano}`;
 }
 
 function fechaLarga(fecha: Date): string {
-  return `${fecha.getDate()} de ${MESES[fecha.getMonth()]} de ${fecha.getFullYear()}`;
+  const { dia, mes, ano } = enMadrid(fecha);
+  return `${dia} de ${MESES[mes]} de ${ano}`;
 }
 
 function enIso(fecha: Date): string {
@@ -250,7 +364,7 @@ function capitalizar(texto: string): string {
 function sanear(texto: string): string {
   return texto
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/\p{M}/gu, '')
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase() || 'mascota';

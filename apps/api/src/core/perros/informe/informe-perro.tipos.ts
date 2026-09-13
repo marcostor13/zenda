@@ -27,6 +27,8 @@ export interface EntradaHistorial {
   readonly fecha: string;
   readonly categoria: string;
   readonly vertical: string;
+  /** Qué se hizo ("Vacunación"). Vacío en las notas antiguas, que sólo tenían texto. */
+  readonly titulo?: string;
   readonly profesional: string;
   readonly nota: string;
   readonly detalles: ReadonlyArray<DatoIdentidad>;
@@ -37,7 +39,11 @@ export interface InformePerro {
   /** Línea bajo el nombre: raza, sexo y edad, lo que identifica al animal de un vistazo. */
   readonly subtitulo: string;
   readonly emitidoEl: string;
+  /** Negocio que emite el informe desde su panel; sin él, lo emite Doogking para el dueño. */
+  readonly emisor?: string;
   readonly identidad: ReadonlyArray<DatoIdentidad>;
+  /** Contacto del dueño: sólo en el informe que saca el comercio. */
+  readonly propietario: ReadonlyArray<DatoIdentidad>;
   readonly salud: ReadonlyArray<SeccionSalud>;
   readonly historial: ReadonlyArray<EntradaHistorial>;
 }

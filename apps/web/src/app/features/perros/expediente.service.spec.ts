@@ -75,7 +75,7 @@ describe('ExpedienteService', () => {
     http.expectOne(`${api}/perros/p1/informe`).flush(new Blob(['%PDF']));
     await delDueno;
 
-    expect(guardar).toHaveBeenNthCalledWith(1, expect.any(Blob), 'historial-nala-nandu.pdf');
-    expect(guardar).toHaveBeenNthCalledWith(2, expect.any(Blob), 'historial-nala.pdf');
+    expect(guardar).toHaveBeenNthCalledWith(1, expect.any(Blob), expect.stringMatching(/^doogking-informe-nala-nandu-/));
+    expect(guardar).toHaveBeenNthCalledWith(2, expect.any(Blob), expect.stringMatching(/^doogking-informe-nala-/));
   });
 });

@@ -97,7 +97,7 @@ test.describe('Panel del comercio · mascotas e historial', () => {
 
     const descarga = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Descargar PDF' }).click();
-    expect((await descarga).suggestedFilename()).toBe('historial-nala.pdf');
+    expect((await descarga).suggestedFilename()).toMatch(/^doogking-informe-nala-\d{4}-\d{2}-\d{2}\.pdf$/);
   });
 
   test('debería abrir el formulario ya vinculado al venir desde una reserva', async ({ page }) => {
@@ -140,7 +140,7 @@ test.describe('Cuenta del cliente · ficha completa del perro', () => {
 
   test('debería llegar desde "Mis perros" y ver lo que anotó el veterinario', async ({ page }) => {
     await page.goto('/perros');
-    await page.getByRole('link', { name: 'Ver ficha e historial' }).click();
+    await page.getByRole('link', { name: 'Ver ficha completa' }).click();
 
     await expect(page).toHaveURL(/\/perros\/p1$/);
     await expect(page.getByRole('heading', { name: 'Nala', level: 1 })).toBeVisible();
@@ -178,7 +178,7 @@ test.describe('Cuenta del cliente · ficha completa del perro', () => {
     const descarga = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Descargar PDF' }).click();
 
-    expect((await descarga).suggestedFilename()).toBe('historial-nala.pdf');
+    expect((await descarga).suggestedFilename()).toMatch(/^doogking-informe-nala-\d{4}-\d{2}-\d{2}\.pdf$/);
   });
 
   test('no debería desbordar horizontalmente la pantalla', async ({ page }) => {

@@ -2,6 +2,8 @@
 // compila sin `esModuleInterop`, así que el import por defecto se resolvía a
 // `undefined` y `new PDFDocument()` reventaba al generar el primer informe.
 import PDFDocument = require('pdfkit');
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { AcentoSalud, DatoIdentidad, EntradaHistorial, InformePerro, SeccionSalud } from './informe-perro.tipos';
 
 /**
@@ -54,6 +56,24 @@ const COLOR_ACENTO: Record<AcentoSalud, string> = {
   neutro: AZUL,
 };
 
+/**
+ * Logo de Doogking para fondo oscuro (texto blanco y dorado), el mismo del pie
+ * de la web. Vive en `src/assets` y Nest lo copia a `dist/assets` al compilar
+ * (`nest-cli.json`). Se lee una sola vez y lo reutilizan todos los informes.
+ */
+const RUTA_LOGO = join(__dirname, '..', '..', '..', 'assets', 'logo-doogking-oscuro.png');
+/** Proporción del PNG (800 × 389): el alto sale del ancho sin deformarlo. */
+const PROPORCION_LOGO = 389 / 800;
+let logoEnMemoria: Buffer | null | undefined;
+
+function logo(): Buffer | null {
+  if (logoEnMemoria === undefined) {
+    // Sin el fichero (un despliegue a medias) el informe sale igual, con la marca en texto.
+    logoEnMemoria = existsSync(RUTA_LOGO) ? readFileSync(RUTA_LOGO) : null;
+  }
+  return logoEnMemoria;
+}
+
 /** El PDF completo en memoria. Un informe cabe de sobra; no merece un fichero temporal. */
 export function construirInformePdf(datos: InformePerro): Promise<Buffer> {
   const doc = new PDFDocument({ size: 'A4', margin: MARGEN, bufferPages: true });
@@ -78,6 +98,7 @@ function pintarInforme(doc: Documento, datos: InformePerro): void {
   doc.y = CABECERA_PORTADA + 28;
 
   rejillaIdentidad(doc, datos.identidad);
+  rejillaIdentidad(doc, datos.propietario, 'Propietario');
   for (const seccion of datos.salud) bloqueSalud(doc, seccion);
   lineaDeTiempo(doc, datos.historial);
   avisoLegal(doc);
@@ -86,20 +107,33 @@ function pintarInforme(doc: Documento, datos: InformePerro): void {
 
 // ── Cabeceras ────────────────────────────────────────────────────────────────
 
-/** Banda azul con la marca, el nombre del animal y su monograma dorado. */
+/** Banda azul con el logo, el nombre del animal y su monograma dorado. */
 function portada(doc: Documento, datos: InformePerro): void {
   doc.rect(0, 0, ANCHO, CABECERA_PORTADA).fill(AZUL);
   doc.rect(0, CABECERA_PORTADA, ANCHO, 4).fill(ORO);
 
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(ORO)
-    .text('DOOGKING', MARGEN, 26, { characterSpacing: 3 });
-  doc.font('Helvetica').fontSize(8).fillColor('#B9C4E4')
-    .text('INFORME DE SALUD DE LA MASCOTA', MARGEN, 40, { characterSpacing: 1.4 });
+  const imagen = logo();
+  const anchoLogo = 124;
+  if (imagen) {
+    doc.image(imagen, MARGEN - 8, (CABECERA_PORTADA - anchoLogo * PROPORCION_LOGO) / 2, { width: anchoLogo });
+  } else {
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(ORO)
+      .text('DOOGKING', MARGEN, 26, { characterSpacing: 3 });
+  }
 
-  doc.font('Helvetica-Bold').fontSize(26).fillColor('#FFFFFF')
-    .text(datos.nombrePerro, MARGEN, 62, { width: ANCHO_UTIL - 90, lineBreak: false });
+  const xTexto = imagen ? MARGEN + anchoLogo + 4 : MARGEN;
+  const anchoTexto = ANCHO - MARGEN - 66 - xTexto;
+  doc.font('Helvetica').fontSize(8).fillColor('#B9C4E4')
+    .text('INFORME DE SALUD DE LA MASCOTA', xTexto, 30, { characterSpacing: 1.2, width: anchoTexto, lineBreak: false });
+  if (datos.emisor) {
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(ORO)
+      .text(`Emitido por ${datos.emisor}`, xTexto, 42, { width: anchoTexto, lineBreak: false, ellipsis: true });
+  }
+
+  doc.font('Helvetica-Bold').fontSize(24).fillColor('#FFFFFF')
+    .text(datos.nombrePerro, xTexto, 60, { width: anchoTexto, lineBreak: false, ellipsis: true });
   doc.font('Helvetica').fontSize(10).fillColor('#C7D0EA')
-    .text(datos.subtitulo, MARGEN, 96, { width: ANCHO_UTIL - 90, lineBreak: false });
+    .text(datos.subtitulo, xTexto, 94, { width: anchoTexto, lineBreak: false, ellipsis: true });
 
   monograma(doc, datos.nombrePerro);
 }
@@ -121,10 +155,16 @@ function cabeceraInterior(doc: Documento, nombre: string): void {
   doc.rect(0, 0, ANCHO, CABECERA_INTERIOR).fill(AZUL);
   doc.rect(0, CABECERA_INTERIOR, ANCHO, 3).fill(ORO);
 
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(ORO)
-    .text('DOOGKING', MARGEN, 20, { characterSpacing: 2.4 });
+  const imagen = logo();
+  const anchoLogo = 92;
+  if (imagen) {
+    doc.image(imagen, ANCHO - MARGEN - anchoLogo + 8, (CABECERA_INTERIOR - anchoLogo * PROPORCION_LOGO) / 2, { width: anchoLogo });
+  } else {
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(ORO)
+      .text('DOOGKING', MARGEN, 20, { characterSpacing: 2.4 });
+  }
   doc.font('Helvetica-Bold').fontSize(12).fillColor('#FFFFFF')
-    .text(`Informe de salud · ${nombre}`, MARGEN, 32, { width: ANCHO_UTIL, lineBreak: false });
+    .text(`Informe de salud · ${nombre}`, MARGEN, 22, { width: ANCHO_UTIL - anchoLogo, lineBreak: false, ellipsis: true });
 }
 
 // ── Secciones ────────────────────────────────────────────────────────────────
@@ -144,9 +184,9 @@ function tituloSeccion(doc: Documento, texto: string): void {
  * Rejilla de identificación en tres columnas sobre fondo suave. Es lo que un
  * tercero necesita para saber de qué animal habla el resto del documento.
  */
-function rejillaIdentidad(doc: Documento, datos: ReadonlyArray<DatoIdentidad>): void {
+function rejillaIdentidad(doc: Documento, datos: ReadonlyArray<DatoIdentidad>, titulo = 'Identificación'): void {
   if (!datos.length) return;
-  tituloSeccion(doc, 'Identificación');
+  tituloSeccion(doc, titulo);
 
   const columnas = 3;
   const anchoCelda = ANCHO_UTIL / columnas;
@@ -203,6 +243,10 @@ function bloqueSalud(doc: Documento, seccion: SeccionSalud): void {
 
 function lineaDeTiempo(doc: Documento, entradas: ReadonlyArray<EntradaHistorial>): void {
   doc.y += 8;
+  // El título no se queda huérfano al pie de una página: baja con la primera anotación.
+  if (entradas.length) {
+    asegurarEspacio(doc, 46 + altoEntrada(doc, entradas[0], ANCHO - MARGEN * 2 - 92) + 12);
+  }
   tituloSeccion(doc, 'Historial de servicios');
 
   if (!entradas.length) {
@@ -253,8 +297,14 @@ function cuerpoEntrada(
     .text(entrada.categoria, x, y, { width: ancho, lineBreak: false });
   doc.font('Helvetica').fontSize(8).fillColor(TINTA_SUAVE)
     .text(entrada.profesional, x, y + 11, { width: ancho, lineBreak: false, ellipsis: true });
-  doc.font('Helvetica').fontSize(10).fillColor(TINTA)
-    .text(entrada.nota, x, y + 24, { width: ancho });
+  doc.y = y + 24;
+  if (entrada.titulo) {
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(TINTA).text(entrada.titulo, x, doc.y, { width: ancho });
+  }
+  if (entrada.nota) {
+    doc.font('Helvetica').fontSize(10).fillColor(TINTA)
+      .text(entrada.nota, x, doc.y + (entrada.titulo ? 2 : 0), { width: ancho });
+  }
 
   for (const detalle of entrada.detalles) {
     doc.font('Helvetica-Bold').fontSize(9).fillColor(TINTA_SUAVE)
@@ -265,7 +315,12 @@ function cuerpoEntrada(
 
 /** Lo que va a ocupar la entrada, para decidir si cabe antes de empezar a pintarla. */
 function altoEntrada(doc: Documento, entrada: EntradaHistorial, ancho: number): number {
-  const nota = doc.font('Helvetica').fontSize(10).heightOfString(entrada.nota, { width: ancho });
+  const titulo = entrada.titulo
+    ? doc.font('Helvetica-Bold').fontSize(11).heightOfString(entrada.titulo, { width: ancho })
+    : 0;
+  const nota = titulo + (entrada.nota
+    ? doc.font('Helvetica').fontSize(10).heightOfString(entrada.nota, { width: ancho }) + 2
+    : 0);
   const detalles = entrada.detalles.reduce(
     (total, detalle) =>
       total + doc.font('Helvetica').fontSize(9)

@@ -28,6 +28,6 @@ import { PerrosController } from './perros.controller';
   ],
   controllers: [PerrosController],
   providers: [PerrosService, PerroValoracionesService, BienestarService, InformePerroService],
-  exports: [PerrosService, PerroValoracionesService, BienestarService],
+  exports: [PerrosService, PerroValoracionesService, BienestarService, InformePerroService],
 })
 export class PerrosModule {}

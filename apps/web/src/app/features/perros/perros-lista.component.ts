@@ -5,6 +5,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { descargarFichero } from '../../shared/exportacion/descarga';
+import { nombreInforme } from '../../shared/exportacion/descargar-archivo';
 import {
   PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi,
   porcentajeCompletitud,
@@ -264,7 +265,7 @@ export class PerrosListaComponent implements OnInit {
     this.errorMsg.set('');
     try {
       const pdf = await this.perrosService.informePdf(p._id);
-      descargarFichero(pdf, nombreDelInforme(p.nombre));
+      descargarFichero(pdf, nombreInforme(p.nombre));
     } catch {
       this.errorMsg.set('No se pudo preparar el informe. Inténtalo de nuevo.');
     } finally {
@@ -284,20 +285,4 @@ export class PerrosListaComponent implements OnInit {
       this.eliminandoId.set(null);
     }
   }
-}
-
-/**
- * Nombre con el que se guarda el informe. Se compone aquí y no se lee de la
- * respuesta: la cabecera `Content-Disposition` no es accesible desde JavaScript
- * salvo que el API la exponga por CORS, y no merece abrir eso por un nombre.
- */
-function nombreDelInforme(nombrePerro: string): string {
-  const nombre = nombrePerro
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase() || 'mascota';
-
-  return `doogking-informe-${nombre}-${new Date().toISOString().slice(0, 10)}.pdf`;
 }

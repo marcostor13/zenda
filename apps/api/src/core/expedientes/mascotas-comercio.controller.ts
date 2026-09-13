@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, StreamableFile, UseGuards,
+  Body, Controller, Delete, Get, Header, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, StreamableFile, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -8,7 +8,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles, RolesGuard } from '../auth/guards/roles.guard';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { ExpedientesService } from './expedientes.service';
-import { InformePdfService } from './informe-pdf.service';
 import { ExpedienteMascota, MascotaComercioResumen, RegistroExpediente } from './expediente.types';
 import { archivoPdf } from './archivo-pdf';
 
@@ -23,10 +22,7 @@ interface RequestComercio extends Request {
 @Roles(Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF)
 @Controller('comercio/mascotas')
 export class MascotasComercioController {
-  constructor(
-    private readonly expedientes: ExpedientesService,
-    private readonly informes: InformePdfService,
-  ) {}
+  constructor(private readonly expedientes: ExpedientesService) {}
 
   @Get()
   @ApiOperation({ summary: 'Mascotas con ficha que han reservado en el comercio' })
@@ -73,15 +69,10 @@ export class MascotasComercioController {
   }
 
   @Get(':perroId/informe')
-  @ApiOperation({ summary: 'Informe PDF de la mascota' })
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Informe PDF de la mascota, emitido por el comercio' })
   async informe(@Req() req: RequestComercio, @Param('perroId') perroId: string): Promise<StreamableFile> {
-    const comercioId = comercioDe(req);
-    const [expediente, emisor] = await Promise.all([
-      this.expedientes.expedienteParaComercio(comercioId, perroId),
-      this.expedientes.nombreComercio(comercioId),
-    ]);
-    const pdf = await this.informes.generar({ emisor, destinatario: 'comercio', expediente });
-    return archivoPdf(pdf, expediente.perro['nombre']);
+    return archivoPdf(await this.expedientes.informeParaComercio(comercioDe(req), perroId));
   }
 }
 

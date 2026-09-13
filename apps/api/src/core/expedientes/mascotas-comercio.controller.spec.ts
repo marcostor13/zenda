@@ -1,20 +1,17 @@
 import { StreamableFile } from '@nestjs/common';
 import { VerticalKey } from 'shared';
 import { MascotasComercioController } from './mascotas-comercio.controller';
-import { ExpedienteMascota } from './expediente.types';
 
 describe('MascotasComercioController', () => {
-  const expediente: ExpedienteMascota = { perro: { nombre: 'Nala' }, registros: [], servicios: [] };
   const expedientes = {
     listarMascotasComercio: jest.fn().mockResolvedValue([]),
-    expedienteParaComercio: jest.fn().mockResolvedValue(expediente),
+    expedienteParaComercio: jest.fn().mockResolvedValue({ perro: { nombre: 'Nala' }, registros: [], servicios: [] }),
     crearRegistro: jest.fn().mockResolvedValue({ _id: 'r1' }),
     actualizarRegistro: jest.fn().mockResolvedValue({ _id: 'r1' }),
     eliminarRegistro: jest.fn().mockResolvedValue(undefined),
-    nombreComercio: jest.fn().mockResolvedValue('Clínica Royal'),
+    informeParaComercio: jest.fn().mockResolvedValue({ nombreFichero: 'doogking-informe-nala-2026-09-13.pdf', pdf: Buffer.from('%PDF') }),
   };
-  const informes = { generar: jest.fn().mockResolvedValue(Buffer.from('%PDF')) };
-  const controller = new MascotasComercioController(expedientes as never, informes as never);
+  const controller = new MascotasComercioController(expedientes as never);
   const req = { user: { sub: 'u1', comercioId: 'c1' } } as never;
 
   beforeEach(() => jest.clearAllMocks());
@@ -33,12 +30,14 @@ describe('MascotasComercioController', () => {
     expect(expedientes.eliminarRegistro).toHaveBeenCalledWith('c1', 'p1', 'r1');
   });
 
-  it('debería devolver el informe como PDF descargable firmado por el comercio', async () => {
+  it('debería devolver el informe del comercio como PDF descargable', async () => {
     const archivo = await controller.informe(req, 'p1');
 
     expect(archivo).toBeInstanceOf(StreamableFile);
-    expect(informes.generar).toHaveBeenCalledWith({ emisor: 'Clínica Royal', destinatario: 'comercio', expediente });
-    expect(archivo.getHeaders()).toMatchObject({ type: 'application/pdf', disposition: 'attachment; filename="historial-nala.pdf"' });
+    expect(expedientes.informeParaComercio).toHaveBeenCalledWith('c1', 'p1');
+    expect(archivo.getHeaders()).toMatchObject({
+      type: 'application/pdf', disposition: 'attachment; filename="doogking-informe-nala-2026-09-13.pdf"',
+    });
   });
 
   it('debería rechazar una cuenta sin negocio vinculado', () => {

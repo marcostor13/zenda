@@ -158,7 +158,7 @@ const historial: Diccionario = {
   'Última visita': 'Ostatnia wizyta',
   'Última visita al veterinario': 'Ostatnia wizyta u weterynarza',
   'Vacunas aplicadas': 'Podane szczepionki',
-  'Ver ficha e historial': 'Zobacz profil i historię',
+  'Ver ficha completa': 'Zobacz pełny profil',
   'Ver todo el historial': 'Zobacz całą historię',
 };
 

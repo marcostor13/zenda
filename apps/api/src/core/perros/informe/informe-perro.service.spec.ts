@@ -335,15 +335,56 @@ describe('InformePerroService', () => {
       expect(datosPintados().historial[0].detalles).toEqual([]);
     });
 
-    it('debería aceptar un número como dato estructurado', async () => {
+    it('debería aceptar un número como dato estructurado, con la etiqueta y unidad del formulario', async () => {
       perrosService.listarHistorial.mockResolvedValue([
-        entrada({ datosEstructurados: { pesoKg: 14.5 } }),
+        entrada({ datosEstructurados: { pesoKg: 14.5, otroNumero: 3 } }),
       ]);
 
       await service.generar('perro-1', 'usuario-1');
 
-      expect(datosPintados().historial[0].detalles)
-        .toEqual([{ etiqueta: 'Peso kg', valor: '14.5' }]);
+      expect(datosPintados().historial[0].detalles).toEqual([
+        { etiqueta: 'Peso', valor: '14,5 kg' },
+        { etiqueta: 'Otro numero', valor: '3' },
+      ]);
+    });
+
+    it('debería poner el día de España aunque en UTC ya sea el siguiente', async () => {
+      // 23:30 del 12 de marzo en Madrid son las 22:30 UTC: mismo día en los dos.
+      // 00:30 del 13 en Madrid son las 23:30 UTC del 12: el informe debe decir 13.
+      perrosService.listarHistorial.mockResolvedValue([
+        entrada({ fechaServicio: new Date('2026-03-12T23:30:00Z') } as Partial<PerroHistorialDocument>),
+      ]);
+
+      await service.generar('perro-1', 'usuario-1');
+
+      expect(datosPintados().historial[0].fecha).toBe('13 mar 2026');
+    });
+
+    it('debería incluir título, profesional y próxima cita de un registro de servicio', async () => {
+      perrosService.listarHistorial.mockResolvedValue([
+        entrada({
+          titulo: 'Vacunación', nota: 'Vacunación', profesional: 'Dra. Pérez',
+          proximaCita: new Date('2027-03-01T10:00:00Z'),
+        } as Partial<PerroHistorialDocument>),
+      ]);
+
+      await service.generar('perro-1', 'usuario-1');
+
+      const pintada = datosPintados().historial[0];
+      expect(pintada).toMatchObject({ titulo: 'Vacunación', nota: '', profesional: 'Clínica Els Ports · Dra. Pérez' });
+      expect(pintada.detalles).toContainEqual({ etiqueta: 'Próxima cita', valor: '1 mar 2027' });
+    });
+
+    it('debería componer el informe del comercio con emisor y contacto del dueño', async () => {
+      await service.componer({
+        perro: perro(), entradas: [], emisor: 'Clínica Els Ports',
+        propietario: { nombre: 'Ana Ruiz', telefono: '600' },
+      });
+
+      expect(datosPintados()).toMatchObject({
+        emisor: 'Clínica Els Ports',
+        propietario: [{ etiqueta: 'Nombre', valor: 'Ana Ruiz' }, { etiqueta: 'Teléfono', valor: '600' }],
+      });
     });
 
     it('debería llamar al fichero "mascota" si el nombre no deja ni una letra', async () => {

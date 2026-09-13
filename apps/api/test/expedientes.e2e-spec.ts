@@ -148,7 +148,8 @@ describe('Expediente de mascotas (e2e)', () => {
         .expect(200);
 
       expect(respuesta.headers['content-type']).toContain('application/pdf');
-      expect(respuesta.headers['content-disposition']).toContain('historial-nala.pdf');
+      expect(respuesta.headers['content-disposition']).toMatch(/doogking-informe-nala-\d{4}-\d{2}-\d{2}\.pdf/);
+      expect(respuesta.headers['cache-control']).toBe('no-store');
       expect((respuesta.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
     });
   });
