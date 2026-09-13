@@ -87,6 +87,20 @@ describe('MailerService', () => {
         subject: 'Hola',
         html: '<p>hi</p>',
       });
+      expect(cuerpoEnviado()['attachments']).toBeUndefined();
+    });
+
+    it('debería mandar los adjuntos en base64, como los pide Resend', async () => {
+      aceptado();
+      const service = await construir({ RESEND_API_KEY: 're_test' });
+
+      await service.enviar({ ...CORREO, adjuntos: [{ nombre: 'reserva.ics', contenido: 'BEGIN:VCALENDAR', tipo: 'text/calendar' }] });
+
+      expect(cuerpoEnviado()['attachments']).toEqual([{
+        filename: 'reserva.ics',
+        content: Buffer.from('BEGIN:VCALENDAR').toString('base64'),
+        content_type: 'text/calendar',
+      }]);
     });
 
     /**

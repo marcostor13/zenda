@@ -7,6 +7,14 @@ export interface EnvioEmail {
   html: string;
   /** Sobrescribe el nombre de remitente para este envío (mantiene el email real). */
   nombreRemitente?: string;
+  /** Adjuntos pequeños, como el evento de calendario de una reserva. */
+  adjuntos?: AdjuntoEmail[];
+}
+
+export interface AdjuntoEmail {
+  nombre: string;
+  contenido: string | Buffer;
+  tipo?: string;
 }
 
 const API_RESEND = 'https://api.resend.com/emails';
@@ -77,6 +85,15 @@ export class MailerService {
         to: [email.to],
         subject: email.subject,
         html: email.html,
+        ...(email.adjuntos?.length
+          ? {
+              attachments: email.adjuntos.map((a) => ({
+                filename: a.nombre,
+                content: Buffer.from(a.contenido).toString('base64'),
+                ...(a.tipo ? { content_type: a.tipo } : {}),
+              })),
+            }
+          : {}),
       }),
     });
 

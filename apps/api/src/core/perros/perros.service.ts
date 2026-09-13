@@ -258,18 +258,35 @@ export class PerrosService {
    * Vale cualquier estado salvo la cancelada: una reserva pendiente de pago ya
    * puede necesitar una nota (la llamada previa a una urgencia veterinaria), y
    * una cancelada nunca llegó a ser un servicio.
+   *
+   * También cuenta la reserva del **dueño** que no llevaba ficha de perro: muchos
+   * clientes reservan primero y crean la ficha después, y su perro tiene que
+   * aparecerle al comercio que lo atiende igual.
    */
   async asegurarRelacionComercio(perroId: string, comercioId?: string): Promise<void> {
     if (!comercioId) {
       throw new DomainException('Tu cuenta no está vinculada a ningún negocio', 403);
     }
-    const atendido = await this.reservaModel
-      .exists({
-        perroId: aObjectId(perroId, 'Identificador de perro'),
-        comercioId: aObjectId(comercioId, 'Identificador de comercio'),
-        estado: { $ne: ReservaEstado.CANCELADA },
-      })
+    const perroOid = aObjectId(perroId, 'Identificador de perro');
+    const comercioOid = aObjectId(comercioId, 'Identificador de comercio');
+    const vigente = { $ne: ReservaEstado.CANCELADA };
+
+    const conEstePerro = await this.reservaModel
+      .exists({ perroId: perroOid, comercioId: comercioOid, estado: vigente })
       .exec();
+    if (conEstePerro) return;
+
+    const perro = await this.perroModel.findById(perroOid).select('propietarioId').lean().exec();
+    const atendido = perro
+      ? await this.reservaModel
+          .exists({
+            usuarioId: perro.propietarioId,
+            comercioId: comercioOid,
+            estado: vigente,
+            $or: [{ perroId: { $exists: false } }, { perroId: null }],
+          })
+          .exec()
+      : null;
 
     if (!atendido) {
       throw new DomainException('No has atendido a esta mascota', 403);

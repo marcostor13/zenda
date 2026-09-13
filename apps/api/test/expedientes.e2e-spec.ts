@@ -154,6 +154,26 @@ describe('Expediente de mascotas (e2e)', () => {
     });
   });
 
+  describe('perro creado después de reservar', () => {
+    it('debería aparecer en las mascotas del comercio y abrir su expediente', async () => {
+      const dueno = await sembrarCuenta(e2e, Rol.CLIENTE, { nombre: 'Luis Gómez' });
+      await sembrarReserva(e2e, { comercio: clinica, usuarioId: dueno.id, codigo: 'RES-SINPERRO', estado: ReservaEstado.CONFIRMADA });
+      // La ficha se crea después, a mano y sin algunos campos: como las fichas antiguas.
+      const id = new Types.ObjectId();
+      await e2e.conexion.collection('perros').insertOne({ _id: id, propietarioId: dueno.id, nombre: 'Luna', especie: 'perro' });
+
+      const { body: mascotas } = await api(e2e).get(ruta('/comercio/mascotas')).set(como(veterinario.token)).expect(200);
+      expect(mascotas.map((m: { nombre: string }) => m.nombre).sort()).toEqual(['Luna', 'Nala']);
+
+      const { body: exp } = await api(e2e).get(ruta(`/comercio/mascotas/${id}`)).set(como(veterinario.token)).expect(200);
+      expect(exp.servicios.map((r: { codigo: string }) => r.codigo)).toEqual(['RES-SINPERRO']);
+      // Sin estas listas la ficha rompía en la web al leer vacunas.length.
+      expect(exp.perro).toMatchObject({ vacunas: [], alergias: [], medicacion: [], fotos: [], miedos: [] });
+
+      await api(e2e).get(ruta(`/comercio/mascotas/${id}`)).set(como(intruso.token)).expect(403);
+    });
+  });
+
   describe('un comercio sin relación con el perro', () => {
     it('no debería ver la mascota ni su expediente', async () => {
       const { body } = await api(e2e).get(ruta('/comercio/mascotas')).set(como(intruso.token)).expect(200);

@@ -6,9 +6,17 @@ import { Rol } from 'shared';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
+import { Comercio, ComercioDocument } from '../comercios/comercio.schema';
 import { NotificationsRepository } from './notifications.repository';
-import { MailerService } from './mailer.service';
+import { AdjuntoEmail, MailerService } from './mailer.service';
 import { urlPublica } from '../../shared/url-publica';
+import { tramoDeLaReserva } from '../bookings/momento-reserva.util';
+import {
+  DatosReservaConfirmada, asuntoReservaConfirmada, plantillaReservaConfirmada,
+} from './plantillas/reserva-confirmada.plantilla';
+import { plantillaNuevaReservaComercio } from './plantillas/nueva-reserva-comercio.plantilla';
+import { construirIcs } from './plantillas/evento-calendario';
+import { detallesLegibles } from './plantillas/detalles-reserva';
 
 @Injectable()
 export class NotificationsService {
@@ -20,6 +28,7 @@ export class NotificationsService {
     @InjectModel(Reserva.name) private readonly reservaModel: Model<ReservaDocument>,
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
     @InjectModel(Usuario.name) private readonly usuarioModel: Model<UsuarioDocument>,
+    @InjectModel(Comercio.name) private readonly comercioModel: Model<ComercioDocument>,
     private readonly config: ConfigService,
   ) {}
 
@@ -32,9 +41,12 @@ export class NotificationsService {
       const reserva = await this.reservaModel.findById(reservaId).lean().exec();
       if (!reserva) return;
 
-      const [servicio, cliente, staffComercio] = await Promise.all([
-        this.servicioModel.findById(reserva.servicioId).select('titulo').lean().exec(),
+      const [servicio, cliente, comercio, staffComercio] = await Promise.all([
+        this.servicioModel.findById(reserva.servicioId)
+          .select('titulo imagenes ubicacion direccion politicaCancelacion checkIn checkOut')
+          .lean().exec(),
         this.usuarioModel.findById(reserva.usuarioId).select('nombre email').lean().exec(),
+        this.comercioModel.findById(reserva.comercioId).select('nombreComercial contacto').lean().exec(),
         this.usuarioModel
           .find({ comercioId: reserva.comercioId, rol: { $in: [Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF] } })
           .select('email')
@@ -42,16 +54,20 @@ export class NotificationsService {
           .exec(),
       ]);
 
-      const servicioTitulo = servicio?.titulo ?? 'tu reserva';
+      const datos = this.datosDeConfirmacion(reserva, servicio, cliente?.nombre, comercio);
 
       if (cliente) {
-        await this.enviarYRegistrar({
-          reservaId: reserva._id,
-          tipo: 'reserva_confirmada',
-          destinatario: cliente.email,
-          asunto: `Reserva confirmada — ${reserva.codigo}`,
-          cuerpo: this.plantillaClienteConfirmada(cliente.nombre, servicioTitulo, reserva.codigo),
-        });
+        await this.enviarYRegistrar(
+          {
+            reservaId: reserva._id,
+            tipo: 'reserva_confirmada',
+            destinatario: cliente.email,
+            asunto: asuntoReservaConfirmada(datos),
+            cuerpo: plantillaReservaConfirmada(datos),
+          },
+          'Doogking | Reservas',
+          [this.adjuntoCalendario(datos)],
+        );
       }
 
       await Promise.all(
@@ -60,14 +76,85 @@ export class NotificationsService {
             reservaId: reserva._id,
             tipo: 'nueva_reserva_comercio',
             destinatario: u.email,
-            asunto: `Nueva reserva recibida — ${reserva.codigo}`,
-            cuerpo: this.plantillaComercioNuevaReserva(servicioTitulo, reserva.codigo),
+            asunto: `Nueva reserva ${datos.codigo} · ${datos.servicio.titulo}`,
+            cuerpo: plantillaNuevaReservaComercio({ ...datos, clienteNombre: cliente?.nombre }),
           }),
         ),
       );
     } catch (error) {
       this.logger.error(`No se pudo notificar la reserva ${reservaId}`, error);
     }
+  }
+
+  /**
+   * Reúne lo que cuenta el correo: servicio, comercio, cuándo (en hora del
+   * comercio, con fin y duración) e importes desglosados con IVA.
+   */
+  private datosDeConfirmacion(
+    reserva: Reserva & { _id: unknown },
+    servicio: Record<string, unknown> | null,
+    nombreCliente: string | undefined,
+    comercio: { nombreComercial?: string; contacto?: { telefono?: string; email?: string } } | null,
+  ): DatosReservaConfirmada {
+    const { inicio, fin } = tramoDeLaReserva(reserva);
+    const conHora = !(inicio.getUTCHours() === 0 && inicio.getUTCMinutes() === 0) || !!reserva.detalle?.['hora'];
+    const ubicacion = (servicio?.['ubicacion'] ?? {}) as { calle?: string; numero?: string; codigoPostal?: string; ciudad?: string };
+    const direccion = (servicio?.['direccion'] as string | undefined)
+      ?? ([ubicacion.calle, ubicacion.numero].filter(Boolean).join(' ') || undefined);
+    const perro = (reserva.perroSnapshot as { nombre?: string } | undefined)?.nombre;
+
+    return {
+      urlBase: this.urlBase(),
+      cliente: { nombre: nombreCliente ?? 'cliente' },
+      codigo: reserva.codigo,
+      vertical: reserva.vertical,
+      servicio: {
+        titulo: (servicio?.['titulo'] as string | undefined) ?? 'Tu reserva',
+        imagen: (servicio?.['imagenes'] as string[] | undefined)?.[0],
+        direccion: [direccion, ubicacion.codigoPostal].filter(Boolean).join(', ') || undefined,
+        ciudad: ubicacion.ciudad,
+        politicaCancelacion: servicio?.['politicaCancelacion'] as string | undefined,
+        checkIn: servicio?.['checkIn'] as string | undefined,
+        checkOut: servicio?.['checkOut'] as string | undefined,
+      },
+      comercio: {
+        nombre: comercio?.nombreComercial ?? 'El comercio',
+        telefono: comercio?.contacto?.telefono,
+        email: comercio?.contacto?.email,
+      },
+      inicio,
+      // Una estancia sin salida no tiene fin: el "día completo" es sólo cosa de la agenda.
+      fin: conHora || reserva.fechaFin ? fin : undefined,
+      conHora,
+      perro,
+      cantidad: reserva.cantidad ?? 1,
+      detalles: detallesLegibles(reserva.detalle),
+      importes: {
+        total: reserva.montoTotal,
+        baseImponible: reserva.montoSubtotal,
+        iva: Math.round((reserva.montoTotal - reserva.montoSubtotal) * 100) / 100,
+        descuento: reserva.descuentoMonto ?? 0,
+        cupon: reserva.cuponCodigo,
+      },
+    };
+  }
+
+  private adjuntoCalendario(datos: DatosReservaConfirmada): AdjuntoEmail {
+    const lugar = [datos.comercio.nombre, datos.servicio.direccion, datos.servicio.ciudad].filter(Boolean).join(', ');
+    return {
+      nombre: `reserva-${datos.codigo}.ics`,
+      tipo: 'text/calendar; charset=utf-8; method=PUBLISH',
+      contenido: construirIcs({
+        uid: datos.codigo,
+        titulo: `${datos.servicio.titulo}${datos.perro ? ` · ${datos.perro}` : ''}`,
+        descripcion: `Reserva ${datos.codigo} en ${datos.comercio.nombre}. Detalles: ${datos.urlBase}/reservas/${datos.codigo}`,
+        lugar,
+        inicio: datos.inicio,
+        fin: datos.fin,
+        diaCompleto: !datos.conHora,
+        url: `${datos.urlBase}/reservas/${datos.codigo}`,
+      }),
+    };
   }
 
   /**
@@ -329,33 +416,16 @@ export class NotificationsService {
   private async enviarYRegistrar(
     data: Parameters<NotificationsRepository['crear']>[0],
     nombreRemitente?: string,
+    adjuntos?: AdjuntoEmail[],
   ): Promise<void> {
     const notif = await this.repo.crear(data);
     try {
-      await this.mailer.enviar({ to: data.destinatario, subject: data.asunto, html: data.cuerpo, nombreRemitente });
+      await this.mailer.enviar({ to: data.destinatario, subject: data.asunto, html: data.cuerpo, nombreRemitente, adjuntos });
       await this.repo.marcarEnviado(notif._id);
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'Error desconocido';
       await this.repo.marcarFallido(notif._id, mensaje);
       this.logger.warn(`Email no enviado a ${data.destinatario}: ${mensaje}`);
     }
-  }
-
-  private plantillaClienteConfirmada(nombre: string, servicioTitulo: string, codigo: string): string {
-    return `
-      <h2>¡Reserva confirmada, ${nombre}!</h2>
-      <p>Tu reserva de <strong>${servicioTitulo}</strong> ha sido confirmada.</p>
-      <p>Código de reserva: <strong>${codigo}</strong></p>
-      <p>Gracias por confiar en Doogking — The Royal Treatment for Every Dog.</p>
-    `;
-  }
-
-  private plantillaComercioNuevaReserva(servicioTitulo: string, codigo: string): string {
-    return `
-      <h2>Nueva reserva recibida</h2>
-      <p>Se ha confirmado una nueva reserva para <strong>${servicioTitulo}</strong>.</p>
-      <p>Código de reserva: <strong>${codigo}</strong></p>
-      <p>Consulta los detalles en tu panel de comercio.</p>
-    `;
   }
 }

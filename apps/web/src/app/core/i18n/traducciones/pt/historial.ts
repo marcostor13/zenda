@@ -16,7 +16,7 @@ const historial: Diccionario = {
   'Ajuste solicitado': 'Ajuste solicitado',
   'Alergia': 'Alergia',
   'Alta': 'Alta',
-  'Aparecerán aquí cuando un cliente reserve con la ficha de su perro creada en Doogking.': 'Vão aparecer aqui quando um cliente reservar com a ficha do seu cão criada na Doogking.',
+  'Aparecerán aquí los perros con ficha en Doogking de los clientes que hayan reservado contigo, aunque creen la ficha después de reservar.': 'Aqui aparecerão os cães com ficha na Doogking dos clientes que reservaram consigo, mesmo que a ficha seja criada depois da reserva.',
   'Aún no hay registros. Anota lo que hiciste en la última visita para empezar su historial.': 'Ainda não há registos. Anote o que fez na última visita para começar o histórico.',
   'Baja': 'Baixa',
   'Baño': 'Banho',

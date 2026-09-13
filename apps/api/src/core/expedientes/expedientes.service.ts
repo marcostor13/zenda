@@ -65,20 +65,31 @@ export class ExpedientesService {
 
   async listarMascotasComercio(comercioId: string, busqueda?: string): Promise<MascotaComercioResumen[]> {
     const comercio = aObjectId(comercioId, 'Identificador de comercio');
-    const grupos = await this.agruparReservasPorPerro(comercio);
-    if (!grupos.length) return [];
-
-    const perroIds = grupos.map((g) => g._id);
-    const [perros, registros] = await Promise.all([
-      this.perroModel.find({ _id: { $in: perroIds } }).select(CAMPOS_TARJETA).lean().exec() as unknown as Promise<PerroPlano[]>,
-      this.contarRegistros(comercio, perroIds),
+    // Dos caminos: reservas hechas con la ficha del perro, y reservas del dueño
+    // sin ficha (la creó después). Los perros de ese dueño también son clientes.
+    const [porPerro, porDueno] = await Promise.all([
+      this.agruparReservas(comercio, 'perroId'),
+      this.agruparReservas(comercio, 'usuarioId'),
     ]);
-    const propietarios = await this.contactosPorId(perros.map((p) => String(p.propietarioId)));
-    const porPerro = new Map(perros.map((p) => [String(p._id), p]));
+    if (!porPerro.size && !porDueno.size) return [];
 
-    const mascotas = grupos
-      .filter((g) => porPerro.has(String(g._id)))
-      .map((g) => aResumen(g, porPerro.get(String(g._id))!, propietarios, registros));
+    const perros = await this.perroModel
+      .find({ $or: [
+        { _id: { $in: [...porPerro.keys()].map((id) => new Types.ObjectId(id)) } },
+        { propietarioId: { $in: [...porDueno.keys()].map((id) => new Types.ObjectId(id)) } },
+      ] })
+      .select(CAMPOS_TARJETA).lean().exec() as unknown as PerroPlano[];
+    if (!perros.length) return [];
+
+    const [registros, propietarios] = await Promise.all([
+      this.contarRegistros(comercio, perros.map((p) => p._id)),
+      this.contactosPorId(perros.map((p) => String(p.propietarioId))),
+    ]);
+
+    const mascotas = perros.map((perro) => aResumen(
+      combinarGrupos(porPerro.get(String(perro._id)), porDueno.get(String(perro.propietarioId)), perro._id),
+      perro, propietarios, registros,
+    ));
 
     return filtrarPorBusqueda(mascotas, busqueda).sort(
       (a, b) => (b.ultimoServicio?.getTime() ?? 0) - (a.ultimoServicio?.getTime() ?? 0),
@@ -93,7 +104,13 @@ export class ExpedientesService {
 
     const [propietarios, reservas, registros] = await Promise.all([
       this.contactosPorId([String(perro.propietarioId)]),
-      this.buscarReservas({ perroId: perroOid, comercioId: comercioOid }),
+      this.buscarReservas({
+        comercioId: comercioOid,
+        $or: [
+          { perroId: perroOid },
+          { usuarioId: perro.propietarioId, $or: [{ perroId: { $exists: false } }, { perroId: null }] },
+        ],
+      }),
       this.registrosVisiblesParaComercio(perroId, comercioOid),
     ]);
 
@@ -200,13 +217,29 @@ export class ExpedientesService {
 
   // ── Auxiliares ─────────────────────────────────────────────────────────────
 
-  private agruparReservasPorPerro(comercioId: Types.ObjectId): Promise<GrupoReservasPerro[]> {
-    return this.reservaModel
+  /**
+   * Reservas del comercio agrupadas por perro, o por dueño en las que se
+   * hicieron sin ficha de perro. Las canceladas no hacen cliente a nadie.
+   */
+  private async agruparReservas(
+    comercioId: Types.ObjectId,
+    campo: 'perroId' | 'usuarioId',
+  ): Promise<Map<string, GrupoReservasPerro>> {
+    const conPerro = campo === 'perroId';
+    const grupos = await this.reservaModel
       .aggregate<GrupoReservasPerro>([
-        { $match: { comercioId, perroId: { $exists: true, $ne: null } } },
+        {
+          $match: {
+            comercioId,
+            estado: { $ne: ReservaEstado.CANCELADA },
+            ...(conPerro
+              ? { perroId: { $exists: true, $ne: null } }
+              : { $or: [{ perroId: { $exists: false } }, { perroId: null }] }),
+          },
+        },
         {
           $group: {
-            _id: '$perroId',
+            _id: `$${campo}`,
             totalReservas: { $sum: 1 },
             serviciosCompletados: {
               $sum: { $cond: [{ $in: ['$estado', [ReservaEstado.COMPLETADA, ReservaEstado.PAGO_LIBERADO]] }, 1, 0] },
@@ -217,6 +250,7 @@ export class ExpedientesService {
         },
       ])
       .exec();
+    return new Map(grupos.map((g) => [String(g._id), g]));
   }
 
   private async contarRegistros(comercioId: Types.ObjectId, perroIds: Types.ObjectId[]): Promise<Map<string, number>> {
@@ -328,11 +362,15 @@ export class ExpedientesService {
   }
 
   private async validarReserva(reservaId: string, perroId: string, comercioId: string): Promise<void> {
+    const perro = await this.perroModel.findById(perroId).select('propietarioId').lean().exec();
     const existe = await this.reservaModel
       .exists({
         _id: aObjectId(reservaId, 'Identificador de reserva'),
-        perroId: new Types.ObjectId(perroId),
         comercioId: new Types.ObjectId(comercioId),
+        $or: [
+          { perroId: new Types.ObjectId(perroId) },
+          ...(perro ? [{ usuarioId: perro.propietarioId, $or: [{ perroId: { $exists: false } }, { perroId: null }] }] : []),
+        ],
       })
       .exec();
     if (!existe) throw new DomainException('La reserva no corresponde a esta mascota', 400);
@@ -406,9 +444,41 @@ function fechaDeRegistro(r: RegistroExpediente): number {
   return new Date(r.fechaServicio ?? r.createdAt ?? 0).getTime();
 }
 
+/** Listas de la ficha que la web recorre sin comprobar. */
+const LISTAS_DEL_PERRO = [
+  'fotos', 'tipoPelo', 'vacunas', 'vacunasDetalle', 'alergias', 'enfermedades', 'medicacion', 'miedos', 'certificadosUrl',
+] as const;
+
+/**
+ * La ficha tal y como la ve la web, sin el dueño y con todas las listas.
+ *
+ * Con `.lean()` Mongoose no aplica los `default: []` del esquema: un perro dado
+ * de alta antes de que existiera un campo llega sin él, y la ficha rompía en
+ * producción al leer `vacunas.length` de `undefined`.
+ */
 function sinPropietario(perro: PerroPlano): Record<string, unknown> {
   const { propietarioId: _propietario, ...resto } = perro;
-  return { ...resto, _id: String(perro._id) };
+  const listas = Object.fromEntries(
+    LISTAS_DEL_PERRO.map((campo) => [campo, Array.isArray(perro[campo]) ? perro[campo] : []]),
+  );
+  return { ...resto, ...listas, _id: String(perro._id) };
+}
+
+/** Suma lo reservado con la ficha del perro y lo que su dueño reservó sin ella. */
+function combinarGrupos(
+  delPerro: GrupoReservasPerro | undefined,
+  delDueno: GrupoReservasPerro | undefined,
+  perroId: Types.ObjectId,
+): GrupoReservasPerro {
+  const grupos = [delPerro, delDueno].filter((g): g is GrupoReservasPerro => !!g);
+  const fechas = grupos.map((g) => g.ultimoServicio).filter((f): f is Date => !!f);
+  return {
+    _id: perroId,
+    totalReservas: grupos.reduce((t, g) => t + g.totalReservas, 0),
+    serviciosCompletados: grupos.reduce((t, g) => t + g.serviciosCompletados, 0),
+    ultimoServicio: fechas.length ? new Date(Math.max(...fechas.map((f) => new Date(f).getTime()))) : undefined,
+    verticales: [...new Set(grupos.flatMap((g) => g.verticales))],
+  };
 }
 
 function aResumen(

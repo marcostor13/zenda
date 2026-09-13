@@ -147,7 +147,10 @@ describe('PerrosService', () => {
      * para escribir en el historial médico de cualquier perro de la plataforma,
      * y la anotación quedaba firmada con el nombre del comercio que la escribió.
      */
-    perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
+    perroModel.findById.mockReturnValue({
+      exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)),
+      select: () => ({ lean: () => ({ exec: () => Promise.resolve({ propietarioId: PROPIETARIO_ID }) }) }),
+    });
     reservaModel.exists.mockReturnValue({ exec: () => Promise.resolve(null) });
 
     await expect(
@@ -161,7 +164,10 @@ describe('PerrosService', () => {
 
   it('debería aplicar el mismo límite a la importación masiva', async () => {
     // De una vez entran decenas de filas, así que aquí pesa más todavía.
-    perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
+    perroModel.findById.mockReturnValue({
+      exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)),
+      select: () => ({ lean: () => ({ exec: () => Promise.resolve({ propietarioId: PROPIETARIO_ID }) }) }),
+    });
     reservaModel.exists.mockReturnValue({ exec: () => Promise.resolve(null) });
 
     await expect(
@@ -180,9 +186,24 @@ describe('PerrosService', () => {
       await expect(service.asegurarRelacionComercio(PERRO_ID, undefined)).rejects.toMatchObject({ statusCode: 403 });
     });
 
-    it('debería rechazar un comercio que nunca ha atendido al perro', async () => {
+    it('debería rechazar un comercio que nunca ha atendido al perro ni a su dueño', async () => {
+      perroModel.findById.mockReturnValue({
+        select: () => ({ lean: () => ({ exec: () => Promise.resolve({ propietarioId: PROPIETARIO_ID }) }) }),
+      });
       reservaModel.exists.mockReturnValue({ exec: () => Promise.resolve(null) });
       await expect(service.asegurarRelacionComercio(PERRO_ID, COMERCIO_ID)).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it('debería aceptar al comercio con el que el dueño reservó sin ficha del perro', async () => {
+      perroModel.findById.mockReturnValue({
+        select: () => ({ lean: () => ({ exec: () => Promise.resolve({ propietarioId: PROPIETARIO_ID }) }) }),
+      });
+      reservaModel.exists
+        .mockReturnValueOnce({ exec: () => Promise.resolve(null) })
+        .mockReturnValueOnce({ exec: () => Promise.resolve({ _id: 'r-dueno' }) });
+
+      await expect(service.asegurarRelacionComercio(PERRO_ID, COMERCIO_ID)).resolves.toBeUndefined();
+      expect(reservaModel.exists.mock.calls[1][0]).toMatchObject({ usuarioId: PROPIETARIO_ID });
     });
 
     it('debería rechazar ids mal formados con 400', async () => {

@@ -111,6 +111,24 @@ describe('ExpedientesService', () => {
       expect(porNombre.map((m) => m.nombre)).toEqual(['Toby']);
     });
 
+    it('debería incluir los perros de un dueño que reservó sin ficha y la creó después', async () => {
+      const creadoDespues = { ...perro, _id: new Types.ObjectId(), nombre: 'Luna' };
+      reservaModel['aggregate']
+        .mockReturnValueOnce(consulta([]))
+        .mockReturnValueOnce(consulta([
+          { _id: DUENO, totalReservas: 2, serviciosCompletados: 1, ultimoServicio: new Date('2026-09-10'), verticales: ['peluqueria'] },
+        ]));
+      perroModel['find'].mockReturnValue(consulta([creadoDespues]));
+      historialModel['aggregate'].mockReturnValue(consulta([]));
+
+      const mascotas = await service.listarMascotasComercio(COMERCIO.toString());
+
+      expect(mascotas).toHaveLength(1);
+      expect(mascotas[0]).toMatchObject({ nombre: 'Luna', totalReservas: 2, serviciosCompletados: 1, verticales: ['peluqueria'] });
+      const filtro = perroModel['find'].mock.calls[0][0];
+      expect(filtro.$or[1].propietarioId.$in.map(String)).toEqual([DUENO.toString()]);
+    });
+
     it('debería rechazar un comercio con id mal formado', async () => {
       await expect(service.listarMascotasComercio('x')).rejects.toMatchObject({ statusCode: 400 });
     });
@@ -158,6 +176,7 @@ describe('ExpedientesService', () => {
     };
 
     beforeEach(() => {
+      perroModel['findById'].mockReturnValue(consulta({ propietarioId: DUENO }));
       comercioModel['findById'].mockReturnValue(consulta({ verticales: ['veterinaria'], nombreComercial: 'Clínica Royal' }));
       comercioModel['find'].mockReturnValue(consulta([{ _id: COMERCIO, nombreComercial: 'Clínica Royal' }]));
       historialModel['create'].mockImplementation(async (datos: Record<string, unknown>) => ({

@@ -5,6 +5,7 @@ import { Dispositivo, DispositivoSchema } from './dispositivo.schema';
 import { Reserva, ReservaSchema } from '../bookings/reserva.schema';
 import { Servicio, ServicioSchema } from '../catalog/servicio.schema';
 import { Usuario, UsuarioSchema } from '../users/usuario.schema';
+import { Comercio, ComercioSchema } from '../comercios/comercio.schema';
 import { NotificationsRepository } from './notifications.repository';
 import { NotificationsService } from './notifications.service';
 import { MailerService } from './mailer.service';
@@ -20,6 +21,8 @@ import { PushController } from './push.controller';
       { name: Reserva.name, schema: ReservaSchema },
       { name: Servicio.name, schema: ServicioSchema },
       { name: Usuario.name, schema: UsuarioSchema },
+      // Nombre y contacto del comercio en el correo de confirmación.
+      { name: Comercio.name, schema: ComercioSchema },
     ]),
   ],
   controllers: [PushController],

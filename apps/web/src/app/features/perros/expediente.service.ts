@@ -91,8 +91,10 @@ export class ExpedienteService {
 
   // ── Cuenta del dueño ──
 
-  delPropietario(perroId: string): Promise<ExpedienteApi> {
-    return firstValueFrom(this.http.get<ExpedienteApi>(`${this.api}/perros/${perroId}/expediente`));
+  async delPropietario(perroId: string): Promise<ExpedienteApi> {
+    return normalizarExpediente(
+      await firstValueFrom(this.http.get<ExpedienteApi>(`${this.api}/perros/${perroId}/expediente`)),
+    );
   }
 
   descargarInformePropietario(perroId: string, nombre: string): Promise<void> {
@@ -106,8 +108,10 @@ export class ExpedienteService {
     return firstValueFrom(this.http.get<MascotaComercioApi[]>(`${this.api}/comercio/mascotas`, { params }));
   }
 
-  delComercio(perroId: string): Promise<ExpedienteApi> {
-    return firstValueFrom(this.http.get<ExpedienteApi>(`${this.api}/comercio/mascotas/${perroId}`));
+  async delComercio(perroId: string): Promise<ExpedienteApi> {
+    return normalizarExpediente(
+      await firstValueFrom(this.http.get<ExpedienteApi>(`${this.api}/comercio/mascotas/${perroId}`)),
+    );
   }
 
   crearRegistro(perroId: string, payload: RegistroServicioPayload): Promise<RegistroServicioApi> {
@@ -134,4 +138,29 @@ export class ExpedienteService {
     const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }));
     descargarBlob(blob, nombreInforme(nombre));
   }
+}
+
+const LISTAS_DEL_PERRO = [
+  'fotos', 'tipoPelo', 'vacunas', 'vacunasDetalle', 'alergias', 'enfermedades', 'medicacion', 'miedos', 'certificadosUrl',
+] as const;
+
+/**
+ * Completa las listas que una ficha antigua puede no traer.
+ *
+ * Un perro dado de alta antes de que existiera un campo llega sin él, y la ficha
+ * rompía en producción al leer `vacunas.length` ("Cannot read properties of
+ * undefined"). El API ya las rellena; esto protege contra respuestas antiguas o
+ * cacheadas.
+ */
+export function normalizarExpediente(expediente: ExpedienteApi): ExpedienteApi {
+  const perro = { ...expediente.perro } as Record<string, unknown>;
+  for (const campo of LISTAS_DEL_PERRO) {
+    if (!Array.isArray(perro[campo])) perro[campo] = [];
+  }
+  return {
+    ...expediente,
+    perro: perro as ExpedienteApi['perro'],
+    registros: expediente.registros ?? [],
+    servicios: expediente.servicios ?? [],
+  };
 }

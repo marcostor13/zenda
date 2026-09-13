@@ -16,7 +16,7 @@ const historial: Diccionario = {
   'Ajuste solicitado': 'Anpassung angefordert',
   'Alergia': 'Allergie',
   'Alta': 'Hoch',
-  'Aparecerán aquí cuando un cliente reserve con la ficha de su perro creada en Doogking.': 'Sie erscheinen hier, sobald ein Kunde mit dem auf Doogking angelegten Profil seines Hundes bucht.',
+  'Aparecerán aquí los perros con ficha en Doogking de los clientes que hayan reservado contigo, aunque creen la ficha después de reservar.': 'Hier erscheinen die Hunde mit Doogking-Profil von Kunden, die bei dir gebucht haben, auch wenn das Profil erst nach der Buchung angelegt wird.',
   'Aún no hay registros. Anota lo que hiciste en la última visita para empezar su historial.': 'Noch keine Einträge. Halte fest, was du beim letzten Besuch gemacht hast, um die Historie zu beginnen.',
   'Baja': 'Niedrig',
   'Baño': 'Bad',

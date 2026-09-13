@@ -63,7 +63,7 @@ type Filtro = 'todas' | 'sinRegistros' | 'conAlertas';
   <div class="rs-card empty-state">
     <rs-icon name="paw" [size]="40" [stroke]="1.5"></rs-icon>
     <h3>{{ 'Todavía no hay mascotas' | t }}</h3>
-    <p>{{ 'Aparecerán aquí cuando un cliente reserve con la ficha de su perro creada en Doogking.' | t }}</p>
+    <p>{{ 'Aparecerán aquí los perros con ficha en Doogking de los clientes que hayan reservado contigo, aunque creen la ficha después de reservar.' | t }}</p>
   </div>
 } @else if (visibles().length === 0) {
   <div class="rs-card empty-state">

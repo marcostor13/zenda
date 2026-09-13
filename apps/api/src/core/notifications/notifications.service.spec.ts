@@ -8,6 +8,7 @@ import { MailerService } from './mailer.service';
 import { Reserva } from '../bookings/reserva.schema';
 import { Servicio } from '../catalog/servicio.schema';
 import { Usuario } from '../users/usuario.schema';
+import { Comercio } from '../comercios/comercio.schema';
 
 function leanExec<T>(val: T) {
   return { select: () => ({ lean: () => ({ exec: () => Promise.resolve(val) }) }) };
@@ -29,6 +30,13 @@ describe('NotificationsService', () => {
     comercioId,
     servicioId,
     codigo: 'RES-ABC123',
+    vertical: 'veterinaria',
+    fechaInicio: new Date('2026-09-21T08:00:00Z'),
+    fechaFin: new Date('2026-09-21T08:30:00Z'),
+    cantidad: 1,
+    detalle: { hora: '10:00', servicio: 'Vacunación' },
+    perroSnapshot: { nombre: 'Nala' },
+    montoTotal: 38, montoSubtotal: 31.4, descuentoMonto: 0,
   };
 
   beforeEach(async () => {
@@ -60,6 +68,7 @@ describe('NotificationsService', () => {
         { provide: getModelToken(Reserva.name), useValue: reservaModel },
         { provide: getModelToken(Servicio.name), useValue: servicioModel },
         { provide: getModelToken(Usuario.name), useValue: usuarioModel },
+        { provide: getModelToken(Comercio.name), useValue: { findById: () => leanExec({ nombreComercial: 'Clínica <Royal>', contacto: { telefono: '+34 600 000 000' } }) } },
         // Las plantillas nuevas componen enlaces con APP_URL.
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
       ],
@@ -82,6 +91,21 @@ describe('NotificationsService', () => {
     expect(repo.marcarEnviado).toHaveBeenCalledTimes(2);
   });
 
+  it('debería mandar al cliente un comprobante completo con el calendario adjunto', async () => {
+    await service.notificarReservaConfirmada(reservaId.toString());
+
+    const alCliente = mailer.enviar.mock.calls.find(([e]) => e.to === 'maria@test.com')![0];
+    expect(alCliente.subject).toBe('✔ Reserva confirmada: Suite Canina Madrid · lun 21 sept a las 10:00 (RES-ABC123)');
+    expect(alCliente.html).toContain('10:00 – 10:30');
+    expect(alCliente.html).toContain('Nala');
+    expect(alCliente.html).toContain('38,00 €');
+    // El nombre del comercio viene de un usuario: se escapa.
+    expect(alCliente.html).toContain('Clínica &lt;Royal&gt;');
+    expect(alCliente.html).not.toContain('Clínica <Royal>');
+    expect(alCliente.adjuntos?.[0]).toMatchObject({ nombre: 'reserva-RES-ABC123.ics' });
+    expect(String(alCliente.adjuntos?.[0].contenido)).toContain('DTSTART:20260921T080000Z');
+  });
+
   it('debería registrar el fallo sin lanzar si el mailer falla', async () => {
     mailer.enviar.mockRejectedValue(new Error('SMTP no configurado'));
 
@@ -98,12 +122,35 @@ describe('NotificationsService', () => {
         { provide: getModelToken(Reserva.name), useValue: { findById: () => ({ lean: () => ({ exec: () => Promise.resolve(null) }) }) } },
         { provide: getModelToken(Servicio.name), useValue: {} },
         { provide: getModelToken(Usuario.name), useValue: {} },
+        { provide: getModelToken(Comercio.name), useValue: {} },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
       ],
     }).compile();
 
     const svc = moduleRef.get(NotificationsService);
     await expect(svc.notificarReservaConfirmada('no-existe')).resolves.toBeUndefined();
+  });
+
+  it('debería componer el correo del comercio aunque falten servicio, cliente y datos del comercio', async () => {
+    const enviar = jest.fn().mockResolvedValue(undefined);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        NotificationsService,
+        { provide: NotificationsRepository, useValue: { crear: jest.fn().mockResolvedValue({ _id: new Types.ObjectId() }), marcarEnviado: jest.fn(), marcarFallido: jest.fn() } },
+        { provide: MailerService, useValue: { enviar } },
+        { provide: getModelToken(Reserva.name), useValue: { findById: () => ({ lean: () => ({ exec: () => Promise.resolve({ ...reservaMock, fechaInicio: new Date('2026-09-21T00:00:00Z'), fechaFin: undefined, detalle: {}, perroSnapshot: undefined, cantidad: undefined, descuentoMonto: undefined }) }) }) } },
+        { provide: getModelToken(Servicio.name), useValue: { findById: () => leanExec(null) } },
+        { provide: getModelToken(Usuario.name), useValue: { findById: () => leanExec(null), find: () => leanExec([{ email: 'comercio@test.com' }]) } },
+        { provide: getModelToken(Comercio.name), useValue: { findById: () => leanExec(null) } },
+        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(undefined) } },
+      ],
+    }).compile();
+
+    await moduleRef.get(NotificationsService).notificarReservaConfirmada(reservaId.toString());
+
+    expect(enviar).toHaveBeenCalledTimes(1);
+    expect(enviar.mock.calls[0][0]).toMatchObject({ to: 'comercio@test.com', subject: 'Nueva reserva RES-ABC123 · Tu reserva' });
+    expect(enviar.mock.calls[0][0].html).toContain('Cliente</td>');
   });
 
   describe('notificarAjusteSolicitado', () => {
@@ -130,6 +177,7 @@ describe('NotificationsService', () => {
             provide: getModelToken(Usuario.name),
             useValue: { findById: () => leanExec(cliente), find: () => leanExec([]) },
           },
+          { provide: getModelToken(Comercio.name), useValue: { findById: () => leanExec(null) } },
           { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
         ],
       }).compile();
