@@ -84,6 +84,7 @@ export * from './dtos/comunes/horario.dto';
 export * from './dtos/agenda/bloqueo.dto';
 
 export * from './dtos/catalog/aptitud-perro.dto';
+export * from './dtos/catalog/busqueda-cercanos';
 export * from './dtos/catalog/crear-servicio.dto';
 export * from './dtos/catalog/actualizar-servicio.dto';
 export * from './dtos/catalog/actualizar-disponibilidad.dto';

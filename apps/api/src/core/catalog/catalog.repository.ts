@@ -358,6 +358,86 @@ export class CatalogRepository {
     return { items: resultado?.items ?? [], total: resultado?.total?.[0]?.n ?? 0 };
   }
 
+  /**
+   * Centro aproximado de una población según las fichas que ya están en ella,
+   * estén publicadas o no: una residencia en borrador en Castellón sigue
+   * diciendo dónde está Castellón. `null` si ninguna ficha la ubica.
+   */
+  async centroDePoblacion(ciudad: string): Promise<{ lat: number; lng: number } | null> {
+    const porCiudad = this.condicionCiudad(ciudad);
+    if (!porCiudad) return null;
+
+    const [centro] = await this.servicioModel.aggregate<{ lat: number; lng: number }>([
+      { $match: { $and: [porCiudad, { 'ubicacion.geo.coordinates.1': { $exists: true } }] } },
+      { $limit: 50 },
+      {
+        $group: {
+          _id: null,
+          lng: { $avg: { $arrayElemAt: ['$ubicacion.geo.coordinates', 0] } },
+          lat: { $avg: { $arrayElemAt: ['$ubicacion.geo.coordinates', 1] } },
+        },
+      },
+    ]).exec();
+
+    return centro && Number.isFinite(centro.lat) && Number.isFinite(centro.lng)
+      ? { lat: centro.lat, lng: centro.lng }
+      : null;
+  }
+
+  /**
+   * ¿Hay algo que ofrecer fuera de la población? Servicios que cumplen el resto
+   * de la búsqueda y tienen coordenadas. Evita geocodificar para nada.
+   */
+  async hayServiciosUbicados(params: BuscarServiciosParams): Promise<boolean> {
+    const filtro = this.construirFiltro({ ...params, ciudad: undefined, bbox: undefined });
+    const uno = await this.servicioModel
+      .findOne({ $and: [filtro, { 'ubicacion.geo.coordinates.1': { $exists: true } }] })
+      .select({ _id: 1 })
+      .lean()
+      .exec();
+    return Boolean(uno);
+  }
+
+  /**
+   * Lo más cercano a un punto, sin la condición de población y hasta
+   * `radioKm`. Es la respuesta a una búsqueda sin resultados: quien busca en
+   * Castellón y no hay nada quiere saber qué tiene a diez minutos.
+   */
+  async buscarCercanos(
+    params: BuscarServiciosParams & { lat: number; lng: number; radioKm: number },
+  ): Promise<BuscarServiciosResult & { distanciasKm: number[] }> {
+    const filtro = this.construirFiltro({ ...params, ciudad: undefined, bbox: undefined });
+    const skip = (params.page - 1) * params.limit;
+
+    const [resultado] = await this.servicioModel.aggregate<{
+      items: Array<ServicioDocument & { distanciaMetros: number }>;
+      total: Array<{ n: number }>;
+    }>([
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates: [params.lng, params.lat] },
+          distanceField: 'distanciaMetros',
+          maxDistance: params.radioKm * 1000,
+          spherical: true,
+          query: filtro,
+        },
+      },
+      {
+        $facet: {
+          items: [{ $skip: skip }, { $limit: params.limit }],
+          total: [{ $count: 'n' }],
+        },
+      },
+    ]).exec();
+
+    const items = resultado?.items ?? [];
+    return {
+      items,
+      total: resultado?.total?.[0]?.n ?? 0,
+      distanciasKm: items.map((i) => Math.round(i.distanciaMetros / 100) / 10),
+    };
+  }
+
   async obtenerPorId(id: string): Promise<ServicioDocument | null> {
     return this.servicioModel.findById(id).lean().exec() as Promise<ServicioDocument | null>;
   }

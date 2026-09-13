@@ -1,7 +1,8 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { VerticalKey } from 'shared';
+import { VerticalKey, type BusquedaCercanosApi } from 'shared';
+import { lugarConDistancia } from '../../../shared/distancia';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsSearchBarComponent } from '../../../shared/components/search-bar/rs-search-bar.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
@@ -42,6 +43,8 @@ import { migasDePan } from '../../../core/seo/json-ld';
     [reclamoIcono]="ui.icono"
     [vertical]="ui.key"
     [total]="total()" [mostrados]="transportes().length"
+    [cercanos]="cercanos()"
+    [enlaceMasCercano]="enlaceMasCercano()"
     [cargando]="cargando()" [cargandoMas]="cargandoMas()"
     [error]="error()" [hayMas]="hayMas()"
     [histograma]="histogramaPrecios()"
@@ -64,7 +67,7 @@ import { migasDePan } from '../../../core/seo/json-ld';
         <rs-card rsAnim
           [horizontal]="true"
           [imageUrl]="t.imagen" [imageAlt]="t.nombre"
-          [title]="t.nombre" [subtitle]="t.ciudad"
+          [title]="t.nombre" [subtitle]="lugarConDistancia(t.ciudad, t.distanciaKm)"
           [badges]="badgesDe(t)"
           [rating]="{ score: t.score, label: t.scoreLabel, count: t.numResenas }"
           [price]="{ amount: moneda.formatear(t.tarifaBase), period: 'trayecto desde' }"
@@ -117,6 +120,13 @@ export class TransporteListaComponent implements OnInit {
   readonly subtitular = subtitularDeVertical(VerticalKey.TRANSPORTE);
   readonly cargando = signal(true);
   readonly error = signal(false);
+  /** La población buscada no tenía nada: los resultados son lo más cercano. */
+  readonly cercanos = signal<BusquedaCercanosApi | null>(null);
+  readonly enlaceMasCercano = computed(() => {
+    const cercanos = this.cercanos();
+    return cercanos ? ['/transporte', cercanos.masCercano.id] : null;
+  });
+  readonly lugarConDistancia = lugarConDistancia;
   readonly transportes = signal<TransporteCard[]>([]);
   readonly total = signal(0);
   readonly pagina = signal(1);
@@ -236,10 +246,12 @@ export class TransporteListaComponent implements OnInit {
       const res = await this.transporteService.buscarPaginado(opciones);
       this.transportes.set(res.items);
       this.total.set(res.total);
+      this.cercanos.set(res.cercanos ?? null);
       void this.cargarFacetas();
       void this.cargarPuntosMapa(opciones);
     } catch {
       this.transportes.set([]);
+      this.cercanos.set(null);
       this.total.set(0);
       this.error.set(true);
     } finally {

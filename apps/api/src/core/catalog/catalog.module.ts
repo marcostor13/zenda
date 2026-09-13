@@ -16,6 +16,7 @@ import { CatalogController } from './catalog.controller';
 import { Comercio, ComercioSchema } from '../comercios/comercio.schema';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { PerrosModule } from '../perros/perros.module';
+import { GeoModule } from '../geo/geo.module';
 
 @Module({
   imports: [
@@ -39,6 +40,8 @@ import { PerrosModule } from '../perros/perros.module';
     ]),
     ReviewsModule,
     PerrosModule,
+    // Para ubicar una población sin fichas y ofrecer lo que hay cerca.
+    GeoModule,
   ],
   controllers: [CatalogController],
   providers: [CatalogRepository, CatalogService],

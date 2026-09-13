@@ -1,7 +1,8 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { resolverMunicipio, VerticalKey } from 'shared';
+import { resolverMunicipio, VerticalKey, type BusquedaCercanosApi } from 'shared';
+import { lugarConDistancia } from '../../shared/distancia';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
@@ -237,6 +238,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
     [orden]="orden()"
     [contexto]="contextoBusqueda()"
     [sufijoCiudad]="sufijoCiudad()" [ciudad]="ciudadBuscada()"
+    [cercanos]="cercanos()"
+    [enlaceMasCercano]="enlaceMasCercano()"
     [mapaAbierto]="mapaAbierto()"
     (filtrosCambio)="aplicarFiltros($event)"
     (ordenCambio)="cambiarOrden($event)"
@@ -279,7 +282,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
         <rs-card rsAnim
           [horizontal]="true"
           [imageUrl]="c.imagenes[0]" [imageAlt]="c.nombre"
-          [title]="cfg().titulo3(c)" [subtitle]="c.ciudad"
+          [title]="cfg().titulo3(c)" [subtitle]="lugarConDistancia(c.ciudad, c.distanciaKm)"
           [badges]="badgesDe(c)"
           [rating]="{ score: c.score, label: c.scoreLabel, count: c.numResenas }"
           [price]="{ amount: moneda.formatear(cfg().price(c)), period: cfg().priceLabel }"
@@ -352,6 +355,13 @@ export class VerticalBrowseComponent implements OnInit {
   readonly subtitular = computed(() => this.ui().subtitular ?? this.ui().descripcion);
   readonly cargando = signal(true);
   readonly items = signal<ServicioCard[]>([]);
+  /** La población buscada no tenía nada: los resultados son lo más cercano. */
+  readonly cercanos = signal<BusquedaCercanosApi | null>(null);
+  readonly enlaceMasCercano = computed(() => {
+    const cercanos = this.cercanos();
+    return cercanos ? enlaceAServicio(this.cfg().vertical, cercanos.masCercano.id) : null;
+  });
+  readonly lugarConDistancia = lugarConDistancia;
 
   // ── Selector de problema en adiestramiento (PDF 27/07 §13) ────────
   readonly problemas = PROBLEMAS_ADIESTRAMIENTO;
@@ -574,11 +584,13 @@ export class VerticalBrowseComponent implements OnInit {
       const res = await this.browseService.buscarPaginado(this.cfg().vertical, opciones);
       this.items.set(res.items);
       this.total.set(res.total);
+      this.cercanos.set(res.cercanos ?? null);
       void this.cargarFacetas();
       void this.cargarPuntosMapa(opciones);
     } catch {
       this.items.set([]);
       this.total.set(0);
+      this.cercanos.set(null);
       this.error.set(true);
     } finally {
       this.cargando.set(false);

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { VerticalKey, type ExcepcionHorarioDto, type HorarioDiaDto } from 'shared';
+import { VerticalKey, type ExcepcionHorarioDto, type HorarioDiaDto, type BusquedaCercanosApi } from 'shared';
 import { environment } from '../../../../environments/environment';
 
 export interface FiltrosAlojamiento {
@@ -59,6 +59,8 @@ export interface FacetasCatalogo {
 }
 
 export interface AlojamientoCard {
+  /** A cuánto está de la población buscada, en los resultados de "lo más cercano". */
+  distanciaKm?: number;
   id: string;
   nombre: string;
   ciudad: string;
@@ -149,6 +151,8 @@ export interface PaginatedResult<T> {
   total: number;
   page: number;
   totalPages: number;
+  /** La población no tenía nada: `items` son los alojamientos más cercanos a ella. */
+  cercanos?: BusquedaCercanosApi;
 }
 
 @Injectable({ providedIn: 'root' })

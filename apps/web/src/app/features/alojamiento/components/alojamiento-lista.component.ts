@@ -1,7 +1,8 @@
 import { Component, DestroyRef, signal, computed, OnInit, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { VerticalKey } from 'shared';
+import { VerticalKey, type BusquedaCercanosApi } from 'shared';
+import { lugarConDistancia } from '../../../shared/distancia';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
@@ -54,6 +55,8 @@ interface BusquedaUrl {
     [reclamoIcono]="ui.icono"
     [vertical]="ui.key"
     [total]="totalItems()" [mostrados]="alojamientos().length"
+    [cercanos]="cercanos()"
+    [enlaceMasCercano]="enlaceMasCercano()"
     [cargando]="cargando()" [cargandoMas]="cargandoMas()"
     [error]="error()" [hayMas]="hayMas()"
     [histograma]="histogramaPrecios()"
@@ -84,7 +87,7 @@ interface BusquedaUrl {
           [class.card--destacada]="destacadoId() === a.id"
           [horizontal]="true"
           [imageUrl]="a.imagenes[0]" [imageAlt]="a.nombre"
-          [title]="a.nombre" [subtitle]="a.barrio ? a.barrio + ', ' + a.ciudad : a.ciudad"
+          [title]="a.nombre" [subtitle]="lugarConDistancia(a.barrio ? a.barrio + ', ' + a.ciudad : a.ciudad, a.distanciaKm)"
           [badges]="badgesDe(a)"
           [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
           [price]="{ amount: moneda.formatear(a.precioPorNoche), period: 'noche desde', oldAmount: a.precioAnterior ? moneda.formatear(a.precioAnterior) : undefined }"
@@ -150,6 +153,13 @@ export class AlojamientoListaComponent implements OnInit {
 
   readonly cargando = signal(true);
   readonly error = signal(false);
+  /** La población buscada no tenía nada: los resultados son lo más cercano. */
+  readonly cercanos = signal<BusquedaCercanosApi | null>(null);
+  readonly enlaceMasCercano = computed(() => {
+    const cercanos = this.cercanos();
+    return cercanos ? ['/alojamiento', cercanos.masCercano.id] : null;
+  });
+  readonly lugarConDistancia = lugarConDistancia;
   readonly alojamientos = signal<AlojamientoCard[]>([]);
   readonly paginaActual = signal(1);
   readonly totalPaginas = signal(1);
@@ -393,6 +403,7 @@ export class AlojamientoListaComponent implements OnInit {
       const result = await this.alojamientoService.buscar(filtros);
       this.alojamientos.set(result.items);
       this.totalItems.set(result.total);
+      this.cercanos.set(result.cercanos ?? null);
       this.totalPaginas.set(result.totalPages);
       // El pin resaltado deja de tener sentido con otra tanda de resultados.
       this.destacadoId.set(null);
@@ -401,6 +412,7 @@ export class AlojamientoListaComponent implements OnInit {
     } catch {
       // Sin datos inventados: se muestra estado de error, no listados falsos.
       this.alojamientos.set([]);
+      this.cercanos.set(null);
       this.totalItems.set(0);
       this.totalPaginas.set(1);
       this.error.set(true);

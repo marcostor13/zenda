@@ -9,6 +9,9 @@ import {
 import type { BarraHistograma } from '../range-slider/rs-range-slider.component';
 import { filtrosDeVertical } from '../../verticales/filtros.config';
 
+import { RouterLink } from '@angular/router';
+import type { BusquedaCercanosApi } from 'shared';
+import { kmLegibles } from '../../distancia';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { MonedaService } from '../../../core/moneda/moneda.service';
 /** Criterio de orden ofrecido en la barra de control. */
@@ -58,7 +61,7 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
   selector: 'rs-listado',
   standalone: true,
   imports: [
-    TraducirPipe, RsIconComponent, RsFiltrosListadoComponent
+    TraducirPipe, RsIconComponent, RsFiltrosListadoComponent, RouterLink,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -100,7 +103,7 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
           Buscando…
         } @else {
           <strong>{{ total() }}</strong>
-          {{ total() === 1 ? 'resultado' : 'resultados' }}<span class="ls__count-ciudad">{{ sufijoCiudad() }}</span>
+          {{ total() === 1 ? 'resultado' : 'resultados' }}<span class="ls__count-ciudad">{{ sufijoMostrado() }}</span>
           @for (c of contexto(); track c) { <span class="ls__chip">{{ c }}</span> }
         }
       </p>
@@ -234,6 +237,24 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
             }
           </div>
         } @else {
+          @if (cercanos(); as c) {
+            <div class="ls__cercanos" role="status" data-testid="aviso-cercanos">
+              <span class="ls__cercanos-icono"><rs-icon name="navigation" [size]="20" [stroke]="2" /></span>
+              <div>
+                <p class="ls__cercanos-titulo">{{ 'No hay servicios en {ciudad}.' | t: { ciudad: c.ciudadBuscada } }}</p>
+                <p class="ls__cercanos-texto">
+                  {{ 'El más cercano es' | t }}
+                  @if (enlaceMasCercano(); as enlace) {
+                    <a [routerLink]="enlace">{{ c.masCercano.nombre }}</a>
+                  } @else {
+                    <strong>{{ c.masCercano.nombre }}</strong>
+                  }
+                  {{ 'en {ciudad}, a {distancia}.' | t: { ciudad: c.masCercano.ciudad, distancia: km(c.masCercano.distanciaKm) } }}
+                  {{ 'Te enseñamos lo que hay a menos de {radio} km.' | t: { radio: c.radioKm } }}
+                </p>
+              </div>
+            </div>
+          }
           <ng-content select="[listadoResultados]" />
 
           @if (hayMas()) {
@@ -616,6 +637,22 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
       p { font-size: var(--f-sm); color: var(--t-400); }
     }
     .rs-result-empty .rs-btn { margin-top: var(--sp-4); }
+
+    /* Población sin resultados: se ofrece lo más cercano, como Booking. */
+    .ls__cercanos {
+      display: flex; gap: var(--sp-3); align-items: flex-start;
+      margin-bottom: var(--sp-5); padding: var(--sp-4);
+      border: 1px solid var(--dk-gold); border-radius: var(--r-lg);
+      background: var(--c-card); box-shadow: var(--shadow-sm);
+    }
+    .ls__cercanos-icono {
+      display: grid; place-items: center; flex-shrink: 0;
+      width: 2.5rem; height: 2.5rem; border-radius: var(--r-full);
+      background: var(--c-accent-lo); color: var(--dk-blue);
+    }
+    .ls__cercanos-titulo { margin: 0 0 var(--sp-1); font-weight: var(--w-7); color: var(--dk-blue-text); }
+    .ls__cercanos-texto { margin: 0; font-size: var(--f-sm); color: var(--t-300); line-height: 1.5; }
+    .ls__cercanos-texto a, .ls__cercanos-texto strong { color: var(--dk-blue); font-weight: var(--w-7); }
   `],
 })
 export class RsListadoComponent {
@@ -663,6 +700,18 @@ export class RsListadoComponent {
   readonly sufijoCiudad = input('');
   /** Ciudad buscada; encabeza el resumen plegado del buscador en móvil. */
   readonly ciudad = input('');
+  /** La población no tenía nada y los resultados son lo más cercano a ella. */
+  readonly cercanos = input<BusquedaCercanosApi | null | undefined>(null);
+  /** Ficha del más cercano, para poder ir directo desde el aviso. */
+  readonly enlaceMasCercano = input<string | readonly unknown[] | null>(null);
+
+  /** "2 resultados cerca de Castellón", no "en Castellón": allí no hay ninguno. */
+  readonly sufijoMostrado = computed(() => {
+    const cercanos = this.cercanos();
+    return cercanos ? ` cerca de ${cercanos.ciudadBuscada}` : this.sufijoCiudad();
+  });
+
+  readonly km = kmLegibles;
 
   readonly conMapa = input(true);
   readonly mapaAbierto = input(false);

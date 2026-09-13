@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { VerticalKey } from 'shared';
+import { VerticalKey, type BusquedaCercanosApi } from 'shared';
 import {
   CatalogBrowseService, type OpcionesBusqueda,
 } from '../../verticales/catalog-browse.service';
@@ -17,6 +17,7 @@ export interface ServicioCard {
   destacado: boolean;
   alphaAdherido?: boolean;
   vertical?: string;
+  distanciaKm?: number;
   extra?: Record<string, unknown>;
 }
 
@@ -30,6 +31,8 @@ export interface PaginatedResult<T> {
 export type TipoVehiculoTransporte = 'van_acondicionada' | 'coche' | 'furgon_climatizado';
 
 export interface TransporteCard {
+  /** A cuánto está de la población buscada, en los resultados de "lo más cercano". */
+  distanciaKm?: number;
   id: string;
   nombre: string;
   ciudad: string;
@@ -71,9 +74,9 @@ export class TransporteService {
    */
   async buscarPaginado(
     opciones: OpcionesBusqueda = {},
-  ): Promise<{ items: TransporteCard[]; total: number }> {
+  ): Promise<{ items: TransporteCard[]; total: number; cercanos?: BusquedaCercanosApi }> {
     const res = await this.browse.buscarPaginado(VerticalKey.TRANSPORTE, opciones);
-    return { items: res.items.map((s) => this.toTransporte(s as ServicioCard)), total: res.total };
+    return { items: res.items.map((s) => this.toTransporte(s as ServicioCard)), total: res.total, cercanos: res.cercanos };
   }
 
   private toTransporte(s: ServicioCard): TransporteCard {
@@ -96,6 +99,7 @@ export class TransporteService {
       score: s.score,
       scoreLabel: s.scoreLabel,
       numResenas: s.numResenas,
+      distanciaKm: s.distanciaKm,
     };
   }
 }

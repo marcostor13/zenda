@@ -4,6 +4,7 @@ import { CatalogService } from './catalog.service';
 import { CatalogRepository } from './catalog.repository';
 import { ReviewsService } from '../reviews/reviews.service';
 import { PerrosService } from '../perros/perros.service';
+import { GeoService } from '../geo/geo.service';
 import { Comercio } from '../comercios/comercio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { ServicioClinicoTipo } from 'shared';
@@ -14,6 +15,7 @@ describe('CatalogService', () => {
   let reviewsService: jest.Mocked<ReviewsService>;
   let perrosService: jest.Mocked<PerrosService>;
   let comercioModel: { find: jest.Mock; findById: jest.Mock };
+  let geoService: { coordenadasDePoblacion: jest.Mock };
 
   const hotelDoc = {
     _id: 'hotel-1',
@@ -71,6 +73,8 @@ describe('CatalogService', () => {
           useValue: {
             buscar: jest.fn(), obtenerPorId: jest.fn(), contarTotal: jest.fn(),
             actualizarCampos: jest.fn(), crear: jest.fn(), puntos: jest.fn(),
+            centroDePoblacion: jest.fn().mockResolvedValue(null), buscarCercanos: jest.fn(),
+            hayServiciosUbicados: jest.fn().mockResolvedValue(true),
           },
         },
         {
@@ -80,6 +84,10 @@ describe('CatalogService', () => {
         {
           provide: PerrosService,
           useValue: { obtenerPerfilCompatibilidad: jest.fn().mockResolvedValue(null) },
+        },
+        {
+          provide: GeoService,
+          useValue: { coordenadasDePoblacion: jest.fn().mockResolvedValue(null) },
         },
         {
           // Solo se consulta para marcar los comercios adheridos a Alpha (HU-13.3).
@@ -93,6 +101,7 @@ describe('CatalogService', () => {
     repo = module.get(CatalogRepository);
     reviewsService = module.get(ReviewsService);
     perrosService = module.get(PerrosService);
+    geoService = module.get(GeoService);
   });
 
   describe('ventajas Alpha en el listado (HU-13.3)', () => {
@@ -122,6 +131,75 @@ describe('CatalogService', () => {
       await service.buscarServicios({});
 
       expect(comercioModel.find).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('lo más cercano cuando una población no tiene nada', () => {
+    const vilaCan = { ...hotelDoc, _id: 'vila-can', titulo: 'Centro canino Vila-can', ubicacion: { ciudad: 'Vila-real' } };
+
+    beforeEach(() => {
+      repo.buscar.mockResolvedValue({ items: [] as never, total: 0 });
+      repo.buscarCercanos.mockResolvedValue({ items: [vilaCan] as never, total: 1, distanciasKm: [8.4] });
+    });
+
+    it('debería ofrecer los servicios cercanos con el más cercano y su distancia', async () => {
+      repo.centroDePoblacion.mockResolvedValue({ lat: 39.98, lng: -0.05 });
+
+      const result = await service.buscarServicios({ vertical: 'peluqueria', ciudad: 'castellon de la plana', limit: 10 });
+
+      expect(repo.buscarCercanos).toHaveBeenCalledWith(expect.objectContaining({
+        vertical: 'peluqueria', ciudad: 'castellon de la plana', lat: 39.98, lng: -0.05, radioKm: 60,
+      }));
+      expect(result.total).toBe(1);
+      expect(result.items[0]).toMatchObject({ nombre: 'Centro canino Vila-can', distanciaKm: 8.4 });
+      expect(result.cercanos).toEqual({
+        ciudadBuscada: expect.stringMatching(/^Castell/),
+        radioKm: 60,
+        masCercano: { id: 'vila-can', nombre: 'Centro canino Vila-can', ciudad: 'Vila-real', distanciaKm: 8.4 },
+      });
+      expect(geoService.coordenadasDePoblacion).not.toHaveBeenCalled();
+    });
+
+    it('debería partir de las coordenadas que manda el buscador antes que de nada más', async () => {
+      await service.buscarServicios({ ciudad: 'Castellón', lat: 39.9, lng: -0.04 });
+
+      expect(repo.centroDePoblacion).not.toHaveBeenCalled();
+      expect(repo.buscarCercanos.mock.calls[0][0]).toMatchObject({ lat: 39.9, lng: -0.04 });
+    });
+
+    it('debería geocodificar la población si ninguna ficha la ubica', async () => {
+      geoService.coordenadasDePoblacion.mockResolvedValue({ ciudad: 'Castellón', lat: 39.98, lng: -0.04 });
+
+      const result = await service.buscarServicios({ ciudad: 'Castellón' });
+
+      expect(geoService.coordenadasDePoblacion).toHaveBeenCalledWith('Castellón');
+      expect(result.cercanos?.masCercano.ciudad).toBe('Vila-real');
+    });
+
+    it('debería dejar el listado vacío si no se sabe dónde está la población o no hay nada cerca', async () => {
+      const sinUbicar = await service.buscarServicios({ ciudad: 'Inventada' });
+      expect(sinUbicar).toMatchObject({ items: [], total: 0 });
+      expect(sinUbicar.cercanos).toBeUndefined();
+
+      repo.centroDePoblacion.mockResolvedValue({ lat: 1, lng: 1 });
+      repo.buscarCercanos.mockResolvedValue({ items: [] as never, total: 0, distanciasKm: [] });
+      expect((await service.buscarServicios({ ciudad: 'Lejos' })).cercanos).toBeUndefined();
+    });
+
+    it('no debería geocodificar si no hay ningún servicio ubicado que ofrecer', async () => {
+      repo.hayServiciosUbicados.mockResolvedValue(false);
+
+      const result = await service.buscarServicios({ ciudad: 'Castellón' });
+
+      expect(result.cercanos).toBeUndefined();
+      expect(geoService.coordenadasDePoblacion).not.toHaveBeenCalled();
+    });
+
+    it('no debería buscar alrededor sin población o con la zona del mapa', async () => {
+      await service.buscarServicios({});
+      await service.buscarServicios({ ciudad: 'Castellón', bbox: { swLat: 1, swLng: 1, neLat: 2, neLng: 2 } });
+
+      expect(repo.buscarCercanos).not.toHaveBeenCalled();
     });
   });
 

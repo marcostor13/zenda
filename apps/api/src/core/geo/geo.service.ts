@@ -317,6 +317,22 @@ export class GeoService {
   }
 
   /**
+   * Coordenadas de una población escrita a mano ("Castellón"), sin sugerencia
+   * elegida: la primera población que propone el autocompletado. `null` si no
+   * hay proveedor disponible o no se reconoce; nunca lanza, porque quien lo pide
+   * sólo quiere mejorar una búsqueda vacía.
+   */
+  async coordenadasDePoblacion(nombre: string): Promise<CoordenadasLugar | null> {
+    try {
+      const [primera] = await this.autocompletar(nombre, undefined, 'ciudad');
+      return primera ? await this.coordenadas(primera.placeId) : null;
+    } catch (error) {
+      this.logger.warn(`Sin coordenadas para la población "${nombre}": ${this.mensaje(error)}`);
+      return null;
+    }
+  }
+
+  /**
    * Dirección postal completa de un portal ya elegido, con sus coordenadas. Es
    * lo que rellena la ficha del comercio: sin esto el comercio teclea la calle a
    * mano y la plataforma se queda sin el punto exacto con el que situarlo en el

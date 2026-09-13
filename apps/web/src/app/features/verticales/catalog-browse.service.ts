@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import type { ExcepcionHorarioDto, HorarioDiaDto } from 'shared';
+import type { BusquedaCercanosApi, ExcepcionHorarioDto, HorarioDiaDto } from 'shared';
 import { environment } from '../../../environments/environment';
 
 /** Tarjeta genérica de servicio devuelta por el catálogo (cualquier vertical). */
@@ -22,6 +22,8 @@ export interface ServicioCard {
   /** Punto exacto del negocio; ausente mientras no haya fijado su ubicación. */
   lat?: number;
   lng?: number;
+  /** A cuánto está de la población buscada, cuando es un resultado de "lo más cercano". */
+  distanciaKm?: number;
   extra: Record<string, unknown>;
 }
 
@@ -105,6 +107,8 @@ export interface PaginatedResult<T> {
   total: number;
   page: number;
   totalPages: number;
+  /** La población no tenía nada: `items` son los servicios más cercanos a ella. */
+  cercanos?: BusquedaCercanosApi;
 }
 
 @Injectable({ providedIn: 'root' })

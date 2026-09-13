@@ -9,12 +9,14 @@ import { Comercio, ComercioDocument } from '../comercios/comercio.schema';
 import { ReviewsService } from '../reviews/reviews.service';
 import { ResenaDocument } from '../reviews/resena.schema';
 import { PerrosService } from '../perros/perros.service';
+import { GeoService } from '../geo/geo.service';
 import { AptitudPerro } from './servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
 import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
   ServicioClinicoTipo, esEspecialidadSuelta, HorarioDiaDto, ExcepcionHorarioDto, MIN_FOTOS_SERVICIO,
+  BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio,
 } from 'shared';
 
 /** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
@@ -136,6 +138,8 @@ export interface ServicioCardDto {
   /** Coordenadas del listado; ausentes mientras el comercio no las declare. */
   lat?: number;
   lng?: number;
+  /** Distancia a la población buscada; sólo en los resultados de "lo más cercano". */
+  distanciaKm?: number;
 }
 
 export interface HabitacionDto {
@@ -191,6 +195,11 @@ export interface PaginatedResult<T> {
   total: number;
   page: number;
   totalPages: number;
+  /**
+   * Sólo cuando la población pedida no tenía nada: entonces `items` son los
+   * servicios más cercanos a ella y esto dice cuál es el primero y a qué distancia.
+   */
+  cercanos?: BusquedaCercanosApi;
 }
 
 /** Vista completa (no normalizada) de un servicio propio, para precargar el formulario de edición. */
@@ -280,6 +289,7 @@ export class CatalogService {
     private readonly repo: CatalogRepository,
     private readonly reviewsService: ReviewsService,
     private readonly perrosService: PerrosService,
+    private readonly geoService: GeoService,
     @InjectModel(Comercio.name) private readonly comercioModel: Model<ComercioDocument>,
   ) {}
 
@@ -326,19 +336,58 @@ export class CatalogService {
       filtrosVertical: filtros.filtrosVertical,
     };
 
-    const { items, total } = await this.repo.buscar(params);
+    const encontrados = await this.repo.buscar(params);
+    const cercanos = encontrados.total === 0 ? await this.buscarCercanos(params) : null;
+    const { items, total } = cercanos ?? encontrados;
     const adheridos = await this.comerciosAdheridosAlpha(items as unknown as ServicioLean[]);
 
+    const cards = items.map((doc, i) => {
+      const lean = doc as unknown as ServicioLean;
+      const card = this.toCard(lean);
+      card.alphaAdherido = adheridos.has(String(lean.comercioId));
+      if (cercanos) card.distanciaKm = cercanos.distanciasKm[i];
+      return card;
+    });
+
     return {
-      items: items.map((doc) => {
-        const lean = doc as unknown as ServicioLean;
-        const card = this.toCard(lean);
-        card.alphaAdherido = adheridos.has(String(lean.comercioId));
-        return card;
-      }),
+      items: cards,
       total,
       page: params.page,
       totalPages: Math.max(1, Math.ceil(total / params.limit)),
+      ...(cercanos ? { cercanos: this.resumenCercanos(params.ciudad ?? '', cards) } : {}),
+    };
+  }
+
+  /**
+   * Una población sin nada: lo que hay alrededor, de más cerca a más lejos.
+   * Sólo al buscar por población escrita; con el mapa, la zona ya la eligió
+   * el usuario y un vacío ahí es la respuesta.
+   *
+   * El punto de partida sale, por orden, de las coordenadas que mandó el
+   * buscador al elegir la población, de las fichas que ya hay en ella (aunque
+   * no se muestren) y, si no, del geocodificador.
+   */
+  private async buscarCercanos(params: BuscarServiciosParams) {
+    if (!params.ciudad?.trim() || params.bbox) return null;
+
+    if (!(await this.repo.hayServiciosUbicados(params))) return null;
+
+    const centro = params.lat != null && params.lng != null
+      ? { lat: params.lat, lng: params.lng }
+      : (await this.repo.centroDePoblacion(params.ciudad)) ?? (await this.geoService.coordenadasDePoblacion(params.ciudad));
+    if (!centro) return null;
+
+    const cercanos = await this.repo.buscarCercanos({ ...params, ...centro, radioKm: RADIO_CERCANOS_KM });
+    // Página a la que ya no llegan resultados: se contesta vacío, sin aviso.
+    return cercanos.items.length ? cercanos : null;
+  }
+
+  private resumenCercanos(ciudad: string, cards: ServicioCardDto[]): BusquedaCercanosApi {
+    const [primero] = cards;
+    return {
+      ciudadBuscada: resolverMunicipio(ciudad)?.municipio.nombre ?? ciudad.trim(),
+      radioKm: RADIO_CERCANOS_KM,
+      masCercano: { id: primero.id, nombre: primero.nombre, ciudad: primero.ciudad, distanciaKm: primero.distanciaKm ?? 0 },
     };
   }
 

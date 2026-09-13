@@ -270,6 +270,27 @@ describe('GeoService', () => {
     });
   });
 
+  describe('coordenadasDePoblacion', () => {
+    it('debería ubicar una población escrita a mano con la primera sugerencia', async () => {
+      jest.spyOn(service, 'autocompletar').mockResolvedValue([
+        { placeId: 'place-castellon', descripcion: 'Castellón de la Plana, España', principal: 'Castellón de la Plana', secundario: 'España' },
+      ]);
+      jest.spyOn(service, 'coordenadas').mockResolvedValue({ ciudad: 'Castellón de la Plana', lat: 39.98, lng: -0.04 });
+
+      await expect(service.coordenadasDePoblacion('Castellón')).resolves.toEqual({ ciudad: 'Castellón de la Plana', lat: 39.98, lng: -0.04 });
+      expect(service.autocompletar).toHaveBeenCalledWith('Castellón', undefined, 'ciudad');
+      expect(service.coordenadas).toHaveBeenCalledWith('place-castellon');
+    });
+
+    it('debería devolver null si no se reconoce o el proveedor falla, sin lanzar', async () => {
+      const autocompletar = jest.spyOn(service, 'autocompletar').mockResolvedValueOnce([]);
+      await expect(service.coordenadasDePoblacion('Xyz')).resolves.toBeNull();
+
+      autocompletar.mockRejectedValueOnce(new Error('caído'));
+      await expect(service.coordenadasDePoblacion('Castellón')).resolves.toBeNull();
+    });
+  });
+
   describe('direccion', () => {
     const respuestaPortal = {
       location: { latitude: 40.4169, longitude: -3.7035 },

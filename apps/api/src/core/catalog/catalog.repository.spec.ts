@@ -738,4 +738,48 @@ describe('CatalogRepository', () => {
       expect(filtroUsado()).not.toHaveProperty('campoInventado');
     });
   });
+
+  describe('servicios cercanos a una población sin resultados', () => {
+    it('debería situar la población en la media de las fichas que ya tiene', async () => {
+      model.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([{ lat: 39.98, lng: -0.05 }]) });
+
+      await expect(repository.centroDePoblacion('Castellón')).resolves.toEqual({ lat: 39.98, lng: -0.05 });
+      const [{ $match }] = model.aggregate.mock.calls[0][0];
+      expect(JSON.stringify($match)).toContain('ubicacion.geo.coordinates.1');
+    });
+
+    it('no debería inventar un centro sin fichas ubicadas ni con un nombre vacío', async () => {
+      await expect(repository.centroDePoblacion('Castellón')).resolves.toBeNull();
+      await expect(repository.centroDePoblacion('  ')).resolves.toBeNull();
+    });
+
+    it('debería buscar alrededor sin la condición de población y con distancia máxima', async () => {
+      model.aggregate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([{ items: [{ _id: 'a', distanciaMetros: 8440 }], total: [{ n: 1 }] }]),
+      });
+
+      const res = await repository.buscarCercanos({
+        vertical: 'peluqueria', ciudad: 'Castellón', page: 1, limit: 10, lat: 39.98, lng: -0.05, radioKm: 60,
+      });
+
+      expect(res).toMatchObject({ total: 1, distanciasKm: [8.4] });
+      const [{ $geoNear }] = model.aggregate.mock.calls[0][0];
+      expect($geoNear).toMatchObject({ near: { coordinates: [-0.05, 39.98] }, maxDistance: 60_000 });
+      expect(JSON.stringify($geoNear.query)).not.toContain('ciudad');
+      expect($geoNear.query).toMatchObject({ vertical: 'peluqueria' });
+    });
+
+    it('debería saber si hay servicios con coordenadas fuera de la población', async () => {
+      model.findOne.mockReturnValueOnce(chainable({ _id: 'a' }));
+      await expect(repository.hayServiciosUbicados({ vertical: 'peluqueria', ciudad: 'Castellón', page: 1, limit: 1 })).resolves.toBe(true);
+      expect(JSON.stringify(model.findOne.mock.calls[0][0])).not.toContain('ciudad');
+
+      await expect(repository.hayServiciosUbicados({ page: 1, limit: 1 })).resolves.toBe(false);
+    });
+
+    it('debería contestar vacío si no hay nada en el radio', async () => {
+      await expect(repository.buscarCercanos({ page: 2, limit: 10, lat: 1, lng: 1, radioKm: 60 }))
+        .resolves.toEqual({ items: [], total: 0, distanciasKm: [] });
+    });
+  });
 });

@@ -319,6 +319,10 @@ const publico: Diccionario = {
   '¿Vas a pasar el día por la zona? Reserva peluquería, veterinario o alojamiento cerca.': 'Spędzasz dzień w okolicy? Zarezerwuj groomera, weterynarza lub hotel w pobliżu.',
   'Índice Doogking': 'Indeks Doogking',
   'Únete a la plataforma que está transformando la forma de reservar servicios para mascotas.': 'Dołącz do platformy, która zmienia sposób rezerwowania usług dla zwierząt.',
+  'No hay servicios en {ciudad}.': 'Brak usług w miejscowości {ciudad}.',
+  'El más cercano es': 'Najbliższa to',
+  'en {ciudad}, a {distancia}.': 'w {ciudad}, {distancia} stąd.',
+  'Te enseñamos lo que hay a menos de {radio} km.': 'Pokazujemy wszystko w promieniu {radio} km.',
 };
 
 export default publico;

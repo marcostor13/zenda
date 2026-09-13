@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DOCUMENT } from '@angular/common';
 import { VerticalKey } from 'shared';
+import { provideRouter } from '@angular/router';
 import { RsListadoComponent } from './rs-listado.component';
 
 describe('RsListadoComponent', () => {
@@ -17,9 +18,55 @@ describe('RsListadoComponent', () => {
   };
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [RsListadoComponent] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [RsListadoComponent], providers: [provideRouter([])] }).compileComponents();
     documento = TestBed.inject(DOCUMENT);
     documento.body.classList.remove('rs-sin-scroll');
+  });
+
+  describe('lo más cercano a una población sin resultados', () => {
+    const cercanos = {
+      ciudadBuscada: 'Castellón de la Plana', radioKm: 60,
+      masCercano: { id: 'vila-can', nombre: 'Centro canino Vila-can', ciudad: 'Vila-real', distanciaKm: 8.4 },
+    };
+
+    const texto = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    it('debería avisar de que no hay nada allí, nombrar el más cercano y enlazarlo', () => {
+      montar();
+      fixture.componentRef.setInput('total', 2);
+      fixture.componentRef.setInput('sufijoCiudad', ' en Castellón de la Plana');
+      fixture.componentRef.setInput('cercanos', cercanos);
+      fixture.componentRef.setInput('enlaceMasCercano', ['/veterinaria', 'vila-can']);
+      fixture.detectChanges();
+
+      const aviso = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="aviso-cercanos"]')!;
+      expect(aviso.textContent).toContain('No hay servicios en Castellón de la Plana.');
+      expect(aviso.textContent).toContain('en Vila-real, a 8,4 km.');
+      expect(aviso.querySelector('a')?.getAttribute('href')).toBe('/veterinaria/vila-can');
+      expect(texto()).toContain('cerca de Castellón de la Plana');
+      expect(texto()).not.toContain('en Castellón de la Plana2');
+    });
+
+    it('debería nombrar el más cercano sin enlace si la categoría no tiene ficha', () => {
+      montar();
+      fixture.componentRef.setInput('total', 1);
+      fixture.componentRef.setInput('cercanos', cercanos);
+      fixture.detectChanges();
+
+      const aviso = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="aviso-cercanos"]')!;
+      expect(aviso.querySelector('a')).toBeNull();
+      expect(aviso.querySelector('strong')?.textContent).toBe('Centro canino Vila-can');
+    });
+
+    it('no debería avisar en una búsqueda normal', () => {
+      montar();
+      fixture.componentRef.setInput('total', 3);
+      fixture.componentRef.setInput('sufijoCiudad', ' en Valencia');
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="aviso-cercanos"]')).toBeNull();
+      expect(component.sufijoMostrado()).toBe(' en Valencia');
+    });
   });
 
   describe('panel de filtros', () => {
