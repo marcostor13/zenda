@@ -4,6 +4,7 @@ import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.comp
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { descargarFichero } from '../../shared/exportacion/descarga';
 import {
   PerrosService, PerroApi, IndiceComportamientoApi, IndiceBienestarApi, PerroHistorialApi,
   porcentajeCompletitud,
@@ -145,6 +146,12 @@ interface EtiquetaEstado {
                 <rs-icon name="check-circle" [size]="13" [stroke]="2"></rs-icon>
                 {{ historialAbiertoId() === p._id ? 'Ocultar resumen' : 'Ver ficha completa' }}
               </button>
+              <button type="button" class="rs-btn rs-btn--outline rs-btn--sm"
+                      [disabled]="descargandoId() === p._id"
+                      (click)="descargarInforme(p)">
+                <rs-icon name="download" [size]="13" [stroke]="2"></rs-icon>
+                {{ descargandoId() === p._id ? ('Preparando…' | t) : ('Informe PDF' | t) }}
+              </button>
               <a [routerLink]="['/perros', p._id, 'editar']" class="rs-btn rs-btn--outline rs-btn--sm">
                 <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon>
                 {{ 'Editar' | t }}
@@ -229,6 +236,9 @@ export class PerrosListaComponent implements OnInit {
    */
   readonly historialPorPerro = signal<Partial<Record<string, PerroHistorialApi[]>>>({});
   readonly historialCargando = signal(false);
+
+  /** Ficha cuyo informe se está preparando; el PDF se arma en el servidor. */
+  readonly descargandoId = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
     try {
@@ -319,6 +329,26 @@ export class PerrosListaComponent implements OnInit {
     }
   }
 
+  /**
+   * Descarga el informe de salud en PDF.
+   *
+   * Es el documento que el cliente se lleva a otro profesional: la ficha, la
+   * salud y todas las anotaciones que le han dejado, no las tres que caben en
+   * el resumen de esta pantalla.
+   */
+  async descargarInforme(p: PerroApi): Promise<void> {
+    this.descargandoId.set(p._id);
+    this.errorMsg.set('');
+    try {
+      const pdf = await this.perrosService.informePdf(p._id);
+      descargarFichero(pdf, nombreDelInforme(p.nombre));
+    } catch {
+      this.errorMsg.set('No se pudo preparar el informe. Inténtalo de nuevo.');
+    } finally {
+      this.descargandoId.set(null);
+    }
+  }
+
   async eliminar(p: PerroApi): Promise<void> {
     if (!confirm(`¿Eliminar la ficha de ${p.nombre}? Esta acción no se puede deshacer.`)) return;
     this.eliminandoId.set(p._id);
@@ -331,4 +361,20 @@ export class PerrosListaComponent implements OnInit {
       this.eliminandoId.set(null);
     }
   }
+}
+
+/**
+ * Nombre con el que se guarda el informe. Se compone aquí y no se lee de la
+ * respuesta: la cabecera `Content-Disposition` no es accesible desde JavaScript
+ * salvo que el API la exponga por CORS, y no merece abrir eso por un nombre.
+ */
+function nombreDelInforme(nombrePerro: string): string {
+  const nombre = nombrePerro
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'mascota';
+
+  return `doogking-informe-${nombre}-${new Date().toISOString().slice(0, 10)}.pdf`;
 }

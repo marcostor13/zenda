@@ -12,12 +12,14 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Request } from 'express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiProduces } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { PerrosService, HistoriaCompartida, EstimacionPrecio } from './perros.service';
 import { PerroValoracionesService, IndiceComportamiento } from './perro-valoraciones.service';
 import { BienestarService, IndiceBienestar } from './bienestar.service';
+import { InformePerroService } from './informe/informe-perro.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import {
@@ -44,6 +46,7 @@ export class PerrosController {
     private readonly perrosService: PerrosService,
     private readonly valoracionesService: PerroValoracionesService,
     private readonly bienestarService: BienestarService,
+    private readonly informeService: InformePerroService,
   ) {}
 
   @Post()
@@ -88,6 +91,25 @@ export class PerrosController {
     @Req() req: RequestConUsuario,
   ): Promise<PerroHistorialDocument[]> {
     return this.perrosService.listarHistorial(id, req.user.sub);
+  }
+
+  @Get(':id/informe')
+  @ApiProduces('application/pdf')
+  @ApiOperation({ summary: 'Informe de salud del perro en PDF, para llevarlo a otro profesional' })
+  async descargarInforme(
+    @Param('id') id: string,
+    @Req() req: RequestConUsuario,
+    @Res() respuesta: Response,
+  ): Promise<void> {
+    const informe = await this.informeService.generar(id, req.user.sub);
+
+    respuesta.setHeader('Content-Type', 'application/pdf');
+    // `attachment` y no `inline`: es un documento para guardar y enseñar en otra
+    // clínica, no una página que se hojea dentro de la aplicación.
+    respuesta.setHeader('Content-Disposition', `attachment; filename="${informe.nombreFichero}"`);
+    // Historia clínica: no se guarda en ninguna caché intermedia.
+    respuesta.setHeader('Cache-Control', 'no-store');
+    respuesta.send(informe.pdf);
   }
 
   @Post(':id/historial')

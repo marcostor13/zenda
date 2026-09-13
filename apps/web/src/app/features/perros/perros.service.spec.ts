@@ -89,6 +89,19 @@ describe('PerrosService', () => {
       await promesa;
     });
 
+    it('debería pedir el informe como fichero y no como JSON', async () => {
+      // Si no se pide en binario, Angular intenta interpretar el PDF como texto
+      // y lo que llega al usuario es un fichero corrupto.
+      const promesa = service.informePdf('p1');
+
+      const req = httpMock.expectOne((r) => r.url.includes('/perros/p1/informe'));
+      expect(req.request.method).toBe('GET');
+      expect(req.request.responseType).toBe('blob');
+      req.flush(new Blob(['%PDF-'], { type: 'application/pdf' }));
+
+      await expect(promesa).resolves.toBeInstanceOf(Blob);
+    });
+
     it('debería pedir el historial de cambios de la ficha', async () => {
       const promesa = service.versiones('p1');
 

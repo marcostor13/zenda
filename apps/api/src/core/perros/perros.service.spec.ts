@@ -34,7 +34,7 @@ describe('PerrosService', () => {
   };
   let versionModel: { create: jest.Mock; find: jest.Mock };
   let consentimientoModel: { find: jest.Mock; findOneAndUpdate: jest.Mock; updateMany: jest.Mock };
-  let reservaModel: { find: jest.Mock };
+  let reservaModel: { find: jest.Mock; exists: jest.Mock };
 
   beforeEach(async () => {
     perroModel = { create: jest.fn(), find: jest.fn(), findById: jest.fn() };
@@ -52,6 +52,9 @@ describe('PerrosService', () => {
       find: jest.fn().mockReturnValue({
         select: () => ({ lean: () => ({ exec: () => Promise.resolve([]) }) }),
       }),
+      // Por defecto, el comercio sí atendió al perro: lo contrario es la
+      // excepción y cada prueba que la necesite la declara.
+      exists: jest.fn().mockReturnValue({ exec: () => Promise.resolve({ _id: 'r1' }) }),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -120,18 +123,54 @@ describe('PerrosService', () => {
     ).rejects.toThrow(DomainException);
   });
 
-  it('debería agregar una nota al historial del perro', async () => {
+  it('debería agregar una nota al historial del perro que ha atendido', async () => {
+    const perroId = new Types.ObjectId().toString();
+    const comercioId = new Types.ObjectId().toString();
     perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
     historialModel.create.mockResolvedValue({ _id: 'h1' });
 
-    await service.agregarHistorial('x', 'comercio-1', {
+    await service.agregarHistorial(perroId, comercioId, {
       vertical: 'peluqueria' as never,
       nota: 'Requiere deslanado intensivo',
     });
 
     expect(historialModel.create).toHaveBeenCalledWith(
-      expect.objectContaining({ perroId: 'x', comercioId: 'comercio-1' }),
+      expect.objectContaining({ perroId, comercioId }),
     );
+  });
+
+  it('no debería dejar escribir en el historial de un perro que no ha atendido', async () => {
+    /*
+     * Sin esta comprobación bastaba con conocer el identificador de una ficha
+     * para escribir en el historial médico de cualquier perro de la plataforma,
+     * y la anotación quedaba firmada con el nombre del comercio que la escribió.
+     */
+    perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
+    reservaModel.exists.mockReturnValue({ exec: () => Promise.resolve(null) });
+
+    await expect(
+      service.agregarHistorial(new Types.ObjectId().toString(), new Types.ObjectId().toString(), {
+        vertical: 'peluqueria' as never,
+        nota: 'Nota de un comercio ajeno',
+      }),
+    ).rejects.toThrow(DomainException);
+    expect(historialModel.create).not.toHaveBeenCalled();
+  });
+
+  it('debería aplicar el mismo límite a la importación masiva', async () => {
+    // De una vez entran decenas de filas, así que aquí pesa más todavía.
+    perroModel.findById.mockReturnValue({ exec: () => Promise.resolve(perroDocMock(PROPIETARIO_ID)) });
+    reservaModel.exists.mockReturnValue({ exec: () => Promise.resolve(null) });
+
+    await expect(
+      service.importarHistorial(
+        new Types.ObjectId().toString(),
+        new Types.ObjectId().toString(),
+        'veterinaria' as never,
+        [{ concepto: 'Vacuna rabia' }],
+      ),
+    ).rejects.toThrow(DomainException);
+    expect(historialModel.insertMany).not.toHaveBeenCalled();
   });
 
   it('debería listar el historial de un perro propio', async () => {

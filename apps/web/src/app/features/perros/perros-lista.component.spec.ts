@@ -3,6 +3,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { PerrosListaComponent } from './perros-lista.component';
 import { PerrosService, PerroApi, IndiceBienestarApi, PerroHistorialApi } from './perros.service';
+import * as descarga from '../../shared/exportacion/descarga';
 
 describe('PerrosListaComponent', () => {
   let fixture: ComponentFixture<PerrosListaComponent>;
@@ -30,6 +31,7 @@ describe('PerrosListaComponent', () => {
         ? jest.fn().mockResolvedValue(bienestarMock)
         : jest.fn().mockRejectedValue(new Error('sin datos')),
       historial: jest.fn().mockResolvedValue([]),
+      informePdf: jest.fn().mockResolvedValue(new Blob(['%PDF-'], { type: 'application/pdf' })),
     } as unknown as jest.Mocked<PerrosService>;
 
     await TestBed.configureTestingModule({
@@ -158,6 +160,54 @@ describe('PerrosListaComponent', () => {
       await component.toggleHistorial(component.perros()[0]);
 
       expect(perrosService.historial).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('informe de salud en PDF', () => {
+    let entregado: jest.SpyInstance;
+
+    beforeEach(() => {
+      // El ayudante toca el DOM para entregar el fichero; aquí sólo interesa
+      // qué se le pasa.
+      entregado = jest.spyOn(descarga, 'descargarFichero').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => entregado.mockRestore());
+
+    it('debería descargar el informe de la mascota con un nombre reconocible', async () => {
+      await crear([perro({ nombre: 'Maya' })]);
+
+      await component.descargarInforme(perro({ nombre: 'Maya' }));
+
+      expect(perrosService.informePdf).toHaveBeenCalledWith('p1');
+      expect(entregado.mock.calls[0][1]).toMatch(/^doogking-informe-maya-\d{4}-\d{2}-\d{2}\.pdf$/);
+    });
+
+    it('debería limpiar del nombre del fichero los acentos y la puntuación', async () => {
+      await crear([perro()]);
+
+      await component.descargarInforme(perro({ nombre: 'Lúa / Sol' }));
+
+      expect(entregado.mock.calls[0][1]).toContain('doogking-informe-lua-sol-');
+    });
+
+    it('debería avisar si el informe no se pudo preparar', async () => {
+      await crear([perro()]);
+      perrosService.informePdf.mockRejectedValue(new Error('500'));
+
+      await component.descargarInforme(perro());
+
+      expect(component.errorMsg()).toContain('No se pudo preparar el informe');
+      expect(entregado).not.toHaveBeenCalled();
+    });
+
+    it('debería dejar de marcar la descarga en curso aunque falle', async () => {
+      await crear([perro()]);
+      perrosService.informePdf.mockRejectedValue(new Error('500'));
+
+      await component.descargarInforme(perro());
+
+      expect(component.descargandoId()).toBeNull();
     });
   });
 });

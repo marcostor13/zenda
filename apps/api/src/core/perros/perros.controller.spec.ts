@@ -3,12 +3,14 @@ import { PerrosController } from './perros.controller';
 import { PerrosService } from './perros.service';
 import { PerroValoracionesService } from './perro-valoraciones.service';
 import { BienestarService } from './bienestar.service';
+import { InformePerroService } from './informe/informe-perro.service';
 
 describe('PerrosController', () => {
   let controller: PerrosController;
   let service: jest.Mocked<PerrosService>;
   let valoracionesService: jest.Mocked<PerroValoracionesService>;
   let bienestarService: jest.Mocked<BienestarService>;
+  let informeService: jest.Mocked<InformePerroService>;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -54,6 +56,15 @@ describe('PerrosController', () => {
             }),
           },
         },
+        {
+          provide: InformePerroService,
+          useValue: {
+            generar: jest.fn().mockResolvedValue({
+              nombreFichero: 'doogking-informe-nala-2026-09-13.pdf',
+              pdf: Buffer.from('%PDF-1.3'),
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -61,6 +72,35 @@ describe('PerrosController', () => {
     service = moduleRef.get(PerrosService);
     valoracionesService = moduleRef.get(PerroValoracionesService);
     bienestarService = moduleRef.get(BienestarService);
+    informeService = moduleRef.get(InformePerroService);
+  });
+
+  describe('informe en PDF', () => {
+    /** Respuesta de Express de mentira: sólo interesa qué cabeceras se ponen. */
+    const respuestaFalsa = () => ({ setHeader: jest.fn(), send: jest.fn() });
+
+    it('debería generarlo para el usuario del token, no para el id que llegue', async () => {
+      const respuesta = respuestaFalsa();
+
+      await controller.descargarInforme('p1', { user: { sub: 'user-1' } } as never, respuesta as never);
+
+      expect(informeService.generar).toHaveBeenCalledWith('p1', 'user-1');
+    });
+
+    it('debería servirlo como PDF descargable y sin cachear', async () => {
+      // Es una historia clínica: no puede quedarse en ninguna caché intermedia.
+      const respuesta = respuestaFalsa();
+
+      await controller.descargarInforme('p1', { user: { sub: 'user-1' } } as never, respuesta as never);
+
+      expect(respuesta.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
+      expect(respuesta.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        'attachment; filename="doogking-informe-nala-2026-09-13.pdf"',
+      );
+      expect(respuesta.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+      expect(respuesta.send).toHaveBeenCalledWith(Buffer.from('%PDF-1.3'));
+    });
   });
 
   it('debería devolver el Índice de Bienestar del perro', async () => {

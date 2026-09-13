@@ -236,6 +236,18 @@ export class PerrosService {
     return firstValueFrom(this.http.delete<void>(`${this.base}/${id}`));
   }
 
+  /**
+   * Informe de salud en PDF.
+   *
+   * Se pide como blob y no con un enlace normal porque la descarga va
+   * autenticada: el token viaja en la cabecera, que un `<a href>` no manda.
+   */
+  informePdf(id: string): Promise<Blob> {
+    return firstValueFrom(
+      this.http.get(`${this.base}/${id}/informe`, { responseType: 'blob' }),
+    );
+  }
+
   historial(id: string): Promise<PerroHistorialApi[]> {
     return firstValueFrom(this.http.get<PerroHistorialApi[]>(`${this.base}/${id}/historial`));
   }

@@ -224,6 +224,15 @@ export class PerrosService {
     };
   }
 
+  /**
+   * Anotación de un profesional en la ficha del perro.
+   *
+   * Sólo puede escribir quien ha atendido al animal: se exige una reserva
+   * previa entre ese comercio y ese perro. Sin la comprobación bastaba con
+   * conocer el identificador de una ficha para escribir en el historial médico
+   * de cualquier perro de la plataforma, y la entrada quedaba firmada con el
+   * nombre del comercio que la escribió.
+   */
   async agregarHistorial(
     perroId: string,
     comercioId: string,
@@ -235,7 +244,30 @@ export class PerrosService {
       throw new DomainException('Perro no encontrado', 404);
     }
 
+    await this.exigirReservaCon(perroId, comercioId);
+
     return this.historialModel.create({ ...dto, perroId, comercioId });
+  }
+
+  /**
+   * Falla si el comercio no ha tenido nunca una reserva con ese perro.
+   *
+   * Vale cualquier estado salvo la cancelada: una reserva pendiente de pago ya
+   * puede necesitar una nota (la llamada previa a una urgencia veterinaria), y
+   * una cancelada nunca llegó a ser un servicio.
+   */
+  private async exigirReservaCon(perroId: string, comercioId: string): Promise<void> {
+    const atendido = await this.reservaModel
+      .exists({
+        perroId: aObjectId(perroId, 'Identificador de perro'),
+        comercioId: aObjectId(comercioId, 'Identificador de comercio'),
+        estado: { $ne: ReservaEstado.CANCELADA },
+      })
+      .exec();
+
+    if (!atendido) {
+      throw new DomainException('No has atendido a esta mascota', 403);
+    }
   }
 
   async listarHistorial(perroId: string, propietarioId: string): Promise<PerroHistorialDocument[]> {
@@ -428,6 +460,10 @@ export class PerrosService {
     if (!filas.length) {
       throw new DomainException('No hay nada que importar', 400);
     }
+
+    // Mismo límite que en la nota suelta: sólo escribe quien ha atendido al
+    // animal. Aquí pesa más, porque de una vez entran decenas de filas.
+    await this.exigirReservaCon(perroId, comercioId);
 
     await this.historialModel.insertMany(
       filas.map((fila) => ({

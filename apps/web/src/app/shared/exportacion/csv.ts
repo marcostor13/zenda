@@ -1,3 +1,5 @@
+import { descargarFichero } from './descarga';
+
 /**
  * Descarga de listados como CSV desde el panel de administración.
  *
@@ -10,13 +12,7 @@ export function descargarCsv(filas: ReadonlyArray<ReadonlyArray<string>>, nombre
     .map((fila) => fila.map((celda) => `"${String(celda).replace(/"/g, '""')}"`).join(';'))
     .join('\n');
 
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const enlace = document.createElement('a');
-  enlace.href = url;
-  enlace.download = nombreFichero;
-  enlace.click();
-  URL.revokeObjectURL(url);
+  descargarFichero(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }), nombreFichero);
 }
 
 /** Sufijo de fecha para que dos exportaciones del mismo listado no se pisen. */

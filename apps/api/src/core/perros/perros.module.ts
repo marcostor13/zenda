@@ -6,9 +6,11 @@ import { PerroValoracion, PerroValoracionSchema } from './perro-valoracion.schem
 import { PerroVersion, PerroVersionSchema } from './perro-version.schema';
 import { Consentimiento, ConsentimientoSchema } from './consentimiento.schema';
 import { Reserva, ReservaSchema } from '../bookings/reserva.schema';
+import { Comercio, ComercioSchema } from '../comercios/comercio.schema';
 import { PerrosService } from './perros.service';
 import { PerroValoracionesService } from './perro-valoraciones.service';
 import { BienestarService } from './bienestar.service';
+import { InformePerroService } from './informe/informe-perro.service';
 import { PerrosController } from './perros.controller';
 
 @Module({
@@ -20,10 +22,12 @@ import { PerrosController } from './perros.controller';
       { name: PerroVersion.name, schema: PerroVersionSchema },
       { name: Consentimiento.name, schema: ConsentimientoSchema },
       { name: Reserva.name, schema: ReservaSchema },
+      // Sólo para poner el nombre del profesional en el informe del propietario.
+      { name: Comercio.name, schema: ComercioSchema },
     ]),
   ],
   controllers: [PerrosController],
-  providers: [PerrosService, PerroValoracionesService, BienestarService],
+  providers: [PerrosService, PerroValoracionesService, BienestarService, InformePerroService],
   exports: [PerrosService, PerroValoracionesService, BienestarService],
 })
 export class PerrosModule {}
