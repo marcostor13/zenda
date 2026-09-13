@@ -96,7 +96,7 @@ const publico: Diccionario = {
   'Empresas verificadas que recogen, informan y entregan con respeto, y te dicen el precio cerrado antes de contratar.': 'Verified companies that collect, keep you informed and return with respect, and tell you the final price before you book.',
   'Empresas verificadas: cremación individual o colectiva, recogida 24 h, urna y entrega de cenizas.': 'Verified companies: individual or communal cremation, 24 h collection, urn and return of ashes.',
   'Encuentra clínicas y veterinarios certificados con atención profesional, cercana y de confianza para tu mejor amigo.': 'Find certified clinics and vets with professional, close and trustworthy care for your best friend.',
-  'Encuentra el servicio perfecto para tu mascota': 'Find the perfect service for your pet',
+  'Busca el servicio perfecto para tu mascota': 'Find the perfect service for your pet',
   'Encuentra residencias y guarderías caninas con experiencia, atención personalizada y tranquilidad para tu mascota.': 'Find dog boarding and day care with experience, personal attention and peace of mind for your pet.',
   'Encuentra y reserva el cuidado ideal para su pelo, su piel y bienestar.': 'Find and book the ideal care for their coat, skin and wellbeing.',
   'Encuentra y reserva el servicio perfecto sin llamadas, sin esperas y con confirmación inmediata.': 'Find and book the perfect service with no phone calls, no waiting and instant confirmation.',

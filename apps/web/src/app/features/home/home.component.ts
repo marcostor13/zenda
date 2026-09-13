@@ -104,7 +104,7 @@ type SearchMode = 'filtros' | 'ia';
         <div class="searchbox" role="search">
           <div class="searchbox__head">
             <div class="searchbox__copy">
-              <p class="searchbox__question">{{ 'Encuentra el servicio perfecto para tu mascota' | t }}</p>
+              <p class="searchbox__question">{{ 'Busca el servicio perfecto para tu mascota' | t }}</p>
               <p class="searchbox__slogan">{{ 'Reserva en menos de un minuto con profesionales de confianza cerca de ti.' | t }}</p>
             </div>
             <div class="searchbox__modes" role="tablist" [attr.aria-label]="'Modo de búsqueda' | t">
@@ -604,7 +604,7 @@ type SearchMode = 'filtros' | 'ia';
       background: var(--dk-blue-deep);
       padding-block: var(--sp-5) 0;
 
-      /* "Encuentra el servicio perfecto..." sube hasta el borde mismo del
+      /* "Busca el servicio perfecto..." sube hasta el borde mismo del
          navy: la cupula (.hero__cap) vive fuera de este bloque, asi que el
          titular puede empezar donde empieza el azul (feedback 2026-08-31). */
       @media (max-width: 640px) { padding-top: 0; }

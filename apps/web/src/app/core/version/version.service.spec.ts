@@ -17,6 +17,8 @@ describe('VersionService', () => {
   let eventos: Subject<NavigationStart>;
   let asignar: jest.Mock;
   let oyentes: Record<string, () => void>;
+  /** Contenido de `<meta name="dk-build">`; `null` si el HTML no la trae. */
+  let marcaDelHtml: string | null;
 
   /** Respuesta de `/version.json` con la versión indicada. */
   const respuestaCon = (version: string): Response =>
@@ -39,6 +41,11 @@ describe('VersionService', () => {
       addEventListener: (evento: string, oyente: () => void) => {
         oyentes[evento] = oyente;
       },
+      // La marca que `server.ts` estampa en el HTML renderizado. `null` es el
+      // caso sin render de servidor, donde la referencia sigue siendo la
+      // primera consulta.
+      querySelector: () =>
+        marcaDelHtml === null ? null : { getAttribute: () => marcaDelHtml },
     }) as unknown as Document;
 
   beforeEach(() => {
@@ -48,6 +55,7 @@ describe('VersionService', () => {
     eventos = new Subject<NavigationStart>();
     asignar = jest.fn();
     oyentes = {};
+    marcaDelHtml = null;
     sessionStorage.clear();
 
     TestBed.configureTestingModule({
@@ -125,6 +133,35 @@ describe('VersionService', () => {
     service.iniciar();
     await esperarConsulta();
     eventos.next(new NavigationStart(1, '/servicios'));
+
+    expect(asignar).not.toHaveBeenCalled();
+  });
+
+  it('debería recargar en la siguiente navegación si el HTML ya era de un despliegue anterior', async () => {
+    /*
+     * El caso de "a mí se me queda en blanco al buscar": la pestaña arrancó
+     * con el HTML de hace días y el contenedor ya sirve otro build. Antes esto
+     * no se detectaba —la referencia se tomaba de la primera consulta, que
+     * responde el contenedor actual—, así que la pestaña seguía pidiendo
+     * ficheros que ya no existen.
+     */
+    marcaDelHtml = 'abc123';
+    global.fetch = jest.fn().mockResolvedValue(respuestaCon('def456'));
+
+    service.iniciar();
+    await esperarConsulta();
+    eventos.next(new NavigationStart(1, '/veterinaria?ciudad=Madrid'));
+
+    expect(asignar).toHaveBeenCalledWith('/veterinaria?ciudad=Madrid');
+  });
+
+  it('no debería recargar si el HTML es del mismo build que sirve el servidor', async () => {
+    marcaDelHtml = 'abc123';
+    global.fetch = jest.fn().mockResolvedValue(respuestaCon('abc123'));
+
+    service.iniciar();
+    await esperarConsulta();
+    eventos.next(new NavigationStart(1, '/veterinaria'));
 
     expect(asignar).not.toHaveBeenCalled();
   });

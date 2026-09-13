@@ -1,5 +1,5 @@
 import { ApplicationConfig, inject, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { provideRouter, withInMemoryScrolling, withNavigationErrorHandler } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
@@ -8,6 +8,7 @@ import { idiomaInterceptor } from './core/interceptors/idioma.interceptor';
 import { sesionInterceptor } from './core/interceptors/sesion.interceptor';
 import { I18nService } from './core/i18n/i18n.service';
 import { proveerLocaleAngular } from './core/i18n/locale-angular';
+import { RecuperacionChunkService } from './core/version/recuperacion-chunk.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -32,10 +33,25 @@ export const appConfig: ApplicationConfig = {
      * la posicion exacta al volver atras, que es lo que hace que un listado
      * largo se pueda recorrer sin perder el sitio.
      */
-    provideRouter(routes, withInMemoryScrolling({
-      scrollPositionRestoration: 'enabled',
-      anchorScrolling: 'enabled',
-    })),
+    provideRouter(
+      routes,
+      withInMemoryScrolling({
+        scrollPositionRestoration: 'enabled',
+        anchorScrolling: 'enabled',
+      }),
+      /*
+       * Una pantalla que no se puede traer deja de ser una pantalla en blanco.
+       *
+       * Cada vista se carga en su propio fichero cuando se navega a ella. Si el
+       * navegador arrancó con el HTML de un despliegue anterior pide un nombre
+       * que ya no existe, la carga falla y hasta ahora la navegación moría sin
+       * pintar nada —el caso de "se queda en blanco al buscar" en móvil—.
+       * Recargar trae el HTML actual, y con él el nombre bueno.
+       */
+      withNavigationErrorHandler(({ error, url }) =>
+        void inject(RecuperacionChunkService).recuperar(error, url),
+      ),
+    ),
     /*
      * `sesionInterceptor` va el último: así ve el error después de que
      * `conexionInterceptor` haya descartado los fallos de red (status 0), que

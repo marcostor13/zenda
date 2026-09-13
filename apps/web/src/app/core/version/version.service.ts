@@ -54,6 +54,8 @@ export class VersionService {
     // ahí `/version.json` no existe y actualizar es cosa de la tienda.
     if (!esNavegador() || Capacitor.isNativePlatform()) return;
 
+    this.versionInicial = this.marcaDelHtml();
+
     void this.consultar();
 
     // Volver a la pestaña tras dejarla de fondo es el momento típico en móvil:
@@ -98,6 +100,25 @@ export class VersionService {
       return;
     }
     this.hayDespliegueNuevo = publicada !== this.versionInicial;
+  }
+
+  /**
+   * Build del que salió el HTML que tiene delante el visitante, que `server.ts`
+   * estampa al renderizarlo.
+   *
+   * Es la mitad que faltaba. Antes la referencia se tomaba de la **primera**
+   * consulta a `/version.json`, que la responde el contenedor en marcha: una
+   * pestaña que arrancaba con el HTML de hace tres días guardaba como "su"
+   * versión la del despliegue actual y a partir de ahí todo le cuadraba, así
+   * que no se detectaba nunca el caso más común —quedarse atrás— sino sólo el
+   * despliegue que ocurría con la pestaña ya abierta.
+   *
+   * Si no hay marca (`ng serve` sin render de servidor) se vuelve al
+   * comportamiento anterior: mejor eso que no vigilar nada.
+   */
+  private marcaDelHtml(): string | null {
+    const meta = this.documento.querySelector?.('meta[name="dk-build"]');
+    return meta?.getAttribute('content') || null;
   }
 
   private async leerVersionPublicada(): Promise<string | null> {

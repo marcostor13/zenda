@@ -96,7 +96,7 @@ const publico: Diccionario = {
   'Empresas verificadas que recogen, informan y entregan con respeto, y te dicen el precio cerrado antes de contratar.': 'Zweryfikowane firmy, które odbierają, informują i przekazują z szacunkiem, a cenę końcową podają przed zamówieniem.',
   'Empresas verificadas: cremación individual o colectiva, recogida 24 h, urna y entrega de cenizas.': 'Zweryfikowane firmy: kremacja indywidualna lub zbiorowa, odbiór 24 h, urna i przekazanie prochów.',
   'Encuentra clínicas y veterinarios certificados con atención profesional, cercana y de confianza para tu mejor amigo.': 'Znajdź certyfikowane kliniki i weterynarzy zapewniających profesjonalną, bliską i godną zaufania opiekę dla twojego przyjaciela.',
-  'Encuentra el servicio perfecto para tu mascota': 'Znajdź idealną usługę dla swojego pupila',
+  'Busca el servicio perfecto para tu mascota': 'Znajdź idealną usługę dla swojego pupila',
   'Encuentra residencias y guarderías caninas con experiencia, atención personalizada y tranquilidad para tu mascota.': 'Znajdź hotele i przedszkola dla psów z doświadczeniem, indywidualną opieką i spokojem dla twojego zwierzaka.',
   'Encuentra y reserva el cuidado ideal para su pelo, su piel y bienestar.': 'Znajdź i zarezerwuj idealną pielęgnację sierści, skóry i dobrego samopoczucia.',
   'Encuentra y reserva el servicio perfecto sin llamadas, sin esperas y con confirmación inmediata.': 'Znajdź i zarezerwuj idealną usługę bez telefonów, bez czekania i z natychmiastowym potwierdzeniem.',

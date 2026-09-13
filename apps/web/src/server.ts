@@ -155,6 +155,39 @@ app.get('/sitemap.xml', async (peticion, respuesta, siguiente) => {
   }
 });
 
+/**
+ * Extensiones de lo que produce el build o vive en `public/`. Lo que acaba así y
+ * no está en disco no existe: no hay ninguna ruta de Angular con ese nombre.
+ */
+const EXTENSION_DE_ESTATICO =
+  /\.(?:js|mjs|css|map|json|webmanifest|txt|xml|ico|png|jpe?g|gif|webp|avif|svg|woff2?|ttf|eot|mp4|webm)$/i;
+
+/**
+ * Marca del build en el HTML que se entrega.
+ *
+ * Es lo que permite al navegador saber si la página que tiene delante es del
+ * despliegue en marcha o de uno anterior: el HTML guardado en una pestaña vieja
+ * lleva la marca vieja, y comparar esa marca con `/version.json` delata la
+ * situación en la primera comprobación. Sin ella sólo se detectaban los
+ * despliegues ocurridos con la pestaña ya abierta, que es el caso menos común.
+ */
+const MARCA_BUILD = `<meta name="dk-build" content="${versionBuild}">`;
+
+/** El mismo HTML con la marca del build metida en la cabecera. */
+async function conMarcaDeBuild(original: Response): Promise<Response> {
+  const html = (await original.text()).replace('</head>', `${MARCA_BUILD}</head>`);
+  const cabeceras = new Headers(original.headers);
+  // El cuerpo ha cambiado de tamaño: una longitud declarada de antes corta el
+  // HTML por donde no es y el navegador se queda con media página.
+  cabeceras.delete('content-length');
+
+  return new Response(html, {
+    status: original.status,
+    statusText: original.statusText,
+    headers: cabeceras,
+  });
+}
+
 app.use(
   express.static(raizNavegador, {
     index: false,
@@ -191,12 +224,52 @@ app.use(
  * no": depende de qué tuviera cada uno guardado.
  */
 app.use((peticion, respuesta, siguiente) => {
+  /*
+   * Un fichero del build que no está en disco se responde 404 y se acaba ahí.
+   *
+   * Es el fallo que dejaba la pantalla en blanco al buscar desde el móvil. Cada
+   * despliegue construye una imagen nueva, así que los bundles del despliegue
+   * anterior **dejan de existir** en el contenedor (no como en un servidor que
+   * acumula ficheros). Una pestaña con el HTML viejo guardado pide un chunk con
+   * el nombre viejo, y aquí caía en el render de Angular: el navegador recibía
+   * la página de "no encontrado" —HTML— donde esperaba un módulo JavaScript,
+   * fallaba al interpretarlo y la navegación moría sin pintar nada.
+   *
+   * Con un 404 limpio el fallo es reconocible, y `RecuperacionChunkService` lo
+   * convierte en una recarga que trae el despliegue actual.
+   */
+  if (EXTENSION_DE_ESTATICO.test(peticion.path)) {
+    respuesta.setHeader('Cache-Control', 'no-store');
+    respuesta.status(404).type('text/plain').send('No encontrado');
+    return;
+  }
+
   respuesta.setHeader('Cache-Control', 'no-cache, must-revalidate');
+
   motorAngular
     .handle(peticion, { peticionOriginal: peticion.originalUrl })
-    .then((respuestaAngular) =>
-      respuestaAngular ? writeResponseToNodeResponse(respuestaAngular, respuesta) : siguiente(),
-    )
+    .then(async (respuestaAngular) => {
+      if (!respuestaAngular) return siguiente();
+
+      /*
+       * El HTML no es el mismo para todo el mundo: la cookie de acceso
+       * anticipado decide si se renderiza la página o la pantalla de "muy
+       * pronto". Sin `Vary`, una caché compartida por delante (Cloudflare, un
+       * proxy corporativo) podría servirle a un visitante la copia de otro.
+       *
+       * Se añade a la respuesta de Angular y no con `respuesta.setHeader`
+       * porque las cabeceras del motor se escriben después y se llevarían por
+       * delante la que pusiéramos aquí: el motor ya manda su propio `Vary`.
+       */
+      respuestaAngular.headers.append('Vary', 'Cookie');
+
+      const tipo = respuestaAngular.headers.get('content-type') ?? '';
+      const final = tipo.includes('text/html')
+        ? await conMarcaDeBuild(respuestaAngular)
+        : respuestaAngular;
+
+      return writeResponseToNodeResponse(final, respuesta);
+    })
     .catch(siguiente);
 });
 

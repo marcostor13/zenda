@@ -3,6 +3,7 @@ import { RouterOutlet } from '@angular/router';
 import { MovilService } from './core/movil/movil.service';
 import { ConexionApiService } from './core/diagnostico/conexion-api.service';
 import { VersionService } from './core/version/version.service';
+import { RecuperacionChunkService } from './core/version/recuperacion-chunk.service';
 import { TraducirPipe } from './core/i18n/traducir.pipe';
 import { RsNavInferiorComponent } from './shared/components/nav-inferior/rs-nav-inferior.component';
 import { RsCookiesComponent } from './shared/components/cookies/rs-cookies.component';
@@ -57,6 +58,7 @@ import { RsCookiesComponent } from './shared/components/cookies/rs-cookies.compo
 export class AppComponent implements OnInit {
   private readonly movil = inject(MovilService);
   private readonly version = inject(VersionService);
+  private readonly recuperacionChunk = inject(RecuperacionChunkService);
   protected readonly conexion = inject(ConexionApiService);
 
   ngOnInit(): void {
@@ -68,5 +70,10 @@ export class AppComponent implements OnInit {
     // Vigila que la pestaña no se quede en un despliegue anterior. Sólo en el
     // navegador; dentro de la app instalada no hace nada.
     this.version.iniciar();
+
+    // Y si aun así falla al traerse una pantalla, recarga en vez de dejarla en
+    // blanco. Cubre las cargas que no pasan por el router (el diccionario de
+    // idioma, un componente pedido desde una plantilla).
+    this.recuperacionChunk.iniciar();
   }
 }

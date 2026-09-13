@@ -96,7 +96,7 @@ const publico: Diccionario = {
   'Empresas verificadas que recogen, informan y entregan con respeto, y te dicen el precio cerrado antes de contratar.': 'Geverifieerde bedrijven die ophalen, informeren en met respect teruggeven, en je vooraf de vaste prijs noemen.',
   'Empresas verificadas: cremación individual o colectiva, recogida 24 h, urna y entrega de cenizas.': 'Geverifieerde bedrijven: individuele of collectieve crematie, ophalen 24 u, urn en teruggave van de as.',
   'Encuentra clínicas y veterinarios certificados con atención profesional, cercana y de confianza para tu mejor amigo.': 'Vind gecertificeerde klinieken en dierenartsen met professionele, betrokken en betrouwbare zorg voor je beste vriend.',
-  'Encuentra el servicio perfecto para tu mascota': 'Vind de perfecte service voor je huisdier',
+  'Busca el servicio perfecto para tu mascota': 'Vind de perfecte service voor je huisdier',
   'Encuentra residencias y guarderías caninas con experiencia, atención personalizada y tranquilidad para tu mascota.': 'Vind hondenpensions en dagopvang met ervaring, persoonlijke aandacht en rust voor je huisdier.',
   'Encuentra y reserva el cuidado ideal para su pelo, su piel y bienestar.': 'Vind en boek de ideale verzorging voor zijn vacht, huid en welzijn.',
   'Encuentra y reserva el servicio perfecto sin llamadas, sin esperas y con confirmación inmediata.': 'Vind en boek de perfecte service zonder telefoontjes, zonder wachten en met directe bevestiging.',

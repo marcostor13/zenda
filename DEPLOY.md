@@ -481,9 +481,19 @@ mandando esa cabecera.
 
 ### A algunos usuarios no les salen los cambios tras un deploy (sobre todo en móvil)
 
-Casi siempre es el **HTML cacheado**, no el deploy. Los bundles llevan el hash del contenido
-en el nombre, así que los antiguos siguen existiendo y sirviéndose; lo que decide qué versión
-ve alguien es qué `index.html` tiene guardado, porque ahí están las etiquetas `<script>`.
+Casi siempre es el **HTML cacheado**, no el deploy: lo que decide qué versión ve alguien es
+qué HTML tiene guardado, porque ahí están las etiquetas `<script>` con el nombre de cada
+fichero.
+
+Y aquí va lo que importa y es fácil dar por supuesto al revés: **los ficheros del deploy
+anterior desaparecen**. Cada deploy construye una imagen nueva y la anterior se va entera, así
+que un navegador con el HTML viejo pide nombres (`chunk-XXXXXXXX.js`) que ya no existen en el
+contenedor. No es que vea una versión antigua: es que no ve nada.
+
+El síntoma típico es una **pantalla en blanco al navegar** —buscar desde la portada, abrir una
+ficha—, no al entrar. Al entrar se pide el HTML, que llega fresco; el fichero que falta es el
+de la pantalla siguiente, que sólo se pide al llegar a ella. Y le pasa a unos sí y a otros no
+según lo que cada navegador tuviera guardado.
 
 Lo que hace el servidor (`apps/web/src/server.ts`):
 
@@ -495,17 +505,40 @@ Lo que hace el servidor (`apps/web/src/server.ts`):
 | Ficheros con hash (`chunk-XXXXXXXX.js`, `media/`) | `public, max-age=31536000, immutable` | La URL cambia si cambia el contenido |
 | Todo lo demás (`public/`: logos, iconos, `robots.txt`) | `public, no-cache` | Nombre fijo, contenido que sí cambia |
 
-Y `VersionService` (`apps/web/src/app/core/version/version.service.ts`) cubre el caso de la
-pestaña que lleva días abierta sin recargarse: consulta `/version.json` al arrancar y cada vez
-que se vuelve a la pestaña, y si el contenedor sirve un build distinto del que cargó, **recarga
-en la siguiente navegación** (no en el momento: nadie pierde un formulario a medias). Dentro de
-la app nativa no hace nada, ahí el código viene del paquete instalado.
+Encima de las cabeceras hay dos capas más, porque una pestaña que lleva días abierta no vuelve
+a pedir el HTML por muy bien puestas que estén:
+
+1. **`VersionService`** (`apps/web/src/app/core/version/version.service.ts`) compara el build
+   del que salió el HTML que tiene delante —`server.ts` lo estampa al renderizarlo, en
+   `<meta name="dk-build">`— con el que publica `/version.json`. Si no coinciden, **recarga en
+   la siguiente navegación** (no en el momento: nadie pierde un formulario a medias). Consulta
+   al arrancar y cada vez que se vuelve a la pestaña.
+
+   > La referencia tiene que ser la marca del HTML. Tomarla de la primera consulta a
+   > `/version.json` —como se hacía antes— no detecta nada en el caso que importa: esa consulta
+   > la responde el contenedor en marcha, así que una pestaña con el HTML de hace tres días
+   > guardaba como "suya" la versión actual y a partir de ahí todo le cuadraba.
+
+2. **`RecuperacionChunkService`** (`.../core/version/recuperacion-chunk.service.ts`) es la red
+   debajo: si aun así falla la carga de un trozo de la aplicación, recarga en vez de dejar la
+   pantalla en blanco. Una vez por minuto como mucho, para que un fallo que no sea de versión
+   no acabe en un bucle de recargas.
+
+Ninguna de las dos hace nada dentro de la app nativa: allí el código viene del paquete
+instalado y actualizar es cosa de la tienda.
+
+Y en el servidor, **un fichero que no existe se responde 404 y se acaba ahí**. Antes caía en el
+render de Angular y el navegador recibía la página de "no encontrado" —HTML— donde esperaba un
+módulo JavaScript: fallaba al interpretarlo con un error distinto en cada navegador y sin
+rastro de qué había pasado.
 
 Cómo comprobarlo en producción:
 
 ```bash
 curl -sI https://doogking.com/ | grep -i cache-control      # no-cache, must-revalidate
 curl -s  https://doogking.com/version.json                  # {"version":"..."} y cambia en cada deploy
+curl -s  https://doogking.com/ | grep dk-build              # la misma versión que /version.json
+curl -sI https://doogking.com/chunk-ZZZZZZZZ.js             # 404 text/plain, no HTML
 ```
 
 > **Si el HTML sale con otra cabecera, mira Cloudflare** (§3.4). Por defecto no cachea HTML,
