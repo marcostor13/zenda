@@ -1,6 +1,6 @@
 import { Component, signal, inject, OnInit, OnDestroy, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DatePipe, TitleCasePipe } from '@angular/common';
+import { TitleCasePipe } from '@angular/common';
 import { VerticalKey, VERTICAL_LABELS, HITO_FUNERARIO_LABELS } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
@@ -10,6 +10,7 @@ import { PaymentsService } from '../services/payments.service';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
 type EstadoColor = 'success' | 'warning' | 'danger' | 'accent' | 'neutral';
 
 const HITO_LABEL: Record<string, string> = {
@@ -60,7 +61,7 @@ const ESTADO_DESCONOCIDO = {
   selector: 'app-reserva-detalle',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DatePipe, TitleCasePipe, RsNavbarComponent, RsIconComponent, RsBrandIconComponent, EurosPipe
+    TraducirPipe, RouterLink, FechaPipe, TitleCasePipe, RsNavbarComponent, RsIconComponent, RsBrandIconComponent, EurosPipe
   ],
   template: `
 <div class="dk-pagina">

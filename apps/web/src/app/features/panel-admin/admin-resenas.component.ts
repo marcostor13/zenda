@@ -1,10 +1,10 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 /** Reseña tal y como la ve la administración, con su estado de visibilidad. */
 interface ResenaAdmin {
@@ -38,7 +38,7 @@ const FILTROS_VISIBILIDAD = [
   selector: 'app-admin-resenas',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, RsIconComponent
+    TraducirPipe, FechaPipe, RsIconComponent
   ],
   template: `
     <div class="rs-page-header">

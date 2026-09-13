@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { VERTICAL_LABELS, VerticalKey } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { CarritoService, ItemCarritoApi } from './carrito.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 interface GrupoComercio {
   comercioId: string;
@@ -23,7 +23,7 @@ interface GrupoComercio {
   selector: 'app-carrito-panel',
   standalone: true,
   imports: [
-    TraducirPipe, EurosPipe, DatePipe, RsIconComponent
+    TraducirPipe, EurosPipe, FechaPipe, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

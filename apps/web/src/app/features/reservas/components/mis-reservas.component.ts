@@ -1,7 +1,7 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
-import { VerticalKey, VERTICAL_LABELS } from 'shared';
+import { VerticalKey, VERTICAL_LABELS, ZONA_HORARIA_PLATAFORMA } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
@@ -709,7 +709,7 @@ export class MisReservasComponent implements OnInit {
   private formatearFecha(iso: string): string {
     const fecha = new Date(iso);
     if (Number.isNaN(fecha.getTime())) return iso;
-    return fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    return fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', timeZone: ZONA_HORARIA_PLATAFORMA });
   }
 
   async cancelar(r: ReservaCard): Promise<void> {

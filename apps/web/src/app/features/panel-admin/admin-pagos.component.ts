@@ -1,5 +1,4 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, PagoAdmin, ResumenPagos, Liquidacion } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -7,6 +6,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { mensajeDeError } from '../../shared/mensaje-error';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 const LIMITE = 20;
 
 const ESTADO_BADGE: Record<string, string> = {
@@ -40,7 +40,7 @@ const FILTROS = [
   selector: 'app-admin-pagos',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, RsIconComponent, EurosPipe
+    TraducirPipe, FechaPipe, RsIconComponent, EurosPipe
   ],
   template: `
     <div class="rs-page-header">

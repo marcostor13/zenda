@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DatePipe } from '@angular/common';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { ReservasService, ReservaApi } from '../reservas/services/reservas.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 interface Pregunta {
   readonly icon: string;
@@ -144,7 +144,7 @@ const APRENDIZAJE: readonly string[] = [
   selector: 'app-ayuda',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DatePipe, RsNavbarComponent, RsIconComponent
+    TraducirPipe, RouterLink, FechaPipe, RsNavbarComponent, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

@@ -1,6 +1,5 @@
 import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DatePipe } from '@angular/common';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -10,6 +9,7 @@ import { AspectoResenaUi, aspectosDeVertical } from '../../shared/verticales/res
 import { AuthService } from '../../core/auth/auth.service';
 import { ReviewsService, ResenaApi, PendienteDeValorarApi } from '../reservas/services/reviews.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 type Filtro = 'todas' | 'pendientes' | 'publicadas' | 'conRespuesta' | 'eliminadas';
 
@@ -37,7 +37,7 @@ const RECONOCIMIENTOS = [
   selector: 'app-perfil-resenas',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DatePipe, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, RsImageUploadComponent
+    TraducirPipe, RouterLink, FechaPipe, ReactiveFormsModule, RsNavbarComponent, RsIconComponent, RsImageUploadComponent
   ],
   template: `
 <div class="dk-pagina">

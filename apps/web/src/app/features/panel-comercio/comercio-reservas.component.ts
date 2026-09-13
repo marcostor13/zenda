@@ -1,7 +1,6 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { HitoFunerario, VerticalKey, tieneHistorialDeServicio } from 'shared';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -12,6 +11,7 @@ import { iconoVertical } from './vertical-icon';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 /** Hito de seguimiento en tiempo real que el comercio va marcando. */
 interface Hito {
   readonly hito: string;
@@ -97,7 +97,7 @@ function desdeClaveDia(clave: string): number {
   selector: 'app-comercio-reservas',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DatePipe, FormsModule, RsIconComponent, RsImageUploadComponent, EurosPipe
+    TraducirPipe, RouterLink, FechaPipe, FormsModule, RsIconComponent, RsImageUploadComponent, EurosPipe
   ],
   template: `
     <!-- HEADER -->

@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
@@ -8,6 +7,7 @@ import { ExpedienteService, MascotaComercioApi } from '../perros/expediente.serv
 import { iconoVertical } from './vertical-icon';
 import { edadLegible, normalizarBusqueda } from '../perros/edad';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 type Filtro = 'todas' | 'sinRegistros' | 'conAlertas';
 
@@ -19,7 +19,7 @@ type Filtro = 'todas' | 'sinRegistros' | 'conAlertas';
 @Component({
   selector: 'app-comercio-mascotas',
   standalone: true,
-  imports: [DatePipe, RouterLink, RsIconComponent, ImgFallbackDirective, TraducirPipe],
+  imports: [FechaPipe, RouterLink, RsIconComponent, ImgFallbackDirective, TraducirPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="page-header">

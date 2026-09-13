@@ -1,5 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -16,6 +16,7 @@ import { mensajeDeError } from '../../shared/mensaje-error';
 import { iconoVertical } from '../panel-comercio/vertical-icon';
 import { FILTROS_ESTADO_RESERVA, metaEstadoReserva } from '../../shared/catalogos/estados-reserva.catalogo';
 import { describirPolitica } from '../../shared/catalogos/politicas-cancelacion.catalogo';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 /** Pestañas de la ficha. El contador va al lado del rótulo. */
 type Pestana = 'resumen' | 'servicios' | 'reservas' | 'equipo' | 'resenas' | 'incidencias' | 'datos';
@@ -28,7 +29,7 @@ const RESERVAS_POR_PAGINA = 10;
 @Component({
   selector: 'app-admin-comercio-detalle',
   standalone: true,
-  imports: [TraducirPipe, DatePipe, DecimalPipe, RouterLink, RsIconComponent, RsStarsComponent, EurosPipe],
+  imports: [TraducirPipe, FechaPipe, DecimalPipe, RouterLink, RsIconComponent, RsStarsComponent, EurosPipe],
   template: `
     <a class="volver" routerLink="/admin/comercios">
       <rs-icon name="arrow-left" [size]="14" [stroke]="2"></rs-icon> {{ 'Comercios' | t }}
@@ -1000,7 +1001,7 @@ export class AdminComercioDetalleComponent implements OnInit {
       const alto = Math.round((mes[metrica] / maximo) * 140);
       return {
         mes: mes.mes,
-        // El rótulo lo escribe `DatePipe`, que sabe el idioma activo.
+        // El rótulo lo escribe `FechaPipe`, que sabe el idioma activo.
         fecha: new Date(`${mes.mes}-01T00:00:00Z`),
         etiqueta: this.etiquetaMes(mes, metrica),
         x: Math.round(indice * ancho) + 2,

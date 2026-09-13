@@ -263,6 +263,18 @@ describe('BloqueosService', () => {
       expect(citas[0].hasta).toBe(new Date('2026-09-02T00:00:00Z').toISOString());
     });
 
+    it('debería situar una cita antigua a su hora de Madrid y con su duración, no como un día entero', async () => {
+      reservaModel['find'].mockReturnValue(cadena([{
+        _id: 'r1', codigo: 'RES-1', servicioId: SERVICIO,
+        fechaInicio: new Date('2026-09-01T00:00:00Z'), estado: 'confirmada',
+        detalle: { hora: '10:00', duracionMin: 30 },
+      }]));
+
+      const citas = await service.listarCitas(COMERCIO, new Date('2026-09-01'), new Date('2026-09-03'));
+
+      expect(citas[0]).toMatchObject({ desde: '2026-09-01T08:00:00.000Z', hasta: '2026-09-01T08:30:00.000Z' });
+    });
+
     it('debería aguantar una reserva sin cliente poblado', async () => {
       reservaModel['find'].mockReturnValue(cadena([{
         _id: 'r1', codigo: 'RES-1', servicioId: SERVICIO,

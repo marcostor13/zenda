@@ -10,6 +10,8 @@
  * construye y se lee con las partes locales de la fecha, nunca en UTC.
  */
 
+import { instanteEnZona, partesEnZona } from 'shared';
+
 /** `YYYY-MM-DD` a partir de las partes **locales** de la fecha. */
 export function claveDia(fecha: Date): string {
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
@@ -23,10 +25,36 @@ export function desdeClaveDia(clave: string): Date {
   return new Date(anio, mes - 1, dia);
 }
 
-/** Medianoche local de hoy, para comparar días sin que estorbe la hora. */
+/**
+ * "Hoy" en el calendario del comercio, como medianoche local.
+ *
+ * Es el día de Madrid, no el del navegador: a las 20:00 en Lima ya es mañana en
+ * España, y el horario de la ficha marcaba como "hoy" el día que no era.
+ */
 export function hoyLocal(): Date {
-  const ahora = new Date();
-  return new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  const { anio, mes, dia } = partesEnZona(new Date());
+  return new Date(anio, mes - 1, dia);
+}
+
+/**
+ * Un instante convertido a "fecha de calendario del comercio": un `Date` cuyas
+ * partes locales (`getDate()`, `getHours()`…) son la fecha y la hora de Madrid.
+ *
+ * Las rejillas de calendario trabajan con partes locales. Pasar los instantes
+ * del API por aquí antes de colocarlos hace que una cita a las 10:00 de Madrid
+ * caiga en la fila de las 10:00 aunque el navegador esté en otra zona.
+ */
+export function aCalendarioComercio(instante: Date | string): Date {
+  const p = partesEnZona(instante);
+  return new Date(p.anio, p.mes - 1, p.dia, p.hora, p.minuto);
+}
+
+/** Vuelta de {@link aCalendarioComercio}: el instante real de esa fecha y hora de Madrid. */
+export function desdeCalendarioComercio(fecha: Date): Date {
+  return instanteEnZona({
+    anio: fecha.getFullYear(), mes: fecha.getMonth() + 1, dia: fecha.getDate(),
+    hora: fecha.getHours(), minuto: fecha.getMinutes(),
+  });
 }
 
 /**

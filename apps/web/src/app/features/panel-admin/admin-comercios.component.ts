@@ -1,6 +1,6 @@
 import { AdminApiService, ComercioAdmin, ResumenComercios, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
@@ -16,6 +16,7 @@ import { mensajeDeError } from '../../shared/mensaje-error';
 import { RsAdminFiltrosComponent, GrupoFiltro, ValoresFiltro } from '../../shared/components/admin-filtros/rs-admin-filtros.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { MenuAncladoDirective } from '../../shared/directives/menu-anclado.directive';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
@@ -33,7 +34,7 @@ const LIMITE = 20;
   selector: 'app-admin-comercios',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, DecimalPipe, ReactiveFormsModule, RouterLink, RsIconComponent, EurosPipe, RsAdminFiltrosComponent, MenuAncladoDirective
+    TraducirPipe, FechaPipe, DecimalPipe, ReactiveFormsModule, RouterLink, RsIconComponent, EurosPipe, RsAdminFiltrosComponent, MenuAncladoDirective
   ],
   template: `
     <!-- Cabecera -->

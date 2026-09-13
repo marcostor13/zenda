@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Reserva, ReservaDocument, SuplementoAplicado } from './reserva.schema';
+import { conHoraReal } from './momento-reserva.util';
 import { AvailabilityRegistry } from '../availability/availability.registry';
 import { DiaCalendario, implementaCalendario } from '../availability/availability.strategy';
 import { CatalogRepository } from '../catalog/catalog.repository';
@@ -15,7 +16,8 @@ import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
   VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento,
-  DisponibilidadRespuesta,
+  DisponibilidadRespuesta, ExcepcionHorarioDto, HorarioDiaDto, claveDiaEnZona, comprobarHorario,
+  esHoraValida, esMedianocheUtc, fechaYHoraEnZona, instanteEnZona, partesEnZona,
 } from 'shared';
 import { nanoid } from 'nanoid';
 
@@ -86,6 +88,25 @@ export interface CalendarioDisponibilidadRespuesta {
   dias: DiaCalendario[];
 }
 
+/** Lo que la reserva necesita saber del servicio, además de a quién pertenece. */
+interface ServicioResuelto {
+  comercioId: string;
+  vertical: VerticalKey;
+  horario?: HorarioDiaDto[];
+  excepcionesHorario?: ExcepcionHorarioDto[];
+}
+
+/** Cuándo empieza y acaba de verdad lo reservado, ya en hora del comercio. */
+interface MomentoReserva {
+  inicio: Date;
+  fin?: Date;
+  /** Es una cita con duración (veterinaria, peluquería…), no un día o una estancia. */
+  esCita: boolean;
+  duracionMin?: number;
+}
+
+const MS_POR_MINUTO = 60_000;
+
 /** Importes en euros con dos decimales: el céntimo es la unidad mínima de cobro. */
 const redondearEuros = (importe: number): number => Math.round(importe * 100) / 100;
 
@@ -120,8 +141,9 @@ export class BookingsService {
   async comprobarDisponibilidad(
     params: ComprobarDisponibilidadParams,
   ): Promise<DisponibilidadRespuesta> {
-    const { vertical } = await this.resolverServicio(params);
-    const estrategia = this.availabilityRegistry.obtener(vertical);
+    const servicio = await this.resolverServicio(params);
+    const estrategia = this.availabilityRegistry.obtener(servicio.vertical);
+    const fechaInicio = this.inicioConHora(params.fechaInicio, params.detalle);
 
     const perroSnapshot = params.perroId
       ? construirSnapshotPerro(await this.perrosService.obtenerPropio(params.perroId, params.usuarioId))
@@ -129,11 +151,18 @@ export class BookingsService {
 
     try {
       const resultado = await estrategia.checkAvailability(params.servicioId, {
-        fechaInicio: params.fechaInicio,
+        fechaInicio,
         fechaFin: params.fechaFin,
         cantidad: params.cantidad ?? 1,
         parametrosExtra: this.construirParametrosExtra(params.detalle, perroSnapshot),
       });
+
+      const horario = this.comprobarHorarioDeCita(
+        servicio, this.momentoDe(fechaInicio, params.fechaFin, resultado.metadata, params.cantidad),
+      );
+      if (resultado.disponible && !horario.permitido) {
+        return { disponible: false, motivo: horario.motivo, capacidadRestante: resultado.capacidadRestante };
+      }
 
       if (resultado.disponible) {
         return {
@@ -203,11 +232,15 @@ export class BookingsService {
   async crear(params: CrearReservaParams): Promise<ReservaDocument> {
     // El comercio y el vertical salen del servicio, nunca del cuerpo de la
     // petición: de ellos dependen la comisión y a quién se liquida el dinero.
-    const { comercioId, vertical } = await this.resolverServicio(params);
+    const servicio = await this.resolverServicio(params);
+    const { comercioId, vertical } = servicio;
+    // "El 20 a las 10:00": el día y la hora que eligió el cliente, en hora del
+    // comercio. Los verticales de cita mandan el día y la hora por separado.
+    const fechaInicio = this.inicioConHora(params.fechaInicio, params.detalle);
 
     // Validar la recurrencia antes de tocar disponibilidad: falla rápido, no deja holds huérfanos.
     const ocurrenciasRecurrentes = params.recurrencia
-      ? this.calcularOcurrenciasRecurrentes(params.fechaInicio, params.recurrencia)
+      ? this.calcularOcurrenciasRecurrentes(fechaInicio, params.recurrencia)
       : [];
 
     const perroSnapshot = params.perroId
@@ -224,7 +257,7 @@ export class BookingsService {
      * resuelve el calendario de ocupación.
      */
     const cierre = await this.bloqueosService.cierreQueSolapa(
-      params.servicioId, params.fechaInicio, params.fechaFin,
+      params.servicioId, fechaInicio, params.fechaFin,
     );
     if (cierre) {
       throw new DomainException(`El comercio no atiende en esas fechas: ${cierre.motivo}`, 409);
@@ -233,7 +266,7 @@ export class BookingsService {
     const estrategia = this.availabilityRegistry.obtener(vertical);
 
     const disponibilidad = await estrategia.checkAvailability(params.servicioId, {
-      fechaInicio: params.fechaInicio,
+      fechaInicio,
       fechaFin: params.fechaFin,
       cantidad: params.cantidad ?? 1,
       parametrosExtra: this.construirParametrosExtra(params.detalle, perroSnapshot),
@@ -246,10 +279,16 @@ export class BookingsService {
       );
     }
 
+    const momento = this.momentoDe(fechaInicio, params.fechaFin, disponibilidad.metadata, params.cantidad);
+    const horario = this.comprobarHorarioDeCita(servicio, momento);
+    if (!horario.permitido) {
+      throw new DomainException(horario.motivo ?? 'Esa hora está fuera del horario del comercio.', 409);
+    }
+
     const hold = await estrategia.reserveSlot(params.servicioId, {
       usuarioId: params.usuarioId,
-      fechaInicio: params.fechaInicio,
-      fechaFin: params.fechaFin,
+      fechaInicio,
+      fechaFin: momento.fin,
       cantidad: params.cantidad ?? 1,
     });
 
@@ -299,9 +338,9 @@ export class BookingsService {
       vertical,
       perroId: params.perroId,
       perroSnapshot,
-      detalle: params.detalle ?? {},
-      fechaInicio: params.fechaInicio,
-      fechaFin: params.fechaFin,
+      detalle: this.detalleConDuracion(params.detalle, momento),
+      fechaInicio,
+      fechaFin: momento.fin,
       cantidad: params.cantidad ?? 1,
       montoSubtotal,
       comisionMonto,
@@ -326,8 +365,10 @@ export class BookingsService {
           vertical,
           perroId: params.perroId,
           perroSnapshot,
-          detalle: params.detalle ?? {},
+          detalle: this.detalleConDuracion(params.detalle, momento),
           fechaInicio: fecha,
+          // Cada sesión de la serie dura lo mismo que la primera.
+          fechaFin: momento.fin ? new Date(fecha.getTime() + (momento.fin.getTime() - fechaInicio.getTime())) : undefined,
           cantidad: params.cantidad ?? 1,
           montoSubtotal,
           comisionMonto,
@@ -347,29 +388,23 @@ export class BookingsService {
    * Patrón simple de recurrencia (docs §4.3): NO revalida disponibilidad por ocurrencia
    * (no es un scheduler), solo genera reservas hija con los mismos datos/precio que la
    * reserva origen, en cada día de la semana solicitado hasta `fechaFin`.
+   *
+   * Días, día de la semana y hora se cuentan en el calendario del comercio. Antes
+   * se contaban en UTC: "los martes a las 10:00" se guardaba a las 10:00 UTC —las
+   * 12:00 en Madrid en verano— y un trayecto a las 00:30 caía en el día anterior.
    */
   private calcularOcurrenciasRecurrentes(fechaInicio: Date, recurrencia: RecurrenciaParams): Date[] {
-    const MS_POR_DIA = 1000 * 60 * 60 * 24;
-    const [horas, minutos] = recurrencia.hora.split(':').map(Number);
-
     if (recurrencia.fechaFin.getTime() <= fechaInicio.getTime()) {
       throw new DomainException('La fecha de fin de la recurrencia debe ser posterior a la fecha de inicio', 400);
     }
 
-    // UTC en todo el cálculo: `fechaFin`/`fechaInicio` llegan de strings ISO (parseadas en
-    // UTC); mezclar con métodos locales (setHours/getDay) desplaza el resultado según el
-    // huso horario del servidor.
+    const ultimoDia = claveDiaEnZona(recurrencia.fechaFin);
     const ocurrencias: Date[] = [];
-    let cursor = new Date(fechaInicio.getTime() + MS_POR_DIA);
-    cursor.setUTCHours(0, 0, 0, 0);
-    const fin = new Date(recurrencia.fechaFin);
-    fin.setUTCHours(23, 59, 59, 999);
+    let dia = siguienteDia(claveDiaEnZona(fechaInicio));
 
-    while (cursor.getTime() <= fin.getTime()) {
-      if (recurrencia.diasSemana.includes(cursor.getUTCDay())) {
-        const ocurrencia = new Date(cursor);
-        ocurrencia.setUTCHours(horas || 0, minutos || 0, 0, 0);
-        ocurrencias.push(ocurrencia);
+    while (dia <= ultimoDia) {
+      if (recurrencia.diasSemana.includes(diaDeLaSemana(dia))) {
+        ocurrencias.push(fechaYHoraEnZona(dia, recurrencia.hora));
 
         if (ocurrencias.length > MAX_OCURRENCIAS_RECURRENCIA) {
           throw new DomainException(
@@ -378,10 +413,63 @@ export class BookingsService {
           );
         }
       }
-      cursor = new Date(cursor.getTime() + MS_POR_DIA);
+      dia = siguienteDia(dia);
     }
 
     return ocurrencias;
+  }
+
+  /**
+   * Día + hora de la cita como un único instante en hora del comercio.
+   *
+   * Veterinaria y peluquería mandan `fechaInicio: "2026-09-20"` y la hora en
+   * `detalle.hora`. Guardarlo tal cual dejaba la cita a medianoche UTC (las 02:00
+   * en Madrid) y la agenda no podía situarla a su hora.
+   */
+  private inicioConHora(fechaInicio: Date, detalle?: Record<string, unknown>): Date {
+    const hora = detalle?.['hora'];
+    if (!esHoraValida(hora) || !esMedianocheUtc(fechaInicio)) return fechaInicio;
+    return fechaYHoraEnZona(fechaInicio.toISOString().slice(0, 10), hora);
+  }
+
+  /**
+   * Inicio, fin y duración de lo reservado. Si la estrategia del vertical dice
+   * cuánto dura (`metadata.duracionMin`), es una cita: sin fin declarado se
+   * calcula, porque sin él la agenda la pintaba ocupando el día entero.
+   */
+  private momentoDe(
+    inicio: Date,
+    fechaFin: Date | undefined,
+    metadata: Record<string, unknown> | undefined,
+    cantidad?: number,
+  ): MomentoReserva {
+    const duracion = Number(metadata?.['duracionMin']);
+    const esCita = Number.isFinite(duracion) && duracion > 0 && !esMedianocheUtc(inicio);
+    if (!esCita) return { inicio, fin: fechaFin, esCita: false };
+
+    // Una cita por mascota, una detrás de otra: dos perros son dos consultas.
+    const mascotas = Math.max(1, Number(metadata?.['perros']) || cantidad || 1);
+    const duracionMin = duracion * mascotas;
+    return {
+      inicio,
+      fin: fechaFin ?? new Date(inicio.getTime() + duracionMin * MS_POR_MINUTO),
+      esCita: true,
+      duracionMin,
+    };
+  }
+
+  /**
+   * Una cita tiene que caer dentro del horario del servicio. Hasta ahora el
+   * horario sólo se enseñaba: se podía reservar a las 03:00 o en domingo en una
+   * clínica cerrada. No aplica a estancias ni a lo que no tiene duración.
+   */
+  private comprobarHorarioDeCita(servicio: ServicioResuelto, momento: MomentoReserva): { permitido: boolean; motivo?: string } {
+    if (!momento.esCita || !momento.fin) return { permitido: true };
+    return comprobarHorario(servicio.horario, servicio.excepcionesHorario, momento.inicio, momento.fin);
+  }
+
+  private detalleConDuracion(detalle: Record<string, unknown> | undefined, momento: MomentoReserva): Record<string, unknown> {
+    return momento.duracionMin ? { ...(detalle ?? {}), duracionMin: momento.duracionMin } : (detalle ?? {});
   }
 
   async confirmar(reservaId: string): Promise<ReservaDocument> {
@@ -732,7 +820,8 @@ export class BookingsService {
     return this.reservaModel
       .find({ usuarioId })
       .sort({ createdAt: -1 })
-      .exec() as Promise<ReservaDocument[]>;
+      .exec()
+      .then((reservas) => reservas.map(conHoraReal)) as Promise<ReservaDocument[]>;
   }
 
   /** Próxima reserva confirmada del usuario (HU-7.3), o null si no tiene ninguna por delante. */
@@ -872,7 +961,7 @@ export class BookingsService {
   /** Sólo necesita identificar el servicio; lo demás de la petición no le hace falta. */
   private async resolverServicio(
     params: Pick<CrearReservaParams, 'servicioId' | 'comercioId' | 'vertical'>,
-  ): Promise<{ comercioId: string; vertical: VerticalKey }> {
+  ): Promise<ServicioResuelto> {
     const servicio = await this.catalogRepository.obtenerPorId(params.servicioId);
 
     if (!servicio) {
@@ -909,7 +998,8 @@ export class BookingsService {
       throw new DomainException('Los datos del servicio no coinciden. Vuelve a cargar la ficha.', 409);
     }
 
-    return { comercioId, vertical };
+    const conHorario = servicio as unknown as { horario?: HorarioDiaDto[]; excepcionesHorario?: ExcepcionHorarioDto[] };
+    return { comercioId, vertical, horario: conHorario.horario, excepcionesHorario: conHorario.excepcionesHorario };
   }
 
   private construirParametrosExtra(
@@ -934,4 +1024,16 @@ export class BookingsService {
       perroTendenciaEscapar: perroSnapshot['tendenciaEscapar'],
     };
   }
+}
+
+/** `YYYY-MM-DD` del día siguiente. Aritmética de calendario, sin horas de por medio. */
+function siguienteDia(clave: string): string {
+  const [anio, mes, dia] = clave.split('-').map(Number);
+  return new Date(Date.UTC(anio, mes - 1, dia + 1)).toISOString().slice(0, 10);
+}
+
+/** Día de la semana (0 = domingo) de una fecha del calendario del comercio. */
+function diaDeLaSemana(clave: string): number {
+  const [anio, mes, dia] = clave.split('-').map(Number);
+  return partesEnZona(instanteEnZona({ anio, mes, dia, hora: 12 })).diaSemana;
 }

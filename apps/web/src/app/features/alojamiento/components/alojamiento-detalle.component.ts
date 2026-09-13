@@ -1,6 +1,6 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DecimalPipe, DatePipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
@@ -25,6 +25,7 @@ import { SeoService } from '../../../core/seo/seo.service';
 import { seoFichaServicio, seoPrivada } from '../../../core/seo/plantillas-seo';
 import { migasDePan, negocioLocal } from '../../../core/seo/json-ld';
 import { verticalUi } from '../../../shared/verticales/verticales.config';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
 /**
@@ -45,7 +46,7 @@ const SECUNDARIAS_VISIBLES = 2;
   selector: 'app-alojamiento-detalle',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DecimalPipe, DatePipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
+    TraducirPipe, RouterLink, DecimalPipe, FechaPipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
     RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,
   ],
   template: `

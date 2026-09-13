@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { ComerciosRepository } from './comercios.repository';
 import { ComercioDocument, EstadoComercio, Consentimiento, ConsentimientosComercio } from './comercio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
+import { conHoraReal } from '../bookings/momento-reserva.util';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Pago, PagoDocument } from '../payments/pago.schema';
 import { EntidadAuditada, FijarSocioFundadorDto, PagoEstado, ReservaEstado } from 'shared';
@@ -320,7 +321,7 @@ export class ComerciosService {
     return reservas.map((reserva) => {
       const cliente = porCliente.get(String(reserva.usuarioId));
       return {
-        ...reserva,
+        ...conHoraReal(reserva),
         clienteNombre: cliente?.nombre,
         clienteEmail: cliente?.email,
         clienteTelefono: cliente?.telefono,

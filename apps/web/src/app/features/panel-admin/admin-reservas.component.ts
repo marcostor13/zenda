@@ -1,5 +1,4 @@
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -13,6 +12,8 @@ import { EstadoReservaMeta, FILTROS_ESTADO_RESERVA, metaEstadoReserva } from '..
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { MenuAncladoDirective } from '../../shared/directives/menu-anclado.directive';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { ZONA_HORARIA_PLATAFORMA } from 'shared';
 /** Contadores de la cabecera: los estados que el admin mira a diario. */
 const RESUMEN_ESTADOS: ReadonlyArray<{ estado: string; label: string }> = [
   { estado: '', label: 'Reservas totales' },
@@ -53,7 +54,7 @@ const ALTO_MENU_ACCIONES = 210;
   selector: 'app-admin-reservas',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, FormsModule, RsIconComponent, EurosPipe, MenuAncladoDirective
+    TraducirPipe, FechaPipe, FormsModule, RsIconComponent, EurosPipe, MenuAncladoDirective
   ],
   template: `
     <!-- Cabecera -->
@@ -720,7 +721,7 @@ export class AdminReservasComponent implements OnInit {
       ];
       const filas = result.items.map((r) => [
         r.codigo,
-        new Date(r.fechaInicio || r.createdAt).toLocaleDateString('es-ES'),
+        new Date(r.fechaInicio || r.createdAt).toLocaleDateString('es-ES', { timeZone: ZONA_HORARIA_PLATAFORMA }),
         r.cliente,
         r.clienteEmail ?? '',
         r.comercio,

@@ -1,12 +1,12 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiReserva, FinanzasComercio } from './comercio-api.service';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 const COMISION_PCT = 0.15;
 const STRIPE_PCT = 0.015;
 const STRIPE_FIJO_EUR = 0.25;
@@ -20,7 +20,7 @@ const ESTADO_BADGE: Record<string, string> = {
   selector: 'app-comercio-ingresos',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DatePipe, RsIconComponent, EurosPipe
+    TraducirPipe, RouterLink, FechaPipe, RsIconComponent, EurosPipe
   ],
   template: `
     <!-- HEADER -->

@@ -1,4 +1,5 @@
-import { celdasDelMes, claveDia, desdeClaveDia, hoyLocal } from './fechas';
+import { claveDiaEnZona, horaEnZona } from 'shared';
+import { aCalendarioComercio, celdasDelMes, claveDia, desdeCalendarioComercio, desdeClaveDia, hoyLocal } from './fechas';
 
 describe('fechas', () => {
   describe('claveDia y desdeClaveDia', () => {
@@ -33,12 +34,28 @@ describe('fechas', () => {
   });
 
   describe('hoyLocal', () => {
-    it('debería devolver hoy sin hora', () => {
+    it('debería devolver el hoy de Madrid, sin hora, aunque el navegador ya esté en otro día', () => {
       const hoy = hoyLocal();
 
       expect(hoy.getHours()).toBe(0);
       expect(hoy.getMinutes()).toBe(0);
-      expect(claveDia(hoy)).toBe(claveDia(new Date()));
+      expect(claveDia(hoy)).toBe(claveDiaEnZona(new Date()));
+    });
+  });
+
+  describe('calendario del comercio', () => {
+    it('debería colocar un instante en la fecha y hora de Madrid', () => {
+      const enRejilla = aCalendarioComercio('2026-09-21T08:00:00.000Z');
+
+      expect(claveDia(enRejilla)).toBe('2026-09-21');
+      expect(enRejilla.getHours()).toBe(10);
+    });
+
+    it('debería volver al instante real sin desviarse, en verano y en invierno', () => {
+      for (const iso of ['2026-09-21T08:00:00.000Z', '2026-12-21T09:30:00.000Z', '2026-09-20T22:30:00.000Z']) {
+        expect(desdeCalendarioComercio(aCalendarioComercio(iso)).toISOString()).toBe(iso);
+      }
+      expect(horaEnZona(desdeCalendarioComercio(new Date(2026, 8, 21, 10)))).toBe('10:00');
     });
   });
 

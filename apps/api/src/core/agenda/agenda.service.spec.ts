@@ -5,12 +5,20 @@ import { AgendaService } from './agenda.service';
 import { Agenda, Bloqueo, Recurso } from './agenda.schema';
 import { CALENDAR_CONNECTORS, CalendarConnector } from './calendar-connector.interface';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { horaEnZona } from 'shared';
 
 const AGENDA_ID = new Types.ObjectId();
 const COMERCIO_ID = new Types.ObjectId();
 
-/** Lunes 7 de septiembre de 2026. */
-const LUNES = new Date('2026-09-07T00:00:00');
+/**
+ * Lunes 7 de septiembre de 2026, a mediodía en Madrid. Las fechas llevan la zona
+ * escrita: con `new Date('2026-09-07T00:00:00')` la prueba dependía de la zona
+ * del equipo que la ejecutara, igual que el código que probaba.
+ */
+const LUNES = new Date('2026-09-07T12:00:00+02:00');
+
+/** Hora de Madrid de un hueco, que es la que ve el comercio. */
+const hora = (fecha: Date): string => horaEnZona(fecha);
 
 const agendaBase = (extra: Record<string, unknown> = {}) => ({
   _id: AGENDA_ID,
@@ -100,12 +108,12 @@ describe('AgendaService', () => {
       const huecos = await service.huecosDe(AGENDA_ID.toString(), LUNES, 60);
 
       expect(huecos).toHaveLength(3);
-      expect(huecos[0].inicio.getHours()).toBe(9);
-      expect(huecos[2].inicio.getHours()).toBe(11);
+      expect(hora(huecos[0].inicio)).toBe('09:00');
+      expect(hora(huecos[2].inicio)).toBe('11:00');
     });
 
     it('no debería ofrecer huecos un día sin jornada', async () => {
-      const domingo = new Date('2026-09-06T00:00:00');
+      const domingo = new Date('2026-09-06T12:00:00+02:00');
 
       await expect(service.huecosDe(AGENDA_ID.toString(), domingo, 60)).resolves.toEqual([]);
     });
@@ -117,20 +125,19 @@ describe('AgendaService', () => {
 
       // 09:00 y 10:30 caben; a las 12:00 ya cierra.
       expect(huecos).toHaveLength(2);
-      expect(huecos[1].inicio.getHours()).toBe(10);
-      expect(huecos[1].inicio.getMinutes()).toBe(30);
+      expect(hora(huecos[1].inicio)).toBe('10:30');
     });
 
     it('debería saltar por encima de un bloqueo, no ofrecer esa franja', async () => {
       conBloqueos([{
-        inicio: new Date('2026-09-07T09:00:00'),
-        fin: new Date('2026-09-07T10:00:00'),
+        inicio: new Date('2026-09-07T09:00:00+02:00'),
+        fin: new Date('2026-09-07T10:00:00+02:00'),
       }]);
 
       const huecos = await service.huecosDe(AGENDA_ID.toString(), LUNES, 60);
 
       expect(huecos).toHaveLength(2);
-      expect(huecos[0].inicio.getHours()).toBe(10);
+      expect(hora(huecos[0].inicio)).toBe('10:00');
     });
 
     it('debería soportar jornada partida como dos franjas del mismo día', async () => {
@@ -143,7 +150,7 @@ describe('AgendaService', () => {
 
       const huecos = await service.huecosDe(AGENDA_ID.toString(), LUNES, 60);
 
-      expect(huecos.map((h) => h.inicio.getHours())).toEqual([9, 10, 16, 17]);
+      expect(huecos.map((h) => hora(h.inicio))).toEqual(['09:00', '10:00', '16:00', '17:00']);
     });
 
     it('no debería ofrecer nada si la agenda está desactivada', async () => {
@@ -158,8 +165,31 @@ describe('AgendaService', () => {
       // Jornada de 09:00 a 12:00: solo cabe una cita de dos horas, porque los
       // huecos son consecutivos, no solapados.
       expect(huecos).toHaveLength(1);
-      expect(huecos[0].inicio.getHours()).toBe(9);
-      expect(huecos[0].fin.getHours()).toBe(11);
+      expect(hora(huecos[0].inicio)).toBe('09:00');
+      expect(hora(huecos[0].fin)).toBe('11:00');
+    });
+
+    it('debería dar los huecos en la hora de la agenda, no en la del servidor (UTC)', async () => {
+      const huecos = await service.huecosDe(AGENDA_ID.toString(), LUNES, 60);
+
+      // 09:00 en Madrid en septiembre son las 07:00 UTC.
+      expect(huecos[0].inicio.toISOString()).toBe('2026-09-07T07:00:00.000Z');
+    });
+
+    it('debería usar la zona configurada en la agenda', async () => {
+      conAgenda(agendaBase({ zonaHoraria: 'Atlantic/Canary' }));
+
+      const huecos = await service.huecosDe(AGENDA_ID.toString(), LUNES, 60);
+
+      // Canarias va una hora por detrás de Madrid: 09:00 allí son las 08:00 UTC.
+      expect(huecos[0].inicio.toISOString()).toBe('2026-09-07T08:00:00.000Z');
+    });
+
+    it('debería tomar el día de la semana de la zona aunque en UTC sea otro día', async () => {
+      // Lunes 00:30 en Madrid es domingo 22:30 UTC.
+      const huecos = await service.huecosDe(AGENDA_ID.toString(), new Date('2026-09-06T22:30:00Z'), 60);
+
+      expect(huecos).toHaveLength(3);
     });
   });
 

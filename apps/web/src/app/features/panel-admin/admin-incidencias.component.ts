@@ -1,11 +1,11 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ESTADO_INCIDENCIA_LABELS, EstadoIncidencia, TIPO_INCIDENCIA_LABELS, TipoIncidencia } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 interface ActuacionIncidencia {
   estado: EstadoIncidencia;
@@ -52,7 +52,7 @@ const TABS: ReadonlyArray<{ estado: string; label: string }> = [
   selector: 'app-admin-incidencias',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, RsIconComponent
+    TraducirPipe, FechaPipe, RsIconComponent
   ],
   template: `
     <div class="rs-page-header">

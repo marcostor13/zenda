@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { EstadoModeracion, TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { environment } from '../../../environments/environment';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 /** 'reportados' no es un estado de moderación: es un corte transversal. */
 type FiltroComunidad = EstadoModeracion | 'reportados';
@@ -51,7 +51,7 @@ interface ReviewPendiente {
   selector: 'app-admin-comunidad',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, RsIconComponent
+    TraducirPipe, FechaPipe, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

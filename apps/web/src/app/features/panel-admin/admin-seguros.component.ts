@@ -1,10 +1,10 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { EstadoSolicitudSeguros, ESTADO_SOLICITUD_SEGUROS_LABELS } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AdminApiService, SolicitudSeguros } from './admin-api.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 /**
  * Alta de aseguradoras.
@@ -19,7 +19,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
   selector: 'app-admin-seguros',
   standalone: true,
   imports: [
-    TraducirPipe, RsIconComponent, DatePipe
+    TraducirPipe, RsIconComponent, FechaPipe
   ],
   template: `
     <div class="rs-page-header">

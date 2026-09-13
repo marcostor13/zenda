@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import {
   AdminAvisosService, AvisoProgramado, EstadoPush, ResultadoAviso,
 } from './services/admin-avisos.service';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 /** Qué dispara cada aviso, en lenguaje del panel. */
 const DISPARADORES = [
@@ -27,7 +27,7 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
   selector: 'app-admin-avisos',
   standalone: true,
   imports: [
-    TraducirPipe, ReactiveFormsModule, DatePipe, RsIconComponent
+    TraducirPipe, ReactiveFormsModule, FechaPipe, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

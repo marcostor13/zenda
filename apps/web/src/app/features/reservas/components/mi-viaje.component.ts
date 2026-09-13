@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ReservaEstado, VERTICAL_LABELS, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
@@ -7,6 +6,7 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 import { ReservaApi, ReservasService } from '../services/reservas.service';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
 
 /** Cómo se muestra cada estado; el color comunica más rápido que el texto. */
 const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | 'neutro' }> = {
@@ -32,7 +32,7 @@ const ESTADOS: Record<string, { label: string; tono: 'ok' | 'aviso' | 'malo' | '
   selector: 'app-mi-viaje',
   standalone: true,
   imports: [
-    TraducirPipe, EurosPipe, DatePipe, RouterLink, RsNavbarComponent, RsIconComponent
+    TraducirPipe, EurosPipe, FechaPipe, RouterLink, RsNavbarComponent, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

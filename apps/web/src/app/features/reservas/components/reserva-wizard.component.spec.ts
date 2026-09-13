@@ -20,6 +20,7 @@ import { GeoService } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { MonedaService } from '../../../core/moneda/moneda.service';
+import { claveDiaEnZona, fechaYHoraEnZona } from 'shared';
 
 interface Dobles {
   reservas: { crear: jest.Mock; comprobarDisponibilidad: jest.Mock; calendario: jest.Mock };
@@ -573,7 +574,8 @@ describe('ReservaWizardComponent', () => {
       await fixture.whenStable();
 
       expect(dobles.reservas.crear).toHaveBeenCalledWith(expect.objectContaining({
-        fechaInicio: '2026-09-01T09:30:00',
+        // 09:30 en Madrid: el instante exacto, no una hora sin zona.
+        fechaInicio: '2026-09-01T07:30:00.000Z',
         detalle: expect.objectContaining({ origen: 'Madrid', destino: 'Toledo', distanciaKm: 70 }),
       }));
     });
@@ -600,7 +602,8 @@ describe('ReservaWizardComponent', () => {
       await fixture.whenStable();
 
       expect(dobles.reservas.crear).toHaveBeenCalledWith(expect.objectContaining({
-        fechaInicio: '2026-09-01', cantidad: 1,
+        // Día y hora de la cita en un solo instante: las 10:00 de Madrid.
+        fechaInicio: '2026-09-01T08:00:00.000Z', cantidad: 1,
         detalle: { hora: '10:00', servicio: 'vacunacion' },
       }));
     });
@@ -614,6 +617,7 @@ describe('ReservaWizardComponent', () => {
       await fixture.whenStable();
 
       expect(dobles.reservas.crear).toHaveBeenCalledWith(expect.objectContaining({
+        fechaInicio: '2026-09-01T09:00:00.000Z',
         detalle: { hora: '11:00', servicio: 'bano' },
       }));
     });
@@ -1421,20 +1425,20 @@ describe('ReservaWizardComponent', () => {
 
         const manana = new Date();
         manana.setDate(manana.getDate() + 1);
-        expect(fecha).toBe(`${manana.toISOString().slice(0, 10)}T21:00:00`);
+        expect(fecha).toBe(fechaYHoraEnZona(claveDiaEnZona(manana), '21:00').toISOString());
       });
 
       it('debería llevar la mañana a las 09:00', async () => {
         // Aquí no se promete una hora exacta: la franja es lo que se acuerda.
         expect(await fechaEnviada({
           urgencia: UrgenciaFunerario.FECHA, fecha: '2026-09-10', franja: FranjaHoraria.MANANA,
-        })).toBe('2026-09-10T09:00:00');
+        })).toBe('2026-09-10T07:00:00.000Z');
       });
 
       it('debería llevar la tarde a las 16:00', async () => {
         expect(await fechaEnviada({
           urgencia: UrgenciaFunerario.FECHA, fecha: '2026-09-10', franja: FranjaHoraria.TARDE,
-        })).toBe('2026-09-10T16:00:00');
+        })).toBe('2026-09-10T14:00:00.000Z');
       });
     });
   });
@@ -1642,7 +1646,7 @@ describe('ReservaWizardComponent', () => {
 
       const payload = await payloadEnviado();
 
-      expect(payload['fechaInicio']).toBe('2026-09-01T16:00:00');
+      expect(payload['fechaInicio']).toBe('2026-09-01T14:00:00.000Z');
       const detalle = payload['detalle'] as Record<string, unknown>;
       expect(detalle['servicioNombre']).toBe('Cremación individual');
       expect(detalle['pesoKg']).toBe(12);

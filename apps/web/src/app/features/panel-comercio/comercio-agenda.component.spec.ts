@@ -6,6 +6,7 @@ import { of, throwError } from 'rxjs';
 import { VerticalKey } from 'shared';
 import { ComercioAgendaComponent } from './comercio-agenda.component';
 import { ComercioApiService, MiServicio } from './comercio-api.service';
+import { desdeCalendarioComercio } from '../../shared/fechas';
 
 const servicio = (extra: Partial<MiServicio> = {}): MiServicio => ({
   _id: 's1', titulo: 'Residencia Royal', vertical: VerticalKey.ALOJAMIENTO,
@@ -231,9 +232,10 @@ describe('ComercioAgendaComponent', () => {
     it('debería situar la cita en su franja horaria', async () => {
       await crear([servicio({ vertical: VerticalKey.PELUQUERIA })]);
 
+      // Las 9:00 **de Madrid** del lunes a la vista, como instante real.
       const lunes = componente.desde();
-      const inicio = new Date(lunes); inicio.setHours(9, 0, 0, 0);
-      const fin = new Date(lunes); fin.setHours(10, 0, 0, 0);
+      const inicio = desdeCalendarioComercio(new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate(), 9));
+      const fin = desdeCalendarioComercio(new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate(), 10));
 
       api['getCitasAgenda'].mockReturnValue(of([{
         _id: 'r1', codigo: 'RES-1', servicioId: 's1', estado: 'confirmada',

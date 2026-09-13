@@ -1,6 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DatePipe } from '@angular/common';
 import { VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -22,6 +21,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { SeoService } from '../../core/seo/seo.service';
 import { seoFichaServicio, seoPrivada } from '../../core/seo/plantillas-seo';
 import { migasDePan, negocioLocal } from '../../core/seo/json-ld';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 /**
  * Huecos de la fila de miniaturas y fotos del costado del mosaico. Mismos
@@ -246,7 +246,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
   selector: 'app-vertical-detalle',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DatePipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
+    TraducirPipe, RouterLink, FechaPipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
     RsTrustBlockComponent, RsChipComponent, RsFavoritoBtnComponent, ImgFallbackDirective,
     RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,
   ],

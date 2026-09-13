@@ -13,7 +13,7 @@ import { ComisionResolverService } from '../comision-configs/comision-resolver.s
 import { EventosService } from '../eventos/eventos.service';
 import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { VerticalKey, ReservaEstado, COMISION_PCT_DEFAULT, TipoEvento } from 'shared';
+import { VerticalKey, ReservaEstado, COMISION_PCT_DEFAULT, TipoEvento, horarioSemanal } from 'shared';
 
 describe('BookingsService', () => {
   let service: BookingsService;
@@ -588,6 +588,98 @@ describe('BookingsService', () => {
         })).rejects.toThrow(DomainException);
         expect(estrategiaMock.checkAvailability).not.toHaveBeenCalled();
       });
+
+      it('debería poner cada sesión a su hora de Madrid, también en invierno', async () => {
+        // Jueves 22/10/2026 → martes 27/10, ya en horario de invierno (+01:00).
+        await service.crear({
+          ...parametrosBase,
+          fechaInicio: new Date('2026-10-22T08:00:00Z'),
+          fechaFin: undefined,
+          recurrencia: { diasSemana: [2], hora: '10:00', fechaFin: new Date('2026-10-27') },
+        });
+
+        const [hija] = reservaModel.insertMany.mock.calls[0][0];
+        expect(hija.fechaInicio.toISOString()).toBe('2026-10-27T09:00:00.000Z');
+      });
+    });
+  });
+
+  /**
+   * Veterinaria y peluquería mandan el día y la hora por separado. Se guardaban
+   * a medianoche UTC y sin fin: la agenda las pintaba como un bloque de 24 horas
+   * y se podía reservar fuera del horario del comercio.
+   */
+  describe('crear — citas con hora', () => {
+    const lunesEnHorario = horarioSemanal(
+      { dias: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'], abre: '09:00', cierra: '14:00' },
+    );
+    const cita = {
+      ...parametrosBase,
+      vertical: VerticalKey.VETERINARIA,
+      // Lunes 21 de septiembre de 2026: el día, a medianoche UTC, como lo manda la web antigua.
+      fechaInicio: new Date('2026-09-21T00:00:00Z'),
+      fechaFin: undefined,
+      detalle: { hora: '10:00', servicio: 'Vacunación' },
+    };
+
+    beforeEach(() => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-1', vertical: VerticalKey.VETERINARIA, estado: 'publicado', comercioActivo: true,
+        horario: lunesEnHorario, excepcionesHorario: [],
+      } as never);
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, precioCalculado: 40, metadata: { duracionMin: 30, perros: 1 },
+      });
+    });
+
+    const guardada = () => reservaModel.mock.calls[0][0];
+
+    it('debería guardar el instante de las 10:00 de Madrid y el fin según la duración', async () => {
+      await service.crear(cita);
+
+      expect(guardada().fechaInicio.toISOString()).toBe('2026-09-21T08:00:00.000Z');
+      expect(guardada().fechaFin.toISOString()).toBe('2026-09-21T08:30:00.000Z');
+      expect(guardada().detalle).toMatchObject({ hora: '10:00', duracionMin: 30 });
+    });
+
+    it('debería respetar el instante si la web ya lo manda completo', async () => {
+      await service.crear({ ...cita, fechaInicio: new Date('2026-09-21T08:00:00.000Z') });
+
+      expect(guardada().fechaInicio.toISOString()).toBe('2026-09-21T08:00:00.000Z');
+    });
+
+    it('debería encadenar una cita por mascota', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, precioCalculado: 80, metadata: { duracionMin: 30, perros: 2 },
+      });
+
+      await service.crear(cita);
+
+      expect(guardada().fechaFin.toISOString()).toBe('2026-09-21T09:00:00.000Z');
+      expect(guardada().detalle.duracionMin).toBe(60);
+    });
+
+    it('debería rechazar con 409 una cita fuera del horario del comercio', async () => {
+      await expect(service.crear({ ...cita, detalle: { hora: '13:45' } }))
+        .rejects.toMatchObject({ statusCode: 409 });
+      await expect(service.crear({ ...cita, fechaInicio: new Date('2026-09-20T00:00:00Z') }))
+        .rejects.toMatchObject({ statusCode: 409, message: 'El comercio no atiende ese día de la semana.' });
+      expect(estrategiaMock.reserveSlot).not.toHaveBeenCalled();
+    });
+
+    it('debería avisar del horario ya en la comprobación del paso 1, sin fallar', async () => {
+      const respuesta = await service.comprobarDisponibilidad({ ...cita, detalle: { hora: '08:00' } });
+
+      expect(respuesta).toMatchObject({ disponible: false });
+      expect(respuesta.disponible === false && respuesta.motivo).toContain('09:00–14:00');
+    });
+
+    it('no debería aplicar el horario a lo que no tiene duración, como una estancia', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({ disponible: true, precioCalculado: 40 });
+
+      await service.crear({ ...cita, detalle: {}, fechaInicio: new Date('2026-09-20T00:00:00Z') });
+
+      expect(guardada().fechaFin).toBeUndefined();
     });
   });
 

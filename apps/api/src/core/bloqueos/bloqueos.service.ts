@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { ActualizarBloqueoDto, BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ReservaEstado } from 'shared';
 import { BloqueoServicio, BloqueoServicioDocument } from './bloqueo-servicio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
+import { tramoDeLaReserva } from '../bookings/momento-reserva.util';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
@@ -18,8 +19,6 @@ const ESTADOS_VIVOS: ReservaEstado[] = [
   ReservaEstado.PAGO_LIBERADO,
   ReservaEstado.EN_DISPUTA,
 ];
-
-const MS_POR_DIA = 24 * 60 * 60 * 1000;
 
 /**
  * Agenda de los servicios del comercio: lo reservado por Doogking y lo que el
@@ -141,16 +140,14 @@ export class BloqueosService {
 
     const reservas = await this.reservaModel
       .find(filtro)
-      .select({ codigo: 1, servicioId: 1, fechaInicio: 1, fechaFin: 1, estado: 1, perroSnapshot: 1 })
+      .select({ codigo: 1, servicioId: 1, fechaInicio: 1, fechaFin: 1, estado: 1, perroSnapshot: 1, detalle: 1 })
       .populate('usuarioId', 'nombre')
       .sort({ fechaInicio: 1 })
       .lean()
       .exec() as unknown as Array<Record<string, unknown>>;
 
     return reservas.map((r) => {
-      const inicio = r['fechaInicio'] as Date;
-      // Una cita sin fin declarado ocupa su día: es lo que pinta la agenda.
-      const fin = (r['fechaFin'] as Date | undefined) ?? new Date(inicio.getTime() + MS_POR_DIA);
+      const { inicio, fin } = tramoDeLaReserva(r as unknown as Parameters<typeof tramoDeLaReserva>[0]);
       const usuario = r['usuarioId'] as { nombre?: string } | undefined;
       const perro = r['perroSnapshot'] as { nombre?: string } | undefined;
 

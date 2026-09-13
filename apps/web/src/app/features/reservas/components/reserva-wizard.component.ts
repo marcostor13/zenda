@@ -12,8 +12,7 @@ import { faqDeConfirmacion } from '../../../shared/catalogos/faq-confirmacion.ca
 import {
   VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento, TAMANOS_PERRO,
   ESPECIES_FUNERARIO, FranjaHoraria, FRANJA_HORARIA_LABELS, LugarRecogida, LUGAR_RECOGIDA_LABELS,
-  ModoPrecioRecogida, UrgenciaFunerario, URGENCIA_FUNERARIO_LABELS,
-} from 'shared';
+  ModoPrecioRecogida, UrgenciaFunerario, URGENCIA_FUNERARIO_LABELS, claveDiaEnZona, fechaYHoraEnZona } from 'shared';
 import {
   extrasFunerarios, serviciosFunerarios,
 } from '../../../shared/verticales/funerarios.util';
@@ -2378,13 +2377,13 @@ export class ReservaWizardComponent implements OnInit {
     };
     const hora = horaDeFranja[f.franja ?? FranjaHoraria.MANANA] ?? '09:00';
 
-    if (f.urgencia === UrgenciaFunerario.FECHA && f.fecha) return `${f.fecha}T${hora}:00`;
+    if (f.urgencia === UrgenciaFunerario.FECHA && f.fecha) return instanteDeCita(f.fecha, hora);
 
     const dia = new Date();
     if (f.urgencia === UrgenciaFunerario.MANANA) dia.setDate(dia.getDate() + 1);
     if (f.urgencia === UrgenciaFunerario.LO_ANTES_POSIBLE) return dia.toISOString();
 
-    return `${dia.toISOString().slice(0, 10)}T${hora}:00`;
+    return instanteDeCita(claveDiaEnZona(dia), hora);
   }
 
   // ─── Step 2 (shared) ───
@@ -3325,7 +3324,7 @@ export class ReservaWizardComponent implements OnInit {
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
           perroId: this.perroSeleccionado() ?? undefined,
-          fechaInicio: `${f.fechaRecogida}T${f.hora}:00`,
+          fechaInicio: instanteDeCita(f.fechaRecogida!, f.hora),
           cantidad: 1,
           detalle: {
             origen: f.origen, destino: f.destino,
@@ -3354,7 +3353,7 @@ export class ReservaWizardComponent implements OnInit {
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
           perroId: this.perroSeleccionado() ?? undefined,
-          fechaInicio: f.fecha!,
+          fechaInicio: instanteDeCita(f.fecha!, f.hora),
           cantidad: 1,
           detalle: { hora: f.hora, servicio: f.servicio },
           cuponCodigo: this.cuponCodigo() ?? undefined,
@@ -3365,7 +3364,7 @@ export class ReservaWizardComponent implements OnInit {
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
           perroId: this.perroSeleccionado() ?? undefined,
-          fechaInicio: f.fecha!,
+          fechaInicio: instanteDeCita(f.fecha!, f.hora),
           cantidad: 1,
           detalle: { hora: f.hora, servicio: f.servicio },
           cuponCodigo: this.cuponCodigo() ?? undefined,
@@ -3638,4 +3637,13 @@ export class ReservaWizardComponent implements OnInit {
     const diff = Math.ceil((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 1;
   }
+}
+
+/**
+ * Día y hora elegidos por el cliente, como instante exacto en la hora del
+ * comercio. Mandar `"2026-09-20T10:00:00"` sin zona dejaba que el servidor la
+ * leyera en la suya (UTC), y mandar sólo el día dejaba la cita a medianoche.
+ */
+function instanteDeCita(dia: string, hora?: string | null): string {
+  return hora ? fechaYHoraEnZona(dia, hora).toISOString() : dia;
 }

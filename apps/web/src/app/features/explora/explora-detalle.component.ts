@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TIPO_LUGAR_LABELS, TipoLugar, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
@@ -13,6 +12,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { SeoService } from '../../core/seo/seo.service';
 import { seoLugar, seoPrivada } from '../../core/seo/plantillas-seo';
 import { lugar as lugarJsonLd, migasDePan } from '../../core/seo/json-ld';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 /**
  * Atributos de uso interno que nunca se pintan.
@@ -53,7 +53,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
   selector: 'app-explora-detalle',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsStarsComponent
+    TraducirPipe, FechaPipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsStarsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

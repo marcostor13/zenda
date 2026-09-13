@@ -8,6 +8,7 @@ import {
   CALENDAR_CONNECTORS, CalendarConnector, ProveedorCalendario, TokensCalendario,
 } from './calendar-connector.interface';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { claveDiaEnZona, fechaYHoraEnZona, partesEnZona, ZONA_HORARIA_PLATAFORMA } from 'shared';
 
 /** Hueco libre de una agenda, listo para ofrecerse como cita. */
 export interface HuecoDisponible {
@@ -132,11 +133,16 @@ export class AgendaService {
     const agenda = await this.agendaModel.findById(this.aObjectId(agendaId)).exec();
     if (!agenda || !agenda.activa) return [];
 
-    const franjas = agenda.franjas.filter((f) => f.diaSemana === dia.getDay());
+    // El día, su día de la semana y las horas de la jornada son los de la zona
+    // de la agenda. Con getDay()/setHours() eran los del servidor (UTC en
+    // producción): "de 9:00 a 14:00" ofrecía huecos de 11:00 a 16:00 en Madrid.
+    const zona = agenda.zonaHoraria || ZONA_HORARIA_PLATAFORMA;
+    const clave = claveDiaEnZona(dia, zona);
+    const franjas = agenda.franjas.filter((f) => f.diaSemana === partesEnZona(dia, zona).diaSemana);
     if (!franjas.length) return [];
 
-    const inicioDia = new Date(dia); inicioDia.setHours(0, 0, 0, 0);
-    const finDia = new Date(dia); finDia.setHours(23, 59, 59, 999);
+    const inicioDia = fechaYHoraEnZona(clave, '00:00', zona);
+    const finDia = new Date(fechaYHoraEnZona(siguienteClave(clave), '00:00', zona).getTime() - 1);
 
     const bloqueos = await this.bloqueoModel
       .find({ agendaId: agenda._id, inicio: { $lt: finDia }, fin: { $gt: inicioDia } })
@@ -148,8 +154,8 @@ export class AgendaService {
     const huecos: HuecoDisponible[] = [];
 
     for (const franja of franjas) {
-      let cursor = this.aFecha(dia, franja.desde);
-      const cierre = this.aFecha(dia, franja.hasta);
+      let cursor = fechaYHoraEnZona(clave, franja.desde, zona);
+      const cierre = fechaYHoraEnZona(clave, franja.hasta, zona);
 
       while (cursor.getTime() + duracionMin * MINUTOS_POR_HORA * 1000 <= cierre.getTime()) {
         const fin = new Date(cursor.getTime() + duracionMin * MINUTOS_POR_HORA * 1000);
@@ -315,14 +321,6 @@ export class AgendaService {
     return agenda;
   }
 
-  /** `HH:mm` de una franja, aplicado a un día concreto. */
-  private aFecha(dia: Date, hora: string): Date {
-    const [h, m] = hora.split(':').map(Number);
-    const fecha = new Date(dia);
-    fecha.setHours(h || 0, m || 0, 0, 0);
-    return fecha;
-  }
-
   private aObjectId(id: string): Types.ObjectId {
     if (!Types.ObjectId.isValid(id)) {
       throw new DomainException('Identificador no válido', 400);
@@ -332,3 +330,8 @@ export class AgendaService {
 }
 
 export type { FranjaHoraria };
+
+function siguienteClave(clave: string): string {
+  const [anio, mes, diaMes] = clave.split('-').map(Number);
+  return new Date(Date.UTC(anio, mes - 1, diaMes + 1)).toISOString().slice(0, 10);
+}

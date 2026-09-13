@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { AnadirItemCarritoDto, ValidacionCarritoDto, VerticalKey } from 'shared';
+import { AnadirItemCarritoDto, ValidacionCarritoDto, VerticalKey, parsearFechaPlataforma } from 'shared';
 import { nanoid } from 'nanoid';
 import { Carrito, CarritoDocument, ItemCarrito } from './carrito.schema';
 import { AvailabilityRegistry } from '../availability/availability.registry';
@@ -59,8 +59,8 @@ export class CarritoService {
     const carrito = await this.obtenerAbierto(usuarioId);
     const servicio = await this.catalogService.obtenerServicio(dto.servicioId);
 
-    const fechaInicio = new Date(dto.fechaInicio);
-    const fechaFin = dto.fechaFin ? new Date(dto.fechaFin) : undefined;
+    const fechaInicio = parsearFechaPlataforma(dto.fechaInicio);
+    const fechaFin = dto.fechaFin ? parsearFechaPlataforma(dto.fechaFin) : undefined;
     const cantidad = dto.cantidad ?? 1;
 
     // El vertical sale del servicio, no del cuerpo de la petición: de él dependen

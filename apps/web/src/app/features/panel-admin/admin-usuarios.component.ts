@@ -1,5 +1,4 @@
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -13,6 +12,7 @@ import { mensajeDeError } from '../../shared/mensaje-error';
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { MenuAncladoDirective } from '../../shared/directives/menu-anclado.directive';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 const ROL_BADGE: Record<string, string> = {
   cliente: 'rs-badge--neutral',
   comercio_admin: 'rs-badge--accent',
@@ -45,7 +45,7 @@ function labelRolDe(rol: string): string {
   selector: 'app-admin-usuarios',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent, EurosPipe, MenuAncladoDirective
+    TraducirPipe, FechaPipe, ReactiveFormsModule, RsPhoneInputComponent, RsIconComponent, EurosPipe, MenuAncladoDirective
   ],
   template: `
     <!-- Cabecera -->

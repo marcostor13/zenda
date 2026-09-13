@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { VERTICAL_LABELS, VerticalKey, tieneHistorialDeServicio } from 'shared';
@@ -18,6 +17,7 @@ import { FichaPerroDatosComponent } from '../perros/componentes/ficha-perro-dato
 import { iconoVertical } from './vertical-icon';
 import { edadLegible } from '../perros/edad';
 import { proximaCitaDe } from '../perros/componentes/proxima-cita';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 type Pestana = 'historial' | 'ficha' | 'reservas';
 
@@ -36,7 +36,7 @@ const ESTADOS: Record<string, string> = {
   selector: 'app-comercio-mascota-expediente',
   standalone: true,
   imports: [
-    DatePipe, RouterLink, RsIconComponent, ImgFallbackDirective, TraducirPipe,
+    FechaPipe, RouterLink, RsIconComponent, ImgFallbackDirective, TraducirPipe,
     HistorialTimelineComponent, RegistroServicioFormComponent, FichaPerroDatosComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

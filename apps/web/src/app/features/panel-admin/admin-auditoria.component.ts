@@ -1,10 +1,10 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { ENTIDAD_AUDITADA_LABELS, EntidadAuditada } from 'shared';
 import { AdminApiService, RegistroAuditoria } from './admin-api.service';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 const LIMITE = 30;
 
@@ -27,7 +27,7 @@ const ICONO_ENTIDAD: Record<string, string> = {
   selector: 'app-admin-auditoria',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, RsIconComponent
+    TraducirPipe, FechaPipe, RsIconComponent
   ],
   template: `
     <div class="rs-page-header">

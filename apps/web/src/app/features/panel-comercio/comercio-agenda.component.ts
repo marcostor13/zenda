@@ -2,9 +2,9 @@ import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { BloqueoDto, CitaAgendaDto, VerticalKey, VERTICAL_LABELS } from 'shared';
+import { BloqueoDto, CitaAgendaDto, VerticalKey, VERTICAL_LABELS, ZONA_HORARIA_PLATAFORMA, parsearFechaPlataforma } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
-import { claveDia, celdasDelMes, desdeClaveDia, hoyLocal } from '../../shared/fechas';
+import { claveDia, celdasDelMes, desdeClaveDia, hoyLocal, aCalendarioComercio, desdeCalendarioComercio } from '../../shared/fechas';
 import { ComercioApiService, MiServicio } from './comercio-api.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
@@ -738,7 +738,7 @@ export class ComercioAgendaComponent implements OnInit {
     // Las reservas van primero: si el día se resume, lo que no puede faltar es
     // lo que ha entrado por la plataforma.
     for (const c of this.citas()) {
-      for (const clave of this.diasEntre(new Date(c.desde), new Date(c.hasta))) {
+      for (const clave of this.diasEntre(aCalendarioComercio(c.desde), aCalendarioComercio(c.hasta))) {
         const dia = anota(clave);
         dia.reservadas += 1;
         dia.items.push(this.itemDeCita(c));
@@ -746,7 +746,7 @@ export class ComercioAgendaComponent implements OnInit {
     }
 
     for (const b of this.bloqueos()) {
-      for (const clave of this.diasEntre(new Date(b.desde), new Date(b.hasta))) {
+      for (const clave of this.diasEntre(aCalendarioComercio(b.desde), aCalendarioComercio(b.hasta))) {
         const dia = anota(clave);
         dia.bloqueadas += b.cantidad ?? 1;
         if (b.cantidad === undefined) dia.cerradoDelTodo = true;
@@ -795,8 +795,9 @@ export class ComercioAgendaComponent implements OnInit {
   }
 
   momentoLegible(iso: string): string {
-    return new Date(iso)
-      .toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleString('es-ES', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: ZONA_HORARIA_PLATAFORMA,
+    });
   }
 
   /** Días `[desde, hasta)`; al menos el de inicio, para tramos de unas horas. */
@@ -861,13 +862,13 @@ export class ComercioAgendaComponent implements OnInit {
     const tarjetas: TarjetaSemana[] = [];
 
     for (const c of this.citas()) {
-      const t = situar(c._id, new Date(c.desde), new Date(c.hasta),
+      const t = situar(c._id, aCalendarioComercio(c.desde), aCalendarioComercio(c.hasta),
         c.perro ? `${c.cliente} · ${c.perro}` : c.cliente, c.codigo, false);
       if (t) tarjetas.push(t);
     }
 
     for (const b of this.bloqueos()) {
-      const t = situar(b._id, new Date(b.desde), new Date(b.hasta), 'Bloqueado', b.motivo, true);
+      const t = situar(b._id, aCalendarioComercio(b.desde), aCalendarioComercio(b.hasta), 'Bloqueado', b.motivo, true);
       if (t) tarjetas.push(t);
     }
 
@@ -901,8 +902,8 @@ export class ComercioAgendaComponent implements OnInit {
     this.errorMsg.set('');
     try {
       const [bloqueos, citas] = await Promise.all([
-        firstValueFrom(this.api.getBloqueos(this.desde(), this.hasta(), id)),
-        firstValueFrom(this.api.getCitasAgenda(this.desde(), this.hasta(), id)),
+        firstValueFrom(this.api.getBloqueos(desdeCalendarioComercio(this.desde()), desdeCalendarioComercio(this.hasta()), id)),
+        firstValueFrom(this.api.getCitasAgenda(desdeCalendarioComercio(this.desde()), desdeCalendarioComercio(this.hasta()), id)),
       ]);
       this.bloqueos.set(bloqueos);
       this.citas.set(citas);
@@ -940,8 +941,8 @@ export class ComercioAgendaComponent implements OnInit {
   }
 
   private precargarDe(bloqueo: BloqueoDto): void {
-    this.formDesde = this.paraInput(new Date(bloqueo.desde));
-    this.formHasta = this.paraInput(new Date(bloqueo.hasta));
+    this.formDesde = this.paraInput(aCalendarioComercio(bloqueo.desde));
+    this.formHasta = this.paraInput(aCalendarioComercio(bloqueo.hasta));
     this.formCantidad = bloqueo.cantidad ?? null;
     this.formMotivo = bloqueo.motivo;
   }
@@ -978,8 +979,9 @@ export class ComercioAgendaComponent implements OnInit {
       // hay que decirlo con `null`: omitir el campo dejaría la cantidad anterior.
       const cantidad = this.formCantidad && this.formCantidad > 0 ? this.formCantidad : undefined;
       const tramo = {
-        desde: new Date(this.formDesde).toISOString(),
-        hasta: new Date(this.formHasta).toISOString(),
+        // Lo que se escribe en el formulario es hora de Madrid, no del navegador.
+        desde: parsearFechaPlataforma(this.formDesde).toISOString(),
+        hasta: parsearFechaPlataforma(this.formHasta).toISOString(),
         motivo: this.formMotivo.trim(),
       };
       const editado = this.bloqueoEditando();
@@ -1065,8 +1067,8 @@ export class ComercioAgendaComponent implements OnInit {
 
   /** Rango legible de un bloqueo, sin repetir el mes cuando es el mismo. */
   rangoLegible(b: BloqueoDto): string {
-    const desde = new Date(b.desde);
-    const hasta = new Date(b.hasta);
+    const desde = aCalendarioComercio(b.desde);
+    const hasta = aCalendarioComercio(b.hasta);
     const conHora = !this.esInventario();
 
     const formato: Intl.DateTimeFormatOptions = conHora

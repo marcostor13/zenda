@@ -1,6 +1,6 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DecimalPipe, DatePipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { AuthService } from '../../core/auth/auth.service';
@@ -9,6 +9,7 @@ import { iconoVertical } from './vertical-icon';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 interface PasoOnboarding {
   clave: string;
   label: string;
@@ -24,7 +25,7 @@ const ESTADO_BADGE: Record<string, string> = {
   selector: 'app-panel-comercio-dashboard',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DecimalPipe, DatePipe, RsIconComponent, EurosPipe
+    TraducirPipe, RouterLink, DecimalPipe, FechaPipe, RsIconComponent, EurosPipe
   ],
   template: `
     <!-- HEADER -->

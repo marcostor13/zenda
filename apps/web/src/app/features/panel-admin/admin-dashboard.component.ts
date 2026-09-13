@@ -1,6 +1,6 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DecimalPipe, DatePipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { AdminApiService, ComercioPendiente, ComparativaDashboard, UltimaReserva } from './admin-api.service';
 
@@ -23,6 +23,7 @@ import { iconoDeVertical } from '../../shared/verticales/verticales.config';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 const ESTADO_BADGE: Record<string, string> = {
   confirmada: 'rs-badge--success',
   pendiente: 'rs-badge--warning',
@@ -59,7 +60,7 @@ function finDelDia(iso: string): Date {
   selector: 'app-admin-dashboard',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DecimalPipe, DatePipe, RsIconComponent, EurosPipe
+    TraducirPipe, RouterLink, DecimalPipe, FechaPipe, RsIconComponent, EurosPipe
   ],
   template: `
       @if (cargando()) {

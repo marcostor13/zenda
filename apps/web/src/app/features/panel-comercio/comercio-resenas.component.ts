@@ -1,10 +1,10 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ComercioApiService, MiResena } from './comercio-api.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 const VERTICAL_ICON: Record<string, string> = {
   alojamiento: 'hotel', transporte: 'truck', veterinaria: 'stethoscope', peluqueria: 'scissors', adiestramiento: 'graduation-cap',
@@ -14,7 +14,7 @@ const VERTICAL_ICON: Record<string, string> = {
   selector: 'app-comercio-resenas',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, ReactiveFormsModule, RsIconComponent
+    TraducirPipe, FechaPipe, ReactiveFormsModule, RsIconComponent
   ],
   template: `
     <!-- Page header -->

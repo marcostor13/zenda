@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { VERTICAL_LABELS, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
@@ -15,6 +14,7 @@ import { RegistroServicioComponent } from './componentes/registro-servicio.compo
 import { FichaPerroDatosComponent } from './componentes/ficha-perro-datos.component';
 import { proximaCitaDe } from './componentes/proxima-cita';
 import { edadLegible } from './edad';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 type Pestana = 'resumen' | 'historial' | 'salud' | 'comportamiento' | 'documentos';
 
@@ -42,7 +42,7 @@ const ESTADOS: Record<string, string> = {
   selector: 'app-perro-ficha',
   standalone: true,
   imports: [
-    DatePipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, TraducirPipe,
+    FechaPipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, TraducirPipe,
     HistorialTimelineComponent, RegistroServicioComponent, FichaPerroDatosComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

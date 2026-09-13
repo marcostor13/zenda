@@ -96,6 +96,7 @@ export * from './dtos/perros/crear-perro-valoracion.dto';
 export * from './dtos/perros/fijar-consentimiento.dto';
 export * from './dtos/perros/registro-servicio.dto';
 export * from './catalogos/registro-servicio';
+export * from './fechas/zona-horaria';
 export * from './dtos/carrito/carrito.dto';
 export * from './dtos/lugares/lugar.dto';
 export * from './dtos/comercios/socio-fundador.dto';

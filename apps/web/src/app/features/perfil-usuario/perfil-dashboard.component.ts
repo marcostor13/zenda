@@ -1,6 +1,6 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { nombreAlphaPresentacion } from 'shared';
+import { nombreAlphaPresentacion, ZONA_HORARIA_PLATAFORMA } from 'shared';
 import { AuthService } from '../../core/auth/auth.service';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -743,7 +743,7 @@ export class PerfilDashboardComponent implements OnInit {
     const fecha = new Date(iso);
     return Number.isNaN(fecha.getTime())
       ? ''
-      : fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+      : fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', timeZone: ZONA_HORARIA_PLATAFORMA });
   }
 
   readonly configItems: ConfigItem[] = [
@@ -809,7 +809,7 @@ export class PerfilDashboardComponent implements OnInit {
     return {
       codigo: r.codigo,
       titulo: (r.detalle?.['titulo'] as string) ?? `${verticalLabel[r.vertical] ?? r.vertical} · ${r.codigo}`,
-      fecha: new Date(r.fechaInicio).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+      fecha: new Date(r.fechaInicio).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', timeZone: ZONA_HORARIA_PLATAFORMA }),
       imagen: hotelImage(0, 200),
       estado: estadoLabel[r.estado] ?? r.estado,
       badgeClass: badgeMap[r.estado] ?? '',

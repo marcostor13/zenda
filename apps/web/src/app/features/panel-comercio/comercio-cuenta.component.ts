@@ -1,6 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
-import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import {
   ImpactoBajaComercioDto,
@@ -14,6 +13,7 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { mensajeDeError } from '../../shared/mensaje-error';
 import { AuthService } from '../../core/auth/auth.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 
 type Dialogo = 'pausar' | 'baja' | null;
 
@@ -28,7 +28,7 @@ type Dialogo = 'pausar' | 'baja' | null;
   selector: 'app-comercio-cuenta',
   standalone: true,
   imports: [
-    TraducirPipe, DatePipe, RsIconComponent
+    TraducirPipe, FechaPipe, RsIconComponent
   ],
   template: `
     <header class="cabecera">

@@ -16,7 +16,7 @@ import { BookingsService } from './bookings.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   CrearReservaDto, ComprobarDisponibilidadDto, DisponibilidadRespuesta,
-  CalendarioDisponibilidadDto,
+  CalendarioDisponibilidadDto, parsearFechaPlataforma,
 } from 'shared';
 import { CalendarioDisponibilidadRespuesta } from './bookings.service';
 import { ReservaDocument } from './reserva.schema';
@@ -41,13 +41,13 @@ export class BookingsController {
       servicioId: dto.servicioId,
       vertical: dto.vertical,
       perroId: dto.perroId,
-      fechaInicio: new Date(dto.fechaInicio),
-      fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
+      fechaInicio: parsearFechaPlataforma(dto.fechaInicio),
+      fechaFin: dto.fechaFin ? parsearFechaPlataforma(dto.fechaFin) : undefined,
       cantidad: dto.cantidad,
       detalle: dto.detalle,
       cuponCodigo: dto.cuponCodigo,
       recurrencia: dto.recurrencia
-        ? { diasSemana: dto.recurrencia.diasSemana, hora: dto.recurrencia.hora, fechaFin: new Date(dto.recurrencia.fechaFin) }
+        ? { diasSemana: dto.recurrencia.diasSemana, hora: dto.recurrencia.hora, fechaFin: parsearFechaPlataforma(dto.recurrencia.fechaFin) }
         : undefined,
     });
   }
@@ -67,8 +67,8 @@ export class BookingsController {
       servicioId: dto.servicioId,
       vertical: dto.vertical,
       perroId: dto.perroId,
-      fechaInicio: new Date(dto.fechaInicio),
-      fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
+      fechaInicio: parsearFechaPlataforma(dto.fechaInicio),
+      fechaFin: dto.fechaFin ? parsearFechaPlataforma(dto.fechaFin) : undefined,
       cantidad: dto.cantidad,
       detalle: dto.detalle,
     });

@@ -1,12 +1,12 @@
 import {
   ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal,
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormControl, FormRecord, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CampoRegistro, VERTICAL_LABELS, VerticalKey, camposDeRegistro } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { RegistroServicioApi, RegistroServicioPayload, ServicioExpedienteApi } from '../expediente.service';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
 
 /** Títulos habituales por categoría: un toque en vez de escribirlo cada vez. */
 const TITULOS_SUGERIDOS: Record<string, readonly string[]> = {
@@ -23,7 +23,7 @@ const TITULOS_SUGERIDOS: Record<string, readonly string[]> = {
 @Component({
   selector: 'app-registro-servicio-form',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePipe, RsIconComponent, TraducirPipe],
+  imports: [ReactiveFormsModule, FechaPipe, RsIconComponent, TraducirPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <form class="rform" [formGroup]="form" (ngSubmit)="enviar()" novalidate>

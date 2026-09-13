@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { VERTICAL_LABELS, VerticalKey, camposDeRegistro } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { RegistroServicioApi } from '../expediente.service';
 import { iconoDeVertical as iconoVertical } from '../../../shared/verticales/verticales.config';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
 
 interface DatoVisible {
   readonly etiqueta: string;
@@ -20,7 +20,7 @@ interface DatoVisible {
 @Component({
   selector: 'app-registro-servicio',
   standalone: true,
-  imports: [DatePipe, RsIconComponent, TraducirPipe],
+  imports: [FechaPipe, RsIconComponent, TraducirPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <article class="registro" [attr.data-vertical]="registro().vertical">

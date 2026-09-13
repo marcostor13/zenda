@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { VACUNA_LABELS, Vacuna, nombreTamanoPerro } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { PerroApi } from '../perros.service';
 import { edadLegible } from '../edad';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
 
 export type SeccionFicha = 'general' | 'salud' | 'comportamiento' | 'documentos';
 
@@ -34,7 +34,7 @@ const PELO: Record<string, string> = {
 @Component({
   selector: 'app-ficha-perro-datos',
   standalone: true,
-  imports: [DatePipe, RsIconComponent, TraducirPipe],
+  imports: [FechaPipe, RsIconComponent, TraducirPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 @if (mostrar('general')) {
