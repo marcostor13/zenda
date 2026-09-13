@@ -7,6 +7,10 @@ export * from './enums/pago-pasarela.enum';
 export * from './enums/perro.enum';
 export * from './catalogos/tamanos-perro';
 export * from './catalogos/idiomas';
+// Poblaciones: normalización, catálogo y reconocimiento de variantes
+export * from './ubicaciones/normalizar-ubicacion';
+export * from './ubicaciones/municipios';
+export * from './ubicaciones/resolver-municipio';
 export * from './enums/servicio-clinico.enum';
 export * from './enums/historial.enum';
 export * from './enums/lugar.enum';

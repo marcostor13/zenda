@@ -9,6 +9,7 @@ import { Lugar, LugarDocument } from './lugar.schema';
 import { LugarReview, LugarReviewDocument } from './lugar-review.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { pareceObjectId, slugDeLugar, slugLibre } from './slug.util';
+import { condicionCiudadTexto } from '../../shared/filtro-ciudad';
 
 export interface BuscarLugaresParams {
   tipo?: TipoLugar;
@@ -51,7 +52,11 @@ export class LugaresService {
     const filtro: FilterQuery<LugarDocument> = { estado: EstadoModeracion.PUBLICADO };
 
     if (params.tipo) filtro.tipo = params.tipo;
-    if (params.ciudad) filtro['ubicacion.ciudad'] = regexLiteral(params.ciudad);
+    // Por variantes del nombre y no por el texto literal: quien busca en
+    // «Villareal» tiene que encontrar las fichas de «Vila-real».
+    if (params.ciudad) {
+      Object.assign(filtro, condicionCiudadTexto<LugarDocument>(params.ciudad, 'ubicacion.ciudad'));
+    }
     if (params.provincia) filtro['ubicacion.provincia'] = regexLiteral(params.provincia);
 
     if (params.lat != null && params.lng != null) {

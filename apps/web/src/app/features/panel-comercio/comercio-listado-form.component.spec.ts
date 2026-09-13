@@ -207,6 +207,29 @@ describe('ComercioListadoFormComponent', () => {
       expect(componente.tieneCoordenadas()).toBe(false);
     });
 
+    it('debería rellenar la provincia de la población elegida', async () => {
+      await crear('s1', {
+        vertical: VerticalKey.TRANSPORTE, titulo: 'DogVan', descripcion: 'Traslados con jaula',
+        ciudad: '', precioBase: 30, extra: {},
+      });
+
+      componente.guardarCoordenadas({ placeId: '', ciudad: 'Vila-real', lat: NaN, lng: NaN });
+
+      expect(componente.form.controls.provincia.value).toBe('Castellón');
+    });
+
+    it('no debería pisar la provincia que ya escribió el comercio', async () => {
+      await crear('s1', {
+        vertical: VerticalKey.TRANSPORTE, titulo: 'DogVan', descripcion: 'Traslados con jaula',
+        ciudad: 'Madrid', precioBase: 30, extra: {},
+      });
+      componente.form.controls.provincia.setValue('Comunidad de Madrid');
+
+      componente.guardarCoordenadas({ placeId: '', ciudad: 'Madrid', lat: NaN, lng: NaN });
+
+      expect(componente.form.controls.provincia.value).toBe('Comunidad de Madrid');
+    });
+
     it('debería reconocer un listado que ya venía geolocalizado', async () => {
       await crear('s1', {
         vertical: VerticalKey.TRANSPORTE, titulo: 'DogVan', descripcion: 'Traslados con jaula',

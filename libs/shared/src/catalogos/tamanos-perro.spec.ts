@@ -26,6 +26,7 @@ describe('nombreTamanoPerro / etiquetaTamanoPerro', () => {
   it('debería devolver el valor tal cual si no lo reconoce', () => {
     // Un dato antiguo se sigue leyendo en vez de desaparecer del mensaje.
     expect(nombreTamanoPerro('enorme')).toBe('enorme');
+    expect(etiquetaTamanoPerro('enorme')).toBe('enorme');
   });
 });
 

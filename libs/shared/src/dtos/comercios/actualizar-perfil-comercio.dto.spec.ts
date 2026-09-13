@@ -26,69 +26,25 @@ describe('ActualizarPerfilComercioDto', () => {
     });
   }
 
-  const documento = {
-    tipo: 'seguro_rc',
-    nombre: 'Póliza RC 2026',
-    url: 'https://cdn.doogking.com/doc.pdf',
-    fechaCaducidad: '2027-01-31',
-  };
-
-  describe('documentación para verificación', () => {
-    it('debería aceptar la lista de documentos', async () => {
-      // El servicio ya sabía tratarla, pero el DTO no la declaraba y el panel
-      // recibía 400 "property documentos should not exist" al guardar.
-      await expect(errores({ documentos: [documento] })).resolves.toEqual([]);
-    });
-
-    it('debería aceptar un documento sin nombre ni caducidad', async () => {
-      await expect(
-        errores({ documentos: [{ tipo: 'otro', url: 'https://cdn.doogking.com/x.pdf' }] }),
-      ).resolves.toEqual([]);
-    });
-
-    it('debería exigir la URL del documento', async () => {
-      const mensajes = await errores({ documentos: [{ tipo: 'otro' }] });
-
-      expect(mensajes.join(' ')).toContain('url');
-    });
-
-    it('debería rechazar un tipo de documento que no está en el catálogo', async () => {
-      const mensajes = await errores({ documentos: [{ ...documento, tipo: 'inventado' }] });
-
-      expect(mensajes.join(' ')).toContain('tipo');
-    });
-
-    it('no debería aceptar el estado del documento desde el cliente', async () => {
-      // Si lo aceptara, un comercio marcaría sus propios papeles como
-      // 'verificado' y se saltaría la revisión del administrador (HU J1).
-      const mensajes = await errores({
-        documentos: [{ ...documento, estado: 'verificado' }],
-      });
-
-      expect(mensajes.join(' ')).toContain('estado');
-    });
-
-    it('debería admitir una lista vacía para borrar toda la documentación', async () => {
-      await expect(errores({ documentos: [] })).resolves.toEqual([]);
-    });
-  });
+  /*
+   * Lo que el panel dejó de enviar y estas pruebas seguían dando por bueno:
+   * la documentación de verificación (retirada del alta) y la dirección, el
+   * horario y sus excepciones (el horario vive ahora en cada servicio, ver
+   * `mover-horario-a-servicios`). El DTO ya no declara ninguno de los cuatro,
+   * así que las pruebas llevaban desde entonces en rojo y se van con ellos.
+   */
 
   describe('secciones que guarda el panel de comercio', () => {
-    it('debería aceptar el perfil, la dirección y el contacto', async () => {
+    it('debería aceptar el perfil y el contacto', async () => {
       await expect(errores({
         nombreComercial: 'Residencia Royal',
         descripcion: 'Suites con jardín.',
-        direccion: { calle: 'Gran Via', numero: '1', ciudad: 'Valencia', lat: 39.47, lng: -0.37 },
         contacto: { nombreContacto: 'Ana', email: 'ana@royal.test', telefono: '600000000' },
       })).resolves.toEqual([]);
     });
 
-    it('debería aceptar horarios, excepciones y política de cancelación', async () => {
-      await expect(errores({
-        horario: [{ dia: 'lunes', abre: '09:00', cierra: '18:00', cerrado: false }],
-        excepcionesHorario: [{ fecha: '2026-12-25', cerrado: true }],
-        politicaCancelacion: 'flexible',
-      })).resolves.toEqual([]);
+    it('debería aceptar la política de cancelación', async () => {
+      await expect(errores({ politicaCancelacion: 'flexible' })).resolves.toEqual([]);
     });
 
     it('debería rechazar una política de cancelación desconocida', async () => {

@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { canonizarUbicacion, VerticalKey } from 'shared';
 import { Alojamiento, AlojamientoDocument, EspacioCanino } from './alojamiento.schema';
 
 const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000001');
@@ -147,7 +147,11 @@ export class AlojamientoSeeder implements OnModuleInit {
       titulo: d.titulo,
       descripcion: d.descripcion,
       imagenes: d.imagenes,
-      ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: d.coordenadas } },
+      // Con sus claves de búsqueda, como cualquier alta real (canonizarUbicacion).
+      ubicacion: {
+        ...canonizarUbicacion('Madrid'),
+        geo: { type: 'Point', coordinates: d.coordenadas },
+      },
       precioBase: d.precioBase,
       moneda: 'EUR',
       estado: 'publicado',

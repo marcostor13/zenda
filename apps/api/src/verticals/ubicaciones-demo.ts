@@ -8,6 +8,8 @@
  *
  * Las coordenadas van en el orden de GeoJSON: **[lng, lat]**.
  */
+import { canonizarUbicacion } from 'shared';
+
 export interface UbicacionDemo {
   readonly ciudad: string;
   readonly barrio: string;
@@ -133,13 +135,22 @@ export function ubicacionDemo(indice: number): UbicacionDemo {
 
 /** Los campos de ubicación tal y como los espera el documento `Servicio`. */
 export function ubicacionServicio(indice: number): {
-  ubicacion: { ciudad: string; geo: { type: 'Point'; coordinates: [number, number] } };
+  ubicacion: {
+    ciudad: string; ciudadNormalizada: string; ciudadClave: string; provincia?: string;
+    geo: { type: 'Point'; coordinates: [number, number] };
+  };
   direccion: string;
   barrio: string;
 } {
   const lugar = ubicacionDemo(indice);
   return {
-    ubicacion: { ciudad: lugar.ciudad, geo: { type: 'Point', coordinates: lugar.coordenadas } },
+    // Canonizada como la de cualquier alta: los seeders escriben con el modelo,
+    // sin pasar por el repositorio, y sin esto los listados de demostración
+    // nacerían sin las claves con las que busca el catálogo.
+    ubicacion: {
+      ...canonizarUbicacion(lugar.ciudad),
+      geo: { type: 'Point', coordinates: lugar.coordenadas },
+    },
     direccion: `${lugar.direccion}, ${lugar.ciudad}`,
     barrio: lugar.barrio,
   };

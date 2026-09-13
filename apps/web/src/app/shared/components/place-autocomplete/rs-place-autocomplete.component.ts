@@ -6,6 +6,7 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } fro
 import {
   CoordenadasLugar, DireccionLugar, GeoService, SugerenciaLugar, TipoLugar,
 } from '../../../core/geo/geo.service';
+import { claveUbicacion, coincideUbicacion, provinciaDe } from 'shared';
 import { CIUDADES_ES } from '../../catalogos/lugares.catalogo';
 import { RsIconComponent } from '../icon/rs-icon.component';
 
@@ -217,21 +218,30 @@ export class RsPlaceAutocompleteComponent implements ControlValueAccessor {
 
     const filtro = normalizar(this.texto());
     const casan = filtro
-      ? this.catalogoLocal().filter((c) => normalizar(c).includes(filtro))
+      // Por variantes del nombre, no por el texto tal cual: escribir «villareal»
+      // o «alacant» tiene que ofrecer «Vila-real» y «Alicante».
+      ? this.catalogoLocal().filter((c) => coincideUbicacion(c, filtro))
       : this.catalogoLocal().slice(0, this.sugerenciasIniciales());
 
     // Las que empiezan por lo escrito van primero: es lo que se está buscando.
+    const clave = claveUbicacion(filtro);
     const ordenadas = filtro
       ? [...casan].sort((a, b) =>
-          Number(normalizar(b).startsWith(filtro)) - Number(normalizar(a).startsWith(filtro)))
+          Number(claveUbicacion(b).startsWith(clave)) - Number(claveUbicacion(a).startsWith(clave)))
       : casan;
 
-    return ordenadas.slice(0, 8).map((nombre) => ({
-      placeId: `${ORIGEN_LOCAL}${nombre}`,
-      descripcion: nombre,
-      principal: nombre,
-      secundario: '',
-    }));
+    return ordenadas.slice(0, 8).map((nombre) => {
+      // La provincia distingue las poblaciones homónimas y confirma que la
+      // elegida es la que se buscaba. Salvo cuando se repite: este mismo campo
+      // sirve para elegir provincia, y ahí «Valencia · Valencia» sobra.
+      const provincia = provinciaDe(nombre);
+      return {
+        placeId: `${ORIGEN_LOCAL}${nombre}`,
+        descripcion: nombre,
+        principal: nombre,
+        secundario: provincia && provincia !== nombre ? provincia : '',
+      };
+    });
   });
 
   /** Catálogo local primero (instantáneo) y debajo lo que aporte Places. */

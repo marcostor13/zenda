@@ -31,6 +31,7 @@ import {
   INCLUYE_FUNERARIO,
   RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS,
 } from '../../shared/catalogos/tags.catalogo';
+import { provinciaDe } from 'shared';
 import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 import {
@@ -2635,6 +2636,20 @@ export class ComercioListadoFormComponent implements OnInit {
   }
 
   /**
+   * Rellena la provincia a partir de la población elegida, si estaba vacía.
+   *
+   * Es un campo opcional que casi nadie rellenaba, así que los listados se
+   * quedaban sin provincia y los filtros por zona se quedaban cojos. Sólo se
+   * escribe cuando está en blanco: la que haya puesto el comercio manda.
+   */
+  private completarProvincia(ciudad?: string): void {
+    if (!ciudad || this.form.controls.provincia.value?.trim()) return;
+
+    const provincia = provinciaDe(ciudad);
+    if (provincia) this.form.controls.provincia.setValue(provincia);
+  }
+
+  /**
    * Vuelca una dirección resuelta en el formulario **sin vaciar lo que ya
    * hubiera**: el geocodificador no siempre devuelve el número, y borrar un
    * "2ºB" que Google no conoce sería peor que dejarlo.
@@ -3426,6 +3441,8 @@ export class ComercioListadoFormComponent implements OnInit {
   }
 
   guardarCoordenadas(lugar: LugarElegido): void {
+    this.completarProvincia(lugar.ciudad);
+
     const valido = Number.isFinite(lugar.lat) && Number.isFinite(lugar.lng);
     if (!valido) { this.coordenadas.set(null); return; }
 

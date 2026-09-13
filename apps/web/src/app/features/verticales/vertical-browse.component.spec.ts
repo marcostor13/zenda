@@ -295,6 +295,30 @@ describe('VerticalBrowseComponent', () => {
     expect(badges).toContainEqual({ icon: 'crown', label: 'Premium', variant: 'warning' });
   });
 
+  describe('población buscada', () => {
+    it('debería enseñar el nombre canónico aunque se escriba de otra forma', async () => {
+      await crearComponente('peluqueria', { ciudad: 'villareal' });
+
+      expect(component.ciudadBuscada()).toBe('Vila-real');
+      expect(component.sufijoCiudad()).toBe(' en Vila-real');
+    });
+
+    it('debería respetar el texto de una población que no está en el catálogo', async () => {
+      await crearComponente('peluqueria', { ciudad: 'Riola' });
+
+      expect(component.ciudadBuscada()).toBe('Riola');
+    });
+
+    it('debería consultar al API con lo que escribió el usuario', async () => {
+      await crearComponente('peluqueria', { ciudad: 'villareal' });
+
+      expect(browseService.buscarPaginado).toHaveBeenCalledWith(
+        'peluqueria',
+        expect.objectContaining({ ciudad: 'villareal' }),
+      );
+    });
+  });
+
   describe('selector "¿Qué problema quieres resolver?" (PDF 27/07 §13)', () => {
     const conTipos = (id: string, tipos: string[]): ServicioCard =>
       ({ ...tarjeta({ tiposAdiestramiento: tipos }), id });

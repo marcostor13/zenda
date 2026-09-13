@@ -356,6 +356,61 @@ describe('RsPlaceAutocompleteComponent', () => {
       expect(componente.sinResultados()).toBe(false);
     }));
 
+  describe('variantes del nombre de la población', () => {
+    const nombres = (): string[] => componente.sugerencias().map((s) => s.principal);
+
+    it('debería ofrecer «Vila-real» a quien escribe «Villareal»', fakeAsync(() => {
+      crear(['Vila-real', 'Valencia']);
+
+      escribir('Villareal');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(nombres()).toContain('Vila-real');
+    }));
+
+    it('debería ofrecer «Alicante» a quien escribe su nombre oficial en valenciano', fakeAsync(() => {
+      crear(['Alicante', 'Almería']);
+
+      escribir('Alacant');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(nombres()).toContain('Alicante');
+    }));
+
+    it('debería encontrar la población escrita sin tildes', fakeAsync(() => {
+      crear(['Málaga', 'Madrid']);
+
+      escribir('malaga');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(nombres()).toContain('Málaga');
+      expect(nombres()).not.toContain('Madrid');
+    }));
+
+    it('debería enseñar la provincia junto a la población', fakeAsync(() => {
+      crear(['Vila-real']);
+
+      escribir('vila');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(componente.sugerencias()[0].secundario).toBe('Castellón');
+    }));
+
+    it('no debería repetir el nombre cuando el campo es de provincia', fakeAsync(() => {
+      crear(['Valencia']);
+
+      escribir('valen');
+      tick(300);
+      fixture.detectChanges();
+
+      expect(componente.sugerencias()[0].secundario).toBe('');
+    }));
+  });
+
     it('no debería avisar cuando sí hay sugerencias', fakeAsync(() => {
       crear();
 

@@ -1,7 +1,7 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { VerticalKey } from 'shared';
+import { resolverMunicipio, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { AnimateOnScrollDirective } from '../../shared/directives/animate-on-scroll.directive';
@@ -236,7 +236,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
     [conteosValoracion]="facetas()?.valoracion ?? []"
     [orden]="orden()"
     [contexto]="contextoBusqueda()"
-    [sufijoCiudad]="sufijoCiudad()" [ciudad]="busqueda().ciudad ?? ''"
+    [sufijoCiudad]="sufijoCiudad()" [ciudad]="ciudadBuscada()"
     [mapaAbierto]="mapaAbierto()"
     (filtrosCambio)="aplicarFiltros($event)"
     (ordenCambio)="cambiarOrden($event)"
@@ -297,7 +297,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
     </div>
 
     @if (!mapaAbierto()) {
-      <app-experiencias-cerca listadoDespues [ciudad]="busqueda().ciudad" />
+      <app-experiencias-cerca listadoDespues [ciudad]="ciudadBuscada() || undefined" />
     }
 
     @if (mapaAbierto()) {
@@ -483,8 +483,19 @@ export class VerticalBrowseComponent implements OnInit {
     return chips;
   });
 
-  readonly sufijoCiudad = computed(() => {
+  /**
+   * Población tal y como la escribe la plataforma, no como la tecleó quien
+   * busca: si se escribió «villareal», el listado y el título de Google dicen
+   * «Vila-real», que es el nombre con el que están dadas de alta las fichas.
+   */
+  readonly ciudadBuscada = computed(() => {
     const ciudad = this.busqueda().ciudad;
+    if (!ciudad) return '';
+    return resolverMunicipio(ciudad)?.municipio.nombre ?? ciudad;
+  });
+
+  readonly sufijoCiudad = computed(() => {
+    const ciudad = this.ciudadBuscada();
     return ciudad ? ` en ${ciudad}` : '';
   });
 
@@ -520,7 +531,7 @@ export class VerticalBrowseComponent implements OnInit {
       label: ui.label,
       descripcion: ui.descripcion,
       ruta: ui.route,
-      ciudad: this.busqueda().ciudad,
+      ciudad: this.ciudadBuscada() || undefined,
     }));
 
     const origen = this.seo.origenPublico();

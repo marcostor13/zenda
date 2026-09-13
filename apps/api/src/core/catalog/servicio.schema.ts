@@ -45,6 +45,18 @@ export class Servicio {
   @Prop({
     type: {
       ciudad: { type: String, required: true },
+      /**
+       * La misma población en la forma con la que se busca: sin tildes, en
+       * minúsculas y con la puntuación en espacios (`ciudadNormalizada`), y sin
+       * espacios ni artículo (`ciudadClave`).
+       *
+       * Están guardadas y no calculadas al vuelo porque el buscador compara
+       * contra ellas: un `$regex` que normalizase en tiempo de consulta no
+       * podría usar índice y recorrería la colección entera. Las escribe el
+       * repositorio en cada alta y edición (ver `canonizarUbicacion`).
+       */
+      ciudadNormalizada: { type: String },
+      ciudadClave: { type: String },
       calle: { type: String },
       numero: { type: String },
       provincia: { type: String },
@@ -58,6 +70,8 @@ export class Servicio {
   })
   ubicacion!: {
     ciudad: string;
+    ciudadNormalizada?: string;
+    ciudadClave?: string;
     calle?: string;
     numero?: string;
     provincia?: string;
@@ -135,3 +149,9 @@ ServicioSchema.index({
   estado: 1, comercioActivo: 1, vertical: 1, 'ubicacion.ciudad': 1, prioridadRanking: -1, precioBase: 1,
 });
 ServicioSchema.index({ 'ubicacion.geo': '2dsphere' }, { sparse: true });
+
+// El buscador filtra por la clave, no por el texto tal cual se escribió: sin
+// este índice, buscar por población pasaba a ser un recorrido completo.
+ServicioSchema.index({
+  estado: 1, comercioActivo: 1, vertical: 1, 'ubicacion.ciudadClave': 1, prioridadRanking: -1, precioBase: 1,
+});

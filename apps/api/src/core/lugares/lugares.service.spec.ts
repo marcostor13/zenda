@@ -77,6 +77,16 @@ describe('LugaresService', () => {
       expect(filtro['ubicacion.provincia']).toEqual(/Cádiz/i);
     });
 
+    it('debería encontrar la población aunque se escriba de otra forma', async () => {
+      // «Villareal» tiene que traer las fichas guardadas como «Vila-real»: es el
+      // mismo desajuste que dejaba comercios sin aparecer en el buscador.
+      await service.buscar({ ciudad: 'Villareal' });
+
+      const filtro = lugarModel.find.mock.calls[0][0] as Record<string, RegExp>;
+      expect(filtro['ubicacion.ciudad'].test('Vila-real')).toBe(true);
+      expect(filtro['ubicacion.ciudad'].test('Villarreal')).toBe(true);
+    });
+
     it('debería ordenar por cercanía cuando se dan coordenadas', async () => {
       await service.buscar({ lat: 36.5, lng: -6.2, radioKm: 10 });
 

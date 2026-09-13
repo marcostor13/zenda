@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
-import { MONEDA_DEFAULT, TamanoPerro, TipoPelo, regexLiteral, HorarioDiaDto, ExcepcionHorarioDto } from 'shared';
+import {
+  MONEDA_DEFAULT, TamanoPerro, TipoPelo, regexLiteral, HorarioDiaDto, ExcepcionHorarioDto,
+  canonizarUbicacion,
+} from 'shared';
+import { condicionCiudadGuardada } from '../../shared/filtro-ciudad';
 import { AptitudPerro, Servicio, ServicioDocument } from './servicio.schema';
 import { Alojamiento } from '../../verticals/alojamiento/alojamiento.schema';
 import { Transporte } from '../../verticals/transporte/transporte.schema';
@@ -385,10 +389,9 @@ export class CatalogRepository {
       titulo: data.titulo,
       descripcion: data.descripcion,
       ubicacion: {
-        ciudad: data.ciudad,
+        ...this.ubicacionCanonica(data.ciudad, data.provincia),
         calle: data.calle,
         numero: data.numero,
-        provincia: data.provincia,
         codigoPostal: data.codigoPostal,
         pais: data.pais,
         geo: this.aGeoJson(data.lat, data.lng),
@@ -417,9 +420,20 @@ export class CatalogRepository {
     const set: Record<string, unknown> = { ...data.extra };
     if (data.titulo !== undefined) set.titulo = data.titulo;
     if (data.descripcion !== undefined) set.descripcion = data.descripcion;
-    if (data.ciudad !== undefined) set['ubicacion.ciudad'] = data.ciudad;
-    for (const campo of ['calle', 'numero', 'provincia', 'codigoPostal', 'pais'] as const) {
+    if (data.ciudad !== undefined) {
+      const ubicacion = this.ubicacionCanonica(data.ciudad, data.provincia);
+      set['ubicacion.ciudad'] = ubicacion.ciudad;
+      set['ubicacion.ciudadNormalizada'] = ubicacion.ciudadNormalizada;
+      set['ubicacion.ciudadClave'] = ubicacion.ciudadClave;
+      set['ubicacion.provincia'] = ubicacion.provincia;
+    }
+    for (const campo of ['calle', 'numero', 'codigoPostal', 'pais'] as const) {
       if (data[campo] !== undefined) set[`ubicacion.${campo}`] = data[campo];
+    }
+    // La provincia ya la ha resuelto el bloque de arriba cuando venía la ciudad;
+    // suelta, sólo se escribe si el formulario la manda con contenido.
+    if (data.ciudad === undefined && data.provincia !== undefined) {
+      set['ubicacion.provincia'] = data.provincia;
     }
     if (data.horario !== undefined) set.horario = data.horario;
     if (data.excepcionesHorario !== undefined) set.excepcionesHorario = data.excepcionesHorario;
@@ -450,6 +464,35 @@ export class CatalogRepository {
     return { type: 'Point', coordinates: [lng as number, lat as number] };
   }
 
+  /**
+   * Ubicación tal y como se guarda: nombre canónico de la población, sus dos
+   * formas comparables y la provincia.
+   *
+   * Se hace aquí, en el único punto por el que pasan el alta y la edición, para
+   * que dé igual quién escriba: dos comercios de la misma población acaban con
+   * el mismo texto y, sobre todo, con la misma clave. Antes cada uno guardaba
+   * lo que tecleaba —«villa-real», «Villarreal», «VILA REAL»— y el buscador
+   * sólo encontraba al que hubiera escrito igual que quien buscaba.
+   *
+   * La provincia del formulario manda sobre la del catálogo: si el comercio la
+   * ha escrito, sabrá mejor que nosotros dónde está.
+   */
+  private ubicacionCanonica(ciudad: string, provincia?: string): {
+    ciudad: string; ciudadNormalizada: string; ciudadClave: string; provincia?: string;
+  } {
+    const canonica = canonizarUbicacion(ciudad);
+    return { ...canonica, provincia: provincia?.trim() || canonica.provincia };
+  }
+
+  /** Campos donde `servicios` guarda la población, en sus tres formas. */
+  private condicionCiudad(ciudad: string): FilterQuery<ServicioDocument> | null {
+    return condicionCiudadGuardada<ServicioDocument>(ciudad, {
+      clave: 'ubicacion.ciudadClave',
+      normalizada: 'ubicacion.ciudadNormalizada',
+      texto: 'ubicacion.ciudad',
+    });
+  }
+
   private modeloPorVertical(vertical: string): Model<ServicioDocument> {
     const mapa: Record<string, Model<ServicioDocument>> = {
       alojamiento: this.alojamientoModel,
@@ -468,16 +511,13 @@ export class CatalogRepository {
     const filtro: FilterQuery<ServicioDocument> = { estado: 'publicado', comercioActivo: true };
 
     if (params.vertical) filtro.vertical = params.vertical;
-    if (params.ciudad) filtro['ubicacion.ciudad'] = regexLiteral(params.ciudad);
+    const porCiudad = params.ciudad ? this.condicionCiudad(params.ciudad) : null;
 
     // La zona del mapa manda sobre la ciudad escrita: si el usuario arrastró el
     // mapa hasta otra comarca, quiere ver lo que hay ahí, no lo que casaba con
     // el texto que tecleó antes.
     const zona = this.condicionZona(params.bbox);
-    if (zona) {
-      delete filtro['ubicacion.ciudad'];
-      filtro['ubicacion.geo'] = zona;
-    }
+    if (zona) filtro['ubicacion.geo'] = zona;
 
     if (params.precioMin != null || params.precioMax != null) {
       filtro.precioBase = {};
@@ -498,6 +538,11 @@ export class CatalogRepository {
     }
 
     const condiciones = this.condicionesCompatibilidad(params.perfilPerro);
+
+    // Dentro de `$and` y no suelta en la raíz: la condición de población es un
+    // `$or` de varias formas de estar escrita, y en la raíz se pisaría con el
+    // `$or` de disponibilidad.
+    if (!zona && porCiudad) condiciones.push(porCiudad);
 
     const condicionDisponible = this.condicionDisponibilidad(params);
     if (condicionDisponible) condiciones.push(condicionDisponible);

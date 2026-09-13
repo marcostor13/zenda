@@ -15,6 +15,7 @@ describe('CatalogRepository', () => {
     estimatedDocumentCount: jest.Mock; aggregate: jest.Mock;
     findOne: jest.Mock; findByIdAndUpdate: jest.Mock; findOneAndUpdate: jest.Mock;
   };
+  let baseModelCtor: jest.Mock;
   let alojamientoModelCtor: jest.Mock;
   let transporteModelCtor: jest.Mock;
 
@@ -38,13 +39,17 @@ describe('CatalogRepository', () => {
     };
 
     const mockDoc = (datos: Record<string, unknown>) => ({ ...datos, save: jest.fn().mockResolvedValue(datos) });
+    // El modelo base es a la vez consulta y constructor: un vertical sin
+    // discriminador propio (seguros, funerarios…) guarda con él.
+    baseModelCtor = jest.fn().mockImplementation(mockDoc);
+    Object.assign(baseModelCtor, model);
     alojamientoModelCtor = jest.fn().mockImplementation(mockDoc);
     transporteModelCtor = jest.fn().mockImplementation(mockDoc);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         CatalogRepository,
-        { provide: getModelToken(Servicio.name), useValue: model },
+        { provide: getModelToken(Servicio.name), useValue: baseModelCtor },
         { provide: getModelToken(Alojamiento.name), useValue: alojamientoModelCtor },
         { provide: getModelToken(Transporte.name), useValue: transporteModelCtor },
         { provide: getModelToken(Veterinaria.name), useValue: jest.fn().mockImplementation(mockDoc) },
@@ -56,13 +61,20 @@ describe('CatalogRepository', () => {
     repository = moduleRef.get(CatalogRepository);
   });
 
-  it('debería filtrar por estado publicado, vertical, ciudad (regex) y rango de precio', async () => {
+  /** Condición de población: viaja dentro de `$and` como un `$or` de formas. */
+  const condicionCiudad = (): Record<string, unknown>[] => {
+    const filtro = model.find.mock.calls[0][0];
+    return (filtro.$and ?? []).find((c: Record<string, unknown>) => Array.isArray(c.$or)
+      && (c.$or as Record<string, unknown>[]).some((o) => 'ubicacion.ciudadClave' in o))?.$or ?? [];
+  };
+
+  it('debería filtrar por estado publicado, vertical, ciudad y rango de precio', async () => {
     await repository.buscar({ vertical: 'alojamiento', ciudad: 'Madrid', precioMin: 100, precioMax: 500, page: 1, limit: 10 });
 
     const filtro = model.find.mock.calls[0][0];
     expect(filtro.estado).toBe('publicado');
     expect(filtro.vertical).toBe('alojamiento');
-    expect(filtro['ubicacion.ciudad']).toBeInstanceOf(RegExp);
+    expect(condicionCiudad()).toContainEqual({ 'ubicacion.ciudadClave': { $in: ['madrid'] } });
     expect(filtro.precioBase).toEqual({ $gte: 100, $lte: 500 });
   });
 
@@ -83,14 +95,195 @@ describe('CatalogRepository', () => {
     expect(model.find.mock.calls[0][0].comercioActivo).toBe(true);
   });
 
-  it('debería tratar la ciudad como texto literal, no como patrón', () => {
+  it('debería tratar la ciudad como texto literal, no como patrón', async () => {
     // `?ciudad=(a+)+$` construía un RegExp con retroceso catastrófico desde un
     // endpoint público y sin sesión.
-    return repository.buscar({ ciudad: '(a+)+$', page: 1, limit: 10 }).then(() => {
-      const regex = model.find.mock.calls[0][0]['ubicacion.ciudad'] as RegExp;
-      expect(regex.test(`${'a'.repeat(40)}!`)).toBe(false);
-      expect(regex.source).toContain('\(');
+    await repository.buscar({ ciudad: '(a+)+$', page: 1, limit: 10 });
+
+    const regexes = condicionCiudad()
+      .flatMap((c) => Object.values(c))
+      .filter((v): v is RegExp => v instanceof RegExp);
+
+    // Ningún cuantificador vivo: todo lo que venga del usuario va escapado, y
+    // lo único sin escapar son los anclajes que pone el propio filtro.
+    expect(regexes.length).toBeGreaterThan(0);
+    regexes.forEach((regex) => expect(regex.source).not.toMatch(/[^\\]\+/));
+  });
+
+  describe('población escrita de otra forma (buscador del home)', () => {
+    /*
+     * El caso que lo destapó: un comercio dado de alta como «villa-real» no
+     * aparecía al buscar «Villareal». Ahora las dos formas se traducen a las
+     * mismas claves y la consulta las cubre todas.
+     */
+    it('debería buscar todas las variantes de una población del catálogo', async () => {
+      await repository.buscar({ ciudad: 'Villareal', page: 1, limit: 10 });
+
+      const claves = condicionCiudad()
+        .find((c) => '$in' in ((c['ubicacion.ciudadClave'] ?? {}) as object)) as
+        { 'ubicacion.ciudadClave': { $in: string[] } };
+
+      expect(claves['ubicacion.ciudadClave'].$in).toEqual(
+        expect.arrayContaining(['vilareal', 'villarreal', 'villareal']),
+      );
     });
+
+    it('debería encontrar la población escrita sin tildes', async () => {
+      await repository.buscar({ ciudad: 'malaga', page: 1, limit: 10 });
+
+      expect(condicionCiudad()).toContainEqual({ 'ubicacion.ciudadClave': { $in: ['malaga'] } });
+    });
+
+    it('debería reconocer el nombre oficial en otra lengua', async () => {
+      await repository.buscar({ ciudad: 'Elx', page: 1, limit: 10 });
+
+      expect(condicionCiudad()).toContainEqual({ 'ubicacion.ciudadClave': { $in: ['elche', 'elx'] } });
+    });
+
+    it('debería buscar por prefijo cuando la población no está en el catálogo', async () => {
+      await repository.buscar({ ciudad: 'Riola', page: 1, limit: 10 });
+
+      const porClave = condicionCiudad()[0]['ubicacion.ciudadClave'] as RegExp;
+      expect(porClave).toBeInstanceOf(RegExp);
+      expect(porClave.source).toBe('^riola');
+    });
+
+    it('debería exigir principio de palabra: «Vera» no puede sacar «Talavera»', async () => {
+      await repository.buscar({ ciudad: 'Vera', page: 1, limit: 10 });
+
+      const porTexto = condicionCiudad()
+        .map((c) => c['ubicacion.ciudadNormalizada'])
+        .find((v): v is RegExp => v instanceof RegExp);
+
+      expect(porTexto!.test('talavera de la reina')).toBe(false);
+      expect(porTexto!.test('vera')).toBe(true);
+    });
+
+    it('debería seguir encontrando lo anterior a la migración, que no tiene claves', async () => {
+      await repository.buscar({ ciudad: 'Madrid', page: 1, limit: 10 });
+
+      expect(condicionCiudad()).toContainEqual(expect.objectContaining({
+        'ubicacion.ciudadClave': { $exists: false },
+      }));
+    });
+
+    it('no debería filtrar por población cuando manda la zona del mapa', async () => {
+      await repository.buscar({
+        ciudad: 'Madrid', page: 1, limit: 10,
+        bbox: { swLat: 40, swLng: -4, neLat: 41, neLng: -3 },
+      });
+
+      expect(condicionCiudad()).toEqual([]);
+      expect(model.find.mock.calls[0][0]['ubicacion.geo']).toBeDefined();
+    });
+  });
+
+  describe('estandarización al guardar', () => {
+    it('debería guardar la población canonizada con sus claves y su provincia', async () => {
+      await repository.crear({
+        vertical: 'alojamiento', titulo: 'Suite', descripcion: 'desc', ciudad: 'villa-real',
+        precioBase: 40, imagenes: [], comercioId: '507f1f77bcf86cd799439011', comercioActivo: true,
+      } as never);
+
+      expect(alojamientoModelCtor.mock.calls[0][0].ubicacion).toEqual(expect.objectContaining({
+        ciudad: 'Vila-real',
+        ciudadNormalizada: 'vila real',
+        ciudadClave: 'vilareal',
+        provincia: 'Castellón',
+      }));
+    });
+
+    it('debería respetar la provincia que escribe el comercio', async () => {
+      await repository.crear({
+        vertical: 'alojamiento', titulo: 'Suite', descripcion: 'desc', ciudad: 'Villarreal',
+        provincia: 'Castelló', precioBase: 40, imagenes: [], comercioId: '507f1f77bcf86cd799439011',
+        comercioActivo: true,
+      } as never);
+
+      expect(alojamientoModelCtor.mock.calls[0][0].ubicacion.provincia).toBe('Castelló');
+    });
+
+    it('debería respetar el nombre de una población que no está en el catálogo', async () => {
+      await repository.crear({
+        vertical: 'alojamiento', titulo: 'Casa', descripcion: 'desc', ciudad: '  Riola ',
+        precioBase: 40, imagenes: [], comercioId: '507f1f77bcf86cd799439011', comercioActivo: true,
+      } as never);
+
+      expect(alojamientoModelCtor.mock.calls[0][0].ubicacion).toEqual(expect.objectContaining({
+        ciudad: 'Riola', ciudadClave: 'riola', provincia: undefined,
+      }));
+    });
+
+    it('debería guardar el horario y sus excepciones al editarlos', async () => {
+      await repository.actualizar('507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012', {
+        horario: [{ dia: 'lunes', abre: '09:00', cierra: '18:00', cerrado: false }] as never,
+        excepcionesHorario: [{ fecha: '2026-12-25', cerrado: true }] as never,
+      });
+
+      const set = model.findOneAndUpdate.mock.calls[0][1].$set;
+      expect(set.horario).toHaveLength(1);
+      expect(set.excepcionesHorario).toHaveLength(1);
+    });
+
+    it('debería usar el modelo base para un vertical sin discriminador propio', async () => {
+      // Los verticales nuevos (seguros, funerarios…) guardan con el esquema base
+      // hasta que tienen el suyo; sin el respaldo, crear su listado reventaba.
+      await repository.crear({
+        vertical: 'seguros', titulo: 'Póliza', descripcion: 'desc', ciudad: 'Madrid',
+        precioBase: 10, imagenes: [], comercioId: '507f1f77bcf86cd799439011', comercioActivo: true,
+      } as never);
+
+      expect(alojamientoModelCtor).not.toHaveBeenCalled();
+      expect(baseModelCtor).toHaveBeenCalledWith(expect.objectContaining({ vertical: 'seguros' }));
+    });
+
+    it('debería editar la calle sin tocar la población', async () => {
+      await repository.actualizar('507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012', {
+        calle: 'Gran Vía', numero: '31', codigoPostal: '46005', pais: 'España',
+      });
+
+      const set = model.findOneAndUpdate.mock.calls[0][1].$set;
+      expect(set['ubicacion.calle']).toBe('Gran Vía');
+      expect(set['ubicacion.ciudad']).toBeUndefined();
+      expect(set['ubicacion.ciudadClave']).toBeUndefined();
+    });
+
+    it('debería tomar la provincia del catálogo si el formulario la manda en blanco', async () => {
+      await repository.actualizar('507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012', {
+        ciudad: 'Vila-real', provincia: '   ',
+      });
+
+      expect(model.findOneAndUpdate.mock.calls[0][1].$set['ubicacion.provincia']).toBe('Castellón');
+    });
+
+    it('debería escribir la provincia suelta cuando la edición no toca la ciudad', async () => {
+      await repository.actualizar('507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012', { provincia: 'Castellón' });
+
+      expect(model.findOneAndUpdate.mock.calls[0][1].$set['ubicacion.provincia']).toBe('Castellón');
+    });
+
+    it('debería reescribir las claves al editar la población', async () => {
+      await repository.actualizar('507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012', { ciudad: 'ALACANT' });
+
+      const set = model.findOneAndUpdate.mock.calls[0][1].$set;
+      expect(set['ubicacion.ciudad']).toBe('Alicante');
+      expect(set['ubicacion.ciudadClave']).toBe('alicante');
+      expect(set['ubicacion.provincia']).toBe('Alicante');
+    });
+  });
+
+  it('debería descartar los servicios sin nota al pedir una valoración mínima', async () => {
+    // La media es 0 mientras nadie ha reseñado: colarlos en un filtro de «4+»
+    // sería enseñar como bien valorado lo que no tiene ni una reseña.
+    await repository.buscar({ page: 1, limit: 10, ratingMin: 4 });
+
+    expect(model.find.mock.calls[0][0].ratingPromedio).toEqual({ $gte: 4 });
+  });
+
+  it('debería exigir todos los amenities marcados, no cualquiera de ellos', async () => {
+    await repository.buscar({ page: 1, limit: 10, amenities: ['piscina', 'jardin'] });
+
+    expect(model.find.mock.calls[0][0].amenities).toEqual({ $all: ['piscina', 'jardin'] });
   });
 
   it('no debería añadir condiciones de compatibilidad si no se indica perfil de perro', async () => {
@@ -148,7 +341,9 @@ describe('CatalogRepository', () => {
       });
 
       expect(alojamientoModelCtor).toHaveBeenCalledWith(expect.objectContaining({
-        ubicacion: { ciudad: 'Madrid', geo: { type: 'Point', coordinates: [-3.7038, 40.4168] } },
+        ubicacion: expect.objectContaining({
+          ciudad: 'Madrid', geo: { type: 'Point', coordinates: [-3.7038, 40.4168] },
+        }),
       }));
     });
 
@@ -162,7 +357,7 @@ describe('CatalogRepository', () => {
 
       // Un punto a medias rompería el índice 2dsphere; mejor sin geolocalizar.
       expect(alojamientoModelCtor).toHaveBeenCalledWith(expect.objectContaining({
-        ubicacion: { ciudad: 'Cuenca', geo: undefined },
+        ubicacion: expect.objectContaining({ ciudad: 'Cuenca', geo: undefined }),
       }));
     });
 
@@ -215,7 +410,9 @@ describe('CatalogRepository', () => {
 
       const filtro = model.find.mock.calls[0][0];
       expect(filtro['ubicacion.geo']).toBeUndefined();
-      expect(filtro['ubicacion.ciudad']).toBeInstanceOf(RegExp);
+      // Sin zona utilizable manda la ciudad escrita, que si no dejaría la
+      // búsqueda sin ningún criterio de sitio.
+      expect(condicionCiudad()).toContainEqual({ 'ubicacion.ciudadClave': { $in: ['madrid'] } });
     });
 
     it('debería ignorar coordenadas fuera del rango terrestre', async () => {
