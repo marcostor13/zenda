@@ -66,6 +66,20 @@ describe('ReservasService', () => {
     await expect(promesa).resolves.toEqual({ soportado: true, dias: [] });
   });
 
+  it('debería pedir las citas libres del día sólo con los filtros que haya', async () => {
+    const respuesta = { soportado: true, estado: 'abierto', huecos: [] };
+    const completa = service.huecosDelDia({ servicioId: 's1', fecha: '2026-09-21', servicio: 'Baño', perroId: 'p1', cantidad: 2 });
+    const req = resolver('/reservas/huecos', respuesta);
+    expect(req.method).toBe('GET');
+    expect(req.params.keys().sort()).toEqual(['cantidad', 'fecha', 'perroId', 'servicio', 'servicioId']);
+    expect(req.params.get('cantidad')).toBe('2');
+    await expect(completa).resolves.toEqual(respuesta);
+
+    const minima = service.huecosDelDia({ servicioId: 's1', fecha: '2026-09-21', servicio: null });
+    expect(resolver('/reservas/huecos', respuesta).params.keys().sort()).toEqual(['fecha', 'servicioId']);
+    await minima;
+  });
+
   it('no debería mandar espacioId cuando no hay espacio elegido', async () => {
     const promesa = service.calendario({ servicioId: 's1', desde: '2026-09-01', hasta: '2026-09-30' });
 

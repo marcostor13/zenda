@@ -67,6 +67,8 @@ export class PeluqueriaAvailabilityStrategy implements AvailabilityStrategy {
         perros,
         ...(servicio ? { servicio: servicio.nombre } : {}),
         duracionMin,
+        // Mesas de trabajo: cuántos perros se atienden a la vez en la misma hora.
+        capacidadSimultanea: Math.max(1, peluqueria.capacidadSimultanea ?? 1),
       },
     };
   }

@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import type { HorarioDiaDto } from 'shared';
+import { partesEnZona, type HorarioDiaDto } from 'shared';
 import { RsHorarioPublicoComponent } from './rs-horario-publico.component';
 
 describe('RsHorarioPublicoComponent', () => {
@@ -80,7 +80,8 @@ describe('RsHorarioPublicoComponent', () => {
     it('debería señalar el día de hoy, que es el que se busca al abrir la ficha', async () => {
       await crear();
       const dias = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-      const hoy = dias[new Date().getDay()];
+      // El día de hoy es el del comercio (Madrid), no el del equipo que ejecuta el test.
+      const hoy = dias[partesEnZona(new Date()).diaSemana];
       // Cada día con su hora para que no se agrupen y quede una línea por día.
       fixture.componentRef.setInput('horario',
         dias.map((dia, i) => ({ dia, cerrado: false, abre: `0${i}:00`, cierra: '20:00' })));

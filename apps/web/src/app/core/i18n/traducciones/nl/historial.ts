@@ -160,6 +160,19 @@ const historial: Diccionario = {
   'Vacunas aplicadas': 'Toegediende vaccins',
   'Ver ficha completa': 'Volledig profiel bekijken',
   'Ver todo el historial': 'Volledige geschiedenis bekijken',
+  'Elige tu cita': 'Kies uw afspraak',
+  'Elige primero el día para ver las citas libres.': 'Kies eerst de dag om de vrije afspraken te zien.',
+  'Buscando citas libres…': 'Vrije afspraken zoeken…',
+  'No hemos podido cargar las citas. Escribe la hora que prefieras.': 'De afspraken konden niet worden geladen. Vul de gewenste tijd in.',
+  'No hay citas este día.': 'Er zijn geen afspraken op deze dag.',
+  'Prueba con otro día.': 'Probeer een andere dag.',
+  'No quedan citas libres este día. Prueba con otro día.': 'Er zijn geen vrije afspraken meer op deze dag. Probeer een andere dag.',
+  'Citas disponibles': 'Beschikbare afspraken',
+  'Ocupada': 'Bezet',
+  'Citas de {minutos} min.': 'Afspraken van {minutos} min.',
+  'Horario orientativo: el comercio aún no ha publicado el suyo.': 'Indicatieve tijden: het bedrijf heeft zijn openingstijden nog niet gepubliceerd.',
+  'El comercio no atiende ese día de la semana.': 'Het bedrijf is op die dag van de week gesloten.',
+  'Esa hora ya está reservada. Elige otra de las citas disponibles.': 'Dat tijdstip is al geboekt. Kies een andere beschikbare afspraak.',
 };
 
 export default historial;

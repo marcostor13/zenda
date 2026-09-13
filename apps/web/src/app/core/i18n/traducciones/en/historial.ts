@@ -160,6 +160,19 @@ const historial: Diccionario = {
   'Vacunas aplicadas': 'Vaccines given',
   'Ver ficha completa': 'View full profile',
   'Ver todo el historial': 'View full history',
+  'Elige tu cita': 'Choose your appointment',
+  'Elige primero el día para ver las citas libres.': 'Choose a day first to see the available appointments.',
+  'Buscando citas libres…': 'Looking for available appointments…',
+  'No hemos podido cargar las citas. Escribe la hora que prefieras.': 'We couldn’t load the appointments. Enter the time you prefer.',
+  'No hay citas este día.': 'There are no appointments on this day.',
+  'Prueba con otro día.': 'Try another day.',
+  'No quedan citas libres este día. Prueba con otro día.': 'No appointments left on this day. Try another day.',
+  'Citas disponibles': 'Available appointments',
+  'Ocupada': 'Taken',
+  'Citas de {minutos} min.': '{minutos}-min appointments.',
+  'Horario orientativo: el comercio aún no ha publicado el suyo.': 'Approximate hours: the business hasn’t published its opening hours yet.',
+  'El comercio no atiende ese día de la semana.': 'The business is closed on that day of the week.',
+  'Esa hora ya está reservada. Elige otra de las citas disponibles.': 'That time is already booked. Choose another available appointment.',
 };
 
 export default historial;

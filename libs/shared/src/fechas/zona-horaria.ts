@@ -159,6 +159,53 @@ export interface ComprobacionHorario {
   readonly motivo?: string;
 }
 
+/** Tramo abierto de un día, en minutos desde medianoche: `[540, 840]` = 9:00–14:00. */
+export type TramoMinutos = readonly [number, number];
+
+export type TramosDelDia =
+  /** El comercio no ha puesto horario (o ese día no tiene horas): no se puede saber. */
+  | { readonly estado: 'sin_horario' }
+  | { readonly estado: 'cerrado'; readonly motivo: string }
+  | { readonly estado: 'abierto'; readonly tramos: readonly TramoMinutos[] };
+
+/**
+ * Tramos en que atiende un servicio un día concreto (`YYYY-MM-DD` del comercio),
+ * con los días especiales por encima de la semana.
+ */
+export function tramosDelDia(
+  horario: readonly HorarioDiaDto[] | undefined,
+  excepciones: readonly ExcepcionHorarioDto[] | undefined,
+  clave: string,
+  zona = ZONA_HORARIA_PLATAFORMA,
+): TramosDelDia {
+  const excepcion = (excepciones ?? []).find((e) => e.fecha === clave);
+  if (excepcion) {
+    if (excepcion.cerrado) {
+      return { estado: 'cerrado', motivo: `El comercio cierra ese día${excepcion.motivo ? ` (${excepcion.motivo})` : ''}.` };
+    }
+    return aTramos([[excepcion.abre, excepcion.cierra]]);
+  }
+
+  const configurado = (horario ?? []).some((d) => d.cerrado || (d.abre && d.cierra));
+  if (!configurado) return { estado: 'sin_horario' };
+
+  const [anio, mes, dia] = clave.split('-').map(Number);
+  const diaSemana = partesEnZona(instanteEnZona({ anio, mes, dia, hora: 12 }, zona), zona).diaSemana;
+  const nombreDia = DIAS_SEMANA[(diaSemana + 6) % 7];
+  const delDia = (horario ?? []).find((d) => d.dia === nombreDia);
+  if (!delDia || delDia.cerrado) return { estado: 'cerrado', motivo: 'El comercio no atiende ese día de la semana.' };
+
+  return aTramos([[delDia.abre, delDia.cierra], [delDia.abre2, delDia.cierra2]]);
+}
+
+function aTramos(pares: Array<[string | undefined, string | undefined]>): TramosDelDia {
+  const tramos = pares
+    .filter((t): t is [string, string] => esHoraValida(t[0]) && esHoraValida(t[1]))
+    .map(([abre, cierra]) => [minutosDelDia(abre), minutosDelDia(cierra)] as const)
+    .filter(([abre, cierra]) => cierra > abre);
+  return tramos.length ? { estado: 'abierto', tramos } : { estado: 'sin_horario' };
+}
+
 /**
  * ¿Cae la cita dentro del horario del servicio, en la hora del comercio?
  *
@@ -174,41 +221,22 @@ export function comprobarHorario(
   zona = ZONA_HORARIA_PLATAFORMA,
 ): ComprobacionHorario {
   const clave = claveDiaEnZona(inicio, zona);
+  const dia = tramosDelDia(horario, excepciones, clave, zona);
+  if (dia.estado === 'sin_horario') return { permitido: true };
+  if (dia.estado === 'cerrado') return { permitido: false, motivo: dia.motivo };
+
   const desde = minutosDeInstante(inicio, zona);
   // Una cita que acaba justo a medianoche cuenta como fin del día, no como minuto 0.
   const hasta = claveDiaEnZona(fin, zona) === clave ? minutosDeInstante(fin, zona) : 24 * 60;
+  if (dia.tramos.some(([abre, cierra]) => desde >= abre && hasta <= cierra)) return { permitido: true };
 
-  const excepcion = (excepciones ?? []).find((e) => e.fecha === clave);
-  if (excepcion) {
-    if (excepcion.cerrado) {
-      return { permitido: false, motivo: `El comercio cierra ese día${excepcion.motivo ? ` (${excepcion.motivo})` : ''}.` };
-    }
-    return dentroDeTramos([[excepcion.abre, excepcion.cierra]], desde, hasta);
-  }
-
-  const configurado = (horario ?? []).some((d) => d.cerrado || (d.abre && d.cierra));
-  if (!configurado) return { permitido: true };
-
-  const nombreDia = DIAS_SEMANA[(partesEnZona(inicio, zona).diaSemana + 6) % 7];
-  const dia = (horario ?? []).find((d) => d.dia === nombreDia);
-  if (!dia || dia.cerrado) return { permitido: false, motivo: 'El comercio no atiende ese día de la semana.' };
-
-  return dentroDeTramos([[dia.abre, dia.cierra], [dia.abre2, dia.cierra2]], desde, hasta);
+  const horas = dia.tramos.map(([abre, cierra]) => `${horaDeMinutos(abre)}–${horaDeMinutos(cierra)}`).join(' y ');
+  return { permitido: false, motivo: `Esa hora está fuera del horario del comercio (${horas}).` };
 }
 
-function dentroDeTramos(
-  tramos: Array<[string | undefined, string | undefined]>,
-  desde: number,
-  hasta: number,
-): ComprobacionHorario {
-  const validos = tramos.filter((t): t is [string, string] => esHoraValida(t[0]) && esHoraValida(t[1]));
-  if (!validos.length) return { permitido: true };
-
-  const cabe = validos.some(([abre, cierra]) => desde >= minutosDelDia(abre) && hasta <= minutosDelDia(cierra));
-  if (cabe) return { permitido: true };
-
-  const horas = validos.map(([abre, cierra]) => `${abre}–${cierra}`).join(' y ');
-  return { permitido: false, motivo: `Esa hora está fuera del horario del comercio (${horas}).` };
+/** `540` → `09:00`. */
+export function horaDeMinutos(minutos: number): string {
+  return `${dosCifras(Math.floor(minutos / 60))}:${dosCifras(minutos % 60)}`;
 }
 
 function minutosDeInstante(instante: Date, zona: string): number {

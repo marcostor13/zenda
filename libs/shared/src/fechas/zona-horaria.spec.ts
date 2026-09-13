@@ -1,6 +1,6 @@
 import {
   claveDiaEnZona, comprobarHorario, desfaseIso, desfaseMinutos, esMedianocheUtc, fechaYHoraEnZona,
-  horaEnZona, instanteEnZona, parsearFechaPlataforma, partesEnZona,
+  horaDeMinutos, horaEnZona, instanteEnZona, parsearFechaPlataforma, partesEnZona, tramosDelDia,
 } from './zona-horaria';
 import { horarioSemanal } from '../dtos/comunes/horario.dto';
 
@@ -51,6 +51,31 @@ describe('zona horaria de la plataforma', () => {
     it('debería respetar el instante si trae zona', () => {
       expect(parsearFechaPlataforma('2026-09-20T10:00:00Z').toISOString()).toBe('2026-09-20T10:00:00.000Z');
       expect(parsearFechaPlataforma('2026-09-20T10:00:00+02:00').toISOString()).toBe('2026-09-20T08:00:00.000Z');
+    });
+  });
+
+  describe('tramosDelDia', () => {
+    const horario = horarioSemanal(
+      { dias: ['lunes'], abre: '09:00', cierra: '14:00', abre2: '16:00', cierra2: '20:00' },
+      { dias: ['martes'], abre: '10:00', cierra: '09:00' },
+    );
+
+    it('debería dar los dos tramos del día en minutos', () => {
+      expect(tramosDelDia(horario, [], '2026-09-21')).toEqual({ estado: 'abierto', tramos: [[540, 840], [960, 1200]] });
+      expect(horaDeMinutos(960)).toBe('16:00');
+    });
+
+    it('debería dar prioridad a los días especiales', () => {
+      expect(tramosDelDia(horario, [{ fecha: '2026-09-21', cerrado: false, abre: '11:00', cierra: '12:00' }], '2026-09-21'))
+        .toEqual({ estado: 'abierto', tramos: [[660, 720]] });
+      expect(tramosDelDia(horario, [{ fecha: '2026-09-21', cerrado: true }], '2026-09-21'))
+        .toEqual({ estado: 'cerrado', motivo: 'El comercio cierra ese día.' });
+    });
+
+    it('debería distinguir un día cerrado de un horario sin rellenar o con horas imposibles', () => {
+      expect(tramosDelDia(horario, [], '2026-09-23').estado).toBe('cerrado');
+      expect(tramosDelDia(horario, [], '2026-09-22')).toEqual({ estado: 'sin_horario' });
+      expect(tramosDelDia(undefined, undefined, '2026-09-21')).toEqual({ estado: 'sin_horario' });
     });
   });
 

@@ -62,7 +62,24 @@ hora de pared (correcto en los cambios de hora), `parsearFechaPlataforma`,
 - Web: `fecha.pipe.spec`, `fechas.spec`, specs del asistente y la agenda.
 - Playwright: `e2e/horarios-zona.spec.ts` con el navegador en `America/Lima`.
 
-## 5. Queda fuera (anotado)
-- Las estrategias de cita siguen contando **cupos diarios**, no solapes por hora: dos clientes
-  pueden coger la misma hora si quedan cupos. Resolverlo es un motor de huecos por servicio.
+## 5. Elegir cita entre las libres (2026-09-13)
+El cliente ya no escribe la hora: elige una de las citas libres del día.
+- **Motor de huecos** (`core/bookings/huecos.util.ts` + `huecos.service.ts`): tramos del día
+  (`tramosDelDia` en shared, con días especiales; sin horario, 9:00–20:00 orientativo), duración
+  que da la estrategia del vertical (`metadata.duracionMin` × perros), paso de 30 min (15 si la
+  cita dura menos de 30), plazas a la vez (`metadata.capacidadSimultanea`: mesas de la
+  peluquería; 1 en veterinaria), reservas vivas del servicio y bloqueos (total o parcial).
+- **Endpoint** `GET /reservas/huecos?servicioId&fecha&servicio&perroId&cantidad`, con sesión
+  opcional (`HuecosController`, registrado antes de `BookingsController` por `GET reservas/:id`).
+- **Doble reserva**: `crear` responde 409 y la comprobación previa `disponible:false` si la hora
+  ya no tiene plaza.
+- **Web**: `SelectorCitasComponent` (control de formulario, valor `HH:mm`) en veterinaria y
+  peluquería, después del servicio porque su duración decide qué horas caben. Si el servicio no
+  va por citas o la consulta falla, vuelve al campo de hora.
+- Pruebas: `huecos.util.spec`, `huecos.service.spec`, `huecos.controller.spec`,
+  `bookings.service.spec`, `test/huecos-citas.e2e-spec.ts`, `selector-citas.component.spec`,
+  `e2e/citas-libres.spec.ts`.
+
+## 6. Queda fuera (anotado)
+- La recurrencia no revalida cada ocurrencia contra los huecos (ya no lo hacía con los cupos).
 - Adiestramiento reserva por día (sin hora), así que en la agenda sigue ocupando el día.

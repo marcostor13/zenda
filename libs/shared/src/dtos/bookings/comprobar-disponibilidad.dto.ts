@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsInt, IsDateString, Min, IsEnum, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsDateString, Min, IsEnum, IsObject, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
 
 /**
@@ -83,4 +84,52 @@ export interface CalendarioDisponibilidadRespuestaApi {
   /** false = este vertical no se reserva por rango de fechas y no tiene calendario. */
   soportado: boolean;
   dias: DiaCalendarioApi[];
+}
+
+/**
+ * Citas libres de un servicio un día concreto. El cliente elige una de ellas en
+ * lugar de escribir la hora a ciegas.
+ */
+export class HuecosDelDiaDto {
+  @IsString()
+  servicioId!: string;
+
+  /** Día del comercio, `YYYY-MM-DD`. */
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  fecha!: string;
+
+  /** Servicio concreto (vacunación, baño…): cambia la duración de la cita. */
+  @IsOptional()
+  @IsString()
+  servicio?: string;
+
+  @IsOptional()
+  @IsString()
+  perroId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cantidad?: number;
+}
+
+export interface HuecoCitaApi {
+  /** `HH:mm` en hora del comercio. */
+  hora: string;
+  /** Instante ISO del inicio. */
+  inicio: string;
+  disponible: boolean;
+}
+
+export type EstadoHuecosDia = 'abierto' | 'cerrado' | 'sin_horario';
+
+export interface HuecosDelDiaRespuestaApi {
+  /** false = este servicio no se reserva por citas con hora. */
+  soportado: boolean;
+  estado: EstadoHuecosDia;
+  /** Por qué no hay citas ese día (cerrado, festivo…). */
+  motivo?: string;
+  duracionMin?: number;
+  huecos: HuecoCitaApi[];
 }

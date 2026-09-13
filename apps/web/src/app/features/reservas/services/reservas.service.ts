@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import type { CalendarioDisponibilidadRespuestaApi } from 'shared';
+import type { CalendarioDisponibilidadRespuestaApi, HuecosDelDiaRespuestaApi } from 'shared';
 import { environment } from '../../../../environments/environment';
 
 export interface RecurrenciaPayload {
@@ -22,6 +22,14 @@ export interface CrearReservaPayload {
   cuponCodigo?: string;
   /** Trayectos recurrentes (Ref. TRA3): genera reservas hijas para cada ocurrencia. */
   recurrencia?: RecurrenciaPayload;
+}
+
+export interface ConsultaHuecos {
+  servicioId: string;
+  fecha: string;
+  servicio?: string | null;
+  perroId?: string | null;
+  cantidad?: number;
 }
 
 /** Consulta de disponibilidad: los mismos datos de la reserva menos cupón y recurrencia. */
@@ -143,6 +151,20 @@ export class ReservasService {
     return firstValueFrom(
       this.http.get<CalendarioApi>(`${this.base}/disponibilidad/calendario`, { params }),
     );
+  }
+
+  /**
+   * Citas libres de un servicio un día (`YYYY-MM-DD`), para que el cliente
+   * elija una. `soportado: false` = ese servicio no se reserva por citas.
+   */
+  huecosDelDia(consulta: ConsultaHuecos): Promise<HuecosDelDiaRespuestaApi> {
+    const params: Record<string, string> = {
+      servicioId: consulta.servicioId, fecha: consulta.fecha,
+      ...(consulta.servicio ? { servicio: consulta.servicio } : {}),
+      ...(consulta.perroId ? { perroId: consulta.perroId } : {}),
+      ...(consulta.cantidad ? { cantidad: String(consulta.cantidad) } : {}),
+    };
+    return firstValueFrom(this.http.get<HuecosDelDiaRespuestaApi>(`${this.base}/huecos`, { params }));
   }
 
   misReservas(): Promise<ReservaApi[]> {

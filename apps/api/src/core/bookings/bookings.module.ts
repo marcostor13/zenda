@@ -4,6 +4,8 @@ import { Reserva, ReservaSchema } from './reserva.schema';
 import { Pago, PagoSchema } from '../payments/pago.schema';
 import { BookingsService } from './bookings.service';
 import { ReservasCaducidadService } from './reservas-caducidad.service';
+import { HuecosService } from './huecos.service';
+import { HuecosController } from './huecos.controller';
 import { BookingsController } from './bookings.controller';
 import { AvailabilityModule } from '../availability/availability.module';
 import { CatalogModule } from '../catalog/catalog.module';
@@ -33,8 +35,9 @@ import { BloqueosModule } from '../bloqueos/bloqueos.module';
     // Lo que el comercio cierra a mano manda sobre los cupos del vertical.
     BloqueosModule,
   ],
-  controllers: [BookingsController],
-  providers: [BookingsService, ReservasCaducidadService],
+  // Huecos primero: si no, `GET reservas/:id` (con sesión obligatoria) se quedaría la ruta.
+  controllers: [HuecosController, BookingsController],
+  providers: [BookingsService, ReservasCaducidadService, HuecosService],
   exports: [BookingsService, ReservasCaducidadService, MongooseModule],
 })
 export class BookingsModule {}

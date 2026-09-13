@@ -9,7 +9,7 @@ import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
 /** Una reserva en estos estados sigue ocupando el hueco en la agenda. */
-const ESTADOS_VIVOS: ReservaEstado[] = [
+export const ESTADOS_VIVOS: ReservaEstado[] = [
   ReservaEstado.PENDIENTE,
   ReservaEstado.CONFIRMADA,
   ReservaEstado.AJUSTE_SOLICITADO,

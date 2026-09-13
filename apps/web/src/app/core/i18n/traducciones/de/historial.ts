@@ -160,6 +160,19 @@ const historial: Diccionario = {
   'Vacunas aplicadas': 'Verabreichte Impfungen',
   'Ver ficha completa': 'Vollständiges Profil ansehen',
   'Ver todo el historial': 'Gesamte Historie ansehen',
+  'Elige tu cita': 'Wählen Sie Ihren Termin',
+  'Elige primero el día para ver las citas libres.': 'Wählen Sie zuerst den Tag, um freie Termine zu sehen.',
+  'Buscando citas libres…': 'Freie Termine werden gesucht…',
+  'No hemos podido cargar las citas. Escribe la hora que prefieras.': 'Die Termine konnten nicht geladen werden. Geben Sie Ihre Wunschzeit ein.',
+  'No hay citas este día.': 'An diesem Tag gibt es keine Termine.',
+  'Prueba con otro día.': 'Versuchen Sie einen anderen Tag.',
+  'No quedan citas libres este día. Prueba con otro día.': 'An diesem Tag sind keine Termine mehr frei. Versuchen Sie einen anderen Tag.',
+  'Citas disponibles': 'Verfügbare Termine',
+  'Ocupada': 'Belegt',
+  'Citas de {minutos} min.': 'Termine von {minutos} Min.',
+  'Horario orientativo: el comercio aún no ha publicado el suyo.': 'Richtwerte: Das Unternehmen hat seine Öffnungszeiten noch nicht veröffentlicht.',
+  'El comercio no atiende ese día de la semana.': 'Das Unternehmen hat an diesem Wochentag geschlossen.',
+  'Esa hora ya está reservada. Elige otra de las citas disponibles.': 'Diese Uhrzeit ist bereits gebucht. Wählen Sie einen anderen freien Termin.',
 };
 
 export default historial;

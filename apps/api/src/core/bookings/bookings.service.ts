@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Reserva, ReservaDocument, SuplementoAplicado } from './reserva.schema';
 import { conHoraReal } from './momento-reserva.util';
+import { HuecosService, ServicioConCitas } from './huecos.service';
 import { AvailabilityRegistry } from '../availability/availability.registry';
 import { DiaCalendario, implementaCalendario } from '../availability/availability.strategy';
 import { CatalogRepository } from '../catalog/catalog.repository';
@@ -16,7 +17,7 @@ import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
   VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento,
-  DisponibilidadRespuesta, ExcepcionHorarioDto, HorarioDiaDto, claveDiaEnZona, comprobarHorario,
+  DisponibilidadRespuesta, ExcepcionHorarioDto, HuecosDelDiaRespuestaApi, HorarioDiaDto, claveDiaEnZona, comprobarHorario,
   esHoraValida, esMedianocheUtc, fechaYHoraEnZona, instanteEnZona, partesEnZona,
 } from 'shared';
 import { nanoid } from 'nanoid';
@@ -71,6 +72,8 @@ export interface CrearReservaParams {
 
 const MAX_OCURRENCIAS_RECURRENCIA = 52;
 
+const MOTIVO_HORA_OCUPADA = 'Esa hora ya está reservada. Elige otra de las citas disponibles.';
+
 /** Días como mucho por consulta de calendario: el cliente pide de mes en mes. */
 const MAX_DIAS_CALENDARIO = 120;
 
@@ -80,6 +83,17 @@ export interface CalendarioDisponibilidadParams {
   desde: Date;
   hasta: Date;
   espacioId?: string;
+}
+
+export interface HuecosDelDiaParams {
+  /** Sin sesión también se pueden ver las citas: el asistente admite invitados. */
+  usuarioId?: string;
+  servicioId: string;
+  /** Día del comercio, `YYYY-MM-DD`. */
+  fecha: string;
+  perroId?: string;
+  cantidad?: number;
+  detalle?: Record<string, unknown>;
 }
 
 export interface CalendarioDisponibilidadRespuesta {
@@ -124,6 +138,7 @@ export class BookingsService {
     private readonly comisionResolver: ComisionResolverService,
     private readonly eventosService: EventosService,
     private readonly bloqueosService: BloqueosService,
+    private readonly huecosService: HuecosService,
   ) {}
 
   /**
@@ -157,11 +172,13 @@ export class BookingsService {
         parametrosExtra: this.construirParametrosExtra(params.detalle, perroSnapshot),
       });
 
-      const horario = this.comprobarHorarioDeCita(
-        servicio, this.momentoDe(fechaInicio, params.fechaFin, resultado.metadata, params.cantidad),
-      );
+      const momento = this.momentoDe(fechaInicio, params.fechaFin, resultado.metadata, params.cantidad);
+      const horario = this.comprobarHorarioDeCita(servicio, momento);
       if (resultado.disponible && !horario.permitido) {
         return { disponible: false, motivo: horario.motivo, capacidadRestante: resultado.capacidadRestante };
+      }
+      if (resultado.disponible && !(await this.quedaPlazaParaLaCita(params.servicioId, servicio, momento, resultado.metadata))) {
+        return { disponible: false, motivo: MOTIVO_HORA_OCUPADA, capacidadRestante: resultado.capacidadRestante };
       }
 
       if (resultado.disponible) {
@@ -187,6 +204,44 @@ export class BookingsService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Citas que se pueden coger un día, para que el cliente elija una en vez de
+   * escribir una hora sin saber cuáles quedan libres.
+   *
+   * La duración la dice la estrategia del vertical (según el servicio y el
+   * tamaño del perro); si no la da, ese vertical no se reserva por citas.
+   */
+  async huecosDelDia(params: HuecosDelDiaParams): Promise<HuecosDelDiaRespuestaApi> {
+    const servicio = await this.resolverServicio(params);
+    const estrategia = this.availabilityRegistry.obtener(servicio.vertical);
+    const perroSnapshot = params.perroId && params.usuarioId
+      ? construirSnapshotPerro(await this.perrosService.obtenerPropio(params.perroId, params.usuarioId))
+      : undefined;
+
+    let resultado;
+    try {
+      resultado = await estrategia.checkAvailability(params.servicioId, {
+        fechaInicio: fechaYHoraEnZona(params.fecha, '12:00'),
+        cantidad: params.cantidad ?? 1,
+        parametrosExtra: this.construirParametrosExtra(params.detalle, perroSnapshot),
+      });
+    } catch (error) {
+      if (error instanceof DomainException && error.statusCode === 409) {
+        return { soportado: true, estado: 'cerrado', motivo: error.message, huecos: [] };
+      }
+      throw error;
+    }
+
+    if (!resultado.disponible) {
+      return { soportado: true, estado: 'cerrado', motivo: resultado.motivo, huecos: [] };
+    }
+    const momento = this.momentoDe(fechaYHoraEnZona(params.fecha, '12:00'), undefined, resultado.metadata, params.cantidad);
+    if (!momento.duracionMin) return { soportado: false, estado: 'sin_horario', huecos: [] };
+
+    const conCitas = this.servicioConCitas(params.servicioId, servicio, momento.duracionMin, resultado.metadata);
+    return this.huecosService.huecosDelDia(conCitas, params.fecha);
   }
 
   /**
@@ -283,6 +338,10 @@ export class BookingsService {
     const horario = this.comprobarHorarioDeCita(servicio, momento);
     if (!horario.permitido) {
       throw new DomainException(horario.motivo ?? 'Esa hora está fuera del horario del comercio.', 409);
+    }
+    // Sin esto dos clientes podían coger la misma hora: los cupos son del día.
+    if (!(await this.quedaPlazaParaLaCita(params.servicioId, servicio, momento, disponibilidad.metadata))) {
+      throw new DomainException(MOTIVO_HORA_OCUPADA, 409);
     }
 
     const hold = await estrategia.reserveSlot(params.servicioId, {
@@ -466,6 +525,33 @@ export class BookingsService {
   private comprobarHorarioDeCita(servicio: ServicioResuelto, momento: MomentoReserva): { permitido: boolean; motivo?: string } {
     if (!momento.esCita || !momento.fin) return { permitido: true };
     return comprobarHorario(servicio.horario, servicio.excepcionesHorario, momento.inicio, momento.fin);
+  }
+
+  private async quedaPlazaParaLaCita(
+    servicioId: string,
+    servicio: ServicioResuelto,
+    momento: MomentoReserva,
+    metadata: Record<string, unknown> | undefined,
+  ): Promise<boolean> {
+    if (!momento.esCita || !momento.fin || !momento.duracionMin) return true;
+    const conCitas = this.servicioConCitas(servicioId, servicio, momento.duracionMin, metadata);
+    return this.huecosService.hayPlaza(conCitas, momento.inicio, momento.fin);
+  }
+
+  private servicioConCitas(
+    servicioId: string,
+    servicio: ServicioResuelto,
+    duracionMin: number,
+    metadata: Record<string, unknown> | undefined,
+  ): ServicioConCitas {
+    return {
+      servicioId,
+      comercioId: servicio.comercioId,
+      horario: servicio.horario,
+      excepcionesHorario: servicio.excepcionesHorario,
+      duracionMin,
+      capacidad: Math.max(1, Number(metadata?.['capacidadSimultanea']) || 1),
+    };
   }
 
   private detalleConDuracion(detalle: Record<string, unknown> | undefined, momento: MomentoReserva): Record<string, unknown> {

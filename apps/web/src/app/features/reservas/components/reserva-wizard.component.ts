@@ -32,6 +32,7 @@ import { GeoService } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService } from '../services/reservas.service';
+import { SelectorCitasComponent } from './selector-citas.component';
 import { PaymentsService } from '../services/payments.service';
 import { PagoEnCursoService } from '../services/pago-en-curso.service';
 import { CuponesService } from '../services/cupones.service';
@@ -148,7 +149,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   standalone: true,
   imports: [
     TraducirPipe, RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
-    RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe, EurosFijosPipe,
+    RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe, EurosFijosPipe, SelectorCitasComponent,
   ],
   template: `
 <div class="wizard-page">
@@ -476,15 +477,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <!-- ── VETERINARIA ── -->
             @if (vertical() === 'veterinaria') {
               <form [formGroup]="paso1VeterinariaForm">
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Fecha de la cita' | t }}</label>
-                    <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Hora de la cita' | t }}</label>
-                    <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
-                  </div>
+                <div class="rs-field">
+                  <label class="rs-lbl" for="fecha-cita-vet">{{ 'Fecha de la cita' | t }}</label>
+                  <input id="fecha-cita-vet" formControlName="fecha" type="date" class="rs-inp rs-inp--lg" [min]="hoy" />
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">{{ 'Servicio (opcional)' | t }}</label>
@@ -512,6 +507,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </select>
                     <span class="rs-field-hint">{{ 'El precio final puede variar según el servicio clínico' | t }}</span>
                   }
+                </div>
+                <div class="rs-field">
+                  <span class="rs-lbl">{{ 'Elige tu cita' | t }}</span>
+                  <dk-selector-citas formControlName="hora" data-testid="selector-citas"
+                    [servicioId]="servicioId" [fecha]="paso1VeterinariaForm.value.fecha"
+                    [servicio]="paso1VeterinariaForm.value.servicio" [perroId]="perroSeleccionado()" />
                 </div>
 
                 <div class="form-row">
@@ -551,15 +552,9 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <!-- ── PELUQUERÍA CANINA ── -->
             @if (vertical() === 'peluqueria') {
               <form [formGroup]="paso1PeluqueriaForm">
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Fecha de la cita' | t }}</label>
-                    <input formControlName="fecha" type="date" class="rs-inp rs-inp--lg" />
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Hora de la cita' | t }}</label>
-                    <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
-                  </div>
+                <div class="rs-field">
+                  <label class="rs-lbl" for="fecha-cita-pelu">{{ 'Fecha de la cita' | t }}</label>
+                  <input id="fecha-cita-pelu" formControlName="fecha" type="date" class="rs-inp rs-inp--lg" [min]="hoy" />
                 </div>
                 <div class="rs-field">
                   <label class="rs-lbl">{{ 'Servicio de grooming' | t }}</label>
@@ -586,6 +581,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 @if (duracionGroomingElegida(); as minutos) {
                   <p class="rs-field-hint">⏱ Duración aproximada: {{ minutos }} min</p>
                 }
+                <!-- Después del servicio: su duración decide qué horas caben. -->
+                <div class="rs-field">
+                  <span class="rs-lbl">{{ 'Elige tu cita' | t }}</span>
+                  <dk-selector-citas formControlName="hora" data-testid="selector-citas"
+                    [servicioId]="servicioId" [fecha]="paso1PeluqueriaForm.value.fecha"
+                    [servicio]="paso1PeluqueriaForm.value.servicio" [perroId]="perroSeleccionado()" />
+                </div>
 
                 @if (politicaTemperamentoLabel(); as texto) {
                   <div class="rs-alert rs-alert--info"><rs-icon name="paw" [size]="15" [stroke]="2" /> {{ texto }}</div>
@@ -1945,7 +1947,9 @@ export class ReservaWizardComponent implements OnInit {
   private clientSecret: string | null = null;
   /** Pago abierto para esta reserva; con él se pregunta a la pasarela cómo quedó. */
   private pagoId: string | null = null;
-  private servicioId?: string;
+  protected servicioId?: string;
+  /** Primer día que se puede elegir para una cita: hoy en hora del comercio. */
+  protected readonly hoy = claveDiaEnZona(new Date());
   private comercioId?: string;
   private espacioId: string | null = null;
   /**
