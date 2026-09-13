@@ -1,8 +1,8 @@
-import { AdminApiService, ComercioAdmin, ResumenComercios, FichaComercio, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
+import { AdminApiService, ComercioAdmin, ResumenComercios, CrearComercioDto, ActualizarComercioDto } from './admin-api.service';
 import { Component, OnInit, HostListener, inject, signal, computed } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom, debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ImpactoBajaComercioDto, MOTIVOS_BAJA_COMERCIO, MotivoBajaComercio, VerticalKey, VERTICAL_LABELS } from 'shared';
@@ -125,11 +125,14 @@ const LIMITE = 20;
         }
       } @else {
         @for (c of comerciosFiltrados(); track c._id) {
-          <div class="tbl-row">
+          <!-- Toda la fila lleva a la ficha; el nombre es además un enlace de
+               verdad, para el teclado y para abrirlo en otra pestaña. -->
+          <div class="tbl-row tbl-row--enlace" (click)="abrirDetalle(c)">
             <div class="comercio-cell">
               <div class="comercio-avatar">{{ c.nombreComercial[0]?.toUpperCase() ?? 'C' }}</div>
               <div>
-                <div class="cell-primary">{{ c.nombreComercial }}</div>
+                <a class="cell-primary cell-enlace" [routerLink]="['/admin/comercios', c._id]"
+                   (click)="$event.stopPropagation()">{{ c.nombreComercial }}</a>
                 <div class="cell-muted">{{ c.razonSocial }}</div>
                 <div class="verticales-pills">
                   @for (v of c.verticales.slice(0, 2); track v) {
@@ -165,9 +168,9 @@ const LIMITE = 20;
                   <!-- En un comercio pendiente lo primero es revisar su solicitud,
                        no aprobarla a ciegas (TCK-8034). Es la misma ficha, así que
                        en vez de duplicar la entrada cambia el rótulo. -->
-                  <button class="acciones__item" (click)="abrirFicha(c)">
+                  <button class="acciones__item" (click)="abrirDetalle(c)">
                     <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon>
-                    {{ c.estado === 'pendiente' ? 'Revisar solicitud' : 'Ver ficha' }}
+                    {{ c.estado === 'pendiente' ? 'Revisar solicitud' : 'Ver ficha completa' }}
                   </button>
                   <button class="acciones__item" (click)="abrirEditar(c)">
                     <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> {{ 'Editar datos' | t }}
@@ -306,71 +309,6 @@ const LIMITE = 20;
 }
 
 <!-- MODAL CONFIRMAR ELIMINAR -->
-<!-- Ficha administrativa del comercio (TCK-8034) -->
-@if (fichaAbierta()) {
-  <div class="modal-backdrop" (click)="cerrarFicha()">
-    <div class="ficha" (click)="$event.stopPropagation()">
-      @if (cargandoFicha()) {
-        <p style="color:var(--t-400)">{{ 'Cargando la ficha…' | t }}</p>
-      } @else if (ficha(); as f) {
-        <div class="ficha__cabecera">
-          <div>
-            <h3 class="ficha__nombre">{{ f.comercio.nombreComercial }}</h3>
-            <p class="ficha__meta">
-              {{ f.comercio.razonSocial }} · {{ f.comercio.vatNumber }}
-              · {{ f.comercio.estado }} · plan {{ f.comercio.plan }}
-              @if (f.comercio.createdAt) { · alta {{ f.comercio.createdAt | date:'d MMM yyyy' }} }
-            </p>
-          </div>
-          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">{{ 'Cerrar' | t }}</button>
-        </div>
-
-        <div class="ficha__kpis">
-          <div class="ficha__kpi"><strong>{{ f.resumen.servicios }}</strong><span>{{ 'Servicios' | t }}</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.reservas }}</strong><span>{{ 'Reservas recientes' | t }}</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.facturacion | euros:'1.0-0' }}</strong><span>{{ 'Facturación' | t }}</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.comision | euros:'1.0-0' }}</strong><span>{{ 'Comisión Doogking' | t }}</span></div>
-          <div class="ficha__kpi">
-            <strong>{{ f.resumen.valoracion ? (f.resumen.valoracion | number:'1.1-1') : '—' }}</strong>
-            <span>Valoración ({{ f.resumen.resenas }})</span>
-          </div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.equipo }}</strong><span>{{ 'Equipo' | t }}</span></div>
-          <div class="ficha__kpi"><strong>{{ f.resumen.incidencias }}</strong><span>{{ 'Incidencias' | t }}</span></div>
-        </div>
-
-        <div class="ficha__bloque">
-          <h4>{{ 'Verticales' | t }}</h4>
-          <p>@for (v of f.comercio.verticales; track v) { {{ labelVertical(v) }}{{ $last ? '' : ' · ' }} }</p>
-        </div>
-
-        <div class="ficha__bloque">
-          <h4>{{ 'Últimas reservas' | t }}</h4>
-          @if (f.reservas.length) {
-            <ul class="ficha__reservas">
-              @for (r of f.reservas; track r._id) {
-                <li>
-                  <code>{{ r.codigo }}</code>
-                  <span>{{ r.vertical }} · {{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy' }}</span>
-                  <span>{{ r.montoTotal | euros:'1.2-2' }}</span>
-                  <span class="rs-badge rs-badge--neutral">{{ r.estado }}</span>
-                </li>
-              }
-            </ul>
-          } @else {
-            <p style="color:var(--t-400)">{{ 'Todavía no ha recibido reservas.' | t }}</p>
-          }
-        </div>
-      } @else {
-        <div class="rs-alert rs-alert--error">{{ fichaError() || ('No se pudo cargar la ficha.' | t) }}</div>
-        <div class="ficha__cabecera">
-          <button class="rs-btn rs-btn--outline rs-btn--sm" (click)="reintentarFicha()">{{ 'Reintentar' | t }}</button>
-          <button class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarFicha()">{{ 'Cerrar' | t }}</button>
-        </div>
-      }
-    </div>
-  </div>
-}
-
 <!-- Suspender o rechazar exige motivo: queda en el historial (TCK-8034) -->
 @if (suspendiendo(); as c) {
   <div class="modal-backdrop" (click)="cancelarSuspender()">
@@ -500,25 +438,6 @@ const LIMITE = 20;
     .resumen-tile--accion { cursor: pointer; text-align: left; border: none; font: inherit; }
     .resumen-tile--accion:hover { box-shadow: var(--shadow-md); }
 
-    .ficha {
-      width: 100%; max-width: 720px; max-height: 86vh; max-height: 86dvh; overflow-y: auto;
-      padding: var(--sp-6); background: var(--c-card); border-radius: var(--r-xl);
-      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.18));
-      display: flex; flex-direction: column; gap: var(--sp-5);
-    }
-    .ficha__cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-4); }
-    .ficha__nombre { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); }
-    .ficha__meta { font-size: var(--f-sm); color: var(--t-400); }
-    .ficha__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--sp-3); }
-    .ficha__kpi { padding: var(--sp-3); background: var(--c-raised); border-radius: var(--r-lg); display: flex; flex-direction: column; }
-    .ficha__kpi strong { font-family: var(--font-accent); font-size: var(--f-lg); color: var(--t-100); }
-    .ficha__kpi span { font-size: var(--f-xs); color: var(--t-400); }
-    .ficha__bloque h4 { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2); }
-    .ficha__bloque p { font-size: var(--f-sm); color: var(--t-300); }
-    .ficha__reservas { display: flex; flex-direction: column; gap: var(--sp-2); list-style: none; }
-    .ficha__reservas li { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; font-size: var(--f-sm); color: var(--t-300); }
-    .ficha__reservas code { font-family: monospace; font-size: var(--f-xs); color: var(--c-accent); }
-
     .bloqueantes { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: 2px; font-size: var(--f-xs); }
     .bloqueantes code { font-family: monospace; }
     .bloqueantes__enlace { display: inline-block; margin-top: var(--sp-2); font-size: var(--f-xs); font-weight: var(--w-6); color: var(--c-accent); }
@@ -618,6 +537,9 @@ const LIMITE = 20;
     .tbl-row { display: grid; grid-template-columns: 2fr 120px 110px 110px 150px 56px; column-gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); align-items: center; border-bottom: 1px solid var(--b-1); transition: background .15s; }
     .tbl-row:last-child { border: none; border-radius: 0 0 var(--r-2xl) var(--r-2xl); }
     .tbl-row:hover { background: var(--c-raised); }
+    .tbl-row--enlace { cursor: pointer; }
+    .cell-enlace { color: var(--t-100); text-decoration: none; }
+    .cell-enlace:hover { color: var(--c-accent); text-decoration: underline; }
 
     /*
      * Móvil: una tabla de 6 columnas no se puede leer en 390px ni estrechando
@@ -728,6 +650,7 @@ const LIMITE = 20;
 export class AdminComerciosComponent implements OnInit {
   private readonly adminApi = inject(AdminApiService);
   private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
   private readonly buscarSubject = new Subject<string>();
 
   readonly cargando = signal(true);
@@ -773,11 +696,6 @@ export class AdminComerciosComponent implements OnInit {
   });
 
   readonly suspendiendo = signal<ComercioAdmin | null>(null);
-  readonly fichaAbierta = signal(false);
-  readonly cargandoFicha = signal(false);
-  readonly ficha = signal<FichaComercio | null>(null);
-  readonly fichaError = signal('');
-  private readonly fichaComercioId = signal('');
   readonly motivoSuspension = signal('');
 
   readonly verticalesDisponibles = computed(() =>
@@ -967,46 +885,10 @@ export class AdminComerciosComponent implements OnInit {
     }
   }
 
-  /**
-   * Abre la ficha administrativa. El error se enseña tal cual llega del API: un
-   * "No se pudo cargar la ficha" a secas no dejaba distinguir un permiso que
-   * falta de un comercio borrado o de un fallo del servidor, y sin ese dato no
-   * había por dónde empezar a mirar.
-   */
-  async abrirFicha(comercio: ComercioAdmin): Promise<void> {
-    this.fichaAbierta.set(true);
-    this.fichaComercioId.set(comercio._id);
-    this.cargandoFicha.set(true);
-    this.fichaError.set('');
-    this.ficha.set(null);
-    try {
-      this.ficha.set(await firstValueFrom(this.adminApi.getFichaComercio(comercio._id)));
-    } catch (error) {
-      this.ficha.set(null);
-      const estado = (error as { status?: number } | null)?.status;
-      // `status: 0` es lo que devuelve el navegador cuando la petición ni
-      // siquiera llegó (CORS, red o API caído); sin decirlo, la ficha "no
-      // cargaba" y no había forma de distinguirlo de un fallo del servidor.
-      const porDefecto = estado === 0
-        ? 'No se pudo contactar con el API (red o CORS).'
-        : `No se pudo cargar la ficha${estado ? ` (HTTP ${estado})` : ''}.`;
-      this.fichaError.set(mensajeDeError(error, porDefecto));
-    } finally {
-      this.cargandoFicha.set(false);
-    }
-  }
-
-  /** Reintenta la carga sin obligar a cerrar y volver a abrir el diálogo. */
-  async reintentarFicha(): Promise<void> {
-    const id = this.fichaComercioId();
-    const comercio = this.comercios().find((c) => c._id === id);
-    if (comercio) await this.abrirFicha(comercio);
-  }
-
-  cerrarFicha(): void {
-    this.fichaAbierta.set(false);
-    this.ficha.set(null);
-    this.fichaError.set('');
+  /** La ficha del comercio es una página entera, no un diálogo. */
+  async abrirDetalle(comercio: ComercioAdmin): Promise<void> {
+    this.menuAbiertoId.set(null);
+    await this.router.navigate(['/admin/comercios', comercio._id]);
   }
 
   abrirSuspender(comercio: ComercioAdmin): void {

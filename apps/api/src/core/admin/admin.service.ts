@@ -26,10 +26,10 @@ import { Resena, ResenaDocument } from '../reviews/resena.schema';
 import { Incidencia, IncidenciaDocument } from '../incidencias/incidencia.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Evento, EventoDocument } from '../eventos/evento.schema';
-import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, EntidadAuditada, ImpactoBajaComercioDto, MotivoBajaComercio, ResultadoBajaComercioDto, ResultadoBajaUsuarioDto, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey, regexLiteral } from 'shared';
+import { ActualizarAlphaNivelDto, ActualizarComisionDto, AlphaNivelDto, BajaComercioDetalleDto, ComercioDetalleDto, ComisionAplicadaDto, ConsentimientoDetalleDto, COMISION_PCT_DEFAULT, DetalleComercioDto, EntidadAuditada, ImpactoBajaComercioDto, IncidenciaDeComercioDto, MesDeComercioDto, MetricasComercioDto, MiembroDeComercioDto, MotivoBajaComercio, ResenaDeComercioDto, ReservaDeComercioDto, ResultadoBajaComercioDto, ResultadoBajaUsuarioDto, ReporteFinancieroDto, ReporteVerticalDto, ReporteAjustePorComercioDto, ServicioDeComercioDto, VerticalDeComercioDto, PagoEstado, ReservaEstado, Rol, TipoEvento, VerticalKey, regexLiteral } from 'shared';
 import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaNivelConfigDocument } from '../alpha/alpha-nivel.schema';
-import { ComercioDocument, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
+import { BajaComercio, ComercioDocument, ConsentimientosComercio, EstadoComercio, PlanComercio } from '../comercios/comercio.schema';
 
 interface PagoLean {
   reservaId: Types.ObjectId;
@@ -55,6 +55,41 @@ interface ReservaConAjusteLean {
   suplementos?: Array<{ monto: number }>;
 }
 
+/** Importes de dinero: dos decimales, que es como se factura en euros. */
+function dosDecimales(monto: number): number {
+  return Math.round(monto * 100) / 100;
+}
+
+/** `Date`, cadena o nada → ISO, que es lo que espera el panel. */
+function fechaIso(valor: unknown): string | undefined {
+  if (valor instanceof Date) return valor.toISOString();
+  return typeof valor === 'string' && valor ? valor : undefined;
+}
+
+/** Los doce meses `YYYY-MM` que empiezan en `desde`, incluido. */
+function mesesDesde(desde: Date, cuantos = 12): string[] {
+  return Array.from({ length: cuantos }, (_, indice) => {
+    const mes = new Date(Date.UTC(desde.getUTCFullYear(), desde.getUTCMonth() + indice, 1));
+    return `${mes.getUTCFullYear()}-${String(mes.getUTCMonth() + 1).padStart(2, '0')}`;
+  });
+}
+
+/** Listado del catálogo tal cual sale de Mongo, antes de mapearlo al DTO. */
+interface ServicioLean {
+  _id: Types.ObjectId;
+  titulo: string;
+  vertical: string;
+  estado: string;
+  destacado?: boolean;
+  precioBase?: number;
+  moneda?: string;
+  ubicacion?: { ciudad?: string };
+  imagenes?: string[];
+  ratingPromedio?: number;
+  'totalReseñas'?: number;
+  createdAt?: Date;
+}
+
 /** Usuario del listado del admin, con reservas y nivel Alpha si es cliente. */
 export interface UsuarioAdminDto extends Usuario {
   _id: Types.ObjectId;
@@ -74,6 +109,8 @@ interface ReservaEnriquecidaLean extends ReservaLean {
 export interface FiltrosReservasAdmin {
   estado?: string;
   comercioId?: string;
+  /** Reservas de un listado concreto: lo usa la ficha del comercio. */
+  servicioId?: string;
   buscar?: string;
   fechaDesde?: string;
   fechaHasta?: string;
@@ -697,6 +734,462 @@ export class AdminService {
     };
   }
 
+  /**
+   * Ficha completa del comercio: la página de detalle del panel (`/admin/
+   * comercios/:id`). El diálogo anterior sólo cabía siete cifras y diez
+   * reservas, y para revisar un negocio hay que ver también su catálogo con lo
+   * que factura cada listado, su equipo, sus reseñas y sus incidencias.
+   *
+   * Las reservas que viajan aquí son sólo las últimas: el listado completo se
+   * pide paginado a `/admin/reservas?comercioId=`, que ya sabe filtrarlas.
+   */
+  async detalleComercio(id: string): Promise<DetalleComercioDto> {
+    const comercio = await this.comerciosRepo.findById(id);
+    if (!comercio) throw new NotFoundException('Comercio no encontrado');
+
+    const comercioId = new Types.ObjectId(id);
+    const [comisiones, metricas, servicios, reservas, equipo, resenas, incidencias] = await Promise.all([
+      this.comisionesDeComercio(comercio),
+      this.metricasDeComercio(comercioId),
+      this.serviciosDeComercio(comercioId),
+      this.ultimasReservasDeComercio(comercioId),
+      this.equipoDeComercio(comercioId),
+      this.resenasDeComercio(comercioId),
+      this.incidenciasDeComercio(comercioId),
+    ]);
+
+    return {
+      comercio: this.mapearComercioDetalle(comercio),
+      comisiones, metricas, servicios, reservas, equipo, resenas, incidencias,
+    };
+  }
+
+  /** Datos del negocio tal cual, salvo el IBAN (ver `enmascararIban`). */
+  private mapearComercioDetalle(comercio: ComercioDocument): ComercioDetalleDto {
+    const fechas = comercio as unknown as { createdAt?: Date; updatedAt?: Date };
+    const banco = comercio.datosBancarios;
+
+    return {
+      _id: String(comercio._id),
+      nombreComercial: comercio.nombreComercial,
+      razonSocial: comercio.razonSocial,
+      // El CIF de un comercio dado de baja se archiva cuando otro alta lo
+      // reclama; la ficha sigue enseñándolo, que es para lo que se guarda.
+      vatNumber: comercio.vatNumber ?? comercio.vatNumberBaja,
+      descripcion: comercio.descripcion,
+      verticales: comercio.verticales ?? [],
+      plan: comercio.plan,
+      estado: comercio.estado,
+      modoLiquidacion: comercio.modoLiquidacion,
+      comisionPctOverride: comercio.comisionPctOverride,
+      socioFundador: !!comercio.socioFundador,
+      comisionPctCongelada: comercio.comisionPctCongelada,
+      congelacionHasta: comercio.congelacionHasta?.toISOString(),
+      alphaAdherido: !!comercio.alphaAdherido,
+      cohorte: comercio.cohorte,
+      politicaCancelacion: comercio.politicaCancelacion,
+      altaCompletada: !!comercio.altaCompletada,
+      contacto: comercio.contacto,
+      direccion: comercio.direccion,
+      datosBancarios: banco
+        ? { ...banco, iban: this.enmascararIban(banco.iban) }
+        : undefined,
+      consentimientos: this.mapearConsentimientos(comercio.consentimientos),
+      preferenciasNotificacion: comercio.preferenciasNotificacion as unknown as Record<string, boolean>,
+      baja: this.mapearBaja(comercio.baja),
+      eliminadoAt: comercio.eliminadoAt?.toISOString(),
+      createdAt: fechas.createdAt?.toISOString(),
+      updatedAt: fechas.updatedAt?.toISOString(),
+    };
+  }
+
+  /**
+   * El panel necesita reconocer la cuenta bancaria, no copiarla: un IBAN entero
+   * viajando a cada carga de la ficha es una filtración esperando a pasar, y
+   * para conciliar una liquidación basta con los cuatro últimos dígitos.
+   */
+  private enmascararIban(iban?: string): string | undefined {
+    const limpio = iban?.replace(/\s+/g, '');
+    if (!limpio) return undefined;
+    if (limpio.length <= 8) return limpio;
+
+    return `${limpio.slice(0, 4)}${'•'.repeat(limpio.length - 8)}${limpio.slice(-4)}`;
+  }
+
+  private mapearConsentimientos(
+    consentimientos?: ConsentimientosComercio,
+  ): Record<string, ConsentimientoDetalleDto> | undefined {
+    if (!consentimientos) return undefined;
+
+    return Object.fromEntries(
+      Object.entries(consentimientos).map(([clave, valor]) => [
+        clave,
+        { aceptado: !!valor?.aceptado, fecha: valor?.fecha?.toISOString(), version: valor?.version },
+      ]),
+    );
+  }
+
+  private mapearBaja(baja?: BajaComercio): BajaComercioDetalleDto | undefined {
+    if (!baja) return undefined;
+
+    return {
+      motivo: baja.motivo,
+      comentario: baja.comentario,
+      fecha: baja.fecha instanceof Date ? baja.fecha.toISOString() : String(baja.fecha),
+      origen: baja.origen,
+      estadoPrevio: baja.estadoPrevio,
+      reactivarEl: baja.reactivarEl,
+      aceptaContacto: baja.aceptaContacto,
+    };
+  }
+
+  /**
+   * Qué porcentaje se le aplicaría hoy en cada vertical y por qué. Se recorre la
+   * jerarquía de §11.2 sin el tramo por importe: ése depende del importe de cada
+   * reserva y aquí no hay ninguna.
+   */
+  private async comisionesDeComercio(comercio: ComercioDocument): Promise<ComisionAplicadaDto[]> {
+    const congelada = this.congelacionVigenteDe(comercio);
+
+    return Promise.all((comercio.verticales ?? []).map(async (vertical) => {
+      const config = await this.comisionConfigRepo.obtenerComisionEfectiva(vertical);
+      const tarifas = { stripePct: config.stripePct, stripeFijoEur: config.stripeFijoEur };
+      if (congelada != null) return { vertical, comisionPct: congelada, origen: 'socio_fundador' as const, ...tarifas };
+      if (comercio.comisionPctOverride != null) {
+        return { vertical, comisionPct: comercio.comisionPctOverride, origen: 'override_comercio' as const, ...tarifas };
+      }
+      if (config.comisionPct != null) {
+        return { vertical, comisionPct: config.comisionPct, origen: 'vertical' as const, ...tarifas };
+      }
+      return { vertical, comisionPct: COMISION_PCT_DEFAULT, origen: 'defecto' as const, ...tarifas };
+    }));
+  }
+
+  /** Comisión congelada de socio fundador, sólo si el compromiso sigue vivo. */
+  private congelacionVigenteDe(comercio: ComercioDocument): number | null {
+    if (!comercio.socioFundador || comercio.comisionPctCongelada == null) return null;
+    if (comercio.congelacionHasta && comercio.congelacionHasta.getTime() <= Date.now()) return null;
+
+    return comercio.comisionPctCongelada;
+  }
+
+  private async metricasDeComercio(comercioId: Types.ObjectId): Promise<MetricasComercioDto> {
+    const [servicios, reservas, economia, resenas, incidencias, equipo, porVertical, mensual] = await Promise.all([
+      this.metricaServicios(comercioId),
+      this.metricaReservas(comercioId),
+      this.metricaEconomia(comercioId),
+      this.metricaResenas(comercioId),
+      this.metricaIncidencias(comercioId),
+      this.metricaEquipo(comercioId),
+      this.metricaPorVertical(comercioId),
+      this.metricaMensual(comercioId),
+    ]);
+
+    return { servicios, reservas, economia, resenas, incidencias, equipo, porVertical, mensual };
+  }
+
+  private async metricaServicios(comercioId: Types.ObjectId): Promise<MetricasComercioDto['servicios']> {
+    const filas = await this.servicioModelAdmin.aggregate<{ _id: string; total: number; destacados: number }>([
+      { $match: { comercioId } },
+      { $group: { _id: '$estado', total: { $sum: 1 }, destacados: { $sum: { $cond: ['$destacado', 1, 0] } } } },
+    ]).exec();
+    const por = (estado: string): number => filas.find((f) => f._id === estado)?.total ?? 0;
+
+    return {
+      total: filas.reduce((suma, f) => suma + f.total, 0),
+      publicados: por('publicado'),
+      borradores: por('borrador'),
+      pausados: por('pausado'),
+      destacados: filas.reduce((suma, f) => suma + f.destacados, 0),
+    };
+  }
+
+  private async metricaReservas(comercioId: Types.ObjectId): Promise<MetricasComercioDto['reservas']> {
+    const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const vivos = { $in: AdminService.ESTADOS_RESERVA_VIVOS };
+    const [filas, activas, ultimos30Dias, proximas] = await Promise.all([
+      this.reservaModel.aggregate<{ _id: string; total: number }>([
+        { $match: { comercioId } },
+        { $group: { _id: '$estado', total: { $sum: 1 } } },
+      ]).exec(),
+      this.reservaModel.countDocuments({ comercioId, estado: vivos }).exec(),
+      this.reservaModel.countDocuments({ comercioId, createdAt: { $gte: hace30Dias } }).exec(),
+      this.reservaModel.countDocuments({ comercioId, estado: vivos, fechaInicio: { $gte: new Date() } }).exec(),
+    ]);
+
+    const porEstado = Object.fromEntries(filas.map((f) => [f._id, f.total]));
+    return { total: filas.reduce((suma, f) => suma + f.total, 0), porEstado, activas, ultimos30Dias, proximas };
+  }
+
+  /**
+   * El dinero se lee de los pagos, no de las reservas: el coste de Stripe y el
+   * neto del comercio sólo existen ahí. Los pagos no guardan el comercio, así
+   * que se llega a él por la reserva.
+   */
+  private async metricaEconomia(comercioId: Types.ObjectId): Promise<MetricasComercioDto['economia']> {
+    const [totales] = await this.pagoModel.aggregate<{
+      gmv: number; comision: number; stripeFee: number; liquidacion: number; pagos: number; reembolsado: number;
+    }>([
+      { $lookup: { from: 'reservas', localField: 'reservaId', foreignField: '_id', as: 'reserva' } },
+      { $unwind: '$reserva' },
+      { $match: { 'reserva.comercioId': comercioId, estado: { $in: [PagoEstado.APROBADO, PagoEstado.REEMBOLSADO] } } },
+      { $group: {
+        _id: null,
+        gmv: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$montoTotal', 0] } },
+        comision: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$comisionPlataforma', 0] } },
+        stripeFee: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$stripeFee', 0] } },
+        liquidacion: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$montoLiquidacion', 0] } },
+        pagos: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, 1, 0] } },
+        reembolsado: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.REEMBOLSADO] }, '$montoTotal', 0] } },
+      } },
+    ]).exec();
+
+    const pagos = totales?.pagos ?? 0;
+    return {
+      gmv: dosDecimales(totales?.gmv ?? 0),
+      comision: dosDecimales(totales?.comision ?? 0),
+      stripeFee: dosDecimales(totales?.stripeFee ?? 0),
+      liquidacion: dosDecimales(totales?.liquidacion ?? 0),
+      ticketMedio: pagos ? dosDecimales((totales?.gmv ?? 0) / pagos) : 0,
+      pagosAprobados: pagos,
+      reembolsado: dosDecimales(totales?.reembolsado ?? 0),
+    };
+  }
+
+  private async metricaResenas(comercioId: Types.ObjectId): Promise<MetricasComercioDto['resenas']> {
+    const filas = await this.resenaModel.aggregate<{ _id: number; total: number; sinResponder: number }>([
+      { $match: { comercioId, eliminada: { $ne: true } } },
+      { $group: {
+        _id: '$puntuacion',
+        total: { $sum: 1 },
+        sinResponder: { $sum: { $cond: [{ $ifNull: ['$respuesta', false] }, 0, 1] } },
+      } },
+    ]).exec();
+
+    const total = filas.reduce((suma, f) => suma + f.total, 0);
+    const suma = filas.reduce((acumulado, f) => acumulado + f._id * f.total, 0);
+    return {
+      media: total ? Math.round((suma / total) * 10) / 10 : 0,
+      total,
+      distribucion: Object.fromEntries(filas.map((f) => [String(f._id), f.total])),
+      sinResponder: filas.reduce((acumulado, f) => acumulado + f.sinResponder, 0),
+    };
+  }
+
+  private async metricaIncidencias(comercioId: Types.ObjectId): Promise<MetricasComercioDto['incidencias']> {
+    const [total, abiertas] = await Promise.all([
+      this.incidenciaModel.countDocuments({ comercioId }).exec(),
+      this.incidenciaModel.countDocuments({ comercioId, estado: { $nin: ['resuelta', 'cerrada'] } }).exec(),
+    ]);
+
+    return { total, abiertas };
+  }
+
+  private async metricaEquipo(comercioId: Types.ObjectId): Promise<MetricasComercioDto['equipo']> {
+    const filas = await this.usuarioModel.aggregate<{ _id: string; total: number }>([
+      { $match: { comercioId } },
+      { $group: { _id: '$rol', total: { $sum: 1 } } },
+    ]).exec();
+
+    return {
+      total: filas.reduce((suma, f) => suma + f.total, 0),
+      porRol: Object.fromEntries(filas.map((f) => [f._id, f.total])),
+    };
+  }
+
+  /** Reparto del negocio por categoría: dónde tiene catálogo y de dónde cobra. */
+  private async metricaPorVertical(comercioId: Types.ObjectId): Promise<VerticalDeComercioDto[]> {
+    const [servicios, reservas] = await Promise.all([
+      this.servicioModelAdmin.aggregate<{ _id: string; total: number }>([
+        { $match: { comercioId } },
+        { $group: { _id: '$vertical', total: { $sum: 1 } } },
+      ]).exec(),
+      this.reservaModel.aggregate<{ _id: string; reservas: number; gmv: number; comision: number }>([
+        { $match: { comercioId } },
+        { $group: {
+          _id: '$vertical',
+          reservas: { $sum: 1 },
+          gmv: { $sum: { $cond: [AdminService.ES_FACTURABLE, '$montoTotal', 0] } },
+          comision: { $sum: { $cond: [AdminService.ES_FACTURABLE, '$comisionMonto', 0] } },
+        } },
+      ]).exec(),
+    ]);
+
+    const verticales = [...new Set([...servicios.map((s) => s._id), ...reservas.map((r) => r._id)])];
+    return verticales.map((vertical) => ({
+      vertical,
+      servicios: servicios.find((s) => s._id === vertical)?.total ?? 0,
+      reservas: reservas.find((r) => r._id === vertical)?.reservas ?? 0,
+      gmv: dosDecimales(reservas.find((r) => r._id === vertical)?.gmv ?? 0),
+      comision: dosDecimales(reservas.find((r) => r._id === vertical)?.comision ?? 0),
+    }));
+  }
+
+  /**
+   * Doce meses corridos, con los vacíos incluidos: una serie con huecos se lee
+   * como una caída de actividad que no ha existido.
+   */
+  private async metricaMensual(comercioId: Types.ObjectId): Promise<MesDeComercioDto[]> {
+    const desde = new Date();
+    desde.setUTCMonth(desde.getUTCMonth() - 11, 1);
+    desde.setUTCHours(0, 0, 0, 0);
+
+    const filas = await this.reservaModel.aggregate<{ _id: string; reservas: number; gmv: number; comision: number }>([
+      { $match: { comercioId, createdAt: { $gte: desde } } },
+      { $group: {
+        _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+        reservas: { $sum: 1 },
+        gmv: { $sum: { $cond: [AdminService.ES_FACTURABLE, '$montoTotal', 0] } },
+        comision: { $sum: { $cond: [AdminService.ES_FACTURABLE, '$comisionMonto', 0] } },
+      } },
+    ]).exec();
+
+    return mesesDesde(desde).map((mes) => {
+      const fila = filas.find((f) => f._id === mes);
+      return { mes, reservas: fila?.reservas ?? 0, gmv: dosDecimales(fila?.gmv ?? 0), comision: dosDecimales(fila?.comision ?? 0) };
+    });
+  }
+
+  /** Catálogo del comercio con lo que ha movido cada listado. */
+  private async serviciosDeComercio(comercioId: Types.ObjectId): Promise<ServicioDeComercioDto[]> {
+    const [servicios, actividad] = await Promise.all([
+      this.servicioModelAdmin
+        .find({ comercioId })
+        .sort({ createdAt: -1 })
+        .select('titulo vertical estado destacado precioBase moneda ubicacion imagenes ratingPromedio totalReseñas createdAt')
+        .lean()
+        .exec() as unknown as Promise<ServicioLean[]>,
+      this.actividadPorServicio(comercioId),
+    ]);
+
+    return servicios.map((servicio) => {
+      const suyo = actividad.get(String(servicio._id));
+      return {
+        _id: String(servicio._id),
+        titulo: servicio.titulo,
+        vertical: servicio.vertical,
+        estado: servicio.estado,
+        destacado: !!servicio.destacado,
+        precioBase: servicio.precioBase ?? 0,
+        moneda: servicio.moneda ?? 'EUR',
+        ciudad: servicio.ubicacion?.ciudad,
+        imagen: servicio.imagenes?.[0],
+        ratingPromedio: servicio.ratingPromedio ?? 0,
+        totalResenas: servicio['totalReseñas'] ?? 0,
+        reservas: suyo?.reservas ?? 0,
+        gmv: dosDecimales(suyo?.gmv ?? 0),
+        ultimaReserva: suyo?.ultima?.toISOString(),
+        createdAt: servicio.createdAt?.toISOString(),
+      };
+    });
+  }
+
+  private async actividadPorServicio(
+    comercioId: Types.ObjectId,
+  ): Promise<Map<string, { reservas: number; gmv: number; ultima?: Date }>> {
+    const filas = await this.reservaModel.aggregate<{
+      _id: Types.ObjectId; reservas: number; gmv: number; ultima: Date;
+    }>([
+      { $match: { comercioId } },
+      { $group: {
+        _id: '$servicioId',
+        reservas: { $sum: 1 },
+        gmv: { $sum: { $cond: [AdminService.ES_FACTURABLE, '$montoTotal', 0] } },
+        ultima: { $max: '$createdAt' },
+      } },
+    ]).exec();
+
+    return new Map(filas.map((f) => [String(f._id), f]));
+  }
+
+  /** Las últimas reservas, para el resumen; el listado completo va paginado. */
+  private async ultimasReservasDeComercio(comercioId: Types.ObjectId): Promise<ReservaDeComercioDto[]> {
+    const { items } = await this.listarReservas(1, 10, { comercioId: String(comercioId) });
+
+    return items.map((reserva) => {
+      const r = reserva as Record<string, unknown>;
+      return {
+        _id: String(r['_id']),
+        codigo: String(r['codigo'] ?? ''),
+        vertical: String(r['vertical'] ?? ''),
+        servicio: r['servicio'] as string | undefined,
+        cliente: String(r['cliente'] ?? ''),
+        clienteEmail: r['clienteEmail'] as string | undefined,
+        perro: r['perroNombre'] as string | undefined,
+        estado: String(r['estado'] ?? ''),
+        estadoPago: String(r['estadoPago'] ?? 'sin_pago'),
+        fechaInicio: fechaIso(r['fechaInicio']),
+        fechaFin: fechaIso(r['fechaFin']),
+        cantidad: Number(r['cantidad'] ?? 1),
+        montoTotal: Number(r['montoTotal'] ?? 0),
+        comisionMonto: Number(r['comisionMonto'] ?? 0),
+        stripeFee: Number(r['stripeFee'] ?? 0),
+        montoLiquidacion: Number(r['montoLiquidacion'] ?? 0),
+        createdAt: fechaIso(r['createdAt']) ?? '',
+      };
+    });
+  }
+
+  private async equipoDeComercio(comercioId: Types.ObjectId): Promise<MiembroDeComercioDto[]> {
+    const miembros = await this.usuarioModel
+      .find({ comercioId })
+      .sort({ createdAt: 1 })
+      .select('nombre email telefono rol verificado createdAt')
+      .lean()
+      .exec() as unknown as Array<Record<string, unknown>>;
+
+    return miembros.map((m) => ({
+      _id: String(m['_id']),
+      nombre: String(m['nombre'] ?? ''),
+      email: String(m['email'] ?? ''),
+      telefono: m['telefono'] as string | undefined,
+      rol: String(m['rol'] ?? ''),
+      verificado: !!m['verificado'],
+      createdAt: fechaIso(m['createdAt']),
+    }));
+  }
+
+  private async resenasDeComercio(comercioId: Types.ObjectId): Promise<ResenaDeComercioDto[]> {
+    const resenas = await this.resenaModel
+      .find({ comercioId, eliminada: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .select('usuarioNombre servicioTitulo puntuacion comentario respuesta createdAt')
+      .lean()
+      .exec() as unknown as Array<Record<string, unknown>>;
+
+    return resenas.map((r) => ({
+      _id: String(r['_id']),
+      usuarioNombre: String(r['usuarioNombre'] ?? 'Cliente'),
+      servicioTitulo: String(r['servicioTitulo'] ?? ''),
+      puntuacion: Number(r['puntuacion'] ?? 0),
+      comentario: String(r['comentario'] ?? ''),
+      respuesta: (r['respuesta'] as string | null | undefined) ?? null,
+      createdAt: fechaIso(r['createdAt']),
+    }));
+  }
+
+  private async incidenciasDeComercio(comercioId: Types.ObjectId): Promise<IncidenciaDeComercioDto[]> {
+    const incidencias = await this.incidenciaModel
+      .find({ comercioId })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .select('asunto tipo estado origen abiertaPorNombre codigoReserva createdAt')
+      .lean()
+      .exec() as unknown as Array<Record<string, unknown>>;
+
+    return incidencias.map((i) => ({
+      _id: String(i['_id']),
+      asunto: String(i['asunto'] ?? ''),
+      tipo: String(i['tipo'] ?? ''),
+      estado: String(i['estado'] ?? ''),
+      origen: String(i['origen'] ?? ''),
+      abiertaPorNombre: String(i['abiertaPorNombre'] ?? ''),
+      codigoReserva: i['codigoReserva'] as string | undefined,
+      createdAt: fechaIso(i['createdAt']),
+    }));
+  }
+
   async crearUsuario(datos: {
     nombre: string;
     email: string;
@@ -892,6 +1385,7 @@ export class AdminService {
     const filtro: Record<string, unknown> = {};
     if (filtros.estado) filtro['estado'] = filtros.estado;
     if (filtros.comercioId) filtro['comercioId'] = filtros.comercioId;
+    if (filtros.servicioId) filtro['servicioId'] = filtros.servicioId;
     if (filtros.vertical) filtro['vertical'] = filtros.vertical;
     if (filtros.buscar) {
       const regex = regexLiteral(filtros.buscar);
@@ -921,7 +1415,9 @@ export class AdminService {
     }
     // La reserva no guarda la ciudad: se llega a ella por el servicio, que es
     // donde vive la ubicación (TCK-8036 §2).
-    if (filtros.ciudad) {
+    // Con un servicio ya elegido la ciudad no aporta nada y además pisaría el
+    // mismo campo del filtro, así que sólo se resuelve cuando no lo hay.
+    if (filtros.ciudad && !filtros.servicioId) {
       const servicios = await this.servicioModelAdmin
         .find({ 'ubicacion.ciudad': regexLiteral(filtros.ciudad) })
         .select('_id')
@@ -1083,7 +1579,6 @@ export class AdminService {
       return fila ?? { cobrado: 0, comision: 0, stripe: 0, liquidacion: 0 };
     };
 
-    const dosDecimales = (n: number): number => Math.round(n * 100) / 100;
     const [aprobados, reembolsados, retenidas] = await Promise.all([
       sumar({ estado: PagoEstado.APROBADO }),
       sumar({ estado: PagoEstado.REEMBOLSADO }),
@@ -1130,7 +1625,6 @@ export class AdminService {
       ]).exec(),
     ]);
 
-    const dosDecimales = (n: number): number => Math.round(n * 100) / 100;
     const porEstado: Record<string, number> = {};
     let total = 0;
     for (const fila of porEstadoRaw) {
@@ -1169,6 +1663,15 @@ export class AdminService {
     ReservaEstado.PAGO_LIBERADO,
     ReservaEstado.EN_DISPUTA,
   ];
+
+  /**
+   * La misma regla, escrita como expresión de agregación: `$cond` necesita un
+   * booleano, no un filtro, y repetir el `$in` en cada `$group` acabaría
+   * separándolo de la lista de arriba.
+   */
+  private static get ES_FACTURABLE(): Record<string, unknown> {
+    return { $in: ['$estado', AdminService.ESTADOS_FACTURABLES] };
+  }
 
   /** Reservas que aún esperan algo: no pueden quedarse sin cliente ni sin comercio. */
   private static readonly ESTADOS_RESERVA_VIVOS = [
@@ -1326,7 +1829,6 @@ export class AdminService {
     ]);
 
     const totalReservas = porVerticalRaw.reduce((s, v) => s + v.reservas, 0) || 1;
-    const dosDecimales = (n: number): number => Math.round(n * 100) / 100;
     const facturacion = dosDecimales(totales[0]?.facturacion ?? 0);
     const pagosAprobados = totales[0]?.pagos ?? 0;
 

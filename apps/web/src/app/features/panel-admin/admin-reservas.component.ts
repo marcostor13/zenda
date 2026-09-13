@@ -8,40 +8,11 @@ import { RsIconComponent } from '../../shared/components/icon/rs-icon.component'
 import { VERTICALES_UI } from '../../shared/verticales/verticales.config';
 import { conFecha, descargarCsv } from '../../shared/exportacion/csv';
 import { describirPolitica } from '../../shared/catalogos/politicas-cancelacion.catalogo';
+import { EstadoReservaMeta, FILTROS_ESTADO_RESERVA, metaEstadoReserva } from '../../shared/catalogos/estados-reserva.catalogo';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { MenuAncladoDirective } from '../../shared/directives/menu-anclado.directive';
-/** Estado de la reserva: color del badge + icono Lucide (TCK-8010, sin emojis). */
-interface EstadoMeta { badge: string; icono: string; label: string; }
-
-const ESTADO_META: Record<string, EstadoMeta> = {
-  pendiente:        { badge: 'rs-badge--warning', icono: 'hourglass',      label: 'Pendiente' },
-  confirmada:       { badge: 'rs-badge--success', icono: 'check-circle',   label: 'Confirmada' },
-  ajuste_solicitado:{ badge: 'rs-badge--warning', icono: 'alert-triangle', label: 'Ajuste solicitado' },
-  en_curso:         { badge: 'rs-badge--accent',  icono: 'play',           label: 'En curso' },
-  completada:       { badge: 'rs-badge--accent',  icono: 'badge-check',    label: 'Completada' },
-  pago_retenido:    { badge: 'rs-badge--warning', icono: 'lock',           label: 'Pago retenido' },
-  pago_liberado:    { badge: 'rs-badge--success', icono: 'banknote',       label: 'Pago liberado' },
-  en_disputa:       { badge: 'rs-badge--error',   icono: 'siren',          label: 'En disputa' },
-  reembolsada:      { badge: 'rs-badge--neutral', icono: 'rotate-ccw',     label: 'Reembolsada' },
-  cancelada:        { badge: 'rs-badge--error',   icono: 'x',              label: 'Cancelada' },
-  no_show:          { badge: 'rs-badge--neutral', icono: 'circle',         label: 'No show' },
-};
-
-const FILTROS_ESTADO = [
-  { label: 'Todas', valor: '' },
-  { label: 'Pendientes', valor: 'pendiente' },
-  { label: 'Confirmadas', valor: 'confirmada' },
-  { label: 'En curso', valor: 'en_curso' },
-  { label: 'Completadas', valor: 'completada' },
-  { label: 'Pago retenido', valor: 'pago_retenido' },
-  { label: 'Pago liberado', valor: 'pago_liberado' },
-  { label: 'En disputa', valor: 'en_disputa' },
-  { label: 'Reembolsadas', valor: 'reembolsada' },
-  { label: 'Canceladas', valor: 'cancelada' },
-] as const;
-
 /** Contadores de la cabecera: los estados que el admin mira a diario. */
 const RESUMEN_ESTADOS: ReadonlyArray<{ estado: string; label: string }> = [
   { estado: '', label: 'Reservas totales' },
@@ -673,7 +644,7 @@ export class AdminReservasComponent implements OnInit {
   );
 
   readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
-  readonly filtros = FILTROS_ESTADO;
+  readonly filtros = FILTROS_ESTADO_RESERVA;
   readonly resumenEstados = RESUMEN_ESTADOS;
   readonly resumen = signal<ResumenReservas | null>(null);
   readonly menuAbiertoId = signal<string | null>(null);
@@ -885,7 +856,7 @@ export class AdminReservasComponent implements OnInit {
     return PAGO_LABEL[estado ?? 'sin_pago'] ?? (estado ?? '—');
   }
 
-  meta(estado: string): EstadoMeta {
-    return ESTADO_META[estado] ?? { badge: 'rs-badge--neutral', emoji: '•', label: estado };
+  meta(estado: string): EstadoReservaMeta {
+    return metaEstadoReserva(estado);
   }
 }

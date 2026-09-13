@@ -36,6 +36,7 @@ export * from './dtos/payments/payment-intent-response.dto';
 export * from './dtos/admin/comision-config.dto';
 export * from './dtos/admin/reporte-financiero.dto';
 export * from './dtos/admin/baja-usuario.dto';
+export * from './dtos/admin/detalle-comercio.dto';
 
 // DTOs — Alpha (Doogking Alpha, Bloque 13)
 export * from './dtos/alpha/alpha.dto';

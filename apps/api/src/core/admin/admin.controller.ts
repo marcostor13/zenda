@@ -123,6 +123,15 @@ export class AdminController {
     return this.adminService.fichaComercio(id);
   }
 
+  @Get('comercios/:id/detalle')
+  @PermisosAdmin(PermisoAdmin.COMERCIOS, PermisoAdmin.SOPORTE)
+  @ApiOperation({
+    summary: 'Detalle completo de un comercio: datos, métricas, catálogo, equipo, reseñas e incidencias',
+  })
+  detalleComercio(@Param('id') id: string) {
+    return this.adminService.detalleComercio(id);
+  }
+
   @PermisosAdmin(PermisoAdmin.COMERCIOS)
   @Post('comercios')
   @ApiOperation({ summary: 'Crear un comercio (admin)' })
@@ -290,6 +299,7 @@ export class AdminController {
   @ApiQuery({ name: 'limite', required: false })
   @ApiQuery({ name: 'estado', required: false })
   @ApiQuery({ name: 'comercioId', required: false })
+  @ApiQuery({ name: 'servicioId', required: false })
   @ApiQuery({ name: 'buscar', required: false })
   listarPagos(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -345,6 +355,7 @@ export class AdminController {
     return this.adminService.listarReservas(page, limite, {
       estado: filtros['estado'],
       comercioId: filtros['comercioId'],
+      servicioId: filtros['servicioId'],
       buscar: filtros['buscar'],
       fechaDesde: filtros['fechaDesde'],
       fechaHasta: filtros['fechaHasta'],

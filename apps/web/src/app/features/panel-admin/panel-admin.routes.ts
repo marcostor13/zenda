@@ -32,6 +32,12 @@ export const panelAdminRoutes: Routes = [
           import('./admin-comercios.component').then(m => m.AdminComerciosComponent),
       },
       {
+        // Ficha completa de un comercio: datos, métricas, catálogo y reservas.
+        path: 'comercios/:id',
+        loadComponent: () =>
+          import('./admin-comercio-detalle.component').then(m => m.AdminComercioDetalleComponent),
+      },
+      {
         path: 'reservas',
         loadComponent: () =>
           import('./admin-reservas.component').then(m => m.AdminReservasComponent),
