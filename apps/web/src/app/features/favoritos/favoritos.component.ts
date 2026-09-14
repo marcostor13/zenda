@@ -160,8 +160,11 @@ const VERTICALES_CON_FICHA = new Set<string>([
     .fav-toolbar__group { display: flex; flex-direction: column; gap: var(--sp-1); label { font-size: var(--f-xs); color: var(--t-400); } }
     .fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: var(--sp-5); }
     .fav-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
-    .fav-card__img { position: relative; display: block; aspect-ratio: 16/10; background: var(--c-raised); img { width: 100%; height: 100%; object-fit: cover; } }
-    .fav-card__placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+    /* Ancho explícito y foto fuera del flujo: sin ancho definido Safari/iOS no
+       sabe de qué alto colgar la proporción y deja que la imagen imponga su
+       tamaño natural (ver ".ec__img" en experiencias-cerca). */
+    .fav-card__img { position: relative; display: block; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 16/10; background: var(--c-raised); img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; } }
+    .fav-card__placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 40px; }
     .fav-card__fav { position: absolute; top: var(--sp-3); right: var(--sp-3); }
     .fav-card__badge { position: absolute; left: var(--sp-3); bottom: var(--sp-3); right: var(--sp-3); background: var(--c-amber); color: var(--t-900); font-size: var(--f-xs); font-weight: var(--w-7); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); }
     .fav-card__reservado { position: absolute; left: var(--sp-3); top: var(--sp-3); background: var(--c-success, #16A34A); color: #fff; font-size: var(--f-xs); font-weight: var(--w-7); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); }

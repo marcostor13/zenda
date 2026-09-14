@@ -75,6 +75,12 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4);
       list-style: none;
 
+      /* El ancho lo manda la columna, nunca la foto: una casilla de rejilla
+         arranca en "min-width: auto", así que el ancho natural de la imagen
+         cuenta como mínimo de la columna. Con una foto de comunidad subida a
+         4032 px, la columna se iba a 4032 px y arrastraba el alto con ella. */
+      > li { min-width: 0; }
+
       @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
       /* Móvil: carrusel, para no empujar el resto de la página. */
       @media (max-width: 560px) {
@@ -95,11 +101,30 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       @media (prefers-reduced-motion: reduce) { &:hover .ec__img img { transform: none; } }
     }
 
+    /*
+      El alto de la foto lo manda la proporción, nunca la imagen.
+
+      Safari/iOS no da por definido el ancho de una caja con "aspect-ratio"
+      cuando ese ancho sale del estirado del contenedor (aquí, una casilla
+      flexible sin "width"). Sin ancho definido no hay alto del que colgar el
+      "height: 100%" de la foto, así que caía a su alto natural, y como la caja
+      arranca en "min-height: auto" ese alto natural pasaba a ser su mínimo:
+      una foto de comunidad de 4032x3024 dejaba la tarjeta en 3000 px de alto y
+      el listado en un desplazamiento sin fin sobre el azul de este degradado.
+
+      Ancho explícito, mínimo a cero y la foto fuera del flujo: así la caja mide
+      lo que dice la proporción venga la foto que venga.
+    */
     .ec__img {
+      position: relative;
+      width: 100%; min-width: 0; min-height: 0;
       aspect-ratio: 4/3; overflow: hidden; border-radius: var(--r-lg);
       background: linear-gradient(135deg, #143C7A, #1668E3);
       margin-bottom: var(--sp-2);
-      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
+      img {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4);
+      }
     }
 
     .ec__tipo {

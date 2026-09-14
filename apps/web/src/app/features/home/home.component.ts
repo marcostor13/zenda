@@ -963,10 +963,17 @@ type SearchMode = 'filtros' | 'ia';
 
     .explora-card {
       position: relative; display: block;
+      width: 100%; min-width: 0; min-height: 0;
       aspect-ratio: 3/4; overflow: hidden;
       border-radius: var(--r-xl); text-decoration: none;
 
-      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
+      /* Ancho explícito y foto fuera del flujo: sin ancho definido Safari/iOS
+         no sabe de qué alto colgar la proporción y deja que la imagen imponga
+         su tamaño natural (ver ".ec__img" en experiencias-cerca). */
+      img {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4);
+      }
       &:hover img { transform: scale(1.06); }
       @media (prefers-reduced-motion: reduce) { &:hover img { transform: none; } }
     }
@@ -1100,7 +1107,10 @@ type SearchMode = 'filtros' | 'ia';
 
     /* Fotografía de cabecera de cada valor, en lugar del icono anterior. */
     .why-card__art {
+      position: relative;
       width: 100%;
+      min-width: 0;
+      min-height: 0;
       /* Alto fijo por proporción: con tres textos de longitudes muy distintas,
          un alto automático descuadraría las fotos entre tarjetas. */
       aspect-ratio: 16 / 10;
@@ -1108,7 +1118,11 @@ type SearchMode = 'filtros' | 'ia';
       overflow: hidden;
       background: var(--c-raised);
 
+      /* Fuera del flujo: si no, el alto natural de la foto se come la
+         proporción en Safari/iOS (ver ".ec__img" en experiencias-cerca). */
       img {
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
