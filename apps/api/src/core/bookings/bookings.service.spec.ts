@@ -27,7 +27,7 @@ describe('BookingsService', () => {
   let eventosService: jest.Mocked<Pick<EventosService, 'registrar'>>;
   let bloqueosService: jest.Mocked<Pick<BloqueosService, 'cierreQueSolapa'>>;
   let catalogRepository: jest.Mocked<Pick<CatalogRepository, 'obtenerPorId'>>;
-  let huecosService: jest.Mocked<Pick<HuecosService, 'hayPlaza' | 'huecosDelDia'>>;
+  let huecosService: jest.Mocked<Pick<HuecosService, 'hayPlaza' | 'huecosDelDia' | 'agenda'>>;
 
   const parametrosBase = {
     usuarioId: 'user-1',
@@ -135,6 +135,7 @@ describe('BookingsService', () => {
           useValue: {
             hayPlaza: jest.fn().mockResolvedValue(true),
             huecosDelDia: jest.fn().mockResolvedValue({ soportado: true, estado: 'abierto', huecos: [] }),
+            agenda: jest.fn().mockResolvedValue({ dias: [], primeraLibre: undefined }),
           },
         },
         {
@@ -774,6 +775,72 @@ describe('BookingsService', () => {
       await service.huecosDelDia({ ...consulta, perroId: 'p1' });
 
       expect(estrategiaMock.checkAvailability.mock.calls[0][1].parametrosExtra).toMatchObject({ perroTamano: 'grande' });
+    });
+  });
+
+  describe('agendaCitas', () => {
+    const consulta = {
+      usuarioId: 'user-1', servicioId: 'servicio-1',
+      desde: '2026-09-01', hasta: '2026-09-30', detalle: { servicio: 'Baño' },
+    };
+
+    beforeEach(() => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-1', vertical: VerticalKey.PELUQUERIA, estado: 'publicado', comercioActivo: true,
+        horario: [], excepcionesHorario: [],
+      } as never);
+    });
+
+    it('debería pedir el rango con la duración del servicio elegido y los perros', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, metadata: { duracionMin: 45, perros: 2, capacidadSimultanea: 2 },
+      });
+      huecosService.agenda.mockResolvedValue({
+        dias: [{ fecha: '2026-09-01', estado: 'libre', huecosLibres: 3, primeraHora: '10:00' }],
+        primeraLibre: { fecha: '2026-09-01', hora: '10:00' },
+      });
+
+      const respuesta = await service.agendaCitas({ ...consulta, cantidad: 2 });
+
+      expect(huecosService.agenda).toHaveBeenCalledWith(
+        expect.objectContaining({ duracionMin: 90, capacidad: 2, comercioId: 'comercio-1' }),
+        '2026-09-01', '2026-09-30',
+      );
+      expect(respuesta).toMatchObject({
+        soportado: true, duracionMin: 90, primeraLibre: { fecha: '2026-09-01', hora: '10:00' },
+      });
+    });
+
+    /* Sin duración el vertical no se reserva por citas: el cliente se queda con
+       el campo de fecha de siempre en vez de un calendario que no dice nada. */
+    it('debería decir que no hay agenda si el vertical no da duración', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({ disponible: true });
+
+      await expect(service.agendaCitas(consulta)).resolves.toEqual({ soportado: false, dias: [] });
+      expect(huecosService.agenda).not.toHaveBeenCalled();
+    });
+
+    it('debería explicar por qué no hay nada que reservar en vez de pintar el mes entero cerrado', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValueOnce({ disponible: false, motivo: 'Sin cupos' });
+      await expect(service.agendaCitas(consulta))
+        .resolves.toEqual({ soportado: true, motivo: 'Sin cupos', dias: [] });
+
+      estrategiaMock.checkAvailability.mockRejectedValueOnce(new DomainException('No atiende gatos', 409));
+      await expect(service.agendaCitas(consulta))
+        .resolves.toMatchObject({ soportado: true, motivo: 'No atiende gatos' });
+
+      estrategiaMock.checkAvailability.mockRejectedValueOnce(new DomainException('No existe', 404));
+      await expect(service.agendaCitas(consulta)).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it('debería tener en cuenta el perro elegido para la duración por tamaño', async () => {
+      perrosService.obtenerPropio.mockResolvedValue({ _id: 'p1', nombre: 'Nala', tamano: 'grande' } as never);
+      estrategiaMock.checkAvailability.mockResolvedValue({ disponible: true, metadata: { duracionMin: 60 } });
+
+      await service.agendaCitas({ ...consulta, perroId: 'p1' });
+
+      expect(estrategiaMock.checkAvailability.mock.calls[0][1].parametrosExtra)
+        .toMatchObject({ perroTamano: 'grande' });
     });
   });
 

@@ -1,7 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import type { CalendarioDisponibilidadRespuestaApi, HuecosDelDiaRespuestaApi } from 'shared';
+import type {
+  AgendaCitasRespuestaApi, CalendarioDisponibilidadRespuestaApi, HuecosDelDiaRespuestaApi,
+} from 'shared';
 import { environment } from '../../../../environments/environment';
 
 export interface RecurrenciaPayload {
@@ -31,6 +33,20 @@ export interface ConsultaHuecos {
   perroId?: string | null;
   cantidad?: number;
 }
+
+/** Rango de la agenda de citas: los mismos datos que `ConsultaHuecos`, por días. */
+export interface ConsultaAgenda {
+  servicioId: string;
+  /** Primer día, `YYYY-MM-DD`. */
+  desde: string;
+  /** Último día, incluido. */
+  hasta: string;
+  servicio?: string | null;
+  perroId?: string | null;
+  cantidad?: number;
+}
+
+export type AgendaApi = AgendaCitasRespuestaApi;
 
 /** Consulta de disponibilidad: los mismos datos de la reserva menos cupón y recurrencia. */
 export type ComprobarDisponibilidadPayload = Omit<CrearReservaPayload, 'cuponCodigo' | 'recurrencia'>;
@@ -165,6 +181,23 @@ export class ReservasService {
       ...(consulta.cantidad ? { cantidad: String(consulta.cantidad) } : {}),
     };
     return firstValueFrom(this.http.get<HuecosDelDiaRespuestaApi>(`${this.base}/huecos`, { params }));
+  }
+
+  /**
+   * Cómo está cada día del rango: libre, completo, cerrado o pasado, más la
+   * primera cita libre. Es lo que permite pintar el calendario con los días
+   * que no valen ya descartados, en vez de dejar que el cliente los adivine.
+   *
+   * `soportado: false` = ese servicio no se reserva por citas.
+   */
+  agenda(consulta: ConsultaAgenda): Promise<AgendaApi> {
+    const params: Record<string, string> = {
+      servicioId: consulta.servicioId, desde: consulta.desde, hasta: consulta.hasta,
+      ...(consulta.servicio ? { servicio: consulta.servicio } : {}),
+      ...(consulta.perroId ? { perroId: consulta.perroId } : {}),
+      ...(consulta.cantidad ? { cantidad: String(consulta.cantidad) } : {}),
+    };
+    return firstValueFrom(this.http.get<AgendaApi>(`${this.base}/huecos/agenda`, { params }));
   }
 
   misReservas(): Promise<ReservaApi[]> {

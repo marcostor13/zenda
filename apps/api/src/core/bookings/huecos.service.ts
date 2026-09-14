@@ -1,15 +1,31 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ExcepcionHorarioDto, HorarioDiaDto, HuecosDelDiaRespuestaApi, fechaYHoraEnZona, tramosDelDia } from 'shared';
+import {
+  DiaAgendaApi, ExcepcionHorarioDto, HorarioDiaDto, HuecosDelDiaRespuestaApi, PrimeraCitaLibreApi,
+  fechaYHoraEnZona, tramosDelDia,
+} from 'shared';
 import { Reserva, ReservaDocument } from './reserva.schema';
 import { inicioDeLaReserva, tramoDeLaReserva } from './momento-reserva.util';
-import { Ocupacion, calcularHuecos, plazasOcupadas } from './huecos.util';
+import {
+  Ocupacion, calcularHuecos, clavesEntre, estadoDelDia, ocupacionesEntre, plazasOcupadas,
+} from './huecos.util';
 import { BloqueosService, ESTADOS_VIVOS } from '../bloqueos/bloqueos.service';
 
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
+/**
+ * Tope de días por consulta de agenda. El cliente pide de mes en mes, así que
+ * dos meses sobran; sin tope, una petición con un rango absurdo recorrería años
+ * de calendario en el servidor.
+ */
+const MAX_DIAS_AGENDA = 62;
 /** Un cierre sin cantidad cierra todo: más plazas de las que tendrá cualquier salón. */
 const PLAZAS_CIERRE_TOTAL = Number.MAX_SAFE_INTEGER;
+
+export interface AgendaCalculada {
+  readonly dias: DiaAgendaApi[];
+  readonly primeraLibre?: PrimeraCitaLibreApi;
+}
 
 export interface ServicioConCitas {
   readonly servicioId: string;
@@ -48,6 +64,51 @@ export class HuecosService {
     });
 
     return { soportado: true, ...calculo, duracionMin: servicio.duracionMin };
+  }
+
+  /**
+   * Cómo está cada día del rango: libre, lleno, cerrado o ya pasado.
+   *
+   * Se pide el rango entero de una vez y no día a día. Pintar un mes llamando a
+   * `huecosDelDia` treinta veces son sesenta consultas —reservas y cierres por
+   * cada día—; aquí son **dos**, y el reparto por día se hace en memoria. Es la
+   * diferencia entre un calendario que se abre al instante y uno que tarda.
+   */
+  async agenda(
+    servicio: ServicioConCitas, desde: string, hasta: string, ahora = new Date(),
+  ): Promise<AgendaCalculada> {
+    const claves = clavesEntre(desde, hasta, MAX_DIAS_AGENDA);
+    if (!claves.length) return { dias: [] };
+
+    const inicioRango = fechaYHoraEnZona(claves[0], '00:00');
+    const finRango = new Date(fechaYHoraEnZona(claves[claves.length - 1], '00:00').getTime() + MS_POR_DIA);
+    const ocupaciones = await this.ocupaciones(servicio, inicioRango, finRango);
+
+    const dias: DiaAgendaApi[] = [];
+    let primeraLibre: PrimeraCitaLibreApi | undefined;
+
+    for (const clave of claves) {
+      const dia = tramosDelDia(servicio.horario, servicio.excepcionesHorario, clave);
+      const arranca = fechaYHoraEnZona(clave, '00:00');
+      const acaba = new Date(arranca.getTime() + MS_POR_DIA);
+      const calculados = calcularHuecos({
+        clave, dia, duracionMin: servicio.duracionMin, capacidad: servicio.capacidad,
+        ocupaciones: ocupacionesEntre(ocupaciones, arranca, acaba), ahora,
+      });
+
+      // Un día entero en el pasado no está lleno: es que ya no llega a tiempo.
+      const hayFuturo = acaba.getTime() > ahora.getTime();
+      const resumen = estadoDelDia(calculados, hayFuturo);
+      // El motivo sólo lo trae el día cerrado; es lo que explica el porqué al cliente.
+      const motivo = dia.estado === 'cerrado' ? dia.motivo : undefined;
+      dias.push({ fecha: clave, ...resumen, ...(motivo ? { motivo } : {}) });
+
+      if (!primeraLibre && resumen.primeraHora) {
+        primeraLibre = { fecha: clave, hora: resumen.primeraHora };
+      }
+    }
+
+    return { dias, primeraLibre };
   }
 
   /** ¿Queda plaza para una cita entre `inicio` y `fin`? */

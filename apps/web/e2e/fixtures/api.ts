@@ -38,6 +38,9 @@ const POR_DEFECTO: Rutas = {
   // 200 vacío, lo lee como "no hay hueco" y no deja avanzar en ninguna prueba.
   'POST /reservas/disponibilidad': { cuerpo: { disponible: true } },
   'GET /reservas/disponibilidad/calendario': { cuerpo: { soportado: false, dias: [] } },
+  // Sin agenda declarada, el paso de la cita se queda con el campo de fecha de
+  // siempre: así una prueba que no va de elegir día no tiene que describirla.
+  'GET /reservas/huecos/agenda': { cuerpo: { soportado: false, dias: [] } },
   'GET /reservas/recordatorios': { cuerpo: [] },
   'GET /reservas/proxima': { cuerpo: null },
   'GET /reservas/puntos': { cuerpo: { puntos: 0, proximoUmbral: 100, puntosFaltantes: 100, valorProximoDescuento: 0 } },
