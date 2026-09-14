@@ -221,8 +221,15 @@ const PROVINCIAS = [
 
     .pl-card {
       position: relative; aspect-ratio: 4/3; overflow: hidden;
+      width: 100%; min-width: 0; min-height: 0;
       border: none; border-radius: var(--r-xl); cursor: pointer; padding: 0;
-      img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4); }
+      /* Ancho explícito y foto fuera del flujo: sin ancho definido Safari/iOS
+         no sabe de qué alto colgar la proporción y deja que la imagen imponga
+         su tamaño natural (ver ".ec__img" en experiencias-cerca). */
+      img {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%; object-fit: cover; transition: transform var(--d-4);
+      }
       &:hover img { transform: scale(1.06); }
       @media (prefers-reduced-motion: reduce) { &:hover img { transform: none; } }
     }

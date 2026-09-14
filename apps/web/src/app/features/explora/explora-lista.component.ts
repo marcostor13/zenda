@@ -208,8 +208,12 @@ const ICONOS: Record<TipoLugar, string> = {
 
     .ex-card__img {
       position: relative; aspect-ratio: 16/10; overflow: hidden;
+      width: 100%; min-width: 0; min-height: 0;
       background: linear-gradient(135deg, #143C7A, #1668E3);
-      img { width: 100%; height: 100%; object-fit: cover; }
+      /* Ancho explícito y foto fuera del flujo: sin ancho definido Safari/iOS
+         no sabe de qué alto colgar la proporción y deja que la imagen imponga
+         su tamaño natural (ver ".ec__img" en experiencias-cerca). */
+      img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     }
 
     .ex-prov { display: inline-flex; align-items: center; gap: var(--sp-2); }
