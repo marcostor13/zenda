@@ -133,3 +133,83 @@ export interface HuecosDelDiaRespuestaApi {
   duracionMin?: number;
   huecos: HuecoCitaApi[];
 }
+
+/**
+ * Agenda de un servicio de cita a lo largo de un rango de días.
+ *
+ * Existe porque hasta ahora el cliente elegía el día a ciegas: escribía una
+ * fecha en un `input type="date"` y sólo entonces descubría que el salón cerraba
+ * ese día o que ya no quedaban citas. Con la agenda, el calendario llega con los
+ * días cerrados y los llenos ya marcados, y el cliente elige entre lo que
+ * existe.
+ *
+ * Es una consulta por rango, no día a día: pintar un mes pidiendo los huecos de
+ * cada día serían treinta viajes al API, y en el servidor sesenta consultas.
+ */
+export class AgendaCitasDto {
+  @IsString()
+  servicioId!: string;
+
+  /** Primer día del rango, `YYYY-MM-DD`. */
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  desde!: string;
+
+  /** Último día del rango, incluido. */
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  hasta!: string;
+
+  /** Servicio concreto (vacunación, baño…): cambia la duración y con ella los huecos. */
+  @IsOptional()
+  @IsString()
+  servicio?: string;
+
+  @IsOptional()
+  @IsString()
+  perroId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cantidad?: number;
+}
+
+/**
+ * Cómo está un día para reservar.
+ *
+ * `cerrado` y `completo` se distinguen a propósito: al cliente no le sirve lo
+ * mismo «ese día no abren» que «ese día está lleno», y con un único estado
+ * "no disponible" la ficha no podía explicar ninguno de los dos.
+ */
+export type EstadoDiaAgenda = 'libre' | 'completo' | 'cerrado' | 'pasado';
+
+export interface DiaAgendaApi {
+  /** `YYYY-MM-DD` en el día del comercio. */
+  fecha: string;
+  estado: EstadoDiaAgenda;
+  /** Citas que quedan libres ese día. */
+  huecosLibres: number;
+  /** Primera hora libre, `HH:mm`. Ausente si no queda ninguna. */
+  primeraHora?: string;
+  /** Por qué está cerrado (festivo, cierre semanal…). */
+  motivo?: string;
+}
+
+export interface PrimeraCitaLibreApi {
+  fecha: string;
+  hora: string;
+}
+
+export interface AgendaCitasRespuestaApi {
+  /** false = este servicio no se reserva por citas con hora. */
+  soportado: boolean;
+  duracionMin?: number;
+  /**
+   * Por qué no hay agenda que pintar: el servicio no admite reservas ahora
+   * mismo (sin cupos, perro incompatible…). Con motivo, `dias` viene vacío.
+   */
+  motivo?: string;
+  dias: DiaAgendaApi[];
+  /** Lo primero que se puede coger del rango: el atajo que evita buscar a mano. */
+  primeraLibre?: PrimeraCitaLibreApi;
+}

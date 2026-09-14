@@ -17,7 +17,8 @@ import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
   VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento,
-  DisponibilidadRespuesta, ExcepcionHorarioDto, HuecosDelDiaRespuestaApi, HorarioDiaDto, claveDiaEnZona, comprobarHorario,
+  AgendaCitasRespuestaApi, DisponibilidadRespuesta, ExcepcionHorarioDto, HuecosDelDiaRespuestaApi,
+  HorarioDiaDto, claveDiaEnZona, comprobarHorario,
   esHoraValida, esMedianocheUtc, fechaYHoraEnZona, instanteEnZona, partesEnZona,
 } from 'shared';
 import { nanoid } from 'nanoid';
@@ -91,6 +92,20 @@ export interface HuecosDelDiaParams {
   servicioId: string;
   /** Día del comercio, `YYYY-MM-DD`. */
   fecha: string;
+  perroId?: string;
+  cantidad?: number;
+  detalle?: Record<string, unknown>;
+}
+
+/** Rango de la agenda de citas. Mismo contrato que `HuecosDelDiaParams`, por días. */
+export interface AgendaCitasParams {
+  /** Sin sesión también se ve la agenda: el asistente admite invitados. */
+  usuarioId?: string;
+  servicioId: string;
+  /** Primer día del rango, `YYYY-MM-DD`. */
+  desde: string;
+  /** Último día, incluido. */
+  hasta: string;
   perroId?: string;
   cantidad?: number;
   detalle?: Record<string, unknown>;
@@ -242,6 +257,53 @@ export class BookingsService {
 
     const conCitas = this.servicioConCitas(params.servicioId, servicio, momento.duracionMin, resultado.metadata);
     return this.huecosService.huecosDelDia(conCitas, params.fecha);
+  }
+
+  /**
+   * Agenda del servicio a lo largo de un rango: qué días se pueden coger.
+   *
+   * Es el paso previo a `huecosDelDia`. Hasta ahora el cliente escribía una
+   * fecha a ciegas y sólo al pedir las horas descubría que el salón cerraba ese
+   * día o que estaba lleno; con la agenda, el calendario llega con los días
+   * cerrados y los llenos ya marcados y `primeraLibre` apunta a lo primero que
+   * hay, de modo que no queda nada que adivinar.
+   */
+  async agendaCitas(params: AgendaCitasParams): Promise<AgendaCitasRespuestaApi> {
+    const servicio = await this.resolverServicio(params);
+    const estrategia = this.availabilityRegistry.obtener(servicio.vertical);
+    const perroSnapshot = params.perroId && params.usuarioId
+      ? construirSnapshotPerro(await this.perrosService.obtenerPropio(params.perroId, params.usuarioId))
+      : undefined;
+
+    let resultado;
+    try {
+      resultado = await estrategia.checkAvailability(params.servicioId, {
+        fechaInicio: fechaYHoraEnZona(params.desde, '12:00'),
+        cantidad: params.cantidad ?? 1,
+        parametrosExtra: this.construirParametrosExtra(params.detalle, perroSnapshot),
+      });
+    } catch (error) {
+      // Un 409 es una incompatibilidad del servicio con este perro, no un fallo:
+      // no hay agenda que pintar y el motivo es lo que el cliente necesita leer.
+      if (error instanceof DomainException && error.statusCode === 409) {
+        return { soportado: true, motivo: error.message, dias: [] };
+      }
+      throw error;
+    }
+
+    if (!resultado.disponible) {
+      return { soportado: true, motivo: resultado.motivo, dias: [] };
+    }
+
+    const momento = this.momentoDe(
+      fechaYHoraEnZona(params.desde, '12:00'), undefined, resultado.metadata, params.cantidad,
+    );
+    if (!momento.duracionMin) return { soportado: false, dias: [] };
+
+    const conCitas = this.servicioConCitas(params.servicioId, servicio, momento.duracionMin, resultado.metadata);
+    const agenda = await this.huecosService.agenda(conCitas, params.desde, params.hasta);
+
+    return { soportado: true, duracionMin: momento.duracionMin, ...agenda };
   }
 
   /**

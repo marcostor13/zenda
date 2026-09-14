@@ -1,5 +1,6 @@
 import {
-  EstadoHuecosDia, HuecoCitaApi, TramoMinutos, TramosDelDia, fechaYHoraEnZona, horaDeMinutos,
+  EstadoDiaAgenda, EstadoHuecosDia, HuecoCitaApi, TramoMinutos, TramosDelDia,
+  fechaYHoraEnZona, horaDeMinutos,
 } from 'shared';
 
 const MS_POR_MINUTO = 60_000;
@@ -84,4 +85,46 @@ export function plazasOcupadas(ocupaciones: readonly Ocupacion[], inicio: Date, 
   return Math.max(...momentos.map((t) => solapan
     .filter((o) => o.inicio.getTime() <= t && o.fin.getTime() > t)
     .reduce((total, o) => total + o.plazas, 0)));
+}
+
+/** Días `YYYY-MM-DD` de `desde` a `hasta`, ambos incluidos, como mucho `max`. */
+export function clavesEntre(desde: string, hasta: string, max: number): string[] {
+  const claves: string[] = [];
+  let actual = Date.parse(`${desde}T00:00:00Z`);
+  const fin = Date.parse(`${hasta}T00:00:00Z`);
+
+  while (actual <= fin && claves.length < max) {
+    claves.push(new Date(actual).toISOString().slice(0, 10));
+    actual += 24 * 60 * MS_POR_MINUTO;
+  }
+
+  return claves;
+}
+
+/** Lo que solapa con `[desde, hasta)`. Acotar por día evita repasar el mes entero en cada hueco. */
+export function ocupacionesEntre(
+  ocupaciones: readonly Ocupacion[], desde: Date, hasta: Date,
+): Ocupacion[] {
+  return ocupaciones.filter(
+    (o) => o.inicio.getTime() < hasta.getTime() && o.fin.getTime() > desde.getTime(),
+  );
+}
+
+/**
+ * Cómo queda un día una vez calculados sus huecos.
+ *
+ * `cerrado` y `completo` se separan porque al cliente le sirven para cosas
+ * distintas: uno le dice que pruebe otro día, el otro que pruebe otra hora del
+ * mismo. `pasado` es el día que ya no se puede coger aunque el comercio abra.
+ */
+export function estadoDelDia(
+  calculados: HuecosCalculados, hayFuturo: boolean,
+): { estado: EstadoDiaAgenda; huecosLibres: number; primeraHora?: string } {
+  if (calculados.estado === 'cerrado') return { estado: 'cerrado', huecosLibres: 0 };
+
+  const libres = calculados.huecos.filter((h) => h.disponible);
+  if (libres.length) return { estado: 'libre', huecosLibres: libres.length, primeraHora: libres[0].hora };
+
+  // Sin huecos futuros el día no está lleno: simplemente ya pasó su hora.
+  return { estado: hayFuturo ? 'completo' : 'pasado', huecosLibres: 0 };
 }
