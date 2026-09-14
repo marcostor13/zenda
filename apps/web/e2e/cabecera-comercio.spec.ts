@@ -58,6 +58,14 @@ test.describe('Cabecera de la cuenta de comercio', () => {
     if (CAPTURAS) await page.screenshot({ path: `${CAPTURAS}/cabecera-comercio-${isMobile ? 'movil' : 'escritorio'}.png` });
   });
 
+  for (const pagina of ['/perros', '/favoritos', '/reservas/mis-reservas', '/reservas/peluqueria/s1', '/perfil/alpha']) {
+    test(`debería llevar a su panel si abre ${pagina}, que es de cliente`, async ({ page }) => {
+      await page.goto(pagina);
+
+      await expect(page).toHaveURL(/\/comercio$/);
+    });
+  }
+
   test('debería llevar al panel desde la web pública', async ({ page, isMobile }) => {
     await page.goto('/veterinaria');
 

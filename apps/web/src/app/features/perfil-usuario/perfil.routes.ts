@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { soloClientesGuard } from '../../core/guards/role.guard';
 
 export const perfilRoutes: Routes = [
   {
@@ -23,16 +24,19 @@ export const perfilRoutes: Routes = [
   },
   {
     path: 'pagos',
+    canActivate: [soloClientesGuard],
     loadComponent: () =>
       import('./perfil-pagos.component').then(m => m.PerfilPagosComponent),
   },
   {
     path: 'resenas',
+    canActivate: [soloClientesGuard],
     loadComponent: () =>
       import('./perfil-resenas.component').then(m => m.PerfilResenasComponent),
   },
   {
     path: 'alpha',
+    canActivate: [soloClientesGuard],
     loadComponent: () =>
       import('./perfil-alpha.component').then(m => m.PerfilAlphaComponent),
   },

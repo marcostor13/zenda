@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree } from '@angular/router';
 import { Rol } from 'shared';
-import { adminGuard, comercioGuard } from './role.guard';
+import { adminGuard, comercioGuard, soloClientesGuard } from './role.guard';
 import { AuthService, UsuarioAutenticado } from '../auth/auth.service';
 
 describe('guards de rol', () => {
@@ -60,6 +60,24 @@ describe('guards de rol', () => {
       comoUsuario(Rol.COMERCIO_ADMIN);
 
       expect(destino(ejecutar(adminGuard))).toBe('/');
+    });
+  });
+
+  describe('soloClientesGuard', () => {
+    it.each([Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF])('debería llevar a %s a su panel', (rol) => {
+      comoUsuario(rol);
+
+      expect(destino(ejecutar(soloClientesGuard))).toBe('/comercio');
+    });
+
+    it.each([Rol.CLIENTE, Rol.ADMIN])('debería dejar pasar a %s', (rol) => {
+      comoUsuario(rol);
+
+      expect(ejecutar(soloClientesGuard)).toBe(true);
+    });
+
+    it('debería dejar pasar sin sesión, para que authGuard pida el login', () => {
+      expect(ejecutar(soloClientesGuard)).toBe(true);
     });
   });
 

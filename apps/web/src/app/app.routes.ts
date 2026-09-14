@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { adminGuard, comercioGuard } from './core/guards/role.guard';
+import { adminGuard, comercioGuard, soloClientesGuard } from './core/guards/role.guard';
 import { buscadorRedirectGuard } from './core/guards/buscador-redirect.guard';
 import { underConstructionGuard } from './core/guards/under-construction.guard';
 
@@ -193,17 +193,18 @@ export const routes: Routes = [
       },
       {
         path: 'reservas',
-        canActivate: [authGuard],
+        // Una cuenta de comercio no reserva como cliente: se la lleva a su panel.
+        canActivate: [authGuard, soloClientesGuard],
         loadChildren: () => import('./features/reservas/reservas.routes').then((m) => m.reservasRoutes),
       },
       {
         path: 'perros',
-        canActivate: [authGuard],
+        canActivate: [authGuard, soloClientesGuard],
         loadChildren: () => import('./features/perros/perros.routes').then((m) => m.perrosRoutes),
       },
       {
         path: 'favoritos',
-        canActivate: [authGuard],
+        canActivate: [authGuard, soloClientesGuard],
         loadChildren: () => import('./features/favoritos/favoritos.routes').then((m) => m.favoritosRoutes),
       },
       {

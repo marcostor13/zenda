@@ -21,3 +21,20 @@ export const comercioGuard: CanActivateFn = () => {
   if (!auth.estaAutenticado()) return router.createUrlTree(['/auth/login']);
   return router.createUrlTree(['/']);
 };
+
+/**
+ * Páginas de cliente (mascotas, reservas propias, favoritos, reseñas, Alpha).
+ *
+ * Una cuenta de comercio no reserva como cliente, igual que en el panel de
+ * socios de Booking: si llega a una de estas páginas —un enlace guardado, la
+ * dirección escrita a mano— se la lleva a su panel. Sin sesión se deja pasar:
+ * de pedir el login se encarga `authGuard`.
+ */
+export const soloClientesGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const rol = auth.usuario()?.rol;
+  if (rol === Rol.COMERCIO_ADMIN || rol === Rol.COMERCIO_STAFF) {
+    return inject(Router).createUrlTree(['/comercio']);
+  }
+  return true;
+};
