@@ -273,6 +273,7 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
   const crearComo = async (
     rol: 'comercio' | 'admin',
     ruta = '/',
+    rolDeUsuario = rol === 'comercio' ? 'comercio_admin' : 'admin',
   ): Promise<ComponentFixture<RsNavbarComponent>> => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
@@ -285,7 +286,7 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
         {
           provide: AuthService,
           useValue: {
-            usuario: signal({ id: 'u1', nombre: 'Ana Ruiz', verificado: true }),
+            usuario: signal({ id: 'u1', nombre: 'Ana Ruiz', verificado: true, rol: rolDeUsuario }),
             estaAutenticado: signal(true),
             esAdmin: signal(rol === 'admin'),
             esComercio: signal(rol === 'comercio'),
@@ -377,6 +378,81 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
       expect(el.querySelector('.rs-mobile-menu__actions')).toBeTruthy();
     },
   );
+
+  /*
+   * Una cuenta de comercio no reserva como cliente: su cabecera es la del
+   * negocio, sin mascotas, reservas propias, favoritos ni Alpha, como el panel
+   * de socios de Booking.
+   */
+  describe('cuenta de comercio', () => {
+    const textos = (el: HTMLElement, selector: string) =>
+      Array.from(el.querySelectorAll(selector)).map((n) => n.textContent?.trim() ?? '');
+
+    it('debería ofrecer en su desplegable sólo la gestión del negocio', async () => {
+      const fixture = await crearComo('comercio', '/comercio/reservas');
+      fixture.componentRef.setInput('negocio', 'Centro canino Vila-can');
+      fixture.componentInstance.cuentaAbierto.set(true);
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+
+      expect(el.querySelector('.rs-navbar__account-btn')?.textContent).toContain('Mi negocio');
+      expect(el.querySelector('.rs-navbar__dropdown-name')?.textContent).toContain('Centro canino Vila-can');
+      const opciones = textos(el, '.rs-navbar__dropdown-item');
+      expect(opciones).toEqual(expect.arrayContaining([
+        'Panel de mi comercio', 'Reservas', 'Datos del negocio', 'Equipo', 'Suscripción', 'Seguridad y acceso', 'Cerrar sesión',
+      ]));
+      for (const deCliente of ['Mi perfil', 'Mis mascotas', 'Mis reservas', 'Favoritos', 'Mis reseñas', 'Nivel Alpha y recompensas']) {
+        expect(opciones.some((o) => o.startsWith(deCliente))).toBe(false);
+      }
+    });
+
+    it('no debería enseñar equipo ni suscripción a quien sólo trabaja en el negocio', async () => {
+      const fixture = await crearComo('comercio', '/comercio', 'comercio_staff');
+
+      const rutas = fixture.componentInstance.menuComercio().map((i) => i.ruta);
+      expect(rutas).not.toContain('/comercio/equipo');
+      expect(rutas).not.toContain('/comercio/suscripcion');
+      expect(rutas).toContain('/comercio/reservas');
+    });
+
+    it('debería marcar la zona de comercios y enlazar la web pública dentro del panel', async () => {
+      const fixture = await crearComo('comercio', '/comercio');
+      const el: HTMLElement = fixture.nativeElement;
+
+      expect(el.querySelector('[data-testid="zona-comercios"]')).not.toBeNull();
+      expect(textos(el, '.rs-navbar__actions a')).toContain('Ver la web pública');
+      expect(textos(el, '.rs-navbar__actions a')).not.toContain('Panel de mi comercio');
+    });
+
+    it('debería llevar al panel desde la web pública, también desde el icono de cuenta del móvil', async () => {
+      const fixture = await crearComo('comercio', '/veterinaria');
+      const el: HTMLElement = fixture.nativeElement;
+
+      expect(el.querySelector('[data-testid="zona-comercios"]')).toBeNull();
+      expect(textos(el, '.rs-navbar__actions a')).toContain('Panel de mi comercio');
+      expect(el.querySelector('.rs-navbar__cuenta')?.getAttribute('href')).toBe('/comercio');
+    });
+
+    it('no debería poner opciones de cliente en el menú del móvil', async () => {
+      const fixture = await crearComo('comercio', '/veterinaria');
+      fixture.componentInstance.menuAbierto.set(true);
+      fixture.detectChanges();
+      const acciones = textos(fixture.nativeElement, '.rs-mobile-menu__actions a');
+
+      expect(acciones).toContain('Panel de mi comercio');
+      expect(acciones).toContain('Seguridad y acceso');
+      for (const deCliente of ['Mi perfil', 'Mis mascotas', 'Mis reservas', 'Favoritos']) {
+        expect(acciones).not.toContain(deCliente);
+      }
+    });
+
+    it('no debería pedir mascotas, reservas ni reseñas de cliente para una cuenta de comercio', async () => {
+      await crearComo('comercio', '/comercio');
+
+      expect(TestBed.inject(PerrosService).misPerros).not.toHaveBeenCalled();
+      expect(TestBed.inject(ReservasService).proximaReserva).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('RsNavbarComponent · secciones del panel en el menú móvil', () => {

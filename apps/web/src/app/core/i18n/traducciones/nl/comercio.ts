@@ -649,6 +649,12 @@ const comercio: Diccionario = {
   '— Selecciona una categoría —': '— Selecteer een categorie —',
   '€ / día': '€ / dag',
   '€ / noche': '€ / nacht',
+  'Ver la web pública': 'Openbare website bekijken',
+  'Mi negocio': 'Mijn bedrijf',
+  'Cuenta de comercio': 'Zakelijk account',
+  'Datos del negocio': 'Bedrijfsgegevens',
+  'Seguridad y acceso': 'Beveiliging en toegang',
+  'Suscripción': 'Abonnement',
 };
 
 export default comercio;

@@ -33,7 +33,7 @@ const PLAN_BADGE: Record<string, string> = {
   ],
   template: `
 <div class="dk-pagina">
-  <rs-navbar />
+  <rs-navbar [negocio]="comercio()?.nombreComercial" />
 
   @if (cargando()) {
     <div style="text-align:center;padding:var(--sp-20);color:var(--t-400)">{{ 'Cargando…' | t }}</div>

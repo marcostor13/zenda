@@ -649,6 +649,12 @@ const comercio: Diccionario = {
   '— Selecciona una categoría —': '— Seleziona una categoria —',
   '€ / día': '€ / giorno',
   '€ / noche': '€ / notte',
+  'Ver la web pública': 'Vedi il sito pubblico',
+  'Mi negocio': 'La mia attività',
+  'Cuenta de comercio': 'Account aziendale',
+  'Datos del negocio': 'Dati dell’attività',
+  'Seguridad y acceso': 'Sicurezza e accesso',
+  'Suscripción': 'Abbonamento',
 };
 
 export default comercio;

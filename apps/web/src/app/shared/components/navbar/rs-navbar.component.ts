@@ -3,7 +3,7 @@ import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/ro
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map, startWith } from 'rxjs/operators';
 import { NAV_COMERCIO, NAV_ADMIN, GrupoPanel } from '../../navegacion-paneles';
-import { nombreAlphaPresentacion } from 'shared';
+import { Rol, nombreAlphaPresentacion } from 'shared';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsRegionSelectorComponent } from '../region/rs-region-selector.component';
@@ -38,6 +38,9 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
           <img src="/images/logo-doogking.jpg" alt="Doogking" class="rs-navbar__wordmark" />
         }
       </a>
+      @if (enPanelComercio()) {
+        <span class="rs-navbar__zona" data-testid="zona-comercios">{{ 'Comercios' | t }}</span>
+      }
 
       <!-- Las categorías no van dentro de esta fila: viven en su propia tira,
            justo debajo (.rs-navbar__cats). Aquí sólo caben con el ancho que
@@ -68,13 +71,18 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
             </a>
           }
           @if (esComercio()) {
-            <!-- "Panel de mi comercio": el nombre deja claro que al pulsarlo se
-                 abandona la parte de cliente y se entra en la gestión profesional
-                 (TCK-8029). -->
-            <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--sm">
-              <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
-              {{ 'Panel de mi comercio' | t }}
-            </a>
+            @if (dentroDeUnPanel()) {
+              <!-- Para ver el negocio como lo ven los clientes, sin salir de la cuenta. -->
+              <a routerLink="/" class="rs-navbar__link">
+                <rs-icon name="globe" [size]="14" [stroke]="2"></rs-icon>
+                <span>{{ 'Ver la web pública' | t }}</span>
+              </a>
+            } @else {
+              <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--sm">
+                <rs-icon name="building" [size]="14" [stroke]="2"></rs-icon>
+                {{ 'Panel de mi comercio' | t }}
+              </a>
+            }
           }
           <div class="rs-navbar__account" (click)="$event.stopPropagation()">
             <button type="button" class="rs-btn rs-btn--primary rs-btn--sm rs-navbar__account-btn"
@@ -87,11 +95,35 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                 }
                 @if (tieneAvisoPendiente()) { <span class="rs-navbar__dot" aria-hidden="true"></span> }
               </span>
-              {{ 'Mi cuenta' | t }}
+              {{ (esComercio() ? 'Mi negocio' : 'Mi cuenta') | t }}
               <rs-icon name="chevron-down" [size]="14" [stroke]="2"></rs-icon>
             </button>
             @if (cuentaAbierto()) {
               <div class="rs-navbar__dropdown">
+                @if (esComercio()) {
+                  <!-- Cuenta de comercio: sólo gestión del negocio. Como en el panel de
+                       socios de Booking, desde aquí no se reserva como cliente. -->
+                  <div class="rs-navbar__dropdown-header">
+                    <span class="rs-navbar__dropdown-name">{{ negocio() || nombreCuenta() }}</span>
+                    <span class="rs-badge rs-badge--accent rs-navbar__verificado">
+                      <rs-icon name="building" [size]="13" [stroke]="2"></rs-icon> {{ 'Cuenta de comercio' | t }}
+                    </span>
+                  </div>
+
+                  <div class="rs-navbar__dropdown-divider"></div>
+
+                  @for (item of menuComercio(); track item.ruta) {
+                    <a [routerLink]="item.ruta" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                      <rs-icon [name]="item.icon" [size]="15" [stroke]="2"></rs-icon> {{ item.label | t }}
+                    </a>
+                  }
+
+                  <div class="rs-navbar__dropdown-divider"></div>
+
+                  <button type="button" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--danger" (click)="cerrarSesion()">
+                    <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> {{ 'Cerrar sesión' | t }}
+                  </button>
+                } @else {
                 <!-- Cabecera de la identidad de CLIENTE: nombre de la persona,
                      nunca el del negocio (TCK-8029). -->
                 <div class="rs-navbar__dropdown-header">
@@ -162,6 +194,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                 <button type="button" class="rs-navbar__dropdown-item rs-navbar__dropdown-item--danger" (click)="cerrarSesion()">
                   <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon> {{ 'Cerrar sesión' | t }}
                 </button>
+                }
               </div>
             }
           </div>
@@ -178,7 +211,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
         Va antes del hamburguesa porque es lo que más se pulsa de los dos.
       -->
       <a class="rs-navbar__cuenta"
-         [routerLink]="estaAutenticado() ? '/perfil' : '/auth/login'"
+         [routerLink]="estaAutenticado() ? (esComercio() ? '/comercio' : '/perfil') : '/auth/login'"
          [attr.aria-label]="estaAutenticado() ? nombreCuenta() : ('Entrar en mi cuenta' | t)">
         @if (estaAutenticado() && iniciales()) {
           <span class="rs-navbar__cuenta-ini">{{ iniciales() }}</span>
@@ -280,15 +313,28 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
               </a>
             }
             @if (esComercio()) {
-              <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">
-                <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
-                {{ 'Panel de mi comercio' | t }}
+              <!-- Cuenta de comercio: gestión del negocio, nunca las opciones de cliente. -->
+              @if (dentroDeUnPanel()) {
+                <a routerLink="/" class="rs-btn rs-btn--outline rs-btn--block" (click)="menuAbierto.set(false)">
+                  <rs-icon name="globe" [size]="15" [stroke]="2"></rs-icon>
+                  {{ 'Ver la web pública' | t }}
+                </a>
+              } @else {
+                <a routerLink="/comercio" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">
+                  <rs-icon name="building" [size]="15" [stroke]="2"></rs-icon>
+                  {{ 'Panel de mi comercio' | t }}
+                </a>
+              }
+              <a routerLink="/perfil/seguridad" class="rs-btn rs-btn--ghost rs-btn--block" (click)="menuAbierto.set(false)" data-testid="menu-seguridad">
+                <rs-icon name="lock" [size]="15" [stroke]="2"></rs-icon>
+                {{ 'Seguridad y acceso' | t }}
               </a>
+            } @else {
+              <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mi perfil' | t }}</a>
+              <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis mascotas' | t }}</a>
+              <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis reservas' | t }}</a>
+              <a routerLink="/favoritos" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Favoritos' | t }}</a>
             }
-            <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mi perfil' | t }}</a>
-            <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis mascotas' | t }}</a>
-            <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis reservas' | t }}</a>
-            <a routerLink="/favoritos" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Favoritos' | t }}</a>
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cerrarSesion()">
               <rs-icon name="log-out" [size]="15" [stroke]="2"></rs-icon>
               {{ 'Cerrar sesión' | t }}
@@ -455,7 +501,15 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       padding: var(--sp-2) var(--sp-3) var(--sp-1);
     }
     .rs-navbar__dropdown-name { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
-    .rs-navbar__verificado { align-self: flex-start; }
+    .rs-navbar__verificado { align-self: flex-start; white-space: nowrap; }
+
+    /* Distintivo de la zona de comercios, junto a la marca. */
+    .rs-navbar__zona {
+      margin-left: var(--sp-2); padding: 2px var(--sp-2);
+      border-radius: var(--r-full); background: var(--dk-gold); color: var(--dk-blue-deep);
+      font-family: var(--font-accent); font-size: var(--f-xs); font-weight: var(--w-7);
+      letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+    }
     .rs-navbar__dropdown-alpha { font-size: var(--f-xs); color: var(--t-400); font-weight: var(--w-5); }
     .rs-navbar__dropdown {
       position: absolute; top: calc(100% + 8px); right: 0; z-index: var(--z-3);
@@ -682,9 +736,39 @@ export class RsNavbarComponent implements OnInit {
   });
 
   /** `true` sólo dentro de los paneles de gestión, no por el rol de quien mira. */
-  private readonly dentroDeUnPanel = computed(() => {
+  readonly dentroDeUnPanel = computed(() => {
     const url = this.url();
     return url.startsWith('/comercio') || url.startsWith('/admin');
+  });
+
+  readonly enPanelComercio = computed(() => this.url().startsWith('/comercio'));
+
+  /**
+   * Nombre del negocio, cuando la pantalla lo conoce (el panel de comercio lo
+   * pasa). Encabeza el desplegable de una cuenta de comercio.
+   */
+  readonly negocio = input<string | null | undefined>(null);
+
+  /**
+   * Desplegable de una cuenta de comercio: la gestión del negocio y su acceso.
+   * Sin mascotas, reservas propias, favoritos ni Alpha: una cuenta de comercio
+   * no reserva como cliente, igual que en el panel de socios de Booking.
+   * Equipo y suscripción sólo los ve quien administra el negocio.
+   */
+  readonly menuComercio = computed(() => {
+    const administra = this.authService.usuario()?.rol === Rol.COMERCIO_ADMIN;
+    return [
+      { icon: 'sparkles', label: 'Panel de mi comercio', ruta: '/comercio' },
+      { icon: 'calendar', label: 'Reservas', ruta: '/comercio/reservas' },
+      { icon: 'building', label: 'Datos del negocio', ruta: '/comercio/config' },
+      ...(administra ? [
+        { icon: 'users', label: 'Equipo', ruta: '/comercio/equipo' },
+        { icon: 'crown', label: 'Suscripción', ruta: '/comercio/suscripcion' },
+      ] : []),
+      { icon: 'lock', label: 'Seguridad y acceso', ruta: '/perfil/seguridad' },
+      { icon: 'bell', label: 'Notificaciones', ruta: '/perfil/notificaciones' },
+      { icon: 'message-square', label: 'Ayuda', ruta: '/ayuda' },
+    ];
   });
 
   /** Rótulo del bloque de secciones, para que se sepa de qué panel son. */
@@ -750,7 +834,8 @@ export class RsNavbarComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    if (!this.estaAutenticado()) return;
+    // Una cuenta de comercio no tiene mascotas, reservas ni favoritos que contar.
+    if (!this.estaAutenticado() || this.esComercio()) return;
     // El navbar se embebe en casi todas las páginas: un fallo aquí (API caída,
     // mock de test incompleto) no puede tirar abajo el resto de la pantalla.
     try {
