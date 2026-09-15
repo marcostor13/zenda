@@ -18,9 +18,10 @@ describe('LugaresService', () => {
   };
   let reviewModel: { find: jest.Mock; findByIdAndUpdate: jest.Mock; create: jest.Mock };
 
-  /** Cadena `findOne().select().exec()` con el documento indicado. */
+  /** Cadena `findOne().select()[.lean()].exec()` con el documento indicado. */
   const cadenaFicha = (documento: unknown) => ({
     select: jest.fn().mockReturnThis(),
+    lean: jest.fn().mockReturnThis(),
     exec: jest.fn().mockResolvedValue(documento),
   });
 
@@ -327,11 +328,79 @@ describe('LugaresService', () => {
     });
   });
 
+  /*
+   * Regresión: la ficha existía y aun así la web decía «No hemos encontrado
+   * este sitio».
+   *
+   * Desde que las direcciones son legibles, la ficha se abre por slug
+   * (`/explora/rio-jucar-a-su-paso-por-corbera-corbera`) y la pantalla pide a la
+   * vez la ficha y sus aportaciones. `obtener` aceptaba las dos formas, pero
+   * esto de aquí exigía un ObjectId y contestaba 400 a cualquier slug, así que
+   * la petición conjunta se caía entera y la ficha se daba por inexistente.
+   * Resultado: **ninguna** ficha de Explora se abría por su dirección legible.
+   */
+  describe('listarReviews', () => {
+    it('debería aceptar el slug de la ficha, no sólo su id', async () => {
+      const id = new Types.ObjectId();
+      lugarModel.findOne.mockReturnValue(cadenaFicha({ _id: id }));
+
+      await service.listarReviews('rio-jucar-a-su-paso-por-corbera-corbera');
+
+      expect(lugarModel.findOne).toHaveBeenCalledWith(
+        { slug: 'rio-jucar-a-su-paso-por-corbera-corbera' },
+      );
+      expect(reviewModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ lugarId: id, estado: EstadoModeracion.PUBLICADO }),
+      );
+    });
+
+    it('debería seguir aceptando el id de siempre, sin consultar por slug', async () => {
+      await service.listarReviews(LUGAR_ID);
+
+      expect(lugarModel.findOne).not.toHaveBeenCalled();
+      expect(reviewModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ estado: EstadoModeracion.PUBLICADO }),
+      );
+    });
+
+    it('debería responder 404 si ese slug no es de nadie', async () => {
+      lugarModel.findOne.mockReturnValue(cadenaFicha(null));
+
+      await expect(service.listarReviews('sitio-que-no-existe'))
+        .rejects.toMatchObject({ statusCode: 404 });
+    });
+  });
+
+  describe('proponerCambios', () => {
+    /* Se propone desde la ficha abierta, y la ficha se abre por su slug. */
+    it('debería encontrar la ficha por su dirección legible', async () => {
+      const id = new Types.ObjectId();
+      lugarModel.findOne.mockReturnValue(cadenaFicha({ _id: id }));
+      lugarModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ atributos: {}, save: jest.fn().mockResolvedValue({}) }),
+      });
+
+      await service.proponerCambios('rio-jucar-riola', { nombre: 'Río Júcar' });
+
+      expect(lugarModel.findById).toHaveBeenCalledWith(id);
+    });
+  });
+
   describe('crearReview', () => {
     const lugarPublicado = { estado: EstadoModeracion.PUBLICADO };
 
     beforeEach(() => {
       lugarModel.findOne.mockReturnValue(cadenaFicha(lugarPublicado));
+    });
+
+    /* Valorar desde la dirección legible es la única forma que ve el usuario. */
+    it('debería colgar la aportación de la ficha aunque llegue por slug', async () => {
+      const id = new Types.ObjectId();
+      lugarModel.findOne.mockReturnValue(cadenaFicha({ _id: id, estado: EstadoModeracion.PUBLICADO }));
+
+      await service.crearReview('rio-jucar-riola', USUARIO_ID, 'Marta', { puntuacion: 5 });
+
+      expect(reviewModel.create).toHaveBeenCalledWith(expect.objectContaining({ lugarId: id }));
     });
 
     it('debería entrar en moderación, no publicarse sola', async () => {

@@ -314,9 +314,16 @@ export class ExploraDetalleComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     try {
+      /*
+       * Las dos peticiones salen a la vez, pero sólo la ficha puede tumbar la
+       * página. Antes las aportaciones también podían: un fallo suyo rompía el
+       * `Promise.all` y se acababa diciendo «No hemos encontrado este sitio»
+       * sobre una ficha perfectamente publicada. Sin aportaciones el sitio se
+       * lee igual; sin ficha no hay página.
+       */
       const [lugar, reviews] = await Promise.all([
         this.lugaresService.obtener(id),
-        this.lugaresService.reviews(id),
+        this.lugaresService.reviews(id).catch(() => [] as LugarReviewApi[]),
       ]);
       this.lugar.set(lugar);
       this.reviews.set(reviews);

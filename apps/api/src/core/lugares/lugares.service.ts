@@ -149,8 +149,9 @@ export class LugaresService {
    * Corrección de datos aportada por la comunidad (HU-043). Vuelve a pasar por
    * moderación: si no, editar sería la puerta trasera para publicar sin revisión.
    */
-  async proponerCambios(id: string, dto: ActualizarLugarDto): Promise<LugarDocument> {
-    const lugar = await this.lugarModel.findById(this.aObjectId(id)).exec();
+  async proponerCambios(idOSlug: string, dto: ActualizarLugarDto): Promise<LugarDocument> {
+    // Se propone desde la ficha abierta, que hoy se abre por su dirección legible.
+    const lugar = await this.lugarModel.findById(await this.idDeLugar(idOSlug)).exec();
     if (!lugar) {
       throw new DomainException('Lugar no encontrado', 404);
     }
@@ -166,24 +167,26 @@ export class LugaresService {
 
   // ── Aportaciones de la comunidad ──
 
-  async listarReviews(lugarId: string): Promise<LugarReviewDocument[]> {
+  async listarReviews(idOSlug: string): Promise<LugarReviewDocument[]> {
     return this.reviewModel
-      .find({ lugarId: this.aObjectId(lugarId), estado: EstadoModeracion.PUBLICADO })
+      .find({ lugarId: await this.idDeLugar(idOSlug), estado: EstadoModeracion.PUBLICADO })
       .sort({ createdAt: -1 })
       .exec();
   }
 
   async crearReview(
-    lugarId: string,
+    idOSlug: string,
     usuarioId: string,
     usuarioNombre: string,
     dto: CrearLugarReviewDto,
   ): Promise<LugarReviewDocument> {
-    await this.obtener(lugarId);
+    // `obtener` ya acepta id o slug y comprueba que la ficha esté publicada: se
+    // aprovecha su documento en vez de volver a resolver la dirección.
+    const lugar = await this.obtener(idOSlug);
 
     try {
       return await this.reviewModel.create({
-        lugarId: this.aObjectId(lugarId),
+        lugarId: lugar._id,
         usuarioId: new Types.ObjectId(usuarioId),
         usuarioNombre,
         puntuacion: dto.puntuacion,
@@ -243,8 +246,10 @@ export class LugaresService {
     // Los dos modelos comparten los campos que se tocan, pero no el tipo: se
     // resuelve cada rama por separado en vez de forzar una unión.
     const cambio = { $inc: { reportes: 1 }, $set: motivo ? { ultimoMotivoReporte: motivo } : {} };
+    // La denuncia se lanza desde la ficha abierta, cuya dirección puede ser el
+    // slug. Una aportación no tiene dirección propia: ahí sólo cabe el id.
     const actualizado = tipo === 'lugar'
-      ? await this.lugarModel.findByIdAndUpdate(this.aObjectId(id), cambio, { new: true }).exec()
+      ? await this.lugarModel.findByIdAndUpdate(await this.idDeLugar(id), cambio, { new: true }).exec()
       : await this.reviewModel.findByIdAndUpdate(this.aObjectId(id), cambio, { new: true }).exec();
 
     if (!actualizado) {
@@ -321,6 +326,28 @@ export class LugaresService {
     await this.lugarModel
       .updateOne({ _id: this.aObjectId(lugarId) }, { $set: { ratingPromedio: media, totalReviews: total } })
       .exec();
+  }
+
+  /**
+   * `_id` de una ficha a partir de su id **o** de su dirección legible.
+   *
+   * Desde que `/explora` usa slugs, todo lo que cuelga de una ficha —sus
+   * aportaciones, una valoración nueva, una denuncia— llega identificado por la
+   * dirección que el usuario tiene abierta, que casi nunca es un ObjectId.
+   * Traducirla aquí, en un solo sitio, evita que cada método tenga que acordarse
+   * de las dos formas.
+   */
+  private async idDeLugar(idOSlug: string): Promise<Types.ObjectId> {
+    if (pareceObjectId(idOSlug)) return this.aObjectId(idOSlug);
+
+    const lugar = await this.lugarModel
+      .findOne({ slug: idOSlug.toLowerCase() })
+      .select({ _id: 1 })
+      .lean()
+      .exec();
+    if (!lugar) throw new DomainException('Lugar no encontrado', 404);
+
+    return lugar._id as Types.ObjectId;
   }
 
   private aObjectId(id: string): Types.ObjectId {
