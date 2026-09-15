@@ -641,4 +641,88 @@ describe('AlojamientoDetalleComponent', () => {
       expect(component.secundarias()).toEqual([]);
     });
   });
+
+  /*
+   * La ficha tiene que poder reservarse desde la primera pantalla. Antes el
+   * botón del panel se quedaba gris ("Selecciona un espacio") hasta bajar a la
+   * lista, que está a media página: la única acción de la pantalla no se podía
+   * pulsar. Y la garantía —ocho líneas idénticas en toda la web— se daba dos
+   * veces: encima del contenido y otra vez en el panel.
+   */
+  describe('panel de reserva', () => {
+    const montar = async (detalle = detalleMock): Promise<HTMLElement> => {
+      alojamientoService.obtener.mockResolvedValue(detalle);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    };
+
+    it('debería llevar a elegir espacio en vez de dejar el botón muerto', async () => {
+      const el = await montar();
+      const boton = el.querySelector<HTMLButtonElement>('.booking-panel__card .rs-btn--gold')!;
+
+      expect(boton.disabled).toBe(false);
+      expect(boton.textContent).toContain('Elegir espacio');
+
+      const irA = jest.spyOn(component, 'irAEspacios');
+      boton.click();
+      expect(irA).toHaveBeenCalled();
+    });
+
+    it('debería pasar a reservar en cuanto hay un espacio elegido', async () => {
+      const el = await montar();
+      component.seleccionarEspacio(espacioMock);
+      fixture.detectChanges();
+
+      expect(el.querySelector('.booking-panel__card .rs-btn--gold')!.textContent).toContain('Reservar');
+    });
+
+    it('debería dar la garantía una sola vez, y no por duplicado arriba', async () => {
+      const el = await montar();
+
+      expect(el.querySelectorAll('rs-trust-block')).toHaveLength(1);
+    });
+
+    /* El aviso de urgencia sale del dato del comercio, nunca de un número
+       inventado: uno falso es lo que hace que no se crea el siguiente. */
+    it('debería avisar de los últimos espacios sólo cuando de verdad quedan pocos', async () => {
+      await montar({ ...detalleMock, espaciosDisponibles: 2 });
+      expect(component.avisoUltimosEspacios()).toBe('Quedan 2 espacios libres');
+
+      // Ids distintos: `seleccionarEspacio` alterna cuando se repite el mismo.
+      component.seleccionarEspacio({ ...espacioMock, id: 'e-uno', cantidad: 1 });
+      expect(component.avisoUltimosEspacios()).toBe('Queda 1 espacio de este tipo');
+
+      component.seleccionarEspacio({ ...espacioMock, id: 'e-muchos', cantidad: 9 });
+      expect(component.avisoUltimosEspacios()).toBeNull();
+    });
+  });
+
+  describe('reparto de la pantalla', () => {
+    it('debería dejar la galería dentro de la columna, con el panel a su derecha', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      // Dentro de la columna: así queda alineada con el contenido de debajo y
+      // el hueco de la derecha lo ocupa el panel desde la primera pantalla.
+      expect(el.querySelector('.info-col .gallery')).not.toBeNull();
+      // Y el titular, delante de las fotos.
+      const columna = el.querySelector('.info-col')!;
+      const orden = Array.from(columna.children).map((n) => n.className);
+      expect(orden.findIndex((c) => c.includes('info-header')))
+        .toBeLessThan(orden.findIndex((c) => c.includes('gallery')));
+    });
+
+    it('no debería dejar el hueco del mosaico cuando el alojamiento no tiene fotos', async () => {
+      alojamientoService.obtener.mockResolvedValue({ ...detalleMock, imagenes: [] });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('.gallery')).toBeNull();
+    });
+  });
 });

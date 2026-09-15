@@ -954,6 +954,88 @@ select.rs-inp {
   top: var(--sticky-top, 84px);
 }
 
+/* ── 14b. PANEL DE RESERVA DE UNA FICHA ─────────────────────────────
+   Precio, gancho, botón y las tres claves que pesan en la decisión. Vivía
+   duplicado en las dos fichas de detalle —la de alojamiento y la común al
+   resto de categorías— con tamaños distintos, así que el mismo panel se veía
+   de dos maneras según la categoría. Aquí se define una vez y las dos lo usan.
+
+   El orden es siempre el mismo: cuánto cuesta, por qué ahora, la acción y con
+   qué se va cubierto. */
+.rs-bp-desde {
+  font-size: var(--f-xs);
+  color: var(--t-400);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 2px;
+}
+
+/* Importe y unidad en la misma línea, alineados por la base: en tres líneas
+   centradas ocupaban medio panel para decir "25 €". */
+.rs-bp-amount {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  font-size: var(--f-4xl);
+  font-weight: var(--w-9);
+  letter-spacing: -.03em;
+  color: var(--dk-blue);
+  margin-bottom: var(--sp-4);
+}
+
+.rs-bp-per {
+  font-size: var(--f-sm);
+  font-weight: var(--w-5);
+  color: var(--t-400);
+  letter-spacing: 0;
+}
+
+/* El gancho: la primera cita libre, o los espacios que quedan. Lo que
+   contesta a "¿por qué reservar ahora?" antes de entrar al asistente. */
+.rs-bp-gancho {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3);
+  border: 1px solid var(--dk-gold);
+  border-radius: var(--r-lg);
+  background: rgba(251,174,23,.10);
+  font-size: var(--f-sm);
+  color: var(--dk-blue-text);
+
+  rs-icon { color: var(--dk-gold); flex: none; margin-top: 1px; }
+  strong { white-space: nowrap; }
+}
+
+.rs-bp-nota {
+  margin-top: var(--sp-2);
+  text-align: center;
+  font-size: var(--f-xs);
+  color: var(--t-400);
+}
+
+/* Tres claves, no las ocho de la garantía: ésa se da entera una sola vez al
+   cierre de la ficha. */
+.rs-bp-claves {
+  list-style: none;
+  margin-top: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--f-sm);
+    color: var(--t-300);
+
+    rs-icon { color: var(--c-success, #15803D); flex: none; }
+  }
+}
+
 /* ── 15. VERTICAL PILL TABS ────────────────────────────────────── */
 .rs-vtabs {
   display: flex;

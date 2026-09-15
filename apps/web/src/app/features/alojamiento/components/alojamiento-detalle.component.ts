@@ -42,6 +42,12 @@ const MINIATURAS_VISIBLES = 6;
 /** Fotos que acompañan a la grande en el mosaico, apiladas a su derecha. */
 const SECUNDARIAS_VISIBLES = 2;
 
+/**
+ * A partir de aquí ya no es escasez: avisar de que "quedan 9" no aprieta a
+ * nadie y gasta la credibilidad del aviso para cuando de verdad quedan dos.
+ */
+const UMBRAL_ULTIMOS_ESPACIOS = 3;
+
 @Component({
   selector: 'app-alojamiento-detalle',
   standalone: true,
@@ -79,45 +85,6 @@ const SECUNDARIAS_VISIBLES = 2;
       <span>{{ alojamiento()!.nombre }}</span>
     </nav>
 
-    <!-- GALERÍA -->
-    <div class="gallery rs-wrap">
-      <div class="gallery__hero" [class.gallery__hero--solo]="!secundarias().length">
-        <div class="gallery__foto gallery__main" (click)="abrirLightbox(imagenActiva())">
-          <!--
-            El bucle sobre una sola foto es lo que hace el fundido: al cambiar
-            la imagen activa cambia la clave de seguimiento, Angular recrea el
-            <img> y la animación de entrada vuelve a arrancar. Con un [src]
-            atado a un nodo fijo, la foto se sustituye de golpe.
-          -->
-          @for (img of [imagenActiva()]; track img) {
-            <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
-          }
-          <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ alojamiento()!.imagenes.length }} fotografías</span>
-        </div>
-        @if (secundarias().length) {
-          <div class="gallery__side">
-            @for (img of secundarias(); track img) {
-              <div class="gallery__foto gallery__side-foto" (click)="imagenActiva.set(img)">
-                <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
-              </div>
-            }
-          </div>
-        }
-      </div>
-      <div class="gallery__thumbs">
-        @for (img of miniaturas(); track img) {
-          <div class="gallery__thumb" [class.active]="imagenActiva() === img"
-               (click)="imagenActiva.set(img)">
-            <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
-          </div>
-        }
-        @if (fotosOcultas()) {
-          <div class="gallery__thumb gallery__thumb--more" (click)="abrirLightbox(primeraFotoOculta())">
-            +{{ fotosOcultas() }} fotos
-          </div>
-        }
-      </div>
-    </div>
 
     @if (lightboxAbierto()) {
       <div class="lightbox" role="dialog" [attr.aria-label]="'Galería a pantalla completa' | t" (click)="cerrarLightbox()">
@@ -140,8 +107,11 @@ const SECUNDARIAS_VISIBLES = 2;
 
       <!-- INFO COLUMN -->
       <div class="info-col">
-
-        <!-- Header -->
+      <!--
+        El nombre, antes que las fotos. Es el orden de Booking y el que ordena
+        la pantalla: se sabe qué se está mirando antes de mirarlo, y el panel de
+        la derecha arranca a la altura del titular en vez de a media galería.
+      -->
         <!--
           Mismo orden que el resto de fichas: primero el nombre y después la
           línea de datos. La nota iba encima del titular y era lo primero que se
@@ -173,12 +143,64 @@ const SECUNDARIAS_VISIBLES = 2;
           </div>
         </div>
 
-        <!-- Garantía Doogking (HU-4.1.9 · TCK-8009) -->
-        <div class="compromiso-block" rsAnim>
-          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> {{ 'Garantía Doogking' | t }}</h3>
-          <rs-trust-block></rs-trust-block>
-        </div>
 
+    <!--
+      La galería va DENTRO de la columna de contenido, no a todo lo ancho
+      encima del cuerpo.
+
+      Suelta arriba, su borde derecho quedaba sobre el panel de reserva sin
+      relación con él y el panel empezaba por debajo de las fotos: la única
+      acción de la ficha aparecía a 400 px de scroll. Metida en la columna, las
+      fotos quedan alineadas con todo lo que viene debajo y el hueco de la
+      derecha lo ocupa el panel desde la primera pantalla, que es como reparte
+      el espacio Booking.
+    -->
+      <!-- Sin fotos no hay galería: el mosaico vacío dejaba 400 px en
+           blanco entre el titular y el contenido. -->
+      @if (alojamiento()!.imagenes.length) {
+      <!-- GALERÍA -->
+      <div class="gallery">
+        <div class="gallery__hero" [class.gallery__hero--solo]="!secundarias().length">
+          <div class="gallery__foto gallery__main" (click)="abrirLightbox(imagenActiva())">
+            <!--
+              El bucle sobre una sola foto es lo que hace el fundido: al cambiar
+              la imagen activa cambia la clave de seguimiento, Angular recrea el
+              <img> y la animación de entrada vuelve a arrancar. Con un [src]
+              atado a un nodo fijo, la foto se sustituye de golpe.
+            -->
+            @for (img of [imagenActiva()]; track img) {
+              <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
+            }
+            <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ alojamiento()!.imagenes.length }} fotografías</span>
+          </div>
+          @if (secundarias().length) {
+            <div class="gallery__side">
+              @for (img of secundarias(); track img) {
+                <div class="gallery__foto gallery__side-foto" (click)="imagenActiva.set(img)">
+                  <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
+                </div>
+              }
+            </div>
+          }
+        </div>
+        <div class="gallery__thumbs">
+          @for (img of miniaturas(); track img) {
+            <div class="gallery__thumb" [class.active]="imagenActiva() === img"
+                 (click)="imagenActiva.set(img)">
+              <img [src]="img" [alt]="alojamiento()!.nombre" rsImg />
+            </div>
+          }
+          @if (fotosOcultas()) {
+            <div class="gallery__thumb gallery__thumb--more" (click)="abrirLightbox(primeraFotoOculta())">
+              +{{ fotosOcultas() }} fotos
+            </div>
+          }
+        </div>
+      </div>
+      }
+
+
+        <!-- Header -->
         <!-- Compatibilidad con tu perro (HU-4.1.7) -->
         @if (perroCompat() && compatibilidad().length) {
           <div class="compat-block" rsAnim>
@@ -193,33 +215,6 @@ const SECUNDARIAS_VISIBLES = 2;
             </ul>
           </div>
         }
-
-        <!-- Rating summary -->
-        <div class="rating-summary rs-card" rsAnim>
-          <div class="rating-summary__score">
-            <div class="rating-big">{{ alojamiento()!.score }}</div>
-            <div>
-              <div class="rating-big-label">{{ alojamiento()!.scoreLabel }}</div>
-              <div style="font-size:var(--f-xs);color:var(--t-400)">{{ alojamiento()!.numResenas | number }} reseñas verificadas</div>
-            </div>
-          </div>
-          <!-- "Índice Doogking" con barras (PDF 27/07 §13): son las medias
-               reales por aspecto de las reseñas, no una puntuación aparte. -->
-          @if (ratingItems().length > 0) {
-            <div class="rating-breakdown">
-              <p class="rating-breakdown__titulo">
-                <rs-icon name="crown" [size]="15" [stroke]="2" /> {{ 'Índice Doogking' | t }}
-              </p>
-              @for (item of ratingItems(); track item.label) {
-                <div class="rating-bar">
-                  <span>{{ item.label | t }}</span>
-                  <div class="rating-bar__track"><div class="rating-bar__fill" [style.width.%]="item.pct"></div></div>
-                  <strong>{{ item.val }}</strong>
-                </div>
-              }
-            </div>
-          }
-        </div>
 
         <!-- Descripción -->
         <div class="section-block" rsAnim>
@@ -392,7 +387,41 @@ const SECUNDARIAS_VISIBLES = 2;
 
         <!-- Reseñas -->
         <div class="section-block" rsAnim>
-          <h2>{{ 'Reseñas de dueños' | t }} <span style="color:var(--t-400);font-weight:400">({{ alojamiento()!.resenas.length }})</span></h2>
+          <h2>{{ 'Lo que opinan otros dueños' | t }}</h2>
+
+          <!--
+            La nota y su desglose, delante de los comentarios. Estaban arriba
+            del todo, entre el nombre y la descripción, empujando casi 200 px
+            los tipos de espacio —que es lo que decide la reserva— y lejos de
+            las reseñas de las que salen.
+          -->
+        <div class="rating-summary rs-card" rsAnim>
+          <div class="rating-summary__score">
+            <div class="rating-big">{{ alojamiento()!.score }}</div>
+            <div>
+              <div class="rating-big-label">{{ alojamiento()!.scoreLabel }}</div>
+              <div style="font-size:var(--f-xs);color:var(--t-400)">{{ alojamiento()!.numResenas | number }} reseñas verificadas</div>
+            </div>
+          </div>
+          <!-- "Índice Doogking" con barras (PDF 27/07 §13): son las medias
+               reales por aspecto de las reseñas, no una puntuación aparte. -->
+          @if (ratingItems().length > 0) {
+            <div class="rating-breakdown">
+              <p class="rating-breakdown__titulo">
+                <rs-icon name="crown" [size]="15" [stroke]="2" /> {{ 'Índice Doogking' | t }}
+              </p>
+              @for (item of ratingItems(); track item.label) {
+                <div class="rating-bar">
+                  <span>{{ item.label | t }}</span>
+                  <div class="rating-bar__track"><div class="rating-bar__fill" [style.width.%]="item.pct"></div></div>
+                  <strong>{{ item.val }}</strong>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+
           <div class="resenas-list">
             @for (r of alojamiento()!.resenas; track r.id) {
               <div class="resena-card rs-card" rsAnim>
@@ -426,6 +455,13 @@ const SECUNDARIAS_VISIBLES = 2;
           </div>
         </div>
 
+        <!-- La garantía, entera y una sola vez: es lo mismo en toda la web,
+             así que cierra la ficha en vez de abrirla por duplicado. -->
+        <div class="section-block" rsAnim>
+          <h2><rs-icon name="shield-check" [size]="18" [stroke]="2" /> {{ 'Garantía Doogking' | t }}</h2>
+          <rs-trust-block [items]="extrasTrust()"></rs-trust-block>
+        </div>
+
       </div>
 
       <!-- BOOKING PANEL (sticky, acento dorado superior) -->
@@ -442,25 +478,48 @@ const SECUNDARIAS_VISIBLES = 2;
             </div>
           }
 
-          <div class="booking-panel__price">
-            <div class="bp-desde">{{ 'Desde' | t }}</div>
-            <div class="bp-amount">{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}</div>
-            <div class="bp-per">{{ 'por noche' | t }}</div>
-          </div>
+          <p class="rs-bp-desde">{{ 'Desde' | t }}</p>
+          <p class="rs-bp-amount">
+            {{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}
+            <span class="rs-bp-per">{{ 'por noche' | t }}</span>
+          </p>
 
-          <div style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-bottom:var(--sp-5)">
+          <div style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-bottom:var(--sp-4)">
             {{ 'Impuestos e IVA incluidos' | t }}
           </div>
 
+          @if (avisoUltimosEspacios(); as aviso) {
+            <p class="rs-bp-gancho" data-testid="aviso-escasez">
+              <rs-icon name="alert-circle" [size]="15" [stroke]="2" /> {{ aviso }}
+            </p>
+          }
+
+          <!--
+            El botón nunca está muerto. Antes se quedaba gris ("Selecciona un
+            espacio") hasta bajar a la lista, que está a media página: la única
+            acción de la ficha no se podía pulsar. Ahora, sin espacio elegido,
+            lleva a elegirlo —lo mismo que ya hacía la barra fija de móvil.
+          -->
           <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
-                  [disabled]="!espacioSelec()"
-                  (click)="irAReserva()">
-            {{ espacioSelec() ? 'Reservar' : 'Selecciona un espacio' }}
+                  (click)="espacioSelec() ? irAReserva() : irAEspacios()">
+            {{ espacioSelec() ? ('Reservar' | t) : ('Elegir espacio' | t) }}
           </button>
+          <p class="rs-bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
 
-          <rs-trust-block class="booking-panel__trust" [items]="extrasTrust()"></rs-trust-block>
+          <!--
+            Tres claves, no diez líneas. La garantía entera se daba aquí y otra
+            vez arriba de la columna, idéntica en toda la web; ahora cierra la
+            ficha una sola vez.
+          -->
+          <ul class="rs-bp-claves">
+            @if (alojamiento()!.cancelacionGratis) {
+              <li><rs-icon name="calendar" [size]="15" [stroke]="2" /> {{ 'Cancelación gratuita' | t }}</li>
+            }
+            <li><rs-icon name="zap" [size]="15" [stroke]="2" /> {{ 'Confirmación inmediata' | t }}</li>
+            <li><rs-icon name="lock" [size]="15" [stroke]="2" /> {{ 'Pago seguro con Stripe' | t }}</li>
+          </ul>
 
-          <hr class="rs-hr" style="margin-block:var(--sp-5)">
+          <hr class="rs-hr" style="margin-block:var(--sp-4)">
 
           <div class="booking-panel__score">
             <rs-rating [score]="alojamiento()!.score" [label]="alojamiento()!.scoreLabel" [count]="alojamiento()!.numResenas"></rs-rating>
@@ -537,6 +596,16 @@ const SECUNDARIAS_VISIBLES = 2;
       .mobile-cta__precio strong { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--dk-blue); }
       .mobile-cta__unidad { font-size: var(--f-xs); color: var(--t-400); }
       .mobile-cta .rs-btn { flex-shrink: 0; padding-inline: var(--sp-6); }
+
+      /*
+        Igual que en el resto de fichas: el panel cae al final de la página en
+        una sola columna, así que su precio y su botón repetían lo que la barra
+        fija ya tiene delante de los ojos.
+      */
+      .booking-panel__card .rs-bp-desde,
+      .booking-panel__card .rs-bp-amount,
+      .booking-panel__card .rs-btn--gold,
+      .booking-panel__card .rs-bp-nota { display: none; }
     }
 
     /* BREADCRUMB */
@@ -766,6 +835,10 @@ const SECUNDARIAS_VISIBLES = 2;
       border-radius: var(--r-full);
     }
 
+    /* Mismo panel que el resto de fichas: precio, escasez, botón y tres claves. */
+
+
+
     .compromiso-block {
       margin-top: var(--sp-5);
       padding: var(--sp-5);
@@ -944,9 +1017,6 @@ const SECUNDARIAS_VISIBLES = 2;
     }
     .booking-panel__selected { margin-bottom: var(--sp-5); h4 { font-size: var(--f-md); font-weight: var(--w-6); color: var(--t-100); margin-top: var(--sp-2); } }
     .booking-panel__price { text-align: center; margin-bottom: var(--sp-2); }
-    .bp-desde  { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
-    .bp-amount { font-size: var(--f-5xl); font-weight: var(--w-9); letter-spacing: -.04em; color: var(--dk-blue); }
-    .bp-per    { font-size: var(--f-sm); color: var(--t-400); }
     .booking-panel__trust { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); p { font-size: var(--f-xs); color: var(--t-400); } }
     .booking-panel__score { display: flex; justify-content: center; }
   `],
@@ -1241,6 +1311,27 @@ export class AlojamientoDetalleComponent implements OnInit {
         perroId:    this.perroIdQP ?? undefined,
       },
     });
+  }
+
+  /**
+   * "Quedan 2 espacios a este precio", cuando de verdad quedan pocos.
+   *
+   * Sale de la cantidad que declara el comercio, nunca de un número inventado:
+   * un aviso de urgencia falso es lo que hace que el cliente deje de creerse
+   * los siguientes. Con el espacio ya elegido habla de ése; sin elegir, del
+   * alojamiento entero. Por encima del umbral no se dice nada.
+   */
+  avisoUltimosEspacios(): string | null {
+    const elegido = this.espacioSelec();
+    const quedan = elegido ? elegido.cantidad : (this.alojamiento()?.espaciosDisponibles ?? 0);
+    if (!Number.isFinite(quedan) || quedan <= 0 || quedan > UMBRAL_ULTIMOS_ESPACIOS) return null;
+
+    if (elegido) {
+      return quedan === 1
+        ? 'Queda 1 espacio de este tipo'
+        : `Quedan ${quedan} espacios de este tipo`;
+    }
+    return quedan === 1 ? 'Queda 1 espacio libre' : `Quedan ${quedan} espacios libres`;
   }
 
   /** Lleva a la lista de espacios: lo usa la barra fija de móvil cuando aún no hay ninguno elegido. */
