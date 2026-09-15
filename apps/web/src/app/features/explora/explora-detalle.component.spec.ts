@@ -20,12 +20,12 @@ describe('ExploraDetalleComponent', () => {
   let componente: ExploraDetalleComponent;
   let lugaresService: jest.Mocked<Pick<LugaresService, 'obtener' | 'reviews'>>;
 
-  const crear = async (datos: LugarApi | null): Promise<void> => {
+  const crear = async (datos: LugarApi | null, reviews?: jest.Mock): Promise<void> => {
     lugaresService = {
       obtener: datos
         ? jest.fn().mockResolvedValue(datos)
         : jest.fn().mockRejectedValue(new Error('404')),
-      reviews: jest.fn().mockResolvedValue([]),
+      reviews: reviews ?? jest.fn().mockResolvedValue([]),
     };
 
     await TestBed.configureTestingModule({
@@ -93,5 +93,19 @@ describe('ExploraDetalleComponent', () => {
 
     expect(componente.lugar()).toBeNull();
     expect(fixture.nativeElement.querySelector('.rs-alert--error')).toBeTruthy();
+  });
+
+  /*
+   * Regresión: la ficha y sus aportaciones se pedían en un `Promise.all`, así
+   * que un fallo al traer las aportaciones —el que tenía el API con las
+   * direcciones legibles— tumbaba la pareja y la página decía «No hemos
+   * encontrado este sitio» sobre un sitio que existía. La ficha manda.
+   */
+  it('debería seguir enseñando la ficha aunque fallen sus aportaciones', async () => {
+    await crear(lugar(), jest.fn().mockRejectedValue(new Error('500')));
+
+    expect(componente.lugar()).not.toBeNull();
+    expect(componente.reviews()).toEqual([]);
+    expect(fixture.nativeElement.querySelector('.rs-alert--error')).toBeNull();
   });
 });
