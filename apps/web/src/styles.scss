@@ -158,6 +158,13 @@
      mide otra cosa. */
   --dk-listado-top: 256px;
 
+  /*
+   * Ancho de la columna lateral de los paneles (comercio y admin). Vive aquí
+   * porque no sólo la usa el propio panel: el asistente flotante, que se pinta
+   * fuera del panel, tiene que apartarse de ella para no tapar el menú.
+   */
+  --panel-lateral: 260px;
+
   /* Z-index */
   --z-1: 10;
   --z-2: 100;

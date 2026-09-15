@@ -7,12 +7,13 @@ import { RecuperacionChunkService } from './core/version/recuperacion-chunk.serv
 import { TraducirPipe } from './core/i18n/traducir.pipe';
 import { RsNavInferiorComponent } from './shared/components/nav-inferior/rs-nav-inferior.component';
 import { RsCookiesComponent } from './shared/components/cookies/rs-cookies.component';
+import { RsAsistenteComponent } from './shared/components/asistente/rs-asistente.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
-    TraducirPipe, RouterOutlet, RsNavInferiorComponent, RsCookiesComponent
+    TraducirPipe, RouterOutlet, RsNavInferiorComponent, RsCookiesComponent, RsAsistenteComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -39,6 +40,13 @@ import { RsCookiesComponent } from './shared/components/cookies/rs-cookies.compo
   pinta solo si el visitante todavía no ha decidido.
 -->
 <rs-cookies />
+
+<!--
+  Asistente de la web. Va en la raíz para estar en cualquier página, y abajo a
+  la izquierda porque la derecha es de la acción que da dinero: el panel de
+  reserva de las fichas y su botón. Sólo se pinta en escritorio (ver su hoja).
+-->
+<rs-asistente />
   `,
   styles: [`
     .sin-conexion {

@@ -38,6 +38,15 @@ const MARCAS_HEIC = ['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'he
 
 const esHeic = (buffer: Buffer): boolean => MARCAS_HEIC.includes(marcaIso(buffer));
 
+/**
+ * Un `.docx` es un ZIP, así que la cabecera `PK` no lo distingue de cualquier
+ * otro comprimido. Lo que lo identifica es que dentro haya un
+ * `word/document.xml`, y ese nombre aparece literal en el índice del ZIP: los
+ * nombres de entrada no se comprimen. Buscarlo en el búfer completo es lo más
+ * barato que distingue un documento de Word de un ZIP con cualquier cosa.
+ */
+const esDocx = (buffer: Buffer): boolean => buffer.includes('word/document.xml');
+
 const FIRMAS: readonly Firma[] = [
   { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff] },
   { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
@@ -49,6 +58,19 @@ const FIRMAS: readonly Firma[] = [
     ademas: (b) => b.subarray(8, 12).toString('ascii') === 'WEBP',
   },
   { mime: 'application/pdf', bytes: ASCII('%PDF-') },
+  // Word moderno: ZIP con un `word/document.xml` dentro.
+  {
+    mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    bytes: ASCII('PK'),
+    ademas: esDocx,
+  },
+  /*
+   * Word anterior a 2007. El contenedor OLE2 lo comparten también los `.xls` y
+   * `.ppt` de aquella época, y separarlos exige recorrer el directorio del
+   * compuesto. No se hace: lo que importa aquí es que es un documento ofimático
+   * antiguo, y se sirve siempre como descarga, nunca en línea.
+   */
+  { mime: 'application/msword', bytes: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1] },
   // Antes que los vídeos: comparten contenedor y `find` devuelve la primera.
   {
     mime: 'image/heic',

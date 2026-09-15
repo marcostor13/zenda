@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
@@ -44,6 +46,9 @@ describe('ComercioMascotaExpedienteComponent', () => {
       imports: [ComercioMascotaExpedienteComponent],
       providers: [
         provideRouter([]),
+        // El formulario sube los documentos adjuntos por HTTP al elegirlos.
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: ExpedienteService, useValue: expedientes },
         { provide: ComercioApiService, useValue: { getMiComercio: () => of({ verticales: opciones.verticales ?? ['veterinaria', 'alojamiento'] }) } },
         { provide: AuthService, useValue: { usuario: signal({ nombre: 'Dra. Pérez' }) } },

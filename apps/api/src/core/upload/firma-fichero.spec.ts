@@ -15,6 +15,26 @@ const WEBM = conCabecera([0x1a, 0x45, 0xdf, 0xa3]);
 const MP4 = conCabecera([0, 0, 0, 0x20, ...ascii('ftyp'), ...ascii('isom')]);
 const MOV = conCabecera([0, 0, 0, 0x14, ...ascii('ftyp'), ...ascii('qt  ')]);
 
+/**
+ * Word moderno: un ZIP cuyo índice nombra `word/document.xml`. El relleno imita
+ * a un `.docx` real, donde ese nombre aparece pasados los primeros bytes.
+ */
+const DOCX = Buffer.concat([
+  Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+  Buffer.alloc(26),
+  Buffer.from('[Content_Types].xml'),
+  Buffer.alloc(40),
+  Buffer.from('word/document.xml'),
+]);
+/** Word anterior a 2007: contenedor OLE2. */
+const DOC = conCabecera([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+/** Un ZIP cualquiera: misma cabecera que el .docx, sin documento de Word. */
+const ZIP = Buffer.concat([
+  Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+  Buffer.alloc(26),
+  Buffer.from('fotos/vacaciones.jpg'),
+]);
+
 /** Foto del carrete de un iPhone: mismo contenedor que el vídeo, otra marca. */
 const HEIC = conCabecera([0, 0, 0, 0x18, ...ascii('ftyp'), ...ascii('heic')]);
 const HEIF = conCabecera([0, 0, 0, 0x18, ...ascii('ftyp'), ...ascii('mif1')]);
@@ -26,6 +46,8 @@ describe('detectarTipoReal', () => {
     ['image/gif', GIF],
     ['image/webp', WEBP],
     ['application/pdf', PDF],
+    ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', DOCX],
+    ['application/msword', DOC],
     ['video/webm', WEBM],
     ['video/mp4', MP4],
     ['video/quicktime', MOV],
@@ -43,6 +65,14 @@ describe('detectarTipoReal', () => {
     expect(detectarTipoReal(Buffer.alloc(0))).toBeNull();
   });
 
+  /*
+   * Todo `.docx` es un ZIP, pero no todo ZIP es un `.docx`. Sin mirar dentro, un
+   * comprimido con cualquier cosa entraría por el endpoint de documentación.
+   */
+  it('no debería tomar por Word un ZIP que no lleva documento dentro', () => {
+    expect(detectarTipoReal(ZIP)).toBeNull();
+  });
+
   it('no debería confundir un RIFF que no es WebP (p. ej. un WAV)', () => {
     const wav = conCabecera([...ascii('RIFF'), 0, 0, 0, 0, ...ascii('WAVE')]);
 
@@ -52,7 +82,12 @@ describe('detectarTipoReal', () => {
 
 describe('tipoAceptado', () => {
   const IMAGENES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
-  const DOCUMENTOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+  const DOCUMENTOS = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg', 'image/png', 'image/webp', 'image/heic',
+  ];
   const VIDEOS = ['video/mp4', 'video/webm', 'video/quicktime'];
 
   it('debería devolver el tipo real cuando el endpoint lo acepta', () => {
@@ -115,6 +150,30 @@ describe('tipoAceptado', () => {
     it('debería aceptar la foto también como documentación', () => {
       // Una foto del móvil es la forma más común de aportar un certificado.
       expect(tipoAceptado(HEIC, DOCUMENTOS)).toBe('image/heic');
+    });
+  });
+
+  /*
+   * Los adjuntos del historial de la mascota: el analítico llega en PDF, pero el
+   * informe que escribe la clínica suele venir en Word.
+   */
+  describe('documentos de Word', () => {
+    it('debería aceptar un .docx como documentación', () => {
+      expect(tipoAceptado(DOCX, DOCUMENTOS))
+        .toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    });
+
+    it('debería aceptar también el .doc antiguo', () => {
+      expect(tipoAceptado(DOC, DOCUMENTOS)).toBe('application/msword');
+    });
+
+    it('no debería dejar colar un ZIP cualquiera como documento', () => {
+      expect(tipoAceptado(ZIP, DOCUMENTOS)).toBeNull();
+    });
+
+    it('no debería dejar subir un documento por el endpoint de imágenes', () => {
+      expect(tipoAceptado(DOCX, IMAGENES)).toBeNull();
+      expect(tipoAceptado(DOC, IMAGENES)).toBeNull();
     });
   });
 });

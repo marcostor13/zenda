@@ -106,8 +106,8 @@ describe('RsIconComponent', () => {
 });
 
 describe('DIBUJOS_ICONO', () => {
-  it('debería conservar los 105 iconos del catálogo', () => {
-    expect(Object.keys(DIBUJOS_ICONO).length).toBe(105);
+  it('debería conservar los 106 iconos del catálogo', () => {
+    expect(Object.keys(DIBUJOS_ICONO).length).toBe(106);
   });
 
   it('debería traer sólo marcado de dibujo, sin etiquetas svg anidadas', () => {

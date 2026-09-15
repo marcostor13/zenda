@@ -216,6 +216,37 @@ describe('ExpedientesService', () => {
       expect(historialModel['create'].mock.calls[0][0].reservaId.toString()).toBe(reservaId);
     });
 
+    /*
+     * Los adjuntos son la prueba del servicio —el analítico, el informe— y el
+     * dueño tiene que poder abrirlos desde su ficha, así que se guardan y se
+     * devuelven, no se quedan sólo en el formulario.
+     */
+    it('debería guardar los documentos adjuntos y devolverlos con el registro', async () => {
+      const adjuntos = [{ nombre: ' Analitica.pdf ', url: ' https://cdn/a.pdf ', tipo: 'application/pdf', tamano: 2048 }];
+
+      const registro = await service.crearRegistro(autor, PERRO.toString(), { ...dto, adjuntos });
+
+      expect(historialModel['create'].mock.calls[0][0].adjuntos).toEqual([
+        { nombre: 'Analitica.pdf', url: 'https://cdn/a.pdf', tipo: 'application/pdf', tamano: 2048 },
+      ]);
+      expect(registro.adjuntos).toHaveLength(1);
+    });
+
+    it('no debería guardar campos de más colados en un adjunto', async () => {
+      const adjunto = { nombre: 'Informe.docx', url: 'https://cdn/i.docx', comercioId: 'otro' } as never;
+
+      await service.crearRegistro(autor, PERRO.toString(), { ...dto, adjuntos: [adjunto] });
+
+      expect(historialModel['create'].mock.calls[0][0].adjuntos)
+        .toEqual([{ nombre: 'Informe.docx', url: 'https://cdn/i.docx' }]);
+    });
+
+    it('debería devolver una lista vacía cuando el registro no lleva documentos', async () => {
+      const registro = await service.crearRegistro(autor, PERRO.toString(), dto);
+
+      expect(registro.adjuntos).toEqual([]);
+    });
+
     it('no debería escribir si el comercio no tiene relación con el perro', async () => {
       perrosService.asegurarRelacionComercio.mockRejectedValue(new Error('403'));
       await expect(service.crearRegistro(autor, PERRO.toString(), dto)).rejects.toThrow('403');
@@ -247,6 +278,17 @@ describe('ExpedientesService', () => {
       expect(cambio.$set).toEqual({
         datosEstructurados: { productos: 'Champú' }, profesional: undefined, proximaCita: new Date('2027-01-01'),
       });
+    });
+
+    /* Quitar un documento equivocado es tan necesario como añadirlo. */
+    it('debería dejar reemplazar la lista de adjuntos, incluso vaciarla', async () => {
+      historialModel['findOne'].mockReturnValue(consulta({ vertical: 'veterinaria', titulo: 'Consulta' }));
+      historialModel['findOneAndUpdate'].mockReturnValue(consulta(historial()));
+      comercioModel['find'].mockReturnValue(consulta([]));
+
+      await service.actualizarRegistro(COMERCIO.toString(), PERRO.toString(), registroId, { adjuntos: [] });
+
+      expect(historialModel['findOneAndUpdate'].mock.calls[0][1].$set).toEqual({ adjuntos: [] });
     });
 
     it('debería heredar el título en la nota si se vacía', async () => {

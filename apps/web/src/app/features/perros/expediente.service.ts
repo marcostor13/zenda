@@ -12,6 +12,17 @@ export interface ContactoPropietarioApi {
   telefono?: string;
 }
 
+/**
+ * Documento que acompaña a un registro: el analítico, el informe de la clínica,
+ * la foto de la herida. El fichero ya está subido; aquí sólo viaja su ficha.
+ */
+export interface AdjuntoRegistroApi {
+  nombre: string;
+  url: string;
+  tipo?: string;
+  tamano?: number;
+}
+
 /** Lo que un profesional anotó tras un servicio. */
 export interface RegistroServicioApi {
   _id: string;
@@ -21,6 +32,7 @@ export interface RegistroServicioApi {
   titulo?: string;
   nota: string;
   datosEstructurados: Record<string, string | number | undefined>;
+  adjuntos?: AdjuntoRegistroApi[];
   fechaServicio?: string;
   profesional?: string;
   proximaCita?: string;
@@ -82,6 +94,7 @@ export interface RegistroServicioPayload {
   profesional?: string;
   proximaCita?: string;
   datosEstructurados?: Record<string, string | number>;
+  adjuntos?: AdjuntoRegistroApi[];
 }
 
 @Injectable({ providedIn: 'root' })

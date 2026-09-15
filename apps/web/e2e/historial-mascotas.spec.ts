@@ -100,6 +100,42 @@ test.describe('Panel del comercio · mascotas e historial', () => {
     expect((await descarga).suggestedFilename()).toMatch(/^doogking-informe-nala-\d{4}-\d{2}-\d{2}\.pdf$/);
   });
 
+  /*
+   * Lo que pidió el cliente el 2026-09-15: que al anotar el servicio se pueda
+   * subir el documento —foto, PDF o Word— y que el dueño lo vea y lo baje desde
+   * su ficha. Esta mitad cubre la subida; la de abajo, la ficha del dueño.
+   */
+  test('debería adjuntar un documento al registro y mandarlo al guardar', async ({ page }) => {
+    let cuerpoRegistro: Record<string, unknown> | null = null;
+    await interceptarApi(page, {
+      'GET /comercios/mi-comercio': { cuerpo: { _id: 'c1', nombreComercial: 'Clínica Royal', verticales: ['veterinaria'], estado: 'activo' } },
+      'GET /comercio/mascotas/*': { cuerpo: { perro: PERRO, registros: [], servicios: [RESERVA] } },
+      'POST /upload/documento': { cuerpo: { url: 'https://cdn.doogking.test/analitica.pdf' } },
+      'POST /comercio/mascotas/*/registros': (route) => {
+        cuerpoRegistro = route.request().postDataJSON();
+        return { estado: 201, cuerpo: { ...REGISTRO_PREVIO, _id: 'r3', ...cuerpoRegistro, esPropio: true } };
+      },
+    });
+
+    await page.goto('/comercio/mascotas/p1?registrar=veterinaria');
+    await page.getByLabel('Título *').fill('Analítica de control');
+
+    await page.getByTestId('adjuntar-registro').setInputFiles({
+      name: 'Analitica.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%%EOF'),
+    });
+
+    const adjunto = page.getByTestId('adjuntos-registro');
+    await expect(adjunto).toContainText('Analitica.pdf');
+
+    await page.getByRole('button', { name: 'Guardar registro' }).click();
+    await expect(page.getByText('Registro guardado en el historial.')).toBeVisible();
+
+    expect(cuerpoRegistro).toMatchObject({
+      titulo: 'Analítica de control',
+      adjuntos: [expect.objectContaining({ nombre: 'Analitica.pdf', url: 'https://cdn.doogking.test/analitica.pdf' })],
+    });
+  });
+
   test('debería abrir el formulario ya vinculado al venir desde una reserva', async ({ page }) => {
     await interceptarApi(page, {
       'GET /comercios/mi-comercio': { cuerpo: { _id: 'c1', nombreComercial: 'Clínica Royal', verticales: ['veterinaria'], estado: 'activo' } },
@@ -151,6 +187,38 @@ test.describe('Cuenta del cliente · ficha completa del perro', () => {
     await expect(reciente).toContainText('Clínica Royal');
     await expect(reciente).toContainText('Otitis leve');
     await expect(page.getByText('Índice de Bienestar')).toBeVisible();
+  });
+
+  /* La otra mitad del encargo: el dueño abre y se baja lo que subió la clínica. */
+  test('debería poder ver y descargar el documento que adjuntó la clínica', async ({ page }) => {
+    await interceptarApi(page, {
+      'GET /perros/*/expediente': {
+        cuerpo: {
+          perro: PERRO,
+          registros: [{
+            ...REGISTRO_PREVIO,
+            adjuntos: [
+              { nombre: 'Analitica.pdf', url: 'https://cdn.doogking.test/a.pdf', tipo: 'application/pdf', tamano: 2048 },
+              { nombre: 'Informe.docx', url: 'https://cdn.doogking.test/i.docx', tipo: 'application/msword' },
+            ],
+          }],
+          servicios: [RESERVA],
+        },
+      },
+    });
+    await page.goto('/perros/p1');
+
+    const lista = page.locator('app-registro-servicio').first().getByTestId('adjuntos-registro');
+    await expect(lista).toContainText('Analitica.pdf');
+    await expect(lista).toContainText('2 KB');
+
+    // El PDF se puede leer sin bajarlo; el Word, no: sólo se descarga.
+    await expect(lista.getByRole('link', { name: 'Ver Analitica.pdf' })).toBeVisible();
+    await expect(lista.getByRole('link', { name: 'Ver Informe.docx' })).toHaveCount(0);
+
+    const descarga = lista.getByRole('link', { name: 'Descargar Analitica.pdf' });
+    await expect(descarga).toHaveAttribute('href', 'https://cdn.doogking.test/a.pdf');
+    await expect(descarga).toHaveAttribute('download', 'Analitica.pdf');
   });
 
   test('debería recorrer las pestañas de la ficha y conservarlas en la URL', async ({ page }) => {

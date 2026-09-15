@@ -44,7 +44,12 @@ const TIPOS_EN_LINEA = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'i
  * válidas. Los pipes se quedan sólo con el límite de tamaño.
  */
 const TIPOS_IMAGEN = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
-const TIPOS_DOCUMENTO = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+const TIPOS_DOCUMENTO = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg', 'image/png', 'image/webp', 'image/heic',
+];
 const TIPOS_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime'];
 
 /** Pipe de subida: sólo tamaño; del formato se encarga el servicio. */
@@ -134,7 +139,7 @@ export class UploadController {
     },
   })
   @ApiOperation({
-    summary: 'Subir documentación (máx 10 MB, PDF o imagen, HEIC incluido). Mismo almacén que las imágenes',
+    summary: 'Subir documentación (máx 10 MB: PDF, Word, o imagen con HEIC incluido). Mismo almacén que las imágenes',
   })
   uploadDocumento(@UploadedFile(limitePeso(10)) file: Express.Multer.File) {
     return this.uploadService.uploadImage(file, TIPOS_DOCUMENTO);

@@ -19,6 +19,8 @@ const EXTENSIONES: Record<string, string> = {
   'image/gif': 'gif',
   'image/heic': 'heic',
   'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
   'video/mp4': 'mp4',
   'video/webm': 'webm',
   'video/quicktime': 'mov',
@@ -74,7 +76,7 @@ export class UploadService {
     const tipo = tipoAceptado(file.buffer, permitidos);
     if (!tipo) {
       throw new DomainException(
-        'El archivo no tiene un formato admitido. Sube una imagen, un PDF o un vídeo válidos.',
+        'El archivo no tiene un formato admitido. Sube una imagen, un PDF, un documento de Word o un vídeo válidos.',
         422,
       );
     }

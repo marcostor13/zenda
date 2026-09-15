@@ -37,6 +37,7 @@ import { SegurosModule } from './verticals/seguros/seguros.module';
 import { FunerariosModule } from './verticals/funerarios/funerarios.module';
 import { UploadModule } from './core/upload/upload.module';
 import { AiSearchModule } from './core/ai-search/ai-search.module';
+import { AsistenteModule } from './core/asistente/asistente.module';
 import { GeoModule } from './core/geo/geo.module';
 import { CarritoModule } from './core/carrito/carrito.module';
 import { LugaresModule } from './core/lugares/lugares.module';
@@ -100,6 +101,7 @@ const LIMITE_GLOBAL = [{ name: 'global', ttl: 60_000, limit: 300 }];
     FunerariosModule,
     UploadModule,
     AiSearchModule,
+    AsistenteModule,
     GeoModule,
     CarritoModule,
     LugaresModule,

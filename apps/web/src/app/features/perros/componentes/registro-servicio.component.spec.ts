@@ -13,6 +13,7 @@ describe('RegistroServicioComponent', () => {
   });
 
   const crear = (datos: RegistroServicioApi, opciones: { editable?: boolean; mostrarComercio?: boolean } = {}) => {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({ imports: [RegistroServicioComponent] });
     fixture = TestBed.createComponent(RegistroServicioComponent);
     fixture.componentRef.setInput('registro', datos);
@@ -32,6 +33,27 @@ describe('RegistroServicioComponent', () => {
     expect(el.textContent).toContain('kg');
     expect(el.textContent).not.toContain('desconocido');
     expect(el.textContent).toContain('Todo en orden');
+  });
+
+  /*
+   * El mismo componente pinta la ficha del dueño y el panel del comercio, así
+   * que los documentos que sube la clínica se leen y se bajan desde ambos sitios
+   * sin duplicar nada.
+   */
+  it('debería dejar ver y descargar los documentos del registro', () => {
+    const el = crear(registro({
+      adjuntos: [{ nombre: 'Analitica.pdf', url: 'https://cdn/a.pdf', tipo: 'application/pdf' }],
+    }));
+
+    const enlaces = Array.from(el.querySelectorAll<HTMLAnchorElement>('.adj__accion'));
+    expect(enlaces.map((a) => a.textContent?.trim())).toEqual(['Ver', 'Descargar']);
+    expect(el.textContent).toContain('Analitica.pdf');
+  });
+
+  it('no debería dejar hueco de documentos cuando el registro no tiene ninguno', () => {
+    const el = crear(registro());
+
+    expect(el.querySelector('[data-testid="adjuntos-registro"]')).toBeNull();
   });
 
   it('no debería repetir la nota cuando es igual al título', () => {
