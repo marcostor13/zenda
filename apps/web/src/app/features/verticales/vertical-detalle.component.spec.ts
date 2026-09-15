@@ -4,11 +4,13 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { VerticalDetalleComponent } from './vertical-detalle.component';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
+import { ReservasService } from '../reservas/services/reservas.service';
 
 describe('VerticalDetalleComponent', () => {
   let fixture: ComponentFixture<VerticalDetalleComponent>;
   let component: VerticalDetalleComponent;
   let browseService: jest.Mocked<CatalogBrowseService>;
+  let agenda: jest.Mock;
 
   const servicio = (extra: Record<string, unknown>, overrides: Partial<ServicioDetalle> = {}): ServicioDetalle => ({
     id: 's1', nombre: 'DogVan Madrid', ciudad: 'Madrid', barrio: 'Centro', direccion: 'Calle Mayor 1',
@@ -21,18 +23,25 @@ describe('VerticalDetalleComponent', () => {
   const crearComponente = async (
     vertical: string,
     resultado: ServicioDetalle | Error = servicio({}),
+    respuestaAgenda: unknown = { soportado: false, dias: [] },
   ): Promise<void> => {
+    // Para poder montar el componente más de una vez en la misma prueba.
+    TestBed.resetTestingModule();
     browseService = {
       buscar: jest.fn(),
       obtener: resultado instanceof Error
         ? jest.fn().mockRejectedValue(resultado)
         : jest.fn().mockResolvedValue(resultado),
     } as any;
+    agenda = respuestaAgenda instanceof Error
+      ? jest.fn().mockRejectedValue(respuestaAgenda)
+      : jest.fn().mockResolvedValue(respuestaAgenda);
 
     await TestBed.configureTestingModule({
       imports: [VerticalDetalleComponent, RouterTestingModule, HttpClientTestingModule],
       providers: [
         { provide: CatalogBrowseService, useValue: browseService },
+        { provide: ReservasService, useValue: { agenda } },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -49,6 +58,13 @@ describe('VerticalDetalleComponent', () => {
     fixture = TestBed.createComponent(VerticalDetalleComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    /*
+     * Segunda vuelta: la ficha lanza la consulta de la primera cita libre sin
+     * esperarla —para pintarse ya— así que su respuesta llega una microtarea
+     * después de que la carga del servicio esté estable.
+     */
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -770,6 +786,137 @@ describe('VerticalDetalleComponent', () => {
       component.cerrarLightbox();
 
       expect(component.lightboxAbierto()).toBe(false);
+    });
+  });
+
+  /*
+   * El bloque que decide la reserva: qué me llevo y cuánto cuesta. Antes los
+   * servicios se pintaban como etiquetas sueltas —sin precio, sin duración y
+   * sin forma de reservar uno concreto— y el sitio de honor de la columna lo
+   * ocupaban las ocho líneas de la garantía, idénticas en toda la web.
+   */
+  describe('servicios con su tarifa', () => {
+    const conServicios = () => servicio({
+      serviciosGrooming: [
+        { nombre: 'Baño e higiene', precio: 25, duracionMin: 45 },
+        { nombre: 'Corte de pelo', precio: 40, duracionMin: 90 },
+      ],
+    });
+
+    it('debería listar cada servicio con su precio y su duración', async () => {
+      await crearComponente('peluqueria', conServicios());
+
+      expect(component.tarifas()).toEqual([
+        { nombre: 'Baño e higiene', precio: 25, duracion: '45 min' },
+        { nombre: 'Corte de pelo', precio: 40, duracion: '1 h 30 min' },
+      ]);
+
+      const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(texto).toContain('Corte de pelo');
+      expect(texto).toContain('1 h 30 min');
+    });
+
+    it('debería llevar al asistente con ese servicio y su precio ya elegidos', async () => {
+      await crearComponente('peluqueria', conServicios());
+      const router = TestBed.inject(Router);
+      const navegar = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      const botones = (fixture.nativeElement as HTMLElement)
+        .querySelectorAll<HTMLButtonElement>('[data-testid="tarifas"] .rs-btn');
+      botones[1].click();
+
+      expect(navegar).toHaveBeenCalledWith(
+        ['/reservas', 'peluqueria', 's1'],
+        expect.objectContaining({
+          queryParams: expect.objectContaining({ servicio: 'Corte de pelo', precioBase: 40 }),
+        }),
+      );
+    });
+
+    it('no debería pintar el bloque en un vertical que no vende servicios sueltos', async () => {
+      await crearComponente('transporte');
+
+      expect(component.tarifas()).toEqual([]);
+      expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="tarifas"]')).toBeNull();
+    });
+
+    it('debería dar la garantía una sola vez, y no por duplicado arriba', async () => {
+      await crearComponente('peluqueria', conServicios());
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelectorAll('rs-trust-block')).toHaveLength(1);
+    });
+  });
+
+  describe('panel de reserva', () => {
+    it('no debería repetir "desde" cuando el rótulo del precio es esa misma palabra', async () => {
+      await crearComponente('peluqueria');
+      expect(component.unidadPrecio()).toBe('');
+
+      await crearComponente('veterinaria');
+      expect(component.unidadPrecio()).toBe('la consulta');
+    });
+
+    /* La respuesta a "¿cuándo puedo?" antes de entrar al asistente. */
+    it('debería enseñar la primera cita libre del servicio', async () => {
+      await crearComponente('peluqueria', servicio({}), {
+        soportado: true, dias: [], primeraLibre: { fecha: '2026-09-16', hora: '10:00' },
+      });
+
+      expect(component.proximaCita()).toEqual({ fecha: '2026-09-16', hora: '10:00' });
+      expect((fixture.nativeElement as HTMLElement)
+        .querySelector('[data-testid="proxima-cita"]')?.textContent).toContain('10:00');
+    });
+
+    it('no debería pintar nada si el vertical no se reserva por citas', async () => {
+      await crearComponente('transporte');
+
+      expect(component.proximaCita()).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="proxima-cita"]')).toBeNull();
+    });
+
+    /* Contenido de apoyo: si la agenda falla, la ficha sigue completa. */
+    it('no debería romper la ficha si la agenda no responde', async () => {
+      await crearComponente('peluqueria', servicio({}), new Error('red caída'));
+
+      expect(component.servicio()?.nombre).toBe('DogVan Madrid');
+      expect(component.proximaCita()).toBeNull();
+    });
+  });
+
+  describe('nota agregada de las reseñas', () => {
+    it('debería promediar cada criterio puntuado y dejar fuera los que nadie votó', async () => {
+      await crearComponente('peluqueria', servicio({}, {
+        numResenas: 2,
+        resenas: [
+          { id: 'r1', autorNombre: 'Ana', puntuacion: 5, comentario: 'Genial', fecha: '2026-08-01',
+            aspectos: { resultado: 5, tratoAlPerro: 4 } },
+          { id: 'r2', autorNombre: 'Luis', puntuacion: 4, comentario: 'Bien', fecha: '2026-08-02',
+            aspectos: { resultado: 4, tratoAlPerro: 5 } },
+        ],
+      }));
+
+      expect(component.aspectosMedios()).toEqual([
+        { label: 'Resultado', media: 4.5 },
+        { label: 'Trato al perro', media: 4.5 },
+      ]);
+    });
+
+    /* La nota media es real aunque la ficha no traiga los comentarios; lo que
+       no se puede pintar es un desglose que nadie ha puntuado. */
+    it('debería dar la nota sin desglose si las reseñas no puntuaron criterios', async () => {
+      await crearComponente('peluqueria');
+
+      expect(component.aspectosMedios()).toEqual([]);
+      const resumen = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="resumen-nota"]');
+      expect(resumen?.textContent).toContain('4.8');
+      expect(resumen?.querySelector('.resumen-nota__aspectos')).toBeNull();
+    });
+
+    it('no debería pintar nada cuando el servicio no tiene ninguna reseña', async () => {
+      await crearComponente('peluqueria', servicio({}, { numResenas: 0, resenas: [] }));
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="resumen-nota"]')).toBeNull();
     });
   });
 });

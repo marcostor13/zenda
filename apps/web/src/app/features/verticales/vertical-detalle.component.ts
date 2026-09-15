@@ -15,6 +15,8 @@ import { RsUbicacionComponent } from '../../shared/components/ubicacion/rs-ubica
 import { RsHorarioPublicoComponent } from '../../shared/components/horario/rs-horario-publico.component';
 import { PuntoUbicacion } from '../../shared/mapas/google-maps';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
+import { ReservasService } from '../reservas/services/reservas.service';
+import { ASPECTOS_POR_VERTICAL } from '../../shared/verticales/resena-aspectos.config';
 
 import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
@@ -28,12 +30,44 @@ import { FechaPipe } from '../../shared/pipes/fecha.pipe';
  * números que en la ficha de alojamiento: las fichas se ven iguales.
  */
 const MINIATURAS_VISIBLES = 6;
+
+const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const SECUNDARIAS_VISIBLES = 2;
+
+/**
+ * Un servicio contratable con su precio: lo que en Booking es la fila de una
+ * habitación. Es el dato que decide la reserva —qué me llevo y cuánto cuesta—,
+ * y hasta ahora se pintaba como una etiqueta suelta sin importe.
+ */
+export interface TarifaServicio {
+  readonly nombre: string;
+  readonly precio?: number;
+  /** Ya legible: "45 min", "2 h". */
+  readonly duracion?: string;
+  /** Lo que entra en el precio, en frases sueltas. */
+  readonly incluye?: readonly string[];
+}
+
+/** Minutos a algo que se lee de un vistazo. */
+function duracionLegible(minutos: number | undefined): string | undefined {
+  if (minutos == null || !Number.isFinite(minutos) || minutos <= 0) return undefined;
+  if (minutos < 60) return `${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+  return resto ? `${horas} h ${resto} min` : `${horas} h`;
+}
 
 interface DetalleConfig {
   vertical: string;
   cta: string;
   priceLabel: string;
+  /**
+   * Servicios contratables con su tarifa. Vacío = el vertical no vende por
+   * servicios sueltos (transporte va por trayecto, seguros por póliza) y el
+   * bloque no se pinta.
+   */
+  servicios: (s: ServicioDetalle) => TarifaServicio[];
   tituloBloque: string;
   /**
    * Encabezado de la fila de chips.
@@ -54,6 +88,8 @@ const CONFIGS: Record<string, DetalleConfig> = {
   transporte: {
     vertical: 'transporte',
     cta: 'Reservar transporte',
+    // El precio es tarifa base + km: no hay servicios sueltos que listar.
+    servicios: () => [],
     priceLabel: '+ tarifa por km',
     tituloBloque: '¿Qué ofrece este transportista?',
     tituloChips: 'Servicios',
@@ -76,6 +112,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
   adiestramiento: {
     vertical: 'adiestramiento',
     cta: 'Reservar sesión',
+    servicios: (s) => ((s.extra['serviciosAdiestramiento'] as Array<{
+      nombre?: string; precio?: number; duracionMin?: number;
+    }> | undefined) ?? [])
+      .filter((v) => Boolean(v.nombre))
+      .map((v) => ({ nombre: v.nombre!, precio: v.precio, duracion: duracionLegible(v.duracionMin) })),
     priceLabel: 'por sesión',
     tituloBloque: '¿Qué incluye esta sesión?',
     tituloChips: 'Tipos de adiestramiento',
@@ -96,6 +137,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
   hoteles: {
     vertical: 'hoteles',
     cta: 'Ver disponibilidad',
+    servicios: (s) => ((s.extra['espacios'] as Array<{
+      tipo?: string; precioNoche?: number; amenities?: string[];
+    }> | undefined) ?? [])
+      .filter((e) => Boolean(e.tipo))
+      .map((e) => ({ nombre: e.tipo!, precio: e.precioNoche, incluye: e.amenities })),
     priceLabel: '/ noche',
     tituloBloque: 'Ventajas de este hotel',
     tituloChips: 'Servicios pet-friendly',
@@ -122,6 +168,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
   veterinaria: {
     vertical: 'veterinaria',
     cta: 'Pedir cita',
+    servicios: (s) => ((s.extra['serviciosClinicos'] as Array<{
+      nombre?: string; precio?: number; duracionMin?: number;
+    }> | undefined) ?? [])
+      .filter((v) => Boolean(v.nombre))
+      .map((v) => ({ nombre: v.nombre!, precio: v.precio, duracion: duracionLegible(v.duracionMin) })),
     priceLabel: 'la consulta',
     tituloBloque: '¿Qué ofrece esta clínica?',
     tituloChips: 'Servicios con precio cerrado',
@@ -158,8 +209,14 @@ const CONFIGS: Record<string, DetalleConfig> = {
   peluqueria: {
     vertical: 'peluqueria',
     cta: 'Reservar cita',
+    servicios: (s) => ((s.extra['serviciosGrooming'] as Array<{
+      nombre?: string; precio?: number; duracionMin?: number;
+    }> | undefined) ?? [])
+      .filter((v) => Boolean(v.nombre))
+      .map((v) => ({ nombre: v.nombre!, precio: v.precio, duracion: duracionLegible(v.duracionMin) })),
     priceLabel: 'desde',
-    tituloBloque: '¿Qué servicios ofrece?',
+    // "¿Qué servicios ofrece?" prometía lo que ahora está arriba, con precio.
+    tituloBloque: '¿Qué ofrece este salón?',
     tituloChips: 'Servicios de peluquería',
     chips: (s) => {
       const servicios = s.extra['serviciosGrooming'] as Array<{ nombre?: string }> | undefined;
@@ -180,6 +237,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
   funerarios: {
     vertical: 'funerarios',
     cta: 'Contratar el servicio',
+    servicios: (s) => ((s.extra['serviciosFunerarios'] as Array<{
+      nombre?: string; precioBase?: number; incluye?: string[]; activo?: boolean;
+    }> | undefined) ?? [])
+      .filter((v) => Boolean(v.nombre) && v.activo !== false)
+      .map((v) => ({ nombre: v.nombre!, precio: v.precioBase, incluye: v.incluye })),
     priceLabel: 'desde',
     tituloBloque: '¿Qué ofrece esta empresa?',
     tituloChips: 'Servicios disponibles',
@@ -218,6 +280,8 @@ const CONFIGS: Record<string, DetalleConfig> = {
   seguros: {
     vertical: 'seguros',
     cta: 'Ver la póliza',
+    // Una póliza es un único producto con su prima: no hay lista que elegir.
+    servicios: () => [],
     priceLabel: 'al año',
     tituloBloque: '¿Qué cubre esta póliza?',
     tituloChips: 'Coberturas',
@@ -340,12 +404,41 @@ const CONFIGS: Record<string, DetalleConfig> = {
           </div>
         </div>
 
-        <div class="compromiso-block">
-          <h3 class="compromiso-block__title"><rs-icon name="shield-check" size="18" /> {{ 'Garantía Doogking' | t }}</h3>
-          <rs-trust-block></rs-trust-block>
-        </div>
+        <!--
+          ELIGE TU SERVICIO — la "tabla de habitaciones" de Booking.
 
-        @if (cfg().chips(s).length) {
+          Va lo primero de la columna porque es lo que decide la reserva: qué me
+          llevo y cuánto cuesta. Antes este sitio lo ocupaba el bloque de
+          confianza, ocho líneas idénticas en toda la web que no dicen nada de
+          este comercio, y los servicios se pintaban como etiquetas sueltas —sin
+          precio, sin duración y sin forma de reservar uno concreto.
+        -->
+        @if (tarifas().length) {
+          <div class="tarifas" data-testid="tarifas">
+            <h2>{{ cfg().tituloChips | t }}</h2>
+            <ul class="tarifas__lista">
+              @for (t of tarifas(); track t.nombre) {
+                <li class="tarifa">
+                  <div class="tarifa__que">
+                    <strong>{{ t.nombre }}</strong>
+                    @if (t.duracion) {
+                      <span class="tarifa__dato"><rs-icon name="clock" [size]="13" [stroke]="2" /> {{ t.duracion }}</span>
+                    }
+                    @if (t.incluye?.length) {
+                      <span class="tarifa__incluye">{{ t.incluye!.slice(0, 3).join(' · ') }}</span>
+                    }
+                  </div>
+                  <div class="tarifa__accion">
+                    @if (t.precio != null) { <span class="tarifa__precio">{{ t.precio | euros }}</span> }
+                    <button type="button" class="rs-btn rs-btn--outline" (click)="solicitar(s, t)">
+                      {{ 'Reservar' | t }}
+                    </button>
+                  </div>
+                </li>
+              }
+            </ul>
+          </div>
+        } @else if (cfg().chips(s).length) {
           <div class="section-block">
             <h2>{{ cfg().tituloChips | t }}</h2>
             <div class="chips-row">
@@ -382,7 +475,37 @@ const CONFIGS: Record<string, DetalleConfig> = {
         </div>
 
         <div class="section-block">
-          <h2>Reseñas ({{ s.resenas.length }})</h2>
+          <h2>{{ 'Lo que opinan otros dueños' | t }}</h2>
+
+          <!--
+            La nota, delante de los comentarios. Antes el bloque abría con
+            "Reseñas (3)" y para saber si el sitio era bueno había que leerlas
+            una a una; el desglose por criterios ya lo puntuaba cada cliente al
+            valorar y no se enseñaba en ninguna parte.
+          -->
+          @if (s.numResenas) {
+            <div class="resumen-nota" data-testid="resumen-nota">
+              <div class="resumen-nota__cifra">
+                <strong>{{ s.score }}</strong>
+                <span>
+                  <em>{{ s.scoreLabel }}</em>
+                  {{ s.numResenas }} {{ s.numResenas === 1 ? ('reseña' | t) : ('reseñas' | t) }}
+                </span>
+              </div>
+              @if (aspectosMedios().length) {
+                <ul class="resumen-nota__aspectos">
+                  @for (a of aspectosMedios(); track a.label) {
+                    <li>
+                      <span class="resumen-nota__label">{{ a.label | t }}</span>
+                      <span class="resumen-nota__barra"><i [style.width.%]="a.media * 20"></i></span>
+                      <span class="resumen-nota__valor">{{ a.media }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+
           @for (r of s.resenas; track r.id) {
             <div class="resena-card">
               <div class="resena-card__head">
@@ -399,29 +522,56 @@ const CONFIGS: Record<string, DetalleConfig> = {
             <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Aún no hay reseñas de este profesional.' | t }}</p>
           }
         </div>
+
+        <!-- La garantía, entera y una sola vez: es lo mismo en toda la web, así
+             que cierra la ficha en vez de abrirla por duplicado. -->
+        <div class="section-block">
+          <h2><rs-icon name="shield-check" [size]="18" [stroke]="2" /> {{ 'Garantía Doogking' | t }}</h2>
+          <rs-trust-block></rs-trust-block>
+        </div>
       </div>
 
-      <!-- PANEL LATERAL -->
+      <!--
+        PANEL DE RESERVA. Lo único que hay a la derecha, y lo primero que se
+        mira: precio, cuándo hay hueco y el botón. Las ocho líneas de la
+        garantía vivían aquí y también arriba de la columna izquierda; ahora
+        aquí van las tres que pesan en la decisión y la lista entera se da una
+        sola vez, al final de la ficha.
+      -->
       <div class="side-col rs-sticky-panel">
         <div class="side-panel rs-card">
-          <div class="side-panel__price">
-            <div class="bp-desde">{{ 'Desde' | t }}</div>
-            <div class="bp-amount">{{ cfg().price(s) | euros }}</div>
-            <div class="bp-per">{{ cfg().priceLabel }}</div>
-          </div>
+          <p class="bp-desde">{{ 'Desde' | t }}</p>
+          <p class="bp-amount">
+            {{ cfg().price(s) | euros }}
+            <!-- "Desde 25 € desde": el rótulo de peluquería y funerarios es
+                 justamente "desde", así que sólo se pinta si añade algo. -->
+            @if (unidadPrecio(); as unidad) { <span class="bp-per">{{ unidad }}</span> }
+          </p>
+
+          @if (proximaCita(); as cita) {
+            <p class="bp-hueco" data-testid="proxima-cita">
+              <rs-icon name="zap" [size]="15" [stroke]="2" />
+              <span>{{ 'Primera cita libre' | t }}: <strong>{{ diaLegible(cita.fecha) }} · {{ cita.hora }}</strong></span>
+            </p>
+          }
 
           <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg" (click)="solicitar(s)">
             {{ cfg().cta }}
           </button>
+          <p class="bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
+
+          <ul class="bp-claves">
+            @if (s.cancelacionGratis) {
+              <li><rs-icon name="calendar" [size]="15" [stroke]="2" /> {{ 'Cancelación gratuita' | t }}</li>
+            }
+            <li><rs-icon name="zap" [size]="15" [stroke]="2" /> {{ 'Confirmación inmediata' | t }}</li>
+            <li><rs-icon name="lock" [size]="15" [stroke]="2" /> {{ 'Pago seguro con Stripe' | t }}</li>
+          </ul>
 
           <div class="side-panel__fav">
             <rs-favorito-btn [servicioId]="s.id" [tamano]="18"></rs-favorito-btn>
             <span>{{ 'Guardar en favoritos' | t }}</span>
           </div>
-
-          <hr class="rs-hr" style="margin-block:var(--sp-5)">
-
-          <rs-trust-block></rs-trust-block>
         </div>
       </div>
     </div>
@@ -436,7 +586,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       <div class="mobile-cta__precio">
         <span class="mobile-cta__desde">{{ 'Desde' | t }}</span>
         <strong>{{ cfg().price(s) | euros }}</strong>
-        <span class="mobile-cta__unidad">{{ cfg().priceLabel }}</span>
+        @if (unidadPrecio(); as unidad) { <span class="mobile-cta__unidad">{{ unidad }}</span> }
       </div>
       <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="solicitar(s)">{{ cfg().cta }}</button>
     </div>
@@ -482,6 +632,16 @@ const CONFIGS: Record<string, DetalleConfig> = {
       .mobile-cta__precio strong { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--dk-blue); }
       .mobile-cta__unidad { font-size: var(--f-xs); color: var(--t-400); }
       .mobile-cta .rs-btn { flex-shrink: 0; padding-inline: var(--sp-6); }
+
+      /*
+        El panel cae al final de la página en una sola columna, así que su
+        precio y su botón repetían lo que la barra fija ya tiene delante de los
+        ojos. Se quedan sólo la primera cita libre, las claves y favoritos.
+      */
+      .side-panel .bp-desde,
+      .side-panel .bp-amount,
+      .side-panel .rs-btn--gold,
+      .side-panel .bp-nota { display: none; }
     }
 
     .breadcrumb { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-5); a { color: var(--t-400); } }
@@ -588,12 +748,15 @@ const CONFIGS: Record<string, DetalleConfig> = {
     .info-header__name { font-size: var(--f-3xl); color: var(--dk-blue); margin-bottom: var(--sp-3); }
     .info-header__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-5); }
 
-    .compromiso-block { padding: var(--sp-5); background: var(--c-accent-lo); border: 1px solid var(--b-a); border-radius: var(--r-lg); margin-bottom: var(--sp-6); }
-    .compromiso-block__title { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--f-md); font-weight: var(--w-7); color: var(--dk-blue); margin-bottom: var(--sp-3); }
-
     .chips-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 
-    .section-block { padding-block: var(--sp-6); border-top: 1px solid var(--b-1); h2 { font-size: var(--f-lg); color: var(--dk-blue); margin-bottom: var(--sp-4); } }
+    .section-block {
+      padding-block: var(--sp-6); border-top: 1px solid var(--b-1);
+      h2 {
+        display: flex; align-items: center; gap: var(--sp-2);
+        font-size: var(--f-lg); color: var(--dk-blue); margin-bottom: var(--sp-4);
+      }
+    }
 
     .puntos-list {
       display: flex; flex-direction: column; gap: var(--sp-3);
@@ -610,11 +773,115 @@ const CONFIGS: Record<string, DetalleConfig> = {
     .resena-card__fecha { font-size: var(--f-xs); color: var(--t-400); margin-left: auto; }
     .resena-card__respuesta { margin-top: var(--sp-2); font-size: var(--f-sm); color: var(--t-400); font-style: italic; }
 
-    .side-panel { padding: var(--sp-6); }
-    .side-panel__price { text-align: center; margin-bottom: var(--sp-5); }
-    .bp-desde { font-size: var(--f-xs); color: var(--t-400); text-transform: uppercase; letter-spacing: .06em; }
-    .bp-amount { font-size: var(--f-5xl); font-weight: var(--w-9); letter-spacing: -.04em; color: var(--dk-blue); }
-    .bp-per { font-size: var(--f-sm); color: var(--t-400); }
+    /* ── Panel de reserva ─────────────────────────────────────────── */
+    .side-panel { padding: var(--sp-5); }
+    .bp-desde {
+      font-size: var(--f-xs); color: var(--t-400);
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px;
+    }
+    /*
+      Importe y unidad en la misma línea, alineados por la base. Antes iban en
+      tres líneas centradas que ocupaban medio panel para decir "25 €".
+    */
+    .bp-amount {
+      display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap;
+      font-size: var(--f-4xl); font-weight: var(--w-9); letter-spacing: -.03em;
+      color: var(--dk-blue); margin-bottom: var(--sp-4);
+    }
+    .bp-per { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-400); letter-spacing: 0; }
+
+    /* El gancho: cuándo se puede, antes de entrar al asistente. */
+    .bp-hueco {
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      margin-bottom: var(--sp-4); padding: var(--sp-3);
+      border: 1px solid var(--dk-gold); border-radius: var(--r-lg);
+      background: rgba(251,174,23,.10);
+      font-size: var(--f-sm); color: var(--dk-blue-text);
+      rs-icon { color: var(--dk-gold); flex: none; margin-top: 1px; }
+      strong { white-space: nowrap; }
+    }
+
+    .bp-nota {
+      margin-top: var(--sp-2); text-align: center;
+      font-size: var(--f-xs); color: var(--t-400);
+    }
+
+    .bp-claves {
+      list-style: none; margin-top: var(--sp-4);
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      li {
+        display: flex; align-items: center; gap: var(--sp-2);
+        font-size: var(--f-sm); color: var(--t-300);
+        rs-icon { color: var(--c-success, #15803D); flex: none; }
+      }
+    }
+
+    /* ── Servicios con su tarifa ──────────────────────────────────── */
+    .tarifas {
+      padding-block: var(--sp-6);
+      border-top: 1px solid var(--b-1);
+      h2 { font-size: var(--f-lg); color: var(--dk-blue); margin-bottom: var(--sp-4); }
+    }
+    .tarifas__lista {
+      list-style: none;
+      border: 1px solid var(--b-1); border-radius: var(--r-xl); overflow: hidden;
+    }
+    .tarifa {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--sp-4); padding: var(--sp-4);
+      border-top: 1px solid var(--b-1);
+      &:first-child { border-top: none; }
+      &:hover { background: var(--c-raised); }
+    }
+    .tarifa__que {
+      display: flex; flex-direction: column; gap: 2px; min-width: 0;
+      strong { font-size: var(--f-md); color: var(--t-100); }
+    }
+    .tarifa__dato {
+      display: inline-flex; align-items: center; gap: var(--sp-1);
+      font-size: var(--f-xs); color: var(--t-400);
+      rs-icon { color: var(--t-400); }
+    }
+    .tarifa__incluye { font-size: var(--f-xs); color: var(--t-400); }
+    .tarifa__accion { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
+    .tarifa__precio { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--dk-blue); white-space: nowrap; }
+
+    /* En móvil el precio y el botón bajan a su propia fila: en 390 px, el
+       nombre del servicio y los dos juntos no caben sin partirse. */
+    @media (max-width: 560px) {
+      .tarifa { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+      .tarifa__accion { justify-content: space-between; }
+    }
+
+    /* ── Nota agregada de las reseñas ─────────────────────────────── */
+    .resumen-nota {
+      display: grid; grid-template-columns: auto 1fr; gap: var(--sp-6);
+      align-items: center; margin-bottom: var(--sp-5);
+      padding: var(--sp-4); border-radius: var(--r-lg); background: var(--c-raised);
+      @media (max-width: 640px) { grid-template-columns: 1fr; gap: var(--sp-4); }
+    }
+    .resumen-nota__cifra {
+      display: flex; align-items: center; gap: var(--sp-3);
+      strong {
+        display: grid; place-items: center; min-width: 52px; height: 52px; padding-inline: var(--sp-2);
+        border-radius: var(--r-lg); background: var(--dk-blue); color: #fff;
+        font-size: var(--f-xl); font-weight: var(--w-8);
+      }
+      span { display: flex; flex-direction: column; font-size: var(--f-xs); color: var(--t-400); }
+      em { font-style: normal; font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
+    }
+    .resumen-nota__aspectos {
+      list-style: none; display: grid; gap: var(--sp-2);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      @media (max-width: 640px) { grid-template-columns: 1fr; }
+      li { display: grid; grid-template-columns: 1fr 72px auto; align-items: center; gap: var(--sp-2); }
+    }
+    .resumen-nota__label { font-size: var(--f-xs); color: var(--t-300); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .resumen-nota__barra {
+      height: 5px; border-radius: var(--r-full); background: var(--b-1); overflow: hidden;
+      i { display: block; height: 100%; background: var(--dk-blue); }
+    }
+    .resumen-nota__valor { font-size: var(--f-xs); font-weight: var(--w-7); color: var(--t-200); }
 
     .side-panel__fav { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); margin-top: var(--sp-4); font-size: var(--f-sm); color: var(--t-300); }
   `],
@@ -625,6 +892,7 @@ export class VerticalDetalleComponent implements OnInit {
   private readonly browseService = inject(CatalogBrowseService);
   private readonly eventosService = inject(EventosService);
   private readonly seo = inject(SeoService);
+  private readonly reservas = inject(ReservasService);
 
   readonly cargando = signal(true);
   readonly servicio = signal<ServicioDetalle | null>(null);
@@ -656,6 +924,54 @@ export class VerticalDetalleComponent implements OnInit {
       { length: Math.min(SECUNDARIAS_VISIBLES, imagenes.length - 1) },
       (_, i) => imagenes[(desde + i + 1) % imagenes.length],
     );
+  });
+
+  /**
+   * La unidad que acompaña al importe, o nada si sólo repetiría el "Desde" de
+   * arriba: en peluquería y funerarios el rótulo es literalmente "desde" y el
+   * panel decía "Desde / 25 € / desde".
+   */
+  readonly unidadPrecio = computed(() => {
+    const etiqueta = this.cfg().priceLabel.trim();
+    return etiqueta.toLowerCase() === 'desde' ? '' : etiqueta;
+  });
+
+  /** "mié 16 sep": como se nombra un día al hablar de una cita. */
+  diaLegible(fecha: string): string {
+    const dia = new Date(`${fecha}T12:00:00Z`);
+    return `${DIAS_CORTOS[dia.getUTCDay()]} ${dia.getUTCDate()} ${MESES_CORTOS[dia.getUTCMonth()]}`;
+  }
+
+  /** Servicios contratables con su precio, el bloque que decide la reserva. */
+  readonly tarifas = computed<TarifaServicio[]>(() => {
+    const s = this.servicio();
+    return s ? this.cfg().servicios(s) : [];
+  });
+
+  /**
+   * Primera cita libre del servicio, del API de agenda.
+   *
+   * Es la respuesta a "¿cuándo puedo?", que es lo que decide entrar o no al
+   * asistente. Antes había que empezar la reserva para averiguarlo. Sólo la
+   * contestan los verticales que se reservan por cita; en el resto se queda
+   * en null y el panel no pinta nada.
+   */
+  readonly proximaCita = signal<{ fecha: string; hora: string } | null>(null);
+
+  /** Desglose de la nota por criterios, promediando lo que puntuó cada reseña. */
+  readonly aspectosMedios = computed<Array<{ label: string; media: number }>>(() => {
+    const resenas = this.servicio()?.resenas ?? [];
+    const criterios = ASPECTOS_POR_VERTICAL[this.ui.key as keyof typeof ASPECTOS_POR_VERTICAL] ?? [];
+
+    return criterios
+      .map(({ key, label }) => {
+        const notas = resenas
+          .map((r) => r.aspectos?.[key])
+          .filter((n): n is number => typeof n === 'number' && n > 0);
+        return { label, media: notas.reduce((a, b) => a + b, 0) / (notas.length || 1), votos: notas.length };
+      })
+      .filter((a) => a.votos > 0)
+      .map(({ label, media }) => ({ label, media: Math.round(media * 10) / 10 }));
   });
 
   /** Galería a pantalla completa (HU-4.1.1). */
@@ -713,6 +1029,8 @@ export class VerticalDetalleComponent implements OnInit {
       this.aplicarSeo(data);
       // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
       this.eventosService.registrarVistaServicio(id, this.cfg().vertical);
+      // En paralelo: la ficha ya está pintada y la cita llega cuando llegue.
+      void this.cargarProximaCita(id);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado".
       this.servicio.set(null);
@@ -774,16 +1092,44 @@ export class VerticalDetalleComponent implements OnInit {
     return /^https?:\/\//i.test(imagen) ? imagen : `${origen}${imagen.startsWith('/') ? '' : '/'}${imagen}`;
   }
 
-  solicitar(s: ServicioDetalle): void {
+  /**
+   * Al asistente, con lo que el cliente ya ha decidido aquí.
+   *
+   * `tarifa` llega cuando ha pulsado "Reservar" en un servicio concreto de la
+   * lista: ese servicio viaja elegido y su precio manda sobre el "desde" de la
+   * ficha, de modo que no tiene que volver a escogerlo en el paso 1.
+   */
+  solicitar(s: ServicioDetalle, tarifa?: TarifaServicio): void {
     void this.router.navigate(['/reservas', this.cfg().vertical, s.id], {
       queryParams: {
         comercioId: s.comercioId ?? '',
         nombre: s.nombre,
-        precioBase: this.cfg().price(s),
+        precioBase: tarifa?.precio ?? this.cfg().price(s),
         imagen: s.imagenes?.[0] ?? '',
-        desde: this.busqueda.desde ?? null,
+        desde: this.busqueda.desde ?? this.proximaCita()?.fecha ?? null,
         perros: this.busqueda.perros ?? null,
+        servicio: tarifa?.nombre ?? null,
       },
     });
+  }
+
+  /**
+   * Pide la agenda de los próximos dos meses —lo que el API contesta de una
+   * vez— y se queda con la primera cita libre. Es contenido de apoyo: si falla
+   * o el vertical no va por citas, la ficha sigue igual de completa.
+   */
+  private async cargarProximaCita(servicioId: string): Promise<void> {
+    const hoy = new Date();
+    const dentroDeDosMeses = new Date(hoy.getTime() + 60 * 24 * 60 * 60 * 1000);
+    try {
+      const agenda = await this.reservas.agenda({
+        servicioId,
+        desde: hoy.toISOString().slice(0, 10),
+        hasta: dentroDeDosMeses.toISOString().slice(0, 10),
+      });
+      this.proximaCita.set(agenda.primeraLibre ?? null);
+    } catch {
+      this.proximaCita.set(null);
+    }
   }
 }
