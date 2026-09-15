@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VerticalKey, TamanoPerro } from 'shared';
+import { VerticalKey, TamanoPerro, admiteEspecie } from 'shared';
 import {
   AvailabilityStrategy,
   AvailabilityQuery,
@@ -193,11 +193,10 @@ export class HotelesAvailabilityStrategy implements AvailabilityStrategy, Calend
     }
   }
 
+  /** Normalizada, por el mismo motivo que en veterinaria: la ficha del animal
+      guarda `'perro'` y el alta del hotel elige `'Perro'` del catálogo. */
   private validarEspecie(hotel: Hoteles, params: AvailabilityQuery): void {
-    if (!hotel.especiesPermitidas?.length) return;
-    const especie = params.parametrosExtra?.['perroEspecie'];
-    if (typeof especie !== 'string') return;
-    if (!hotel.especiesPermitidas.includes(especie)) {
+    if (!admiteEspecie(hotel.especiesPermitidas, params.parametrosExtra?.['perroEspecie'])) {
       throw new DomainException('Este hotel no admite la especie de tu mascota', 409);
     }
   }

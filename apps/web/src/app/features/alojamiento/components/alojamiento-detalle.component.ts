@@ -222,11 +222,6 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
           <p>{{ alojamiento()!.descripcion }}</p>
         </div>
 
-        <!-- Dónde está: mapa del punto exacto + atajos a Google Maps -->
-        <div class="section-block" rsAnim>
-          <rs-ubicacion [lugar]="ubicacion()" />
-        </div>
-
         <!-- Cuándo atienden: el horario es de este servicio, no del negocio. -->
         <div class="section-block" rsAnim>
           <rs-horario-publico [horario]="alojamiento()!.horario"
@@ -525,6 +520,19 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             <rs-rating [score]="alojamiento()!.score" [label]="alojamiento()!.scoreLabel" [count]="alojamiento()!.numResenas"></rs-rating>
           </div>
         </div>
+
+        <!--
+          Dónde está, bajo el panel de reserva. En escritorio la columna de la
+          derecha tenía el panel y debajo aire, mientras el mapa partía en dos
+          la lectura del contenido. Aquí acompaña a la decisión —"me pilla
+          cerca"— sin cortar nada, que es donde lo pone Booking.
+
+          Va una sola vez: dos "rs-ubicacion" serían dos mapas montados.
+          En móvil la columna cae al final, así que el mapa cierra la ficha.
+        -->
+        <div class="side-mapa rs-card">
+          <rs-ubicacion [lugar]="ubicacion()" [compacto]="true" />
+        </div>
       </div>
 
     </div>
@@ -759,13 +767,16 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
        desde que el mosaico enseña tres fotos grandes: la miniatura ya no tiene
        que hacer de foto, así que cabe más pequeña y se ven más. */
     .gallery__thumbs {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      /*
+        Reparto por flex y no por rejilla de seis columnas fijas: con cinco
+        fotos la sexta casilla quedaba vacía y la fila terminaba en un hueco.
+        Así las que haya se reparten el ancho entero, sean tres o seis.
+      */
+      display: flex;
       gap: var(--sp-2);
       margin-top: var(--sp-2);
 
-      /* En móvil seis miniaturas serían sellos: se reparten en cuatro. */
-      @media (max-width: 768px) { grid-template-columns: repeat(4, 1fr); }
+      > * { flex: 1 1 0; min-width: 0; }
     }
 
     .gallery__thumb {
@@ -811,6 +822,9 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
 
     /* INFO COLUMN — mismo ritmo que la ficha genérica, para que cambiar de
        categoría no cambie el aspecto de la pantalla. */
+    /* Aire entre el titular y las fotos: pegados parecían el mismo bloque. */
+    .info-header { margin-bottom: var(--sp-6); }
+
     .info-header__stars {
       display: inline-flex; align-items: center; gap: var(--sp-2);
       color: var(--dk-gold);
@@ -838,6 +852,19 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
     /* Mismo panel que el resto de fichas: precio, escasez, botón y tres claves. */
 
 
+
+
+    /* Mismo tope que el resto de fichas: una columna pegajosa más alta que su
+       hueco se queda cortada por abajo en cualquier portátil. */
+    .booking-panel {
+      max-height: calc(100dvh - var(--sticky-top, 84px) - var(--sp-4));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      @media (max-width: 1024px) { max-height: none; overflow: visible; }
+    }
+
+    /* La tarjeta del mapa, separada del panel de reserva pero en su columna. */
+    .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
 
     .compromiso-block {
       margin-top: var(--sp-5);

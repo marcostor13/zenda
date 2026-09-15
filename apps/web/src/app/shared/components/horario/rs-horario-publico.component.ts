@@ -60,12 +60,25 @@ interface BloqueHorario {
           }
         </ul>
 
-        @if (especialesProximos().length) {
-          <div class="hp__esp">
-            <p class="hp__esp-tit">
+        <!--
+          Plegado. Los festivos y cierres puntuales son la excepción, no la
+          norma: abiertos empujaban la semana —que es lo que se viene a mirar—
+          y en una ficha con varios apuntes se llevaban media pantalla. El
+          resumen del cierre dice cuántos hay, así que nadie se los pierde.
+
+          "details" nativo: se abre con el teclado y lo lee un lector de
+          pantalla sin una línea de JavaScript.
+        -->
+        @if (especialesProximos().length; as cuantos) {
+          <details class="hp__esp" data-testid="dias-especiales">
+            <summary class="hp__esp-tit">
               <rs-icon name="alert-circle" [size]="14" [stroke]="2" />
-              {{ 'Días especiales' | t }}
-            </p>
+              <span>
+                {{ 'Días especiales' | t }}
+                <em class="hp__esp-n">({{ cuantos }})</em>
+              </span>
+              <rs-icon class="hp__esp-flecha" name="chevron-down" [size]="15" [stroke]="2.5" />
+            </summary>
             <ul>
               @for (e of especialesProximos(); track e.fecha) {
                 <li>
@@ -74,7 +87,7 @@ interface BloqueHorario {
                 </li>
               }
             </ul>
-          </div>
+          </details>
         }
       </div>
     }
@@ -100,6 +113,18 @@ interface BloqueHorario {
       padding: var(--sp-3) var(--sp-4); border-radius: var(--r-lg);
       background: var(--c-raised); font-size: var(--f-sm); color: var(--t-300);
     }
+    /* El resumen es la pastilla entera: se pulsa en cualquier punto. */
+    .hp__esp > summary {
+      display: flex; align-items: center; gap: var(--sp-2);
+      cursor: pointer; list-style: none;
+      &::-webkit-details-marker { display: none; }
+      > span { flex: 1; min-width: 0; }
+    }
+    .hp__esp[open] .hp__esp-flecha { transform: rotate(180deg); }
+    .hp__esp-flecha { color: var(--t-400); transition: transform var(--d-2); }
+    .hp__esp-n { font-style: normal; font-weight: var(--w-5); color: var(--t-400); }
+    .hp__esp > ul { margin-top: var(--sp-2); }
+
     .hp__esp-tit {
       display: flex; align-items: center; gap: var(--sp-2);
       font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-2);
