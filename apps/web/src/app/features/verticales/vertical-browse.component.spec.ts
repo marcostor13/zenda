@@ -69,7 +69,8 @@ describe('VerticalBrowseComponent', () => {
     });
 
     expect(component.cfg().badge(c)).toBe('Vacunación');
-    expect(component.cfg().meta(c)).toEqual(['Vacunación · Cirugía', 'Urgencias 24h']);
+    // Sueltos, no pegados con " · ": es lo que deja que la tarjeta recorte.
+    expect(component.cfg().meta(c)).toEqual(['Vacunación', 'Cirugía', 'Urgencias 24h']);
     expect(component.cfg().price(c)).toBe(35);
   });
 
@@ -98,7 +99,7 @@ describe('VerticalBrowseComponent', () => {
     });
 
     expect(component.cfg().badge(c)).toBe('Baño y corte');
-    expect(component.cfg().meta(c)).toEqual(['Baño y corte · Deslanado', 'A domicilio']);
+    expect(component.cfg().meta(c)).toEqual(['Baño y corte', 'Deslanado', 'A domicilio']);
     expect(component.cfg().price(c)).toBe(25);
   });
 
@@ -590,5 +591,66 @@ describe('VerticalBrowseComponent', () => {
         expect(component.enlaceAServicio(vertical, 's1')).toEqual([`/${vertical}`, 's1']);
       });
     }
+  });
+
+  /*
+   * Regresión: una clínica con veinte servicios dejaba la tarjeta apretadísima.
+   *
+   * La meta unía los veinte nombres con " · " en una sola cadena, así que la
+   * tarjeta la pintaba como una única etiqueta de cuatro líneas y el recorte
+   * que ya hacía —seis en escritorio, dos en móvil— no podía morder: sólo veía
+   * un elemento. Medido en el navegador, la tarjeta pasa de 344 a 274 px.
+   */
+  describe('servicios en la tarjeta', () => {
+    const veinteServicios = Array.from({ length: 20 }, (_, i) => ({
+      nombre: `Servicio ${i + 1}`, precio: 30 + i,
+    }));
+
+    it('debería nombrar unos pocos y resumir el resto, no soltarlos todos juntos', async () => {
+      await crearComponente('veterinaria');
+
+      const etiquetas = component.serviciosDe(tarjeta({
+        serviciosClinicos: veinteServicios, atiendeUrgencias: true,
+      }));
+      const textos = etiquetas.map((e) => (typeof e === 'string' ? e : e.label));
+
+      expect(textos).toEqual([
+        'Servicio 1', 'Servicio 2', 'Servicio 3', '+17 servicios más', 'Urgencias 24h',
+      ]);
+      // Y ninguna etiqueta es la lista entera pegada.
+      expect(textos.every((t) => !t.includes(' · '))).toBe(true);
+    });
+
+    it('no debería resumir nada si caben todos', async () => {
+      await crearComponente('veterinaria');
+
+      const textos = component
+        .serviciosDe(tarjeta({ serviciosClinicos: veinteServicios.slice(0, 2) }))
+        .map((e) => (typeof e === 'string' ? e : e.label));
+
+      expect(textos).toContain('Servicio 1');
+      expect(textos.some((t) => t.startsWith('+'))).toBe(false);
+    });
+
+    it('debería hacer lo mismo en peluquería, que tenía el mismo formato', async () => {
+      await crearComponente('peluqueria');
+
+      const textos = component
+        .serviciosDe(tarjeta({ serviciosGrooming: veinteServicios }))
+        .map((e) => (typeof e === 'string' ? e : e.label));
+
+      expect(textos).toContain('+17 servicios más');
+    });
+
+    /* Sin servicios declarados la tarjeta sigue diciendo qué esperar. */
+    it('debería decir qué esperar cuando el comercio no ha declarado servicios', async () => {
+      await crearComponente('veterinaria');
+
+      const textos = component
+        .serviciosDe(tarjeta({}))
+        .map((e) => (typeof e === 'string' ? e : e.label));
+
+      expect(textos).toContain('Consulta la disponibilidad');
+    });
   });
 });

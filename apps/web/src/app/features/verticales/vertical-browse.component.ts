@@ -80,12 +80,41 @@ interface ItemConNombre {
   precio: number;
 }
 
-/** Nombres del primer/menor servicio y precio mínimo entre los servicios propios del vertical (o el precio base si no hay ninguno). */
-const resumenServicios = (items: ItemConNombre[] | undefined, c: ServicioCard): { primero: string | null; nombres: string; precioMin: number } => {
-  if (!items?.length) return { primero: null, nombres: '', precioMin: c.precioPorNoche };
+/**
+ * Servicios que se nombran en la tarjeta. Una clínica publica veinte, y no
+ * caben ni se leen.
+ */
+const SERVICIOS_EN_TARJETA = 3;
+
+/**
+ * El primer servicio, unos pocos nombres y el precio mínimo del vertical (o el
+ * precio base si no hay ninguno).
+ *
+ * `etiquetas` sustituye al antiguo `nombres`, que unía los veinte servicios de
+ * una clínica con " · " en **una sola cadena**: la tarjeta la pintaba como una
+ * única etiqueta de cuatro líneas, y el recorte que ya hacía —seis en
+ * escritorio, dos en móvil— no podía morder porque sólo veía un elemento. Aquí
+ * salen sueltos, así que el recorte funciona y el resto se resume en "+N", en
+ * vez de desaparecer sin avisar.
+ */
+/** Los servicios, o una sola frase cuando el comercio no ha declarado ninguno. */
+const etiquetasOTexto = (etiquetas: string[], porDefecto: string): string[] =>
+  etiquetas.length ? etiquetas : [porDefecto];
+
+const resumenServicios = (
+  items: ItemConNombre[] | undefined, c: ServicioCard,
+): { primero: string | null; etiquetas: string[]; precioMin: number } => {
+  if (!items?.length) return { primero: null, etiquetas: [], precioMin: c.precioPorNoche };
+
+  const nombres = items.map((i) => i.nombre);
+  const restantes = nombres.length - SERVICIOS_EN_TARJETA;
+
   return {
-    primero: items[0].nombre,
-    nombres: items.map((i) => i.nombre).join(' · '),
+    primero: nombres[0],
+    etiquetas: [
+      ...nombres.slice(0, SERVICIOS_EN_TARJETA),
+      ...(restantes > 0 ? [`+${restantes} servicios más`] : []),
+    ],
     precioMin: Math.min(...items.map((i) => i.precio)),
   };
 };
@@ -126,7 +155,10 @@ const CONFIGS: Record<string, VerticalConfig> = {
     titulo3: (c) => c.nombre,
     loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `${resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).nombres || 'Consulta la disponibilidad'}`,
+      ...etiquetasOTexto(
+        resumenServicios(c.extra['serviciosClinicos'] as ItemConNombre[] | undefined, c).etiquetas,
+        'Consulta la disponibilidad',
+      ),
       // El horario dejó de ser un texto libre del vertical y pasó a ser la
       // semana estructurada del servicio, que no cabe en una línea de tarjeta.
       c.extra['atiendeUrgencias'] ? 'Urgencias 24h' : 'Consulta horario',
@@ -141,7 +173,10 @@ const CONFIGS: Record<string, VerticalConfig> = {
     titulo3: (c) => c.nombre,
     loc: (c) => `${c.ciudad}`,
     meta: (c) => [
-      `${resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).nombres || 'Baño completo'}`,
+      ...etiquetasOTexto(
+        resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).etiquetas,
+        'Baño completo',
+      ),
       c.extra['aDomicilio'] ? 'A domicilio' : 'En salón',
     ],
     price: (c) => resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).precioMin,
