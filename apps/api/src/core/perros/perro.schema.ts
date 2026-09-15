@@ -72,8 +72,16 @@ export class Perro {
   @Prop({ type: [String], default: [] })
   vacunas!: string[];
 
+  /*
+    Sin "_id" en cada vacuna. Mongoose se lo pone por defecto a todo
+    subdocumento, así que el API devolvía un campo que su propio
+    `VacunaAplicadaDto` no admite: quien releyera la ficha y la volviera a
+    guardar —el formulario del cliente, sin ir más lejos— se comía un 400.
+    Aquí no hace falta: a una vacuna se la identifica por su `tipo`, y nadie
+    referencia ese id.
+  */
   @Prop({
-    type: [{ tipo: { type: String, enum: Object.values(Vacuna) }, fecha: Date }],
+    type: [{ _id: false, tipo: { type: String, enum: Object.values(Vacuna) }, fecha: Date }],
     default: [],
   })
   vacunasDetalle!: { tipo: Vacuna; fecha?: Date }[];

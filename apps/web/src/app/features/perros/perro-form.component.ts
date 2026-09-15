@@ -10,6 +10,7 @@ import {
 } from '../../shared/catalogos/tags.catalogo';
 import { PerrosService, PerroPayload, VacunaAplicada } from './perros.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { mensajeDeError } from '../../shared/mensaje-error';
 
 type Paso = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -671,7 +672,12 @@ export class PerroFormComponent implements OnInit {
       miedos: v.miedos,
       alergias: v.alergias,
       medicacion: v.medicacion,
-      vacunasDetalle: this.vacunasDetalle(),
+      // Sólo los campos del contrato, y no la vacuna tal cual llegó del API: las
+      // guardadas vienen con el "_id" que Mongoose pone a cada subdocumento, y
+      // devolverlo hacía que el API rechazara la ficha entera con un 400
+      // ("property _id should not exist"). Pasaba sólo al editar, porque al
+      // crear las vacunas nacen aquí y no traen ese campo.
+      vacunasDetalle: this.vacunasDetalle().map(({ tipo, fecha }) => ({ tipo, fecha })),
       dieta: v.dieta || undefined,
       orinaEnInterior: v.orinaEnInterior,
       ladraAlQuedarseSolo: v.ladraAlQuedarseSolo,
@@ -776,8 +782,12 @@ export class PerroFormComponent implements OnInit {
         this.exitoMsg.set('¡Perro registrado! Redirigiendo…');
       }
       setTimeout(() => void this.router.navigate(['/perros']), 1200);
-    } catch {
-      this.errorMsg.set('Error al guardar la ficha. Verifica los datos e inténtalo de nuevo.');
+    } catch (error) {
+      // El motivo lo manda el API: un texto genérico escondía el porqué real y
+      // dejaba al cliente revisando campos que estaban bien.
+      this.errorMsg.set(mensajeDeError(
+        error, 'Error al guardar la ficha. Verifica los datos e inténtalo de nuevo.',
+      ));
     } finally {
       this.guardando.set(false);
     }
