@@ -3062,6 +3062,17 @@ export class ReservaWizardComponent implements OnInit {
       this.paso1TransporteForm.patchValue({ fechaRecogida: checkIn });
     }
 
+    /*
+     * Servicio ya elegido en la ficha ("Corte de pelo — 40 €"): llega elegido
+     * al paso 1 en vez de obligar a buscarlo otra vez en el desplegable.
+     */
+    const servicioElegido = queryParams.get('servicio');
+    if (servicioElegido) {
+      this.paso1VeterinariaForm.patchValue({ servicio: servicioElegido });
+      this.paso1PeluqueriaForm.patchValue({ servicio: servicioElegido });
+      this.paso1AdiestramientoForm.patchValue({ servicio: servicioElegido });
+    }
+
     const origen = queryParams.get('ciudad');
     if (origen) this.paso1TransporteForm.patchValue({ origen });
 
