@@ -250,14 +250,36 @@ const ESTADOS: Record<string, string> = {
     .volver:hover { color: var(--c-accent); }
     .cargando { padding: var(--sp-12); display: flex; justify-content: center; align-items: center; gap: var(--sp-3); color: var(--t-400); }
 
-    .hero { position: relative; border-radius: var(--r-2xl); overflow: hidden; background: var(--c-card); box-shadow: var(--sh-md); border: 1px solid var(--b-1); }
-    .hero__fondo { position: absolute; inset: 0 0 auto 0; height: 120px; background: var(--g-accent); }
+    /*
+      El alto de la banda azul manda sobre dónde empieza el texto.
+
+      Eran dos números sueltos que tenían que cuadrar y no cuadraban: la banda
+      medía 120 px y el contenido arrancaba a 64. Con "align-items: end" el
+      bloque del nombre sube cuanto más alto es —y con el "Ficha Inteligente",
+      la línea de datos y los tres sellos mide más que el avatar—, así que el
+      titular acababa dentro del azul, en azul oscuro sobre azul: invisible. Un
+      nombre largo lo dejaba entero ahí dentro, cruzado por la línea dorada.
+
+      Con la variable, el relleno superior no puede quedarse corto: el texto
+      empieza siempre por debajo de la banda, mida lo que mida el nombre.
+    */
+    .hero {
+      --hero-banda: 120px;
+      position: relative; border-radius: var(--r-2xl); overflow: hidden;
+      background: var(--c-card); box-shadow: var(--sh-md); border: 1px solid var(--b-1);
+    }
+    .hero__fondo { position: absolute; inset: 0 0 auto 0; height: var(--hero-banda); background: var(--g-accent); }
     .hero__fondo::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--g-warm); }
     .hero__contenido {
       position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: var(--sp-5); align-items: end; padding: 64px var(--sp-8) var(--sp-5);
+      gap: var(--sp-5); align-items: end;
+      padding: calc(var(--hero-banda) + var(--sp-3)) var(--sp-8) var(--sp-5);
     }
+    /* El avatar sí pisa la banda: sube por encima del relleno para quedar a
+       caballo, como en el móvil, sin arrastrar consigo al texto. */
     .hero__avatar {
+      align-self: start;
+      margin-top: calc(var(--hero-banda) * -.62);
       width: 132px; height: 132px; border-radius: var(--r-full); overflow: hidden;
       background: var(--c-card); color: var(--c-accent); display: flex; align-items: center; justify-content: center;
       box-shadow: 0 0 0 5px var(--c-card), 0 0 0 8px var(--dk-gold), var(--sh-lg);
@@ -335,9 +357,14 @@ const ESTADOS: Record<string, string> = {
       .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 640px) {
-      .hero__fondo { height: 96px; }
-      .hero__contenido { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 40px var(--sp-5) var(--sp-4); }
-      .hero__avatar { width: 108px; height: 108px; }
+      .hero { --hero-banda: 96px; }
+      /* En una columna el avatar va arriba y el texto debajo, así que aquí el
+         relleno sólo tiene que dejar sitio al medio avatar que asoma. */
+      .hero__contenido {
+        grid-template-columns: 1fr; justify-items: center; text-align: center;
+        padding: calc(var(--hero-banda) * .42) var(--sp-5) var(--sp-4);
+      }
+      .hero__avatar { align-self: center; margin-top: 0; width: 108px; height: 108px; }
       .hero__id h1 { font-size: var(--f-3xl); }
       .hero__linea, .hero__sellos { justify-content: center; }
       .hero__completitud { flex-direction: row; gap: var(--sp-3); }
