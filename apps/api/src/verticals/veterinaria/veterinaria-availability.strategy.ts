@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { VerticalKey, admiteEspecie } from 'shared';
 import {
   AvailabilityStrategy,
   AvailabilityQuery,
@@ -67,12 +67,16 @@ export class VeterinariaAvailabilityStrategy implements AvailabilityStrategy {
     };
   }
 
-  /** Bloquea si la clínica no atiende la especie del animal (docs §5.1: no es un vertical solo de perros). */
+  /**
+   * Bloquea si la clínica no atiende la especie del animal (docs §5.1: no es un
+   * vertical solo de perros).
+   *
+   * La comparación va normalizada: la ficha del animal guarda `'perro'` y el
+   * alta del comercio elige `'Perro'` de un catálogo capitalizado, así que
+   * compararlas tal cual rechazaba a todos los perros de toda clínica.
+   */
   private validarEspecie(clinica: Veterinaria, params: AvailabilityQuery): void {
-    if (!clinica.especiesAtendidas?.length) return;
-    const especie = params.parametrosExtra?.['perroEspecie'];
-    if (typeof especie !== 'string') return;
-    if (!clinica.especiesAtendidas.includes(especie)) {
+    if (!admiteEspecie(clinica.especiesAtendidas, params.parametrosExtra?.['perroEspecie'])) {
       throw new DomainException('Esta clínica no atiende la especie de tu mascota', 409);
     }
   }

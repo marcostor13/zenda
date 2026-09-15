@@ -31,6 +31,13 @@ import { FechaPipe } from '../../shared/pipes/fecha.pipe';
  */
 const MINIATURAS_VISIBLES = 6;
 
+/**
+ * Servicios que se enseñan de entrada. Una clínica con veinte tarifas dejaba
+ * la lista entera entre el titular y todo lo demás; con cinco se ve de qué va
+ * el catálogo y el resto está a un toque.
+ */
+const TARIFAS_VISIBLES = 5;
+
 const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const SECUNDARIAS_VISIBLES = 2;
@@ -439,7 +446,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
           <div class="tarifas" data-testid="tarifas">
             <h2>{{ cfg().tituloChips | t }}</h2>
             <ul class="tarifas__lista">
-              @for (t of tarifas(); track t.nombre) {
+              @for (t of tarifasVisibles(); track t.nombre) {
                 <li class="tarifa">
                   <div class="tarifa__que">
                     <strong>{{ t.nombre }}</strong>
@@ -459,6 +466,20 @@ const CONFIGS: Record<string, DetalleConfig> = {
                 </li>
               }
             </ul>
+
+            @if (tarifasOcultas()) {
+              <button type="button" class="tarifas__mas" data-testid="ver-mas-tarifas"
+                      [attr.aria-expanded]="tarifasDesplegadas()"
+                      (click)="tarifasDesplegadas.set(!tarifasDesplegadas())">
+                @if (tarifasDesplegadas()) {
+                  {{ 'Ver menos' | t }}
+                  <rs-icon name="chevron-up" [size]="15" [stroke]="2.5" />
+                } @else {
+                  {{ 'Ver los {n} servicios restantes' | t: { n: tarifasOcultas() } }}
+                  <rs-icon name="chevron-down" [size]="15" [stroke]="2.5" />
+                }
+              </button>
+            }
           </div>
         } @else if (cfg().chips(s).length) {
           <div class="section-block">
@@ -484,11 +505,6 @@ const CONFIGS: Record<string, DetalleConfig> = {
             }
             @empty { <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Sin datos adicionales de este profesional.' | t }}</p> }
           </ul>
-        </div>
-
-        <!-- Dónde está: mapa del punto exacto + atajos a Google Maps -->
-        <div class="section-block">
-          <rs-ubicacion [lugar]="ubicacion()" />
         </div>
 
         <!-- Cuándo atienden: el horario es de este servicio, no del negocio. -->
@@ -594,6 +610,19 @@ const CONFIGS: Record<string, DetalleConfig> = {
             <rs-favorito-btn [servicioId]="s.id" [tamano]="18"></rs-favorito-btn>
             <span>{{ 'Guardar en favoritos' | t }}</span>
           </div>
+        </div>
+
+        <!--
+          Dónde está, bajo el panel de reserva. En escritorio la columna de la
+          derecha tenía el panel y debajo aire, mientras el mapa partía en dos
+          la lectura del contenido. Aquí acompaña a la decisión —"me pilla
+          cerca"— sin cortar nada, que es donde lo pone Booking.
+
+          Va una sola vez: dos "rs-ubicacion" serían dos mapas montados.
+          En móvil la columna cae al final, así que el mapa cierra la ficha.
+        -->
+        <div class="side-mapa rs-card">
+          <rs-ubicacion [lugar]="ubicacion()" [compacto]="true" />
         </div>
       </div>
     </div>
@@ -753,8 +782,13 @@ const CONFIGS: Record<string, DetalleConfig> = {
     /* Seis miniaturas y más pequeñas: con tres fotos grandes arriba, la
        miniatura ya no tiene que hacer de foto y caben más en la misma fila. */
     .gallery__thumbs {
-      display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-2); margin-top: var(--sp-2);
-      @media (max-width: 768px) { grid-template-columns: repeat(4, 1fr); }
+      /*
+        Reparto por flex y no por rejilla de seis columnas fijas: con cinco
+        fotos la sexta casilla quedaba vacía y la fila terminaba en un hueco.
+        Así las que haya se reparten el ancho entero, sean tres o seis.
+      */
+      display: flex; gap: var(--sp-2); margin-top: var(--sp-2);
+      > * { flex: 1 1 0; min-width: 0; }
     }
     .gallery__thumb {
       position: relative;
@@ -767,8 +801,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     .vd-body { display: grid; grid-template-columns: 1fr 380px; gap: var(--sp-10); align-items: start; @media (max-width: 1024px) { grid-template-columns: 1fr; } }
 
+    /* Aire entre el titular y las fotos: pegados parecían el mismo bloque y
+       el nombre se leía como el pie de la galería. */
+    .info-header { margin-bottom: var(--sp-6); }
     .info-header__name { font-size: var(--f-3xl); color: var(--dk-blue); margin-bottom: var(--sp-3); }
-    .info-header__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); font-size: var(--f-sm); color: var(--t-300); margin-bottom: var(--sp-5); }
+    .info-header__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); font-size: var(--f-sm); color: var(--t-300); margin-bottom: 0; }
 
     .chips-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 
@@ -806,6 +843,26 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
 
 
+
+    /*
+      La columna de la derecha, acotada a lo que cabe en pantalla.
+
+      Medido: con el panel y la tarjeta del mapa son 730 px, y en un portátil
+      de 768 sólo hay 684 por debajo de la navbar. Una columna pegajosa más
+      alta que su hueco se queda cortada por abajo —y lo cortado eran los dos
+      enlaces del mapa—. Con el tope rueda por dentro y no se pierde nada.
+    */
+    .side-col {
+      max-height: calc(100dvh - var(--sticky-top, 84px) - var(--sp-4));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      /* Sin tope no hay nada que recortar: en móvil la columna va en el flujo. */
+      @media (max-width: 1024px) { max-height: none; overflow: visible; }
+    }
+
+    /* La tarjeta del mapa, separada del panel de reserva pero en su columna. */
+    .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
+
     /* ── Servicios con su tarifa ──────────────────────────────────── */
     .tarifas {
       padding-block: var(--sp-6);
@@ -835,6 +892,20 @@ const CONFIGS: Record<string, DetalleConfig> = {
     .tarifa__incluye { font-size: var(--f-xs); color: var(--t-400); }
     .tarifa__accion { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
     .tarifa__precio { font-size: var(--f-lg); font-weight: var(--w-8); color: var(--dk-blue); white-space: nowrap; }
+
+    /* Discreto y a todo lo ancho de la lista: continúa la tabla, no compite
+       con el botón de reservar de cada fila. */
+    .tarifas__mas {
+      display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
+      width: 100%; margin-top: var(--sp-3); padding: var(--sp-3);
+      border: 1px dashed var(--b-2); border-radius: var(--r-lg);
+      background: transparent; color: var(--dk-blue);
+      font: var(--w-6) var(--f-sm) var(--font); cursor: pointer;
+      transition: background var(--d-2), border-color var(--d-2);
+
+      &:hover { background: var(--c-raised); border-color: var(--dk-blue); }
+      &:focus-visible { outline: 2px solid var(--dk-gold); outline-offset: 2px; }
+    }
 
     /* En móvil el precio y el botón bajan a su propia fila: en 390 px, el
        nombre del servicio y los dos juntos no caben sin partirse. */
@@ -937,6 +1008,15 @@ export class VerticalDetalleComponent implements OnInit {
     const s = this.servicio();
     return s ? this.cfg().servicios(s) : [];
   });
+
+  readonly tarifasDesplegadas = signal(false);
+
+  /** Las cinco primeras, o todas si el cliente ha pedido verlas. */
+  readonly tarifasVisibles = computed(() =>
+    this.tarifasDesplegadas() ? this.tarifas() : this.tarifas().slice(0, TARIFAS_VISIBLES));
+
+  /** Cuántas quedan por enseñar; 0 = no hace falta el botón. */
+  readonly tarifasOcultas = computed(() => Math.max(0, this.tarifas().length - TARIFAS_VISIBLES));
 
   /**
    * Primera cita libre del servicio, del API de agenda.

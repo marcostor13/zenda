@@ -163,3 +163,79 @@ test.describe('Las dos fichas reparten la pantalla igual', () => {
     await expect(page.getByTestId('aviso-escasez')).toContainText('2 espacios');
   });
 });
+
+/**
+ * Lo que la ficha tiene que saber recortar: una clínica con veinte tarifas, un
+ * negocio con festivos apuntados y una galería con cinco fotos en una fila
+ * pensada para seis.
+ */
+test.describe('La ficha recorta lo que sobra', () => {
+  const tarifa = (i: number) => ({ nombre: `Servicio ${i}`, precio: 20 + i, duracionMin: 30 });
+
+  const CLINICA = {
+    ...PELUQUERIA,
+    id: 's-vet', nombre: 'Clínica Sanabria', vertical: 'veterinaria',
+    imagenes: ['/images/porque-verificados.jpg', '/images/porque-atencion.jpg',
+      '/images/explora-playas.jpg', '/images/explora-parques.jpg', '/images/explora-restaurantes.jpg'],
+    horario: [{ dia: 'lunes', cerrado: false, abre: '09:00', cierra: '20:00' }],
+    excepcionesHorario: [
+      { fecha: '2030-12-25', cerrado: true, motivo: 'Navidad' },
+      { fecha: '2030-01-01', cerrado: true, motivo: 'Año nuevo' },
+    ],
+    extra: { serviciosClinicos: Array.from({ length: 9 }, (_, i) => tarifa(i + 1)) },
+  };
+
+  test.beforeEach(async ({ page }) => {
+    await sesionIniciada(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await interceptarApi(page, {
+      'GET /catalog/servicios/*': { cuerpo: CLINICA },
+      'GET /reservas/huecos/agenda': { cuerpo: AGENDA },
+    });
+    await page.goto('/veterinaria/s-vet');
+  });
+
+  test('debería enseñar cinco servicios y ofrecer el resto a un toque', async ({ page }) => {
+    const filas = page.locator('[data-testid="tarifas"] .tarifa');
+    await expect(filas).toHaveCount(5);
+
+    const verMas = page.getByTestId('ver-mas-tarifas');
+    await expect(verMas).toContainText('4');
+
+    await verMas.click();
+    await expect(filas).toHaveCount(9);
+    await expect(verMas).toContainText('Ver menos');
+
+    await verMas.click();
+    await expect(filas).toHaveCount(5);
+  });
+
+  test('debería traer los días especiales plegados, sin tapar la semana', async ({ page }) => {
+    const bloque = page.getByTestId('dias-especiales');
+    await expect(bloque).toContainText('(2)');
+    // Plegado: el detalle no se ve hasta abrirlo.
+    await expect(bloque.getByText('Navidad')).toBeHidden();
+
+    await bloque.locator('summary').click();
+    await expect(bloque.getByText('Navidad')).toBeVisible();
+  });
+
+  test('no debería dejar hueco en la fila de miniaturas con cinco fotos', async ({ page }) => {
+    const fila = (await page.locator('.gallery__thumbs').boundingBox())!;
+    const ultima = (await page.locator('.gallery__thumb').last().boundingBox())!;
+
+    // La última acaba donde acaba la fila: sin casilla vacía al final.
+    expect(Math.round(ultima.x + ultima.width)).toBeCloseTo(Math.round(fila.x + fila.width), -1);
+  });
+
+  test('debería dejar el mapa bajo el panel, sin que el rail desborde la pantalla', async ({ page }) => {
+    const mapa = (await page.locator('.side-mapa').boundingBox())!;
+    const panel = (await page.locator('.side-panel').boundingBox())!;
+    expect(mapa.y).toBeGreaterThan(panel.y + panel.height - 2);
+
+    // Y en un portátil corriente el rail sigue cabiendo entero.
+    await page.setViewportSize({ width: 1440, height: 768 });
+    const rail = (await page.locator('.side-col').boundingBox())!;
+    expect(rail.height).toBeLessThanOrEqual(768 - 84);
+  });
+});

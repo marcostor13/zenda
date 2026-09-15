@@ -25,7 +25,7 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="ubi">
+    <section class="ubi" [class.ubi--compacta]="compacto()">
       <h3 class="ubi__titulo">
         <rs-icon name="map-pin" [size]="17" [stroke]="2" />
         {{ titulo() }}
@@ -83,11 +83,28 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
     }
     .ubi__mapa rs-mapa { display: block; height: 100%; }
     .ubi__acciones { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+    .ubi--compacta {
+      .ubi__titulo { font-size: var(--f-md); margin-bottom: var(--sp-1); }
+      .ubi__direccion, .ubi__sin-mapa { font-size: var(--f-xs); margin-bottom: var(--sp-2); }
+      .ubi__mapa { height: 160px; margin-bottom: var(--sp-2); border-radius: var(--r-lg); }
+      /* Los dos enlaces, en una fila: en 380 px partidos ocupaban dos. */
+      .ubi__acciones { flex-wrap: nowrap; .rs-btn { flex: 1; min-width: 0; } }
+    }
   `],
 })
 export class RsUbicacionComponent {
   readonly lugar = input.required<PuntoUbicacion>();
   readonly titulo = input('Dónde está');
+  /**
+   * Versión para la columna lateral: mismo bloque, mapa más bajo.
+   *
+   * En el panel de reserva el mapa de 280 px dejaba la columna en más de 800,
+   * y una columna pegajosa más alta que la pantalla se queda cortada por abajo
+   * en cualquier portátil. A 160 px se sigue reconociendo el barrio, que es
+   * para lo que se mira desde ahí: para el plano entero están los dos enlaces.
+   */
+  readonly compacto = input(false);
 
   /** Punto para el mapa; `null` mientras el negocio no tenga coordenadas. */
   readonly punto = computed(() => {

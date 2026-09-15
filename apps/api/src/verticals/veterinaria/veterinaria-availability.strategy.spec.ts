@@ -127,6 +127,33 @@ describe('VeterinariaAvailabilityStrategy', () => {
       expect(r.disponible).toBe(true);
     });
 
+    /*
+     * Regresión: toda clínica rechazaba a todos los perros.
+     *
+     * Esta prueba usaba `['perro']` en minúscula, un valor que el formulario no
+     * produce: el alta elige del catálogo capitalizado y cerrado ('Perro',
+     * 'Hurón'), mientras la ficha del animal guarda 'perro' por defecto del
+     * esquema. Con la comparación exacta, `['Perro'].includes('perro')` era
+     * `false` y saltaba "Esta clínica no atiende la especie de tu mascota".
+     */
+    it('debería admitir al perro con el valor que de verdad guarda el alta del comercio', async () => {
+      mockFindById({ ...mock, especiesAtendidas: ['Perro', 'Gato'] });
+
+      const r = await strategy.checkAvailability('v1', {
+        fechaInicio: new Date(), parametrosExtra: { perroEspecie: 'perro' },
+      });
+
+      expect(r.disponible).toBe(true);
+    });
+
+    it('debería seguir bloqueando una especie que la clínica no atiende', async () => {
+      mockFindById({ ...mock, especiesAtendidas: ['Perro'] });
+
+      await expect(strategy.checkAvailability('v1', {
+        fechaInicio: new Date(), parametrosExtra: { perroEspecie: 'reptil' },
+      })).rejects.toThrow(DomainException);
+    });
+
     it('no bloquea si la clínica no declaró especiesAtendidas (comportamiento por defecto)', async () => {
       const r = await strategy.checkAvailability('v1', {
         fechaInicio: new Date(), parametrosExtra: { perroEspecie: 'gato' },
