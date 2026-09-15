@@ -342,40 +342,6 @@ const CONFIGS: Record<string, DetalleConfig> = {
       <span>{{ s.nombre }}</span>
     </nav>
 
-    <!-- GALERÍA -->
-    <div class="gallery">
-      <div class="gallery__hero" [class.gallery__hero--solo]="!secundarias().length">
-        <div class="gallery__foto gallery__main" (click)="abrirLightbox(imagenActiva())">
-          <!--
-            El bucle sobre una sola foto es lo que hace el fundido: al cambiar
-            la imagen activa cambia la clave de seguimiento, Angular recrea el
-            <img> y la animación de entrada vuelve a arrancar.
-          -->
-          @for (img of [imagenActiva()]; track img) {
-            <img [src]="img" [alt]="s.nombre" rsImg />
-          }
-          @if (s.imagenes.length) {
-            <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ s.imagenes.length }} fotografías</span>
-          }
-        </div>
-        @if (secundarias().length) {
-          <div class="gallery__side">
-            @for (img of secundarias(); track img) {
-              <div class="gallery__foto gallery__side-foto" (click)="imagenActiva.set(img)">
-                <img [src]="img" [alt]="s.nombre" rsImg />
-              </div>
-            }
-          </div>
-        }
-      </div>
-      <div class="gallery__thumbs">
-        @for (img of s.imagenes.slice(0, MINIATURAS_VISIBLES); track img) {
-          <div class="gallery__thumb" [class.active]="imagenActiva() === img" (click)="imagenActiva.set(img)">
-            <img [src]="img" [alt]="s.nombre" rsImg />
-          </div>
-        }
-      </div>
-    </div>
 
     @if (lightboxAbierto()) {
       <div class="lightbox" role="dialog" [attr.aria-label]="'Galería a pantalla completa' | t" (click)="cerrarLightbox()">
@@ -395,6 +361,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     <div class="vd-body">
       <div class="info-col">
+      <!--
+        El nombre, antes que las fotos. Es el orden de Booking y el que ordena
+        la pantalla: se sabe qué se está mirando antes de mirarlo, y el panel de
+        la derecha arranca a la altura del titular en vez de a media galería.
+      -->
         <div class="info-header">
           <h1 class="info-header__name">{{ s.nombre }}</h1>
           <div class="info-header__meta">
@@ -403,6 +374,57 @@ const CONFIGS: Record<string, DetalleConfig> = {
             <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> {{ 'Profesional verificado' | t }}</span>
           </div>
         </div>
+
+
+    <!--
+      La galería va DENTRO de la columna de contenido, no a todo lo ancho
+      encima del cuerpo.
+
+      Suelta arriba, su borde derecho quedaba sobre el panel de reserva sin
+      relación con él y el panel empezaba por debajo de las fotos: la única
+      acción de la ficha aparecía a 400 px de scroll. Metida en la columna, las
+      fotos quedan alineadas con todo lo que viene debajo y el hueco de la
+      derecha lo ocupa el panel desde la primera pantalla, que es como reparte
+      el espacio Booking.
+    -->
+      <!-- Sin fotos no hay galería: el mosaico vacío dejaba 400 px en
+           blanco entre el titular y el contenido. -->
+      @if (s.imagenes.length) {
+      <!-- GALERÍA -->
+      <div class="gallery">
+        <div class="gallery__hero" [class.gallery__hero--solo]="!secundarias().length">
+          <div class="gallery__foto gallery__main" (click)="abrirLightbox(imagenActiva())">
+            <!--
+              El bucle sobre una sola foto es lo que hace el fundido: al cambiar
+              la imagen activa cambia la clave de seguimiento, Angular recrea el
+              <img> y la animación de entrada vuelve a arrancar.
+            -->
+            @for (img of [imagenActiva()]; track img) {
+              <img [src]="img" [alt]="s.nombre" rsImg />
+            }
+            @if (s.imagenes.length) {
+              <span class="gallery__contador"><rs-icon name="camera" [size]="14" [stroke]="2" /> {{ s.imagenes.length }} fotografías</span>
+            }
+          </div>
+          @if (secundarias().length) {
+            <div class="gallery__side">
+              @for (img of secundarias(); track img) {
+                <div class="gallery__foto gallery__side-foto" (click)="imagenActiva.set(img)">
+                  <img [src]="img" [alt]="s.nombre" rsImg />
+                </div>
+              }
+            </div>
+          }
+        </div>
+        <div class="gallery__thumbs">
+          @for (img of s.imagenes.slice(0, MINIATURAS_VISIBLES); track img) {
+            <div class="gallery__thumb" [class.active]="imagenActiva() === img" (click)="imagenActiva.set(img)">
+              <img [src]="img" [alt]="s.nombre" rsImg />
+            </div>
+          }
+        </div>
+      </div>
+      }
 
         <!--
           ELIGE TU SERVICIO — la "tabla de habitaciones" de Booking.
@@ -540,16 +562,16 @@ const CONFIGS: Record<string, DetalleConfig> = {
       -->
       <div class="side-col rs-sticky-panel">
         <div class="side-panel rs-card">
-          <p class="bp-desde">{{ 'Desde' | t }}</p>
-          <p class="bp-amount">
+          <p class="rs-bp-desde">{{ 'Desde' | t }}</p>
+          <p class="rs-bp-amount">
             {{ cfg().price(s) | euros }}
             <!-- "Desde 25 € desde": el rótulo de peluquería y funerarios es
                  justamente "desde", así que sólo se pinta si añade algo. -->
-            @if (unidadPrecio(); as unidad) { <span class="bp-per">{{ unidad }}</span> }
+            @if (unidadPrecio(); as unidad) { <span class="rs-bp-per">{{ unidad }}</span> }
           </p>
 
           @if (proximaCita(); as cita) {
-            <p class="bp-hueco" data-testid="proxima-cita">
+            <p class="rs-bp-gancho" data-testid="proxima-cita">
               <rs-icon name="zap" [size]="15" [stroke]="2" />
               <span>{{ 'Primera cita libre' | t }}: <strong>{{ diaLegible(cita.fecha) }} · {{ cita.hora }}</strong></span>
             </p>
@@ -558,9 +580,9 @@ const CONFIGS: Record<string, DetalleConfig> = {
           <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg" (click)="solicitar(s)">
             {{ cfg().cta }}
           </button>
-          <p class="bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
+          <p class="rs-bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
 
-          <ul class="bp-claves">
+          <ul class="rs-bp-claves">
             @if (s.cancelacionGratis) {
               <li><rs-icon name="calendar" [size]="15" [stroke]="2" /> {{ 'Cancelación gratuita' | t }}</li>
             }
@@ -638,10 +660,10 @@ const CONFIGS: Record<string, DetalleConfig> = {
         precio y su botón repetían lo que la barra fija ya tiene delante de los
         ojos. Se quedan sólo la primera cita libre, las claves y favoritos.
       */
-      .side-panel .bp-desde,
-      .side-panel .bp-amount,
+      .side-panel .rs-bp-desde,
+      .side-panel .rs-bp-amount,
       .side-panel .rs-btn--gold,
-      .side-panel .bp-nota { display: none; }
+      .side-panel .rs-bp-nota { display: none; }
     }
 
     .breadcrumb { font-size: var(--f-xs); color: var(--t-400); margin-bottom: var(--sp-5); a { color: var(--t-400); } }
@@ -775,46 +797,14 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     /* ── Panel de reserva ─────────────────────────────────────────── */
     .side-panel { padding: var(--sp-5); }
-    .bp-desde {
-      font-size: var(--f-xs); color: var(--t-400);
-      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px;
-    }
     /*
       Importe y unidad en la misma línea, alineados por la base. Antes iban en
       tres líneas centradas que ocupaban medio panel para decir "25 €".
     */
-    .bp-amount {
-      display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap;
-      font-size: var(--f-4xl); font-weight: var(--w-9); letter-spacing: -.03em;
-      color: var(--dk-blue); margin-bottom: var(--sp-4);
-    }
-    .bp-per { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-400); letter-spacing: 0; }
 
     /* El gancho: cuándo se puede, antes de entrar al asistente. */
-    .bp-hueco {
-      display: flex; align-items: flex-start; gap: var(--sp-2);
-      margin-bottom: var(--sp-4); padding: var(--sp-3);
-      border: 1px solid var(--dk-gold); border-radius: var(--r-lg);
-      background: rgba(251,174,23,.10);
-      font-size: var(--f-sm); color: var(--dk-blue-text);
-      rs-icon { color: var(--dk-gold); flex: none; margin-top: 1px; }
-      strong { white-space: nowrap; }
-    }
 
-    .bp-nota {
-      margin-top: var(--sp-2); text-align: center;
-      font-size: var(--f-xs); color: var(--t-400);
-    }
 
-    .bp-claves {
-      list-style: none; margin-top: var(--sp-4);
-      display: flex; flex-direction: column; gap: var(--sp-2);
-      li {
-        display: flex; align-items: center; gap: var(--sp-2);
-        font-size: var(--f-sm); color: var(--t-300);
-        rs-icon { color: var(--c-success, #15803D); flex: none; }
-      }
-    }
 
     /* ── Servicios con su tarifa ──────────────────────────────────── */
     .tarifas {

@@ -86,3 +86,80 @@ test.describe('Ficha de un comercio', () => {
     await expect(barra.getByRole('button', { name: 'Reservar cita' })).toBeInViewport();
   });
 });
+
+/**
+ * Las dos fichas de detalle —la de alojamiento y la común al resto de
+ * categorías— reparten la pantalla igual. Eran dos componentes distintos que
+ * habían ido separándose: panel con tipografías distintas, galería a todo lo
+ * ancho encima del cuerpo en una y en la otra, y la garantía por duplicado en
+ * ambas. Cambiar de categoría no puede cambiar la pantalla.
+ */
+const ESPACIO = {
+  id: 'e1', tipo: 'suite', descripcion: 'Suite climatizada', tamanoMaxPerro: 'grande',
+  precioNoche: 45, cantidad: 2, disponible: true, amenities: ['Climatización'],
+  imagenes: [], cancelacionGratis: true,
+};
+
+const ALOJAMIENTO = {
+  id: 'a1', nombre: 'El Refugio', ciudad: 'Valencia', barrio: 'Paterna', direccion: 'Camí 24',
+  comercioId: 'c1', score: 4.8, scoreLabel: 'Excelente', numResenas: 214,
+  precioPorNoche: 28, imagenes: ['/images/porque-verificados.jpg'], amenities: ['Piscina canina'],
+  cancelacionGratis: true, paseosIncluidos: true, espaciosDisponibles: 2, destacado: false,
+  descripcion: 'Residencia con parcela vallada.', politicaCancelacion: 'Gratis hasta 48 h antes.',
+  checkIn: '09:00', checkOut: '12:00', requisitoVacunas: true, camaras24h: true,
+  requisitoMicrochip: false, requiereDesparasitacionInterna: false,
+  requiereDesparasitacionExterna: false, requiereVacunaTosPerreras: false,
+  compatibilidadSocialAdmitida: [], serviciosAdicionales: [], horario: [], excepcionesHorario: [],
+  espacios: [ESPACIO], resenas: [],
+};
+
+test.describe('Las dos fichas reparten la pantalla igual', () => {
+  test.beforeEach(async ({ page }) => {
+    await sesionIniciada(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+  });
+
+  const comprobarReparto = async (page, selectorPanel: string) => {
+    // La galería vive dentro de la columna, alineada con el contenido, y el
+    // panel ocupa el hueco de su derecha desde la primera pantalla.
+    const galeria = page.locator('.info-col .gallery');
+    await expect(galeria).toBeVisible();
+
+    const caja = (await galeria.boundingBox())!;
+    const panel = (await page.locator(selectorPanel).boundingBox())!;
+    expect(panel.x).toBeGreaterThan(caja.x + caja.width - 2);
+
+    // El titular, delante de las fotos.
+    const titulo = (await page.locator('.info-header__name').boundingBox())!;
+    expect(titulo.y).toBeLessThan(caja.y);
+
+    // Y el botón, pulsable sin bajar nada.
+    await expect(page.locator(`${selectorPanel} .rs-btn--gold`)).toBeInViewport();
+    await expect(page.locator(`${selectorPanel} .rs-btn--gold`)).toBeEnabled();
+
+    // La garantía, una sola vez en toda la ficha.
+    await expect(page.locator('rs-trust-block')).toHaveCount(1);
+  };
+
+  test('la ficha de una categoría de cita', async ({ page }) => {
+    await interceptarApi(page, {
+      'GET /catalog/servicios/*': { cuerpo: { ...PELUQUERIA, imagenes: ['/images/porque-verificados.jpg'] } },
+      'GET /reservas/huecos/agenda': { cuerpo: AGENDA },
+    });
+    await page.goto('/peluqueria/s-pelu');
+
+    await comprobarReparto(page, '.side-panel');
+  });
+
+  test('la ficha de alojamiento', async ({ page }) => {
+    await interceptarApi(page, {
+      'GET /catalog/servicios/*': { cuerpo: ALOJAMIENTO },
+      'GET /reservas/disponibilidad/calendario': { cuerpo: { soportado: true, dias: [] } },
+    });
+    await page.goto('/alojamiento/a1');
+
+    await comprobarReparto(page, '.booking-panel__card');
+    // Y su gancho propio: los espacios que de verdad quedan.
+    await expect(page.getByTestId('aviso-escasez')).toContainText('2 espacios');
+  });
+});
