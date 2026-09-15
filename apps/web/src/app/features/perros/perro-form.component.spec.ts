@@ -212,6 +212,41 @@ describe('PerroFormComponent', () => {
 
       expect(payload().vacunasDetalle).toEqual([{ tipo: Vacuna.ANTIRRABICA }]);
     });
+
+    /*
+     * Regresión: editar una ficha ya guardada devolvía "Error al guardar la
+     * ficha". Las vacunas que llegan del API traen el "_id" que Mongoose pone a
+     * cada subdocumento, y el formulario las reenviaba tal cual; como el DTO
+     * sólo admite `tipo` y `fecha`, el API respondía 400 y tumbaba la ficha
+     * entera. Al crear no pasaba: allí las vacunas nacen en el formulario.
+     */
+    it('no debería devolver al API el id interno de una vacuna ya guardada', async () => {
+      await crear('p1', perro({
+        vacunasDetalle: [
+          { tipo: Vacuna.ANTIRRABICA, fecha: '2025-03-01T00:00:00.000Z', _id: 'v1' },
+        ] as never,
+      }));
+
+      await componente.submit();
+
+      const enviadas = service['actualizar'].mock.calls[0][1].vacunasDetalle;
+      expect(enviadas).toEqual([{ tipo: Vacuna.ANTIRRABICA, fecha: '2025-03-01T00:00:00.000Z' }]);
+      expect(Object.keys(enviadas[0])).not.toContain('_id');
+    });
+
+    it('debería conservar el id fuera del envío al cambiarle la fecha', async () => {
+      await crear('p1', perro({
+        vacunasDetalle: [{ tipo: Vacuna.ANTIRRABICA, fecha: '2025-03-01T00:00:00.000Z', _id: 'v1' }] as never,
+      }));
+      componente.cambiarFechaVacuna(
+        Vacuna.ANTIRRABICA, { target: { value: '2026-01-15' } } as unknown as Event,
+      );
+
+      await componente.submit();
+
+      expect(service['actualizar'].mock.calls[0][1].vacunasDetalle)
+        .toEqual([{ tipo: Vacuna.ANTIRRABICA, fecha: '2026-01-15' }]);
+    });
   });
 
   describe('guardado', () => {
@@ -282,6 +317,20 @@ describe('PerroFormComponent', () => {
 
       expect(componente.errorMsg()).toContain('Error al guardar');
       expect(componente.guardando()).toBe(false);
+    });
+
+    /* Un texto genérico escondía el porqué y dejaba al cliente revisando
+       campos que estaban bien. */
+    it('debería enseñar el motivo que manda el API cuando lo hay', async () => {
+      await crear();
+      service['crear'].mockRejectedValue({
+        error: { message: ['vacunasDetalle.0.property _id should not exist'] },
+      });
+      componente.form.patchValue({ nombre: 'Maya' });
+
+      await componente.submit();
+
+      expect(componente.errorMsg()).toContain('_id should not exist');
     });
   });
 
