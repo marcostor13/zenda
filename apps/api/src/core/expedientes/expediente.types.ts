@@ -10,6 +10,14 @@ export interface ContactoPropietario {
   telefono?: string;
 }
 
+/** Fichero que acompaña a un registro: informe, analítica, foto. */
+export interface AdjuntoExpediente {
+  nombre: string;
+  url: string;
+  tipo?: string;
+  tamano?: number;
+}
+
 /** Una entrada del historial, con el nombre del negocio que la escribió. */
 export interface RegistroExpediente {
   _id: string;
@@ -19,6 +27,7 @@ export interface RegistroExpediente {
   titulo?: string;
   nota: string;
   datosEstructurados: Record<string, unknown>;
+  adjuntos: AdjuntoExpediente[];
   fechaServicio?: Date;
   profesional?: string;
   proximaCita?: Date;

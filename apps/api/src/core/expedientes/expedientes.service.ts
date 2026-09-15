@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
-  ActualizarRegistroServicioDto, CrearRegistroServicioDto, HISTORIAL_ORIGEN, ReservaEstado,
-  TipoHistorial, VerticalKey, limpiarDatosRegistro, tieneHistorialDeServicio,
+  ActualizarRegistroServicioDto, AdjuntoRegistroDto, CrearRegistroServicioDto, HISTORIAL_ORIGEN,
+  ReservaEstado, TipoHistorial, VerticalKey, limpiarDatosRegistro, tieneHistorialDeServicio,
 } from 'shared';
 import { Perro, PerroDocument } from '../perros/perro.schema';
 import { PerroHistorial, PerroHistorialDocument } from '../perros/perro-historial.schema';
@@ -15,8 +15,8 @@ import { UsersRepository } from '../users/users.repository';
 import { InformeDescargable, InformePerroService } from '../perros/informe/informe-perro.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
-  ContactoPropietario, ExpedienteMascota, MascotaComercioResumen, RegistroExpediente,
-  ServicioExpediente,
+  AdjuntoExpediente, ContactoPropietario, ExpedienteMascota, MascotaComercioResumen,
+  RegistroExpediente, ServicioExpediente,
 } from './expediente.types';
 
 /** Quién escribe un registro: el comercio y el usuario concreto del equipo. */
@@ -415,7 +415,18 @@ function camposEditables(dto: ActualizarRegistroServicioDto, vertical: string, t
   if (dto.datosEstructurados !== undefined) {
     cambios['datosEstructurados'] = limpiarDatosRegistro(vertical, dto.datosEstructurados);
   }
+  if (dto.adjuntos !== undefined) cambios['adjuntos'] = dto.adjuntos.map(aAdjunto);
   return cambios;
+}
+
+/** Se guarda sólo lo declarado: un adjunto con campos de más no entra en Mongo. */
+function aAdjunto(adjunto: AdjuntoRegistroDto): AdjuntoExpediente {
+  return {
+    nombre: adjunto.nombre.trim(),
+    url: adjunto.url.trim(),
+    ...(adjunto.tipo ? { tipo: adjunto.tipo } : {}),
+    ...(adjunto.tamano !== undefined ? { tamano: adjunto.tamano } : {}),
+  };
 }
 
 function aRegistro(r: HistorialPlano, nombres: Map<string, string>, comercioQueConsulta?: string): RegistroExpediente {
@@ -428,6 +439,7 @@ function aRegistro(r: HistorialPlano, nombres: Map<string, string>, comercioQueC
     titulo: r.titulo,
     nota: r.nota,
     datosEstructurados: r.datosEstructurados ?? {},
+    adjuntos: r.adjuntos ?? [],
     fechaServicio: r.fechaServicio,
     profesional: r.profesional,
     proximaCita: r.proximaCita,

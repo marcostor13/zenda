@@ -375,6 +375,25 @@ describe('InformePerroService', () => {
       expect(pintada.detalles).toContainEqual({ etiqueta: 'Próxima cita', valor: '1 mar 2027' });
     });
 
+    /*
+     * El PDF viaja solo —se lleva a otra clínica, se imprime—, así que los
+     * documentos no van dentro; lo que sí va es que existen y cómo se llaman,
+     * para poder pedirlos.
+     */
+    it('debería nombrar los documentos del registro sin adjuntarlos', async () => {
+      perrosService.listarHistorial.mockResolvedValue([
+        entrada({
+          titulo: 'Analítica',
+          adjuntos: [{ nombre: 'Analitica.pdf' }, { nombre: 'Informe.docx' }],
+        } as Partial<PerroHistorialDocument>),
+      ]);
+
+      await service.generar('perro-1', 'usuario-1');
+
+      expect(datosPintados().historial[0].detalles)
+        .toContainEqual({ etiqueta: 'Documentos', valor: 'Analitica.pdf, Informe.docx' });
+    });
+
     it('debería componer el informe del comercio con emisor y contacto del dueño', async () => {
       await service.componer({
         perro: perro(), entradas: [], emisor: 'Clínica Els Ports',

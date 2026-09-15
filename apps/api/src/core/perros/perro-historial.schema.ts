@@ -5,6 +5,32 @@ import { TipoHistorial, VerticalKey } from 'shared';
 export type PerroHistorialDocument = HydratedDocument<PerroHistorial>;
 
 /**
+ * Fichero adjunto a un registro: el analítico, el informe de la clínica, la
+ * foto de la herida. Sólo la referencia; el contenido vive en el almacén de
+ * subidas.
+ *
+ * `_id: false` a propósito: Mongoose se lo pondría a cada subdocumento y el
+ * contrato que devuelve el API no lo admite, así que releer un registro y
+ * volver a guardarlo sería un 400 (mismo fallo que tuvieron las vacunas).
+ */
+@Schema({ _id: false })
+export class AdjuntoRegistro {
+  @Prop({ required: true, trim: true })
+  nombre!: string;
+
+  @Prop({ required: true, trim: true })
+  url!: string;
+
+  @Prop({ trim: true })
+  tipo?: string;
+
+  @Prop()
+  tamano?: number;
+}
+
+export const AdjuntoRegistroSchema = SchemaFactory.createForClass(AdjuntoRegistro);
+
+/**
  * Nota que un profesional deja en la ficha del perro tras un servicio
  * (comportamiento real, tiempo empleado, necesidades detectadas). Se acumula
  * para precalcular precio y dar contexto en próximas reservas.
@@ -62,6 +88,10 @@ export class PerroHistorial {
   /** Fecha en que el propietario editó la entrada, si lo hizo. */
   @Prop()
   editadaAt?: Date;
+
+  /** Documentos que acompañan al registro (informes, analíticas, fotos). */
+  @Prop({ type: [AdjuntoRegistroSchema], default: [] })
+  adjuntos!: AdjuntoRegistro[];
 }
 
 export const PerroHistorialSchema = SchemaFactory.createForClass(PerroHistorial);

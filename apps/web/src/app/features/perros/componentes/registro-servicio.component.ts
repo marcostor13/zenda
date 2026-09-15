@@ -3,6 +3,7 @@ import { VERTICAL_LABELS, VerticalKey, camposDeRegistro } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { RegistroServicioApi } from '../expediente.service';
+import { AdjuntosRegistroComponent } from './adjuntos-registro.component';
 import { iconoDeVertical as iconoVertical } from '../../../shared/verticales/verticales.config';
 import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
 
@@ -20,7 +21,7 @@ interface DatoVisible {
 @Component({
   selector: 'app-registro-servicio',
   standalone: true,
-  imports: [FechaPipe, RsIconComponent, TraducirPipe],
+  imports: [FechaPipe, RsIconComponent, TraducirPipe, AdjuntosRegistroComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <article class="registro" [attr.data-vertical]="registro().vertical">
@@ -73,6 +74,16 @@ interface DatoVisible {
 
     @if (observaciones()) {
       <p class="registro__nota">{{ observaciones() }}</p>
+    }
+
+    @if (adjuntos().length) {
+      <div class="registro__adjuntos">
+        <p class="registro__adjuntos-titulo">
+          <rs-icon name="paperclip" [size]="13" [stroke]="2"></rs-icon>
+          {{ 'Documentos' | t }}
+        </p>
+        <app-adjuntos-registro [adjuntos]="adjuntos()" />
+      </div>
     }
 
     @if (registro().proximaCita || registro().editadaAt) {
@@ -140,6 +151,11 @@ interface DatoVisible {
       background: var(--c-raised); font-size: var(--f-sm); color: var(--t-300); line-height: 1.6;
       white-space: pre-line; overflow-wrap: anywhere;
     }
+    .registro__adjuntos { margin-top: var(--sp-4); }
+    .registro__adjuntos-titulo {
+      display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2);
+      font-size: var(--f-xs); color: var(--t-400);
+    }
     .registro__pie { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; margin-top: var(--sp-3); }
     .registro__editada { font-size: var(--f-xs); color: var(--t-400); font-style: italic; }
   `],
@@ -156,6 +172,7 @@ export class RegistroServicioComponent {
   readonly icono = computed(() => iconoVertical(this.registro().vertical));
   readonly categoria = computed(() => VERTICAL_LABELS[this.registro().vertical as VerticalKey] ?? this.registro().vertical);
   readonly fecha = computed(() => this.registro().fechaServicio ?? this.registro().createdAt);
+  readonly adjuntos = computed(() => this.registro().adjuntos ?? []);
 
   readonly datos = computed<DatoVisible[]>(() => {
     const r = this.registro();

@@ -35,6 +35,7 @@ export interface EntradaFuente {
   readonly proximaCita?: Date;
   readonly comercioNombre?: string;
   readonly editadaAt?: Date;
+  readonly adjuntos?: ReadonlyArray<{ readonly nombre: string }>;
 }
 
 /** Todo lo necesario para componer un informe, venga del dueño o del comercio. */
@@ -80,6 +81,7 @@ export class InformePerroService {
       profesional: entrada.profesional,
       proximaCita: entrada.proximaCita,
       editadaAt: entrada.editadaAt,
+      adjuntos: entrada.adjuntos,
       comercioNombre: nombres.get(entrada.comercioId?.toString() ?? ''),
     }));
 
@@ -243,6 +245,10 @@ function entradaDeHistorial(entrada: EntradaFuente): EntradaHistorial {
     detalles: [
       ...detalles(entrada.vertical, entrada.datosEstructurados ?? {}),
       ...(entrada.proximaCita ? [{ etiqueta: 'Próxima cita', valor: fechaCorta(entrada.proximaCita) }] : []),
+      // El papel viaja solo: se nombran los documentos, que no van dentro.
+      ...(entrada.adjuntos?.length
+        ? [{ etiqueta: 'Documentos', valor: entrada.adjuntos.map((a) => a.nombre).join(', ') }]
+        : []),
     ],
   };
 }

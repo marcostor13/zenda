@@ -138,7 +138,7 @@ const PLAN_BADGE: Record<string, string> = {
 
     .cl-layout {
       display: grid;
-      grid-template-columns: 260px 1fr;
+      grid-template-columns: var(--panel-lateral) 1fr;
       min-height: calc(100vh - 64px);
       min-height: calc(100dvh - 64px);
     }

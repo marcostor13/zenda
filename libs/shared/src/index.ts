@@ -10,6 +10,7 @@ export * from './catalogos/idiomas';
 // Poblaciones: normalización, catálogo y reconocimiento de variantes
 export * from './ubicaciones/normalizar-ubicacion';
 export * from './mascotas/especie';
+export * from './dtos/asistente/consulta-asistente.dto';
 export * from './ubicaciones/municipios';
 export * from './ubicaciones/resolver-municipio';
 export * from './enums/servicio-clinico.enum';
