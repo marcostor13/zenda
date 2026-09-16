@@ -25,6 +25,13 @@ export interface EstadoSincronizacion {
   estado: 'aprobado' | 'pendiente' | 'rechazado';
 }
 
+/**
+ * A céntimos. El dinero no se guarda ni se cobra en coma flotante suelta: sin
+ * esto se persistían importes como 121.34000000000002 y los agregados del
+ * reporte financiero sumaban ese ruido.
+ */
+const redondear = (n: number): number => Math.round(n * 100) / 100;
+
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
@@ -307,7 +314,6 @@ export class PaymentsService {
 
   /** Agrega los desgloses del viaje y añade el fijo de Stripe una sola vez. */
   private sumarDesgloses(desgloses: DesglosePago[], stripeFijo: number): DesglosePago {
-    const redondear = (n: number): number => Math.round(n * 100) / 100;
     const sumar = (clave: keyof DesglosePago): number =>
       redondear(desgloses.reduce((total, d) => total + d[clave], 0));
 
@@ -342,9 +348,9 @@ export class PaymentsService {
       };
     }
 
-    const diferenciaTotal = Math.round((reserva.montoAjustado! - reserva.montoTotal) * 100) / 100;
-    const diferenciaSubtotal = Math.round((diferenciaTotal / (1 + IVA_RATE)) * 100) / 100;
-    const desglose = await this.calcularDesgloseDesdeSubtotal(diferenciaSubtotal, reserva.vertical);
+    // Se cobra la diferencia que se le propuso al cliente, tal cual.
+    const diferenciaTotal = redondear(reserva.montoAjustado! - reserva.montoTotal);
+    const desglose = await this.calcularDesgloseDesdeTotal(diferenciaTotal, reserva.vertical);
 
     const intent = await this.paymentGateway.crearIntent({
       montoEnCentavos: Math.round(desglose.montoTotal * 100),
@@ -503,33 +509,57 @@ export class PaymentsService {
   async calcularDesglose(reserva: ReservaDocument): Promise<DesglosePago> {
     const config = await this.comisionConfigRepo.obtenerComisionEfectiva(reserva.vertical);
 
-    const montoSubtotal = reserva.montoSubtotal;
-    const ivaMonto = Math.round(montoSubtotal * IVA_RATE * 100) / 100;
-    const montoTotal = Math.round((montoSubtotal + ivaMonto) * 100) / 100;
-    const comisionPlataforma = Math.round(reserva.comisionMonto * 100) / 100;
-    const stripeFee = Math.round((montoTotal * config.stripePct + config.stripeFijoEur) * 100) / 100;
-    const montoLiquidacion = Math.round((montoTotal - comisionPlataforma - stripeFee) * 100) / 100;
+    return this.desglosar({
+      montoTotal: reserva.montoTotal,
+      montoSubtotal: reserva.montoSubtotal,
+      comisionPlataforma: reserva.comisionMonto,
+      config,
+    });
+  }
 
-    return { montoSubtotal, ivaMonto, montoTotal, comisionPlataforma, stripeFee, montoLiquidacion };
+  /** Desglose de un importe suelto —un suplemento— que aún no es de nadie. */
+  private async calcularDesgloseDesdeTotal(
+    montoTotal: number,
+    vertical: VerticalKey,
+  ): Promise<DesglosePago> {
+    const config = await this.comisionConfigRepo.obtenerComisionEfectiva(vertical);
+    const montoSubtotal = redondear(montoTotal / (1 + IVA_RATE));
+
+    return this.desglosar({
+      montoTotal,
+      montoSubtotal,
+      comisionPlataforma: montoSubtotal * config.comisionPct,
+      config,
+    });
   }
 
   /**
-   * @param incluirFijoStripe false al desglosar una línea de un viaje: el fijo
-   * por transacción se añade una única vez al agregar todas las líneas.
+   * Reparte un importe entre base, IVA, comisión y liquidación.
+   *
+   * **El total manda y no se recalcula.** Los precios se anuncian con el IVA ya
+   * dentro (CLAUDE.md §9): lo que el cliente ve es lo que se le cobra, y la base
+   * imponible es una consecuencia suya. Antes se hacía al revés —se cogía la
+   * base guardada, ya redondeada a céntimos, y se reconstruía el total
+   * multiplicando— y ahí se escapaba un céntimo: una reserva de 100 € salía por
+   * 99,99, porque 100 / 1,21 = 82,64 y 82,64 × 1,21 = 99,99. No era un fallo de
+   * pantalla: ese total es el que se manda a Stripe, así que se cobraba de
+   * menos de verdad, y en un viaje se perdía uno por cada reserva.
+   *
+   * Por eso el IVA sale de restar, no de multiplicar: así base + IVA da el
+   * total exacto sea cual sea el importe.
    */
-  private async calcularDesgloseDesdeSubtotal(
-    montoSubtotal: number,
-    vertical: VerticalKey,
-    incluirFijoStripe = true,
-  ): Promise<DesglosePago> {
-    const config = await this.comisionConfigRepo.obtenerComisionEfectiva(vertical);
-
-    const ivaMonto = Math.round(montoSubtotal * IVA_RATE * 100) / 100;
-    const montoTotal = Math.round((montoSubtotal + ivaMonto) * 100) / 100;
-    const comisionPlataforma = Math.round(montoSubtotal * config.comisionPct * 100) / 100;
-    const fijo = incluirFijoStripe ? config.stripeFijoEur : 0;
-    const stripeFee = Math.round((montoTotal * config.stripePct + fijo) * 100) / 100;
-    const montoLiquidacion = Math.round((montoTotal - comisionPlataforma - stripeFee) * 100) / 100;
+  private desglosar(datos: {
+    montoTotal: number;
+    montoSubtotal: number;
+    comisionPlataforma: number;
+    config: { comisionPct: number; stripePct: number; stripeFijoEur: number };
+  }): DesglosePago {
+    const montoTotal = redondear(datos.montoTotal);
+    const montoSubtotal = redondear(datos.montoSubtotal);
+    const ivaMonto = redondear(montoTotal - montoSubtotal);
+    const comisionPlataforma = redondear(datos.comisionPlataforma);
+    const stripeFee = redondear(montoTotal * datos.config.stripePct + datos.config.stripeFijoEur);
+    const montoLiquidacion = redondear(montoTotal - comisionPlataforma - stripeFee);
 
     return { montoSubtotal, ivaMonto, montoTotal, comisionPlataforma, stripeFee, montoLiquidacion };
   }

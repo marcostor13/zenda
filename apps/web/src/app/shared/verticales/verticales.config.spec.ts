@@ -84,8 +84,16 @@ describe('verticales.config', () => {
     expect(rutaDeVertical(VerticalKey.VETERINARIA)).toBe('/veterinaria');
   });
 
+  /*
+   * En la barra de categorías ponía "Hoteles" a secas, que se lee como los
+   * hoteles de toda la vida y se calla lo único que distingue a esta categoría:
+   * que el perro entra. El nombre corto dice aquí lo mismo que el largo, que
+   * además ya viene traducido a los ocho idiomas.
+   */
   it('debería distinguir el alojamiento canino de un hotel pet-friendly', () => {
     expect(verticalUi(VerticalKey.ALOJAMIENTO).labelCorto).toBe('Alojamiento canino');
+    expect(verticalUi(VerticalKey.HOTELES).labelCorto).toBe('Hoteles pet-friendly');
+    expect(verticalUi(VerticalKey.HOTELES).labelCorto).toBe(verticalUi(VerticalKey.HOTELES).label);
   });
 
   it('debería definir titular y subtitular a la vez, nunca solo uno', () => {
