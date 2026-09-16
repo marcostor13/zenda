@@ -5,6 +5,7 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
 import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.directive';
+import { PanelLateralDirective } from '../../../shared/directives/panel-lateral.directive';
 import { IMG_FALLBACK } from '../../../shared/media/images';
 import { RsRatingComponent } from '../../../shared/components/rating/rs-rating.component';
 import { RsStarsComponent } from '../../../shared/components/stars/rs-stars.component';
@@ -54,6 +55,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
   imports: [
     TraducirPipe, RouterLink, DecimalPipe, FechaPipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
     RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,
+    PanelLateralDirective,
   ],
   template: `
 <div class="detalle-page">
@@ -459,8 +461,8 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
 
       </div>
 
-      <!-- BOOKING PANEL (sticky, acento dorado superior) -->
-      <div class="booking-panel rs-sticky-panel">
+      <!-- BOOKING PANEL (acento dorado superior; se pega si cabe, ver rsPanelLateral) -->
+      <div class="booking-panel rs-sticky-panel" rsPanelLateral>
         <div class="booking-panel__card">
           @if (espacioSelec()) {
             <div class="booking-panel__selected">
@@ -492,12 +494,14 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
           <!--
             El botón nunca está muerto. Antes se quedaba gris ("Selecciona un
             espacio") hasta bajar a la lista, que está a media página: la única
-            acción de la ficha no se podía pulsar. Ahora, sin espacio elegido,
-            lleva a elegirlo —lo mismo que ya hacía la barra fija de móvil.
+            acción de la ficha no se podía pulsar. Sin espacio elegido lleva a
+            elegirlo, pero dice lo mismo que dirá después —"Reservar"—: la
+            acción que promete la ficha es una sola, y cambiarle el nombre a
+            mitad de camino hacía dudar de si eran dos cosas distintas.
           -->
           <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
                   (click)="espacioSelec() ? irAReserva() : irAEspacios()">
-            {{ espacioSelec() ? ('Reservar' | t) : ('Elegir espacio' | t) }}
+            {{ 'Reservar' | t }}
           </button>
           <p class="rs-bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
 
@@ -554,11 +558,8 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         <strong>{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}</strong>
         <span class="mobile-cta__unidad">/ noche</span>
       </div>
-      @if (espacioSelec()) {
-        <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="irAReserva()">{{ 'Reservar' | t }}</button>
-      } @else {
-        <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="irAEspacios()">{{ 'Elegir espacio' | t }}</button>
-      }
+      <button class="rs-btn rs-btn--gold rs-btn--lg"
+              (click)="espacioSelec() ? irAReserva() : irAEspacios()">{{ 'Reservar' | t }}</button>
     </div>
   </div>
   }
@@ -854,14 +855,12 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
 
 
 
-    /* Mismo tope que el resto de fichas: una columna pegajosa más alta que su
-       hueco se queda cortada por abajo en cualquier portátil. */
-    .booking-panel {
-      max-height: calc(100dvh - var(--sticky-top, 84px) - var(--sp-4));
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      @media (max-width: 1024px) { max-height: none; overflow: visible; }
-    }
+    /*
+      Sin tope de alto ni desplazamiento propio: de que el panel quepa se
+      encarga la directiva rsPanelLateral, que le quita el pegado cuando no
+      cabe. Un panel recortado con su propia barra dentro de una página que
+      también se desplaza escondía el botón de reservar sin que se notara.
+    */
 
     /* La tarjeta del mapa, separada del panel de reserva pero en su columna. */
     .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
