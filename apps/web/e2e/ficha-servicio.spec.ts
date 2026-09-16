@@ -233,9 +233,20 @@ test.describe('La ficha recorta lo que sobra', () => {
     const panel = (await page.locator('.side-panel').boundingBox())!;
     expect(mapa.y).toBeGreaterThan(panel.y + panel.height - 2);
 
-    // Y en un portátil corriente el rail sigue cabiendo entero.
+    /*
+     * Y en un portátil corriente el rail no se queda pegado y recortado.
+     *
+     * Antes se le ponía un tope de alto para que cupiera siempre; ahora puede
+     * medir lo que mida y es el pegado el que cede, así que lo que se comprueba
+     * es la regla, no el tamaño: pegado sólo si cabe entero bajo la cabecera.
+     */
     await page.setViewportSize({ width: 1440, height: 768 });
-    const rail = (await page.locator('.side-col').boundingBox())!;
-    expect(rail.height).toBeLessThanOrEqual(768 - 84);
+    const rail = page.locator('.side-col');
+    const estado = await rail.evaluate((el) => ({
+      pegado: getComputedStyle(el).position === 'sticky',
+      alto: el.getBoundingClientRect().height,
+    }));
+
+    if (estado.pegado) expect(estado.alto).toBeLessThanOrEqual(768 - 84);
   });
 });

@@ -87,7 +87,6 @@ const publico: Diccionario = {
   'Eje del viaje': 'Motyw przewodni podróży',
   'El cuidado que merece': 'Opieka, na jaką zasługuje',
   'El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.': 'Marketplace usług dla psów w Hiszpanii. Hotel, transport, weterynarze, groomer i szkolenie dla twojego psa.',
-  'Elegir espacio': 'Wybierz miejsce',
   'Elige categoría, ciudad y fechas. Filtra por precio, valoración y servicios.': 'Wybierz kategorię, miasto i daty. Filtruj według ceny, oceny i usług.',
   'Elige provincia y te proponemos un viaje completo con tu perro: dónde dormir, dónde pasear y qué reservar. Todo con sitios y profesionales que ya están en Doogking.': 'Wybierz województwo, a zaproponujemy pełną podróż z psem: gdzie spać, gdzie spacerować i co zarezerwować. Wszystko z miejscami i specjalistami, którzy już są w Doogking.',
   'Eliminación de datos': 'Usunięcie danych',

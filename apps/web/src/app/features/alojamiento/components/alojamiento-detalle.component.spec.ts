@@ -244,26 +244,46 @@ describe('AlojamientoDetalleComponent', () => {
       expect(() => component.irAEspacios()).not.toThrow();
     });
 
-    it('debería mostrar "Elegir espacio" mientras no haya ninguno seleccionado', async () => {
+    /*
+     * La barra dice siempre "Reservar", con espacio elegido y sin él: la ficha
+     * promete una sola acción y renombrarla a mitad de camino hacía dudar de si
+     * eran dos cosas distintas. Lo que cambia es a dónde lleva, no cómo se
+     * llama, y eso es lo que se vigila aquí.
+     */
+    it('debería llamar "Reservar" a la acción haya espacio elegido o no', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      const barra = fixture.nativeElement.querySelector('.mobile-cta');
-      expect(barra.textContent).toContain('Elegir espacio');
-      expect(barra.textContent).not.toContain('Reservar');
+      const barra = () => fixture.nativeElement.querySelector('.mobile-cta');
+      expect(barra().textContent).toContain('Reservar');
+
+      component.seleccionarEspacio(espacioMock);
+      fixture.detectChanges();
+
+      expect(barra().textContent).toContain('Reservar');
     });
 
-    it('debería mostrar "Reservar" con el precio del espacio en cuanto se elige uno', async () => {
+    it('debería llevar a elegir espacio mientras no haya ninguno', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const irA = jest.spyOn(component, 'irAEspacios');
+
+      fixture.nativeElement.querySelector('.mobile-cta .rs-btn').click();
+
+      expect(irA).toHaveBeenCalled();
+    });
+
+    it('debería mostrar el precio del espacio en cuanto se elige uno', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
 
       component.seleccionarEspacio(espacioMock);
       fixture.detectChanges();
 
-      const barra = fixture.nativeElement.querySelector('.mobile-cta');
-      expect(barra.textContent).toContain('Reservar');
-      expect(barra.textContent).not.toContain('Elegir espacio');
+      expect(fixture.nativeElement.querySelector('.mobile-cta__precio').textContent)
+        .toContain(String(espacioMock.precioNoche));
     });
 
     it('el botón "Reservar" de la barra fija debería navegar con el espacio elegido', async () => {
@@ -663,7 +683,7 @@ describe('AlojamientoDetalleComponent', () => {
       const boton = el.querySelector<HTMLButtonElement>('.booking-panel__card .rs-btn--gold')!;
 
       expect(boton.disabled).toBe(false);
-      expect(boton.textContent).toContain('Elegir espacio');
+      expect(boton.textContent).toContain('Reservar');
 
       const irA = jest.spyOn(component, 'irAEspacios');
       boton.click();

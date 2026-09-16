@@ -87,7 +87,6 @@ const publico: Diccionario = {
   'Eje del viaje': 'Rode draad van de reis',
   'El cuidado que merece': 'De verzorging die hij verdient',
   'El marketplace de servicios caninos en España. Alojamiento, transporte, veterinarios, peluquería y adiestramiento para tu perro.': 'De marktplaats voor hondendiensten in Spanje. Pension, vervoer, dierenartsen, trimsalon en training voor je hond.',
-  'Elegir espacio': 'Ruimte kiezen',
   'Elige categoría, ciudad y fechas. Filtra por precio, valoración y servicios.': 'Kies categorie, stad en data. Filter op prijs, beoordeling en diensten.',
   'Elige provincia y te proponemos un viaje completo con tu perro: dónde dormir, dónde pasear y qué reservar. Todo con sitios y profesionales que ya están en Doogking.': 'Kies een provincie en wij stellen een complete reis met je hond voor: waar slapen, waar wandelen en wat boeken. Allemaal met plekken en professionals die al op Doogking staan.',
   'Eliminación de datos': 'Gegevens verwijderen',

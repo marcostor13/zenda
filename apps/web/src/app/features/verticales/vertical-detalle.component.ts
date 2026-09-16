@@ -19,6 +19,7 @@ import { ReservasService } from '../reservas/services/reservas.service';
 import { ASPECTOS_POR_VERTICAL } from '../../shared/verticales/resena-aspectos.config';
 
 import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
+import { PanelLateralDirective } from '../../shared/directives/panel-lateral.directive';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { SeoService } from '../../core/seo/seo.service';
 import { seoFichaServicio, seoPrivada } from '../../core/seo/plantillas-seo';
@@ -319,7 +320,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
   imports: [
     TraducirPipe, RouterLink, FechaPipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
     RsTrustBlockComponent, RsChipComponent, RsFavoritoBtnComponent, ImgFallbackDirective,
-    RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,
+    RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe, PanelLateralDirective,
   ],
   template: `
 <div class="vd-page">
@@ -576,7 +577,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
         aquí van las tres que pesan en la decisión y la lista entera se da una
         sola vez, al final de la ficha.
       -->
-      <div class="side-col rs-sticky-panel">
+      <div class="side-col rs-sticky-panel" rsPanelLateral>
         <div class="side-panel rs-card">
           <p class="rs-bp-desde">{{ 'Desde' | t }}</p>
           <p class="rs-bp-amount">
@@ -845,20 +846,15 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
 
     /*
-      La columna de la derecha, acotada a lo que cabe en pantalla.
+      La columna de la derecha.
 
       Medido: con el panel y la tarjeta del mapa son 730 px, y en un portátil
-      de 768 sólo hay 684 por debajo de la navbar. Una columna pegajosa más
-      alta que su hueco se queda cortada por abajo —y lo cortado eran los dos
-      enlaces del mapa—. Con el tope rueda por dentro y no se pierde nada.
+      de 768 sólo hay 684 por debajo de la navbar. Antes se acotaba con un tope
+      de alto y desplazamiento propio, pero una barra dentro de una página que
+      también se desplaza esconde lo que hay debajo sin decirlo. Ahora lo decide
+      la directiva rsPanelLateral: si la columna cabe se pega, y si no, acompaña
+      a la página y se lee entera bajando.
     */
-    .side-col {
-      max-height: calc(100dvh - var(--sticky-top, 84px) - var(--sp-4));
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      /* Sin tope no hay nada que recortar: en móvil la columna va en el flujo. */
-      @media (max-width: 1024px) { max-height: none; overflow: visible; }
-    }
 
     /* La tarjeta del mapa, separada del panel de reserva pero en su columna. */
     .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
