@@ -217,7 +217,13 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
   {
     key: VerticalKey.HOTELES,
     label: VERTICAL_LABELS[VerticalKey.HOTELES],
-    labelCorto: 'Hoteles',
+    /*
+     * Aquí el nombre corto no se acorta: "Hoteles" a secas se leía como los
+     * hoteles de toda la vida y no dice lo único que importa de esta categoría,
+     * que es que el perro entra. Se usa la misma forma que el nombre largo, que
+     * además ya está traducida a los ocho idiomas.
+     */
+    labelCorto: VERTICAL_LABELS[VerticalKey.HOTELES],
     route: '/hoteles',
     icono: CATEGORIA_ICONOS['hoteles'],
     icon: 'hotel',

@@ -24,6 +24,14 @@ describe('PaymentsService', () => {
     usuarioId: { toString: () => 'user-1' },
     comercioId: { toString: () => 'comercio-1' },
     vertical: VerticalKey.ALOJAMIENTO,
+    /*
+     * Como las guarda `BookingsService`: el total es el precio anunciado —con
+     * el IVA dentro— y la base sale de dividirlo, redondeada a céntimos. Ojo a
+     * que 605 / 1,21 = 500 exacto sólo en este caso; lo normal es que la base
+     * redondeada NO reproduzca el total al multiplicarla, y de ahí venía el
+     * céntimo perdido.
+     */
+    montoTotal: 605,
     montoSubtotal: 500,
     // Comisión fijada al crear la reserva; el cobro usa esta, no la vigente hoy.
     comisionMonto: 75,
@@ -171,6 +179,38 @@ describe('PaymentsService', () => {
       expect(desglose.montoLiquidacion).toBe(liquidacion);
     });
 
+    /*
+     * Regresión (2026-09-16): una reserva de 100 € se cobraba como 99,99 €.
+     *
+     * El desglose tiraba la base guardada —100 / 1,21 = 82,64 ya redondeado— y
+     * rehacía el total multiplicando: 82,64 + 17,35 = 99,99. Como ese total es
+     * el que va a Stripe, el cliente pagaba un céntimo de menos de verdad, no
+     * sólo en pantalla. El total es lo pactado y no se recalcula; lo que se
+     * deriva de él es el IVA.
+     */
+    it('debería cobrar exactamente el total de la reserva, sin comerse el céntimo', async () => {
+      const cien = { ...reservaMock, montoTotal: 100, montoSubtotal: 82.64, comisionMonto: 12.4 };
+
+      const desglose = await service.calcularDesglose(cien);
+
+      expect(desglose.montoTotal).toBe(100);
+      expect(desglose.ivaMonto).toBe(17.36);
+      expect(desglose.montoSubtotal + desglose.ivaMonto).toBeCloseTo(100, 10);
+    });
+
+    it('debería cuadrar base más IVA con el total en cualquier importe', async () => {
+      for (const total of [0.99, 1, 9.99, 25, 49.95, 100, 149.9, 1234.56]) {
+        const subtotal = Math.round((total / (1 + IVA_RATE)) * 100) / 100;
+
+        const desglose = await service.calcularDesglose(
+          { ...reservaMock, montoTotal: total, montoSubtotal: subtotal },
+        );
+
+        expect(desglose.montoTotal).toBe(total);
+        expect(Math.round((desglose.montoSubtotal + desglose.ivaMonto) * 100) / 100).toBe(total);
+      }
+    });
+
     it('debería cobrar la comisión pactada en la reserva, no la vigente hoy', async () => {
       // El vertical está al 15 %, pero esta reserva se creó con un 8 % (tramo
       // bajo o socio fundador). Al comercio se le cobra lo que se le dijo.
@@ -203,6 +243,20 @@ describe('PaymentsService', () => {
       );
       expect(pagoModel).toHaveBeenCalledWith(expect.objectContaining({ esSuplemento: true, montoTotal: 18.15 }));
       expect(resultado.clientSecret).toBe('pi_test_secret');
+    });
+
+    /* La diferencia también se rehacía desde su base y perdía el céntimo. */
+    it('debería cobrar la diferencia exacta que se le propuso al cliente', async () => {
+      bookingsService.validarAjustePendiente.mockResolvedValue(
+        { ...reservaMock, montoTotal: 100, montoAjustado: 200 } as never,
+      );
+
+      await service.aceptarAjuste('reserva-1', 'user-1');
+
+      expect(paymentGateway.crearIntent).toHaveBeenCalledWith(
+        expect.objectContaining({ montoEnCentavos: 10000 }),
+      );
+      expect(pagoModel).toHaveBeenCalledWith(expect.objectContaining({ montoTotal: 100 }));
     });
   });
 
@@ -399,6 +453,19 @@ describe('PaymentsService', () => {
     /** Reserva de un viaje, con su propio importe y comisión ya fijados. */
     const linea = (id: string, subtotal: number, comision: number) => ({
       ...reservaMock, id, reservaId: id, montoSubtotal: subtotal, comisionMonto: comision,
+      montoTotal: Math.round(subtotal * (1 + IVA_RATE) * 100) / 100,
+    });
+
+    /* En un viaje el céntimo no se perdía una vez, sino una por reserva. */
+    it('debería cobrar la suma exacta de las reservas del viaje', async () => {
+      const deCien = { ...reservaMock, montoTotal: 100, montoSubtotal: 82.64, comisionMonto: 12.4 };
+      bookingsService.obtenerPorId.mockResolvedValue(deCien as never);
+
+      await service.crearIntentDeViaje(['r1', 'r2', 'r3'], 'user-1');
+
+      expect(paymentGateway.crearIntent).toHaveBeenCalledWith(
+        expect.objectContaining({ montoEnCentavos: 30000 }),
+      );
     });
 
     it('debería rechazar un viaje sin reservas', async () => {
