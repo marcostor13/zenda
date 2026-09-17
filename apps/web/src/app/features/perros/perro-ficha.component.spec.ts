@@ -37,7 +37,7 @@ describe('PerroFichaComponent', () => {
     ...extra,
   });
 
-  const crear = async (opciones: { falla?: boolean; tab?: string } = {}) => {
+  const crear = async (opciones: { falla?: boolean; tab?: string; embebidaCon?: string } = {}) => {
     expedientes = {
       delPropietario: opciones.falla ? jest.fn(() => rechazo(new Error('x'))) : jest.fn().mockResolvedValue(expediente()),
       descargarInformePropietario: jest.fn().mockResolvedValue(undefined),
@@ -48,11 +48,16 @@ describe('PerroFichaComponent', () => {
         provideRouter([]), provideHttpClient(), provideHttpClientTesting(),
         { provide: ExpedienteService, useValue: expedientes },
         { provide: PerrosService, useValue: { bienestar: jest.fn().mockResolvedValue({ perroId: 'p1', puntuacion: 80, nivel: 'muy_bueno', descuentoSeguroPct: 0, ejes: [{ clave: 'v', etiqueta: 'Vacunas', puntos: 20, maximo: 25 }] }) } },
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'p1' }), queryParamMap: convertToParamMap(opciones.tab ? { tab: opciones.tab } : {}) } } },
+        // Incrustada no hay `:id` en la ruta: la mascota llega por la entrada.
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(opciones.embebidaCon ? {} : { id: 'p1' }), queryParamMap: convertToParamMap(opciones.tab ? { tab: opciones.tab } : {}) } } },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(PerroFichaComponent);
     component = fixture.componentInstance;
+    if (opciones.embebidaCon) {
+      fixture.componentRef.setInput('perroId', opciones.embebidaCon);
+      fixture.componentRef.setInput('embebida', true);
+    }
     fixture.detectChanges();
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
@@ -104,6 +109,24 @@ describe('PerroFichaComponent', () => {
   it('debería mostrar un error si la ficha no carga', async () => {
     await crear({ falla: true });
     expect(component.error()).toBe('No se pudo cargar la ficha de tu perro.');
+  });
+
+  describe('incrustada en /perros', () => {
+    it('debería cargar la mascota que le pasan, sin `:id` en la ruta', async () => {
+      await crear({ embebidaCon: 'p9' });
+
+      expect(expedientes.delPropietario).toHaveBeenCalledWith('p9');
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Nala');
+    });
+
+    it('no debería repetir el navbar ni el enlace de vuelta que ya pone la página', async () => {
+      await crear({ embebidaCon: 'p1' });
+      const el: HTMLElement = fixture.nativeElement;
+
+      expect(el.querySelector('rs-navbar')).toBeNull();
+      expect(el.querySelector('.volver')).toBeNull();
+      expect(el.querySelector('.dk-pagina')).toBeNull();
+    });
   });
 
   it('debería traducir estados y categorías con respaldo', async () => {

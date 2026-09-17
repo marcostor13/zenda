@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { VERTICAL_LABELS, VerticalKey } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
@@ -47,13 +47,15 @@ const ESTADOS: Record<string, string> = {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-<div class="dk-pagina">
-  <rs-navbar />
+<div [class.dk-pagina]="!embebida()">
+  @if (!embebida()) { <rs-navbar /> }
 
-  <main class="rs-wrap ficha">
-    <a routerLink="/perros" class="volver">
-      <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon> {{ 'Mis perros' | t }}
-    </a>
+  <main class="ficha" [class.rs-wrap]="!embebida()" [class.ficha--embebida]="embebida()">
+    @if (!embebida()) {
+      <a routerLink="/perros" class="volver">
+        <rs-icon name="arrow-left" [size]="15" [stroke]="2"></rs-icon> {{ 'Mis mascotas' | t }}
+      </a>
+    }
 
     @if (cargando()) {
       <div class="rs-card cargando"><span class="rs-spinner"></span> {{ 'Cargando la ficha…' | t }}</div>
@@ -246,6 +248,8 @@ const ESTADOS: Record<string, string> = {
   `,
   styles: [`
     .ficha { padding-block: var(--sp-6) var(--sp-16); display: grid; gap: var(--sp-5); }
+    /* Incrustada en /perros ya hay cabecera de página y ancho: la ficha solo aporta su contenido. */
+    .ficha--embebida { padding-block: 0; }
     .volver { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--t-400); text-decoration: none; font-size: var(--f-sm); width: fit-content; }
     .volver:hover { color: var(--c-accent); }
     .cargando { padding: var(--sp-12); display: flex; justify-content: center; align-items: center; gap: var(--sp-3); color: var(--t-400); }
@@ -374,6 +378,15 @@ const ESTADOS: Record<string, string> = {
   `],
 })
 export class PerroFichaComponent implements OnInit {
+  /**
+   * Mascota a mostrar cuando la ficha no viene de su propia ruta. `/perros` la
+   * incrusta para el cliente que solo tiene una: ahí no hay `:id` que leer.
+   */
+  readonly perroId = input('');
+
+  /** Sin navbar, sin ancho propio y sin enlace de vuelta: la página ya los pone. */
+  readonly embebida = input(false);
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly expedientes = inject(ExpedienteService);
@@ -428,7 +441,7 @@ export class PerroFichaComponent implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
-    const id = this.route.snapshot.paramMap.get('id') ?? '';
+    const id = this.perroId() || (this.route.snapshot.paramMap.get('id') ?? '');
     const tab = this.route.snapshot.queryParamMap.get('tab') as Pestana | null;
     if (tab && PESTANAS.some((p) => p.id === tab)) this.pestana.set(tab);
 
