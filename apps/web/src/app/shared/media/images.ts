@@ -114,28 +114,6 @@ export const HOTEL_IMAGES: readonly string[] = [
 export const ALOJAMIENTO_IMAGES = HOTEL_IMAGES;
 
 /**
- * Banda fotográfica del bloque "¿Por qué Doogking.com?".
- *
- * Una familia con su perro, no un perro solo: el bloque explica por qué elegir
- * Doogking, y lo que se vende es la tranquilidad de quien deja a su animal en
- * buenas manos. Un retrato canino ilustraba el producto; esto ilustra al
- * cliente (feedback 2026-08-20).
- *
- * Fotografía de marca del cliente (2026-08-31), ya no del CDN de stock. La
- * misma toma en dos anchos: el original mide 1536×1024 y la versión de 900px
- * ahorra ~90 KB en móvil, donde la banda nunca pasa de 640px de ancho.
- *
- * El encuadre está comprobado sobre el recorte real: a `center 20%` entran las
- * cuatro caras y la cabeza del perro (la banda de escritorio se queda con algo
- * menos de la mitad del alto original). Si algún día se cambia la foto, hay que
- * volver a medir esa cifra —no vale a ojo: la banda recorta más de la mitad.
- */
-export const BANDA_POR_QUE = {
-  movil: '/images/porque-familia-movil.jpg',
-  escritorio: '/images/porque-familia.jpg',
-} as const;
-
-/**
  * Fotos del bloque "¿Por qué Doogking.com?" — una por cada uno de los tres
  * valores, en lugar de iconos.
  *

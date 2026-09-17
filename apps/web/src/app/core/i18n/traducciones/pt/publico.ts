@@ -274,7 +274,6 @@ const publico: Diccionario = {
   'Un lugar seguro mientras tú no estás': 'Um lugar seguro enquanto não estás',
   'Una despedida como se merece': 'Uma despedida como merece',
   'Una despedida serena, con todo claro desde el principio.': 'Uma despedida serena, com tudo claro desde o início.',
-  'Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano': 'Uma família com duas crianças a acariciar o seu cão no terraço de casa, telemóvel na mão',
   'Una mano reservando en el buscador de Doogking desde el móvil mientras el perro espera al lado': 'Uma mão a reservar no motor de pesquisa da Doogking pelo telemóvel enquanto o cão espera ao lado',
   'Vacuna tos de las perreras:': 'Vacina da tosse do canil:',
   'Vacunas y requisitos sanitarios': 'Vacinas e requisitos sanitários',

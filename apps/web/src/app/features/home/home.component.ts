@@ -16,7 +16,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import {
-  BANDA_POR_QUE, BRAND, CATEGORIA_ICONOS, EXPLORA_DESTACADOS_IMAGES, HOTEL_IMAGES, MOTIVOS_IMAGES,
+  BRAND, CATEGORIA_ICONOS, EXPLORA_DESTACADOS_IMAGES, HOTEL_IMAGES, MOTIVOS_IMAGES,
   TRUST_ICONOS,
 } from '../../shared/media/images';
 import { VERTICALES_PUBLICOS, rutaDeVertical } from '../../shared/verticales/verticales.config';
@@ -246,16 +246,6 @@ type SearchMode = 'filtros' | 'ia';
           <p>{{ 'Todo lo que tu perro necesita a lo largo de su vida, en un único sitio y con un solo perfil.' | t }}</p>
         </div>
       </div>
-
-      <!-- Banda fotográfica emocional entre el título y las tarjetas (PDF §6).
-           La foto vive en BANDA_POR_QUE: para cambiarla basta con tocar ese
-           fichero, no este. -->
-      <figure class="why-banner" rsAnim>
-        <picture>
-          <source media="(min-width: 641px)" [srcset]="bandaPorQueEscritorio" />
-          <img [src]="bandaPorQue" [alt]="'Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano' | t" loading="lazy" rsImg />
-        </picture>
-      </figure>
 
       <ul class="why-grid" rsAnim>
         @for (m of motivos; track m.titulo) {
@@ -1012,38 +1002,6 @@ type SearchMode = 'filtros' | 'ia';
     /* ══ ¿POR QUÉ DOOGKING? ═════════════════════════════════════════ */
     .why-section { background: var(--c-card); }
 
-    /* Banda fotográfica emocional (PDF §6) — placeholder hasta D-3. */
-    .why-banner {
-      margin: 0 0 var(--sp-10);
-      border-radius: var(--r-xl);
-      overflow: hidden;
-      box-shadow: var(--sh-card);
-
-      picture { display: block; }
-
-      /* La banda ocupa el ancho completo (~1.4k), así que el alto es lo único
-         que decide cuánto se recorta la foto. A 320px salía una tira de 4,4:1
-         donde las personas se quedaban sin cabeza: ese formato sólo aguanta un
-         paisaje. En escritorio son 640px (~2:1) para que la escena se vea casi
-         completa; por debajo de 1024px la banda se estrecha y con ese alto
-         pasaría a ser un cuadrado, así que ahí se queda en 340px.
-         El 20% está medido sobre el recorte real de la foto actual —la familia
-         de porque-familia.jpg— y es lo que hace que entren las cuatro caras y
-         la cabeza del perro; cambiar la foto obliga a revisarlo. */
-      img {
-        display: block;
-        width: 100%;
-        height: 640px;
-        object-fit: cover;
-        object-position: center 20%;
-      }
-
-      @media (max-width: 1024px) { img { height: 340px; } }
-      /* En móvil el ancho baja mucho más que el alto, así que la banda deja de
-         ser una tira y la foto respira sola. */
-      @media (max-width: 640px) { img { height: 220px; } }
-    }
-
     .why__eyebrow {
       font-family: var(--font-accent);
       font-size: var(--f-xs);
@@ -1778,13 +1736,6 @@ export class HomeComponent implements OnInit {
   readonly logoMark = BRAND.logoMark;
   readonly logoFooter = BRAND.logoFooter;
 
-  /**
-   * Banda del bloque "¿Por qué Doogking.com?". Escritorio y móvil llevan tomas
-   * distintas porque la banda es ahí mucho más apaisada: con un mismo original,
-   * el recorte dejaba a los sujetos descolocados en vez de centrados.
-   */
-  readonly bandaPorQue = BANDA_POR_QUE.movil;
-  readonly bandaPorQueEscritorio = BANDA_POR_QUE.escritorio;
   readonly fotoProfesional = HOTEL_IMAGES[0];
   readonly rutaAlojamiento = rutaDeVertical(VerticalKey.ALOJAMIENTO);
 

@@ -274,7 +274,6 @@ const publico: Diccionario = {
   'Un lugar seguro mientras tú no estás': 'Un endroit sûr pendant votre absence',
   'Una despedida como se merece': 'Un adieu comme il le mérite',
   'Una despedida serena, con todo claro desde el principio.': 'Un adieu serein, avec tout de clair dès le départ.',
-  'Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano': 'Une famille avec deux enfants caressant son chien sur la terrasse de la maison, mobile en main',
   'Una mano reservando en el buscador de Doogking desde el móvil mientras el perro espera al lado': 'Une main réservant sur le moteur de recherche Doogking depuis un mobile pendant que le chien attend à côté',
   'Vacuna tos de las perreras:': 'Vaccin contre la toux du chenil :',
   'Vacunas y requisitos sanitarios': 'Vaccins et exigences sanitaires',

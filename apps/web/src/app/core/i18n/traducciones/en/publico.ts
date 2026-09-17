@@ -274,7 +274,6 @@ const publico: Diccionario = {
   'Un lugar seguro mientras tú no estás': 'A safe place while you are away',
   'Una despedida como se merece': 'A farewell as they deserve',
   'Una despedida serena, con todo claro desde el principio.': 'A calm farewell, with everything clear from the start.',
-  'Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano': 'A family with two children stroking their dog on the terrace at home, phone in hand',
   'Una mano reservando en el buscador de Doogking desde el móvil mientras el perro espera al lado': 'A hand booking on the Doogking search from a phone while the dog waits alongside',
   'Vacuna tos de las perreras:': 'Kennel cough vaccine:',
   'Vacunas y requisitos sanitarios': 'Vaccinations and health requirements',

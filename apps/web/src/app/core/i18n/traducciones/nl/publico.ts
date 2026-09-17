@@ -274,7 +274,6 @@ const publico: Diccionario = {
   'Un lugar seguro mientras tú no estás': 'Een veilige plek terwijl jij weg bent',
   'Una despedida como se merece': 'Een afscheid zoals hij verdient',
   'Una despedida serena, con todo claro desde el principio.': 'Een sereen afscheid, met alles vooraf duidelijk.',
-  'Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano': 'Een gezin met twee kinderen aait de hond op het terras thuis, telefoon in de hand',
   'Una mano reservando en el buscador de Doogking desde el móvil mientras el perro espera al lado': 'Een hand die op de telefoon boekt in de zoekfunctie van Doogking terwijl de hond ernaast wacht',
   'Vacuna tos de las perreras:': 'Kennelhoestvaccin:',
   'Vacunas y requisitos sanitarios': 'Vaccinaties en gezondheidseisen',

@@ -274,7 +274,6 @@ const publico: Diccionario = {
   'Un lugar seguro mientras tú no estás': 'Ein sicherer Ort, wenn du nicht da bist',
   'Una despedida como se merece': 'Ein Abschied, wie er ihn verdient',
   'Una despedida serena, con todo claro desde el principio.': 'Ein würdevoller Abschied, von Anfang an transparent.',
-  'Una familia con dos niños acariciando a su perro en la terraza de casa, móvil en mano': 'Eine Familie mit zwei Kindern streichelt ihren Hund auf der heimischen Terrasse, das Handy in der Hand',
   'Una mano reservando en el buscador de Doogking desde el móvil mientras el perro espera al lado': 'Eine Hand bucht am Handy über die Doogking-Suche, während der Hund daneben wartet',
   'Vacuna tos de las perreras:': 'Zwingerhusten-Impfung:',
   'Vacunas y requisitos sanitarios': 'Impfungen und Gesundheitsanforderungen',

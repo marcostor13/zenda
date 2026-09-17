@@ -242,16 +242,11 @@ describe('HomeComponent', () => {
     expect(el.querySelector('#por-que h2')?.textContent).toContain('¿Por qué Doogking.com?');
   });
 
-  it('debería servir una foto distinta en escritorio para la banda de "¿Por qué Doogking.com?"', () => {
+  it('no debería mostrar la banda fotográfica en "¿Por qué Doogking.com?"', () => {
+    // El cliente retiró la foto de la familia (2026-09-17): el bloque pasa del
+    // título a las tres tarjetas sin banda intermedia.
     const el: HTMLElement = fixture.nativeElement;
-    const fuente = el.querySelector<HTMLSourceElement>('.why-banner picture source');
-
-    // En escritorio la banda recorta casi todo el alto del original, así que
-    // necesita una foto con el perro centrado; el hero solo vale en móvil.
-    expect(fuente?.getAttribute('media')).toBe('(min-width: 641px)');
-    expect(fuente?.getAttribute('srcset')).toBe(component.bandaPorQueEscritorio);
-    expect(component.bandaPorQueEscritorio).not.toBe(component.bandaPorQue);
-    expect(el.querySelector('.why-banner img')?.getAttribute('alt')).toBeTruthy();
+    expect(el.querySelector('.why-banner')).toBeNull();
   });
 
   it('debería ilustrar cada valor con una fotografía descrita, no con un icono', () => {
