@@ -51,6 +51,8 @@ interface Ciudad {
 /** Respuesta del asistente de búsqueda con IA (`POST /ai-search`). */
 interface AiSearchResult {
   vertical: string | null;
+  /** Sitio de la comunidad (playa, parque, ruta…) cuando no hay vertical. */
+  tipoLugar: string | null;
   ciudad: string | null;
   desde: string | null;
   hasta: string | null;
@@ -1936,6 +1938,22 @@ export class HomeComponent implements OnInit {
       const resultado = await firstValueFrom(
         this.http.post<AiSearchResult>(`${environment.apiUrl}/ai-search`, { query }),
       );
+
+      /*
+       * Lo que se pide no siempre es un servicio reservable: «playa», «parque
+       * canino» o «rutas con perro» son sitios de la comunidad, y de esos
+       * Doogking tiene mapa. Antes acababan en el aviso de "no te he entendido"
+       * teniendo la respuesta a un clic.
+       */
+      if (!resultado.vertical && resultado.tipoLugar) {
+        void this.router.navigate(['/explora'], {
+          queryParams: {
+            tipo: resultado.tipoLugar,
+            ciudad: resultado.ciudad ?? null,
+          },
+        });
+        return;
+      }
 
       /*
        * Sin categoría no se navega. `rutaDeVertical(null)` cae en alojamiento, y

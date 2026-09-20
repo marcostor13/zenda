@@ -1,4 +1,4 @@
-import { VerticalKey } from 'shared';
+import { TipoLugar, VerticalKey } from 'shared';
 
 /**
  * Lo que el intérprete local sabe sacar de una frase. Es un subconjunto de
@@ -6,6 +6,11 @@ import { VerticalKey } from 'shared';
  */
 export interface InterpretacionLocal {
   vertical: VerticalKey | null;
+  /**
+   * Sitio de la comunidad al que lleva la frase cuando no pide un servicio
+   * reservable: «playas caninas», «parques», «rutas con perro».
+   */
+  tipoLugar: TipoLugar | null;
   ciudad: string | null;
   desde: string | null;
   hasta: string | null;
@@ -66,6 +71,28 @@ const SINONIMOS: ReadonlyArray<readonly [VerticalKey, readonly string[]]> = [
     'hotel canino', 'hotel para perro', 'hotel de perro', 'pension canina',
     'dog boarding', 'kennel', 'dog hotel', 'pet boarding', 'daycare',
   ]],
+];
+
+/**
+ * Sitios de la comunidad (`/explora`): no se reservan, se visitan.
+ *
+ * «Playa» no es ninguna de las ocho categorías reservables, así que el
+ * buscador contestaba que no sabía a qué categoría se refería y dejaba al
+ * usuario en la portada. Pero Doogking sí tiene eso: el mapa de playas,
+ * parques, rutas y restaurantes donde el perro es bienvenido. Se reconoce
+ * aquí para llevar la frase a su sitio en vez de a un error.
+ *
+ * A diferencia de los sinónimos de categoría, aquí se compara con expresiones
+ * regulares delimitadas por palabra y no por raíz: «cala» dentro de
+ * «Calatayud» o «bar» dentro de «Barcelona» convertirían una ciudad en un tipo
+ * de sitio.
+ */
+const LUGARES: ReadonlyArray<readonly [TipoLugar, RegExp]> = [
+  [TipoLugar.PLAYA, /\b(?:playas?|calas?|beach(?:es)?)\b/],
+  [TipoLugar.PARQUE, /\b(?:parques?|pipicanes?|pipican|areas? caninas?|dog parks?)\b/],
+  [TipoLugar.RESTAURANTE, /\b(?:restaurantes?|cafeterias?|terrazas?|dog friendly restaurants?)\b/],
+  [TipoLugar.RUTA, /\b(?:rutas?|senderos?|senderismo|excursion(?:es)?|trekking|hiking|trails?)\b/],
+  [TipoLugar.RIO, /\b(?:rios?|lagos?|embalses?|pantanos?|rivers?|lakes?)\b/],
 ];
 
 /**
@@ -142,6 +169,7 @@ export function interpretarLocalmente(consulta: string, hoy = new Date()): Inter
 
   return {
     vertical: detectarVertical(texto),
+    tipoLugar: detectarTipoLugar(texto),
     ciudad: detectarCiudad(consulta, texto),
     ...detectarFechas(texto, hoy),
     presupuestoMax: detectarPresupuesto(texto),
@@ -153,6 +181,13 @@ export function interpretarLocalmente(consulta: string, hoy = new Date()): Inter
 function detectarVertical(texto: string): VerticalKey | null {
   for (const [vertical, terminos] of SINONIMOS) {
     if (terminos.some((termino) => texto.includes(termino))) return vertical;
+  }
+  return null;
+}
+
+function detectarTipoLugar(texto: string): TipoLugar | null {
+  for (const [tipo, patron] of LUGARES) {
+    if (patron.test(texto)) return tipo;
   }
   return null;
 }

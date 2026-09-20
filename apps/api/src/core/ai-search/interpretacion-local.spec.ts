@@ -1,4 +1,4 @@
-import { VerticalKey } from 'shared';
+import { TipoLugar, VerticalKey } from 'shared';
 import { interpretarLocalmente, normalizar } from './interpretacion-local';
 
 describe('interpretarLocalmente', () => {
@@ -49,6 +49,44 @@ describe('interpretarLocalmente', () => {
 
     it('debería devolver null cuando la frase no nombra ningún servicio', () => {
       expect(interpretarLocalmente('algo bonito para mi perro', HOY).vertical).toBeNull();
+    });
+  });
+
+  describe('sitios de la comunidad', () => {
+    /**
+     * Regresión de la observación del cliente: «playa» contestaba que no se
+     * sabía a qué categoría se refería, teniendo el mapa de playas caninas.
+     */
+    it('debería llevar «playa» a las playas y sin categoría reservable', () => {
+      const r = interpretarLocalmente('playa', HOY);
+
+      expect(r.tipoLugar).toBe(TipoLugar.PLAYA);
+      expect(r.vertical).toBeNull();
+    });
+
+    it.each([
+      ['playas caninas en Alicante', TipoLugar.PLAYA],
+      ['dog friendly beach', TipoLugar.PLAYA],
+      ['parque canino cerca', TipoLugar.PARQUE],
+      ['pipican en Valencia', TipoLugar.PARQUE],
+      ['restaurantes donde pueda ir con mi perro', TipoLugar.RESTAURANTE],
+      ['rutas de senderismo con perro', TipoLugar.RUTA],
+      ['un río donde bañar al perro', TipoLugar.RIO],
+    ])('debería reconocer «%s»', (frase, esperado) => {
+      expect(interpretarLocalmente(frase, HOY).tipoLugar).toBe(esperado);
+    });
+
+    /**
+     * Se compara por palabra entera: «cala» dentro de «Calatayud» o «bar»
+     * dentro de «Barcelona» convertirían una ciudad en un tipo de sitio.
+     */
+    it('no debería confundir un nombre de ciudad con un tipo de sitio', () => {
+      expect(interpretarLocalmente('peluquería en Barcelona', HOY).tipoLugar).toBeNull();
+      expect(interpretarLocalmente('veterinario en Calatayud', HOY).tipoLugar).toBeNull();
+    });
+
+    it('debería dejarlo vacío cuando la frase no nombra ningún sitio', () => {
+      expect(interpretarLocalmente('residencia canina en Sevilla', HOY).tipoLugar).toBeNull();
     });
   });
 

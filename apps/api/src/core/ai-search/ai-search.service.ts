@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { VERTICAL_LABELS, VerticalKey } from 'shared';
+import { TIPO_LUGAR_LABELS, TipoLugar, VERTICAL_LABELS, VerticalKey } from 'shared';
 import { InterpretacionLocal, interpretarLocalmente } from './interpretacion-local';
 
 export interface SearchParams {
   vertical: VerticalKey | null;
+  /** Sitio de la comunidad (`/explora`) cuando la frase no pide un servicio. */
+  tipoLugar: TipoLugar | null;
   ciudad: string | null;
   desde: string | null;
   hasta: string | null;
@@ -27,9 +29,12 @@ Verticales disponibles:
 - seguros: seguros para mascotas, pólizas, responsabilidad civil
 - funerarios: servicios funerarios, cremación, entierro y despedida
 
+Además de los verticales reservables, Doogking tiene un mapa de la comunidad con sitios donde el perro es bienvenido (no se reservan, se visitan): playas caninas, parques caninos, restaurantes pet-friendly, rutas y ríos o lagos.
+
 Responde SIEMPRE con un objeto JSON válido con esta estructura exacta (sin markdown, sin explicaciones fuera del JSON):
 {
   "vertical": "alojamiento" | "transporte" | "veterinaria" | "peluqueria" | "adiestramiento" | "hoteles" | "seguros" | "funerarios" | null,
+  "tipoLugar": "playa" | "parque" | "restaurante" | "ruta" | "rio" | null,
   "ciudad": "nombre de ciudad" | null,
   "desde": "YYYY-MM-DD" | null,
   "hasta": "YYYY-MM-DD" | null,
@@ -47,6 +52,8 @@ Reglas:
 - Para alojamiento, extrae tamaño del perro si se menciona: { "tamanoPerro": "pequeno|mediano|grande|gigante" }.
 - Para veterinaria/peluqueria, extrae el servicio pedido si se menciona: { "servicio": "..." }.
 - Distingue "hotel para perros" (alojamiento: el perro se queda) de "hotel pet-friendly" (hoteles: viaja la persona con el perro).
+- Si el usuario busca un sitio al que ir con su perro (playa, parque, restaurante, ruta, río o lago), rellena "tipoLugar" y deja "vertical" en null. No fuerces un vertical reservable: "playa" es un sitio, no un servicio.
+- Si no pide un sitio de esos, "tipoLugar" es null.
 - Si la ciudad no es clara, pon null.
 - Si el vertical no es claro, pon null.
 - La explicacion debe estar en español.`;
@@ -112,7 +119,13 @@ export class AiSearchService {
 
   /** Resultado con lo único que hay: lo deducido de la propia frase. */
   private desdeLocal(local: InterpretacionLocal): SearchParams {
-    return { ...local, explicacion: this.explicar(local) };
+    const datos: SearchParams = {
+      ...local,
+      // Misma regla que con modelo: el sitio sólo entra si no hay servicio.
+      tipoLugar: local.vertical ? null : local.tipoLugar,
+      explicacion: '',
+    };
+    return { ...datos, explicacion: this.explicar(datos) };
   }
 
   /**
@@ -123,8 +136,12 @@ export class AiSearchService {
    * ciudad que estaba escrita en la frase no se pierde.
    */
   private combinar(modelo: SearchParams, local: InterpretacionLocal): SearchParams {
+    const vertical = modelo.vertical ?? local.vertical;
     const combinado: SearchParams = {
-      vertical: modelo.vertical ?? local.vertical,
+      vertical,
+      // El sitio de la comunidad sólo entra si no hay servicio que reservar:
+      // «peluquería cerca de la playa» es una peluquería, no una playa.
+      tipoLugar: vertical ? null : modelo.tipoLugar ?? local.tipoLugar,
       ciudad: modelo.ciudad ?? local.ciudad,
       desde: modelo.desde ?? local.desde,
       hasta: modelo.hasta ?? local.hasta,
@@ -138,12 +155,14 @@ export class AiSearchService {
   }
 
   /** Frase corta de confirmación cuando no hay modelo que la redacte. */
-  private explicar(datos: Pick<SearchParams, 'vertical' | 'ciudad' | 'desde'>): string {
-    if (!datos.vertical && !datos.ciudad) {
+  private explicar(datos: Pick<SearchParams, 'vertical' | 'tipoLugar' | 'ciudad' | 'desde'>): string {
+    if (!datos.vertical && !datos.tipoLugar && !datos.ciudad) {
       return 'No hemos sabido concretar la búsqueda; ajusta los filtros.';
     }
 
-    const categoria = datos.vertical ? VERTICAL_LABELS[datos.vertical] : 'Servicios';
+    const categoria = datos.vertical
+      ? VERTICAL_LABELS[datos.vertical]
+      : datos.tipoLugar ? TIPO_LUGAR_LABELS[datos.tipoLugar] : 'Servicios';
     const donde = datos.ciudad ? ` en ${datos.ciudad}` : '';
     const cuando = datos.desde ? ` a partir del ${datos.desde}` : '';
     return `${categoria}${donde}${cuando}.`;
@@ -161,6 +180,7 @@ export class AiSearchService {
   private sanear(crudo: Record<string, unknown>): SearchParams {
     return {
       vertical: this.comoVertical(crudo['vertical']),
+      tipoLugar: this.comoTipoLugar(crudo['tipoLugar']),
       ciudad: this.comoTexto(crudo['ciudad']),
       desde: this.comoFecha(crudo['desde']),
       hasta: this.comoFecha(crudo['hasta']),
@@ -174,6 +194,11 @@ export class AiSearchService {
   private comoVertical(valor: unknown): VerticalKey | null {
     const validos = Object.values(VerticalKey) as string[];
     return typeof valor === 'string' && validos.includes(valor) ? (valor as VerticalKey) : null;
+  }
+
+  private comoTipoLugar(valor: unknown): TipoLugar | null {
+    const validos = Object.values(TipoLugar) as string[];
+    return typeof valor === 'string' && validos.includes(valor) ? (valor as TipoLugar) : null;
   }
 
   private comoTexto(valor: unknown): string | null {

@@ -160,19 +160,18 @@ const SUGERENCIAS = [
 
     /* ── Lanzador ─────────────────────────────────────────────────── */
     /*
-      Un círculo, no una pastilla con texto.
+      Una pastilla con la pregunta siempre a la vista.
 
-      Con la etiqueta siempre visible ocupaba 150 px de ancho y se comía el
-      titular de la portada al desplazarse: un flotante permanente sólo se
-      perdona si en reposo casi no está. La etiqueta aparece al acercar el ratón
-      —y al recibir el foco, para quien navega con teclado—, que es cuando de
-      verdad hace falta saber qué es.
+      Un círculo con una chispa no dice qué hace: había que acercar el ratón
+      para enterarse, y quien no lo acerca nunca se entera. Con «¿Te ayudo?»
+      escrito desde el primer momento se entiende de un vistazo, que es justo lo
+      que tiene que pasar con la ayuda.
 
-      El ancho del botón NUNCA se anima ni baja de --as-lado: lo que crece es la
-      etiqueta, y el botón la sigue. Animar el width del botón lo encogía al
-      tamaño del icono en el primer fotograma —"auto" no se interpola, salta,
-      mientras el relleno y la etiqueta seguían a cero—, así que se escapaba de
-      debajo del puntero y el mousedown caía fuera: el clic no abría nada.
+      El ancho del botón NUNCA se anima ni baja de --as-lado: al cerrar el panel
+      la etiqueta reaparece sin encoger el botón. Animar el width lo encogía al
+      tamaño del icono en el primer fotograma —"auto" no se interpola, salta—,
+      así que se escapaba de debajo del puntero y el mousedown caía fuera: el
+      clic no abría nada.
     */
     .as__lanzador {
       --as-lado: 52px;
@@ -180,7 +179,11 @@ const SUGERENCIAS = [
 
       display: inline-flex; align-items: center; justify-content: center;
       min-width: var(--as-lado); height: var(--as-lado);
-      /* En reposo el relleno completa el círculo alrededor del icono. */
+      /*
+        El relleno es el que completaría el círculo alrededor del icono: con la
+        etiqueta dentro, la pastilla crece hacia la derecha sin apretar el texto
+        contra el borde, y con el panel abierto vuelve a ser un círculo exacto.
+      */
       padding-inline: calc((var(--as-lado) - var(--as-icono)) / 2);
       border: none; border-radius: var(--r-full);
       background: var(--g-accent); color: #fff;
@@ -197,19 +200,15 @@ const SUGERENCIAS = [
     }
     .as__lanzador--abierto rs-icon { color: #fff; }
 
-    /* La etiqueta no ocupa sitio —ni su separación— hasta que se despliega. */
-    .as__lanzador-txt {
-      white-space: nowrap; max-width: 0; margin-inline-start: 0;
-      overflow: hidden; opacity: 0;
-      transition: max-width var(--d-2), margin-inline-start var(--d-2), opacity var(--d-2);
-    }
-    .as__lanzador:hover .as__lanzador-txt,
-    .as__lanzador:focus-visible .as__lanzador-txt {
-      max-width: 160px; margin-inline-start: var(--sp-2); opacity: 1;
-    }
+    /*
+      La etiqueta está siempre: no se oculta ni se anima, sólo se separa del
+      icono. Con el panel abierto el botón vuelve a ser el círculo de cerrar,
+      porque entonces la pregunta ya está contestada dentro del panel.
+    */
+    .as__lanzador-txt { white-space: nowrap; margin-inline-start: var(--sp-2); }
 
     @media (prefers-reduced-motion: reduce) {
-      .as__lanzador, .as__lanzador-txt { transition: none; }
+      .as__lanzador { transition: none; }
     }
 
     /* ── Panel ────────────────────────────────────────────────────── */

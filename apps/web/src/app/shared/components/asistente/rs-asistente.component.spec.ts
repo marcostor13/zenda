@@ -39,6 +39,15 @@ describe('RsAsistenteComponent', () => {
   });
 
   /*
+   * Observación del cliente: con la chispa sola había que acercar el ratón para
+   * enterarse de qué era el botón, y quien no lo acerca nunca se entera.
+   */
+  it('debería enseñar «¿Te ayudo?» en reposo, sin esperar al ratón', async () => {
+    expect(el().querySelector('[data-testid="lanzador-asistente"]')!.textContent)
+      .toContain('¿Te ayudo?');
+  });
+
+  /*
    * En los paneles la esquina de abajo a la izquierda es del menú lateral: sin
    * apartarse, el flotante tapaba el "Volver al inicio" del panel del comercio.
    */

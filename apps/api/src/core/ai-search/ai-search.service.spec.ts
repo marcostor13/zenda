@@ -44,6 +44,48 @@ describe('AiSearchService', () => {
     });
   });
 
+  /**
+   * Regresión de la observación del cliente: «playa» no es ninguna de las ocho
+   * categorías reservables, pero sí es el mapa de playas caninas de la
+   * comunidad. Acababa en «no sé a qué categoría te refieres».
+   */
+  describe('sitios de la comunidad', () => {
+    it('debería resolver «playa» al mapa de playas y sin vertical', async () => {
+      const resultado = await conClave(undefined).interpretSearch('playas caninas en Alicante');
+
+      expect(resultado.vertical).toBeNull();
+      expect(resultado.tipoLugar).toBe('playa');
+      expect(resultado.ciudad).toBe('Alicante');
+      expect(resultado.explicacion).toContain('Playa');
+    });
+
+    /**
+     * El sitio no puede robarle la búsqueda a un servicio que se reserva: quien
+     * busca una peluquería cerca de la playa quiere la peluquería.
+     */
+    it('no debería devolver sitio cuando la frase pide un servicio', async () => {
+      const resultado = await conClave(undefined).interpretSearch('peluquería cerca de la playa');
+
+      expect(resultado.vertical).toBe('peluqueria');
+      expect(resultado.tipoLugar).toBeNull();
+    });
+
+    it('debería ignorar el sitio que invente el modelo si hay vertical', async () => {
+      respondeCon({ vertical: 'veterinaria', tipoLugar: 'playa', explicacion: 'x' });
+
+      const resultado = await conClave('sk-test').interpretSearch('veterinario en Gandía');
+
+      expect(resultado.vertical).toBe('veterinaria');
+      expect(resultado.tipoLugar).toBeNull();
+    });
+
+    it('debería descartar un tipo de sitio que no existe', async () => {
+      respondeCon({ tipoLugar: 'montaña rusa', explicacion: 'x' });
+
+      expect((await conClave('sk-test').interpretSearch('x')).tipoLugar).toBeNull();
+    });
+  });
+
   describe('interpretación correcta', () => {
     it('debería devolver los parámetros que extrae el modelo', async () => {
       respondeCon({
@@ -61,6 +103,7 @@ describe('AiSearchService', () => {
 
       expect(resultado).toEqual({
         vertical: 'alojamiento',
+        tipoLugar: null,
         ciudad: 'Valencia',
         desde: '2026-09-01',
         hasta: '2026-09-05',

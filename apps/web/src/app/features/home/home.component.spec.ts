@@ -98,6 +98,23 @@ describe('HomeComponent', () => {
       }));
     });
 
+    /*
+     * Observación del cliente: «playa» no es una categoría reservable, pero sí
+     * está en el mapa de la comunidad. Contestaba "no te he entendido" teniendo
+     * la respuesta a un clic.
+     */
+    it('debería llevar al mapa de la comunidad cuando lo que se pide es un sitio', async () => {
+      component.aiQuery.setValue('playa');
+      const busqueda = component.buscarConIA();
+      responder({ vertical: null, tipoLugar: 'playa', ciudad: 'Alicante' });
+      await busqueda;
+
+      expect(navigate).toHaveBeenCalledWith(['/explora'], expect.objectContaining({
+        queryParams: expect.objectContaining({ tipo: 'playa', ciudad: 'Alicante' }),
+      }));
+      expect(component.aiError()).toBe('');
+    });
+
     it('no debería caer en alojamiento cuando el asistente no reconoce la categoría', async () => {
       component.aiQuery.setValue('algo bonito para mi perro');
       const busqueda = component.buscarConIA();
