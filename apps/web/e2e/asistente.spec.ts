@@ -90,9 +90,14 @@ test.describe('Asistente de la web', () => {
     const lanzador = (await page.getByTestId('lanzador-asistente').boundingBox())!;
     const cta = (await page.locator('.side-panel .rs-btn--gold').boundingBox())!;
 
-    // En reposo es un círculo pequeño, y a la izquierda del panel de reserva.
-    expect(Math.round(lanzador.width)).toBeLessThanOrEqual(56);
+    /*
+     * La pastilla enseña «¿Te ayudo?» desde el primer momento, así que ya no es
+     * un círculo de 56 px: lo que hay que seguir garantizando no es su ancho,
+     * sino que termine antes de donde empieza el botón de reservar. El flotante
+     * se perdona mientras no estorbe a lo que da dinero.
+     */
     expect(lanzador.x + lanzador.width).toBeLessThan(cta.x);
+    expect(Math.round(lanzador.width)).toBeLessThan(cta.x - lanzador.x);
   });
 
   /* Abajo la pantalla ya es de la barra de reservar y de la app instalada. */

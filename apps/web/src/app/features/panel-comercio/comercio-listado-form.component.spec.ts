@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { FormArray } from '@angular/forms';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
@@ -173,6 +174,82 @@ describe('ComercioListadoFormComponent', () => {
 
       expect(api.actualizarServicio).toHaveBeenCalled();
       expect(payloadGuardado()).not.toHaveProperty('vertical');
+    });
+  });
+
+  describe('alta guiada de transporte de mascotas', () => {
+    /** Servicio de transporte cargado para editar, con una regla por zona. */
+    const conReglas = async (): Promise<void> => {
+      await crear('s1', {
+        vertical: VerticalKey.TRANSPORTE, titulo: 'VilaCan',
+        descripcion: 'Traslados puerta a puerta con furgoneta climatizada.',
+        ciudad: 'Castellón', precioBase: 25,
+        extra: {
+          reglasTarifa: [{
+            id: 'r1', nombre: 'Castellón ciudad', modelo: 'zona', unidadCobro: 'vehiculo',
+            zonas: ['Castellón'], precioIda: 25,
+          }],
+          suplementos: [{
+            clave: 'urgencia', nombre: 'Urgencia', condicion: 'urgencia',
+            forma: 'importe_fijo', importe: 20, aplicacion: 'automatica',
+          }],
+          requisitosDocumentales: [{ clave: 'microchip', exigencia: 'siempre' }],
+        },
+      });
+    };
+
+    /**
+     * `patchValue` no puede con un `FormArray` vacío: ignora lo que le llega.
+     * Sin reconstruirlos control a control, abrir un servicio configurado y
+     * guardarlo lo dejaba sin ninguna tarifa, es decir, sin precio.
+     */
+    it('debería recuperar las reglas y suplementos al editar', async () => {
+      await conReglas();
+
+      const grupo = componente.transporteGroup;
+      expect((grupo.get('reglasTarifa') as FormArray).length).toBe(1);
+      expect((grupo.get('suplementos') as FormArray).length).toBe(1);
+      expect((grupo.get('requisitosDocumentales') as FormArray).length).toBe(1);
+    });
+
+    it('debería guardar las reglas de tarifa con los números como números', async () => {
+      await conReglas();
+      // Un input numérico devuelve texto en cuanto alguien teclea.
+      (componente.transporteGroup.get('reglasTarifa') as FormArray)
+        .at(0).patchValue({ precioIda: '30', importeMinimo: '25' });
+
+      dejarListoParaPublicar();
+      await componente.submit();
+
+      const extra = payloadGuardado().extra as Record<string, unknown>;
+      const reglas = extra['reglasTarifa'] as Array<Record<string, unknown>>;
+      expect(reglas[0]).toMatchObject({ modelo: 'zona', precioIda: 30, importeMinimo: 25 });
+    });
+
+    /** 0 en el formulario significa «sin límite»; el motor lo lee como null. */
+    it('debería enviar la distancia máxima sin límite como null', async () => {
+      await conReglas();
+      componente.transporteGroup.patchValue({ distanciaMaximaKm: 0 });
+
+      dejarListoParaPublicar();
+      await componente.submit();
+
+      expect((payloadGuardado().extra as Record<string, unknown>)['distanciaMaximaKm']).toBeNull();
+    });
+
+    /**
+     * Un servicio de precio fijo por zonas no tiene tarifa base ni kilómetros:
+     * exigirlos hacía imposible publicar justo lo que el alta nueva permite.
+     */
+    it('debería dejar publicar sin tarifa base ni precio por km', async () => {
+      await conReglas();
+      componente.transporteGroup.patchValue({ tarifaBase: 0, tarifaKm: 0 });
+
+      dejarListoParaPublicar();
+      await componente.submit();
+
+      expect(api.actualizarServicio).toHaveBeenCalled();
+      expect(componente.errorMsg()).toBe('');
     });
   });
 

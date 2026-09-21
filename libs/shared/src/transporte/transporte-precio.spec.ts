@@ -7,8 +7,7 @@ import {
   ModeloPrecio, RedondeoDistancia, UnidadCobro,
 } from './transporte.enums';
 import {
-  SolicitudTransporte, calcularKmFacturables, calcularPrecioTransporte,
-  precioDesdeTransporte, redondearDistancia,
+  SolicitudTransporte, calcularKmFacturables, calcularPrecioTransporte, redondearDistancia,
 } from './transporte-precio';
 
 /** Solicitud mínima; cada prueba cambia solo lo que le importa. */
@@ -387,24 +386,6 @@ describe('redondearDistancia', () => {
     [RedondeoDistancia.BLOQUES_10, 73.4, 80],
   ])('debería redondear %s', (modo, km, esperado) => {
     expect(redondearDistancia(km, modo)).toBe(esperado);
-  });
-});
-
-describe('precioDesdeTransporte', () => {
-  it('debería devolver la tarifa más barata de las publicadas', () => {
-    const precio = precioDesdeTransporte(config({
-      redondeoDistancia: RedondeoDistancia.EXACTA,
-      reglasTarifa: [
-        regla({ id: 'a', modelo: ModeloPrecio.FIJO, precioIda: 25 }),
-        regla({ id: 'b', modelo: ModeloPrecio.KM, precioKm: 0.85 }),
-      ],
-    }));
-
-    expect(precio).toBe(8.5);
-  });
-
-  it('debería devolver 0 cuando todo va por presupuesto', () => {
-    expect(precioDesdeTransporte(config({ reglasTarifa: [regla({ modelo: ModeloPrecio.PRESUPUESTO })] }))).toBe(0);
   });
 });
 

@@ -16,8 +16,7 @@ import {
   AccionNoShow, AmbitoTransporte, BaseKilometraje, CompartidoTransporte, FinalidadTransporte,
   ModoCobertura, ModoDisponibilidadTransporte, PlantillaTransporte, PoliticaCancelacionTransporte,
   PoliticaParadas, PoliticaPeajes, PrecioAcompanante, PrecioOrientativo, PuntosTrayecto, QuienViaja,
-  RedondeoDistancia, TipoIdaVuelta, TipoRecogida, TipoTrayecto, VentanaRecogida,
-  precioDesdeTransporte } from 'shared';
+  RedondeoDistancia, TipoIdaVuelta, TipoRecogida, TipoTrayecto, VentanaRecogida } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';

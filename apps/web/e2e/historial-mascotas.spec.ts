@@ -174,12 +174,17 @@ test.describe('Cuenta del cliente · ficha completa del perro', () => {
     await servirPdf(page, '**/api/v1/perros/p1/informe');
   });
 
-  test('debería llegar desde "Mis perros" y ver lo que anotó el veterinario', async ({ page }) => {
+  /*
+   * Con una sola mascota, "Mis mascotas" ya no enseña una tarjeta-resumen que
+   * obligue a un clic más: monta su ficha completa ahí mismo. La prueba seguía
+   * buscando el enlace "Ver ficha completa" que ese rediseño se llevó, así que
+   * fallaba pidiendo algo que ya no existe; lo que había que comprobar —que el
+   * dueño ve lo que anotó la clínica— no ha cambiado.
+   */
+  test('debería enseñar la ficha con lo que anotó el veterinario', async ({ page }) => {
     await page.goto('/perros');
-    await page.getByRole('link', { name: 'Ver ficha completa' }).click();
 
-    await expect(page).toHaveURL(/\/perros\/p1$/);
-    await expect(page.getByRole('heading', { name: 'Nala', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nala' }).first()).toBeVisible();
     await expect(page.getByText('Alergias:')).toBeVisible();
     await expect(page.getByText('Actividad reciente')).toBeVisible();
     const reciente = page.locator('app-registro-servicio').first();

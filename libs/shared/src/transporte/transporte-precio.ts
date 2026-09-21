@@ -403,28 +403,3 @@ export function calcularPrecioTransporte(
     minimoAplicado,
   };
 }
-
-/**
- * Precio «desde» de un servicio, para la tarjeta del listado.
- *
- * Es el trayecto corto más barato que puede salir de sus reglas, no una media:
- * en una tarjeta el cliente lee un número y decide si abre la ficha, y prometer
- * menos de lo que costará es la forma más rápida de perderlo en el paso de
- * pago.
- */
-export function precioDesdeTransporte(config: ConfigTransporte, kmReferencia = 10): number {
-  const precios = config.reglasTarifa
-    .filter((r) => r.modelo !== ModeloPrecio.PRESUPUESTO)
-    .map((regla) => {
-      const km = redondearDistancia(kmReferencia, config.redondeoDistancia);
-      const importe = importeDeRegla(regla, {
-        distanciaKm: kmReferencia, mascotas: 1, pasajeros: 0, paradasExtra: 0,
-        idaVuelta: false, esperaMinutos: 0, horas: regla.duracionMinimaHoras ?? 1,
-      }, km);
-      if (importe === null) return null;
-      return Math.max(importe, regla.importeMinimo ?? 0);
-    })
-    .filter((p): p is number => p !== null && p > 0);
-
-  return precios.length ? redondear(Math.min(...precios)) : 0;
-}

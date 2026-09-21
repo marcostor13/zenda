@@ -263,8 +263,16 @@ test.describe('O5 · Veterinaria sólo publica servicios con precio cerrado', ()
     await page.goto('/veterinaria/v1');
 
     await expect(page.getByRole('heading', { name: /servicios con precio cerrado/i })).toBeVisible();
-    // El chip trae el importe: es la diferencia con la lista de «qué ofrece».
-    await expect(page.getByRole('button', { name: /Vacuna de la rabia · 32/ })).toBeVisible();
+    /*
+     * Cada servicio es ahora una fila con su importe y su botón de reservar, no
+     * un chip con el precio pegado al nombre. La prueba seguía buscando aquel
+     * chip —«Vacuna de la rabia · 32 €»— y fallaba por el formato, no por la
+     * regla: lo que hay que garantizar es que el importe está a la vista antes
+     * de ir a la clínica.
+     */
+    const vacuna = page.locator('[data-testid="tarifas"] .tarifa', { hasText: 'Vacuna de la rabia' });
+    await expect(vacuna).toBeVisible();
+    await expect(vacuna).toContainText('32');
     await expect(page.getByText('Cardiología')).toHaveCount(0);
     await expect(page.getByText('Medicina general')).toHaveCount(0);
   });
