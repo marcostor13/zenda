@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VerticalKey } from 'shared';
+import {
+  ModoDisponibilidadTransporte, VerticalKey, admiteEspecie, calcularPrecioTransporte,
+} from 'shared';
 import {
   AvailabilityStrategy,
   AvailabilityQuery,
@@ -12,9 +14,11 @@ import {
 import { Servicio, ServicioDocument } from '../../core/catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { Transporte } from './transporte.schema';
+import { configDeServicio, solicitudDesdeParametros } from './transporte-config';
 
 const MINUTOS_TTL = 15;
 const DISTANCIA_DEFAULT_KM = 10;
+const MS_POR_HORA = 60 * 60 * 1000;
 
 interface HoldEntry {
   holdId: string;
@@ -23,10 +27,18 @@ interface HoldEntry {
 }
 
 /**
- * Estrategia de disponibilidad/precio del vertical Transporte de animales.
- * Servicio por trayecto A→B: disponible si hay unidades libres y los perros
- * solicitados caben en el vehículo. El precio es por trayecto (no por perro):
- * tarifaBase + tarifaKm × distancia.
+ * Disponibilidad y precio del vertical "Transporte de mascotas".
+ *
+ * El precio no se calcula aquí: lo resuelve el motor compartido
+ * (`calcularPrecioTransporte`), que es el mismo que usa el frontend para
+ * enseñar el desglose. Así el resumen del wizard y el cargo de Stripe no pueden
+ * discrepar, que es la única forma de cumplir «precio final antes de pagar».
+ *
+ * Lo que sí decide esta clase es si el viaje **se puede hacer**: si hay
+ * vehículo, si caben las mascotas, si la especie entra, si llega con la
+ * antelación que pide la empresa. Cuando el motor no puede cerrar un precio, la
+ * respuesta no es «no disponible» sino «esto va por presupuesto», que es un
+ * camino distinto y sigue siendo una venta.
  */
 @Injectable()
 export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
@@ -49,80 +61,133 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
       return { disponible: false, motivo: 'Este transportista no tiene vehículos libres ahora mismo.' };
     }
 
-    const perros = Math.max(1, params.cantidad ?? 1);
-    if (perros > transporte.capacidadPerros) {
-      return {
-        disponible: false,
-        motivo: `Este vehículo admite como máximo ${transporte.capacidadPerros} perro(s) por trayecto.`,
-        metadata: { motivo: 'capacidad_insuficiente', capacidadPerros: transporte.capacidadPerros, perros },
-      };
-    }
+    const config = configDeServicio(transporte);
+    const solicitud = solicitudDesdeParametros(params, DISTANCIA_DEFAULT_KM);
 
-    const distanciaKm = this.distanciaSolicitada(params);
-    if (distanciaKm <= 0) {
+    const impedimento = this.motivoParaRechazar(transporte, config, solicitud, params);
+    if (impedimento) return impedimento;
+
+    if (solicitud.distanciaKm <= 0) {
       throw new DomainException('La distancia del trayecto debe ser mayor que 0', 400);
     }
 
-    const exclusivo = this.exclusivoSolicitado(params);
-    const suplementoExclusivo = exclusivo ? (transporte.precioExclusivo ?? 0) : 0;
-    const extras = this.calcularExtras(transporte, params);
+    const desglose = calcularPrecioTransporte(config, solicitud);
 
-    // Ida y vuelta con espera (Ref. TRA4): un solo servicio en vez de dos reservas
-    // sueltas. Tarifa base y km se cobran por duplicado (ida + vuelta); la espera
-    // se cobra aparte, a la tarifa/hora que el transportista haya configurado.
-    const idaVuelta = params.parametrosExtra?.['tipoTrayecto'] === 'ida_vuelta';
-    const esperaMinutos = idaVuelta ? this.esperaSolicitada(params) : 0;
-    const multiplicadorTrayecto = idaVuelta ? 2 : 1;
-    const cargoEspera = Math.round(
-      (transporte.tarifaEsperaPorHora ?? 0) * (esperaMinutos / 60) * 100,
-    ) / 100;
+    const metadata = {
+      distanciaKm: desglose.distanciaKm,
+      kmFacturables: desglose.kmFacturables,
+      tipoVehiculo: transporte.tipoVehiculo,
+      capacidadPerros: transporte.capacidadPerros,
+      perros: solicitud.mascotas,
+      desglose: desglose.lineas,
+      reglaAplicada: desglose.reglaAplicada,
+      requiereConfirmacion: this.requiereConfirmacion(config, params),
+      /*
+       * `exclusivo` y `extras` son los nombres con los que el cliente antiguo
+       * leía el desglose. Se mantienen junto a `desglose`, que es el que lo
+       * cuenta entero, para no romper a quien todavía los lea.
+       */
+      exclusivo: solicitud.suplementosPedidos?.includes('servicio_exclusivo') ?? false,
+      extras: desglose.suplementos,
+      ...(solicitud.idaVuelta
+        ? { tipoTrayecto: 'ida_vuelta', esperaMinutos: solicitud.esperaMinutos }
+        : {}),
+    };
 
-    const precioCalculado = Math.round(
-      ((transporte.tarifaBase + transporte.tarifaKm * distanciaKm) * multiplicadorTrayecto
-        + suplementoExclusivo + extras + cargoEspera) * 100,
-    ) / 100;
+    if (desglose.requierePresupuesto) {
+      /*
+       * Sigue estando disponible: lo que no hay es precio cerrado. Marcarlo
+       * como no disponible mandaría al cliente de vuelta al listado cuando lo
+       * que toca es ofrecerle pedir presupuesto sin rellenar nada otra vez.
+       */
+      return {
+        disponible: true,
+        capacidadRestante: transporte.unidadesDisponibles,
+        precioCalculado: 0,
+        motivo: desglose.motivoPresupuesto,
+        metadata: { ...metadata, requierePresupuesto: true, motivoPresupuesto: desglose.motivoPresupuesto },
+      };
+    }
 
     return {
       disponible: true,
       capacidadRestante: transporte.unidadesDisponibles,
-      precioCalculado,
-      metadata: {
-        distanciaKm,
-        tipoVehiculo: transporte.tipoVehiculo,
-        capacidadPerros: transporte.capacidadPerros,
-        perros,
-        exclusivo,
-        extras,
-        ...(idaVuelta ? { tipoTrayecto: 'ida_vuelta', esperaMinutos, cargoEspera } : {}),
-      },
+      precioCalculado: desglose.total,
+      metadata: { ...metadata, requierePresupuesto: false },
     };
   }
 
-  /** Minutos de espera solicitados en un trayecto de ida y vuelta (Ref. TRA4). */
-  private esperaSolicitada(params: AvailabilityQuery): number {
-    const raw = params.parametrosExtra?.['esperaMinutos'];
-    if (raw === undefined || raw === null) return 0;
-    const minutos = Number(raw);
-    return Number.isFinite(minutos) && minutos > 0 ? minutos : 0;
-  }
+  /**
+   * Razones por las que este viaje no se puede hacer con este transportista.
+   *
+   * Cada una lleva su explicación: «no disponible» a secas obliga al cliente a
+   * probar combinaciones hasta adivinar qué sobraba.
+   */
+  private motivoParaRechazar(
+    transporte: Transporte,
+    config: ReturnType<typeof configDeServicio>,
+    solicitud: ReturnType<typeof solicitudDesdeParametros>,
+    params: AvailabilityQuery,
+  ): AvailabilityResult | null {
+    const maximo = config.maxMascotasPorReserva || transporte.capacidadPerros;
+    if (solicitud.mascotas > maximo) {
+      return {
+        disponible: false,
+        motivo: `Este servicio admite como máximo ${maximo} mascota(s) por trayecto.`,
+        metadata: { motivo: 'capacidad_insuficiente', capacidadPerros: maximo, perros: solicitud.mascotas },
+      };
+    }
 
-  private exclusivoSolicitado(params: AvailabilityQuery): boolean {
-    return params.parametrosExtra?.['exclusivo'] === true;
+    const especie = params.parametrosExtra?.['especie'];
+    if (!admiteEspecie(config.especiesAdmitidas, especie)) {
+      return {
+        disponible: false,
+        motivo: 'Este transportista no lleva esta especie.',
+        metadata: { motivo: 'especie_no_admitida', especiesAdmitidas: config.especiesAdmitidas },
+      };
+    }
+
+    if (solicitud.pasajeros > config.plazasAcompanantes) {
+      return {
+        disponible: false,
+        motivo: config.plazasAcompanantes === 0
+          ? 'En este servicio viaja sola la mascota, sin acompañantes.'
+          : `Este vehículo admite ${config.plazasAcompanantes} acompañante(s).`,
+        metadata: { motivo: 'sin_plazas_acompanante', plazasAcompanantes: config.plazasAcompanantes },
+      };
+    }
+
+    const horasHasta = (params.fechaInicio.getTime() - Date.now()) / MS_POR_HORA;
+    // La antelación solo se exige a quien trabaja con calendario: un servicio
+    // bajo demanda o urgente existe precisamente para el aviso de última hora.
+    const exigeAntelacion = config.modoDisponibilidad === ModoDisponibilidadTransporte.CALENDARIO
+      || config.modoDisponibilidad === ModoDisponibilidadTransporte.SALIDAS_PROGRAMADAS;
+    if (exigeAntelacion && config.antelacionMinimaHoras > 0 && horasHasta < config.antelacionMinimaHoras) {
+      return {
+        disponible: false,
+        motivo: `Este transportista necesita al menos ${config.antelacionMinimaHoras} h de antelación.`,
+        metadata: { motivo: 'antelacion_insuficiente', antelacionMinimaHoras: config.antelacionMinimaHoras },
+      };
+    }
+
+    return null;
   }
 
   /**
-   * Suma los `serviciosAdicionales` que el transportista ha configurado y el
-   * cliente ha elegido (HU-5.5.2/15.1). Se identifican por nombre, igual que en
-   * alojamiento: el schema no tiene id estable por servicio adicional.
+   * ¿Tiene que mirarlo la empresa antes de aceptar?
+   *
+   * No bloquea la reserva: la deja pendiente de confirmación. Es lo que pide
+   * quien transporta un animal medicado o reactivo, y lo que evita que un
+   * conductor se encuentre en la puerta con un caso que no puede atender.
    */
-  private calcularExtras(transporte: Transporte, params: AvailabilityQuery): number {
-    const seleccionados = params.parametrosExtra?.['extras'];
-    if (!Array.isArray(seleccionados) || seleccionados.length === 0) return 0;
-    const disponibles = transporte.serviciosAdicionales ?? [];
-    return seleccionados.reduce((suma: number, nombre) => {
-      const extra = disponibles.find((e) => e.nombre === nombre);
-      return suma + (extra?.precio ?? 0);
-    }, 0);
+  private requiereConfirmacion(
+    config: ReturnType<typeof configDeServicio>,
+    params: AvailabilityQuery,
+  ): boolean {
+    if (config.confirmacionHoras > 0) return true;
+    const situaciones = params.parametrosExtra?.['necesidades'];
+    if (!Array.isArray(situaciones)) return false;
+    return situaciones.some((s) => typeof s === 'string' && config.situacionesConfirmacion.includes(s));
   }
 
   async reserveSlot(servicioId: string, _params: ReserveParams): Promise<SlotHold> {
@@ -134,12 +199,5 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
 
   async releaseSlot(holdId: string): Promise<void> {
     this.holds.delete(holdId);
-  }
-
-  private distanciaSolicitada(params: AvailabilityQuery): number {
-    const raw = params.parametrosExtra?.['distanciaKm'];
-    if (raw === undefined || raw === null) return DISTANCIA_DEFAULT_KM;
-    const distancia = Number(raw);
-    return Number.isFinite(distancia) ? distancia : DISTANCIA_DEFAULT_KM;
   }
 }

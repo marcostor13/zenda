@@ -76,7 +76,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
               <select formControlName="vertical" class="rs-input">
                 <option value="global">{{ 'Todas' | t }}</option>
                 <option value="alojamiento">{{ 'Alojamiento canino' | t }}</option>
-                <option value="transporte">{{ 'Transporte de animales' | t }}</option>
+                <option value="transporte">{{ 'Transporte de mascotas' | t }}</option>
                 <option value="veterinaria">{{ 'Veterinarios' | t }}</option>
                 <option value="peluqueria">{{ 'Peluquerías caninas' | t }}</option>
                 <option value="adiestramiento">{{ 'Adiestramiento canino' | t }}</option>

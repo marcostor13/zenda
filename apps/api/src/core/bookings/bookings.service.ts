@@ -69,6 +69,14 @@ export interface CrearReservaParams {
   comisionPct?: number;
   cuponCodigo?: string;
   recurrencia?: RecurrenciaParams;
+  /**
+   * Importe ya pactado, que sustituye al que calcularía la estrategia.
+   *
+   * Solo lo usa el flujo de presupuesto: ahí el precio no sale de ninguna
+   * tarifa publicada, lo puso la empresa a mano y el cliente lo aceptó. Todo lo
+   * demás —comisión, IVA, cupones— se calcula igual que en cualquier reserva.
+   */
+  precioAcordado?: number;
 }
 
 const MAX_OCURRENCIAS_RECURRENCIA = 52;
@@ -418,7 +426,7 @@ export class BookingsService {
      * el cliente ve en el buscador y lo que va a pagar, sin sorpresas al llegar
      * al último paso. La base imponible se obtiene dividiendo, no sumando.
      */
-    const precioBase = disponibilidad.precioCalculado ?? 0;
+    const precioBase = params.precioAcordado ?? disponibilidad.precioCalculado ?? 0;
     let montoTotal = precioBase;
     let descuentoMonto = 0;
 

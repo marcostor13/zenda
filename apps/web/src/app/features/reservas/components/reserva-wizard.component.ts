@@ -12,11 +12,19 @@ import { faqDeConfirmacion } from '../../../shared/catalogos/faq-confirmacion.ca
 import {
   VerticalKey, VERTICAL_LABELS, IVA_RATE, PasoEmbudo, TipoEvento, TAMANOS_PERRO,
   ESPECIES_FUNERARIO, FranjaHoraria, FRANJA_HORARIA_LABELS, LugarRecogida, LUGAR_RECOGIDA_LABELS,
-  ModoPrecioRecogida, UrgenciaFunerario, URGENCIA_FUNERARIO_LABELS, claveDiaEnZona, fechaYHoraEnZona } from 'shared';
+  ModoPrecioRecogida, UrgenciaFunerario, URGENCIA_FUNERARIO_LABELS, claveDiaEnZona, fechaYHoraEnZona,
+  // Transporte de mascotas: el mismo motor de tarifas que usa el API para cobrar.
+  ConfirmacionEntrega, FlexibilidadHoraria, FranjaRecogida, ModalidadViaje, NecesidadTransporte,
+  PoliticaParadas, ResponsableEntrega, TipoTrayecto, calcularPrecioTransporte, configDesdeLegado,
+  tieneConfigTransporte,
+  type ConfigTransporte, type DesglosePrecioTransporte } from 'shared';
 import {
   extrasFunerarios, serviciosFunerarios,
 } from '../../../shared/verticales/funerarios.util';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
+import {
+  PasoTransporteComponent, type SuplementoOfrecido,
+} from './transporte/paso-transporte.component';
 import { RsBrandIconComponent, type MarcaPagoKey } from '../../../shared/components/brand-icon/rs-brand-icon.component';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import {
@@ -151,7 +159,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   imports: [
     TraducirPipe, RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
     RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe, EurosFijosPipe, SelectorCitasComponent,
-    SelectorDiaComponent,
+    SelectorDiaComponent, PasoTransporteComponent,
   ],
   template: `
 <div class="wizard-page">
@@ -351,129 +359,46 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </form>
             }
 
-            <!-- ── TRANSPORTE DE ANIMALES ── -->
+            <!-- ── TRANSPORTE DE MASCOTAS ── -->
             @if (vertical() === 'transporte') {
-              <form [formGroup]="paso1TransporteForm">
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Fecha del trayecto' | t }}</label>
-                    <input formControlName="fechaRecogida" type="date" class="rs-inp rs-inp--lg" />
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Hora de recogida' | t }}</label>
-                    <input formControlName="hora" type="time" class="rs-inp rs-inp--lg" />
-                  </div>
-                </div>
-                <div class="rs-field">
-                  <label class="rs-lbl" for="wz-origen">{{ 'Dirección de recogida (origen)' | t }}</label>
-                  <div class="rs-inp rs-inp--lg rs-inp--host">
-                    <rs-place-autocomplete formControlName="origen" inputId="wz-origen"
-                                           [placeholder]="'Ej. Madrid' | t"
-                                           (lugarElegido)="fijarOrigen($event)" />
-                  </div>
-                </div>
-                <div class="rs-field">
-                  <label class="rs-lbl" for="wz-destino">{{ 'Destino' | t }}</label>
-                  <div class="rs-inp rs-inp--lg rs-inp--host">
-                    <rs-place-autocomplete formControlName="destino" inputId="wz-destino"
-                                           [placeholder]="'Ej. Toledo' | t"
-                                           (lugarElegido)="fijarDestino($event)" />
-                  </div>
-                </div>
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Distancia del trayecto (km)' | t }}</label>
-                    <input formControlName="distanciaKm" type="number" class="rs-inp rs-inp--lg" min="1" inputmode="numeric" />
-                    @if (calculandoTrayecto()) {
-                      <span class="rs-field-hint">{{ 'Calculando la distancia…' | t }}</span>
-                    } @else if (resumenTrayecto()) {
-                      <span class="rs-field-hint">{{ resumenTrayecto() }}</span>
-                    } @else {
-                      <span class="rs-field-hint">
-                        {{ 'Elige origen y destino y la calculamos por ti (tarifa base + km).' | t }}
-                      </span>
-                    }
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl" [attr.for]="idPerrosTransporte">{{ 'Número de perros' | t }}</label>
-                    <div class="contador">
-                      <button type="button" (click)="cambiarPerros(paso1TransporteForm.controls.perros, -1)"
-                              [disabled]="!puedeQuitarPerros(paso1TransporteForm.controls.perros)"
-                              [attr.aria-label]="'Quitar un perro' | t">−</button>
-                      <output [id]="idPerrosTransporte">{{ paso1TransporteForm.controls.perros.value }}</output>
-                      <button type="button" (click)="cambiarPerros(paso1TransporteForm.controls.perros, 1)"
-                              [attr.aria-label]="'Añadir un perro' | t">+</button>
-                    </div>
-                  </div>
-                </div>
+              <dk-paso-transporte [grupo]="paso1TransporteForm"
+                                  [suplementos]="suplementosTransporte()"
+                                  [desglose]="desgloseTransporte()"
+                                  [calculando]="calculandoTrayecto()"
+                                  [resumenTrayecto]="resumenTrayecto()"
+                                  [admiteParadas]="admiteParadasTransporte()"
+                                  (origenElegido)="fijarOrigen($event)"
+                                  (destinoElegido)="fijarDestino($event)" />
 
-                <!-- Extras que ofrece este transportista (HU-5.5.2) -->
-                @if (serviciosAdicionalesTransporte().length > 0) {
-                  <div class="extras-section">
-                    <h3>{{ 'Servicios adicionales' | t }}</h3>
-                    <div class="extras-grid">
-                      @for (extra of serviciosAdicionalesTransporte(); track extra.nombre) {
-                        <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
-                          <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
-                          <div class="extra-item__icon"><rs-icon name="sparkles" [size]="16" [stroke]="2" /></div>
-                          <div class="extra-item__info">
-                            <div class="extra-item__name">{{ extra.nombre }}</div>
-                            <div class="extra-item__price">{{ extra.precio | euros }}</div>
-                          </div>
+              <!-- Trayectos recurrentes: el motor ya existe en el backend. -->
+              <div class="extras-section">
+                <label class="filter-check">
+                  <input type="checkbox" [checked]="esRecurrente()"
+                         (change)="esRecurrente.set(!esRecurrente())" />
+                  {{ 'Repetir este trayecto varios días a la semana' | t }}
+                </label>
+                @if (esRecurrente()) {
+                  <div class="rs-field" style="margin-top:var(--sp-3)">
+                    <label class="rs-lbl">{{ 'Días de la semana' | t }}</label>
+                    <div class="checks-grid">
+                      @for (d of diasSemanaOpciones; track d.valor) {
+                        <label class="filter-check">
+                          <input type="checkbox" [checked]="tieneDiaSemana(d.valor)"
+                                 (change)="toggleDiaSemana(d.valor)" />
+                          {{ d.label | t }}
                         </label>
                       }
                     </div>
                   </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">{{ 'Repetir hasta' | t }}</label>
+                    <input type="date" class="rs-inp rs-inp--lg"
+                           [value]="fechaFinRecurrencia()"
+                           (input)="fechaFinRecurrencia.set($any($event.target).value)" />
+                    <span class="rs-field-hint">{{ 'Se crea una reserva por cada día elegido, con el mismo origen, destino y hora, hasta esta fecha (máx. 52 trayectos).' | t }}</span>
+                  </div>
                 }
-
-                <!-- Ida y vuelta con espera, como un solo servicio (Ref. TRA4) -->
-                <div class="extras-section">
-                  <label class="filter-check">
-                    <input type="checkbox" [checked]="esIdaVuelta()"
-                           (change)="esIdaVuelta.set(!esIdaVuelta())" />
-                    {{ 'Ida y vuelta con espera (ej. llevar y traer del veterinario)' | t }}
-                  </label>
-                  @if (esIdaVuelta()) {
-                    <div class="rs-field" style="margin-top:var(--sp-3)">
-                      <label class="rs-lbl">{{ 'Tiempo de espera estimado (minutos)' | t }}</label>
-                      <input type="number" min="0" step="5" class="rs-inp rs-inp--lg"
-                             [value]="esperaMinutos()"
-                             (input)="esperaMinutos.set(+$any($event.target).value)" inputmode="numeric" />
-                      <span class="rs-field-hint">{{ 'La tarifa base y los km se cobran ida + vuelta; la espera se cobra aparte, según la tarifa del transportista.' | t }}</span>
-                    </div>
-                  }
-                </div>
-
-                <!-- Trayectos recurrentes (Ref. TRA3) -->
-                <div class="extras-section">
-                  <label class="filter-check">
-                    <input type="checkbox" [checked]="esRecurrente()"
-                           (change)="esRecurrente.set(!esRecurrente())" />
-                    {{ 'Repetir este trayecto varios días a la semana' | t }}
-                  </label>
-                  @if (esRecurrente()) {
-                    <div class="rs-field" style="margin-top:var(--sp-3)">
-                      <label class="rs-lbl">{{ 'Días de la semana' | t }}</label>
-                      <div class="checks-grid">
-                        @for (d of diasSemanaOpciones; track d.valor) {
-                          <label class="filter-check">
-                            <input type="checkbox" [checked]="tieneDiaSemana(d.valor)"
-                                   (change)="toggleDiaSemana(d.valor)" />
-                            {{ d.label | t }}
-                          </label>
-                        }
-                      </div>
-                    </div>
-                    <div class="rs-field">
-                      <label class="rs-lbl">{{ 'Repetir hasta' | t }}</label>
-                      <input type="date" class="rs-inp rs-inp--lg"
-                             [value]="fechaFinRecurrencia()"
-                             (input)="fechaFinRecurrencia.set($any($event.target).value)" />
-                      <span class="rs-field-hint">{{ 'Se crea una reserva por cada día elegido, con el mismo origen, destino y hora, hasta esta fecha (máx. 52 trayectos).' | t }}</span>
-                    </div>
-                  }
-                </div>
-              </form>
+              </div>
             }
 
             <!-- ── VETERINARIA ── -->
@@ -1385,23 +1310,20 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 </div>
               }
             }
-            @if (vertical() === 'transporte') {
-              <!-- Desglose transparente del trayecto (HU-5.5.3) -->
-              <div class="price-row price-row--sub">
-                <span>{{ 'Servicio base' | t }}</span>
-                <span>{{ tarifaBaseTransporte() | euros }}</span>
-              </div>
-              @if (costeKmTransporte() > 0) {
+            @if (vertical() === 'transporte' && desgloseTransporte(); as d) {
+              <!-- Desglose transparente del trayecto, línea a línea. -->
+              @if (d.requierePresupuesto) {
                 <div class="price-row price-row--sub">
-                  <span>{{ 'Kilómetros' | t }}</span>
-                  <span>{{ costeKmTransporte() | euros }}</span>
+                  <span>{{ 'Precio a medida' | t }}</span>
+                  <span>{{ 'A consultar' | t }}</span>
                 </div>
-              }
-              @for (extra of extrasSelec(); track extra) {
-                <div class="price-row price-row--sub">
-                  <span>{{ extra }}</span>
-                  <span>{{ extraPrecioTransporte(extra) | euros }}</span>
-                </div>
+              } @else {
+                @for (l of d.lineas; track l.concepto) {
+                  <div class="price-row price-row--sub">
+                    <span>{{ l.concepto | t }}</span>
+                    <span>{{ l.importe | euros }}</span>
+                  </div>
+                }
               }
             }
             @if (vertical() === 'hoteles' && suplementoHotel() > 0) {
@@ -2171,18 +2093,55 @@ export class ReservaWizardComponent implements OnInit {
     compatibilidadSocial: ['cualquiera'],
   });
 
+  /*
+   * Transporte de mascotas. Es el paso más largo de todos los verticales
+   * porque el viaje de un animal tiene más aristas que una cita: quién lo
+   * entrega, quién lo recibe, cómo se porta, si viaja alguien con él.
+   *
+   * La hora deja de ser obligatoria: quien elige «soy flexible» o «lo antes
+   * posible» no tiene hora que dar, y exigírsela le obligaba a inventarse una.
+   */
   readonly paso1TransporteForm = this.fb.group({
+    necesidad:     [NecesidadTransporte.SOLO_IDA as string],
     fechaRecogida: ['', Validators.required],
-    hora:          ['', Validators.required],
+    flexibilidad:  [FlexibilidadHoraria.HORA_CONCRETA as string],
+    hora:          [''],
+    franja:        [FranjaRecogida.CUALQUIERA as string],
     origen:        ['', Validators.required],
     destino:       ['', Validators.required],
     distanciaKm:   [10, [Validators.required, Validators.min(1)]],
-    perros:        [1],
+    paradasExtra:  [0],
+    esperaMinutos: [30],
+
+    especie:        ['Perro'],
+    tramoPeso:      ['10_25'],
+    perros:         [1],
+    necesidades:    [[] as string[]],
+    comportamiento: ['tranquilo'],
+    notasMascota:   [''],
+
+    modalidad:    [ModalidadViaje.EXCLUSIVO as string],
+    pasajeros:    [0],
+    equipaje:     ['sin_equipaje'],
+    preferencias: [[] as string[]],
+    suplementos:  [[] as string[]],
+
+    quienEntrega:             [ResponsableEntrega.YO as string],
+    contactoRecogidaNombre:   [''],
+    contactoRecogidaTelefono: [''],
+    indicacionesRecogida:     [''],
+    quienRecibe:              [ResponsableEntrega.YO as string],
+    contactoEntregaNombre:    [''],
+    contactoEntregaTelefono:  [''],
+    indicacionesEntrega:      [''],
+    confirmacionEntrega:      [ConfirmacionEntrega.NOTIFICACION as string],
   });
 
-  /** Ida y vuelta con espera, como un solo servicio (Ref. TRA4). */
-  readonly esIdaVuelta = signal(false);
-  readonly esperaMinutos = signal(30);
+  /*
+   * La ida y vuelta con espera ya no es un interruptor suelto: es una de las
+   * necesidades que elige el cliente en el primer bloque del paso, con su
+   * tiempo de espera dentro del propio formulario.
+   */
 
   /** Trayectos recurrentes (Ref. TRA3): el motor ya existe en el backend, esto es solo la UI. */
   readonly esRecurrente = signal(false);
@@ -2522,8 +2481,14 @@ export class ReservaWizardComponent implements OnInit {
    * mostraba solo la tarifa base e ignoraba los kilómetros, así que el cliente veía
    * un importe menor al que el backend cobra después.
    */
-  readonly serviciosAdicionalesTransporte = signal<ServicioAdicionalWizard[]>([]);
-  readonly tarifasTransporte = signal<{ tarifaBase: number; tarifaKm: number } | null>(null);
+  /**
+   * Configuración de tarifas del transportista.
+   *
+   * Llega del catálogo y puede venir en dos formatos —el alta guiada o el
+   * formulario anterior—; `configDesdeLegado` iguala el segundo al primero para
+   * que el desglose no tenga que saber cuál es cuál.
+   */
+  readonly configTransporte = signal<ConfigTransporte | null>(null);
 
   // ─── Suplementos (hoteles) — configurados por el comercio (HU-15.1/15.2) ───
   readonly hotelSuplementos = signal<HotelSuplementosWizard>({
@@ -2718,8 +2683,13 @@ export class ReservaWizardComponent implements OnInit {
         );
         return base * noches + extras;
       }
-      case VerticalKey.TRANSPORTE:
-        return Math.round((this.tarifaBaseTransporte() + this.costeKmTransporte() + this.extrasTransporte()) * 100) / 100;
+      case VerticalKey.TRANSPORTE: {
+        const desglose = this.desgloseTransporte();
+        // Sin tarifas cargadas todavía, el precio "desde" de la tarjeta es mejor
+        // estimación que un 0 € que asusta.
+        if (!desglose || desglose.requierePresupuesto) return base;
+        return desglose.total;
+      }
       case VerticalKey.HOTELES: {
         const { checkIn, checkOut } = this.paso1HotelesForm.value;
         const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
@@ -2780,28 +2750,120 @@ export class ReservaWizardComponent implements OnInit {
   }
 
   /**
-   * Desglose del trayecto (HU-5.5.3). Replica la fórmula de
-   * `transporte-availability.strategy.ts` (tarifaBase + tarifaKm × km + extras);
-   * si el catálogo no ha cargado aún, cae a `precioBase()` para no mostrar 0 €.
+   * Desglose del trayecto, calculado con el **mismo motor que cobra el API**.
+   *
+   * Antes se replicaba aquí la fórmula de la estrategia (tarifaBase + km +
+   * extras), y una copia de una fórmula de precios se desincroniza siempre:
+   * basta con que una empresa cobre por zonas o por tramos para que el resumen
+   * enseñe un número y Stripe cargue otro. Ahora los dos lados llaman a
+   * `calcularPrecioTransporte`, así que solo pueden coincidir.
    */
-  readonly tarifaBaseTransporte = computed(
-    () => this.tarifasTransporte()?.tarifaBase ?? this.precioBase(),
-  );
-
-  readonly costeKmTransporte = computed(() => {
+  readonly desgloseTransporte = computed<DesglosePrecioTransporte | null>(() => {
     this.revisionFormularios();
-    const tarifas = this.tarifasTransporte();
-    if (!tarifas) return 0;
-    const km = Number(this.paso1TransporteForm.value.distanciaKm ?? 0);
-    if (!Number.isFinite(km) || km <= 0) return 0;
-    return Math.round(tarifas.tarifaKm * km * 100) / 100;
+    if (this.vertical() !== VerticalKey.TRANSPORTE) return null;
+
+    const config = this.configTransporte();
+    if (!config) return null;
+
+    const f = this.paso1TransporteForm.getRawValue();
+    const km = Number(f.distanciaKm ?? 0);
+    if (!Number.isFinite(km) || km <= 0) return null;
+
+    const fecha = this.instanteRecogida(f.fechaRecogida ?? '', f.hora ?? '');
+
+    return calcularPrecioTransporte(config, {
+      distanciaKm: km,
+      mascotas: Math.max(1, Number(f.perros ?? 1)),
+      pasajeros: Math.max(0, Number(f.pasajeros ?? 0)),
+      paradasExtra: Math.max(0, Number(f.paradasExtra ?? 0)),
+      idaVuelta: f.necesidad === NecesidadTransporte.IDA_VUELTA,
+      esperaMinutos: f.necesidad === NecesidadTransporte.IDA_VUELTA
+        ? Math.max(0, Number(f.esperaMinutos ?? 0)) : 0,
+      municipioOrigen: f.origen ?? undefined,
+      municipioDestino: f.destino ?? undefined,
+      tipoTrayecto: f.necesidad === NecesidadTransporte.IDA_VUELTA
+        ? TipoTrayecto.IDA_VUELTA
+        : f.necesidad === NecesidadTransporte.URGENTE ? TipoTrayecto.URGENTE : TipoTrayecto.SOLO_IDA,
+      urgente: f.necesidad === NecesidadTransporte.URGENTE,
+      // El recargo nocturno o de fin de semana sale de la fecha elegida: al
+      // cliente nunca se le pregunta si quiere pagarlo.
+      nocturno: fecha ? fecha.getHours() >= 22 || fecha.getHours() < 7 : false,
+      finDeSemana: fecha ? fecha.getDay() === 0 || fecha.getDay() === 6 : false,
+      suplementosPedidos: (f.suplementos as string[]) ?? [],
+    });
   });
 
-  readonly extrasTransporte = computed(() =>
-    this.extrasSelec().reduce(
-      (s, nombre) => s + (this.serviciosAdicionalesTransporte().find(e => e.nombre === nombre)?.precio ?? 0), 0,
-    ),
+  /** Lo que el cliente puede añadir: los suplementos que la empresa deja pedir. */
+  readonly suplementosTransporte = computed<readonly SuplementoOfrecido[]>(() => {
+    const config = this.configTransporte();
+    if (!config) return [];
+    return config.suplementos
+      .filter((s) => s.aplicacion === 'a_peticion')
+      .map((s) => ({ clave: s.clave, nombre: s.nombre, importe: s.importe }));
+  });
+
+  readonly admiteParadasTransporte = computed(() =>
+    this.configTransporte()?.politicaParadas !== PoliticaParadas.NO_PERMITIDAS,
   );
+
+  /**
+   * Configuración de tarifas del servicio, venga del alta guiada o de la vieja.
+   *
+   * Una ficha antigua a la que le falte `tarifaBase` o `tarifaKm` se deja sin
+   * configuración a propósito: con solo una de las dos, el resumen enseñaría un
+   * precio inventado, y es preferible caer al precio "desde" de la tarjeta y
+   * dejar que el importe real lo diga el backend.
+   */
+  private leerConfigTransporte(extra: Record<string, unknown>): ConfigTransporte | null {
+    if (tieneConfigTransporte(extra as Partial<ConfigTransporte>)) {
+      return this.normalizarConfigTransporte(extra);
+    }
+
+    const tarifaBase = extra['tarifaBase'] as number | undefined;
+    const tarifaKm = extra['tarifaKm'] as number | undefined;
+    if (tarifaBase === undefined || tarifaKm === undefined) return null;
+
+    return configDesdeLegado({
+      tarifaBase,
+      tarifaKm,
+      distanciaMinimaKm: extra['distanciaMinimaKm'] as number | undefined,
+      precioExclusivo: extra['precioExclusivo'] as number | undefined,
+      tarifaEsperaPorHora: extra['tarifaEsperaPorHora'] as number | undefined,
+      serviciosAdicionales: extra['serviciosAdicionales'] as
+        Array<{ nombre: string; precio: number }> | undefined,
+    });
+  }
+
+  /**
+   * La configuración tal y como llega del API, con los huecos rellenos.
+   *
+   * Mongo devuelve solo lo que se guardó: un servicio configurado a medias no
+   * trae `esperaIncluidaMin` ni `redondeoDistancia`, y el motor los necesita
+   * para calcular. Se completan con lo mismo que ve la empresa por defecto.
+   */
+  private normalizarConfigTransporte(extra: Record<string, unknown>): ConfigTransporte {
+    return {
+      ...(extra as unknown as ConfigTransporte),
+      politicaCancelacion: (extra['politicaCancelacionTransporte']
+        ?? extra['politicaCancelacion']) as ConfigTransporte['politicaCancelacion'],
+      suplementos: (extra['suplementos'] as ConfigTransporte['suplementos']) ?? [],
+      esperaIncluidaMin: Number(extra['esperaIncluidaMin'] ?? 0),
+      redondeoDistancia: (extra['redondeoDistancia']
+        ?? 'km_superior') as ConfigTransporte['redondeoDistancia'],
+      baseKilometraje: (extra['baseKilometraje']
+        ?? 'recogida_destino') as ConfigTransporte['baseKilometraje'],
+      distanciaMaximaKm: Number(extra['distanciaMaximaKm'] ?? 0) || null,
+    };
+  }
+
+  /** Fecha y hora de la recogida, para deducir nocturnidad y fin de semana. */
+  private instanteRecogida(fecha: string, hora: string): Date | null {
+    if (!fecha) return null;
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    if (!anio || !mes || !dia) return null;
+    const [h, m] = (hora || '10:00').split(':').map(Number);
+    return new Date(anio, mes - 1, dia, h || 0, m || 0);
+  }
 
   /**
    * Estimación del suplemento por mascota del hotel (tamaño + mascotas adicionales),
@@ -3170,17 +3232,15 @@ export class ReservaWizardComponent implements OnInit {
 
     if (this.vertical() === VerticalKey.TRANSPORTE && this.servicioId) {
       void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
-        const extra = s.extra ?? {};
-        this.serviciosAdicionalesTransporte.set(
-          (extra['serviciosAdicionales'] as ServicioAdicionalWizard[] | undefined) ?? [],
-        );
-        const tarifaBase = extra['tarifaBase'] as number | undefined;
-        const tarifaKm = extra['tarifaKm'] as number | undefined;
-        if (tarifaBase !== undefined && tarifaKm !== undefined) {
-          this.tarifasTransporte.set({ tarifaBase, tarifaKm });
-        }
+        const extra = (s.extra ?? {}) as Record<string, unknown>;
+        /*
+         * Los servicios adicionales de las fichas antiguas no se leen aparte:
+         * `configDesdeLegado` los convierte en suplementos "a petición", que es
+         * como los enseña y los cobra el motor.
+         */
+        this.configTransporte.set(this.leerConfigTransporte(extra));
       }).catch(() => {
-        // Catálogo detallado no disponible: el resumen cae a la tarifa base
+        // Catálogo detallado no disponible: el resumen cae al precio "desde"
         // (el cobro final lo sigue calculando el backend, que es la fuente de verdad).
       });
     }
@@ -3342,28 +3402,63 @@ export class ReservaWizardComponent implements OnInit {
         };
       }
       case VerticalKey.TRANSPORTE: {
-        const f = this.paso1TransporteForm.value;
+        const f = this.paso1TransporteForm.getRawValue();
+        const idaVuelta = f.necesidad === NecesidadTransporte.IDA_VUELTA;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
           perroId: this.perroSeleccionado() ?? undefined,
-          fechaInicio: instanteDeCita(f.fechaRecogida!, f.hora),
+          fechaInicio: instanteDeCita(f.fechaRecogida!, f.hora ?? ''),
           cantidad: 1,
           detalle: {
+            necesidad: f.necesidad,
             origen: f.origen, destino: f.destino,
             distanciaKm: Number(f.distanciaKm ?? 10),
+            paradasExtra: Number(f.paradasExtra ?? 0),
             perros: Number(f.perros ?? 1),
+            // El API cobra con estos mismos nombres: `municipioOrigen` es lo que
+            // usa el motor para decidir si aplica una tarifa de zona.
+            municipioOrigen: f.origen, municipioDestino: f.destino,
+            flexibilidad: f.flexibilidad,
+            ...(f.flexibilidad === FlexibilidadHoraria.FLEXIBLE ? { franja: f.franja } : {}),
+            especie: f.especie,
+            tramoPeso: f.tramoPeso,
+            necesidades: f.necesidades,
+            comportamiento: f.comportamiento,
+            ...(f.notasMascota ? { notasMascota: f.notasMascota } : {}),
+            modalidad: f.modalidad,
+            pasajeros: Number(f.pasajeros ?? 0),
+            equipaje: f.equipaje,
+            preferencias: f.preferencias,
+            recogida: {
+              responsable: f.quienEntrega,
+              nombre: f.contactoRecogidaNombre,
+              telefono: f.contactoRecogidaTelefono,
+              indicaciones: f.indicacionesRecogida,
+            },
+            entrega: {
+              responsable: f.quienRecibe,
+              nombre: f.contactoEntregaNombre,
+              telefono: f.contactoEntregaTelefono,
+              indicaciones: f.indicacionesEntrega,
+              confirmacion: f.confirmacionEntrega,
+            },
             // Se guarda cómo se obtuvo la distancia: si mañana hay una disputa
             // por el importe, hace falta saber si fue medida o estimada.
             trayectoCalculado: this.resumenTrayecto() || undefined,
-            ...(this.extrasSelec().length > 0 ? { extras: this.extrasSelec() } : {}),
-            ...(this.esIdaVuelta() ? { tipoTrayecto: 'ida_vuelta', esperaMinutos: this.esperaMinutos() } : {}),
+            ...((f.suplementos ?? []).length > 0 ? { suplementos: f.suplementos } : {}),
+            ...(f.necesidad === NecesidadTransporte.URGENTE ? { urgente: true } : {}),
+            ...(idaVuelta
+              ? { tipoTrayecto: 'ida_vuelta', esperaMinutos: Number(f.esperaMinutos ?? 0) }
+              : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
           ...(this.esRecurrente() && this.diasSemanaSelec().length > 0 && this.fechaFinRecurrencia()
             ? {
                 recurrencia: {
                   diasSemana: this.diasSemanaSelec(),
-                  hora: f.hora!,
+                  // Quien es flexible no da hora: la serie hereda la del primer
+                  // trayecto, que el API ya ha fijado al crearlo.
+                  hora: f.hora || '10:00',
                   fechaFin: this.fechaFinRecurrencia(),
                 },
               }
@@ -3518,7 +3613,6 @@ export class ReservaWizardComponent implements OnInit {
 
   extraNombre(nombre: string): string { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.nombre ?? ''; }
   extraPrecio(nombre: string): number { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.precio ?? 0; }
-  extraPrecioTransporte(nombre: string): number { return this.serviciosAdicionalesTransporte().find(e => e.nombre === nombre)?.precio ?? 0; }
 
   async aplicarCupon(): Promise<void> {
     const codigo = this.cuponInput.trim().toUpperCase();

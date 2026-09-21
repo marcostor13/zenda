@@ -118,3 +118,14 @@ export * from './dtos/recomendador/recomendar-veterinaria.dto';
 
 // DTOs — Lista de espera (prelanzamiento)
 export * from './dtos/lista-espera/lista-espera.dto';
+
+// Transporte de mascotas: vocabulario, configuración del servicio y motor de
+// tarifas. Lo comparten el alta del comercio, el cobro del API y el desglose
+// que ve el cliente, que tienen que dar el mismo número.
+export * from './transporte/transporte.enums';
+export * from './transporte/transporte.catalogos';
+export * from './transporte/transporte.config';
+export * from './transporte/transporte-precio';
+
+// DTOs — Presupuestos (precio a medida cuando ninguna tarifa puede cerrarlo)
+export * from './dtos/presupuestos/presupuesto.dto';

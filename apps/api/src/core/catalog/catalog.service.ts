@@ -46,6 +46,19 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'radioCoberturaKm', 'trayecto',
     'distanciaMinimaKm', 'aceptaPPP', 'requiereTransportinPropio',
     'maxPerrosPorTrayecto', 'antelacionMinimaHoras',
+    // Alta guiada de "Transporte de mascotas": los seis pasos del asistente.
+    'plantilla', 'quienViaja', 'tiposTrayecto', 'ambitos', 'tipoRecogida', 'finalidades',
+    'modoCobertura', 'direccionBase', 'radioKm', 'distanciaMaximaKm', 'municipiosCobertura',
+    'paisesCobertura', 'puntosTrayecto', 'baseKilometraje', 'tipoIdaVuelta', 'politicaParadas',
+    'esperaIncluidaMin', 'politicaPeajes',
+    'reglasTarifa', 'redondeoDistancia', 'suplementos', 'precioOrientativo', 'precioDesde',
+    'horasRespuestaPresupuesto', 'validezPresupuestoHoras',
+    'especiesAdmitidas', 'tamanosAdmitidos', 'maxMascotasPorReserva', 'compartido',
+    'situacionesConfirmacion', 'plazasAcompanantes', 'precioAcompanante', 'equipajeAdmitido',
+    'equipamientoVehiculo', 'requisitosDocumentales',
+    'modoDisponibilidad', 'ventanaRecogida', 'confirmacionHoras', 'frecuenciasRecurrencia',
+    'periodoMaximoSemanas', 'salidas', 'respuestaUrgenteHoras',
+    'politicaCancelacionTransporte', 'cortesiaMinutos', 'accionNoShow',
   ],
   veterinaria: [
     'especialidades', 'serviciosClinicos', 'tiposServicioClinico', 'duracionCitaMin', 'citasPorDia',
@@ -639,6 +652,16 @@ export class CatalogService {
 
   /** Evita crear listados que no se podrán reservar por falta de datos clave del vertical. */
   private validarCamposRequeridos(vertical: string, campos: Record<string, unknown>): void {
+    /*
+     * Transporte tiene dos formas válidas de tener precio: la tarifa base + km
+     * del formulario antiguo, o al menos una regla de tarifa del alta guiada.
+     * Exigir siempre las dos primeras haría imposible publicar un servicio de
+     * precio fijo por zonas, que es justo lo que el alta nueva permite.
+     */
+    if (vertical === 'transporte' && Array.isArray(campos['reglasTarifa']) && campos['reglasTarifa'].length > 0) {
+      return;
+    }
+
     const requeridos = CAMPOS_REQUERIDOS_POR_VERTICAL[vertical] ?? [];
     const faltantes = requeridos.filter((clave) => {
       const valor = campos[clave];

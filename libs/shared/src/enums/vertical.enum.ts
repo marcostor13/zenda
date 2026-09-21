@@ -17,7 +17,7 @@ export enum VerticalKey {
 /** Etiquetas legibles de cada categoría canina de Doogking. */
 export const VERTICAL_LABELS: Record<VerticalKey, string> = {
   [VerticalKey.ALOJAMIENTO]: 'Alojamiento canino',
-  [VerticalKey.TRANSPORTE]: 'Transporte de animales',
+  [VerticalKey.TRANSPORTE]: 'Transporte de mascotas',
   [VerticalKey.VETERINARIA]: 'Veterinarios',
   [VerticalKey.PELUQUERIA]: 'Peluquerías caninas',
   [VerticalKey.ADIESTRAMIENTO]: 'Adiestramiento canino',

@@ -327,27 +327,88 @@ describe('ReservaWizardComponent', () => {
       expect(componente.subtotal()).toBe(50);
     });
 
-    it('debería desglosar el trayecto: tarifa base + kilómetros + extras (HU-5.5.3)', async () => {
+    /**
+     * El desglose del trayecto lo calcula el mismo motor que cobra el API. Se
+     * comprueba línea a línea porque es lo que el cliente lee antes de pagar:
+     * si el resumen y el cargo no cuadran, la reserva acaba en incidencia.
+     */
+    it('debería desglosar el trayecto con las tarifas del transportista', async () => {
       const { params, query } = contexto(VerticalKey.TRANSPORTE);
-      await crear(params, query);
-      componente.tarifasTransporte.set({ tarifaBase: 12, tarifaKm: 1.2 });
-      componente.serviciosAdicionalesTransporte.set([{ nombre: 'Recogida a domicilio', precio: 15 }]);
+      await crear(params, query, {
+        catalog: {
+          obtener: jest.fn().mockResolvedValue({
+            extra: {
+              tarifaBase: 12, tarifaKm: 1.2,
+              serviciosAdicionales: [{ nombre: 'Recogida a domicilio', precio: 15 }],
+            },
+          }),
+        },
+      });
       componente.paso1TransporteForm.patchValue({ distanciaKm: 25 });
-      componente.toggleExtra('Recogida a domicilio');
+      componente.paso1TransporteForm.patchValue({ suplementos: ['Recogida a domicilio'] });
 
-      expect(componente.tarifaBaseTransporte()).toBe(12);
-      expect(componente.costeKmTransporte()).toBe(30);
-      expect(componente.extrasTransporte()).toBe(15);
+      const desglose = componente.desgloseTransporte();
+      expect(desglose?.total).toBe(57);
+      expect(desglose?.lineas.map((l) => l.concepto))
+        .toEqual(['Tarifa base más kilómetros', 'Recogida a domicilio']);
       expect(componente.subtotal()).toBe(57);
     });
 
-    it('debería caer a la tarifa base si el catálogo del transportista no ha cargado', async () => {
+    it('debería caer al precio de la tarjeta si el catálogo del transportista no ha cargado', async () => {
       const { params, query } = contexto(VerticalKey.TRANSPORTE);
       await crear(params, query);
       componente.paso1TransporteForm.patchValue({ distanciaKm: 25 });
 
       // Sin config no se inventan kilómetros: el backend sigue siendo la fuente de verdad.
-      expect(componente.costeKmTransporte()).toBe(0);
+      expect(componente.desgloseTransporte()).toBeNull();
+      expect(componente.subtotal()).toBe(componente.precioBase());
+    });
+
+    /**
+     * Regresión del documento de alta: una empresa que cobra 25 € dentro de
+     * Castellón y por kilómetro fuera. Sin esto, el cliente de la ciudad veía
+     * el precio por kilómetro de la provincia.
+     */
+    it('debería aplicar la primera regla de tarifa que encaja con el trayecto', async () => {
+      const { params, query } = contexto(VerticalKey.TRANSPORTE);
+      await crear(params, query, {
+        catalog: {
+          obtener: jest.fn().mockResolvedValue({
+            extra: {
+              redondeoDistancia: 'exacta',
+              reglasTarifa: [
+                { id: 'z', nombre: 'Castellón ciudad', modelo: 'zona', unidadCobro: 'vehiculo', zonas: ['Castellón'], precioIda: 25 },
+                { id: 'k', nombre: 'Provincia', modelo: 'km', unidadCobro: 'vehiculo', precioKm: 0.85 },
+              ],
+            },
+          }),
+        },
+      });
+
+      componente.paso1TransporteForm.patchValue({ origen: 'Castellón', distanciaKm: 8 });
+      expect(componente.desgloseTransporte()?.total).toBe(25);
+
+      componente.paso1TransporteForm.patchValue({ origen: 'Onda', distanciaKm: 40 });
+      expect(componente.desgloseTransporte()?.total).toBe(34);
+    });
+
+    /** Sin precio cerrado no se enseña un 0 €: se ofrece pedir presupuesto. */
+    it('debería avisar de que el trayecto va por presupuesto', async () => {
+      const { params, query } = contexto(VerticalKey.TRANSPORTE);
+      await crear(params, query, {
+        catalog: {
+          obtener: jest.fn().mockResolvedValue({
+            extra: {
+              reglasTarifa: [
+                { id: 'p', nombre: 'A medida', modelo: 'presupuesto', unidadCobro: 'vehiculo' },
+              ],
+            },
+          }),
+        },
+      });
+      componente.paso1TransporteForm.patchValue({ distanciaKm: 900 });
+
+      expect(componente.desgloseTransporte()?.requierePresupuesto).toBe(true);
       expect(componente.subtotal()).toBe(componente.precioBase());
     });
 
@@ -1716,13 +1777,15 @@ describe('ReservaWizardComponent', () => {
   });
 
   describe('catalogo enriquecido por vertical', () => {
-    it('deberia guardar las tarifas de transporte cuando el catalogo las trae', async () => {
+    it('deberia traducir las tarifas antiguas a una regla del motor', async () => {
       const ctx = contexto(VerticalKey.TRANSPORTE);
       await crear(ctx.params, ctx.query, {
         catalog: { obtener: jest.fn().mockResolvedValue({ extra: { tarifaBase: 15, tarifaKm: 0.9 } }) },
       });
 
-      expect(componente.tarifasTransporte()).toEqual({ tarifaBase: 15, tarifaKm: 0.9 });
+      expect(componente.configTransporte()?.reglasTarifa[0]).toMatchObject({
+        modelo: 'base_mas_km', tarifaSalida: 15, precioKm: 0.9,
+      });
     });
 
     it('no deberia fijar tarifas a medias si falta una de las dos', async () => {
@@ -1732,7 +1795,7 @@ describe('ReservaWizardComponent', () => {
         catalog: { obtener: jest.fn().mockResolvedValue({ extra: { tarifaBase: 15 } }) },
       });
 
-      expect(componente.tarifasTransporte()).toBeNull();
+      expect(componente.configTransporte()).toBeNull();
     });
 
     it('deberia seguir funcionando si el catalogo detallado no responde', async () => {
@@ -1741,7 +1804,7 @@ describe('ReservaWizardComponent', () => {
         catalog: { obtener: jest.fn().mockRejectedValue(new Error('500')) },
       });
 
-      expect(componente.tarifasTransporte()).toBeNull();
+      expect(componente.configTransporte()).toBeNull();
     });
 
     it('deberia cargar los suplementos del hotel', async () => {

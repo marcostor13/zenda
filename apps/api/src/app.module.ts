@@ -47,6 +47,7 @@ import { PlanificadorModule } from './core/planificador/planificador.module';
 import { AgendaModule } from './core/agenda/agenda.module';
 import { BloqueosModule } from './core/bloqueos/bloqueos.module';
 import { ListaEsperaModule } from './core/lista-espera/lista-espera.module';
+import { PresupuestosModule } from './core/presupuestos/presupuestos.module';
 
 /**
  * Techo global de peticiones por IP. Es una red de seguridad contra floods, no
@@ -111,6 +112,7 @@ const LIMITE_GLOBAL = [{ name: 'global', ttl: 60_000, limit: 300 }];
     AgendaModule,
     BloqueosModule,
     ListaEsperaModule,
+    PresupuestosModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

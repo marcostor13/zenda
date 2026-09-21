@@ -24,7 +24,7 @@ se ve es lo que se paga.
 - Veterinarios: citas con hora.
 - Peluquerías caninas: citas con hora.
 - Adiestramiento: sesiones sueltas o programas.
-- Transporte de animales: traslados punto a punto.
+- Transporte de mascotas: traslados punto a punto.
 - Seguros para mascotas: pólizas anuales.
 - Crematorios y servicios funerarios.
 

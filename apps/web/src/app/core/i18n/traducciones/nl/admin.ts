@@ -329,7 +329,7 @@ const admin: Diccionario = {
   'Todos los comercios': 'Alle bedrijven',
   'Tomar en revisión': 'In behandeling nemen',
   'Top 5 comercios': 'Top 5 bedrijven',
-  'Transporte de animales': 'Dierenvervoer',
+  'Transporte de mascotas': 'Dierenvervoer',
   'Tu reserva es mañana': 'Je boeking is morgen',
   'Título': 'Titel',
   'Un vertical desactivado deja de ofrecerse, sin borrar nada.': 'Een uitgeschakelde categorie wordt niet meer aangeboden, zonder iets te verwijderen.',

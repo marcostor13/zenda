@@ -23,7 +23,7 @@ const ATAJOS: ReadonlyArray<{ clave: AtajoClave; label: string }> = [
 const VERTICALES_OPCIONES = [
   { label: 'Todas las categorías', valor: '' },
   { label: 'Alojamiento canino', valor: 'alojamiento' },
-  { label: 'Transporte de animales', valor: 'transporte' },
+  { label: 'Transporte de mascotas', valor: 'transporte' },
   { label: 'Veterinarios', valor: 'veterinaria' },
   { label: 'Peluquerías caninas', valor: 'peluqueria' },
   { label: 'Adiestramiento canino', valor: 'adiestramiento' },

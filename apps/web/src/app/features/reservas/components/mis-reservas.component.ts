@@ -367,7 +367,7 @@ export class MisReservasComponent implements OnInit {
       codigo: 'RES-D4E5F6',
       servicioId: 'servicio-mock-2',
       verticalKey: VerticalKey.TRANSPORTE,
-      vertical: 'Transporte de animales',
+      vertical: 'Transporte de mascotas',
       icono: 'truck',
       titulo: 'Traslado canino Madrid Centro',
       subtitulo: 'Madrid → Toledo · Van acondicionada',

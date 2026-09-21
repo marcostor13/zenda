@@ -11,7 +11,13 @@ import {
   TipoServicioFunerario, TIPO_SERVICIO_FUNERARIO_LABELS,
   LugarRecogida, LUGAR_RECOGIDA_LABELS,
   ModoPrecioRecogida, MODO_PRECIO_RECOGIDA_LABELS,
-  FranjaHoraria, FRANJA_HORARIA_LABELS } from 'shared';
+  FranjaHoraria, FRANJA_HORARIA_LABELS,
+  // Transporte de mascotas: valores por defecto del alta guiada.
+  AccionNoShow, AmbitoTransporte, BaseKilometraje, CompartidoTransporte, FinalidadTransporte,
+  ModoCobertura, ModoDisponibilidadTransporte, PlantillaTransporte, PoliticaCancelacionTransporte,
+  PoliticaParadas, PoliticaPeajes, PrecioAcompanante, PrecioOrientativo, PuntosTrayecto, QuienViaja,
+  RedondeoDistancia, TipoIdaVuelta, TipoRecogida, TipoTrayecto, VentanaRecogida,
+  precioDesdeTransporte } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
@@ -39,6 +45,7 @@ import {
 } from './comercio-api.service';
 
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
+import { AltaTransporteComponent } from './transporte/alta-transporte.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { almacenLocal } from '../../core/plataforma/almacen';
 /** Una parada del trayecto declarado por un transportista. */
@@ -189,6 +196,7 @@ function aCsv(v: string): string[] {
     RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsComboInputComponent,
   RsPlaceAutocompleteComponent,
     RsMapaComponent, RsHorarioComponent, RsComboInputComponent, EurosPipe,
+    AltaTransporteComponent,
   ],
   template: `
     <div class="page-wrap">
@@ -658,14 +666,14 @@ function aCsv(v: string): string[] {
 
             @case ('transporte') {
               <div formGroupName="transporte" class="vertical-section">
-                <h2 class="section-title">{{ 'Detalles del transporte' | t }}</h2>
+                <h2 class="section-title">{{ 'Alta del servicio de transporte de mascotas' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
-                  {{ 'Los campos marcados con' | t }} <strong>*</strong> {{ 'son obligatorios; el resto son opcionales y solo ayudan a que recibas solicitudes que sí puedas atender.' | t }}
+                  {{ 'Seis pasos. Los campos cambian según lo que elijas: si cobras por zonas no verás tramos de kilómetros, y si no llevas acompañantes no verás su precio.' | t }}
                 </p>
 
                 <div class="form-row-2">
                   <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Tipo de vehículo' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
+                    <label class="rs-lbl">{{ 'Tipo de vehículo' | t }}</label>
                     <select class="rs-inp" formControlName="tipoVehiculo">
                       <option value="van_acondicionada">{{ 'Van acondicionada' | t }}</option>
                       <option value="coche">{{ 'Coche' | t }}</option>
@@ -673,63 +681,12 @@ function aCsv(v: string): string[] {
                     </select>
                   </div>
                   <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Capacidad (perros)' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
+                    <label class="rs-lbl">{{ 'Capacidad del vehículo (mascotas)' | t }}</label>
                     <input class="rs-inp" type="number" min="1" formControlName="capacidadPerros" inputmode="numeric">
                   </div>
                 </div>
 
-                <div class="rs-field">
-                  <span class="rs-lbl">{{ 'Zona de cobertura' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></span>
-                  <rs-tags-input formControlName="zonaCobertura" [etiqueta]="'Zona de cobertura' | t"
-                                 [opciones]="catalogos.provincias" [placeholder]="'Ej. Madrid, Toledo…' | t" />
-                </div>
-
-                <div class="form-row-2">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Tarifa base (€) *' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaBase" inputmode="decimal">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Tarifa por km (€) *' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaKm" inputmode="decimal">
-                  </div>
-                </div>
-
-                <div class="rs-field">
-                  <label class="rs-lbl">{{ 'Tarifa de espera, por hora (€)' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
-                  <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaEsperaPorHora" inputmode="decimal">
-                  <span class="rs-field-hint">{{ 'Se cobra en trayectos de "ida y vuelta con espera" (Ref. TRA4). Déjalo en 0 si no cobras el tiempo de espera.' | t }}</span>
-                </div>
-
-                <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="jaulasIncluidas"> {{ 'Jaulas incluidas' | t }}</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="acompananteHumano"> {{ 'Acompañante humano opcional' | t }}</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="soloPerros"> {{ 'Sólo perros' | t }}</label>
-                </div>
-
-                <h2 class="section-title">{{ 'Condiciones del servicio (todas opcionales)' | t }}</h2>
-                <span class="rs-field-hint" style="display:block;margin-bottom:var(--sp-3)">
-                  {{ 'Cuanto más concretes, menos solicitudes recibirás que no puedas atender.' | t }}
-                </span>
-                <div class="row-card__grid row-card__grid--2">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Distancia mínima facturable (km)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="distanciaMinimaKm" inputmode="numeric">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Antelación mínima (horas)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="antelacionMinimaHoras" inputmode="numeric">
-                  </div>
-                </div>
-                <div class="rs-field">
-                  <label class="rs-lbl">{{ 'Máximo de perros por trayecto' | t }}</label>
-                  <input class="rs-inp" type="number" min="1" formControlName="maxPerrosPorTrayecto" inputmode="numeric">
-                  <span class="rs-field-hint">{{ 'Déjalo vacío para usar la capacidad del vehículo.' | t }}</span>
-                </div>
-                <div class="checkbox-row">
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="aceptaPPP"> {{ 'Acepto perros de razas PPP' | t }}</label>
-                  <label class="rs-checkbox"><input type="checkbox" formControlName="requiereTransportinPropio"> {{ 'El cliente aporta su transportín' | t }}</label>
-                </div>
+                <dk-alta-transporte [grupo]="transporteGroup" />
 
                 <h2 class="section-title">{{ 'Tu trayecto habitual (opcional)' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-3)">
@@ -798,33 +755,6 @@ function aCsv(v: string): string[] {
                     </p>
                   }
                 }
-
-                <h2 class="section-title">{{ 'Servicios adicionales' | t }}</h2>
-                <p class="rs-field-hint">
-                  {{ 'Se muestran al cliente en el paso 1 de la reserva y se suman al precio del trayecto.' | t }}
-                </p>
-                <div formArrayName="serviciosAdicionales" class="rows">
-                  @for (s of serviciosAdicionalesTransporte.controls; track $index; let i = $index) {
-                    <div [formGroupName]="i" class="row-card row-card--sm">
-                      <div class="row-card__grid row-card__grid--2">
-                        <div class="rs-field">
-                          <label class="rs-lbl">{{ 'Nombre' | t }}</label>
-                          <input class="rs-inp" formControlName="nombre" [placeholder]="'Ej. Recogida a domicilio' | t">
-                        </div>
-                        <div class="rs-field">
-                          <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
-                          <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
-                        </div>
-                      </div>
-                      <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalTransporte(i)">
-                        <rs-icon name="x" [size]="13" [stroke]="2"></rs-icon> {{ 'Quitar' | t }}
-                      </button>
-                    </div>
-                  }
-                </div>
-                <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" (click)="agregarServicioAdicionalTransporte()">
-                  <rs-icon name="plus" [size]="14" [stroke]="2"></rs-icon> {{ 'Añadir servicio adicional' | t }}
-                </button>
               </div>
             }
 
@@ -2696,22 +2626,88 @@ export class ComercioListadoFormComponent implements OnInit {
       serviciosAdicionales: this.fb.array<FormGroup>([]),
     }),
 
+    /*
+     * Transporte de mascotas. Lo pinta `dk-alta-transporte` como un asistente
+     * de seis pasos; aquí solo vive la forma del dato.
+     *
+     * Los campos de arriba son los del formulario anterior y siguen existiendo
+     * a propósito: hay servicios publicados que cobran con ellos, y el motor de
+     * tarifas los traduce a una regla `base_mas_km` mientras su dueño no
+     * rehaga el alta. `tarifaBase` y `tarifaKm` ya no son obligatorios porque
+     * un servicio de precio fijo por zonas no tiene ni base ni kilómetros.
+     */
     transporte: this.fb.group({
       tipoVehiculo: ['van_acondicionada'],
       capacidadPerros: [4],
       zonaCobertura: [[] as string[]],
-      tarifaBase: [0, [Validators.required, Validators.min(0)]],
-      tarifaKm: [0, [Validators.required, Validators.min(0)]],
+      tarifaBase: [0, [Validators.min(0)]],
+      tarifaKm: [0, [Validators.min(0)]],
       tarifaEsperaPorHora: [0, [Validators.min(0)]],
       jaulasIncluidas: [true],
       acompananteHumano: [false],
       soloPerros: [true],
       distanciaMinimaKm: [0],
-      antelacionMinimaHoras: [0],
+      antelacionMinimaHoras: [24],
       maxPerrosPorTrayecto: [null as number | null],
       aceptaPPP: [false],
       requiereTransportinPropio: [false],
       serviciosAdicionales: this.fb.array<FormGroup>([]),
+
+      // 1 · Tipo
+      plantilla: [PlantillaTransporte.EXCLUSIVO as string],
+      quienViaja: [QuienViaja.SOLO_MASCOTA as string],
+      tiposTrayecto: [[TipoTrayecto.SOLO_IDA, TipoTrayecto.IDA_VUELTA] as string[]],
+      ambitos: [[AmbitoTransporte.LOCAL, AmbitoTransporte.PROVINCIAL] as string[]],
+      tipoRecogida: [TipoRecogida.PUERTA_A_PUERTA as string],
+      finalidades: [[FinalidadTransporte.CUALQUIERA] as string[]],
+
+      // 2 · Cobertura
+      modoCobertura: [ModoCobertura.RADIO as string],
+      direccionBase: [''],
+      radioKm: [50],
+      distanciaMaximaKm: [0],
+      municipiosCobertura: [[] as string[]],
+      paisesCobertura: [[] as string[]],
+      puntosTrayecto: [PuntosTrayecto.LIBRES as string],
+      baseKilometraje: [BaseKilometraje.RECOGIDA_DESTINO as string],
+      tipoIdaVuelta: [TipoIdaVuelta.ESPERA_MISMO_DIA as string],
+      politicaParadas: [PoliticaParadas.CON_SUPLEMENTO as string],
+      esperaIncluidaMin: [30],
+      politicaPeajes: [PoliticaPeajes.INCLUIDOS as string],
+
+      // 3 · Precio
+      reglasTarifa: this.fb.array<FormGroup>([]),
+      redondeoDistancia: [RedondeoDistancia.KM_SUPERIOR as string],
+      suplementos: this.fb.array<FormGroup>([]),
+      precioOrientativo: [PrecioOrientativo.DESDE as string],
+      horasRespuestaPresupuesto: [12],
+      validezPresupuestoHoras: [48],
+
+      // 4 · Mascotas y vehículo
+      especiesAdmitidas: [['Perro', 'Gato'] as string[]],
+      tamanosAdmitidos: [[] as string[]],
+      maxMascotasPorReserva: [3],
+      compartido: [CompartidoTransporte.MISMA_FAMILIA as string],
+      situacionesConfirmacion: [[] as string[]],
+      plazasAcompanantes: [0],
+      precioAcompanante: [PrecioAcompanante.INCLUIDO as string],
+      equipajeAdmitido: [[] as string[]],
+      equipamientoVehiculo: [['climatizacion', 'habitaculos', 'anclajes'] as string[]],
+      requisitosDocumentales: this.fb.array<FormGroup>([]),
+
+      // 5 · Disponibilidad
+      modoDisponibilidad: [ModoDisponibilidadTransporte.CALENDARIO as string],
+      ventanaRecogida: [VentanaRecogida.FRANJA_60 as string],
+      confirmacionHoras: [0],
+      frecuenciasRecurrencia: [[] as string[]],
+      periodoMaximoSemanas: [12],
+      salidas: this.fb.array<FormGroup>([]),
+      respuestaUrgenteHoras: [2],
+
+      // 6 · Condiciones
+      politicaCancelacionTransporte: [PoliticaCancelacionTransporte.ESTANDAR as string],
+      cortesiaMinutos: [15],
+      accionNoShow: [AccionNoShow.COBRO_COMPLETO as string],
     }),
 
     veterinaria: this.fb.group({
@@ -2879,11 +2875,116 @@ export class ComercioListadoFormComponent implements OnInit {
   }
   quitarServicioAdicionalAlojamiento(i: number): void { this.serviciosAdicionalesAlojamiento.removeAt(i); }
 
-  agregarServicioAdicionalTransporte(): void {
-    // Mismo par nombre/precio que alojamiento y peluquería: `ServicioAdicionalTransporte`.
-    this.serviciosAdicionalesTransporte.push(this.nuevoServicioAdicionalAlojamiento());
+  /*
+   * Los "servicios adicionales" del transporte ya no se editan a mano: el alta
+   * guiada los gestiona como suplementos del catálogo cerrado. El array sigue
+   * cargándose y guardándose para no borrar los de las fichas publicadas antes,
+   * y el motor de tarifas los traduce a suplementos "a petición".
+   */
+
+  /**
+   * Reconstruye los arrays del alta guiada al editar un servicio.
+   *
+   * `patchValue` no puede con un `FormArray` vacío: ignora silenciosamente lo
+   * que le llega. Sin esto, abrir un servicio configurado y guardar lo dejaba
+   * sin ninguna tarifa, es decir, sin precio.
+   */
+  private rehacerListasTransporte(d: Record<string, unknown>): void {
+    const reglas = (d['reglasTarifa'] as Record<string, unknown>[] | undefined) ?? [];
+    const array = this.transporteGroup.get('reglasTarifa') as FormArray<FormGroup>;
+    array.clear();
+    reglas.forEach((r) => array.push(this.fb.group({
+      id: [(r['id'] as string) ?? `r-${Date.now()}`],
+      nombre: [(r['nombre'] as string) ?? 'Tarifa'],
+      modelo: [(r['modelo'] as string) ?? 'base_mas_km'],
+      unidadCobro: [(r['unidadCobro'] as string) ?? 'vehiculo'],
+      zonas: [(r['zonas'] as string[]) ?? []],
+      precioIda: [(r['precioIda'] as number) ?? 0],
+      precioIdaVuelta: [(r['precioIdaVuelta'] as number | null) ?? null],
+      mascotasIncluidas: [(r['mascotasIncluidas'] as number) ?? 1],
+      precioKm: [(r['precioKm'] as number) ?? 0],
+      tarifaSalida: [(r['tarifaSalida'] as number) ?? 0],
+      tramos: this.fb.array(
+        ((r['tramos'] as Record<string, unknown>[] | undefined) ?? []).map((t) => this.fb.group({
+          desdeKm: [(t['desdeKm'] as number) ?? 0],
+          hastaKm: [(t['hastaKm'] as number | null) ?? null],
+          precioKm: [(t['precioKm'] as number) ?? 0],
+        })),
+      ),
+      precioHora: [(r['precioHora'] as number) ?? 0],
+      duracionMinimaHoras: [(r['duracionMinimaHoras'] as number) ?? 1],
+      fraccionMinutos: [(r['fraccionMinutos'] as number) ?? 15],
+      rutaOrigen: [(r['rutaOrigen'] as string) ?? ''],
+      rutaDestino: [(r['rutaDestino'] as string) ?? ''],
+      precioRuta: [(r['precioRuta'] as number) ?? 0],
+      importeMinimo: [(r['importeMinimo'] as number) ?? 0],
+    })));
+
+    const suplementos = (d['suplementos'] as Record<string, unknown>[] | undefined) ?? [];
+    const arraySuplementos = this.transporteGroup.get('suplementos') as FormArray<FormGroup>;
+    arraySuplementos.clear();
+    suplementos.forEach((sup) => arraySuplementos.push(this.fb.group({
+      clave: [(sup['clave'] as string) ?? ''],
+      nombre: [(sup['nombre'] as string) ?? ''],
+      condicion: [(sup['condicion'] as string) ?? 'siempre'],
+      forma: [(sup['forma'] as string) ?? 'importe_fijo'],
+      importe: [(sup['importe'] as number) ?? 0],
+      aplicacion: [(sup['aplicacion'] as string) ?? 'automatica'],
+    })));
+
+    const requisitos = (d['requisitosDocumentales'] as Record<string, unknown>[] | undefined) ?? [];
+    const arrayRequisitos = this.transporteGroup.get('requisitosDocumentales') as FormArray<FormGroup>;
+    arrayRequisitos.clear();
+    requisitos.forEach((req) => arrayRequisitos.push(this.fb.group({
+      clave: [(req['clave'] as string) ?? ''],
+      exigencia: [(req['exigencia'] as string) ?? 'siempre'],
+    })));
+
+    const salidas = (d['salidas'] as Record<string, unknown>[] | undefined) ?? [];
+    const arraySalidas = this.transporteGroup.get('salidas') as FormArray<FormGroup>;
+    arraySalidas.clear();
+    salidas.forEach((sal) => arraySalidas.push(this.fb.group({
+      id: [(sal['id'] as string) ?? `s-${Date.now()}`],
+      fechaSalida: [(sal['fechaSalida'] as string) ?? ''],
+      paradas: [(sal['paradas'] as string[]) ?? []],
+      plazasTotales: [(sal['plazasTotales'] as number) ?? 6],
+      plazasOcupadas: [(sal['plazasOcupadas'] as number) ?? 0],
+      cierreHoras: [(sal['cierreHoras'] as number) ?? 24],
+    })));
   }
-  quitarServicioAdicionalTransporte(i: number): void { this.serviciosAdicionalesTransporte.removeAt(i); }
+
+  /**
+   * Las reglas, con los números como números.
+   *
+   * Un `<input type="number">` devuelve texto en cuanto alguien teclea, y
+   * `"0.85" * 100` no es lo mismo para el motor de tarifas que `0.85`: sin
+   * esta conversión el precio del cliente salía mal por el redondeo.
+   */
+  private reglasTarifaAGuardar(): Record<string, unknown>[] {
+    const array = this.transporteGroup.get('reglasTarifa') as FormArray<FormGroup>;
+    return array.controls.map((control) => {
+      const r = control.getRawValue() as Record<string, unknown>;
+      return {
+        ...r,
+        precioIda: Number(r['precioIda'] ?? 0),
+        precioIdaVuelta: r['precioIdaVuelta'] === null || r['precioIdaVuelta'] === ''
+          ? undefined : Number(r['precioIdaVuelta']),
+        mascotasIncluidas: Number(r['mascotasIncluidas'] ?? 1),
+        precioKm: Number(r['precioKm'] ?? 0),
+        tarifaSalida: Number(r['tarifaSalida'] ?? 0),
+        precioHora: Number(r['precioHora'] ?? 0),
+        duracionMinimaHoras: Number(r['duracionMinimaHoras'] ?? 1),
+        fraccionMinutos: Number(r['fraccionMinutos'] ?? 15),
+        precioRuta: Number(r['precioRuta'] ?? 0),
+        importeMinimo: Number(r['importeMinimo'] ?? 0),
+        tramos: ((r['tramos'] as Record<string, unknown>[] | undefined) ?? []).map((t) => ({
+          desdeKm: Number(t['desdeKm'] ?? 0),
+          hastaKm: t['hastaKm'] === null || t['hastaKm'] === '' ? null : Number(t['hastaKm']),
+          precioKm: Number(t['precioKm'] ?? 0),
+        })),
+      };
+    });
+  }
 
   private nuevoServicioAdiestramiento(e?: Record<string, unknown>) {
     // Fichas anteriores solo guardaban minutos; y el tipo «valoración» vive
@@ -3681,6 +3782,10 @@ export class ComercioListadoFormComponent implements OnInit {
       const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
       adicionales.forEach(e => this.serviciosAdicionalesTransporte.push(this.nuevoServicioAdicionalAlojamiento(e)));
       this.trayecto.set((d['trayecto'] as ParadaTrayecto[] | undefined) ?? []);
+      // Los arrays del alta guiada no los alcanza `patchValue`: un FormArray
+      // vacío ignora lo que le llegue, así que hay que reconstruirlo control a
+      // control o al editar se perderían todas las tarifas ya configuradas.
+      this.rehacerListasTransporte(d);
     } else if (vertical === VerticalKey.VETERINARIA) {
       this.veterinariaGroup.patchValue({
         ...d,
@@ -3794,9 +3899,13 @@ export class ComercioListadoFormComponent implements OnInit {
       };
     }
     if (vertical === VerticalKey.TRANSPORTE) {
+      const g = this.transporteGroup.getRawValue() as Record<string, unknown>;
       return {
-        ...this.transporteGroup.getRawValue(),
+        ...g,
         trayecto: this.trayecto(),
+        // 0 en el formulario significa "sin límite"; el motor lo lee como null.
+        distanciaMaximaKm: Number(g['distanciaMaximaKm'] ?? 0) > 0 ? Number(g['distanciaMaximaKm']) : null,
+        reglasTarifa: this.reglasTarifaAGuardar(),
       };
     }
     if (vertical === VerticalKey.VETERINARIA) {

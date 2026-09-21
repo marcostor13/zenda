@@ -3,7 +3,9 @@ import { getModelToken } from '@nestjs/mongoose';
 import { TransporteAvailabilityStrategy } from './transporte-availability.strategy';
 import { Servicio } from '../../core/catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { VerticalKey } from 'shared';
+import {
+  ModeloPrecio, ModoDisponibilidadTransporte, UnidadCobro, VerticalKey,
+} from 'shared';
 
 interface ServicioModelMock {
   findById: jest.Mock;
@@ -121,13 +123,17 @@ describe('TransporteAvailabilityStrategy', () => {
       expect(resultado.disponible).toBe(true);
       expect(resultado.precioCalculado).toBe(12 + 1.2 * 25); // 42 — no se multiplica por perros
       expect(resultado.capacidadRestante).toBe(6);
-      expect(resultado.metadata).toEqual({
+      // `toMatchObject`: el desglose del motor trae además los kilómetros
+      // facturables y la regla aplicada, que antes no existían.
+      expect(resultado.metadata).toMatchObject({
         distanciaKm: 25,
+        kmFacturables: 25,
         tipoVehiculo: 'van_acondicionada',
         capacidadPerros: 4,
         perros: 3,
         exclusivo: false,
         extras: 0,
+        requierePresupuesto: false,
       });
     });
 
@@ -200,6 +206,127 @@ describe('TransporteAvailabilityStrategy', () => {
         });
         expect(resultado.precioCalculado).toBe(12 + 1.2 * 10);
       });
+    });
+  });
+
+  describe('servicios configurados con el asistente de alta', () => {
+    /*
+     * Fecha futura: un servicio del alta nueva exige 24 h de antelación por
+     * defecto, así que una fecha fija del pasado lo rechazaría todo.
+     */
+    const dentroDeUnaSemana = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    /** Una empresa con precio cerrado por zona: ni tarifa base ni km. */
+    const conReglas = {
+      ...transporteMock,
+      tarifaBase: undefined,
+      tarifaKm: undefined,
+      reglasTarifa: [{
+        id: 'r1', nombre: 'Castellón ciudad', modelo: ModeloPrecio.ZONA,
+        unidadCobro: UnidadCobro.VEHICULO, zonas: ['Castellón'], precioIda: 25,
+      }],
+      maxMascotasPorReserva: 3,
+    };
+
+    it('debería cobrar la regla de tarifa que encaja con el trayecto', async () => {
+      mockFindById(conReglas);
+
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: dentroDeUnaSemana,
+        parametrosExtra: { distanciaKm: 8, municipioOrigen: 'Castellón' },
+      });
+
+      expect(resultado.precioCalculado).toBe(25);
+      expect(resultado.metadata?.['reglaAplicada']).toBe('Castellón ciudad');
+    });
+
+    /**
+     * Sin precio cerrado la reserva no se cae: se ofrece presupuesto. Decir
+     * "no disponible" mandaría al cliente de vuelta al listado teniendo una
+     * venta delante.
+     */
+    it('debería seguir disponible y pedir presupuesto si ninguna regla encaja', async () => {
+      mockFindById(conReglas);
+
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: dentroDeUnaSemana,
+        parametrosExtra: { distanciaKm: 400, municipioOrigen: 'Sevilla' },
+      });
+
+      expect(resultado.disponible).toBe(true);
+      expect(resultado.metadata?.['requierePresupuesto']).toBe(true);
+      expect(resultado.precioCalculado).toBe(0);
+    });
+
+    it('debería rechazar una especie que el transportista no lleva', async () => {
+      mockFindById({ ...conReglas, especiesAdmitidas: ['Perro'] });
+
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: dentroDeUnaSemana,
+        parametrosExtra: { distanciaKm: 8, municipioOrigen: 'Castellón', especie: 'Reptil' },
+      });
+
+      expect(resultado.disponible).toBe(false);
+      expect(resultado.metadata?.['motivo']).toBe('especie_no_admitida');
+    });
+
+    it('debería rechazar más acompañantes de los que caben', async () => {
+      mockFindById({ ...conReglas, plazasAcompanantes: 1 });
+
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: dentroDeUnaSemana,
+        parametrosExtra: { distanciaKm: 8, municipioOrigen: 'Castellón', pasajeros: 3 },
+      });
+
+      expect(resultado.disponible).toBe(false);
+      expect(resultado.metadata?.['motivo']).toBe('sin_plazas_acompanante');
+    });
+
+    it('debería rechazar una recogida sin la antelación que pide la empresa', async () => {
+      mockFindById({
+        ...conReglas,
+        modoDisponibilidad: ModoDisponibilidadTransporte.CALENDARIO,
+        antelacionMinimaHoras: 24,
+      });
+
+      const enUnaHora = new Date(Date.now() + 60 * 60 * 1000);
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: enUnaHora,
+        parametrosExtra: { distanciaKm: 8, municipioOrigen: 'Castellón' },
+      });
+
+      expect(resultado.disponible).toBe(false);
+      expect(resultado.metadata?.['motivo']).toBe('antelacion_insuficiente');
+    });
+
+    /** Un servicio urgente existe justamente para el aviso de última hora. */
+    it('no debería exigir antelación a un servicio bajo demanda', async () => {
+      mockFindById({
+        ...conReglas,
+        modoDisponibilidad: ModoDisponibilidadTransporte.BAJO_DEMANDA,
+        antelacionMinimaHoras: 24,
+      });
+
+      const enUnaHora = new Date(Date.now() + 60 * 60 * 1000);
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: enUnaHora,
+        parametrosExtra: { distanciaKm: 8, municipioOrigen: 'Castellón' },
+      });
+
+      expect(resultado.disponible).toBe(true);
+    });
+
+    it('debería marcar que la empresa tiene que confirmar una situación declarada', async () => {
+      mockFindById({ ...conReglas, situacionesConfirmacion: ['conducta_reactiva'] });
+
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: dentroDeUnaSemana,
+        parametrosExtra: {
+          distanciaKm: 8, municipioOrigen: 'Castellón', necesidades: ['conducta_reactiva'],
+        },
+      });
+
+      expect(resultado.metadata?.['requiereConfirmacion']).toBe(true);
     });
   });
 

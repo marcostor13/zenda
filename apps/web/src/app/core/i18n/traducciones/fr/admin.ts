@@ -329,7 +329,7 @@ const admin: Diccionario = {
   'Todos los comercios': 'Tous les établissements',
   'Tomar en revisión': 'Prendre en examen',
   'Top 5 comercios': 'Top 5 des établissements',
-  'Transporte de animales': 'Transport d’animaux',
+  'Transporte de mascotas': 'Transport d’animaux',
   'Tu reserva es mañana': 'Votre réservation est demain',
   'Título': 'Titre',
   'Un vertical desactivado deja de ofrecerse, sin borrar nada.': 'Une catégorie désactivée cesse d’être proposée, sans rien supprimer.',

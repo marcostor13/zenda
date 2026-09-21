@@ -329,7 +329,7 @@ const admin: Diccionario = {
   'Todos los comercios': 'Alle Betriebe',
   'Tomar en revisión': 'In Prüfung nehmen',
   'Top 5 comercios': 'Top 5 Betriebe',
-  'Transporte de animales': 'Tiertransport',
+  'Transporte de mascotas': 'Tiertransport',
   'Tu reserva es mañana': 'Deine Buchung ist morgen',
   'Título': 'Titel',
   'Un vertical desactivado deja de ofrecerse, sin borrar nada.': 'Eine deaktivierte Kategorie wird nicht mehr angeboten, ohne dass etwas gelöscht wird.',

@@ -1,5 +1,13 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import {
+  AccionNoShow, AmbitoTransporte, BaseKilometraje, CompartidoTransporte, FinalidadTransporte,
+  FrecuenciaRecurrencia, ModoCobertura, ModoDisponibilidadTransporte, PlantillaTransporte,
+  PoliticaCancelacionTransporte, PoliticaParadas, PoliticaPeajes, PrecioAcompanante,
+  PrecioOrientativo, PuntosTrayecto, QuienViaja, RedondeoDistancia, ReglaTarifa,
+  RequisitoDocumental, SalidaProgramada, SuplementoTransporte, TipoIdaVuelta, TipoRecogida,
+  TipoTrayecto, VentanaRecogida,
+} from 'shared';
 import { Servicio } from '../../core/catalog/servicio.schema';
 
 export type TransporteDocument = HydratedDocument<Transporte>;
@@ -12,7 +20,7 @@ export interface ServicioAdicionalTransporte {
 }
 
 /**
- * Discriminador del vertical Transporte de animales (Doogking): traslado de
+ * Discriminador del vertical Transporte de mascotas (Doogking): traslado de
  * mascotas A→B con vehículo acondicionado. Precio por trayecto:
  * tarifaBase + tarifaKm × distancia (+ suplemento de exclusividad si se solicita).
  */
@@ -128,6 +136,169 @@ export class Transporte extends Servicio {
   /** Antelación mínima con la que hay que reservar, en horas. */
   @Prop({ type: Number, default: 0 })
   antelacionMinimaHoras!: number;
+
+  // ── Alta guiada de "Transporte de mascotas" ───────────────────────────
+  /*
+   * Lo que sigue es la configuración que rellena el asistente de alta de seis
+   * pasos. Convive con los campos de arriba en vez de sustituirlos: los
+   * servicios publicados con el formulario anterior siguen cobrando por su
+   * `tarifaBase` + `tarifaKm`, y `configDesdeLegado()` los traduce al vuelo
+   * para que el motor de tarifas no tenga que conocer dos formatos.
+   *
+   * El criterio para decidir cuál manda es tener al menos una regla de tarifa
+   * completa (`tieneConfigTransporte`), no un número de versión: el alta guarda
+   * borradores y un servicio a medio configurar tiene que seguir vendiendo.
+   */
+
+  // 1 · Tipo
+  @Prop({ type: String, default: PlantillaTransporte.EXCLUSIVO })
+  plantilla!: PlantillaTransporte;
+
+  @Prop({ type: String, default: QuienViaja.SOLO_MASCOTA })
+  quienViaja!: QuienViaja;
+
+  @Prop({ type: [String], default: [] })
+  tiposTrayecto!: TipoTrayecto[];
+
+  @Prop({ type: [String], default: [] })
+  ambitos!: AmbitoTransporte[];
+
+  @Prop({ type: String, default: TipoRecogida.PUERTA_A_PUERTA })
+  tipoRecogida!: TipoRecogida;
+
+  @Prop({ type: [String], default: [] })
+  finalidades!: FinalidadTransporte[];
+
+  // 2 · Cobertura y trayecto
+  @Prop({ type: String, default: ModoCobertura.RADIO })
+  modoCobertura!: ModoCobertura;
+
+  @Prop({ type: String })
+  direccionBase?: string;
+
+  @Prop({ type: Number, default: 50 })
+  radioKm!: number;
+
+  /** `null` = sin límite declarado. */
+  @Prop({ type: Number, default: null })
+  distanciaMaximaKm?: number | null;
+
+  @Prop({ type: [String], default: [] })
+  municipiosCobertura!: string[];
+
+  @Prop({ type: [String], default: [] })
+  paisesCobertura!: string[];
+
+  @Prop({ type: String, default: PuntosTrayecto.LIBRES })
+  puntosTrayecto!: PuntosTrayecto;
+
+  @Prop({ type: String, default: BaseKilometraje.RECOGIDA_DESTINO })
+  baseKilometraje!: BaseKilometraje;
+
+  @Prop({ type: String, default: TipoIdaVuelta.ESPERA_MISMO_DIA })
+  tipoIdaVuelta!: TipoIdaVuelta;
+
+  @Prop({ type: String, default: PoliticaParadas.CON_SUPLEMENTO })
+  politicaParadas!: PoliticaParadas;
+
+  /** Minutos de espera que van incluidos antes de empezar a cobrar el parón. */
+  @Prop({ type: Number, default: 30 })
+  esperaIncluidaMin!: number;
+
+  @Prop({ type: String, default: PoliticaPeajes.INCLUIDOS })
+  politicaPeajes!: PoliticaPeajes;
+
+  // 3 · Precio
+  /**
+   * Reglas de tarifa **en orden**: gana la primera que encaja con la zona, la
+   * distancia y el tipo de trayecto pedidos. El orden es el dato, no un detalle
+   * de presentación: moverlas cambia lo que cobra la empresa.
+   */
+  @Prop({ type: [Object], default: [] })
+  reglasTarifa!: ReglaTarifa[];
+
+  @Prop({ type: String, default: RedondeoDistancia.KM_SUPERIOR })
+  redondeoDistancia!: RedondeoDistancia;
+
+  @Prop({ type: [Object], default: [] })
+  suplementos!: SuplementoTransporte[];
+
+  @Prop({ type: String, default: PrecioOrientativo.DESDE })
+  precioOrientativo!: PrecioOrientativo;
+
+  @Prop({ type: Number })
+  precioDesde?: number;
+
+  @Prop({ type: Number, default: 12 })
+  horasRespuestaPresupuesto!: number;
+
+  @Prop({ type: Number, default: 48 })
+  validezPresupuestoHoras!: number;
+
+  // 4 · Mascotas y vehículo
+  @Prop({ type: [String], default: [] })
+  especiesAdmitidas!: string[];
+
+  @Prop({ type: [String], default: [] })
+  tamanosAdmitidos!: string[];
+
+  @Prop({ type: Number, default: 3 })
+  maxMascotasPorReserva!: number;
+
+  @Prop({ type: String, default: CompartidoTransporte.MISMA_FAMILIA })
+  compartido!: CompartidoTransporte;
+
+  /** Casos que la empresa quiere revisar antes de aceptar la reserva. */
+  @Prop({ type: [String], default: [] })
+  situacionesConfirmacion!: string[];
+
+  @Prop({ type: Number, default: 0 })
+  plazasAcompanantes!: number;
+
+  @Prop({ type: String, default: PrecioAcompanante.INCLUIDO })
+  precioAcompanante!: PrecioAcompanante;
+
+  @Prop({ type: [String], default: [] })
+  equipajeAdmitido!: string[];
+
+  @Prop({ type: [String], default: [] })
+  equipamientoVehiculo!: string[];
+
+  @Prop({ type: [Object], default: [] })
+  requisitosDocumentales!: RequisitoDocumental[];
+
+  // 5 · Disponibilidad
+  @Prop({ type: String, default: ModoDisponibilidadTransporte.CALENDARIO })
+  modoDisponibilidad!: ModoDisponibilidadTransporte;
+
+  @Prop({ type: String, default: VentanaRecogida.FRANJA_60 })
+  ventanaRecogida!: VentanaRecogida;
+
+  /** Horas que tarda la empresa en confirmar. 0 = confirmación inmediata. */
+  @Prop({ type: Number, default: 0 })
+  confirmacionHoras!: number;
+
+  @Prop({ type: [String], default: [] })
+  frecuenciasRecurrencia!: FrecuenciaRecurrencia[];
+
+  @Prop({ type: Number, default: 12 })
+  periodoMaximoSemanas!: number;
+
+  @Prop({ type: [Object], default: [] })
+  salidas!: SalidaProgramada[];
+
+  @Prop({ type: Number })
+  respuestaUrgenteHoras?: number;
+
+  // 6 · Condiciones
+  @Prop({ type: String, default: PoliticaCancelacionTransporte.ESTANDAR })
+  politicaCancelacionTransporte!: PoliticaCancelacionTransporte;
+
+  @Prop({ type: Number, default: 15 })
+  cortesiaMinutos!: number;
+
+  @Prop({ type: String, default: AccionNoShow.COBRO_COMPLETO })
+  accionNoShow!: AccionNoShow;
 }
 
 export const TransporteSchema = SchemaFactory.createForClass(Transporte);
