@@ -65,6 +65,24 @@ describe('TransporteListaComponent', () => {
     jest.clearAllMocks();
   });
 
+  describe('precio cerrado', () => {
+    it('debería invitar a calcular el precio del viaje en lugar de estimarlo', async () => {
+      await crear();
+
+      const enlace: HTMLAnchorElement = fixture.nativeElement.querySelector('a.tl-calcula');
+      expect(enlace).not.toBeNull();
+      expect(enlace.getAttribute('href')).toBe('/transporte');
+    });
+
+    it('no debería enseñar precio en las tarjetas', async () => {
+      await crear({}, [card({ tarifaBase: 37 })]);
+
+      const tarjeta: HTMLElement = fixture.nativeElement.querySelector('rs-card');
+      expect(tarjeta.textContent).not.toContain('37');
+      expect(tarjeta.textContent).toContain('Ver ficha y calcular precio');
+    });
+  });
+
   describe('listado', () => {
     it('debería cargar los traslados de la ciudad buscada', async () => {
       await crear({ ciudad: 'Madrid' });

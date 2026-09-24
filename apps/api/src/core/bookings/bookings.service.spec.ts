@@ -13,6 +13,7 @@ import { ComisionResolverService } from '../comision-configs/comision-resolver.s
 import { EventosService } from '../eventos/eventos.service';
 import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { HuecosService } from './huecos.service';
+import { PresupuestosService } from '../presupuestos/presupuestos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { VerticalKey, ReservaEstado, COMISION_PCT_DEFAULT, TipoEvento, horarioSemanal } from 'shared';
 
@@ -27,7 +28,8 @@ describe('BookingsService', () => {
   let eventosService: jest.Mocked<Pick<EventosService, 'registrar'>>;
   let bloqueosService: jest.Mocked<Pick<BloqueosService, 'cierreQueSolapa'>>;
   let catalogRepository: jest.Mocked<Pick<CatalogRepository, 'obtenerPorId'>>;
-  let huecosService: jest.Mocked<Pick<HuecosService, 'hayPlaza' | 'huecosDelDia' | 'agenda'>>;
+  let huecosService: jest.Mocked<Pick<HuecosService, 'hayPlaza' | 'huecosDelDia'>>;
+  let presupuestosService: jest.Mocked<Pick<PresupuestosService, 'importeParaReserva' | 'marcarConvertida'>>;
 
   const parametrosBase = {
     usuarioId: 'user-1',
@@ -118,7 +120,12 @@ describe('BookingsService', () => {
         },
         {
           provide: NotificationsService,
-          useValue: { notificarAjusteSolicitado: jest.fn().mockResolvedValue(undefined) },
+          useValue: {
+            notificarAjusteSolicitado: jest.fn().mockResolvedValue(undefined),
+            notificarHitoViaje: jest.fn().mockResolvedValue(undefined),
+            notificarPendienteAceptacion: jest.fn().mockResolvedValue(undefined),
+            notificarAceptacion: jest.fn().mockResolvedValue(undefined),
+          },
         },
         {
           provide: EventosService,
@@ -135,7 +142,13 @@ describe('BookingsService', () => {
           useValue: {
             hayPlaza: jest.fn().mockResolvedValue(true),
             huecosDelDia: jest.fn().mockResolvedValue({ soportado: true, estado: 'abierto', huecos: [] }),
-            agenda: jest.fn().mockResolvedValue({ dias: [], primeraLibre: undefined }),
+          },
+        },
+        {
+          provide: PresupuestosService,
+          useValue: {
+            importeParaReserva: jest.fn(),
+            marcarConvertida: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -160,6 +173,7 @@ describe('BookingsService', () => {
     eventosService = module.get(EventosService);
     bloqueosService = module.get(BloqueosService);
     huecosService = module.get(HuecosService);
+    presupuestosService = module.get(PresupuestosService);
   });
 
   /**
@@ -566,10 +580,40 @@ describe('BookingsService', () => {
         expect(reservaModel.insertMany).toHaveBeenCalledTimes(1);
         const hijas = reservaModel.insertMany.mock.calls[0][0];
         expect(hijas).toHaveLength(4);
-        // 500 anunciados con IVA dentro → 413,22 de base imponible.
+        // La serie se cobra entera en la origen; las hijas van a 0 € para no
+        // contar dos veces el GMV.
         expect(hijas[0]).toEqual(expect.objectContaining({
-          reservaOrigenId: 'reserva-1', estado: ReservaEstado.PENDIENTE, montoTotal: 500,
+          reservaOrigenId: 'reserva-1', estado: ReservaEstado.PENDIENTE,
+          montoTotal: 0, montoSubtotal: 0, comisionMonto: 0,
+          detalle: expect.objectContaining({ cubiertaPorSerie: true }),
         }));
+      });
+
+      it('debería cobrar la serie completa en la reserva origen y anotar viajes y precio por viaje', async () => {
+        await service.crear({
+          ...parametrosBase,
+          fechaInicio: new Date('2025-01-10'),
+          recurrencia: { diasSemana: [1, 3], hora: '09:00', fechaFin: new Date('2025-01-22') },
+        });
+
+        const origen = reservaModel.mock.calls[0][0];
+        // 1 + 4 viajes a 500 € cada uno.
+        expect(origen.montoTotal).toBe(2500);
+        expect(origen.detalle).toEqual(expect.objectContaining({ viajes: 5, precioPorViaje: 500 }));
+      });
+
+      it('debería repetir el mismo día de cada mes en la recurrencia mensual', async () => {
+        await service.crear({
+          ...parametrosBase,
+          fechaInicio: new Date('2026-01-31T09:00:00Z'),
+          fechaFin: undefined,
+          recurrencia: { diasSemana: [], hora: '10:00', fechaFin: new Date('2026-04-30'), mensual: true },
+        });
+
+        const hijas = reservaModel.insertMany.mock.calls[0][0] as Array<{ fechaInicio: Date }>;
+        expect(hijas.map((h) => h.fechaInicio.toISOString())).toEqual([
+          '2026-02-28T09:00:00.000Z', '2026-03-31T08:00:00.000Z', '2026-04-30T08:00:00.000Z',
+        ]);
       });
 
       it('no debería llamar a insertMany si no se indica recurrencia', async () => {
@@ -775,72 +819,6 @@ describe('BookingsService', () => {
       await service.huecosDelDia({ ...consulta, perroId: 'p1' });
 
       expect(estrategiaMock.checkAvailability.mock.calls[0][1].parametrosExtra).toMatchObject({ perroTamano: 'grande' });
-    });
-  });
-
-  describe('agendaCitas', () => {
-    const consulta = {
-      usuarioId: 'user-1', servicioId: 'servicio-1',
-      desde: '2026-09-01', hasta: '2026-09-30', detalle: { servicio: 'Baño' },
-    };
-
-    beforeEach(() => {
-      catalogRepository.obtenerPorId.mockResolvedValue({
-        comercioId: 'comercio-1', vertical: VerticalKey.PELUQUERIA, estado: 'publicado', comercioActivo: true,
-        horario: [], excepcionesHorario: [],
-      } as never);
-    });
-
-    it('debería pedir el rango con la duración del servicio elegido y los perros', async () => {
-      estrategiaMock.checkAvailability.mockResolvedValue({
-        disponible: true, metadata: { duracionMin: 45, perros: 2, capacidadSimultanea: 2 },
-      });
-      huecosService.agenda.mockResolvedValue({
-        dias: [{ fecha: '2026-09-01', estado: 'libre', huecosLibres: 3, primeraHora: '10:00' }],
-        primeraLibre: { fecha: '2026-09-01', hora: '10:00' },
-      });
-
-      const respuesta = await service.agendaCitas({ ...consulta, cantidad: 2 });
-
-      expect(huecosService.agenda).toHaveBeenCalledWith(
-        expect.objectContaining({ duracionMin: 90, capacidad: 2, comercioId: 'comercio-1' }),
-        '2026-09-01', '2026-09-30',
-      );
-      expect(respuesta).toMatchObject({
-        soportado: true, duracionMin: 90, primeraLibre: { fecha: '2026-09-01', hora: '10:00' },
-      });
-    });
-
-    /* Sin duración el vertical no se reserva por citas: el cliente se queda con
-       el campo de fecha de siempre en vez de un calendario que no dice nada. */
-    it('debería decir que no hay agenda si el vertical no da duración', async () => {
-      estrategiaMock.checkAvailability.mockResolvedValue({ disponible: true });
-
-      await expect(service.agendaCitas(consulta)).resolves.toEqual({ soportado: false, dias: [] });
-      expect(huecosService.agenda).not.toHaveBeenCalled();
-    });
-
-    it('debería explicar por qué no hay nada que reservar en vez de pintar el mes entero cerrado', async () => {
-      estrategiaMock.checkAvailability.mockResolvedValueOnce({ disponible: false, motivo: 'Sin cupos' });
-      await expect(service.agendaCitas(consulta))
-        .resolves.toEqual({ soportado: true, motivo: 'Sin cupos', dias: [] });
-
-      estrategiaMock.checkAvailability.mockRejectedValueOnce(new DomainException('No atiende gatos', 409));
-      await expect(service.agendaCitas(consulta))
-        .resolves.toMatchObject({ soportado: true, motivo: 'No atiende gatos' });
-
-      estrategiaMock.checkAvailability.mockRejectedValueOnce(new DomainException('No existe', 404));
-      await expect(service.agendaCitas(consulta)).rejects.toMatchObject({ statusCode: 404 });
-    });
-
-    it('debería tener en cuenta el perro elegido para la duración por tamaño', async () => {
-      perrosService.obtenerPropio.mockResolvedValue({ _id: 'p1', nombre: 'Nala', tamano: 'grande' } as never);
-      estrategiaMock.checkAvailability.mockResolvedValue({ disponible: true, metadata: { duracionMin: 60 } });
-
-      await service.agendaCitas({ ...consulta, perroId: 'p1' });
-
-      expect(estrategiaMock.checkAvailability.mock.calls[0][1].parametrosExtra)
-        .toMatchObject({ perroTamano: 'grande' });
     });
   });
 
@@ -1216,39 +1194,356 @@ describe('BookingsService', () => {
     });
   });
 
-  describe('agregarSeguimiento', () => {
-    it('añade un hito y pone EN_CURSO si la reserva estaba confirmada', async () => {
-      const doc = {
-        ...reservaMock, estado: ReservaEstado.CONFIRMADA, seguimiento: [], historialEstados: [],
-        save: jest.fn().mockImplementation(function (this: unknown) { return Promise.resolve(this); }),
-      };
-      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+  /** Documento de reserva con lo que usan los flujos de viaje: `save` devuelve el propio documento. */
+  const docReserva = (extra: Record<string, unknown> = {}) => {
+    const doc: Record<string, unknown> = {
+      ...reservaMock,
+      servicioId: { toString: () => 'servicio-1' },
+      seguimiento: [],
+      historialEstados: [],
+      evidencias: [],
+      markModified: jest.fn(),
+      ...extra,
+    };
+    doc['save'] = jest.fn().mockImplementation(() => Promise.resolve(doc));
+    return doc as unknown as ReservaDocument & {
+      save: jest.Mock; markModified: jest.Mock; evidencias: Array<Record<string, unknown>>;
+    };
+  };
 
-      await service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida');
+  const devolverAlBuscar = (doc: unknown) => {
+    reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+  };
+
+  describe('agregarSeguimiento', () => {
+    it('añade un hito, pone EN_CURSO si la reserva estaba confirmada y avisa al cliente', async () => {
+      const doc = docReserva({ estado: ReservaEstado.CONFIRMADA });
+      devolverAlBuscar(doc);
+
+      await service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida', 'Todo bien');
 
       expect(doc.seguimiento).toHaveLength(1);
-      expect(doc.seguimiento[0]).toMatchObject({ hito: 'recogida' });
+      expect(doc.seguimiento[0]).toMatchObject({ hito: 'recogida', nota: 'Todo bien' });
       expect(doc.estado).toBe(ReservaEstado.EN_CURSO);
+      expect(doc.historialEstados).toEqual([expect.objectContaining({ estado: ReservaEstado.EN_CURSO })]);
+      expect(notificationsService.notificarHitoViaje).toHaveBeenCalledWith('reserva-1', 'recogida', 'Todo bien', undefined);
     });
 
     it('el hito "finalizada" marca la reserva COMPLETADA', async () => {
-      const doc = {
-        ...reservaMock, estado: ReservaEstado.EN_CURSO, seguimiento: [], historialEstados: [],
-        save: jest.fn().mockImplementation(function (this: unknown) { return Promise.resolve(this); }),
-      };
-      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
+      const doc = docReserva({ estado: ReservaEstado.EN_CURSO });
+      devolverAlBuscar(doc);
 
       await service.agregarSeguimiento('reserva-1', 'comercio-1', 'finalizada');
       expect(doc.estado).toBe(ReservaEstado.COMPLETADA);
     });
 
+    it('no cambia el estado si la reserva ya está en curso y el hito no es el final', async () => {
+      const doc = docReserva({ estado: ReservaEstado.EN_CURSO });
+      devolverAlBuscar(doc);
+
+      await service.agregarSeguimiento('reserva-1', 'comercio-1', 'en_trayecto');
+      expect(doc.estado).toBe(ReservaEstado.EN_CURSO);
+      expect(doc.historialEstados).toHaveLength(0);
+    });
+
+    it('guarda la foto del hito como evidencia', async () => {
+      const doc = docReserva({ estado: ReservaEstado.CONFIRMADA });
+      devolverAlBuscar(doc);
+
+      await service.agregarSeguimiento('reserva-1', 'comercio-1', 'entregada', undefined, 'https://cdn/foto.jpg');
+
+      expect(doc.evidencias).toEqual([expect.objectContaining({ tipo: 'hito_entregada', url: 'https://cdn/foto.jpg' })]);
+    });
+
+    it('rechaza con 404 si la reserva no existe', async () => {
+      devolverAlBuscar(null);
+      await expect(service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida'))
+        .rejects.toMatchObject({ statusCode: 404 });
+    });
+
     it('rechaza si la reserva no es del comercio', async () => {
-      const doc = { ...reservaMock, comercioId: { toString: () => 'otro' }, seguimiento: [] };
-      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(doc) });
-      await expect(service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida')).rejects.toThrow(DomainException);
+      devolverAlBuscar(docReserva({ comercioId: { toString: () => 'otro' } }));
+      await expect(service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida'))
+        .rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it('rechaza con 400 si la reserva no está confirmada ni en curso', async () => {
+      devolverAlBuscar(docReserva({ estado: ReservaEstado.PENDIENTE }));
+      await expect(service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida'))
+        .rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it('rechaza con 409 si el viaje todavía está pendiente de aceptar', async () => {
+      devolverAlBuscar(docReserva({
+        estado: ReservaEstado.CONFIRMADA, aceptacion: { requerida: true, estado: 'pendiente', plazoMin: 60 },
+      }));
+      await expect(service.agregarSeguimiento('reserva-1', 'comercio-1', 'recogida'))
+        .rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it('deja que el vertical valide el hito y no guarda nada si lo rechaza', async () => {
+      const doc = docReserva({ estado: ReservaEstado.CONFIRMADA });
+      devolverAlBuscar(doc);
+      const validarHito = jest.fn().mockImplementation(() => {
+        throw new DomainException('Hito desconocido', 400);
+      });
+      availabilityRegistry.obtener.mockReturnValue({ ...estrategiaMock, validarHito } as never);
+
+      await expect(service.agregarSeguimiento('reserva-1', 'comercio-1', 'volando'))
+        .rejects.toMatchObject({ statusCode: 400 });
+      expect(validarHito).toHaveBeenCalledWith(expect.objectContaining({ servicioId: 'servicio-1' }), 'volando', undefined);
+      expect(doc.save).not.toHaveBeenCalled();
+      expect(notificationsService.notificarHitoViaje).not.toHaveBeenCalled();
     });
   });
 
+  describe('aceptación de viajes', () => {
+    const pendiente = (extra: Record<string, unknown> = {}) => docReserva({
+      estado: ReservaEstado.CONFIRMADA,
+      fechaInicio: new Date('2026-10-01T07:00:00.000Z'),
+      aceptacion: { requerida: true, estado: 'pendiente', plazoMin: 60 },
+      ...extra,
+    });
+
+    it('aceptarViaje fija la hora confirmada en hora de Madrid y avisa al cliente', async () => {
+      const doc = pendiente();
+      devolverAlBuscar(doc);
+
+      await service.aceptarViaje('reserva-1', 'comercio-1', '11:15');
+
+      expect(doc.fechaInicio.toISOString()).toBe('2026-10-01T09:15:00.000Z');
+      expect(doc.aceptacion).toEqual(expect.objectContaining({ estado: 'aceptada', requerida: true, plazoMin: 60 }));
+      expect(doc.aceptacion?.resueltaAt).toBeInstanceOf(Date);
+      expect(doc.markModified).toHaveBeenCalledWith('aceptacion');
+      expect(doc.historialEstados).toEqual([expect.objectContaining({ motivo: 'Aceptada por el comercio', por: 'comercio:comercio-1' })]);
+      expect(notificationsService.notificarAceptacion).toHaveBeenCalledWith('reserva-1', true);
+    });
+
+    it('aceptarViaje conserva la hora si no llega una hora válida', async () => {
+      const doc = pendiente();
+      devolverAlBuscar(doc);
+
+      await service.aceptarViaje('reserva-1', 'comercio-1', '99:99');
+
+      expect(doc.fechaInicio.toISOString()).toBe('2026-10-01T07:00:00.000Z');
+    });
+
+    it('pendienteDeAceptar lanza 404 si la reserva no existe', async () => {
+      devolverAlBuscar(null);
+      await expect(service.pendienteDeAceptar('reserva-1', 'comercio-1')).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it('pendienteDeAceptar lanza 403 si la reserva es de otro comercio', async () => {
+      devolverAlBuscar(pendiente({ comercioId: { toString: () => 'otro' } }));
+      await expect(service.pendienteDeAceptar('reserva-1', 'comercio-1')).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it('pendienteDeAceptar lanza 400 si ya se aceptó', async () => {
+      devolverAlBuscar(pendiente({ aceptacion: { requerida: true, estado: 'aceptada', plazoMin: 60 } }));
+      await expect(service.pendienteDeAceptar('reserva-1', 'comercio-1')).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it('pendienteDeAceptar lanza 400 si la reserva aún no se ha pagado', async () => {
+      devolverAlBuscar(pendiente({ estado: ReservaEstado.PENDIENTE }));
+      await expect(service.pendienteDeAceptar('reserva-1', 'comercio-1')).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it('aceptacionesVencidas busca confirmadas pendientes con el plazo vencido', async () => {
+      const limit = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+      reservaModel.find.mockReturnValue({ limit });
+
+      await service.aceptacionesVencidas(20);
+
+      expect(reservaModel.find).toHaveBeenCalledWith({
+        estado: ReservaEstado.CONFIRMADA,
+        'aceptacion.estado': 'pendiente',
+        'aceptacion.venceEn': { $lt: expect.any(Date) },
+      });
+      expect(limit).toHaveBeenCalledWith(20);
+    });
+  });
+
+  describe('cancelación con política del vertical', () => {
+    it('politicaCancelacion sin estrategia de cancelación no devuelve nada automáticamente', async () => {
+      const politica = await service.politicaCancelacion(docReserva());
+      expect(politica.porcentaje).toBe(0);
+      expect(politica.motivo).toContain('revisará');
+    });
+
+    it('politicaCancelacion delega en la estrategia del vertical cuando la tiene', async () => {
+      const politicaReembolso = jest.fn().mockResolvedValue({ porcentaje: 100, motivo: 'Gratis' });
+      availabilityRegistry.obtener.mockReturnValue({ ...estrategiaMock, politicaReembolso } as never);
+      const doc = docReserva({ estado: ReservaEstado.CONFIRMADA, fechaInicio: new Date('2026-10-01T07:00:00Z'), detalle: { a: 1 } });
+
+      const politica = await service.politicaCancelacion(doc);
+
+      expect(politica).toEqual({ porcentaje: 100, motivo: 'Gratis' });
+      expect(politicaReembolso).toHaveBeenCalledWith(expect.objectContaining({
+        servicioId: 'servicio-1', estado: ReservaEstado.CONFIRMADA, detalle: { a: 1 },
+      }));
+    });
+
+    it.each([ReservaEstado.PENDIENTE, ReservaEstado.CONFIRMADA])('cancelablePorCliente admite una reserva %s', async (estado) => {
+      const doc = docReserva({ estado });
+      devolverAlBuscar(doc);
+      await expect(service.cancelablePorCliente('reserva-1', 'user-1')).resolves.toBe(doc);
+    });
+
+    it.each([ReservaEstado.EN_CURSO, ReservaEstado.CANCELADA, ReservaEstado.COMPLETADA])(
+      'cancelablePorCliente rechaza una reserva %s', async (estado) => {
+        devolverAlBuscar(docReserva({ estado }));
+        await expect(service.cancelablePorCliente('reserva-1', 'user-1')).rejects.toMatchObject({ statusCode: 400 });
+      },
+    );
+
+    it('marcarCancelada libera la plaza, anota reembolso y aceptación y cancela la serie', async () => {
+      const doc = docReserva({
+        estado: ReservaEstado.CONFIRMADA, holdId: 'hold-9',
+        aceptacion: { requerida: true, estado: 'pendiente', plazoMin: 60 },
+      });
+
+      await service.marcarCancelada(doc, {
+        por: 'comercio:comercio-1', motivo: 'Sin conductor',
+        reembolso: { porcentaje: 100, importe: 55 }, aceptacion: 'rechazada',
+      });
+
+      expect(estrategiaMock.releaseSlot).toHaveBeenCalledWith('hold-9');
+      expect(doc.holdId).toBeUndefined();
+      expect(doc.estado).toBe(ReservaEstado.CANCELADA);
+      expect(doc.reembolso).toEqual(expect.objectContaining({ porcentaje: 100, importe: 55, motivo: 'Sin conductor' }));
+      expect(doc.aceptacion).toEqual(expect.objectContaining({ estado: 'rechazada', motivo: 'Sin conductor' }));
+      expect(doc.markModified).toHaveBeenCalledWith('aceptacion');
+      expect(reservaModel.updateMany).toHaveBeenCalledWith(
+        { reservaOrigenId: 'reserva-1', estado: { $in: [ReservaEstado.PENDIENTE, ReservaEstado.CONFIRMADA] } },
+        { estado: ReservaEstado.CANCELADA },
+      );
+    });
+
+    it('marcarCancelada sin hold ni reembolso sólo cambia el estado', async () => {
+      const doc = docReserva({ estado: ReservaEstado.PENDIENTE, holdId: undefined });
+
+      await service.marcarCancelada(doc, { por: 'cliente', motivo: 'Cambio de planes', aceptacion: 'caducada' });
+
+      expect(estrategiaMock.releaseSlot).not.toHaveBeenCalled();
+      expect(doc.reembolso).toBeUndefined();
+      expect(doc.aceptacion).toBeUndefined();
+      expect(doc.estado).toBe(ReservaEstado.CANCELADA);
+    });
+
+    it('cancelar también cancela las reservas hija de la serie', async () => {
+      devolverAlBuscar(docReserva({ estado: ReservaEstado.CONFIRMADA }));
+
+      await service.cancelar('reserva-1', 'user-1');
+
+      expect(reservaModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ reservaOrigenId: 'reserva-1' }),
+        { estado: ReservaEstado.CANCELADA },
+      );
+    });
+  });
+
+  describe('confirmar — lo que pasa tras cobrar', () => {
+    beforeEach(() => {
+      // Reserva aún pendiente y con la plaza retenida: se confirma sin revalidar.
+      const pendiente = { ...reservaMock, estado: ReservaEstado.PENDIENTE, holdId: 'hold-1' };
+      reservaModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(pendiente),
+        lean: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(pendiente) }),
+      });
+    });
+
+    it('arranca el plazo de aceptación y avisa al comercio', async () => {
+      const confirmada = docReserva({
+        estado: ReservaEstado.CONFIRMADA, aceptacion: { requerida: true, estado: 'pendiente', plazoMin: 30 },
+      });
+      reservaModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(confirmada) });
+      const antes = Date.now();
+
+      await service.confirmar('reserva-1');
+
+      const venceEn = confirmada.aceptacion?.venceEn as Date;
+      expect(venceEn.getTime()).toBeGreaterThanOrEqual(antes + 30 * 60_000);
+      expect(confirmada.save).toHaveBeenCalled();
+      expect(notificationsService.notificarPendienteAceptacion).toHaveBeenCalledWith('reserva-1');
+    });
+
+    it('no reinicia el plazo si ya estaba arrancado', async () => {
+      const venceEn = new Date('2030-01-01');
+      const confirmada = docReserva({
+        estado: ReservaEstado.CONFIRMADA, aceptacion: { requerida: true, estado: 'pendiente', plazoMin: 30, venceEn },
+      });
+      reservaModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(confirmada) });
+
+      await service.confirmar('reserva-1');
+
+      expect(confirmada.aceptacion?.venceEn).toBe(venceEn);
+      expect(notificationsService.notificarPendienteAceptacion).not.toHaveBeenCalled();
+    });
+
+    it('marca el presupuesto como convertido en reserva', async () => {
+      const confirmada = docReserva({ estado: ReservaEstado.CONFIRMADA, presupuestoId: { toString: () => 'pres-1' } });
+      reservaModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(confirmada) });
+
+      await service.confirmar('reserva-1');
+
+      expect(presupuestosService.marcarConvertida).toHaveBeenCalledWith('pres-1', 'servicio-1', 'reserva-1');
+    });
+  });
+
+  describe('crear — viajes de transporte', () => {
+    it('toma el importe del presupuesto aceptado en lugar de la tarifa', async () => {
+      presupuestosService.importeParaReserva.mockResolvedValue(180);
+
+      await service.crear({ ...parametrosBase, presupuestoId: 'pres-1' });
+
+      expect(presupuestosService.importeParaReserva).toHaveBeenCalledWith('pres-1', 'user-1', 'servicio-1');
+      expect(estrategiaMock.checkAvailability).toHaveBeenCalledWith('servicio-1', expect.objectContaining({
+        parametrosExtra: expect.objectContaining({ precioAcordado: 180 }),
+      }));
+      const guardada = reservaModel.mock.calls[0][0];
+      expect(guardada.montoTotal).toBe(180);
+      expect(guardada.presupuestoId).toBe('pres-1');
+    });
+
+    it('no consulta presupuestos si la reserva no viene de uno', async () => {
+      await service.crear(parametrosBase);
+      expect(presupuestosService.importeParaReserva).not.toHaveBeenCalled();
+    });
+
+    it('congela la ficha de las demás mascotas del viaje, sin repetir la principal', async () => {
+      perrosService.obtenerPropio.mockImplementation(async (id: string) => ({
+        _id: id, nombre: `perro-${id}`, especie: 'perro',
+      }) as never);
+
+      await service.crear({ ...parametrosBase, perroId: 'p1', perroIdsAdicionales: ['p2', 'p1', 'p2', 'p3'] });
+
+      const guardada = reservaModel.mock.calls[0][0];
+      expect(guardada.perrosAdicionales).toEqual([
+        { perroId: 'p2', snapshot: expect.objectContaining({ nombre: 'perro-p2' }) },
+        { perroId: 'p3', snapshot: expect.objectContaining({ nombre: 'perro-p3' }) },
+      ]);
+      expect(perrosService.obtenerPropio).toHaveBeenCalledWith('p2', 'user-1');
+    });
+
+    it('guarda lo que la estrategia anota en metadata.detalleReserva y la aceptación requerida', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, precioCalculado: 55,
+        metadata: { detalleReserva: { km: 70, desglose: [{ concepto: 'Trayecto', importe: 55 }] }, requiereAceptacion: true, plazoAceptacionMin: 2 },
+      });
+
+      await service.crear({ ...parametrosBase, detalle: { origen: 'A' } });
+
+      const guardada = reservaModel.mock.calls[0][0];
+      expect(guardada.detalle).toEqual(expect.objectContaining({ origen: 'A', km: 70 }));
+      // El plazo mínimo es de 5 minutos aunque la estrategia pida menos.
+      expect(guardada.aceptacion).toEqual({ requerida: true, estado: 'pendiente', plazoMin: 5 });
+    });
+
+    it('no pide aceptación si la estrategia no lo indica', async () => {
+      await service.crear(parametrosBase);
+      expect(reservaModel.mock.calls[0][0].aceptacion).toBeUndefined();
+    });
+  });
   describe('obtenerPuntos', () => {
     const USER_ID = new Types.ObjectId().toString();
 

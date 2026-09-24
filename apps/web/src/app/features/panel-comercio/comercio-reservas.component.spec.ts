@@ -253,10 +253,25 @@ describe('ComercioReservasComponent', () => {
   });
 
   describe('seguimiento en tiempo real', () => {
-    it('debería ofrecer los hitos propios del transporte', () => {
-      const hitos = component.hitosDe('transporte').map((h) => h.hito);
+    it('no debería ofrecer hitos sueltos en transporte: los gestiona su propio panel', () => {
+      expect(component.hitosDe('transporte')).toEqual([]);
+    });
 
-      expect(hitos).toEqual(['recogida', 'en_ruta', 'entregada', 'finalizada']);
+    it('debería mezclar la reserva actualizada con la de la lista sin perder cliente ni servicio', () => {
+      component.reservas.set([{ ...reservaConfirmada, perroId: 'perro-9' }]);
+
+      component.reemplazarReserva({ ...reservaConfirmada, estado: 'en_curso' });
+
+      expect(component.reservas()[0].estado).toBe('en_curso');
+      expect(component.reservas()[0].perroId).toBe('perro-9');
+    });
+
+    it('no debería tocar otras reservas al reemplazar una', () => {
+      const lista = component.reservas();
+
+      component.reemplazarReserva({ ...lista[0], _id: 'otra', estado: 'cancelada' });
+
+      expect(component.reservas()).toEqual(lista);
     });
 
     it('debería ofrecer entrada y salida en estancias', () => {

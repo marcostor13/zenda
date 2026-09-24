@@ -43,6 +43,11 @@ export const panelComercioRoutes: Routes = [
           import('./comercio-reservas.component').then(m => m.ComercioReservasComponent),
       },
       {
+        path: 'presupuestos',
+        loadComponent: () =>
+          import('./comercio-presupuestos.component').then(m => m.ComercioPresupuestosComponent),
+      },
+      {
         path: 'mascotas/:perroId',
         loadComponent: () =>
           import('./comercio-mascota-expediente.component').then(m => m.ComercioMascotaExpedienteComponent),

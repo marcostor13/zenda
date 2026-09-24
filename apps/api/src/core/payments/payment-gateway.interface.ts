@@ -33,7 +33,8 @@ export interface PaymentGateway {
   consultarIntent(intentId: string): Promise<ConsultaIntent>;
   construirEvento(payload: Buffer, signature: string): unknown;
   extraerIntentDeEvento(evento: unknown): { intentId: string; estado: 'succeeded' | 'failed' | 'other'; chargeId?: string } | null;
-  reembolsar(paymentIntentId: string): Promise<void>;
+  /** Sin importe, devuelve todo; con importe (en euros), sólo esa parte. */
+  reembolsar(paymentIntentId: string, importeEur?: number): Promise<void>;
 }
 
 export const PAYMENT_GATEWAY = Symbol('PAYMENT_GATEWAY');

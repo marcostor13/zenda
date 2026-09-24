@@ -77,3 +77,47 @@ export const implementaCalendario = (
   estrategia: AvailabilityStrategy,
 ): estrategia is AvailabilityStrategy & CalendarioStrategy =>
   typeof (estrategia as Partial<CalendarioStrategy>).calendario === 'function';
+
+/** Lo que un vertical necesita de una reserva para aplicarle sus políticas. */
+export interface ReservaParaPoliticas {
+  servicioId: string;
+  estado: string;
+  fechaInicio: Date;
+  detalle?: Record<string, unknown>;
+  seguimiento?: Array<{ hito: string }>;
+}
+
+export interface PoliticaReembolso {
+  /** 0-100: parte del importe pagado que se devuelve. */
+  porcentaje: number;
+  /** Explicación para el cliente. */
+  motivo: string;
+}
+
+/**
+ * Política de cancelación del vertical. Opcional, igual que el calendario: un
+ * vertical que no la implemente se cancela como hasta ahora, sin reembolso
+ * automático, y lo resuelve el comercio o el admin.
+ */
+export interface CancelacionStrategy {
+  politicaReembolso(reserva: ReservaParaPoliticas, ahora?: Date): Promise<PoliticaReembolso>;
+}
+
+export const implementaCancelacion = (
+  estrategia: AvailabilityStrategy,
+): estrategia is AvailabilityStrategy & CancelacionStrategy =>
+  typeof (estrategia as Partial<CancelacionStrategy>).politicaReembolso === 'function';
+
+/**
+ * Reglas del vertical sobre los hitos de seguimiento (qué hitos existen, cuáles
+ * exigen foto). Sin implementarla, el core acepta cualquier hito como hasta ahora.
+ */
+export interface SeguimientoStrategy {
+  /** Lanza `DomainException` si el hito no se puede marcar así. */
+  validarHito(reserva: ReservaParaPoliticas, hito: string, fotoUrl?: string): void;
+}
+
+export const implementaSeguimiento = (
+  estrategia: AvailabilityStrategy,
+): estrategia is AvailabilityStrategy & SeguimientoStrategy =>
+  typeof (estrategia as Partial<SeguimientoStrategy>).validarHito === 'function';

@@ -504,6 +504,28 @@ export class GeoService {
     return trayecto;
   }
 
+  /**
+   * Lo mismo que `trayecto`, pero entre dos puntos ya conocidos: la ubicación
+   * actual del cliente no tiene `placeId`. Se cachea por coordenadas
+   * redondeadas a ~100 m, que es la precisión que importa para facturar.
+   */
+  async trayectoEntre(origen: { lat: number; lng: number }, destino: { lat: number; lng: number }): Promise<Trayecto | null> {
+    const valido = (p: { lat: number; lng: number }): boolean =>
+      Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180;
+    if (!valido(origen) || !valido(destino)) return null;
+
+    const r = (n: number): string => n.toFixed(3);
+    const clave = `${r(origen.lat)},${r(origen.lng)}>${r(destino.lat)},${r(destino.lng)}`;
+    const cacheado = this.leerCache(this.cacheTrayectos, clave);
+    if (cacheado) return cacheado;
+
+    const puntoA = { ciudad: '', lat: origen.lat, lng: origen.lng };
+    const puntoB = { ciudad: '', lat: destino.lat, lng: destino.lng };
+    const trayecto = await this.rutaPorCarretera(puntoA, puntoB) ?? this.rutaEnLineaRecta(puntoA, puntoB);
+    this.escribirCache(this.cacheTrayectos, clave, trayecto, TTL_TRAYECTO_MS);
+    return trayecto;
+  }
+
   private async rutaPorCarretera(
     origen: CoordenadasLugar,
     destino: CoordenadasLugar,

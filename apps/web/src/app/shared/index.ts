@@ -49,3 +49,13 @@ export { EurosPipe, EurosFijosPipe, euros } from './pipes/euros.pipe';
 export { mensajeDeError } from './mensaje-error';
 export { RsAdminFiltrosComponent } from './components/admin-filtros/rs-admin-filtros.component';
 export type { GrupoFiltro, OpcionFiltro, ValoresFiltro } from './components/admin-filtros/rs-admin-filtros.component';
+// Flujo de transporte (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md §2.4)
+export { RsOpcionesComponent } from './components/opciones/rs-opciones.component';
+export type { OpcionElegible } from './components/opciones/rs-opciones.component';
+export { RsContadorComponent } from './components/contador/rs-contador.component';
+export { RsBarraCtaComponent } from './components/barra-cta/rs-barra-cta.component';
+export { RsDesglosePrecioComponent } from './components/desglose-precio/rs-desglose-precio.component';
+export type { LineaPrecio } from './components/desglose-precio/rs-desglose-precio.component';
+export { RsTimelineViajeComponent } from './components/timeline-viaje/rs-timeline-viaje.component';
+export type { PasoTimeline, EstadoPaso } from './components/timeline-viaje/rs-timeline-viaje.component';
+export { RsResumenViajeComponent } from './components/resumen-viaje/rs-resumen-viaje.component';

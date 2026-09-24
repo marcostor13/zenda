@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid';
 import { EstadoPresupuesto, VerticalKey } from 'shared';
 import { BookingsService } from '../bookings/bookings.service';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { Presupuesto, PresupuestoDocument } from './presupuesto.schema';
 import { PresupuestosRepository } from './presupuestos.repository';
@@ -42,14 +43,15 @@ export class PresupuestosService {
     private readonly repo: PresupuestosRepository,
     private readonly bookings: BookingsService,
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async solicitar(params: SolicitarPresupuestoParams): Promise<PresupuestoDocument> {
     const servicio = await this.servicioModel
       .findById(params.servicioId)
-      .select('comercioId vertical validezPresupuestoHoras')
+      .select('comercioId vertical titulo validezPresupuestoHoras')
       .lean()
-      .exec() as { comercioId: unknown; vertical: VerticalKey } | null;
+      .exec() as { comercioId: unknown; vertical: VerticalKey; titulo?: string } | null;
 
     if (!servicio) throw new DomainException('Servicio no encontrado', 404);
 
@@ -58,7 +60,7 @@ export class PresupuestosService {
     const abierto = await this.repo.abiertoDe(params.usuarioId, params.servicioId);
     if (abierto) return abierto;
 
-    return this.repo.crear({
+    const creado = await this.repo.crear({
       codigo: `PRE-${nanoid(8).toUpperCase()}`,
       usuarioId: params.usuarioId as never,
       comercioId: servicio.comercioId as never,
@@ -69,6 +71,17 @@ export class PresupuestosService {
       solicitud: params.solicitud,
       estado: EstadoPresupuesto.SOLICITADO,
     });
+
+    // Sin aviso la petición se quedaba en la bandeja hasta que alguien entrase
+    // al panel por su cuenta. Nunca lanza: la petición ya está guardada.
+    void this.notifications.notificarSolicitudPresupuesto({
+      comercioId: String(servicio.comercioId),
+      codigo: creado.codigo,
+      servicio: servicio.titulo ?? 'Tu servicio',
+      fechaServicio: creado.fechaServicio,
+      resumen: resumenDe(params.solicitud),
+    });
+    return creado;
   }
 
   misPresupuestos(usuarioId: string): Promise<PresupuestoDocument[]> {
@@ -102,7 +115,18 @@ export class PresupuestosService {
     presupuesto.validoHasta = new Date(Date.now() + horas * MS_POR_HORA);
     presupuesto.estado = EstadoPresupuesto.OFERTADO;
     presupuesto.ofertadoAt = new Date();
-    return presupuesto.save();
+    const guardado = await presupuesto.save();
+
+    const servicio = await this.servicioModel.findById(presupuesto.servicioId).select('titulo').lean().exec() as { titulo?: string } | null;
+    void this.notifications.notificarPresupuestoRecibido({
+      usuarioId: String(presupuesto.usuarioId),
+      codigo: presupuesto.codigo,
+      empresa: servicio?.titulo ?? 'La empresa',
+      importe: presupuesto.importe,
+      validoHasta: presupuesto.validoHasta,
+      condiciones: presupuesto.condiciones,
+    });
+    return guardado;
   }
 
   /**
@@ -113,7 +137,7 @@ export class PresupuestosService {
    * aceptó. Lo demás —comisión, IVA, hold de disponibilidad— sigue el mismo
    * camino que cualquier otra reserva.
    */
-  async aceptar(id: string, usuarioId: string): Promise<PresupuestoDocument> {
+  async aceptar(id: string, usuarioId: string, detalleExtra?: Record<string, unknown>): Promise<PresupuestoDocument> {
     const presupuesto = await this.buscar(id);
     this.exigirCliente(presupuesto, usuarioId);
 
@@ -131,7 +155,7 @@ export class PresupuestosService {
       servicioId: String(presupuesto.servicioId),
       perroId: presupuesto.perroId ? String(presupuesto.perroId) : undefined,
       fechaInicio: presupuesto.fechaServicio,
-      detalle: { ...presupuesto.solicitud, presupuestoCodigo: presupuesto.codigo },
+      detalle: { ...presupuesto.solicitud, ...(detalleExtra ?? {}), presupuestoCodigo: presupuesto.codigo },
       precioAcordado: presupuesto.importe,
     });
 
@@ -155,6 +179,18 @@ export class PresupuestosService {
     return presupuesto.save();
   }
 
+  /** Nombre de cada servicio, para las listas de cliente y comercio. */
+  async titulosDeServicios(presupuestos: readonly Presupuesto[]): Promise<Map<string, string>> {
+    const ids = [...new Set(presupuestos.map((p) => String(p.servicioId)))];
+    if (!ids.length) return new Map();
+    const servicios = await this.servicioModel
+      .find({ _id: { $in: ids } })
+      .select('titulo')
+      .lean()
+      .exec() as unknown as Array<{ _id: unknown; titulo?: string }>;
+    return new Map(servicios.map((s) => [String(s._id), s.titulo ?? '']));
+  }
+
   private async buscar(id: string): Promise<PresupuestoDocument> {
     const presupuesto = await this.repo.porId(id);
     if (!presupuesto) throw new DomainException('Presupuesto no encontrado', 404);
@@ -173,4 +209,13 @@ export class PresupuestosService {
       throw new DomainException('Este presupuesto no es tuyo', 403);
     }
   }
+}
+
+/** Filas legibles que manda el flujo de cliente junto a su solicitud (`resumen`), si las hay. */
+function resumenDe(solicitud: Record<string, unknown>): Array<[string, string]> {
+  const resumen = solicitud['resumen'];
+  if (!Array.isArray(resumen)) return [];
+  return resumen
+    .filter((fila): fila is [unknown, unknown] => Array.isArray(fila) && fila.length === 2)
+    .map(([etiqueta, valor]) => [String(etiqueta).slice(0, 80), String(valor).slice(0, 300)]);
 }

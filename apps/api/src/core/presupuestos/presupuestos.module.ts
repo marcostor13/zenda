@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth/auth.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { Servicio, ServicioSchema } from '../catalog/servicio.schema';
 import { PresupuestosController } from './presupuestos.controller';
 import { PresupuestosRepository } from './presupuestos.repository';
@@ -18,6 +19,7 @@ import { PresupuestosService } from './presupuestos.service';
     AuthModule,
     BookingsModule,
     CatalogModule,
+    NotificationsModule,
   ],
   controllers: [PresupuestosController],
   providers: [PresupuestosService, PresupuestosRepository],

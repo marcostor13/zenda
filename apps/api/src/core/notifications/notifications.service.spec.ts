@@ -9,6 +9,7 @@ import { Reserva } from '../bookings/reserva.schema';
 import { Servicio } from '../catalog/servicio.schema';
 import { Usuario } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
+import { PushService } from './push.service';
 
 function leanExec<T>(val: T) {
   return { select: () => ({ lean: () => ({ exec: () => Promise.resolve(val) }) }) };
@@ -71,6 +72,7 @@ describe('NotificationsService', () => {
         { provide: getModelToken(Comercio.name), useValue: { findById: () => leanExec({ nombreComercial: 'Clínica <Royal>', contacto: { telefono: '+34 600 000 000' } }) } },
         // Las plantillas nuevas componen enlaces con APP_URL.
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
+        { provide: PushService, useValue: { enviarA: jest.fn().mockResolvedValue({ enviados: 0 }) } },
       ],
     }).compile();
 
@@ -124,6 +126,7 @@ describe('NotificationsService', () => {
         { provide: getModelToken(Usuario.name), useValue: {} },
         { provide: getModelToken(Comercio.name), useValue: {} },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
+        { provide: PushService, useValue: { enviarA: jest.fn().mockResolvedValue({ enviados: 0 }) } },
       ],
     }).compile();
 
@@ -143,6 +146,7 @@ describe('NotificationsService', () => {
         { provide: getModelToken(Usuario.name), useValue: { findById: () => leanExec(null), find: () => leanExec([{ email: 'comercio@test.com' }]) } },
         { provide: getModelToken(Comercio.name), useValue: { findById: () => leanExec(null) } },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(undefined) } },
+        { provide: PushService, useValue: { enviarA: jest.fn().mockResolvedValue({ enviados: 0 }) } },
       ],
     }).compile();
 
@@ -179,6 +183,7 @@ describe('NotificationsService', () => {
           },
           { provide: getModelToken(Comercio.name), useValue: { findById: () => leanExec(null) } },
           { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
+          { provide: PushService, useValue: { enviarA: jest.fn().mockResolvedValue({ enviados: 0 }) } },
         ],
       }).compile();
       return {
@@ -304,6 +309,232 @@ describe('NotificationsService', () => {
       await expect(service.enviarVerificacionEmail('a@test.com', 'Ana', 'https://x/v'))
         .resolves.toBeUndefined();
       expect(repo.marcarFallido).toHaveBeenCalledWith(expect.anything(), 'SMTP caído');
+    });
+  });
+
+  describe('avisos del viaje y de presupuestos', () => {
+    const staffId = new Types.ObjectId();
+    const viaje = {
+      ...reservaMock,
+      vertical: 'transporte',
+      detalle: { resumen: [['Recogida', 'Castellón']] },
+      aceptacion: { requerida: true, estado: 'pendiente', plazoMin: 60, venceEn: new Date('2026-09-21T10:00:00Z'), motivo: 'Sin conductor' },
+      reembolso: { porcentaje: 50, importe: 19, motivo: 'Cancelación tardía' },
+    };
+
+    interface Entorno {
+      reserva?: unknown;
+      cliente?: unknown;
+      staff?: unknown[];
+      findUsuario?: jest.Mock;
+    }
+
+    async function montar(entorno: Entorno = {}) {
+      const push = { enviarA: jest.fn().mockResolvedValue({ enviados: 1 }) };
+      const enviar = jest.fn().mockResolvedValue(undefined);
+      const reserva = 'reserva' in entorno ? entorno.reserva : viaje;
+      const cliente = 'cliente' in entorno ? entorno.cliente : { nombre: 'María', email: 'maria@test.com' };
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          NotificationsService,
+          {
+            provide: NotificationsRepository,
+            useValue: {
+              crear: jest.fn().mockResolvedValue({ _id: new Types.ObjectId() }),
+              marcarEnviado: jest.fn().mockResolvedValue(undefined),
+              marcarFallido: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+          { provide: MailerService, useValue: { enviar } },
+          { provide: getModelToken(Reserva.name), useValue: { findById: () => ({ lean: () => ({ exec: () => Promise.resolve(reserva) }) }) } },
+          { provide: getModelToken(Servicio.name), useValue: { findById: () => leanExec({ titulo: 'Transportes Fido' }) } },
+          {
+            provide: getModelToken(Usuario.name),
+            useValue: {
+              findById: entorno.findUsuario ?? (() => leanExec(cliente)),
+              find: () => leanExec(entorno.staff ?? [{ _id: staffId, email: 'comercio@test.com' }]),
+            },
+          },
+          { provide: getModelToken(Comercio.name), useValue: { findById: () => leanExec(null) } },
+          { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('https://doogking.test') } },
+          { provide: PushService, useValue: push },
+        ],
+      }).compile();
+      return {
+        svc: moduleRef.get(NotificationsService),
+        repo: moduleRef.get(NotificationsRepository) as jest.Mocked<NotificationsRepository>,
+        enviar,
+        push,
+      };
+    }
+
+    const lanzar = () => jest.fn(() => { throw new Error('mongo caído'); });
+
+    describe('notificarHitoViaje', () => {
+      it('debería avisar al cliente por correo y push con la etiqueta del hito', async () => {
+        const { svc, enviar, push, repo } = await montar();
+
+        await svc.notificarHitoViaje(reservaId.toString(), 'recogida', 'Todo bien', 'https://cdn/f.jpg');
+
+        expect(push.enviarA).toHaveBeenCalledWith(usuarioId.toString(), expect.objectContaining({
+          titulo: 'Mascota recogida', ruta: '/reservas/RES-ABC123',
+        }));
+        expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'hito_recogida' }));
+        const correo = enviar.mock.calls[0][0];
+        expect(correo.to).toBe('maria@test.com');
+        expect(correo.subject).toBe('Mascota recogida · RES-ABC123');
+        expect(correo.html).toContain('Todo bien');
+      });
+
+      it('debería traducir el hito antiguo en_ruta a en_trayecto', async () => {
+        const { svc, repo } = await montar();
+        await svc.notificarHitoViaje(reservaId.toString(), 'en_ruta');
+        expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'hito_en_trayecto', asunto: 'En trayecto · RES-ABC123' }));
+      });
+
+      it('debería usar el propio hito y un mensaje genérico si no lo conoce', async () => {
+        const { svc, enviar } = await montar();
+        await svc.notificarHitoViaje(reservaId.toString(), 'parada_tecnica');
+        expect(enviar.mock.calls[0][0].subject).toBe('parada_tecnica · RES-ABC123');
+        expect(enviar.mock.calls[0][0].html).toContain('hay novedades en tu reserva.');
+      });
+
+      it('no debería enviar nada si la reserva o el cliente no existen', async () => {
+        const sinReserva = await montar({ reserva: null });
+        await sinReserva.svc.notificarHitoViaje('x', 'recogida');
+        expect(sinReserva.enviar).not.toHaveBeenCalled();
+
+        const sinCliente = await montar({ cliente: null });
+        await sinCliente.svc.notificarHitoViaje('x', 'recogida');
+        expect(sinCliente.enviar).not.toHaveBeenCalled();
+      });
+
+      it('no debería lanzar nunca, aunque falle la base de datos', async () => {
+        const { svc } = await montar({ findUsuario: lanzar() });
+        await expect(svc.notificarHitoViaje('x', 'recogida')).resolves.toBeUndefined();
+      });
+    });
+
+    describe('notificarPendienteAceptacion', () => {
+      it('debería avisar a todo el staff del comercio con el plazo', async () => {
+        const { svc, enviar, push, repo } = await montar();
+
+        await svc.notificarPendienteAceptacion(reservaId.toString());
+
+        expect(push.enviarA).toHaveBeenCalledWith(staffId.toString(), expect.objectContaining({ titulo: 'Viaje pendiente de aceptar' }));
+        expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'aceptacion_pendiente', destinatario: 'comercio@test.com' }));
+        expect(enviar.mock.calls[0][0].html).toContain('Castellón');
+      });
+
+      it('no debería avisar si la reserva no tiene plazo de aceptación', async () => {
+        const { svc, enviar } = await montar({ reserva: { ...viaje, aceptacion: undefined } });
+        await svc.notificarPendienteAceptacion(reservaId.toString());
+        expect(enviar).not.toHaveBeenCalled();
+      });
+
+      it('no debería lanzar si algo falla por el camino', async () => {
+        const { svc } = await montar({ staff: [null] });
+        await expect(svc.notificarPendienteAceptacion(reservaId.toString())).resolves.toBeUndefined();
+      });
+    });
+
+    describe('notificarAceptacion', () => {
+      it('debería avisar al cliente de que su viaje está aceptado', async () => {
+        const { svc, repo, push } = await montar();
+        await svc.notificarAceptacion(reservaId.toString(), true);
+
+        expect(push.enviarA).toHaveBeenCalledWith(usuarioId.toString(), expect.objectContaining({ titulo: 'Viaje aceptado' }));
+        expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({
+          tipo: 'aceptacion_ok', asunto: 'Tu viaje RES-ABC123 está aceptado',
+        }));
+      });
+
+      it('debería avisar del rechazo con el motivo y lo devuelto', async () => {
+        const { svc, repo, enviar } = await montar();
+        await svc.notificarAceptacion(reservaId.toString(), false, 38);
+
+        expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'aceptacion_rechazada' }));
+        expect(enviar.mock.calls[0][0].html).toContain('Sin conductor');
+        expect(enviar.mock.calls[0][0].html).toContain('38,00 €');
+      });
+
+      it('no debería enviar nada si la reserva no existe ni lanzar si todo falla', async () => {
+        const { svc, enviar } = await montar({ reserva: null });
+        await svc.notificarAceptacion('x', true);
+        expect(enviar).not.toHaveBeenCalled();
+
+        const roto = await montar({ findUsuario: lanzar() });
+        await expect(roto.svc.notificarAceptacion('x', false)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('notificarCancelacion', () => {
+      it('debería mandar al cliente lo que se le devuelve', async () => {
+        const { svc, repo, enviar } = await montar();
+        await svc.notificarCancelacion(reservaId.toString());
+
+        expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'reserva_cancelada', asunto: 'Reserva RES-ABC123 cancelada' }));
+        expect(enviar.mock.calls[0][0].html).toContain('19,00 €');
+      });
+
+      it('debería decir que no hay reembolso cuando la reserva no lo registra', async () => {
+        const { svc, enviar } = await montar({ reserva: { ...viaje, reembolso: undefined } });
+        await svc.notificarCancelacion(reservaId.toString());
+        expect(enviar.mock.calls[0][0].html).toContain('no tiene reembolso');
+      });
+
+      it('no debería lanzar ni enviar si la reserva no existe o todo falla', async () => {
+        const { svc, enviar } = await montar({ reserva: null });
+        await svc.notificarCancelacion('x');
+        expect(enviar).not.toHaveBeenCalled();
+
+        const roto = await montar({ findUsuario: lanzar() });
+        await expect(roto.svc.notificarCancelacion('x')).resolves.toBeUndefined();
+      });
+    });
+
+    describe('notificarSolicitudPresupuesto', () => {
+      const params = {
+        comercioId: comercioId.toString(), codigo: 'PRE-1', servicio: 'Transportes Fido',
+        fechaServicio: new Date('2026-10-01T08:30:00Z'), resumen: [['Recogida', 'Castellón']] as Array<[string, string]>,
+      };
+
+      it('debería avisar al staff del comercio por correo y push', async () => {
+        const { svc, repo, push } = await montar();
+        await svc.notificarSolicitudPresupuesto(params);
+
+        expect(push.enviarA).toHaveBeenCalledWith(staffId.toString(), expect.objectContaining({ ruta: '/comercio/presupuestos' }));
+        expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'presupuesto_solicitado', asunto: 'Solicitud de presupuesto PRE-1' }));
+      });
+
+      it('no debería lanzar si algo falla', async () => {
+        const { svc } = await montar({ staff: [null] });
+        await expect(svc.notificarSolicitudPresupuesto(params)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('notificarPresupuestoRecibido', () => {
+      const params = {
+        usuarioId: usuarioId.toString(), codigo: 'PRE-1', empresa: 'Transportes Fido', importe: 120,
+        validoHasta: new Date('2026-10-05T10:00:00Z'),
+      };
+
+      it('debería avisar al cliente del importe', async () => {
+        const { svc, repo, push } = await montar();
+        await svc.notificarPresupuestoRecibido(params);
+
+        expect(push.enviarA).toHaveBeenCalledWith(usuarioId.toString(), expect.objectContaining({ titulo: 'Presupuesto recibido: 120.00 €' }));
+        expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'presupuesto_recibido', destinatario: 'maria@test.com' }));
+      });
+
+      it('no debería enviar nada si el cliente no existe ni lanzar si todo falla', async () => {
+        const { svc, enviar } = await montar({ cliente: null });
+        await svc.notificarPresupuestoRecibido(params);
+        expect(enviar).not.toHaveBeenCalled();
+
+        const roto = await montar({ findUsuario: lanzar() });
+        await expect(roto.svc.notificarPresupuestoRecibido(params)).resolves.toBeUndefined();
+      });
     });
   });
 });

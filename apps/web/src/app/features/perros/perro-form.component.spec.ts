@@ -465,6 +465,33 @@ describe('PerroFormComponent', () => {
     });
   });
 
+  describe('especie (D1)', () => {
+    it('debería dar de alta como perro por defecto y enviar la especie', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya' });
+
+      await componente.submit();
+
+      expect(payload().especie).toBe('perro');
+    });
+
+    it('debería enviar otra especie si se elige', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Misi', especie: 'gato' });
+
+      await componente.submit();
+
+      expect(payload().especie).toBe('gato');
+      expect(componente.especies.map((e) => e.valor)).toContain('gato');
+    });
+
+    it('debería normalizar la especie de una ficha antigua al editar', async () => {
+      await crear('p1', perro({ especie: 'Gato ' }));
+
+      expect(componente.form.getRawValue().especie).toBe('gato');
+    });
+  });
+
   describe('ciudad, fotos y documentación (HU-8.1.1/8.2.2)', () => {
     it('debería enviar la ciudad y las fotos en el payload', async () => {
       await crear();

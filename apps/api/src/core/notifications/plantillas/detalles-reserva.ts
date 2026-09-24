@@ -20,6 +20,14 @@ const ETIQUETAS: ReadonlyArray<readonly [string, string, ((v: unknown) => string
 
 export function detallesLegibles(detalle: Record<string, unknown> | undefined): Array<[string, string]> {
   if (!detalle) return [];
+  // Transporte deja escrito su propio resumen («Recogida», «Mascotas»…): es lo
+  // que el cliente revisó antes de pagar y lo que tiene que leer el conductor.
+  const resumen = detalle['resumen'];
+  if (Array.isArray(resumen)) {
+    return resumen
+      .filter((fila): fila is [unknown, unknown] => Array.isArray(fila) && fila.length === 2)
+      .map(([etiqueta, valor]) => [String(etiqueta), String(valor)]);
+  }
   const vistos = new Set<string>();
   const filas: Array<[string, string]> = [];
   for (const [clave, etiqueta, formato] of ETIQUETAS) {

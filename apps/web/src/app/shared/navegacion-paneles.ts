@@ -23,11 +23,12 @@ export interface GrupoPanel {
   readonly items: readonly SeccionPanel[];
 }
 
-/** Panel de comercio: una sola lista, son doce entradas sin jerarquía. */
+/** Panel de comercio: una sola lista, son trece entradas sin jerarquía. */
 export const NAV_COMERCIO: readonly SeccionPanel[] = [
   { icon: 'sparkles',     label: 'Inicio',               ruta: '/comercio',             exact: true  },
   { icon: 'calendar',     label: 'Reservas',             ruta: '/comercio/reservas',    exact: false },
   { icon: 'calendar',     label: 'Agenda',               ruta: '/comercio/agenda',      exact: false },
+  { icon: 'file-text',    label: 'Presupuestos',         ruta: '/comercio/presupuestos', exact: false },
   { icon: 'paw',          label: 'Mascotas',             ruta: '/comercio/mascotas',    exact: false },
   { icon: 'tag',          label: 'Servicios',            ruta: '/comercio/listados',    exact: false },
   { icon: 'euro',         label: 'Extras y suplementos', ruta: '/comercio/suplementos', exact: false },

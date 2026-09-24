@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsString, IsDateString, Min, Max } from 'class-validator';
+import { IsArray, IsInt, IsString, IsDateString, Min, Max, IsOptional, IsBoolean } from 'class-validator';
 
 /**
  * Patrón simple de recurrencia (docs/mejora_servicios.md §4.3: "todos los lunes y
@@ -21,4 +21,12 @@ export class RecurrenciaDto {
   /** Última fecha (inclusive) en que se genera una ocurrencia. */
   @IsDateString()
   fechaFin!: string;
+
+  /**
+   * Una vez al mes, el mismo día del mes que la primera reserva. Con él,
+   * `diasSemana` se ignora: «cada día 15» no es ningún día de la semana.
+   */
+  @IsOptional()
+  @IsBoolean()
+  mensual?: boolean;
 }

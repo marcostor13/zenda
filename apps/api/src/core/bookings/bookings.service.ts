@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Reserva, ReservaDocument, SuplementoAplicado } from './reserva.schema';
+import { MascotaAdicional, Reserva, ReservaDocument, SuplementoAplicado } from './reserva.schema';
 import { conHoraReal } from './momento-reserva.util';
 import { HuecosService, ServicioConCitas } from './huecos.service';
 import { AvailabilityRegistry } from '../availability/availability.registry';
-import { DiaCalendario, implementaCalendario } from '../availability/availability.strategy';
+import {
+  DiaCalendario, PoliticaReembolso, implementaCalendario, implementaCancelacion, implementaSeguimiento,
+} from '../availability/availability.strategy';
 import { CatalogRepository } from '../catalog/catalog.repository';
 import { CuponesService } from '../cupones/cupones.service';
 import { PerrosService } from '../perros/perros.service';
@@ -19,7 +21,8 @@ import {
   VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento,
   AgendaCitasRespuestaApi, DisponibilidadRespuesta, ExcepcionHorarioDto, HuecosDelDiaRespuestaApi,
   HorarioDiaDto, claveDiaEnZona, comprobarHorario,
-  esHoraValida, esMedianocheUtc, fechaYHoraEnZona, instanteEnZona, partesEnZona,
+  esHoraValida, esMedianocheUtc, fechaYHoraEnZona, horaEnZona, instanteEnZona, partesEnZona,
+  MAX_OCURRENCIAS_SERIE, ocurrenciasDeSerie,
 } from 'shared';
 import { nanoid } from 'nanoid';
 
@@ -33,6 +36,8 @@ export interface RecurrenciaParams {
   diasSemana: number[];
   hora: string;
   fechaFin: Date;
+  /** El mismo día de cada mes en vez de días de la semana. */
+  mensual?: boolean;
 }
 
 /**
@@ -62,6 +67,8 @@ export interface CrearReservaParams {
   comercioId?: string;
   vertical?: VerticalKey;
   perroId?: string;
+  /** Más mascotas del cliente en la misma reserva (un traslado lleva a varias). */
+  perroIdsAdicionales?: string[];
   fechaInicio: Date;
   fechaFin?: Date;
   cantidad?: number;
@@ -79,7 +86,17 @@ export interface CrearReservaParams {
   precioAcordado?: number;
 }
 
-const MAX_OCURRENCIAS_RECURRENCIA = 52;
+const MAX_OCURRENCIAS_RECURRENCIA = MAX_OCURRENCIAS_SERIE;
+
+/** Estados en los que el comercio puede ir marcando el viaje. */
+const ESTADOS_EN_SERVICIO: readonly ReservaEstado[] = [ReservaEstado.CONFIRMADA, ReservaEstado.EN_CURSO];
+
+/** Resultado de cancelar una reserva: qué se devuelve según la política del vertical. */
+export interface CancelacionResultado {
+  reserva: ReservaDocument;
+  politica: PoliticaReembolso;
+  importeReembolso: number;
+}
 
 const MOTIVO_HORA_OCUPADA = 'Esa hora ya está reservada. Elige otra de las citas disponibles.';
 
@@ -371,6 +388,8 @@ export class BookingsService {
     const perroSnapshot = params.perroId
       ? construirSnapshotPerro(await this.perrosService.obtenerPropio(params.perroId, params.usuarioId))
       : undefined;
+    const perrosAdicionales = await this.mascotasAdicionales(params);
+
 
     /*
      * Lo que el comercio ha cerrado a mano manda sobre cualquier cupo. Se mira
@@ -394,12 +413,26 @@ export class BookingsService {
       fechaInicio,
       fechaFin: params.fechaFin,
       cantidad: params.cantidad ?? 1,
-      parametrosExtra: this.construirParametrosExtra(params.detalle, perroSnapshot),
+      parametrosExtra: {
+        ...this.construirParametrosExtra(params.detalle, perroSnapshot),
+        // Con presupuesto aceptado el vertical sólo comprueba que el viaje siga
+        // siendo posible: el importe ya lo pactaron cliente y empresa.
+        ...(params.precioAcordado !== undefined ? { precioAcordado: params.precioAcordado } : {}),
+      },
     });
 
     if (!disponibilidad.disponible) {
       throw new DomainException(
         disponibilidad.motivo ?? 'El servicio no está disponible para las fechas seleccionadas',
+        409,
+      );
+    }
+
+    // Sin precio cerrado (el vertical dice «esto va por presupuesto») sólo se
+    // reserva con el importe que pactaron cliente y empresa; si no, saldría a 0 €.
+    if (disponibilidad.metadata?.['requierePresupuesto'] === true && params.precioAcordado === undefined) {
+      throw new DomainException(
+        (disponibilidad.metadata['motivoPresupuesto'] as string | undefined) ?? 'Este servicio necesita un presupuesto a medida.',
         409,
       );
     }
@@ -425,8 +458,13 @@ export class BookingsService {
      * Los precios que declara el comercio **llevan el IVA incluido**: es lo que
      * el cliente ve en el buscador y lo que va a pagar, sin sorpresas al llegar
      * al último paso. La base imponible se obtiene dividiendo, no sumando.
+     *
+     * Una serie recurrente se cobra entera en la reserva origen: antes se
+     * cobraba un solo viaje y el resto se confirmaba gratis al pagar.
      */
-    const precioBase = params.precioAcordado ?? disponibilidad.precioCalculado ?? 0;
+    const viajes = 1 + ocurrenciasRecurrentes.length;
+    const precioUnitario = params.precioAcordado ?? disponibilidad.precioCalculado ?? 0;
+    const precioBase = redondearEuros(precioUnitario * viajes);
     let montoTotal = precioBase;
     let descuentoMonto = 0;
 
@@ -458,6 +496,7 @@ export class BookingsService {
     // dinero que va a Hacienda.
     const comisionPct = comision.comisionPct;
     const comisionMonto = redondearEuros(montoSubtotal * comisionPct);
+    const detalle = this.detalleDeReserva(params.detalle, momento, disponibilidad.metadata, { viajes, precioUnitario });
 
     const reserva = new this.reservaModel({
       codigo: this.generarCodigo(),
@@ -467,7 +506,8 @@ export class BookingsService {
       vertical,
       perroId: params.perroId,
       perroSnapshot,
-      detalle: this.detalleConDuracion(params.detalle, momento),
+      perrosAdicionales,
+      detalle,
       fechaInicio,
       fechaFin: momento.fin,
       cantidad: params.cantidad ?? 1,
@@ -479,12 +519,15 @@ export class BookingsService {
       cuponCodigo: params.cuponCodigo,
       estado: ReservaEstado.PENDIENTE,
       holdId: hold.holdId,
+      aceptacion: this.aceptacionRequerida(disponibilidad.metadata),
       historialEstados: [{ estado: ReservaEstado.PENDIENTE, por: 'sistema', at: new Date() }],
     });
 
     const guardada = await reserva.save();
 
     if (ocurrenciasRecurrentes.length) {
+      // Las hijas van a 0 €: el importe de toda la serie está en la origen, que
+      // es la que se paga. Si llevasen importe, el GMV la contaría dos veces.
       await this.reservaModel.insertMany(
         ocurrenciasRecurrentes.map((fecha) => ({
           codigo: this.generarCodigo(),
@@ -494,16 +537,16 @@ export class BookingsService {
           vertical,
           perroId: params.perroId,
           perroSnapshot,
-          detalle: this.detalleConDuracion(params.detalle, momento),
+          perrosAdicionales,
+          detalle: { ...detalle, cubiertaPorSerie: true },
           fechaInicio: fecha,
           // Cada sesión de la serie dura lo mismo que la primera.
           fechaFin: momento.fin ? new Date(fecha.getTime() + (momento.fin.getTime() - fechaInicio.getTime())) : undefined,
           cantidad: params.cantidad ?? 1,
-          montoSubtotal,
-          comisionMonto,
-          montoTotal,
-          descuentoMonto,
-          cuponCodigo: params.cuponCodigo,
+          montoSubtotal: 0,
+          comisionMonto: 0,
+          montoTotal: 0,
+          descuentoMonto: 0,
           estado: ReservaEstado.PENDIENTE,
           reservaOrigenId: guardada._id,
         })),
@@ -513,39 +556,50 @@ export class BookingsService {
     return guardada;
   }
 
+  /** Fichas congeladas de las demás mascotas del viaje; cada una tiene que ser del cliente. */
+  private async mascotasAdicionales(params: CrearReservaParams): Promise<MascotaAdicional[] | undefined> {
+    const ids = [...new Set(params.perroIdsAdicionales ?? [])].filter((id) => id !== params.perroId);
+    if (!ids.length) return undefined;
+    const perros = await Promise.all(ids.map((id) => this.perrosService.obtenerPropio(id, params.usuarioId)));
+    return perros.map((perro) => ({ perroId: perro._id as Types.ObjectId, snapshot: construirSnapshotPerro(perro) }));
+  }
+
+  /** La estrategia dice si el comercio tiene que dar el visto bueno (viajes sin hora cerrada, urgencias). */
+  private aceptacionRequerida(metadata: Record<string, unknown> | undefined): Reserva['aceptacion'] {
+    if (metadata?.['requiereAceptacion'] !== true) return undefined;
+    const plazoMin = Math.max(5, Number(metadata['plazoAceptacionMin']) || 60);
+    return { requerida: true, estado: 'pendiente', plazoMin };
+  }
+
   /**
    * Patrón simple de recurrencia (docs §4.3): NO revalida disponibilidad por ocurrencia
-   * (no es un scheduler), solo genera reservas hija con los mismos datos/precio que la
-   * reserva origen, en cada día de la semana solicitado hasta `fechaFin`.
+   * (no es un scheduler), solo genera reservas hija con los mismos datos que la
+   * reserva origen, en cada día de la semana solicitado —o el mismo día de cada
+   * mes— hasta `fechaFin`.
    *
-   * Días, día de la semana y hora se cuentan en el calendario del comercio. Antes
-   * se contaban en UTC: "los martes a las 10:00" se guardaba a las 10:00 UTC —las
-   * 12:00 en Madrid en verano— y un trayecto a las 00:30 caía en el día anterior.
+   * Días, día de la semana y hora se cuentan en el calendario del comercio. El
+   * cálculo vive en `shared` (`ocurrenciasDeSerie`) para que la web diga cuántos
+   * viajes son antes de pagar con exactamente la misma cuenta.
    */
   private calcularOcurrenciasRecurrentes(fechaInicio: Date, recurrencia: RecurrenciaParams): Date[] {
     if (recurrencia.fechaFin.getTime() <= fechaInicio.getTime()) {
       throw new DomainException('La fecha de fin de la recurrencia debe ser posterior a la fecha de inicio', 400);
     }
 
-    const ultimoDia = claveDiaEnZona(recurrencia.fechaFin);
-    const ocurrencias: Date[] = [];
-    let dia = siguienteDia(claveDiaEnZona(fechaInicio));
-
-    while (dia <= ultimoDia) {
-      if (recurrencia.diasSemana.includes(diaDeLaSemana(dia))) {
-        ocurrencias.push(fechaYHoraEnZona(dia, recurrencia.hora));
-
-        if (ocurrencias.length > MAX_OCURRENCIAS_RECURRENCIA) {
-          throw new DomainException(
-            `La recurrencia generaría más de ${MAX_OCURRENCIAS_RECURRENCIA} reservas; acorta la fecha de fin`,
-            400,
-          );
-        }
-      }
-      dia = siguienteDia(dia);
+    const dias = ocurrenciasDeSerie(claveDiaEnZona(fechaInicio), {
+      diasSemana: recurrencia.diasSemana,
+      fechaFin: claveDiaEnZona(recurrencia.fechaFin),
+      mensual: recurrencia.mensual,
+    });
+    if (dias.length > MAX_OCURRENCIAS_RECURRENCIA) {
+      throw new DomainException(
+        `La recurrencia generaría más de ${MAX_OCURRENCIAS_RECURRENCIA} reservas; acorta la fecha de fin`,
+        400,
+      );
     }
 
-    return ocurrencias;
+    const hora = esHoraValida(recurrencia.hora) ? recurrencia.hora : horaEnZona(fechaInicio);
+    return dias.map((dia) => fechaYHoraEnZona(dia, hora));
   }
 
   /**
@@ -624,8 +678,24 @@ export class BookingsService {
     };
   }
 
-  private detalleConDuracion(detalle: Record<string, unknown> | undefined, momento: MomentoReserva): Record<string, unknown> {
-    return momento.duracionMin ? { ...(detalle ?? {}), duracionMin: momento.duracionMin } : (detalle ?? {});
+  /**
+   * Lo que se guarda en `reserva.detalle`: lo que mandó el cliente, la duración
+   * de la cita si la hay, lo que la estrategia quiera dejar anotado
+   * (`metadata.detalleReserva`: el desglose del precio, la ruta…) y, en una
+   * serie, cuántos viajes cubre y a cuánto sale cada uno.
+   */
+  private detalleDeReserva(
+    detalle: Record<string, unknown> | undefined,
+    momento: MomentoReserva,
+    metadata: Record<string, unknown> | undefined,
+    serie: { viajes: number; precioUnitario: number },
+  ): Record<string, unknown> {
+    const resultado: Record<string, unknown> = { ...(detalle ?? {}) };
+    if (momento.duracionMin) resultado['duracionMin'] = momento.duracionMin;
+    const anotado = metadata?.['detalleReserva'];
+    if (anotado && typeof anotado === 'object') Object.assign(resultado, anotado);
+    if (serie.viajes > 1) Object.assign(resultado, { viajes: serie.viajes, precioPorViaje: serie.precioUnitario });
+    return resultado;
   }
 
   async confirmar(reservaId: string): Promise<ReservaDocument> {
@@ -685,6 +755,7 @@ export class BookingsService {
       { estado: ReservaEstado.CONFIRMADA },
     ).exec();
 
+    await this.trasConfirmar(reserva);
     return reserva;
   }
 
@@ -721,6 +792,121 @@ export class BookingsService {
     }
   }
 
+  /**
+   * Lo que pasa al cobrarse una reserva además de confirmarla: si el comercio
+   * tiene que aceptarla, arranca su plazo y se le avisa.
+   */
+  private async trasConfirmar(reserva: ReservaDocument): Promise<void> {
+    const aceptacion = reserva.aceptacion;
+    if (aceptacion?.requerida && aceptacion.estado === 'pendiente' && !aceptacion.venceEn) {
+      reserva.aceptacion = { ...aceptacion, venceEn: new Date(Date.now() + aceptacion.plazoMin * MS_POR_MINUTO) };
+      reserva.markModified('aceptacion');
+      await reserva.save();
+      void this.notificationsService.notificarPendienteAceptacion(reserva._id.toString());
+    }
+  }
+
+  /** El comercio acepta un viaje pagado que necesitaba su visto bueno; puede fijar la hora real. */
+  async aceptarViaje(reservaId: string, comercioId: string, horaConfirmada?: string): Promise<ReservaDocument> {
+    const reserva = await this.pendienteDeAceptar(reservaId, comercioId);
+    const ahora = new Date();
+    if (horaConfirmada && esHoraValida(horaConfirmada)) {
+      reserva.fechaInicio = fechaYHoraEnZona(claveDiaEnZona(reserva.fechaInicio), horaConfirmada);
+    }
+    reserva.aceptacion = {
+      requerida: true, plazoMin: reserva.aceptacion?.plazoMin ?? 0, ...reserva.aceptacion,
+      estado: 'aceptada', resueltaAt: ahora,
+    };
+    reserva.markModified('aceptacion');
+    reserva.historialEstados.push({ estado: reserva.estado, motivo: 'Aceptada por el comercio', por: `comercio:${comercioId}`, at: ahora });
+    const guardada = await reserva.save();
+    void this.notificationsService.notificarAceptacion(reservaId, true);
+    return guardada;
+  }
+
+  /** Comprueba que el comercio puede rechazar el viaje; el reembolso lo hace `PaymentsService`. */
+  async pendienteDeAceptar(reservaId: string, comercioId: string): Promise<ReservaDocument> {
+    const reserva = await this.reservaModel.findById(reservaId).exec();
+    if (!reserva) throw new DomainException('Reserva no encontrada', 404);
+    if (reserva.comercioId.toString() !== comercioId) {
+      throw new DomainException('No tienes permiso sobre esta reserva', 403);
+    }
+    if (reserva.aceptacion?.estado !== 'pendiente' || reserva.estado !== ReservaEstado.CONFIRMADA) {
+      throw new DomainException('Esta reserva no está pendiente de aceptar.', 400);
+    }
+    return reserva;
+  }
+
+  /** Viajes pagados cuyo plazo de aceptación venció sin respuesta del comercio. */
+  async aceptacionesVencidas(limite = 100): Promise<ReservaDocument[]> {
+    return this.reservaModel
+      .find({
+        estado: ReservaEstado.CONFIRMADA,
+        'aceptacion.estado': 'pendiente',
+        'aceptacion.venceEn': { $lt: new Date() },
+      })
+      .limit(limite)
+      .exec();
+  }
+
+  /** Qué se devolvería al cancelar ahora, según la política del vertical. */
+  async politicaCancelacion(reserva: ReservaDocument): Promise<PoliticaReembolso> {
+    const estrategia = this.availabilityRegistry.obtener(reserva.vertical);
+    if (!implementaCancelacion(estrategia)) {
+      return { porcentaje: 0, motivo: 'Esta categoría no tiene reembolso automático: el comercio revisará tu caso.' };
+    }
+    return estrategia.politicaReembolso({
+      servicioId: reserva.servicioId.toString(),
+      estado: reserva.estado,
+      fechaInicio: reserva.fechaInicio,
+      detalle: reserva.detalle,
+      seguimiento: reserva.seguimiento,
+    });
+  }
+
+  /** La reserva del cliente, si todavía se puede cancelar. */
+  async cancelablePorCliente(reservaId: string, usuarioId: string): Promise<ReservaDocument> {
+    const reserva = await this.obtenerDeUsuario(reservaId, usuarioId);
+    if (![ReservaEstado.PENDIENTE, ReservaEstado.CONFIRMADA].includes(reserva.estado)) {
+      throw new DomainException('Esta reserva ya no se puede cancelar desde aquí.', 400);
+    }
+    return reserva;
+  }
+
+  /**
+   * Deja la reserva cancelada con lo que se devolvió, libera la plaza y cancela
+   * los viajes que quedaban de su serie (van pagados dentro de ella).
+   */
+  async marcarCancelada(
+    reserva: ReservaDocument,
+    params: { por: string; motivo: string; reembolso?: { porcentaje: number; importe: number }; aceptacion?: 'rechazada' | 'caducada' },
+  ): Promise<ReservaDocument> {
+    const ahora = new Date();
+    if (reserva.holdId) {
+      await this.availabilityRegistry.obtener(reserva.vertical).releaseSlot(reserva.holdId);
+      reserva.holdId = undefined;
+    }
+    reserva.estado = ReservaEstado.CANCELADA;
+    reserva.historialEstados.push({ estado: ReservaEstado.CANCELADA, motivo: params.motivo, por: params.por, at: ahora });
+    if (params.reembolso) {
+      reserva.reembolso = { ...params.reembolso, motivo: params.motivo, at: ahora };
+    }
+    if (params.aceptacion && reserva.aceptacion) {
+      reserva.aceptacion = { ...reserva.aceptacion, estado: params.aceptacion, resueltaAt: ahora, motivo: params.motivo };
+      reserva.markModified('aceptacion');
+    }
+    const guardada = await reserva.save();
+    await this.cancelarSerie(guardada._id);
+    return guardada;
+  }
+
+  private async cancelarSerie(reservaOrigenId: Types.ObjectId): Promise<void> {
+    await this.reservaModel.updateMany(
+      { reservaOrigenId, estado: { $in: [ReservaEstado.PENDIENTE, ReservaEstado.CONFIRMADA] } },
+      { estado: ReservaEstado.CANCELADA },
+    ).exec();
+  }
+
   async cancelar(reservaId: string, usuarioId: string): Promise<ReservaDocument> {
     const reserva = await this.reservaModel.findById(reservaId).exec();
 
@@ -742,7 +928,9 @@ export class BookingsService {
     }
 
     reserva.estado = ReservaEstado.CANCELADA;
-    return reserva.save();
+    const guardada = await reserva.save();
+    await this.cancelarSerie(guardada._id);
+    return guardada;
   }
 
   /** El comercio marca como prestado un servicio ya confirmado. */
@@ -778,24 +966,41 @@ export class BookingsService {
   }
 
   /**
-   * El comercio marca un hito de seguimiento en tiempo real (mascota entregada,
-   * recogida, servicio finalizado…). El cliente lo ve por polling. El primer
-   * hito pone la reserva EN_CURSO; el hito 'finalizada' la marca COMPLETADA.
+   * El comercio marca un hito de seguimiento en tiempo real (transportista
+   * asignado, recogida, entrega…). El cliente lo recibe por correo y push y lo
+   * ve en su reserva. El primer hito pone la reserva EN_CURSO; `finalizada` la
+   * marca COMPLETADA. Qué hitos existen y cuáles exigen foto lo dice el vertical.
    */
   async agregarSeguimiento(
     reservaId: string,
     comercioId: string,
     hito: string,
     nota?: string,
+    fotoUrl?: string,
   ): Promise<ReservaDocument> {
     const reserva = await this.reservaModel.findById(reservaId).exec();
     if (!reserva) throw new DomainException('Reserva no encontrada', 404);
     if (reserva.comercioId.toString() !== comercioId) {
       throw new DomainException('No tienes permiso sobre esta reserva', 403);
     }
+    if (!ESTADOS_EN_SERVICIO.includes(reserva.estado)) {
+      throw new DomainException('Sólo se puede seguir una reserva confirmada o en curso.', 400);
+    }
+    if (reserva.aceptacion?.estado === 'pendiente') {
+      throw new DomainException('Acepta el viaje antes de marcar su seguimiento.', 409);
+    }
+
+    const estrategia = this.availabilityRegistry.obtener(reserva.vertical);
+    if (implementaSeguimiento(estrategia)) {
+      estrategia.validarHito({
+        servicioId: reserva.servicioId.toString(), estado: reserva.estado, fechaInicio: reserva.fechaInicio,
+        detalle: reserva.detalle, seguimiento: reserva.seguimiento,
+      }, hito, fotoUrl);
+    }
 
     const ahora = new Date();
-    reserva.seguimiento.push({ hito, nota, at: ahora });
+    reserva.seguimiento.push({ hito, nota, fotoUrl, at: ahora });
+    if (fotoUrl) reserva.evidencias.push({ tipo: `hito_${hito}`, url: fotoUrl, createdAt: ahora });
 
     if (hito === 'finalizada') {
       reserva.estado = ReservaEstado.COMPLETADA;
@@ -805,7 +1010,9 @@ export class BookingsService {
       reserva.historialEstados.push({ estado: ReservaEstado.EN_CURSO, por: `comercio:${comercioId}`, at: ahora });
     }
 
-    return reserva.save();
+    const guardada = await reserva.save();
+    void this.notificationsService.notificarHitoViaje(reservaId, hito, nota, fotoUrl);
+    return guardada;
   }
 
   /** El comercio propone suplementos en recepción; la reserva queda pendiente de aprobación del cliente. */
@@ -1180,16 +1387,4 @@ export class BookingsService {
       perroTendenciaEscapar: perroSnapshot['tendenciaEscapar'],
     };
   }
-}
-
-/** `YYYY-MM-DD` del día siguiente. Aritmética de calendario, sin horas de por medio. */
-function siguienteDia(clave: string): string {
-  const [anio, mes, dia] = clave.split('-').map(Number);
-  return new Date(Date.UTC(anio, mes - 1, dia + 1)).toISOString().slice(0, 10);
-}
-
-/** Día de la semana (0 = domingo) de una fecha del calendario del comercio. */
-function diaDeLaSemana(clave: string): number {
-  const [anio, mes, dia] = clave.split('-').map(Number);
-  return partesEnZona(instanteEnZona({ anio, mes, dia, hora: 12 })).diaSemana;
 }

@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, NonNullableFormBuilder, Validators } from '@angular/forms';
-import { Vacuna, VACUNA_LABELS, TAMANOS_PERRO } from 'shared';
+import { Vacuna, VACUNA_LABELS, TAMANOS_PERRO, ESPECIE_MASCOTA_LABELS, EspecieMascota, especieMascotaDe } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
@@ -102,6 +102,14 @@ const NIVELES_SOCIABILIDAD = [
               <input id="nombre" class="rs-inp" formControlName="nombre" [class.rs-inp--error]="hasError('nombre')" />
               @if (hasError('nombre')) { <span class="rs-field-err">{{ 'El nombre es obligatorio.' | t }}</span> }
             </div>
+            <div class="rs-field">
+              <label class="rs-lbl" for="especie">{{ 'Tipo de animal' | t }}</label>
+              <select id="especie" class="rs-inp" formControlName="especie">
+                @for (e of especies; track e.valor) { <option [value]="e.valor">{{ e.etiqueta | t }}</option> }
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
             <div class="rs-field">
               <label class="rs-lbl" for="raza">{{ 'Raza' | t }}</label>
               <input id="raza" class="rs-inp" formControlName="raza" [placeholder]="'Mestizo si no lo sabes' | t" />
@@ -504,9 +512,12 @@ export class PerroFormComponent implements OnInit {
   readonly catalogoMedicacion = MEDICACION_FRECUENTE;
   readonly catalogoTemperamentos = TEMPERAMENTOS;
   readonly nivelesSociabilidad = NIVELES_SOCIABILIDAD;
+  readonly especies = (Object.values(EspecieMascota)).map((valor) => ({ valor, etiqueta: ESPECIE_MASCOTA_LABELS[valor] }));
 
   readonly form = this.fb.group({
     nombre: ['', [Validators.required, Validators.minLength(1)]],
+    // Doogking es canino, pero traslados y veterinaria atienden más especies (D1).
+    especie: [EspecieMascota.PERRO as string],
     fotos: [[] as string[]],
     raza: [''],
     fechaNacimiento: [''],
@@ -608,6 +619,7 @@ export class PerroFormComponent implements OnInit {
       this.tipoPeloSeleccionado.set(p.tipoPelo ?? []);
       this.form.patchValue({
         nombre: p.nombre,
+        especie: especieMascotaDe(p.especie),
         fotos: p.fotos ?? [],
         raza: p.raza ?? '',
         fechaNacimiento: p.fechaNacimiento ? p.fechaNacimiento.slice(0, 10) : '',
@@ -651,6 +663,7 @@ export class PerroFormComponent implements OnInit {
     const v = this.form.getRawValue();
     return {
       nombre: v.nombre,
+      especie: v.especie,
       fotos: v.fotos,
       raza: v.raza || undefined,
       fechaNacimiento: v.fechaNacimiento || undefined,

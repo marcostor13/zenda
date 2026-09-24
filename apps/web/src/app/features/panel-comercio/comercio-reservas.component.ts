@@ -12,6 +12,7 @@ import { iconoVertical } from './vertical-icon';
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { GestionViajeComponent } from './viaje/gestion-viaje.component';
 /** Hito de seguimiento en tiempo real que el comercio va marcando. */
 interface Hito {
   readonly hito: string;
@@ -97,7 +98,7 @@ function desdeClaveDia(clave: string): number {
   selector: 'app-comercio-reservas',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, FechaPipe, FormsModule, RsIconComponent, RsImageUploadComponent, EurosPipe
+    TraducirPipe, RouterLink, FechaPipe, FormsModule, RsIconComponent, RsImageUploadComponent, EurosPipe, GestionViajeComponent,
   ],
   template: `
     <!-- HEADER -->
@@ -302,6 +303,11 @@ function desdeClaveDia(clave: string): number {
                   </span>
                   <span class="reserva-card__importe">{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</span>
                   <code class="reserva-card__codigo">{{ r.codigo }}</code>
+                  @if (r.aceptacion?.estado === 'pendiente') {
+                    <span class="rs-badge rs-badge--warning">
+                      <rs-icon name="hourglass" [size]="12" [stroke]="2"></rs-icon> {{ 'Pendiente de aceptar' | t }}
+                    </span>
+                  }
                 </div>
               </div>
 
@@ -460,6 +466,12 @@ function desdeClaveDia(clave: string): number {
                       {{ enviandoIncidencia() ? 'Enviando…' : 'Abrir incidencia' }}
                     </button>
                   </div>
+                </div>
+              }
+
+              @if (gestionAbiertaId() === r._id && r.vertical === 'transporte') {
+                <div class="reserva-card__panel">
+                  <app-gestion-viaje [reserva]="r" (actualizada)="reemplazarReserva($event)" />
                 </div>
               }
 
@@ -1484,14 +1496,8 @@ export class ComercioReservasComponent implements OnInit {
 
   /** Hitos de seguimiento en tiempo real según el tipo de servicio. */
   hitosDe(vertical: string): Hito[] {
-    if (vertical === 'transporte') {
-      return [
-        { hito: 'recogida', icono: 'paw', label: 'Recogida' },
-        { hito: 'en_ruta', icono: 'truck', label: 'En ruta' },
-        { hito: 'entregada', icono: 'map-pin', label: 'Entregada' },
-        { hito: 'finalizada', icono: 'check-circle', label: 'Finalizar' },
-      ];
-    }
+    // Transporte tiene su propio panel (`app-gestion-viaje`): seis pasos, foto de
+    // entrega y ubicación en vivo.
     if (vertical === 'alojamiento' || vertical === 'hoteles') {
       return [
         { hito: 'entrada', icono: 'hotel', label: 'Ingreso' },
@@ -1517,6 +1523,11 @@ export class ComercioReservasComponent implements OnInit {
       ];
     }
     return [];
+  }
+
+  /** Mezcla la reserva que devuelve el API con la de la lista, que trae además cliente y servicio. */
+  reemplazarReserva(actualizada: MiReserva): void {
+    this.reservas.update((lista) => lista.map((x) => (x._id === actualizada._id ? { ...x, ...actualizada } : x)));
   }
 
   async marcarHito(r: MiReserva, hito: string): Promise<void> {

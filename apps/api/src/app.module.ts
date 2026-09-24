@@ -24,6 +24,7 @@ import { ConfiguracionModule } from './core/configuracion/configuracion.module';
 import { LiquidacionesModule } from './core/liquidaciones/liquidaciones.module';
 import { PerrosModule } from './core/perros/perros.module';
 import { ExpedientesModule } from './core/expedientes/expedientes.module';
+import { SeguimientoModule } from './core/seguimiento/seguimiento.module';
 import { FavoritosModule } from './core/favoritos/favoritos.module';
 import { SuplementosModule } from './core/suplementos/suplementos.module';
 import { RecomendadorModule } from './core/recomendador/recomendador.module';
@@ -89,6 +90,7 @@ const LIMITE_GLOBAL = [{ name: 'global', ttl: 60_000, limit: 300 }];
     LiquidacionesModule,
     PerrosModule,
     ExpedientesModule,
+    SeguimientoModule,
     FavoritosModule,
     SuplementosModule,
     RecomendadorModule,

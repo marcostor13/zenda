@@ -4,7 +4,7 @@ import {
 import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
-  EstadoPresupuesto, OfertarPresupuestoDto, PresupuestoDto, RechazarPresupuestoDto, Rol,
+  AceptarPresupuestoDto, EstadoPresupuesto, OfertarPresupuestoDto, PresupuestoDto, RechazarPresupuestoDto, Rol,
   SolicitarPresupuestoDto,
 } from 'shared';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -18,7 +18,7 @@ interface RequestConUser extends Request {
 }
 
 /** Del documento a lo que consume el frontend; nada de exponer el documento crudo. */
-function aDto(p: PresupuestoDocument): PresupuestoDto {
+function aDto(p: PresupuestoDocument, titulos?: Map<string, string>): PresupuestoDto {
   return {
     id: String(p._id),
     codigo: p.codigo,
@@ -33,6 +33,7 @@ function aDto(p: PresupuestoDocument): PresupuestoDto {
     condiciones: p.condiciones,
     validoHasta: p.validoHasta?.toISOString(),
     reservaId: p.reservaId ? String(p.reservaId) : undefined,
+    tituloServicio: titulos?.get(String(p.servicioId)),
     createdAt: (p as unknown as { createdAt: Date }).createdAt?.toISOString()
       ?? new Date().toISOString(),
   };
@@ -63,7 +64,9 @@ export class PresupuestosController {
   @Get('mis')
   @ApiOperation({ summary: 'Mis presupuestos, pendientes y resueltos' })
   async mis(@Req() req: RequestConUser): Promise<PresupuestoDto[]> {
-    return (await this.presupuestos.misPresupuestos(req.user.sub)).map(aDto);
+    const lista = await this.presupuestos.misPresupuestos(req.user.sub);
+    const titulos = await this.presupuestos.titulosDeServicios(lista);
+    return lista.map((p) => aDto(p, titulos));
   }
 
   // Antes que ':id': si no, "comercio" se leería como el id de un presupuesto.
@@ -76,7 +79,9 @@ export class PresupuestosController {
     @Query('estado') estado?: EstadoPresupuesto,
   ): Promise<PresupuestoDto[]> {
     if (!req.user.comercioId) throw new DomainException('Tu cuenta no tiene negocio asociado', 403);
-    return (await this.presupuestos.delComercio(req.user.comercioId, estado)).map(aDto);
+    const lista = await this.presupuestos.delComercio(req.user.comercioId, estado);
+    const titulos = await this.presupuestos.titulosDeServicios(lista);
+    return lista.map((p) => aDto(p, titulos));
   }
 
   @Post(':id/oferta')
@@ -94,8 +99,12 @@ export class PresupuestosController {
 
   @Post(':id/aceptar')
   @ApiOperation({ summary: 'Aceptar la oferta; crea la reserva pendiente de pago' })
-  async aceptar(@Req() req: RequestConUser, @Param('id') id: string): Promise<PresupuestoDto> {
-    return aDto(await this.presupuestos.aceptar(id, req.user.sub));
+  async aceptar(
+    @Req() req: RequestConUser,
+    @Param('id') id: string,
+    @Body() dto: AceptarPresupuestoDto,
+  ): Promise<PresupuestoDto> {
+    return aDto(await this.presupuestos.aceptar(id, req.user.sub, dto.detalleExtra));
   }
 
   @Post(':id/rechazar')

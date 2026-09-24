@@ -120,6 +120,14 @@ describe('StripeGateway', () => {
 
       expect(stripeMock.refunds.create).toHaveBeenCalledWith({ payment_intent: 'pi_123' });
     });
+
+    it('debería devolver sólo una parte, en céntimos, si se indica el importe', async () => {
+      stripeMock.refunds.create.mockResolvedValue({});
+
+      await gateway.reembolsar('pi_123', 12.34);
+
+      expect(stripeMock.refunds.create).toHaveBeenCalledWith({ payment_intent: 'pi_123', amount: 1234 });
+    });
   });
 
   describe('extraerIntentDeEvento', () => {

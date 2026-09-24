@@ -43,6 +43,17 @@ export class OfertarPresupuestoDto {
   validezHoras?: number;
 }
 
+/**
+ * Al aceptar la oferta, lo que el cliente todavía no había dicho al pedirla:
+ * en transporte, quién entrega y quién recibe a la mascota. Se añade al
+ * detalle de la reserva; el vertical lo valida al crearla.
+ */
+export class AceptarPresupuestoDto {
+  @IsOptional()
+  @IsObject()
+  detalleExtra?: Record<string, unknown>;
+}
+
 export class RechazarPresupuestoDto {
   @IsOptional()
   @IsString()
@@ -65,5 +76,7 @@ export interface PresupuestoDto {
   condiciones?: string;
   validoHasta?: string;
   reservaId?: string;
+  /** Nombre del servicio, para que las listas digan de quién es cada oferta. */
+  tituloServicio?: string;
   createdAt: string;
 }

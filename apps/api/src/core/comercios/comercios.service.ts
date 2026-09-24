@@ -8,7 +8,7 @@ import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { conHoraReal } from '../bookings/momento-reserva.util';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Pago, PagoDocument } from '../payments/pago.schema';
-import { EntidadAuditada, FijarSocioFundadorDto, PagoEstado, ReservaEstado } from 'shared';
+import { EntidadAuditada, FijarSocioFundadorDto, MarcarHitoDto, PagoEstado, ReservaEstado } from 'shared';
 
 /** Compromiso estándar del programa Socios Fundadores. */
 const MESES_CONGELACION_POR_DEFECTO = 24;
@@ -647,8 +647,8 @@ export class ComerciosService {
     return this.bookingsService.completar(reservaId, comercioId);
   }
 
-  marcarSeguimiento(reservaId: string, comercioId: string, hito: string, nota?: string): Promise<ReservaDocument> {
-    return this.bookingsService.agregarSeguimiento(reservaId, comercioId, hito, nota);
+  marcarSeguimiento(reservaId: string, comercioId: string, dto: MarcarHitoDto): Promise<ReservaDocument> {
+    return this.bookingsService.agregarSeguimiento(reservaId, comercioId, dto.hito, dto.nota, dto.fotoUrl);
   }
 
   /** El comercio detecta en recepción condiciones no indicadas y propone un suplemento. */

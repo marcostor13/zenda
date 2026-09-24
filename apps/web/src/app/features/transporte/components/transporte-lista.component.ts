@@ -1,6 +1,7 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { VerticalKey, type BusquedaCercanosApi } from 'shared';
 import { lugarConDistancia } from '../../../shared/distancia';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
@@ -22,7 +23,6 @@ import type { BarraHistograma } from '../../../shared/components/range-slider/rs
 import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automaticos';
 
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
-import { MonedaService } from '../../../core/moneda/moneda.service';
 import { SeoService } from '../../../core/seo/seo.service';
 import { seoCategoria } from '../../../core/seo/plantillas-seo';
 import { migasDePan } from '../../../core/seo/json-ld';
@@ -31,7 +31,7 @@ import { migasDePan } from '../../../core/seo/json-ld';
   standalone: true,
   imports: [
     TraducirPipe, RsNavbarComponent, RsSearchBarComponent, RsListadoComponent,
-    AnimateOnScrollDirective, RsCardComponent, RsMapaBuscadorComponent,
+    AnimateOnScrollDirective, RsCardComponent, RsMapaBuscadorComponent, RouterLink, RsIconComponent,
   ],
   template: `
 <div class="transporte-page">
@@ -63,6 +63,15 @@ import { migasDePan } from '../../../core/seo/json-ld';
                    [categorias]="false" [buscarAlCambiar]="true" />
 
     <div listadoResultados class="rs-result-grid">
+      <!-- El precio depende del viaje: se calcula cerrado en el flujo, no se estima aquí. -->
+      <a class="tl-calcula" routerLink="/transporte">
+        <rs-icon name="route" [size]="22" [stroke]="2"></rs-icon>
+        <span>
+          <strong>{{ 'Calcula el precio de tu viaje' | t }}</strong>
+          <em>{{ 'Origen, destino y mascota: te enseñamos el precio final de cada transportista.' | t }}</em>
+        </span>
+        <span class="rs-btn rs-btn--gold rs-btn--sm">{{ 'Calcular' | t }}</span>
+      </a>
       @for (t of transportes(); track t.id) {
         <rs-card rsAnim
           [horizontal]="true"
@@ -70,13 +79,11 @@ import { migasDePan } from '../../../core/seo/json-ld';
           [title]="t.nombre" [subtitle]="lugarConDistancia(t.ciudad, t.distanciaKm)"
           [badges]="badgesDe(t)"
           [rating]="{ score: t.score, label: t.scoreLabel, count: t.numResenas }"
-          [price]="{ amount: moneda.formatear(t.tarifaBase), period: 'trayecto desde' }"
-          notaPrecio="IVA incluido"
           [amenities]="serviciosDe(t)"
           [destacados]="incluyeDe(t)"
           [favoritoServicioId]="t.id"
           [routerLink]="['/transporte', t.id]"
-          [ctaLabel]="'Ver ficha' | t"
+          [ctaLabel]="'Ver ficha y calcular precio' | t"
           [accionSoloEscritorio]="true">
         </rs-card>
       }
@@ -96,19 +103,19 @@ import { migasDePan } from '../../../core/seo/json-ld';
   `,
   styles: [`
     :host { display: block; }
-    /* Toda la carcasa del listado vive en <rs-listado>; esta categoria no
-       necesita nada propio. */
+    .tl-calcula {
+      grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-4);
+      padding: var(--sp-4) var(--sp-5); border-radius: var(--r-xl);
+      background: var(--c-accent-lo); border: 1px solid var(--dk-blue); color: var(--dk-blue-text);
+      rs-icon { color: var(--dk-blue); flex: 0 0 auto; }
+      span:first-of-type { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+      strong { font-family: var(--font-display); font-weight: var(--w-8); }
+      em { font-style: normal; font-size: var(--f-sm); color: var(--t-300); }
+    }
+    @media (max-width: 480px) { .tl-calcula { flex-wrap: wrap; } }
   `],
 })
 export class TransporteListaComponent implements OnInit {
-  /**
-   * Divisa de visualización. Se lee para formatear los precios que van dentro
-   * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
-   * pueden pasar por el pipe: al leer la señal, la vista se refresca sola en
-   * cuanto el usuario cambia de divisa en la cabecera.
-   */
-  readonly moneda = inject(MonedaService);
-
   private readonly transporteService = inject(TransporteService);
   private readonly browse = inject(CatalogBrowseService);
   private readonly route = inject(ActivatedRoute);
@@ -147,8 +154,8 @@ export class TransporteListaComponent implements OnInit {
 
   readonly puntosMapa = computed<PuntoMapa[]>(() =>
     this.puntos().map((p) => ({
-      id: p.id, lat: p.lat, lng: p.lng,
-      etiqueta: this.moneda.formatear(p.precio), vertical: VerticalKey.TRANSPORTE,
+      // Sin precio en el pin: en transporte depende del viaje y se calcula cerrado.
+      id: p.id, lat: p.lat, lng: p.lng, vertical: VerticalKey.TRANSPORTE,
       titulo: p.titulo, imagen: p.imagen, rating: p.rating,
     })),
   );

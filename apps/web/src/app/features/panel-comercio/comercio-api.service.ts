@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ActualizarBloqueoDto, BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ExcepcionHorarioDto, HorarioDiaDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, TamanoPerro } from 'shared';
+import { ActualizarBloqueoDto, BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ExcepcionHorarioDto, HorarioDiaDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, PresupuestoDto, TamanoPerro } from 'shared';
 import { environment } from '../../../environments/environment';
 
 export interface ContactoComercio {
@@ -170,6 +170,9 @@ export interface MiReserva {
   perroSnapshot?: Record<string, unknown>;
   /** Detalle específico del vertical (motivo, vídeos, tipo de trayecto…). */
   detalle?: Record<string, unknown>;
+  seguimiento?: Array<{ hito: string; nota?: string; fotoUrl?: string; at: string }>;
+  /** Viajes sin hora cerrada o urgentes: el comercio tiene que aceptarlos. */
+  aceptacion?: { requerida: boolean; estado: 'pendiente' | 'aceptada' | 'rechazada' | 'caducada'; plazoMin: number; venceEn?: string };
 }
 
 export interface SuplementoConfig {
@@ -366,9 +369,33 @@ export class ComercioApiService {
     return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/completar`, {});
   }
 
-  marcarSeguimiento(reservaId: string, hito: string, nota?: string): Observable<MiReserva> {
-    return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/seguimiento`, { hito, nota });
+  marcarSeguimiento(reservaId: string, hito: string, nota?: string, fotoUrl?: string): Observable<MiReserva> {
+    return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/seguimiento`, { hito, nota, fotoUrl });
   }
+
+  /** Acepta (con la hora real, si hace falta) o rechaza un viaje pagado; al rechazar se devuelve todo al cliente. */
+  resolverAceptacion(
+    reservaId: string,
+    dto: { decision: 'aceptar' | 'rechazar'; horaConfirmada?: string; motivo?: string },
+  ): Observable<MiReserva> {
+    return this.http.post<MiReserva>(`${this.url}/mis-reservas/${reservaId}/aceptacion`, dto);
+  }
+
+  /** Posición del vehículo mientras el conductor comparte su ubicación. */
+  enviarPosicion(reservaId: string, posicion: { lat: number; lng: number; precision?: number; rumbo?: number }): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>(`${this.url}/mis-reservas/${reservaId}/posicion`, posicion);
+  }
+
+  /** Peticiones de presupuesto recibidas por el negocio (todas las de sus servicios). */
+  misPresupuestos(): Observable<PresupuestoDto[]> {
+    return this.http.get<PresupuestoDto[]>(`${environment.apiUrl}/presupuestos/comercio`);
+  }
+
+  /** Responde con el precio final y sus condiciones; el cliente lo acepta y paga. */
+  ofertarPresupuesto(id: string, dto: { importe: number; condiciones?: string; validezHoras?: number }): Observable<PresupuestoDto> {
+    return this.http.post<PresupuestoDto>(`${environment.apiUrl}/presupuestos/${id}/oferta`, dto);
+  }
+
 
   solicitarAjuste(reservaId: string, dto: SolicitarAjustePayload): Observable<MiReserva> {
     return this.http.patch<MiReserva>(`${this.url}/mis-reservas/${reservaId}/solicitar-ajuste`, dto);

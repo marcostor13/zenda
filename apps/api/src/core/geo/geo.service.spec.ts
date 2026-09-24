@@ -641,4 +641,42 @@ describe('GeoService', () => {
       expect(cambio.tasas).toEqual({ EUR: 1 });
     });
   });
+
+  describe('trayectoEntre', () => {
+    const castellon = { lat: 39.986, lng: -0.051 };
+    const valencia = { lat: 39.47, lng: -0.376 };
+
+    it('debería medir la ruta por carretera entre dos coordenadas', async () => {
+      responder({ routes: [{ distanceMeters: 70_200, duration: '3600s' }] });
+
+      const trayecto = await service.trayectoEntre(castellon, valencia);
+
+      expect(trayecto).toEqual({ km: 70.5, duracionMin: 60, esEstimacion: false });
+    });
+
+    it('debería cachear por coordenadas redondeadas', async () => {
+      responder({ routes: [{ distanceMeters: 70_000, duration: '3600s' }] });
+
+      await service.trayectoEntre(castellon, valencia);
+      await service.trayectoEntre({ lat: 39.9861, lng: -0.0512 }, valencia);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('debería estimar en línea recta si no hay clave de mapas', async () => {
+      const sinClave = await crear(undefined);
+
+      const trayecto = await sinClave.trayectoEntre(castellon, valencia);
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(trayecto?.esEstimacion).toBe(true);
+      expect(trayecto?.km).toBeGreaterThan(50);
+    });
+
+    it('debería devolver null con coordenadas fuera de rango o no numéricas', async () => {
+      await expect(service.trayectoEntre({ lat: 91, lng: 0 }, valencia)).resolves.toBeNull();
+      await expect(service.trayectoEntre(castellon, { lat: Number.NaN, lng: 0 })).resolves.toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 });

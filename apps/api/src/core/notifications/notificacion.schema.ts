@@ -12,7 +12,15 @@ export type TipoNotificacion =
   | 'ajuste_solicitado'
   | 'solicitud_valoracion'
   | 'recuperacion_reserva'
-  | 'recuperacion_password';
+  | 'recuperacion_password'
+  // Seguimiento de viajes y presupuestos (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md).
+  | `hito_${string}`
+  | 'aceptacion_pendiente'
+  | 'aceptacion_ok'
+  | 'aceptacion_rechazada'
+  | 'reserva_cancelada'
+  | 'presupuesto_solicitado'
+  | 'presupuesto_recibido';
 
 /** Outbox de notificaciones: cada intento de envío queda registrado. */
 @Schema({ timestamps: true, collection: 'notificaciones' })

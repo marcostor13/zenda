@@ -71,6 +71,10 @@ export class Pago {
    */
   @Prop({ type: Boolean, default: false })
   esPrueba!: boolean;
+
+  /** Lo devuelto hasta ahora; una cancelación tardía puede devolver sólo una parte. */
+  @Prop({ type: Number, default: 0 })
+  importeReembolsado!: number;
 }
 
 export const PagoSchema = SchemaFactory.createForClass(Pago);

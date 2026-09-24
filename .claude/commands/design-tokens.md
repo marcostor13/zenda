@@ -138,6 +138,29 @@ UTILS:     .rs-spinner .rs-skeleton .rs-hr .rs-flex .rs-col .rs-center
            .rs-between .rs-gap-{2|3|4|6|8} .rs-text-center .rs-truncate
 ```
 
+## Componentes de flujo (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md §2.4)
+
+Nacieron con el flujo de Transporte, pero sirven para cualquier asistente por pasos.
+Todos exportados desde `shared/index.ts`.
+
+```
+<rs-opciones formControlName="x" leyenda="…" [opciones]="[{valor, etiqueta, icono?, descripcion?}]"
+             variante="tarjeta|chip|segmento" [multiple]="false" [columnas]="3">
+           → radios/checkboxes nativos escondidos: teclado y lector de pantalla gratis.
+             tarjeta = rejilla con icono (tipo de servicio, modalidad) · chip = píldoras
+             (necesidades) · segmento = barra partida (modo de hora, personas).
+             Valor string o string[] (con multiple).
+<rs-contador formControlName="n" etiqueta="…" [min]="1" [max]="10">      ← − / +
+<rs-barra-cta [precio]="total"> <button class="rs-btn rs-btn--gold">…</button> </rs-barra-cta>
+           → fija abajo en ≤768px (encima de la barra de la app), en línea en escritorio.
+<rs-desglose-precio [lineas]="[{concepto, importe}]" [viajes]="n">   ← total + IVA incluido (÷1.21)
+<rs-timeline-viaje [pasos]="[{clave, etiqueta, estado:'hecho'|'actual'|'pendiente', at?, nota?, fotoUrl?}]">
+<rs-resumen-viaje origen="…" destino="…" [detalles]="['25/09','10:30','Hachi']" (modificar)="…">
+```
+
+Iconos añadidos para el flujo: `repeat`, `arrow-up-down`, `arrow-left-right`,
+`briefcase`, `snowflake`, `route`, `locate`, `box`, `minus`.
+
 ## Iconografía (regla TCK-8010: nunca emojis)
 
 Toda la UI usa iconos vectoriales de la misma familia. Hay tres componentes, y
