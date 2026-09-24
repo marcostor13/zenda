@@ -1,17 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VerticalKey } from 'shared';
+import {
+  ConfirmacionEntrega, HitoViaje, ReservaEstado, SolicitudTransporte, VerticalKey, normalizarHitoViaje,
+} from 'shared';
 import {
   AvailabilityStrategy,
   AvailabilityQuery,
   AvailabilityResult,
+  CancelacionStrategy,
+  PoliticaReembolso,
+  ReservaParaPoliticas,
   ReserveParams,
+  SeguimientoStrategy,
   SlotHold,
 } from '../../core/availability/availability.strategy';
 import { Servicio, ServicioDocument } from '../../core/catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { Transporte } from './transporte.schema';
+import { TransporteCotizable, TransporteRepository } from './transporte.repository';
+import { TransporteCotizadorService } from './transporte-cotizador.service';
+import { cancelacionDe } from './transporte.tarifario';
+import { datosEntregaValidos, solicitudValida } from './transporte.validacion';
 
 const MINUTOS_TTL = 15;
 const DISTANCIA_DEFAULT_KM = 10;
@@ -24,21 +34,86 @@ interface HoldEntry {
 
 /**
  * Estrategia de disponibilidad/precio del vertical Transporte de animales.
- * Servicio por trayecto A→B: disponible si hay unidades libres y los perros
- * solicitados caben en el vehículo. El precio es por trayecto (no por perro):
- * tarifaBase + tarifaKm × distancia.
+ *
+ * Dos caminos:
+ * - **Flujo de cliente nuevo** (`detalle.solicitud`): el precio lo calcula
+ *   `TransporteCotizadorService` con la ruta del servidor, igual que en
+ *   resultados. Es el único camino que usa la web desde el flujo por pantallas.
+ * - **Asistente antiguo** (`detalle.distanciaKm`): base + km por trayecto. Se
+ *   mantiene para reservas que llegan desde el carrito o desde clientes viejos.
  */
 @Injectable()
-export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
+export class TransporteAvailabilityStrategy implements AvailabilityStrategy, CancelacionStrategy, SeguimientoStrategy {
   readonly vertical = VerticalKey.TRANSPORTE;
 
   private readonly holds = new Map<string, HoldEntry>();
 
   constructor(
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
+    private readonly repo: TransporteRepository,
+    private readonly cotizador: TransporteCotizadorService,
   ) {}
 
   async checkAvailability(servicioId: string, params: AvailabilityQuery): Promise<AvailabilityResult> {
+    const bruta = params.parametrosExtra?.['solicitud'];
+    if (bruta === undefined) return this.disponibilidadAntigua(servicioId, params);
+
+    const solicitud = await solicitudValida(bruta);
+    if (!solicitud || !(await datosEntregaValidos(params.parametrosExtra?.['entrega']))) {
+      return { disponible: false, motivo: 'Faltan datos del viaje. Vuelve a describirlo.', metadata: { motivo: 'solicitud_invalida' } };
+    }
+    return this.disponibilidadDeSolicitud(servicioId, solicitud, params);
+  }
+
+  private async disponibilidadDeSolicitud(
+    servicioId: string,
+    solicitud: SolicitudTransporte,
+    params: AvailabilityQuery,
+  ): Promise<AvailabilityResult> {
+    const empresa = await this.repo.porId(servicioId);
+    if (!empresa) throw new DomainException('Servicio de transporte no encontrado', 404);
+
+    const { cotizacion, ruta } = await this.cotizador.cotizarReserva(empresa, solicitud);
+    const precioAcordado = Number(params.parametrosExtra?.['precioAcordado']);
+    const conPresupuesto = Number.isFinite(precioAcordado) && precioAcordado > 0;
+
+    if (cotizacion.estado === 'no_disponible') {
+      return { disponible: false, motivo: cotizacion.motivo, metadata: { motivo: 'no_disponible' } };
+    }
+    if (cotizacion.estado === 'presupuesto' && !conPresupuesto) {
+      return {
+        disponible: false,
+        motivo: cotizacion.motivo ?? 'Este viaje necesita un presupuesto a medida.',
+        metadata: { motivo: 'requiere_presupuesto' },
+      };
+    }
+
+    return {
+      disponible: true,
+      capacidadRestante: empresa.unidadesDisponibles,
+      precioCalculado: cotizacion.total,
+      // Sin `duracionMin` a propósito: con él el core trataría el viaje como
+      // una cita y lo encajaría en el horario de oficina del transportista.
+      metadata: {
+        perros: solicitud.mascotas.length,
+        requiereAceptacion: cotizacion.requiereAceptacion,
+        plazoAceptacionMin: cotizacion.plazoAceptacionMin,
+        // Queda en `reserva.detalle`: el cliente ve su desglose y el mapa del
+        // seguimiento sabe de dónde sale y adónde va el viaje.
+        detalleReserva: {
+          desglose: conPresupuesto ? [{ concepto: 'Presupuesto aceptado', importe: precioAcordado }] : cotizacion.desglose,
+          ruta: ruta ? {
+            km: ruta.trayecto.km,
+            duracionMin: ruta.trayecto.duracionMin,
+            origen: ruta.origen ? { lat: ruta.origen.lat, lng: ruta.origen.lng } : undefined,
+            destino: ruta.destino ? { lat: ruta.destino.lat, lng: ruta.destino.lng } : undefined,
+          } : undefined,
+        },
+      },
+    };
+  }
+
+  private async disponibilidadAntigua(servicioId: string, params: AvailabilityQuery): Promise<AvailabilityResult> {
     const transporte = await this.servicioModel.findById(servicioId).lean().exec() as (Transporte & { _id: unknown }) | null;
 
     if (!transporte) {
@@ -49,16 +124,19 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
       return { disponible: false, motivo: 'Este transportista no tiene vehículos libres ahora mismo.' };
     }
 
-    const perros = Math.max(1, params.cantidad ?? 1);
-    if (perros > transporte.capacidadPerros) {
+    // El número de perros viaja en `detalle.perros`; `cantidad` llega fija a 1
+    // desde el asistente, así que comprobar sólo con ella no limitaba nada.
+    const perros = Math.max(1, Number(params.parametrosExtra?.['perros']) || params.cantidad || 1);
+    const maximo = Math.min(transporte.capacidadPerros, transporte.maxPerrosPorTrayecto || Infinity);
+    if (perros > maximo) {
       return {
         disponible: false,
-        motivo: `Este vehículo admite como máximo ${transporte.capacidadPerros} perro(s) por trayecto.`,
-        metadata: { motivo: 'capacidad_insuficiente', capacidadPerros: transporte.capacidadPerros, perros },
+        motivo: `Este vehículo admite como máximo ${maximo} perro(s) por trayecto.`,
+        metadata: { motivo: 'capacidad_insuficiente', capacidadPerros: maximo, perros },
       };
     }
 
-    const distanciaKm = this.distanciaSolicitada(params);
+    const distanciaKm = Math.max(this.distanciaSolicitada(params), transporte.distanciaMinimaKm ?? 0);
     if (distanciaKm <= 0) {
       throw new DomainException('La distancia del trayecto debe ser mayor que 0', 400);
     }
@@ -96,6 +174,39 @@ export class TransporteAvailabilityStrategy implements AvailabilityStrategy {
         ...(idaVuelta ? { tipoTrayecto: 'ida_vuelta', esperaMinutos, cargoEspera } : {}),
       },
     };
+  }
+
+  /**
+   * Cuánto se devuelve al cancelar: todo hasta X horas antes de la recogida,
+   * el porcentaje tardío después, y nada con el viaje ya empezado.
+   */
+  async politicaReembolso(reserva: ReservaParaPoliticas, ahora = new Date()): Promise<PoliticaReembolso> {
+    if (reserva.estado === ReservaEstado.EN_CURSO || reserva.seguimiento?.length) {
+      return { porcentaje: 0, motivo: 'El viaje ya ha empezado.' };
+    }
+    const empresa = await this.repo.porId(reserva.servicioId);
+    const politica = cancelacionDe(empresa ?? ({} as TransporteCotizable));
+    const horasAntes = (reserva.fechaInicio.getTime() - ahora.getTime()) / 3_600_000;
+
+    if (horasAntes >= politica.gratisHastaHoras) {
+      return { porcentaje: 100, motivo: `Cancelación gratuita hasta ${politica.gratisHastaHoras} h antes.` };
+    }
+    return {
+      porcentaje: politica.reembolsoTardioPct,
+      motivo: `Menos de ${politica.gratisHastaHoras} h antes: se devuelve el ${politica.reembolsoTardioPct} %.`,
+    };
+  }
+
+  /** La entrega necesita foto si el cliente la pidió al reservar. */
+  validarHito(reserva: ReservaParaPoliticas, hito: string, fotoUrl?: string): void {
+    const conocido = normalizarHitoViaje(hito);
+    if (!(Object.values(HitoViaje) as string[]).includes(conocido)) {
+      throw new DomainException('Ese paso del viaje no existe.', 400);
+    }
+    const entrega = reserva.detalle?.['entrega'] as { confirmacionEntrega?: string } | undefined;
+    if (conocido === HitoViaje.ENTREGADA && entrega?.confirmacionEntrega === ConfirmacionEntrega.NOTIFICACION_FOTO && !fotoUrl) {
+      throw new DomainException('El cliente pidió una foto de la entrega: adjúntala para marcarla.', 400);
+    }
   }
 
   /** Minutos de espera solicitados en un trayecto de ida y vuelta (Ref. TRA4). */

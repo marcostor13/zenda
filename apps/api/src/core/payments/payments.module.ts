@@ -3,6 +3,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Pago, PagoSchema } from './pago.schema';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
+import { CancelacionesService } from './cancelaciones.service';
+import { AceptacionesController, CancelacionesController } from './cancelaciones.controller';
 import { StripeGateway } from './stripe.gateway';
 import { PAYMENT_GATEWAY } from './payment-gateway.interface';
 import { ComisionConfigsModule } from '../comision-configs/comision-configs.module';
@@ -18,9 +20,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
     AuthModule,
     NotificationsModule,
   ],
-  controllers: [PaymentsController],
+  controllers: [PaymentsController, CancelacionesController, AceptacionesController],
   providers: [
     PaymentsService,
+    CancelacionesService,
     { provide: PAYMENT_GATEWAY, useClass: StripeGateway },
   ],
   exports: [PaymentsService],

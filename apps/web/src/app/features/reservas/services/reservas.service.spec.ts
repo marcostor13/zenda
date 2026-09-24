@@ -115,7 +115,7 @@ describe('ReservasService', () => {
     const promesa = service.cancelar('r1');
 
     // Cancelar cambia el estado; la reserva no se borra nunca.
-    expect(resolver('/reservas/r1/cancelar').method).toBe('POST');
+    expect(resolver('/reservas/r1/cancelacion').method).toBe('POST');
     await promesa;
   });
 

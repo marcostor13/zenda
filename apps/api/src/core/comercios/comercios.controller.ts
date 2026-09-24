@@ -19,7 +19,7 @@ import { ComercioDocument, EstadoComercio } from './comercio.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { PermisosAdminGuard, PermisosAdmin } from '../auth/guards/permisos.guard';
-import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, FijarAlphaAdheridoDto, BajaComercioDto, PausarComercioDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, PermisoAdmin, Rol } from 'shared';
+import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, FijarAlphaAdheridoDto, BajaComercioDto, PausarComercioDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, PermisoAdmin, Rol, MarcarHitoDto } from 'shared';
 import { ComercioCuentaService } from './comercio-cuenta.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
@@ -175,9 +175,9 @@ export class ComerciosController {
   marcarSeguimiento(
     @Req() req: RequestConUser,
     @Param('reservaId') reservaId: string,
-    @Body() dto: { hito: string; nota?: string },
+    @Body() dto: MarcarHitoDto,
   ) {
-    return this.comerciosService.marcarSeguimiento(reservaId, req.user.comercioId!, dto.hito, dto.nota);
+    return this.comerciosService.marcarSeguimiento(reservaId, req.user.comercioId!, dto);
   }
 
   @Patch('mis-reservas/:reservaId/solicitar-ajuste')

@@ -1,4 +1,6 @@
-import { IsString, IsOptional, IsInt, IsDateString, Min, IsEnum, IsObject, ValidateNested } from 'class-validator';
+import {
+  IsString, IsOptional, IsInt, IsDateString, Min, IsEnum, IsObject, ValidateNested, IsArray, ArrayMaxSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
 import { RecurrenciaDto } from './recurrencia.dto';
@@ -24,6 +26,25 @@ export class CrearReservaDto {
   @IsOptional()
   @IsString()
   perroId?: string;
+
+  /**
+   * Más mascotas del mismo cliente en la misma reserva (un traslado lleva a
+   * varias a la vez). La primera sigue yendo en `perroId`; estas se validan
+   * igual —tienen que ser suyas— y su ficha se congela junto a la principal.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(9)
+  @IsString({ each: true })
+  perroIdsAdicionales?: string[];
+
+  /**
+   * Presupuesto aceptado que convierte esta reserva: el importe sale de la
+   * respuesta del comercio, no de la tarifa. Ver `core/presupuestos`.
+   */
+  @IsOptional()
+  @IsString()
+  presupuestoId?: string;
 
   @IsDateString()
   fechaInicio!: string;

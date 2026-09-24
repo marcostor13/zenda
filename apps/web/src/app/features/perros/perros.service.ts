@@ -84,6 +84,8 @@ export function porcentajeCompletitud(p: PerroApi): number {
 
 export interface PerroPayload {
   nombre?: string;
+  /** perro, gato, ave… (`EspecieMascota`). Sin él, el API la guarda como perro. */
+  especie?: string;
   fotos?: string[];
   raza?: string;
   esMestizo?: boolean;

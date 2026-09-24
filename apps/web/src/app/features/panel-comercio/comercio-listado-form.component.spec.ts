@@ -1654,6 +1654,35 @@ describe('ComercioListadoFormComponent', () => {
       expect(componente.transporteGroup.value.zonaCobertura).toEqual(['Madrid', 'Toledo']);
     });
 
+    it('debería deducir el tarifario nuevo de una ficha antigua y cargar sus rutas con precio', async () => {
+      await crear('s1', {
+        vertical: VerticalKey.TRANSPORTE, titulo: 'DogVan', descripcion: 'Traslados con jaula',
+        ciudad: 'Madrid', precioBase: 30,
+        extra: {
+          tipoVehiculo: 'furgon_climatizado', tarifaBase: 20, tarifaKm: 1.2, jaulasIncluidas: true,
+          tiposTransporteOfrecidos: ['exclusivo', 'compartido'], soloPerros: false,
+          zonasPrecio: [{ origen: 'Madrid', destino: 'Toledo', precio: 60 }],
+        },
+      });
+
+      const v = componente.transporteGroup.getRawValue();
+      expect(v.modalidades).toEqual(['compartido', 'exclusivo']);
+      expect(v.especiesAceptadas).toEqual(['perro', 'gato']);
+      expect(v.incluidos).toEqual(expect.arrayContaining(['climatizacion', 'transportin_incluido']));
+      expect(componente.zonasPrecioTransporte.length).toBe(1);
+      expect(componente.zonasPrecioTransporte.at(0).value).toEqual({ origen: 'Madrid', destino: 'Toledo', precio: 60 });
+    });
+
+    it('debería traer el tarifario nuevo con sus valores por defecto al crear', async () => {
+      await crear();
+
+      const v = componente.transporteGroup.getRawValue();
+      expect(v.modoPrecio).toBe('por_km');
+      expect(v.modalidades).toEqual(['compartido']);
+      expect(v.cancelacion).toEqual({ gratisHastaHoras: 24, reembolsoTardioPct: 0 });
+      expect(componente.zonasPrecioTransporte.length).toBe(0);
+    });
+
     it('debería precargar la peluquería con sus servicios y adicionales', async () => {
       await crear('s1', {
         vertical: VerticalKey.PELUQUERIA, titulo: 'Real Grooming', descripcion: 'Baño y corte',

@@ -200,6 +200,17 @@ describe('RsNavbarComponent (usuario autenticado, HU-12.3)', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.rs-navbar__link--pro')).toBeNull();
   });
 
+  it('debería enlazar «Mis presupuestos» en el desplegable y en el menú móvil del cliente', async () => {
+    await crear();
+    fixture.componentInstance.cuentaAbierto.set(true);
+    fixture.componentInstance.menuAbierto.set(true);
+    fixture.detectChanges();
+
+    const enlaces = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a[href="/presupuestos"]'));
+    expect(enlaces.length).toBe(2);
+    expect(enlaces[0].textContent).toContain('Mis presupuestos');
+  });
+
   it('debería contar las mascotas del usuario en el desplegable', async () => {
     await crear({ mascotas: [{ _id: 'p1' }, { _id: 'p2' }] });
 
@@ -401,7 +412,7 @@ describe('RsNavbarComponent (cuentas profesionales)', () => {
       expect(opciones).toEqual(expect.arrayContaining([
         'Panel de mi comercio', 'Reservas', 'Datos del negocio', 'Equipo', 'Suscripción', 'Seguridad y acceso', 'Cerrar sesión',
       ]));
-      for (const deCliente of ['Mi perfil', 'Mis mascotas', 'Mis reservas', 'Favoritos', 'Mis reseñas', 'Nivel Alpha y recompensas']) {
+      for (const deCliente of ['Mi perfil', 'Mis mascotas', 'Mis reservas', 'Mis presupuestos', 'Favoritos', 'Mis reseñas', 'Nivel Alpha y recompensas']) {
         expect(opciones.some((o) => o.startsWith(deCliente))).toBe(false);
       }
     });
@@ -520,5 +531,11 @@ describe('RsNavbarComponent · secciones del panel en el menú móvil', () => {
     const enlaces = el.querySelectorAll('.rs-mobile-menu__panel .rs-mobile-menu__link');
 
     expect(enlaces.length).toBe(NAV_COMERCIO.length);
+  });
+});
+
+describe('NAV_COMERCIO', () => {
+  it('debería llevar al comercio a sus presupuestos pendientes', () => {
+    expect(NAV_COMERCIO).toContainEqual(expect.objectContaining({ label: 'Presupuestos', ruta: '/comercio/presupuestos' }));
   });
 });

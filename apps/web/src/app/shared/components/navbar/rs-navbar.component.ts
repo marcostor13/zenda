@@ -160,6 +160,9 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
                     </span>
                   }
                 </a>
+                <a routerLink="/presupuestos" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
+                  <rs-icon name="file-text" [size]="15" [stroke]="2"></rs-icon> {{ 'Mis presupuestos' | t }}
+                </a>
                 <a routerLink="/favoritos" class="rs-navbar__dropdown-item" (click)="cuentaAbierto.set(false)">
                   <rs-icon name="heart" [size]="15" [stroke]="2"></rs-icon> {{ 'Favoritos' | t }}
                   @if (favoritosService.count() > 0) { <span class="rs-navbar__count">{{ favoritosService.count() }}</span> }
@@ -333,6 +336,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
               <a routerLink="/perfil"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mi perfil' | t }}</a>
               <a routerLink="/perros"   class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis mascotas' | t }}</a>
               <a routerLink="/reservas" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis reservas' | t }}</a>
+              <a routerLink="/presupuestos" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Mis presupuestos' | t }}</a>
               <a routerLink="/favoritos" class="rs-btn rs-btn--primary rs-btn--block" (click)="menuAbierto.set(false)">{{ 'Favoritos' | t }}</a>
             }
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--block" (click)="cerrarSesion()">

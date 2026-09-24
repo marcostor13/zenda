@@ -198,6 +198,13 @@ export const routes: Routes = [
         loadChildren: () => import('./features/reservas/reservas.routes').then((m) => m.reservasRoutes),
       },
       {
+        // Presupuestos a medida (transporte): lo que han respondido los transportistas.
+        path: 'presupuestos',
+        canActivate: [authGuard, soloClientesGuard],
+        loadComponent: () =>
+          import('./features/transporte/viaje/pantallas/mis-presupuestos.component').then((m) => m.MisPresupuestosComponent),
+      },
+      {
         path: 'perros',
         canActivate: [authGuard, soloClientesGuard],
         loadChildren: () => import('./features/perros/perros.routes').then((m) => m.perrosRoutes),

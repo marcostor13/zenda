@@ -91,6 +91,49 @@ describe('ComercioApiService', () => {
       await promesa;
     });
 
+    it('debería mandar la foto del hito junto a la nota', async () => {
+      const promesa = firstValueFrom(service.marcarSeguimiento('r1', 'entregada', 'Ok', 'https://f/x.jpg'));
+
+      expect(resolver('/mis-reservas/r1/seguimiento').body)
+        .toEqual({ hito: 'entregada', nota: 'Ok', fotoUrl: 'https://f/x.jpg' });
+      await promesa;
+    });
+
+    it('debería aceptar o rechazar un viaje contra su reserva', async () => {
+      const dto = { decision: 'aceptar' as const, horaConfirmada: '09:30' };
+      const promesa = firstValueFrom(service.resolverAceptacion('r1', dto));
+
+      const req = resolver('/mis-reservas/r1/aceptacion');
+      expect(req.method).toBe('POST');
+      expect(req.body).toEqual(dto);
+      await promesa;
+    });
+
+    it('debería enviar la posición del vehículo', async () => {
+      const promesa = firstValueFrom(service.enviarPosicion('r1', { lat: 40.4, lng: -3.7, precision: 12 }));
+
+      const req = resolver('/mis-reservas/r1/posicion');
+      expect(req.method).toBe('POST');
+      expect(req.body).toEqual({ lat: 40.4, lng: -3.7, precision: 12 });
+      await promesa;
+    });
+
+    it('debería listar, responder y rechazar presupuestos por servicio', async () => {
+      const lista = firstValueFrom(service.misPresupuestos());
+      expect(resolver('/mis-presupuestos', []).method).toBe('GET');
+      await lista;
+
+      const responder = firstValueFrom(service.responderPresupuesto('pr1', 's1', { importe: 90, validezDias: 3 }));
+      const reqResponder = resolver('/mis-presupuestos/pr1/servicios/s1/responder', []);
+      expect(reqResponder.method).toBe('POST');
+      expect(reqResponder.body).toEqual({ importe: 90, validezDias: 3 });
+      await responder;
+
+      const rechazar = firstValueFrom(service.rechazarPresupuesto('pr1', 's1', 'Sin hueco'));
+      expect(resolver('/mis-presupuestos/pr1/servicios/s1/rechazar', []).body).toEqual({ motivo: 'Sin hueco' });
+      await rechazar;
+    });
+
     it('debería admitir un hito sin nota', async () => {
       const promesa = firstValueFrom(service.marcarSeguimiento('r1', 'entrada'));
 

@@ -39,6 +39,13 @@ export const reservasRoutes: Routes = [
       import('./components/ajuste-pago.component').then(m => m.AjustePagoComponent),
   },
   {
+    // Transporte ya no se reserva con el asistente genérico: su precio depende
+    // del viaje y se calcula cerrado en el flujo propio. Los enlaces viejos
+    // (favoritos, correos) llevan a la ficha, que invita a calcularlo.
+    path: 'transporte/:servicioId',
+    redirectTo: '/transporte/:servicioId',
+  },
+  {
     path: ':vertical/:servicioId',
     loadComponent: () =>
       import('./components/reserva-wizard.component').then(m => m.ReservaWizardComponent),

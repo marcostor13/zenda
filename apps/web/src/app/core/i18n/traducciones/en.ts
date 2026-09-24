@@ -9,11 +9,12 @@ import legal from './en/legal';
 import catalogos from './en/catalogos';
 import paginas from './en/paginas';
 import historial from './en/historial';
+import transporte from './en/transporte';
 
 /**
  * Diccionario de en, repartido por zona de la aplicacion para que cada
  * fichero se pueda revisar entero de una sentada.
  */
-const en: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas, ...historial };
+const en: Diccionario = { ...comun, ...publico, ...cuenta, ...reservas, ...comercio, ...admin, ...legal, ...catalogos, ...paginas, ...historial, ...transporte };
 
 export default en;

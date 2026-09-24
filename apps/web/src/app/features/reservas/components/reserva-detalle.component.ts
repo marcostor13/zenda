@@ -11,6 +11,9 @@ import { PaymentsService } from '../services/payments.service';
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
+import { SeguimientoViajeComponent } from '../../transporte/viaje/componentes/seguimiento-viaje.component';
+import { TransporteViajeApi, VistaPreviaCancelacion } from '../../transporte/viaje/transporte-viaje.api';
+import { mensajeDeError } from '../../../shared/mensaje-error';
 type EstadoColor = 'success' | 'warning' | 'danger' | 'accent' | 'neutral';
 
 const HITO_LABEL: Record<string, string> = {
@@ -61,7 +64,8 @@ const ESTADO_DESCONOCIDO = {
   selector: 'app-reserva-detalle',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, FechaPipe, TitleCasePipe, RsNavbarComponent, RsIconComponent, RsBrandIconComponent, EurosPipe
+    TraducirPipe, RouterLink, FechaPipe, TitleCasePipe, RsNavbarComponent, RsIconComponent, RsBrandIconComponent, EurosPipe,
+    SeguimientoViajeComponent,
   ],
   template: `
 <div class="dk-pagina">
@@ -132,8 +136,15 @@ const ESTADO_DESCONOCIDO = {
             </div>
           </div>
 
+          <!-- Transporte: estado del viaje, contacto y mapa en vivo -->
+          @if (esTransporte()) {
+            <div class="rs-card seguimiento-card">
+              <app-seguimiento-viaje [reserva]="reserva()!" />
+            </div>
+          }
+
           <!-- Seguimiento en vivo -->
-          @if (seguimiento().length) {
+          @if (!esTransporte() && seguimiento().length) {
             <div class="rs-card seguimiento-card">
               <h3 class="seguimiento-card__title">
                 <rs-icon name="radio-tower" [size]="16" [stroke]="2" /> Seguimiento en vivo
@@ -252,6 +263,18 @@ const ESTADO_DESCONOCIDO = {
                   <span>−{{ reserva()!.descuentoMonto | euros:'1.2-2' }}</span>
                 </div>
               }
+              @for (l of desglose(); track $index) {
+                <div class="price-row">
+                  <span>{{ l.concepto | t }}</span>
+                  <span>{{ l.importe | euros:'1.2-2' }}</span>
+                </div>
+              }
+              @if (viajesSerie() > 1) {
+                <div class="price-row price-row--nota">
+                  <span>{{ '{n} viajes' | t: { n: viajesSerie() } }}</span>
+                  <span></span>
+                </div>
+              }
               <div class="price-row price-row--total">
                 <span>{{ 'Total' | t }}</span>
                 <span>{{ reserva()!.montoTotal | euros:'1.2-2' }}</span>
@@ -321,18 +344,44 @@ const ESTADO_DESCONOCIDO = {
               </button>
             }
 
+            @if (reserva()!.reembolso; as reembolso) {
+              <div class="rs-alert rs-alert--info">
+                {{ 'Reembolso: {importe} ({pct} %).' | t: { importe: (reembolso.importe | euros:'1.2-2'), pct: reembolso.porcentaje } }}
+                {{ reembolso.motivo }}
+              </div>
+            }
+
             @if (puedeCancelar()) {
-              <button
-                class="rs-btn rs-btn--danger rs-btn--block"
-                [disabled]="cancelando()"
-                (click)="cancelar()">
-                @if (cancelando()) {
-                  <span class="rs-spin"></span> Cancelando…
-                } @else {
-                  <rs-icon name="x-circle" [size]="16" [stroke]="2"></rs-icon>
-                  Cancelar reserva
-                }
-              </button>
+              @if (previaCancelacion(); as previa) {
+                <div class="cancelacion-previa">
+                  <p>
+                    @if (previa.importe > 0) {
+                      {{ 'Si cancelas ahora te devolvemos {importe}.' | t: { importe: (previa.importe | euros:'1.2-2') } }}
+                    } @else {
+                      {{ 'Si cancelas ahora no hay reembolso.' | t }}
+                    }
+                    <span>{{ previa.motivo }}</span>
+                  </p>
+                  <div class="cancelacion-previa__acciones">
+                    <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="previaCancelacion.set(null)">{{ 'Mantener reserva' | t }}</button>
+                    <button type="button" class="rs-btn rs-btn--danger rs-btn--sm" [disabled]="cancelando()" (click)="confirmarCancelacion()">
+                      {{ (cancelando() ? 'Cancelando…' : 'Sí, cancelar') | t }}
+                    </button>
+                  </div>
+                </div>
+              } @else {
+                <button
+                  class="rs-btn rs-btn--danger rs-btn--block"
+                  [disabled]="cancelando()"
+                  (click)="cancelar()">
+                  @if (cancelando()) {
+                    <span class="rs-spin"></span> {{ 'Consultando…' | t }}
+                  } @else {
+                    <rs-icon name="x-circle" [size]="16" [stroke]="2"></rs-icon>
+                    {{ 'Cancelar reserva' | t }}
+                  }
+                </button>
+              }
             }
 
             <!-- Reclamar sobre esta reserva; llega al panel de incidencias (TCK-8040 §2) -->
@@ -429,6 +478,13 @@ const ESTADO_DESCONOCIDO = {
     }
     .status-bar__date { font-size: var(--f-xs); color: var(--t-400); }
 
+    .cancelacion-previa {
+      display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4);
+      border: 1px solid var(--c-error-lo); border-radius: var(--r-lg); background: var(--c-card);
+      p { margin: 0; font-size: var(--f-sm); color: var(--t-200); }
+      span { display: block; margin-top: var(--sp-1); font-size: var(--f-xs); color: var(--t-400); }
+    }
+    .cancelacion-previa__acciones { display: flex; justify-content: flex-end; gap: var(--sp-2); }
     /* ── Seguimiento en vivo ──────────────────────────────────── */
     .seguimiento-card { padding: var(--sp-5); margin-bottom: var(--sp-5); }
     .seguimiento-card__title { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-4); display: flex; align-items: center; gap: var(--sp-2); }
@@ -563,6 +619,7 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly reservasService = inject(ReservasService);
   private readonly paymentsService = inject(PaymentsService);
+  private readonly viajeApi = inject(TransporteViajeApi);
 
   private pollId?: ReturnType<typeof setInterval>;
 
@@ -616,6 +673,17 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
   });
 
   readonly seguimiento = computed(() => this.reserva()?.seguimiento ?? []);
+  readonly esTransporte = computed(() => this.reserva()?.vertical === 'transporte');
+
+  /** Qué se devolvería si cancela ahora; se pide antes de confirmar para que no haya sorpresas. */
+  readonly previaCancelacion = signal<VistaPreviaCancelacion | null>(null);
+
+  /** Conceptos del precio que dejó anotados el vertical (transporte: trayecto, suplementos…). */
+  readonly desglose = computed(() => {
+    const lineas = this.reserva()?.detalle?.['desglose'];
+    return Array.isArray(lineas) ? (lineas as Array<{ concepto: string; importe: number }>) : [];
+  });
+  readonly viajesSerie = computed(() => Number(this.reserva()?.detalle?.['viajes']) || 1);
   readonly esActiva = computed(() => {
     const e = this.reserva()?.estado;
     return e === 'confirmada' || e === 'en_curso';
@@ -637,7 +705,12 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
 
   readonly detalleExtra = computed(() => {
     const detalle = this.reserva()?.detalle ?? {};
-    const ignorar = new Set(['titulo', 'nombre', 'imagen', 'imagenes', 'videosUrl']);
+    const ignorar = new Set(['titulo', 'nombre', 'imagen', 'imagenes', 'videosUrl', 'resumen', 'desglose', 'viajes', 'precioPorViaje']);
+    // Si el vertical dejó un resumen legible (transporte), manda sobre los campos sueltos.
+    const resumen = detalle['resumen'];
+    if (Array.isArray(resumen)) {
+      return (resumen as Array<[string, string]>).map(([label, valor], i) => ({ key: `resumen-${i}`, label, valor }));
+    }
     const LABELS: Record<string, string> = {
       espacioId: 'Espacio', tamanoPerro: 'Tamaño del perro', perros: 'Perros',
       origen: 'Origen', destino: 'Destino', distanciaKm: 'Distancia (km)',
@@ -647,7 +720,8 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
       historialPrevio: 'Historial previo', vinculoPropietario: 'Vínculo con el propietario',
     };
     return Object.entries(detalle)
-      .filter(([k, v]) => !ignorar.has(k) && v != null && v !== '')
+      // Un objeto (la solicitud, los datos de entrega…) no se puede pintar como texto.
+      .filter(([k, v]) => !ignorar.has(k) && v != null && v !== '' && typeof v !== 'object')
       .map(([k, v]) => ({ key: k, label: LABELS[k] ?? k, valor: String(v) }));
   });
 
@@ -697,16 +771,32 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
     }, 15000);
   }
 
+  /** Primer paso: pregunta cuánto se devolvería según la política, sin cancelar nada. */
   async cancelar(): Promise<void> {
     const r = this.reserva();
     if (!r) return;
     this.cancelando.set(true);
     this.errorAccion.set('');
     try {
-      const actualizada = await this.reservasService.cancelar(r._id ?? r.id ?? r.codigo);
-      this.reserva.set(actualizada);
-    } catch {
-      this.errorAccion.set('No se pudo cancelar la reserva. Inténtalo de nuevo.');
+      this.previaCancelacion.set(await this.viajeApi.vistaPreviaCancelacion(r._id ?? r.id ?? r.codigo));
+    } catch (error) {
+      this.errorAccion.set(mensajeDeError(error, 'No se pudo consultar la cancelación. Inténtalo de nuevo.'));
+    } finally {
+      this.cancelando.set(false);
+    }
+  }
+
+  /** Segundo paso: cancela y devuelve lo que marque la política. */
+  async confirmarCancelacion(): Promise<void> {
+    const r = this.reserva();
+    if (!r) return;
+    this.cancelando.set(true);
+    this.errorAccion.set('');
+    try {
+      this.reserva.set(await this.viajeApi.cancelar(r._id ?? r.id ?? r.codigo));
+      this.previaCancelacion.set(null);
+    } catch (error) {
+      this.errorAccion.set(mensajeDeError(error, 'No se pudo cancelar la reserva. Inténtalo de nuevo.'));
     } finally {
       this.cancelando.set(false);
     }

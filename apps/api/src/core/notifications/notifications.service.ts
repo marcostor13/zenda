@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Rol } from 'shared';
+import { Model, Types } from 'mongoose';
+import { HITO_VIAJE_LABELS, HitoViaje, Rol, normalizarHitoViaje } from 'shared';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
@@ -17,6 +17,21 @@ import {
 import { plantillaNuevaReservaComercio } from './plantillas/nueva-reserva-comercio.plantilla';
 import { construirIcs } from './plantillas/evento-calendario';
 import { detallesLegibles } from './plantillas/detalles-reserva';
+import { PushService } from './push.service';
+import {
+  plantillaAceptacionCliente, plantillaHitoViaje, plantillaPendienteAceptacion, plantillaPresupuestoRecibido,
+  plantillaReembolso, plantillaSolicitudPresupuesto,
+} from './plantillas/viaje.plantillas';
+
+/** Qué se le dice al cliente en cada paso del viaje. */
+const MENSAJE_HITO: Record<string, string> = {
+  [HitoViaje.ASIGNADO]: 'ya tienes transportista asignado para tu viaje.',
+  [HitoViaje.DE_CAMINO]: 'el transportista va de camino a recoger a tu mascota.',
+  [HitoViaje.RECOGIDA]: 'tu mascota ya está con el transportista.',
+  [HitoViaje.EN_TRAYECTO]: 'tu mascota está de camino a su destino.',
+  [HitoViaje.ENTREGADA]: 'tu mascota ha llegado a su destino.',
+  [HitoViaje.FINALIZADA]: 'el viaje ha terminado. ¡Gracias por confiar en Doogking!',
+};
 
 @Injectable()
 export class NotificationsService {
@@ -30,6 +45,7 @@ export class NotificationsService {
     @InjectModel(Usuario.name) private readonly usuarioModel: Model<UsuarioDocument>,
     @InjectModel(Comercio.name) private readonly comercioModel: Model<ComercioDocument>,
     private readonly config: ConfigService,
+    private readonly push: PushService,
   ) {}
 
   /**
@@ -411,6 +427,187 @@ export class NotificationsService {
         <p style="color:#8B9BBC;font-size:12px;margin-top:16px">Equipo Doogking · www.doogking.com</p>
       </div>
     `;
+  }
+
+  /**
+   * Aviso de un paso del viaje (transportista asignado, recogida, entrega…) por
+   * correo y push. Nunca lanza: el hito ya está guardado.
+   */
+  async notificarHitoViaje(reservaId: string, hito: string, nota?: string, fotoUrl?: string): Promise<void> {
+    try {
+      const contexto = await this.contextoReserva(reservaId);
+      if (!contexto) return;
+      const { reserva, servicio, cliente } = contexto;
+      const clave = normalizarHitoViaje(hito);
+      const etiqueta = HITO_VIAJE_LABELS[clave as HitoViaje] ?? hito;
+      const mensaje = MENSAJE_HITO[clave] ?? 'hay novedades en tu reserva.';
+
+      void this.push.enviarA(reserva.usuarioId.toString(), {
+        titulo: etiqueta,
+        cuerpo: `${servicio} · ${mensaje}`,
+        ruta: `/reservas/${reserva.codigo}`,
+      });
+      await this.enviarYRegistrar({
+        reservaId: reserva._id,
+        tipo: `hito_${clave}`,
+        destinatario: cliente.email,
+        asunto: `${etiqueta} · ${reserva.codigo}`,
+        cuerpo: plantillaHitoViaje({
+          urlBase: this.urlBase(), nombre: cliente.nombre, codigo: reserva.codigo, servicio, hito: etiqueta, mensaje, nota, fotoUrl,
+        }),
+      });
+    } catch (error) {
+      this.logger.error(`No se pudo avisar del hito ${hito} de la reserva ${reservaId}`, error);
+    }
+  }
+
+  /** Al comercio: tiene un viaje pagado que aceptar antes de que venza el plazo. */
+  async notificarPendienteAceptacion(reservaId: string): Promise<void> {
+    try {
+      const contexto = await this.contextoReserva(reservaId);
+      const venceEn = contexto?.reserva.aceptacion?.venceEn;
+      if (!contexto || !venceEn) return;
+      const { reserva, servicio } = contexto;
+      const staff = await this.staffDe(reserva.comercioId.toString());
+      const cuerpo = plantillaPendienteAceptacion({
+        urlBase: this.urlBase(), codigo: reserva.codigo, servicio, inicio: reserva.fechaInicio,
+        venceEn, detalles: detallesLegibles(reserva.detalle),
+      });
+      await Promise.all(staff.map((u) => {
+        void this.push.enviarA(u._id.toString(), {
+          titulo: 'Viaje pendiente de aceptar', cuerpo: `${servicio} · ${reserva.codigo}`, ruta: '/comercio/reservas',
+        });
+        return this.enviarYRegistrar({
+          reservaId: reserva._id, tipo: 'aceptacion_pendiente', destinatario: u.email,
+          asunto: `Acepta el viaje ${reserva.codigo}`, cuerpo,
+        });
+      }));
+    } catch (error) {
+      this.logger.error(`No se pudo avisar de la aceptación pendiente de ${reservaId}`, error);
+    }
+  }
+
+  /** Al cliente: el comercio aceptó o rechazó (o dejó vencer) su viaje. */
+  async notificarAceptacion(reservaId: string, aceptada: boolean, importeDevuelto?: number): Promise<void> {
+    try {
+      const contexto = await this.contextoReserva(reservaId);
+      if (!contexto) return;
+      const { reserva, servicio, cliente } = contexto;
+      void this.push.enviarA(reserva.usuarioId.toString(), {
+        titulo: aceptada ? 'Viaje aceptado' : 'Viaje no disponible',
+        cuerpo: `${servicio} · ${reserva.codigo}`,
+        ruta: `/reservas/${reserva.codigo}`,
+      });
+      await this.enviarYRegistrar({
+        reservaId: reserva._id,
+        tipo: aceptada ? 'aceptacion_ok' : 'aceptacion_rechazada',
+        destinatario: cliente.email,
+        asunto: aceptada ? `Tu viaje ${reserva.codigo} está aceptado` : `Tu viaje ${reserva.codigo} no se puede hacer`,
+        cuerpo: plantillaAceptacionCliente({
+          urlBase: this.urlBase(), nombre: cliente.nombre, codigo: reserva.codigo, servicio, aceptada,
+          inicio: reserva.fechaInicio, motivo: reserva.aceptacion?.motivo, importeDevuelto,
+        }),
+      });
+    } catch (error) {
+      this.logger.error(`No se pudo avisar de la aceptación de ${reservaId}`, error);
+    }
+  }
+
+  /** Al cliente: la reserva se canceló y esto es lo que se le devuelve. */
+  async notificarCancelacion(reservaId: string): Promise<void> {
+    try {
+      const contexto = await this.contextoReserva(reservaId);
+      if (!contexto) return;
+      const { reserva, servicio, cliente } = contexto;
+      await this.enviarYRegistrar({
+        reservaId: reserva._id,
+        tipo: 'reserva_cancelada',
+        destinatario: cliente.email,
+        asunto: `Reserva ${reserva.codigo} cancelada`,
+        cuerpo: plantillaReembolso({
+          urlBase: this.urlBase(), nombre: cliente.nombre, codigo: reserva.codigo, servicio,
+          importe: reserva.reembolso?.importe ?? 0, porcentaje: reserva.reembolso?.porcentaje ?? 0,
+          motivo: reserva.reembolso?.motivo ?? '',
+        }),
+      });
+    } catch (error) {
+      this.logger.error(`No se pudo avisar de la cancelación de ${reservaId}`, error);
+    }
+  }
+
+  /** A cada comercio al que el cliente ha pedido presupuesto. */
+  async notificarSolicitudPresupuesto(params: {
+    comercioId: string;
+    codigo: string;
+    servicio: string;
+    fechaServicio: Date;
+    resumen: ReadonlyArray<readonly [string, string]>;
+    comentario?: string;
+  }): Promise<void> {
+    try {
+      const staff = await this.staffDe(params.comercioId);
+      const cuerpo = plantillaSolicitudPresupuesto({ urlBase: this.urlBase(), ...params });
+      await Promise.all(staff.map((u) => {
+        void this.push.enviarA(u._id.toString(), {
+          titulo: 'Nueva solicitud de presupuesto', cuerpo: params.servicio, ruta: '/comercio/presupuestos',
+        });
+        return this.enviarYRegistrar({
+          tipo: 'presupuesto_solicitado', destinatario: u.email,
+          asunto: `Solicitud de presupuesto ${params.codigo}`, cuerpo,
+        });
+      }));
+    } catch (error) {
+      this.logger.error(`No se pudo avisar de la solicitud de presupuesto ${params.codigo}`, error);
+    }
+  }
+
+  /** Al cliente: una empresa ha puesto precio a su solicitud. */
+  async notificarPresupuestoRecibido(params: {
+    usuarioId: string;
+    codigo: string;
+    empresa: string;
+    importe: number;
+    validoHasta: Date;
+    condiciones?: string;
+  }): Promise<void> {
+    try {
+      const cliente = await this.usuarioModel.findById(params.usuarioId).select('nombre email').lean().exec();
+      if (!cliente) return;
+      void this.push.enviarA(params.usuarioId, {
+        titulo: `Presupuesto recibido: ${params.importe.toFixed(2)} €`, cuerpo: params.empresa, ruta: '/presupuestos',
+      });
+      await this.enviarYRegistrar({
+        tipo: 'presupuesto_recibido',
+        destinatario: cliente.email,
+        asunto: `Presupuesto recibido: ${params.importe.toFixed(2)} €`,
+        cuerpo: plantillaPresupuestoRecibido({ urlBase: this.urlBase(), nombre: cliente.nombre, ...params }),
+      });
+    } catch (error) {
+      this.logger.error(`No se pudo avisar del presupuesto ${params.codigo}`, error);
+    }
+  }
+
+  private async contextoReserva(reservaId: string): Promise<{
+    reserva: Reserva & { _id: Types.ObjectId };
+    servicio: string;
+    cliente: { nombre: string; email: string };
+  } | null> {
+    const reserva = await this.reservaModel.findById(reservaId).lean().exec() as (Reserva & { _id: Types.ObjectId }) | null;
+    if (!reserva) return null;
+    const [servicio, cliente] = await Promise.all([
+      this.servicioModel.findById(reserva.servicioId).select('titulo').lean().exec(),
+      this.usuarioModel.findById(reserva.usuarioId).select('nombre email').lean().exec(),
+    ]);
+    if (!cliente) return null;
+    return { reserva, servicio: (servicio as { titulo?: string } | null)?.titulo ?? 'Tu reserva', cliente };
+  }
+
+  private async staffDe(comercioId: string): Promise<Array<{ _id: Types.ObjectId; email: string }>> {
+    return this.usuarioModel
+      .find({ comercioId, rol: { $in: [Rol.COMERCIO_ADMIN, Rol.COMERCIO_STAFF] } })
+      .select('email')
+      .lean()
+      .exec() as unknown as Promise<Array<{ _id: Types.ObjectId; email: string }>>;
   }
 
   private async enviarYRegistrar(

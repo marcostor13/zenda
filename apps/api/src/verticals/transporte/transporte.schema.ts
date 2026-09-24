@@ -1,5 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import {
+  ModalidadTransporte, ModoPrecioTransporte, PreferenciaTransporte, ReglasPresupuestoTransporte,
+  SuplementosTransporte, ZonaPrecioTransporte, PoliticaCancelacionTransporte,
+} from 'shared';
 import { Servicio } from '../../core/catalog/servicio.schema';
 
 export type TransporteDocument = HydratedDocument<Transporte>;
@@ -128,6 +132,60 @@ export class Transporte extends Servicio {
   /** Antelación mínima con la que hay que reservar, en horas. */
   @Prop({ type: Number, default: 0 })
   antelacionMinimaHoras!: number;
+
+  // --- Tarifario del flujo de cliente (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md, F1) ---
+  // El cliente no ve nada de esto: describe su viaje y el cotizador lo traduce
+  // a este tarifario. Los campos ausentes en fichas antiguas los rellena
+  // `tarifarioDe` a partir de los de antes, así que nadie deja de aparecer.
+
+  /** Cómo tarifica el trayecto. Ausente = `por_km`, que es como tarificaban todos. */
+  @Prop({ type: String, enum: Object.values(ModoPrecioTransporte) })
+  modoPrecio?: ModoPrecioTransporte;
+
+  /** Precio de un trayecto dentro de su zona, en modo `fijo`. */
+  @Prop({ type: Number })
+  precioFijo?: number;
+
+  /** Precio por pareja de provincias, en modo `por_zona`. Vale en los dos sentidos. */
+  @Prop({ type: [Object], default: undefined })
+  zonasPrecio?: ZonaPrecioTransporte[];
+
+  /** Modalidades que ofrece. Ausente = se deduce de `tiposTransporteOfrecidos` y `precioExclusivo`. */
+  @Prop({ type: [String], default: undefined })
+  modalidades?: ModalidadTransporte[];
+
+  /** Asientos para acompañantes en la modalidad «viajo con mi mascota». 0 = no lleva pasajeros. */
+  @Prop({ type: Number, default: 0 })
+  plazasPasajeros!: number;
+
+  /** Minutos que suele añadir un viaje compartido por las paradas de otros clientes. */
+  @Prop({ type: Number, default: 0 })
+  tiempoExtraCompartidoMin!: number;
+
+  @Prop({ type: Object })
+  suplementos?: SuplementosTransporte;
+
+  /** Especies que traslada (valores de `EspecieMascota`). Ausente = según `soloPerros`. */
+  @Prop({ type: [String], default: undefined })
+  especiesAceptadas?: string[];
+
+  @Prop({ type: Boolean, default: true })
+  aceptaLoAntesPosible!: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  aceptaUrgentes!: boolean;
+
+  /** Cuándo prefiere estudiar el viaje y presupuestarlo a mano. */
+  @Prop({ type: Object })
+  reglasPresupuesto?: ReglasPresupuestoTransporte;
+
+  /** Lo que va incluido en el precio. Ausente = se deduce de las características del vehículo. */
+  @Prop({ type: [String], default: undefined })
+  incluidos?: PreferenciaTransporte[];
+
+  /** Política de cancelación. Ausente = gratis hasta 24 h antes, sin reembolso después. */
+  @Prop({ type: Object })
+  cancelacion?: PoliticaCancelacionTransporte;
 }
 
 export const TransporteSchema = SchemaFactory.createForClass(Transporte);

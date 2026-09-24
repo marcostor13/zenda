@@ -179,7 +179,7 @@ describe('ComerciosController', () => {
       await controller.marcarSeguimiento(req, 'reserva-1', { hito: 'recogido' } as never);
 
       expect(service.completarReserva).toHaveBeenCalledWith('reserva-1', 'comercio-1');
-      expect(service.marcarSeguimiento).toHaveBeenCalledWith('reserva-1', 'comercio-1', 'recogido', undefined);
+      expect(service.marcarSeguimiento).toHaveBeenCalledWith('reserva-1', 'comercio-1', { hito: 'recogido' });
     });
 
     it('deberia exigir el comercio del token al tocar un listado', async () => {

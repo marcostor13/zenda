@@ -7,6 +7,7 @@ import { ReservaEstado, VerticalKey } from 'shared';
 import { ReservaDetalleComponent } from './reserva-detalle.component';
 import { ReservaApi, ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
+import { TransporteViajeApi } from '../../transporte/viaje/transporte-viaje.api';
 
 const reserva = (extra: Partial<ReservaApi> = {}): ReservaApi => ({
   _id: 'r1', codigo: 'RES-AAAA1111', vertical: VerticalKey.ALOJAMIENTO,
@@ -23,6 +24,7 @@ describe('ReservaDetalleComponent', () => {
   let componente: ReservaDetalleComponent;
   let reservasService: Record<string, jest.Mock>;
   let paymentsService: Record<string, jest.Mock>;
+  let viajeApi: jest.Mocked<Pick<TransporteViajeApi, 'vistaPreviaCancelacion' | 'cancelar' | 'contacto' | 'ubicacion'>>;
   let router: Router;
 
   const crear = async (datos: ReservaApi | Error = reserva()): Promise<void> => {
@@ -31,6 +33,12 @@ describe('ReservaDetalleComponent', () => {
         ? jest.fn().mockRejectedValue(datos)
         : jest.fn().mockResolvedValue(datos),
       cancelar: jest.fn().mockResolvedValue(reserva({ estado: ReservaEstado.CANCELADA })),
+    };
+    viajeApi = {
+      vistaPreviaCancelacion: jest.fn().mockResolvedValue({ porcentaje: 100, importe: 121, motivo: 'Con más de 24 h' }),
+      cancelar: jest.fn().mockResolvedValue(reserva({ estado: ReservaEstado.CANCELADA })),
+      contacto: jest.fn().mockResolvedValue({ nombre: 'Ana', telefono: '+34 600 000 000' }),
+      ubicacion: jest.fn().mockResolvedValue({ compartiendo: false, rastro: [] }),
     };
     paymentsService = {
       crearIntent: jest.fn().mockResolvedValue({
@@ -45,6 +53,7 @@ describe('ReservaDetalleComponent', () => {
         provideHttpClientTesting(),
         { provide: ReservasService, useValue: reservasService },
         { provide: PaymentsService, useValue: paymentsService },
+        { provide: TransporteViajeApi, useValue: viajeApi },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ codigo: 'RES-AAAA1111' }) } },
@@ -211,32 +220,135 @@ describe('ReservaDetalleComponent', () => {
       expect(componente.puedeCancelar()).toBe(false);
     });
 
-    it('debería reflejar el nuevo estado tras cancelar', async () => {
+    it('debería consultar primero cuánto se devolvería, sin cancelar', async () => {
       await crear();
 
       await componente.cancelar();
 
-      expect(reservasService['cancelar']).toHaveBeenCalledWith('r1');
-      expect(componente.reserva()?.estado).toBe(ReservaEstado.CANCELADA);
+      expect(viajeApi.vistaPreviaCancelacion).toHaveBeenCalledWith('r1');
+      expect(viajeApi.cancelar).not.toHaveBeenCalled();
+      expect(componente.previaCancelacion()).toEqual({ porcentaje: 100, importe: 121, motivo: 'Con más de 24 h' });
+      expect(componente.cancelando()).toBe(false);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.cancelacion-previa')).not.toBeNull();
+    });
+
+    it('debería avisar de que no hay reembolso si la política no devuelve nada', async () => {
+      await crear();
+      viajeApi.vistaPreviaCancelacion.mockResolvedValue({ porcentaje: 0, importe: 0, motivo: 'Fuera de plazo' });
+
+      await componente.cancelar();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.cancelacion-previa').textContent).toContain('no hay reembolso');
+    });
+
+    it('debería avisar si no se puede consultar la cancelación', async () => {
+      await crear();
+      viajeApi.vistaPreviaCancelacion.mockRejectedValue(new Error('red'));
+
+      await componente.cancelar();
+
+      expect(componente.errorAccion()).toBeTruthy();
+      expect(componente.previaCancelacion()).toBeNull();
       expect(componente.cancelando()).toBe(false);
     });
 
-    it('debería avisar si la cancelación falla', async () => {
+    it('debería reflejar el nuevo estado tras confirmar la cancelación', async () => {
       await crear();
-      reservasService['cancelar'].mockRejectedValue(new Error('política'));
-
       await componente.cancelar();
 
-      expect(componente.errorAccion()).toContain('No se pudo cancelar');
+      await componente.confirmarCancelacion();
+
+      expect(viajeApi.cancelar).toHaveBeenCalledWith('r1');
+      expect(componente.reserva()?.estado).toBe(ReservaEstado.CANCELADA);
+      expect(componente.previaCancelacion()).toBeNull();
+      expect(componente.cancelando()).toBe(false);
+    });
+
+    it('debería avisar si la cancelación falla y mantener la reserva', async () => {
+      await crear();
+      await componente.cancelar();
+      viajeApi.cancelar.mockRejectedValue(new Error('política'));
+
+      await componente.confirmarCancelacion();
+
+      expect(componente.errorAccion()).toBeTruthy();
       expect(componente.reserva()?.estado).toBe(ReservaEstado.CONFIRMADA);
+      expect(componente.previaCancelacion()).not.toBeNull();
     });
 
     it('no debería llamar al API sin reserva cargada', async () => {
       await crear(new Error('404'));
 
       await componente.cancelar();
+      await componente.confirmarCancelacion();
 
-      expect(reservasService['cancelar']).not.toHaveBeenCalled();
+      expect(viajeApi.vistaPreviaCancelacion).not.toHaveBeenCalled();
+      expect(viajeApi.cancelar).not.toHaveBeenCalled();
+    });
+
+    it('debería mostrar el reembolso hecho de una reserva cancelada', async () => {
+      await crear(reserva({
+        estado: ReservaEstado.CANCELADA, reembolso: { porcentaje: 50, importe: 60.5, motivo: 'Tarde' },
+      } as never));
+
+      expect(fixture.nativeElement.textContent).toContain('Tarde');
+    });
+  });
+
+  describe('transporte', () => {
+    it('debería pintar el seguimiento del viaje en lugar del genérico', async () => {
+      await crear(reserva({
+        vertical: VerticalKey.TRANSPORTE,
+        seguimiento: [{ hito: 'recogida', at: '2026-09-01T10:00:00.000Z' }],
+      } as never));
+
+      expect(componente.esTransporte()).toBe(true);
+      expect(fixture.nativeElement.querySelector('app-seguimiento-viaje')).not.toBeNull();
+      expect(viajeApi.contacto).toHaveBeenCalledWith('r1');
+    });
+
+    it('no debería pintar el seguimiento de viaje en otros verticales', async () => {
+      await crear();
+
+      expect(componente.esTransporte()).toBe(false);
+      expect(fixture.nativeElement.querySelector('app-seguimiento-viaje')).toBeNull();
+    });
+
+    it('debería desglosar el precio y contar los viajes de la serie', async () => {
+      await crear(reserva({
+        vertical: VerticalKey.TRANSPORTE,
+        detalle: { desglose: [{ concepto: 'Trayecto', importe: 40 }, { concepto: 'Nocturno', importe: 10 }], viajes: 3 },
+      }));
+
+      expect(componente.desglose()).toHaveLength(2);
+      expect(componente.viajesSerie()).toBe(3);
+      expect(fixture.nativeElement.querySelector('.price-row--nota')).not.toBeNull();
+    });
+
+    it('debería tolerar un detalle sin desglose ni viajes', async () => {
+      await crear(reserva({ detalle: { desglose: 'raro' } }));
+
+      expect(componente.desglose()).toEqual([]);
+      expect(componente.viajesSerie()).toBe(1);
+    });
+
+    it('debería usar el resumen legible del vertical si lo hay', async () => {
+      await crear(reserva({
+        detalle: { resumen: [['Origen', 'Madrid'], ['Destino', 'Toledo']], origen: 'otro' },
+      }));
+
+      expect(componente.detalleExtra()).toEqual([
+        { key: 'resumen-0', label: 'Origen', valor: 'Madrid' },
+        { key: 'resumen-1', label: 'Destino', valor: 'Toledo' },
+      ]);
+    });
+
+    it('debería ignorar los valores que son objetos', async () => {
+      await crear(reserva({ detalle: { solicitud: { a: 1 }, origen: 'Madrid', viajes: 2 } }));
+
+      expect(componente.detalleExtra().map((d) => d.key)).toEqual(['origen']);
     });
   });
 

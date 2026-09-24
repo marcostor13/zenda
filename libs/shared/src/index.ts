@@ -17,6 +17,11 @@ export * from './enums/lugar.enum';
 export * from './enums/seguro.enum';
 export * from './enums/funerarios.enum';
 export * from './enums/evento.enum';
+// Transporte de mascotas: vocabulario y cotizador único (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md)
+export * from './transporte/transporte.catalogo';
+export * from './transporte/cotizar-transporte';
+export * from './transporte/viaje-transporte';
+export * from './transporte/resumen-transporte';
 
 // Constants
 export * from './constants';
@@ -113,6 +118,10 @@ export * from './dtos/suplementos/actualizar-suplemento-config.dto';
 // DTOs — Recomendador
 export * from './dtos/recomendador/recomendar-adiestramiento.dto';
 export * from './dtos/recomendador/recomendar-veterinaria.dto';
+
+// DTOs — Transporte y presupuestos
+export * from './dtos/transporte/solicitud-transporte.dto';
+export * from './dtos/presupuestos/presupuesto.dto';
 
 // DTOs — Lista de espera (prelanzamiento)
 export * from './dtos/lista-espera/lista-espera.dto';

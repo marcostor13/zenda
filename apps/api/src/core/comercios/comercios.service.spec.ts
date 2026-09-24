@@ -84,7 +84,7 @@ describe('ComerciosService', () => {
         },
         {
           provide: BookingsService,
-          useValue: { completar: jest.fn(), solicitarAjuste: jest.fn() },
+          useValue: { completar: jest.fn(), solicitarAjuste: jest.fn(), agregarSeguimiento: jest.fn() },
         },
         {
           provide: CatalogService,
@@ -193,6 +193,16 @@ describe('ComerciosService', () => {
 
       expect(bookingsService.completar).toHaveBeenCalledWith('reserva-1', 'comercio-1');
       expect(resultado).toMatchObject({ estado: 'completada' });
+    });
+  });
+
+  describe('marcarSeguimiento', () => {
+    it('debería delegar en BookingsService.agregarSeguimiento con hito, nota y foto', async () => {
+      bookingsService.agregarSeguimiento.mockResolvedValue({ estado: 'en_curso' } as never);
+
+      await service.marcarSeguimiento('reserva-1', 'comercio-1', { hito: 'entregada', nota: 'OK', fotoUrl: 'https://f' });
+
+      expect(bookingsService.agregarSeguimiento).toHaveBeenCalledWith('reserva-1', 'comercio-1', 'entregada', 'OK', 'https://f');
     });
   });
 

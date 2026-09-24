@@ -22,6 +22,8 @@ import { SeoService } from '../../core/seo/seo.service';
 import { seoFichaServicio, seoPrivada } from '../../core/seo/plantillas-seo';
 import { migasDePan, negocioLocal } from '../../core/seo/json-ld';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { CotizacionFichaComponent } from '../transporte/viaje/componentes/cotizacion-ficha.component';
+import { PuntoMapa, RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
 
 /**
  * Huecos de la fila de miniaturas y fotos del costado del mosaico. Mismos
@@ -54,7 +56,8 @@ const CONFIGS: Record<string, DetalleConfig> = {
   transporte: {
     vertical: 'transporte',
     cta: 'Reservar transporte',
-    priceLabel: '+ tarifa por km',
+    // Transporte no enseña «desde»: su panel calcula el precio cerrado del viaje.
+    priceLabel: 'por viaje',
     tituloBloque: '¿Qué ofrece este transportista?',
     tituloChips: 'Servicios',
     chips: () => [],
@@ -248,7 +251,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
   imports: [
     TraducirPipe, RouterLink, FechaPipe, RsNavbarComponent, RsIconComponent, RsRatingComponent,
     RsTrustBlockComponent, RsChipComponent, RsFavoritoBtnComponent, ImgFallbackDirective,
-    RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,
+    RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe, CotizacionFichaComponent, RsMapaComponent,
   ],
   template: `
 <div class="vd-page">
@@ -371,6 +374,16 @@ const CONFIGS: Record<string, DetalleConfig> = {
           </ul>
         </div>
 
+        @if (trayectoHabitual().length > 1) {
+          <div class="section-block">
+            <h2>{{ 'Ruta habitual' | t }}</h2>
+            <p class="ruta-habitual__texto">{{ nombresTrayecto() }}</p>
+            <div class="ruta-habitual__mapa">
+              <rs-mapa [puntos]="trayectoHabitual()" [ruta]="trayectoHabitual()" [ariaLabel]="'Ruta habitual del transportista' | t" />
+            </div>
+          </div>
+        }
+
         <!-- Dónde está: mapa del punto exacto + atajos a Google Maps -->
         <div class="section-block">
           <rs-ubicacion [lugar]="ubicacion()" />
@@ -402,6 +415,11 @@ const CONFIGS: Record<string, DetalleConfig> = {
       </div>
 
       <!-- PANEL LATERAL -->
+      @if (esTransporte()) {
+        <div class="side-col rs-sticky-panel">
+          <app-cotizacion-ficha [servicioId]="s.id" [titulo]="s.nombre" />
+        </div>
+      } @else {
       <div class="side-col rs-sticky-panel">
         <div class="side-panel rs-card">
           <div class="side-panel__price">
@@ -424,6 +442,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
           <rs-trust-block></rs-trust-block>
         </div>
       </div>
+      }
     </div>
 
     <!--
@@ -432,6 +451,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       acción de reservar sólo aparecía tras bajar por la galería, la
       descripción y las reseñas enteras.
     -->
+    @if (!esTransporte()) {
     <div class="mobile-cta">
       <div class="mobile-cta__precio">
         <span class="mobile-cta__desde">{{ 'Desde' | t }}</span>
@@ -440,6 +460,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       </div>
       <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="solicitar(s)">{{ cfg().cta }}</button>
     </div>
+    }
   </div>
   }
 </div>
@@ -448,6 +469,9 @@ const CONFIGS: Record<string, DetalleConfig> = {
     :host { display: block; }
     .vd-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .vd-wrap { padding-block: var(--sp-6) var(--sp-16); }
+    .ruta-habitual__texto { margin: 0 0 var(--sp-3); font-size: var(--f-sm); color: var(--t-300); }
+    .ruta-habitual__mapa { height: 240px; border-radius: var(--r-xl); overflow: hidden; border: 1px solid var(--b-2); }
+    .ruta-habitual__mapa rs-mapa { display: block; height: 100%; }
 
     /*
      * Barra fija de reserva en móvil. Aparece justo donde .vd-body pasa a una
@@ -691,6 +715,20 @@ export class VerticalDetalleComponent implements OnInit {
   }
 
   cfg = signal<DetalleConfig>(CONFIGS['transporte']);
+  /** Transporte enseña su propio panel de precio cerrado en vez del «desde». */
+  readonly esTransporte = computed(() => this.cfg().vertical === 'transporte');
+
+  /** Paradas que el transportista declaró como su ruta habitual, para pintarlas en el mapa. */
+  readonly trayectoHabitual = computed<PuntoMapa[]>(() => {
+    const paradas = this.servicio()?.extra['trayecto'];
+    if (!this.esTransporte() || !Array.isArray(paradas)) return [];
+    return (paradas as Array<{ nombre?: string; lat?: number; lng?: number }>)
+      .flatMap((p, i) => (typeof p.lat === 'number' && typeof p.lng === 'number'
+        ? [{ id: `parada-${i}`, lat: p.lat, lng: p.lng, titulo: p.nombre ?? '', etiqueta: String(i + 1) }]
+        : []));
+  });
+
+  readonly nombresTrayecto = computed(() => this.trayectoHabitual().map((p) => p.titulo).filter(Boolean).join(' → '));
   ui: VerticalUi = verticalUi(VerticalKey.TRANSPORTE);
 
   private busqueda: { desde?: string; perros?: string } = {};

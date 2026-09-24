@@ -64,8 +64,12 @@ export class StripeGateway implements PaymentGateway {
     return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
   }
 
-  async reembolsar(paymentIntentId: string): Promise<void> {
-    await this.stripe.refunds.create({ payment_intent: paymentIntentId });
+  async reembolsar(paymentIntentId: string, importeEur?: number): Promise<void> {
+    await this.stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      // Stripe cuenta en céntimos; sin `amount` devuelve el cobro entero.
+      ...(importeEur !== undefined ? { amount: Math.round(importeEur * 100) } : {}),
+    });
   }
 
   extraerIntentDeEvento(evento: unknown): { intentId: string; estado: 'succeeded' | 'failed' | 'other'; chargeId?: string } | null {

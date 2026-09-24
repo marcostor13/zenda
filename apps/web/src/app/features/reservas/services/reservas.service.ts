@@ -8,6 +8,8 @@ export interface RecurrenciaPayload {
   diasSemana: number[];
   hora: string;
   fechaFin: string;
+  /** El mismo día de cada mes en vez de días de la semana. */
+  mensual?: boolean;
 }
 
 export interface CrearReservaPayload {
@@ -22,6 +24,10 @@ export interface CrearReservaPayload {
   cuponCodigo?: string;
   /** Trayectos recurrentes (Ref. TRA3): genera reservas hijas para cada ocurrencia. */
   recurrencia?: RecurrenciaPayload;
+  /** Más mascotas del cliente en la misma reserva. */
+  perroIdsAdicionales?: string[];
+  /** Presupuesto aceptado que se convierte en esta reserva. */
+  presupuestoId?: string;
 }
 
 export interface ConsultaHuecos {
@@ -71,7 +77,21 @@ export interface ReservaApi {
   comercioId: string;
   detalle?: Record<string, unknown>;
   perroSnapshot?: Record<string, unknown>;
-  seguimiento?: Array<{ hito: string; nota?: string; at: string }>;
+  seguimiento?: Array<{ hito: string; nota?: string; fotoUrl?: string; at: string }>;
+  /** Visto bueno del comercio en viajes sin hora cerrada o urgentes. */
+  aceptacion?: {
+    requerida: boolean;
+    estado: 'pendiente' | 'aceptada' | 'rechazada' | 'caducada';
+    plazoMin: number;
+    venceEn?: string;
+    resueltaAt?: string;
+    motivo?: string;
+  };
+  /** Devolución hecha al cancelar según la política. */
+  reembolso?: { porcentaje: number; importe: number; motivo: string; at: string };
+  perrosAdicionales?: Array<{ perroId: string; snapshot: Record<string, unknown> }>;
+  presupuestoId?: string;
+  reservaOrigenId?: string;
   montoSubtotal: number;
   comisionMonto: number;
   descuentoMonto: number;
@@ -196,8 +216,12 @@ export class ReservasService {
     return firstValueFrom(this.http.get<ReservaApi>(`${this.base}/codigo/${codigo}`));
   }
 
+  /**
+   * Cancela aplicando la política del vertical: devuelve lo que corresponda
+   * (todo, una parte o nada) y lo deja anotado en `reserva.reembolso`.
+   */
   cancelar(id: string): Promise<ReservaApi> {
-    return firstValueFrom(this.http.post<ReservaApi>(`${this.base}/${id}/cancelar`, {}));
+    return firstValueFrom(this.http.post<ReservaApi>(`${this.base}/${id}/cancelacion`, {}));
   }
 
   /** Abre una incidencia sobre una reserva propia (TCK-8040 §2). */

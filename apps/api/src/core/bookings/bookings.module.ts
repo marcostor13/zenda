@@ -15,6 +15,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ComisionConfigsModule } from '../comision-configs/comision-configs.module';
 import { EventosModule } from '../eventos/eventos.module';
 import { BloqueosModule } from '../bloqueos/bloqueos.module';
+import { PresupuestosModule } from '../presupuestos/presupuestos.module';
 
 @Module({
   imports: [
@@ -34,6 +35,8 @@ import { BloqueosModule } from '../bloqueos/bloqueos.module';
     EventosModule,
     // Lo que el comercio cierra a mano manda sobre los cupos del vertical.
     BloqueosModule,
+    // Una reserva puede nacer de un presupuesto aceptado: el importe sale de él.
+    PresupuestosModule,
   ],
   // Huecos primero: si no, `GET reservas/:id` (con sesión obligatoria) se quedaría la ruta.
   controllers: [HuecosController, BookingsController],

@@ -11,7 +11,8 @@ import {
   TipoServicioFunerario, TIPO_SERVICIO_FUNERARIO_LABELS,
   LugarRecogida, LUGAR_RECOGIDA_LABELS,
   ModoPrecioRecogida, MODO_PRECIO_RECOGIDA_LABELS,
-  FranjaHoraria, FRANJA_HORARIA_LABELS } from 'shared';
+  FranjaHoraria, FRANJA_HORARIA_LABELS,
+  EspecieMascota, ModalidadTransporte, ModoPrecioTransporte } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
@@ -41,6 +42,8 @@ import {
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { almacenLocal } from '../../core/plataforma/almacen';
+import { tarifarioDeFichaAntigua, zonaPrecioGrupo } from './viaje/tarifario-transporte';
+import { TarifarioTransporteComponent } from './viaje/tarifario-transporte.component';
 /** Una parada del trayecto declarado por un transportista. */
 interface ParadaTrayecto {
   nombre: string;
@@ -188,7 +191,7 @@ function aCsv(v: string): string[] {
     TraducirPipe, RouterLink, ReactiveFormsModule, FormsModule,
     RsIconComponent, RsImageUploadComponent, RsTagsInputComponent, RsComboInputComponent,
   RsPlaceAutocompleteComponent,
-    RsMapaComponent, RsHorarioComponent, RsComboInputComponent, EurosPipe,
+    RsMapaComponent, RsHorarioComponent, RsComboInputComponent, EurosPipe, TarifarioTransporteComponent,
   ],
   template: `
     <div class="page-wrap">
@@ -684,16 +687,8 @@ function aCsv(v: string): string[] {
                                  [opciones]="catalogos.provincias" [placeholder]="'Ej. Madrid, Toledo…' | t" />
                 </div>
 
-                <div class="form-row-2">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Tarifa base (€) *' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaBase" inputmode="decimal">
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Tarifa por km (€) *' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" step="0.01" formControlName="tarifaKm" inputmode="decimal">
-                  </div>
-                </div>
+                <!-- Cómo cobra, modalidades, especies, suplementos, presupuesto y cancelación. -->
+                <app-tarifario-transporte [grupo]="transporteGroup" />
 
                 <div class="rs-field">
                   <label class="rs-lbl">{{ 'Tarifa de espera, por hora (€)' | t }} <span class="rs-field-hint">{{ '(opcional)' | t }}</span></label>
@@ -712,10 +707,6 @@ function aCsv(v: string): string[] {
                   {{ 'Cuanto más concretes, menos solicitudes recibirás que no puedas atender.' | t }}
                 </span>
                 <div class="row-card__grid row-card__grid--2">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Distancia mínima facturable (km)' | t }}</label>
-                    <input class="rs-inp" type="number" min="0" formControlName="distanciaMinimaKm" inputmode="numeric">
-                  </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Antelación mínima (horas)' | t }}</label>
                     <input class="rs-inp" type="number" min="0" formControlName="antelacionMinimaHoras" inputmode="numeric">
@@ -2712,6 +2703,40 @@ export class ComercioListadoFormComponent implements OnInit {
       aceptaPPP: [false],
       requiereTransportinPropio: [false],
       serviciosAdicionales: this.fb.array<FormGroup>([]),
+      // Tarifario del flujo de cliente (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md, F1).
+      modoPrecio: [ModoPrecioTransporte.POR_KM as string],
+      precioFijo: [null as number | null, [Validators.min(0)]],
+      zonasPrecio: this.fb.array<FormGroup>([]),
+      modalidades: [[ModalidadTransporte.COMPARTIDO] as string[]],
+      precioExclusivo: [null as number | null, [Validators.min(0)]],
+      plazasPasajeros: [0, [Validators.min(0)]],
+      tiempoExtraCompartidoMin: [0, [Validators.min(0)]],
+      especiesAceptadas: [[EspecieMascota.PERRO] as string[]],
+      aceptaUrgentes: [true],
+      aceptaLoAntesPosible: [true],
+      incluidos: [[] as string[]],
+      suplementos: this.fb.group({
+        urgente: [null as number | null],
+        nocturno: [null as number | null],
+        largaDistanciaDesdeKm: [null as number | null],
+        largaDistancia: [null as number | null],
+        mascotaAdicional: [null as number | null],
+        mascotaGrande: [null as number | null],
+        medicacion: [null as number | null],
+        porPersona: [null as number | null],
+        porMaleta: [null as number | null],
+      }),
+      reglasPresupuesto: this.fb.group({
+        internacional: [false],
+        masDeMascotas: [null as number | null],
+        necesidadesEspeciales: [false],
+        masDeKm: [null as number | null],
+        especiesExoticas: [false],
+      }),
+      cancelacion: this.fb.group({
+        gratisHastaHoras: [24, [Validators.min(0)]],
+        reembolsoTardioPct: [0, [Validators.min(0), Validators.max(100)]],
+      }),
     }),
 
     veterinaria: this.fb.group({
@@ -2830,6 +2855,7 @@ export class ComercioListadoFormComponent implements OnInit {
   get serviciosGrooming(): FormArray { return this.peluqueriaGroup.get('serviciosGrooming') as FormArray; }
   get serviciosAdicionalesPeluqueria(): FormArray { return this.peluqueriaGroup.get('serviciosAdicionales') as FormArray; }
   get serviciosAdicionalesTransporte(): FormArray { return this.transporteGroup.get('serviciosAdicionales') as FormArray; }
+  get zonasPrecioTransporte(): FormArray { return this.transporteGroup.get('zonasPrecio') as FormArray; }
   get suplementoPorTamanoMascota(): FormArray { return this.hotelesGroup.get('suplementoPorTamanoMascota') as FormArray; }
 
   private nuevoEspacio(e?: Record<string, unknown>) {
@@ -3677,7 +3703,10 @@ export class ComercioListadoFormComponent implements OnInit {
       this.transporteGroup.patchValue({
         ...d,
         zonaCobertura: (d['zonaCobertura'] as string[] | undefined) ?? [],
+        ...tarifarioDeFichaAntigua(d),
       });
+      const zonas = (d['zonasPrecio'] as Record<string, unknown>[] | undefined) ?? [];
+      zonas.forEach(z => this.zonasPrecioTransporte.push(zonaPrecioGrupo(this.fb, z)));
       const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
       adicionales.forEach(e => this.serviciosAdicionalesTransporte.push(this.nuevoServicioAdicionalAlojamiento(e)));
       this.trayecto.set((d['trayecto'] as ParadaTrayecto[] | undefined) ?? []);

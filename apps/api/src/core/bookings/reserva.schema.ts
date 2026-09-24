@@ -30,6 +30,39 @@ export interface CambioEstadoReserva {
 export interface SeguimientoHito {
   hito: string; // 'recogida' | 'en_ruta' | 'entregada' | 'entrada' | 'salida' | 'finalizada' …
   nota?: string;
+  /** Foto del momento (p. ej. la entrega en transporte, si el cliente la pidió). */
+  fotoUrl?: string;
+  at: Date;
+}
+
+/** Otra mascota del cliente en la misma reserva, con su ficha congelada. */
+export interface MascotaAdicional {
+  perroId: Types.ObjectId;
+  snapshot: Record<string, unknown>;
+}
+
+export type EstadoAceptacion = 'pendiente' | 'aceptada' | 'rechazada' | 'caducada';
+
+/**
+ * Visto bueno del comercio en reservas sin hora cerrada o urgentes (E4). El
+ * cliente paga igual al reservar; si el comercio no acepta en plazo, se le
+ * devuelve el dinero. Lo decide la estrategia del vertical, no el core.
+ */
+export interface AceptacionReserva {
+  requerida: boolean;
+  estado: EstadoAceptacion;
+  plazoMin: number;
+  /** Se fija al confirmarse el pago: el plazo corre desde que hay dinero. */
+  venceEn?: Date;
+  resueltaAt?: Date;
+  motivo?: string;
+}
+
+/** Devolución hecha al cancelar según la política del vertical. */
+export interface ReembolsoReserva {
+  porcentaje: number;
+  importe: number;
+  motivo: string;
   at: Date;
 }
 
@@ -57,6 +90,9 @@ export class Reserva {
   // información se calculó el precio), para poder auditar disputas de ajuste.
   @Prop({ type: Object })
   perroSnapshot?: Record<string, unknown>;
+
+  @Prop({ type: [Object], default: undefined })
+  perrosAdicionales?: MascotaAdicional[];
 
   @Prop({ type: Object, required: true })
   detalle!: Record<string, unknown>;
@@ -146,6 +182,16 @@ export class Reserva {
   /** Serie de reservas recurrentes (docs §4.3): presente solo en las reservas hija. */
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Reserva' })
   reservaOrigenId?: Types.ObjectId;
+
+  @Prop({ type: Object })
+  aceptacion?: AceptacionReserva;
+
+  /** Presupuesto aceptado del que sale esta reserva (y su importe). */
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'SolicitudPresupuesto' })
+  presupuestoId?: Types.ObjectId;
+
+  @Prop({ type: Object })
+  reembolso?: ReembolsoReserva;
 }
 
 export const ReservaSchema = SchemaFactory.createForClass(Reserva);
@@ -157,3 +203,5 @@ ReservaSchema.index({ reservaMadreId: 1, fechaInicio: 1 }, { sparse: true });
 ReservaSchema.index({ carritoId: 1 }, { sparse: true });
 // Expediente de la mascota: qué comercios la han atendido y con qué reservas.
 ReservaSchema.index({ perroId: 1, comercioId: 1, fechaInicio: -1 }, { sparse: true });
+// Caducador de aceptaciones: reservas pagadas que el comercio aún no ha aceptado.
+ReservaSchema.index({ 'aceptacion.estado': 1, 'aceptacion.venceEn': 1 }, { sparse: true });
