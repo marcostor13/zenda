@@ -13,7 +13,6 @@ import { ComisionResolverService } from '../comision-configs/comision-resolver.s
 import { EventosService } from '../eventos/eventos.service';
 import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { HuecosService } from './huecos.service';
-import { PresupuestosService } from '../presupuestos/presupuestos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { VerticalKey, ReservaEstado, COMISION_PCT_DEFAULT, TipoEvento, horarioSemanal } from 'shared';
 
@@ -29,7 +28,6 @@ describe('BookingsService', () => {
   let bloqueosService: jest.Mocked<Pick<BloqueosService, 'cierreQueSolapa'>>;
   let catalogRepository: jest.Mocked<Pick<CatalogRepository, 'obtenerPorId'>>;
   let huecosService: jest.Mocked<Pick<HuecosService, 'hayPlaza' | 'huecosDelDia'>>;
-  let presupuestosService: jest.Mocked<Pick<PresupuestosService, 'importeParaReserva' | 'marcarConvertida'>>;
 
   const parametrosBase = {
     usuarioId: 'user-1',
@@ -145,13 +143,6 @@ describe('BookingsService', () => {
           },
         },
         {
-          provide: PresupuestosService,
-          useValue: {
-            importeParaReserva: jest.fn(),
-            marcarConvertida: jest.fn().mockResolvedValue(undefined),
-          },
-        },
-        {
           provide: ComisionResolverService,
           useValue: {
             resolver: jest.fn().mockResolvedValue({
@@ -173,7 +164,6 @@ describe('BookingsService', () => {
     eventosService = module.get(EventosService);
     bloqueosService = module.get(BloqueosService);
     huecosService = module.get(HuecosService);
-    presupuestosService = module.get(PresupuestosService);
   });
 
   /**
@@ -1479,35 +1469,54 @@ describe('BookingsService', () => {
       expect(confirmada.aceptacion?.venceEn).toBe(venceEn);
       expect(notificationsService.notificarPendienteAceptacion).not.toHaveBeenCalled();
     });
-
-    it('marca el presupuesto como convertido en reserva', async () => {
-      const confirmada = docReserva({ estado: ReservaEstado.CONFIRMADA, presupuestoId: { toString: () => 'pres-1' } });
-      reservaModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(confirmada) });
-
-      await service.confirmar('reserva-1');
-
-      expect(presupuestosService.marcarConvertida).toHaveBeenCalledWith('pres-1', 'servicio-1', 'reserva-1');
-    });
   });
 
   describe('crear — viajes de transporte', () => {
-    it('toma el importe del presupuesto aceptado en lugar de la tarifa', async () => {
-      presupuestosService.importeParaReserva.mockResolvedValue(180);
+    it('debería cobrar el precio acordado en lugar de la tarifa y pasárselo al vertical', async () => {
+      await service.crear({ ...parametrosBase, precioAcordado: 180 });
 
-      await service.crear({ ...parametrosBase, presupuestoId: 'pres-1' });
-
-      expect(presupuestosService.importeParaReserva).toHaveBeenCalledWith('pres-1', 'user-1', 'servicio-1');
       expect(estrategiaMock.checkAvailability).toHaveBeenCalledWith('servicio-1', expect.objectContaining({
         parametrosExtra: expect.objectContaining({ precioAcordado: 180 }),
       }));
       const guardada = reservaModel.mock.calls[0][0];
       expect(guardada.montoTotal).toBe(180);
-      expect(guardada.presupuestoId).toBe('pres-1');
     });
 
-    it('no consulta presupuestos si la reserva no viene de uno', async () => {
+    it('no debería mandar precio acordado al vertical si la reserva no viene de un presupuesto', async () => {
       await service.crear(parametrosBase);
-      expect(presupuestosService.importeParaReserva).not.toHaveBeenCalled();
+
+      const consulta = estrategiaMock.checkAvailability.mock.calls[0][1];
+      expect(consulta.parametrosExtra).not.toHaveProperty('precioAcordado');
+    });
+
+    it('debería rechazar con 409 un viaje que requiere presupuesto si no trae precio acordado', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, precioCalculado: 0,
+        metadata: { requierePresupuesto: true, motivoPresupuesto: 'Viaje a medida' },
+      });
+
+      await expect(service.crear(parametrosBase)).rejects.toMatchObject({ message: 'Viaje a medida', statusCode: 409 });
+      expect(estrategiaMock.reserveSlot).not.toHaveBeenCalled();
+    });
+
+    it('debería usar un motivo genérico si el vertical no explica por qué requiere presupuesto', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, precioCalculado: 0, metadata: { requierePresupuesto: true },
+      });
+
+      await expect(service.crear(parametrosBase)).rejects.toMatchObject({
+        message: 'Este servicio necesita un presupuesto a medida.',
+      });
+    });
+
+    it('debería reservar un viaje que requiere presupuesto cuando trae el precio acordado', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, precioCalculado: 0, metadata: { requierePresupuesto: true },
+      });
+
+      await service.crear({ ...parametrosBase, precioAcordado: 95 });
+
+      expect(reservaModel.mock.calls[0][0].montoTotal).toBe(95);
     });
 
     it('congela la ficha de las demás mascotas del viaje, sin repetir la principal', async () => {

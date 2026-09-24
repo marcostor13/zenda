@@ -4,7 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { PatronRecurrenciaTransporte, TipoServicioTransporte, hoyEnZona } from 'shared';
+import { NecesidadTransporte, PatronRecurrenciaTransporte, hoyEnZona } from 'shared';
 import { GeoService } from '../../../../core/geo/geo.service';
 import { PuntoMapa, RsMapaComponent } from '../../../../shared/components/mapa/rs-mapa.component';
 import {
@@ -114,7 +114,7 @@ describe('BusquedaViajeComponent', () => {
     it('no debería pisar un origen ya elegido', async () => {
       // El borrador guardado de una visita anterior.
       sessionStorage.setItem('doogking_viaje_transporte', JSON.stringify({
-        version: 1, borrador: { origen: { texto: 'Sevilla', placeId: 's' } },
+        version: 2, borrador: { origen: { texto: 'Sevilla', placeId: 's' } },
       }));
       await crear({ origen: 'Valencia' });
       expect(store.borrador().origen?.texto).toBe('Sevilla');
@@ -232,7 +232,7 @@ describe('BusquedaViajeComponent', () => {
     it('debería aplicar los atajos del tipo y volcar el horario al store', async () => {
       await crear();
 
-      componente.form.controls.tipo.setValue(TipoServicioTransporte.IDA_VUELTA);
+      componente.form.controls.tipo.setValue(NecesidadTransporte.IDA_VUELTA);
       componente.form.patchValue({ hora: '08:30', vueltaHoras: 0, diasSemana: ['2', '4'] });
 
       expect(componente.esIdaVuelta()).toBe(true);
@@ -245,7 +245,7 @@ describe('BusquedaViajeComponent', () => {
       await crear();
       componente.elegirPunto('origen', lugar());
       componente.elegirPunto('destino', lugar({ placeId: 'p2' }));
-      componente.form.controls.tipo.setValue(TipoServicioTransporte.RECURRENTE);
+      componente.form.controls.tipo.setValue(NecesidadTransporte.RECURRENTE);
       componente.form.patchValue({ patron: PatronRecurrenciaTransporte.LABORABLES, fecha: '2026-10-05', hasta: '2026-10-09' });
 
       expect(componente.esRecurrente()).toBe(true);

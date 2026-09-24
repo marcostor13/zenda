@@ -1,15 +1,16 @@
 import { TamanoPerro } from '../enums/perro.enum';
-import { SolicitudTransporte } from './cotizar-transporte';
+import { SolicitudViaje } from './solicitud-viaje';
+import { NecesidadTransporte } from './transporte.enums';
 import {
-  FranjaTransporte, ModalidadTransporte, ModoHorarioTransporte, PatronRecurrenciaTransporte, TipoServicioTransporte,
-} from './transporte.catalogo';
+  FranjaTransporte, ModalidadTransporte, ModoHorarioTransporte, PatronRecurrenciaTransporte,
+} from './viaje.catalogo';
 import {
   MAX_OCURRENCIAS_SERIE, diaDeLaSemana, diasDelPatron, horaDeRecogida, horasHasta, hoyEnZona, instanteDeRecogida,
   ocurrenciasDeSerie, siguienteDia, viajesDeLaSolicitud,
 } from './viaje-transporte';
 
-const solicitud = (extra: Partial<SolicitudTransporte> = {}): SolicitudTransporte => ({
-  tipoServicio: TipoServicioTransporte.SOLO_IDA,
+const solicitud = (extra: Partial<SolicitudViaje> = {}): SolicitudViaje => ({
+  tipoServicio: NecesidadTransporte.SOLO_IDA,
   origen: { texto: 'Castellón' },
   destino: { texto: 'Valencia' },
   fecha: '2026-10-01',
@@ -123,12 +124,12 @@ describe('viajesDeLaSolicitud', () => {
   });
 
   it('debería contar un viaje si es recurrente pero no trae recurrencia', () => {
-    expect(viajesDeLaSolicitud(solicitud({ tipoServicio: TipoServicioTransporte.RECURRENTE }))).toBe(1);
+    expect(viajesDeLaSolicitud(solicitud({ tipoServicio: NecesidadTransporte.RECURRENTE }))).toBe(1);
   });
 
   it('debería contar el primero más las ocurrencias de laborables', () => {
     const viajes = viajesDeLaSolicitud(solicitud({
-      tipoServicio: TipoServicioTransporte.RECURRENTE,
+      tipoServicio: NecesidadTransporte.RECURRENTE,
       recurrencia: { patron: PatronRecurrenciaTransporte.LABORABLES, diasSemana: [], hora: '10:30', hasta: '2026-10-09' },
     }));
     // jue 1 + vie 2, lun 5, mar 6, mié 7, jue 8, vie 9.
@@ -137,7 +138,7 @@ describe('viajesDeLaSolicitud', () => {
 
   it('debería contar la serie mensual', () => {
     const viajes = viajesDeLaSolicitud(solicitud({
-      tipoServicio: TipoServicioTransporte.RECURRENTE,
+      tipoServicio: NecesidadTransporte.RECURRENTE,
       recurrencia: { patron: PatronRecurrenciaTransporte.MENSUAL, diasSemana: [], hora: '10:30', hasta: '2026-12-31' },
     }));
     expect(viajes).toBe(3);
@@ -145,7 +146,7 @@ describe('viajesDeLaSolicitud', () => {
 
   it('debería limitar la serie al tope de ocurrencias', () => {
     const viajes = viajesDeLaSolicitud(solicitud({
-      tipoServicio: TipoServicioTransporte.RECURRENTE,
+      tipoServicio: NecesidadTransporte.RECURRENTE,
       recurrencia: { patron: PatronRecurrenciaTransporte.DIARIO, diasSemana: [], hora: '10:30', hasta: '2030-01-01' },
     }));
     expect(viajes).toBe(MAX_OCURRENCIAS_SERIE + 1);
@@ -167,6 +168,11 @@ describe('utilidades de calendario', () => {
     const ahora = new Date('2026-10-01T10:00:00Z');
     expect(horasHasta(new Date('2026-10-01T13:30:00Z'), ahora)).toBe(3.5);
     expect(horasHasta(new Date('2026-10-01T09:00:00Z'), ahora)).toBe(-1);
+  });
+
+  it('debería usar el momento actual si no se le pasa', () => {
+    expect(horasHasta(new Date(Date.now() + 3_600_000))).toBeCloseTo(1, 2);
+    expect(hoyEnZona()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('debería dar el día de hoy en hora de Madrid aunque en UTC aún sea ayer', () => {

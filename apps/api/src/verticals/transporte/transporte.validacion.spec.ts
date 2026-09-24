@@ -1,11 +1,11 @@
 import {
-  ConfirmacionEntrega, ModalidadTransporte, ModoHorarioTransporte, SolicitudTransporteDto, TamanoPerro,
-  TipoServicioTransporte,
+  ConfirmacionEntrega, ModalidadTransporte, ModoHorarioTransporte, SolicitudViajeDto, TamanoPerro,
+  NecesidadTransporte,
 } from 'shared';
 import { datosEntregaValidos, solicitudValida } from './transporte.validacion';
 
 const solicitud = {
-  tipoServicio: TipoServicioTransporte.SOLO_IDA,
+  tipoServicio: NecesidadTransporte.SOLO_IDA,
   origen: { texto: 'Castellón', placeId: 'a' },
   destino: { texto: 'Valencia', lat: 39.47, lng: -0.37 },
   fecha: '2026-10-01',
@@ -22,7 +22,7 @@ describe('transporte.validacion', () => {
     it('debería devolver la solicitud como DTO cuando es válida', async () => {
       const resultado = await solicitudValida(solicitud);
 
-      expect(resultado).toBeInstanceOf(SolicitudTransporteDto);
+      expect(resultado).toBeInstanceOf(SolicitudViajeDto);
       expect(resultado?.mascotas).toHaveLength(1);
     });
 
@@ -48,7 +48,7 @@ describe('transporte.validacion', () => {
     const entrega = {
       recogida: { quien: 'yo' },
       entrega: { quien: 'otra', nombre: 'Ana', telefono: '+34 600 000 000' },
-      confirmacionEntrega: ConfirmacionEntrega.NOTIFICACION_FOTO,
+      confirmacionEntrega: ConfirmacionEntrega.NOTIFICACION_Y_FOTO,
     };
 
     it('debería aceptar que no vengan datos de entrega', async () => {

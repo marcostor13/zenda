@@ -278,28 +278,33 @@ porque para recoger un perro hace falta calle y número, no una ciudad.
 
 ## 4. Implementación (2026-09-24)
 
-Todo el plan (F0–F9) está implementado. Este apartado dice **dónde** quedó cada pieza y en
-qué se apartó de lo previsto; las fases de más abajo se conservan como especificación.
+Todo el plan (F0–F9) está implementado **e integrado** con el trabajo paralelo que ya estaba en
+`main` (commit `c8a5049`: motor de tarifas, alta guiada del comercio en seis pasos, asistente
+de reserva y presupuestos). Las fases de más abajo se conservan como especificación; este
+apartado dice dónde quedó cada pieza tras la integración.
 
 ### 4.1 Dónde vive cada cosa
 
 | Pieza | Ficheros |
 |---|---|
-| Vocabulario, cotizador único, fechas de la serie, resumen legible | `libs/shared/src/transporte/{transporte.catalogo,cotizar-transporte,viaje-transporte,resumen-transporte}.ts` |
-| DTOs (solicitud, entrega, hito, aceptación, posición, presupuestos) | `libs/shared/src/dtos/transporte/solicitud-transporte.dto.ts`, `dtos/presupuestos/presupuesto.dto.ts` |
-| Tarifario del transportista (schema + deducción de fichas antiguas) | `verticals/transporte/transporte.schema.ts`, `transporte.tarifario.ts` |
-| Cotizador en el servidor y búsqueda pública | `verticals/transporte/transporte-cotizador.service.ts`, `transporte.controller.ts` (`POST /transporte/cotizaciones[/:servicioId]`) |
-| Precio de la reserva, política de cancelación, reglas de hitos | `verticals/transporte/transporte-availability.strategy.ts` (+ `transporte.validacion.ts`) |
+| **Motor de tarifas** (única fórmula de precio) | `libs/shared/src/transporte/transporte-precio.ts` (`calcularPrecioTransporte`), `transporte.config.ts`, `transporte.enums.ts`, `transporte.catalogos.ts` — de `main` |
+| Alta del comercio (reglas de tarifa, suplementos, cobertura, mascotas, disponibilidad, condiciones) | `features/panel-comercio/transporte/alta-transporte.component.ts` — de `main` |
+| Vocabulario propio del flujo de cliente (horario, vuelta, recurrencia, modalidad, hitos, orden) | `libs/shared/src/transporte/viaje.catalogo.ts` |
+| Traducción viaje → motor: modalidades de un servicio, incluidos, cobertura, compatibilidad, aceptación | `libs/shared/src/transporte/solicitud-viaje.ts` (`cotizarViaje`) |
+| Fechas de la serie, resumen legible | `viaje-transporte.ts`, `resumen-transporte.ts` |
+| DTOs del flujo (solicitud, entrega, hito, aceptación, posición) | `libs/shared/src/dtos/transporte/solicitud-viaje.dto.ts` |
+| Comparador con precio cerrado (`POST /transporte/cotizaciones[/:servicioId]`) | `verticals/transporte/transporte-cotizador.service.ts`, `transporte.controller.ts` |
+| Precio de la reserva: flujo por pantallas (`detalle.solicitud`) y asistente (parámetros sueltos) | `verticals/transporte/transporte-availability.strategy.ts` |
 | Interfaces opcionales del core | `core/availability/availability.strategy.ts`: `CancelacionStrategy`, `SeguimientoStrategy` |
-| Reserva: varias mascotas, presupuesto, serie cobrada entera, aceptación, hitos con foto | `core/bookings/bookings.service.ts`, `reserva.schema.ts` |
+| Reserva: varias mascotas, serie cobrada entera, aceptación, hitos con foto, bloqueo de reservas a 0 € sin presupuesto | `core/bookings/bookings.service.ts`, `reserva.schema.ts` |
 | Cancelación con reembolso, aceptar/rechazar, caducidad de aceptaciones | `core/payments/cancelaciones.{service,controller}.ts` |
-| Presupuestos a medida (genérico) | `core/presupuestos/*` |
+| Presupuestos (uno por empresa; al aceptar crea la reserva con el importe pactado) | `core/presupuestos/*` de `main`, con avisos, títulos y datos de entrega al aceptar |
 | Ubicación en vivo y contacto | `core/seguimiento/*` (posiciones con TTL de 48 h) |
 | Avisos (correo + push) | `core/notifications/notifications.service.ts`, `plantillas/viaje.plantillas.ts` |
-| Pantallas del cliente | `apps/web/.../features/transporte/viaje/pantallas/*` (búsqueda, mascota, resultados, reserva, confirmada, mis-presupuestos) |
+| Pantallas del cliente | `features/transporte/viaje/pantallas/*` |
 | Estado del flujo | `features/transporte/viaje/transporte-viaje.store.ts` (sessionStorage) |
-| Ficha con precio cerrado, seguimiento | `features/transporte/viaje/componentes/{cotizacion-ficha,seguimiento-viaje,marco-viaje}.component.ts` |
-| Panel del transportista | `features/panel-comercio/viaje/{gestion-viaje,tarifario-transporte}.component.ts`, `comercio-presupuestos.component.ts` |
+| Ficha con precio cerrado, seguimiento | `features/transporte/viaje/componentes/*` |
+| Panel del transportista (viajes y presupuestos) | `features/panel-comercio/viaje/gestion-viaje.component.ts`, `comercio-presupuestos.component.ts` |
 | UI Kit nuevo | `shared/components/{opciones,contador,barra-cta,desglose-precio,timeline-viaje,resumen-viaje}` |
 | Traducciones | `core/i18n/traducciones/<idioma>/transporte.ts` |
 
@@ -308,23 +313,34 @@ qué se apartó de lo previsto; las fases de más abajo se conservan como especi
 `/transporte` (pantalla 1) · `/transporte/viaje/mascota` · `/transporte/viaje/resultados` ·
 `/transporte/viaje/reserva` (con sesión) · `/transporte/viaje/confirmada/:codigo` ·
 `/transporte/empresas` (listado antiguo, para SEO) · `/transporte/:id` (ficha) ·
-`/presupuestos` · `/comercio/presupuestos`. `/reservas/transporte/:id` redirige a la ficha.
+`/presupuestos` · `/comercio/presupuestos` · `/reservas/transporte/:id` (asistente de `main`).
 
 ### 4.3 Cambios respecto al plan
 
+- **Tarifario:** no se usa el que proponía F1; manda el alta guiada de `main`, con sus reglas
+  ordenadas. El comparador traduce el viaje del cliente a su motor con `cotizarViaje`.
+- **Modalidad:** sale de la plantilla con la que se dio de alta cada servicio. Un compartido que
+  venda el suplemento «servicio exclusivo» también sale como exclusivo, y quien admite
+  acompañantes sale también como «viajo con mi mascota».
 - **Sin `cotizacionId` firmado.** La reserva recalcula con la misma solicitud, la misma ruta
-  (cacheada) y la misma función. Si el precio cambió entre medias, la pantalla de pago enseña
-  el nuevo antes de cobrar («El precio se ha actualizado…»).
-- **La ruta admite coordenadas**, no sólo `placeId`: «Usar mi ubicación» no tiene `placeId`.
-  `GeoService.trayectoEntre` calcula la ruta desde coordenadas con la misma caché.
-- **La solicitud se valida en el servidor** con `SolicitudTransporteDto` aunque llegue dentro
-  de `reserva.detalle` (objeto libre en el DTO de reserva).
+  (cacheada) y el mismo motor. Si el precio cambió entre medias, la pantalla de pago enseña el
+  nuevo antes de cobrar.
+- **La ruta admite coordenadas**, no sólo `placeId`, para «Usar mi ubicación».
+- **La solicitud se valida en el servidor** aunque llegue dentro de `reserva.detalle`.
 - **Series recurrentes cobradas enteras.** Antes se cobraba un viaje y el resto se confirmaba
-  gratis (sólo transporte usaba la recurrencia). Ahora la reserva origen lleva el total de la
-  serie y las hijas van a 0 € con `detalle.cubiertaPorSerie`. Admite «una vez al mes».
-- **Cancelación con política para todos los verticales**: la web cancela por
-  `POST /reservas/:id/cancelacion`. Un vertical sin `CancelacionStrategy` cancela sin
-  reembolso automático, igual que antes, pero ahora lo dice.
+  gratis. Admite «una vez al mes».
+- **Aceptación con plazo:** la piden los viajes urgentes, flexibles o sin vuelta cerrada, y lo
+  que el comercio marcó en su alta (confirmación siempre o por situaciones: medicación, conducta
+  reactiva…). Esto incluye las reservas del asistente. Si nadie acepta a tiempo, se devuelve
+  el dinero.
+- **Cancelación con política para todos los verticales.** Transporte usa la política del alta
+  (estándar: gratis hasta 24 h; no reembolsable: 0 %).
+- **Dos entradas de reserva:**
+  - el flujo por pantallas, desde `/transporte` y la ficha;
+  - el asistente de `main`, desde `/reservas/transporte/:id`, para enlaces directos y el viaje
+    multi-servicio.
+
+  Las dos cobran con el mismo motor.
 - **D2 fase 1**: contacto por teléfono y WhatsApp del comercio, visible con la reserva viva.
 
 ### 4.4 Pasos manuales pendientes (fuera del código)
@@ -334,8 +350,11 @@ qué se apartó de lo previsto; las fases de más abajo se conservan como especi
    que da Stripe. Google Pay no necesita nada más que activarlo.
 2. **Liquidaciones con reembolso parcial**: el pago guarda `importeReembolsado`; revisar con
    administración cómo se liquida al comercio la parte retenida de una cancelación tardía.
-3. **Transportistas existentes**: sus fichas funcionan con el tarifario deducido. Conviene
-   pedirles que entren en su ficha y completen modalidades, suplementos y cancelación.
+3. **Transportistas existentes**: sus fichas cobran con la regla que deduce `configDesdeLegado`
+   (base + km). Conviene pedirles que completen el alta guiada: plantilla (modalidad),
+   cobertura, suplementos, especies y política de cancelación.
+4. **Textos del alta guiada de `main`**: el asistente de seis pasos del comercio llegó sin
+   traducir; queda pendiente pasarlo por los 7 diccionarios.
 
 ## 5. Plan por fases
 

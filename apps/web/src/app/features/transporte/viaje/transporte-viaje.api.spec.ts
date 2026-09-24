@@ -2,14 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import {
-  ModalidadTransporte, ModoHorarioTransporte, OrdenTransporte, SolicitudTransporte, TamanoPerro,
-  TipoServicioTransporte, VerticalKey,
+  ModalidadTransporte, ModoHorarioTransporte, OrdenTransporte, SolicitudViaje, TamanoPerro,
+  NecesidadTransporte,
 } from 'shared';
 import { environment } from '../../../../environments/environment';
 import { TransporteViajeApi } from './transporte-viaje.api';
 
-const SOLICITUD: SolicitudTransporte = {
-  tipoServicio: TipoServicioTransporte.SOLO_IDA,
+const SOLICITUD: SolicitudViaje = {
+  tipoServicio: NecesidadTransporte.SOLO_IDA,
   origen: { texto: 'Madrid', placeId: 'a' },
   destino: { texto: 'Toledo', placeId: 'b' },
   fecha: '2026-10-01',
@@ -53,34 +53,44 @@ describe('TransporteViajeApi', () => {
     await promesa;
   });
 
-  it('debería pedir presupuesto con el vertical, el detalle y la fecha del servicio', async () => {
-    const promesa = api.pedirPresupuesto({
-      servicioIds: ['s1', 's2'], solicitud: SOLICITUD, resumen: [['Origen', 'Madrid']], comentario: 'Hola',
-    });
-    const body = responder('POST', `${base}/presupuestos`);
-    expect(body).toEqual({
-      vertical: VerticalKey.TRANSPORTE,
-      servicioIds: ['s1', 's2'],
-      detalle: { solicitud: SOLICITUD, resumen: [['Origen', 'Madrid']] },
-      fechaServicio: '2026-10-01',
-      comentario: 'Hola',
-    });
-    await promesa;
+  it('debería pedir un presupuesto por empresa con el viaje, el perro y el instante de recogida', async () => {
+    const conPerro: SolicitudViaje = { ...SOLICITUD, mascotas: [{ especie: 'perro', tamano: TamanoPerro.MEDIANO }, { perroId: 'p1', especie: 'perro', tamano: TamanoPerro.MEDIANO }] };
+    const promesa = api.pedirPresupuesto({ servicioIds: ['s1', 's2'], solicitud: conPerro, resumen: [['Origen', 'Madrid']] });
+    const reqs = http.match({ method: 'POST', url: `${base}/presupuestos` });
+    expect(reqs).toHaveLength(2);
+    expect(reqs.map((r) => r.request.body)).toEqual(['s1', 's2'].map((servicioId) => ({
+      servicioId,
+      perroId: 'p1',
+      // 10:00 en Madrid en octubre (CEST, UTC+2).
+      fechaServicio: '2026-10-01T08:00:00.000Z',
+      solicitud: { solicitud: conPerro, resumen: [['Origen', 'Madrid']] },
+    })));
+    reqs.forEach((r, i) => r.flush({ id: `pr${i + 1}` }));
+    await expect(promesa).resolves.toEqual([{ id: 'pr1' }, { id: 'pr2' }]);
   });
 
-  it('debería leer mis presupuestos y uno concreto', async () => {
+  it('debería mandar el presupuesto sin perro cuando las mascotas son a mano', async () => {
+    const promesa = api.pedirPresupuesto({ servicioIds: ['s1'], solicitud: SOLICITUD, resumen: [] });
+    const body = responder('POST', `${base}/presupuestos`, { id: 'pr1' });
+    expect(body?.['perroId']).toBeUndefined();
+    await expect(promesa).resolves.toEqual([{ id: 'pr1' }]);
+  });
+
+  it('debería leer mis presupuestos', async () => {
     const lista = api.misPresupuestos();
     responder('GET', `${base}/presupuestos/mis`, []);
     await expect(lista).resolves.toEqual([]);
-
-    const uno = api.presupuesto('pr1');
-    responder('GET', `${base}/presupuestos/pr1`, { id: 'pr1' });
-    await expect(uno).resolves.toEqual({ id: 'pr1' });
   });
 
-  it('debería cancelar un presupuesto', async () => {
-    const promesa = api.cancelarPresupuesto('pr1');
-    expect(responder('POST', `${base}/presupuestos/pr1/cancelar`)).toEqual({});
+  it('debería aceptar un presupuesto con los datos de entrega', async () => {
+    const promesa = api.aceptarPresupuesto('pr1', { entrega: { quien: 'yo' } });
+    expect(responder('POST', `${base}/presupuestos/pr1/aceptar`, { id: 'pr1' })).toEqual({ detalleExtra: { entrega: { quien: 'yo' } } });
+    await expect(promesa).resolves.toEqual({ id: 'pr1' });
+  });
+
+  it('debería rechazar un presupuesto con su motivo', async () => {
+    const promesa = api.rechazarPresupuesto('pr1', 'Caro');
+    expect(responder('POST', `${base}/presupuestos/pr1/rechazar`, { id: 'pr1' })).toEqual({ motivo: 'Caro' });
     await promesa;
   });
 

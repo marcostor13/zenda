@@ -5,13 +5,12 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type { Stripe } from '@stripe/stripe-js';
 import {
-  BusquedaTransportesRespuesta, EstadoRespuestaPresupuesto, EstadoSolicitudPresupuesto, ModalidadTransporte,
-  ModoHorarioTransporte, PatronRecurrenciaTransporte, PersonaContactoViaje, ResultadoTransporte,
-  SolicitudPresupuestoVista, TamanoPerro, TipoServicioTransporte, VerticalKey,
+  BusquedaTransportesRespuesta, EstadoPresupuesto, ModalidadTransporte, ModoHorarioTransporte, NecesidadTransporte,
+  PatronRecurrenciaTransporte, PersonaContactoViaje, PresupuestoDto, ResultadoTransporte, TamanoPerro, VerticalKey,
 } from 'shared';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { StripeService } from '../../../../core/stripe/stripe.service';
-import { ReservasService } from '../../../reservas/services/reservas.service';
+import { ReservaApi, ReservasService } from '../../../reservas/services/reservas.service';
 import { PaymentsService } from '../../../reservas/services/payments.service';
 import { PagoEnCursoService } from '../../../reservas/services/pago-en-curso.service';
 import { TransporteViajeApi } from '../transporte-viaje.api';
@@ -34,8 +33,8 @@ describe('ReservaViajeComponent', () => {
   let componente: ReservaViajeComponent;
   let store: TransporteViajeStore;
   let router: Router;
-  let api: jest.Mocked<Pick<TransporteViajeApi, 'cotizarEmpresa' | 'presupuesto'>>;
-  let reservas: jest.Mocked<Pick<ReservasService, 'crear'>>;
+  let api: jest.Mocked<Pick<TransporteViajeApi, 'cotizarEmpresa' | 'misPresupuestos' | 'aceptarPresupuesto'>>;
+  let reservas: jest.Mocked<Pick<ReservasService, 'crear' | 'obtener'>>;
   let pagos: jest.Mocked<Pick<PaymentsService, 'configuracion' | 'crearIntent' | 'confirmarSinCobro'>>;
   let pagoEnCurso: jest.Mocked<Pick<PagoEnCursoService, 'anotar' | 'olvidar' | 'sincronizar'>>;
   let stripeService: jest.Mocked<Pick<StripeService, 'getStripe'>>;
@@ -44,7 +43,7 @@ describe('ReservaViajeComponent', () => {
 
   const guardarBorrador = (extra: Record<string, unknown> = {}): void => {
     sessionStorage.setItem('doogking_viaje_transporte', JSON.stringify({
-      version: 1,
+      version: 2,
       borrador: {
         origen: { texto: 'Calle Mayor 1, Madrid', placeId: 'a' }, destino: { texto: 'Zocodover, Toledo', placeId: 'b' },
         fecha: '2999-01-01', modalidad: ModalidadTransporte.COMPARTIDO,
@@ -101,9 +100,13 @@ describe('ReservaViajeComponent', () => {
       cotizarEmpresa: jest.fn().mockResolvedValue(cotizacion([
         resultado(ModalidadTransporte.COMPARTIDO), resultado(ModalidadTransporte.EXCLUSIVO, { total: 90 }),
       ])),
-      presupuesto: jest.fn(),
+      misPresupuestos: jest.fn(),
+      aceptarPresupuesto: jest.fn(),
     };
-    reservas = { crear: jest.fn().mockResolvedValue({ _id: 'r1', codigo: 'RES-T1', montoTotal: 60 }) };
+    reservas = {
+      crear: jest.fn().mockResolvedValue({ _id: 'r1', codigo: 'RES-T1', montoTotal: 60 }),
+      obtener: jest.fn().mockResolvedValue({ _id: 'r9', codigo: 'RES-P1', montoTotal: 320 } as ReservaApi),
+    };
     pagos = {
       configuracion: jest.fn().mockResolvedValue({ bypassPagoHabilitado: true }),
       crearIntent: jest.fn().mockResolvedValue({ clientSecret: 'cs_1', pagoId: 'pago-1', montoTotal: 60, moneda: 'EUR' }),
@@ -193,44 +196,111 @@ describe('ReservaViajeComponent', () => {
   });
 
   describe('presupuesto aceptado', () => {
-    const presupuesto = (extra: Partial<SolicitudPresupuestoVista> = {}): SolicitudPresupuestoVista => ({
-      id: 'pr1', codigo: 'PRE-1', vertical: VerticalKey.TRANSPORTE, estado: EstadoSolicitudPresupuesto.ABIERTA,
-      fechaServicio: '2999-01-01', createdAt: '2026-09-20T00:00:00.000Z',
-      detalle: {
-        solicitud: {
-          tipoServicio: TipoServicioTransporte.SOLO_IDA,
-          origen: { texto: 'Madrid', placeId: 'a' }, destino: { texto: 'París', placeId: 'b' }, fecha: '2999-01-01',
-          modoHorario: ModoHorarioTransporte.HORA_CONCRETA, hora: '09:00',
-          mascotas: [{ especie: 'perro', tamano: TamanoPerro.MEDIANO }], necesidades: [],
-          modalidad: ModalidadTransporte.EXCLUSIVO, preferencias: [],
-        },
-      },
-      respuestas: [{
-        servicioId: 's1', comercioId: 'c1', titulo: 'DogVan', rating: 4, estado: EstadoRespuestaPresupuesto.RESPONDIDA, importe: 320,
-      }],
+    const SOLICITUD = {
+      tipoServicio: NecesidadTransporte.SOLO_IDA,
+      origen: { texto: 'Madrid', placeId: 'a' }, destino: { texto: 'París', placeId: 'b' }, fecha: '2999-01-01',
+      modoHorario: ModoHorarioTransporte.HORA_CONCRETA, hora: '09:00',
+      mascotas: [{ especie: 'perro', tamano: TamanoPerro.MEDIANO }], necesidades: [],
+      modalidad: ModalidadTransporte.EXCLUSIVO, preferencias: [],
+    };
+
+    const presupuesto = (extra: Partial<PresupuestoDto> = {}): PresupuestoDto => ({
+      id: 'pr1', codigo: 'PRE-1', vertical: VerticalKey.TRANSPORTE, servicioId: 's1', comercioId: 'c1',
+      estado: EstadoPresupuesto.OFERTADO, fechaServicio: '2999-01-01T08:00:00.000Z', moneda: 'EUR',
+      solicitud: { solicitud: SOLICITUD, resumen: [] }, importe: 320, tituloServicio: 'DogVan París',
+      createdAt: '2026-09-20T00:00:00.000Z',
       ...extra,
     });
 
-    it('debería cargar el viaje del presupuesto y cobrar su importe', async () => {
-      api.presupuesto.mockResolvedValue(presupuesto());
+    const cargarPresupuesto = async (p: PresupuestoDto = presupuesto()): Promise<void> => {
+      api.misPresupuestos.mockResolvedValue([presupuesto({ id: 'otro' }), p]);
       api.cotizarEmpresa.mockResolvedValue(cotizacion([resultado(ModalidadTransporte.EXCLUSIVO, { estado: 'presupuesto' })]));
-      await crear({ presupuesto: 'pr1', servicio: 's1' });
+      await crear({ presupuesto: 'pr1' });
+    };
 
-      expect(api.presupuesto).toHaveBeenCalledWith('pr1');
+    it('debería cargar el viaje del presupuesto y cobrar su importe', async () => {
+      await cargarPresupuesto();
+
+      expect(api.misPresupuestos).toHaveBeenCalled();
       expect(store.borrador().presupuestoId).toBe('pr1');
       expect(store.borrador().destino?.texto).toBe('París');
+      expect(componente.titulo()).toBe('DogVan París');
       expect(componente.importePresupuesto()).toBe(320);
       expect(componente.lineas()).toEqual([{ concepto: 'Presupuesto aceptado', importe: 320 }]);
       expect(componente.total()).toBe(320);
       expect(componente.precioCambiado()).toBe(false);
+      expect(componente.errorCarga()).toBeNull();
+    });
+
+    it('debería seguir aunque la empresa ya no cotice el viaje, porque el precio está pactado', async () => {
+      api.misPresupuestos.mockResolvedValue([presupuesto()]);
+      api.cotizarEmpresa.mockResolvedValue(cotizacion([]));
+      await crear({ presupuesto: 'pr1' });
+
+      expect(componente.errorCarga()).toBeNull();
+      expect(componente.resultado()).toBeNull();
+      expect(componente.total()).toBe(320);
+      expect(componente.politicaTexto()).toBe('');
     });
 
     it('debería avisar si la empresa no respondió con precio', async () => {
-      api.presupuesto.mockResolvedValue(presupuesto({ respuestas: [] }));
-      await crear({ presupuesto: 'pr1', servicio: 's1' });
+      api.misPresupuestos.mockResolvedValue([presupuesto({ estado: EstadoPresupuesto.SOLICITADO, importe: undefined })]);
+      await crear({ presupuesto: 'pr1' });
 
       expect(componente.errorCarga()).toBeTruthy();
       expect(api.cotizarEmpresa).not.toHaveBeenCalled();
+    });
+
+    it('debería avisar si el presupuesto no trae el viaje', async () => {
+      api.misPresupuestos.mockResolvedValue([presupuesto({ solicitud: {} })]);
+      await crear({ presupuesto: 'pr1' });
+
+      expect(componente.errorCarga()).toBeTruthy();
+    });
+
+    it('debería aceptar la oferta con los datos de entrega y cobrar la reserva que crea', async () => {
+      await cargarPresupuesto();
+      api.aceptarPresupuesto.mockResolvedValue(presupuesto({ estado: EstadoPresupuesto.ACEPTADO, reservaId: 'r9' }));
+      rellenarDatos();
+
+      await componente.irAPago();
+
+      expect(reservas.crear).not.toHaveBeenCalled();
+      const [id, detalleExtra] = api.aceptarPresupuesto.mock.calls[0];
+      expect(id).toBe('pr1');
+      expect(detalleExtra).toEqual({
+        entrega: expect.objectContaining({
+          recogida: expect.objectContaining({ telefono: '+34 600 000 000' }),
+          entrega: expect.objectContaining({ telefono: '600111222' }),
+        }),
+      });
+      expect(reservas.obtener).toHaveBeenCalledWith('r9');
+      expect(pagos.crearIntent).toHaveBeenCalledWith('r9');
+      expect(componente.codigo()).toBe('RES-P1');
+      expect(componente.total()).toBe(320);
+    });
+
+    it('debería retomar la reserva de un presupuesto ya aceptado sin volver a aceptarlo', async () => {
+      await cargarPresupuesto(presupuesto({ estado: EstadoPresupuesto.ACEPTADO, reservaId: 'r9' }));
+      rellenarDatos();
+
+      await componente.irAPago();
+
+      expect(api.aceptarPresupuesto).not.toHaveBeenCalled();
+      expect(reservas.obtener).toHaveBeenCalledWith('r9');
+      expect(componente.reservaId()).toBe('r9');
+    });
+
+    it('debería avisar si aceptar no crea la reserva', async () => {
+      await cargarPresupuesto();
+      api.aceptarPresupuesto.mockResolvedValue(presupuesto({ estado: EstadoPresupuesto.ACEPTADO }));
+      rellenarDatos();
+
+      await componente.irAPago();
+
+      expect(reservas.obtener).not.toHaveBeenCalled();
+      expect(componente.errorPago()).toBeTruthy();
+      expect(componente.reservaId()).toBeNull();
     });
   });
 
@@ -287,8 +357,9 @@ describe('ReservaViajeComponent', () => {
       const payload = reservas.crear.mock.calls[0][0];
       expect(payload).toEqual(expect.objectContaining({
         servicioId: 's1', comercioId: 'c1', vertical: VerticalKey.TRANSPORTE,
-        perroId: 'p1', perroIdsAdicionales: ['p2'], cantidad: 1, recurrencia: undefined, presupuestoId: undefined,
+        perroId: 'p1', perroIdsAdicionales: ['p2'], cantidad: 1, recurrencia: undefined,
       }));
+      expect(payload).not.toHaveProperty('presupuestoId');
       expect(payload.detalle).toEqual(expect.objectContaining({ origen: 'Calle Mayor 1, Madrid', destino: 'Zocodover, Toledo', perros: 2 }));
       expect(componente.fase()).toBe('pago');
       expect(pagos.crearIntent).toHaveBeenCalledWith('r1');
@@ -301,7 +372,7 @@ describe('ReservaViajeComponent', () => {
 
     it('debería mandar la recurrencia de una serie', async () => {
       guardarBorrador({
-        tipoServicio: TipoServicioTransporte.RECURRENTE, patron: PatronRecurrenciaTransporte.MENSUAL, hasta: '2999-06-01',
+        tipoServicio: NecesidadTransporte.RECURRENTE, patron: PatronRecurrenciaTransporte.MENSUAL, hasta: '2999-06-01',
       });
       await crear();
       rellenarDatos();

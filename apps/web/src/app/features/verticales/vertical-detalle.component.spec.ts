@@ -5,6 +5,16 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { VerticalDetalleComponent } from './vertical-detalle.component';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 import { ReservasService } from '../reservas/services/reservas.service';
+import { Component, input } from '@angular/core';
+import { PuntoMapa, RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
+
+/** Leaflet no sobrevive en jsdom: el mapa real se prueba en su propio spec. */
+@Component({ selector: 'rs-mapa', standalone: true, template: '' })
+class RsMapaStubComponent {
+  readonly puntos = input<PuntoMapa[]>([]);
+  readonly ruta = input<ReadonlyArray<{ lat: number; lng: number }>>([]);
+  readonly ariaLabel = input('');
+}
 
 describe('VerticalDetalleComponent', () => {
   let fixture: ComponentFixture<VerticalDetalleComponent>;
@@ -53,7 +63,12 @@ describe('VerticalDetalleComponent', () => {
           },
         },
       ],
-    }).compileComponents();
+    })
+      .overrideComponent(VerticalDetalleComponent, {
+        remove: { imports: [RsMapaComponent] },
+        add: { imports: [RsMapaStubComponent] },
+      })
+      .compileComponents();
 
     fixture = TestBed.createComponent(VerticalDetalleComponent);
     component = fixture.componentInstance;
@@ -182,11 +197,49 @@ describe('VerticalDetalleComponent', () => {
    */
   describe('barra fija de reserva en móvil', () => {
     it('debería mostrar el precio y el CTA del vertical', async () => {
-      await crearComponente('transporte', servicio({ tarifaBase: 25 }));
+      await crearComponente('adiestramiento', servicio({ precioSesion: 40 }));
 
       const barra: HTMLElement = fixture.nativeElement.querySelector('.mobile-cta');
-      expect(barra.textContent).toContain('25');
-      expect(barra.textContent).toContain('Reservar transporte');
+      expect(barra.textContent).toContain('40');
+      expect(barra.textContent).toContain('Reservar sesión');
+    });
+
+    it('no debería pintar el panel «desde» ni la barra genérica en transporte: los pone su cotización', async () => {
+      await crearComponente('transporte', servicio({ tarifaBase: 25 }));
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(component.esTransporte()).toBe(true);
+      expect(el.querySelector('.mobile-cta')).toBeNull();
+      expect(el.querySelector('.side-panel')).toBeNull();
+      const cotizacion = el.querySelector('.side-col app-cotizacion-ficha');
+      expect(cotizacion).not.toBeNull();
+      expect(cotizacion?.textContent).toContain('Calcular precio');
+    });
+  });
+
+  describe('ruta habitual del transportista', () => {
+    it('debería pintar las paradas con coordenadas y sus nombres', async () => {
+      await crearComponente('transporte', servicio({
+        trayecto: [
+          { nombre: 'Madrid', lat: 40.4, lng: -3.7 },
+          { nombre: 'Sin coordenadas' },
+          { nombre: 'Toledo', lat: 39.8, lng: -4.0 },
+        ],
+      }));
+
+      expect(component.trayectoHabitual().map((p) => p.id)).toEqual(['parada-0', 'parada-2']);
+      expect(component.trayectoHabitual()[1].etiqueta).toBe('3');
+      expect(component.nombresTrayecto()).toBe('Madrid → Toledo');
+      expect(fixture.nativeElement.querySelector('.ruta-habitual__mapa rs-mapa')).not.toBeNull();
+    });
+
+    it('no debería pintar la ruta con una sola parada ni fuera de transporte', async () => {
+      await crearComponente('transporte', servicio({ trayecto: [{ lat: 40.4, lng: -3.7 }] }));
+      expect(fixture.nativeElement.querySelector('.ruta-habitual__mapa')).toBeNull();
+      expect(component.nombresTrayecto()).toBe('');
+
+      await crearComponente('adiestramiento', servicio({ trayecto: [{ lat: 1, lng: 2 }, { lat: 3, lng: 4 }] }));
+      expect(component.trayectoHabitual()).toEqual([]);
     });
 
     it('el botón debería solicitar el mismo servicio que el panel de escritorio', async () => {

@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import {
-  BusquedaTransportesRespuesta, ModalidadTransporte, PreferenciaTransporte, ResultadoTransporte,
+  BusquedaTransportesRespuesta, ModalidadTransporte, ResultadoTransporte,
 } from 'shared';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { TransporteViajeApi } from '../transporte-viaje.api';
@@ -11,7 +11,7 @@ import { CotizacionFichaComponent } from './cotizacion-ficha.component';
 const resultado = (modalidad: ModalidadTransporte, extra: Partial<ResultadoTransporte> = {}): ResultadoTransporte => ({
   servicioId: 's1', comercioId: 'c1', titulo: 'DogVan', rating: 4.6, totalResenas: 10, verificado: true, destacado: false,
   modalidad, estado: 'precio', total: modalidad === ModalidadTransporte.EXCLUSIVO ? 90 : 60,
-  desglose: [{ concepto: 'Trayecto', importe: 60 }], incluidos: [PreferenciaTransporte.CLIMATIZACION, 'rara' as PreferenciaTransporte],
+  desglose: [{ concepto: 'Trayecto', importe: 60 }], incluidos: ['climatizacion', 'rara'],
   duracionMin: 55, requiereAceptacion: false, cancelacion: { gratisHastaHoras: 24, reembolsoTardioPct: 50 },
   ...extra,
 });
@@ -68,7 +68,7 @@ describe('CotizacionFichaComponent', () => {
       cotizarEmpresa: jest.fn().mockResolvedValue(respuesta([
         resultado(ModalidadTransporte.COMPARTIDO), resultado(ModalidadTransporte.EXCLUSIVO),
       ])),
-      pedirPresupuesto: jest.fn().mockResolvedValue({ id: 'pr1' }),
+      pedirPresupuesto: jest.fn().mockResolvedValue([{ id: 'pr1' }]),
     };
   });
 
@@ -109,7 +109,7 @@ describe('CotizacionFichaComponent', () => {
       expect(fixture.nativeElement.querySelector('rs-desglose-precio')).not.toBeNull();
       expect(componente.politica()).toContain('50');
       expect(componente.icono('rara')).toBe('check');
-      expect(componente.etiquetaIncluido('rara' as PreferenciaTransporte)).toBe('rara');
+      expect(componente.etiquetaIncluido('rara')).toBe('rara');
     });
 
     it('debería respetar la modalidad pedida en la URL y cambiarla al elegir otra', async () => {

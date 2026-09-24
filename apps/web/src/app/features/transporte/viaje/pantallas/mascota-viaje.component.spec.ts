@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router, provideRouter } from '@angular/router';
-import { ModalidadTransporte, NecesidadTransporte, TamanoPerro } from 'shared';
+import { ModalidadTransporte, TamanoPerro } from 'shared';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { PerroApi, PerrosService } from '../../../perros/perros.service';
 import { TransporteViajeStore } from '../transporte-viaje.store';
@@ -28,7 +28,7 @@ describe('MascotaViajeComponent', () => {
   const crear = async (conRuta = true): Promise<void> => {
     if (conRuta) {
       sessionStorage.setItem('doogking_viaje_transporte', JSON.stringify({
-        version: 1,
+        version: 2,
         borrador: {
           origen: { texto: 'Madrid', placeId: 'a' }, destino: { texto: 'Toledo', placeId: 'b' }, fecha: '2999-01-01',
           personas: 6,
@@ -102,7 +102,7 @@ describe('MascotaViajeComponent', () => {
         perroId: 'p1', nombre: 'Hachi', especie: 'perro', tamano: TamanoPerro.GRANDE, foto: 'h.jpg', raza: 'Akita',
       }));
       expect(componente.form.controls.necesidades.value).toEqual(
-        expect.arrayContaining([NecesidadTransporte.TRANSPORTIN, NecesidadTransporte.MEDICACION]),
+        expect.arrayContaining(['transportin', 'medicacion']),
       );
 
       componente.alternarPerro(hachi);

@@ -55,7 +55,7 @@ describe('BookingsController', () => {
     expect(arg.recurrencia).toBeUndefined();
   });
 
-  it('debería pasar las mascotas adicionales, el presupuesto y la recurrencia mensual', async () => {
+  it('debería pasar las mascotas adicionales y la recurrencia mensual', async () => {
     service.crear.mockResolvedValue({ id: 'r1' } as never);
 
     await controller.crear(
@@ -65,7 +65,6 @@ describe('BookingsController', () => {
         fechaInicio: '2026-10-01',
         perroId: 'p1',
         perroIdsAdicionales: ['p2'],
-        presupuestoId: 'pres-1',
         recurrencia: { diasSemana: [], hora: '10:00', fechaFin: '2026-12-31', mensual: true },
       },
       req,
@@ -73,7 +72,6 @@ describe('BookingsController', () => {
 
     const arg = service.crear.mock.calls[0][0];
     expect(arg.perroIdsAdicionales).toEqual(['p2']);
-    expect(arg.presupuestoId).toBe('pres-1');
     expect(arg.recurrencia).toEqual({ diasSemana: [], hora: '10:00', fechaFin: expect.any(Date), mensual: true });
   });
 

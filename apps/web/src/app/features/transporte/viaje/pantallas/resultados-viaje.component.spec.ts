@@ -4,7 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router, provideRouter } from '@angular/router';
 import {
-  BusquedaTransportesRespuesta, ModalidadTransporte, OrdenTransporte, PreferenciaTransporte, ResultadoTransporte,
+  BusquedaTransportesRespuesta, ModalidadTransporte, OrdenTransporte, ResultadoTransporte,
 } from 'shared';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { TransporteViajeApi } from '../transporte-viaje.api';
@@ -14,7 +14,7 @@ import { ResultadosViajeComponent } from './resultados-viaje.component';
 const resultado = (id: string, modalidad: ModalidadTransporte, extra: Partial<ResultadoTransporte> = {}): ResultadoTransporte => ({
   servicioId: id, comercioId: `c-${id}`, titulo: `Empresa ${id}`, rating: 4.5, totalResenas: 8, verificado: true,
   destacado: false, modalidad, estado: 'precio', total: 60, desglose: [{ concepto: 'Trayecto', importe: 60 }],
-  incluidos: [PreferenciaTransporte.CLIMATIZACION], duracionMin: 65, requiereAceptacion: false,
+  incluidos: ['climatizacion'], duracionMin: 65, requiereAceptacion: false,
   cancelacion: { gratisHastaHoras: 24, reembolsoTardioPct: 0 },
   ...extra,
 });
@@ -24,7 +24,7 @@ const RESPUESTA: BusquedaTransportesRespuesta = {
   viajes: 1,
   resultados: [
     resultado('s1', ModalidadTransporte.COMPARTIDO),
-    resultado('s2', ModalidadTransporte.EXCLUSIVO, { incluidos: [PreferenciaTransporte.SEGUIMIENTO], total: 95 }),
+    resultado('s2', ModalidadTransporte.EXCLUSIVO, { incluidos: ['gps'], total: 95 }),
     resultado('s3', ModalidadTransporte.COMPARTIDO, { estado: 'presupuesto', motivoPresupuesto: 'Internacional' }),
   ],
 };
@@ -39,7 +39,7 @@ describe('ResultadosViajeComponent', () => {
 
   const guardarBorrador = (extra: Record<string, unknown> = {}): void => {
     sessionStorage.setItem('doogking_viaje_transporte', JSON.stringify({
-      version: 1,
+      version: 2,
       borrador: {
         origen: { texto: 'Calle Mayor 1, Madrid', placeId: 'a' }, destino: { texto: 'Zocodover, Toledo', placeId: 'b' },
         fecha: '2999-01-01', ...extra,
@@ -71,7 +71,7 @@ describe('ResultadosViajeComponent', () => {
     autenticado = signal(true);
     api = {
       buscar: jest.fn().mockResolvedValue(RESPUESTA),
-      pedirPresupuesto: jest.fn().mockResolvedValue({ id: 'pr1' }),
+      pedirPresupuesto: jest.fn().mockResolvedValue([{ id: 'pr1' }]),
     };
   });
 
@@ -102,11 +102,11 @@ describe('ResultadosViajeComponent', () => {
     });
 
     it('debería recuperar los filtros guardados y las preferencias como incluidos', async () => {
-      guardarBorrador({ filtroModalidad: ModalidadTransporte.EXCLUSIVO, preferencias: [PreferenciaTransporte.SEGUIMIENTO] });
+      guardarBorrador({ filtroModalidad: ModalidadTransporte.EXCLUSIVO, preferencias: ['gps'] });
       await crear();
 
       expect(componente.filtrados().map((r) => r.servicioId)).toEqual(['s2']);
-      expect(componente.filtroIncluidos.value).toEqual([PreferenciaTransporte.SEGUIMIENTO]);
+      expect(componente.filtroIncluidos.value).toEqual(['gps']);
     });
 
     it('debería volver a buscar al cambiar el orden y guardarlo', async () => {
@@ -126,9 +126,9 @@ describe('ResultadosViajeComponent', () => {
       await crear();
 
       componente.filtroModalidad.setValue('todas');
-      componente.filtroIncluidos.setValue([PreferenciaTransporte.CLIMATIZACION]);
+      componente.filtroIncluidos.setValue(['climatizacion']);
       expect(componente.filtrados().map((r) => r.servicioId)).toEqual(['s1', 's3']);
-      expect(store.borrador().filtroIncluidos).toEqual([PreferenciaTransporte.CLIMATIZACION]);
+      expect(store.borrador().filtroIncluidos).toEqual(['climatizacion']);
 
       componente.quitarFiltros();
       expect(componente.filtrados()).toHaveLength(3);
@@ -150,7 +150,7 @@ describe('ResultadosViajeComponent', () => {
       await crear();
 
       expect(componente.etiquetaModalidad(ModalidadTransporte.EXCLUSIVO)).toBe('Transporte exclusivo');
-      expect(componente.etiquetaIncluido('rara' as PreferenciaTransporte)).toBe('rara');
+      expect(componente.etiquetaIncluido('rara')).toBe('rara');
       expect(componente.iconoIncluido('rara')).toBe('check');
       expect(componente.iconoIncluido('climatizacion')).toBe('snowflake');
       expect(componente.duracion(65)).toBe('1 h 05 min');

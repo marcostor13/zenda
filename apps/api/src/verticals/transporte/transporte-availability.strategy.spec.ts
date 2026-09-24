@@ -4,8 +4,13 @@ import { TransporteAvailabilityStrategy } from './transporte-availability.strate
 import { Servicio } from '../../core/catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
-  ModeloPrecio, ModoDisponibilidadTransporte, UnidadCobro, VerticalKey,
+  ConfirmacionEntrega, CotizacionViaje, HitoViaje, ModalidadTransporte, ModeloPrecio, ModoDisponibilidadTransporte,
+  ModoHorarioTransporte, NecesidadTransporte, PLAZO_ACEPTACION_MIN, PoliticaCancelacionTransporte, ReservaEstado,
+  TamanoPerro, UnidadCobro, VerticalKey,
 } from 'shared';
+import { ReservaParaPoliticas } from '../../core/availability/availability.strategy';
+import { TransporteCotizable, TransporteRepository } from './transporte.repository';
+import { RutaViaje, TransporteCotizadorService } from './transporte-cotizador.service';
 
 interface ServicioModelMock {
   findById: jest.Mock;
@@ -14,6 +19,8 @@ interface ServicioModelMock {
 describe('TransporteAvailabilityStrategy', () => {
   let strategy: TransporteAvailabilityStrategy;
   let servicioModel: ServicioModelMock;
+  let repo: jest.Mocked<Pick<TransporteRepository, 'porId'>>;
+  let cotizador: jest.Mocked<Pick<TransporteCotizadorService, 'cotizarReserva'>>;
 
   const transporteMock = {
     _id: 'transporte-1',
@@ -44,10 +51,14 @@ describe('TransporteAvailabilityStrategy', () => {
       providers: [
         TransporteAvailabilityStrategy,
         { provide: getModelToken(Servicio.name), useValue: servicioModel },
+        { provide: TransporteRepository, useValue: { porId: jest.fn() } },
+        { provide: TransporteCotizadorService, useValue: { cotizarReserva: jest.fn() } },
       ],
     }).compile();
 
     strategy = module.get<TransporteAvailabilityStrategy>(TransporteAvailabilityStrategy);
+    repo = module.get(TransporteRepository);
+    cotizador = module.get(TransporteCotizadorService);
   });
 
   it('debería declarar el vertical TRANSPORTE', () => {
@@ -134,7 +145,20 @@ describe('TransporteAvailabilityStrategy', () => {
         exclusivo: false,
         extras: 0,
         requierePresupuesto: false,
+        requiereConfirmacion: false,
+        requiereAceptacion: false,
+        plazoAceptacionMin: PLAZO_ACEPTACION_MIN.normal,
       });
+      expect(resultado.metadata).not.toHaveProperty('tipoTrayecto');
+    });
+
+    it('debería anotar la ida y vuelta con su espera en los metadatos', async () => {
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: new Date('2026-07-15T10:00:00Z'),
+        parametrosExtra: { distanciaKm: 10, tipoTrayecto: 'ida_vuelta', esperaMinutos: 45 },
+      });
+
+      expect(resultado.metadata).toMatchObject({ tipoTrayecto: 'ida_vuelta', esperaMinutos: 45 });
     });
 
     it('debería sumar los servicios adicionales elegidos por el cliente', async () => {
@@ -327,6 +351,236 @@ describe('TransporteAvailabilityStrategy', () => {
       });
 
       expect(resultado.metadata?.['requiereConfirmacion']).toBe(true);
+      expect(resultado.metadata?.['requiereAceptacion']).toBe(true);
+    });
+
+    it('no debería pedir confirmación si las necesidades no vienen como lista', async () => {
+      mockFindById({ ...conReglas, situacionesConfirmacion: ['conducta_reactiva'] });
+
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: dentroDeUnaSemana,
+        parametrosExtra: { distanciaKm: 8, municipioOrigen: 'Castellón', necesidades: 'conducta_reactiva' },
+      });
+
+      expect(resultado.metadata?.['requiereAceptacion']).toBe(false);
+    });
+
+    it('debería dar al transportista el plazo de confirmación de su alta', async () => {
+      mockFindById({ ...conReglas, confirmacionHoras: 2 });
+
+      const resultado = await strategy.checkAvailability('transporte-1', {
+        fechaInicio: dentroDeUnaSemana,
+        parametrosExtra: { distanciaKm: 8, municipioOrigen: 'Castellón' },
+      });
+
+      expect(resultado.metadata).toMatchObject({ requiereAceptacion: true, plazoAceptacionMin: 120 });
+    });
+  });
+
+  describe('flujo de cliente por pantallas (detalle.solicitud)', () => {
+    const solicitud = {
+      tipoServicio: NecesidadTransporte.SOLO_IDA,
+      origen: { texto: 'Castellón', placeId: 'a' },
+      destino: { texto: 'Valencia', placeId: 'b' },
+      fecha: '2030-03-06',
+      modoHorario: ModoHorarioTransporte.HORA_CONCRETA,
+      hora: '10:30',
+      mascotas: [{ especie: 'perro', tamano: TamanoPerro.MEDIANO }, { especie: 'perro', tamano: TamanoPerro.MINI }],
+      necesidades: [],
+      modalidad: ModalidadTransporte.EXCLUSIVO,
+      preferencias: [],
+    };
+    const empresa = { _id: 'transporte-1', unidadesDisponibles: 3 } as unknown as TransporteCotizable;
+    const ruta: RutaViaje = {
+      trayecto: { km: 70, duracionMin: 55, esEstimacion: false },
+      origen: { lat: 39.9, lng: -0.05 } as RutaViaje['origen'],
+      destino: { lat: 39.4, lng: -0.37 } as RutaViaje['destino'],
+    };
+    const conPrecio: CotizacionViaje = {
+      estado: 'precio', total: 55, desglose: [{ concepto: 'Base más km', importe: 55 }],
+      requiereAceptacion: true, plazoAceptacionMin: 30,
+    };
+    const consulta = (extra: Record<string, unknown> = {}): { fechaInicio: Date; parametrosExtra: Record<string, unknown> } => ({
+      fechaInicio: new Date('2030-03-06T09:30:00Z'),
+      parametrosExtra: { solicitud, ...extra },
+    });
+
+    beforeEach(() => {
+      repo.porId.mockResolvedValue(empresa);
+      cotizador.cotizarReserva.mockResolvedValue({ cotizacion: conPrecio, ruta });
+    });
+
+    it('debería cotizar con el cotizador y dejar desglose y ruta para la reserva', async () => {
+      const resultado = await strategy.checkAvailability('transporte-1', consulta());
+
+      expect(cotizador.cotizarReserva).toHaveBeenCalledWith(empresa, expect.objectContaining({ fecha: '2030-03-06' }));
+      expect(servicioModel.findById).not.toHaveBeenCalled();
+      expect(resultado).toEqual({
+        disponible: true,
+        capacidadRestante: 3,
+        precioCalculado: 55,
+        motivo: undefined,
+        metadata: {
+          perros: 2,
+          requierePresupuesto: false,
+          motivoPresupuesto: undefined,
+          requiereAceptacion: true,
+          plazoAceptacionMin: 30,
+          detalleReserva: {
+            desglose: [{ concepto: 'Base más km', importe: 55 }],
+            ruta: { km: 70, duracionMin: 55, origen: { lat: 39.9, lng: -0.05 }, destino: { lat: 39.4, lng: -0.37 } },
+          },
+        },
+      });
+    });
+
+    it('debería omitir los extremos de la ruta que no se pudieron geolocalizar', async () => {
+      cotizador.cotizarReserva.mockResolvedValue({ cotizacion: conPrecio, ruta: { ...ruta, origen: null, destino: null } });
+
+      const resultado = await strategy.checkAvailability('transporte-1', consulta());
+
+      const detalle = resultado.metadata?.['detalleReserva'] as { ruta: Record<string, unknown> };
+      expect(detalle.ruta).toEqual({ km: 70, duracionMin: 55, origen: undefined, destino: undefined });
+    });
+
+    it('debería seguir disponible y marcar presupuesto cuando el motor no cierra precio', async () => {
+      cotizador.cotizarReserva.mockResolvedValue({
+        cotizacion: { estado: 'presupuesto', motivo: 'A medida', total: 0, desglose: [], requiereAceptacion: false },
+        ruta: null,
+      });
+
+      const resultado = await strategy.checkAvailability('transporte-1', consulta());
+
+      expect(resultado).toMatchObject({ disponible: true, precioCalculado: 0, motivo: 'A medida' });
+      expect(resultado.metadata).toMatchObject({
+        requierePresupuesto: true, motivoPresupuesto: 'A medida', detalleReserva: { desglose: [], ruta: undefined },
+      });
+    });
+
+    it('debería no estar disponible con el motivo del cotizador', async () => {
+      cotizador.cotizarReserva.mockResolvedValue({
+        cotizacion: { estado: 'no_disponible', motivo: 'No cubre ese viaje', total: 0, desglose: [], requiereAceptacion: false },
+        ruta,
+      });
+
+      const resultado = await strategy.checkAvailability('transporte-1', consulta());
+
+      expect(resultado).toEqual({ disponible: false, motivo: 'No cubre ese viaje', metadata: { motivo: 'no_disponible' } });
+    });
+
+    it('debería lanzar 404 si el servicio no existe', async () => {
+      repo.porId.mockResolvedValue(null);
+
+      await expect(strategy.checkAvailability('x', consulta())).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it.each([
+      ['la solicitud no es válida', { solicitud: { ...solicitud, mascotas: [] } }],
+      ['la solicitud no es un objeto', { solicitud: 'viaje' }],
+      ['los datos de entrega no tienen forma', { entrega: 'yo' }],
+    ])('debería pedir que vuelva a describir el viaje si %s', async (_caso, extra) => {
+      const resultado = await strategy.checkAvailability('transporte-1', consulta(extra));
+
+      expect(resultado).toMatchObject({ disponible: false, metadata: { motivo: 'solicitud_invalida' } });
+      expect(cotizador.cotizarReserva).not.toHaveBeenCalled();
+    });
+
+    it('debería aceptar datos de entrega bien formados', async () => {
+      const entrega = {
+        recogida: { quien: 'yo' }, entrega: { quien: 'yo' }, confirmacionEntrega: ConfirmacionEntrega.NOTIFICACION_Y_FOTO,
+      };
+
+      const resultado = await strategy.checkAvailability('transporte-1', consulta({ entrega }));
+
+      expect(resultado.disponible).toBe(true);
+    });
+  });
+
+  describe('politicaReembolso', () => {
+    const ahora = new Date('2030-03-01T10:00:00Z');
+    const reserva = (extra: Partial<ReservaParaPoliticas> = {}): ReservaParaPoliticas => ({
+      servicioId: 'transporte-1',
+      estado: ReservaEstado.CONFIRMADA,
+      fechaInicio: new Date('2030-03-03T10:00:00Z'),
+      ...extra,
+    });
+    // Con reglas de tarifa: sin ellas el servicio es del alta antigua y usa la política por defecto.
+    const conPolitica = (politica: PoliticaCancelacionTransporte): TransporteCotizable => ({
+      politicaCancelacionTransporte: politica,
+      reglasTarifa: [{ id: 'r1', nombre: 'Fija', modelo: ModeloPrecio.FIJO, unidadCobro: UnidadCobro.VEHICULO, precioIda: 30 }],
+    }) as unknown as TransporteCotizable;
+
+    beforeEach(() => {
+      repo.porId.mockResolvedValue(conPolitica(PoliticaCancelacionTransporte.ESTANDAR));
+    });
+
+    it('no debería devolver nada con el viaje en curso', async () => {
+      await expect(strategy.politicaReembolso(reserva({ estado: ReservaEstado.EN_CURSO }), ahora))
+        .resolves.toEqual({ porcentaje: 0, motivo: 'El viaje ya ha empezado.' });
+    });
+
+    it('no debería devolver nada si el transportista ya marcó algún paso del viaje', async () => {
+      const conSeguimiento = reserva({ seguimiento: [{ hito: HitoViaje.DE_CAMINO }] });
+      await expect(strategy.politicaReembolso(conSeguimiento, ahora)).resolves.toMatchObject({ porcentaje: 0 });
+    });
+
+    it('debería devolver todo si se cancela con la antelación de la política estándar', async () => {
+      await expect(strategy.politicaReembolso(reserva(), ahora))
+        .resolves.toEqual({ porcentaje: 100, motivo: 'Cancelación gratuita hasta 24 h antes.' });
+      expect(repo.porId).toHaveBeenCalledWith('transporte-1');
+    });
+
+    it('debería devolver el porcentaje tardío con menos antelación', async () => {
+      const esaTarde = reserva({ fechaInicio: new Date('2030-03-01T20:00:00Z') });
+      await expect(strategy.politicaReembolso(esaTarde, ahora))
+        .resolves.toEqual({ porcentaje: 0, motivo: 'Menos de 24 h antes: se devuelve el 0 %.' });
+    });
+
+    it('no debería devolver nada con una tarifa no reembolsable', async () => {
+      repo.porId.mockResolvedValue(conPolitica(PoliticaCancelacionTransporte.NO_REEMBOLSABLE));
+      await expect(strategy.politicaReembolso(reserva(), ahora))
+        .resolves.toEqual({ porcentaje: 0, motivo: 'Tarifa no reembolsable.' });
+    });
+
+    it('debería aplicar la política por defecto si el servicio ya no existe', async () => {
+      repo.porId.mockResolvedValue(null);
+      await expect(strategy.politicaReembolso(reserva(), ahora)).resolves.toMatchObject({ porcentaje: 100 });
+    });
+
+    it('debería usar la hora actual si no se le pasa', async () => {
+      const lejana = reserva({ fechaInicio: new Date(Date.now() + 72 * 3_600_000) });
+      await expect(strategy.politicaReembolso(lejana)).resolves.toMatchObject({ porcentaje: 100 });
+    });
+  });
+
+  describe('validarHito', () => {
+    const reserva = (entrega?: Record<string, unknown>): ReservaParaPoliticas => ({
+      servicioId: 'transporte-1',
+      estado: ReservaEstado.EN_CURSO,
+      fechaInicio: new Date(),
+      detalle: entrega ? { entrega } : undefined,
+    });
+    const conFoto = reserva({ confirmacionEntrega: ConfirmacionEntrega.NOTIFICACION_Y_FOTO });
+
+    it('debería rechazar un paso que no existe', () => {
+      expect(() => strategy.validarHito(reserva(), 'teletransportada')).toThrow(DomainException);
+    });
+
+    it('debería aceptar el hito antiguo en_ruta', () => {
+      expect(() => strategy.validarHito(reserva(), 'en_ruta')).not.toThrow();
+    });
+
+    it('debería exigir la foto de la entrega si el cliente la pidió', () => {
+      expect(() => strategy.validarHito(conFoto, HitoViaje.ENTREGADA)).toThrow('El cliente pidió una foto de la entrega');
+    });
+
+    it('debería aceptar la entrega con foto si el cliente la pidió', () => {
+      expect(() => strategy.validarHito(conFoto, HitoViaje.ENTREGADA, 'https://cdn/foto.jpg')).not.toThrow();
+    });
+
+    it('no debería exigir foto en otros pasos ni si el cliente no la pidió', () => {
+      expect(() => strategy.validarHito(conFoto, HitoViaje.RECOGIDA)).not.toThrow();
+      expect(() => strategy.validarHito(reserva(), HitoViaje.ENTREGADA)).not.toThrow();
     });
   });
 

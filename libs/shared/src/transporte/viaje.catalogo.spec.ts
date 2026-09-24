@@ -1,6 +1,6 @@
-import { EspecieMascota, HitoViaje, normalizarEspecie, normalizarHitoViaje } from './transporte.catalogo';
+import { EspecieMascota, HitoViaje, especieMascotaDe, normalizarHitoViaje } from './viaje.catalogo';
 
-describe('normalizarEspecie', () => {
+describe('especieMascotaDe', () => {
   it.each([
     ['perro', EspecieMascota.PERRO],
     ['Perro', EspecieMascota.PERRO],
@@ -8,19 +8,19 @@ describe('normalizarEspecie', () => {
     ['CONEJO', EspecieMascota.CONEJO],
     ['reptil', EspecieMascota.REPTIL],
   ])('debería traducir «%s» al valor del catálogo', (entrada, esperada) => {
-    expect(normalizarEspecie(entrada)).toBe(esperada);
+    expect(especieMascotaDe(entrada)).toBe(esperada);
   });
 
   it('debería ignorar las tildes', () => {
-    expect(normalizarEspecie('Avé')).toBe(EspecieMascota.AVE);
+    expect(especieMascotaDe('Avé')).toBe(EspecieMascota.AVE);
   });
 
   it.each([undefined, null, '', '   '])('debería suponer perro cuando la ficha no trae especie (%p)', (entrada) => {
-    expect(normalizarEspecie(entrada)).toBe(EspecieMascota.PERRO);
+    expect(especieMascotaDe(entrada)).toBe(EspecieMascota.PERRO);
   });
 
   it('debería llevar lo desconocido a «otro»', () => {
-    expect(normalizarEspecie('iguana')).toBe(EspecieMascota.OTRO);
+    expect(especieMascotaDe('iguana')).toBe(EspecieMascota.OTRO);
   });
 });
 

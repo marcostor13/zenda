@@ -1,13 +1,14 @@
 import { TamanoPerro } from '../enums/perro.enum';
-import { SolicitudTransporte } from './cotizar-transporte';
-import { resumenSolicitudTransporte } from './resumen-transporte';
+import { resumenSolicitudViaje } from './resumen-transporte';
+import { SolicitudViaje } from './solicitud-viaje';
+import { NecesidadTransporte } from './transporte.enums';
 import {
-  ComportamientoViaje, EquipajeTransporte, FranjaTransporte, ModalidadTransporte, ModoHorarioTransporte,
-  NecesidadTransporte, PatronRecurrenciaTransporte, PreferenciaTransporte, TipoServicioTransporte, VueltaTransporte,
-} from './transporte.catalogo';
+  FranjaTransporte, ModalidadTransporte, ModoHorarioTransporte, NECESIDAD_OTRA, PatronRecurrenciaTransporte,
+  VueltaTransporte,
+} from './viaje.catalogo';
 
-const solicitud = (extra: Partial<SolicitudTransporte> = {}): SolicitudTransporte => ({
-  tipoServicio: TipoServicioTransporte.SOLO_IDA,
+const solicitud = (extra: Partial<SolicitudViaje> = {}): SolicitudViaje => ({
+  tipoServicio: NecesidadTransporte.SOLO_IDA,
   origen: { texto: 'Castellón' },
   destino: { texto: 'Valencia' },
   fecha: '2026-10-01',
@@ -23,9 +24,9 @@ const solicitud = (extra: Partial<SolicitudTransporte> = {}): SolicitudTransport
 const valor = (filas: Array<[string, string]>, etiqueta: string): string | undefined =>
   filas.find(([e]) => e === etiqueta)?.[1];
 
-describe('resumenSolicitudTransporte', () => {
+describe('resumenSolicitudViaje', () => {
   it('debería resumir una solicitud básica sin filas vacías', () => {
-    const filas = resumenSolicitudTransporte(solicitud());
+    const filas = resumenSolicitudViaje(solicitud());
 
     expect(filas).toEqual([
       ['Servicio', 'Solo ida'],
@@ -39,26 +40,26 @@ describe('resumenSolicitudTransporte', () => {
   });
 
   it('debería describir una mascota sin nombre por especie y tamaño', () => {
-    const filas = resumenSolicitudTransporte(solicitud({
+    const filas = resumenSolicitudViaje(solicitud({
       mascotas: [{ especie: 'gato', tamano: TamanoPerro.PEQUENO }, { especie: 'iguana', tamano: TamanoPerro.MINI }],
     }));
     expect(valor(filas, 'Mascotas')).toBe('Gato, Pequeño · Otro, Mini');
   });
 
   it('debería escribir el horario flexible con su franja o «Cualquier horario»', () => {
-    const conFranja = resumenSolicitudTransporte(solicitud({ modoHorario: ModoHorarioTransporte.FLEXIBLE, franja: FranjaTransporte.TARDE }));
-    const sinFranja = resumenSolicitudTransporte(solicitud({ modoHorario: ModoHorarioTransporte.FLEXIBLE }));
+    const conFranja = resumenSolicitudViaje(solicitud({ modoHorario: ModoHorarioTransporte.FLEXIBLE, franja: FranjaTransporte.TARDE }));
+    const sinFranja = resumenSolicitudViaje(solicitud({ modoHorario: ModoHorarioTransporte.FLEXIBLE }));
     expect(valor(conFranja, 'Hora')).toBe('Flexible · Tarde');
     expect(valor(sinFranja, 'Hora')).toBe('Flexible · Cualquier horario');
   });
 
   it('debería escribir «Lo antes posible»', () => {
-    const filas = resumenSolicitudTransporte(solicitud({ modoHorario: ModoHorarioTransporte.LO_ANTES_POSIBLE }));
+    const filas = resumenSolicitudViaje(solicitud({ modoHorario: ModoHorarioTransporte.LO_ANTES_POSIBLE }));
     expect(valor(filas, 'Hora')).toBe('Lo antes posible');
   });
 
   it('debería omitir la fila de hora si la hora concreta no trae hora', () => {
-    const filas = resumenSolicitudTransporte(solicitud({ hora: undefined }));
+    const filas = resumenSolicitudViaje(solicitud({ hora: undefined }));
     expect(valor(filas, 'Hora')).toBeUndefined();
   });
 
@@ -69,26 +70,26 @@ describe('resumenSolicitudTransporte', () => {
     [{ modo: VueltaTransporte.CUANDO_AVISE }, 'Cuando yo avise'],
     [{ modo: VueltaTransporte.OTRO_DIA, fecha: '2026-10-03', hora: '12:00' }, '2026-10-03 12:00'],
   ])('debería describir la vuelta %o como «%s»', (vuelta, esperado) => {
-    const filas = resumenSolicitudTransporte(solicitud({ tipoServicio: TipoServicioTransporte.IDA_VUELTA, vuelta }));
+    const filas = resumenSolicitudViaje(solicitud({ tipoServicio: NecesidadTransporte.IDA_VUELTA, vuelta }));
     expect(valor(filas, 'Vuelta')).toBe(esperado);
   });
 
   it('debería omitir la vuelta de otro día sin fecha ni hora', () => {
-    const filas = resumenSolicitudTransporte(solicitud({ vuelta: { modo: VueltaTransporte.OTRO_DIA } }));
+    const filas = resumenSolicitudViaje(solicitud({ vuelta: { modo: VueltaTransporte.OTRO_DIA } }));
     expect(valor(filas, 'Vuelta')).toBeUndefined();
   });
 
   it('debería incluir recurrencia, acompañantes, equipaje, necesidades, comportamiento, preferencias y nota', () => {
-    const filas = resumenSolicitudTransporte(solicitud({
-      tipoServicio: TipoServicioTransporte.RECURRENTE,
+    const filas = resumenSolicitudViaje(solicitud({
+      tipoServicio: NecesidadTransporte.RECURRENTE,
       recurrencia: { patron: PatronRecurrenciaTransporte.LABORABLES, diasSemana: [], hora: '10:30', hasta: '2026-12-31' },
       modalidad: ModalidadTransporte.CON_PROPIETARIO,
       personas: 2,
-      equipaje: EquipajeTransporte.MALETA,
-      necesidades: [NecesidadTransporte.ARNES, NecesidadTransporte.OTRA],
+      equipaje: 'maleta',
+      necesidades: ['arnes', NECESIDAD_OTRA],
       necesidadOtra: 'Rampa',
-      comportamiento: ComportamientoViaje.MIEDO_COCHE,
-      preferencias: [PreferenciaTransporte.CLIMATIZACION, PreferenciaTransporte.PUERTA_A_PUERTA],
+      comportamiento: 'miedo_coche',
+      preferencias: ['climatizacion', 'aviso_entrega'],
       notaTransportista: 'Llamar al llegar',
     }));
 
@@ -97,20 +98,36 @@ describe('resumenSolicitudTransporte', () => {
     expect(valor(filas, 'Modalidad')).toBe('Viajo con mi mascota');
     expect(valor(filas, 'Acompañantes')).toBe('2');
     expect(valor(filas, 'Equipaje')).toBe('Maleta');
-    expect(valor(filas, 'Necesidades')).toBe('Arnés, Otra, Rampa');
-    expect(valor(filas, 'Comportamiento')).toBe('Tiene miedo al coche');
-    expect(valor(filas, 'Preferencias')).toBe('Vehículo climatizado, Puerta a puerta');
+    expect(valor(filas, 'Necesidades')).toBe('Arnés, Rampa');
+    expect(valor(filas, 'Comportamiento')).toBe('Miedo al coche');
+    expect(valor(filas, 'Preferencias')).toBe('Climatización, Aviso de entrega');
     expect(valor(filas, 'Información para el transportista')).toBe('Llamar al llegar');
   });
 
+  it('debería omitir la fila de necesidades si sólo marcó «otra» sin texto', () => {
+    const filas = resumenSolicitudViaje(solicitud({ necesidades: [NECESIDAD_OTRA] }));
+    expect(valor(filas, 'Necesidades')).toBeUndefined();
+  });
+
+  it('debería conservar el valor crudo de un servicio, modalidad o vuelta desconocidos', () => {
+    const filas = resumenSolicitudViaje(solicitud({
+      tipoServicio: 'teletransporte' as NecesidadTransporte,
+      modalidad: 'en_globo' as ModalidadTransporte,
+      vuelta: { modo: 'nunca' as VueltaTransporte },
+    }));
+    expect(valor(filas, 'Servicio')).toBe('teletransporte');
+    expect(valor(filas, 'Modalidad')).toBe('en_globo');
+    expect(valor(filas, 'Vuelta')).toBe('nunca');
+  });
+
   it('debería conservar el valor crudo de un comportamiento desconocido', () => {
-    const filas = resumenSolicitudTransporte(solicitud({ comportamiento: 'muerde cables' }));
+    const filas = resumenSolicitudViaje(solicitud({ comportamiento: 'muerde cables' }));
     expect(valor(filas, 'Comportamiento')).toBe('muerde cables');
   });
 
   it('debería tolerar solicitudes incompletas sin origen, destino ni mascotas', () => {
-    const incompleta = { ...solicitud(), origen: undefined, destino: undefined, mascotas: undefined } as unknown as SolicitudTransporte;
-    const filas = resumenSolicitudTransporte(incompleta);
+    const incompleta = { ...solicitud(), origen: undefined, destino: undefined, mascotas: undefined } as unknown as SolicitudViaje;
+    const filas = resumenSolicitudViaje(incompleta);
     expect(valor(filas, 'Recogida')).toBeUndefined();
     expect(valor(filas, 'Mascotas')).toBeUndefined();
   });

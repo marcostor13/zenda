@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { BuscarTransportesDto, BusquedaTransportesRespuesta, OrdenTransporte, SolicitudTransporteDto } from 'shared';
+import { BuscarTransportesDto, BusquedaTransportesRespuesta, OrdenTransporte, SolicitudViajeDto } from 'shared';
 import { TransporteController } from './transporte.controller';
 import { TransporteCotizadorService } from './transporte-cotizador.service';
 
@@ -8,7 +8,7 @@ describe('TransporteController', () => {
   let cotizador: jest.Mocked<Pick<TransporteCotizadorService, 'buscar' | 'cotizarEmpresa'>>;
 
   const respuesta: BusquedaTransportesRespuesta = { ruta: null, viajes: 1, resultados: [] };
-  const solicitud = { fecha: '2026-10-01' } as SolicitudTransporteDto;
+  const solicitud = { fecha: '2026-10-01' } as SolicitudViajeDto;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({

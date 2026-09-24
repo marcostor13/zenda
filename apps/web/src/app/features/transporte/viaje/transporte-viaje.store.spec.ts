@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
-  EspecieMascota, FranjaTransporte, ModalidadTransporte, ModoHorarioTransporte, NecesidadTransporte,
-  PatronRecurrenciaTransporte, SolicitudTransporte, TamanoPerro, TipoServicioTransporte, VueltaTransporte,
+  EspecieMascota, FranjaTransporte, ModalidadTransporte, ModoHorarioTransporte, NECESIDAD_OTRA, NecesidadTransporte,
+  PatronRecurrenciaTransporte, SolicitudViaje, TamanoPerro, VueltaTransporte,
   hoyEnZona,
 } from 'shared';
 import { EleccionTransporte, TransporteViajeStore, borradorInicial, puntoValido } from './transporte-viaje.store';
@@ -50,7 +50,7 @@ describe('TransporteViajeStore', () => {
       TestBed.tick();
 
       const guardado = JSON.parse(sessionStorage.getItem(CLAVE) ?? '{}');
-      expect(guardado.version).toBe(1);
+      expect(guardado.version).toBe(2);
       expect(guardado.borrador.comportamiento).toBe('tranquilo');
     });
 
@@ -88,24 +88,24 @@ describe('TransporteViajeStore', () => {
 
   describe('elegirTipo', () => {
     it('debería poner hoy y «lo antes posible» en un urgente', () => {
-      store.elegirTipo(TipoServicioTransporte.URGENTE);
+      store.elegirTipo(NecesidadTransporte.URGENTE);
       expect(store.borrador().modoHorario).toBe(ModoHorarioTransporte.LO_ANTES_POSIBLE);
       expect(store.borrador().fecha).toBe(hoyEnZona());
     });
 
     it('debería pasar a «con propietario» al viajar con la mascota y volver a compartido al cambiar', () => {
-      store.elegirTipo(TipoServicioTransporte.VIAJO_CON_MASCOTA);
+      store.elegirTipo(NecesidadTransporte.VIAJO_CON_MI_MASCOTA);
       expect(store.borrador().modalidad).toBe(ModalidadTransporte.CON_PROPIETARIO);
 
-      store.elegirTipo(TipoServicioTransporte.SOLO_IDA);
+      store.elegirTipo(NecesidadTransporte.SOLO_IDA);
       expect(store.borrador().modalidad).toBe(ModalidadTransporte.COMPARTIDO);
     });
 
     it('no debería pisar una modalidad elegida a mano que no sea con propietario', () => {
       store.actualizar({ modalidad: ModalidadTransporte.EXCLUSIVO });
-      store.elegirTipo(TipoServicioTransporte.IDA_VUELTA);
+      store.elegirTipo(NecesidadTransporte.IDA_VUELTA);
       expect(store.borrador().modalidad).toBe(ModalidadTransporte.EXCLUSIVO);
-      expect(store.borrador().tipoServicio).toBe(TipoServicioTransporte.IDA_VUELTA);
+      expect(store.borrador().tipoServicio).toBe(NecesidadTransporte.IDA_VUELTA);
     });
   });
 
@@ -163,13 +163,13 @@ describe('TransporteViajeStore', () => {
       [VueltaTransporte.CUANDO_AVISE, { modo: VueltaTransporte.CUANDO_AVISE }],
     ])('debería construir la vuelta en modo %s', (modo, esperado) => {
       rutaLista();
-      store.actualizar({ tipoServicio: TipoServicioTransporte.IDA_VUELTA, vueltaModo: modo });
+      store.actualizar({ tipoServicio: NecesidadTransporte.IDA_VUELTA, vueltaModo: modo });
       expect(store.solicitud()?.vuelta).toEqual(esperado);
     });
 
     it('debería exigir el día de vuelta cuando vuelve otro día', () => {
       rutaLista();
-      store.actualizar({ tipoServicio: TipoServicioTransporte.IDA_VUELTA, vueltaModo: VueltaTransporte.OTRO_DIA });
+      store.actualizar({ tipoServicio: NecesidadTransporte.IDA_VUELTA, vueltaModo: VueltaTransporte.OTRO_DIA });
       expect(store.rutaCompleta()).toBe(false);
 
       store.actualizar({ vueltaFecha: '2026-10-03' });
@@ -178,7 +178,7 @@ describe('TransporteViajeStore', () => {
 
     it('debería construir la recurrencia con los días del patrón y exigir el fin', () => {
       rutaLista();
-      store.actualizar({ tipoServicio: TipoServicioTransporte.RECURRENTE });
+      store.actualizar({ tipoServicio: NecesidadTransporte.RECURRENTE });
       expect(store.rutaCompleta()).toBe(false);
 
       store.actualizar({ hasta: '2026-11-01' });
@@ -190,7 +190,7 @@ describe('TransporteViajeStore', () => {
     it('debería usar las 09:00 en una recurrencia sin hora concreta', () => {
       rutaLista();
       store.actualizar({
-        tipoServicio: TipoServicioTransporte.RECURRENTE, hasta: '2026-11-01', modoHorario: ModoHorarioTransporte.FLEXIBLE,
+        tipoServicio: NecesidadTransporte.RECURRENTE, hasta: '2026-11-01', modoHorario: ModoHorarioTransporte.FLEXIBLE,
         patron: PatronRecurrenciaTransporte.PERSONALIZADO, diasSemana: [3, 1, 3],
       });
       expect(store.solicitud()?.recurrencia).toEqual(expect.objectContaining({ hora: '09:00', diasSemana: [1, 3] }));
@@ -200,7 +200,7 @@ describe('TransporteViajeStore', () => {
       rutaLista();
       store.actualizar({
         modalidad: ModalidadTransporte.CON_PROPIETARIO, personas: 2,
-        necesidades: [NecesidadTransporte.OTRA], necesidadOtra: 'Rampa', comportamiento: 'tranquilo', notaTransportista: 'Llamar',
+        necesidades: [NECESIDAD_OTRA], necesidadOtra: 'Rampa', comportamiento: 'tranquilo', notaTransportista: 'Llamar',
       });
       const s = store.solicitud();
       expect(s?.personas).toBe(2);
@@ -209,7 +209,7 @@ describe('TransporteViajeStore', () => {
       expect(s?.comportamiento).toBe('tranquilo');
       expect(s?.notaTransportista).toBe('Llamar');
 
-      store.actualizar({ necesidades: [NecesidadTransporte.JAULA] });
+      store.actualizar({ necesidades: ['jaula'] });
       expect(store.solicitud()?.necesidadOtra).toBeUndefined();
     });
   });
@@ -231,12 +231,12 @@ describe('TransporteViajeStore', () => {
 
   describe('cargarSolicitud', () => {
     it('debería rehacer el borrador desde una solicitud completa', () => {
-      const solicitud: SolicitudTransporte = {
-        tipoServicio: TipoServicioTransporte.IDA_VUELTA, origen: ORIGEN, destino: DESTINO, fecha: '2026-10-01',
+      const solicitud: SolicitudViaje = {
+        tipoServicio: NecesidadTransporte.IDA_VUELTA, origen: ORIGEN, destino: DESTINO, fecha: '2026-10-01',
         modoHorario: ModoHorarioTransporte.HORA_CONCRETA, hora: '08:00',
         vuelta: { modo: VueltaTransporte.OTRO_DIA, fecha: '2026-10-02', hora: '19:00' },
         mascotas: [{ especie: 'perro', tamano: TamanoPerro.MINI }, { especie: 'gato', tamano: TamanoPerro.MINI }],
-        necesidades: [NecesidadTransporte.OTRA], necesidadOtra: 'x', comportamiento: 'tranquilo', notaTransportista: 'n',
+        necesidades: [NECESIDAD_OTRA], necesidadOtra: 'x', comportamiento: 'tranquilo', notaTransportista: 'n',
         modalidad: ModalidadTransporte.CON_PROPIETARIO, personas: 3, preferencias: [],
       };
 
@@ -255,7 +255,7 @@ describe('TransporteViajeStore', () => {
 
     it('debería rellenar con los valores por defecto lo que la solicitud no trae', () => {
       store.cargarSolicitud({
-        tipoServicio: TipoServicioTransporte.RECURRENTE, origen: ORIGEN, destino: DESTINO, fecha: '2026-10-01',
+        tipoServicio: NecesidadTransporte.RECURRENTE, origen: ORIGEN, destino: DESTINO, fecha: '2026-10-01',
         modoHorario: ModoHorarioTransporte.LO_ANTES_POSIBLE,
         recurrencia: { patron: PatronRecurrenciaTransporte.SEMANAL, diasSemana: [2], hora: '09:00', hasta: '2026-12-01' },
         mascotas: [{ especie: 'perro', tamano: TamanoPerro.MINI }], necesidades: [],

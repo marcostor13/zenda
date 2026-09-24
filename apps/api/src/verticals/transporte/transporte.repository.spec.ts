@@ -31,7 +31,7 @@ describe('TransporteRepository', () => {
     await repo.reservables();
 
     expect(servicioModel.find).toHaveBeenCalledWith({ estado: 'publicado', comercioActivo: true, vertical: VerticalKey.TRANSPORTE });
-    expect(consulta.select).toHaveBeenCalledWith(expect.stringContaining('tarifaKm'));
+    expect(consulta.select).toHaveBeenCalledWith('-descripcion -horario -excepcionesHorario -trayecto');
     expect(consulta.sort).toHaveBeenCalledWith({ prioridadRanking: -1 });
     expect(consulta.limit).toHaveBeenCalledWith(300);
     expect(consulta.lean).toHaveBeenCalled();
@@ -44,7 +44,7 @@ describe('TransporteRepository', () => {
 
     await expect(repo.porId(id)).resolves.toBe(empresa);
     expect(servicioModel.findOne).toHaveBeenCalledWith({ _id: id, vertical: VerticalKey.TRANSPORTE });
-    expect(consulta.select).toHaveBeenCalledWith(expect.stringContaining('cancelacion'));
+    expect(consulta.select).toHaveBeenCalledWith('-descripcion -horario -excepcionesHorario -trayecto');
   });
 
   it('porId debería devolver null sin consultar si el id no es un ObjectId', async () => {

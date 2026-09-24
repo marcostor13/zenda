@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { firstValueFrom } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { ComercioApiService } from './comercio-api.service';
 
 describe('ComercioApiService', () => {
@@ -118,20 +119,19 @@ describe('ComercioApiService', () => {
       await promesa;
     });
 
-    it('debería listar, responder y rechazar presupuestos por servicio', async () => {
+    it('debería listar los presupuestos recibidos por el negocio y ofertar uno', async () => {
       const lista = firstValueFrom(service.misPresupuestos());
-      expect(resolver('/mis-presupuestos', []).method).toBe('GET');
-      await lista;
+      const reqLista = resolver('/presupuestos/comercio', []);
+      expect(reqLista.method).toBe('GET');
+      expect(reqLista.url).toBe(`${environment.apiUrl}/presupuestos/comercio`);
+      await expect(lista).resolves.toEqual([]);
 
-      const responder = firstValueFrom(service.responderPresupuesto('pr1', 's1', { importe: 90, validezDias: 3 }));
-      const reqResponder = resolver('/mis-presupuestos/pr1/servicios/s1/responder', []);
-      expect(reqResponder.method).toBe('POST');
-      expect(reqResponder.body).toEqual({ importe: 90, validezDias: 3 });
-      await responder;
-
-      const rechazar = firstValueFrom(service.rechazarPresupuesto('pr1', 's1', 'Sin hueco'));
-      expect(resolver('/mis-presupuestos/pr1/servicios/s1/rechazar', []).body).toEqual({ motivo: 'Sin hueco' });
-      await rechazar;
+      const dto = { importe: 90, condiciones: 'Peajes incluidos', validezHoras: 72 };
+      const ofertar = firstValueFrom(service.ofertarPresupuesto('pr1', dto));
+      const reqOferta = resolver('/presupuestos/pr1/oferta', { id: 'pr1' });
+      expect(reqOferta.method).toBe('POST');
+      expect(reqOferta.body).toEqual(dto);
+      await expect(ofertar).resolves.toEqual({ id: 'pr1' });
     });
 
     it('debería admitir un hito sin nota', async () => {

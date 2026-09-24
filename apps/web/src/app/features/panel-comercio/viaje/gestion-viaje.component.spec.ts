@@ -195,7 +195,7 @@ describe('GestionViajeComponent', () => {
   });
 
   describe('foto de la entrega', () => {
-    const conFoto = reserva({ detalle: { entrega: { confirmacionEntrega: ConfirmacionEntrega.NOTIFICACION_FOTO } } });
+    const conFoto = reserva({ detalle: { entrega: { confirmacionEntrega: ConfirmacionEntrega.NOTIFICACION_Y_FOTO } } });
     const eventoCon = (archivo?: File): Event => ({ target: { files: archivo ? [archivo] : [] } } as unknown as Event);
 
     it('debería pedir la foto si el cliente la quiso y la entrega no está marcada', async () => {
