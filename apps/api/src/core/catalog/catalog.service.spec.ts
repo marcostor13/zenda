@@ -5,6 +5,7 @@ import { CatalogRepository } from './catalog.repository';
 import { ReviewsService } from '../reviews/reviews.service';
 import { PerrosService } from '../perros/perros.service';
 import { GeoService } from '../geo/geo.service';
+import { CentrosPoblacionService } from '../geo/centros-poblacion.service';
 import { Comercio } from '../comercios/comercio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { ServicioClinicoTipo } from 'shared';
@@ -16,6 +17,7 @@ describe('CatalogService', () => {
   let perrosService: jest.Mocked<PerrosService>;
   let comercioModel: { find: jest.Mock; findById: jest.Mock };
   let geoService: { coordenadasDePoblacion: jest.Mock };
+  let centrosPoblacion: { distanciaAlCentro: jest.Mock };
 
   const hotelDoc = {
     _id: 'hotel-1',
@@ -90,6 +92,10 @@ describe('CatalogService', () => {
           useValue: { coordenadasDePoblacion: jest.fn().mockResolvedValue(null) },
         },
         {
+          provide: CentrosPoblacionService,
+          useValue: { distanciaAlCentro: jest.fn().mockResolvedValue(null) },
+        },
+        {
           // Solo se consulta para marcar los comercios adheridos a Alpha (HU-13.3).
           provide: getModelToken(Comercio.name),
           useValue: comercioModel,
@@ -102,6 +108,7 @@ describe('CatalogService', () => {
     reviewsService = module.get(ReviewsService);
     perrosService = module.get(PerrosService);
     geoService = module.get(GeoService);
+    centrosPoblacion = module.get(CentrosPoblacionService);
   });
 
   describe('ventajas Alpha en el listado (HU-13.3)', () => {
@@ -630,6 +637,45 @@ describe('CatalogService', () => {
 
   describe('crearServicio', () => {
     const base = { titulo: 'Test', descripcion: 'desc', ciudad: 'Madrid', precioBase: 20 };
+
+    /*
+     * Observación del cliente 28-09: «a X km del centro», como Booking, medido
+     * contra la población en la que el comercio da de alta el servicio.
+     */
+    it('debería guardar y devolver los km al centro de la población', async () => {
+      repo.crear.mockResolvedValue({
+        ...hotelDoc, _id: 'nuevo', ubicacion: { ciudad: 'Castellón de la Plana', geo: { coordinates: [-0.03, 40] } },
+      } as never);
+      centrosPoblacion.distanciaAlCentro.mockResolvedValue(2.3);
+
+      const tarjeta = await service.crearServicio({ ...base, vertical: 'peluqueria' as never, extra: {} }, 'comercio-1');
+
+      expect(centrosPoblacion.distanciaAlCentro).toHaveBeenCalledWith(
+        { lat: 40, lng: -0.03 }, 'Castellón de la Plana', undefined,
+      );
+      expect(repo.actualizarCampos).toHaveBeenCalledWith('nuevo', { distanciaCentroKm: 2.3 });
+      expect(tarjeta.distanciaCentroKm).toBe(2.3);
+    });
+
+    it('no debería calcular la distancia de un servicio sin coordenadas', async () => {
+      repo.crear.mockResolvedValue({ ...hotelDoc, ubicacion: { ciudad: 'Madrid' } } as never);
+
+      const tarjeta = await service.crearServicio({ ...base, vertical: 'peluqueria' as never, extra: {} }, 'comercio-1');
+
+      expect(centrosPoblacion.distanciaAlCentro).not.toHaveBeenCalled();
+      expect(tarjeta.distanciaCentroKm).toBeUndefined();
+    });
+
+    it('no debería romper el alta si falla el cálculo de la distancia', async () => {
+      repo.crear.mockResolvedValue({
+        ...hotelDoc, ubicacion: { ciudad: 'Madrid', geo: { coordinates: [-3.7, 40.4] } },
+      } as never);
+      centrosPoblacion.distanciaAlCentro.mockRejectedValue(new Error('sin red'));
+
+      await expect(
+        service.crearServicio({ ...base, vertical: 'peluqueria' as never, extra: {} }, 'comercio-1'),
+      ).resolves.toBeDefined();
+    });
 
     it('debería rechazar la creación si no hay comercioId (evita listados huérfanos)', async () => {
       await expect(

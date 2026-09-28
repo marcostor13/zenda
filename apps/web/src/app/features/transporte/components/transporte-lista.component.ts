@@ -23,6 +23,7 @@ import type { BarraHistograma } from '../../../shared/components/range-slider/rs
 import { calcularBadgesAutomaticos } from '../../../shared/badges/badges-automaticos';
 
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { SeoService } from '../../../core/seo/seo.service';
 import { seoCategoria } from '../../../core/seo/plantillas-seo';
 import { migasDePan } from '../../../core/seo/json-ld';
@@ -76,14 +77,14 @@ import { migasDePan } from '../../../core/seo/json-ld';
         <rs-card rsAnim
           [horizontal]="true"
           [imageUrl]="t.imagen" [imageAlt]="t.nombre"
-          [title]="t.nombre" [subtitle]="lugarConDistancia(t.ciudad, t.distanciaKm)"
+          [title]="t.nombre" [subtitle]="subtituloDe(t.ciudad, t.distanciaKm, t.distanciaCentroKm)"
           [badges]="badgesDe(t)"
           [rating]="{ score: t.score, label: t.scoreLabel, count: t.numResenas }"
           [amenities]="serviciosDe(t)"
           [destacados]="incluyeDe(t)"
           [favoritoServicioId]="t.id"
           [routerLink]="['/transporte', t.id]"
-          [ctaLabel]="'Ver ficha y calcular precio' | t"
+          [ctaLabel]="'Reservar' | t"
           [accionSoloEscritorio]="true">
         </rs-card>
       }
@@ -116,6 +117,7 @@ import { migasDePan } from '../../../core/seo/json-ld';
   `],
 })
 export class TransporteListaComponent implements OnInit {
+  private readonly i18n = inject(I18nService);
   private readonly transporteService = inject(TransporteService);
   private readonly browse = inject(CatalogBrowseService);
   private readonly route = inject(ActivatedRoute);
@@ -133,7 +135,10 @@ export class TransporteListaComponent implements OnInit {
     const cercanos = this.cercanos();
     return cercanos ? ['/transporte', cercanos.masCercano.id] : null;
   });
-  readonly lugarConDistancia = lugarConDistancia;
+  /** Población y distancia de la tarjeta, traducida («a 2,3 km del centro»). */
+  subtituloDe(ciudad: string, distanciaKm?: number, distanciaCentroKm?: number): string {
+    return lugarConDistancia(ciudad, distanciaKm, distanciaCentroKm, (texto, params) => this.i18n.t(texto, params));
+  }
   readonly transportes = signal<TransporteCard[]>([]);
   readonly total = signal(0);
   readonly pagina = signal(1);

@@ -438,7 +438,6 @@ const transporte: Diccionario = {
   'Vehículo climatizado': 'Air-conditioned vehicle',
   'Ver detalles': 'View details',
   'Ver en el mapa': 'View on map',
-  'Ver ficha y calcular precio': 'View profile and calculate price',
   'Ver mi reserva': 'View my booking',
   'Ver mis presupuestos': 'View my quotes',
   'Ver política': 'View policy',

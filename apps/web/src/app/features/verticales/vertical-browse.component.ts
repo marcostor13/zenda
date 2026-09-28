@@ -24,6 +24,7 @@ import type { BarraHistograma } from '../../shared/components/range-slider/rs-ra
 import { calcularBadgesAutomaticos } from '../../shared/badges/badges-automaticos';
 
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { MonedaService } from '../../core/moneda/moneda.service';
 import { SeoService } from '../../core/seo/seo.service';
 import { seoCategoria } from '../../core/seo/plantillas-seo';
@@ -262,7 +263,8 @@ const CONFIGS: Record<string, VerticalConfig> = {
   <rs-listado
     [titulo]="titular()" [subtitulo]="subtitular()"
     [reclamoTitulo]="ui().reclamo.titulo" [reclamoTexto]="ui().reclamo.texto"
-    [reclamoIcono]="ui().icono"
+    [reclamoIcono]="ui().reclamo.icono ?? ui().icono"
+    [reclamoFirma]="ui().reclamo.firma ?? ''" [reclamoLema]="ui().reclamo.lema ?? ''"
     [vertical]="cfg().vertical"
     [total]="total()" [mostrados]="items().length"
     [cargando]="cargando()" [cargandoMas]="cargandoMas()"
@@ -317,7 +319,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
         <rs-card rsAnim
           [horizontal]="true"
           [imageUrl]="c.imagenes[0]" [imageAlt]="c.nombre"
-          [title]="cfg().titulo3(c)" [subtitle]="lugarConDistancia(c.ciudad, c.distanciaKm)"
+          [title]="cfg().titulo3(c)" [subtitle]="subtituloDe(c.ciudad, c.distanciaKm, c.distanciaCentroKm)"
           [badges]="badgesDe(c)"
           [rating]="{ score: c.score, label: c.scoreLabel, count: c.numResenas }"
           [price]="{ amount: moneda.formatear(cfg().price(c)), period: cfg().priceLabel }"
@@ -326,7 +328,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
           [destacados]="incluyeDe(c)"
           [favoritoServicioId]="c.id"
           [routerLink]="enlaceAServicio(cfg().vertical, c.id)"
-          [ctaLabel]="'Ver ficha' | t"
+          [ctaLabel]="'Reservar' | t"
           [accionSoloEscritorio]="!!enlaceAServicio(cfg().vertical, c.id)"
           [mensaje]="solicitadoId() === c.id ? cfg().confirmMsg : ''"
           (ctaClick)="solicitar(c)">
@@ -368,6 +370,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
   `],
 })
 export class VerticalBrowseComponent implements OnInit {
+  private readonly i18n = inject(I18nService);
   /**
    * Divisa de visualización. Se lee para formatear los precios que van dentro
    * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
@@ -396,7 +399,10 @@ export class VerticalBrowseComponent implements OnInit {
     const cercanos = this.cercanos();
     return cercanos ? enlaceAServicio(this.cfg().vertical, cercanos.masCercano.id) : null;
   });
-  readonly lugarConDistancia = lugarConDistancia;
+  /** Población y distancia de la tarjeta, traducida («a 2,3 km del centro»). */
+  subtituloDe(ciudad: string, distanciaKm?: number, distanciaCentroKm?: number): string {
+    return lugarConDistancia(ciudad, distanciaKm, distanciaCentroKm, (texto, params) => this.i18n.t(texto, params));
+  }
 
   // ── Selector de problema en adiestramiento (PDF 27/07 §13) ────────
   readonly problemas = PROBLEMAS_ADIESTRAMIENTO;

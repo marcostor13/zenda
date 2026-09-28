@@ -94,6 +94,51 @@ describe('ExploraListaComponent', () => {
     });
   });
 
+  /*
+   * Observación del cliente 28-09: una búsqueda siempre debe dar resultado. Lo
+   * que no entiende el buscador de la portada llega aquí como texto libre.
+   */
+  describe('búsqueda por texto', () => {
+    it('debería buscar el texto que llega del buscador de la portada', async () => {
+      await crear({ q: 'Kiwoko', ciudad: 'Valencia' });
+
+      expect(componente.texto.value).toBe('Kiwoko');
+      expect(lugares['buscar'].mock.calls[0][0]).toMatchObject({ q: 'Kiwoko', ciudad: 'Valencia' });
+      expect(componente.avisoAmpliado()).toBe('');
+    });
+
+    it('debería ampliar la búsqueda hasta encontrar algo y avisar', async () => {
+      await crear({ q: 'algo raro', tipo: TipoLugar.PLAYA, ciudad: 'Madrid' }, []);
+      // La carga inicial recorre la cascada entera; se deja terminar antes de probar.
+      await new Promise((resolver) => setTimeout(resolver));
+      lugares['buscar'].mockClear();
+      lugares['buscar']
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([lugar({ ubicacion: { ciudad: 'Dénia' } })]);
+
+      componente.alBuscar(new Event('submit'));
+      await new Promise((resolver) => setTimeout(resolver));
+
+      const llamadas = lugares['buscar'].mock.calls.slice(-3).map(([f]) => f);
+      expect(llamadas[0]).toMatchObject({ q: 'algo raro', ciudad: 'Madrid' });
+      expect(llamadas[1]).toMatchObject({ q: undefined, ciudad: 'Madrid', tipo: TipoLugar.PLAYA });
+      // Mismo tipo de sitio en cualquier población: «playa en Madrid» → otras playas.
+      expect(llamadas[2]).toMatchObject({ q: undefined, ciudad: undefined, tipo: TipoLugar.PLAYA });
+      expect(componente.lugares()).toHaveLength(1);
+      expect(componente.avisoAmpliado()).toContain('algo raro');
+    });
+
+    it('debería dejar la lista vacía sólo si ni sin filtros hay nada', async () => {
+      await crear({ q: 'nada' }, []);
+      await new Promise((resolver) => setTimeout(resolver));
+
+      expect(componente.lugares()).toEqual([]);
+      expect(ultimaBusqueda()).toEqual({});
+      expect(componente.avisoAmpliado()).toBe('');
+    });
+  });
+
   describe('filtro por tipo', () => {
     it('debería reflejar el filtro en la url y recargar', async () => {
       await crear();

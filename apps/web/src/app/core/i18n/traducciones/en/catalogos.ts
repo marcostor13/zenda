@@ -304,6 +304,15 @@ const catalogos: Diccionario = {
   'Zona de juegos': 'Play area',
   'Zona para cachorros': 'Puppy area',
   'Zona para perros mayores': 'Senior dog area',
+  'Tienda de animales': 'Pet shop',
+  'Admite perros en el interior': 'Dogs allowed indoors',
+  'Admite perros en la terraza': 'Dogs allowed on the terrace',
+  'Admite perros en interior y terraza': 'Dogs allowed indoors and on the terrace',
+  'Zona admitida por confirmar: pregunta al local antes de ir': 'Allowed area to be confirmed: ask the venue before you go',
+  'Dónde admite perros': 'Where dogs are allowed',
+  'Condiciones': 'Conditions',
+  'Cadena': 'Chain',
+  'Perros educados': 'Well-behaved dogs',
 };
 
 export default catalogos;

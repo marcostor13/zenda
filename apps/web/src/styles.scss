@@ -19,6 +19,10 @@
   --dk-gold-light: #FFC533;  /* Gold gradiente */
   --dk-gold-text:  #A6720C;  /* Gold oscurecido — accesible como texto sobre fondos claros/fotos (--dk-gold falla contraste) */
   --dk-divider:    #8B9BBC;
+  --dk-lila:       #8C7BB8;  /* Firma manuscrita de los reclamos cálidos (despedida) */
+  --dk-lila-soft:  #ECE8F5;  /* Círculo de la ilustración en los reclamos cálidos */
+  --c-crema:       #FBF7F0;  /* Fondo de los reclamos cálidos */
+  --c-crema-borde: #EFE6D6;
 
   /* Fondos — tema claro Doogking */
   --c-base:    #F8F9FA;
@@ -72,6 +76,7 @@
   --font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   --font-accent: 'Montserrat', 'Inter', system-ui, sans-serif;
+  --font-script: 'Caveat', 'Segoe Script', cursive;  /* Firmas manuscritas */
   --f-xs:   .6875rem;  /* 11 */
   --f-sm:   .8125rem;  /* 13 */
   --f-base: .9375rem;  /* 15 */
@@ -295,6 +300,20 @@ body.rs-sin-scroll { overflow: hidden; }
      inicio del iPhone. Es un token para que las pantallas con barra propia
      puedan apilarse encima sin repetir el cálculo. */
   --dk-nav-inferior-h: calc(58px + env(safe-area-inset-bottom, 0px));
+}
+
+/*
+ * Alto de la barra fija de reservar que haya en pantalla (fichas, cotizador de
+ * transporte, barra de acción). Lo lee el asistente flotante para quedarse
+ * siempre encima y no tapar nunca el precio ni el botón de reservar. Se deduce
+ * con `:has()` en vez de que cada barra lo publique: así ninguna pantalla nueva
+ * tiene que acordarse de avisar.
+ */
+@media (max-width: 1024px) {
+  :root:has(.mobile-cta, .cf-movil) { --dk-barra-reserva-h: 76px; }
+}
+@media (max-width: 768px) {
+  :root:has(rs-barra-cta) { --dk-barra-reserva-h: 84px; }
 }
 
 img, video, svg { display: block; max-width: 100%; }
@@ -1367,6 +1386,42 @@ select.rs-inp {
     margin-bottom: var(--sp-2);
   }
 
+  /* Nombre y nota en la misma fila, como en Booking. */
+  .rs-hotel-card__cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    .rs-hotel-card__name { flex: 1; min-width: 0; }
+  }
+
+  .rs-hotel-card__puntuacion {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  .rs-hotel-card__puntuacion-txt {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.2;
+    strong { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100); }
+    small { font-size: var(--f-xs); color: var(--t-400); white-space: nowrap; }
+  }
+  .rs-hotel-card__puntuacion-nota {
+    display: grid;
+    place-items: center;
+    min-width: 36px;
+    height: 36px;
+    padding-inline: var(--sp-1);
+    border-radius: var(--r-sm) var(--r-sm) var(--r-sm) 0;
+    background: var(--dk-blue);
+    color: var(--c-card);
+    font-size: var(--f-sm);
+    font-weight: var(--w-8);
+  }
+
   /* Las etiquetas fluyen libres: aquí el alto lo iguala la rejilla y el hueco
      reservado de la tarjeta en columna solo dejaría un vacío raro. */
   .rs-hotel-card__amenities { min-height: 0; margin-bottom: var(--sp-2); }
@@ -1465,6 +1520,10 @@ select.rs-inp {
        asi que repetirla en cada tarjeta costaba una linea entera. Los bocetos
        tampoco la traen. En escritorio se queda. */
     .rs-hotel-card__meta-loc { display: none; }
+    /* En móvil sólo el cuadrado de la nota: la etiqueta y las reseñas no caben
+       junto al nombre en una foto de 102 px. */
+    .rs-hotel-card__puntuacion-txt { display: none; }
+    .rs-hotel-card__puntuacion-nota { min-width: 30px; height: 30px; font-size: var(--f-xs); }
     .rs-hotel-card__amenities { margin-bottom: 0; gap: var(--sp-1); flex-wrap: nowrap; overflow: hidden; }
     .rs-hotel-card__amenities .rs-amenity {
       font-size: var(--f-xs);

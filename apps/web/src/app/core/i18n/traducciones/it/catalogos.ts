@@ -304,6 +304,15 @@ const catalogos: Diccionario = {
   'Zona de juegos': 'Area giochi',
   'Zona para cachorros': 'Area cuccioli',
   'Zona para perros mayores': 'Area cani anziani',
+  'Tienda de animales': 'Negozio di animali',
+  'Admite perros en el interior': 'Cani ammessi all\'interno',
+  'Admite perros en la terraza': 'Cani ammessi in terrazza',
+  'Admite perros en interior y terraza': 'Cani ammessi all\'interno e in terrazza',
+  'Zona admitida por confirmar: pregunta al local antes de ir': 'Zona consentita da confermare: chiedi al locale prima di andare',
+  'Dónde admite perros': 'Dove sono ammessi i cani',
+  'Condiciones': 'Condizioni',
+  'Cadena': 'Catena',
+  'Perros educados': 'Cani educati',
 };
 
 export default catalogos;

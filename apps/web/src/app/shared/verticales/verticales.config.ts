@@ -41,8 +41,19 @@ export interface VerticalUi {
    *
    * Va aparte de `titular`/`subtitular`, que encabezan la vista: este habla al
    * que ya está buscando y le dice por qué merece la pena reservar aquí.
+   *
+   * `firma` (manuscrita) y `lema` (en versales, con raya dorada) cierran el
+   * reclamo por la derecha. Son opcionales: sólo las categorías que piden un
+   * tono más cálido —la despedida de una mascota— los llevan, y con ellos
+   * `icono`, una ilustración propia del reclamo en vez de la de la categoría.
    */
-  readonly reclamo: { readonly titulo: string; readonly texto: string };
+  readonly reclamo: {
+    readonly titulo: string;
+    readonly texto: string;
+    readonly icono?: string;
+    readonly firma?: string;
+    readonly lema?: string;
+  };
   /** true = se reserva por noches (entrada/salida); false = cita puntual. */
   readonly reservaPorNoches: boolean;
   /**
@@ -258,8 +269,11 @@ export const VERTICALES_UI: readonly VerticalUi[] = [
     labelMascota: '¿Para qué mascota necesitas el servicio?',
     mascotaSinContador: true,
     reclamo: {
-      titulo: 'Acompañamiento en el peor momento',
-      texto: 'Empresas verificadas que recogen, informan y entregan con respeto, y te dicen el precio cerrado antes de contratar.',
+      titulo: 'Acompañamiento respetuoso cuando más lo necesitas',
+      texto: 'Encuentra centros verificados, recogida en domicilio o clínica y precios claros antes de contratar.',
+      firma: 'Siempre a su lado',
+      lema: 'Cuidar también es despedir bien',
+      icono: '/icons/funerarios-reclamo.svg',
     },
   },
 ];

@@ -139,6 +139,15 @@ export class Servicio {
    */
   @Prop({ default: false })
   comercioActivo!: boolean;
+
+  /**
+   * Km en línea recta al centro de la población del servicio («a 2,3 km del
+   * centro», como Booking). Guardado y no calculado al buscar: así la búsqueda
+   * no geocodifica nada. Lo escribe `CatalogService` al guardar la ubicación y
+   * `recalcular:distancia-centro` para los servicios anteriores.
+   */
+  @Prop({ type: Number })
+  distanciaCentroKm?: number;
 }
 
 export const ServicioSchema = SchemaFactory.createForClass(Servicio);

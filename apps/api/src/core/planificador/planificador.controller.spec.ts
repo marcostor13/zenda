@@ -4,12 +4,15 @@ import { PlanificadorService } from './planificador.service';
 
 describe('PlanificadorController', () => {
   let controller: PlanificadorController;
-  let service: jest.Mocked<Pick<PlanificadorService, 'generar'>>;
+  let service: jest.Mocked<Pick<PlanificadorService, 'generar' | 'destinos'>>;
 
   const dto = { provincia: 'Valencia', desde: '2026-09-01' } as never;
 
   beforeEach(async () => {
-    service = { generar: jest.fn().mockResolvedValue({ opciones: [] }) };
+    service = {
+      generar: jest.fn().mockResolvedValue({ opciones: [] }),
+      destinos: jest.fn().mockResolvedValue([{ provincia: 'Alicante', lugares: 40, servicios: 3 }]),
+    };
 
     const moduleRef = await Test.createTestingModule({
       controllers: [PlanificadorController],
@@ -31,5 +34,9 @@ describe('PlanificadorController', () => {
     await controller.generar(dto, {} as never);
 
     expect(service.generar).toHaveBeenCalledWith(dto, undefined);
+  });
+
+  it('debería devolver las provincias con contenido para planificar', async () => {
+    await expect(controller.destinos()).resolves.toEqual([{ provincia: 'Alicante', lugares: 40, servicios: 3 }]);
   });
 });

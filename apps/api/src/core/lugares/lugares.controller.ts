@@ -26,6 +26,7 @@ export class LugaresController {
 
   @Get()
   @ApiOperation({ summary: 'Buscar lugares pet-friendly publicados' })
+  @ApiQuery({ name: 'q', required: false, description: 'Texto libre: nombre, población, tipo…' })
   @ApiQuery({ name: 'tipo', required: false, enum: Object.values(TipoLugar) })
   @ApiQuery({ name: 'ciudad', required: false })
   @ApiQuery({ name: 'provincia', required: false })
@@ -34,6 +35,7 @@ export class LugaresController {
   @ApiQuery({ name: 'radioKm', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   buscar(
+    @Query('q') q?: string,
     @Query('tipo') tipo?: TipoLugar,
     @Query('ciudad') ciudad?: string,
     @Query('provincia') provincia?: string,
@@ -43,7 +45,7 @@ export class LugaresController {
     @Query('limit') limit?: string,
   ): Promise<LugarDocument[]> {
     return this.lugaresService.buscar({
-      tipo, ciudad, provincia,
+      q: q?.slice(0, 120), tipo, ciudad, provincia,
       lat: this.aNumero(lat),
       lng: this.aNumero(lng),
       radioKm: this.aNumero(radioKm),

@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { TIPO_LUGAR_LABELS, TipoLugar, VerticalKey } from 'shared';
+import {
+  TIPO_LUGAR_LABELS, TipoLugar, VerticalKey, ZONA_ADMITIDA_LABELS, ZonaAdmitidaLugar,
+} from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsStarsComponent } from '../../shared/components/stars/rs-stars.component';
@@ -23,7 +25,7 @@ import { FechaPipe } from '../../shared/pipes/fecha.pipe';
  * envía; esta lista es la red por debajo, para las fichas antiguas que siguen
  * teniéndolos guardados y para cualquier dato de trazabilidad que se añada.
  */
-const ATRIBUTOS_INTERNOS = new Set(['fuente', 'origen', 'origenDatos', 'importadoDe']);
+const ATRIBUTOS_INTERNOS = new Set(['fuente', 'fechaFuente', 'origen', 'origenDatos', 'importadoDe']);
 
 /** Cómo se lee cada atributo en la ficha; el resto se muestran tal cual. */
 const ATRIBUTO_LABELS: Record<string, string> = {
@@ -42,7 +44,19 @@ const ATRIBUTO_LABELS: Record<string, string> = {
   interior: 'Admite perros en interior',
   bebederos: 'Bebederos',
   menuCanino: 'Menú canino',
+  zonaAdmitida: 'Dónde admite perros',
+  condiciones: 'Condiciones',
+  cadena: 'Cadena',
 };
+
+/** Texto de un atributo: las zonas de un restaurante se leen, no se enseña el código. */
+function valorDeAtributo(clave: string, valor: unknown): string {
+  if (valor === true) return 'Sí';
+  if (clave === 'zonaAdmitida' && typeof valor === 'string' && valor in ZONA_ADMITIDA_LABELS) {
+    return ZONA_ADMITIDA_LABELS[valor as ZonaAdmitidaLugar];
+  }
+  return String(valor);
+}
 
 /**
  * Ficha de un lugar de la comunidad. Cierra el círculo con el marketplace:
@@ -71,7 +85,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
       <div class="rs-alert rs-alert--error">{{ 'No hemos encontrado este sitio.' | t }}</div>
     } @else {
       <header class="ed-head">
-        <p class="ed-tipo">{{ etiquetaTipo() }}</p>
+        <p class="ed-tipo">{{ etiquetaTipo() | t }}</p>
         <h1>{{ lugar()!.nombre }}</h1>
         <p class="ed-loc">
           <rs-icon name="map-pin" [size]="15" [stroke]="2"></rs-icon>
@@ -122,7 +136,7 @@ const ATRIBUTO_LABELS: Record<string, string> = {
             @for (a of atributos(); track a.clave) {
               <div>
                 <dt>{{ a.etiqueta | t }}</dt>
-                <dd>{{ a.valor }}</dd>
+                <dd>{{ a.valor | t }}</dd>
               </div>
             }
           </dl>
@@ -300,7 +314,7 @@ export class ExploraDetalleComponent implements OnInit {
       .map(([clave, valor]) => ({
         clave,
         etiqueta: ATRIBUTO_LABELS[clave] ?? clave,
-        valor: valor === true ? 'Sí' : String(valor),
+        valor: valorDeAtributo(clave, valor),
       })),
   );
 

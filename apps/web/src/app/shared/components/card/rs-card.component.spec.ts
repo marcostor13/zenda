@@ -113,5 +113,25 @@ describe('RsCardComponent', () => {
       expect(pie?.querySelector('.rs-price')).not.toBeNull();
       expect(pie?.querySelector('.rs-hotel-card__cta')).not.toBeNull();
     });
+
+    /* Observación del cliente 28-09: la nota como en Booking («Fabuloso 4,6»). */
+    it('deberia pintar la nota con su etiqueta y sus reseñas junto al nombre', () => {
+      fixture.componentRef.setInput('rating', { score: 4.6, label: 'Fabuloso', count: 953 });
+      apaisada();
+
+      const bloque: HTMLElement | null = fixture.nativeElement.querySelector('.rs-hotel-card__cabecera .rs-hotel-card__puntuacion');
+      expect(bloque?.querySelector('.rs-hotel-card__puntuacion-nota')?.textContent?.trim()).toBe('4,6');
+      expect(bloque?.textContent).toContain('Fabuloso');
+      expect(bloque?.textContent).toContain('953 reseñas');
+    });
+
+    it('no deberia pintar la nota de un servicio sin reseñas', () => {
+      fixture.componentRef.setInput('rating', { score: 0, label: 'Correcto', count: 0 });
+      apaisada();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('.rs-hotel-card__puntuacion')).toBeNull();
+      expect(el.textContent).toContain('Aún sin valoraciones');
+    });
   });
 });

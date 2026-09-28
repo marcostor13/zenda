@@ -1,4 +1,4 @@
-import { escaparRegex, regexLiteral } from './regex';
+import { escaparRegex, regexLiteral, regexSinTildes } from './regex';
 
 describe('escaparRegex', () => {
   it('debería dejar intacto un texto sin metacaracteres', () => {
@@ -39,5 +39,18 @@ describe('regexLiteral', () => {
 
     expect(regexLiteral('(a+)+$').test(entrada)).toBe(false);
     expect(Date.now() - inicio).toBeLessThan(1000);
+  });
+});
+
+describe('regexSinTildes', () => {
+  it('debería casar el texto con y sin tildes', () => {
+    expect(regexSinTildes('cafeteria').test('Cafetería Central')).toBe(true);
+    expect(regexSinTildes('Xàbia').test('Xabia')).toBe(true);
+    expect(regexSinTildes('dénia').test('DENIA')).toBe(true);
+  });
+
+  it('debería tratar los metacaracteres como texto', () => {
+    expect(regexSinTildes('a+b').test('aab')).toBe(false);
+    expect(regexSinTildes('a+b').test('a+b')).toBe(true);
   });
 });

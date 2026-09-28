@@ -77,6 +77,9 @@ function decimalesMaximos(digitos: string): number {
  * —o siendo euros— el importe se pinta tal cual, que es el caso de la inmensa
  * mayoría de usuarios y de todas las pantallas de contabilidad.
  */
+/** Marca de importe convertido: orientativo, el cobro es en euros. */
+const APROXIMADO = `≈${ESPACIO_DURO}`;
+
 export function formatearImporte(
   valor: number | string | null | undefined,
   digitos = '1.0-2',
@@ -95,8 +98,12 @@ export function formatearImporte(
    * `narrowSymbol` para que el dólar salga como «$» y no como «US$», que es lo
    * que devuelve `es-ES` por defecto y ensucia una tarjeta de precio. Los
    * espacios que mete `Intl` se endurecen por el mismo motivo que en euros.
+   *
+   * Y delante «≈»: se cobra en euros, así que el importe en otra divisa es una
+   * referencia al cambio del día, no el precio. Sin la marca, una tarjeta con
+   * «56,84 $» parecía un error de moneda (observación del cliente 28-09).
    */
-  return new Intl.NumberFormat('es-ES', {
+  return APROXIMADO + new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency: conversion.moneda,
     currencyDisplay: 'narrowSymbol',

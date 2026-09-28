@@ -1,8 +1,11 @@
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { IsArray, IsDateString, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
-import { PlanificadorService, RespuestaItinerario } from './planificador.service';
+import {
+  ArrayMaxSize, IsArray, IsDateString, IsEnum, IsIn, IsNumber, IsOptional, IsString, Min, MinLength,
+} from 'class-validator';
+import { AlojamientoViaje, DesplazamientoViaje, RitmoViaje, VerticalKey } from 'shared';
+import { DestinoPlanificador, PlanificadorService, RespuestaItinerario } from './planificador.service';
 
 interface RequestConUsuario extends Request {
   user?: { sub: string };
@@ -32,8 +35,31 @@ class GenerarItinerarioDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(10)
   @IsString({ each: true })
   intereses?: string[];
+
+  @IsOptional()
+  @IsString()
+  municipio?: string;
+
+  @IsOptional()
+  @IsEnum(RitmoViaje)
+  ritmo?: RitmoViaje;
+
+  @IsOptional()
+  @IsEnum(AlojamientoViaje)
+  alojamiento?: AlojamientoViaje;
+
+  @IsOptional()
+  @IsEnum(DesplazamientoViaje)
+  desplazamiento?: DesplazamientoViaje;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsIn(Object.values(VerticalKey), { each: true })
+  serviciosExtra?: string[];
 }
 
 /**
@@ -46,6 +72,12 @@ class GenerarItinerarioDto {
 @Controller('planificador')
 export class PlanificadorController {
   constructor(private readonly planificadorService: PlanificadorService) {}
+
+  @Get('destinos')
+  @ApiOperation({ summary: 'Provincias con lugares o servicios publicados para planificar un viaje' })
+  destinos(): Promise<DestinoPlanificador[]> {
+    return this.planificadorService.destinos();
+  }
 
   @Post('itinerario')
   @ApiOperation({ summary: 'Generar un itinerario de viaje con mascota para una provincia' })

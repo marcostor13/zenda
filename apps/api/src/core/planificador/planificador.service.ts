@@ -1,77 +1,89 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { FilterQuery, Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
-import { EstadoModeracion, VerticalKey, regexLiteral } from 'shared';
+import {
+  AlojamientoViaje, DesplazamientoViaje, EstadoModeracion, RitmoViaje, TipoLugar, claveUbicacion, regexLiteral,
+} from 'shared';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Lugar, LugarDocument } from '../lugares/lugar.schema';
 import { PerrosService } from '../perros/perros.service';
+import { CentrosPoblacionService } from '../geo/centros-poblacion.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import {
+  LugarContexto, OpcionItinerario, ParadaItinerario, PreferenciasViaje, ServicioContexto, armarDias,
+  diasDelViaje, garantizarServicio, paradaDeLugar, paradaDeServicio, presupuestoDe, serviciosSugeridos,
+  verticalesBuscadas,
+} from './armar-itinerario';
+
+export type { DiaItinerario, OpcionItinerario, ParadaItinerario } from './armar-itinerario';
 
 export interface PeticionItinerario {
   provincia: string;
+  /** Población concreta dentro de la provincia, si la hay. */
+  municipio?: string;
   desde?: string;
   hasta?: string;
   perroId?: string;
   presupuestoMax?: number;
+  /** Tipos de sitio que interesan (`TipoLugar`): playa, ruta, restaurante… */
   intereses?: string[];
-}
-
-/** Una parada del itinerario; si es reservable, trae su `servicioId`. */
-export interface ParadaItinerario {
-  titulo: string;
-  descripcion: string;
-  tipo: 'lugar' | 'servicio';
-  /** Presente solo en paradas reservables: alimenta "Añadir al viaje". */
-  servicioId?: string;
-  lugarId?: string;
-  vertical?: string;
-  precioEstimado?: number;
-}
-
-export interface DiaItinerario {
-  dia: number;
-  titulo: string;
-  paradas: ParadaItinerario[];
-}
-
-export interface OpcionItinerario {
-  nombre: string;
-  resumen: string;
-  presupuestoEstimado: number;
-  dias: DiaItinerario[];
+  ritmo?: RitmoViaje;
+  alojamiento?: AlojamientoViaje;
+  desplazamiento?: DesplazamientoViaje;
+  /** Verticales que se querrán reservar durante el viaje (peluquería, veterinaria…). */
+  serviciosExtra?: string[];
 }
 
 export interface RespuestaItinerario {
   provincia: string;
   opciones: OpcionItinerario[];
+  /**
+   * Lo reservable del plan, sin repetir: cierra la pantalla con «Reserva tu
+   * viaje». Nunca vacío si la zona tiene servicios.
+   */
+  serviciosSugeridos: ParadaItinerario[];
   /** true cuando el itinerario se armó sin IA, solo con datos propios. */
   esFallback: boolean;
   aviso?: string;
 }
 
+/** Provincia con contenido para planificar: lo que ofrece la pantalla de inicio. */
+export interface DestinoPlanificador {
+  provincia: string;
+  lugares: number;
+  servicios: number;
+}
+
 const API_URL = 'https://api.deepseek.com/chat/completions';
 const TTL_CACHE_MS = 7 * 24 * 60 * 60 * 1000;
+const TTL_DESTINOS_MS = 60 * 60 * 1000;
 const MAX_POR_USUARIO_DIA = 10;
 const MAX_LUGARES_CONTEXTO = 25;
 const MAX_SERVICIOS_CONTEXTO = 25;
+/** Radio para buscar servicios cerca cuando la provincia no tiene ninguno. */
+const RADIO_SERVICIOS_CERCANOS_M = 80_000;
 
-/** Días que arma el itinerario sin modelo. Más de tres deja de ser una escapada. */
-const MAX_DIAS_SIN_IA = 3;
-
-/** Cómo se titula un día según el tipo de sitio que lo domina. */
-const TEMA_POR_TIPO: Readonly<Record<string, string>> = {
-  playa: 'Playas y costa',
-  parque: 'Parques caninos',
-  ruta: 'Rutas y naturaleza',
-  rio: 'Ríos y baños',
-  restaurante: 'Comer con tu perro',
-};
+const TIPOS_LUGAR = new Set<string>(Object.values(TipoLugar));
 
 interface EntradaCache {
   valor: RespuestaItinerario;
   expiraEn: number;
 }
+
+/** Todo lo que el modelo necesita para redactar el plan. */
+interface ContextoIA {
+  peticion: PeticionItinerario;
+  preferencias: PreferenciasViaje;
+  lugares: LugarDocument[];
+  servicios: ServicioDocument[];
+  perfilPerro: string;
+}
+
+/** Los documentos `lean` tienen la forma que el armado de itinerarios espera. */
+const comoLugares = (lugares: LugarDocument[]): LugarContexto[] => lugares as unknown as LugarContexto[];
+const comoServicios = (servicios: ServicioDocument[]): ServicioContexto[] =>
+  servicios as unknown as ServicioContexto[];
 
 /**
  * Planificador de viajes con mascota (DK-C06 / O2).
@@ -85,8 +97,11 @@ interface EntradaCache {
  *    servicios publicados de la provincia. El modelo redacta y ordena, no
  *    inventa sitios: así el itinerario no puede recomendar algo que no existe
  *    ni que no se pueda reservar aquí.
- * 3. **Personalización**: provincia, fechas, presupuesto e intereses, más el
- *    perfil del perro si se indica.
+ * 3. **Personalización**: provincia y municipio, fechas, presupuesto,
+ *    intereses, ritmo, alojamiento, desplazamiento y servicios que se
+ *    necesitarán, más el perfil del perro si se indica (observación 28-09).
+ * 5. **Siempre acaba en un servicio**: toda opción lleva al menos una parada
+ *    reservable, y la respuesta cierra con `serviciosSugeridos`.
  * 4. **Coste**: caché de 7 días por (provincia, mes, perfil) y tope diario por
  *    usuario. Sin clave configurada **degrada a un itinerario armado con los
  *    datos propios**, no a un error.
@@ -98,11 +113,13 @@ export class PlanificadorService {
 
   private readonly cache = new Map<string, EntradaCache>();
   private readonly usosPorUsuario = new Map<string, { dia: string; n: number }>();
+  private destinosCache?: { valor: DestinoPlanificador[]; expiraEn: number };
 
   constructor(
     @InjectModel(Servicio.name) private readonly servicioModel: Model<ServicioDocument>,
     @InjectModel(Lugar.name) private readonly lugarModel: Model<LugarDocument>,
     private readonly perrosService: PerrosService,
+    private readonly centrosPoblacion: CentrosPoblacionService,
     config: ConfigService,
   ) {
     this.apiKey = config.get<string>('DEEPSEEK_API_KEY');
@@ -119,9 +136,10 @@ export class PlanificadorService {
 
     this.comprobarCupo(usuarioId);
 
+    const preferencias = this.preferenciasDe(peticion);
     const [lugares, servicios] = await Promise.all([
-      this.lugaresDe(peticion.provincia),
-      this.serviciosDe(peticion.provincia, peticion.presupuestoMax),
+      this.lugaresDe(peticion),
+      this.serviciosDe(peticion, preferencias),
     ]);
 
     if (!lugares.length && !servicios.length) {
@@ -132,24 +150,95 @@ export class PlanificadorService {
     }
 
     const perfilPerro = await this.perfilPerro(peticion.perroId, usuarioId);
-    const respuesta = await this.generarConIA(peticion, lugares, servicios, perfilPerro)
-      ?? this.generarSinIA(peticion, lugares, servicios);
+    const respuesta = await this.generarConIA({ peticion, preferencias, lugares, servicios, perfilPerro })
+      ?? this.generarSinIA(peticion, preferencias, lugares, servicios);
 
     this.escribirCache(clave, respuesta);
     return respuesta;
   }
 
+  // ── Destinos ──
+
+  /**
+   * Provincias con algo publicado, para la pantalla de inicio del planificador.
+   *
+   * Antes eran seis fijas (Madrid, Barcelona, Cádiz…) y sólo Valencia tenía
+   * contenido, mientras Alicante y Castellón —con todo el censo de Explora— no
+   * salían. Se calcula con los datos y se guarda una hora: cambia poco.
+   */
+  async destinos(): Promise<DestinoPlanificador[]> {
+    if (this.destinosCache && this.destinosCache.expiraEn > Date.now()) return this.destinosCache.valor;
+
+    const [lugares, servicios] = await Promise.all([
+      this.contarPorProvincia(this.lugarModel as unknown as Model<unknown>, { estado: EstadoModeracion.PUBLICADO }),
+      this.contarPorProvincia(this.servicioModel as unknown as Model<unknown>, { estado: 'publicado', comercioActivo: true }),
+    ]);
+    const valor = this.unirDestinos(lugares, servicios);
+    this.destinosCache = { valor, expiraEn: Date.now() + TTL_DESTINOS_MS };
+    return valor;
+  }
+
+  private async contarPorProvincia(
+    modelo: Model<unknown>, filtro: Record<string, unknown>,
+  ): Promise<Map<string, [string, number]>> {
+    const grupos = await modelo.aggregate<{ _id: string; n: number }>([
+      { $match: { ...filtro, 'ubicacion.provincia': { $nin: [null, ''] } } },
+      { $group: { _id: '$ubicacion.provincia', n: { $sum: 1 } } },
+    ]).exec();
+    // Por clave y no por texto: «Castellón» y «castellon» son la misma provincia.
+    return new Map(grupos.map((g) => [claveUbicacion(g._id), [g._id, g.n] as [string, number]]));
+  }
+
+  private unirDestinos(
+    lugares: Map<string, [string, number]>, servicios: Map<string, [string, number]>,
+  ): DestinoPlanificador[] {
+    const claves = new Set([...lugares.keys(), ...servicios.keys()]);
+    return [...claves]
+      .map((clave) => ({
+        // Una de las dos existe siempre: la clave sale de alguna de ellas.
+        provincia: (lugares.get(clave) ?? servicios.get(clave))![0],
+        lugares: lugares.get(clave)?.[1] ?? 0,
+        servicios: servicios.get(clave)?.[1] ?? 0,
+      }))
+      .sort((a, b) => (b.lugares + b.servicios) - (a.lugares + a.servicios));
+  }
+
   // ── Contexto: solo datos propios ──
 
-  private lugaresDe(provincia: string): Promise<LugarDocument[]> {
+  /** Respuestas del formulario con sus valores por defecto. */
+  private preferenciasDe(peticion: PeticionItinerario): PreferenciasViaje {
+    return {
+      ritmo: peticion.ritmo ?? RitmoViaje.EQUILIBRADO,
+      alojamiento: peticion.alojamiento ?? AlojamientoViaje.NECESITO,
+      desplazamiento: peticion.desplazamiento ?? DesplazamientoViaje.COCHE_PROPIO,
+      serviciosExtra: peticion.serviciosExtra ?? [],
+      dias: diasDelViaje(peticion.desde, peticion.hasta),
+    };
+  }
+
+  /** Condición de zona: la provincia, su capital y el municipio elegido. */
+  private zonaDe(peticion: PeticionItinerario): Array<Record<string, RegExp>> {
+    return [
+      { 'ubicacion.provincia': regexLiteral(peticion.provincia) },
+      { 'ubicacion.ciudad': regexLiteral(peticion.provincia) },
+      ...(peticion.municipio ? [{ 'ubicacion.ciudad': regexLiteral(peticion.municipio) }] : []),
+    ];
+  }
+
+  /** Lugares de la zona; con intereses, sólo de esos tipos si los hay. */
+  private async lugaresDe(peticion: PeticionItinerario): Promise<LugarDocument[]> {
+    const tipos = (peticion.intereses ?? []).filter((tipo) => TIPOS_LUGAR.has(tipo));
+    const base: FilterQuery<LugarDocument> = { estado: EstadoModeracion.PUBLICADO, $or: this.zonaDe(peticion) };
+    if (tipos.length) {
+      const deInteres = await this.buscarLugares({ ...base, tipo: { $in: tipos } });
+      if (deInteres.length) return deInteres;
+    }
+    return this.buscarLugares(base);
+  }
+
+  private buscarLugares(filtro: FilterQuery<LugarDocument>): Promise<LugarDocument[]> {
     return this.lugarModel
-      .find({
-        estado: EstadoModeracion.PUBLICADO,
-        $or: [
-          { 'ubicacion.provincia': regexLiteral(provincia) },
-          { 'ubicacion.ciudad': regexLiteral(provincia) },
-        ],
-      })
+      .find(filtro)
       .sort({ ratingPromedio: -1 })
       .limit(MAX_LUGARES_CONTEXTO)
       .select('nombre tipo descripcion ubicacion ratingPromedio')
@@ -157,16 +246,51 @@ export class PlanificadorService {
       .exec() as unknown as Promise<LugarDocument[]>;
   }
 
-  private serviciosDe(provincia: string, presupuestoMax?: number): Promise<ServicioDocument[]> {
-    const filtro: Record<string, unknown> = {
-      estado: 'publicado',
-      'ubicacion.ciudad': regexLiteral(provincia),
-    };
-    if (presupuestoMax) filtro['precioBase'] = { $lte: presupuestoMax };
+  /**
+   * Servicios reservables para el viaje, de más a menos preciso: los de las
+   * categorías que el viaje necesita en la zona; cualquiera de la zona; y, si
+   * la provincia no tiene ninguno, los que hay alrededor. Antes se buscaban por
+   * `ciudad == provincia`, así que un servicio en un pueblo no salía nunca.
+   */
+  private async serviciosDe(
+    peticion: PeticionItinerario, preferencias: PreferenciasViaje,
+  ): Promise<ServicioDocument[]> {
+    const base: FilterQuery<ServicioDocument> = { estado: 'publicado', comercioActivo: true };
+    if (peticion.presupuestoMax) base['precioBase'] = { $lte: peticion.presupuestoMax };
 
-    return this.servicioModel
-      .find(filtro)
-      .sort({ destacado: -1, ratingPromedio: -1 })
+    const verticales = verticalesBuscadas(preferencias);
+    const enZona: FilterQuery<ServicioDocument> = { ...base, $or: this.zonaDe(peticion) };
+    if (verticales.length) {
+      const buscados = await this.buscarServicios({ ...enZona, vertical: { $in: verticales } });
+      if (buscados.length) return buscados;
+    }
+    const deLaZona = await this.buscarServicios(enZona);
+    return deLaZona.length ? deLaZona : this.serviciosCercanos(peticion, base);
+  }
+
+  private async serviciosCercanos(
+    peticion: PeticionItinerario, base: FilterQuery<ServicioDocument>,
+  ): Promise<ServicioDocument[]> {
+    const centro = await this.centrosPoblacion
+      .centroDe(peticion.municipio ?? peticion.provincia, peticion.provincia)
+      .catch(() => null);
+    if (!centro) return [];
+    return this.buscarServicios({
+      ...base,
+      'ubicacion.geo': {
+        $nearSphere: {
+          $geometry: { type: 'Point', coordinates: [centro.lng, centro.lat] },
+          $maxDistance: RADIO_SERVICIOS_CERCANOS_M,
+        },
+      },
+    }, false);
+  }
+
+  /** `$nearSphere` ya ordena por distancia: con él no se puede añadir otro orden. */
+  private buscarServicios(filtro: FilterQuery<ServicioDocument>, ordenar = true): Promise<ServicioDocument[]> {
+    const consulta = this.servicioModel.find(filtro);
+    if (ordenar) consulta.sort({ destacado: -1, ratingPromedio: -1 });
+    return consulta
       .limit(MAX_SERVICIOS_CONTEXTO)
       .select('titulo descripcion vertical precioBase ubicacion')
       .lean()
@@ -196,47 +320,21 @@ export class PlanificadorService {
 
   // ── Generación ──
 
-  private async generarConIA(
-    peticion: PeticionItinerario,
-    lugares: LugarDocument[],
-    servicios: ServicioDocument[],
-    perfilPerro: string,
-  ): Promise<RespuestaItinerario | null> {
+  private async generarConIA(contexto: ContextoIA): Promise<RespuestaItinerario | null> {
     if (!this.apiKey) return null;
+    const { peticion, preferencias, lugares, servicios } = contexto;
 
     try {
-      const respuesta = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            { role: 'system', content: this.promptSistema() },
-            { role: 'user', content: this.promptUsuario(peticion, lugares, servicios, perfilPerro) },
-          ],
-          temperature: 0.4,
-          max_tokens: 2000,
-          response_format: { type: 'json_object' },
-        }),
-      });
+      const opciones = await this.pedirOpciones(contexto);
+      if (!opciones?.length) return null;
 
-      if (!respuesta.ok) throw new Error(`DeepSeek: ${respuesta.status}`);
-
-      const datos = (await respuesta.json()) as { choices?: Array<{ message?: { content?: string } }> };
-      const contenido = datos.choices?.[0]?.message?.content;
-      if (!contenido) return null;
-
-      const parseado = JSON.parse(contenido) as { opciones?: OpcionItinerario[] };
-      if (!parseado.opciones?.length) return null;
-
+      // El modelo redacta, pero el catálogo manda: las paradas con un id que no
+      // existe se quedan sin botón, y toda opción acaba en algo reservable.
+      const depuradas = opciones.map((o) => this.depurarOpcion(o, { lugares, servicios, preferencias }));
       return {
         provincia: peticion.provincia,
-        // Se descartan las paradas cuyo id no exista: el modelo redacta, pero
-        // el catálogo manda. Nunca se ofrece algo que no se pueda reservar.
-        opciones: parseado.opciones.map((o) => this.depurarOpcion(o, lugares, servicios)),
+        opciones: depuradas,
+        serviciosSugeridos: serviciosSugeridos(depuradas, comoServicios(servicios)),
         esFallback: false,
       };
     } catch (error) {
@@ -245,104 +343,61 @@ export class PlanificadorService {
     }
   }
 
+  private async pedirOpciones(contexto: ContextoIA): Promise<OpcionItinerario[] | undefined> {
+    const respuesta = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: this.promptSistema() },
+          { role: 'user', content: this.promptUsuario(contexto) },
+        ],
+        temperature: 0.4,
+        max_tokens: 2000,
+        response_format: { type: 'json_object' },
+      }),
+    });
+    if (!respuesta.ok) throw new Error(`DeepSeek: ${respuesta.status}`);
+
+    const datos = (await respuesta.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const contenido = datos.choices?.[0]?.message?.content;
+    return contenido ? (JSON.parse(contenido) as { opciones?: OpcionItinerario[] }).opciones : undefined;
+  }
+
   /**
    * Itinerario armado solo con datos propios, sin modelo.
    *
    * Este es el camino normal, no una avería: la clave del modelo es opcional y
-   * en la mayoría de los despliegues no está puesta. Antes el aviso decía «el
-   * asistente con IA no está disponible ahora mismo», y el cliente lo leía como
-   * que el planificador estaba roto —aunque debajo tuviera un plan completo—.
-   * Ahora se cuenta lo que de verdad ha pasado: el plan está hecho con los
-   * sitios y servicios verificados de la zona.
+   * en la mayoría de los despliegues no está puesta. El aviso cuenta lo que de
+   * verdad ha pasado: el plan está hecho con los sitios y servicios verificados
+   * de la zona.
    */
   private generarSinIA(
     peticion: PeticionItinerario,
+    preferencias: PreferenciasViaje,
     lugares: LugarDocument[],
     servicios: ServicioDocument[],
   ): RespuestaItinerario {
-    const dias = this.diasDe(peticion, lugares, servicios);
-    const alojamiento = this.alojamientoDe(servicios);
+    const dias = armarDias(peticion.provincia, comoLugares(lugares), comoServicios(servicios), preferencias);
+    const opciones: OpcionItinerario[] = [{
+      nombre: `Escapada por ${peticion.municipio ?? peticion.provincia}`,
+      resumen: this.resumenSinIA(dias.length, lugares.length),
+      presupuestoEstimado: presupuestoDe(dias),
+      dias,
+    }];
 
     return {
       provincia: peticion.provincia,
-      opciones: [{
-        nombre: `Escapada por ${peticion.provincia}`,
-        resumen: this.resumenSinIA(dias, lugares.length),
-        presupuestoEstimado: this.presupuestoDe(dias, alojamiento),
-        dias,
-      }],
+      opciones,
+      serviciosSugeridos: serviciosSugeridos(opciones, comoServicios(servicios)),
       esFallback: true,
       aviso: `Plan hecho con los sitios y servicios verificados de ${peticion.provincia}.`,
     };
   }
 
-  /** Alojamiento canino y, si no lo hay, hotel pet-friendly: es la base del viaje. */
-  private alojamientoDe(servicios: ServicioDocument[]): ServicioDocument | undefined {
-    return servicios.find((s) => s.vertical === VerticalKey.ALOJAMIENTO)
-      ?? servicios.find((s) => s.vertical === VerticalKey.HOTELES);
-  }
-
-  /**
-   * Reparte los lugares en días y encabeza cada uno con lo que lo caracteriza.
-   *
-   * El título deja de ser «Día 1 en Valencia», que no dice nada, y nombra el
-   * tipo de sitio que domina la jornada: «Día 1 · Playas y costa». Es la
-   * diferencia entre una lista y algo que se parece a un plan.
-   */
-  private diasDe(
-    peticion: PeticionItinerario,
-    lugares: LugarDocument[],
-    servicios: ServicioDocument[],
-  ): DiaItinerario[] {
-    const porDia = 3;
-    const total = Math.min(MAX_DIAS_SIN_IA, Math.ceil(lugares.length / porDia)) || 1;
-    const dias: DiaItinerario[] = [];
-
-    for (let i = 0; i < total; i++) {
-      const delDia = lugares.slice(i * porDia, (i + 1) * porDia);
-      dias.push({
-        dia: i + 1,
-        titulo: `Día ${i + 1} · ${this.temaDe(delDia) ?? peticion.provincia}`,
-        paradas: delDia.map((l) => this.paradaDeLugar(l)),
-      });
-    }
-
-    const alojamiento = this.alojamientoDe(servicios);
-    if (alojamiento) dias[0].paradas.unshift(this.paradaDeServicio(alojamiento));
-
-    // Un servicio reservable por día, repartido: la peluquería del último día no
-    // sirve de nada si el viaje termina esa mañana.
-    const reservables = servicios.filter((s) => s !== alojamiento).slice(0, dias.length);
-    reservables.forEach((servicio, i) => dias[i].paradas.push(this.paradaDeServicio(servicio)));
-
-    return dias;
-  }
-
-  /** Tipo de lugar más repetido del día, en la forma en que se lee en pantalla. */
-  private temaDe(lugares: LugarDocument[]): string | null {
-    if (!lugares.length) return null;
-
-    const cuenta = new Map<string, number>();
-    for (const lugar of lugares) cuenta.set(lugar.tipo, (cuenta.get(lugar.tipo) ?? 0) + 1);
-
-    const dominante = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0][0];
-    return TEMA_POR_TIPO[dominante] ?? null;
-  }
-
-  /** Lo que costaría el viaje con lo que hay en él: alojamiento más servicios. */
-  private presupuestoDe(dias: DiaItinerario[], alojamiento?: ServicioDocument): number {
-    const servicios = dias
-      .flatMap((d) => d.paradas)
-      .filter((p) => p.tipo === 'servicio' && p.servicioId !== String(alojamiento?._id));
-    const extras = servicios.reduce((suma, p) => suma + (p.precioEstimado ?? 0), 0);
-
-    // El alojamiento se cuenta por noche, y las noches son los días menos uno.
-    const noches = Math.max(1, dias.length - 1);
-    return Math.round((alojamiento?.precioBase ?? 0) * noches + extras);
-  }
-
-  private resumenSinIA(dias: DiaItinerario[], totalLugares: number): string {
-    const jornadas = dias.length === 1 ? 'una jornada' : `${dias.length} días`;
+  private resumenSinIA(dias: number, totalLugares: number): string {
+    const jornadas = dias === 1 ? 'una jornada' : `${dias} días`;
     return `Ruta de ${jornadas} con ${totalLugares} ${totalLugares === 1 ? 'sitio' : 'sitios'} `
       + 'mejor valorados por la comunidad y los servicios que se pueden reservar en la zona.';
   }
@@ -350,49 +405,24 @@ export class PlanificadorService {
   /** Solo sobreviven las paradas que apuntan a algo real del catálogo. */
   private depurarOpcion(
     opcion: OpcionItinerario,
-    lugares: LugarDocument[],
-    servicios: ServicioDocument[],
+    contexto: { lugares: LugarDocument[]; servicios: ServicioDocument[]; preferencias: PreferenciasViaje },
   ): OpcionItinerario {
-    const lugaresPorId = new Map(lugares.map((l) => [String(l._id), l]));
-    const serviciosPorId = new Map(servicios.map((s) => [String(s._id), s]));
+    const lugaresPorId = new Map(comoLugares(contexto.lugares).map((l) => [String(l._id), l]));
+    const serviciosPorId = new Map(comoServicios(contexto.servicios).map((s) => [String(s._id), s]));
 
-    return {
-      ...opcion,
-      dias: (opcion.dias ?? []).map((dia) => ({
-        ...dia,
-        paradas: (dia.paradas ?? [])
-          .map((parada) => {
-            if (parada.servicioId && serviciosPorId.has(parada.servicioId)) {
-              return { ...parada, ...this.paradaDeServicio(serviciosPorId.get(parada.servicioId)!) };
-            }
-            if (parada.lugarId && lugaresPorId.has(parada.lugarId)) {
-              return { ...parada, ...this.paradaDeLugar(lugaresPorId.get(parada.lugarId)!) };
-            }
-            // Sin id reconocible se conserva como texto, sin botón de reservar.
-            return { ...parada, tipo: 'lugar' as const, servicioId: undefined, lugarId: undefined };
-          }),
-      })),
-    };
-  }
+    const dias = (opcion.dias ?? []).map((dia) => ({
+      ...dia,
+      paradas: (dia.paradas ?? []).map((parada): ParadaItinerario => {
+        const servicio = parada.servicioId ? serviciosPorId.get(parada.servicioId) : undefined;
+        if (servicio) return { ...parada, ...paradaDeServicio(servicio) };
+        const lugar = parada.lugarId ? lugaresPorId.get(parada.lugarId) : undefined;
+        if (lugar) return { ...parada, ...paradaDeLugar(lugar) };
+        // Sin id reconocible se conserva como texto, sin botón de reservar.
+        return { ...parada, tipo: 'lugar', servicioId: undefined, lugarId: undefined };
+      }),
+    }));
 
-  private paradaDeLugar(lugar: LugarDocument): ParadaItinerario {
-    return {
-      titulo: lugar.nombre,
-      descripcion: lugar.descripcion || `${lugar.tipo} en ${lugar.ubicacion.ciudad}`,
-      tipo: 'lugar',
-      lugarId: String(lugar._id),
-    };
-  }
-
-  private paradaDeServicio(servicio: ServicioDocument): ParadaItinerario {
-    return {
-      titulo: servicio.titulo,
-      descripcion: servicio.descripcion ?? '',
-      tipo: 'servicio',
-      servicioId: String(servicio._id),
-      vertical: servicio.vertical,
-      precioEstimado: servicio.precioBase,
-    };
+    return { ...opcion, dias: garantizarServicio(dias, comoServicios(contexto.servicios), contexto.preferencias) };
   }
 
   private promptSistema(): string {
@@ -424,30 +454,35 @@ Devuelve SIEMPRE un JSON válido con esta forma exacta:
 
 Reglas:
 - Devuelve entre 2 y 3 opciones con enfoques distintos (tranquila, activa, económica).
+- Cada opción DEBE incluir al menos un servicio reservable del contexto si hay alguno: el plan termina en una reserva.
+- Si se necesita alojamiento, ponlo el día 1; si se necesita transporte para la mascota, también el día 1.
+- Respeta el ritmo: tranquilo = 2 sitios al día, equilibrado = 3, intenso = 4.
+- Si se indican intereses, prioriza esos tipos de sitio.
 - Copia los identificadores tal cual aparecen en el contexto.
 - Escribe en español, en segunda persona y sin florituras.
 - Ten en cuenta el perfil del perro si se indica: un perro que se marea no hace rutas largas en coche.`;
   }
 
-  private promptUsuario(
-    peticion: PeticionItinerario,
-    lugares: LugarDocument[],
-    servicios: ServicioDocument[],
-    perfilPerro: string,
-  ): string {
+  private promptUsuario({ peticion, preferencias, lugares, servicios, perfilPerro }: ContextoIA): string {
     const listaLugares = lugares
       .map((l) => `- id:${String(l._id)} | ${l.nombre} (${l.tipo}, ${l.ubicacion.ciudad})`)
       .join('\n');
-
     const listaServicios = servicios
       .map((s) => `- id:${String(s._id)} | ${s.titulo} (${s.vertical}, ${s.precioBase} €)`)
       .join('\n');
 
     return [
       `Provincia: ${peticion.provincia}`,
+      peticion.municipio && `Municipio: ${peticion.municipio}`,
       peticion.desde && `Fechas: del ${peticion.desde} al ${peticion.hasta ?? peticion.desde}`,
+      preferencias.dias && `Días del viaje: ${preferencias.dias}`,
       peticion.presupuestoMax && `Presupuesto máximo: ${peticion.presupuestoMax} €`,
       peticion.intereses?.length && `Intereses: ${peticion.intereses.join(', ')}`,
+      `Ritmo: ${preferencias.ritmo}`,
+      `Alojamiento: ${preferencias.alojamiento === AlojamientoViaje.NECESITO ? 'lo necesita' : 'ya lo tiene'}`,
+      `Desplazamiento: ${preferencias.desplazamiento === DesplazamientoViaje.TRANSPORTE_MASCOTA
+        ? 'necesita transporte para la mascota' : 'coche propio'}`,
+      preferencias.serviciosExtra.length && `Servicios que necesitará: ${preferencias.serviciosExtra.join(', ')}`,
       perfilPerro,
       '',
       'LUGARES DISPONIBLES:',
@@ -463,9 +498,16 @@ Reglas:
   private clave(peticion: PeticionItinerario): string {
     // Por mes, no por día exacto: dos viajes en la misma quincena comparten
     // itinerario y no tiene sentido pagar dos generaciones.
+    // Cada respuesta del formulario cambia el plan, así que todas entran en la
+    // clave: si no, dos viajes con ritmos distintos compartirían itinerario.
     const mes = peticion.desde?.slice(0, 7) ?? 'sin-fecha';
-    const intereses = [...(peticion.intereses ?? [])].sort().join(',');
-    return `${peticion.provincia.toLowerCase()}|${mes}|${peticion.presupuestoMax ?? 0}|${intereses}`;
+    const lista = (valores?: string[]): string => [...(valores ?? [])].sort().join(',');
+    const p = this.preferenciasDe(peticion);
+    return [
+      peticion.provincia.toLowerCase(), (peticion.municipio ?? '').toLowerCase(), mes, p.dias ?? 0,
+      peticion.presupuestoMax ?? 0, lista(peticion.intereses), p.ritmo, p.alojamiento, p.desplazamiento,
+      lista(peticion.serviciosExtra),
+    ].join('|');
   }
 
   private leerCache(clave: string): RespuestaItinerario | null {

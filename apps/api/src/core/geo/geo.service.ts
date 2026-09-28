@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { distanciaKm } from 'shared';
 import { ProveedorOsm, esIdOsm } from './nominatim';
 
 /** Sugerencia de población devuelta al buscador. */
@@ -569,15 +570,7 @@ export class GeoService {
 
   /** Haversine con factor de sinuosidad: la carretera nunca es una línea recta. */
   private rutaEnLineaRecta(origen: CoordenadasLugar, destino: CoordenadasLugar): Trayecto {
-    const RADIO_TIERRA_KM = 6371;
-    const aRadianes = (grados: number): number => (grados * Math.PI) / 180;
-
-    const dLat = aRadianes(destino.lat - origen.lat);
-    const dLng = aRadianes(destino.lng - origen.lng);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(aRadianes(origen.lat)) * Math.cos(aRadianes(destino.lat)) * Math.sin(dLng / 2) ** 2;
-    const kmRectos = RADIO_TIERRA_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const kmRectos = distanciaKm(origen, destino);
     const km = Math.ceil(kmRectos * FACTOR_SINUOSIDAD * 2) / 2;
 
     return { km, duracionMin: Math.round((km / VELOCIDAD_MEDIA_KMH) * 60), esEstimacion: true };

@@ -61,6 +61,8 @@ export interface FacetasCatalogo {
 export interface AlojamientoCard {
   /** A cuánto está de la población buscada, en los resultados de "lo más cercano". */
   distanciaKm?: number;
+  /** Km al centro de su población («a 2,3 km del centro»); ausente sin coordenadas. */
+  distanciaCentroKm?: number;
   id: string;
   nombre: string;
   ciudad: string;

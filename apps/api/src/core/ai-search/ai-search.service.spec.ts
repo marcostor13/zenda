@@ -36,11 +36,13 @@ describe('AiSearchService', () => {
       expect(resultado.explicacion).toContain('Valencia');
     });
 
-    it('debería admitir que no ha entendido una frase sin categoría ni ciudad', async () => {
+    // Observación del cliente 28-09: lo que no se entiende va a Explora, que
+    // siempre devuelve algo; ya no se contesta «ajusta los filtros».
+    it('debería mandar a Explora una frase sin categoría ni ciudad', async () => {
       const resultado = await conClave(undefined).interpretSearch('algo bonito');
 
       expect(resultado.vertical).toBeNull();
-      expect(resultado.explicacion).toContain('filtros');
+      expect(resultado.explicacion).toContain('Explora');
     });
   });
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { UnidadReservable, idDeUnidad } from './unidad-reservable';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -10,13 +10,14 @@ import { ReviewsService } from '../reviews/reviews.service';
 import { ResenaDocument } from '../reviews/resena.schema';
 import { PerrosService } from '../perros/perros.service';
 import { GeoService } from '../geo/geo.service';
+import { CentrosPoblacionService } from '../geo/centros-poblacion.service';
 import { AptitudPerro } from './servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
 import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
   ServicioClinicoTipo, esEspecialidadSuelta, HorarioDiaDto, ExcepcionHorarioDto, MIN_FOTOS_SERVICIO,
-  BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio,
+  BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio, etiquetaPuntuacion,
 } from 'shared';
 
 /** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
@@ -153,6 +154,8 @@ export interface ServicioCardDto {
   lng?: number;
   /** Distancia a la población buscada; sólo en los resultados de "lo más cercano". */
   distanciaKm?: number;
+  /** Km al centro de la población del servicio; ausente si no tiene coordenadas. */
+  distanciaCentroKm?: number;
 }
 
 export interface HabitacionDto {
@@ -285,6 +288,7 @@ interface ServicioLean {
   requiereDesparasitacionExterna?: boolean;
   requiereVacunaTosPerreras?: boolean;
   serviciosAdicionales?: Array<{ nombre: string; precio: number }>;
+  distanciaCentroKm?: number;
 }
 
 const DEFAULT_LIMIT = 10;
@@ -298,11 +302,14 @@ const ORDENES_VALIDOS: readonly OrdenServicios[] = [
 
 @Injectable()
 export class CatalogService {
+  private readonly logger = new Logger(CatalogService.name);
+
   constructor(
     private readonly repo: CatalogRepository,
     private readonly reviewsService: ReviewsService,
     private readonly perrosService: PerrosService,
     private readonly geoService: GeoService,
+    private readonly centrosPoblacion: CentrosPoblacionService,
     @InjectModel(Comercio.name) private readonly comercioModel: Model<ComercioDocument>,
   ) {}
 
@@ -518,7 +525,27 @@ export class CatalogService {
       extra,
       aptitud: dto.aptitud,
     });
-    return this.toCard(doc as unknown as ServicioLean);
+    return this.toCard(await this.conDistanciaAlCentro(doc as unknown as ServicioLean));
+  }
+
+  /**
+   * Calcula y guarda los km al centro de la población del servicio. Nunca
+   * rompe el guardado: sin geocodificador la tarjeta sale sin distancia.
+   */
+  private async conDistanciaAlCentro(servicio: ServicioLean): Promise<ServicioLean> {
+    const [lng, lat] = servicio.ubicacion?.geo?.coordinates ?? [];
+    const ciudad = servicio.ubicacion?.ciudad;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !ciudad) return servicio;
+
+    try {
+      const km = await this.centrosPoblacion.distanciaAlCentro({ lat, lng }, ciudad, servicio.ubicacion?.provincia);
+      if (km === null) return servicio;
+      await this.repo.actualizarCampos(String(servicio._id), { distanciaCentroKm: km });
+      servicio.distanciaCentroKm = km;
+    } catch (error) {
+      this.logger.warn(`Sin distancia al centro para ${String(servicio._id)}: ${(error as Error).message}`);
+    }
+    return servicio;
   }
 
   /**
@@ -582,7 +609,9 @@ export class CatalogService {
     if (!actualizado) {
       throw new DomainException('Servicio no encontrado', 404);
     }
-    return this.toCard(actualizado as unknown as ServicioLean);
+    const cambiaUbicacion = dto.ciudad !== undefined || dto.lat !== undefined || dto.lng !== undefined;
+    const servicio = actualizado as unknown as ServicioLean;
+    return this.toCard(cambiaUbicacion ? await this.conDistanciaAlCentro(servicio) : servicio);
   }
 
   async obtenerServicioParaGestion(id: string, comercioId: string): Promise<ServicioGestionDto> {
@@ -807,7 +836,7 @@ export class CatalogService {
       direccion: this.lineaDireccion(h),
       estrellas: h.estrellas ?? 3,
       score,
-      scoreLabel: this.scoreLabel(score),
+      scoreLabel: etiquetaPuntuacion(score),
       numResenas: h.totalReseñas ?? 0,
       precioPorNoche: h.precioBase,
       precioAnterior: h.precioAnterior,
@@ -823,6 +852,7 @@ export class CatalogService {
       horario: (h as unknown as Record<string, unknown>)['horario'] as HorarioDiaDto[] | undefined,
       excepcionesHorario: (h as unknown as Record<string, unknown>)['excepcionesHorario'] as ExcepcionHorarioDto[] | undefined,
       extra: this.pickExtra(h as unknown as Record<string, unknown>),
+      distanciaCentroKm: h.distanciaCentroKm,
     };
   }
 
@@ -979,11 +1009,4 @@ export class CatalogService {
     };
   }
 
-  private scoreLabel(score: number): string {
-    if (score >= 9) return 'Excepcional';
-    if (score >= 8) return 'Muy bueno';
-    if (score >= 7) return 'Bueno';
-    if (score >= 6) return 'Aceptable';
-    return 'Correcto';
-  }
 }

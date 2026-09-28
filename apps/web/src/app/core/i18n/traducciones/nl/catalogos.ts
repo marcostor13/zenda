@@ -304,6 +304,15 @@ const catalogos: Diccionario = {
   'Zona de juegos': 'Speelzone',
   'Zona para cachorros': 'Puppyzone',
   'Zona para perros mayores': 'Zone voor oudere honden',
+  'Tienda de animales': 'Dierenwinkel',
+  'Admite perros en el interior': 'Honden binnen toegestaan',
+  'Admite perros en la terraza': 'Honden toegestaan op het terras',
+  'Admite perros en interior y terraza': 'Honden binnen en op het terras toegestaan',
+  'Zona admitida por confirmar: pregunta al local antes de ir': 'Toegestane zone nog te bevestigen: vraag het de zaak voordat je gaat',
+  'Dónde admite perros': 'Waar honden zijn toegestaan',
+  'Condiciones': 'Voorwaarden',
+  'Cadena': 'Keten',
+  'Perros educados': 'Goed opgevoede honden',
 };
 
 export default catalogos;

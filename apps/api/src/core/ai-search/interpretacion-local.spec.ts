@@ -72,6 +72,11 @@ describe('interpretarLocalmente', () => {
       ['restaurantes donde pueda ir con mi perro', TipoLugar.RESTAURANTE],
       ['rutas de senderismo con perro', TipoLugar.RUTA],
       ['un río donde bañar al perro', TipoLugar.RIO],
+      ['tienda de animales en Alicante', TipoLugar.TIENDA],
+      ['dónde compro pienso', TipoLugar.TIENDA],
+      ['Kiwoko', TipoLugar.TIENDA],
+      ['dónde comer con mi perro en Dénia', TipoLugar.RESTAURANTE],
+      ['cafetería dog friendly', TipoLugar.RESTAURANTE],
     ])('debería reconocer «%s»', (frase, esperado) => {
       expect(interpretarLocalmente(frase, HOY).tipoLugar).toBe(esperado);
     });

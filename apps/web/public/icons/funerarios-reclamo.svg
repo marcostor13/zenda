@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Huella con corazón">
+  <g fill="none" stroke="#08258B" stroke-width="2.2">
+    <ellipse cx="13.5" cy="13.5" rx="3.2" ry="3.8" transform="rotate(-18 13.5 13.5)"/>
+    <ellipse cx="24" cy="8.8" rx="3.3" ry="3.9"/>
+    <ellipse cx="34.5" cy="13.5" rx="3.2" ry="3.8" transform="rotate(18 34.5 13.5)"/>
+    <path d="M24 42c-8.4-5.2-13.6-10.2-13.6-16.1A7.4 7.4 0 0 1 24 21.3a7.4 7.4 0 0 1 13.6 4.6C37.6 31.8 32.4 36.8 24 42Z" stroke-linejoin="round"/>
+  </g>
+  <path d="M24 36.2c-4.9-3.2-8-6.2-8-9.8a4.3 4.3 0 0 1 8-2.4 4.3 4.3 0 0 1 8 2.4c0 3.6-3.1 6.6-8 9.8Z" fill="#C9A24A"/>
+</svg>

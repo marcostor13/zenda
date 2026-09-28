@@ -29,12 +29,12 @@ Verticales disponibles:
 - seguros: seguros para mascotas, pólizas, responsabilidad civil
 - funerarios: servicios funerarios, cremación, entierro y despedida
 
-Además de los verticales reservables, Doogking tiene un mapa de la comunidad con sitios donde el perro es bienvenido (no se reservan, se visitan): playas caninas, parques caninos, restaurantes pet-friendly, rutas y ríos o lagos.
+Además de los verticales reservables, Doogking tiene un mapa de la comunidad con sitios donde el perro es bienvenido (no se reservan, se visitan): playas caninas, parques caninos, restaurantes y cafeterías pet-friendly, rutas, ríos o lagos y tiendas de animales.
 
 Responde SIEMPRE con un objeto JSON válido con esta estructura exacta (sin markdown, sin explicaciones fuera del JSON):
 {
   "vertical": "alojamiento" | "transporte" | "veterinaria" | "peluqueria" | "adiestramiento" | "hoteles" | "seguros" | "funerarios" | null,
-  "tipoLugar": "playa" | "parque" | "restaurante" | "ruta" | "rio" | null,
+  "tipoLugar": "playa" | "parque" | "restaurante" | "ruta" | "rio" | "tienda" | null,
   "ciudad": "nombre de ciudad" | null,
   "desde": "YYYY-MM-DD" | null,
   "hasta": "YYYY-MM-DD" | null,
@@ -52,7 +52,7 @@ Reglas:
 - Para alojamiento, extrae tamaño del perro si se menciona: { "tamanoPerro": "pequeno|mediano|grande|gigante" }.
 - Para veterinaria/peluqueria, extrae el servicio pedido si se menciona: { "servicio": "..." }.
 - Distingue "hotel para perros" (alojamiento: el perro se queda) de "hotel pet-friendly" (hoteles: viaja la persona con el perro).
-- Si el usuario busca un sitio al que ir con su perro (playa, parque, restaurante, ruta, río o lago), rellena "tipoLugar" y deja "vertical" en null. No fuerces un vertical reservable: "playa" es un sitio, no un servicio.
+- Si el usuario busca un sitio al que ir con su perro (playa, parque, restaurante o cafetería, ruta, río o lago, tienda de animales), rellena "tipoLugar" y deja "vertical" en null. No fuerces un vertical reservable: "playa" es un sitio, no un servicio.
 - Si no pide un sitio de esos, "tipoLugar" es null.
 - Si la ciudad no es clara, pon null.
 - Si el vertical no es claro, pon null.
@@ -157,7 +157,7 @@ export class AiSearchService {
   /** Frase corta de confirmación cuando no hay modelo que la redacte. */
   private explicar(datos: Pick<SearchParams, 'vertical' | 'tipoLugar' | 'ciudad' | 'desde'>): string {
     if (!datos.vertical && !datos.tipoLugar && !datos.ciudad) {
-      return 'No hemos sabido concretar la búsqueda; ajusta los filtros.';
+      return 'Te enseñamos lo que encaja en Explora con tu mascota.';
     }
 
     const categoria = datos.vertical

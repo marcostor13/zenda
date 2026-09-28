@@ -25,6 +25,7 @@ import { calcularBadgesAutomaticos, type BadgeAutomatico } from '../../../shared
 import { ExperienciasCercaComponent } from '../../explora/experiencias-cerca.component';
 
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { MonedaService } from '../../../core/moneda/moneda.service';
 import { SeoService } from '../../../core/seo/seo.service';
 import { seoCategoria } from '../../../core/seo/plantillas-seo';
@@ -87,7 +88,7 @@ interface BusquedaUrl {
           [class.card--destacada]="destacadoId() === a.id"
           [horizontal]="true"
           [imageUrl]="a.imagenes[0]" [imageAlt]="a.nombre"
-          [title]="a.nombre" [subtitle]="lugarConDistancia(a.barrio ? a.barrio + ', ' + a.ciudad : a.ciudad, a.distanciaKm)"
+          [title]="a.nombre" [subtitle]="subtituloDe(a.barrio ? a.barrio + ', ' + a.ciudad : a.ciudad, a.distanciaKm, a.distanciaCentroKm)"
           [badges]="badgesDe(a)"
           [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
           [price]="{ amount: moneda.formatear(a.precioPorNoche), period: 'noche desde', oldAmount: a.precioAnterior ? moneda.formatear(a.precioAnterior) : undefined }"
@@ -97,7 +98,7 @@ interface BusquedaUrl {
           [favoritoServicioId]="a.id"
           [routerLink]="['/alojamiento', a.id]"
           [queryParams]="queryParamsDetalle()"
-          [ctaLabel]="'Ver disponibilidad' | t"
+          [ctaLabel]="'Reservar' | t"
           [accionSoloEscritorio]="true">
         </rs-card>
       }
@@ -138,6 +139,7 @@ interface BusquedaUrl {
   `],
 })
 export class AlojamientoListaComponent implements OnInit {
+  private readonly i18n = inject(I18nService);
   /**
    * Divisa de visualización. Se lee para formatear los precios que van dentro
    * de un texto («50 € × 3 noches», los chips de filtro) y que por eso no
@@ -159,7 +161,10 @@ export class AlojamientoListaComponent implements OnInit {
     const cercanos = this.cercanos();
     return cercanos ? ['/alojamiento', cercanos.masCercano.id] : null;
   });
-  readonly lugarConDistancia = lugarConDistancia;
+  /** Población y distancia de la tarjeta, traducida («a 2,3 km del centro»). */
+  subtituloDe(ciudad: string, distanciaKm?: number, distanciaCentroKm?: number): string {
+    return lugarConDistancia(ciudad, distanciaKm, distanciaCentroKm, (texto, params) => this.i18n.t(texto, params));
+  }
   readonly alojamientos = signal<AlojamientoCard[]>([]);
   readonly paginaActual = signal(1);
   readonly totalPaginas = signal(1);

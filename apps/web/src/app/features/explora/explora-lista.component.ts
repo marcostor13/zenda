@@ -1,13 +1,15 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { TIPO_LUGAR_LABELS, TipoLugar } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { fotoDeLugar } from '../../shared/media/images';
 import { RsMapaComponent, type PuntoMapa } from '../../shared/components/mapa/rs-mapa.component';
-import { LugarApi, LugaresService, rutaDeLugar } from './lugares.service';
+import { FiltrosLugares, LugarApi, LugaresService, rutaDeLugar } from './lugares.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { SeoService } from '../../core/seo/seo.service';
 import { seoCategoria } from '../../core/seo/plantillas-seo';
 
@@ -15,9 +17,10 @@ import { seoCategoria } from '../../core/seo/plantillas-seo';
 const ICONOS: Record<TipoLugar, string> = {
   [TipoLugar.PLAYA]: 'globe',
   [TipoLugar.PARQUE]: 'paw',
-  [TipoLugar.RESTAURANTE]: 'bone',
+  [TipoLugar.RESTAURANTE]: 'utensils',
   [TipoLugar.RUTA]: 'map-pin',
   [TipoLugar.RIO]: 'globe',
+  [TipoLugar.TIENDA]: 'store',
 };
 
 /**
@@ -31,7 +34,8 @@ const ICONOS: Record<TipoLugar, string> = {
   selector: 'app-explora-lista',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsMapaComponent
+    TraducirPipe, RouterLink, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsMapaComponent,
+    ReactiveFormsModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -48,6 +52,14 @@ const ICONOS: Record<TipoLugar, string> = {
         </p>
       </header>
 
+      <form class="ex-buscar" role="search" (submit)="alBuscar($event)">
+        <rs-icon name="search" [size]="16" [stroke]="2"></rs-icon>
+        <input class="rs-inp ex-buscar__inp" type="search" [formControl]="texto"
+               [attr.aria-label]="'Buscar sitios' | t"
+               [placeholder]="'Busca por nombre, población o tipo: «cafetería en Dénia», «Kiwoko»…' | t" />
+        <button type="submit" class="rs-btn rs-btn--primary rs-btn--sm">{{ 'Buscar' | t }}</button>
+      </form>
+
       <div class="ex-filtros" role="tablist" [attr.aria-label]="'Tipo de lugar' | t">
         <button type="button" role="tab" class="ex-chip" [class.is-on]="!tipo()"
                 [attr.aria-selected]="!tipo()" (click)="filtrar(null)">
@@ -57,7 +69,7 @@ const ICONOS: Record<TipoLugar, string> = {
           <button type="button" role="tab" class="ex-chip" [class.is-on]="tipo() === t"
                   [attr.aria-selected]="tipo() === t" (click)="filtrar(t)">
             <rs-icon [name]="icono(t)" [size]="14" [stroke]="2"></rs-icon>
-            {{ etiqueta(t) }}
+            {{ etiqueta(t) | t }}
           </button>
         }
       </div>
@@ -103,6 +115,10 @@ const ICONOS: Record<TipoLugar, string> = {
         </div>
       }
 
+      @if (avisoAmpliado()) {
+        <p class="rs-alert rs-alert--info ex-ampliado" role="status">{{ avisoAmpliado() }}</p>
+      }
+
       @if (cargando()) {
         <div class="ex-grid">
           @for (_ of [1,2,3,4,5,6]; track $index) {
@@ -123,7 +139,7 @@ const ICONOS: Record<TipoLugar, string> = {
             <a class="ex-card" [routerLink]="rutaDeLugar(l)">
               <div class="ex-card__img">
                 <img [src]="foto(l)" [alt]="l.nombre" loading="lazy" rsImg />
-                <span class="ex-card__tipo">{{ etiqueta(l.tipo) }}</span>
+                <span class="ex-card__tipo">{{ etiqueta(l.tipo) | t }}</span>
               </div>
               <div class="ex-card__body">
                 <h2>{{ l.nombre }}</h2>
@@ -172,6 +188,23 @@ const ICONOS: Record<TipoLugar, string> = {
       &:hover { border-color: var(--c-accent); }
       &.is-on { background: var(--dk-blue); border-color: var(--dk-blue); color: #fff; }
     }
+
+    .ex-buscar {
+      display: flex; align-items: center; gap: var(--sp-2);
+      max-width: 640px; margin-bottom: var(--sp-4);
+      padding-left: var(--sp-3);
+      border: 1px solid var(--b-2); border-radius: var(--r-full);
+      background: var(--c-card);
+      rs-icon { color: var(--t-400); flex: none; }
+      &:focus-within { border-color: var(--c-accent); }
+    }
+    .ex-buscar__inp {
+      flex: 1; min-width: 0;
+      border: 0; background: transparent; box-shadow: none;
+      &:focus { outline: none; box-shadow: none; }
+    }
+    .ex-buscar .rs-btn { border-radius: var(--r-full); margin: var(--sp-1); }
+    .ex-ampliado { margin-bottom: var(--sp-4); }
 
     .ex-acciones { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-5); }
     .ex-aviso { font-size: var(--f-xs); color: var(--t-400); }
@@ -252,12 +285,21 @@ export class ExploraListaComponent implements OnInit {
   private readonly seo = inject(SeoService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly i18n = inject(I18nService);
 
   readonly tipos = Object.values(TipoLugar);
 
   readonly lugares = signal<LugarApi[]>([]);
   readonly cargando = signal(true);
   readonly tipo = signal<TipoLugar | null>(null);
+
+  /** Texto libre: lo que llega del buscador de la portada o se escribe aquí. */
+  readonly texto = new FormControl('', { nonNullable: true });
+  /**
+   * Aviso cuando lo pedido no dio nada y se enseña lo más parecido. Una
+   * búsqueda nunca termina en una pantalla vacía (observación del 28-09).
+   */
+  readonly avisoAmpliado = signal('');
 
   /**
    * Provincias con contenido cargado. El censo de la Comunitat Valenciana son
@@ -309,6 +351,7 @@ export class ExploraListaComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     const params = this.route.snapshot.queryParamMap;
     this.tipo.set((params.get('tipo') as TipoLugar) ?? null);
+    this.texto.setValue(params.get('q') ?? '');
     this.provincia.set(params.get('provincia'));
     this.ciudad = params.get('ciudad') ?? undefined;
 
@@ -385,22 +428,72 @@ export class ExploraListaComponent implements OnInit {
     await this.cargar();
   }
 
+  alBuscar(evento: Event): void {
+    evento.preventDefault();
+    const q = this.texto.value.trim();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { q: q || null },
+      queryParamsHandling: 'merge',
+    });
+    void this.cargar();
+  }
+
+  /**
+   * Del filtro más preciso al más amplio: lo pedido; sin el texto; el mismo
+   * tipo de sitio en cualquier población («playa en Madrid» → otras playas);
+   * cualquier sitio de la provincia; y por último lo mejor valorado. El primero
+   * que devuelve algo es el que se pinta.
+   */
+  private intentos(): FiltrosLugares[] {
+    const exacto: FiltrosLugares = {
+      q: this.texto.value.trim() || undefined,
+      tipo: this.tipo() ?? undefined,
+      provincia: this.provincia() ?? undefined,
+      ciudad: this.ciudad,
+      lat: this.coordenadas()?.lat,
+      lng: this.coordenadas()?.lng,
+    };
+    const candidatos: FiltrosLugares[] = [
+      exacto,
+      { ...exacto, q: undefined },
+      { ...exacto, q: undefined, ciudad: undefined },
+      { provincia: exacto.provincia, lat: exacto.lat, lng: exacto.lng },
+      {},
+    ];
+    const vistos = new Set<string>();
+    return candidatos.filter((filtros) => {
+      const clave = JSON.stringify(filtros);
+      if (vistos.has(clave)) return false;
+      vistos.add(clave);
+      return true;
+    });
+  }
+
   private async cargar(): Promise<void> {
     this.cargando.set(true);
+    this.avisoAmpliado.set('');
     try {
-      this.lugares.set(
-        await this.lugaresService.buscar({
-          tipo: this.tipo() ?? undefined,
-          provincia: this.provincia() ?? undefined,
-          ciudad: this.ciudad,
-          lat: this.coordenadas()?.lat,
-          lng: this.coordenadas()?.lng,
-        }),
-      );
+      const intentos = this.intentos();
+      for (const [indice, filtros] of intentos.entries()) {
+        const lugares = await this.lugaresService.buscar(filtros);
+        if (lugares.length || indice === intentos.length - 1) {
+          this.lugares.set(lugares);
+          if (indice > 0 && lugares.length) this.avisoAmpliado.set(this.textoAmpliado());
+          return;
+        }
+      }
     } catch {
       this.lugares.set([]);
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  private textoAmpliado(): string {
+    const texto = this.texto.value.trim();
+    return texto
+      ? this.i18n.t('No hemos encontrado «{texto}». Te enseñamos lo más parecido para ir con tu mascota.', { texto })
+      : this.i18n.t('No hay sitios con ese filtro todavía. Te enseñamos lo más parecido para ir con tu mascota.');
   }
 }

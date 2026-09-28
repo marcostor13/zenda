@@ -112,6 +112,36 @@ describe('LugaresService', () => {
 
       expect(cadena.limit).toHaveBeenCalledWith(60);
     });
+
+    it('debería exigir todas las palabras del texto libre cuando hay resultados', async () => {
+      lugarModel.find.mockReturnValue(cadenaBusqueda([{ nombre: 'Kofu' }]));
+
+      const lugares = await service.buscar({ q: 'cafetería Castellón' });
+
+      expect(lugares).toHaveLength(1);
+      expect(lugarModel.find).toHaveBeenCalledTimes(1);
+      const filtro = lugarModel.find.mock.calls[0][0] as { $and: unknown[] };
+      expect(filtro.$and).toHaveLength(2);
+    });
+
+    it('debería conformarse con alguna palabra si todas juntas no dan nada', async () => {
+      lugarModel.find
+        .mockReturnValueOnce(cadenaBusqueda([]))
+        .mockReturnValueOnce(cadenaBusqueda([{ nombre: 'Miscota' }]));
+
+      const lugares = await service.buscar({ q: 'tienda Marte' });
+
+      expect(lugares).toEqual([{ nombre: 'Miscota' }]);
+      const segundo = lugarModel.find.mock.calls[1][0] as { $and: Array<{ $or: unknown[] }> };
+      expect(segundo.$and).toHaveLength(1);
+    });
+
+    it('debería ignorar un texto sin palabras con significado', async () => {
+      await service.buscar({ q: 'con mi perro' });
+
+      const filtro = lugarModel.find.mock.calls[0][0] as Record<string, unknown>;
+      expect(filtro['$and']).toBeUndefined();
+    });
   });
 
   describe('obtener', () => {

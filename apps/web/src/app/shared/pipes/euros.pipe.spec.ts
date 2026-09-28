@@ -87,7 +87,7 @@ describe('EurosPipe', () => {
     it('debería convertir el importe y usar el símbolo de la divisa', () => {
       conversion = { moneda: 'GBP', tasa: 0.84 };
 
-      expect(pipe.transform(100)).toBe(`84,00${NBSP}£`);
+      expect(pipe.transform(100)).toBe(`≈${NBSP}84,00${NBSP}£`);
     });
 
     it('debería escribir el dólar con el símbolo corto, no como «US$»', () => {
@@ -110,7 +110,7 @@ describe('EurosPipe', () => {
 
       conversion = { moneda: 'GBP', tasa: 0.84 };
 
-      expect(pipe.transform(100)).toBe(`84,00${NBSP}£`);
+      expect(pipe.transform(100)).toBe(`≈${NBSP}84,00${NBSP}£`);
     });
 
     it('debería quedarse en euros si la tasa no ha llegado', () => {

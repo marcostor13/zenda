@@ -79,7 +79,7 @@ describe('TransporteListaComponent', () => {
 
       const tarjeta: HTMLElement = fixture.nativeElement.querySelector('rs-card');
       expect(tarjeta.textContent).not.toContain('37');
-      expect(tarjeta.textContent).toContain('Ver ficha y calcular precio');
+      expect(tarjeta.textContent).toContain('Reservar');
     });
   });
 

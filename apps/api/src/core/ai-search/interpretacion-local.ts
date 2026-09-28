@@ -90,7 +90,10 @@ const SINONIMOS: ReadonlyArray<readonly [VerticalKey, readonly string[]]> = [
 const LUGARES: ReadonlyArray<readonly [TipoLugar, RegExp]> = [
   [TipoLugar.PLAYA, /\b(?:playas?|calas?|beach(?:es)?)\b/],
   [TipoLugar.PARQUE, /\b(?:parques?|pipicanes?|pipican|areas? caninas?|dog parks?)\b/],
-  [TipoLugar.RESTAURANTE, /\b(?:restaurantes?|cafeterias?|terrazas?|dog friendly restaurants?)\b/],
+  [TipoLugar.TIENDA,
+    /\b(?:tiendas?|piensos?|accesorios?|comida para (?:perros?|mascotas?)|kiwoko|tiendanimal|miscota|pet ?shops?)\b/],
+  [TipoLugar.RESTAURANTE,
+    /\b(?:restaurantes?|cafeterias?|cafes?|terrazas?|bar(?:es)?|brunch|tapas|comer|cenar|desayunar|dog friendly restaurants?)\b/],
   [TipoLugar.RUTA, /\b(?:rutas?|senderos?|senderismo|excursion(?:es)?|trekking|hiking|trails?)\b/],
   [TipoLugar.RIO, /\b(?:rios?|lagos?|embalses?|pantanos?|rivers?|lakes?)\b/],
 ];

@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
-import { VerticalKey } from 'shared';
+import { AlojamientoViaje, DesplazamientoViaje, RitmoViaje, TipoLugar, VerticalKey } from 'shared';
 import { PlanificadorComponent } from './planificador.component';
 import { CarritoService } from '../carrito/carrito.service';
 import { PerrosService } from '../perros/perros.service';
@@ -27,7 +27,9 @@ describe('PlanificadorComponent', () => {
   let carrito: Record<string, jest.Mock>;
   let perros: Record<string, jest.Mock>;
 
-  const crear = async (ajustes: { perros?: Record<string, jest.Mock> } = {}): Promise<void> => {
+  const crear = async (
+    ajustes: { perros?: Record<string, jest.Mock>; destinos?: unknown[] } = {},
+  ): Promise<void> => {
     carrito = { anadir: jest.fn().mockResolvedValue(undefined) };
     perros = ajustes.perros ?? { misPerros: jest.fn().mockResolvedValue([{ _id: 'p1', nombre: 'Maya' }]) };
 
@@ -45,8 +47,19 @@ describe('PlanificadorComponent', () => {
     fixture = TestBed.createComponent(PlanificadorComponent);
     componente = fixture.componentInstance;
     fixture.detectChanges();
+    httpMock.expectOne((r) => r.url.includes('/planificador/destinos')).flush(ajustes.destinos ?? [
+      { provincia: 'Alicante', lugares: 60, servicios: 3 },
+      { provincia: 'Castellón', lugares: 21, servicios: 0 },
+    ]);
     await fixture.whenStable();
     fixture.detectChanges();
+  };
+
+  /** Valores por defecto que viajan siempre: el API los necesita para armar el plan. */
+  const PREGUNTAS_POR_DEFECTO = {
+    ritmo: RitmoViaje.EQUILIBRADO,
+    alojamiento: AlojamientoViaje.NECESITO,
+    desplazamiento: DesplazamientoViaje.COCHE_PROPIO,
   };
 
   afterEach(() => {
@@ -67,6 +80,25 @@ describe('PlanificadorComponent', () => {
 
       // El planificador es una herramienta de captación: no puede exigir cuenta.
       expect(componente.perros()).toEqual([]);
+    });
+  });
+
+  /*
+   * Observación del cliente 28-09: la lista eran seis provincias fijas y sólo
+   * una tenía contenido. Ahora salen las que de verdad tienen algo.
+   */
+  describe('destinos', () => {
+    it('debería ofrecer las provincias con contenido que devuelve el API', async () => {
+      await crear();
+
+      expect(componente.destinos().map((d) => d.nombre)).toEqual(['Alicante', 'Castellón']);
+      expect(componente.destinos()[0].lugares).toBe(60);
+    });
+
+    it('debería quedarse con las provincias de Explora si el API no devuelve nada', async () => {
+      await crear({ destinos: [] });
+
+      expect(componente.destinos().map((d) => d.nombre)).toEqual(['Valencia', 'Alicante', 'Castellón']);
     });
   });
 
@@ -97,16 +129,13 @@ describe('PlanificadorComponent', () => {
     it('debería enviar destino, fechas, presupuesto y perro', async () => {
       await crear();
       componente.elegir('Madrid');
-      componente.desde = '2026-09-01';
-      componente.hasta = '2026-09-04';
-      componente.presupuesto = 400;
-      componente.perroId = 'p1';
+      componente.form.patchValue({ desde: '2026-09-01', hasta: '2026-09-04', presupuesto: 400, perroId: 'p1' });
 
       const promesa = componente.generar();
       const req = httpMock.expectOne((r) => r.url.includes('/planificador/itinerario'));
-      expect(req.request.body).toEqual({
+      expect(req.request.body).toMatchObject({
         provincia: 'Madrid', desde: '2026-09-01', hasta: '2026-09-04',
-        presupuestoMax: 400, perroId: 'p1',
+        presupuestoMax: 400, perroId: 'p1', ...PREGUNTAS_POR_DEFECTO,
       });
       req.flush(itinerario());
       await promesa;
@@ -121,11 +150,31 @@ describe('PlanificadorComponent', () => {
 
       const promesa = componente.generar();
       const req = httpMock.expectOne((r) => r.url.includes('/planificador/itinerario'));
-      expect(req.request.body).toEqual({
-        provincia: 'Madrid', desde: undefined, hasta: undefined,
-        presupuestoMax: undefined, perroId: undefined,
-      });
+      expect(req.request.body).toEqual({ provincia: 'Madrid', ...PREGUNTAS_POR_DEFECTO });
       req.flush({ provincia: 'Madrid', esFallback: false, opciones: [] });
+      await promesa;
+    });
+
+    it('debería enviar las respuestas a las preguntas nuevas del viaje', async () => {
+      await crear();
+      componente.elegir('Alicante');
+      componente.form.patchValue({
+        municipio: ' Dénia ', ritmo: RitmoViaje.TRANQUILO,
+        alojamiento: AlojamientoViaje.YA_LO_TENGO, desplazamiento: DesplazamientoViaje.TRANSPORTE_MASCOTA,
+      });
+      componente.alternarInteres(TipoLugar.PLAYA);
+      componente.alternarInteres(TipoLugar.RESTAURANTE);
+      componente.alternarInteres(TipoLugar.PLAYA);
+      componente.alternarExtra(VerticalKey.PELUQUERIA);
+
+      const promesa = componente.generar();
+      const req = httpMock.expectOne((r) => r.url.includes('/planificador/itinerario'));
+      expect(req.request.body).toMatchObject({
+        municipio: 'Dénia', ritmo: RitmoViaje.TRANQUILO,
+        alojamiento: AlojamientoViaje.YA_LO_TENGO, desplazamiento: DesplazamientoViaje.TRANSPORTE_MASCOTA,
+        intereses: [TipoLugar.RESTAURANTE], serviciosExtra: [VerticalKey.PELUQUERIA],
+      });
+      req.flush({ provincia: 'Alicante', esFallback: true, opciones: [] });
       await promesa;
     });
 
@@ -158,8 +207,7 @@ describe('PlanificadorComponent', () => {
   describe('paso del plan al carrito', () => {
     it('debería añadir la parada con las fechas del plan', async () => {
       await crear();
-      componente.desde = '2026-09-01';
-      componente.hasta = '2026-09-04';
+      componente.form.patchValue({ desde: '2026-09-01', hasta: '2026-09-04' });
 
       await componente.anadir(parada() as never);
 
@@ -207,6 +255,45 @@ describe('PlanificadorComponent', () => {
       await componente.anadir(parada() as never);
 
       expect(componente.error()).toBe('Sin disponibilidad esas fechas');
+    });
+  });
+
+  /* Observación del cliente 28-09: el plan termina en un servicio de la plataforma. */
+  describe('reserva del viaje', () => {
+    it('debería enlazar cada servicio a su ficha para reservarlo', async () => {
+      await crear();
+
+      expect(componente.enlace(parada() as never)).toEqual(['/alojamiento', 's1']);
+    });
+
+    it('debería pintar el bloque «Reserva tu viaje» con lo reservable del plan', async () => {
+      await crear();
+      componente.elegir('Alicante');
+      componente.itinerario.set({ ...itinerario(), serviciosSugeridos: [parada()] } as never);
+      fixture.detectChanges();
+
+      const bloque = (fixture.nativeElement as HTMLElement).querySelector('.pl-reserva');
+      expect(bloque?.textContent).toContain('Reserva tu viaje');
+      expect(bloque?.textContent).toContain('Residencia Royal');
+    });
+
+    it('debería añadir todo lo reservable al carrito de una vez', async () => {
+      await crear();
+
+      await componente.anadirTodo([parada(), parada({ servicioId: 's2', titulo: 'Peluquería' })] as never);
+
+      expect(carrito['anadir']).toHaveBeenCalledTimes(2);
+      expect(componente.todoAnadido([parada(), parada({ servicioId: 's2' })] as never)).toBe(true);
+    });
+
+    it('debería parar en el primero que falle y decir cuál', async () => {
+      await crear();
+      carrito['anadir'].mockRejectedValueOnce({});
+
+      await componente.anadirTodo([parada(), parada({ servicioId: 's2' })] as never);
+
+      expect(carrito['anadir']).toHaveBeenCalledTimes(1);
+      expect(componente.error()).toContain('Residencia Royal');
     });
   });
 });

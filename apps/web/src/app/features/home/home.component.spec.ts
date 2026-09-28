@@ -112,27 +112,33 @@ describe('HomeComponent', () => {
       expect(navigate).toHaveBeenCalledWith(['/explora'], expect.objectContaining({
         queryParams: expect.objectContaining({ tipo: 'playa', ciudad: 'Alicante' }),
       }));
-      expect(component.aiError()).toBe('');
     });
 
-    it('no debería caer en alojamiento cuando el asistente no reconoce la categoría', async () => {
+    /*
+     * Observación del cliente 28-09: una búsqueda siempre debe dar resultado.
+     * Lo que no es una categoría ni un tipo de sitio se busca como texto en
+     * Explora, nunca en alojamiento (`rutaDeVertical(null)`).
+     */
+    it('debería buscar el texto en Explora cuando el asistente no reconoce la categoría', async () => {
       component.aiQuery.setValue('algo bonito para mi perro');
       const busqueda = component.buscarConIA();
-      responder({ vertical: null });
+      responder({ vertical: null, ciudad: 'Dénia' });
       await busqueda;
 
-      expect(navigate).not.toHaveBeenCalled();
-      expect(component.aiError()).toContain('categoría');
+      expect(navigate).toHaveBeenCalledWith(['/explora'], {
+        queryParams: { q: 'algo bonito para mi perro', ciudad: 'Dénia' },
+      });
     });
 
-    it('debería avisar sin navegar si la petición falla', async () => {
+    it('debería buscar en Explora aunque la petición falle', async () => {
       component.aiQuery.setValue('peluquería en Valencia');
       const busqueda = component.buscarConIA();
       http.expectOne((r) => r.url.endsWith('/ai-search')).error(new ProgressEvent('error'));
       await busqueda;
 
-      expect(navigate).not.toHaveBeenCalled();
-      expect(component.aiError()).not.toBe('');
+      expect(navigate).toHaveBeenCalledWith(['/explora'], {
+        queryParams: { q: 'peluquería en Valencia', ciudad: null },
+      });
     });
 
     it('no debería lanzar una búsqueda vacía', async () => {

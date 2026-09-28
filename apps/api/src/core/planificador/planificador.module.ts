@@ -5,6 +5,7 @@ import { PlanificadorService } from './planificador.service';
 import { PlanificadorController } from './planificador.controller';
 import { CatalogModule } from '../catalog/catalog.module';
 import { PerrosModule } from '../perros/perros.module';
+import { GeoModule } from '../geo/geo.module';
 
 @Module({
   imports: [
@@ -12,6 +13,8 @@ import { PerrosModule } from '../perros/perros.module';
     // Aporta el modelo `Servicio`, del que salen las paradas reservables.
     CatalogModule,
     PerrosModule,
+    // Centro de la provincia, para buscar servicios cerca cuando no hay en ella.
+    GeoModule,
   ],
   controllers: [PlanificadorController],
   providers: [PlanificadorService],

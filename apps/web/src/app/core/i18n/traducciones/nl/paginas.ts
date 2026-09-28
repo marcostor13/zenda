@@ -102,8 +102,6 @@ const paginas: Diccionario = {
   'Navegación principal': 'Hoofdnavigatie',
   'Navegar en modo privado hace que nada de esto sobreviva al cierre de la ventana.': 'In privémodus surfen betekent dat niets hiervan het sluiten van het venster overleeft.',
   'Ningún plan limita cuántos servicios publicas. El Pro no te deja publicar más: te da más visibilidad y más herramientas para crecer.': 'Geen enkel plan beperkt hoeveel diensten je publiceert. Pro laat je niet méér publiceren: het geeft meer zichtbaarheid en meer groeigereedschap.',
-  'No hemos sabido a qué categoría te refieres. Prueba con los filtros o nombra el servicio (peluquería, veterinario, alojamiento…).': 'We konden niet bepalen welke categorie je bedoelt. Probeer de filters of noem de dienst (trimmen, dierenarts, pension…).',
-  'No pudimos procesar tu búsqueda ahora mismo. Prueba con los filtros.': 'We konden je zoekopdracht nu niet verwerken. Probeer de filters.',
   'o consulta la': 'of bekijk het',
   'o pedir directamente la': 'of rechtstreeks de',
   'Para ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación o portabilidad. Puedes ver el detalle en la': 'Om je rechten op inzage, rectificatie, wissing, bezwaar, beperking of overdraagbaarheid uit te oefenen. De details staan in het',

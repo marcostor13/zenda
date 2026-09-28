@@ -24,6 +24,8 @@ export interface ServicioCard {
   lng?: number;
   /** A cuánto está de la población buscada, cuando es un resultado de "lo más cercano". */
   distanciaKm?: number;
+  /** Km al centro de su población («a 2,3 km del centro»); ausente sin coordenadas. */
+  distanciaCentroKm?: number;
   extra: Record<string, unknown>;
 }
 

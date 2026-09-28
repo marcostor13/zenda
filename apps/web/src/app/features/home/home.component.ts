@@ -168,9 +168,6 @@ type SearchMode = 'filtros' | 'ia';
                   }
                 </div>
 
-                @if (aiError()) {
-                  <p class="ai__error">{{ aiError() }}</p>
-                }
               </form>
             }
           </div>
@@ -866,7 +863,6 @@ type SearchMode = 'filtros' | 'ia';
       &:hover { background: var(--c-accent-lo); color: var(--dk-blue); }
     }
 
-    .ai__error { margin-top: var(--sp-3); font-size: var(--f-sm); color: #B91C1C; }
 
     /* Garantías sobre la franja navy */
     .trust {
@@ -1754,7 +1750,6 @@ export class HomeComponent implements OnInit {
 
   readonly aiQuery = new FormControl('', { nonNullable: true });
   readonly aiLoading = signal(false);
-  readonly aiError = signal('');
 
   /**
    * Claves de traducción, no textos: la plantilla las pasa por `| t` y el
@@ -1932,7 +1927,6 @@ export class HomeComponent implements OnInit {
     if (!query || this.aiLoading()) return;
 
     this.aiLoading.set(true);
-    this.aiError.set('');
 
     try {
       const resultado = await firstValueFrom(
@@ -1956,13 +1950,15 @@ export class HomeComponent implements OnInit {
       }
 
       /*
-       * Sin categoría no se navega. `rutaDeVertical(null)` cae en alojamiento, y
-       * eso convertía una frase no entendida en un listado de residencias
-       * caninas: el usuario creía que el buscador le había contestado. Es mejor
-       * decir que no se ha entendido y dejarle los filtros.
+       * Sin categoría ni tipo de sitio, la frase va tal cual a Explora, que busca
+       * por nombre, población y tipo y, si tampoco encuentra nada, enseña lo que
+       * hay cerca. Antes aquí se mostraba «No hemos sabido a qué categoría te
+       * refieres», y el cliente pidió que una búsqueda **siempre** dé resultado.
+       * No se cae en `rutaDeVertical(null)`: eso es alojamiento, y una frase no
+       * entendida no puede convertirse en un listado de residencias caninas.
        */
       if (!resultado.vertical) {
-        this.aiError.set(this.i18n.t('No hemos sabido a qué categoría te refieres. Prueba con los filtros o nombra el servicio (peluquería, veterinario, alojamiento…).'));
+        this.irAExplora(query, resultado.ciudad);
         return;
       }
 
@@ -1975,9 +1971,14 @@ export class HomeComponent implements OnInit {
         },
       });
     } catch {
-      this.aiError.set(this.i18n.t('No pudimos procesar tu búsqueda ahora mismo. Prueba con los filtros.'));
+      // Sin intérprete también hay respuesta: Explora busca el texto por sí misma.
+      this.irAExplora(query, null);
     } finally {
       this.aiLoading.set(false);
     }
+  }
+
+  private irAExplora(texto: string, ciudad: string | null): void {
+    void this.router.navigate(['/explora'], { queryParams: { q: texto, ciudad } });
   }
 }

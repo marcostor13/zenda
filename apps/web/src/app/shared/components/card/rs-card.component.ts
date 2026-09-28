@@ -87,7 +87,29 @@ export interface CardPrice {
           }
         </div>
         <div class="rs-hotel-card__body">
-          @if (title()) { <h3 class="rs-hotel-card__name">{{ title() }}</h3> }
+          @if (horizontal()) {
+            <!-- Cabecera al estilo Booking: el nombre a la izquierda y la nota
+                 arriba a la derecha, con su etiqueta («Fabuloso») y cuántas
+                 reseñas la sostienen (observación del cliente 28-09). -->
+            <div class="rs-hotel-card__cabecera">
+              @if (title()) { <h3 class="rs-hotel-card__name">{{ title() }}</h3> }
+              @if (!sinValorar() && rating(); as r) {
+                <div class="rs-hotel-card__puntuacion">
+                  <span class="rs-hotel-card__puntuacion-txt">
+                    @if (r.label) { <strong>{{ r.label | t }}</strong> }
+                    @if (r.count) {
+                      <small>{{ (r.count === 1 ? '{n} reseña' : '{n} reseñas') | t: { n: r.count } }}</small>
+                    }
+                  </span>
+                  <span class="rs-hotel-card__puntuacion-nota" [attr.aria-label]="'Nota {nota} sobre 5' | t: { nota: notaLegible() }">
+                    {{ notaLegible() }}
+                  </span>
+                </div>
+              }
+            </div>
+          } @else if (title()) {
+            <h3 class="rs-hotel-card__name">{{ title() }}</h3>
+          }
 
           @if (horizontal()) {
             <!-- Valoración y ubicación en una línea, como en el listado de
@@ -102,8 +124,6 @@ export interface CardPrice {
                 <span>{{ 'Aún sin valoraciones' | t }}</span>
               } @else if (rating(); as r) {
                 <rs-stars [score]="+r.score" [size]="13" />
-                <strong>{{ r.score }}</strong>
-                @if (r.count) { <span>({{ r.count }} {{ r.count === 1 ? 'reseña' : 'reseñas' }})</span> }
               }
               @if (subtitle()) { <span class="rs-hotel-card__meta-loc">· {{ subtitle() }}</span> }
             </p>
@@ -319,6 +339,9 @@ export class RsCardComponent {
     const r = this.rating();
     return !!r && !r.count && !+r.score;
   });
+
+  /** Nota con un decimal y coma, como se escribe en España: «4,6». */
+  readonly notaLegible = computed(() => (+(this.rating()?.score ?? 0)).toFixed(1).replace('.', ','));
 
   get cardClasses(): string {
     const classes = ['rs-card'];

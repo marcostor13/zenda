@@ -304,6 +304,15 @@ const catalogos: Diccionario = {
   'Zona de juegos': 'Zona de jogos',
   'Zona para cachorros': 'Zona para cachorros',
   'Zona para perros mayores': 'Zona para cães idosos',
+  'Tienda de animales': 'Loja de animais',
+  'Admite perros en el interior': 'Admite cães no interior',
+  'Admite perros en la terraza': 'Admite cães na esplanada',
+  'Admite perros en interior y terraza': 'Admite cães no interior e na esplanada',
+  'Zona admitida por confirmar: pregunta al local antes de ir': 'Zona admitida por confirmar: pergunte ao estabelecimento antes de ir',
+  'Dónde admite perros': 'Onde admite cães',
+  'Condiciones': 'Condições',
+  'Cadena': 'Cadeia',
+  'Perros educados': 'Cães educados',
 };
 
 export default catalogos;

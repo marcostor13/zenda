@@ -18,6 +18,7 @@ export interface ServicioCard {
   alphaAdherido?: boolean;
   vertical?: string;
   distanciaKm?: number;
+  distanciaCentroKm?: number;
   extra?: Record<string, unknown>;
 }
 
@@ -33,6 +34,8 @@ export type TipoVehiculoTransporte = 'van_acondicionada' | 'coche' | 'furgon_cli
 export interface TransporteCard {
   /** A cuánto está de la población buscada, en los resultados de "lo más cercano". */
   distanciaKm?: number;
+  /** Km al centro de su población («a 2,3 km del centro»); ausente sin coordenadas. */
+  distanciaCentroKm?: number;
   id: string;
   nombre: string;
   ciudad: string;
@@ -100,6 +103,7 @@ export class TransporteService {
       scoreLabel: s.scoreLabel,
       numResenas: s.numResenas,
       distanciaKm: s.distanciaKm,
+      distanciaCentroKm: s.distanciaCentroKm,
     };
   }
 }

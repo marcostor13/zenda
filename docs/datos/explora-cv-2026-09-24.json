@@ -1,0 +1,947 @@
+{
+  "_descripcion": "Explora con tu mascota — restaurantes pet friendly (primera fase documental, sin confirmar por teléfono: se importan como pendientes de moderación) y tiendas de animales verificadas con los localizadores oficiales de las cadenas (se publican). Fuente: los dos PDF del cliente del 24-09-2026. Lo lee apps/api/src/scripts/sembrar-lugares-explora.ts.",
+  "fecha": "2026-09-24",
+  "lugares": [
+    {
+      "tipo": "restaurante",
+      "nombre": "Amasable",
+      "municipio": "Alacant",
+      "provincia": "Alicante",
+      "direccion": "C/ París, 1",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Baobab Soul Kitchen & Bar",
+      "municipio": "Alacant",
+      "provincia": "Alicante",
+      "direccion": "Av. Santander, 20",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Gioia mia",
+      "municipio": "Alacant",
+      "provincia": "Alicante",
+      "direccion": "Glorieta Deportista Sergio Cardell, 1",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "JevoleCoffee",
+      "municipio": "Alacant",
+      "provincia": "Alicante",
+      "direccion": "C/ José Gutiérrez Petén, 29",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "La Divina Comida Italiana",
+      "municipio": "Alacant",
+      "provincia": "Alicante",
+      "direccion": "Av. Estación, 16",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Restaurante Ábrego",
+      "municipio": "Alacant",
+      "provincia": "Alicante",
+      "direccion": "C/ Esportista Alejandra Quereda, 4",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Scighera Milano San Juan Playa",
+      "municipio": "Alacant",
+      "provincia": "Alicante",
+      "direccion": "Av. Santander, 25",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Lulea",
+      "municipio": "Beniarbeig",
+      "provincia": "Alicante",
+      "direccion": "C/ Riu Girona, 23A",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Con Alma",
+      "municipio": "Dénia",
+      "provincia": "Alicante",
+      "direccion": "C/ Gabriel Moreno, 23",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Restaurante La Torreta",
+      "municipio": "Elda",
+      "provincia": "Alicante",
+      "direccion": "Carretera Elda a Sax, km 3,5",
+      "zonaAdmitida": "terraza",
+      "fuente": "Viajar con perros",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Mestizaje",
+      "municipio": "Elx",
+      "provincia": "Alicante",
+      "direccion": "C/ Mare de Déu dels Desamparats, 13",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Mejías Beach",
+      "municipio": "Pilar de la Horadada",
+      "provincia": "Alicante",
+      "direccion": "Pl. Antonio Sánchez Lozano, 5, Torre de la Horadada",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "La Cuisine de Margherite",
+      "municipio": "Sant Joan d'Alacant",
+      "provincia": "Alicante",
+      "direccion": "C/ Doctor Pérez Mateo, 1",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Restaurante Bahía",
+      "municipio": "Torrevieja",
+      "provincia": "Alicante",
+      "direccion": "Paseo de la Libertad, 3",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Viajar con perros",
+      "estado": "pendiente",
+      "condiciones": "Perros educados"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Casa Aleluya",
+      "municipio": "Xaló",
+      "provincia": "Alicante",
+      "direccion": "Av. Rei Juan Carlos I, 51",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Woody's",
+      "municipio": "Xàbia",
+      "provincia": "Alicante",
+      "direccion": "Av. Arenal",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Trangol",
+      "municipio": "Benicarló",
+      "provincia": "Castellón",
+      "direccion": "C/ València, 19, bajo A, 12580",
+      "zonaAdmitida": "terraza",
+      "fuente": "Web oficial Trangol",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Corpore Sano",
+      "municipio": "Castelló de la Plana",
+      "provincia": "Castellón",
+      "direccion": "C/ Onda, 36",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Kofu",
+      "municipio": "Castelló de la Plana",
+      "provincia": "Castellón",
+      "direccion": "Plaça del Jutge Borrull, 27, bajo 3",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "La Ola",
+      "municipio": "Castelló de la Plana",
+      "provincia": "Castellón",
+      "direccion": "C/ Mar Adriático, s/n, 12100",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Experiences Valencia",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Loca Como Mi Madre",
+      "municipio": "Castelló de la Plana",
+      "provincia": "Castellón",
+      "direccion": "C/ Pintor Oliet, 39",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Brindis",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Salamanca, 40",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Chick Shack",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Cadis, València",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Defecto Bar",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Túria, 36",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Federal Café Valencia",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Embajador Vich, 15",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Viajar con perros",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Garaje Foodie",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Doctor Ferran, 10",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "La Fábrica de Huellas",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Túria, 60",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "Guía Repsol, abril 2025",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "La Pataqueta",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Av. Blasco Ibáñez, 165",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "MILA Restaurante Argentino",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Comte d'Altea, 39",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Papanato Plaza del Mercat",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Pl. del Mercat, 40",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Restaurante Rocalla",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Av. Institut Obrer de València, 20",
+      "zonaAdmitida": "interior",
+      "fuente": "SociDog",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "restaurante",
+      "nombre": "Vicuña",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Luis García-Berlanga Martí, 7",
+      "zonaAdmitida": "por_confirmar",
+      "fuente": "TheFork, consulta septiembre 2026",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Alicante",
+      "provincia": "Alicante",
+      "direccion": "C/ San Vicente 34, Alicante",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Alicante",
+      "provincia": "Alicante",
+      "direccion": "C. Bolulla, 23, 03009 Alicante",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Calpe",
+      "provincia": "Alicante",
+      "direccion": "Av. de los Ejércitos Españoles s/n, Calpe",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Cocentaina",
+      "provincia": "Alicante",
+      "direccion": "Avinguda de l'Altet, 2, 03820 Cocentaina",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "El Poble Nou de Benitatxell",
+      "provincia": "Alicante",
+      "direccion": "Carretera Moraira, 4, 03726 El Poble Nou de Benitatxell",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Elche",
+      "provincia": "Alicante",
+      "direccion": "Calle Mariano Luiña, 2 planta baja, Elche",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Elche",
+      "provincia": "Alicante",
+      "direccion": "Avenida de Crevillente, 31, 03293 Elche",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Finestrat",
+      "provincia": "Alicante",
+      "direccion": "Avenida País Valencià 5, Finestrat",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Finestrat",
+      "provincia": "Alicante",
+      "direccion": "Avenida Federico García Lorca, 20, 03509 Finestrat",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Xàbia",
+      "provincia": "Alicante",
+      "direccion": "Avenida Jaime I, 12, Jávea",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "La Nucía",
+      "provincia": "Alicante",
+      "direccion": "Paseo Pla de Garaita 8, La Nucía",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "Ondara",
+      "provincia": "Alicante",
+      "direccion": "Calle Castell de Castells, 2, P.C. Portal de la Marina, Parcela 7D-L1, 03760 Ondara",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Ondara",
+      "provincia": "Alicante",
+      "direccion": "Avenida Costa Blanca 7, Ondara",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Orihuela",
+      "provincia": "Alicante",
+      "direccion": "Calle Jade, 2, 03189 Orihuela",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Petrer",
+      "provincia": "Alicante",
+      "direccion": "Av. el Guirnei, 10, 03610 Petrer",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "Sant Joan d'Alacant",
+      "provincia": "Alicante",
+      "direccion": "Ctra. Alicante-Valencia, KM 89, junto a Carrefour, 03550 Sant Joan d'Alacant",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Sant Vicent del Raspeig",
+      "provincia": "Alicante",
+      "direccion": "Av. Ancha de Castelar 91, Sant Vicent del Raspeig",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Teulada",
+      "provincia": "Alicante",
+      "direccion": "C.C. El Planet, Carretera Moraira-Teulada 23, Teulada",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Torrevieja",
+      "provincia": "Alicante",
+      "direccion": "Av. Rosa Mazón Valero, 7, 03184 Torrevieja",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Castelló de la Plana",
+      "provincia": "Castellón",
+      "direccion": "C/ Burriana 4, bajo, Castelló de la Plana",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Castelló de la Plana",
+      "provincia": "Castellón",
+      "direccion": "C. Grecia, 2, 12006 Castelló de la Plana",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Alaquàs",
+      "provincia": "Valencia",
+      "direccion": "Av. País Valencià 15, Alaquàs",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Alboraya",
+      "provincia": "Valencia",
+      "direccion": "Av. Ausiàs March, 10, Alboraya",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "Aldaia",
+      "provincia": "Valencia",
+      "direccion": "Carrer de la Carretera d'Aldaia, 3, P.C. Bonaire, 46960 Aldaia",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "Alfafar",
+      "provincia": "Valencia",
+      "direccion": "Calle Alcalde José Puertes, 33, P.C. Alfafar, 46910 Alfafar",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Alfafar",
+      "provincia": "Valencia",
+      "direccion": "Avenida de la Albufera s/n, 46910 Alfafar",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Benetússer",
+      "provincia": "Valencia",
+      "direccion": "Av. Camí Nou 112, Benetússer",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "Burjassot",
+      "provincia": "Valencia",
+      "direccion": "Avenida de la Ilustración, 6, C.C. Ademuz, 46100 Burjassot",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Burjassot",
+      "provincia": "Valencia",
+      "direccion": "Ctra. Llíria 20, Burjassot",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Burjassot",
+      "provincia": "Valencia",
+      "direccion": "Calle Ademuz, Km 2,8, 46100 Burjassot",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "Carcaixent",
+      "provincia": "Valencia",
+      "direccion": "Av. Bressol de la Taronja s/n, C.C. Ribera del Xúquer, 46740 Carcaixent",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Catarroja",
+      "provincia": "Valencia",
+      "direccion": "Av. Camí Reial 107, Catarroja",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Foios",
+      "provincia": "Valencia",
+      "direccion": "C/ Joaquín Muñoz Peirats, 34, Foios",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "Gandia",
+      "provincia": "Valencia",
+      "direccion": "Calle Exportació, P.C. Myo Gandia, 21-L-10B, 46702 Gandia",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Gandia",
+      "provincia": "Valencia",
+      "direccion": "Avenida de la Vital 3, Gandia",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Godella",
+      "provincia": "Valencia",
+      "direccion": "Pol. Ind. D'Obradors, Carrer Fusters, 11, Godella",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Massanassa",
+      "provincia": "Valencia",
+      "direccion": "Avenida Generalitat Valenciana 18, Massanassa",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Mislata",
+      "provincia": "Valencia",
+      "direccion": "Av. Gregorio Gea 32, Mislata",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Quart de Poblet",
+      "provincia": "Valencia",
+      "direccion": "C/ Villalba de Lugo 8, Quart de Poblet",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Sagunt",
+      "provincia": "Valencia",
+      "direccion": "C.C. L'Epicentre, Av. Advocat Fausto Caruana, 37, Local 1108A, Sagunt",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Tiendanimal",
+      "municipio": "Sagunt",
+      "provincia": "Valencia",
+      "direccion": "Parque Comercial Vida Nova Park, 46500 Sagunt",
+      "cadena": "Tiendanimal",
+      "fuente": "Localizador oficial de Tiendanimal (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Torrent",
+      "provincia": "Valencia",
+      "direccion": "C/ San Fermín 3, Torrent",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Calle Conde de Salvatierra, 7, 46004 València",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Calle Menorca, 19, C.C. Aqua Multiespacio, 46023 València",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Calle Santa Genoveva Torres s/n, C.C. Arena, Local S-16, 46019 València",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Av. Gaspar Aguilar 62, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Av. de la Plata 87, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Av. del Oeste 38 BJ 1, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Císcar 48, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Jesús 101, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ José María Mortes Lerma 34, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Marino Sirera 6, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Quart 112, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Rodríguez de Cepeda 37, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Sagunto 164, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ San Vicente Mártir 129, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ Santos Justo y Pastor 90, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "C/ de Menorca 15 bajo, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "València",
+      "provincia": "Valencia",
+      "direccion": "Dr. Vicente Zaragoza, 17, València",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Xirivella",
+      "provincia": "Valencia",
+      "direccion": "Av. Camí Nou 9, Xirivella",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Kiwoko",
+      "municipio": "Xàtiva",
+      "provincia": "Valencia",
+      "direccion": "Calle Braçal de les Dones s/n, P.C. La Vila, 46800 Xàtiva",
+      "cadena": "Kiwoko",
+      "fuente": "Localizador oficial de Kiwoko (24/09/2026)",
+      "estado": "publicado"
+    },
+    {
+      "tipo": "tienda",
+      "nombre": "Miscota",
+      "municipio": "Xàtiva",
+      "provincia": "Valencia",
+      "direccion": "Baixada de l'Estació 19, derecha, Xàtiva",
+      "cadena": "Miscota",
+      "fuente": "Localizador oficial de Miscota (24/09/2026)",
+      "estado": "publicado"
+    }
+  ]
+}

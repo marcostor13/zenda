@@ -5,6 +5,7 @@ import {
   ActualizarLugarDto, CrearLugarDto, CrearLugarReviewDto, EstadoModeracion, ModerarDto, regexLiteral,
   TipoLugar,
 } from 'shared';
+import { condicionTextoLugar } from './busqueda-texto';
 import { Lugar, LugarDocument } from './lugar.schema';
 import { LugarReview, LugarReviewDocument } from './lugar-review.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
@@ -12,6 +13,8 @@ import { pareceObjectId, slugDeLugar, slugLibre } from './slug.util';
 import { condicionCiudadTexto } from '../../shared/filtro-ciudad';
 
 export interface BuscarLugaresParams {
+  /** Texto libre: nombre, población, dirección o tipo («tienda», «cafetería»…). */
+  q?: string;
   tipo?: TipoLugar;
   ciudad?: string;
   provincia?: string;
@@ -30,7 +33,7 @@ export interface BuscarLugaresParams {
  * junto a las duchas y el aparcamiento. El dato sigue siendo útil para saber de
  * dónde vino un registro, así que se conserva en la base y se filtra al salir.
  */
-export const ATRIBUTOS_INTERNOS: readonly string[] = ['fuente', 'origen', 'importadoDe'];
+export const ATRIBUTOS_INTERNOS: readonly string[] = ['fuente', 'fechaFuente', 'origen', 'importadoDe'];
 
 /** Proyección que deja fuera los atributos internos en las lecturas públicas. */
 const SIN_ATRIBUTOS_INTERNOS = ATRIBUTOS_INTERNOS.map((clave) => `-atributos.${clave}`).join(' ');
@@ -46,10 +49,33 @@ export class LugaresService {
     @InjectModel(LugarReview.name) private readonly reviewModel: Model<LugarReviewDocument>,
   ) {}
 
-  /** Solo devuelve lo aprobado: el contenido pendiente no es público. */
+  /**
+   * Solo devuelve lo aprobado: el contenido pendiente no es público.
+   *
+   * Con texto libre se exige primero que **todas** las palabras casen; si así
+   * no sale nada, basta con **alguna**. El buscador de la portada manda aquí lo
+   * que no entiende, y una búsqueda vacía por una palabra de más («tienda de
+   * piensos en Dénia») es justo lo que el cliente pidió evitar.
+   */
   async buscar(params: BuscarLugaresParams): Promise<LugarDocument[]> {
+    if (!params.q?.trim()) return this.buscarCon(params, null);
+
+    const todas = condicionTextoLugar<LugarDocument>(params.q, 'todas');
+    if (!todas) return this.buscarCon(params, null);
+    const resultado = await this.buscarCon(params, todas);
+    if (resultado.length) return resultado;
+
+    const alguna = condicionTextoLugar<LugarDocument>(params.q, 'alguna');
+    return alguna ? this.buscarCon(params, alguna) : [];
+  }
+
+  private async buscarCon(
+    params: BuscarLugaresParams,
+    condicionTexto: FilterQuery<LugarDocument> | null,
+  ): Promise<LugarDocument[]> {
     const limit = Math.min(LIMITE_MAXIMO, Math.max(1, params.limit ?? LIMITE_POR_DEFECTO));
     const filtro: FilterQuery<LugarDocument> = { estado: EstadoModeracion.PUBLICADO };
+    if (condicionTexto) Object.assign(filtro, condicionTexto);
 
     if (params.tipo) filtro.tipo = params.tipo;
     // Por variantes del nombre y no por el texto literal: quien busca en

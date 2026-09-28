@@ -84,14 +84,28 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
     necesita para tener un encabezado.
   -->
   <div class="rs-wrap">
-    <section class="ls__reclamo">
+    <section class="ls__reclamo" [class.ls__reclamo--calido]="reclamoFirma() || reclamoLema()">
       <span class="ls__reclamo-art" aria-hidden="true">
         <img [src]="reclamoIcono()" alt="" />
       </span>
       <div class="ls__reclamo-txt">
-        <h1>{{ reclamoTitulo() || titulo() }}</h1>
-        <p>{{ reclamoTexto() || subtitulo() }}</p>
+        <h1>{{ (reclamoTitulo() || titulo()) | t }}</h1>
+        <p>{{ (reclamoTexto() || subtitulo()) | t }}</p>
       </div>
+      @if (reclamoFirma()) {
+        <p class="ls__reclamo-firma">
+          {{ reclamoFirma() | t }}
+          <svg class="ls__reclamo-corazon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20.5c-5-3.3-8.5-6.6-8.5-10.3a4.6 4.6 0 0 1 8.5-2.5 4.6 4.6 0 0 1 8.5 2.5c0 3.7-3.5 7-8.5 10.3Z" />
+          </svg>
+          <svg class="ls__reclamo-trazo" viewBox="0 0 120 16" aria-hidden="true">
+            <path d="M4 12c30-9 70-11 112-6" />
+          </svg>
+        </p>
+      }
+      @if (reclamoLema()) {
+        <p class="ls__reclamo-lema">{{ reclamoLema() | t }}</p>
+      }
     </section>
   </div>
 
@@ -339,6 +353,65 @@ export const ORDENES_POR_DEFECTO: readonly OpcionOrden[] = [
       color: var(--t-300);
       line-height: 1.6;
       max-width: 62ch;
+    }
+
+    /* Variante cálida (despedida): círculo lila, firma manuscrita y lema en
+       versales a la derecha, como en el diseño que pidió el cliente. */
+    .ls__reclamo--calido {
+      background: var(--c-crema);
+      border-color: var(--c-crema-borde);
+
+      .ls__reclamo-art {
+        background: var(--dk-lila-soft);
+        box-shadow: none;
+      }
+      .ls__reclamo-txt { flex: 1; }
+    }
+    .ls__reclamo-firma {
+      position: relative;
+      flex: none;
+      font-family: var(--font-script);
+      font-size: var(--f-xl);
+      line-height: 1.1;
+      color: var(--dk-lila);
+      transform: rotate(-8deg);
+      max-width: 9ch;
+      text-align: center;
+      padding-bottom: var(--sp-3);
+    }
+    .ls__reclamo-corazon {
+      display: inline-block;
+      width: 1em; height: 1em;
+      vertical-align: -.1em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+    }
+    .ls__reclamo-trazo {
+      position: absolute;
+      left: 0; bottom: 0;
+      width: 100%; height: var(--sp-3);
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.4;
+      stroke-linecap: round;
+    }
+    .ls__reclamo-lema {
+      flex: none;
+      max-width: 14ch;
+      padding-bottom: var(--sp-2);
+      border-bottom: 2px solid var(--dk-gold);
+      font-family: var(--font-accent);
+      font-size: var(--f-xs);
+      font-weight: var(--w-7);
+      letter-spacing: .08em;
+      line-height: 1.6;
+      text-transform: uppercase;
+      color: var(--t-300);
+    }
+
+    @media (max-width: 900px) {
+      .ls__reclamo-firma, .ls__reclamo-lema { display: none; }
     }
 
     @media (max-width: 700px) {
@@ -677,6 +750,9 @@ export class RsListadoComponent {
   readonly reclamoTitulo = input('');
   readonly reclamoTexto = input('');
   readonly reclamoIcono = input('');
+  /** Firma manuscrita y lema en versales; sólo los pintan los reclamos cálidos. */
+  readonly reclamoFirma = input('');
+  readonly reclamoLema = input('');
   /** Categoría; decide los grupos del panel de filtros. */
   readonly vertical = input.required<string>();
 

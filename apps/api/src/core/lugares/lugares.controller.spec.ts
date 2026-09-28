@@ -39,10 +39,10 @@ describe('LugaresController', () => {
 
   describe('buscar', () => {
     it('debería convertir a número las coordenadas y límites que llegan como texto', async () => {
-      await controller.buscar(TipoLugar.PLAYA, 'Madrid', 'Madrid', '40.4', '-3.7', '10', '25');
+      await controller.buscar(undefined, TipoLugar.PLAYA, 'Madrid', 'Madrid', '40.4', '-3.7', '10', '25');
 
       expect(service.buscar).toHaveBeenCalledWith({
-        tipo: TipoLugar.PLAYA, ciudad: 'Madrid', provincia: 'Madrid',
+        q: undefined, tipo: TipoLugar.PLAYA, ciudad: 'Madrid', provincia: 'Madrid',
         lat: 40.4, lng: -3.7, radioKm: 10, limit: 25,
       });
     });
@@ -51,20 +51,26 @@ describe('LugaresController', () => {
       await controller.buscar();
 
       expect(service.buscar).toHaveBeenCalledWith({
-        tipo: undefined, ciudad: undefined, provincia: undefined,
+        q: undefined, tipo: undefined, ciudad: undefined, provincia: undefined,
         lat: undefined, lng: undefined, radioKm: undefined, limit: undefined,
       });
     });
 
     it('debería ignorar un valor numérico no válido en vez de mandar NaN', async () => {
-      await controller.buscar(undefined, undefined, undefined, 'no-es-un-numero');
+      await controller.buscar(undefined, undefined, undefined, undefined, 'no-es-un-numero');
 
       expect(service.buscar.mock.calls[0][0].lat).toBeUndefined();
     });
 
+    it('debería recortar el texto libre para no construir expresiones enormes', async () => {
+      await controller.buscar('x'.repeat(500));
+
+      expect(service.buscar.mock.calls[0][0].q).toHaveLength(120);
+    });
+
     it('debería conservar el cero como valor legítimo de coordenada', async () => {
       // El meridiano de Greenwich es lng 0: tratarlo como "ausente" movería el mapa.
-      await controller.buscar(undefined, undefined, undefined, '0', '0');
+      await controller.buscar(undefined, undefined, undefined, undefined, '0', '0');
 
       expect(service.buscar.mock.calls[0][0]).toEqual(
         expect.objectContaining({ lat: 0, lng: 0 }),

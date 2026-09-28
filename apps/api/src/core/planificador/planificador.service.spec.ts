@@ -2,11 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Types } from 'mongoose';
-import { VerticalKey } from 'shared';
+import { AlojamientoViaje, DesplazamientoViaje, RitmoViaje, VerticalKey } from 'shared';
 import { PlanificadorService } from './planificador.service';
 import { Servicio } from '../catalog/servicio.schema';
 import { Lugar } from '../lugares/lugar.schema';
 import { PerrosService } from '../perros/perros.service';
+import { CentrosPoblacionService } from '../geo/centros-poblacion.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
 const LUGAR_ID = new Types.ObjectId();
@@ -20,8 +21,9 @@ const servicio = {
 
 describe('PlanificadorService', () => {
   let service: PlanificadorService;
-  let servicioModel: { find: jest.Mock };
-  let lugarModel: { find: jest.Mock };
+  let servicioModel: { find: jest.Mock; aggregate: jest.Mock };
+  let lugarModel: { find: jest.Mock; aggregate: jest.Mock };
+  let centrosPoblacion: { centroDe: jest.Mock };
   let perrosService: { obtenerPropio: jest.Mock };
   let fetchMock: jest.Mock;
 
@@ -40,6 +42,7 @@ describe('PlanificadorService', () => {
         { provide: getModelToken(Servicio.name), useValue: servicioModel },
         { provide: getModelToken(Lugar.name), useValue: lugarModel },
         { provide: PerrosService, useValue: perrosService },
+        { provide: CentrosPoblacionService, useValue: centrosPoblacion },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(apiKey) } },
       ],
     }).compile();
@@ -54,8 +57,9 @@ describe('PlanificadorService', () => {
   };
 
   beforeEach(async () => {
-    servicioModel = { find: jest.fn().mockReturnValue(cadena([servicio])) };
-    lugarModel = { find: jest.fn().mockReturnValue(cadena([lugar])) };
+    servicioModel = { find: jest.fn().mockReturnValue(cadena([servicio])), aggregate: jest.fn() };
+    lugarModel = { find: jest.fn().mockReturnValue(cadena([lugar])), aggregate: jest.fn() };
+    centrosPoblacion = { centroDe: jest.fn().mockResolvedValue(null) };
     perrosService = { obtenerPropio: jest.fn() };
 
     fetchMock = jest.fn();
@@ -216,6 +220,127 @@ describe('PlanificadorService', () => {
       await expect(
         service.generar({ provincia: 'Cádiz', perroId: 'p1' }, 'user-1'),
       ).resolves.toBeDefined();
+    });
+  });
+
+  /*
+   * Observación del cliente 28-09: más preguntas para afinar el itinerario y
+   * que el plan termine siempre en un servicio de la plataforma.
+   */
+  describe('preguntas del viaje', () => {
+    beforeEach(async () => {
+      service = await crear(undefined);
+    });
+
+    it('debería buscar servicios por provincia y no sólo por la ciudad que se llama igual', async () => {
+      await service.generar({ provincia: 'Alicante', municipio: 'Dénia' });
+
+      const filtro = servicioModel.find.mock.calls[0][0] as { $or: Array<Record<string, RegExp>> };
+      expect(filtro.$or.map((c) => Object.keys(c)[0])).toEqual([
+        'ubicacion.provincia', 'ubicacion.ciudad', 'ubicacion.ciudad',
+      ]);
+      expect(filtro).toMatchObject({ comercioActivo: true });
+    });
+
+    it('debería buscar primero las categorías que el viaje necesita', async () => {
+      await service.generar({
+        provincia: 'Alicante',
+        desplazamiento: DesplazamientoViaje.TRANSPORTE_MASCOTA,
+        serviciosExtra: [VerticalKey.PELUQUERIA],
+      });
+
+      const filtro = servicioModel.find.mock.calls[0][0] as { vertical: { $in: string[] } };
+      expect(filtro.vertical.$in).toEqual([
+        VerticalKey.TRANSPORTE, VerticalKey.ALOJAMIENTO, VerticalKey.HOTELES, VerticalKey.PELUQUERIA,
+      ]);
+    });
+
+    it('debería buscar servicios alrededor si la provincia no tiene ninguno', async () => {
+      servicioModel.find
+        .mockReturnValueOnce(cadena([]))
+        .mockReturnValueOnce(cadena([]))
+        .mockReturnValueOnce(cadena([servicio]));
+      centrosPoblacion.centroDe.mockResolvedValue({ lat: 38.84, lng: 0.1 });
+
+      const respuesta = await service.generar({ provincia: 'Alicante' });
+
+      const filtro = servicioModel.find.mock.calls[2][0] as Record<string, unknown>;
+      expect(filtro['ubicacion.geo']).toBeDefined();
+      expect(respuesta.serviciosSugeridos[0].servicioId).toBe(String(SERVICIO_ID));
+    });
+
+    it('debería filtrar los lugares por los intereses elegidos', async () => {
+      await service.generar({ provincia: 'Cádiz', intereses: ['playa', 'no-existe'] });
+
+      expect(lugarModel.find.mock.calls[0][0]).toMatchObject({ tipo: { $in: ['playa'] } });
+    });
+
+    it('debería armar tantos días como abarcan las fechas', async () => {
+      const respuesta = await service.generar({ provincia: 'Cádiz', desde: '2026-10-01', hasta: '2026-10-03' });
+
+      expect(respuesta.opciones[0].dias).toHaveLength(3);
+    });
+
+    it('debería terminar en un servicio aunque ya tenga alojamiento', async () => {
+      const respuesta = await service.generar({
+        provincia: 'Cádiz', alojamiento: AlojamientoViaje.YA_LO_TENGO, ritmo: RitmoViaje.TRANQUILO,
+      });
+
+      const paradas = respuesta.opciones[0].dias.flatMap((d) => d.paradas);
+      expect(paradas.some((p) => p.servicioId)).toBe(true);
+      expect(respuesta.serviciosSugeridos).toHaveLength(1);
+    });
+
+    it('no debería compartir caché entre viajes con distinto ritmo', async () => {
+      await service.generar({ provincia: 'Cádiz', ritmo: RitmoViaje.TRANQUILO });
+      await service.generar({ provincia: 'Cádiz', ritmo: RitmoViaje.INTENSO });
+
+      expect(lugarModel.find).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('con IA y sin servicios en su plan', () => {
+    it('debería añadir un servicio reservable a la opción que no trae ninguno', async () => {
+      respuestaIA({
+        opciones: [{
+          nombre: 'Sólo playas', resumen: 'x', presupuestoEstimado: 0,
+          dias: [{ dia: 1, titulo: 'Día 1', paradas: [{ titulo: 'P', descripcion: '', tipo: 'lugar', lugarId: String(LUGAR_ID) }] }],
+        }],
+      });
+
+      const respuesta = await service.generar({ provincia: 'Cádiz' });
+
+      const paradas = respuesta.opciones[0].dias[0].paradas;
+      expect(paradas.at(-1)?.servicioId).toBe(String(SERVICIO_ID));
+    });
+  });
+
+  describe('destinos', () => {
+    it('debería unir provincias de lugares y servicios sin duplicarlas y ordenarlas por contenido', async () => {
+      lugarModel.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([
+        { _id: 'Castellón', n: 21 }, { _id: 'Alicante', n: 60 },
+      ]) });
+      servicioModel.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([
+        { _id: 'castellon', n: 4 }, { _id: 'Madrid', n: 2 },
+      ]) });
+
+      const destinos = await service.destinos();
+
+      expect(destinos).toEqual([
+        { provincia: 'Alicante', lugares: 60, servicios: 0 },
+        { provincia: 'Castellón', lugares: 21, servicios: 4 },
+        { provincia: 'Madrid', lugares: 0, servicios: 2 },
+      ]);
+    });
+
+    it('debería guardar los destinos una hora para no recontarlos en cada visita', async () => {
+      lugarModel.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+      servicioModel.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+
+      await service.destinos();
+      await service.destinos();
+
+      expect(lugarModel.aggregate).toHaveBeenCalledTimes(1);
     });
   });
 });

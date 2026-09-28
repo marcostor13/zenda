@@ -101,7 +101,7 @@ describe('MonedaService', () => {
 
       service.elegirMoneda('GBP');
 
-      expect(service.formatear(100)).toBe('84,00\u00a0£');
+      expect(service.formatear(100)).toBe('≈ 84,00\u00a0£');
     });
 
     it('debería devolver un guion cuando no hay importe', () => {

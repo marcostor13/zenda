@@ -184,14 +184,18 @@ test.describe('O2 · Búsqueda con IA', () => {
     await expect(page).toHaveURL(/\/peluqueria\?.*ciudad=Valencia/);
   });
 
-  /** Sin categoría reconocida ya no se navega a ciegas: se dice que no se entendió. */
+  /**
+   * Sin categoría reconocida no se navega a ciegas a alojamiento. Desde la
+   * observación del 28-09 tampoco se contesta «no te he entendido»: la frase
+   * se busca como texto en Explora, que siempre enseña algo.
+   */
   test('no debería caer en alojamiento cuando no reconoce la categoría', async ({ page }) => {
     await interceptarApi(page, {
       'POST /ai-search': {
         cuerpo: {
           vertical: null, ciudad: null, desde: null, hasta: null,
           presupuestoMax: null, pasajeros: null, extras: {},
-          explicacion: 'No hemos sabido concretar la búsqueda; ajusta los filtros.',
+          explicacion: 'Te enseñamos lo que encaja en Explora con tu mascota.',
         },
       },
     });
@@ -201,7 +205,7 @@ test.describe('O2 · Búsqueda con IA', () => {
     await page.locator('.ai__input').fill('algo bonito para mi perro');
     await page.locator('.ai__btn').click();
 
-    await expect(page.locator('.ai__error')).toBeVisible();
+    await expect(page).toHaveURL(/\/explora\?.*q=algo/);
     await expect(page).not.toHaveURL(/\/alojamiento/);
   });
 });

@@ -102,8 +102,6 @@ const paginas: Diccionario = {
   'Navegación principal': 'Navigazione principale',
   'Navegar en modo privado hace que nada de esto sobreviva al cierre de la ventana.': 'Navigare in modalità privata fa sì che nulla di questo sopravviva alla chiusura della finestra.',
   'Ningún plan limita cuántos servicios publicas. El Pro no te deja publicar más: te da más visibilidad y más herramientas para crecer.': 'Nessun piano limita quanti servizi pubblichi. Pro non ti fa pubblicare di più: ti dà più visibilità e più strumenti per crescere.',
-  'No hemos sabido a qué categoría te refieres. Prueba con los filtros o nombra el servicio (peluquería, veterinario, alojamiento…).': 'Non abbiamo capito a quale categoria ti riferisci. Prova con i filtri o indica il servizio (toelettatura, veterinario, pensione…).',
-  'No pudimos procesar tu búsqueda ahora mismo. Prueba con los filtros.': 'Non siamo riusciti a elaborare la tua ricerca ora. Prova con i filtri.',
   'o consulta la': 'oppure consulta la',
   'o pedir directamente la': 'oppure richiedere direttamente la',
   'Para ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación o portabilidad. Puedes ver el detalle en la': 'Per esercitare i tuoi diritti di accesso, rettifica, cancellazione, opposizione, limitazione o portabilità. Trovi il dettaglio nella',

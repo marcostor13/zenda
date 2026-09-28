@@ -44,10 +44,12 @@ const SUGERENCIAS = [
  * panel de reserva de las fichas, el botón de "Reservar"— y un flotante encima
  * de eso estorba justo donde no se puede estorbar.
  *
- * **Sólo en escritorio.** Por debajo de 1024 px la parte de abajo de la
- * pantalla ya la ocupan barras fijas —la de reservar de las fichas, la
- * navegación de la app instalada—, y un botón flotante ahí taparía el precio o
- * la acción. En móvil el centro de ayuda sigue a un toque desde la cabecera.
+ * **También en móvil** (observación del cliente 28-09: «el flotante de ayuda
+ * no aparece en el móvil»). Antes se ocultaba por debajo de 1024 px para no
+ * tapar las barras fijas de abajo —la de reservar de las fichas, la navegación
+ * de la app instalada—. Ahora se sube por encima de ellas
+ * (`--dk-nav-inferior-h` y `--dk-barra-reserva-h`), se queda en un círculo sin
+ * etiqueta y el panel abierto ocupa la pantalla entera.
  */
 @Component({
   selector: 'rs-asistente',
@@ -136,18 +138,13 @@ const SUGERENCIAS = [
 </div>
   `,
   styles: [`
-    /*
-      Fuera de escritorio no se pinta: por debajo de 1024 px la parte de abajo
-      ya la ocupan la barra de reservar de las fichas y la navegación de la app
-      instalada, y un flotante ahí taparía el precio o la acción.
-    */
-    :host { display: none; }
-    @media (min-width: 1025px) { :host { display: block; } }
+    :host { display: block; }
 
     .as {
       position: fixed;
       left: var(--sp-5);
-      bottom: var(--sp-5);
+      /* Encima de la navegación de la app y de la barra de reservar, si las hay. */
+      bottom: calc(var(--sp-5) + var(--dk-nav-inferior-h, 0px) + var(--dk-barra-reserva-h, 0px));
       z-index: var(--z-4);
       display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3);
     }
@@ -206,6 +203,25 @@ const SUGERENCIAS = [
       porque entonces la pregunta ya está contestada dentro del panel.
     */
     .as__lanzador-txt { white-space: nowrap; margin-inline-start: var(--sp-2); }
+
+    /*
+      Móvil: un círculo de icono, sin la etiqueta —la pastilla se come el ancho
+      de las tarjetas— y el panel a pantalla completa, como los chats de las
+      apps. El foco del teclado virtual deja sitio porque el alto es dvh.
+    */
+    @media (max-width: 1024px) {
+      .as { left: var(--sp-4); }
+      .as__lanzador { --as-lado: 48px; }
+      .as__lanzador-txt { display: none; }
+      .as:has(.as__panel) .as__lanzador { display: none; }
+      .as__panel {
+        position: fixed; inset: 0;
+        width: auto; max-height: none; height: 100dvh;
+        border: 0; border-radius: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: var(--c-card);
+      }
+    }
 
     @media (prefers-reduced-motion: reduce) {
       .as__lanzador { transition: none; }

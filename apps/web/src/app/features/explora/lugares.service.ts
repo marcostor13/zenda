@@ -50,6 +50,8 @@ export interface LugarReviewApi {
 }
 
 export interface FiltrosLugares {
+  /** Texto libre: nombre, población, dirección o tipo. */
+  q?: string;
   tipo?: TipoLugar;
   ciudad?: string;
   provincia?: string;
@@ -66,6 +68,7 @@ export class LugaresService {
 
   buscar(filtros: FiltrosLugares = {}): Promise<LugarApi[]> {
     const params: Record<string, string> = {};
+    if (filtros.q) params['q'] = filtros.q;
     if (filtros.tipo) params['tipo'] = filtros.tipo;
     if (filtros.ciudad) params['ciudad'] = filtros.ciudad;
     if (filtros.provincia) params['provincia'] = filtros.provincia;

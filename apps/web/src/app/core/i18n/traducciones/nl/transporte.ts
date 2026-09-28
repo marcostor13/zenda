@@ -438,7 +438,6 @@ const transporte: Diccionario = {
   'Vehículo climatizado': 'Voertuig met airco',
   'Ver detalles': 'Details bekijken',
   'Ver en el mapa': 'Op de kaart bekijken',
-  'Ver ficha y calcular precio': 'Profiel bekijken en prijs berekenen',
   'Ver mi reserva': 'Mijn boeking bekijken',
   'Ver mis presupuestos': 'Mijn offertes bekijken',
   'Ver política': 'Beleid bekijken',

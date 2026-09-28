@@ -102,8 +102,6 @@ const paginas: Diccionario = {
   'Navegación principal': 'Main navigation',
   'Navegar en modo privado hace que nada de esto sobreviva al cierre de la ventana.': 'Browsing in private mode means none of this survives closing the window.',
   'Ningún plan limita cuántos servicios publicas. El Pro no te deja publicar más: te da más visibilidad y más herramientas para crecer.': 'No plan limits how many services you publish. Pro does not let you publish more: it gives you more visibility and more tools to grow.',
-  'No hemos sabido a qué categoría te refieres. Prueba con los filtros o nombra el servicio (peluquería, veterinario, alojamiento…).': 'We could not tell which category you mean. Try the filters, or name the service (grooming, vet, boarding…).',
-  'No pudimos procesar tu búsqueda ahora mismo. Prueba con los filtros.': 'We could not process your search right now. Try the filters.',
   'o consulta la': 'or see the',
   'o pedir directamente la': 'or request the',
   'Para ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación o portabilidad. Puedes ver el detalle en la': 'To exercise your rights of access, rectification, erasure, objection, restriction or portability. You can see the detail in the',
