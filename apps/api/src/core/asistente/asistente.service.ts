@@ -2,9 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ConsultaAsistenteDto, RespuestaAsistenteApi } from 'shared';
 import { CONOCIMIENTO_DOOGKING } from './conocimiento';
+import { BusquedaPlataforma, BusquedaPlataformaService } from './busqueda-plataforma.service';
 
 /** Turnos que se le mandan al modelo: los últimos, no la conversación entera. */
 const TURNOS_DE_CONTEXTO = 6;
+
+/** Un mensaje en el formato de chat compartido por DeepSeek y OpenAI. */
+interface MensajeModelo {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
 
 /** Proveedor de IA resuelto al arrancar. */
 interface Proveedor {
@@ -34,9 +41,17 @@ una última línea con este formato exacto, y nada más después:
 ENLACES: Texto del enlace|/ruta ; Otro texto|/otra-ruta
 
 Rutas que existen: / (portada), /alojamiento, /hoteles, /veterinaria,
-/peluqueria, /adiestramiento, /transporte, /seguros, /funerarios, /perros
-(mis perros), /reservas/mis (mis reservas), /favoritos, /perfil, /ayuda,
-/para-comercios, /panel-comercio (panel del negocio).`;
+/peluqueria, /adiestramiento, /transporte, /seguros, /funerarios, /explora
+(playas, parques, restaurantes, tiendas, rutas y ríos para ir con el perro),
+/explora/planificador, /perros (mis perros), /reservas (mis reservas),
+/favoritos, /perfil, /ayuda, /para-comercios, /comercio (panel del negocio).
+
+Cuando la base de conocimiento incluya "RESULTADOS DE LA PLATAFORMA", esas son
+opciones reales que el usuario ya ve como tarjetas debajo de tu respuesta:
+preséntalas en una o dos frases (puedes nombrar las dos primeras), no copies la
+lista entera ni inventes datos que no estén ahí, y no añadas línea ENLACES. Si
+la búsqueda no encontró nada, dilo y propone otra población o la categoría
+entera. Nunca digas que Doogking no tiene algo que aparezca en el inventario.`;
 
 /**
  * El asistente de la web: responde dudas sobre Doogking y guía por sus
@@ -53,7 +68,10 @@ export class AsistenteService {
   private readonly logger = new Logger(AsistenteService.name);
   private readonly proveedor?: Proveedor;
 
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly plataforma: BusquedaPlataformaService,
+  ) {
     const deepseek = config.get<string>('DEEPSEEK_API_KEY');
     const openai = config.get<string>('OPENAI_API_KEY');
 
@@ -73,13 +91,19 @@ export class AsistenteService {
   }
 
   async responder(consulta: ConsultaAsistenteDto): Promise<RespuestaAsistenteApi> {
-    if (!this.proveedor) return this.sinProveedor();
+    const busqueda = await this.buscarEnPlataforma(consulta.pregunta);
+    if (!this.proveedor) return this.sinProveedor(busqueda);
 
     try {
-      const texto = await this.preguntarAlModelo(consulta, this.proveedor);
-      return { disponible: true, ...this.separarEnlaces(texto) };
+      const inventario = await this.plataforma.inventarioComoTexto();
+      const texto = await this.preguntarAlModelo(
+        this.conversacion(consulta, this.contextoPlataforma(inventario, busqueda)),
+        this.proveedor,
+      );
+      return { disponible: true, ...this.separarEnlaces(texto), ...this.tarjetas(busqueda) };
     } catch (error) {
       this.logger.error('El asistente no pudo responder', error);
+      if (busqueda) return { disponible: true, respuesta: this.textoDeBusqueda(busqueda), ...this.tarjetas(busqueda) };
       return {
         disponible: true,
         respuesta: 'Ahora mismo no puedo contestarte. Vuelve a intentarlo en un momento '
@@ -89,7 +113,39 @@ export class AsistenteService {
     }
   }
 
-  private sinProveedor(): RespuestaAsistenteApi {
+  /** Una caída de la base no debe dejar al asistente sin contestar. */
+  private async buscarEnPlataforma(pregunta: string): Promise<BusquedaPlataforma | null> {
+    try {
+      return await this.plataforma.buscar(pregunta);
+    } catch (error) {
+      this.logger.warn(`Búsqueda del asistente fallida: ${String(error)}`);
+      return null;
+    }
+  }
+
+  private tarjetas(busqueda: BusquedaPlataforma | null): Partial<RespuestaAsistenteApi> {
+    if (!busqueda) return {};
+    return {
+      ...(busqueda.resultados.length ? { resultados: busqueda.resultados } : {}),
+      verTodos: busqueda.verTodos,
+    };
+  }
+
+  /**
+   * Sin modelo, las opciones se presentan con una frase fija: las tarjetas
+   * son la respuesta y no necesitan a nadie que las redacte.
+   */
+  private textoDeBusqueda(busqueda: BusquedaPlataforma): string {
+    return busqueda.resultados.length
+      ? `Esto es lo que hay en Doogking (${busqueda.descripcion}):`
+      : `Ahora mismo no hay resultados de ${busqueda.descripcion} en Doogking. `
+        + 'Prueba con otra población o mira la categoría entera.';
+  }
+
+  private sinProveedor(busqueda: BusquedaPlataforma | null): RespuestaAsistenteApi {
+    if (busqueda) {
+      return { disponible: true, respuesta: this.textoDeBusqueda(busqueda), ...this.tarjetas(busqueda) };
+    }
     return {
       disponible: false,
       respuesta: 'El asistente no está disponible en este momento. En el centro de ayuda '
@@ -98,13 +154,33 @@ export class AsistenteService {
     };
   }
 
-  private async preguntarAlModelo(consulta: ConsultaAsistenteDto, proveedor: Proveedor): Promise<string> {
+  /** Datos vivos de la plataforma que se añaden a la base de conocimiento. */
+  private contextoPlataforma(inventario: string, busqueda: BusquedaPlataforma | null): string {
+    const partes: string[] = [];
+    if (inventario) partes.push(`## Lo que hay publicado en Doogking\n${inventario}`);
+    if (busqueda) partes.push(this.resultadosComoTexto(busqueda));
+    return partes.join('\n\n');
+  }
+
+  private resultadosComoTexto(busqueda: BusquedaPlataforma): string {
+    const lineas = busqueda.resultados.map((r) => {
+      const precio = r.precioDesde != null ? `, desde ${r.precioDesde} €` : '';
+      const nota = r.nota != null ? `, nota ${r.nota}/5 (${r.numResenas} reseñas)` : '';
+      return `- ${r.titulo} (${r.ciudad}${precio}${nota})`;
+    });
+    return [
+      `## RESULTADOS DE LA PLATAFORMA para "${busqueda.descripcion}"`,
+      ...(lineas.length ? lineas : ['- Ninguno.']),
+    ].join('\n');
+  }
+
+  private async preguntarAlModelo(mensajes: MensajeModelo[], proveedor: Proveedor): Promise<string> {
     const respuesta = await fetch(proveedor.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${proveedor.apiKey}` },
       body: JSON.stringify({
         model: proveedor.modelo,
-        messages: this.conversacion(consulta),
+        messages: mensajes,
         temperature: 0.2,
         max_tokens: 500,
       }),
@@ -118,14 +194,18 @@ export class AsistenteService {
     return texto;
   }
 
-  private conversacion(consulta: ConsultaAsistenteDto) {
+  private conversacion(consulta: ConsultaAsistenteDto, contexto: string): MensajeModelo[] {
     const ruta = consulta.ruta
       ? `\n\nEl usuario está ahora en la página ${consulta.ruta}.`
       : '';
+    const vivo = contexto ? `\n\n${contexto}` : '';
 
     return [
-      { role: 'system', content: `${INSTRUCCIONES}\n\n--- BASE DE CONOCIMIENTO ---\n${CONOCIMIENTO_DOOGKING}${ruta}` },
-      ...(consulta.historial ?? []).slice(-TURNOS_DE_CONTEXTO).map((m) => ({
+      {
+        role: 'system',
+        content: `${INSTRUCCIONES}\n\n--- BASE DE CONOCIMIENTO ---\n${CONOCIMIENTO_DOOGKING}${vivo}${ruta}`,
+      },
+      ...(consulta.historial ?? []).slice(-TURNOS_DE_CONTEXTO).map((m): MensajeModelo => ({
         role: m.autor === 'cliente' ? 'user' : 'assistant',
         content: m.texto,
       })),

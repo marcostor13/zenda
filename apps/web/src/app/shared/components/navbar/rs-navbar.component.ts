@@ -8,6 +8,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsRegionSelectorComponent } from '../region/rs-region-selector.component';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { RsAsistenteDisparadorComponent } from '../asistente/rs-asistente-disparador.component';
 import { VERTICALES_PUBLICOS } from '../../verticales/verticales.config';
 import { BRAND } from '../../media/images';
 import { FavoritosService } from '../../../features/favoritos/favoritos.service';
@@ -21,7 +22,7 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
   standalone: true,
   imports: [
     RouterLink, RouterLinkActive, RsIconComponent, RsRegionSelectorComponent,
-    TraducirPipe,
+    TraducirPipe, RsAsistenteDisparadorComponent,
   ],
   template: `
     <nav class="rs-navbar">
@@ -225,6 +226,9 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
           <span class="rs-navbar__cuenta-dot" aria-hidden="true"></span>
         }
       </a>
+
+      <!-- Asistente «¿Te ayudo?»: en la cabecera y no flotando, para no tapar contenido. -->
+      <rs-asistente-disparador />
 
       <!-- Hamburger button (mobile only) -->
       <button class="rs-navbar__hamburger" (click)="menuAbierto.set(!menuAbierto())" [attr.aria-expanded]="menuAbierto()">

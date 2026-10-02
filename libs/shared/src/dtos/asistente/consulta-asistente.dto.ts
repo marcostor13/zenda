@@ -45,6 +45,35 @@ export class ConsultaAsistenteDto {
   ruta?: string;
 }
 
+/**
+ * Una opción real de la plataforma que el asistente enseña como tarjeta: un
+ * servicio reservable o un sitio de Explora. Lleva su ruta interna para abrir
+ * la ficha sin salir de la web.
+ */
+export interface ResultadoAsistente {
+  tipo: 'servicio' | 'lugar';
+  id: string;
+  titulo: string;
+  ciudad: string;
+  /** Clave del vertical (servicio) o del tipo de sitio (lugar). */
+  categoria: string;
+  /** Precio más bajo con IVA incluido; sólo en servicios con precio. */
+  precioDesde?: number;
+  /** Nota media sobre 5; ausente si todavía no tiene reseñas. */
+  nota?: number;
+  numResenas?: number;
+  imagen?: string;
+  /** Ruta interna de la ficha: `/peluqueria/abc`, `/explora/playa-x`. */
+  ruta: string;
+}
+
+/** Enlace a la búsqueda completa de la que salen las tarjetas. */
+export interface VerTodosAsistente {
+  titulo: string;
+  ruta: string;
+  queryParams?: Record<string, string>;
+}
+
 export interface RespuestaAsistenteApi {
   /**
    * false = no hay proveedor de IA configurado. El asistente lo dice y ofrece
@@ -54,4 +83,8 @@ export interface RespuestaAsistenteApi {
   respuesta: string;
   /** Enlaces de la propia web que el asistente propone abrir. */
   enlaces?: Array<{ titulo: string; ruta: string }>;
+  /** Opciones reales de la plataforma que casan con la pregunta. */
+  resultados?: ResultadoAsistente[];
+  /** La búsqueda entera, para ver más de lo que cabe en el chat. */
+  verTodos?: VerTodosAsistente;
 }

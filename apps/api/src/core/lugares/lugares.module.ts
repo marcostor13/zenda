@@ -14,6 +14,6 @@ import { LugaresController } from './lugares.controller';
   ],
   controllers: [LugaresController],
   providers: [LugaresService],
-  exports: [LugaresService],
+  exports: [MongooseModule, LugaresService],
 })
 export class LugaresModule {}

@@ -42,9 +42,9 @@ import { RsAsistenteComponent } from './shared/components/asistente/rs-asistente
 <rs-cookies />
 
 <!--
-  Asistente de la web. Va en la raíz para estar en cualquier página, y abajo a
-  la izquierda porque la derecha es de la acción que da dinero: el panel de
-  reserva de las fichas y su botón. Sólo se pinta en escritorio (ver su hoja).
+  Panel del asistente. Va en la raíz para estar en cualquier página; se abre
+  desde el botón «¿Te ayudo?» de la cabecera (rs-navbar) y sólo pinta un
+  flotante propio en las pantallas que no tienen cabecera.
 -->
 <rs-asistente />
   `,
