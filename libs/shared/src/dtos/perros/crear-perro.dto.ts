@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   MinLength,
@@ -13,6 +14,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SexoPerro, TamanoPerro, TipoPelo, NivelSociabilidad, Vacuna } from '../../enums/perro.enum';
+import { MICROCHIP_OPCIONAL_REGEX } from '../../mascotas/microchip';
 
 /** Una vacuna marcada en la ficha, con su fecha si el dueño la recuerda. */
 export class VacunaAplicadaDto {
@@ -68,8 +70,10 @@ export class CrearPerroDto {
   @Max(120)
   peso?: number;
 
+  /** ISO 11784/11785: 15 dígitos. Cadena vacía = sin microchip. */
   @IsOptional()
   @IsString()
+  @Matches(MICROCHIP_OPCIONAL_REGEX, { message: 'El microchip debe tener exactamente 15 dígitos' })
   microchip?: string;
 
   @IsOptional()
@@ -173,6 +177,15 @@ export class CrearPerroDto {
   @IsOptional()
   @IsBoolean()
   tendenciaEscapar?: boolean;
+
+  /**
+   * Opción positiva frente a la lista de problemas de conducta: el dueño puede
+   * decir que su perro es muy bueno. El formulario la hace excluyente con los
+   * problemas.
+   */
+  @IsOptional()
+  @IsBoolean()
+  esMuyBueno?: boolean;
 
   @IsOptional()
   @IsString()

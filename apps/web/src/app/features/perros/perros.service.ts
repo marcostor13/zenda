@@ -47,6 +47,8 @@ export interface PerroApi {
   ladraAlQuedarseSolo?: boolean;
   destructivoEnSoledad?: boolean;
   tendenciaEscapar?: boolean;
+  /** Opción positiva frente a los problemas de conducta: «¡Es muy bueno!». */
+  esMuyBueno?: boolean;
   notasAlojamiento?: string;
   autorizaCompartirHistorial: boolean;
   nivelDoogking?: number;
@@ -94,6 +96,7 @@ export interface PerroPayload {
   esterilizado?: boolean;
   ciudad?: string;
   peso?: number;
+  microchip?: string;
   tipoPelo?: string[];
   tamano?: string;
   estadoManto?: string;
@@ -115,6 +118,8 @@ export interface PerroPayload {
   ladraAlQuedarseSolo?: boolean;
   destructivoEnSoledad?: boolean;
   tendenciaEscapar?: boolean;
+  /** Opción positiva frente a los problemas de conducta: «¡Es muy bueno!». */
+  esMuyBueno?: boolean;
   notasAlojamiento?: string;
   autorizaCompartirHistorial?: boolean;
   cartillaSanitariaUrl?: string;

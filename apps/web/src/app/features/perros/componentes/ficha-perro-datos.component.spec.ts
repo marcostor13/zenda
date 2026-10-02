@@ -53,4 +53,28 @@ describe('FichaPerroDatosComponent', () => {
     expect(general.find((f) => f.etiqueta === 'Raza')?.valor).toBe('Mestizo');
     expect(general.find((f) => f.etiqueta === 'Microchip')).toBeUndefined();
   });
+
+  it('debería enseñar el microchip y el manto con sus etiquetas legibles', () => {
+    const fixture = crear(perro({ microchip: '941000012345678', tipoPelo: ['doble_capa'], estadoManto: 'muda' }));
+    const general = fixture.componentInstance.general();
+
+    expect(general.find((f) => f.etiqueta === 'Microchip')?.valor).toBe('941000012345678');
+    expect(general.find((f) => f.etiqueta === 'Tipo de manto')?.valor).toBe('Doble capa');
+    expect(general.find((f) => f.etiqueta === 'Estado del manto')?.valor).toBe('En muda (suelta mucho pelo)');
+  });
+
+  it('debería enseñar tal cual el estado del manto escrito a mano en fichas antiguas', () => {
+    const fixture = crear(perro({ estadoManto: 'nudos en las orejas' }));
+
+    expect(fixture.componentInstance.general().find((f) => f.etiqueta === 'Estado del manto')?.valor)
+      .toBe('nudos en las orejas');
+  });
+
+  it('debería destacar «¡Es muy bueno!» cuando el dueño lo marca', () => {
+    const conTexto = (p: PerroApi) => (crear(p).nativeElement as HTMLElement).textContent ?? '';
+
+    expect(conTexto(perro({ esMuyBueno: true }))).toContain('¡Es muy bueno!');
+    TestBed.resetTestingModule();
+    expect(conTexto(perro({ esMuyBueno: false }))).not.toContain('¡Es muy bueno!');
+  });
 });
