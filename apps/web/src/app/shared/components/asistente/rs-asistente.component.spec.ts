@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { RsAsistenteComponent } from './rs-asistente.component';
 import { AsistenteService } from './asistente.service';
+import { AsistenteUiService } from './asistente-ui.service';
 
 describe('RsAsistenteComponent', () => {
   let fixture: ComponentFixture<RsAsistenteComponent>;
@@ -24,6 +25,10 @@ describe('RsAsistenteComponent', () => {
       imports: [RsAsistenteComponent, RouterTestingModule.withRoutes([
         { path: '', children: [] },
         { path: 'comercio/mascotas', children: [] },
+        { path: 'alojamiento', children: [] },
+        { path: 'alojamiento/:id', children: [] },
+        { path: 'explora', children: [] },
+        { path: 'explora/:id', children: [] },
       ])],
       providers: [{ provide: AsistenteService, useValue: { preguntar } }],
     }).compileComponents();
@@ -150,5 +155,124 @@ describe('RsAsistenteComponent', () => {
     await esperar();
 
     expect(el().querySelector('[data-testid="panel-asistente"]')).toBeNull();
+  });
+
+  describe('opciones de la plataforma', () => {
+    beforeEach(async () => {
+      el().querySelector<HTMLButtonElement>('[data-testid="lanzador-asistente"]')!.click();
+      await esperar();
+    });
+
+    it('debería pintar las tarjetas con su ficha, precio y nota', async () => {
+      preguntar.mockResolvedValue({
+        disponible: true, respuesta: 'Tienes estas opciones.',
+        resultados: [{
+          tipo: 'servicio', id: 's1', titulo: 'Residencia Patitas', ciudad: 'Valencia',
+          categoria: 'alojamiento', precioDesde: 25, nota: 4.8, numResenas: 12, ruta: '/alojamiento/s1',
+        }],
+        verTodos: { titulo: 'Ver todos los resultados', ruta: '/alojamiento', queryParams: { ciudad: 'Valencia' } },
+      });
+
+      await componente['enviar']('Alojamiento en Valencia');
+      await esperar();
+
+      const tarjeta = el().querySelector<HTMLAnchorElement>('[data-testid="resultados-asistente"] a');
+      expect(tarjeta?.getAttribute('href')).toBe('/alojamiento/s1');
+      expect(tarjeta?.textContent).toContain('Residencia Patitas');
+      expect(tarjeta?.textContent).toContain('Alojamiento canino');
+      expect(tarjeta?.textContent).toContain('25');
+      expect(tarjeta?.textContent).toContain('4.8');
+      const verTodos = Array.from(el().querySelectorAll<HTMLAnchorElement>('.as__enlace'))
+        .find((a) => a.textContent?.includes('Ver todos'));
+      expect(verTodos?.getAttribute('href')).toBe('/alojamiento?ciudad=Valencia');
+    });
+
+    it('debería enlazar los sitios de Explora a su ficha', async () => {
+      preguntar.mockResolvedValue({
+        disponible: true, respuesta: 'Sí, hay playas.',
+        resultados: [{
+          tipo: 'lugar', id: 'l1', titulo: 'Playa de Pinedo', ciudad: 'Valencia',
+          categoria: 'playa', ruta: '/explora/playa-de-pinedo',
+        }],
+      });
+
+      await componente['enviar']('¿Hay playas?');
+      await esperar();
+
+      const tarjeta = el().querySelector<HTMLAnchorElement>('[data-testid="resultados-asistente"] a');
+      expect(tarjeta?.getAttribute('href')).toBe('/explora/playa-de-pinedo');
+      expect(tarjeta?.textContent).toContain('Playa canina');
+      expect(tarjeta?.textContent).toContain('Ver sitio');
+    });
+  });
+
+  describe('con el botón en la cabecera', () => {
+    let ui: AsistenteUiService;
+    let boton: HTMLButtonElement;
+
+    beforeEach(() => {
+      ui = TestBed.inject(AsistenteUiService);
+      ui.registrarDisparador();
+      boton = document.createElement('button');
+      document.body.appendChild(boton);
+      boton.getBoundingClientRect = () => ({
+        top: 10, bottom: 44, left: 800, right: 900, width: 100, height: 34, x: 800, y: 10,
+        toJSON: () => ({}),
+      });
+      fixture.detectChanges();
+    });
+
+    afterEach(() => boton.remove());
+
+    /* El flotante tapaba contenido: con botón en la cabecera no se pinta. */
+    it('no debería pintar el flotante', () => {
+      expect(el().querySelector('[data-testid="lanzador-asistente"]')).toBeNull();
+    });
+
+    it('debería anclar el panel bajo el botón que lo abrió, alineado a su derecha', async () => {
+      ui.alternar(boton);
+      await esperar();
+
+      const panel = el().querySelector<HTMLElement>('[data-testid="panel-asistente"]')!;
+      expect(panel.classList).toContain('as__panel--anclado');
+      expect(panel.style.top).toBe('52px');
+      expect(panel.style.right).toBe(`${window.innerWidth - 900}px`);
+    });
+
+    /* En móvil, pantalla completa: nunca una caja desplazada a una esquina. */
+    it('no debería anclarlo en móvil, donde el panel ocupa la pantalla', async () => {
+      const ancho = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+      try {
+        ui.alternar(boton);
+        await esperar();
+
+        const panel = el().querySelector<HTMLElement>('[data-testid="panel-asistente"]')!;
+        expect(panel.classList).not.toContain('as__panel--anclado');
+        expect(panel.style.top).toBe('');
+      } finally {
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: ancho });
+      }
+    });
+
+    it('debería cerrarse con un clic fuera', async () => {
+      ui.alternar(boton);
+      await esperar();
+
+      document.body.click();
+      await esperar();
+
+      expect(el().querySelector('[data-testid="panel-asistente"]')).toBeNull();
+    });
+
+    it('debería cerrarse al cambiar de página', async () => {
+      ui.alternar(boton);
+      await esperar();
+
+      await TestBed.inject(Router).navigateByUrl('/explora');
+      await esperar();
+
+      expect(el().querySelector('[data-testid="panel-asistente"]')).toBeNull();
+    });
   });
 });

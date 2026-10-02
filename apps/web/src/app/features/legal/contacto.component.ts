@@ -68,9 +68,14 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       <h2>{{ 'Datos del titular' | t }}</h2>
       <p>
         <strong>{{ r.razonSocial }}</strong><br />
-        {{ r.identificacionFiscal }}<br />
-        {{ r.domicilio }}<br />
+        {{ 'Nombre comercial:' | t }} {{ r.marca }}<br />
+        {{ r.identificacionFiscal | t }}<br />
+        {{ 'Domicilio social:' | t }} {{ r.domicilio }} ({{ r.pais | t }})<br />
         <a [href]="r.web" target="_blank" rel="noopener">{{ r.web }}</a>
+      </p>
+      <p>
+        {{ 'Administrador:' | t }} {{ r.administrador }}<br />
+        {{ 'Representante:' | t }} {{ r.representante.nombre }} ({{ r.representante.cargo | t }})
       </p>
 
       <h2>{{ 'Redes sociales' | t }}</h2>

@@ -41,24 +41,23 @@ describe('LegalDocumentoComponent', () => {
     expect(texto).toContain('Cuerpo del documento.');
   });
 
-  /*
-   * Publicar el documento sin identificar al responsable no cumple el RGPD ni lo
-   * acepta Meta: el aviso está para que no pase inadvertido.
-   */
-  it('debería avisar mientras falten los datos del responsable', async () => {
-    jest.spyOn(datos, 'hayDatosPendientes').mockReturnValue(true);
-
+  /* Lo ve el público: nada de avisos de borrador ni nombres de ficheros internos. */
+  it('no debería mostrar avisos de borrador ni referencias a ficheros técnicos', async () => {
     await montar();
+    const texto = fixture.nativeElement.textContent as string;
 
-    expect(fixture.nativeElement.querySelector('.lg__aviso')).not.toBeNull();
+    expect(texto).not.toContain('Borrador');
+    expect(texto).not.toMatch(/\.ts\b/);
   });
 
-  it('no debería avisar de nada cuando los datos están completos', async () => {
-    jest.spyOn(datos, 'hayDatosPendientes').mockReturnValue(false);
-
+  /* Art. 10 LSSI-CE: los datos del titular, accesibles desde cualquier documento. */
+  it('debería identificar al titular y la fecha de revisión al pie', async () => {
     await montar();
+    const pie = (fixture.nativeElement.querySelector('.lg__pie') as HTMLElement).textContent ?? '';
 
-    expect(fixture.nativeElement.querySelector('.lg__aviso')).toBeNull();
+    expect(pie).toContain(datos.RESPONSABLE.razonSocial);
+    expect(pie).toContain(datos.RESPONSABLE.domicilio);
+    expect(pie).toContain(datos.ULTIMA_ACTUALIZACION);
   });
 
   /* Se leen sin sesión y con la app cerrada al público: no deben depender de la navbar. */

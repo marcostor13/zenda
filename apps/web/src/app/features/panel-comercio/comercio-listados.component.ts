@@ -1,4 +1,4 @@
-import { Component, signal, computed, inject, HostListener, OnInit } from '@angular/core';
+import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { TamanoPerro } from 'shared';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
@@ -141,37 +141,28 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
               <span class="rs-badge {{ estadoBadge(s.estado) }}">{{ etiquetaEstado(s.estado) }}</span>
             </div>
 
-            <!-- Solo los 3 puntos a la vista; las 4 acciones viven dentro del
-                 desplegable (feedback: la fila de botones sueltos competía con
-                 el resto de la tarjeta). -->
-            <div class="listado-card__actions">
-              <div class="mas-opciones" (click)="$event.stopPropagation()">
-                <button class="rs-btn rs-btn--ghost rs-btn--sm" [attr.aria-label]="'Más opciones' | t"
-                        (click)="menuAbiertoId.set(menuAbiertoId() === s._id ? null : s._id)">
-                  <rs-icon name="more-horizontal" [size]="14" [stroke]="2"></rs-icon>
-                </button>
-                @if (menuAbiertoId() === s._id) {
-                  <div class="mas-opciones__menu">
-                    <a class="mas-opciones__item" [routerLink]="['/comercio/listados', s._id, 'editar']">
-                      <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> {{ 'Editar' | t }}
-                    </a>
-                    <button class="mas-opciones__item" (click)="toggleDisponibilidad(s); menuAbiertoId.set(null)">
-                      <rs-icon name="settings" [size]="13" [stroke]="2"></rs-icon> {{ 'Disponibilidad' | t }}
-                    </button>
-                    <a class="mas-opciones__item" [routerLink]="enlacePublico(s)">
-                      <rs-icon name="eye" [size]="13" [stroke]="2"></rs-icon> {{ 'Ver en Doogking' | t }}
-                    </a>
-                    <button class="mas-opciones__item" [disabled]="toggling() === s._id"
-                            (click)="toggleEstado(s); menuAbiertoId.set(null)">
-                      @if (s.estado === 'publicado') {
-                        <rs-icon name="pause" [size]="13" [stroke]="2"></rs-icon> Pausar servicio
-                      } @else {
-                        <rs-icon name="play" [size]="13" [stroke]="2"></rs-icon> Publicar servicio
-                      }
-                    </button>
-                  </div>
+            <!-- Acciones siempre a la vista, en una fila al pie de la tarjeta
+                 (observaciones de octubre): escondidas tras los 3 puntos el
+                 comercio no las encontraba, y el desplegable se recortaba. -->
+            <div class="listado-card__actions" role="group" [attr.aria-label]="'Acciones del servicio' | t">
+              <a class="accion" [routerLink]="['/comercio/listados', s._id, 'editar']">
+                <rs-icon name="pencil" [size]="14" [stroke]="2"></rs-icon> {{ 'Editar' | t }}
+              </a>
+              <button type="button" class="accion" [class.accion--activa]="disponibilidadAbiertaId() === s._id"
+                      [attr.aria-expanded]="disponibilidadAbiertaId() === s._id"
+                      (click)="toggleDisponibilidad(s)">
+                <rs-icon name="settings" [size]="14" [stroke]="2"></rs-icon> {{ 'Disponibilidad' | t }}
+              </button>
+              <a class="accion" [routerLink]="enlacePublico(s)">
+                <rs-icon name="eye" [size]="14" [stroke]="2"></rs-icon> {{ 'Ver en Doogking' | t }}
+              </a>
+              <button type="button" class="accion" [disabled]="toggling() === s._id" (click)="toggleEstado(s)">
+                @if (s.estado === 'publicado') {
+                  <rs-icon name="pause" [size]="14" [stroke]="2"></rs-icon> {{ 'Pausar servicio' | t }}
+                } @else {
+                  <rs-icon name="play" [size]="14" [stroke]="2"></rs-icon> {{ 'Publicar servicio' | t }}
                 }
-              </div>
+              </button>
             </div>
           </div>
 
@@ -275,19 +266,11 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
 
     .listado-card {
       display: grid;
-      grid-template-columns: 64px 1fr auto auto;
+      grid-template-columns: 64px 1fr auto;
       align-items: center;
-      gap: var(--sp-4);
-      padding: var(--sp-4) var(--sp-5);
-      /*
-       * El menú de los 3 puntos es un absoluto que cae por debajo del borde de
-       * la tarjeta. Con el overflow:hidden que .rs-card trae de serie quedaba
-       * recortado y no se veía ninguna opción (feedback 2026-08-20). Se abre
-       * aquí y no en .rs-card, que lo necesita para redondear las imágenes en
-       * el resto de la aplicación; la miniatura conserva el suyo.
-       */
-      overflow: visible;
-      @media (max-width: 640px) { grid-template-columns: 48px 1fr; grid-template-rows: auto auto; }
+      gap: var(--sp-3) var(--sp-4);
+      padding: var(--sp-4) var(--sp-5) var(--sp-3);
+      @media (max-width: 640px) { grid-template-columns: 48px 1fr; }
     }
 
     .listado-card__img {
@@ -304,21 +287,27 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
       margin-top: var(--sp-2); font-size: var(--f-xs); color: var(--t-400);
     }
 
-    .mas-opciones { position: relative; }
-    .mas-opciones__menu {
-      position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-2);
-      /* 200px: lo que pide "Publicar servicio" sin partir la línea (antes 190). */
-      min-width: 200px; padding: var(--sp-2);
-      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-lg);
-      box-shadow: var(--shadow-lg, 0 12px 32px rgba(8,37,139,.12));
+    /* Fila de acciones al pie: ocupa todo el ancho de la tarjeta y, si no
+       caben, las acciones bajan de línea en vez de recortarse. */
+    .listado-card__actions {
+      grid-column: 1 / -1;
+      display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2);
+      padding-top: var(--sp-3);
+      border-top: 1px solid var(--b-1);
     }
-    .mas-opciones__item {
-      display: flex; align-items: center; gap: var(--sp-2); width: 100%;
-      padding: var(--sp-2) var(--sp-3); border: none; background: transparent;
-      border-radius: var(--r-md); cursor: pointer; text-align: left;
-      font-size: var(--f-sm); color: var(--t-200); text-decoration: none;
-      &:hover { background: var(--c-raised); }
+    .accion {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3); border: 1px solid transparent; background: transparent;
+      border-radius: var(--r-md); cursor: pointer;
+      font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); text-decoration: none;
+      transition: background var(--d-2), color var(--d-2);
+      &:hover { background: var(--c-raised); color: var(--c-accent); }
       &:disabled { opacity: .5; cursor: default; }
+    }
+    .accion--activa { background: var(--c-accent-lo); color: var(--c-accent); }
+    @media (max-width: 640px) {
+      /* En el móvil, dos por fila y a todo el ancho: blanco fácil para el dedo. */
+      .accion { flex: 1 1 calc(50% - var(--sp-2)); justify-content: center; }
     }
 
     .listado-card__info { min-width: 0; }
@@ -329,8 +318,6 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
     .listado-card__meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
     .listado-card__precio { font-size: var(--f-sm); font-weight: var(--w-7); color: var(--c-accent); }
     .listado-card__estado { @media (max-width: 640px) { display: none; } }
-    /* Un solo hijo ahora (los 3 puntos): ya no hace falta apilar botones. */
-    .listado-card__actions { @media (max-width: 640px) { grid-column: 2; } }
 
     .disponibilidad-panel { padding: var(--sp-5); margin-top: calc(-1 * var(--sp-2)); }
     .espacio-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
@@ -350,7 +337,6 @@ export class ComercioListadosComponent implements OnInit {
   readonly filtroEstado = signal<FiltroEstadoServicio>('todos');
   readonly busqueda = signal('');
   readonly categoria = signal('');
-  readonly menuAbiertoId = signal<string | null>(null);
 
   readonly categorias = computed(() => [...new Set(this.servicios().map((s) => s.vertical))].sort());
 
@@ -382,15 +368,9 @@ export class ComercioListadosComponent implements OnInit {
     }
   }
 
-  /** El menú ⋯ se cierra al pulsar fuera, como cualquier desplegable del panel. */
-  @HostListener('document:click')
-  cerrarMenu(): void {
-    this.menuAbiertoId.set(null);
-  }
-
   iconVertical(v: string): string { return iconoVertical(v); }
   etiquetaVertical(v: string): string { return verticalUi(v).label; }
-  enlacePublico(s: MiServicio): unknown[] { return enlaceAServicio(s.vertical, s._id); }
+  enlacePublico(s: MiServicio): unknown[] { return enlaceAServicio(s.vertical, s); }
 
   estadoBadge(estado: string): string {
     if (estado === 'publicado') return 'rs-badge--success';

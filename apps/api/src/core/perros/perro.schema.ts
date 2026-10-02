@@ -139,6 +139,10 @@ export class Perro {
   @Prop({ type: Boolean, default: false })
   tendenciaEscapar!: boolean;
 
+  /** Opción positiva frente a la lista de problemas: «¡Es muy bueno!». */
+  @Prop({ type: Boolean, default: false })
+  esMuyBueno!: boolean;
+
   @Prop()
   notasAlojamiento?: string;
 

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { RESPONSABLE, ULTIMA_ACTUALIZACION, hayDatosPendientes } from './legal.datos';
+import { RESPONSABLE, ULTIMA_ACTUALIZACION } from './legal.datos';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
 /**
@@ -31,25 +31,21 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
         <h1>{{ titulo() }}</h1>
         <p class="lg__entradilla">{{ entradilla() }}</p>
 
-        @if (datosPendientes) {
-          <!--
-            Visible a propósito: si el documento se publica sin identificar al
-            responsable, ni cumple el RGPD ni lo acepta Meta. Desaparece solo en
-            cuanto se rellenan los datos de legal.datos.ts.
-          -->
-          <div class="rs-alert rs-alert--warning lg__aviso">
-            <span><strong>{{ 'Borrador sin publicar.' | t }}</strong> {{ 'Faltan los datos de identidad del responsable del tratamiento en' | t }} <code>{{ 'legal.datos.ts' | t }}</code>.</span>
-          </div>
-        }
-
         <ng-content />
 
+        <!-- Identificación del titular al pie de cada documento (art. 10 LSSI-CE). -->
         <footer class="lg__pie">
-          <p>Última actualización: {{ ultimaActualizacion }}.</p>
+          <p>{{ 'Última actualización:' | t }} {{ ultimaActualizacion | t }}.</p>
+          <p class="lg__titular">
+            {{ r.razonSocial }} · {{ r.identificacionFiscal | t }} ·
+            {{ r.domicilio }} ({{ r.pais | t }})
+          </p>
           <p>
+            <a routerLink="/terminos">{{ 'Aviso legal' | t }}</a> ·
             <a routerLink="/privacidad">{{ 'Política de privacidad' | t }}</a> ·
+            <a routerLink="/cookies">{{ 'Política de cookies' | t }}</a> ·
             <a routerLink="/eliminar-datos">{{ 'Eliminación de datos' | t }}</a> ·
-            <a [href]="'mailto:' + emailSoporte">{{ emailSoporte }}</a>
+            <a [href]="'mailto:' + r.emailSoporte">{{ r.emailSoporte }}</a>
           </p>
         </footer>
       </main>
@@ -81,7 +77,6 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       font-size: var(--f-3xl); color: var(--dk-blue); margin-bottom: var(--sp-3);
     }
     .lg__entradilla { color: var(--t-300); margin-bottom: var(--sp-8); }
-    .lg__aviso { margin-bottom: var(--sp-8); }
 
     /*
      * El contenido llega proyectado, así que hay que alcanzarlo con ::ng-deep.
@@ -136,8 +131,7 @@ export class LegalDocumentoComponent {
   readonly titulo = input.required<string>();
   readonly entradilla = input.required<string>();
 
+  protected readonly r = RESPONSABLE;
   protected readonly marca = RESPONSABLE.marca;
-  protected readonly emailSoporte = RESPONSABLE.emailSoporte;
   protected readonly ultimaActualizacion = ULTIMA_ACTUALIZACION;
-  protected readonly datosPendientes = hayDatosPendientes();
 }

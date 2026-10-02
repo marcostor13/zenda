@@ -101,6 +101,9 @@ const FILTROS_VERTICAL: Record<string, Record<string, ComparadorFiltro>> = {
     paseosIncluidos: 'bool',
     camaras24h: 'bool',
     requisitoVacunas: 'bool',
+    // `guarderia` = centros con guardería de día. Los alojamientos antiguos no
+    // tienen el campo y son residencias, así que no salen con este filtro.
+    modalidades: 'todos',
   },
   veterinaria: {
     atiendeUrgencias: 'bool',
@@ -172,6 +175,16 @@ export interface FacetasResult {
   amenities: Array<{ valor: string; n: number }>;
   /** Recuento acumulado por valoración mínima (>=3, >=4, >=5). */
   valoracion: Array<{ minimo: number; n: number }>;
+}
+
+/** Una población de la portada: cuántos servicios tiene y una foto real de uno de ellos. */
+export interface CiudadDestacada {
+  ciudad: string;
+  servicios: number;
+  /** Categoría con más oferta en la población: a ella lleva la tarjeta. */
+  vertical: string;
+  /** Foto principal de un servicio de la población; `null` si ninguno tiene. */
+  imagen: string | null;
 }
 
 export interface BuscarServiciosResult {
@@ -326,6 +339,55 @@ export class CatalogRepository {
   }
 
   /**
+   * Poblaciones con más servicios publicados, para "Servicios cerca de ti" de
+   * la portada. Cada una trae la foto principal de su servicio mejor
+   * posicionado que tenga alguna: así la tarjeta de Valencia enseña un sitio
+   * real de Valencia y no una foto de archivo. Si ningún servicio de la
+   * población tiene foto, `imagen` queda `null` y el cliente pone la de la
+   * categoría.
+   */
+  async ciudadesDestacadas(limite: number): Promise<CiudadDestacada[]> {
+    // Primera foto de cada servicio; `''` cuando no tiene ninguna.
+    const primeraFoto = { $ifNull: [{ $arrayElemAt: [{ $ifNull: ['$imagenes', []] }, 0] }, ''] };
+    const todasLasFotos = { $reduce: { input: '$fotos', initialValue: [], in: { $concatArrays: ['$$value', '$$this'] } } };
+    const fotosConContenido = { $filter: { input: todasLasFotos, as: 'f', cond: { $gt: [{ $strLenCP: '$$f' }, 0] } } };
+
+    return this.servicioModel.aggregate<CiudadDestacada>([
+      { $match: { estado: 'publicado', comercioActivo: true, 'ubicacion.ciudad': { $nin: [null, ''] } } },
+      // Lo destacado y mejor valorado es lo que aporta la foto de la población.
+      { $sort: { prioridadRanking: -1, ratingPromedio: -1, totalReseñas: -1 } },
+      {
+        $group: {
+          _id: { ciudad: { $ifNull: ['$ubicacion.ciudadClave', '$ubicacion.ciudad'] }, vertical: '$vertical' },
+          ciudad: { $first: '$ubicacion.ciudad' },
+          n: { $sum: 1 },
+          fotos: { $push: primeraFoto },
+        },
+      },
+      // La categoría con más oferta en la población decide a dónde lleva la
+      // tarjeta, y sus fotos van primero.
+      { $sort: { n: -1 } },
+      {
+        $group: {
+          _id: '$_id.ciudad',
+          ciudad: { $first: '$ciudad' },
+          servicios: { $sum: '$n' },
+          vertical: { $first: '$_id.vertical' },
+          fotos: { $push: '$fotos' },
+        },
+      },
+      { $sort: { servicios: -1, ciudad: 1 } },
+      { $limit: limite },
+      {
+        $project: {
+          _id: 0, ciudad: 1, servicios: 1, vertical: 1,
+          imagen: { $ifNull: [{ $arrayElemAt: [fotosConContenido, 0] }, null] },
+        },
+      },
+    ]).exec();
+  }
+
+  /**
    * Orden por cercanía real usando el índice `2dsphere`. `$geoNear` debe ser la
    * primera etapa del pipeline, por eso no reutiliza el `find` de arriba.
    */
@@ -440,6 +502,30 @@ export class CatalogRepository {
 
   async obtenerPorId(id: string): Promise<ServicioDocument | null> {
     return this.servicioModel.findById(id).lean().exec() as Promise<ServicioDocument | null>;
+  }
+
+  /**
+   * Ficha por su dirección legible. Usa el índice `{ vertical, slug }`; sin
+   * vertical (llamadas antiguas) cae en la primera coincidencia.
+   */
+  async obtenerPorSlug(slug: string, vertical?: string): Promise<ServicioDocument | null> {
+    const filtro: Record<string, unknown> = { slug };
+    if (vertical) filtro['vertical'] = vertical;
+    return this.servicioModel.findOne(filtro).lean().exec() as Promise<ServicioDocument | null>;
+  }
+
+  /** `true` si otro servicio del mismo vertical ya usa ese slug. */
+  async existeSlug(vertical: string, slug: string, excluirId?: string): Promise<boolean> {
+    const filtro: Record<string, unknown> = { vertical, slug };
+    if (excluirId) filtro['_id'] = { $ne: new Types.ObjectId(excluirId) };
+    return (await this.servicioModel.exists(filtro).exec()) !== null;
+  }
+
+  /** Guarda el slug sin tocar `updatedAt`: no es una edición de la ficha. */
+  async fijarSlug(id: string, slug: string): Promise<void> {
+    await this.servicioModel
+      .updateOne({ _id: new Types.ObjectId(id) }, { $set: { slug } }, { timestamps: false })
+      .exec();
   }
 
   async obtenerPorIdYComercio(id: string, comercioId: string): Promise<ServicioDocument | null> {

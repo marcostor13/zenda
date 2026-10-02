@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VerticalKey, cabeEnTamano, etiquetaTamanoPerro } from 'shared';
+import {
+  ID_UNIDAD_GUARDERIA, ModalidadAlojamiento, VerticalKey, admitePerfilSocial, cabeEnTamano, claveDiaEnZona,
+  etiquetaTamanoPerro, guarderiaAbreElDia, motivoGuarderiaNoReservable, ofreceGuarderia,
+  ofreceResidencia, precioGuarderia,
+} from 'shared';
 import {
   AvailabilityStrategy,
   AvailabilityQuery,
@@ -62,6 +66,10 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
       throw new DomainException('Alojamiento no encontrado', 404);
     }
 
+    if (rango.espacioId === ID_UNIDAD_GUARDERIA) {
+      return this.calendarioGuarderia(servicioId, alojamiento, rango);
+    }
+
     const localizado = localizarUnidad(alojamiento.espacios ?? [], rango.espacioId);
     const plazas = localizado?.unidad.cantidad ?? 0;
 
@@ -94,6 +102,14 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
 
     if (!alojamiento) {
       throw new DomainException('Alojamiento no encontrado', 404);
+    }
+
+    if (params.parametrosExtra?.['modalidad'] === ModalidadAlojamiento.GUARDERIA) {
+      return this.disponibilidadGuarderia(servicioId, alojamiento, params);
+    }
+
+    if (!ofreceResidencia(alojamiento)) {
+      return { disponible: false, motivo: 'Este centro solo ofrece guardería de día, sin pernoctación.' };
     }
 
     if (!params.fechaFin) {
@@ -141,8 +157,116 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
       disponible: true,
       capacidadRestante: espacio.cantidad,
       precioCalculado: espacio.precioNoche * noches * perros + extras,
-      metadata: { noches, perros, extras },
+      // El perro se entrega y se recoge en persona: el core coteja la entrada
+      // y la salida con el horario de la residencia.
+      metadata: {
+        noches, perros, extras, validarHorarioEstancia: true,
+        detalleReserva: { modalidad: ModalidadAlojamiento.RESIDENCIA },
+      },
     };
+  }
+
+  /**
+   * Un día de guardería: sin noche, por horas, media jornada o día completo.
+   *
+   * La ocupación se cuenta con la «unidad» `guarderia` (`detalle.espacioId`),
+   * así que estas reservas no gastan noches de las suites y las estancias no
+   * gastan plazas de guardería. Cada reserva ocupa una plaza del día, igual que
+   * en residencia una reserva ocupa una suite.
+   */
+  private async disponibilidadGuarderia(
+    servicioId: string,
+    alojamiento: Alojamiento,
+    params: AvailabilityQuery,
+  ): Promise<AvailabilityResult> {
+    if (!ofreceGuarderia(alojamiento) || !alojamiento.guarderia) {
+      return { disponible: false, motivo: 'Este alojamiento no ofrece guardería de día.' };
+    }
+    const config = alojamiento.guarderia;
+    const extra = params.parametrosExtra ?? {};
+    const fecha = claveDia(params.fechaInicio);
+    const solicitud = {
+      fecha,
+      tramo: String(extra['tramoGuarderia'] ?? ''),
+      horas: Number(extra['horasGuarderia']) || undefined,
+      horaEntrada: typeof extra['horaEntrada'] === 'string' && extra['horaEntrada'] ? extra['horaEntrada'] : undefined,
+    };
+
+    const motivo = this.motivoFechaGuarderia(params, fecha)
+      ?? motivoGuarderiaNoReservable(config, solicitud);
+    if (motivo) return { disponible: false, motivo };
+
+    const ocupadas = await this.ocupacion.nochesOcupadas({
+      servicioId, desde: params.fechaInicio, hasta: params.fechaInicio, espacioId: ID_UNIDAD_GUARDERIA,
+    });
+    const libres = Math.max(0, Number(config.plazasPorDia) - (ocupadas.get(fecha) ?? 0));
+    if (libres <= 0) {
+      return {
+        disponible: false,
+        motivo: `La guardería está completa el ${this.enCastellano(fecha)}. Prueba con otro día.`,
+      };
+    }
+
+    this.validarCompatibilidadSocial(alojamiento, params);
+    this.validarConductaRiesgo(alojamiento, params);
+
+    const perros = Math.max(1, params.cantidad ?? 1);
+    const extras = this.calcularExtras(alojamiento, params);
+    const precio = precioGuarderia(config, solicitud, perros) ?? 0;
+
+    return {
+      disponible: true,
+      capacidadRestante: libres,
+      precioCalculado: Math.round((precio + extras) * 100) / 100,
+      metadata: {
+        perros, extras,
+        // Sin `duracionMin` a propósito: el core lo leería como una cita con
+        // hora y la validaría contra el horario general del servicio.
+        detalleReserva: {
+          modalidad: ModalidadAlojamiento.GUARDERIA,
+          espacioId: ID_UNIDAD_GUARDERIA,
+          tramoGuarderia: solicitud.tramo,
+          ...(solicitud.tramo === 'horas' ? { horasGuarderia: Number(extra['horasGuarderia']) || 1 } : {}),
+          ...(solicitud.horaEntrada ? { horaEntrada: solicitud.horaEntrada } : {}),
+        },
+      },
+    };
+  }
+
+  /** La guardería se reserva día a día y nunca en el pasado (hoy en hora de Madrid). */
+  private motivoFechaGuarderia(params: AvailabilityQuery, fecha: string): string | null {
+    if (fecha < claveDiaEnZona(new Date())) return 'Esa fecha ya ha pasado. Elige otro día.';
+    if (params.fechaFin && nochesDe(params.fechaInicio, params.fechaFin).length > 1) {
+      return 'La guardería de día se reserva día a día: elige un único día.';
+    }
+    return null;
+  }
+
+  /** Plazas de guardería libres cada día; los días que no abre salen cerrados. */
+  private async calendarioGuarderia(
+    servicioId: string,
+    alojamiento: Alojamiento,
+    rango: RangoCalendario,
+  ): Promise<DiaCalendario[]> {
+    const config = ofreceGuarderia(alojamiento) ? alojamiento.guarderia : undefined;
+    const plazas = Number(config?.plazasPorDia) || 0;
+    const ocupadas = await this.ocupacion.nochesOcupadas({
+      servicioId, desde: rango.desde, hasta: rango.hasta, espacioId: ID_UNIDAD_GUARDERIA,
+    });
+
+    const hoy = claveDiaEnZona(new Date());
+    const dias: DiaCalendario[] = [];
+    for (
+      let dia = inicioDelDia(rango.desde);
+      dia.getTime() <= inicioDelDia(rango.hasta).getTime();
+      dia = new Date(dia.getTime() + MS_POR_DIA)
+    ) {
+      const fecha = claveDia(dia);
+      const abre = !!config && guarderiaAbreElDia(config, fecha);
+      const libres = abre ? Math.max(0, plazas - (ocupadas.get(fecha) ?? 0)) : 0;
+      dias.push({ fecha, disponible: libres > 0 && fecha >= hoy, plazasLibres: libres });
+    }
+    return dias;
   }
 
   /**
@@ -193,15 +317,15 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
   }
 
   /**
-   * Bloquea la reserva si el perfil de compatibilidad social declarado no está entre los
-   * admitidos por la residencia. Un array vacío/ausente admite cualquier perfil.
+   * Bloquea la reserva si el perfil de compatibilidad social declarado está entre los
+   * que la residencia marcó como no admitidos. Sin nada marcado admite cualquier perfil.
+   * Las fichas del modelo anterior (lista de admitidos) se leen por su complemento.
    */
   private validarCompatibilidadSocial(alojamiento: Alojamiento, params: AvailabilityQuery): void {
-    if (!alojamiento.compatibilidadSocialAdmitida?.length) return;
     const compatibilidad = params.parametrosExtra?.['compatibilidadSocial'];
     if (typeof compatibilidad !== 'string' || !compatibilidad) return;
 
-    if (!alojamiento.compatibilidadSocialAdmitida.includes(compatibilidad)) {
+    if (!admitePerfilSocial(alojamiento, compatibilidad)) {
       throw new DomainException(
         'Esta residencia no admite el perfil de compatibilidad social indicado para tu perro',
         409,

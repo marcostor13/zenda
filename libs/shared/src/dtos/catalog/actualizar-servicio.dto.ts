@@ -1,8 +1,9 @@
 import {
   IsString, IsNumber, IsOptional, IsArray, IsObject, IsLatitude, IsLongitude,
-  Min, ValidateNested,
+  Min, ValidateNested, ValidateIf, Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PATRON_CALLE, PATRON_NUMERO_PORTAL } from '../../ubicaciones/formatear-direccion';
 import { AptitudPerroDto } from './aptitud-perro.dto';
 import { ExcepcionHorarioDto, HorarioDiaDto } from '../comunes/horario.dto';
 
@@ -40,10 +41,16 @@ export class ActualizarServicioDto {
    */
   @IsOptional()
   @IsString()
+  // Vacía vale (la dirección exacta es opcional), pero si se escribe tiene que
+  // ser una calle: con «1» como calle la ficha pintaba «1, 1, , Valencia».
+  @ValidateIf((o: { calle?: string }) => !!o.calle?.trim())
+  @Matches(PATRON_CALLE, { message: 'La calle tiene que llevar su nombre, no sólo un número.' })
   calle?: string;
 
   @IsOptional()
   @IsString()
+  @ValidateIf((o: { numero?: string }) => !!o.numero?.trim())
+  @Matches(PATRON_NUMERO_PORTAL, { message: 'El número del portal no es válido (ej.: 12, 12 B, s/n).' })
   numero?: string;
 
   @IsOptional()

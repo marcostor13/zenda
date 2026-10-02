@@ -1,0 +1,18 @@
+Sin valoraciones
+{n} reseñas verificadas
+Hora de entrega
+Elige una hora
+Sólo se muestran las horas en que atiende el comercio.
+Días válidos más cercanos para la entrega:
+Días válidos más cercanos para la recogida:
+El mismo día, a otra hora
+Escribe el nombre de la calle, no sólo el número.
+El número no es válido (ej.: 24, 2ºB o s/n).
+Si publicas espacios o servicios con precio, las tarjetas y la ficha muestran «desde» el más barato; este precio sólo se usa si no hay ninguno.
+Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.
+Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.
+Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.
+El cliente cancela gratis hasta 24 h antes y recupera el importe íntegro. Atrae más reservas, pero deja menos margen para cubrir un hueco de última hora.
+El cliente cancela gratis hasta 3 días antes. Es el equilibrio habitual: da margen para revender la plaza sin espantar reservas.
+No hay devolución al cancelar. Protege tu agenda en servicios difíciles de reocupar, pero resta reservas frente a comercios más flexibles.
+Consulta las condiciones de cancelación con el alojamiento.

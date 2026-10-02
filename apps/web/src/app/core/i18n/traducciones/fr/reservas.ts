@@ -335,6 +335,23 @@ const reservas: Diccionario = {
   '— Elige un servicio —': '— Choisissez un service —',
   '— Sin especificar —': '— Non précisé —',
   '← Volver a mis reservas': '← Retour à mes réservations',
+  'Este centro solo ofrece guardería de día, sin pernoctación.': 'Ce centre propose uniquement la garderie de jour, sans nuitée.',
+  'Este alojamiento no ofrece guardería de día.': 'Cet hébergement ne propose pas de garderie de jour.',
+  'Esa fecha ya ha pasado. Elige otro día.': 'Cette date est déjà passée. Choisissez un autre jour.',
+  'La guardería de día se reserva día a día: elige un único día.': 'La garderie de jour se réserve jour par jour : choisissez un seul jour.',
+  'Este alojamiento no tiene plazas de guardería de día publicadas.': 'Cet hébergement n’a publié aucune place de garderie de jour.',
+  'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'Ce centre ne propose pas cette formule de garderie. Choisissez-en une autre.',
+  'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'La garderie est fermée ce jour de la semaine. Essayez une autre date.',
+  'La hora de entrada no es válida.': 'L’heure d’arrivée n’est pas valide.',
+  'Hora de entrega': 'Heure de dépôt',
+  'Elige una hora': 'Choisissez une heure',
+  'Sólo se muestran las horas en que atiende el comercio.': 'Seules les heures d’ouverture de l’établissement sont affichées.',
+  'Días válidos más cercanos para la entrega:': 'Jours disponibles les plus proches pour le dépôt :',
+  'Días válidos más cercanos para la recogida:': 'Jours disponibles les plus proches pour la récupération :',
+  'El mismo día, a otra hora': 'Le même jour, à une autre heure',
+  'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'Vous pouvez annuler gratuitement jusqu’à 24 h avant le service et être intégralement remboursé.',
+  'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'Vous pouvez annuler gratuitement jusqu’à 3 jours avant le service et être intégralement remboursé.',
+  'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'Cette réservation n’est pas remboursable : en cas d’annulation, le montant n’est pas restitué.',
 };
 
 export default reservas;

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { VerticalKey, type ExcepcionHorarioDto, type HorarioDiaDto, type BusquedaCercanosApi } from 'shared';
+import { VerticalKey, perfilesSocialesNoAdmitidos, type ExcepcionHorarioDto, type HorarioDiaDto, type BusquedaCercanosApi } from 'shared';
 import { environment } from '../../../../environments/environment';
 
 export interface FiltrosAlojamiento {
@@ -64,6 +64,8 @@ export interface AlojamientoCard {
   /** Km al centro de su población («a 2,3 km del centro»); ausente sin coordenadas. */
   distanciaCentroKm?: number;
   id: string;
+  /** Dirección legible (`reino-canino-valencia`); ausente en fichas aún sin migrar. */
+  slug?: string;
   nombre: string;
   ciudad: string;
   barrio: string;
@@ -83,6 +85,8 @@ export interface AlojamientoCard {
   destacado: boolean;
   /** El comercio ofrece ventajas del programa Doogking Alpha (HU-13.3). */
   alphaAdherido?: boolean;
+  /** Campos propios del vertical: aquí viajan `modalidades` y `guarderia`. */
+  extra?: Record<string, unknown>;
   lat?: number;
   lng?: number;
 }
@@ -108,8 +112,8 @@ export interface AlojamientoDetalle extends AlojamientoCard {
   /** El API aún no modela reglas de la casa; puede no venir. */
   reglas?: string[];
   comercioId: string;
-  /** Residencia canina (Fase C): perfiles de compatibilidad social admitidos; vacío = cualquiera. */
-  compatibilidadSocialAdmitida: string[];
+  /** Residencia canina: perfiles de compatibilidad social que NO admite; vacío = cualquiera. */
+  compatibilidadSocialNoAdmitida: string[];
   requisitoMicrochip: boolean;
   requiereDesparasitacionInterna: boolean;
   requiereDesparasitacionExterna: boolean;
@@ -183,8 +187,12 @@ export class AlojamientoService {
     return { ...res, items: (res.items ?? []).map((c) => this.normalizarCard(c)) };
   }
 
-  async obtener(id: string): Promise<AlojamientoDetalle> {
-    const data = await firstValueFrom(this.http.get<AlojamientoDetalle>(`${this.base}/${id}`));
+  /** Ficha por slug o por id; el API resuelve las dos formas. */
+  async obtener(idOSlug: string): Promise<AlojamientoDetalle> {
+    const data = await firstValueFrom(this.http.get<AlojamientoDetalle>(
+      `${this.base}/${encodeURIComponent(idOSlug)}`,
+      { params: { vertical: VerticalKey.ALOJAMIENTO } },
+    ));
     return this.normalizarDetalle(data);
   }
 
@@ -255,7 +263,9 @@ export class AlojamientoService {
       })),
       resenas: data.resenas ?? [],
       serviciosAdicionales: data.serviciosAdicionales ?? [],
-      compatibilidadSocialAdmitida: data.compatibilidadSocialAdmitida ?? [],
+      // El API ya resuelve las fichas del modelo anterior; el respaldo cubre
+      // una respuesta de una versión previa del API, que sólo traía admitidos.
+      compatibilidadSocialNoAdmitida: perfilesSocialesNoAdmitidos(data),
       reglas: data.reglas ?? [],
     };
   }

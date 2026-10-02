@@ -313,6 +313,15 @@ const catalogos: Diccionario = {
   'Condiciones': 'Warunki',
   'Cadena': 'Sieć',
   'Perros educados': 'Dobrze wychowane psy',
+  'Crematorios': 'Krematoria',
+  'Guardería de día': 'Opieka dzienna',
+  'Por horas': 'Na godziny',
+  'Media jornada': 'Pół dnia',
+  'Día completo': 'Cały dzień',
+  'Residencia': 'Hotel',
+  'Guardería de día · Por horas': 'Opieka dzienna · Na godziny',
+  'Guardería de día · Media jornada': 'Opieka dzienna · Pół dnia',
+  'Guardería de día · Día completo': 'Opieka dzienna · Cały dzień',
 };
 
 export default catalogos;

@@ -70,6 +70,7 @@ const MAXIMO_URLS = 20_000;
  */
 interface DocumentoServicio {
   readonly _id: unknown;
+  readonly slug?: string;
   readonly vertical?: unknown;
   readonly updatedAt?: Date;
 }
@@ -138,7 +139,7 @@ export class SitemapService {
   private async entradasDeServicios(): Promise<EntradaSitemap[]> {
     const documentos = await this.servicios
       .find({ estado: 'publicado', comercioActivo: true })
-      .select('_id vertical updatedAt')
+      .select('_id slug vertical updatedAt')
       .sort({ updatedAt: -1 })
       .limit(MAXIMO_URLS)
       .lean<DocumentoServicio[]>();
@@ -148,7 +149,9 @@ export class SitemapService {
       if (!ruta) return [];
 
       return [{
-        ruta: `${ruta}/${String(documento._id)}`,
+        // El slug si lo tiene; el id mientras la migración no haya pasado por
+        // él (la web lo redirige con un 301 a la dirección legible).
+        ruta: `${ruta}/${encodeURIComponent(documento.slug || String(documento._id))}`,
         lastmod: fecha(documento.updatedAt),
         prioridad: 0.7,
         frecuencia: 'weekly' as const,

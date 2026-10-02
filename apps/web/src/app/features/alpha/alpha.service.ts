@@ -33,6 +33,7 @@ export interface AlphaEstadoApi {
 /** Negocio adherido al programa Alpha, tal como lo pinta el carrusel del perfil. */
 export interface AlphaVentajaApi {
   id: string;
+  slug?: string;
   nombre: string;
   ciudad: string;
   vertical: string;

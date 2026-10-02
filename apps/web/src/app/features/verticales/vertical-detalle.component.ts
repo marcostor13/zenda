@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { VerticalKey } from 'shared';
+import { VerticalKey, formatearDireccion } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsRatingComponent } from '../../shared/components/rating/rs-rating.component';
@@ -9,7 +9,7 @@ import { RsChipComponent } from '../../shared/components/chip/rs-chip.component'
 import { RsFavoritoBtnComponent } from '../../shared/components/favorito-btn/rs-favorito-btn.component';
 import { ImgFallbackDirective } from '../../shared/directives/img-fallback.directive';
 import { verticalUi, VerticalUi } from '../../shared/verticales/verticales.config';
-import { precioDesdeFunerario } from '../../shared/verticales/funerarios.util';
+import { precioDesde } from '../../shared/verticales/precio-desde';
 import { EventosService } from '../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../shared/components/ubicacion/rs-ubicacion.component';
 import { RsHorarioPublicoComponent } from '../../shared/components/horario/rs-horario-publico.component';
@@ -22,6 +22,7 @@ import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
 import { PanelLateralDirective } from '../../shared/directives/panel-lateral.directive';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { SeoService } from '../../core/seo/seo.service';
+import { debeIrAlSlug, irAlSlug } from '../../core/seo/url-canonica';
 import { seoFichaServicio, seoPrivada } from '../../core/seo/plantillas-seo';
 import { migasDePan, negocioLocal } from '../../core/seo/json-ld';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
@@ -51,6 +52,8 @@ const SECUNDARIAS_VISIBLES = 2;
  * y hasta ahora se pintaba como una etiqueta suelta sin importe.
  */
 export interface TarifaServicio {
+  /** Unidad concreta que se reserva (una habitación de hotel); sin él se elige por nombre. */
+  readonly id?: string;
   readonly nombre: string;
   readonly precio?: number;
   /** Ya legible: "45 min", "2 h". */
@@ -117,7 +120,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       if (zona?.length) items.push(`Cubre ${zona.slice(0, 4).join(', ')}`);
       return items;
     },
-    price: (s) => (s.extra['tarifaBase'] as number) ?? s.precioPorNoche,
+    price: precioDesde('transporte'),
   },
   adiestramiento: {
     vertical: 'adiestramiento',
@@ -142,16 +145,19 @@ const CONFIGS: Record<string, DetalleConfig> = {
       if (capacidad != null) items.push(`Hasta ${capacidad} ${capacidad === 1 ? 'perro' : 'perros'} por sesión`);
       return items;
     },
-    price: (s) => (s.extra['precioSesion'] as number) ?? s.precioPorNoche,
+    price: precioDesde('adiestramiento'),
   },
   hoteles: {
     vertical: 'hoteles',
     cta: 'Ver disponibilidad',
+    // El id es el mismo que calcula el API (`idDeUnidad`): el propio o la
+    // posición. Con él la reserva cobra esa habitación y no la más barata.
     servicios: (s) => ((s.extra['espacios'] as Array<{
-      tipo?: string; precioNoche?: number; amenities?: string[];
+      id?: string; _id?: string; tipo?: string; precioNoche?: number; amenities?: string[];
     }> | undefined) ?? [])
-      .filter((e) => Boolean(e.tipo))
-      .map((e) => ({ nombre: e.tipo!, precio: e.precioNoche, incluye: e.amenities })),
+      .map((e, i) => ({ e, id: String(e.id ?? e._id ?? `esp-${i}`) }))
+      .filter(({ e }) => Boolean(e.tipo))
+      .map(({ e, id }) => ({ id, nombre: e.tipo!, precio: e.precioNoche, incluye: e.amenities })),
     priceLabel: '/ noche',
     tituloBloque: 'Ventajas de este hotel',
     tituloChips: 'Servicios pet-friendly',
@@ -166,7 +172,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       if (s.cancelacionGratis) items.push('Cancelación gratuita');
       return items;
     },
-    price: (s) => s.precioPorNoche,
+    price: precioDesde('hoteles'),
   },
   /*
    * Veterinaria, peluquería, funerarios y seguros no tenían ficha: sin entrada
@@ -214,7 +220,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       if (s.extra['aDomicilio']) items.push('Disponible a domicilio');
       return items;
     },
-    price: (s) => (s.extra['precioConsulta'] as number) ?? s.precioPorNoche,
+    price: precioDesde('veterinaria'),
   },
   peluqueria: {
     vertical: 'peluqueria',
@@ -242,7 +248,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       if (s.extra['requiereVacunasAlDia']) items.push('Requiere cartilla de vacunación al día');
       return items;
     },
-    price: (s) => s.precioPorNoche,
+    price: precioDesde('peluqueria'),
   },
   funerarios: {
     vertical: 'funerarios',
@@ -285,7 +291,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       }
       return items;
     },
-    price: (s) => precioDesdeFunerario(s) ?? s.precioPorNoche,
+    price: precioDesde('funerarios'),
   },
   seguros: {
     vertical: 'seguros',
@@ -312,7 +318,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       if (s.extra['cubrePPP']) items.push('Cubre perros potencialmente peligrosos (PPP)');
       return items;
     },
-    price: (s) => (s.extra['primaAnual'] as number) ?? s.precioPorNoche,
+    price: precioDesde('seguros'),
   },
 };
 
@@ -381,7 +387,9 @@ const CONFIGS: Record<string, DetalleConfig> = {
           <h1 class="info-header__name">{{ s.nombre }}</h1>
           <div class="info-header__meta">
             <rs-rating [score]="s.score" [label]="s.scoreLabel" [count]="s.numResenas" size="sm"></rs-rating>
-            <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ s.direccion ? s.direccion + ', ' : '' }}{{ s.ciudad }}</span>
+            @if (lineaDireccion()) {
+              <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ lineaDireccion() }}</span>
+            }
             <span class="rs-badge rs-badge--success"><rs-icon name="badge-check" [size]="13" [stroke]="2" /> {{ 'Profesional verificado' | t }}</span>
           </div>
         </div>
@@ -450,8 +458,9 @@ const CONFIGS: Record<string, DetalleConfig> = {
           <div class="tarifas" data-testid="tarifas">
             <h2>{{ cfg().tituloChips | t }}</h2>
             <ul class="tarifas__lista">
+              <!-- Toda la fila lleva a reservar ese servicio ya elegido, no sólo el botón. -->
               @for (t of tarifasVisibles(); track t.nombre) {
-                <li class="tarifa">
+                <li class="tarifa tarifa--reservable" data-testid="tarifa" (click)="solicitar(s, t)">
                   <div class="tarifa__que">
                     <strong>{{ t.nombre }}</strong>
                     @if (t.duracion) {
@@ -463,7 +472,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
                   </div>
                   <div class="tarifa__accion">
                     @if (t.precio != null) { <span class="tarifa__precio">{{ t.precio | euros }}</span> }
-                    <button type="button" class="rs-btn rs-btn--outline" (click)="solicitar(s, t)">
+                    <button type="button" class="rs-btn rs-btn--outline" (click)="solicitar(s, t); $event.stopPropagation()">
                       {{ 'Reservar' | t }}
                     </button>
                   </div>
@@ -540,7 +549,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
               <div class="resumen-nota__cifra">
                 <strong>{{ s.score }}</strong>
                 <span>
-                  <em>{{ s.scoreLabel }}</em>
+                  <em>{{ s.scoreLabel | t }}</em>
                   {{ s.numResenas }} {{ s.numResenas === 1 ? ('reseña' | t) : ('reseñas' | t) }}
                 </span>
               </div>
@@ -592,7 +601,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       -->
       @if (esTransporte()) {
         <div class="side-col rs-sticky-panel" rsPanelLateral>
-          <app-cotizacion-ficha [servicioId]="s.id" [titulo]="s.nombre" />
+          <app-cotizacion-ficha [servicioId]="s.id" [servicioSlug]="s.slug" [titulo]="s.nombre" />
         </div>
       } @else {
       <div class="side-col rs-sticky-panel" rsPanelLateral>
@@ -900,6 +909,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       &:first-child { border-top: none; }
       &:hover { background: var(--c-raised); }
     }
+    .tarifa--reservable { cursor: pointer; }
     .tarifa__que {
       display: flex; flex-direction: column; gap: 2px; min-width: 0;
       strong { font-size: var(--f-md); color: var(--t-100); }
@@ -977,6 +987,12 @@ export class VerticalDetalleComponent implements OnInit {
 
   readonly cargando = signal(true);
   readonly servicio = signal<ServicioDetalle | null>(null);
+
+  /** Dirección de la cabecera sin huecos ni repeticiones («1, 1, , Valencia» → «Valencia»). */
+  readonly lineaDireccion = computed(() => {
+    const s = this.servicio();
+    return s ? formatearDireccion([s.direccion, s.ciudad]) : '';
+  });
 
   /** Lo que necesita el bloque "Dónde está": punto exacto y dirección legible. */
   readonly ubicacion = computed<PuntoUbicacion>(() => {
@@ -1127,14 +1143,16 @@ export class VerticalDetalleComponent implements OnInit {
 
   private async cargar(id: string): Promise<void> {
     try {
-      const data = await this.browseService.obtener(id);
+      // `id` es lo que trae la URL: el slug o, en enlaces antiguos, el id.
+      const data = await this.browseService.obtener(id, this.cfg().vertical);
       this.servicio.set(data);
       this.imagenActiva.set(data.imagenes[0] ?? '');
       this.aplicarSeo(data);
+      if (debeIrAlSlug(id, data.slug)) irAlSlug(this.router, [this.ui.route, data.slug]);
       // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
-      this.eventosService.registrarVistaServicio(id, this.cfg().vertical);
+      this.eventosService.registrarVistaServicio(data.id, this.cfg().vertical);
       // En paralelo: la ficha ya está pintada y la cita llega cuando llegue.
-      void this.cargarProximaCita(id);
+      void this.cargarProximaCita(data.id);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado".
       this.servicio.set(null);
@@ -1154,7 +1172,8 @@ export class VerticalDetalleComponent implements OnInit {
    */
   private aplicarSeo(servicio: ServicioDetalle): void {
     const origen = this.seo.origenPublico();
-    const ruta = `${this.ui.route}/${servicio.id}`;
+    // La canónica es siempre la dirección legible, se haya entrado por donde se haya entrado.
+    const ruta = `${this.ui.route}/${servicio.slug || servicio.id}`;
 
     this.seo.aplicar(seoFichaServicio({
       titulo: servicio.nombre,
@@ -1171,6 +1190,7 @@ export class VerticalDetalleComponent implements OnInit {
 
     this.seo.datosEstructurados([
       negocioLocal({
+        vertical: this.cfg().vertical,
         nombre: servicio.nombre,
         descripcion: servicio.descripcion || this.ui.descripcion,
         url: `${origen}${ruta}`,
@@ -1204,15 +1224,17 @@ export class VerticalDetalleComponent implements OnInit {
    * ficha, de modo que no tiene que volver a escogerlo en el paso 1.
    */
   solicitar(s: ServicioDetalle, tarifa?: TarifaServicio): void {
+    // El precio no viaja en la URL: el asistente lo pide al API con el
+    // servicio elegido y el cobro lo recalcula el servidor.
     void this.router.navigate(['/reservas', this.cfg().vertical, s.id], {
       queryParams: {
         comercioId: s.comercioId ?? '',
         nombre: s.nombre,
-        precioBase: tarifa?.precio ?? this.cfg().price(s),
         imagen: s.imagenes?.[0] ?? '',
         desde: this.busqueda.desde ?? this.proximaCita()?.fecha ?? null,
         perros: this.busqueda.perros ?? null,
-        servicio: tarifa?.nombre ?? null,
+        servicio: tarifa && !tarifa.id ? tarifa.nombre : null,
+        espacioId: tarifa?.id ?? null,
       },
     });
   }

@@ -96,6 +96,11 @@ describe('seoFichaServicio', () => {
       .toBe('Residencia El Encinar en Madrid · Doogking');
   });
 
+  it('no debería repetir la ciudad si el nombre ya la lleva', () => {
+    expect(seoFichaServicio({ ...base, titulo: 'Royal Dog Resort Madrid', ciudad: 'Madrid' }).titulo)
+      .toBe('Royal Dog Resort Madrid · Doogking');
+  });
+
   it('debería añadir el precio a la descripción cuando lo hay', () => {
     expect(seoFichaServicio({ ...base, precioDesde: 24.5 }).descripcion).toContain('Desde 25 €.');
   });

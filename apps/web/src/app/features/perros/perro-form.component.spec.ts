@@ -80,7 +80,7 @@ describe('PerroFormComponent', () => {
       // El input date solo entiende YYYY-MM-DD.
       expect(componente.form.getRawValue().fechaNacimiento).toBe('2023-05-10');
       expect(componente.form.getRawValue().miedos).toEqual(['tormentas', 'petardos']);
-      expect(componente.tienePelo('largo')).toBe(true);
+      expect(componente.form.getRawValue().tipoManto).toBe('largo');
     });
 
     it('debería avisar si la ficha no se puede cargar', async () => {
@@ -140,26 +140,145 @@ describe('PerroFormComponent', () => {
     });
   });
 
-  describe('tipo de pelo', () => {
-    it('debería alternar los tipos marcados', async () => {
+  describe('tipo y estado del manto', () => {
+    it('debería ofrecer en el desplegable los tipos de manto de peluquería', async () => {
       await crear();
 
-      componente.togglePelo('rizado');
-      expect(componente.tienePelo('rizado')).toBe(true);
+      const tipos = componente.tiposManto.map((t) => t.valor);
 
-      componente.togglePelo('rizado');
-      expect(componente.tienePelo('rizado')).toBe(false);
+      expect(tipos).toEqual(expect.arrayContaining(['corto', 'largo', 'duro', 'rizado', 'doble_capa', 'sin_pelo']));
     });
 
-    it('debería enviar los tipos de pelo elegidos', async () => {
+    it('debería enviar el tipo de manto elegido como tipoPelo', async () => {
       await crear();
-      componente.form.patchValue({ nombre: 'Maya' });
-      componente.togglePelo('corto');
-      componente.togglePelo('doble_capa');
+      componente.form.patchValue({ nombre: 'Maya', tipoManto: 'doble_capa' });
 
       await componente.submit();
 
-      expect(payload().tipoPelo).toEqual(['corto', 'doble_capa']);
+      expect(payload().tipoPelo).toEqual(['doble_capa']);
+    });
+
+    it('debería enviar una lista vacía si no se elige tipo de manto', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya' });
+
+      await componente.submit();
+
+      expect(payload().tipoPelo).toEqual([]);
+    });
+
+    it('debería enviar el estado del manto del catálogo', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya', estadoManto: 'muda' });
+
+      await componente.submit();
+
+      expect(payload().estadoManto).toBe('muda');
+    });
+
+    it('debería conservar como opción el estado del manto escrito a mano en fichas antiguas', async () => {
+      await crear('p1', perro({ estadoManto: 'nudos leves en las orejas' }));
+
+      expect(componente.estadoMantoLibre()).toBe('nudos leves en las orejas');
+      expect(componente.form.getRawValue().estadoManto).toBe('nudos leves en las orejas');
+    });
+
+    it('no debería tratar como texto libre un estado del catálogo', async () => {
+      await crear('p1', perro({ estadoManto: 'normal' }));
+
+      expect(componente.estadoMantoLibre()).toBeNull();
+    });
+  });
+
+  describe('microchip', () => {
+    it('debería aceptar 15 dígitos y enviarlos', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya', microchip: '941000012345678' });
+
+      await componente.submit();
+
+      expect(payload().microchip).toBe('941000012345678');
+    });
+
+    it('debería rechazar un microchip incompleto', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya', microchip: '94100001' });
+
+      await componente.submit();
+
+      expect(service['crear']).not.toHaveBeenCalled();
+      expect(componente.hasError('microchip')).toBe(true);
+      expect(componente.paso()).toBe(1);
+    });
+
+    it('debería quitar espacios, guiones y letras al escribir y cortar en 15', async () => {
+      await crear();
+      componente.form.controls.microchip.setValue('941-000 01234567899x');
+
+      componente.limpiarMicrochip();
+
+      expect(componente.form.controls.microchip.value).toBe('941000012345678');
+    });
+
+    it('debería enviar el microchip vacío para poder borrarlo al editar', async () => {
+      await crear('p1', perro({ microchip: '941000012345678' }));
+      componente.form.patchValue({ microchip: '' });
+
+      await componente.submit();
+
+      expect(service['actualizar'].mock.calls[0][1].microchip).toBe('');
+    });
+
+    it('no debería dejar pasar del paso 1 con un microchip mal escrito', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya', microchip: '123' });
+
+      await componente.siguiente();
+
+      expect(componente.paso()).toBe(1);
+      expect(service['crear']).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('opción positiva «¡Es muy bueno!»', () => {
+    it('debería desmarcar los problemas de conducta al elegirla', async () => {
+      await crear();
+      componente.form.patchValue({ ansiedadSeparacion: true, tendenciaEscapar: true, seMarea: true });
+
+      componente.form.controls.esMuyBueno.setValue(true);
+      componente.alMarcarMuyBueno();
+
+      expect(componente.form.getRawValue()).toMatchObject({
+        esMuyBueno: true, ansiedadSeparacion: false, tendenciaEscapar: false, seMarea: false,
+      });
+    });
+
+    it('debería retirarse al marcar un problema', async () => {
+      await crear();
+      componente.form.patchValue({ esMuyBueno: true });
+
+      componente.form.controls.ladraAlQuedarseSolo.setValue(true);
+      componente.alMarcarProblema();
+
+      expect(componente.form.getRawValue().esMuyBueno).toBe(false);
+    });
+
+    it('no debería tocar nada al desmarcarla', async () => {
+      await crear();
+      componente.form.patchValue({ esMuyBueno: false, orinaEnInterior: true });
+
+      componente.alMarcarMuyBueno();
+
+      expect(componente.form.getRawValue().orinaEnInterior).toBe(true);
+    });
+
+    it('debería enviarse en el payload y cargarse al editar', async () => {
+      await crear('p1', perro({ esMuyBueno: true }));
+      expect(componente.form.getRawValue().esMuyBueno).toBe(true);
+
+      await componente.submit();
+
+      expect(service['actualizar'].mock.calls[0][1].esMuyBueno).toBe(true);
     });
   });
 
@@ -338,6 +457,7 @@ describe('PerroFormComponent', () => {
     it('debería empezar en el paso 1 y avanzar/retroceder', async () => {
       await crear();
       expect(componente.paso()).toBe(1);
+      componente.form.patchValue({ nombre: 'Maya' });
 
       await componente.siguiente();
       expect(componente.paso()).toBe(2);
@@ -364,15 +484,41 @@ describe('PerroFormComponent', () => {
 
       expect(service['crear']).not.toHaveBeenCalled();
       expect(componente.form.touched).toBe(true);
+      // El error está en el paso 1: se lleva al usuario hasta él.
+      expect(componente.paso()).toBe(1);
     });
 
-    it('no debería autoguardar sin nombre todavía (nada que crear)', async () => {
+    /* Sin esto el nombre vacío sólo se descubría al pulsar «Crear» en el paso
+       6, con el error fuera de la vista: el alta parecía imposible de terminar. */
+    it('no debería pasar del paso 1 sin nombre ni crear nada', async () => {
       await crear();
 
       await componente.siguiente();
 
       expect(service['crear']).not.toHaveBeenCalled();
+      expect(componente.paso()).toBe(1);
+      expect(componente.hasError('nombre')).toBe(true);
+    });
+
+    it('Intro antes del último paso debería avanzar, no guardar y salir', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya' });
+
+      await componente.alEnviar();
+
       expect(componente.paso()).toBe(2);
+      expect(componente.exitoMsg()).toBe('');
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+
+    it('Intro en el último paso debería guardar la ficha', async () => {
+      await crear();
+      componente.form.patchValue({ nombre: 'Maya' });
+      componente.irAPaso(6);
+
+      await componente.alEnviar();
+
+      expect(service['crear']).toHaveBeenCalled();
     });
 
     it('debería autoguardar como borrador al avanzar de paso una vez hay nombre', async () => {

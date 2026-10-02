@@ -8,7 +8,7 @@ import {
   PaginatedResult,
   ServicioGestionDto,
 } from './catalog.service';
-import { BboxParams, FacetasResult, PuntoServicio } from './catalog.repository';
+import { BboxParams, CiudadDestacada, FacetasResult, PuntoServicio } from './catalog.repository';
 
 /**
  * Parámetros de la búsqueda común. Todo lo demás que llegue en la URL se trata
@@ -123,6 +123,14 @@ export class CatalogController {
     });
   }
 
+  /* Declarada antes de ':id' para que "ciudades" no se interprete como un id. */
+  @Get('ciudades')
+  @ApiOperation({ summary: 'Poblaciones con más servicios publicados y una foto real de cada una (portada)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  ciudades(@Query('limit') limit?: string): Promise<CiudadDestacada[]> {
+    return this.catalogService.obtenerCiudadesDestacadas(this.toNumber(limit));
+  }
+
   /* Declarada antes de ':id' para que "mapa" no se interprete como un id. */
   @Get('mapa')
   @ApiOperation({
@@ -171,9 +179,13 @@ export class CatalogController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener el detalle de un servicio por id' })
-  obtener(@Param('id') id: string): Promise<ServicioDetalleDto> {
-    return this.catalogService.obtenerServicio(id);
+  @ApiOperation({ summary: 'Obtener el detalle de un servicio por slug (legible) o por id' })
+  @ApiQuery({ name: 'vertical', required: false, description: 'Categoría de la ruta: el slug es único por vertical' })
+  obtener(
+    @Param('id') idOSlug: string,
+    @Query('vertical') vertical?: string,
+  ): Promise<ServicioDetalleDto> {
+    return this.catalogService.obtenerServicio(idOSlug, vertical || undefined);
   }
 
   @Get(':id/gestion')

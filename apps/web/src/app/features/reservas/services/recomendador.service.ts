@@ -25,7 +25,8 @@ export class RecomendadorService {
     );
   }
 
-  veterinaria(motivo: string, gravedad: string, sintomasAsociados?: string[]): Promise<RecomendacionVeterinaria> {
+  /** `motivo` es opcional: la reserva ya no lo pregunta y el triaje se apoya en la gravedad. */
+  veterinaria(motivo: string | undefined, gravedad: string, sintomasAsociados?: string[]): Promise<RecomendacionVeterinaria> {
     return firstValueFrom(
       this.http.post<RecomendacionVeterinaria>(`${this.base}/veterinaria`, { motivo, gravedad, sintomasAsociados }),
     );

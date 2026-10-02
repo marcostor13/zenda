@@ -335,6 +335,23 @@ const reservas: Diccionario = {
   '— Elige un servicio —': '— Wähle eine Leistung —',
   '— Sin especificar —': '— Nicht angegeben —',
   '← Volver a mis reservas': '← Zurück zu meinen Buchungen',
+  'Este centro solo ofrece guardería de día, sin pernoctación.': 'Diese Einrichtung bietet nur Tagesbetreuung an, ohne Übernachtung.',
+  'Este alojamiento no ofrece guardería de día.': 'Diese Unterkunft bietet keine Tagesbetreuung an.',
+  'Esa fecha ya ha pasado. Elige otro día.': 'Dieses Datum ist schon vorbei. Wähle einen anderen Tag.',
+  'La guardería de día se reserva día a día: elige un único día.': 'Die Tagesbetreuung wird tageweise gebucht: Wähle einen einzelnen Tag.',
+  'Este alojamiento no tiene plazas de guardería de día publicadas.': 'Diese Unterkunft hat keine Plätze für die Tagesbetreuung veröffentlicht.',
+  'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'Diese Einrichtung bietet diese Betreuungsoption nicht an. Wähle eine andere.',
+  'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'Die Tagesstätte hat an diesem Wochentag geschlossen. Versuch es mit einem anderen Datum.',
+  'La hora de entrada no es válida.': 'Die Bringzeit ist ungültig.',
+  'Hora de entrega': 'Bringzeit',
+  'Elige una hora': 'Uhrzeit wählen',
+  'Sólo se muestran las horas en que atiende el comercio.': 'Es werden nur die Öffnungszeiten des Anbieters angezeigt.',
+  'Días válidos más cercanos para la entrega:': 'Nächste mögliche Tage für die Abgabe:',
+  'Días válidos más cercanos para la recogida:': 'Nächste mögliche Tage für die Abholung:',
+  'El mismo día, a otra hora': 'Am selben Tag, zu einer anderen Uhrzeit',
+  'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'Du kannst bis 24 Std. vor der Leistung kostenlos stornieren und erhältst den vollen Betrag zurück.',
+  'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'Du kannst bis 3 Tage vor der Leistung kostenlos stornieren und erhältst den vollen Betrag zurück.',
+  'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'Diese Buchung ist nicht erstattungsfähig: Bei Stornierung wird der Betrag nicht zurückgezahlt.',
 };
 
 export default reservas;

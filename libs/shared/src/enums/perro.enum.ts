@@ -13,6 +13,9 @@ export enum TipoPelo {
   RIZADO = 'rizado',
   DURO = 'duro',
   DOBLE_CAPA = 'doble_capa',
+  SEDOSO = 'sedoso',
+  CORDADO = 'cordado',
+  SIN_PELO = 'sin_pelo',
 }
 
 export enum SexoPerro {

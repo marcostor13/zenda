@@ -14,7 +14,11 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
 import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
 import { aspectosDeVertical } from '../../../shared/verticales/resena-aspectos.config';
 import { describirPolitica, descripcionPolitica } from '../../../shared/catalogos/politicas-cancelacion.catalogo';
-import { VerticalKey } from 'shared';
+import {
+  ModalidadAlojamiento, TRAMO_GUARDERIA_LABELS, TramoGuarderia, VerticalKey, ofreceGuarderia, ofreceResidencia,
+  precioDesdeGuarderia, tramosOfrecidos, type ConfigGuarderia,
+  PERFIL_COMPATIBILIDAD_SOCIAL_LABELS, type PerfilCompatibilidadSocial, formatearDireccion,
+} from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
 import { RsHorarioPublicoComponent } from '../../../shared/components/horario/rs-horario-publico.component';
@@ -23,6 +27,7 @@ import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { SeoService } from '../../../core/seo/seo.service';
+import { debeIrAlSlug, irAlSlug } from '../../../core/seo/url-canonica';
 import { seoFichaServicio, seoPrivada } from '../../../core/seo/plantillas-seo';
 import { migasDePan, negocioLocal } from '../../../core/seo/json-ld';
 import { verticalUi } from '../../../shared/verticales/verticales.config';
@@ -122,11 +127,21 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         <div class="info-header">
           <h1 class="info-header__name">{{ alojamiento()!.nombre }}</h1>
           <div class="info-header__meta">
-            <span class="info-header__stars">
-              <rs-stars [score]="alojamiento()!.score" [size]="16" />
-              <strong>{{ alojamiento()!.score }}</strong>
-            </span>
-            <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ alojamiento()!.direccion }}, {{ alojamiento()!.barrio }}, {{ alojamiento()!.ciudad }}</span>
+            @if (alojamiento()!.numResenas) {
+              <span class="info-header__stars">
+                <rs-stars [score]="alojamiento()!.score" [size]="16" />
+                <strong>{{ alojamiento()!.score }}</strong>
+              </span>
+            } @else {
+              <!-- Sin reseñas no hay nota: cinco estrellas vacías y un «0»
+                   lo hacían parecer valorado y pésimo. -->
+              <span class="info-header__nuevo" data-testid="sin-valoraciones">
+                <span class="rs-badge rs-badge--accent">{{ 'Nuevo' | t }}</span> {{ 'Sin valoraciones' | t }}
+              </span>
+            }
+            @if (lineaDireccion()) {
+              <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ lineaDireccion() }}</span>
+            }
           </div>
 
           <div class="info-header__tags">
@@ -245,11 +260,20 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         <!-- Espacios -->
         <!-- id de anclaje: la barra fija de móvil salta aquí cuando aún no hay
              espacio elegido (ver .mobile-cta). -->
+        @if (ofreceResidenciaFicha()) {
         <div class="section-block" id="espacios" rsAnim>
           <h2>{{ 'Tipos de espacio' | t }}</h2>
           <div class="rooms-list">
+            <!--
+              Pulsar un tipo de espacio lleva directo a reservarlo, con él ya
+              elegido. Antes sólo lo marcaba y había que subir al panel a pulsar
+              «Reservar»: dos pasos para una sola decisión.
+            -->
             @for (esp of alojamiento()!.espacios; track esp.id) {
-              <div class="room-card rs-card" [class.rs-card--glow]="espacioSelec()?.id === esp.id">
+              <div class="room-card rs-card" [class.rs-card--glow]="espacioSelec()?.id === esp.id"
+                   [class.room-card--reservable]="esp.disponible"
+                   data-testid="tarjeta-espacio"
+                   (click)="esp.disponible && reservarEspacio(esp)">
                 <div class="room-card__img">
                   <img [src]="imagenEspacio(esp)" [alt]="tipoLabel(esp.tipo)" rsImg />
                 </div>
@@ -280,13 +304,11 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
                   <div class="room-price-amount">{{ esp.precioNoche | euros }}</div>
                   <div style="font-size:var(--f-xs);color:var(--t-400)">{{ 'por noche' | t }}</div>
                   @if (esp.disponible) {
-                    <button class="rs-btn rs-btn--primary rs-btn--block"
+                    <button type="button" class="rs-btn rs-btn--primary rs-btn--block"
                             style="margin-top:var(--sp-4)"
-                            [class.rs-btn--outline]="espacioSelec()?.id === esp.id"
-                            (click)="seleccionarEspacio(esp)">
-                      @if (espacioSelec()?.id === esp.id) {
-                        <rs-icon name="check" [size]="14" [stroke]="3" /> Seleccionado
-                      } @else { Seleccionar }
+                            data-testid="reservar-espacio"
+                            (click)="reservarEspacio(esp); $event.stopPropagation()">
+                      {{ 'Reservar' | t }}
                     </button>
                   } @else {
                     <button class="rs-btn rs-btn--ghost rs-btn--block" disabled
@@ -301,6 +323,33 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             }
           </div>
         </div>
+        }
+
+        <!-- Guardería de día: sin noche, por horas, media jornada o día completo. -->
+        @if (ofreceGuarderiaFicha()) {
+          <div class="section-block" id="guarderia" rsAnim>
+            <h2>{{ 'Guardería de día' | t }}</h2>
+            <p class="guarderia-ficha__intro">
+              {{ 'Cuidamos de tu perro durante el día, sin pernoctación. Ideal para días de trabajo.' | t }}
+              @if (horarioGuarderia(); as horario) {
+                <span class="guarderia-ficha__horario"><rs-icon name="clock" [size]="13" [stroke]="2" /> {{ horario }}</span>
+              }
+            </p>
+            <div class="guarderia-ficha__tramos">
+              @for (opcion of tramosGuarderia(); track opcion.tramo) {
+                <div class="guarderia-ficha__tramo rs-card">
+                  <span class="guarderia-ficha__nombre">{{ opcion.etiqueta | t }}</span>
+                  <span class="room-price-amount">{{ opcion.precio | euros }}</span>
+                  <span class="guarderia-ficha__unidad">{{ opcion.unidad | t }}</span>
+                  <button type="button" class="rs-btn rs-btn--primary rs-btn--block rs-btn--sm"
+                          (click)="irAReservaGuarderia(opcion.tramo)">
+                    {{ 'Reservar' | t }}
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
 
         <!-- Políticas en acordeón (PDF 27/07 §13) con details/summary nativos:
              accesibles y operables con teclado sin JavaScript. -->
@@ -332,9 +381,12 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
                     <strong class="policy-horas__hora">{{ alojamiento()!.checkOut }}</strong>
                   </div>
                 </div>
-                @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
-                  <p><strong>{{ 'Compatibilidad social admitida:' | t }}</strong>
-                    {{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</p>
+                @if (alojamiento()!.compatibilidadSocialNoAdmitida.length) {
+                  <p><strong>{{ 'Perfiles que no admite este centro:' | t }}</strong>
+                    @for (p of alojamiento()!.compatibilidadSocialNoAdmitida; track p; let ultimo = $last) {
+                      {{ etiquetaPerfilSocial(p) | t }}{{ ultimo ? '' : ', ' }}
+                    }
+                  </p>
                 }
               </div>
             </details>
@@ -345,7 +397,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
               </summary>
               <div class="policy-acc__body">
                 <p><strong>{{ tituloCancelacion() }}</strong></p>
-                <p>{{ descripcionCancelacion() }}</p>
+                <p>{{ descripcionCancelacion() | t }}</p>
               </div>
             </details>
 
@@ -392,12 +444,13 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             los tipos de espacio —que es lo que decide la reserva— y lejos de
             las reseñas de las que salen.
           -->
+        @if (alojamiento()!.numResenas) {
         <div class="rating-summary rs-card" rsAnim>
           <div class="rating-summary__score">
             <div class="rating-big">{{ alojamiento()!.score }}</div>
             <div>
-              <div class="rating-big-label">{{ alojamiento()!.scoreLabel }}</div>
-              <div style="font-size:var(--f-xs);color:var(--t-400)">{{ alojamiento()!.numResenas | number }} reseñas verificadas</div>
+              <div class="rating-big-label">{{ alojamiento()!.scoreLabel | t }}</div>
+              <div style="font-size:var(--f-xs);color:var(--t-400)">{{ '{n} reseñas verificadas' | t: { n: (alojamiento()!.numResenas | number) ?? '' } }}</div>
             </div>
           </div>
           <!-- "Índice Doogking" con barras (PDF 27/07 §13): son las medias
@@ -417,6 +470,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             </div>
           }
         </div>
+        }
 
 
           <div class="resenas-list">
@@ -476,10 +530,17 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
           }
 
           <p class="rs-bp-desde">{{ 'Desde' | t }}</p>
-          <p class="rs-bp-amount">
-            {{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}
-            <span class="rs-bp-per">{{ 'por noche' | t }}</span>
-          </p>
+          @if (ofreceResidenciaFicha()) {
+            <p class="rs-bp-amount">
+              {{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}
+              <span class="rs-bp-per">{{ 'por noche' | t }}</span>
+            </p>
+          } @else {
+            <p class="rs-bp-amount">
+              {{ desdeGuarderia() ?? alojamiento()!.precioPorNoche | euros }}
+              <span class="rs-bp-per">{{ 'en guardería de día' | t }}</span>
+            </p>
+          }
 
           <div style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-bottom:var(--sp-4)">
             {{ 'Impuestos e IVA incluidos' | t }}
@@ -500,7 +561,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             mitad de camino hacía dudar de si eran dos cosas distintas.
           -->
           <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
-                  (click)="espacioSelec() ? irAReserva() : irAEspacios()">
+                  (click)="!ofreceResidenciaFicha() ? irAReservaGuarderia() : espacioSelec() ? irAReserva() : irAEspacios()">
             {{ 'Reservar' | t }}
           </button>
           <p class="rs-bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
@@ -556,10 +617,10 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
       <div class="mobile-cta__precio">
         <span class="mobile-cta__desde">{{ 'Desde' | t }}</span>
         <strong>{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}</strong>
-        <span class="mobile-cta__unidad">/ noche</span>
+        @if (ofreceResidenciaFicha()) { <span class="mobile-cta__unidad">/ noche</span> }
       </div>
       <button class="rs-btn rs-btn--gold rs-btn--lg"
-              (click)="espacioSelec() ? irAReserva() : irAEspacios()">{{ 'Reservar' | t }}</button>
+              (click)="!ofreceResidenciaFicha() ? irAReservaGuarderia() : espacioSelec() ? irAReserva() : irAEspacios()">{{ 'Reservar' | t }}</button>
     </div>
   </div>
   }
@@ -922,6 +983,9 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
     /* ESPACIO CARD */
     .rooms-list { display: flex; flex-direction: column; gap: var(--sp-4); }
     .room-card { display: grid; grid-template-columns: 240px 1fr auto; padding: 0; overflow: hidden; @media (max-width: 768px) { grid-template-columns: 1fr; } }
+    .room-card--reservable { cursor: pointer; transition: box-shadow var(--t-fast); }
+    .room-card--reservable:hover { box-shadow: var(--sh-lg); }
+    .info-header__nuevo { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--t-300); }
     .room-card__img { min-height: 180px; background: var(--c-surface); img { width: 100%; height: 100%; min-height: 180px; object-fit: cover; display: block; } }
     .room-card__body { padding: var(--sp-6); }
     .room-card__type { font-size: var(--f-md); font-weight: var(--w-7); color: var(--dk-blue); margin-bottom: var(--sp-2); }
@@ -1045,6 +1109,12 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
     .booking-panel__price { text-align: center; margin-bottom: var(--sp-2); }
     .booking-panel__trust { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); p { font-size: var(--f-xs); color: var(--t-400); } }
     .booking-panel__score { display: flex; justify-content: center; }
+    .guarderia-ficha__intro { color: var(--t-300); font-size: var(--f-sm); margin-bottom: var(--sp-4); display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
+    .guarderia-ficha__horario { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--t-400); }
+    .guarderia-ficha__tramos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--sp-4); }
+    .guarderia-ficha__tramo { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-4); }
+    .guarderia-ficha__nombre { font-weight: var(--w-6); color: var(--t-100); }
+    .guarderia-ficha__unidad { font-size: var(--f-xs); color: var(--t-400); }
   `],
 })
 export class AlojamientoDetalleComponent implements OnInit {
@@ -1062,6 +1132,15 @@ export class AlojamientoDetalleComponent implements OnInit {
   readonly alojamiento = signal<AlojamientoDetalle | null>(null);
   readonly imagenActiva = signal('');
   readonly espacioSelec = signal<Espacio | null>(null);
+
+  /**
+   * Línea de la cabecera: «Calle Mayor, 12, Ruzafa, Valencia» sin huecos ni
+   * repeticiones. Se montaba a mano y con datos a medias salía «1, 1, , Valencia».
+   */
+  readonly lineaDireccion = computed(() => {
+    const a = this.alojamiento();
+    return a ? formatearDireccion([a.direccion, a.barrio, a.ciudad]) : '';
+  });
 
   /** Lo que necesita el bloque "Dónde está": punto exacto y dirección legible. */
   readonly ubicacion = computed<PuntoUbicacion>(() => {
@@ -1147,14 +1226,20 @@ export class AlojamientoDetalleComponent implements OnInit {
    * Puntos de compatibilidad reales entre la mascota elegida y este alojamiento
    * (HU-4.1.7) — solo a partir de datos que ambos declaran, nunca inventados.
    */
+  /** Clave de traducción del perfil social; el valor crudo si es desconocido. */
+  etiquetaPerfilSocial(perfil: string): string {
+    return PERFIL_COMPATIBILIDAD_SOCIAL_LABELS[perfil as PerfilCompatibilidadSocial] ?? perfil;
+  }
+
   compatibilidad(): string[] {
     const perro = this.perroCompat();
     const a = this.alojamiento();
     if (!perro || !a) return [];
     const puntos: string[] = [];
 
-    if (!a.compatibilidadSocialAdmitida.length || (perro.sociabilidadPerros && a.compatibilidadSocialAdmitida.some(
-      (p) => p.toLowerCase().includes(perro.sociabilidadPerros!.toLowerCase())))) {
+    // Sólo se afirma cuando el centro no excluye ningún perfil: la sociabilidad
+    // de la ficha del perro no se corresponde uno a uno con esos perfiles.
+    if (!a.compatibilidadSocialNoAdmitida.length) {
       puntos.push(`Perfil social admitido para perros ${perro.sociabilidadPerros ?? 'de cualquier tipo'}`);
     }
     if (perro.ansiedadSeparacion && a.camaras24h) {
@@ -1176,8 +1261,10 @@ export class AlojamientoDetalleComponent implements OnInit {
       this.alojamiento.set(data);
       this.imagenActiva.set(data.imagenes[0] ?? PLACEHOLDER_IMG);
       this.aplicarSeo(data);
+      // Entrada por un enlace antiguo (id): la barra pasa a la URL legible.
+      if (debeIrAlSlug(id, data.slug)) irAlSlug(this.router, ['/alojamiento', data.slug]);
       // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
-      this.eventosService.registrarVistaServicio(id, VerticalKey.ALOJAMIENTO);
+      this.eventosService.registrarVistaServicio(data.id, VerticalKey.ALOJAMIENTO);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado"
       // en vez de un detalle falso que llevaría a una reserva imposible.
@@ -1197,7 +1284,8 @@ export class AlojamientoDetalleComponent implements OnInit {
    */
   private aplicarSeo(data: AlojamientoDetalle): void {
     const origen = this.seo.origenPublico();
-    const ruta = `/alojamiento/${data.id}`;
+    // La canónica es siempre la dirección legible, se haya entrado por donde se haya entrado.
+    const ruta = `/alojamiento/${data.slug || data.id}`;
     const descripcion = data.descripcion || this.ui.descripcion;
 
     this.seo.aplicar(seoFichaServicio({
@@ -1317,19 +1405,79 @@ export class AlojamientoDetalleComponent implements OnInit {
     () => this.alojamiento()?.imagenes[MINIATURAS_VISIBLES - 1] ?? '',
   );
 
+  // ── Residencia y guardería de día ──
+  private readonly extra = computed(() => this.alojamiento()?.extra ?? {});
+  /** Sin `modalidades` el alojamiento es una residencia, como todos los de antes. */
+  readonly ofreceResidenciaFicha = computed(() => ofreceResidencia(this.extra() as { modalidades?: string[] }));
+  readonly ofreceGuarderiaFicha = computed(() =>
+    ofreceGuarderia(this.extra() as { modalidades?: string[] }) && !!this.configGuarderia());
+  private readonly configGuarderia = computed(() => this.extra()['guarderia'] as ConfigGuarderia | undefined);
+  readonly desdeGuarderia = computed(() => precioDesdeGuarderia(this.configGuarderia()));
+
+  readonly tramosGuarderia = computed(() => {
+    const config = this.configGuarderia();
+    if (!config) return [];
+    const precios: Record<TramoGuarderia, number> = {
+      [TramoGuarderia.HORAS]: config.precioHora ?? 0,
+      [TramoGuarderia.MEDIA_JORNADA]: config.precioMediaJornada ?? 0,
+      [TramoGuarderia.DIA_COMPLETO]: config.precioDiaCompleto ?? 0,
+    };
+    return tramosOfrecidos(config).map((tramo) => ({
+      tramo,
+      etiqueta: TRAMO_GUARDERIA_LABELS[tramo],
+      precio: precios[tramo],
+      unidad: tramo === TramoGuarderia.HORAS ? 'por hora y perro' : 'por perro',
+    }));
+  });
+
+  readonly horarioGuarderia = computed(() => {
+    const config = this.configGuarderia();
+    return config?.apertura && config.cierre ? `${config.apertura} – ${config.cierre}` : null;
+  });
+
+  /** Reserva de guardería: el día y el tramo se eligen en el asistente. */
+  irAReservaGuarderia(tramo?: TramoGuarderia): void {
+    const alojamiento = this.alojamiento();
+    if (!alojamiento) return;
+    void this.router.navigate(['/reservas', 'alojamiento', alojamiento.id], {
+      queryParams: {
+        modalidad:  ModalidadAlojamiento.GUARDERIA,
+        tramo:      tramo ?? undefined,
+        comercioId: alojamiento.comercioId,
+        nombre:     alojamiento.nombre,
+        imagen:     alojamiento.imagenes?.[0] ?? '',
+        checkIn:    this.checkInQP ?? undefined,
+        perros:     this.perrosQP ?? undefined,
+        perroId:    this.perroIdQP ?? undefined,
+      },
+    });
+  }
+
   seleccionarEspacio(esp: Espacio): void {
     this.espacioSelec.set(this.espacioSelec()?.id === esp.id ? null : esp);
   }
 
+  /** Clic en un tipo de espacio: queda elegido y se va directo a reservarlo. */
+  reservarEspacio(esp: Espacio): void {
+    this.espacioSelec.set(esp);
+    this.irAReserva();
+  }
+
+  /**
+   * Al asistente con el espacio elegido. El precio **no** viaja en la URL: el
+   * asistente lo pide al API con el `espacioId`, y el cobro lo recalcula el
+   * servidor. Un precio editable en la barra de direcciones no puede ser la
+   * fuente de nada.
+   */
   irAReserva(): void {
-    if (!this.espacioSelec()) return;
-    const alojamiento = this.alojamiento()!;
+    const espacio = this.espacioSelec();
+    const alojamiento = this.alojamiento();
+    if (!espacio || !alojamiento) return;
     void this.router.navigate(['/reservas', 'alojamiento', alojamiento.id], {
       queryParams: {
-        espacioId:  this.espacioSelec()!.id,
+        espacioId:  espacio.id,
         comercioId: alojamiento.comercioId,
         nombre:     alojamiento.nombre,
-        precioBase: this.espacioSelec()!.precioNoche,
         imagen:     alojamiento.imagenes?.[0] ?? '',
         checkIn:    this.checkInQP ?? undefined,
         checkOut:   this.checkOutQP ?? undefined,

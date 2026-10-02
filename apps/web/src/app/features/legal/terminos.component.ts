@@ -25,12 +25,22 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       [titulo]="'Términos y condiciones' | t"
       [entradilla]="'Las reglas de uso de Doogking: qué somos, qué papel tenemos en tu reserva y qué derechos y obligaciones tenemos cada parte.' | t">
 
-      <h2>{{ '1. Quién presta el servicio' | t }}</h2>
+      <h2>{{ '1. Aviso legal: titular de la plataforma' | t }}</h2>
       <p>
-        {{ 'Doogking es un servicio de' | t }} <strong>{{ r.razonSocial }}</strong>
-        ({{ r.identificacionFiscal }}), {{ 'con domicilio en' | t }} {{ r.domicilio }}.
-        {{ 'Contacto:' | t }} <a [href]="'mailto:' + r.emailSoporte">{{ r.emailSoporte }}</a>.
+        {{ 'En cumplimiento del artículo 10 de la Ley 34/2002, de servicios de la sociedad de la información y de comercio electrónico (LSSI-CE), estos son los datos del titular de Doogking:' | t }}
       </p>
+      <ul class="tc-titular">
+        <li><strong>{{ 'Titular:' | t }}</strong> {{ r.razonSocial }}</li>
+        <li><strong>{{ 'Nombre comercial:' | t }}</strong> {{ r.marca }}</li>
+        <li><strong>{{ 'Identificación fiscal:' | t }}</strong> {{ r.identificacionFiscal | t }}</li>
+        <li><strong>{{ 'Domicilio social:' | t }}</strong> {{ r.domicilio }} ({{ r.pais | t }})</li>
+        <li><strong>{{ 'Correo electrónico:' | t }}</strong> <a [href]="'mailto:' + r.emailSoporte">{{ r.emailSoporte }}</a></li>
+        <li><strong>{{ 'Sitio web:' | t }}</strong> <a [href]="r.web" target="_blank" rel="noopener">{{ r.web }}</a></li>
+        <li><strong>{{ 'Administrador:' | t }}</strong> {{ r.administrador }}</li>
+        <li><strong>{{ 'Representante:' | t }}</strong> {{ r.representante.nombre }} ({{ r.representante.cargo | t }})</li>
+        <li><strong>{{ 'Actividad:' | t }}</strong> {{ 'Plataforma en línea de intermediación para la reserva y el pago de servicios para mascotas que prestan comercios independientes.' | t }}</li>
+        <li><strong>{{ 'Datos registrales:' | t }}</strong> {{ 'Sociedad en proceso de constitución. El NIF definitivo y los datos de inscripción en el Registro Mercantil se publicarán en esta página en cuanto se asignen.' | t }}</li>
+      </ul>
 
       <h2>{{ '2. Qué es Doogking y qué no es' | t }}</h2>
       <p>
@@ -60,6 +70,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       <p>
         {{ 'Los pagos los procesa' | t }} <strong>Stripe</strong>.
         {{ 'Los datos de tu tarjeta viajan directamente a Stripe y nunca pasan por nuestros servidores.' | t }}
+        {{ 'Cobramos la reserva en nombre del comercio y se la liquidamos después, descontada nuestra comisión.' | t }}
       </p>
 
       <h2>{{ '6. Cancelaciones y reembolsos' | t }}</h2>
@@ -92,7 +103,10 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
       <h2>{{ '10. Derecho de desistimiento' | t }}</h2>
       <p>
-        {{ 'Los servicios reservados para una fecha concreta están excluidos del desistimiento de 14 días previsto en la normativa europea de consumo (artículo 16.l de la Directiva 2011/83/UE). Lo que se aplica es la política de cancelación del comercio.' | t }}
+        {{ 'Los servicios de alojamiento y de transporte de tu mascota reservados para una fecha concreta están excluidos del derecho de desistimiento de 14 días (artículo 103.l del texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios y artículo 16.l de la Directiva 2011/83/UE); en ellos se aplica la política de cancelación del comercio.' | t }}
+      </p>
+      <p>
+        {{ 'En el resto de servicios, al reservar nos pides expresamente que se presten en la fecha elegida, aunque caiga dentro de esos 14 días. Puedes desistir sin dar explicaciones hasta que el servicio empiece; una vez prestado por completo, el desistimiento ya no es posible (artículo 103.a de la misma ley). Si la política de cancelación del comercio te resulta más favorable, se aplica esta.' | t }}
       </p>
 
       <h2>{{ '11. Propiedad intelectual' | t }}</h2>
@@ -108,7 +122,11 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 
       <h2>{{ '13. Ley aplicable y reclamaciones' | t }}</h2>
       <p>
-        {{ 'Se aplica la legislación española y la de la Unión Europea. Como persona consumidora puedes acudir a los tribunales de tu domicilio y a la plataforma europea de resolución de litigios en línea.' | t }}
+        {{ 'Se aplican la legislación española y la de la Unión Europea, en particular el texto refundido de la Ley General para la Defensa de los Consumidores y Usuarios. Si eres persona consumidora, puedes acudir a los juzgados de tu domicilio.' | t }}
+      </p>
+      <p>
+        {{ 'Puedes presentar cualquier queja o reclamación escribiendo a' | t }}
+        <a [href]="'mailto:' + r.emailSoporte">{{ r.emailSoporte }}</a>{{ '. Te respondemos lo antes posible y, como máximo, en un mes. Si no quedas satisfecho, puedes dirigirte a los servicios de consumo de tu comunidad autónoma o a la Junta Arbitral de Consumo.' | t }}
       </p>
 
       <h2>{{ '14. Documentos relacionados' | t }}</h2>
@@ -120,6 +138,9 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       </p>
     </app-legal-documento>
   `,
+  styles: [`
+    .tc-titular { list-style: none; margin-left: 0; padding-left: 0; }
+  `],
 })
 export class TerminosComponent {
   readonly r = RESPONSABLE;

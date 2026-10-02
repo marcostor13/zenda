@@ -334,3 +334,38 @@ propio `<rs-icon>`.
 6. **Ola 6**: fotos reales y contenido propio de las fichas de Explora (cliente).
 7. La imagen de vista previa (`public/images/og-doogking.png`) se generó a partir del
    logotipo; si diseño quiere una propia, basta con sustituir el fichero.
+
+---
+
+## 7. URLs legibles en las fichas de servicio (octubre 2026)
+
+Cierra la nota de la Ola 4: las fichas de las ocho categorías pasan de
+`/alojamiento/6aa45f57…` a `/alojamiento/reino-canino-valencia`.
+
+- **Esquema:** `/<categoría>/<nombre>-<ciudad>`, un solo segmento. Se descartó
+  `/alojamiento/valencia/reino-canino`: obliga a cambiar la URL si el negocio se muda,
+  choca con rutas fijas de dos segmentos (`/transporte/viaje/…`) y pediría páginas de
+  ciudad que no existen. La ciudad va dentro del slug (palabra clave) y no se repite si
+  el nombre ya la lleva.
+- **Regla común** en `libs/shared/src/slugs/slug.ts` (API y web). Slug único **por
+  vertical** (índice `{ vertical, slug }` parcial), sufijo `-2`, `-3`… ante colisión,
+  palabras reservadas (`empresas`, `viaje`, `planificador`…) excluidas.
+- **Estabilidad:** se genera al crear; sólo se recalcula mientras la ficha está en
+  borrador (nadie la ha visto). Publicada, no cambia aunque se renombre.
+- **Compatibilidad:** `GET /catalog/servicios/:idOSlug?vertical=` acepta las dos formas.
+  `server.ts` responde **301** a `/categoría/<id>` y `/explora/<id>` hacia el slug
+  (conserva la consulta); en navegación interna la ficha corrige la URL con `replaceUrl`.
+- **Además:** `X-Robots-Tag: noindex` y título propio en zonas privadas
+  (`core/seo/seo-rutas.ts`), título/descr./canonical en legales, ayuda, contacto,
+  `/para-comercios` y `/transporte`; `VeterinaryCare`/`LodgingBusiness`/`InsuranceAgency`
+  en el JSON-LD; `TransferState` para no pedir dos veces la ficha tras el render de
+  servidor (`core/interceptors/transferencia.interceptor.ts`).
+
+**Producción (en este orden):** desplegar API y web juntos y después
+`bun run --cwd apps/api migrar:slugs-servicios` (simulación) →
+`bun run --cwd apps/api migrar:slugs-servicios -- --aplicar` (rellena los slugs y crea
+el índice). Mientras no se ejecute, todo sigue funcionando por id.
+
+**hreflang:** no aplica. El idioma no está en la URL (se elige en el navegador y el
+servidor renderiza en español); hreflang exige una URL por idioma. Si se quiere
+posicionar en otros idiomas, el paso previo es `/en/…`, `/de/…`.

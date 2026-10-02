@@ -55,7 +55,7 @@ describe('AlojamientoDetalleComponent', () => {
     resenas: [],
     reglas: ['Cartilla de vacunación al día obligatoria'],
     comercioId: 'c1',
-    compatibilidadSocialAdmitida: [],
+    compatibilidadSocialNoAdmitida: [],
     requisitoMicrochip: false,
     requiereDesparasitacionInterna: false,
     requiereDesparasitacionExterna: false,
@@ -368,14 +368,14 @@ describe('AlojamientoDetalleComponent', () => {
     });
 
     it('admite el perfil social cuando el alojamiento no restringe compatibilidad', () => {
-      component.alojamiento.set({ ...detalleMock, compatibilidadSocialAdmitida: [] });
+      component.alojamiento.set({ ...detalleMock, compatibilidadSocialNoAdmitida: [] });
       component.perroCompat.set(perroMock);
 
       expect(component.compatibilidad()).toContain('Perfil social admitido para perros sociable');
     });
 
-    it('no inventa compatibilidad social si el alojamiento la restringe a otro perfil', () => {
-      component.alojamiento.set({ ...detalleMock, compatibilidadSocialAdmitida: ['tímido'] });
+    it('no inventa compatibilidad social si el centro excluye algún perfil', () => {
+      component.alojamiento.set({ ...detalleMock, compatibilidadSocialNoAdmitida: ['individual'] });
       component.perroCompat.set(perroMock);
 
       expect(component.compatibilidad()).not.toContain('Perfil social admitido para perros sociable');
@@ -394,21 +394,24 @@ describe('AlojamientoDetalleComponent', () => {
     });
   });
 
-  it('debería navegar a /reservas/alojamiento con el espacio seleccionado', async () => {
+  it('debería ir directo a reservar el espacio pulsado, sin el precio en la URL', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
     const router = TestBed.inject(Router);
     const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
 
-    component.seleccionarEspacio(espacioMock);
-    component.irAReserva();
+    component.reservarEspacio(espacioMock);
 
+    expect(component.espacioSelec()).toEqual(espacioMock);
     expect(navigateSpy).toHaveBeenCalledWith(
       ['/reservas', 'alojamiento', 'a1'],
       expect.objectContaining({
-        queryParams: expect.objectContaining({ espacioId: 'e1', precioBase: 45 }),
+        queryParams: expect.objectContaining({ espacioId: 'e1' }),
       }),
     );
+    // El precio lo pide el asistente al API: uno en la URL se podría editar.
+    const [, extras] = navigateSpy.mock.calls[0] as [unknown, { queryParams: Record<string, unknown> }];
+    expect(extras.queryParams).not.toHaveProperty('precioBase');
   });
 
   it('debería traducir tipo y tamaño de perro a etiquetas en español', () => {

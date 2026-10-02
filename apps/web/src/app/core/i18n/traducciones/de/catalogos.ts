@@ -313,6 +313,15 @@ const catalogos: Diccionario = {
   'Condiciones': 'Bedingungen',
   'Cadena': 'Kette',
   'Perros educados': 'Gut erzogene Hunde',
+  'Crematorios': 'Krematorien',
+  'Guardería de día': 'Hundetagesstätte',
+  'Por horas': 'Stundenweise',
+  'Media jornada': 'Halber Tag',
+  'Día completo': 'Ganzer Tag',
+  'Residencia': 'Pension',
+  'Guardería de día · Por horas': 'Hundetagesstätte · Stundenweise',
+  'Guardería de día · Media jornada': 'Hundetagesstätte · Halber Tag',
+  'Guardería de día · Día completo': 'Hundetagesstätte · Ganzer Tag',
 };
 
 export default catalogos;

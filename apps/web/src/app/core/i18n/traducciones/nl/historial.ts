@@ -173,6 +173,15 @@ const historial: Diccionario = {
   'Horario orientativo: el comercio aún no ha publicado el suyo.': 'Indicatieve tijden: het bedrijf heeft zijn openingstijden nog niet gepubliceerd.',
   'El comercio no atiende ese día de la semana.': 'Het bedrijf is op die dag van de week gesloten.',
   'Esa hora ya está reservada. Elige otra de las citas disponibles.': 'Dat tijdstip is al geboekt. Kies een andere beschikbare afspraak.',
+  'Sedoso': 'Zijdeachtig',
+  'Cordado (rastas)': 'Koordvacht (dreadlocks)',
+  'Sin pelo': 'Haarloos',
+  'Normal, bien cuidado': 'Normaal, goed verzorgd',
+  'Con algunos nudos': 'Een paar klitten',
+  'Muy enredado o apelmazado': 'Erg geklit of vervilt',
+  'En muda (suelta mucho pelo)': 'In de rui (verliest veel haar)',
+  'Muy sucio': 'Erg vuil',
+  'Piel sensible o irritada': 'Gevoelige of geïrriteerde huid',
 };
 
 export default historial;

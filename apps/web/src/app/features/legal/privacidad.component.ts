@@ -27,10 +27,18 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       <h2>{{ '1. Quién trata tus datos' | t }}</h2>
       <p>
         {{ 'El responsable del tratamiento es' | t }} <strong>{{ r.razonSocial }}</strong>
-        ({{ r.identificacionFiscal }}), con domicilio en {{ r.domicilio }}, titular de la
-        plataforma {{ r.marca }} ({{ r.web }}).
+        ({{ r.identificacionFiscal | t }}), {{ 'con domicilio en' | t }} {{ r.domicilio }} ({{ r.pais | t }}),
+        {{ 'titular de la plataforma' | t }} {{ r.marca }} ({{ r.web }}).
+      </p>
+      <p>
+        {{ 'Persona de contacto en materia de protección de datos:' | t }}
+        {{ r.representante.nombre }} ({{ r.representante.cargo | t }}).
+        {{ 'No hemos designado un delegado de protección de datos porque nuestra actividad no lo exige (artículo 37 del RGPD y artículo 34 de la LOPDGDD).' | t }}
       </p>
       <p>{{ 'Para cualquier asunto de privacidad:' | t }} <a [href]="'mailto:' + r.emailPrivacidad">{{ r.emailPrivacidad }}</a>.</p>
+      <p>
+        {{ 'Tratamos tus datos conforme al Reglamento (UE) 2016/679, general de protección de datos (RGPD), y a la Ley Orgánica 3/2018, de Protección de Datos Personales y garantía de los derechos digitales (LOPDGDD).' | t }}
+      </p>
 
       <h2>{{ '2. Qué datos tratamos' | t }}</h2>
 
@@ -114,8 +122,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
           <strong>{{ 'Google Maps y Places' | t }}</strong>{{ ', para buscar por ciudad y situar los negocios en el mapa. Las consultas salen desde nuestro servidor.' | t }}
         </li>
         <li><strong>{{ 'Firebase Cloud Messaging' | t }}</strong> {{ '(Google), para entregar las notificaciones push.' | t }}</li>
-        <li>{{ 'El proveedor de correo con el que enviamos las confirmaciones y avisos.' | t }}</li>
-        <li>{{ 'Nuestros proveedores de alojamiento y base de datos, que guardan la información cifrada.' | t }}</li>
+        <li>{{ 'El proveedor de correo con el que enviamos las confirmaciones y avisos.' | t }}</li>        <li>{{ 'Nuestros proveedores de alojamiento y base de datos, que guardan la información cifrada.' | t }}</li>
       </ul>
       <p>
         {{ 'Cuando un proveedor está fuera del Espacio Económico Europeo, la transferencia se ampara en las cláusulas contractuales tipo aprobadas por la Comisión Europea.' | t }}
@@ -149,6 +156,9 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       <p>
         {{ 'Escribe a' | t }} <a [href]="'mailto:' + r.emailPrivacidad">{{ r.emailPrivacidad }}</a> {{ 'desde la dirección de tu cuenta y te respondemos en un plazo máximo de 30 días. Para borrar tus datos tienes los pasos detallados en' | t }}
         <a routerLink="/eliminar-datos">{{ 'Eliminación de datos' | t }}</a>.
+      </p>
+      <p>
+        {{ 'También puedes ejercerlos por correo postal en nuestro domicilio social, adjuntando un documento que acredite tu identidad.' | t }}
       </p>
       <p>
         {{ 'Si crees que no hemos atendido bien tu solicitud, puedes reclamar ante la Agencia Española de Protección de Datos (' | t }}<a href="https://www.aepd.es" rel="noopener" target="_blank">{{ 'aepd.es' | t }}</a>).

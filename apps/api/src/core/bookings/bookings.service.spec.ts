@@ -759,6 +759,115 @@ describe('BookingsService', () => {
     });
   });
 
+  /**
+   * Una estancia (alojamiento, hotel) se entrega y se recoge en persona: si el
+   * comercio cierra el día de entrada o el de salida no hay nadie para recibir
+   * al perro. Se podía pagar igual.
+   */
+  describe('crear — entrega y recogida de una estancia', () => {
+    const deLunesAViernes = horarioSemanal(
+      { dias: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'], abre: '09:00', cierra: '14:00' },
+    );
+    // Sábado 5 de enero de 2030 → jueves 10: entra en sábado, con la residencia cerrada.
+    const estancia = {
+      ...parametrosBase,
+      fechaInicio: new Date('2030-01-05T00:00:00Z'),
+      fechaFin: new Date('2030-01-10T00:00:00Z'),
+      detalle: {},
+    };
+
+    beforeEach(() => {
+      catalogRepository.obtenerPorId.mockResolvedValue({
+        comercioId: 'comercio-1', vertical: VerticalKey.ALOJAMIENTO, estado: 'publicado', comercioActivo: true,
+        horario: deLunesAViernes, excepcionesHorario: [],
+      } as never);
+      estrategiaMock.checkAvailability.mockResolvedValue({
+        disponible: true, precioCalculado: 200, metadata: { noches: 5, validarHorarioEstancia: true },
+      });
+    });
+
+    it('debería rechazar con 409 una entrada en día cerrado y proponer los días más cercanos', async () => {
+      await expect(service.crear(estancia)).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringContaining('el viernes 4 de enero o el lunes 7 de enero'),
+      });
+      expect(estrategiaMock.reserveSlot).not.toHaveBeenCalled();
+    });
+
+    it('debería rechazar una salida en día cerrado', async () => {
+      await expect(service.crear({
+        ...estancia, fechaInicio: new Date('2030-01-07T00:00:00Z'), fechaFin: new Date('2030-01-13T00:00:00Z'),
+      })).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('recogida') });
+    });
+
+    it('debería rechazar una hora de entrega fuera del horario', async () => {
+      await expect(service.crear({
+        ...estancia,
+        fechaInicio: new Date('2030-01-07T00:00:00Z'),
+        detalle: { horaEntrada: '18:00', horaSalida: '10:00' },
+      })).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('09:00–14:00') });
+    });
+
+    it('debería aceptar una estancia que entra y sale en días de atención, aunque cierre entre medias', async () => {
+      // Lunes 7 → lunes 14: el fin de semana de en medio el perro ya está dentro.
+      await service.crear({
+        ...estancia,
+        fechaInicio: new Date('2030-01-07T00:00:00Z'),
+        fechaFin: new Date('2030-01-14T00:00:00Z'),
+        detalle: { horaEntrada: '09:30', horaSalida: '13:00' },
+      });
+      expect(estrategiaMock.reserveSlot).toHaveBeenCalled();
+    });
+
+    it('debería avisar ya en la comprobación del paso 1, sin fallar', async () => {
+      const respuesta = await service.comprobarDisponibilidad(estancia);
+      expect(respuesta).toMatchObject({ disponible: false, motivo: expect.stringContaining('sábado 5 de enero') });
+    });
+
+    it('debería rechazar una sesión de un día (sin fin) en día cerrado', async () => {
+      // Adiestramiento: sólo hay día de inicio.
+      await expect(service.crear({ ...estancia, fechaFin: undefined }))
+        .rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('sábado 5 de enero') });
+    });
+
+    it('no debería aplicarse si la estrategia no dice que es una estancia', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({ disponible: true, precioCalculado: 200, metadata: { noches: 5 } });
+      await service.crear(estancia);
+      expect(estrategiaMock.reserveSlot).toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * El detalle lo escribe el cliente y viaja a la estrategia. El importe tiene
+   * que salir siempre del servicio: un `precioAcordado` o un `montoTotal`
+   * metidos en la petición no pueden llegar ni a la estrategia ni a la reserva.
+   */
+  describe('crear — el importe no lo decide el cliente', () => {
+    it('debería ignorar precios e importes enviados en el detalle', async () => {
+      estrategiaMock.checkAvailability.mockResolvedValue({ disponible: true, precioCalculado: 121 } as never);
+
+      await service.crear({
+        ...parametrosBase,
+        detalle: { precioAcordado: 1, precioBase: 1, montoTotal: 1, comisionPct: 0, espacioId: 'esp-0' },
+      });
+
+      const extra = estrategiaMock.checkAvailability.mock.calls.at(-1)?.[1].parametrosExtra as Record<string, unknown>;
+      expect(extra).toEqual({ espacioId: 'esp-0' });
+      const guardado = reservaModel.mock.calls.at(-1)?.[0] as { montoTotal: number; detalle: Record<string, unknown> };
+      expect(guardado.montoTotal).toBe(121);
+      expect(guardado.detalle).not.toHaveProperty('precioAcordado');
+      expect(guardado.detalle).not.toHaveProperty('montoTotal');
+    });
+
+    it('no debería dejar que el cliente falsee la ficha de su perro', async () => {
+      await service.crear({ ...parametrosBase, detalle: { perroEsPPP: false, perroPeso: 2 } });
+
+      const extra = estrategiaMock.checkAvailability.mock.calls.at(-1)?.[1].parametrosExtra as Record<string, unknown>;
+      expect(extra).not.toHaveProperty('perroEsPPP');
+      expect(extra).not.toHaveProperty('perroPeso');
+    });
+  });
+
   describe('huecosDelDia', () => {
     const consulta = { usuarioId: 'user-1', servicioId: 'servicio-1', fecha: '2026-09-21', detalle: { servicio: 'Baño' } };
 

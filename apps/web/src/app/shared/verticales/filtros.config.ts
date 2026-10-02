@@ -82,6 +82,11 @@ export const FILTROS_POR_VERTICAL: Record<string, readonly GrupoFiltro[]> = {
   [VerticalKey.ALOJAMIENTO]: [
     precio('por noche', 500),
     VALORACION,
+    // Centros que además (o sólo) cuidan de día, sin pernoctación.
+    {
+      titulo: 'Modalidad', tipo: 'opciones', campo: 'modalidades',
+      opciones: [{ valor: 'guarderia', etiqueta: 'Guardería de día' }],
+    },
     { titulo: 'Servicios', tipo: 'opciones', campo: 'amenities', opciones: desdeTextos(AMENITIES_ALOJAMIENTO.slice(0, 8)) },
     {
       titulo: 'Extras', tipo: 'booleanos',

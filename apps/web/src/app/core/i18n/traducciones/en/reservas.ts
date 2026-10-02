@@ -335,6 +335,23 @@ const reservas: Diccionario = {
   '— Elige un servicio —': '— Choose a service —',
   '— Sin especificar —': '— Not specified —',
   '← Volver a mis reservas': '← Back to my bookings',
+  'Este centro solo ofrece guardería de día, sin pernoctación.': 'This centre only offers day care, with no overnight stays.',
+  'Este alojamiento no ofrece guardería de día.': 'This boarding service doesn’t offer day care.',
+  'Esa fecha ya ha pasado. Elige otro día.': 'That date has already passed. Choose another day.',
+  'La guardería de día se reserva día a día: elige un único día.': 'Day care is booked one day at a time: choose a single day.',
+  'Este alojamiento no tiene plazas de guardería de día publicadas.': 'This boarding service hasn’t published any day care places.',
+  'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'This centre doesn’t offer that day care option. Choose another one.',
+  'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'The day care is closed on that day of the week. Try another date.',
+  'La hora de entrada no es válida.': 'The drop-off time is not valid.',
+  'Hora de entrega': 'Drop-off time',
+  'Elige una hora': 'Choose a time',
+  'Sólo se muestran las horas en que atiende el comercio.': 'Only the business’s opening hours are shown.',
+  'Días válidos más cercanos para la entrega:': 'Nearest available days for drop-off:',
+  'Días válidos más cercanos para la recogida:': 'Nearest available days for pick-up:',
+  'El mismo día, a otra hora': 'Same day, at another time',
+  'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'You can cancel free of charge up to 24 h before the service and get a full refund.',
+  'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'You can cancel free of charge up to 3 days before the service and get a full refund.',
+  'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'This booking is non-refundable: if you cancel, the amount is not refunded.',
 };
 
 export default reservas;

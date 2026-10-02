@@ -1,3 +1,4 @@
+import { aSlug } from 'shared';
 import { formatearImporte } from '../moneda/importe';
 import type { MetadatosSeo } from './seo.service';
 
@@ -101,7 +102,10 @@ export interface DatosFichaServicio {
  * es donde más se nota tener imagen y descripción propias.
  */
 export function seoFichaServicio(datos: DatosFichaServicio): MetadatosSeo {
-  const dondeEsta = datos.ciudad ? `${datos.titulo} en ${datos.ciudad}` : datos.titulo;
+  // «Royal Dog Resort Madrid en Madrid» se lee como un error: si el nombre ya
+  // lleva la ciudad, no se repite.
+  const yaLaLleva = !!datos.ciudad && `-${aSlug(datos.titulo)}-`.includes(`-${aSlug(datos.ciudad)}-`);
+  const dondeEsta = datos.ciudad && !yaLaLleva ? `${datos.titulo} en ${datos.ciudad}` : datos.titulo;
   /*
    * Siempre en euros, nunca en la divisa que el visitante tenga elegida en la
    * cabecera: esta descripción la indexa Google desde el render de servidor,

@@ -1,0 +1,35 @@
+Sedoso
+Cordado (rastas)
+Sin pelo
+Normal, bien cuidado
+Con algunos nudos
+Muy enredado o apelmazado
+En muda (suelta mucho pelo)
+Muy sucio
+Piel sensible o irritada
+Tipo de manto
+Cómo es su pelo por naturaleza. Ayuda a las peluquerías a preparar tiempo y material.
+Cómo está ahora: nudos, muda o piel sensible pueden necesitar más tiempo.
+Número de microchip
+15 dígitos
+El microchip tiene 15 dígitos (llevas {n}).
+Opcional. Lo encontrarás en la cartilla o el pasaporte europeo.
+¿Algo a tener en cuenta?
+¡Es muy bueno! No da ningún problema
+Paso {n} de {total}
+{n}% completada
+Ficha Inteligente completada al {n}%
+Siguiente
+Guardado automáticamente
+Muy tranquilo
+Nervioso
+Protector
+Sociable
+Independiente
+Revisa los campos marcados en rojo antes de guardar.
+¡Cambios guardados!
+¡Perro registrado! Redirigiendo…
+No se pudo cargar la ficha del perro.
+Espera a que termine de subirse la foto de tu perro.
+La foto de tu perro no se pudo subir. Reinténtala o quítala en el paso 1 para guardar la ficha.
+El microchip debe tener exactamente 15 dígitos

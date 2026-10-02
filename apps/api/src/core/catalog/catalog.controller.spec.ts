@@ -14,7 +14,7 @@ describe('CatalogController', () => {
           provide: CatalogService,
           useValue: {
             buscarServicios: jest.fn(), obtenerServicio: jest.fn(), obtenerPuntosMapa: jest.fn(),
-            obtenerFacetas: jest.fn(), crearServicio: jest.fn(), actualizarServicio: jest.fn(),
+            obtenerFacetas: jest.fn(), obtenerCiudadesDestacadas: jest.fn(), crearServicio: jest.fn(), actualizarServicio: jest.fn(),
             obtenerServicioParaGestion: jest.fn(),
           },
         },
@@ -269,8 +269,26 @@ describe('CatalogController', () => {
 
       const result = await controller.obtener('hotel-1');
 
-      expect(service.obtenerServicio).toHaveBeenCalledWith('hotel-1');
+      expect(service.obtenerServicio).toHaveBeenCalledWith('hotel-1', undefined);
       expect(result).toBe(detalle);
+    });
+
+    it('debería pasar la categoría para resolver por slug', async () => {
+      service.obtenerServicio.mockResolvedValue({ id: 'x' } as never);
+
+      await controller.obtener('reino-canino-valencia', 'alojamiento');
+
+      expect(service.obtenerServicio).toHaveBeenCalledWith('reino-canino-valencia', 'alojamiento');
+    });
+  });
+
+  describe('ciudades', () => {
+    it('debería delegar el tope de poblaciones de la portada', async () => {
+      const filas = [{ ciudad: 'Valencia', servicios: 3, vertical: 'alojamiento', imagen: null }];
+      service.obtenerCiudadesDestacadas.mockResolvedValue(filas);
+
+      await expect(controller.ciudades('5')).resolves.toBe(filas);
+      expect(service.obtenerCiudadesDestacadas).toHaveBeenCalledWith(5);
     });
   });
 });

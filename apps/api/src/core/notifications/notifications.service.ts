@@ -2,7 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { HITO_VIAJE_LABELS, HitoViaje, Rol, normalizarHitoViaje } from 'shared';
+import {
+  HITO_VIAJE_LABELS, HitoViaje, Rol, formatearDireccion, lineaCalle, normalizarHitoViaje,
+} from 'shared';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
@@ -115,8 +117,9 @@ export class NotificationsService {
     const { inicio, fin } = tramoDeLaReserva(reserva);
     const conHora = !(inicio.getUTCHours() === 0 && inicio.getUTCMinutes() === 0) || !!reserva.detalle?.['hora'];
     const ubicacion = (servicio?.['ubicacion'] ?? {}) as { calle?: string; numero?: string; codigoPostal?: string; ciudad?: string };
-    const direccion = (servicio?.['direccion'] as string | undefined)
-      ?? ([ubicacion.calle, ubicacion.numero].filter(Boolean).join(' ') || undefined);
+    // Misma regla que la ficha: sin calle con nombre no hay línea de dirección.
+    const direccion = lineaCalle(ubicacion.calle, ubicacion.numero)
+      || formatearDireccion([servicio?.['direccion'] as string | undefined]) || undefined;
     const perro = (reserva.perroSnapshot as { nombre?: string } | undefined)?.nombre;
 
     return {
@@ -127,7 +130,7 @@ export class NotificationsService {
       servicio: {
         titulo: (servicio?.['titulo'] as string | undefined) ?? 'Tu reserva',
         imagen: (servicio?.['imagenes'] as string[] | undefined)?.[0],
-        direccion: [direccion, ubicacion.codigoPostal].filter(Boolean).join(', ') || undefined,
+        direccion: direccion ? [direccion, ubicacion.codigoPostal].filter(Boolean).join(', ') : undefined,
         ciudad: ubicacion.ciudad,
         politicaCancelacion: servicio?.['politicaCancelacion'] as string | undefined,
         checkIn: servicio?.['checkIn'] as string | undefined,
@@ -156,7 +159,7 @@ export class NotificationsService {
   }
 
   private adjuntoCalendario(datos: DatosReservaConfirmada): AdjuntoEmail {
-    const lugar = [datos.comercio.nombre, datos.servicio.direccion, datos.servicio.ciudad].filter(Boolean).join(', ');
+    const lugar = formatearDireccion([datos.comercio.nombre, datos.servicio.direccion, datos.servicio.ciudad]);
     return {
       nombre: `reserva-${datos.codigo}.ics`,
       tipo: 'text/calendar; charset=utf-8; method=PUBLISH',

@@ -313,6 +313,15 @@ const catalogos: Diccionario = {
   'Condiciones': 'Conditions',
   'Cadena': 'Chain',
   'Perros educados': 'Well-behaved dogs',
+  'Crematorios': 'Crematoriums',
+  'Guardería de día': 'Day care',
+  'Por horas': 'By the hour',
+  'Media jornada': 'Half day',
+  'Día completo': 'Full day',
+  'Residencia': 'Boarding',
+  'Guardería de día · Por horas': 'Day care · By the hour',
+  'Guardería de día · Media jornada': 'Day care · Half day',
+  'Guardería de día · Día completo': 'Day care · Full day',
 };
 
 export default catalogos;

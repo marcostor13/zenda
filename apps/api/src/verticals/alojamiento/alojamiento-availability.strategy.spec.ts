@@ -385,6 +385,31 @@ describe('AlojamientoAvailabilityStrategy', () => {
         });
         expect(resultado.disponible).toBe(true);
       });
+
+      it('bloquea la reserva si el centro marcó ese perfil como no admitido', async () => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue({ ...alojamientoMock, compatibilidadSocialNoAdmitida: ['individual'] }),
+        });
+        await expect(strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { compatibilidadSocial: 'individual' },
+        })).rejects.toThrow(DomainException);
+      });
+
+      it('permite cualquier perfil que el centro no haya marcado como no admitido', async () => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue({
+            ...alojamientoMock, compatibilidadSocialNoAdmitida: ['individual'], compatibilidadSocialAdmitida: ['cualquiera'],
+          }),
+        });
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { compatibilidadSocial: 'solo_machos' },
+        });
+        expect(resultado.disponible).toBe(true);
+      });
     });
   });
 
@@ -409,6 +434,122 @@ describe('AlojamientoAvailabilityStrategy', () => {
       });
 
       await expect(strategy.releaseSlot(hold.holdId)).resolves.not.toThrow();
+    });
+  });
+
+  describe('guardería de día', () => {
+    /** Lunes futuro: la guardería no se reserva en el pasado. */
+    const LUNES = '2099-10-05';
+
+    const conCentro = (parcial: Record<string, unknown> = {}) => {
+      servicioModel.findById = jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({
+          ...alojamientoMock,
+          modalidades: ['residencia', 'guarderia'],
+          guarderia: {
+            precioHora: 6, precioMediaJornada: 18, precioDiaCompleto: 28,
+            plazasPorDia: 2, apertura: '08:00', cierre: '19:00', diasSemana: [1, 2, 3, 4, 5],
+          },
+          ...parcial,
+        }),
+      });
+    };
+
+    const pedir = (extra: Record<string, unknown>, fecha = LUNES, cantidad = 1) =>
+      strategy.checkAvailability('alojamiento-1', {
+        fechaInicio: new Date(fecha),
+        cantidad,
+        parametrosExtra: { modalidad: 'guarderia', ...extra },
+      });
+
+    it('debería cobrar media jornada por perro y anotar la modalidad en la reserva', async () => {
+      conCentro();
+
+      const resultado = await pedir({ tramoGuarderia: 'media_jornada', horaEntrada: '09:00' }, LUNES, 2);
+
+      expect(resultado).toMatchObject({ disponible: true, precioCalculado: 36, capacidadRestante: 2 });
+      expect(resultado.metadata?.['detalleReserva']).toEqual({
+        modalidad: 'guarderia', espacioId: 'guarderia', tramoGuarderia: 'media_jornada', horaEntrada: '09:00',
+      });
+      expect(resultado.metadata).not.toHaveProperty('duracionMin');
+    });
+
+    it('debería cobrar por horas y contar la ocupación sólo de la guardería', async () => {
+      conCentro();
+
+      const resultado = await pedir({ tramoGuarderia: 'horas', horasGuarderia: 3 });
+
+      expect(resultado).toMatchObject({ disponible: true, precioCalculado: 18 });
+      expect(resultado.metadata?.['detalleReserva']).toMatchObject({ horasGuarderia: 3 });
+      expect(ocupacion.nochesOcupadas).toHaveBeenCalledWith(expect.objectContaining({ espacioId: 'guarderia' }));
+    });
+
+    it('debería rechazar el día cuando las plazas de guardería están cubiertas', async () => {
+      conCentro();
+      ocupacion.nochesOcupadas.mockResolvedValue(new Map([[LUNES, 2]]));
+
+      await expect(pedir({ tramoGuarderia: 'dia_completo' }))
+        .resolves.toMatchObject({ disponible: false, motivo: expect.stringMatching(/completa/) });
+    });
+
+    it('debería rechazar un día cerrado, un tramo sin precio y una entrada fuera de horario', async () => {
+      conCentro({ guarderia: { precioDiaCompleto: 28, plazasPorDia: 5, apertura: '08:00', cierre: '19:00', diasSemana: [1] } });
+
+      await expect(pedir({ tramoGuarderia: 'dia_completo' }, '2099-10-06'))
+        .resolves.toMatchObject({ disponible: false, motivo: expect.stringMatching(/no abre/) });
+      await expect(pedir({ tramoGuarderia: 'horas', horasGuarderia: 2 }))
+        .resolves.toMatchObject({ disponible: false, motivo: expect.stringMatching(/modalidad/) });
+      await expect(pedir({ tramoGuarderia: 'dia_completo', horaEntrada: '20:00' }))
+        .resolves.toMatchObject({ disponible: false, motivo: expect.stringMatching(/08:00 a 19:00/) });
+    });
+
+    it('debería rechazar fechas pasadas y rangos de varios días', async () => {
+      conCentro();
+
+      await expect(pedir({ tramoGuarderia: 'dia_completo' }, '2020-01-06'))
+        .resolves.toMatchObject({ disponible: false, motivo: expect.stringMatching(/ya ha pasado/) });
+      await expect(strategy.checkAvailability('alojamiento-1', {
+        fechaInicio: new Date(LUNES), fechaFin: new Date('2099-10-08'),
+        parametrosExtra: { modalidad: 'guarderia', tramoGuarderia: 'dia_completo' },
+      })).resolves.toMatchObject({ disponible: false, motivo: expect.stringMatching(/día a día/) });
+    });
+
+    it('debería rechazar la guardería en un alojamiento que sólo es residencia', async () => {
+      // Sin `modalidades`: un alojamiento dado de alta antes de la guardería.
+      await expect(pedir({ tramoGuarderia: 'dia_completo' }))
+        .resolves.toMatchObject({ disponible: false, motivo: expect.stringMatching(/no ofrece guardería/) });
+    });
+
+    it('debería rechazar noches en un centro que sólo hace guardería', async () => {
+      conCentro({ modalidades: ['guarderia'], espacios: [] });
+
+      await expect(strategy.checkAvailability('alojamiento-1', {
+        fechaInicio: new Date('2099-01-10'), fechaFin: new Date('2099-01-12'),
+      })).resolves.toMatchObject({ disponible: false, motivo: expect.stringMatching(/solo ofrece guardería/) });
+    });
+
+    it('debería anotar la modalidad residencia en una estancia', async () => {
+      const resultado = await strategy.checkAvailability('alojamiento-1', {
+        fechaInicio: new Date('2099-01-10'), fechaFin: new Date('2099-01-12'),
+      });
+
+      expect(resultado.metadata?.['detalleReserva']).toEqual({ modalidad: 'residencia' });
+    });
+
+    it('debería pintar el calendario de guardería con los días cerrados y las plazas libres', async () => {
+      conCentro();
+      ocupacion.nochesOcupadas.mockResolvedValue(new Map([['2099-10-06', 2]]));
+
+      const dias = await strategy.calendario('alojamiento-1', {
+        desde: new Date('2099-10-04'), hasta: new Date('2099-10-06'), espacioId: 'guarderia',
+      });
+
+      expect(dias).toEqual([
+        { fecha: '2099-10-04', disponible: false, plazasLibres: 0 }, // domingo: cerrado
+        { fecha: '2099-10-05', disponible: true, plazasLibres: 2 },
+        { fecha: '2099-10-06', disponible: false, plazasLibres: 0 }, // completo
+      ]);
     });
   });
 });

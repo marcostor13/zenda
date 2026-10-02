@@ -1,7 +1,7 @@
 import { Component, signal, inject, computed, input, output, DestroyRef, OnInit } from '@angular/core';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, FormArray, Validators, AbstractControl } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import {
   VerticalKey, VERTICAL_LABELS, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
@@ -16,7 +16,10 @@ import {
   AccionNoShow, AmbitoTransporte, BaseKilometraje, CompartidoTransporte, FinalidadTransporte,
   ModoCobertura, ModoDisponibilidadTransporte, PlantillaTransporte, PoliticaCancelacionTransporte,
   PoliticaParadas, PoliticaPeajes, PrecioAcompanante, PrecioOrientativo, PuntosTrayecto, QuienViaja,
-  RedondeoDistancia, TipoIdaVuelta, TipoRecogida, TipoTrayecto, VentanaRecogida } from 'shared';
+  RedondeoDistancia, TipoIdaVuelta, TipoRecogida, TipoTrayecto, VentanaRecogida,
+  // Residencia y guardería canina.
+  ModalidadAlojamiento, DIAS_GUARDERIA_DEFECTO, HORAS_MEDIA_JORNADA, precioDesdeGuarderia,
+  type ConfigGuarderia } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
@@ -36,7 +39,7 @@ import {
   INCLUYE_FUNERARIO,
   RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS,
 } from '../../shared/catalogos/tags.catalogo';
-import { provinciaDe } from 'shared';
+import { esCalleValida, esNumeroPortalValido, provinciaDe, PERFILES_COMPATIBILIDAD_SOCIAL, PERFIL_COMPATIBILIDAD_SOCIAL_LABELS, perfilesSocialesNoAdmitidos, TipoPelo, nombreTipoManto } from 'shared';
 import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 import {
@@ -83,8 +86,22 @@ function tipoDesdeNombre(nombre?: string): ServicioClinicoTipo | undefined {
   return delCatalogo ?? SERVICIO_CLINICO_SINONIMOS[buscado];
 }
 
+/**
+ * En el alta, alojamiento se presenta como lo que es para el negocio: una
+ * residencia, una guardería de día o las dos (ver «¿Qué modalidades ofreces?»).
+ */
+const ETIQUETA_ALTA: Partial<Record<string, string>> = {
+  [VerticalKey.ALOJAMIENTO]: 'Residencia y guardería canina',
+};
+
 const VERTICALES: ReadonlyArray<{ valor: string; label: string }> = Object.values(VerticalKey)
-  .map(valor => ({ valor, label: VERTICAL_LABELS[valor] }));
+  .map(valor => ({ valor, label: ETIQUETA_ALTA[valor] ?? VERTICAL_LABELS[valor] }));
+
+/** Días de la semana para el horario de la guardería (ISO: 1 = lunes). */
+const DIAS_SEMANA: ReadonlyArray<{ valor: number; label: string }> = [
+  { valor: 1, label: 'Lun' }, { valor: 2, label: 'Mar' }, { valor: 3, label: 'Mié' },
+  { valor: 4, label: 'Jue' }, { valor: 5, label: 'Vie' }, { valor: 6, label: 'Sáb' }, { valor: 7, label: 'Dom' },
+];
 
 /** Placeholder del nombre según la categoría elegida. */
 const PLACEHOLDER_TITULO: Record<string, string> = {
@@ -155,7 +172,7 @@ const PASOS: ReadonlyArray<{
 /** Campos obligatorios que cierra cada paso antes de dejar avanzar. */
 const CAMPOS_DEL_PASO: Record<PasoListado, ReadonlyArray<string>> = {
   categoria: ['vertical', 'titulo', 'descripcion'],
-  ubicacion: ['ciudad', 'precioBase'],
+  ubicacion: ['ciudad', 'calle', 'numero', 'precioBase'],
   // El horario es opcional: un transporte a demanda no tiene puerta que abrir.
   horarios: [],
   // Lo específico del vertical se valida contra su propio grupo y su regla
@@ -306,6 +323,43 @@ function aCsv(v: string): string[] {
             }
           </div>
 
+          @if (form.controls.vertical.value === 'alojamiento') {
+            <fieldset class="modalidades">
+              <legend class="modalidades__titulo">{{ '¿Qué modalidades ofreces?' | t }}</legend>
+              <p class="rs-field-hint">
+                {{ 'Selecciona una o ambas opciones. Luego podrás configurar los precios, horarios y detalles de cada una.' | t }}
+              </p>
+              <div class="modalidades__grid">
+                <label class="modalidad" [class.modalidad--sel]="ofreceResidenciaForm()">
+                  <input type="checkbox" class="modalidad__check"
+                         [checked]="ofreceResidenciaForm()" (change)="alternarModalidad('residencia')" />
+                  <span class="modalidad__icono"><rs-icon name="home" [size]="26" [stroke]="2" /></span>
+                  <span class="modalidad__texto">
+                    <span class="modalidad__nombre">{{ 'Residencia con alojamiento' | t }}</span>
+                    <span class="modalidad__desc">{{ 'Para estancias con pernoctación de mínimo 2 días.' | t }}</span>
+                    <span class="modalidad__chips">
+                      <span class="modalidad__chip"><rs-icon name="moon" [size]="12" [stroke]="2" /> {{ 'Estancias desde 2 noches' | t }}</span>
+                      <span class="modalidad__chip"><rs-icon name="paw" [size]="12" [stroke]="2" /> {{ 'Ideal para vacaciones' | t }}</span>
+                    </span>
+                  </span>
+                </label>
+                <label class="modalidad" [class.modalidad--sel]="ofreceGuarderiaForm()">
+                  <input type="checkbox" class="modalidad__check"
+                         [checked]="ofreceGuarderiaForm()" (change)="alternarModalidad('guarderia')" />
+                  <span class="modalidad__icono modalidad__icono--sol"><rs-icon name="sun" [size]="26" [stroke]="2" /></span>
+                  <span class="modalidad__texto">
+                    <span class="modalidad__nombre">{{ 'Guardería de día' | t }}</span>
+                    <span class="modalidad__desc">{{ 'Para cuidar al perro durante el día, sin pernoctación.' | t }}</span>
+                    <span class="modalidad__chips">
+                      <span class="modalidad__chip"><rs-icon name="sun" [size]="12" [stroke]="2" /> {{ 'Por horas, media jornada o día completo' | t }}</span>
+                      <span class="modalidad__chip"><rs-icon name="paw" [size]="12" [stroke]="2" /> {{ 'Ideal para días de trabajo' | t }}</span>
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+          }
+
           }
 
           @if (paso() === 'ubicacion') {
@@ -327,11 +381,18 @@ function aCsv(v: string): string[] {
                 <span class="rs-field-hint">
                   {{ 'Elígela de la lista y colocamos el pin en el punto exacto.' | t }}
                 </span>
+                @if (hasError('calle')) {
+                  <span class="rs-field-err">{{ 'Escribe el nombre de la calle, no sólo el número.' | t }}</span>
+                }
               </div>
 
               <div class="rs-field">
                 <label class="rs-lbl" for="numero">{{ 'Número, piso o puerta' | t }} <span class="opt">{{ 'opcional' | t }}</span></label>
-                <input id="numero" class="rs-inp" formControlName="numero" [placeholder]="'Ej: 24, 2ºB' | t">
+                <input id="numero" class="rs-inp" formControlName="numero" [placeholder]="'Ej: 24, 2ºB' | t"
+                       [class.rs-inp--error]="hasError('numero')">
+                @if (hasError('numero')) {
+                  <span class="rs-field-err">{{ 'El número no es válido (ej.: 24, 2ºB o s/n).' | t }}</span>
+                }
               </div>
 
               <div class="form-row-2">
@@ -389,7 +450,7 @@ function aCsv(v: string): string[] {
                 <input id="precioBase" class="rs-inp" type="number" formControlName="precioBase"
                        placeholder="0.00" min="0" step="0.01"
                        [class.rs-inp--error]="hasError('precioBase')" inputmode="decimal">
-                <span class="rs-field-hint">{{ 'Es el precio «desde» que se muestra en las tarjetas de búsqueda.' | t }}</span>
+                <span class="rs-field-hint">{{ 'Si publicas espacios o servicios con precio, las tarjetas y la ficha muestran «desde» el más barato; este precio sólo se usa si no hay ninguno.' | t }}</span>
                 @if (hasError('precioBase')) {
                   <span class="rs-field-err">{{ 'Ingresa un precio válido mayor a 0.' | t }}</span>
                 }
@@ -477,6 +538,7 @@ function aCsv(v: string): string[] {
 
             @case ('alojamiento') {
               <div formGroupName="alojamiento" class="vertical-section">
+                @if (ofreceResidenciaForm()) {
                 <h2 class="section-title">{{ 'Espacios y detalles del alojamiento' | t }}</h2>
 
                 <div formArrayName="espacios" class="rows">
@@ -560,6 +622,56 @@ function aCsv(v: string): string[] {
                     <input class="rs-inp" type="time" formControlName="checkOut">
                   </div>
                 </div>
+                }
+
+                @if (ofreceGuarderiaForm()) {
+                  <div formGroupName="guarderia" class="guarderia">
+                    <h2 class="section-title">{{ 'Guardería de día' | t }}</h2>
+                    <p class="rs-field-hint">
+                      {{ 'Deja a 0 las modalidades que no ofrezcas. Los precios son por perro y llevan el IVA incluido.' | t }}
+                    </p>
+                    <div class="form-row-3">
+                      <div class="rs-field">
+                        <label class="rs-lbl" for="g-hora">{{ 'Precio por hora (€)' | t }}</label>
+                        <input id="g-hora" class="rs-inp" type="number" min="0" step="0.01" formControlName="precioHora" inputmode="decimal">
+                      </div>
+                      <div class="rs-field">
+                        <label class="rs-lbl" for="g-media">{{ 'Media jornada (€)' | t }}</label>
+                        <input id="g-media" class="rs-inp" type="number" min="0" step="0.01" formControlName="precioMediaJornada" inputmode="decimal">
+                        <span class="rs-field-hint">{{ horasMediaJornada }} h</span>
+                      </div>
+                      <div class="rs-field">
+                        <label class="rs-lbl" for="g-dia">{{ 'Día completo (€)' | t }}</label>
+                        <input id="g-dia" class="rs-inp" type="number" min="0" step="0.01" formControlName="precioDiaCompleto" inputmode="decimal">
+                      </div>
+                    </div>
+                    <div class="form-row-3">
+                      <div class="rs-field">
+                        <label class="rs-lbl" for="g-plazas">{{ 'Plazas por día *' | t }}</label>
+                        <input id="g-plazas" class="rs-inp" type="number" min="1" formControlName="plazasPorDia" inputmode="numeric">
+                      </div>
+                      <div class="rs-field">
+                        <label class="rs-lbl" for="g-apertura">{{ 'Abre a las' | t }}</label>
+                        <input id="g-apertura" class="rs-inp" type="time" formControlName="apertura">
+                      </div>
+                      <div class="rs-field">
+                        <label class="rs-lbl" for="g-cierre">{{ 'Cierra a las' | t }}</label>
+                        <input id="g-cierre" class="rs-inp" type="time" formControlName="cierre">
+                      </div>
+                    </div>
+                    <div class="rs-field">
+                      <span class="rs-lbl">{{ 'Días que abre la guardería' | t }}</span>
+                      <div class="dias-guarderia">
+                        @for (d of diasSemana; track d.valor) {
+                          <label class="filter-check">
+                            <input type="checkbox" [checked]="abreGuarderia(d.valor)" (change)="alternarDiaGuarderia(d.valor)" />
+                            {{ d.label | t }}
+                          </label>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
 
                 <div class="rs-field">
                   <span class="rs-lbl">{{ 'Servicios del alojamiento' | t }}</span>
@@ -582,7 +694,7 @@ function aCsv(v: string): string[] {
                         <input type="radio" formControlName="politicaCancelacion" [value]="p.valor" />
                         <span>
                           <span class="politica__nombre">{{ p.label | t }}</span>
-                          <span class="politica__desc">{{ p.descripcion }}</span>
+                          <span class="politica__desc">{{ p.ayudaComercio | t }}</span>
                         </span>
                       </label>
                     }
@@ -611,14 +723,17 @@ function aCsv(v: string): string[] {
                   <label class="rs-checkbox"><input type="checkbox" formControlName="requiereVacunaTosPerreras"> {{ 'Vacuna tos de las perreras' | t }}</label>
                 </div>
 
-                <h2 class="section-title">{{ 'Compatibilidad social que admites' | t }}</h2>
+                <!-- Se marca lo que NO se admite (observaciones de octubre). Las
+                     fichas antiguas, que guardaban lo admitido, se leen por su
+                     complemento: ver perfilesSocialesNoAdmitidos en shared. -->
+                <h2 class="section-title">{{ 'Marca los perfiles que no admites en tu centro canino' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
                   {{ 'Déjalo todo sin marcar si admites cualquier perfil social.' | t }}
                 </p>
                 <div class="checks-grid">
                   @for (c of compatibilidadesSociales; track c.valor) {
                     <label class="filter-check">
-                      <input type="checkbox" [checked]="tieneCompatibilidad(c.valor)" (change)="toggleCompatibilidad(c.valor)" />
+                      <input type="checkbox" [checked]="perfilNoAdmitido(c.valor)" (change)="togglePerfilNoAdmitido(c.valor)" />
                       {{ c.label | t }}
                     </label>
                   }
@@ -988,7 +1103,7 @@ function aCsv(v: string): string[] {
                           @for (t of tiposPelo; track t) {
                             <label class="filter-check">
                               <input type="checkbox" [checked]="tienePeloCompatible(i, t)" (change)="togglePeloCompatible(i, t)" />
-                              {{ t }}
+                              {{ nombreTipoManto(t) | t }}
                             </label>
                           }
                         </div>
@@ -1753,7 +1868,7 @@ function aCsv(v: string): string[] {
                 <div><dt>{{ 'Categoría' | t }}</dt><dd>{{ etiquetaVertical() || '—' }}</dd></div>
                 <div><dt>{{ 'Nombre' | t }}</dt><dd>{{ form.controls.titulo.value || '—' }}</dd></div>
                 <div><dt>{{ 'Ciudad' | t }}</dt><dd>{{ form.controls.ciudad.value || '—' }}</dd></div>
-                <div><dt>{{ 'Precio desde' | t }}</dt><dd>{{ form.controls.precioBase.value || 0 | euros }}</dd></div>
+                <div><dt>{{ 'Precio desde' | t }}</dt><dd>{{ precioDesdeRepaso() | euros }}</dd></div>
                 <div><dt>{{ 'Fotos' | t }}</dt><dd>{{ totalFotos() }}</dd></div>
               </dl>
             </div>
@@ -1879,6 +1994,35 @@ function aCsv(v: string): string[] {
     .rs-textarea { resize: vertical; min-height: 100px; font-family: inherit; }
     .rs-field-err { font-size: var(--f-xs); color: #B91C1C; }
     .rs-field-hint { font-size: var(--f-xs); color: var(--t-400); }
+
+    .modalidades { border: 0; padding: 0; margin: var(--sp-6) 0 0; min-width: 0; }
+    .modalidades__titulo { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-1); }
+    .modalidades__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); margin-top: var(--sp-4); @media (max-width: 640px) { grid-template-columns: 1fr; } }
+    .modalidad {
+      position: relative; display: flex; align-items: flex-start; gap: var(--sp-3);
+      padding: var(--sp-5) var(--sp-4); cursor: pointer;
+      background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-lg);
+      transition: border-color var(--t-fast), box-shadow var(--t-fast);
+    }
+    .modalidad:hover { border-color: var(--c-accent); }
+    .modalidad--sel { border-color: var(--c-accent); background: var(--c-accent-lo); }
+    .modalidad__check { position: absolute; top: var(--sp-3); right: var(--sp-3); width: 18px; height: 18px; accent-color: var(--c-accent); }
+    .modalidad__icono {
+      flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--r-full);
+      background: var(--c-accent-lo); color: var(--c-accent);
+    }
+    .modalidad__icono--sol { color: var(--c-amber); }
+    .modalidad__texto { display: flex; flex-direction: column; gap: var(--sp-1); padding-right: var(--sp-6); min-width: 0; }
+    .modalidad__nombre { font-size: var(--f-md); font-weight: var(--w-7); color: var(--t-100); }
+    .modalidad__desc { font-size: var(--f-sm); color: var(--t-400); }
+    .modalidad__chips { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); margin-top: var(--sp-2); }
+    .modalidad__chip {
+      display: inline-flex; align-items: center; gap: var(--sp-1);
+      padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full);
+      background: var(--c-raised); font-size: var(--f-xs); color: var(--t-300);
+    }
+    .guarderia { margin-top: var(--sp-6); }
+    .dias-guarderia { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
 
     .politicas { display: flex; flex-direction: column; gap: var(--sp-2); }
     .politica {
@@ -2311,7 +2455,10 @@ export class ComercioListadoFormComponent implements OnInit {
   /** Residencias y hoteles fotografían la unidad; el resto, el servicio. */
   readonly fotosPorUnidad = computed(() => {
     this.versionFormulario();
-    return FOTOS_POR_UNIDAD.includes(this.form.controls.vertical.value);
+    const vertical = this.form.controls.vertical.value;
+    // Una guardería sin residencia no tiene suites que fotografiar.
+    if (vertical === VerticalKey.ALOJAMIENTO && !this.ofreceResidenciaForm()) return false;
+    return FOTOS_POR_UNIDAD.includes(vertical);
   });
 
   /** Las unidades reservables del vertical a la vista, sean suites o habitaciones. */
@@ -2417,6 +2564,12 @@ export class ComercioListadoFormComponent implements OnInit {
     for (const control of invalidos) control?.markAsTouched();
     if (invalidos.length) return false;
 
+    if (this.paso() === 'categoria' && this.form.controls.vertical.value === VerticalKey.ALOJAMIENTO
+        && this.modalidadesForm().length === 0) {
+      this.errorMsg.set('Elige al menos una modalidad: residencia, guardería de día o las dos.');
+      return false;
+    }
+
     if (this.paso() !== 'detalles') return true;
 
     // Los detalles del vertical tienen su propio grupo y su regla de negocio.
@@ -2453,7 +2606,8 @@ export class ComercioListadoFormComponent implements OnInit {
     { valor: 'grande', label: 'Grande' },
   ];
 
-  readonly tiposPelo = ['corto', 'medio', 'largo', 'rizado', 'duro', 'doble_capa'];
+  readonly tiposPelo: readonly string[] = Object.values(TipoPelo);
+  readonly nombreTipoManto = nombreTipoManto;
   private readonly tamanosSeleccionados = signal<string[]>([]);
   /**
    * Tipo de pelo admitido por el servicio. Ya no se edita desde el formulario
@@ -2600,8 +2754,10 @@ export class ComercioListadoFormComponent implements OnInit {
     titulo:      ['', [Validators.required, Validators.minLength(3)]],
     descripcion: ['', [Validators.required, Validators.minLength(10)]],
     ciudad:      ['', Validators.required],
-    calle:        [''],
-    numero:       [''],
+    // Opcionales, pero con sentido: una «calle» que es sólo un número acababa
+    // en la ficha como «1, 1, , Valencia». El API aplica la misma regla.
+    calle:        ['', (c: AbstractControl) => (!c.value?.trim() || esCalleValida(c.value) ? null : { calle: true })],
+    numero:       ['', (c: AbstractControl) => (esNumeroPortalValido(c.value) ? null : { numero: true })],
     provincia:    [''],
     codigoPostal: [''],
     pais:         ['España'],
@@ -2623,6 +2779,17 @@ export class ComercioListadoFormComponent implements OnInit {
       requiereDesparasitacionExterna: [false],
       requiereVacunaTosPerreras: [false],
       serviciosAdicionales: this.fb.array<FormGroup>([]),
+      // Sin guardería por defecto: así se leen todos los alojamientos de antes.
+      modalidades: [[ModalidadAlojamiento.RESIDENCIA] as string[]],
+      guarderia: this.fb.group({
+        precioHora: [0, Validators.min(0)],
+        precioMediaJornada: [0, Validators.min(0)],
+        precioDiaCompleto: [0, Validators.min(0)],
+        plazasPorDia: [10, Validators.min(0)],
+        apertura: ['08:00'],
+        cierre: ['19:00'],
+        diasSemana: [[...DIAS_GUARDERIA_DEFECTO] as number[]],
+      }),
     }),
 
     /*
@@ -3096,14 +3263,9 @@ export class ComercioListadoFormComponent implements OnInit {
   }
   quitarSuplementoPorTamanoMascota(i: number): void { this.suplementoPorTamanoMascota.removeAt(i); }
 
-  // Compatibilidad social admitida (residencia) — mismo patrón que aptitud tamaños/pelo.
-  readonly compatibilidadesSociales: ReadonlyArray<{ valor: string; label: string }> = [
-    { valor: 'cualquiera', label: 'Compatible con otros perros' },
-    { valor: 'solo_pequenos', label: 'Solo con perros pequeños' },
-    { valor: 'solo_machos', label: 'Solo con machos' },
-    { valor: 'solo_hembras', label: 'Solo con hembras' },
-    { valor: 'individual', label: 'Necesita alojamiento individual' },
-  ];
+  // Perfiles de compatibilidad social que la residencia NO admite (vacío = cualquiera).
+  readonly compatibilidadesSociales: ReadonlyArray<{ valor: string; label: string }> =
+    PERFILES_COMPATIBILIDAD_SOCIAL.map((valor) => ({ valor, label: PERFIL_COMPATIBILIDAD_SOCIAL_LABELS[valor] }));
 
   // Conductas de riesgo no admitidas (residencia, Ref. RES5) — mismo patrón que compatibilidad social.
   readonly conductasRiesgo: ReadonlyArray<{ valor: string; label: string }> = [
@@ -3160,10 +3322,10 @@ export class ComercioListadoFormComponent implements OnInit {
     const siguiente = actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor];
     this.funerariosGroup.get(control)?.setValue(siguiente);
   }
-  private readonly compatibilidadesSeleccionadas = signal<string[]>([]);
-  tieneCompatibilidad(v: string): boolean { return this.compatibilidadesSeleccionadas().includes(v); }
-  toggleCompatibilidad(v: string): void {
-    this.compatibilidadesSeleccionadas.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
+  private readonly perfilesNoAdmitidos = signal<string[]>([]);
+  perfilNoAdmitido(v: string): boolean { return this.perfilesNoAdmitidos().includes(v); }
+  togglePerfilNoAdmitido(v: string): void {
+    this.perfilesNoAdmitidos.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
   }
 
   private nuevoServicioClinico(e?: Record<string, unknown>) {
@@ -3766,10 +3928,15 @@ export class ComercioListadoFormComponent implements OnInit {
         requiereDesparasitacionExterna: d['requiereDesparasitacionExterna'] ?? false,
         requiereVacunaTosPerreras: d['requiereVacunaTosPerreras'] ?? false,
       });
+      this.precargarModalidades(d);
       const lista = (d['espacios'] as Record<string, unknown>[] | undefined) ?? [];
       lista.forEach(e => this.espacios.push(this.nuevoEspacio(e)));
       this.heredarGaleriaEnLaPrimeraUnidad(this.espacios);
-      this.compatibilidadesSeleccionadas.set((d['compatibilidadSocialAdmitida'] as string[] | undefined) ?? []);
+      // Una ficha del modelo anterior trae la lista de admitidos: se muestra su complemento.
+      this.perfilesNoAdmitidos.set(perfilesSocialesNoAdmitidos({
+        compatibilidadSocialNoAdmitida: d['compatibilidadSocialNoAdmitida'] as string[] | undefined,
+        compatibilidadSocialAdmitida: d['compatibilidadSocialAdmitida'] as string[] | undefined,
+      }));
       this.conductasNoAdmitidasSeleccionadas.set((d['conductasNoAdmitidas'] as string[] | undefined) ?? []);
       const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
       adicionales.forEach(e => this.serviciosAdicionalesAlojamiento.push(this.nuevoServicioAdicionalAlojamiento(e)));
@@ -3892,9 +4059,14 @@ export class ComercioListadoFormComponent implements OnInit {
         requiereDesparasitacionInterna: g.requiereDesparasitacionInterna,
         requiereDesparasitacionExterna: g.requiereDesparasitacionExterna,
         requiereVacunaTosPerreras: g.requiereVacunaTosPerreras,
-        compatibilidadSocialAdmitida: this.compatibilidadesSeleccionadas(),
+        // Se guarda en el campo nuevo y se vacía el antiguo, para que nadie
+        // vuelva a leer la ficha con el significado de "admitidos".
+        compatibilidadSocialNoAdmitida: this.perfilesNoAdmitidos(),
+        compatibilidadSocialAdmitida: [],
         conductasNoAdmitidas: this.conductasNoAdmitidasSeleccionadas(),
         serviciosAdicionales: this.serviciosAdicionalesAlojamiento.controls.map(c => c.getRawValue()),
+        modalidades: this.modalidadesForm(),
+        ...(this.ofreceGuarderiaForm() ? { guarderia: this.configGuarderiaForm() } : {}),
       };
     }
     if (vertical === VerticalKey.TRANSPORTE) {
@@ -4120,9 +4292,109 @@ export class ComercioListadoFormComponent implements OnInit {
     };
   }
 
-  private validarVertical(vertical: string): string | null {
-    if (vertical === VerticalKey.ALOJAMIENTO && this.espacios.length === 0) {
+  // ── Residencia y guardería canina ───────────────────────────────────
+
+  readonly diasSemana = DIAS_SEMANA;
+  readonly horasMediaJornada = HORAS_MEDIA_JORNADA;
+
+  private get guarderiaGroup(): FormGroup { return this.alojamientoGroup.get('guarderia') as FormGroup; }
+
+  /** Modalidades marcadas. `versionFormulario` las hace reactivas para la plantilla. */
+  readonly modalidadesForm = computed<string[]>(() => {
+    this.versionFormulario();
+    return (this.alojamientoGroup.get('modalidades')?.value as string[] | null) ?? [];
+  });
+
+  readonly ofreceResidenciaForm = computed(() => this.modalidadesForm().includes(ModalidadAlojamiento.RESIDENCIA));
+  readonly ofreceGuarderiaForm = computed(() => this.modalidadesForm().includes(ModalidadAlojamiento.GUARDERIA));
+
+  alternarModalidad(modalidad: string): void {
+    const actuales = this.modalidadesForm();
+    const nuevas = actuales.includes(modalidad)
+      ? actuales.filter((m) => m !== modalidad)
+      : [...actuales, modalidad];
+    this.alojamientoGroup.get('modalidades')?.setValue(nuevas);
+    this.errorMsg.set('');
+  }
+
+  abreGuarderia(dia: number): boolean {
+    this.versionFormulario();
+    return ((this.guarderiaGroup.get('diasSemana')?.value as number[] | null) ?? []).includes(dia);
+  }
+
+  alternarDiaGuarderia(dia: number): void {
+    const control = this.guarderiaGroup.get('diasSemana');
+    const dias = (control?.value as number[] | null) ?? [];
+    const nuevos = dias.includes(dia) ? dias.filter((d) => d !== dia) : [...dias, dia].sort();
+    control?.setValue(nuevos);
+  }
+
+  /** Lo que se guarda de la guardería, con números de verdad (los inputs dan texto). */
+  private configGuarderiaForm(): ConfigGuarderia {
+    const g = this.guarderiaGroup.getRawValue() as Record<string, unknown>;
+    const numero = (v: unknown): number => Math.max(0, Number(v) || 0);
+    return {
+      precioHora: numero(g['precioHora']),
+      precioMediaJornada: numero(g['precioMediaJornada']),
+      precioDiaCompleto: numero(g['precioDiaCompleto']),
+      plazasPorDia: Math.round(numero(g['plazasPorDia'])),
+      apertura: (g['apertura'] as string) || undefined,
+      cierre: (g['cierre'] as string) || undefined,
+      diasSemana: (g['diasSemana'] as number[] | undefined) ?? [],
+    };
+  }
+
+  private precargarModalidades(d: Record<string, unknown>): void {
+    const declaradas = d['modalidades'] as string[] | undefined;
+    this.alojamientoGroup.get('modalidades')?.setValue(
+      declaradas?.length ? declaradas : [ModalidadAlojamiento.RESIDENCIA],
+    );
+    const guarderia = d['guarderia'] as Partial<ConfigGuarderia> | undefined;
+    if (guarderia) {
+      this.guarderiaGroup.patchValue({
+        ...guarderia,
+        diasSemana: guarderia.diasSemana ?? [...DIAS_GUARDERIA_DEFECTO],
+      });
+    }
+  }
+
+  private validarAlojamiento(): string | null {
+    if (this.modalidadesForm().length === 0) {
+      return 'Elige al menos una modalidad: residencia, guardería de día o las dos.';
+    }
+    if (this.ofreceResidenciaForm() && this.espacios.length === 0) {
       return 'Añade al menos un tipo de espacio para tu alojamiento.';
+    }
+    if (!this.ofreceGuarderiaForm()) return null;
+
+    const config = this.configGuarderiaForm();
+    if (!(config.plazasPorDia > 0)) return 'Indica cuántos perros admites cada día en la guardería.';
+    if (!precioDesdeGuarderia(config)) return 'Pon precio al menos a una modalidad de guardería (hora, media jornada o día).';
+    if (!(config.diasSemana ?? []).length) return 'Marca al menos un día de apertura de la guardería.';
+    if (config.apertura && config.cierre && config.apertura >= config.cierre) {
+      return 'La hora de cierre de la guardería tiene que ser posterior a la de apertura.';
+    }
+    return null;
+  }
+
+  /**
+   * El «desde» de la tarjeta. Un centro que sólo hace guardería no tiene precio
+   * por noche: su «desde» es lo más barato de la guardería, no un orientativo
+   * que podría no coincidir con lo que luego se cobra.
+   */
+  precioDesdeRepaso(): number {
+    return this.precioDesdeDelAlta(this.form.controls.vertical.value, Number(this.form.controls.precioBase.value) || 0);
+  }
+
+  private precioDesdeDelAlta(vertical: string, precioBase: number): number {
+    if (vertical !== VerticalKey.ALOJAMIENTO || this.ofreceResidenciaForm()) return precioBase;
+    return precioDesdeGuarderia(this.configGuarderiaForm()) ?? precioBase;
+  }
+
+  private validarVertical(vertical: string): string | null {
+    if (vertical === VerticalKey.ALOJAMIENTO) {
+      const error = this.validarAlojamiento();
+      if (error) return error;
     }
     if (vertical === VerticalKey.HOTELES && this.habitacionesHotel.length === 0) {
       return 'Añade al menos un tipo de habitación pet-friendly.';
@@ -4246,7 +4518,7 @@ export class ComercioListadoFormComponent implements OnInit {
     const detalle = this.construirDetalleVertical(vertical);
     const payload: ServicioPayload = {
       ...(this.esEdicion() ? {} : { vertical }),
-      titulo, descripcion, ciudad, precioBase, imagenes,
+      titulo, descripcion, ciudad, precioBase: this.precioDesdeDelAlta(vertical, precioBase), imagenes,
       calle, numero, provincia, codigoPostal, pais,
       horario: this.horario(),
       excepcionesHorario: this.excepciones(),

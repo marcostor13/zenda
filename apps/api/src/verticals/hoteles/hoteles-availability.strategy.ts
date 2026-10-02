@@ -17,7 +17,8 @@ import {
 } from '../../core/availability/ocupacion.repository';
 import { Servicio, ServicioDocument } from '../../core/catalog/servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { Hoteles, SuplementoPorTamanoMascota } from './hoteles.schema';
+import { idDeUnidad } from '../../core/catalog/unidad-reservable';
+import { EspacioHotel, Hoteles, SuplementoPorTamanoMascota } from './hoteles.schema';
 
 const MINUTOS_TTL = 15;
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
@@ -123,14 +124,32 @@ export class HotelesAvailabilityStrategy implements AvailabilityStrategy, Calend
     const suplementoAdicionales = mascotas > 1
       ? (hotel.suplementoSegundaMascotaPorNoche ?? 0) * noches * (mascotas - 1)
       : 0;
-    const precioCalculado = hotel.precioBase * noches + suplementoTamano + suplementoAdicionales;
+    const precioCalculado = this.precioNoche(hotel, params) * noches + suplementoTamano + suplementoAdicionales;
 
     return {
       disponible: true,
       capacidadRestante: hotel.unidadesDisponibles,
       precioCalculado: Math.round(precioCalculado * 100) / 100,
-      metadata: { noches, mascotas },
+      // Entrada y salida se hacen en recepción: el core las coteja con el horario.
+      metadata: { noches, mascotas, validarHorarioEstancia: true },
     };
+  }
+
+  /**
+   * Precio de la noche: el de la habitación elegida en la ficha o, sin elegir,
+   * el de la más barata —el «desde» que enseñan el listado y la ficha—. Antes
+   * se cobraba siempre `precioBase`, que no tenía por qué coincidir con el
+   * precio de ninguna habitación publicada.
+   */
+  private precioNoche(hotel: Hoteles, params: AvailabilityQuery): number {
+    const habitaciones = (hotel.espacios ?? []).filter((h) => Number(h.precioNoche) > 0);
+    const espacioId = params.parametrosExtra?.['espacioId'];
+    const elegida = typeof espacioId === 'string' && espacioId
+      ? (hotel.espacios ?? []).find((h, i) => idDeUnidad(h as EspacioHotel & { _id?: unknown }, i) === espacioId)
+      : undefined;
+    if (elegida && Number(elegida.precioNoche) > 0) return elegida.precioNoche;
+    if (habitaciones.length) return Math.min(...habitaciones.map((h) => h.precioNoche));
+    return hotel.precioBase;
   }
 
   /** Primera noche del rango sin habitación libre, o null si caben todas. */

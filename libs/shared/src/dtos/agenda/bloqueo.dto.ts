@@ -58,6 +58,8 @@ export interface CitaAgendaDto {
   cliente: string;
   /** Nombre del perro, cuando la reserva lo lleva. */
   perro?: string;
+  /** «Residencia» / «Guardería de día · Media jornada», en alojamiento. */
+  modalidad?: string;
 }
 
 /**

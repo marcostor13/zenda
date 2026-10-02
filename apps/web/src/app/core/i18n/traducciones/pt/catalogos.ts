@@ -313,6 +313,15 @@ const catalogos: Diccionario = {
   'Condiciones': 'Condições',
   'Cadena': 'Cadeia',
   'Perros educados': 'Cães educados',
+  'Crematorios': 'Crematórios',
+  'Guardería de día': 'Creche de dia',
+  'Por horas': 'À hora',
+  'Media jornada': 'Meio dia',
+  'Día completo': 'Dia inteiro',
+  'Residencia': 'Hotel',
+  'Guardería de día · Por horas': 'Creche de dia · À hora',
+  'Guardería de día · Media jornada': 'Creche de dia · Meio dia',
+  'Guardería de día · Día completo': 'Creche de dia · Dia inteiro',
 };
 
 export default catalogos;

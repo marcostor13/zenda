@@ -1,5 +1,5 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
-import { HitoFunerario, VerticalKey, tieneHistorialDeServicio } from 'shared';
+import { HitoFunerario, VerticalKey, etiquetaModalidadReserva, tieneHistorialDeServicio } from 'shared';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -274,6 +274,9 @@ function desdeClaveDia(clave: string): number {
                   </div>
                   <div class="reserva-card__servicio">
                     {{ r.servicioTitulo || r.vertical }}
+                    @if (modalidadDe(r); as modalidad) {
+                      <span class="rs-badge rs-badge--accent reserva-card__modalidad">{{ modalidad | t }}</span>
+                    }
                   </div>
                   @if (resumenPerro(r).length) {
                     <div class="resumen-perro">
@@ -287,7 +290,10 @@ function desdeClaveDia(clave: string): number {
                   }
                   <div class="reserva-card__fecha">
                     <rs-icon [name]="esEstancia(r.vertical) ? 'hotel' : 'clock'" [size]="13" [stroke]="2"></rs-icon>
-                    @if (esEstancia(r.vertical)) {
+                    @if (esGuarderia(r)) {
+                      {{ r.fechaInicio | date:'d MMM yyyy' }}
+                      @if (r.detalle?.['horaEntrada']) { · {{ r.detalle!['horaEntrada'] }} }
+                    } @else if (esEstancia(r.vertical)) {
                       Ingreso {{ r.fechaInicio | date:'d MMM' }}
                       @if (r.fechaFin) { · Salida {{ r.fechaFin | date:'d MMM' }} }
                     } @else {
@@ -343,6 +349,9 @@ function desdeClaveDia(clave: string): number {
                   <dl class="detalle">
                     <div><dt>{{ 'Nº de reserva' | t }}</dt><dd>{{ r.codigo }}</dd></div>
                     <div><dt>{{ 'Servicio' | t }}</dt><dd>{{ r.servicioTitulo || r.vertical }}</dd></div>
+                    @if (modalidadDe(r); as modalidad) {
+                      <div><dt>{{ 'Modalidad' | t }}</dt><dd>{{ modalidad | t }}</dd></div>
+                    }
                     <div><dt>{{ 'Cliente' | t }}</dt><dd>{{ r.clienteNombre || '—' }}</dd></div>
                     @if (r.clienteEmail) { <div><dt>{{ 'Email' | t }}</dt><dd>{{ r.clienteEmail }}</dd></div> }
                     @if (r.clienteTelefono) { <div><dt>{{ 'Teléfono' | t }}</dt><dd>{{ r.clienteTelefono }}</dd></div> }
@@ -839,6 +848,7 @@ function desdeClaveDia(clave: string): number {
     }
     .reserva-card__cliente { color: var(--t-300); font-weight: var(--w-5); }
     .reserva-card__servicio { font-size: var(--f-sm); color: var(--t-300); }
+    .reserva-card__modalidad { margin-left: var(--sp-2); }
     .reserva-card__fecha {
       display: inline-flex; align-items: center; gap: var(--sp-2);
       font-size: var(--f-sm); color: var(--t-400);
@@ -1229,6 +1239,16 @@ export class ComercioReservasComponent implements OnInit {
 
   esEstancia(vertical: string): boolean {
     return VERTICALES_ESTANCIA.has(vertical);
+  }
+
+  /** «Residencia» o «Guardería de día · Media jornada»; null fuera de alojamiento o en reservas antiguas. */
+  modalidadDe(r: { vertical: string; detalle?: Record<string, unknown> }): string | null {
+    return r.vertical === VerticalKey.ALOJAMIENTO ? etiquetaModalidadReserva(r.detalle) : null;
+  }
+
+  /** Un día de guardería no tiene ingreso ni salida: se pinta como un día. */
+  esGuarderia(r: { vertical: string; detalle?: Record<string, unknown> }): boolean {
+    return r.vertical === VerticalKey.ALOJAMIENTO && r.detalle?.['modalidad'] === 'guarderia';
   }
 
   /**

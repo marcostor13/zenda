@@ -331,11 +331,23 @@ describe('ComercioListadosComponent', () => {
     });
   });
 
-  it('deberia cerrar el menu contextual al pulsar fuera', () => {
-    component.menuAbiertoId.set('serv-1');
+  it('deberia mostrar siempre las acciones al pie de cada tarjeta, sin menu desplegable', () => {
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const tarjetas = el.querySelectorAll('.listado-card');
+    expect(tarjetas.length).toBe(2);
+    tarjetas.forEach((tarjeta) => {
+      const acciones = tarjeta.querySelectorAll('.listado-card__actions .accion');
+      expect(acciones.length).toBe(4);
+    });
+    expect(el.querySelector('.mas-opciones')).toBeNull();
+  });
 
-    component.cerrarMenu();
-
-    expect(component.menuAbiertoId()).toBeNull();
+  it('deberia abrir la disponibilidad desde la fila de acciones', () => {
+    fixture.detectChanges();
+    const boton = Array.from(fixture.nativeElement.querySelectorAll('.accion') as NodeListOf<HTMLElement>)
+      .find((b) => b.textContent?.includes('Disponibilidad'));
+    boton?.click();
+    expect(component.disponibilidadAbiertaId()).not.toBeNull();
   });
 });

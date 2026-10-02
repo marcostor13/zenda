@@ -173,6 +173,15 @@ const historial: Diccionario = {
   'Horario orientativo: el comercio aún no ha publicado el suyo.': 'Horaires indicatifs : l’établissement n’a pas encore publié les siens.',
   'El comercio no atiende ese día de la semana.': 'L’établissement est fermé ce jour de la semaine.',
   'Esa hora ya está reservada. Elige otra de las citas disponibles.': 'Cette heure est déjà réservée. Choisissez un autre rendez-vous disponible.',
+  'Sedoso': 'Soyeux',
+  'Cordado (rastas)': 'Cordé (dreadlocks)',
+  'Sin pelo': 'Sans poils',
+  'Normal, bien cuidado': 'Normal, bien entretenu',
+  'Con algunos nudos': 'Quelques nœuds',
+  'Muy enredado o apelmazado': 'Très emmêlé ou feutré',
+  'En muda (suelta mucho pelo)': 'En mue (perd beaucoup de poils)',
+  'Muy sucio': 'Très sale',
+  'Piel sensible o irritada': 'Peau sensible ou irritée',
 };
 
 export default historial;

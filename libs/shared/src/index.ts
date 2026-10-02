@@ -8,9 +8,14 @@ export * from './enums/perro.enum';
 export * from './catalogos/tamanos-perro';
 export * from './catalogos/idiomas';
 export * from './catalogos/puntuacion';
+export * from './catalogos/compatibilidad-social';
+export * from './catalogos/precio-desde';
+export * from './ubicaciones/formatear-direccion';
 // Poblaciones: normalización, catálogo y reconocimiento de variantes
 export * from './ubicaciones/normalizar-ubicacion';
 export * from './mascotas/especie';
+export * from './mascotas/manto';
+export * from './mascotas/microchip';
 export * from './dtos/asistente/consulta-asistente.dto';
 export * from './ubicaciones/municipios';
 export * from './ubicaciones/resolver-municipio';
@@ -19,6 +24,7 @@ export * from './enums/servicio-clinico.enum';
 export * from './enums/historial.enum';
 export * from './enums/lugar.enum';
 export * from './enums/planificador.enum';
+export * from './planificador/viaje-planificador';
 export * from './enums/seguro.enum';
 export * from './enums/funerarios.enum';
 export * from './enums/evento.enum';
@@ -108,6 +114,7 @@ export * from './dtos/perros/fijar-consentimiento.dto';
 export * from './dtos/perros/registro-servicio.dto';
 export * from './catalogos/registro-servicio';
 export * from './fechas/zona-horaria';
+export * from './fechas/horario-estancia';
 export * from './dtos/carrito/carrito.dto';
 export * from './dtos/lugares/lugar.dto';
 export * from './dtos/comercios/socio-fundador.dto';
@@ -140,3 +147,10 @@ export * from './transporte/transporte-precio';
 
 // DTOs — Presupuestos (precio a medida cuando ninguna tarifa puede cerrarlo)
 export * from './dtos/presupuestos/presupuesto.dto';
+
+// Residencia y guardería canina: modalidades del alojamiento y precio de la
+// guardería de día. Lo comparten el alta, el cobro del API y el resumen.
+export * from './alojamiento/guarderia';
+// Direcciones legibles (slugs) de las fichas públicas: las genera el API y las
+// interpreta la web, con la misma regla en los dos lados.
+export * from './slugs/slug';

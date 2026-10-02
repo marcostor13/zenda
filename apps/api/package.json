@@ -16,6 +16,7 @@
     "backfill:comercio-activo": "ts-node -P tsconfig.json src/scripts/backfill-comercio-activo.ts",
     "sembrar:lugares-cv": "ts-node -P tsconfig.json src/scripts/sembrar-lugares-cv.ts",
     "migrar:slugs-lugares": "ts-node -P tsconfig.json src/scripts/migrar-slugs-lugares.ts",
+    "migrar:slugs-servicios": "ts-node -P tsconfig.json src/scripts/migrar-slugs-servicios.ts",
     "sembrar:lugares-explora": "ts-node -P tsconfig.json src/scripts/sembrar-lugares-explora.ts",
     "recalcular:distancia-centro": "ts-node -P tsconfig.json src/scripts/recalcular-distancia-centro.ts",
     "normalizar:ciudades": "ts-node -P tsconfig.json src/scripts/normalizar-ciudades.ts",

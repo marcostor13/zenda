@@ -3,7 +3,7 @@ import { UnidadReservable, idDeUnidad } from './unidad-reservable';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
-  CatalogRepository, BboxParams, BuscarServiciosParams, FacetasResult, OrdenServicios, PuntoServicio,
+  CatalogRepository, BboxParams, BuscarServiciosParams, CiudadDestacada, FacetasResult, OrdenServicios, PuntoServicio,
 } from './catalog.repository';
 import { Comercio, ComercioDocument } from '../comercios/comercio.schema';
 import { ReviewsService } from '../reviews/reviews.service';
@@ -17,8 +17,15 @@ import { campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
 import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
   ServicioClinicoTipo, esEspecialidadSuelta, HorarioDiaDto, ExcepcionHorarioDto, MIN_FOTOS_SERVICIO,
-  BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio, etiquetaPuntuacion,
+  BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio, etiquetaPuntuacion, perfilesSocialesNoAdmitidos,
+  pareceObjectId, slugDeFicha, slugLibre,
+  type ConfigGuarderia, ofreceResidencia, precioDesdeGuarderia,
+  tieneValoraciones, precioDesdeServicio, formatearDireccion, lineaCalle,
 } from 'shared';
+
+/** Poblaciones que pinta "Servicios cerca de ti" en la portada, y su tope. */
+const CIUDADES_DESTACADAS_DEFECTO = 8;
+const CIUDADES_DESTACADAS_MAX = 20;
 
 /** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
 const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarDisponibilidadDto>> = {
@@ -36,8 +43,10 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
   alojamiento: [
     'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
     'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis',
-    'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
+    'compatibilidadSocialAdmitida', 'compatibilidadSocialNoAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
     'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
+    // Residencia y/o guardería de día.
+    'modalidades', 'guarderia',
   ],
   transporte: [
     'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'tarifaEsperaPorHora',
@@ -118,6 +127,8 @@ const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
 export interface ServicioCardDto {
   id: string;
+  /** Dirección legible de la ficha; ausente mientras la migración no la rellene. */
+  slug?: string;
   nombre: string;
   ciudad: string;
   barrio: string;
@@ -197,8 +208,12 @@ export interface ServicioDetalleDto extends ServicioCardDto {
   habitaciones: HabitacionDto[];
   resenas: ResenaResumenDto[];
   comercioId: string;
-  /** Residencia canina (Fase C): perfiles de compatibilidad social admitidos; vacío = cualquiera. */
-  compatibilidadSocialAdmitida: string[];
+  /**
+   * Residencia canina: perfiles de compatibilidad social que el centro NO
+   * admite; vacío = cualquiera. Ya resuelto para fichas del modelo anterior
+   * (ver `perfilesSocialesNoAdmitidos`).
+   */
+  compatibilidadSocialNoAdmitida: string[];
   requisitoMicrochip: boolean;
   requiereDesparasitacionInterna: boolean;
   requiereDesparasitacionExterna: boolean;
@@ -247,6 +262,8 @@ export interface ServicioGestionDto {
 /** Estructura mínima de un documento de servicio ya "leaneado". */
 interface ServicioLean {
   _id: unknown;
+  slug?: string;
+  estado?: string;
   comercioId?: unknown;
   titulo: string;
   descripcion?: string;
@@ -283,6 +300,7 @@ interface ServicioLean {
   checkOut?: string;
   aptitud?: AptitudPerro;
   compatibilidadSocialAdmitida?: string[];
+  compatibilidadSocialNoAdmitida?: string[];
   requisitoMicrochip?: boolean;
   requiereDesparasitacionInterna?: boolean;
   requiereDesparasitacionExterna?: boolean;
@@ -407,7 +425,7 @@ export class CatalogService {
     return {
       ciudadBuscada: resolverMunicipio(ciudad)?.municipio.nombre ?? ciudad.trim(),
       radioKm: RADIO_CERCANOS_KM,
-      masCercano: { id: primero.id, nombre: primero.nombre, ciudad: primero.ciudad, distanciaKm: primero.distanciaKm ?? 0 },
+      masCercano: { id: primero.id, slug: primero.slug, nombre: primero.nombre, ciudad: primero.ciudad, distanciaKm: primero.distanciaKm ?? 0 },
     };
   }
 
@@ -425,6 +443,12 @@ export class CatalogService {
       soloDisponibles: true,
       bbox: filtros.bbox,
     });
+  }
+
+  /** Poblaciones con más oferta publicada, con una foto real de cada una (portada). */
+  obtenerCiudadesDestacadas(limite = CIUDADES_DESTACADAS_DEFECTO): Promise<CiudadDestacada[]> {
+    const tope = Number.isFinite(limite) && limite > 0 ? Math.min(Math.floor(limite), CIUDADES_DESTACADAS_MAX) : CIUDADES_DESTACADAS_DEFECTO;
+    return this.repo.ciudadesDestacadas(tope);
   }
 
   /**
@@ -517,7 +541,7 @@ export class CatalogService {
       pais: dto.pais,
       horario: dto.horario,
       excepcionesHorario: dto.excepcionesHorario,
-      precioBase: dto.precioBase,
+      precioBase: this.precioBaseCoherente(dto.vertical, dto.precioBase, extra) ?? dto.precioBase,
       imagenes: dto.imagenes ?? [],
       comercioId,
       comercioActivo: comercio?.estado === 'activo',
@@ -525,7 +549,49 @@ export class CatalogService {
       extra,
       aptitud: dto.aptitud,
     });
+    const slug = await this.asignarSlug({
+      id: String(doc._id), vertical: dto.vertical, titulo: dto.titulo, ciudad: dto.ciudad,
+    });
+    if (slug) doc.slug = slug;
     return this.toCard(await this.conDistanciaAlCentro(doc as unknown as ServicioLean));
+  }
+
+  /**
+   * Genera la dirección legible del servicio y la guarda.
+   *
+   * Va en un paso aparte del alta para no tocar la creación por discriminador.
+   * Si dos altas homónimas llegan a la vez, el índice único rechaza a la
+   * segunda con un E11000 y se reintenta con el siguiente sufijo libre. Nunca
+   * rompe el guardado: sin slug la ficha sigue abriéndose por su id.
+   */
+  private async asignarSlug(datos: {
+    id: string; vertical: string; titulo: string; ciudad?: string;
+  }): Promise<string | undefined> {
+    const base = slugDeFicha(datos.titulo, datos.ciudad, 'servicio');
+    for (let intento = 0; intento < 3; intento += 1) {
+      try {
+        const slug = await slugLibre(base, (candidato) => this.repo.existeSlug(datos.vertical, candidato, datos.id));
+        await this.repo.fijarSlug(datos.id, slug);
+        return slug;
+      } catch (error) {
+        if ((error as { code?: number }).code !== 11000) {
+          this.logger.warn(`Sin slug para el servicio ${datos.id}: ${(error as Error).message}`);
+          return undefined;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * El slug se recalcula sólo si la ficha no lo tiene (listado anterior a la
+   * migración) o si sigue en borrador y cambia su título o su ciudad: una
+   * ficha en borrador no es pública y su dirección no circula todavía.
+   */
+  private debeRecalcularSlug(existente: ServicioLean, dto: ActualizarServicioDto): boolean {
+    if (!existente.slug) return true;
+    const cambiaNombre = dto.titulo !== undefined || dto.ciudad !== undefined;
+    return existente.estado === 'borrador' && cambiaNombre;
   }
 
   /**
@@ -560,6 +626,19 @@ export class CatalogService {
    * Salir publicada no la pone en el buscador todavía: eso lo decide
    * `comercioActivo`, que sólo es cierto con el negocio ya aprobado.
    */
+  /**
+   * El `precioBase` que se guarda es el «desde» real: el del producto más
+   * barato que publica el servicio. El comercio lo escribía a mano como
+   * «precio orientativo» y el buscador filtraba y ordenaba por él mientras la
+   * ficha cobraba otro. Sin productos con precio se queda el que escribió.
+   */
+  private precioBaseCoherente(
+    vertical: string, precioBase: number | undefined, extra: Record<string, unknown> | undefined,
+  ): number | undefined {
+    const desde = precioDesdeServicio({ vertical, precioBase, extra });
+    return desde > 0 ? desde : precioBase;
+  }
+
   private estadoInicial(
     imagenes: string[], comercio: { altaCompletada?: boolean } | null,
   ): 'borrador' | 'publicado' {
@@ -601,7 +680,9 @@ export class CatalogService {
       pais: dto.pais,
       horario: dto.horario,
       excepcionesHorario: dto.excepcionesHorario,
-      precioBase: dto.precioBase,
+      precioBase: extra
+        ? this.precioBaseCoherente(vertical, dto.precioBase ?? existente.precioBase, extra)
+        : dto.precioBase,
       imagenes: dto.imagenes,
       extra,
       aptitud: dto.aptitud,
@@ -611,6 +692,12 @@ export class CatalogService {
     }
     const cambiaUbicacion = dto.ciudad !== undefined || dto.lat !== undefined || dto.lng !== undefined;
     const servicio = actualizado as unknown as ServicioLean;
+    if (this.debeRecalcularSlug(existente as unknown as ServicioLean, dto)) {
+      const slug = await this.asignarSlug({
+        id, vertical, titulo: servicio.titulo, ciudad: servicio.ubicacion?.ciudad,
+      });
+      if (slug) servicio.slug = slug;
+    }
     return this.toCard(cambiaUbicacion ? await this.conDistanciaAlCentro(servicio) : servicio);
   }
 
@@ -688,6 +775,18 @@ export class CatalogService {
      * precio fijo por zonas, que es justo lo que el alta nueva permite.
      */
     if (vertical === 'transporte' && Array.isArray(campos['reglasTarifa']) && campos['reglasTarifa'].length > 0) {
+      return;
+    }
+
+    /*
+     * Un centro que sólo hace guardería de día no tiene suites: lo que lo hace
+     * reservable son las plazas y al menos un precio de guardería.
+     */
+    if (vertical === 'alojamiento' && !ofreceResidencia({ modalidades: campos['modalidades'] as string[] | undefined })) {
+      if (!precioDesdeGuarderia(campos['guarderia'] as ConfigGuarderia | undefined)
+        || !(Number((campos['guarderia'] as ConfigGuarderia | undefined)?.plazasPorDia) > 0)) {
+        throw new DomainException('Indica las plazas por día y al menos un precio de la guardería de día.', 400);
+      }
       return;
     }
 
@@ -797,12 +896,22 @@ export class CatalogService {
     return this.toCard(actualizado as unknown as ServicioLean);
   }
 
-  async obtenerServicio(id: string): Promise<ServicioDetalleDto> {
-    const doc = await this.repo.obtenerPorId(id);
+  /**
+   * Ficha pública por slug (`reino-canino-valencia`) **o** por id.
+   *
+   * El id se sigue aceptando porque los enlaces antiguos están en marcadores,
+   * correos y chats; la respuesta lleva el `slug` y la web redirige a él. El
+   * slug es único por vertical, así que la web manda la categoría de la ruta;
+   * sin ella se toma la primera coincidencia.
+   */
+  async obtenerServicio(idOSlug: string, vertical?: string): Promise<ServicioDetalleDto> {
+    const doc = pareceObjectId(idOSlug)
+      ? await this.repo.obtenerPorId(idOSlug)
+      : await this.repo.obtenerPorSlug(idOSlug.trim().toLowerCase(), vertical);
     if (!doc) {
       throw new DomainException('Servicio no encontrado', 404);
     }
-    const resenas = await this.reviewsService.listarPorServicio(id);
+    const resenas = await this.reviewsService.listarPorServicio(String(doc._id));
     return this.toDetalle(doc as unknown as ServicioLean, resenas.map((r) => this.aResenaResumen(r)));
   }
 
@@ -822,7 +931,14 @@ export class CatalogService {
   }
 
   private toCard(h: ServicioLean): ServicioCardDto {
-    const score = Math.round((h.ratingPromedio ?? 0) * 10) / 10;
+    const numResenas = h.totalReseñas ?? 0;
+    // Sin reseñas no hay nota: un `ratingPromedio` heredado sin nadie detrás
+    // salía como «4,2 · Muy bueno» (o «0 · Correcto») en un servicio sin valorar.
+    const score = tieneValoraciones(h.ratingPromedio, numResenas)
+      ? Math.round((h.ratingPromedio ?? 0) * 10) / 10
+      : 0;
+    const extra = this.pickExtra(h as unknown as Record<string, unknown>);
+    const vertical = (h as unknown as Record<string, unknown>)['vertical'] as string | undefined;
     // GeoJSON guarda [lng, lat]; invertirlo aquí evita que cada consumidor
     // tenga que acordarse del orden y lo pinte en mitad del océano.
     const [lng, lat] = h.ubicacion?.geo?.coordinates ?? [];
@@ -830,15 +946,18 @@ export class CatalogService {
       lat: Number.isFinite(lat) ? lat : undefined,
       lng: Number.isFinite(lng) ? lng : undefined,
       id: String(h._id),
+      slug: h.slug || undefined,
       nombre: h.titulo,
       ciudad: h.ubicacion?.ciudad ?? '',
       barrio: h.barrio ?? '',
       direccion: this.lineaDireccion(h),
       estrellas: h.estrellas ?? 3,
       score,
-      scoreLabel: etiquetaPuntuacion(score),
-      numResenas: h.totalReseñas ?? 0,
-      precioPorNoche: h.precioBase,
+      scoreLabel: etiquetaPuntuacion(score, numResenas),
+      numResenas,
+      // El «desde» de la ficha: el producto más barato que publica, no el
+      // precio orientativo que escribió el comercio (ver `precioDesdeServicio`).
+      precioPorNoche: precioDesdeServicio({ vertical, precioBase: h.precioBase, extra }),
       precioAnterior: h.precioAnterior,
       descuentoPct: h.descuentoPct,
       imagenes: h.imagenes ?? [],
@@ -848,10 +967,10 @@ export class CatalogService {
       espaciosDisponibles: h.espaciosDisponibles ?? 0,
       paseosIncluidos: h.paseosIncluidos ?? false,
       destacado: h.destacado ?? false,
-      vertical: (h as unknown as Record<string, unknown>)['vertical'] as string | undefined,
+      vertical,
       horario: (h as unknown as Record<string, unknown>)['horario'] as HorarioDiaDto[] | undefined,
       excepcionesHorario: (h as unknown as Record<string, unknown>)['excepcionesHorario'] as ExcepcionHorarioDto[] | undefined,
-      extra: this.pickExtra(h as unknown as Record<string, unknown>),
+      extra,
       distanciaCentroKm: h.distanciaCentroKm,
     };
   }
@@ -866,8 +985,9 @@ export class CatalogService {
    */
   private lineaDireccion(h: ServicioLean): string {
     const { calle, numero } = h.ubicacion ?? {};
-    if (calle) return numero ? `${calle}, ${numero}` : calle;
-    return h.direccion ?? '';
+    // `lineaCalle` descarta una calle sin nombre («1») y `formatearDireccion`
+    // limpia el texto antiguo: de ahí salía el «1, 1, , Valencia» de la ficha.
+    return lineaCalle(calle, numero) || formatearDireccion([h.direccion]);
   }
 
   /** Extrae los campos propios de cada vertical canina (los que no son del Servicio base). */
@@ -875,8 +995,9 @@ export class CatalogService {
     const claves = [
       // alojamiento canino
       'espacios', 'espaciosDisponibles', 'checkIn', 'checkOut', 'requisitoVacunas', 'paseosIncluidos', 'camaras24h',
-      'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
+      'compatibilidadSocialAdmitida', 'compatibilidadSocialNoAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
       'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
+      'modalidades', 'guarderia',
       // transporte de animales
       'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'tarifaEsperaPorHora', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
       'radioCoberturaKm', 'trayecto',
@@ -932,7 +1053,7 @@ export class CatalogService {
       habitaciones: this.espaciosComoHabitaciones(h).map((hab, i) => this.toHabitacion(hab, i)),
       resenas,
       comercioId: h.comercioId ? String(h.comercioId) : '',
-      compatibilidadSocialAdmitida: h.compatibilidadSocialAdmitida ?? [],
+      compatibilidadSocialNoAdmitida: perfilesSocialesNoAdmitidos(h),
       requisitoMicrochip: h.requisitoMicrochip ?? false,
       requiereDesparasitacionInterna: h.requiereDesparasitacionInterna ?? false,
       requiereDesparasitacionExterna: h.requiereDesparasitacionExterna ?? false,
