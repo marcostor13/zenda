@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Params, Router, convertToParamMap } from '@angular/router';
+import { of } from 'rxjs';
 import { AlojamientoDetalleComponent } from './alojamiento-detalle.component';
 import { AlojamientoService, AlojamientoDetalle, Espacio } from '../services/alojamiento.service';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
@@ -746,6 +747,225 @@ describe('AlojamientoDetalleComponent', () => {
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).querySelector('.gallery')).toBeNull();
+    });
+  });
+});
+
+describe('AlojamientoDetalleComponent con búsqueda en la URL', () => {
+  let alojamientoService: jest.Mocked<Pick<AlojamientoService, 'obtener'>>;
+  let perrosService: jest.Mocked<Pick<PerrosService, 'obtener' | 'bienestar'>>;
+  let navigateSpy: jest.SpyInstance;
+
+  const base: AlojamientoDetalle = {
+    id: 'a1', nombre: 'Royal Paws Retreat', ciudad: 'Madrid', barrio: 'Pozuelo',
+    direccion: 'Camino de la Dehesa 12', score: 0, scoreLabel: '', numResenas: 0,
+    precioPorNoche: 0, imagenes: [], amenities: [], cancelacionGratis: false,
+    paseosIncluidos: false, espaciosDisponibles: 0, destacado: false, descripcion: '',
+    politicaCancelacion: '', checkIn: '10:00', checkOut: '19:00', requisitoVacunas: false,
+    camaras24h: false, espacios: [], resenas: [], reglas: [], comercioId: 'c1',
+    compatibilidadSocialNoAdmitida: [], requisitoMicrochip: false,
+    requiereDesparasitacionInterna: false, requiereDesparasitacionExterna: false,
+    requiereVacunaTosPerreras: false, serviciosAdicionales: [],
+  };
+
+  const espacio: Espacio = {
+    id: 'e1', tipo: 'suite', descripcion: '', tamanoMaxPerro: 'grande', precioNoche: 45,
+    cantidad: 1, disponible: true, amenities: [], imagenes: [], cancelacionGratis: true,
+  };
+
+  const conGuarderia = (guarderia: Record<string, unknown>): AlojamientoDetalle => ({
+    ...base, extra: { modalidades: ['guarderia'], guarderia },
+  });
+
+  async function crear(
+    id: string,
+    query: Params,
+    detalle: AlojamientoDetalle = base,
+  ): Promise<AlojamientoDetalleComponent> {
+    alojamientoService = { obtener: jest.fn().mockResolvedValue(detalle) };
+    perrosService = {
+      obtener: jest.fn().mockResolvedValue(null),
+      bienestar: jest.fn().mockResolvedValue(null),
+    };
+    await TestBed.configureTestingModule({
+      imports: [AlojamientoDetalleComponent, RouterTestingModule, HttpClientTestingModule],
+      providers: [
+        { provide: AlojamientoService, useValue: alojamientoService },
+        { provide: PerrosService, useValue: perrosService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { paramMap: convertToParamMap({ id }), queryParamMap: convertToParamMap(query) },
+            paramMap: of(convertToParamMap({ id })),
+            queryParamMap: of(convertToParamMap(query)),
+            queryParams: of(query),
+          },
+        },
+      ],
+    }).compileComponents();
+    navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(AlojamientoDetalleComponent);
+    const component = fixture.componentInstance;
+    component.ngOnInit();
+    await fixture.whenStable();
+    return component;
+  }
+
+  it('debería pasar al asistente las fechas, perros y mascota de la búsqueda', async () => {
+    const component = await crear('a1', {
+      desde: '2026-10-10', hasta: '2026-10-12', perros: '2', perroId: 'p1',
+    }, { ...base, imagenes: ['foto.jpg'] });
+
+    // Sin mascota disponible el bloque se omite en vez de inventarse.
+    expect(perrosService.obtener).toHaveBeenCalledWith('p1');
+    expect(component.perroCompat()).toBeNull();
+    expect(component.bienestarPerro()).toBeNull();
+
+    component.reservarEspacio(espacio);
+    expect(navigateSpy).toHaveBeenCalledWith(['/reservas', 'alojamiento', 'a1'], {
+      queryParams: expect.objectContaining({
+        espacioId: 'e1', imagen: 'foto.jpg', checkIn: '2026-10-10', checkOut: '2026-10-12',
+        perros: '2', perroId: 'p1',
+      }),
+    });
+  });
+
+  it('debería llevar a la URL legible si se entra por el id', async () => {
+    await crear('a1', {}, { ...base, slug: 'royal-paws' });
+    expect(navigateSpy).toHaveBeenCalledWith(
+      ['/alojamiento', 'royal-paws'],
+      expect.objectContaining({ replaceUrl: true }),
+    );
+  });
+
+  it('no debería consultar la mascota si no se eligió ninguna', async () => {
+    const component = await crear('a1', {});
+    expect(perrosService.obtener).not.toHaveBeenCalled();
+    component.reservarEspacio(espacio);
+    const [, extras] = navigateSpy.mock.calls[0] as [unknown, { queryParams: Record<string, unknown> }];
+    expect(extras.queryParams['imagen']).toBe('');
+    expect(extras.queryParams['checkIn']).toBeUndefined();
+  });
+
+  it('debería cargar la ficha con fotos relativas y coordenadas sin romper', async () => {
+    const component = await crear('royal-paws', {}, {
+      ...base, slug: 'royal-paws', descripcion: 'Descripción propia', precioPorNoche: 30,
+      imagenes: ['https://cdn/x.jpg', '/rel.jpg', 'sin-barra.jpg'], lat: 40.4, lng: -3.7,
+    });
+    expect(component.alojamiento()?.id).toBe('a1');
+    expect(navigateSpy).not.toHaveBeenCalled();
+    expect(component.lineaDireccion()).toContain('Madrid');
+    expect(component.ubicacion()).toEqual(expect.objectContaining({ lat: 40.4, lng: -3.7 }));
+  });
+
+  describe('guardería de día', () => {
+    it('debería listar los tramos con precio, su horario y el precio desde', async () => {
+      const component = await crear('a1', { desde: '2026-10-10', perros: '1', perroId: 'p1' }, conGuarderia({
+        precioHora: 5, precioMediaJornada: 15, precioDiaCompleto: 25, plazasPorDia: 4,
+        apertura: '08:00', cierre: '20:00',
+      }));
+
+      expect(component.ofreceGuarderiaFicha()).toBe(true);
+      expect(component.ofreceResidenciaFicha()).toBe(false);
+      expect(component.horarioGuarderia()).toBe('08:00 – 20:00');
+      expect(component.desdeGuarderia()).toBe(5);
+      const tramos = component.tramosGuarderia();
+      expect(tramos.map((t) => [t.precio, t.unidad])).toEqual([
+        [5, 'por hora y perro'], [15, 'por perro'], [25, 'por perro'],
+      ]);
+
+      component.irAReservaGuarderia(tramos[1].tramo);
+      expect(navigateSpy).toHaveBeenCalledWith(['/reservas', 'alojamiento', 'a1'], {
+        queryParams: expect.objectContaining({
+          modalidad: 'guarderia', tramo: 'media_jornada', checkIn: '2026-10-10', perros: '1', perroId: 'p1',
+        }),
+      });
+    });
+
+    it('debería omitir los tramos sin precio y el horario incompleto', async () => {
+      const component = await crear('a1', {}, conGuarderia({ precioDiaCompleto: 20, plazasPorDia: 2, apertura: '08:00' }));
+
+      expect(component.tramosGuarderia().map((t) => t.precio)).toEqual([20]);
+      expect(component.horarioGuarderia()).toBeNull();
+
+      component.irAReservaGuarderia();
+      const [, extras] = navigateSpy.mock.calls[0] as [unknown, { queryParams: Record<string, unknown> }];
+      expect(extras.queryParams['tramo']).toBeUndefined();
+      expect(extras.queryParams['checkIn']).toBeUndefined();
+      expect(extras.queryParams['imagen']).toBe('');
+    });
+
+    it('no debería ofrecer guardería sin configuración aunque la modalidad esté marcada', async () => {
+      const component = await crear('a1', {}, { ...base, extra: { modalidades: ['guarderia'] } });
+      expect(component.ofreceGuarderiaFicha()).toBe(false);
+      expect(component.tramosGuarderia()).toEqual([]);
+      expect(component.desdeGuarderia()).toBeUndefined();
+    });
+
+    it('no debería navegar a la guardería sin alojamiento cargado', async () => {
+      const component = await crear('a1', {});
+      component.alojamiento.set(null);
+      component.irAReservaGuarderia();
+      expect(navigateSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sin alojamiento cargado', () => {
+    it('debería dejar la dirección vacía y las fotos quietas', async () => {
+      const component = await crear('a1', {});
+      component.alojamiento.set(null);
+
+      expect(component.lineaDireccion()).toBe('');
+      expect(component.lightboxIndice()).toBe(0);
+      component.siguienteFoto();
+      component.fotoAnterior();
+      expect(component.lightboxImagen()).toBe('');
+      expect(component.ratingItems()).toEqual([]);
+      expect(component.avisoUltimosEspacios()).toBeNull();
+      expect(component.compatibilidad()).toEqual([]);
+    });
+
+    it('debería empezar por la primera foto si la del lightbox ya no existe', async () => {
+      const component = await crear('a1', {}, { ...base, imagenes: ['a.jpg', 'b.jpg'] });
+      component.abrirLightbox('desaparecida.jpg');
+      expect(component.lightboxIndice()).toBe(0);
+      component.siguienteFoto();
+      expect(component.lightboxImagen()).toBe('b.jpg');
+    });
+  });
+
+  describe('avisos y etiquetas', () => {
+    it('debería avisar del último espacio elegido y de varios libres', async () => {
+      const component = await crear('a1', {}, { ...base, espaciosDisponibles: 2 });
+      expect(component.avisoUltimosEspacios()).toBe('Quedan 2 espacios libres');
+
+      component.seleccionarEspacio({ ...espacio, cantidad: 1 });
+      expect(component.avisoUltimosEspacios()).toBe('Queda 1 espacio de este tipo');
+      component.seleccionarEspacio({ ...espacio, id: 'e2', cantidad: 2 });
+      expect(component.avisoUltimosEspacios()).toBe('Quedan 2 espacios de este tipo');
+    });
+
+    it('debería traducir el perfil social conocido y dejar el desconocido en crudo', async () => {
+      const component = await crear('a1', {});
+      expect(component.etiquetaPerfilSocial('solo_machos')).toBe('Solo con machos');
+      expect(component.etiquetaPerfilSocial('raro')).toBe('raro');
+    });
+
+    it('debería añadir paseos y cámaras al bloque de confianza', async () => {
+      const component = await crear('a1', {}, { ...base, paseosIncluidos: true, camaras24h: true });
+      expect(component.extrasTrust().map((t) => t.icon)).toEqual(['bone', 'video']);
+    });
+
+    it('debería admitir cualquier perfil social si el perro no lo declara', async () => {
+      const component = await crear('a1', {});
+      const perro = {
+        _id: 'p1', nombre: 'Maya', fotos: [], especie: 'perro', esMestizo: false,
+        esterilizado: true, tipoPelo: [], vacunas: [], alergias: [], enfermedades: [],
+        medicacion: [], puedeQuedarseSolo: true, ansiedadSeparacion: false, miedos: [],
+        seMarea: false, requiereTransportin: false, autorizaCompartirHistorial: true,
+      } as PerroApi;
+      component.perroCompat.set(perro);
+      expect(component.compatibilidad()).toEqual(['Perfil social admitido para perros de cualquier tipo']);
     });
   });
 });

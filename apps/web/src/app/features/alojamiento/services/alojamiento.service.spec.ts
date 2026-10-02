@@ -87,7 +87,75 @@ describe('AlojamientoService', () => {
     });
   });
 
+  describe('buscar con todos los filtros', () => {
+    it('debería enviar fechas, perro, orden, coordenadas y filtros del panel', async () => {
+      const promesa = service.buscar({
+        desde: '2026-10-10',
+        hasta: '2026-10-12',
+        perroId: 'p1',
+        orden: 'precio_asc',
+        lat: 0,
+        lng: -3.7,
+        ratingMin: 4,
+        amenities: ['jardin', 'piscina'],
+        filtrosVertical: { tipoEspacio: ['suite', 'estandar'], camaras24h: true },
+      });
+
+      const req = httpMock.expectOne((r) => r.url.includes('/catalog/servicios'));
+      const p = req.request.params;
+      expect(p.get('desde')).toBe('2026-10-10');
+      expect(p.get('hasta')).toBe('2026-10-12');
+      expect(p.get('perroId')).toBe('p1');
+      expect(p.get('orden')).toBe('precio_asc');
+      expect(p.get('lat')).toBe('0');
+      expect(p.get('lng')).toBe('-3.7');
+      expect(p.get('ratingMin')).toBe('4');
+      expect(p.get('amenities')).toBe('jardin,piscina');
+      expect(p.get('tipoEspacio')).toBe('suite,estandar');
+      expect(p.get('camaras24h')).toBe('true');
+      req.flush({ total: 0, page: 1, totalPages: 0 });
+
+      const resultado = await promesa;
+      expect(resultado.items).toEqual([]);
+    });
+  });
+
+  describe('facetas', () => {
+    it('debería pedir las facetas de la ciudad y la zona', async () => {
+      const promesa = service.facetas('Madrid', { swLat: 1, swLng: 2, neLat: 3, neLng: 4 });
+
+      const req = httpMock.expectOne((r) => r.url.endsWith('/catalog/servicios/facetas'));
+      expect(req.request.params.get('ciudad')).toBe('Madrid');
+      expect(req.request.params.get('swLat')).toBe('1');
+      req.flush({});
+
+      await promesa;
+    });
+
+    it('no debería enviar ciudad cuando no se indica', async () => {
+      const promesa = service.facetas();
+
+      const req = httpMock.expectOne((r) => r.url.endsWith('/catalog/servicios/facetas'));
+      expect(req.request.params.get('ciudad')).toBeNull();
+      expect(req.request.params.get('swLat')).toBeNull();
+      req.flush({});
+
+      await promesa;
+    });
+  });
+
   describe('puntosMapa', () => {
+    it('debería enviar el precio máximo y el perro elegido', async () => {
+      const promesa = service.puntosMapa({ precioMax: 90, perroId: 'p9' });
+
+      const req = httpMock.expectOne((r) => r.url.endsWith('/catalog/servicios/mapa'));
+      expect(req.request.params.get('precioMax')).toBe('90');
+      expect(req.request.params.get('perroId')).toBe('p9');
+      req.flush([]);
+
+      await promesa;
+    });
+
     it('debería pedir los pines al endpoint de mapa acotados a la zona', async () => {
       const promesa = service.puntosMapa({
         precioMin: 20,
