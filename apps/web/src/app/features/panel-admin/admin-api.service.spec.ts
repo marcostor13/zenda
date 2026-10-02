@@ -214,12 +214,6 @@ describe('AdminApiService', () => {
       expect(peticion('/admin/comercios').params.get('alphaAdherido')).toBe('false');
     });
 
-    it('deberia pedir solo las cuentas desactivadas cuando se filtra por bajas', () => {
-      service.getUsuarios({ bajas: true }).subscribe();
-
-      expect(peticion('/admin/usuarios').params.get('bajas')).toBe('true');
-    });
-
     it('deberia enviar verificado=false por el mismo motivo', () => {
       service.getUsuarios({ verificado: false }).subscribe();
 
@@ -232,7 +226,6 @@ describe('AdminApiService', () => {
       const params = peticion('/admin/usuarios').params;
       expect(params.get('rol')).toBe('cliente');
       expect(params.get('buscar')).toBe('ana');
-      expect(params.has('bajas')).toBe(false);
     });
 
     it('deberia enviar importeMin=0, que es un filtro valido', () => {
@@ -321,18 +314,8 @@ describe('AdminApiService', () => {
       service.actualizarUsuario('u1', { rol: 'admin' } as never).subscribe();
       expect(peticion('/admin/usuarios/u1').method).toBe('PATCH');
 
-      service.desactivarUsuario('u1').subscribe();
-      const baja = peticion('/admin/usuarios/u1');
-      expect(baja.method).toBe('DELETE');
-      expect(baja.body).toBeNull();
-
       service.eliminarUsuario('u1').subscribe();
-      const purga = peticion('/admin/usuarios/u1');
-      expect(purga.method).toBe('DELETE');
-      expect(purga.body).toEqual({ purgar: true });
-
-      service.reactivarUsuario('u1').subscribe();
-      expect(peticion('/admin/usuarios/u1/restaurar').method).toBe('POST');
+      expect(peticion('/admin/usuarios/u1').method).toBe('DELETE');
     });
 
     it('deberia cambiar el estado de una reserva con motivo opcional', () => {

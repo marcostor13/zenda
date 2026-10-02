@@ -33,8 +33,6 @@ describe('AdminUsuariosComponent', () => {
       crearUsuario: jest.fn().mockReturnValue(of(usuario())),
       actualizarUsuario: jest.fn().mockReturnValue(of(usuario())),
       eliminarUsuario: jest.fn().mockReturnValue(of(undefined)),
-      desactivarUsuario: jest.fn().mockReturnValue(of(undefined)),
-      reactivarUsuario: jest.fn().mockReturnValue(of(undefined)),
       ...ajustes,
     };
 
@@ -261,92 +259,54 @@ describe('AdminUsuariosComponent', () => {
     });
   });
 
-  describe('desactivar y eliminar', () => {
-    it('debería pedir confirmación antes de actuar', async () => {
+  describe('eliminación', () => {
+    it('debería pedir confirmación antes de borrar', async () => {
       await crear();
 
-      componente.confirmarAccion(usuario(), 'eliminar');
+      componente.confirmarEliminar(usuario());
 
-      expect(componente.usuarioAccion()?._id).toBe('u1');
-      expect(componente.accion()).toBe('eliminar');
+      expect(componente.eliminarUsuario()?._id).toBe('u1');
       expect(api['eliminarUsuario']).not.toHaveBeenCalled();
     });
 
-    it('debería desactivar (baja reversible) y recargar tras confirmar', async () => {
+    it('debería borrar y recargar tras confirmar', async () => {
       await crear();
-      componente.confirmarAccion(usuario(), 'desactivar');
+      componente.confirmarEliminar(usuario());
 
-      await componente.ejecutarAccion();
+      await componente.ejecutarEliminar();
 
-      expect(api['desactivarUsuario']).toHaveBeenCalledWith('u1');
-      expect(api['eliminarUsuario']).not.toHaveBeenCalled();
-      expect(componente.usuarioAccion()).toBeNull();
+      expect(api['eliminarUsuario']).toHaveBeenCalledWith('u1');
+      expect(componente.eliminarUsuario()).toBeNull();
       expect(api['getUsuarios']).toHaveBeenCalledTimes(2);
     });
 
-    it('debería eliminar de verdad cuando se elige eliminar', async () => {
+    it('debería cancelar sin borrar', async () => {
       await crear();
-      componente.confirmarAccion(usuario(), 'eliminar');
+      componente.confirmarEliminar(usuario());
 
-      await componente.ejecutarAccion();
+      componente.cancelarEliminar();
 
-      expect(api['eliminarUsuario']).toHaveBeenCalledWith('u1');
-      expect(api['desactivarUsuario']).not.toHaveBeenCalled();
-    });
-
-    it('debería mostrar el error del API sin cerrar el modal', async () => {
-      await crear([], 0, { eliminarUsuario: fallo('500') });
-      componente.confirmarAccion(usuario(), 'eliminar');
-
-      await componente.ejecutarAccion();
-
-      expect(componente.usuarioAccion()?._id).toBe('u1');
-      expect(componente.modalError()).not.toBe('');
-    });
-
-    it('debería cancelar sin tocar la cuenta', async () => {
-      await crear();
-      componente.confirmarAccion(usuario(), 'desactivar');
-
-      componente.cancelarAccion();
-
-      expect(componente.usuarioAccion()).toBeNull();
-      expect(api['desactivarUsuario']).not.toHaveBeenCalled();
+      expect(componente.eliminarUsuario()).toBeNull();
+      expect(api['eliminarUsuario']).not.toHaveBeenCalled();
     });
 
     it('no debería llamar al API sin usuario confirmado', async () => {
       await crear();
 
-      await componente.ejecutarAccion();
+      await componente.ejecutarEliminar();
 
       expect(api['eliminarUsuario']).not.toHaveBeenCalled();
-      expect(api['desactivarUsuario']).not.toHaveBeenCalled();
     });
 
-    it('debería listar los desactivados al filtrar por estado', async () => {
+    it('debería informar del fallo al eliminar', async () => {
       await crear();
+      api['eliminarUsuario'].mockReturnValue(throwError(() => new Error('500')));
+      componente.confirmarEliminar(usuario());
 
-      componente.setBajas(true);
+      await componente.ejecutarEliminar();
 
-      expect(ultimaConsulta().bajas).toBe(true);
-    });
-
-    it('debería reactivar un usuario desactivado y recargar', async () => {
-      await crear();
-
-      await componente.reactivar(usuario());
-
-      expect(api['reactivarUsuario']).toHaveBeenCalledWith('u1');
-      expect(componente.reactivandoId()).toBeNull();
-      expect(api['getUsuarios']).toHaveBeenCalledTimes(2);
-    });
-
-    it('debería avisar si la reactivación falla', async () => {
-      await crear([], 0, { reactivarUsuario: fallo('500') });
-
-      await componente.reactivar(usuario());
-
-      expect(componente.errorMsg()).not.toBe('');
+      expect(componente.modalError()).toContain('Error eliminando');
+      expect(componente.eliminarUsuario()).not.toBeNull();
     });
   });
 

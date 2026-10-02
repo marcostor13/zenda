@@ -36,8 +36,6 @@ const FILTROS_ROL = [
 
 const LIMITE = 20;
 
-type AccionUsuario = 'desactivar' | 'eliminar';
-
 /** Etiqueta del rol, también fuera de la plantilla (para el CSV). */
 function labelRolDe(rol: string): string {
   return ROL_LABEL[rol] ?? rol;
@@ -116,15 +114,6 @@ function labelRolDe(rol: string): string {
           <option value="">{{ 'Todos' | t }}</option>
           <option value="true">{{ 'Solo verificados' | t }}</option>
           <option value="false">{{ 'Solo sin verificar' | t }}</option>
-        </select>
-      </div>
-
-      <div class="rs-toolbar__campo">
-        <label class="rs-toolbar__lbl" for="fu-estado">{{ 'Estado' | t }}</label>
-        <select id="fu-estado" class="rs-inp rs-toolbar__control" [value]="filtroBajas() ? 'bajas' : ''"
-                (change)="setBajas($any($event.target).value === 'bajas')">
-          <option value="">{{ 'Activos' | t }}</option>
-          <option value="bajas">{{ 'Desactivados' | t }}</option>
         </select>
       </div>
     </div>
@@ -211,16 +200,7 @@ function labelRolDe(rol: string): string {
                   <button class="acciones__item" (click)="abrirEditar(u)">
                     <rs-icon name="pencil" [size]="13" [stroke]="2"></rs-icon> {{ 'Editar' | t }}
                   </button>
-                  @if (filtroBajas()) {
-                    <button class="acciones__item" [disabled]="reactivandoId() === u._id" (click)="reactivar(u)">
-                      <rs-icon name="rotate-ccw" [size]="13" [stroke]="2"></rs-icon> {{ 'Reactivar usuario' | t }}
-                    </button>
-                  } @else {
-                    <button class="acciones__item" (click)="confirmarAccion(u, 'desactivar')">
-                      <rs-icon name="pause" [size]="13" [stroke]="2"></rs-icon> {{ 'Desactivar usuario' | t }}
-                    </button>
-                  }
-                  <button class="acciones__item acciones__item--danger" (click)="confirmarAccion(u, 'eliminar')">
+                  <button class="acciones__item acciones__item--danger" (click)="confirmarEliminar(u)">
                     <rs-icon name="trash" [size]="13" [stroke]="2"></rs-icon> {{ 'Eliminar usuario' | t }}
                   </button>
                 </div>
@@ -429,33 +409,23 @@ function labelRolDe(rol: string): string {
   </div>
 }
 
-@if (usuarioAccion(); as ua) {
-  <div class="overlay" (click)="cancelarAccion()">
+@if (eliminarUsuario()) {
+  <div class="overlay" (click)="cancelarEliminar()">
     <div class="modal modal--sm rs-card" (click)="$event.stopPropagation()">
-      @if (accion() === 'desactivar') {
-        <h2 class="modal-title">{{ 'Desactivar usuario' | t }}</h2>
-        <p style="color:var(--t-300);margin-bottom:var(--sp-5)">
-          {{ '¿Desactivar a' | t }} <strong style="color:var(--t-100)">{{ ua.nombre }}</strong> ({{ ua.email }})?
-          {{ 'Perderá el acceso, pero conserva su historial y podrás reactivarlo desde el filtro "Desactivados".' | t }}
-        </p>
-      } @else {
-        <h2 class="modal-title">{{ 'Eliminar usuario' | t }}</h2>
-        <p style="color:var(--t-300);margin-bottom:var(--sp-5)">
-          {{ '¿Eliminar definitivamente a' | t }} <strong style="color:var(--t-100)">{{ ua.nombre }}</strong> ({{ ua.email }})?
-          {{ 'Se borra la cuenta y no se puede deshacer. Si tiene reservas en su historial, desactívala en su lugar.' | t }}
-        </p>
-      }
+      <h2 class="modal-title">{{ 'Eliminar usuario' | t }}</h2>
+      <p style="color:var(--t-300);margin-bottom:var(--sp-5)">
+        {{ '¿Estás seguro de que quieres eliminar a' | t }}
+        <strong style="color:var(--t-100)">{{ eliminarUsuario()!.nombre }}</strong>
+        ({{ eliminarUsuario()!.email }})?
+        Esta acción no se puede deshacer.
+      </p>
       @if (modalError()) {
         <div class="rs-alert rs-alert--error" style="margin-bottom:var(--sp-4)">{{ modalError() }}</div>
       }
       <div class="modal-actions">
-        <button class="rs-btn rs-btn--ghost" (click)="cancelarAccion()">{{ 'Cancelar' | t }}</button>
-        <button class="rs-btn rs-btn--danger" [disabled]="guardando()" (click)="ejecutarAccion()">
-          @if (accion() === 'desactivar') {
-            {{ (guardando() ? 'Desactivando…' : 'Desactivar') | t }}
-          } @else {
-            {{ (guardando() ? 'Eliminando…' : 'Eliminar') | t }}
-          }
+        <button class="rs-btn rs-btn--ghost" (click)="cancelarEliminar()">{{ 'Cancelar' | t }}</button>
+        <button class="rs-btn rs-btn--danger" [disabled]="guardando()" (click)="ejecutarEliminar()">
+          {{ guardando() ? 'Eliminando…' : 'Eliminar' }}
         </button>
       </div>
     </div>
@@ -666,7 +636,7 @@ export class AdminUsuariosComponent implements OnInit {
   readonly filtroVerificado = signal('');
   readonly menuAbiertoId = signal<string | null>(null);
   readonly menuPos = signal<{ top: number; left: number }>({ top: 0, left: 0 });
-  readonly ALTO_MENU = 240;
+  readonly ALTO_MENU = 200;
   readonly ANCHO_MENU = 190;
   readonly fichaAbierta = signal(false);
   readonly cargandoFicha = signal(false);
@@ -676,11 +646,7 @@ export class AdminUsuariosComponent implements OnInit {
   readonly editandoId = signal<string | null>(null);
   readonly guardando = signal(false);
   readonly modalError = signal('');
-  /** Desactivar es una baja reversible; eliminar borra la cuenta de verdad. */
-  readonly usuarioAccion = signal<UsuarioAdmin | null>(null);
-  readonly accion = signal<AccionUsuario>('desactivar');
-  readonly filtroBajas = signal(false);
-  readonly reactivandoId = signal<string | null>(null);
+  readonly eliminarUsuario = signal<UsuarioAdmin | null>(null);
 
   readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / LIMITE)));
   readonly filtros = FILTROS_ROL;
@@ -821,7 +787,6 @@ export class AdminUsuariosComponent implements OnInit {
         rol: this.filtroRol() || undefined,
         buscar: this.buscar() || undefined,
         verificado: this.filtroVerificado() === '' ? undefined : this.filtroVerificado() === 'true',
-        bajas: this.filtroBajas() || undefined,
       }));
       this.usuarios.set(result.items);
       this.total.set(result.total);
@@ -923,50 +888,28 @@ export class AdminUsuariosComponent implements OnInit {
     }
   }
 
-  setBajas(bajas: boolean): void {
-    this.filtroBajas.set(bajas);
-    this.paginaActual.set(1);
-    void this.cargar();
-  }
-
-  confirmarAccion(u: UsuarioAdmin, accion: AccionUsuario): void {
-    this.usuarioAccion.set(u);
-    this.accion.set(accion);
+  confirmarEliminar(u: UsuarioAdmin): void {
+    this.eliminarUsuario.set(u);
     this.modalError.set('');
   }
 
-  cancelarAccion(): void {
-    this.usuarioAccion.set(null);
+  cancelarEliminar(): void {
+    this.eliminarUsuario.set(null);
   }
 
-  async ejecutarAccion(): Promise<void> {
-    const u = this.usuarioAccion();
+  async ejecutarEliminar(): Promise<void> {
+    const u = this.eliminarUsuario();
     if (!u) return;
-    const eliminar = this.accion() === 'eliminar';
     this.guardando.set(true);
     this.modalError.set('');
     try {
-      await firstValueFrom(eliminar ? this.adminApi.eliminarUsuario(u._id) : this.adminApi.desactivarUsuario(u._id));
-      this.usuarioAccion.set(null);
+      await firstValueFrom(this.adminApi.eliminarUsuario(u._id));
+      this.eliminarUsuario.set(null);
       await this.cargar();
     } catch (error) {
-      this.modalError.set(mensajeDeError(error, eliminar ? 'Error eliminando el usuario.' : 'Error desactivando el usuario.'));
+      this.modalError.set(mensajeDeError(error, 'Error eliminando el usuario.'));
     } finally {
       this.guardando.set(false);
-    }
-  }
-
-  async reactivar(u: UsuarioAdmin): Promise<void> {
-    this.reactivandoId.set(u._id);
-    this.errorMsg.set('');
-    try {
-      await firstValueFrom(this.adminApi.reactivarUsuario(u._id));
-      await this.cargar();
-    } catch (error) {
-      this.errorMsg.set(mensajeDeError(error, 'Error reactivando el usuario.'));
-    } finally {
-      this.reactivandoId.set(null);
-      this.menuAbiertoId.set(null);
     }
   }
 
