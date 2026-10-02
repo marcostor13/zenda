@@ -782,4 +782,19 @@ describe('CatalogRepository', () => {
         .resolves.toEqual({ items: [], total: 0, distanciasKm: [] });
     });
   });
+
+  describe('ciudadesDestacadas', () => {
+    it('debería agrupar lo publicado de comercios activos y limitar las poblaciones', async () => {
+      const filas = [{ ciudad: 'Valencia', servicios: 4, vertical: 'alojamiento', imagen: 'v.jpg' }];
+      model.aggregate.mockReturnValue({ exec: jest.fn().mockResolvedValue(filas) });
+
+      await expect(repository.ciudadesDestacadas(6)).resolves.toBe(filas);
+
+      const pipeline = model.aggregate.mock.calls[0][0] as Array<Record<string, unknown>>;
+      expect(pipeline[0]).toEqual({
+        $match: { estado: 'publicado', comercioActivo: true, 'ubicacion.ciudad': { $nin: [null, ''] } },
+      });
+      expect(pipeline).toContainEqual({ $limit: 6 });
+    });
+  });
 });

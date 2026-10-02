@@ -259,6 +259,14 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
             <span class="rs-navbar__cat-label">{{ v.labelCorto | t }}</span>
           </a>
         }
+        <!-- Explora no es una categoría reservable, pero cierra la tira: sin él
+             quedaba un hueco a la derecha y la cabecera parecía incompleta
+             (observaciones de octubre). El icono dorado lo distingue. -->
+        <a routerLink="/explora" routerLinkActive="is-active"
+           class="rs-navbar__cat rs-navbar__cat--explora" data-testid="cat-explora">
+          <rs-icon name="navigation" [size]="18" [stroke]="2.2" class="rs-navbar__cat-explora-icon"></rs-icon>
+          <span class="rs-navbar__cat-label">{{ 'Explora con tu mascota' | t }}</span>
+        </a>
       </nav>
     }
 
@@ -414,6 +422,38 @@ import { AlphaService, AlphaEstadoApi } from '../../../features/alpha/alpha.serv
       }
     }
     .rs-navbar__cat-icon { width: 22px; height: 22px; flex-shrink: 0; }
+
+    /* Explora: mismo molde que las categorías, con un acento dorado sutil. */
+    .rs-navbar__cat--explora {
+      color: var(--dk-blue);
+      box-shadow: inset 0 0 0 1px var(--dk-gold);
+      &:hover { background: var(--dk-gold-lo); }
+    }
+    .rs-navbar__cat-explora-icon {
+      display: inline-flex;
+      color: var(--dk-gold);
+      flex-shrink: 0;
+    }
+
+    /*
+     * Escritorio (desde 1200 px): las nueve entradas reparten el ancho entero
+     * de la fila en vez de amontonarse a la izquierda. Crecen, pero nunca
+     * encogen por debajo de su contenido; si un ancho intermedio no las
+     * alberga, la tira sigue desplazándose de lado como en tablet y móvil.
+     */
+    @media (min-width: 1200px) {
+      .rs-navbar__cats { gap: var(--sp-2); }
+      .rs-navbar__cat {
+        flex: 1 1 auto;
+        justify-content: center;
+        min-width: max-content;
+      }
+    }
+    @media (min-width: 1600px) {
+      .rs-navbar__cats { gap: var(--sp-3); }
+      .rs-navbar__cat { padding-block: var(--sp-2); }
+      .rs-navbar__cat-label { font-size: var(--f-sm); }
+    }
     .rs-navbar__cat-label { font-size: var(--f-xs); font-weight: var(--w-6); }
 
     /* Marca: inicial "D" + logotipo */

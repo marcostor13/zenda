@@ -324,7 +324,7 @@ describe('HomeComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
 
     expect(el.querySelector('.sb__cats')).toBeNull();
-    expect(el.querySelectorAll('.rs-navbar__cats .rs-navbar__cat').length)
+    expect(el.querySelectorAll('.rs-navbar__cats .rs-navbar__cat:not(.rs-navbar__cat--explora)').length)
       .toBe(component.verticales.length);
   });
 
@@ -400,11 +400,35 @@ describe('HomeComponent', () => {
     expect(el.querySelectorAll('.trust__item').length).toBe(3);
   });
 
-  it('debería enlazar las ciudades destacadas al listado de alojamiento', () => {
-    const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelectorAll('.city-card').length).toBe(component.ciudades.length);
-    expect(component.rutaAlojamiento).toBe('/alojamiento');
-    expect(component.ciudades.map((c) => c.nombre)).toContain('Madrid');
+  describe('servicios cerca de ti', () => {
+    it('debería pintar las poblaciones reales con la foto de un servicio suyo', () => {
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne((r) => r.url.endsWith('/catalog/servicios/ciudades')).flush([
+        { ciudad: 'Valencia', servicios: 7, vertical: 'alojamiento', imagen: 'https://cdn/valencia.jpg' },
+        { ciudad: 'Castellón', servicios: 3, vertical: 'peluqueria', imagen: null },
+      ]);
+      return fixture.whenStable().then(() => {
+        fixture.detectChanges();
+        const tarjetas = fixture.nativeElement.querySelectorAll('.city-card');
+        expect(tarjetas.length).toBe(2);
+        expect(component.ciudades()[0]).toEqual(expect.objectContaining({
+          nombre: 'Valencia', imagen: 'https://cdn/valencia.jpg', ruta: '/alojamiento',
+        }));
+        // Sin foto propia, la de su categoría; y la tarjeta lleva a esa categoría.
+        expect(component.ciudades()[1].imagen).toBe('/images/categoria-peluqueria.jpg');
+        expect(component.ciudades()[1].ruta).toBe('/peluqueria');
+      });
+    });
+
+    it('no debería pintar la sección si el catálogo no responde', async () => {
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne((r) => r.url.endsWith('/catalog/servicios/ciudades'))
+        .flush('error', { status: 500, statusText: 'Error' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('#ciudades')).toBeNull();
+      expect(component.rutaAlojamiento).toBe('/alojamiento');
+    });
   });
   describe('feedback 2026-08-20', () => {
     it('deberia dirigirse a cualquier negocio de mascotas, no solo canino', () => {

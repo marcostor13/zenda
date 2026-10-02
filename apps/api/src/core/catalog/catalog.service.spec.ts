@@ -77,6 +77,7 @@ describe('CatalogService', () => {
             actualizarCampos: jest.fn(), crear: jest.fn(), puntos: jest.fn(),
             centroDePoblacion: jest.fn().mockResolvedValue(null), buscarCercanos: jest.fn(),
             hayServiciosUbicados: jest.fn().mockResolvedValue(true),
+            ciudadesDestacadas: jest.fn(),
           },
         },
         {
@@ -417,7 +418,7 @@ describe('CatalogService', () => {
 
       expect(detalle.espacios).toEqual([]);
       expect(detalle.habitaciones).toEqual([]);
-      expect(detalle.compatibilidadSocialAdmitida).toEqual([]);
+      expect(detalle.compatibilidadSocialNoAdmitida).toEqual([]);
       expect(detalle.serviciosAdicionales).toEqual([]);
     });
 
@@ -926,6 +927,20 @@ describe('CatalogService', () => {
 
         expect(repo.crear).toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('obtenerCiudadesDestacadas', () => {
+    it.each([
+      [undefined, 8],
+      [3, 3],
+      [500, 20],
+      [-1, 8],
+      [Number.NaN, 8],
+    ])('con tope %s debería pedir %s poblaciones al repositorio', async (limite, esperado) => {
+      repo.ciudadesDestacadas.mockResolvedValue([]);
+      await service.obtenerCiudadesDestacadas(limite as number | undefined);
+      expect(repo.ciudadesDestacadas).toHaveBeenCalledWith(esperado);
     });
   });
 });

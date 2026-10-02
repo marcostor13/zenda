@@ -1522,14 +1522,15 @@ describe('ReservaWizardComponent', () => {
       expect(componente.recomendacionAdiestramiento()).toBeTruthy();
     });
 
-    it('debería consultar el triaje veterinario con motivo y gravedad', async () => {
+    it('debería consultar el triaje veterinario sólo con la gravedad, sin motivo principal', async () => {
       const { params, query } = contexto(VerticalKey.VETERINARIA);
       await crear(params, query);
-      componente.paso1VeterinariaForm.patchValue({ motivoTriage: 'cojera', gravedad: 'moderada' });
+      componente.paso1VeterinariaForm.patchValue({ gravedad: 'moderada' });
 
       await componente.consultarRecomendacionVeterinaria();
 
-      expect(dobles.recomendador.veterinaria).toHaveBeenCalledWith('cojera', 'moderada');
+      expect(dobles.recomendador.veterinaria).toHaveBeenCalledWith(undefined, 'moderada');
+      expect('motivoTriage' in componente.paso1VeterinariaForm.controls).toBe(false);
       expect(componente.recomendacionVeterinaria()).toBeTruthy();
     });
 

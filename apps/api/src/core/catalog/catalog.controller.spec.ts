@@ -14,7 +14,7 @@ describe('CatalogController', () => {
           provide: CatalogService,
           useValue: {
             buscarServicios: jest.fn(), obtenerServicio: jest.fn(), obtenerPuntosMapa: jest.fn(),
-            obtenerFacetas: jest.fn(), crearServicio: jest.fn(), actualizarServicio: jest.fn(),
+            obtenerFacetas: jest.fn(), obtenerCiudadesDestacadas: jest.fn(), crearServicio: jest.fn(), actualizarServicio: jest.fn(),
             obtenerServicioParaGestion: jest.fn(),
           },
         },
@@ -271,6 +271,16 @@ describe('CatalogController', () => {
 
       expect(service.obtenerServicio).toHaveBeenCalledWith('hotel-1');
       expect(result).toBe(detalle);
+    });
+  });
+
+  describe('ciudades', () => {
+    it('debería delegar el tope de poblaciones de la portada', async () => {
+      const filas = [{ ciudad: 'Valencia', servicios: 3, vertical: 'alojamiento', imagen: null }];
+      service.obtenerCiudadesDestacadas.mockResolvedValue(filas);
+
+      await expect(controller.ciudades('5')).resolves.toBe(filas);
+      expect(service.obtenerCiudadesDestacadas).toHaveBeenCalledWith(5);
     });
   });
 });

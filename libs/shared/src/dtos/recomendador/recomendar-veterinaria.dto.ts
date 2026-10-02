@@ -15,8 +15,13 @@ export const SINTOMAS_URGENTES = [
 ] as const;
 
 export class RecomendarVeterinariaDto {
+  /**
+   * Opcional: la reserva de veterinaria ya no pregunta el motivo principal
+   * (observaciones de octubre). Sin él, el triaje decide sólo por la gravedad.
+   */
+  @IsOptional()
   @IsIn(MOTIVOS_VETERINARIA)
-  motivo!: MotivoVeterinaria;
+  motivo?: MotivoVeterinaria;
 
   @IsIn(GRAVEDADES)
   gravedad!: Gravedad;

@@ -8,6 +8,7 @@ export * from './enums/perro.enum';
 export * from './catalogos/tamanos-perro';
 export * from './catalogos/idiomas';
 export * from './catalogos/puntuacion';
+export * from './catalogos/compatibilidad-social';
 // Poblaciones: normalización, catálogo y reconocimiento de variantes
 export * from './ubicaciones/normalizar-ubicacion';
 export * from './mascotas/especie';

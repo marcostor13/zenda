@@ -39,7 +39,7 @@ import {
   INCLUYE_FUNERARIO,
   RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS,
 } from '../../shared/catalogos/tags.catalogo';
-import { provinciaDe } from 'shared';
+import { provinciaDe, PERFILES_COMPATIBILIDAD_SOCIAL, PERFIL_COMPATIBILIDAD_SOCIAL_LABELS, perfilesSocialesNoAdmitidos } from 'shared';
 import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 import {
@@ -716,14 +716,17 @@ function aCsv(v: string): string[] {
                   <label class="rs-checkbox"><input type="checkbox" formControlName="requiereVacunaTosPerreras"> {{ 'Vacuna tos de las perreras' | t }}</label>
                 </div>
 
-                <h2 class="section-title">{{ 'Compatibilidad social que admites' | t }}</h2>
+                <!-- Se marca lo que NO se admite (observaciones de octubre). Las
+                     fichas antiguas, que guardaban lo admitido, se leen por su
+                     complemento: ver perfilesSocialesNoAdmitidos en shared. -->
+                <h2 class="section-title">{{ 'Marca los perfiles que no admites en tu centro canino' | t }}</h2>
                 <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
                   {{ 'Déjalo todo sin marcar si admites cualquier perfil social.' | t }}
                 </p>
                 <div class="checks-grid">
                   @for (c of compatibilidadesSociales; track c.valor) {
                     <label class="filter-check">
-                      <input type="checkbox" [checked]="tieneCompatibilidad(c.valor)" (change)="toggleCompatibilidad(c.valor)" />
+                      <input type="checkbox" [checked]="perfilNoAdmitido(c.valor)" (change)="togglePerfilNoAdmitido(c.valor)" />
                       {{ c.label | t }}
                     </label>
                   }
@@ -3250,14 +3253,9 @@ export class ComercioListadoFormComponent implements OnInit {
   }
   quitarSuplementoPorTamanoMascota(i: number): void { this.suplementoPorTamanoMascota.removeAt(i); }
 
-  // Compatibilidad social admitida (residencia) — mismo patrón que aptitud tamaños/pelo.
-  readonly compatibilidadesSociales: ReadonlyArray<{ valor: string; label: string }> = [
-    { valor: 'cualquiera', label: 'Compatible con otros perros' },
-    { valor: 'solo_pequenos', label: 'Solo con perros pequeños' },
-    { valor: 'solo_machos', label: 'Solo con machos' },
-    { valor: 'solo_hembras', label: 'Solo con hembras' },
-    { valor: 'individual', label: 'Necesita alojamiento individual' },
-  ];
+  // Perfiles de compatibilidad social que la residencia NO admite (vacío = cualquiera).
+  readonly compatibilidadesSociales: ReadonlyArray<{ valor: string; label: string }> =
+    PERFILES_COMPATIBILIDAD_SOCIAL.map((valor) => ({ valor, label: PERFIL_COMPATIBILIDAD_SOCIAL_LABELS[valor] }));
 
   // Conductas de riesgo no admitidas (residencia, Ref. RES5) — mismo patrón que compatibilidad social.
   readonly conductasRiesgo: ReadonlyArray<{ valor: string; label: string }> = [
@@ -3314,10 +3312,10 @@ export class ComercioListadoFormComponent implements OnInit {
     const siguiente = actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor];
     this.funerariosGroup.get(control)?.setValue(siguiente);
   }
-  private readonly compatibilidadesSeleccionadas = signal<string[]>([]);
-  tieneCompatibilidad(v: string): boolean { return this.compatibilidadesSeleccionadas().includes(v); }
-  toggleCompatibilidad(v: string): void {
-    this.compatibilidadesSeleccionadas.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
+  private readonly perfilesNoAdmitidos = signal<string[]>([]);
+  perfilNoAdmitido(v: string): boolean { return this.perfilesNoAdmitidos().includes(v); }
+  togglePerfilNoAdmitido(v: string): void {
+    this.perfilesNoAdmitidos.update((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
   }
 
   private nuevoServicioClinico(e?: Record<string, unknown>) {
@@ -3924,7 +3922,11 @@ export class ComercioListadoFormComponent implements OnInit {
       const lista = (d['espacios'] as Record<string, unknown>[] | undefined) ?? [];
       lista.forEach(e => this.espacios.push(this.nuevoEspacio(e)));
       this.heredarGaleriaEnLaPrimeraUnidad(this.espacios);
-      this.compatibilidadesSeleccionadas.set((d['compatibilidadSocialAdmitida'] as string[] | undefined) ?? []);
+      // Una ficha del modelo anterior trae la lista de admitidos: se muestra su complemento.
+      this.perfilesNoAdmitidos.set(perfilesSocialesNoAdmitidos({
+        compatibilidadSocialNoAdmitida: d['compatibilidadSocialNoAdmitida'] as string[] | undefined,
+        compatibilidadSocialAdmitida: d['compatibilidadSocialAdmitida'] as string[] | undefined,
+      }));
       this.conductasNoAdmitidasSeleccionadas.set((d['conductasNoAdmitidas'] as string[] | undefined) ?? []);
       const adicionales = (d['serviciosAdicionales'] as Record<string, unknown>[] | undefined) ?? [];
       adicionales.forEach(e => this.serviciosAdicionalesAlojamiento.push(this.nuevoServicioAdicionalAlojamiento(e)));
@@ -4047,7 +4049,10 @@ export class ComercioListadoFormComponent implements OnInit {
         requiereDesparasitacionInterna: g.requiereDesparasitacionInterna,
         requiereDesparasitacionExterna: g.requiereDesparasitacionExterna,
         requiereVacunaTosPerreras: g.requiereVacunaTosPerreras,
-        compatibilidadSocialAdmitida: this.compatibilidadesSeleccionadas(),
+        // Se guarda en el campo nuevo y se vacía el antiguo, para que nadie
+        // vuelva a leer la ficha con el significado de "admitidos".
+        compatibilidadSocialNoAdmitida: this.perfilesNoAdmitidos(),
+        compatibilidadSocialAdmitida: [],
         conductasNoAdmitidas: this.conductasNoAdmitidasSeleccionadas(),
         serviciosAdicionales: this.serviciosAdicionalesAlojamiento.controls.map(c => c.getRawValue()),
         modalidades: this.modalidadesForm(),

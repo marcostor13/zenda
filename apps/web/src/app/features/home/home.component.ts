@@ -16,7 +16,7 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import {
-  BRAND, CATEGORIA_ICONOS, EXPLORA_DESTACADOS_IMAGES, HOTEL_IMAGES, MOTIVOS_IMAGES,
+  BRAND, CATEGORIA_BADGES, CATEGORIA_ICONOS, EXPLORA_DESTACADOS_IMAGES, HOTEL_IMAGES, MOTIVOS_IMAGES,
   TRUST_ICONOS,
 } from '../../shared/media/images';
 import { VERTICALES_PUBLICOS, rutaDeVertical } from '../../shared/verticales/verticales.config';
@@ -46,6 +46,16 @@ interface Ciudad {
   nombre: string;
   servicios: number;
   imagen: string;
+  /** Listado de la categoría con más oferta en la población. */
+  ruta: string;
+}
+
+/** Fila de `GET /catalog/servicios/ciudades`. */
+interface CiudadDestacadaApi {
+  ciudad: string;
+  servicios: number;
+  vertical: string;
+  imagen: string | null;
 }
 
 /** Respuesta del asistente de búsqueda con IA (`POST /ai-search`). */
@@ -260,7 +270,12 @@ type SearchMode = 'filtros' | 'ia';
     </div>
   </section>
 
-  <!-- ═══ CIUDADES ════════════════════════════════════════════════ -->
+  <!-- ═══ CIUDADES ════════════════════════════════════════════════
+       Poblaciones y recuentos reales del catálogo, cada una con la foto de un
+       servicio publicado en ella (observaciones de octubre: antes eran seis
+       ciudades fijas con fotos de residencias que no estaban allí). Sin
+       catálogo no se pinta: un escaparate inventado es peor que ninguno. -->
+  @if (ciudades().length) {
   <section class="rs-section rs-section--sm cities-section" id="ciudades">
     <div class="rs-wrap rs-wrap--2xl">
       <div class="sec-head" rsAnim>
@@ -278,8 +293,8 @@ type SearchMode = 'filtros' | 'ia';
         </button>
 
         <div class="cities-track" #ciudadesTrack rsAnim>
-          @for (c of ciudades; track c.nombre) {
-            <a class="city-card" [routerLink]="rutaAlojamiento" [queryParams]="{ ciudad: c.nombre }">
+          @for (c of ciudades(); track c.nombre) {
+            <a class="city-card" [routerLink]="c.ruta" [queryParams]="{ ciudad: c.nombre }">
               <img [src]="c.imagen" [alt]="c.nombre" loading="lazy" rsImg />
               <span class="city-card__veil"></span>
               <span class="city-card__meta">
@@ -297,6 +312,7 @@ type SearchMode = 'filtros' | 'ia';
       </div>
     </div>
   </section>
+  }
 
   <!-- ═══ ALOJAMIENTOS RECOMENDADOS ═══════════════════════════════ -->
   <section class="rs-section rs-section--sm recommended-section">
@@ -1673,6 +1689,9 @@ export class HomeComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.aplicarSeo();
+    // En paralelo a los recomendados: ninguna de las dos espera a la otra. En
+    // SSR la petición HTTP pendiente retiene el render igualmente.
+    void this.cargarCiudades();
 
     // "Recomendados" reales: los alojamientos mejor valorados del catálogo
     // (PDF 27/07 §8). Si el API no responde, se queda el escaparate estático.
@@ -1838,15 +1857,29 @@ export class HomeComponent implements OnInit {
     { icon: 'paw', titulo: 'Disfruta el trato real', texto: 'Tu perro recibe el servicio y tú dejas tu reseña para ayudar a otros dueños.' },
   ];
 
-  // Solo imágenes locales: el pool remoto (Pexels) no está garantizado offline.
-  readonly ciudades: Ciudad[] = [
-    { nombre: 'Madrid', servicios: 248, imagen: BRAND.heroHome },
-    { nombre: 'Barcelona', servicios: 194, imagen: HOTEL_IMAGES[3] },
-    { nombre: 'Valencia', servicios: 132, imagen: HOTEL_IMAGES[2] },
-    { nombre: 'Sevilla', servicios: 108, imagen: BRAND.heroDetalle },
-    { nombre: 'Bilbao', servicios: 76, imagen: HOTEL_IMAGES[4] },
-    { nombre: 'Málaga', servicios: 91, imagen: HOTEL_IMAGES[1] },
-  ];
+  /**
+   * "Servicios cerca de ti": poblaciones reales del catálogo (`GET
+   * /catalog/servicios/ciudades`). Cada tarjeta enseña la foto principal de un
+   * servicio publicado en esa población; la imagen de la categoría sólo entra
+   * cuando ninguno de sus servicios tiene foto.
+   */
+  readonly ciudades = signal<Ciudad[]>([]);
+
+  private async cargarCiudades(): Promise<void> {
+    try {
+      const filas = await firstValueFrom(
+        this.http.get<CiudadDestacadaApi[]>(`${environment.apiUrl}/catalog/servicios/ciudades`),
+      );
+      this.ciudades.set((filas ?? []).map((f) => ({
+        nombre: f.ciudad,
+        servicios: f.servicios,
+        imagen: f.imagen || CATEGORIA_BADGES[f.vertical] || HOTEL_IMAGES[0],
+        ruta: rutaDeVertical(f.vertical),
+      })));
+    } catch {
+      // Sin catálogo la sección no se pinta: mejor nada que ciudades inventadas.
+    }
+  }
 
   /**
    * Escaparate por defecto mientras carga el catálogo (o si el API falla).

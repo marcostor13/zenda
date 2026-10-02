@@ -109,7 +109,7 @@ const ALOJAMIENTO = {
   checkIn: '09:00', checkOut: '12:00', requisitoVacunas: true, camaras24h: true,
   requisitoMicrochip: false, requiereDesparasitacionInterna: false,
   requiereDesparasitacionExterna: false, requiereVacunaTosPerreras: false,
-  compatibilidadSocialAdmitida: [], serviciosAdicionales: [], horario: [], excepcionesHorario: [],
+  compatibilidadSocialNoAdmitida: [], serviciosAdicionales: [], horario: [], excepcionesHorario: [],
   espacios: [ESPACIO], resenas: [],
 };
 

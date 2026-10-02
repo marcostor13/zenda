@@ -551,29 +551,17 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     [servicio]="paso1VeterinariaForm.value.servicio" [perroId]="perroSeleccionado()" />
                 </div>
 
-                <div class="form-row">
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Motivo principal' | t }}</label>
-                    <select formControlName="motivoTriage" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionVeterinaria()">
-                      <option value="vacunacion">{{ 'Vacunación' | t }}</option>
-                      <option value="revision_general">{{ 'Revisión general' | t }}</option>
-                      <option value="problemas_digestivos">{{ 'Problemas digestivos' | t }}</option>
-                      <option value="problemas_dermatologicos">{{ 'Problemas dermatológicos' | t }}</option>
-                      <option value="cojera">{{ 'Cojera' | t }}</option>
-                      <option value="vomitos">{{ 'Vómitos' | t }}</option>
-                      <option value="diarrea">{{ 'Diarrea' | t }}</option>
-                      <option value="otro">{{ 'Otro' | t }}</option>
-                    </select>
-                  </div>
-                  <div class="rs-field">
-                    <label class="rs-lbl">{{ 'Gravedad percibida' | t }}</label>
-                    <select formControlName="gravedad" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionVeterinaria()">
-                      <option value="leve">{{ 'Leve' | t }}</option>
-                      <option value="moderada">{{ 'Moderada' | t }}</option>
-                      <option value="grave">{{ 'Grave' | t }}</option>
-                      <option value="emergencia">{{ 'Emergencia' | t }}</option>
-                    </select>
-                  </div>
+                <!-- Sin "Motivo principal" (observaciones de octubre): el servicio
+                     clínico elegido arriba ya dice a qué viene; el triaje se
+                     queda con la gravedad, que es lo que decide si es urgente. -->
+                <div class="rs-field">
+                  <label class="rs-lbl">{{ 'Gravedad percibida' | t }}</label>
+                  <select formControlName="gravedad" class="rs-inp rs-inp--lg" (change)="consultarRecomendacionVeterinaria()">
+                    <option value="leve">{{ 'Leve' | t }}</option>
+                    <option value="moderada">{{ 'Moderada' | t }}</option>
+                    <option value="grave">{{ 'Grave' | t }}</option>
+                    <option value="emergencia">{{ 'Emergencia' | t }}</option>
+                  </select>
                 </div>
 
                 @if (recomendacionVeterinaria(); as rec) {
@@ -2355,7 +2343,6 @@ export class ReservaWizardComponent implements OnInit {
     fecha:    ['', Validators.required],
     hora:     ['', Validators.required],
     servicio: ['consulta'],
-    motivoTriage: ['revision_general'],
     gravedad: ['leve'],
   });
 
@@ -3580,11 +3567,11 @@ export class ReservaWizardComponent implements OnInit {
   }
 
   async consultarRecomendacionVeterinaria(): Promise<void> {
-    const { motivoTriage, gravedad } = this.paso1VeterinariaForm.value;
-    if (!motivoTriage || !gravedad) return;
+    const { gravedad } = this.paso1VeterinariaForm.value;
+    if (!gravedad) return;
     try {
       this.recomendacionVeterinaria.set(
-        await this.recomendadorService.veterinaria(motivoTriage, gravedad),
+        await this.recomendadorService.veterinaria(undefined, gravedad),
       );
     } catch {
       // Recomendación no disponible: no bloquea el flujo de reserva.

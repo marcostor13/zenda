@@ -28,7 +28,7 @@ describe('RsNavbarComponent', () => {
 
   it('debería mostrar una entrada de menú por categoría', () => {
     const el: HTMLElement = fixture.nativeElement;
-    const enlaces = Array.from(el.querySelectorAll('.rs-navbar__cats .rs-navbar__cat'));
+    const enlaces = Array.from(el.querySelectorAll('.rs-navbar__cats .rs-navbar__cat:not(.rs-navbar__cat--explora)'));
 
     expect(enlaces.length).toBe(VERTICALES_PUBLICOS.length);
     expect(enlaces.map((a) => a.textContent?.trim())).toEqual(
@@ -47,7 +47,7 @@ describe('RsNavbarComponent', () => {
 
   it('debería enlazar cada entrada a la ruta de su categoría', () => {
     const el: HTMLElement = fixture.nativeElement;
-    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__cats a')).map((a) =>
+    const hrefs = Array.from(el.querySelectorAll('.rs-navbar__cats a:not(.rs-navbar__cat--explora)')).map((a) =>
       a.getAttribute('href'),
     );
 
@@ -77,7 +77,7 @@ describe('RsNavbarComponent', () => {
     });
 
     it('debería ofrecer todas las categorías con su icono y su ruta', () => {
-      const enlaces = Array.from(tira()!.querySelectorAll('.rs-navbar__cat'));
+      const enlaces = Array.from(tira()!.querySelectorAll('.rs-navbar__cat:not(.rs-navbar__cat--explora)'));
 
       expect(enlaces.map((a) => a.getAttribute('href')))
         .toEqual(VERTICALES_PUBLICOS.map((v) => v.route));
@@ -85,6 +85,17 @@ describe('RsNavbarComponent', () => {
         .toEqual(VERTICALES_PUBLICOS.map((v) => v.labelCorto));
       expect(tira()!.querySelectorAll('.rs-navbar__cat-icon').length)
         .toBe(VERTICALES_PUBLICOS.length);
+    });
+
+    it('debería cerrar la tira con "Explora con tu mascota" tras la última categoría', () => {
+      // Observaciones de octubre: sin él quedaba un hueco a la derecha y la
+      // cabecera parecía incompleta.
+      const enlaces = Array.from(tira()!.querySelectorAll('a'));
+      const ultimo = enlaces[enlaces.length - 1];
+      expect(ultimo.classList).toContain('rs-navbar__cat--explora');
+      expect(ultimo.getAttribute('href')).toBe('/explora');
+      expect(ultimo.textContent?.trim()).toBe('Explora con tu mascota');
+      expect(ultimo.querySelector('rs-icon')).not.toBeNull();
     });
   });
 

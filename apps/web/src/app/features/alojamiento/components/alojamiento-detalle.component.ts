@@ -17,6 +17,7 @@ import { describirPolitica, descripcionPolitica } from '../../../shared/catalogo
 import {
   ModalidadAlojamiento, TRAMO_GUARDERIA_LABELS, TramoGuarderia, VerticalKey, ofreceGuarderia, ofreceResidencia,
   precioDesdeGuarderia, tramosOfrecidos, type ConfigGuarderia,
+  PERFIL_COMPATIBILIDAD_SOCIAL_LABELS, type PerfilCompatibilidadSocial,
 } from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
@@ -363,9 +364,12 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
                     <strong class="policy-horas__hora">{{ alojamiento()!.checkOut }}</strong>
                   </div>
                 </div>
-                @if (alojamiento()!.compatibilidadSocialAdmitida.length) {
-                  <p><strong>{{ 'Compatibilidad social admitida:' | t }}</strong>
-                    {{ alojamiento()!.compatibilidadSocialAdmitida.join(', ') }}</p>
+                @if (alojamiento()!.compatibilidadSocialNoAdmitida.length) {
+                  <p><strong>{{ 'Perfiles que no admite este centro:' | t }}</strong>
+                    @for (p of alojamiento()!.compatibilidadSocialNoAdmitida; track p; let ultimo = $last) {
+                      {{ etiquetaPerfilSocial(p) | t }}{{ ultimo ? '' : ', ' }}
+                    }
+                  </p>
                 }
               </div>
             </details>
@@ -1191,14 +1195,20 @@ export class AlojamientoDetalleComponent implements OnInit {
    * Puntos de compatibilidad reales entre la mascota elegida y este alojamiento
    * (HU-4.1.7) — solo a partir de datos que ambos declaran, nunca inventados.
    */
+  /** Clave de traducción del perfil social; el valor crudo si es desconocido. */
+  etiquetaPerfilSocial(perfil: string): string {
+    return PERFIL_COMPATIBILIDAD_SOCIAL_LABELS[perfil as PerfilCompatibilidadSocial] ?? perfil;
+  }
+
   compatibilidad(): string[] {
     const perro = this.perroCompat();
     const a = this.alojamiento();
     if (!perro || !a) return [];
     const puntos: string[] = [];
 
-    if (!a.compatibilidadSocialAdmitida.length || (perro.sociabilidadPerros && a.compatibilidadSocialAdmitida.some(
-      (p) => p.toLowerCase().includes(perro.sociabilidadPerros!.toLowerCase())))) {
+    // Sólo se afirma cuando el centro no excluye ningún perfil: la sociabilidad
+    // de la ficha del perro no se corresponde uno a uno con esos perfiles.
+    if (!a.compatibilidadSocialNoAdmitida.length) {
       puntos.push(`Perfil social admitido para perros ${perro.sociabilidadPerros ?? 'de cualquier tipo'}`);
     }
     if (perro.ansiedadSeparacion && a.camaras24h) {

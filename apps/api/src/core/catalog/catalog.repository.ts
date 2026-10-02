@@ -177,6 +177,16 @@ export interface FacetasResult {
   valoracion: Array<{ minimo: number; n: number }>;
 }
 
+/** Una población de la portada: cuántos servicios tiene y una foto real de uno de ellos. */
+export interface CiudadDestacada {
+  ciudad: string;
+  servicios: number;
+  /** Categoría con más oferta en la población: a ella lleva la tarjeta. */
+  vertical: string;
+  /** Foto principal de un servicio de la población; `null` si ninguno tiene. */
+  imagen: string | null;
+}
+
 export interface BuscarServiciosResult {
   items: ServicioDocument[];
   total: number;
@@ -326,6 +336,55 @@ export class CatalogRepository {
           ]
         : [],
     };
+  }
+
+  /**
+   * Poblaciones con más servicios publicados, para "Servicios cerca de ti" de
+   * la portada. Cada una trae la foto principal de su servicio mejor
+   * posicionado que tenga alguna: así la tarjeta de Valencia enseña un sitio
+   * real de Valencia y no una foto de archivo. Si ningún servicio de la
+   * población tiene foto, `imagen` queda `null` y el cliente pone la de la
+   * categoría.
+   */
+  async ciudadesDestacadas(limite: number): Promise<CiudadDestacada[]> {
+    // Primera foto de cada servicio; `''` cuando no tiene ninguna.
+    const primeraFoto = { $ifNull: [{ $arrayElemAt: [{ $ifNull: ['$imagenes', []] }, 0] }, ''] };
+    const todasLasFotos = { $reduce: { input: '$fotos', initialValue: [], in: { $concatArrays: ['$$value', '$$this'] } } };
+    const fotosConContenido = { $filter: { input: todasLasFotos, as: 'f', cond: { $gt: [{ $strLenCP: '$$f' }, 0] } } };
+
+    return this.servicioModel.aggregate<CiudadDestacada>([
+      { $match: { estado: 'publicado', comercioActivo: true, 'ubicacion.ciudad': { $nin: [null, ''] } } },
+      // Lo destacado y mejor valorado es lo que aporta la foto de la población.
+      { $sort: { prioridadRanking: -1, ratingPromedio: -1, totalReseñas: -1 } },
+      {
+        $group: {
+          _id: { ciudad: { $ifNull: ['$ubicacion.ciudadClave', '$ubicacion.ciudad'] }, vertical: '$vertical' },
+          ciudad: { $first: '$ubicacion.ciudad' },
+          n: { $sum: 1 },
+          fotos: { $push: primeraFoto },
+        },
+      },
+      // La categoría con más oferta en la población decide a dónde lleva la
+      // tarjeta, y sus fotos van primero.
+      { $sort: { n: -1 } },
+      {
+        $group: {
+          _id: '$_id.ciudad',
+          ciudad: { $first: '$ciudad' },
+          servicios: { $sum: '$n' },
+          vertical: { $first: '$_id.vertical' },
+          fotos: { $push: '$fotos' },
+        },
+      },
+      { $sort: { servicios: -1, ciudad: 1 } },
+      { $limit: limite },
+      {
+        $project: {
+          _id: 0, ciudad: 1, servicios: 1, vertical: 1,
+          imagen: { $ifNull: [{ $arrayElemAt: [fotosConContenido, 0] }, null] },
+        },
+      },
+    ]).exec();
   }
 
   /**
