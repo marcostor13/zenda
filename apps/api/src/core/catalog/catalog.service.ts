@@ -18,6 +18,7 @@ import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
   ServicioClinicoTipo, esEspecialidadSuelta, HorarioDiaDto, ExcepcionHorarioDto, MIN_FOTOS_SERVICIO,
   BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio, etiquetaPuntuacion,
+  type ConfigGuarderia, ofreceResidencia, precioDesdeGuarderia,
 } from 'shared';
 
 /** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
@@ -38,6 +39,8 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
     'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis',
     'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
     'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
+    // Residencia y/o guardería de día.
+    'modalidades', 'guarderia',
   ],
   transporte: [
     'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'tarifaEsperaPorHora',
@@ -691,6 +694,18 @@ export class CatalogService {
       return;
     }
 
+    /*
+     * Un centro que sólo hace guardería de día no tiene suites: lo que lo hace
+     * reservable son las plazas y al menos un precio de guardería.
+     */
+    if (vertical === 'alojamiento' && !ofreceResidencia({ modalidades: campos['modalidades'] as string[] | undefined })) {
+      if (!precioDesdeGuarderia(campos['guarderia'] as ConfigGuarderia | undefined)
+        || !(Number((campos['guarderia'] as ConfigGuarderia | undefined)?.plazasPorDia) > 0)) {
+        throw new DomainException('Indica las plazas por día y al menos un precio de la guardería de día.', 400);
+      }
+      return;
+    }
+
     const requeridos = CAMPOS_REQUERIDOS_POR_VERTICAL[vertical] ?? [];
     const faltantes = requeridos.filter((clave) => {
       const valor = campos[clave];
@@ -877,6 +892,7 @@ export class CatalogService {
       'espacios', 'espaciosDisponibles', 'checkIn', 'checkOut', 'requisitoVacunas', 'paseosIncluidos', 'camaras24h',
       'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
       'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
+      'modalidades', 'guarderia',
       // transporte de animales
       'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'tarifaEsperaPorHora', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
       'radioCoberturaKm', 'trayecto',

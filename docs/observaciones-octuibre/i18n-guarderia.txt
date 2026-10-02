@@ -1,0 +1,66 @@
+Residencia y guardería canina
+¿Qué modalidades ofreces?
+Selecciona una o ambas opciones. Luego podrás configurar los precios, horarios y detalles de cada una.
+Residencia con alojamiento
+Para estancias con pernoctación de mínimo 2 días.
+Estancias desde 2 noches
+Ideal para vacaciones
+Guardería de día
+Para cuidar al perro durante el día, sin pernoctación.
+Por horas, media jornada o día completo
+Ideal para días de trabajo
+Deja a 0 las modalidades que no ofrezcas. Los precios son por perro y llevan el IVA incluido.
+Precio por hora (€)
+Media jornada (€)
+Día completo (€)
+Plazas por día *
+Abre a las
+Cierra a las
+Días que abre la guardería
+Lun
+Mar
+Mié
+Jue
+Vie
+Sáb
+Dom
+Elige al menos una modalidad: residencia, guardería de día o las dos.
+Indica cuántos perros admites cada día en la guardería.
+Pon precio al menos a una modalidad de guardería (hora, media jornada o día).
+Marca al menos un día de apertura de la guardería.
+La hora de cierre de la guardería tiene que ser posterior a la de apertura.
+Cuidamos de tu perro durante el día, sin pernoctación. Ideal para días de trabajo.
+Por horas
+Media jornada
+Día completo
+por hora y perro
+por perro
+por hora
+Reservar
+en guardería de día
+¿Qué necesitas?
+Estancias con pernoctación
+Durante el día, sin pernoctación
+Día de guardería
+Horario de la guardería:
+¿Cuánto tiempo?
+Este centro aún no ha publicado los precios de su guardería.
+Horas
+Hora de entrada
+opcional
+Modalidad
+Residencia
+Guardería de día · Por horas
+Guardería de día · Media jornada
+Guardería de día · Día completo
+desde
+noche desde
+Este centro solo ofrece guardería de día, sin pernoctación.
+Este alojamiento no ofrece guardería de día.
+Esa fecha ya ha pasado. Elige otro día.
+La guardería de día se reserva día a día: elige un único día.
+Este alojamiento no tiene plazas de guardería de día publicadas.
+Este centro no ofrece esa modalidad de guardería. Elige otra.
+La guardería no abre ese día de la semana. Prueba con otra fecha.
+La hora de entrada no es válida.
+Indica las plazas por día y al menos un precio de la guardería de día.

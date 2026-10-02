@@ -71,4 +71,10 @@ describe('disponibilidad', () => {
       expect(sinPlazas(1)).toBe(false);
     });
   });
+
+  it('debería deducir las plazas de la guardería en un centro sin suites', () => {
+    expect(plazasDeclaradas('alojamiento', { espacios: [], guarderia: { plazasPorDia: 12 } })).toBe(12);
+    expect(plazasDeclaradas('alojamiento', { espacios: [{ cantidad: 3 }], guarderia: { plazasPorDia: 12 } })).toBe(3);
+    expect(plazasDeclaradas('alojamiento', { espacios: [], guarderia: { plazasPorDia: 0 } })).toBeUndefined();
+  });
 });

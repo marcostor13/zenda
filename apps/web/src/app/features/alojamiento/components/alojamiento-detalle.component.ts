@@ -14,7 +14,10 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
 import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
 import { aspectosDeVertical } from '../../../shared/verticales/resena-aspectos.config';
 import { describirPolitica, descripcionPolitica } from '../../../shared/catalogos/politicas-cancelacion.catalogo';
-import { VerticalKey } from 'shared';
+import {
+  ModalidadAlojamiento, TRAMO_GUARDERIA_LABELS, TramoGuarderia, VerticalKey, ofreceGuarderia, ofreceResidencia,
+  precioDesdeGuarderia, tramosOfrecidos, type ConfigGuarderia,
+} from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
 import { RsHorarioPublicoComponent } from '../../../shared/components/horario/rs-horario-publico.component';
@@ -245,6 +248,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         <!-- Espacios -->
         <!-- id de anclaje: la barra fija de móvil salta aquí cuando aún no hay
              espacio elegido (ver .mobile-cta). -->
+        @if (ofreceResidenciaFicha()) {
         <div class="section-block" id="espacios" rsAnim>
           <h2>{{ 'Tipos de espacio' | t }}</h2>
           <div class="rooms-list">
@@ -301,6 +305,33 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             }
           </div>
         </div>
+        }
+
+        <!-- Guardería de día: sin noche, por horas, media jornada o día completo. -->
+        @if (ofreceGuarderiaFicha()) {
+          <div class="section-block" id="guarderia" rsAnim>
+            <h2>{{ 'Guardería de día' | t }}</h2>
+            <p class="guarderia-ficha__intro">
+              {{ 'Cuidamos de tu perro durante el día, sin pernoctación. Ideal para días de trabajo.' | t }}
+              @if (horarioGuarderia(); as horario) {
+                <span class="guarderia-ficha__horario"><rs-icon name="clock" [size]="13" [stroke]="2" /> {{ horario }}</span>
+              }
+            </p>
+            <div class="guarderia-ficha__tramos">
+              @for (opcion of tramosGuarderia(); track opcion.tramo) {
+                <div class="guarderia-ficha__tramo rs-card">
+                  <span class="guarderia-ficha__nombre">{{ opcion.etiqueta | t }}</span>
+                  <span class="room-price-amount">{{ opcion.precio | euros }}</span>
+                  <span class="guarderia-ficha__unidad">{{ opcion.unidad | t }}</span>
+                  <button type="button" class="rs-btn rs-btn--primary rs-btn--block rs-btn--sm"
+                          (click)="irAReservaGuarderia(opcion.tramo)">
+                    {{ 'Reservar' | t }}
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
 
         <!-- Políticas en acordeón (PDF 27/07 §13) con details/summary nativos:
              accesibles y operables con teclado sin JavaScript. -->
@@ -476,10 +507,17 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
           }
 
           <p class="rs-bp-desde">{{ 'Desde' | t }}</p>
-          <p class="rs-bp-amount">
-            {{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}
-            <span class="rs-bp-per">{{ 'por noche' | t }}</span>
-          </p>
+          @if (ofreceResidenciaFicha()) {
+            <p class="rs-bp-amount">
+              {{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}
+              <span class="rs-bp-per">{{ 'por noche' | t }}</span>
+            </p>
+          } @else {
+            <p class="rs-bp-amount">
+              {{ desdeGuarderia() ?? alojamiento()!.precioPorNoche | euros }}
+              <span class="rs-bp-per">{{ 'en guardería de día' | t }}</span>
+            </p>
+          }
 
           <div style="font-size:var(--f-xs);color:var(--t-400);text-align:center;margin-bottom:var(--sp-4)">
             {{ 'Impuestos e IVA incluidos' | t }}
@@ -500,7 +538,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             mitad de camino hacía dudar de si eran dos cosas distintas.
           -->
           <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
-                  (click)="espacioSelec() ? irAReserva() : irAEspacios()">
+                  (click)="!ofreceResidenciaFicha() ? irAReservaGuarderia() : espacioSelec() ? irAReserva() : irAEspacios()">
             {{ 'Reservar' | t }}
           </button>
           <p class="rs-bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
@@ -556,10 +594,10 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
       <div class="mobile-cta__precio">
         <span class="mobile-cta__desde">{{ 'Desde' | t }}</span>
         <strong>{{ espacioSelec()?.precioNoche ?? alojamiento()!.precioPorNoche | euros }}</strong>
-        <span class="mobile-cta__unidad">/ noche</span>
+        @if (ofreceResidenciaFicha()) { <span class="mobile-cta__unidad">/ noche</span> }
       </div>
       <button class="rs-btn rs-btn--gold rs-btn--lg"
-              (click)="espacioSelec() ? irAReserva() : irAEspacios()">{{ 'Reservar' | t }}</button>
+              (click)="!ofreceResidenciaFicha() ? irAReservaGuarderia() : espacioSelec() ? irAReserva() : irAEspacios()">{{ 'Reservar' | t }}</button>
     </div>
   </div>
   }
@@ -1045,6 +1083,12 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
     .booking-panel__price { text-align: center; margin-bottom: var(--sp-2); }
     .booking-panel__trust { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); p { font-size: var(--f-xs); color: var(--t-400); } }
     .booking-panel__score { display: flex; justify-content: center; }
+    .guarderia-ficha__intro { color: var(--t-300); font-size: var(--f-sm); margin-bottom: var(--sp-4); display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
+    .guarderia-ficha__horario { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--t-400); }
+    .guarderia-ficha__tramos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--sp-4); }
+    .guarderia-ficha__tramo { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-4); }
+    .guarderia-ficha__nombre { font-weight: var(--w-6); color: var(--t-100); }
+    .guarderia-ficha__unidad { font-size: var(--f-xs); color: var(--t-400); }
   `],
 })
 export class AlojamientoDetalleComponent implements OnInit {
@@ -1316,6 +1360,54 @@ export class AlojamientoDetalleComponent implements OnInit {
   readonly primeraFotoOculta = computed(
     () => this.alojamiento()?.imagenes[MINIATURAS_VISIBLES - 1] ?? '',
   );
+
+  // ── Residencia y guardería de día ──
+  private readonly extra = computed(() => this.alojamiento()?.extra ?? {});
+  /** Sin `modalidades` el alojamiento es una residencia, como todos los de antes. */
+  readonly ofreceResidenciaFicha = computed(() => ofreceResidencia(this.extra() as { modalidades?: string[] }));
+  readonly ofreceGuarderiaFicha = computed(() =>
+    ofreceGuarderia(this.extra() as { modalidades?: string[] }) && !!this.configGuarderia());
+  private readonly configGuarderia = computed(() => this.extra()['guarderia'] as ConfigGuarderia | undefined);
+  readonly desdeGuarderia = computed(() => precioDesdeGuarderia(this.configGuarderia()));
+
+  readonly tramosGuarderia = computed(() => {
+    const config = this.configGuarderia();
+    if (!config) return [];
+    const precios: Record<TramoGuarderia, number> = {
+      [TramoGuarderia.HORAS]: config.precioHora ?? 0,
+      [TramoGuarderia.MEDIA_JORNADA]: config.precioMediaJornada ?? 0,
+      [TramoGuarderia.DIA_COMPLETO]: config.precioDiaCompleto ?? 0,
+    };
+    return tramosOfrecidos(config).map((tramo) => ({
+      tramo,
+      etiqueta: TRAMO_GUARDERIA_LABELS[tramo],
+      precio: precios[tramo],
+      unidad: tramo === TramoGuarderia.HORAS ? 'por hora y perro' : 'por perro',
+    }));
+  });
+
+  readonly horarioGuarderia = computed(() => {
+    const config = this.configGuarderia();
+    return config?.apertura && config.cierre ? `${config.apertura} – ${config.cierre}` : null;
+  });
+
+  /** Reserva de guardería: el día y el tramo se eligen en el asistente. */
+  irAReservaGuarderia(tramo?: TramoGuarderia): void {
+    const alojamiento = this.alojamiento();
+    if (!alojamiento) return;
+    void this.router.navigate(['/reservas', 'alojamiento', alojamiento.id], {
+      queryParams: {
+        modalidad:  ModalidadAlojamiento.GUARDERIA,
+        tramo:      tramo ?? undefined,
+        comercioId: alojamiento.comercioId,
+        nombre:     alojamiento.nombre,
+        imagen:     alojamiento.imagenes?.[0] ?? '',
+        checkIn:    this.checkInQP ?? undefined,
+        perros:     this.perrosQP ?? undefined,
+        perroId:    this.perroIdQP ?? undefined,
+      },
+    });
+  }
 
   seleccionarEspacio(esp: Espacio): void {
     this.espacioSelec.set(this.espacioSelec()?.id === esp.id ? null : esp);

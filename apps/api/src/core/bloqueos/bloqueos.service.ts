@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ActualizarBloqueoDto, BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ReservaEstado } from 'shared';
+import {
+  ActualizarBloqueoDto, BloqueoDto, CitaAgendaDto, CrearBloqueoDto, ReservaEstado, etiquetaModalidadReserva,
+} from 'shared';
 import { BloqueoServicio, BloqueoServicioDocument } from './bloqueo-servicio.schema';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { tramoDeLaReserva } from '../bookings/momento-reserva.util';
@@ -150,6 +152,7 @@ export class BloqueosService {
       const { inicio, fin } = tramoDeLaReserva(r as unknown as Parameters<typeof tramoDeLaReserva>[0]);
       const usuario = r['usuarioId'] as { nombre?: string } | undefined;
       const perro = r['perroSnapshot'] as { nombre?: string } | undefined;
+      const modalidad = etiquetaModalidadReserva(r['detalle'] as Record<string, unknown> | undefined);
 
       return {
         _id: String(r['_id']),
@@ -160,6 +163,7 @@ export class BloqueosService {
         estado: (r['estado'] as string) ?? '',
         cliente: usuario?.nombre ?? 'Cliente',
         perro: perro?.nombre,
+        ...(modalidad ? { modalidad } : {}),
       };
     });
   }

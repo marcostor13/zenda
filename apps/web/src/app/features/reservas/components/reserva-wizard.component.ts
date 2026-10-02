@@ -17,7 +17,10 @@ import {
   ConfirmacionEntrega, FlexibilidadHoraria, FranjaRecogida, ModalidadViaje, NecesidadTransporte,
   PoliticaParadas, ResponsableEntrega, TipoTrayecto, calcularPrecioTransporte, configDesdeLegado,
   tieneConfigTransporte,
-  type ConfigTransporte, type DesglosePrecioTransporte } from 'shared';
+  type ConfigTransporte, type DesglosePrecioTransporte,
+  // Residencia y guardería canina: el mismo cálculo que cobra el API.
+  ModalidadAlojamiento, TRAMO_GUARDERIA_LABELS, TramoGuarderia, HORAS_MEDIA_JORNADA,
+  modalidadesAlojamiento, precioGuarderia, tramosOfrecidos, type ConfigGuarderia } from 'shared';
 import {
   extrasFunerarios, serviciosFunerarios,
 } from '../../../shared/verticales/funerarios.util';
@@ -260,6 +263,109 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
 
             <!-- ── ALOJAMIENTO CANINO ── -->
             @if (vertical() === 'alojamiento') {
+              @if (ofreceAmbasModalidades()) {
+                <div class="modalidad-reserva" role="radiogroup" [attr.aria-label]="'¿Qué necesitas?' | t">
+                  <button type="button" class="modalidad-reserva__opcion" role="radio"
+                          [class.modalidad-reserva__opcion--sel]="!esGuarderia()"
+                          [attr.aria-checked]="!esGuarderia()" (click)="elegirModalidad('residencia')">
+                    <rs-icon name="moon" [size]="18" [stroke]="2" />
+                    <span>
+                      <strong>{{ 'Residencia con alojamiento' | t }}</strong>
+                      <small>{{ 'Estancias con pernoctación' | t }}</small>
+                    </span>
+                  </button>
+                  <button type="button" class="modalidad-reserva__opcion" role="radio"
+                          [class.modalidad-reserva__opcion--sel]="esGuarderia()"
+                          [attr.aria-checked]="esGuarderia()" (click)="elegirModalidad('guarderia')">
+                    <rs-icon name="sun" [size]="18" [stroke]="2" />
+                    <span>
+                      <strong>{{ 'Guardería de día' | t }}</strong>
+                      <small>{{ 'Durante el día, sin pernoctación' | t }}</small>
+                    </span>
+                  </button>
+                </div>
+              }
+
+              @if (esGuarderia()) {
+              <form [formGroup]="paso1GuarderiaForm">
+                <div class="rs-field">
+                  <label class="rs-lbl" for="wz-guarderia-fecha">{{ 'Día de guardería' | t }}</label>
+                  <input id="wz-guarderia-fecha" type="date" class="rs-inp rs-inp--lg"
+                         formControlName="fecha" [min]="hoy" />
+                  @if (horarioGuarderia(); as horario) {
+                    <span class="rs-field-hint">{{ 'Horario de la guardería:' | t }} {{ horario }}</span>
+                  }
+                </div>
+                <div class="rs-field">
+                  <span class="rs-lbl">{{ '¿Cuánto tiempo?' | t }}</span>
+                  <div class="tramos-guarderia">
+                    @for (opcion of tramosGuarderia(); track opcion.tramo) {
+                      <label class="tramo-guarderia"
+                             [class.tramo-guarderia--sel]="paso1GuarderiaForm.controls.tramo.value === opcion.tramo">
+                        <input type="radio" formControlName="tramo" [value]="opcion.tramo" />
+                        <span class="tramo-guarderia__nombre">{{ opcion.etiqueta | t }}</span>
+                        <span class="tramo-guarderia__precio">{{ opcion.precio | euros }} {{ opcion.unidad | t }}</span>
+                      </label>
+                    } @empty {
+                      <p class="rs-field-hint">{{ 'Este centro aún no ha publicado los precios de su guardería.' | t }}</p>
+                    }
+                  </div>
+                </div>
+                <div class="form-row">
+                  @if (paso1GuarderiaForm.controls.tramo.value === 'horas') {
+                    <div class="rs-field">
+                      <label class="rs-lbl" for="wz-guarderia-horas">{{ 'Horas' | t }}</label>
+                      <input id="wz-guarderia-horas" type="number" min="1" max="14" class="rs-inp rs-inp--lg"
+                             formControlName="horas" inputmode="numeric" />
+                    </div>
+                  }
+                  <div class="rs-field">
+                    <label class="rs-lbl" for="wz-guarderia-entrada">{{ 'Hora de entrada' | t }} <span class="opt">{{ 'opcional' | t }}</span></label>
+                    <input id="wz-guarderia-entrada" type="time" class="rs-inp rs-inp--lg" formControlName="horaEntrada" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="rs-field">
+                    <label class="rs-lbl" [attr.for]="idPerrosGuarderia">{{ 'Número de perros' | t }}</label>
+                    <div class="contador">
+                      <button type="button" (click)="cambiarPerros(paso1GuarderiaForm.controls.perros, -1)"
+                              [disabled]="!puedeQuitarPerros(paso1GuarderiaForm.controls.perros)"
+                              [attr.aria-label]="'Quitar un perro' | t">−</button>
+                      <output [id]="idPerrosGuarderia">{{ paso1GuarderiaForm.controls.perros.value }}</output>
+                      <button type="button" (click)="cambiarPerros(paso1GuarderiaForm.controls.perros, 1)"
+                              [attr.aria-label]="'Añadir un perro' | t">+</button>
+                    </div>
+                  </div>
+                  <div class="rs-field">
+                    <label class="rs-lbl">{{ 'Compatibilidad social de tu perro' | t }}</label>
+                    <select formControlName="compatibilidadSocial" class="rs-inp rs-inp--lg">
+                      <option value="cualquiera">{{ 'Se lleva bien con otros perros' | t }}</option>
+                      <option value="solo_pequenos">{{ 'Solo tolera perros pequeños' | t }}</option>
+                      <option value="solo_machos">{{ 'Solo tolera machos' | t }}</option>
+                      <option value="solo_hembras">{{ 'Solo tolera hembras' | t }}</option>
+                      <option value="individual">{{ 'Necesita alojamiento individual' | t }}</option>
+                    </select>
+                  </div>
+                </div>
+                @if (serviciosAdicionalesAlojamiento().length > 0) {
+                  <div class="extras-section">
+                    <h3>{{ 'Servicios adicionales' | t }}</h3>
+                    <div class="extras-grid">
+                      @for (extra of serviciosAdicionalesAlojamiento(); track extra.nombre) {
+                        <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
+                          <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
+                          <div class="extra-item__icon"><rs-icon name="sparkles" [size]="20" [stroke]="2" /></div>
+                          <div class="extra-item__info">
+                            <div class="extra-item__name">{{ extra.nombre }}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}</div>
+                          </div>
+                        </label>
+                      }
+                    </div>
+                  </div>
+                }
+              </form>
+              } @else {
               <form [formGroup]="paso1AlojamientoForm">
                 <!--
                   Calendario con las noches sin plaza deshabilitadas. Los campos
@@ -357,6 +463,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </ol>
                 </div>
               </form>
+              }
             }
 
             <!-- ── TRANSPORTE DE MASCOTAS ── -->
@@ -1497,6 +1604,27 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .rs-inp--host { display: flex; align-items: center; padding-block: 0; }
     .rs-inp--host rs-place-autocomplete { flex: 1; min-width: 0; }
 
+    /* Residencia o guardería de día, cuando el centro ofrece las dos. */
+    .modalidad-reserva { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-5); @media (max-width: 540px) { grid-template-columns: 1fr; } }
+    .modalidad-reserva__opcion {
+      display: flex; align-items: center; gap: var(--sp-3); text-align: left;
+      padding: var(--sp-3) var(--sp-4); cursor: pointer;
+      background: var(--c-card); border: 1px solid var(--b-2); border-radius: var(--r-lg); color: var(--t-200);
+      span { display: flex; flex-direction: column; }
+      strong { font-size: var(--f-sm); color: var(--t-100); }
+      small { font-size: var(--f-xs); color: var(--t-400); }
+    }
+    .modalidad-reserva__opcion--sel { border-color: var(--c-accent); background: var(--c-accent-lo); color: var(--c-accent); }
+    .tramos-guarderia { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-3); }
+    .tramo-guarderia {
+      display: flex; flex-direction: column; gap: var(--sp-1); cursor: pointer;
+      padding: var(--sp-3) var(--sp-4); border: 1px solid var(--b-2); border-radius: var(--r-lg); background: var(--c-card);
+      input { position: absolute; opacity: 0; pointer-events: none; }
+    }
+    .tramo-guarderia--sel { border-color: var(--c-accent); background: var(--c-accent-lo); }
+    .tramo-guarderia__nombre { font-weight: var(--w-6); color: var(--t-100); font-size: var(--f-sm); }
+    .tramo-guarderia__precio { font-size: var(--f-xs); color: var(--t-400); }
+
     /* Contador de perros: sin tope superior, a diferencia del antiguo desplegable. */
     .contador {
       display: inline-flex; align-items: center; gap: var(--sp-3);
@@ -2026,6 +2154,7 @@ export class ReservaWizardComponent implements OnInit {
   readonly marcasTarjeta: readonly MarcaPagoKey[] = ['visa', 'mastercard', 'amex'];
 
   readonly idPerrosAlojamiento = 'wz-perros-alojamiento';
+  readonly idPerrosGuarderia = 'wz-perros-guarderia';
   readonly idPerrosTransporte = 'wz-perros-transporte';
 
   // ─── Trayecto de transporte: la distancia se calcula sola (DK-V03) ───
@@ -2084,6 +2213,71 @@ export class ReservaWizardComponent implements OnInit {
   }
 
   // ─── Step 1 forms (one per vertical) ───
+  /** Un día de guardería: sin noche, por horas, media jornada o día completo. */
+  readonly paso1GuarderiaForm = this.fb.group({
+    fecha:       ['', Validators.required],
+    tramo:       [TramoGuarderia.DIA_COMPLETO as string, Validators.required],
+    horas:       [2, [Validators.min(1), Validators.max(14)]],
+    horaEntrada: [''],
+    perros:      [1, [Validators.required, Validators.min(1)]],
+    compatibilidadSocial: ['cualquiera'],
+  });
+
+  /** Modalidad elegida en un alojamiento: residencia (noches) o guardería (un día). */
+  readonly modalidadAlojamiento = signal<string>(ModalidadAlojamiento.RESIDENCIA);
+  readonly configGuarderia = signal<ConfigGuarderia | null>(null);
+  readonly modalidadesServicio = signal<string[]>([ModalidadAlojamiento.RESIDENCIA]);
+
+  readonly esGuarderia = computed(() =>
+    this.vertical() === VerticalKey.ALOJAMIENTO && this.modalidadAlojamiento() === ModalidadAlojamiento.GUARDERIA);
+  readonly ofreceAmbasModalidades = computed(() => this.modalidadesServicio().length > 1);
+
+  readonly tramosGuarderia = computed(() => {
+    const config = this.configGuarderia();
+    if (!config) return [];
+    const precios: Record<TramoGuarderia, number> = {
+      [TramoGuarderia.HORAS]: config.precioHora ?? 0,
+      [TramoGuarderia.MEDIA_JORNADA]: config.precioMediaJornada ?? 0,
+      [TramoGuarderia.DIA_COMPLETO]: config.precioDiaCompleto ?? 0,
+    };
+    return tramosOfrecidos(config).map((tramo) => ({
+      tramo,
+      etiqueta: tramo === TramoGuarderia.MEDIA_JORNADA
+        ? `${TRAMO_GUARDERIA_LABELS[tramo]} (${HORAS_MEDIA_JORNADA} h)`
+        : TRAMO_GUARDERIA_LABELS[tramo],
+      precio: precios[tramo],
+      unidad: tramo === TramoGuarderia.HORAS ? 'por hora' : 'por perro',
+    }));
+  });
+
+  readonly horarioGuarderia = computed(() => {
+    const config = this.configGuarderia();
+    return config?.apertura && config.cierre ? `${config.apertura} – ${config.cierre}` : null;
+  });
+
+  elegirModalidad(modalidad: string): void {
+    this.modalidadAlojamiento.set(modalidad);
+    this.revisionFormularios.update((v) => v + 1);
+  }
+
+  /** Lee de la ficha qué modalidades vende el centro y la configuración de su guardería. */
+  private aplicarModalidadesDelServicio(extra: Record<string, unknown>): void {
+    const modalidades = modalidadesAlojamiento(extra as { modalidades?: string[] });
+    this.modalidadesServicio.set(modalidades);
+    const config = extra['guarderia'] as ConfigGuarderia | undefined;
+    this.configGuarderia.set(config ?? null);
+
+    // Un centro que sólo es guardería no tiene noches que reservar.
+    if (!modalidades.includes(ModalidadAlojamiento.RESIDENCIA)) {
+      this.elegirModalidad(ModalidadAlojamiento.GUARDERIA);
+    }
+    const ofrecidos = tramosOfrecidos(config);
+    const tramo = this.paso1GuarderiaForm.controls.tramo.value;
+    if (ofrecidos.length && !ofrecidos.includes(tramo as TramoGuarderia)) {
+      this.paso1GuarderiaForm.patchValue({ tramo: ofrecidos[ofrecidos.length - 1] });
+    }
+  }
+
   readonly paso1AlojamientoForm = this.fb.group({
     checkIn:     ['', Validators.required],
     checkOut:    ['', Validators.required],
@@ -2516,7 +2710,7 @@ export class ReservaWizardComponent implements OnInit {
     const formularios: AbstractControl[] = [
       this.paso1AlojamientoForm, this.paso1TransporteForm, this.paso1VeterinariaForm,
       this.paso1PeluqueriaForm, this.paso1AdiestramientoForm, this.paso1HotelesForm,
-      this.paso1FunerariosForm,
+      this.paso1FunerariosForm, this.paso1GuarderiaForm,
     ];
     for (const form of formularios) {
       form.valueChanges
@@ -2660,7 +2854,8 @@ export class ReservaWizardComponent implements OnInit {
   readonly paso1Valido = computed(() => {
     this.revisionFormularios();
     switch (this.vertical()) {
-      case VerticalKey.ALOJAMIENTO:    return this.paso1AlojamientoForm.valid;
+      case VerticalKey.ALOJAMIENTO:
+        return this.esGuarderia() ? this.paso1GuarderiaForm.valid : this.paso1AlojamientoForm.valid;
       case VerticalKey.TRANSPORTE:     return this.paso1TransporteForm.valid;
       case VerticalKey.VETERINARIA:    return this.paso1VeterinariaForm.valid;
       case VerticalKey.PELUQUERIA:     return this.paso1PeluqueriaForm.valid;
@@ -2676,11 +2871,12 @@ export class ReservaWizardComponent implements OnInit {
     const base = this.precioBase();
     switch (this.vertical()) {
       case VerticalKey.ALOJAMIENTO: {
-        const { checkIn, checkOut } = this.paso1AlojamientoForm.value;
-        const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         const extras = this.extrasSelec().reduce(
           (s, nombre) => s + (this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.precio ?? 0), 0,
         );
+        if (this.esGuarderia()) return this.precioDiaGuarderia() + extras;
+        const { checkIn, checkOut } = this.paso1AlojamientoForm.value;
+        const noches = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         return base * noches + extras;
       }
       case VerticalKey.TRANSPORTE: {
@@ -3042,6 +3238,7 @@ export class ReservaWizardComponent implements OnInit {
     const base = this.precioBase();
     switch (this.vertical()) {
       case VerticalKey.ALOJAMIENTO: {
+        if (this.esGuarderia()) return this.lineaGuarderia();
         const { checkIn, checkOut, perros } = this.paso1AlojamientoForm.value;
         const n = Math.max(1, this.calcularNoches(checkIn ?? '', checkOut ?? ''));
         const p = Number(perros ?? 1);
@@ -3097,6 +3294,11 @@ export class ReservaWizardComponent implements OnInit {
     this.imagenServicio.set(queryParams.get('imagen') ?? '');
     this.precioBase.set(Number(queryParams.get('precioBase') ?? 0));
     this.espacioId = queryParams.get('espacioId');
+    if (queryParams.get('modalidad') === ModalidadAlojamiento.GUARDERIA) {
+      this.modalidadAlojamiento.set(ModalidadAlojamiento.GUARDERIA);
+    }
+    const tramoQP = queryParams.get('tramo');
+    if (tramoQP) this.paso1GuarderiaForm.patchValue({ tramo: tramoQP });
 
     // Prellenar con las fechas/perros ya buscados en el listado (no volver a pedirlos).
     // `desde`/`hasta` son los parámetros del buscador común; `checkIn`/`checkOut`
@@ -3104,6 +3306,12 @@ export class ReservaWizardComponent implements OnInit {
     const checkIn = queryParams.get('checkIn') ?? queryParams.get('desde');
     const checkOut = queryParams.get('checkOut') ?? queryParams.get('hasta');
     const perrosQP = queryParams.get('perros');
+    if (checkIn || perrosQP) {
+      this.paso1GuarderiaForm.patchValue({
+        ...(checkIn ? { fecha: checkIn } : {}),
+        ...(perrosQP ? { perros: Number(perrosQP) } : {}),
+      });
+    }
     if (checkIn || checkOut || perrosQP) {
       this.paso1AlojamientoForm.patchValue({
         ...(checkIn ? { checkIn } : {}),
@@ -3225,6 +3433,7 @@ export class ReservaWizardComponent implements OnInit {
         this.serviciosAdicionalesAlojamiento.set(
           (extra['serviciosAdicionales'] as ServicioAdicionalWizard[] | undefined) ?? [],
         );
+        this.aplicarModalidadesDelServicio(extra);
       }).catch(() => {
         // Catálogo detallado no disponible: sin servicios adicionales que ofrecer.
       });
@@ -3382,10 +3591,48 @@ export class ReservaWizardComponent implements OnInit {
     }
   }
 
+  /** Precio del día de guardería con el mismo cálculo que cobra el API. */
+  private precioDiaGuarderia(): number {
+    const config = this.configGuarderia();
+    if (!config) return 0;
+    const f = this.paso1GuarderiaForm.value;
+    return precioGuarderia(config, { tramo: f.tramo ?? '', horas: Number(f.horas ?? 1) }, Number(f.perros ?? 1)) ?? 0;
+  }
+
+  private lineaGuarderia(): string {
+    const f = this.paso1GuarderiaForm.value;
+    const tramo = TRAMO_GUARDERIA_LABELS[f.tramo as TramoGuarderia] ?? '';
+    const horas = f.tramo === TramoGuarderia.HORAS ? ` · ${Number(f.horas ?? 1)} h` : '';
+    const p = Number(f.perros ?? 1);
+    return `Guardería de día · ${tramo}${horas} · ${p} perro${p !== 1 ? 's' : ''}`;
+  }
+
+  private payloadGuarderia(): import('../services/reservas.service').CrearReservaPayload {
+    const f = this.paso1GuarderiaForm.value;
+    return {
+      servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: VerticalKey.ALOJAMIENTO,
+      perroId: this.perroSeleccionado() ?? undefined,
+      // Sólo el día: la guardería no ocupa noche, así que no lleva salida.
+      fechaInicio: f.fecha!,
+      cantidad: Number(f.perros ?? 1),
+      detalle: {
+        modalidad: ModalidadAlojamiento.GUARDERIA,
+        tramoGuarderia: f.tramo,
+        ...(f.tramo === TramoGuarderia.HORAS ? { horasGuarderia: Number(f.horas ?? 1) } : {}),
+        ...(f.horaEntrada ? { horaEntrada: f.horaEntrada } : {}),
+        tamanoPerro: this.paso1AlojamientoForm.value.tamanoPerro,
+        compatibilidadSocial: f.compatibilidadSocial,
+        ...(this.extrasSelec().length > 0 ? { extras: this.extrasSelec() } : {}),
+      },
+      cuponCodigo: this.cuponCodigo() ?? undefined,
+    };
+  }
+
   private buildPayload(): import('../services/reservas.service').CrearReservaPayload {
     const v = this.vertical();
     switch (v) {
       case VerticalKey.ALOJAMIENTO: {
+        if (this.esGuarderia()) return this.payloadGuarderia();
         const f = this.paso1AlojamientoForm.value;
         return {
           servicioId: this.servicioId!, comercioId: this.comercioId!, vertical: v,
@@ -3393,6 +3640,7 @@ export class ReservaWizardComponent implements OnInit {
           fechaInicio: f.checkIn!, fechaFin: f.checkOut ?? undefined,
           cantidad: Number(f.perros ?? 1),
           detalle: {
+            modalidad: ModalidadAlojamiento.RESIDENCIA,
             tamanoPerro: f.tamanoPerro,
             compatibilidadSocial: f.compatibilidadSocial,
             ...(this.espacioId ? { espacioId: this.espacioId } : {}),

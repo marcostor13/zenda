@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import type { ConfigGuarderia } from 'shared';
 import { Servicio } from '../../core/catalog/servicio.schema';
 
 export type AlojamientoDocument = HydratedDocument<Alojamiento>;
@@ -90,6 +91,20 @@ export class Alojamiento extends Servicio {
 
   @Prop({ type: [Object], default: [] })
   serviciosAdicionales!: ServicioAdicionalResidencia[];
+
+  // --- Residencia y guardería canina (observaciones octubre 2026) ---
+
+  /**
+   * Qué vende el centro: `residencia` (con noche), `guarderia` (de día) o las
+   * dos. Sin valor por defecto a propósito: los alojamientos dados de alta antes
+   * no lo traen y se leen como residencia (`modalidadesAlojamiento` en shared).
+   */
+  @Prop({ type: [String], default: undefined })
+  modalidades?: string[];
+
+  /** Precios, plazas por día y horario de la guardería de día. */
+  @Prop({ type: Object })
+  guarderia?: ConfigGuarderia;
 }
 
 export const AlojamientoSchema = SchemaFactory.createForClass(Alojamiento);

@@ -83,6 +83,8 @@ export interface AlojamientoCard {
   destacado: boolean;
   /** El comercio ofrece ventajas del programa Doogking Alpha (HU-13.3). */
   alphaAdherido?: boolean;
+  /** Campos propios del vertical: aquí viajan `modalidades` y `guarderia`. */
+  extra?: Record<string, unknown>;
   lat?: number;
   lng?: number;
 }

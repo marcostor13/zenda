@@ -762,7 +762,9 @@ export class ComercioAgendaComponent implements OnInit {
       id: cita._id,
       tipo: 'reserva',
       titulo: cita.perro ? `${cita.cliente} · ${cita.perro}` : cita.cliente,
-      subtitulo: `Reserva ${cita.codigo} · ${this.etiquetaEstado(cita.estado)}`,
+      subtitulo: cita.modalidad
+        ? `${cita.modalidad} · Reserva ${cita.codigo} · ${this.etiquetaEstado(cita.estado)}`
+        : `Reserva ${cita.codigo} · ${this.etiquetaEstado(cita.estado)}`,
     };
   }
 

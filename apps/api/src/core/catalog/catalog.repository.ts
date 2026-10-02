@@ -101,6 +101,9 @@ const FILTROS_VERTICAL: Record<string, Record<string, ComparadorFiltro>> = {
     paseosIncluidos: 'bool',
     camaras24h: 'bool',
     requisitoVacunas: 'bool',
+    // `guarderia` = centros con guardería de día. Los alojamientos antiguos no
+    // tienen el campo y son residencias, así que no salen con este filtro.
+    modalidades: 'todos',
   },
   veterinaria: {
     atiendeUrgencias: 'bool',
