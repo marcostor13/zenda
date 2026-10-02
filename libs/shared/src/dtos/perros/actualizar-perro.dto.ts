@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   MinLength,
@@ -13,6 +14,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SexoPerro, TamanoPerro, TipoPelo, NivelSociabilidad } from '../../enums/perro.enum';
+import { MICROCHIP_OPCIONAL_REGEX } from '../../mascotas/microchip';
 import { VacunaAplicadaDto } from './crear-perro.dto';
 
 /** Mismos campos que CrearPerroDto, todos opcionales (actualización parcial). */
@@ -61,8 +63,10 @@ export class ActualizarPerroDto {
   @Max(120)
   peso?: number;
 
+  /** ISO 11784/11785: 15 dígitos. Cadena vacía = quitarlo de la ficha. */
   @IsOptional()
   @IsString()
+  @Matches(MICROCHIP_OPCIONAL_REGEX, { message: 'El microchip debe tener exactamente 15 dígitos' })
   microchip?: string;
 
   @IsOptional()
@@ -166,6 +170,11 @@ export class ActualizarPerroDto {
   @IsOptional()
   @IsBoolean()
   tendenciaEscapar?: boolean;
+
+  /** Opción positiva frente a los problemas de conducta (ver CrearPerroDto). */
+  @IsOptional()
+  @IsBoolean()
+  esMuyBueno?: boolean;
 
   @IsOptional()
   @IsString()

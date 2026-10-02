@@ -25,6 +25,7 @@ export function construirSnapshotPerro(perro: PerroDocument): Record<string, unk
     reactividadCorrea: perro.reactividadCorrea,
     protectorRecursos: perro.protectorRecursos,
     tendenciaEscapar: perro.tendenciaEscapar,
+    esMuyBueno: perro.esMuyBueno,
     miedos: perro.miedos,
     alergias: perro.alergias,
     medicacion: perro.medicacion,

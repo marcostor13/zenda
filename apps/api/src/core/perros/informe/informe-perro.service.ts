@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
   HISTORIAL_ORIGEN, TIPO_HISTORIAL_LABELS, TipoHistorial, VACUNA_LABELS, Vacuna,
-  camposDeRegistro, nombreTamanoPerro,
+  camposDeRegistro, nombreEstadoManto, nombreTamanoPerro, nombreTipoManto,
 } from 'shared';
 import { Comercio, ComercioDocument } from '../../comercios/comercio.schema';
 import { Perro } from '../perro.schema';
@@ -171,7 +171,9 @@ function identidad(perro: Perro): DatoIdentidad[] {
     ['Fecha de nacimiento', perro.fechaNacimiento ? fechaCorta(perro.fechaNacimiento) : null],
     ['Peso', perro.peso ? `${formatearNumero(perro.peso)} kg` : null],
     ['Tamaño', perro.tamano ? nombreTamanoPerro(perro.tamano) : null],
-    ['Microchip', perro.microchip ?? null],
+    ['Microchip', perro.microchip || null],
+    ['Tipo de manto', perro.tipoPelo?.length ? perro.tipoPelo.map(nombreTipoManto).join(', ') : null],
+    ['Estado del manto', perro.estadoManto ? nombreEstadoManto(perro.estadoManto) : null],
     [hembra ? 'Esterilizada' : 'Esterilizado', perro.esterilizado ? 'Sí' : 'No'],
     ['Perro de raza potencialmente peligrosa', perro.esPPP ? 'Sí' : null],
   ];

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { VACUNA_LABELS, Vacuna, nombreTamanoPerro } from 'shared';
+import { VACUNA_LABELS, Vacuna, nombreEstadoManto, nombreTamanoPerro, nombreTipoManto } from 'shared';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { I18nService } from '../../../core/i18n/i18n.service';
@@ -22,9 +22,6 @@ interface Chip {
 }
 
 const SOCIABILIDAD: Record<string, string> = { alta: 'Alta', media: 'Media', baja: 'Baja', no_tolera: 'No tolera' };
-const PELO: Record<string, string> = {
-  corto: 'Corto', medio: 'Medio', largo: 'Largo', rizado: 'Rizado', duro: 'Duro', doble_capa: 'Doble capa',
-};
 
 /**
  * Datos de la ficha que rellena el dueño, agrupados por sección. Lo pintan la
@@ -94,6 +91,13 @@ const PELO: Record<string, string> = {
         <div><dt>{{ f.etiqueta | t }}</dt><dd>{{ f.literal ? f.valor : (f.valor | t) }}</dd></div>
       }
     </dl>
+    @if (perro().esMuyBueno) {
+      <div class="ficha-sec__bloque">
+        <span class="ficha-chip ficha-chip--ok ficha-chip--destacado">
+          <rs-icon name="heart" [size]="14" [stroke]="2"></rs-icon> {{ '¡Es muy bueno! No da ningún problema' | t }}
+        </span>
+      </div>
+    }
     @if (rasgos().length) {
       <div class="ficha-sec__bloque">
         <span class="ficha-sec__subtitulo"><rs-icon name="alert-triangle" [size]="14" [stroke]="2"></rs-icon> {{ 'A tener en cuenta' | t }}</span>
@@ -164,6 +168,7 @@ const PELO: Record<string, string> = {
     .ficha-chip--ok { background: var(--c-success-lo); color: var(--c-success); }
     .ficha-chip--alerta { background: var(--c-error-lo); color: var(--c-error); }
     .ficha-chip--aviso { background: var(--c-warning-lo); color: var(--c-warning); }
+    .ficha-chip--destacado { font-weight: var(--w-7); padding: var(--sp-2) var(--sp-4); }
     .ficha-docs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
     .ficha-doc {
       display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md);
@@ -189,8 +194,9 @@ export class FichaPerroDatosComponent {
       { etiqueta: 'Tamaño', valor: p.tamano ? nombreTamanoPerro(p.tamano) : '' },
       { etiqueta: 'Esterilizado', valor: p.esterilizado ? 'Sí' : 'No' },
       { etiqueta: 'Microchip', valor: p.microchip ?? '', literal: true },
-      { etiqueta: 'Tipo de pelo', valor: p.tipoPelo.map((t) => this.i18n.t(PELO[t] ?? t)).join(', '), literal: true },
-      { etiqueta: 'Estado del manto', valor: p.estadoManto ?? '', literal: true },
+      { etiqueta: 'Tipo de manto', valor: (p.tipoPelo ?? []).map((t) => this.i18n.t(nombreTipoManto(t))).join(', '), literal: true },
+      // Las fichas antiguas traen texto libre: ese no se traduce, se enseña tal cual.
+      { etiqueta: 'Estado del manto', valor: p.estadoManto ? this.i18n.t(nombreEstadoManto(p.estadoManto)) : '', literal: true },
       { etiqueta: 'Ciudad', valor: p.ciudad ?? '', literal: true },
     ]);
   });

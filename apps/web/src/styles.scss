@@ -315,6 +315,10 @@ body.rs-sin-scroll { overflow: hidden; }
 @media (max-width: 768px) {
   :root:has(rs-barra-cta) { --dk-barra-reserva-h: 84px; }
 }
+/* Botonera fija de los wizards en móvil (alta del perro). */
+@media (max-width: 640px) {
+  :root:has(.dk-barra-wizard) { --dk-barra-reserva-h: 72px; }
+}
 
 img, video, svg { display: block; max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }

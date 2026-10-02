@@ -11,6 +11,8 @@ export * from './catalogos/puntuacion';
 // Poblaciones: normalización, catálogo y reconocimiento de variantes
 export * from './ubicaciones/normalizar-ubicacion';
 export * from './mascotas/especie';
+export * from './mascotas/manto';
+export * from './mascotas/microchip';
 export * from './dtos/asistente/consulta-asistente.dto';
 export * from './ubicaciones/municipios';
 export * from './ubicaciones/resolver-municipio';
