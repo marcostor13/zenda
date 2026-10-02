@@ -235,6 +235,43 @@ describe('CatalogService', () => {
       });
     });
 
+    it('debería dar como precio «desde» el espacio más barato, no el precio orientativo', async () => {
+      repo.buscar.mockResolvedValue({
+        items: [{
+          ...hotelDoc, vertical: 'alojamiento', precioBase: 25,
+          espacios: [{ tipo: 'suite', precioNoche: 40, cantidad: 1 }, { tipo: 'estandar', precioNoche: 32, cantidad: 2 }],
+        }] as never,
+        total: 1,
+      });
+
+      const [card] = (await service.buscarServicios({})).items;
+
+      // La ficha enseña los espacios a 40 y 32 €: la tarjeta tiene que decir 32.
+      expect(card.precioPorNoche).toBe(32);
+    });
+
+    it('no debería poner nota ni etiqueta a un servicio sin reseñas', async () => {
+      repo.buscar.mockResolvedValue({
+        items: [{ ...hotelDoc, ratingPromedio: 4.2, totalReseñas: 0 }] as never,
+        total: 1,
+      });
+
+      const [card] = (await service.buscarServicios({})).items;
+
+      expect(card).toMatchObject({ score: 0, scoreLabel: 'Sin valoraciones', numResenas: 0 });
+    });
+
+    it('debería descartar una calle sin nombre al montar la dirección («1, 1»)', async () => {
+      repo.buscar.mockResolvedValue({
+        items: [{ ...hotelDoc, ubicacion: { ciudad: 'Valencia', calle: '1', numero: '1' }, direccion: undefined }] as never,
+        total: 1,
+      });
+
+      const [card] = (await service.buscarServicios({})).items;
+
+      expect(card.direccion).toBe('');
+    });
+
     it('debería exponer las coordenadas invertidas respecto a GeoJSON', async () => {
       repo.buscar.mockResolvedValue({
         items: [{ ...hotelDoc, ubicacion: { ciudad: 'Madrid', geo: { coordinates: [-3.7038, 40.4168] } } }] as never,

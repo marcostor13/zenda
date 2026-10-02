@@ -1,7 +1,7 @@
 import { Component, signal, inject, computed, input, output, DestroyRef, OnInit } from '@angular/core';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, FormArray, Validators, AbstractControl } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import {
   VerticalKey, VERTICAL_LABELS, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
@@ -36,7 +36,7 @@ import {
   INCLUYE_FUNERARIO,
   RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS,
 } from '../../shared/catalogos/tags.catalogo';
-import { provinciaDe } from 'shared';
+import { esCalleValida, esNumeroPortalValido, provinciaDe } from 'shared';
 import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 import {
@@ -155,7 +155,7 @@ const PASOS: ReadonlyArray<{
 /** Campos obligatorios que cierra cada paso antes de dejar avanzar. */
 const CAMPOS_DEL_PASO: Record<PasoListado, ReadonlyArray<string>> = {
   categoria: ['vertical', 'titulo', 'descripcion'],
-  ubicacion: ['ciudad', 'precioBase'],
+  ubicacion: ['ciudad', 'calle', 'numero', 'precioBase'],
   // El horario es opcional: un transporte a demanda no tiene puerta que abrir.
   horarios: [],
   // Lo específico del vertical se valida contra su propio grupo y su regla
@@ -327,11 +327,18 @@ function aCsv(v: string): string[] {
                 <span class="rs-field-hint">
                   {{ 'Elígela de la lista y colocamos el pin en el punto exacto.' | t }}
                 </span>
+                @if (hasError('calle')) {
+                  <span class="rs-field-err">{{ 'Escribe el nombre de la calle, no sólo el número.' | t }}</span>
+                }
               </div>
 
               <div class="rs-field">
                 <label class="rs-lbl" for="numero">{{ 'Número, piso o puerta' | t }} <span class="opt">{{ 'opcional' | t }}</span></label>
-                <input id="numero" class="rs-inp" formControlName="numero" [placeholder]="'Ej: 24, 2ºB' | t">
+                <input id="numero" class="rs-inp" formControlName="numero" [placeholder]="'Ej: 24, 2ºB' | t"
+                       [class.rs-inp--error]="hasError('numero')">
+                @if (hasError('numero')) {
+                  <span class="rs-field-err">{{ 'El número no es válido (ej.: 24, 2ºB o s/n).' | t }}</span>
+                }
               </div>
 
               <div class="form-row-2">
@@ -389,7 +396,7 @@ function aCsv(v: string): string[] {
                 <input id="precioBase" class="rs-inp" type="number" formControlName="precioBase"
                        placeholder="0.00" min="0" step="0.01"
                        [class.rs-inp--error]="hasError('precioBase')" inputmode="decimal">
-                <span class="rs-field-hint">{{ 'Es el precio «desde» que se muestra en las tarjetas de búsqueda.' | t }}</span>
+                <span class="rs-field-hint">{{ 'Si publicas espacios o servicios con precio, las tarjetas y la ficha muestran «desde» el más barato; este precio sólo se usa si no hay ninguno.' | t }}</span>
                 @if (hasError('precioBase')) {
                   <span class="rs-field-err">{{ 'Ingresa un precio válido mayor a 0.' | t }}</span>
                 }
@@ -582,7 +589,7 @@ function aCsv(v: string): string[] {
                         <input type="radio" formControlName="politicaCancelacion" [value]="p.valor" />
                         <span>
                           <span class="politica__nombre">{{ p.label | t }}</span>
-                          <span class="politica__desc">{{ p.descripcion }}</span>
+                          <span class="politica__desc">{{ p.ayudaComercio | t }}</span>
                         </span>
                       </label>
                     }
@@ -2600,8 +2607,10 @@ export class ComercioListadoFormComponent implements OnInit {
     titulo:      ['', [Validators.required, Validators.minLength(3)]],
     descripcion: ['', [Validators.required, Validators.minLength(10)]],
     ciudad:      ['', Validators.required],
-    calle:        [''],
-    numero:       [''],
+    // Opcionales, pero con sentido: una «calle» que es sólo un número acababa
+    // en la ficha como «1, 1, , Valencia». El API aplica la misma regla.
+    calle:        ['', (c: AbstractControl) => (!c.value?.trim() || esCalleValida(c.value) ? null : { calle: true })],
+    numero:       ['', (c: AbstractControl) => (esNumeroPortalValido(c.value) ? null : { numero: true })],
     provincia:    [''],
     codigoPostal: [''],
     pais:         ['España'],

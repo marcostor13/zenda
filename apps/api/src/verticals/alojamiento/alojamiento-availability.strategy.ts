@@ -141,7 +141,9 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
       disponible: true,
       capacidadRestante: espacio.cantidad,
       precioCalculado: espacio.precioNoche * noches * perros + extras,
-      metadata: { noches, perros, extras },
+      // El perro se entrega y se recoge en persona: el core coteja la entrada
+      // y la salida con el horario de la residencia.
+      metadata: { noches, perros, extras, validarHorarioEstancia: true },
     };
   }
 

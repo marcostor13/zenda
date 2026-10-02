@@ -71,7 +71,9 @@ describe('VerticalBrowseComponent', () => {
     expect(component.cfg().badge(c)).toBe('Vacunación');
     // Sueltos, no pegados con " · ": es lo que deja que la tarjeta recorte.
     expect(component.cfg().meta(c)).toEqual(['Vacunación', 'Cirugía', 'Urgencias 24h']);
-    expect(component.cfg().price(c)).toBe(35);
+    // «Desde» = el servicio más barato que se puede reservar, la misma regla
+    // que aplica el API y que enseña la ficha.
+    expect(component.cfg().price(c)).toBe(20);
   });
 
   it('veterinaria: no debería usar la especialidad ni aunque no haya servicios', async () => {

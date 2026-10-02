@@ -1,6 +1,7 @@
 import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { tieneValoraciones } from 'shared';
 import { RsBadgeComponent, type BadgeVariant } from '../badge/rs-badge.component';
 import { RsRatingComponent } from '../rating/rs-rating.component';
 import { RsStarsComponent } from '../stars/rs-stars.component';
@@ -337,7 +338,7 @@ export class RsCardComponent {
    */
   readonly sinValorar = computed(() => {
     const r = this.rating();
-    return !!r && !r.count && !+r.score;
+    return !!r && !tieneValoraciones(+r.score, r.count);
   });
 
   /** Nota con un decimal y coma, como se escribe en España: «4,6». */

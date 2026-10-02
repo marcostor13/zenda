@@ -178,9 +178,12 @@ describe('VerticalDetalleComponent', () => {
     expect(navigateSpy).toHaveBeenCalledWith(
       ['/reservas', 'transporte', 's1'],
       expect.objectContaining({
-        queryParams: expect.objectContaining({ comercioId: 'c1', nombre: 'DogVan Madrid', precioBase: 25 }),
+        queryParams: expect.objectContaining({ comercioId: 'c1', nombre: 'DogVan Madrid' }),
       }),
     );
+    // El precio no viaja en la URL: el asistente lo pide al API.
+    const [, extras] = navigateSpy.mock.calls[0] as [unknown, { queryParams: Record<string, unknown> }];
+    expect(extras.queryParams).not.toHaveProperty('precioBase');
   });
 
   it('debería caer a transporte si el vertical de la ruta es desconocido', async () => {
@@ -777,7 +780,8 @@ describe('VerticalDetalleComponent', () => {
       });
 
       it('deberia cobrar la prima anual cuando la hay', async () => {
-        await crearComponente('seguros', servicio({ primaAnual: 180 }));
+        // `primaAnualBase` es el campo que guarda el API (y el que usa el listado).
+        await crearComponente('seguros', servicio({ primaAnualBase: 180 }));
 
         expect(component.cfg().price(component.servicio()!)).toBe(180);
       });
@@ -869,7 +873,7 @@ describe('VerticalDetalleComponent', () => {
       expect(texto).toContain('1 h 30 min');
     });
 
-    it('debería llevar al asistente con ese servicio y su precio ya elegidos', async () => {
+    it('debería llevar al asistente con ese servicio ya elegido', async () => {
       await crearComponente('peluqueria', conServicios());
       const router = TestBed.inject(Router);
       const navegar = jest.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -878,11 +882,25 @@ describe('VerticalDetalleComponent', () => {
         .querySelectorAll<HTMLButtonElement>('[data-testid="tarifas"] .rs-btn');
       botones[1].click();
 
+      expect(navegar).toHaveBeenCalledTimes(1);
       expect(navegar).toHaveBeenCalledWith(
         ['/reservas', 'peluqueria', 's1'],
         expect.objectContaining({
-          queryParams: expect.objectContaining({ servicio: 'Corte de pelo', precioBase: 40 }),
+          queryParams: expect.objectContaining({ servicio: 'Corte de pelo' }),
         }),
+      );
+    });
+
+    it('debería ir a reservar también al pulsar la fila entera del servicio', async () => {
+      await crearComponente('peluqueria', conServicios());
+      const router = TestBed.inject(Router);
+      const navegar = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="tarifa"]')[1].click();
+
+      expect(navegar).toHaveBeenCalledWith(
+        ['/reservas', 'peluqueria', 's1'],
+        expect.objectContaining({ queryParams: expect.objectContaining({ servicio: 'Corte de pelo' }) }),
       );
     });
 

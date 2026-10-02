@@ -100,7 +100,12 @@ const VERTICALES_CON_FICHA = new Set<string>([
               </p>
               <p class="fav-card__desde"><rs-icon name="heart" [size]="12" [stroke]="2"></rs-icon> {{ desdeHace(f.createdAt) }}</p>
               <div class="fav-card__footer">
-                <span class="fav-card__rating"><rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> {{ f.ratingPromedio | number:'1.1-1' }} · {{ f.totalResenas }} reseñas</span>
+                <!-- Sin reseñas no hay nota: «0,0 · 0 reseñas» parecía una mala valoración. -->
+                @if (f.totalResenas) {
+                  <span class="fav-card__rating"><rs-icon name="star" [size]="13" [stroke]="2.5"></rs-icon> {{ f.ratingPromedio | number:'1.1-1' }} · {{ (f.totalResenas === 1 ? '{n} reseña' : '{n} reseñas') | t: { n: f.totalResenas } }}</span>
+                } @else {
+                  <span class="fav-card__rating">{{ 'Sin valoraciones' | t }}</span>
+                }
                 <span class="fav-card__price">{{ f.precioBase | euros:'1.0-0' }}</span>
               </div>
               <div class="fav-card__acciones">
@@ -141,7 +146,11 @@ const VERTICALES_CON_FICHA = new Set<string>([
                   <rs-icon name="map-pin" [size]="12" [stroke]="2"></rs-icon> {{ s.ciudad }}
                 </span>
                 <div class="fav-card__footer">
-                  <span class="fav-card__rating">{{ s.score | number:'1.1-1' }} ({{ s.numResenas }})</span>
+                  @if (s.numResenas) {
+                    <span class="fav-card__rating">{{ s.score | number:'1.1-1' }} ({{ s.numResenas }})</span>
+                  } @else {
+                    <span class="fav-card__rating">{{ 'Sin valoraciones' | t }}</span>
+                  }
                   <span class="fav-card__price">{{ s.precioPorNoche | euros }}</span>
                 </div>
               </div>

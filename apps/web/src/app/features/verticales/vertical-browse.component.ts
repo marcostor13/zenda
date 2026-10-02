@@ -11,7 +11,7 @@ import { conIconos } from '../../shared/catalogos/amenity-iconos';
 import { RsChipComponent } from '../../shared/components/chip/rs-chip.component';
 import { ExperienciasCercaComponent } from '../explora/experiencias-cerca.component';
 import { VerticalUi, enlaceAServicio, verticalUi } from '../../shared/verticales/verticales.config';
-import { precioDesdeFunerario } from '../../shared/verticales/funerarios.util';
+import { precioDesde } from '../../shared/verticales/precio-desde';
 import {
   CatalogBrowseService, FacetasCatalogo, OpcionesBusqueda, OrdenServicios, PuntoServicio,
   ServicioCard, ZonaBusqueda,
@@ -164,7 +164,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
       // semana estructurada del servicio, que no cabe en una línea de tarjeta.
       c.extra['atiendeUrgencias'] ? 'Urgencias 24h' : 'Consulta horario',
     ],
-    price: (c) => (c.extra['precioConsulta'] as number) ?? c.precioPorNoche,
+    price: precioDesde('veterinaria'),
   },
   peluqueria: {
     vertical: 'peluqueria',
@@ -180,7 +180,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
       ),
       c.extra['aDomicilio'] ? 'A domicilio' : 'En salón',
     ],
-    price: (c) => resumenServicios(c.extra['serviciosGrooming'] as ItemConNombre[] | undefined, c).precioMin,
+    price: precioDesde('peluqueria'),
   },
   adiestramiento: {
     vertical: 'adiestramiento',
@@ -193,7 +193,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
       `${c.extra['modalidad'] === 'programa' ? 'Programa completo' : 'Por sesión'}`,
       `Desde ${(c.extra['edadMinimaMeses'] as number) ?? 3} meses`,
     ],
-    price: (c) => (c.extra['precioSesion'] as number) ?? c.precioPorNoche,
+    price: precioDesde('adiestramiento'),
   },
   hoteles: {
     vertical: 'hoteles',
@@ -206,7 +206,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
       `Hasta ${(c.extra['maxMascotasPorReserva'] as number | undefined) ?? 'sin límite de'} mascota(s)`,
       `${((c.extra['serviciosPetfriendly'] as string[] | undefined) ?? [])[0] ?? 'Servicios pet-friendly'}`,
     ],
-    price: (c) => c.precioPorNoche,
+    price: precioDesde('hoteles'),
   },
   /*
    * Quien busca aquí no compara "desde X €": necesita saber si vienen a
@@ -229,7 +229,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
         c.extra['ofreceRecogida'] ? `Recogida hasta ${(c.extra['radioRecogidaKm'] as number) ?? 0} km` : 'Sin recogida',
       ];
     },
-    price: (c) => precioDesdeFunerario(c) ?? c.precioPorNoche,
+    price: precioDesde('funerarios'),
   },
   seguros: {
     vertical: 'seguros',
@@ -244,7 +244,7 @@ const CONFIGS: Record<string, VerticalConfig> = {
       `${(c.extra['duracionMeses'] as number | undefined) ?? 12} meses de vigencia`,
       (c.extra['renovacionAutomatica'] ?? true) ? 'Renovación automática' : 'Sin renovación automática',
     ],
-    price: (c) => (c.extra['primaAnualBase'] as number) ?? c.precioPorNoche,
+    price: precioDesde('seguros'),
   },
 };
 
@@ -726,7 +726,6 @@ export class VerticalBrowseComponent implements OnInit {
         queryParams: {
           comercioId: c.comercioId ?? '',
           nombre:     c.nombre,
-          precioBase: this.cfg().price(c),
           imagen:     c.imagenes?.[0] ?? '',
           // Continuidad: la fecha y las mascotas buscadas prellenan la reserva.
           desde:      desde ?? null,

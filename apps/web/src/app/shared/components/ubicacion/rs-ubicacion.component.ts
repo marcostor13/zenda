@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { RsMapaComponent } from '../mapa/rs-mapa.component';
-import { PuntoUbicacion, enlaceComoLlegar, enlaceGoogleMaps, tieneCoordenadas } from '../../mapas/google-maps';
+import { formatearDireccion } from 'shared';
+import { PuntoUbicacion, enlaceComoLlegar, tieneCoordenadas } from '../../mapas/google-maps';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 
 /**
  * "Dónde está" de la ficha de un servicio: el mapa con el punto exacto, la
- * dirección y las dos acciones que de verdad se piden desde aquí —abrirlo en
- * Google Maps y calcular la ruta—.
+ * dirección y la acción que de verdad se pide desde aquí: calcular la ruta.
  *
  * Compartido por las fichas de todos los verticales: la ubicación se enseña
  * igual en un hotel canino que en una clínica, y duplicar el bloque garantizaba
@@ -48,14 +48,10 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
         </p>
       }
 
-      @if (enlaceMapa() || enlaceRuta()) {
+      <!-- Sólo «Cómo llegar»: el botón de «Ver en Google Maps» repetía el mapa
+           que ya está encima y se pidió quitarlo de todas las fichas. -->
+      @if (enlaceRuta()) {
         <div class="ubi__acciones">
-          @if (enlaceMapa(); as url) {
-            <a class="rs-btn rs-btn--outline rs-btn--sm" [href]="url" target="_blank" rel="noopener">
-              <rs-icon name="map-pin" [size]="14" [stroke]="2" />
-              {{ 'Ver en Google Maps' | t }}
-            </a>
-          }
           @if (enlaceRuta(); as url) {
             <a class="rs-btn rs-btn--secondary rs-btn--sm" [href]="url" target="_blank" rel="noopener">
               <rs-icon name="navigation" [size]="14" [stroke]="2" />
@@ -120,9 +116,8 @@ export class RsUbicacionComponent {
 
   readonly direccionLegible = computed(() => {
     const { direccion, ciudad } = this.lugar();
-    return [direccion, ciudad].filter(Boolean).join(' · ');
+    return formatearDireccion([direccion, ciudad], ' · ');
   });
 
-  readonly enlaceMapa = computed(() => enlaceGoogleMaps(this.lugar()));
   readonly enlaceRuta = computed(() => enlaceComoLlegar(this.lugar()));
 }

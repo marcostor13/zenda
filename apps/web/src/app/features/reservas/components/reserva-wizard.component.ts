@@ -1,5 +1,6 @@
 import { Component, signal, computed, effect, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 
@@ -16,8 +17,8 @@ import {
   // Transporte de mascotas: el mismo motor de tarifas que usa el API para cobrar.
   ConfirmacionEntrega, FlexibilidadHoraria, FranjaRecogida, ModalidadViaje, NecesidadTransporte,
   PoliticaParadas, ResponsableEntrega, TipoTrayecto, calcularPrecioTransporte, configDesdeLegado,
-  tieneConfigTransporte,
-  type ConfigTransporte, type DesglosePrecioTransporte } from 'shared';
+  tieneConfigTransporte, comprobarEntradaYSalida, diaCerrado, diaEnPalabras, horasDeAtencion, precioDesdeServicio,
+  type ConfigTransporte, type DesglosePrecioTransporte, type ProblemaHorarioEstancia } from 'shared';
 import {
   extrasFunerarios, serviciosFunerarios,
 } from '../../../shared/verticales/funerarios.util';
@@ -47,7 +48,7 @@ import { PagoEnCursoService } from '../services/pago-en-curso.service';
 import { CuponesService } from '../services/cupones.service';
 import { PerrosService, PerroApi, EstimacionPrecioApi } from '../../perros/perros.service';
 import { RecomendadorService, RecomendacionAdiestramiento, RecomendacionVeterinaria } from '../services/recomendador.service';
-import { CatalogBrowseService } from '../../verticales/catalog-browse.service';
+import { CatalogBrowseService, type ServicioDetalle } from '../../verticales/catalog-browse.service';
 import type { DiaCalendarioApi } from 'shared';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
@@ -159,7 +160,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
   imports: [
     TraducirPipe, RouterLink, ReactiveFormsModule, FormsModule, RsNavbarComponent, RsIconComponent, ImgFallbackDirective, RsPlaceAutocompleteComponent, RsPhoneInputComponent,
     RsBrandIconComponent, RsCalendarioRangoComponent, EurosPipe, EurosFijosPipe, SelectorCitasComponent,
-    SelectorDiaComponent, PasoTransporteComponent,
+    SelectorDiaComponent, PasoTransporteComponent, NgTemplateOutlet,
   ],
   template: `
 <div class="wizard-page">
@@ -273,10 +274,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     [cargando]="cargandoCalendario()"
                     [entrada]="paso1AlojamientoForm.controls.checkIn.value"
                     [salida]="paso1AlojamientoForm.controls.checkOut.value"
+                    [diaCerrado]="esDiaCerrado()"
                     (rangoElegido)="aplicarRango($event)"
                     (mesCambiado)="cargarCalendario($event)" />
                   <span class="rs-field-hint">{{ resumenEstancia() }}</span>
                 </div>
+                <ng-container *ngTemplateOutlet="horarioEstancia" />
                 <div class="form-row">
                   <div class="rs-field">
                     <label class="rs-lbl" [attr.for]="idPerrosAlojamiento">{{ 'Número de perros' | t }}</label>
@@ -552,7 +555,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <div class="form-row">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Fecha de inicio' | t }}</label>
-                    <input formControlName="fechaInicio" type="date" class="rs-inp rs-inp--lg" />
+                    <input formControlName="fechaInicio" type="date" class="rs-inp rs-inp--lg" [min]="hoy" />
                   </div>
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Modalidad' | t }}</label>
@@ -562,6 +565,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </select>
                   </div>
                 </div>
+                <!-- Día en que el centro no atiende: aviso bloqueante con los días válidos. -->
+                <ng-container *ngTemplateOutlet="horarioEstancia" />
                 <div class="rs-field">
                   <label class="rs-lbl">{{ 'Edad del perro (meses)' | t }}</label>
                   <input formControlName="edadMeses" type="number" class="rs-inp rs-inp--lg" min="0" max="240"
@@ -704,10 +709,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     [cargando]="cargandoCalendario()"
                     [entrada]="paso1HotelesForm.controls.checkIn.value"
                     [salida]="paso1HotelesForm.controls.checkOut.value"
+                    [diaCerrado]="esDiaCerrado()"
                     (rangoElegido)="aplicarRango($event)"
                     (mesCambiado)="cargarCalendario($event)" />
                   <span class="rs-field-hint">{{ resumenEstancia() }}</span>
                 </div>
+                <ng-container *ngTemplateOutlet="horarioEstancia" />
                 <div class="form-row">
                   <div class="rs-field">
                     <label class="rs-lbl">{{ 'Adultos' | t }}</label>
@@ -1392,8 +1399,75 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     </div>
   </div>
 </div>
+
+<!--
+  Entrega y recogida de una estancia (alojamiento y hotel). Las horas que se
+  ofrecen son sólo las de atención del día elegido, y si la entrada o la salida
+  caen en día cerrado se bloquea el paso con las fechas válidas más cercanas.
+-->
+<ng-template #horarioEstancia>
+  @if (horasEntrada()?.length || horasSalida()?.length) {
+    <div class="form-row" data-testid="horas-estancia">
+      @if (horasEntrada(); as horas) {
+        @if (horas.length) {
+          <div class="rs-field">
+            <label class="rs-lbl" for="hora-entrada">{{ 'Hora de entrega' | t }}</label>
+            <select id="hora-entrada" class="rs-inp rs-inp--lg" data-testid="hora-entrada"
+                    (change)="elegirHora('entrada', $event)">
+              <option value="" [selected]="!horaElegida('entrada')">{{ 'Elige una hora' | t }}</option>
+              @for (h of horas; track h) {
+                <option [value]="h" [selected]="horaElegida('entrada') === h">{{ h }}</option>
+              }
+            </select>
+          </div>
+        }
+      }
+      @if (horasSalida(); as horas) {
+        @if (horas.length) {
+          <div class="rs-field">
+            <label class="rs-lbl" for="hora-salida">{{ 'Hora de recogida' | t }}</label>
+            <select id="hora-salida" class="rs-inp rs-inp--lg" data-testid="hora-salida"
+                    (change)="elegirHora('salida', $event)">
+              <option value="" [selected]="!horaElegida('salida')">{{ 'Elige una hora' | t }}</option>
+              @for (h of horas; track h) {
+                <option [value]="h" [selected]="horaElegida('salida') === h">{{ h }}</option>
+              }
+            </select>
+          </div>
+        }
+      }
+    </div>
+    <span class="rs-field-hint">{{ 'Sólo se muestran las horas en que atiende el comercio.' | t }}</span>
+  }
+
+  @if (problemaEstancia(); as problema) {
+    <div class="rs-alert rs-alert--error alerta-estancia" role="alert" data-testid="aviso-horario-estancia">
+      <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+      <div>
+        <p>{{ problema.motivo }}</p>
+        @if (problema.alternativas.length) {
+          <p class="alerta-estancia__pregunta">
+            {{ (problema.momento === 'entrada' ? 'Días válidos más cercanos para la entrega:' : 'Días válidos más cercanos para la recogida:') | t }}
+          </p>
+          <div class="alerta-estancia__opciones">
+            @for (fecha of problema.alternativas; track fecha) {
+              <button type="button" class="rs-btn rs-btn--outline rs-btn--sm" data-testid="alternativa-estancia"
+                      (click)="usarAlternativa(problema, fecha)">
+                @if (fecha === problema.fecha) { {{ 'El mismo día, a otra hora' | t }} } @else { {{ fechaEnPalabras(fecha) }} }
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+</ng-template>
   `,
   styles: [`
+    .alerta-estancia { margin-block: var(--sp-4); align-items: flex-start; }
+    .alerta-estancia__pregunta { margin-top: var(--sp-2); font-weight: var(--w-6); }
+    .alerta-estancia__opciones { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+
     :host { display: block; }
     .wizard-page { min-height: 100vh; min-height: 100dvh; background: var(--c-base); }
     .wizard-wrap { padding-block: var(--sp-8); }
@@ -1860,7 +1934,18 @@ export class ReservaWizardComponent implements OnInit {
   /** Ciudad del servicio reservado; propaga el destino al resto del viaje. */
   readonly ciudadServicio = signal<string>('');
   readonly imagenServicio = signal<string>('');
-  readonly precioBase     = signal<number>(0);
+  /** Ficha del servicio tal como la devuelve el API: precios, horario, espacios. */
+  readonly fichaServicio = signal<ServicioDetalle | null>(null);
+  private fichaPromesa?: Promise<ServicioDetalle>;
+  /**
+   * Precio por unidad que se enseña («40 € / noche»). Sale de la ficha del API
+   * y de lo elegido —el espacio, el servicio—, **nunca de la URL**: antes
+   * llegaba como `?precioBase=` y bastaba con editarlo para ver otro importe.
+   * Lo que se cobra lo recalcula siempre el servidor.
+   */
+  readonly precioBase = computed(() => this.precioUnitario());
+  /** Importe que ha calculado el servidor para lo elegido en el paso 1. */
+  readonly precioConfirmado = signal<number | null>(null);
 
   // Stripe
   readonly stripeListo = signal(false);
@@ -2091,6 +2176,9 @@ export class ReservaWizardComponent implements OnInit {
     perros:      [1, [Validators.required, Validators.min(1)]],
     tamanoPerro: ['mediano', Validators.required],
     compatibilidadSocial: ['cualquiera'],
+    // A qué hora se entrega y se recoge al perro; sólo se ofrecen horas de atención.
+    horaEntrada: [''],
+    horaSalida:  [''],
   });
 
   /*
@@ -2237,6 +2325,8 @@ export class ReservaWizardComponent implements OnInit {
     mascotas:  [1, [Validators.required, Validators.min(1), Validators.max(3)]],
     tamanoPerro: ['mediano', Validators.required],
     observaciones: [''],
+    horaEntrada: [''],
+    horaSalida:  [''],
   });
 
   readonly paso1FunerariosForm = this.fb.group({
@@ -2539,9 +2629,13 @@ export class ReservaWizardComponent implements OnInit {
       if (!enPaso1 || !datosCompletos || !this.servicioId) {
         this.consultaDisponibilidad++;
         this.disponibilidad.set({ estado: 'idle' });
+        // Con datos a medias el importe del servidor ya no corresponde a nada.
+        // Fuera del paso 1 se conserva: es el de lo que se va a reservar.
+        if (enPaso1) this.precioConfirmado.set(null);
         return;
       }
 
+      this.precioConfirmado.set(null);
       this.disponibilidad.set({ estado: 'comprobando' });
       this.temporizadorDisponibilidad = setTimeout(
         () => void this.comprobarDisponibilidad(),
@@ -2562,8 +2656,16 @@ export class ReservaWizardComponent implements OnInit {
    */
   aplicarRango(rango: RangoFechas): void {
     const valores = { checkIn: rango.entrada, checkOut: rango.salida };
-    if (this.vertical() === VerticalKey.ALOJAMIENTO) this.paso1AlojamientoForm.patchValue(valores);
-    if (this.vertical() === VerticalKey.HOTELES) this.paso1HotelesForm.patchValue(valores);
+    const form = this.vertical() === VerticalKey.ALOJAMIENTO ? this.paso1AlojamientoForm
+      : this.vertical() === VerticalKey.HOTELES ? this.paso1HotelesForm : null;
+    if (!form) return;
+    // Las horas de atención cambian con el día: una hora elegida para otro día
+    // puede no existir en el nuevo.
+    const horas = {
+      ...(form.value.checkIn !== rango.entrada ? { horaEntrada: '' } : {}),
+      ...(form.value.checkOut !== rango.salida ? { horaSalida: '' } : {}),
+    };
+    form.patchValue({ ...valores, ...horas });
   }
 
   /** Fechas elegidas del vertical en curso; null si no se reserva por rango. */
@@ -2643,6 +2745,9 @@ export class ReservaWizardComponent implements OnInit {
 
       if (consulta !== this.consultaDisponibilidad) return;
 
+      this.precioConfirmado.set(
+        resultado.disponible && typeof resultado.precioEstimado === 'number' ? resultado.precioEstimado : null,
+      );
       this.disponibilidad.set(
         resultado.disponible
           ? { estado: 'ok' }
@@ -2660,19 +2765,180 @@ export class ReservaWizardComponent implements OnInit {
   readonly paso1Valido = computed(() => {
     this.revisionFormularios();
     switch (this.vertical()) {
-      case VerticalKey.ALOJAMIENTO:    return this.paso1AlojamientoForm.valid;
+      // En una estancia, además, la entrada y la salida tienen que caer en
+      // días y horas en que el comercio atiende (`problemaEstancia`).
+      case VerticalKey.ALOJAMIENTO:    return this.paso1AlojamientoForm.valid && !this.problemaEstancia();
       case VerticalKey.TRANSPORTE:     return this.paso1TransporteForm.valid;
       case VerticalKey.VETERINARIA:    return this.paso1VeterinariaForm.valid;
       case VerticalKey.PELUQUERIA:     return this.paso1PeluqueriaForm.valid;
-      case VerticalKey.ADIESTRAMIENTO: return this.paso1AdiestramientoForm.valid;
-      case VerticalKey.HOTELES:        return this.paso1HotelesForm.valid;
+      case VerticalKey.ADIESTRAMIENTO: return this.paso1AdiestramientoForm.valid && !this.problemaEstancia();
+      case VerticalKey.HOTELES:        return this.paso1HotelesForm.valid && !this.problemaEstancia();
       case VerticalKey.FUNERARIOS:     return this.paso1FunerariosForm.valid && this.funerarioListoParaSeguir();
       default:                         return false;
     }
   });
 
+  /**
+   * Precio unitario de lo elegido, leído de la ficha del API con las mismas
+   * reglas que la estrategia del vertical (espacio, servicio clínico, grooming,
+   * sesión). Sin ficha todavía, 0: mejor un importe pendiente que uno inventado.
+   */
+  private readonly precioUnitario = computed(() => {
+    this.revisionFormularios();
+    const ficha = this.fichaServicio();
+    if (!ficha) return 0;
+    const extra = ficha.extra ?? {};
+    const desde = precioDesdeServicio({ vertical: this.vertical(), precioBase: ficha.precioPorNoche, extra });
+    const porNombre = (lista: unknown, nombre: string | null | undefined) =>
+      (Array.isArray(lista) ? lista as Array<{ nombre?: string; precio?: number }> : [])
+        .find((s) => !!nombre && s.nombre === nombre);
+
+    switch (this.vertical()) {
+      case VerticalKey.ALOJAMIENTO:
+      case VerticalKey.HOTELES:
+        return this.espacioElegido()?.precioNoche ?? desde;
+      case VerticalKey.VETERINARIA:
+        return porNombre(extra['serviciosClinicos'], this.paso1VeterinariaForm.value.servicio)?.precio
+          ?? (extra['precioConsulta'] as number | undefined) ?? desde;
+      case VerticalKey.PELUQUERIA: {
+        const elegido = porNombre(extra['serviciosGrooming'], this.paso1PeluqueriaForm.value.servicio);
+        return elegido ? this.precioServicioGrooming(elegido as ServicioGroomingWizard) : desde;
+      }
+      case VerticalKey.ADIESTRAMIENTO: {
+        const elegido = porNombre(extra['serviciosAdiestramiento'], this.paso1AdiestramientoForm.value.servicio);
+        if (elegido?.precio) return elegido.precio;
+        const programa = this.paso1AdiestramientoForm.value.modalidad === 'programa' ? extra['precioPrograma'] : undefined;
+        return (programa as number | undefined) ?? (extra['precioSesion'] as number | undefined) ?? desde;
+      }
+      default:
+        return desde;
+    }
+  });
+
+  /**
+   * Espacio o habitación elegidos en la ficha, con su id público: el propio o
+   * `esp-<posición>`, igual que lo calcula el API para cobrarlo.
+   */
+  private readonly espacioElegido = computed(() => {
+    const ficha = this.fichaServicio();
+    if (!ficha || !this.espacioId) return null;
+    const conEspacios = ficha as ServicioDetalle & { espacios?: Array<Record<string, unknown>> };
+    const espacios = conEspacios.espacios ?? (ficha.extra?.['espacios'] as Array<Record<string, unknown>> | undefined) ?? [];
+    const elegido = espacios.find((e, i) => String(e['id'] ?? e['_id'] ?? `esp-${i}`) === this.espacioId);
+    const precioNoche = Number(elegido?.['precioNoche']);
+    return elegido && precioNoche > 0 ? { precioNoche } : null;
+  });
+
+  /** La ficha se pide una vez y la comparten precio, horario y los catálogos de cada vertical. */
+  private obtenerFicha(): Promise<ServicioDetalle> {
+    if (!this.servicioId) return Promise.reject(new Error('Sin servicio'));
+    this.fichaPromesa ??= this.catalogBrowseService.obtener(this.servicioId);
+    return this.fichaPromesa;
+  }
+
+  // ─── Horario de entrega y recogida (estancias) ───
+
+  /** Fechas y horas de la estancia del vertical en curso; null si no es una estancia. */
+  private estanciaElegida(): { checkIn: string; checkOut: string; horaEntrada: string; horaSalida: string } | null {
+    // Una sesión de adiestramiento es de un día sin hora: basta con que ese
+    // día el centro atienda.
+    if (this.vertical() === VerticalKey.ADIESTRAMIENTO) {
+      const fecha = this.paso1AdiestramientoForm.getRawValue().fechaInicio ?? '';
+      return { checkIn: fecha, checkOut: '', horaEntrada: '', horaSalida: '' };
+    }
+    const form = this.vertical() === VerticalKey.ALOJAMIENTO ? this.paso1AlojamientoForm
+      : this.vertical() === VerticalKey.HOTELES ? this.paso1HotelesForm : null;
+    if (!form) return null;
+    const v = form.getRawValue();
+    return { checkIn: v.checkIn ?? '', checkOut: v.checkOut ?? '', horaEntrada: v.horaEntrada ?? '', horaSalida: v.horaSalida ?? '' };
+  }
+
+  /** Alojamiento y hotel: el perro (o la familia) entra y sale a una hora. */
+  private esEstancia(): boolean {
+    return this.vertical() === VerticalKey.ALOJAMIENTO || this.vertical() === VerticalKey.HOTELES;
+  }
+
+  /** Para el calendario: días en que el comercio no atiende y no valen para entrar ni salir. */
+  readonly esDiaCerrado = computed(() => {
+    const ficha = this.fichaServicio();
+    if (!ficha) return null;
+    return (fecha: string): boolean => diaCerrado(ficha, fecha);
+  });
+
+  /** Horas de entrega del día de entrada (`null` = el comercio no ha puesto horario). */
+  readonly horasEntrada = computed(() => {
+    this.revisionFormularios();
+    if (!this.esEstancia()) return null;
+    const ficha = this.fichaServicio();
+    const estancia = this.estanciaElegida();
+    return ficha && estancia?.checkIn ? horasDeAtencion(ficha, estancia.checkIn) : null;
+  });
+
+  readonly horasSalida = computed(() => {
+    this.revisionFormularios();
+    if (!this.esEstancia()) return null;
+    const ficha = this.fichaServicio();
+    const estancia = this.estanciaElegida();
+    return ficha && estancia?.checkOut ? horasDeAtencion(ficha, estancia.checkOut) : null;
+  });
+
+  /**
+   * Entrada o salida en día u hora en que el comercio no atiende. Bloquea el
+   * paso 1 y propone los días válidos más cercanos; el API lo vuelve a
+   * comprobar al reservar y al cobrar.
+   */
+  readonly problemaEstancia = computed<ProblemaHorarioEstancia | null>(() => {
+    this.revisionFormularios();
+    const ficha = this.fichaServicio();
+    const estancia = this.estanciaElegida();
+    if (!ficha || !estancia?.checkIn) return null;
+    return comprobarEntradaYSalida(
+      ficha,
+      { fecha: estancia.checkIn, hora: estancia.horaEntrada || null },
+      estancia.checkOut ? { fecha: estancia.checkOut, hora: estancia.horaSalida || null } : null,
+      this.hoy,
+    );
+  });
+
+  fechaEnPalabras(fecha: string): string {
+    return diaEnPalabras(fecha);
+  }
+
+  private formEstancia() {
+    return this.vertical() === VerticalKey.HOTELES ? this.paso1HotelesForm : this.paso1AlojamientoForm;
+  }
+
+  horaElegida(momento: 'entrada' | 'salida'): string {
+    const v = this.formEstancia().getRawValue();
+    return (momento === 'entrada' ? v.horaEntrada : v.horaSalida) ?? '';
+  }
+
+  elegirHora(momento: 'entrada' | 'salida', evento: Event): void {
+    const hora = (evento.target as HTMLSelectElement).value;
+    this.formEstancia().patchValue(momento === 'entrada' ? { horaEntrada: hora } : { horaSalida: hora });
+  }
+
+  /** Aplica una de las fechas propuestas al momento (entrada o salida) que fallaba. */
+  usarAlternativa(problema: ProblemaHorarioEstancia, fecha: string): void {
+    if (this.vertical() === VerticalKey.ADIESTRAMIENTO) {
+      this.paso1AdiestramientoForm.patchValue({ fechaInicio: fecha });
+      return;
+    }
+    const form = this.vertical() === VerticalKey.HOTELES ? this.paso1HotelesForm : this.paso1AlojamientoForm;
+    if (problema.momento === 'entrada') {
+      // Si sólo fallaba la hora, el día se queda: hay que elegir otra hora.
+      form.patchValue(fecha === problema.fecha ? { horaEntrada: '' } : { checkIn: fecha, horaEntrada: '' });
+    } else {
+      form.patchValue(fecha === problema.fecha ? { horaSalida: '' } : { checkOut: fecha, horaSalida: '' });
+    }
+  }
+
   readonly subtotal = computed(() => {
     this.revisionFormularios();
+    // Lo que ha calculado el servidor para lo elegido manda sobre la cuenta
+    // local: es lo que se va a cobrar (y ya incluye perros, extras y noches).
+    const confirmado = this.precioConfirmado();
+    if (confirmado !== null && confirmado > 0) return confirmado;
     const base = this.precioBase();
     switch (this.vertical()) {
       case VerticalKey.ALOJAMIENTO: {
@@ -3095,8 +3361,21 @@ export class ReservaWizardComponent implements OnInit {
     this.nombreServicio.set(queryParams.get('nombre') ?? '');
     this.ciudadServicio.set(queryParams.get('ciudad') ?? '');
     this.imagenServicio.set(queryParams.get('imagen') ?? '');
-    this.precioBase.set(Number(queryParams.get('precioBase') ?? 0));
+    // Un `?precioBase=` en la URL se ignora a propósito: el precio sale de la
+    // ficha del API (ver `precioUnitario`) y el cobro, del servidor.
     this.espacioId = queryParams.get('espacioId');
+    if (this.servicioId) {
+      void this.obtenerFicha().then((ficha) => {
+        this.fichaServicio.set(ficha);
+        // El nombre y la foto también salen del API: la URL sólo adelanta lo
+        // que se pinta mientras llega.
+        if (ficha.nombre) this.nombreServicio.set(ficha.nombre);
+        if (ficha.imagenes?.[0]) this.imagenServicio.set(ficha.imagenes[0]);
+      }).catch(() => {
+        // Sin ficha el precio queda pendiente; el servidor lo calcula igual al
+        // comprobar la disponibilidad y al reservar.
+      });
+    }
 
     // Prellenar con las fechas/perros ya buscados en el listado (no volver a pedirlos).
     // `desde`/`hasta` son los parámetros del buscador común; `checkIn`/`checkOut`
@@ -3133,6 +3412,7 @@ export class ReservaWizardComponent implements OnInit {
       this.paso1VeterinariaForm.patchValue({ servicio: servicioElegido });
       this.paso1PeluqueriaForm.patchValue({ servicio: servicioElegido });
       this.paso1AdiestramientoForm.patchValue({ servicio: servicioElegido });
+      this.paso1FunerariosForm.patchValue({ servicioNombre: servicioElegido });
     }
 
     const origen = queryParams.get('ciudad');
@@ -3165,7 +3445,7 @@ export class ReservaWizardComponent implements OnInit {
     });
 
     if (this.vertical() === VerticalKey.PELUQUERIA && this.servicioId) {
-      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+      void this.obtenerFicha().then((s) => {
         const extra = s.extra ?? {};
         this.peluqueriaDetalle.set({
           serviciosGrooming: (extra['serviciosGrooming'] as ServicioGroomingWizard[] | undefined) ?? [],
@@ -3183,7 +3463,7 @@ export class ReservaWizardComponent implements OnInit {
     }
 
     if (this.vertical() === VerticalKey.VETERINARIA && this.servicioId) {
-      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+      void this.obtenerFicha().then((s) => {
         const extra = s.extra ?? {};
         this.serviciosClinicosDisponibles.set(
           (extra['serviciosClinicos'] as ServicioClinicoWizard[] | undefined) ?? [],
@@ -3194,7 +3474,7 @@ export class ReservaWizardComponent implements OnInit {
     }
 
     if (this.vertical() === VerticalKey.ADIESTRAMIENTO && this.servicioId) {
-      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+      void this.obtenerFicha().then((s) => {
         const extra = s.extra ?? {};
         this.serviciosAdiestramientoDisponibles.set(
           (extra['serviciosAdiestramiento'] as ServicioAdiestramientoWizard[] | undefined) ?? [],
@@ -3205,7 +3485,7 @@ export class ReservaWizardComponent implements OnInit {
     }
 
     if (this.vertical() === VerticalKey.FUNERARIOS && this.servicioId) {
-      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+      void this.obtenerFicha().then((s) => {
         this.fichaFunerario.set(s.extra ?? {});
         // Con un solo servicio en catálogo no hay nada que elegir: se marca y
         // el cliente pasa directamente al peso, que es lo que fija el precio.
@@ -3220,7 +3500,7 @@ export class ReservaWizardComponent implements OnInit {
     }
 
     if (this.vertical() === VerticalKey.ALOJAMIENTO && this.servicioId) {
-      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+      void this.obtenerFicha().then((s) => {
         const extra = s.extra ?? {};
         this.serviciosAdicionalesAlojamiento.set(
           (extra['serviciosAdicionales'] as ServicioAdicionalWizard[] | undefined) ?? [],
@@ -3231,7 +3511,7 @@ export class ReservaWizardComponent implements OnInit {
     }
 
     if (this.vertical() === VerticalKey.TRANSPORTE && this.servicioId) {
-      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+      void this.obtenerFicha().then((s) => {
         const extra = (s.extra ?? {}) as Record<string, unknown>;
         /*
          * Los servicios adicionales de las fichas antiguas no se leen aparte:
@@ -3246,7 +3526,7 @@ export class ReservaWizardComponent implements OnInit {
     }
 
     if (this.vertical() === VerticalKey.HOTELES && this.servicioId) {
-      void this.catalogBrowseService.obtener(this.servicioId).then((s) => {
+      void this.obtenerFicha().then((s) => {
         const extra = s.extra ?? {};
         this.hotelSuplementos.set({
           suplementoPorTamanoMascota: (extra['suplementoPorTamanoMascota'] as SuplementoTamanoWizard[] | undefined) ?? [],
@@ -3397,6 +3677,8 @@ export class ReservaWizardComponent implements OnInit {
             compatibilidadSocial: f.compatibilidadSocial,
             ...(this.espacioId ? { espacioId: this.espacioId } : {}),
             ...(this.extrasSelec().length > 0 ? { extras: this.extrasSelec() } : {}),
+            ...(f.horaEntrada ? { horaEntrada: f.horaEntrada } : {}),
+            ...(f.horaSalida ? { horaSalida: f.horaSalida } : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };
@@ -3520,6 +3802,10 @@ export class ReservaWizardComponent implements OnInit {
             adultos: Number(f.adultos ?? 0),
             ninos: Number(f.ninos ?? 0),
             observaciones: f.observaciones || undefined,
+            // La habitación elegida en la ficha: es la que cobra el API.
+            ...(this.espacioId ? { espacioId: this.espacioId } : {}),
+            ...(f.horaEntrada ? { horaEntrada: f.horaEntrada } : {}),
+            ...(f.horaSalida ? { horaSalida: f.horaSalida } : {}),
           },
           cuponCodigo: this.cuponCodigo() ?? undefined,
         };

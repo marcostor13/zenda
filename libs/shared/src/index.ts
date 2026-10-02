@@ -8,6 +8,8 @@ export * from './enums/perro.enum';
 export * from './catalogos/tamanos-perro';
 export * from './catalogos/idiomas';
 export * from './catalogos/puntuacion';
+export * from './catalogos/precio-desde';
+export * from './ubicaciones/formatear-direccion';
 // Poblaciones: normalización, catálogo y reconocimiento de variantes
 export * from './ubicaciones/normalizar-ubicacion';
 export * from './mascotas/especie';
@@ -108,6 +110,7 @@ export * from './dtos/perros/fijar-consentimiento.dto';
 export * from './dtos/perros/registro-servicio.dto';
 export * from './catalogos/registro-servicio';
 export * from './fechas/zona-horaria';
+export * from './fechas/horario-estancia';
 export * from './dtos/carrito/carrito.dto';
 export * from './dtos/lugares/lugar.dto';
 export * from './dtos/comercios/socio-fundador.dto';

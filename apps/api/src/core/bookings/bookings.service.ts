@@ -17,10 +17,11 @@ import { ComisionResolverService } from '../comision-configs/comision-resolver.s
 import { EventosService } from '../eventos/eventos.service';
 import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { limpiarDetalleCliente } from './detalle-cliente.util';
 import {
   VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento,
   AgendaCitasRespuestaApi, DisponibilidadRespuesta, ExcepcionHorarioDto, HuecosDelDiaRespuestaApi,
-  HorarioDiaDto, claveDiaEnZona, comprobarHorario,
+  HorarioDiaDto, claveDiaEnZona, comprobarHorario, comprobarEntradaYSalida, describirProblemaEstancia,
   esHoraValida, esMedianocheUtc, fechaYHoraEnZona, horaEnZona, instanteEnZona, partesEnZona,
   MAX_OCURRENCIAS_SERIE, ocurrenciasDeSerie,
 } from 'shared';
@@ -213,7 +214,7 @@ export class BookingsService {
       });
 
       const momento = this.momentoDe(fechaInicio, params.fechaFin, resultado.metadata, params.cantidad);
-      const horario = this.comprobarHorarioDeCita(servicio, momento);
+      const horario = this.comprobarHorarioDeReserva(servicio, momento, resultado.metadata, params.detalle);
       if (resultado.disponible && !horario.permitido) {
         return { disponible: false, motivo: horario.motivo, capacidadRestante: resultado.capacidadRestante };
       }
@@ -438,7 +439,7 @@ export class BookingsService {
     }
 
     const momento = this.momentoDe(fechaInicio, params.fechaFin, disponibilidad.metadata, params.cantidad);
-    const horario = this.comprobarHorarioDeCita(servicio, momento);
+    const horario = this.comprobarHorarioDeReserva(servicio, momento, disponibilidad.metadata, params.detalle);
     if (!horario.permitido) {
       throw new DomainException(horario.motivo ?? 'Esa hora está fuera del horario del comercio.', 409);
     }
@@ -651,6 +652,42 @@ export class BookingsService {
     return comprobarHorario(servicio.horario, servicio.excepcionesHorario, momento.inicio, momento.fin);
   }
 
+  /**
+   * Horario de la reserva entera: la cita dentro de su franja y, en una
+   * estancia, la entrega y la recogida en días y horas de atención.
+   *
+   * Es la estrategia del vertical la que dice si lo suyo es una estancia
+   * (`metadata.validarHorarioEstancia`): el core no sabe qué categoría entrega
+   * al perro en persona y cuál no —un transporte va a domicilio y no debe
+   * encajarse en el horario de oficina—.
+   */
+  private comprobarHorarioDeReserva(
+    servicio: ServicioResuelto,
+    momento: MomentoReserva,
+    metadata: Record<string, unknown> | undefined,
+    detalle: Record<string, unknown> | undefined,
+  ): { permitido: boolean; motivo?: string } {
+    const cita = this.comprobarHorarioDeCita(servicio, momento);
+    if (!cita.permitido || metadata?.['validarHorarioEstancia'] !== true) return cita;
+
+    const hora = (clave: string): string | null => {
+      const valor = detalle?.[clave];
+      return esHoraValida(valor) ? valor : null;
+    };
+    // Sin fin (una sesión de un día) sólo se mira el día de entrada.
+    const problema = comprobarEntradaYSalida(
+      servicio,
+      { fecha: this.diaDeLaReserva(momento.inicio), hora: hora('horaEntrada') },
+      momento.fin ? { fecha: this.diaDeLaReserva(momento.fin), hora: hora('horaSalida') } : null,
+    );
+    return problema ? { permitido: false, motivo: describirProblemaEstancia(problema) } : { permitido: true };
+  }
+
+  /** Día `YYYY-MM-DD` del comercio; una fecha sin hora (medianoche UTC) es ese mismo día. */
+  private diaDeLaReserva(fecha: Date): string {
+    return esMedianocheUtc(fecha) ? fecha.toISOString().slice(0, 10) : claveDiaEnZona(fecha);
+  }
+
   private async quedaPlazaParaLaCita(
     servicioId: string,
     servicio: ServicioResuelto,
@@ -690,7 +727,7 @@ export class BookingsService {
     metadata: Record<string, unknown> | undefined,
     serie: { viajes: number; precioUnitario: number },
   ): Record<string, unknown> {
-    const resultado: Record<string, unknown> = { ...(detalle ?? {}) };
+    const resultado: Record<string, unknown> = { ...(limpiarDetalleCliente(detalle) ?? {}) };
     if (momento.duracionMin) resultado['duracionMin'] = momento.duracionMin;
     const anotado = metadata?.['detalleReserva'];
     if (anotado && typeof anotado === 'object') Object.assign(resultado, anotado);
@@ -1369,9 +1406,11 @@ export class BookingsService {
     detalle: Record<string, unknown> | undefined,
     perroSnapshot?: Record<string, unknown>,
   ): Record<string, unknown> | undefined {
-    if (!perroSnapshot) return detalle;
+    // El importe y la ficha del perro los pone el servidor, nunca la petición.
+    const limpio = limpiarDetalleCliente(detalle);
+    if (!perroSnapshot) return limpio;
     return {
-      ...detalle,
+      ...limpio,
       perroTamano: perroSnapshot['tamano'],
       perroTipoPelo: perroSnapshot['tipoPelo'],
       perroPeso: perroSnapshot['peso'],

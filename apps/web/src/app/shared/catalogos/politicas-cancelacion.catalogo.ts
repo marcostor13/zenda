@@ -3,8 +3,14 @@ export type ClavePoliticaCancelacion = 'flexible' | 'moderada' | 'estricta';
 export interface PoliticaCancelacion {
   readonly valor: ClavePoliticaCancelacion;
   readonly label: string;
-  /** Frase completa: lo que lee el comercio al elegir y el cliente al reservar. */
+  /** Frase completa para el cliente: qué pasa si cancela. Es la que sale en la ficha pública. */
   readonly descripcion: string;
+  /**
+   * Consejo para el comercio al elegirla: qué gana y qué arriesga. Sólo se
+   * enseña en su panel. Antes era la única descripción y la ficha pública le
+   * hablaba al cliente de «atraer reservas» y «revender la plaza».
+   */
+  readonly ayudaComercio: string;
   /** La misma condición abreviada, para tablas y listados. */
   readonly resumen: string;
 }
@@ -22,19 +28,22 @@ export const POLITICAS_CANCELACION: ReadonlyArray<PoliticaCancelacion> = [
   {
     valor: 'flexible',
     label: 'Flexible',
-    descripcion: 'El cliente cancela gratis hasta 24 h antes y recupera el importe íntegro. Atrae más reservas, pero deja menos margen para cubrir un hueco de última hora.',
+    descripcion: 'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.',
+    ayudaComercio: 'El cliente cancela gratis hasta 24 h antes y recupera el importe íntegro. Atrae más reservas, pero deja menos margen para cubrir un hueco de última hora.',
     resumen: 'cancelación gratuita hasta 24 h antes',
   },
   {
     valor: 'moderada',
     label: 'Moderada',
-    descripcion: 'El cliente cancela gratis hasta 3 días antes. Es el equilibrio habitual: da margen para revender la plaza sin espantar reservas.',
+    descripcion: 'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.',
+    ayudaComercio: 'El cliente cancela gratis hasta 3 días antes. Es el equilibrio habitual: da margen para revender la plaza sin espantar reservas.',
     resumen: 'cancelación gratuita hasta 3 días antes',
   },
   {
     valor: 'estricta',
     label: 'Estricta',
-    descripcion: 'No hay devolución al cancelar. Protege tu agenda en servicios difíciles de reocupar, pero resta reservas frente a comercios más flexibles.',
+    descripcion: 'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.',
+    ayudaComercio: 'No hay devolución al cancelar. Protege tu agenda en servicios difíciles de reocupar, pero resta reservas frente a comercios más flexibles.',
     resumen: 'sin devolución al cancelar',
   },
 ];

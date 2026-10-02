@@ -14,7 +14,7 @@ import { AlojamientoService, AlojamientoDetalle, Espacio, TamanoPerro, TipoEspac
 import { PerrosService, PerroApi, IndiceBienestarApi } from '../../perros/perros.service';
 import { aspectosDeVertical } from '../../../shared/verticales/resena-aspectos.config';
 import { describirPolitica, descripcionPolitica } from '../../../shared/catalogos/politicas-cancelacion.catalogo';
-import { VerticalKey } from 'shared';
+import { VerticalKey, formatearDireccion } from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
 import { RsHorarioPublicoComponent } from '../../../shared/components/horario/rs-horario-publico.component';
@@ -122,11 +122,21 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         <div class="info-header">
           <h1 class="info-header__name">{{ alojamiento()!.nombre }}</h1>
           <div class="info-header__meta">
-            <span class="info-header__stars">
-              <rs-stars [score]="alojamiento()!.score" [size]="16" />
-              <strong>{{ alojamiento()!.score }}</strong>
-            </span>
-            <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ alojamiento()!.direccion }}, {{ alojamiento()!.barrio }}, {{ alojamiento()!.ciudad }}</span>
+            @if (alojamiento()!.numResenas) {
+              <span class="info-header__stars">
+                <rs-stars [score]="alojamiento()!.score" [size]="16" />
+                <strong>{{ alojamiento()!.score }}</strong>
+              </span>
+            } @else {
+              <!-- Sin reseñas no hay nota: cinco estrellas vacías y un «0»
+                   lo hacían parecer valorado y pésimo. -->
+              <span class="info-header__nuevo" data-testid="sin-valoraciones">
+                <span class="rs-badge rs-badge--accent">{{ 'Nuevo' | t }}</span> {{ 'Sin valoraciones' | t }}
+              </span>
+            }
+            @if (lineaDireccion()) {
+              <span><rs-icon name="map-pin" [size]="15" [stroke]="2" /> {{ lineaDireccion() }}</span>
+            }
           </div>
 
           <div class="info-header__tags">
@@ -248,8 +258,16 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         <div class="section-block" id="espacios" rsAnim>
           <h2>{{ 'Tipos de espacio' | t }}</h2>
           <div class="rooms-list">
+            <!--
+              Pulsar un tipo de espacio lleva directo a reservarlo, con él ya
+              elegido. Antes sólo lo marcaba y había que subir al panel a pulsar
+              «Reservar»: dos pasos para una sola decisión.
+            -->
             @for (esp of alojamiento()!.espacios; track esp.id) {
-              <div class="room-card rs-card" [class.rs-card--glow]="espacioSelec()?.id === esp.id">
+              <div class="room-card rs-card" [class.rs-card--glow]="espacioSelec()?.id === esp.id"
+                   [class.room-card--reservable]="esp.disponible"
+                   data-testid="tarjeta-espacio"
+                   (click)="esp.disponible && reservarEspacio(esp)">
                 <div class="room-card__img">
                   <img [src]="imagenEspacio(esp)" [alt]="tipoLabel(esp.tipo)" rsImg />
                 </div>
@@ -280,13 +298,11 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
                   <div class="room-price-amount">{{ esp.precioNoche | euros }}</div>
                   <div style="font-size:var(--f-xs);color:var(--t-400)">{{ 'por noche' | t }}</div>
                   @if (esp.disponible) {
-                    <button class="rs-btn rs-btn--primary rs-btn--block"
+                    <button type="button" class="rs-btn rs-btn--primary rs-btn--block"
                             style="margin-top:var(--sp-4)"
-                            [class.rs-btn--outline]="espacioSelec()?.id === esp.id"
-                            (click)="seleccionarEspacio(esp)">
-                      @if (espacioSelec()?.id === esp.id) {
-                        <rs-icon name="check" [size]="14" [stroke]="3" /> Seleccionado
-                      } @else { Seleccionar }
+                            data-testid="reservar-espacio"
+                            (click)="reservarEspacio(esp); $event.stopPropagation()">
+                      {{ 'Reservar' | t }}
                     </button>
                   } @else {
                     <button class="rs-btn rs-btn--ghost rs-btn--block" disabled
@@ -345,7 +361,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
               </summary>
               <div class="policy-acc__body">
                 <p><strong>{{ tituloCancelacion() }}</strong></p>
-                <p>{{ descripcionCancelacion() }}</p>
+                <p>{{ descripcionCancelacion() | t }}</p>
               </div>
             </details>
 
@@ -392,12 +408,13 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             los tipos de espacio —que es lo que decide la reserva— y lejos de
             las reseñas de las que salen.
           -->
+        @if (alojamiento()!.numResenas) {
         <div class="rating-summary rs-card" rsAnim>
           <div class="rating-summary__score">
             <div class="rating-big">{{ alojamiento()!.score }}</div>
             <div>
-              <div class="rating-big-label">{{ alojamiento()!.scoreLabel }}</div>
-              <div style="font-size:var(--f-xs);color:var(--t-400)">{{ alojamiento()!.numResenas | number }} reseñas verificadas</div>
+              <div class="rating-big-label">{{ alojamiento()!.scoreLabel | t }}</div>
+              <div style="font-size:var(--f-xs);color:var(--t-400)">{{ '{n} reseñas verificadas' | t: { n: (alojamiento()!.numResenas | number) ?? '' } }}</div>
             </div>
           </div>
           <!-- "Índice Doogking" con barras (PDF 27/07 §13): son las medias
@@ -417,6 +434,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             </div>
           }
         </div>
+        }
 
 
           <div class="resenas-list">
@@ -922,6 +940,9 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
     /* ESPACIO CARD */
     .rooms-list { display: flex; flex-direction: column; gap: var(--sp-4); }
     .room-card { display: grid; grid-template-columns: 240px 1fr auto; padding: 0; overflow: hidden; @media (max-width: 768px) { grid-template-columns: 1fr; } }
+    .room-card--reservable { cursor: pointer; transition: box-shadow var(--t-fast); }
+    .room-card--reservable:hover { box-shadow: var(--sh-lg); }
+    .info-header__nuevo { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--t-300); }
     .room-card__img { min-height: 180px; background: var(--c-surface); img { width: 100%; height: 100%; min-height: 180px; object-fit: cover; display: block; } }
     .room-card__body { padding: var(--sp-6); }
     .room-card__type { font-size: var(--f-md); font-weight: var(--w-7); color: var(--dk-blue); margin-bottom: var(--sp-2); }
@@ -1062,6 +1083,15 @@ export class AlojamientoDetalleComponent implements OnInit {
   readonly alojamiento = signal<AlojamientoDetalle | null>(null);
   readonly imagenActiva = signal('');
   readonly espacioSelec = signal<Espacio | null>(null);
+
+  /**
+   * Línea de la cabecera: «Calle Mayor, 12, Ruzafa, Valencia» sin huecos ni
+   * repeticiones. Se montaba a mano y con datos a medias salía «1, 1, , Valencia».
+   */
+  readonly lineaDireccion = computed(() => {
+    const a = this.alojamiento();
+    return a ? formatearDireccion([a.direccion, a.barrio, a.ciudad]) : '';
+  });
 
   /** Lo que necesita el bloque "Dónde está": punto exacto y dirección legible. */
   readonly ubicacion = computed<PuntoUbicacion>(() => {
@@ -1321,15 +1351,27 @@ export class AlojamientoDetalleComponent implements OnInit {
     this.espacioSelec.set(this.espacioSelec()?.id === esp.id ? null : esp);
   }
 
+  /** Clic en un tipo de espacio: queda elegido y se va directo a reservarlo. */
+  reservarEspacio(esp: Espacio): void {
+    this.espacioSelec.set(esp);
+    this.irAReserva();
+  }
+
+  /**
+   * Al asistente con el espacio elegido. El precio **no** viaja en la URL: el
+   * asistente lo pide al API con el `espacioId`, y el cobro lo recalcula el
+   * servidor. Un precio editable en la barra de direcciones no puede ser la
+   * fuente de nada.
+   */
   irAReserva(): void {
-    if (!this.espacioSelec()) return;
-    const alojamiento = this.alojamiento()!;
+    const espacio = this.espacioSelec();
+    const alojamiento = this.alojamiento();
+    if (!espacio || !alojamiento) return;
     void this.router.navigate(['/reservas', 'alojamiento', alojamiento.id], {
       queryParams: {
-        espacioId:  this.espacioSelec()!.id,
+        espacioId:  espacio.id,
         comercioId: alojamiento.comercioId,
         nombre:     alojamiento.nombre,
-        precioBase: this.espacioSelec()!.precioNoche,
         imagen:     alojamiento.imagenes?.[0] ?? '',
         checkIn:    this.checkInQP ?? undefined,
         checkOut:   this.checkOutQP ?? undefined,
