@@ -335,6 +335,14 @@ const reservas: Diccionario = {
   '— Elige un servicio —': '— Wybierz usługę —',
   '— Sin especificar —': '— Nie podano —',
   '← Volver a mis reservas': '← Powrót do moich rezerwacji',
+  'Este centro solo ofrece guardería de día, sin pernoctación.': 'Ten ośrodek oferuje tylko opiekę dzienną, bez noclegu.',
+  'Este alojamiento no ofrece guardería de día.': 'Ten hotel nie oferuje opieki dziennej.',
+  'Esa fecha ya ha pasado. Elige otro día.': 'Ta data już minęła. Wybierz inny dzień.',
+  'La guardería de día se reserva día a día: elige un único día.': 'Opiekę dzienną rezerwuje się na pojedyncze dni: wybierz jeden dzień.',
+  'Este alojamiento no tiene plazas de guardería de día publicadas.': 'Ten hotel nie opublikował miejsc w opiece dziennej.',
+  'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'Ten ośrodek nie oferuje tej opcji opieki dziennej. Wybierz inną.',
+  'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'Opieka dzienna nie działa w ten dzień tygodnia. Spróbuj innej daty.',
+  'La hora de entrada no es válida.': 'Godzina przyprowadzenia jest nieprawidłowa.',
 };
 
 export default reservas;

@@ -20,6 +20,7 @@ import {
   BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio, etiquetaPuntuacion, perfilesSocialesNoAdmitidos,
   pareceObjectId, slugDeFicha, slugLibre,
   type ConfigGuarderia, ofreceResidencia, precioDesdeGuarderia,
+  tieneValoraciones, precioDesdeServicio, formatearDireccion, lineaCalle,
 } from 'shared';
 
 /** Poblaciones que pinta "Servicios cerca de ti" en la portada, y su tope. */
@@ -540,7 +541,7 @@ export class CatalogService {
       pais: dto.pais,
       horario: dto.horario,
       excepcionesHorario: dto.excepcionesHorario,
-      precioBase: dto.precioBase,
+      precioBase: this.precioBaseCoherente(dto.vertical, dto.precioBase, extra) ?? dto.precioBase,
       imagenes: dto.imagenes ?? [],
       comercioId,
       comercioActivo: comercio?.estado === 'activo',
@@ -625,6 +626,19 @@ export class CatalogService {
    * Salir publicada no la pone en el buscador todavía: eso lo decide
    * `comercioActivo`, que sólo es cierto con el negocio ya aprobado.
    */
+  /**
+   * El `precioBase` que se guarda es el «desde» real: el del producto más
+   * barato que publica el servicio. El comercio lo escribía a mano como
+   * «precio orientativo» y el buscador filtraba y ordenaba por él mientras la
+   * ficha cobraba otro. Sin productos con precio se queda el que escribió.
+   */
+  private precioBaseCoherente(
+    vertical: string, precioBase: number | undefined, extra: Record<string, unknown> | undefined,
+  ): number | undefined {
+    const desde = precioDesdeServicio({ vertical, precioBase, extra });
+    return desde > 0 ? desde : precioBase;
+  }
+
   private estadoInicial(
     imagenes: string[], comercio: { altaCompletada?: boolean } | null,
   ): 'borrador' | 'publicado' {
@@ -666,7 +680,9 @@ export class CatalogService {
       pais: dto.pais,
       horario: dto.horario,
       excepcionesHorario: dto.excepcionesHorario,
-      precioBase: dto.precioBase,
+      precioBase: extra
+        ? this.precioBaseCoherente(vertical, dto.precioBase ?? existente.precioBase, extra)
+        : dto.precioBase,
       imagenes: dto.imagenes,
       extra,
       aptitud: dto.aptitud,
@@ -915,7 +931,14 @@ export class CatalogService {
   }
 
   private toCard(h: ServicioLean): ServicioCardDto {
-    const score = Math.round((h.ratingPromedio ?? 0) * 10) / 10;
+    const numResenas = h.totalReseñas ?? 0;
+    // Sin reseñas no hay nota: un `ratingPromedio` heredado sin nadie detrás
+    // salía como «4,2 · Muy bueno» (o «0 · Correcto») en un servicio sin valorar.
+    const score = tieneValoraciones(h.ratingPromedio, numResenas)
+      ? Math.round((h.ratingPromedio ?? 0) * 10) / 10
+      : 0;
+    const extra = this.pickExtra(h as unknown as Record<string, unknown>);
+    const vertical = (h as unknown as Record<string, unknown>)['vertical'] as string | undefined;
     // GeoJSON guarda [lng, lat]; invertirlo aquí evita que cada consumidor
     // tenga que acordarse del orden y lo pinte en mitad del océano.
     const [lng, lat] = h.ubicacion?.geo?.coordinates ?? [];
@@ -930,9 +953,11 @@ export class CatalogService {
       direccion: this.lineaDireccion(h),
       estrellas: h.estrellas ?? 3,
       score,
-      scoreLabel: etiquetaPuntuacion(score),
-      numResenas: h.totalReseñas ?? 0,
-      precioPorNoche: h.precioBase,
+      scoreLabel: etiquetaPuntuacion(score, numResenas),
+      numResenas,
+      // El «desde» de la ficha: el producto más barato que publica, no el
+      // precio orientativo que escribió el comercio (ver `precioDesdeServicio`).
+      precioPorNoche: precioDesdeServicio({ vertical, precioBase: h.precioBase, extra }),
       precioAnterior: h.precioAnterior,
       descuentoPct: h.descuentoPct,
       imagenes: h.imagenes ?? [],
@@ -942,10 +967,10 @@ export class CatalogService {
       espaciosDisponibles: h.espaciosDisponibles ?? 0,
       paseosIncluidos: h.paseosIncluidos ?? false,
       destacado: h.destacado ?? false,
-      vertical: (h as unknown as Record<string, unknown>)['vertical'] as string | undefined,
+      vertical,
       horario: (h as unknown as Record<string, unknown>)['horario'] as HorarioDiaDto[] | undefined,
       excepcionesHorario: (h as unknown as Record<string, unknown>)['excepcionesHorario'] as ExcepcionHorarioDto[] | undefined,
-      extra: this.pickExtra(h as unknown as Record<string, unknown>),
+      extra,
       distanciaCentroKm: h.distanciaCentroKm,
     };
   }
@@ -960,8 +985,9 @@ export class CatalogService {
    */
   private lineaDireccion(h: ServicioLean): string {
     const { calle, numero } = h.ubicacion ?? {};
-    if (calle) return numero ? `${calle}, ${numero}` : calle;
-    return h.direccion ?? '';
+    // `lineaCalle` descarta una calle sin nombre («1») y `formatearDireccion`
+    // limpia el texto antiguo: de ahí salía el «1, 1, , Valencia» de la ficha.
+    return lineaCalle(calle, numero) || formatearDireccion([h.direccion]);
   }
 
   /** Extrae los campos propios de cada vertical canina (los que no son del Servicio base). */

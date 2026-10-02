@@ -313,6 +313,15 @@ const catalogos: Diccionario = {
   'Condiciones': 'Condizioni',
   'Cadena': 'Catena',
   'Perros educados': 'Cani educati',
+  'Crematorios': 'Crematori',
+  'Guardería de día': 'Asilo diurno',
+  'Por horas': 'A ore',
+  'Media jornada': 'Mezza giornata',
+  'Día completo': 'Giornata intera',
+  'Residencia': 'Pensione',
+  'Guardería de día · Por horas': 'Asilo diurno · A ore',
+  'Guardería de día · Media jornada': 'Asilo diurno · Mezza giornata',
+  'Guardería de día · Día completo': 'Asilo diurno · Giornata intera',
 };
 
 export default catalogos;

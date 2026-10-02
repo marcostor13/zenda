@@ -8,6 +8,7 @@ import { AvailabilityRegistry } from '../availability/availability.registry';
 import { BookingsService } from '../bookings/bookings.service';
 import { CatalogService } from '../catalog/catalog.service';
 import { ReservaDocument } from '../bookings/reserva.schema';
+import { limpiarDetalleCliente } from '../bookings/detalle-cliente.util';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
 /** Un carrito abierto caduca a las 24 h; pasado ese plazo deja de estorbar. */
@@ -252,7 +253,9 @@ export class CarritoService {
     try {
       const estrategia = this.availabilityRegistry.obtener(vertical);
       const resultado = await estrategia.checkAvailability(servicioId, {
-        fechaInicio, fechaFin, cantidad, parametrosExtra: detalle,
+        // Mismo filtro que al reservar: el precio estimado del viaje no puede
+        // salir de un importe que mande el cliente.
+        fechaInicio, fechaFin, cantidad, parametrosExtra: limpiarDetalleCliente(detalle),
       });
       return { disponible: resultado.disponible, precio: resultado.precioCalculado };
     } catch (error) {

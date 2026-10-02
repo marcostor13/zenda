@@ -53,6 +53,34 @@ describe('HotelesAvailabilityStrategy', () => {
     expect(r.metadata?.noches).toBe(3);
   });
 
+  describe('precio de la habitación', () => {
+    const conHabitaciones = {
+      ...mock,
+      espacios: [
+        { tipo: 'Suite', precioNoche: 150, cantidad: 1 },
+        { tipo: 'Doble pet-friendly', precioNoche: 90, cantidad: 3 },
+      ],
+    };
+
+    it('debería cobrar la habitación elegida en la ficha, no el precio base', async () => {
+      mockFindById(conHabitaciones);
+      const r = await strategy.checkAvailability('h1', {
+        fechaInicio: new Date('2026-02-01'), fechaFin: new Date('2026-02-03'), cantidad: 1,
+        parametrosExtra: { espacioId: 'esp-0' },
+      });
+      expect(r.precioCalculado).toBe(300); // 150 × 2 noches
+    });
+
+    it('sin habitación elegida, debería cobrar la más barata: el «desde» que ve el cliente', async () => {
+      mockFindById(conHabitaciones);
+      const r = await strategy.checkAvailability('h1', {
+        fechaInicio: new Date('2026-02-01'), fechaFin: new Date('2026-02-03'), cantidad: 1,
+      });
+      expect(r.precioCalculado).toBe(180); // 90 × 2 noches
+      expect(r.metadata?.['validarHorarioEstancia']).toBe(true);
+    });
+  });
+
   it('añade el suplemento por tamaño de mascota (docs: 300€ + 30€ = 330€ ejemplo del cliente)', async () => {
     const r = await strategy.checkAvailability('h1', {
       fechaInicio: new Date('2026-02-01'), fechaFin: new Date('2026-02-04'), cantidad: 1,

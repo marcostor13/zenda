@@ -313,6 +313,15 @@ const catalogos: Diccionario = {
   'Condiciones': 'Conditions',
   'Cadena': 'Enseigne',
   'Perros educados': 'Chiens bien éduqués',
+  'Crematorios': 'Crématoriums',
+  'Guardería de día': 'Garderie de jour',
+  'Por horas': 'À l’heure',
+  'Media jornada': 'Demi-journée',
+  'Día completo': 'Journée complète',
+  'Residencia': 'Pension',
+  'Guardería de día · Por horas': 'Garderie de jour · À l’heure',
+  'Guardería de día · Media jornada': 'Garderie de jour · Demi-journée',
+  'Guardería de día · Día completo': 'Garderie de jour · Journée complète',
 };
 
 export default catalogos;

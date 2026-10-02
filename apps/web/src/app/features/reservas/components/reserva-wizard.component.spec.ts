@@ -113,7 +113,7 @@ describe('ReservaWizardComponent', () => {
         veterinaria: jest.fn().mockResolvedValue({ servicio: 'consulta' }),
       },
       perros: { misPerros: jest.fn().mockResolvedValue([]) },
-      catalog: { obtener: jest.fn().mockResolvedValue({ extra: {} }) },
+      catalog: { obtener: jest.fn().mockResolvedValue({ extra: {}, precioPorNoche: 50 }) },
       stripe: { getStripe: jest.fn().mockResolvedValue(stripeFake) },
       geo: {
         trayecto: jest.fn().mockResolvedValue({ km: 70, duracionMin: 55, esEstimacion: false }),
@@ -171,13 +171,32 @@ describe('ReservaWizardComponent', () => {
   });
 
   describe('contexto desde la ruta', () => {
-    it('debería tomar vertical, servicio y precio de la ruta', async () => {
+    it('debería tomar vertical y servicio de la ruta, y el precio de la ficha del API', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query);
 
       expect(componente.vertical()).toBe(VerticalKey.ALOJAMIENTO);
       expect(componente.precioBase()).toBe(50);
       expect(componente.nombreServicio()).toBe('Servicio');
+    });
+
+    it('debería ignorar un precio manipulado en la URL', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO, { precioBase: '1' });
+      await crear(params, query);
+
+      expect(componente.precioBase()).toBe(50);
+    });
+
+    it('debería tomar el precio del espacio elegido en la ficha', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO, { espacioId: 'esp-1' });
+      await crear(params, query, {
+        catalog: { obtener: jest.fn().mockResolvedValue({
+          extra: {}, precioPorNoche: 30,
+          espacios: [{ id: 'esp-0', precioNoche: 30 }, { id: 'esp-1', precioNoche: 45 }],
+        }) },
+      });
+
+      expect(componente.precioBase()).toBe(45);
     });
 
     it('debería caer a alojamiento si la ruta no trae vertical', async () => {
@@ -418,8 +437,10 @@ describe('ReservaWizardComponent', () => {
      * suma encima al llegar al pago.
      */
     it('debería descontar del total anunciado, no añadir el IVA por encima', async () => {
-      const { params, query } = contexto(VerticalKey.ALOJAMIENTO, { precioBase: '100' });
-      await crear(params, query);
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, {
+        catalog: { obtener: jest.fn().mockResolvedValue({ extra: {}, precioPorNoche: 100 }) },
+      });
       componente.cuponInput = 'verano';
       await componente.aplicarCupon();
 

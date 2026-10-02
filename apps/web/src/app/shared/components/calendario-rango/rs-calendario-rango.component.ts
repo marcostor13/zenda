@@ -40,6 +40,8 @@ interface Celda {
   /** Dentro del rango elegido, sin ser ninguno de los dos extremos. */
   enRango: boolean;
   plazasLibres: number;
+  /** El comercio no atiende ese día: no vale ni para entrar ni para salir. */
+  cerrado: boolean;
 }
 
 /**
@@ -87,6 +89,7 @@ interface Celda {
               [class.esta-libre]="celda.seleccionable"
               [class.es-extremo]="celda.esEntrada || celda.esSalida"
               [class.en-rango]="celda.enRango"
+              [class.es-cerrado]="celda.cerrado"
               [disabled]="!celda.seleccionable"
               [attr.aria-label]="etiquetaDia(celda)"
               [attr.aria-pressed]="celda.esEntrada || celda.esSalida"
@@ -110,6 +113,9 @@ interface Celda {
     <p class="cal__leyenda">
       <span class="cal__muestra cal__muestra--libre"></span> {{ 'Con plaza' | t }}
       <span class="cal__muestra cal__muestra--lleno"></span> {{ 'Sin plaza' | t }}
+      @if (diaCerrado()) {
+        <span class="cal__muestra cal__muestra--cerrado"></span> {{ 'Cerrado' | t }}
+      }
     </p>
   }
 </div>
@@ -202,6 +208,10 @@ interface Celda {
      * un día apagado es uno ya pasado, y tacharlo lo hacía parecer agotado.
      */
     .cal--con-plazas .cal__dia:disabled { text-decoration: line-through; }
+    /* Cerrado no es lo mismo que lleno: sin tachar, con fondo de día no laborable. */
+    .cal__dia.es-cerrado:disabled:not(.en-rango) {
+      text-decoration: none; background: var(--c-raised); color: var(--t-400);
+    }
 
     /* Mismo alto que una celda: si no, la primera semana se descuadra. */
     .cal__hueco { width: 100%; aspect-ratio: 1; min-height: 40px; }
@@ -220,6 +230,7 @@ interface Celda {
     .cal__muestra { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
     .cal__muestra--libre { background: var(--c-accent); }
     .cal__muestra--lleno { background: var(--b-2); }
+    .cal__muestra--cerrado { background: var(--c-raised); border: 1px solid var(--b-2); }
     .cal__leyenda .cal__muestra:not(:first-child) { margin-left: var(--sp-3); }
   `],
 })
@@ -258,6 +269,12 @@ export class RsCalendarioRangoComponent {
    * cita (peluquería, veterinaria…) en lugar de por noches.
    */
   readonly soloUnDia = input(false);
+  /**
+   * Días en que el comercio no atiende. No se pueden elegir como entrada ni
+   * como salida —no hay nadie para recibir o entregar al perro—, pero sí
+   * quedar dentro de la estancia: esas noches el perro ya está dentro.
+   */
+  readonly diaCerrado = input<((fecha: string) => boolean) | null>(null);
 
   readonly rangoElegido = output<RangoFechas>();
   readonly mesCambiado = output<MesVisible>();
@@ -316,6 +333,7 @@ export class RsCalendarioRangoComponent {
         esSalida: fecha === salida,
         enRango: !!entrada && !!salida && fecha > entrada && fecha < salida,
         plazasLibres: dia?.plazasLibres ?? 0,
+        cerrado: this.estaCerrado(fecha),
       };
     });
   });
@@ -382,6 +400,7 @@ export class RsCalendarioRangoComponent {
     tope: string | null,
   ): boolean {
     if (fecha < this.hoy) return false;
+    if (this.estaCerrado(fecha)) return false;
 
     // Eligiendo salida: vale cualquier día posterior a la entrada hasta el tope,
     // aunque ese día esté lleno — la noche de salida no se ocupa.
@@ -391,6 +410,10 @@ export class RsCalendarioRangoComponent {
     }
 
     return this.estadoDe(fecha) !== 'lleno';
+  }
+
+  private estaCerrado(fecha: string): boolean {
+    return this.diaCerrado()?.(fecha) ?? false;
   }
 
   elegir(celda: Celda): void {
@@ -419,6 +442,7 @@ export class RsCalendarioRangoComponent {
     const fecha = `${dia} de ${MESES[mes - 1]} de ${anio}`;
     // Sin disponibilidad que consultar, un día apagado es uno ya pasado: decir
     // "sin plaza" ahí sería mentir al lector de pantalla.
+    if (celda.cerrado && celda.fecha >= this.hoy) return `${fecha}, cerrado`;
     if (celda.seleccionable || !this.conDisponibilidad()) return fecha;
     return `${fecha}, sin plaza`;
   }

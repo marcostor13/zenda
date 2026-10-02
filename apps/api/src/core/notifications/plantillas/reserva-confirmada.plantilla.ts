@@ -1,4 +1,4 @@
-import { VERTICAL_LABELS, VerticalKey } from 'shared';
+import { VERTICAL_LABELS, VerticalKey, formatearDireccion } from 'shared';
 import {
   FUENTE_EMAIL, MARCA, boton, escaparHtml, euros, fechaLarga, horaCorta, layoutEmail, tablaDatos, tituloBloque,
 } from './html-email';
@@ -159,7 +159,7 @@ function bloqueCuando(d: DatosReservaConfirmada): string {
         ...(d.fin ? [['Duración', noches(d.inicio, d.fin)] as [string, string]] : []),
       ];
 
-  const direccion = [d.servicio.direccion, d.servicio.ciudad].filter(Boolean).join(', ');
+  const direccion = formatearDireccion([d.servicio.direccion, d.servicio.ciudad]);
   if (direccion) {
     const mapa = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${d.comercio.nombre}, ${direccion}`)}`;
     filas.push(['Dirección', `${escaparHtml(direccion)}<br><a href="${mapa}" style="font-weight:600;color:${MARCA.azul};">Cómo llegar &rarr;</a>`]);

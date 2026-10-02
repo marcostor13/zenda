@@ -335,6 +335,14 @@ const reservas: Diccionario = {
   '— Elige un servicio —': '— Scegli un servizio —',
   '— Sin especificar —': '— Non specificato —',
   '← Volver a mis reservas': '← Torna alle mie prenotazioni',
+  'Este centro solo ofrece guardería de día, sin pernoctación.': 'Questo centro offre solo l’asilo diurno, senza pernottamento.',
+  'Este alojamiento no ofrece guardería de día.': 'Questa struttura non offre l’asilo diurno.',
+  'Esa fecha ya ha pasado. Elige otro día.': 'Quella data è già passata. Scegli un altro giorno.',
+  'La guardería de día se reserva día a día: elige un único día.': 'L’asilo diurno si prenota giorno per giorno: scegli un solo giorno.',
+  'Este alojamiento no tiene plazas de guardería de día publicadas.': 'Questa struttura non ha pubblicato posti per l’asilo diurno.',
+  'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'Questo centro non offre questa modalità di asilo. Scegline un’altra.',
+  'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'L’asilo è chiuso in quel giorno della settimana. Prova con un’altra data.',
+  'La hora de entrada no es válida.': 'L’orario di arrivo non è valido.',
 };
 
 export default reservas;

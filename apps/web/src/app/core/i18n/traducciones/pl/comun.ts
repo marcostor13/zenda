@@ -105,6 +105,7 @@ const comun: Diccionario = {
   'para reservar con la ficha de tu perro y ver precios ajustados.': 'aby zarezerwować z profilem swojego psa i zobaczyć dopasowane ceny.',
   'y ajustaremos precios y resultados a su perfil.': 'a my dopasujemy ceny i wyniki do jego profilu.',
   '¿Para qué mascota?': 'Dla którego zwierzaka?',
+  'Siguiente': 'Dalej',
 };
 
 export default comun;

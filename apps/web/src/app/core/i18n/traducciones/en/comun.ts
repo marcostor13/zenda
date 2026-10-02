@@ -105,6 +105,7 @@ const comun: Diccionario = {
   'para reservar con la ficha de tu perro y ver precios ajustados.': 'to book with your dog’s profile and see adjusted prices.',
   'y ajustaremos precios y resultados a su perfil.': 'and we will tailor prices and results to their profile.',
   '¿Para qué mascota?': 'Which pet is it for?',
+  'Siguiente': 'Next',
 };
 
 export default comun;

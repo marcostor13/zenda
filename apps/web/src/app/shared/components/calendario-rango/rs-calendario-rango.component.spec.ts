@@ -54,6 +54,18 @@ describe('RsCalendarioRangoComponent', () => {
     expect(celdaDe(diaDelMesProximo(11)).seleccionable).toBe(true);
   });
 
+  it('no debería dejar entrar ni salir en un día en que el comercio cierra, pero sí pasarlo dentro', async () => {
+    const cerrado = diaDelMesProximo(12);
+    await montar(mesCompleto(), diaDelMesProximo(10));
+    fixture.componentRef.setInput('diaCerrado', (fecha: string) => fecha === cerrado);
+    fixture.detectChanges();
+
+    expect(celdaDe(cerrado).seleccionable).toBe(false);
+    expect(celdaDe(cerrado).cerrado).toBe(true);
+    // La salida puede caer después del día cerrado: esa noche el perro ya está dentro.
+    expect(celdaDe(diaDelMesProximo(13)).seleccionable).toBe(true);
+  });
+
   it('debería deshabilitar los días pasados aunque el API los dé por libres', async () => {
     const ayer = clave(new Date(Date.now() - MS_POR_DIA));
     await montar([{ fecha: ayer, disponible: true, plazasLibres: 5 }]);

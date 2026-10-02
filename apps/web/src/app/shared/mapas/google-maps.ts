@@ -9,6 +9,8 @@
  *
  * Documentación: https://developers.google.com/maps/documentation/urls/get-started
  */
+import { formatearDireccion } from 'shared';
+
 export interface PuntoUbicacion {
   readonly lat?: number;
   readonly lng?: number;
@@ -38,7 +40,7 @@ function consulta(punto: PuntoUbicacion): string | null {
   // Canina" a secas abriría un mapa del mundo con resultados de cualquier país.
   if (!punto.direccion && !punto.ciudad) return null;
 
-  return [punto.nombre, punto.direccion, punto.ciudad].filter(Boolean).join(', ');
+  return formatearDireccion([punto.nombre, punto.direccion, punto.ciudad]);
 }
 
 /** Abre el sitio en Google Maps. `null` si no hay ni coordenadas ni dirección. */

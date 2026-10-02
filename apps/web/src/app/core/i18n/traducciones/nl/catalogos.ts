@@ -313,6 +313,15 @@ const catalogos: Diccionario = {
   'Condiciones': 'Voorwaarden',
   'Cadena': 'Keten',
   'Perros educados': 'Goed opgevoede honden',
+  'Crematorios': 'Crematoria',
+  'Guardería de día': 'Dagopvang',
+  'Por horas': 'Per uur',
+  'Media jornada': 'Halve dag',
+  'Día completo': 'Hele dag',
+  'Residencia': 'Pension',
+  'Guardería de día · Por horas': 'Dagopvang · Per uur',
+  'Guardería de día · Media jornada': 'Dagopvang · Halve dag',
+  'Guardería de día · Día completo': 'Dagopvang · Hele dag',
 };
 
 export default catalogos;

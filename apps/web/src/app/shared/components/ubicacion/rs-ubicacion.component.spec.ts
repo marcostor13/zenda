@@ -20,12 +20,13 @@ describe('RsUbicacionComponent', () => {
     }).compileComponents();
   });
 
-  it('debería pintar el mapa y los dos atajos cuando hay coordenadas', () => {
+  it('debería pintar el mapa y sólo el atajo de «Cómo llegar» cuando hay coordenadas', () => {
     crear({ lat: 40.4148, lng: -3.6873, direccion: 'Calle de Alfonso XII 40', ciudad: 'Madrid', nombre: 'Villa Canina' });
 
     const enlaces: HTMLAnchorElement[] = Array.from(fixture.nativeElement.querySelectorAll('a'));
     expect(fixture.nativeElement.querySelector('rs-mapa')).toBeTruthy();
-    expect(enlaces.map((a) => a.textContent?.trim())).toEqual(['Ver en Google Maps', 'Cómo llegar']);
+    // «Ver en Google Maps» se quitó de las fichas: repetía el mapa de encima.
+    expect(enlaces.map((a) => a.textContent?.trim())).toEqual(['Cómo llegar']);
     expect(enlaces[0].href).toContain('40.4148');
     // Se abre fuera para no perder la reserva a medias.
     expect(enlaces[0].target).toBe('_blank');
@@ -45,7 +46,13 @@ describe('RsUbicacionComponent', () => {
 
     expect(fixture.nativeElement.querySelector('rs-mapa')).toBeNull();
     expect(fixture.nativeElement.querySelector('.ubi__sin-mapa')).toBeTruthy();
-    expect(fixture.nativeElement.querySelectorAll('a').length).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('a').length).toBe(1);
+  });
+
+  it('no debería pintar comas colgando ni partes repetidas en la dirección', () => {
+    crear({ direccion: '', ciudad: 'Valencia' });
+
+    expect(fixture.nativeElement.querySelector('.ubi__direccion').textContent.trim()).toBe('Valencia');
   });
 
   it('no debería ofrecer enlaces cuando no hay ni punto ni dirección', () => {

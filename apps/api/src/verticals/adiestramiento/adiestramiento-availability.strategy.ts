@@ -78,7 +78,9 @@ export class AdiestramientoAvailabilityStrategy implements AvailabilityStrategy 
       disponible: true,
       capacidadRestante: adiestramiento.cuposDisponibles,
       precioCalculado: Math.round(precioUnitario * perros * 100) / 100,
-      metadata: { perros, modalidad, ...(servicio ? { servicio: servicio.nombre } : {}) },
+      // La sesión es de un día sin hora: el core comprueba que ese día el
+      // centro atienda (mismo control que la entrada de una estancia).
+      metadata: { perros, modalidad, validarHorarioEstancia: true, ...(servicio ? { servicio: servicio.nombre } : {}) },
     };
   }
 

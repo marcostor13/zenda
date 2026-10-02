@@ -394,21 +394,24 @@ describe('AlojamientoDetalleComponent', () => {
     });
   });
 
-  it('debería navegar a /reservas/alojamiento con el espacio seleccionado', async () => {
+  it('debería ir directo a reservar el espacio pulsado, sin el precio en la URL', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
     const router = TestBed.inject(Router);
     const navigateSpy = jest.spyOn(router, 'navigate').mockResolvedValue(true);
 
-    component.seleccionarEspacio(espacioMock);
-    component.irAReserva();
+    component.reservarEspacio(espacioMock);
 
+    expect(component.espacioSelec()).toEqual(espacioMock);
     expect(navigateSpy).toHaveBeenCalledWith(
       ['/reservas', 'alojamiento', 'a1'],
       expect.objectContaining({
-        queryParams: expect.objectContaining({ espacioId: 'e1', precioBase: 45 }),
+        queryParams: expect.objectContaining({ espacioId: 'e1' }),
       }),
     );
+    // El precio lo pide el asistente al API: uno en la URL se podría editar.
+    const [, extras] = navigateSpy.mock.calls[0] as [unknown, { queryParams: Record<string, unknown> }];
+    expect(extras.queryParams).not.toHaveProperty('precioBase');
   });
 
   it('debería traducir tipo y tamaño de perro a etiquetas en español', () => {
