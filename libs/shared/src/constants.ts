@@ -121,4 +121,4 @@ export function nombreAlphaPresentacion(nombre: string, nivel: number): string {
  */
 export const MIN_FOTOS_SERVICIO = 5;
 
-export const CONDICIONES_COMERCIO_VERSION = '2026-08-30';
+export const CONDICIONES_COMERCIO_VERSION = '2026-10-02';

@@ -29,6 +29,20 @@ describe('TerminosComponent', () => {
     expect(texto).toContain(RESPONSABLE.identificacionFiscal);
   });
 
+  /** Art. 10 LSSI-CE: domicilio social, contacto y personas responsables de la sociedad. */
+  it('debería recoger el aviso legal completo del titular', () => {
+    expect(texto).toContain('LSSI-CE');
+    expect(texto).toContain(RESPONSABLE.domicilio);
+    expect(texto).toContain(RESPONSABLE.emailSoporte);
+    expect(texto).toContain(RESPONSABLE.administrador);
+    expect(texto).toContain(RESPONSABLE.representante.nombre);
+  });
+
+  /** La plataforma europea de resolución de litigios en línea cerró en julio de 2025. */
+  it('no debería remitir a la plataforma europea de resolución de litigios en línea', () => {
+    expect(texto).not.toMatch(/litigios en línea/i);
+  });
+
   /**
    * Es la afirmación jurídicamente decisiva de la página: Doogking intermedia,
    * el servicio lo presta el comercio. Sin eso, el documento no protege a nadie.

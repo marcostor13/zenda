@@ -31,6 +31,12 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       <p>
         {{ r.marca }} es un <strong>{{ 'intermediario' | t }}</strong>{{ ': pone en contacto a dueños de perros con negocios que prestan servicios caninos y gestiona la reserva y el cobro. No presta los servicios anunciados ni es parte del contrato de prestación, que se celebra entre el cliente y el comercio.' | t }}
       </p>
+      <p>
+        {{ 'Estas condiciones las establece' | t }} <strong>{{ r.razonSocial }}</strong>
+        ({{ r.identificacionFiscal | t }}), {{ 'con domicilio en' | t }} {{ r.domicilio }} ({{ r.pais | t }}),
+        {{ 'que gestiona la plataforma con el nombre comercial' | t }} {{ r.marca }}.
+        {{ 'Mientras la sociedad está en constitución, los contratos con los comercios se celebran en su nombre conforme a los artículos 33 a 36 de la Ley de Sociedades de Capital, y la sociedad los asumirá al quedar inscrita en el Registro Mercantil.' | t }}
+      </p>
 
       <h2>{{ '2. Quién puede darse de alta' | t }}</h2>
       <p>
@@ -48,6 +54,9 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
       <h2>{{ '3. Publicación de servicios' | t }}</h2>
       <p>
         {{ 'El comercio es responsable de que la información de sus fichas —descripción, precios, dirección, horarios, capacidad y condiciones— sea exacta y esté al día. Las fichas se crean en estado' | t }} <strong>{{ 'borrador' | t }}</strong> {{ 'y sólo son visibles en el buscador cuando el comercio las publica y su cuenta está activa.' | t }}
+      </p>
+      <p>
+        {{ 'El orden de los resultados del buscador depende principalmente de la relevancia para la búsqueda, la cercanía, la disponibilidad y las valoraciones de los clientes y, en su caso, de que el servicio esté destacado mediante un plan de pago.' | t }}
       </p>
 
       <h2>{{ '4. Reservas y cancelaciones' | t }}</h2>
@@ -106,7 +115,16 @@ import { TraducirPipe } from '../../core/i18n/traducir.pipe';
         {{ 'Si estas condiciones cambian, se avisa al comercio con antelación razonable y se le pide aceptar la nueva versión. La versión aceptada por cada comercio queda registrada con su fecha.' | t }}
       </p>
 
-      <h2>{{ '11. Contacto' | t }}</h2>
+      <h2>{{ '11. Reclamaciones y ley aplicable' | t }}</h2>
+      <p>
+        {{ 'Si tienes una queja sobre el funcionamiento de la plataforma, la suspensión de tu cuenta o la posición de tus servicios en los resultados, escríbenos a' | t }}
+        <a [href]="'mailto:' + r.emailSoporte">{{ r.emailSoporte }}</a>{{ '. La estudiamos y te respondemos de forma motivada en un plazo razonable, conforme al Reglamento (UE) 2019/1150 sobre equidad y transparencia para los usuarios profesionales de servicios de intermediación en línea.' | t }}
+      </p>
+      <p>
+        {{ 'Estas condiciones se rigen por la legislación española. Para cualquier controversia, las partes se someten a los juzgados y tribunales de Castellón de la Plana, salvo que la ley imponga otro fuero.' | t }}
+      </p>
+
+      <h2>{{ '12. Contacto' | t }}</h2>
       <p>
         {{ 'Para cualquier duda sobre estas condiciones:' | t }}
         <a [href]="'mailto:' + r.emailSoporte">{{ r.emailSoporte }}</a>.
