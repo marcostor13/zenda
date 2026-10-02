@@ -21,6 +21,12 @@ interface ReglaDisponibilidad {
   readonly origen: string;
   /** La capacidad viene troceada en una lista de elementos con `cantidad`. */
   readonly sumaCantidades?: true;
+  /**
+   * Capacidad de respaldo cuando el origen no declara ninguna: `[objeto, campo]`.
+   * Un centro que sólo hace guardería de día no tiene suites, y sin esto su
+   * listado quedaba con 0 plazas e invisible en el buscador.
+   */
+  readonly respaldo?: readonly [string, string];
 }
 
 /**
@@ -30,7 +36,10 @@ interface ReglaDisponibilidad {
  * directamente, así que no hay nada que deducir.
  */
 export const CONTADOR_DISPONIBILIDAD: Record<string, ReglaDisponibilidad> = {
-  alojamiento:    { contador: 'espaciosDisponibles', origen: 'espacios', sumaCantidades: true },
+  alojamiento:    {
+    contador: 'espaciosDisponibles', origen: 'espacios', sumaCantidades: true,
+    respaldo: ['guarderia', 'plazasPorDia'],
+  },
   // El hotel declara sus tipos de habitación; las plazas son la suma de todos.
   hoteles:        { contador: 'unidadesDisponibles',  origen: 'espacios', sumaCantidades: true },
   veterinaria:    { contador: 'citasDisponibles',    origen: 'citasPorDia' },
@@ -59,6 +68,14 @@ export function plazasDeclaradas(vertical: string, datos: Record<string, unknown
         (total, item) => total + (Number((item as { cantidad?: unknown }).cantidad) || 0), 0)
     : Number(origen);
 
+  if (Number.isFinite(plazas) && plazas > 0) return plazas;
+  return plazasDeRespaldo(regla, datos);
+}
+
+function plazasDeRespaldo(regla: ReglaDisponibilidad, datos: Record<string, unknown>): number | undefined {
+  if (!regla.respaldo) return undefined;
+  const [objeto, campo] = regla.respaldo;
+  const plazas = Number((datos[objeto] as Record<string, unknown> | undefined)?.[campo]);
   return Number.isFinite(plazas) && plazas > 0 ? plazas : undefined;
 }
 

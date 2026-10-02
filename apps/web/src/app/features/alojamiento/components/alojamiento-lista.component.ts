@@ -1,7 +1,7 @@
 import { Component, DestroyRef, signal, computed, OnInit, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { VerticalKey, type BusquedaCercanosApi } from 'shared';
+import { VerticalKey, ofreceGuarderia, ofreceResidencia, type BusquedaCercanosApi } from 'shared';
 import { lugarConDistancia } from '../../../shared/distancia';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
@@ -91,7 +91,7 @@ interface BusquedaUrl {
           [title]="a.nombre" [subtitle]="subtituloDe(a.barrio ? a.barrio + ', ' + a.ciudad : a.ciudad, a.distanciaKm, a.distanciaCentroKm)"
           [badges]="badgesDe(a)"
           [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
-          [price]="{ amount: moneda.formatear(a.precioPorNoche), period: 'noche desde', oldAmount: a.precioAnterior ? moneda.formatear(a.precioAnterior) : undefined }"
+          [price]="{ amount: moneda.formatear(a.precioPorNoche), period: periodoDe(a), oldAmount: a.precioAnterior ? moneda.formatear(a.precioAnterior) : undefined }"
           notaPrecio="IVA incluido"
           [amenities]="serviciosDe(a)"
           [destacados]="incluyeDe(a)"
@@ -297,7 +297,13 @@ export class AlojamientoListaComponent implements OnInit {
     const items: string[] = [];
     if (a.cancelacionGratis) items.push('Cancelación gratis');
     if (a.paseosIncluidos) items.push('Paseos diarios incluidos');
+    if (ofreceGuarderia(a.extra as { modalidades?: string[] } | undefined)) items.push('Guardería de día');
     return items;
+  }
+
+  /** Un centro que sólo hace guardería no vende noches: su «desde» es del día. */
+  periodoDe(a: AlojamientoCard): string {
+    return ofreceResidencia(a.extra as { modalidades?: string[] } | undefined) ? 'noche desde' : 'desde';
   }
   readonly totalItems = signal(0);
 
