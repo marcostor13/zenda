@@ -19,6 +19,7 @@ export * from './enums/servicio-clinico.enum';
 export * from './enums/historial.enum';
 export * from './enums/lugar.enum';
 export * from './enums/planificador.enum';
+export * from './planificador/viaje-planificador';
 export * from './enums/seguro.enum';
 export * from './enums/funerarios.enum';
 export * from './enums/evento.enum';

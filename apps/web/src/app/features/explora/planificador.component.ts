@@ -1,11 +1,15 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import {
+  AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators,
+} from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
   ALOJAMIENTO_VIAJE_LABELS, AlojamientoViaje, DESPLAZAMIENTO_VIAJE_LABELS, DesplazamientoViaje,
-  RITMO_VIAJE_LABELS, RitmoViaje, TIPO_LUGAR_LABELS, TipoLugar, VERTICAL_LABELS, VerticalKey,
+  MUNICIPIOS_ES, PROVINCIAS_ES, RITMO_VIAJE_LABELS, RitmoViaje, SERVICIOS_EXTRA_VIAJE, TIPO_LUGAR_LABELS,
+  TipoLugar, VERTICAL_ALOJAMIENTO_VIAJE, VERTICAL_LABELS, VerticalKey, claveDiaEnZona, errorFechasViaje,
+  resolverDestinoViaje,
 } from 'shared';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -39,17 +43,25 @@ interface DiaApi {
 interface OpcionApi {
   nombre: string;
   resumen: string;
+  /** Estimación orientativa calculada por el API con las fechas reales. */
   presupuestoEstimado: number;
+  /** Noches de hotel incluidas en la estimación. */
+  noches?: number;
+  superaPresupuesto?: boolean;
   dias: DiaApi[];
 }
 
 interface ItinerarioApi {
   provincia: string;
+  destino?: string;
+  noches?: number;
   opciones: OpcionApi[];
   /** Lo reservable del plan: cierra la pantalla con «Reserva tu viaje». */
   serviciosSugeridos?: ParadaApi[];
   esFallback: boolean;
   aviso?: string;
+  /** No hay hoteles pet friendly en la zona: el plan no trae dónde dormir. */
+  avisoAlojamiento?: string;
 }
 
 interface DestinoApi {
@@ -80,10 +92,24 @@ const DESTINOS_POR_DEFECTO: readonly DestinoApi[] = [
   { provincia: 'Castellón', lugares: 0, servicios: 0 },
 ];
 
-/** Servicios que se pueden necesitar durante el viaje (pregunta del formulario). */
-const SERVICIOS_EXTRA: readonly VerticalKey[] = [
-  VerticalKey.PELUQUERIA, VerticalKey.VETERINARIA, VerticalKey.ADIESTRAMIENTO,
+/**
+ * Sugerencias del campo de destino: provincias y poblaciones del catálogo con
+ * su provincia. Son sólo ayuda: se puede escribir cualquier otra población.
+ */
+const SUGERENCIAS_DESTINO: readonly string[] = [
+  ...PROVINCIAS_ES,
+  ...MUNICIPIOS_ES
+    .filter((m) => m.nombre !== m.provincia)
+    .map((m) => `${m.nombre} (${m.provincia})`),
 ];
+
+/** Fechas del viaje coherentes (mismas reglas que el API). */
+function fechasDelViaje(grupo: AbstractControl): ValidationErrors | null {
+  const { desde, hasta } = grupo.value as { desde?: string; hasta?: string };
+  if (!desde || !hasta) return null;
+  const motivo = errorFechasViaje(desde, hasta);
+  return motivo ? { fechas: motivo } : null;
+}
 
 const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T; etiqueta: string }> =>
   (Object.entries(labels) as Array<[T, string]>).map(([valor, etiqueta]) => ({ valor, etiqueta }));
@@ -113,11 +139,32 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
         <p class="pl-eyebrow">{{ 'Planificador de viajes' | t }}</p>
         <h1>{{ '¿A dónde vais este año?' | t }}</h1>
         <p class="pl-sub">
-          {{ 'Elige provincia y te proponemos un viaje completo con tu perro: dónde dormir, dónde pasear y qué reservar. Todo con sitios y profesionales que ya están en Doogking.' | t }}
+          {{ 'Escribe a dónde vais (una ciudad, un pueblo o una provincia) y te proponemos un viaje completo con tu perro: hotel pet friendly, dónde pasear y qué reservar. Todo con sitios y profesionales que ya están en Doogking.' | t }}
         </p>
       </header>
 
-      @if (!provincia()) {
+      <datalist id="pl-sugerencias">
+        @for (s of sugerencias; track s) { <option [value]="s"></option> }
+      </datalist>
+
+      @if (!destino()) {
+        <!--
+          Destino libre (bloqueo del cliente, octubre): antes sólo se podía
+          pinchar una provincia de la lista y no había dónde escribir el lugar.
+        -->
+        <form class="pl-buscar rs-card" (submit)="$event.preventDefault(); continuar()">
+          <label class="rs-lbl" for="pl-destino-inicio">{{ '¿A dónde vais?' | t }}</label>
+          <div class="pl-buscar__fila">
+            <input id="pl-destino-inicio" type="text" class="rs-inp" list="pl-sugerencias" autocomplete="off"
+                   [class.rs-inp--error]="!!errorDestino()"
+                   [formControl]="form.controls.destino"
+                   [placeholder]="'Escribe una ciudad, un pueblo o una provincia' | t" />
+            <button type="submit" class="rs-btn rs-btn--gold">{{ 'Continuar' | t }}</button>
+          </div>
+          @if (errorDestino()) { <p class="rs-field-error">{{ errorDestino() | t }}</p> }
+        </form>
+
+        <p class="pl-leyenda">{{ 'O inspírate con estos destinos' | t }}</p>
         <div class="pl-grid">
           @for (d of destinos(); track d.nombre) {
             <button type="button" class="pl-card" (click)="elegir(d.nombre)">
@@ -133,9 +180,9 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
       } @else {
         <div class="pl-form rs-card">
           <div class="pl-form__cabecera">
-            <h2>Tu viaje a {{ provincia() }}</h2>
+            <h2>{{ 'Tu viaje a {destino}' | t: { destino: destino() } }}</h2>
             <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="volver()">
-              {{ 'Cambiar provincia' | t }}
+              {{ 'Cambiar destino' | t }}
             </button>
           </div>
 
@@ -144,21 +191,33 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
               <legend>{{ 'Cuándo y dónde' | t }}</legend>
               <div class="pl-form__campos">
                 <div class="rs-field">
-                  <label class="rs-lbl" for="pl-municipio">{{ 'Municipio (opcional)' | t }}</label>
-                  <input id="pl-municipio" type="text" class="rs-inp" formControlName="municipio"
+                  <label class="rs-lbl" for="pl-destino">{{ 'Destino' | t }}</label>
+                  <input id="pl-destino" type="text" class="rs-inp" formControlName="destino" list="pl-sugerencias"
+                         autocomplete="off" [class.rs-inp--error]="!!errorDestino()"
                          [placeholder]="'Por ejemplo, Dénia' | t" />
+                  @if (errorDestino()) { <p class="rs-field-error">{{ errorDestino() | t }}</p> }
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="pl-desde">{{ 'Desde' | t }}</label>
-                  <input id="pl-desde" type="date" class="rs-inp" formControlName="desde" />
+                  <label class="rs-lbl" for="pl-desde">{{ 'Ida' | t }}</label>
+                  <input id="pl-desde" type="date" class="rs-inp" formControlName="desde" required
+                         [min]="hoy" [class.rs-inp--error]="campoInvalido('desde')" />
+                  @if (campoInvalido('desde')) { <p class="rs-field-error">{{ 'Indica la fecha de ida' | t }}</p> }
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="pl-hasta">{{ 'Hasta' | t }}</label>
-                  <input id="pl-hasta" type="date" class="rs-inp" formControlName="hasta" />
+                  <label class="rs-lbl" for="pl-hasta">{{ 'Vuelta' | t }}</label>
+                  <input id="pl-hasta" type="date" class="rs-inp" formControlName="hasta" required
+                         [min]="form.controls.desde.value || hoy"
+                         [class.rs-inp--error]="campoInvalido('hasta') || !!errorFechas()" />
+                  @if (campoInvalido('hasta')) {
+                    <p class="rs-field-error">{{ 'Indica la fecha de vuelta' | t }}</p>
+                  } @else if (errorFechas()) {
+                    <p class="rs-field-error">{{ errorFechas() | t }}</p>
+                  }
                 </div>
                 <div class="rs-field">
-                  <label class="rs-lbl" for="pl-presupuesto">{{ 'Presupuesto (€)' | t }}</label>
-                  <input id="pl-presupuesto" type="number" min="0" class="rs-inp" formControlName="presupuesto" inputmode="numeric" />
+                  <label class="rs-lbl" for="pl-presupuesto">{{ 'Presupuesto máximo (€, opcional)' | t }}</label>
+                  <input id="pl-presupuesto" type="number" min="1" class="rs-inp" formControlName="presupuesto" inputmode="numeric" />
+                  <p class="pl-ayuda">{{ 'Descarta servicios más caros y te avisa si la estimación lo supera.' | t }}</p>
                 </div>
                 @if (perros().length) {
                   <div class="rs-field">
@@ -242,10 +301,13 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
             {{ (generando() ? 'Preparando tu viaje…' : 'Generar itinerario') | t }}
           </button>
 
-          @if (error()) { <div class="rs-alert rs-alert--error">{{ error() }}</div> }
+          @if (error()) { <div class="rs-alert rs-alert--error">{{ error() | t }}</div> }
         </div>
 
         @if (itinerario(); as it) {
+          @if (it.avisoAlojamiento) {
+            <div class="rs-alert rs-alert--warning pl-alerta" role="status">{{ it.avisoAlojamiento }}</div>
+          }
           @if (it.aviso) {
             <!--
               Nota informativa, no advertencia. El icono era el de alerta y el
@@ -264,8 +326,28 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
                 <header>
                   <h3>{{ o.nombre }}</h3>
                   <p>{{ o.resumen }}</p>
+                  <!--
+                    Bloqueo del cliente (octubre): el importe se leía como el
+                    coste del viaje aunque no hubiera fechas. Ahora las fechas
+                    son obligatorias y la cifra se rotula como estimación, con
+                    lo que incluye.
+                  -->
                   @if (o.presupuestoEstimado) {
-                    <span class="pl-presupuesto">Desde {{ o.presupuestoEstimado | euros }}</span>
+                    <div class="pl-estimacion">
+                      <span class="pl-presupuesto">
+                        {{ 'Estimación orientativa' | t }}: {{ o.presupuestoEstimado | euros }}
+                      </span>
+                      @if (o.superaPresupuesto) {
+                        <span class="rs-badge rs-badge--warning">{{ 'Supera tu presupuesto' | t }}</span>
+                      }
+                      <small>
+                        @if (o.noches) {
+                          {{ '{n} noches de hotel y una vez cada servicio, a precio «desde». El precio final se confirma al reservar.' | t: { n: o.noches } }}
+                        } @else {
+                          {{ 'Una vez cada servicio, a precio «desde». El precio final se confirma al reservar.' | t }}
+                        }
+                      </small>
+                    </div>
                   }
                 </header>
 
@@ -278,6 +360,9 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
                           <div>
                             <strong>{{ p.titulo }}</strong>
                             <em>{{ p.descripcion }}</em>
+                            @if (p.servicioId && p.precioEstimado) {
+                              <span class="pl-precio">{{ precioOrientativo(p) | t: { precio: (p.precioEstimado | euros) } }}</span>
+                            }
                           </div>
                           @if (p.servicioId) {
                             <a class="rs-btn rs-btn--primary rs-btn--sm" [routerLink]="enlace(p)">{{ 'Reservar' | t }}</a>
@@ -321,7 +406,7 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
                       <strong>{{ s.titulo }}</strong>
                       <em>
                         {{ etiquetaVertical(s.vertical) | t }}
-                        @if (s.precioEstimado) { · {{ 'desde' | t }} {{ s.precioEstimado | euros }} }
+                        @if (s.precioEstimado) { · {{ precioOrientativo(s) | t: { precio: (s.precioEstimado | euros) } }} }
                       </em>
                     </div>
                     <div class="pl-parada__acciones">
@@ -445,8 +530,20 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
       h3 { font-size: var(--f-lg); color: var(--dk-blue); }
       header p { color: var(--t-400); font-size: var(--f-sm); margin-top: var(--sp-1); line-height: 1.55; }
     }
+    .pl-buscar { padding: var(--sp-5); margin-bottom: var(--sp-5); }
+    .pl-buscar__fila {
+      display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-2);
+      .rs-inp { flex: 1 1 240px; }
+    }
+    .pl-alerta { margin-bottom: var(--sp-4); }
+    .pl-ayuda { font-size: var(--f-xs); color: var(--t-400); margin-top: var(--sp-1); }
+    .pl-precio { display: block; font-size: var(--f-xs); color: var(--dk-blue); font-weight: var(--w-6); margin-top: var(--sp-1); }
+    .pl-estimacion {
+      display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3);
+      small { flex-basis: 100%; font-size: var(--f-xs); color: var(--t-400); line-height: 1.5; }
+    }
     .pl-presupuesto {
-      display: inline-block; margin-top: var(--sp-3);
+      display: inline-block;
       padding: 2px var(--sp-3); border-radius: var(--r-full);
       background: var(--c-accent-lo); color: var(--dk-blue);
       font-size: var(--f-xs); font-weight: var(--w-6);
@@ -483,10 +580,15 @@ export class PlanificadorComponent implements OnInit {
   readonly ritmos = opciones(RITMO_VIAJE_LABELS);
   readonly alojamientos = opciones(ALOJAMIENTO_VIAJE_LABELS);
   readonly desplazamientos = opciones(DESPLAZAMIENTO_VIAJE_LABELS);
-  readonly serviciosExtra = SERVICIOS_EXTRA.map((valor) => ({ valor, etiqueta: VERTICAL_LABELS[valor] }));
+  readonly serviciosExtra = SERVICIOS_EXTRA_VIAJE.map((valor) => ({ valor, etiqueta: VERTICAL_LABELS[valor] }));
+  readonly sugerencias = SUGERENCIAS_DESTINO;
+  /** Hoy en Madrid: mínimo de los campos de fecha. */
+  readonly hoy = claveDiaEnZona(new Date());
 
   readonly destinos = signal<Destino[]>(this.aDestinos(DESTINOS_POR_DEFECTO));
-  readonly provincia = signal('');
+  /** Destino confirmado («Dénia (Alicante)»); vacío = pantalla de elegir destino. */
+  readonly destino = signal('');
+  readonly errorDestino = signal('');
   readonly itinerario = signal<ItinerarioApi | null>(null);
   readonly generando = signal(false);
   readonly error = signal('');
@@ -497,15 +599,15 @@ export class PlanificadorComponent implements OnInit {
   readonly extrasElegidos = signal<VerticalKey[]>([]);
 
   readonly form = new FormGroup({
-    municipio: new FormControl('', { nonNullable: true }),
-    desde: new FormControl('', { nonNullable: true }),
-    hasta: new FormControl('', { nonNullable: true }),
-    presupuesto: new FormControl<number | null>(null),
+    destino: new FormControl('', { nonNullable: true }),
+    desde: new FormControl('', { nonNullable: true, validators: Validators.required }),
+    hasta: new FormControl('', { nonNullable: true, validators: Validators.required }),
+    presupuesto: new FormControl<number | null>(null, { validators: Validators.min(1) }),
     perroId: new FormControl('', { nonNullable: true }),
     ritmo: new FormControl<RitmoViaje>(RitmoViaje.EQUILIBRADO, { nonNullable: true }),
     alojamiento: new FormControl<AlojamientoViaje>(AlojamientoViaje.NECESITO, { nonNullable: true }),
     desplazamiento: new FormControl<DesplazamientoViaje>(DesplazamientoViaje.COCHE_PROPIO, { nonNullable: true }),
-  });
+  }, { validators: fechasDelViaje });
 
   async ngOnInit(): Promise<void> {
     // Es una página pública más: sin esto se quedaba con el título y la
@@ -548,15 +650,49 @@ export class PlanificadorComponent implements OnInit {
     }));
   }
 
-  elegir(provincia: string): void {
-    this.provincia.set(provincia);
-    this.itinerario.set(null);
+  /** Tarjeta de destino: equivale a escribirlo y continuar. */
+  elegir(destino: string): void {
+    this.form.controls.destino.setValue(destino);
+    this.continuar();
+  }
+
+  /** Confirma el destino escrito; cualquier población vale, no sólo las sugeridas. */
+  continuar(): boolean {
+    const resuelto = resolverDestinoViaje(this.form.controls.destino.value);
+    if (!resuelto) {
+      this.errorDestino.set('Escribe a dónde queréis viajar');
+      return false;
+    }
+    this.errorDestino.set('');
+    this.form.controls.destino.setValue(resuelto.etiqueta);
+    if (resuelto.etiqueta !== this.destino()) this.itinerario.set(null);
+    this.destino.set(resuelto.etiqueta);
     this.error.set('');
+    return true;
   }
 
   volver(): void {
-    this.provincia.set('');
+    this.destino.set('');
+    this.form.controls.destino.setValue('');
     this.itinerario.set(null);
+    this.errorDestino.set('');
+  }
+
+  campoInvalido(campo: 'desde' | 'hasta'): boolean {
+    const control = this.form.controls[campo];
+    return control.touched && control.hasError('required');
+  }
+
+  /** Motivo por el que las fechas no valen (pasadas, al revés…), si lo hay. */
+  errorFechas(): string {
+    return (this.form.errors?.['fechas'] as string | undefined) ?? '';
+  }
+
+  /** Los precios de las fichas son «desde»: en hoteles, por noche. Nunca el coste del viaje. */
+  precioOrientativo(parada: ParadaApi): string {
+    return parada.vertical === VERTICAL_ALOJAMIENTO_VIAJE
+      ? 'Desde {precio} la noche (orientativo)'
+      : 'Desde {precio} (orientativo)';
   }
 
   alternarInteres(tipo: TipoLugar): void {
@@ -581,6 +717,13 @@ export class PlanificadorComponent implements OnInit {
   }
 
   async generar(): Promise<void> {
+    this.form.markAllAsTouched();
+    if (!this.continuar()) return;
+    if (this.form.invalid) {
+      this.error.set(this.errorFechas() || 'Indica las fechas de ida y vuelta del viaje');
+      return;
+    }
+
     this.generando.set(true);
     this.error.set('');
     try {
@@ -601,11 +744,10 @@ export class PlanificadorComponent implements OnInit {
   private peticion(): Record<string, unknown> {
     const f = this.form.getRawValue();
     return {
-      provincia: this.provincia(),
-      municipio: f.municipio.trim() || undefined,
-      desde: f.desde || undefined,
-      hasta: f.hasta || undefined,
-      presupuestoMax: f.presupuesto ?? undefined,
+      destino: this.destino(),
+      desde: f.desde,
+      hasta: f.hasta,
+      presupuestoMax: f.presupuesto || undefined,
       perroId: f.perroId || undefined,
       intereses: this.interesesElegidos().length ? this.interesesElegidos() : undefined,
       ritmo: f.ritmo,
@@ -617,18 +759,20 @@ export class PlanificadorComponent implements OnInit {
 
   /** Vuelca la parada al carrito: es lo que convierte el plan en reservas. */
   async anadir(parada: ParadaApi): Promise<void> {
-    if (!parada.servicioId) return;
+    if (!parada.servicioId || !parada.vertical) return;
 
     const { desde, hasta } = this.form.getRawValue();
+    // Sólo el hotel ocupa del día de ida al de vuelta; el resto es una cita.
+    const esHotel = parada.vertical === VERTICAL_ALOJAMIENTO_VIAJE;
     this.anadiendo.set(parada.servicioId);
     this.error.set('');
     try {
       // Sin `comercioId`: lo deduce el backend del propio servicio.
       await this.carritoService.anadir({
         servicioId: parada.servicioId,
-        vertical: (parada.vertical as VerticalKey) ?? VerticalKey.ALOJAMIENTO,
-        fechaInicio: desde || new Date().toISOString().slice(0, 10),
-        fechaFin: hasta || undefined,
+        vertical: parada.vertical as VerticalKey,
+        fechaInicio: desde || this.hoy,
+        fechaFin: esHotel ? hasta || undefined : undefined,
       });
       this.anadidos.update((lista) => [...lista, parada.servicioId!]);
     } catch (e) {

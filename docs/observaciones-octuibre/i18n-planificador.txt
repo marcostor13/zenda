@@ -1,0 +1,23 @@
+Escribe a dónde vais (una ciudad, un pueblo o una provincia) y te proponemos un viaje completo con tu perro: hotel pet friendly, dónde pasear y qué reservar. Todo con sitios y profesionales que ya están en Doogking.
+¿A dónde vais?
+Escribe una ciudad, un pueblo o una provincia
+Escribe a dónde queréis viajar
+O inspírate con estos destinos
+Tu viaje a {destino}
+Cambiar destino
+Ida
+Indica la fecha de ida
+Indica la fecha de vuelta
+Indica las fechas de ida y vuelta del viaje
+Las fechas del viaje no son válidas
+La fecha de ida no puede ser anterior a hoy
+La fecha de vuelta no puede ser anterior a la de ida
+Presupuesto máximo (€, opcional)
+Descarta servicios más caros y te avisa si la estimación lo supera.
+Estimación orientativa
+Supera tu presupuesto
+{n} noches de hotel y una vez cada servicio, a precio «desde». El precio final se confirma al reservar.
+Una vez cada servicio, a precio «desde». El precio final se confirma al reservar.
+Desde {precio} la noche (orientativo)
+Desde {precio} (orientativo)
+No hemos podido preparar el itinerario. Vuelve a intentarlo.
