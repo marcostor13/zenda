@@ -470,6 +470,17 @@ const admin: Diccionario = {
   'Suspender': 'Suspend',
   'Adherir a Alpha': 'Join Alpha',
   'Salir de Alpha': 'Leave Alpha',
+  // Usuarios: desactivar (baja reversible) frente a eliminar de verdad.
+  'Desactivados': 'Deactivated',
+  'Reactivar usuario': 'Reactivate user',
+  'Desactivar usuario': 'Deactivate user',
+  'Desactivar': 'Deactivate',
+  'Desactivando…': 'Deactivating…',
+  'Eliminando…': 'Deleting…',
+  '¿Desactivar a': 'Deactivate',
+  '¿Eliminar definitivamente a': 'Permanently delete',
+  'Perderá el acceso, pero conserva su historial y podrás reactivarlo desde el filtro "Desactivados".': 'They will lose access, but their history is kept and you can reactivate them from the "Deactivated" filter.',
+  'Se borra la cuenta y no se puede deshacer. Si tiene reservas en su historial, desactívala en su lugar.': 'The account is deleted and this cannot be undone. If it has bookings in its history, deactivate it instead.',
 };
 
 export default admin;

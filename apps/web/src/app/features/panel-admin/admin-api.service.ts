@@ -530,13 +530,14 @@ export class AdminApiService {
 
   // ── Usuarios CRUD ────────────────────────────────────────────────────────────
 
-  getUsuarios(params: { page?: number; limite?: number; rol?: string; buscar?: string; verificado?: boolean } = {}): Observable<PaginatedResult<UsuarioAdmin>> {
+  getUsuarios(params: { page?: number; limite?: number; rol?: string; buscar?: string; verificado?: boolean; bajas?: boolean } = {}): Observable<PaginatedResult<UsuarioAdmin>> {
     let p = new HttpParams();
     if (params.page) p = p.set('page', String(params.page));
     if (params.limite) p = p.set('limite', String(params.limite));
     if (params.rol) p = p.set('rol', params.rol);
     if (params.buscar) p = p.set('buscar', params.buscar);
     if (params.verificado !== undefined) p = p.set('verificado', String(params.verificado));
+    if (params.bajas) p = p.set('bajas', 'true');
     return this.http.get<PaginatedResult<UsuarioAdmin>>(`${this.adminUrl}/usuarios`, { params: p });
   }
 
@@ -610,8 +611,18 @@ export class AdminApiService {
     return this.http.patch<UsuarioAdmin>(`${this.adminUrl}/usuarios/${id}`, dto);
   }
 
-  eliminarUsuario(id: string): Observable<void> {
+  /** Baja lógica: la cuenta pierde el acceso pero se puede reactivar. */
+  desactivarUsuario(id: string): Observable<void> {
     return this.http.delete<void>(`${this.adminUrl}/usuarios/${id}`);
+  }
+
+  /** Borrado físico e irreversible; el API lo rechaza si la cuenta tiene reservas. */
+  eliminarUsuario(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.adminUrl}/usuarios/${id}`, { body: { purgar: true } });
+  }
+
+  reactivarUsuario(id: string): Observable<void> {
+    return this.http.post<void>(`${this.adminUrl}/usuarios/${id}/restaurar`, {});
   }
 
   // ── Reservas ─────────────────────────────────────────────────────────────────

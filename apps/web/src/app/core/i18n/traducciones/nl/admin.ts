@@ -470,6 +470,17 @@ const admin: Diccionario = {
   'Suspender': 'Opschorten',
   'Adherir a Alpha': 'Deelnemen aan Alpha',
   'Salir de Alpha': 'Alpha verlaten',
+  // Usuarios: desactivar (baja reversible) frente a eliminar de verdad.
+  'Desactivados': 'Gedeactiveerd',
+  'Reactivar usuario': 'Gebruiker heractiveren',
+  'Desactivar usuario': 'Gebruiker deactiveren',
+  'Desactivar': 'Deactiveren',
+  'Desactivando…': 'Bezig met deactiveren…',
+  'Eliminando…': 'Bezig met verwijderen…',
+  '¿Desactivar a': 'Deactiveren:',
+  '¿Eliminar definitivamente a': 'Definitief verwijderen:',
+  'Perderá el acceso, pero conserva su historial y podrás reactivarlo desde el filtro "Desactivados".': 'Hij verliest de toegang, maar de geschiedenis blijft bewaard en je kunt hem heractiveren via het filter "Gedeactiveerd".',
+  'Se borra la cuenta y no se puede deshacer. Si tiene reservas en su historial, desactívala en su lugar.': 'Het account wordt verwijderd en dit kan niet ongedaan worden gemaakt. Heeft het boekingen in de geschiedenis, deactiveer het dan.',
 };
 
 export default admin;

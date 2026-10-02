@@ -470,6 +470,17 @@ const admin: Diccionario = {
   'Suspender': 'Zawieś',
   'Adherir a Alpha': 'Dołącz do Alpha',
   'Salir de Alpha': 'Opuść Alpha',
+  // Usuarios: desactivar (baja reversible) frente a eliminar de verdad.
+  'Desactivados': 'Dezaktywowani',
+  'Reactivar usuario': 'Aktywuj ponownie użytkownika',
+  'Desactivar usuario': 'Dezaktywuj użytkownika',
+  'Desactivar': 'Dezaktywuj',
+  'Desactivando…': 'Dezaktywowanie…',
+  'Eliminando…': 'Usuwanie…',
+  '¿Desactivar a': 'Dezaktywować:',
+  '¿Eliminar definitivamente a': 'Usunąć trwale:',
+  'Perderá el acceso, pero conserva su historial y podrás reactivarlo desde el filtro "Desactivados".': 'Straci dostęp, ale historia zostanie zachowana i możesz go ponownie aktywować z filtra „Dezaktywowani".',
+  'Se borra la cuenta y no se puede deshacer. Si tiene reservas en su historial, desactívala en su lugar.': 'Konto zostanie usunięte i nie można tego cofnąć. Jeśli ma rezerwacje w historii, dezaktywuj je.',
 };
 
 export default admin;
