@@ -413,6 +413,8 @@ const publico: Diccionario = {
   'Desde {precio} (orientativo)': 'Desde {precio} (indicativo)',
   'No hemos podido preparar el itinerario. Vuelve a intentarlo.': 'Não conseguimos preparar o itinerário. Tenta novamente.',
   'Perfiles que no admite este centro:': 'Perfis que este centro não aceita:',
+  'Sin valoraciones': 'Sem avaliações',
+  '{n} reseñas verificadas': '{n} avaliações verificadas',
 };
 
 export default publico;

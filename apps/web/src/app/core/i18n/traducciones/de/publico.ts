@@ -413,6 +413,8 @@ const publico: Diccionario = {
   'Desde {precio} (orientativo)': 'Ab {precio} (unverbindlich)',
   'No hemos podido preparar el itinerario. Vuelve a intentarlo.': 'Wir konnten den Reiseplan nicht erstellen. Versuch es noch einmal.',
   'Perfiles que no admite este centro:': 'Profile, die diese Einrichtung nicht aufnimmt:',
+  'Sin valoraciones': 'Noch keine Bewertungen',
+  '{n} reseñas verificadas': '{n} verifizierte Bewertungen',
 };
 
 export default publico;

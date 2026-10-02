@@ -413,6 +413,8 @@ const publico: Diccionario = {
   'Desde {precio} (orientativo)': 'Vanaf {precio} (indicatief)',
   'No hemos podido preparar el itinerario. Vuelve a intentarlo.': 'We konden de reisroute niet samenstellen. Probeer het opnieuw.',
   'Perfiles que no admite este centro:': 'Profielen die dit centrum niet toelaat:',
+  'Sin valoraciones': 'Nog geen beoordelingen',
+  '{n} reseñas verificadas': '{n} geverifieerde beoordelingen',
 };
 
 export default publico;

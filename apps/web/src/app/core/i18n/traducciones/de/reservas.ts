@@ -343,6 +343,15 @@ const reservas: Diccionario = {
   'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'Diese Einrichtung bietet diese Betreuungsoption nicht an. Wähle eine andere.',
   'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'Die Tagesstätte hat an diesem Wochentag geschlossen. Versuch es mit einem anderen Datum.',
   'La hora de entrada no es válida.': 'Die Bringzeit ist ungültig.',
+  'Hora de entrega': 'Bringzeit',
+  'Elige una hora': 'Uhrzeit wählen',
+  'Sólo se muestran las horas en que atiende el comercio.': 'Es werden nur die Öffnungszeiten des Anbieters angezeigt.',
+  'Días válidos más cercanos para la entrega:': 'Nächste mögliche Tage für die Abgabe:',
+  'Días válidos más cercanos para la recogida:': 'Nächste mögliche Tage für die Abholung:',
+  'El mismo día, a otra hora': 'Am selben Tag, zu einer anderen Uhrzeit',
+  'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'Du kannst bis 24 Std. vor der Leistung kostenlos stornieren und erhältst den vollen Betrag zurück.',
+  'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'Du kannst bis 3 Tage vor der Leistung kostenlos stornieren und erhältst den vollen Betrag zurück.',
+  'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'Diese Buchung ist nicht erstattungsfähig: Bei Stornierung wird der Betrag nicht zurückgezahlt.',
 };
 
 export default reservas;

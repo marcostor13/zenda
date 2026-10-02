@@ -343,6 +343,15 @@ const reservas: Diccionario = {
   'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'Dit centrum biedt die opvangoptie niet aan. Kies een andere.',
   'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'De opvang is op die dag van de week gesloten. Probeer een andere datum.',
   'La hora de entrada no es válida.': 'De brengtijd is ongeldig.',
+  'Hora de entrega': 'Brengtijd',
+  'Elige una hora': 'Kies een tijd',
+  'Sólo se muestran las horas en que atiende el comercio.': 'Alleen de openingstijden van het bedrijf worden getoond.',
+  'Días válidos más cercanos para la entrega:': 'Dichtstbijzijnde beschikbare dagen om te brengen:',
+  'Días válidos más cercanos para la recogida:': 'Dichtstbijzijnde beschikbare dagen om op te halen:',
+  'El mismo día, a otra hora': 'Dezelfde dag, op een ander tijdstip',
+  'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'Je kunt tot 24 uur voor de dienst gratis annuleren en krijgt het volledige bedrag terug.',
+  'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'Je kunt tot 3 dagen voor de dienst gratis annuleren en krijgt het volledige bedrag terug.',
+  'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'Deze boeking is niet restitueerbaar: bij annulering wordt het bedrag niet terugbetaald.',
 };
 
 export default reservas;

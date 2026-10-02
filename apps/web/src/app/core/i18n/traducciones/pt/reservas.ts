@@ -343,6 +343,15 @@ const reservas: Diccionario = {
   'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'Este centro não oferece essa modalidade de creche. Escolhe outra.',
   'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'A creche não abre nesse dia da semana. Experimenta outra data.',
   'La hora de entrada no es válida.': 'A hora de entrada não é válida.',
+  'Hora de entrega': 'Hora de entrega',
+  'Elige una hora': 'Escolha uma hora',
+  'Sólo se muestran las horas en que atiende el comercio.': 'Só são mostradas as horas em que o estabelecimento atende.',
+  'Días válidos más cercanos para la entrega:': 'Dias disponíveis mais próximos para a entrega:',
+  'Días válidos más cercanos para la recogida:': 'Dias disponíveis mais próximos para a recolha:',
+  'El mismo día, a otra hora': 'No mesmo dia, a outra hora',
+  'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'Pode cancelar gratuitamente até 24 h antes do serviço e recebe o valor total.',
+  'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'Pode cancelar gratuitamente até 3 dias antes do serviço e recebe o valor total.',
+  'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'Esta reserva não é reembolsável: se a cancelar, o valor não é devolvido.',
 };
 
 export default reservas;

@@ -682,6 +682,9 @@ const comercio: Diccionario = {
   'Pausar servicio': 'Leistung pausieren',
   'Publicar servicio': 'Leistung veröffentlichen',
   'Marca los perfiles que no admites en tu centro canino': 'Markiere die Profile, die du in deiner Einrichtung nicht aufnimmst',
+  'Escribe el nombre de la calle, no sólo el número.': 'Gib den Straßennamen ein, nicht nur die Hausnummer.',
+  'El número no es válido (ej.: 24, 2ºB o s/n).': 'Die Hausnummer ist ungültig (z. B. 24, 2ºB oder s/n).',
+  'Si publicas espacios o servicios con precio, las tarjetas y la ficha muestran «desde» el más barato; este precio sólo se usa si no hay ninguno.': 'Wenn du Plätze oder Leistungen mit Preis veröffentlichst, zeigen Karten und Detailseite „ab“ dem günstigsten; dieser Preis gilt nur, wenn es keine gibt.',
 };
 
 export default comercio;

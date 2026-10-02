@@ -413,6 +413,8 @@ const publico: Diccionario = {
   'Desde {precio} (orientativo)': 'From {precio} (approx.)',
   'No hemos podido preparar el itinerario. Vuelve a intentarlo.': 'We couldn’t prepare the itinerary. Please try again.',
   'Perfiles que no admite este centro:': 'Profiles this centre doesn’t accept:',
+  'Sin valoraciones': 'No reviews yet',
+  '{n} reseñas verificadas': '{n} verified reviews',
 };
 
 export default publico;

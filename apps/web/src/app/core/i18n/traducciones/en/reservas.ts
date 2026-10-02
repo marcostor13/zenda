@@ -343,6 +343,15 @@ const reservas: Diccionario = {
   'Este centro no ofrece esa modalidad de guardería. Elige otra.': 'This centre doesn’t offer that day care option. Choose another one.',
   'La guardería no abre ese día de la semana. Prueba con otra fecha.': 'The day care is closed on that day of the week. Try another date.',
   'La hora de entrada no es válida.': 'The drop-off time is not valid.',
+  'Hora de entrega': 'Drop-off time',
+  'Elige una hora': 'Choose a time',
+  'Sólo se muestran las horas en que atiende el comercio.': 'Only the business’s opening hours are shown.',
+  'Días válidos más cercanos para la entrega:': 'Nearest available days for drop-off:',
+  'Días válidos más cercanos para la recogida:': 'Nearest available days for pick-up:',
+  'El mismo día, a otra hora': 'Same day, at another time',
+  'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'You can cancel free of charge up to 24 h before the service and get a full refund.',
+  'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'You can cancel free of charge up to 3 days before the service and get a full refund.',
+  'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'This booking is non-refundable: if you cancel, the amount is not refunded.',
 };
 
 export default reservas;

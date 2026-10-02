@@ -19,8 +19,10 @@ describe('RsFiltrosListadoComponent', () => {
 
   const ultimo = (): FiltrosSeleccionados => emitidos[emitidos.length - 1];
 
-  /** Primer grupo de opciones múltiples del vertical montado. */
-  const grupoOpciones = () => component.grupos().find((g) => Boolean(g.campo) && g.tipo !== 'precio');
+  /** Primer grupo con al menos dos opciones del vertical montado (Modalidad sólo trae una). */
+  const grupoOpciones = () => component.grupos().find(
+    (g) => Boolean(g.campo) && g.tipo !== 'precio' && (g.opciones?.length ?? 0) >= 2,
+  );
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [RsFiltrosListadoComponent] }).compileComponents();
