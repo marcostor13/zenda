@@ -2,9 +2,10 @@ import { Body, Controller, Get, Post, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import {
-  ArrayMaxSize, IsArray, IsDateString, IsEnum, IsIn, IsNumber, IsOptional, IsString, Min, MinLength,
+  ArrayMaxSize, IsArray, IsDateString, IsEnum, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min,
+  MinLength,
 } from 'class-validator';
-import { AlojamientoViaje, DesplazamientoViaje, RitmoViaje, VerticalKey } from 'shared';
+import { AlojamientoViaje, DesplazamientoViaje, RitmoViaje, SERVICIOS_EXTRA_VIAJE } from 'shared';
 import { DestinoPlanificador, PlanificadorService, RespuestaItinerario } from './planificador.service';
 
 interface RequestConUsuario extends Request {
@@ -12,17 +13,25 @@ interface RequestConUsuario extends Request {
 }
 
 class GenerarItinerarioDto {
+  /** Provincia o cualquier población, escrita libremente. */
+  @IsOptional()
   @IsString()
   @MinLength(2)
-  provincia!: string;
+  @MaxLength(80)
+  destino?: string;
 
+  /** Compatibilidad con la tarjeta de provincia; el servicio exige uno de los dos. */
   @IsOptional()
-  @IsDateString()
-  desde?: string;
+  @IsString()
+  @MaxLength(80)
+  provincia?: string;
 
-  @IsOptional()
-  @IsDateString()
-  hasta?: string;
+  /** Obligatorias: el servicio comprueba además que no sean pasadas ni estén al revés. */
+  @IsDateString({}, { message: 'Indica la fecha de ida del viaje' })
+  desde!: string;
+
+  @IsDateString({}, { message: 'Indica la fecha de vuelta del viaje' })
+  hasta!: string;
 
   @IsOptional()
   @IsString()
@@ -41,6 +50,7 @@ class GenerarItinerarioDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   municipio?: string;
 
   @IsOptional()
@@ -58,7 +68,7 @@ class GenerarItinerarioDto {
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(10)
-  @IsIn(Object.values(VerticalKey), { each: true })
+  @IsIn([...SERVICIOS_EXTRA_VIAJE], { each: true })
   serviciosExtra?: string[];
 }
 
@@ -80,7 +90,7 @@ export class PlanificadorController {
   }
 
   @Post('itinerario')
-  @ApiOperation({ summary: 'Generar un itinerario de viaje con mascota para una provincia' })
+  @ApiOperation({ summary: 'Generar un itinerario de viaje con mascota para un destino (provincia o población)' })
   generar(
     @Body() dto: GenerarItinerarioDto,
     @Req() req: RequestConUsuario,

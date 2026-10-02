@@ -3,7 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import {
-  AlojamientoViaje, DesplazamientoViaje, EstadoModeracion, RitmoViaje, TipoLugar, claveUbicacion, regexLiteral,
+  AlojamientoViaje, DesplazamientoViaje, DestinoViaje, EstadoModeracion, RitmoViaje, TipoLugar,
+  VERTICAL_ALOJAMIENTO_VIAJE, claveDiaEnZona, claveUbicacion, errorFechasViaje, nochesDelViaje,
+  regexSinTildes, resolverDestinoViaje,
 } from 'shared';
 import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 import { Lugar, LugarDocument } from '../lugares/lugar.schema';
@@ -11,17 +13,26 @@ import { PerrosService } from '../perros/perros.service';
 import { CentrosPoblacionService } from '../geo/centros-poblacion.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import {
-  LugarContexto, OpcionItinerario, ParadaItinerario, PreferenciasViaje, ServicioContexto, armarDias,
-  diasDelViaje, garantizarServicio, paradaDeLugar, paradaDeServicio, presupuestoDe, serviciosSugeridos,
-  verticalesBuscadas,
+  LugarContexto, OpcionItinerario, ParadaItinerario, PreferenciasViaje, ServicioContexto, alojamientoDe,
+  armarDias, asegurarAlojamiento, conEstimacion, diasDelViaje, garantizarServicio, necesitaAlojamiento,
+  paradaDeLugar, paradaDeServicio, serviciosDelContexto, serviciosSugeridos, verticalesBuscadas,
+  verticalesExcluidas,
 } from './armar-itinerario';
 
 export type { DiaItinerario, OpcionItinerario, ParadaItinerario } from './armar-itinerario';
 
 export interface PeticionItinerario {
-  provincia: string;
-  /** Población concreta dentro de la provincia, si la hay. */
+  /**
+   * Destino tal como lo escribe el usuario: una provincia o cualquier
+   * población («Dénia», «Gandía (Valencia)»). Antes sólo se podía elegir una
+   * provincia de una lista cerrada (bloqueo del cliente, octubre).
+   */
+  destino?: string;
+  /** Compatibilidad: provincia elegida en una tarjeta de destino. */
+  provincia?: string;
+  /** Compatibilidad: población concreta dentro de la provincia. */
   municipio?: string;
+  /** Obligatorias: sin fechas no hay noches ni coste que estimar. */
   desde?: string;
   hasta?: string;
   perroId?: string;
@@ -36,7 +47,12 @@ export interface PeticionItinerario {
 }
 
 export interface RespuestaItinerario {
+  /** Provincia del destino, o el destino si no se conoce su provincia. */
   provincia: string;
+  /** Cómo se enseña el destino: «Dénia (Alicante)». */
+  destino: string;
+  /** Noches reales del viaje según sus fechas. */
+  noches: number;
   opciones: OpcionItinerario[];
   /**
    * Lo reservable del plan, sin repetir: cierra la pantalla con «Reserva tu
@@ -46,6 +62,12 @@ export interface RespuestaItinerario {
   /** true cuando el itinerario se armó sin IA, solo con datos propios. */
   esFallback: boolean;
   aviso?: string;
+  /**
+   * Si hacía falta dónde dormir y no hay hoteles pet friendly en la zona. No
+   * se rellena con residencias caninas: son para dejar al perro, no para
+   * dormir con él.
+   */
+  avisoAlojamiento?: string;
 }
 
 /** Provincia con contenido para planificar: lo que ofrece la pantalla de inicio. */
@@ -74,6 +96,7 @@ interface EntradaCache {
 /** Todo lo que el modelo necesita para redactar el plan. */
 interface ContextoIA {
   peticion: PeticionItinerario;
+  destino: DestinoViaje;
   preferencias: PreferenciasViaje;
   lugares: LugarDocument[];
   servicios: ServicioDocument[];
@@ -126,11 +149,11 @@ export class PlanificadorService {
   }
 
   async generar(peticion: PeticionItinerario, usuarioId?: string): Promise<RespuestaItinerario> {
-    if (!peticion.provincia?.trim()) {
-      throw new DomainException('Indica la provincia a la que quieres viajar', 400);
-    }
+    const destino = this.destinoDe(peticion);
+    const errorFechas = errorFechasViaje(peticion.desde, peticion.hasta);
+    if (errorFechas) throw new DomainException(errorFechas, 400);
 
-    const clave = this.clave(peticion);
+    const clave = this.clave(peticion, destino);
     const cacheado = this.leerCache(clave);
     if (cacheado) return cacheado;
 
@@ -138,23 +161,37 @@ export class PlanificadorService {
 
     const preferencias = this.preferenciasDe(peticion);
     const [lugares, servicios] = await Promise.all([
-      this.lugaresDe(peticion),
-      this.serviciosDe(peticion, preferencias),
+      this.lugaresDe(destino, peticion.intereses),
+      this.serviciosDe(destino, peticion, preferencias),
     ]);
 
     if (!lugares.length && !servicios.length) {
       throw new DomainException(
-        `Todavía no tenemos suficiente contenido en ${peticion.provincia} para armar un viaje.`,
+        `Todavía no tenemos suficiente contenido en ${destino.etiqueta} para armar un viaje.`,
         404,
       );
     }
 
     const perfilPerro = await this.perfilPerro(peticion.perroId, usuarioId);
-    const respuesta = await this.generarConIA({ peticion, preferencias, lugares, servicios, perfilPerro })
-      ?? this.generarSinIA(peticion, preferencias, lugares, servicios);
+    const contexto: ContextoIA = { peticion, destino, preferencias, lugares, servicios, perfilPerro };
+    const respuesta = await this.generarConIA(contexto) ?? this.generarSinIA(contexto);
 
     this.escribirCache(clave, respuesta);
     return respuesta;
+  }
+
+  /**
+   * Destino de la petición: lo escrito en `destino` y, por compatibilidad, la
+   * provincia de una tarjeta con su municipio opcional.
+   */
+  private destinoDe(peticion: PeticionItinerario): DestinoViaje {
+    const municipio = peticion.municipio?.trim();
+    const provincia = peticion.provincia?.trim();
+    const texto = peticion.destino?.trim()
+      || (municipio && provincia ? `${municipio} (${provincia})` : municipio || provincia || '');
+    const destino = resolverDestinoViaje(texto);
+    if (!destino) throw new DomainException('Indica a dónde quieres viajar', 400);
+    return destino;
   }
 
   // ── Destinos ──
@@ -213,34 +250,59 @@ export class PlanificadorService {
       desplazamiento: peticion.desplazamiento ?? DesplazamientoViaje.COCHE_PROPIO,
       serviciosExtra: peticion.serviciosExtra ?? [],
       dias: diasDelViaje(peticion.desde, peticion.hasta),
+      noches: peticion.desde && peticion.hasta ? nochesDelViaje(peticion.desde, peticion.hasta) : 0,
     };
   }
 
-  /** Condición de zona: la provincia, su capital y el municipio elegido. */
-  private zonaDe(peticion: PeticionItinerario): Array<Record<string, RegExp>> {
+  /**
+   * Zonas donde buscar, de la más precisa a la más amplia: la población
+   * escrita y después su provincia (y la capital que se llama igual).
+   */
+  private zonasDe(destino: DestinoViaje): Array<Array<Record<string, RegExp>>> {
     return [
-      { 'ubicacion.provincia': regexLiteral(peticion.provincia) },
-      { 'ubicacion.ciudad': regexLiteral(peticion.provincia) },
-      ...(peticion.municipio ? [{ 'ubicacion.ciudad': regexLiteral(peticion.municipio) }] : []),
+      ...(destino.municipio ? [[{ 'ubicacion.ciudad': regexSinTildes(destino.municipio) }]] : []),
+      ...(destino.provincia ? [[
+        { 'ubicacion.provincia': regexSinTildes(destino.provincia) },
+        { 'ubicacion.ciudad': regexSinTildes(destino.provincia) },
+      ]] : []),
     ];
   }
 
   /** Lugares de la zona; con intereses, sólo de esos tipos si los hay. */
-  private async lugaresDe(peticion: PeticionItinerario): Promise<LugarDocument[]> {
-    const tipos = (peticion.intereses ?? []).filter((tipo) => TIPOS_LUGAR.has(tipo));
-    const base: FilterQuery<LugarDocument> = { estado: EstadoModeracion.PUBLICADO, $or: this.zonaDe(peticion) };
+  private async lugaresDe(destino: DestinoViaje, intereses?: string[]): Promise<LugarDocument[]> {
+    const tipos = (intereses ?? []).filter((tipo) => TIPOS_LUGAR.has(tipo));
     if (tipos.length) {
-      const deInteres = await this.buscarLugares({ ...base, tipo: { $in: tipos } });
+      const deInteres = await this.lugaresPorZonas(destino, { tipo: { $in: tipos } });
       if (deInteres.length) return deInteres;
     }
-    return this.buscarLugares(base);
+    return this.lugaresPorZonas(destino, {});
   }
 
-  private buscarLugares(filtro: FilterQuery<LugarDocument>): Promise<LugarDocument[]> {
+  /**
+   * Primero los sitios de la población y, si no llenan el plan, los del resto
+   * de la provincia. Antes municipio y provincia iban en el mismo `$or`, así
+   * que escribir «Dénia» daba lo mismo que no escribir nada.
+   */
+  private async lugaresPorZonas(
+    destino: DestinoViaje, extra: FilterQuery<LugarDocument>,
+  ): Promise<LugarDocument[]> {
+    const encontrados: LugarDocument[] = [];
+    for (const zona of this.zonasDe(destino)) {
+      const faltan = MAX_LUGARES_CONTEXTO - encontrados.length;
+      if (faltan <= 0) break;
+      const vistos = encontrados.map((l) => l._id);
+      const filtro: FilterQuery<LugarDocument> = { estado: EstadoModeracion.PUBLICADO, ...extra, $or: zona };
+      if (vistos.length) filtro['_id'] = { $nin: vistos };
+      encontrados.push(...await this.buscarLugares(filtro, faltan));
+    }
+    return encontrados;
+  }
+
+  private buscarLugares(filtro: FilterQuery<LugarDocument>, limite = MAX_LUGARES_CONTEXTO): Promise<LugarDocument[]> {
     return this.lugarModel
       .find(filtro)
       .sort({ ratingPromedio: -1 })
-      .limit(MAX_LUGARES_CONTEXTO)
+      .limit(limite)
       .select('nombre tipo descripcion ubicacion ratingPromedio')
       .lean()
       .exec() as unknown as Promise<LugarDocument[]>;
@@ -249,31 +311,48 @@ export class PlanificadorService {
   /**
    * Servicios reservables para el viaje, de más a menos preciso: los de las
    * categorías que el viaje necesita en la zona; cualquiera de la zona; y, si
-   * la provincia no tiene ninguno, los que hay alrededor. Antes se buscaban por
-   * `ciudad == provincia`, así que un servicio en un pueblo no salía nunca.
+   * no hay ninguno, los que hay alrededor. Nunca residencias caninas ni
+   * funerarios: se viaja **con** el perro. Si hace falta dónde dormir y no ha
+   * salido un hotel, se busca aparte, también alrededor.
    */
   private async serviciosDe(
-    peticion: PeticionItinerario, preferencias: PreferenciasViaje,
+    destino: DestinoViaje, peticion: PeticionItinerario, preferencias: PreferenciasViaje,
   ): Promise<ServicioDocument[]> {
-    const base: FilterQuery<ServicioDocument> = { estado: 'publicado', comercioActivo: true };
+    const base: FilterQuery<ServicioDocument> = {
+      estado: 'publicado', comercioActivo: true, vertical: { $nin: verticalesExcluidas(preferencias) },
+    };
     if (peticion.presupuestoMax) base['precioBase'] = { $lte: peticion.presupuestoMax };
+    const enZona: FilterQuery<ServicioDocument> = { ...base, $or: this.zonasDe(destino).flat() };
 
+    const servicios = await this.serviciosDeLaZona(destino, enZona, base, preferencias);
+    if (!necesitaAlojamiento(preferencias) || alojamientoDe(comoServicios(servicios))) return servicios;
+
+    const soloHoteles = { vertical: VERTICAL_ALOJAMIENTO_VIAJE };
+    const hoteles = await this.buscarServicios({ ...enZona, ...soloHoteles });
+    const cercanos = hoteles.length ? hoteles : await this.serviciosCercanos(destino, { ...base, ...soloHoteles });
+    return [...cercanos.slice(0, 3), ...servicios];
+  }
+
+  private async serviciosDeLaZona(
+    destino: DestinoViaje,
+    enZona: FilterQuery<ServicioDocument>,
+    base: FilterQuery<ServicioDocument>,
+    preferencias: PreferenciasViaje,
+  ): Promise<ServicioDocument[]> {
     const verticales = verticalesBuscadas(preferencias);
-    const enZona: FilterQuery<ServicioDocument> = { ...base, $or: this.zonaDe(peticion) };
     if (verticales.length) {
       const buscados = await this.buscarServicios({ ...enZona, vertical: { $in: verticales } });
       if (buscados.length) return buscados;
     }
     const deLaZona = await this.buscarServicios(enZona);
-    return deLaZona.length ? deLaZona : this.serviciosCercanos(peticion, base);
+    return deLaZona.length ? deLaZona : this.serviciosCercanos(destino, base);
   }
 
   private async serviciosCercanos(
-    peticion: PeticionItinerario, base: FilterQuery<ServicioDocument>,
+    destino: DestinoViaje, base: FilterQuery<ServicioDocument>,
   ): Promise<ServicioDocument[]> {
-    const centro = await this.centrosPoblacion
-      .centroDe(peticion.municipio ?? peticion.provincia, peticion.provincia)
-      .catch(() => null);
+    const lugar = destino.municipio ?? destino.provincia ?? destino.etiqueta;
+    const centro = await this.centrosPoblacion.centroDe(lugar, destino.provincia).catch(() => null);
     if (!centro) return [];
     return this.buscarServicios({
       ...base,
@@ -322,21 +401,15 @@ export class PlanificadorService {
 
   private async generarConIA(contexto: ContextoIA): Promise<RespuestaItinerario | null> {
     if (!this.apiKey) return null;
-    const { peticion, preferencias, lugares, servicios } = contexto;
 
     try {
       const opciones = await this.pedirOpciones(contexto);
       if (!opciones?.length) return null;
 
       // El modelo redacta, pero el catálogo manda: las paradas con un id que no
-      // existe se quedan sin botón, y toda opción acaba en algo reservable.
-      const depuradas = opciones.map((o) => this.depurarOpcion(o, { lugares, servicios, preferencias }));
-      return {
-        provincia: peticion.provincia,
-        opciones: depuradas,
-        serviciosSugeridos: serviciosSugeridos(depuradas, comoServicios(servicios)),
-        esFallback: false,
-      };
+      // existe se quedan sin botón, toda opción acaba en algo reservable y el
+      // coste lo calcula el API, no el modelo.
+      return this.respuesta(contexto, opciones.map((o) => this.depurarOpcion(o, contexto)), false);
     } catch (error) {
       this.logger.warn(`Itinerario con IA no disponible: ${this.mensaje(error)}`);
       return null;
@@ -373,27 +446,45 @@ export class PlanificadorService {
    * verdad ha pasado: el plan está hecho con los sitios y servicios verificados
    * de la zona.
    */
-  private generarSinIA(
-    peticion: PeticionItinerario,
-    preferencias: PreferenciasViaje,
-    lugares: LugarDocument[],
-    servicios: ServicioDocument[],
-  ): RespuestaItinerario {
-    const dias = armarDias(peticion.provincia, comoLugares(lugares), comoServicios(servicios), preferencias);
-    const opciones: OpcionItinerario[] = [{
-      nombre: `Escapada por ${peticion.municipio ?? peticion.provincia}`,
+  private generarSinIA(contexto: ContextoIA): RespuestaItinerario {
+    const { destino, preferencias, lugares, servicios } = contexto;
+    const zona = destino.municipio ?? destino.provincia ?? destino.etiqueta;
+    const dias = armarDias(zona, comoLugares(lugares), comoServicios(servicios), preferencias);
+    const opcion: OpcionItinerario = {
+      nombre: `Escapada por ${zona}`,
       resumen: this.resumenSinIA(dias.length, lugares.length),
-      presupuestoEstimado: presupuestoDe(dias),
+      presupuestoEstimado: 0,
       dias,
-    }];
-
-    return {
-      provincia: peticion.provincia,
-      opciones,
-      serviciosSugeridos: serviciosSugeridos(opciones, comoServicios(servicios)),
-      esFallback: true,
-      aviso: `Plan hecho con los sitios y servicios verificados de ${peticion.provincia}.`,
     };
+    return {
+      ...this.respuesta(contexto, [opcion], true),
+      aviso: `Plan hecho con los sitios y servicios verificados de ${destino.etiqueta}.`,
+    };
+  }
+
+  /** Lo común a los dos caminos: estimación propia, sugeridos y aviso de hotel. */
+  private respuesta(
+    contexto: ContextoIA, opciones: OpcionItinerario[], esFallback: boolean,
+  ): RespuestaItinerario {
+    const { destino, preferencias, peticion } = contexto;
+    const servicios = serviciosDelContexto(comoServicios(contexto.servicios), preferencias);
+    const conCoste = opciones.map((o) => conEstimacion(o, preferencias, peticion.presupuestoMax));
+    const faltaHotel = necesitaAlojamiento(preferencias) && !alojamientoDe(servicios);
+    return {
+      provincia: destino.provincia ?? destino.etiqueta,
+      destino: destino.etiqueta,
+      noches: preferencias.noches,
+      opciones: conCoste,
+      serviciosSugeridos: serviciosSugeridos(conCoste, servicios),
+      esFallback,
+      ...(faltaHotel ? { avisoAlojamiento: this.avisoSinHotel(destino, peticion.presupuestoMax) } : {}),
+    };
+  }
+
+  private avisoSinHotel(destino: DestinoViaje, presupuestoMax?: number): string {
+    const tope = presupuestoMax ? ` por menos de ${presupuestoMax} € la noche` : '';
+    return `Todavía no hay hoteles pet friendly${tope} en ${destino.etiqueta} ni alrededores en Doogking: `
+      + 'el plan no incluye dónde dormir.';
   }
 
   private resumenSinIA(dias: number, totalLugares: number): string {
@@ -403,12 +494,10 @@ export class PlanificadorService {
   }
 
   /** Solo sobreviven las paradas que apuntan a algo real del catálogo. */
-  private depurarOpcion(
-    opcion: OpcionItinerario,
-    contexto: { lugares: LugarDocument[]; servicios: ServicioDocument[]; preferencias: PreferenciasViaje },
-  ): OpcionItinerario {
+  private depurarOpcion(opcion: OpcionItinerario, contexto: ContextoIA): OpcionItinerario {
     const lugaresPorId = new Map(comoLugares(contexto.lugares).map((l) => [String(l._id), l]));
-    const serviciosPorId = new Map(comoServicios(contexto.servicios).map((s) => [String(s._id), s]));
+    const utiles = serviciosDelContexto(comoServicios(contexto.servicios), contexto.preferencias);
+    const serviciosPorId = new Map(utiles.map((s) => [String(s._id), s]));
 
     const dias = (opcion.dias ?? []).map((dia) => ({
       ...dia,
@@ -417,12 +506,13 @@ export class PlanificadorService {
         if (servicio) return { ...parada, ...paradaDeServicio(servicio) };
         const lugar = parada.lugarId ? lugaresPorId.get(parada.lugarId) : undefined;
         if (lugar) return { ...parada, ...paradaDeLugar(lugar) };
-        // Sin id reconocible se conserva como texto, sin botón de reservar.
-        return { ...parada, tipo: 'lugar', servicioId: undefined, lugarId: undefined };
+        // Sin id reconocible se conserva como texto, sin botón ni precio.
+        return { ...parada, tipo: 'lugar', servicioId: undefined, lugarId: undefined, precioEstimado: undefined };
       }),
     }));
 
-    return { ...opcion, dias: garantizarServicio(dias, comoServicios(contexto.servicios), contexto.preferencias) };
+    const conHotel = asegurarAlojamiento(dias, utiles, contexto.preferencias);
+    return { ...opcion, dias: garantizarServicio(conHotel, utiles, contexto.preferencias) };
   }
 
   private promptSistema(): string {
@@ -437,7 +527,6 @@ Devuelve SIEMPRE un JSON válido con esta forma exacta:
     {
       "nombre": "Nombre corto del plan",
       "resumen": "Una frase sobre para quién es este plan",
-      "presupuestoEstimado": número_en_euros,
       "dias": [
         {
           "dia": 1,
@@ -455,7 +544,9 @@ Devuelve SIEMPRE un JSON válido con esta forma exacta:
 Reglas:
 - Devuelve entre 2 y 3 opciones con enfoques distintos (tranquila, activa, económica).
 - Cada opción DEBE incluir al menos un servicio reservable del contexto si hay alguno: el plan termina en una reserva.
-- Si se necesita alojamiento, ponlo el día 1; si se necesita transporte para la mascota, también el día 1.
+- Si se necesita alojamiento, ponlo el día 1 y usa SOLO un servicio de la categoría "hoteles": el perro viaja y duerme con su familia.
+- Si se necesita transporte para la mascota, ponlo también el día 1.
+- No calcules ni menciones precios ni costes totales: los pone la plataforma.
 - Respeta el ritmo: tranquilo = 2 sitios al día, equilibrado = 3, intenso = 4.
 - Si se indican intereses, prioriza esos tipos de sitio.
 - Copia los identificadores tal cual aparecen en el contexto.
@@ -463,23 +554,23 @@ Reglas:
 - Ten en cuenta el perfil del perro si se indica: un perro que se marea no hace rutas largas en coche.`;
   }
 
-  private promptUsuario({ peticion, preferencias, lugares, servicios, perfilPerro }: ContextoIA): string {
+  private promptUsuario({ peticion, destino, preferencias, lugares, servicios, perfilPerro }: ContextoIA): string {
     const listaLugares = lugares
       .map((l) => `- id:${String(l._id)} | ${l.nombre} (${l.tipo}, ${l.ubicacion.ciudad})`)
       .join('\n');
     const listaServicios = servicios
-      .map((s) => `- id:${String(s._id)} | ${s.titulo} (${s.vertical}, ${s.precioBase} €)`)
+      .map((s) => `- id:${String(s._id)} | ${s.titulo} (${s.vertical}, desde ${s.precioBase} €`
+        + `${s.vertical === VERTICAL_ALOJAMIENTO_VIAJE ? ' la noche' : ''})`)
       .join('\n');
 
     return [
-      `Provincia: ${peticion.provincia}`,
-      peticion.municipio && `Municipio: ${peticion.municipio}`,
-      peticion.desde && `Fechas: del ${peticion.desde} al ${peticion.hasta ?? peticion.desde}`,
-      preferencias.dias && `Días del viaje: ${preferencias.dias}`,
+      `Destino: ${destino.etiqueta}`,
+      `Fechas: del ${peticion.desde} al ${peticion.hasta} (${preferencias.noches} noches)`,
+      preferencias.dias && `Días del itinerario: ${preferencias.dias}`,
       peticion.presupuestoMax && `Presupuesto máximo: ${peticion.presupuestoMax} €`,
       peticion.intereses?.length && `Intereses: ${peticion.intereses.join(', ')}`,
       `Ritmo: ${preferencias.ritmo}`,
-      `Alojamiento: ${preferencias.alojamiento === AlojamientoViaje.NECESITO ? 'lo necesita' : 'ya lo tiene'}`,
+      `Alojamiento: ${necesitaAlojamiento(preferencias) ? 'necesita hotel pet friendly' : 'no lo necesita'}`,
       `Desplazamiento: ${preferencias.desplazamiento === DesplazamientoViaje.TRANSPORTE_MASCOTA
         ? 'necesita transporte para la mascota' : 'coche propio'}`,
       preferencias.serviciosExtra.length && `Servicios que necesitará: ${preferencias.serviciosExtra.join(', ')}`,
@@ -495,16 +586,17 @@ Reglas:
 
   // ── Coste: caché y cupo ──
 
-  private clave(peticion: PeticionItinerario): string {
+  private clave(peticion: PeticionItinerario, destino: DestinoViaje): string {
     // Por mes, no por día exacto: dos viajes en la misma quincena comparten
     // itinerario y no tiene sentido pagar dos generaciones.
     // Cada respuesta del formulario cambia el plan, así que todas entran en la
     // clave: si no, dos viajes con ritmos distintos compartirían itinerario.
+    // Las noches también: con ellas se calcula la estimación.
     const mes = peticion.desde?.slice(0, 7) ?? 'sin-fecha';
     const lista = (valores?: string[]): string => [...(valores ?? [])].sort().join(',');
     const p = this.preferenciasDe(peticion);
     return [
-      peticion.provincia.toLowerCase(), (peticion.municipio ?? '').toLowerCase(), mes, p.dias ?? 0,
+      claveUbicacion(destino.etiqueta), mes, p.dias ?? 0, p.noches,
       peticion.presupuestoMax ?? 0, lista(peticion.intereses), p.ritmo, p.alojamiento, p.desplazamiento,
       lista(peticion.serviciosExtra),
     ].join('|');
@@ -528,7 +620,7 @@ Reglas:
   private comprobarCupo(usuarioId?: string): void {
     if (!usuarioId) return;
 
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = claveDiaEnZona(new Date());
     const uso = this.usosPorUsuario.get(usuarioId);
 
     if (!uso || uso.dia !== hoy) {

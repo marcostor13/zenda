@@ -4,18 +4,22 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { RouterTestingModule } from '@angular/router/testing';
 import { AlojamientoViaje, DesplazamientoViaje, RitmoViaje, TipoLugar, VerticalKey } from 'shared';
 import { PlanificadorComponent } from './planificador.component';
+import { enlaceAServicio } from '../../shared/verticales/verticales.config';
 import { CarritoService } from '../carrito/carrito.service';
 import { PerrosService } from '../perros/perros.service';
 
 const parada = (extra: Record<string, unknown> = {}) => ({
-  servicioId: 's1', titulo: 'Residencia Royal', vertical: VerticalKey.ALOJAMIENTO,
+  servicioId: 's1', titulo: 'Hotel Royal', vertical: VerticalKey.HOTELES,
   descripcion: 'Con jardín', tipo: 'servicio', precioEstimado: 45, ...extra,
 });
+
+/** Fechas futuras: obligatorias para generar desde octubre. */
+const FECHAS = { desde: '2030-09-01', hasta: '2030-09-04' };
 
 const itinerario = () => ({
   provincia: 'Madrid', esFallback: false,
   opciones: [{
-    nombre: 'Fin de semana', resumen: 'Dos días', presupuestoEstimado: 200,
+    nombre: 'Fin de semana', resumen: 'Dos días', presupuestoEstimado: 200, noches: 3,
     dias: [{ dia: 1, titulo: 'Llegada', paradas: [parada()] }],
   }],
 });
@@ -103,25 +107,110 @@ describe('PlanificadorComponent', () => {
   });
 
   describe('elección de destino', () => {
-    it('debería fijar la provincia y limpiar lo anterior', async () => {
+    it('debería fijar el destino y limpiar lo anterior', async () => {
       await crear();
       componente.error.set('algo');
 
       componente.elegir('Madrid');
 
-      expect(componente.provincia()).toBe('Madrid');
+      expect(componente.destino()).toBe('Madrid');
       expect(componente.itinerario()).toBeNull();
       expect(componente.error()).toBe('');
     });
 
-    it('debería volver al selector de provincias', async () => {
+    it('debería volver al selector de destinos', async () => {
       await crear();
       componente.elegir('Madrid');
 
       componente.volver();
 
-      expect(componente.provincia()).toBe('');
+      expect(componente.destino()).toBe('');
+      expect(componente.form.controls.destino.value).toBe('');
       expect(componente.itinerario()).toBeNull();
+    });
+  });
+
+  /* Bloqueo del cliente (octubre): «no te permite poner el lugar». */
+  describe('destino libre', () => {
+    it('debería ofrecer un campo para escribir el destino', async () => {
+      await crear();
+
+      const campo = (fixture.nativeElement as HTMLElement).querySelector('#pl-destino-inicio');
+      expect(campo).not.toBeNull();
+      expect(componente.sugerencias).toContain('Gandía (Valencia)');
+    });
+
+    it('debería aceptar cualquier población escrita', async () => {
+      await crear();
+      componente.form.controls.destino.setValue('gandia');
+
+      expect(componente.continuar()).toBe(true);
+      expect(componente.destino()).toBe('Gandía (Valencia)');
+    });
+
+    it('debería pedir un destino si el campo está vacío', async () => {
+      await crear();
+
+      expect(componente.continuar()).toBe(false);
+      expect(componente.errorDestino()).toBeTruthy();
+      expect(componente.destino()).toBe('');
+    });
+  });
+
+  /* Bloqueo del cliente (octubre): se generaba un viaje sin fechas. */
+  describe('fechas del viaje', () => {
+    it('no debería pedir el itinerario sin fechas', async () => {
+      await crear();
+      componente.elegir('Madrid');
+
+      await componente.generar();
+
+      httpMock.expectNone((r) => r.url.includes('/planificador/itinerario'));
+      expect(componente.error()).toContain('fechas');
+    });
+
+    it('no debería pedir el itinerario con la vuelta antes de la ida', async () => {
+      await crear();
+      componente.elegir('Madrid');
+      componente.form.patchValue({ desde: '2030-09-05', hasta: '2030-09-01' });
+
+      await componente.generar();
+
+      httpMock.expectNone((r) => r.url.includes('/planificador/itinerario'));
+      expect(componente.errorFechas()).toContain('vuelta');
+    });
+
+    it('no debería aceptar un viaje que empieza en el pasado', async () => {
+      await crear();
+      componente.elegir('Madrid');
+      componente.form.patchValue({ desde: '2020-09-01', hasta: '2020-09-03' });
+
+      await componente.generar();
+
+      httpMock.expectNone((r) => r.url.includes('/planificador/itinerario'));
+      expect(componente.errorFechas()).toContain('anterior a hoy');
+    });
+  });
+
+  describe('importes', () => {
+    it('debería rotular el precio del hotel por noche y como orientativo', async () => {
+      await crear();
+
+      expect(componente.precioOrientativo(parada() as never)).toContain('la noche');
+      expect(componente.precioOrientativo(parada({ vertical: VerticalKey.PELUQUERIA }) as never))
+        .toContain('orientativo');
+    });
+
+    it('debería presentar el total como estimación y avisar si falta hotel', async () => {
+      await crear();
+      componente.elegir('Alicante');
+      componente.itinerario.set({ ...itinerario(), avisoAlojamiento: 'Todavía no hay hoteles pet friendly' } as never);
+      fixture.detectChanges();
+
+      const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(texto).toContain('Estimación orientativa');
+      expect(texto).toContain('Todavía no hay hoteles pet friendly');
+      expect(texto).not.toMatch(/Desde\s+200/);
     });
   });
 
@@ -129,12 +218,12 @@ describe('PlanificadorComponent', () => {
     it('debería enviar destino, fechas, presupuesto y perro', async () => {
       await crear();
       componente.elegir('Madrid');
-      componente.form.patchValue({ desde: '2026-09-01', hasta: '2026-09-04', presupuesto: 400, perroId: 'p1' });
+      componente.form.patchValue({ ...FECHAS, presupuesto: 400, perroId: 'p1' });
 
       const promesa = componente.generar();
       const req = httpMock.expectOne((r) => r.url.includes('/planificador/itinerario'));
       expect(req.request.body).toMatchObject({
-        provincia: 'Madrid', desde: '2026-09-01', hasta: '2026-09-04',
+        destino: 'Madrid', desde: '2030-09-01', hasta: '2030-09-04',
         presupuestoMax: 400, perroId: 'p1', ...PREGUNTAS_POR_DEFECTO,
       });
       req.flush(itinerario());
@@ -147,19 +236,20 @@ describe('PlanificadorComponent', () => {
     it('debería omitir los campos opcionales no rellenados', async () => {
       await crear();
       componente.elegir('Madrid');
+      componente.form.patchValue(FECHAS);
 
       const promesa = componente.generar();
       const req = httpMock.expectOne((r) => r.url.includes('/planificador/itinerario'));
-      expect(req.request.body).toEqual({ provincia: 'Madrid', ...PREGUNTAS_POR_DEFECTO });
+      expect(req.request.body).toEqual({ destino: 'Madrid', ...FECHAS, ...PREGUNTAS_POR_DEFECTO });
       req.flush({ provincia: 'Madrid', esFallback: false, opciones: [] });
       await promesa;
     });
 
     it('debería enviar las respuestas a las preguntas nuevas del viaje', async () => {
       await crear();
-      componente.elegir('Alicante');
+      componente.elegir(' denia ');
       componente.form.patchValue({
-        municipio: ' Dénia ', ritmo: RitmoViaje.TRANQUILO,
+        ...FECHAS, ritmo: RitmoViaje.TRANQUILO,
         alojamiento: AlojamientoViaje.YA_LO_TENGO, desplazamiento: DesplazamientoViaje.TRANSPORTE_MASCOTA,
       });
       componente.alternarInteres(TipoLugar.PLAYA);
@@ -170,7 +260,7 @@ describe('PlanificadorComponent', () => {
       const promesa = componente.generar();
       const req = httpMock.expectOne((r) => r.url.includes('/planificador/itinerario'));
       expect(req.request.body).toMatchObject({
-        municipio: 'Dénia', ritmo: RitmoViaje.TRANQUILO,
+        destino: 'Dénia (Alicante)', ritmo: RitmoViaje.TRANQUILO,
         alojamiento: AlojamientoViaje.YA_LO_TENGO, desplazamiento: DesplazamientoViaje.TRANSPORTE_MASCOTA,
         intereses: [TipoLugar.RESTAURANTE], serviciosExtra: [VerticalKey.PELUQUERIA],
       });
@@ -181,6 +271,7 @@ describe('PlanificadorComponent', () => {
     it('debería mostrar el motivo que devuelve el servidor', async () => {
       await crear();
       componente.elegir('Madrid');
+      componente.form.patchValue(FECHAS);
 
       const promesa = componente.generar();
       httpMock.expectOne((r) => r.url.includes('/planificador/itinerario'))
@@ -194,6 +285,7 @@ describe('PlanificadorComponent', () => {
     it('debería dar un mensaje genérico si el servidor no explica el fallo', async () => {
       await crear();
       componente.elegir('Madrid');
+      componente.form.patchValue(FECHAS);
 
       const promesa = componente.generar();
       httpMock.expectOne((r) => r.url.includes('/planificador/itinerario'))
@@ -205,18 +297,29 @@ describe('PlanificadorComponent', () => {
   });
 
   describe('paso del plan al carrito', () => {
-    it('debería añadir la parada con las fechas del plan', async () => {
+    it('debería añadir el hotel con las fechas de ida y vuelta', async () => {
       await crear();
-      componente.form.patchValue({ desde: '2026-09-01', hasta: '2026-09-04' });
+      componente.form.patchValue(FECHAS);
 
       await componente.anadir(parada() as never);
 
       expect(carrito['anadir']).toHaveBeenCalledWith({
-        servicioId: 's1', vertical: VerticalKey.ALOJAMIENTO,
-        fechaInicio: '2026-09-01', fechaFin: '2026-09-04',
+        servicioId: 's1', vertical: VerticalKey.HOTELES,
+        fechaInicio: '2030-09-01', fechaFin: '2030-09-04',
       });
       expect(componente.anadidos()).toContain('s1');
       expect(componente.anadiendo()).toBeNull();
+    });
+
+    it('debería añadir un servicio que no es hotel sólo con el día de ida', async () => {
+      await crear();
+      componente.form.patchValue(FECHAS);
+
+      await componente.anadir(parada({ vertical: VerticalKey.PELUQUERIA }) as never);
+
+      expect(carrito['anadir'].mock.calls[0][0]).toEqual({
+        servicioId: 's1', vertical: VerticalKey.PELUQUERIA, fechaInicio: '2030-09-01', fechaFin: undefined,
+      });
     });
 
     it('debería usar la fecha de hoy si el plan no fijó fechas', async () => {
@@ -244,7 +347,7 @@ describe('PlanificadorComponent', () => {
 
       await componente.anadir(parada() as never);
 
-      expect(componente.error()).toContain('Residencia Royal');
+      expect(componente.error()).toContain('Hotel Royal');
       expect(componente.anadidos()).toEqual([]);
     });
 
@@ -263,7 +366,7 @@ describe('PlanificadorComponent', () => {
     it('debería enlazar cada servicio a su ficha para reservarlo', async () => {
       await crear();
 
-      expect(componente.enlace(parada() as never)).toEqual(['/alojamiento', 's1']);
+      expect(componente.enlace(parada() as never)).toEqual(enlaceAServicio(VerticalKey.HOTELES, 's1'));
     });
 
     it('debería pintar el bloque «Reserva tu viaje» con lo reservable del plan', async () => {
@@ -274,7 +377,7 @@ describe('PlanificadorComponent', () => {
 
       const bloque = (fixture.nativeElement as HTMLElement).querySelector('.pl-reserva');
       expect(bloque?.textContent).toContain('Reserva tu viaje');
-      expect(bloque?.textContent).toContain('Residencia Royal');
+      expect(bloque?.textContent).toContain('Hotel Royal');
     });
 
     it('debería añadir todo lo reservable al carrito de una vez', async () => {
@@ -293,7 +396,7 @@ describe('PlanificadorComponent', () => {
       await componente.anadirTodo([parada(), parada({ servicioId: 's2' })] as never);
 
       expect(carrito['anadir']).toHaveBeenCalledTimes(1);
-      expect(componente.error()).toContain('Residencia Royal');
+      expect(componente.error()).toContain('Hotel Royal');
     });
   });
 });

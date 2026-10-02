@@ -1,5 +1,6 @@
 import {
-  AlojamientoViaje, DesplazamientoViaje, MAX_DIAS_ITINERARIO, PARADAS_POR_RITMO, RitmoViaje, VerticalKey,
+  AlojamientoViaje, DesplazamientoViaje, MAX_DIAS_ITINERARIO, PARADAS_POR_RITMO, RitmoViaje,
+  VERTICALES_FUERA_DEL_VIAJE, VERTICAL_ALOJAMIENTO_VIAJE, VerticalKey, diasEntreFechas,
 } from 'shared';
 
 /**
@@ -19,6 +20,7 @@ export interface ParadaItinerario {
   servicioId?: string;
   lugarId?: string;
   vertical?: string;
+  /** Precio «desde» de la ficha; en hoteles, por noche. Orientativo. */
   precioEstimado?: number;
 }
 
@@ -31,7 +33,16 @@ export interface DiaItinerario {
 export interface OpcionItinerario {
   nombre: string;
   resumen: string;
+  /**
+   * Estimación orientativa con las fechas reales: hotel × noches más una vez
+   * cada servicio, a precio «desde». Nunca la escribe el modelo: la calcula el
+   * API con el catálogo, para no enseñar un coste inventado.
+   */
   presupuestoEstimado: number;
+  /** Noches de hotel que entran en la estimación (0 si no se busca alojamiento). */
+  noches?: number;
+  /** true si la estimación pasa del presupuesto que indicó el usuario. */
+  superaPresupuesto?: boolean;
   dias: DiaItinerario[];
 }
 
@@ -57,8 +68,10 @@ export interface PreferenciasViaje {
   alojamiento: AlojamientoViaje;
   desplazamiento: DesplazamientoViaje;
   serviciosExtra: readonly string[];
-  /** Días pedidos por fechas; sin fechas, los decide el contenido disponible. */
+  /** Días pedidos por fechas, acotados; sin fechas, los decide el contenido disponible. */
   dias: number | null;
+  /** Noches reales del viaje (sin acotar): las que se pagan de hotel. */
+  noches: number;
 }
 
 /** Cómo se titula un día según el tipo de sitio que lo domina. */
@@ -74,21 +87,36 @@ const TEMA_POR_TIPO: Readonly<Record<string, string>> = {
 /** Sin fechas, un plan de más de tres días deja de ser una escapada. */
 const MAX_DIAS_SIN_FECHAS = 3;
 
-const MS_DIA = 24 * 60 * 60 * 1000;
-
 /** Días entre dos fechas, ambos incluidos y acotados; null si faltan o no cuadran. */
 export function diasDelViaje(desde?: string, hasta?: string): number | null {
   if (!desde || !hasta) return null;
-  const dias = Math.round((Date.parse(hasta) - Date.parse(desde)) / MS_DIA) + 1;
+  const dias = diasEntreFechas(desde, hasta) + 1;
   if (!Number.isFinite(dias) || dias < 1) return null;
   return Math.min(MAX_DIAS_ITINERARIO, dias);
+}
+
+/** Hace falta hotel si se pidió y se duerme fuera al menos una noche. */
+export function necesitaAlojamiento(preferencias: PreferenciasViaje): boolean {
+  return preferencias.alojamiento === AlojamientoViaje.NECESITO && preferencias.noches > 0;
+}
+
+/**
+ * Categorías que no se ofrecen en este viaje: residencias y funerarios nunca
+ * (se viaja **con** el perro), y hoteles tampoco si ya hay dónde dormir o se
+ * vuelve el mismo día.
+ */
+export function verticalesExcluidas(preferencias: PreferenciasViaje): string[] {
+  return [
+    ...VERTICALES_FUERA_DEL_VIAJE,
+    ...(necesitaAlojamiento(preferencias) ? [] : [VERTICAL_ALOJAMIENTO_VIAJE]),
+  ];
 }
 
 /** Verticales que el viaje necesita reservar, en el orden en que se usan. */
 export function verticalesBuscadas(preferencias: PreferenciasViaje): string[] {
   return [
     ...(preferencias.desplazamiento === DesplazamientoViaje.TRANSPORTE_MASCOTA ? [VerticalKey.TRANSPORTE] : []),
-    ...(preferencias.alojamiento === AlojamientoViaje.NECESITO ? [VerticalKey.ALOJAMIENTO, VerticalKey.HOTELES] : []),
+    ...(necesitaAlojamiento(preferencias) ? [VERTICAL_ALOJAMIENTO_VIAJE] : []),
     ...preferencias.serviciosExtra,
   ];
 }
@@ -113,10 +141,30 @@ export function paradaDeServicio(servicio: ServicioContexto): ParadaItinerario {
   };
 }
 
-/** Alojamiento canino y, si no lo hay, hotel pet-friendly: la base del viaje. */
+/**
+ * Dónde dormir: un hotel pet friendly. Nunca una residencia canina, que es
+ * para dejar al perro y no para dormir con él (bloqueo del cliente, octubre).
+ */
 export function alojamientoDe(servicios: readonly ServicioContexto[]): ServicioContexto | undefined {
-  return servicios.find((s) => s.vertical === VerticalKey.ALOJAMIENTO)
-    ?? servicios.find((s) => s.vertical === VerticalKey.HOTELES);
+  return servicios.find((s) => s.vertical === VERTICAL_ALOJAMIENTO_VIAJE);
+}
+
+/** Lo que el viaje puede ofrecer: fuera lo que no encaja con viajar con el perro. */
+export function serviciosDelContexto(
+  servicios: readonly ServicioContexto[], preferencias: PreferenciasViaje,
+): ServicioContexto[] {
+  const excluidas = verticalesExcluidas(preferencias);
+  return servicios.filter((s) => !excluidas.includes(s.vertical));
+}
+
+/** Si hace falta hotel y el plan no lo trae, se pone el primer día. */
+export function asegurarAlojamiento(
+  dias: DiaItinerario[], servicios: readonly ServicioContexto[], preferencias: PreferenciasViaje,
+): DiaItinerario[] {
+  const hotel = necesitaAlojamiento(preferencias) ? alojamientoDe(servicios) : undefined;
+  const yaLoTrae = dias.some((d) => d.paradas.some((p) => p.vertical === VERTICAL_ALOJAMIENTO_VIAJE));
+  if (!hotel || yaLoTrae || !dias.length) return dias;
+  return [{ ...dias[0], paradas: [paradaDeServicio(hotel), ...dias[0].paradas] }, ...dias.slice(1)];
 }
 
 /** Tipo de lugar más repetido del día, en la forma en que se lee en pantalla. */
@@ -131,8 +179,8 @@ function temaDe(lugares: readonly LugarContexto[]): string | null {
 /**
  * Servicios que abren el día 1 y los que se reparten por el viaje.
  *
- * El transporte y el alojamiento van el primer día, porque es cuando se usan;
- * cada servicio extra pedido (peluquería, veterinario…) se reparte en un día
+ * El transporte y el hotel van el primer día, porque es cuando se usan; cada
+ * servicio extra pedido (peluquería, veterinario…) se reparte en un día
  * distinto; y si no se pidió ninguno, un servicio de la zona por día, como antes.
  */
 function serviciosDelViaje(
@@ -140,7 +188,7 @@ function serviciosDelViaje(
 ): { apertura: ServicioContexto[]; repartidos: ServicioContexto[] } {
   const transporte = preferencias.desplazamiento === DesplazamientoViaje.TRANSPORTE_MASCOTA
     ? servicios.find((s) => s.vertical === VerticalKey.TRANSPORTE) : undefined;
-  const alojamiento = preferencias.alojamiento === AlojamientoViaje.NECESITO ? alojamientoDe(servicios) : undefined;
+  const alojamiento = necesitaAlojamiento(preferencias) ? alojamientoDe(servicios) : undefined;
   const apertura = [transporte, alojamiento].filter((s): s is ServicioContexto => Boolean(s));
 
   const libres = servicios.filter((s) => !apertura.includes(s));
@@ -148,13 +196,13 @@ function serviciosDelViaje(
     ? preferencias.serviciosExtra
       .map((vertical) => libres.find((s) => s.vertical === vertical))
       .filter((s): s is ServicioContexto => Boolean(s))
-    : libres.filter((s) => s.vertical !== VerticalKey.ALOJAMIENTO && s.vertical !== VerticalKey.HOTELES);
+    : libres.filter((s) => s.vertical !== VERTICAL_ALOJAMIENTO_VIAJE);
   return { apertura, repartidos };
 }
 
 /** Reparte los lugares en días según el ritmo y encabeza cada día con su tema. */
 function diasConLugares(
-  provincia: string, lugares: readonly LugarContexto[], preferencias: PreferenciasViaje,
+  zona: string, lugares: readonly LugarContexto[], preferencias: PreferenciasViaje,
 ): DiaItinerario[] {
   const porDia = PARADAS_POR_RITMO[preferencias.ritmo];
   const total = preferencias.dias ?? (Math.min(MAX_DIAS_SIN_FECHAS, Math.ceil(lugares.length / porDia)) || 1);
@@ -163,7 +211,7 @@ function diasConLugares(
     const delDia = lugares.slice(i * porDia, (i + 1) * porDia);
     return {
       dia: i + 1,
-      titulo: `Día ${i + 1} · ${temaDe(delDia) ?? provincia}`,
+      titulo: `Día ${i + 1} · ${temaDe(delDia) ?? zona}`,
       paradas: delDia.map(paradaDeLugar),
     };
   });
@@ -174,20 +222,21 @@ function diasConLugares(
  * servicios que el viaje necesita, siempre con al menos uno reservable.
  */
 export function armarDias(
-  provincia: string,
+  zona: string,
   lugares: readonly LugarContexto[],
   servicios: readonly ServicioContexto[],
   preferencias: PreferenciasViaje,
 ): DiaItinerario[] {
-  const dias = diasConLugares(provincia, lugares, preferencias);
-  const { apertura, repartidos } = serviciosDelViaje(servicios, preferencias);
+  const dias = diasConLugares(zona, lugares, preferencias);
+  const utiles = serviciosDelContexto(servicios, preferencias);
+  const { apertura, repartidos } = serviciosDelViaje(utiles, preferencias);
 
   dias[0].paradas.unshift(...apertura.map(paradaDeServicio));
   repartidos
     .slice(0, preferencias.serviciosExtra.length ? repartidos.length : dias.length)
     .forEach((servicio, i) => dias[i % dias.length].paradas.push(paradaDeServicio(servicio)));
 
-  return garantizarServicio(dias, servicios, preferencias);
+  return garantizarServicio(dias, utiles, preferencias);
 }
 
 /**
@@ -196,8 +245,9 @@ export function armarDias(
  * lo que el cliente pidió corregir.
  */
 export function garantizarServicio(
-  dias: DiaItinerario[], servicios: readonly ServicioContexto[], preferencias: PreferenciasViaje,
+  dias: DiaItinerario[], todos: readonly ServicioContexto[], preferencias: PreferenciasViaje,
 ): DiaItinerario[] {
+  const servicios = serviciosDelContexto(todos, preferencias);
   const tieneServicio = dias.some((d) => d.paradas.some((p) => p.servicioId));
   if (tieneServicio || !servicios.length) return dias;
 
@@ -208,14 +258,35 @@ export function garantizarServicio(
   return conDia;
 }
 
-/** Lo que costaría el viaje: el alojamiento por noche más el resto de servicios. */
-export function presupuestoDe(dias: readonly DiaItinerario[]): number {
-  const servicios = dias.flatMap((d) => d.paradas).filter((p) => p.servicioId);
-  const noches = Math.max(1, dias.length - 1);
-  return Math.round(servicios.reduce((suma, p) => {
-    const esAlojamiento = p.vertical === VerticalKey.ALOJAMIENTO || p.vertical === VerticalKey.HOTELES;
-    return suma + (p.precioEstimado ?? 0) * (esAlojamiento ? noches : 1);
+/**
+ * Estimación orientativa del viaje con sus fechas reales: el hotel por cada
+ * noche y una vez cada servicio, sin repetir. Antes se contaban las noches por
+ * los días *mostrados* (acotados a cinco y con un mínimo de una), así que sin
+ * fechas o en viajes largos el «coste» no correspondía a nada.
+ */
+export function presupuestoDe(dias: readonly DiaItinerario[], noches: number): number {
+  const vistas = new Map<string, ParadaItinerario>();
+  for (const parada of dias.flatMap((d) => d.paradas)) {
+    if (parada.servicioId && !vistas.has(parada.servicioId)) vistas.set(parada.servicioId, parada);
+  }
+  return Math.round([...vistas.values()].reduce((suma, p) => {
+    const esHotel = p.vertical === VERTICAL_ALOJAMIENTO_VIAJE;
+    return suma + (p.precioEstimado ?? 0) * (esHotel ? noches : 1);
   }, 0));
+}
+
+/** Pone a la opción la estimación calculada aquí, no la que traiga el modelo. */
+export function conEstimacion(
+  opcion: OpcionItinerario, preferencias: PreferenciasViaje, presupuestoMax?: number,
+): OpcionItinerario {
+  const noches = necesitaAlojamiento(preferencias) ? preferencias.noches : 0;
+  const presupuestoEstimado = presupuestoDe(opcion.dias, noches);
+  return {
+    ...opcion,
+    presupuestoEstimado,
+    noches,
+    superaPresupuesto: !!presupuestoMax && presupuestoEstimado > presupuestoMax,
+  };
 }
 
 /**
