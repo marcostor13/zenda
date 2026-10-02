@@ -28,6 +28,22 @@ se ve es lo que se paga.
 - Seguros para mascotas: pólizas anuales.
 - Crematorios y servicios funerarios.
 
+## Explora: sitios para ir con el perro
+Además de los servicios que se reservan, Doogking tiene "Explora" (/explora):
+un mapa y un listado de sitios donde el perro es bienvenido, que no se reservan
+sino que se visitan:
+- Playas caninas y calas donde se admiten perros.
+- Parques caninos y pipicanes.
+- Restaurantes, cafeterías y terrazas pet-friendly.
+- Tiendas de animales (piensos y accesorios).
+- Rutas de senderismo con perro.
+- Ríos, lagos y embalses.
+Se filtra por tipo de sitio y por población o provincia, y cada sitio tiene su
+ficha con fotos, dirección, lo que ofrece (vallado, duchas, sombra…) y reseñas
+de la comunidad. Cualquier usuario registrado puede proponer un sitio nuevo o
+un cambio: se publica cuando el equipo de Doogking lo revisa. El planificador
+de Explora (/explora/planificador) arma una escapada con sitios y servicios.
+
 ## Para el dueño de un perro
 
 ### Buscar

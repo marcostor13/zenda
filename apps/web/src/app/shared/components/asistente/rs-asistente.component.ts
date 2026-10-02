@@ -5,61 +5,83 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
-import type { MensajeAsistenteDto } from 'shared';
+import {
+  TIPO_LUGAR_LABELS, VERTICAL_LABELS,
+  type MensajeAsistenteDto, type ResultadoAsistente, type TipoLugar, type VerticalKey,
+  type VerTodosAsistente,
+} from 'shared';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { EurosPipe } from '../../pipes/euros.pipe';
 import { AsistenteService } from './asistente.service';
+import { AsistenteUiService } from './asistente-ui.service';
 
-/** Un turno ya pintado, con los enlaces que propuso el asistente. */
+/** Un turno ya pintado, con los enlaces y las opciones que propuso el asistente. */
 interface Turno extends MensajeAsistenteDto {
   readonly enlaces?: Array<{ titulo: string; ruta: string }>;
+  readonly resultados?: ResultadoAsistente[];
+  readonly verTodos?: VerTodosAsistente;
+}
+
+/** Dónde se pinta el panel abierto. */
+interface Posicion {
+  readonly top: number;
+  readonly right: number;
+  readonly maxHeight: number;
 }
 
 const SALUDO: Turno = {
   autor: 'asistente',
   texto: '¡Hola! Soy el asistente de Doogking. Pregúntame lo que quieras sobre la web: '
-    + 'cómo reservar, qué pasa si cancelas, o cómo publicar tu negocio.',
+    + 'cómo reservar, qué servicios hay en tu ciudad o dónde ir con tu perro.',
 };
 
 /**
  * Pantallas con columna lateral fija a la izquierda: los paneles de comercio y
- * de administración. Ahí abajo a la izquierda no hay sitio libre, lo ocupa el
- * menú.
+ * de administración. Sólo importa al flotante de reserva (ver abajo).
  */
 const CON_COLUMNA_LATERAL = ['/comercio', '/admin'];
 
+/** Por debajo de este ancho el panel ocupa la pantalla entera, como un chat de app. */
+const ANCHO_MOVIL = 640;
+/** Separación entre el botón de la cabecera y el panel, y margen con los bordes. */
+const HUECO = 8;
+const MARGEN = 16;
+
 /** Lo que más se pregunta, para no empezar ante un cuadro en blanco. */
 const SUGERENCIAS = [
+  'Alojamiento canino en Valencia',
+  '¿Hay playas para perros?',
   '¿Cómo reservo una cita?',
-  '¿Cuándo se me cobra?',
-  '¿Cómo publico mi negocio?',
   '¿Puedo cancelar una reserva?',
 ] as const;
 
 /**
- * Asistente de la web: un botón flotante abajo a la izquierda que abre un chat
- * y responde dudas sobre Doogking y sus procedimientos.
+ * Panel del asistente de la web: un chat que responde dudas sobre Doogking y
+ * enseña opciones reales de la plataforma como tarjetas.
  *
- * Va a la izquierda a propósito: la derecha es de la acción que da dinero —el
- * panel de reserva de las fichas, el botón de "Reservar"— y un flotante encima
- * de eso estorba justo donde no se puede estorbar.
+ * **Se abre desde la cabecera** (`rs-asistente-disparador`, en `rs-navbar`).
+ * El flotante de abajo a la izquierda tapaba contenido —la última tarjeta de
+ * un listado, la paginación, el pie de un formulario— (observaciones de
+ * octubre). Ahora el panel se ancla bajo el botón que lo abrió, y en móvil
+ * ocupa la pantalla entera: nunca aparece desplazado a una esquina.
  *
- * **También en móvil** (observación del cliente 28-09: «el flotante de ayuda
- * no aparece en el móvil»). Antes se ocultaba por debajo de 1024 px para no
- * tapar las barras fijas de abajo —la de reservar de las fichas, la navegación
- * de la app instalada—. Ahora se sube por encima de ellas
- * (`--dk-nav-inferior-h` y `--dk-barra-reserva-h`), se queda en un círculo sin
- * etiqueta y el panel abierto ocupa la pantalla entera.
+ * Sólo cuando la pantalla no tiene cabecera (un paso de reserva a pantalla
+ * completa) se pinta un flotante de reserva, para que la ayuda no desaparezca.
  */
 @Component({
   selector: 'rs-asistente',
   standalone: true,
-  imports: [TraducirPipe, RouterLink, RsIconComponent],
+  imports: [TraducirPipe, RouterLink, RsIconComponent, EurosPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
 <div class="as" [class.as--tras-columna]="trasColumna()">
   @if (abierto()) {
-    <section class="as__panel" role="dialog" aria-modal="false"
+    <section #panel class="as__panel" role="dialog" aria-modal="false"
+             [class.as__panel--anclado]="posicion()"
+             [style.top.px]="posicion()?.top"
+             [style.right.px]="posicion()?.right"
+             [style.max-height.px]="posicion()?.maxHeight"
              [attr.aria-label]="'Asistente de Doogking' | t" data-testid="panel-asistente">
 
       <header class="as__cab">
@@ -83,6 +105,51 @@ const SUGERENCIAS = [
         @for (t of turnos(); track $index) {
           <div class="as__turno" [class.as__turno--mio]="t.autor === 'cliente'">
             <p class="as__burbuja">{{ t.texto }}</p>
+
+            @if (t.resultados?.length) {
+              <ul class="as__resultados" data-testid="resultados-asistente">
+                @for (r of t.resultados!; track r.ruta) {
+                  <li>
+                    <a class="as__res" [routerLink]="r.ruta" (click)="cerrar()">
+                      @if (r.imagen) {
+                        <img class="as__res-img" [src]="r.imagen" alt="" loading="lazy" />
+                      } @else {
+                        <span class="as__res-img as__res-img--vacia" aria-hidden="true">
+                          <rs-icon name="paw" [size]="18" [stroke]="2" />
+                        </span>
+                      }
+                      <span class="as__res-info">
+                        <strong class="as__res-titulo">{{ r.titulo }}</strong>
+                        <span class="as__res-meta">{{ r.ciudad }} · {{ etiqueta(r) | t }}</span>
+                        <span class="as__res-datos">
+                          @if (r.precioDesde != null) {
+                            <span class="as__res-precio">{{ 'Desde' | t }} {{ r.precioDesde | euros }}</span>
+                          }
+                          @if (r.nota != null) {
+                            <span class="as__res-nota">
+                              <rs-icon name="star" [size]="12" [stroke]="2.5" />
+                              {{ r.nota }} ({{ r.numResenas }})
+                            </span>
+                          }
+                        </span>
+                      </span>
+                      <span class="as__res-ver">
+                        {{ (r.tipo === 'lugar' ? 'Ver sitio' : 'Ver ficha') | t }}
+                        <rs-icon name="arrow-right" [size]="12" [stroke]="2.5" />
+                      </span>
+                    </a>
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (t.verTodos; as v) {
+              <a class="as__enlace" [routerLink]="v.ruta" [queryParams]="v.queryParams ?? null" (click)="cerrar()">
+                {{ v.titulo | t }}
+                <rs-icon name="arrow-right" [size]="13" [stroke]="2.5" />
+              </a>
+            }
+
             @if (t.enlaces?.length) {
               <div class="as__enlaces">
                 @for (e of t.enlaces!; track e.ruta) {
@@ -124,63 +191,44 @@ const SUGERENCIAS = [
     </section>
   }
 
-  <button type="button" class="as__lanzador" [class.as__lanzador--abierto]="abierto()"
-          (click)="alternar()" data-testid="lanzador-asistente"
-          [attr.aria-expanded]="abierto()"
-          [attr.aria-label]="(abierto() ? 'Cerrar el asistente' : 'Abrir el asistente de Doogking') | t">
-    @if (abierto()) {
-      <rs-icon name="x" [size]="22" [stroke]="2.5" />
-    } @else {
-      <rs-icon name="sparkles" [size]="22" [stroke]="2" />
-      <span class="as__lanzador-txt">{{ '¿Te ayudo?' | t }}</span>
-    }
-  </button>
+  @if (!ui.hayDisparadorEnCabecera()) {
+    <button #lanzador type="button" class="as__lanzador" [class.as__lanzador--abierto]="abierto()"
+            (click)="alternarDesdeFlotante()" data-testid="lanzador-asistente"
+            [attr.aria-expanded]="abierto()"
+            [attr.aria-label]="(abierto() ? 'Cerrar el asistente' : 'Abrir el asistente de Doogking') | t">
+      @if (abierto()) {
+        <rs-icon name="x" [size]="22" [stroke]="2.5" />
+      } @else {
+        <rs-icon name="sparkles" [size]="22" [stroke]="2" />
+        <span class="as__lanzador-txt">{{ '¿Te ayudo?' | t }}</span>
+      }
+    </button>
+  }
 </div>
   `,
   styles: [`
     :host { display: block; }
 
+    /* El contenedor sólo coloca el flotante de reserva; el panel va por libre. */
     .as {
       position: fixed;
       left: var(--sp-5);
-      /* Encima de la navegación de la app y de la barra de reservar, si las hay. */
       bottom: calc(var(--sp-5) + var(--dk-nav-inferior-h, 0px) + var(--dk-barra-reserva-h, 0px));
       z-index: var(--z-4);
       display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3);
     }
-    /*
-      En los paneles la esquina de abajo a la izquierda es del menú lateral: el
-      flotante se aparta hasta pasarlo. El ancho sale del mismo token que usa la
-      columna, para que no se separen si algún día cambia.
-    */
     .as--tras-columna { left: calc(var(--panel-lateral) + var(--sp-5)); }
 
-    /* ── Lanzador ─────────────────────────────────────────────────── */
+    /* ── Flotante de reserva (sólo en pantallas sin cabecera) ──────── */
     /*
-      Una pastilla con la pregunta siempre a la vista.
-
-      Un círculo con una chispa no dice qué hace: había que acercar el ratón
-      para enterarse, y quien no lo acerca nunca se entera. Con «¿Te ayudo?»
-      escrito desde el primer momento se entiende de un vistazo, que es justo lo
-      que tiene que pasar con la ayuda.
-
-      El ancho del botón NUNCA se anima ni baja de --as-lado: al cerrar el panel
-      la etiqueta reaparece sin encoger el botón. Animar el width lo encogía al
-      tamaño del icono en el primer fotograma —"auto" no se interpola, salta—,
-      así que se escapaba de debajo del puntero y el mousedown caía fuera: el
-      clic no abría nada.
+      El ancho del botón NUNCA se anima: "auto" no se interpola y el botón se
+      escapaba de debajo del puntero en el primer fotograma.
     */
     .as__lanzador {
       --as-lado: 52px;
       --as-icono: 22px;
-
       display: inline-flex; align-items: center; justify-content: center;
       min-width: var(--as-lado); height: var(--as-lado);
-      /*
-        El relleno es el que completaría el círculo alrededor del icono: con la
-        etiqueta dentro, la pastilla crece hacia la derecha sin apretar el texto
-        contra el borde, y con el panel abierto vuelve a ser un círculo exacto.
-      */
       padding-inline: calc((var(--as-lado) - var(--as-icono)) / 2);
       border: none; border-radius: var(--r-full);
       background: var(--g-accent); color: #fff;
@@ -188,7 +236,6 @@ const SUGERENCIAS = [
       cursor: pointer;
       box-shadow: 0 10px 28px rgba(8,37,139,.34);
       transition: transform var(--d-2), box-shadow var(--d-2);
-
       &:hover, &:focus-visible {
         transform: translateY(-2px); box-shadow: 0 14px 34px rgba(8,37,139,.42);
       }
@@ -196,38 +243,14 @@ const SUGERENCIAS = [
       rs-icon { color: var(--dk-gold-light); flex: none; }
     }
     .as__lanzador--abierto rs-icon { color: #fff; }
-
-    /*
-      La etiqueta está siempre: no se oculta ni se anima, sólo se separa del
-      icono. Con el panel abierto el botón vuelve a ser el círculo de cerrar,
-      porque entonces la pregunta ya está contestada dentro del panel.
-    */
     .as__lanzador-txt { white-space: nowrap; margin-inline-start: var(--sp-2); }
 
-    /*
-      Móvil: un círculo de icono, sin la etiqueta —la pastilla se come el ancho
-      de las tarjetas— y el panel a pantalla completa, como los chats de las
-      apps. El foco del teclado virtual deja sitio porque el alto es dvh.
-    */
-    @media (max-width: 1024px) {
-      .as { left: var(--sp-4); }
-      .as__lanzador { --as-lado: 48px; }
-      .as__lanzador-txt { display: none; }
-      .as:has(.as__panel) .as__lanzador { display: none; }
-      .as__panel {
-        position: fixed; inset: 0;
-        width: auto; max-height: none; height: 100dvh;
-        border: 0; border-radius: 0;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-        background: var(--c-card);
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .as__lanzador { transition: none; }
-    }
-
     /* ── Panel ────────────────────────────────────────────────────── */
+    /*
+      Por defecto (abierto desde el flotante) se apila sobre él, abajo a la
+      izquierda. Abierto desde la cabecera, --anclado lo saca del flujo y lo
+      coloca bajo el botón con top/right calculados en el componente.
+    */
     .as__panel {
       width: 380px; max-height: min(560px, calc(100dvh - 140px));
       display: flex; flex-direction: column; overflow: hidden;
@@ -236,15 +259,52 @@ const SUGERENCIAS = [
       box-shadow: 0 24px 60px rgba(8,37,139,.26);
       animation: asEntra var(--d-3) cubic-bezier(.2,.8,.2,1) both;
     }
+    .as__panel--anclado {
+      position: fixed; left: auto; bottom: auto;
+      width: min(400px, calc(100vw - 2 * var(--sp-4)));
+      height: min(600px, 100%);
+      transform-origin: top right;
+      animation-name: asBaja;
+    }
     @keyframes asEntra {
       from { opacity: 0; transform: translateY(12px) scale(.98); }
       to   { opacity: 1; transform: none; }
     }
-    @media (prefers-reduced-motion: reduce) { .as__panel { animation: none; } }
+    @keyframes asBaja {
+      from { opacity: 0; transform: translateY(-8px) scale(.98); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /*
+      Móvil: el panel a pantalla completa, como los chats de las apps. Va
+      DESPUÉS de las reglas base a propósito: antes estaba delante y el
+      width: 380px / max-height: 560px de la regla base —misma especificidad,
+      escrita más abajo— le ganaban, así que en el móvil el panel salía como
+      una caja de 380 px pegada arriba a la izquierda en vez de ocupar la
+      pantalla.
+    */
+    @media (max-width: 640px) {
+      .as { left: var(--sp-4); }
+      .as__lanzador { --as-lado: 48px; }
+      .as__lanzador-txt { display: none; }
+      .as:has(.as__panel) .as__lanzador { display: none; }
+      .as__panel, .as__panel--anclado {
+        position: fixed; inset: 0;
+        width: auto; height: 100dvh; max-height: none;
+        border: 0; border-radius: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        animation-name: asEntra;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .as__lanzador { transition: none; }
+      .as__panel { animation: none; }
+    }
 
     .as__cab {
       display: flex; align-items: center; gap: var(--sp-3);
       padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5);
+      padding-top: max(var(--sp-4), env(safe-area-inset-top, 0px));
       background: var(--g-accent); color: #fff;
     }
     .as__avatar {
@@ -275,7 +335,7 @@ const SUGERENCIAS = [
     .as__hilo {
       flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
       display: flex; flex-direction: column; gap: var(--sp-3);
-      padding: var(--sp-4) var(--sp-4);
+      padding: var(--sp-4);
       background: var(--c-base);
     }
     .as__turno { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
@@ -293,7 +353,6 @@ const SUGERENCIAS = [
       background: var(--dk-blue); border-color: var(--dk-blue); color: #fff;
     }
 
-    /* Tres puntos mientras el modelo piensa: sin esto el panel se queda mudo. */
     .as__burbuja--puntos {
       display: flex; gap: 5px; padding: var(--sp-4);
       i {
@@ -304,6 +363,43 @@ const SUGERENCIAS = [
       }
     }
     @keyframes asPunto { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+    /* ── Tarjetas de resultados ───────────────────────────────────── */
+    .as__resultados {
+      list-style: none; margin: 0; padding: 0; width: 100%;
+      display: flex; flex-direction: column; gap: var(--sp-2);
+    }
+    .as__res {
+      display: grid; grid-template-columns: 52px 1fr; grid-template-rows: auto auto;
+      column-gap: var(--sp-3); row-gap: var(--sp-1);
+      padding: var(--sp-2); border: 1px solid var(--b-1); border-radius: var(--r-lg);
+      background: var(--c-card); color: inherit; text-decoration: none;
+      transition: border-color var(--d-2), box-shadow var(--d-2);
+      &:hover { border-color: var(--dk-blue); box-shadow: var(--sh-md); }
+      &:focus-visible { outline: 2px solid var(--dk-gold); outline-offset: 2px; }
+    }
+    .as__res-img {
+      grid-row: 1 / 3; width: 52px; height: 52px; border-radius: var(--r-md);
+      object-fit: cover; background: var(--c-raised);
+    }
+    .as__res-img--vacia { display: grid; place-items: center; color: var(--dk-blue); }
+    .as__res-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .as__res-titulo {
+      font-size: var(--f-sm); font-weight: var(--w-7); color: var(--t-100);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .as__res-meta { font-size: var(--f-xs); color: var(--t-300); }
+    .as__res-datos { display: flex; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--f-xs); }
+    .as__res-precio { color: var(--dk-blue); font-weight: var(--w-7); }
+    .as__res-nota {
+      display: inline-flex; align-items: center; gap: 2px; color: var(--t-200);
+      rs-icon { color: var(--dk-gold); }
+    }
+    .as__res-ver {
+      grid-column: 2; justify-self: start;
+      display: inline-flex; align-items: center; gap: var(--sp-1);
+      font-size: var(--f-xs); font-weight: var(--w-6); color: var(--dk-blue);
+    }
 
     .as__enlaces { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
     .as__enlace {
@@ -355,6 +451,8 @@ const SUGERENCIAS = [
 export class RsAsistenteComponent {
   private readonly router = inject(Router);
   private readonly asistente = inject(AsistenteService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  protected readonly ui = inject(AsistenteUiService);
 
   protected readonly sugerencias = SUGERENCIAS;
 
@@ -367,23 +465,33 @@ export class RsAsistenteComponent {
     ),
     { initialValue: this.router.url },
   );
+  private readonly pagina = computed(() => this.ruta().split(/[?#]/)[0]);
   protected readonly trasColumna = computed(
     () => CON_COLUMNA_LATERAL.some((prefijo) => this.ruta().startsWith(prefijo)));
 
-  protected readonly abierto = signal(false);
+  protected readonly abierto = this.ui.abierto;
   protected readonly escribiendo = signal(false);
   protected readonly borrador = signal('');
   protected readonly turnos = signal<Turno[]>([SALUDO]);
+  /** null = panel sobre el flotante, o a pantalla completa en móvil. */
+  protected readonly posicion = signal<Posicion | null>(null);
 
   private readonly hilo = viewChild<ElementRef<HTMLElement>>('hilo');
   private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');
+  private readonly lanzador = viewChild<ElementRef<HTMLButtonElement>>('lanzador');
 
   /** Lo que se le manda al API como contexto: sin el saludo, que no aporta. */
   private readonly historial = computed<MensajeAsistenteDto[]>(
     () => this.turnos().slice(1).map(({ autor, texto }) => ({ autor, texto })));
 
   constructor() {
-    // Al abrir, el foco al campo; y con cada turno nuevo, el hilo abajo.
+    // Al abrir, colocar el panel junto a su botón y llevar el foco al campo.
+    effect(() => {
+      if (!this.abierto()) return;
+      this.ui.origen();
+      this.recolocar();
+    });
+    // Con cada turno nuevo, el hilo abajo.
     effect(() => {
       if (!this.abierto()) return;
       this.turnos();
@@ -394,6 +502,13 @@ export class RsAsistenteComponent {
         this.campo()?.nativeElement.focus();
       });
     });
+    // Al cambiar de página el panel se cierra: la respuesta ya llevó al usuario.
+    // Sólo cuenta la ruta, no la query: un listado que reescribe sus filtros
+    // en la URL no debe cerrar el chat mientras se usa.
+    effect(() => {
+      this.pagina();
+      this.ui.cerrar();
+    });
   }
 
   /** Escape cierra, como cualquier panel de la web. */
@@ -402,8 +517,37 @@ export class RsAsistenteComponent {
     if (this.abierto()) this.cerrar();
   }
 
-  protected alternar(): void { this.abierto.update((v) => !v); }
-  protected cerrar(): void { this.abierto.set(false); }
+  /** Abierto desde la cabecera, un clic fuera lo cierra como un desplegable. */
+  @HostListener('document:click', ['$event'])
+  protected alClicFuera(evento: MouseEvent): void {
+    if (!this.abierto() || !this.posicion()) return;
+    const destino = evento.target as Node | null;
+    if (!destino || this.host.nativeElement.contains(destino)) return;
+    if (this.ui.origen()?.contains(destino)) return;
+    this.cerrar();
+  }
+
+  @HostListener('window:resize')
+  @HostListener('window:scroll')
+  protected recolocar(): void {
+    if (this.abierto()) this.posicion.set(this.calcularPosicion());
+  }
+
+  protected alternarDesdeFlotante(): void {
+    this.ui.alternar(null);
+  }
+
+  protected cerrar(): void {
+    const volverA = this.ui.origen() ?? this.lanzador()?.nativeElement;
+    this.ui.cerrar();
+    volverA?.focus();
+  }
+
+  protected etiqueta(r: ResultadoAsistente): string {
+    return r.tipo === 'lugar'
+      ? TIPO_LUGAR_LABELS[r.categoria as TipoLugar] ?? r.categoria
+      : VERTICAL_LABELS[r.categoria as VerticalKey] ?? r.categoria;
+  }
 
   protected escribir(evento: Event): void {
     this.borrador.set((evento.target as HTMLInputElement).value);
@@ -429,7 +573,10 @@ export class RsAsistenteComponent {
         ruta: this.router.url,
       });
       this.turnos.update((t) => [...t, {
-        autor: 'asistente', texto: r.respuesta, ...(r.enlaces ? { enlaces: r.enlaces } : {}),
+        autor: 'asistente', texto: r.respuesta,
+        ...(r.enlaces ? { enlaces: r.enlaces } : {}),
+        ...(r.resultados?.length ? { resultados: r.resultados } : {}),
+        ...(r.verTodos ? { verTodos: r.verTodos } : {}),
       }]);
     } catch {
       // Que el hilo nunca se quede mudo: un fallo de red también se contesta.
@@ -441,5 +588,26 @@ export class RsAsistenteComponent {
     } finally {
       this.escribiendo.set(false);
     }
+  }
+
+  /**
+   * Bajo el botón de la cabecera, con el borde derecho alineado al suyo y sin
+   * salirse de la pantalla. En móvil, o sin botón de origen visible, null: el
+   * CSS lo pone a pantalla completa o sobre el flotante.
+   */
+  private calcularPosicion(): Posicion | null {
+    if (typeof window === 'undefined' || window.innerWidth <= ANCHO_MOVIL) return null;
+    const origen = this.ui.origen();
+    if (!origen?.isConnected) return null;
+
+    const caja = origen.getBoundingClientRect();
+    if (!caja.width && !caja.height) return null;
+
+    const top = Math.round(caja.bottom + HUECO);
+    return {
+      top,
+      right: Math.max(MARGEN, Math.round(window.innerWidth - caja.right)),
+      maxHeight: Math.max(240, window.innerHeight - top - MARGEN),
+    };
   }
 }

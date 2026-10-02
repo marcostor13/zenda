@@ -1,15 +1,27 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AsistenteService } from './asistente.service';
+import { BusquedaPlataforma, BusquedaPlataformaService } from './busqueda-plataforma.service';
 
 describe('AsistenteService', () => {
   let fetchMock: jest.Mock;
+  let plataforma: jest.Mocked<Pick<BusquedaPlataformaService, 'buscar' | 'inventarioComoTexto'>>;
+
+  const ALOJAMIENTOS: BusquedaPlataforma = {
+    descripcion: 'Alojamiento canino en Valencia',
+    resultados: [{
+      tipo: 'servicio', id: 's1', titulo: 'Residencia Patitas', ciudad: 'Valencia',
+      categoria: 'alojamiento', precioDesde: 25, nota: 4.8, numResenas: 12, ruta: '/alojamiento/s1',
+    }],
+    verTodos: { titulo: 'Ver todos los resultados', ruta: '/alojamiento', queryParams: { ciudad: 'Valencia' } },
+  };
 
   const crear = async (variables: Record<string, string | undefined>): Promise<AsistenteService> => {
     const modulo = await Test.createTestingModule({
       providers: [
         AsistenteService,
         { provide: ConfigService, useValue: { get: (k: string) => variables[k] } },
+        { provide: BusquedaPlataformaService, useValue: plataforma },
       ],
     }).compile();
     return modulo.get(AsistenteService);
@@ -24,6 +36,10 @@ describe('AsistenteService', () => {
   };
 
   beforeEach(() => {
+    plataforma = {
+      buscar: jest.fn().mockResolvedValue(null),
+      inventarioComoTexto: jest.fn().mockResolvedValue(''),
+    };
     fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
@@ -158,6 +174,78 @@ describe('AsistenteService', () => {
       fetchMock.mockRejectedValue(new Error('red caída'));
 
       await expect(service.responder({ pregunta: 'x' })).resolves.toMatchObject({ disponible: true });
+    });
+  });
+
+  describe('opciones reales de la plataforma', () => {
+    it('debería devolver las tarjetas y la búsqueda entera junto al texto del modelo', async () => {
+      const service = await crear({ DEEPSEEK_API_KEY: 'ds-1' });
+      plataforma.buscar.mockResolvedValue(ALOJAMIENTOS);
+      respondeConTexto('En Valencia tienes Residencia Patitas.');
+
+      const r = await service.responder({ pregunta: 'Alojamiento en Valencia' });
+
+      expect(r.respuesta).toBe('En Valencia tienes Residencia Patitas.');
+      expect(r.resultados).toEqual(ALOJAMIENTOS.resultados);
+      expect(r.verTodos).toEqual(ALOJAMIENTOS.verTodos);
+    });
+
+    it('debería darle al modelo los resultados y el inventario para que no los niegue', async () => {
+      const service = await crear({ DEEPSEEK_API_KEY: 'ds-1' });
+      plataforma.buscar.mockResolvedValue(ALOJAMIENTOS);
+      plataforma.inventarioComoTexto.mockResolvedValue('- Playa canina: 14 publicados (sobre todo en Valencia).');
+      respondeConTexto('Hola');
+
+      await service.responder({ pregunta: 'Alojamiento en Valencia' });
+
+      const sistema = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content;
+      expect(sistema).toContain('Playa canina: 14 publicados');
+      expect(sistema).toContain('RESULTADOS DE LA PLATAFORMA para "Alojamiento canino en Valencia"');
+      expect(sistema).toContain('Residencia Patitas (Valencia, desde 25 €, nota 4.8/5 (12 reseñas))');
+    });
+
+    /* Las tarjetas son la respuesta: no hace falta un modelo para enseñarlas. */
+    it('debería enseñar las opciones aunque no haya proveedor de IA', async () => {
+      const service = await crear({});
+      plataforma.buscar.mockResolvedValue(ALOJAMIENTOS);
+
+      const r = await service.responder({ pregunta: 'Alojamiento en Valencia' });
+
+      expect(r.disponible).toBe(true);
+      expect(r.respuesta).toContain('Alojamiento canino en Valencia');
+      expect(r.resultados).toHaveLength(1);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('debería decir que no hay nada y ofrecer la categoría si la búsqueda sale vacía', async () => {
+      const service = await crear({});
+      plataforma.buscar.mockResolvedValue({ ...ALOJAMIENTOS, resultados: [] });
+
+      const r = await service.responder({ pregunta: 'Alojamiento en Teruel' });
+
+      expect(r.respuesta).toContain('no hay resultados');
+      expect(r.resultados).toBeUndefined();
+      expect(r.verTodos?.ruta).toBe('/alojamiento');
+    });
+
+    it('debería mantener las tarjetas aunque el modelo falle', async () => {
+      const service = await crear({ DEEPSEEK_API_KEY: 'ds-1' });
+      plataforma.buscar.mockResolvedValue(ALOJAMIENTOS);
+      fetchMock.mockRejectedValue(new Error('red caída'));
+
+      const r = await service.responder({ pregunta: 'Alojamiento en Valencia' });
+
+      expect(r.resultados).toEqual(ALOJAMIENTOS.resultados);
+    });
+
+    it('debería contestar igual si la búsqueda en la base falla', async () => {
+      const service = await crear({ DEEPSEEK_API_KEY: 'ds-1' });
+      plataforma.buscar.mockRejectedValue(new Error('mongo caído'));
+      respondeConTexto('Hola');
+
+      const r = await service.responder({ pregunta: 'Alojamiento en Valencia' });
+
+      expect(r).toEqual({ disponible: true, respuesta: 'Hola' });
     });
   });
 });
