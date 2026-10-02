@@ -159,7 +159,7 @@ const ESTADOS: Record<string, string> = {
 
       @switch (pestana()) {
         @case ('resumen') {
-          <div class="resumen">
+          <div class="resumen" [class.resumen--sin-lateral]="!bienestar()">
             <section class="resumen__principal">
               <div class="bloque-cabecera">
                 <h2>{{ 'Actividad reciente' | t }}</h2>
@@ -200,8 +200,8 @@ const ESTADOS: Record<string, string> = {
               }
             </section>
 
-            <aside class="resumen__lateral">
-              @if (bienestar(); as b) {
+            @if (bienestar(); as b) {
+              <aside class="resumen__lateral">
                 <section class="rs-card bienestar">
                   <h3><rs-icon name="award" [size]="18" [stroke]="2"></rs-icon> {{ 'Índice de Bienestar' | t }}</h3>
                   <div class="bienestar__cifra"><strong>{{ b.puntuacion }}</strong><span>/100</span></div>
@@ -212,9 +212,9 @@ const ESTADOS: Record<string, string> = {
                     </div>
                   }
                 </section>
-              }
-              <app-ficha-perro-datos [perro]="exp.perro" [secciones]="['general']" />
-            </aside>
+              </aside>
+            }
+            <app-ficha-perro-datos class="resumen__datos" [perro]="exp.perro" [secciones]="['general']" />
           </div>
         }
         @case ('historial') {
@@ -332,7 +332,9 @@ const ESTADOS: Record<string, string> = {
 
     .resumen { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--sp-6); align-items: start; }
     .resumen__principal { display: grid; gap: var(--sp-4); min-width: 0; }
+    .resumen--sin-lateral { grid-template-columns: minmax(0, 1fr); }
     .resumen__lateral { display: grid; gap: var(--sp-4); }
+    .resumen__datos { grid-column: 1 / -1; }
     .bloque-cabecera { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
     .bloque-cabecera h2 { font-family: var(--font-display); font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); margin: 0; }
     .recientes { display: grid; gap: var(--sp-4); }
