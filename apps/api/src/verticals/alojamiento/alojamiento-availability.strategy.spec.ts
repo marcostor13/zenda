@@ -385,6 +385,31 @@ describe('AlojamientoAvailabilityStrategy', () => {
         });
         expect(resultado.disponible).toBe(true);
       });
+
+      it('bloquea la reserva si el centro marcó ese perfil como no admitido', async () => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue({ ...alojamientoMock, compatibilidadSocialNoAdmitida: ['individual'] }),
+        });
+        await expect(strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { compatibilidadSocial: 'individual' },
+        })).rejects.toThrow(DomainException);
+      });
+
+      it('permite cualquier perfil que el centro no haya marcado como no admitido', async () => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue({
+            ...alojamientoMock, compatibilidadSocialNoAdmitida: ['individual'], compatibilidadSocialAdmitida: ['cualquiera'],
+          }),
+        });
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),
+          parametrosExtra: { compatibilidadSocial: 'solo_machos' },
+        });
+        expect(resultado.disponible).toBe(true);
+      });
     });
   });
 

@@ -3,7 +3,7 @@ import { UnidadReservable, idDeUnidad } from './unidad-reservable';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
-  CatalogRepository, BboxParams, BuscarServiciosParams, FacetasResult, OrdenServicios, PuntoServicio,
+  CatalogRepository, BboxParams, BuscarServiciosParams, CiudadDestacada, FacetasResult, OrdenServicios, PuntoServicio,
 } from './catalog.repository';
 import { Comercio, ComercioDocument } from '../comercios/comercio.schema';
 import { ReviewsService } from '../reviews/reviews.service';
@@ -17,8 +17,12 @@ import { campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
 import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
   ServicioClinicoTipo, esEspecialidadSuelta, HorarioDiaDto, ExcepcionHorarioDto, MIN_FOTOS_SERVICIO,
-  BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio, etiquetaPuntuacion,
+  BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio, etiquetaPuntuacion, perfilesSocialesNoAdmitidos,
 } from 'shared';
+
+/** Poblaciones que pinta "Servicios cerca de ti" en la portada, y su tope. */
+const CIUDADES_DESTACADAS_DEFECTO = 8;
+const CIUDADES_DESTACADAS_MAX = 20;
 
 /** Campos de disponibilidad editables por el comercio, según el vertical del servicio. */
 const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarDisponibilidadDto>> = {
@@ -36,7 +40,7 @@ const CAMPOS_EXTRA_POR_VERTICAL: Record<string, string[]> = {
   alojamiento: [
     'espacios', 'amenities', 'checkIn', 'checkOut', 'politicaCancelacion',
     'requisitoVacunas', 'paseosIncluidos', 'camaras24h', 'cancelacionGratis',
-    'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
+    'compatibilidadSocialAdmitida', 'compatibilidadSocialNoAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
     'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
   ],
   transporte: [
@@ -197,8 +201,12 @@ export interface ServicioDetalleDto extends ServicioCardDto {
   habitaciones: HabitacionDto[];
   resenas: ResenaResumenDto[];
   comercioId: string;
-  /** Residencia canina (Fase C): perfiles de compatibilidad social admitidos; vacío = cualquiera. */
-  compatibilidadSocialAdmitida: string[];
+  /**
+   * Residencia canina: perfiles de compatibilidad social que el centro NO
+   * admite; vacío = cualquiera. Ya resuelto para fichas del modelo anterior
+   * (ver `perfilesSocialesNoAdmitidos`).
+   */
+  compatibilidadSocialNoAdmitida: string[];
   requisitoMicrochip: boolean;
   requiereDesparasitacionInterna: boolean;
   requiereDesparasitacionExterna: boolean;
@@ -283,6 +291,7 @@ interface ServicioLean {
   checkOut?: string;
   aptitud?: AptitudPerro;
   compatibilidadSocialAdmitida?: string[];
+  compatibilidadSocialNoAdmitida?: string[];
   requisitoMicrochip?: boolean;
   requiereDesparasitacionInterna?: boolean;
   requiereDesparasitacionExterna?: boolean;
@@ -425,6 +434,12 @@ export class CatalogService {
       soloDisponibles: true,
       bbox: filtros.bbox,
     });
+  }
+
+  /** Poblaciones con más oferta publicada, con una foto real de cada una (portada). */
+  obtenerCiudadesDestacadas(limite = CIUDADES_DESTACADAS_DEFECTO): Promise<CiudadDestacada[]> {
+    const tope = Number.isFinite(limite) && limite > 0 ? Math.min(Math.floor(limite), CIUDADES_DESTACADAS_MAX) : CIUDADES_DESTACADAS_DEFECTO;
+    return this.repo.ciudadesDestacadas(tope);
   }
 
   /**
@@ -875,7 +890,7 @@ export class CatalogService {
     const claves = [
       // alojamiento canino
       'espacios', 'espaciosDisponibles', 'checkIn', 'checkOut', 'requisitoVacunas', 'paseosIncluidos', 'camaras24h',
-      'compatibilidadSocialAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
+      'compatibilidadSocialAdmitida', 'compatibilidadSocialNoAdmitida', 'conductasNoAdmitidas', 'requisitoMicrochip', 'requiereDesparasitacionInterna',
       'requiereDesparasitacionExterna', 'requiereVacunaTosPerreras', 'serviciosAdicionales',
       // transporte de animales
       'tipoVehiculo', 'capacidadPerros', 'zonaCobertura', 'tarifaBase', 'tarifaKm', 'tarifaEsperaPorHora', 'jaulasIncluidas', 'acompananteHumano', 'soloPerros', 'unidadesDisponibles',
@@ -932,7 +947,7 @@ export class CatalogService {
       habitaciones: this.espaciosComoHabitaciones(h).map((hab, i) => this.toHabitacion(hab, i)),
       resenas,
       comercioId: h.comercioId ? String(h.comercioId) : '',
-      compatibilidadSocialAdmitida: h.compatibilidadSocialAdmitida ?? [],
+      compatibilidadSocialNoAdmitida: perfilesSocialesNoAdmitidos(h),
       requisitoMicrochip: h.requisitoMicrochip ?? false,
       requiereDesparasitacionInterna: h.requiereDesparasitacionInterna ?? false,
       requiereDesparasitacionExterna: h.requiereDesparasitacionExterna ?? false,

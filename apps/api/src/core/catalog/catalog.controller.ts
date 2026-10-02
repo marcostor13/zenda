@@ -8,7 +8,7 @@ import {
   PaginatedResult,
   ServicioGestionDto,
 } from './catalog.service';
-import { BboxParams, FacetasResult, PuntoServicio } from './catalog.repository';
+import { BboxParams, CiudadDestacada, FacetasResult, PuntoServicio } from './catalog.repository';
 
 /**
  * Parámetros de la búsqueda común. Todo lo demás que llegue en la URL se trata
@@ -121,6 +121,14 @@ export class CatalogController {
     return this.catalogService.obtenerFacetas({
       vertical, ciudad, bbox: this.toBbox(swLat, swLng, neLat, neLng),
     });
+  }
+
+  /* Declarada antes de ':id' para que "ciudades" no se interprete como un id. */
+  @Get('ciudades')
+  @ApiOperation({ summary: 'Poblaciones con más servicios publicados y una foto real de cada una (portada)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  ciudades(@Query('limit') limit?: string): Promise<CiudadDestacada[]> {
+    return this.catalogService.obtenerCiudadesDestacadas(this.toNumber(limit));
   }
 
   /* Declarada antes de ':id' para que "mapa" no se interprete como un id. */

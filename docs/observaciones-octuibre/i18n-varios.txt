@@ -1,0 +1,7 @@
+Acciones del servicio
+Pausar servicio
+Publicar servicio
+Marca los perfiles que no admites en tu centro canino
+Perfiles que no admite este centro:
+Compatibilidad social que admites => Marca los perfiles que no admites en tu centro canino
+Compatibilidad social admitida: => Perfiles que no admite este centro:

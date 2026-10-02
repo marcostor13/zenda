@@ -55,7 +55,7 @@ describe('AlojamientoDetalleComponent', () => {
     resenas: [],
     reglas: ['Cartilla de vacunación al día obligatoria'],
     comercioId: 'c1',
-    compatibilidadSocialAdmitida: [],
+    compatibilidadSocialNoAdmitida: [],
     requisitoMicrochip: false,
     requiereDesparasitacionInterna: false,
     requiereDesparasitacionExterna: false,
@@ -368,14 +368,14 @@ describe('AlojamientoDetalleComponent', () => {
     });
 
     it('admite el perfil social cuando el alojamiento no restringe compatibilidad', () => {
-      component.alojamiento.set({ ...detalleMock, compatibilidadSocialAdmitida: [] });
+      component.alojamiento.set({ ...detalleMock, compatibilidadSocialNoAdmitida: [] });
       component.perroCompat.set(perroMock);
 
       expect(component.compatibilidad()).toContain('Perfil social admitido para perros sociable');
     });
 
-    it('no inventa compatibilidad social si el alojamiento la restringe a otro perfil', () => {
-      component.alojamiento.set({ ...detalleMock, compatibilidadSocialAdmitida: ['tímido'] });
+    it('no inventa compatibilidad social si el centro excluye algún perfil', () => {
+      component.alojamiento.set({ ...detalleMock, compatibilidadSocialNoAdmitida: ['individual'] });
       component.perroCompat.set(perroMock);
 
       expect(component.compatibilidad()).not.toContain('Perfil social admitido para perros sociable');

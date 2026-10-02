@@ -417,7 +417,7 @@ describe('CatalogService', () => {
 
       expect(detalle.espacios).toEqual([]);
       expect(detalle.habitaciones).toEqual([]);
-      expect(detalle.compatibilidadSocialAdmitida).toEqual([]);
+      expect(detalle.compatibilidadSocialNoAdmitida).toEqual([]);
       expect(detalle.serviciosAdicionales).toEqual([]);
     });
 

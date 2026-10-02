@@ -64,9 +64,21 @@ export class Alojamiento extends Servicio {
 
   // --- Enriquecimiento Fase C (docs/mejora_servicios.md §2) ---
 
-  /** Perfiles de compatibilidad social que esta residencia puede alojar. Vacío/ausente = cualquiera. */
+  /**
+   * Modelo anterior: perfiles que la residencia admitía (vacío = cualquiera).
+   * Ya no se escribe; se conserva para leer fichas guardadas antes de octubre
+   * de 2026 (ver `perfilesSocialesNoAdmitidos` en shared).
+   */
   @Prop({ type: [String], default: [] })
   compatibilidadSocialAdmitida!: string[];
+
+  /**
+   * Perfiles de compatibilidad social que esta residencia NO admite; vacío =
+   * cualquiera. Sin `default` a propósito: su ausencia distingue una ficha del
+   * modelo anterior de una que declara "no excluyo ninguno".
+   */
+  @Prop({ type: [String], default: undefined })
+  compatibilidadSocialNoAdmitida?: string[];
 
   /**
    * Conductas de riesgo que esta residencia NO admite (Ref. RES5): agresividad,

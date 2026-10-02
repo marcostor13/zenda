@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { VerticalKey, type ExcepcionHorarioDto, type HorarioDiaDto, type BusquedaCercanosApi } from 'shared';
+import { VerticalKey, perfilesSocialesNoAdmitidos, type ExcepcionHorarioDto, type HorarioDiaDto, type BusquedaCercanosApi } from 'shared';
 import { environment } from '../../../../environments/environment';
 
 export interface FiltrosAlojamiento {
@@ -108,8 +108,8 @@ export interface AlojamientoDetalle extends AlojamientoCard {
   /** El API aún no modela reglas de la casa; puede no venir. */
   reglas?: string[];
   comercioId: string;
-  /** Residencia canina (Fase C): perfiles de compatibilidad social admitidos; vacío = cualquiera. */
-  compatibilidadSocialAdmitida: string[];
+  /** Residencia canina: perfiles de compatibilidad social que NO admite; vacío = cualquiera. */
+  compatibilidadSocialNoAdmitida: string[];
   requisitoMicrochip: boolean;
   requiereDesparasitacionInterna: boolean;
   requiereDesparasitacionExterna: boolean;
@@ -255,7 +255,9 @@ export class AlojamientoService {
       })),
       resenas: data.resenas ?? [],
       serviciosAdicionales: data.serviciosAdicionales ?? [],
-      compatibilidadSocialAdmitida: data.compatibilidadSocialAdmitida ?? [],
+      // El API ya resuelve las fichas del modelo anterior; el respaldo cubre
+      // una respuesta de una versión previa del API, que sólo traía admitidos.
+      compatibilidadSocialNoAdmitida: perfilesSocialesNoAdmitidos(data),
       reglas: data.reglas ?? [],
     };
   }

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VerticalKey, cabeEnTamano, etiquetaTamanoPerro } from 'shared';
+import { VerticalKey, admitePerfilSocial, cabeEnTamano, etiquetaTamanoPerro } from 'shared';
 import {
   AvailabilityStrategy,
   AvailabilityQuery,
@@ -193,15 +193,15 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
   }
 
   /**
-   * Bloquea la reserva si el perfil de compatibilidad social declarado no está entre los
-   * admitidos por la residencia. Un array vacío/ausente admite cualquier perfil.
+   * Bloquea la reserva si el perfil de compatibilidad social declarado está entre los
+   * que la residencia marcó como no admitidos. Sin nada marcado admite cualquier perfil.
+   * Las fichas del modelo anterior (lista de admitidos) se leen por su complemento.
    */
   private validarCompatibilidadSocial(alojamiento: Alojamiento, params: AvailabilityQuery): void {
-    if (!alojamiento.compatibilidadSocialAdmitida?.length) return;
     const compatibilidad = params.parametrosExtra?.['compatibilidadSocial'];
     if (typeof compatibilidad !== 'string' || !compatibilidad) return;
 
-    if (!alojamiento.compatibilidadSocialAdmitida.includes(compatibilidad)) {
+    if (!admitePerfilSocial(alojamiento, compatibilidad)) {
       throw new DomainException(
         'Esta residencia no admite el perfil de compatibilidad social indicado para tu perro',
         409,

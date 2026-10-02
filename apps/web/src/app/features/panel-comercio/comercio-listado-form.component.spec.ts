@@ -607,7 +607,22 @@ describe('ComercioListadoFormComponent', () => {
       expect(componente.espacios.length).toBe(1);
       expect(componente.espacios.at(0).value.amenities).toEqual(['cama']);
       expect(componente.alojamientoGroup.value.amenities).toEqual(['jardín', 'piscina']);
-      expect(componente.tieneCompatibilidad('solo_hembras')).toBe(true);
+      // Ficha del modelo anterior (admitía sólo hembras): se marcan como no
+      // admitidos todos los demás perfiles.
+      expect(componente.perfilNoAdmitido('solo_hembras')).toBe(false);
+      expect(componente.perfilNoAdmitido('solo_machos')).toBe(true);
+      expect(componente.perfilNoAdmitido('individual')).toBe(true);
+    });
+
+    it('debería precargar y guardar los perfiles sociales no admitidos', async () => {
+      await crear('s1', {
+        vertical: VerticalKey.ALOJAMIENTO, titulo: 'Villa', descripcion: 'Casa con jardín',
+        ciudad: 'Madrid', precioBase: 40,
+        extra: { compatibilidadSocialNoAdmitida: ['individual'] },
+      });
+
+      expect(componente.perfilNoAdmitido('individual')).toBe(true);
+      expect(componente.perfilNoAdmitido('cualquiera')).toBe(false);
     });
   });
 
@@ -1878,11 +1893,11 @@ describe('ComercioListadoFormComponent', () => {
     it('deberia alternar la compatibilidad social', async () => {
       await crear();
 
-      componente.toggleCompatibilidad('sociable');
-      expect(componente.tieneCompatibilidad('sociable')).toBe(true);
+      componente.togglePerfilNoAdmitido('sociable');
+      expect(componente.perfilNoAdmitido('sociable')).toBe(true);
 
-      componente.toggleCompatibilidad('sociable');
-      expect(componente.tieneCompatibilidad('sociable')).toBe(false);
+      componente.togglePerfilNoAdmitido('sociable');
+      expect(componente.perfilNoAdmitido('sociable')).toBe(false);
     });
   });
 
