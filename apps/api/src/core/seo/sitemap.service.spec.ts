@@ -60,6 +60,24 @@ describe('SitemapService', () => {
     }
   });
 
+  describe('fichas de servicio por slug', () => {
+    it('debería publicar la dirección legible y caer al id si aún no la tiene', async () => {
+      await montar([
+        { _id: 'a1', slug: 'reino-canino-valencia', vertical: VerticalKey.ALOJAMIENTO, updatedAt: new Date('2026-09-01') },
+        { _id: 'v1', vertical: VerticalKey.VETERINARIA, updatedAt: new Date('2026-09-02') },
+      ], []);
+
+      const entradas = await service.entradas();
+      const rutas = entradas.map((entrada) => entrada.ruta);
+
+      expect(rutas).toContain('/alojamiento/reino-canino-valencia');
+      expect(rutas).toContain('/veterinaria/v1');
+      expect(entradas.find((e) => e.ruta === '/alojamiento/reino-canino-valencia')?.lastmod)
+        .toBe('2026-09-01T00:00:00.000Z');
+      expect(servicios.cadena.select).toHaveBeenCalledWith(expect.stringContaining('slug'));
+    });
+  });
+
   describe('fichas de servicio', () => {
     /**
      * `comercioActivo` es la misma condición que aplica el buscador. Sin ella el

@@ -30,6 +30,8 @@ interface ParadaApi {
   tipo: 'lugar' | 'servicio';
   servicioId?: string;
   lugarId?: string;
+  /** Dirección legible de la ficha (servicio o lugar). */
+  slug?: string;
   vertical?: string;
   precioEstimado?: number;
 }
@@ -367,7 +369,7 @@ const opciones = <T extends string>(labels: Record<T, string>): Array<{ valor: T
                           @if (p.servicioId) {
                             <a class="rs-btn rs-btn--primary rs-btn--sm" [routerLink]="enlace(p)">{{ 'Reservar' | t }}</a>
                           } @else if (p.lugarId) {
-                            <a [routerLink]="['/explora', p.lugarId]" class="rs-btn rs-btn--ghost rs-btn--sm">
+                            <a [routerLink]="['/explora', p.slug || p.lugarId]" class="rs-btn rs-btn--ghost rs-btn--sm">
                               {{ 'Ver sitio' | t }}
                             </a>
                           }
@@ -709,7 +711,7 @@ export class PlanificadorComponent implements OnInit {
 
   /** Ficha del servicio, donde se elige fecha o cita y se reserva. */
   enlace(parada: ParadaApi): unknown[] {
-    return enlaceAServicio(parada.vertical, parada.servicioId ?? '');
+    return enlaceAServicio(parada.vertical, { id: parada.servicioId, slug: parada.slug });
   }
 
   todoAnadido(paradas: readonly ParadaApi[]): boolean {

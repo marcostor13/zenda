@@ -269,8 +269,16 @@ describe('CatalogController', () => {
 
       const result = await controller.obtener('hotel-1');
 
-      expect(service.obtenerServicio).toHaveBeenCalledWith('hotel-1');
+      expect(service.obtenerServicio).toHaveBeenCalledWith('hotel-1', undefined);
       expect(result).toBe(detalle);
+    });
+
+    it('debería pasar la categoría para resolver por slug', async () => {
+      service.obtenerServicio.mockResolvedValue({ id: 'x' } as never);
+
+      await controller.obtener('reino-canino-valencia', 'alojamiento');
+
+      expect(service.obtenerServicio).toHaveBeenCalledWith('reino-canino-valencia', 'alojamiento');
     });
   });
 

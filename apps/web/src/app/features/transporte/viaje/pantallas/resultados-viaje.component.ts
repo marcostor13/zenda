@@ -145,7 +145,7 @@ const OPCIONES_FILTRO_MODALIDAD = [
                 }
               </div>
               <div class="rv3__acciones">
-                <a class="rs-btn rs-btn--outline rs-btn--sm" [routerLink]="['/transporte', r.servicioId]" [queryParams]="{ modalidad: r.modalidad }">
+                <a class="rs-btn rs-btn--outline rs-btn--sm" [routerLink]="['/transporte', r.servicioSlug || r.servicioId]" [queryParams]="{ modalidad: r.modalidad }">
                   {{ 'Ver detalles' | t }}
                 </a>
                 @if (r.estado === 'precio') {

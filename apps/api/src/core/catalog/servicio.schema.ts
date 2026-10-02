@@ -30,6 +30,19 @@ export class Servicio {
   @Prop({ required: true })
   titulo!: string;
 
+  /**
+   * Dirección legible de la ficha (`/alojamiento/reino-canino-valencia`).
+   *
+   * Única **por vertical**, no global: «Peluquería Luna Valencia» puede existir
+   * a la vez como peluquería y como adiestramiento sin que una se quede con el
+   * sufijo `-2`. Se genera al crear desde título + ciudad y **no cambia una vez
+   * publicada**: un slug que se mueve rompe los enlaces que ya circulan. Sólo se
+   * recalcula mientras la ficha sigue en borrador, cuando nadie la ha visto.
+   * Opcional mientras la migración no haya pasado por los listados antiguos.
+   */
+  @Prop({ type: String, trim: true, lowercase: true })
+  slug?: string;
+
   @Prop({ required: true })
   descripcion!: string;
 
@@ -158,6 +171,14 @@ ServicioSchema.index({
   estado: 1, comercioActivo: 1, vertical: 1, 'ubicacion.ciudad': 1, prioridadRanking: -1, precioBase: 1,
 });
 ServicioSchema.index({ 'ubicacion.geo': '2dsphere' }, { sparse: true });
+
+// Resolver una ficha por su dirección legible. `partialFilterExpression` y no
+// `sparse`: en un índice compuesto `sparse` sigue indexando los documentos sin
+// slug (tienen `vertical`), y dos listados antiguos sin migrar chocarían.
+ServicioSchema.index(
+  { vertical: 1, slug: 1 },
+  { unique: true, partialFilterExpression: { slug: { $type: 'string' } } },
+);
 
 // El buscador filtra por la clave, no por el texto tal cual se escribió: sin
 // este índice, buscar por población pasaba a ser un recorrido completo.

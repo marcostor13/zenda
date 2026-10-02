@@ -27,6 +27,8 @@ export function datosDeNivel(dto: ActualizarAlphaNivelDto): Partial<AlphaNivelCo
 /** Negocio adherido al programa Alpha tal como lo pinta el carrusel del perfil. */
 export interface AlphaVentajaDto {
   id: string;
+  /** Dirección legible de la ficha, si ya la tiene. */
+  slug?: string;
   nombre: string;
   ciudad: string;
   vertical: string;
@@ -51,6 +53,7 @@ export class AlphaService {
       const lean = s as unknown as Record<string, unknown>;
       return {
         id: String(lean['_id']),
+        slug: (lean['slug'] as string | undefined) || undefined,
         nombre: (lean['titulo'] as string) ?? '',
         ciudad: ((lean['ubicacion'] as { ciudad?: string } | undefined)?.ciudad) ?? '',
         vertical: (lean['vertical'] as string) ?? '',

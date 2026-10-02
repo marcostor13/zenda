@@ -125,7 +125,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
         <div class="fav-grid">
           @for (s of recomendados(); track s.id) {
             <article class="rs-card fav-card">
-              <a class="fav-card__img" [routerLink]="['/', s.vertical, s.id]">
+              <a class="fav-card__img" [routerLink]="['/', s.vertical, s.slug || s.id]">
                 @if (s.imagenes[0]) {
                   <img [src]="s.imagenes[0]" [alt]="s.nombre" rsImg />
                 } @else {
@@ -280,7 +280,7 @@ export class FavoritosComponent implements OnInit {
   /** HU-10.2: "Reservar" lleva a la ficha si existe, si no al listado del vertical. */
   rutaReservar(f: FavoritoResumenDto): string[] {
     if (VERTICALES_CON_FICHA.has(f.vertical) && f.servicioId) {
-      return ['/', f.vertical, f.servicioId];
+      return ['/', f.vertical, f.servicioSlug || f.servicioId];
     }
     return ['/', f.vertical];
   }

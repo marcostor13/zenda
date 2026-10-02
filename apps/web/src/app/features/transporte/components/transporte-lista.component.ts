@@ -83,7 +83,7 @@ import { migasDePan } from '../../../core/seo/json-ld';
           [amenities]="serviciosDe(t)"
           [destacados]="incluyeDe(t)"
           [favoritoServicioId]="t.id"
-          [routerLink]="['/transporte', t.id]"
+          [routerLink]="['/transporte', t.slug || t.id]"
           [ctaLabel]="'Reservar' | t"
           [accionSoloEscritorio]="true">
         </rs-card>
@@ -133,7 +133,7 @@ export class TransporteListaComponent implements OnInit {
   readonly cercanos = signal<BusquedaCercanosApi | null>(null);
   readonly enlaceMasCercano = computed(() => {
     const cercanos = this.cercanos();
-    return cercanos ? ['/transporte', cercanos.masCercano.id] : null;
+    return cercanos ? ['/transporte', cercanos.masCercano.slug || cercanos.masCercano.id] : null;
   });
   /** Población y distancia de la tarjeta, traducida («a 2,3 km del centro»). */
   subtituloDe(ciudad: string, distanciaKm?: number, distanciaCentroKm?: number): string {

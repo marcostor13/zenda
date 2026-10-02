@@ -31,6 +31,8 @@ import { organizacion, sitioWeb } from '../../core/seo/json-ld';
 interface AlojamientoRecomendado {
   /** Presente solo cuando la tarjeta viene del catálogo real: habilita favorito y enlace a la ficha. */
   id?: string;
+  /** Dirección legible de la ficha, si ya la tiene. */
+  slug?: string;
   ciudad: string;
   nombre: string;
   estrellas?: number;
@@ -339,7 +341,7 @@ type SearchMode = 'filtros' | 'ia';
             [amenities]="a.tags"
             [ctaLabel]="'Ver alojamiento' | t"
             [favoritoServicioId]="a.id ?? null"
-            [routerLink]="a.id ? ['/alojamiento', a.id] : null"
+            [routerLink]="a.id ? ['/alojamiento', a.slug || a.id] : null"
             (cardClick)="irAAlojamiento(a.ciudad)">
           </rs-card>
         }
@@ -1700,6 +1702,7 @@ export class HomeComponent implements OnInit {
       if (items.length > 0) {
         this.alojamientosRecomendados.set(items.slice(0, 4).map((a) => ({
           id: a.id,
+          slug: a.slug,
           nombre: a.nombre,
           ciudad: a.ciudad,
           score: a.score,

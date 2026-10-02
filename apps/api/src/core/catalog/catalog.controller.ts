@@ -179,9 +179,13 @@ export class CatalogController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener el detalle de un servicio por id' })
-  obtener(@Param('id') id: string): Promise<ServicioDetalleDto> {
-    return this.catalogService.obtenerServicio(id);
+  @ApiOperation({ summary: 'Obtener el detalle de un servicio por slug (legible) o por id' })
+  @ApiQuery({ name: 'vertical', required: false, description: 'Categoría de la ruta: el slug es único por vertical' })
+  obtener(
+    @Param('id') idOSlug: string,
+    @Query('vertical') vertical?: string,
+  ): Promise<ServicioDetalleDto> {
+    return this.catalogService.obtenerServicio(idOSlug, vertical || undefined);
   }
 
   @Get(':id/gestion')

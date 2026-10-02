@@ -60,6 +60,8 @@ export function sitioWeb(url: string): object {
 }
 
 export interface DatosNegocio {
+  /** Categoría de Doogking; decide el tipo de schema.org (ver {@link tipoDeNegocio}). */
+  readonly vertical?: string;
   readonly nombre: string;
   readonly descripcion: string;
   readonly url: string;
@@ -74,13 +76,30 @@ export interface DatosNegocio {
 }
 
 /**
- * Ficha de un comercio. `LocalBusiness` es el tipo correcto para un negocio con
- * dirección física; los buscadores lo usan para el mapa y el horario.
+ * Subtipo de `LocalBusiness` más preciso para cada categoría. Cuanto más
+ * concreto, mejor encaja Google la ficha en búsquedas como «veterinario en
+ * Valencia». Las categorías sin subtipo propio en schema.org (residencias,
+ * peluquerías, adiestradores, transporte, crematorios) se quedan en
+ * `LocalBusiness`, que es válido y no promete nada que no sean.
+ */
+const TIPO_POR_VERTICAL: Readonly<Record<string, string>> = {
+  veterinaria: 'VeterinaryCare',
+  hoteles: 'LodgingBusiness',
+  seguros: 'InsuranceAgency',
+};
+
+export function tipoDeNegocio(vertical?: string): string {
+  return (vertical && TIPO_POR_VERTICAL[vertical]) || 'LocalBusiness';
+}
+
+/**
+ * Ficha de un comercio. `LocalBusiness` (o su subtipo) es el tipo correcto para
+ * un negocio con dirección física; los buscadores lo usan para el mapa y el horario.
  */
 export function negocioLocal(datos: DatosNegocio): object {
   const documento: Record<string, unknown> = {
     '@context': CONTEXTO,
-    '@type': 'LocalBusiness',
+    '@type': tipoDeNegocio(datos.vertical),
     name: datos.nombre,
     description: datos.descripcion,
     url: datos.url,

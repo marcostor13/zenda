@@ -158,6 +158,8 @@ export class CotizacionFichaComponent implements OnInit {
   private readonly auth = inject(AuthService);
 
   readonly servicioId = input.required<string>();
+  /** Dirección legible de la ficha, para volver a ella tras iniciar sesión. */
+  readonly servicioSlug = input<string | undefined>(undefined);
   readonly titulo = input.required<string>();
 
   readonly respuesta = signal<BusquedaTransportesRespuesta | null>(null);
@@ -224,7 +226,7 @@ export class CotizacionFichaComponent implements OnInit {
     const solicitud = this.store.solicitud();
     if (!solicitud) return;
     if (!this.auth.estaAutenticado()) {
-      void this.router.navigate(['/auth/login'], { queryParams: { volverA: `/transporte/${this.servicioId()}` } });
+      void this.router.navigate(['/auth/login'], { queryParams: { volverA: `/transporte/${this.servicioSlug() || this.servicioId()}` } });
       return;
     }
     this.pidiendo.set(true);

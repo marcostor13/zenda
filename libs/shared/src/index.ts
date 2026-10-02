@@ -148,3 +148,6 @@ export * from './dtos/presupuestos/presupuesto.dto';
 // Residencia y guardería canina: modalidades del alojamiento y precio de la
 // guardería de día. Lo comparten el alta, el cobro del API y el resumen.
 export * from './alojamiento/guarderia';
+// Direcciones legibles (slugs) de las fichas públicas: las genera el API y las
+// interpreta la web, con la misma regla en los dos lados.
+export * from './slugs/slug';

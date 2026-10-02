@@ -342,8 +342,10 @@ export class ExploraListaComponent implements OnInit {
     this.mapaAbierto.update((abierto) => !abierto);
   }
 
+  /** El mapa devuelve el id del pin; se navega a la dirección legible del lugar. */
   abrirLugar(id: string): void {
-    void this.router.navigate(['/explora', id]);
+    const lugar = this.lugares().find((l) => l._id === id);
+    void this.router.navigate(lugar ? rutaDeLugar(lugar) : ['/explora', id]);
   }
 
   private ciudad?: string;

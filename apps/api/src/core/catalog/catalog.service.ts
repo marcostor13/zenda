@@ -18,6 +18,7 @@ import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
   ServicioClinicoTipo, esEspecialidadSuelta, HorarioDiaDto, ExcepcionHorarioDto, MIN_FOTOS_SERVICIO,
   BusquedaCercanosApi, RADIO_CERCANOS_KM, resolverMunicipio, etiquetaPuntuacion, perfilesSocialesNoAdmitidos,
+  pareceObjectId, slugDeFicha, slugLibre,
   type ConfigGuarderia, ofreceResidencia, precioDesdeGuarderia,
 } from 'shared';
 
@@ -125,6 +126,8 @@ const CAMPOS_REQUERIDOS_POR_VERTICAL: Record<string, string[]> = {
 /** Vista de tarjeta de servicio (catálogo genérico) que consume el frontend. */
 export interface ServicioCardDto {
   id: string;
+  /** Dirección legible de la ficha; ausente mientras la migración no la rellene. */
+  slug?: string;
   nombre: string;
   ciudad: string;
   barrio: string;
@@ -258,6 +261,8 @@ export interface ServicioGestionDto {
 /** Estructura mínima de un documento de servicio ya "leaneado". */
 interface ServicioLean {
   _id: unknown;
+  slug?: string;
+  estado?: string;
   comercioId?: unknown;
   titulo: string;
   descripcion?: string;
@@ -419,7 +424,7 @@ export class CatalogService {
     return {
       ciudadBuscada: resolverMunicipio(ciudad)?.municipio.nombre ?? ciudad.trim(),
       radioKm: RADIO_CERCANOS_KM,
-      masCercano: { id: primero.id, nombre: primero.nombre, ciudad: primero.ciudad, distanciaKm: primero.distanciaKm ?? 0 },
+      masCercano: { id: primero.id, slug: primero.slug, nombre: primero.nombre, ciudad: primero.ciudad, distanciaKm: primero.distanciaKm ?? 0 },
     };
   }
 
@@ -543,7 +548,49 @@ export class CatalogService {
       extra,
       aptitud: dto.aptitud,
     });
+    const slug = await this.asignarSlug({
+      id: String(doc._id), vertical: dto.vertical, titulo: dto.titulo, ciudad: dto.ciudad,
+    });
+    if (slug) doc.slug = slug;
     return this.toCard(await this.conDistanciaAlCentro(doc as unknown as ServicioLean));
+  }
+
+  /**
+   * Genera la dirección legible del servicio y la guarda.
+   *
+   * Va en un paso aparte del alta para no tocar la creación por discriminador.
+   * Si dos altas homónimas llegan a la vez, el índice único rechaza a la
+   * segunda con un E11000 y se reintenta con el siguiente sufijo libre. Nunca
+   * rompe el guardado: sin slug la ficha sigue abriéndose por su id.
+   */
+  private async asignarSlug(datos: {
+    id: string; vertical: string; titulo: string; ciudad?: string;
+  }): Promise<string | undefined> {
+    const base = slugDeFicha(datos.titulo, datos.ciudad, 'servicio');
+    for (let intento = 0; intento < 3; intento += 1) {
+      try {
+        const slug = await slugLibre(base, (candidato) => this.repo.existeSlug(datos.vertical, candidato, datos.id));
+        await this.repo.fijarSlug(datos.id, slug);
+        return slug;
+      } catch (error) {
+        if ((error as { code?: number }).code !== 11000) {
+          this.logger.warn(`Sin slug para el servicio ${datos.id}: ${(error as Error).message}`);
+          return undefined;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * El slug se recalcula sólo si la ficha no lo tiene (listado anterior a la
+   * migración) o si sigue en borrador y cambia su título o su ciudad: una
+   * ficha en borrador no es pública y su dirección no circula todavía.
+   */
+  private debeRecalcularSlug(existente: ServicioLean, dto: ActualizarServicioDto): boolean {
+    if (!existente.slug) return true;
+    const cambiaNombre = dto.titulo !== undefined || dto.ciudad !== undefined;
+    return existente.estado === 'borrador' && cambiaNombre;
   }
 
   /**
@@ -629,6 +676,12 @@ export class CatalogService {
     }
     const cambiaUbicacion = dto.ciudad !== undefined || dto.lat !== undefined || dto.lng !== undefined;
     const servicio = actualizado as unknown as ServicioLean;
+    if (this.debeRecalcularSlug(existente as unknown as ServicioLean, dto)) {
+      const slug = await this.asignarSlug({
+        id, vertical, titulo: servicio.titulo, ciudad: servicio.ubicacion?.ciudad,
+      });
+      if (slug) servicio.slug = slug;
+    }
     return this.toCard(cambiaUbicacion ? await this.conDistanciaAlCentro(servicio) : servicio);
   }
 
@@ -827,12 +880,22 @@ export class CatalogService {
     return this.toCard(actualizado as unknown as ServicioLean);
   }
 
-  async obtenerServicio(id: string): Promise<ServicioDetalleDto> {
-    const doc = await this.repo.obtenerPorId(id);
+  /**
+   * Ficha pública por slug (`reino-canino-valencia`) **o** por id.
+   *
+   * El id se sigue aceptando porque los enlaces antiguos están en marcadores,
+   * correos y chats; la respuesta lleva el `slug` y la web redirige a él. El
+   * slug es único por vertical, así que la web manda la categoría de la ruta;
+   * sin ella se toma la primera coincidencia.
+   */
+  async obtenerServicio(idOSlug: string, vertical?: string): Promise<ServicioDetalleDto> {
+    const doc = pareceObjectId(idOSlug)
+      ? await this.repo.obtenerPorId(idOSlug)
+      : await this.repo.obtenerPorSlug(idOSlug.trim().toLowerCase(), vertical);
     if (!doc) {
       throw new DomainException('Servicio no encontrado', 404);
     }
-    const resenas = await this.reviewsService.listarPorServicio(id);
+    const resenas = await this.reviewsService.listarPorServicio(String(doc._id));
     return this.toDetalle(doc as unknown as ServicioLean, resenas.map((r) => this.aResenaResumen(r)));
   }
 
@@ -860,6 +923,7 @@ export class CatalogService {
       lat: Number.isFinite(lat) ? lat : undefined,
       lng: Number.isFinite(lng) ? lng : undefined,
       id: String(h._id),
+      slug: h.slug || undefined,
       nombre: h.titulo,
       ciudad: h.ubicacion?.ciudad ?? '',
       barrio: h.barrio ?? '',

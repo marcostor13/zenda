@@ -7,6 +7,7 @@ import { Servicio, ServicioDocument } from '../catalog/servicio.schema';
 
 interface ServicioLean {
   _id: Types.ObjectId;
+  slug?: string;
   titulo: string;
   imagenes: string[];
   ubicacion?: { ciudad?: string };
@@ -71,7 +72,7 @@ export class FavoritosService {
     const objectIds = favoritos.map((f) => new Types.ObjectId(f.servicioId));
     const servicios = (await this.servicioModel
       .find({ _id: { $in: objectIds } })
-      .select('titulo imagenes ubicacion vertical precioBase moneda ratingPromedio totalReseñas')
+      .select('slug titulo imagenes ubicacion vertical precioBase moneda ratingPromedio totalReseñas')
       .lean()
       .exec()) as unknown as ServicioLean[];
 
@@ -85,6 +86,7 @@ export class FavoritosService {
         const haBajado = f.precioGuardado !== undefined && f.precioGuardado > s.precioBase;
         return {
           servicioId: String(s._id),
+          servicioSlug: s.slug || undefined,
           titulo: s.titulo,
           imagen: s.imagenes?.[0] ?? null,
           ciudad: s.ubicacion?.ciudad ?? '',

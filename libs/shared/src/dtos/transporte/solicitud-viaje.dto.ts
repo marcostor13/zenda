@@ -292,6 +292,8 @@ export class ResolverAceptacionDto {
 /** Un resultado de la búsqueda: una empresa con una modalidad y su precio cerrado. */
 export interface ResultadoTransporte {
   servicioId: string;
+  /** Dirección legible de la ficha de la empresa, para enlazarla sin el id. */
+  servicioSlug?: string;
   comercioId: string;
   titulo: string;
   imagen?: string;

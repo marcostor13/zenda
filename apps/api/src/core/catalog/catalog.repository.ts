@@ -504,6 +504,30 @@ export class CatalogRepository {
     return this.servicioModel.findById(id).lean().exec() as Promise<ServicioDocument | null>;
   }
 
+  /**
+   * Ficha por su dirección legible. Usa el índice `{ vertical, slug }`; sin
+   * vertical (llamadas antiguas) cae en la primera coincidencia.
+   */
+  async obtenerPorSlug(slug: string, vertical?: string): Promise<ServicioDocument | null> {
+    const filtro: Record<string, unknown> = { slug };
+    if (vertical) filtro['vertical'] = vertical;
+    return this.servicioModel.findOne(filtro).lean().exec() as Promise<ServicioDocument | null>;
+  }
+
+  /** `true` si otro servicio del mismo vertical ya usa ese slug. */
+  async existeSlug(vertical: string, slug: string, excluirId?: string): Promise<boolean> {
+    const filtro: Record<string, unknown> = { vertical, slug };
+    if (excluirId) filtro['_id'] = { $ne: new Types.ObjectId(excluirId) };
+    return (await this.servicioModel.exists(filtro).exec()) !== null;
+  }
+
+  /** Guarda el slug sin tocar `updatedAt`: no es una edición de la ficha. */
+  async fijarSlug(id: string, slug: string): Promise<void> {
+    await this.servicioModel
+      .updateOne({ _id: new Types.ObjectId(id) }, { $set: { slug } }, { timestamps: false })
+      .exec();
+  }
+
   async obtenerPorIdYComercio(id: string, comercioId: string): Promise<ServicioDocument | null> {
     return this.servicioModel
       .findOne({ _id: new Types.ObjectId(id), comercioId: new Types.ObjectId(comercioId) })

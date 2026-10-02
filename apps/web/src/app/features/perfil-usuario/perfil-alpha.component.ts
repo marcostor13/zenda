@@ -207,7 +207,7 @@ function iconoDeBeneficio(texto: string): string {
           </p>
           <div class="ventajas__carrusel">
             @for (s of adheridos(); track s.id) {
-              <a [routerLink]="enlaceAServicio(s.vertical, s.id)" class="ventaja-card">
+              <a [routerLink]="enlaceAServicio(s.vertical, s)" class="ventaja-card">
                 <img [src]="s.imagenes[0] || fallbackImg" [alt]="s.nombre" rsImg />
                 <div class="ventaja-card__info">
                   <span class="rs-badge rs-badge--accent">

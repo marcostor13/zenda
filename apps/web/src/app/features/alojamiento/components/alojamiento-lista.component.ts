@@ -96,7 +96,7 @@ interface BusquedaUrl {
           [amenities]="serviciosDe(a)"
           [destacados]="incluyeDe(a)"
           [favoritoServicioId]="a.id"
-          [routerLink]="['/alojamiento', a.id]"
+          [routerLink]="['/alojamiento', a.slug || a.id]"
           [queryParams]="queryParamsDetalle()"
           [ctaLabel]="'Reservar' | t"
           [accionSoloEscritorio]="true">
@@ -159,7 +159,7 @@ export class AlojamientoListaComponent implements OnInit {
   readonly cercanos = signal<BusquedaCercanosApi | null>(null);
   readonly enlaceMasCercano = computed(() => {
     const cercanos = this.cercanos();
-    return cercanos ? ['/alojamiento', cercanos.masCercano.id] : null;
+    return cercanos ? ['/alojamiento', cercanos.masCercano.slug || cercanos.masCercano.id] : null;
   });
   /** Población y distancia de la tarjeta, traducida («a 2,3 km del centro»). */
   subtituloDe(ciudad: string, distanciaKm?: number, distanciaCentroKm?: number): string {

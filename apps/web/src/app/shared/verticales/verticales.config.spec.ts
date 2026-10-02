@@ -1,6 +1,6 @@
 import { VerticalKey, VERTICAL_LABELS } from 'shared';
 import {
-  VERTICALES_PUBLICOS, VERTICALES_UI, enlaceAServicio, rutaDeVertical,
+  VERTICALES_PUBLICOS, VERTICALES_UI, enlaceAServicio, rutaDeVertical, urlDeServicio,
   subtitularDeVertical, titularDeVertical, verticalUi,
 } from './verticales.config';
 
@@ -159,6 +159,25 @@ describe('enlaceAServicio', () => {
   it('no deberia inventarse una ruta para una categoria desconocida', () => {
     // Mejor el listado de alojamiento que un 404.
     expect(enlaceAServicio('inventado', 's1')).toEqual(['/alojamiento']);
+  });
+
+  it('deberia usar la direccion legible cuando el servicio tiene slug', () => {
+    expect(enlaceAServicio('veterinaria', { id: 's1', slug: 'clinica-luna-valencia' }))
+      .toEqual(['/veterinaria', 'clinica-luna-valencia']);
+  });
+
+  it('deberia caer al id si el servicio aun no tiene slug', () => {
+    expect(enlaceAServicio('peluqueria', { id: 's1' })).toEqual(['/peluqueria', 's1']);
+    expect(enlaceAServicio('peluqueria', { _id: 's2', slug: null })).toEqual(['/peluqueria', 's2']);
+  });
+
+  it('deberia llevar al listado si no hay ni id ni slug', () => {
+    expect(enlaceAServicio('peluqueria', '')).toEqual(['/peluqueria']);
+  });
+
+  it('deberia componer la URL como texto', () => {
+    expect(urlDeServicio('alojamiento', { id: 'x', slug: 'reino-canino-valencia' }))
+      .toBe('/alojamiento/reino-canino-valencia');
   });
 });
 
