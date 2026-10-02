@@ -123,7 +123,7 @@ export class BusquedaPlataformaService {
       ...(card.precioPorNoche > 0 ? { precioDesde: card.precioPorNoche } : {}),
       ...(card.numResenas > 0 ? { nota: card.score, numResenas: card.numResenas } : {}),
       ...(card.imagenes?.[0] ? { imagen: card.imagenes[0] } : {}),
-      ruta: `/${categoria}/${card.id}`,
+      ruta: `/${categoria}/${card.slug || card.id}`,
     };
   }
 

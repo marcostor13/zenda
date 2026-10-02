@@ -39,7 +39,7 @@ import {
   INCLUYE_FUNERARIO,
   RAZAS_FRECUENTES, SERVICIOS_PETFRIENDLY, TEMPERAMENTOS,
 } from '../../shared/catalogos/tags.catalogo';
-import { provinciaDe, PERFILES_COMPATIBILIDAD_SOCIAL, PERFIL_COMPATIBILIDAD_SOCIAL_LABELS, perfilesSocialesNoAdmitidos } from 'shared';
+import { provinciaDe, PERFILES_COMPATIBILIDAD_SOCIAL, PERFIL_COMPATIBILIDAD_SOCIAL_LABELS, perfilesSocialesNoAdmitidos, TipoPelo, nombreTipoManto } from 'shared';
 import { CIUDADES_ES, PROVINCIAS_ES } from '../../shared/catalogos/lugares.catalogo';
 import { POLITICAS_CANCELACION } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 import {
@@ -1096,7 +1096,7 @@ function aCsv(v: string): string[] {
                           @for (t of tiposPelo; track t) {
                             <label class="filter-check">
                               <input type="checkbox" [checked]="tienePeloCompatible(i, t)" (change)="togglePeloCompatible(i, t)" />
-                              {{ t }}
+                              {{ nombreTipoManto(t) | t }}
                             </label>
                           }
                         </div>
@@ -2599,7 +2599,8 @@ export class ComercioListadoFormComponent implements OnInit {
     { valor: 'grande', label: 'Grande' },
   ];
 
-  readonly tiposPelo = ['corto', 'medio', 'largo', 'rizado', 'duro', 'doble_capa'];
+  readonly tiposPelo: readonly string[] = Object.values(TipoPelo);
+  readonly nombreTipoManto = nombreTipoManto;
   private readonly tamanosSeleccionados = signal<string[]>([]);
   /**
    * Tipo de pelo admitido por el servicio. Ya no se edita desde el formulario
